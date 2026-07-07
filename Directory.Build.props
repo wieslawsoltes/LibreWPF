@@ -52,4 +52,24 @@
     <PbtTfm Condition="'$(MSBuildRuntimeType)' == 'Core'">$(BundledNETCoreAppTargetFramework)</PbtTfm>
   </PropertyGroup>
 
+  <!--
+    Platform preprocessor symbols — inferred from TargetFramework.
+    Applied to every project in this repository (including src\ProGPU.Wpf.iOS,
+    src\ProGPU.Wpf.Android, src\ProGPU.Wpf.Browser).
+    The same defines are also set by external\ProGPU\Directory.Build.props for
+    ProGPU core projects.
+  -->
+  <PropertyGroup Condition="$(TargetFramework.StartsWith('net')) AND $(TargetFramework.Contains('-ios'))">
+    <DefineConstants>$(DefineConstants);__IOS__;__MOBILE__</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="$(TargetFramework.StartsWith('net')) AND $(TargetFramework.Contains('-maccatalyst'))">
+    <DefineConstants>$(DefineConstants);__MACCATALYST__;__MOBILE__</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="$(TargetFramework.StartsWith('net')) AND $(TargetFramework.Contains('-android'))">
+    <DefineConstants>$(DefineConstants);__ANDROID__;__MOBILE__</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="$(TargetFramework.StartsWith('net')) AND $(TargetFramework.Contains('-browser'))">
+    <DefineConstants>$(DefineConstants);__WASM__</DefineConstants>
+  </PropertyGroup>
+
 </Project>

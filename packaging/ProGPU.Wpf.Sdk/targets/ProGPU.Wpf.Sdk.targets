@@ -4,6 +4,40 @@
     <CopyLocalLockFileAssemblies Condition="'$(ProGpuWpfUsePortableFrameworkReferences)' == 'true'">true</CopyLocalLockFileAssemblies>
   </PropertyGroup>
 
+  <!--
+    ===========================================================================
+    Framework Version Alignment Fix (Issue #7)
+    At Sdk.props import time, $(TargetFramework) is empty.  This causes
+    $(TargetFramework.StartsWith('net10.')) checks to fail and incorrectly
+    default to .NET 11 preview package versions (11.0.0-preview.5.*) even for
+    projects targeting net10.0.
+    
+    To resolve this, we override these version properties to 10.0.0 at Sdk.targets
+    import time (where $(TargetFramework) is fully evaluated), and then use
+    <PackageReference Update="..."> to realign the package versions.
+    ===========================================================================
+  -->
+  <PropertyGroup Condition="'$(TargetFramework)' != '' And $(TargetFramework.StartsWith('net10.'))">
+    <ProGpuWpfSystemConfigurationConfigurationManagerVersion Condition="'$(ProGpuWpfSystemConfigurationConfigurationManagerVersion)' == '11.0.0-preview.5.26302.115'">10.0.0</ProGpuWpfSystemConfigurationConfigurationManagerVersion>
+    <ProGpuWpfSystemFormatsNrbfVersion Condition="'$(ProGpuWpfSystemFormatsNrbfVersion)' == '11.0.0-preview.5.26302.115'">10.0.0</ProGpuWpfSystemFormatsNrbfVersion>
+    <ProGpuWpfSystemIOPackagingVersion Condition="'$(ProGpuWpfSystemIOPackagingVersion)' == '11.0.0-preview.5.26302.115'">10.0.0</ProGpuWpfSystemIOPackagingVersion>
+    <ProGpuWpfSystemWindowsExtensionsVersion Condition="'$(ProGpuWpfSystemWindowsExtensionsVersion)' == '11.0.0-preview.5.26302.115'">10.0.0</ProGpuWpfSystemWindowsExtensionsVersion>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(ProGpuWpfUsePortableFrameworkReferences)' == 'true' And '$(ManagePackageVersionsCentrally)' != 'true' And '$(TargetFramework)' != '' And $(TargetFramework.StartsWith('net10.'))">
+    <PackageReference Update="System.Configuration.ConfigurationManager" Version="$(ProGpuWpfSystemConfigurationConfigurationManagerVersion)" />
+    <PackageReference Update="System.Formats.Nrbf" Version="$(ProGpuWpfSystemFormatsNrbfVersion)" />
+    <PackageReference Update="System.IO.Packaging" Version="$(ProGpuWpfSystemIOPackagingVersion)" />
+    <PackageReference Update="System.Windows.Extensions" Version="$(ProGpuWpfSystemWindowsExtensionsVersion)" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(ProGpuWpfUsePortableFrameworkReferences)' == 'true' And '$(ManagePackageVersionsCentrally)' == 'true' And '$(TargetFramework)' != '' And $(TargetFramework.StartsWith('net10.'))">
+    <PackageReference Update="System.Configuration.ConfigurationManager" VersionOverride="$(ProGpuWpfSystemConfigurationConfigurationManagerVersion)" />
+    <PackageReference Update="System.Formats.Nrbf" VersionOverride="$(ProGpuWpfSystemFormatsNrbfVersion)" />
+    <PackageReference Update="System.IO.Packaging" VersionOverride="$(ProGpuWpfSystemIOPackagingVersion)" />
+    <PackageReference Update="System.Windows.Extensions" VersionOverride="$(ProGpuWpfSystemWindowsExtensionsVersion)" />
+  </ItemGroup>
+
   <ItemGroup Condition="'$(ProGpuWpfUsePortableFrameworkReferences)' == 'true'">
     <FrameworkReference Remove="Microsoft.WindowsDesktop.App.WPF" />
   </ItemGroup>

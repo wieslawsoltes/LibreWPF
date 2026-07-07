@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0-ios</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+
+    <AssemblyName>ProGPU.Wpf.iOS</AssemblyName>
+    <RootNamespace>ProGPU.Wpf.iOS</RootNamespace>
+    <PackageId>LibreWPF.iOS</PackageId>
+    <Description>LibreWPF iOS host — renders WPF content via Metal/WebGPU on UIKit view hierarchies.</Description>
+    <PackageTags>librewpf;progpu;webgpu;ios;metal;silk.net</PackageTags>
+
+    <!-- __IOS__ and __MOBILE__ are injected by Directory.Build.props -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Silk.NET.WebGPU" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\external\ProGPU\src\ProGPU.Backend\ProGPU.Backend.csproj" />
+    <ProjectReference Include="..\..\external\ProGPU\src\ProGPU.Scene\ProGPU.Scene.csproj" />
+    <ProjectReference Include="..\..\external\ProGPU\src\ProGPU.Wpf.Interop\ProGPU.Wpf.Interop.csproj" />
+  </ItemGroup>
+</Project>
