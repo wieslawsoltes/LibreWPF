@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.Net.Sdk">
+<Project Sdk="Microsoft.Net.Sdk">
 
   <PropertyGroup>
     <AssemblyName>System.Windows.Controls.Ribbon</AssemblyName>

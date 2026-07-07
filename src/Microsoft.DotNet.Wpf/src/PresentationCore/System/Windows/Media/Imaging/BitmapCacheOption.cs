@@ -10,7 +10,7 @@ namespace System.Windows.Media.Imaging
     /// BitmapCacheOptions are used to specify various performance related options
     /// that influence creating backing stores when loading bitmaps. These options
     /// currently include cache the entire image in memory, cache only requested data,
-    /// and don’t cache at all.
+    /// and donï¿½t cache at all.
     /// </summary>
     public enum BitmapCacheOption
     {

@@ -54,7 +54,7 @@ namespace System.Windows
     
         /// <summary>
         /// Called when a UIElement-derived class which is hosted by a IContentHost 
-        /// changes it’s DesiredSize.
+        /// changes itï¿½s DesiredSize.
         /// </summary>
         /// <param name="child">
         /// Child element whose DesiredSize has changed.

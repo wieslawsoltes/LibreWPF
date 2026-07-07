@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <ProjectGuid>{2DD6F2F8-DFF4-4EE1-9D48-0FD692DB084D}</ProjectGuid>
     <Platforms>x86;x64;arm64</Platforms>

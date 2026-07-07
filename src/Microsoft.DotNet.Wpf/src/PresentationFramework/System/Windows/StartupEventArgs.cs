@@ -4,7 +4,7 @@
 //
 // 
 // Description:
-//          This event is fired when the application starts  - once that application’s Run() 
+//          This event is fired when the application starts  - once that applicationï¿½s Run() 
 //          method has been called. 
 //
 //          The developer will typically hook this event if they want to take action at startup time 

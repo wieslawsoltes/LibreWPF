@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0-android</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+
+    <AssemblyName>ProGPU.Wpf.Android</AssemblyName>
+    <RootNamespace>ProGPU.Wpf.Android</RootNamespace>
+    <PackageId>LibreWPF.Android</PackageId>
+    <Description>LibreWPF Android host — renders WPF content via Vulkan/WebGPU on Android SurfaceView.</Description>
+    <PackageTags>librewpf;progpu;webgpu;android;vulkan;silk.net</PackageTags>
+
+    <!-- __ANDROID__ and __MOBILE__ are injected by Directory.Build.props -->
+    <!-- Target Android 14 / API 34 -->
+    <SupportedOSPlatformVersion>26</SupportedOSPlatformVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Silk.NET.WebGPU" />
+    <PackageReference Include="Silk.NET.Windowing" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\external\ProGPU\src\ProGPU.Backend\ProGPU.Backend.csproj" />
+    <ProjectReference Include="..\..\external\ProGPU\src\ProGPU.Scene\ProGPU.Scene.csproj" />
+    <ProjectReference Include="..\..\external\ProGPU\src\ProGPU.Wpf.Interop\ProGPU.Wpf.Interop.csproj" />
+  </ItemGroup>
+</Project>

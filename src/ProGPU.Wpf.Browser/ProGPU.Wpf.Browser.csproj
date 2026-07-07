@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk.BlazorWebAssembly">
+  <PropertyGroup>
+    <TargetFramework>net10.0-browser</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+
+    <AssemblyName>ProGPU.Wpf.Browser</AssemblyName>
+    <RootNamespace>ProGPU.Wpf.Browser</RootNamespace>
+    <PackageId>LibreWPF.Browser</PackageId>
+    <Description>LibreWPF WebAssembly host — renders WPF content via the browser's WebGPU API on an HTML canvas.</Description>
+    <PackageTags>librewpf;progpu;webgpu;wasm;browser;blazor</PackageTags>
+
+    <DefineConstants>$(DefineConstants);__WASM__</DefineConstants>
+    <!-- WASM requires single-threaded WebGPU at the moment -->
+    <WasmEnableThreads>false</WasmEnableThreads>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Silk.NET.WebGPU" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\external\ProGPU\src\ProGPU.Backend\ProGPU.Backend.csproj" />
+    <ProjectReference Include="..\..\external\ProGPU\src\ProGPU.Scene\ProGPU.Scene.csproj" />
+    <ProjectReference Include="..\..\external\ProGPU\src\ProGPU.Wpf.Interop\ProGPU.Wpf.Interop.csproj" />
+  </ItemGroup>
+
+  <!-- Static web assets for the WASM host bootstrap page -->
+  <ItemGroup>
+    <Content Include="wwwroot\**" />
+  </ItemGroup>
+</Project>

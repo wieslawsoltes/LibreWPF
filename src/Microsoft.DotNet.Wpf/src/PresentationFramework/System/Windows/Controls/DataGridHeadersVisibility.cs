@@ -22,7 +22,7 @@ namespace System.Windows.Controls
         Row = 0x02,
 
         /// <summary>
-        /// Don’t show any Headers
+        /// Donï¿½t show any Headers
         /// </summary>
         None = 0x00
     }

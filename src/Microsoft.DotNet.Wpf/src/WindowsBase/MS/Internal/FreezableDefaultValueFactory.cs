@@ -8,7 +8,7 @@ namespace MS.Internal
     // <summary>
     // FreezableDefaultValueFactory is a DefaultValueFactory implementation which 
     // is inserted by the property system for any DP registered with a default 
-    // value of type Freezable. The user’s given default value is frozen and 
+    // value of type Freezable. The userï¿½s given default value is frozen and 
     // used as a template to create unfrozen copies on a per DP per DO basis. If 
     // the default value is modified it is automatically promoted from default to 
     // local.
