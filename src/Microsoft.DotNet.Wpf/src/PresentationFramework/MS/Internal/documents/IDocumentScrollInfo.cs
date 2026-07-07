@@ -48,7 +48,7 @@ namespace MS.Internal.Documents
 
         /// <summary>
         /// Scrolls the next row of pages into view.  This differs from 
-        /// IScrollInfo’s “PageDown” in that PageDown pages by Viewports 
+        /// IScrollInfoï¿½s ï¿½PageDownï¿½ in that PageDown pages by Viewports 
         /// which may not coincide with page dimensions, whereas 
         /// ScrollToNextRow takes these dimensions into account so that 
         /// precisely the next row of pages is displayed.
@@ -56,7 +56,7 @@ namespace MS.Internal.Documents
         void ScrollToNextRow();
 
         /// Scrolls the previous row of pages into view.  This differs from 
-        /// IScrollInfo’s “PageUp” in that PageUp pages by Viewports 
+        /// IScrollInfoï¿½s ï¿½PageUpï¿½ in that PageUp pages by Viewports 
         /// which may not coincide with page dimensions, whereas 
         /// ScrollToPreviousRow takes these dimensions into account so that 
         /// precisely the previous row of pages is displayed.
@@ -108,7 +108,7 @@ namespace MS.Internal.Documents
         void FitToPageHeight();
 
         /// <summary>
-        /// Changes the view to “thumbnail view” which will scale the document 
+        /// Changes the view to ï¿½thumbnail viewï¿½ which will scale the document 
         /// such that as many pages are visible at once as is possible.
         /// </summary>
         void ViewThumbnails();
@@ -154,19 +154,19 @@ namespace MS.Internal.Documents
         int MaxPagesAcross { get; }
 
         /// <summary>
-        /// Specifies the vertical gap between Pages when laid out, in pixel (1/96”) units.  
+        /// Specifies the vertical gap between Pages when laid out, in pixel (1/96ï¿½) units.  
         /// </summary>
         /// <value></value>
         double VerticalPageSpacing { get; set; }
 
         /// <summary>
-        /// Specifies the horizontal gap between Pages when laid out, in pixel (1/96”) units.  
+        /// Specifies the horizontal gap between Pages when laid out, in pixel (1/96ï¿½) units.  
         /// </summary>
         /// <value></value>
         double HorizontalPageSpacing { get; set; }
 
         /// <summary>
-        /// Specifies whether each displayed page should be adorned with a “Drop Shadow” border or not.
+        /// Specifies whether each displayed page should be adorned with a ï¿½Drop Shadowï¿½ border or not.
         /// </summary>
         /// <value></value>
         bool ShowPageBorders { get; set; }
@@ -195,9 +195,9 @@ namespace MS.Internal.Documents
 
         /// <summary>
         /// DocumentViewerOwner is the DocumentViewer Control and UI that hosts the IDocumentScrollInfo object.  
-        /// This control is dependent on this IDSI’s properties, so implementers of IDSI should call 
+        /// This control is dependent on this IDSIï¿½s properties, so implementers of IDSI should call 
         /// InvalidateDocumentScrollInfo() on this object when related properties change so that 
-        /// DocumentViewer’s UI will be kept in sync.  This property is analogous to IScrollInfo’s ScrollOwner 
+        /// DocumentViewerï¿½s UI will be kept in sync.  This property is analogous to IScrollInfoï¿½s ScrollOwner 
         /// property.
         /// </summary>
         /// <value></value>

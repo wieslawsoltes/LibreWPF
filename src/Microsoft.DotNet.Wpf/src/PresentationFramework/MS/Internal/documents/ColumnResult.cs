@@ -106,7 +106,7 @@ namespace MS.Internal.Documents
         #region Internal Properties
 
         /// <summary>
-        /// Represents the beginning of the column’s contents.
+        /// Represents the beginning of the columnï¿½s contents.
         /// </summary>
         internal ITextPointer StartPosition
         {
@@ -118,7 +118,7 @@ namespace MS.Internal.Documents
         }
 
         /// <summary>
-        /// Represents the end of the column’s contents.
+        /// Represents the end of the columnï¿½s contents.
         /// </summary>
         internal ITextPointer EndPosition
         {
@@ -136,7 +136,7 @@ namespace MS.Internal.Documents
         internal Rect LayoutBox { get { return _layoutBox; } }
 
         /// <summary>
-        /// Collection of ParagraphResults for the column’s contents.
+        /// Collection of ParagraphResults for the columnï¿½s contents.
         /// </summary>
         internal ReadOnlyCollection<ParagraphResult> Paragraphs
         {
@@ -195,7 +195,7 @@ namespace MS.Internal.Documents
             }
         }
         /// <summary>
-        /// Represents the column’s contents.
+        /// Represents the columnï¿½s contents.
         /// </summary>
         internal TextContentRange TextContentRange
         {

@@ -1,4 +1,4 @@
-﻿<!-- PresentationFramework.Luna -->
+<!-- PresentationFramework.Luna -->
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <ResolveAssemblyWarnOrErrorOnTargetArchitectureMismatch>None</ResolveAssemblyWarnOrErrorOnTargetArchitectureMismatch>

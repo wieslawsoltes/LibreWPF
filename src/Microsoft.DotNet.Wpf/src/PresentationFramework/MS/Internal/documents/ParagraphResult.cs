@@ -88,7 +88,7 @@ namespace MS.Internal.Documents
         #region Internal Properties
 
         /// <summary>
-        /// Represents the beginning of the paragraph’s contents.
+        /// Represents the beginning of the paragraphï¿½s contents.
         /// </summary>
         internal ITextPointer StartPosition
         {
@@ -100,7 +100,7 @@ namespace MS.Internal.Documents
         }
 
         /// <summary>
-        /// Represents the end of the paragraph’s contents.
+        /// Represents the end of the paragraphï¿½s contents.
         /// </summary>
         internal ITextPointer EndPosition
         {

@@ -13,7 +13,7 @@
 //              Windows will send it when user is logging out/shutting down. 
 //              ( See http://msdn.microsoft.com/library/default.asp?url=/library/en-us/sysinfo/base/wm_queryendsession.asp ). 
 //
-//              By default if this event is not cancelled – Avalon will then call Application.Shutdown.
+//              By default if this event is not cancelled ï¿½ Avalon will then call Application.Shutdown.
 //
 
 using System.ComponentModel;

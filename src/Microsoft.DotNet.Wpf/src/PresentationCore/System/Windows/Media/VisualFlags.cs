@@ -44,9 +44,9 @@ namespace System.Windows.Media
         //
         // Stop over-invalidating _bboxSubgraph
         //
-        // We use this flag to maintain a separate cache of a ModelVisual3D’s content
+        // We use this flag to maintain a separate cache of a ModelVisual3Dï¿½s content
         // bounds.  A better solution that would be both a 2D and 3D win would be to
-        // stop invalidating _bboxSubgraph when a visual’s transform changes.
+        // stop invalidating _bboxSubgraph when a visualï¿½s transform changes.
         // 
         Are3DContentBoundsValid                         = 0x00000020,
 

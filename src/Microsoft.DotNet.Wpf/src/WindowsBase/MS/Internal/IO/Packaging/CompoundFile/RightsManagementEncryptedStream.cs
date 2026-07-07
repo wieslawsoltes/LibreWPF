@@ -901,7 +901,7 @@ namespace MS.Internal.IO.Packaging.CompoundFile
 
         // MaxValues below are used in order to ensure that we do not trigger any form of Isolated Storage Backup 
         // This is not a goal here. We are definitely would like to keep  SparseMemoryStream in the cached(in - memory) mode.
-        // In the context of our auto flush logic set at 16K we are pretty safe with those values…
+        // In the context of our auto flush logic set at 16K we are pretty safe with those valuesï¿½
         private SparseMemoryStream _readCache =  new SparseMemoryStream(Int32.MaxValue, Int64.MaxValue, false); 
         private SparseMemoryStream _writeCache =  new SparseMemoryStream(Int32.MaxValue, Int64.MaxValue, false);
 

@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <NoWarn>$(NoWarn);0618</NoWarn>
     <DefineConstants>$(DefineConstants);AUTOMATION</DefineConstants>

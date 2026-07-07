@@ -19,7 +19,7 @@ namespace System.Windows.Media.TextFormatting
 {
     /// <summary>
     /// A specialized TextSymbols implemented by TextFormatter to produces 
-    /// a collection of TextCharacterShape – each represents a collection of 
+    /// a collection of TextCharacterShape ï¿½ each represents a collection of 
     /// character glyphs from distinct physical typeface.
     /// </summary>
     public class TextCharacters : TextRun, ITextSymbols, IShapeableTextCollector
