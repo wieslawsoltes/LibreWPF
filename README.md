@@ -136,6 +136,7 @@ release dispatch remains the full-rebuild recovery path.
 | Package | NuGet | Purpose |
 | --- | --- | --- |
 | `ProGPU.Backend` | [![NuGet](https://img.shields.io/nuget/vpre/ProGPU.Backend.svg)](https://www.nuget.org/packages/ProGPU.Backend) | WebGPU device, swapchain, Silk.NET windowing, and platform backend services. |
+| `ProGPU.Backend.Dawn` | [![NuGet](https://img.shields.io/nuget/vpre/ProGPU.Backend.Dawn.svg)](https://www.nuget.org/packages/ProGPU.Backend.Dawn) | Dawn native backend assets used by package-mode presentation hosts. |
 | `ProGPU.Text.Shaping` | [![NuGet](https://img.shields.io/nuget/vpre/ProGPU.Text.Shaping.svg)](https://www.nuget.org/packages/ProGPU.Text.Shaping) | AOT-safe OpenType shaping contracts and execution used by the text renderer. |
 | `ProGPU.DirectX` | [![NuGet](https://img.shields.io/nuget/vpre/ProGPU.DirectX.svg)](https://www.nuget.org/packages/ProGPU.DirectX) | DirectX-compatible facade for SciChart and future D3D-style interop on ProGPU/WebGPU. |
 | `ProGPU.Transpiler` | [![NuGet](https://img.shields.io/nuget/vpre/ProGPU.Transpiler.svg)](https://www.nuget.org/packages/ProGPU.Transpiler) | Shader/source transformation helpers used by generated GPU pipelines. |
@@ -145,6 +146,9 @@ release dispatch remains the full-rebuild recovery path.
 | `ProGPU.Scene` | [![NuGet](https://img.shields.io/nuget/vpre/ProGPU.Scene.svg)](https://www.nuget.org/packages/ProGPU.Scene) | Scene graph, compositor commands, retained visuals, effects, and presentation primitives. |
 | `ProGPU.Layout` | [![NuGet](https://img.shields.io/nuget/vpre/ProGPU.Layout.svg)](https://www.nuget.org/packages/ProGPU.Layout) | Measure/arrange layout substrate shared by ProGPU UI adapters. |
 | `ProGPU.Virtualization` | [![NuGet](https://img.shields.io/nuget/vpre/ProGPU.Virtualization.svg)](https://www.nuget.org/packages/ProGPU.Virtualization) | Virtualization helpers for large retained visual and item surfaces. |
+| `ProGPU.WinRT` | [![NuGet](https://img.shields.io/nuget/vpre/ProGPU.WinRT.svg)](https://www.nuget.org/packages/ProGPU.WinRT) | Typed WinRT-compatible value and geometry contracts shared by ProGPU surfaces. |
+| `ProGPU.Media` | [![NuGet](https://img.shields.io/nuget/vpre/ProGPU.Media.svg)](https://www.nuget.org/packages/ProGPU.Media) | Provider-neutral media state, timing, track, cue, and presentation contracts. |
+| `ProGPU.Media.Scene` | [![NuGet](https://img.shields.io/nuget/vpre/ProGPU.Media.Scene.svg)](https://www.nuget.org/packages/ProGPU.Media.Scene) | Typed media-to-scene composition and GPU surface presentation. |
 | `ProGPU.WinUI` | [![NuGet](https://img.shields.io/nuget/vpre/ProGPU.WinUI.svg)](https://www.nuget.org/packages/ProGPU.WinUI) | WinUI-shaped controls and app model implemented on ProGPU. |
 | `ProGPU.Avalonia` | [![NuGet](https://img.shields.io/nuget/vpre/ProGPU.Avalonia.svg)](https://www.nuget.org/packages/ProGPU.Avalonia) | Avalonia integration and compositor backend adapter used by package smoke validation. |
 | `ProGPU.SkiaSharp` | [![NuGet](https://img.shields.io/nuget/vpre/ProGPU.SkiaSharp.svg)](https://www.nuget.org/packages/ProGPU.SkiaSharp) | ProGPU-backed portable SkiaSharp compatibility shim used by drawing and imaging adapters. |
@@ -153,7 +157,7 @@ release dispatch remains the full-rebuild recovery path.
 ## Build And Release
 
 ```bash
-PROGPU_WPF_DEV_PACKAGE_VERSION=0.1.0-preview.35 PROGPU_WPF_PROGPU_PACKAGE_VERSION=0.1.0-preview.37 ./eng/progpu-wpf-sdk-ci.sh
+PROGPU_WPF_DEV_PACKAGE_VERSION=0.1.0-preview.35 PROGPU_WPF_PROGPU_PACKAGE_VERSION=0.1.0-preview.38 ./eng/progpu-wpf-sdk-ci.sh
 ```
 
 The SDK CI script stages ProGPU runtime packages, builds managed WPF transport assemblies, `LibreWPF.ProGPU`, and `LibreWPF.Sdk`, then audits the packages, writes the preview manifest, creates and verifies the release bundle, and runs package-mode SDK smoke tests. Public releases consume the hash-identical packages from the matching ProGPU GitHub release instead of repacking or republishing them.
