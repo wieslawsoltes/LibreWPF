@@ -1,0 +1,25 @@
+name: LibreWPF tree probe
+
+on:
+  push:
+    branches:
+      - agent/librewpf-preview38-staging
+
+permissions:
+  contents: read
+
+jobs:
+  tree:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          submodules: false
+      - name: Record tree identifier
+        run: git rev-parse 'HEAD^{tree}' | tee tree-sha.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: librewpf-tree-sha
+          path: tree-sha.txt
+          if-no-files-found: error
