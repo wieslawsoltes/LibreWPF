@@ -39,6 +39,9 @@ jobs:
         with:
           submodules: true
 
+      - name: Record staging tree
+        run: git rev-parse 'HEAD^{tree}' | tee tree-sha.txt
+
       - name: Verify package docs
         run: ./eng/progpu-wpf-verify-docs.sh
 
@@ -50,3 +53,4 @@ jobs:
             README.md
             docs/**
             reports/**
+            tree-sha.txt
