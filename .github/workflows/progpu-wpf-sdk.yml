@@ -15,7 +15,7 @@ permissions:
 
 env:
   PROGPU_WPF_QUALIFIED_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
-  PROGPU_WPF_PROGPU_PACKAGE_VERSION: 0.1.0-preview.48
+  PROGPU_WPF_PROGPU_PACKAGE_VERSION: 0.1.0-preview.49
 
 jobs:
   windows-managed-runtime:

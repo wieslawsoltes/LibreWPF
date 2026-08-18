@@ -6,7 +6,7 @@
     <Description>LibreWPF cross-platform ProGPU rendering host and adapter lane for managed presentation rendering.</Description>
     <PackageTags>librewpf;progpu;webgpu;silk.net;rendering</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <ProGpuRuntimePackageVersion Condition="'$(ProGpuRuntimePackageVersion)' == ''">0.1.0-preview.48</ProGpuRuntimePackageVersion>
+    <ProGpuRuntimePackageVersion Condition="'$(ProGpuRuntimePackageVersion)' == ''">0.1.0-preview.49</ProGpuRuntimePackageVersion>
     <SignAssembly>true</SignAssembly>
     <AssemblyOriginatorKeyFile>..\..\external\ProGPU\eng\ProGPU.snk</AssemblyOriginatorKeyFile>
   </PropertyGroup>

@@ -14,7 +14,7 @@
     <Version>$(VersionPrefix)-$(VersionSuffix)</Version>
     <PackageVersion>$(Version)</PackageVersion>
     <PackageDescription>LibreWPF MSBuild SDK for running existing desktop XAML applications on ProGPU/Silk.NET.</PackageDescription>
-    <PackageReleaseNotes>Aligns LibreWPF preview.42 with immutable ProGPU preview.48; adopts exact transformed, dashed, fixed-width, shader-backed, and hairline stroke replay, adaptive device-error curve subdivision, allocation-free indexed stroke recording, and preserved DXF cosmetic strokes without a bridge workaround; retains the typed, zero-allocation media drawing-state seam, native activation, popup-local input diagnostics, bounded render-resource ownership, and static-frame render suppression; and preserves the Windows OLE clipboard and cross-platform input, popup, theme, WPFGallery, and designer gates.</PackageReleaseNotes>
+    <PackageReleaseNotes>Aligns LibreWPF preview.42 with immutable ProGPU preview.49 and exposes WebGPU adapter-selection diagnostics for native, external, browser-hosted, and shared contexts; retains exact transformed, dashed, fixed-width, shader-backed, and hairline stroke replay, adaptive device-error curve subdivision, allocation-free indexed stroke recording, and preserved DXF cosmetic strokes without a bridge workaround; retains the typed, zero-allocation media drawing-state seam, native activation, popup-local input diagnostics, bounded render-resource ownership, and static-frame render suppression; and preserves the Windows OLE clipboard and cross-platform input, popup, theme, WPFGallery, and designer gates.</PackageReleaseNotes>
     <PackageTags>librewpf;progpu;silk.net;msbuild-sdk</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>

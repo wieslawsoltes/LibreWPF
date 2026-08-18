@@ -32,7 +32,7 @@ projects on the ProGPU/Silk.NET platform.
 ## Local Preview Build
 
 ```bash
-PROGPU_WPF_DEV_PACKAGE_VERSION=0.1.0-preview.42 PROGPU_WPF_PROGPU_PACKAGE_VERSION=0.1.0-preview.48 ./eng/progpu-wpf-sdk-ci.sh
+PROGPU_WPF_DEV_PACKAGE_VERSION=0.1.0-preview.42 PROGPU_WPF_PROGPU_PACKAGE_VERSION=0.1.0-preview.49 ./eng/progpu-wpf-sdk-ci.sh
 ```
 
 The SDK CI script stages ProGPU runtime packages, builds the managed WPF transport assemblies,
