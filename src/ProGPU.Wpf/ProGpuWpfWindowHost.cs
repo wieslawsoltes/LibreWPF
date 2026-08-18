@@ -66,6 +66,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
     private bool _hasPortablePresentationSourceClientOrigin;
     private bool _isDisposed;
     private bool _isNativeLoopRunning;
+    private bool _usesExternalNativeLoopPump;
     private bool _isLoadingCompositionTarget;
     private bool _disposeNativeWindowWhenLoopExits;
     private bool _hasPresentedFrame;
@@ -990,6 +991,14 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         {
             DisposeDeferredNativeWindowIfNeeded();
             return;
+        }
+
+        if (ShouldPumpExternalNativeRenderBeforeEvents(
+                _usesExternalNativeLoopPump,
+                ShouldPumpNativeRender()))
+        {
+            NativeRenderPumpCount++;
+            window.DoRender();
         }
 
         window.DoEvents();
@@ -3295,7 +3304,8 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
                 window != null,
                 _isRendering,
                 _isProcessingRenderSchedulerWakeup,
-                _isNativeLoopRunning))
+                _isNativeLoopRunning,
+                _usesExternalNativeLoopPump))
         {
             return false;
         }
@@ -3339,19 +3349,31 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         bool hasWindow,
         bool isRendering,
         bool isProcessingRenderSchedulerWakeup,
-        bool isNativeLoopRunning)
+        bool isNativeLoopRunning,
+        bool usesExternalNativeLoopPump)
     {
-        // The owner loop already guarantees one render opportunity per iteration.
-        // Rendering inline from a Dispatcher/MediaContext callback while that loop
-        // is active can recursively enter SurfacePresent and indefinitely starve
-        // the WPF dispatcher during native pointer drags. Wake the owner loop and
-        // let its next iteration render after dispatcher/input processing returns.
+        // A running owner loop, and an externally pumped popup loop, each guarantee
+        // their own render opportunity. Rendering inline from a Dispatcher/MediaContext
+        // callback can recursively enter SurfacePresent and indefinitely starve the WPF
+        // dispatcher during native pointer drags. Let the applicable loop render after
+        // dispatcher/input processing returns instead.
         return !isDisposed
             && hasWindow
             && !isRendering
             && !isProcessingRenderSchedulerWakeup
-            && !isNativeLoopRunning;
+            && !isNativeLoopRunning
+            && !usesExternalNativeLoopPump;
     }
+
+    internal void UseExternalNativeLoopPump()
+    {
+        _usesExternalNativeLoopPump = true;
+    }
+
+    internal static bool ShouldPumpExternalNativeRenderBeforeEvents(
+        bool usesExternalNativeLoopPump,
+        bool shouldPumpNativeRender) =>
+        usesExternalNativeLoopPump && shouldPumpNativeRender;
 
     private static bool IsRecoverableDispatcherRenderException(Exception exception)
     {

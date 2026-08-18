@@ -378,18 +378,20 @@ public sealed class ProGpuWpfWindowHostTests
     }
 
     [Theory]
-    [InlineData(false, true, false, false, false, true)]
-    [InlineData(false, true, false, false, true, false)]
-    [InlineData(true, true, false, false, false, false)]
-    [InlineData(false, false, false, false, false, false)]
-    [InlineData(false, true, true, false, false, false)]
-    [InlineData(false, true, false, true, false, false)]
+    [InlineData(false, true, false, false, false, false, true)]
+    [InlineData(false, true, false, false, true, false, false)]
+    [InlineData(false, true, false, false, false, true, false)]
+    [InlineData(true, true, false, false, false, false, false)]
+    [InlineData(false, false, false, false, false, false, false)]
+    [InlineData(false, true, true, false, false, false, false)]
+    [InlineData(false, true, false, true, false, false, false)]
     public void RenderSchedulerWakeupDoesNotRenderInlineInsideOwnerLoop(
         bool isDisposed,
         bool hasWindow,
         bool isRendering,
         bool isProcessingRenderSchedulerWakeup,
         bool isNativeLoopRunning,
+        bool usesExternalNativeLoopPump,
         bool expected)
     {
         Assert.Equal(
@@ -399,7 +401,25 @@ public sealed class ProGpuWpfWindowHostTests
                 hasWindow,
                 isRendering,
                 isProcessingRenderSchedulerWakeup,
-                isNativeLoopRunning));
+                isNativeLoopRunning,
+                usesExternalNativeLoopPump));
+    }
+
+    [Theory]
+    [InlineData(true, true, true)]
+    [InlineData(true, false, false)]
+    [InlineData(false, true, false)]
+    [InlineData(false, false, false)]
+    public void ExternallyPumpedHostRendersPendingFrameBeforeNativeEvents(
+        bool usesExternalNativeLoopPump,
+        bool shouldPumpNativeRender,
+        bool expected)
+    {
+        Assert.Equal(
+            expected,
+            ProGpuWpfWindowHost.ShouldPumpExternalNativeRenderBeforeEvents(
+                usesExternalNativeLoopPump,
+                shouldPumpNativeRender));
     }
 
     [Theory]

@@ -139,6 +139,7 @@ internal sealed class WpfPortableNativePopupHost : IWpfPortableNativePopupHost
             WpfResourceResolver = ownerHost.WpfResourceResolver,
             WpfImageSourceAdapter = ownerHost.WpfImageSourceAdapter
         };
+        _popupHost.UseExternalNativeLoopPump();
 
         if (!_popupHost.TryBindPortablePresentationSource(source))
         {
