@@ -4888,23 +4888,6 @@ public partial class MainWindow : Window
         target.BringIntoView();
         target.UpdateLayout();
 
-        // A target at the edge of the Toolkit pane can be geometrically visible while an
-        // AvalonDock auto-hide strip still owns its input coordinate. Center targets hosted
-        // by the pane before validating both the managed and retained GPU hit-test trees.
-        if (target.IsDescendantOf(ToolkitPaneScrollViewer) && ToolkitPaneScrollViewer.ViewportHeight > 0)
-        {
-            Point targetCenterInScrollViewer = target.TranslatePoint(
-                new Point(Math.Max(1.0, target.ActualWidth) / 2.0, Math.Max(1.0, target.ActualHeight) / 2.0),
-                ToolkitPaneScrollViewer);
-            double verticalDelta = targetCenterInScrollViewer.Y - (ToolkitPaneScrollViewer.ViewportHeight / 2.0);
-            if (Math.Abs(verticalDelta) > 0.5)
-            {
-                ToolkitPaneScrollViewer.ScrollToVerticalOffset(
-                    ToolkitPaneScrollViewer.VerticalOffset + verticalDelta);
-                target.UpdateLayout();
-            }
-        }
-
         targetState =
             $"{targetName}.IsVisible={target.IsVisible}, " +
             $"{targetName}.ActualSize={target.ActualWidth:0.###}x{target.ActualHeight:0.###}, " +
@@ -4960,10 +4943,8 @@ public partial class MainWindow : Window
         }
 
         state = $"GpuInputOwner={DescribeInputElement(selectedOwner)}";
-        if (selectedOwner == null || !IsInputElementWithinTarget(selectedOwner, target))
-        {
-            return false;
-        }
+        bool selectedOwnerIsWithinTarget =
+            selectedOwner != null && IsInputElementWithinTarget(selectedOwner, target);
 
         object?[] ownerBuffer = ArrayPool<object?>.Shared.Rent(GpuOwnerBufferCapacity);
         try
@@ -4980,7 +4961,7 @@ public partial class MainWindow : Window
                 return false;
             }
 
-            return true;
+            return selectedOwnerIsWithinTarget;
         }
         finally
         {
