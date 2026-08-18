@@ -88,7 +88,6 @@ public partial class MainWindow : Window
     private const string LiveValidationStatusPathEnvironmentVariable = "PROGPU_WPF_TOOLKIT_LIVE_VALIDATE_STATUS_PATH";
     private const int LiveValidationStartupMaxAttempts = 1200;
     private const int LiveValidationMaxAttempts = 400;
-    private const double LiveTargetRevealPadding = 48.0;
     private static readonly TimeSpan LiveValidationRetryDelay = TimeSpan.FromMilliseconds(16);
     private static readonly string[] AvalonDockThemeNames = ["Aero", "Metro", "VS2010"];
     private readonly ToolkitViewModel _viewModel = new();
@@ -4886,16 +4885,25 @@ public partial class MainWindow : Window
         Point initialCenter = target.TranslatePoint(
             new Point(Math.Max(1.0, target.ActualWidth) / 2.0, Math.Max(1.0, target.ActualHeight) / 2.0),
             this);
-        // A target at the edge of the Toolkit pane can be geometrically visible while an
-        // AvalonDock auto-hide strip still owns its input coordinate. Reveal a small area
-        // around the target so live input validation does not click through that overlay.
-        target.BringIntoView(
-            new Rect(
-                0,
-                -LiveTargetRevealPadding,
-                Math.Max(1.0, target.ActualWidth),
-                Math.Max(1.0, target.ActualHeight) + (LiveTargetRevealPadding * 2.0)));
+        target.BringIntoView();
         target.UpdateLayout();
+
+        // A target at the edge of the Toolkit pane can be geometrically visible while an
+        // AvalonDock auto-hide strip still owns its input coordinate. Center targets hosted
+        // by the pane before validating both the managed and retained GPU hit-test trees.
+        if (target.IsDescendantOf(ToolkitPaneScrollViewer) && ToolkitPaneScrollViewer.ViewportHeight > 0)
+        {
+            Point targetCenterInScrollViewer = target.TranslatePoint(
+                new Point(Math.Max(1.0, target.ActualWidth) / 2.0, Math.Max(1.0, target.ActualHeight) / 2.0),
+                ToolkitPaneScrollViewer);
+            double verticalDelta = targetCenterInScrollViewer.Y - (ToolkitPaneScrollViewer.ViewportHeight / 2.0);
+            if (Math.Abs(verticalDelta) > 0.5)
+            {
+                ToolkitPaneScrollViewer.ScrollToVerticalOffset(
+                    ToolkitPaneScrollViewer.VerticalOffset + verticalDelta);
+                target.UpdateLayout();
+            }
+        }
 
         targetState =
             $"{targetName}.IsVisible={target.IsVisible}, " +
