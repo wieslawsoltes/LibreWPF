@@ -88,6 +88,7 @@ public partial class MainWindow : Window
     private const string LiveValidationStatusPathEnvironmentVariable = "PROGPU_WPF_TOOLKIT_LIVE_VALIDATE_STATUS_PATH";
     private const int LiveValidationStartupMaxAttempts = 1200;
     private const int LiveValidationMaxAttempts = 400;
+    private const double LiveTargetRevealPadding = 48.0;
     private static readonly TimeSpan LiveValidationRetryDelay = TimeSpan.FromMilliseconds(16);
     private static readonly string[] AvalonDockThemeNames = ["Aero", "Metro", "VS2010"];
     private readonly ToolkitViewModel _viewModel = new();
@@ -4885,7 +4886,15 @@ public partial class MainWindow : Window
         Point initialCenter = target.TranslatePoint(
             new Point(Math.Max(1.0, target.ActualWidth) / 2.0, Math.Max(1.0, target.ActualHeight) / 2.0),
             this);
-        target.BringIntoView();
+        // A target at the edge of the Toolkit pane can be geometrically visible while an
+        // AvalonDock auto-hide strip still owns its input coordinate. Reveal a small area
+        // around the target so live input validation does not click through that overlay.
+        target.BringIntoView(
+            new Rect(
+                0,
+                -LiveTargetRevealPadding,
+                Math.Max(1.0, target.ActualWidth),
+                Math.Max(1.0, target.ActualHeight) + (LiveTargetRevealPadding * 2.0)));
         target.UpdateLayout();
 
         targetState =
