@@ -21,13 +21,21 @@ public static class Program
     private const string PortableRenderDataSinkInterfaceTypeName = "System.Windows.Media.IPortableRenderDataDrawingContextSink";
 
     [STAThread]
-    private static int Main()
+    private static int Main(string[] args)
     {
         try
         {
             string repoRoot = FindRepoRoot();
             string presentationFrameworkPath = FindRealAssembly(repoRoot, "PresentationFramework");
             string presentationCorePath = FindRealAssembly(repoRoot, "PresentationCore");
+
+            if (args.Contains("--text-wrapping-only", StringComparer.Ordinal))
+            {
+                RunTextWrappingHarness(repoRoot, presentationFrameworkPath, presentationCorePath);
+                Console.WriteLine("Real PresentationFramework portable text wrapping smoke succeeded.");
+                return 0;
+            }
+
             RunHarness(repoRoot, presentationFrameworkPath, presentationCorePath);
             Console.WriteLine("Real PresentationFramework code-only smoke succeeded.");
             return 0;
@@ -36,6 +44,24 @@ public static class Program
         {
             Console.Error.WriteLine(ex);
             return 1;
+        }
+    }
+
+    private static void RunTextWrappingHarness(
+        string repoRoot,
+        string presentationFrameworkPath,
+        string presentationCorePath)
+    {
+        var loadContext = new WpfAssemblyLoadContext(repoRoot, presentationFrameworkPath, presentationCorePath);
+        try
+        {
+            Assembly presentationFramework = loadContext.LoadFromAssemblyPath(presentationFrameworkPath);
+            Assembly windowsBase = loadContext.LoadFromAssemblyName(new AssemblyName("WindowsBase"));
+            VerifyPortableTextWrapping(presentationFramework, windowsBase);
+        }
+        finally
+        {
+            loadContext.Unload();
         }
     }
 
@@ -85,6 +111,7 @@ public static class Program
             AssertCollectionCount(GetProperty(flowDocument, "Blocks"), expected: 1, "flow document blocks");
 
             VerifyPortableSpellerFallback(presentationFramework);
+            VerifyPortableTextWrapping(presentationFramework, windowsBase);
             RegisterPortableActivation(presentationFramework, window, out activationServiceType, out activation);
 
             using var target = ProGpuWpfCompositionTarget.CreateHeadless();
@@ -128,6 +155,61 @@ public static class Program
         object flowDocument = Create(presentationFramework, "System.Windows.Documents.FlowDocument");
         AddToCollection(GetProperty(flowDocument, "Blocks"), paragraph);
         return flowDocument;
+    }
+
+    private static void VerifyPortableTextWrapping(Assembly presentationFramework, Assembly windowsBase)
+    {
+        object textBlock = Create(presentationFramework, "System.Windows.Controls.TextBlock");
+        SetProperty(
+            textBlock,
+            "Text",
+            "Portable text wrapping keeps all gallery description text visible across multiple constrained lines.");
+        SetEnumProperty(textBlock, "TextWrapping", "Wrap");
+
+        Type sizeType = GetRequiredType(windowsBase, "System.Windows.Size");
+        object constraint = Activator.CreateInstance(sizeType, 120.0, double.PositiveInfinity)
+            ?? throw new InvalidOperationException("Failed to create the portable text wrapping measure constraint.");
+        MethodInfo measure = textBlock.GetType().GetMethod(
+            "Measure",
+            BindingFlags.Instance | BindingFlags.Public,
+            binder: null,
+            types: new[] { sizeType },
+            modifiers: null)
+            ?? throw new MissingMethodException(textBlock.GetType().FullName, "Measure(Size)");
+        measure.Invoke(textBlock, new[] { constraint });
+
+        int lineCount = (int)GetProperty(textBlock, "LineCount");
+        if (lineCount < 2)
+        {
+            throw new InvalidOperationException(
+                $"Expected portable wrapped TextBlock to produce multiple lines, got {lineCount}.");
+        }
+
+        MethodInfo getLine = textBlock.GetType().GetMethod(
+            "GetLine",
+            BindingFlags.Instance | BindingFlags.NonPublic,
+            binder: null,
+            types: new[] { typeof(int) },
+            modifiers: null)
+            ?? throw new MissingMethodException(textBlock.GetType().FullName, "GetLine(Int32)");
+        int coveredCharacters = 0;
+        for (int lineIndex = 0; lineIndex < lineCount; ++lineIndex)
+        {
+            object line = getLine.Invoke(textBlock, new object[] { lineIndex })
+                ?? throw new InvalidOperationException($"Expected wrapped TextBlock line {lineIndex} metrics.");
+            coveredCharacters += (int)GetProperty(line, "Length");
+        }
+
+        string text = (string)GetProperty(textBlock, "Text");
+        AssertEqual(text.Length, coveredCharacters, "portable wrapped TextBlock covered character count");
+
+        object desiredSize = GetProperty(textBlock, "DesiredSize");
+        double desiredWidth = (double)GetProperty(desiredSize, "Width");
+        if (desiredWidth > 120.01)
+        {
+            throw new InvalidOperationException(
+                $"Expected portable wrapped TextBlock width to stay within 120 DIPs, got {desiredWidth}.");
+        }
     }
 
     private static object CreateResourceDictionary(Assembly presentationFramework)

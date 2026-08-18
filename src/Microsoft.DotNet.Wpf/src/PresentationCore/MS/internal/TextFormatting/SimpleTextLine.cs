@@ -164,6 +164,29 @@ namespace MS.Internal.TextFormatting
             {
                 if(!run.EOT && run.IdealWidth > widthLeft)
                 {
+                    // Windows delegates classification-based line breaking to native LineServices.
+                    // Keep the managed fallback scoped to platforms where that OS service is unavailable.
+                    if (!OperatingSystem.IsWindows() && pap.Wrap)
+                    {
+                        SimpleRun wrappingRun = CreatePortableWrappingRun(
+                            run,
+                            widthLeft,
+                            pap.EmergencyWrap,
+                            runs.Count != 0,
+                            PortableRunsEndAtBreakOpportunity(runs)
+                            );
+
+                        if (wrappingRun != null)
+                        {
+                            AddRun(runs, wrappingRun, ref nonHiddenLength);
+                        }
+
+                        if (runs.Count != 0)
+                        {
+                            break;
+                        }
+                    }
+
                     // linebreaking required, even simple text requires classification-based linebreaking,
                     // we'll now let LS handle this line.
                     return null;
@@ -234,6 +257,92 @@ namespace MS.Internal.TextFormatting
                 ref trailingSpaceWidth,
                 pixelsPerDip
                 ) as TextLine;
+        }
+
+        private static SimpleRun CreatePortableWrappingRun(
+            SimpleRun run,
+            int widthLeft,
+            bool emergencyWrap,
+            bool hasPreviousRuns,
+            bool previousRunsEndAtBreakOpportunity
+            )
+        {
+            if (run.TextRun is not TextCharacters || run.NominalAdvances == null || run.Length <= 0)
+            {
+                return null;
+            }
+
+            int fitLength = GetPortableCollapsedLength(run, widthLeft);
+            if (fitLength <= 0 && emergencyWrap && hasPreviousRuns)
+            {
+                return null;
+            }
+
+            int breakLength = FindLastPortableBreakOpportunity(run, fitLength);
+
+            if (breakLength <= 0 && previousRunsEndAtBreakOpportunity)
+            {
+                return null;
+            }
+
+            if (breakLength <= 0)
+            {
+                if (emergencyWrap)
+                {
+                    breakLength = Math.Max(1, fitLength);
+                }
+                else
+                {
+                    breakLength = FindFirstPortableBreakOpportunity(run, fitLength);
+                    if (breakLength <= 0)
+                    {
+                        breakLength = run.Length;
+                    }
+                }
+            }
+
+            return CreatePortableWordSlice(run, Math.Min(breakLength, run.Length));
+        }
+
+        private static bool PortableRunsEndAtBreakOpportunity(ArrayList runs)
+        {
+            for (int index = runs.Count - 1; index >= 0; --index)
+            {
+                if (runs[index] is not SimpleRun run || run.Ghost || run.Length <= 0)
+                {
+                    continue;
+                }
+
+                return run.Tab || SimpleRun.IsSpace(GetRunChar(run, run.Length - 1));
+            }
+
+            return false;
+        }
+
+        private static int FindLastPortableBreakOpportunity(SimpleRun run, int length)
+        {
+            for (int index = Math.Min(length, run.Length) - 1; index >= 0; --index)
+            {
+                if (SimpleRun.IsSpace(GetRunChar(run, index)))
+                {
+                    return index + 1;
+                }
+            }
+
+            return 0;
+        }
+
+        private static int FindFirstPortableBreakOpportunity(SimpleRun run, int startIndex)
+        {
+            for (int index = Math.Max(0, startIndex); index < run.Length; ++index)
+            {
+                if (SimpleRun.IsSpace(GetRunChar(run, index)))
+                {
+                    return index + 1;
+                }
+            }
+
+            return 0;
         }
 
         public static TextLine CreatePortableFallback(
@@ -871,7 +980,7 @@ namespace MS.Internal.TextFormatting
                 run.TextRun.Properties
                 );
 
-            return SimpleRun.CreateSimpleTextRun(
+            SimpleRun slicedRun = SimpleRun.CreateSimpleTextRun(
                 new CharacterBufferRange(textRun),
                 textRun,
                 run.Formatter,
@@ -880,6 +989,9 @@ namespace MS.Internal.TextFormatting
                 false,
                 run.PixelsPerDip
                 );
+            slicedRun?.Underline = run.Underline;
+
+            return slicedRun;
         }
 
         private static int FindTrailingWordBreak(SimpleRun run)
