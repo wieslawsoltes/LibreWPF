@@ -4943,8 +4943,10 @@ public partial class MainWindow : Window
         }
 
         state = $"GpuInputOwner={DescribeInputElement(selectedOwner)}";
-        bool selectedOwnerIsWithinTarget =
-            selectedOwner != null && IsInputElementWithinTarget(selectedOwner, target);
+        if (selectedOwner == null || !IsInputElementWithinTarget(selectedOwner, target))
+        {
+            return false;
+        }
 
         object?[] ownerBuffer = ArrayPool<object?>.Shared.Rent(GpuOwnerBufferCapacity);
         try
@@ -4961,7 +4963,7 @@ public partial class MainWindow : Window
                 return false;
             }
 
-            return selectedOwnerIsWithinTarget;
+            return true;
         }
         finally
         {

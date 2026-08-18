@@ -587,13 +587,13 @@
                     </WrapPanel>
                     <xctk:WindowContainer x:Name="ToolkitChildWindowContainer"
                                           Grid.Row="1"
-                                          Height="168"
+                                          Height="200"
                                           Background="{StaticResource ToolkitSubtleBrush}"
                                           ModalBackgroundBrush="#33000000">
                       <xctk:ChildWindow x:Name="ToolkitChildWindow"
                                         Caption="Toolkit child window"
                                         Width="220"
-                                        Height="120"
+                                        Height="152"
                                         Left="18"
                                         Top="24"
                                         IsModal="True"
@@ -625,14 +625,14 @@
                     </xctk:WindowContainer>
                     <xctk:WindowContainer x:Name="ToolkitPrimitiveWindowContainer"
                                           Grid.Row="2"
-                                          Height="160"
+                                          Height="200"
                                           Margin="0,8,0,0"
                                           Background="{StaticResource ToolkitSubtleBrush}">
                       <xctk:WindowControl x:Name="ToolkitWindowControl"
                                           Caption="Toolkit window control"
                                           CaptionIcon="{StaticResource ToolIcon}"
                                           Width="228"
-                                          Height="124"
+                                          Height="160"
                                           Left="18"
                                           Top="24"
                                           CloseButtonVisibility="Visible"
