@@ -4051,8 +4051,11 @@ namespace System.Windows.Controls.Primitives
 
             private static Size MeasurePortableRoot(UIElement rootElement, Size constraint)
             {
-                rootElement.InvalidateMeasure();
-                rootElement.Measure(constraint);
+                if (!rootElement.IsMeasureValid)
+                {
+                    rootElement.Measure(constraint);
+                }
+
                 return rootElement.DesiredSize;
             }
 
