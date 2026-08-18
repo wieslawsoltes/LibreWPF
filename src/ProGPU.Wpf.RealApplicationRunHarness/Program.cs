@@ -1072,7 +1072,7 @@ internal static class Program
         AssertType(window, MainWindowTypeName, "startup window");
         AssertEqual("ProGPU WPF XAML smoke", GetProperty(window, "Title"), "window title");
         AssertEqual(420.0, GetProperty(window, "Width"), "window width");
-        AssertEqual(260.0, GetProperty(window, "Height"), "window height");
+        AssertEqual(340.0, GetProperty(window, "Height"), "window height");
 
         object content = GetProperty(window, "Content");
         AssertType(content, "System.Windows.Controls.StackPanel", "window content");
@@ -6549,7 +6549,7 @@ internal static class Program
             AssertEqual(true, typedActivation.IsVisible, "startup window visible before run");
             AssertEqual("ProGPU WPF XAML smoke", typedActivation.Title, "activated window title");
             AssertEqual(420.0, typedActivation.Width, "activated window width");
-            AssertEqual(260.0, typedActivation.Height, "activated window height");
+            AssertEqual(340.0, typedActivation.Height, "activated window height");
             AssertEqual(false, typedActivation.Topmost, "activated window topmost");
             Invoke(typedActivation.Window, "UpdateLayout");
             ValidatePostShowLoadedEvent(typedActivation.Window);

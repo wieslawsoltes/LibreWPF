@@ -1120,7 +1120,7 @@ internal static class Program
     private static void ValidateThemedVisualReplay(Assembly proGpuWpf, Assembly windowsBase, object window)
     {
         const uint pixelWidth = 420;
-        const uint pixelHeight = 260;
+        const uint pixelHeight = 340;
 
         object content = GetProperty(window, "Content");
 
@@ -1226,7 +1226,7 @@ internal static class Program
         AssertSame(window, GetProperty(activation, "Window"), "activation window");
         AssertEqual("ProGPU WPF XAML smoke", GetProperty(host, "Title"), "host title");
         AssertEqual(420, GetProperty(host, "Width"), "host width");
-        AssertEqual(260, GetProperty(host, "Height"), "host height");
+        AssertEqual(340, GetProperty(host, "Height"), "host height");
     }
 
     private static object Create(Assembly assembly, string typeName, params object?[] parameters)
