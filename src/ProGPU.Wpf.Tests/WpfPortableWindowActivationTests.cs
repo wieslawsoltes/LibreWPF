@@ -1249,6 +1249,9 @@ public sealed class WpfPortableWindowActivationTests
         Assert.NotNull(service.LastBeginInvokeInputCallback);
         Assert.Equal(0, window.Dispatcher.BeginInvokeCount);
         Assert.Equal(0, service.InputCount);
+        Assert.Contains("Input", service.FlushedPriorities);
+        Assert.Contains("Render", service.FlushedPriorities);
+        Assert.Same(window, service.LastFlushWindow);
 
         service.LastBeginInvokeInputCallback.Invoke();
 
@@ -1258,6 +1261,41 @@ public sealed class WpfPortableWindowActivationTests
         Assert.Equal((int)WpfInputEventKind.MouseDown, service.LastInput.Kind);
         Assert.Equal(0, window.InputCount);
         Assert.True(scheduler.RequestCount > requestCountBeforeInput);
+    }
+
+    [Fact]
+    public void QueuedNativeInputIsProcessedAndRenderedBeforeTheNextEvent()
+    {
+        var service = new TestWindowActivationServiceRegistrar
+        {
+            QueueInputCallbacks = true,
+            RunQueuedInputOnInputFlush = true
+        };
+        using var serviceRegistration = PortableWpfServiceRegistry.RegisterWindowActivationService(service);
+        using var host = new ProGpuWpfWindowHost();
+        var window = new FakeDispatchingPortableInputWindow();
+        var source = new FakePortablePresentationSource();
+
+        Assert.True(WpfPortableWindowActivation.TryAttach(host, window, source, out var activation));
+        Assert.NotNull(activation);
+
+        RaiseHostInputEvent(host, new WpfInputEventArgs(WpfInputEventKind.MouseMove, x: 10, y: 20));
+        RaiseHostInputEvent(host, new WpfInputEventArgs(WpfInputEventKind.MouseMove, x: 30, y: 40));
+
+        Assert.Equal(2, service.InputCount);
+        Assert.Equal(
+            new[]
+            {
+                "BeginInput",
+                "Flush:Input",
+                "ProcessInput:10",
+                "Flush:Render",
+                "BeginInput",
+                "Flush:Input",
+                "ProcessInput:30",
+                "Flush:Render"
+            },
+            service.InputDispatchLog);
     }
 
     [Fact]
@@ -2285,11 +2323,15 @@ public sealed class WpfPortableWindowActivationTests
 
         public bool QueueInputCallbacks { get; set; }
 
+        public bool RunQueuedInputOnInputFlush { get; set; }
+
         public int BeginInvokeInputCount { get; private set; }
 
         public object? LastBeginInvokeInputWindow { get; private set; }
 
         public Action? LastBeginInvokeInputCallback { get; private set; }
+
+        public List<string> InputDispatchLog { get; } = new List<string>();
 
         public int InputCount { get; private set; }
 
@@ -2417,6 +2459,7 @@ public sealed class WpfPortableWindowActivationTests
             BeginInvokeInputCount++;
             LastBeginInvokeInputWindow = window;
             LastBeginInvokeInputCallback = callback;
+            InputDispatchLog.Add("BeginInput");
             return true;
         }
 
@@ -2425,6 +2468,8 @@ public sealed class WpfPortableWindowActivationTests
             InputCount++;
             LastInputWindow = window;
             LastInput = input;
+            InputDispatchLog.Add(
+                "ProcessInput:" + input.X.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture));
             input.Handled = true;
             return true;
         }
@@ -2433,10 +2478,19 @@ public sealed class WpfPortableWindowActivationTests
         {
             LastFlushWindow = window;
             FlushedPriorities.Add(markerPriorityName);
+            InputDispatchLog.Add($"Flush:{markerPriorityName}");
             FlushTimeouts.Add(timeout);
             if (ThrowOnDispatcherFlush)
             {
                 throw new InvalidOperationException("Cannot perform this operation while dispatcher processing is suspended.");
+            }
+
+            if (RunQueuedInputOnInputFlush &&
+                string.Equals(markerPriorityName, "Input", StringComparison.Ordinal) &&
+                LastBeginInvokeInputCallback is { } callback)
+            {
+                LastBeginInvokeInputCallback = null;
+                callback();
             }
 
             return true;
@@ -2485,6 +2539,7 @@ public sealed class WpfPortableWindowActivationTests
             LastDragDropText = null;
             FlushedPriorities.Clear();
             FlushTimeouts.Clear();
+            InputDispatchLog.Clear();
         }
     }
 

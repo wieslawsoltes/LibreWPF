@@ -1375,6 +1375,11 @@ public sealed class WpfPortableWindowActivation : IDisposable
         if (TryGetWindowActivationService(out var activationService) &&
             activationService.TryBeginInvokeInput(Window, callback))
         {
+            // Silk.NET can report several pointer moves from one native event poll.
+            // Process each queued WPF input callback and its resulting layout before
+            // accepting the next native event.  Controls such as Thumb calculate the
+            // next delta relative to the layout produced by the previous move.
+            FlushWpfDispatcherOperations("Input", "Render");
             Host.TryRequestNativeLoopWakeup();
             return true;
         }
