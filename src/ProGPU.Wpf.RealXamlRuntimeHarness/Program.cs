@@ -1093,7 +1093,7 @@ internal static class Program
         AssertType(window, "ProGPU.Wpf.RealXamlCompilerHarness.MainWindow", "main window");
         AssertEqual("ProGPU WPF XAML smoke", GetProperty(window, "Title"), "window title");
         AssertEqual(420.0, GetProperty(window, "Width"), "window width");
-        AssertEqual(260.0, GetProperty(window, "Height"), "window height");
+        AssertEqual(340.0, GetProperty(window, "Height"), "window height");
 
         object content = GetProperty(window, "Content");
         AssertType(content, "System.Windows.Controls.StackPanel", "window content");
@@ -5943,7 +5943,7 @@ internal static class Program
         AssertEqual(true, GetProperty(host, "IsVisible"), "host visible state");
         AssertEqual("ProGPU WPF XAML smoke", GetProperty(host, "Title"), "host title");
         AssertEqual(420, GetProperty(host, "Width"), "host width");
-        AssertEqual(260, GetProperty(host, "Height"), "host height");
+        AssertEqual(340, GetProperty(host, "Height"), "host height");
     }
 
     private static void ValidatePortableMessageBox(Assembly presentationFramework, object window)

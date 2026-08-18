@@ -8,7 +8,7 @@
     xmlns:sys="clr-namespace:System;assembly=mscorlib"
     Title="ProGPU WPF XAML smoke"
     Width="420"
-    Height="260">
+    Height="340">
     <Window.Resources>
         <CollectionViewSource
             x:Key="SortedItemsView"
