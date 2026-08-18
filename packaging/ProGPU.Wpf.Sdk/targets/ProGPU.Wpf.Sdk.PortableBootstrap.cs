@@ -1,27 +1,24 @@
-using System;
-using System.Runtime.CompilerServices;
-using System.Windows;
-using System.Windows.Media.ProGPU;
-
 namespace ProGPU.Wpf.Sdk;
 
 internal static class ProGpuWpfSdkPortableBootstrap
 {
-    [ModuleInitializer]
+    [global::System.Runtime.CompilerServices.ModuleInitializer]
     internal static void Initialize()
     {
 #if PROGPU_WPF_USE_LIBREWINFORMS
         global::System.Windows.Forms.Integration.WindowsFormsHost.EnableWindowsFormsInterop();
 #endif
 
-        if (OperatingSystem.IsWindows())
+        if (global::System.OperatingSystem.IsWindows())
         {
             return;
         }
 
-        RuntimeHelpers.RunModuleConstructor(typeof(Application).Module.ModuleHandle);
-        RuntimeHelpers.RunModuleConstructor(typeof(Clipboard).Module.ModuleHandle);
-        WpfPortableWindowActivation.TryRegisterPresentationFrameworkActivation();
-        WpfPortableWindowActivation.TryRegisterPresentationCoreClipboardService();
+        global::System.Runtime.CompilerServices.RuntimeHelpers.RunModuleConstructor(
+            typeof(global::System.Windows.Application).Module.ModuleHandle);
+        global::System.Runtime.CompilerServices.RuntimeHelpers.RunModuleConstructor(
+            typeof(global::System.Windows.Clipboard).Module.ModuleHandle);
+        global::System.Windows.Media.ProGPU.WpfPortableWindowActivation.TryRegisterPresentationFrameworkActivation();
+        global::System.Windows.Media.ProGPU.WpfPortableWindowActivation.TryRegisterPresentationCoreClipboardService();
     }
 }

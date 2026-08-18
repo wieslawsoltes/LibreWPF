@@ -11090,6 +11090,16 @@ public sealed class WpfManagedProjectGraphTests
             "src",
             "ProGPU.Wpf.SdkSwitchSmoke",
             "ProGPU.Wpf.SdkSwitchSmoke.csproj");
+        var mixedDesktopSmokeProjectPath = FindRepoPath(
+            "src",
+            "ProGPU.Wpf.SdkSwitchSmoke",
+            "MixedDesktop",
+            "ProGPU.Wpf.SdkMixedDesktopSmoke.csproj");
+        var mixedDesktopSmokeProgramPath = FindRepoPath(
+            "src",
+            "ProGPU.Wpf.SdkSwitchSmoke",
+            "MixedDesktop",
+            "Program.cs");
         var smokeDirectoryBuildPropsPath = FindRepoPath(
             "src",
             "ProGPU.Wpf.SdkSwitchSmoke",
@@ -11862,6 +11872,8 @@ public sealed class WpfManagedProjectGraphTests
         var portableTargets = File.ReadAllText(portableTargetsPath);
         var portableBootstrap = File.ReadAllText(portableBootstrapPath);
         var smokeProject = File.ReadAllText(smokeProjectPath);
+        var mixedDesktopSmokeProject = File.ReadAllText(mixedDesktopSmokeProjectPath);
+        var mixedDesktopSmokeProgram = File.ReadAllText(mixedDesktopSmokeProgramPath);
         var smokeDirectoryBuildProps = File.ReadAllText(smokeDirectoryBuildPropsPath);
         var libraryProject = File.ReadAllText(libraryProjectPath);
         var libraryDirectoryBuildProps = File.ReadAllText(libraryDirectoryBuildPropsPath);
@@ -12562,11 +12574,14 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("Running real WPF Fluent theme runtime harness", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("src/ProGPU.Wpf.RealThemeRuntimeHarness/ProGPU.Wpf.RealThemeRuntimeHarness.csproj", validationGraphs, StringComparison.Ordinal);
         Assert.Contains("src/ProGPU.Wpf.RealThemeRuntimeHarness/ProGPU.Wpf.RealThemeRuntimeHarness.csproj\" -c Release -v:minimal", sdkCiScript, StringComparison.Ordinal);
-        Assert.Equal(7, sdkCiScript.Split("run --no-build --project", StringSplitOptions.None).Length - 1);
+        Assert.Equal(8, sdkCiScript.Split("run --no-build --project", StringSplitOptions.None).Length - 1);
         Assert.Contains("packaging/Microsoft.DotNet.Wpf.GitHub/Microsoft.DotNet.Wpf.GitHub.ArchNeutral.csproj", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("src/ProGPU.Wpf/ProGPU.Wpf.csproj", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("packaging/ProGPU.Wpf.Sdk/ProGPU.Wpf.Sdk.ArchNeutral.csproj", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("src/ProGPU.Wpf.SdkSwitchSmoke/ProGPU.Wpf.SdkSwitchSmoke.csproj", sdkCiScript, StringComparison.Ordinal);
+        Assert.Contains("Building and running mixed WPF/WinForms SDK smoke app", sdkCiScript, StringComparison.Ordinal);
+        Assert.Contains("src/ProGPU.Wpf.SdkSwitchSmoke/MixedDesktop/ProGPU.Wpf.SdkMixedDesktopSmoke.csproj", sdkCiScript, StringComparison.Ordinal);
+        Assert.Contains("ProGPU.Wpf.SdkMixedDesktopSmoke", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("src/ProGPU.Wpf.SdkSwitchRuntimeHarness/ProGPU.Wpf.SdkSwitchRuntimeHarness.csproj", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("src/ProGPU.Wpf.SdkExternalSmokeHarness/ProGPU.Wpf.SdkExternalSmokeHarness.csproj", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("artifacts/nuget/ProGPU.Wpf.SdkSwitchSmoke", sdkCiScript, StringComparison.Ordinal);
@@ -14377,7 +14392,16 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("ProGPU WPF MVP quickcheck succeeded.", mvpQuickCheckScript, StringComparison.Ordinal);
 
         Assert.Contains("<_ProGpuWpfProjectUseWPF>$(UseWPF)</_ProGpuWpfProjectUseWPF>", sdkTargets, StringComparison.Ordinal);
+        Assert.Contains("<_ProGpuWpfProjectUseWindowsForms>$(UseWindowsForms)</_ProGpuWpfProjectUseWindowsForms>", sdkTargets, StringComparison.Ordinal);
+        Assert.Contains("<ProGpuWpfUsePortableWinFormsCompat Condition=\"'$(ProGpuWpfUsePortableWinFormsCompat)' == '' And '$(_ProGpuWpfProjectUseWindowsForms)' == 'true'\">true</ProGpuWpfUsePortableWinFormsCompat>", sdkTargets, StringComparison.Ordinal);
+        Assert.Contains("<ProGpuWpfUsePortableWinFormsCompat Condition=\"'$(ProGpuWpfUsePortableWinFormsCompat)' == ''\">false</ProGpuWpfUsePortableWinFormsCompat>", sdkTargets, StringComparison.Ordinal);
+        Assert.Contains("<ProGpuWpfUseLibreWinForms Condition=\"'$(ProGpuWpfUseLibreWinForms)' == '' And '$(_ProGpuWpfProjectUseWindowsForms)' == 'true'\">true</ProGpuWpfUseLibreWinForms>", sdkTargets, StringComparison.Ordinal);
+        Assert.Contains("<ProGpuWpfUseLibreWinForms Condition=\"'$(ProGpuWpfUseLibreWinForms)' == ''\">false</ProGpuWpfUseLibreWinForms>", sdkTargets, StringComparison.Ordinal);
         Assert.Contains("<UseWPF Condition=\"'$(ProGpuWpfUsePortableFrameworkReferences)' == 'true'\">false</UseWPF>", sdkTargets, StringComparison.Ordinal);
+        Assert.Contains("<UseWindowsForms Condition=\"'$(ProGpuWpfUsePortableFrameworkReferences)' == 'true'\">false</UseWindowsForms>", sdkTargets, StringComparison.Ordinal);
+        Assert.Contains("<ItemGroup Condition=\"'$(_ProGpuWpfProjectUseWindowsForms)' == 'true' And ('$(ImplicitUsings)' == 'true' Or '$(ImplicitUsings)' == 'enable')\">", sdkTargets, StringComparison.Ordinal);
+        Assert.Contains("<Using Include=\"System.Drawing\" />", sdkTargets, StringComparison.Ordinal);
+        Assert.Contains("<Using Include=\"System.Windows.Forms\" />", sdkTargets, StringComparison.Ordinal);
         Assert.Contains("<Import Sdk=\"Microsoft.NET.Sdk.WindowsDesktop\" Project=\"Sdk.targets\" />", sdkTargets, StringComparison.Ordinal);
         Assert.Contains("ProGPU.Wpf.Sdk.targets", sdkTargets, StringComparison.Ordinal);
 
@@ -14549,16 +14573,18 @@ public sealed class WpfManagedProjectGraphTests
 
         Assert.Contains("namespace ProGPU.Wpf.Sdk;", portableBootstrap, StringComparison.Ordinal);
         Assert.Contains("internal static class ProGpuWpfSdkPortableBootstrap", portableBootstrap, StringComparison.Ordinal);
-        Assert.Contains("[ModuleInitializer]", portableBootstrap, StringComparison.Ordinal);
+        Assert.Contains("[global::System.Runtime.CompilerServices.ModuleInitializer]", portableBootstrap, StringComparison.Ordinal);
         Assert.Contains("#if PROGPU_WPF_USE_LIBREWINFORMS", portableBootstrap, StringComparison.Ordinal);
         Assert.Contains("global::System.Windows.Forms.Integration.WindowsFormsHost.EnableWindowsFormsInterop();", portableBootstrap, StringComparison.Ordinal);
-        Assert.Contains("if (OperatingSystem.IsWindows())", portableBootstrap, StringComparison.Ordinal);
+        Assert.Contains("if (global::System.OperatingSystem.IsWindows())", portableBootstrap, StringComparison.Ordinal);
         Assert.True(
             portableBootstrap.IndexOf("global::System.Windows.Forms.Integration.WindowsFormsHost.EnableWindowsFormsInterop();", StringComparison.Ordinal)
-                < portableBootstrap.IndexOf("if (OperatingSystem.IsWindows())", StringComparison.Ordinal),
+                < portableBootstrap.IndexOf("if (global::System.OperatingSystem.IsWindows())", StringComparison.Ordinal),
             "LibreWinForms interop must initialize before the Windows early return.");
-        Assert.Contains("WpfPortableWindowActivation.TryRegisterPresentationFrameworkActivation()", portableBootstrap, StringComparison.Ordinal);
-        Assert.Contains("WpfPortableWindowActivation.TryRegisterPresentationCoreClipboardService()", portableBootstrap, StringComparison.Ordinal);
+        Assert.Contains("typeof(global::System.Windows.Application).Module.ModuleHandle", portableBootstrap, StringComparison.Ordinal);
+        Assert.Contains("typeof(global::System.Windows.Clipboard).Module.ModuleHandle", portableBootstrap, StringComparison.Ordinal);
+        Assert.Contains("global::System.Windows.Media.ProGPU.WpfPortableWindowActivation.TryRegisterPresentationFrameworkActivation()", portableBootstrap, StringComparison.Ordinal);
+        Assert.Contains("global::System.Windows.Media.ProGPU.WpfPortableWindowActivation.TryRegisterPresentationCoreClipboardService()", portableBootstrap, StringComparison.Ordinal);
         Assert.DoesNotContain("System.Reflection", portableBootstrap, StringComparison.Ordinal);
         Assert.DoesNotContain("GetMethod(", portableBootstrap, StringComparison.Ordinal);
         Assert.DoesNotContain("Activator", portableBootstrap, StringComparison.Ordinal);
@@ -14590,6 +14616,14 @@ public sealed class WpfManagedProjectGraphTests
         Assert.DoesNotContain("EnableNETAnalyzers", smokeProject, StringComparison.Ordinal);
         Assert.DoesNotContain("EnforceCodeStyleInBuild", smokeProject, StringComparison.Ordinal);
         Assert.DoesNotContain("NoWarn", smokeProject, StringComparison.Ordinal);
+        Assert.Contains("<Project Sdk=\"LibreWPF.Sdk/0.1.0-preview.42\">", mixedDesktopSmokeProject, StringComparison.Ordinal);
+        Assert.Contains("<OutputType>WinExe</OutputType>", mixedDesktopSmokeProject, StringComparison.Ordinal);
+        Assert.Contains("<ImplicitUsings>enable</ImplicitUsings>", mixedDesktopSmokeProject, StringComparison.Ordinal);
+        Assert.Contains("<UseWPF>true</UseWPF>", mixedDesktopSmokeProject, StringComparison.Ordinal);
+        Assert.Contains("<UseWindowsForms>true</UseWindowsForms>", mixedDesktopSmokeProject, StringComparison.Ordinal);
+        Assert.Contains("typeof(global::System.Windows.Application)", mixedDesktopSmokeProgram, StringComparison.Ordinal);
+        Assert.Contains("typeof(global::System.Windows.Forms.Application)", mixedDesktopSmokeProgram, StringComparison.Ordinal);
+        Assert.Contains("Form? implicitWinFormsType", mixedDesktopSmokeProgram, StringComparison.Ordinal);
         Assert.Contains(@"..\..\Directory.Build.props", smokeDirectoryBuildProps, StringComparison.Ordinal);
         Assert.Contains("<EnableNETAnalyzers>false</EnableNETAnalyzers>", smokeDirectoryBuildProps, StringComparison.Ordinal);
         Assert.Contains("<EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>", smokeDirectoryBuildProps, StringComparison.Ordinal);

@@ -15,8 +15,6 @@
     <NoWarn>$(NoWarn);NETSDK1137</NoWarn>
     <MSBuildWarningsAsMessages Condition="'$(ProGpuWpfUsePortableFrameworkReferences)' == 'true'">$(MSBuildWarningsAsMessages);NETSDK1106</MSBuildWarningsAsMessages>
     <ProGpuWpfUsePortablePlatform Condition="'$(ProGpuWpfUsePortablePlatform)' == ''">true</ProGpuWpfUsePortablePlatform>
-    <ProGpuWpfUsePortableWinFormsCompat Condition="'$(ProGpuWpfUsePortableWinFormsCompat)' == ''">false</ProGpuWpfUsePortableWinFormsCompat>
-    <ProGpuWpfUseLibreWinForms Condition="'$(ProGpuWpfUseLibreWinForms)' == ''">false</ProGpuWpfUseLibreWinForms>
     <ProGpuWpfEnablePortableBootstrap Condition="'$(ProGpuWpfEnablePortableBootstrap)' == ''">true</ProGpuWpfEnablePortableBootstrap>
     <ProGpuWpfUseCurrentRuntimeIdentifier Condition="'$(ProGpuWpfUseCurrentRuntimeIdentifier)' == ''">true</ProGpuWpfUseCurrentRuntimeIdentifier>
     <ProGpuWpfPlatform Condition="'$(ProGpuWpfPlatform)' == ''">SilkNet</ProGpuWpfPlatform>

@@ -175,6 +175,7 @@ clean_sdk_smoke_outputs() {
   for project in \
     "ProGPU.Wpf.SdkSwitchLibrary" \
     "ProGPU.Wpf.SdkSwitchSmoke" \
+    "ProGPU.Wpf.SdkMixedDesktopSmoke" \
     "ProGPU.Wpf.SdkSwitchRuntimeHarness" \
     "ProGPU.Wpf.SdkExternalSmokeHarness" \
     "ProGPU.Wpf.HelloApp" \
@@ -297,6 +298,10 @@ clean_sdk_smoke_outputs
 
 echo "Building package-mode SDK switch smoke..."
 run_dotnet build "${repo_root}/src/ProGPU.Wpf.SdkSwitchSmoke/ProGPU.Wpf.SdkSwitchSmoke.csproj" -v:minimal
+
+echo "Building and running mixed WPF/WinForms SDK smoke app..."
+run_dotnet build "${repo_root}/src/ProGPU.Wpf.SdkSwitchSmoke/MixedDesktop/ProGPU.Wpf.SdkMixedDesktopSmoke.csproj" -v:minimal
+run_dotnet run --no-build --project "${repo_root}/src/ProGPU.Wpf.SdkSwitchSmoke/MixedDesktop/ProGPU.Wpf.SdkMixedDesktopSmoke.csproj" -v:minimal
 
 echo "Running SDK switch runtime smoke..."
 run_dotnet run --project "${repo_root}/src/ProGPU.Wpf.SdkSwitchRuntimeHarness/ProGPU.Wpf.SdkSwitchRuntimeHarness.csproj" -v:minimal
