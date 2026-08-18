@@ -309,6 +309,53 @@ public sealed class WpfPortablePresentationSourceBridgeTests
     }
 
     [Fact]
+    public void GpuHitTestPointOverridePrefersDescendantOverEarlierAncestorHits()
+    {
+        using var host = new ProGpuWpfWindowHost();
+        using var target = ProGpuWpfCompositionTarget.CreateHeadless();
+        var source = new FakePortablePresentationSource();
+        var window = new FakeVisualOwner(PortableVisualOwnerKind.Window);
+        var dockManager = new FakeVisualOwner(PortableVisualOwnerKind.Content, window);
+        var autoHideArea = new FakeVisualOwner(PortableVisualOwnerKind.PointerInfrastructure, dockManager);
+        var filterTextBox = new FakeVisualOwner(PortableVisualOwnerKind.Content, dockManager);
+        var textView = new FakeVisualOwner(PortableVisualOwnerKind.Content, filterTextBox);
+        int dockManagerId = target.GpuHitTestOwnerMap.GetOrCreateId(dockManager);
+        int autoHideAreaId = target.GpuHitTestOwnerMap.GetOrCreateId(autoHideArea);
+        int textViewId = target.GpuHitTestOwnerMap.GetOrCreateId(textView);
+        var index = GpuHitTestIndex.Build(
+            [
+                GpuHitTestPrimitive.RectangleFill(
+                    dockManagerId,
+                    new System.Numerics.Vector2(0f, 0f),
+                    new System.Numerics.Vector2(20f, 20f),
+                    System.Numerics.Vector2.Zero,
+                    zIndex: 3f),
+                GpuHitTestPrimitive.RectangleFill(
+                    autoHideAreaId,
+                    new System.Numerics.Vector2(0f, 0f),
+                    new System.Numerics.Vector2(20f, 20f),
+                    System.Numerics.Vector2.Zero,
+                    zIndex: 2f),
+                GpuHitTestPrimitive.RectangleFill(
+                    textViewId,
+                    new System.Numerics.Vector2(0f, 0f),
+                    new System.Numerics.Vector2(20f, 20f),
+                    System.Numerics.Vector2.Zero,
+                    zIndex: 1f)
+            ]);
+        InstallCompositionTarget(host, target);
+        InstallGpuHitTestCache(target, index);
+
+        Assert.True(WpfPortablePresentationSourceBridge.TryBind(host, source, out var bridge));
+        Assert.NotNull(bridge);
+
+        Assert.Same(textView, source.HitTestOverride!(10, 10));
+        Assert.Equal(
+            [dockManager, autoHideArea, textView],
+            source.HitTestAllOverride!(10, 10));
+    }
+
+    [Fact]
     public void GpuHitTestPointOverrideSkipsInputDisabledOverlayBeforeTopmostEnabledSibling()
     {
         using var host = new ProGpuWpfWindowHost();

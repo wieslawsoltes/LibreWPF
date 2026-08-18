@@ -320,9 +320,33 @@ public sealed class WpfPortablePresentationSourceBridge : IDisposable
                 continue;
             }
 
-            // ProGPU returns point hits in descending Z order. Preserve that order so
-            // a shallower overlay (for example an editable ComboBox toggle button)
-            // wins over a deeper visual from an underlying sibling subtree.
+            bool hasMoreSpecificDescendant = false;
+            for (int j = 0; j < owners.Length; j++)
+            {
+                if (j == i || owners[j] == null ||
+                    !TryNormalizePointerInputOwner(owners[j]!, out object? otherOwner) ||
+                    otherOwner == null ||
+                    ReferenceEquals(normalizedOwner, otherOwner))
+                {
+                    continue;
+                }
+
+                if (IsVisualOwnerDescendantOrSelf(otherOwner, normalizedOwner))
+                {
+                    hasMoreSpecificDescendant = true;
+                    break;
+                }
+            }
+
+            if (hasMoreSpecificDescendant)
+            {
+                continue;
+            }
+
+            // Broad container and pointer-infrastructure primitives may precede a
+            // descendant hit. After removing those ancestors, preserve ProGPU's
+            // descending Z order so a ComboBox toggle still wins over the editor in
+            // its underlying sibling subtree.
             selectedOwner = normalizedOwner;
             return true;
         }
