@@ -825,6 +825,19 @@ public sealed class ProGpuWpfWindowHostTests
     }
 
     [Fact]
+    public void NativeRenderPumpStopsWhileWindowIsHiddenOrMinimized()
+    {
+        using var hiddenHost = new ProGpuWpfWindowHost();
+        hiddenHost.Hide();
+
+        using var minimizedHost = new ProGpuWpfWindowHost();
+        minimizedHost.SetWindowState(ProGpuWpfWindowState.Minimized);
+
+        Assert.False(hiddenHost.ShouldPumpNativeRender());
+        Assert.False(minimizedHost.ShouldPumpNativeRender());
+    }
+
+    [Fact]
     public void PresentedFrameCountTracksActualPresentations()
     {
         using var host = new ProGpuWpfWindowHost();

@@ -2283,7 +2283,11 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
 
     internal bool ShouldPumpNativeRender()
     {
-        if (_isDisposed || _hasNativeWindowCloseStarted)
+        if (_isDisposed ||
+            _hasNativeWindowCloseStarted ||
+            !_isHostVisible ||
+            _windowState == ProGpuWpfWindowState.Minimized ||
+            _window is { WindowState: SilkWindowState.Minimized })
         {
             return false;
         }
