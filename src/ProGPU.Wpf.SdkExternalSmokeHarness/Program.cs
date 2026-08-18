@@ -353,7 +353,10 @@ internal static class Program
         AssertContains(portableTargets, "_ProGpuWpfSdkCopyPackageRuntimeAssets", "SDK managed runtime copy target");
         AssertContains(portableTargets, "_ProGpuWpfSdkCopyNativeRuntimeAssets", "SDK native runtime copy target");
 
-        AssertContains(portableBootstrap, "[ModuleInitializer]", "SDK bootstrap module initializer");
+        AssertContains(
+            portableBootstrap,
+            "[global::System.Runtime.CompilerServices.ModuleInitializer]",
+            "SDK bootstrap module initializer");
         AssertContains(portableBootstrap, "WpfPortableWindowActivation.TryRegisterPresentationFrameworkActivation", "SDK presentation framework activation bootstrap");
         AssertContains(portableBootstrap, "WpfPortableWindowActivation.TryRegisterPresentationCoreClipboardService", "SDK presentation core clipboard bootstrap");
 
