@@ -305,7 +305,6 @@ public sealed class WpfPortablePresentationSourceBridge : IDisposable
     internal static bool TrySelectPointerInputOwner(ReadOnlySpan<object?> owners, out object? selectedOwner)
     {
         selectedOwner = null;
-        int selectedDepth = -1;
 
         for (int i = 0; i < owners.Length; i++)
         {
@@ -321,47 +320,14 @@ public sealed class WpfPortablePresentationSourceBridge : IDisposable
                 continue;
             }
 
-            int depth = GetVisualDepth(normalizedOwner);
-            if (depth > selectedDepth)
-            {
-                selectedOwner = normalizedOwner;
-                selectedDepth = depth;
-            }
-        }
-
-        if (selectedOwner != null)
-        {
+            // ProGPU returns point hits in descending Z order. Preserve that order so
+            // a shallower overlay (for example an editable ComboBox toggle button)
+            // wins over a deeper visual from an underlying sibling subtree.
+            selectedOwner = normalizedOwner;
             return true;
         }
 
-        object? deepestEnabledOwner = null;
-        int deepestEnabledDepth = -1;
-        for (int i = 0; i < owners.Length; i++)
-        {
-            object? owner = owners[i];
-            if (owner == null || IsTransparentPointerOverlay(owner))
-            {
-                continue;
-            }
-
-            object enabledOwner = NormalizePointerInputOwner(owner);
-            int depth = GetVisualDepth(enabledOwner);
-            if (depth > deepestEnabledDepth)
-            {
-                deepestEnabledOwner = enabledOwner;
-                deepestEnabledDepth = depth;
-            }
-        }
-
-        selectedOwner = deepestEnabledOwner;
-        return selectedOwner != null;
-    }
-
-    private static object NormalizePointerInputOwner(object owner)
-    {
-        return TryNormalizePointerInputOwner(owner, out object? normalizedOwner)
-            ? normalizedOwner!
-            : owner;
+        return false;
     }
 
     private static bool TryNormalizePointerInputOwner(object owner, out object? normalizedOwner)
@@ -376,26 +342,24 @@ public sealed class WpfPortablePresentationSourceBridge : IDisposable
         object? current = owner;
         for (int depth = 0; current != null && depth < 128; depth++)
         {
-            if (IsTransparentPointerOverlay(current))
+            // An input-disabled or explicitly transparent branch should expose the
+            // next lower Z-order hit, not promote an enabled ancestor over it.
+            if (IsTransparentPointerOverlay(current) || !IsEnabledInputOwner(current))
             {
-                current = TryGetVisualParent(current);
-                continue;
+                return false;
             }
 
-            if (IsEnabledInputOwner(current))
+            firstEnabledOwner ??= current;
+            if (IsWindowOwner(current))
             {
-                firstEnabledOwner ??= current;
-                if (IsWindowOwner(current))
-                {
-                    normalizedOwner = firstEnabledOwner;
-                    return normalizedOwner != null;
-                }
+                normalizedOwner = firstEnabledOwner;
+                return normalizedOwner != null;
+            }
 
-                if (!IsPointerInputInfrastructure(current))
-                {
-                    normalizedOwner = current;
-                    return true;
-                }
+            if (!IsPointerInputInfrastructure(current))
+            {
+                normalizedOwner = current;
+                return true;
             }
 
             current = TryGetVisualParent(current);
@@ -403,25 +367,6 @@ public sealed class WpfPortablePresentationSourceBridge : IDisposable
 
         normalizedOwner = firstEnabledOwner;
         return normalizedOwner != null;
-    }
-
-    private static int GetVisualDepth(object owner)
-    {
-        int depth = 0;
-        object? current = owner;
-        while (current != null && depth < 128)
-        {
-            object? parent = TryGetVisualParent(current);
-            if (parent == null)
-            {
-                break;
-            }
-
-            depth++;
-            current = parent;
-        }
-
-        return depth;
     }
 
     private static bool IsEnabledInputOwner(object owner)
