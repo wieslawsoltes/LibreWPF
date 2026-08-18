@@ -7,6 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="MixedDesktop/**/*.cs" />
     <ProjectReference Include="..\ProGPU.Wpf.SdkSwitchLibrary\ProGPU.Wpf.SdkSwitchLibrary.csproj" />
     <PackageReference Include="Microsoft.Xaml.Behaviors.Wpf" Version="1.1.135" />
   </ItemGroup>

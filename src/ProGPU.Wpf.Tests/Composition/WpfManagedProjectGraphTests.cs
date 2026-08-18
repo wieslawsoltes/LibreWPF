@@ -14596,6 +14596,7 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("<TargetFramework>$(ProGpuWpfSdkSampleTargetFramework)</TargetFramework>", smokeProject, StringComparison.Ordinal);
         Assert.Contains("<RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>", smokeProject, StringComparison.Ordinal);
         Assert.Contains("<UseWPF>true</UseWPF>", smokeProject, StringComparison.Ordinal);
+        Assert.Contains("<Compile Remove=\"MixedDesktop/**/*.cs\" />", smokeProject, StringComparison.Ordinal);
         Assert.Contains(@"<ProjectReference Include=""..\ProGPU.Wpf.SdkSwitchLibrary\ProGPU.Wpf.SdkSwitchLibrary.csproj"" />", smokeProject, StringComparison.Ordinal);
         Assert.Contains("<PackageReference Include=\"Microsoft.Xaml.Behaviors.Wpf\" Version=\"1.1.135\" />", smokeProject, StringComparison.Ordinal);
         Assert.DoesNotContain("EnableDefaultItems", smokeProject, StringComparison.Ordinal);
