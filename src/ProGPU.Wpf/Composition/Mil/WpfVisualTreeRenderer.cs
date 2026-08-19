@@ -500,6 +500,14 @@ public sealed class WpfVisualTreeRenderer
         if (TryReadRenderSizeBounds(visual, out var bounds))
         {
             size = new Vector2((float)bounds.Width, (float)bounds.Height);
+            // WPF uses very large finite doubles as an unbounded layout sentinel.
+            // Do not narrow that sentinel to infinity: ProGPU retained visuals use
+            // their float size to build local transforms, where infinity * 0
+            // produces NaN and drops otherwise valid descendant drawing.
+            if (!float.IsFinite(size.Value.X) || !float.IsFinite(size.Value.Y))
+            {
+                return false;
+            }
         }
 
         state = new WpfRetainedVisualState(

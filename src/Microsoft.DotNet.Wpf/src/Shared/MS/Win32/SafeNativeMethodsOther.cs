@@ -8,6 +8,8 @@ namespace MS.Win32
 {
     internal partial class SafeNativeMethods
     {
+        private const int DefaultCaretBlinkTimeMilliseconds = 500;
+
         [Flags]
         internal enum PlaySoundFlags
         {
@@ -57,7 +59,10 @@ namespace MS.Win32
 
             if (!OperatingSystem.IsWindows())
             {
-                return 0;
+                // GetCaretBlinkTime reports zero only when the Win32 call fails.
+                // Returning that value for a platform without user32 causes WPF's
+                // caret animation to interpret the missing API as "do not blink".
+                return DefaultCaretBlinkTimeMilliseconds;
             }
 
             return SafeNativeMethodsPrivate.GetCaretBlinkTime();

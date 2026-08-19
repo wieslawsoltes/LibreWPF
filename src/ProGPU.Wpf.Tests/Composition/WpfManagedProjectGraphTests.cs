@@ -6,6 +6,22 @@ namespace ProGPU.Wpf.Tests.Composition;
 public sealed class WpfManagedProjectGraphTests
 {
     [Fact]
+    public void PortableCaretBlinkFallbackIsAValidPositiveInterval()
+    {
+        var safeNativeMethods = File.ReadAllText(FindRepoPath(
+            "src",
+            "Microsoft.DotNet.Wpf",
+            "src",
+            "Shared",
+            "MS",
+            "Win32",
+            "SafeNativeMethodsOther.cs"));
+        Assert.Contains("private const int DefaultCaretBlinkTimeMilliseconds = 500", safeNativeMethods, StringComparison.Ordinal);
+        Assert.Contains("return DefaultCaretBlinkTimeMilliseconds;", safeNativeMethods, StringComparison.Ordinal);
+        AssertGuardBefore(safeNativeMethods, "if (!OperatingSystem.IsWindows())", "SafeNativeMethodsPrivate.GetCaretBlinkTime()");
+    }
+
+    [Fact]
     public void FocusedProGpuWpfGraphAvoidsSharedOutputParallelContention()
     {
         var project = XDocument.Load(FindRepoPath(

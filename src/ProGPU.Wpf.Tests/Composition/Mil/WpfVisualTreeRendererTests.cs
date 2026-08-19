@@ -484,6 +484,26 @@ public sealed class WpfVisualTreeRendererTests
     }
 
     [Fact]
+    public void ReplaySubtreeFallsBackWhenRenderSizeExceedsPortableFloatRange()
+    {
+        var root = new FakePortableVisualLayoutVisual(new PortableVisualLayoutState
+        {
+            HasRenderSize = true,
+            RenderSize = new ProGPU.Wpf.Interop.PortableSize(80, double.MaxValue / 2)
+        });
+        root.Children.Add(new FakeDrawingVisual(CreateRenderData(Brushes.Green)));
+
+        var sink = new TestSink { AcceptRetainedVisualOwners = true };
+        var result = new WpfVisualTreeRenderer().ReplaySubtree(root, sink);
+
+        Assert.Empty(sink.RetainedVisualStates);
+        Assert.Single(sink.DrawRectangles);
+        Assert.Equal(2, result.VisualCount);
+        Assert.Equal(1, result.ContentCount);
+        Assert.Equal(0, result.UnsupportedVisualStateCount);
+    }
+
+    [Fact]
     public void ReplaySubtreeUsesPortableLayoutStateForClipToBoundsAndOpacityMaskBounds()
     {
         var root = new FakePortableVisualStateAndLayoutVisual(
