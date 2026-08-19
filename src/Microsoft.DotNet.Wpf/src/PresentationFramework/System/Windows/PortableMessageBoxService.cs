@@ -56,13 +56,13 @@ namespace System.Windows
         private static readonly bool s_isWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
         private static readonly MessageBoxServiceRegistrar s_registrar = new MessageBoxServiceRegistrar();
         private static IDisposable s_registrarRegistration;
-        private static Func<PortableMessageBoxRequest, MessageBoxResult> s_show;
+        private static Handler s_handler;
 
         internal static bool IsEnabled
         {
             get
             {
-                return !s_isWindows && Volatile.Read(ref s_show) != null;
+                return !s_isWindows && Volatile.Read(ref s_handler) != null;
             }
         }
 
@@ -75,7 +75,9 @@ namespace System.Windows
         {
             ArgumentNullException.ThrowIfNull(show);
 
-            return Register(request => ConvertResult(request, show(request)));
+            return Register(
+                request => ConvertResult(request, show(request)),
+                preferBeforePortableDialog: true);
         }
 
         internal static IDisposable Register(Func<PortableMessageBoxRequest, MessageBoxResult> show)
@@ -87,13 +89,34 @@ namespace System.Windows
                 return EmptyRegistration.Instance;
             }
 
-            Volatile.Write(ref s_show, show);
-            return new Registration(show);
+            return Register(show, preferBeforePortableDialog: false);
         }
 
         internal static void Clear()
         {
-            Volatile.Write(ref s_show, null);
+            Volatile.Write(ref s_handler, null);
+        }
+
+        internal static bool TryShowOverride(
+            object owner,
+            string messageBoxText,
+            string caption,
+            MessageBoxButton button,
+            MessageBoxImage icon,
+            MessageBoxResult defaultResult,
+            MessageBoxOptions options,
+            out MessageBoxResult result)
+        {
+            return TryShowCore(
+                owner,
+                messageBoxText,
+                caption,
+                button,
+                icon,
+                defaultResult,
+                options,
+                requireOverride: true,
+                out result);
         }
 
         internal static bool TryShow(
@@ -106,6 +129,45 @@ namespace System.Windows
             MessageBoxOptions options,
             out MessageBoxResult result)
         {
+            return TryShowCore(
+                owner,
+                messageBoxText,
+                caption,
+                button,
+                icon,
+                defaultResult,
+                options,
+                requireOverride: false,
+                out result);
+        }
+
+        private static IDisposable Register(
+            Func<PortableMessageBoxRequest, MessageBoxResult> show,
+            bool preferBeforePortableDialog)
+        {
+            ArgumentNullException.ThrowIfNull(show);
+
+            if (s_isWindows)
+            {
+                return EmptyRegistration.Instance;
+            }
+
+            var handler = new Handler(show, preferBeforePortableDialog);
+            Volatile.Write(ref s_handler, handler);
+            return new Registration(handler);
+        }
+
+        private static bool TryShowCore(
+            object owner,
+            string messageBoxText,
+            string caption,
+            MessageBoxButton button,
+            MessageBoxImage icon,
+            MessageBoxResult defaultResult,
+            MessageBoxOptions options,
+            bool requireOverride,
+            out MessageBoxResult result)
+        {
             result = MessageBoxResult.None;
 
             if (s_isWindows)
@@ -113,8 +175,8 @@ namespace System.Windows
                 return false;
             }
 
-            Func<PortableMessageBoxRequest, MessageBoxResult> show = Volatile.Read(ref s_show);
-            if (show == null)
+            Handler handler = Volatile.Read(ref s_handler);
+            if (handler == null || (requireOverride && !handler.PreferBeforePortableDialog))
             {
                 return false;
             }
@@ -127,7 +189,7 @@ namespace System.Windows
                 icon,
                 defaultResult,
                 options);
-            result = show(request);
+            result = handler.Show(request);
             return true;
         }
 
@@ -166,27 +228,42 @@ namespace System.Windows
                 request.FallbackResult.ToString());
         }
 
+        private sealed class Handler
+        {
+            internal Handler(
+                Func<PortableMessageBoxRequest, MessageBoxResult> show,
+                bool preferBeforePortableDialog)
+            {
+                Show = show;
+                PreferBeforePortableDialog = preferBeforePortableDialog;
+            }
+
+            internal Func<PortableMessageBoxRequest, MessageBoxResult> Show { get; }
+
+            internal bool PreferBeforePortableDialog { get; }
+        }
+
         private sealed class Registration : IDisposable
         {
-            private Func<PortableMessageBoxRequest, MessageBoxResult> _show;
+            private Handler _handler;
 
-            public Registration(Func<PortableMessageBoxRequest, MessageBoxResult> show)
+            public Registration(Handler handler)
             {
-                _show = show;
+                _handler = handler;
             }
 
             public void Dispose()
             {
-                Func<PortableMessageBoxRequest, MessageBoxResult> show = _show;
-                if (show == null)
+                Handler handler = _handler;
+                if (handler == null)
                 {
                     return;
                 }
 
-                _show = null;
-                if (ReferenceEquals(Volatile.Read(ref s_show), show))
+                _handler = null;
+                if (ReferenceEquals(Volatile.Read(ref s_handler), handler))
                 {
-                    Volatile.Write(ref s_show, null);
+                    Volatile.Write(ref s_handler, null);
                 }
             }
         }
@@ -215,7 +292,17 @@ namespace System.Windows
                 ArgumentNullException.ThrowIfNull(show);
 
                 return PortableMessageBoxService.Register(
-                    request => ConvertResult(request, show(CreateInteropRequest(request))));
+                    request => ConvertResult(request, show(CreateInteropRequest(request))),
+                    preferBeforePortableDialog: true);
+            }
+
+            public IDisposable RegisterFallback(Func<ProGPU.Wpf.Interop.PortableMessageBoxRequest, string> show)
+            {
+                ArgumentNullException.ThrowIfNull(show);
+
+                return PortableMessageBoxService.Register(
+                    request => ConvertResult(request, show(CreateInteropRequest(request))),
+                    preferBeforePortableDialog: false);
             }
 
             public void Clear()

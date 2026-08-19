@@ -1257,6 +1257,7 @@
     <Compile Include="System\Windows\Media\TextOptions.cs" />
     <Compile Include="System\Windows\MessageBox.cs" />
     <Compile Include="System\Windows\PortableLauncherService.cs" />
+    <Compile Include="System\Windows\PortableMessageBoxDialog.cs" />
     <Compile Include="System\Windows\PortableMessageBoxService.cs" />
     <Compile Include="System\Windows\MultiDataTrigger.cs" />
     <Compile Include="System\Windows\MultiTrigger.cs" />

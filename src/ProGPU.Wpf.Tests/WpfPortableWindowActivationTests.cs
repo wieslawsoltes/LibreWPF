@@ -80,6 +80,7 @@ public sealed class WpfPortableWindowActivationTests
         Assert.True(fileDialogRegistered);
         Assert.Equal(launcherRegisterCountBefore + 1, launcherService.RegisterCount);
         Assert.Equal(messageBoxRegisterCountBefore + 1, messageBoxService.RegisterCount);
+        Assert.Equal(1, messageBoxService.FallbackRegisterCount);
         Assert.Equal(fileDialogRegisterCountBefore + 1, fileDialogService.RegisterCount);
         Assert.NotNull(launcherService.Launch);
         Assert.NotNull(messageBoxService.Show);
@@ -97,6 +98,7 @@ public sealed class WpfPortableWindowActivationTests
 
         Assert.True(registered);
         Assert.Equal(registerCountBefore + 1, service.RegisterCount);
+        Assert.Equal(1, service.FallbackRegisterCount);
         Assert.NotNull(service.Show);
     }
 
@@ -122,6 +124,7 @@ public sealed class WpfPortableWindowActivationTests
 
             Assert.Equal(1, observedRegistrationCount);
             Assert.Equal(1, service.RegisterCount);
+            Assert.Equal(1, service.FallbackRegisterCount);
             Assert.NotNull(service.Show);
         }
         finally
@@ -2301,6 +2304,8 @@ public sealed class WpfPortableWindowActivationTests
 
         public int RegisterCount { get; private set; }
 
+        public int FallbackRegisterCount { get; private set; }
+
         public Func<PortableMessageBoxRequest, string?>? Show { get; private set; }
 
         public PortableWpfServiceKey ServiceKey
@@ -2316,6 +2321,12 @@ public sealed class WpfPortableWindowActivationTests
             RegisterCount++;
             Show = show;
             return new TestPortableServiceRegistration();
+        }
+
+        public IDisposable RegisterFallback(Func<PortableMessageBoxRequest, string?> show)
+        {
+            FallbackRegisterCount++;
+            return Register(show);
         }
 
         public void Clear()

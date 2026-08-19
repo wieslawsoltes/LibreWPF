@@ -2,12 +2,104 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.ComponentModel;
+using System.Reflection;
 using System.Windows.Interop;
 
 namespace System.Windows;
 
 public sealed class MessageBoxTests
 {
+    [Fact]
+    public void PortableDialog_ButtonConfigurations_PreserveAllWpfResults()
+    {
+        Assert.Equal(
+            new[] { MessageBoxResult.OK },
+            GetPortableButtonResults(MessageBoxButton.OK));
+        Assert.Equal(
+            new[] { MessageBoxResult.OK, MessageBoxResult.Cancel },
+            GetPortableButtonResults(MessageBoxButton.OKCancel));
+        Assert.Equal(
+            new[] { MessageBoxResult.Abort, MessageBoxResult.Retry, MessageBoxResult.Ignore },
+            GetPortableButtonResults(MessageBoxButton.AbortRetryIgnore));
+        Assert.Equal(
+            new[] { MessageBoxResult.Yes, MessageBoxResult.No, MessageBoxResult.Cancel },
+            GetPortableButtonResults(MessageBoxButton.YesNoCancel));
+        Assert.Equal(
+            new[] { MessageBoxResult.Yes, MessageBoxResult.No },
+            GetPortableButtonResults(MessageBoxButton.YesNo));
+        Assert.Equal(
+            new[] { MessageBoxResult.Retry, MessageBoxResult.Cancel },
+            GetPortableButtonResults(MessageBoxButton.RetryCancel));
+        Assert.Equal(
+            new[] { MessageBoxResult.Cancel, MessageBoxResult.TryAgain, MessageBoxResult.Continue },
+            GetPortableButtonResults(MessageBoxButton.CancelTryContinue));
+    }
+
+    [Fact]
+    public void PortableDialog_DefaultResult_MustBelongToConfiguration()
+    {
+        MessageBoxResult[] results = GetPortableButtonResults(MessageBoxButton.YesNoCancel);
+
+        Assert.Equal(MessageBoxResult.No, GetPortableDefaultResult(results, MessageBoxResult.No));
+        Assert.Equal(MessageBoxResult.Yes, GetPortableDefaultResult(results, MessageBoxResult.None));
+        Assert.Equal(MessageBoxResult.Yes, GetPortableDefaultResult(results, MessageBoxResult.Retry));
+    }
+
+    [Fact]
+    public void PortableDialog_Centering_UsesOwnerCoordinates()
+    {
+        Type dialogType = GetPortableDialogType();
+        MethodInfo method = dialogType.GetMethod(
+            "GetCenteredPosition",
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+
+        var position = (Point)method.Invoke(
+            null,
+            new object[] { 132d, 64d, 2560d, 1600d, 520d, 200d })!;
+
+        Assert.Equal(new Point(1152d, 764d), position);
+    }
+
+    [Fact]
+    public void PortableService_ExplicitRegistration_IsAnOverride()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        Type serviceType = typeof(MessageBox).Assembly.GetType(
+            "System.Windows.PortableMessageBoxService",
+            throwOnError: true)!;
+        MethodInfo register = serviceType.GetMethod(
+            "Register",
+            BindingFlags.Static | BindingFlags.NonPublic,
+            binder: null,
+            types: new[] { typeof(Func<object, object>) },
+            modifiers: null)!;
+        MethodInfo tryShowOverride = serviceType.GetMethod(
+            "TryShowOverride",
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+
+        using IDisposable registration = (IDisposable)register.Invoke(
+            null,
+            new object[] { (Func<object, object>)(_ => MessageBoxResult.No) })!;
+        object[] arguments =
+        {
+            null!,
+            "message",
+            "caption",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Question,
+            MessageBoxResult.Yes,
+            MessageBoxOptions.None,
+            MessageBoxResult.None,
+        };
+
+        Assert.True((bool)tryShowOverride.Invoke(null, arguments)!);
+        Assert.Equal(MessageBoxResult.No, arguments[^1]);
+    }
+
     // MessageBoxButton range is from 0x00000000 to 0x00000006
     // Values outside are illegal.
     [WpfTheory]
@@ -157,5 +249,34 @@ public sealed class MessageBoxTests
         // Act & Assert
         Assert.Throws<ArgumentException>(() =>
             MessageBox.Show(owner, "Test Message", "Test Caption", MessageBoxButton.OK, MessageBoxImage.None, MessageBoxResult.None, messageBoxOptions));
+    }
+
+    private static MessageBoxResult[] GetPortableButtonResults(MessageBoxButton button)
+    {
+        Type dialogType = GetPortableDialogType();
+        MethodInfo method = dialogType.GetMethod(
+            "GetButtonResults",
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+
+        return (MessageBoxResult[])method.Invoke(null, new object[] { button })!;
+    }
+
+    private static MessageBoxResult GetPortableDefaultResult(
+        MessageBoxResult[] results,
+        MessageBoxResult requestedDefault)
+    {
+        Type dialogType = GetPortableDialogType();
+        MethodInfo method = dialogType.GetMethod(
+            "GetDefaultResult",
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+
+        return (MessageBoxResult)method.Invoke(null, new object[] { results, requestedDefault })!;
+    }
+
+    private static Type GetPortableDialogType()
+    {
+        return typeof(MessageBox).Assembly.GetType(
+            "System.Windows.PortableMessageBoxDialog",
+            throwOnError: true)!;
     }
 }

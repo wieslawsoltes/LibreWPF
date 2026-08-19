@@ -442,6 +442,32 @@ namespace System.Windows
 
             if (!OperatingSystem.IsWindows())
             {
+                if (PortableMessageBoxService.TryShowOverride(
+                    owner,
+                    messageBoxText,
+                    caption,
+                    button,
+                    icon,
+                    defaultResult,
+                    options,
+                    out MessageBoxResult overrideResult))
+                {
+                    return overrideResult;
+                }
+
+                if (PortableMessageBoxDialog.TryShow(
+                    owner,
+                    messageBoxText,
+                    caption,
+                    button,
+                    icon,
+                    defaultResult,
+                    options,
+                    out MessageBoxResult dialogResult))
+                {
+                    return dialogResult;
+                }
+
                 if (PortableMessageBoxService.TryShow(
                     owner,
                     messageBoxText,

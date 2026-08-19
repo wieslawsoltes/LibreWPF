@@ -212,7 +212,7 @@ public sealed class WpfPortableWindowActivation : IDisposable
                 PortableWpfServiceKey.PresentationFramework,
                 out var messageBoxService))
         {
-            messageBoxService.Register(ShowPortableMessageBox);
+            messageBoxService.RegisterFallback(ShowPortableMessageBox);
             return true;
         }
 
@@ -225,7 +225,7 @@ public sealed class WpfPortableWindowActivation : IDisposable
                 PortableWpfServiceKey.WinForms,
                 out var messageBoxService))
         {
-            messageBoxService.Register(ShowPortableMessageBox);
+            messageBoxService.RegisterFallback(ShowPortableMessageBox);
             return true;
         }
 
@@ -298,7 +298,7 @@ public sealed class WpfPortableWindowActivation : IDisposable
         if (service.ServiceKey == PortableWpfServiceKey.PresentationFramework ||
             service.ServiceKey == PortableWpfServiceKey.WinForms)
         {
-            service.Register(ShowPortableMessageBox);
+            service.RegisterFallback(ShowPortableMessageBox);
         }
     }
 
