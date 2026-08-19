@@ -24,7 +24,7 @@ namespace System.Windows.Controls
     /// </summary>
     [Localizability(LocalizationCategory.Inherit)]
     [ContentProperty("Document")]
-    public class RichTextBox : TextBoxBase, IAddChild
+    public class RichTextBox : TextBoxBase, IAddChild, ITextBoxViewHost
     {
         // -----------------------------------------------------------
         //
@@ -313,6 +313,18 @@ namespace System.Windows.Controls
         // Allocates the initial render scope for this control.
         internal override FrameworkElement CreateRenderScope()
         {
+            // PTS is provided by PresentationNative_cor3.dll and is unavailable on
+            // non-Windows platforms. Reuse the managed TextFormatter-based editor
+            // view there so the existing TextEditor keeps its caret, selection,
+            // input, and undo behavior while ProGPU renders the resulting visuals.
+            if (!OperatingSystem.IsWindows())
+            {
+                return new TextBoxView(this)
+                {
+                    OverridesDefaultStyle = true
+                };
+            }
+
             FlowDocumentView renderScope = new FlowDocumentView
             {
                 Document = this.Document
@@ -327,6 +339,10 @@ namespace System.Windows.Controls
 
             return renderScope;
         }
+
+        ITextContainer ITextBoxViewHost.TextContainer => TextContainer;
+
+        bool ITextBoxViewHost.IsTypographyDefaultValue => false;
 
         #endregion Protected Methods
 

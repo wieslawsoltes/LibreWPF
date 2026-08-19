@@ -11,6 +11,7 @@ using System.Windows.Documents;
 using System.Windows.Media;
 using System.Windows.Media.TextFormatting;
 using MS.Internal;
+using MS.Internal.Documents;
 using MS.Internal.Text;
 
 namespace System.Windows.Controls
@@ -78,10 +79,23 @@ namespace System.Windows.Controls
                     break;
 
                 case TextPointerContext.ElementStart:
+                    Invariant.Assert(_owner.Host is RichTextBox, "Element edges are only supported for the portable RichTextBox view.");
+                    run = position.GetAdjacentElement(LogicalDirection.Forward) is LineBreak
+                        ? new TextEndOfLine(2)
+                        : new TextHidden(1);
+                    break;
+
                 case TextPointerContext.ElementEnd:
+                    Invariant.Assert(_owner.Host is RichTextBox, "Element edges are only supported for the portable RichTextBox view.");
+                    run = position.GetAdjacentElement(LogicalDirection.Forward) is Block &&
+                          position.CreatePointer(1).GetPointerContext(LogicalDirection.Forward) != TextPointerContext.None
+                        ? new TextEndOfLine(1)
+                        : new TextHidden(1);
+                    break;
+
                 case TextPointerContext.EmbeddedElement:
-                default:
-                    Invariant.Assert(false, "Unsupported position type.");
+                    Invariant.Assert(_owner.Host is RichTextBox, "Embedded elements are only supported for the portable RichTextBox view.");
+                    run = new TextHidden(TextContainerHelper.EmbeddedObjectLength);
                     break;
             }
             Invariant.Assert(run != null, "TextRun has not been created.");
@@ -96,6 +110,32 @@ namespace System.Windows.Controls
         /// </summary>
         public override TextSpan<CultureSpecificCharacterBufferRange> GetPrecedingText(int dcp)
         {
+            if (_owner.Host is RichTextBox)
+            {
+                int nonTextLength = 0;
+                CharacterBufferRange richPrecedingText = CharacterBufferRange.Empty;
+                CultureInfo richCulture = null;
+
+                if (dcp > 0)
+                {
+                    ITextPointer position = _owner.Host.TextContainer.CreatePointerAtOffset(dcp, LogicalDirection.Backward);
+                    while (position.GetPointerContext(LogicalDirection.Backward) != TextPointerContext.Text &&
+                           position.CompareTo(_owner.Host.TextContainer.Start) != 0)
+                    {
+                        position.MoveByOffset(-1);
+                        nonTextLength++;
+                    }
+
+                    string precedingTextString = position.GetTextInRun(LogicalDirection.Backward);
+                    richPrecedingText = new CharacterBufferRange(precedingTextString, 0, precedingTextString.Length);
+                    richCulture = DynamicPropertyReader.GetCultureInfo(position.CreateStaticPointer().Parent ?? (Control)_owner.Host);
+                }
+
+                return new TextSpan<CultureSpecificCharacterBufferRange>(
+                    nonTextLength + richPrecedingText.Length,
+                    new CultureSpecificCharacterBufferRange(richCulture, richPrecedingText));
+            }
+
             CharacterBufferRange precedingText = CharacterBufferRange.Empty;
             CultureInfo culture = null;
 
@@ -433,7 +473,9 @@ namespace System.Windows.Controls
             // Factor in any speller error squiggles on the run.
             TextDecorationCollection highlightDecorations = highlights.GetHighlightValue(position, LogicalDirection.Forward, typeof(SpellerHighlightLayer)) as TextDecorationCollection;
 
-            TextRunProperties properties = _lineProperties.DefaultTextRunProperties;
+            TextRunProperties properties = _owner.Host is RichTextBox
+                ? new TextProperties(position.Parent ?? (Control)_owner.Host, position, false, true, PixelsPerDip)
+                : _lineProperties.DefaultTextRunProperties;
 
             if (highlightDecorations != null)
             {

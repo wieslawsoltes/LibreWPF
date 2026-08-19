@@ -562,6 +562,12 @@ namespace System.Windows.Controls
             else
             {
                 position = GetTextPositionFromDistance(lineIndex, point.X);
+                if (_host is RichTextBox)
+                {
+                    // Rich document tags are represented by zero-width formatter
+                    // runs. Keep mouse selection on a valid editable position.
+                    position = position.GetInsertionPosition(LogicalDirection.Forward);
+                }
                 position.Freeze();
             }
 
