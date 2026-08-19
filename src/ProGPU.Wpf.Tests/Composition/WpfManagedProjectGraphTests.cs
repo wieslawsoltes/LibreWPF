@@ -9012,6 +9012,13 @@ public sealed class WpfManagedProjectGraphTests
         AssertGuardBefore(popup, "if (!OperatingSystem.IsWindows())\n            {\n                // Portable popups share the owner's compositor surface", "SafeNativeMethods.MonitorFromRect");
         Assert.Contains("Rect sourceBounds = _secHelper.GetParentWindowRect();", popup, StringComparison.Ordinal);
         Assert.DoesNotContain("GetPortablePrimaryScreenBounds", popup, StringComparison.Ordinal);
+        Assert.Contains("bool usesPortableLogicalScreenCoordinates = UsesPortableLogicalScreenCoordinates(_popupRoot);", popup, StringComparison.Ordinal);
+        Assert.Contains("if (!usesPortableLogicalScreenCoordinates)", popup, StringComparison.Ordinal);
+        AssertGuardBefore(popup, "if (!usesPortableLogicalScreenCoordinates)", "desiredSize = (Size)_secHelper.GetTransformToDevice().Transform((Point)desiredSize);");
+        Assert.Contains(
+            "if (!usesPortableLogicalScreenCoordinates)\n            {\n                // Convert back from screen space to popup's space\n                desiredSize = (Size)_secHelper.GetTransformFromDevice().Transform((Point)desiredSize);",
+            popup,
+            StringComparison.Ordinal);
         AssertGuardBefore(popup, "if (IsPerMonitorDpiScalingActive && OperatingSystem.IsWindows())", "SafeNativeMethods.MonitorFromPoint");
         Assert.Contains("if (!OperatingSystem.IsWindows())\n                {\n                    if (position)", popup, StringComparison.Ordinal);
         Assert.Contains("if (!OperatingSystem.IsWindows())\n                {\n                    TryShowPortablePopup();", popup, StringComparison.Ordinal);

@@ -2808,8 +2808,14 @@ namespace System.Windows.Controls.Primitives
             Size limitSize;
             GetPopupRootLimits(out targetBounds, out screenBounds, out limitSize);
 
-            // Convert from popup's space to screen space
-            desiredSize = (Size)_secHelper.GetTransformToDevice().Transform((Point)desiredSize);
+            bool usesPortableLogicalScreenCoordinates = UsesPortableLogicalScreenCoordinates(_popupRoot);
+
+            // Native HWND screen bounds are expressed in device pixels. Portable screen
+            // bounds stay in logical units, matching the popup root's desired size.
+            if (!usesPortableLogicalScreenCoordinates)
+            {
+                desiredSize = (Size)_secHelper.GetTransformToDevice().Transform((Point)desiredSize);
+            }
 
             desiredSize.Width = Math.Min(desiredSize.Width, screenBounds.Width);
             desiredSize.Width = Math.Min(desiredSize.Width, limitSize.Width);
@@ -2820,8 +2826,11 @@ namespace System.Windows.Controls.Primitives
             desiredSize.Height = Math.Min(desiredSize.Height, maxHeight);
             desiredSize.Height = Math.Min(desiredSize.Height, limitSize.Height);
 
-            // Convert back from screen space to popup's space
-            desiredSize = (Size)_secHelper.GetTransformFromDevice().Transform((Point)desiredSize);
+            if (!usesPortableLogicalScreenCoordinates)
+            {
+                // Convert back from screen space to popup's space
+                desiredSize = (Size)_secHelper.GetTransformFromDevice().Transform((Point)desiredSize);
+            }
 
             return desiredSize;
         }
