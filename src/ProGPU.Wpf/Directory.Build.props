@@ -12,7 +12,7 @@
     <AssemblyVersion Condition="'$(AssemblyVersion)' == ''">0.1.0.0</AssemblyVersion>
     <FileVersion Condition="'$(FileVersion)' == ''">0.1.0.0</FileVersion>
     <InformationalVersion Condition="'$(InformationalVersion)' == ''">$(Version)</InformationalVersion>
-    <PackageReleaseNotes Condition="'$(PackageReleaseNotes)' == ''">Aligns LibreWPF preview.42 with immutable ProGPU preview.51 and adds the portable WPF window-icon contract, PE application-icon fallback, modifier-aware managed text fallback, and safe child-window close disposal; retains WebGPU adapter-selection diagnostics, exact transformed and shader-backed stroke replay, native activation, deterministic popup-local input, transparent X11/XWayland visuals, nonactivating windows, bounded render-resource caches, static-frame GPU suppression, Windows OLE clipboard, and the WPFGallery and SharpDevelop acceptance gates.</PackageReleaseNotes>
+    <PackageReleaseNotes Condition="'$(PackageReleaseNotes)' == ''">Aligns LibreWPF preview.42 with immutable ProGPU preview.52 and adds the portable WPF window-icon contract, PE application-icon fallback, modifier-aware managed text fallback, and safe child-window close disposal; retains WebGPU adapter-selection diagnostics, exact transformed and shader-backed stroke replay, native activation, deterministic popup-local input, transparent X11/XWayland visuals, nonactivating windows, bounded render-resource caches, static-frame GPU suppression, Windows OLE clipboard, and the WPFGallery and SharpDevelop acceptance gates.</PackageReleaseNotes>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
