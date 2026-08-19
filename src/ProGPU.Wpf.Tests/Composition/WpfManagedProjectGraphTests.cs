@@ -2329,6 +2329,24 @@ public sealed class WpfManagedProjectGraphTests
             "System",
             "Windows",
             "PortableWindowActivationService.cs");
+        var iconHelperPath = FindRepoPath(
+            "src",
+            "Microsoft.DotNet.Wpf",
+            "src",
+            "PresentationFramework",
+            "MS",
+            "Internal",
+            "AppModel",
+            "IconHelper.cs");
+        var portableExecutableIconReaderPath = FindRepoPath(
+            "src",
+            "Microsoft.DotNet.Wpf",
+            "src",
+            "PresentationFramework",
+            "MS",
+            "Internal",
+            "AppModel",
+            "PortableExecutableIconReader.cs");
         var windowChromeWorkerPath = FindRepoPath(
             "src",
             "Microsoft.DotNet.Wpf",
@@ -2356,6 +2374,8 @@ public sealed class WpfManagedProjectGraphTests
         var window = File.ReadAllText(windowPath);
         var application = File.ReadAllText(applicationPath);
         var activationService = File.ReadAllText(activationServicePath);
+        var iconHelper = File.ReadAllText(iconHelperPath);
+        var portableExecutableIconReader = File.ReadAllText(portableExecutableIconReaderPath);
         var windowChromeWorker = File.ReadAllText(windowChromeWorkerPath);
         var portableInput = File.ReadAllText(portableInputPath);
         var project = File.ReadAllText(projectPath);
@@ -2375,6 +2395,8 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("internal static void SetWindowState(object activation, WindowState windowState)", activationService, StringComparison.Ordinal);
         Assert.Contains("Action<object, string> setTitle", activationService, StringComparison.Ordinal);
         Assert.Contains("internal static void SetTitle(object activation, string title)", activationService, StringComparison.Ordinal);
+        Assert.Contains("Action<object, object> setIcon", activationService, StringComparison.Ordinal);
+        Assert.Contains("internal static void SetIcon(object activation, object icon)", activationService, StringComparison.Ordinal);
         Assert.Contains("Action<object, double, double> setClientSize", activationService, StringComparison.Ordinal);
         Assert.Contains("internal static void SetClientSize(object activation, double width, double height)", activationService, StringComparison.Ordinal);
         Assert.Contains("Action<object, double, double> setPosition", activationService, StringComparison.Ordinal);
@@ -2391,6 +2413,7 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("Func<object, bool> requestActivation = null", activationService, StringComparison.Ordinal);
         Assert.Contains("internal static bool TryRequestActivation(object activation)", activationService, StringComparison.Ordinal);
         Assert.Contains("callbacks.RequestActivation", activationService, StringComparison.Ordinal);
+        Assert.Contains("callbacks.SetIcon", activationService, StringComparison.Ordinal);
         Assert.Contains("NotifyPortableInputProvidersDeactivated(window)", activationService, StringComparison.Ordinal);
         Assert.Contains("source.GetInputProvider(typeof(KeyboardDevice))?.NotifyDeactivate()", activationService, StringComparison.Ordinal);
         Assert.Contains("source.GetInputProvider(typeof(MouseDevice))?.NotifyDeactivate()", activationService, StringComparison.Ordinal);
@@ -2433,6 +2456,7 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("window.PortableWindowActivation", activationService, StringComparison.Ordinal);
         Assert.Contains(@"<Compile Include=""System\Windows\PortableInputEventArgs.cs"" />", project, StringComparison.Ordinal);
         Assert.Contains(@"<Compile Include=""System\Windows\PortableWindowActivationService.cs"" />", project, StringComparison.Ordinal);
+        Assert.Contains(@"<Compile Include=""MS\Internal\AppModel\PortableExecutableIconReader.cs"" />", project, StringComparison.Ordinal);
 
         Assert.Contains("private object              _portableWindowActivation", window, StringComparison.Ordinal);
         Assert.Contains("internal object PortableWindowActivation", window, StringComparison.Ordinal);
@@ -2446,6 +2470,18 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("PortableWindowActivationService.Hide(_portableWindowActivation)", window, StringComparison.Ordinal);
         Assert.Contains("PortableWindowActivationService.SetWindowState(_portableWindowActivation, windowState)", window, StringComparison.Ordinal);
         Assert.Contains("PortableWindowActivationService.SetTitle(_portableWindowActivation, Title)", window, StringComparison.Ordinal);
+        Assert.Contains("ImageSource portableIcon = GetPortableWindowIconImageSource();", window, StringComparison.Ordinal);
+        Assert.Contains("HasIcon = portableIcon != null", window, StringComparison.Ordinal);
+        Assert.Contains("Icon = portableIcon", window, StringComparison.Ordinal);
+        Assert.Contains("return _icon ?? IconHelper.GetPortableDefaultIconImageSource();", window, StringComparison.Ordinal);
+        Assert.Contains("PortableWindowActivationService.SetIcon(", window, StringComparison.Ordinal);
+        Assert.Contains("internal static ImageSource GetPortableDefaultIconImageSource()", iconHelper, StringComparison.Ordinal);
+        Assert.Contains("Assembly.GetEntryAssembly()?.Location", iconHelper, StringComparison.Ordinal);
+        Assert.Contains("PortableExecutableIconReader.TryReadApplicationIcon", iconHelper, StringComparison.Ordinal);
+        Assert.Contains("new IconBitmapDecoder(", iconHelper, StringComparison.Ordinal);
+        Assert.Contains("using PEReader peReader", portableExecutableIconReader, StringComparison.Ordinal);
+        Assert.Contains("private const int IconResourceType = 3;", portableExecutableIconReader, StringComparison.Ordinal);
+        Assert.Contains("private const int GroupIconResourceType = 14;", portableExecutableIconReader, StringComparison.Ordinal);
         Assert.Contains("PortableWindowActivationService.SetClientSize(_portableWindowActivation, Width, height)", window, StringComparison.Ordinal);
         Assert.Contains("PortableWindowActivationService.SetClientSize(_portableWindowActivation, width, Height)", window, StringComparison.Ordinal);
         Assert.Contains("PortableWindowActivationService.SetPosition(_portableWindowActivation, leftLogicalUnits, topLogicalUnits)", window, StringComparison.Ordinal);
@@ -8400,7 +8436,7 @@ public sealed class WpfManagedProjectGraphTests
             "src",
             "PresentationCore",
             "MS",
-            "Internal",
+            "internal",
             "TextFormatting",
             "LineServices.cs"));
         var textFormatterImp = File.ReadAllText(FindRepoPath(
@@ -9432,13 +9468,17 @@ public sealed class WpfManagedProjectGraphTests
             "src",
             "PresentationCore",
             "MS",
-            "Internal",
+            "internal",
             "TextFormatting",
             "SimpleTextLine.cs"));
 
         Assert.Contains("return CollapsePortable(collapsingPropertiesList) ?? this;", simpleTextLine, StringComparison.Ordinal);
         Assert.Contains("private TextLine CollapsePortable(", simpleTextLine, StringComparison.Ordinal);
         Assert.Contains("CreatePortableSymbolRun", simpleTextLine, StringComparison.Ordinal);
+        Assert.Contains("TextModifierScope portableModifierScope = null;", simpleTextLine, StringComparison.Ordinal);
+        Assert.Contains("if (textRun is TextModifier modifier)", simpleTextLine, StringComparison.Ordinal);
+        Assert.Contains("portableModifierScope.ModifyProperties(characters.Properties)", simpleTextLine, StringComparison.Ordinal);
+        Assert.Contains("SimpleRun.CreatePortableFormattingControl(", simpleTextLine, StringComparison.Ordinal);
         Assert.Contains("new TextCollapsedRange(_cpFirst + keptCharacters, collapsedLength, collapsedWidth)", simpleTextLine, StringComparison.Ordinal);
         Assert.Contains("private IList<TextCollapsedRange> _collapsedRanges", simpleTextLine, StringComparison.Ordinal);
         Assert.Contains("get { return (_statusFlags & StatusFlags.HasCollapsed) != 0; }", simpleTextLine, StringComparison.Ordinal);
@@ -12122,8 +12162,8 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("<ProGpuWpfReferenceMode Condition=\"'$(ProGpuWpfReferenceMode)' == '' And ('$(ProGpuWpfManagedReferenceRoot)' != '' Or '$(ProGpuReferenceRoot)' != '')\">LocalArtifacts</ProGpuWpfReferenceMode>", sdkProps, StringComparison.Ordinal);
         Assert.Contains("<ProGpuWpfManagedPackageId Condition=\"'$(ProGpuWpfManagedPackageId)' == ''\">LibreWPF.Transport</ProGpuWpfManagedPackageId>", sdkProps, StringComparison.Ordinal);
         Assert.Contains("<ProGpuWpfManagedPackageVersion Condition=\"'$(ProGpuWpfManagedPackageVersion)' == ''\">$(ProGpuWpfPackageVersion)</ProGpuWpfManagedPackageVersion>", portableTargets, StringComparison.Ordinal);
-        Assert.Contains("<ProGpuPackageVersion Condition=\"'$(ProGpuPackageVersion)' == ''\">0.1.0-preview.49</ProGpuPackageVersion>", portableTargets, StringComparison.Ordinal);
-        Assert.Contains("<ProGpuRuntimePackageVersion Condition=\"'$(ProGpuRuntimePackageVersion)' == ''\">0.1.0-preview.49</ProGpuRuntimePackageVersion>", proGpuWpfProject, StringComparison.Ordinal);
+        Assert.Contains("<ProGpuPackageVersion Condition=\"'$(ProGpuPackageVersion)' == ''\">0.1.0-preview.50</ProGpuPackageVersion>", portableTargets, StringComparison.Ordinal);
+        Assert.Contains("<ProGpuRuntimePackageVersion Condition=\"'$(ProGpuRuntimePackageVersion)' == ''\">0.1.0-preview.50</ProGpuRuntimePackageVersion>", proGpuWpfProject, StringComparison.Ordinal);
         Assert.Contains("<PackageReference Include=\"ProGPU.Backend\" Version=\"$(ProGpuRuntimePackageVersion)\" />", proGpuWpfProject, StringComparison.Ordinal);
         Assert.Contains("<PackageReference Include=\"ProGPU.DirectX\" Version=\"$(ProGpuRuntimePackageVersion)\" />", proGpuWpfProject, StringComparison.Ordinal);
         Assert.Contains("<PackageReference Include=\"ProGPU.Scene\" Version=\"$(ProGpuRuntimePackageVersion)\" />", proGpuWpfProject, StringComparison.Ordinal);
@@ -12498,7 +12538,7 @@ public sealed class WpfManagedProjectGraphTests
         Assert.DoesNotContain("submodules: recursive", releaseWorkflow, StringComparison.Ordinal);
         Assert.Contains("PROGPU_WPF_DEV_PACKAGE_VERSION", releaseWorkflow, StringComparison.Ordinal);
         Assert.Contains("default: 0.1.0-preview.42", releaseWorkflow, StringComparison.Ordinal);
-        Assert.Contains("default: 0.1.0-preview.49", releaseWorkflow, StringComparison.Ordinal);
+        Assert.Contains("default: 0.1.0-preview.50", releaseWorkflow, StringComparison.Ordinal);
         Assert.Contains("./eng/progpu-wpf-sdk-ci.sh", releaseWorkflow, StringComparison.Ordinal);
         Assert.Contains("promote-qualified-preview:", releaseWorkflow, StringComparison.Ordinal);
         Assert.Contains(
@@ -12646,7 +12686,7 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("Running SciChart MVP SDK app Application.Run validation", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("ProGpuWpfSdkProvidesSwitchOnlyPackagingSurface", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("dev_package_version=\"${PROGPU_WPF_DEV_PACKAGE_VERSION:-0.1.0-preview.42}\"", sdkCiScript, StringComparison.Ordinal);
-        Assert.Contains("progpu_package_version=\"${PROGPU_WPF_PROGPU_PACKAGE_VERSION:-0.1.0-preview.49}\"", sdkCiScript, StringComparison.Ordinal);
+        Assert.Contains("progpu_package_version=\"${PROGPU_WPF_PROGPU_PACKAGE_VERSION:-0.1.0-preview.50}\"", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("clean_preview_package_output()", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("\"${package_output}\"/*.nupkg", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("\"${package_output}\"/*.snupkg", sdkCiScript, StringComparison.Ordinal);
@@ -12731,7 +12771,7 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("LibreWPF.Sdk", previewPackageListScript, StringComparison.Ordinal);
         Assert.Contains("progpu_preview_package_version()", previewPackageListScript, StringComparison.Ordinal);
         Assert.Contains("PROGPU_WPF_DEV_PACKAGE_VERSION:-0.1.0-preview.42", previewPackageListScript, StringComparison.Ordinal);
-        Assert.Contains("PROGPU_WPF_PROGPU_PACKAGE_VERSION:-0.1.0-preview.49", previewPackageListScript, StringComparison.Ordinal);
+        Assert.Contains("PROGPU_WPF_PROGPU_PACKAGE_VERSION:-0.1.0-preview.50", previewPackageListScript, StringComparison.Ordinal);
         Assert.DoesNotContain("Microsoft.DotNet.Wpf.GitHub", previewPackageListScript, StringComparison.Ordinal);
         Assert.DoesNotContain("ProGPU.Wpf.Sdk", previewPackageListScript, StringComparison.Ordinal);
         Assert.Contains("source \"${repo_root}/eng/progpu-preview-package-list.sh\"", previewPackageAuditScript, StringComparison.Ordinal);
@@ -14040,7 +14080,7 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("apphost_name=\"ProGPU.Wpf.SciChartMvpApp\"", scichartRunScript, StringComparison.Ordinal);
         Assert.Contains("PROGPU_WPF_SCICHART_REAL_PACKAGES", scichartRunScript, StringComparison.Ordinal);
         Assert.Contains("-p:ProGpuWpfUseRealSciChartPackages=true", scichartRunScript, StringComparison.Ordinal);
-        Assert.Contains("directx_package=\"${package_output}/ProGPU.DirectX.0.1.0-preview.49.nupkg\"", scichartRunScript, StringComparison.Ordinal);
+        Assert.Contains("directx_package=\"${package_output}/ProGPU.DirectX.0.1.0-preview.50.nupkg\"", scichartRunScript, StringComparison.Ordinal);
         Assert.Contains("! -f \"${directx_package}\"", scichartRunScript, StringComparison.Ordinal);
         Assert.Contains("\"${repo_root}/artifacts/nuget/ProGPU.Wpf.SciChartMvpApp\"", scichartRunScript, StringComparison.Ordinal);
         Assert.Contains("public static class ProGpuDirectXNativeDependencyInspector", proGpuDirectXNativeDependencyInspector, StringComparison.Ordinal);
@@ -14645,7 +14685,7 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("_ProGpuWpfSdkSwitchClearMutablePackageCache", smokeDirectoryBuildProps, StringComparison.Ordinal);
         Assert.DoesNotContain("Condition=\"'$(MSBuildProjectName)' == 'ProGPU.Wpf.SdkSwitchSmoke'\"", smokeDirectoryBuildProps, StringComparison.Ordinal);
         Assert.Contains("<LibreWpfSdkSwitchPackageVersion>0.1.0-preview.42</LibreWpfSdkSwitchPackageVersion>", smokeDirectoryBuildProps, StringComparison.Ordinal);
-        Assert.Contains("<ProGpuWpfSdkSwitchPackageVersion>0.1.0-preview.49</ProGpuWpfSdkSwitchPackageVersion>", smokeDirectoryBuildProps, StringComparison.Ordinal);
+        Assert.Contains("<ProGpuWpfSdkSwitchPackageVersion>0.1.0-preview.50</ProGpuWpfSdkSwitchPackageVersion>", smokeDirectoryBuildProps, StringComparison.Ordinal);
         Assert.Contains("librewpf.progpu/$(LibreWpfSdkSwitchPackageVersion)", smokeDirectoryBuildProps, StringComparison.Ordinal);
         Assert.Contains("librewpf.interop/$(ProGpuWpfSdkSwitchPackageVersion)", smokeDirectoryBuildProps, StringComparison.Ordinal);
         Assert.Contains("progpu.scene/$(ProGpuWpfSdkSwitchPackageVersion)", smokeDirectoryBuildProps, StringComparison.Ordinal);
@@ -14670,7 +14710,7 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("_ProGpuWpfSdkSwitchClearMutablePackageCache", libraryDirectoryBuildProps, StringComparison.Ordinal);
         Assert.Contains("Condition=\"'$(MSBuildProjectName)' == 'ProGPU.Wpf.SdkSwitchSmoke'\"", libraryDirectoryBuildProps, StringComparison.Ordinal);
         Assert.Contains("<LibreWpfSdkSwitchPackageVersion>0.1.0-preview.42</LibreWpfSdkSwitchPackageVersion>", libraryDirectoryBuildProps, StringComparison.Ordinal);
-        Assert.Contains("<ProGpuWpfSdkSwitchPackageVersion>0.1.0-preview.49</ProGpuWpfSdkSwitchPackageVersion>", libraryDirectoryBuildProps, StringComparison.Ordinal);
+        Assert.Contains("<ProGpuWpfSdkSwitchPackageVersion>0.1.0-preview.50</ProGpuWpfSdkSwitchPackageVersion>", libraryDirectoryBuildProps, StringComparison.Ordinal);
         Assert.Contains("librewpf.progpu/$(LibreWpfSdkSwitchPackageVersion)", libraryDirectoryBuildProps, StringComparison.Ordinal);
         Assert.Contains("librewpf.interop/$(ProGpuWpfSdkSwitchPackageVersion)", libraryDirectoryBuildProps, StringComparison.Ordinal);
         Assert.Contains("progpu.scene/$(ProGpuWpfSdkSwitchPackageVersion)", libraryDirectoryBuildProps, StringComparison.Ordinal);
@@ -14723,7 +14763,7 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("ValidateRuntimeAssetMatchesLocalPackage(proGpuScene, \"ProGPU.Scene\", \"ProGPU.Scene\", \"net10.0\")", smokeAppCodeBehind, StringComparison.Ordinal);
         Assert.Contains("ValidateRuntimeAssetMatchesLocalPackage(proGpuBackend, \"ProGPU.Backend\", \"ProGPU.Backend\", \"net10.0\")", smokeAppCodeBehind, StringComparison.Ordinal);
         Assert.Contains("private const string LibreWpfPackageVersion = \"0.1.0-preview.42\";", smokeAppCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("private const string ProGpuPackageVersion = \"0.1.0-preview.49\";", smokeAppCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("private const string ProGpuPackageVersion = \"0.1.0-preview.50\";", smokeAppCodeBehind, StringComparison.Ordinal);
         Assert.Contains("packageId == \"LibreWPF.ProGPU\"\n            ? LibreWpfPackageVersion\n            : ProGpuPackageVersion", smokeAppCodeBehind, StringComparison.Ordinal);
         Assert.Contains("RequireProperty(hostType, \"DirectXDevice\", directXDeviceType)", smokeAppCodeBehind, StringComparison.Ordinal);
         Assert.Contains("ComputeStreamSha256", smokeAppCodeBehind, StringComparison.Ordinal);
@@ -16346,7 +16386,7 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("<RuntimeFrameworkVersion Condition=\"&apos;$(ProGpuWpfRuntimeFrameworkVersion)&apos; != &apos;&apos;\">$(ProGpuWpfRuntimeFrameworkVersion)</RuntimeFrameworkVersion>", runtimeHarnessProject, StringComparison.Ordinal);
         Assert.Contains("private const string SmokeTargetFramework = \"net10.0-windows\";", runtimeHarnessProgram, StringComparison.Ordinal);
         Assert.Contains("private const string LibreWpfPackageVersion = \"0.1.0-preview.42\";", runtimeHarnessProgram, StringComparison.Ordinal);
-        Assert.Contains("private const string ProGpuPackageVersion = \"0.1.0-preview.49\";", runtimeHarnessProgram, StringComparison.Ordinal);
+        Assert.Contains("private const string ProGpuPackageVersion = \"0.1.0-preview.50\";", runtimeHarnessProgram, StringComparison.Ordinal);
         Assert.Contains("packageId is \"LibreWPF.Transport\" or \"LibreWPF.ProGPU\"\n            ? LibreWpfPackageVersion\n            : ProGpuPackageVersion", runtimeHarnessProgram, StringComparison.Ordinal);
         Assert.Contains("<CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>", runtimeHarnessProject, StringComparison.Ordinal);
         Assert.DoesNotContain("Microsoft.NET.Sdk.WindowsDesktop", runtimeHarnessProject, StringComparison.Ordinal);
@@ -16440,7 +16480,7 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("<ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>", externalSdkHarnessProgram, StringComparison.Ordinal);
         Assert.Contains("<PackageVersion Include=\"System.Reactive\" Version=\"6.0.1\" />", externalSdkHarnessProgram, StringComparison.Ordinal);
         Assert.Contains("private const string SdkVersion = \"0.1.0-preview.42\";", externalSdkHarnessProgram, StringComparison.Ordinal);
-        Assert.Contains("private const string ProGpuPackageVersion = \"0.1.0-preview.49\";", externalSdkHarnessProgram, StringComparison.Ordinal);
+        Assert.Contains("private const string ProGpuPackageVersion = \"0.1.0-preview.50\";", externalSdkHarnessProgram, StringComparison.Ordinal);
         Assert.Contains("packageId is \"LibreWPF.Sdk\" or \"LibreWPF.Transport\" or \"LibreWPF.ProGPU\"\n            ? SdkVersion\n            : ProGpuPackageVersion", externalSdkHarnessProgram, StringComparison.Ordinal);
         Assert.Contains("<PackageReference Include=\"System.Reactive\" />", externalSdkHarnessProgram, StringComparison.Ordinal);
         Assert.Contains("restore\", centralPackageManagementProjectPath", externalSdkHarnessProgram, StringComparison.Ordinal);
@@ -18240,7 +18280,8 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("SDK ProGPU WPF host window border method parameter count", runtimeHarnessProgram, StringComparison.Ordinal);
         Assert.Contains("new Action<object, object, object>(recorder.SetWindowBorder)", runtimeHarnessProgram, StringComparison.Ordinal);
         Assert.Contains("new Func<object, IntPtr>(recorder.GetHandle)", runtimeHarnessProgram, StringComparison.Ordinal);
-        Assert.Contains("null  // requestActivation", runtimeHarnessProgram, StringComparison.Ordinal);
+        Assert.Contains("null, // requestActivation", runtimeHarnessProgram, StringComparison.Ordinal);
+        Assert.Contains("null  // setIcon", runtimeHarnessProgram, StringComparison.Ordinal);
         Assert.Contains("public IntPtr GetHandle(object activation)", runtimeHarnessProgram, StringComparison.Ordinal);
         Assert.Contains("GetProperty(typedActivation.PresentationSource, \"Handle\")", runtimeHarnessProgram, StringComparison.Ordinal);
         Assert.Contains("activated SDK window live resize mode", runtimeHarnessProgram, StringComparison.Ordinal);

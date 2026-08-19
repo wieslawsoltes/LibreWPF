@@ -325,6 +325,96 @@ public sealed class WpfBitmapSourceImageAdapter : IWpfImageSourceAdapter
         return false;
     }
 
+    internal static bool TryCopyPixelsAsRgba32(
+        object imageSource,
+        out byte[] pixels,
+        out int width,
+        out int height)
+    {
+        return TryCopyPixelsAsRgba32(
+            imageSource,
+            int.MaxValue,
+            out pixels,
+            out width,
+            out height);
+    }
+
+    internal static bool TryCopyPixelsAsRgba32(
+        object imageSource,
+        int maxDimension,
+        out byte[] pixels,
+        out int width,
+        out int height)
+    {
+        pixels = Array.Empty<byte>();
+        width = 0;
+        height = 0;
+
+        if (maxDimension <= 0)
+        {
+            return false;
+        }
+
+        if (!TryGetPortableBitmapSourcePixels(
+                imageSource,
+                out var portablePixels,
+                out var formatKind,
+                out _) ||
+            !TryConvertPortableBitmapSourceAsPbgra32Buffer(
+                portablePixels,
+                formatKind,
+                out var pixelBuffer) ||
+            !pixelBuffer.IsValid)
+        {
+            return false;
+        }
+
+        var sourceWidth = pixelBuffer.Width;
+        var sourceHeight = pixelBuffer.Height;
+        var sourceMaxDimension = Math.Max(sourceWidth, sourceHeight);
+        if (sourceMaxDimension > maxDimension)
+        {
+            width = Math.Max(1, (int)Math.Round(sourceWidth * (double)maxDimension / sourceMaxDimension));
+            height = Math.Max(1, (int)Math.Round(sourceHeight * (double)maxDimension / sourceMaxDimension));
+        }
+        else
+        {
+            width = sourceWidth;
+            height = sourceHeight;
+        }
+
+        pixels = new byte[checked(width * height * 4)];
+        for (var y = 0; y < height; y++)
+        {
+            var sourceY = y * sourceHeight / height;
+            var sourceRow = sourceY * pixelBuffer.Stride;
+            var destinationRow = y * width * 4;
+            for (var x = 0; x < width; x++)
+            {
+                var sourceX = x * sourceWidth / width;
+                var sourceOffset = sourceRow + sourceX * 4;
+                var destinationOffset = destinationRow + x * 4;
+                var alpha = pixelBuffer.Pixels[sourceOffset + 3];
+                pixels[destinationOffset] = Unpremultiply(pixelBuffer.Pixels[sourceOffset + 2], alpha);
+                pixels[destinationOffset + 1] = Unpremultiply(pixelBuffer.Pixels[sourceOffset + 1], alpha);
+                pixels[destinationOffset + 2] = Unpremultiply(pixelBuffer.Pixels[sourceOffset], alpha);
+                pixels[destinationOffset + 3] = alpha;
+            }
+        }
+
+        return true;
+    }
+
+    private static byte Unpremultiply(byte component, byte alpha)
+    {
+        if (alpha == 0)
+        {
+            return 0;
+        }
+
+        return (byte)Math.Min(255, (component * 255 + alpha / 2) / alpha);
+    }
+
     private static bool TryGetPortableBitmapSourcePixels(
         object imageSource,
         out PortableBitmapSourcePixels portablePixels,

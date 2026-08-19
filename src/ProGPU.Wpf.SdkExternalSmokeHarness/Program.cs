@@ -19,7 +19,7 @@ internal static class Program
     private const string OriginalWpfSdk = "Microsoft.NET.Sdk";
     private const string OriginalWindowsDesktopWpfSdk = "Microsoft.NET.Sdk.WindowsDesktop";
     private const string SdkVersion = "0.1.0-preview.42";
-    private const string ProGpuPackageVersion = "0.1.0-preview.49";
+    private const string ProGpuPackageVersion = "0.1.0-preview.50";
     private const string PrepackagedProGpuDirectoryEnvironmentVariable = "PROGPU_WPF_PREPACKAGED_PROGPU_DIR";
     private const string ExternalAppTargetFramework = "net10.0-windows";
     private const string AppAssemblyName = "ExternalSdkApp";
@@ -8827,6 +8827,7 @@ internal static class Program
                     private readonly byte[] _responseBytes;
                     private readonly Thread _thread;
                     private Exception _exception;
+                    private volatile bool _stopping;
 
                     public LoopbackImageServer(byte[] contentBytes)
                     {
@@ -8857,6 +8858,7 @@ internal static class Program
 
                     public void Dispose()
                     {
+                        _stopping = true;
                         _listener.Stop();
                         if (!_thread.Join(TimeSpan.FromSeconds(5)))
                         {
@@ -8885,6 +8887,9 @@ internal static class Program
                         {
                         }
                         catch (ObjectDisposedException)
+                        {
+                        }
+                        catch (InvalidOperationException) when (_stopping)
                         {
                         }
                         catch (Exception ex)

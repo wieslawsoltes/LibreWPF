@@ -7,6 +7,8 @@
 //
 
 using System.Collections.ObjectModel;
+using System.IO;
+using System.Reflection;
 using System.Runtime.InteropServices;
 
 using System.Windows;
@@ -22,6 +24,63 @@ namespace MS.Internal.AppModel
         private static Size s_smallIconSize;
         private static Size s_iconSize;
         private static int s_systemBitDepth;
+        private static readonly object s_portableDefaultIconLock = new object();
+        private static bool s_portableDefaultIconResolutionComplete;
+        private static ImageSource s_portableDefaultIcon;
+
+        internal static ImageSource GetPortableDefaultIconImageSource()
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                return null;
+            }
+
+            lock (s_portableDefaultIconLock)
+            {
+                if (s_portableDefaultIconResolutionComplete)
+                {
+                    return s_portableDefaultIcon;
+                }
+
+                s_portableDefaultIconResolutionComplete = true;
+                string assemblyPath = Assembly.GetEntryAssembly()?.Location;
+                if (string.IsNullOrEmpty(assemblyPath) ||
+                    !PortableExecutableIconReader.TryReadApplicationIcon(assemblyPath, out byte[] iconBytes))
+                {
+                    return null;
+                }
+
+                try
+                {
+                    using MemoryStream iconStream = new MemoryStream(iconBytes, writable: false);
+                    IconBitmapDecoder decoder = new IconBitmapDecoder(
+                        iconStream,
+                        BitmapCreateOptions.PreservePixelFormat,
+                        BitmapCacheOption.OnLoad);
+                    if (decoder.Frames.Count == 0)
+                    {
+                        return null;
+                    }
+
+                    s_portableDefaultIcon = decoder.Frames[0];
+                    if (!s_portableDefaultIcon.IsFrozen && s_portableDefaultIcon.CanFreeze)
+                    {
+                        s_portableDefaultIcon.Freeze();
+                    }
+                }
+                catch (Exception exception) when (
+                    exception is IOException or
+                    FileFormatException or
+                    NotSupportedException or
+                    ArgumentException or
+                    InvalidOperationException)
+                {
+                    s_portableDefaultIcon = null;
+                }
+
+                return s_portableDefaultIcon;
+            }
+        }
 
         /// Lazy init of static fields.  Call this at the beginning of any external entrypoint.
         private static void EnsureSystemMetrics()
@@ -479,4 +538,3 @@ namespace MS.Internal.AppModel
         }
     }
 }
-

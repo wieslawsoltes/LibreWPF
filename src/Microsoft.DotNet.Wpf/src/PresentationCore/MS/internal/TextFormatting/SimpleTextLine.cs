@@ -108,17 +108,19 @@ namespace MS.Internal.TextFormatting
             // paragraphWidth == 0 means the format width is unlimited.
             int widthLeft = (pap.Wrap && paragraphWidth > 0) ? paragraphWidth : int.MaxValue;
             int idealRunOffsetUnRounded = 0;
+            TextModifierScope portableModifierScope = null;
 
             SimpleRun prev = null;
 
-            SimpleRun run = SimpleRun.Create(
+            SimpleRun run = CreateSimpleRun(
                 settings,
                 cp,
                 cpFirst,
                 widthLeft,
                 paragraphWidth,
                 idealRunOffsetUnRounded,
-                pixelsPerDip
+                pixelsPerDip,
+                ref portableModifierScope
                 );
 
 
@@ -135,14 +137,15 @@ namespace MS.Internal.TextFormatting
                 idealRunOffsetUnRounded += run.IdealWidth;
                 prev = run;
 
-                run = SimpleRun.Create(
+                run = CreateSimpleRun(
                     settings,
                     cp,
                     cpFirst,
                     widthLeft,
                     paragraphWidth,
                     idealRunOffsetUnRounded,
-                    pixelsPerDip
+                    pixelsPerDip,
+                    ref portableModifierScope
                     );
 
                 if(run == null)
@@ -215,14 +218,15 @@ namespace MS.Internal.TextFormatting
                     break;
                 }
 
-                run = SimpleRun.Create(
+                run = CreateSimpleRun(
                     settings,
                     cp,
                     cpFirst,
                     widthLeft,
                     paragraphWidth,
                     idealRunOffsetUnRounded,
-                    pixelsPerDip
+                    pixelsPerDip,
+                    ref portableModifierScope
                     );
 
                 if(    run == null
@@ -257,6 +261,91 @@ namespace MS.Internal.TextFormatting
                 ref trailingSpaceWidth,
                 pixelsPerDip
                 ) as TextLine;
+        }
+
+        private static SimpleRun CreateSimpleRun(
+            FormatSettings settings,
+            int cp,
+            int cpFirst,
+            int widthLeft,
+            int paragraphWidth,
+            int idealRunOffsetUnRounded,
+            double pixelsPerDip,
+            ref TextModifierScope portableModifierScope)
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                return SimpleRun.Create(
+                    settings,
+                    cp,
+                    cpFirst,
+                    widthLeft,
+                    paragraphWidth,
+                    idealRunOffsetUnRounded,
+                    pixelsPerDip);
+            }
+
+            CharacterBufferRange charBufferRange = settings.FetchTextRun(
+                cp,
+                cpFirst,
+                out TextRun textRun,
+                out int runLength);
+
+            if (textRun is TextModifier modifier)
+            {
+                portableModifierScope = new TextModifierScope(
+                    portableModifierScope,
+                    modifier,
+                    cp);
+                return SimpleRun.CreatePortableFormattingControl(
+                    runLength,
+                    textRun,
+                    settings.Formatter,
+                    pixelsPerDip);
+            }
+
+            if (textRun is TextEndOfSegment)
+            {
+                if (portableModifierScope != null)
+                {
+                    portableModifierScope = portableModifierScope.ParentScope;
+                }
+
+                return SimpleRun.CreatePortableFormattingControl(
+                    runLength,
+                    textRun,
+                    settings.Formatter,
+                    pixelsPerDip);
+            }
+
+            if (textRun is TextCharacters characters && portableModifierScope != null)
+            {
+                TextRunProperties modifiedProperties = portableModifierScope.ModifyProperties(characters.Properties);
+                char[] modifiedCharacters = new char[charBufferRange.Length];
+                for (int index = 0; index < modifiedCharacters.Length; ++index)
+                {
+                    modifiedCharacters[index] = charBufferRange[index];
+                }
+
+                textRun = new TextCharacters(
+                    modifiedCharacters,
+                    0,
+                    modifiedCharacters.Length,
+                    modifiedProperties);
+                charBufferRange = new CharacterBufferRange(textRun.CharacterBufferReference, textRun.Length);
+                runLength = textRun.Length;
+            }
+
+            return SimpleRun.Create(
+                settings,
+                charBufferRange,
+                textRun,
+                cp,
+                cpFirst,
+                runLength,
+                widthLeft,
+                idealRunOffsetUnRounded,
+                pixelsPerDip);
         }
 
         private static SimpleRun CreatePortableWrappingRun(
@@ -2213,6 +2302,20 @@ namespace MS.Internal.TextFormatting
                 1,
                 new TextEndOfParagraph(1),
                 Flags.EOT | Flags.Ghost,
+                textFormatterImp,
+                pixelsPerDip);
+        }
+
+        internal static SimpleRun CreatePortableFormattingControl(
+            int length,
+            TextRun textRun,
+            TextFormatterImp textFormatterImp,
+            double pixelsPerDip)
+        {
+            return new SimpleRun(
+                length,
+                textRun,
+                Flags.Ghost,
                 textFormatterImp,
                 pixelsPerDip);
         }

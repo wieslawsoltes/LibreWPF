@@ -20,6 +20,7 @@ namespace System.Windows
         private static Action<object> _hide;
         private static Action<object, object> _setWindowState;
         private static Action<object, string> _setTitle;
+        private static Action<object, object> _setIcon;
         private static Action<object, double, double> _setClientSize;
         private static Action<object, double, double> _setPosition;
         private static Action<object, bool> _setTopmost;
@@ -61,7 +62,8 @@ namespace System.Windows
             Func<object, bool> dragMove = null,
             Func<object, IntPtr> getHandle = null,
             Func<IntPtr, PortableWindowRegion, bool> setWindowRegion = null,
-            Func<object, bool> requestActivation = null)
+            Func<object, bool> requestActivation = null,
+            Action<object, object> setIcon = null)
         {
             ArgumentNullException.ThrowIfNull(activate);
 
@@ -81,6 +83,7 @@ namespace System.Windows
             Volatile.Write(ref _getHandle, getHandle);
             Volatile.Write(ref _setWindowRegion, setWindowRegion);
             Volatile.Write(ref _requestActivation, requestActivation);
+            Volatile.Write(ref _setIcon, setIcon);
         }
 
         internal static void Clear()
@@ -101,6 +104,7 @@ namespace System.Windows
             Volatile.Write(ref _getHandle, null);
             Volatile.Write(ref _setWindowRegion, null);
             Volatile.Write(ref _requestActivation, null);
+            Volatile.Write(ref _setIcon, null);
         }
 
         internal static bool TryActivate(Window window, out object activation)
@@ -151,6 +155,11 @@ namespace System.Windows
         internal static void SetTitle(object activation, string title)
         {
             Volatile.Read(ref _setTitle)?.Invoke(activation, title);
+        }
+
+        internal static void SetIcon(object activation, object icon)
+        {
+            Volatile.Read(ref _setIcon)?.Invoke(activation, icon);
         }
 
         internal static void SetClientSize(object activation, double width, double height)
@@ -940,7 +949,8 @@ namespace System.Windows
                     callbacks.DragMove,
                     callbacks.GetHandle,
                     callbacks.SetWindowRegion,
-                    callbacks.RequestActivation);
+                    callbacks.RequestActivation,
+                    callbacks.SetIcon);
             }
 
             public bool TryRegisterMediaContextRenderService(

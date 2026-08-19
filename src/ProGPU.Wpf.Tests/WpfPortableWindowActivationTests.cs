@@ -29,6 +29,7 @@ public sealed class WpfPortableWindowActivationTests
         Assert.NotNull(service.Callbacks.Hide);
         Assert.NotNull(service.Callbacks.SetWindowState);
         Assert.NotNull(service.Callbacks.SetTitle);
+        Assert.NotNull(service.Callbacks.SetIcon);
         Assert.NotNull(service.Callbacks.SetClientSize);
         Assert.NotNull(service.Callbacks.SetPosition);
         Assert.NotNull(service.Callbacks.SetTopmost);
@@ -565,6 +566,23 @@ public sealed class WpfPortableWindowActivationTests
     }
 
     [Fact]
+    public void CreateHostOptionsPreservesExplicitEmptyTitle()
+    {
+        var fallback = new ProGpuWpfWindowOptions
+        {
+            Title = "Fallback"
+        };
+        var window = new FakeWindow
+        {
+            Title = string.Empty
+        };
+
+        var options = WpfPortableWindowActivation.CreateHostOptions(window, fallback);
+
+        Assert.Equal(string.Empty, options.Title);
+    }
+
+    [Fact]
     public void CreateHostOptionsDoesNotUseReflectedWindowShapeFallback()
     {
         var fallback = new ProGpuWpfWindowOptions
@@ -661,6 +679,48 @@ public sealed class WpfPortableWindowActivationTests
         Assert.Equal(840, source.ClientHeight);
         Assert.Equal(1, source.ClientSizeChangeCount);
         Assert.True(scheduler.RequestCount >= 1);
+    }
+
+    [Fact]
+    public void TryAttachSynchronizesExplicitEmptyTitleBeforeFirstRender()
+    {
+        using var host = new ProGpuWpfWindowHost(new ProGpuWpfWindowOptions
+        {
+            Title = "Fallback"
+        });
+        var window = new FakeWindow
+        {
+            Title = string.Empty
+        };
+        var source = new FakePortablePresentationSource();
+
+        var attached = WpfPortableWindowActivation.TryAttach(host, window, source, out var activation);
+
+        Assert.True(attached);
+        Assert.NotNull(activation);
+        Assert.Equal(string.Empty, host.Title);
+    }
+
+    [Fact]
+    public void TryAttachSynchronizesInitialIconBeforeFirstRender()
+    {
+        using var host = new ProGpuWpfWindowHost();
+        var icon = new FakePortableIcon();
+        var window = new FakeWindow
+        {
+            Icon = icon
+        };
+        var source = new FakePortablePresentationSource();
+
+        var attached = WpfPortableWindowActivation.TryAttach(host, window, source, out var activation);
+
+        Assert.True(attached);
+        Assert.NotNull(activation);
+        Assert.Equal(
+            new byte[] { 255, 0, 0, 255 },
+            typeof(ProGpuWpfWindowHost)
+                .GetField("_windowIconPixels", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .GetValue(host));
     }
 
     [Fact]
@@ -1710,6 +1770,8 @@ public sealed class WpfPortableWindowActivationTests
     {
         public string? Title { get; set; }
 
+        public object? Icon { get; set; }
+
         public double Width { get; set; } = double.NaN;
 
         public double Height { get; set; } = double.NaN;
@@ -1757,6 +1819,8 @@ public sealed class WpfPortableWindowActivationTests
             {
                 HasTitle = true,
                 Title = Title,
+                HasIcon = Icon != null,
+                Icon = Icon,
                 HasWidth = true,
                 Width = Width,
                 HasHeight = true,
@@ -1784,6 +1848,22 @@ public sealed class WpfPortableWindowActivationTests
                 HasOwner = Owner != null,
                 Owner = Owner
             };
+            return true;
+        }
+    }
+
+    private sealed class FakePortableIcon : IPortableBitmapSourcePixelsSource
+    {
+        public bool TryGetPortableBitmapSourcePixels(out PortableBitmapSourcePixels pixels)
+        {
+            pixels = new PortableBitmapSourcePixels(
+                width: 1,
+                height: 1,
+                dpiX: 96,
+                dpiY: 96,
+                stride: 4,
+                format: PortablePixelDataFormat.Bgra32,
+                pixels: new byte[] { 0, 0, 255, 255 });
             return true;
         }
     }

@@ -148,7 +148,9 @@ public sealed class WpfPortableWindowActivation : IDisposable
                 ((WpfPortableWindowActivation)activation).Host.PortablePresentationSourceBridge?.Handle ?? IntPtr.Zero,
             setWindowRegion: TrySetWindowRegion,
             requestActivation: activation =>
-                ((WpfPortableWindowActivation)activation).TryActivate());
+                ((WpfPortableWindowActivation)activation).TryActivate(),
+            setIcon: (activation, icon) =>
+                ((WpfPortableWindowActivation)activation).SetIcon(icon));
     }
 
     public static bool TryRegisterPresentationCoreClipboardService()
@@ -383,6 +385,12 @@ public sealed class WpfPortableWindowActivation : IDisposable
         ArgumentNullException.ThrowIfNull(title);
 
         Host.SetTitle(title);
+    }
+
+    public void SetIcon(object? icon)
+    {
+        ThrowIfDisposed();
+        Host.SetIcon(icon);
     }
 
     public void SetClientSize(object? width, object? height)
@@ -767,9 +775,9 @@ public sealed class WpfPortableWindowActivation : IDisposable
         PortableWindowState state,
         ProGpuWpfWindowOptions options)
     {
-        if (state.HasTitle && !string.IsNullOrWhiteSpace(state.Title))
+        if (state.HasTitle)
         {
-            options.Title = state.Title!;
+            options.Title = state.Title ?? string.Empty;
         }
 
         if (TryGetPositiveDimension(state.HasWidth, state.Width, out var width) ||
@@ -823,9 +831,14 @@ public sealed class WpfPortableWindowActivation : IDisposable
     {
         UpdatePortableActivationHints(state);
 
-        if (state.HasTitle && !string.IsNullOrWhiteSpace(state.Title))
+        if (state.HasTitle)
         {
-            Host.SetTitle(state.Title!);
+            Host.SetTitle(state.Title ?? string.Empty);
+        }
+
+        if (state.HasIcon)
+        {
+            Host.SetIcon(state.Icon);
         }
 
         if (TryMapPortableWindowState(state, out var mappedWindowState))

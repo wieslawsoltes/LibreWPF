@@ -277,7 +277,7 @@ public sealed class ProGpuWpfWindowHostTests
         Assert.Contains("while (ShouldKeepPortableNativeRunLoopAlive())", source, StringComparison.Ordinal);
         Assert.Contains("DoEvents();", source, StringComparison.Ordinal);
         Assert.Contains("if (!EnsureCompositionTargetLoaded() || !ShouldKeepPortableNativeRunLoopAlive())", source, StringComparison.Ordinal);
-        Assert.Contains("window.DoEvents();\n        if (!ShouldKeepPortableNativeRunLoopAlive())", source, StringComparison.Ordinal);
+        Assert.Contains("window.DoEvents();\n        }\n        finally\n        {\n            ProcessDeferredNativeWindowDisposals();", source, StringComparison.Ordinal);
         Assert.Contains("if (ShouldPumpNativeRender())", source, StringComparison.Ordinal);
         Assert.Contains("NativeRenderPumpCount++;\n            window.DoRender();", source, StringComparison.Ordinal);
         Assert.Contains("SkippedNativeRenderPumpCount++;", source, StringComparison.Ordinal);
@@ -302,6 +302,9 @@ public sealed class ProGpuWpfWindowHostTests
         Assert.Contains("window.Close();\n        TryRequestNativeLoopWakeup(window.ContinueEvents);", source, StringComparison.Ordinal);
         Assert.Contains("close request already pending", source, StringComparison.Ordinal);
         Assert.Contains("_hasNativeWindowCloseStarted = false;", source, StringComparison.Ordinal);
+        Assert.Contains("QueueDeferredNativeWindowDisposal(this);", source, StringComparison.Ordinal);
+        Assert.Contains("private static void ProcessDeferredNativeWindowDisposals()", source, StringComparison.Ordinal);
+        Assert.Contains("host.DisposeDeferredNativeWindowIfNeeded();", source, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -1467,6 +1470,28 @@ public sealed class ProGpuWpfWindowHostTests
             windowSizeIsScaledByContentScale: false);
 
         Assert.Equal(new Vector2D<int>(980, 640), logicalSize);
+    }
+
+    [Fact]
+    public void ResolveNativeWindowSizeScalesLogicalDipsForScaledX11Coordinates()
+    {
+        var nativeSize = ProGpuWpfWindowHost.ResolveNativeWindowSizeForLogicalClientSize(
+            new Vector2D<int>(900, 640),
+            new WpfDeviceScale(2.0, 2.0),
+            windowSizeIsScaledByContentScale: true);
+
+        Assert.Equal(new Vector2D<int>(1800, 1280), nativeSize);
+    }
+
+    [Fact]
+    public void ResolveNativeWindowSizeKeepsLogicalDipsForWaylandAndMacOs()
+    {
+        var nativeSize = ProGpuWpfWindowHost.ResolveNativeWindowSizeForLogicalClientSize(
+            new Vector2D<int>(900, 640),
+            new WpfDeviceScale(2.0, 2.0),
+            windowSizeIsScaledByContentScale: false);
+
+        Assert.Equal(new Vector2D<int>(900, 640), nativeSize);
     }
 
     [Fact]

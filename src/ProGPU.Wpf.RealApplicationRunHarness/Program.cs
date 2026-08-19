@@ -5420,7 +5420,8 @@ internal static class Program
                 new Func<object, bool>(_ => false),
                 new Func<object, IntPtr>(recorder.GetHandle),
                 null,
-                new Func<object, bool>(recorder.RequestActivation)
+                new Func<object, bool>(recorder.RequestActivation),
+                null
             });
 
         RegisterPortableMessageBox(presentationFramework);

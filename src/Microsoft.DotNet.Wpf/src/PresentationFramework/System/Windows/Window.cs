@@ -102,10 +102,13 @@ namespace System.Windows
 
         bool IPortableWindowStateSource.TryGetPortableWindowState(out PortableWindowState state)
         {
+            ImageSource portableIcon = GetPortableWindowIconImageSource();
             state = new PortableWindowState
             {
                 HasTitle = true,
                 Title = Title,
+                HasIcon = portableIcon != null,
+                Icon = portableIcon,
                 HasWidth = true,
                 Width = Width,
                 HasHeight = true,
@@ -134,6 +137,11 @@ namespace System.Windows
                 Owner = Owner
             };
             return true;
+        }
+
+        private ImageSource GetPortableWindowIconImageSource()
+        {
+            return _icon ?? IconHelper.GetPortableDefaultIconImageSource();
         }
 
         /// <summary>
@@ -5264,6 +5272,14 @@ namespace System.Windows
             // the ImageSource object it is his responsibility to
             // dispose it.
             _icon = newIcon;
+
+            if (!OperatingSystem.IsWindows() && _portableWindowActivation != null)
+            {
+                PortableWindowActivationService.SetIcon(
+                    _portableWindowActivation,
+                    GetPortableWindowIconImageSource());
+                return;
+            }
 
             // Adding check for IsCompositionTargetInvalid
             if (!IsSourceWindowNull && !IsCompositionTargetInvalid)

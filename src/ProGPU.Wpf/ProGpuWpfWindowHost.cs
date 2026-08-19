@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Threading;
 using ProGPU.Backend;
 using ProGPU.DirectX;
+using Silk.NET.Core;
 using Silk.NET.Core.Contexts;
 using Silk.NET.Maths;
 using Silk.NET.WebGPU;
@@ -28,6 +29,9 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
     private const string TraceInputEnvironmentVariable = "PROGPU_WPF_TRACE_INPUT";
     private const string TraceNativeLoopEnvironmentVariable = "PROGPU_WPF_TRACE_NATIVE_LOOP";
     private const int HitTestOwnerBufferCapacity = 64;
+    // A 256-square _NET_WM_ICON plus its CARDINAL header exceeds the legacy
+    // X11 core request payload. Keep the portable native icon below that limit.
+    private const int MaxWindowIconDimension = 128;
     private static readonly TimeSpan PortableNativeLoopActiveDelay = TimeSpan.FromMilliseconds(1);
     private static readonly TimeSpan PortableNativeLoopIdleDelay = TimeSpan.FromMilliseconds(16);
 
@@ -35,6 +39,8 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
     private static readonly bool s_traceInput = IsTraceEnabled(TraceInputEnvironmentVariable);
     private static readonly bool s_traceNativeLoop = IsTraceEnabled(TraceNativeLoopEnvironmentVariable);
     private static readonly object s_nativeActivationGate = new();
+    private static readonly object s_deferredNativeWindowDisposalGate = new();
+    private static readonly HashSet<ProGpuWpfWindowHost> s_deferredNativeWindowDisposals = new();
     private static WeakReference<ProGpuWpfWindowHost>? s_pendingNativeActivation;
     private static WeakReference<ProGpuWpfWindowHost>? s_requestedNativeActivation;
 
@@ -97,6 +103,9 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
     private int? _windowTop;
     private bool _windowTopmost;
     private ProGpuWpfWindowBorder _windowBorder;
+    private byte[]? _windowIconPixels;
+    private int _windowIconWidth;
+    private int _windowIconHeight;
     private SilkWindowController? _windowController;
     private PortableWindowRegion? _windowRegion;
 
@@ -666,7 +675,14 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
             // The shared GLFW poll can still contain the owner's delayed first-show
             // activation. Drain the requested window's native focus event before the
             // WPF dispatcher resumes and observes IsActive.
-            host._window.DoEvents();
+            try
+            {
+                host._window.DoEvents();
+            }
+            finally
+            {
+                ProcessDeferredNativeWindowDisposals();
+            }
         }
 
         host.TraceNativeLoop(
@@ -785,6 +801,54 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         }
 
         RequestRenderAndWakeNativeLoop();
+    }
+
+    public void SetIcon(object? iconSource)
+    {
+        ThrowIfDisposed();
+
+        if (iconSource == null)
+        {
+            _windowIconPixels = null;
+            _windowIconWidth = 0;
+            _windowIconHeight = 0;
+            ApplyWindowIcon();
+            return;
+        }
+
+        if (!WpfBitmapSourceImageAdapter.TryCopyPixelsAsRgba32(
+                iconSource,
+                MaxWindowIconDimension,
+                out var pixels,
+                out var width,
+                out var height))
+        {
+            return;
+        }
+
+        _windowIconPixels = pixels;
+        _windowIconWidth = width;
+        _windowIconHeight = height;
+        ApplyWindowIcon();
+    }
+
+    private void ApplyWindowIcon()
+    {
+        if (_window?.IsInitialized != true)
+        {
+            return;
+        }
+
+        if (_windowIconPixels != null && _windowIconWidth > 0 && _windowIconHeight > 0)
+        {
+            _window.SetWindowIcon([
+                new RawImage(_windowIconWidth, _windowIconHeight, _windowIconPixels)
+            ]);
+        }
+        else
+        {
+            _window.SetWindowIcon([]);
+        }
     }
 
     public void SetClientSize(int width, int height)
@@ -959,7 +1023,10 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         _declaredLogicalClientHeight = _clientHeight;
         if (_window != null)
         {
-            _window.Size = new Vector2D<int>(_clientWidth, _clientHeight);
+            _window.Size = ResolveNativeWindowSizeForLogicalClientSize(
+                new Vector2D<int>(_clientWidth, _clientHeight),
+                ResolveCurrentWindowContentScale(),
+                UsesMonitorScaledWindowCoordinates());
         }
 
         if (updatePortablePresentationSource)
@@ -1001,7 +1068,15 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
             window.DoRender();
         }
 
-        window.DoEvents();
+        try
+        {
+            window.DoEvents();
+        }
+        finally
+        {
+            ProcessDeferredNativeWindowDisposals();
+        }
+
         if (!ShouldKeepPortableNativeRunLoopAlive())
         {
             DisposeDeferredNativeWindowIfNeeded();
@@ -1157,6 +1232,10 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         {
             _disposeNativeWindowWhenLoopExits = true;
             RequestNativeWindowClose(window!);
+            if (_isInNativeWindowCloseCallback)
+            {
+                QueueDeferredNativeWindowDisposal(this);
+            }
         }
 
         DetachInputService();
@@ -1206,6 +1285,34 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         DetachNativeDpiService();
         window.Dispose();
         _window = null;
+    }
+
+    private static void QueueDeferredNativeWindowDisposal(ProGpuWpfWindowHost host)
+    {
+        lock (s_deferredNativeWindowDisposalGate)
+        {
+            s_deferredNativeWindowDisposals.Add(host);
+        }
+    }
+
+    private static void ProcessDeferredNativeWindowDisposals()
+    {
+        ProGpuWpfWindowHost[] pending;
+        lock (s_deferredNativeWindowDisposalGate)
+        {
+            if (s_deferredNativeWindowDisposals.Count == 0)
+            {
+                return;
+            }
+
+            pending = [.. s_deferredNativeWindowDisposals];
+            s_deferredNativeWindowDisposals.Clear();
+        }
+
+        foreach (ProGpuWpfWindowHost host in pending)
+        {
+            host.DisposeDeferredNativeWindowIfNeeded();
+        }
     }
 
     private void RequestNativeWindowClose(IWindow window)
@@ -1273,6 +1380,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
     {
         AttachNativeDpiService();
         _windowController?.Attach();
+        ApplyWindowIcon();
         EnsureCompositionTargetLoaded();
     }
 
@@ -2104,6 +2212,30 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
                 cachedHeight,
                 contentScale.Y,
                 windowSizeIsScaledByContentScale));
+    }
+
+    internal static Vector2D<int> ResolveNativeWindowSizeForLogicalClientSize(
+        Vector2D<int> logicalSize,
+        WpfDeviceScale contentScale,
+        bool windowSizeIsScaledByContentScale)
+    {
+        if (!windowSizeIsScaledByContentScale)
+        {
+            return logicalSize;
+        }
+
+        return new Vector2D<int>(
+            ScaleLogicalClientDimension(logicalSize.X, contentScale.X),
+            ScaleLogicalClientDimension(logicalSize.Y, contentScale.Y));
+    }
+
+    private static int ScaleLogicalClientDimension(int logicalDimension, double contentScale)
+    {
+        double scaledDimension = Math.Max(1, logicalDimension) * NormalizeMonitorDpiScale(contentScale);
+        return (int)Math.Clamp(
+            Math.Round(scaledDimension, MidpointRounding.AwayFromZero),
+            1.0,
+            int.MaxValue);
     }
 
     private static int ResolveLogicalClientDimension(

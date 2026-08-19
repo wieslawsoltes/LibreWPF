@@ -197,6 +197,65 @@ public sealed class WpfBitmapSourceImageAdapterTests
     }
 
     [Fact]
+    public void CopyPixelsAsRgba32CreatesStraightAlphaSilkPixels()
+    {
+        var source = new FakeBitmapSource(
+            width: 2,
+            height: 1,
+            formatName: "Bgra32",
+            bitsPerPixel: 32,
+            pixels: new byte[]
+            {
+                100, 50, 200, 128,
+                20, 30, 40, 0
+            });
+
+        Assert.True(WpfBitmapSourceImageAdapter.TryCopyPixelsAsRgba32(
+            source,
+            out var pixels,
+            out var width,
+            out var height));
+
+        Assert.Equal(2, width);
+        Assert.Equal(1, height);
+        Assert.Equal(new byte[]
+        {
+            199, 50, 100, 128,
+            0, 0, 0, 0
+        }, pixels);
+    }
+
+    [Fact]
+    public void CopyPixelsAsRgba32CapsLargeImagesAndPreservesAspectRatio()
+    {
+        var source = new FakeBitmapSource(
+            width: 4,
+            height: 2,
+            formatName: "Bgra32",
+            bitsPerPixel: 32,
+            pixels: new byte[]
+            {
+                1, 2, 3, 255, 4, 5, 6, 255, 7, 8, 9, 255, 10, 11, 12, 255,
+                13, 14, 15, 255, 16, 17, 18, 255, 19, 20, 21, 255, 22, 23, 24, 255
+            });
+
+        Assert.True(WpfBitmapSourceImageAdapter.TryCopyPixelsAsRgba32(
+            source,
+            maxDimension: 2,
+            out var pixels,
+            out var width,
+            out var height));
+
+        Assert.Equal(2, width);
+        Assert.Equal(1, height);
+        Assert.Equal(new byte[]
+        {
+            3, 2, 1, 255,
+            9, 8, 7, 255
+        }, pixels);
+    }
+
+    [Fact]
     public void CopyPixelsAsPbgra32ConvertsBgr32ToOpaquePbgra32()
     {
         var source = new FakeBitmapSource(
