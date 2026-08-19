@@ -12,7 +12,7 @@ using System.Security.Cryptography;
 internal static class Program
 {
     private const string LibreWpfPackageVersion = "0.1.0-preview.42";
-    private const string ProGpuPackageVersion = "0.1.0-preview.52";
+    private const string ProGpuPackageVersion = "0.1.0-preview.53";
     private const string PrepackagedProGpuDirectoryEnvironmentVariable = "PROGPU_WPF_PREPACKAGED_PROGPU_DIR";
     private const string SmokeTargetFramework = "net10.0-windows";
     private const string SmokeAssemblyName = "ProGPU.Wpf.SdkSwitchSmoke";
@@ -1568,8 +1568,7 @@ internal static class Program
         AssertPortableSystemParameterMetric(systemParametersType, resourceOwner, "FocusBorderHeight", 1.0);
         AssertPortableSystemParameterMetric(systemParametersType, resourceOwner, "FocusHorizontalBorderHeight", 1.0);
         AssertPortableSystemParameterMetric(systemParametersType, resourceOwner, "FocusVerticalBorderWidth", 1.0);
-        AssertPortableSystemParameterMetric(systemParametersType, resourceOwner, "PrimaryScreenWidth", 1024.0);
-        AssertPortableSystemParameterMetric(systemParametersType, resourceOwner, "PrimaryScreenHeight", 768.0);
+        ValidatePortableDisplaySystemParameters(systemParametersType, resourceOwner);
         AssertPortableSystemParameterMetric(systemParametersType, resourceOwner, "VerticalScrollBarWidth", 17.0);
         AssertPortableSystemParameterMetric(systemParametersType, resourceOwner, "HorizontalScrollBarHeight", 17.0);
         AssertPortableSystemParameterMetric(systemParametersType, resourceOwner, "CaretWidth", 1.0);
@@ -1589,11 +1588,6 @@ internal static class Program
         AssertPortableSystemParameterMetric(systemParametersType, resourceOwner, "MenuButtonHeight", 18.0);
         AssertPortableSystemParameterMetric(systemParametersType, resourceOwner, "WindowCaptionHeight", 23.0);
         AssertPortableSystemParameterMetric(systemParametersType, resourceOwner, "MenuBarHeight", 19.0);
-        AssertPortableSystemParameterMetric(systemParametersType, resourceOwner, "VirtualScreenWidth", 1024.0);
-        AssertPortableSystemParameterMetric(systemParametersType, resourceOwner, "VirtualScreenHeight", 768.0);
-        AssertPortableSystemParameterMetric(systemParametersType, resourceOwner, "VirtualScreenLeft", 0.0);
-        AssertPortableSystemParameterMetric(systemParametersType, resourceOwner, "VirtualScreenTop", 0.0);
-        AssertPortableSystemParameterRect(systemParametersType, resourceOwner, "WorkArea", 0.0, 0.0, 1024.0, 768.0);
         AssertPortableSystemParameterThickness(systemParametersType, "WindowResizeBorderThickness", 8.0, 8.0, 8.0, 8.0);
         AssertPortableSystemParameterThickness(systemParametersType, "WindowNonClientFrameThickness", 8.0, 31.0, 8.0, 8.0);
         AssertPortableSystemParameterValue(systemParametersType, resourceOwner, "HighContrast", false);
@@ -1633,6 +1627,64 @@ internal static class Program
             resourceOwner,
             "PowerLineStatus",
             Enum.Parse(GetRequiredType(presentationFramework, "System.Windows.PowerLineStatus"), "Unknown"));
+    }
+
+    private static void ValidatePortableDisplaySystemParameters(Type systemParametersType, object resourceOwner)
+    {
+        double primaryWidth = AssertPortableSystemParameterMetricValueAndResource(
+            systemParametersType,
+            resourceOwner,
+            "PrimaryScreenWidth");
+        double primaryHeight = AssertPortableSystemParameterMetricValueAndResource(
+            systemParametersType,
+            resourceOwner,
+            "PrimaryScreenHeight");
+        double virtualWidth = AssertPortableSystemParameterMetricValueAndResource(
+            systemParametersType,
+            resourceOwner,
+            "VirtualScreenWidth");
+        double virtualHeight = AssertPortableSystemParameterMetricValueAndResource(
+            systemParametersType,
+            resourceOwner,
+            "VirtualScreenHeight");
+
+        AssertPortableSystemParameterMetricValueAndResource(systemParametersType, resourceOwner, "VirtualScreenLeft");
+        AssertPortableSystemParameterMetricValueAndResource(systemParametersType, resourceOwner, "VirtualScreenTop");
+
+        object workArea = GetStaticProperty(systemParametersType, "WorkArea");
+        AssertType(workArea, "System.Windows.Rect", "SDK SystemParameters.WorkArea");
+        object workAreaResource = ResolveSystemParameterResource(systemParametersType, resourceOwner, "WorkArea");
+        AssertEqual(workArea, workAreaResource, "portable SDK SystemParameters.WorkArea resource");
+
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        AssertPositive(primaryWidth, "portable SDK SystemParameters.PrimaryScreenWidth");
+        AssertPositive(primaryHeight, "portable SDK SystemParameters.PrimaryScreenHeight");
+        AssertPositive(virtualWidth, "portable SDK SystemParameters.VirtualScreenWidth");
+        AssertPositive(virtualHeight, "portable SDK SystemParameters.VirtualScreenHeight");
+        AssertDoubleAtLeast(primaryWidth, virtualWidth, "portable SDK virtual screen width covers primary screen");
+        AssertDoubleAtLeast(primaryHeight, virtualHeight, "portable SDK virtual screen height covers primary screen");
+
+        double workAreaWidth = Convert.ToDouble(GetProperty(workArea, "Width"));
+        double workAreaHeight = Convert.ToDouble(GetProperty(workArea, "Height"));
+        AssertPositive(workAreaWidth, "portable SDK SystemParameters.WorkArea.Width");
+        AssertPositive(workAreaHeight, "portable SDK SystemParameters.WorkArea.Height");
+        AssertDoubleAtLeast(workAreaWidth, primaryWidth, "portable SDK primary screen width covers work area");
+        AssertDoubleAtLeast(workAreaHeight, primaryHeight, "portable SDK primary screen height covers work area");
+    }
+
+    private static double AssertPortableSystemParameterMetricValueAndResource(
+        Type systemParametersType,
+        object resourceOwner,
+        string propertyName)
+    {
+        double value = Convert.ToDouble(GetStaticProperty(systemParametersType, propertyName));
+        object resourceValue = ResolveSystemParameterResource(systemParametersType, resourceOwner, propertyName);
+        AssertClose(value, Convert.ToDouble(resourceValue), 0.0001, $"portable SDK SystemParameters.{propertyName} resource");
+        return value;
     }
 
     private static void ValidatePortableInputLanguageManager(Assembly presentationCore, object target)
@@ -4453,6 +4505,22 @@ internal static class Program
         if (actual < expectedMinimum)
         {
             throw new InvalidOperationException($"{description}: expected at least {expectedMinimum}, actual {actual}.");
+        }
+    }
+
+    private static void AssertDoubleAtLeast(double expectedMinimum, double actualValue, string description)
+    {
+        if (actualValue < expectedMinimum)
+        {
+            throw new InvalidOperationException($"{description}: expected at least {expectedMinimum}, actual {actualValue}.");
+        }
+    }
+
+    private static void AssertPositive(double actualValue, string description)
+    {
+        if (!double.IsFinite(actualValue) || actualValue <= 0.0)
+        {
+            throw new InvalidOperationException($"{description}: expected a finite positive value, actual {actualValue}.");
         }
     }
 

@@ -10,7 +10,7 @@ on:
       progpu_version:
         description: Exact immutable ProGPU package version consumed by LibreWPF.
         required: true
-        default: 0.1.0-preview.52
+        default: 0.1.0-preview.53
       publish:
         description: Push packages to NuGet.org after validation.
         required: true
@@ -203,7 +203,7 @@ jobs:
             version="${{ inputs.version }}"
           fi
           echo "PROGPU_WPF_DEV_PACKAGE_VERSION=${version}" >> "${GITHUB_ENV}"
-          echo "PROGPU_WPF_PROGPU_PACKAGE_VERSION=${{ inputs.progpu_version || '0.1.0-preview.52' }}" >> "${GITHUB_ENV}"
+          echo "PROGPU_WPF_PROGPU_PACKAGE_VERSION=${{ inputs.progpu_version || '0.1.0-preview.53' }}" >> "${GITHUB_ENV}"
           echo "version=${version}" >> "${GITHUB_OUTPUT}"
           echo "Resolved LibreWPF package version: ${version}"
 

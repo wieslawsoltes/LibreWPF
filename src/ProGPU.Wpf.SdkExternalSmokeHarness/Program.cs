@@ -19,7 +19,7 @@ internal static class Program
     private const string OriginalWpfSdk = "Microsoft.NET.Sdk";
     private const string OriginalWindowsDesktopWpfSdk = "Microsoft.NET.Sdk.WindowsDesktop";
     private const string SdkVersion = "0.1.0-preview.42";
-    private const string ProGpuPackageVersion = "0.1.0-preview.52";
+    private const string ProGpuPackageVersion = "0.1.0-preview.53";
     private const string PrepackagedProGpuDirectoryEnvironmentVariable = "PROGPU_WPF_PREPACKAGED_PROGPU_DIR";
     private const string ExternalAppTargetFramework = "net10.0-windows";
     private const string AppAssemblyName = "ExternalSdkApp";
@@ -7144,18 +7144,7 @@ internal static class Program
                         SystemParameters.FocusBorderHeight,
                         SystemParameters.FocusBorderHeightKey,
                         1.0);
-                    AssertSystemParameterMetric(
-                        resourceOwner,
-                        "PrimaryScreenWidth",
-                        SystemParameters.PrimaryScreenWidth,
-                        SystemParameters.PrimaryScreenWidthKey,
-                        1024.0);
-                    AssertSystemParameterMetric(
-                        resourceOwner,
-                        "PrimaryScreenHeight",
-                        SystemParameters.PrimaryScreenHeight,
-                        SystemParameters.PrimaryScreenHeightKey,
-                        768.0);
+                    ValidateDisplaySystemParameters(resourceOwner);
                     AssertSystemParameterMetric(
                         resourceOwner,
                         "VerticalScrollBarWidth",
@@ -7174,15 +7163,6 @@ internal static class Program
                         SystemParameters.CaretWidth,
                         SystemParameters.CaretWidthKey,
                         1.0);
-                    AssertSystemParameterRect(
-                        resourceOwner,
-                        "WorkArea",
-                        SystemParameters.WorkArea,
-                        SystemParameters.WorkAreaKey,
-                        0.0,
-                        0.0,
-                        1024.0,
-                        768.0);
                     AssertSystemParameterValue(
                         resourceOwner,
                         "HighContrast",
@@ -7297,6 +7277,77 @@ internal static class Program
                         SystemParameters.WheelScrollLines,
                         SystemParameters.WheelScrollLinesKey,
                         3);
+                }
+
+                private static void ValidateDisplaySystemParameters(FrameworkElement resourceOwner)
+                {
+                    double primaryWidth = AssertSystemParameterMetricResource(
+                        resourceOwner,
+                        "PrimaryScreenWidth",
+                        SystemParameters.PrimaryScreenWidth,
+                        SystemParameters.PrimaryScreenWidthKey);
+                    double primaryHeight = AssertSystemParameterMetricResource(
+                        resourceOwner,
+                        "PrimaryScreenHeight",
+                        SystemParameters.PrimaryScreenHeight,
+                        SystemParameters.PrimaryScreenHeightKey);
+                    double virtualWidth = AssertSystemParameterMetricResource(
+                        resourceOwner,
+                        "VirtualScreenWidth",
+                        SystemParameters.VirtualScreenWidth,
+                        SystemParameters.VirtualScreenWidthKey);
+                    double virtualHeight = AssertSystemParameterMetricResource(
+                        resourceOwner,
+                        "VirtualScreenHeight",
+                        SystemParameters.VirtualScreenHeight,
+                        SystemParameters.VirtualScreenHeightKey);
+                    AssertSystemParameterMetricResource(
+                        resourceOwner,
+                        "VirtualScreenLeft",
+                        SystemParameters.VirtualScreenLeft,
+                        SystemParameters.VirtualScreenLeftKey);
+                    AssertSystemParameterMetricResource(
+                        resourceOwner,
+                        "VirtualScreenTop",
+                        SystemParameters.VirtualScreenTop,
+                        SystemParameters.VirtualScreenTopKey);
+
+                    Rect workArea = SystemParameters.WorkArea;
+                    object workAreaResource = resourceOwner.TryFindResource(SystemParameters.WorkAreaKey)
+                        ?? throw new InvalidOperationException("Expected external SDK SystemParameters.WorkArea resource.");
+                    AssertEqual(workArea, (Rect)workAreaResource, "external SDK SystemParameters.WorkArea resource");
+
+                    if (OperatingSystem.IsWindows())
+                    {
+                        return;
+                    }
+
+                    if (!double.IsFinite(primaryWidth) || primaryWidth <= 0.0 ||
+                        !double.IsFinite(primaryHeight) || primaryHeight <= 0.0 ||
+                        !double.IsFinite(virtualWidth) || virtualWidth < primaryWidth ||
+                        !double.IsFinite(virtualHeight) || virtualHeight < primaryHeight ||
+                        !double.IsFinite(workArea.Width) || workArea.Width <= 0.0 || workArea.Width > primaryWidth ||
+                        !double.IsFinite(workArea.Height) || workArea.Height <= 0.0 || workArea.Height > primaryHeight)
+                    {
+                        throw new InvalidOperationException(
+                            $"Expected usable external SDK display metrics, got primary {primaryWidth}x{primaryHeight}, " +
+                            $"virtual {virtualWidth}x{virtualHeight}, and work area {workArea}.");
+                    }
+                }
+
+                private static double AssertSystemParameterMetricResource(
+                    FrameworkElement resourceOwner,
+                    string propertyName,
+                    double value,
+                    object resourceKey)
+                {
+                    object resourceValue = resourceOwner.TryFindResource(resourceKey)
+                        ?? throw new InvalidOperationException($"Expected external SDK SystemParameters.{propertyName} resource.");
+                    AssertClose(
+                        value,
+                        Convert.ToDouble(resourceValue, CultureInfo.InvariantCulture),
+                        $"external SDK SystemParameters.{propertyName} resource");
+                    return value;
                 }
 
                 private static void AssertSystemParameterMetric(

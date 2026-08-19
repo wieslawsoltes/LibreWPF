@@ -3743,9 +3743,13 @@ public partial class MainWindow : Window
                 () => ValidateLiveRenderSurfaceGeometryCore(liveHost),
                 DispatcherPriority.Send);
             Console.WriteLine($"ProGPU WPF Toolkit live input validation geometry ready: {geometryStatus}.");
+            string displayMetricsStatus = await InvokeWithLiveHostWakeAsync(
+                liveHost,
+                () => ValidateLiveDisplayMetricsCore(liveHost),
+                DispatcherPriority.Send);
             string inputStatus = await ValidateLiveInputAsync(liveHost);
             string successStatus = $"ProGPU WPF Toolkit live input validation succeeded: {geometryStatus}.";
-            string detailStatus = $"ProGPU WPF Toolkit live input validation details: {inputStatus}.";
+            string detailStatus = $"ProGPU WPF Toolkit live input validation details: {displayMetricsStatus}; {inputStatus}.";
             Console.WriteLine(successStatus);
             Console.WriteLine(detailStatus);
             WriteLiveValidationStatus($"{successStatus}{Environment.NewLine}{detailStatus}{Environment.NewLine}");
@@ -5089,6 +5093,38 @@ public partial class MainWindow : Window
         }
 
         return $"logical {logicalWidth}x{logicalHeight}, pixels {pixelWidth}x{pixelHeight}, viewport {viewportWidth}x{viewportHeight}@{viewportX},{viewportY}, dpi {dpiScale:0.###}";
+    }
+
+    private static string ValidateLiveDisplayMetricsCore(ProGpuWpfWindowHost liveHost)
+    {
+        IReadOnlyList<WpfMonitorInfo> monitors = liveHost.PlatformServices.Monitors.GetMonitors();
+        if (monitors.Count == 0)
+        {
+            throw new InvalidOperationException("Expected the Toolkit live host to expose at least one monitor.");
+        }
+
+        WpfMonitorInfo primary = monitors.FirstOrDefault(monitor => monitor.IsPrimary);
+        if (primary.Width <= 0 || primary.Height <= 0)
+        {
+            primary = monitors[0];
+        }
+
+        double coordinateScale = primary.UsesLogicalCoordinates || primary.DpiScale <= 0
+            ? 1.0
+            : primary.DpiScale;
+        double expectedWidth = primary.Width / coordinateScale;
+        double expectedHeight = primary.Height / coordinateScale;
+        double actualWidth = SystemParameters.PrimaryScreenWidth;
+        double actualHeight = SystemParameters.PrimaryScreenHeight;
+        const double crossBackendTolerance = 4.0;
+        if (Math.Abs(actualWidth - expectedWidth) > crossBackendTolerance ||
+            Math.Abs(actualHeight - expectedHeight) > crossBackendTolerance)
+        {
+            throw new InvalidOperationException(
+                $"Expected Toolkit SystemParameters primary screen {expectedWidth:0.###}x{expectedHeight:0.###} DIPs from monitor geometry, but got {actualWidth:0.###}x{actualHeight:0.###}.");
+        }
+
+        return $"screen {actualWidth:0.###}x{actualHeight:0.###} DIPs";
     }
 
     private static void RaiseHostInput(

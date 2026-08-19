@@ -7,6 +7,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 using System.Windows.Controls.Primitives;
 using System.Windows.Media;
+using ProGPU.Wpf.Interop;
 using MS.Win32;
 using MS.Internal;
 using MS.Internal.Interop;
@@ -375,7 +376,20 @@ namespace System.Windows
                         _workAreaInternal = new NativeMethods.RECT();
                         if (!OperatingSystem.IsWindows())
                         {
-                            _workAreaInternal = new NativeMethods.RECT(0, 0, DefaultPrimaryScreenWidth, DefaultPrimaryScreenHeight);
+                            if (TryGetPortableDisplayMetrics(out PortableDisplayMetrics metrics) &&
+                                IsUsablePortableRect(metrics.PrimaryWorkArea))
+                            {
+                                PortableRect workArea = metrics.PrimaryWorkArea;
+                                _workAreaInternal = new NativeMethods.RECT(
+                                    RoundPortableMetric(workArea.X),
+                                    RoundPortableMetric(workArea.Y),
+                                    RoundPortableMetric(workArea.X + workArea.Width),
+                                    RoundPortableMetric(workArea.Y + workArea.Height));
+                            }
+                            else
+                            {
+                                _workAreaInternal = new NativeMethods.RECT(0, 0, DefaultPrimaryScreenWidth, DefaultPrimaryScreenHeight);
+                            }
                         }
                         else if (UnsafeNativeMethods.SystemParametersInfo(NativeMethods.SPI_GETWORKAREA, 0, ref _workAreaInternal, 0))
                         {
@@ -5994,9 +6008,17 @@ namespace System.Windows
 
         private static double GetSystemMetricPixel(SM metric, int fallbackPixel)
         {
-            return ConvertPixel(OperatingSystem.IsWindows()
-                ? UnsafeNativeMethods.GetSystemMetrics(metric)
-                : fallbackPixel);
+            int pixel;
+            if (OperatingSystem.IsWindows())
+            {
+                pixel = UnsafeNativeMethods.GetSystemMetrics(metric);
+            }
+            else if (!TryGetPortableSystemMetric(metric, out pixel))
+            {
+                pixel = fallbackPixel;
+            }
+
+            return ConvertPixel(pixel);
         }
 
         private static int GetSystemMetric(SM metric)
@@ -6015,6 +6037,11 @@ namespace System.Windows
 
         private static int GetDefaultSystemMetric(SM metric)
         {
+            if (TryGetPortableSystemMetric(metric, out int portableMetric))
+            {
+                return portableMetric;
+            }
+
             return metric switch
             {
                 SM.CXSCREEN => DefaultPrimaryScreenWidth,
@@ -6076,6 +6103,75 @@ namespace System.Windows
                 SM.MOUSEWHEELPRESENT => 1,
                 _ => 0,
             };
+        }
+
+        private static bool TryGetPortableSystemMetric(SM metric, out int value)
+        {
+            value = 0;
+            if (!TryGetPortableDisplayMetrics(out PortableDisplayMetrics metrics))
+            {
+                return false;
+            }
+
+            PortableRect primaryScreen = metrics.PrimaryScreen;
+            PortableRect primaryWorkArea = IsUsablePortableRect(metrics.PrimaryWorkArea)
+                ? metrics.PrimaryWorkArea
+                : primaryScreen;
+            PortableRect virtualScreen = IsUsablePortableRect(metrics.VirtualScreen)
+                ? metrics.VirtualScreen
+                : primaryScreen;
+
+            double result = metric switch
+            {
+                SM.CXSCREEN => primaryScreen.Width,
+                SM.CYSCREEN => primaryScreen.Height,
+                SM.CXVIRTUALSCREEN => virtualScreen.Width,
+                SM.CYVIRTUALSCREEN => virtualScreen.Height,
+                SM.XVIRTUALSCREEN => virtualScreen.X,
+                SM.YVIRTUALSCREEN => virtualScreen.Y,
+                SM.CXFULLSCREEN => primaryWorkArea.Width,
+                SM.CYFULLSCREEN => primaryWorkArea.Height,
+                SM.CXMAXIMIZED => primaryWorkArea.Width,
+                SM.CYMAXIMIZED => primaryWorkArea.Height,
+                SM.CXMAXTRACK => primaryScreen.Width,
+                SM.CYMAXTRACK => primaryScreen.Height,
+                _ => double.NaN,
+            };
+
+            if (!double.IsFinite(result))
+            {
+                return false;
+            }
+
+            value = RoundPortableMetric(result);
+            return true;
+        }
+
+        private static bool TryGetPortableDisplayMetrics(out PortableDisplayMetrics metrics)
+        {
+            metrics = default;
+            return !OperatingSystem.IsWindows()
+                && PortableWpfServiceRegistry.TryGetDisplayMetricsSource(
+                    PortableWpfServiceKey.PresentationFramework,
+                    out IPortableDisplayMetricsSource source)
+                && source.TryGetDisplayMetrics(out metrics)
+                && IsUsablePortableRect(metrics.PrimaryScreen);
+        }
+
+        private static bool IsUsablePortableRect(PortableRect rect)
+        {
+            return !rect.IsEmpty
+                && double.IsFinite(rect.X)
+                && double.IsFinite(rect.Y)
+                && double.IsFinite(rect.Width)
+                && double.IsFinite(rect.Height)
+                && rect.Width > 0
+                && rect.Height > 0;
+        }
+
+        private static int RoundPortableMetric(double value)
+        {
+            return checked((int)Math.Round(value, MidpointRounding.AwayFromZero));
         }
 
         private static NativeMethods.ICONMETRICS CreateDefaultIconMetrics()

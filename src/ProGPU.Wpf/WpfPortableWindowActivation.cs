@@ -46,6 +46,9 @@ public sealed class WpfPortableWindowActivation : IDisposable
     private static readonly TimeSpan ApplicationIdleFlushTimeout = TimeSpan.FromMilliseconds(250);
     private static readonly TimeSpan UpdateTickFlushTimeout = TimeSpan.FromMilliseconds(8);
     private static readonly TimeSpan DispatcherTimerPumpInterval = TimeSpan.FromMilliseconds(16);
+    private static readonly WpfPortableDisplayMetricsSource s_displayMetricsSource =
+        new(() => CrossPlatformWpfPlatformServices.Instance.Monitors);
+    private static IDisposable? s_displayMetricsRegistration;
     private bool _isDisposed;
     private bool _isClosingFromNative;
     private bool _isClosingFromWpf;
@@ -101,6 +104,8 @@ public sealed class WpfPortableWindowActivation : IDisposable
                 PortableWpfServiceKey.PresentationFramework,
                 out var activationService))
         {
+            s_displayMetricsRegistration ??=
+                PortableWpfServiceRegistry.RegisterDisplayMetricsSource(s_displayMetricsSource);
             activationService.Register(CreateWindowActivationCallbacks(hostFactory));
             TryRegisterPresentationFrameworkLauncherService();
             TryRegisterPresentationFrameworkMessageBoxService();

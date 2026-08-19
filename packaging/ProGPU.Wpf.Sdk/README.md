@@ -39,7 +39,7 @@ For a fast validation pass that exercises the external no-source-change SDK smok
 ./eng/progpu-wpf-mvp-quickcheck.sh
 ```
 
-The quickcheck expects the local `0.1.0-preview.42` LibreWPF package feed and its ProGPU `0.1.0-preview.52` runtime dependencies to be current. Use the full SDK CI gate when package contents need to be rebuilt from source:
+The quickcheck expects the local `0.1.0-preview.42` LibreWPF package feed and its ProGPU `0.1.0-preview.53` runtime dependencies to be current. Use the full SDK CI gate when package contents need to be rebuilt from source:
 
 ```bash
 ./eng/progpu-wpf-sdk-ci.sh

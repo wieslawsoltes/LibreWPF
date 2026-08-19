@@ -14,7 +14,7 @@
     <Version>$(VersionPrefix)-$(VersionSuffix)</Version>
     <PackageVersion>$(Version)</PackageVersion>
     <PackageDescription>LibreWPF MSBuild SDK for running existing desktop XAML applications on ProGPU/Silk.NET.</PackageDescription>
-    <PackageReleaseNotes>Aligns LibreWPF preview.42 with immutable ProGPU preview.52 and adds the portable WPF window-icon contract, PE application-icon fallback, modifier-aware managed text fallback, and safe child-window close disposal; retains WebGPU adapter-selection diagnostics, exact transformed and shader-backed stroke replay, native activation, popup-local input diagnostics, bounded render-resource ownership, static-frame render suppression, Windows OLE clipboard, and the cross-platform WPFGallery and designer gates.</PackageReleaseNotes>
+    <PackageReleaseNotes>Aligns LibreWPF preview.42 with immutable ProGPU preview.53 and adds portable logical primary-screen, work-area, and virtual-screen metrics for SystemParameters; retains per-monitor DPI propagation, multi-window popup routing, the portable WPF window-icon contract, WebGPU adapter-selection diagnostics, exact transformed and shader-backed stroke replay, native activation, bounded render-resource ownership, static-frame render suppression, Windows OLE clipboard, and the cross-platform WPFGallery and designer gates.</PackageReleaseNotes>
     <PackageTags>librewpf;progpu;silk.net;msbuild-sdk</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>

@@ -11,9 +11,10 @@ public sealed class SilkNetWpfMonitorService : IWpfMonitorService
     private readonly Func<IEnumerable<IMonitor>> _getMonitors;
     private readonly Func<IMonitor?> _getMainMonitor;
     private readonly Func<IMonitor, double?>? _getDpiScale;
+    private readonly Func<IMonitor, Rectangle<int>?>? _getWorkArea;
 
     public SilkNetWpfMonitorService()
-        : this(GetDefaultMonitors, GetDefaultMainMonitor, TryGetGlfwMonitorContentScale)
+        : this(GetDefaultMonitors, GetDefaultMainMonitor, TryGetGlfwMonitorContentScale, TryGetGlfwMonitorWorkArea)
     {
     }
 
@@ -24,16 +25,19 @@ public sealed class SilkNetWpfMonitorService : IWpfMonitorService
         _getMonitors = platform.GetMonitors;
         _getMainMonitor = platform.GetMainMonitor;
         _getDpiScale = TryGetGlfwMonitorContentScale;
+        _getWorkArea = TryGetGlfwMonitorWorkArea;
     }
 
     public SilkNetWpfMonitorService(
         Func<IEnumerable<IMonitor>> getMonitors,
         Func<IMonitor?> getMainMonitor,
-        Func<IMonitor, double?>? getDpiScale = null)
+        Func<IMonitor, double?>? getDpiScale = null,
+        Func<IMonitor, Rectangle<int>?>? getWorkArea = null)
     {
         _getMonitors = getMonitors ?? throw new ArgumentNullException(nameof(getMonitors));
         _getMainMonitor = getMainMonitor ?? throw new ArgumentNullException(nameof(getMainMonitor));
         _getDpiScale = getDpiScale;
+        _getWorkArea = getWorkArea;
     }
 
     public IReadOnlyList<WpfMonitorInfo> GetMonitors()
@@ -46,7 +50,7 @@ public sealed class SilkNetWpfMonitorService : IWpfMonitorService
 
         foreach (var monitor in monitors)
         {
-            mapped.Add(ToMonitorInfo(monitor, mainMonitor, _getDpiScale));
+            mapped.Add(ToMonitorInfo(monitor, mainMonitor, _getDpiScale, _getWorkArea));
         }
 
         return mapped;
@@ -60,7 +64,8 @@ public sealed class SilkNetWpfMonitorService : IWpfMonitorService
     public static WpfMonitorInfo ToMonitorInfo(
         IMonitor monitor,
         IMonitor? mainMonitor,
-        Func<IMonitor, double?>? getDpiScale)
+        Func<IMonitor, double?>? getDpiScale,
+        Func<IMonitor, Rectangle<int>?>? getWorkArea = null)
     {
         ArgumentNullException.ThrowIfNull(monitor);
 
@@ -74,6 +79,9 @@ public sealed class SilkNetWpfMonitorService : IWpfMonitorService
             height = resolution.Y;
         }
 
+        var workArea = getWorkArea?.Invoke(monitor) ?? bounds;
+        bool usesLogicalCoordinates = MonitorBoundsAreLogical(monitor, width, height);
+
         return new WpfMonitorInfo(
             monitor.Name,
             bounds.Origin.X,
@@ -81,7 +89,24 @@ public sealed class SilkNetWpfMonitorService : IWpfMonitorService
             Math.Max(0, width),
             Math.Max(0, height),
             ResolveDpiScale(monitor, width, height, getDpiScale?.Invoke(monitor)),
-            IsPrimary: ReferenceEquals(monitor, mainMonitor) || monitor.Index == mainMonitor?.Index);
+            IsPrimary: ReferenceEquals(monitor, mainMonitor) || monitor.Index == mainMonitor?.Index)
+        {
+            WorkAreaX = workArea.Origin.X,
+            WorkAreaY = workArea.Origin.Y,
+            WorkAreaWidth = Math.Max(0, workArea.Size.X),
+            WorkAreaHeight = Math.Max(0, workArea.Size.Y),
+            UsesLogicalCoordinates = usesLogicalCoordinates,
+        };
+    }
+
+    internal static bool MonitorBoundsAreLogical(IMonitor monitor, int boundsWidth, int boundsHeight)
+    {
+        return boundsWidth > 0
+            && boundsHeight > 0
+            && monitor.VideoMode.Resolution is Vector2D<int> resolution
+            && resolution.X > 0
+            && resolution.Y > 0
+            && (resolution.X != boundsWidth || resolution.Y != boundsHeight);
     }
 
     internal static double ResolveDpiScale(IMonitor monitor, int boundsWidth, int boundsHeight)
@@ -171,6 +196,47 @@ public sealed class SilkNetWpfMonitorService : IWpfMonitorService
             glfw.GetMonitorContentScale(nativeMonitors[monitor.Index], out float scaleX, out float scaleY);
             return SilkNetGlfwDpiService.TryNormalizeContentScale(scaleX, scaleY, out WpfDeviceScale scale)
                 ? scale.Average
+                : null;
+        }
+        catch (DllNotFoundException)
+        {
+            return null;
+        }
+        catch (EntryPointNotFoundException)
+        {
+            return null;
+        }
+        catch (BadImageFormatException)
+        {
+            return null;
+        }
+        catch (GlfwException)
+        {
+            return null;
+        }
+    }
+
+    private static unsafe Rectangle<int>? TryGetGlfwMonitorWorkArea(IMonitor monitor)
+    {
+        ArgumentNullException.ThrowIfNull(monitor);
+
+        try
+        {
+            Glfw glfw = GlfwProvider.GLFW.Value;
+            Silk.NET.GLFW.Monitor** nativeMonitors = glfw.GetMonitors(out int monitorCount);
+            if (nativeMonitors == null || monitor.Index < 0 || monitor.Index >= monitorCount)
+            {
+                return null;
+            }
+
+            glfw.GetMonitorWorkarea(
+                nativeMonitors[monitor.Index],
+                out int x,
+                out int y,
+                out int width,
+                out int height);
+            return width > 0 && height > 0
+                ? new Rectangle<int>(x, y, width, height)
                 : null;
         }
         catch (DllNotFoundException)

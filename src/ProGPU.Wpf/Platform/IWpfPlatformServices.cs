@@ -371,7 +371,18 @@ public readonly record struct WpfMonitorInfo(
     int Width,
     int Height,
     double DpiScale,
-    bool IsPrimary);
+    bool IsPrimary)
+{
+    public int WorkAreaX { get; init; } = X;
+
+    public int WorkAreaY { get; init; } = Y;
+
+    public int WorkAreaWidth { get; init; } = Width;
+
+    public int WorkAreaHeight { get; init; } = Height;
+
+    public bool UsesLogicalCoordinates { get; init; }
+}
 
 public enum WpfWindowEventKind
 {

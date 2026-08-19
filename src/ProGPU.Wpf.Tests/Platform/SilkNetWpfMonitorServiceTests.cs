@@ -79,6 +79,7 @@ public sealed class SilkNetWpfMonitorServiceTests
         var mapped = SilkNetWpfMonitorService.ToMonitorInfo(monitor, monitor, _ => 1.75);
 
         Assert.Equal(1.75, mapped.DpiScale);
+        Assert.False(mapped.UsesLogicalCoordinates);
     }
 
     [Fact]
@@ -111,6 +112,29 @@ public sealed class SilkNetWpfMonitorServiceTests
         var mapped = SilkNetWpfMonitorService.ToMonitorInfo(monitor, monitor, _ => 0);
 
         Assert.Equal(2.0, mapped.DpiScale);
+        Assert.True(mapped.UsesLogicalCoordinates);
+    }
+
+    [Fact]
+    public void ToMonitorInfoUsesTypedWorkAreaProvider()
+    {
+        var monitor = new FakeMonitor(
+            "WorkArea",
+            0,
+            new Rectangle<int>(0, 0, 3840, 2160),
+            new VideoMode(new Vector2D<int>(3840, 2160), 60));
+
+        var mapped = SilkNetWpfMonitorService.ToMonitorInfo(
+            monitor,
+            monitor,
+            _ => 2.0,
+            _ => new Rectangle<int>(0, 48, 3840, 2112));
+
+        Assert.Equal(0, mapped.WorkAreaX);
+        Assert.Equal(48, mapped.WorkAreaY);
+        Assert.Equal(3840, mapped.WorkAreaWidth);
+        Assert.Equal(2112, mapped.WorkAreaHeight);
+        Assert.False(mapped.UsesLogicalCoordinates);
     }
 
     private sealed class FakeMonitor : IMonitor
