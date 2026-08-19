@@ -8,6 +8,28 @@ namespace ProGPU.Wpf.Tests.Platform;
 public sealed class SilkNetWpfMonitorServiceTests
 {
     [Fact]
+    public void GetMonitorsConfiguresPlatformBeforeQueryingSilk()
+    {
+        bool configured = false;
+        var service = new SilkNetWpfMonitorService(
+            () =>
+            {
+                Assert.True(configured);
+                return Array.Empty<IMonitor>();
+            },
+            () =>
+            {
+                Assert.True(configured);
+                return null;
+            },
+            getDpiScale: null,
+            getWorkArea: null,
+            configureBeforeMonitorQuery: () => configured = true);
+
+        Assert.Empty(service.GetMonitors());
+    }
+
+    [Fact]
     public void GetMonitorsMapsSilkMonitorBounds()
     {
         var primary = new FakeMonitor(

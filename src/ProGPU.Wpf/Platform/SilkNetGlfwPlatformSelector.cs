@@ -19,7 +19,7 @@ internal static class SilkNetGlfwPlatformSelector
     private static readonly object s_gate = new();
     private static bool s_configurationAttempted;
 
-    internal static bool ConfigureBeforeFirstWindow()
+    internal static bool ConfigureBeforeFirstGlfwUse()
     {
         if (!OperatingSystem.IsLinux())
         {

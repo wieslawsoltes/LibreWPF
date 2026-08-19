@@ -1336,7 +1336,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
             return;
         }
 
-        SilkNetGlfwPlatformSelector.ConfigureBeforeFirstWindow();
+        SilkNetGlfwPlatformSelector.ConfigureBeforeFirstGlfwUse();
         var windowOptions = WindowOptions.Default;
         // GLFW's X11 backend always selects the default (usually opaque)
         // visual for GLFW_NO_API windows. Requesting a client API makes GLFW

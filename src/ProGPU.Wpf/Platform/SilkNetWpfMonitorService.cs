@@ -12,9 +12,15 @@ public sealed class SilkNetWpfMonitorService : IWpfMonitorService
     private readonly Func<IMonitor?> _getMainMonitor;
     private readonly Func<IMonitor, double?>? _getDpiScale;
     private readonly Func<IMonitor, Rectangle<int>?>? _getWorkArea;
+    private readonly Action _configureBeforeMonitorQuery;
 
     public SilkNetWpfMonitorService()
-        : this(GetDefaultMonitors, GetDefaultMainMonitor, TryGetGlfwMonitorContentScale, TryGetGlfwMonitorWorkArea)
+        : this(
+            GetDefaultMonitors,
+            GetDefaultMainMonitor,
+            TryGetGlfwMonitorContentScale,
+            TryGetGlfwMonitorWorkArea,
+            static () => SilkNetGlfwPlatformSelector.ConfigureBeforeFirstGlfwUse())
     {
     }
 
@@ -26,6 +32,7 @@ public sealed class SilkNetWpfMonitorService : IWpfMonitorService
         _getMainMonitor = platform.GetMainMonitor;
         _getDpiScale = TryGetGlfwMonitorContentScale;
         _getWorkArea = TryGetGlfwMonitorWorkArea;
+        _configureBeforeMonitorQuery = static () => { };
     }
 
     public SilkNetWpfMonitorService(
@@ -33,15 +40,28 @@ public sealed class SilkNetWpfMonitorService : IWpfMonitorService
         Func<IMonitor?> getMainMonitor,
         Func<IMonitor, double?>? getDpiScale = null,
         Func<IMonitor, Rectangle<int>?>? getWorkArea = null)
+        : this(getMonitors, getMainMonitor, getDpiScale, getWorkArea, static () => { })
+    {
+    }
+
+    internal SilkNetWpfMonitorService(
+        Func<IEnumerable<IMonitor>> getMonitors,
+        Func<IMonitor?> getMainMonitor,
+        Func<IMonitor, double?>? getDpiScale,
+        Func<IMonitor, Rectangle<int>?>? getWorkArea,
+        Action configureBeforeMonitorQuery)
     {
         _getMonitors = getMonitors ?? throw new ArgumentNullException(nameof(getMonitors));
         _getMainMonitor = getMainMonitor ?? throw new ArgumentNullException(nameof(getMainMonitor));
         _getDpiScale = getDpiScale;
         _getWorkArea = getWorkArea;
+        _configureBeforeMonitorQuery = configureBeforeMonitorQuery
+            ?? throw new ArgumentNullException(nameof(configureBeforeMonitorQuery));
     }
 
     public IReadOnlyList<WpfMonitorInfo> GetMonitors()
     {
+        _configureBeforeMonitorQuery();
         var mainMonitor = _getMainMonitor();
         var monitors = _getMonitors();
         var mapped = monitors is ICollection<IMonitor> monitorCollection
