@@ -9542,6 +9542,11 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("UnregisterClassW", win32Compat, StringComparison.Ordinal);
         Assert.Contains("DefWindowProcW", win32Compat, StringComparison.Ordinal);
         Assert.Contains("SetWindowsHookEx", win32Compat, StringComparison.Ordinal);
+        Assert.Contains("PROGPU_EXPORT progpu_intptr GetActiveWindow(void)", win32Compat, StringComparison.Ordinal);
+        Assert.Contains("progpu_intptr previous = progpu_active_window;", win32Compat, StringComparison.Ordinal);
+        Assert.Contains("progpu_active_window = window;", win32Compat, StringComparison.Ordinal);
+        Assert.Contains("return progpu_active_window;", win32Compat, StringComparison.Ordinal);
+        Assert.Contains("if (progpu_active_window == window)", win32Compat, StringComparison.Ordinal);
         Assert.Contains("GetClientRect", win32Compat, StringComparison.Ordinal);
         Assert.Contains("GetCapture", win32Compat, StringComparison.Ordinal);
         Assert.Contains("SetCapture", win32Compat, StringComparison.Ordinal);

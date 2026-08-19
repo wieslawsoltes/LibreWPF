@@ -53,6 +53,7 @@ typedef struct progpu_window_state
 } progpu_window_state;
 
 static progpu_window_state progpu_fake_window_states[PROGPU_FAKE_WINDOW_STATE_COUNT];
+static progpu_intptr progpu_active_window = 0;
 static progpu_intptr progpu_capture_window = 0;
 static progpu_intptr progpu_current_cursor = 0;
 static int32_t progpu_cursor_show_count = 0;
@@ -650,8 +651,14 @@ PROGPU_EXPORT int32_t CallNextHookEx(progpu_intptr hook, int32_t code, progpu_in
 
 PROGPU_EXPORT progpu_intptr SetActiveWindow(progpu_intptr window)
 {
-    (void)window;
-    return 0;
+    progpu_intptr previous = progpu_active_window;
+    progpu_active_window = window;
+    return previous;
+}
+
+PROGPU_EXPORT progpu_intptr GetActiveWindow(void)
+{
+    return progpu_active_window;
 }
 
 PROGPU_EXPORT progpu_intptr GetFocus(void)
@@ -1151,6 +1158,11 @@ PROGPU_EXPORT int32_t DestroyWindow(progpu_intptr window)
     if (progpu_capture_window == window)
     {
         progpu_capture_window = 0;
+    }
+
+    if (progpu_active_window == window)
+    {
+        progpu_active_window = 0;
     }
 
     return 1;
