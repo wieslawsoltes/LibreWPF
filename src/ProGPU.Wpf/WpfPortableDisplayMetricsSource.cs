@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using ProGPU.Wpf.Interop;
+using Silk.NET.GLFW;
 using System.Windows.Media.ProGPU.Platform;
 
 namespace System.Windows.Media.ProGPU;
@@ -137,6 +138,7 @@ internal sealed class WpfPortableDisplayMetricsSource : IPortableDisplayMetricsS
     {
         return exception is DllNotFoundException
             or EntryPointNotFoundException
+            or GlfwException
             or InvalidCastException
             or InvalidOperationException
             or TypeInitializationException;

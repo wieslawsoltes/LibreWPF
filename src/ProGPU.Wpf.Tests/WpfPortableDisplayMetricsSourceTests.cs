@@ -1,4 +1,5 @@
 using ProGPU.Wpf.Interop;
+using Silk.NET.GLFW;
 using System.Windows.Media.ProGPU;
 using System.Windows.Media.ProGPU.Platform;
 using Xunit;
@@ -54,7 +55,18 @@ public sealed class WpfPortableDisplayMetricsSourceTests
     [Fact]
     public void RecoverablePlatformQueryFailureReturnsFalse()
     {
-        var source = new WpfPortableDisplayMetricsSource(() => new ThrowingMonitorService());
+        var source = new WpfPortableDisplayMetricsSource(
+            () => new ThrowingMonitorService(new InvalidCastException("Simulated native platform callback conflict.")));
+
+        Assert.False(source.TryGetDisplayMetrics(out PortableDisplayMetrics metrics));
+        Assert.Equal(default, metrics);
+    }
+
+    [Fact]
+    public void GlfwInitializationFailureReturnsFalse()
+    {
+        var source = new WpfPortableDisplayMetricsSource(
+            () => new ThrowingMonitorService(new GlfwException("Simulated display connection failure.")));
 
         Assert.False(source.TryGetDisplayMetrics(out PortableDisplayMetrics metrics));
         Assert.Equal(default, metrics);
@@ -84,11 +96,11 @@ public sealed class WpfPortableDisplayMetricsSourceTests
         public IReadOnlyList<WpfMonitorInfo> GetMonitors() => monitors;
     }
 
-    private sealed class ThrowingMonitorService : IWpfMonitorService
+    private sealed class ThrowingMonitorService(Exception exception) : IWpfMonitorService
     {
         public IReadOnlyList<WpfMonitorInfo> GetMonitors()
         {
-            throw new InvalidCastException("Simulated native platform callback conflict.");
+            throw exception;
         }
     }
 }
