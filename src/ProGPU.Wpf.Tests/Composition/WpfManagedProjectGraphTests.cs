@@ -509,6 +509,10 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("SelRegisterName(\"setHidesOnDeactivate:\")", silkDecorations, StringComparison.Ordinal);
         Assert.Contains("_popupHost.SetPosition(_nativeLogicalX, _nativeLogicalY);", popupHost, StringComparison.Ordinal);
         Assert.Contains("ShouldPumpEvents(_isDisposed, _isInitialized, _isVisible, _isPumping)", popupHost, StringComparison.Ordinal);
+        Assert.Contains(
+            "PumpEventsIfNeeded();\n        _popupHost.RaiseInputForDiagnostics(input);",
+            popupHost,
+            StringComparison.Ordinal);
     }
 
     [Fact]

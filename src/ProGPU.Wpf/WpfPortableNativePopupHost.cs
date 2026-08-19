@@ -205,6 +205,10 @@ internal sealed class WpfPortableNativePopupHost : IWpfPortableNativePopupHost
     {
         ObjectDisposedException.ThrowIf(_isDisposed, this);
         ArgumentNullException.ThrowIfNull(input);
+        // Native input is dispatched by DoEvents after its pre-event render has
+        // refreshed the GPU hit-test cache. Preserve that ordering for injected
+        // input so diagnostics exercise the same popup state as the native path.
+        PumpEventsIfNeeded();
         _popupHost.RaiseInputForDiagnostics(input);
     }
 
@@ -316,6 +320,11 @@ internal sealed class WpfPortableNativePopupHost : IWpfPortableNativePopupHost
     }
 
     private void OnOwnerUpdateTick(object? sender, EventArgs e)
+    {
+        PumpEventsIfNeeded();
+    }
+
+    private void PumpEventsIfNeeded()
     {
         if (!ShouldPumpEvents(_isDisposed, _isInitialized, _isVisible, _isPumping))
         {
