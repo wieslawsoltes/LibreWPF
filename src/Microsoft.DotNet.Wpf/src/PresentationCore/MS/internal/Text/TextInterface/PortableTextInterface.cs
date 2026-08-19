@@ -488,6 +488,7 @@ namespace MS.Internal.Text.TextInterface
             ("Calibri", new[] { "Arial", "Helvetica Neue", "Helvetica", "SF Pro Text", ".SF NS Text", "Roboto", "Liberation Sans", "DejaVu Sans", "Noto Sans" }),
             ("Cambria", new[] { "Georgia", "Times New Roman", "Times", "Liberation Serif", "DejaVu Serif", "Noto Serif" }),
             ("Consolas", new[] { "Menlo", "Monaco", "Courier New", "Courier", "Liberation Mono", "DejaVu Sans Mono", "Noto Sans Mono" }),
+            ("Comic Sans MS", new[] { "Comic Sans MS", "Comic Sans", "Comic Relief", "Chilanka", "URW Chancery L", "Z003", "Arial", "Helvetica Neue", "Helvetica", "Roboto", "Liberation Sans", "DejaVu Sans", "Noto Sans" }),
             ("Courier New", new[] { "Courier New", "Courier", "Menlo", "Monaco", "Liberation Mono", "DejaVu Sans Mono", "Noto Sans Mono" }),
             ("Microsoft Sans Serif", new[] { "Arial", "Helvetica Neue", "Helvetica", "SF Pro Text", ".SF NS Text", "Roboto", "Liberation Sans", "DejaVu Sans", "Noto Sans" }),
             ("Tahoma", new[] { "Arial", "Helvetica Neue", "Helvetica", "SF Pro Text", ".SF NS Text", "Roboto", "Liberation Sans", "DejaVu Sans", "Noto Sans" }),

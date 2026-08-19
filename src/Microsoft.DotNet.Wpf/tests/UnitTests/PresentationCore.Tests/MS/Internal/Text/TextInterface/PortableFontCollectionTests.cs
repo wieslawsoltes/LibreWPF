@@ -32,6 +32,17 @@ public sealed class PortableFontCollectionTests
         Assert.Same(arial, collection[index]);
     }
 
+    [Fact]
+    public void ComicSansAliasResolvesPortableScriptFamilyWhenComicSansIsMissing()
+    {
+        FontFamily portableScript = CreateFamily("Z003");
+        FontFamily portableSans = CreateFamily("DejaVu Sans");
+        FontCollection collection = new(new[] { portableSans, portableScript });
+
+        Assert.True(collection.FindFamilyName("Comic Sans MS", out uint index));
+        Assert.Same(portableScript, collection[index]);
+    }
+
     private static FontFamily CreateFamily(string name)
     {
         LocalizedStrings names = new()

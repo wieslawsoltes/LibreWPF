@@ -24,6 +24,7 @@ public sealed class WpfPortableTextInterfaceTests
         Assert.Contains("FontCollection.FromFontSources(fontSources)", source, StringComparison.Ordinal);
         Assert.Contains("s_portableFamilyAliases", source, StringComparison.Ordinal);
         Assert.Contains("(\"Calibri\", new[]", source, StringComparison.Ordinal);
+        Assert.Contains("(\"Comic Sans MS\", new[]", source, StringComparison.Ordinal);
         Assert.Contains("(\"Segoe UI\", new[]", source, StringComparison.Ordinal);
         Assert.Contains("(\"Consolas\", new[]", source, StringComparison.Ordinal);
         Assert.Contains("TryFindFamilyName(candidate, out index)", source, StringComparison.Ordinal);
