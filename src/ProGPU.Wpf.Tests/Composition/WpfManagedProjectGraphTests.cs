@@ -13897,7 +13897,7 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("PROGPU_WPF_MVP_LIVE_VALIDATE", mvpRunScript, StringComparison.Ordinal);
         Assert.Contains("PROGPU_WPF_MVP_LIVE_VALIDATE_STATUS_PATH", mvpRunScript, StringComparison.Ordinal);
         Assert.Contains("PROGPU_WPF_MVP_LIVE_VALIDATE_TIMEOUT_SECONDS", mvpRunScript, StringComparison.Ordinal);
-        Assert.Contains("live_validation_timeout_seconds=\"${PROGPU_WPF_MVP_LIVE_VALIDATE_TIMEOUT_SECONDS:-30}\"", mvpRunScript, StringComparison.Ordinal);
+        Assert.Contains("live_validation_timeout_seconds=\"${PROGPU_WPF_MVP_LIVE_VALIDATE_TIMEOUT_SECONDS:-60}\"", mvpRunScript, StringComparison.Ordinal);
         Assert.Contains("live_validation_deadline=$((SECONDS + live_validation_timeout_seconds))", mvpRunScript, StringComparison.Ordinal);
         Assert.Contains("while (( SECONDS < live_validation_deadline )); do", mvpRunScript, StringComparison.Ordinal);
         Assert.DoesNotContain("for _ in {1..600}; do", mvpRunScript, StringComparison.Ordinal);

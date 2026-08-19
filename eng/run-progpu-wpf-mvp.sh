@@ -56,7 +56,7 @@ if [[ "${PROGPU_WPF_MVP_LIVE_VALIDATE:-0}" == "1" ]]; then
   live_log="$(mktemp "${TMPDIR:-/tmp}/progpu-wpf-mvp-live.XXXXXX")"
   live_status="$(mktemp "${TMPDIR:-/tmp}/progpu-wpf-mvp-live-status.XXXXXX")"
   apphost_pid=""
-  live_validation_timeout_seconds="${PROGPU_WPF_MVP_LIVE_VALIDATE_TIMEOUT_SECONDS:-30}"
+  live_validation_timeout_seconds="${PROGPU_WPF_MVP_LIVE_VALIDATE_TIMEOUT_SECONDS:-60}"
   if [[ ! "${live_validation_timeout_seconds}" =~ ^[1-9][0-9]*$ ]]; then
     echo "Invalid PROGPU_WPF_MVP_LIVE_VALIDATE_TIMEOUT_SECONDS value '${live_validation_timeout_seconds}'." >&2
     exit 1
