@@ -72,6 +72,12 @@ if [[ "$(uname -s 2>/dev/null || echo unknown)" == "Linux" ]]; then
     if [[ -d "${native_runtime_dir}" ]]; then
       export LD_LIBRARY_PATH="${native_runtime_dir}${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
     fi
+
+    patched_wgpu_runtime_dir="${repo_root}/external/ProGPU/artifacts/wgpu-native-linux/runtimes/${native_runtime_id}/native"
+    if [[ -f "${patched_wgpu_runtime_dir}/libwgpu_native.so" ]]; then
+      export LD_LIBRARY_PATH="${patched_wgpu_runtime_dir}${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
+      echo "Using the reviewed Linux EGL-compatible wgpu-native build."
+    fi
   fi
 fi
 
