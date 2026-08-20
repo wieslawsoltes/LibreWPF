@@ -590,6 +590,60 @@ public sealed class ProGpuWpfWindowHostTests
     }
 
     [Fact]
+    public void MediaContextTickDoesNotPresentAnUnchangedFrame()
+    {
+        var scheduler = new TestRenderScheduler();
+        using var host = new ProGpuWpfWindowHost
+        {
+            WpfRenderScheduler = scheduler
+        };
+        var frameState = new ProGpuWpfFrameState(100, 50, 1, 2, 3);
+        host.RecordPresentedFrame(frameState);
+
+        host.RequestMediaContextRenderAndWakeNativeLoop(null, TimeSpan.Zero);
+
+        Assert.True(scheduler.HasPendingRenderRequest);
+        Assert.False(host.ShouldRenderFrame(frameState));
+        Assert.False(host.ConsumeScheduledRenderRequest());
+        Assert.False(scheduler.HasPendingRenderRequest);
+    }
+
+    [Fact]
+    public void ExplicitRenderRequestUpgradesPendingMediaContextTick()
+    {
+        var scheduler = new TestRenderScheduler();
+        using var host = new ProGpuWpfWindowHost
+        {
+            WpfRenderScheduler = scheduler
+        };
+        var frameState = new ProGpuWpfFrameState(100, 50, 1, 2, 3);
+        host.RecordPresentedFrame(frameState);
+
+        host.RequestMediaContextRenderAndWakeNativeLoop(null, TimeSpan.Zero);
+        host.RequestRenderAndWakeNativeLoop();
+
+        Assert.True(host.ShouldRenderFrame(frameState));
+        Assert.True(host.ConsumeScheduledRenderRequest());
+    }
+
+    [Fact]
+    public void MediaContextVisualInvalidationRequiresPresentation()
+    {
+        var scheduler = new TestRenderScheduler();
+        using var host = new ProGpuWpfWindowHost
+        {
+            WpfRenderScheduler = scheduler
+        };
+        var frameState = new ProGpuWpfFrameState(100, 50, 1, 2, 3);
+        host.RecordPresentedFrame(frameState);
+
+        host.RequestMediaContextRenderAndWakeNativeLoop(new object(), TimeSpan.Zero);
+
+        Assert.True(host.ShouldRenderFrame(frameState));
+        Assert.True(host.ConsumeScheduledRenderRequest());
+    }
+
+    [Fact]
     public void ShouldRenderFrameReturnsTrueWhenNativeVersionChanges()
     {
         using var host = new ProGpuWpfWindowHost();

@@ -77,6 +77,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
     private bool _disposeNativeWindowWhenLoopExits;
     private bool _hasPresentedFrame;
     private long _presentedFrameCount;
+    private int _pendingRenderRequestIsWakeOnly;
     private bool _ownsRenderScheduler;
     private bool _isRendering;
     private bool _isRenderingLiveResize;
@@ -1643,6 +1644,12 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
                 return;
             }
 
+            // Consume the request that entered this render callback before WPF
+            // processes its dispatcher queue. MediaContext can schedule the next
+            // animation tick while that queue is being drained; consuming at the
+            // end would incorrectly discard that future request.
+            bool currentRequestRequiresPresentation = ConsumeScheduledRenderRequest();
+
             var geometry = ResolveCurrentRenderSurfaceGeometry();
             SynchronizePortablePresentationSourceGeometry(geometry);
             ProcessDispatcherQueueCore();
@@ -1674,7 +1681,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
                 pixelHeight,
                 dpiScale);
 
-            if (!ShouldRenderFrame(frameState))
+            if (!ShouldRenderFrame(frameState, currentRequestRequiresPresentation))
             {
                 SkippedFrameCount++;
                 return;
@@ -1802,8 +1809,6 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
                 {
                     Render?.Invoke(this, args);
                 }
-
-                WpfRenderScheduler.ConsumeRenderRequest();
             }
 
             if (Present(
@@ -2399,10 +2404,17 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
 
     private void OnCompositionTargetRenderInvalidated(object? sender, EventArgs e)
     {
-        RequestRenderAndWakeNativeLoop();
+        RequestRenderWakeOnlyAndWakeNativeLoop();
     }
 
     internal bool ShouldRenderFrame(ProGpuWpfFrameState frameState)
+    {
+        return ShouldRenderFrame(frameState, currentRequestRequiresPresentation: false);
+    }
+
+    private bool ShouldRenderFrame(
+        ProGpuWpfFrameState frameState,
+        bool currentRequestRequiresPresentation)
     {
         if (!EnableFrameCoalescing)
         {
@@ -2414,7 +2426,9 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
             return true;
         }
 
-        if (WpfRenderScheduler.HasPendingRenderRequest)
+        if (currentRequestRequiresPresentation ||
+            (WpfRenderScheduler.HasPendingRenderRequest &&
+             Volatile.Read(ref _pendingRenderRequestIsWakeOnly) == 0))
         {
             return true;
         }
@@ -3314,6 +3328,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         target.RenderInvalidated -= OnCompositionTargetRenderInvalidated;
         target.Dispose();
         WpfRenderScheduler.Reset();
+        Volatile.Write(ref _pendingRenderRequestIsWakeOnly, 0);
         LastPresentedFrameState = default;
         Interlocked.Exchange(ref _presentedFrameCount, 0);
         Volatile.Write(ref _hasPresentedFrame, false);
@@ -3377,6 +3392,9 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
 
         try
         {
+            // Any explicit host or visual invalidation upgrades a coalesced
+            // MediaContext wakeup into a presentation request.
+            Volatile.Write(ref _pendingRenderRequestIsWakeOnly, 0);
             WpfRenderScheduler.RequestRender();
         }
         catch (ObjectDisposedException)
@@ -3385,6 +3403,86 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         }
 
         TryRequestNativeLoopWakeup();
+    }
+
+    private void RequestRenderWakeOnlyAndWakeNativeLoop()
+    {
+        if (_isDisposed)
+        {
+            return;
+        }
+
+        try
+        {
+            // Composition-target invalidation already advances the scene state
+            // captured by ShouldRenderFrame. Schedule the host pump, but do not
+            // turn an invalidation produced while assembling the current frame
+            // into an unconditional extra presentation.
+            if (!WpfRenderScheduler.HasPendingRenderRequest)
+            {
+                Volatile.Write(ref _pendingRenderRequestIsWakeOnly, 1);
+            }
+
+            WpfRenderScheduler.RequestRender();
+        }
+        catch (ObjectDisposedException)
+        {
+            Volatile.Write(ref _pendingRenderRequestIsWakeOnly, 0);
+            return;
+        }
+
+        TryRequestNativeLoopWakeup();
+    }
+
+    internal void RequestMediaContextRenderAndWakeNativeLoop(
+        object? invalidatedSource,
+        TimeSpan delay)
+    {
+        if (_isDisposed)
+        {
+            return;
+        }
+
+        if (invalidatedSource != null)
+        {
+            InvalidateWpfSourceForPortableRender(invalidatedSource);
+            RequestRenderAndWakeNativeLoop();
+            return;
+        }
+
+        try
+        {
+            // A source-less MediaContext request only wakes WPF so animation and
+            // CompositionTarget.Rendering callbacks can run. It does not imply
+            // that those callbacks changed the retained scene.
+            if (!WpfRenderScheduler.HasPendingRenderRequest)
+            {
+                Volatile.Write(ref _pendingRenderRequestIsWakeOnly, 1);
+            }
+
+            if (WpfRenderScheduler is IWpfDelayedRenderScheduler delayedScheduler)
+            {
+                delayedScheduler.RequestRender(delay);
+            }
+            else
+            {
+                WpfRenderScheduler.RequestRender();
+            }
+        }
+        catch (ObjectDisposedException)
+        {
+            Volatile.Write(ref _pendingRenderRequestIsWakeOnly, 0);
+            return;
+        }
+
+        TryRequestNativeLoopWakeup();
+    }
+
+    internal bool ConsumeScheduledRenderRequest()
+    {
+        bool wakeOnly = Interlocked.Exchange(ref _pendingRenderRequestIsWakeOnly, 0) != 0;
+        bool hadPendingRequest = WpfRenderScheduler.ConsumeRenderRequest();
+        return hadPendingRequest && !wakeOnly;
     }
 
     internal void InvalidateWpfSourceForPortableRender(object? source)

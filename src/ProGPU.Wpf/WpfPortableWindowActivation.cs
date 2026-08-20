@@ -1564,18 +1564,7 @@ public sealed class WpfPortableWindowActivation : IDisposable
 
         try
         {
-            Host.InvalidateWpfSourceForPortableRender(invalidatedSource ?? RootVisual);
-
-            if (Host.WpfRenderScheduler is IWpfDelayedRenderScheduler delayedScheduler)
-            {
-                delayedScheduler.RequestRender(delay);
-            }
-            else
-            {
-                Host.WpfRenderScheduler.RequestRender();
-            }
-
-            Host.TryRequestNativeLoopWakeup();
+            Host.RequestMediaContextRenderAndWakeNativeLoop(invalidatedSource, delay);
         }
         catch (ObjectDisposedException)
         {
