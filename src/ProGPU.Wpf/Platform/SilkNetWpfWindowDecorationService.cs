@@ -545,6 +545,8 @@ public sealed unsafe class SilkNetWpfWindowDecorationService : IWpfWindowDecorat
             _x11DragStartRootY = rootY;
             _x11DragStartPosition = view.Position;
             _x11DragExpectedPosition = _x11DragStartPosition;
+            TraceX11DragMove(
+                $"begin pointer=({rootX},{rootY}), window={_x11DragStartPosition}, handle={window}");
 
             var moveresizeAtom = XInternAtom(display, "_NET_WM_MOVERESIZE", onlyIfExists: false);
             if (moveresizeAtom == UIntPtr.Zero)
@@ -601,27 +603,47 @@ public sealed unsafe class SilkNetWpfWindowDecorationService : IWpfWindowDecorat
         try
         {
             if (_x11DragDisplay == IntPtr.Zero ||
-                _x11DragHandle == UIntPtr.Zero ||
+                _x11DragHandle == UIntPtr.Zero)
+            {
+                TraceX11DragMove("cancel: native handle is unavailable");
+                ClearX11DragMove();
+                return false;
+            }
+
+            var root = XDefaultRootWindow(_x11DragDisplay);
+            if (root == UIntPtr.Zero ||
                 XQueryPointer(
                     _x11DragDisplay,
-                    XDefaultRootWindow(_x11DragDisplay),
+                    root,
                     out _,
                     out _,
                     out var rootX,
                     out var rootY,
                     out _,
                     out _,
-                    out var buttonMask) == 0 ||
-                (buttonMask & Button1Mask) == 0)
+                    out var buttonMask) == 0)
             {
+                TraceX11DragMove("cancel: pointer query failed");
+                ClearX11DragMove();
+                return false;
+            }
+
+            var currentPosition = view.Position;
+            TraceX11DragMove(
+                $"continue pointer=({rootX},{rootY}), mask=0x{buttonMask:x}, " +
+                $"window={currentPosition}, expected={_x11DragExpectedPosition}");
+            if ((buttonMask & Button1Mask) == 0)
+            {
+                TraceX11DragMove("cancel: left button is no longer pressed");
                 ClearX11DragMove();
                 return false;
             }
 
             // A changed position means the window manager accepted _NET_WM_MOVERESIZE.
             // Stop tracking immediately so the fallback never competes with native motion.
-            if (!view.Position.Equals(_x11DragExpectedPosition))
+            if (!currentPosition.Equals(_x11DragExpectedPosition))
             {
+                TraceX11DragMove("cancel: native window position already changed");
                 ClearX11DragMove();
                 return false;
             }
@@ -639,6 +661,7 @@ public sealed unsafe class SilkNetWpfWindowDecorationService : IWpfWindowDecorat
 
             view.Position = nextPosition;
             _x11DragExpectedPosition = nextPosition;
+            TraceX11DragMove($"applied position={nextPosition}");
             return true;
         }
         catch (DllNotFoundException)
@@ -674,6 +697,17 @@ public sealed unsafe class SilkNetWpfWindowDecorationService : IWpfWindowDecorat
         _x11DragStartRootY = 0;
         _x11DragStartPosition = default;
         _x11DragExpectedPosition = default;
+    }
+
+    private static void TraceX11DragMove(string message)
+    {
+        if (string.Equals(
+                Environment.GetEnvironmentVariable("PROGPU_WPF_TRACE_NATIVE_LOOP"),
+                "1",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            Console.WriteLine($"ProGPU WPF X11 drag: {message}");
+        }
     }
 
     [DllImport("user32.dll")]
