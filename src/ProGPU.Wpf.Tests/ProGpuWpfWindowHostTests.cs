@@ -338,6 +338,19 @@ public sealed class ProGpuWpfWindowHostTests
     }
 
     [Fact]
+    public void X11DragMoveFallbackPreservesThePointerToWindowOffset()
+    {
+        var position = SilkNetWpfWindowDecorationService.ResolveX11FallbackPosition(
+            new Vector2D<int>(120, 80),
+            pointerStartX: 150,
+            pointerStartY: 100,
+            pointerX: 205,
+            pointerY: 142);
+
+        Assert.Equal(new Vector2D<int>(175, 122), position);
+    }
+
+    [Fact]
     public void SettingPlatformServicesRebuildsDefaultRenderScheduler()
     {
         using var host = new ProGpuWpfWindowHost();

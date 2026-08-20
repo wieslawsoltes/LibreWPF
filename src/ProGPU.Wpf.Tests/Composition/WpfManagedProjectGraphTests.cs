@@ -19172,7 +19172,7 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("new X11WindowHandle(x11.Value.Item1, x11.Value.Item2)", source, StringComparison.Ordinal);
         Assert.Contains("TryBeginWin32DragMove(GetWin32Hwnd(view))", source, StringComparison.Ordinal);
         Assert.Contains("TryBeginCocoaDragMove(GetCocoaWindow(view))", source, StringComparison.Ordinal);
-        Assert.Contains("return TryBeginX11DragMove(x11.Display, x11.Window)", source, StringComparison.Ordinal);
+        Assert.Contains("TryBeginX11DragMove(x11Window, x11.Display, x11.Window)", source, StringComparison.Ordinal);
         Assert.Contains("hwnd == IntPtr.Zero", source, StringComparison.Ordinal);
         Assert.Contains("ReleaseCapture();", source, StringComparison.Ordinal);
         Assert.Contains("SendMessage(hwnd, WM_SYSCOMMAND, (IntPtr)SC_MOUSEMOVE, IntPtr.Zero)", source, StringComparison.Ordinal);
@@ -19196,6 +19196,10 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("XSendEvent(", source, StringComparison.Ordinal);
         Assert.Contains("SubstructureRedirectMask | SubstructureNotifyMask", source, StringComparison.Ordinal);
         Assert.Contains("XFlush(display)", source, StringComparison.Ordinal);
+        Assert.Contains("TryContinueX11DragMove(view)", source, StringComparison.Ordinal);
+        Assert.Contains("(buttonMask & Button1Mask) == 0", source, StringComparison.Ordinal);
+        Assert.Contains("!view.Position.Equals(_x11DragExpectedPosition)", source, StringComparison.Ordinal);
+        Assert.Contains("view.Position = nextPosition", source, StringComparison.Ordinal);
         Assert.DoesNotContain(
             "public bool TryBeginDragMove(object window)\n    {\n        return false;\n    }",
             source,
