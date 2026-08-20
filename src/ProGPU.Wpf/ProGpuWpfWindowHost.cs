@@ -1059,6 +1059,19 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
             return;
         }
 
+        if (!_usesExternalNativeLoopPump && PresentedFrameCount == 0)
+        {
+            // Complete cold-start dispatcher work before polling a potentially
+            // large native pointer backlog. Once the first frame is visible,
+            // owner-driven windows poll native input first for responsiveness.
+            ProcessDispatcherQueueCore();
+            if (!ShouldKeepPortableNativeRunLoopAlive())
+            {
+                DisposeDeferredNativeWindowIfNeeded();
+                return;
+            }
+        }
+
         bool pumpExternalRenderBeforeEvents = ShouldPumpExternalNativeRenderBeforeEvents(
             _usesExternalNativeLoopPump,
             ShouldPumpNativeRender());

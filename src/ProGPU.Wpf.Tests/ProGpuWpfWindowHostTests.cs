@@ -294,6 +294,10 @@ public sealed class ProGpuWpfWindowHostTests
         Assert.True(nativeEventPoll > doEventsMethodStart);
         Assert.True(ownerDispatcherDrain > nativeEventPoll);
         Assert.Contains(
+            "if (!_usesExternalNativeLoopPump && PresentedFrameCount == 0)",
+            source,
+            StringComparison.Ordinal);
+        Assert.Contains(
             "if (pumpExternalRenderBeforeEvents)\n        {\n            // Externally pumped popup windows",
             source,
             StringComparison.Ordinal);
