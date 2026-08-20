@@ -271,6 +271,18 @@ public sealed class ProGpuWpfWindowHostTests
             "ProGPU.Wpf",
             "ProGpuWpfWindowHost.cs"));
 
+        int doEventsMethodStart = source.IndexOf(
+            "public void DoEvents()",
+            StringComparison.Ordinal);
+        int nativeEventPoll = source.IndexOf(
+            "window.DoEvents();",
+            doEventsMethodStart,
+            StringComparison.Ordinal);
+        int ownerDispatcherDrain = source.IndexOf(
+            "ProcessDispatcherQueueCore();",
+            nativeEventPoll,
+            StringComparison.Ordinal);
+
         Assert.DoesNotContain("_window!.Run();", source, StringComparison.Ordinal);
         Assert.Contains("RunPortableNativeLoop();", source, StringComparison.Ordinal);
         Assert.Contains("private void RunPortableNativeLoop()", source, StringComparison.Ordinal);
@@ -278,6 +290,13 @@ public sealed class ProGpuWpfWindowHostTests
         Assert.Contains("DoEvents();", source, StringComparison.Ordinal);
         Assert.Contains("if (!EnsureCompositionTargetLoaded() || !ShouldKeepPortableNativeRunLoopAlive())", source, StringComparison.Ordinal);
         Assert.Contains("window.DoEvents();\n        }\n        finally\n        {\n            ProcessDeferredNativeWindowDisposals();", source, StringComparison.Ordinal);
+        Assert.True(doEventsMethodStart >= 0);
+        Assert.True(nativeEventPoll > doEventsMethodStart);
+        Assert.True(ownerDispatcherDrain > nativeEventPoll);
+        Assert.Contains(
+            "if (pumpExternalRenderBeforeEvents)\n        {\n            // Externally pumped popup windows",
+            source,
+            StringComparison.Ordinal);
         Assert.Contains("if (ShouldPumpNativeRender())", source, StringComparison.Ordinal);
         Assert.Contains("NativeRenderPumpCount++;\n            window.DoRender();", source, StringComparison.Ordinal);
         Assert.Contains("SkippedNativeRenderPumpCount++;", source, StringComparison.Ordinal);

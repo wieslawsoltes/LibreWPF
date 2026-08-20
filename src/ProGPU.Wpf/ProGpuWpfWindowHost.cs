@@ -1040,7 +1040,6 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
     public void DoEvents()
     {
         ThrowIfDisposed();
-        ProcessDispatcherQueueCore();
         EnsureWindow();
         IWindow window = _window!;
         if (!window.IsInitialized)
@@ -1060,10 +1059,22 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
             return;
         }
 
-        if (ShouldPumpExternalNativeRenderBeforeEvents(
-                _usesExternalNativeLoopPump,
-                ShouldPumpNativeRender()))
+        bool pumpExternalRenderBeforeEvents = ShouldPumpExternalNativeRenderBeforeEvents(
+            _usesExternalNativeLoopPump,
+            ShouldPumpNativeRender());
+        if (pumpExternalRenderBeforeEvents)
         {
+            // Externally pumped popup windows need their retained hit-test state
+            // current before native input is dispatched. The owner-driven main
+            // loop instead polls native events first so queued dispatcher work
+            // cannot delay clicks, activation, or an interactive window move.
+            ProcessDispatcherQueueCore();
+            if (!ShouldKeepPortableNativeRunLoopAlive())
+            {
+                DisposeDeferredNativeWindowIfNeeded();
+                return;
+            }
+
             NativeRenderPumpCount++;
             window.DoRender();
         }
@@ -1077,6 +1088,13 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
             ProcessDeferredNativeWindowDisposals();
         }
 
+        if (!ShouldKeepPortableNativeRunLoopAlive())
+        {
+            DisposeDeferredNativeWindowIfNeeded();
+            return;
+        }
+
+        ProcessDispatcherQueueCore();
         if (!ShouldKeepPortableNativeRunLoopAlive())
         {
             DisposeDeferredNativeWindowIfNeeded();
