@@ -15,6 +15,20 @@ public sealed class WgpuSurfaceTransitionContractTests
         Assert.DoesNotContain("_target.Context.ReconfigureIfNeeded(pixelWidth, pixelHeight);", host, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void WpfHostUsesBackendNeutralSurfaceApiAndBalancesTextureOwnership()
+    {
+        string host = File.ReadAllText(FindRepoPath("src", "ProGPU.Wpf", "ProGpuWpfWindowHost.cs"));
+
+        Assert.Contains("_target.Context.Api.SurfaceGetCurrentTexture(", host, StringComparison.Ordinal);
+        Assert.Contains("_target.Context.Api.TextureCreateView(", host, StringComparison.Ordinal);
+        Assert.Contains("_target.Context.Api.SurfacePresent(_target.Context.Surface);", host, StringComparison.Ordinal);
+        Assert.Contains("_target.Context.Api.TextureViewRelease(targetView);", host, StringComparison.Ordinal);
+        Assert.Contains("_target.Context.Api.TextureRelease(surfaceTexture.Texture);", host, StringComparison.Ordinal);
+        Assert.DoesNotContain("_target.Context.Wgpu.SurfaceGetCurrentTexture", host, StringComparison.Ordinal);
+        Assert.DoesNotContain("_target.Context.Wgpu.SurfacePresent", host, StringComparison.Ordinal);
+    }
+
     private static string FindRepoPath(params string[] pathSegments)
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);

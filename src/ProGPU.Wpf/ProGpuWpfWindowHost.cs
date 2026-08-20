@@ -1850,10 +1850,16 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         }
 
         var surfaceTexture = new SurfaceTexture();
-        _target.Context.Wgpu.SurfaceGetCurrentTexture(_target.Context.Surface, &surfaceTexture);
+        _target.Context.Api.SurfaceGetCurrentTexture(
+            _target.Context.Surface,
+            &surfaceTexture);
 
         if (surfaceTexture.Status != SurfaceGetCurrentTextureStatus.Success)
         {
+            if (surfaceTexture.Texture != null)
+            {
+                _target.Context.Api.TextureRelease(surfaceTexture.Texture);
+            }
             return false;
         }
 
@@ -1868,7 +1874,9 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
             Aspect = TextureAspect.All
         };
 
-        var targetView = _target.Context.Wgpu.TextureCreateView(surfaceTexture.Texture, &viewDescriptor);
+        var targetView = _target.Context.Api.TextureCreateView(
+            surfaceTexture.Texture,
+            &viewDescriptor);
         try
         {
             _target.Render(
@@ -1883,14 +1891,18 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
                     ResolveGeometryViewportDimension(viewportHeight, pixelHeight)),
                 (float)dpiScale,
                 targetView);
-            _target.Context.Wgpu.SurfacePresent(_target.Context.Surface);
+            _target.Context.Api.SurfacePresent(_target.Context.Surface);
             return true;
         }
         finally
         {
             if (targetView != null)
             {
-                _target.Context.Wgpu.TextureViewRelease(targetView);
+                _target.Context.Api.TextureViewRelease(targetView);
+            }
+            if (surfaceTexture.Texture != null)
+            {
+                _target.Context.Api.TextureRelease(surfaceTexture.Texture);
             }
         }
     }
