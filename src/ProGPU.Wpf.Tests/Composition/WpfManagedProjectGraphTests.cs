@@ -19196,9 +19196,11 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("XSendEvent(", source, StringComparison.Ordinal);
         Assert.Contains("SubstructureRedirectMask | SubstructureNotifyMask", source, StringComparison.Ordinal);
         Assert.Contains("XFlush(display)", source, StringComparison.Ordinal);
-        Assert.Contains("TryContinueX11DragMove(view)", source, StringComparison.Ordinal);
-        Assert.Contains("(buttonMask & Button1Mask) == 0", source, StringComparison.Ordinal);
-        Assert.Contains("!view.Position.Equals(_x11DragExpectedPosition)", source, StringComparison.Ordinal);
+        Assert.Contains("TryContinueX11DragMove(view, input)", source, StringComparison.Ordinal);
+        Assert.Contains("(buttonMask & Button1Mask) != 0", source, StringComparison.Ordinal);
+        Assert.Contains("input.X - _x11DragStartLocalX", source, StringComparison.Ordinal);
+        Assert.Contains("eventMatchesLivePointer && !_x11FallbackApplied", source, StringComparison.Ordinal);
+        Assert.Contains("!currentPosition.Equals(_x11DragExpectedPosition)", source, StringComparison.Ordinal);
         Assert.Contains("view.Position = nextPosition", source, StringComparison.Ordinal);
         Assert.DoesNotContain(
             "public bool TryBeginDragMove(object window)\n    {\n        return false;\n    }",

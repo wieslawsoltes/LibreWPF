@@ -2901,6 +2901,11 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         }
 
         TraceInputEvent("native", e);
+        if (_window != null)
+        {
+            PlatformServices.WindowDecorations.TrackDragMoveInput(_window, e);
+        }
+
         var input = NormalizeInputEventForCurrentRenderSurface(e, sender != null);
         TraceInputEvent("wpf", input);
         _isForwardingPlatformInput = true;
@@ -2921,7 +2926,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         {
             if (input.Kind == WpfInputEventKind.MouseMove)
             {
-                PlatformServices.WindowDecorations.TryContinueDragMove(_window);
+                PlatformServices.WindowDecorations.TryContinueDragMove(_window, e);
             }
             else if (input.Kind == WpfInputEventKind.MouseUp && input.Button == WpfMouseButton.Left)
             {
