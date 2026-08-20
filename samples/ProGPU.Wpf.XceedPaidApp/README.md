@@ -2,7 +2,7 @@
 
 This sample exercises the commercial Xceed Toolkit Plus and Xceed DataGrid packages through the custom `LibreWPF.Sdk` project shape. The app project stays a normal SDK-switched WPF app:
 
-- `Project Sdk="LibreWPF.Sdk/0.1.0-preview.42"`
+- `Project Sdk="LibreWPF.Sdk/0.1.0-preview.43"`
 - `UseWPF`
 - normal compiled `App.xaml` / `MainWindow.xaml`
 - normal Xceed package references

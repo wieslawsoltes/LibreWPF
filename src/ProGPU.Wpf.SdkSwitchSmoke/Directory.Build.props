@@ -10,8 +10,10 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <LibreWpfSdkSwitchPackageVersion>0.1.0-preview.42</LibreWpfSdkSwitchPackageVersion>
+    <LibreWpfSdkSwitchPackageVersion>0.1.0-preview.43</LibreWpfSdkSwitchPackageVersion>
     <ProGpuWpfSdkSwitchPackageVersion>0.1.0-preview.53</ProGpuWpfSdkSwitchPackageVersion>
+    <!-- LibreWinForms preview.43 is released after its matching LibreWPF bridge. -->
+    <ProGpuWpfLibreWinFormsPackageVersion>0.1.0-preview.42</ProGpuWpfLibreWinFormsPackageVersion>
     <RestorePackagesPath>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../../artifacts/nuget/ProGPU.Wpf.SdkSwitchSmoke'))</RestorePackagesPath>
     <RestoreForce>true</RestoreForce>
     <RestoreForceEvaluate>true</RestoreForceEvaluate>

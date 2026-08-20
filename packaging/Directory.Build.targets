@@ -2,8 +2,8 @@
   <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.targets', '$(MSBuildThisFileDirectory)../'))" />
 
   <PropertyGroup>
-    <VersionPrefix Condition="'$(PackageVersion)' == '0.1.0-preview.42'">0.1.0</VersionPrefix>
-    <VersionSuffix Condition="'$(PackageVersion)' == '0.1.0-preview.42'">preview.42</VersionSuffix>
+    <VersionPrefix Condition="'$(PackageVersion)' == '0.1.0-preview.43'">0.1.0</VersionPrefix>
+    <VersionSuffix Condition="'$(PackageVersion)' == '0.1.0-preview.43'">preview.43</VersionSuffix>
     <Version Condition="'$(Version)' != '$(PackageVersion)' And '$(PackageVersion)' != ''">$(PackageVersion)</Version>
   </PropertyGroup>
 </Project>

@@ -22,7 +22,7 @@ require_text ".github/workflows/progpu-wpf-release.yml" "NUGET_API_KEY"
 require_text ".github/workflows/progpu-wpf-release.yml" "librewpf-v*"
 require_text ".github/workflows/progpu-wpf-release.yml" "refs/tags/librewpf-v"
 require_text ".github/workflows/progpu-wpf-release.yml" "librewpf-packages-"
-require_text ".github/workflows/progpu-wpf-release.yml" "default: 0.1.0-preview.42"
+require_text ".github/workflows/progpu-wpf-release.yml" "default: 0.1.0-preview.43"
 require_text ".github/workflows/progpu-wpf-release.yml" "default: 0.1.0-preview.53"
 require_text ".github/workflows/progpu-wpf-release.yml" 'name: librewpf-packages-${{ needs.promote-qualified-preview.outputs.version || needs.preview.outputs.version }}'
 require_text ".github/workflows/progpu-wpf-release.yml" "Create GitHub Release"

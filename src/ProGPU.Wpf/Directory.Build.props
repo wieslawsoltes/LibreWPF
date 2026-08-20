@@ -6,13 +6,13 @@
     <TargetFramework>net10.0</TargetFramework>
     <TargetFrameworkVersion>10.0</TargetFrameworkVersion>
     <VersionPrefix Condition="'$(VersionPrefix)' == ''">0.1.0</VersionPrefix>
-    <VersionSuffix Condition="'$(VersionSuffix)' == ''">preview.42</VersionSuffix>
+    <VersionSuffix Condition="'$(VersionSuffix)' == ''">preview.43</VersionSuffix>
     <Version Condition="'$(Version)' == ''">$(VersionPrefix)-$(VersionSuffix)</Version>
     <PackageVersion Condition="'$(PackageVersion)' == ''">$(Version)</PackageVersion>
     <AssemblyVersion Condition="'$(AssemblyVersion)' == ''">0.1.0.0</AssemblyVersion>
     <FileVersion Condition="'$(FileVersion)' == ''">0.1.0.0</FileVersion>
     <InformationalVersion Condition="'$(InformationalVersion)' == ''">$(Version)</InformationalVersion>
-    <PackageReleaseNotes Condition="'$(PackageReleaseNotes)' == ''">Aligns LibreWPF preview.42 with immutable ProGPU preview.53 and adds portable logical primary-screen, work-area, and virtual-screen metrics for SystemParameters; retains per-monitor DPI propagation, multi-window popup routing, the portable WPF window-icon contract, WebGPU adapter-selection diagnostics, exact transformed and shader-backed stroke replay, native activation, deterministic popup-local input, transparent X11/XWayland visuals, nonactivating windows, bounded render-resource caches, static-frame GPU suppression, Windows OLE clipboard, and the WPFGallery and SharpDevelop acceptance gates.</PackageReleaseNotes>
+    <PackageReleaseNotes Condition="'$(PackageReleaseNotes)' == ''">Aligns LibreWPF preview.43 with immutable ProGPU preview.53 and adds portable logical primary-screen, work-area, and virtual-screen metrics for SystemParameters; retains per-monitor DPI propagation, multi-window popup routing, the portable WPF window-icon contract, WebGPU adapter-selection diagnostics, exact transformed and shader-backed stroke replay, native activation, deterministic popup-local input, transparent X11/XWayland visuals, nonactivating windows, bounded render-resource caches, static-frame GPU suppression, Windows OLE clipboard, and the WPFGallery and SharpDevelop acceptance gates.</PackageReleaseNotes>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>

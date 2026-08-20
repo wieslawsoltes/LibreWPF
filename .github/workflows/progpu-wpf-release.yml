@@ -6,7 +6,7 @@ on:
       version:
         description: NuGet package version to build.
         required: true
-        default: 0.1.0-preview.42
+        default: 0.1.0-preview.43
       progpu_version:
         description: Exact immutable ProGPU package version consumed by LibreWPF.
         required: true

@@ -10,7 +10,7 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <ProGpuWpfHelloPackageVersion>0.1.0-preview.42</ProGpuWpfHelloPackageVersion>
+    <ProGpuWpfHelloPackageVersion>0.1.0-preview.43</ProGpuWpfHelloPackageVersion>
     <RestorePackagesPath>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../../artifacts/nuget/ProGPU.Wpf.HelloApp'))</RestorePackagesPath>
     <RestoreForce>true</RestoreForce>
     <RestoreForceEvaluate>true</RestoreForceEvaluate>
