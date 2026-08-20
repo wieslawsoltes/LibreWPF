@@ -15,6 +15,7 @@
 
 using MS.Internal;
 using System.Collections;
+using System.Runtime.CompilerServices;
 
 namespace System.Windows.Controls
 {
@@ -33,6 +34,9 @@ namespace System.Windows.Controls
 
         #region Constructors
 
+        // Composite ReadyToRun can otherwise inline the derived RowDefinition/ColumnDefinition
+        // constructors without preserving these non-default field assignments.
+        [MethodImpl(MethodImplOptions.NoInlining)]
         internal DefinitionBase(bool isColumnDefinition)
         {
             _isColumnDefinition = isColumnDefinition;
