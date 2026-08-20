@@ -10,7 +10,7 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <ProGpuWpfMvpPackageVersion>0.1.0-preview.43</ProGpuWpfMvpPackageVersion>
+    <ProGpuWpfMvpPackageVersion>0.1.0-preview.44</ProGpuWpfMvpPackageVersion>
     <RestorePackagesPath>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../../artifacts/nuget/ProGPU.Wpf.MvpApp'))</RestorePackagesPath>
     <RestoreForce>true</RestoreForce>
     <RestoreForceEvaluate>true</RestoreForceEvaluate>

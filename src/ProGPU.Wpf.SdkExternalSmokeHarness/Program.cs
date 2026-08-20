@@ -18,8 +18,8 @@ internal static class Program
 {
     private const string OriginalWpfSdk = "Microsoft.NET.Sdk";
     private const string OriginalWindowsDesktopWpfSdk = "Microsoft.NET.Sdk.WindowsDesktop";
-    private const string SdkVersion = "0.1.0-preview.43";
-    private const string ProGpuPackageVersion = "0.1.0-preview.53";
+    private const string SdkVersion = "0.1.0-preview.44";
+    private const string ProGpuPackageVersion = "0.1.0-preview.54";
     private const string PrepackagedProGpuDirectoryEnvironmentVariable = "PROGPU_WPF_PREPACKAGED_PROGPU_DIR";
     private const string ExternalAppTargetFramework = "net10.0-windows";
     private const string AppAssemblyName = "ExternalSdkApp";
@@ -284,7 +284,7 @@ internal static class Program
         AssertContains(nuspec, "<packageType name=\"MSBuildSdk\" />", "SDK nuspec package type");
         AssertContains(nuspec, "<dependencies>", "SDK nuspec dependency group");
 
-        AssertContains(sdkProps, "<ProGpuWpfSdkVersion Condition=\"'$(ProGpuWpfSdkVersion)' == ''\">0.1.0-preview.43</ProGpuWpfSdkVersion>", "SDK root version default");
+        AssertContains(sdkProps, "<ProGpuWpfSdkVersion Condition=\"'$(ProGpuWpfSdkVersion)' == ''\">0.1.0-preview.44</ProGpuWpfSdkVersion>", "SDK root version default");
         AssertContains(sdkProps, "<ProGpuWpfRuntimeFrameworkVersion Condition=\"'$(ProGpuWpfRuntimeFrameworkVersion)' == ''\"></ProGpuWpfRuntimeFrameworkVersion>", "SDK runtime version override hook");
         AssertContains(sdkProps, "<RuntimeFrameworkVersion Condition=\"'$(ProGpuWpfUsePortableFrameworkReferences)' == 'true' And '$(RuntimeFrameworkVersion)' == '' And '$(ProGpuWpfRuntimeFrameworkVersion)' != ''\">$(ProGpuWpfRuntimeFrameworkVersion)</RuntimeFrameworkVersion>", "SDK runtime version opt-in");
         AssertDoesNotContain(sdkProps, "11.0.0-preview.4.26210.111", "SDK root runtime version default");

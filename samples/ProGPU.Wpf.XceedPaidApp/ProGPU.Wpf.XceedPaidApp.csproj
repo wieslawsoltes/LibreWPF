@@ -1,4 +1,4 @@
-<Project Sdk="LibreWPF.Sdk/0.1.0-preview.43">
+<Project Sdk="LibreWPF.Sdk/0.1.0-preview.44">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>$(ProGpuWpfSdkSampleTargetFramework)</TargetFramework>

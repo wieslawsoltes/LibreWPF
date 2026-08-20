@@ -2,7 +2,7 @@
 
 This sample exercises the public Xceed `Extended.Wpf.Toolkit` package through the custom LibreWPF SDK. The app project keeps the normal WPF migration shape:
 
-- `Project Sdk="LibreWPF.Sdk/0.1.0-preview.43"`
+- `Project Sdk="LibreWPF.Sdk/0.1.0-preview.44"`
 - `TargetFramework=net10.0-windows`
 - `UseWPF=true`
 - one `PackageReference` to `Extended.Wpf.Toolkit`
@@ -39,7 +39,7 @@ Run the live ProGPU/Silk.NET apphost input probe:
 PROGPU_WPF_TOOLKIT_LIVE_VALIDATE=1 ./eng/run-progpu-wpf-toolkit.sh
 ```
 
-If the local `0.1.0-preview.43` SDK packages are stale or missing, rebuild the package feed first:
+If the local `0.1.0-preview.44` SDK packages are stale or missing, rebuild the package feed first:
 
 ```bash
 PROGPU_WPF_TOOLKIT_REBUILD_PACKAGES=1 ./eng/run-progpu-wpf-toolkit.sh

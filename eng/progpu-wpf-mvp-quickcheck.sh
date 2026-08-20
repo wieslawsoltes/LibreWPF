@@ -25,7 +25,7 @@ apphost_name() {
 }
 
 package_output="${PROGPU_WPF_PACKAGE_OUTPUT:-${repo_root}/artifacts/packages/Release/NonShipping}"
-sdk_package="${package_output}/LibreWPF.Sdk.0.1.0-preview.43.nupkg"
+sdk_package="${package_output}/LibreWPF.Sdk.0.1.0-preview.44.nupkg"
 if [[ "${PROGPU_WPF_MVP_REBUILD_PACKAGES:-0}" == "1" || ! -f "${sdk_package}" ]]; then
   echo "Building ProGPU WPF SDK packages before quickcheck..."
   PROGPU_WPF_HELLO_REBUILD_PACKAGES=0 \

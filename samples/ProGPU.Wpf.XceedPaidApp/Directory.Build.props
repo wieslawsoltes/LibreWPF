@@ -10,7 +10,7 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <ProGpuWpfXceedPaidPackageVersion>0.1.0-preview.43</ProGpuWpfXceedPaidPackageVersion>
+    <ProGpuWpfXceedPaidPackageVersion>0.1.0-preview.44</ProGpuWpfXceedPaidPackageVersion>
     <RestorePackagesPath>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../../artifacts/nuget/ProGPU.Wpf.XceedPaidApp'))</RestorePackagesPath>
     <RestoreForce>true</RestoreForce>
     <RestoreForceEvaluate>true</RestoreForceEvaluate>
