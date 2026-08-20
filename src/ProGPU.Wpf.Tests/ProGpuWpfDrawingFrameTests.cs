@@ -1176,6 +1176,68 @@ public sealed class ProGpuWpfDrawingFrameTests
     }
 
     [Fact]
+    public void BranchMapPromotesSharedBranchToUniqueOwnerAncestor()
+    {
+        var branchMap = new WpfRetainedVisualBranchMap();
+        var ancestorSource = new object();
+        var dirtySource = new object();
+        var cleanSource = new object();
+        var ancestorVisual = new ProGpuRetainedDrawingVisual();
+        var sharedVisual = new ProGpuRetainedDrawingVisual
+        {
+            IsDirty = false
+        };
+        ancestorVisual.AddChild(sharedVisual);
+        branchMap.Register(ancestorSource, ancestorVisual);
+        branchMap.Register(dirtySource, sharedVisual);
+        branchMap.Register(cleanSource, sharedVisual);
+
+        var result = branchMap.InvalidateVisualsForSources(
+            new[] { dirtySource });
+        var target = Assert.Single(
+            branchMap.GetReplayTargetsForSources(new[] { dirtySource }));
+
+        Assert.Equal(1, result.SharedWithCleanSourceVisualCount);
+        Assert.Equal(0, result.ReplayTargetConflictCount);
+        Assert.True(result.CanTargetAllDirtySources);
+        Assert.True(sharedVisual.IsDirty);
+        Assert.Same(ancestorSource, target.Source);
+        Assert.Same(ancestorVisual, target.Visual);
+    }
+
+    [Fact]
+    public void BranchMapDeduplicatesBranchesPromotedToSameAncestor()
+    {
+        var branchMap = new WpfRetainedVisualBranchMap();
+        var ancestorSource = new object();
+        var firstDirtySource = new object();
+        var secondDirtySource = new object();
+        var firstCleanSource = new object();
+        var secondCleanSource = new object();
+        var ancestorVisual = new ProGpuRetainedDrawingVisual();
+        var firstSharedVisual = new ProGpuRetainedDrawingVisual();
+        var secondSharedVisual = new ProGpuRetainedDrawingVisual();
+        ancestorVisual.AddChild(firstSharedVisual);
+        ancestorVisual.AddChild(secondSharedVisual);
+        branchMap.Register(ancestorSource, ancestorVisual);
+        branchMap.Register(firstDirtySource, firstSharedVisual);
+        branchMap.Register(firstCleanSource, firstSharedVisual);
+        branchMap.Register(secondDirtySource, secondSharedVisual);
+        branchMap.Register(secondCleanSource, secondSharedVisual);
+
+        var dirtySources = new[] { firstDirtySource, secondDirtySource };
+        var result = branchMap.InvalidateVisualsForSources(dirtySources);
+        var target = Assert.Single(
+            branchMap.GetReplayTargetsForSources(dirtySources));
+
+        Assert.Equal(2, result.SharedWithCleanSourceVisualCount);
+        Assert.Equal(0, result.ReplayTargetConflictCount);
+        Assert.True(result.CanTargetAllDirtySources);
+        Assert.Same(ancestorSource, target.Source);
+        Assert.Same(ancestorVisual, target.Visual);
+    }
+
+    [Fact]
     public void BranchMapReturnsSourceOwnerReplayTargetForDirtyDependency()
     {
         var branchMap = new WpfRetainedVisualBranchMap();
