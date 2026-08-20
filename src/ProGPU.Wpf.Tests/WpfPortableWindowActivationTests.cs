@@ -1327,7 +1327,7 @@ public sealed class WpfPortableWindowActivationTests
     }
 
     [Fact]
-    public void QueuedNativeInputIsProcessedAndRenderedBeforeTheNextEvent()
+    public void QueuedPassivePointerMovesDeferRenderingUntilAfterTheNativeBatch()
     {
         var service = new TestWindowActivationServiceRegistrar
         {
@@ -1352,11 +1352,97 @@ public sealed class WpfPortableWindowActivationTests
                 "BeginInput",
                 "Flush:Input",
                 "ProcessInput:10",
+                "BeginInput",
+                "Flush:Input",
+                "ProcessInput:30"
+            },
+            service.InputDispatchLog);
+    }
+
+    [Fact]
+    public void QueuedPressedPointerMovesRenderBeforeTheNextDragEvent()
+    {
+        var service = new TestWindowActivationServiceRegistrar
+        {
+            QueueInputCallbacks = true,
+            RunQueuedInputOnInputFlush = true
+        };
+        using var serviceRegistration = PortableWpfServiceRegistry.RegisterWindowActivationService(service);
+        using var host = new ProGpuWpfWindowHost();
+        var window = new FakeDispatchingPortableInputWindow();
+        var source = new FakePortablePresentationSource();
+
+        Assert.True(WpfPortableWindowActivation.TryAttach(host, window, source, out var activation));
+        Assert.NotNull(activation);
+
+        RaiseHostInputEvent(host, new WpfInputEventArgs(
+            WpfInputEventKind.MouseDown,
+            x: 10,
+            y: 20,
+            button: WpfMouseButton.Left));
+        RaiseHostInputEvent(host, new WpfInputEventArgs(WpfInputEventKind.MouseMove, x: 20, y: 30));
+        RaiseHostInputEvent(host, new WpfInputEventArgs(
+            WpfInputEventKind.MouseUp,
+            x: 30,
+            y: 40,
+            button: WpfMouseButton.Left));
+        RaiseHostInputEvent(host, new WpfInputEventArgs(WpfInputEventKind.MouseMove, x: 40, y: 50));
+
+        Assert.Equal(4, service.InputCount);
+        Assert.Equal(
+            new[]
+            {
+                "BeginInput",
+                "Flush:Input",
+                "ProcessInput:10",
+                "Flush:Render",
+                "BeginInput",
+                "Flush:Input",
+                "ProcessInput:20",
                 "Flush:Render",
                 "BeginInput",
                 "Flush:Input",
                 "ProcessInput:30",
-                "Flush:Render"
+                "Flush:Render",
+                "BeginInput",
+                "Flush:Input",
+                "ProcessInput:40"
+            },
+            service.InputDispatchLog);
+    }
+
+    [Fact]
+    public void DeactivationClearsPressedPointerRenderFlushing()
+    {
+        var service = new TestWindowActivationServiceRegistrar
+        {
+            QueueInputCallbacks = true,
+            RunQueuedInputOnInputFlush = true
+        };
+        using var serviceRegistration = PortableWpfServiceRegistry.RegisterWindowActivationService(service);
+        using var host = new ProGpuWpfWindowHost();
+        var window = new FakeDispatchingPortableInputWindow();
+        var source = new FakePortablePresentationSource();
+
+        Assert.True(WpfPortableWindowActivation.TryAttach(host, window, source, out var activation));
+        Assert.NotNull(activation);
+
+        RaiseHostInputEvent(host, new WpfInputEventArgs(
+            WpfInputEventKind.MouseDown,
+            x: 10,
+            y: 20,
+            button: WpfMouseButton.Left));
+        RaiseHostWindowEvent(host, WpfWindowEventKind.Deactivated);
+        service.InputDispatchLog.Clear();
+
+        RaiseHostInputEvent(host, new WpfInputEventArgs(WpfInputEventKind.MouseMove, x: 20, y: 30));
+
+        Assert.Equal(
+            new[]
+            {
+                "BeginInput",
+                "Flush:Input",
+                "ProcessInput:20"
             },
             service.InputDispatchLog);
     }

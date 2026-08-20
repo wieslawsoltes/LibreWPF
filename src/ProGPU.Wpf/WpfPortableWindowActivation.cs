@@ -59,6 +59,7 @@ public sealed class WpfPortableWindowActivation : IDisposable
     private bool _showActivated = true;
     private bool _isRegisteredNonActivatingOwnedWindow;
     private object? _ownerWindow;
+    private readonly HashSet<WpfMouseButton> _pressedMouseButtons = new();
 
     static WpfPortableWindowActivation()
     {
@@ -518,6 +519,7 @@ public sealed class WpfPortableWindowActivation : IDisposable
         StopDispatcherTimerPump();
         _mediaContextRenderRegistration?.Dispose();
         _mediaContextRenderRegistration = null;
+        _pressedMouseButtons.Clear();
         RemoveNonActivatingOwnedWindowRegistration();
         s_activeActivations.Remove(Window);
         UnregisterActiveActivationHandle(this);
@@ -986,6 +988,7 @@ public sealed class WpfPortableWindowActivation : IDisposable
                 TrySetWindowActivationStateForHostEvent(isActive: true);
                 break;
             case WpfWindowEventKind.Deactivated:
+                _pressedMouseButtons.Clear();
                 DispatchPortableActivationHooks(isActive: false);
                 TrySetWindowActivationStateForHostEvent(isActive: false);
                 break;
@@ -993,6 +996,7 @@ public sealed class WpfPortableWindowActivation : IDisposable
                 DispatchPortableShowWindowHook(isShown: true);
                 break;
             case WpfWindowEventKind.Hidden:
+                _pressedMouseButtons.Clear();
                 DispatchPortableShowWindowHook(isShown: false);
                 break;
             case WpfWindowEventKind.WindowPositionChanging:
@@ -1285,12 +1289,29 @@ public sealed class WpfPortableWindowActivation : IDisposable
             return;
         }
 
-        if (TryDispatchHostInputToWindowDispatcher(e))
+        bool releaseButtonAfterDispatch = e.Kind == WpfInputEventKind.MouseUp &&
+            e.Button != WpfMouseButton.None;
+        if (e.Kind == WpfInputEventKind.MouseDown && e.Button != WpfMouseButton.None)
         {
-            return;
+            _pressedMouseButtons.Add(e.Button);
         }
 
-        ProcessHostInputAndRequestRender(e);
+        try
+        {
+            if (TryDispatchHostInputToWindowDispatcher(e))
+            {
+                return;
+            }
+
+            ProcessHostInputAndRequestRender(e);
+        }
+        finally
+        {
+            if (releaseButtonAfterDispatch)
+            {
+                _pressedMouseButtons.Remove(e.Button);
+            }
+        }
     }
 
     private void ProcessHostInputAndRequestRender(WpfInputEventArgs e)
@@ -1393,11 +1414,19 @@ public sealed class WpfPortableWindowActivation : IDisposable
         if (TryGetWindowActivationService(out var activationService) &&
             activationService.TryBeginInvokeInput(Window, callback))
         {
-            // Silk.NET can report several pointer moves from one native event poll.
-            // Process each queued WPF input callback and its resulting layout before
-            // accepting the next native event.  Controls such as Thumb calculate the
-            // next delta relative to the layout produced by the previous move.
-            FlushWpfDispatcherOperations("Input", "Render");
+            // Passive pointer movement only needs input dispatch here; the owner loop
+            // consumes its render request once after the native event batch. During a
+            // pressed-button interaction, preserve per-event layout because controls
+            // such as Thumb calculate each delta from the preceding move's layout.
+            if (e.Kind == WpfInputEventKind.MouseMove && _pressedMouseButtons.Count == 0)
+            {
+                FlushWpfDispatcherOperations("Input");
+            }
+            else
+            {
+                FlushWpfDispatcherOperations("Input", "Render");
+            }
+
             Host.TryRequestNativeLoopWakeup();
             return true;
         }
