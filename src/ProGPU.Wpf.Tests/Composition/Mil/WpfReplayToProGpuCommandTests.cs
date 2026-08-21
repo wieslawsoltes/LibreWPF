@@ -1071,6 +1071,21 @@ public sealed class WpfReplayToProGpuCommandTests
     }
 
     [Fact]
+    public void GeometryGroupThroughProGpuSinkUsesRuntimeChildrenCollectionAbi()
+    {
+        var geometry = new GeometryGroup();
+        geometry.Children.Add(new RectangleGeometry(new System.Windows.Rect(2, 3, 40, 50)));
+        var nativeContext = new ProGpuDrawingContext();
+        using var sink = new ProGpuCompositionCommandSink(new MediaDrawingContext(nativeContext));
+
+        sink.DrawGeometry(Brushes.Blue, null, geometry);
+
+        var command = Assert.Single(nativeContext.Commands);
+        Assert.Equal(RenderCommandType.DrawPath, command.Type);
+        Assert.NotNull(command.Path);
+    }
+
+    [Fact]
     public void PortablePathThroughProGpuSinkReusesCachedNativePathWhenUnchanged()
     {
         var geometry = CreatePortableRectangleGeometry(new FakeRect(2, 3, 40, 50));

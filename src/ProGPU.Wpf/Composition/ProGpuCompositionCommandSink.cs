@@ -2037,27 +2037,11 @@ public sealed class ProGpuCompositionCommandSink :
                 figureCount++;
                 segmentCount += 4;
                 return true;
-            case MediaGeometryGroup geometryGroup:
-                AddHash(ref hash, 5);
-                AddHash(ref hash, (int)geometryGroup.FillRule);
-                var children = geometryGroup.Children;
-                AddHash(ref hash, children.Count);
-                for (var i = 0; i < children.Count; i++)
-                {
-                    var child = children[i];
-                    if (child == null)
-                    {
-                        AddHash(ref hash, 0);
-                        continue;
-                    }
-
-                    if (!AddNativeGeometryPathKey(child, ref hash, ref figureCount, ref segmentCount, ref geometryCount, depth + 1))
-                    {
-                        return false;
-                    }
-                }
-
-                return true;
+            case MediaGeometryGroup:
+                // The lightweight compile-time shim and real WPF expose different
+                // Children return types. Avoid binding to that getter and use the
+                // existing uncached portable conversion path for geometry groups.
+                return false;
             case MediaCombinedGeometry combinedGeometry:
                 AddHash(ref hash, 6);
                 AddHash(ref hash, (int)combinedGeometry.GeometryCombineMode);

@@ -15698,6 +15698,8 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("PushNativeGeometryClip(MediaGeometry clipGeometry)", proGpuWpfCommandSink, StringComparison.Ordinal);
         Assert.Contains("TryConvertGeometryToNativePath(clipGeometry, _transformStack.Peek()", proGpuWpfCommandSink, StringComparison.Ordinal);
         Assert.Contains("ConditionalWeakTable<MediaGeometry, NativeGeometryPathCache>", proGpuWpfCommandSink, StringComparison.Ordinal);
+        Assert.Contains("case MediaGeometryGroup:", proGpuWpfCommandSink, StringComparison.Ordinal);
+        Assert.DoesNotContain("geometryGroup.Children", proGpuWpfCommandSink, StringComparison.Ordinal);
         Assert.Contains("TryGetCachedNativeGeometryPath(geometry, transform, out path, out bounds)", proGpuWpfCommandSink, StringComparison.Ordinal);
         Assert.Contains("!transform.IsIdentity || !TryReadNativeGeometryPathKey(geometry, out var key)", proGpuWpfCommandSink, StringComparison.Ordinal);
         Assert.Contains("AddNativePathGeometryKey(pathGeometry, ref hash, ref figureCount, ref segmentCount)", proGpuWpfCommandSink, StringComparison.Ordinal);
