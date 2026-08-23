@@ -18,6 +18,8 @@ require_text ".github/workflows/progpu-wpf-sdk.yml" "PROGPU_WPF_PROGPU_PACKAGE_V
 require_text ".github/workflows/progpu-wpf-sdk.yml" "librewpf-ci-packages-"
 require_text ".github/workflows/progpu-wpf-sdk.yml" "if-no-files-found: error"
 require_text ".github/workflows/progpu-wpf-sdk.yml" "./eng/progpu-wpf-linux-xwayland-smoke.sh"
+require_text ".github/workflows/progpu-wpf-sdk.yml" "./eng/progpu-wpf-linux-multi-window-smoke.sh"
+require_text "docs/progpu-wpf-multi-window-render-device.md" "PROGPU_WPF_DISABLE_RENDER_DEVICE_SHARING"
 require_text ".github/workflows/progpu-wpf-release.yml" "NUGET_API_KEY"
 require_text ".github/workflows/progpu-wpf-release.yml" "librewpf-v*"
 require_text ".github/workflows/progpu-wpf-release.yml" "refs/tags/librewpf-v"

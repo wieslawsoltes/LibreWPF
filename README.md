@@ -191,7 +191,9 @@ GitHub workflows:
 - `LibreWPF Docs` verifies README and release docs against the preview package list.
 - `LibreWPF Release` builds preview packages/bundle artifacts and can publish to NuGet.org with `NUGET_API_KEY`.
 
-See [docs/progpu-wpf-release.md](docs/progpu-wpf-release.md) and the ongoing porting reports in [reports/](reports/).
+See [docs/progpu-wpf-release.md](docs/progpu-wpf-release.md),
+[docs/progpu-wpf-multi-window-render-device.md](docs/progpu-wpf-multi-window-render-device.md),
+and the ongoing porting reports in [reports/](reports/).
 
 ## Original Upstream README
 

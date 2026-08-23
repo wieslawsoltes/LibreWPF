@@ -184,3 +184,42 @@ jobs:
 
       - name: Run Wayland-session XWayland native input and popup smoke
         run: ./eng/progpu-wpf-linux-xwayland-smoke.sh
+
+  linux-multi-window-smoke:
+    name: Linux headless multi-window render device smoke
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}
+          submodules: true
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Install headless rendering dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libegl-mesa0 \
+            libegl1 \
+            libgl1 \
+            libgl1-mesa-dri \
+            libgles2 \
+            libglx-mesa0 \
+            libx11-6 \
+            libxcursor1 \
+            libxi6 \
+            libxinerama1 \
+            libxrandr2 \
+            mesa-vulkan-drivers \
+            xauth \
+            xvfb
+
+      - name: Run headless multi-window smoke
+        run: ./eng/progpu-wpf-linux-multi-window-smoke.sh
