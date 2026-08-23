@@ -1,0 +1,8 @@
+<Project>
+  <!-- Shadows the repository's WPF Arcade SDK props, like ProGPU.Wpf.Tests does: this harness
+       builds as an ordinary SDK project so its dependencies are copied next to it. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <TargetFrameworkVersion>10.0</TargetFrameworkVersion>
+  </PropertyGroup>
+</Project>
