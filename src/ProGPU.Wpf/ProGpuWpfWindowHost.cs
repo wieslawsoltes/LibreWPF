@@ -74,6 +74,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
     private bool _isNativeLoopRunning;
     private bool _usesExternalNativeLoopPump;
     private bool _isLoadingCompositionTarget;
+    private bool _usesSharedRenderDevice;
     private bool _disposeNativeWindowWhenLoopExits;
     private bool _hasPresentedFrame;
     private long _presentedFrameCount;
@@ -166,6 +167,12 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
     public IWindow? SilkWindow => _window;
 
     public ProGpuWpfCompositionTarget? CompositionTarget => _target;
+
+    /// <summary>
+    /// Gets a value indicating whether this window renders through a WebGPU device that it
+    /// borrowed from another window instead of a device it created itself.
+    /// </summary>
+    public bool UsesSharedRenderDevice => _target != null && _usesSharedRenderDevice;
 
     public ProGpuDirectXDevice? DirectXDevice
     {
@@ -1413,7 +1420,26 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         AttachNativeDpiService();
         _windowController?.Attach();
         ApplyWindowIcon();
+        ReleaseUnusedClientGraphicsContext();
         EnsureCompositionTargetLoaded();
+    }
+
+    private void ReleaseUnusedClientGraphicsContext()
+    {
+        // Transparent-framebuffer windows ask GLFW for a client API so its X11 backend picks a
+        // visual with an alpha channel, and GLFW makes that context current on this thread.
+        // WebGPU owns presentation and never uses it, but wgpu's GLES backend releases the
+        // thread's current context while creating a surface - eglMakeCurrent(display, NULL,
+        // NULL, NULL) - and Mesa answers EGL_BAD_ACCESS when that context is GLFW's rather than
+        // wgpu's, aborting the process from native code.
+        try
+        {
+            _window?.GLContext?.Clear();
+        }
+        catch (Exception exception)
+        {
+            TraceNativeLoop("client graphics context release failed: " + exception);
+        }
     }
 
     private bool EnsureCompositionTargetLoaded()
@@ -1448,10 +1474,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         try
         {
             IWindow window = _window;
-            ProGpuWpfCompositionTarget target = ProGpuWpfCompositionTarget.CreateForWindow(
-                window,
-                _options.SharedRenderDeviceContext,
-                _options.CompositorOptions);
+            ProGpuWpfCompositionTarget target = CreateCompositionTargetForWindow(window);
             if (_options.TransparentFramebuffer)
             {
                 target.Compositor.ClearColor = System.Numerics.Vector4.Zero;
@@ -1505,6 +1528,48 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         {
             _isLoadingCompositionTarget = false;
         }
+    }
+
+    private ProGpuWpfCompositionTarget CreateCompositionTargetForWindow(IWindow window)
+    {
+        // Native popup hosts name their owner window's context explicitly; top-level windows
+        // borrow the process render device instead.
+        bool usesProcessRenderDevice =
+            _options.SharedRenderDeviceContext == null &&
+            ProGpuWpfRenderDeviceSharing.IsEnabled;
+        WgpuContext? deviceOwner = usesProcessRenderDevice
+            ? ProGpuWpfRenderDeviceSharing.TryGetDeviceOwnerContext()
+            : _options.SharedRenderDeviceContext;
+
+        ProGpuWpfCompositionTarget? target = null;
+        if (deviceOwner != null)
+        {
+            try
+            {
+                target = ProGpuWpfCompositionTarget.CreateForWindow(
+                    window,
+                    deviceOwner,
+                    _options.CompositorOptions);
+            }
+            catch (InvalidOperationException) when (usesProcessRenderDevice)
+            {
+                // The owner tore its device down between selection and surface creation, so
+                // retire it and let this window create the process render device instead.
+                ProGpuWpfRenderDeviceSharing.RetireDeviceOwnerContext(deviceOwner);
+            }
+        }
+
+        _usesSharedRenderDevice = target != null;
+        target ??= ProGpuWpfCompositionTarget.CreateForWindow(
+            window,
+            sharedDeviceContext: null,
+            _options.CompositorOptions);
+        if (usesProcessRenderDevice)
+        {
+            ProGpuWpfRenderDeviceSharing.RegisterDeviceOwnerContext(target.Context);
+        }
+
+        return target;
     }
 
     private bool CanFinishCompositionTargetLoad(ProGpuWpfCompositionTarget target, IWindow window)
@@ -3376,9 +3441,11 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
 
         ProGpuWpfCompositionTarget target = _target;
         _target = null;
+        _usesSharedRenderDevice = false;
         _directXDevice?.Dispose();
         _directXDevice = null;
         target.RenderInvalidated -= OnCompositionTargetRenderInvalidated;
+        ProGpuWpfRenderDeviceSharing.RetireDeviceOwnerContext(target.Context);
         target.Dispose();
         WpfRenderScheduler.Reset();
         Volatile.Write(ref _pendingRenderRequestIsWakeOnly, 0);
