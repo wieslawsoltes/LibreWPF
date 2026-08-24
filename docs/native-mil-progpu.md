@@ -299,6 +299,29 @@ uploaded vertex bytes, and readback on the Parallels adapter. The gate required
 the consumer's app-local native DLL hashes to match the freshly built modules
 after detecting and replacing an older incremental-build artifact.
 
+The retained general-path/arc implementation at exact ProGPU commit
+`51550b6e` subsequently passed the complete Windows ARM64 MSVC gate. Strict
+`/W4 /WX` caught and drove the correction of an implicit fill-rule enum
+conversion before qualification. Both native modules linked, all 11 CTests
+passed, and the live C++ and managed D3D12 samples completed rendering and
+readback. The managed sample lowered 16 source commands to 13 native commands
+and six draws, with 27,464 vertex-upload bytes and 55,552 coverage bytes. Its
+eight-frame native stress measured `0.1235 ms/frame`; the bounded differential
+remained at maximum delta 2/255 with zero pixels above 3/255 and mean
+`0.0000622`. The retained path-atlas case rasterized 49 paths and stayed inside
+its independent-edge contract (maximum delta 46/255, 1,048 pixels over
+tolerance, mean `0.0171`). Image, mask, effect, vector, blend, text, and package
+staging gates also completed.
+
+At ProGPU package-consumer commit `a11ad9fd`, a zero-warning Windows build then
+compiled a transformed retained path containing a quadratic segment and
+rotated endpoint arc through both wgpu-native and Dawn MIL exports. After its
+app-local DLL hashes were verified against the exact staged `51550b6e`
+modules, it installed the wgpu-native semantic stream, rendered the retained
+scene live on D3D12 (15 resources, two draws), and read back 16,384 pixels.
+This closes the prior gap where package smoke compiled MIL but performed GPU
+readback only from an unrelated immediate rectangle.
+
 ## Next parity gates
 
 1. Generate packed protocol size/offset metadata from the checked-in WPF MCG
