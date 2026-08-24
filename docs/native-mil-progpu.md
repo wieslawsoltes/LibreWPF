@@ -85,7 +85,7 @@ LibreWPF currently provides:
 | --- | --- | --- |
 | Managed portable | Existing/default | Compatibility baseline and fallback |
 | Native MIL + wgpu-native | First rectangle slice | Shared WebGPU semantic compositor |
-| Native MIL + Dawn | ABI/compiler implemented | Windows D3D12 and provider validation |
+| Native MIL + Dawn | ARM64 ABI/build qualified | Provider-resolved Windows D3D12 validation |
 | Native DirectX/DXGI facade | Planned | Measured D3D11/D3D12 interop parity |
 
 No automatic fallback is allowed after native selection: missing typed state or
@@ -108,13 +108,52 @@ ellipse and rounded-rectangle values, scRGB brush fields, canonical opacity-
 scope translation, unbalanced-scope rejection, non-uniform-radius rejection,
 and rectangle-pen rejection.
 
-The Parallels integration guest is Windows 11 ARM64 build `26200.9168` with
-.NET SDK `10.0.400` and Parallels Display Adapter WDDM driver
-`20.18.2641.57516` (2 GiB reported adapter memory). CMake and `cl.exe` were not
-on the initial `PATH`. Visual Studio Build Tools 2022 with the recommended C++
-workload is being installed at `C:\BuildTools`; the native Dawn gate remains
-pending until setup completes and the installed ARM64 compiler, CMake, Ninja,
-SDK, and Git paths are recorded.
+The ProGPU checkpoint also passes the complete bounded Windows lane in the
+Parallels integration guest: Windows 11 ARM64 build `26200.9168`, .NET SDK
+`10.0.400` / runtime `10.0.11`, Visual Studio Build Tools `17.14.39`, ARM64
+MSVC `19.44`, CMake `3.31.6`, Ninja `1.12.1`, and Parallels Display Adapter
+WDDM driver `20.18.2641.57516` (2 GiB reported adapter memory). The exact gate
+was:
+
+```powershell
+.\eng\build-progpu-native-windows.ps1 `
+  -Rid win-arm64 `
+  -Compiler MSVC `
+  -Generator Ninja `
+  -BenchmarkProfile Smoke
+```
+
+That gate built the wgpu-native and provider-resolved Dawn modules, passed all
+11 native tests including MIL and Dawn ABI contracts, staged the `win-arm64`
+package, and completed live D3D12 rendering/readback. The C++ sample executed
+nine retained commands in five draws with 11,616 uploaded vertex bytes. The
+managed native-host sample lowered 16 source commands to 13 C++ commands and
+six draws, uploaded 27,464 vertex bytes plus 55,552 glyph coverage bytes, and
+passed pre-render and post-render allocation/readback probes.
+
+The adapter-specific typed glyph fallback was also exercised directly. The
+Parallels D3D12 driver removes the device when its shared glyph compute shader
+processes normal multi-glyph outlines, so ProGPU selects CPU R8 coverage atlas
+rasterization in both native and managed compositors for that exact adapter
+profile; other adapters retain GPU compute. Two- and sixteen-glyph retained
+scenes then produced identical native/managed pixel hashes with zero differing
+pixels and zero steady-frame managed allocations. In the 16-glyph diagnostic,
+native submission was `0.5108 ms` versus `1.2558 ms` managed.
+
+The dense mixed-picture gate is likewise explicit: 384 commands run through
+the C++ renderer for eight synchronized frames at `0.2721 ms/frame`, while a
+separate bounded differential scene had maximum delta 2/255, zero pixels over
+3/255, and mean absolute delta `0.0000622`. This split is necessary because the
+legacy managed renderer independently removes the Parallels D3D12 device on
+the dense mixed scene; the C++ renderer does not. The remaining smoke matrix
+passed group opacity, external/masked images, mixed semantic scenes,
+mask/effect chains, vector clips, blur/drop-shadow, Overlay/ColorDodge, and
+managed/C++ text shaping contracts.
+
+Retained GPU hit-test readback remains marked `deferred-parallels-adapter`
+because the Parallels blocking readback path stalls. This is a documented
+adapter limitation, and neither the passing render gate nor Dawn ABI build is
+being claimed as complete DirectX or MIL parity.
 
 ## Next parity gates
 
@@ -127,9 +166,10 @@ SDK, and Git paths are recorded.
    resource updates plus damage instead of rebuilding the initial scene batch.
 4. Bind compiled semantic streams directly to `NativeCompositor` targets and
    expose an explicit LibreWPF runtime selector.
-5. Build provider-resolved Dawn ARM64 in the Windows VM; record adapter LUID,
-   backend, limits, validation output, pixel hashes, device loss, resize,
-   occlusion, DPI, and lifetime results.
+5. Complete live provider-resolved Dawn rendering and the remaining adapter
+   LUID, limits, resize, occlusion, DPI, lifetime, and non-Parallels retained
+   hit-test evidence. The Dawn ARM64 build/ABI and wgpu-native D3D12 live lane
+   are now qualified.
 6. Implement only the measured D3D11/D3D12/DXGI/D3DCompiler compatibility
    surface required by SDK, SciChart, and interop consumers. Shared textures,
    fences, formats, row pitch, alpha mode, and device loss require explicit
