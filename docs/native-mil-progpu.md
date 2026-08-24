@@ -165,6 +165,17 @@ because the Parallels blocking readback path stalls. This is a documented
 adapter limitation, and neither the passing render gate nor Dawn ABI build is
 being claimed as complete DirectX or MIL parity.
 
+The affine-transform checkpoint was then requalified at ProGPU commit
+`360a6f7e` with the same full Windows command. ARM64 MSVC compiled the new
+matrix resource, visual-transform, and nested transform-scope code; all 11
+native tests passed, including transformed semantic-state/bounds fixtures,
+null no-op scopes, and transactional rejection cases. The live retained sample,
+managed-host allocation probes, differential/effect/vector/text matrix, and
+`win-arm64` package staging all completed. The follow-up native stress measured
+`0.1244 ms/frame`, while the bounded differential again reported maximum delta
+2/255 and zero pixels above 3/255. The Windows checkout was clean at the exact
+qualified commit.
+
 ## Next parity gates
 
 1. Generate packed protocol size/offset metadata from the checked-in WPF MCG
