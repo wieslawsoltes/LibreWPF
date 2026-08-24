@@ -1564,6 +1564,8 @@ namespace System.Windows.Controls.Primitives
                 PopupSecurityHelper.TracePortablePopup("create-window build new targetVisual=" + (targetVisual != null));
                 BuildWindow(targetVisual);
                 CreateNewPopupRoot();
+                s_wpfOpenPopupCount++;
+                PopupSecurityHelper.TracePortablePopup("create-window wpfOpenPopupCount=" + s_wpfOpenPopupCount);
             }
 
             UIElement child = Child;
@@ -1673,6 +1675,11 @@ namespace System.Windows.Controls.Primitives
                 CancelPortableSettledPosition();
                 DetachPortablePopupRootLayoutUpdates();
                 _secHelper.DestroyWindow(PopupFilterMessage, OnWindowResize, OnDpiChanged);
+                if (s_wpfOpenPopupCount > 0)
+                {
+                    s_wpfOpenPopupCount--;
+                    PopupSecurityHelper.TracePortablePopup("destroy-window wpfOpenPopupCount=" + s_wpfOpenPopupCount);
+                }
                 return true;
             }
 
@@ -3100,6 +3107,17 @@ namespace System.Windows.Controls.Primitives
         #region Data
 
         internal const double Tolerance = 1.0e-2; // allow errors in double calculations
+
+        /// <summary>
+        /// Number of Popup windows currently alive (incremented in CreateWindow,
+        /// decremented in DestroyWindowImpl). Used by Window.HandlePortableMove to
+        /// avoid releasing mouse capture for a transient host-window move triggered
+        /// by the very act of showing a popup, which would otherwise immediately
+        /// dismiss the ComboBox/Menu dropdown that just opened.
+        /// </summary>
+        private static int s_wpfOpenPopupCount;
+
+        internal static bool HasAnyOpenPopupInWpf => s_wpfOpenPopupCount > 0;
 
         private const int AnimationDelay = 150;
         internal static TimeSpan AnimationDelayTime = new TimeSpan(0, 0, 0, 0, AnimationDelay);

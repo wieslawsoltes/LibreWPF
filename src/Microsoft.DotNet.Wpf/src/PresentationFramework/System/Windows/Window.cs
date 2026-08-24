@@ -3236,6 +3236,60 @@ namespace System.Windows
             PortableWindowActivationService.ProcessInput(this, input);
         }
 
+        // Portable substitute for the WM_MOVE case in WindowFilterMessage. Real Win32 WPF derives
+        // Left/Top from GetWindowRect(hwnd) in WmMoveChanged; the portable backend has no hwnd to
+        // query, so the native host passes the moved-to position directly. From here on we reuse
+        // the exact same code WM_MOVE uses (WmMoveChangedHelper: sets Left/Top, fires LocationChanged).
+        internal void HandlePortableMove(double left, double top)
+        {
+            // Unlike WmMoveChanged, this never checks IsSourceWindowNull/IsCompositionTargetInvalid:
+            // those guard the real Win32 _swh (HwndSource) helper, which the portable backend never
+            // populates at all - it would always be true here and this method would never run.
+            bool changed = !DoubleUtil.AreClose(_actualLeft, left) || !DoubleUtil.AreClose(_actualTop, top);
+
+            if (changed)
+            {
+                _actualLeft = left;
+                _actualTop = top;
+                WmMoveChangedHelper();
+
+                // Real Win32 WPF never needs to close menus/popups on owner-window move: their HWNDs
+                // are owned/child windows the OS moves in lockstep, so they stay visually attached.
+                // Portable popups are independent native windows with no such glue, so a stale popup
+                // would otherwise hang in its old screen position. Releasing capture reuses the exact
+                // same dismiss path an outside click already takes (MenuBase/Popup.OnLostMouseCapture)
+                // instead of inventing a separate "close this popup" call.
+                //
+                // But don't release capture when any of our own popups are currently open —
+                // opening a popup's native window can cause a transient host-window move
+                // (the OS repositions the owner the instant a new top-level window appears
+                // on macOS, where there is no WS_EX_NOACTIVATE).  If we released capture
+                // here, the ComboBox/Menu dropdown that JUST opened would dismiss itself
+                // immediately via its OnLostMouseCapture handler, making it look like the
+                // popup "never appeared".  The Popup.HasAnyOpenPopupInWpf check tracks popups
+                // created via the WPF-managed CreateWindow path (see
+                // Popup.s_wpfOpenPopupCount) so it correctly suppresses these spurious
+                // moves from our own popup windows, without leaking capture to
+                // unrelated windows.
+                // Also don't release capture while a mouse button is physically held: that is an
+                // in-progress captured drag (e.g. an AvalonDock splitter Thumb), not a detached popup.
+                // Showing a transient top-level window mid-drag (the resizer-ghost overlay on
+                // DragStarted) makes the OS reposition this window, and releasing the Thumb's capture
+                // here ends the drag after a single move. A genuine popup-dismissing move never happens
+                // with a button held, so preserving capture in that case is correct.
+                bool mouseButtonHeld =
+                    Mouse.LeftButton == MouseButtonState.Pressed ||
+                    Mouse.MiddleButton == MouseButtonState.Pressed ||
+                    Mouse.RightButton == MouseButtonState.Pressed;
+
+                if (Mouse.Captured != null && !mouseButtonHeld &&
+                    !System.Windows.Controls.Primitives.Popup.HasAnyOpenPopupInWpf)
+                {
+                    Mouse.Capture(null);
+                }
+            }
+        }
+
         internal virtual void UpdateHeight(double newHeight)
         {
             if (WindowState == WindowState.Normal)

@@ -19280,6 +19280,46 @@ public sealed class WpfManagedProjectGraphTests
             item => string.Equals(item.Attribute("Include")?.Value, include, StringComparison.Ordinal));
     }
 
+    [Fact]
+    public void PortableMoveKeepsCaptureForOwnPopupsAndHeldButtons()
+    {
+        var popup = File.ReadAllText(FindRepoPath(
+            "src",
+            "Microsoft.DotNet.Wpf",
+            "src",
+            "PresentationFramework",
+            "System",
+            "Windows",
+            "Controls",
+            "Primitives",
+            "Popup.cs"));
+        var window = File.ReadAllText(FindRepoPath(
+            "src",
+            "Microsoft.DotNet.Wpf",
+            "src",
+            "PresentationFramework",
+            "System",
+            "Windows",
+            "Window.cs"));
+
+        // Showing a transient top-level window makes the OS reposition its owner on
+        // macOS (no WS_EX_NOACTIVATE). Releasing capture on such a spurious move
+        // dismissed the ComboBox/Menu dropdown that just opened via OnLostMouseCapture,
+        // so HandlePortableMove must suppress the release while our own popups are open.
+        Assert.Contains("s_wpfOpenPopupCount++;", popup, StringComparison.Ordinal);
+        Assert.Contains("s_wpfOpenPopupCount--;", popup, StringComparison.Ordinal);
+        Assert.Contains("internal static bool HasAnyOpenPopupInWpf => s_wpfOpenPopupCount > 0;", popup, StringComparison.Ordinal);
+
+        // Capture is also preserved while a button is physically held: that is an
+        // in-progress captured Thumb drag (e.g. an AvalonDock splitter), and ending it
+        // after one move was the original splitter-drag bug.
+        var mouseButtonHeld = "bool mouseButtonHeld =\n                    Mouse.LeftButton == MouseButtonState.Pressed ||";
+        var guardCondition = "!mouseButtonHeld &&\n                    !System.Windows.Controls.Primitives.Popup.HasAnyOpenPopupInWpf)";
+        var captureRelease = "Mouse.Capture(null);";
+        Assert.Contains(mouseButtonHeld, window, StringComparison.Ordinal);
+        AssertGuardBefore(window, guardCondition, captureRelease);
+    }
+
     private static void AssertGuardBefore(string source, string guard, string guardedCall)
     {
         var guardIndex = source.IndexOf(guard, StringComparison.Ordinal);
