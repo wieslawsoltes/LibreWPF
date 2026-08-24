@@ -245,6 +245,15 @@ render-only, and combined MIL/render processes then exited successfully, while
 the independent C++ retained renderer completed nine commands, five draws,
 11,616 uploaded vertex bytes, and readback on the Parallels D3D12 adapter.
 
+The uniform rounded-rectangle pen checkpoint was qualified at exact ProGPU
+commit `84cdcead` from a clean Windows checkout. ARM64 MSVC rebuilt both native
+modules and the MIL executable, MIL/Dawn contracts passed 2/2, and the updated
+project-reference package consumer built with zero warnings. It compiled a
+pen-only rounded rectangle through both native exports before completing live
+D3D12 rendering/readback (`draws=1`, 16,384 pixels). The independent C++
+retained renderer also completed nine commands, five draws, 11,616 uploaded
+vertex bytes, and readback on the Parallels D3D12 adapter.
+
 ## Next parity gates
 
 1. Generate packed protocol size/offset metadata from the checked-in WPF MCG
