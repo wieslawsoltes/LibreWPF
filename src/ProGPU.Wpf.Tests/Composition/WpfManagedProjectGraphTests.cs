@@ -19306,6 +19306,77 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("if ((effects & DragDropEffects.Copy) != 0)\n                return Cursors.Cross;", dragDropOperation, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void PortableDragDropHitTestsRootPointDirectlyInsteadOfDoubleTransformingIt()
+    {
+        var dragDropOperation = File.ReadAllText(FindRepoPath(
+            "src",
+            "Microsoft.DotNet.Wpf",
+            "src",
+            "PresentationCore",
+            "System",
+            "Windows",
+            "PortableDragDropOperation.cs"));
+
+        // rootPoint is already in RootVisual space (GetPosition(_source.RootVisual) in both
+        // handlers in RunCore). MouseDevice.LocalHitTest(point, source) instead treats its point
+        // as CLIENT units and runs PointUtil.ClientToRoot over it first - double-transforming an
+        // already-root point, which resolved the window's own chrome Border instead of the
+        // element actually under the cursor, so ResolveDropTarget never found an AllowDrop target
+        // and every portable drag completed silently with no DragOver/Drop at all.
+        Assert.Contains("var hit = (_source.RootVisual as UIElement)?.InputHitTest(rootPoint) as DependencyObject;", dragDropOperation, StringComparison.Ordinal);
+        Assert.DoesNotContain("MouseDevice.LocalHitTest(rootPoint, _source)", dragDropOperation, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void NativeInputPumpIsWiredFromWindowingLayerThroughToDispatcher()
+    {
+        var activation = File.ReadAllText(FindRepoPath(
+            "src",
+            "ProGPU.Wpf",
+            "WpfPortableWindowActivation.cs"));
+
+        // Dispatcher.NativeInputPump exists so a nested PushFrame (ShowDialog,
+        // PortableDragDropOperation's drag-source loop) can block waiting for real native input -
+        // but nothing assigned it, so every such frame exited within milliseconds having pumped
+        // zero input. ProGPU.Wpf can't assign Dispatcher.NativeInputPump directly (it compiles
+        // against a WPF-shaped stub, not the real WindowsBase it runs against - and reflection is
+        // off the table here, see ProGpuWpfProductSourceStaysFreeOfReflectionMarkers), so it
+        // publishes the pump through PortableWpfServiceRegistry instead.
+        Assert.Contains("PortableWpfServiceRegistry.NativeInputPump ??= PumpActiveHostNativeEvents;", activation, StringComparison.Ordinal);
+        AssertGuardBefore(activation, "PortableWpfServiceRegistry.NativeInputPump ??= PumpActiveHostNativeEvents;", "activationService.Register(CreateWindowActivationCallbacks(hostFactory));");
+
+        // The pump itself must reach every active window, not just whichever host currently owns
+        // the native run loop, and must not let one host's disposal race blow up the pump tick.
+        Assert.Contains("foreach (var host in GetActiveHosts())", activation, StringComparison.Ordinal);
+        Assert.Contains("host.DoEvents();", activation, StringComparison.Ordinal);
+
+        var registry = File.ReadAllText(FindRepoPath(
+            "external",
+            "ProGPU",
+            "src",
+            "ProGPU.Wpf.Interop",
+            "PortableWpfServiceRegistry.cs"));
+
+        Assert.Contains("public static Action? NativeInputPump", registry, StringComparison.Ordinal);
+        Assert.Contains("public static event EventHandler? NativeInputPumpChanged;", registry, StringComparison.Ordinal);
+
+        var portableActivationService = File.ReadAllText(FindRepoPath(
+            "src",
+            "Microsoft.DotNet.Wpf",
+            "src",
+            "PresentationFramework",
+            "System",
+            "Windows",
+            "PortableWindowActivationService.cs"));
+
+        // The far end of the bridge - PresentationFramework compiles against the REAL Dispatcher,
+        // so this direction needs no reflection at all, just an event subscription (covering
+        // either registration order between ProGPU.Wpf and PresentationFramework).
+        Assert.Contains("PortableWpfServiceRegistry.NativeInputPumpChanged += static (_, _) => ApplyNativeInputPump();", portableActivationService, StringComparison.Ordinal);
+        Assert.Contains("Dispatcher.NativeInputPump = PortableWpfServiceRegistry.NativeInputPump;", portableActivationService, StringComparison.Ordinal);
+    }
+
     private static void AssertGuardBefore(string source, string guard, string guardedCall)
     {
         var guardIndex = source.IndexOf(guard, StringComparison.Ordinal);
