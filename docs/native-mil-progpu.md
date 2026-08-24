@@ -51,6 +51,8 @@ ProGPU currently provides:
 - Cycle, multiple-parent, and depth validation for the retained visual graph.
 - Nested solid-brush `DrawRectangle` decoding and lowering into ProGPU's
   pointer-free semantic scene stream with cumulative visual state.
+- Balanced nested `PushOpacity`/`Pop` decoding, cumulative visual/scope opacity,
+  typed semantic-state emission, and strict stack validation.
 - An identical size-versioned C ABI exported by wgpu-native and provider-
   resolved Dawn modules, plus `NativeMilChannel` and typed scene metrics.
 - `NativeMilBatchBuilder` and `NativeMilRenderDataBuilder` managed producers.
@@ -64,12 +66,13 @@ LibreWPF currently provides:
   `IPortableDrawingContentSource`, `IPortableRenderDataSource`, and
   `IPortableBrushSource`.
 - Exact one-based render-data resource remapping, WPF sRGB-to-scRGB color
-  conversion, and native target construction.
+  conversion, balanced opacity-scope translation, and native target
+  construction.
 - `Compile(...)` selection of wgpu-native or Dawn without changing the existing
   managed portable renderer.
-- Fail-closed behavior for transforms, clips, effects, masks, guidelines,
-  render options, pens, non-solid brushes, and all not-yet-implemented nested
-  commands.
+- Fail-closed behavior for unbalanced scopes, transforms, clips, effects,
+  masks, guidelines, render options, pens, non-solid brushes, and all not-yet-
+  implemented nested commands.
 - SDK/package graph inclusion for `ProGPU.Backend.Native`; publication must be
   coordinated with the next ProGPU preview containing PR #139.
 
@@ -96,23 +99,26 @@ On the macOS ARM64 host, the ProGPU checkpoint passes:
 - managed backend and package-consumer builds;
 - live Metal rendering on Apple M3 Pro.
 
-The LibreWPF checkpoint passes its focused build and two native-producer tests:
-one checks exact command order, framing, handle remapping, rectangle values, and
-scRGB brush fields; the other proves rectangle pens fail closed.
+The LibreWPF checkpoint passes its focused build and four native-producer tests:
+they check exact command order, framing, handle remapping, rectangle values,
+scRGB brush fields, canonical opacity-scope translation, unbalanced-scope
+rejection, and rectangle-pen rejection.
 
 The Parallels integration guest is Windows 11 ARM64 build `26200.9168` with
 .NET SDK `10.0.400` and Parallels Display Adapter WDDM driver
 `20.18.2641.57516` (2 GiB reported adapter memory). CMake and `cl.exe` were not
-on the initial `PATH`; the next Windows checkpoint must locate the Visual
-Studio installation or install the documented ARM64 build prerequisites before
-building Dawn. No VM configuration has been changed.
+on the initial `PATH`. Visual Studio Build Tools 2022 with the recommended C++
+workload is being installed at `C:\BuildTools`; the native Dawn gate remains
+pending until setup completes and the installed ARM64 compiler, CMake, Ninja,
+SDK, and Git paths are recorded.
 
 ## Next parity gates
 
 1. Generate packed protocol size/offset metadata from the checked-in WPF MCG
    model rather than manually extending command declarations.
 2. Add transforms, rectangle pens, lines, rounded rectangles, ellipses,
-   geometry paths, gradients, push/pop state, clips, images, and glyph runs.
+   geometry paths, gradients, remaining push/pop state, clips, images, and
+   glyph runs.
 3. Cache stable native handles/generations across frames and emit incremental
    resource updates plus damage instead of rebuilding the initial scene batch.
 4. Bind compiled semantic streams directly to `NativeCompositor` targets and

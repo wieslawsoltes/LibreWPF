@@ -61,6 +61,44 @@ public sealed class WpfNativeMilSceneCompilerTests
         Assert.Contains("rectangle pens", exception.Message);
     }
 
+    [Fact]
+    public void BuildBatchTranslatesBalancedOpacityScopes()
+    {
+        var brush = new FakeBrush(new PortableColor(255, 0, 128, 255));
+        byte[] renderData = CreatePushOpacityRecord(0.5)
+            .Concat(CreateRectangleRecord(1, 0))
+            .Concat(CreatePopRecord())
+            .ToArray();
+        var visual = new FakeVisual(new FakeRenderData(renderData, [brush]));
+
+        WpfNativeMilBatch result = new WpfNativeMilSceneCompiler().BuildBatch(
+            visual, 64, 64);
+        int renderDataOffset = FindCommand(result.Bytes, 0x18);
+        int nestedOffset = renderDataOffset + 16;
+
+        Assert.Equal(16, ReadInt32(result.Bytes, nestedOffset));
+        Assert.Equal(0x4f, ReadInt32(result.Bytes, nestedOffset + 4));
+        Assert.Equal(0.5, ReadDouble(result.Bytes, nestedOffset + 8));
+        Assert.Equal(48, ReadInt32(result.Bytes, nestedOffset + 16));
+        Assert.Equal(0x40, ReadInt32(result.Bytes, nestedOffset + 20));
+        Assert.Equal(8, ReadInt32(result.Bytes, nestedOffset + 64));
+        Assert.Equal(0x56, ReadInt32(result.Bytes, nestedOffset + 68));
+    }
+
+    [Fact]
+    public void BuildBatchFailsClosedForUnbalancedOpacityScope()
+    {
+        var visual = new FakeVisual(
+            new FakeRenderData(CreatePushOpacityRecord(0.5), []));
+
+        InvalidOperationException exception =
+            Assert.Throws<InvalidOperationException>(
+                () => new WpfNativeMilSceneCompiler().BuildBatch(
+                    visual, 64, 64));
+
+        Assert.Contains("stack is unbalanced", exception.Message);
+    }
+
     private static List<int> ReadCommands(byte[] batch)
     {
         var commands = new List<int>();
@@ -89,6 +127,23 @@ public sealed class WpfNativeMilSceneCompilerTests
         WriteDouble(record, 32, 40);
         BinaryPrimitives.WriteUInt32LittleEndian(record.AsSpan(40), brush);
         BinaryPrimitives.WriteUInt32LittleEndian(record.AsSpan(44), pen);
+        return record;
+    }
+
+    private static byte[] CreatePushOpacityRecord(double opacity)
+    {
+        byte[] record = new byte[16];
+        BinaryPrimitives.WriteInt32LittleEndian(record, record.Length);
+        BinaryPrimitives.WriteInt32LittleEndian(record.AsSpan(4), 0x4f);
+        WriteDouble(record, 8, opacity);
+        return record;
+    }
+
+    private static byte[] CreatePopRecord()
+    {
+        byte[] record = new byte[8];
+        BinaryPrimitives.WriteInt32LittleEndian(record, record.Length);
+        BinaryPrimitives.WriteInt32LittleEndian(record.AsSpan(4), 0x56);
         return record;
     }
 

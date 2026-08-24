@@ -15,9 +15,10 @@ public sealed record WpfNativeMilCompilation(
 /// visuals into canonical MIL and then into ProGPU's native semantic scene.
 /// </summary>
 /// <remarks>
-/// This initial fail-closed slice supports retained offsets/opacity and solid
-/// brush rectangle render-data. The existing managed portable renderer remains
-/// independent and is not replaced or selected implicitly.
+/// This initial fail-closed slice supports retained offsets/opacity plus nested
+/// opacity scopes and solid-brush rectangle render-data. The existing managed
+/// portable renderer remains independent and is not replaced or selected
+/// implicitly.
 /// </remarks>
 public sealed class WpfNativeMilSceneCompiler
 {
@@ -156,6 +157,7 @@ public sealed class WpfNativeMilSceneCompiler
         {
             ReadOnlySpan<byte> source = snapshot.RenderData;
             int offset = 0;
+            int scopeDepth = 0;
             while (offset < source.Length)
             {
                 if (source.Length - offset < 8)
@@ -173,31 +175,67 @@ public sealed class WpfNativeMilSceneCompiler
                     throw new InvalidOperationException(
                         $"The portable WPF render-data record at {offset} has an invalid size.");
                 }
-                if (command != (int)WpfMilCommandId.DrawRectangle ||
-                    recordSize != 48)
+                ReadOnlySpan<byte> payload = source.Slice(
+                    offset + 8, recordSize - 8);
+                switch ((WpfMilCommandId)command)
                 {
-                    throw new NotSupportedException(
-                        $"Native MIL render-data command 0x{command:x} is not implemented by this fail-closed slice.");
+                    case WpfMilCommandId.DrawRectangle:
+                        if (recordSize != 48)
+                        {
+                            throw new InvalidOperationException(
+                                "The portable WPF rectangle record has an invalid size.");
+                        }
+                        uint brushToken = BinaryPrimitives.ReadUInt32LittleEndian(
+                            payload[32..]);
+                        uint penToken = BinaryPrimitives.ReadUInt32LittleEndian(
+                            payload[36..]);
+                        if (penToken != 0)
+                        {
+                            throw new NotSupportedException(
+                                "Native MIL rectangle pens are not implemented yet.");
+                        }
+                        uint brushHandle = ResolveSolidBrush(
+                            snapshot.DependentResources, brushToken);
+                        destination.DrawRectangle(
+                            ReadDouble(payload, 0),
+                            ReadDouble(payload, 8),
+                            ReadDouble(payload, 16),
+                            ReadDouble(payload, 24),
+                            brushHandle);
+                        break;
+                    case WpfMilCommandId.PushOpacity:
+                        if (recordSize != 16)
+                        {
+                            throw new InvalidOperationException(
+                                "The portable WPF opacity-scope record has an invalid size.");
+                        }
+                        destination.PushOpacity(ReadDouble(payload, 0));
+                        scopeDepth++;
+                        break;
+                    case WpfMilCommandId.Pop:
+                        if (recordSize != 8)
+                        {
+                            throw new InvalidOperationException(
+                                "The portable WPF pop record has an invalid size.");
+                        }
+                        if (scopeDepth == 0)
+                        {
+                            throw new InvalidOperationException(
+                                "The portable WPF render-data stack is unbalanced.");
+                        }
+                        destination.Pop();
+                        scopeDepth--;
+                        break;
+                    default:
+                        throw new NotSupportedException(
+                            $"Native MIL render-data command 0x{command:x} is not implemented by this fail-closed slice.");
                 }
-                ReadOnlySpan<byte> payload = source.Slice(offset + 8, 40);
-                uint brushToken = BinaryPrimitives.ReadUInt32LittleEndian(
-                    payload[32..]);
-                uint penToken = BinaryPrimitives.ReadUInt32LittleEndian(
-                    payload[36..]);
-                if (penToken != 0)
-                {
-                    throw new NotSupportedException(
-                        "Native MIL rectangle pens are not implemented yet.");
-                }
-                uint brushHandle = ResolveSolidBrush(
-                    snapshot.DependentResources, brushToken);
-                destination.DrawRectangle(
-                    ReadDouble(payload, 0),
-                    ReadDouble(payload, 8),
-                    ReadDouble(payload, 16),
-                    ReadDouble(payload, 24),
-                    brushHandle);
                 offset += recordSize;
+            }
+            if (scopeDepth != 0)
+            {
+                throw new InvalidOperationException(
+                    "The portable WPF render-data stack is unbalanced.");
             }
         }
 
