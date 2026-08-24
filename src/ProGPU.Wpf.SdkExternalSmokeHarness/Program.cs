@@ -312,8 +312,8 @@ internal static class Program
         AssertContains(portableProps, "<Page Include=\"**/*.xaml\"", "SDK default page XAML item");
         AssertContains(portableTargets, "<PackageReference Include=\"Silk.NET.WebGPU.Native.WGPU\" Version=\"$(ProGpuWpfSilkNetVersion)\" />", "SDK native WebGPU package reference");
         AssertContains(portableTargets, "<PackageReference Include=\"Silk.NET.WebGPU.Native.WGPU\" VersionOverride=\"$(ProGpuWpfSilkNetVersion)\" />", "SDK CPM native WebGPU package reference");
-        AssertContains(portableTargets, "<PackageReference Include=\"System.IO.Packaging\" Version=\"$(ProGpuWpfSystemIOPackagingVersion)\" />", "SDK WPF support package reference");
-        AssertContains(portableTargets, "<PackageReference Include=\"System.IO.Packaging\" VersionOverride=\"$(ProGpuWpfSystemIOPackagingVersion)\" />", "SDK CPM WPF support package reference");
+        AssertContains(portableTargets, "<PackageReference Include=\"System.IO.Packaging\" Version=\"$(ProGpuWpfSystemIOPackagingVersion)\" GeneratePathProperty=\"true\" />", "SDK WPF support package reference");
+        AssertContains(portableTargets, "<PackageReference Include=\"System.IO.Packaging\" VersionOverride=\"$(ProGpuWpfSystemIOPackagingVersion)\" GeneratePathProperty=\"true\" />", "SDK CPM WPF support package reference");
         AssertContains(portableTargets, "<PackageReference Include=\"OpenFontSharp\" Version=\"$(ProGpuWpfOpenFontSharpVersion)\" />", "SDK OpenFontSharp package reference");
         AssertContains(portableTargets, "<PackageReference Include=\"OpenFontSharp\" VersionOverride=\"$(ProGpuWpfOpenFontSharpVersion)\" />", "SDK CPM OpenFontSharp package reference");
         AssertContains(portableTargets, "<PackageReference Include=\"StbImageSharp\" Version=\"$(ProGpuWpfStbImageSharpVersion)\" />", "SDK StbImageSharp package reference");
@@ -351,6 +351,7 @@ internal static class Program
         AssertContains(portableTargets, "librewpf.transport/$(ProGpuWpfManagedPackageVersion)/lib/$(_ProGpuWpfManagedTransportRuntimeTfm)/", "SDK managed transport package root");
         AssertContains(portableTargets, "'$(RestorePackagesPath)' != ''", "SDK isolated managed transport restore root");
         AssertContains(portableTargets, "_ProGpuWpfSdkCopyPackageRuntimeAssets", "SDK managed runtime copy target");
+        AssertContains(portableTargets, "_ProGpuWpfSdkRemoveWindowsDesktopSupportFacades", "SDK support-package facade removal target");
         AssertContains(portableTargets, "_ProGpuWpfSdkCopyNativeRuntimeAssets", "SDK native runtime copy target");
 
         AssertContains(
