@@ -333,6 +333,20 @@ scene live on D3D12 (15 resources, two draws), and read back 16,384 pixels.
 This closes the prior gap where package smoke compiled MIL but performed GPU
 readback only from an unrelated immediate rectangle.
 
+The geometry-group/combined-geometry checkpoint at exact ProGPU commit
+`41af1e66` passed the complete Windows ARM64 MSVC gate from a clean checkout.
+Both native modules rebuilt under strict warnings, all 11 fresh CTests passed,
+and live C++/managed D3D12 rendering, readback, allocation probes, the bounded
+differential, vector/image/mask/effect/text/blend contracts, and `win-arm64`
+package staging all completed. The mixed differential remained at maximum
+delta 2/255, zero pixels above 3/255, and mean `0.0000622`.
+
+The updated package consumer built with zero warnings and exact SHA-256 matches
+to both staged DLLs. It compiled two paths, an EvenOdd `GeometryGroup`, and an
+Exclude `CombinedGeometry` through the wgpu-native and Dawn MIL exports, then
+installed the wgpu-native semantic stream and completed live D3D12 readback
+(17 resources, two draws, 16,384 pixels).
+
 ## Next parity gates
 
 1. Generate packed protocol size/offset metadata from the checked-in WPF MCG
