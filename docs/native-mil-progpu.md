@@ -87,7 +87,13 @@ ProGPU currently provides:
   affine transforms compose with visual and drawing scopes; line pen semantics
   reuse ProGPU's stroke path while rectangle, rounded-rectangle, and ellipse
   resources reuse native analytic fill/stroke lowering. Animated fields,
-  non-uniform rounded radii, and arbitrary path geometry fail closed.
+  and non-uniform rounded radii fail closed.
+- Typed retained general `PathGeometry` production from
+  `IPortableGeometryPathSource`, using the shared exact local-path bounds
+  reader and canonical WPF path/figure/fixed-segment records. Native fill-only
+  lowering supports line, quadratic, and cubic contours, EvenOdd/Nonzero fill,
+  implicit closure, and geometry-local affine transforms. Path arcs and
+  meaningful path pens remain explicit fail-closed execution gaps.
 - An identical size-versioned C ABI exported by wgpu-native and provider-
   resolved Dawn modules, plus `NativeMilChannel` and typed scene metrics.
 - `NativeMilBatchBuilder` and `NativeMilRenderDataBuilder` managed producers.
@@ -141,7 +147,7 @@ On the macOS ARM64 host, the ProGPU checkpoint passes:
 - managed backend and package-consumer builds;
 - live Metal rendering on Apple M3 Pro.
 
-The LibreWPF checkpoint passes its focused build and twenty-one native-producer
+The LibreWPF checkpoint passes its focused build and twenty-two native-producer
 tests:
 they check exact command order, framing, handle remapping, rectangle values,
 ellipse and rounded-rectangle values, scRGB brush fields, canonical opacity-
@@ -156,7 +162,10 @@ rejection of untyped pen shapes. The geometry case verifies exact retained
 line-geometry and `DrawGeometry` packet offsets plus geometry-local transform
 identity without reflection. The primitive-geometry case additionally verifies
 canonical rectangle/ellipse resource packet offsets and exact retained state;
-untyped geometry shapes remain rejected.
+the general-path case verifies exact local bounds (without double-applying the
+geometry transform), canonical path/figure/line/quadratic/cubic record offsets,
+fill rule, flags, and retained handle mapping. Untyped geometry shapes remain
+rejected.
 
 The ProGPU checkpoint also passes the complete bounded Windows lane in the
 Parallels integration guest: Windows 11 ARM64 build `26200.9168`, .NET SDK
@@ -294,7 +303,7 @@ after detecting and replacing an older incremental-build artifact.
    model rather than manually extending command declarations.
 2. Add transform animations and remaining transform resource kinds, dashed
    ellipse and rounded-rectangle pen draws, non-uniform rounded rectangles,
-   arbitrary geometry paths/groups/combined geometry, gradients, remaining
+   path arcs/strokes, geometry groups/combined geometry, gradients, remaining
    push/pop state, clips, images, and
    glyph runs.
 3. Cache stable native handles/generations across frames and emit incremental

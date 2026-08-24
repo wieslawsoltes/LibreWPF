@@ -1,6 +1,8 @@
 using System.Buffers.Binary;
 using ProGPU.Backend.Native;
 using ProGPU.Wpf.Interop;
+using WpfPortableGeometryBoundsReader = System.Windows.Media.ProGPU.Composition.WpfPortableGeometryBoundsReader;
+using WpfReplayRect = System.Windows.Media.ProGPU.Composition.WpfReplayRect;
 
 namespace System.Windows.Media.ProGPU.Composition.Mil;
 
@@ -567,16 +569,14 @@ public sealed class WpfNativeMilSceneCompiler
                 throw MissingContract(
                     nameof(IPortablePrimitiveGeometrySource));
             }
-            if (path.Kind != PortableGeometryPathKind.Path ||
-                path.Figures.Length != 1 ||
-                path.Figures[0].IsClosed ||
-                path.Figures[0].Segments.Length != 1 ||
-                path.Figures[0].Segments[0].Kind !=
-                    PortablePathSegmentKind.Line ||
-                !path.Figures[0].Segments[0].IsStroked)
+            if (path.Kind != PortableGeometryPathKind.Path)
             {
                 throw new NotSupportedException(
-                    "Only typed single-segment line geometry is implemented by the native MIL slice.");
+                    "Combined portable geometry is not implemented by the native MIL slice.");
+            }
+            if (!IsSingleStrokedLine(path))
+            {
+                return AddPathGeometry(resource, path);
             }
             uint transformHandle = AddGeometryTransform(path.Transform);
             uint handle = NextHandle();
@@ -593,6 +593,107 @@ public sealed class WpfNativeMilSceneCompiler
                 transformHandle);
             return handle;
         }
+
+        private uint AddPathGeometry(
+            object resource,
+            PortableGeometryPath path)
+        {
+            if (!WpfPortableGeometryBoundsReader.TryGetLocalGeometryBounds(
+                    path,
+                    out WpfReplayRect bounds))
+            {
+                throw new NotSupportedException(
+                    "Portable path geometry has no exact local bounds for native MIL replay.");
+            }
+            var figures = new NativeMilPathFigure[path.Figures.Length];
+            for (int figureIndex = 0;
+                figureIndex < path.Figures.Length;
+                figureIndex++)
+            {
+                PortablePathFigure figure = path.Figures[figureIndex];
+                var segments = new NativeMilPathSegment[
+                    figure.Segments.Length];
+                for (int segmentIndex = 0;
+                    segmentIndex < figure.Segments.Length;
+                    segmentIndex++)
+                {
+                    segments[segmentIndex] = ToNativePathSegment(
+                        figure.Segments[segmentIndex]);
+                }
+                figures[figureIndex] = new NativeMilPathFigure(
+                    ToNativePoint(figure.StartPoint),
+                    figure.IsFilled,
+                    figure.IsClosed,
+                    segments);
+            }
+
+            uint transformHandle = AddGeometryTransform(path.Transform);
+            uint handle = NextHandle();
+            _geometryHandles.Add(resource, handle);
+            Batch.CreateResource(handle, NativeMilResourceType.PathGeometry);
+            Batch.SetPathGeometry(
+                handle,
+                new NativeMilPathGeometry(
+                    path.FillRule == PortableFillRule.EvenOdd
+                        ? NativeMilPathFillRule.EvenOdd
+                        : NativeMilPathFillRule.Nonzero,
+                    bounds.X,
+                    bounds.Y,
+                    bounds.Width,
+                    bounds.Height,
+                    figures),
+                transformHandle);
+            return handle;
+        }
+
+        private static bool IsSingleStrokedLine(PortableGeometryPath path)
+        {
+            return path.Figures.Length == 1 &&
+                !path.Figures[0].IsClosed &&
+                path.Figures[0].Segments.Length == 1 &&
+                path.Figures[0].Segments[0].Kind ==
+                    PortablePathSegmentKind.Line &&
+                path.Figures[0].Segments[0].IsStroked;
+        }
+
+        private static NativeMilPathSegment ToNativePathSegment(
+            PortablePathSegment segment) => segment.Kind switch
+            {
+                PortablePathSegmentKind.Line =>
+                    NativeMilPathSegment.Line(
+                        ToNativePoint(segment.Point1),
+                        segment.IsStroked,
+                        segment.IsSmoothJoin),
+                PortablePathSegmentKind.QuadraticBezier =>
+                    NativeMilPathSegment.QuadraticBezier(
+                        ToNativePoint(segment.Point1),
+                        ToNativePoint(segment.Point2),
+                        segment.IsStroked,
+                        segment.IsSmoothJoin),
+                PortablePathSegmentKind.CubicBezier =>
+                    NativeMilPathSegment.CubicBezier(
+                        ToNativePoint(segment.Point1),
+                        ToNativePoint(segment.Point2),
+                        ToNativePoint(segment.Point3),
+                        segment.IsStroked,
+                        segment.IsSmoothJoin),
+                PortablePathSegmentKind.Arc =>
+                    NativeMilPathSegment.Arc(
+                        ToNativePoint(segment.Point1),
+                        segment.Size.Width,
+                        segment.Size.Height,
+                        segment.RotationAngle,
+                        segment.IsLargeArc,
+                        segment.SweepDirection ==
+                            PortableSweepDirection.Clockwise,
+                        segment.IsStroked,
+                        segment.IsSmoothJoin),
+                _ => throw new NotSupportedException(
+                    $"Portable path segment kind {segment.Kind} is not implemented by the native MIL slice.")
+            };
+
+        private static NativeMilPoint ToNativePoint(PortablePoint point) =>
+            new(point.X, point.Y);
 
         private uint AddPrimitiveGeometry(
             object resource,
