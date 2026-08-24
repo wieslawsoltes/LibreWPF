@@ -66,7 +66,10 @@ ProGPU currently provides:
 - Typed solid `Pen` resources and nested `DrawLine` lowering through ProGPU's
   reusable geometry-stroke primitive, including all four WPF start/end cap
   kinds, affine stroke bounds, null-pen no-op semantics, line metrics, and
-  transactional rejection of animation/dash resources.
+  transactional rejection of animation resources.
+- Typed variable-size `DashStyle` resources for line pens, preserving
+  thickness-relative intervals, offsets, dash caps, and ProGPU semantic-stroke
+  execution across native backends.
 - An identical size-versioned C ABI exported by wgpu-native and provider-
   resolved Dawn modules, plus `NativeMilChannel` and typed scene metrics.
 - `NativeMilBatchBuilder` and `NativeMilRenderDataBuilder` managed producers.
@@ -83,14 +86,14 @@ LibreWPF currently provides:
 - Exact one-based render-data resource remapping, WPF sRGB-to-scRGB color
   conversion, exact ellipse and uniform rounded-rectangle translation,
   balanced opacity/transform-scope translation, transform-resource identity
-  reuse, typed `IPortablePenSource` line translation, and native target
-  construction.
+  reuse, typed `IPortablePenSource` solid/dashed line translation, and native
+  target construction.
 - `Compile(...)` selection of wgpu-native or Dawn without changing the existing
   managed portable renderer.
 - Fail-closed behavior for unbalanced scopes, untyped or unavailable
-  transforms, clips, effects, masks, guidelines, render options, dashed pens,
-  pens on non-line primitives, non-solid brushes, and all not-yet-implemented
-  nested commands.
+  transforms, clips, effects, masks, guidelines, render options, pens on
+  non-line primitives, non-solid brushes, and all not-yet-implemented nested
+  commands.
 - SDK/package graph inclusion for `ProGPU.Backend.Native`; publication must be
   coordinated with the next ProGPU preview containing PR #139.
 
@@ -117,7 +120,7 @@ On the macOS ARM64 host, the ProGPU checkpoint passes:
 - managed backend and package-consumer builds;
 - live Metal rendering on Apple M3 Pro.
 
-The LibreWPF checkpoint passes its focused build and fourteen native-producer
+The LibreWPF checkpoint passes its focused build and fifteen native-producer
 tests:
 they check exact command order, framing, handle remapping, rectangle values,
 ellipse and rounded-rectangle values, scRGB brush fields, canonical opacity-
@@ -125,8 +128,9 @@ scope translation, typed visual/nested matrix-resource reuse, null transform
 scope parity, rejection of untyped transform shapes, unbalanced-scope
 rejection, non-uniform-radius rejection, and rectangle-pen rejection.
 The added line cases verify exact pen/line packet offsets, solid-brush color
-conversion, cap/join mapping, null-pen no-op preservation, dashed-pen rejection,
-and rejection of untyped pen shapes.
+conversion, cap/join mapping, null-pen no-op preservation, exact dash packet
+offset/interval production, invalid-dash rejection, and rejection of untyped
+pen shapes.
 
 The ProGPU checkpoint also passes the complete bounded Windows lane in the
 Parallels integration guest: Windows 11 ARM64 build `26200.9168`, .NET SDK
@@ -203,8 +207,8 @@ contracts remained qualified. The staged package contained both
 
 1. Generate packed protocol size/offset metadata from the checked-in WPF MCG
    model rather than manually extending command declarations.
-2. Add transform animations and remaining transform resource kinds, dash
-   styles and pen draws on closed primitives, non-uniform rounded rectangles,
+2. Add transform animations and remaining transform resource kinds, pen draws
+   on closed primitives, non-uniform rounded rectangles,
    geometry paths, gradients, remaining push/pop state, clips, images, and
    glyph runs.
 3. Cache stable native handles/generations across frames and emit incremental

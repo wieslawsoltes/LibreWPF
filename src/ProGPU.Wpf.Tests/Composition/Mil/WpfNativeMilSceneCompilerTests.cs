@@ -301,7 +301,7 @@ public sealed class WpfNativeMilSceneCompilerTests
     }
 
     [Fact]
-    public void BuildBatchFailsClosedForDashedLinePen()
+    public void BuildBatchTranslatesTypedDashedLinePen()
     {
         var pen = new FakePen(
             new PortableColor(255, 255, 255, 255),
@@ -315,10 +315,42 @@ public sealed class WpfNativeMilSceneCompilerTests
         var visual = new FakeVisual(
             new FakeRenderData(CreateLineRecord(1), [pen]));
 
-        NotSupportedException exception = Assert.Throws<NotSupportedException>(
-            () => new WpfNativeMilSceneCompiler().BuildBatch(visual, 16, 16));
+        WpfNativeMilBatch result = new WpfNativeMilSceneCompiler().BuildBatch(
+            visual, 16, 16);
 
-        Assert.Contains("dash-style", exception.Message);
+        int dashOffset = FindCommand(result.Bytes, 0x85);
+        Assert.Equal(44, ReadInt32(result.Bytes, dashOffset));
+        Assert.Equal(3U, ReadUInt32(result.Bytes, dashOffset + 8));
+        Assert.Equal(0.0, ReadDouble(result.Bytes, dashOffset + 12));
+        Assert.Equal(0U, ReadUInt32(result.Bytes, dashOffset + 20));
+        Assert.Equal(16U, ReadUInt32(result.Bytes, dashOffset + 24));
+        Assert.Equal(2.0, ReadDouble(result.Bytes, dashOffset + 28));
+        Assert.Equal(1.0, ReadDouble(result.Bytes, dashOffset + 36));
+
+        int penOffset = FindCommand(result.Bytes, 0x86);
+        Assert.Equal(4U, ReadUInt32(result.Bytes, penOffset + 8));
+        Assert.Equal(3U, ReadUInt32(result.Bytes, penOffset + 52));
+        int nestedOffset = FindCommand(result.Bytes, 0x18) + 16;
+        Assert.Equal(4U, ReadUInt32(result.Bytes, nestedOffset + 40));
+    }
+
+    [Fact]
+    public void BuildBatchRejectsNegativeDashInterval()
+    {
+        var pen = new FakePen(
+            new PortableColor(255, 255, 255, 255),
+            1,
+            PortablePenLineCap.Flat,
+            PortablePenLineCap.Flat,
+            PortablePenLineCap.Square,
+            PortablePenLineJoin.Miter,
+            10,
+            [2, -1]);
+        var visual = new FakeVisual(
+            new FakeRenderData(CreateLineRecord(1), [pen]));
+
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            new WpfNativeMilSceneCompiler().BuildBatch(visual, 16, 16));
     }
 
     [Fact]

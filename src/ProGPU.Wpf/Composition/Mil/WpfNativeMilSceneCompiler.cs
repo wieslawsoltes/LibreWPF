@@ -446,11 +446,6 @@ public sealed class WpfNativeMilSceneCompiler
             {
                 throw MissingContract(nameof(IPortablePenSource));
             }
-            if (pen.DashArray.Length != 0)
-            {
-                throw new NotSupportedException(
-                    "Native MIL dash-style resources are not implemented yet.");
-            }
             if (pen.Brush.Kind != PortableBrushKind.SolidColor ||
                 pen.Brush.HasTransform || pen.Brush.HasRelativeTransform)
             {
@@ -465,6 +460,18 @@ public sealed class WpfNativeMilSceneCompiler
                 brushHandle,
                 ToLinearColor(pen.Brush.Color),
                 pen.Brush.Opacity);
+            uint dashStyleHandle = 0;
+            if (pen.DashArray.Length != 0)
+            {
+                dashStyleHandle = NextHandle();
+                Batch.CreateResource(
+                    dashStyleHandle,
+                    NativeMilResourceType.DashStyle);
+                Batch.SetDashStyle(
+                    dashStyleHandle,
+                    pen.DashOffset,
+                    pen.DashArray);
+            }
             uint penHandle = NextHandle();
             _penHandles.Add(resource, penHandle);
             Batch.CreateResource(penHandle, NativeMilResourceType.Pen);
@@ -477,7 +484,8 @@ public sealed class WpfNativeMilSceneCompiler
                     ToNativeLineCap(pen.EndLineCap),
                     ToNativeLineCap(pen.DashCap),
                     ToNativeLineJoin(pen.LineJoin),
-                    pen.MiterLimit));
+                    pen.MiterLimit,
+                    dashStyleHandle));
             return penHandle;
         }
 
