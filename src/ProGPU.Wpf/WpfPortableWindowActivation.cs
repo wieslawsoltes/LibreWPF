@@ -830,6 +830,11 @@ public sealed class WpfPortableWindowActivation : IDisposable
         }
 
         options.WindowBorder = ResolveWindowBorder(state, options.WindowBorder);
+
+        if (state.HasAllowsTransparency)
+        {
+            options.TransparentFramebuffer = state.AllowsTransparency;
+        }
     }
 
     private void SynchronizeInitialWindowState(

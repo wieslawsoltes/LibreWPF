@@ -268,6 +268,10 @@ internal sealed class WpfPortableNativePopupHost : IWpfPortableNativePopupHost
         try
         {
             _popupHost.ShowWithoutActivation();
+            if (_popupHost.SilkWindow is { } popupWindow)
+            {
+                _ownerHost.PlatformServices.WindowDecorations.TryDisablePopupShadow(popupWindow);
+            }
         }
         catch
         {

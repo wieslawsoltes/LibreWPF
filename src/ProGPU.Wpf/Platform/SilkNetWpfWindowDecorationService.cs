@@ -174,6 +174,26 @@ public sealed unsafe class SilkNetWpfWindowDecorationService : IWpfWindowDecorat
         return false;
     }
 
+    public bool TryDisablePopupShadow(object popupWindow)
+    {
+        if (popupWindow is not IView popupView || !OperatingSystem.IsMacOS())
+        {
+            return false;
+        }
+
+        return TryDisableCocoaWindowShadow(GetCocoaWindow(popupView));
+    }
+
+    public bool TryEnableTransparentBackground(object window)
+    {
+        if (window is not IView view || !OperatingSystem.IsMacOS())
+        {
+            return false;
+        }
+
+        return TryEnableCocoaWindowTransparency(GetCocoaWindow(view));
+    }
+
     private static INativeWindow? GetNativeWindow(IView view)
     {
         if (view is not INativeWindowSource nativeWindowSource)
@@ -457,6 +477,95 @@ public sealed unsafe class SilkNetWpfWindowDecorationService : IWpfWindowDecorat
 
             ObjCMsgSend(popupWindow, setHidesOnDeactivate, false);
             ObjCMsgSend(ownerWindow, addChildWindow, popupWindow, 1);
+            return true;
+        }
+        catch (DllNotFoundException)
+        {
+            return false;
+        }
+        catch (EntryPointNotFoundException)
+        {
+            return false;
+        }
+    }
+
+    // A popup surface only carries the menu chrome WPF draws itself, so AppKit's
+    // window shadow would sit outside that chrome as a second, softer frame.
+    // invalidateShadow is required because AppKit keeps the shadow it already
+    // computed for the ordered window.
+    [SupportedOSPlatform("macos")]
+    private static bool TryDisableCocoaWindowShadow(IntPtr nsWindow)
+    {
+        if (nsWindow == IntPtr.Zero)
+        {
+            return false;
+        }
+
+        try
+        {
+            IntPtr setHasShadow = SelRegisterName("setHasShadow:");
+            if (setHasShadow == IntPtr.Zero)
+            {
+                return false;
+            }
+
+            ObjCMsgSend(nsWindow, setHasShadow, false);
+
+            IntPtr invalidateShadow = SelRegisterName("invalidateShadow");
+            if (invalidateShadow != IntPtr.Zero)
+            {
+                ObjCMsgSend(nsWindow, invalidateShadow);
+            }
+
+            return true;
+        }
+        catch (DllNotFoundException)
+        {
+            return false;
+        }
+        catch (EntryPointNotFoundException)
+        {
+            return false;
+        }
+    }
+
+    // GLFW's GLFW_TRANSPARENT_FRAMEBUFFER hint gives the surface an alpha channel, but the
+    // NSWindow keeps compositing its own backdrop behind it. With the default
+    // NSColor.windowBackgroundColor that backdrop is an opaque light gray in light appearance,
+    // so a surface cleared to (0,0,0,0) still reads as a solid panel - which is what made
+    // AvalonDock's drop-target compass hide the layout underneath it. Clearing both `opaque`
+    // and `backgroundColor` lets the transparent pixels show what is actually behind the window.
+    private static bool TryEnableCocoaWindowTransparency(IntPtr nsWindow)
+    {
+        if (nsWindow == IntPtr.Zero)
+        {
+            return false;
+        }
+
+        try
+        {
+            IntPtr setOpaque = SelRegisterName("setOpaque:");
+            IntPtr setBackgroundColor = SelRegisterName("setBackgroundColor:");
+            if (setOpaque == IntPtr.Zero || setBackgroundColor == IntPtr.Zero)
+            {
+                return false;
+            }
+
+            IntPtr nsColorClass = ObjCGetClass("NSColor");
+            IntPtr clearColorSelector = SelRegisterName("clearColor");
+            if (nsColorClass == IntPtr.Zero || clearColorSelector == IntPtr.Zero)
+            {
+                return false;
+            }
+
+            IntPtr clearColor = ObjCMsgSend(nsColorClass, clearColorSelector);
+            if (clearColor == IntPtr.Zero)
+            {
+                return false;
+            }
+
+            ObjCMsgSend(nsWindow, setOpaque, false);
+            ObjCMsgSend(nsWindow, setBackgroundColor, clearColor);
             return true;
         }
         catch (DllNotFoundException)

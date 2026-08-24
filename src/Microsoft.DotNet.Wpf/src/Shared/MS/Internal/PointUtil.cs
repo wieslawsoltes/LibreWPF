@@ -349,6 +349,18 @@ namespace MS.Internal
         /// </returns>
         internal static NativeMethods.POINT AdjustForRightToLeft(NativeMethods.POINT pt, HandleRef handleRef)
         {
+            // This is a real-Win32 mitigation for WS_EX_LAYOUTRTL mirroring and has no meaning without
+            // a native HWND to query. It should never be reached for a portable HwndSource (callers
+            // check IsPortable first) - but if some caller ever passes a non-portable HwndSource on a
+            // non-Windows OS (e.g. a HwndSource that fell through to the real Win32 ctor instead of
+            // HwndSource.CreatePortable), the GetWindowStyle P/Invoke has no native implementation on
+            // this platform and previously crashed the process. Fail soft instead: an unmirrored point
+            // is far better than a crash.
+            if (!OperatingSystem.IsWindows())
+            {
+                return pt;
+            }
+
             int windowStyle = SafeNativeMethods.GetWindowStyle(handleRef, true);
 
             if(( windowStyle & NativeMethods.WS_EX_LAYOUTRTL ) == NativeMethods.WS_EX_LAYOUTRTL)
@@ -388,6 +400,12 @@ namespace MS.Internal
         /// </returns>
         internal static NativeMethods.RECT AdjustForRightToLeft(NativeMethods.RECT rc, HandleRef handleRef)
         {
+            // See the POINT overload above: this P/Invoke has no native implementation off Windows.
+            if (!OperatingSystem.IsWindows())
+            {
+                return rc;
+            }
+
             int windowStyle = SafeNativeMethods.GetWindowStyle(handleRef, true);
 
             if(( windowStyle & NativeMethods.WS_EX_LAYOUTRTL ) == NativeMethods.WS_EX_LAYOUTRTL)

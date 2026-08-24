@@ -46,6 +46,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
 
     private readonly ProGpuWpfWindowOptions _options;
     private IWindow? _window;
+    private bool _hasAppliedTransparentBackground;
     private ProGpuWpfCompositionTarget? _target;
     private ProGpuDirectXDevice? _directXDevice;
     private IDisposable? _inputSubscription;
@@ -1397,6 +1398,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
 
         _window = Window.Create(windowOptions);
         _dpiWindowHintsConfigured = SilkNetGlfwDpiService.TryConfigureDpiWindowHints();
+        _hasAppliedTransparentBackground = false;
         _windowController = new SilkWindowController(_window);
         ApplyWindowBorderToController();
         _hasNativeWindowCloseStarted = false;
@@ -1413,7 +1415,25 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         AttachNativeDpiService();
         _windowController?.Attach();
         ApplyWindowIcon();
+        ApplyTransparentBackgroundToNativeWindow();
         EnsureCompositionTargetLoaded();
+    }
+
+    // Must run after the native window exists: Window.Create() only builds the managed wrapper, so
+    // the platform handle this needs (NSWindow on macOS) is null until Initialize()/Load. A
+    // transparent framebuffer alone still leaves the native window painting its own backdrop -
+    // on macOS the default is an opaque light gray - so fully transparent pixels read as a solid
+    // panel. AvalonDock's drop-target compass is the visible symptom: it covered the whole
+    // docking layout instead of floating above it.
+    private void ApplyTransparentBackgroundToNativeWindow()
+    {
+        if (!_options.TransparentFramebuffer || _window == null || _hasAppliedTransparentBackground)
+        {
+            return;
+        }
+
+        _hasAppliedTransparentBackground =
+            PlatformServices.WindowDecorations.TryEnableTransparentBackground(_window);
     }
 
     private bool EnsureCompositionTargetLoaded()
@@ -1457,6 +1477,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
                 target.Compositor.ClearColor = System.Numerics.Vector4.Zero;
             }
 
+
             if (_isDisposed || _hasNativeWindowCloseStarted || !ReferenceEquals(window, _window))
             {
                 target.Dispose();
@@ -1466,6 +1487,15 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
             _target = target;
             target.RenderInvalidated += OnCompositionTargetRenderInvalidated;
             target.Context.VSync = _options.VSync;
+            if (_options.TransparentFramebuffer)
+            {
+                // A transparent (AllowsTransparency) window must clear to fully-transparent black
+                // instead of the compositor's default opaque dark background - otherwise the alpha
+                // channel is 1.0 everywhere and the "transparent" framebuffer still composites as an
+                // opaque dark fill. This is what makes AvalonDock's OverlayWindow / drop-target compass
+                // actually see-through on the portable (Silk.NET/GLFW) backend.
+                target.Compositor.ClearColor = new System.Numerics.Vector4(0f, 0f, 0f, 0f);
+            }
             ApplyWindowRegionToCompositionTarget();
             if (!CanFinishCompositionTargetLoad(target, window))
             {

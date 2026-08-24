@@ -345,6 +345,55 @@ public sealed class ProGpuWpfWindowHostTests
     }
 
     [Fact]
+    public void TransparentFramebufferClearsNativeBackdropAfterLoad()
+    {
+        var hostSource = File.ReadAllText(FindRepoPath(
+            "src",
+            "ProGPU.Wpf",
+            "ProGpuWpfWindowHost.cs"));
+
+        // A transparent framebuffer alone still leaves the native window compositing its
+        // own opaque backdrop (on macOS: opaque light gray), so the native backdrop must be
+        // cleared once the platform handle exists - after Load, before first composition.
+        Assert.Contains("ApplyTransparentBackgroundToNativeWindow();\n        EnsureCompositionTargetLoaded();", hostSource, StringComparison.Ordinal);
+        Assert.Contains("private bool _hasAppliedTransparentBackground;", hostSource, StringComparison.Ordinal);
+        Assert.Contains("if (!_options.TransparentFramebuffer || _window == null || _hasAppliedTransparentBackground)", hostSource, StringComparison.Ordinal);
+        Assert.Contains("PlatformServices.WindowDecorations.TryEnableTransparentBackground(_window);", hostSource, StringComparison.Ordinal);
+
+        var decorationService = File.ReadAllText(FindRepoPath(
+            "src",
+            "ProGPU.Wpf",
+            "Platform",
+            "SilkNetWpfWindowDecorationService.cs"));
+        Assert.Contains("public bool TryEnableTransparentBackground(object window)", decorationService, StringComparison.Ordinal);
+        Assert.Contains("return TryEnableCocoaWindowTransparency(GetCocoaWindow(view));", decorationService, StringComparison.Ordinal);
+        Assert.Contains("public bool TryDisablePopupShadow(object popupWindow)", decorationService, StringComparison.Ordinal);
+        Assert.Contains("return TryDisableCocoaWindowShadow(GetCocoaWindow(popupView));", decorationService, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AllowsTransparencyStateMapsToTransparentFramebuffer()
+    {
+        var activationService = File.ReadAllText(FindRepoPath(
+            "src",
+            "ProGPU.Wpf",
+            "WpfPortableWindowActivation.cs"));
+        Assert.Contains("if (state.HasAllowsTransparency)\n        {\n            options.TransparentFramebuffer = state.AllowsTransparency;\n        }", activationService, StringComparison.Ordinal);
+
+        // AdjustForRightToLeft consults GetWindowStyle, whose P/Invoke has no native
+        // implementation off-Windows; reaching it there used to crash the process.
+        var pointUtil = File.ReadAllText(FindRepoPath(
+            "src",
+            "Microsoft.DotNet.Wpf",
+            "src",
+            "Shared",
+            "MS",
+            "Internal",
+            "PointUtil.cs"));
+        Assert.Contains("if (!OperatingSystem.IsWindows())\n            {\n                return pt;\n            }\n\n            int windowStyle = SafeNativeMethods.GetWindowStyle(handleRef, true);", pointUtil, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void SetCursorReturnsFalseBeforeWindowIsCreated()
     {
         using var host = new ProGpuWpfWindowHost();
