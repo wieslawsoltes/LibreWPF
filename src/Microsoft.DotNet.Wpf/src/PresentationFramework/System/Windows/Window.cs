@@ -7425,6 +7425,24 @@ namespace System.Windows
 
             _portableWindowActivation = activation;
             SetIWindowService();
+
+            // WindowChrome (via the WindowChromeWorker attached property, applied through a Style
+            // Setter) can call SetPortableCustomChrome before this window's portable activation
+            // exists yet - template/Style application on first layout can race ahead of Show()'s own
+            // TryActivate call above. SetPortableCustomChrome's null-activation guard silently skips
+            // the SetWindowBorder call in that case, and because the method also short-circuits on an
+            // unchanged _hasPortableCustomChrome value, that skipped call is never retried later - the
+            // window is left with its native chrome/title bar showing even though custom chrome (e.g.
+            // AvalonDock's floating window caption) was requested. Now that activation exists, sync
+            // the border state for real if custom chrome was already requested.
+            if (_hasPortableCustomChrome)
+            {
+                PortableWindowActivationService.SetWindowBorder(
+                    _portableWindowActivation,
+                    ResizeMode,
+                    GetPortableWindowStyle());
+            }
+
             OnSourceInitialized(EventArgs.Empty);
             return true;
         }

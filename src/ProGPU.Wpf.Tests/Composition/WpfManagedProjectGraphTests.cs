@@ -9195,7 +9195,9 @@ public sealed class WpfManagedProjectGraphTests
         AssertGuardBefore(safeNativeMethodsOther, "if (!OperatingSystem.IsWindows())", "SafeNativeMethodsPrivate.GetCaretBlinkTime()");
         AssertGuardBefore(safeNativeMethodsClr, "if (!OperatingSystem.IsWindows())", "SafeNativeMethodsPrivate.GetTickCount()");
         Assert.Contains("return Environment.TickCount;", safeNativeMethodsClr, StringComparison.Ordinal);
-        Assert.Contains("return System.OperatingSystem.IsWindows()\n                ? SafeNativeMethodsPrivate.GetDoubleClickTime()\n                : 500;", safeNativeMethodsClr, StringComparison.Ordinal);
+        Assert.Contains("if (System.OperatingSystem.IsWindows())\n            {\n                return SafeNativeMethodsPrivate.GetDoubleClickTime();\n            }", safeNativeMethodsClr, StringComparison.Ordinal);
+        Assert.Contains("if (System.OperatingSystem.IsMacOS())\n            {\n                return SafeNativeMethodsMac.GetDoubleClickTimeMilliseconds();\n            }", safeNativeMethodsClr, StringComparison.Ordinal);
+        Assert.Contains("[DllImport(ObjCLibrary, EntryPoint = \"objc_msgSend_fpret\")]", safeNativeMethodsClr, StringComparison.Ordinal);
         Assert.Contains("return IntGetParent(hWnd);", unsafeNativeMethodsClr, StringComparison.Ordinal);
         Assert.Contains("[DllImport(ExternDll.User32, EntryPoint = \"GetParent\"", unsafeNativeMethodsClr, StringComparison.Ordinal);
         AssertGuardBefore(hwndHost, "if (!global::System.OperatingSystem.IsWindows())", "UnsafeNativeMethods.GetParent(_hwnd)");
@@ -19278,6 +19280,67 @@ public sealed class WpfManagedProjectGraphTests
         return Assert.Single(
             project.Descendants("PackageReference"),
             item => string.Equals(item.Attribute("Include")?.Value, include, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void PortableMiscFixesKeepDesignerWorkloadsAlive()
+    {
+        // Synthetic input can deliver a mouse-up without a matching down (the injected
+        // down may be dropped while the window activates). Skipping the up left
+        // Mouse.LeftButton stuck Pressed for the app lifetime; forward it verbatim.
+        var inputService = File.ReadAllText(FindRepoPath(
+            "src",
+            "ProGPU.Wpf",
+            "Platform",
+            "SilkNetWpfInputService.cs"));
+        Assert.Contains("pressedButtons.Remove(button);", inputService, StringComparison.Ordinal);
+        Assert.DoesNotContain("if (!pressedButtons.Remove(button))\n                {\n                    return;", inputService, StringComparison.Ordinal);
+
+        // Input callbacks that throw must marshal to the window dispatcher instead of
+        // tearing down the native loop - mirrors what the Framework designer surface did.
+        var activationService = File.ReadAllText(FindRepoPath(
+            "src",
+            "ProGPU.Wpf",
+            "WpfPortableWindowActivation.cs"));
+        Assert.Contains("private bool TryReportInputExceptionToWindowDispatcher(Exception exception)", activationService, StringComparison.Ordinal);
+
+        // Expose the genuine OS window handle (NSWindow*/HWND/X11 Window) for interop -
+        // the compat-shim Handle is synthetic and never a real platform handle.
+        var presentationSourceBridge = File.ReadAllText(FindRepoPath(
+            "src",
+            "ProGPU.Wpf",
+            "WpfPortablePresentationSourceBridge.cs"));
+        Assert.Contains("public bool TryGetNativeHandle(out IntPtr handle)", presentationSourceBridge, StringComparison.Ordinal);
+
+        // Custom chrome applied via Style Setter races ahead of Show()'s activate; sync
+        // border state once activation exists or the native title bar stays visible.
+        var window = File.ReadAllText(FindRepoPath(
+            "src",
+            "Microsoft.DotNet.Wpf",
+            "src",
+            "PresentationFramework",
+            "System",
+            "Windows",
+            "Window.cs"));
+        var chromeSync = "if (_hasPortableCustomChrome)\n            {\n                PortableWindowActivationService.SetWindowBorder(";
+        Assert.Contains(chromeSync, window, StringComparison.Ordinal);
+
+        // Adapted pen thickness must leave local space to match ProGPU render-command
+        // contract, or images/geometry stroked with adapted pens repaint incorrectly.
+        var compositionCommandSink = File.ReadAllText(FindRepoPath(
+            "src",
+            "ProGPU.Wpf",
+            "Composition",
+            "ProGpuCompositionCommandSink.cs"));
+        Assert.Contains("private VectorPen? ScalePenThicknessToDeviceSpace(VectorPen? pen)", compositionCommandSink, StringComparison.Ordinal);
+
+        // CopyFromScreen has no portable implementation; read the compositor backbuffer
+        // and encode PNG for cross-platform screenshots instead.
+        var screenshot = File.ReadAllText(FindRepoPath(
+            "src",
+            "ProGPU.Wpf",
+            "ProGpuWpfScreenshot.cs"));
+        Assert.Contains("public static byte[]? TryCapturePng(object window)", screenshot, StringComparison.Ordinal);
     }
 
     private static void AssertGuardBefore(string source, string guard, string guardedCall)

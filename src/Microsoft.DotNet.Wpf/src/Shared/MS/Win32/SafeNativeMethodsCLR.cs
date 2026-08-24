@@ -3,6 +3,7 @@
 
 using System.ComponentModel;
 using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 using MS.Utility;
 
 namespace MS.Win32
@@ -148,9 +149,66 @@ namespace MS.Win32
 
         public static int GetDoubleClickTime()
         {
-            return System.OperatingSystem.IsWindows()
-                ? SafeNativeMethodsPrivate.GetDoubleClickTime()
-                : 500;
+            if (System.OperatingSystem.IsWindows())
+            {
+                return SafeNativeMethodsPrivate.GetDoubleClickTime();
+            }
+
+            if (System.OperatingSystem.IsMacOS())
+            {
+                return SafeNativeMethodsMac.GetDoubleClickTimeMilliseconds();
+            }
+
+            return 500;
+        }
+
+        [SupportedOSPlatform("macos")]
+        private static class SafeNativeMethodsMac
+        {
+            private const string ObjCLibrary = "/usr/lib/libobjc.A.dylib";
+            private const int DefaultDoubleClickMilliseconds = 500;
+
+            public static int GetDoubleClickTimeMilliseconds()
+            {
+                try
+                {
+                    IntPtr nsEventClass = ObjCGetClass("NSEvent");
+                    IntPtr doubleClickIntervalSelector = SelRegisterName("doubleClickInterval");
+                    if (nsEventClass == IntPtr.Zero || doubleClickIntervalSelector == IntPtr.Zero)
+                    {
+                        return DefaultDoubleClickMilliseconds;
+                    }
+
+                    // objc_msgSend returning a double requires the fpret entry point on x86_64
+                    // (the classic ABI returns floating-point values via XMM0, not RAX), while
+                    // arm64 uses the ordinary entry point for all return types.
+                    double seconds = RuntimeInformation.ProcessArchitecture == Architecture.X64
+                        ? ObjCMsgSendFpretReturningDouble(nsEventClass, doubleClickIntervalSelector)
+                        : ObjCMsgSendReturningDouble(nsEventClass, doubleClickIntervalSelector);
+
+                    return seconds > 0 ? (int)Math.Round(seconds * 1000) : DefaultDoubleClickMilliseconds;
+                }
+                catch (DllNotFoundException)
+                {
+                    return DefaultDoubleClickMilliseconds;
+                }
+                catch (EntryPointNotFoundException)
+                {
+                    return DefaultDoubleClickMilliseconds;
+                }
+            }
+
+            [DllImport(ObjCLibrary, EntryPoint = "objc_getClass")]
+            private static extern IntPtr ObjCGetClass([MarshalAs(UnmanagedType.LPStr)] string name);
+
+            [DllImport(ObjCLibrary, EntryPoint = "sel_registerName")]
+            private static extern IntPtr SelRegisterName([MarshalAs(UnmanagedType.LPStr)] string name);
+
+            [DllImport(ObjCLibrary, EntryPoint = "objc_msgSend")]
+            private static extern double ObjCMsgSendReturningDouble(IntPtr receiver, IntPtr selector);
+
+            [DllImport(ObjCLibrary, EntryPoint = "objc_msgSend_fpret")]
+            private static extern double ObjCMsgSendFpretReturningDouble(IntPtr receiver, IntPtr selector);
         }
 
         public static bool IsWindowEnabled(HandleRef hWnd)

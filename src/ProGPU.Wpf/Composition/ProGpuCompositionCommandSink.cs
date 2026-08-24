@@ -1440,7 +1440,48 @@ public sealed class ProGpuCompositionCommandSink :
 
         var nativePen = WpfResourceResolver.AdaptNativePen(pen, bounds, out var unsupportedStateCount);
         UnsupportedStateCount += unsupportedStateCount;
-        return nativePen;
+        return ScalePenThicknessToDeviceSpace(nativePen);
+    }
+
+    /// <summary>
+    /// Converts an adapted pen's thickness out of local space, matching the contract ProGPU's
+    /// render commands are built on.
+    /// </summary>
+    /// <remarks>
+    /// A render command carries its geometry in local space plus a Transform, but its
+    /// Pen.Thickness is expected to already be in device space: the compositor transforms the
+    /// geometry and then expands the stroke by the thickness verbatim (Compositor.CompileLineCommand),
+    /// and divides the stroke scale back out on the few paths that need local units. ProGPU's own
+    /// WPF DrawingContext upholds this by multiplying by the current stroke scale before emitting a
+    /// command. This sink did not, so every stroke under a scaling transform kept its unscaled
+    /// width - most visibly, a Border with a non-uniform BorderThickness inside a Viewbox filled
+    /// solid once its edges grew wider than the shrunken box. The adapted pen can be a shared
+    /// cached instance, so return a copy instead of mutating it.
+    /// </remarks>
+    private VectorPen? ScalePenThicknessToDeviceSpace(VectorPen? pen)
+    {
+        if (pen == null)
+        {
+            return null;
+        }
+
+        var strokeScale = global::ProGPU.Vector.TransformMetrics.GetStrokeScale(_transformStack.Peek());
+        if (!float.IsFinite(strokeScale) || strokeScale <= 0f ||
+            Math.Abs(strokeScale - 1f) <= TransformEpsilon)
+        {
+            return pen;
+        }
+
+        return new VectorPen(
+            pen.Brush,
+            pen.Thickness * strokeScale,
+            pen.LineJoin,
+            pen.MiterLimit,
+            pen.StartLineCap,
+            pen.EndLineCap,
+            pen.DashCap,
+            pen.DashArray,
+            pen.DashOffset);
     }
 
     private VectorBrush? ToNativeGlyphRunBrush(MediaBrush foregroundBrush, in WpfNativeGlyphRun glyphRun)

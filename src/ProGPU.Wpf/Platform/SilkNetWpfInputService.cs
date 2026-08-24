@@ -127,11 +127,14 @@ public sealed class SilkNetWpfInputService : IWpfInputService, ISilkNetWpfInputC
             };
             Action<SilkInput.IMouse, SilkInput.MouseButton> mouseUp = (_, button) =>
             {
-                if (!pressedButtons.Remove(button))
-                {
-                    return;
-                }
-
+                // The down/up sequence must be forwarded verbatim: synthetic input (OS-level
+                // automation such as cliclick) can deliver a mouse-up without a matching down (the
+                // injected down may have been dropped while the window was being activated, or the
+                // press started before the input context was fully attached). Suppressing the up
+                // leaves WPF's Mouse.LeftButton stuck in the Pressed state for the rest of the app
+                // lifetime, which corrupts every later drag. Forward it unconditionally; WPF keeps
+                // its own button-state bookkeeping.
+                pressedButtons.Remove(button);
                 var position = ResolveMousePosition(mouse.Position, lastPosition, hasLastPosition);
                 if (IsFinite(position))
                 {

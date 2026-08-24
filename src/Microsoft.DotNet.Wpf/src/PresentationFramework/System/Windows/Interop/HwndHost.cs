@@ -65,7 +65,9 @@ namespace System.Windows.Interop
         {
             get
             {
-                if (_hwnd.Handle != IntPtr.Zero)
+                // _hwnd is never a real Win32 HWND on non-Windows platforms (see BuildWindowCore
+                // overrides that return a sentinel there instead), so there is no IsWindow to ask.
+                if (global::System.OperatingSystem.IsWindows() && _hwnd.Handle != IntPtr.Zero)
                 {
                     if (!UnsafeNativeMethods.IsWindow(_hwnd))
                     {
@@ -1090,17 +1092,31 @@ namespace System.Windows.Interop
             // Assume the desired size is the initial size.  If the window was
             // created with a 0-length dimension, we assume this means we
             // should fill all available space.
-            NativeMethods.RECT rc = new NativeMethods.RECT();
-            SafeNativeMethods.GetWindowRect(_hwnd, ref rc);
+            //
+            // There is no real child HWND on non-Windows platforms (see BuildWindowCore
+            // overrides that return a sentinel handle there), so there is nothing for
+            // GetWindowRect to report on - default to zero, same as an actual 0-length
+            // window would produce. Subclasses that need a real size on this platform
+            // (e.g. AvalonDock's LayoutAutoHideWindowControl) already override
+            // MeasureOverride/ArrangeOverride themselves rather than relying on this.
+            if (global::System.OperatingSystem.IsWindows())
+            {
+                NativeMethods.RECT rc = new NativeMethods.RECT();
+                SafeNativeMethods.GetWindowRect(_hwnd, ref rc);
 
-            // Convert from pixels to measure units.
-            // PresentationSource can't be null if we get here.
-            PresentationSource source = PresentationSource.CriticalFromVisual(this, false /* enable2DTo3DTransition */);
-            Point ptUpperLeft = new Point(rc.left, rc.top);
-            Point ptLowerRight = new Point(rc.right, rc.bottom);
-            ptUpperLeft = source.CompositionTarget.TransformFromDevice.Transform(ptUpperLeft);
-            ptLowerRight = source.CompositionTarget.TransformFromDevice.Transform(ptLowerRight);
-            _desiredSize = new Size(ptLowerRight.X - ptUpperLeft.X, ptLowerRight.Y - ptUpperLeft.Y);
+                // Convert from pixels to measure units.
+                // PresentationSource can't be null if we get here.
+                PresentationSource source = PresentationSource.CriticalFromVisual(this, false /* enable2DTo3DTransition */);
+                Point ptUpperLeft = new Point(rc.left, rc.top);
+                Point ptLowerRight = new Point(rc.right, rc.bottom);
+                ptUpperLeft = source.CompositionTarget.TransformFromDevice.Transform(ptUpperLeft);
+                ptLowerRight = source.CompositionTarget.TransformFromDevice.Transform(ptLowerRight);
+                _desiredSize = new Size(ptLowerRight.X - ptUpperLeft.X, ptLowerRight.Y - ptUpperLeft.Y);
+            }
+            else
+            {
+                _desiredSize = new Size(0, 0);
+            }
 
             // We have a new desired size, so invalidate measure.
             InvalidateMeasure();
