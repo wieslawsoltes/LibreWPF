@@ -285,6 +285,67 @@ public sealed class WpfNativeMilSceneCompilerTests
     }
 
     [Fact]
+    public void BuildBatchTranslatesTypedPathArcRecord()
+    {
+        var brush = new FakeBrush(new PortableColor(255, 192, 96, 32));
+        var geometry = new FakeGeometry(new PortableGeometryPath
+        {
+            Kind = PortableGeometryPathKind.Path,
+            FillRule = PortableFillRule.Nonzero,
+            Figures =
+            [
+                new PortablePathFigure
+                {
+                    StartPoint = new PortablePoint(0, 5),
+                    IsClosed = true,
+                    IsFilled = true,
+                    Segments =
+                    [
+                        PortablePathSegment.Arc(
+                            new PortablePoint(10, 5),
+                            new PortableSize(5, 5),
+                            rotationAngle: 30,
+                            isLargeArc: false,
+                            sweepDirection:
+                                PortableSweepDirection.Clockwise,
+                            isSmoothJoin: true,
+                            isStroked: true),
+                        PortablePathSegment.Line(
+                            new PortablePoint(0, 5),
+                            isSmoothJoin: false,
+                            isStroked: true)
+                    ]
+                }
+            ]
+        });
+        var visual = new FakeVisual(
+            new FakeRenderData(
+                CreateDrawGeometryRecord(1, 0, 2),
+                [brush, geometry]));
+
+        WpfNativeMilBatch result = new WpfNativeMilSceneCompiler().BuildBatch(
+            visual, 64, 64);
+
+        int geometryOffset = FindCommand(result.Bytes, 0x7d);
+        Assert.Equal(3U, ReadUInt32(result.Bytes, geometryOffset + 8));
+        Assert.Equal(0U, ReadUInt32(result.Bytes, geometryOffset + 12));
+        Assert.Equal(1U, ReadUInt32(result.Bytes, geometryOffset + 16));
+        Assert.Equal(184U, ReadUInt32(result.Bytes, geometryOffset + 20));
+        Assert.Equal(4U, ReadUInt32(result.Bytes, geometryOffset + 112));
+        Assert.Equal(0U, ReadUInt32(result.Bytes, geometryOffset + 120));
+        Assert.Equal(0U, ReadUInt32(result.Bytes, geometryOffset + 124));
+        Assert.Equal(10.0, ReadDouble(result.Bytes, geometryOffset + 128));
+        Assert.Equal(5.0, ReadDouble(result.Bytes, geometryOffset + 136));
+        Assert.Equal(5.0, ReadDouble(result.Bytes, geometryOffset + 144));
+        Assert.Equal(5.0, ReadDouble(result.Bytes, geometryOffset + 152));
+        Assert.Equal(30.0, ReadDouble(result.Bytes, geometryOffset + 160));
+        Assert.Equal(1U, ReadUInt32(result.Bytes, geometryOffset + 168));
+        Assert.Equal(0U, ReadUInt32(result.Bytes, geometryOffset + 172));
+        Assert.Equal(1U, ReadUInt32(result.Bytes, geometryOffset + 176));
+        Assert.Equal(64U, ReadUInt32(result.Bytes, geometryOffset + 184));
+    }
+
+    [Fact]
     public void BuildBatchTranslatesBalancedOpacityScopes()
     {
         var brush = new FakeBrush(new PortableColor(255, 0, 128, 255));
