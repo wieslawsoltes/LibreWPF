@@ -203,6 +203,30 @@ public sealed class WpfNativeMilSceneCompiler
                             ReadDouble(payload, 24),
                             brushHandle);
                         break;
+                    case WpfMilCommandId.DrawEllipse:
+                        if (recordSize != 48)
+                        {
+                            throw new InvalidOperationException(
+                                "The portable WPF ellipse record has an invalid size.");
+                        }
+                        uint ellipseBrushToken =
+                            BinaryPrimitives.ReadUInt32LittleEndian(payload[32..]);
+                        uint ellipsePenToken =
+                            BinaryPrimitives.ReadUInt32LittleEndian(payload[36..]);
+                        if (ellipsePenToken != 0)
+                        {
+                            throw new NotSupportedException(
+                                "Native MIL ellipse pens are not implemented yet.");
+                        }
+                        uint ellipseBrushHandle = ResolveSolidBrush(
+                            snapshot.DependentResources, ellipseBrushToken);
+                        destination.DrawEllipse(
+                            ReadDouble(payload, 0),
+                            ReadDouble(payload, 8),
+                            ReadDouble(payload, 16),
+                            ReadDouble(payload, 24),
+                            ellipseBrushHandle);
+                        break;
                     case WpfMilCommandId.PushOpacity:
                         if (recordSize != 16)
                         {

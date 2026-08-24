@@ -99,6 +99,28 @@ public sealed class WpfNativeMilSceneCompilerTests
         Assert.Contains("stack is unbalanced", exception.Message);
     }
 
+    [Fact]
+    public void BuildBatchTranslatesEllipseWithNativeBrushHandle()
+    {
+        var brush = new FakeBrush(new PortableColor(255, 0, 255, 64));
+        var visual = new FakeVisual(
+            new FakeRenderData(CreateEllipseRecord(1, 0), [brush]));
+
+        WpfNativeMilBatch result = new WpfNativeMilSceneCompiler().BuildBatch(
+            visual, 64, 64);
+        int renderDataOffset = FindCommand(result.Bytes, 0x18);
+        int nestedOffset = renderDataOffset + 16;
+
+        Assert.Equal(48, ReadInt32(result.Bytes, nestedOffset));
+        Assert.Equal(0x44, ReadInt32(result.Bytes, nestedOffset + 4));
+        Assert.Equal(5.0, ReadDouble(result.Bytes, nestedOffset + 8));
+        Assert.Equal(9.0, ReadDouble(result.Bytes, nestedOffset + 16));
+        Assert.Equal(7.0, ReadDouble(result.Bytes, nestedOffset + 24));
+        Assert.Equal(11.0, ReadDouble(result.Bytes, nestedOffset + 32));
+        Assert.Equal(2U, ReadUInt32(result.Bytes, nestedOffset + 40));
+        Assert.Equal(0U, ReadUInt32(result.Bytes, nestedOffset + 44));
+    }
+
     private static List<int> ReadCommands(byte[] batch)
     {
         var commands = new List<int>();
@@ -136,6 +158,20 @@ public sealed class WpfNativeMilSceneCompilerTests
         BinaryPrimitives.WriteInt32LittleEndian(record, record.Length);
         BinaryPrimitives.WriteInt32LittleEndian(record.AsSpan(4), 0x4f);
         WriteDouble(record, 8, opacity);
+        return record;
+    }
+
+    private static byte[] CreateEllipseRecord(uint brush, uint pen)
+    {
+        byte[] record = new byte[48];
+        BinaryPrimitives.WriteInt32LittleEndian(record, record.Length);
+        BinaryPrimitives.WriteInt32LittleEndian(record.AsSpan(4), 0x44);
+        WriteDouble(record, 8, 5);
+        WriteDouble(record, 16, 9);
+        WriteDouble(record, 24, 7);
+        WriteDouble(record, 32, 11);
+        BinaryPrimitives.WriteUInt32LittleEndian(record.AsSpan(40), brush);
+        BinaryPrimitives.WriteUInt32LittleEndian(record.AsSpan(44), pen);
         return record;
     }
 

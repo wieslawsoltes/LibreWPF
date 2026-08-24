@@ -49,8 +49,9 @@ ProGPU currently provides:
 - Retained visual offsets, opacity, content, ordered child topology, generic
   targets, clear color/flags, opaque render data, and solid-color brushes.
 - Cycle, multiple-parent, and depth validation for the retained visual graph.
-- Nested solid-brush `DrawRectangle` decoding and lowering into ProGPU's
-  pointer-free semantic scene stream with cumulative visual state.
+- Nested solid-brush `DrawRectangle` and `DrawEllipse` decoding and lowering
+  into ProGPU's pointer-free semantic scene stream with cumulative visual
+  state and typed primitive metrics.
 - Balanced nested `PushOpacity`/`Pop` decoding, cumulative visual/scope opacity,
   typed semantic-state emission, and strict stack validation.
 - An identical size-versioned C ABI exported by wgpu-native and provider-
@@ -66,8 +67,8 @@ LibreWPF currently provides:
   `IPortableDrawingContentSource`, `IPortableRenderDataSource`, and
   `IPortableBrushSource`.
 - Exact one-based render-data resource remapping, WPF sRGB-to-scRGB color
-  conversion, balanced opacity-scope translation, and native target
-  construction.
+  conversion, exact ellipse center/radius translation, balanced opacity-scope
+  translation, and native target construction.
 - `Compile(...)` selection of wgpu-native or Dawn without changing the existing
   managed portable renderer.
 - Fail-closed behavior for unbalanced scopes, transforms, clips, effects,
@@ -99,10 +100,10 @@ On the macOS ARM64 host, the ProGPU checkpoint passes:
 - managed backend and package-consumer builds;
 - live Metal rendering on Apple M3 Pro.
 
-The LibreWPF checkpoint passes its focused build and four native-producer tests:
+The LibreWPF checkpoint passes its focused build and five native-producer tests:
 they check exact command order, framing, handle remapping, rectangle values,
-scRGB brush fields, canonical opacity-scope translation, unbalanced-scope
-rejection, and rectangle-pen rejection.
+ellipse values, scRGB brush fields, canonical opacity-scope translation,
+unbalanced-scope rejection, and rectangle-pen rejection.
 
 The Parallels integration guest is Windows 11 ARM64 build `26200.9168` with
 .NET SDK `10.0.400` and Parallels Display Adapter WDDM driver
@@ -116,9 +117,8 @@ SDK, and Git paths are recorded.
 
 1. Generate packed protocol size/offset metadata from the checked-in WPF MCG
    model rather than manually extending command declarations.
-2. Add transforms, rectangle pens, lines, rounded rectangles, ellipses,
-   geometry paths, gradients, remaining push/pop state, clips, images, and
-   glyph runs.
+2. Add transforms, primitive pens, lines, rounded rectangles, geometry paths,
+   gradients, remaining push/pop state, clips, images, and glyph runs.
 3. Cache stable native handles/generations across frames and emit incremental
    resource updates plus damage instead of rebuilding the initial scene batch.
 4. Bind compiled semantic streams directly to `NativeCompositor` targets and
