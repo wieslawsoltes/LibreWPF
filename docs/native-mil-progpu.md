@@ -215,6 +215,14 @@ D3D12, compiling a typed dashed line through both native MIL channel exports
 before completing renderer readback (`draws=1`, 16,384 pixels). The Windows
 checkout remained clean at the qualified commit.
 
+The typed rectangle-pen checkpoint was qualified at exact ProGPU commit
+`89f0a838` with the same focused Windows ARM64 lane. Both native modules and
+the MIL executable rebuilt under MSVC, MIL/Dawn tests passed 2/2, and the
+updated project-reference package consumer built with zero warnings. Its live
+D3D12 run compiled the dashed line and dashed fill-plus-stroke rectangle
+through both MIL exports before completing readback (`draws=1`, 16,384
+pixels). The checkout was clean at the qualified commit.
+
 ## Next parity gates
 
 1. Generate packed protocol size/offset metadata from the checked-in WPF MCG
