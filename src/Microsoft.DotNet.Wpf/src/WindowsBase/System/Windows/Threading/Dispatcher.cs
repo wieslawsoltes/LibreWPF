@@ -19,6 +19,23 @@ namespace System.Windows.Threading
     /// </summary>
     public sealed class Dispatcher
     {
+        /// <summary>
+        /// Set once by the portable windowing layer (ProGPU.Wpf's WpfPortableWindowActivation,
+        /// which owns the ProGpuWpfWindowHost instances Dispatcher/WindowsBase can't reference
+        /// directly) to pump every active window's native event queue - Silk.NET IMouse/IKeyboard
+        /// callbacks, which drive WPF's own input pipeline, only fire as a direct result of a
+        /// pump call like this, never asynchronously from another thread.
+        ///
+        /// A NESTED PushFrame (Window.ShowDialog, DragDrop's portable drag-source loop, or any
+        /// other caller that needs to genuinely block until frame.Continue becomes false) used to
+        /// exit almost immediately whenever the managed dispatcher queue was momentarily empty -
+        /// correct for the TOP-level frame (which isn't driven through PushFrame at all; the
+        /// native window's own run loop keeps calling ProcessDispatcherQueueCore() on every tick
+        /// regardless), but wrong for a nested one genuinely waiting on new input that can only
+        /// arrive via this pump. See PushManagedFrameImpl's wait loop.
+        /// </summary>
+        public static Action NativeInputPump { get; set; }
+
         static Dispatcher()
         {
             _useWin32MessagePump = OperatingSystem.IsWindows();
@@ -2127,6 +2144,15 @@ namespace System.Windows.Threading
                         if (HasPendingManagedOperation())
                         {
                             ProcessQueue();
+                        }
+                        else if (frame.Continue && NativeInputPump != null)
+                        {
+                            // See NativeInputPump's doc comment: only take this path when a
+                            // pump is actually registered, so a caller that never opted in keeps
+                            // the exact original (non-blocking) behavior.
+                            NativeInputPump();
+                            if (!HasPendingManagedOperation())
+                                Thread.Sleep(1);
                         }
                         else
                         {

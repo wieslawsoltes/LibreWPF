@@ -15,6 +15,7 @@ namespace System.Windows
     {
         private static readonly WindowActivationServiceRegistrar s_registrar = new WindowActivationServiceRegistrar();
         private static IDisposable s_registrarRegistration;
+        private static bool s_nativeInputPumpBridged;
         private static Func<object, object> _activate;
         private static Action<object> _show;
         private static Action<object> _hide;
@@ -44,6 +45,37 @@ namespace System.Windows
         internal static void RegisterPortableInteropService()
         {
             s_registrarRegistration ??= PortableWpfServiceRegistry.RegisterWindowActivationService(s_registrar);
+            EnsureNativeInputPumpBridged();
+        }
+
+        /// <summary>
+        /// Bridges the windowing layer's native event pump (published through
+        /// PortableWpfServiceRegistry, since ProGPU.Wpf only compiles against a WPF-shaped stub and
+        /// cannot assign the real Dispatcher.NativeInputPump directly) into
+        /// System.Windows.Threading.Dispatcher.NativeInputPump.
+        ///
+        /// Without this a nested Dispatcher.PushFrame has nothing to pump and returns as soon as
+        /// the managed queue drains, so anything that blocks on one - Window.ShowDialog, and
+        /// PortableDragDropOperation's whole drag-source loop - never observes the input it is
+        /// waiting for. Subscribing (rather than only reading once) covers both orderings: this
+        /// runs during PresentationFramework init, which can be before or after ProGPU.Wpf
+        /// registers its pump.
+        /// </summary>
+        private static void EnsureNativeInputPumpBridged()
+        {
+            if (s_nativeInputPumpBridged)
+            {
+                return;
+            }
+
+            s_nativeInputPumpBridged = true;
+            PortableWpfServiceRegistry.NativeInputPumpChanged += static (_, _) => ApplyNativeInputPump();
+            ApplyNativeInputPump();
+        }
+
+        private static void ApplyNativeInputPump()
+        {
+            Dispatcher.NativeInputPump = PortableWpfServiceRegistry.NativeInputPump;
         }
 
         internal static void Register(

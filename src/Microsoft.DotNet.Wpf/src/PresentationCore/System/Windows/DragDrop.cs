@@ -401,13 +401,13 @@ namespace System.Windows
                 dataObject = new DataObject(data);
             }
 
-            // Portable presentation sources do not own an HWND/OLE message pump.  Calling
-            // OleDoDragDrop from their Silk.NET input callback would require a Windows STA
-            // and crashes on non-Windows hosts.  Fail closed until a portable source-drag
-            // service is available; incoming portable drops continue to use the typed
-            // ProcessPortableDragDrop path below.
+            // Portable presentation sources do not own an HWND/OLE message pump, so they can't
+            // drive OleDoDragDrop's native modal loop. PortableDragDropOperation replays the same
+            // source-side protocol (QueryContinueDrag/GiveFeedback, DragEnter/Over/Leave/Drop)
+            // without OLE, driven by a captured mouse and a nested DispatcherFrame instead - see
+            // that class for the full rationale.
             DragDropEffects ret = IsPortableDragSource(dragSource)
-                ? DragDropEffects.None
+                ? PortableDragDropOperation.Run(dragSource, dataObject, allowedEffects)
                 : OleDoDragDrop(dragSource, dataObject, allowedEffects);
 
             args = new RoutedEventArgs(DragDropCompletedEvent, dragSource);

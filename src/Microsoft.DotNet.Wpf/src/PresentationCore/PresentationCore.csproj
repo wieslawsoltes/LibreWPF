@@ -437,6 +437,7 @@
     <Compile Include="System\Windows\PortablePresentationSourceHost.cs" />
     <Compile Include="System\Windows\PresentationSource.cs" />
     <Compile Include="System\Windows\PortablePresentationSource.cs" />
+    <Compile Include="System\Windows\PortableDragDropOperation.cs" />
     <Compile Include="System\Windows\PortableVisualOwnerKind.cs" />
     <Compile Include="System\Windows\QueryContinueDragEventArgs.cs" />
     <Compile Include="System\Windows\QueryContinueDragEventHandler.cs" />
