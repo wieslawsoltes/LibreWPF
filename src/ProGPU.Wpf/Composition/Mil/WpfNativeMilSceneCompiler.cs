@@ -15,10 +15,10 @@ public sealed record WpfNativeMilCompilation(
 /// visuals into canonical MIL and then into ProGPU's native semantic scene.
 /// </summary>
 /// <remarks>
-/// This initial fail-closed slice supports retained offsets/opacity plus nested
-/// opacity scopes and solid-brush rectangle render-data. The existing managed
-/// portable renderer remains independent and is not replaced or selected
-/// implicitly.
+/// This fail-closed slice supports retained offsets, affine transforms and
+/// opacity plus nested transform/opacity scopes and solid-brush analytic
+/// render-data. The existing managed portable renderer remains independent and
+/// is not replaced or selected implicitly.
 /// </remarks>
 public sealed class WpfNativeMilSceneCompiler
 {
@@ -64,6 +64,8 @@ public sealed class WpfNativeMilSceneCompiler
             new(ReferenceEqualityComparer.Instance);
         private readonly Dictionary<object, uint> _brushHandles =
             new(ReferenceEqualityComparer.Instance);
+        private readonly Dictionary<object, uint> _transformHandles =
+            new(ReferenceEqualityComparer.Instance);
         private uint _nextHandle = 1;
 
         internal NativeMilBatchBuilder Batch { get; } = new();
@@ -96,6 +98,15 @@ public sealed class WpfNativeMilSceneCompiler
             _visualHandles.Add(visual, visualHandle);
             Batch.CreateResource(visualHandle, NativeMilResourceType.Visual);
             Batch.CreateVisual(visualHandle);
+            if (state.HasTransform)
+            {
+                if (state.Transform is null)
+                {
+                    throw MissingContract(nameof(IPortableTransformMatrixSource));
+                }
+                Batch.SetVisualTransform(
+                    visualHandle, ResolveTransform(state.Transform));
+            }
             if (state.HasOffset)
             {
                 Batch.SetVisualOffset(
@@ -269,6 +280,22 @@ public sealed class WpfNativeMilSceneCompiler
                         destination.PushOpacity(ReadDouble(payload, 0));
                         scopeDepth++;
                         break;
+                    case WpfMilCommandId.PushTransform:
+                        if (recordSize != 16)
+                        {
+                            throw new InvalidOperationException(
+                                "The portable WPF transform-scope record has an invalid size.");
+                        }
+                        uint transformToken =
+                            BinaryPrimitives.ReadUInt32LittleEndian(payload);
+                        uint transformHandle = transformToken == 0
+                            ? 0
+                            : ResolveTransform(
+                                snapshot.DependentResources,
+                                transformToken);
+                        destination.PushTransform(transformHandle);
+                        scopeDepth++;
+                        break;
                     case WpfMilCommandId.Pop:
                         if (recordSize != 8)
                         {
@@ -331,6 +358,46 @@ public sealed class WpfNativeMilSceneCompiler
             return handle;
         }
 
+        private uint ResolveTransform(
+            IReadOnlyList<object?> resources,
+            uint token)
+        {
+            if (token == 0 || token > resources.Count ||
+                resources[checked((int)token - 1)] is not object resource)
+            {
+                throw new InvalidOperationException(
+                    $"Portable transform token {token} is unavailable.");
+            }
+            return ResolveTransform(resource);
+        }
+
+        private uint ResolveTransform(object resource)
+        {
+            if (_transformHandles.TryGetValue(resource, out uint existing))
+            {
+                return existing;
+            }
+            if (resource is not IPortableTransformMatrixSource source ||
+                !source.TryGetPortableTransformMatrix(
+                    out PortableMatrix3x2 matrix))
+            {
+                throw MissingContract(nameof(IPortableTransformMatrixSource));
+            }
+            uint handle = NextHandle();
+            _transformHandles.Add(resource, handle);
+            Batch.CreateResource(handle, NativeMilResourceType.MatrixTransform);
+            Batch.SetMatrixTransform(
+                handle,
+                new NativeMilMatrix3x2(
+                    matrix.M11,
+                    matrix.M12,
+                    matrix.M21,
+                    matrix.M22,
+                    matrix.OffsetX,
+                    matrix.OffsetY));
+            return handle;
+        }
+
         private static NativeMilColor ToLinearColor(PortableColor color)
         {
             return new NativeMilColor(
@@ -358,8 +425,8 @@ public sealed class WpfNativeMilSceneCompiler
 
         private static void RejectUnsupportedState(PortableVisualState state)
         {
-            if (state.HasTransform || state.HasClip ||
-                state.HasScrollableAreaClip || state.HasOpacityMask ||
+            if (state.HasClip || state.HasScrollableAreaClip ||
+                state.HasOpacityMask ||
                 state.HasEffect || state.HasBitmapEffect ||
                 state.HasBitmapEffectInput || state.HasCacheMode ||
                 state.HasBitmapScalingMode || state.HasEdgeMode ||

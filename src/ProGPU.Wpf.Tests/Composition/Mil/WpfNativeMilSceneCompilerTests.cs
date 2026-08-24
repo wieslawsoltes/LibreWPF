@@ -156,6 +156,93 @@ public sealed class WpfNativeMilSceneCompilerTests
         Assert.Contains("non-uniform", exception.Message);
     }
 
+    [Fact]
+    public void BuildBatchReusesTypedMatrixForVisualAndNestedTransform()
+    {
+        var transform = new FakeTransform(
+            new PortableMatrix3x2(2, 0.5, -0.25, 3, 11, 13));
+        var brush = new FakeBrush(new PortableColor(255, 32, 64, 128));
+        byte[] renderData = CreatePushTransformRecord(1)
+            .Concat(CreateRectangleRecord(2, 0))
+            .Concat(CreatePopRecord())
+            .ToArray();
+        var state = new PortableVisualState
+        {
+            HasOffset = true,
+            Offset = new PortablePoint(5, 7),
+            HasTransform = true,
+            Transform = transform,
+            HasOpacity = true,
+            Opacity = 0.75
+        };
+        var visual = new FakeVisual(
+            new FakeRenderData(renderData, [transform, brush]),
+            state);
+
+        WpfNativeMilBatch result = new WpfNativeMilSceneCompiler().BuildBatch(
+            visual, 64, 64);
+        Assert.Equal(5U, result.TargetHandle);
+        Assert.Equal(1, ReadCommands(result.Bytes).Count(
+            static command => command == 0x77));
+
+        int matrixOffset = FindCommand(result.Bytes, 0x77);
+        Assert.Equal(64, ReadInt32(result.Bytes, matrixOffset));
+        Assert.Equal(2U, ReadUInt32(result.Bytes, matrixOffset + 8));
+        Assert.Equal(2.0, ReadDouble(result.Bytes, matrixOffset + 12));
+        Assert.Equal(0.5, ReadDouble(result.Bytes, matrixOffset + 20));
+        Assert.Equal(-0.25, ReadDouble(result.Bytes, matrixOffset + 28));
+        Assert.Equal(3.0, ReadDouble(result.Bytes, matrixOffset + 36));
+        Assert.Equal(11.0, ReadDouble(result.Bytes, matrixOffset + 44));
+        Assert.Equal(13.0, ReadDouble(result.Bytes, matrixOffset + 52));
+        Assert.Equal(0U, ReadUInt32(result.Bytes, matrixOffset + 60));
+
+        int visualTransformOffset = FindCommand(result.Bytes, 0x1c);
+        Assert.Equal(1U, ReadUInt32(result.Bytes, visualTransformOffset + 8));
+        Assert.Equal(2U, ReadUInt32(result.Bytes, visualTransformOffset + 12));
+
+        int renderDataOffset = FindCommand(result.Bytes, 0x18);
+        int nestedOffset = renderDataOffset + 16;
+        Assert.Equal(16, ReadInt32(result.Bytes, nestedOffset));
+        Assert.Equal(0x51, ReadInt32(result.Bytes, nestedOffset + 4));
+        Assert.Equal(2U, ReadUInt32(result.Bytes, nestedOffset + 8));
+        Assert.Equal(0U, ReadUInt32(result.Bytes, nestedOffset + 12));
+        Assert.Equal(3U, ReadUInt32(result.Bytes, nestedOffset + 56));
+    }
+
+    [Fact]
+    public void BuildBatchPreservesNullTransformAsBalancedNoOpScope()
+    {
+        byte[] renderData = CreatePushTransformRecord(0)
+            .Concat(CreatePopRecord())
+            .ToArray();
+        var visual = new FakeVisual(new FakeRenderData(renderData, []));
+
+        WpfNativeMilBatch result = new WpfNativeMilSceneCompiler().BuildBatch(
+            visual, 16, 16);
+        int nestedOffset = FindCommand(result.Bytes, 0x18) + 16;
+
+        Assert.Equal(0x51, ReadInt32(result.Bytes, nestedOffset + 4));
+        Assert.Equal(0U, ReadUInt32(result.Bytes, nestedOffset + 8));
+        Assert.Equal(0x56, ReadInt32(result.Bytes, nestedOffset + 20));
+    }
+
+    [Fact]
+    public void BuildBatchRejectsTransformWithoutTypedPortableContract()
+    {
+        var state = new PortableVisualState
+        {
+            HasTransform = true,
+            Transform = new object()
+        };
+        var visual = new FakeVisual(content: null, state: state);
+
+        InvalidOperationException exception =
+            Assert.Throws<InvalidOperationException>(() =>
+                new WpfNativeMilSceneCompiler().BuildBatch(visual, 16, 16));
+
+        Assert.Contains(nameof(IPortableTransformMatrixSource), exception.Message);
+    }
+
     private static List<int> ReadCommands(byte[] batch)
     {
         var commands = new List<int>();
@@ -193,6 +280,15 @@ public sealed class WpfNativeMilSceneCompilerTests
         BinaryPrimitives.WriteInt32LittleEndian(record, record.Length);
         BinaryPrimitives.WriteInt32LittleEndian(record.AsSpan(4), 0x4f);
         WriteDouble(record, 8, opacity);
+        return record;
+    }
+
+    private static byte[] CreatePushTransformRecord(uint transform)
+    {
+        byte[] record = new byte[16];
+        BinaryPrimitives.WriteInt32LittleEndian(record, record.Length);
+        BinaryPrimitives.WriteInt32LittleEndian(record.AsSpan(4), 0x51);
+        BinaryPrimitives.WriteUInt32LittleEndian(record.AsSpan(8), transform);
         return record;
     }
 
@@ -284,21 +380,25 @@ public sealed class WpfNativeMilSceneCompilerTests
         IPortableDrawingContentSource
     {
         private readonly object? _content;
+        private readonly PortableVisualState _state;
 
-        internal FakeVisual(object? content)
+        internal FakeVisual(
+            object? content,
+            PortableVisualState? state = null)
         {
             _content = content;
-        }
-
-        public bool TryGetPortableVisualState(out PortableVisualState state)
-        {
-            state = new PortableVisualState
+            _state = state ?? new PortableVisualState
             {
                 HasOffset = true,
                 Offset = new PortablePoint(0, 0),
                 HasOpacity = true,
                 Opacity = 1
             };
+        }
+
+        public bool TryGetPortableVisualState(out PortableVisualState state)
+        {
+            state = _state;
             return true;
         }
 
@@ -350,6 +450,23 @@ public sealed class WpfNativeMilSceneCompilerTests
         public bool TryGetPortableBrush(out PortableBrush brush)
         {
             brush = _brush;
+            return true;
+        }
+    }
+
+    private sealed class FakeTransform : IPortableTransformMatrixSource
+    {
+        private readonly PortableMatrix3x2 _matrix;
+
+        internal FakeTransform(PortableMatrix3x2 matrix)
+        {
+            _matrix = matrix;
+        }
+
+        public bool TryGetPortableTransformMatrix(
+            out PortableMatrix3x2 matrix)
+        {
+            matrix = _matrix;
             return true;
         }
     }

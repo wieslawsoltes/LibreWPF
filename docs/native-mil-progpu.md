@@ -47,7 +47,8 @@ ProGPU currently provides:
 - Complete stable command ID definitions and strict unknown, malformed,
   unsupported, handle, resource-type, graph, and capacity errors.
 - Retained visual offsets, opacity, content, ordered child topology, generic
-  targets, clear color/flags, opaque render data, and solid-color brushes.
+  targets, clear color/flags, opaque render data, solid-color brushes, and
+  retained affine matrix-transform resources.
 - Cycle, multiple-parent, and depth validation for the retained visual graph.
 - Nested solid-brush `DrawRectangle`, `DrawEllipse`, and uniform-radius
   `DrawRoundedRectangle` decoding and lowering into ProGPU's pointer-free
@@ -56,6 +57,12 @@ ProGPU currently provides:
   approximated.
 - Balanced nested `PushOpacity`/`Pop` decoding, cumulative visual/scope opacity,
   typed semantic-state emission, and strict stack validation.
+- Typed `MatrixTransform`, visual-transform, and nested `PushTransform` packet
+  decoding. Matrices compose in WPF row-vector order across local visual
+  transforms, visual offsets, ancestors, and drawing scopes; transformed draw
+  bounds use all four corners. Handle zero is preserved as WPF's balanced
+  no-op transform scope, while animation handles and unresolved nonzero
+  resources fail closed.
 - An identical size-versioned C ABI exported by wgpu-native and provider-
   resolved Dawn modules, plus `NativeMilChannel` and typed scene metrics.
 - `NativeMilBatchBuilder` and `NativeMilRenderDataBuilder` managed producers.
@@ -67,15 +74,17 @@ LibreWPF currently provides:
 - `WpfNativeMilSceneCompiler.BuildBatch(...)`, a reflection-free traversal of
   `IPortableVisualStateSource`, `IPortableVisualChildrenSource`,
   `IPortableDrawingContentSource`, `IPortableRenderDataSource`, and
-  `IPortableBrushSource`.
+  `IPortableBrushSource`, plus `IPortableTransformMatrixSource` for every
+  transform value.
 - Exact one-based render-data resource remapping, WPF sRGB-to-scRGB color
   conversion, exact ellipse and uniform rounded-rectangle translation,
-  balanced opacity-scope translation, and native target construction.
+  balanced opacity/transform-scope translation, transform-resource identity
+  reuse, and native target construction.
 - `Compile(...)` selection of wgpu-native or Dawn without changing the existing
   managed portable renderer.
-- Fail-closed behavior for unbalanced scopes, transforms, clips, effects,
-  masks, guidelines, render options, pens, non-solid brushes, and all not-yet-
-  implemented nested commands.
+- Fail-closed behavior for unbalanced scopes, untyped or unavailable
+  transforms, clips, effects, masks, guidelines, render options, pens,
+  non-solid brushes, and all not-yet-implemented nested commands.
 - SDK/package graph inclusion for `ProGPU.Backend.Native`; publication must be
   coordinated with the next ProGPU preview containing PR #139.
 
@@ -102,11 +111,12 @@ On the macOS ARM64 host, the ProGPU checkpoint passes:
 - managed backend and package-consumer builds;
 - live Metal rendering on Apple M3 Pro.
 
-The LibreWPF checkpoint passes its focused build and seven native-producer tests:
+The LibreWPF checkpoint passes its focused build and ten native-producer tests:
 they check exact command order, framing, handle remapping, rectangle values,
 ellipse and rounded-rectangle values, scRGB brush fields, canonical opacity-
-scope translation, unbalanced-scope rejection, non-uniform-radius rejection,
-and rectangle-pen rejection.
+scope translation, typed visual/nested matrix-resource reuse, null transform
+scope parity, rejection of untyped transform shapes, unbalanced-scope
+rejection, non-uniform-radius rejection, and rectangle-pen rejection.
 
 The ProGPU checkpoint also passes the complete bounded Windows lane in the
 Parallels integration guest: Windows 11 ARM64 build `26200.9168`, .NET SDK
@@ -159,9 +169,9 @@ being claimed as complete DirectX or MIL parity.
 
 1. Generate packed protocol size/offset metadata from the checked-in WPF MCG
    model rather than manually extending command declarations.
-2. Add transforms, primitive pens, lines, non-uniform rounded rectangles,
-   geometry paths, gradients, remaining push/pop state, clips, images, and
-   glyph runs.
+2. Add transform animations and remaining transform resource kinds, primitive
+   pens, lines, non-uniform rounded rectangles, geometry paths, gradients,
+   remaining push/pop state, clips, images, and glyph runs.
 3. Cache stable native handles/generations across frames and emit incremental
    resource updates plus damage instead of rebuilding the initial scene batch.
 4. Bind compiled semantic streams directly to `NativeCompositor` targets and
