@@ -19280,6 +19280,67 @@ public sealed class WpfManagedProjectGraphTests
             item => string.Equals(item.Attribute("Include")?.Value, include, StringComparison.Ordinal));
     }
 
+    [Fact]
+    public void PopupSurfacesRenderWithoutMacOsRoundedCorners()
+    {
+        var nativeWindowTypes = File.ReadAllText(FindRepoPath(
+            "external",
+            "ProGPU",
+            "src",
+            "ProGPU.Backend",
+            "NativeWindowTypes.cs"));
+
+        Assert.Contains("bool IsPopup = false)", nativeWindowTypes, StringComparison.Ordinal);
+        Assert.Contains("IsPopup: false);", nativeWindowTypes, StringComparison.Ordinal);
+
+        var windowController = File.ReadAllText(FindRepoPath(
+            "external",
+            "ProGPU",
+            "src",
+            "ProGPU.Backend",
+            "SilkWindowController.cs"));
+
+        Assert.Contains("public bool SetIsPopup(bool value)", windowController, StringComparison.Ordinal);
+        Assert.Contains("_state = _state with { IsPopup = value };", windowController, StringComparison.Ordinal);
+
+        var macPlatform = File.ReadAllText(FindRepoPath(
+            "external",
+            "ProGPU",
+            "src",
+            "ProGPU.Backend",
+            "MacOsNativeWindowPlatform.cs"));
+
+        // NSWindowStyleMaskTitled forces OS-drawn rounded window corners even with the title bar
+        // hidden/transparent - only a truly borderless (styleMask 0) window renders square on
+        // macOS. Popup surfaces (ComboBox/ContextMenu/ToolTip drop-downs) reused the same
+        // "no decorations" chrome path as chromeless top-level windows, which intentionally keep
+        // StyleTitled for their own OS-drawn shadow/rounding, so every popup came out rounded -
+        // something real WPF popups never are.
+        Assert.Contains("if (state.IsPopup)", macPlatform, StringComparison.Ordinal);
+        AssertGuardBefore(macPlatform, "if (state.IsPopup)", "style |= StyleTitled | StyleFullSizeContentView;");
+
+        var windowOptions = File.ReadAllText(FindRepoPath(
+            "src",
+            "ProGPU.Wpf",
+            "ProGpuWpfWindowOptions.cs"));
+
+        Assert.Contains("internal bool IsPopupSurface { get; set; }", windowOptions, StringComparison.Ordinal);
+
+        var windowHost = File.ReadAllText(FindRepoPath(
+            "src",
+            "ProGPU.Wpf",
+            "ProGpuWpfWindowHost.cs"));
+
+        Assert.Contains("_windowController.SetIsPopup(_options.IsPopupSurface);", windowHost, StringComparison.Ordinal);
+
+        var popupHost = File.ReadAllText(FindRepoPath(
+            "src",
+            "ProGPU.Wpf",
+            "WpfPortableNativePopupHost.cs"));
+
+        Assert.Contains("IsPopupSurface = true,", popupHost, StringComparison.Ordinal);
+    }
+
     private static void AssertGuardBefore(string source, string guard, string guardedCall)
     {
         var guardIndex = source.IndexOf(guard, StringComparison.Ordinal);
