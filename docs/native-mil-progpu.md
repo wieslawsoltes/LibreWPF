@@ -229,6 +229,17 @@ D3D12 run compiled the dashed line and dashed fill-plus-stroke rectangle
 through both MIL exports before completing readback (`draws=1`, 16,384
 pixels). The checkout was clean at the qualified commit.
 
+The typed solid-ellipse checkpoint was qualified at exact ProGPU commit
+`f24d715f` from a clean Windows checkout. MIL/Dawn contracts passed 2/2, and
+the package consumer compiled a fill-plus-solid-stroke ellipse through both
+native exports before completing D3D12 readback (`draws=1`, 16,384 pixels).
+During the gate, an isolated WebGPU probe identified backend-unspecified
+managed instance creation as an ARM64 SYSTEM-session fault; ProGPU now supplies
+wgpu-native's typed D3D12 instance extension on Windows. WebGPU-init-only,
+render-only, and combined MIL/render processes then exited successfully, while
+the independent C++ retained renderer completed nine commands, five draws,
+11,616 uploaded vertex bytes, and readback on the Parallels D3D12 adapter.
+
 ## Next parity gates
 
 1. Generate packed protocol size/offset metadata from the checked-in WPF MCG
