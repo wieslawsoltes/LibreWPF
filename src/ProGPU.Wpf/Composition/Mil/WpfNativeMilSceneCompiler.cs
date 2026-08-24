@@ -229,19 +229,23 @@ public sealed class WpfNativeMilSceneCompiler
                             payload[32..]);
                         uint penToken = BinaryPrimitives.ReadUInt32LittleEndian(
                             payload[36..]);
-                        if (penToken != 0)
-                        {
-                            throw new NotSupportedException(
-                                "Native MIL rectangle pens are not implemented yet.");
-                        }
-                        uint brushHandle = ResolveSolidBrush(
-                            snapshot.DependentResources, brushToken);
+                        uint brushHandle = brushToken == 0
+                            ? 0
+                            : ResolveSolidBrush(
+                                snapshot.DependentResources,
+                                brushToken);
+                        uint penHandle = penToken == 0
+                            ? 0
+                            : ResolvePen(
+                                snapshot.DependentResources,
+                                penToken);
                         destination.DrawRectangle(
                             ReadDouble(payload, 0),
                             ReadDouble(payload, 8),
                             ReadDouble(payload, 16),
                             ReadDouble(payload, 24),
-                            brushHandle);
+                            brushHandle,
+                            penHandle);
                         break;
                     case WpfMilCommandId.DrawEllipse:
                         if (recordSize != 48)

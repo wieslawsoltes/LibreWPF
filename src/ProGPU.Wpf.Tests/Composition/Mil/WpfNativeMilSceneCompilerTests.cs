@@ -44,21 +44,56 @@ public sealed class WpfNativeMilSceneCompilerTests
     }
 
     [Fact]
-    public void BuildBatchFailsClosedForRectanglePen()
+    public void BuildBatchTranslatesTypedRectanglePen()
     {
         var brush = new FakeBrush(new PortableColor(255, 255, 0, 0));
+        var pen = new FakePen(
+            new PortableColor(255, 0, 0, 255),
+            2,
+            PortablePenLineCap.Flat,
+            PortablePenLineCap.Flat,
+            PortablePenLineCap.Round,
+            PortablePenLineJoin.Bevel,
+            8,
+            []);
         var visual = new FakeVisual(
             new FakeRenderData(
                 CreateRectangleRecord(1, 2),
-                [brush, new object()]));
+                [brush, pen]));
 
-        NotSupportedException exception = Assert.Throws<NotSupportedException>(
-            () =>
-            {
-                _ = new WpfNativeMilSceneCompiler().BuildBatch(visual, 32, 32);
-            });
+        WpfNativeMilBatch result = new WpfNativeMilSceneCompiler().BuildBatch(
+            visual, 32, 32);
+        int nestedOffset = FindCommand(result.Bytes, 0x18) + 16;
 
-        Assert.Contains("rectangle pens", exception.Message);
+        Assert.Equal(2U, ReadUInt32(result.Bytes, nestedOffset + 40));
+        Assert.Equal(4U, ReadUInt32(result.Bytes, nestedOffset + 44));
+        int penOffset = FindCommand(result.Bytes, 0x86);
+        Assert.Equal(4U, ReadUInt32(result.Bytes, penOffset + 8));
+        Assert.Equal(3U, ReadUInt32(result.Bytes, penOffset + 28));
+        Assert.Equal(1U, ReadUInt32(result.Bytes, penOffset + 48));
+    }
+
+    [Fact]
+    public void BuildBatchPreservesPenOnlyRectangle()
+    {
+        var pen = new FakePen(
+            new PortableColor(255, 0, 255, 0),
+            1,
+            PortablePenLineCap.Flat,
+            PortablePenLineCap.Flat,
+            PortablePenLineCap.Square,
+            PortablePenLineJoin.Miter,
+            10,
+            [2, 1]);
+        var visual = new FakeVisual(
+            new FakeRenderData(CreateRectangleRecord(0, 1), [pen]));
+
+        WpfNativeMilBatch result = new WpfNativeMilSceneCompiler().BuildBatch(
+            visual, 32, 32);
+        int nestedOffset = FindCommand(result.Bytes, 0x18) + 16;
+
+        Assert.Equal(0U, ReadUInt32(result.Bytes, nestedOffset + 40));
+        Assert.Equal(4U, ReadUInt32(result.Bytes, nestedOffset + 44));
     }
 
     [Fact]
