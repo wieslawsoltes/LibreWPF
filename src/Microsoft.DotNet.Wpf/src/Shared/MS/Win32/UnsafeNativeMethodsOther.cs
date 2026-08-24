@@ -401,6 +401,15 @@ namespace MS.Win32
 
         internal static IntPtr GetWindowLongPtr(HandleRef hWnd, int nIndex)
         {
+            // Window longs are a Win32-only concept, and the imports below resolve against
+            // PresentationNative_cor3.dll, which does not exist off Windows - calling them there
+            // faults the process with a DllNotFoundException rather than failing gracefully.
+            // Portable windows carry no Win32 window styles, so report "no styles" instead.
+            if (!System.OperatingSystem.IsWindows())
+            {
+                return IntPtr.Zero;
+            }
+
             IntPtr result = IntPtr.Zero;
             int error = 0;
 
@@ -433,6 +442,14 @@ namespace MS.Win32
 
         internal static int GetWindowLong(HandleRef hWnd, int nIndex)
         {
+            // See GetWindowLongPtr: no Win32 window styles exist off Windows, and the underlying
+            // import is unresolvable there. GetWindowStyle() funnels through here, which is how a
+            // hit-test-driven ScreenToClient() used to crash the process on macOS.
+            if (!System.OperatingSystem.IsWindows())
+            {
+                return 0;
+            }
+
             int iResult = 0;
             IntPtr result = IntPtr.Zero;
             int error = 0;

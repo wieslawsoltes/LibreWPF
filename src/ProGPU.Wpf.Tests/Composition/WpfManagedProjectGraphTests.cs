@@ -22,6 +22,28 @@ public sealed class WpfManagedProjectGraphTests
     }
 
     [Fact]
+    public void UnsafeNativeMethodsWindowLongsFailSoftOffWindows()
+    {
+        var unsafeNativeMethods = File.ReadAllText(FindRepoPath(
+            "src",
+            "Microsoft.DotNet.Wpf",
+            "src",
+            "Shared",
+            "MS",
+            "Win32",
+            "UnsafeNativeMethodsOther.cs"));
+
+        // Window longs resolve against PresentationNative_cor3.dll, which does not exist
+        // off-Windows. The managed entry points must report "no styles" there instead of
+        // faulting the process with DllNotFoundException (GetWindowStyle funnels through
+        // GetWindowLong, so a hit-test-driven ScreenToClient used to crash macOS).
+        var noStylesPtr = "if (!System.OperatingSystem.IsWindows())\n            {\n                return IntPtr.Zero;\n            }";
+        var noStylesInt = "if (!System.OperatingSystem.IsWindows())\n            {\n                return 0;\n            }";
+        AssertGuardBefore(unsafeNativeMethods, noStylesPtr, "NativeMethodsSetLastError.GetWindowLongPtr(hWnd, nIndex)");
+        AssertGuardBefore(unsafeNativeMethods, noStylesInt, "iResult = NativeMethodsSetLastError.GetWindowLong(hWnd, nIndex);");
+    }
+
+    [Fact]
     public void FocusedProGpuWpfGraphAvoidsSharedOutputParallelContention()
     {
         var project = XDocument.Load(FindRepoPath(
