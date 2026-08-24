@@ -186,6 +186,19 @@ managed-host allocation probes, differential/effect/vector/text matrix, and
 2/255 and zero pixels above 3/255. The Windows checkout was clean at the exact
 qualified commit.
 
+The typed solid-pen/`DrawLine` checkpoint was subsequently requalified at
+ProGPU commit `dadb26a5` from a clean Windows checkout. Both wgpu-native and
+provider-resolved Dawn modules linked for ARM64 and all 11 native tests passed,
+including exact pen/line packet application, cap mapping, cap-aware affine
+stroke bounds, line metrics, Dawn ABI compatibility, and transactional
+animated/dashed-pen rejection. Live C++ and managed D3D12 rendering/readback,
+managed post-build allocation probes, the full bounded parity matrix, and
+`win-arm64` package staging completed. The mixed-picture differential remained
+at maximum delta 2/255 with zero pixels over 3/255; exact Overlay and
+ColorDodge hashes and all declared image, mask, effect, vector, and text
+contracts remained qualified. The staged package contained both
+`progpu_native.dll` and `progpu_native_dawn.dll`.
+
 ## Next parity gates
 
 1. Generate packed protocol size/offset metadata from the checked-in WPF MCG
