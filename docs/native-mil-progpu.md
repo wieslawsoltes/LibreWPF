@@ -101,6 +101,11 @@ ProGPU currently provides:
   children aggregate into one semantic path batch so EvenOdd/Nonzero applies
   across overlapping child contours. Fixed, transformed, nested, and stroked
   group execution remains fail closed pending exact contour composition.
+- Canonical retained `CombinedGeometry` packets with optional transform,
+  null-as-empty operands, dependency/cycle validation, and all four WPF combine
+  operations. Two identity-local path operands lower to ProGPU's native postfix
+  boolean program and retain each operand's fill rule; fixed, transformed,
+  group, recursive-combined, and stroked operands currently fail closed.
 - An identical size-versioned C ABI exported by wgpu-native and provider-
   resolved Dawn modules, plus `NativeMilChannel` and typed scene metrics.
 - `NativeMilBatchBuilder` and `NativeMilRenderDataBuilder` managed producers.
@@ -334,7 +339,7 @@ readback only from an unrelated immediate rectangle.
    model rather than manually extending command declarations.
 2. Add transform animations and remaining transform resource kinds, dashed
    ellipse and rounded-rectangle pen draws, non-uniform rounded rectangles,
-   path strokes, geometry-group child widening, combined geometry, gradients, remaining
+   path strokes, recursive group/combined child widening, gradients, remaining
    push/pop state, clips, images, and
    glyph runs.
 3. Cache stable native handles/generations across frames and emit incremental
