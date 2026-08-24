@@ -37,6 +37,8 @@ public sealed class ProGpuWpfWindowOptions
 
     internal bool NativePointerCoordinatesAreOwnerRelative { get; set; }
 
+    internal bool IsPopupSurface { get; set; }
+
     public ProGpuWpfWindowBorder WindowBorder { get; set; } = ProGpuWpfWindowBorder.Resizable;
 
     public ProGpuWpfWindowState WindowState { get; set; } = ProGpuWpfWindowState.Normal;
