@@ -22,7 +22,7 @@ namespace System.Windows
     /// This reimplements the same source-side protocol without OLE: capture the mouse on the drag
     /// source, push a nested <see cref="DispatcherFrame"/> so the call stays synchronous exactly
     /// like the OLE path while still processing input, and on every mouse move hit-test the
-    /// portable source's visual tree (<see cref="MouseDevice.LocalHitTest"/>, which is already
+    /// portable source's visual tree (UIElement.InputHitTest on the root visual, which is already
     /// source-agnostic) to find the current drop target - then drive the SAME
     /// DragEnter/DragOver/DragLeave/Drop routed events real portable drop targets already handle
     /// via <see cref="DragDrop.ProcessPortableDragDrop"/> (that half of the pipeline was already
@@ -186,7 +186,15 @@ namespace System.Windows
                 return;
             }
 
-            var hit = MouseDevice.LocalHitTest(rootPoint, _source) as DependencyObject;
+            // rootPoint is already in RootVisual space (both handlers in RunCore compute it with
+            // GetPosition(_source.RootVisual)), so hit-test it directly. MouseDevice.LocalHitTest's
+            // (point, source) overload treats its point as CLIENT units and runs PointUtil.ClientToRoot
+            // over it first - double-transforming an already-root point, which then resolved the
+            // window's chrome Border instead of the element actually under the cursor. Measured at the
+            // same point mid-drag: InputHitTest said Canvas (the real AllowDrop target),
+            // LocalHitTest said Border, so ResolveDropTarget walked Border -> Window, found nothing
+            // AllowDrop, and every portable drag silently completed with no DragOver/Drop at all.
+            var hit = (_source.RootVisual as UIElement)?.InputHitTest(rootPoint) as DependencyObject;
             var target = ResolveDropTarget(hit);
 
             if (!ReferenceEquals(target, _currentTarget))
