@@ -243,6 +243,97 @@ public sealed class WpfNativeMilSceneCompilerTests
         Assert.Contains(nameof(IPortableTransformMatrixSource), exception.Message);
     }
 
+    [Fact]
+    public void BuildBatchTranslatesTypedSolidPenLine()
+    {
+        var pen = new FakePen(
+            new PortableColor(255, 32, 96, 192),
+            2.5,
+            PortablePenLineCap.Square,
+            PortablePenLineCap.Round,
+            PortablePenLineCap.Triangle,
+            PortablePenLineJoin.Bevel,
+            7,
+            []);
+        var visual = new FakeVisual(
+            new FakeRenderData(CreateLineRecord(1), [pen]));
+
+        WpfNativeMilBatch result = new WpfNativeMilSceneCompiler().BuildBatch(
+            visual, 64, 64);
+        Assert.Equal(5U, result.TargetHandle);
+
+        int penOffset = FindCommand(result.Bytes, 0x86);
+        Assert.Equal(56, ReadInt32(result.Bytes, penOffset));
+        Assert.Equal(3U, ReadUInt32(result.Bytes, penOffset + 8));
+        Assert.Equal(2.5, ReadDouble(result.Bytes, penOffset + 12));
+        Assert.Equal(7.0, ReadDouble(result.Bytes, penOffset + 20));
+        Assert.Equal(2U, ReadUInt32(result.Bytes, penOffset + 28));
+        Assert.Equal(0U, ReadUInt32(result.Bytes, penOffset + 32));
+        Assert.Equal(1U, ReadUInt32(result.Bytes, penOffset + 36));
+        Assert.Equal(2U, ReadUInt32(result.Bytes, penOffset + 40));
+        Assert.Equal(3U, ReadUInt32(result.Bytes, penOffset + 44));
+        Assert.Equal(1U, ReadUInt32(result.Bytes, penOffset + 48));
+        Assert.Equal(0U, ReadUInt32(result.Bytes, penOffset + 52));
+
+        int nestedOffset = FindCommand(result.Bytes, 0x18) + 16;
+        Assert.Equal(48, ReadInt32(result.Bytes, nestedOffset));
+        Assert.Equal(0x3e, ReadInt32(result.Bytes, nestedOffset + 4));
+        Assert.Equal(1.0, ReadDouble(result.Bytes, nestedOffset + 8));
+        Assert.Equal(2.0, ReadDouble(result.Bytes, nestedOffset + 16));
+        Assert.Equal(5.0, ReadDouble(result.Bytes, nestedOffset + 24));
+        Assert.Equal(8.0, ReadDouble(result.Bytes, nestedOffset + 32));
+        Assert.Equal(3U, ReadUInt32(result.Bytes, nestedOffset + 40));
+        Assert.Equal(0U, ReadUInt32(result.Bytes, nestedOffset + 44));
+    }
+
+    [Fact]
+    public void BuildBatchPreservesNullPenLineAsNoOpCommand()
+    {
+        var visual = new FakeVisual(
+            new FakeRenderData(CreateLineRecord(0), []));
+
+        WpfNativeMilBatch result = new WpfNativeMilSceneCompiler().BuildBatch(
+            visual, 16, 16);
+        int nestedOffset = FindCommand(result.Bytes, 0x18) + 16;
+
+        Assert.Equal(0x3e, ReadInt32(result.Bytes, nestedOffset + 4));
+        Assert.Equal(0U, ReadUInt32(result.Bytes, nestedOffset + 40));
+    }
+
+    [Fact]
+    public void BuildBatchFailsClosedForDashedLinePen()
+    {
+        var pen = new FakePen(
+            new PortableColor(255, 255, 255, 255),
+            1,
+            PortablePenLineCap.Flat,
+            PortablePenLineCap.Flat,
+            PortablePenLineCap.Square,
+            PortablePenLineJoin.Miter,
+            10,
+            [2, 1]);
+        var visual = new FakeVisual(
+            new FakeRenderData(CreateLineRecord(1), [pen]));
+
+        NotSupportedException exception = Assert.Throws<NotSupportedException>(
+            () => new WpfNativeMilSceneCompiler().BuildBatch(visual, 16, 16));
+
+        Assert.Contains("dash-style", exception.Message);
+    }
+
+    [Fact]
+    public void BuildBatchRejectsLinePenWithoutTypedPortableContract()
+    {
+        var visual = new FakeVisual(
+            new FakeRenderData(CreateLineRecord(1), [new object()]));
+
+        InvalidOperationException exception =
+            Assert.Throws<InvalidOperationException>(() =>
+                new WpfNativeMilSceneCompiler().BuildBatch(visual, 16, 16));
+
+        Assert.Contains(nameof(IPortablePenSource), exception.Message);
+    }
+
     private static List<int> ReadCommands(byte[] batch)
     {
         var commands = new List<int>();
@@ -271,6 +362,19 @@ public sealed class WpfNativeMilSceneCompilerTests
         WriteDouble(record, 32, 40);
         BinaryPrimitives.WriteUInt32LittleEndian(record.AsSpan(40), brush);
         BinaryPrimitives.WriteUInt32LittleEndian(record.AsSpan(44), pen);
+        return record;
+    }
+
+    private static byte[] CreateLineRecord(uint pen)
+    {
+        byte[] record = new byte[48];
+        BinaryPrimitives.WriteInt32LittleEndian(record, record.Length);
+        BinaryPrimitives.WriteInt32LittleEndian(record.AsSpan(4), 0x3e);
+        WriteDouble(record, 8, 1);
+        WriteDouble(record, 16, 2);
+        WriteDouble(record, 24, 5);
+        WriteDouble(record, 32, 8);
+        BinaryPrimitives.WriteUInt32LittleEndian(record.AsSpan(40), pen);
         return record;
     }
 
@@ -467,6 +571,39 @@ public sealed class WpfNativeMilSceneCompilerTests
             out PortableMatrix3x2 matrix)
         {
             matrix = _matrix;
+            return true;
+        }
+    }
+
+    private sealed class FakePen : IPortablePenSource
+    {
+        private readonly PortablePen _pen;
+
+        internal FakePen(
+            PortableColor color,
+            double thickness,
+            PortablePenLineCap startLineCap,
+            PortablePenLineCap endLineCap,
+            PortablePenLineCap dashCap,
+            PortablePenLineJoin lineJoin,
+            double miterLimit,
+            double[] dashArray)
+        {
+            _pen = new PortablePen(
+                PortableBrush.SolidColor(color),
+                thickness,
+                startLineCap,
+                endLineCap,
+                dashCap,
+                lineJoin,
+                miterLimit,
+                dashArray,
+                dashOffset: 0);
+        }
+
+        public bool TryGetPortablePen(out PortablePen pen)
+        {
+            pen = _pen;
             return true;
         }
     }

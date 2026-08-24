@@ -66,6 +66,8 @@ public sealed class WpfNativeMilSceneCompiler
             new(ReferenceEqualityComparer.Instance);
         private readonly Dictionary<object, uint> _transformHandles =
             new(ReferenceEqualityComparer.Instance);
+        private readonly Dictionary<object, uint> _penHandles =
+            new(ReferenceEqualityComparer.Instance);
         private uint _nextHandle = 1;
 
         internal NativeMilBatchBuilder Batch { get; } = new();
@@ -190,6 +192,33 @@ public sealed class WpfNativeMilSceneCompiler
                     offset + 8, recordSize - 8);
                 switch ((WpfMilCommandId)command)
                 {
+                    case WpfMilCommandId.DrawLine:
+                        if (recordSize != 48)
+                        {
+                            throw new InvalidOperationException(
+                                "The portable WPF line record has an invalid size.");
+                        }
+                        uint linePenToken =
+                            BinaryPrimitives.ReadUInt32LittleEndian(payload[32..]);
+                        uint linePadding =
+                            BinaryPrimitives.ReadUInt32LittleEndian(payload[36..]);
+                        if (linePadding != 0)
+                        {
+                            throw new InvalidOperationException(
+                                "The portable WPF line record has nonzero padding.");
+                        }
+                        uint linePenHandle = linePenToken == 0
+                            ? 0
+                            : ResolvePen(
+                                snapshot.DependentResources,
+                                linePenToken);
+                        destination.DrawLine(
+                            ReadDouble(payload, 0),
+                            ReadDouble(payload, 8),
+                            ReadDouble(payload, 16),
+                            ReadDouble(payload, 24),
+                            linePenHandle);
+                        break;
                     case WpfMilCommandId.DrawRectangle:
                         if (recordSize != 48)
                         {
@@ -397,6 +426,79 @@ public sealed class WpfNativeMilSceneCompiler
                     matrix.OffsetY));
             return handle;
         }
+
+        private uint ResolvePen(
+            IReadOnlyList<object?> resources,
+            uint token)
+        {
+            if (token == 0 || token > resources.Count ||
+                resources[checked((int)token - 1)] is not object resource)
+            {
+                throw new InvalidOperationException(
+                    $"Portable pen token {token} is unavailable.");
+            }
+            if (_penHandles.TryGetValue(resource, out uint existing))
+            {
+                return existing;
+            }
+            if (resource is not IPortablePenSource source ||
+                !source.TryGetPortablePen(out PortablePen pen))
+            {
+                throw MissingContract(nameof(IPortablePenSource));
+            }
+            if (pen.DashArray.Length != 0)
+            {
+                throw new NotSupportedException(
+                    "Native MIL dash-style resources are not implemented yet.");
+            }
+            if (pen.Brush.Kind != PortableBrushKind.SolidColor ||
+                pen.Brush.HasTransform || pen.Brush.HasRelativeTransform)
+            {
+                throw new NotSupportedException(
+                    "Only untransformed portable solid pen brushes are implemented by the native MIL slice.");
+            }
+            uint brushHandle = NextHandle();
+            Batch.CreateResource(
+                brushHandle,
+                NativeMilResourceType.SolidColorBrush);
+            Batch.SetSolidColorBrush(
+                brushHandle,
+                ToLinearColor(pen.Brush.Color),
+                pen.Brush.Opacity);
+            uint penHandle = NextHandle();
+            _penHandles.Add(resource, penHandle);
+            Batch.CreateResource(penHandle, NativeMilResourceType.Pen);
+            Batch.SetPen(
+                penHandle,
+                new NativeMilPen(
+                    brushHandle,
+                    pen.Thickness,
+                    ToNativeLineCap(pen.StartLineCap),
+                    ToNativeLineCap(pen.EndLineCap),
+                    ToNativeLineCap(pen.DashCap),
+                    ToNativeLineJoin(pen.LineJoin),
+                    pen.MiterLimit));
+            return penHandle;
+        }
+
+        private static NativeMilPenLineCap ToNativeLineCap(
+            PortablePenLineCap cap) => cap switch
+            {
+                PortablePenLineCap.Flat => NativeMilPenLineCap.Flat,
+                PortablePenLineCap.Square => NativeMilPenLineCap.Square,
+                PortablePenLineCap.Round => NativeMilPenLineCap.Round,
+                PortablePenLineCap.Triangle => NativeMilPenLineCap.Triangle,
+                _ => throw new ArgumentOutOfRangeException(nameof(cap))
+            };
+
+        private static NativeMilPenLineJoin ToNativeLineJoin(
+            PortablePenLineJoin join) => join switch
+            {
+                PortablePenLineJoin.Miter => NativeMilPenLineJoin.Miter,
+                PortablePenLineJoin.Bevel => NativeMilPenLineJoin.Bevel,
+                PortablePenLineJoin.Round => NativeMilPenLineJoin.Round,
+                _ => throw new ArgumentOutOfRangeException(nameof(join))
+            };
 
         private static NativeMilColor ToLinearColor(PortableColor color)
         {
