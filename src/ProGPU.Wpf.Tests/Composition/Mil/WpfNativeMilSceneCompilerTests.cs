@@ -201,6 +201,30 @@ public sealed class WpfNativeMilSceneCompilerTests
     }
 
     [Fact]
+    public void BuildBatchPreservesPenOnlyRoundedRectangle()
+    {
+        var pen = new FakePen(
+            new PortableColor(255, 64, 128, 255),
+            2,
+            PortablePenLineCap.Flat,
+            PortablePenLineCap.Flat,
+            PortablePenLineCap.Square,
+            PortablePenLineJoin.Round,
+            10,
+            []);
+        var visual = new FakeVisual(
+            new FakeRenderData(
+                CreateRoundedRectangleRecord(4, 4, 0, 1), [pen]));
+
+        WpfNativeMilBatch result = new WpfNativeMilSceneCompiler().BuildBatch(
+            visual, 64, 64);
+        int nestedOffset = FindCommand(result.Bytes, 0x18) + 16;
+
+        Assert.Equal(0U, ReadUInt32(result.Bytes, nestedOffset + 56));
+        Assert.Equal(3U, ReadUInt32(result.Bytes, nestedOffset + 60));
+    }
+
+    [Fact]
     public void BuildBatchFailsClosedForNonUniformRoundedRectangle()
     {
         var brush = new FakeBrush(new PortableColor(255, 32, 64, 128));

@@ -292,13 +292,16 @@ public sealed class WpfNativeMilSceneCompiler
                             BinaryPrimitives.ReadUInt32LittleEndian(payload[48..]);
                         uint roundedPenToken =
                             BinaryPrimitives.ReadUInt32LittleEndian(payload[52..]);
-                        if (roundedPenToken != 0)
-                        {
-                            throw new NotSupportedException(
-                                "Native MIL rounded-rectangle pens are not implemented yet.");
-                        }
-                        uint roundedBrushHandle = ResolveSolidBrush(
-                            snapshot.DependentResources, roundedBrushToken);
+                        uint roundedBrushHandle = roundedBrushToken == 0
+                            ? 0
+                            : ResolveSolidBrush(
+                                snapshot.DependentResources,
+                                roundedBrushToken);
+                        uint roundedPenHandle = roundedPenToken == 0
+                            ? 0
+                            : ResolvePen(
+                                snapshot.DependentResources,
+                                roundedPenToken);
                         destination.DrawRoundedRectangle(
                             ReadDouble(payload, 0),
                             ReadDouble(payload, 8),
@@ -306,7 +309,8 @@ public sealed class WpfNativeMilSceneCompiler
                             ReadDouble(payload, 24),
                             radiusX,
                             radiusY,
-                            roundedBrushHandle);
+                            roundedBrushHandle,
+                            roundedPenHandle);
                         break;
                     case WpfMilCommandId.PushOpacity:
                         if (recordSize != 16)
