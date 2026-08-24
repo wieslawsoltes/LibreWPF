@@ -121,6 +121,41 @@ public sealed class WpfNativeMilSceneCompilerTests
         Assert.Equal(0U, ReadUInt32(result.Bytes, nestedOffset + 44));
     }
 
+    [Fact]
+    public void BuildBatchTranslatesUniformRoundedRectangle()
+    {
+        var brush = new FakeBrush(new PortableColor(255, 32, 64, 128));
+        var visual = new FakeVisual(
+            new FakeRenderData(
+                CreateRoundedRectangleRecord(4, 4, 1, 0), [brush]));
+
+        WpfNativeMilBatch result = new WpfNativeMilSceneCompiler().BuildBatch(
+            visual, 64, 64);
+        int renderDataOffset = FindCommand(result.Bytes, 0x18);
+        int nestedOffset = renderDataOffset + 16;
+
+        Assert.Equal(64, ReadInt32(result.Bytes, nestedOffset));
+        Assert.Equal(0x42, ReadInt32(result.Bytes, nestedOffset + 4));
+        Assert.Equal(4.0, ReadDouble(result.Bytes, nestedOffset + 40));
+        Assert.Equal(4.0, ReadDouble(result.Bytes, nestedOffset + 48));
+        Assert.Equal(2U, ReadUInt32(result.Bytes, nestedOffset + 56));
+        Assert.Equal(0U, ReadUInt32(result.Bytes, nestedOffset + 60));
+    }
+
+    [Fact]
+    public void BuildBatchFailsClosedForNonUniformRoundedRectangle()
+    {
+        var brush = new FakeBrush(new PortableColor(255, 32, 64, 128));
+        var visual = new FakeVisual(
+            new FakeRenderData(
+                CreateRoundedRectangleRecord(4, 6, 1, 0), [brush]));
+
+        NotSupportedException exception = Assert.Throws<NotSupportedException>(
+            () => new WpfNativeMilSceneCompiler().BuildBatch(visual, 64, 64));
+
+        Assert.Contains("non-uniform", exception.Message);
+    }
+
     private static List<int> ReadCommands(byte[] batch)
     {
         var commands = new List<int>();
@@ -172,6 +207,26 @@ public sealed class WpfNativeMilSceneCompilerTests
         WriteDouble(record, 32, 11);
         BinaryPrimitives.WriteUInt32LittleEndian(record.AsSpan(40), brush);
         BinaryPrimitives.WriteUInt32LittleEndian(record.AsSpan(44), pen);
+        return record;
+    }
+
+    private static byte[] CreateRoundedRectangleRecord(
+        double radiusX,
+        double radiusY,
+        uint brush,
+        uint pen)
+    {
+        byte[] record = new byte[64];
+        BinaryPrimitives.WriteInt32LittleEndian(record, record.Length);
+        BinaryPrimitives.WriteInt32LittleEndian(record.AsSpan(4), 0x42);
+        WriteDouble(record, 8, 1);
+        WriteDouble(record, 16, 3);
+        WriteDouble(record, 24, 20);
+        WriteDouble(record, 32, 30);
+        WriteDouble(record, 40, radiusX);
+        WriteDouble(record, 48, radiusY);
+        BinaryPrimitives.WriteUInt32LittleEndian(record.AsSpan(56), brush);
+        BinaryPrimitives.WriteUInt32LittleEndian(record.AsSpan(60), pen);
         return record;
     }
 

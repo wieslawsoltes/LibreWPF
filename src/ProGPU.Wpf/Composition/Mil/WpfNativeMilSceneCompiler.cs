@@ -227,6 +227,39 @@ public sealed class WpfNativeMilSceneCompiler
                             ReadDouble(payload, 24),
                             ellipseBrushHandle);
                         break;
+                    case WpfMilCommandId.DrawRoundedRectangle:
+                        if (recordSize != 64)
+                        {
+                            throw new InvalidOperationException(
+                                "The portable WPF rounded-rectangle record has an invalid size.");
+                        }
+                        double radiusX = ReadDouble(payload, 32);
+                        double radiusY = ReadDouble(payload, 40);
+                        if (radiusX != radiusY)
+                        {
+                            throw new NotSupportedException(
+                                "Native MIL non-uniform rounded-rectangle radii are not implemented yet.");
+                        }
+                        uint roundedBrushToken =
+                            BinaryPrimitives.ReadUInt32LittleEndian(payload[48..]);
+                        uint roundedPenToken =
+                            BinaryPrimitives.ReadUInt32LittleEndian(payload[52..]);
+                        if (roundedPenToken != 0)
+                        {
+                            throw new NotSupportedException(
+                                "Native MIL rounded-rectangle pens are not implemented yet.");
+                        }
+                        uint roundedBrushHandle = ResolveSolidBrush(
+                            snapshot.DependentResources, roundedBrushToken);
+                        destination.DrawRoundedRectangle(
+                            ReadDouble(payload, 0),
+                            ReadDouble(payload, 8),
+                            ReadDouble(payload, 16),
+                            ReadDouble(payload, 24),
+                            radiusX,
+                            radiusY,
+                            roundedBrushHandle);
+                        break;
                     case WpfMilCommandId.PushOpacity:
                         if (recordSize != 16)
                         {
