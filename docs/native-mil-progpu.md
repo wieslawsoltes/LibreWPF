@@ -276,6 +276,18 @@ pixels). The independent C++ retained renderer also completed nine commands,
 five draws, 11,616 uploaded vertex bytes, and readback on the Parallels D3D12
 adapter.
 
+The retained rectangle/ellipse-geometry checkpoint was qualified at exact
+ProGPU commit `a1c0fd81` (feature implementation `bc6b5029`) from a clean
+Windows checkout. ARM64 MSVC rebuilt both native modules and the MIL test
+executable, and the MIL/Dawn contracts passed 2/2. The zero-warning
+project-reference package consumer compiled transformed retained line,
+uniform rounded-rectangle, and ellipse resources through both native MIL
+exports before completing live D3D12 readback (`draws=1`, 16,384 pixels). The
+independent C++ renderer again completed nine commands, five draws, 11,616
+uploaded vertex bytes, and readback on the Parallels adapter. The gate required
+the consumer's app-local native DLL hashes to match the freshly built modules
+after detecting and replacing an older incremental-build artifact.
+
 ## Next parity gates
 
 1. Generate packed protocol size/offset metadata from the checked-in WPF MCG
