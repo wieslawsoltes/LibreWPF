@@ -97,6 +97,80 @@ public sealed class WpfNativeMilSceneCompilerTests
     }
 
     [Fact]
+    public void BuildBatchTranslatesTypedLineGeometryWithTransform()
+    {
+        var pen = new FakePen(
+            new PortableColor(255, 0, 128, 255),
+            2,
+            PortablePenLineCap.Flat,
+            PortablePenLineCap.Round,
+            PortablePenLineCap.Square,
+            PortablePenLineJoin.Miter,
+            10,
+            []);
+        var geometry = new FakeGeometry(new PortableGeometryPath
+        {
+            Kind = PortableGeometryPathKind.Path,
+            Transform = new PortableMatrix3x2(2, 0, 0, 3, 11, 13),
+            Figures =
+            [
+                new PortablePathFigure
+                {
+                    StartPoint = new PortablePoint(1, 2),
+                    IsClosed = false,
+                    IsFilled = false,
+                    Segments =
+                    [
+                        PortablePathSegment.Line(
+                            new PortablePoint(5, 8),
+                            isSmoothJoin: false,
+                            isStroked: true)
+                    ]
+                }
+            ]
+        });
+        var visual = new FakeVisual(
+            new FakeRenderData(
+                CreateDrawGeometryRecord(0, 1, 2),
+                [pen, geometry]));
+
+        WpfNativeMilBatch result = new WpfNativeMilSceneCompiler().BuildBatch(
+            visual, 64, 64);
+        int nestedOffset = FindCommand(result.Bytes, 0x18) + 16;
+        Assert.Equal(24, ReadInt32(result.Bytes, nestedOffset));
+        Assert.Equal(0x46, ReadInt32(result.Bytes, nestedOffset + 4));
+        Assert.Equal(0U, ReadUInt32(result.Bytes, nestedOffset + 8));
+        Assert.Equal(3U, ReadUInt32(result.Bytes, nestedOffset + 12));
+        Assert.Equal(5U, ReadUInt32(result.Bytes, nestedOffset + 16));
+
+        int geometryOffset = FindCommand(result.Bytes, 0x78);
+        Assert.Equal(5U, ReadUInt32(result.Bytes, geometryOffset + 8));
+        Assert.Equal(1.0, ReadDouble(result.Bytes, geometryOffset + 12));
+        Assert.Equal(2.0, ReadDouble(result.Bytes, geometryOffset + 20));
+        Assert.Equal(5.0, ReadDouble(result.Bytes, geometryOffset + 28));
+        Assert.Equal(8.0, ReadDouble(result.Bytes, geometryOffset + 36));
+        Assert.Equal(4U, ReadUInt32(result.Bytes, geometryOffset + 44));
+    }
+
+    [Fact]
+    public void BuildBatchRejectsUntypedLineGeometry()
+    {
+        var visual = new FakeVisual(
+            new FakeRenderData(
+                CreateDrawGeometryRecord(0, 0, 1),
+                [new object()]));
+
+        InvalidOperationException exception =
+            Assert.Throws<InvalidOperationException>(
+                () => new WpfNativeMilSceneCompiler().BuildBatch(
+                    visual, 64, 64));
+
+        Assert.Contains(
+            nameof(IPortableGeometryPathSource),
+            exception.Message);
+    }
+
+    [Fact]
     public void BuildBatchTranslatesBalancedOpacityScopes()
     {
         var brush = new FakeBrush(new PortableColor(255, 0, 128, 255));
@@ -544,6 +618,20 @@ public sealed class WpfNativeMilSceneCompilerTests
         return record;
     }
 
+    private static byte[] CreateDrawGeometryRecord(
+        uint brush,
+        uint pen,
+        uint geometry)
+    {
+        byte[] record = new byte[24];
+        BinaryPrimitives.WriteInt32LittleEndian(record, record.Length);
+        BinaryPrimitives.WriteInt32LittleEndian(record.AsSpan(4), 0x46);
+        BinaryPrimitives.WriteUInt32LittleEndian(record.AsSpan(8), brush);
+        BinaryPrimitives.WriteUInt32LittleEndian(record.AsSpan(12), pen);
+        BinaryPrimitives.WriteUInt32LittleEndian(record.AsSpan(16), geometry);
+        return record;
+    }
+
     private static byte[] CreatePopRecord()
     {
         byte[] record = new byte[8];
@@ -718,6 +806,22 @@ public sealed class WpfNativeMilSceneCompilerTests
         public bool TryGetPortablePen(out PortablePen pen)
         {
             pen = _pen;
+            return true;
+        }
+    }
+
+    private sealed class FakeGeometry : IPortableGeometryPathSource
+    {
+        private readonly PortableGeometryPath _path;
+
+        internal FakeGeometry(PortableGeometryPath path)
+        {
+            _path = path;
+        }
+
+        public bool TryGetPortableGeometryPath(out PortableGeometryPath path)
+        {
+            path = _path;
             return true;
         }
     }

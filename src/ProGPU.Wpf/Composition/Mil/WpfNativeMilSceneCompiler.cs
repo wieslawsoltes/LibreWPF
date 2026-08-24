@@ -68,6 +68,8 @@ public sealed class WpfNativeMilSceneCompiler
             new(ReferenceEqualityComparer.Instance);
         private readonly Dictionary<object, uint> _penHandles =
             new(ReferenceEqualityComparer.Instance);
+        private readonly Dictionary<object, uint> _geometryHandles =
+            new(ReferenceEqualityComparer.Instance);
         private uint _nextHandle = 1;
 
         internal NativeMilBatchBuilder Batch { get; } = new();
@@ -312,6 +314,43 @@ public sealed class WpfNativeMilSceneCompiler
                             roundedBrushHandle,
                             roundedPenHandle);
                         break;
+                    case WpfMilCommandId.DrawGeometry:
+                        if (recordSize != 24)
+                        {
+                            throw new InvalidOperationException(
+                                "The portable WPF geometry record has an invalid size.");
+                        }
+                        uint geometryBrushToken =
+                            BinaryPrimitives.ReadUInt32LittleEndian(payload);
+                        uint geometryPenToken =
+                            BinaryPrimitives.ReadUInt32LittleEndian(payload[4..]);
+                        uint geometryToken =
+                            BinaryPrimitives.ReadUInt32LittleEndian(payload[8..]);
+                        uint geometryPadding =
+                            BinaryPrimitives.ReadUInt32LittleEndian(payload[12..]);
+                        if (geometryPadding != 0)
+                        {
+                            throw new InvalidOperationException(
+                                "The portable WPF geometry record has nonzero padding.");
+                        }
+                        uint geometryBrushHandle = geometryBrushToken == 0
+                            ? 0
+                            : ResolveSolidBrush(
+                                snapshot.DependentResources,
+                                geometryBrushToken);
+                        uint geometryPenHandle = geometryPenToken == 0
+                            ? 0
+                            : ResolvePen(
+                                snapshot.DependentResources,
+                                geometryPenToken);
+                        uint geometryHandle = ResolveLineGeometry(
+                            snapshot.DependentResources,
+                            geometryToken);
+                        destination.DrawGeometry(
+                            geometryBrushHandle,
+                            geometryPenHandle,
+                            geometryHandle);
+                        break;
                     case WpfMilCommandId.PushOpacity:
                         if (recordSize != 16)
                         {
@@ -499,6 +538,69 @@ public sealed class WpfNativeMilSceneCompiler
                     pen.MiterLimit,
                     dashStyleHandle));
             return penHandle;
+        }
+
+        private uint ResolveLineGeometry(
+            IReadOnlyList<object?> resources,
+            uint token)
+        {
+            if (token == 0 || token > resources.Count ||
+                resources[checked((int)token - 1)] is not object resource)
+            {
+                throw new InvalidOperationException(
+                    $"Portable geometry token {token} is unavailable.");
+            }
+            if (_geometryHandles.TryGetValue(resource, out uint existing))
+            {
+                return existing;
+            }
+            if (resource is not IPortableGeometryPathSource source ||
+                !source.TryGetPortableGeometryPath(
+                    out PortableGeometryPath path))
+            {
+                throw MissingContract(nameof(IPortableGeometryPathSource));
+            }
+            if (path.Kind != PortableGeometryPathKind.Path ||
+                path.Figures.Length != 1 ||
+                path.Figures[0].IsClosed ||
+                path.Figures[0].Segments.Length != 1 ||
+                path.Figures[0].Segments[0].Kind !=
+                    PortablePathSegmentKind.Line ||
+                !path.Figures[0].Segments[0].IsStroked)
+            {
+                throw new NotSupportedException(
+                    "Only typed single-segment line geometry is implemented by the native MIL slice.");
+            }
+            uint transformHandle = 0;
+            if (!path.Transform.IsIdentity)
+            {
+                transformHandle = NextHandle();
+                Batch.CreateResource(
+                    transformHandle,
+                    NativeMilResourceType.MatrixTransform);
+                Batch.SetMatrixTransform(
+                    transformHandle,
+                    new NativeMilMatrix3x2(
+                        path.Transform.M11,
+                        path.Transform.M12,
+                        path.Transform.M21,
+                        path.Transform.M22,
+                        path.Transform.OffsetX,
+                        path.Transform.OffsetY));
+            }
+            uint handle = NextHandle();
+            _geometryHandles.Add(resource, handle);
+            Batch.CreateResource(handle, NativeMilResourceType.LineGeometry);
+            PortablePoint start = path.Figures[0].StartPoint;
+            PortablePoint end = path.Figures[0].Segments[0].Point1;
+            Batch.SetLineGeometry(
+                handle,
+                start.X,
+                start.Y,
+                end.X,
+                end.Y,
+                transformHandle);
+            return handle;
         }
 
         private static NativeMilPenLineCap ToNativeLineCap(
