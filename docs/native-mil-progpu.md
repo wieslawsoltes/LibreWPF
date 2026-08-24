@@ -95,6 +95,12 @@ ProGPU currently provides:
   EvenOdd/Nonzero fill, implicit closure, and geometry-local affine transforms.
   Arc math is shared with ProGPU's SVG glyph paths; meaningful path pens remain
   an explicit fail-closed execution gap.
+- Canonical retained `GeometryGroup` packets in ProGPU's raw MIL backend,
+  including variable child handles, fill rule, matrix transform, dependency
+  deletion, cycle rejection, and transactional rollback. Identity-local path
+  children aggregate into one semantic path batch so EvenOdd/Nonzero applies
+  across overlapping child contours. Fixed, transformed, nested, and stroked
+  group execution remains fail closed pending exact contour composition.
 - An identical size-versioned C ABI exported by wgpu-native and provider-
   resolved Dawn modules, plus `NativeMilChannel` and typed scene metrics.
 - `NativeMilBatchBuilder` and `NativeMilRenderDataBuilder` managed producers.
@@ -328,7 +334,7 @@ readback only from an unrelated immediate rectangle.
    model rather than manually extending command declarations.
 2. Add transform animations and remaining transform resource kinds, dashed
    ellipse and rounded-rectangle pen draws, non-uniform rounded rectangles,
-   path strokes, geometry groups/combined geometry, gradients, remaining
+   path strokes, geometry-group child widening, combined geometry, gradients, remaining
    push/pop state, clips, images, and
    glyph runs.
 3. Cache stable native handles/generations across frames and emit incremental
