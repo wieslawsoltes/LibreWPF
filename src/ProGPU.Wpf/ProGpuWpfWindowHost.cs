@@ -70,6 +70,15 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
     private int _portablePresentationSourceClientOriginX;
     private int _portablePresentationSourceClientOriginY;
     private bool _hasPortablePresentationSourceClientOrigin;
+    // GLFW's event poll is process-global: whichever host instance happens to call
+    // window.DoEvents() dispatches pending native callbacks for every native window, not just its
+    // own (e.g. a mouse-up on a modal dialog can be delivered while the *main* window's host is the
+    // one pumping). A callback can synchronously Close()/Dispose() a *different* host than the one
+    // currently inside window.DoEvents()/DoUpdate()/DoRender(), so the existing _isNativeLoopRunning/
+    // _isRendering/etc. instance flags below don't see it and Dispose() would call Silk.NET's
+    // Reset() reentrantly - which Silk.NET explicitly forbids while any window's render loop is
+    // active, crashing the process. This process-wide counter closes that gap.
+    private static int s_activeNativeEventDispatchDepth;
     private bool _isDisposed;
     private bool _isNativeLoopRunning;
     private bool _usesExternalNativeLoopPump;
@@ -1093,38 +1102,31 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
             window.DoRender();
         }
 
+        Interlocked.Increment(ref s_activeNativeEventDispatchDepth);
         try
         {
             window.DoEvents();
+            if (!ShouldKeepPortableNativeRunLoopAlive())
+            {
+                DisposeDeferredNativeWindowIfNeeded();
+                return;
+            }
+
+            window.DoUpdate();
+            EnsureCompositionTargetLoaded();
+            if (ShouldPumpNativeRender())
+            {
+                NativeRenderPumpCount++;
+                window.DoRender();
+            }
+            else
+            {
+                SkippedNativeRenderPumpCount++;
+            }
         }
         finally
         {
-            ProcessDeferredNativeWindowDisposals();
-        }
-
-        if (!ShouldKeepPortableNativeRunLoopAlive())
-        {
-            DisposeDeferredNativeWindowIfNeeded();
-            return;
-        }
-
-        ProcessDispatcherQueueCore();
-        if (!ShouldKeepPortableNativeRunLoopAlive())
-        {
-            DisposeDeferredNativeWindowIfNeeded();
-            return;
-        }
-
-        window.DoUpdate();
-        EnsureCompositionTargetLoaded();
-        if (ShouldPumpNativeRender())
-        {
-            NativeRenderPumpCount++;
-            window.DoRender();
-        }
-        else
-        {
-            SkippedNativeRenderPumpCount++;
+            Interlocked.Decrement(ref s_activeNativeEventDispatchDepth);
         }
 
         DisposeDeferredNativeWindowIfNeeded();
@@ -1247,7 +1249,11 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
             (_isNativeLoopRunning ||
                 _isRendering ||
                 _isProcessingDispatcherWorkWakeup ||
-                _isInNativeWindowCloseCallback);
+                _isInNativeWindowCloseCallback ||
+                // Not just this instance's own reentrancy: GLFW's poll is process-global, so a
+                // *different* host's DoEvents() can be the one currently dispatching the native
+                // callback (e.g. a modal dialog's Cancel click) that led here.
+                Volatile.Read(ref s_activeNativeEventDispatchDepth) > 0);
         bool disposeNativeWindow = window != null && !deferNativeWindowDispose;
 
         if (window != null && !deferNativeWindowDispose)
