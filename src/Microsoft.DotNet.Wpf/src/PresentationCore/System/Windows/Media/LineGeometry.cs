@@ -45,6 +45,15 @@ namespace System.Windows.Media
         }
                               
         #endregion
+
+        internal override bool TryGetPortablePrimitiveGeometryCore(out ProGPU.Wpf.Interop.PortablePrimitiveGeometry geometry)
+        {
+            geometry = ProGPU.Wpf.Interop.PortablePrimitiveGeometry.Line(
+                new ProGPU.Wpf.Interop.PortablePoint(StartPoint.X, StartPoint.Y),
+                new ProGPU.Wpf.Interop.PortablePoint(EndPoint.X, EndPoint.Y),
+                PortableGeometryPathExporter.ToPortableMatrix(Transform));
+            return true;
+        }
         
         /// <summary>
         /// Gets the bounds of this Geometry as an axis-aligned bounding box

@@ -343,7 +343,7 @@ public sealed class WpfNativeMilSceneCompiler
                             : ResolvePen(
                                 snapshot.DependentResources,
                                 geometryPenToken);
-                        uint geometryHandle = ResolveLineGeometry(
+                        uint geometryHandle = ResolveGeometry(
                             snapshot.DependentResources,
                             geometryToken);
                         destination.DrawGeometry(
@@ -540,7 +540,7 @@ public sealed class WpfNativeMilSceneCompiler
             return penHandle;
         }
 
-        private uint ResolveLineGeometry(
+        private uint ResolveGeometry(
             IReadOnlyList<object?> resources,
             uint token)
         {
@@ -554,11 +554,18 @@ public sealed class WpfNativeMilSceneCompiler
             {
                 return existing;
             }
+            if (resource is IPortablePrimitiveGeometrySource primitiveSource &&
+                primitiveSource.TryGetPortablePrimitiveGeometry(
+                    out PortablePrimitiveGeometry primitive))
+            {
+                return AddPrimitiveGeometry(resource, primitive);
+            }
             if (resource is not IPortableGeometryPathSource source ||
                 !source.TryGetPortableGeometryPath(
                     out PortableGeometryPath path))
             {
-                throw MissingContract(nameof(IPortableGeometryPathSource));
+                throw MissingContract(
+                    nameof(IPortablePrimitiveGeometrySource));
             }
             if (path.Kind != PortableGeometryPathKind.Path ||
                 path.Figures.Length != 1 ||
@@ -571,23 +578,7 @@ public sealed class WpfNativeMilSceneCompiler
                 throw new NotSupportedException(
                     "Only typed single-segment line geometry is implemented by the native MIL slice.");
             }
-            uint transformHandle = 0;
-            if (!path.Transform.IsIdentity)
-            {
-                transformHandle = NextHandle();
-                Batch.CreateResource(
-                    transformHandle,
-                    NativeMilResourceType.MatrixTransform);
-                Batch.SetMatrixTransform(
-                    transformHandle,
-                    new NativeMilMatrix3x2(
-                        path.Transform.M11,
-                        path.Transform.M12,
-                        path.Transform.M21,
-                        path.Transform.M22,
-                        path.Transform.OffsetX,
-                        path.Transform.OffsetY));
-            }
+            uint transformHandle = AddGeometryTransform(path.Transform);
             uint handle = NextHandle();
             _geometryHandles.Add(resource, handle);
             Batch.CreateResource(handle, NativeMilResourceType.LineGeometry);
@@ -600,6 +591,92 @@ public sealed class WpfNativeMilSceneCompiler
                 end.X,
                 end.Y,
                 transformHandle);
+            return handle;
+        }
+
+        private uint AddPrimitiveGeometry(
+            object resource,
+            PortablePrimitiveGeometry geometry)
+        {
+            uint transformHandle = AddGeometryTransform(geometry.Transform);
+            uint handle = NextHandle();
+            _geometryHandles.Add(resource, handle);
+            switch (geometry.Kind)
+            {
+                case PortablePrimitiveGeometryKind.Line:
+                    Batch.CreateResource(
+                        handle,
+                        NativeMilResourceType.LineGeometry);
+                    Batch.SetLineGeometry(
+                        handle,
+                        geometry.Point1.X,
+                        geometry.Point1.Y,
+                        geometry.Point2.X,
+                        geometry.Point2.Y,
+                        transformHandle);
+                    break;
+                case PortablePrimitiveGeometryKind.Rectangle:
+                    if (geometry.Rect.IsEmpty)
+                    {
+                        throw new NotSupportedException(
+                            "Empty rectangle geometry is not implemented by the native MIL slice.");
+                    }
+                    if (geometry.RadiusX != geometry.RadiusY)
+                    {
+                        throw new NotSupportedException(
+                            "Native MIL non-uniform rounded-rectangle geometry radii are not implemented yet.");
+                    }
+                    Batch.CreateResource(
+                        handle,
+                        NativeMilResourceType.RectangleGeometry);
+                    Batch.SetRectangleGeometry(
+                        handle,
+                        geometry.Rect.X,
+                        geometry.Rect.Y,
+                        geometry.Rect.Width,
+                        geometry.Rect.Height,
+                        geometry.RadiusX,
+                        geometry.RadiusY,
+                        transformHandle);
+                    break;
+                case PortablePrimitiveGeometryKind.Ellipse:
+                    Batch.CreateResource(
+                        handle,
+                        NativeMilResourceType.EllipseGeometry);
+                    Batch.SetEllipseGeometry(
+                        handle,
+                        geometry.Point1.X,
+                        geometry.Point1.Y,
+                        geometry.RadiusX,
+                        geometry.RadiusY,
+                        transformHandle);
+                    break;
+                default:
+                    throw new NotSupportedException(
+                        $"Portable primitive geometry kind {geometry.Kind} is not implemented by the native MIL slice.");
+            }
+            return handle;
+        }
+
+        private uint AddGeometryTransform(PortableMatrix3x2 transform)
+        {
+            if (transform.IsIdentity)
+            {
+                return 0;
+            }
+            uint handle = NextHandle();
+            Batch.CreateResource(
+                handle,
+                NativeMilResourceType.MatrixTransform);
+            Batch.SetMatrixTransform(
+                handle,
+                new NativeMilMatrix3x2(
+                    transform.M11,
+                    transform.M12,
+                    transform.M21,
+                    transform.M22,
+                    transform.OffsetX,
+                    transform.OffsetY));
             return handle;
         }
 

@@ -82,10 +82,12 @@ ProGPU currently provides:
   analytic rounded-rectangle stroke with affine-expanded bounds; zero-radius
   records retain rectangle join/dash behavior, while nonempty curved dashes
   fail closed pending phase-continuous curve dashing.
-- Typed retained `LineGeometry` resources and nested `DrawGeometry` lowering.
-  Optional geometry-local affine transforms compose with visual and drawing
-  scopes; solid/dashed pen semantics reuse ProGPU's native line stroke path,
-  while point animations and other geometry kinds fail closed.
+- Typed retained `LineGeometry`, `RectangleGeometry`, and `EllipseGeometry`
+  resources with nested `DrawGeometry` lowering. Optional geometry-local
+  affine transforms compose with visual and drawing scopes; line pen semantics
+  reuse ProGPU's stroke path while rectangle, rounded-rectangle, and ellipse
+  resources reuse native analytic fill/stroke lowering. Animated fields,
+  non-uniform rounded radii, and arbitrary path geometry fail closed.
 - An identical size-versioned C ABI exported by wgpu-native and provider-
   resolved Dawn modules, plus `NativeMilChannel` and typed scene metrics.
 - `NativeMilBatchBuilder` and `NativeMilRenderDataBuilder` managed producers.
@@ -104,8 +106,9 @@ LibreWPF currently provides:
   balanced opacity/transform-scope translation, transform-resource identity
   reuse, typed `IPortablePenSource` solid/dashed line and rectangle-pen
   translation, typed solid ellipse and uniform rounded-rectangle pen
-  translation, typed single-line `IPortableGeometryPathSource` translation,
-  and native target construction.
+  translation, typed `IPortablePrimitiveGeometrySource` translation for exact
+  line/rectangle/ellipse state, a typed single-line path fallback, and native
+  target construction.
 - `Compile(...)` selection of wgpu-native or Dawn without changing the existing
   managed portable renderer.
 - Fail-closed behavior for unbalanced scopes, untyped or unavailable
@@ -120,7 +123,7 @@ LibreWPF currently provides:
 | Lane | Status | Purpose |
 | --- | --- | --- |
 | Managed portable | Existing/default | Compatibility baseline and fallback |
-| Native MIL + wgpu-native | First rectangle slice | Shared WebGPU semantic compositor |
+| Native MIL + wgpu-native | Fixed primitive geometry slice | Shared WebGPU semantic compositor |
 | Native MIL + Dawn | ARM64 ABI/build qualified | Provider-resolved Windows D3D12 validation |
 | Native DirectX/DXGI facade | Planned | Measured D3D11/D3D12 interop parity |
 
@@ -138,7 +141,7 @@ On the macOS ARM64 host, the ProGPU checkpoint passes:
 - managed backend and package-consumer builds;
 - live Metal rendering on Apple M3 Pro.
 
-The LibreWPF checkpoint passes its focused build and twenty native-producer
+The LibreWPF checkpoint passes its focused build and twenty-one native-producer
 tests:
 they check exact command order, framing, handle remapping, rectangle values,
 ellipse and rounded-rectangle values, scRGB brush fields, canonical opacity-
@@ -151,7 +154,9 @@ offset/interval production, filled and pen-only rectangle records, filled and
 pen-only ellipse and rounded-rectangle records, invalid-dash rejection, and
 rejection of untyped pen shapes. The geometry case verifies exact retained
 line-geometry and `DrawGeometry` packet offsets plus geometry-local transform
-identity without reflection, and rejects untyped geometry shapes.
+identity without reflection. The primitive-geometry case additionally verifies
+canonical rectangle/ellipse resource packet offsets and exact retained state;
+untyped geometry shapes remain rejected.
 
 The ProGPU checkpoint also passes the complete bounded Windows lane in the
 Parallels integration guest: Windows 11 ARM64 build `26200.9168`, .NET SDK
@@ -277,7 +282,8 @@ adapter.
    model rather than manually extending command declarations.
 2. Add transform animations and remaining transform resource kinds, dashed
    ellipse and rounded-rectangle pen draws, non-uniform rounded rectangles,
-   geometry paths, gradients, remaining push/pop state, clips, images, and
+   arbitrary geometry paths/groups/combined geometry, gradients, remaining
+   push/pop state, clips, images, and
    glyph runs.
 3. Cache stable native handles/generations across frames and emit incremental
    resource updates plus damage instead of rebuilding the initial scene batch.

@@ -27,7 +27,7 @@ namespace System.Windows.Media
     /// can be used to clip, fill or stroke.
     /// </summary>
     [Localizability(LocalizationCategory.None, Readability = Readability.Unreadable)]
-    public abstract partial class Geometry : Animatable, DUCE.IResource, IPortableGeometryPathSource
+    public abstract partial class Geometry : Animatable, DUCE.IResource, IPortableGeometryPathSource, IPortablePrimitiveGeometrySource
     {
         #region Constructors
 
@@ -131,6 +131,18 @@ namespace System.Windows.Media
         {
             path = PortableGeometryPathExporter.FromGeometry(this);
             return true;
+        }
+
+        bool IPortablePrimitiveGeometrySource.TryGetPortablePrimitiveGeometry(out PortablePrimitiveGeometry geometry)
+        {
+            ReadPreamble();
+            return TryGetPortablePrimitiveGeometryCore(out geometry);
+        }
+
+        internal virtual bool TryGetPortablePrimitiveGeometryCore(out PortablePrimitiveGeometry geometry)
+        {
+            geometry = default;
+            return false;
         }
 
         /// <summary>

@@ -166,8 +166,55 @@ public sealed class WpfNativeMilSceneCompilerTests
                     visual, 64, 64));
 
         Assert.Contains(
-            nameof(IPortableGeometryPathSource),
+            nameof(IPortablePrimitiveGeometrySource),
             exception.Message);
+    }
+
+    [Fact]
+    public void BuildBatchTranslatesTypedRectangleAndEllipseGeometry()
+    {
+        var rectangle = new FakePrimitiveGeometry(
+            PortablePrimitiveGeometry.Rectangle(
+                new PortableRect(2, 3, 20, 12),
+                4,
+                4,
+                new PortableMatrix3x2(2, 0, 0, 3, 11, 13)));
+        var ellipse = new FakePrimitiveGeometry(
+            PortablePrimitiveGeometry.Ellipse(
+                new PortablePoint(8, 9),
+                6,
+                7,
+                PortableMatrix3x2.Identity));
+        byte[] renderData = CreateDrawGeometryRecord(0, 0, 1)
+            .Concat(CreateDrawGeometryRecord(0, 0, 2))
+            .ToArray();
+        var visual = new FakeVisual(
+            new FakeRenderData(renderData, [rectangle, ellipse]));
+
+        WpfNativeMilBatch result = new WpfNativeMilSceneCompiler().BuildBatch(
+            visual, 64, 64);
+
+        int rectangleOffset = FindCommand(result.Bytes, 0x79);
+        Assert.Equal(3U, ReadUInt32(result.Bytes, rectangleOffset + 8));
+        Assert.Equal(4.0, ReadDouble(result.Bytes, rectangleOffset + 12));
+        Assert.Equal(4.0, ReadDouble(result.Bytes, rectangleOffset + 20));
+        Assert.Equal(2.0, ReadDouble(result.Bytes, rectangleOffset + 28));
+        Assert.Equal(3.0, ReadDouble(result.Bytes, rectangleOffset + 36));
+        Assert.Equal(20.0, ReadDouble(result.Bytes, rectangleOffset + 44));
+        Assert.Equal(12.0, ReadDouble(result.Bytes, rectangleOffset + 52));
+        Assert.Equal(2U, ReadUInt32(result.Bytes, rectangleOffset + 60));
+
+        int ellipseOffset = FindCommand(result.Bytes, 0x7a);
+        Assert.Equal(4U, ReadUInt32(result.Bytes, ellipseOffset + 8));
+        Assert.Equal(6.0, ReadDouble(result.Bytes, ellipseOffset + 12));
+        Assert.Equal(7.0, ReadDouble(result.Bytes, ellipseOffset + 20));
+        Assert.Equal(8.0, ReadDouble(result.Bytes, ellipseOffset + 28));
+        Assert.Equal(9.0, ReadDouble(result.Bytes, ellipseOffset + 36));
+        Assert.Equal(0U, ReadUInt32(result.Bytes, ellipseOffset + 44));
+
+        int nestedOffset = FindCommand(result.Bytes, 0x18) + 16;
+        Assert.Equal(3U, ReadUInt32(result.Bytes, nestedOffset + 16));
+        Assert.Equal(4U, ReadUInt32(result.Bytes, nestedOffset + 40));
     }
 
     [Fact]
@@ -822,6 +869,24 @@ public sealed class WpfNativeMilSceneCompilerTests
         public bool TryGetPortableGeometryPath(out PortableGeometryPath path)
         {
             path = _path;
+            return true;
+        }
+    }
+
+    private sealed class FakePrimitiveGeometry :
+        IPortablePrimitiveGeometrySource
+    {
+        private readonly PortablePrimitiveGeometry _geometry;
+
+        internal FakePrimitiveGeometry(PortablePrimitiveGeometry geometry)
+        {
+            _geometry = geometry;
+        }
+
+        public bool TryGetPortablePrimitiveGeometry(
+            out PortablePrimitiveGeometry geometry)
+        {
+            geometry = _geometry;
             return true;
         }
     }

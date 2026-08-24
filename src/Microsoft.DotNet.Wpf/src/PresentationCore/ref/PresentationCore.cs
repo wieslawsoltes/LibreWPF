@@ -6202,7 +6202,7 @@ namespace System.Windows.Media
     [System.ComponentModel.TypeConverterAttribute(typeof(System.Windows.Media.GeometryConverter))]
     [System.Windows.LocalizabilityAttribute(System.Windows.LocalizationCategory.None, Readability = System.Windows.Readability.Unreadable)]
     [System.Windows.Markup.ValueSerializerAttribute(typeof(System.Windows.Media.Converters.GeometryValueSerializer))]
-    public abstract partial class Geometry : System.Windows.Media.Animation.Animatable, System.IFormattable, ProGPU.Wpf.Interop.IPortableGeometryPathSource
+    public abstract partial class Geometry : System.Windows.Media.Animation.Animatable, System.IFormattable, ProGPU.Wpf.Interop.IPortableGeometryPathSource, ProGPU.Wpf.Interop.IPortablePrimitiveGeometrySource
     {
         internal Geometry() { }
         public static readonly System.Windows.DependencyProperty TransformProperty;
@@ -6236,6 +6236,7 @@ namespace System.Windows.Media
         [System.ComponentModel.EditorBrowsableAttribute(System.ComponentModel.EditorBrowsableState.Never)]
         public bool ShouldSerializeTransform() { throw null; }
         bool ProGPU.Wpf.Interop.IPortableGeometryPathSource.TryGetPortableGeometryPath(out ProGPU.Wpf.Interop.PortableGeometryPath path) { throw null; }
+        bool ProGPU.Wpf.Interop.IPortablePrimitiveGeometrySource.TryGetPortablePrimitiveGeometry(out ProGPU.Wpf.Interop.PortablePrimitiveGeometry geometry) { throw null; }
         public bool StrokeContains(System.Windows.Media.Pen pen, System.Windows.Point hitPoint) { throw null; }
         public bool StrokeContains(System.Windows.Media.Pen pen, System.Windows.Point hitPoint, double tolerance, System.Windows.Media.ToleranceType type) { throw null; }
         public System.Windows.Media.IntersectionDetail StrokeContainsWithDetail(System.Windows.Media.Pen pen, System.Windows.Media.Geometry geometry) { throw null; }
