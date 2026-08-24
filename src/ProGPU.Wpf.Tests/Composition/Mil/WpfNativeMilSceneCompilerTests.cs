@@ -157,6 +157,29 @@ public sealed class WpfNativeMilSceneCompilerTests
     }
 
     [Fact]
+    public void BuildBatchPreservesPenOnlyEllipse()
+    {
+        var pen = new FakePen(
+            new PortableColor(255, 64, 128, 255),
+            3,
+            PortablePenLineCap.Flat,
+            PortablePenLineCap.Flat,
+            PortablePenLineCap.Square,
+            PortablePenLineJoin.Miter,
+            10,
+            []);
+        var visual = new FakeVisual(
+            new FakeRenderData(CreateEllipseRecord(0, 1), [pen]));
+
+        WpfNativeMilBatch result = new WpfNativeMilSceneCompiler().BuildBatch(
+            visual, 64, 64);
+        int nestedOffset = FindCommand(result.Bytes, 0x18) + 16;
+
+        Assert.Equal(0U, ReadUInt32(result.Bytes, nestedOffset + 40));
+        Assert.Equal(3U, ReadUInt32(result.Bytes, nestedOffset + 44));
+    }
+
+    [Fact]
     public void BuildBatchTranslatesUniformRoundedRectangle()
     {
         var brush = new FakeBrush(new PortableColor(255, 32, 64, 128));
