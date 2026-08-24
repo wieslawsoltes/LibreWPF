@@ -203,6 +203,15 @@ ColorDodge hashes and all declared image, mask, effect, vector, and text
 contracts remained qualified. The staged package contained both
 `progpu_native.dll` and `progpu_native_dawn.dll`.
 
+The retained-dash checkpoint was then qualified at exact ProGPU commit
+`fca6c7a2` with a focused Windows integration gate over the renderer covered by
+the preceding full matrix. ARM64 MSVC rebuilt both native modules and the MIL
+test executable; the MIL and Dawn contract tests passed 2/2. The
+project-reference package consumer built with zero warnings and ran live on
+D3D12, compiling a typed dashed line through both native MIL channel exports
+before completing renderer readback (`draws=1`, 16,384 pixels). The Windows
+checkout remained clean at the qualified commit.
+
 ## Next parity gates
 
 1. Generate packed protocol size/offset metadata from the checked-in WPF MCG
