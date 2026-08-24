@@ -107,6 +107,7 @@ public sealed class WpfPortableWindowActivation : IDisposable
         {
             s_displayMetricsRegistration ??=
                 PortableWpfServiceRegistry.RegisterDisplayMetricsSource(s_displayMetricsSource);
+            PortableWpfServiceRegistry.NativeInputPump ??= PumpActiveHostNativeEvents;
             activationService.Register(CreateWindowActivationCallbacks(hostFactory));
             TryRegisterPresentationFrameworkLauncherService();
             TryRegisterPresentationFrameworkMessageBoxService();
@@ -212,6 +213,33 @@ public sealed class WpfPortableWindowActivation : IDisposable
             }
         }
         return hosts.ToArray();
+    }
+
+    /// <summary>
+    /// Pumps every active window's native event queue once - see
+    /// <see cref="PortableWpfServiceRegistry.NativeInputPump"/> for why the Dispatcher needs this.
+    ///
+    /// A single host's DoEvents() already dispatches native callbacks for every native window, and
+    /// the host's own reentrancy guards make the extra calls cheap no-ops, so iterating is about
+    /// not depending on which host happens to own the native loop right now. Per-host failures are
+    /// swallowed deliberately: a host racing into disposal on another thread must not turn a pump
+    /// tick into an exception escaping through the dispatcher frame that called it.
+    /// </summary>
+    private static void PumpActiveHostNativeEvents()
+    {
+        foreach (var host in GetActiveHosts())
+        {
+            try
+            {
+                host.DoEvents();
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+            catch (InvalidOperationException)
+            {
+            }
+        }
     }
 
     internal static bool TryGetActiveHost(object? window, out ProGpuWpfWindowHost? host)
