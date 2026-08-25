@@ -315,6 +315,79 @@ public sealed class WpfNativeMilSceneCompilerTests
     }
 
     [Fact]
+    public void BuildBatchTranslatesTypedImageDrawingAndBitmapPixels()
+    {
+        var bitmap = new FakeBitmapSource(new PortableBitmapSourcePixels(
+            2,
+            2,
+            96,
+            96,
+            8,
+            PortablePixelDataFormat.Pbgra32,
+            [
+                0, 0, 255, 255,
+                0, 255, 0, 255,
+                255, 0, 0, 255,
+                255, 255, 255, 255
+            ]));
+        var drawing = new FakeImageDrawing(
+            bitmap,
+            new PortableRect(3, 5, 20, 10));
+        var visual = new FakeVisual(
+            new FakeRenderData(CreateDrawDrawingRecord(1), [drawing]));
+
+        WpfNativeMilBatch result = new WpfNativeMilSceneCompiler().BuildBatch(
+            visual, 64, 64);
+
+        Assert.Equal(5U, result.TargetHandle);
+        WpfNativeMilBitmapSource source = Assert.Single(
+            result.BitmapSources!);
+        Assert.Equal(2U, source.Handle);
+        Assert.Equal(2U, source.Width);
+        Assert.Equal(2U, source.Height);
+        Assert.Equal(8U, source.RowBytes);
+        Assert.Equal(
+            [
+                255, 0, 0, 255,
+                0, 255, 0, 255,
+                0, 0, 255, 255,
+                255, 255, 255, 255
+            ],
+            source.Rgba8Pixels);
+
+        int drawingOffset = FindCommand(result.Bytes, 0x89);
+        Assert.Equal(3U, ReadUInt32(result.Bytes, drawingOffset + 8));
+        Assert.Equal(3.0, ReadDouble(result.Bytes, drawingOffset + 12));
+        Assert.Equal(5.0, ReadDouble(result.Bytes, drawingOffset + 20));
+        Assert.Equal(20.0, ReadDouble(result.Bytes, drawingOffset + 28));
+        Assert.Equal(10.0, ReadDouble(result.Bytes, drawingOffset + 36));
+        Assert.Equal(2U, ReadUInt32(result.Bytes, drawingOffset + 44));
+        Assert.Equal(0U, ReadUInt32(result.Bytes, drawingOffset + 48));
+
+        int nestedOffset = FindCommand(result.Bytes, 0x18) + 16;
+        Assert.Equal(3U, ReadUInt32(result.Bytes, nestedOffset + 8));
+    }
+
+    [Fact]
+    public void BuildBatchRejectsImageDrawingWithoutTypedPixels()
+    {
+        var drawing = new FakeImageDrawing(
+            new object(),
+            new PortableRect(0, 0, 10, 10));
+        var visual = new FakeVisual(
+            new FakeRenderData(CreateDrawDrawingRecord(1), [drawing]));
+
+        InvalidOperationException exception =
+            Assert.Throws<InvalidOperationException>(
+                () => new WpfNativeMilSceneCompiler().BuildBatch(
+                    visual, 64, 64));
+
+        Assert.Contains(
+            nameof(IPortableBitmapSourcePixelsSource),
+            exception.Message);
+    }
+
+    [Fact]
     public void BuildBatchTranslatesTypedDrawingGroup()
     {
         var transform = new FakeTransform(
@@ -1338,6 +1411,48 @@ public sealed class WpfNativeMilSceneCompilerTests
             out PortableGeometryDrawingState state)
         {
             state = _state;
+            return true;
+        }
+    }
+
+    private sealed class FakeImageDrawing :
+        IPortableImageDrawingStateSource
+    {
+        private readonly PortableImageDrawingState _state;
+
+        internal FakeImageDrawing(object? imageSource, PortableRect rect)
+        {
+            _state = new PortableImageDrawingState
+            {
+                HasImageSource = imageSource is not null,
+                ImageSource = imageSource,
+                HasRect = true,
+                Rect = rect
+            };
+        }
+
+        public bool TryGetPortableImageDrawingState(
+            out PortableImageDrawingState state)
+        {
+            state = _state;
+            return true;
+        }
+    }
+
+    private sealed class FakeBitmapSource :
+        IPortableBitmapSourcePixelsSource
+    {
+        private readonly PortableBitmapSourcePixels _pixels;
+
+        internal FakeBitmapSource(PortableBitmapSourcePixels pixels)
+        {
+            _pixels = pixels;
+        }
+
+        public bool TryGetPortableBitmapSourcePixels(
+            out PortableBitmapSourcePixels pixels)
+        {
+            pixels = _pixels;
             return true;
         }
     }

@@ -6,7 +6,17 @@ using WpfReplayRect = System.Windows.Media.ProGPU.Composition.WpfReplayRect;
 
 namespace System.Windows.Media.ProGPU.Composition.Mil;
 
-public sealed record WpfNativeMilBatch(byte[] Bytes, uint TargetHandle);
+public sealed record WpfNativeMilBitmapSource(
+    uint Handle,
+    uint Width,
+    uint Height,
+    uint RowBytes,
+    byte[] Rgba8Pixels);
+
+public sealed record WpfNativeMilBatch(
+    byte[] Bytes,
+    uint TargetHandle,
+    IReadOnlyList<WpfNativeMilBitmapSource>? BitmapSources = null);
 
 public sealed record WpfNativeMilCompilation(
     NativeMilCompiledScene Scene,
@@ -39,7 +49,10 @@ public sealed class WpfNativeMilSceneCompiler
         context.Batch.CreateGenericTarget(targetHandle, pixelWidth, pixelHeight);
         context.Batch.SetTargetClearColor(targetHandle, clearColor);
         context.Batch.SetTargetRoot(targetHandle, rootHandle);
-        return new WpfNativeMilBatch(context.Batch.ToArray(), targetHandle);
+        return new WpfNativeMilBatch(
+            context.Batch.ToArray(),
+            targetHandle,
+            context.BitmapSources.ToArray());
     }
 
     public WpfNativeMilCompilation Compile(
@@ -55,6 +68,16 @@ public sealed class WpfNativeMilSceneCompiler
             rootVisual, pixelWidth, pixelHeight, clearColor);
         using var channel = new NativeMilChannel(backend);
         NativeMilBatchMetrics batchMetrics = channel.Apply(batch.Bytes);
+        foreach (WpfNativeMilBitmapSource bitmap in
+                 batch.BitmapSources ?? Array.Empty<WpfNativeMilBitmapSource>())
+        {
+            channel.SetBitmapSourceRgba8(
+                bitmap.Handle,
+                bitmap.Width,
+                bitmap.Height,
+                bitmap.RowBytes,
+                bitmap.Rgba8Pixels);
+        }
         NativeMilCompiledScene scene = channel.CompileScene(
             batch.TargetHandle, sceneId, generation);
         return new WpfNativeMilCompilation(scene, batchMetrics);
@@ -74,11 +97,15 @@ public sealed class WpfNativeMilSceneCompiler
             new(ReferenceEqualityComparer.Instance);
         private readonly Dictionary<object, uint> _drawingHandles =
             new(ReferenceEqualityComparer.Instance);
+        private readonly Dictionary<object, uint> _imageSourceHandles =
+            new(ReferenceEqualityComparer.Instance);
         private readonly HashSet<object> _activeDrawings =
             new(ReferenceEqualityComparer.Instance);
         private uint _nextHandle = 1;
 
         internal NativeMilBatchBuilder Batch { get; } = new();
+
+        internal List<WpfNativeMilBitmapSource> BitmapSources { get; } = [];
 
         internal uint NextHandle()
         {
@@ -746,6 +773,71 @@ public sealed class WpfNativeMilSceneCompiler
             return handle;
         }
 
+        private uint AddImageDrawing(
+            object resource,
+            PortableImageDrawingState state)
+        {
+            if ((state.HasImageSource && state.ImageSource is null) ||
+                (state.HasRect &&
+                 (!double.IsFinite(state.Rect.X) ||
+                  !double.IsFinite(state.Rect.Y) ||
+                  !double.IsFinite(state.Rect.Width) ||
+                  !double.IsFinite(state.Rect.Height) ||
+                  state.Rect.Width < 0 || state.Rect.Height < 0)))
+            {
+                throw new InvalidOperationException(
+                    "Portable image-drawing state is incomplete.");
+            }
+            uint imageSourceHandle = state.HasImageSource
+                ? ResolveImageSource(state.ImageSource!)
+                : 0;
+            PortableRect rect = state.HasRect
+                ? state.Rect
+                : new PortableRect(0, 0, 0, 0);
+            uint handle = NextHandle();
+            _drawingHandles.Add(resource, handle);
+            Batch.CreateResource(handle, NativeMilResourceType.ImageDrawing);
+            Batch.SetImageDrawing(
+                handle,
+                rect.X,
+                rect.Y,
+                rect.Width,
+                rect.Height,
+                imageSourceHandle);
+            return handle;
+        }
+
+        private uint ResolveImageSource(object imageSource)
+        {
+            if (_imageSourceHandles.TryGetValue(
+                    imageSource, out uint existing))
+            {
+                return existing;
+            }
+            if (!WpfBitmapSourceImageAdapter.TryCopyPixelsAsRgba32(
+                    imageSource,
+                    out byte[] pixels,
+                    out int width,
+                    out int height) ||
+                width <= 0 || height <= 0 || width > 16_384 ||
+                height > 16_384)
+            {
+                throw MissingContract(
+                    nameof(IPortableBitmapSourcePixelsSource));
+            }
+            uint rowBytes = checked((uint)width * 4U);
+            uint handle = NextHandle();
+            Batch.CreateResource(handle, NativeMilResourceType.BitmapSource);
+            _imageSourceHandles.Add(imageSource, handle);
+            BitmapSources.Add(new WpfNativeMilBitmapSource(
+                handle,
+                checked((uint)width),
+                checked((uint)height),
+                rowBytes,
+                pixels));
+            return handle;
+        }
+
         private uint AddDrawingGroup(
             object resource,
             PortableDrawingGroupState state,
@@ -827,6 +919,12 @@ public sealed class WpfNativeMilSceneCompiler
                 {
                     return AddGeometryDrawing(resource, state);
                 }
+                if (resource is IPortableImageDrawingStateSource imageSource &&
+                    imageSource.TryGetPortableImageDrawingState(
+                        out PortableImageDrawingState imageState))
+                {
+                    return AddImageDrawing(resource, imageState);
+                }
                 if (resource is IPortableDrawingGroupStateSource groupSource &&
                     groupSource.TryGetPortableDrawingGroupState(
                         out PortableDrawingGroupState groupState) &&
@@ -835,7 +933,8 @@ public sealed class WpfNativeMilSceneCompiler
                     return AddDrawingGroup(resource, groupState, children);
                 }
                 throw MissingContract(
-                    $"{nameof(IPortableGeometryDrawingStateSource)} or " +
+                    $"{nameof(IPortableGeometryDrawingStateSource)}, " +
+                    $"{nameof(IPortableImageDrawingStateSource)}, or " +
                     nameof(IPortableDrawingGroupStateSource));
             }
             finally
