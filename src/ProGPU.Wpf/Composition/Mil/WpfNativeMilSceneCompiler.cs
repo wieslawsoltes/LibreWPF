@@ -1046,13 +1046,13 @@ public sealed class WpfNativeMilSceneCompiler
         {
             if ((state.HasTransform && state.Transform is null) ||
                 (state.HasClipGeometry && state.ClipGeometry is null) ||
+                (state.HasOpacityMask && state.OpacityMask is null) ||
                 (state.HasGuidelineSet && state.GuidelineSet is null))
             {
                 throw new InvalidOperationException(
                     "Portable drawing-group state is incomplete.");
             }
-            if (state.HasOpacityMask ||
-                state.HasEffect || state.HasBitmapEffect ||
+            if (state.HasEffect || state.HasBitmapEffect ||
                 state.HasBitmapEffectInput || state.HasCacheMode ||
                 state.HasEdgeMode ||
                 state.HasClearTypeHint || state.HasTextRenderingMode ||
@@ -1076,6 +1076,9 @@ public sealed class WpfNativeMilSceneCompiler
                 : 0;
             uint clipHandle = state.HasClipGeometry
                 ? ResolveGeometry(state.ClipGeometry!)
+                : 0;
+            uint opacityMaskHandle = state.HasOpacityMask
+                ? ResolveSolidOpacityMask(state.OpacityMask!)
                 : 0;
             uint guidelineSetHandle = state.HasGuidelineSet
                 ? ResolveGuidelineSet(state.GuidelineSet!)
@@ -1123,10 +1126,32 @@ public sealed class WpfNativeMilSceneCompiler
                 new NativeMilDrawingGroup(
                     state.HasOpacity ? state.Opacity : 1.0,
                     ClipGeometryHandle: clipHandle,
+                    OpacityMaskHandle: opacityMaskHandle,
                     TransformHandle: transformHandle,
                     GuidelineSetHandle: guidelineSetHandle,
                     BitmapScalingMode: bitmapScalingMode),
                 childHandles);
+            return handle;
+        }
+
+        private uint ResolveSolidOpacityMask(object resource)
+        {
+            if (resource is not IPortableBrushSource source ||
+                !source.TryGetPortableBrush(out PortableBrush brush))
+            {
+                throw MissingContract(nameof(IPortableBrushSource));
+            }
+            if (brush.Kind != PortableBrushKind.SolidColor)
+            {
+                throw new NotSupportedException(
+                    "Only static solid DrawingGroup opacity masks are implemented by the native MIL slice.");
+            }
+            if (_brushHandles.TryGetValue(resource, out uint existing))
+            {
+                return existing;
+            }
+            uint handle = AddPortableBrush(brush);
+            _brushHandles.Add(resource, handle);
             return handle;
         }
 

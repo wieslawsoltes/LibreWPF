@@ -724,6 +724,72 @@ public sealed class WpfNativeMilSceneCompilerTests
     }
 
     [Fact]
+    public void BuildBatchTranslatesTypedSolidDrawingGroupOpacityMask()
+    {
+        var opacityMask = new FakeBrush(
+            PortableBrush.SolidColor(
+                new PortableColor(128, 255, 255, 255),
+                opacity: 0.5));
+        var childBrush = new FakeBrush(
+            new PortableColor(255, 32, 96, 192));
+        var geometry = new FakePrimitiveGeometry(
+            PortablePrimitiveGeometry.Rectangle(
+                new PortableRect(2, 3, 20, 12),
+                0,
+                0,
+                PortableMatrix3x2.Identity));
+        var child = new FakeGeometryDrawing(childBrush, null, geometry);
+        var group = new FakeDrawingGroup(
+            new PortableDrawingGroupState
+            {
+                HasOpacityMask = true,
+                OpacityMask = opacityMask
+            },
+            [child]);
+        var visual = new FakeVisual(
+            new FakeRenderData(CreateDrawDrawingRecord(1), [group]));
+
+        WpfNativeMilBatch result = new WpfNativeMilSceneCompiler().BuildBatch(
+            visual, 64, 64);
+
+        int groupOffset = FindCommand(result.Bytes, 0x8b);
+        uint opacityMaskHandle = ReadUInt32(result.Bytes, groupOffset + 32);
+        Assert.NotEqual(0U, opacityMaskHandle);
+        int maskOffset = FindCommand(result.Bytes, 0x7e);
+        Assert.Equal(
+            opacityMaskHandle,
+            ReadUInt32(result.Bytes, maskOffset + 8));
+        Assert.Equal(0.5, ReadDouble(result.Bytes, maskOffset + 12));
+        Assert.Equal(128F / 255F, ReadSingle(result.Bytes, maskOffset + 32));
+    }
+
+    [Fact]
+    public void BuildBatchRejectsGradientDrawingGroupOpacityMask()
+    {
+        var opacityMask = new FakeBrush(PortableBrush.LinearGradient(
+            new PortablePoint(0, 0),
+            new PortablePoint(1, 0),
+            [
+                new PortableGradientStop(
+                    new PortableColor(0, 255, 255, 255), 0),
+                new PortableGradientStop(
+                    new PortableColor(255, 255, 255, 255), 1)
+            ]));
+        var group = new FakeDrawingGroup(
+            new PortableDrawingGroupState
+            {
+                HasOpacityMask = true,
+                OpacityMask = opacityMask
+            },
+            []);
+        var visual = new FakeVisual(
+            new FakeRenderData(CreateDrawDrawingRecord(1), [group]));
+
+        Assert.Throws<NotSupportedException>(() =>
+            new WpfNativeMilSceneCompiler().BuildBatch(visual, 64, 64));
+    }
+
+    [Fact]
     public void BuildBatchRejectsLegacyObjectBitmapScalingMode()
     {
         var group = new FakeDrawingGroup(
