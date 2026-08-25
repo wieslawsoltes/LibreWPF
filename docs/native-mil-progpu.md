@@ -114,9 +114,15 @@ ProGPU currently provides:
   line children contribute no fill. Nested groups lower recursively with
   WPF-order transform composition, bounded depth, transactional rollback, and
   the root group's fill rule applied across all descendant contours, matching
-  WPF's `CShape::AddShapeData`/outer `SetFillMode` behavior. Transformed
-  arc-bearing paths, combined children, and meaningful group pens remain fail
-  closed pending exact contour/stroke composition.
+  WPF's `CShape::AddShapeData`/outer `SetFillMode` behavior. Nonzero groups keep
+  a shared contour batch for cross-child winding cancellation; EvenOdd groups
+  use an equivalent postfix XOR of child-inside predicates so raster work stays
+  bounded by each leaf. Nonsingular affine arc-bearing children remain analytic:
+  ProGPU factors the transformed ellipse basis, preserves parameterization, and
+  reverses sweep under reflection. Exact translations preserve the original arc
+  fields bit-for-bit except for endpoints/center. Singular arc transforms,
+  combined children, and meaningful group pens remain fail closed pending exact
+  contour/stroke composition.
 - Canonical retained `CombinedGeometry` packets with optional transform,
   null-as-empty operands, dependency/cycle validation, and all four WPF combine
   operations. Two identity-local path operands lower to ProGPU's native postfix
@@ -128,10 +134,12 @@ ProGPU currently provides:
   boolean leaf while retaining that operand group's root fill rule. Combined
   operands recurse into the bounded geometry DAG, compose nested transforms
   into descendant leaves, and append arbitrary-depth postfix boolean trees with
-  segment/node rollback and conservative descendant bounds. Transformed arc-
-  bearing paths and stroked operands currently fail closed; combined children
-  inside groups also fail closed because flattening a boolean result into raw
-  outer-fill contours would change WPF semantics.
+  segment/node rollback and conservative descendant bounds. Nonsingular affine
+  arc-bearing leaves use the same exact analytic factorization and sweep
+  reversal as group children. Singular arc transforms and stroked operands
+  currently fail closed; combined children inside groups also fail closed
+  because flattening a boolean result into raw outer-fill contours would change
+  WPF semantics.
 - An identical size-versioned C ABI exported by wgpu-native and provider-
   resolved Dawn modules, plus `NativeMilChannel` and typed scene metrics.
 - `NativeMilBatchBuilder` and `NativeMilRenderDataBuilder` managed producers.
@@ -482,14 +490,46 @@ for `progpu_native_dawn.dll`. Both exports compiled the 42-command, 18-resource
 recursive boolean seed; live Parallels D3D12 readback completed with 18
 semantic resources, three draws, and 16,384 pixels.
 
+The affine-arc recursive-geometry checkpoint at exact ProGPU commit `b9011c23`
+passed the complete Windows ARM64 MSVC gate. Both native modules rebuilt under
+`/W4 /WX`, all 11 CTests passed, and the MIL fixture covered reflected/sheared
+arc sample equivalence, sweep reversal, singular-transform rejection, exact
+translation preservation, multiple analytic group arcs, recursive boolean arc
+leaves, outer fill ownership, and rollback. Live C++/managed D3D12 rendering,
+allocation probes, text, images, mask/effect chains, Overlay, ColorDodge, and
+the complete bounded differential matrix passed. Mixed parity stayed at maximum
+delta 2/255, zero pixels above 3/255, and mean `0.0000622`; the 49-path atlas
+retained its historical maximum 46/255, 1,048 pixels over tolerance, and mean
+`0.017107928` contract. VM timing was noisy and is not used as qualification
+evidence.
+
+The zero-warning project-reference package consumer then copied the exact
+staged DLLs and passed both a focused recursive-group arc scene and the broader
+recursive group/boolean scene through the wgpu-native and Dawn exports. Each
+completed live D3D12 readback with 18 semantic resources and three draws; their
+coverage staging was 40,960 and 41,472 bytes respectively. SHA-256 was
+`a94dab843f3f253e004e128e6ff9fc4160676691cc467cb0288a6071b0f37025`
+for `progpu_native.dll` and
+`a1f0c7067bd442b989708f4e7243927074a75e9419f8013d4cdef5d565b59807`
+for `progpu_native_dawn.dll`.
+
+A separate close-translated-duplicate EvenOdd-group diagnostic still removes
+the Parallels D3D12 device. It reproduces with affine line/quadratic/cubic
+leaves as well as arcs, while the single recursive group arc, recursive boolean
+arc, and non-equivalent mixed group all pass. Approximation experiments were
+removed; supported rendering remains analytic at the established 8x8 sample
+grid. This overlap pattern is excluded from the qualified package seed and must
+either fail closed transactionally or be fixed in the shared path backend
+before release.
+
 ## Next parity gates
 
 1. Generate packed protocol size/offset metadata from the checked-in WPF MCG
    model rather than manually extending command declarations.
 2. Add transform animations and remaining transform resource kinds, dashed
    ellipse and rounded-rectangle pen draws, non-uniform rounded rectangles,
-   curved/smooth path strokes and the closed-gap dashed seam, transformed-arc
-   preservation, exact combined children inside groups, gradients, remaining
+   curved/smooth path strokes and the closed-gap dashed seam, singular affine
+   arc handling, exact combined children inside groups, gradients, remaining
    push/pop state, clips,
    images, and
    glyph runs.
