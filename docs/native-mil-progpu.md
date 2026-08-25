@@ -1530,10 +1530,27 @@ SHA-256 values are
 `FC95E25FF8E5313D6151F199E236D376E28C9FF7243AD0887F8FA360B89AA73E`
 (`progpu_native_dawn.dll`). This closes Windows DirectX qualification for the
 local-space, RenderAtScale, SnapsToDevicePixels, and EnableClearType cache
-subset; post-raster clip/mask/guideline/effect ordering and LibreWPF
-package-mode SDK coverage remain. The subsequent `7eb17727` rectangle-clip and
-single-guideline composite checkpoint is locally qualified on Metal/Dawn and
-requires its own strict Windows rerun.
+subset.
+
+The subsequent `7eb17727` rectangle-clip and single-guideline composite
+checkpoint passed its own strict Windows gate on 2026-08-26 from a clean
+detached checkout. MSVC rebuilt the modified compiler, validator, executor,
+and both native modules under `/W4 /WX`; all 11 native/Dawn CTests and both
+export contracts passed. The independent C++ and managed samples used the live
+`Parallels Display Adapter (WDDM)` D3D12 adapter and passed retained rendering,
+allocation, and pixel-readback checks, while both managed builds completed
+with zero warnings. The complete bounded differential matrix also passed,
+including managed/C++ text shaping; group opacity, zero-copy image, Overlay,
+and ColorDodge were pixel-exact. The staged nine-file win-arm64 package hashes
+are
+`B2258721E6AFA621ADB5AC6E284DBF392342288A5620B22156667EE357E7D710`
+(`progpu_native.dll`) and
+`73327D9C482EEE4F387789A9B2561220FD41C8659A4C781AF094CBFC8FB2C3E1`
+(`progpu_native_dawn.dll`). Exact rectangle post-raster clips, one static
+composite guideline per axis, and the cache-root raster/composite separation
+are therefore qualified on DirectX as well as Metal/Dawn. Spatial masks,
+non-linear sampling, multi-guideline behavior, nested-cache/effect ordering,
+and LibreWPF package-mode SDK coverage remain.
 
 ## Next parity gates
 
