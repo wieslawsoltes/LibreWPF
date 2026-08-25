@@ -1122,6 +1122,38 @@ for `progpu_native.dll` and
 `4a9e55ff26301d50138c7f02cd8be02645541ea29dd37081e2f787d2cc69c8b7`
 for `progpu_native_dawn.dll`.
 
+ProGPU implementation `f9f49b86`, package checkpoint `9ecc8a9b`, and
+LibreWPF producer checkpoint `15fa518c2` next added the exact static solid
+DrawingGroup opacity-mask subset. The producer reads only
+`IPortableBrushSource`/`PortableBrush`, accepts a transform-free
+SolidColorBrush, reuses its typed canonical brush handle, and emits that
+handle in the DrawingGroup packet. No reflected brush properties, type-name
+checks, or bridge-local mask shape were introduced.
+
+ProGPU evaluates the spatially uniform mask alpha as
+`brush.Opacity * brush.Color.A` and multiplies it into inherited group
+opacity before recursively lowering children. This is exact across every
+semantic draw family and remains live when the retained SolidColorBrush is
+updated. Gradient masks are rejected as unsupported, missing/wrong resource
+handles are invalid, and tile, animated, transformed, or otherwise spatially
+varying masks fail closed until native group bounds and reusable mask
+render-target/material resources are available.
+
+The focused LibreWPF producer suite passed 43/43 tests, including typed solid
+packet output and gradient rejection, and its Release build completed with
+zero warnings and errors. The package consumer's
+`--mil-drawing-group-only` lane now runs in JIT, NativeAOT, build, release,
+and package verification. All ten local MIL CTests passed. Strict Windows
+ARM64 MSVC rebuilt both exports under `/W4 /WX`; all 11 native/Dawn CTests
+passed. Fresh app-local DLLs compiled the focused scene through both exports
+and rendered on live D3D12 with four semantic resources, one draw, zero
+coverage-staging bytes, nonblack retained readback, and 16,384 direct pixels.
+Qualified SHA-256 values are
+`3b5aa2a63c1335877e8ca49ecb37abcc705be1a9940a77fbf5f19150219f69c1`
+for `progpu_native.dll` and
+`341e01504aeb9380a33676704f1712cf25ee433f80554344bb080a3e0514be93`
+for `progpu_native_dawn.dll`.
+
 ## Next parity gates
 
 1. Generate packed protocol size/offset metadata from the checked-in WPF MCG
