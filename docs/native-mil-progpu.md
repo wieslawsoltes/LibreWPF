@@ -106,8 +106,12 @@ ProGPU currently provides:
   including variable child handles, fill rule, matrix transform, dependency
   deletion, cycle rejection, and transactional rollback. Identity-local path
   children aggregate into one semantic path batch so EvenOdd/Nonzero applies
-  across overlapping child contours. Fixed, transformed, nested, and stroked
-  group execution remains fail closed pending exact contour composition.
+  across overlapping child contours. Fixed rectangle and ellipse children join
+  that batch, including geometry-local affine transforms and WPF-exact
+  non-uniform rounded-rectangle radius clamping/cubic control points; line
+  children contribute no fill. Transformed general paths, nested groups,
+  combined children, and meaningful group pens remain fail closed pending exact
+  contour/stroke composition.
 - Canonical retained `CombinedGeometry` packets with optional transform,
   null-as-empty operands, dependency/cycle validation, and all four WPF combine
   operations. Two identity-local path operands lower to ProGPU's native postfix
@@ -370,6 +374,25 @@ path/group/combined graph plus a transformed dashed closed line path with a WPF
 geometry gap through both native MIL exports, installed the wgpu-native stream,
 and completed live D3D12 readback (18 resources, three draws, 16,384 pixels).
 
+The fixed-child `GeometryGroup` checkpoint at exact ProGPU commit `18ccb55c`
+passed the complete Windows ARM64 MSVC gate. Both native modules rebuilt under
+`/W4 /WX`, all 11 CTests passed, and the independent C++ and managed hosts
+completed live D3D12 rendering/readback plus the managed allocation probes.
+The bounded mixed differential remained at maximum delta 2/255, zero pixels
+above 3/255, and mean `0.0000622`; external and masked images, semantic
+mask/effect layers, path atlas, blur/drop-shadow, text, Overlay, and ColorDodge
+contracts also passed before fresh `win-arm64` package staging.
+
+The zero-warning project-reference consumer then copied the exact staged
+modules app-locally. SHA-256 was
+`73fcc3871408d4642d6ace3817b30c36194e9938c36dd60f8e4d09325ec4495f`
+for `progpu_native.dll` and
+`709e59f97f484dc74dd5693f207dbbe96ba568d1f692b93c6df186e5d535c8c8`
+for `progpu_native_dawn.dll`, with identical source/destination hashes. Both MIL
+exports compiled the group containing transformed rounded-rectangle and ellipse
+children; the wgpu-native stream then completed live D3D12 readback with 18
+retained resources, three draws, and 16,384 pixels.
+
 ## Next parity gates
 
 1. Generate packed protocol size/offset metadata from the checked-in WPF MCG
@@ -377,7 +400,8 @@ and completed live D3D12 readback (18 resources, three draws, 16,384 pixels).
 2. Add transform animations and remaining transform resource kinds, dashed
    ellipse and rounded-rectangle pen draws, non-uniform rounded rectangles,
    curved/smooth path strokes and the closed-gap dashed seam, recursive
-   group/combined child widening, gradients, remaining push/pop state, clips,
+   transformed-path/group/combined child widening, gradients, remaining
+   push/pop state, clips,
    images, and
    glyph runs.
 3. Cache stable native handles/generations across frames and emit incremental
