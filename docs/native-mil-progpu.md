@@ -1029,6 +1029,36 @@ for `progpu_native_dawn.dll`. Sideways text, gradient/tile foreground brushes,
 CFF/CFF2 and variable/color/bitmap glyphs, target-DPI-aware raster selection,
 decorations, and incremental font registration remain explicit follow-up work.
 
+ProGPU implementation `6071925d` and LibreWPF producer checkpoint
+`0f0aabb13` next added canonical DrawingImage retention. LibreWPF recognizes
+only `IPortableDrawingImageSource`, resolves its referenced drawing through the
+existing typed drawing contracts, and obtains exact local content bounds
+through the reflection-free `IPortableDrawingBoundsSource`/typed drawing-bounds
+reader. It emits type `59` plus command `0x71`, supplies a neutral
+`NativeMilRect` sideband before compilation, preserves an empty DrawingImage as
+a no-op, and fails closed for incomplete or unbounded source content.
+
+ProGPU recursively maps the retained vector drawing into ImageDrawing's
+destination rectangle. Axis-preserving destination clips use semantic
+scissors; arbitrary affine transforms use exact vector clip masks, so rotated
+or sheared image destinations are not broadened to axis-aligned bounds. Native
+tests cover missing/invalid bounds, dependency-protected deletion, mapping,
+and affine clip masks. The LibreWPF producer tests passed 2/2, all ten local
+native CTests passed, the canonical managed packet test passed, and the public
+consumer built with zero warnings.
+
+Strict Windows ARM64 MSVC rebuilt both native modules under `/W4 /WX`; all 11
+native/Dawn CTests passed. The focused 19-command, eight-resource package scene
+compiled through both exports and rendered on live D3D12 with four semantic
+resources, one batched draw, zero coverage-staging bytes, a valid retained
+readback, and 16,384 direct-render pixels. Qualified SHA-256 values are
+`85ef5bb9c18505b97f11bf40302a8d93c50d3bd13b7afbd412fac55b7ba67cf1`
+for `progpu_native.dll` and
+`bae571f2a8d3cf707c92919613c8a5bece2f6e462b19c9bcd6167cd0ea66bc2c`
+for `progpu_native_dawn.dll`. DrawingImage-backed ImageBrush tiling, animated
+destination rectangles, incremental bounds updates, and effects/cache state
+remain explicit gaps.
+
 ## Next parity gates
 
 1. Generate packed protocol size/offset metadata from the checked-in WPF MCG
