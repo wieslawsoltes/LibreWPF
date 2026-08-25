@@ -98,6 +98,14 @@ namespace System.Windows.Media
                 BitmapEffectInput = bitmapEffectInput,
                 HasBitmapScalingMode = bitmapScalingMode != BitmapScalingMode.Unspecified,
                 BitmapScalingMode = bitmapScalingMode,
+                HasPortableBitmapScalingMode = bitmapScalingMode != BitmapScalingMode.Unspecified,
+                PortableBitmapScalingMode = bitmapScalingMode switch
+                {
+                    BitmapScalingMode.LowQuality => PortableBitmapScalingMode.Linear,
+                    BitmapScalingMode.HighQuality => PortableBitmapScalingMode.Fant,
+                    BitmapScalingMode.NearestNeighbor => PortableBitmapScalingMode.NearestNeighbor,
+                    _ => PortableBitmapScalingMode.Unspecified
+                },
                 HasEdgeMode = edgeMode != EdgeMode.Unspecified,
                 EdgeMode = edgeMode,
                 HasClearTypeHint = clearTypeHint != ClearTypeHint.Auto,

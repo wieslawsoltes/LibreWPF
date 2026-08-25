@@ -1051,7 +1051,7 @@ public sealed class WpfNativeMilSceneCompiler
             if (state.HasOpacityMask || state.HasGuidelineSet ||
                 state.HasEffect || state.HasBitmapEffect ||
                 state.HasBitmapEffectInput || state.HasCacheMode ||
-                state.HasBitmapScalingMode || state.HasEdgeMode ||
+                state.HasEdgeMode ||
                 state.HasClearTypeHint || state.HasTextRenderingMode ||
                 state.HasTextHintingMode)
             {
@@ -1074,6 +1074,29 @@ public sealed class WpfNativeMilSceneCompiler
             uint clipHandle = state.HasClipGeometry
                 ? ResolveGeometry(state.ClipGeometry!)
                 : 0;
+            NativeMilBitmapScalingMode bitmapScalingMode =
+                NativeMilBitmapScalingMode.Unspecified;
+            if (state.HasBitmapScalingMode &&
+                !state.HasPortableBitmapScalingMode)
+            {
+                throw MissingContract(nameof(PortableBitmapScalingMode));
+            }
+            if (state.HasPortableBitmapScalingMode)
+            {
+                bitmapScalingMode = state.PortableBitmapScalingMode switch
+                {
+                    PortableBitmapScalingMode.Unspecified =>
+                        NativeMilBitmapScalingMode.Unspecified,
+                    PortableBitmapScalingMode.Linear =>
+                        NativeMilBitmapScalingMode.Linear,
+                    PortableBitmapScalingMode.Fant =>
+                        NativeMilBitmapScalingMode.Fant,
+                    PortableBitmapScalingMode.NearestNeighbor =>
+                        NativeMilBitmapScalingMode.NearestNeighbor,
+                    _ => throw new NotSupportedException(
+                        $"Bitmap scaling mode {(int)state.PortableBitmapScalingMode} is unsupported.")
+                };
+            }
             var childHandles = new uint[childCount];
             for (int index = 0; index < childCount; index++)
             {
@@ -1094,7 +1117,8 @@ public sealed class WpfNativeMilSceneCompiler
                 new NativeMilDrawingGroup(
                     state.HasOpacity ? state.Opacity : 1.0,
                     ClipGeometryHandle: clipHandle,
-                    TransformHandle: transformHandle),
+                    TransformHandle: transformHandle,
+                    BitmapScalingMode: bitmapScalingMode),
                 childHandles);
             return handle;
         }
