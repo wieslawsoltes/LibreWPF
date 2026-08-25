@@ -19,7 +19,8 @@ qualification at ProGPU documentation commit `37d052ce`.
 The subsequent canonical static-transform, transform-animation, and native
 gradient qualifications are pinned at ProGPU documentation commit `becbe01d`.
 The canonical GeometryDrawing qualification is pinned at ProGPU documentation
-commit `837b47e9`. The current submodule head is that exact
+commit `837b47e9`. The canonical DrawingGroup qualification is pinned at
+ProGPU documentation commit `848763dc`. The current submodule head is that exact
 latest-`main`-integrated checkpoint.
 
 ## WPF protocol model
@@ -94,6 +95,14 @@ ProGPU currently provides:
   dependencies once per compilation, and preserves null geometry as a no-op.
   ProGPU reuses the existing native `DrawGeometry` lowering and rejects
   wrong-type or prematurely deleted dependencies transactionally.
+- Canonical retained `DrawingGroup` resource `91` with ordered nested drawings,
+  typed transform, exact geometry clip, static opacity, and live
+  `DoubleResource` opacity. LibreWPF consumes only
+  `IPortableDrawingGroupStateSource` and `IPortableDrawingGroupChildrenSource`,
+  preserves child order, rejects cycles, and fails closed for unimplemented
+  mask, guideline, effect/cache, and render-option state. ProGPU recursively
+  compiles the retained group through the same native drawing and geometry
+  paths while preserving parent semantic scopes and dependency lifetime.
 - Typed rectangle pen production for fill-only, stroke-only, and combined
   records. Native rectangle outlines use closed ProGPU semantic polylines with
   exact join/dash metadata and affine-expanded stroke bounds. Solid
@@ -927,6 +936,28 @@ for `progpu_native.dll` and
 `5abd082989ae7df2b77cd727081f761d1211d5803d71cfd9102056f1a2d6034c`
 for `progpu_native_dawn.dll`.
 
+ProGPU implementation `49d448af`, focused gate `85f55ab2`, and documentation
+checkpoint `848763dc` next added canonical `DrawingGroup` resource updates and
+recursive retained replay. LibreWPF producer checkpoint `437f553d0` consumes
+only `IPortableDrawingGroupStateSource` and
+`IPortableDrawingGroupChildrenSource`; it recursively emits typed child
+drawings, transform, clip, and opacity state without reflection, preserves an
+empty group, rejects cycles, and fails closed for state that ProGPU does not
+yet execute. The focused producer suite passed 31/31.
+
+All ten local ProGPU native CTests passed, the managed canonical-builder filter
+passed 7/7, and the project-reference package consumer built with zero
+warnings. Strict Windows ARM64 MSVC rebuilt both native modules under `/W4
+/WX`, and all 11 native/Dawn CTests passed in the Parallels VM. The focused
+23-command, ten-resource DrawingGroup scene compiled through both MIL exports
+and rendered on live D3D12 with four semantic resources, one batched draw, zero
+coverage-staging bytes, a valid submission, nonblack retained readback, and
+16,384 direct-render pixels. Exact qualified SHA-256 values were
+`d20b7d78eff8905c7d1130c12980bbe2bc02a70337cbb4461c1279562fe624da`
+for `progpu_native.dll` and
+`e8c7dce855f34877abe3c211a7970235444402a37bfd940f0a4afbfea5f1a6a2`
+for `progpu_native_dawn.dll`.
+
 ## Next parity gates
 
 1. Generate packed protocol size/offset metadata from the checked-in WPF MCG
@@ -936,7 +967,7 @@ for `progpu_native_dawn.dll`.
    translated-equivalent EvenOdd overlap execution, exact combined children
    inside groups, WPF epsilon-near-coincident gradient-stop normalization,
    duplicate-endpoint Pad outside-color distinction, cap-only degenerate
-   gradient pen strokes, DrawingGroup/ImageDrawing/GlyphRunDrawing resources,
+   gradient pen strokes, ImageDrawing/GlyphRunDrawing resources,
    remaining push/pop state, images, and glyph runs.
 3. Cache stable native handles/generations across frames and emit incremental
    resource updates plus damage instead of rebuilding the initial scene batch.
