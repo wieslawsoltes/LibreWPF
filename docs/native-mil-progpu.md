@@ -1393,6 +1393,43 @@ for `progpu_native.dll` and
 `2c9c1f5fc1ee4f41b9361280d53a32201e3b4215c3cd70a0c0cf68c130766eda`
 for `progpu_native_dawn.dll`.
 
+## BitmapCache execution foundation
+
+ProGPU checkpoint `a6394d47`, integrated with current ProGPU `main` at
+`93a08f1b`, adds the first executable persistent cache primitive shared by the
+wgpu-native and provider-resolved Dawn paths. Semantic layers may opt into
+`PROGPU_NATIVE_SCENE_LAYER_CACHE_CONTENT` / managed
+`NativeSceneLayerFlags.CacheContent`. The exact 64-byte layer ABI is unchanged:
+the nonzero composite revision temporarily supplies stable owner identity and
+the nonzero content revision supplies the subtree pixel version.
+
+Cached pages use 16 owner-keyed slots separate from the 16 depth-indexed
+temporary layer slots. Their texture and effect allocations participate in the
+existing bounded aggregate layer budget. Cache lookup intentionally excludes
+the whole-scene hash, so an unrelated sibling or outer-composite update can
+rebuild the semantic bundle without redrawing the retained subtree. Content
+revision, extent or texture-generation changes miss and redraw; duplicate
+owners and backdrop caches fail closed; owner eviction and device recovery
+invalidate completed output.
+
+All ten portable native CTests and the managed zero-allocation builder contract
+pass. The pinned WebScene/Dawn Metal hardware gate also passes on Apple M3 Pro,
+including stable replay, unrelated-sibling retention, content-version redraw,
+package-mode managed render/readback, and forced device-loss recreation. The
+provider/Dawn revisions are
+`02823bf8d2e56548b2780d6b92ae7065be1d8605` and
+`710c33013c53ab2700d332c25ff51430251a8cc4`; native and managed capture SHA-256
+values are
+`14cba9013202f0405b43906255fcf89dc05d315a46f8fc0ad4d3d5680c265b9c` and
+`cfd48921ecaf125032d11d36be132f7850d1060a90d1c71958211871becfbfac`.
+
+This is deliberately not yet a WPF `BitmapCache` parity claim. Canonical
+`MilCmdVisualSetCacheMode` (`0x1e`) and `MilCmdBitmapCache` (`0x8d`) decoding,
+typed source-built WPF/LibreWPF cache DTO production, local content bounds,
+RenderAtScale and DPI realization, zero-scale suppression,
+SnapsToDevicePixels, ClearType policy, outer-transform composition, nested
+cache ordering, package gates, and live D3D12 qualification remain open.
+
 ## Next parity gates
 
 1. Generate packed protocol size/offset metadata from the checked-in WPF MCG
@@ -1407,19 +1444,22 @@ for `progpu_native_dawn.dll`.
    effect/clip/mask/opacity ordering, animated and Box effects, remaining
    push/pop state, DirectWrite/system-display text realization, and the
    explicit advanced glyph/text gaps listed above.
-3. Cache stable native handles/generations across frames and emit incremental
-   resource updates plus damage instead of rebuilding the initial scene batch.
-4. Bind compiled semantic streams directly to `NativeCompositor` targets and
+3. Complete the canonical WPF BitmapCache protocol and execution gates listed
+   above on the owner-keyed semantic cache primitive.
+4. Cache other stable native handles/generations across frames and emit
+   incremental resource updates plus damage instead of rebuilding the initial
+   scene batch.
+5. Bind compiled semantic streams directly to `NativeCompositor` targets and
    expose an explicit LibreWPF runtime selector.
-5. Complete live provider-resolved Dawn rendering and the remaining adapter
+6. Complete live provider-resolved Dawn rendering and the remaining adapter
    LUID, limits, resize, occlusion, DPI, lifetime, and non-Parallels retained
    hit-test evidence. The Dawn ARM64 build/ABI and wgpu-native D3D12 live lane
    are now qualified.
-6. Implement only the measured D3D11/D3D12/DXGI/D3DCompiler compatibility
+7. Implement only the measured D3D11/D3D12/DXGI/D3DCompiler compatibility
    surface required by SDK, SciChart, and interop consumers. Shared textures,
    fences, formats, row pitch, alpha mode, and device loss require explicit
    parity tests.
-7. Run package-mode Toolkit/AvalonDock continuously and Xceed paid coverage
+8. Run package-mode Toolkit/AvalonDock continuously and Xceed paid coverage
    only when the required license environment variables are present.
 
 ## Developer commands
