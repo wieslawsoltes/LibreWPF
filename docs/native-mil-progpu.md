@@ -1154,6 +1154,30 @@ for `progpu_native.dll` and
 `341e01504aeb9380a33676704f1712cf25ee433f80554344bb080a3e0514be93`
 for `progpu_native_dawn.dll`.
 
+ProGPU implementation `55bf8628`, package checkpoint `3f5f72dc`, and
+LibreWPF producer checkpoint `3a478c526` next added canonical DrawingGroup
+`EdgeMode.Aliased`. Source-built WPF publishes a neutral
+`PortableEdgeMode`; the native scene compiler requires that typed value when
+legacy DrawingGroup state says an edge mode is present, maps it into the
+canonical packet, and rejects object-only edge state. No type-name matching,
+property probing, or reflection fallback was introduced.
+
+ProGPU keeps Unspecified as inherited state and makes Aliased sticky through
+nested drawing scopes. Existing shared-backend primitive and polyline flags
+select aliased analytic rasterization, and vector paths use a one-sample grid
+for fills, strokes, caps, and joins. Images and glyph text retain their own
+sampling behavior, while exact clip masks remain antialiased geometry rather
+than being reduced to aliased rectangle bounds.
+
+Validation passed all eight configured local native suites, the zero-warning
+ProGPU managed graph build, 44/44 focused LibreWPF producer tests, the
+source-built PresentationCore build, the reflection audit, and the
+project-reference package build. Strict Windows ARM64 MSVC rebuilt both
+exports and all 11 native/Dawn CTests passed. Fresh app-local native, Dawn,
+and wgpu-native DLLs compiled the upgraded `--mil-drawing-group-only` scene
+through both exports; live D3D12 reported four semantic resources, one draw,
+zero coverage-staging bytes, and 16,384 direct pixels.
+
 ## Next parity gates
 
 1. Generate packed protocol size/offset metadata from the checked-in WPF MCG
