@@ -2652,8 +2652,23 @@ namespace System.Windows.Media
                     : PortableClearTypeHint.Auto,
                 HasTextRenderingMode = textRenderingMode != TextRenderingMode.Auto,
                 TextRenderingMode = textRenderingMode,
+                HasPortableTextRenderingMode = textRenderingMode != TextRenderingMode.Auto,
+                PortableTextRenderingMode = textRenderingMode switch
+                {
+                    TextRenderingMode.Aliased => PortableTextRenderingMode.Aliased,
+                    TextRenderingMode.Grayscale => PortableTextRenderingMode.Grayscale,
+                    TextRenderingMode.ClearType => PortableTextRenderingMode.ClearType,
+                    _ => PortableTextRenderingMode.Auto
+                },
                 HasTextHintingMode = textHintingMode != TextHintingMode.Auto,
                 TextHintingMode = textHintingMode,
+                HasPortableTextHintingMode = textHintingMode != TextHintingMode.Auto,
+                PortableTextHintingMode = textHintingMode switch
+                {
+                    TextHintingMode.Fixed => PortableTextHintingMode.Fixed,
+                    TextHintingMode.Animated => PortableTextHintingMode.Animated,
+                    _ => PortableTextHintingMode.Auto
+                },
                 HasSnappingGuidelinesX = guidelinesX != null,
                 SnappingGuidelinesX = GetPortableVisualGuidelines(guidelinesX, isXAxis: true),
                 HasSnappingGuidelinesY = guidelinesY != null,

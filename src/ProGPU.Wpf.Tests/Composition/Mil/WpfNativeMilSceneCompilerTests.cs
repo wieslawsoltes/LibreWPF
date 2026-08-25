@@ -31,7 +31,14 @@ public sealed class WpfNativeMilSceneCompilerTests
                 PortableEdgeMode = PortableEdgeMode.Aliased,
                 HasClearTypeHint = true,
                 HasPortableClearTypeHint = true,
-                PortableClearTypeHint = PortableClearTypeHint.Enabled
+                PortableClearTypeHint = PortableClearTypeHint.Enabled,
+                HasTextRenderingMode = true,
+                HasPortableTextRenderingMode = true,
+                PortableTextRenderingMode =
+                    PortableTextRenderingMode.ClearType,
+                HasTextHintingMode = true,
+                HasPortableTextHintingMode = true,
+                PortableTextHintingMode = PortableTextHintingMode.Fixed
             });
 
         WpfNativeMilBatch result = new WpfNativeMilSceneCompiler().BuildBatch(
@@ -45,13 +52,13 @@ public sealed class WpfNativeMilSceneCompilerTests
             commands);
         int renderOptionsOffset = FindCommand(result.Bytes, 0x21);
         Assert.Equal(1U, ReadUInt32(result.Bytes, renderOptionsOffset + 8));
-        Assert.Equal(0x0bU, ReadUInt32(result.Bytes, renderOptionsOffset + 12));
+        Assert.Equal(0x3bU, ReadUInt32(result.Bytes, renderOptionsOffset + 12));
         Assert.Equal(1U, ReadUInt32(result.Bytes, renderOptionsOffset + 16));
         Assert.Equal(0U, ReadUInt32(result.Bytes, renderOptionsOffset + 20));
         Assert.Equal(3U, ReadUInt32(result.Bytes, renderOptionsOffset + 24));
         Assert.Equal(1U, ReadUInt32(result.Bytes, renderOptionsOffset + 28));
-        Assert.Equal(0U, ReadUInt32(result.Bytes, renderOptionsOffset + 32));
-        Assert.Equal(0U, ReadUInt32(result.Bytes, renderOptionsOffset + 36));
+        Assert.Equal(3U, ReadUInt32(result.Bytes, renderOptionsOffset + 32));
+        Assert.Equal(1U, ReadUInt32(result.Bytes, renderOptionsOffset + 36));
         int renderDataOffset = FindCommand(result.Bytes, 0x18);
         int nestedOffset = renderDataOffset + 16;
         Assert.Equal(48, ReadInt32(result.Bytes, nestedOffset));
@@ -846,6 +853,8 @@ public sealed class WpfNativeMilSceneCompilerTests
     [InlineData(0, nameof(PortableBitmapScalingMode))]
     [InlineData(1, nameof(PortableEdgeMode))]
     [InlineData(2, nameof(PortableClearTypeHint))]
+    [InlineData(3, nameof(PortableTextRenderingMode))]
+    [InlineData(4, nameof(PortableTextHintingMode))]
     public void BuildBatchRejectsLegacyObjectVisualRenderOptions(
         int option,
         string expectedContract)
@@ -861,10 +870,20 @@ public sealed class WpfNativeMilSceneCompilerTests
             state.HasEdgeMode = true;
             state.EdgeMode = "Aliased";
         }
-        else
+        else if (option == 2)
         {
             state.HasClearTypeHint = true;
             state.ClearTypeHint = "Enabled";
+        }
+        else if (option == 3)
+        {
+            state.HasTextRenderingMode = true;
+            state.TextRenderingMode = "ClearType";
+        }
+        else
+        {
+            state.HasTextHintingMode = true;
+            state.TextHintingMode = "Fixed";
         }
         var visual = new FakeVisual(null, state);
 

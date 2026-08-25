@@ -7085,6 +7085,10 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("VisualCacheMode", visualSource, StringComparison.Ordinal);
         Assert.Contains("VisualBitmapScalingMode", visualSource, StringComparison.Ordinal);
         Assert.Contains("VisualTextRenderingMode", visualSource, StringComparison.Ordinal);
+        Assert.Contains("HasPortableTextRenderingMode = textRenderingMode != TextRenderingMode.Auto", visualSource, StringComparison.Ordinal);
+        Assert.Contains("PortableTextRenderingMode.ClearType", visualSource, StringComparison.Ordinal);
+        Assert.Contains("HasPortableTextHintingMode = textHintingMode != TextHintingMode.Auto", visualSource, StringComparison.Ordinal);
+        Assert.Contains("PortableTextHintingMode.Animated", visualSource, StringComparison.Ordinal);
         Assert.Contains("VisualXSnappingGuidelines", visualSource, StringComparison.Ordinal);
         Assert.Contains("SnappingGuidelinesX = GetPortableVisualGuidelines(guidelinesX, isXAxis: true)", visualSource, StringComparison.Ordinal);
         Assert.Contains("SnappingGuidelinesY = GetPortableVisualGuidelines(guidelinesY, isXAxis: false)", visualSource, StringComparison.Ordinal);
@@ -7101,6 +7105,8 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("public bool HasCacheMode", interopSource, StringComparison.Ordinal);
         Assert.Contains("public bool HasBitmapScalingMode", interopSource, StringComparison.Ordinal);
         Assert.Contains("public bool HasTextRenderingMode", interopSource, StringComparison.Ordinal);
+        Assert.Contains("public bool HasPortableTextRenderingMode", interopSource, StringComparison.Ordinal);
+        Assert.Contains("public bool HasPortableTextHintingMode", interopSource, StringComparison.Ordinal);
         Assert.Contains("public bool HasSnappingGuidelinesX", interopSource, StringComparison.Ordinal);
         Assert.Contains("CanReplaySubtreeTreatsAbsentPortableVisualStateValuesAsAuthoritative", rendererTests, StringComparison.Ordinal);
         Assert.Contains("ReplaySubtreeDoesNotReflectAbsentPortableVisualStateDependencies", rendererTests, StringComparison.Ordinal);

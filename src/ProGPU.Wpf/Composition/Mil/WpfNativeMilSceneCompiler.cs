@@ -258,6 +258,54 @@ public sealed class WpfNativeMilSceneCompiler
                         $"ClearType hint {(int)state.PortableClearTypeHint} is unsupported.")
                 };
             }
+            NativeMilTextRenderingMode textRenderingMode =
+                NativeMilTextRenderingMode.Auto;
+            if (state.HasTextRenderingMode &&
+                !state.HasPortableTextRenderingMode)
+            {
+                throw MissingContract(nameof(PortableTextRenderingMode));
+            }
+            if (state.HasPortableTextRenderingMode)
+            {
+                renderOptionFlags |=
+                    NativeMilRenderOptionFlags.TextRenderingMode;
+                textRenderingMode = state.PortableTextRenderingMode switch
+                {
+                    PortableTextRenderingMode.Auto =>
+                        NativeMilTextRenderingMode.Auto,
+                    PortableTextRenderingMode.Aliased =>
+                        NativeMilTextRenderingMode.Aliased,
+                    PortableTextRenderingMode.Grayscale =>
+                        NativeMilTextRenderingMode.Grayscale,
+                    PortableTextRenderingMode.ClearType =>
+                        NativeMilTextRenderingMode.ClearType,
+                    _ => throw new NotSupportedException(
+                        $"Text rendering mode {(int)state.PortableTextRenderingMode} is unsupported.")
+                };
+            }
+            NativeMilTextHintingMode textHintingMode =
+                NativeMilTextHintingMode.Auto;
+            if (state.HasTextHintingMode &&
+                !state.HasPortableTextHintingMode)
+            {
+                throw MissingContract(nameof(PortableTextHintingMode));
+            }
+            if (state.HasPortableTextHintingMode)
+            {
+                renderOptionFlags |=
+                    NativeMilRenderOptionFlags.TextHintingMode;
+                textHintingMode = state.PortableTextHintingMode switch
+                {
+                    PortableTextHintingMode.Auto =>
+                        NativeMilTextHintingMode.Auto,
+                    PortableTextHintingMode.Fixed =>
+                        NativeMilTextHintingMode.Fixed,
+                    PortableTextHintingMode.Animated =>
+                        NativeMilTextHintingMode.Animated,
+                    _ => throw new NotSupportedException(
+                        $"Text hinting mode {(int)state.PortableTextHintingMode} is unsupported.")
+                };
+            }
             if (renderOptionFlags != NativeMilRenderOptionFlags.None)
             {
                 Batch.SetVisualRenderOptions(
@@ -266,7 +314,9 @@ public sealed class WpfNativeMilSceneCompiler
                         renderOptionFlags,
                         edgeMode,
                         bitmapScalingMode,
-                        clearTypeHint));
+                        clearTypeHint,
+                        textRenderingMode,
+                        textHintingMode));
             }
 
             if (visual is IPortableDrawingContentSource contentSource &&
@@ -1640,8 +1690,7 @@ public sealed class WpfNativeMilSceneCompiler
                 state.HasOpacityMask ||
                 state.HasEffect || state.HasBitmapEffect ||
                 state.HasBitmapEffectInput || state.HasCacheMode ||
-                state.HasTextRenderingMode ||
-                state.HasTextHintingMode || state.HasSnappingGuidelinesX ||
+                state.HasSnappingGuidelinesX ||
                 state.HasSnappingGuidelinesY)
             {
                 throw new NotSupportedException(
