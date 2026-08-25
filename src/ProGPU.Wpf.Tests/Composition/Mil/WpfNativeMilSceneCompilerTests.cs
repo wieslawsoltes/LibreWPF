@@ -649,6 +649,81 @@ public sealed class WpfNativeMilSceneCompilerTests
     }
 
     [Fact]
+    public void BuildBatchTranslatesTypedStaticDrawingGroupGuidelines()
+    {
+        var brush = new FakeBrush(new PortableColor(255, 32, 96, 192));
+        var geometry = new FakePrimitiveGeometry(
+            PortablePrimitiveGeometry.Rectangle(
+                new PortableRect(2, 3, 20, 12),
+                0,
+                0,
+                PortableMatrix3x2.Identity));
+        var child = new FakeGeometryDrawing(brush, null, geometry);
+        var guidelines = new FakeGuidelineSet(
+            new PortableGuidelineSet(
+                isFrozen: true,
+                isDynamic: false,
+                [2.25],
+                [3.5]));
+        var group = new FakeDrawingGroup(
+            new PortableDrawingGroupState
+            {
+                HasGuidelineSet = true,
+                GuidelineSet = guidelines
+            },
+            [child]);
+        var visual = new FakeVisual(
+            new FakeRenderData(CreateDrawDrawingRecord(1), [group]));
+
+        WpfNativeMilBatch result = new WpfNativeMilSceneCompiler().BuildBatch(
+            visual, 64, 64);
+
+        int guidelineOffset = FindCommand(result.Bytes, 0x8c);
+        Assert.Equal(40, ReadInt32(result.Bytes, guidelineOffset));
+        uint guidelineHandle = ReadUInt32(result.Bytes, guidelineOffset + 8);
+        Assert.Equal(8U, ReadUInt32(result.Bytes, guidelineOffset + 12));
+        Assert.Equal(8U, ReadUInt32(result.Bytes, guidelineOffset + 16));
+        Assert.Equal(0U, ReadUInt32(result.Bytes, guidelineOffset + 20));
+        Assert.Equal(2.25, ReadDouble(result.Bytes, guidelineOffset + 24));
+        Assert.Equal(3.5, ReadDouble(result.Bytes, guidelineOffset + 32));
+
+        int groupOffset = FindCommand(result.Bytes, 0x8b);
+        Assert.Equal(
+            guidelineHandle,
+            ReadUInt32(result.Bytes, groupOffset + 40));
+    }
+
+    [Fact]
+    public void BuildBatchRejectsDynamicOrMultipleTypedGuidelines()
+    {
+        static FakeVisual CreateVisual(PortableGuidelineSet state)
+        {
+            var group = new FakeDrawingGroup(
+                new PortableDrawingGroupState
+                {
+                    HasGuidelineSet = true,
+                    GuidelineSet = new FakeGuidelineSet(state)
+                },
+                []);
+            return new FakeVisual(
+                new FakeRenderData(CreateDrawDrawingRecord(1), [group]));
+        }
+
+        Assert.Throws<NotSupportedException>(() =>
+            new WpfNativeMilSceneCompiler().BuildBatch(
+                CreateVisual(new PortableGuidelineSet(
+                    true, true, [], [2, 0])),
+                64,
+                64));
+        Assert.Throws<NotSupportedException>(() =>
+            new WpfNativeMilSceneCompiler().BuildBatch(
+                CreateVisual(new PortableGuidelineSet(
+                    true, false, [1, 2], [])),
+                64,
+                64));
+    }
+
+    [Fact]
     public void BuildBatchRejectsLegacyObjectBitmapScalingMode()
     {
         var group = new FakeDrawingGroup(
@@ -1811,6 +1886,23 @@ public sealed class WpfNativeMilSceneCompilerTests
             }
             child = null!;
             return false;
+        }
+    }
+
+    private sealed class FakeGuidelineSet : IPortableGuidelineSetSource
+    {
+        private readonly PortableGuidelineSet _state;
+
+        internal FakeGuidelineSet(PortableGuidelineSet state)
+        {
+            _state = state;
+        }
+
+        public bool TryGetPortableGuidelineSet(
+            out PortableGuidelineSet guidelineSet)
+        {
+            guidelineSet = _state;
+            return true;
         }
     }
 

@@ -132,6 +132,8 @@ public sealed class WpfNativeMilSceneCompiler
             new(ReferenceEqualityComparer.Instance);
         private readonly Dictionary<object, uint> _imageSourceHandles =
             new(ReferenceEqualityComparer.Instance);
+        private readonly Dictionary<object, uint> _guidelineSetHandles =
+            new(ReferenceEqualityComparer.Instance);
         private readonly HashSet<object> _activeDrawings =
             new(ReferenceEqualityComparer.Instance);
         private uint _nextHandle = 1;
@@ -1043,12 +1045,13 @@ public sealed class WpfNativeMilSceneCompiler
             IPortableDrawingGroupChildrenSource childrenSource)
         {
             if ((state.HasTransform && state.Transform is null) ||
-                (state.HasClipGeometry && state.ClipGeometry is null))
+                (state.HasClipGeometry && state.ClipGeometry is null) ||
+                (state.HasGuidelineSet && state.GuidelineSet is null))
             {
                 throw new InvalidOperationException(
                     "Portable drawing-group state is incomplete.");
             }
-            if (state.HasOpacityMask || state.HasGuidelineSet ||
+            if (state.HasOpacityMask ||
                 state.HasEffect || state.HasBitmapEffect ||
                 state.HasBitmapEffectInput || state.HasCacheMode ||
                 state.HasEdgeMode ||
@@ -1056,7 +1059,7 @@ public sealed class WpfNativeMilSceneCompiler
                 state.HasTextHintingMode)
             {
                 throw new NotSupportedException(
-                    "Portable drawing-group masks, effects, cache, guidelines, and nondefault render options are not implemented by the native MIL slice.");
+                    "Portable drawing-group masks, effects, cache, and nondefault render options are not implemented by the native MIL slice.");
             }
             if (!childrenSource.TryGetPortableDrawingGroupChildCount(
                     out int childCount))
@@ -1073,6 +1076,9 @@ public sealed class WpfNativeMilSceneCompiler
                 : 0;
             uint clipHandle = state.HasClipGeometry
                 ? ResolveGeometry(state.ClipGeometry!)
+                : 0;
+            uint guidelineSetHandle = state.HasGuidelineSet
+                ? ResolveGuidelineSet(state.GuidelineSet!)
                 : 0;
             NativeMilBitmapScalingMode bitmapScalingMode =
                 NativeMilBitmapScalingMode.Unspecified;
@@ -1118,8 +1124,44 @@ public sealed class WpfNativeMilSceneCompiler
                     state.HasOpacity ? state.Opacity : 1.0,
                     ClipGeometryHandle: clipHandle,
                     TransformHandle: transformHandle,
+                    GuidelineSetHandle: guidelineSetHandle,
                     BitmapScalingMode: bitmapScalingMode),
                 childHandles);
+            return handle;
+        }
+
+        private uint ResolveGuidelineSet(object resource)
+        {
+            if (_guidelineSetHandles.TryGetValue(
+                    resource, out uint existing))
+            {
+                return existing;
+            }
+            if (resource is not IPortableGuidelineSetSource source ||
+                !source.TryGetPortableGuidelineSet(
+                    out PortableGuidelineSet guidelines))
+            {
+                throw MissingContract(nameof(IPortableGuidelineSetSource));
+            }
+            if (guidelines.IsDynamic)
+            {
+                throw new NotSupportedException(
+                    "Dynamic WPF guideline pairs are not implemented by the native MIL slice.");
+            }
+            if (guidelines.GuidelinesX.Length > 1 ||
+                guidelines.GuidelinesY.Length > 1)
+            {
+                throw new NotSupportedException(
+                    "Multiple WPF guidelines per axis require native piecewise geometry deformation.");
+            }
+            uint handle = NextHandle();
+            _guidelineSetHandles.Add(resource, handle);
+            Batch.CreateResource(handle, NativeMilResourceType.GuidelineSet);
+            Batch.SetGuidelineSet(
+                handle,
+                false,
+                guidelines.GuidelinesX,
+                guidelines.GuidelinesY);
             return handle;
         }
 
