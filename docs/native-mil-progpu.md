@@ -16,8 +16,8 @@ latest `main`; the superproject records exact reviewed ProGPU commits. The
 exact singular-affine qualification and its reproducible binary hashes are
 pinned together with the subsequent degenerate point, ellipse, and rectangle
 qualification at ProGPU documentation commit `37d052ce`.
-The positive non-uniform and subsequent zero-axis rounded-rectangle
-qualifications are pinned at ProGPU documentation commit `df9b0d0d`.
+The subsequent zero-axis rounded-rectangle and canonical static-transform
+qualifications are pinned at ProGPU documentation commit `92092990`.
 
 ## WPF protocol model
 
@@ -52,8 +52,8 @@ ProGPU currently provides:
 - Complete stable command ID definitions and strict unknown, malformed,
   unsupported, handle, resource-type, graph, and capacity errors.
 - Retained visual offsets, opacity, content, ordered child topology, generic
-  targets, clear color/flags, opaque render data, solid-color brushes, and
-  retained affine matrix-transform resources.
+  targets, clear color/flags, opaque render data, solid-color brushes, and the
+  complete static 2D transform resource family.
 - Cycle, multiple-parent, and depth validation for the retained visual graph.
 - Nested solid-brush `DrawRectangle`, `DrawEllipse`, and uniform-radius
   `DrawRoundedRectangle` decoding and lowering into ProGPU's pointer-free
@@ -62,12 +62,14 @@ ProGPU currently provides:
   approximated.
 - Balanced nested `PushOpacity`/`Pop` decoding, cumulative visual/scope opacity,
   typed semantic-state emission, and strict stack validation.
-- Typed `MatrixTransform`, visual-transform, and nested `PushTransform` packet
-  decoding. Matrices compose in WPF row-vector order across local visual
-  transforms, visual offsets, ancestors, and drawing scopes; transformed draw
-  bounds use all four corners. Handle zero is preserved as WPF's balanced
-  no-op transform scope, while animation handles and unresolved nonzero
-  resources fail closed.
+- Typed `MatrixTransform`, `TranslateTransform`, `ScaleTransform`,
+  `SkewTransform`, `RotateTransform`, ordered retained `TransformGroup`,
+  visual-transform, and nested `PushTransform` packet decoding. Leaf values use
+  WPF float-matrix evaluation; groups resolve live child state in row-vector
+  collection order for every visual, scope, geometry, boolean, and clip
+  consumer. Cycles, referenced-child deletion, animation handles, and
+  unresolved nonzero resources fail closed. Handle zero remains WPF's balanced
+  no-op transform scope.
 - Typed solid `Pen` resources and nested `DrawLine` lowering through ProGPU's
   reusable geometry-stroke primitive, including all four WPF start/end cap
   kinds, affine stroke bounds, null-pen no-op semantics, line metrics, and
@@ -200,7 +202,10 @@ LibreWPF currently provides:
   translation, typed solid ellipse and independent rounded-rectangle pen
   translation, typed `IPortablePrimitiveGeometrySource` translation for exact
   line/rectangle/ellipse state, a typed single-line path fallback, and native
-  target construction.
+  target construction. The portable bridge intentionally emits the matrix from
+  `IPortableTransformMatrixSource` as `MatrixTransform`; it does not inspect
+  WPF transform subtypes. ProGPU's additional canonical transform resources
+  serve direct/source-built WPF MIL channels without weakening that typed seam.
 - `Compile(...)` selection of wgpu-native or Dawn without changing the existing
   managed portable renderer.
 - Fail-closed behavior for unbalanced scopes, untyped or unavailable
@@ -800,11 +805,33 @@ for `progpu_native.dll` and
 for `progpu_native_dawn.dll`; the complete native qualification is pinned at
 ProGPU documentation commit `df9b0d0d`.
 
+ProGPU implementation `f6f82b91` then added canonical static Translate, Scale,
+Skew, Rotate, and variable-size ordered TransformGroup packets beside the
+existing MatrixTransform path. The retained graph follows WPF float-matrix,
+center, modulo-angle, and row-vector child-order semantics; live child updates
+flow through nested groups without flattening. Native fixtures also cover
+animation rollback, cycles, and referenced-child deletion. LibreWPF keeps its
+reflection-free typed matrix producer unchanged because
+`IPortableTransformMatrixSource` is the authoritative bridge contract; this
+new slice accepts real canonical subtype/group resources within ProGPU itself.
+All eight locally configured native suites passed. Strict Windows ARM64 MSVC
+rebuilt both modules under `/W4 /WX`, all 11 native/Dawn CTests passed, and the
+project-reference consumer built with zero warnings. Package checkpoint
+`8bc860e4` compiled every new managed builder API through both exports in a
+74-command, 34-channel-resource seed. Its identity-equivalent group preserved
+the live D3D12 result at 38 semantic resources, 11 draws, and 78,848 coverage
+bytes. Qualified SHA-256 values were
+`301561a6f02de5a392b042f763134720a9a4b3d29f47b379c1018fc31c429d9c`
+for `progpu_native.dll` and
+`c3a800ba100508178a0d9f5837b07f9c6428a2bb616b1bb0d6a4708d0529da06`
+for `progpu_native_dawn.dll`; the complete record is pinned at ProGPU
+documentation commit `92092990`.
+
 ## Next parity gates
 
 1. Generate packed protocol size/offset metadata from the checked-in WPF MCG
    model rather than manually extending command declarations.
-2. Add transform animations and remaining transform resource kinds, dashed
+2. Add transform animations, dashed
    ellipse and rounded-rectangle pen draws, curve dashes, exact degenerate
    zero-axis asymmetric rounded-rectangle widening, exact
    translated-equivalent EvenOdd overlap execution, exact
