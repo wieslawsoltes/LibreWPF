@@ -3,6 +3,7 @@ using System.Numerics;
 using ProGPU.Scene;
 using PortableColor = ProGPU.Wpf.Interop.PortableColor;
 using PortableBitmapEffectInputSource = ProGPU.Wpf.Interop.IPortableBitmapEffectInputSource;
+using PortableBlurKernel = ProGPU.Wpf.Interop.PortableBlurKernel;
 using PortableEffect = ProGPU.Wpf.Interop.PortableEffect;
 using PortableEffectKind = ProGPU.Wpf.Interop.PortableEffectKind;
 using PortableEffectSource = ProGPU.Wpf.Interop.IPortableEffectSource;
@@ -65,6 +66,11 @@ internal static class WpfEffectMapper
         switch (effect.Kind)
         {
             case PortableEffectKind.Blur:
+                if (effect.BlurKernel != PortableBlurKernel.Gaussian)
+                {
+                    proGpuEffect = null!;
+                    return false;
+                }
                 proGpuEffect = new global::ProGPU.Scene.BlurEffect((float)Math.Max(0d, effect.Radius));
                 return true;
 

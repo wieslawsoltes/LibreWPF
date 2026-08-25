@@ -7704,7 +7704,9 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("PortableEffectKind.Blur", portableEffect, StringComparison.Ordinal);
         Assert.Contains("PortableEffectKind.DropShadow", portableEffect, StringComparison.Ordinal);
         Assert.Contains("public partial class BlurEffect : IPortableEffectSource", blurEffect, StringComparison.Ordinal);
-        Assert.Contains("PortableEffect.Blur(Radius)", blurEffect, StringComparison.Ordinal);
+        Assert.Contains("PortableEffect.Blur(", blurEffect, StringComparison.Ordinal);
+        Assert.Contains("PortableBlurKernel.Gaussian", blurEffect, StringComparison.Ordinal);
+        Assert.Contains("PortableEffectRenderingBias.Quality", blurEffect, StringComparison.Ordinal);
         Assert.Contains("public partial class DropShadowEffect : IPortableEffectSource", dropShadowEffect, StringComparison.Ordinal);
         Assert.Contains("PortableEffect.DropShadow(", dropShadowEffect, StringComparison.Ordinal);
         Assert.Contains("public abstract partial class BitmapEffect : IPortableEffectSource", bitmapEffect, StringComparison.Ordinal);

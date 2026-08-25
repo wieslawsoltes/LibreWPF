@@ -166,6 +166,95 @@ public sealed class WpfNativeMilSceneCompilerTests
     }
 
     [Fact]
+    public void BuildBatchTranslatesTypedVisualGaussianBlurEffect()
+    {
+        var effect = new FakeEffect(PortableEffect.Blur(
+            9.5,
+            PortableBlurKernel.Gaussian,
+            PortableEffectRenderingBias.Quality));
+        var visual = new FakeVisual(
+            null,
+            new PortableVisualState
+            {
+                HasEffect = true,
+                Effect = effect
+            });
+
+        WpfNativeMilBatch result = new WpfNativeMilSceneCompiler().BuildBatch(
+            visual, 64, 64);
+
+        Assert.Equal(
+            [0x07, 0x1a, 0x07, 0x6e, 0x1d,
+             0x07, 0x34, 0x36, 0x35],
+            ReadCommands(result.Bytes));
+        int effectOffset = FindCommand(result.Bytes, 0x6e);
+        Assert.Equal(2U, ReadUInt32(result.Bytes, effectOffset + 8));
+        Assert.Equal(9.5, ReadDouble(result.Bytes, effectOffset + 12));
+        Assert.Equal(0U, ReadUInt32(result.Bytes, effectOffset + 20));
+        Assert.Equal(0U, ReadUInt32(result.Bytes, effectOffset + 24));
+        Assert.Equal(1U, ReadUInt32(result.Bytes, effectOffset + 28));
+        int visualOffset = FindCommand(result.Bytes, 0x1d);
+        Assert.Equal(1U, ReadUInt32(result.Bytes, visualOffset + 8));
+        Assert.Equal(2U, ReadUInt32(result.Bytes, visualOffset + 12));
+    }
+
+    [Fact]
+    public void BuildBatchTranslatesTypedVisualDropShadowEffect()
+    {
+        var effect = new FakeEffect(PortableEffect.DropShadow(
+            6.5,
+            4,
+            315,
+            0.4,
+            new PortableColor(128, 32, 64, 128),
+            PortableEffectRenderingBias.Performance));
+        var visual = new FakeVisual(
+            null,
+            new PortableVisualState
+            {
+                HasEffect = true,
+                Effect = effect
+            });
+
+        WpfNativeMilBatch result = new WpfNativeMilSceneCompiler().BuildBatch(
+            visual, 64, 64);
+        int offset = FindCommand(result.Bytes, 0x6f);
+
+        Assert.Equal(2U, ReadUInt32(result.Bytes, offset + 8));
+        Assert.Equal(4.0, ReadDouble(result.Bytes, offset + 12));
+        Assert.Equal(315.0, ReadDouble(result.Bytes, offset + 36));
+        Assert.Equal(0.4, ReadDouble(result.Bytes, offset + 44));
+        Assert.Equal(6.5, ReadDouble(result.Bytes, offset + 52));
+        Assert.Equal(128F / 255F, ReadSingle(result.Bytes, offset + 32));
+    }
+
+    [Fact]
+    public void BuildBatchFailsClosedForUnsupportedVisualEffectState()
+    {
+        var box = new FakeEffect(PortableEffect.Blur(
+            5,
+            PortableBlurKernel.Box));
+        var boxVisual = new FakeVisual(
+            null,
+            new PortableVisualState { HasEffect = true, Effect = box });
+        Assert.Throws<NotSupportedException>(() =>
+            new WpfNativeMilSceneCompiler().BuildBatch(boxVisual, 64, 64));
+
+        var combinedVisual = new FakeVisual(
+            null,
+            new PortableVisualState
+            {
+                HasEffect = true,
+                Effect = new FakeEffect(PortableEffect.Blur(5)),
+                HasOpacity = true,
+                Opacity = 0.5
+            });
+        Assert.Throws<NotSupportedException>(() =>
+            new WpfNativeMilSceneCompiler().BuildBatch(
+                combinedVisual, 64, 64));
+    }
+
+    [Fact]
     public void BuildBatchTranslatesTypedVisualRectangleAndSolidBrush()
     {
         var brush = new FakeBrush(new PortableColor(192, 128, 64, 32));
@@ -2270,6 +2359,22 @@ public sealed class WpfNativeMilSceneCompilerTests
             out PortablePrimitiveGeometry geometry)
         {
             geometry = _geometry;
+            return true;
+        }
+    }
+
+    private sealed class FakeEffect : IPortableEffectSource
+    {
+        private readonly PortableEffect _effect;
+
+        internal FakeEffect(PortableEffect effect)
+        {
+            _effect = effect;
+        }
+
+        public bool TryGetPortableEffect(out PortableEffect effect)
+        {
+            effect = _effect;
             return true;
         }
     }

@@ -134,6 +134,8 @@ public sealed class WpfNativeMilSceneCompiler
             new(ReferenceEqualityComparer.Instance);
         private readonly Dictionary<object, uint> _guidelineSetHandles =
             new(ReferenceEqualityComparer.Instance);
+        private readonly Dictionary<object, uint> _effectHandles =
+            new(ReferenceEqualityComparer.Instance);
         private readonly HashSet<object> _activeDrawings =
             new(ReferenceEqualityComparer.Instance);
         private uint _nextHandle = 1;
@@ -183,6 +185,15 @@ public sealed class WpfNativeMilSceneCompiler
                 }
                 Batch.SetVisualTransform(
                     visualHandle, ResolveTransform(state.Transform));
+            }
+            if (state.HasEffect)
+            {
+                if (state.Effect is null)
+                {
+                    throw MissingContract(nameof(IPortableEffectSource));
+                }
+                Batch.SetVisualEffect(
+                    visualHandle, ResolveEffect(state.Effect));
             }
             if (state.HasClip)
             {
@@ -1450,6 +1461,61 @@ public sealed class WpfNativeMilSceneCompiler
             }
         }
 
+        private uint ResolveEffect(object resource)
+        {
+            if (_effectHandles.TryGetValue(resource, out uint existing))
+            {
+                return existing;
+            }
+            if (resource is not IPortableEffectSource source ||
+                !source.TryGetPortableEffect(out PortableEffect effect))
+            {
+                throw MissingContract(nameof(IPortableEffectSource));
+            }
+            uint handle = NextHandle();
+            _effectHandles.Add(resource, handle);
+            NativeMilEffectRenderingBias renderingBias =
+                effect.RenderingBias switch
+                {
+                    PortableEffectRenderingBias.Performance =>
+                        NativeMilEffectRenderingBias.Performance,
+                    PortableEffectRenderingBias.Quality =>
+                        NativeMilEffectRenderingBias.Quality,
+                    _ => throw new NotSupportedException(
+                        $"Effect rendering bias {(int)effect.RenderingBias} is unsupported.")
+                };
+            switch (effect.Kind)
+            {
+                case PortableEffectKind.Blur:
+                    if (effect.BlurKernel != PortableBlurKernel.Gaussian)
+                    {
+                        throw new NotSupportedException(
+                            "WPF Box BlurEffect requires a native box-filter effect node.");
+                    }
+                    Batch.CreateResource(
+                        handle, NativeMilResourceType.BlurEffect);
+                    Batch.SetBlurEffect(
+                        handle, effect.Radius, renderingBias);
+                    break;
+                case PortableEffectKind.DropShadow:
+                    Batch.CreateResource(
+                        handle, NativeMilResourceType.DropShadowEffect);
+                    Batch.SetDropShadowEffect(
+                        handle,
+                        effect.ShadowDepth,
+                        ToLinearColor(effect.Color),
+                        effect.Direction,
+                        effect.Opacity,
+                        effect.BlurRadius,
+                        renderingBias);
+                    break;
+                default:
+                    throw new NotSupportedException(
+                        $"Portable effect kind {(int)effect.Kind} is unsupported.");
+            }
+            return handle;
+        }
+
         private uint AddPathGeometry(
             object resource,
             PortableGeometryPath path)
@@ -1736,11 +1802,19 @@ public sealed class WpfNativeMilSceneCompiler
 
         private static void RejectUnsupportedState(PortableVisualState state)
         {
-            if (state.HasEffect || state.HasBitmapEffect ||
-                state.HasBitmapEffectInput || state.HasCacheMode)
+            if (state.HasBitmapEffect || state.HasBitmapEffectInput ||
+                state.HasCacheMode)
             {
                 throw new NotSupportedException(
                     "The portable visual contains state not implemented by the native MIL slice.");
+            }
+            if (state.HasEffect &&
+                (state.HasClip || state.HasScrollableAreaClip ||
+                 state.HasOpacityMask ||
+                 (state.HasOpacity && state.Opacity != 1.0)))
+            {
+                throw new NotSupportedException(
+                    "Native WPF visual effects currently require an unclipped, fully opaque visual while separate source and composite effect clips are being added.");
             }
         }
 
