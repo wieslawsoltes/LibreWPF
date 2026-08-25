@@ -20,7 +20,9 @@ The subsequent canonical static-transform, transform-animation, and native
 gradient qualifications are pinned at ProGPU documentation commit `becbe01d`.
 The canonical GeometryDrawing qualification is pinned at ProGPU documentation
 commit `837b47e9`. The canonical DrawingGroup qualification is pinned at
-ProGPU documentation commit `848763dc`. The current submodule head is that exact
+ProGPU documentation commit `848763dc`. The canonical ImageDrawing
+qualification is pinned at ProGPU documentation commit `5bbb7073`. The current
+submodule head is that exact
 latest-`main`-integrated checkpoint.
 
 ## WPF protocol model
@@ -103,6 +105,14 @@ ProGPU currently provides:
   mask, guideline, effect/cache, and render-option state. ProGPU recursively
   compiles the retained group through the same native drawing and geometry
   paths while preserving parent semantic scopes and dependency lifetime.
+- Canonical retained `ImageDrawing` resource `89` referencing BitmapSource
+  handle `95`. LibreWPF consumes only `IPortableImageDrawingStateSource` and
+  `IPortableBitmapSourcePixelsSource`, converts supported typed pixels once to
+  compact straight-alpha RGBA8, and carries them in a pointer-free batch
+  sideband. ProGPU binds those copied pixels to the retained handle, emits one
+  shared semantic image resource/draw, and never transports WPF's process-local
+  WIC pointer. Missing pixels, unsupported image kinds, and invalid dimensions
+  fail closed.
 - Typed rectangle pen production for fill-only, stroke-only, and combined
   records. Native rectangle outlines use closed ProGPU semantic polylines with
   exact join/dash metadata and affine-expanded stroke bounds. Solid
@@ -958,6 +968,28 @@ for `progpu_native.dll` and
 `e8c7dce855f34877abe3c211a7970235444402a37bfd940f0a4afbfea5f1a6a2`
 for `progpu_native_dawn.dll`.
 
+ProGPU implementation `6d99ced4`, focused gate `03acffe0`, expectation fix
+`46175bf3`, and documentation checkpoint `5bbb7073` next added canonical
+`ImageDrawing` retention plus the typed BitmapSource RGBA8 sideband. LibreWPF
+producer checkpoint `2906bf396` consumes only portable image-drawing and bitmap
+pixel contracts, reuses the existing typed format conversion, emits canonical
+handles/packets, and supplies copied pointer-free pixels before native scene
+compilation. Unsupported source kinds fail closed without reflection. The
+focused producer suite passed 33/33.
+
+All ten local ProGPU native CTests passed, the managed canonical-builder filter
+passed 8/8, and the project-reference package consumer built with zero
+warnings. Strict Windows ARM64 MSVC rebuilt both native modules under `/W4
+/WX`, and all 11 native/Dawn CTests passed in the Parallels VM. The focused
+12-command, five-resource ImageDrawing scene compiled through both MIL exports
+and rendered on live D3D12 with two semantic resources, one image draw, zero
+coverage-staging bytes, a valid submission, nonblack retained readback, and
+16,384 direct-render pixels. Exact qualified SHA-256 values were
+`d396e5bcc5b9093271878499fafabae9e0b1fb0e7db6fd9aac8379e14ea64749`
+for `progpu_native.dll` and
+`4fe6051479644bfe40019e5d45570f68c57aeaae5040096b2fc257fe60c405d5`
+for `progpu_native_dawn.dll`.
+
 ## Next parity gates
 
 1. Generate packed protocol size/offset metadata from the checked-in WPF MCG
@@ -967,8 +999,9 @@ for `progpu_native_dawn.dll`.
    translated-equivalent EvenOdd overlap execution, exact combined children
    inside groups, WPF epsilon-near-coincident gradient-stop normalization,
    duplicate-endpoint Pad outside-color distinction, cap-only degenerate
-   gradient pen strokes, ImageDrawing/GlyphRunDrawing resources,
-   remaining push/pop state, images, and glyph runs.
+   gradient pen strokes, GlyphRunDrawing resources, ImageDrawing rect
+   animations and non-bitmap image sources, remaining push/pop state, and
+   glyph runs.
 3. Cache stable native handles/generations across frames and emit incremental
    resource updates plus damage instead of rebuilding the initial scene batch.
 4. Bind compiled semantic streams directly to `NativeCompositor` targets and
