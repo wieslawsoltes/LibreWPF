@@ -214,6 +214,26 @@ public sealed class WpfNativeMilSceneCompiler
                     visualHandle,
                     ResolveSolidOpacityMask(state.OpacityMask));
             }
+            if (state.HasSnappingGuidelinesX ||
+                state.HasSnappingGuidelinesY)
+            {
+                if (state.SnappingGuidelinesX is null ||
+                    state.SnappingGuidelinesY is null)
+                {
+                    throw new InvalidOperationException(
+                        "Portable Visual guideline state is incomplete.");
+                }
+                if (state.SnappingGuidelinesX.Length > 1 ||
+                    state.SnappingGuidelinesY.Length > 1)
+                {
+                    throw new NotSupportedException(
+                        "Multiple WPF Visual guidelines per axis require native piecewise geometry deformation.");
+                }
+                Batch.SetVisualGuidelines(
+                    visualHandle,
+                    state.SnappingGuidelinesX,
+                    state.SnappingGuidelinesY);
+            }
             if (state.HasOffset)
             {
                 Batch.SetVisualOffset(
@@ -1717,9 +1737,7 @@ public sealed class WpfNativeMilSceneCompiler
         private static void RejectUnsupportedState(PortableVisualState state)
         {
             if (state.HasEffect || state.HasBitmapEffect ||
-                state.HasBitmapEffectInput || state.HasCacheMode ||
-                state.HasSnappingGuidelinesX ||
-                state.HasSnappingGuidelinesY)
+                state.HasBitmapEffectInput || state.HasCacheMode)
             {
                 throw new NotSupportedException(
                     "The portable visual contains state not implemented by the native MIL slice.");

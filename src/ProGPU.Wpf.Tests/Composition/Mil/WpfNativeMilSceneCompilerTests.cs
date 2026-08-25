@@ -125,6 +125,47 @@ public sealed class WpfNativeMilSceneCompilerTests
     }
 
     [Fact]
+    public void BuildBatchTranslatesTypedStaticVisualGuidelines()
+    {
+        var visual = new FakeVisual(
+            null,
+            new PortableVisualState
+            {
+                HasSnappingGuidelinesX = true,
+                SnappingGuidelinesX = [2.25],
+                HasSnappingGuidelinesY = true,
+                SnappingGuidelinesY = [3.5]
+            });
+
+        WpfNativeMilBatch result = new WpfNativeMilSceneCompiler().BuildBatch(
+            visual, 64, 64);
+
+        Assert.Equal(
+            [0x07, 0x1a, 0x27, 0x07, 0x34, 0x36, 0x35],
+            ReadCommands(result.Bytes));
+        int offset = FindCommand(result.Bytes, 0x27);
+        Assert.Equal(1U, ReadUInt16(result.Bytes, offset + 12));
+        Assert.Equal(1U, ReadUInt16(result.Bytes, offset + 16));
+        Assert.Equal(2.25F, ReadSingle(result.Bytes, offset + 20));
+        Assert.Equal(3.5F, ReadSingle(result.Bytes, offset + 24));
+    }
+
+    [Fact]
+    public void BuildBatchRejectsMultipleVisualGuidelines()
+    {
+        var visual = new FakeVisual(
+            null,
+            new PortableVisualState
+            {
+                HasSnappingGuidelinesX = true,
+                SnappingGuidelinesX = [1, 2]
+            });
+
+        Assert.Throws<NotSupportedException>(() =>
+            new WpfNativeMilSceneCompiler().BuildBatch(visual, 64, 64));
+    }
+
+    [Fact]
     public void BuildBatchTranslatesTypedVisualRectangleAndSolidBrush()
     {
         var brush = new FakeBrush(new PortableColor(192, 128, 64, 32));
