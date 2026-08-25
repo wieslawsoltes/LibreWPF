@@ -13,8 +13,8 @@ The active ProGPU work is tracked in draft
 [ProGPU PR #139](https://github.com/wieslawsoltes/ProGPU/pull/139). Both this
 superproject branch and the ProGPU submodule branch started from the fetched
 latest `main`; the superproject records exact reviewed ProGPU commits. The
-smooth-join qualification and its reproducible binary hashes are pinned at
-ProGPU documentation commit `19546dbf`.
+exact rectangle-clip qualification and its reproducible binary hashes are
+pinned at ProGPU documentation commit `14fb60d6`.
 
 ## WPF protocol model
 
@@ -96,6 +96,11 @@ ProGPU currently provides:
   lowering supports line, quadratic, cubic, and endpoint-arc contours,
   EvenOdd/Nonzero fill, implicit closure, and geometry-local affine transforms.
   Arc math is shared with ProGPU's SVG glyph paths.
+- Exact canonical `PushClip` production for retained, non-rounded rectangle
+  geometry. ProGPU captures the geometry under the transform active at push
+  time, intersects nested clips in logical target coordinates, and emits native
+  semantic scissor state. Rounded, rotated/sheared, path, group, and combined
+  clips fail closed rather than broadening to bounds.
 - Native retained path pens for line/polyline topology. ProGPU preserves true
   open/closed stroke contours independently from WPF's implicit fill closure,
   splits `IsStroked=false` geometry gaps into dash-capped runs, restarts dash
@@ -587,6 +592,19 @@ for `progpu_native.dll` and
 `20806036f956a84b0b217329183f85ca8f130c7c4aba6fc4394705d6df6170e8`
 for `progpu_native_dawn.dll`.
 
+ProGPU exact rectangle-clip implementation `37f496f2` added canonical
+`MILCMD_PUSH_CLIP`, transform-at-push capture, and nested target-space
+intersection. Local native suites and the typed managed builder test passed;
+ARM64 MSVC rebuilt both modules under `/W4 /WX`, and the MIL/Dawn contracts
+passed. Package checkpoint `d22a94c9` compiled its 48 commands and 21 channel
+resources through both exports. Live Parallels D3D12 readback completed with
+21 semantic resources, three draws, and 41,472 coverage bytes. Exact
+focused-build SHA-256 values were
+`014999b22d86f2192ea56697dde3d5bc47a88991831a39636a4db26c29fccb69`
+for `progpu_native.dll` and
+`ba780db29da7fbedd7834768180b9d9976775532f3cf0c50c4d52cc94b56d0b7`
+for `progpu_native_dawn.dll`.
+
 ## Next parity gates
 
 1. Generate packed protocol size/offset metadata from the checked-in WPF MCG
@@ -597,7 +615,7 @@ for `progpu_native_dawn.dll`.
    the closed-gap dashed seam, singular affine
    arc handling, exact translated-equivalent EvenOdd overlap execution, exact
    combined children inside groups, gradients, remaining
-   push/pop state, clips,
+   push/pop state and arbitrary geometry clips,
    images, and
    glyph runs.
 3. Cache stable native handles/generations across frames and emit incremental
