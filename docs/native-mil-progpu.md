@@ -1461,7 +1461,8 @@ root/ancestor rectangle clips become target-local composite scissors, static
 guidelines adjust the composite transform, and empty clips suppress only the
 composite. Snapping, clip, guideline, placement, and opacity updates retain the
 page; EnableClearType, RenderAtScale, bounds, and descendant changes
-rerasterize it. Spatial masks, non-linear cache-bitmap sampling,
+rerasterize it. ProGPU `625a0961` adds composite-only NearestNeighbor sampling
+without invalidating the page. Spatial masks, cubic/Fant cache-bitmap sampling,
 multi-guideline deformation, nested/effect ordering, and LibreWPF package gates
 remain open and fail closed where required.
 
@@ -1549,8 +1550,23 @@ are
 (`progpu_native_dawn.dll`). Exact rectangle post-raster clips, one static
 composite guideline per axis, and the cache-root raster/composite separation
 are therefore qualified on DirectX as well as Metal/Dawn. Spatial masks,
-non-linear sampling, multi-guideline behavior, nested-cache/effect ordering,
+cubic/Fant sampling, multi-guideline behavior, nested-cache/effect ordering,
 and LibreWPF package-mode SDK coverage remain.
+
+ProGPU then merged latest `main` at `0e3c9452` and added exact cache-composite
+NearestNeighbor sampling in `625a0961`. LibreWPF's existing reflection-free
+typed `PortableVisualState.BitmapScalingMode` producer already emits the
+canonical root Visual render option, so no WPF bridge callback or object-shape
+adapter is required. The native MIL compiler maps only NearestNeighbor to the
+additive local-cache-only `CACHE_NEAREST` layer flag; each retained page owns
+linear and nearest bindings over the same texture, and a sampling-only change
+keeps the content revision/page intact. C++, managed, and serialized-scene
+validation reject the flag without a local cache. Cubic/Fant sampling remains
+fail closed pending the shared reconstruction path. All 12 provider-configured
+native CTests passed, including a live Metal/Dawn switch to nearest with zero
+content passes; the managed zero-allocation builder regression and both export
+allowlists also passed. This exact checkpoint still requires strict Windows
+ARM64/D3D12 qualification.
 
 ## Next parity gates
 
@@ -1566,7 +1582,7 @@ and LibreWPF package-mode SDK coverage remain.
    effect/clip/mask/opacity ordering, animated and Box effects, remaining
    push/pop state, DirectWrite/system-display text realization, and the
    explicit advanced glyph/text gaps listed above.
-3. Complete the remaining WPF BitmapCache spatial-mask, non-linear sampling,
+3. Complete the remaining WPF BitmapCache spatial-mask, cubic/Fant sampling,
    multi-guideline, nested-ordering, and effects gates on the
    now-executable local-space cache primitive.
 4. Cache other stable native handles/generations across frames and emit
