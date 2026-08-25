@@ -13,8 +13,8 @@ The active ProGPU work is tracked in draft
 [ProGPU PR #139](https://github.com/wieslawsoltes/ProGPU/pull/139). Both this
 superproject branch and the ProGPU submodule branch started from the fetched
 latest `main`; the superproject records exact reviewed ProGPU commits. The
-curved-stroke cap qualification and its reproducible binary hashes are pinned
-at ProGPU documentation commit `19f6c7b0`.
+smooth-join qualification and its reproducible binary hashes are pinned at
+ProGPU documentation commit `19546dbf`.
 
 ## WPF protocol model
 
@@ -107,10 +107,12 @@ ProGPU currently provides:
   records whose endpoint tangents come from the line, curve controls, or
   resolved analytic arc derivative. Open curves compose Square, Round, and
   Triangle start/end caps from the same tangent data; Flat caps remain
-  implicit, and geometry gaps use the typed dash-cap value. Dashed curves,
-  `IsSmoothJoin`, degenerate cap/join tangents, non-flat degenerate runs, and
-  the one dashed closed-gap seam whose WPF phase reset plus joined corner
-  cannot yet be represented exactly fail closed.
+  implicit, and geometry gaps use the typed dash-cap value. `IsSmoothJoin` is
+  retained on its incoming segment and forces only that endpoint's native join
+  to Round, including the closing endpoint. Dashed curves/smooth joins,
+  degenerate cap/join tangents, non-flat degenerate runs, and the one dashed
+  closed-gap seam whose WPF phase reset plus joined corner cannot yet be
+  represented exactly fail closed.
 - Canonical retained `GeometryGroup` packets in ProGPU's raw MIL backend,
   including variable child handles, fill rule, matrix transform, dependency
   deletion, cycle rejection, and transactional rollback. Identity-local path
@@ -572,13 +574,26 @@ for `progpu_native.dll` and
 for `progpu_native_dawn.dll`; the complete differential matrix remains pinned
 to joined-curve checkpoint `3816050b`.
 
+ProGPU smooth-join implementation `1431509c` follows the source-built WPF
+widener: `SegSmoothJoin` is captured after its incoming segment and passed as
+`fRound` to the next `DoCorner`, overriding the pen join only at that endpoint.
+Strict ARM64 MSVC rebuilt both modules and the MIL/Dawn contracts passed.
+Package checkpoint `6868d909` marked one closed mixed-curve corner smooth;
+both exports compiled it and live Parallels D3D12 readback retained 20 semantic
+resources, three draws, and 41,472 coverage bytes. Exact focused-build SHA-256
+values were
+`b932861929989d6f847df95c0562a5629849507bace4e44dcdcc410b11e76237`
+for `progpu_native.dll` and
+`20806036f956a84b0b217329183f85ca8f130c7c4aba6fc4394705d6df6170e8`
+for `progpu_native_dawn.dll`.
+
 ## Next parity gates
 
 1. Generate packed protocol size/offset metadata from the checked-in WPF MCG
    model rather than manually extending command declarations.
 2. Add transform animations and remaining transform resource kinds, dashed
    ellipse and rounded-rectangle pen draws, non-uniform rounded rectangles,
-   curve dashes, smooth joins and
+   curve dashes and
    the closed-gap dashed seam, singular affine
    arc handling, exact translated-equivalent EvenOdd overlap execution, exact
    combined children inside groups, gradients, remaining
