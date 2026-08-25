@@ -14,8 +14,8 @@ The active ProGPU work is tracked in draft
 superproject branch and the ProGPU submodule branch started from the fetched
 latest `main`; the superproject records exact reviewed ProGPU commits. The
 exact singular-affine qualification and its reproducible binary hashes are
-pinned together with the subsequent degenerate point-cap qualification at
-ProGPU documentation commit `945c22d6`.
+pinned together with the subsequent degenerate point-cap/dash qualification at
+ProGPU documentation commit `509fe6d0`.
 
 ## WPF protocol model
 
@@ -118,11 +118,13 @@ ProGPU currently provides:
   to Round, including the closing endpoint. A dashed open run crossing a
   closed figure's start remains one rotated semantic polyline, preserving dash
   phase and DashCap at both geometry-gap boundaries. Dashed curves/smooth
-  joins, degenerate tangents adjacent to nondegenerate joins, and dashed
-  zero-length runs fail closed. Solid zero-length immediate/open path strokes
-  compose their configured point-cap halves around WPF's horizontal
-  shape-space direction; wholly degenerate closed contours force Round/Round
-  caps and form an exact point disk.
+  joins and degenerate tangents adjacent to nondegenerate joins fail closed.
+  Zero-length immediate/open path strokes compose their configured point-cap
+  halves around WPF's horizontal shape-space direction; wholly degenerate
+  closed contours force Round/Round caps and form an exact point disk. Finite
+  nonzero dash patterns select the initial dash/gap by normalized offset, with
+  exact-boundary offsets belonging to the preceding WPF interval; all-zero
+  cycles remain fail closed.
 - Canonical retained `GeometryGroup` packets in ProGPU's raw MIL backend,
   including variable child handles, fill rule, matrix transform, dependency
   deletion, cycle rejection, and transactional rollback. Identity-local path
@@ -684,6 +686,23 @@ three draws, and 41,472 coverage bytes. Exact staged SHA-256 values were
 `6afa15e6fff5a41e274674be9678d80f6bb88085078a0685eb3673d5e5467f4e`
 for `progpu_native.dll` and
 `560c4691baa714d366cc4817c853e41ae8d17a6140d74f06b3db5a505636d666`
+for `progpu_native_dawn.dll`.
+
+ProGPU degenerate dash-phase implementation `70b738b7` then applied WPF's
+`CDashSequence::Initialize` rule to those point caps. Finite nonzero patterns
+normalize positive/negative offsets over an effective even-length cycle,
+repeat odd source lists, retain the preceding interval at an exact boundary,
+emit caps only for an initial dash, and emit no draw for an initial gap.
+Zero-total-length cycles remain fail closed. All ten local native tests passed.
+Strict Windows ARM64 MSVC rebuilt both modules under `/W4 /WX`, and all 11
+native/Dawn CTests passed in Parallels. Package checkpoint `61ed465d` moved the
+retained degenerate path onto a boundary-offset dash resource and pen. Both MIL
+exports compiled its 56-command, 25-channel-resource seed; live D3D12 readback
+retained 27 semantic resources, three draws, and 41,472 coverage bytes. Exact
+staged SHA-256 values were
+`53d589f6580afd495e2bcb98d64c23c7acb1b450baf60027a5b7b371618774c3`
+for `progpu_native.dll` and
+`81a9450fc3af12677152fdb8777ab1ba346c1f5017e425858d476bd6e9076feb`
 for `progpu_native_dawn.dll`.
 
 ## Next parity gates
