@@ -117,7 +117,10 @@ ProGPU currently provides:
   WPF's `CShape::AddShapeData`/outer `SetFillMode` behavior. Nonzero groups keep
   a shared contour batch for cross-child winding cancellation; EvenOdd groups
   use an equivalent postfix XOR of child-inside predicates so raster work stays
-  bounded by each leaf. Nonsingular affine arc-bearing children remain analytic:
+  bounded by each leaf. Overlapping nonzero translated-equivalent leaf streams
+  currently fail closed at semantic scene compilation, before WebGPU device
+  creation, because that exact backend pattern is unsafe on the Parallels D3D12
+  adapter. Nonsingular affine arc-bearing children remain analytic:
   ProGPU factors the transformed ellipse basis, preserves parameterization, and
   reverses sweep under reflection. Exact translations preserve the original arc
   fields bit-for-bit except for endpoints/center. Singular arc transforms,
@@ -513,14 +516,21 @@ for `progpu_native.dll` and
 `a1f0c7067bd442b989708f4e7243927074a75e9419f8013d4cdef5d565b59807`
 for `progpu_native_dawn.dll`.
 
-A separate close-translated-duplicate EvenOdd-group diagnostic still removes
-the Parallels D3D12 device. It reproduces with affine line/quadratic/cubic
-leaves as well as arcs, while the single recursive group arc, recursive boolean
-arc, and non-equivalent mixed group all pass. Approximation experiments were
-removed; supported rendering remains analytic at the established 8x8 sample
-grid. This overlap pattern is excluded from the qualified package seed and must
-either fail closed transactionally or be fixed in the shared path backend
-before release.
+At exact ProGPU safety commit `ef6091e9`, the close-translated-duplicate
+EvenOdd-group diagnostic was converted from device removal to deterministic
+fail-closed compilation. The resource update succeeds transactionally, then
+`CompileScene` reports `unsupported_command` before WebGPU context/device
+creation. Both modules rebuilt under `/W4 /WX`, all 11 CTests passed, and the
+complete D3D12 differential gate passed again. The two supported package scenes
+retained 18 resources, three draws, and 40,960/41,472 coverage bytes, while the
+guarded diagnostic exited at the typed native MIL boundary without GPU
+submission. Fresh staged SHA-256 values were
+`5b403c179cc0aa9ae9395b2e486aa36d8574fce510b560acf4c744daba6a0a9b`
+for `progpu_native.dll` and
+`5a39d04f8dcccae29c093e63dd5e3d5c2effa3b4b68418763afb8f90ee2af856`
+for `progpu_native_dawn.dll`. Exact rendering of that guarded overlap remains
+an open parity item; non-overlapping equivalents and non-equivalent mixed
+leaves retain normal analytic 8x8 GPU execution.
 
 ## Next parity gates
 
@@ -529,7 +539,8 @@ before release.
 2. Add transform animations and remaining transform resource kinds, dashed
    ellipse and rounded-rectangle pen draws, non-uniform rounded rectangles,
    curved/smooth path strokes and the closed-gap dashed seam, singular affine
-   arc handling, exact combined children inside groups, gradients, remaining
+   arc handling, exact translated-equivalent EvenOdd overlap execution, exact
+   combined children inside groups, gradients, remaining
    push/pop state, clips,
    images, and
    glyph runs.
