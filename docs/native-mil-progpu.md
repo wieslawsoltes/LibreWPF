@@ -15,7 +15,7 @@ superproject branch and the ProGPU submodule branch started from the fetched
 latest `main`; the superproject records exact reviewed ProGPU commits. The
 exact singular-affine qualification and its reproducible binary hashes are
 pinned together with the subsequent degenerate point-cap/dash qualification at
-ProGPU documentation commit `509fe6d0`.
+ProGPU documentation commit `405dfa68`, including fixed ellipse collapse.
 
 ## WPF protocol model
 
@@ -79,7 +79,9 @@ ProGPU currently provides:
 - Typed ellipse pen production for fill-only, stroke-only, and combined
   records. Solid ellipse outlines use ProGPU's exact full-ellipse analytic arc,
   preserve non-uniform radii, and publish affine-expanded stroke bounds;
-  nonempty dashed ellipses fail closed pending phase-continuous curve dashing.
+  one-axis ellipses use WPF's SmoothJoin-derived Round/Round capsule and point
+  ellipses use the native point disk. Degenerate fills stay empty. Nonempty
+  dashed non-point ellipses fail closed pending phase-continuous curve dashing.
 - Typed uniform rounded-rectangle pen production for fill-only, stroke-only,
   and combined records. Positive-radius solid outlines use ProGPU's exact
   analytic rounded-rectangle stroke with affine-expanded bounds; zero-radius
@@ -703,6 +705,23 @@ staged SHA-256 values were
 `53d589f6580afd495e2bcb98d64c23c7acb1b450baf60027a5b7b371618774c3`
 for `progpu_native.dll` and
 `81a9450fc3af12677152fdb8777ab1ba346c1f5017e425858d476bd6e9076feb`
+for `progpu_native_dawn.dll`.
+
+ProGPU degenerate ellipse implementation `bbb4b2c2` then traced WPF's
+`CFigureData::InitAsEllipse`: all four cubic segment types carry `SmoothJoin`,
+so a zero X or Y radius is exactly one Round/Round capsule and two zero radii
+form the existing point disk. Degenerate fills remain empty, immediate and
+retained `EllipseGeometry` share the lowering, and geometry-local affine state
+remains native. Nonempty dash patterns on a one-axis ellipse stay under the
+curve-dash fail-closed gate. All ten local native tests passed. Strict Windows
+ARM64 MSVC rebuilt both modules under `/W4 /WX`, and all 11 native/Dawn CTests
+passed in Parallels. Package checkpoint `e909fd60` added immediate and retained
+one-axis ellipses. Both exports compiled its 58-command, 26-channel-resource
+seed; live D3D12 readback retained 29 semantic resources, three draws, and
+41,472 coverage bytes. Exact staged SHA-256 values were
+`8e235e440a980fcdf63c4770c33a2afbcd9f92a06667671daa33c7406e50457a`
+for `progpu_native.dll` and
+`2ecd3a808e9ee65d50cae7637e365d00820febb02a63067849ace0b73d54df58`
 for `progpu_native_dawn.dll`.
 
 ## Next parity gates
