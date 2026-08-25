@@ -115,8 +115,11 @@ ProGPU currently provides:
 - Canonical retained `CombinedGeometry` packets with optional transform,
   null-as-empty operands, dependency/cycle validation, and all four WPF combine
   operations. Two identity-local path operands lower to ProGPU's native postfix
-  boolean program and retain each operand's fill rule; fixed, transformed,
-  group, recursive-combined, and stroked operands currently fail closed.
+  boolean program and retain each operand's fill rule. Fixed rectangle and
+  ellipse operands share the group's exact contour lowerer, including
+  geometry-local affine transforms, non-uniform rounded rectangles, and empty
+  line leaves. Transformed general paths, groups, recursive combined geometry,
+  and stroked operands currently fail closed.
 - An identical size-versioned C ABI exported by wgpu-native and provider-
   resolved Dawn modules, plus `NativeMilChannel` and typed scene metrics.
 - `NativeMilBatchBuilder` and `NativeMilRenderDataBuilder` managed producers.
@@ -392,6 +395,25 @@ for `progpu_native_dawn.dll`, with identical source/destination hashes. Both MIL
 exports compiled the group containing transformed rounded-rectangle and ellipse
 children; the wgpu-native stream then completed live D3D12 readback with 18
 retained resources, three draws, and 16,384 pixels.
+
+The shared fixed-operand `CombinedGeometry` checkpoint at exact ProGPU commit
+`7d0fad61` passed the complete Windows ARM64 MSVC gate. The refactored shallow
+fill lowerer compiled into both native modules under `/W4 /WX`, and all 11
+CTests passed, including transformed fixed boolean leaves, non-uniform rounded
+rectangles, preserved identity-local path operands, and the Dawn contract. Live
+C++ and managed D3D12 rendering/readback, allocation probes, and the complete
+bounded differential matrix passed. The mixed differential remained at maximum
+delta 2/255, zero pixels above 3/255, and mean `0.0000622`; the eight-frame
+native diagnostic measured `0.1618 ms/frame` before package staging.
+
+The zero-warning project-reference consumer verified identical staged and
+app-local SHA-256 values:
+`288438736839fc4e673fe4dbd7a714eda8158df181c694d0efd3d92dadf1e984`
+for `progpu_native.dll` and
+`31b0fe54964b8163b4a1d132359e89de58367b31550020d924c681f6cc4732b6`
+for `progpu_native_dawn.dll`. Both MIL exports compiled transformed fixed
+rounded-rectangle and ellipse boolean operands; the wgpu-native stream then
+completed live D3D12 readback with 18 resources, three draws, and 16,384 pixels.
 
 ## Next parity gates
 
