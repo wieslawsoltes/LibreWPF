@@ -1436,17 +1436,27 @@ reflection; untyped cache objects fail closed. The compiler also consumes the
 existing typed `IPortableVisualBoundsSource` descendant bounds and binds them
 through ProGPU's Visual-cache bounds sideband.
 
-The unit-scale native subset now executes as an owner-keyed cached layer. Its
+The local-space native subset now executes as an owner-keyed cached layer. Its
 pixel revision walks typed Visual/render-data resource dependencies, preserving
 the revision across an unrelated sibling update while invalidating for an
 in-cache brush or animation update. Exact non-positive resolved scale suppresses
-the subtree. Exact typed bounds are transformed natively and bound the retained
-page; missing/nonfinite/empty bounds fail closed rather than allocating the full
-target. The target-coordinate checkpoint still includes root outer state in the
-pixel revision for correctness and rejects non-unit RenderAtScale,
-SnapsToDevicePixels, and EnableClearType. Local-space rasterization, DPI
-realization, composite-only outer changes, pixel snapping, ClearType, nested
-cache ordering, and package gates remain open.
+the subtree. Exact typed bounds become a zero-origin page sized by
+RenderAtScale and frame DPI; missing/nonfinite/empty bounds fail closed rather
+than allocating the full target. The additive
+`PROGPU_NATIVE_SCENE_LAYER_CACHE_LOCAL_SPACE` flag keeps the exact 64-byte layer
+ABI and uses a typed transform-only State resource to place the cached quad.
+Root offset, affine transform, and opacity are composite-only and no longer
+invalidate pixels. Positive finite static or animated RenderAtScale values
+rerasterize at the requested size. SnapsToDevicePixels, EnableClearType, and
+root composite clip/mask/guideline state remain fail closed; those policies,
+nested ordering, and LibreWPF package gates remain open.
+
+The pinned provider/Dawn Metal gate passes the new lifecycle directly: first
+render materializes a 24x18 page, an outer translation performs zero content
+passes, and 0.5 RenderAtScale materializes a 12x9 page. The complete
+package-mode managed Dawn render/readback and forced device-loss recovery also
+pass at provider revision `02823bf8d2e56548b2780d6b92ae7065be1d8605` and
+Dawn revision `710c33013c53ab2700d332c25ff51430251a8cc4`.
 
 The live D3D12 gate for this checkpoint is complete. On 2026-08-25 the
 Parallels Windows 11 ARM64 VM checked out clean ProGPU commit `dd3857a4`
@@ -1462,7 +1472,8 @@ SHA-256 values are
 (`progpu_native.dll`) and
 `02414A74F7C6CB1A84F2846D5E5B701102E4812B5AEFCBA25688AE881592BD42`
 (`progpu_native_dawn.dll`). This closes Windows qualification for the
-implemented target-space subset, not the remaining local-space cache gates.
+preceding target-space subset. Strict Windows qualification for the new
+local-space/RenderAtScale checkpoint remains separate.
 
 ## Next parity gates
 
@@ -1478,8 +1489,9 @@ implemented target-space subset, not the remaining local-space cache gates.
    effect/clip/mask/opacity ordering, animated and Box effects, remaining
    push/pop state, DirectWrite/system-display text realization, and the
    explicit advanced glyph/text gaps listed above.
-3. Complete the remaining WPF BitmapCache local-space execution gates listed
-   above on the now-canonical typed protocol and owner-keyed cache primitive.
+3. Complete the remaining WPF BitmapCache pixel snapping, ClearType,
+   post-raster clip/mask/guideline, nested-ordering, and effects gates on the
+   now-executable local-space cache primitive.
 4. Cache other stable native handles/generations across frames and emit
    incremental resource updates plus damage instead of rebuilding the initial
    scene batch.
