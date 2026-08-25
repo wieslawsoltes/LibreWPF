@@ -16,10 +16,9 @@ latest `main`; the superproject records exact reviewed ProGPU commits. The
 exact singular-affine qualification and its reproducible binary hashes are
 pinned together with the subsequent degenerate point, ellipse, and rectangle
 qualification at ProGPU documentation commit `37d052ce`.
-The subsequent canonical static-transform and transform-animation resource
-qualifications are pinned at ProGPU documentation commit `856a4b98`. The
-current submodule head `c244df6c` merges the fetched latest ProGPU `main`
-without changing that qualified MIL implementation.
+The subsequent canonical static-transform, transform-animation, and native
+gradient qualifications are pinned at ProGPU documentation commit `becbe01d`.
+The current submodule head is that exact latest-`main`-integrated checkpoint.
 
 ## WPF protocol model
 
@@ -81,6 +80,12 @@ ProGPU currently provides:
 - Typed variable-size `DashStyle` resources for line pens, preserving
   thickness-relative intervals, offsets, dash caps, and ProGPU semantic-stroke
   execution across native backends.
+- Typed retained linear/radial gradient brushes and `PointResource` current
+  values, including WPF-relative bounds mapping, absolute and relative brush
+  transforms, anisotropic/focal radial state, ScRGB/sRGB interpolation, all
+  three spread modes, stable stop normalization, and dependency-protected live
+  updates. Fills and common nondegenerate pen strokes reuse ProGPU's shared
+  semantic vector-gradient shader in both wgpu-native and Dawn.
 - Typed rectangle pen production for fill-only, stroke-only, and combined
   records. Native rectangle outlines use closed ProGPU semantic polylines with
   exact join/dash metadata and affine-expanded stroke bounds. Solid
@@ -854,17 +859,54 @@ for `progpu_native.dll` and
 for `progpu_native_dawn.dll`; the complete record is pinned at ProGPU
 documentation commit `856a4b98`.
 
+ProGPU native implementation `1a937dbd` and managed builder checkpoint
+`5d3b96f0` then added canonical `PointResource`, `LinearGradientBrush`, and
+`RadialGradientBrush` packets. Native lowering resolves live point/double and
+transform dependencies for every scene compilation; maps relative coordinates
+and radii through the draw bounds; preserves focal anisotropic radial state;
+implements Pad, Reflect, and Repeat; and normalizes unordered or out-of-range
+stops stably. WPF's packet enums and linear ScRGB color payload are converted
+explicitly into ProGPU's semantic gradient state instead of being cast across
+the two contracts. Linear/radial fills and common nondegenerate pen strokes
+share the existing ProGPU vector-gradient shader across wgpu-native and Dawn.
+
+LibreWPF producer checkpoint `32234e172` consumes only
+`IPortableBrushSource`/`PortableBrush` and now emits those canonical resources
+for rectangle, ellipse, rounded-rectangle, and geometry fills plus typed pen
+brushes. It preserves brush opacity, points/radii, stops, mapping,
+interpolation, spread, and both typed transform snapshots without reflection.
+Solid-brush transforms remain explicitly fail closed because canonical native
+solid-brush transform resources are not implemented yet. The focused producer
+suite passed 27/27.
+
+All eight locally configured ProGPU native suites passed. Strict Windows ARM64
+MSVC rebuilt both native modules under `/W4 /WX`; all 11 native/Dawn CTests
+passed in the Parallels VM; the managed native-builder suite passed 6/6; and
+the project-reference package consumer built with zero warnings. Focused
+package gate `5db0910e` compiled a mixed solid/linear/radial scene through both
+MIL exports using 15 commands and six channel resources, then installed and
+rendered it on live D3D12. It produced five semantic resources, one batched
+draw, zero coverage-staging bytes, a valid submission, nonblack readback, and
+16,384 direct-render readback pixels. The unchanged dense path/boolean scene
+still passes both export contracts but stalls intermittently in its live
+Parallels render, so it is retained as a separately documented adapter issue
+and is not used as gradient evidence. Exact qualified SHA-256 values were
+`84f9ff3fcc3b1030fba0150891a92d176ea63d5cca7641af97d7f57d36f0cb54`
+for `progpu_native.dll` and
+`3779ab39f5d324f666eccc2452d0a21caf5ac5c2bea8d9eee2acede9fe8c6bf5`
+for `progpu_native_dawn.dll`; the complete ProGPU record is pinned at
+documentation commit `becbe01d`.
+
 ## Next parity gates
 
 1. Generate packed protocol size/offset metadata from the checked-in WPF MCG
    model rather than manually extending command declarations.
-2. Add dashed ellipse and rounded-rectangle pen draws, curve dashes, exact degenerate
-   zero-axis asymmetric rounded-rectangle widening, exact
-   translated-equivalent EvenOdd overlap execution, exact
-   combined children inside groups, gradients, remaining
-   push/pop state,
-   images, and
-   glyph runs.
+2. Add dashed ellipse and rounded-rectangle pen draws, curve dashes, exact
+   degenerate zero-axis asymmetric rounded-rectangle widening, exact
+   translated-equivalent EvenOdd overlap execution, exact combined children
+   inside groups, WPF epsilon-near-coincident gradient-stop normalization,
+   duplicate-endpoint Pad outside-color distinction, cap-only degenerate
+   gradient pen strokes, remaining push/pop state, images, and glyph runs.
 3. Cache stable native handles/generations across frames and emit incremental
    resource updates plus damage instead of rebuilding the initial scene batch.
 4. Bind compiled semantic streams directly to `NativeCompositor` targets and
