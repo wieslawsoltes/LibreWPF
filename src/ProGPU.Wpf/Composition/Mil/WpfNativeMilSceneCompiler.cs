@@ -287,10 +287,11 @@ public sealed class WpfNativeMilSceneCompiler
                         }
                         double radiusX = ReadDouble(payload, 32);
                         double radiusY = ReadDouble(payload, 40);
-                        if (radiusX != radiusY)
+                        if (radiusX != radiusY &&
+                            (radiusX == 0 || radiusY == 0))
                         {
                             throw new NotSupportedException(
-                                "Native MIL non-uniform rounded-rectangle radii are not implemented yet.");
+                                "Native MIL zero-axis asymmetric rounded-rectangle radii are not implemented yet.");
                         }
                         uint roundedBrushToken =
                             BinaryPrimitives.ReadUInt32LittleEndian(payload[48..]);
@@ -722,10 +723,11 @@ public sealed class WpfNativeMilSceneCompiler
                         throw new NotSupportedException(
                             "Empty rectangle geometry is not implemented by the native MIL slice.");
                     }
-                    if (geometry.RadiusX != geometry.RadiusY)
+                    if (geometry.RadiusX != geometry.RadiusY &&
+                        (geometry.RadiusX == 0 || geometry.RadiusY == 0))
                     {
                         throw new NotSupportedException(
-                            "Native MIL non-uniform rounded-rectangle geometry radii are not implemented yet.");
+                            "Native MIL zero-axis asymmetric rounded-rectangle geometry radii are not implemented yet.");
                     }
                     Batch.CreateResource(
                         handle,

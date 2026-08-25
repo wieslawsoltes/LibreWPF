@@ -177,7 +177,7 @@ public sealed class WpfNativeMilSceneCompilerTests
             PortablePrimitiveGeometry.Rectangle(
                 new PortableRect(2, 3, 20, 12),
                 4,
-                4,
+                2,
                 new PortableMatrix3x2(2, 0, 0, 3, 11, 13)));
         var ellipse = new FakePrimitiveGeometry(
             PortablePrimitiveGeometry.Ellipse(
@@ -197,7 +197,7 @@ public sealed class WpfNativeMilSceneCompilerTests
         int rectangleOffset = FindCommand(result.Bytes, 0x79);
         Assert.Equal(3U, ReadUInt32(result.Bytes, rectangleOffset + 8));
         Assert.Equal(4.0, ReadDouble(result.Bytes, rectangleOffset + 12));
-        Assert.Equal(4.0, ReadDouble(result.Bytes, rectangleOffset + 20));
+        Assert.Equal(2.0, ReadDouble(result.Bytes, rectangleOffset + 20));
         Assert.Equal(2.0, ReadDouble(result.Bytes, rectangleOffset + 28));
         Assert.Equal(3.0, ReadDouble(result.Bytes, rectangleOffset + 36));
         Assert.Equal(20.0, ReadDouble(result.Bytes, rectangleOffset + 44));
@@ -474,17 +474,33 @@ public sealed class WpfNativeMilSceneCompilerTests
     }
 
     [Fact]
-    public void BuildBatchFailsClosedForNonUniformRoundedRectangle()
+    public void BuildBatchTranslatesNonUniformRoundedRectangle()
     {
         var brush = new FakeBrush(new PortableColor(255, 32, 64, 128));
         var visual = new FakeVisual(
             new FakeRenderData(
                 CreateRoundedRectangleRecord(4, 6, 1, 0), [brush]));
 
+        WpfNativeMilBatch result = new WpfNativeMilSceneCompiler().BuildBatch(
+            visual, 64, 64);
+        int nestedOffset = FindCommand(result.Bytes, 0x18) + 16;
+
+        Assert.Equal(4.0, ReadDouble(result.Bytes, nestedOffset + 40));
+        Assert.Equal(6.0, ReadDouble(result.Bytes, nestedOffset + 48));
+    }
+
+    [Fact]
+    public void BuildBatchFailsClosedForZeroAxisAsymmetricRoundedRectangle()
+    {
+        var brush = new FakeBrush(new PortableColor(255, 32, 64, 128));
+        var visual = new FakeVisual(
+            new FakeRenderData(
+                CreateRoundedRectangleRecord(0, 6, 1, 0), [brush]));
+
         NotSupportedException exception = Assert.Throws<NotSupportedException>(
             () => new WpfNativeMilSceneCompiler().BuildBatch(visual, 64, 64));
 
-        Assert.Contains("non-uniform", exception.Message);
+        Assert.Contains("zero-axis asymmetric", exception.Message);
     }
 
     [Fact]
