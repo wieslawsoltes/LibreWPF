@@ -1299,6 +1299,32 @@ for `progpu_native.dll` and
 `9068358ec8f291c261943eef95849c1eac78397bb0446b83d395e9ae5c330116`
 for `progpu_native_dawn.dll`.
 
+ProGPU implementation `070bed14`, package checkpoint `cfe13009`, and
+LibreWPF producer checkpoint `11efafcca` next add the exact static solid subset
+of canonical Visual alpha masks (`0x23`). LibreWPF consumes only the typed
+`PortableVisualState.OpacityMask` and `IPortableBrushSource` contract, reuses
+the existing canonical SolidColorBrush resource, and rejects gradient or
+missing typed mask state without reflection.
+
+ProGPU retains and protects the mask dependency and shares one uniform-alpha
+resolver between Visual and DrawingGroup scopes. A transform-free,
+nonanimated solid mask multiplies inherited opacity by
+`Brush.Opacity * Color.A`; retained brush updates flow into the next scene
+generation. Gradient, tile, transformed, animated, and spatial masks fail
+closed pending a reusable ProGPU mask render target/material.
+
+Validation passed all ten local native CTests, the canonical packet test, two
+focused typed producer tests, and the zero-warning package consumer build. The
+focused `--mil-visual-opacity-mask-only` gate runs in JIT, NativeAOT, package
+verification, build, and release lanes. Strict Windows ARM64 MSVC rebuilt both
+exports and all 11 native/Dawn CTests passed. Fresh app-local DLLs compiled the
+scene through both exports and live D3D12 rendered three semantic resources,
+one draw, zero coverage bytes, and 16,384 direct pixels. Qualified hashes are
+`a76fe43b7e7a26b6ccaab71e80261e2704f0308c03c3e3a35abc4d80ff66038c`
+for `progpu_native.dll` and
+`ac396e3973a2bc5a851925dff0d97f3cf43ebaaaa7b332df797cfbc3946341cd`
+for `progpu_native_dawn.dll`.
+
 ## Next parity gates
 
 1. Generate packed protocol size/offset metadata from the checked-in WPF MCG
