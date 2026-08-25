@@ -591,6 +591,9 @@ public sealed class WpfNativeMilSceneCompilerTests
                 Transform = transform,
                 HasClipGeometry = true,
                 ClipGeometry = clip,
+                HasEdgeMode = true,
+                HasPortableEdgeMode = true,
+                PortableEdgeMode = PortableEdgeMode.Aliased,
                 HasPortableBitmapScalingMode = true,
                 PortableBitmapScalingMode =
                     PortableBitmapScalingMode.NearestNeighbor
@@ -617,7 +620,7 @@ public sealed class WpfNativeMilSceneCompilerTests
         Assert.Equal(0U, ReadUInt32(result.Bytes, groupOffset + 32));
         Assert.Equal(2U, ReadUInt32(result.Bytes, groupOffset + 36));
         Assert.Equal(0U, ReadUInt32(result.Bytes, groupOffset + 40));
-        Assert.Equal(0U, ReadUInt32(result.Bytes, groupOffset + 44));
+        Assert.Equal(1U, ReadUInt32(result.Bytes, groupOffset + 44));
         Assert.Equal(3U, ReadUInt32(result.Bytes, groupOffset + 48));
         Assert.Equal(0U, ReadUInt32(result.Bytes, groupOffset + 52));
         Assert.Equal(6U, ReadUInt32(result.Bytes, groupOffset + 56));
@@ -808,6 +811,27 @@ public sealed class WpfNativeMilSceneCompilerTests
                     visual, 64, 64));
 
         Assert.Contains(nameof(PortableBitmapScalingMode), exception.Message);
+    }
+
+    [Fact]
+    public void BuildBatchRejectsLegacyObjectEdgeMode()
+    {
+        var group = new FakeDrawingGroup(
+            new PortableDrawingGroupState
+            {
+                HasEdgeMode = true,
+                EdgeMode = "Aliased"
+            },
+            []);
+        var visual = new FakeVisual(
+            new FakeRenderData(CreateDrawDrawingRecord(1), [group]));
+
+        InvalidOperationException exception =
+            Assert.Throws<InvalidOperationException>(() =>
+                new WpfNativeMilSceneCompiler().BuildBatch(
+                    visual, 64, 64));
+
+        Assert.Contains(nameof(PortableEdgeMode), exception.Message);
     }
 
     [Fact]

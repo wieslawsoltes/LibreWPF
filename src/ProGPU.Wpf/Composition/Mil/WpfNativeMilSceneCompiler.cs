@@ -1054,7 +1054,6 @@ public sealed class WpfNativeMilSceneCompiler
             }
             if (state.HasEffect || state.HasBitmapEffect ||
                 state.HasBitmapEffectInput || state.HasCacheMode ||
-                state.HasEdgeMode ||
                 state.HasClearTypeHint || state.HasTextRenderingMode ||
                 state.HasTextHintingMode)
             {
@@ -1106,6 +1105,22 @@ public sealed class WpfNativeMilSceneCompiler
                         $"Bitmap scaling mode {(int)state.PortableBitmapScalingMode} is unsupported.")
                 };
             }
+            NativeMilEdgeMode edgeMode = NativeMilEdgeMode.Unspecified;
+            if (state.HasEdgeMode && !state.HasPortableEdgeMode)
+            {
+                throw MissingContract(nameof(PortableEdgeMode));
+            }
+            if (state.HasPortableEdgeMode)
+            {
+                edgeMode = state.PortableEdgeMode switch
+                {
+                    PortableEdgeMode.Unspecified =>
+                        NativeMilEdgeMode.Unspecified,
+                    PortableEdgeMode.Aliased => NativeMilEdgeMode.Aliased,
+                    _ => throw new NotSupportedException(
+                        $"Edge mode {(int)state.PortableEdgeMode} is unsupported.")
+                };
+            }
             var childHandles = new uint[childCount];
             for (int index = 0; index < childCount; index++)
             {
@@ -1129,6 +1144,7 @@ public sealed class WpfNativeMilSceneCompiler
                     OpacityMaskHandle: opacityMaskHandle,
                     TransformHandle: transformHandle,
                     GuidelineSetHandle: guidelineSetHandle,
+                    EdgeMode: edgeMode,
                     BitmapScalingMode: bitmapScalingMode),
                 childHandles);
             return handle;

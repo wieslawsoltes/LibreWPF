@@ -108,6 +108,10 @@ namespace System.Windows.Media
                 },
                 HasEdgeMode = edgeMode != EdgeMode.Unspecified,
                 EdgeMode = edgeMode,
+                HasPortableEdgeMode = edgeMode != EdgeMode.Unspecified,
+                PortableEdgeMode = edgeMode == EdgeMode.Aliased
+                    ? PortableEdgeMode.Aliased
+                    : PortableEdgeMode.Unspecified,
                 HasClearTypeHint = clearTypeHint != ClearTypeHint.Auto,
                 ClearTypeHint = clearTypeHint
             };
