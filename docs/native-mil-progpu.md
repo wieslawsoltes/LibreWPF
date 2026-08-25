@@ -1325,6 +1325,33 @@ for `progpu_native.dll` and
 `ac396e3973a2bc5a851925dff0d97f3cf43ebaaaa7b332df797cfbc3946341cd`
 for `progpu_native_dawn.dll`.
 
+ProGPU implementation `31cd23ca`, package checkpoint `50710315`, and
+LibreWPF producer checkpoint `1485782bf` next add canonical Visual guideline
+collections (`0x27`). Source-built WPF already publishes cached typed
+`double[]` X/Y snapshots in `PortableVisualState`; LibreWPF emits packed UInt16
+counts plus float coordinates without reflection and rejects more than one
+guide per axis until native piecewise deformation exists.
+
+The native implementation shares the existing semantic GuidelineSet resource
+and exact zero/one guide mapper across Visual and DrawingGroup. It preserves
+WPF float conversion and scale/translate mapping, uses an empty snapping frame
+for rotated/sheared scopes, and implements the Visual-specific boundary rule:
+child Visual content never inherits its parent's guidelines. Native regression
+coverage proves the root mapped values, the child reset, multi-guide fail-closed
+behavior, clearing, and malformed padding rejection.
+
+Validation passed all ten local native CTests, the canonical packet test, two
+focused typed producer tests, and the zero-warning package consumer build. The
+focused `--mil-visual-guideline-only` gate runs in JIT, NativeAOT, package
+verification, build, and release lanes. Strict Windows ARM64 MSVC rebuilt both
+exports and all 11 native/Dawn CTests passed. Fresh app-local DLLs compiled the
+scene through both exports and live D3D12 rendered four semantic resources,
+one draw, zero coverage bytes, and 16,384 direct pixels. Qualified hashes are
+`36406b7138010c2c3b47e136a32efa62f07e148027640b68edafc0b67ea07318`
+for `progpu_native.dll` and
+`deaa21c42b156f0aa5f78bcb10593bfc53c650da69dab320cb625fdcd8a585be`
+for `progpu_native_dawn.dll`.
+
 ## Next parity gates
 
 1. Generate packed protocol size/offset metadata from the checked-in WPF MCG
