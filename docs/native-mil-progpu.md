@@ -16,10 +16,9 @@ latest `main`; the superproject records exact reviewed ProGPU commits. The
 exact singular-affine qualification and its reproducible binary hashes are
 pinned together with the subsequent degenerate point, ellipse, and rectangle
 qualification at ProGPU documentation commit `37d052ce`.
-The subsequent zero-axis rounded-rectangle and canonical static-transform
-qualifications are pinned at ProGPU documentation commit `92092990`.
-The current submodule head `cfdfacb6` merges the fetched ProGPU `main` after
-that qualification without changing the MIL checkpoint.
+The subsequent canonical static-transform and transform-animation resource
+qualifications are pinned at ProGPU documentation commit `856a4b98`, which
+contains the fetched latest ProGPU `main` integration.
 
 ## WPF protocol model
 
@@ -69,7 +68,9 @@ ProGPU currently provides:
   visual-transform, and nested `PushTransform` packet decoding. Leaf values use
   WPF float-matrix evaluation; groups resolve live child state in row-vector
   collection order for every visual, scope, geometry, boolean, and clip
-  consumer. Cycles, referenced-child deletion, animation handles, and
+  consumer. Typed `DoubleResource` and `MatrixResource` handles replace their
+  corresponding base transform fields with live current values. Cycles,
+  referenced-child/animation deletion, wrong-type animation handles, and
   unresolved nonzero resources fail closed. Handle zero remains WPF's balanced
   no-op transform scope.
 - Typed solid `Pen` resources and nested `DrawLine` lowering through ProGPU's
@@ -829,12 +830,34 @@ for `progpu_native.dll` and
 for `progpu_native_dawn.dll`; the complete record is pinned at ProGPU
 documentation commit `92092990`.
 
+ProGPU implementation `04ae7747` next added canonical `DoubleResource` and
+`MatrixResource` current-value packets for every transform animation field.
+Native scene compilation resolves those typed dependencies on demand, so
+scalar and matrix resource updates propagate through nested transform groups
+without rewriting transform packets; a zero handle alone selects the packet's
+base value. Wrong resource types, failed updates, and deletion of referenced
+animation resources remain transactional. LibreWPF's portable producer still
+publishes its typed current matrix snapshot rather than inspecting animation
+or transform subtypes, while direct/source-built canonical WPF channels can use
+the new native resource path. All eight locally configured native suites
+passed. Following the latest-main merge, strict Windows ARM64 MSVC rebuilt both
+complete modules under `/W4 /WX`, all 11 native/Dawn CTests passed, and the
+project-reference consumer built with zero warnings. Package checkpoint
+`d07ab05d` compiled `DoubleResource`, `MatrixResource`, and animated transform
+handles through both exports in a 78-command, 36-channel-resource seed. Its
+identity-equivalent current values preserved live D3D12 output at 38 semantic
+resources, 11 draws, and 78,848 coverage bytes. Qualified SHA-256 values were
+`a903edec8bb58e314e2738d64f8246ccc7a9f83e2d0c33755f3855ff043c233e`
+for `progpu_native.dll` and
+`e19d905e42d5030bf2aded0182fa1c8eb9bfc27f9a974cc3aa4d21b6507d33b0`
+for `progpu_native_dawn.dll`; the complete record is pinned at ProGPU
+documentation commit `856a4b98`.
+
 ## Next parity gates
 
 1. Generate packed protocol size/offset metadata from the checked-in WPF MCG
    model rather than manually extending command declarations.
-2. Add transform animations, dashed
-   ellipse and rounded-rectangle pen draws, curve dashes, exact degenerate
+2. Add dashed ellipse and rounded-rectangle pen draws, curve dashes, exact degenerate
    zero-axis asymmetric rounded-rectangle widening, exact
    translated-equivalent EvenOdd overlap execution, exact
    combined children inside groups, gradients, remaining
