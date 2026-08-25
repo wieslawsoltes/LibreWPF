@@ -14,8 +14,8 @@ The active ProGPU work is tracked in draft
 superproject branch and the ProGPU submodule branch started from the fetched
 latest `main`; the superproject records exact reviewed ProGPU commits. The
 exact singular-affine qualification and its reproducible binary hashes are
-pinned together with the subsequent degenerate point-cap/dash qualification at
-ProGPU documentation commit `405dfa68`, including fixed ellipse collapse.
+pinned together with the subsequent degenerate point, ellipse, and rectangle
+qualification at ProGPU documentation commit `37d052ce`.
 
 ## WPF protocol model
 
@@ -75,7 +75,11 @@ ProGPU currently provides:
   execution across native backends.
 - Typed rectangle pen production for fill-only, stroke-only, and combined
   records. Native rectangle outlines use closed ProGPU semantic polylines with
-  exact join/dash metadata and affine-expanded stroke bounds.
+  exact join/dash metadata and affine-expanded stroke bounds. Solid
+  zero-width/height rectangles lower WPF's single outer widened figure to an
+  exact vector fill: Miter and Bevel preserve the source bevel-offset formula,
+  while Round emits analytic quarter arcs. Degenerate fills stay empty and
+  nonempty collapsed dashes fail closed.
 - Typed ellipse pen production for fill-only, stroke-only, and combined
   records. Solid ellipse outlines use ProGPU's exact full-ellipse analytic arc,
   preserve non-uniform radii, and publish affine-expanded stroke bounds;
@@ -86,7 +90,8 @@ ProGPU currently provides:
   and combined records. Positive-radius solid outlines use ProGPU's exact
   analytic rounded-rectangle stroke with affine-expanded bounds; zero-radius
   records retain rectangle join/dash behavior, while nonempty curved dashes
-  fail closed pending phase-continuous curve dashing.
+  fail closed pending phase-continuous curve dashing. Degenerate solid records
+  use the same outer widened path with WPF's independently clamped X/Y radii.
 - Typed retained `LineGeometry`, `RectangleGeometry`, and `EllipseGeometry`
   resources with nested `DrawGeometry` lowering. Optional geometry-local
   affine transforms compose with visual and drawing scopes; line pen semantics
@@ -722,6 +727,27 @@ seed; live D3D12 readback retained 29 semantic resources, three draws, and
 `8e235e440a980fcdf63c4770c33a2afbcd9f92a06667671daa33c7406e50457a`
 for `progpu_native.dll` and
 `2ecd3a808e9ee65d50cae7637e365d00820febb02a63067849ace0b73d54df58`
+for `progpu_native_dawn.dll`.
+
+ProGPU degenerate rectangle implementation `762887cb` then followed
+`CRectangle::WidenToShape` and `CPlainPen::Get90DegreeBevelOffset` exactly.
+WPF omits the inner stroke boundary when either original dimension cannot
+contain the full pen width, leaving one outer figure. ProGPU now lowers that
+figure as the exact four-/eight-edge Miter or Bevel path, or as a Round/source-
+rounded path with four analytic elliptical quarter arcs and independent radius
+clamps. Degenerate fills remain empty, geometry-local affine state remains on
+the typed vector path, and nonempty dashed collapses remain fail closed.
+Immediate and retained fixtures cover all public joins, line and point
+collapses, rounded-source radii, transformed bounds, and the dash gate. All ten
+local native tests passed. Strict Windows ARM64 MSVC rebuilt both modules under
+`/W4 /WX`, and all 11 native/Dawn CTests passed in Parallels. Package checkpoint
+`557c67fb` added immediate Round and rounded collapses plus retained transformed
+rectangle geometry. Both exports compiled its 62-command, 28-channel-resource
+seed; live D3D12 readback retained 32 semantic resources, issued six draws, and
+staged 61,440 coverage bytes. Exact staged SHA-256 values were
+`35610b8e6e6250d8d150e4a855e52a306f28af12dde286b41822baf5d5bab3eb`
+for `progpu_native.dll` and
+`7f3cf20154beb9c305de9b2477fbd6cb967292da61405afb35b2f46f936fa19a`
 for `progpu_native_dawn.dll`.
 
 ## Next parity gates
