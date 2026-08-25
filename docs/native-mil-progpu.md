@@ -13,8 +13,8 @@ The active ProGPU work is tracked in draft
 [ProGPU PR #139](https://github.com/wieslawsoltes/ProGPU/pull/139). Both this
 superproject branch and the ProGPU submodule branch started from the fetched
 latest `main`; the superproject records exact reviewed ProGPU commits. The
-exact retained geometry-clip qualification and its reproducible binary hashes
-are pinned at ProGPU documentation commit `c476a341`.
+exact singular-affine qualification and its reproducible binary hashes are
+pinned at ProGPU documentation commit `7a10b324`.
 
 ## WPF protocol model
 
@@ -139,9 +139,10 @@ ProGPU currently provides:
   adapter. Nonsingular affine arc-bearing children remain analytic:
   ProGPU factors the transformed ellipse basis, preserves parameterization, and
   reverses sweep under reflection. Exact translations preserve the original arc
-  fields bit-for-bit except for endpoints/center. Singular arc transforms,
-  combined children, and meaningful group pens remain fail closed pending exact
-  contour/stroke composition.
+  fields bit-for-bit except for endpoints/center. Exact singular affine
+  transforms produce empty fill and stroke coverage, matching WPF's
+  zero-determinant area semantics. Combined children and meaningful group pens
+  remain fail closed pending exact contour/stroke composition.
 - Canonical retained `CombinedGeometry` packets with optional transform,
   null-as-empty operands, dependency/cycle validation, and all four WPF combine
   operations. Two identity-local path operands lower to ProGPU's native postfix
@@ -155,8 +156,9 @@ ProGPU currently provides:
   into descendant leaves, and append arbitrary-depth postfix boolean trees with
   segment/node rollback and conservative descendant bounds. Nonsingular affine
   arc-bearing leaves use the same exact analytic factorization and sweep
-  reversal as group children. Singular arc transforms and stroked operands
-  currently fail closed; combined children inside groups also fail closed
+  reversal as group children. Singular transformed operands become exact empty
+  leaves. Stroked operands currently fail closed; combined children inside
+  groups also fail closed
   because flattening a boolean result into raw outer-fill contours would change
   WPF semantics.
 - An identical size-versioned C ABI exported by wgpu-native and provider-
@@ -612,8 +614,9 @@ group fill ownership, recursive combined-geometry boolean programs, nested
 intersection order, and the transform active when WPF pushes the clip. Fixed
 ellipses and rounded rectangles now use analytic quarter arcs instead of cubic
 circle approximations. Clip scopes retain arena prefix counts rather than
-copying segment vectors, and invalid/singular shapes fail closed without using
-their bounds as coverage. All ten local native tests passed. Windows ARM64
+copying segment vectors; malformed shapes fail closed and degenerate geometry
+becomes an empty clip without using bounds as coverage. All ten local native
+tests passed. Windows ARM64
 MSVC rebuilt both modules under `/W4 /WX`, and all 11 native/Dawn CTests plus
 the complete D3D12 sample and differential smoke matrix passed in Parallels.
 Package checkpoint `a2502e36` nested an analytic path clip under the existing
@@ -642,14 +645,32 @@ for `progpu_native.dll` and
 `daefb160737962ec81fb78238b44508a7c6a7235c8daf1bc129b0f5df2dda14a`
 for `progpu_native_dawn.dll`.
 
+ProGPU singular-affine implementation `f244dc2d` then closed the remaining
+zero-determinant fill, stroke, and clip ambiguity. WPF's
+`CShapeBase::GetArea` multiplies rectangle area by the absolute 2D determinant
+and treats a degenerate general transform as no scannable workspace. The native
+MIL compiler therefore lowers singularly transformed fixed, path, group, and
+combined geometry to exact empty coverage instead of trying to invert or
+factor an arc basis. Direct line strokes follow the same rule, and a singular
+geometry clip becomes an exact empty clip. All ten local native tests passed.
+Strict Windows ARM64 MSVC rebuilt both modules under `/W4 /WX`, and all 11
+native/Dawn CTests passed in Parallels. Package checkpoint `7b91b21f` added a
+typed singular `MatrixTransform` scope around direct and retained draws. Both
+MIL exports compiled its 50-command, 22-channel-resource seed; live D3D12
+readback retained 24 semantic resources, three visible draws, and 41,472
+coverage bytes. Exact staged SHA-256 values were
+`1dec50b6aef18b22f894739a9bff477a31bd0751cae1baabd9d3efc562212b65`
+for `progpu_native.dll` and
+`83ff9ae3133fbe9ecd789202f10ea5dfc483528f207c8ef3d34af05e45c038d9`
+for `progpu_native_dawn.dll`.
+
 ## Next parity gates
 
 1. Generate packed protocol size/offset metadata from the checked-in WPF MCG
    model rather than manually extending command declarations.
 2. Add transform animations and remaining transform resource kinds, dashed
    ellipse and rounded-rectangle pen draws, non-uniform rounded rectangles,
-   curve dashes, singular affine
-   arc handling, exact translated-equivalent EvenOdd overlap execution, exact
+   curve dashes, exact translated-equivalent EvenOdd overlap execution, exact
    combined children inside groups, gradients, remaining
    push/pop state,
    images, and
