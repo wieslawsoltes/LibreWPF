@@ -70,6 +70,61 @@ public sealed class WpfNativeMilSceneCompilerTests
     }
 
     [Fact]
+    public void BuildBatchTranslatesTypedSolidVisualOpacityMask()
+    {
+        var opacityMask = new FakeBrush(
+            PortableBrush.SolidColor(
+                new PortableColor(128, 255, 255, 255),
+                opacity: 0.5));
+        var visual = new FakeVisual(
+            null,
+            new PortableVisualState
+            {
+                HasOpacityMask = true,
+                OpacityMask = opacityMask
+            });
+
+        WpfNativeMilBatch result = new WpfNativeMilSceneCompiler().BuildBatch(
+            visual, 64, 64);
+
+        Assert.Equal(
+            [0x07, 0x1a, 0x07, 0x7e, 0x23,
+             0x07, 0x34, 0x36, 0x35],
+            ReadCommands(result.Bytes));
+        int maskCommandOffset = FindCommand(result.Bytes, 0x23);
+        uint maskHandle = ReadUInt32(result.Bytes, maskCommandOffset + 12);
+        Assert.NotEqual(0U, maskHandle);
+        int brushOffset = FindCommand(result.Bytes, 0x7e);
+        Assert.Equal(maskHandle, ReadUInt32(result.Bytes, brushOffset + 8));
+        Assert.Equal(0.5, ReadDouble(result.Bytes, brushOffset + 12));
+        Assert.Equal(128F / 255F, ReadSingle(result.Bytes, brushOffset + 32));
+    }
+
+    [Fact]
+    public void BuildBatchRejectsGradientVisualOpacityMask()
+    {
+        var opacityMask = new FakeBrush(PortableBrush.LinearGradient(
+            new PortablePoint(0, 0),
+            new PortablePoint(1, 0),
+            [
+                new PortableGradientStop(
+                    new PortableColor(0, 255, 255, 255), 0),
+                new PortableGradientStop(
+                    new PortableColor(255, 255, 255, 255), 1)
+            ]));
+        var visual = new FakeVisual(
+            null,
+            new PortableVisualState
+            {
+                HasOpacityMask = true,
+                OpacityMask = opacityMask
+            });
+
+        Assert.Throws<NotSupportedException>(() =>
+            new WpfNativeMilSceneCompiler().BuildBatch(visual, 64, 64));
+    }
+
+    [Fact]
     public void BuildBatchTranslatesTypedVisualRectangleAndSolidBrush()
     {
         var brush = new FakeBrush(new PortableColor(192, 128, 64, 32));

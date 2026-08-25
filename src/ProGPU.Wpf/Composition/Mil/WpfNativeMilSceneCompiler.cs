@@ -204,6 +204,16 @@ public sealed class WpfNativeMilSceneCompiler
                         state.ScrollableAreaClip.Width,
                         state.ScrollableAreaClip.Height));
             }
+            if (state.HasOpacityMask)
+            {
+                if (state.OpacityMask is null)
+                {
+                    throw MissingContract(nameof(IPortableBrushSource));
+                }
+                Batch.SetVisualOpacityMask(
+                    visualHandle,
+                    ResolveSolidOpacityMask(state.OpacityMask));
+            }
             if (state.HasOffset)
             {
                 Batch.SetVisualOffset(
@@ -1324,7 +1334,7 @@ public sealed class WpfNativeMilSceneCompiler
             if (brush.Kind != PortableBrushKind.SolidColor)
             {
                 throw new NotSupportedException(
-                    "Only static solid DrawingGroup opacity masks are implemented by the native MIL slice.");
+                    "Only static solid opacity masks are implemented by the native MIL slice.");
             }
             if (_brushHandles.TryGetValue(resource, out uint existing))
             {
@@ -1706,8 +1716,7 @@ public sealed class WpfNativeMilSceneCompiler
 
         private static void RejectUnsupportedState(PortableVisualState state)
         {
-            if (state.HasOpacityMask ||
-                state.HasEffect || state.HasBitmapEffect ||
+            if (state.HasEffect || state.HasBitmapEffect ||
                 state.HasBitmapEffectInput || state.HasCacheMode ||
                 state.HasSnappingGuidelinesX ||
                 state.HasSnappingGuidelinesY)
