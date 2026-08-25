@@ -15,7 +15,24 @@ public sealed class WpfNativeMilSceneCompilerTests
     {
         var brush = new FakeBrush(new PortableColor(192, 128, 64, 32));
         var visual = new FakeVisual(
-            new FakeRenderData(CreateRectangleRecord(1, 0), [brush]));
+            new FakeRenderData(CreateRectangleRecord(1, 0), [brush]),
+            new PortableVisualState
+            {
+                HasOffset = true,
+                Offset = new PortablePoint(0, 0),
+                HasOpacity = true,
+                Opacity = 1,
+                HasBitmapScalingMode = true,
+                HasPortableBitmapScalingMode = true,
+                PortableBitmapScalingMode =
+                    PortableBitmapScalingMode.NearestNeighbor,
+                HasEdgeMode = true,
+                HasPortableEdgeMode = true,
+                PortableEdgeMode = PortableEdgeMode.Aliased,
+                HasClearTypeHint = true,
+                HasPortableClearTypeHint = true,
+                PortableClearTypeHint = PortableClearTypeHint.Enabled
+            });
 
         WpfNativeMilBatch result = new WpfNativeMilSceneCompiler().BuildBatch(
             visual, 640, 480);
@@ -23,9 +40,18 @@ public sealed class WpfNativeMilSceneCompilerTests
 
         Assert.Equal(4U, result.TargetHandle);
         Assert.Equal(
-            [0x07, 0x1a, 0x1b, 0x20, 0x07, 0x7e, 0x07, 0x18,
+            [0x07, 0x1a, 0x1b, 0x20, 0x21, 0x07, 0x7e, 0x07, 0x18,
              0x22, 0x07, 0x34, 0x36, 0x35],
             commands);
+        int renderOptionsOffset = FindCommand(result.Bytes, 0x21);
+        Assert.Equal(1U, ReadUInt32(result.Bytes, renderOptionsOffset + 8));
+        Assert.Equal(0x0bU, ReadUInt32(result.Bytes, renderOptionsOffset + 12));
+        Assert.Equal(1U, ReadUInt32(result.Bytes, renderOptionsOffset + 16));
+        Assert.Equal(0U, ReadUInt32(result.Bytes, renderOptionsOffset + 20));
+        Assert.Equal(3U, ReadUInt32(result.Bytes, renderOptionsOffset + 24));
+        Assert.Equal(1U, ReadUInt32(result.Bytes, renderOptionsOffset + 28));
+        Assert.Equal(0U, ReadUInt32(result.Bytes, renderOptionsOffset + 32));
+        Assert.Equal(0U, ReadUInt32(result.Bytes, renderOptionsOffset + 36));
         int renderDataOffset = FindCommand(result.Bytes, 0x18);
         int nestedOffset = renderDataOffset + 16;
         Assert.Equal(48, ReadInt32(result.Bytes, nestedOffset));
@@ -814,6 +840,40 @@ public sealed class WpfNativeMilSceneCompilerTests
                     visual, 64, 64));
 
         Assert.Contains(nameof(PortableBitmapScalingMode), exception.Message);
+    }
+
+    [Theory]
+    [InlineData(0, nameof(PortableBitmapScalingMode))]
+    [InlineData(1, nameof(PortableEdgeMode))]
+    [InlineData(2, nameof(PortableClearTypeHint))]
+    public void BuildBatchRejectsLegacyObjectVisualRenderOptions(
+        int option,
+        string expectedContract)
+    {
+        var state = new PortableVisualState();
+        if (option == 0)
+        {
+            state.HasBitmapScalingMode = true;
+            state.BitmapScalingMode = "NearestNeighbor";
+        }
+        else if (option == 1)
+        {
+            state.HasEdgeMode = true;
+            state.EdgeMode = "Aliased";
+        }
+        else
+        {
+            state.HasClearTypeHint = true;
+            state.ClearTypeHint = "Enabled";
+        }
+        var visual = new FakeVisual(null, state);
+
+        InvalidOperationException exception =
+            Assert.Throws<InvalidOperationException>(() =>
+                new WpfNativeMilSceneCompiler().BuildBatch(
+                    visual, 64, 64));
+
+        Assert.Contains(expectedContract, exception.Message);
     }
 
     [Fact]

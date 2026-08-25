@@ -193,6 +193,81 @@ public sealed class WpfNativeMilSceneCompiler
             {
                 Batch.SetVisualOpacity(visualHandle, state.Opacity);
             }
+            NativeMilRenderOptionFlags renderOptionFlags =
+                NativeMilRenderOptionFlags.None;
+            NativeMilBitmapScalingMode bitmapScalingMode =
+                NativeMilBitmapScalingMode.Unspecified;
+            if (state.HasBitmapScalingMode &&
+                !state.HasPortableBitmapScalingMode)
+            {
+                throw MissingContract(nameof(PortableBitmapScalingMode));
+            }
+            if (state.HasPortableBitmapScalingMode)
+            {
+                renderOptionFlags |=
+                    NativeMilRenderOptionFlags.BitmapScalingMode;
+                bitmapScalingMode = state.PortableBitmapScalingMode switch
+                {
+                    PortableBitmapScalingMode.Unspecified =>
+                        NativeMilBitmapScalingMode.Unspecified,
+                    PortableBitmapScalingMode.Linear =>
+                        NativeMilBitmapScalingMode.Linear,
+                    PortableBitmapScalingMode.Fant =>
+                        NativeMilBitmapScalingMode.Fant,
+                    PortableBitmapScalingMode.NearestNeighbor =>
+                        NativeMilBitmapScalingMode.NearestNeighbor,
+                    _ => throw new NotSupportedException(
+                        $"Bitmap scaling mode {(int)state.PortableBitmapScalingMode} is unsupported.")
+                };
+            }
+            NativeMilEdgeMode edgeMode = NativeMilEdgeMode.Unspecified;
+            if (state.HasEdgeMode && !state.HasPortableEdgeMode)
+            {
+                throw MissingContract(nameof(PortableEdgeMode));
+            }
+            if (state.HasPortableEdgeMode)
+            {
+                renderOptionFlags |= NativeMilRenderOptionFlags.EdgeMode;
+                edgeMode = state.PortableEdgeMode switch
+                {
+                    PortableEdgeMode.Unspecified =>
+                        NativeMilEdgeMode.Unspecified,
+                    PortableEdgeMode.Aliased => NativeMilEdgeMode.Aliased,
+                    _ => throw new NotSupportedException(
+                        $"Edge mode {(int)state.PortableEdgeMode} is unsupported.")
+                };
+            }
+            NativeMilClearTypeHint clearTypeHint =
+                NativeMilClearTypeHint.Auto;
+            if (state.HasClearTypeHint &&
+                !state.HasPortableClearTypeHint)
+            {
+                throw MissingContract(nameof(PortableClearTypeHint));
+            }
+            if (state.HasPortableClearTypeHint)
+            {
+                renderOptionFlags |=
+                    NativeMilRenderOptionFlags.ClearTypeHint;
+                clearTypeHint = state.PortableClearTypeHint switch
+                {
+                    PortableClearTypeHint.Auto =>
+                        NativeMilClearTypeHint.Auto,
+                    PortableClearTypeHint.Enabled =>
+                        NativeMilClearTypeHint.Enabled,
+                    _ => throw new NotSupportedException(
+                        $"ClearType hint {(int)state.PortableClearTypeHint} is unsupported.")
+                };
+            }
+            if (renderOptionFlags != NativeMilRenderOptionFlags.None)
+            {
+                Batch.SetVisualRenderOptions(
+                    visualHandle,
+                    new NativeMilRenderOptions(
+                        renderOptionFlags,
+                        edgeMode,
+                        bitmapScalingMode,
+                        clearTypeHint));
+            }
 
             if (visual is IPortableDrawingContentSource contentSource &&
                 contentSource.TryGetPortableDrawingContent(out object? content) &&
@@ -1565,8 +1640,7 @@ public sealed class WpfNativeMilSceneCompiler
                 state.HasOpacityMask ||
                 state.HasEffect || state.HasBitmapEffect ||
                 state.HasBitmapEffectInput || state.HasCacheMode ||
-                state.HasBitmapScalingMode || state.HasEdgeMode ||
-                state.HasClearTypeHint || state.HasTextRenderingMode ||
+                state.HasTextRenderingMode ||
                 state.HasTextHintingMode || state.HasSnappingGuidelinesX ||
                 state.HasSnappingGuidelinesY)
             {

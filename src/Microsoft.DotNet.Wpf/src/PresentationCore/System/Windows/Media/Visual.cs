@@ -2630,10 +2630,26 @@ namespace System.Windows.Media
                 CacheMode = cacheMode,
                 HasBitmapScalingMode = bitmapScalingMode != BitmapScalingMode.Unspecified,
                 BitmapScalingMode = bitmapScalingMode,
+                HasPortableBitmapScalingMode = bitmapScalingMode != BitmapScalingMode.Unspecified,
+                PortableBitmapScalingMode = bitmapScalingMode switch
+                {
+                    BitmapScalingMode.LowQuality => PortableBitmapScalingMode.Linear,
+                    BitmapScalingMode.HighQuality => PortableBitmapScalingMode.Fant,
+                    BitmapScalingMode.NearestNeighbor => PortableBitmapScalingMode.NearestNeighbor,
+                    _ => PortableBitmapScalingMode.Unspecified
+                },
                 HasEdgeMode = edgeMode != EdgeMode.Unspecified,
                 EdgeMode = edgeMode,
+                HasPortableEdgeMode = edgeMode != EdgeMode.Unspecified,
+                PortableEdgeMode = edgeMode == EdgeMode.Aliased
+                    ? PortableEdgeMode.Aliased
+                    : PortableEdgeMode.Unspecified,
                 HasClearTypeHint = clearTypeHint != ClearTypeHint.Auto,
                 ClearTypeHint = clearTypeHint,
+                HasPortableClearTypeHint = clearTypeHint != ClearTypeHint.Auto,
+                PortableClearTypeHint = clearTypeHint == ClearTypeHint.Enabled
+                    ? PortableClearTypeHint.Enabled
+                    : PortableClearTypeHint.Auto,
                 HasTextRenderingMode = textRenderingMode != TextRenderingMode.Auto,
                 TextRenderingMode = textRenderingMode,
                 HasTextHintingMode = textHintingMode != TextHintingMode.Auto,
