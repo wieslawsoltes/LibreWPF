@@ -1475,6 +1475,24 @@ SHA-256 values are
 preceding target-space subset. Strict Windows qualification for the new
 local-space/RenderAtScale checkpoint remains separate.
 
+The new local-space/RenderAtScale checkpoint subsequently passed that strict
+gate on 2026-08-25. The Parallels Windows 11 ARM64 guest checked out clean
+ProGPU commit `1a75a958` (native implementation `dee81dff`; LibreWPF tracking
+commit `6d5db5652`), rebuilt both modules with MSVC `/W4 /WX`, passed all 11
+native/Dawn CTests and both export contracts, and staged the win-arm64 package.
+The independent C++ and managed samples selected the live
+`Parallels Display Adapter (WDDM)` D3D12 adapter and completed retained render,
+allocation, and readback checks. The expected Parallels-only retained GPU
+hit-test deferral remained isolated to the optional probe. The bounded D3D12
+differential smoke matrix and managed/C++ text-shaping parity passed; final
+Overlay and ColorDodge scenes were pixel-exact. Packaged DLL SHA-256 values are
+`FBC4EC3D71A1BB63CA2DE3A092C7F25D63747C47C40AF7FC9D19EA4A379FE5B4`
+(`progpu_native.dll`) and
+`ECC81DF8437FE0C4EC8BB18D9692E248048F04270471E04DC053BF7610E5B173`
+(`progpu_native_dawn.dll`). This closes Windows DirectX qualification for the
+current local-space cache subset; snapping, ClearType, post-raster
+clip/mask/guideline ordering, and LibreWPF package-mode SDK coverage remain.
+
 ## Next parity gates
 
 1. Generate packed protocol size/offset metadata from the checked-in WPF MCG
