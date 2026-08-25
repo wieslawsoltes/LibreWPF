@@ -93,8 +93,15 @@ ProGPU currently provides:
   reader and canonical WPF path/figure/fixed-segment records. Native fill-only
   lowering supports line, quadratic, cubic, and endpoint-arc contours,
   EvenOdd/Nonzero fill, implicit closure, and geometry-local affine transforms.
-  Arc math is shared with ProGPU's SVG glyph paths; meaningful path pens remain
-  an explicit fail-closed execution gap.
+  Arc math is shared with ProGPU's SVG glyph paths.
+- Native retained path pens for line/polyline topology. ProGPU preserves true
+  open/closed stroke contours independently from WPF's implicit fill closure,
+  splits `IsStroked=false` geometry gaps into dash-capped runs, restarts dash
+  phase per WPF `CDasher`, carries all pen and affine state into reusable native
+  semantic polylines, and joins the solid closed-gap seam without a false cap.
+  Curved segments, `IsSmoothJoin`, non-flat degenerate runs, and the one dashed
+  closed-gap seam whose WPF phase reset plus joined corner cannot yet be
+  represented exactly fail closed.
 - Canonical retained `GeometryGroup` packets in ProGPU's raw MIL backend,
   including variable child handles, fill rule, matrix transform, dependency
   deletion, cycle rejection, and transactional rollback. Identity-local path
@@ -347,14 +354,31 @@ Exclude `CombinedGeometry` through the wgpu-native and Dawn MIL exports, then
 installed the wgpu-native semantic stream and completed live D3D12 readback
 (17 resources, two draws, 16,384 pixels).
 
+The retained line-path stroke checkpoint at exact ProGPU commit `70c88279`
+passed the same complete Windows ARM64 MSVC gate. Both native modules rebuilt
+under strict warnings and all 11 CTests passed, including closed/open topology,
+gap dash caps, affine/dash/pen state, and curved/smooth/seam fail-closed cases.
+Live C++ and managed D3D12 rendering/readback, allocation probes, path atlas,
+image/mask/effect, semantic layer, text, and blend contracts all completed.
+The mixed differential remained at maximum delta 2/255 with zero pixels above
+3/255 and mean `0.0000622`; the eight-frame native diagnostic measured
+`0.0902 ms/frame` on this VM.
+
+The updated zero-warning package consumer copied app-local DLLs whose SHA-256
+values exactly matched both freshly staged modules. It compiled the existing
+path/group/combined graph plus a transformed dashed closed line path with a WPF
+geometry gap through both native MIL exports, installed the wgpu-native stream,
+and completed live D3D12 readback (18 resources, three draws, 16,384 pixels).
+
 ## Next parity gates
 
 1. Generate packed protocol size/offset metadata from the checked-in WPF MCG
    model rather than manually extending command declarations.
 2. Add transform animations and remaining transform resource kinds, dashed
    ellipse and rounded-rectangle pen draws, non-uniform rounded rectangles,
-   path strokes, recursive group/combined child widening, gradients, remaining
-   push/pop state, clips, images, and
+   curved/smooth path strokes and the closed-gap dashed seam, recursive
+   group/combined child widening, gradients, remaining push/pop state, clips,
+   images, and
    glyph runs.
 3. Cache stable native handles/generations across frames and emit incremental
    resource updates plus damage instead of rebuilding the initial scene batch.
