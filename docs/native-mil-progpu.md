@@ -1497,9 +1497,28 @@ Overlay and ColorDodge scenes were pixel-exact. Packaged DLL SHA-256 values are
 `ECC81DF8437FE0C4EC8BB18D9692E248048F04270471E04DC053BF7610E5B173`
 (`progpu_native_dawn.dll`). This closes Windows DirectX qualification for the
 current local-space cache subset; post-raster clip/mask/guideline ordering and
-LibreWPF package-mode SDK coverage remain. The subsequent native
-snapping/ClearType checkpoint requires its own strict Windows rerun before its
-package hashes replace the values above.
+LibreWPF package-mode SDK coverage remain.
+
+The combined native snapping/ClearType checkpoint subsequently passed the same
+strict gate on 2026-08-25. The Parallels Windows 11 ARM64 guest checked out
+clean ProGPU commit `bff32414` (LibreWPF tracking commit `da5f85ed6`), rebuilt
+both native modules with MSVC `/W4 /WX`, passed all 11 native/Dawn CTests and
+both export contracts, and staged the nine-file win-arm64 package. The
+independent C++ and managed samples selected the live
+`Parallels Display Adapter (WDDM)` D3D12 adapter and completed retained render,
+allocation, and pixel-readback checks. The expected Parallels-only retained GPU
+hit-test deferral remained isolated to the optional probe. The bounded D3D12
+differential smoke matrix passed group-opacity, zero-copy image/mask, retained
+semantic, mask/effect, path-atlas, image-effect, Overlay, ColorDodge, and
+managed/C++ text-shaping contracts; Overlay was pixel-exact. Packaged DLL
+SHA-256 values are
+`768BE3DB0A8970334FE6B4574370CCC96E63A653C94B9ECBD769FAEAD3825891`
+(`progpu_native.dll`) and
+`FC95E25FF8E5313D6151F199E236D376E28C9FF7243AD0887F8FA360B89AA73E`
+(`progpu_native_dawn.dll`). This closes Windows DirectX qualification for the
+local-space, RenderAtScale, SnapsToDevicePixels, and EnableClearType cache
+subset; post-raster clip/mask/guideline/effect ordering and LibreWPF
+package-mode SDK coverage remain.
 
 ## Next parity gates
 
