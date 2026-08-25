@@ -19,11 +19,16 @@ public sealed record WpfNativeMilGlyphRunFont(
     NativeMilGlyphStyleSimulations StyleSimulations,
     ReadOnlyMemory<byte> FontData);
 
+public sealed record WpfNativeMilDrawingImageBounds(
+    uint Handle,
+    NativeMilRect Bounds);
+
 public sealed record WpfNativeMilBatch(
     byte[] Bytes,
     uint TargetHandle,
     IReadOnlyList<WpfNativeMilBitmapSource>? BitmapSources = null,
-    IReadOnlyList<WpfNativeMilGlyphRunFont>? GlyphRunFonts = null);
+    IReadOnlyList<WpfNativeMilGlyphRunFont>? GlyphRunFonts = null,
+    IReadOnlyList<WpfNativeMilDrawingImageBounds>? DrawingImageBounds = null);
 
 public sealed record WpfNativeMilCompilation(
     NativeMilCompiledScene Scene,
@@ -60,7 +65,8 @@ public sealed class WpfNativeMilSceneCompiler
             context.Batch.ToArray(),
             targetHandle,
             context.BitmapSources.ToArray(),
-            context.GlyphRunFonts.ToArray());
+            context.GlyphRunFonts.ToArray(),
+            context.DrawingImageBounds.ToArray());
     }
 
     public WpfNativeMilCompilation Compile(
@@ -96,6 +102,13 @@ public sealed class WpfNativeMilSceneCompiler
                 glyphRunFont.FaceIndex,
                 glyphRunFont.StyleSimulations);
         }
+        foreach (WpfNativeMilDrawingImageBounds drawingImage in
+                 batch.DrawingImageBounds ??
+                 Array.Empty<WpfNativeMilDrawingImageBounds>())
+        {
+            channel.SetDrawingImageBounds(
+                drawingImage.Handle, drawingImage.Bounds);
+        }
         NativeMilCompiledScene scene = channel.CompileScene(
             batch.TargetHandle, sceneId, generation);
         return new WpfNativeMilCompilation(scene, batchMetrics);
@@ -128,6 +141,9 @@ public sealed class WpfNativeMilSceneCompiler
         internal List<WpfNativeMilBitmapSource> BitmapSources { get; } = [];
 
         internal List<WpfNativeMilGlyphRunFont> GlyphRunFonts { get; } = [];
+
+        internal List<WpfNativeMilDrawingImageBounds> DrawingImageBounds
+            { get; } = [];
 
         internal uint NextHandle()
         {
@@ -955,6 +971,47 @@ public sealed class WpfNativeMilSceneCompiler
                     imageSource, out uint existing))
             {
                 return existing;
+            }
+            if (imageSource is IPortableDrawingImageSource drawingImageSource)
+            {
+                bool hasDrawing = drawingImageSource.TryGetPortableDrawingImage(
+                    out object? drawing);
+                if (hasDrawing && drawing is null)
+                {
+                    throw new InvalidOperationException(
+                        "Portable drawing-image state is incomplete.");
+                }
+                uint drawingHandle = hasDrawing
+                    ? ResolveDrawing(drawing!)
+                    : 0;
+                uint drawingImageHandle = NextHandle();
+                Batch.CreateResource(
+                    drawingImageHandle, NativeMilResourceType.DrawingImage);
+                Batch.SetDrawingImage(drawingImageHandle, drawingHandle);
+                _imageSourceHandles.Add(imageSource, drawingImageHandle);
+                if (drawingHandle != 0)
+                {
+                    if (!WpfDrawingReplay.TryGetDrawingBounds(
+                            drawing!, null, out Rect bounds) ||
+                        !double.IsFinite(bounds.X) ||
+                        !double.IsFinite(bounds.Y) ||
+                        !double.IsFinite(bounds.Width) ||
+                        !double.IsFinite(bounds.Height) ||
+                        bounds.Width <= 0 || bounds.Height <= 0)
+                    {
+                        throw new NotSupportedException(
+                            "Native MIL DrawingImage requires exact typed drawing content bounds.");
+                    }
+                    DrawingImageBounds.Add(
+                        new WpfNativeMilDrawingImageBounds(
+                            drawingImageHandle,
+                            new NativeMilRect(
+                                bounds.X,
+                                bounds.Y,
+                                bounds.Width,
+                                bounds.Height)));
+                }
+                return drawingImageHandle;
             }
             if (!WpfBitmapSourceImageAdapter.TryCopyPixelsAsRgba32(
                     imageSource,

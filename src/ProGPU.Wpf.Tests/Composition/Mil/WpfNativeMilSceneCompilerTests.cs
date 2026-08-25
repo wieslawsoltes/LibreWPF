@@ -507,6 +507,63 @@ public sealed class WpfNativeMilSceneCompilerTests
     }
 
     [Fact]
+    public void BuildBatchTranslatesTypedDrawingImageWithExactBounds()
+    {
+        var brush = new FakeBrush(new PortableColor(255, 32, 96, 224));
+        var geometry = new FakePrimitiveGeometry(
+            PortablePrimitiveGeometry.Rectangle(
+                new PortableRect(10, 20, 20, 10),
+                0,
+                0,
+                PortableMatrix3x2.Identity));
+        var vectorDrawing = new FakeGeometryDrawing(
+            brush,
+            null,
+            geometry,
+            new PortableRect(10, 20, 20, 10));
+        var drawingImage = new FakeDrawingImage(vectorDrawing);
+        var imageDrawing = new FakeImageDrawing(
+            drawingImage,
+            new PortableRect(2, 4, 40, 20));
+        var visual = new FakeVisual(
+            new FakeRenderData(
+                CreateDrawDrawingRecord(1), [imageDrawing]));
+
+        WpfNativeMilBatch result = new WpfNativeMilSceneCompiler().BuildBatch(
+            visual, 64, 64);
+
+        Assert.Empty(result.BitmapSources!);
+        WpfNativeMilDrawingImageBounds source = Assert.Single(
+            result.DrawingImageBounds!);
+        Assert.Equal(5U, source.Handle);
+        Assert.Equal(new NativeMilRect(10, 20, 20, 10), source.Bounds);
+
+        int drawingImageOffset = FindCommand(result.Bytes, 0x71);
+        Assert.Equal(5U, ReadUInt32(result.Bytes, drawingImageOffset + 8));
+        Assert.Equal(4U, ReadUInt32(result.Bytes, drawingImageOffset + 12));
+        int imageDrawingOffset = FindCommand(result.Bytes, 0x89);
+        Assert.Equal(5U, ReadUInt32(result.Bytes, imageDrawingOffset + 44));
+    }
+
+    [Fact]
+    public void BuildBatchPreservesEmptyTypedDrawingImageAsNoOp()
+    {
+        var imageDrawing = new FakeImageDrawing(
+            new FakeDrawingImage(null),
+            new PortableRect(2, 4, 40, 20));
+        var visual = new FakeVisual(
+            new FakeRenderData(
+                CreateDrawDrawingRecord(1), [imageDrawing]));
+
+        WpfNativeMilBatch result = new WpfNativeMilSceneCompiler().BuildBatch(
+            visual, 64, 64);
+
+        Assert.Empty(result.DrawingImageBounds!);
+        int drawingImageOffset = FindCommand(result.Bytes, 0x71);
+        Assert.Equal(0U, ReadUInt32(result.Bytes, drawingImageOffset + 12));
+    }
+
+    [Fact]
     public void BuildBatchTranslatesTypedDrawingGroup()
     {
         var transform = new FakeTransform(
@@ -1551,15 +1608,19 @@ public sealed class WpfNativeMilSceneCompilerTests
     }
 
     private sealed class FakeGeometryDrawing :
-        IPortableGeometryDrawingStateSource
+        IPortableGeometryDrawingStateSource,
+        IPortableDrawingBoundsSource
     {
         private readonly PortableGeometryDrawingState _state;
+        private readonly PortableRect? _bounds;
 
         internal FakeGeometryDrawing(
             object? brush,
             object? pen,
-            object? geometry)
+            object? geometry,
+            PortableRect? bounds = null)
         {
+            _bounds = bounds;
             _state = new PortableGeometryDrawingState
             {
                 HasBrush = brush is not null,
@@ -1576,6 +1637,12 @@ public sealed class WpfNativeMilSceneCompilerTests
         {
             state = _state;
             return true;
+        }
+
+        public bool TryGetPortableDrawingBounds(out PortableRect bounds)
+        {
+            bounds = _bounds.GetValueOrDefault();
+            return _bounds.HasValue;
         }
     }
 
@@ -1660,6 +1727,22 @@ public sealed class WpfNativeMilSceneCompilerTests
         {
             pixels = _pixels;
             return true;
+        }
+    }
+
+    private sealed class FakeDrawingImage : IPortableDrawingImageSource
+    {
+        private readonly object? _drawing;
+
+        internal FakeDrawingImage(object? drawing)
+        {
+            _drawing = drawing;
+        }
+
+        public bool TryGetPortableDrawingImage(out object? drawing)
+        {
+            drawing = _drawing;
+            return drawing is not null;
         }
     }
 
