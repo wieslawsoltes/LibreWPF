@@ -1230,6 +1230,35 @@ native, Dawn, and wgpu-native DLLs compiled the visual-to-DrawingGroup
 inheritance scene through both exports; live D3D12 reported four semantic
 resources, one draw, zero coverage-staging bytes, and 16,384 direct pixels.
 
+ProGPU implementation `83f9febd` and LibreWPF producer checkpoint
+`6a8fda700` next complete the text fields in canonical retained Visual command
+`0x21`. `PortableVisualState` now carries neutral, typed
+`PortableTextRenderingMode` and `PortableTextHintingMode` values. Source-built
+`Visual` publishes them directly, and the reflection-free compiler maps them
+to the exact WPF packet enums. Legacy object-only text-option state fails
+closed. Canonical DrawingGroup does not contain corresponding text fields, so
+DrawingGroup object-level text options remain explicitly unsupported.
+
+The C++ scene compiler applies the inherited text values only to glyph draws.
+Aliased, Grayscale, and ClearType select the existing shared ProGPU semantic
+text styles used by both WebGPU/Dawn and DirectX. Auto plus
+`ClearTypeHint.Enabled` selects ClearType, matching the managed ProGPU WPF
+policy. Auto/Fixed hinting performs quarter-pixel X phase selection with
+integer Y snapping through 24 px, integer X/Y snapping above 24 px, and leaves
+rotated/sheared/reflected runs unsnapped; Animated always remains unsnapped.
+Four retained outline records share each glyph's decoded SFNT path segments,
+avoiding repeated outline decoding while preserving the managed compiler's
+phase behavior.
+
+Validation passed all ten local native CTests, the canonical managed packet
+test, six focused LibreWPF producer/typed-contract cases, and the source-built
+PresentationCore build. This is parity with ProGPU's current managed text
+mode and placement implementation. It does not claim pixel identity with
+WPF's DirectWrite glyph hinting or system display parameters, and
+CompositingMode remains a known transactional unsupported state. Windows
+MSVC/D3D12 qualification for this checkpoint is recorded separately once the
+fresh native and Dawn exports have been exercised in the Parallels lane.
+
 ## Next parity gates
 
 1. Generate packed protocol size/offset metadata from the checked-in WPF MCG
@@ -1241,7 +1270,8 @@ resources, one draw, zero coverage-staging bytes, and 16,384 direct pixels.
    duplicate-endpoint Pad outside-color distinction, cap-only degenerate
    gradient pen strokes, ImageDrawing rect animations and non-bitmap image
    sources, dynamic/multiple-guideline piecewise deformation, remaining
-   push/pop state, and the explicit advanced glyph/text gaps listed above.
+   push/pop state, DirectWrite/system-display text realization, and the
+   explicit advanced glyph/text gaps listed above.
 3. Cache stable native handles/generations across frames and emit incremental
    resource updates plus damage instead of rebuilding the initial scene batch.
 4. Bind compiled semantic streams directly to `NativeCompositor` targets and
