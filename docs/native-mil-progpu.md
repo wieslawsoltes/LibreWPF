@@ -17,8 +17,9 @@ exact singular-affine qualification and its reproducible binary hashes are
 pinned together with the subsequent degenerate point, ellipse, and rectangle
 qualification at ProGPU documentation commit `37d052ce`.
 The subsequent canonical static-transform and transform-animation resource
-qualifications are pinned at ProGPU documentation commit `856a4b98`, which
-contains the fetched latest ProGPU `main` integration.
+qualifications are pinned at ProGPU documentation commit `856a4b98`. The
+current submodule head `c244df6c` merges the fetched latest ProGPU `main`
+without changing that qualified MIL implementation.
 
 ## WPF protocol model
 
