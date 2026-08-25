@@ -99,9 +99,12 @@ ProGPU currently provides:
   splits `IsStroked=false` geometry gaps into dash-capped runs, restarts dash
   phase per WPF `CDasher`, carries all pen and affine state into reusable native
   semantic polylines, and joins the solid closed-gap seam without a false cap.
-  Curved segments, `IsSmoothJoin`, non-flat degenerate runs, and the one dashed
-  closed-gap seam whose WPF phase reset plus joined corner cannot yet be
-  represented exactly fail closed.
+  One open solid quadratic, cubic, or analytic arc segment with flat endpoint
+  caps now lowers to ProGPU native geometry primitives with its geometry-local
+  affine transform preserved. Dashed curves, non-flat curve caps,
+  `IsSmoothJoin`, joined/multi-segment or closed curved contours, non-flat
+  degenerate runs, and the one dashed closed-gap seam whose WPF phase reset plus
+  joined corner cannot yet be represented exactly fail closed.
 - Canonical retained `GeometryGroup` packets in ProGPU's raw MIL backend,
   including variable child handles, fill rule, matrix transform, dependency
   deletion, cycle rejection, and transactional rollback. Identity-local path
@@ -532,13 +535,25 @@ for `progpu_native_dawn.dll`. Exact rendering of that guarded overlap remains
 an open parity item; non-overlapping equivalents and non-equivalent mixed
 leaves retain normal analytic 8x8 GPU execution.
 
+The isolated curved-stroke implementation at `e0a9d15f`, with MSVC portability
+fix `42e05f29`, passed the focused Windows ARM64 lane. Both native modules
+rebuilt under `/W4 /WX`; the MIL and Dawn contracts passed with exact
+quadratic/cubic/arc primitive payloads, affine state, and dashed/non-flat-cap
+rejection. At package checkpoint `fa463b86`, the zero-warning consumer added an
+open analytic arc stroke to its retained seed. The resulting 44 commands and
+19 channel resources compiled through both exports, and live Parallels D3D12
+readback completed with 19 semantic resources, three draws, and 41,472 coverage
+bytes. The complete differential matrix remains qualified at `ef6091e9` and
+will be rerun after joined curved contours are implemented.
+
 ## Next parity gates
 
 1. Generate packed protocol size/offset metadata from the checked-in WPF MCG
    model rather than manually extending command declarations.
 2. Add transform animations and remaining transform resource kinds, dashed
    ellipse and rounded-rectangle pen draws, non-uniform rounded rectangles,
-   curved/smooth path strokes and the closed-gap dashed seam, singular affine
+   joined/closed curved strokes, curve dashes/non-flat caps, smooth joins and
+   the closed-gap dashed seam, singular affine
    arc handling, exact translated-equivalent EvenOdd overlap execution, exact
    combined children inside groups, gradients, remaining
    push/pop state, clips,
