@@ -1447,7 +1447,10 @@ than allocating the full target. The additive
 ABI and uses a typed transform-only State resource to place the cached quad.
 Root offset, affine transform, and opacity are composite-only and no longer
 invalidate pixels. Positive finite static or animated RenderAtScale values
-rerasterize at the requested size. SnapsToDevicePixels, EnableClearType, and
+rerasterize at the requested size. ProGPU commit `148cc5bb` also implements
+WPF's SnapsToDevicePixels composite rule: exact local bounds are transformed
+through outer placement, their world-space left/top are floored, and only the
+cached-page composite receives the fractional correction. EnableClearType and
 root composite clip/mask/guideline state remain fail closed; those policies,
 nested ordering, and LibreWPF package gates remain open.
 
@@ -1490,8 +1493,10 @@ Overlay and ColorDodge scenes were pixel-exact. Packaged DLL SHA-256 values are
 (`progpu_native.dll`) and
 `ECC81DF8437FE0C4EC8BB18D9692E248048F04270471E04DC053BF7610E5B173`
 (`progpu_native_dawn.dll`). This closes Windows DirectX qualification for the
-current local-space cache subset; snapping, ClearType, post-raster
-clip/mask/guideline ordering, and LibreWPF package-mode SDK coverage remain.
+current local-space cache subset; ClearType, post-raster clip/mask/guideline
+ordering, and LibreWPF package-mode SDK coverage remain. The subsequent native
+snapping checkpoint requires its own strict Windows rerun before its package
+hashes replace the values above.
 
 ## Next parity gates
 
@@ -1507,7 +1512,7 @@ clip/mask/guideline ordering, and LibreWPF package-mode SDK coverage remain.
    effect/clip/mask/opacity ordering, animated and Box effects, remaining
    push/pop state, DirectWrite/system-display text realization, and the
    explicit advanced glyph/text gaps listed above.
-3. Complete the remaining WPF BitmapCache pixel snapping, ClearType,
+3. Complete the remaining WPF BitmapCache ClearType,
    post-raster clip/mask/guideline, nested-ordering, and effects gates on the
    now-executable local-space cache primitive.
 4. Cache other stable native handles/generations across frames and emit
