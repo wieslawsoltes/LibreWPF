@@ -18,9 +18,9 @@ public sealed record WpfNativeMilCompilation(
 /// </summary>
 /// <remarks>
 /// This fail-closed slice supports retained offsets, affine transforms and
-/// opacity plus nested transform/opacity scopes and solid-brush analytic
-/// render-data. The existing managed portable renderer remains independent and
-/// is not replaced or selected implicitly.
+/// opacity plus nested transform/opacity scopes and portable solid, linear,
+/// and radial-gradient analytic render-data. The existing managed portable
+/// renderer remains independent and is not replaced or selected implicitly.
 /// </remarks>
 public sealed class WpfNativeMilSceneCompiler
 {
@@ -235,7 +235,7 @@ public sealed class WpfNativeMilSceneCompiler
                             payload[36..]);
                         uint brushHandle = brushToken == 0
                             ? 0
-                            : ResolveSolidBrush(
+                            : ResolveBrush(
                                 snapshot.DependentResources,
                                 brushToken);
                         uint penHandle = penToken == 0
@@ -263,7 +263,7 @@ public sealed class WpfNativeMilSceneCompiler
                             BinaryPrimitives.ReadUInt32LittleEndian(payload[36..]);
                         uint ellipseBrushHandle = ellipseBrushToken == 0
                             ? 0
-                            : ResolveSolidBrush(
+                            : ResolveBrush(
                                 snapshot.DependentResources,
                                 ellipseBrushToken);
                         uint ellipsePenHandle = ellipsePenToken == 0
@@ -301,7 +301,7 @@ public sealed class WpfNativeMilSceneCompiler
                             BinaryPrimitives.ReadUInt32LittleEndian(payload[52..]);
                         uint roundedBrushHandle = roundedBrushToken == 0
                             ? 0
-                            : ResolveSolidBrush(
+                            : ResolveBrush(
                                 snapshot.DependentResources,
                                 roundedBrushToken);
                         uint roundedPenHandle = roundedPenToken == 0
@@ -340,7 +340,7 @@ public sealed class WpfNativeMilSceneCompiler
                         }
                         uint geometryBrushHandle = geometryBrushToken == 0
                             ? 0
-                            : ResolveSolidBrush(
+                            : ResolveBrush(
                                 snapshot.DependentResources,
                                 geometryBrushToken);
                         uint geometryPenHandle = geometryPenToken == 0
@@ -408,7 +408,7 @@ public sealed class WpfNativeMilSceneCompiler
             }
         }
 
-        private uint ResolveSolidBrush(
+        private uint ResolveBrush(
             IReadOnlyList<object?> resources,
             uint token)
         {
@@ -427,20 +427,100 @@ public sealed class WpfNativeMilSceneCompiler
             {
                 throw MissingContract(nameof(IPortableBrushSource));
             }
-            if (brush.Kind != PortableBrushKind.SolidColor ||
-                brush.HasTransform || brush.HasRelativeTransform)
-            {
-                throw new NotSupportedException(
-                    "Only untransformed portable solid brushes are implemented by the native MIL slice.");
-            }
-            uint handle = NextHandle();
+            uint handle = AddPortableBrush(brush);
             _brushHandles.Add(resource, handle);
-            Batch.CreateResource(handle, NativeMilResourceType.SolidColorBrush);
-            Batch.SetSolidColorBrush(
-                handle,
-                ToLinearColor(brush.Color),
-                brush.Opacity);
             return handle;
+        }
+
+        private uint AddPortableBrush(PortableBrush brush)
+        {
+            switch (brush.Kind)
+            {
+                case PortableBrushKind.SolidColor:
+                    if (brush.HasTransform || brush.HasRelativeTransform)
+                    {
+                        throw new NotSupportedException(
+                            "Portable solid-brush transforms are not implemented by the native MIL slice.");
+                    }
+                    uint solidHandle = NextHandle();
+                    Batch.CreateResource(
+                        solidHandle,
+                        NativeMilResourceType.SolidColorBrush);
+                    Batch.SetSolidColorBrush(
+                        solidHandle,
+                        ToLinearColor(brush.Color),
+                        brush.Opacity);
+                    return solidHandle;
+                case PortableBrushKind.LinearGradient:
+                {
+                    uint transformHandle = brush.HasTransform
+                        ? AddGeometryTransform(brush.Transform)
+                        : 0;
+                    uint relativeTransformHandle = brush.HasRelativeTransform
+                        ? AddGeometryTransform(brush.RelativeTransform)
+                        : 0;
+                    uint handle = NextHandle();
+                    Batch.CreateResource(
+                        handle,
+                        NativeMilResourceType.LinearGradientBrush);
+                    Batch.SetLinearGradientBrush(
+                        handle,
+                        new NativeMilLinearGradientBrush(
+                            new NativeMilPoint(
+                                brush.StartPoint.X,
+                                brush.StartPoint.Y),
+                            new NativeMilPoint(
+                                brush.EndPoint.X,
+                                brush.EndPoint.Y),
+                            brush.Opacity,
+                            ToNativeGradientInterpolation(
+                                brush.ColorInterpolationMode),
+                            ToNativeBrushMappingMode(brush.MappingMode),
+                            ToNativeGradientSpreadMethod(brush.SpreadMethod),
+                            TransformHandle: transformHandle,
+                            RelativeTransformHandle: relativeTransformHandle),
+                        ToNativeGradientStops(brush.GradientStops));
+                    return handle;
+                }
+                case PortableBrushKind.RadialGradient:
+                {
+                    uint transformHandle = brush.HasTransform
+                        ? AddGeometryTransform(brush.Transform)
+                        : 0;
+                    uint relativeTransformHandle = brush.HasRelativeTransform
+                        ? AddGeometryTransform(brush.RelativeTransform)
+                        : 0;
+                    uint handle = NextHandle();
+                    Batch.CreateResource(
+                        handle,
+                        NativeMilResourceType.RadialGradientBrush);
+                    Batch.SetRadialGradientBrush(
+                        handle,
+                        new NativeMilRadialGradientBrush(
+                            new NativeMilPoint(
+                                brush.Center.X,
+                                brush.Center.Y),
+                            new NativeMilPoint(
+                                brush.GradientOrigin.X,
+                                brush.GradientOrigin.Y),
+                            brush.RadiusX,
+                            brush.RadiusY,
+                            brush.Opacity,
+                            ToNativeGradientInterpolation(
+                                brush.ColorInterpolationMode),
+                            ToNativeBrushMappingMode(brush.MappingMode),
+                            ToNativeGradientSpreadMethod(brush.SpreadMethod),
+                            TransformHandle: transformHandle,
+                            RelativeTransformHandle: relativeTransformHandle),
+                        ToNativeGradientStops(brush.GradientStops));
+                    return handle;
+                }
+                default:
+                    throw new ArgumentOutOfRangeException(
+                        nameof(brush),
+                        brush.Kind,
+                        "Unsupported portable brush kind.");
+            }
         }
 
         private uint ResolveTransform(
@@ -502,20 +582,7 @@ public sealed class WpfNativeMilSceneCompiler
             {
                 throw MissingContract(nameof(IPortablePenSource));
             }
-            if (pen.Brush.Kind != PortableBrushKind.SolidColor ||
-                pen.Brush.HasTransform || pen.Brush.HasRelativeTransform)
-            {
-                throw new NotSupportedException(
-                    "Only untransformed portable solid pen brushes are implemented by the native MIL slice.");
-            }
-            uint brushHandle = NextHandle();
-            Batch.CreateResource(
-                brushHandle,
-                NativeMilResourceType.SolidColorBrush);
-            Batch.SetSolidColorBrush(
-                brushHandle,
-                ToLinearColor(pen.Brush.Color),
-                pen.Brush.Opacity);
+            uint brushHandle = AddPortableBrush(pen.Brush);
             uint dashStyleHandle = 0;
             if (pen.DashArray.Length != 0)
             {
@@ -804,6 +871,57 @@ public sealed class WpfNativeMilSceneCompiler
                 PortablePenLineJoin.Round => NativeMilPenLineJoin.Round,
                 _ => throw new ArgumentOutOfRangeException(nameof(join))
             };
+
+        private static NativeMilGradientInterpolation
+            ToNativeGradientInterpolation(
+                PortableGradientColorInterpolationMode interpolation) =>
+                interpolation switch
+                {
+                    PortableGradientColorInterpolationMode.ScRgbLinearInterpolation =>
+                        NativeMilGradientInterpolation.ScRgb,
+                    PortableGradientColorInterpolationMode.SRgbLinearInterpolation =>
+                        NativeMilGradientInterpolation.SRgb,
+                    _ => throw new ArgumentOutOfRangeException(
+                        nameof(interpolation))
+                };
+
+        private static NativeMilBrushMappingMode ToNativeBrushMappingMode(
+            PortableBrushMappingMode mappingMode) => mappingMode switch
+            {
+                PortableBrushMappingMode.Absolute =>
+                    NativeMilBrushMappingMode.Absolute,
+                PortableBrushMappingMode.RelativeToBoundingBox =>
+                    NativeMilBrushMappingMode.RelativeToBoundingBox,
+                _ => throw new ArgumentOutOfRangeException(nameof(mappingMode))
+            };
+
+        private static NativeMilGradientSpreadMethod
+            ToNativeGradientSpreadMethod(
+                PortableGradientSpreadMethod spreadMethod) =>
+                spreadMethod switch
+                {
+                    PortableGradientSpreadMethod.Pad =>
+                        NativeMilGradientSpreadMethod.Pad,
+                    PortableGradientSpreadMethod.Reflect =>
+                        NativeMilGradientSpreadMethod.Reflect,
+                    PortableGradientSpreadMethod.Repeat =>
+                        NativeMilGradientSpreadMethod.Repeat,
+                    _ => throw new ArgumentOutOfRangeException(
+                        nameof(spreadMethod))
+                };
+
+        private static NativeMilGradientStop[] ToNativeGradientStops(
+            PortableGradientStop[] stops)
+        {
+            var result = new NativeMilGradientStop[stops.Length];
+            for (int index = 0; index < stops.Length; index++)
+            {
+                result[index] = new NativeMilGradientStop(
+                    stops[index].Offset,
+                    ToLinearColor(stops[index].Color));
+            }
+            return result;
+        }
 
         private static NativeMilColor ToLinearColor(PortableColor color)
         {

@@ -44,6 +44,116 @@ public sealed class WpfNativeMilSceneCompilerTests
     }
 
     [Fact]
+    public void BuildBatchTranslatesTypedLinearGradientBrush()
+    {
+        var brush = new FakeBrush(PortableBrush.LinearGradient(
+            new PortablePoint(0.1, 0.2),
+            new PortablePoint(0.9, 0.8),
+            [
+                new PortableGradientStop(
+                    new PortableColor(255, 255, 0, 0), -0.25),
+                new PortableGradientStop(
+                    new PortableColor(128, 0, 64, 255), 1.25)
+            ],
+            opacity: 0.75,
+            mappingMode: PortableBrushMappingMode.RelativeToBoundingBox,
+            spreadMethod: PortableGradientSpreadMethod.Reflect,
+            colorInterpolationMode:
+                PortableGradientColorInterpolationMode.ScRgbLinearInterpolation,
+            hasTransform: true,
+            transform: new PortableMatrix3x2(1, 0, 0, 1, 12, 14),
+            hasRelativeTransform: true,
+            relativeTransform: new PortableMatrix3x2(2, 0, 0, 3, 0, 0)));
+        var visual = new FakeVisual(
+            new FakeRenderData(CreateRectangleRecord(1, 0), [brush]));
+
+        WpfNativeMilBatch result = new WpfNativeMilSceneCompiler().BuildBatch(
+            visual, 64, 48);
+
+        int gradientOffset = FindCommand(result.Bytes, 0x7f);
+        Assert.Equal(4U, ReadUInt32(result.Bytes, gradientOffset + 8));
+        Assert.Equal(0.75, ReadDouble(result.Bytes, gradientOffset + 12));
+        Assert.Equal(0.1, ReadDouble(result.Bytes, gradientOffset + 20));
+        Assert.Equal(0.2, ReadDouble(result.Bytes, gradientOffset + 28));
+        Assert.Equal(0.9, ReadDouble(result.Bytes, gradientOffset + 36));
+        Assert.Equal(0.8, ReadDouble(result.Bytes, gradientOffset + 44));
+        Assert.Equal(2U, ReadUInt32(result.Bytes, gradientOffset + 56));
+        Assert.Equal(3U, ReadUInt32(result.Bytes, gradientOffset + 60));
+        Assert.Equal(0U, ReadUInt32(result.Bytes, gradientOffset + 64));
+        Assert.Equal(1U, ReadUInt32(result.Bytes, gradientOffset + 68));
+        Assert.Equal(1U, ReadUInt32(result.Bytes, gradientOffset + 72));
+        Assert.Equal(48U, ReadUInt32(result.Bytes, gradientOffset + 76));
+        Assert.Equal(-0.25, ReadDouble(result.Bytes, gradientOffset + 88));
+        Assert.Equal(
+            SrgbToLinear(255),
+            ReadSingle(result.Bytes, gradientOffset + 96));
+        Assert.Equal(1.25, ReadDouble(result.Bytes, gradientOffset + 112));
+        Assert.Equal(
+            SrgbToLinear(64),
+            ReadSingle(result.Bytes, gradientOffset + 124));
+        Assert.Equal(
+            128 / 255.0f,
+            ReadSingle(result.Bytes, gradientOffset + 132));
+
+        int nestedOffset = FindCommand(result.Bytes, 0x18) + 16;
+        Assert.Equal(4U, ReadUInt32(result.Bytes, nestedOffset + 40));
+    }
+
+    [Fact]
+    public void BuildBatchTranslatesTypedRadialGradientPenBrush()
+    {
+        PortableBrush brush = PortableBrush.RadialGradient(
+            new PortablePoint(0.5, 0.5),
+            new PortablePoint(0.25, 0.75),
+            0.6,
+            0.4,
+            [
+                new PortableGradientStop(
+                    new PortableColor(255, 255, 255, 255), 0),
+                new PortableGradientStop(
+                    new PortableColor(255, 0, 0, 0), 1)
+            ],
+            opacity: 0.625,
+            mappingMode: PortableBrushMappingMode.Absolute,
+            spreadMethod: PortableGradientSpreadMethod.Repeat,
+            colorInterpolationMode:
+                PortableGradientColorInterpolationMode.SRgbLinearInterpolation);
+        var pen = new FakePen(
+            brush,
+            3,
+            PortablePenLineCap.Round,
+            PortablePenLineCap.Square,
+            PortablePenLineCap.Flat,
+            PortablePenLineJoin.Round,
+            6,
+            []);
+        var visual = new FakeVisual(
+            new FakeRenderData(CreateRectangleRecord(0, 1), [pen]));
+
+        WpfNativeMilBatch result = new WpfNativeMilSceneCompiler().BuildBatch(
+            visual, 64, 48);
+
+        int gradientOffset = FindCommand(result.Bytes, 0x80);
+        Assert.Equal(2U, ReadUInt32(result.Bytes, gradientOffset + 8));
+        Assert.Equal(0.625, ReadDouble(result.Bytes, gradientOffset + 12));
+        Assert.Equal(0.5, ReadDouble(result.Bytes, gradientOffset + 20));
+        Assert.Equal(0.5, ReadDouble(result.Bytes, gradientOffset + 28));
+        Assert.Equal(0.6, ReadDouble(result.Bytes, gradientOffset + 36));
+        Assert.Equal(0.4, ReadDouble(result.Bytes, gradientOffset + 44));
+        Assert.Equal(0.25, ReadDouble(result.Bytes, gradientOffset + 52));
+        Assert.Equal(0.75, ReadDouble(result.Bytes, gradientOffset + 60));
+        Assert.Equal(1U, ReadUInt32(result.Bytes, gradientOffset + 80));
+        Assert.Equal(0U, ReadUInt32(result.Bytes, gradientOffset + 84));
+        Assert.Equal(2U, ReadUInt32(result.Bytes, gradientOffset + 88));
+        Assert.Equal(48U, ReadUInt32(result.Bytes, gradientOffset + 92));
+
+        int penOffset = FindCommand(result.Bytes, 0x86);
+        Assert.Equal(2U, ReadUInt32(result.Bytes, penOffset + 28));
+        int nestedOffset = FindCommand(result.Bytes, 0x18) + 16;
+        Assert.Equal(3U, ReadUInt32(result.Bytes, nestedOffset + 44));
+    }
+
+    [Fact]
     public void BuildBatchTranslatesTypedRectanglePen()
     {
         var brush = new FakeBrush(new PortableColor(255, 255, 0, 0));
@@ -960,6 +1070,11 @@ public sealed class WpfNativeMilSceneCompilerTests
             _brush = PortableBrush.SolidColor(color);
         }
 
+        internal FakeBrush(PortableBrush brush)
+        {
+            _brush = brush;
+        }
+
         public bool TryGetPortableBrush(out PortableBrush brush)
         {
             brush = _brush;
@@ -1000,6 +1115,28 @@ public sealed class WpfNativeMilSceneCompilerTests
         {
             _pen = new PortablePen(
                 PortableBrush.SolidColor(color),
+                thickness,
+                startLineCap,
+                endLineCap,
+                dashCap,
+                lineJoin,
+                miterLimit,
+                dashArray,
+                dashOffset: 0);
+        }
+
+        internal FakePen(
+            PortableBrush brush,
+            double thickness,
+            PortablePenLineCap startLineCap,
+            PortablePenLineCap endLineCap,
+            PortablePenLineCap dashCap,
+            PortablePenLineJoin lineJoin,
+            double miterLimit,
+            double[] dashArray)
+        {
+            _pen = new PortablePen(
+                brush,
                 thickness,
                 startLineCap,
                 endLineCap,
