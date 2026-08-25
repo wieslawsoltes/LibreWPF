@@ -16,8 +16,8 @@ latest `main`; the superproject records exact reviewed ProGPU commits. The
 exact singular-affine qualification and its reproducible binary hashes are
 pinned together with the subsequent degenerate point, ellipse, and rectangle
 qualification at ProGPU documentation commit `37d052ce`.
-The subsequent positive non-uniform rounded-rectangle qualification is pinned
-at ProGPU documentation commit `5c7b1924`.
+The positive non-uniform and subsequent zero-axis rounded-rectangle
+qualifications are pinned at ProGPU documentation commit `df9b0d0d`.
 
 ## WPF protocol model
 
@@ -91,16 +91,18 @@ ProGPU currently provides:
 - Typed rounded-rectangle pen production for fill-only, stroke-only, and
   combined records. Uniform positive radii use ProGPU's analytic primitive;
   positive independent X/Y radii use its exact elliptical vector path and
-  connected-curve stroke. Zero-radius records retain rectangle join/dash
-  behavior, while nonempty curved dashes fail closed pending phase-continuous
-  curve dashing. Degenerate solid records use the same outer widened path with
-  WPF's independently clamped X/Y radii.
+  connected-curve stroke. Positive-area records with either radius zero follow
+  WPF's sharp-rectangle equivalence and retain rectangle join/dash behavior,
+  while nonempty curved dashes fail closed pending phase-continuous curve
+  dashing. Degenerate uniform and positive-radius records use the same outer
+  widened path with WPF's independently clamped X/Y radii; degenerate
+  zero-axis asymmetric records remain fail closed.
 - Typed retained `LineGeometry`, `RectangleGeometry`, and `EllipseGeometry`
   resources with nested `DrawGeometry` lowering. Optional geometry-local
   affine transforms compose with visual and drawing scopes; line pen semantics
   reuse ProGPU's stroke path while rectangle, rounded-rectangle, and ellipse
   resources reuse native analytic/vector fill and stroke lowering. Animated
-  fields and zero-axis asymmetric rounded radii fail closed.
+  fields and degenerate zero-axis asymmetric rounded radii fail closed.
 - Typed retained general `PathGeometry` production from
   `IPortableGeometryPathSource`, using the shared exact local-path bounds
   reader and canonical WPF path/figure/fixed-segment records. Native fill-only
@@ -203,8 +205,8 @@ LibreWPF currently provides:
   managed portable renderer.
 - Fail-closed behavior for unbalanced scopes, untyped or unavailable
   transforms, clips, effects, masks, guidelines, render options, dashed
-  curved pens, zero-axis asymmetric rounded rectangles, non-solid brushes, and all
-  not-yet-implemented nested commands.
+  curved pens, degenerate zero-axis asymmetric rounded rectangles, non-solid
+  brushes, and all not-yet-implemented nested commands.
 - SDK/package graph inclusion for `ProGPU.Backend.Native`; publication must be
   coordinated with the next ProGPU preview containing PR #139.
 
@@ -231,14 +233,14 @@ On the macOS ARM64 host, the ProGPU checkpoint passes:
 - managed backend and package-consumer builds;
 - live Metal rendering on Apple M3 Pro.
 
-The LibreWPF checkpoint passes its focused build and twenty-four native-producer
+The LibreWPF checkpoint passes its focused build and twenty-five native-producer
 tests:
 they check exact command order, framing, handle remapping, rectangle values,
 ellipse and rounded-rectangle values, scRGB brush fields, canonical opacity-
 scope translation, typed visual/nested matrix-resource reuse, null transform
 scope parity, rejection of untyped transform shapes, unbalanced-scope
-rejection, positive non-uniform-radius emission, and zero-axis asymmetric
-radius rejection.
+rejection, positive non-uniform-radius emission, positive-area zero-axis
+asymmetric emission, and degenerate zero-axis asymmetric rejection.
 The added line cases verify exact pen/line packet offsets, solid-brush color
 conversion, cap/join mapping, null-pen no-op preservation, exact dash packet
 offset/interval production, filled and pen-only rectangle records, filled and
@@ -776,12 +778,35 @@ for `progpu_native.dll` and
 `bcc551bf815c18ffb601d517f2c10be702fdf1e0b86a11cdd6b39b95c02b10a9`
 for `progpu_native_dawn.dll`.
 
+ProGPU native checkpoint `9a615714` next implemented WPF's
+`CShape::AddRoundedRectangle` equivalence rule: with positive width and height,
+either zero radius lowers immediate and retained records to the exact sharp
+rectangle analytic fill and closed-polyline stroke. The degenerate zero-axis
+asymmetric intersection remains fail closed because WPF sends it through the
+general widener rather than the optimized rectangle path. LibreWPF producer
+checkpoint `798ea56a4` now emits both typed radii for the supported immediate
+and retained cases and keeps the unsupported intersection transactional with
+an explicit error. All ten local native tests and all 25 focused producer tests
+passed. Strict Windows ARM64 MSVC rebuilt both native modules under `/W4 /WX`,
+all 11 native/Dawn CTests passed, and the project-reference package consumer
+built with zero warnings. Package checkpoint `6a4f9f90` compiled an immediate
+zero-axis draw and retained zero-axis `RectangleGeometry` through both exports
+in a 64-command, 29-channel-resource seed. Live D3D12 readback retained 38
+semantic resources, issued 11 draws, and staged 78,848 coverage bytes. Exact
+qualified SHA-256 values were
+`4c773f255b27ef00990ca52b89e428750a4108289de60ba5a50412b19c354d2f`
+for `progpu_native.dll` and
+`9b7434a0d2bea32861f2b3018078cff8dd183271da4ebffb9657aa4282b83476`
+for `progpu_native_dawn.dll`; the complete native qualification is pinned at
+ProGPU documentation commit `df9b0d0d`.
+
 ## Next parity gates
 
 1. Generate packed protocol size/offset metadata from the checked-in WPF MCG
    model rather than manually extending command declarations.
 2. Add transform animations and remaining transform resource kinds, dashed
-   ellipse and rounded-rectangle pen draws, curve dashes, exact
+   ellipse and rounded-rectangle pen draws, curve dashes, exact degenerate
+   zero-axis asymmetric rounded-rectangle widening, exact
    translated-equivalent EvenOdd overlap execution, exact
    combined children inside groups, gradients, remaining
    push/pop state,
