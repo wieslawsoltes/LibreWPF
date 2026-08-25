@@ -13,8 +13,8 @@ The active ProGPU work is tracked in draft
 [ProGPU PR #139](https://github.com/wieslawsoltes/ProGPU/pull/139). Both this
 superproject branch and the ProGPU submodule branch started from the fetched
 latest `main`; the superproject records exact reviewed ProGPU commits. The
-joined-curve Windows qualification and its reproducible binary hashes are
-pinned at ProGPU documentation commit `9e88ca8f`.
+curved-stroke cap qualification and its reproducible binary hashes are pinned
+at ProGPU documentation commit `19f6c7b0`.
 
 ## WPF protocol model
 
@@ -105,10 +105,12 @@ ProGPU currently provides:
   native geometry primitives with their geometry-local affine transform
   preserved. Joined and closed mixed curves compose exact native path-join
   records whose endpoint tangents come from the line, curve controls, or
-  resolved analytic arc derivative. Dashed curves, non-flat open-curve caps,
-  `IsSmoothJoin`, degenerate join tangents, non-flat degenerate runs, and the
-  one dashed closed-gap seam whose WPF phase reset plus joined corner cannot
-  yet be represented exactly fail closed.
+  resolved analytic arc derivative. Open curves compose Square, Round, and
+  Triangle start/end caps from the same tangent data; Flat caps remain
+  implicit, and geometry gaps use the typed dash-cap value. Dashed curves,
+  `IsSmoothJoin`, degenerate cap/join tangents, non-flat degenerate runs, and
+  the one dashed closed-gap seam whose WPF phase reset plus joined corner
+  cannot yet be represented exactly fail closed.
 - Canonical retained `GeometryGroup` packets in ProGPU's raw MIL backend,
   including variable child handles, fill rule, matrix transform, dependency
   deletion, cycle rejection, and transactional rollback. Identity-local path
@@ -556,13 +558,27 @@ for `progpu_native.dll` and
 `efaad18f8ee89a1c53f0dc612e99371f9a3d24cbcfdf66b3129af5875ef1bb74`
 for `progpu_native_dawn.dll`.
 
+ProGPU cap implementation `4f5dcc20` then added Square, Round, and Triangle
+open-curve caps as native path-cap primitives with exact endpoint tangents and
+affine state. ARM64 MSVC rebuilt both modules under `/W4 /WX`, and the MIL and
+Dawn contracts passed. Package checkpoint `48bea705` rendered Round/Triangle
+caps on the retained analytic arc through both exports; the unchanged
+46-command/20-channel-resource seed completed live Parallels D3D12 readback
+with 20 semantic resources, three draws, and 41,472 coverage bytes. Exact
+focused-build SHA-256 values were
+`2afaa42721aa4ca9b6faa714755117d518abe23d47878613d6ea585b2dbdb164`
+for `progpu_native.dll` and
+`e64c515b74c131ae8e7b17eb86e4c301cbb4f07bc58d3bdb5b7644b441106309`
+for `progpu_native_dawn.dll`; the complete differential matrix remains pinned
+to joined-curve checkpoint `3816050b`.
+
 ## Next parity gates
 
 1. Generate packed protocol size/offset metadata from the checked-in WPF MCG
    model rather than manually extending command declarations.
 2. Add transform animations and remaining transform resource kinds, dashed
    ellipse and rounded-rectangle pen draws, non-uniform rounded rectangles,
-   curve dashes/non-flat caps, smooth joins and
+   curve dashes, smooth joins and
    the closed-gap dashed seam, singular affine
    arc handling, exact translated-equivalent EvenOdd overlap execution, exact
    combined children inside groups, gradients, remaining
