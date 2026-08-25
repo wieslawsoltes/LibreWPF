@@ -11,6 +11,56 @@ namespace ProGPU.Wpf.Tests.Composition.Mil;
 public sealed class WpfNativeMilSceneCompilerTests
 {
     [Fact]
+    public void BuildBatchTranslatesTypedBitmapCache()
+    {
+        var cache = new FakeBitmapCache(
+            new PortableBitmapCache(1.0, false, false));
+        var visual = new FakeVisual(
+            null,
+            new PortableVisualState
+            {
+                HasCacheMode = true,
+                CacheMode = cache
+            });
+
+        WpfNativeMilBatch result = new WpfNativeMilSceneCompiler().BuildBatch(
+            visual, 64, 64);
+
+        Assert.Equal(
+            [0x07, 0x1a, 0x07, 0x8d, 0x1e,
+             0x07, 0x34, 0x36, 0x35],
+            ReadCommands(result.Bytes));
+        int cacheOffset = FindCommand(result.Bytes, 0x8d);
+        uint cacheHandle = ReadUInt32(result.Bytes, cacheOffset + 8);
+        Assert.Equal(1.0, ReadDouble(result.Bytes, cacheOffset + 12));
+        Assert.Equal(0U, ReadUInt32(result.Bytes, cacheOffset + 20));
+        Assert.Equal(0U, ReadUInt32(result.Bytes, cacheOffset + 24));
+        Assert.Equal(0U, ReadUInt32(result.Bytes, cacheOffset + 28));
+        int visualOffset = FindCommand(result.Bytes, 0x1e);
+        Assert.Equal(1U, ReadUInt32(result.Bytes, visualOffset + 8));
+        Assert.Equal(cacheHandle, ReadUInt32(result.Bytes, visualOffset + 12));
+    }
+
+    [Fact]
+    public void BuildBatchRejectsUntypedBitmapCache()
+    {
+        var visual = new FakeVisual(
+            null,
+            new PortableVisualState
+            {
+                HasCacheMode = true,
+                CacheMode = new object()
+            });
+
+        InvalidOperationException exception =
+            Assert.Throws<InvalidOperationException>(() =>
+                new WpfNativeMilSceneCompiler().BuildBatch(
+                    visual, 64, 64));
+
+        Assert.Contains(nameof(IPortableBitmapCacheSource), exception.Message);
+    }
+
+    [Fact]
     public void BuildBatchTranslatesTypedVisualClips()
     {
         var clip = new FakePrimitiveGeometry(
@@ -2053,6 +2103,22 @@ public sealed class WpfNativeMilSceneCompilerTests
         public bool TryGetPortableBrush(out PortableBrush brush)
         {
             brush = _brush;
+            return true;
+        }
+    }
+
+    private sealed class FakeBitmapCache : IPortableBitmapCacheSource
+    {
+        private readonly PortableBitmapCache _cache;
+
+        internal FakeBitmapCache(PortableBitmapCache cache)
+        {
+            _cache = cache;
+        }
+
+        public bool TryGetPortableBitmapCache(out PortableBitmapCache cache)
+        {
+            cache = _cache;
             return true;
         }
     }

@@ -1424,11 +1424,25 @@ values are
 `cfd48921ecaf125032d11d36be132f7850d1060a90d1c71958211871becfbfac`.
 
 This is deliberately not yet a WPF `BitmapCache` parity claim. Canonical
-`MilCmdVisualSetCacheMode` (`0x1e`) and `MilCmdBitmapCache` (`0x8d`) decoding,
-typed source-built WPF/LibreWPF cache DTO production, local content bounds,
-RenderAtScale and DPI realization, zero-scale suppression,
-SnapsToDevicePixels, ClearType policy, outer-transform composition, nested
-cache ordering, package gates, and live D3D12 qualification remain open.
+protocol/producer checkpoints `8217ea2d` and `b88c6e89` now decode the exact
+12-byte `MilCmdVisualSetCacheMode` (`0x1e`) and 28-byte
+`MilCmdBitmapCache` (`0x8d`) packets, retain type-94 cache and optional type-49
+animation dependencies transactionally, and expose canonical managed builder
+methods. ProGPU also publishes the package-neutral
+`IPortableBitmapCacheSource`/`PortableBitmapCache` contract. Source-built
+LibreWPF `BitmapCache` implements that contract from current property values,
+and `WpfNativeMilSceneCompiler` emits the typed resource and Visual link without
+reflection; untyped cache objects fail closed.
+
+The unit-scale native subset now executes as an owner-keyed cached layer. Its
+pixel revision walks typed Visual/render-data resource dependencies, preserving
+the revision across an unrelated sibling update while invalidating for an
+in-cache brush or animation update. Exact non-positive resolved scale suppresses
+the subtree. The target-coordinate checkpoint still includes root outer state
+in the pixel revision for correctness and rejects non-unit RenderAtScale,
+SnapsToDevicePixels, and EnableClearType. Local content bounds, DPI realization,
+composite-only outer changes, pixel snapping, ClearType, nested cache ordering,
+package gates, and live D3D12 qualification remain open.
 
 ## Next parity gates
 
@@ -1444,8 +1458,8 @@ cache ordering, package gates, and live D3D12 qualification remain open.
    effect/clip/mask/opacity ordering, animated and Box effects, remaining
    push/pop state, DirectWrite/system-display text realization, and the
    explicit advanced glyph/text gaps listed above.
-3. Complete the canonical WPF BitmapCache protocol and execution gates listed
-   above on the owner-keyed semantic cache primitive.
+3. Complete the remaining WPF BitmapCache local-space execution gates listed
+   above on the now-canonical typed protocol and owner-keyed cache primitive.
 4. Cache other stable native handles/generations across frames and emit
    incremental resource updates plus damage instead of rebuilding the initial
    scene batch.

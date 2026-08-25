@@ -5045,7 +5045,7 @@ namespace System.Windows.Media
         public new System.Windows.Media.BezierSegment CloneCurrentValue() { throw null; }
         protected override System.Windows.Freezable CreateInstanceCore() { throw null; }
     }
-    public sealed partial class BitmapCache : System.Windows.Media.CacheMode
+    public sealed partial class BitmapCache : System.Windows.Media.CacheMode, ProGPU.Wpf.Interop.IPortableBitmapCacheSource
     {
         public static readonly System.Windows.DependencyProperty EnableClearTypeProperty;
         public static readonly System.Windows.DependencyProperty RenderAtScaleProperty;
@@ -5057,6 +5057,7 @@ namespace System.Windows.Media
         public bool SnapsToDevicePixels { get { throw null; } set { } }
         public new System.Windows.Media.BitmapCache Clone() { throw null; }
         public new System.Windows.Media.BitmapCache CloneCurrentValue() { throw null; }
+        bool ProGPU.Wpf.Interop.IPortableBitmapCacheSource.TryGetPortableBitmapCache(out ProGPU.Wpf.Interop.PortableBitmapCache cache) { throw null; }
         protected override System.Windows.Freezable CreateInstanceCore() { throw null; }
     }
     public sealed partial class BitmapCacheBrush : System.Windows.Media.Brush

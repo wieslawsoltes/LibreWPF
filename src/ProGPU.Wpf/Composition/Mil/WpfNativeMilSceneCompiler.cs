@@ -136,6 +136,8 @@ public sealed class WpfNativeMilSceneCompiler
             new(ReferenceEqualityComparer.Instance);
         private readonly Dictionary<object, uint> _effectHandles =
             new(ReferenceEqualityComparer.Instance);
+        private readonly Dictionary<object, uint> _bitmapCacheHandles =
+            new(ReferenceEqualityComparer.Instance);
         private readonly HashSet<object> _activeDrawings =
             new(ReferenceEqualityComparer.Instance);
         private uint _nextHandle = 1;
@@ -194,6 +196,15 @@ public sealed class WpfNativeMilSceneCompiler
                 }
                 Batch.SetVisualEffect(
                     visualHandle, ResolveEffect(state.Effect));
+            }
+            if (state.HasCacheMode)
+            {
+                if (state.CacheMode is null)
+                {
+                    throw MissingContract(nameof(IPortableBitmapCacheSource));
+                }
+                Batch.SetVisualCacheMode(
+                    visualHandle, ResolveBitmapCache(state.CacheMode));
             }
             if (state.HasClip)
             {
@@ -1516,6 +1527,36 @@ public sealed class WpfNativeMilSceneCompiler
             return handle;
         }
 
+        private uint ResolveBitmapCache(object resource)
+        {
+            if (_bitmapCacheHandles.TryGetValue(
+                    resource, out uint existing))
+            {
+                return existing;
+            }
+            if (resource is not IPortableBitmapCacheSource source ||
+                !source.TryGetPortableBitmapCache(
+                    out PortableBitmapCache cache))
+            {
+                throw MissingContract(nameof(IPortableBitmapCacheSource));
+            }
+            if (!double.IsFinite(cache.RenderAtScale))
+            {
+                throw new InvalidOperationException(
+                    "Portable BitmapCache RenderAtScale must be finite.");
+            }
+            uint handle = NextHandle();
+            _bitmapCacheHandles.Add(resource, handle);
+            Batch.CreateResource(handle, NativeMilResourceType.BitmapCache);
+            Batch.SetBitmapCache(
+                handle,
+                new NativeMilBitmapCache(
+                    cache.RenderAtScale,
+                    cache.SnapsToDevicePixels,
+                    cache.EnableClearType));
+            return handle;
+        }
+
         private uint AddPathGeometry(
             object resource,
             PortableGeometryPath path)
@@ -1802,8 +1843,7 @@ public sealed class WpfNativeMilSceneCompiler
 
         private static void RejectUnsupportedState(PortableVisualState state)
         {
-            if (state.HasBitmapEffect || state.HasBitmapEffectInput ||
-                state.HasCacheMode)
+            if (state.HasBitmapEffect || state.HasBitmapEffectInput)
             {
                 throw new NotSupportedException(
                     "The portable visual contains state not implemented by the native MIL slice.");
