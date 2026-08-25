@@ -24,7 +24,8 @@ ProGPU documentation commit `848763dc`. The canonical ImageDrawing
 qualification is pinned at ProGPU documentation commit `5bbb7073`. The
 canonical GlyphRun/GlyphRunDrawing qualification is pinned at ProGPU
 documentation commit `834b318b`. The current submodule head is that exact
-latest-`main`-integrated checkpoint.
+latest-`main`-integrated lineage plus the static-guideline implementation,
+package, and validation checkpoints described below.
 
 ## WPF protocol model
 
@@ -103,9 +104,18 @@ ProGPU currently provides:
   `DoubleResource` opacity. LibreWPF consumes only
   `IPortableDrawingGroupStateSource` and `IPortableDrawingGroupChildrenSource`,
   preserves child order, rejects cycles, and fails closed for unimplemented
-  mask, guideline, effect/cache, and render-option state. ProGPU recursively
+  mask, dynamic/multiple-guideline, effect/cache, and render-option state.
+  ProGPU recursively
   compiles the retained group through the same native drawing and geometry
   paths while preserving parent semantic scopes and dependency lifetime.
+- Canonical `GuidelineSet` resource `92` and command `0x8c` for the exact
+  zero/one-static-coordinate-per-axis subset of WPF pixel snapping. LibreWPF
+  reads only `IPortableGuidelineSetSource`, emits the canonical X/Y doubles,
+  and rejects dynamic or multi-coordinate state. ProGPU transforms static
+  guides into device space with WPF float evaluation and half-coordinate tie
+  behavior, retains them as package-neutral semantic resource kind 17, and
+  resolves the DPI-dependent uniform translation in the shared native state
+  cursor. Rotated/sheared scopes use WPF's empty snapping-frame behavior.
 - Canonical retained `ImageDrawing` resource `89` referencing BitmapSource
   handle `95`. LibreWPF consumes only `IPortableImageDrawingStateSource` and
   `IPortableBitmapSourcePixelsSource`, converts supported typed pixels once to
@@ -1079,6 +1089,39 @@ for `progpu_native.dll` and
 `8cf312ffadac52d7109239de3fee4f25e34358bcc963e6f33965799fe3d9f607`
 for `progpu_native_dawn.dll`.
 
+ProGPU implementation `d4112930`, package checkpoint `59851d8c`, validator
+fix `dab52e58`, and LibreWPF producer checkpoint `f67a22475` then added the
+first exact canonical GuidelineSet slice. Source-built WPF state reaches the
+producer only through `IPortableGuidelineSetSource`; no reflected collection,
+property, type-name, or private-field fallback was added. Static empty sets
+disable snapping, missing handles inherit, and a zero/one X/Y set is accepted.
+Dynamic pairs and multiple guides fail closed until native piecewise path,
+image, and glyph deformation is implemented.
+
+The native semantic ABI remains 64 bytes: state flag bit 2 activates a typed
+index into guideline resource kind 17. ProGPU evaluates WPF's scale/translate
+device mapping and `CFloatFPU::OffsetToRounded` half-coordinate rule, then the
+shared wgpu-native/Dawn state cursor applies the target-DPI offset to every
+semantic draw family. Native tests cover canonical packet parsing, state
+resources, runtime DPI adjustment, malformed inputs, and fail-closed
+multi-guide state. Managed tests cover the zero-allocation builder contract;
+41 focused LibreWPF producer tests cover packet output and rejection behavior.
+
+The package consumer added `--mil-guideline-only` to JIT, NativeAOT, build,
+release, and package-verification lanes. Its first Windows run found that the
+scene validator's known-resource boundary still ended at kind 16 even though
+the kind-17 parser was present; `dab52e58` fixed the boundary and added a
+public transactional-validation regression. After the fix, all ten local
+native CTests and all 11 strict Windows ARM64 native/Dawn CTests passed. Fresh
+app-local DLLs compiled the 19-command/eight-resource scene through both MIL
+exports and rendered on live D3D12 with five semantic resources, one draw,
+zero coverage-staging bytes, nonblack retained readback, and 16,384 direct
+pixels. Qualified SHA-256 values are
+`9a76e7a16eb989cad3932e4d24e9e3ca1247069d8bd14114120cf073e038a270`
+for `progpu_native.dll` and
+`4a9e55ff26301d50138c7f02cd8be02645541ea29dd37081e2f787d2cc69c8b7`
+for `progpu_native_dawn.dll`.
+
 ## Next parity gates
 
 1. Generate packed protocol size/offset metadata from the checked-in WPF MCG
@@ -1089,8 +1132,8 @@ for `progpu_native_dawn.dll`.
    inside groups, WPF epsilon-near-coincident gradient-stop normalization,
    duplicate-endpoint Pad outside-color distinction, cap-only degenerate
    gradient pen strokes, ImageDrawing rect animations and non-bitmap image
-   sources, remaining push/pop state, and the explicit advanced glyph/text
-   gaps listed above.
+   sources, dynamic/multiple-guideline piecewise deformation, remaining
+   push/pop state, and the explicit advanced glyph/text gaps listed above.
 3. Cache stable native handles/generations across frames and emit incremental
    resource updates plus damage instead of rebuilding the initial scene batch.
 4. Bind compiled semantic streams directly to `NativeCompositor` targets and
