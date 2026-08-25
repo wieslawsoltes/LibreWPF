@@ -1444,18 +1444,26 @@ the subtree. Exact typed bounds become a zero-origin page sized by
 RenderAtScale and frame DPI; missing/nonfinite/empty bounds fail closed rather
 than allocating the full target. The additive
 `PROGPU_NATIVE_SCENE_LAYER_CACHE_LOCAL_SPACE` flag keeps the exact 64-byte layer
-ABI and uses a typed transform-only State resource to place the cached quad.
-Root offset, affine transform, and opacity are composite-only and no longer
-invalidate pixels. Positive finite static or animated RenderAtScale values
-rerasterize at the requested size. ProGPU commit `148cc5bb` also implements
+ABI and uses a typed composite State resource to place and clip the cached quad.
+Root offset, affine transform, opacity, render options, exact rectangle clip,
+and one static guideline per axis are composite-only and no longer invalidate
+pixels. Positive finite static or animated RenderAtScale values rerasterize at
+the requested size. ProGPU commit `148cc5bb` also implements
 WPF's SnapsToDevicePixels composite rule: exact local bounds are transformed
 through outer placement, their world-space left/top are floored, and only the
 cached-page composite receives the fractional correction. ProGPU commit
 `bff32414` implements EnableClearType as the WPF cache raster-target policy:
 false suppresses requested subpixel text to grayscale, while true permits the
-existing inherited or explicit ClearType mode without forcing it. Root
-composite clip/mask/guideline state remains fail closed; those policies, nested
-ordering, and LibreWPF package gates remain open.
+existing descendant inherited or explicit ClearType mode without forcing it.
+ProGPU commit `7eb17727` follows WPF `DrawCacheVisualTree` at the cache-root
+boundary: root Visual state is applied to the retained bitmap composite, exact
+root/ancestor rectangle clips become target-local composite scissors, static
+guidelines adjust the composite transform, and empty clips suppress only the
+composite. Snapping, clip, guideline, placement, and opacity updates retain the
+page; EnableClearType, RenderAtScale, bounds, and descendant changes
+rerasterize it. Spatial masks, non-linear cache-bitmap sampling,
+multi-guideline deformation, nested/effect ordering, and LibreWPF package gates
+remain open and fail closed where required.
 
 The pinned provider/Dawn Metal gate passes the new lifecycle directly: first
 render materializes a 24x18 page, an outer translation performs zero content
@@ -1463,6 +1471,11 @@ passes, and 0.5 RenderAtScale materializes a 12x9 page. The complete
 package-mode managed Dawn render/readback and forced device-loss recovery also
 pass at provider revision `02823bf8d2e56548b2780d6b92ae7065be1d8605` and
 Dawn revision `710c33013c53ab2700d332c25ff51430251a8cc4`.
+The post-raster regression changes only the local-page composite clip and
+observes zero content passes on the next live Metal frame. All 12
+provider-configured native CTests, the base export allowlist, package-mode
+managed Dawn readback, and forced device-loss recovery pass with unchanged
+capture hashes.
 
 The live D3D12 gate for this checkpoint is complete. On 2026-08-25 the
 Parallels Windows 11 ARM64 VM checked out clean ProGPU commit `dd3857a4`
@@ -1518,7 +1531,9 @@ SHA-256 values are
 (`progpu_native_dawn.dll`). This closes Windows DirectX qualification for the
 local-space, RenderAtScale, SnapsToDevicePixels, and EnableClearType cache
 subset; post-raster clip/mask/guideline/effect ordering and LibreWPF
-package-mode SDK coverage remain.
+package-mode SDK coverage remain. The subsequent `7eb17727` rectangle-clip and
+single-guideline composite checkpoint is locally qualified on Metal/Dawn and
+requires its own strict Windows rerun.
 
 ## Next parity gates
 
@@ -1534,8 +1549,8 @@ package-mode SDK coverage remain.
    effect/clip/mask/opacity ordering, animated and Box effects, remaining
    push/pop state, DirectWrite/system-display text realization, and the
    explicit advanced glyph/text gaps listed above.
-3. Complete the remaining WPF BitmapCache post-raster clip/mask/guideline,
-   nested-ordering, and effects gates on the
+3. Complete the remaining WPF BitmapCache spatial-mask, non-linear sampling,
+   multi-guideline, nested-ordering, and effects gates on the
    now-executable local-space cache primitive.
 4. Cache other stable native handles/generations across frames and emit
    incremental resource updates plus damage instead of rebuilding the initial
