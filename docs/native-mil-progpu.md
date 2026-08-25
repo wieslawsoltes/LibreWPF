@@ -125,9 +125,13 @@ ProGPU currently provides:
   geometry-local affine transforms, non-uniform rounded rectangles, and empty
   line leaves. Affine-transformed line/quadratic/cubic paths share the same
   exact point/bounds baking. A recursively lowered group can now be either
-  boolean leaf while retaining that operand group's root fill rule.
-  Transformed arc-bearing paths, recursive combined geometry operands, and
-  stroked operands currently fail closed.
+  boolean leaf while retaining that operand group's root fill rule. Combined
+  operands recurse into the bounded geometry DAG, compose nested transforms
+  into descendant leaves, and append arbitrary-depth postfix boolean trees with
+  segment/node rollback and conservative descendant bounds. Transformed arc-
+  bearing paths and stroked operands currently fail closed; combined children
+  inside groups also fail closed because flattening a boolean result into raw
+  outer-fill contours would change WPF semantics.
 - An identical size-versioned C ABI exported by wgpu-native and provider-
   resolved Dawn modules, plus `NativeMilChannel` and typed scene metrics.
 - `NativeMilBatchBuilder` and `NativeMilRenderDataBuilder` managed producers.
@@ -461,6 +465,23 @@ for `progpu_native_dawn.dll`. Both exports compiled the 40-command,
 17-resource recursive group seed, and live Parallels D3D12 readback completed
 with 18 semantic resources, three draws, and 16,384 pixels.
 
+The recursive `CombinedGeometry` checkpoint at exact ProGPU commit `8bf9a0c5`
+(native implementation `6326cdf2`) passed the complete Windows ARM64 MSVC
+gate. Both modules rebuilt under `/W4 /WX`, all 11 CTests passed, and the MIL
+fixture verified a five-node postfix tree with exact leaf segment offsets/fill
+rules, nested group/combined transform composition, operation order,
+conservative bounds, and rollback. Live C++/managed D3D12 rendering/readback,
+allocation probes, and the full differential matrix passed. Mixed parity
+remained at maximum delta 2/255, zero pixels above 3/255, and mean `0.0000622`.
+
+The zero-warning package consumer verified identical staged/app-local hashes:
+`6ac27898f1f067854ac3e79bf415ecd41f9f79c3208a0d45618e0cf47047520d`
+for `progpu_native.dll` and
+`d98b7f7dd3a0315c5420ca5ca63f85354e9daec5bb8ede4468e097fd191dd906`
+for `progpu_native_dawn.dll`. Both exports compiled the 42-command, 18-resource
+recursive boolean seed; live Parallels D3D12 readback completed with 18
+semantic resources, three draws, and 16,384 pixels.
+
 ## Next parity gates
 
 1. Generate packed protocol size/offset metadata from the checked-in WPF MCG
@@ -468,7 +489,7 @@ with 18 semantic resources, three draws, and 16,384 pixels.
 2. Add transform animations and remaining transform resource kinds, dashed
    ellipse and rounded-rectangle pen draws, non-uniform rounded rectangles,
    curved/smooth path strokes and the closed-gap dashed seam, transformed-arc
-   preservation plus recursive combined-child widening, gradients, remaining
+   preservation, exact combined children inside groups, gradients, remaining
    push/pop state, clips,
    images, and
    glyph runs.
