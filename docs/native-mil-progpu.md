@@ -13,8 +13,8 @@ The active ProGPU work is tracked in draft
 [ProGPU PR #139](https://github.com/wieslawsoltes/ProGPU/pull/139). Both this
 superproject branch and the ProGPU submodule branch started from the fetched
 latest `main`; the superproject records exact reviewed ProGPU commits. The
-exact rectangle-clip qualification and its reproducible binary hashes are
-pinned at ProGPU documentation commit `14fb60d6`.
+exact retained geometry-clip qualification and its reproducible binary hashes
+are pinned at ProGPU documentation commit `a58af3ba`.
 
 ## WPF protocol model
 
@@ -605,6 +605,27 @@ for `progpu_native.dll` and
 `ba780db29da7fbedd7834768180b9d9976775532f3cf0c50c4d52cc94b56d0b7`
 for `progpu_native_dawn.dll`.
 
+ProGPU exact geometry-clip implementation `66d5f74b` then lowered retained
+fixed, path, group, and combined geometry to the existing semantic vector-mask
+resource. It preserves analytic line/quadratic/cubic/arc segments, recursive
+group fill ownership, recursive combined-geometry boolean programs, nested
+intersection order, and the transform active when WPF pushes the clip. Fixed
+ellipses and rounded rectangles now use analytic quarter arcs instead of cubic
+circle approximations. Clip scopes retain arena prefix counts rather than
+copying segment vectors, and invalid/singular shapes fail closed without using
+their bounds as coverage. All ten local native tests passed. Windows ARM64
+MSVC rebuilt both modules under `/W4 /WX`, and all 11 native/Dawn CTests plus
+the complete D3D12 sample and differential smoke matrix passed in Parallels.
+Package checkpoint `a2502e36` nested an analytic path clip under the existing
+rectangle fast-path clip; both exports compiled the unchanged 48-command and
+21-channel-resource seed. Live D3D12 readback completed with 23 semantic
+resources, three draws, and 41,472 coverage bytes. Exact staged SHA-256 values
+were
+`43e452fb73b6e103bc81ab56836c3e68d43a30b8bec7c8931df73ec8f5d05672`
+for `progpu_native.dll` and
+`9ca1765e660c8cc0d69c8c3eccba3d6971b9c4a05b04a5fc33975dee26e9c938`
+for `progpu_native_dawn.dll`.
+
 ## Next parity gates
 
 1. Generate packed protocol size/offset metadata from the checked-in WPF MCG
@@ -615,7 +636,7 @@ for `progpu_native_dawn.dll`.
    the closed-gap dashed seam, singular affine
    arc handling, exact translated-equivalent EvenOdd overlap execution, exact
    combined children inside groups, gradients, remaining
-   push/pop state and arbitrary geometry clips,
+   push/pop state,
    images, and
    glyph runs.
 3. Cache stable native handles/generations across frames and emit incremental
