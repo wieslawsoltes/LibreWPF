@@ -1178,6 +1178,32 @@ and wgpu-native DLLs compiled the upgraded `--mil-drawing-group-only` scene
 through both exports; live D3D12 reported four semantic resources, one draw,
 zero coverage-staging bytes, and 16,384 direct pixels.
 
+ProGPU implementation `db057403`, package checkpoint `4af0b1c5`, and
+LibreWPF producer checkpoint `053d7b5cb` then added the exact non-text subset
+of canonical DrawingGroup `ClearTypeHint.Enabled`. Source-built WPF publishes
+neutral `PortableClearTypeHint`; the native producer requires that typed
+value, emits the existing canonical field, and rejects legacy object-only
+state without reflection.
+
+The boundary follows WPF's native implementation rather than treating the
+flag as a generic antialiasing option: `PushRenderOptions` forwards Enabled to
+the render target, and the software target consumes it only when deciding
+whether an alpha surface may render a glyph run with ClearType. ProGPU carries
+the hint as inherited native scope state, accepts vector and image subtrees
+where it is an exact no-op, and returns `unsupported_command` when a nonempty
+direct or retained glyph run is reached. The current shared glyph rasterizer
+is grayscale, so this fail-closed boundary prevents false ClearType text
+parity.
+
+Validation passed all eight configured local native suites, the canonical
+managed builder test, a zero-warning ProGPU graph build, 45/45 focused
+LibreWPF producer tests, source-built PresentationCore, the reflection audit,
+and the zero-warning project-reference consumer. Strict Windows ARM64 MSVC
+rebuilt both exports; all 11 native/Dawn CTests passed. Fresh app-local DLLs
+compiled the hinted vector scene through both exports, and live D3D12 reported
+four semantic resources, one draw, zero coverage-staging bytes, and 16,384
+direct pixels. True ClearType glyph rasterization remains explicit follow-up.
+
 ## Next parity gates
 
 1. Generate packed protocol size/offset metadata from the checked-in WPF MCG
