@@ -22,6 +22,9 @@ public sealed class WpfBitmapCacheSourceContractTests
         string builder = ReadRepoFile(
             "external", "ProGPU", "src", "ProGPU.Backend.Native",
             "NativeMilBatchBuilder.cs");
+        string channel = ReadRepoFile(
+            "external", "ProGPU", "src", "ProGPU.Backend.Native",
+            "NativeMilChannel.cs");
 
         Assert.Contains(
             "public interface IPortableBitmapCacheSource",
@@ -63,8 +66,20 @@ public sealed class WpfBitmapCacheSourceContractTests
             "NativeMilCommand.BitmapCache, 28",
             builder,
             StringComparison.Ordinal);
+        Assert.Contains(
+            "visual is not IPortableVisualBoundsSource source",
+            compiler,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "channel.SetVisualCacheBounds(",
+            compiler,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "public void SetVisualCacheBounds(",
+            channel,
+            StringComparison.Ordinal);
 
-        foreach (string source in new[] { bitmapCache, compiler })
+        foreach (string source in new[] { bitmapCache, compiler, channel })
         {
             Assert.DoesNotContain(
                 "System.Reflection", source, StringComparison.Ordinal);

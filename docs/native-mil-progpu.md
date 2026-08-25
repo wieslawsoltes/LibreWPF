@@ -1432,17 +1432,21 @@ methods. ProGPU also publishes the package-neutral
 `IPortableBitmapCacheSource`/`PortableBitmapCache` contract. Source-built
 LibreWPF `BitmapCache` implements that contract from current property values,
 and `WpfNativeMilSceneCompiler` emits the typed resource and Visual link without
-reflection; untyped cache objects fail closed.
+reflection; untyped cache objects fail closed. The compiler also consumes the
+existing typed `IPortableVisualBoundsSource` descendant bounds and binds them
+through ProGPU's Visual-cache bounds sideband.
 
 The unit-scale native subset now executes as an owner-keyed cached layer. Its
 pixel revision walks typed Visual/render-data resource dependencies, preserving
 the revision across an unrelated sibling update while invalidating for an
 in-cache brush or animation update. Exact non-positive resolved scale suppresses
-the subtree. The target-coordinate checkpoint still includes root outer state
-in the pixel revision for correctness and rejects non-unit RenderAtScale,
-SnapsToDevicePixels, and EnableClearType. Local content bounds, DPI realization,
-composite-only outer changes, pixel snapping, ClearType, nested cache ordering,
-package gates, and live D3D12 qualification remain open.
+the subtree. Exact typed bounds are transformed natively and bound the retained
+page; missing/nonfinite/empty bounds fail closed rather than allocating the full
+target. The target-coordinate checkpoint still includes root outer state in the
+pixel revision for correctness and rejects non-unit RenderAtScale,
+SnapsToDevicePixels, and EnableClearType. Local-space rasterization, DPI
+realization, composite-only outer changes, pixel snapping, ClearType, nested
+cache ordering, package gates, and live D3D12 qualification remain open.
 
 ## Next parity gates
 

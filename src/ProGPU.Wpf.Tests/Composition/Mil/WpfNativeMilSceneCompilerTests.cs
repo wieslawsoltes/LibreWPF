@@ -39,6 +39,10 @@ public sealed class WpfNativeMilSceneCompilerTests
         int visualOffset = FindCommand(result.Bytes, 0x1e);
         Assert.Equal(1U, ReadUInt32(result.Bytes, visualOffset + 8));
         Assert.Equal(cacheHandle, ReadUInt32(result.Bytes, visualOffset + 12));
+        WpfNativeMilVisualCacheBounds bounds = Assert.Single(
+            result.VisualCacheBounds!);
+        Assert.Equal(1U, bounds.Handle);
+        Assert.Equal(new NativeMilRect(1, 2, 30, 20), bounds.Bounds);
     }
 
     [Fact]
@@ -58,6 +62,25 @@ public sealed class WpfNativeMilSceneCompilerTests
                     visual, 64, 64));
 
         Assert.Contains(nameof(IPortableBitmapCacheSource), exception.Message);
+    }
+
+    [Fact]
+    public void BuildBatchRejectsBitmapCacheWithoutTypedVisualBounds()
+    {
+        var visual = new FakeVisualWithoutBounds(
+            new PortableVisualState
+            {
+                HasCacheMode = true,
+                CacheMode = new FakeBitmapCache(
+                    new PortableBitmapCache(1.0, false, false))
+            });
+
+        NotSupportedException exception =
+            Assert.Throws<NotSupportedException>(() =>
+                new WpfNativeMilSceneCompiler().BuildBatch(
+                    visual, 64, 64));
+
+        Assert.Contains("exact typed Visual descendant bounds", exception.Message);
     }
 
     [Fact]
@@ -2025,7 +2048,8 @@ public sealed class WpfNativeMilSceneCompilerTests
     private sealed class FakeVisual :
         IPortableVisualStateSource,
         IPortableVisualChildrenSource,
-        IPortableDrawingContentSource
+        IPortableDrawingContentSource,
+        IPortableVisualBoundsSource
     {
         private readonly object? _content;
         private readonly PortableVisualState _state;
@@ -2065,6 +2089,17 @@ public sealed class WpfNativeMilSceneCompilerTests
         public bool TryGetPortableDrawingContent(out object? content)
         {
             content = _content;
+            return true;
+        }
+
+        public bool TryGetPortableVisualBounds(
+            out PortableVisualBounds bounds)
+        {
+            bounds = new PortableVisualBounds
+            {
+                HasDescendantBounds = true,
+                DescendantBounds = new PortableRect(1, 2, 30, 20)
+            };
             return true;
         }
     }
@@ -2119,6 +2154,43 @@ public sealed class WpfNativeMilSceneCompilerTests
         public bool TryGetPortableBitmapCache(out PortableBitmapCache cache)
         {
             cache = _cache;
+            return true;
+        }
+    }
+
+    private sealed class FakeVisualWithoutBounds :
+        IPortableVisualStateSource,
+        IPortableVisualChildrenSource,
+        IPortableDrawingContentSource
+    {
+        private readonly PortableVisualState _state;
+
+        internal FakeVisualWithoutBounds(PortableVisualState state)
+        {
+            _state = state;
+        }
+
+        public bool TryGetPortableVisualState(out PortableVisualState state)
+        {
+            state = _state;
+            return true;
+        }
+
+        public bool TryGetPortableVisualChildCount(out int count)
+        {
+            count = 0;
+            return true;
+        }
+
+        public bool TryGetPortableVisualChild(int index, out object? child)
+        {
+            child = null;
+            return false;
+        }
+
+        public bool TryGetPortableDrawingContent(out object? content)
+        {
+            content = null;
             return true;
         }
     }

@@ -23,12 +23,17 @@ public sealed record WpfNativeMilDrawingImageBounds(
     uint Handle,
     NativeMilRect Bounds);
 
+public sealed record WpfNativeMilVisualCacheBounds(
+    uint Handle,
+    NativeMilRect Bounds);
+
 public sealed record WpfNativeMilBatch(
     byte[] Bytes,
     uint TargetHandle,
     IReadOnlyList<WpfNativeMilBitmapSource>? BitmapSources = null,
     IReadOnlyList<WpfNativeMilGlyphRunFont>? GlyphRunFonts = null,
-    IReadOnlyList<WpfNativeMilDrawingImageBounds>? DrawingImageBounds = null);
+    IReadOnlyList<WpfNativeMilDrawingImageBounds>? DrawingImageBounds = null,
+    IReadOnlyList<WpfNativeMilVisualCacheBounds>? VisualCacheBounds = null);
 
 public sealed record WpfNativeMilCompilation(
     NativeMilCompiledScene Scene,
@@ -66,7 +71,8 @@ public sealed class WpfNativeMilSceneCompiler
             targetHandle,
             context.BitmapSources.ToArray(),
             context.GlyphRunFonts.ToArray(),
-            context.DrawingImageBounds.ToArray());
+            context.DrawingImageBounds.ToArray(),
+            context.VisualCacheBounds.ToArray());
     }
 
     public WpfNativeMilCompilation Compile(
@@ -109,6 +115,13 @@ public sealed class WpfNativeMilSceneCompiler
             channel.SetDrawingImageBounds(
                 drawingImage.Handle, drawingImage.Bounds);
         }
+        foreach (WpfNativeMilVisualCacheBounds visualCache in
+                 batch.VisualCacheBounds ??
+                 Array.Empty<WpfNativeMilVisualCacheBounds>())
+        {
+            channel.SetVisualCacheBounds(
+                visualCache.Handle, visualCache.Bounds);
+        }
         NativeMilCompiledScene scene = channel.CompileScene(
             batch.TargetHandle, sceneId, generation);
         return new WpfNativeMilCompilation(scene, batchMetrics);
@@ -149,6 +162,9 @@ public sealed class WpfNativeMilSceneCompiler
         internal List<WpfNativeMilGlyphRunFont> GlyphRunFonts { get; } = [];
 
         internal List<WpfNativeMilDrawingImageBounds> DrawingImageBounds
+            { get; } = [];
+
+        internal List<WpfNativeMilVisualCacheBounds> VisualCacheBounds
             { get; } = [];
 
         internal uint NextHandle()
@@ -205,6 +221,16 @@ public sealed class WpfNativeMilSceneCompiler
                 }
                 Batch.SetVisualCacheMode(
                     visualHandle, ResolveBitmapCache(state.CacheMode));
+                if (!TryGetVisualCacheBounds(
+                        visual, out NativeMilRect cacheBounds))
+                {
+                    throw new NotSupportedException(
+                        "Native MIL BitmapCache requires exact typed Visual descendant bounds.");
+                }
+                VisualCacheBounds.Add(
+                    new WpfNativeMilVisualCacheBounds(
+                        visualHandle,
+                        cacheBounds));
             }
             if (state.HasClip)
             {
@@ -1555,6 +1581,47 @@ public sealed class WpfNativeMilSceneCompiler
                     cache.SnapsToDevicePixels,
                     cache.EnableClearType));
             return handle;
+        }
+
+        private static bool TryGetVisualCacheBounds(
+            object visual,
+            out NativeMilRect bounds)
+        {
+            bounds = default;
+            if (visual is not IPortableVisualBoundsSource source ||
+                !source.TryGetPortableVisualBounds(
+                    out PortableVisualBounds portableBounds))
+            {
+                return false;
+            }
+            PortableRect candidate;
+            if (portableBounds.HasDescendantBounds)
+            {
+                candidate = portableBounds.DescendantBounds;
+            }
+            else if (portableBounds.HasContentBounds)
+            {
+                candidate = portableBounds.ContentBounds;
+            }
+            else
+            {
+                return false;
+            }
+            if (candidate.IsEmpty ||
+                !double.IsFinite(candidate.X) ||
+                !double.IsFinite(candidate.Y) ||
+                !double.IsFinite(candidate.Width) ||
+                !double.IsFinite(candidate.Height) ||
+                candidate.Width <= 0 || candidate.Height <= 0)
+            {
+                return false;
+            }
+            bounds = new NativeMilRect(
+                candidate.X,
+                candidate.Y,
+                candidate.Width,
+                candidate.Height);
+            return true;
         }
 
         private uint AddPathGeometry(
