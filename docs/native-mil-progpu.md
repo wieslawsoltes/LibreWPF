@@ -1462,9 +1462,12 @@ guidelines adjust the composite transform, and empty clips suppress only the
 composite. Snapping, clip, guideline, placement, and opacity updates retain the
 page; EnableClearType, RenderAtScale, bounds, and descendant changes
 rerasterize it. ProGPU `625a0961` adds composite-only NearestNeighbor sampling
-without invalidating the page. Spatial masks, cubic/Fant cache-bitmap sampling,
-multi-guideline deformation, nested/effect ordering, and LibreWPF package gates
-remain open and fail closed where required.
+without invalidating the page. ProGPU `a3d6b0fd` adds the first spatial
+cache-root opacity-mask subset: canonical linear and radial gradient brushes
+reuse the shared typed GPU brush-mask compositor without rerasterizing retained
+content. Inherited mask composition, mask/effect or mask/guideline ordering,
+cubic/Fant cache-bitmap sampling, multi-guideline deformation, nested/effect
+ordering, and LibreWPF package gates remain open and fail closed where required.
 
 The pinned provider/Dawn Metal gate passes the new lifecycle directly: first
 render materializes a 24x18 page, an outer translation performs zero content
@@ -1588,6 +1591,29 @@ were pixel-exact. The staged win-arm64 package DLL SHA-256 values are
 sampling is therefore qualified on DirectX as well as Metal/Dawn without
 rerasterizing the page for a sampling-only change.
 
+ProGPU spatial-mask checkpoint `a3d6b0fd`, pinned by this LibreWPF revision,
+extends that local-cache layer without changing its 64-byte ABI. The native MIL
+compiler resolves a cache-root canonical linear or radial opacity brush against
+the exact typed Visual descendant bounds and records an existing
+`LAYER_MASK_BRUSH` resource for the page composite. The mask receives the same
+outer transform and SnapsToDevicePixels correction as the cached quad. Its
+brush opacity, stops, animations, mapping mode, and typed transforms are
+composite-only dependencies, so changing them preserves the content revision
+and skips the next content pass. Transform-free solid masks continue to fold
+into uniform layer opacity.
+
+No LibreWPF reflection or compatibility adapter was added: source-built WPF's
+existing typed `PortableVisualState.OpacityMask` and canonical MIL brush packet
+producer already carry the required state. C++ validation, managed stream
+validation, and the shared WebGPU/DirectX executor now accept a typed mask on a
+local retained layer while continuing to reject local-cache effects. The local
+gate passes all 8 portable native CTests, all 12 provider/Dawn CTests, both
+export allowlists, and 3,823 managed tests. The live provider regression proves
+that a mask-only opacity change performs zero content passes and one composite
+pass. MIL regressions cover both linear and radial masks and explicitly reject
+the unrepresented gradient-mask plus guideline ordering. Exact Windows
+ARM64/D3D12 qualification remains pending for this commit.
+
 ## Next parity gates
 
 1. Generate packed protocol size/offset metadata from the checked-in WPF MCG
@@ -1602,9 +1628,9 @@ rerasterizing the page for a sampling-only change.
    effect/clip/mask/opacity ordering, animated and Box effects, remaining
    push/pop state, DirectWrite/system-display text realization, and the
    explicit advanced glyph/text gaps listed above.
-3. Complete the remaining WPF BitmapCache spatial-mask, cubic/Fant sampling,
-   multi-guideline, nested-ordering, and effects gates on the
-   now-executable local-space cache primitive.
+3. Complete the remaining WPF BitmapCache inherited/ordered spatial-mask,
+   cubic/Fant sampling, multi-guideline, nested-ordering, and effects gates on
+   the now-executable local-space cache primitive.
 4. Cache other stable native handles/generations across frames and emit
    incremental resource updates plus damage instead of rebuilding the initial
    scene batch.
