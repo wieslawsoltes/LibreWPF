@@ -1352,6 +1352,47 @@ for `progpu_native.dll` and
 `deaa21c42b156f0aa5f78bcb10593bfc53c650da69dab320cb625fdcd8a585be`
 for `progpu_native_dawn.dll`.
 
+ProGPU implementation `93929c07`, portable DTO checkpoint `7f02bd4a`, package
+checkpoint `6702b9b7`, and LibreWPF producer checkpoint `b750e8af5` next add
+the exact static retained Visual BlurEffect/DropShadowEffect subset. Source-
+built WPF publishes Radius, KernelType, RenderingBias, direction, depth,
+opacity, and color through `IPortableEffectSource`; LibreWPF emits canonical
+`MilCmdVisualSetEffect` (`0x1d`), `MilCmdBlurEffect` (`0x6e`), or
+`MilCmdDropShadowEffect` (`0x6f`) without reflection or host-specific effect
+objects in the protocol.
+
+The native compiler follows WPF milcore's Gaussian conversion: truncate the
+logical radius, scale it by the smaller orthogonal transform row length,
+truncate and cap the physical radius at 100, and use `radius / 3` as sigma.
+DropShadow maps WPF's local
+`(depth * cos(direction), -depth * sin(direction))` offset through the
+normalized orthogonal transform and reuses ProGPU's shared blur,
+shadow-composite, and source-composite passes. The retained stream and effect
+descriptors are identical for wgpu-native/Dawn and DirectX.
+
+The supported ordering is deliberately fail-closed. WPF evaluates a Visual
+clip before its effect and applies opacity mask/opacity after the effect. Until
+the shared semantic layer distinguishes an inflated effect-source clip from
+the final composite clip, the compiler rejects an effect combined with an
+active Visual clip, opacity mask, or non-unit opacity. Box blur, animated
+effect fields, and sheared effective transforms are also unsupported. The
+current full-target isolated layer is correct for this subset but leaves
+dirty-region and intermediate-target tightening as performance work.
+
+Validation passed all ten local native CTests, the canonical managed packet
+test, 59 focused native-scene compiler tests, the typed effect-mapper case,
+source-built WPF compilation, and the zero-warning project-reference consumer
+build. The focused `--mil-visual-effect-only` gate is present in JIT,
+NativeAOT, package verification, build, and release lanes. Strict Windows ARM64
+MSVC rebuilt both exports and all 11 native/Dawn CTests passed. Fresh app-local
+DLLs compiled the retained DropShadow scene through both exports and live
+D3D12 rendered four semantic resources, two draws, zero coverage bytes, and
+16,384 direct pixels. Qualified SHA-256 values are
+`eb55945dff526f5535fd7c10795e2e0e91baea787aac6c165ab7cfea3fa4c4cf`
+for `progpu_native.dll` and
+`2c9c1f5fc1ee4f41b9361280d53a32201e3b4215c3cd70a0c0cf68c130766eda`
+for `progpu_native_dawn.dll`.
+
 ## Next parity gates
 
 1. Generate packed protocol size/offset metadata from the checked-in WPF MCG
@@ -1362,7 +1403,8 @@ for `progpu_native_dawn.dll`.
    inside groups, WPF epsilon-near-coincident gradient-stop normalization,
    duplicate-endpoint Pad outside-color distinction, cap-only degenerate
    gradient pen strokes, ImageDrawing rect animations and non-bitmap image
-   sources, dynamic/multiple-guideline piecewise deformation, remaining
+   sources, dynamic/multiple-guideline piecewise deformation, general Visual
+   effect/clip/mask/opacity ordering, animated and Box effects, remaining
    push/pop state, DirectWrite/system-display text realization, and the
    explicit advanced glyph/text gaps listed above.
 3. Cache stable native handles/generations across frames and emit incremental

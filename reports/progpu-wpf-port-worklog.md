@@ -1,5 +1,9 @@
 # ProGPU WPF Port Worklog
 
+## 2026-08-25
+
+- Added the exact static retained Visual BlurEffect/DropShadowEffect subset on latest ProGPU `main`. ProGPU decodes and retains canonical commands `0x1d`, `0x6e`, and `0x6f`, protects effect dependencies, maps WPF's truncated/scaled Gaussian radius to the shared semantic blur sigma, maps DropShadow direction/depth through orthogonal transforms, and executes the same isolated effect chain through WebGPU/Dawn and DirectX. Source-built WPF publishes kernel, rendering bias, blur, direction, depth, opacity, and color through typed portable DTOs; LibreWPF emits only those contracts and rejects untyped or Box effect state without reflection. Effect plus active Visual clip, opacity mask, non-unit opacity, animation, or shear fails closed until exact WPF layer ordering is representable. Validation passed ten local native CTests, canonical managed packet coverage, 59 focused compiler tests, typed effect mapping, source-built WPF compilation, strict Windows ARM64 MSVC, all 11 Windows native/Dawn CTests, both exported MIL ABI checks, and live D3D12 with four semantic resources, two retained draws, zero coverage bytes, nonblack readback, and 16,384 direct pixels. The `--mil-visual-effect-only` gate now runs in JIT, NativeAOT, package verification, build, and release lanes. Qualified hashes are `eb55945dff526f5535fd7c10795e2e0e91baea787aac6c165ab7cfea3fa4c4cf` and `2c9c1f5fc1ee4f41b9361280d53a32201e3b4215c3cd70a0c0cf68c130766eda`. Commits: ProGPU `93929c07`/`7f02bd4a`/`6702b9b7`/`7a193df2`; LibreWPF `b750e8af5`.
+
 ## 2026-06-14
 
 - Created WPF integration branch `progpu-rendering-port`.
