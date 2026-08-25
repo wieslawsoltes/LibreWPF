@@ -16,6 +16,8 @@ latest `main`; the superproject records exact reviewed ProGPU commits. The
 exact singular-affine qualification and its reproducible binary hashes are
 pinned together with the subsequent degenerate point, ellipse, and rectangle
 qualification at ProGPU documentation commit `37d052ce`.
+The subsequent positive non-uniform rounded-rectangle qualification is pinned
+at ProGPU documentation commit `5c7b1924`.
 
 ## WPF protocol model
 
@@ -86,18 +88,19 @@ ProGPU currently provides:
   one-axis ellipses use WPF's SmoothJoin-derived Round/Round capsule and point
   ellipses use the native point disk. Degenerate fills stay empty. Nonempty
   dashed non-point ellipses fail closed pending phase-continuous curve dashing.
-- Typed uniform rounded-rectangle pen production for fill-only, stroke-only,
-  and combined records. Positive-radius solid outlines use ProGPU's exact
-  analytic rounded-rectangle stroke with affine-expanded bounds; zero-radius
-  records retain rectangle join/dash behavior, while nonempty curved dashes
-  fail closed pending phase-continuous curve dashing. Degenerate solid records
-  use the same outer widened path with WPF's independently clamped X/Y radii.
+- Typed rounded-rectangle pen production for fill-only, stroke-only, and
+  combined records. Uniform positive radii use ProGPU's analytic primitive;
+  positive independent X/Y radii use its exact elliptical vector path and
+  connected-curve stroke. Zero-radius records retain rectangle join/dash
+  behavior, while nonempty curved dashes fail closed pending phase-continuous
+  curve dashing. Degenerate solid records use the same outer widened path with
+  WPF's independently clamped X/Y radii.
 - Typed retained `LineGeometry`, `RectangleGeometry`, and `EllipseGeometry`
   resources with nested `DrawGeometry` lowering. Optional geometry-local
   affine transforms compose with visual and drawing scopes; line pen semantics
   reuse ProGPU's stroke path while rectangle, rounded-rectangle, and ellipse
-  resources reuse native analytic fill/stroke lowering. Animated fields,
-  and non-uniform rounded radii fail closed.
+  resources reuse native analytic/vector fill and stroke lowering. Animated
+  fields and zero-axis asymmetric rounded radii fail closed.
 - Typed retained general `PathGeometry` production from
   `IPortableGeometryPathSource`, using the shared exact local-path bounds
   reader and canonical WPF path/figure/fixed-segment records. Native fill-only
@@ -189,10 +192,10 @@ LibreWPF currently provides:
   `IPortableBrushSource`, plus `IPortableTransformMatrixSource` for every
   transform value.
 - Exact one-based render-data resource remapping, WPF sRGB-to-scRGB color
-  conversion, exact ellipse and uniform rounded-rectangle fill translation,
+  conversion, exact ellipse and independent rounded-rectangle fill translation,
   balanced opacity/transform-scope translation, transform-resource identity
   reuse, typed `IPortablePenSource` solid/dashed line and rectangle-pen
-  translation, typed solid ellipse and uniform rounded-rectangle pen
+  translation, typed solid ellipse and independent rounded-rectangle pen
   translation, typed `IPortablePrimitiveGeometrySource` translation for exact
   line/rectangle/ellipse state, a typed single-line path fallback, and native
   target construction.
@@ -200,7 +203,7 @@ LibreWPF currently provides:
   managed portable renderer.
 - Fail-closed behavior for unbalanced scopes, untyped or unavailable
   transforms, clips, effects, masks, guidelines, render options, dashed
-  curved pens, non-uniform rounded rectangles, non-solid brushes, and all
+  curved pens, zero-axis asymmetric rounded rectangles, non-solid brushes, and all
   not-yet-implemented nested commands.
 - SDK/package graph inclusion for `ProGPU.Backend.Native`; publication must be
   coordinated with the next ProGPU preview containing PR #139.
@@ -228,13 +231,14 @@ On the macOS ARM64 host, the ProGPU checkpoint passes:
 - managed backend and package-consumer builds;
 - live Metal rendering on Apple M3 Pro.
 
-The LibreWPF checkpoint passes its focused build and twenty-three native-producer
+The LibreWPF checkpoint passes its focused build and twenty-four native-producer
 tests:
 they check exact command order, framing, handle remapping, rectangle values,
 ellipse and rounded-rectangle values, scRGB brush fields, canonical opacity-
 scope translation, typed visual/nested matrix-resource reuse, null transform
 scope parity, rejection of untyped transform shapes, unbalanced-scope
-rejection and non-uniform-radius rejection.
+rejection, positive non-uniform-radius emission, and zero-axis asymmetric
+radius rejection.
 The added line cases verify exact pen/line packet offsets, solid-brush color
 conversion, cap/join mapping, null-pen no-op preservation, exact dash packet
 offset/interval production, filled and pen-only rectangle records, filled and
@@ -750,13 +754,35 @@ for `progpu_native.dll` and
 `7f3cf20154beb9c305de9b2477fbd6cb967292da61405afb35b2f46f936fa19a`
 for `progpu_native_dawn.dll`.
 
+ProGPU implementation `e17acda6` then removed the single-radius restriction
+for positive independent rounded-rectangle radii. Immediate and retained
+rectangles construct four exact elliptical quarter arcs plus four lines, keep
+every WPF `SmoothJoin` as a native Round join, and preserve geometry-local
+affine state. Fill uses the shared vector path batch and solid stroke reuses the
+connected arc/line geometry lane identically through wgpu-native and Dawn.
+LibreWPF checkpoint `1ba03dedc` removed the obsolete producer rejection and
+now writes both typed radii into immediate and retained canonical packets;
+zero-axis asymmetric cases still fail closed with an explicit typed error. All
+ten local native tests and all 24 focused producer tests passed. Strict Windows
+ARM64 MSVC rebuilt both modules under `/W4 /WX`, all 11 native/Dawn CTests
+passed, and the project-reference package consumer built with zero warnings.
+Package checkpoint `f7fef044` exercised a non-uniform immediate draw and a
+non-uniform retained `RectangleGeometry` used directly and recursively. Both
+exports compiled the unchanged 62-command, 28-channel-resource seed; live
+D3D12 readback retained 34 semantic resources, issued ten draws, and staged
+78,848 coverage bytes. Exact staged SHA-256 values were
+`01dedafe1c059b043a422385f8d04085235d0f0b526be382fc8f3f97d2eb6641`
+for `progpu_native.dll` and
+`bcc551bf815c18ffb601d517f2c10be702fdf1e0b86a11cdd6b39b95c02b10a9`
+for `progpu_native_dawn.dll`.
+
 ## Next parity gates
 
 1. Generate packed protocol size/offset metadata from the checked-in WPF MCG
    model rather than manually extending command declarations.
 2. Add transform animations and remaining transform resource kinds, dashed
-   ellipse and rounded-rectangle pen draws, non-uniform rounded rectangles,
-   curve dashes, exact translated-equivalent EvenOdd overlap execution, exact
+   ellipse and rounded-rectangle pen draws, curve dashes, exact
+   translated-equivalent EvenOdd overlap execution, exact
    combined children inside groups, gradients, remaining
    push/pop state,
    images, and
