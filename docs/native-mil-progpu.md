@@ -18,6 +18,8 @@ pinned together with the subsequent degenerate point, ellipse, and rectangle
 qualification at ProGPU documentation commit `37d052ce`.
 The subsequent zero-axis rounded-rectangle and canonical static-transform
 qualifications are pinned at ProGPU documentation commit `92092990`.
+The current submodule head `cfdfacb6` merges the fetched ProGPU `main` after
+that qualification without changing the MIL checkpoint.
 
 ## WPF protocol model
 
