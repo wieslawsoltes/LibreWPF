@@ -1446,7 +1446,23 @@ target. The target-coordinate checkpoint still includes root outer state in the
 pixel revision for correctness and rejects non-unit RenderAtScale,
 SnapsToDevicePixels, and EnableClearType. Local-space rasterization, DPI
 realization, composite-only outer changes, pixel snapping, ClearType, nested
-cache ordering, package gates, and live D3D12 qualification remain open.
+cache ordering, and package gates remain open.
+
+The live D3D12 gate for this checkpoint is complete. On 2026-08-25 the
+Parallels Windows 11 ARM64 VM checked out clean ProGPU commit `dd3857a4`
+(LibreWPF integration commit `ea9aaebb6`), rebuilt both native modules with
+strict MSVC `/W4 /WX`, passed all 11 native/Dawn CTests and both export
+contracts, and staged the win-arm64 package. The independent C++ and managed
+samples selected `Parallels Display Adapter (WDDM)` with D3D12 and passed live
+render/allocation/readback checks; the managed retained sample lowered 16
+source commands to 13 native commands and six draws. The bounded differential
+smoke matrix and managed/C++ text-shaping parity passed as well. Packaged DLL
+SHA-256 values are
+`D17701FB0669A241183AF064080A1FD1ADD29AE1B000A531CCE5E7307B2650C6`
+(`progpu_native.dll`) and
+`02414A74F7C6CB1A84F2846D5E5B701102E4812B5AEFCBA25688AE881592BD42`
+(`progpu_native_dawn.dll`). This closes Windows qualification for the
+implemented target-space subset, not the remaining local-space cache gates.
 
 ## Next parity gates
 
