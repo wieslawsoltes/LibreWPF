@@ -12,7 +12,9 @@ fixtures. This keeps the compositor reusable by WPF, WinUI, and Avalonia.
 The active ProGPU work is tracked in draft
 [ProGPU PR #139](https://github.com/wieslawsoltes/ProGPU/pull/139). Both this
 superproject branch and the ProGPU submodule branch started from the fetched
-latest `main`; the superproject records exact reviewed ProGPU commits.
+latest `main`; the superproject records exact reviewed ProGPU commits. The
+joined-curve Windows qualification and its reproducible binary hashes are
+pinned at ProGPU documentation commit `9e88ca8f`.
 
 ## WPF protocol model
 
@@ -99,12 +101,14 @@ ProGPU currently provides:
   splits `IsStroked=false` geometry gaps into dash-capped runs, restarts dash
   phase per WPF `CDasher`, carries all pen and affine state into reusable native
   semantic polylines, and joins the solid closed-gap seam without a false cap.
-  One open solid quadratic, cubic, or analytic arc segment with flat endpoint
-  caps now lowers to ProGPU native geometry primitives with its geometry-local
-  affine transform preserved. Dashed curves, non-flat curve caps,
-  `IsSmoothJoin`, joined/multi-segment or closed curved contours, non-flat
-  degenerate runs, and the one dashed closed-gap seam whose WPF phase reset plus
-  joined corner cannot yet be represented exactly fail closed.
+  Solid line/quadratic/cubic/analytic-arc contours now lower to reusable ProGPU
+  native geometry primitives with their geometry-local affine transform
+  preserved. Joined and closed mixed curves compose exact native path-join
+  records whose endpoint tangents come from the line, curve controls, or
+  resolved analytic arc derivative. Dashed curves, non-flat open-curve caps,
+  `IsSmoothJoin`, degenerate join tangents, non-flat degenerate runs, and the
+  one dashed closed-gap seam whose WPF phase reset plus joined corner cannot
+  yet be represented exactly fail closed.
 - Canonical retained `GeometryGroup` packets in ProGPU's raw MIL backend,
   including variable child handles, fill rule, matrix transform, dependency
   deletion, cycle rejection, and transactional rollback. Identity-local path
@@ -536,15 +540,21 @@ an open parity item; non-overlapping equivalents and non-equivalent mixed
 leaves retain normal analytic 8x8 GPU execution.
 
 The isolated curved-stroke implementation at `e0a9d15f`, with MSVC portability
-fix `42e05f29`, passed the focused Windows ARM64 lane. Both native modules
-rebuilt under `/W4 /WX`; the MIL and Dawn contracts passed with exact
-quadratic/cubic/arc primitive payloads, affine state, and dashed/non-flat-cap
-rejection. At package checkpoint `fa463b86`, the zero-warning consumer added an
-open analytic arc stroke to its retained seed. The resulting 44 commands and
-19 channel resources compiled through both exports, and live Parallels D3D12
-readback completed with 19 semantic resources, three draws, and 41,472 coverage
-bytes. The complete differential matrix remains qualified at `ef6091e9` and
-will be rerun after joined curved contours are implemented.
+fix `42e05f29`, first passed the focused Windows ARM64 lane. ProGPU
+`38245edd` then added exact joined and closed mixed curve composition, and
+package checkpoint `3816050b` added a closed line/quadratic/cubic contour to
+the retained seed. At that exact checkpoint both native modules rebuilt under
+MSVC `/W4 /WX`, all 11 CTests passed, and the complete bounded D3D12 matrix
+passed: independent native/managed readback, allocation probes, masks/effects,
+text, path atlas, images, Overlay, ColorDodge, and the declared differential
+scenes. The zero-warning package consumer compiled 46 commands and 20 channel
+resources through both MIL exports; live Parallels D3D12 readback completed
+with 20 semantic resources, three draws, and 41,472 coverage bytes. Exact
+staged SHA-256 values were
+`1c0e48225057db64eaf97eab5ba239b8be5c365525bc4b68bba58d5f906a7926`
+for `progpu_native.dll` and
+`efaad18f8ee89a1c53f0dc612e99371f9a3d24cbcfdf66b3129af5875ef1bb74`
+for `progpu_native_dawn.dll`.
 
 ## Next parity gates
 
@@ -552,7 +562,7 @@ will be rerun after joined curved contours are implemented.
    model rather than manually extending command declarations.
 2. Add transform animations and remaining transform resource kinds, dashed
    ellipse and rounded-rectangle pen draws, non-uniform rounded rectangles,
-   joined/closed curved strokes, curve dashes/non-flat caps, smooth joins and
+   curve dashes/non-flat caps, smooth joins and
    the closed-gap dashed seam, singular affine
    arc handling, exact translated-equivalent EvenOdd overlap execution, exact
    combined children inside groups, gradients, remaining
