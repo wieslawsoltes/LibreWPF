@@ -1059,6 +1059,26 @@ for `progpu_native_dawn.dll`. DrawingImage-backed ImageBrush tiling, animated
 destination rectangles, incremental bounds updates, and effects/cache state
 remain explicit gaps.
 
+ProGPU checkpoint `ebe966b6` and LibreWPF producer checkpoint `2dc79a3ce`
+then completed DrawingGroup bitmap-scaling propagation for retained images.
+ProGPU maps canonical Unspecified/inherit, Linear/LowQuality,
+Fant/HighQuality, and NearestNeighbor values onto its shared linear,
+Mitchell-Netravali cubic, and nearest semantic samplers. Source-built WPF now
+publishes the value as neutral `PortableBitmapScalingMode`; the native producer
+requires that typed field and rejects the legacy object-only shape instead of
+parsing enum names.
+
+The portable interop and focused test builds completed with zero warnings, the
+source-built PresentationCore build succeeded, two focused producer tests
+passed, and all ten local native CTests passed. Strict Windows ARM64 MSVC
+rebuilt both exports under `/W4 /WX`; all 11 native/Dawn CTests passed. The
+DrawingImage public package scene remained green through both exports and live
+D3D12 readback. Current qualified SHA-256 values are
+`812312ae4d91c30a363f801985d2f881a6aa528709331f0985279756a5337790`
+for `progpu_native.dll` and
+`8cf312ffadac52d7109239de3fee4f25e34358bcc963e6f33965799fe3d9f607`
+for `progpu_native_dawn.dll`.
+
 ## Next parity gates
 
 1. Generate packed protocol size/offset metadata from the checked-in WPF MCG
