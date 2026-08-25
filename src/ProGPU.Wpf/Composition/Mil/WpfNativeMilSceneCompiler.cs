@@ -184,6 +184,26 @@ public sealed class WpfNativeMilSceneCompiler
                 Batch.SetVisualTransform(
                     visualHandle, ResolveTransform(state.Transform));
             }
+            if (state.HasClip)
+            {
+                if (state.Clip is null)
+                {
+                    throw MissingContract(
+                        nameof(IPortablePrimitiveGeometrySource));
+                }
+                Batch.SetVisualClip(
+                    visualHandle, ResolveGeometry(state.Clip));
+            }
+            if (state.HasScrollableAreaClip)
+            {
+                Batch.SetVisualScrollableAreaClip(
+                    visualHandle,
+                    new NativeMilRect(
+                        state.ScrollableAreaClip.X,
+                        state.ScrollableAreaClip.Y,
+                        state.ScrollableAreaClip.Width,
+                        state.ScrollableAreaClip.Height));
+            }
             if (state.HasOffset)
             {
                 Batch.SetVisualOffset(
@@ -1686,8 +1706,7 @@ public sealed class WpfNativeMilSceneCompiler
 
         private static void RejectUnsupportedState(PortableVisualState state)
         {
-            if (state.HasClip || state.HasScrollableAreaClip ||
-                state.HasOpacityMask ||
+            if (state.HasOpacityMask ||
                 state.HasEffect || state.HasBitmapEffect ||
                 state.HasBitmapEffectInput || state.HasCacheMode ||
                 state.HasSnappingGuidelinesX ||

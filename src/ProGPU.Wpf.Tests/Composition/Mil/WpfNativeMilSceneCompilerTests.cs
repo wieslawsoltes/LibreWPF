@@ -11,6 +11,65 @@ namespace ProGPU.Wpf.Tests.Composition.Mil;
 public sealed class WpfNativeMilSceneCompilerTests
 {
     [Fact]
+    public void BuildBatchTranslatesTypedVisualClips()
+    {
+        var clip = new FakePrimitiveGeometry(
+            PortablePrimitiveGeometry.Rectangle(
+                new PortableRect(2, 3, 20, 12),
+                0,
+                0,
+                PortableMatrix3x2.Identity));
+        var visual = new FakeVisual(
+            null,
+            new PortableVisualState
+            {
+                HasClip = true,
+                Clip = clip,
+                HasScrollableAreaClip = true,
+                ScrollableAreaClip = new PortableRect(4, 5, 30, 24)
+            });
+
+        WpfNativeMilBatch result = new WpfNativeMilSceneCompiler().BuildBatch(
+            visual, 64, 64);
+
+        Assert.Equal(3U, result.TargetHandle);
+        Assert.Equal(
+            [0x07, 0x1a, 0x07, 0x79, 0x1f, 0x28,
+             0x07, 0x34, 0x36, 0x35],
+            ReadCommands(result.Bytes));
+        int clipOffset = FindCommand(result.Bytes, 0x1f);
+        Assert.Equal(1U, ReadUInt32(result.Bytes, clipOffset + 8));
+        Assert.Equal(2U, ReadUInt32(result.Bytes, clipOffset + 12));
+        int scrollOffset = FindCommand(result.Bytes, 0x28);
+        Assert.Equal(1U, ReadUInt32(result.Bytes, scrollOffset + 8));
+        Assert.Equal(4.0, ReadDouble(result.Bytes, scrollOffset + 12));
+        Assert.Equal(5.0, ReadDouble(result.Bytes, scrollOffset + 20));
+        Assert.Equal(30.0, ReadDouble(result.Bytes, scrollOffset + 28));
+        Assert.Equal(24.0, ReadDouble(result.Bytes, scrollOffset + 36));
+        Assert.Equal(1U, ReadUInt32(result.Bytes, scrollOffset + 44));
+    }
+
+    [Fact]
+    public void BuildBatchRejectsUntypedVisualClip()
+    {
+        var visual = new FakeVisual(
+            null,
+            new PortableVisualState
+            {
+                HasClip = true,
+                Clip = new object()
+            });
+
+        InvalidOperationException exception =
+            Assert.Throws<InvalidOperationException>(() =>
+                new WpfNativeMilSceneCompiler().BuildBatch(
+                    visual, 64, 64));
+
+        Assert.Contains(
+            nameof(IPortablePrimitiveGeometrySource), exception.Message);
+    }
+
+    [Fact]
     public void BuildBatchTranslatesTypedVisualRectangleAndSolidBrush()
     {
         var brush = new FakeBrush(new PortableColor(192, 128, 64, 32));
