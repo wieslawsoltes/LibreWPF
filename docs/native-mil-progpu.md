@@ -111,9 +111,12 @@ ProGPU currently provides:
   bounds into that coordinate space exactly. Fixed rectangle and ellipse
   children join that batch, including geometry-local affine transforms and
   WPF-exact non-uniform rounded-rectangle radius clamping/cubic control points;
-  line children contribute no fill. Transformed arc-bearing paths, nested
-  groups, combined children, and meaningful group pens remain fail closed
-  pending exact contour/stroke composition.
+  line children contribute no fill. Nested groups lower recursively with
+  WPF-order transform composition, bounded depth, transactional rollback, and
+  the root group's fill rule applied across all descendant contours, matching
+  WPF's `CShape::AddShapeData`/outer `SetFillMode` behavior. Transformed
+  arc-bearing paths, combined children, and meaningful group pens remain fail
+  closed pending exact contour/stroke composition.
 - Canonical retained `CombinedGeometry` packets with optional transform,
   null-as-empty operands, dependency/cycle validation, and all four WPF combine
   operations. Two identity-local path operands lower to ProGPU's native postfix
@@ -121,8 +124,10 @@ ProGPU currently provides:
   ellipse operands share the group's exact contour lowerer, including
   geometry-local affine transforms, non-uniform rounded rectangles, and empty
   line leaves. Affine-transformed line/quadratic/cubic paths share the same
-  exact point/bounds baking. Transformed arc-bearing paths, groups, recursive
-  combined geometry, and stroked operands currently fail closed.
+  exact point/bounds baking. A recursively lowered group can now be either
+  boolean leaf while retaining that operand group's root fill rule.
+  Transformed arc-bearing paths, recursive combined geometry operands, and
+  stroked operands currently fail closed.
 - An identical size-versioned C ABI exported by wgpu-native and provider-
   resolved Dawn modules, plus `NativeMilChannel` and typed scene metrics.
 - `NativeMilBatchBuilder` and `NativeMilRenderDataBuilder` managed producers.
@@ -436,14 +441,34 @@ for `progpu_native_dawn.dll`. Both exports compiled a transformed
 line/quadratic/cubic group leaf; live D3D12 then completed with 18 resources,
 three draws, and 16,384 pixels.
 
+The recursive `GeometryGroup` checkpoint at exact native implementation commit
+`e0281b69` passed the complete Windows ARM64 MSVC gate. Both modules rebuilt
+under `/W4 /WX`, all 11 CTests passed, and the MIL contract covered nested
+group transform composition, outer-fill-rule ownership, groups as combined-
+geometry boolean leaves, cycles, rollback, and transformed-arc fail-closed
+behavior. Live C++/managed D3D12 rendering and readback, allocation probes,
+text, path atlas, image/mask/effect, Overlay, ColorDodge, and the bounded
+differential matrix passed. The mixed differential remained at maximum delta
+2/255, zero pixels above 3/255, and mean `0.0000622`; the eight-frame native
+diagnostic measured `0.1562 ms/frame` before package staging.
+
+At package-consumer checkpoint `14603fa2`, the staged and app-local SHA-256
+values matched exactly:
+`e6e71dbca0b0e846de332c7bbade0362a9d19f2e4d16eef93aa73dce8640352e`
+for `progpu_native.dll` and
+`5a0bae5f610cfecf5a945b850a91251c725f97d7592903c78e9e2d24a5fcd79d`
+for `progpu_native_dawn.dll`. Both exports compiled the 40-command,
+17-resource recursive group seed, and live Parallels D3D12 readback completed
+with 18 semantic resources, three draws, and 16,384 pixels.
+
 ## Next parity gates
 
 1. Generate packed protocol size/offset metadata from the checked-in WPF MCG
    model rather than manually extending command declarations.
 2. Add transform animations and remaining transform resource kinds, dashed
    ellipse and rounded-rectangle pen draws, non-uniform rounded rectangles,
-   curved/smooth path strokes and the closed-gap dashed seam, recursive
-   arc-preserving/group/combined child widening, gradients, remaining
+   curved/smooth path strokes and the closed-gap dashed seam, transformed-arc
+   preservation plus recursive combined-child widening, gradients, remaining
    push/pop state, clips,
    images, and
    glyph runs.
