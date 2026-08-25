@@ -1204,6 +1204,32 @@ compiled the hinted vector scene through both exports, and live D3D12 reported
 four semantic resources, one draw, zero coverage-staging bytes, and 16,384
 direct pixels. True ClearType glyph rasterization remains explicit follow-up.
 
+ProGPU implementation `7db3ddb9`, package checkpoint `0e1b4029`, and
+LibreWPF producer checkpoint `6992d0b6f` then added canonical retained visual
+render options through `MilCmdVisualSetRenderOptions` (`0x21`). Source-built
+`Visual` publishes typed `PortableBitmapScalingMode`, `PortableEdgeMode`, and
+`PortableClearTypeHint` fields in `PortableVisualState`; the reflection-free
+compiler maps only those neutral values into the canonical WPF flag/payload
+layout. Legacy object-only values fail closed.
+
+The native visual graph retains and inherits those options through child
+visuals and drawing scopes. Tests prove root-to-child aliased vector output,
+nearest-neighbor ImageDrawing sampling through a nested DrawingGroup, and the
+vector-only ClearType boundary. Unsupported CompositingMode,
+TextRenderingMode, and TextHintingMode flags are rejected transactionally,
+unknown flag bits are malformed, and real glyph content under visual
+ClearType remains unsupported until shared native ClearType rasterization is
+implemented.
+
+Validation passed all eight configured local native suites, the canonical
+managed builder test, a zero-warning ProGPU graph build, 48/48 focused
+LibreWPF producer tests, source-built PresentationCore, the product reflection
+audit, and the project-reference consumer build. Strict Windows ARM64 MSVC
+rebuilt both exports and all 11 native/Dawn CTests passed. Fresh app-local
+native, Dawn, and wgpu-native DLLs compiled the visual-to-DrawingGroup
+inheritance scene through both exports; live D3D12 reported four semantic
+resources, one draw, zero coverage-staging bytes, and 16,384 direct pixels.
+
 ## Next parity gates
 
 1. Generate packed protocol size/offset metadata from the checked-in WPF MCG
