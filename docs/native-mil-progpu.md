@@ -1565,8 +1565,28 @@ validation reject the flag without a local cache. Cubic/Fant sampling remains
 fail closed pending the shared reconstruction path. All 12 provider-configured
 native CTests passed, including a live Metal/Dawn switch to nearest with zero
 content passes; the managed zero-allocation builder regression and both export
-allowlists also passed. This exact checkpoint still requires strict Windows
-ARM64/D3D12 qualification.
+allowlists also passed.
+
+That exact checkpoint passed strict Windows ARM64/D3D12 qualification on
+2026-08-26 from a clean detached checkout of ProGPU `625a0961`. ARM64 MSVC
+rebuilt the modified MIL compiler, validators, retained-layer compositor, and
+both native modules under `/W4 /WX`; all 11 native/Dawn CTests and both export
+contracts passed. The independent C++ and managed samples selected the live
+`Parallels Display Adapter (WDDM)` D3D12 adapter and completed retained render,
+allocation, and pixel-readback checks. The managed sample and benchmark builds
+were repeated serially with `-m:1 -nr:false` to remain inside the Parallels VM
+memory envelope, completing with zero warnings and zero errors. The complete
+bounded differential smoke matrix passed mixed-picture native stress and
+bounded managed parity, group opacity, zero-copy image/mask, retained semantic,
+mask/effect, path-atlas, image-effect, Overlay, ColorDodge, and managed/C++
+text-shaping contracts. Group opacity, zero-copy image, Overlay, and ColorDodge
+were pixel-exact. The staged win-arm64 package DLL SHA-256 values are
+`8CFCBD3BFCC362611EC4A1DB0F17684838C2E1EA1DC30F3EA994B04C63709E2D`
+(`progpu_native.dll`) and
+`9BFB20223CCC046B2280B2B3A8F25E353C916FB001118B3DC5DC47C744968D5F`
+(`progpu_native_dawn.dll`). Exact linear/NearestNeighbor retained-page
+sampling is therefore qualified on DirectX as well as Metal/Dawn without
+rerasterizing the page for a sampling-only change.
 
 ## Next parity gates
 
