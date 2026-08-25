@@ -14,7 +14,8 @@ The active ProGPU work is tracked in draft
 superproject branch and the ProGPU submodule branch started from the fetched
 latest `main`; the superproject records exact reviewed ProGPU commits. The
 exact singular-affine qualification and its reproducible binary hashes are
-pinned at ProGPU documentation commit `7a10b324`.
+pinned together with the subsequent degenerate point-cap qualification at
+ProGPU documentation commit `945c22d6`.
 
 ## WPF protocol model
 
@@ -117,7 +118,11 @@ ProGPU currently provides:
   to Round, including the closing endpoint. A dashed open run crossing a
   closed figure's start remains one rotated semantic polyline, preserving dash
   phase and DashCap at both geometry-gap boundaries. Dashed curves/smooth
-  joins, degenerate cap/join tangents, and non-flat degenerate runs fail closed.
+  joins, degenerate tangents adjacent to nondegenerate joins, and dashed
+  zero-length runs fail closed. Solid zero-length immediate/open path strokes
+  compose their configured point-cap halves around WPF's horizontal
+  shape-space direction; wholly degenerate closed contours force Round/Round
+  caps and form an exact point disk.
 - Canonical retained `GeometryGroup` packets in ProGPU's raw MIL backend,
   including variable child handles, fill rule, matrix transform, dependency
   deletion, cycle rejection, and transactional rollback. Identity-local path
@@ -662,6 +667,23 @@ coverage bytes. Exact staged SHA-256 values were
 `1dec50b6aef18b22f894739a9bff477a31bd0751cae1baabd9d3efc562212b65`
 for `progpu_native.dll` and
 `83ff9ae3133fbe9ecd789202f10ea5dfc483528f207c8ef3d34af05e45c038d9`
+for `progpu_native_dawn.dll`.
+
+ProGPU degenerate point-cap implementation `957adfdd` then matched WPF's
+unstarted-widener behavior. Immediate zero-length lines and wholly degenerate
+open path contours use a horizontal shape-space tangent and compose their typed
+non-Flat cap halves; wholly degenerate closed contours force Round/Round. The
+native hot path uses two fixed stack arrays, while nonempty dashed zero-length
+strokes remain fail closed until their initial dash phase is represented
+exactly. All ten local native tests passed. Strict Windows ARM64 MSVC rebuilt
+both modules under `/W4 /WX`, and all 11 native/Dawn CTests passed in
+Parallels. Package checkpoint `9d3d0033` added immediate and retained
+open/closed degenerate strokes. Both MIL exports compiled its 52-command,
+23-channel-resource seed; live D3D12 readback retained 27 semantic resources,
+three draws, and 41,472 coverage bytes. Exact staged SHA-256 values were
+`6afa15e6fff5a41e274674be9678d80f6bb88085078a0685eb3673d5e5467f4e`
+for `progpu_native.dll` and
+`560c4691baa714d366cc4817c853e41ae8d17a6140d74f06b3db5a505636d666`
 for `progpu_native_dawn.dll`.
 
 ## Next parity gates
