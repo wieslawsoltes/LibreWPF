@@ -263,6 +263,58 @@ public sealed class WpfNativeMilSceneCompilerTests
     }
 
     [Fact]
+    public void BuildBatchTranslatesTypedGeometryDrawing()
+    {
+        var brush = new FakeBrush(new PortableColor(255, 32, 96, 192));
+        var geometry = new FakePrimitiveGeometry(
+            PortablePrimitiveGeometry.Rectangle(
+                new PortableRect(2, 3, 20, 12),
+                0,
+                0,
+                PortableMatrix3x2.Identity));
+        var drawing = new FakeGeometryDrawing(
+            brush,
+            pen: null,
+            geometry);
+        var visual = new FakeVisual(
+            new FakeRenderData(CreateDrawDrawingRecord(1), [drawing]));
+
+        WpfNativeMilBatch result = new WpfNativeMilSceneCompiler().BuildBatch(
+            visual, 64, 64);
+
+        Assert.Equal(6U, result.TargetHandle);
+        int drawingOffset = FindCommand(result.Bytes, 0x87);
+        Assert.Equal(4U, ReadUInt32(result.Bytes, drawingOffset + 8));
+        Assert.Equal(2U, ReadUInt32(result.Bytes, drawingOffset + 12));
+        Assert.Equal(0U, ReadUInt32(result.Bytes, drawingOffset + 16));
+        Assert.Equal(3U, ReadUInt32(result.Bytes, drawingOffset + 20));
+
+        int nestedOffset = FindCommand(result.Bytes, 0x18) + 16;
+        Assert.Equal(16, ReadInt32(result.Bytes, nestedOffset));
+        Assert.Equal(0x4a, ReadInt32(result.Bytes, nestedOffset + 4));
+        Assert.Equal(4U, ReadUInt32(result.Bytes, nestedOffset + 8));
+        Assert.Equal(0U, ReadUInt32(result.Bytes, nestedOffset + 12));
+    }
+
+    [Fact]
+    public void BuildBatchRejectsUntypedDrawing()
+    {
+        var visual = new FakeVisual(
+            new FakeRenderData(
+                CreateDrawDrawingRecord(1),
+                [new object()]));
+
+        InvalidOperationException exception =
+            Assert.Throws<InvalidOperationException>(
+                () => new WpfNativeMilSceneCompiler().BuildBatch(
+                    visual, 64, 64));
+
+        Assert.Contains(
+            nameof(IPortableGeometryDrawingStateSource),
+            exception.Message);
+    }
+
+    [Fact]
     public void BuildBatchRejectsUntypedLineGeometry()
     {
         var visual = new FakeVisual(
@@ -949,6 +1001,15 @@ public sealed class WpfNativeMilSceneCompilerTests
         return record;
     }
 
+    private static byte[] CreateDrawDrawingRecord(uint drawing)
+    {
+        byte[] record = new byte[16];
+        BinaryPrimitives.WriteInt32LittleEndian(record, record.Length);
+        BinaryPrimitives.WriteInt32LittleEndian(record.AsSpan(4), 0x4a);
+        BinaryPrimitives.WriteUInt32LittleEndian(record.AsSpan(8), drawing);
+        return record;
+    }
+
     private static byte[] CreatePopRecord()
     {
         byte[] record = new byte[8];
@@ -1166,6 +1227,35 @@ public sealed class WpfNativeMilSceneCompilerTests
         public bool TryGetPortableGeometryPath(out PortableGeometryPath path)
         {
             path = _path;
+            return true;
+        }
+    }
+
+    private sealed class FakeGeometryDrawing :
+        IPortableGeometryDrawingStateSource
+    {
+        private readonly PortableGeometryDrawingState _state;
+
+        internal FakeGeometryDrawing(
+            object? brush,
+            object? pen,
+            object? geometry)
+        {
+            _state = new PortableGeometryDrawingState
+            {
+                HasBrush = brush is not null,
+                Brush = brush,
+                HasPen = pen is not null,
+                Pen = pen,
+                HasGeometry = geometry is not null,
+                Geometry = geometry
+            };
+        }
+
+        public bool TryGetPortableGeometryDrawingState(
+            out PortableGeometryDrawingState state)
+        {
+            state = _state;
             return true;
         }
     }

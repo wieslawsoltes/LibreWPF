@@ -72,6 +72,8 @@ public sealed class WpfNativeMilSceneCompiler
             new(ReferenceEqualityComparer.Instance);
         private readonly Dictionary<object, uint> _geometryHandles =
             new(ReferenceEqualityComparer.Instance);
+        private readonly Dictionary<object, uint> _drawingHandles =
+            new(ReferenceEqualityComparer.Instance);
         private uint _nextHandle = 1;
 
         internal NativeMilBatchBuilder Batch { get; } = new();
@@ -356,6 +358,25 @@ public sealed class WpfNativeMilSceneCompiler
                             geometryPenHandle,
                             geometryHandle);
                         break;
+                    case WpfMilCommandId.DrawDrawing:
+                        if (recordSize != 16)
+                        {
+                            throw new InvalidOperationException(
+                                "The portable WPF drawing record has an invalid size.");
+                        }
+                        uint drawingToken =
+                            BinaryPrimitives.ReadUInt32LittleEndian(payload);
+                        uint drawingPadding =
+                            BinaryPrimitives.ReadUInt32LittleEndian(payload[4..]);
+                        if (drawingPadding != 0)
+                        {
+                            throw new InvalidOperationException(
+                                "The portable WPF drawing record has nonzero padding.");
+                        }
+                        destination.DrawDrawing(ResolveDrawing(
+                            snapshot.DependentResources,
+                            drawingToken));
+                        break;
                     case WpfMilCommandId.PushOpacity:
                         if (recordSize != 16)
                         {
@@ -418,6 +439,11 @@ public sealed class WpfNativeMilSceneCompiler
                 throw new InvalidOperationException(
                     $"Portable brush token {token} is unavailable.");
             }
+            return ResolveBrush(resource);
+        }
+
+        private uint ResolveBrush(object resource)
+        {
             if (_brushHandles.TryGetValue(resource, out uint existing))
             {
                 return existing;
@@ -573,6 +599,11 @@ public sealed class WpfNativeMilSceneCompiler
                 throw new InvalidOperationException(
                     $"Portable pen token {token} is unavailable.");
             }
+            return ResolvePen(resource);
+        }
+
+        private uint ResolvePen(object resource)
+        {
             if (_penHandles.TryGetValue(resource, out uint existing))
             {
                 return existing;
@@ -622,6 +653,11 @@ public sealed class WpfNativeMilSceneCompiler
                 throw new InvalidOperationException(
                     $"Portable geometry token {token} is unavailable.");
             }
+            return ResolveGeometry(resource);
+        }
+
+        private uint ResolveGeometry(object resource)
+        {
             if (_geometryHandles.TryGetValue(resource, out uint existing))
             {
                 return existing;
@@ -661,6 +697,54 @@ public sealed class WpfNativeMilSceneCompiler
                 end.X,
                 end.Y,
                 transformHandle);
+            return handle;
+        }
+
+        private uint ResolveDrawing(
+            IReadOnlyList<object?> resources,
+            uint token)
+        {
+            if (token == 0 || token > resources.Count ||
+                resources[checked((int)token - 1)] is not object resource)
+            {
+                throw new InvalidOperationException(
+                    $"Portable drawing token {token} is unavailable.");
+            }
+            if (_drawingHandles.TryGetValue(resource, out uint existing))
+            {
+                return existing;
+            }
+            if (resource is not IPortableGeometryDrawingStateSource source ||
+                !source.TryGetPortableGeometryDrawingState(
+                    out PortableGeometryDrawingState state))
+            {
+                throw MissingContract(
+                    nameof(IPortableGeometryDrawingStateSource));
+            }
+            if ((state.HasBrush && state.Brush is null) ||
+                (state.HasPen && state.Pen is null) ||
+                (state.HasGeometry && state.Geometry is null))
+            {
+                throw new InvalidOperationException(
+                    "Portable geometry-drawing state is incomplete.");
+            }
+            uint brushHandle = state.HasBrush
+                ? ResolveBrush(state.Brush!)
+                : 0;
+            uint penHandle = state.HasPen
+                ? ResolvePen(state.Pen!)
+                : 0;
+            uint geometryHandle = state.HasGeometry
+                ? ResolveGeometry(state.Geometry!)
+                : 0;
+            uint handle = NextHandle();
+            _drawingHandles.Add(resource, handle);
+            Batch.CreateResource(handle, NativeMilResourceType.GeometryDrawing);
+            Batch.SetGeometryDrawing(
+                handle,
+                brushHandle,
+                penHandle,
+                geometryHandle);
             return handle;
         }
 
