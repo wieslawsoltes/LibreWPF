@@ -1,5 +1,8 @@
 using System.Buffers.Binary;
+using System.Numerics;
 using System.Windows.Media.ProGPU.Composition.Mil;
+using ProGPU.Backend.Native;
+using ProGPU.Text;
 using ProGPU.Wpf.Interop;
 using Xunit;
 
@@ -294,6 +297,122 @@ public sealed class WpfNativeMilSceneCompilerTests
         Assert.Equal(0x4a, ReadInt32(result.Bytes, nestedOffset + 4));
         Assert.Equal(4U, ReadUInt32(result.Bytes, nestedOffset + 8));
         Assert.Equal(0U, ReadUInt32(result.Bytes, nestedOffset + 12));
+    }
+
+    [Fact]
+    public void BuildBatchTranslatesTypedNativeGlyphRun()
+    {
+        TtfFont font = LoadInterFont();
+        var glyphRun = new FakeNativeGlyphRun(new PortableNativeGlyphRun
+        {
+            GlyphIndices = [
+                font.GetGlyphIndex('A'),
+                font.GetGlyphIndex('B')
+            ],
+            GlyphPositions = [
+                new Vector2(0, 0),
+                new Vector2(14, 0)
+            ],
+            BaselineOrigin = new Vector2(4, 24),
+            FontRenderingEmSize = 20,
+            NativeFont = font,
+            IsBold = true
+        });
+        var brush = new FakeBrush(new PortableColor(255, 32, 96, 192));
+        var visual = new FakeVisual(new FakeRenderData(
+            CreateDrawGlyphRunRecord(1, 2),
+            [brush, glyphRun]));
+
+        WpfNativeMilBatch result = new WpfNativeMilSceneCompiler().BuildBatch(
+            visual, 64, 64);
+
+        WpfNativeMilGlyphRunFont binding = Assert.Single(
+            result.GlyphRunFonts!);
+        Assert.Equal(3U, binding.Handle);
+        Assert.Equal(0U, binding.FaceIndex);
+        Assert.Equal(
+            NativeMilGlyphStyleSimulations.Bold,
+            binding.StyleSimulations);
+        Assert.True(binding.FontData.Length > 0);
+
+        int glyphOffset = FindCommand(result.Bytes, 0x3a);
+        Assert.Equal(3U, ReadUInt32(result.Bytes, glyphOffset + 8));
+        Assert.Equal(0UL, ReadUInt64(result.Bytes, glyphOffset + 12));
+        Assert.Equal(0x10, ReadUInt16(result.Bytes, glyphOffset + 20));
+        Assert.Equal(4.0f, ReadSingle(result.Bytes, glyphOffset + 24));
+        Assert.Equal(24.0f, ReadSingle(result.Bytes, glyphOffset + 28));
+        Assert.Equal(20.0f, ReadSingle(result.Bytes, glyphOffset + 32));
+        Assert.Equal(2, ReadUInt16(result.Bytes, glyphOffset + 68));
+
+        int nestedOffset = FindCommand(result.Bytes, 0x18) + 16;
+        Assert.Equal(16, ReadInt32(result.Bytes, nestedOffset));
+        Assert.Equal(0x49, ReadInt32(result.Bytes, nestedOffset + 4));
+        Assert.Equal(2U, ReadUInt32(result.Bytes, nestedOffset + 8));
+        Assert.Equal(3U, ReadUInt32(result.Bytes, nestedOffset + 12));
+    }
+
+    [Fact]
+    public void BuildBatchTranslatesTypedGlyphRunDrawing()
+    {
+        TtfFont font = LoadInterFont();
+        var glyphRun = new FakeNativeGlyphRun(new PortableNativeGlyphRun
+        {
+            GlyphIndices = [font.GetGlyphIndex('W')],
+            GlyphPositions = [new Vector2(0, 0)],
+            BaselineOrigin = new Vector2(3, 22),
+            FontRenderingEmSize = 18,
+            NativeFont = font,
+            IsItalic = true
+        });
+        var brush = new FakeBrush(new PortableColor(255, 16, 32, 64));
+        var drawing = new FakeGlyphRunDrawing(glyphRun, brush);
+        var visual = new FakeVisual(
+            new FakeRenderData(CreateDrawDrawingRecord(1), [drawing]));
+
+        WpfNativeMilBatch result = new WpfNativeMilSceneCompiler().BuildBatch(
+            visual, 64, 64);
+
+        WpfNativeMilGlyphRunFont binding = Assert.Single(
+            result.GlyphRunFonts!);
+        Assert.Equal(2U, binding.Handle);
+        Assert.Equal(
+            NativeMilGlyphStyleSimulations.Italic,
+            binding.StyleSimulations);
+
+        int drawingOffset = FindCommand(result.Bytes, 0x88);
+        Assert.Equal(4U, ReadUInt32(result.Bytes, drawingOffset + 8));
+        Assert.Equal(2U, ReadUInt32(result.Bytes, drawingOffset + 12));
+        Assert.Equal(3U, ReadUInt32(result.Bytes, drawingOffset + 16));
+
+        int nestedOffset = FindCommand(result.Bytes, 0x18) + 16;
+        Assert.Equal(0x4a, ReadInt32(result.Bytes, nestedOffset + 4));
+        Assert.Equal(4U, ReadUInt32(result.Bytes, nestedOffset + 8));
+    }
+
+    [Fact]
+    public void BuildBatchRejectsGlyphRunWithNonidentityTransform()
+    {
+        TtfFont font = LoadInterFont();
+        var glyphRun = new FakeNativeGlyphRun(new PortableNativeGlyphRun
+        {
+            GlyphIndices = [1],
+            GlyphPositions = [new Vector2(0, 0)],
+            BaselineOrigin = new Vector2(0, 16),
+            FontRenderingEmSize = 16,
+            NativeFont = font,
+            HasTransform = true,
+            Transform = Matrix4x4.CreateTranslation(2, 3, 0)
+        });
+        var visual = new FakeVisual(new FakeRenderData(
+            CreateDrawGlyphRunRecord(0, 1),
+            [glyphRun]));
+
+        NotSupportedException exception =
+            Assert.Throws<NotSupportedException>(
+                () => new WpfNativeMilSceneCompiler().BuildBatch(
+                    visual, 64, 64));
+
+        Assert.Contains("identity glyph transform", exception.Message);
     }
 
     [Fact]
@@ -1165,6 +1284,20 @@ public sealed class WpfNativeMilSceneCompilerTests
         return record;
     }
 
+    private static byte[] CreateDrawGlyphRunRecord(
+        uint foregroundBrush,
+        uint glyphRun)
+    {
+        byte[] record = new byte[16];
+        BinaryPrimitives.WriteInt32LittleEndian(record, record.Length);
+        BinaryPrimitives.WriteInt32LittleEndian(record.AsSpan(4), 0x49);
+        BinaryPrimitives.WriteUInt32LittleEndian(
+            record.AsSpan(8), foregroundBrush);
+        BinaryPrimitives.WriteUInt32LittleEndian(
+            record.AsSpan(12), glyphRun);
+        return record;
+    }
+
     private static byte[] CreatePopRecord()
     {
         byte[] record = new byte[8];
@@ -1198,6 +1331,12 @@ public sealed class WpfNativeMilSceneCompilerTests
     private static uint ReadUInt32(byte[] bytes, int offset) =>
         BinaryPrimitives.ReadUInt32LittleEndian(bytes.AsSpan(offset, 4));
 
+    private static ulong ReadUInt64(byte[] bytes, int offset) =>
+        BinaryPrimitives.ReadUInt64LittleEndian(bytes.AsSpan(offset, 8));
+
+    private static ushort ReadUInt16(byte[] bytes, int offset) =>
+        BinaryPrimitives.ReadUInt16LittleEndian(bytes.AsSpan(offset, 2));
+
     private static float ReadSingle(byte[] bytes, int offset) =>
         BitConverter.UInt32BitsToSingle(ReadUInt32(bytes, offset));
 
@@ -1211,6 +1350,31 @@ public sealed class WpfNativeMilSceneCompilerTests
         return value <= 0.04045f
             ? value / 12.92f
             : MathF.Pow((value + 0.055f) / 1.055f, 2.4f);
+    }
+
+    private static TtfFont LoadInterFont() => new(Path.Combine(
+        FindRepositoryRoot(),
+        "external",
+        "ProGPU",
+        "src",
+        "ProGPU.Fonts.Inter",
+        "Fonts",
+        "Inter-Regular.ttf"));
+
+    private static string FindRepositoryRoot()
+    {
+        DirectoryInfo? directory = new(AppContext.BaseDirectory);
+        while (directory is not null)
+        {
+            if (File.Exists(Path.Combine(
+                    directory.FullName, "Microsoft.Dotnet.Wpf.sln")))
+            {
+                return directory.FullName;
+            }
+            directory = directory.Parent;
+        }
+        throw new InvalidOperationException(
+            "Could not locate the WPF repository root.");
     }
 
     private sealed class FakeVisual :
@@ -1409,6 +1573,48 @@ public sealed class WpfNativeMilSceneCompilerTests
 
         public bool TryGetPortableGeometryDrawingState(
             out PortableGeometryDrawingState state)
+        {
+            state = _state;
+            return true;
+        }
+    }
+
+    private sealed class FakeNativeGlyphRun :
+        IPortableNativeGlyphRunSource
+    {
+        private readonly PortableNativeGlyphRun _glyphRun;
+
+        internal FakeNativeGlyphRun(PortableNativeGlyphRun glyphRun)
+        {
+            _glyphRun = glyphRun;
+        }
+
+        public bool TryGetPortableNativeGlyphRun(
+            out PortableNativeGlyphRun glyphRun)
+        {
+            glyphRun = _glyphRun;
+            return true;
+        }
+    }
+
+    private sealed class FakeGlyphRunDrawing :
+        IPortableGlyphRunDrawingStateSource
+    {
+        private readonly PortableGlyphRunDrawingState _state;
+
+        internal FakeGlyphRunDrawing(object? glyphRun, object? brush)
+        {
+            _state = new PortableGlyphRunDrawingState
+            {
+                HasGlyphRun = glyphRun is not null,
+                GlyphRun = glyphRun,
+                HasForegroundBrush = brush is not null,
+                ForegroundBrush = brush
+            };
+        }
+
+        public bool TryGetPortableGlyphRunDrawingState(
+            out PortableGlyphRunDrawingState state)
         {
             state = _state;
             return true;

@@ -13,10 +13,17 @@ public sealed record WpfNativeMilBitmapSource(
     uint RowBytes,
     byte[] Rgba8Pixels);
 
+public sealed record WpfNativeMilGlyphRunFont(
+    uint Handle,
+    uint FaceIndex,
+    NativeMilGlyphStyleSimulations StyleSimulations,
+    ReadOnlyMemory<byte> FontData);
+
 public sealed record WpfNativeMilBatch(
     byte[] Bytes,
     uint TargetHandle,
-    IReadOnlyList<WpfNativeMilBitmapSource>? BitmapSources = null);
+    IReadOnlyList<WpfNativeMilBitmapSource>? BitmapSources = null,
+    IReadOnlyList<WpfNativeMilGlyphRunFont>? GlyphRunFonts = null);
 
 public sealed record WpfNativeMilCompilation(
     NativeMilCompiledScene Scene,
@@ -52,7 +59,8 @@ public sealed class WpfNativeMilSceneCompiler
         return new WpfNativeMilBatch(
             context.Batch.ToArray(),
             targetHandle,
-            context.BitmapSources.ToArray());
+            context.BitmapSources.ToArray(),
+            context.GlyphRunFonts.ToArray());
     }
 
     public WpfNativeMilCompilation Compile(
@@ -78,6 +86,16 @@ public sealed class WpfNativeMilSceneCompiler
                 bitmap.RowBytes,
                 bitmap.Rgba8Pixels);
         }
+        foreach (WpfNativeMilGlyphRunFont glyphRunFont in
+                 batch.GlyphRunFonts ??
+                 Array.Empty<WpfNativeMilGlyphRunFont>())
+        {
+            channel.SetGlyphRunFontSfnt(
+                glyphRunFont.Handle,
+                glyphRunFont.FontData.Span,
+                glyphRunFont.FaceIndex,
+                glyphRunFont.StyleSimulations);
+        }
         NativeMilCompiledScene scene = channel.CompileScene(
             batch.TargetHandle, sceneId, generation);
         return new WpfNativeMilCompilation(scene, batchMetrics);
@@ -97,6 +115,8 @@ public sealed class WpfNativeMilSceneCompiler
             new(ReferenceEqualityComparer.Instance);
         private readonly Dictionary<object, uint> _drawingHandles =
             new(ReferenceEqualityComparer.Instance);
+        private readonly Dictionary<object, uint> _glyphRunHandles =
+            new(ReferenceEqualityComparer.Instance);
         private readonly Dictionary<object, uint> _imageSourceHandles =
             new(ReferenceEqualityComparer.Instance);
         private readonly HashSet<object> _activeDrawings =
@@ -106,6 +126,8 @@ public sealed class WpfNativeMilSceneCompiler
         internal NativeMilBatchBuilder Batch { get; } = new();
 
         internal List<WpfNativeMilBitmapSource> BitmapSources { get; } = [];
+
+        internal List<WpfNativeMilGlyphRunFont> GlyphRunFonts { get; } = [];
 
         internal uint NextHandle()
         {
@@ -386,6 +408,29 @@ public sealed class WpfNativeMilSceneCompiler
                             geometryBrushHandle,
                             geometryPenHandle,
                             geometryHandle);
+                        break;
+                    case WpfMilCommandId.DrawGlyphRun:
+                        if (recordSize != 16)
+                        {
+                            throw new InvalidOperationException(
+                                "The portable WPF glyph-run record has an invalid size.");
+                        }
+                        uint glyphBrushToken =
+                            BinaryPrimitives.ReadUInt32LittleEndian(payload);
+                        uint glyphRunToken =
+                            BinaryPrimitives.ReadUInt32LittleEndian(payload[4..]);
+                        uint glyphBrushHandle = glyphBrushToken == 0
+                            ? 0
+                            : ResolveBrush(
+                                snapshot.DependentResources,
+                                glyphBrushToken);
+                        uint glyphRunHandle = glyphRunToken == 0
+                            ? 0
+                            : ResolveGlyphRun(
+                                snapshot.DependentResources,
+                                glyphRunToken);
+                        destination.DrawGlyphRun(
+                            glyphBrushHandle, glyphRunHandle);
                         break;
                     case WpfMilCommandId.DrawDrawing:
                         if (recordSize != 16)
@@ -742,6 +787,78 @@ public sealed class WpfNativeMilSceneCompiler
             return ResolveDrawing(resource);
         }
 
+        private uint ResolveGlyphRun(
+            IReadOnlyList<object?> resources,
+            uint token)
+        {
+            if (token == 0 || token > resources.Count ||
+                resources[checked((int)token - 1)] is not object resource)
+            {
+                throw new InvalidOperationException(
+                    $"Portable glyph-run token {token} is unavailable.");
+            }
+            return ResolveGlyphRun(resource);
+        }
+
+        private uint ResolveGlyphRun(object resource)
+        {
+            if (_glyphRunHandles.TryGetValue(resource, out uint existing))
+            {
+                return existing;
+            }
+            if (!WpfResourceResolver.TryAdaptNativeGlyphRun(
+                    resource, out WpfNativeGlyphRun glyphRun))
+            {
+                throw MissingContract(
+                    $"{nameof(IPortableNativeGlyphRunSource)} or " +
+                    nameof(IPortableGlyphRunSource));
+            }
+            if (glyphRun.GlyphIndices.Length == 0 ||
+                glyphRun.GlyphPositions.Length < glyphRun.GlyphIndices.Length ||
+                !glyphRun.Transform.IsIdentity ||
+                !glyphRun.HasBounds ||
+                glyphRun.Font.FaceIndex < 0 ||
+                glyphRun.Font.FontData.IsEmpty)
+            {
+                throw new NotSupportedException(
+                    "Native MIL glyph runs require cached finite native positions, an identity glyph transform, exact bounds, and typed SFNT font bytes.");
+            }
+            uint handle = NextHandle();
+            _glyphRunHandles.Add(resource, handle);
+            WpfReplayRect bounds = glyphRun.LocalBounds;
+            Batch.SetGlyphRun(
+                handle,
+                new NativeMilGlyphRun(
+                    new NativeMilPoint(
+                        glyphRun.Position.X, glyphRun.Position.Y),
+                    glyphRun.FontSize,
+                    new NativeMilRect(
+                        bounds.X,
+                        bounds.Y,
+                        bounds.Width,
+                        bounds.Height)),
+                glyphRun.GlyphIndices,
+                ReadOnlySpan<float>.Empty,
+                glyphRun.GlyphPositions.AsSpan(
+                    0, glyphRun.GlyphIndices.Length));
+            NativeMilGlyphStyleSimulations simulations =
+                NativeMilGlyphStyleSimulations.None;
+            if (glyphRun.IsBold)
+            {
+                simulations |= NativeMilGlyphStyleSimulations.Bold;
+            }
+            if (glyphRun.IsItalic)
+            {
+                simulations |= NativeMilGlyphStyleSimulations.Italic;
+            }
+            GlyphRunFonts.Add(new WpfNativeMilGlyphRunFont(
+                handle,
+                checked((uint)glyphRun.Font.FaceIndex),
+                simulations,
+                glyphRun.Font.FontData));
+            return handle;
+        }
+
         private uint AddGeometryDrawing(
             object resource,
             PortableGeometryDrawingState state)
@@ -770,6 +887,31 @@ public sealed class WpfNativeMilSceneCompiler
                 brushHandle,
                 penHandle,
                 geometryHandle);
+            return handle;
+        }
+
+        private uint AddGlyphRunDrawing(
+            object resource,
+            PortableGlyphRunDrawingState state)
+        {
+            if ((state.HasGlyphRun && state.GlyphRun is null) ||
+                (state.HasForegroundBrush && state.ForegroundBrush is null))
+            {
+                throw new InvalidOperationException(
+                    "Portable glyph-run-drawing state is incomplete.");
+            }
+            uint glyphRunHandle = state.HasGlyphRun
+                ? ResolveGlyphRun(state.GlyphRun!)
+                : 0;
+            uint foregroundBrushHandle = state.HasForegroundBrush
+                ? ResolveBrush(state.ForegroundBrush!)
+                : 0;
+            uint handle = NextHandle();
+            _drawingHandles.Add(resource, handle);
+            Batch.CreateResource(
+                handle, NativeMilResourceType.GlyphRunDrawing);
+            Batch.SetGlyphRunDrawing(
+                handle, glyphRunHandle, foregroundBrushHandle);
             return handle;
         }
 
@@ -919,6 +1061,12 @@ public sealed class WpfNativeMilSceneCompiler
                 {
                     return AddGeometryDrawing(resource, state);
                 }
+                if (resource is IPortableGlyphRunDrawingStateSource glyphSource &&
+                    glyphSource.TryGetPortableGlyphRunDrawingState(
+                        out PortableGlyphRunDrawingState glyphState))
+                {
+                    return AddGlyphRunDrawing(resource, glyphState);
+                }
                 if (resource is IPortableImageDrawingStateSource imageSource &&
                     imageSource.TryGetPortableImageDrawingState(
                         out PortableImageDrawingState imageState))
@@ -934,6 +1082,7 @@ public sealed class WpfNativeMilSceneCompiler
                 }
                 throw MissingContract(
                     $"{nameof(IPortableGeometryDrawingStateSource)}, " +
+                    $"{nameof(IPortableGlyphRunDrawingStateSource)}, " +
                     $"{nameof(IPortableImageDrawingStateSource)}, or " +
                     nameof(IPortableDrawingGroupStateSource));
             }
