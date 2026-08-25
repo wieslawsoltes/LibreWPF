@@ -1252,12 +1252,21 @@ phase behavior.
 
 Validation passed all ten local native CTests, the canonical managed packet
 test, six focused LibreWPF producer/typed-contract cases, and the source-built
-PresentationCore build. This is parity with ProGPU's current managed text
-mode and placement implementation. It does not claim pixel identity with
-WPF's DirectWrite glyph hinting or system display parameters, and
-CompositingMode remains a known transactional unsupported state. Windows
-MSVC/D3D12 qualification for this checkpoint is recorded separately once the
-fresh native and Dawn exports have been exercised in the Parallels lane.
+PresentationCore build. Package checkpoint `c7139459` adds the focused text
+mode to source, package, release, and NativeAOT lanes. Strict Windows ARM64
+MSVC rebuilt both exports and all 11 native/Dawn CTests passed. With fresh
+native, Dawn, and wgpu-native DLLs copied app-local, the ClearType/Fixed scene
+compiled through both MIL exports and live D3D12 rendered three semantic
+resources, one draw, 53,248 coverage-staging bytes, and 16,384 direct pixels.
+Qualified hashes are
+`4703ddeaebf3ddea3ce7f503e935093e79cabb5bac5c3d26ff2890444f011fa2`
+and
+`9de7c391543e027410523b75dc8a394255ca1045e2359f9049f27ba387939a15`.
+
+This is parity with ProGPU's current managed text mode and placement
+implementation. It does not claim pixel identity with WPF's DirectWrite glyph
+hinting or system display parameters, and CompositingMode remains a known
+transactional unsupported state.
 
 ## Next parity gates
 
