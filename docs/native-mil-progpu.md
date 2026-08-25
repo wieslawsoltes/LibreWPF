@@ -1268,6 +1268,37 @@ implementation. It does not claim pixel identity with WPF's DirectWrite glyph
 hinting or system display parameters, and CompositingMode remains a known
 transactional unsupported state.
 
+ProGPU implementation `f134b690`, package checkpoint `909d6ae8`, and
+LibreWPF producer checkpoint `adcbbf5fd` next add canonical retained Visual
+clipping. The typed compiler reads only `PortableVisualState.Clip` and
+`ScrollableAreaClip`, resolves clip geometry through the existing portable
+primitive/path contracts, emits `MilCmdVisualSetClip` (`0x1f`) and
+`MilCmdVisualSetScrollableAreaClip` (`0x28`), and rejects untyped clip objects
+without reflection.
+
+The native compiler implements WPF's ordering for the currently exact subset.
+It transforms the scroll rectangle in the parent scope, snaps it inward with
+ceiling left/top and floor right/bottom, snaps the Visual offset through parent
+device space, and then applies the regular Visual clip after the Visual offset
+and transform. Axis-preserving plain RectangleGeometry becomes a shared
+semantic scissor and intersects inherited clips. Rounded, rotated/sheared,
+ellipse, and arbitrary path Visual clips fail closed instead of being widened
+to rectangle bounds. Exact vector-mask clips and source-built layout-clip
+production remain explicit follow-up work.
+
+Validation passed all ten local native CTests, the canonical managed packet
+test, two focused LibreWPF compiler/typed-contract tests, and the package
+consumer build. The focused `--mil-visual-clip-only` gate is present in JIT,
+NativeAOT, package verification, build, and release lanes. Strict Windows ARM64
+MSVC rebuilt both exports and all 11 native/Dawn CTests passed. Fresh app-local
+DLLs compiled the scene through both exports and live D3D12 rendered three
+semantic resources, one draw, zero coverage bytes, and 16,384 direct pixels.
+Qualified SHA-256 values are
+`0261b5eda34a53db96526e7b27709b052619da561d468d5b131945ed475d54d8`
+for `progpu_native.dll` and
+`9068358ec8f291c261943eef95849c1eac78397bb0446b83d395e9ae5c330116`
+for `progpu_native_dawn.dll`.
+
 ## Next parity gates
 
 1. Generate packed protocol size/offset metadata from the checked-in WPF MCG
