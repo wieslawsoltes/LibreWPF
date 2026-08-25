@@ -14,7 +14,7 @@ The active ProGPU work is tracked in draft
 superproject branch and the ProGPU submodule branch started from the fetched
 latest `main`; the superproject records exact reviewed ProGPU commits. The
 exact retained geometry-clip qualification and its reproducible binary hashes
-are pinned at ProGPU documentation commit `a58af3ba`.
+are pinned at ProGPU documentation commit `c476a341`.
 
 ## WPF protocol model
 
@@ -96,11 +96,11 @@ ProGPU currently provides:
   lowering supports line, quadratic, cubic, and endpoint-arc contours,
   EvenOdd/Nonzero fill, implicit closure, and geometry-local affine transforms.
   Arc math is shared with ProGPU's SVG glyph paths.
-- Exact canonical `PushClip` production for retained, non-rounded rectangle
-  geometry. ProGPU captures the geometry under the transform active at push
-  time, intersects nested clips in logical target coordinates, and emits native
-  semantic scissor state. Rounded, rotated/sheared, path, group, and combined
-  clips fail closed rather than broadening to bounds.
+- Exact canonical `PushClip` production keeps retained, axis-aligned,
+  non-rounded rectangles on semantic scissor state and lowers other fixed,
+  path, group, and combined geometry to ordered semantic vector masks. ProGPU
+  captures the transform active at push time and preserves analytic segments,
+  fill ownership, and recursive boolean programs without broadening to bounds.
 - Native retained path pens for line/polyline topology. ProGPU preserves true
   open/closed stroke contours independently from WPF's implicit fill closure,
   splits `IsStroked=false` geometry gaps into dash-capped runs, restarts dash
@@ -114,10 +114,10 @@ ProGPU currently provides:
   Triangle start/end caps from the same tangent data; Flat caps remain
   implicit, and geometry gaps use the typed dash-cap value. `IsSmoothJoin` is
   retained on its incoming segment and forces only that endpoint's native join
-  to Round, including the closing endpoint. Dashed curves/smooth joins,
-  degenerate cap/join tangents, non-flat degenerate runs, and the one dashed
-  closed-gap seam whose WPF phase reset plus joined corner cannot yet be
-  represented exactly fail closed.
+  to Round, including the closing endpoint. A dashed open run crossing a
+  closed figure's start remains one rotated semantic polyline, preserving dash
+  phase and DashCap at both geometry-gap boundaries. Dashed curves/smooth
+  joins, degenerate cap/join tangents, and non-flat degenerate runs fail closed.
 - Canonical retained `GeometryGroup` packets in ProGPU's raw MIL backend,
   including variable child handles, fill rule, matrix transform, dependency
   deletion, cycle rejection, and transactional rollback. Identity-local path
@@ -626,14 +626,29 @@ for `progpu_native.dll` and
 `9ca1765e660c8cc0d69c8c3eccba3d6971b9c4a05b04a5fc33975dee26e9c938`
 for `progpu_native_dawn.dll`.
 
+ProGPU dashed closed-gap implementation `c12e6d60` removed the obsolete seam
+rejection for line-only closed figures. The decoder rotates the open stroked
+run to the first edge after its gap, preserving one ordered polyline, dash
+phase, intervals, and DashCap at both boundaries across the figure start.
+Native tests assert the wrapped point sequence and typed pen state. All ten
+local native tests passed; strict Windows ARM64 rebuilt both modules and the
+MIL/Dawn contracts passed. Package checkpoint `0048f430` moved the existing
+line geometry gap to force this seam. Both exports compiled the unchanged
+48-command/21-channel-resource seed, and live D3D12 readback retained 23
+semantic resources, three draws, and 41,472 coverage bytes. Exact focused
+SHA-256 values were
+`39a28937c25d977310597efb3c6e7f0ed9f077cd8617b2f95582d3cca58e0161`
+for `progpu_native.dll` and
+`daefb160737962ec81fb78238b44508a7c6a7235c8daf1bc129b0f5df2dda14a`
+for `progpu_native_dawn.dll`.
+
 ## Next parity gates
 
 1. Generate packed protocol size/offset metadata from the checked-in WPF MCG
    model rather than manually extending command declarations.
 2. Add transform animations and remaining transform resource kinds, dashed
    ellipse and rounded-rectangle pen draws, non-uniform rounded rectangles,
-   curve dashes and
-   the closed-gap dashed seam, singular affine
+   curve dashes, singular affine
    arc handling, exact translated-equivalent EvenOdd overlap execution, exact
    combined children inside groups, gradients, remaining
    push/pop state,
