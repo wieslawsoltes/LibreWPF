@@ -21,8 +21,9 @@ gradient qualifications are pinned at ProGPU documentation commit `becbe01d`.
 The canonical GeometryDrawing qualification is pinned at ProGPU documentation
 commit `837b47e9`. The canonical DrawingGroup qualification is pinned at
 ProGPU documentation commit `848763dc`. The canonical ImageDrawing
-qualification is pinned at ProGPU documentation commit `5bbb7073`. The current
-submodule head is that exact
+qualification is pinned at ProGPU documentation commit `5bbb7073`. The
+canonical GlyphRun/GlyphRunDrawing qualification is pinned at ProGPU
+documentation commit `834b318b`. The current submodule head is that exact
 latest-`main`-integrated checkpoint.
 
 ## WPF protocol model
@@ -113,6 +114,16 @@ ProGPU currently provides:
   shared semantic image resource/draw, and never transports WPF's process-local
   WIC pointer. Missing pixels, unsupported image kinds, and invalid dimensions
   fail closed.
+- Canonical `GlyphRun` resource `42`, retained `GlyphRunDrawing` resource `88`,
+  direct nested `DrawGlyphRun` command `0x49`, and retained `DrawDrawing`
+  execution. LibreWPF consumes only cached `IPortableNativeGlyphRunSource` or
+  `IPortableGlyphRunSource` state, keeps source-owned `Vector2` positions on the
+  direct builder path, requires an identity glyph transform for this slice,
+  and binds typed SFNT/TTC bytes plus face/style state before compilation.
+  ProGPU zeroes the canonical process-local `IDWriteFont*`, retains copied font
+  bytes through a typed sideband, shares identical font storage, decodes native
+  TrueType outlines once per glyph-run/raster-size key, and routes direct and
+  retained text through the same semantic renderer on wgpu-native and Dawn.
 - Typed rectangle pen production for fill-only, stroke-only, and combined
   records. Native rectangle outlines use closed ProGPU semantic polylines with
   exact join/dash metadata and affine-expanded stroke bounds. Solid
@@ -990,6 +1001,34 @@ for `progpu_native.dll` and
 `4fe6051479644bfe40019e5d45570f68c57aeaae5040096b2fc257fe60c405d5`
 for `progpu_native_dawn.dll`.
 
+ProGPU implementation `c8efc666`, transport optimization `6c762f2b`, focused
+package gate `b21fd324`, fixture correction `fa8d6a33`, and documentation
+checkpoint `834b318b` next added canonical GlyphRun/GlyphRunDrawing retention
+and pointer-free SFNT font binding. LibreWPF producer checkpoint `9574b0acf`
+consumes the existing typed native glyph DTO and drawing-state contracts,
+reuses cached glyph index/`Vector2` position arrays and resolved `TtfFont`,
+emits the exact canonical packet with a zero DirectWrite pointer, and supplies
+the font bytes, face index, and style simulations before compilation. Untyped
+glyphs, missing finite bounds, invalid font state, and nonidentity glyph
+transforms fail closed without reflection. The focused producer suite passed
+36/36.
+
+All ten local ProGPU native CTests passed, the managed canonical-builder filter
+passed 10/10, and the package consumer built with zero warnings. Strict Windows
+ARM64 MSVC rebuilt both native modules under `/W4 /WX`; all 11 native/Dawn
+CTests passed in the Parallels VM. The focused 14-command,
+six-channel-resource glyph scene compiled direct and retained text through both
+MIL exports and rendered on live D3D12 with three semantic resources, one
+batched draw, 13,312 coverage-staging bytes, a valid submission, nonblack
+retained readback, and 16,384 direct-render pixels. Exact qualified SHA-256
+values were
+`f75a6e979f52d5a606294cb1698c48efcb6a96b78e961f23820495af1697d510`
+for `progpu_native.dll` and
+`e95c7107f76ef1bb221b0784919fe5bd8f72ac8c004ef016db4794b8e7a5d399`
+for `progpu_native_dawn.dll`. Sideways text, gradient/tile foreground brushes,
+CFF/CFF2 and variable/color/bitmap glyphs, target-DPI-aware raster selection,
+decorations, and incremental font registration remain explicit follow-up work.
+
 ## Next parity gates
 
 1. Generate packed protocol size/offset metadata from the checked-in WPF MCG
@@ -999,9 +1038,9 @@ for `progpu_native_dawn.dll`.
    translated-equivalent EvenOdd overlap execution, exact combined children
    inside groups, WPF epsilon-near-coincident gradient-stop normalization,
    duplicate-endpoint Pad outside-color distinction, cap-only degenerate
-   gradient pen strokes, GlyphRunDrawing resources, ImageDrawing rect
-   animations and non-bitmap image sources, remaining push/pop state, and
-   glyph runs.
+   gradient pen strokes, ImageDrawing rect animations and non-bitmap image
+   sources, remaining push/pop state, and the explicit advanced glyph/text
+   gaps listed above.
 3. Cache stable native handles/generations across frames and emit incremental
    resource updates plus damage instead of rebuilding the initial scene batch.
 4. Bind compiled semantic streams directly to `NativeCompositor` targets and
