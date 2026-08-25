@@ -113,7 +113,11 @@ namespace System.Windows.Media
                     ? PortableEdgeMode.Aliased
                     : PortableEdgeMode.Unspecified,
                 HasClearTypeHint = clearTypeHint != ClearTypeHint.Auto,
-                ClearTypeHint = clearTypeHint
+                ClearTypeHint = clearTypeHint,
+                HasPortableClearTypeHint = clearTypeHint != ClearTypeHint.Auto,
+                PortableClearTypeHint = clearTypeHint == ClearTypeHint.Enabled
+                    ? PortableClearTypeHint.Enabled
+                    : PortableClearTypeHint.Auto
             };
             return true;
         }

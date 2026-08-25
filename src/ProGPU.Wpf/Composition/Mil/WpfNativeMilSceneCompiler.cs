@@ -1054,11 +1054,10 @@ public sealed class WpfNativeMilSceneCompiler
             }
             if (state.HasEffect || state.HasBitmapEffect ||
                 state.HasBitmapEffectInput || state.HasCacheMode ||
-                state.HasClearTypeHint || state.HasTextRenderingMode ||
-                state.HasTextHintingMode)
+                state.HasTextRenderingMode || state.HasTextHintingMode)
             {
                 throw new NotSupportedException(
-                    "Portable drawing-group masks, effects, cache, and nondefault render options are not implemented by the native MIL slice.");
+                    "Portable drawing-group effects, bitmap effects, cache, and text render options are not implemented by the native MIL slice.");
             }
             if (!childrenSource.TryGetPortableDrawingGroupChildCount(
                     out int childCount))
@@ -1121,6 +1120,25 @@ public sealed class WpfNativeMilSceneCompiler
                         $"Edge mode {(int)state.PortableEdgeMode} is unsupported.")
                 };
             }
+            NativeMilClearTypeHint clearTypeHint =
+                NativeMilClearTypeHint.Auto;
+            if (state.HasClearTypeHint &&
+                !state.HasPortableClearTypeHint)
+            {
+                throw MissingContract(nameof(PortableClearTypeHint));
+            }
+            if (state.HasPortableClearTypeHint)
+            {
+                clearTypeHint = state.PortableClearTypeHint switch
+                {
+                    PortableClearTypeHint.Auto =>
+                        NativeMilClearTypeHint.Auto,
+                    PortableClearTypeHint.Enabled =>
+                        NativeMilClearTypeHint.Enabled,
+                    _ => throw new NotSupportedException(
+                        $"ClearType hint {(int)state.PortableClearTypeHint} is unsupported.")
+                };
+            }
             var childHandles = new uint[childCount];
             for (int index = 0; index < childCount; index++)
             {
@@ -1145,7 +1163,8 @@ public sealed class WpfNativeMilSceneCompiler
                     TransformHandle: transformHandle,
                     GuidelineSetHandle: guidelineSetHandle,
                     EdgeMode: edgeMode,
-                    BitmapScalingMode: bitmapScalingMode),
+                    BitmapScalingMode: bitmapScalingMode,
+                    ClearTypeHint: clearTypeHint),
                 childHandles);
             return handle;
         }

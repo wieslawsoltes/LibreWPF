@@ -594,6 +594,9 @@ public sealed class WpfNativeMilSceneCompilerTests
                 HasEdgeMode = true,
                 HasPortableEdgeMode = true,
                 PortableEdgeMode = PortableEdgeMode.Aliased,
+                HasClearTypeHint = true,
+                HasPortableClearTypeHint = true,
+                PortableClearTypeHint = PortableClearTypeHint.Enabled,
                 HasPortableBitmapScalingMode = true,
                 PortableBitmapScalingMode =
                     PortableBitmapScalingMode.NearestNeighbor
@@ -622,7 +625,7 @@ public sealed class WpfNativeMilSceneCompilerTests
         Assert.Equal(0U, ReadUInt32(result.Bytes, groupOffset + 40));
         Assert.Equal(1U, ReadUInt32(result.Bytes, groupOffset + 44));
         Assert.Equal(3U, ReadUInt32(result.Bytes, groupOffset + 48));
-        Assert.Equal(0U, ReadUInt32(result.Bytes, groupOffset + 52));
+        Assert.Equal(1U, ReadUInt32(result.Bytes, groupOffset + 52));
         Assert.Equal(6U, ReadUInt32(result.Bytes, groupOffset + 56));
 
         int nestedOffset = FindCommand(result.Bytes, 0x18) + 16;
@@ -832,6 +835,29 @@ public sealed class WpfNativeMilSceneCompilerTests
                     visual, 64, 64));
 
         Assert.Contains(nameof(PortableEdgeMode), exception.Message);
+    }
+
+    [Fact]
+    public void BuildBatchRejectsLegacyObjectClearTypeHint()
+    {
+        var group = new FakeDrawingGroup(
+            new PortableDrawingGroupState
+            {
+                HasClearTypeHint = true,
+                ClearTypeHint = "Enabled"
+            },
+            []);
+        var visual = new FakeVisual(
+            new FakeRenderData(CreateDrawDrawingRecord(1), [group]));
+
+        InvalidOperationException exception =
+            Assert.Throws<InvalidOperationException>(() =>
+                new WpfNativeMilSceneCompiler().BuildBatch(
+                    visual, 64, 64));
+
+        Assert.Contains(
+            nameof(PortableClearTypeHint),
+            exception.Message);
     }
 
     [Fact]
