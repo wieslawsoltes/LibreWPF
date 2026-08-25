@@ -74,6 +74,8 @@ public sealed class WpfNativeMilSceneCompiler
             new(ReferenceEqualityComparer.Instance);
         private readonly Dictionary<object, uint> _drawingHandles =
             new(ReferenceEqualityComparer.Instance);
+        private readonly HashSet<object> _activeDrawings =
+            new(ReferenceEqualityComparer.Instance);
         private uint _nextHandle = 1;
 
         internal NativeMilBatchBuilder Batch { get; } = new();
@@ -710,17 +712,13 @@ public sealed class WpfNativeMilSceneCompiler
                 throw new InvalidOperationException(
                     $"Portable drawing token {token} is unavailable.");
             }
-            if (_drawingHandles.TryGetValue(resource, out uint existing))
-            {
-                return existing;
-            }
-            if (resource is not IPortableGeometryDrawingStateSource source ||
-                !source.TryGetPortableGeometryDrawingState(
-                    out PortableGeometryDrawingState state))
-            {
-                throw MissingContract(
-                    nameof(IPortableGeometryDrawingStateSource));
-            }
+            return ResolveDrawing(resource);
+        }
+
+        private uint AddGeometryDrawing(
+            object resource,
+            PortableGeometryDrawingState state)
+        {
             if ((state.HasBrush && state.Brush is null) ||
                 (state.HasPen && state.Pen is null) ||
                 (state.HasGeometry && state.Geometry is null))
@@ -746,6 +744,104 @@ public sealed class WpfNativeMilSceneCompiler
                 penHandle,
                 geometryHandle);
             return handle;
+        }
+
+        private uint AddDrawingGroup(
+            object resource,
+            PortableDrawingGroupState state,
+            IPortableDrawingGroupChildrenSource childrenSource)
+        {
+            if ((state.HasTransform && state.Transform is null) ||
+                (state.HasClipGeometry && state.ClipGeometry is null))
+            {
+                throw new InvalidOperationException(
+                    "Portable drawing-group state is incomplete.");
+            }
+            if (state.HasOpacityMask || state.HasGuidelineSet ||
+                state.HasEffect || state.HasBitmapEffect ||
+                state.HasBitmapEffectInput || state.HasCacheMode ||
+                state.HasBitmapScalingMode || state.HasEdgeMode ||
+                state.HasClearTypeHint || state.HasTextRenderingMode ||
+                state.HasTextHintingMode)
+            {
+                throw new NotSupportedException(
+                    "Portable drawing-group masks, effects, cache, guidelines, and nondefault render options are not implemented by the native MIL slice.");
+            }
+            if (!childrenSource.TryGetPortableDrawingGroupChildCount(
+                    out int childCount))
+            {
+                childCount = 0;
+            }
+            if (childCount < 0)
+            {
+                throw new InvalidOperationException(
+                    "The portable drawing-group child count is invalid.");
+            }
+            uint transformHandle = state.HasTransform
+                ? ResolveTransform(state.Transform!)
+                : 0;
+            uint clipHandle = state.HasClipGeometry
+                ? ResolveGeometry(state.ClipGeometry!)
+                : 0;
+            var childHandles = new uint[childCount];
+            for (int index = 0; index < childCount; index++)
+            {
+                if (!childrenSource.TryGetPortableDrawingGroupChild(
+                        index,
+                        out object child) || child is null)
+                {
+                    throw new InvalidOperationException(
+                        $"Portable drawing-group child {index} is unavailable.");
+                }
+                childHandles[index] = ResolveDrawing(child);
+            }
+            uint handle = NextHandle();
+            _drawingHandles.Add(resource, handle);
+            Batch.CreateResource(handle, NativeMilResourceType.DrawingGroup);
+            Batch.SetDrawingGroup(
+                handle,
+                new NativeMilDrawingGroup(
+                    state.HasOpacity ? state.Opacity : 1.0,
+                    ClipGeometryHandle: clipHandle,
+                    TransformHandle: transformHandle),
+                childHandles);
+            return handle;
+        }
+
+        private uint ResolveDrawing(object resource)
+        {
+            if (_drawingHandles.TryGetValue(resource, out uint existing))
+            {
+                return existing;
+            }
+            if (!_activeDrawings.Add(resource))
+            {
+                throw new InvalidOperationException(
+                    "The portable drawing graph contains a cycle.");
+            }
+            try
+            {
+                if (resource is IPortableGeometryDrawingStateSource source &&
+                    source.TryGetPortableGeometryDrawingState(
+                        out PortableGeometryDrawingState state))
+                {
+                    return AddGeometryDrawing(resource, state);
+                }
+                if (resource is IPortableDrawingGroupStateSource groupSource &&
+                    groupSource.TryGetPortableDrawingGroupState(
+                        out PortableDrawingGroupState groupState) &&
+                    resource is IPortableDrawingGroupChildrenSource children)
+                {
+                    return AddDrawingGroup(resource, groupState, children);
+                }
+                throw MissingContract(
+                    $"{nameof(IPortableGeometryDrawingStateSource)} or " +
+                    nameof(IPortableDrawingGroupStateSource));
+            }
+            finally
+            {
+                _activeDrawings.Remove(resource);
+            }
         }
 
         private uint AddPathGeometry(

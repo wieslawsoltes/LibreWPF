@@ -315,6 +315,88 @@ public sealed class WpfNativeMilSceneCompilerTests
     }
 
     [Fact]
+    public void BuildBatchTranslatesTypedDrawingGroup()
+    {
+        var transform = new FakeTransform(
+            new PortableMatrix3x2(1, 0, 0, 1, 10, 20));
+        var clip = new FakePrimitiveGeometry(
+            PortablePrimitiveGeometry.Rectangle(
+                new PortableRect(0, 0, 10, 10),
+                0,
+                0,
+                PortableMatrix3x2.Identity));
+        var brush = new FakeBrush(new PortableColor(255, 32, 96, 192));
+        var geometry = new FakePrimitiveGeometry(
+            PortablePrimitiveGeometry.Rectangle(
+                new PortableRect(2, 3, 20, 12),
+                0,
+                0,
+                PortableMatrix3x2.Identity));
+        var child = new FakeGeometryDrawing(brush, null, geometry);
+        var group = new FakeDrawingGroup(
+            new PortableDrawingGroupState
+            {
+                HasOpacity = true,
+                Opacity = 0.5,
+                HasTransform = true,
+                Transform = transform,
+                HasClipGeometry = true,
+                ClipGeometry = clip
+            },
+            [child]);
+        var visual = new FakeVisual(
+            new FakeRenderData(CreateDrawDrawingRecord(1), [group]));
+
+        WpfNativeMilBatch result = new WpfNativeMilSceneCompiler().BuildBatch(
+            visual, 64, 64);
+
+        Assert.Equal(9U, result.TargetHandle);
+        int childOffset = FindCommand(result.Bytes, 0x87);
+        Assert.Equal(6U, ReadUInt32(result.Bytes, childOffset + 8));
+        Assert.Equal(4U, ReadUInt32(result.Bytes, childOffset + 12));
+        Assert.Equal(5U, ReadUInt32(result.Bytes, childOffset + 20));
+
+        int groupOffset = FindCommand(result.Bytes, 0x8b);
+        Assert.Equal(7U, ReadUInt32(result.Bytes, groupOffset + 8));
+        Assert.Equal(0.5, ReadDouble(result.Bytes, groupOffset + 12));
+        Assert.Equal(4U, ReadUInt32(result.Bytes, groupOffset + 20));
+        Assert.Equal(3U, ReadUInt32(result.Bytes, groupOffset + 24));
+        Assert.Equal(0U, ReadUInt32(result.Bytes, groupOffset + 28));
+        Assert.Equal(0U, ReadUInt32(result.Bytes, groupOffset + 32));
+        Assert.Equal(2U, ReadUInt32(result.Bytes, groupOffset + 36));
+        Assert.Equal(0U, ReadUInt32(result.Bytes, groupOffset + 40));
+        Assert.Equal(0U, ReadUInt32(result.Bytes, groupOffset + 44));
+        Assert.Equal(0U, ReadUInt32(result.Bytes, groupOffset + 48));
+        Assert.Equal(0U, ReadUInt32(result.Bytes, groupOffset + 52));
+        Assert.Equal(6U, ReadUInt32(result.Bytes, groupOffset + 56));
+
+        int nestedOffset = FindCommand(result.Bytes, 0x18) + 16;
+        Assert.Equal(7U, ReadUInt32(result.Bytes, nestedOffset + 8));
+    }
+
+    [Fact]
+    public void BuildBatchRejectsTypedDrawingGroupCycle()
+    {
+        var group = new FakeDrawingGroup(
+            new PortableDrawingGroupState
+            {
+                HasOpacity = true,
+                Opacity = 1
+            },
+            []);
+        group.SetChildren([group]);
+        var visual = new FakeVisual(
+            new FakeRenderData(CreateDrawDrawingRecord(1), [group]));
+
+        InvalidOperationException exception =
+            Assert.Throws<InvalidOperationException>(
+                () => new WpfNativeMilSceneCompiler().BuildBatch(
+                    visual, 64, 64));
+
+        Assert.Contains("cycle", exception.Message);
+    }
+
+    [Fact]
     public void BuildBatchRejectsUntypedLineGeometry()
     {
         var visual = new FakeVisual(
@@ -1257,6 +1339,50 @@ public sealed class WpfNativeMilSceneCompilerTests
         {
             state = _state;
             return true;
+        }
+    }
+
+    private sealed class FakeDrawingGroup :
+        IPortableDrawingGroupStateSource,
+        IPortableDrawingGroupChildrenSource
+    {
+        private readonly PortableDrawingGroupState _state;
+        private object[] _children;
+
+        internal FakeDrawingGroup(
+            PortableDrawingGroupState state,
+            object[] children)
+        {
+            _state = state;
+            _children = children;
+        }
+
+        internal void SetChildren(object[] children) => _children = children;
+
+        public bool TryGetPortableDrawingGroupState(
+            out PortableDrawingGroupState state)
+        {
+            state = _state;
+            return true;
+        }
+
+        public bool TryGetPortableDrawingGroupChildCount(out int count)
+        {
+            count = _children.Length;
+            return count != 0;
+        }
+
+        public bool TryGetPortableDrawingGroupChild(
+            int index,
+            out object child)
+        {
+            if ((uint)index < (uint)_children.Length)
+            {
+                child = _children[index];
+                return true;
+            }
+            child = null!;
+            return false;
         }
     }
 
