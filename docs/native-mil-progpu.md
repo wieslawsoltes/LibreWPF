@@ -123,6 +123,19 @@ for `progpu_native.dll` and
 `9F73E41536B3BD96A0A44692EA65888C9DE004B19FBF5DE90489768667FBBDDBC`
 for the wgpu-native runtime DLL.
 
+ProGPU effect commit `1ac97d67` migrates BlurEffect and DropShadowEffect,
+including animation handles and rendering bias. Target commit `ee54c934`
+migrates GenericTarget creation/root/clear/flags/invalidation plus the variable
+RenderData payload boundary. Existing effect validation, unsupported-animation
+policy, target/resource ownership, and nested command-byte preservation are
+unchanged. Both commits pass the generator check and all 11 Apple Silicon
+tests. Clean Windows ARM64 qualification at containing head `ee54c934` rebuilt
+both modules under MSVC `/W4 /WX` and passed all 11 tests. Qualified SHA-256 is
+`5B0F5505811EB938A9FDC097B330ECFBD4CFFA0CD7409E9BD1305798FAD35A94`
+for `progpu_native.dll` and
+`9F73E41536B3BD96A0A44692EA65888C9DE004B19FBF5DE90489768667FBBDDBC`
+for the wgpu-native runtime DLL.
+
 The portable `RenderData` snapshot already uses the same framed nested records,
 but its resource tokens are one-based indexes into a typed dependent-resource
 array. LibreWPF's native producer therefore preserves command bytes and remaps
