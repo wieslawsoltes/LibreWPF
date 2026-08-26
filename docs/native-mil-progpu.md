@@ -1681,12 +1681,22 @@ temporary stack payload.
 
 Native, managed, and MIL regressions cover malformed resources, midpoint
 selection, mapped and negative-scale coordinates, ordinary-State rejection,
-and cache content-revision stability. The live Apple M3 Pro Metal gate keeps
-the page at `passes=1/1 -> 0/1` while deforming its red extent from
-`[10,8]-[25,15]` to `[11,9]-[25,15]` with 23 changed pixels. The superproject
-pins the exact latest-main-integrated ProGPU head for the pending strict Windows
-D3D12 qualification. General path/primitive point deformation and spatial-mask
-plus multi-guide ordering remain fail closed.
+and cache content-revision stability. The live Apple M3 Pro Metal and Parallels
+Display Adapter D3D12 gates both keep the page at `passes=1/1 -> 0/1` while
+deforming its red extent from `[10,8]-[25,15]` to `[11,9]-[25,15]`, changing
+red sum from `32640` to `26775`, with 23 changed pixels.
+
+The clean detached Windows run at exact latest-main-integrated ProGPU commit
+`d99acbc8` passed strict ARM64 MSVC `/W4 /WX`, all 11 native/Dawn CTests, both
+export allowlists, zero-warning managed Release builds, independent C++ and
+managed D3D12 allocation/readback samples, the complete bounded differential
+smoke matrix, and nine-file package staging. Qualified win-arm64 SHA-256 values
+are `F65DA33BFCE4242A869369052E4C52C3CDB67951988FFCB740E85173A74D2C75`
+(`progpu_native.dll`) and
+`E445C3DED9FC741EFECEDC4764A5AE84C120A4FECD15293058504C39ED8E400F`
+(`progpu_native_dawn.dll`). ProGPU documentation commit `570b658e` records the
+evidence. General path/primitive point deformation and spatial-mask plus
+multi-guide ordering remain fail closed.
 
 ## Next parity gates
 
