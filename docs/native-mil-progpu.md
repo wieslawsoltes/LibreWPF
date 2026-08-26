@@ -1591,8 +1591,9 @@ were pixel-exact. The staged win-arm64 package DLL SHA-256 values are
 sampling is therefore qualified on DirectX as well as Metal/Dawn without
 rerasterizing the page for a sampling-only change.
 
-ProGPU spatial-mask checkpoint `a3d6b0fd`, pinned by this LibreWPF revision,
-extends that local-cache layer without changing its 64-byte ABI. The native MIL
+ProGPU spatial-mask implementation `a3d6b0fd`, dedicated live gate `7497ff59`,
+and qualification documentation `5852fcaa`, pinned by this LibreWPF revision,
+extend that local-cache layer without changing its 64-byte ABI. The native MIL
 compiler resolves a cache-root canonical linear or radial opacity brush against
 the exact typed Visual descendant bounds and records an existing
 `LAYER_MASK_BRUSH` resource for the page composite. The mask receives the same
@@ -1611,8 +1612,23 @@ gate passes all 8 portable native CTests, all 12 provider/Dawn CTests, both
 export allowlists, and 3,823 managed tests. The live provider regression proves
 that a mask-only opacity change performs zero content passes and one composite
 pass. MIL regressions cover both linear and radial masks and explicitly reject
-the unrepresented gradient-mask plus guideline ordering. Exact Windows
-ARM64/D3D12 qualification remains pending for this commit.
+the unrepresented gradient-mask plus guideline ordering.
+
+The dedicated backend-neutral live scene then passed on both Apple M3 Pro
+Metal and the Parallels Display Adapter D3D12 backend. It rendered one 24x18
+owner-keyed local page through a linear gradient mask, changed only mask
+opacity from 1.0 to 0.5, observed `1/1` then `0/1` content/composite passes, and
+produced identical sampled green-channel evidence `0/112 -> 56`. The clean
+detached Windows checkout of exact ProGPU commit `7497ff59` also passed ARM64
+MSVC `/W4 /WX`, all 11 native/Dawn CTests, both export contracts, zero-warning
+managed builds, independent C++/managed D3D12 samples, the full bounded parity
+matrix, and package staging. The staged DLL SHA-256 values are
+`8B1C5FCD58EA5794D14C9F6E75F84B5BDFF890A3B8BAA9054B195D2BC6F63622`
+(`progpu_native.dll`) and
+`E6920A87784984ED82F1E172DD441B8909499DCA8CEC149B145C45B811236D89`
+(`progpu_native_dawn.dll`). This qualifies composite-only linear spatial-mask
+changes on DirectX and Metal; radial normalization remains covered by the MIL
+regression.
 
 ## Next parity gates
 
