@@ -1698,6 +1698,37 @@ are `F65DA33BFCE4242A869369052E4C52C3CDB67951988FFCB740E85173A74D2C75`
 evidence. General path/primitive point deformation and spatial-mask plus
 multi-guide ordering remain fail closed.
 
+ProGPU implementation commit `b3b4f784`, followed by qualification/document
+checkpoint `4c8525c8` pinned here, adds the bounded nested cache/effect ordering
+slice without a managed WPF workaround. WPF `DrawCacheVisualTree` ignores the
+cache root's own state but performs normal child walks, so the native MIL
+compiler emits parent local cache, child effect layer, then child local cache.
+Uniform child opacity lives on the isolated child-page composite and executes
+before the outer Gaussian/drop-shadow effect. Uncached opacity/effect,
+clip/effect, and spatial-mask/effect combinations remain typed fail-closed
+gaps.
+
+The parent cache content revision includes descendant placement and effect
+generation, while the child cache content revision excludes its own outer
+state. A child move or effect update therefore misses the parent but reuses
+the child page; moving the parent root retains both. Native MIL tests assert
+that nesting and revision split across child movement, parent movement, and
+effect mutation.
+
+The live Apple M3 Pro Metal and Parallels Display Adapter D3D12 gates produced
+identical evidence. First/stable/child-moved frames executed `3 -> 0 -> 2`
+content/effect-input passes and `2 -> 0 -> 2` effect passes. Stable pixels were
+byte-identical; child movement changed 572 pixels, shifted the nonzero extent
+from `[3,3]-[28,24]` to `[8,3]-[33,24]`, and preserved red sum 24,576. The
+clean detached Windows run at exact ProGPU code commit `b3b4f784` passed ARM64
+MSVC `/W4 /WX`, all 11 native/Dawn CTests, both export allowlists, two
+zero-warning managed Release builds, both independent D3D12 samples, the full
+bounded smoke matrix, and nine-file package staging. Qualified SHA-256 values
+are `424D1A11F6D398D1AC1F206B2686345882143DEBE7D3140037FBBD0D7EF09EBA`
+(`progpu_native.dll`) and
+`A4BB52C578C71DCDBE3297F9CC7D1DEC4BD13D4046F600D1C6966AA60EC0FD2A`
+(`progpu_native_dawn.dll`).
+
 ## Next parity gates
 
 1. Generate packed protocol size/offset metadata from the checked-in WPF MCG
@@ -1713,8 +1744,8 @@ multi-guide ordering remain fail closed.
    push/pop state, DirectWrite/system-display text realization, and the
    explicit advanced glyph/text gaps listed above.
 3. Complete the remaining WPF BitmapCache inherited/ordered spatial-mask,
-   general multi-guideline geometry, nested-ordering, and effects gates on
-   the now-executable local-space cache primitive.
+   general multi-guideline geometry, inflated effect-bounds, and broader
+   clip/mask/effect gates on the now-executable local-space cache primitive.
 4. Cache other stable native handles/generations across frames and emit
    incremental resource updates plus damage instead of rebuilding the initial
    scene batch.
