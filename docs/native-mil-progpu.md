@@ -1072,8 +1072,10 @@ remain explicit gaps.
 ProGPU checkpoint `ebe966b6` and LibreWPF producer checkpoint `2dc79a3ce`
 then completed DrawingGroup bitmap-scaling propagation for retained images.
 ProGPU maps canonical Unspecified/inherit, Linear/LowQuality,
-Fant/HighQuality, and NearestNeighbor values onto its shared linear,
-Mitchell-Netravali cubic, and nearest semantic samplers. Source-built WPF now
+Fant/HighQuality, and NearestNeighbor values onto its semantic samplers. That
+checkpoint initially used Mitchell-Netravali cubic for Fant; ProGPU's later
+Fant checkpoint corrects this to a dedicated bounded area-prefilter path
+because WPF Fant is not a bicubic reconstruction kernel. Source-built WPF now
 publishes the value as neutral `PortableBitmapScalingMode`; the native producer
 requires that typed field and rejects the legacy object-only shape instead of
 parsing enum names.
@@ -1466,7 +1468,7 @@ without invalidating the page. ProGPU `a3d6b0fd` adds the first spatial
 cache-root opacity-mask subset: canonical linear and radial gradient brushes
 reuse the shared typed GPU brush-mask compositor without rerasterizing retained
 content. Inherited mask composition, mask/effect or mask/guideline ordering,
-cubic/Fant cache-bitmap sampling, multi-guideline deformation, nested/effect
+multi-guideline deformation, nested/effect
 ordering, and LibreWPF package gates remain open and fail closed where required.
 
 The pinned provider/Dawn Metal gate passes the new lifecycle directly: first
@@ -1553,8 +1555,8 @@ are
 (`progpu_native_dawn.dll`). Exact rectangle post-raster clips, one static
 composite guideline per axis, and the cache-root raster/composite separation
 are therefore qualified on DirectX as well as Metal/Dawn. Spatial masks,
-cubic/Fant sampling, multi-guideline behavior, nested-cache/effect ordering,
-and LibreWPF package-mode SDK coverage remain.
+multi-guideline behavior, nested-cache/effect ordering, and LibreWPF
+package-mode SDK coverage remain.
 
 ProGPU then merged latest `main` at `0e3c9452` and added exact cache-composite
 NearestNeighbor sampling in `625a0961`. LibreWPF's existing reflection-free
@@ -1564,9 +1566,11 @@ adapter is required. The native MIL compiler maps only NearestNeighbor to the
 additive local-cache-only `CACHE_NEAREST` layer flag; each retained page owns
 linear and nearest bindings over the same texture, and a sampling-only change
 keeps the content revision/page intact. C++, managed, and serialized-scene
-validation reject the flag without a local cache. Cubic/Fant sampling remains
-fail closed pending the shared reconstruction path. All 12 provider-configured
-native CTests passed, including a live Metal/Dawn switch to nearest with zero
+validation reject the flag without a local cache. Fant sampling remains
+fail closed at that historical checkpoint pending the shared reconstruction
+path; the Fant checkpoint below supersedes that limitation. All 12
+provider-configured native CTests passed, including a live Metal/Dawn switch to
+nearest with zero
 content passes; the managed zero-allocation builder regression and both export
 allowlists also passed.
 
@@ -1630,6 +1634,38 @@ matrix, and package staging. The staged DLL SHA-256 values are
 changes on DirectX and Metal; radial normalization remains covered by the MIL
 regression.
 
+ProGPU native Fant implementation `e027c942`, portable qualification update
+`ac38938b`, and final documentation commit `9ff48063`, pinned by this LibreWPF
+revision, correct WPF HighQuality/Fant without adding a WPF-side adapter.
+Source-built WPF's existing reflection-free
+`PortableVisualState.BitmapScalingMode` producer already emits the canonical
+value. The C++ MIL compiler now maps it to the additive local-cache-only
+`CACHE_FANT` flag, while typed immediate and retained images use canonical
+`PROGPU_NATIVE_IMAGE_SAMPLING_FANT`. The separate ProGPU `CUBIC` value remains
+Mitchell-Netravali.
+
+The shared WebGPU/DirectX texture shader follows WPF's sqrt(2) prefilter
+activation threshold and integrates one destination-pixel parallelogram with a
+fixed stratified 4x4 footprint, including rotation and shear. This is a bounded
+GPU approximation of WIC Fant, not a byte-exact WIC-output claim. Sampling-only
+linear/nearest/Fant changes preserve the retained page content revision. C++,
+managed, and serialized validators require local-cache state and reject
+nearest-plus-Fant conflicts.
+
+All 12 native/provider CTests, both export allowlists, and the focused managed
+scene/image contracts pass locally. The Apple M3 Pro Metal gate keeps the page
+at `passes=1/1 -> 0/1` and changes stripe red min/mean/max from `43/117/213` to
+`106/130/149`. The clean detached Windows qualification at exact ProGPU commit
+`ac38938b` passed strict ARM64 MSVC, all 11 native/Dawn CTests, both export
+contracts, zero-warning managed builds, independent C++/managed D3D12 samples,
+the complete bounded differential matrix, and package staging. On Parallels
+D3D12 the same gate kept `passes=1/1 -> 0/1` and changed stripe evidence from
+`0/63/255` to `64/135/191`. Staged DLL SHA-256 values are
+`FACAE389AC4EC1A818004D3C881B301342BC22C1C3E3E145B5660E03715FFF65`
+(`progpu_native.dll`) and
+`A39DCD04927D02D7EDFB08E747AB08C7CF8FAEE620A45B52162CC1C58169C0FA`
+(`progpu_native_dawn.dll`).
+
 ## Next parity gates
 
 1. Generate packed protocol size/offset metadata from the checked-in WPF MCG
@@ -1645,7 +1681,7 @@ regression.
    push/pop state, DirectWrite/system-display text realization, and the
    explicit advanced glyph/text gaps listed above.
 3. Complete the remaining WPF BitmapCache inherited/ordered spatial-mask,
-   cubic/Fant sampling, multi-guideline, nested-ordering, and effects gates on
+   multi-guideline, nested-ordering, and effects gates on
    the now-executable local-space cache primitive.
 4. Cache other stable native handles/generations across frames and emit
    incremental resource updates plus damage instead of rebuilding the initial
