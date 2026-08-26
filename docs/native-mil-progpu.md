@@ -2253,7 +2253,7 @@ shipping package graph.
 
 ## GPU-first fallback and nested MIL scope checkpoint
 
-The current ProGPU pin `db3fa597` integrates the latest ProGPU `main` device-
+The current ProGPU pin `47eef9e0` integrates the latest ProGPU `main` device-
 recovery/windowing work with the configurable glyph execution policy. Product
 default `Fastest` selects native WebGPU compute on qualified Metal/Vulkan
 adapters and the exact retained raster-shader substitute on the known
@@ -2287,7 +2287,11 @@ masks fold to isolated group alpha, while linear/radial masks compile to the
 existing backend-neutral GPU brush-mask resource and are applied once at
 `Pop`. Gradient resource-only updates are observed by the unchanged retained
 render-data stream. The integrated head passes the complete local native suite
-and focused managed packet/policy tests.
+and focused managed packet/policy tests. Retained `DrawingGroup` static or
+animated opacity plus static solid opacity-mask alpha now use the same isolated
+group-composite rule, so overlapping drawing children retain source-over
+coverage before the group alpha is applied; spatial group masks remain typed
+and fail closed until exact group bounds are available.
 
 ## Next parity gates
 
