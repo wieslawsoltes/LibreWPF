@@ -2605,6 +2605,54 @@ for wgpu-native. The canonical process-pointer BitmapSource packet,
 BitmapInvalidate, direct DrawingImage image commands, D3DImage/video, and
 external shared textures remain fail-closed typed-contract work.
 
+ProGPU framing checkpoint `d7538fe7` validates every nested RenderData packet
+against the generated managed-producer size before dispatch. Unsupported but
+correctly framed commands remain `unsupported_command`; a short or oversized
+form of any of the 25 nested commands is `malformed_batch`. This prevents a
+partially implemented handler from accidentally accepting a producer layout
+that changed underneath it.
+
+Direct DrawingImage replay follows at `6d96ceaa`. Static and animated DrawImage
+records can consume a typed DrawingImage, resolve its canonical Drawing and
+exact local-bounds sideband, clip to the destination, and compose an affine
+source-to-destination mapping before retained vector replay. This shares the
+ImageDrawing path, preserves empty images as no-ops, rejects cycles, and never
+rasterizes through a bitmap or reflects over WPF objects. SolidColorBrush
+checkpoint `67739b87` then resolves live DoubleResource opacity and
+ColorResource color through one shared brush path used by analytic/path fills,
+pens, glyphs, and uniform opacity masks. Retained revision and deletion graphs
+include both resources.
+
+Animated effect checkpoint `8836b8b1` resolves BlurEffect radius and all five
+DropShadowEffect animation slots from typed DoubleResource/ColorResource
+state. Effect-chain and cached-layer revisions incorporate those dependency
+generations, so value-only updates change sigma, offset, color/alpha, and
+inflated bounds without retransmitting the effect or Visual. Missing or
+wrong-type references and deletion of a live dependency fail transactionally;
+Box blur remains explicitly unsupported.
+
+SIMD checkpoint `09589773` improves the already qualified two-pixel CPU glyph
+fallback without increasing vector pressure. NEON/SSE2 comparison masks are
+applied directly with signed add/subtract, removing the direction broadcast
+and four bitwise masks per crossing. Four alternating Apple M3 Pro runs per
+variant, each with 120 rerasterized frames, improved median native-submission
+p50 by 19.4% at 1x and 10.9% at 2x. All 960 frames remained exact at
+`5B6EF4F70536C862` and `706B261418EC5C3B`; the complete local native suite and
+strict x86_64 SSE2 compile pass. This improves only the configured intrinsic
+fallback and does not alter the GPU-first default.
+
+The preceding exact `e510039d` Windows checkpoint completed the entire
+Parallels D3D12 lane: strict ARM64 MSVC `/W4 /WX`, 11/11 native/Dawn CTests,
+forced raster/NEON/scalar parity, expected pre-resource compute rejection,
+Microsoft triangle/texture oracles, managed-picture, retained MIL effects,
+masks, clips, text, blends, and package staging. Its DLL SHA-256 values are
+`5B140B2D5881C3847ECBD6D4E7F8B592DD54C24E2687915EDF30BCA4BC78796D`
+and `7D7F35CFA5323D0BA6E61EA402788CBAE72EBA40D69FE5B3D05069C966AB56DB`;
+wgpu-native is
+`9F73E41536B3BD96A0A44692EA65888C9DE004B19FBF5DE90489768667FBBDBC`.
+The newer effect and SIMD checkpoints are locally qualified and remain queued
+for the next exact Windows rebuild.
+
 ## Next parity gates
 
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested
@@ -2617,7 +2665,7 @@ external shared textures remain fail-closed typed-contract work.
    gradient pen strokes, non-bitmap image sources, dynamic-guideline pairs,
    exact WPF-compatible arc lowering, and
    remaining multi-guideline draw-family deformation, general Visual
-   effect/clip/mask/opacity ordering, animated and Box effects, remaining
+   effect/clip/mask/opacity ordering, Box effects, remaining
    opacity-mask/effect/dynamic-guideline push/pop state,
    DirectWrite/system-display text realization, and the
    explicit advanced glyph/text gaps listed above.
