@@ -2654,6 +2654,15 @@ invalid live dimensions, or deletion of a referenced value fail closed. All
 eight local native suites and the generated 143-command/141-layout drift gate
 pass at this checkpoint.
 
+Animated stroke checkpoint `21221dff` resolves Pen thickness and DashStyle
+offset through typed DoubleResource handles across immediate and retained
+lines, paths, rectangles, rounded rectangles, ellipses, degenerate caps, and
+group/combined-geometry stroke decisions. The hot path copies only compact Pen
+state; dash arrays remain retained and allocation-free. Value-only updates
+change exact stroke thickness, dash phase, bounds, and cached-layer revisions;
+wrong types, dependency deletion, and negative live thickness fail closed. All
+eight local native suites and the generated protocol drift gate pass.
+
 The preceding exact `e510039d` Windows checkpoint completed the entire
 Parallels D3D12 lane: strict ARM64 MSVC `/W4 /WX`, 11/11 native/Dawn CTests,
 forced raster/NEON/scalar parity, expected pre-resource compute rejection,
@@ -2663,8 +2672,9 @@ masks, clips, text, blends, and package staging. Its DLL SHA-256 values are
 and `7D7F35CFA5323D0BA6E61EA402788CBAE72EBA40D69FE5B3D05069C966AB56DB`;
 wgpu-native is
 `9F73E41536B3BD96A0A44692EA65888C9DE004B19FBF5DE90489768667FBBDBC`.
-The newer effect, SIMD, PushEffect, and animated fixed-geometry checkpoints are
-locally qualified and remain queued for the next exact Windows rebuild.
+The newer effect, SIMD, PushEffect, animated fixed-geometry, and animated
+stroke checkpoints are locally qualified and remain queued for the next exact
+Windows rebuild.
 
 ## Next parity gates
 
