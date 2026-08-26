@@ -1666,6 +1666,16 @@ D3D12 the same gate kept `passes=1/1 -> 0/1` and changed stripe evidence from
 `A39DCD04927D02D7EDFB08E747AB08C7CF8FAEE620A45B52162CC1C58169C0FA`
 (`progpu_native_dawn.dll`).
 
+ProGPU analysis checkpoint `84b917a0`, pinned here, fixes the next
+multi-guideline boundary against WPF `CSnappingFrame` and
+`CShapeClipperForFEB`. Zero/one guide remains a uniform transform offset;
+multiple sorted static guides require a nearest-guide offset per transformed
+point, with exact midpoint ties choosing the lower guide. A cache root has only
+four composite vertices, so the first additive capability will be explicitly
+local-cache-composite-only. Normal semantic states must continue rejecting it
+until general path/primitive point deformation exists, and spatial-mask plus
+multi-guide ordering remains fail closed.
+
 ## Next parity gates
 
 1. Generate packed protocol size/offset metadata from the checked-in WPF MCG
