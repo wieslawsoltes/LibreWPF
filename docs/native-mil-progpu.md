@@ -2253,7 +2253,7 @@ shipping package graph.
 
 ## GPU-first fallback and nested MIL scope checkpoint
 
-The current ProGPU pin `20fc4299` integrates the latest ProGPU `main` device-
+The current ProGPU pin `1a2ffb3a` integrates the latest ProGPU `main` device-
 recovery/windowing work with the configurable glyph execution policy. Product
 default `Fastest` selects native WebGPU compute on qualified Metal/Vulkan
 adapters and the exact retained raster-shader substitute on the known
@@ -2287,6 +2287,29 @@ staging bytes, and the same `5B6EF4F70536C862` hash. A bounded rerasterized
 one-glyph A/B remained exact at `6C59592F05595EFE`; its 51–133 second process
 startup variance makes it correctness evidence, not a Windows timing claim.
 The qualified DLL hashes are recorded in the pinned ProGPU documentation.
+
+SIMD follow-up `e6ab073e` precompiles quadratic/cubic control-point Y hulls
+and Y-polynomial coefficients once per CPU-rerasterized frame, rather than on
+all eight subpixel scanlines of every pixel row. It does not change the root
+solver, crossing order, winding decisions, or scalar oracle. Four alternating
+30-frame Apple M3 Pro runs reduced median-of-run native submission p50 from
+1.1648 ms to 1.0533 ms (-9.6%) and synchronized-frame p50 from 2.7528 ms to
+2.5981 ms (-5.6%); submission/frame p95 medians improved from
+2.0873/4.3461 ms to 1.4839/4.0934 ms. All 240 measured frames retained exact
+`5B6EF4F70536C862` output, all five execution-policy checks passed, and the
+native/Dawn plus x86_64 SSE2 compile gates remained green.
+
+Exact implementation head `405d139b` then passed the unmodified Windows ARM64
+MSVC/D3D12 smoke gate. Both libraries rebuilt; all 11 CTests, native and
+managed samples, Microsoft D3D12HelloTriangle, forced raster/NEON/scalar
+pixel parity, typed pre-resource rejection of incompatible forced compute,
+MIL guideline/arc deformation, retained cache/mask/effect/blend families,
+text parity, bounded differential profiles, and package staging completed on
+the Parallels adapter. SHA-256 is
+`C690AED72C3C895778197808C8347656433D6A97DD178F5249A8B4D0C1B56756` for
+`progpu_native.dll` and
+`552E8CC9441B9A33E89B346758113B52DC13F7A3B1D11F80BF86A3AE90039637` for
+`progpu_native_dawn.dll`.
 
 The macOS Metal matrix produces exact managed/native hash
 `5B6EF4F70536C862` in all modes. Ubuntu ARM64 GCC 13.3 compiled the full
