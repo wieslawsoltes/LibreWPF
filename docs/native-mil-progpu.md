@@ -2133,16 +2133,16 @@ complete MIL scale/translate frame and emits the new append-only
 `GUIDELINE_PER_POINT` resource mode, while the prior zero/one affine fast path
 and cache-only multi-guide mode retain their existing contracts.
 
-The exact initial execution subset is one non-boolean semantic path containing
+The initial execution subset was one non-boolean semantic path containing
 line, quadratic, or cubic segments. Native C++ composes path and scope
 transforms, snaps each start/control/end point in absolute target space with
 WPF nearest-guide and lower-midpoint-tie behavior, rebases materialized target
 coordinates, and publishes identity transform plus updated bounds. Arcs,
-multi/shared and boolean paths, primitives, strokes, images, glyphs, meshes,
-points, 3D, and dynamic pairs fail closed until their exact representations
-land. The public managed/native builders also reject direct per-point use on
-non-path commands or cache composites; scoped MIL state remains legal and the
-executor rejects unsupported descendants before drawing.
+boolean paths, primitives, strokes, images, glyphs, meshes, points, 3D, and
+dynamic pairs fail closed until their exact representations land. The public
+managed/native builders also reject direct per-point use on non-path commands
+or cache composites; scoped MIL state remains legal and the executor rejects
+unsupported descendants before drawing.
 
 All ten native CTests pass, the managed native-interop class passes 80/80 after
 the allocation lane is warmed, the benchmark builds with zero warnings, and
@@ -2170,7 +2170,23 @@ run compiled all 260 C++20 objects under
 `-Wall -Wextra -Wpedantic -Werror`, passed 10/10 CTests and the export
 allowlist, and completed the Vulkan llvmpipe retained sample with GPU hit-test
 and readback. ProGPU documentation commit `e76a9e3c` records that compiler
-checkpoint and is the submodule revision pinned here.
+checkpoint.
+
+The current pinned ProGPU revision `885fa670` extends the same native algorithm
+to multiple path records when their segment ranges are ordered and disjoint.
+Shared, overlapping, or out-of-order ranges return `UNSUPPORTED` before GPU
+submission, preventing one immutable segment slot from being snapped twice.
+The common macOS/Linux and Windows scripts now render one line-only figure and
+one mixed quadratic/cubic figure in a single path resource, compare with an
+independently deformed reference, and exercise the shared-range negative case.
+Apple M3 Pro Metal reports baseline `[10,8]-[35,25]`, red 37,536, green 11,542;
+guided/reference `[10,8]-[35,26]`, red 40,800, green 13,045; `changed=76` and
+`referenceChanged=0`. WPF lowers `ArcSegment` to one through four cubic Beziers
+before its snapping task traverses the shape, so compatible analytic-arc
+lowering remains a separate exact checkpoint. ProGPU also corrects the focused
+DrawingGroup package fixture to its actual 26-command packet and makes package
+failures report all actual/expected MIL metrics; all nine focused package
+scenes pass locally through both native MIL exports and live Metal rendering.
 
 ## Microsoft DirectX sample oracle gate
 
@@ -2200,9 +2216,15 @@ The 2026-08-26 Parallels ARM64 user-session capture, ProGPU D3D12 frame, and
 Apple M3 Pro Metal frame are byte-identical at 1280x720. All use PPM SHA-256
 `1269AE803032CC2BF6AD717E8491CC19BAF7F9FD5C6B233F8C0012D2DFA53933`;
 maximum and mean channel differences are zero, no pixels change, and all probe
-differences are zero. Linux/Vulkan remains separately reported hosted-CI
-evidence. Parallels service sessions cannot create the WARP presentation
-environment (`0x887A0022`), so the GUI step must run with `prlctl exec
+differences are zero. Hosted run `32957387184` then passed the independent
+D3D12/Metal/Vulkan aggregate: Microsoft Basic Render Driver/D3D12, Apple
+Paravirtual device/Metal, and llvmpipe LLVM 20.1.2/Vulkan all produced that
+same PPM hash, maximum/mean difference 0, zero changed pixels, and four
+zero-difference probes. The published aggregate artifact contains all four
+PPMs, manifests, and comparison JSON. This is deterministic virtual/software
+adapter evidence, not physical-GPU qualification. Parallels service sessions
+cannot create the WARP presentation environment (`0x887A0022`), so the GUI
+step must run with `prlctl exec
 --current-user`. WARP is the reproducible Microsoft semantic reference, while
 the existing ProGPU hardware D3D12 lane remains the adapter/backend
 qualification; neither is mislabeled as common-runtime proof.
@@ -2217,8 +2239,8 @@ qualification; neither is mislabeled as common-runtime proof.
    inside groups, WPF epsilon-near-coincident gradient-stop normalization,
    duplicate-endpoint Pad outside-color distinction, cap-only degenerate
    gradient pen strokes, ImageDrawing rect animations and non-bitmap image
-   sources, dynamic-guideline pairs and remaining multi-guideline draw-family
-   deformation, general Visual
+   sources, dynamic-guideline pairs, exact WPF-compatible arc lowering, and
+   remaining multi-guideline draw-family deformation, general Visual
    effect/clip/mask/opacity ordering, animated and Box effects, remaining
    push/pop state, DirectWrite/system-display text realization, and the
    explicit advanced glyph/text gaps listed above.
