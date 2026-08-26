@@ -2641,6 +2641,14 @@ p50 by 19.4% at 1x and 10.9% at 2x. All 960 frames remained exact at
 strict x86_64 SSE2 compile pass. This improves only the configured intrinsic
 fallback and does not alter the GPU-first default.
 
+The follow-up empty-subscanline branch experiment was exact but rejected. Four
+alternating 120-frame runs per variant kept identical current-scene hashes at
+both DPI scales. It improved 2x median submission/frame p50 from
+3.0416/6.5538 ms to 2.8003/6.1728 ms, but regressed 1x submission p50 from
+1.6761 to 1.7931 ms (+7.0%) and frame p50 from 5.3414 to 5.3760 ms (+0.6%).
+The source therefore retains unconditional subscanline vector reduction under
+the documented cross-profile no-regression rule.
+
 PushEffect checkpoint `2387fa4a` follows the current WPF native executor's
 disabled legacy BitmapEffect behavior exactly. ProGPU validates the canonical
 12-byte managed record, treats its two producer dependency indices as opaque,
