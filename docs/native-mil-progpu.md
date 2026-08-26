@@ -1729,6 +1729,33 @@ are `424D1A11F6D398D1AC1F206B2686345882143DEBE7D3140037FBBD0D7EF09EBA`
 `A4BB52C578C71DCDBE3297F9CC7D1DEC4BD13D4046F600D1C6966AA60EC0FD2A`
 (`progpu_native_dawn.dll`).
 
+ProGPU implementation `bb550c79` and qualification documentation `c4609e14`,
+pinned here, extend that ordering to one typed linear/radial cache-root spatial
+opacity mask. The effect remains outer; uniform opacity and the brush mask stay
+on the inner local-cache composite, so both execute once on the isolated page
+before Gaussian blur or drop shadow. LibreWPF's existing typed visual/brush
+state already emits the required canonical data; no bridge reflection,
+callback, or managed rendering fallback was added.
+
+MIL tests assert effect -> masked cache ordering, mask/opacity placement, and
+unchanged cache content revision. The live Apple M3 Pro Metal and Parallels
+D3D12 gates match exactly: first/stable/mask-changed content passes are
+`2 -> 1 -> 1`, effect passes remain `2 -> 2 -> 2`, stable pixels are identical,
+and halving only mask opacity changes 164 pixels, narrows extent
+`[21,7]-[31,24] -> [22,7]-[30,24]`, and changes red sum `756 -> 372` while
+retaining the source page.
+
+The clean detached Windows run at exact code commit `bb550c79` passed ARM64
+MSVC `/W4 /WX`, all 11 native/Dawn CTests, both export allowlists, two
+zero-warning managed builds, both D3D12 samples, the complete bounded smoke
+matrix, and nine-file staging. Qualified SHA-256 values are
+`FFA0223D369BF89F48E4A9A271318BE7B057022899A3D8B8AA2532BDA44F3C30`
+(`progpu_native.dll`) and
+`7A98FA8A4A69E11886ED6879D430295BAD370F88D463B4E638847D1F8CBE6836`
+(`progpu_native_dawn.dll`). Inherited/combined masks, mask plus guideline
+ordering, clip/effect output regions, and inflated effect-bound tightening
+remain open.
+
 ## Next parity gates
 
 1. Generate packed protocol size/offset metadata from the checked-in WPF MCG
@@ -1743,7 +1770,7 @@ are `424D1A11F6D398D1AC1F206B2686345882143DEBE7D3140037FBBD0D7EF09EBA`
    effect/clip/mask/opacity ordering, animated and Box effects, remaining
    push/pop state, DirectWrite/system-display text realization, and the
    explicit advanced glyph/text gaps listed above.
-3. Complete the remaining WPF BitmapCache inherited/ordered spatial-mask,
+3. Complete the remaining WPF BitmapCache inherited/combined spatial-mask,
    general multi-guideline geometry, inflated effect-bounds, and broader
    clip/mask/effect gates on the now-executable local-space cache primitive.
 4. Cache other stable native handles/generations across frames and emit
