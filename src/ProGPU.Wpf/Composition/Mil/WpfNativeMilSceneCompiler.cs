@@ -1628,15 +1628,23 @@ public sealed class WpfNativeMilSceneCompiler
             switch (effect.Kind)
             {
                 case PortableEffectKind.Blur:
-                    if (effect.BlurKernel != PortableBlurKernel.Gaussian)
-                    {
-                        throw new NotSupportedException(
-                            "WPF Box BlurEffect requires a native box-filter effect node.");
-                    }
+                    NativeMilBlurKernelType kernelType =
+                        effect.BlurKernel switch
+                        {
+                            PortableBlurKernel.Gaussian =>
+                                NativeMilBlurKernelType.Gaussian,
+                            PortableBlurKernel.Box =>
+                                NativeMilBlurKernelType.Box,
+                            _ => throw new NotSupportedException(
+                                $"Blur kernel {(int)effect.BlurKernel} is unsupported.")
+                        };
                     Batch.CreateResource(
                         handle, NativeMilResourceType.BlurEffect);
                     Batch.SetBlurEffect(
-                        handle, effect.Radius, renderingBias);
+                        handle,
+                        effect.Radius,
+                        renderingBias,
+                        kernelType);
                     break;
                 case PortableEffectKind.DropShadow:
                     Batch.CreateResource(

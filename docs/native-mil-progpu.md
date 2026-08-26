@@ -2697,7 +2697,12 @@ to WPF, WinUI, and Avalonia. The new `--group-box-blur` gate is exact against an
 independent two-pass RGBA8 oracle at radius 2/1x on Apple M3 Pro Metal
 (`22A8BEC63E7C7494`); at 2x it stays within 1/255 with zero pixels beyond
 tolerance and mean absolute error 0.000455 byte/channel. The Windows smoke
-script now gates this profile on D3D12 as well.
+script now gates this profile on D3D12 as well. LibreWPF's reflection-free
+native scene compiler maps the source-built `PortableBlurKernel.Box` contract
+to `NativeMilBlurKernelType.Box`; unknown kernel values remain fail-closed.
+The focused compiler suite verifies the canonical packet field, so a real WPF
+`BlurEffect.KernelType` selection reaches the ProGPU shader instead of stopping
+at the bridge.
 
 Accepted SIMD follow-up `c5549ceb` stops computing a discarded second pixel
 on odd-width glyph rows. The qualified paired loop remains a 16-sample

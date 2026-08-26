@@ -344,6 +344,36 @@ public sealed class WpfNativeMilSceneCompilerTests
     }
 
     [Fact]
+    public void BuildBatchTranslatesTypedVisualBoxBlurEffect()
+    {
+        var effect = new FakeEffect(PortableEffect.Blur(
+            7.25,
+            PortableBlurKernel.Box,
+            PortableEffectRenderingBias.Quality));
+        var visual = new FakeVisual(
+            null,
+            new PortableVisualState
+            {
+                HasEffect = true,
+                Effect = effect
+            });
+
+        WpfNativeMilBatch result = new WpfNativeMilSceneCompiler().BuildBatch(
+            visual, 64, 64);
+
+        int effectOffset = FindCommand(result.Bytes, 0x6e);
+        Assert.Equal(2U, ReadUInt32(result.Bytes, effectOffset + 8));
+        Assert.Equal(7.25, ReadDouble(result.Bytes, effectOffset + 12));
+        Assert.Equal(0U, ReadUInt32(result.Bytes, effectOffset + 20));
+        Assert.Equal(1U, ReadUInt32(result.Bytes, effectOffset + 24));
+        Assert.Equal(1U, ReadUInt32(result.Bytes, effectOffset + 28));
+        Assert.Contains(0x1d, ReadCommands(result.Bytes));
+        Assert.Equal(
+            new NativeMilRect(1, 2, 30, 20),
+            Assert.Single(result.VisualCacheBounds!).Bounds);
+    }
+
+    [Fact]
     public void BuildBatchTranslatesTypedVisualDropShadowEffect()
     {
         var effect = new FakeEffect(PortableEffect.DropShadow(
@@ -729,16 +759,17 @@ public sealed class WpfNativeMilSceneCompilerTests
     }
 
     [Fact]
-    public void BuildBatchRejectsUnsupportedEffectButAllowsUniformOpacity()
+    public void BuildBatchRejectsUnknownBlurKernelButAllowsUniformOpacity()
     {
-        var box = new FakeEffect(PortableEffect.Blur(
+        var unknown = new FakeEffect(PortableEffect.Blur(
             5,
-            PortableBlurKernel.Box));
-        var boxVisual = new FakeVisual(
+            (PortableBlurKernel)2));
+        var unknownVisual = new FakeVisual(
             null,
-            new PortableVisualState { HasEffect = true, Effect = box });
+            new PortableVisualState { HasEffect = true, Effect = unknown });
         Assert.Throws<NotSupportedException>(() =>
-            new WpfNativeMilSceneCompiler().BuildBatch(boxVisual, 64, 64));
+            new WpfNativeMilSceneCompiler().BuildBatch(
+                unknownVisual, 64, 64));
 
         var combinedVisual = new FakeVisual(
             null,
