@@ -2371,7 +2371,7 @@ and explicit clear/black/white interior probes pass.
 
 ## GPU-first fallback and nested MIL scope checkpoint
 
-The current ProGPU pin `7d334439` integrates the latest ProGPU `main` device-
+The current ProGPU pin `b4dff69c` integrates the latest ProGPU `main` device-
 recovery/windowing work with the configurable glyph execution policy. Product
 default `Fastest` selects native WebGPU compute on qualified Metal/Vulkan
 adapters and the exact retained raster-shader substitute on the known
@@ -2448,6 +2448,13 @@ D3D12 hash `5B6EF4F70536C862` with 247,808 staged coverage bytes. DLL SHA-256 is
 `EE150A6E7EACF4B7E789C8EE9B0A0A91778D121AE107FCF7700BEC4C7FD588C5` and
 `3FF479B331F6548938115C272FE53B03F4AC89872B565941AA0DD34DF75A9B35`.
 The VM result is correctness evidence, not a Windows timing claim.
+
+Two later SIMD candidates were intentionally not shipped. Four-pixel NEON
+crossing batches and a packed-byte deferred horizontal reduction both stayed
+byte-exact and kept all native tests green, but longer grouped measurements
+regressed median submission p50 by roughly 3–5% at both 1x and 2x DPI. ProGPU
+records the complete measurements and retains `bf20bd66` as the qualified
+no-regression implementation.
 
 The macOS Metal matrix produces exact managed/native hash
 `5B6EF4F70536C862` in all modes. Ubuntu ARM64 GCC 13.3 compiled the full
