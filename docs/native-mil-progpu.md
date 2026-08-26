@@ -109,6 +109,20 @@ for `progpu_native.dll` and
 `9F73E41536B3BD96A0A44692EA65888C9DE004B19FBF5DE90489768667FBBDDBC`
 for the wgpu-native runtime DLL.
 
+ProGPU `9d489872` moves GeometryDrawing, GlyphRunDrawing, ImageDrawing,
+DrawingImage, variable GuidelineSet/DrawingGroup payloads, and BitmapCache onto
+generated WPF MCG layouts. Generated fixed-header boundaries now define the
+guideline coordinate and drawing child-handle payload starts. Resource-type
+dependencies, drawing cycle checks, opacity/render-option validation, retained
+bounds preservation, child render-data synthesis, and bitmap-cache semantics
+are unchanged. The generator check and all 11 Apple Silicon tests pass; clean
+Windows ARM64 MSVC `/W4 /WX` rebuilt both modules and passed all 11 tests.
+Qualified SHA-256 is
+`096EE139F64DDB2D0FEC503424ECBFED98D97AEDCA29E9C9DD80ACF9FDF8FCE8`
+for `progpu_native.dll` and
+`9F73E41536B3BD96A0A44692EA65888C9DE004B19FBF5DE90489768667FBBDDBC`
+for the wgpu-native runtime DLL.
+
 The portable `RenderData` snapshot already uses the same framed nested records,
 but its resource tokens are one-based indexes into a typed dependent-resource
 array. LibreWPF's native producer therefore preserves command bytes and remaps
