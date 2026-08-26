@@ -1923,6 +1923,19 @@ content/composite/effect passes, red samples `36/217`, extent
 `[7,5]-[47,30]`, and red sum 65,264. Reversing the mask to post-effect changes
 666 pixels and yields `[10,10]-[41,25]`, red sum 56,038.
 
+ProGPU qualification documentation is commit `ab6d9d06`. A clean detached
+`3c22b004` Windows ARM64 MSVC `/W4 /WX` run passes 11/11 native/Dawn CTests,
+both export allowlists, two zero-warning managed Release builds, independent
+C++ and managed D3D12 allocation/readback, the complete bounded differential
+smoke matrix, and nine-file package staging. The Parallels Display Adapter
+D3D12 proof is identical to Metal: `2/2/2` passes, samples `36/217`, masked
+extent `[7,5]-[47,30]` with red sum 65,264, and 666 wrong-order changed pixels
+at `[10,10]-[41,25]` with red sum 56,038. Qualified SHA-256 values are
+`F7B72CAF58C8B4675A3B26FBBC4B62D314F26737CFFC9DC625F1E2BF640A681C`
+(`progpu_native.dll`) and
+`6921A4037372B7A327370DA2035750FD48E791164BD2B5E0407E05F3A01C4A14`
+(`progpu_native_dawn.dll`).
+
 ## Next parity gates
 
 1. Generate packed protocol size/offset metadata from the checked-in WPF MCG
