@@ -288,12 +288,6 @@ public sealed class WpfNativeMilSceneCompiler
                     throw new InvalidOperationException(
                         "Portable Visual guideline state is incomplete.");
                 }
-                if (state.SnappingGuidelinesX.Length > 1 ||
-                    state.SnappingGuidelinesY.Length > 1)
-                {
-                    throw new NotSupportedException(
-                        "Multiple WPF Visual guidelines per axis require native piecewise geometry deformation.");
-                }
                 Batch.SetVisualGuidelines(
                     visualHandle,
                     state.SnappingGuidelinesX,
@@ -1488,12 +1482,6 @@ public sealed class WpfNativeMilSceneCompiler
             {
                 throw new NotSupportedException(
                     "Dynamic WPF guideline pairs are not implemented by the native MIL slice.");
-            }
-            if (guidelines.GuidelinesX.Length > 1 ||
-                guidelines.GuidelinesY.Length > 1)
-            {
-                throw new NotSupportedException(
-                    "Multiple WPF guidelines per axis require native piecewise geometry deformation.");
             }
             uint handle = NextHandle();
             _guidelineSetHandles.Add(resource, handle);

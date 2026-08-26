@@ -286,7 +286,7 @@ public sealed class WpfNativeMilSceneCompilerTests
     }
 
     [Fact]
-    public void BuildBatchRejectsMultipleVisualGuidelines()
+    public void BuildBatchPublishesMultipleVisualGuidelines()
     {
         var visual = new FakeVisual(
             null,
@@ -296,8 +296,14 @@ public sealed class WpfNativeMilSceneCompilerTests
                 SnappingGuidelinesX = [1, 2]
             });
 
-        Assert.Throws<NotSupportedException>(() =>
-            new WpfNativeMilSceneCompiler().BuildBatch(visual, 64, 64));
+        WpfNativeMilBatch result = new WpfNativeMilSceneCompiler().BuildBatch(
+            visual, 64, 64);
+
+        int guidelineOffset = FindCommand(result.Bytes, 0x27);
+        Assert.Equal(2U, ReadUInt16(result.Bytes, guidelineOffset + 12));
+        Assert.Equal(0U, ReadUInt16(result.Bytes, guidelineOffset + 16));
+        Assert.Equal(1F, ReadSingle(result.Bytes, guidelineOffset + 20));
+        Assert.Equal(2F, ReadSingle(result.Bytes, guidelineOffset + 24));
     }
 
     [Fact]
@@ -1477,7 +1483,7 @@ public sealed class WpfNativeMilSceneCompilerTests
     }
 
     [Fact]
-    public void BuildBatchRejectsDynamicOrMultipleTypedGuidelines()
+    public void BuildBatchRejectsDynamicAndPublishesMultipleTypedGuidelines()
     {
         static FakeVisual CreateVisual(PortableGuidelineSet state)
         {
@@ -1498,12 +1504,18 @@ public sealed class WpfNativeMilSceneCompilerTests
                     true, true, [], [2, 0])),
                 64,
                 64));
-        Assert.Throws<NotSupportedException>(() =>
-            new WpfNativeMilSceneCompiler().BuildBatch(
-                CreateVisual(new PortableGuidelineSet(
-                    true, false, [1, 2], [])),
-                64,
-                64));
+        WpfNativeMilBatch result = new WpfNativeMilSceneCompiler().BuildBatch(
+            CreateVisual(new PortableGuidelineSet(
+                true, false, [1, 2], [])),
+            64,
+            64);
+
+        int guidelineOffset = FindCommand(result.Bytes, 0x8c);
+        Assert.Equal(40, ReadInt32(result.Bytes, guidelineOffset));
+        Assert.Equal(16U, ReadUInt32(result.Bytes, guidelineOffset + 12));
+        Assert.Equal(0U, ReadUInt32(result.Bytes, guidelineOffset + 16));
+        Assert.Equal(1, ReadDouble(result.Bytes, guidelineOffset + 24));
+        Assert.Equal(2, ReadDouble(result.Bytes, guidelineOffset + 32));
     }
 
     [Fact]
