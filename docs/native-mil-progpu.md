@@ -2251,9 +2251,23 @@ fixture passed the source-independent native NuGet job and every runnable
 desktop JIT/NativeAOT package consumer, coupling the oracle result to a green
 shipping package graph.
 
+ProGPU implementation `a4ae5576` extends this gate with Microsoft's pinned
+`D3D12HelloTexture` sample. The native WARP reference and ProGPU D3D12/Metal/
+Vulkan candidates preserve the upstream 256x256 checkerboard, point sampling,
+affine UV mapping, triangle boundary, clear color, and viewport. ProGPU uses a
+typed nearest-sampled image resource plus edge-aliased cover triangles; this
+validates the visible texture semantics without claiming a new arbitrary
+textured-mesh command in the scene ABI. The 2026-08-26 Apple M3 Pro Metal,
+Parallels Display Adapter D3D12, and native Microsoft ARM64/WARP captures are
+byte-identical at 1280x720 with PPM SHA-256
+`480B613A9F4FA0E799E46D310E7A3AB9F917B9B60CDA035A2E2718CBF2391397`.
+The ProGPU RGBA readback SHA-256 is
+`591CC311F35E3C2612F529C3D4D7061FC93751A9B8614BF588A73599B0AA2790`,
+and explicit clear/black/white interior probes pass.
+
 ## GPU-first fallback and nested MIL scope checkpoint
 
-The current ProGPU pin `1a2ffb3a` integrates the latest ProGPU `main` device-
+The current ProGPU pin `8acde1ff` integrates the latest ProGPU `main` device-
 recovery/windowing work with the configurable glyph execution policy. Product
 default `Fastest` selects native WebGPU compute on qualified Metal/Vulkan
 adapters and the exact retained raster-shader substitute on the known
