@@ -2253,7 +2253,7 @@ shipping package graph.
 
 ## GPU-first fallback and nested MIL scope checkpoint
 
-The current ProGPU pin `644a8d89` integrates the latest ProGPU `main` device-
+The current ProGPU pin `e9183cdf` integrates the latest ProGPU `main` device-
 recovery/windowing work with the configurable glyph execution policy. Product
 default `Fastest` selects native WebGPU compute on qualified Metal/Vulkan
 adapters and the exact retained raster-shader substitute on the known
@@ -2279,6 +2279,14 @@ variant reduced median-of-run native submission p50 from 1.8217 ms to
 (-16.6%); p95 improved from 2.9429 to 2.3009 ms for submission and 5.1773 to
 4.4856 ms end to end. All 240 measured frames remained exact at
 `5B6EF4F70536C862`, and scalar plus x86_64 SSE2 compile gates pass.
+
+Exact ProGPU head `644a8d89` rebuilt both libraries with ARM64 MSVC and passed
+all 11 native/Dawn CTests in Windows. The zero-warning benchmark build ran the
+full 42-glyph forced-NEON D3D12 gate with zero pixel difference, 247,808
+staging bytes, and the same `5B6EF4F70536C862` hash. A bounded rerasterized
+one-glyph A/B remained exact at `6C59592F05595EFE`; its 51–133 second process
+startup variance makes it correctness evidence, not a Windows timing claim.
+The qualified DLL hashes are recorded in the pinned ProGPU documentation.
 
 The macOS Metal matrix produces exact managed/native hash
 `5B6EF4F70536C862` in all modes. Ubuntu ARM64 GCC 13.3 compiled the full
