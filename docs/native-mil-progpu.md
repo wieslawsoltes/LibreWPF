@@ -2034,8 +2034,8 @@ nine-file runtime/SDK staging. Qualified SHA-256 values are
 (`progpu_native_dawn.dll`).
 
 The nested cached-mask checkpoint advances ProGPU to exact test/qualification
-commit `f8bd57b5` (DirectX qualification commit `a1d66d70`). LibreWPF now has explicit
-two-cache/two-mask packet coverage: the parent cache owns a horizontal mask,
+commit `f8bd57b5` (DirectX qualification commit `a1d66d70`). LibreWPF now has
+explicit two-cache/two-mask packet coverage: the parent cache owns a horizontal mask,
 while an effect-owning cached child owns a vertical mask. The compiler emits
 both typed BitmapCache packets, both typed mask packets, the effect, and exact
 bounds without reflection or fallback.
@@ -2060,6 +2060,29 @@ Packaged SHA-256 values are
 (`progpu_native.dll`) and
 `743FE185F4D4C900CA1B7F5B18AD85BEAAD47CEA592315AF22D81E625DF0393D`
 (`progpu_native_dawn.dll`).
+
+The cache-root mask/guideline checkpoint advances ProGPU to implementation and
+live-gate commit `9eb46b92` (documentation commit `2f0f0972`). The previous
+fail-closed check represented a real coordinate-frame gap: the retained page's
+four composite vertices were deformed by WPF static guidelines, but the typed
+gradient opacity-mask coverage was rasterized in the undeformed target frame.
+The shared C++ executor now passes the local-cache composite State and semantic
+state cursor into brush-mask preparation. It snaps the exact mask rectangle
+through the same guideline set and derives its axis-aligned affine coverage
+frame while leaving brush material coordinates in WPF's original target-space
+frame. Rotation/shear continues to disable the guideline frame, and ordinary
+per-draw masks remain unchanged. No ABI, callback, reflection, managed fallback,
+or DirectX-only path is added.
+
+LibreWPF's reflection-free compiler now has explicit packet coverage for one
+typed BitmapCache, one linear-gradient opacity mask, X/Y static guidelines, and
+the exact typed Visual bounds sideband. ProGPU's Apple M3 Pro Metal gate retains
+the page across baseline/guided/independent-reference frames
+(`1/1 -> 0/1 -> 0/1` content/composite passes), changes 40 pixels, moves the
+masked extent from `[21,8]-[25,15]`/red 1,881 to
+`[21,9]-[25,15]`/red 1,617, and matches the independently constructed affine
+reference byte for byte (`referenceChanged=0`). DirectX qualification is
+pending for exact code commit `9eb46b92`.
 
 ## Next parity gates
 

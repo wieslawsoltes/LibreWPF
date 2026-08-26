@@ -233,6 +233,51 @@ public sealed class WpfNativeMilSceneCompilerTests
     }
 
     [Fact]
+    public void BuildBatchPublishesCachedGradientMaskAndGuidelinePackets()
+    {
+        var opacityMask = new FakeBrush(PortableBrush.LinearGradient(
+            new PortablePoint(0, 0),
+            new PortablePoint(1, 0),
+            [
+                new PortableGradientStop(
+                    new PortableColor(0, 255, 255, 255), 0),
+                new PortableGradientStop(
+                    new PortableColor(255, 255, 255, 255), 1)
+            ]));
+        var visual = new FakeVisual(
+            null,
+            new PortableVisualState
+            {
+                HasCacheMode = true,
+                CacheMode = new FakeBitmapCache(
+                    new PortableBitmapCache(1, false, false)),
+                HasOpacityMask = true,
+                OpacityMask = opacityMask,
+                HasSnappingGuidelinesX = true,
+                SnappingGuidelinesX = [2.25],
+                HasSnappingGuidelinesY = true,
+                SnappingGuidelinesY = [3.5]
+            });
+
+        WpfNativeMilBatch result = new WpfNativeMilSceneCompiler().BuildBatch(
+            visual, 64, 64);
+        List<int> commands = ReadCommands(result.Bytes);
+
+        Assert.Single(commands, command => command == 0x7f);
+        Assert.Single(commands, command => command == 0x23);
+        Assert.Single(commands, command => command == 0x27);
+        Assert.Single(commands, command => command == 0x1e);
+        int guidelineOffset = FindCommand(result.Bytes, 0x27);
+        Assert.Equal(1U, ReadUInt16(result.Bytes, guidelineOffset + 12));
+        Assert.Equal(1U, ReadUInt16(result.Bytes, guidelineOffset + 16));
+        Assert.Equal(2.25F, ReadSingle(result.Bytes, guidelineOffset + 20));
+        Assert.Equal(3.5F, ReadSingle(result.Bytes, guidelineOffset + 24));
+        Assert.Equal(
+            new NativeMilRect(1, 2, 30, 20),
+            Assert.Single(result.VisualCacheBounds!).Bounds);
+    }
+
+    [Fact]
     public void BuildBatchRejectsMultipleVisualGuidelines()
     {
         var visual = new FakeVisual(
