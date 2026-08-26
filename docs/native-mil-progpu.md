@@ -2033,6 +2033,23 @@ nine-file runtime/SDK staging. Qualified SHA-256 values are
 `743FE185F4D4C900CA1B7F5B18AD85BEAAD47CEA592315AF22D81E625DF0393D`
 (`progpu_native_dawn.dll`).
 
+The nested cached-mask checkpoint advances ProGPU to exact test/qualification
+commit `f8bd57b5` (documentation commit `c94b859b`). LibreWPF now has explicit
+two-cache/two-mask packet coverage: the parent cache owns a horizontal mask,
+while an effect-owning cached child owns a vertical mask. The compiler emits
+both typed BitmapCache packets, both typed mask packets, the effect, and exact
+bounds without reflection or fallback.
+
+ProGPU regression coverage proves the invalidation boundary: a root-mask-only
+change preserves both cached content revisions, while a child-mask change
+preserves child raster pixels but invalidates the root page containing that
+child composite. The Apple M3 Pro Metal sequence reports content passes
+`3 -> 0 -> 0 -> 2`, effect passes `2 -> 0 -> 0 -> 2`, and pixel changes
+`0/379/161`. Extent/red sum moves from `[12,6]-[33,25]`/23,482 to
+`[12,6]-[33,25]`/11,772 and `[12,6]-[33,24]`/11,266. All eight portable native
+CTests, the zero-warning benchmark build, and 71/71 focused LibreWPF compiler
+tests pass. DirectX qualification is pending.
+
 ## Next parity gates
 
 1. Generate packed protocol size/offset metadata from the checked-in WPF MCG
@@ -2047,8 +2064,7 @@ nine-file runtime/SDK staging. Qualified SHA-256 values are
    effect/clip/mask/opacity ordering, animated and Box effects, remaining
    push/pop state, DirectWrite/system-display text realization, and the
    explicit advanced glyph/text gaps listed above.
-3. Complete the remaining WPF BitmapCache inherited/combined spatial-mask,
-   general multi-guideline geometry, transformed/nonorthogonal advanced effect
+3. Complete general multi-guideline geometry, transformed/nonorthogonal advanced effect
    bounds, and broader
    arbitrary-geometry clip/mask/effect gates on the now-executable local-space
    cache primitive.

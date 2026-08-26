@@ -437,6 +437,65 @@ public sealed class WpfNativeMilSceneCompilerTests
     }
 
     [Fact]
+    public void BuildBatchPublishesNestedCachedMaskOwnershipPackets()
+    {
+        var parentMask = new FakeBrush(PortableBrush.LinearGradient(
+            new PortablePoint(0, 0),
+            new PortablePoint(1, 0),
+            [
+                new PortableGradientStop(
+                    new PortableColor(0, 255, 255, 255), 0),
+                new PortableGradientStop(
+                    new PortableColor(255, 255, 255, 255), 1)
+            ]));
+        var childMask = new FakeBrush(PortableBrush.LinearGradient(
+            new PortablePoint(0, 0),
+            new PortablePoint(0, 1),
+            [
+                new PortableGradientStop(
+                    new PortableColor(255, 255, 255, 255), 0),
+                new PortableGradientStop(
+                    new PortableColor(0, 255, 255, 255), 1)
+            ]));
+        var child = new FakeVisual(
+            null,
+            new PortableVisualState
+            {
+                HasCacheMode = true,
+                CacheMode = new FakeBitmapCache(
+                    new PortableBitmapCache(1, false, false)),
+                HasEffect = true,
+                Effect = new FakeEffect(PortableEffect.Blur(5)),
+                HasOpacityMask = true,
+                OpacityMask = childMask
+            });
+        var parent = new FakeVisual(
+            null,
+            new PortableVisualState
+            {
+                HasCacheMode = true,
+                CacheMode = new FakeBitmapCache(
+                    new PortableBitmapCache(1, false, false)),
+                HasOpacityMask = true,
+                OpacityMask = parentMask
+            },
+            child);
+
+        WpfNativeMilBatch result = new WpfNativeMilSceneCompiler().BuildBatch(
+            parent, 64, 64);
+        List<int> commands = ReadCommands(result.Bytes);
+
+        Assert.Equal(2, commands.Count(x => x == 0x1e));
+        Assert.Equal(2, commands.Count(x => x == 0x23));
+        Assert.Single(commands, x => x == 0x1d);
+        Assert.Equal(2, result.VisualCacheBounds!.Count);
+        Assert.All(
+            result.VisualCacheBounds,
+            bounds => Assert.Equal(
+                new NativeMilRect(1, 2, 30, 20), bounds.Bounds));
+    }
+
+    [Fact]
     public void BuildBatchRejectsOpacityIsolationWithoutTypedVisualBounds()
     {
         var visual = new FakeVisualWithoutBounds(
