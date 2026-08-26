@@ -54,9 +54,12 @@ all 108 managed `Pack=1` layouts with top-level field types, offsets, widths,
 and fixed header sizes. The ProGPU standalone build checks manifest/header
 agreement. `eng/progpu-wpf-sdk-ci.sh` additionally regenerates from this live
 LibreWPF tree, so a WPF protocol change cannot silently leave the submodule's
-decoder authority stale. Visual-offset, DoubleResource, and PointResource are
-the first decoder cases consuming generated constants; the remaining numeric
-packet reads are tracked as a mechanical migration.
+decoder authority stale. ProGPU `d4a1f370` makes the complete retained Visual
+update family plus DoubleResource and PointResource consume generated
+constants, including variable guideline packets and child topology. Private
+MCG packing bytes are captured, every fixed header must retain DWORD framing,
+and all 108 managed layouts must map to a command. The remaining numeric packet
+reads are tracked as a mechanical migration.
 
 The portable `RenderData` snapshot already uses the same framed nested records,
 but its resource tokens are one-based indexes into a typed dependent-resource
@@ -2279,7 +2282,7 @@ and explicit clear/black/white interior probes pass.
 
 ## GPU-first fallback and nested MIL scope checkpoint
 
-The current ProGPU pin `2dba7b5b` integrates the latest ProGPU `main` device-
+The current ProGPU pin `22bf5bf1` integrates the latest ProGPU `main` device-
 recovery/windowing work with the configurable glyph execution policy. Product
 default `Fastest` selects native WebGPU compute on qualified Metal/Vulkan
 adapters and the exact retained raster-shader substitute on the known
