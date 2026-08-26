@@ -388,12 +388,23 @@ public sealed class WpfNativeMilSceneCompilerTests
                 new PortableGradientStop(
                     new PortableColor(255, 255, 255, 255), 1)
             ]));
+        var childOpacityMask = new FakeBrush(PortableBrush.LinearGradient(
+            new PortablePoint(0, 0),
+            new PortablePoint(0, 1),
+            [
+                new PortableGradientStop(
+                    new PortableColor(255, 255, 255, 255), 0),
+                new PortableGradientStop(
+                    new PortableColor(0, 255, 255, 255), 1)
+            ]));
         var child = new FakeVisual(
             null,
             new PortableVisualState
             {
                 HasEffect = true,
-                Effect = new FakeEffect(PortableEffect.Blur(5))
+                Effect = new FakeEffect(PortableEffect.Blur(5)),
+                HasOpacityMask = true,
+                OpacityMask = childOpacityMask
             });
         var parent = new FakeVisual(
             null,
@@ -421,7 +432,7 @@ public sealed class WpfNativeMilSceneCompilerTests
                 Assert.Equal(
                     new NativeMilRect(1, 2, 30, 20), bounds.Bounds);
             });
-        Assert.Contains(0x23, ReadCommands(result.Bytes));
+        Assert.Equal(2, ReadCommands(result.Bytes).Count(x => x == 0x23));
         Assert.Contains(0x1d, ReadCommands(result.Bytes));
     }
 
