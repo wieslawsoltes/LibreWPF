@@ -2253,7 +2253,7 @@ shipping package graph.
 
 ## GPU-first fallback and nested MIL scope checkpoint
 
-The current ProGPU pin `9172355f` integrates the latest ProGPU `main` device-
+The current ProGPU pin `db3fa597` integrates the latest ProGPU `main` device-
 recovery/windowing work with the configurable glyph execution policy. Product
 default `Fastest` selects native WebGPU compute on qualified Metal/Vulkan
 adapters and the exact retained raster-shader substitute on the known
@@ -2281,8 +2281,13 @@ pairs fail closed until Stage 2 supplies WPF's animation clock and scheduling
 state. Constant and animated `PushOpacity` scopes now use a full-target native
 isolated layer, applying alpha once at `Pop` so overlapping children are not
 attenuated independently. Animated scopes resolve their typed DoubleResource
-on each compile without retransmitting render data. The integrated head passes
-all 11 local native/Dawn CTests and focused managed packet/policy tests.
+on each compile without retransmitting render data. Canonical
+`PushOpacityMask` now consumes its exact retained local bounds: static solid
+masks fold to isolated group alpha, while linear/radial masks compile to the
+existing backend-neutral GPU brush-mask resource and are applied once at
+`Pop`. Gradient resource-only updates are observed by the unchanged retained
+render-data stream. The integrated head passes the complete local native suite
+and focused managed packet/policy tests.
 
 ## Next parity gates
 
