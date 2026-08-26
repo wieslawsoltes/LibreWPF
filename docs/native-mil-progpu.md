@@ -2548,17 +2548,45 @@ for `progpu_native.dll` and
 `F002C1FB564334FF21E6F1B18E2FADFD067A955103531A7E1E55B4CC361D6DC8`
 for `progpu_native_dawn.dll`.
 
+ProGPU implementation `a7dcd8de` and documentation checkpoint `59bffdb4`
+complete the native scalar MIL value-resource family and the core animated
+render-data primitives. Color, Rect, Size, Point3D, Vector3D, and Quaternion
+resources now join the existing Double, Point, and Matrix decoders under the
+generated WPF MCG layouts, exact type/size checks, finite-value validation, and
+transactional rollback. DrawLineAnimate, DrawRectangleAnimate,
+DrawRoundedRectangleAnimate, DrawEllipseAnimate, and DrawImageAnimate resolve
+live typed dependencies during native semantic-scene compilation. Static
+DrawImage and retained ImageDrawing share the pointer-free RGBA8 BitmapSource
+sideband, and ImageDrawing now applies its live RectResource destination.
+
+The complete Apple Silicon native/Metal gate passed. A clean detached Windows
+ARM64 MSVC `/W4 /WX` build of exact implementation `a7dcd8de` passed all 11
+native/Dawn CTests and the live Parallels D3D12 smoke matrix. Forced raster,
+intrinsic SIMD, and scalar paths were exact; SIMD retained-glyph parity kept
+hash `5B6EF4F70536C862`, while forced compute failed through the expected typed
+adapter incompatibility before resource execution. Microsoft
+D3D12HelloTriangle and D3D12HelloTexture produced the same hashes on D3D12 and
+Metal. Qualified SHA-256 is
+`CD33CEEE182F2A77403B96F4D23DF7FBB1A61AEFAD66C927D3282C4A461236C3`
+for `progpu_native.dll`,
+`50362916F0026C1B016A2496F89547B1814C4F3BCA2D414CCC6B39B2E12B84F6`
+for `progpu_native_dawn.dll`, and
+`9F73E41536B3BD96A0A44692EA65888C9DE004B19FBF5DE90489768667FBBDBC`
+for wgpu-native. The canonical process-pointer BitmapSource packet,
+BitmapInvalidate, direct DrawingImage image commands, D3DImage/video, and
+external shared textures remain fail-closed typed-contract work.
+
 ## Next parity gates
 
-1. Migrate remaining native packet readers from local numeric offsets to the
-   generated neutral WPF MCG layout metadata.
+1. Implement the remaining 2D/3D resource, media, cache, effect, and nested
+   render-data command families using the complete generated WPF MCG layouts.
 2. Add dashed ellipse and rounded-rectangle pen draws, curve dashes, exact
    degenerate zero-axis asymmetric rounded-rectangle widening, exact
    translated-equivalent EvenOdd overlap execution, exact combined children
    inside groups, WPF epsilon-near-coincident gradient-stop normalization,
    duplicate-endpoint Pad outside-color distinction, cap-only degenerate
-   gradient pen strokes, ImageDrawing rect animations and non-bitmap image
-   sources, dynamic-guideline pairs, exact WPF-compatible arc lowering, and
+   gradient pen strokes, non-bitmap image sources, dynamic-guideline pairs,
+   exact WPF-compatible arc lowering, and
    remaining multi-guideline draw-family deformation, general Visual
    effect/clip/mask/opacity ordering, animated and Box effects, remaining
    opacity-mask/effect/dynamic-guideline push/pop state,
