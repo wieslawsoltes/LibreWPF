@@ -2253,7 +2253,7 @@ shipping package graph.
 
 ## GPU-first fallback and nested MIL scope checkpoint
 
-The current ProGPU pin `47eef9e0` integrates the latest ProGPU `main` device-
+The current ProGPU pin `436c0521` integrates the latest ProGPU `main` device-
 recovery/windowing work with the configurable glyph execution policy. Product
 default `Fastest` selects native WebGPU compute on qualified Metal/Vulkan
 adapters and the exact retained raster-shader substitute on the known
@@ -2262,6 +2262,9 @@ incompatible Parallels D3D12 profile. Forced `compute`, `raster`, `simd`, and
 `PROGPU_COMPUTE_EXECUTION`; the raster path writes directly into the retained
 R8 atlas with zero coverage staging, while CPU modes use managed runtime SIMD
 and native NEON/SSE2 before the independent scalar oracle.
+The native intrinsic loop now evaluates two adjacent pixels/16 horizontal
+samples per crossing broadcast and quantizes 64-sample coverage with exact
+integer arithmetic; forced Metal SIMD and scalar modes remain byte-identical.
 
 The macOS Metal matrix produces exact managed/native hash
 `5B6EF4F70536C862` in all modes. Ubuntu ARM64 GCC 13.3 compiled the full
