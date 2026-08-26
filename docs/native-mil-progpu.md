@@ -1666,15 +1666,27 @@ D3D12 the same gate kept `passes=1/1 -> 0/1` and changed stripe evidence from
 `A39DCD04927D02D7EDFB08E747AB08C7CF8FAEE620A45B52162CC1C58169C0FA`
 (`progpu_native_dawn.dll`).
 
-ProGPU analysis checkpoint `84b917a0`, pinned here, fixes the next
+ProGPU analysis checkpoint `84b917a0` fixes the
 multi-guideline boundary against WPF `CSnappingFrame` and
 `CShapeClipperForFEB`. Zero/one guide remains a uniform transform offset;
 multiple sorted static guides require a nearest-guide offset per transformed
-point, with exact midpoint ties choosing the lower guide. A cache root has only
-four composite vertices, so the first additive capability will be explicitly
-local-cache-composite-only. Normal semantic states must continue rejecting it
-until general path/primitive point deformation exists, and spatial-mask plus
-multi-guide ordering remains fail closed.
+point, with exact midpoint ties choosing the lower guide. Implementation commit
+`1cd1e5dd`, followed by current-`main` merge head `d99acbc8`, adds the first
+explicit local-cache-composite-only capability. It bounds counts to the WPF
+UInt16 packet range, requires finite sorted axes, preserves negative-scale
+ordering, snaps each of the four absolute retained-page vertices, and rejects
+that State from ordinary SAVE, PUSH, and draw commands. The managed builder
+writes directly into its caller-owned arena, with no reflection or large
+temporary stack payload.
+
+Native, managed, and MIL regressions cover malformed resources, midpoint
+selection, mapped and negative-scale coordinates, ordinary-State rejection,
+and cache content-revision stability. The live Apple M3 Pro Metal gate keeps
+the page at `passes=1/1 -> 0/1` while deforming its red extent from
+`[10,8]-[25,15]` to `[11,9]-[25,15]` with 23 changed pixels. The superproject
+pins the exact latest-main-integrated ProGPU head for the pending strict Windows
+D3D12 qualification. General path/primitive point deformation and spatial-mask
+plus multi-guide ordering remain fail closed.
 
 ## Next parity gates
 
@@ -1691,7 +1703,7 @@ multi-guide ordering remains fail closed.
    push/pop state, DirectWrite/system-display text realization, and the
    explicit advanced glyph/text gaps listed above.
 3. Complete the remaining WPF BitmapCache inherited/ordered spatial-mask,
-   multi-guideline, nested-ordering, and effects gates on
+   general multi-guideline geometry, nested-ordering, and effects gates on
    the now-executable local-space cache primitive.
 4. Cache other stable native handles/generations across frames and emit
    incremental resource updates plus damage instead of rebuilding the initial
