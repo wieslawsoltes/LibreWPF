@@ -330,6 +330,81 @@ public sealed class WpfNativeMilSceneCompilerTests
     }
 
     [Fact]
+    public void BuildBatchAllowsExactTypedRectangleAndScrollClipsWithEffect()
+    {
+        var clip = new FakePrimitiveGeometry(
+            PortablePrimitiveGeometry.Rectangle(
+                new PortableRect(2, 3, 20, 12),
+                0,
+                0,
+                new PortableMatrix3x2(2, 0, 0, 3, 4, 5)));
+        var visual = new FakeVisual(
+            null,
+            new PortableVisualState
+            {
+                HasEffect = true,
+                Effect = new FakeEffect(PortableEffect.Blur(5)),
+                HasClip = true,
+                Clip = clip,
+                HasScrollableAreaClip = true,
+                ScrollableAreaClip = new PortableRect(4, 5, 30, 24)
+            });
+
+        WpfNativeMilBatch result = new WpfNativeMilSceneCompiler().BuildBatch(
+            visual, 64, 64);
+        List<int> commands = ReadCommands(result.Bytes);
+
+        Assert.Contains(0x1f, commands);
+        Assert.Contains(0x28, commands);
+        Assert.Contains(0x1d, commands);
+        WpfNativeMilVisualCacheBounds bounds = Assert.Single(
+            result.VisualCacheBounds!);
+        Assert.Equal(new NativeMilRect(1, 2, 30, 20), bounds.Bounds);
+    }
+
+    [Fact]
+    public void BuildBatchRejectsInexactEffectVisualClips()
+    {
+        PortablePrimitiveGeometry[] clips =
+        [
+            PortablePrimitiveGeometry.Rectangle(
+                new PortableRect(2, 3, 20, 12),
+                2,
+                0,
+                PortableMatrix3x2.Identity),
+            PortablePrimitiveGeometry.Rectangle(
+                new PortableRect(2, 3, 20, 12),
+                0,
+                0,
+                new PortableMatrix3x2(1, 0.5, 0, 1, 0, 0)),
+            PortablePrimitiveGeometry.Ellipse(
+                new PortablePoint(12, 9),
+                10,
+                6,
+                PortableMatrix3x2.Identity)
+        ];
+
+        foreach (PortablePrimitiveGeometry clip in clips)
+        {
+            var visual = new FakeVisual(
+                null,
+                new PortableVisualState
+                {
+                    HasEffect = true,
+                    Effect = new FakeEffect(PortableEffect.Blur(5)),
+                    HasClip = true,
+                    Clip = new FakePrimitiveGeometry(clip)
+                });
+
+            NotSupportedException exception =
+                Assert.Throws<NotSupportedException>(() =>
+                    new WpfNativeMilSceneCompiler().BuildBatch(
+                        visual, 64, 64));
+            Assert.Contains("exact axis-aligned", exception.Message);
+        }
+    }
+
+    [Fact]
     public void BuildBatchRejectsUnsupportedEffectButAllowsUniformOpacity()
     {
         var box = new FakeEffect(PortableEffect.Blur(

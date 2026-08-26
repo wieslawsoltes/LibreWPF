@@ -247,7 +247,10 @@ public sealed class WpfNativeMilSceneCompiler
                         nameof(IPortablePrimitiveGeometrySource));
                 }
                 Batch.SetVisualClip(
-                    visualHandle, ResolveGeometry(state.Clip));
+                    visualHandle,
+                    state.HasEffect
+                        ? ResolveExactEffectRectangleClip(state.Clip)
+                        : ResolveGeometry(state.Clip));
             }
             if (state.HasScrollableAreaClip)
             {
@@ -1020,6 +1023,33 @@ public sealed class WpfNativeMilSceneCompiler
                 end.Y,
                 transformHandle);
             return handle;
+        }
+
+        private uint ResolveExactEffectRectangleClip(object resource)
+        {
+            if (resource is not IPortablePrimitiveGeometrySource source ||
+                !source.TryGetPortablePrimitiveGeometry(
+                    out PortablePrimitiveGeometry geometry))
+            {
+                throw MissingContract(
+                    nameof(IPortablePrimitiveGeometrySource));
+            }
+            PortableMatrix3x2 transform = geometry.Transform;
+            bool preservesAxisAlignment =
+                (transform.M12 == 0.0 && transform.M21 == 0.0) ||
+                (transform.M11 == 0.0 && transform.M22 == 0.0);
+            if (geometry.Kind != PortablePrimitiveGeometryKind.Rectangle ||
+                geometry.RadiusX != 0.0 || geometry.RadiusY != 0.0 ||
+                !preservesAxisAlignment)
+            {
+                throw new NotSupportedException(
+                    "Native WPF visual effects require an exact axis-aligned, non-rounded portable rectangle clip.");
+            }
+            if (_geometryHandles.TryGetValue(resource, out uint existing))
+            {
+                return existing;
+            }
+            return AddPrimitiveGeometry(resource, geometry);
         }
 
         private uint ResolveDrawing(
@@ -1922,12 +1952,10 @@ public sealed class WpfNativeMilSceneCompiler
                 throw new NotSupportedException(
                     "The portable visual contains state not implemented by the native MIL slice.");
             }
-            if (state.HasEffect &&
-                (state.HasClip || state.HasScrollableAreaClip ||
-                 state.HasOpacityMask))
+            if (state.HasEffect && state.HasOpacityMask)
             {
                 throw new NotSupportedException(
-                    "Native WPF visual effects currently do not support portable Visual clips or spatial opacity masks.");
+                    "Native WPF visual effects currently do not support portable spatial opacity masks through this producer.");
             }
         }
 

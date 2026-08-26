@@ -1869,6 +1869,24 @@ SHA-256 values are
 `35744D6CAF0F8C7789D7DE0E7EFA0985529A27217C7F65613BD0889487D879B2`
 (`progpu_native_dawn.dll`).
 
+The typed effect-clip producer checkpoint advances ProGPU to `3403e841` and
+enables the existing final-output clip path for source-built WPF. LibreWPF now
+accepts `HasClip + HasEffect` only when the clip publishes an exact
+`IPortablePrimitiveGeometrySource` rectangle with zero radii and an
+axis-preserving local matrix. The typed `ScrollableAreaClip` rectangle is also
+accepted. ProGPU repeats the authoritative check after composing ancestor
+transforms, intersects both rectangles, and attaches the result outside the
+effect so blur/drop-shadow input remains unclipped.
+
+This follows WPF's own description of `ScrollableAreaClip` as a simple
+world-space, pixel-aligned rectangle and its rule that rotation above the
+Visual disables accelerated scrolling. Ellipse/path/rounded/sheared clips and
+rotated ancestor scroll clips fail closed; neither side broadens them to an
+AABB. Native regressions cover one-axis rounding, transformed scroll clips, and
+combined effect clipping. The reflection-free LibreWPF suite covers typed
+acceptance and inexact-shape rejection; all 65 focused compiler tests pass with
+a zero-warning incremental Release build.
+
 ## Next parity gates
 
 1. Generate packed protocol size/offset metadata from the checked-in WPF MCG
