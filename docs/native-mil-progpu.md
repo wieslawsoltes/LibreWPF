@@ -61,6 +61,16 @@ MCG packing bytes are captured, every fixed header must retain DWORD framing,
 and all 108 managed layouts must map to a command. The remaining numeric packet
 reads are tracked as a mechanical migration.
 
+The exact generated-Visual pin `22bf5bf1` also passed a clean Windows ARM64
+qualification in the Parallels VM. MSVC rebuilt the generated header and both
+native modules under `/W4 /WX`; all 11 native/Dawn CTests passed, including the
+MIL packet/layout suite. SHA-256 was
+`FB4304088E87A3F07CA59A84B16FEDA21A4DDADBB9377028553740D51B30F290`
+for `progpu_native.dll` and
+`9F73E41536B3BD96A0A44692EA65888C9DE004B19FBF5DE90489768667FBBDDBC`
+for the wgpu-native runtime DLL. Live WPF-to-ProGPU regeneration remains in the
+macOS/Linux SDK gate; the Windows lane validates the committed generated C++.
+
 The portable `RenderData` snapshot already uses the same framed nested records,
 but its resource tokens are one-based indexes into a typed dependent-resource
 array. LibreWPF's native producer therefore preserves command bytes and remaps
