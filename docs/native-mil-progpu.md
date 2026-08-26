@@ -2034,7 +2034,7 @@ nine-file runtime/SDK staging. Qualified SHA-256 values are
 (`progpu_native_dawn.dll`).
 
 The nested cached-mask checkpoint advances ProGPU to exact test/qualification
-commit `f8bd57b5` (documentation commit `c94b859b`). LibreWPF now has explicit
+commit `f8bd57b5` (DirectX qualification commit `a1d66d70`). LibreWPF now has explicit
 two-cache/two-mask packet coverage: the parent cache owns a horizontal mask,
 while an effect-owning cached child owns a vertical mask. The compiler emits
 both typed BitmapCache packets, both typed mask packets, the effect, and exact
@@ -2048,7 +2048,18 @@ child composite. The Apple M3 Pro Metal sequence reports content passes
 `0/379/161`. Extent/red sum moves from `[12,6]-[33,25]`/23,482 to
 `[12,6]-[33,25]`/11,772 and `[12,6]-[33,24]`/11,266. All eight portable native
 CTests, the zero-warning benchmark build, and 71/71 focused LibreWPF compiler
-tests pass. DirectX qualification is pending.
+tests pass.
+
+The clean detached Windows qualification at exact code commit `f8bd57b5`
+passed ARM64 MSVC `/W4 /WX`, all 11 native/Dawn CTests, both export allowlists,
+two zero-warning managed builds, independent native and managed D3D12 samples,
+the complete bounded smoke lane, and nine-file runtime/SDK staging. D3D12
+reproduced the Metal pass counts, pixel changes, extents, and red sums exactly.
+Packaged SHA-256 values are
+`3E5617D3A46F3B2F26A0F727796277A7A9C026C00188EE88BE1D21C320CF8483`
+(`progpu_native.dll`) and
+`743FE185F4D4C900CA1B7F5B18AD85BEAAD47CEA592315AF22D81E625DF0393D`
+(`progpu_native_dawn.dll`).
 
 ## Next parity gates
 
