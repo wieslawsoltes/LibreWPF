@@ -2253,7 +2253,7 @@ shipping package graph.
 
 ## GPU-first fallback and nested MIL scope checkpoint
 
-The current ProGPU pin `a582a8ef` integrates the latest ProGPU `main` device-
+The current ProGPU pin `644a8d89` integrates the latest ProGPU `main` device-
 recovery/windowing work with the configurable glyph execution policy. Product
 default `Fastest` selects native WebGPU compute on qualified Metal/Vulkan
 adapters and the exact retained raster-shader substitute on the known
@@ -2268,6 +2268,17 @@ integer arithmetic; forced Metal SIMD and scalar modes remain byte-identical.
 The exact pushed implementation also rebuilds cleanly with ARM64 MSVC, passes
 all 11 Windows native/Dawn tests, and retains zero-difference forced-NEON D3D12
 output at hash `5B6EF4F70536C862`.
+
+SIMD implementation `516eb3d7` also skips quadratic/cubic root solving when a
+subpixel scanline lies outside the curve's conservative control-point Y hull.
+The benchmark's new `--rerasterize-glyphs` mode changes content revision every
+frame so results include fresh CPU coverage generation and upload instead of a
+retained cache hit. Four alternating 30-frame Apple M3 Pro Release runs per
+variant reduced median-of-run native submission p50 from 1.8217 ms to
+1.3916 ms (-23.6%) and synchronized frame p50 from 3.6040 ms to 3.0045 ms
+(-16.6%); p95 improved from 2.9429 to 2.3009 ms for submission and 5.1773 to
+4.4856 ms end to end. All 240 measured frames remained exact at
+`5B6EF4F70536C862`, and scalar plus x86_64 SSE2 compile gates pass.
 
 The macOS Metal matrix produces exact managed/native hash
 `5B6EF4F70536C862` in all modes. Ubuntu ARM64 GCC 13.3 compiled the full
