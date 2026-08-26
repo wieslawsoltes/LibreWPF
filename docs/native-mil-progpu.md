@@ -2253,7 +2253,7 @@ shipping package graph.
 
 ## GPU-first fallback and nested MIL scope checkpoint
 
-The current ProGPU pin `fd2bd818` integrates the latest ProGPU `main` device-
+The current ProGPU pin `b36b241b` integrates the latest ProGPU `main` device-
 recovery/windowing work with the configurable glyph execution policy. Product
 default `Fastest` selects native WebGPU compute on qualified Metal/Vulkan
 adapters and the exact retained raster-shader substitute on the known
@@ -2294,10 +2294,14 @@ existing backend-neutral GPU brush-mask resource and are applied once at
 `Pop`. Gradient resource-only updates are observed by the unchanged retained
 render-data stream. The integrated head passes the complete local native suite
 and focused managed packet/policy tests. Retained `DrawingGroup` static or
-animated opacity plus static solid opacity-mask alpha now use the same isolated
+animated opacity plus static solid opacity-mask alpha use the same isolated
 group-composite rule, so overlapping drawing children retain source-over
-coverage before the group alpha is applied; spatial group masks remain typed
-and fail closed until exact group bounds are available.
+coverage before the group alpha is applied. Source-built WPF can now bind exact
+local DrawingGroup content bounds through the typed C/.NET sideband; retained
+linear/radial group masks reuse the same backend-neutral GPU brush-mask
+resource, preserve those bounds across canonical group updates, and fail closed
+when bounds are absent. The focused package consumer exercises that gradient
+path through both native exports and live Metal rendering.
 
 ## Next parity gates
 
