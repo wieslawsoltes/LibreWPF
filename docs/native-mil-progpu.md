@@ -25,7 +25,8 @@ qualification is pinned at ProGPU documentation commit `5bbb7073`. The
 canonical GlyphRun/GlyphRunDrawing qualification is pinned at ProGPU
 documentation commit `834b318b`. The current submodule head is that exact
 latest-`main`-integrated lineage plus the static-guideline implementation,
-package, and validation checkpoints described below.
+package, validation, and pinned Microsoft D3D12 sample-oracle checkpoints
+described below.
 
 ## WPF protocol model
 
@@ -2150,7 +2151,52 @@ warnings. The Apple M3 Pro Metal differential compares a fractional four-line
 path with an independently authored deformed reference: baseline red sum
 37,536; guided/reference red sum 40,800; 48 changed pixels; and
 `referenceChanged=0`. The Windows smoke script now includes the same gate;
-exact D3D12 qualification and staged hashes are pending.
+exact D3D12 qualification completed on 2026-08-26 from clean detached ProGPU
+commit `80560d340d6d12eb5e4f846cbcac61a53a482b24`. Strict ARM64 MSVC
+`/W4 /WX`, all 11 native/Dawn CTests, both export allowlists, two zero-warning
+managed builds, both D3D12 allocation/readback samples, the complete bounded
+smoke profile, and staging passed. D3D12 reproduced Metal exactly: baseline
+`[10,8]-[25,17]`/red 37,536, guided/reference `[10,8]-[25,17]`/red 40,800,
+`changed=48`, and `referenceChanged=0`. Qualified DLL hashes are
+`D1F0CF2A09D021523B3F42D43C7E1549CB5FD1DF5FCACEB0FBA3A07CF12FC34D`
+for `progpu_native.dll` and
+`DB359E0C6155530B87DFC7183E4BE071455964F84B9A3D1ED9DAE20A2AB7148F`
+for `progpu_native_dawn.dll`.
+
+## Microsoft DirectX sample oracle gate
+
+The pinned ProGPU revision adds a cross-platform image gate based on
+Microsoft's Windows-only `D3D12HelloTriangle` sample. ProGPU checks out DirectX
+Graphics Samples commit `213dd4fd4918ea009dd8f35adee1aff1f2ecaba4` into an
+ignored worktree, verifies selected upstream file hashes, applies only a small
+capture patch to that generated checkout, and restores the sample's declared
+`Microsoft.Direct3D.D3D12` 1.618.3 Agility SDK. No upstream sample source is
+vendored into LibreWPF or ProGPU.
+
+That NuGet package is useful as native-oracle infrastructure, not as a managed
+Direct3D binding or a replacement renderer. It supplies Microsoft's native
+headers and app-local D3D12 runtime for the sample process. ProGPU continues to
+render through its shared typed Dawn/wgpu-native layer; its provider-selected
+D3D12 runtime is recorded separately until host exports and runtime selection
+are deliberately aligned and qualified.
+
+Windows captures the native triangle through WARP and also renders the
+equivalent ProGPU semantic scene through D3D12. macOS and Linux render the same
+ProGPU scene through Metal and Vulkan rather than attempting to execute D3D12.
+The aggregate GitHub Actions job compares all three ProGPU candidates against
+the native frame by deterministic interior probes and bounded whole-image
+differential, then publishes the PPM images and JSON evidence.
+
+The 2026-08-26 Parallels ARM64 user-session capture, ProGPU D3D12 frame, and
+Apple M3 Pro Metal frame are byte-identical at 1280x720. All use PPM SHA-256
+`1269AE803032CC2BF6AD717E8491CC19BAF7F9FD5C6B233F8C0012D2DFA53933`;
+maximum and mean channel differences are zero, no pixels change, and all probe
+differences are zero. Linux/Vulkan remains separately reported hosted-CI
+evidence. Parallels service sessions cannot create the WARP presentation
+environment (`0x887A0022`), so the GUI step must run with `prlctl exec
+--current-user`. WARP is the reproducible Microsoft semantic reference, while
+the existing ProGPU hardware D3D12 lane remains the adapter/backend
+qualification; neither is mislabeled as common-runtime proof.
 
 ## Next parity gates
 
