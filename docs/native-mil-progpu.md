@@ -1753,8 +1753,45 @@ matrix, and nine-file staging. Qualified SHA-256 values are
 (`progpu_native.dll`) and
 `7A98FA8A4A69E11886ED6879D430295BAD370F88D463B4E638847D1F8CBE6836`
 (`progpu_native_dawn.dll`). Inherited/combined masks, mask plus guideline
-ordering, clip/effect output regions, and inflated effect-bound tightening
-remain open.
+ordering, arbitrary geometry clip/effect output regions, and inflated
+effect-bound tightening remain open.
+
+ProGPU implementation `234687b7` and qualification documentation `af85479b`,
+pinned here, add final rectangle clipping after effect sampling without a
+managed WPF workaround. The append-only `LAYER_COMPOSITE_STATE` flag reuses the
+unchanged 64-byte layer record's `reserved0` field for a typed identity-
+transform, unit-opacity, clip-only State on a materialized non-local layer.
+The shared WebGPU/DirectX executor applies its scissor while restoring the
+layer, after Gaussian blur or drop shadow has sampled the full isolated input.
+Builders and serialized-scene validation reject local-cache, transformed,
+masked, guideline-bearing, non-materialized, missing, and wrong-kind uses.
+
+The native MIL compiler moves the combined current rectangle clip from the
+ordinary draw State to the outer effect composite. When a local cache provides
+the effect input, its inner composite State omits the clip while retaining its
+uniform opacity and supported spatial mask. A zero-radius no-op blur with a
+clip still emits a clip-only isolation layer, so it cannot silently drop state.
+Uncached opacity/effect and arbitrary geometry clip/effect combinations remain
+typed fail-closed gaps.
+
+Native/managed builder and MIL tests cover uncached and cached ordering,
+canonical validation, inner-cache clip omission, and the zero-radius edge. The
+live Apple M3 Pro Metal and Parallels Display Adapter D3D12 gates match exactly:
+content/effect-input passes are `2 -> 1 -> 1`, Gaussian passes are
+`2 -> 2 -> 2` with later effect-cache hits, and the stable output is byte-
+identical. Narrowing only the final clip changes 428 pixels and crops extent
+`[6,4]-[33,27] -> [14,8]-[25,21]`; pixels inside the rectangle remain
+byte-identical to the already blurred wide output and every outside pixel is
+black, proving post-effect clipping.
+
+The clean detached Windows run at exact ProGPU code commit `234687b7` passed
+ARM64 MSVC `/W4 /WX`, all 11 native/Dawn CTests, both export allowlists, two
+zero-warning managed Release builds, both D3D12 samples, the complete bounded
+smoke matrix, and nine-file staging. Qualified SHA-256 values are
+`86062D03035829A8E6B7DA8CC52EC63FB9E4F3BEA15A91C4C8530B5AFC89D952`
+(`progpu_native.dll`) and
+`CF01D087373FD1580EBE1A5B72BC2314CDCE2AEFA4FE02DBF782C88F3DB11C91`
+(`progpu_native_dawn.dll`).
 
 ## Next parity gates
 
@@ -1772,7 +1809,8 @@ remain open.
    explicit advanced glyph/text gaps listed above.
 3. Complete the remaining WPF BitmapCache inherited/combined spatial-mask,
    general multi-guideline geometry, inflated effect-bounds, and broader
-   clip/mask/effect gates on the now-executable local-space cache primitive.
+   arbitrary-geometry clip/mask/effect gates on the now-executable local-space
+   cache primitive.
 4. Cache other stable native handles/generations across frames and emit
    incremental resource updates plus damage instead of rebuilding the initial
    scene batch.
