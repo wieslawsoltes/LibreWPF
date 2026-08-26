@@ -2093,6 +2093,22 @@ base DLL was 2,001,920 bytes with SHA-256
 the Dawn DLL was 2,039,808 bytes with SHA-256
 `1B181A7CF2692164C809D8799539A1FDB8839688C6C01B66AF11F326E39908D1`.
 
+The follow-up cache-mask/guideline/effect checkpoint advances ProGPU to exact
+gate commit `7889fa17` (documentation commit `3fbd1413`) and LibreWPF packet
+coverage to `9183fefff`. The typed compiler regression now emits one linear
+gradient mask, one static guideline collection, one BitmapCache, and one
+Gaussian BlurEffect for the same bounded Visual. ProGPU's native MIL regression
+retains that guideline packet instead of clearing it before effect compilation
+and proves the generated stack is outer effect -> local cache with brush mask
+plus guideline composite State. The Apple M3 Pro Metal gate executes
+`2/2/2 -> 1/2/2 -> 1/2/2` content/composite/effect passes, changes 69 pixels,
+moves the blurred masked extent from `[19,6]-[27,17]`/red 1,876 to
+`[19,7]-[27,17]`/red 1,617, and is byte-identical to the independently
+constructed affine reference (`referenceChanged=0`). No reflection, managed
+rendering fallback, ABI expansion, shader fork, or DirectX-only scene branch is
+introduced. DirectX qualification is pending for exact gate commit
+`7889fa17`.
+
 ## Next parity gates
 
 1. Generate packed protocol size/offset metadata from the checked-in WPF MCG
