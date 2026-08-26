@@ -1974,7 +1974,7 @@ extent/red sum `[4,4]-[41,31]`/67,186, and flattened
 (`progpu_native_dawn.dll`).
 
 The inherited-opacity-mask checkpoint advances ProGPU to implementation commit
-`9fb7c4aa` (documentation commit `3eedfb92`). LibreWPF now treats every typed
+`9fb7c4aa` (qualification commit `faad4874`). LibreWPF now treats every typed
 Visual opacity mask as a bounded isolation owner: it publishes exact
 `IPortableVisualBoundsSource` descendant bounds through the existing sideband
 and accepts solid, linear-gradient, or radial-gradient masks without requiring
@@ -1995,7 +1995,17 @@ pass. The correct common ancestor mask executes `2/2/2`
 content/composite/effect passes with red samples `60/200`, extent
 `[6,4]-[41,31]`, and red sum 66,698. A deliberately flattened per-child mask
 executes `3/3/2`, changes 420 pixels, and produces `[6,5]-[41,30]`, red sum
-74,122. Windows DirectX qualification is pending.
+74,122.
+
+A clean detached `9fb7c4aa` Parallels run produces identical D3D12 evidence
+and passes strict Windows ARM64 MSVC `/W4 /WX`, 11/11 native/Dawn CTests, both
+export allowlists, two zero-warning managed Release builds, independent C++
+and managed D3D12 samples, the complete bounded differential smoke matrix, and
+nine-file runtime/SDK staging. Qualified SHA-256 values are
+`A4A917F47FBA3BA246BCE9D61C1160384C660F8D07D0BA06A02292BDFDAC0018`
+(`progpu_native.dll`) and
+`743FE185F4D4C900CA1B7F5B18AD85BEAAD47CEA592315AF22D81E625DF0393D`
+(`progpu_native_dawn.dll`).
 
 ## Next parity gates
 
