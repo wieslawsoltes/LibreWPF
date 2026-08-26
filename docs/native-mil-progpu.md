@@ -83,6 +83,19 @@ for `progpu_native.dll` and
 `9F73E41536B3BD96A0A44692EA65888C9DE004B19FBF5DE90489768667FBBDDBC`
 for the wgpu-native runtime DLL.
 
+ProGPU `f2107a55` moves LineGeometry, RectangleGeometry, EllipseGeometry,
+GeometryGroup, CombinedGeometry, and PathGeometry onto generated WPF MCG
+layouts. The generated fixed-header size now defines variable group-child and
+path-figure payload starts, while the nested path records remain separately
+bounds checked. Existing geometry resource, transform, animation, cycle,
+fill-rule, finite-value, and record-count validation is unchanged. The live
+generator check and all 11 Apple Silicon tests pass; clean Windows ARM64 MSVC
+`/W4 /WX` rebuilt both modules and passed the same suite. Qualified SHA-256 is
+`853802988172C66820819B389E48305613A0488FEB3972C0F2C3BD61EB9CEDAC`
+for `progpu_native.dll` and
+`9F73E41536B3BD96A0A44692EA65888C9DE004B19FBF5DE90489768667FBBDDBC`
+for the wgpu-native runtime DLL.
+
 The portable `RenderData` snapshot already uses the same framed nested records,
 but its resource tokens are one-based indexes into a typed dependent-resource
 array. LibreWPF's native producer therefore preserves command bytes and remaps
