@@ -2641,6 +2641,19 @@ p50 by 19.4% at 1x and 10.9% at 2x. All 960 frames remained exact at
 strict x86_64 SSE2 compile pass. This improves only the configured intrinsic
 fallback and does not alter the GPU-first default.
 
+PushEffect checkpoint `2387fa4a` follows the current WPF native executor's
+disabled legacy BitmapEffect behavior exactly. ProGPU validates the canonical
+12-byte managed record, treats its two producer dependency indices as opaque,
+and gives the balanced scope PushOpacity(1)/Pop stack semantics without adding
+false native dependencies. Animated fixed-geometry checkpoint `45afbc3b` then
+resolves every LineGeometry, RectangleGeometry, and EllipseGeometry animation
+slot from typed PointResource, RectResource, and DoubleResource state. Direct,
+retained, recursive, fill, clip, and cached consumers share the live resolver;
+value-only updates change exact output and cache revisions, while wrong types,
+invalid live dimensions, or deletion of a referenced value fail closed. All
+eight local native suites and the generated 143-command/141-layout drift gate
+pass at this checkpoint.
+
 The preceding exact `e510039d` Windows checkpoint completed the entire
 Parallels D3D12 lane: strict ARM64 MSVC `/W4 /WX`, 11/11 native/Dawn CTests,
 forced raster/NEON/scalar parity, expected pre-resource compute rejection,
@@ -2650,8 +2663,8 @@ masks, clips, text, blends, and package staging. Its DLL SHA-256 values are
 and `7D7F35CFA5323D0BA6E61EA402788CBAE72EBA40D69FE5B3D05069C966AB56DB`;
 wgpu-native is
 `9F73E41536B3BD96A0A44692EA65888C9DE004B19FBF5DE90489768667FBBDBC`.
-The newer effect and SIMD checkpoints are locally qualified and remain queued
-for the next exact Windows rebuild.
+The newer effect, SIMD, PushEffect, and animated fixed-geometry checkpoints are
+locally qualified and remain queued for the next exact Windows rebuild.
 
 ## Next parity gates
 
