@@ -71,6 +71,18 @@ for `progpu_native.dll` and
 for the wgpu-native runtime DLL. Live WPF-to-ProGPU regeneration remains in the
 macOS/Linux SDK gate; the Windows lane validates the committed generated C++.
 
+ProGPU implementation `4e7d8f55` extends generated decoding through
+MatrixResource and the complete retained 2D transform family: variable
+TransformGroup children, translate, scale, skew, rotate, matrix, and all
+animation-resource handles. It preserves the existing typed resource, finite
+value, and graph-cycle validation. Apple Silicon passed the live generator
+drift check and all 11 native/Dawn CTests; clean Windows ARM64 MSVC `/W4 /WX`
+rebuilt both modules and passed the same 11 tests. Qualified SHA-256 is
+`B514024B7F83A06C5F6FD2CDED7C9677255AD283076B3E61AA096DC633288E48`
+for `progpu_native.dll` and
+`9F73E41536B3BD96A0A44692EA65888C9DE004B19FBF5DE90489768667FBBDDBC`
+for the wgpu-native runtime DLL.
+
 The portable `RenderData` snapshot already uses the same framed nested records,
 but its resource tokens are one-based indexes into a typed dependent-resource
 array. LibreWPF's native producer therefore preserves command bytes and remaps
