@@ -2267,7 +2267,7 @@ and explicit clear/black/white interior probes pass.
 
 ## GPU-first fallback and nested MIL scope checkpoint
 
-The current ProGPU pin `8acde1ff` integrates the latest ProGPU `main` device-
+The current ProGPU pin `fbdbfc19` integrates the latest ProGPU `main` device-
 recovery/windowing work with the configurable glyph execution policy. Product
 default `Fastest` selects native WebGPU compute on qualified Metal/Vulkan
 adapters and the exact retained raster-shader substitute on the known
@@ -2324,6 +2324,26 @@ the Parallels adapter. SHA-256 is
 `progpu_native.dll` and
 `552E8CC9441B9A33E89B346758113B52DC13F7A3B1D11F80BF86A3AE90039637` for
 `progpu_native_dawn.dll`.
+
+SIMD checkpoint `bf20bd66` collects all eight Y-subscanline crossing spans for
+one raster row before visiting X. A pixel pair now constructs its four
+NEON/SSE2 sample vectors once, resets only integer winding accumulators between
+subscanlines, accumulates the same 64 samples, and writes coverage directly.
+Crossing order, strict comparisons, floating-point sample expressions,
+quantization, and the scalar oracle remain unchanged. Four alternating
+30-frame Apple M3 Pro A/B runs per variant reduced median submission/frame p50
+from 1.0469/2.6249 ms to 1.0199/2.5889 ms at 1x DPI (-2.6%/-1.4%) and from
+1.9498/3.5588 ms to 1.7884/3.3814 ms at 2x DPI (-8.3%/-5.0%). All 480 measured
+baseline/candidate frames remained exact at `5B6EF4F70536C862` (1x) or
+`706B261418EC5C3B` (2x). Both macOS libraries, all 11 native/Dawn tests, every
+execution-policy route, and strict x86_64 SSE2 compilation pass.
+
+The same implementation rebuilt both Windows ARM64 libraries under MSVC
+`/W4 /WX`, passed all 11 CTests, and reproduced the full 42-glyph forced-NEON
+D3D12 hash `5B6EF4F70536C862` with 247,808 staged coverage bytes. DLL SHA-256 is
+`EE150A6E7EACF4B7E789C8EE9B0A0A91778D121AE107FCF7700BEC4C7FD588C5` and
+`3FF479B331F6548938115C272FE53B03F4AC89872B565941AA0DD34DF75A9B35`.
+The VM result is correctness evidence, not a Windows timing claim.
 
 The macOS Metal matrix produces exact managed/native hash
 `5B6EF4F70536C862` in all modes. Ubuntu ARM64 GCC 13.3 compiled the full
