@@ -226,13 +226,17 @@ public sealed class WpfNativeMilSceneCompiler
                 Batch.SetVisualCacheMode(
                     visualHandle, ResolveBitmapCache(state.CacheMode));
             }
-            if (state.HasCacheMode || state.HasEffect)
+            bool requiresVisualIsolationBounds =
+                state.HasCacheMode ||
+                state.HasEffect ||
+                (state.HasOpacity && state.Opacity != 1.0);
+            if (requiresVisualIsolationBounds)
             {
                 if (!TryGetVisualBounds(
                         visual, out NativeMilRect visualBounds))
                 {
                     throw new NotSupportedException(
-                        "Native MIL BitmapCache/effect isolation requires exact typed Visual descendant bounds.");
+                        "Native MIL BitmapCache/effect/opacity isolation requires exact typed Visual descendant bounds.");
                 }
                 VisualCacheBounds.Add(
                     new WpfNativeMilVisualCacheBounds(

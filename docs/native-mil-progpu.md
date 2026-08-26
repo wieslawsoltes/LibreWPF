@@ -1936,6 +1936,30 @@ at `[10,10]-[41,25]` with red sum 56,038. Qualified SHA-256 values are
 `6921A4037372B7A327370DA2035750FD48E791164BD2B5E0407E05F3A01C4A14`
 (`progpu_native_dawn.dll`).
 
+The inherited-opacity ownership checkpoint advances ProGPU to `a3affb9d`.
+WPF pushes each Visual's non-unit opacity as that node's group boundary before
+walking its children; a child Visual then owns its effect outside its own local
+opacity/mask layer. LibreWPF now publishes exact typed descendant bounds for
+every non-unit-opacity Visual, in addition to cache/effect owners, so native MIL
+can retain the ancestor boundary instead of multiplying its alpha into child
+draw state.
+
+ProGPU emits a bounded outer `FORCE_ISOLATION` opacity layer for an uncached
+ancestor, resets the isolated local alpha after cache planning, and compiles
+the descendant effect and any child-local opacity/mask inside it. Missing typed
+bounds fail closed on the LibreWPF producer. The provider retains its explicit
+compatibility behavior for simple direct-native callers, but still rejects an
+unresolved inherited-opacity/effect boundary. No reflection, managed rendering
+fallback, new callback, ABI change, or DirectX-only path is involved.
+
+All eight portable native CTests, the base export allowlist, a zero-warning
+managed benchmark build, 68/68 focused LibreWPF compiler tests, and the Apple
+M3 Pro Metal ownership gate pass. Metal executes `2/2/2`
+content/composite/effect passes; correct ancestor ownership keeps
+exclusive/overlap samples at `128/128`, extent `[4,4]-[41,31]`, red sum 67,186.
+The deliberately flattened comparison reaches `128/189`, changes 392 pixels,
+and produces `[5,5]-[41,30]`, red sum 74,382.
+
 ## Next parity gates
 
 1. Generate packed protocol size/offset metadata from the checked-in WPF MCG

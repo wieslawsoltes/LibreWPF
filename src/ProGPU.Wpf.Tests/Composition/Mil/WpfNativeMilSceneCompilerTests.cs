@@ -330,6 +330,64 @@ public sealed class WpfNativeMilSceneCompilerTests
     }
 
     [Fact]
+    public void BuildBatchPublishesBoundsForInheritedOpacityAroundChildEffect()
+    {
+        var child = new FakeVisual(
+            null,
+            new PortableVisualState
+            {
+                HasEffect = true,
+                Effect = new FakeEffect(PortableEffect.Blur(5))
+            });
+        var parent = new FakeVisual(
+            null,
+            new PortableVisualState
+            {
+                HasOpacity = true,
+                Opacity = 0.5
+            },
+            child);
+
+        WpfNativeMilBatch result = new WpfNativeMilSceneCompiler().BuildBatch(
+            parent, 64, 64);
+
+        Assert.Collection(
+            result.VisualCacheBounds!,
+            bounds =>
+            {
+                Assert.Equal(1U, bounds.Handle);
+                Assert.Equal(
+                    new NativeMilRect(1, 2, 30, 20), bounds.Bounds);
+            },
+            bounds =>
+            {
+                Assert.Equal(2U, bounds.Handle);
+                Assert.Equal(
+                    new NativeMilRect(1, 2, 30, 20), bounds.Bounds);
+            });
+    }
+
+    [Fact]
+    public void BuildBatchRejectsOpacityIsolationWithoutTypedVisualBounds()
+    {
+        var visual = new FakeVisualWithoutBounds(
+            new PortableVisualState
+            {
+                HasOpacity = true,
+                Opacity = 0.5
+            });
+
+        NotSupportedException exception =
+            Assert.Throws<NotSupportedException>(() =>
+                new WpfNativeMilSceneCompiler().BuildBatch(
+                    visual, 64, 64));
+
+        Assert.Contains(
+            "exact typed Visual descendant bounds",
+            exception.Message);
+    }
+
+    [Fact]
     public void BuildBatchAllowsExactTypedRectangleAndScrollClipsWithEffect()
     {
         var clip = new FakePrimitiveGeometry(
@@ -2212,12 +2270,15 @@ public sealed class WpfNativeMilSceneCompilerTests
     {
         private readonly object? _content;
         private readonly PortableVisualState _state;
+        private readonly object[] _children;
 
         internal FakeVisual(
             object? content,
-            PortableVisualState? state = null)
+            PortableVisualState? state = null,
+            params object[] children)
         {
             _content = content;
+            _children = children;
             _state = state ?? new PortableVisualState
             {
                 HasOffset = true,
@@ -2235,14 +2296,19 @@ public sealed class WpfNativeMilSceneCompilerTests
 
         public bool TryGetPortableVisualChildCount(out int count)
         {
-            count = 0;
+            count = _children.Length;
             return true;
         }
 
         public bool TryGetPortableVisualChild(int index, out object? child)
         {
-            child = null;
-            return false;
+            if ((uint)index >= (uint)_children.Length)
+            {
+                child = null;
+                return false;
+            }
+            child = _children[index];
+            return true;
         }
 
         public bool TryGetPortableDrawingContent(out object? content)
