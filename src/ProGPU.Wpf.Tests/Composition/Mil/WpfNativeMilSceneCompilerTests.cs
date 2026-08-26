@@ -233,7 +233,7 @@ public sealed class WpfNativeMilSceneCompilerTests
     }
 
     [Fact]
-    public void BuildBatchPublishesCachedGradientMaskAndGuidelinePackets()
+    public void BuildBatchPublishesCachedGradientMaskGuidelineAndEffectPackets()
     {
         var opacityMask = new FakeBrush(PortableBrush.LinearGradient(
             new PortablePoint(0, 0),
@@ -244,6 +244,10 @@ public sealed class WpfNativeMilSceneCompilerTests
                 new PortableGradientStop(
                     new PortableColor(255, 255, 255, 255), 1)
             ]));
+        var effect = new FakeEffect(PortableEffect.Blur(
+            6,
+            PortableBlurKernel.Gaussian,
+            PortableEffectRenderingBias.Quality));
         var visual = new FakeVisual(
             null,
             new PortableVisualState
@@ -253,6 +257,8 @@ public sealed class WpfNativeMilSceneCompilerTests
                     new PortableBitmapCache(1, false, false)),
                 HasOpacityMask = true,
                 OpacityMask = opacityMask,
+                HasEffect = true,
+                Effect = effect,
                 HasSnappingGuidelinesX = true,
                 SnappingGuidelinesX = [2.25],
                 HasSnappingGuidelinesY = true,
@@ -267,6 +273,8 @@ public sealed class WpfNativeMilSceneCompilerTests
         Assert.Single(commands, command => command == 0x23);
         Assert.Single(commands, command => command == 0x27);
         Assert.Single(commands, command => command == 0x1e);
+        Assert.Single(commands, command => command == 0x6e);
+        Assert.Single(commands, command => command == 0x1d);
         int guidelineOffset = FindCommand(result.Bytes, 0x27);
         Assert.Equal(1U, ReadUInt16(result.Bytes, guidelineOffset + 12));
         Assert.Equal(1U, ReadUInt16(result.Bytes, guidelineOffset + 16));
