@@ -1887,6 +1887,21 @@ combined effect clipping. The reflection-free LibreWPF suite covers typed
 acceptance and inexact-shape rejection; all 65 focused compiler tests pass with
 a zero-warning incremental Release build.
 
+ProGPU qualification documentation is commit `21fe1aa0`. Exact implementation
+commit `3403e841` passes all 10 local native CTests, the base export, the Metal
+sample, and the Apple M3 Pro final-clip gate. A clean detached Parallels run
+passes strict Windows ARM64 MSVC `/W4 /WX`, 11/11 native/Dawn CTests, both
+exports, two zero-warning managed Release builds, independent C++ and managed
+D3D12 samples, the full bounded smoke matrix, and package staging. Metal and
+D3D12 report identical effect-clip evidence: content passes `2 -> 1 -> 1`,
+effect passes `2 -> 2 -> 2`, 428 changed pixels, extent
+`[6,4]-[33,27] -> [14,8]-[25,21]`, and red sum `48,960 -> 32,960`. Qualified
+SHA-256 values are
+`991F9301B71660FEF89DDA9A4D1E6400D01C92EFAD10B521D3C58BB12482D0F9`
+(`progpu_native.dll`) and
+`616B0650CF74D5D84FB45D908DB6285A82760B59E6A8D56313D827B6885038C7`
+(`progpu_native_dawn.dll`).
+
 ## Next parity gates
 
 1. Generate packed protocol size/offset metadata from the checked-in WPF MCG
