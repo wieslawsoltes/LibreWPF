@@ -2172,8 +2172,9 @@ allowlist, and completed the Vulkan llvmpipe retained sample with GPU hit-test
 and readback. ProGPU documentation commit `e76a9e3c` records that compiler
 checkpoint.
 
-The current pinned ProGPU revision `885fa670` extends the same native algorithm
-to multiple path records when their segment ranges are ordered and disjoint.
+The current pinned ProGPU documentation revision `c796aa0e` records native
+implementation/package commit `885fa670`, which extends the same algorithm to
+multiple path records when their segment ranges are ordered and disjoint.
 Shared, overlapping, or out-of-order ranges return `UNSUPPORTED` before GPU
 submission, preventing one immutable segment slot from being snapped twice.
 The common macOS/Linux and Windows scripts now render one line-only figure and
@@ -2187,6 +2188,21 @@ lowering remains a separate exact checkpoint. ProGPU also corrects the focused
 DrawingGroup package fixture to its actual 26-command packet and makes package
 failures report all actual/expected MIL metrics; all nine focused package
 scenes pass locally through both native MIL exports and live Metal rendering.
+
+The exact clean detached Windows 11 ARM64 qualification at `885fa670` passed
+on 2026-08-26. MSVC rebuilt both native modules under `/W4 /WX`; all 11
+native/Dawn CTests, both export allowlists, two zero-warning managed Release
+builds, independent native and managed D3D12 allocation/readback samples, the
+complete bounded differential smoke profile, and package staging passed. The
+Parallels Display Adapter D3D12 result reproduced Metal exactly: baseline
+`[10,8]-[35,25]`, red 37,536, green 11,542; guided/reference
+`[10,8]-[35,26]`, red 40,800, green 13,045; `changed=76` and
+`referenceChanged=0`. The guest remained clean. Qualified win-arm64 SHA-256
+values are
+`73D76B0211CDDDB46383359B4F9833DF551BC2E4123C9E09CFA646CD0AD63F1C`
+for `progpu_native.dll` and
+`450EBC621B482275377C15EB26FFD0CBF90679D8BE4B87152C3F23A055A326B9`
+for `progpu_native_dawn.dll`.
 
 ## Microsoft DirectX sample oracle gate
 
@@ -2228,6 +2244,12 @@ step must run with `prlctl exec
 --current-user`. WARP is the reproducible Microsoft semantic reference, while
 the existing ProGPU hardware D3D12 lane remains the adapter/backend
 qualification; neither is mislabeled as common-runtime proof.
+
+Replacement hosted build run `32959809523` repeated the byte-exact oracle at
+`885fa670` and completed all 27 jobs. The corrected 26-command DrawingGroup
+fixture passed the source-independent native NuGet job and every runnable
+desktop JIT/NativeAOT package consumer, coupling the oracle result to a green
+shipping package graph.
 
 ## Next parity gates
 
