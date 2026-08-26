@@ -1831,6 +1831,44 @@ values are
 `CE4A5E6E81F11DB499E8B160A550A14701F4D050EC80AC484C5CEEA57BA92F0A`
 (`progpu_native_dawn.dll`).
 
+The following checkpoint adds the uncached uniform-opacity-before-effect
+subset primarily in ProGPU. For an effect Visual without inherited opacity,
+the native MIL compiler emits the bounded outer effect followed by a bounded
+inner `FORCE_ISOLATION` layer carrying the Visual's uniform alpha. It resets
+draw/child opacity to one, so overlapping primitives are composed first and
+attenuated once before Gaussian blur or drop shadow samples the result. A zero-
+radius blur retains the opacity group, and the already separate rectangle clip
+remains outside the effect. No protocol expansion or managed renderer fallback
+is involved.
+
+LibreWPF removes only its stale rejection of typed `HasOpacity + HasEffect`;
+the existing portable Visual state and exact descendant-bounds sideband carry
+all data. Inherited non-unit opacity and spatial masks still fail closed because
+their owner boundaries cannot be moved across descendant effects. Native tests
+cover nesting, bounds, clip placement, zero-radius retention, and inherited-
+opacity rejection; all 63 focused LibreWPF compiler tests pass.
+
+The Apple M3 Pro Metal `--semantic-uncached-opacity-effect` gate compares two
+overlapping opaque rectangles under group opacity with a half-opacity union
+reference and an incorrect per-primitive-alpha variant. Group/reference pixels
+are byte-identical; the incorrect variant changes 420 pixels and raises the
+overlap sample `128 -> 188`. The group executes `2/2/2` content/composite/effect
+passes at extent `[5,5]-[46,30]`, red sum 65,536. The same gate is wired into
+the Windows D3D12 qualification.
+
+The implementation is ProGPU commit `a47d80b5`; qualification documentation is
+commit `570cdf18`. From clean detached implementation commit `a47d80b5`, the
+Parallels Display Adapter D3D12 gate produced the same `2/2/2`, sample,
+changed-pixel, extent, and red-sum results as Metal. The complete Windows ARM64
+MSVC `/W4 /WX` lane also passed 11/11 native/Dawn CTests, both export
+allowlists, two zero-warning managed Release builds, independent C++ and
+managed D3D12 samples, the bounded smoke matrix, and package staging. Qualified
+SHA-256 values are
+`07E97B185A066124719A2593CBE2AD7762B9FF00FEB406255B428FC7CF2BA85D`
+(`progpu_native.dll`) and
+`35744D6CAF0F8C7789D7DE0E7EFA0985529A27217C7F65613BD0889487D879B2`
+(`progpu_native_dawn.dll`).
+
 ## Next parity gates
 
 1. Generate packed protocol size/offset metadata from the checked-in WPF MCG

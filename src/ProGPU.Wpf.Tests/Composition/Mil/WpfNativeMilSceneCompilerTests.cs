@@ -330,7 +330,7 @@ public sealed class WpfNativeMilSceneCompilerTests
     }
 
     [Fact]
-    public void BuildBatchFailsClosedForUnsupportedVisualEffectState()
+    public void BuildBatchRejectsUnsupportedEffectButAllowsUniformOpacity()
     {
         var box = new FakeEffect(PortableEffect.Blur(
             5,
@@ -350,9 +350,15 @@ public sealed class WpfNativeMilSceneCompilerTests
                 HasOpacity = true,
                 Opacity = 0.5
             });
-        Assert.Throws<NotSupportedException>(() =>
+        WpfNativeMilBatch result =
             new WpfNativeMilSceneCompiler().BuildBatch(
-                combinedVisual, 64, 64));
+                combinedVisual, 64, 64);
+
+        Assert.Contains(0x1d, ReadCommands(result.Bytes));
+        Assert.Contains(0x20, ReadCommands(result.Bytes));
+        WpfNativeMilVisualCacheBounds bounds = Assert.Single(
+            result.VisualCacheBounds!);
+        Assert.Equal(new NativeMilRect(1, 2, 30, 20), bounds.Bounds);
     }
 
     [Fact]

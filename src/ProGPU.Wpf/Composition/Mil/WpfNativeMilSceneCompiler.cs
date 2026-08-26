@@ -1924,11 +1924,10 @@ public sealed class WpfNativeMilSceneCompiler
             }
             if (state.HasEffect &&
                 (state.HasClip || state.HasScrollableAreaClip ||
-                 state.HasOpacityMask ||
-                 (state.HasOpacity && state.Opacity != 1.0)))
+                 state.HasOpacityMask))
             {
                 throw new NotSupportedException(
-                    "Native WPF visual effects currently require an unclipped, fully opaque visual while separate source and composite effect clips are being added.");
+                    "Native WPF visual effects currently do not support portable Visual clips or spatial opacity masks.");
             }
         }
 
