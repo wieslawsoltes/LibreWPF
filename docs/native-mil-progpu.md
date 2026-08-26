@@ -2699,6 +2699,15 @@ independent two-pass RGBA8 oracle at radius 2/1x on Apple M3 Pro Metal
 tolerance and mean absolute error 0.000455 byte/channel. The Windows smoke
 script now gates this profile on D3D12 as well.
 
+Accepted SIMD follow-up `c5549ceb` stops computing a discarded second pixel
+on odd-width glyph rows. The qualified paired loop remains a 16-sample
+NEON/SSE2 kernel, while its final tail uses a dedicated 8-sample intrinsic
+kernel with identical winding and integer quantization. Four alternating
+120-frame runs per variant stayed byte-exact at `5B6EF4F70536C862` (1x) and
+`706B261418EC5C3B` (2x). Median submission/frame p50 improved 3.9%/5.8% at 1x
+and 5.9%/3.2% at 2x; all p95 comparisons also improved. Ten native tests, 84
+focused managed interop tests, and strict x86_64 SSE2 compilation pass.
+
 The preceding exact `e510039d` Windows checkpoint completed the entire
 Parallels D3D12 lane: strict ARM64 MSVC `/W4 /WX`, 11/11 native/Dawn CTests,
 forced raster/NEON/scalar parity, expected pre-resource compute rejection,
