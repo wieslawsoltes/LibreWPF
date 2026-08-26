@@ -2253,7 +2253,7 @@ shipping package graph.
 
 ## GPU-first fallback and nested MIL scope checkpoint
 
-The current ProGPU pin `b36b241b` integrates the latest ProGPU `main` device-
+The current ProGPU pin `a582a8ef` integrates the latest ProGPU `main` device-
 recovery/windowing work with the configurable glyph execution policy. Product
 default `Fastest` selects native WebGPU compute on qualified Metal/Vulkan
 adapters and the exact retained raster-shader substitute on the known
@@ -2302,6 +2302,17 @@ linear/radial group masks reuse the same backend-neutral GPU brush-mask
 resource, preserve those bounds across canonical group updates, and fail closed
 when bounds are absent. The focused package consumer exercises that gradient
 path through both native exports and live Metal rendering.
+
+The exact `b36b241b` Windows checkpoint rebuilt both libraries with ARM64 MSVC,
+passed all 11 native/Dawn CTests, matched both export allowlists, and built the
+managed consumer with zero warnings. Its focused linear-gradient DrawingGroup
+compiled through the wgpu-native and Dawn MIL channels, then rendered on the
+Parallels D3D12 adapter with five semantic resources, two draws, zero coverage
+staging, and a valid 16,384-pixel readback. SHA-256 was
+`F3FB0D077BE494A6D067C1526C96C56A10A0981E8B9283D8574ABF52FEEBFD85`
+for `progpu_native.dll` and
+`F002C1FB564334FF21E6F1B18E2FADFD067A955103531A7E1E55B4CC361D6DC8`
+for `progpu_native_dawn.dll`.
 
 ## Next parity gates
 
