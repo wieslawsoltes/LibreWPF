@@ -2251,6 +2251,39 @@ fixture passed the source-independent native NuGet job and every runnable
 desktop JIT/NativeAOT package consumer, coupling the oracle result to a green
 shipping package graph.
 
+## GPU-first fallback and nested MIL scope checkpoint
+
+The current ProGPU pin `9172355f` integrates the latest ProGPU `main` device-
+recovery/windowing work with the configurable glyph execution policy. Product
+default `Fastest` selects native WebGPU compute on qualified Metal/Vulkan
+adapters and the exact retained raster-shader substitute on the known
+incompatible Parallels D3D12 profile. Forced `compute`, `raster`, `simd`, and
+`scalar` modes are available through the typed policy and
+`PROGPU_COMPUTE_EXECUTION`; the raster path writes directly into the retained
+R8 atlas with zero coverage staging, while CPU modes use managed runtime SIMD
+and native NEON/SSE2 before the independent scalar oracle.
+
+The macOS Metal matrix produces exact managed/native hash
+`5B6EF4F70536C862` in all modes. Ubuntu ARM64 GCC 13.3 compiled the full
+260-object graph, passed 10/10 wgpu-native CTests and live Vulkan/llvmpipe
+render/readback, and produced exact hash `1F9AE0BB0AC59113` in forced compute,
+raster, SIMD, and scalar modes. The clean Windows ARM64 MSVC gate selects
+raster automatically, reproduces the Metal hash, proves NEON SIMD parity,
+bounds the scalar oracle to one glyph, and requires forced compute to throw its
+typed pre-resource incompatibility without a WebGPU device error. The build
+scripts now execute that matrix automatically and bind benchmark copies to the
+actual custom native build directory, preventing stale-library qualification.
+
+The same pin advances canonical nested MIL decoding. Static
+`PushGuidelineSet` resolves its retained resource in the transform active at
+the push, scopes it through the mixed save/layer stack, and keeps dynamic Y1/Y2
+pairs fail closed until Stage 2 supplies WPF's animation clock and scheduling
+state. Constant and animated `PushOpacity` scopes now use a full-target native
+isolated layer, applying alpha once at `Pop` so overlapping children are not
+attenuated independently. Animated scopes resolve their typed DoubleResource
+on each compile without retransmitting render data. The integrated head passes
+all 11 local native/Dawn CTests and focused managed packet/policy tests.
+
 ## Next parity gates
 
 1. Generate packed protocol size/offset metadata from the checked-in WPF MCG
@@ -2264,7 +2297,8 @@ shipping package graph.
    sources, dynamic-guideline pairs, exact WPF-compatible arc lowering, and
    remaining multi-guideline draw-family deformation, general Visual
    effect/clip/mask/opacity ordering, animated and Box effects, remaining
-   push/pop state, DirectWrite/system-display text realization, and the
+   opacity-mask/effect/dynamic-guideline push/pop state,
+   DirectWrite/system-display text realization, and the
    explicit advanced glyph/text gaps listed above.
 3. Complete general multi-guideline geometry, transformed/nonorthogonal advanced effect
    bounds, and broader
