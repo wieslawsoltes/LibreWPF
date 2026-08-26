@@ -2336,6 +2336,29 @@ and keeps the bridge reflection-free. The Release compiler/contract gate passes
 translated, clipped group reports local `(12,21,10,8)` and post-transform
 `(42,61,10,8)` bounds.
 
+Windows ARM64 qualification used exact LibreWPF `6a15f6dfc` and ProGPU
+`20fc4299`. The Release producer graph built with zero errors (the 96 warnings
+are the existing LibreWPF WinForms compatibility baseline), then passed all
+74 focused native-MIL compiler and typed-contract tests. The ProGPU package
+consumer rebuilt from project references with zero warnings and errors. Its
+focused gradient DrawingGroup compiled through both wgpu-native and Dawn MIL
+exports and rendered on the Parallels D3D12 adapter with five resources, two
+draws, zero coverage staging, and a 16,384-pixel readback. Because `20fc4299`
+changes only the managed portable DTO and documentation, the qualified native
+implementation remains exact native commit `644a8d89`; DLL SHA-256 is
+`A9BB8F281F27B332AAACAA0EC35B9E3B26E73D21E839470654D95CB89DDA6A39`
+for `progpu_native.dll` and
+`97CDBDD4F02442F2D9ACF966C1FF1660C64D7014E9A98FC767B3D9819CB561BF`
+for `progpu_native_dawn.dll`.
+
+The new source-built PresentationCore unit test is checked in, but its isolated
+VM execution remains an infrastructure gate: the upstream WPF bootstrap fails
+before product compilation while acquiring its pinned Strawberry Perl,
+.NET Framework 4.8 reference, and D3D redist tools, then cannot load the
+`FilterItem1ByItem2` custom task. This does not affect the independently built
+LibreWPF producer or live D3D12 gates above; the full source-WPF test remains
+required once the VM image carries the official WPF native tool bundle.
+
 The exact `b36b241b` Windows checkpoint rebuilt both libraries with ARM64 MSVC,
 passed all 11 native/Dawn CTests, matched both export allowlists, and built the
 managed consumer with zero warnings. Its focused linear-gradient DrawingGroup
