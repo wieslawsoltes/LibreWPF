@@ -46,6 +46,18 @@ commands, and 55 media/resource commands. `MilCmdRenderData` contains a byte
 count followed by another framed command stream. Resource handles are 32-bit
 and scoped to one channel.
 
+ProGPU protocol-authority implementation `8839f00d` now generates its public
+C++ command enum and packed packet metadata from WPF's checked-in MCG outputs.
+The neutral manifest records SHA-256 provenance for `wgx_command_types.h` and
+`wgx_commands.cs`, all 141 retail commands plus invalid/debug sentinels, and
+all 108 managed `Pack=1` layouts with top-level field types, offsets, widths,
+and fixed header sizes. The ProGPU standalone build checks manifest/header
+agreement. `eng/progpu-wpf-sdk-ci.sh` additionally regenerates from this live
+LibreWPF tree, so a WPF protocol change cannot silently leave the submodule's
+decoder authority stale. Visual-offset, DoubleResource, and PointResource are
+the first decoder cases consuming generated constants; the remaining numeric
+packet reads are tracked as a mechanical migration.
+
 The portable `RenderData` snapshot already uses the same framed nested records,
 but its resource tokens are one-based indexes into a typed dependent-resource
 array. LibreWPF's native producer therefore preserves command bytes and remaps
@@ -58,8 +70,8 @@ ProGPU currently provides:
 
 - A C++20 zero-copy batch reader and transactional channel graph. A rejected
   batch cannot partially mutate live state.
-- Complete stable command ID definitions and strict unknown, malformed,
-  unsupported, handle, resource-type, graph, and capacity errors.
+- Generated stable command ID/packet-layout definitions and strict unknown,
+  malformed, unsupported, handle, resource-type, graph, and capacity errors.
 - Retained visual offsets, opacity, content, ordered child topology, generic
   targets, clear color/flags, opaque render data, solid-color brushes, and the
   complete static 2D transform resource family.
@@ -2267,7 +2279,7 @@ and explicit clear/black/white interior probes pass.
 
 ## GPU-first fallback and nested MIL scope checkpoint
 
-The current ProGPU pin `fbdbfc19` integrates the latest ProGPU `main` device-
+The current ProGPU pin `2dba7b5b` integrates the latest ProGPU `main` device-
 recovery/windowing work with the configurable glyph execution policy. Product
 default `Fastest` selects native WebGPU compute on qualified Metal/Vulkan
 adapters and the exact retained raster-shader substitute on the known
@@ -2439,8 +2451,8 @@ for `progpu_native_dawn.dll`.
 
 ## Next parity gates
 
-1. Generate packed protocol size/offset metadata from the checked-in WPF MCG
-   model rather than manually extending command declarations.
+1. Migrate remaining native packet readers from local numeric offsets to the
+   generated neutral WPF MCG layout metadata.
 2. Add dashed ellipse and rounded-rectangle pen draws, curve dashes, exact
    degenerate zero-axis asymmetric rounded-rectangle widening, exact
    translated-equivalent EvenOdd overlap execution, exact combined children

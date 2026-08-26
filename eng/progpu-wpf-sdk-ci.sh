@@ -14,6 +14,14 @@ fi
 export DOTNET_ROLL_FORWARD="${DOTNET_ROLL_FORWARD:-Major}"
 export DOTNET_ROLL_FORWARD_TO_PRERELEASE="${DOTNET_ROLL_FORWARD_TO_PRERELEASE:-1}"
 
+command -v python3 >/dev/null 2>&1 || {
+  echo "python3 is required to verify the generated MIL protocol contract." >&2
+  exit 1
+}
+python3 "${repo_root}/external/ProGPU/eng/progpu-generate-mil-protocol.py" \
+  --wpf-root "${repo_root}" \
+  --check
+
 resolve_dotnet_runtime_framework_version() {
   local runtime_version
   runtime_version="$("${dotnet}" --list-runtimes 2>/dev/null | awk '$1 == "Microsoft.NETCore.App" && $2 ~ /^11\./ { version = $2 } END { print version }')"
