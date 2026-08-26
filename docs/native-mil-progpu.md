@@ -2671,6 +2671,11 @@ change exact stroke thickness, dash phase, bounds, and cached-layer revisions;
 wrong types, dependency deletion, and negative live thickness fail closed. All
 eight local native suites and the generated protocol drift gate pass.
 
+Windows-gate checkpoint `edd98b71` captures the expected forced-compute
+rejection through `System.Diagnostics.Process`, so Windows PowerShell 5 and
+PowerShell 7 both validate the typed incompatibility, exit code, and absence of
+unsafe WebGPU/device errors before continuing the same D3D12 smoke matrix.
+
 The preceding exact `e510039d` Windows checkpoint completed the entire
 Parallels D3D12 lane: strict ARM64 MSVC `/W4 /WX`, 11/11 native/Dawn CTests,
 forced raster/NEON/scalar parity, expected pre-resource compute rejection,
