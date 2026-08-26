@@ -1793,6 +1793,44 @@ smoke matrix, and nine-file staging. Qualified SHA-256 values are
 `CF01D087373FD1580EBE1A5B72BC2314CDCE2AEFA4FE02DBF782C88F3DB11C91`
 (`progpu_native_dawn.dll`).
 
+ProGPU implementation `ef811a7c` and qualification documentation `fdd2b82e`,
+pinned here, bound temporary Visual effect isolation without a managed
+rendering workaround or a new protocol packet. The existing
+`set_visual_cache_bounds` symbol is retained for ABI compatibility, but its
+typed payload is the source-built Visual descendant extent and now serves both
+BitmapCache and effect planning. `WpfNativeMilSceneCompiler` publishes the
+existing `IPortableVisualBoundsSource` snapshot for every cache or effect
+Visual and fails closed when it is missing. This keeps the bridge reflection-
+free and prevents real LibreWPF effects from silently allocating a full target;
+older direct native consumers may omit the optional sideband and retain the
+conservative effect behavior.
+
+ProGPU transforms the descendant rectangle through the effective Visual state.
+Blur expands it by WPF's resolved physical kernel radius; DropShadow unions the
+source with the offset, inflated shadow; a zero-radius effect kept for final
+clipping uses the exact source extent. The independent composite clip remains
+outside those bounds so effect sampling is never truncated. Native MIL tests
+cover unbounded compatibility plus exact blur, shadow, and zero-radius cases,
+while LibreWPF tests cover both typed production and missing-bounds rejection.
+
+The live Apple M3 Pro Metal `--semantic-bounded-effect` gate renders a full and
+bounded Gaussian layer with byte-identical output. Allocation falls from
+`96x64` to `28x24`, layer bytes from 24,576 to 2,688, and effect bytes from
+73,728 to 8,064; both outputs have extent `[24,14]-[51,37]`, red sum 48,960,
+and zero changed pixels. The Windows DirectX/D3D12 run produced the same
+result.
+
+The clean detached Windows run at exact ProGPU code commit `ef811a7c` passed
+ARM64 MSVC `/W4 /WX`, all 11 native/Dawn CTests, both export allowlists, two
+zero-warning managed Release builds, both D3D12 allocation/readback samples,
+the complete bounded smoke matrix, and nine-file staging. The D3D12 bounded-
+effect metrics and pixels matched Metal exactly. Qualified win-arm64 SHA-256
+values are
+`09B17325EFC71E90131AAA4538F883C4D3C9EAFFA3A54539BCE50E18FB07F47B`
+(`progpu_native.dll`) and
+`CE4A5E6E81F11DB499E8B160A550A14701F4D050EC80AC484C5CEEA57BA92F0A`
+(`progpu_native_dawn.dll`).
+
 ## Next parity gates
 
 1. Generate packed protocol size/offset metadata from the checked-in WPF MCG
@@ -1808,7 +1846,8 @@ smoke matrix, and nine-file staging. Qualified SHA-256 values are
    push/pop state, DirectWrite/system-display text realization, and the
    explicit advanced glyph/text gaps listed above.
 3. Complete the remaining WPF BitmapCache inherited/combined spatial-mask,
-   general multi-guideline geometry, inflated effect-bounds, and broader
+   general multi-guideline geometry, transformed/nonorthogonal advanced effect
+   bounds, and broader
    arbitrary-geometry clip/mask/effect gates on the now-executable local-space
    cache primitive.
 4. Cache other stable native handles/generations across frames and emit

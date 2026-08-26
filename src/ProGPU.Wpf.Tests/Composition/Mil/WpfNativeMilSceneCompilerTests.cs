@@ -269,6 +269,10 @@ public sealed class WpfNativeMilSceneCompilerTests
         int visualOffset = FindCommand(result.Bytes, 0x1d);
         Assert.Equal(1U, ReadUInt32(result.Bytes, visualOffset + 8));
         Assert.Equal(2U, ReadUInt32(result.Bytes, visualOffset + 12));
+        WpfNativeMilVisualCacheBounds bounds = Assert.Single(
+            result.VisualCacheBounds!);
+        Assert.Equal(1U, bounds.Handle);
+        Assert.Equal(new NativeMilRect(1, 2, 30, 20), bounds.Bounds);
     }
 
     [Fact]
@@ -299,6 +303,30 @@ public sealed class WpfNativeMilSceneCompilerTests
         Assert.Equal(0.4, ReadDouble(result.Bytes, offset + 44));
         Assert.Equal(6.5, ReadDouble(result.Bytes, offset + 52));
         Assert.Equal(128F / 255F, ReadSingle(result.Bytes, offset + 32));
+        WpfNativeMilVisualCacheBounds bounds = Assert.Single(
+            result.VisualCacheBounds!);
+        Assert.Equal(1U, bounds.Handle);
+        Assert.Equal(new NativeMilRect(1, 2, 30, 20), bounds.Bounds);
+    }
+
+    [Fact]
+    public void BuildBatchRejectsEffectWithoutTypedVisualBounds()
+    {
+        var visual = new FakeVisualWithoutBounds(
+            new PortableVisualState
+            {
+                HasEffect = true,
+                Effect = new FakeEffect(PortableEffect.Blur(5))
+            });
+
+        NotSupportedException exception =
+            Assert.Throws<NotSupportedException>(() =>
+                new WpfNativeMilSceneCompiler().BuildBatch(
+                    visual, 64, 64));
+
+        Assert.Contains(
+            "exact typed Visual descendant bounds",
+            exception.Message);
     }
 
     [Fact]

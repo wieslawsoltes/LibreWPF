@@ -23,6 +23,10 @@ public sealed record WpfNativeMilDrawingImageBounds(
     uint Handle,
     NativeMilRect Bounds);
 
+/// <summary>
+/// Carries exact Visual descendant bounds through ProGPU's ABI-compatible
+/// cache-named sideband for BitmapCache and bounded effect planning.
+/// </summary>
 public sealed record WpfNativeMilVisualCacheBounds(
     uint Handle,
     NativeMilRect Bounds);
@@ -221,16 +225,19 @@ public sealed class WpfNativeMilSceneCompiler
                 }
                 Batch.SetVisualCacheMode(
                     visualHandle, ResolveBitmapCache(state.CacheMode));
-                if (!TryGetVisualCacheBounds(
-                        visual, out NativeMilRect cacheBounds))
+            }
+            if (state.HasCacheMode || state.HasEffect)
+            {
+                if (!TryGetVisualBounds(
+                        visual, out NativeMilRect visualBounds))
                 {
                     throw new NotSupportedException(
-                        "Native MIL BitmapCache requires exact typed Visual descendant bounds.");
+                        "Native MIL BitmapCache/effect isolation requires exact typed Visual descendant bounds.");
                 }
                 VisualCacheBounds.Add(
                     new WpfNativeMilVisualCacheBounds(
                         visualHandle,
-                        cacheBounds));
+                        visualBounds));
             }
             if (state.HasClip)
             {
@@ -1583,7 +1590,7 @@ public sealed class WpfNativeMilSceneCompiler
             return handle;
         }
 
-        private static bool TryGetVisualCacheBounds(
+        private static bool TryGetVisualBounds(
             object visual,
             out NativeMilRect bounds)
         {
