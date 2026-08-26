@@ -66,6 +66,35 @@ No numeric `has_exact_size(view, ...)` or direct numeric
 `read_at(view.packet, ...)` calls remain in the decoder; composite components
 and the separately bounded path-figure mini-protocol remain intentional.
 
+ProGPU producer-oracle checkpoint `563c031c` also parses all 25 packed nested
+payload structs from this tree's `Generated/RenderData.cs`. Those managed
+layouts agree with 24 native MCG declarations. Legacy `MILCMD_PUSH_EFFECT` is
+the single source discrepancy: the managed writer emits `hEffect` and
+`hEffectInput`, while `wgx_renderdata_commands.h` declares only the opcode.
+Because the managed writer owns the bytes placed on the channel, its 12-byte
+command view is authoritative. ProGPU `e510039d` requires that exact framing
+in both execution and retained dependency traversal, then fails closed with
+`unsupported_command`; the obsolete 4-byte interpretation is
+`malformed_batch`. No reflection, object-shape probing, or managed effect
+substitution is involved.
+
+The complete Apple Silicon native/Metal gate passes at `e510039d`, including
+all native tests, the bounded differential matrix, exact intrinsic-SIMD/scalar
+glyph parity, and both Microsoft DirectX sample oracles. Clean detached
+Windows ARM64 qualification rebuilt both generated-header consumers with MSVC
+`/W4 /WX` and passed all 11 native/Dawn CTests. The Parallels D3D12 fastest,
+raster-shader, intrinsic-SIMD, and scalar paths remain exact at glyph hash
+`5B6EF4F70536C862`; forced compute retains its expected typed adapter rejection.
+Triangle and texture oracle hashes remain
+`AE1BC0A9B0623BACAB15BE1706FFA3E7FC15E33676A66F05C969C1B86A66FEA3` and
+`591CC311F35E3C2612F529C3D4D7061FC93751A9B8614BF588A73599B0AA2790`.
+Qualified DLL SHA-256 is
+`5B140B2D5881C3847ECBD6D4E7F8B592DD54C24E2687915EDF30BCA4BC78796D`
+for `progpu_native.dll` and
+`7D7F35CFA5323D0BA6E61EA402788CBAE72EBA40D69FE5B3D05069C966AB56DB`
+for `progpu_native_dawn.dll`. The live generator reports 143 commands and 141
+complete packet layouts; the focused LibreWPF producer suite passes 73/73.
+
 The exact generated-Visual pin `22bf5bf1` also passed a clean Windows ARM64
 qualification in the Parallels VM. MSVC rebuilt the generated header and both
 native modules under `/W4 /WX`; all 11 native/Dawn CTests passed, including the
