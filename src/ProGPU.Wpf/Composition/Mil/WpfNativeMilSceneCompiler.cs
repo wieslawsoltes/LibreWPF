@@ -229,14 +229,15 @@ public sealed class WpfNativeMilSceneCompiler
             bool requiresVisualIsolationBounds =
                 state.HasCacheMode ||
                 state.HasEffect ||
-                (state.HasOpacity && state.Opacity != 1.0);
+                (state.HasOpacity && state.Opacity != 1.0) ||
+                state.HasOpacityMask;
             if (requiresVisualIsolationBounds)
             {
                 if (!TryGetVisualBounds(
                         visual, out NativeMilRect visualBounds))
                 {
                     throw new NotSupportedException(
-                        "Native MIL BitmapCache/effect/opacity isolation requires exact typed Visual descendant bounds.");
+                        "Native MIL BitmapCache/effect/opacity/opacity-mask isolation requires exact typed Visual descendant bounds.");
                 }
                 VisualCacheBounds.Add(
                     new WpfNativeMilVisualCacheBounds(
@@ -276,8 +277,7 @@ public sealed class WpfNativeMilSceneCompiler
                     visualHandle,
                     ResolveVisualOpacityMask(
                         state.OpacityMask,
-                        allowSpatialMask:
-                            state.HasCacheMode || state.HasEffect));
+                        allowSpatialMask: true));
             }
             if (state.HasSnappingGuidelinesX ||
                 state.HasSnappingGuidelinesY)

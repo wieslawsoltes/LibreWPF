@@ -171,10 +171,13 @@ public sealed class WpfNativeMilSceneCompilerTests
         Assert.Equal(maskHandle, ReadUInt32(result.Bytes, brushOffset + 8));
         Assert.Equal(0.5, ReadDouble(result.Bytes, brushOffset + 12));
         Assert.Equal(128F / 255F, ReadSingle(result.Bytes, brushOffset + 32));
+        Assert.Equal(
+            new NativeMilRect(1, 2, 30, 20),
+            Assert.Single(result.VisualCacheBounds!).Bounds);
     }
 
     [Fact]
-    public void BuildBatchRejectsGradientVisualOpacityMask()
+    public void BuildBatchTranslatesGradientVisualOpacityMaskWithBounds()
     {
         var opacityMask = new FakeBrush(PortableBrush.LinearGradient(
             new PortablePoint(0, 0),
@@ -193,8 +196,14 @@ public sealed class WpfNativeMilSceneCompilerTests
                 OpacityMask = opacityMask
             });
 
-        Assert.Throws<NotSupportedException>(() =>
-            new WpfNativeMilSceneCompiler().BuildBatch(visual, 64, 64));
+        WpfNativeMilBatch result = new WpfNativeMilSceneCompiler().BuildBatch(
+            visual, 64, 64);
+
+        Assert.Contains(0x7f, ReadCommands(result.Bytes));
+        Assert.Contains(0x23, ReadCommands(result.Bytes));
+        Assert.Equal(
+            new NativeMilRect(1, 2, 30, 20),
+            Assert.Single(result.VisualCacheBounds!).Bounds);
     }
 
     [Fact]
@@ -368,6 +377,55 @@ public sealed class WpfNativeMilSceneCompilerTests
     }
 
     [Fact]
+    public void BuildBatchPublishesBoundsForInheritedMaskAroundChildEffect()
+    {
+        var opacityMask = new FakeBrush(PortableBrush.LinearGradient(
+            new PortablePoint(0, 0),
+            new PortablePoint(1, 0),
+            [
+                new PortableGradientStop(
+                    new PortableColor(0, 255, 255, 255), 0),
+                new PortableGradientStop(
+                    new PortableColor(255, 255, 255, 255), 1)
+            ]));
+        var child = new FakeVisual(
+            null,
+            new PortableVisualState
+            {
+                HasEffect = true,
+                Effect = new FakeEffect(PortableEffect.Blur(5))
+            });
+        var parent = new FakeVisual(
+            null,
+            new PortableVisualState
+            {
+                HasOpacityMask = true,
+                OpacityMask = opacityMask
+            },
+            child);
+
+        WpfNativeMilBatch result = new WpfNativeMilSceneCompiler().BuildBatch(
+            parent, 64, 64);
+
+        Assert.Collection(
+            result.VisualCacheBounds!,
+            bounds =>
+            {
+                Assert.Equal(1U, bounds.Handle);
+                Assert.Equal(
+                    new NativeMilRect(1, 2, 30, 20), bounds.Bounds);
+            },
+            bounds =>
+            {
+                Assert.Equal(3U, bounds.Handle);
+                Assert.Equal(
+                    new NativeMilRect(1, 2, 30, 20), bounds.Bounds);
+            });
+        Assert.Contains(0x23, ReadCommands(result.Bytes));
+        Assert.Contains(0x1d, ReadCommands(result.Bytes));
+    }
+
+    [Fact]
     public void BuildBatchRejectsOpacityIsolationWithoutTypedVisualBounds()
     {
         var visual = new FakeVisualWithoutBounds(
@@ -375,6 +433,35 @@ public sealed class WpfNativeMilSceneCompilerTests
             {
                 HasOpacity = true,
                 Opacity = 0.5
+            });
+
+        NotSupportedException exception =
+            Assert.Throws<NotSupportedException>(() =>
+                new WpfNativeMilSceneCompiler().BuildBatch(
+                    visual, 64, 64));
+
+        Assert.Contains(
+            "exact typed Visual descendant bounds",
+            exception.Message);
+    }
+
+    [Fact]
+    public void BuildBatchRejectsOpacityMaskIsolationWithoutTypedVisualBounds()
+    {
+        var opacityMask = new FakeBrush(PortableBrush.LinearGradient(
+            new PortablePoint(0, 0),
+            new PortablePoint(1, 0),
+            [
+                new PortableGradientStop(
+                    new PortableColor(0, 255, 255, 255), 0),
+                new PortableGradientStop(
+                    new PortableColor(255, 255, 255, 255), 1)
+            ]));
+        var visual = new FakeVisualWithoutBounds(
+            new PortableVisualState
+            {
+                HasOpacityMask = true,
+                OpacityMask = opacityMask
             });
 
         NotSupportedException exception =

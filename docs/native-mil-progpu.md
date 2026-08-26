@@ -1973,6 +1973,30 @@ extent/red sum `[4,4]-[41,31]`/67,186, and flattened
 `636748FE9C8E29EA5687625E5EF0B77E77017F62FFD463139B36E75162A13DC6`
 (`progpu_native_dawn.dll`).
 
+The inherited-opacity-mask checkpoint advances ProGPU to implementation commit
+`9fb7c4aa` (documentation commit `3eedfb92`). LibreWPF now treats every typed
+Visual opacity mask as a bounded isolation owner: it publishes exact
+`IPortableVisualBoundsSource` descendant bounds through the existing sideband
+and accepts solid, linear-gradient, or radial-gradient masks without requiring
+a BitmapCache or effect on that same Visual. Missing typed bounds fail closed
+before native submission.
+
+Reusable ProGPU C++ emits one bounded outer `FORCE_ISOLATION` layer carrying
+the ancestor Visual's local opacity and optional semantic brush-mask resource.
+It resets the isolated local alpha before compiling descendants, keeping a
+child effect and child-local opacity/mask inside the ancestor mask exactly as
+WPF's per-node `PreSubgraph`/`PostSubgraph` stack requires. The native compiler
+also rejects an unbounded spatial mask. This adds no reflection, callback,
+managed rendering fallback, ABI extension, or DirectX-specific scene path.
+
+All eight portable native CTests, the export allowlist, zero-warning benchmark
+build, 70/70 focused LibreWPF compiler tests, and the Apple M3 Pro Metal gate
+pass. The correct common ancestor mask executes `2/2/2`
+content/composite/effect passes with red samples `60/200`, extent
+`[6,4]-[41,31]`, and red sum 66,698. A deliberately flattened per-child mask
+executes `3/3/2`, changes 420 pixels, and produces `[6,5]-[41,30]`, red sum
+74,122. Windows DirectX qualification is pending.
+
 ## Next parity gates
 
 1. Generate packed protocol size/offset metadata from the checked-in WPF MCG
@@ -1987,7 +2011,7 @@ extent/red sum `[4,4]-[41,31]`/67,186, and flattened
    effect/clip/mask/opacity ordering, animated and Box effects, remaining
    push/pop state, DirectWrite/system-display text realization, and the
    explicit advanced glyph/text gaps listed above.
-3. Complete the remaining WPF BitmapCache inherited/combined spatial-mask,
+3. Complete the remaining WPF BitmapCache combined spatial-mask,
    general multi-guideline geometry, transformed/nonorthogonal advanced effect
    bounds, and broader
    arbitrary-geometry clip/mask/effect gates on the now-executable local-space
