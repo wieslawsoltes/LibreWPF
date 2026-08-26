@@ -2629,7 +2629,7 @@ state. Effect-chain and cached-layer revisions incorporate those dependency
 generations, so value-only updates change sigma, offset, color/alpha, and
 inflated bounds without retransmitting the effect or Visual. Missing or
 wrong-type references and deletion of a live dependency fail transactionally;
-Box blur remains explicitly unsupported.
+Box blur was still explicitly unsupported at that checkpoint.
 
 SIMD checkpoint `09589773` improves the already qualified two-pixel CPU glyph
 fallback without increasing vector pressure. NEON/SSE2 comparison masks are
@@ -2676,6 +2676,29 @@ rejection through `System.Diagnostics.Process`, so Windows PowerShell 5 and
 PowerShell 7 both validate the typed incompatibility, exit code, and absence of
 unsafe WebGPU/device errors before continuing the same D3D12 smoke matrix.
 
+The exact detached `edd98b71` rerun completed that full matrix on Parallels
+D3D12: ARM64 MSVC `/W4 /WX`, 11/11 native/Dawn CTests, native and managed
+allocation/readback samples, forced raster/NEON/scalar glyph parity, typed
+forced-compute rejection, Microsoft triangle/texture oracles, all retained
+cache/effect/mask/clip/text/blend profiles, and nine-file package staging.
+SHA-256 is
+`0E13CD164AB5449DA7FEFB44F7FE26DE76E2200B16EAC047BFBAA1589C5A3C07`
+for `progpu_native.dll` and
+`F58F610CF3513C275C59254510D646C3B7F2BA175B3927F6679ABC36067A8721`
+for `progpu_native_dawn.dll`.
+
+The following Box-blur checkpoint closes WPF `KernelType.Box` as a typed GPU
+path. Canonical MIL kernel 1 resolves live animated radius state and emits the
+reusable Box group-effect descriptor; Gaussian remains the default, and
+unknown values fail closed. Uniform `2R + 1` weights execute in the existing
+two-pass WebGPU compute resources with no CPU readback or product fallback.
+The public native capability and C/C# factories make the same effect available
+to WPF, WinUI, and Avalonia. The new `--group-box-blur` gate is exact against an
+independent two-pass RGBA8 oracle at radius 2/1x on Apple M3 Pro Metal
+(`22A8BEC63E7C7494`); at 2x it stays within 1/255 with zero pixels beyond
+tolerance and mean absolute error 0.000455 byte/channel. The Windows smoke
+script now gates this profile on D3D12 as well.
+
 The preceding exact `e510039d` Windows checkpoint completed the entire
 Parallels D3D12 lane: strict ARM64 MSVC `/W4 /WX`, 11/11 native/Dawn CTests,
 forced raster/NEON/scalar parity, expected pre-resource compute rejection,
@@ -2701,7 +2724,7 @@ Windows rebuild.
    gradient pen strokes, non-bitmap image sources, dynamic-guideline pairs,
    exact WPF-compatible arc lowering, and
    remaining multi-guideline draw-family deformation, general Visual
-   effect/clip/mask/opacity ordering, Box effects, remaining
+   effect/clip/mask/opacity ordering, remaining
    opacity-mask/effect/dynamic-guideline push/pop state,
    DirectWrite/system-display text realization, and the
    explicit advanced glyph/text gaps listed above.
