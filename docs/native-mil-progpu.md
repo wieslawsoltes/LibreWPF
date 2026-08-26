@@ -2122,6 +2122,36 @@ exact commit. The staged base DLL was 2,001,920 bytes with SHA-256
 the Dawn DLL was 2,039,808 bytes with SHA-256
 `1B181A7CF2692164C809D8799539A1FDB8839688C6C01B66AF11F326E39908D1`.
 
+The first ordinary static multi-guideline path checkpoint advances ProGPU to
+implementation commit `80560d34` and contract documentation commit
+`eae5f42a`; LibreWPF publishes the typed collections in `753102825`. Visual and
+DrawingGroup `IPortableGuidelineSetSource` data may now carry multiple sorted
+static coordinates without reflection or bridge-side deformation. Dynamic
+leading/driven pairs remain rejected. ProGPU maps the collection through the
+complete MIL scale/translate frame and emits the new append-only
+`GUIDELINE_PER_POINT` resource mode, while the prior zero/one affine fast path
+and cache-only multi-guide mode retain their existing contracts.
+
+The exact initial execution subset is one non-boolean semantic path containing
+line, quadratic, or cubic segments. Native C++ composes path and scope
+transforms, snaps each start/control/end point in absolute target space with
+WPF nearest-guide and lower-midpoint-tie behavior, rebases materialized target
+coordinates, and publishes identity transform plus updated bounds. Arcs,
+multi/shared and boolean paths, primitives, strokes, images, glyphs, meshes,
+points, 3D, and dynamic pairs fail closed until their exact representations
+land. The public managed/native builders also reject direct per-point use on
+non-path commands or cache composites; scoped MIL state remains legal and the
+executor rejects unsupported descendants before drawing.
+
+All ten native CTests pass, the managed native-interop class passes 80/80 after
+the allocation lane is warmed, the benchmark builds with zero warnings, and
+LibreWPF's focused compiler suite passes 72/72 with only its 96 pre-existing
+warnings. The Apple M3 Pro Metal differential compares a fractional four-line
+path with an independently authored deformed reference: baseline red sum
+37,536; guided/reference red sum 40,800; 48 changed pixels; and
+`referenceChanged=0`. The Windows smoke script now includes the same gate;
+exact D3D12 qualification and staged hashes are pending.
+
 ## Next parity gates
 
 1. Generate packed protocol size/offset metadata from the checked-in WPF MCG
@@ -2132,7 +2162,8 @@ the Dawn DLL was 2,039,808 bytes with SHA-256
    inside groups, WPF epsilon-near-coincident gradient-stop normalization,
    duplicate-endpoint Pad outside-color distinction, cap-only degenerate
    gradient pen strokes, ImageDrawing rect animations and non-bitmap image
-   sources, dynamic/multiple-guideline piecewise deformation, general Visual
+   sources, dynamic-guideline pairs and remaining multi-guideline draw-family
+   deformation, general Visual
    effect/clip/mask/opacity ordering, animated and Box effects, remaining
    push/pop state, DirectWrite/system-display text realization, and the
    explicit advanced glyph/text gaps listed above.
