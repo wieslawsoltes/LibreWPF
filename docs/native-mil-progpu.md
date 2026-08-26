@@ -2163,6 +2163,15 @@ for `progpu_native.dll` and
 `DB359E0C6155530B87DFC7183E4BE071455964F84B9A3D1ED9DAE20A2AB7148F`
 for `progpu_native_dawn.dll`.
 
+The subsequent ProGPU GCC portability commits `c6080cb0` and `84b0258d`
+explicitly type guideline and aliased-primitive ABI flag expressions as
+`uint32_t`; there is no packet or pixel change. An exact Ubuntu ARM64 GCC 13.3
+run compiled all 260 C++20 objects under
+`-Wall -Wextra -Wpedantic -Werror`, passed 10/10 CTests and the export
+allowlist, and completed the Vulkan llvmpipe retained sample with GPU hit-test
+and readback. ProGPU documentation commit `e76a9e3c` records that compiler
+checkpoint and is the submodule revision pinned here.
+
 ## Microsoft DirectX sample oracle gate
 
 The pinned ProGPU revision adds a cross-platform image gate based on
