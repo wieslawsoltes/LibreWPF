@@ -2702,7 +2702,12 @@ native scene compiler maps the source-built `PortableBlurKernel.Box` contract
 to `NativeMilBlurKernelType.Box`; unknown kernel values remain fail-closed.
 The focused compiler suite verifies the canonical packet field, so a real WPF
 `BlurEffect.KernelType` selection reaches the ProGPU shader instead of stopping
-at the bridge.
+at the bridge. ProGPU's portable managed compositor now exposes the same typed
+`BlurKernelType.Box` selection and reuses its cached separable WebGPU pipelines,
+uniform buffers, bind groups, and intermediate texture. LibreWPF's portable
+effect mapper preserves the source-built Box selection on that path as well;
+Gaussian remains the default, unsupported enum values fail closed, and neither
+GPU route introduces a CPU readback fallback.
 
 Accepted SIMD follow-up `c5549ceb` stops computing a discarded second pixel
 on odd-width glyph rows. The qualified paired loop remains a 16-sample

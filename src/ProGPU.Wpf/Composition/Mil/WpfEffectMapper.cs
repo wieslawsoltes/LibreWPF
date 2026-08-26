@@ -66,12 +66,25 @@ internal static class WpfEffectMapper
         switch (effect.Kind)
         {
             case PortableEffectKind.Blur:
-                if (effect.BlurKernel != PortableBlurKernel.Gaussian)
+                global::ProGPU.Scene.BlurKernelType? kernelType =
+                    effect.BlurKernel switch
+                    {
+                        PortableBlurKernel.Gaussian =>
+                            global::ProGPU.Scene.BlurKernelType.Gaussian,
+                        PortableBlurKernel.Box =>
+                            global::ProGPU.Scene.BlurKernelType.Box,
+                        _ => null
+                    };
+                if (kernelType is not { } resolvedKernelType)
                 {
                     proGpuEffect = null!;
                     return false;
                 }
-                proGpuEffect = new global::ProGPU.Scene.BlurEffect((float)Math.Max(0d, effect.Radius));
+                proGpuEffect = new global::ProGPU.Scene.BlurEffect(
+                    (float)Math.Max(0d, effect.Radius))
+                {
+                    KernelType = resolvedKernelType
+                };
                 return true;
 
             case PortableEffectKind.DropShadow:

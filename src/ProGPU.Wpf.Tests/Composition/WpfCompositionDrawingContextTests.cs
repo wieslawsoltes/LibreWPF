@@ -13,6 +13,7 @@ using MediaImageSource = System.Windows.Media.ImageSource;
 using MediaPen = System.Windows.Media.Pen;
 using MediaTransform = System.Windows.Media.Transform;
 using ProGpuBlurEffect = ProGPU.Scene.BlurEffect;
+using ProGpuBlurKernelType = ProGPU.Scene.BlurKernelType;
 using ProGpuEffectBase = ProGPU.Scene.EffectBase;
 
 namespace ProGPU.Wpf.Tests.Composition;
@@ -2511,6 +2512,22 @@ public sealed class WpfCompositionDrawingContextTests
     }
 
     [Fact]
+    public void PushEffectRoutesBoxBlurToPortableGpuKernel()
+    {
+        var sink = new RecordingSink { AcceptVisualEffects = true };
+        using var context = new WpfCompositionDrawingContext(sink);
+
+        context.PushEffect(
+            new FakeBlurBitmapEffect(7, PortableBlurKernel.Box),
+            new FakeContextBitmapEffectInput());
+
+        var effect = Assert.IsType<ProGpuBlurEffect>(
+            Assert.Single(sink.VisualEffects));
+        Assert.Equal(7f, effect.BlurRadius);
+        Assert.Equal(ProGpuBlurKernelType.Box, effect.KernelType);
+    }
+
+    [Fact]
     public void ObjectRenderDataPushEffectUsesNativeVisualEffectScopeWhenLegacyEffectCanBeEmulated()
     {
         var sink = new RecordingSink { AcceptVisualEffects = true };
@@ -3164,16 +3181,21 @@ public sealed class WpfCompositionDrawingContextTests
 
     private sealed class FakeBlurBitmapEffect : IPortableEffectSource
     {
-        public FakeBlurBitmapEffect(double radius)
+        public FakeBlurBitmapEffect(
+            double radius,
+            PortableBlurKernel kernel = PortableBlurKernel.Gaussian)
         {
             Radius = radius;
+            Kernel = kernel;
         }
 
         public double Radius { get; }
 
+        public PortableBlurKernel Kernel { get; }
+
         public bool TryGetPortableEffect(out PortableEffect effect)
         {
-            effect = PortableEffect.Blur(Radius);
+            effect = PortableEffect.Blur(Radius, Kernel);
             return true;
         }
     }
