@@ -1368,6 +1368,8 @@ public sealed class WpfNativeMilSceneCompilerTests
         var group = new FakeDrawingGroup(
             new PortableDrawingGroupState
             {
+                HasLocalBounds = true,
+                LocalBounds = new PortableRect(2, 3, 20, 12),
                 HasOpacity = true,
                 Opacity = 0.5,
                 HasTransform = true,
@@ -1410,6 +1412,13 @@ public sealed class WpfNativeMilSceneCompilerTests
         Assert.Equal(3U, ReadUInt32(result.Bytes, groupOffset + 48));
         Assert.Equal(1U, ReadUInt32(result.Bytes, groupOffset + 52));
         Assert.Equal(6U, ReadUInt32(result.Bytes, groupOffset + 56));
+
+        WpfNativeMilDrawingGroupBounds groupBounds = Assert.Single(
+            result.DrawingGroupBounds!);
+        Assert.Equal(7U, groupBounds.Handle);
+        Assert.Equal(
+            new NativeMilRect(2, 3, 20, 12),
+            groupBounds.Bounds);
 
         int nestedOffset = FindCommand(result.Bytes, 0x18) + 16;
         Assert.Equal(7U, ReadUInt32(result.Bytes, nestedOffset + 8));
@@ -1559,7 +1568,43 @@ public sealed class WpfNativeMilSceneCompilerTests
     }
 
     [Fact]
-    public void BuildBatchRejectsGradientDrawingGroupOpacityMask()
+    public void BuildBatchTranslatesGradientDrawingGroupOpacityMaskWithLocalBounds()
+    {
+        var opacityMask = new FakeBrush(PortableBrush.LinearGradient(
+            new PortablePoint(0, 0),
+            new PortablePoint(1, 0),
+            [
+                new PortableGradientStop(
+                    new PortableColor(0, 255, 255, 255), 0),
+                new PortableGradientStop(
+                    new PortableColor(255, 255, 255, 255), 1)
+            ]));
+        var group = new FakeDrawingGroup(
+            new PortableDrawingGroupState
+            {
+                HasLocalBounds = true,
+                LocalBounds = new PortableRect(2, 3, 20, 12),
+                HasOpacityMask = true,
+                OpacityMask = opacityMask
+            },
+            []);
+        var visual = new FakeVisual(
+            new FakeRenderData(CreateDrawDrawingRecord(1), [group]));
+
+        WpfNativeMilBatch result =
+            new WpfNativeMilSceneCompiler().BuildBatch(visual, 64, 64);
+
+        int groupOffset = FindCommand(result.Bytes, 0x8b);
+        Assert.NotEqual(0U, ReadUInt32(result.Bytes, groupOffset + 32));
+        WpfNativeMilDrawingGroupBounds bounds = Assert.Single(
+            result.DrawingGroupBounds!);
+        Assert.Equal(
+            new NativeMilRect(2, 3, 20, 12),
+            bounds.Bounds);
+    }
+
+    [Fact]
+    public void BuildBatchRejectsGradientDrawingGroupOpacityMaskWithoutLocalBounds()
     {
         var opacityMask = new FakeBrush(PortableBrush.LinearGradient(
             new PortablePoint(0, 0),
@@ -1580,8 +1625,11 @@ public sealed class WpfNativeMilSceneCompilerTests
         var visual = new FakeVisual(
             new FakeRenderData(CreateDrawDrawingRecord(1), [group]));
 
-        Assert.Throws<NotSupportedException>(() =>
-            new WpfNativeMilSceneCompiler().BuildBatch(visual, 64, 64));
+        NotSupportedException exception = Assert.Throws<NotSupportedException>(
+            () => new WpfNativeMilSceneCompiler().BuildBatch(
+                visual, 64, 64));
+
+        Assert.Contains("local content bounds", exception.Message);
     }
 
     [Fact]

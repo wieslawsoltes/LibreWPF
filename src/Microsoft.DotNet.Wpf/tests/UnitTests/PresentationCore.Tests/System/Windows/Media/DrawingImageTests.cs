@@ -66,4 +66,28 @@ public sealed class DrawingImageTests
         Assert.Equal(drawing.Bounds.Width, bounds.Width);
         Assert.Equal(drawing.Bounds.Height, bounds.Height);
     }
+
+    [Fact]
+    public void PortableDrawingGroupStateSeparatesLocalAndPostTransformBounds()
+    {
+        var drawing = new DrawingGroup
+        {
+            Transform = new TranslateTransform(30, 40),
+            ClipGeometry = new RectangleGeometry(
+                new Rect(12, 21, 10, 8))
+        };
+        drawing.Children.Add(new GeometryDrawing(
+            Brushes.Blue,
+            null,
+            new RectangleGeometry(new Rect(10, 20, 20, 10))));
+
+        var source = Assert.IsAssignableFrom<IPortableDrawingGroupStateSource>(
+            drawing);
+
+        Assert.True(source.TryGetPortableDrawingGroupState(out var state));
+        Assert.True(state.HasBounds);
+        Assert.Equal(new PortableRect(42, 61, 10, 8), state.Bounds);
+        Assert.True(state.HasLocalBounds);
+        Assert.Equal(new PortableRect(12, 21, 10, 8), state.LocalBounds);
+    }
 }

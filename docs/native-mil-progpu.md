@@ -2253,7 +2253,7 @@ shipping package graph.
 
 ## GPU-first fallback and nested MIL scope checkpoint
 
-The current ProGPU pin `e9183cdf` integrates the latest ProGPU `main` device-
+The current ProGPU pin `20fc4299` integrates the latest ProGPU `main` device-
 recovery/windowing work with the configurable glyph execution policy. Product
 default `Fastest` selects native WebGPU compute on qualified Metal/Vulkan
 adapters and the exact retained raster-shader substitute on the known
@@ -2321,6 +2321,20 @@ linear/radial group masks reuse the same backend-neutral GPU brush-mask
 resource, preserve those bounds across canonical group updates, and fail closed
 when bounds are absent. The focused package consumer exercises that gradient
 path through both native exports and live Metal rendering.
+
+LibreWPF now closes that producer seam. ProGPU's portable group DTO publishes
+separate `HasLocalBounds`/`LocalBounds` state because the existing `Bounds`
+value is post-transform. Source-built `DrawingGroup` computes the new value
+with WPF's own `BoundsDrawingContextWalker`, applying the group clip and all
+child drawing semantics while deliberately excluding only the group's own
+transform. `WpfNativeMilSceneCompiler` carries those local bounds in its batch,
+binds them with `NativeMilChannel.SetDrawingGroupBounds`, accepts typed
+linear/radial group masks, and rejects spatial masks before native compilation
+when exact local bounds are absent. This avoids transform double-application
+and keeps the bridge reflection-free. The Release compiler/contract gate passes
+74/74 focused tests; a source-built PresentationCore test separately asserts a
+translated, clipped group reports local `(12,21,10,8)` and post-transform
+`(42,61,10,8)` bounds.
 
 The exact `b36b241b` Windows checkpoint rebuilt both libraries with ARM64 MSVC,
 passed all 11 native/Dawn CTests, matched both export allowlists, and built the

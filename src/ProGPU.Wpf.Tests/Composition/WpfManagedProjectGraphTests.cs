@@ -7189,6 +7189,9 @@ public sealed class WpfManagedProjectGraphTests
         Assert.DoesNotContain("TryReadFiniteRectProperty(drawingGroup", replaySource, StringComparison.Ordinal);
         Assert.Contains("DrawingGroup : Drawing, IPortableDrawingGroupStateSource, IPortableDrawingGroupChildrenSource", drawingGroupSource, StringComparison.Ordinal);
         Assert.Contains("IPortableDrawingGroupStateSource.TryGetPortableDrawingGroupState(out PortableDrawingGroupState state)", drawingGroupSource, StringComparison.Ordinal);
+        Assert.Contains("Rect localBounds = GetPortableLocalBounds();", drawingGroupSource, StringComparison.Ordinal);
+        Assert.Contains("var context = new BoundsDrawingContextWalker();", drawingGroupSource, StringComparison.Ordinal);
+        Assert.Contains("HasLocalBounds = IsPortableUsableRect(localBounds)", drawingGroupSource, StringComparison.Ordinal);
         Assert.Contains("IPortableDrawingGroupChildrenSource.TryGetPortableDrawingGroupChildCount(out int count)", drawingGroupSource, StringComparison.Ordinal);
         Assert.Contains("IPortableDrawingGroupChildrenSource.TryGetPortableDrawingGroupChild(int index, out object child)", drawingGroupSource, StringComparison.Ordinal);
         Assert.DoesNotContain("CopyPortableDrawingGroupChildren", drawingGroupSource, StringComparison.Ordinal);
@@ -7196,6 +7199,8 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("interface IPortableDrawingGroupStateSource", interopSource, StringComparison.Ordinal);
         Assert.Contains("interface IPortableDrawingGroupChildrenSource", interopSource, StringComparison.Ordinal);
         Assert.Contains("public bool HasClipGeometry", interopSource, StringComparison.Ordinal);
+        Assert.Contains("public bool HasLocalBounds", interopSource, StringComparison.Ordinal);
+        Assert.Contains("public PortableRect LocalBounds", interopSource, StringComparison.Ordinal);
         Assert.Contains("public bool HasBitmapScalingMode", interopSource, StringComparison.Ordinal);
         Assert.Contains("public object[] Children", interopSource, StringComparison.Ordinal);
         Assert.Contains("ReplaySubtreeAppliesPortableDrawingGroupStateWithoutReflection", rendererTests, StringComparison.Ordinal);

@@ -64,6 +64,7 @@ namespace System.Windows.Media
         bool IPortableDrawingGroupStateSource.TryGetPortableDrawingGroupState(out PortableDrawingGroupState state)
         {
             Rect bounds = Bounds;
+            Rect localBounds = GetPortableLocalBounds();
             Transform transform = Transform;
             Geometry clipGeometry = ClipGeometry;
             Brush opacityMask = OpacityMask;
@@ -81,6 +82,14 @@ namespace System.Windows.Media
                 HasBounds = IsPortableUsableRect(bounds),
                 Bounds = IsPortableUsableRect(bounds)
                     ? new PortableRect(bounds.X, bounds.Y, bounds.Width, bounds.Height)
+                    : PortableRect.Empty,
+                HasLocalBounds = IsPortableUsableRect(localBounds),
+                LocalBounds = IsPortableUsableRect(localBounds)
+                    ? new PortableRect(
+                        localBounds.X,
+                        localBounds.Y,
+                        localBounds.Width,
+                        localBounds.Height)
                     : PortableRect.Empty,
                 HasTransform = transform != null,
                 Transform = transform,
@@ -120,6 +129,33 @@ namespace System.Windows.Media
                     : PortableClearTypeHint.Auto
             };
             return true;
+        }
+
+        private Rect GetPortableLocalBounds()
+        {
+            var context = new BoundsDrawingContextWalker();
+            Geometry clipGeometry = ClipGeometry;
+            bool hasClip = clipGeometry != null;
+            if (hasClip)
+            {
+                context.PushClip(clipGeometry);
+            }
+
+            DrawingCollection children = Children;
+            if (children != null)
+            {
+                for (int index = 0; index < children.Count; index++)
+                {
+                    Drawing child = children.Internal_GetItem(index);
+                    child?.WalkCurrentValue(context);
+                }
+            }
+
+            if (hasClip)
+            {
+                context.Pop();
+            }
+            return context.Bounds;
         }
 
         bool IPortableDrawingGroupChildrenSource.TryGetPortableDrawingGroupChildCount(out int count)

@@ -23,6 +23,10 @@ public sealed record WpfNativeMilDrawingImageBounds(
     uint Handle,
     NativeMilRect Bounds);
 
+public sealed record WpfNativeMilDrawingGroupBounds(
+    uint Handle,
+    NativeMilRect Bounds);
+
 /// <summary>
 /// Carries exact Visual descendant bounds through ProGPU's ABI-compatible
 /// cache-named sideband for BitmapCache and bounded effect planning.
@@ -37,7 +41,8 @@ public sealed record WpfNativeMilBatch(
     IReadOnlyList<WpfNativeMilBitmapSource>? BitmapSources = null,
     IReadOnlyList<WpfNativeMilGlyphRunFont>? GlyphRunFonts = null,
     IReadOnlyList<WpfNativeMilDrawingImageBounds>? DrawingImageBounds = null,
-    IReadOnlyList<WpfNativeMilVisualCacheBounds>? VisualCacheBounds = null);
+    IReadOnlyList<WpfNativeMilVisualCacheBounds>? VisualCacheBounds = null,
+    IReadOnlyList<WpfNativeMilDrawingGroupBounds>? DrawingGroupBounds = null);
 
 public sealed record WpfNativeMilCompilation(
     NativeMilCompiledScene Scene,
@@ -76,7 +81,8 @@ public sealed class WpfNativeMilSceneCompiler
             context.BitmapSources.ToArray(),
             context.GlyphRunFonts.ToArray(),
             context.DrawingImageBounds.ToArray(),
-            context.VisualCacheBounds.ToArray());
+            context.VisualCacheBounds.ToArray(),
+            context.DrawingGroupBounds.ToArray());
     }
 
     public WpfNativeMilCompilation Compile(
@@ -118,6 +124,13 @@ public sealed class WpfNativeMilSceneCompiler
         {
             channel.SetDrawingImageBounds(
                 drawingImage.Handle, drawingImage.Bounds);
+        }
+        foreach (WpfNativeMilDrawingGroupBounds drawingGroup in
+                 batch.DrawingGroupBounds ??
+                 Array.Empty<WpfNativeMilDrawingGroupBounds>())
+        {
+            channel.SetDrawingGroupBounds(
+                drawingGroup.Handle, drawingGroup.Bounds);
         }
         foreach (WpfNativeMilVisualCacheBounds visualCache in
                  batch.VisualCacheBounds ??
@@ -166,6 +179,9 @@ public sealed class WpfNativeMilSceneCompiler
         internal List<WpfNativeMilGlyphRunFont> GlyphRunFonts { get; } = [];
 
         internal List<WpfNativeMilDrawingImageBounds> DrawingImageBounds
+            { get; } = [];
+
+        internal List<WpfNativeMilDrawingGroupBounds> DrawingGroupBounds
             { get; } = [];
 
         internal List<WpfNativeMilVisualCacheBounds> VisualCacheBounds
@@ -277,7 +293,8 @@ public sealed class WpfNativeMilSceneCompiler
                     visualHandle,
                     ResolveVisualOpacityMask(
                         state.OpacityMask,
-                        allowSpatialMask: true));
+                        allowSpatialMask: true,
+                        out _));
             }
             if (state.HasSnappingGuidelinesX ||
                 state.HasSnappingGuidelinesY)
@@ -1336,9 +1353,25 @@ public sealed class WpfNativeMilSceneCompiler
             uint clipHandle = state.HasClipGeometry
                 ? ResolveGeometry(state.ClipGeometry!)
                 : 0;
+            bool hasLocalBounds = TryGetDrawingGroupLocalBounds(
+                state, out NativeMilRect localBounds);
+            if (state.HasLocalBounds && !hasLocalBounds)
+            {
+                throw new InvalidOperationException(
+                    "Portable DrawingGroup local bounds are invalid.");
+            }
+            bool hasSpatialOpacityMask = false;
             uint opacityMaskHandle = state.HasOpacityMask
-                ? ResolveSolidOpacityMask(state.OpacityMask!)
+                ? ResolveVisualOpacityMask(
+                    state.OpacityMask!,
+                    allowSpatialMask: true,
+                    out hasSpatialOpacityMask)
                 : 0;
+            if (hasSpatialOpacityMask && !hasLocalBounds)
+            {
+                throw new NotSupportedException(
+                    "Native MIL spatial DrawingGroup opacity masks require exact typed local content bounds.");
+            }
             uint guidelineSetHandle = state.HasGuidelineSet
                 ? ResolveGuidelineSet(state.GuidelineSet!)
                 : 0;
@@ -1427,18 +1460,19 @@ public sealed class WpfNativeMilSceneCompiler
                     BitmapScalingMode: bitmapScalingMode,
                     ClearTypeHint: clearTypeHint),
                 childHandles);
+            if (hasLocalBounds)
+            {
+                DrawingGroupBounds.Add(
+                    new WpfNativeMilDrawingGroupBounds(
+                        handle, localBounds));
+            }
             return handle;
-        }
-
-        private uint ResolveSolidOpacityMask(object resource)
-        {
-            return ResolveVisualOpacityMask(
-                resource, allowSpatialMask: false);
         }
 
         private uint ResolveVisualOpacityMask(
             object resource,
-            bool allowSpatialMask)
+            bool allowSpatialMask,
+            out bool isSpatialMask)
         {
             if (resource is not IPortableBrushSource source ||
                 !source.TryGetPortableBrush(out PortableBrush brush))
@@ -1448,6 +1482,7 @@ public sealed class WpfNativeMilSceneCompiler
             bool supportedSpatialKind =
                 brush.Kind == PortableBrushKind.LinearGradient ||
                 brush.Kind == PortableBrushKind.RadialGradient;
+            isSpatialMask = supportedSpatialKind;
             if (brush.Kind != PortableBrushKind.SolidColor &&
                 (!allowSpatialMask || !supportedSpatialKind))
             {
@@ -1463,6 +1498,29 @@ public sealed class WpfNativeMilSceneCompiler
             uint handle = AddPortableBrush(brush);
             _brushHandles.Add(resource, handle);
             return handle;
+        }
+
+        private static bool TryGetDrawingGroupLocalBounds(
+            PortableDrawingGroupState state,
+            out NativeMilRect bounds)
+        {
+            PortableRect candidate = state.LocalBounds;
+            if (!state.HasLocalBounds || candidate.IsEmpty ||
+                !double.IsFinite(candidate.X) ||
+                !double.IsFinite(candidate.Y) ||
+                !double.IsFinite(candidate.Width) ||
+                !double.IsFinite(candidate.Height) ||
+                candidate.Width <= 0 || candidate.Height <= 0)
+            {
+                bounds = default;
+                return false;
+            }
+            bounds = new NativeMilRect(
+                candidate.X,
+                candidate.Y,
+                candidate.Width,
+                candidate.Height);
+            return true;
         }
 
         private uint ResolveGuidelineSet(object resource)
