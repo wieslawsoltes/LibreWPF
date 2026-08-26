@@ -2008,7 +2008,7 @@ nine-file runtime/SDK staging. Qualified SHA-256 values are
 (`progpu_native_dawn.dll`).
 
 The nested-mask checkpoint advances ProGPU to exact test/qualification commit
-`66592f2c` (documentation commit `5458df46`). The LibreWPF compiler test now
+`66592f2c` (DirectX qualification commit `36ceeb56`). The LibreWPF compiler test now
 publishes two independent typed gradient-mask packets and exact bounds: a
 parent horizontal mask and a child vertical mask owned inside the child's
 effect. ProGPU preserves parent mask -> child effect -> child mask/local
@@ -2021,8 +2021,17 @@ focused LibreWPF compiler tests, and the Apple M3 Pro Metal differential pass.
 The correct nested stack executes `3/3/2` content/composite/effect passes,
 samples red `28/200`, and produces `[7,4]-[41,29]`, red sum 59,308. Flattening
 the parent mask into descendants executes `4/4/2`, changes 348 pixels, samples
-`29/200`, and produces `[6,5]-[41,28]`, red sum 63,032. Windows DirectX
-qualification is pending.
+`29/200`, and produces `[6,5]-[41,28]`, red sum 63,032.
+
+A clean detached `66592f2c` Parallels run produces identical D3D12 evidence
+and passes strict Windows ARM64 MSVC `/W4 /WX`, 11/11 native/Dawn CTests, both
+export allowlists, two zero-warning managed Release builds, independent C++
+and managed D3D12 samples, the complete bounded differential smoke matrix, and
+nine-file runtime/SDK staging. Qualified SHA-256 values are
+`9BC233F2462CCA5CE5A9BA31A296BEF80E22D6982D5B706F9756D9F62EC6CB97`
+(`progpu_native.dll`) and
+`743FE185F4D4C900CA1B7F5B18AD85BEAAD47CEA592315AF22D81E625DF0393D`
+(`progpu_native_dawn.dll`).
 
 ## Next parity gates
 
