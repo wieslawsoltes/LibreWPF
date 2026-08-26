@@ -46,20 +46,25 @@ commands, and 55 media/resource commands. `MilCmdRenderData` contains a byte
 count followed by another framed command stream. Resource handles are 32-bit
 and scoped to one channel.
 
-ProGPU protocol-authority implementation `8839f00d` now generates its public
-C++ command enum and packed packet metadata from WPF's checked-in MCG outputs.
-The neutral manifest records SHA-256 provenance for `wgx_command_types.h` and
-`wgx_commands.cs`, all 141 retail commands plus invalid/debug sentinels, and
-all 108 managed `Pack=1` layouts with top-level field types, offsets, widths,
-and fixed header sizes. The ProGPU standalone build checks manifest/header
+ProGPU protocol-authority implementation `8839f00d` generates its public C++
+command enum from WPF's checked-in MCG outputs. Complete-layout checkpoint
+`4408a86c` adds all 116 packed structures from `wgx_commands.h` and all 25
+records from `wgx_renderdata_commands.h`, exactly one layout for each of the
+141 retail commands. The 108 explicit `Pack=1` layouts in `wgx_commands.cs`
+serve as an independent overlap oracle for shared size and field offsets. The
+neutral manifest records SHA-256 provenance for all four WPF inputs plus the
+invalid/debug sentinels. The ProGPU standalone build checks manifest/header
 agreement. `eng/progpu-wpf-sdk-ci.sh` additionally regenerates from this live
 LibreWPF tree, so a WPF protocol change cannot silently leave the submodule's
 decoder authority stale. ProGPU `d4a1f370` makes the complete retained Visual
 update family plus DoubleResource and PointResource consume generated
 constants, including variable guideline packets and child topology. Private
-MCG packing bytes are captured, every fixed header must retain DWORD framing,
-and all 108 managed layouts must map to a command. The remaining numeric packet
-reads are tracked as a mechanical migration.
+MCG packing bytes are captured and every fixed header must retain DWORD
+framing. ProGPU `e93d8919` moves all active top-level and nested render-data
+packet readers plus dependency discovery to the complete generated layouts.
+No numeric `has_exact_size(view, ...)` or direct numeric
+`read_at(view.packet, ...)` calls remain in the decoder; composite components
+and the separately bounded path-figure mini-protocol remain intentional.
 
 The exact generated-Visual pin `22bf5bf1` also passed a clean Windows ARM64
 qualification in the Parallels VM. MSVC rebuilt the generated header and both
@@ -70,6 +75,15 @@ for `progpu_native.dll` and
 `9F73E41536B3BD96A0A44692EA65888C9DE004B19FBF5DE90489768667FBBDDBC`
 for the wgpu-native runtime DLL. Live WPF-to-ProGPU regeneration remains in the
 macOS/Linux SDK gate; the Windows lane validates the committed generated C++.
+
+Clean detached `e93d8919` qualified the complete authority on Windows ARM64.
+MSVC rebuilt all generated-header consumers and both native modules under
+`/W4 /WX`; all 11 native/Dawn CTests passed. Qualified SHA-256 is
+`7D4D5087CB7D81893CDE231BEDD22983A0C31323AE1EDF5A87FDDC415E758CB5`
+for `progpu_native.dll` and
+`9F73E41536B3BD96A0A44692EA65888C9DE004B19FBF5DE90489768667FBBDDBC`
+for the wgpu-native runtime DLL. The live LibreWPF drift gate reports
+`143 commands, 141 complete packet layouts`.
 
 ProGPU implementation `4e7d8f55` extends generated decoding through
 MatrixResource and the complete retained 2D transform family: variable
@@ -2357,7 +2371,7 @@ and explicit clear/black/white interior probes pass.
 
 ## GPU-first fallback and nested MIL scope checkpoint
 
-The current ProGPU pin `22bf5bf1` integrates the latest ProGPU `main` device-
+The current ProGPU pin `7d334439` integrates the latest ProGPU `main` device-
 recovery/windowing work with the configurable glyph execution policy. Product
 default `Fastest` selects native WebGPU compute on qualified Metal/Vulkan
 adapters and the exact retained raster-shader substitute on the known
