@@ -2094,7 +2094,7 @@ the Dawn DLL was 2,039,808 bytes with SHA-256
 `1B181A7CF2692164C809D8799539A1FDB8839688C6C01B66AF11F326E39908D1`.
 
 The follow-up cache-mask/guideline/effect checkpoint advances ProGPU to exact
-gate commit `7889fa17` (documentation commit `3fbd1413`) and LibreWPF packet
+gate commit `7889fa17` (DirectX qualification commit `0172af3b`) and LibreWPF packet
 coverage to `9183fefff`. The typed compiler regression now emits one linear
 gradient mask, one static guideline collection, one BitmapCache, and one
 Gaussian BlurEffect for the same bounded Visual. ProGPU's native MIL regression
@@ -2106,8 +2106,21 @@ moves the blurred masked extent from `[19,6]-[27,17]`/red 1,876 to
 `[19,7]-[27,17]`/red 1,617, and is byte-identical to the independently
 constructed affine reference (`referenceChanged=0`). No reflection, managed
 rendering fallback, ABI expansion, shader fork, or DirectX-only scene branch is
-introduced. DirectX qualification is pending for exact gate commit
-`7889fa17`.
+introduced. Exact DirectX qualification on 2026-08-26 used a clean detached
+checkout of `7889fa17`. ARM64 MSVC rebuilt both base and Dawn modules under
+`/W4 /WX`; all 11 native/Dawn CTest cases, both export allowlists, two
+zero-warning managed builds, independent native and managed D3D12
+allocation/readback samples, and nine-file staging passed. D3D12 reproduced
+the Metal gate exactly, including `2/2/2 -> 1/2/2 -> 1/2/2`, both extents and
+red sums, `changed=69`, and `referenceChanged=0`. A transient Parallels Tools
+command-channel disconnect occurred later in the smoke tail; every remaining
+prescribed semantic-layer-effect, text-shaping, vector-clip, image-effect,
+Overlay, and ColorDodge command was rerun individually with unchanged script
+arguments against the same binaries and passed. The guest ended clean at the
+exact commit. The staged base DLL was 2,001,920 bytes with SHA-256
+`AD812584A2F7E549755320A44CA76ED5C20DB5DAD1BD66006EB2D0C7B98F0C2D`;
+the Dawn DLL was 2,039,808 bytes with SHA-256
+`1B181A7CF2692164C809D8799539A1FDB8839688C6C01B66AF11F326E39908D1`.
 
 ## Next parity gates
 
