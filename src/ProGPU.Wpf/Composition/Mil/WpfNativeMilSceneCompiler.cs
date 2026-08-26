@@ -270,7 +270,10 @@ public sealed class WpfNativeMilSceneCompiler
                 }
                 Batch.SetVisualOpacityMask(
                     visualHandle,
-                    ResolveSolidOpacityMask(state.OpacityMask));
+                    ResolveVisualOpacityMask(
+                        state.OpacityMask,
+                        allowSpatialMask:
+                            state.HasCacheMode || state.HasEffect));
             }
             if (state.HasSnappingGuidelinesX ||
                 state.HasSnappingGuidelinesY)
@@ -1431,15 +1434,29 @@ public sealed class WpfNativeMilSceneCompiler
 
         private uint ResolveSolidOpacityMask(object resource)
         {
+            return ResolveVisualOpacityMask(
+                resource, allowSpatialMask: false);
+        }
+
+        private uint ResolveVisualOpacityMask(
+            object resource,
+            bool allowSpatialMask)
+        {
             if (resource is not IPortableBrushSource source ||
                 !source.TryGetPortableBrush(out PortableBrush brush))
             {
                 throw MissingContract(nameof(IPortableBrushSource));
             }
-            if (brush.Kind != PortableBrushKind.SolidColor)
+            bool supportedSpatialKind =
+                brush.Kind == PortableBrushKind.LinearGradient ||
+                brush.Kind == PortableBrushKind.RadialGradient;
+            if (brush.Kind != PortableBrushKind.SolidColor &&
+                (!allowSpatialMask || !supportedSpatialKind))
             {
                 throw new NotSupportedException(
-                    "Only static solid opacity masks are implemented by the native MIL slice.");
+                    allowSpatialMask
+                        ? "Only typed solid, linear-gradient, and radial-gradient Visual opacity masks are implemented by the native MIL isolation slice."
+                        : "Only static solid opacity masks are implemented by the native MIL slice.");
             }
             if (_brushHandles.TryGetValue(resource, out uint existing))
             {
@@ -1951,11 +1968,6 @@ public sealed class WpfNativeMilSceneCompiler
             {
                 throw new NotSupportedException(
                     "The portable visual contains state not implemented by the native MIL slice.");
-            }
-            if (state.HasEffect && state.HasOpacityMask)
-            {
-                throw new NotSupportedException(
-                    "Native WPF visual effects currently do not support portable spatial opacity masks through this producer.");
             }
         }
 

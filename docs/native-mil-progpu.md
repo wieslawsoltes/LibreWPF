@@ -1902,6 +1902,27 @@ SHA-256 values are
 `616B0650CF74D5D84FB45D908DB6285A82760B59E6A8D56313D827B6885038C7`
 (`progpu_native_dawn.dll`).
 
+The uncached spatial-mask-before-effect checkpoint advances ProGPU to
+`3c22b004`. LibreWPF now accepts typed solid, linear-gradient, and radial-
+gradient Visual opacity masks whenever a BitmapCache or effect supplies the
+required isolation boundary; an ordinary uncached Visual without either still
+rejects a spatial mask. The existing portable brush DTO and descendant-bounds
+sideband carry all data without reflection or a managed renderer fallback.
+
+For an uncached effect, ProGPU resolves the typed gradient to its reusable
+semantic brush-mask resource and combines it with uniform alpha on the bounded
+inner `FORCE_ISOLATION` layer. The outer blur/drop-shadow samples that completed
+source. Cached Visuals retain the already-qualified local-page mask path, while
+solid masks collapse to uniform alpha. Inherited mask/opacity ownership still
+fails closed. Native MIL tests assert the uncached layer order/bounds/mask and
+absence of cache flags; all 66 focused LibreWPF compiler tests pass.
+
+The expanded Apple M3 Pro Metal `--semantic-uncached-opacity-effect` gate keeps
+the previous opacity proof and adds mask-ordering evidence: `2/2/2`
+content/composite/effect passes, red samples `36/217`, extent
+`[7,5]-[47,30]`, and red sum 65,264. Reversing the mask to post-effect changes
+666 pixels and yields `[10,10]-[41,25]`, red sum 56,038.
+
 ## Next parity gates
 
 1. Generate packed protocol size/offset metadata from the checked-in WPF MCG

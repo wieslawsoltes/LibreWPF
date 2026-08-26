@@ -405,6 +405,56 @@ public sealed class WpfNativeMilSceneCompilerTests
     }
 
     [Fact]
+    public void BuildBatchAllowsTypedGradientOpacityMaskWithIsolation()
+    {
+        var opacityMask = new FakeBrush(PortableBrush.LinearGradient(
+            new PortablePoint(0, 0),
+            new PortablePoint(1, 0),
+            [
+                new PortableGradientStop(
+                    new PortableColor(0, 255, 255, 255), 0),
+                new PortableGradientStop(
+                    new PortableColor(255, 255, 255, 255), 1)
+            ]));
+        var visual = new FakeVisual(
+            null,
+            new PortableVisualState
+            {
+                HasEffect = true,
+                Effect = new FakeEffect(PortableEffect.Blur(5)),
+                HasOpacityMask = true,
+                OpacityMask = opacityMask
+            });
+
+        WpfNativeMilBatch result = new WpfNativeMilSceneCompiler().BuildBatch(
+            visual, 64, 64);
+        List<int> commands = ReadCommands(result.Bytes);
+
+        Assert.Contains(0x7f, commands);
+        Assert.Contains(0x23, commands);
+        Assert.Contains(0x1d, commands);
+        Assert.Single(result.VisualCacheBounds!);
+
+        var cachedVisual = new FakeVisual(
+            null,
+            new PortableVisualState
+            {
+                HasCacheMode = true,
+                CacheMode = new FakeBitmapCache(
+                    new PortableBitmapCache(1, false, false)),
+                HasOpacityMask = true,
+                OpacityMask = opacityMask
+            });
+        WpfNativeMilBatch cachedResult =
+            new WpfNativeMilSceneCompiler().BuildBatch(
+                cachedVisual, 64, 64);
+        List<int> cachedCommands = ReadCommands(cachedResult.Bytes);
+        Assert.Contains(0x7f, cachedCommands);
+        Assert.Contains(0x23, cachedCommands);
+        Assert.Contains(0x1e, cachedCommands);
+    }
+
+    [Fact]
     public void BuildBatchRejectsUnsupportedEffectButAllowsUniformOpacity()
     {
         var box = new FakeEffect(PortableEffect.Blur(
