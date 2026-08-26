@@ -2359,6 +2359,16 @@ before product compilation while acquiring its pinned Strawberry Perl,
 LibreWPF producer or live D3D12 gates above; the full source-WPF test remains
 required once the VM image carries the official WPF native tool bundle.
 
+The source producer hot path avoids an unnecessary second drawing-tree walk for
+the common identity, translation, and axis-aligned scale cases. It computes
+local clipped child bounds once and derives post-transform bounds with WPF's
+typed `Transform.TransformBounds` only when the matrix has zero cross-axis
+terms. Rotation, skew, and other cross-axis transforms retain the original
+full `Bounds` walker so a transformed local bounding box cannot broaden exact
+content bounds. Source tests cover both the one-walk translated case and the
+exact rotated fallback; the reflection-free contract audit enforces the
+axis-preserving guard.
+
 The exact `b36b241b` Windows checkpoint rebuilt both libraries with ARM64 MSVC,
 passed all 11 native/Dawn CTests, matched both export allowlists, and built the
 managed consumer with zero warnings. Its focused linear-gradient DrawingGroup

@@ -7190,8 +7190,10 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("DrawingGroup : Drawing, IPortableDrawingGroupStateSource, IPortableDrawingGroupChildrenSource", drawingGroupSource, StringComparison.Ordinal);
         Assert.Contains("IPortableDrawingGroupStateSource.TryGetPortableDrawingGroupState(out PortableDrawingGroupState state)", drawingGroupSource, StringComparison.Ordinal);
         Assert.Contains("Rect localBounds = GetPortableLocalBounds();", drawingGroupSource, StringComparison.Ordinal);
+        Assert.Contains("TryTransformPortableLocalBounds(", drawingGroupSource, StringComparison.Ordinal);
+        Assert.Contains("matrix.M12 != 0 || matrix.M21 != 0", drawingGroupSource, StringComparison.Ordinal);
         Assert.Contains("var context = new BoundsDrawingContextWalker();", drawingGroupSource, StringComparison.Ordinal);
-        Assert.Contains("HasLocalBounds = IsPortableUsableRect(localBounds)", drawingGroupSource, StringComparison.Ordinal);
+        Assert.Contains("HasLocalBounds = hasLocalBounds", drawingGroupSource, StringComparison.Ordinal);
         Assert.Contains("IPortableDrawingGroupChildrenSource.TryGetPortableDrawingGroupChildCount(out int count)", drawingGroupSource, StringComparison.Ordinal);
         Assert.Contains("IPortableDrawingGroupChildrenSource.TryGetPortableDrawingGroupChild(int index, out object child)", drawingGroupSource, StringComparison.Ordinal);
         Assert.DoesNotContain("CopyPortableDrawingGroupChildren", drawingGroupSource, StringComparison.Ordinal);
