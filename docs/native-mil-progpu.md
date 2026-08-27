@@ -2794,11 +2794,22 @@ generated Double, Point, Size, and Rect animation-clock resources retain their
 typed portable value interfaces and methods, proving that ordinary source
 regeneration preserves this bridge instead of overwriting it.
 
-Current accepted ProGPU head `23f6848d` was also rebuilt in the Windows 11
+Current accepted ProGPU code checkpoint `23f6848d` was also rebuilt in the Windows 11
 Parallels ARM64 guest with MSVC/Ninja after the DrawImage, typed animation, and
 folded-NEON changes. All 10 non-Dawn native CTests passed; this focused
 current-head gate supplements, but does not replace, the exact full D3D12 Box
 checkpoint above.
+
+That exact code checkpoint then completed the extended ARM64 MSVC/Ninja D3D12
+smoke/package lane. Both providers built with zero warnings, all 11
+native/Dawn CTests passed, native and managed allocation/readback samples
+completed, and automatic raster, forced raster, forced SIMD, bounded scalar,
+and typed forced-compute-rejection routes behaved as declared. SIMD retained
+`5B6EF4F70536C862`; Box blur retained `D77D5DC8AC370BCE`. Both Microsoft D3D12
+oracles and the complete retained cache/effect/mask/clip/text/blend matrix
+passed, including byte-exact Overlay and ColorDodge. Staged SHA-256 values are
+`9D2E6713B9CF8EE97B58B6ED8BB6B73A4C4DF19AED9C5AF5248C0DF522D45266`
+and `51BA93113AB6CA6D76DE29BD5DE83C8397808C44EDD21F277244772779B353EC`.
 
 The preceding exact `e510039d` Windows checkpoint completed the entire
 Parallels D3D12 lane: strict ARM64 MSVC `/W4 /WX`, 11/11 native/Dawn CTests,
@@ -2809,9 +2820,8 @@ masks, clips, text, blends, and package staging. Its DLL SHA-256 values are
 and `7D7F35CFA5323D0BA6E61EA402788CBAE72EBA40D69FE5B3D05069C966AB56DB`;
 wgpu-native is
 `9F73E41536B3BD96A0A44692EA65888C9DE004B19FBF5DE90489768667FBBDBC`.
-The complete full-D3D12 rerun remains queued for the newer PushEffect and
-animated render-data checkpoints; their focused managed/native gates and the
-current-head Windows compiler/runtime gate are recorded above.
+The current full-D3D12 rerun above now covers the newer PushEffect, animation,
+image-draw, Box, and SIMD checkpoints together.
 
 ## Next parity gates
 
