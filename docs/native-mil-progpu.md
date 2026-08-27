@@ -3462,6 +3462,48 @@ surface. Provider-specific adapter/readback evidence remains in ProGPU's native
 Windows gate; this host smoke proves that LibreWPF reaches that provider through
 the real window path.
 
+ProGPU checkpoint `201a6c11` optimizes the managed glyph CPU fallback without
+changing its scalar oracle or allocation profile. It uses fixed-width
+`Vector256<T>`/`Vector128<T>` crossing evaluation, comparison-mask bit counts,
+and a vectorized 16-byte coverage-normalization loop with a bounded scalar
+tail. Odd and narrow widths (`1`, `15`, `16`, `17`, and `31`) are covered by
+exact differential tests. On the Apple M3 Pro benchmark fixture, the median of
+three process-level p50 results improved from `519.896 us/glyph` to
+`293.924 us/glyph` (43.5%), while remaining byte-identical and retaining
+`4,120 B/glyph`. The explicit scalar reference measured `49,097.540 us/glyph`;
+that comparison also includes the already-qualified scanline-reuse algorithm,
+so it is not presented as a SIMD-only speedup. ProGPU's C++ fallback remains on
+its already-qualified NEON/SSE2 two-pixel kernels. Detailed benchmark method,
+research sources, rerun commands, and rejected alternatives live in ProGPU's
+`docs/GLYPH_CPU_FALLBACK_SIMD_RESEARCH.md`.
+
+The Windows host harness now accepts `PROGPU_WPF_REAL_ASSEMBLY_DIR` so a
+deployment bundle can load one adjacent, source-built PresentationCore/
+PresentationFramework graph instead of inferring repository artifact paths.
+Its collectible load context resolves adjacent WPF dependencies first and
+continues to share the single neutral interop contract assembly. The first
+interactive Parallels D3D12 attempts exposed two cold-start starvation
+boundaries. A dispatcher turn could consume callbacks posted by callbacks, and
+both the owner loop and render callback drained that self-rescheduling WPF work
+before the first native frame. `QueuedWpfDispatcherService` now processes only
+the sequence snapshot present at turn entry and rejects nested processing of
+the active turn. The native-MIL owner path compiles and presents its already
+typed retained snapshot before servicing those callbacks. GLFW polling is also
+temporarily nonblocking only inside the owner-driven native loop, closing the
+separate empty-event lost-wakeup window. The loop retains its bounded 1 ms
+active and 16 ms idle delays; externally pumped hosts retain their configured
+event-driven behavior.
+
+The 2026-08-28 Windows 11 ARM64 Parallels user-session gate selected
+`Parallels Display Adapter (WDDM)` with backend `D3D12` and the fastest-policy
+`RasterShader` glyph path. It acquired the swapchain texture, installed the
+stateful semantic scene, submitted and presented before dispatcher/close
+handling, then exited autonomously with `PASS`: one presented frame, three MIL
+commands, three resources, one semantic draw, and one submitted draw call.
+Focused dispatcher/host/source-contract coverage passed 188/188, the managed
+test project built serially with no errors, and the real PresentationFramework
+harness built with no warnings or errors.
+
 ## Next parity gates
 
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested

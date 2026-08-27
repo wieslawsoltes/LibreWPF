@@ -3417,6 +3417,9 @@ public sealed class WpfManagedProjectGraphTests
 
         Assert.Contains("WpfPortableWindowActivation.TryRegisterPresentationFrameworkActivation", harnessProgram, StringComparison.Ordinal);
         Assert.Contains("--native-mil-host", harnessProgram, StringComparison.Ordinal);
+        Assert.Contains("PROGPU_WPF_REAL_ASSEMBLY_DIR", harnessProgram, StringComparison.Ordinal);
+        Assert.Contains("GetConfiguredRealWpfAssemblyDirectory()", harnessProgram, StringComparison.Ordinal);
+        Assert.Contains("realWpfAssemblyPath", harnessProgram, StringComparison.Ordinal);
         Assert.Contains("ProGpuWpfRendererMode.NativeMilWgpu", harnessProgram, StringComparison.Ordinal);
         Assert.Contains("ValidateNativeMilHostResult(host)", harnessProgram, StringComparison.Ordinal);
         Assert.Contains("LastNativeMilFrameMetrics.SubmissionCount", harnessProgram, StringComparison.Ordinal);

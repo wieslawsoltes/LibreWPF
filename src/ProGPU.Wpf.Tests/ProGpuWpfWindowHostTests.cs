@@ -293,16 +293,30 @@ public sealed class ProGpuWpfWindowHostTests
         Assert.Contains("while (ShouldKeepPortableNativeRunLoopAlive())", source, StringComparison.Ordinal);
         Assert.Contains("DoEvents();", source, StringComparison.Ordinal);
         Assert.Contains("if (!EnsureCompositionTargetLoaded() || !ShouldKeepPortableNativeRunLoopAlive())", source, StringComparison.Ordinal);
-        Assert.Contains("window.DoEvents();\n        }\n        finally\n        {\n            ProcessDeferredNativeWindowDisposals();", source, StringComparison.Ordinal);
+        Assert.Contains("window.IsEventDriven = false;", source, StringComparison.Ordinal);
+        Assert.Contains("window.DoEvents();\n            TraceNativeLoop(\"native event poll leaving:", source, StringComparison.Ordinal);
+        Assert.Contains("finally\n        {\n            if (useNonBlockingNativePoll)", source, StringComparison.Ordinal);
         Assert.True(doEventsMethodStart >= 0);
         Assert.True(nativeEventPoll > doEventsMethodStart);
         Assert.True(ownerDispatcherDrain > nativeEventPoll);
         Assert.Contains(
-            "if (!_usesExternalNativeLoopPump && PresentedFrameCount == 0)",
+            "if (pumpRenderBeforeEvents)\n        {\n            // Externally pumped popup windows",
             source,
             StringComparison.Ordinal);
         Assert.Contains(
-            "if (pumpExternalRenderBeforeEvents)\n        {\n            // Externally pumped popup windows",
+            "if (_usesExternalNativeLoopPump)\n            {\n                ProcessDispatcherQueueCore();",
+            source,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "owner loop must not drain WPF's self-rescheduling dispatcher",
+            source,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "_options.RendererMode == ProGpuWpfRendererMode.NativeMilWgpu &&\n                !HasPresentedFrame",
+            source,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "native MIL cold-start dispatcher deferred",
             source,
             StringComparison.Ordinal);
         Assert.Contains("if (ShouldPumpNativeRender())", source, StringComparison.Ordinal);
@@ -449,20 +463,43 @@ public sealed class ProGpuWpfWindowHostTests
     }
 
     [Theory]
-    [InlineData(true, true, true)]
-    [InlineData(true, false, false)]
-    [InlineData(false, true, false)]
-    [InlineData(false, false, false)]
-    public void ExternallyPumpedHostRendersPendingFrameBeforeNativeEvents(
+    [InlineData(true, true, true, true)]
+    [InlineData(true, true, false, false)]
+    [InlineData(true, false, false, true)]
+    [InlineData(false, false, true, true)]
+    [InlineData(false, false, false, true)]
+    [InlineData(false, true, true, false)]
+    public void ExternalOrColdStartHostRendersPendingFrameBeforeNativeEvents(
         bool usesExternalNativeLoopPump,
+        bool hasPresentedFrame,
         bool shouldPumpNativeRender,
         bool expected)
     {
         Assert.Equal(
             expected,
-            ProGpuWpfWindowHost.ShouldPumpExternalNativeRenderBeforeEvents(
+            ProGpuWpfWindowHost.ShouldPumpNativeRenderBeforeEvents(
                 usesExternalNativeLoopPump,
+                hasPresentedFrame,
                 shouldPumpNativeRender));
+    }
+
+    [Theory]
+    [InlineData(true, false, true, true)]
+    [InlineData(true, false, false, false)]
+    [InlineData(true, true, true, false)]
+    [InlineData(false, false, true, false)]
+    public void OwnerLoopUsesBoundedNonBlockingNativeEventPoll(
+        bool isNativeLoopRunning,
+        bool usesExternalNativeLoopPump,
+        bool isEventDriven,
+        bool expected)
+    {
+        Assert.Equal(
+            expected,
+            ProGpuWpfWindowHost.ShouldUseNonBlockingNativeEventPoll(
+                isNativeLoopRunning,
+                usesExternalNativeLoopPump,
+                isEventDriven));
     }
 
     [Theory]

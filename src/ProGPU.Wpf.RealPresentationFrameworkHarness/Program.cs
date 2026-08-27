@@ -23,6 +23,7 @@ public static class Program
     private const string PortableWindowActivationServiceTypeName = "System.Windows.PortableWindowActivationService";
     private const string PortableRenderDataProviderTypeName = "System.Windows.Media.PortableRenderDataDrawingContextSinkProvider";
     private const string PortableRenderDataSinkInterfaceTypeName = "System.Windows.Media.IPortableRenderDataDrawingContextSink";
+    private const string RealWpfAssemblyDirectoryVariable = "PROGPU_WPF_REAL_ASSEMBLY_DIR";
 
     [STAThread]
     private static int Main(string[] args)
@@ -1672,6 +1673,19 @@ public static class Program
 
     private static string FindRealAssembly(string repoRoot, string assemblyName)
     {
+        string? configuredDirectory = GetConfiguredRealWpfAssemblyDirectory();
+        if (configuredDirectory != null)
+        {
+            string configuredAssembly = Path.Combine(
+                configuredDirectory,
+                $"{assemblyName}.dll");
+            return File.Exists(configuredAssembly)
+                ? configuredAssembly
+                : throw new FileNotFoundException(
+                    $"Configured real WPF assembly was not found: {configuredAssembly}",
+                    configuredAssembly);
+        }
+
         string artifactsRoot = Path.Combine(repoRoot, "artifacts", "bin", assemblyName);
         if (!Directory.Exists(artifactsRoot))
         {
@@ -1694,6 +1708,12 @@ public static class Program
 
     private static string FindRepoRoot()
     {
+        string? configuredDirectory = GetConfiguredRealWpfAssemblyDirectory();
+        if (configuredDirectory != null)
+        {
+            return configuredDirectory;
+        }
+
         DirectoryInfo? directory = new(AppContext.BaseDirectory);
         while (directory != null)
         {
@@ -1714,6 +1734,23 @@ public static class Program
         }
 
         throw new DirectoryNotFoundException("Could not locate the WPF repository root.");
+    }
+
+    private static string? GetConfiguredRealWpfAssemblyDirectory()
+    {
+        string? configured = Environment.GetEnvironmentVariable(
+            RealWpfAssemblyDirectoryVariable);
+        if (string.IsNullOrWhiteSpace(configured))
+        {
+            return null;
+        }
+
+        string fullPath = Path.GetFullPath(
+            Environment.ExpandEnvironmentVariables(configured));
+        return Directory.Exists(fullPath)
+            ? fullPath
+            : throw new DirectoryNotFoundException(
+                $"{RealWpfAssemblyDirectoryVariable} does not exist: {fullPath}");
     }
 
     private static IDisposable RegisterRealPortableObjectSinkProvider(
@@ -1906,6 +1943,7 @@ public static class Program
     private sealed class WpfAssemblyLoadContext : AssemblyLoadContext
     {
         private readonly string _repoRoot;
+        private readonly string _wpfAssemblyDirectory;
         private readonly string _presentationFrameworkPath;
         private readonly string _presentationCorePath;
         private readonly AssemblyDependencyResolver _resolver;
@@ -1918,6 +1956,9 @@ public static class Program
             : base(isCollectible)
         {
             _repoRoot = repoRoot;
+            _wpfAssemblyDirectory = Path.GetDirectoryName(presentationCorePath)
+                ?? throw new InvalidOperationException(
+                    "Real PresentationCore path has no assembly directory.");
             _presentationFrameworkPath = presentationFrameworkPath;
             _presentationCorePath = presentationCorePath;
             _resolver = new AssemblyDependencyResolver(presentationFrameworkPath);
@@ -1943,6 +1984,15 @@ public static class Program
             if (string.Equals(assemblyName.Name, "PresentationCore", StringComparison.Ordinal))
             {
                 return LoadFromAssemblyPath(_presentationCorePath);
+            }
+
+            string realWpfAssemblyPath = Path.Combine(
+                _wpfAssemblyDirectory,
+                $"{assemblyName.Name}.dll");
+
+            if (File.Exists(realWpfAssemblyPath))
+            {
+                return LoadFromAssemblyPath(realWpfAssemblyPath);
             }
 
             string outputAssemblyPath = Path.Combine(

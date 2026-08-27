@@ -1078,45 +1078,63 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
             return;
         }
 
-        if (!_usesExternalNativeLoopPump && PresentedFrameCount == 0)
-        {
-            // Complete cold-start dispatcher work before polling a potentially
-            // large native pointer backlog. Once the first frame is visible,
-            // owner-driven windows poll native input first for responsiveness.
-            ProcessDispatcherQueueCore();
-            if (!ShouldKeepPortableNativeRunLoopAlive())
-            {
-                DisposeDeferredNativeWindowIfNeeded();
-                return;
-            }
-        }
-
-        bool pumpExternalRenderBeforeEvents = ShouldPumpExternalNativeRenderBeforeEvents(
+        bool pumpRenderBeforeEvents = ShouldPumpNativeRenderBeforeEvents(
             _usesExternalNativeLoopPump,
+            HasPresentedFrame,
             ShouldPumpNativeRender());
-        if (pumpExternalRenderBeforeEvents)
+        if (pumpRenderBeforeEvents)
         {
             // Externally pumped popup windows need their retained hit-test state
-            // current before native input is dispatched. The owner-driven main
-            // loop instead polls native events first so queued dispatcher work
-            // cannot delay clicks, activation, or an interactive window move.
-            ProcessDispatcherQueueCore();
-            if (!ShouldKeepPortableNativeRunLoopAlive())
+            // current before native input is dispatched. Owner-driven windows
+            // also present their first pending frame before an event-driven wait:
+            // a wake posted before GLFW enters WaitEvents can otherwise be lost.
+            // After cold start, owner-driven windows resume input-first polling.
+            if (_usesExternalNativeLoopPump)
             {
-                DisposeDeferredNativeWindowIfNeeded();
-                return;
+                ProcessDispatcherQueueCore();
+                if (!ShouldKeepPortableNativeRunLoopAlive())
+                {
+                    DisposeDeferredNativeWindowIfNeeded();
+                    return;
+                }
             }
 
+            // The owner loop must not drain WPF's self-rescheduling dispatcher
+            // before its first presentation. The bounded dispatcher turn after
+            // native polling will process that work without starving DoRender.
             NativeRenderPumpCount++;
+            TraceNativeLoop("pre-event render entering: " + CreateNativeLoopTraceState());
             window.DoRender();
+            TraceNativeLoop("pre-event render leaving: " + CreateNativeLoopTraceState());
+        }
+
+        bool restoreEventDriven = window.IsEventDriven;
+        bool useNonBlockingNativePoll = ShouldUseNonBlockingNativeEventPoll(
+            _isNativeLoopRunning,
+            _usesExternalNativeLoopPump,
+            restoreEventDriven);
+        if (useNonBlockingNativePoll)
+        {
+            // RunPortableNativeLoop already applies bounded active/idle sleeps.
+            // Poll here so dispatcher/render work posted immediately before an
+            // event wait cannot lose its GLFW empty-event wakeup indefinitely.
+            window.IsEventDriven = false;
         }
 
         try
         {
+            TraceNativeLoop(
+                $"native event poll entering: nonBlocking={useNonBlockingNativePoll}, " +
+                CreateNativeLoopTraceState());
             window.DoEvents();
+            TraceNativeLoop("native event poll leaving: " + CreateNativeLoopTraceState());
         }
         finally
         {
+            if (useNonBlockingNativePoll)
+            {
+                window.IsEventDriven = restoreEventDriven;
+            }
             ProcessDeferredNativeWindowDisposals();
         }
 
@@ -1706,6 +1724,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         _isRendering = true;
         try
         {
+            TraceNativeLoop("render callback entering: " + CreateNativeLoopTraceState());
             if (_isDisposed)
             {
                 return;
@@ -1725,7 +1744,23 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
 
             var geometry = ResolveCurrentRenderSurfaceGeometry();
             SynchronizePortablePresentationSourceGeometry(geometry);
-            ProcessDispatcherQueueCore();
+            bool skipNativeMilColdStartDispatcher =
+                _options.RendererMode == ProGpuWpfRendererMode.NativeMilWgpu &&
+                !HasPresentedFrame;
+            if (!skipNativeMilColdStartDispatcher)
+            {
+                ProcessDispatcherQueueCore();
+            }
+            else
+            {
+                // The typed retained root is already complete enough for its
+                // initial native MIL snapshot. Process self-rescheduling WPF
+                // callbacks after that first frame is visible.
+                TraceNativeLoop(
+                    "native MIL cold-start dispatcher deferred: " +
+                    CreateNativeLoopTraceState());
+            }
+            TraceNativeLoop("render dispatcher drained: " + CreateNativeLoopTraceState());
 
             if (_target == null || _window == null || _target.Context.Surface == null)
             {
@@ -1768,6 +1803,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
 
             if (_options.RendererMode == ProGpuWpfRendererMode.NativeMilWgpu)
             {
+                TraceNativeLoop("native MIL render entering: " + CreateNativeLoopTraceState());
                 if (RenderNativeMilFrame(
                         pixelWidth,
                         pixelHeight,
@@ -1788,6 +1824,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
                         dpiScale));
                     TraceRenderSurfaceGeometryIfRequested(geometry);
                 }
+                TraceNativeLoop("native MIL render leaving: " + CreateNativeLoopTraceState());
                 return;
             }
 
@@ -1933,6 +1970,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         finally
         {
             _isRendering = false;
+            TraceNativeLoop("render callback leaving: " + CreateNativeLoopTraceState());
         }
     }
 
@@ -2044,6 +2082,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
             _forceFullWpfReplay;
         if (update)
         {
+            TraceNativeLoop("native MIL session update entering: " + CreateNativeLoopTraceState());
             Vector4 clear = _target.Compositor.ClearColor;
             LastNativeMilSessionUpdate = _nativeMilSession.Update(
                 rootVisual,
@@ -2055,11 +2094,13 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
             _nativeMilCompiledPixelHeight = pixelHeight;
             _target.WpfInvalidationTracker.ConsumeDirty();
             _forceFullWpfReplay = false;
+            TraceNativeLoop("native MIL session update leaving: " + CreateNativeLoopTraceState());
         }
 
         ulong generation = NextNativeMilIdentity(ref _nativeMilGeneration);
         ulong requestSerial = NextNativeMilIdentity(
             ref _nativeMilRequestSerial);
+        TraceNativeLoop("native MIL compile entering: " + CreateNativeLoopTraceState());
         WpfNativeMilSessionFrame frame = _nativeMilSession.CompileFrame(
             1,
             generation,
@@ -2068,8 +2109,10 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
             dpiScaleX,
             dpiScaleY);
         LastNativeMilSessionFrame = frame;
+        TraceNativeLoop("native MIL compile leaving: " + CreateNativeLoopTraceState());
         LastNativeMilSceneUpdateMetrics = _nativeMilCompositor.UpdateScene(
             frame.Scene.Stream);
+        TraceNativeLoop("native MIL scene installed: " + CreateNativeLoopTraceState());
 
         bool presented = PresentNativeMil(
             _nativeMilCompositor,
@@ -2103,9 +2146,13 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         }
 
         var surfaceTexture = new SurfaceTexture();
+        TraceNativeLoop("native MIL acquire entering: " + CreateNativeLoopTraceState());
         _target.Context.Wgpu.SurfaceGetCurrentTexture(
             _target.Context.Surface,
             &surfaceTexture);
+        TraceNativeLoop(
+            $"native MIL acquire leaving: status={surfaceTexture.Status}, " +
+            CreateNativeLoopTraceState());
         if (surfaceTexture.Status != SurfaceGetCurrentTextureStatus.Success)
         {
             if (surfaceTexture.Texture != null)
@@ -2135,6 +2182,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         }
         try
         {
+            TraceNativeLoop("native MIL submission entering: " + CreateNativeLoopTraceState());
             LastNativeMilFrameMetrics = compositor.RenderScene(
                 new NativeSceneExternalTarget(
                     (nuint)targetView,
@@ -2144,7 +2192,9 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
                 sceneId,
                 generation,
                 clearColor);
+            TraceNativeLoop("native MIL submission leaving: " + CreateNativeLoopTraceState());
             _target.Context.Wgpu.SurfacePresent(_target.Context.Surface);
+            TraceNativeLoop("native MIL present complete: " + CreateNativeLoopTraceState());
             return true;
         }
         finally
@@ -3988,10 +4038,20 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         _usesExternalNativeLoopPump = true;
     }
 
-    internal static bool ShouldPumpExternalNativeRenderBeforeEvents(
+    internal static bool ShouldPumpNativeRenderBeforeEvents(
         bool usesExternalNativeLoopPump,
+        bool hasPresentedFrame,
         bool shouldPumpNativeRender) =>
-        usesExternalNativeLoopPump && shouldPumpNativeRender;
+        !hasPresentedFrame ||
+        (usesExternalNativeLoopPump && shouldPumpNativeRender);
+
+    internal static bool ShouldUseNonBlockingNativeEventPoll(
+        bool isNativeLoopRunning,
+        bool usesExternalNativeLoopPump,
+        bool isEventDriven) =>
+        isNativeLoopRunning &&
+        !usesExternalNativeLoopPump &&
+        isEventDriven;
 
     private static bool IsRecoverableDispatcherRenderException(Exception exception)
     {
