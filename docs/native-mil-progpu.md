@@ -2743,6 +2743,15 @@ regressed 1x from 1.0949/5.1557 to 1.1324/5.3494 ms and worsened frame p95.
 All eight 120-frame processes retained the managed/native hashes above. The
 qualified implementation therefore avoids the added metadata traffic.
 
+A subsequent crossing-layout candidate split positive and negative winding
+positions into separate `float` arrays and compile-time-specialized their
+NEON/SSE2 updates. It remained byte-exact at `5B6EF4F70536C862` (1x) and
+`706B261418EC5C3B` (2x), but initial 120-frame submission/frame p50 regressed
+1.0344/5.3215 -> 1.5310/5.9844 ms at 1x and
+1.6587/5.0745 -> 2.5752/6.2036 ms at 2x, with worse p95 values. The candidate
+was rejected immediately; the qualified interleaved `{x,direction}` crossing
+layout remains unchanged.
+
 A first-reset branch candidate then improved p50 at both DPIs but regressed 2x
 frame p95 by 1.6%, so it was rejected. Accepted ProGPU `deb50413` instead folds
 the exact NEON 0-or-1 lane reduction and removes one vector add per pixel with
