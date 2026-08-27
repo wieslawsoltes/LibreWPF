@@ -3317,6 +3317,14 @@ native-backend build, and the wgpu-native/Dawn package consumer remain green.
 Nonuniform X/Y DPI and compact `PushGuidelineY1/Y2` lowering remain explicit
 fail-closed gaps.
 
+ProGPU documentation checkpoint `d1b585e3` records the next SIMD
+qualification. A proposed NEON multiply-accumulate reduced to an already
+rejected direction-mask form in Clang output. A distinct packed crossing load
+remained pixel-exact but regressed forced-SIMD native submission p50 by 16.9%
+at 1x and 26.5% at 2x in the preliminary 120-frame component gates, so it was
+reverted without extending a decisively negative candidate. The qualified
+folded two-pixel NEON/SSE2 kernel remains unchanged.
+
 ## Next parity gates
 
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested
