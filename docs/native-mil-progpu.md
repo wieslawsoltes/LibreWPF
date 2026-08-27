@@ -3214,7 +3214,11 @@ retained 3,304 red-dominant and 3,304 blue-dominant pixels with maximum deltas
 of 134. Qualified provider hashes are
 `D00CEAB00E6E06C18E49D3952DB80A2593B53727BA23B67EB1914013E76AC828` and
 `F17C61D361C9C5F51B19E4B602FA052C55A614895886B27DBDD5E8C7B6182FC5`.
-The superproject now tracks ProGPU documentation checkpoint `fd7ac143`.
+ProGPU checkpoint `711e169f` additionally runs that exact five-node program in
+the provider-resolved Metal vector-mask fixture. Live Apple M3 Pro readback
+asserts surviving cyan coverage, a clear Difference hole, and a clear final-XOR
+island; the complete configured native/provider matrix passes 12/12. The
+superproject now tracks ProGPU checkpoint `711e169f`.
 
 ## Next parity gates
 
