@@ -2921,10 +2921,19 @@ CTest executables and generated-contract/export allowlists also pass. The live
 Apple Metal MIL gate executes ambient-plus-point and ambient-plus-spot retained
 generations and reads center RGBA `91/85/0/255` and `103/78/0/255`, distinct
 from the legacy `77/51/0/255` reference. The executable PresentationCore
-exporter suite remains 2/2 on macOS. The portable managed bridge still fails
-closed for point, spot, and multiple lights until its reusable managed
-extension payload gains the same bounded array; it does not silently substitute
-the default directional light.
+exporter suite remains 2/2 on macOS.
+
+The portable managed route now has the corresponding reusable ProGPU
+implementation. `Viewport3DCompilationPayload` carries up to 16 typed lights;
+the managed compositor reuses an 80-byte-record scratch array and per-viewport
+GPU storage buffer, and both its solid/material and wireframe shaders execute
+WPF-compatible ambient, directional, point, and spot lighting. Zero explicit
+lights deliberately retains ProGPU's existing presentation-oriented PBR light
+rig for non-WPF callers. LibreWPF now validates and maps the neutral typed DTOs
+directly, including WPF cone clamping and attenuation rules, without reflection.
+A real Metal headless render verifies red point-light and blue spot-light output,
+while the bridge slice verifies all three lights survive into the managed
+payload.
 
 The WPF MCG `csp` tool also rebuilds cleanly and its unmodified `Resources.rsp`
 regenerates all 378 resource outputs into an isolated temporary tree. The

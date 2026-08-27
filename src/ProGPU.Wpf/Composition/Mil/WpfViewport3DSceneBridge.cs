@@ -46,8 +46,7 @@ public static class WpfViewport3DSceneBridge
         if (scene.Camera == null
             || scene.Viewport.IsEmpty
             || scene.Viewport.Width <= 0
-            || scene.Viewport.Height <= 0
-            || HasUnsupportedPortableLights(scene.Lights))
+            || scene.Viewport.Height <= 0)
         {
             return false;
         }
@@ -68,6 +67,10 @@ public static class WpfViewport3DSceneBridge
             AmbientColor = ToVector3(scene.AmbientColor),
             AmbientIntensity = (float)Math.Clamp(scene.AmbientIntensity, 0, double.MaxValue)
         };
+        if (!TryAddPortableLights(scene.Lights, payload))
+        {
+            return false;
+        }
 
         if (textureCache != null)
         {
@@ -120,37 +123,134 @@ public static class WpfViewport3DSceneBridge
         return payload.Meshes.Count > 0;
     }
 
-    private static bool HasUnsupportedPortableLights(
-        PortableViewport3DLight[]? lights)
+    private static bool TryAddPortableLights(
+        PortableViewport3DLight[]? lights,
+        global::ProGPU.Scene.Extensions.Viewport3DCompilationPayload payload)
     {
         if (lights is null || lights.Length == 0)
         {
+            return true;
+        }
+        if (lights.Length > 16)
+        {
             return false;
         }
-
-        var ambientCount = 0;
-        var directionalCount = 0;
         foreach (PortableViewport3DLight? light in lights)
         {
-            if (light is null)
+            if (light is null ||
+                !TryToFiniteVector4(light.Color, out Vector4 color))
             {
-                return true;
+                return false;
             }
-
+            var entry = new global::ProGPU.Scene.Extensions.Light3DCompilationEntry
+            {
+                Kind = (global::ProGPU.Scene.Extensions.LightKind3D)light.Kind,
+                Color = color
+            };
             switch (light.Kind)
             {
                 case PortableViewport3DLightKind.Ambient:
-                    ambientCount++;
                     break;
                 case PortableViewport3DLightKind.Directional:
-                    directionalCount++;
+                    if (!TryToFiniteVector3(
+                            light.Direction, out Vector3 direction) ||
+                        direction.LengthSquared() <= 0.000001f)
+                    {
+                        return false;
+                    }
+                    entry.Direction = Vector3.Normalize(direction);
+                    break;
+                case PortableViewport3DLightKind.Point:
+                case PortableViewport3DLightKind.Spot:
+                    if (!TryPopulatePointLight(light, ref entry))
+                    {
+                        return false;
+                    }
+                    if (light.Kind == PortableViewport3DLightKind.Spot)
+                    {
+                        if (!TryToFiniteVector3(
+                                light.Direction, out Vector3 spotDirection) ||
+                            spotDirection.LengthSquared() <= 0.000001f ||
+                            !TryToFiniteFloat(
+                                light.InnerConeAngle, out float innerAngle) ||
+                            !TryToFiniteFloat(
+                                light.OuterConeAngle, out float outerAngle))
+                        {
+                            return false;
+                        }
+                        outerAngle = Math.Clamp(outerAngle, 0f, 180f);
+                        innerAngle = Math.Min(
+                            Math.Clamp(innerAngle, 0f, 180f),
+                            outerAngle);
+                        entry.Direction = Vector3.Normalize(spotDirection);
+                        entry.InnerConeCosine = MathF.Cos(
+                            innerAngle * (MathF.PI / 360f));
+                        entry.OuterConeCosine = MathF.Cos(
+                            outerAngle * (MathF.PI / 360f));
+                    }
                     break;
                 default:
-                    return true;
+                    return false;
             }
+            payload.Lights.Add(entry);
         }
+        return true;
+    }
 
-        return ambientCount > 1 || directionalCount > 1;
+    private static bool TryPopulatePointLight(
+        PortableViewport3DLight source,
+        ref global::ProGPU.Scene.Extensions.Light3DCompilationEntry target)
+    {
+        if (!TryToFiniteVector3(source.Position, out Vector3 position) ||
+            (!double.IsPositiveInfinity(source.Range) &&
+                !TryToFiniteFloat(source.Range, out _)) ||
+            !TryToFiniteFloat(
+                source.ConstantAttenuation, out float constant) ||
+            !TryToFiniteFloat(
+                source.LinearAttenuation, out float linear) ||
+            !TryToFiniteFloat(
+                source.QuadraticAttenuation, out float quadratic))
+        {
+            return false;
+        }
+        float range = double.IsPositiveInfinity(source.Range)
+            ? float.MaxValue
+            : (float)source.Range;
+        if (range <= 0f || constant < 0f || linear < 0f || quadratic < 0f ||
+            (constant == 0f && linear == 0f && quadratic == 0f))
+        {
+            return false;
+        }
+        target.Position = position;
+        target.Range = range;
+        target.ConstantAttenuation = constant;
+        target.LinearAttenuation = linear;
+        target.QuadraticAttenuation = quadratic;
+        return true;
+    }
+
+    private static bool TryToFiniteVector3(
+        PortableVector3 value,
+        out Vector3 result)
+    {
+        result = ToVector3(value);
+        return float.IsFinite(result.X) && float.IsFinite(result.Y) &&
+            float.IsFinite(result.Z);
+    }
+
+    private static bool TryToFiniteVector4(
+        PortableColor4 value,
+        out Vector4 result)
+    {
+        result = ToVector4(value);
+        return float.IsFinite(result.X) && float.IsFinite(result.Y) &&
+            float.IsFinite(result.Z) && float.IsFinite(result.W);
+    }
+
+    private static bool TryToFiniteFloat(double value, out float result)
+    {
+        result = (float)value;
+        return float.IsFinite(result);
     }
 
     private static bool TryCreateCameraMatrices(

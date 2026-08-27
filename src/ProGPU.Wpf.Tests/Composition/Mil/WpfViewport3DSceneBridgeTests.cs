@@ -47,7 +47,7 @@ public sealed class WpfViewport3DSceneBridgeTests
     }
 
     [Fact]
-    public void TryCreateReplayDataFailsClosedForPointLightUntilNativeLightBufferLands()
+    public void TryCreateReplayDataPreservesPointAndSpotLightsForManagedGpuBuffer()
     {
         var viewport = new PortableViewport3DVisual
         {
@@ -55,16 +55,47 @@ public sealed class WpfViewport3DSceneBridgeTests
             [
                 new PortableViewport3DLight
                 {
+                    Kind = PortableViewport3DLightKind.Ambient,
+                    Color = new PortableColor4(0.1, 0.2, 0.3, 1)
+                },
+                new PortableViewport3DLight
+                {
                     Kind = PortableViewport3DLightKind.Point,
-                    Position = new PortableVector3(0, 0, 2)
+                    Position = new PortableVector3(0, 0, 2),
+                    Range = 25,
+                    LinearAttenuation = 0.25
+                },
+                new PortableViewport3DLight
+                {
+                    Kind = PortableViewport3DLightKind.Spot,
+                    Position = new PortableVector3(1, 2, 3),
+                    Direction = new PortableVector3(0, 0, -2),
+                    Range = 40,
+                    InnerConeAngle = 180,
+                    OuterConeAngle = 90
                 }
             ]
         };
 
-        Assert.False(WpfViewport3DSceneBridge.TryCreateReplayData(
+        Assert.True(WpfViewport3DSceneBridge.TryCreateReplayData(
             viewport,
             out var replayData));
-        Assert.Equal(default, replayData);
+        Assert.Equal(3, replayData.Payload.Lights.Count);
+        Assert.Equal(
+            global::ProGPU.Scene.Extensions.LightKind3D.Ambient,
+            replayData.Payload.Lights[0].Kind);
+        Assert.Equal(
+            global::ProGPU.Scene.Extensions.LightKind3D.Point,
+            replayData.Payload.Lights[1].Kind);
+        Assert.Equal(25f, replayData.Payload.Lights[1].Range);
+        Assert.Equal(0.25f,
+            replayData.Payload.Lights[1].LinearAttenuation);
+        var spot = replayData.Payload.Lights[2];
+        Assert.Equal(
+            global::ProGPU.Scene.Extensions.LightKind3D.Spot,
+            spot.Kind);
+        Assert.Equal(-1f, spot.Direction.Z);
+        Assert.Equal(spot.OuterConeCosine, spot.InnerConeCosine);
     }
 
     [Fact]
