@@ -3477,6 +3477,21 @@ its already-qualified NEON/SSE2 two-pixel kernels. Detailed benchmark method,
 research sources, rerun commands, and rejected alternatives live in ProGPU's
 `docs/GLYPH_CPU_FALLBACK_SIMD_RESEARCH.md`.
 
+ProGPU checkpoint `e07e1411` applies the same intrinsic requirement to the
+shared managed PCM16 media hot path. Interleaved stereo gain/balance widens
+signed samples into `Vector256<int>` or `Vector128<int>` lanes, performs exact
+Q15 truncate-toward-zero scaling and saturation, narrows in place, and leaves
+only a bounded scalar tail. Identity and zero blocks keep direct fast paths.
+The differential test covers signed extrema, both channel offsets, vector
+boundaries, zero/identity/asymmetric/saturating levels, and seeded full-range
+data. On Apple M3 Pro, four alternating 48,000-frame Release runs measured a
+median-of-run p50 of `25.537 us/block` for SIMD versus `150.519 us/block` for
+the independent scalar oracle (5.89x throughput, 83.0% lower latency), with
+exact output and zero measured allocation for both. ProGPU's
+`--pcm16-simd [--scalar]` benchmark and
+`docs/GPU_COMPUTE_FALLBACK_POLICY.md` preserve the rerun method and scope the
+claim to the qualified ARM64 runtime.
+
 The Windows host harness now accepts `PROGPU_WPF_REAL_ASSEMBLY_DIR` so a
 deployment bundle can load one adjacent, source-built PresentationCore/
 PresentationFramework graph instead of inferring repository artifact paths.
