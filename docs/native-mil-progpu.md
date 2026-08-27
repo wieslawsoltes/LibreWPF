@@ -2761,6 +2761,16 @@ frame p50 regressed 5.6484 -> 5.8287 ms even though submission and frame p95
 improved. The source retains the qualified compare/invert/shift flag formation
 and folded lane reduction.
 
+The following pixel-pair origin reassociation candidate was exact but also
+rejected. It replaced the second pixel's independent add/subtract/multiply
+chain with `first_glyph_x + inverse_scale`. Eight alternating 120-frame runs
+per variant retained zero channel difference and hashes `5B6EF4F70536C862`
+(1x) and `706B261418EC5C3B` (2x). Median submission p50 changed only
+1.4806 -> 1.4765 ms and 2.2561 -> 2.2521 ms, while synchronized-frame p50
+regressed 5.2713 -> 5.3665 ms at 1x and 6.1248 -> 6.1985 ms at 2x; 1x frame
+p95 also worsened 8.0932 -> 8.1285 ms. The qualified implementation retains
+the independently evaluated second origin and its established edge rounding.
+
 The next reflection-free render-data slice preserves canonical `PushClip` and
 `PushOpacityMask` scopes in the native MIL stream. Geometry and mask resources
 resolve only through typed portable contracts, opacity-mask bounds retain the
