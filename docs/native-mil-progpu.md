@@ -3401,6 +3401,18 @@ identity changes, and malformed framing. Direct compositor target binding and
 an explicit runtime selector remain separate gates; the current managed
 portable renderer is still the default.
 
+The retained session also diffs typed sidebands before crossing the native
+ABI. Bitmap metadata and RGBA8 bytes, glyph face/style metadata and SFNT bytes,
+and drawing-image, drawing-group, and visual-cache bounds are compared by
+value; unchanged payloads are not rebound or recopied. `AppliedSidebandCount`
+reports how many bindings a session update actually applied. Sideband handle
+count or ordering changes rebuild the transactional channel so removed or
+replaced bindings cannot survive as stale native state. Viewport3D scenes are
+still rebound on each dirty producer update until that contract publishes a
+canonical revision or content hash; comparing struct padding or managed array
+identity would risk skipping real scene changes. Focused tests cover typed
+handle topology plus byte-exact bitmap and font equality.
+
 ProGPU checkpoint `20a7438b` adds the reusable target boundary required by the
 host. `NativeSceneExternalTarget` carries a host-owned WebGPU texture-view
 identity and pixel dimensions into the existing provider-resolved
@@ -3445,11 +3457,12 @@ explicit host features remain follow-up gates.
    bounds, and broader
    arbitrary-geometry clip/mask/effect gates on the now-executable local-space
    cache primitive.
-4. Extend the retained compiler session with typed sideband revision tracking,
-   stable cross-frame object handles, and damage production. The current
-   deterministic snapshot differ already retains the native channel and emits
-   mutable packet deltas, but producer-side full snapshot construction and
-   unchanged bitmap/font sideband avoidance remain to optimize.
+4. Extend the retained compiler session with a canonical Viewport3D sideband
+   revision/hash, stable cross-frame object handles, damage production, and
+   producer-side incremental snapshot construction. The current deterministic
+   snapshot differ retains the native channel, emits mutable packet deltas,
+   and avoids unchanged bitmap/font/bounds sideband ABI calls and payload
+   copies.
 5. Extend the now-bound native host lane with popup/window-region/viewport and
    nonuniform presentation support, a provider-resolved Dawn surface owner,
    live sample/package validation, and pixel comparison against the managed

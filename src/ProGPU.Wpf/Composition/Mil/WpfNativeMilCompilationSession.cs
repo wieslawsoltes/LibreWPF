@@ -9,7 +9,8 @@ namespace System.Windows.Media.ProGPU.Composition.Mil;
 public readonly record struct WpfNativeMilSessionUpdate(
     uint TargetHandle,
     bool RecreatedChannel,
-    NativeMilBatchMetrics BatchMetrics);
+    NativeMilBatchMetrics BatchMetrics,
+    uint AppliedSidebandCount);
 
 /// <summary>
 /// Couples a stateful native-MIL request with its compiled semantic scene.
@@ -114,7 +115,8 @@ public sealed class WpfNativeMilCompilationSession : IDisposable
         }
 
         NativeMilBatchDelta delta = CreateDelta(_lastBatch, batch);
-        if (delta.RequiresRebuild)
+        if (delta.RequiresRebuild ||
+            !HasStableSidebandTopology(_lastBatch, batch))
         {
             return ReplaceChannel(batch);
         }
@@ -126,7 +128,14 @@ public sealed class WpfNativeMilCompilationSession : IDisposable
             {
                 metrics = _channel.Apply(delta.Bytes);
             }
-            WpfNativeMilSceneCompiler.ApplySidebands(_channel, batch);
+            uint appliedSidebandCount = ApplyChangedSidebands(
+                _channel, _lastBatch, batch);
+            _lastBatch = batch;
+            return new WpfNativeMilSessionUpdate(
+                batch.TargetHandle,
+                false,
+                metrics,
+                appliedSidebandCount);
         }
         catch
         {
@@ -137,9 +146,6 @@ public sealed class WpfNativeMilCompilationSession : IDisposable
             throw;
         }
 
-        _lastBatch = batch;
-        return new WpfNativeMilSessionUpdate(
-            batch.TargetHandle, false, metrics);
     }
 
     internal static NativeMilBatchDelta CreateDelta(
@@ -246,8 +252,225 @@ public sealed class WpfNativeMilCompilationSession : IDisposable
         _requiresRebuild = false;
         previous?.Dispose();
         return new WpfNativeMilSessionUpdate(
-            batch.TargetHandle, true, metrics);
+            batch.TargetHandle,
+            true,
+            metrics,
+            CountSidebands(batch));
     }
+
+    private static uint ApplyChangedSidebands(
+        NativeMilChannel channel,
+        WpfNativeMilBatch previous,
+        WpfNativeMilBatch current)
+    {
+        uint appliedCount = 0;
+        IReadOnlyList<WpfNativeMilBitmapSource> previousBitmaps =
+            previous.BitmapSources ?? Array.Empty<WpfNativeMilBitmapSource>();
+        IReadOnlyList<WpfNativeMilBitmapSource> currentBitmaps =
+            current.BitmapSources ?? Array.Empty<WpfNativeMilBitmapSource>();
+        for (int i = 0; i < currentBitmaps.Count; ++i)
+        {
+            WpfNativeMilBitmapSource oldValue = previousBitmaps[i];
+            WpfNativeMilBitmapSource newValue = currentBitmaps[i];
+            if (SidebandEquals(oldValue, newValue))
+            {
+                continue;
+            }
+            channel.SetBitmapSourceRgba8(
+                newValue.Handle,
+                newValue.Width,
+                newValue.Height,
+                newValue.RowBytes,
+                newValue.Rgba8Pixels);
+            ++appliedCount;
+        }
+
+        IReadOnlyList<WpfNativeMilGlyphRunFont> previousFonts =
+            previous.GlyphRunFonts ?? Array.Empty<WpfNativeMilGlyphRunFont>();
+        IReadOnlyList<WpfNativeMilGlyphRunFont> currentFonts =
+            current.GlyphRunFonts ?? Array.Empty<WpfNativeMilGlyphRunFont>();
+        for (int i = 0; i < currentFonts.Count; ++i)
+        {
+            WpfNativeMilGlyphRunFont oldValue = previousFonts[i];
+            WpfNativeMilGlyphRunFont newValue = currentFonts[i];
+            if (SidebandEquals(oldValue, newValue))
+            {
+                continue;
+            }
+            channel.SetGlyphRunFontSfnt(
+                newValue.Handle,
+                newValue.FontData.Span,
+                newValue.FaceIndex,
+                newValue.StyleSimulations);
+            ++appliedCount;
+        }
+
+        appliedCount += ApplyChangedDrawingImageBounds(
+            channel, previous, current);
+        appliedCount += ApplyChangedDrawingGroupBounds(
+            channel, previous, current);
+        appliedCount += ApplyChangedVisualCacheBounds(
+            channel, previous, current);
+
+        // Viewport scenes contain several pointer-free struct arrays. Until
+        // they publish a canonical content revision/hash, rebind them on a
+        // dirty producer update rather than comparing padding bytes or array
+        // identities and risking a stale 3D scene.
+        foreach (WpfNativeMilViewport3DScene viewport in
+                 current.Viewport3DScenes ??
+                 Array.Empty<WpfNativeMilViewport3DScene>())
+        {
+            channel.SetViewport3DScene(viewport.Handle, viewport.Scene);
+            ++appliedCount;
+        }
+        return appliedCount;
+    }
+
+    private static uint ApplyChangedDrawingImageBounds(
+        NativeMilChannel channel,
+        WpfNativeMilBatch previous,
+        WpfNativeMilBatch current)
+    {
+        IReadOnlyList<WpfNativeMilDrawingImageBounds> oldValues =
+            previous.DrawingImageBounds ??
+            Array.Empty<WpfNativeMilDrawingImageBounds>();
+        IReadOnlyList<WpfNativeMilDrawingImageBounds> newValues =
+            current.DrawingImageBounds ??
+            Array.Empty<WpfNativeMilDrawingImageBounds>();
+        uint count = 0;
+        for (int i = 0; i < newValues.Count; ++i)
+        {
+            if (oldValues[i].Bounds == newValues[i].Bounds)
+            {
+                continue;
+            }
+            channel.SetDrawingImageBounds(
+                newValues[i].Handle, newValues[i].Bounds);
+            ++count;
+        }
+        return count;
+    }
+
+    private static uint ApplyChangedDrawingGroupBounds(
+        NativeMilChannel channel,
+        WpfNativeMilBatch previous,
+        WpfNativeMilBatch current)
+    {
+        IReadOnlyList<WpfNativeMilDrawingGroupBounds> oldValues =
+            previous.DrawingGroupBounds ??
+            Array.Empty<WpfNativeMilDrawingGroupBounds>();
+        IReadOnlyList<WpfNativeMilDrawingGroupBounds> newValues =
+            current.DrawingGroupBounds ??
+            Array.Empty<WpfNativeMilDrawingGroupBounds>();
+        uint count = 0;
+        for (int i = 0; i < newValues.Count; ++i)
+        {
+            if (oldValues[i].Bounds == newValues[i].Bounds)
+            {
+                continue;
+            }
+            channel.SetDrawingGroupBounds(
+                newValues[i].Handle, newValues[i].Bounds);
+            ++count;
+        }
+        return count;
+    }
+
+    private static uint ApplyChangedVisualCacheBounds(
+        NativeMilChannel channel,
+        WpfNativeMilBatch previous,
+        WpfNativeMilBatch current)
+    {
+        IReadOnlyList<WpfNativeMilVisualCacheBounds> oldValues =
+            previous.VisualCacheBounds ??
+            Array.Empty<WpfNativeMilVisualCacheBounds>();
+        IReadOnlyList<WpfNativeMilVisualCacheBounds> newValues =
+            current.VisualCacheBounds ??
+            Array.Empty<WpfNativeMilVisualCacheBounds>();
+        uint count = 0;
+        for (int i = 0; i < newValues.Count; ++i)
+        {
+            if (oldValues[i].Bounds == newValues[i].Bounds)
+            {
+                continue;
+            }
+            channel.SetVisualCacheBounds(
+                newValues[i].Handle, newValues[i].Bounds);
+            ++count;
+        }
+        return count;
+    }
+
+    internal static bool HasStableSidebandTopology(
+        WpfNativeMilBatch previous,
+        WpfNativeMilBatch current) =>
+        HasStableHandles(previous.BitmapSources, current.BitmapSources) &&
+        HasStableHandles(previous.GlyphRunFonts, current.GlyphRunFonts) &&
+        HasStableHandles(
+            previous.DrawingImageBounds, current.DrawingImageBounds) &&
+        HasStableHandles(
+            previous.DrawingGroupBounds, current.DrawingGroupBounds) &&
+        HasStableHandles(
+            previous.VisualCacheBounds, current.VisualCacheBounds) &&
+        HasStableHandles(previous.Viewport3DScenes, current.Viewport3DScenes);
+
+    internal static bool SidebandEquals(
+        WpfNativeMilBitmapSource previous,
+        WpfNativeMilBitmapSource current) =>
+        previous.Handle == current.Handle &&
+        previous.Width == current.Width &&
+        previous.Height == current.Height &&
+        previous.RowBytes == current.RowBytes &&
+        previous.Rgba8Pixels.AsSpan().SequenceEqual(current.Rgba8Pixels);
+
+    internal static bool SidebandEquals(
+        WpfNativeMilGlyphRunFont previous,
+        WpfNativeMilGlyphRunFont current) =>
+        previous.Handle == current.Handle &&
+        previous.FaceIndex == current.FaceIndex &&
+        previous.StyleSimulations == current.StyleSimulations &&
+        previous.FontData.Span.SequenceEqual(current.FontData.Span);
+
+    private static bool HasStableHandles<T>(
+        IReadOnlyList<T>? previous,
+        IReadOnlyList<T>? current)
+        where T : class
+    {
+        int previousCount = previous?.Count ?? 0;
+        int currentCount = current?.Count ?? 0;
+        if (previousCount != currentCount)
+        {
+            return false;
+        }
+        for (int i = 0; i < currentCount; ++i)
+        {
+            if (GetHandle(previous![i]) != GetHandle(current![i]))
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static uint GetHandle<T>(T value) where T : class => value switch
+    {
+        WpfNativeMilBitmapSource item => item.Handle,
+        WpfNativeMilGlyphRunFont item => item.Handle,
+        WpfNativeMilDrawingImageBounds item => item.Handle,
+        WpfNativeMilDrawingGroupBounds item => item.Handle,
+        WpfNativeMilVisualCacheBounds item => item.Handle,
+        WpfNativeMilViewport3DScene item => item.Handle,
+        _ => throw new ArgumentOutOfRangeException(nameof(value))
+    };
+
+    private static uint CountSidebands(WpfNativeMilBatch batch) => checked(
+        (uint)(
+            (batch.BitmapSources?.Count ?? 0) +
+            (batch.GlyphRunFonts?.Count ?? 0) +
+            (batch.DrawingImageBounds?.Count ?? 0) +
+            (batch.DrawingGroupBounds?.Count ?? 0) +
+            (batch.VisualCacheBounds?.Count ?? 0) +
+            (batch.Viewport3DScenes?.Count ?? 0)));
 
     private static Packet ReadPacket(ReadOnlySpan<byte> bytes, int offset)
     {

@@ -124,13 +124,14 @@ public sealed class WpfNativeMilSceneCompiler
         return batchMetrics;
     }
 
-    internal static void ApplySidebands(
+    internal static uint ApplySidebands(
         NativeMilChannel channel,
         WpfNativeMilBatch batch)
     {
         ArgumentNullException.ThrowIfNull(channel);
         ArgumentNullException.ThrowIfNull(batch);
 
+        uint appliedCount = 0;
         foreach (WpfNativeMilBitmapSource bitmap in
                  batch.BitmapSources ?? Array.Empty<WpfNativeMilBitmapSource>())
         {
@@ -140,6 +141,7 @@ public sealed class WpfNativeMilSceneCompiler
                 bitmap.Height,
                 bitmap.RowBytes,
                 bitmap.Rgba8Pixels);
+            ++appliedCount;
         }
         foreach (WpfNativeMilGlyphRunFont glyphRunFont in
                  batch.GlyphRunFonts ??
@@ -150,6 +152,7 @@ public sealed class WpfNativeMilSceneCompiler
                 glyphRunFont.FontData.Span,
                 glyphRunFont.FaceIndex,
                 glyphRunFont.StyleSimulations);
+            ++appliedCount;
         }
         foreach (WpfNativeMilDrawingImageBounds drawingImage in
                  batch.DrawingImageBounds ??
@@ -157,6 +160,7 @@ public sealed class WpfNativeMilSceneCompiler
         {
             channel.SetDrawingImageBounds(
                 drawingImage.Handle, drawingImage.Bounds);
+            ++appliedCount;
         }
         foreach (WpfNativeMilDrawingGroupBounds drawingGroup in
                  batch.DrawingGroupBounds ??
@@ -164,6 +168,7 @@ public sealed class WpfNativeMilSceneCompiler
         {
             channel.SetDrawingGroupBounds(
                 drawingGroup.Handle, drawingGroup.Bounds);
+            ++appliedCount;
         }
         foreach (WpfNativeMilVisualCacheBounds visualCache in
                  batch.VisualCacheBounds ??
@@ -171,6 +176,7 @@ public sealed class WpfNativeMilSceneCompiler
         {
             channel.SetVisualCacheBounds(
                 visualCache.Handle, visualCache.Bounds);
+            ++appliedCount;
         }
         foreach (WpfNativeMilViewport3DScene viewport3D in
                  batch.Viewport3DScenes ??
@@ -178,7 +184,9 @@ public sealed class WpfNativeMilSceneCompiler
         {
             channel.SetViewport3DScene(
                 viewport3D.Handle, viewport3D.Scene);
+            ++appliedCount;
         }
+        return appliedCount;
     }
 
     private sealed class BuildContext

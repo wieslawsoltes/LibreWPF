@@ -93,6 +93,72 @@ public sealed class WpfNativeMilCompilationSessionTests
         Assert.Contains("truncated packet header", exception.Message);
     }
 
+    [Fact]
+    public void SidebandTopologyUsesTypedHandleOrder()
+    {
+        var previous = new WpfNativeMilBatch(
+            [],
+            1,
+            BitmapSources:
+            [new WpfNativeMilBitmapSource(2, 1, 1, 4, [1, 2, 3, 4])],
+            DrawingImageBounds:
+            [new WpfNativeMilDrawingImageBounds(
+                3, new NativeMilRect(1, 2, 3, 4))]);
+        var sameTopology = previous with
+        {
+            BitmapSources =
+            [new WpfNativeMilBitmapSource(2, 1, 1, 4, [4, 3, 2, 1])],
+            DrawingImageBounds =
+            [new WpfNativeMilDrawingImageBounds(
+                3, new NativeMilRect(5, 6, 7, 8))]
+        };
+        var changedHandle = sameTopology with
+        {
+            BitmapSources =
+            [new WpfNativeMilBitmapSource(4, 1, 1, 4, [4, 3, 2, 1])]
+        };
+
+        Assert.True(WpfNativeMilCompilationSession.HasStableSidebandTopology(
+            previous, sameTopology));
+        Assert.False(WpfNativeMilCompilationSession.HasStableSidebandTopology(
+            previous, changedHandle));
+    }
+
+    [Fact]
+    public void BitmapSidebandEqualityComparesPixelContent()
+    {
+        var previous = new WpfNativeMilBitmapSource(
+            2, 1, 1, 4, [1, 2, 3, 4]);
+        var same = new WpfNativeMilBitmapSource(
+            2, 1, 1, 4, [1, 2, 3, 4]);
+        var changed = new WpfNativeMilBitmapSource(
+            2, 1, 1, 4, [1, 2, 3, 5]);
+
+        Assert.True(WpfNativeMilCompilationSession.SidebandEquals(
+            previous, same));
+        Assert.False(WpfNativeMilCompilationSession.SidebandEquals(
+            previous, changed));
+    }
+
+    [Fact]
+    public void FontSidebandEqualityComparesSfntContentAndFace()
+    {
+        var previous = new WpfNativeMilGlyphRunFont(
+            2, 0, NativeMilGlyphStyleSimulations.None,
+            new byte[] { 1, 2, 3 });
+        var same = new WpfNativeMilGlyphRunFont(
+            2, 0, NativeMilGlyphStyleSimulations.None,
+            new byte[] { 1, 2, 3 });
+        var changed = new WpfNativeMilGlyphRunFont(
+            2, 1, NativeMilGlyphStyleSimulations.None,
+            new byte[] { 1, 2, 3 });
+
+        Assert.True(WpfNativeMilCompilationSession.SidebandEquals(
+            previous, same));
+        Assert.False(WpfNativeMilCompilationSession.SidebandEquals(
+            previous, changed));
+    }
+
     private static WpfNativeMilBatch CreateVisualBatch(double x, double y)
     {
         var builder = new NativeMilBatchBuilder();
