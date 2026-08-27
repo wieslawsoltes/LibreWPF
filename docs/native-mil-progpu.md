@@ -2788,11 +2788,17 @@ values, malformed sizes, or nonzero reserved padding fail closed. The focused
 native-scene compiler suite now passes 85/85 cases, while ProGPU's focused
 native interop suite passes 87/87.
 
-Current accepted ProGPU head `97690838` was also rebuilt in the Windows 11
-Parallels ARM64 guest with MSVC/Ninja after the DrawImage and accepted odd-tail
-SIMD changes. All 10 non-Dawn native CTests passed; this focused current-head
-gate supplements, but does not replace, the exact full D3D12 Box checkpoint
-above.
+The WPF MCG `csp` tool also rebuilds cleanly and its unmodified `Resources.rsp`
+regenerates all 378 resource outputs into an isolated temporary tree. The
+generated Double, Point, Size, and Rect animation-clock resources retain their
+typed portable value interfaces and methods, proving that ordinary source
+regeneration preserves this bridge instead of overwriting it.
+
+Current accepted ProGPU head `23f6848d` was also rebuilt in the Windows 11
+Parallels ARM64 guest with MSVC/Ninja after the DrawImage, typed animation, and
+folded-NEON changes. All 10 non-Dawn native CTests passed; this focused
+current-head gate supplements, but does not replace, the exact full D3D12 Box
+checkpoint above.
 
 The preceding exact `e510039d` Windows checkpoint completed the entire
 Parallels D3D12 lane: strict ARM64 MSVC `/W4 /WX`, 11/11 native/Dawn CTests,
@@ -2803,9 +2809,9 @@ masks, clips, text, blends, and package staging. Its DLL SHA-256 values are
 and `7D7F35CFA5323D0BA6E61EA402788CBAE72EBA40D69FE5B3D05069C966AB56DB`;
 wgpu-native is
 `9F73E41536B3BD96A0A44692EA65888C9DE004B19FBF5DE90489768667FBBDBC`.
-The newer effect, SIMD, PushEffect, animated fixed-geometry, and animated
-stroke checkpoints are locally qualified and remain queued for the next exact
-Windows rebuild.
+The complete full-D3D12 rerun remains queued for the newer PushEffect and
+animated render-data checkpoints; their focused managed/native gates and the
+current-head Windows compiler/runtime gate are recorded above.
 
 ## Next parity gates
 
