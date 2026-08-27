@@ -3353,6 +3353,17 @@ existing MediaContext coalescing behavior. Runtime binding of the native MIL
 compiler/session is still required before ordinary windows can produce this
 feedback end to end.
 
+ProGPU checkpoint `f9647a6d` closes the native nonuniform-DPI guideline gap.
+The shared resolver now advances X phase state and converts coordinates with
+`dpi_scale_x`, while Y independently uses `dpi_scale_y`; explicit offsets stay
+in physical device pixels. Retained X pairs pass exact 1.25x/1.5y coverage and
+compact Y1/Y2 pairs pass exact 1.25x/2.0y initial, Animation, and driven-gap
+coverage. The full native/provider matrix remains 12/12 and the wgpu-native/
+Dawn package consumer passes against the rebuilt libraries. Dynamic-guideline
+work is now native-complete for the implemented command families; persistent
+incremental LibreWPF compiler/session ownership remains the end-to-end runtime
+integration requirement.
+
 ## Next parity gates
 
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested
