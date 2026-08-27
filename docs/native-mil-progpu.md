@@ -2838,6 +2838,14 @@ generation changes shininess from 1 to 256 and must produce a different GPU
 image. The focused ProGPU native suite remains 10/10 and the native interop
 suite passes 88/88.
 
+Orthographic cameras now have explicit compiler and live coverage as well.
+LibreWPF converts the typed WPF horizontal `Width` into
+`Matrix4x4.CreateOrthographic(width, width / aspectRatio, near, far)` and the
+focused compiler suite passes 89/89 with exact projection-matrix assertions.
+ProGPU renders a fourth retained generation through that camera, requires its
+readback to differ from the perspective frame, and observes 278 colored pixels
+at `[48,28]-[66,47]` inside the same transformed viewport and clip.
+
 The same native face-mode addition closes the initial back-material gap.
 LibreWPF maps each typed `PortableViewport3DMesh.IsBackFace` entry to an
 exclusive ProGPU `FrontFace` or `BackFace` flag. ProGPU selects back or front

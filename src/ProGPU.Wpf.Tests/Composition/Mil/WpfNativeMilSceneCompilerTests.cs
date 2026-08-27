@@ -2707,6 +2707,33 @@ public sealed class WpfNativeMilSceneCompilerTests
     }
 
     [Fact]
+    public void BuildBatchCreatesTypedOrthographicViewport3DCamera()
+    {
+        PortableViewport3DScene scene = CreatePortableViewport3DScene();
+        Assert.NotNull(scene.Camera);
+        scene.Camera.Kind = PortableViewport3DCameraKind.Orthographic;
+        scene.Camera.Width = 4;
+
+        WpfNativeMilBatch result =
+            new WpfNativeMilSceneCompiler().BuildBatch(
+                new FakeViewport3DVisual(scene), 160, 120);
+
+        NativeSceneCamera3D camera = Assert.Single(
+            result.Viewport3DScenes!).Scene.Camera;
+        Matrix4x4 expected = Matrix4x4.CreateOrthographic(
+            4,
+            3,
+            0.1f,
+            100);
+        Assert.Equal(expected.M11, camera.Projection.M11);
+        Assert.Equal(expected.M22, camera.Projection.M22);
+        Assert.Equal(expected.M33, camera.Projection.M33);
+        Assert.Equal(expected.M34, camera.Projection.M34);
+        Assert.Equal(expected.M43, camera.Projection.M43);
+        Assert.Equal(expected.M44, camera.Projection.M44);
+    }
+
+    [Fact]
     public void BuildBatchPreservesExactViewport3DRectangleAndScrollClips()
     {
         var clip = new FakePrimitiveGeometry(
