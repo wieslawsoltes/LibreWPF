@@ -3340,6 +3340,19 @@ wgpu-native/Dawn project-reference package consumer passes. Nonuniform X/Y DPI
 and consumption of `NeedsMoreCycles` by LibreWPF's typed render scheduler are
 the remaining dynamic-guideline integration gaps.
 
+ProGPU checkpoint `de22cef2` makes scheduler timing reusable across UI hosts.
+`NativeMilSceneBuildTiming` validates known flags and request/result identity,
+then converts the absolute monotonic due time into an overflow-safe relative
+`TimeSpan`, rounding upward so a phase is never advanced early. LibreWPF now
+feeds that delay directly into `IWpfDelayedRenderScheduler`, upgrades any
+coalesced MediaContext wake-only request into a real presentation request, and
+wakes the native loop. Completed scenes schedule nothing; overdue work runs on
+the next scheduler turn; mismatched serials and unknown flags fail closed.
+Six focused host tests cover delayed presentation, completion, validation, and
+existing MediaContext coalescing behavior. Runtime binding of the native MIL
+compiler/session is still required before ordinary windows can produce this
+feedback end to end.
+
 ## Next parity gates
 
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested

@@ -3,6 +3,7 @@ using System.Buffers;
 using System.Collections.Generic;
 using System.Threading;
 using ProGPU.Backend;
+using ProGPU.Backend.Native;
 using ProGPU.DirectX;
 using Silk.NET.Core;
 using Silk.NET.Core.Contexts;
@@ -3529,6 +3530,41 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         }
 
         TryRequestNativeLoopWakeup();
+    }
+
+    internal bool RequestNativeMilContinuationAndWakeNativeLoop(
+        NativeMilSceneBuildRequest request,
+        NativeMilSceneBuildResult result)
+    {
+        if (_isDisposed ||
+            !NativeMilSceneBuildTiming.TryGetContinuationDelay(
+                request, result, out TimeSpan delay))
+        {
+            return false;
+        }
+
+        try
+        {
+            // Native MIL phase advancement changes the compiled scene even
+            // when WPF retained state is unchanged. It must therefore upgrade
+            // any coalesced wake-only request into a presentation request.
+            Volatile.Write(ref _pendingRenderRequestIsWakeOnly, 0);
+            if (WpfRenderScheduler is IWpfDelayedRenderScheduler delayedScheduler)
+            {
+                delayedScheduler.RequestRender(delay);
+            }
+            else
+            {
+                WpfRenderScheduler.RequestRender();
+            }
+        }
+        catch (ObjectDisposedException)
+        {
+            return false;
+        }
+
+        TryRequestNativeLoopWakeup();
+        return true;
     }
 
     internal bool ConsumeScheduledRenderRequest()
