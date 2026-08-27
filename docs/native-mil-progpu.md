@@ -2736,6 +2736,13 @@ yet eight-run 2x synchronized-frame p50/p95 regressed
 were checked before every alternating process after a stale-copy harness issue
 was detected, so only correctly staged evidence is retained.
 
+An exact line-segment metadata candidate was rejected for the same reason. It
+cached X/Y deltas without changing crossing arithmetic or edge decisions and
+improved 2x submission/frame p50 from 1.7558/5.5705 to 1.7332/5.0904 ms, but
+regressed 1x from 1.0949/5.1557 to 1.1324/5.3494 ms and worsened frame p95.
+All eight 120-frame processes retained the managed/native hashes above. The
+qualified implementation therefore avoids the added metadata traffic.
+
 The next reflection-free render-data slice preserves canonical `PushClip` and
 `PushOpacityMask` scopes in the native MIL stream. Geometry and mask resources
 resolve only through typed portable contracts, opacity-mask bounds retain the
