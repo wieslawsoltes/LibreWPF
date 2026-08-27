@@ -1992,6 +1992,68 @@ public sealed class WpfNativeMilSceneCompilerTests
     }
 
     [Fact]
+    public void BuildBatchTranslatesTypedClipAndOpacityMaskScopes()
+    {
+        var geometry = new FakePrimitiveGeometry(
+            PortablePrimitiveGeometry.Rectangle(
+                new PortableRect(2, 3, 20, 12),
+                0,
+                0,
+                PortableMatrix3x2.Identity));
+        var mask = new FakeBrush(new PortableColor(255, 255, 255, 255));
+        byte[] renderData = CreatePushClipRecord(1)
+            .Concat(CreatePushOpacityMaskRecord(4, 5, 30, 24, 2))
+            .Concat(CreatePopRecord())
+            .Concat(CreatePopRecord())
+            .ToArray();
+        var visual = new FakeVisual(
+            new FakeRenderData(renderData, [geometry, mask]));
+
+        WpfNativeMilBatch result = new WpfNativeMilSceneCompiler().BuildBatch(
+            visual, 64, 64);
+        int renderDataOffset = FindCommand(result.Bytes, 0x18);
+        int nestedOffset = renderDataOffset + 16;
+
+        Assert.Equal(16, ReadInt32(result.Bytes, nestedOffset));
+        Assert.Equal(0x4d, ReadInt32(result.Bytes, nestedOffset + 4));
+        Assert.NotEqual(0U, ReadUInt32(result.Bytes, nestedOffset + 8));
+        Assert.Equal(32, ReadInt32(result.Bytes, nestedOffset + 16));
+        Assert.Equal(0x4e, ReadInt32(result.Bytes, nestedOffset + 20));
+        Assert.Equal(4f, ReadSingle(result.Bytes, nestedOffset + 24));
+        Assert.Equal(5f, ReadSingle(result.Bytes, nestedOffset + 28));
+        Assert.Equal(34f, ReadSingle(result.Bytes, nestedOffset + 32));
+        Assert.Equal(29f, ReadSingle(result.Bytes, nestedOffset + 36));
+        Assert.NotEqual(0U, ReadUInt32(result.Bytes, nestedOffset + 40));
+        Assert.Equal(8, ReadInt32(result.Bytes, nestedOffset + 48));
+        Assert.Equal(0x56, ReadInt32(result.Bytes, nestedOffset + 52));
+        Assert.Equal(8, ReadInt32(result.Bytes, nestedOffset + 56));
+        Assert.Equal(0x56, ReadInt32(result.Bytes, nestedOffset + 60));
+    }
+
+    [Fact]
+    public void BuildBatchKeepsNullClipAndMaskScopesBalancedAsNoOps()
+    {
+        byte[] renderData = CreatePushClipRecord(0)
+            .Concat(CreatePopRecord())
+            .Concat(CreatePushOpacityMaskRecord(0, 0, 0, 0, 0))
+            .Concat(CreatePopRecord())
+            .ToArray();
+        var visual = new FakeVisual(new FakeRenderData(renderData, []));
+
+        WpfNativeMilBatch result = new WpfNativeMilSceneCompiler().BuildBatch(
+            visual, 64, 64);
+        int renderDataOffset = FindCommand(result.Bytes, 0x18);
+        int nestedOffset = renderDataOffset + 16;
+
+        Assert.Equal(0x51, ReadInt32(result.Bytes, nestedOffset + 4));
+        Assert.Equal(0U, ReadUInt32(result.Bytes, nestedOffset + 8));
+        Assert.Equal(0x56, ReadInt32(result.Bytes, nestedOffset + 20));
+        Assert.Equal(0x51, ReadInt32(result.Bytes, nestedOffset + 28));
+        Assert.Equal(0U, ReadUInt32(result.Bytes, nestedOffset + 32));
+        Assert.Equal(0x56, ReadInt32(result.Bytes, nestedOffset + 44));
+    }
+
+    [Fact]
     public void BuildBatchFailsClosedForUnbalancedOpacityScope()
     {
         var visual = new FakeVisual(
@@ -2401,6 +2463,33 @@ public sealed class WpfNativeMilSceneCompilerTests
         BinaryPrimitives.WriteInt32LittleEndian(record, record.Length);
         BinaryPrimitives.WriteInt32LittleEndian(record.AsSpan(4), 0x4f);
         WriteDouble(record, 8, opacity);
+        return record;
+    }
+
+    private static byte[] CreatePushClipRecord(uint geometry)
+    {
+        byte[] record = new byte[16];
+        BinaryPrimitives.WriteInt32LittleEndian(record, record.Length);
+        BinaryPrimitives.WriteInt32LittleEndian(record.AsSpan(4), 0x4d);
+        BinaryPrimitives.WriteUInt32LittleEndian(record.AsSpan(8), geometry);
+        return record;
+    }
+
+    private static byte[] CreatePushOpacityMaskRecord(
+        float x,
+        float y,
+        float width,
+        float height,
+        uint brush)
+    {
+        byte[] record = new byte[32];
+        BinaryPrimitives.WriteInt32LittleEndian(record, record.Length);
+        BinaryPrimitives.WriteInt32LittleEndian(record.AsSpan(4), 0x4e);
+        BinaryPrimitives.WriteSingleLittleEndian(record.AsSpan(8), x);
+        BinaryPrimitives.WriteSingleLittleEndian(record.AsSpan(12), y);
+        BinaryPrimitives.WriteSingleLittleEndian(record.AsSpan(16), width);
+        BinaryPrimitives.WriteSingleLittleEndian(record.AsSpan(20), height);
+        BinaryPrimitives.WriteUInt32LittleEndian(record.AsSpan(24), brush);
         return record;
     }
 

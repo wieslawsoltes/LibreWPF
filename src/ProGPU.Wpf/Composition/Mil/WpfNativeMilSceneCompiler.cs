@@ -720,6 +720,52 @@ public sealed class WpfNativeMilSceneCompiler
                             snapshot.DependentResources,
                             drawingToken));
                         break;
+                    case WpfMilCommandId.PushClip:
+                        if (recordSize != 16)
+                        {
+                            throw new InvalidOperationException(
+                                "The portable WPF clip-scope record has an invalid size.");
+                        }
+                        uint clipToken =
+                            BinaryPrimitives.ReadUInt32LittleEndian(payload);
+                        if (clipToken == 0)
+                        {
+                            destination.PushTransform(0);
+                        }
+                        else
+                        {
+                            destination.PushClip(ResolveGeometry(
+                                snapshot.DependentResources,
+                                clipToken));
+                        }
+                        scopeDepth++;
+                        break;
+                    case WpfMilCommandId.PushOpacityMask:
+                        if (recordSize != 32)
+                        {
+                            throw new InvalidOperationException(
+                                "The portable WPF opacity-mask scope record has an invalid size.");
+                        }
+                        uint opacityMaskToken =
+                            BinaryPrimitives.ReadUInt32LittleEndian(payload[16..]);
+                        if (opacityMaskToken == 0)
+                        {
+                            destination.PushTransform(0);
+                        }
+                        else
+                        {
+                            destination.PushOpacityMask(
+                                new NativeMilRect(
+                                    ReadSingle(payload, 0),
+                                    ReadSingle(payload, 4),
+                                    ReadSingle(payload, 8),
+                                    ReadSingle(payload, 12)),
+                                ResolveBrush(
+                                    snapshot.DependentResources,
+                                    opacityMaskToken));
+                        }
+                        scopeDepth++;
+                        break;
                     case WpfMilCommandId.PushOpacity:
                         if (recordSize != 16)
                         {
@@ -2018,6 +2064,13 @@ public sealed class WpfNativeMilSceneCompiler
         {
             long bits = BinaryPrimitives.ReadInt64LittleEndian(source[offset..]);
             return BitConverter.Int64BitsToDouble(bits);
+        }
+
+        private static float ReadSingle(
+            ReadOnlySpan<byte> source,
+            int offset)
+        {
+            return BinaryPrimitives.ReadSingleLittleEndian(source[offset..]);
         }
 
         private static void RejectUnsupportedState(PortableVisualState state)

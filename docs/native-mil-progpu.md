@@ -2709,6 +2709,16 @@ effect mapper preserves the source-built Box selection on that path as well;
 Gaussian remains the default, unsupported enum values fail closed, and neither
 GPU route introduces a CPU readback fallback.
 
+Exact Box checkpoint ProGPU `0866b919` / LibreWPF `8dabd9d84` completed the
+full Windows ARM64 Parallels D3D12 lane: strict MSVC `/W4 /WX`, 11/11
+native/Dawn CTests, native and managed samples, forced raster/NEON/scalar
+parity, expected typed compute rejection, Microsoft D3D12 triangle/texture
+oracles, the retained cache/effect/mask/clip/text/blend matrix, and package
+staging. Box was byte-exact against its independent two-pass oracle at
+`D77D5DC8AC370BCE`. DLL SHA-256 values are
+`3A64CFDD974448B71F8BF645AFCBDE95DC10C64256F73D7CEF1E12776DB3DA20`
+and `B77C8A4157D4432F8C74F6067DE2944F96C8ECE0FA16B4967B24D330326DD70A`.
+
 Accepted SIMD follow-up `c5549ceb` stops computing a discarded second pixel
 on odd-width glyph rows. The qualified paired loop remains a 16-sample
 NEON/SSE2 kernel, while its final tail uses a dedicated 8-sample intrinsic
@@ -2717,6 +2727,22 @@ kernel with identical winding and integer quantization. Four alternating
 `706B261418EC5C3B` (2x). Median submission/frame p50 improved 3.9%/5.8% at 1x
 and 5.9%/3.2% at 2x; all p95 comparisons also improved. Ten native tests, 84
 focused managed interop tests, and strict x86_64 SSE2 compilation pass.
+
+Subsequent conservative right-bound, scalar-offset, and native-vector-offset
+SIMD candidates were all pixel-exact but rejected by the cross-profile
+no-regression gate. The vector form improved submission latency at both DPIs,
+yet eight-run 2x synchronized-frame p50/p95 regressed
+5.6951/8.4109 -> 5.8623/8.5459 ms. Explicit baseline/candidate dylib hashes
+were checked before every alternating process after a stale-copy harness issue
+was detected, so only correctly staged evidence is retained.
+
+The next reflection-free render-data slice preserves canonical `PushClip` and
+`PushOpacityMask` scopes in the native MIL stream. Geometry and mask resources
+resolve only through typed portable contracts, opacity-mask bounds retain the
+WPF single-precision layout, null-resource scopes become balanced identity
+scopes, malformed packet sizes fail closed, and the existing `Pop` balance
+validation remains authoritative. The focused native-scene compiler suite now
+passes 76/76 cases.
 
 The preceding exact `e510039d` Windows checkpoint completed the entire
 Parallels D3D12 lane: strict ARM64 MSVC `/W4 /WX`, 11/11 native/Dawn CTests,
