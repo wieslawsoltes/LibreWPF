@@ -2603,7 +2603,7 @@ public sealed class WpfNativeMilSceneCompiler
                     mesh.Positions is null || mesh.Normals is null ||
                     mesh.TextureCoordinates is null ||
                     mesh.Indices is null || mesh.Positions.Length < 3 ||
-                    mesh.Normals.Length != mesh.Positions.Length ||
+                    mesh.Normals.Length < mesh.Positions.Length ||
                     mesh.Indices.Length < 3 ||
                     mesh.Indices.Length % 3 != 0)
                 {
@@ -2682,8 +2682,10 @@ public sealed class WpfNativeMilSceneCompiler
                                     mesh.Positions[vertexIndex],
                                     nameof(mesh.Positions))),
                             Normal = new NativePoint3D(
-                                ToFiniteVector3(
-                                    mesh.Normals[vertexIndex],
+                                NormalizeFiniteOrZero(
+                                    ToFiniteVector3(
+                                        mesh.Normals[vertexIndex],
+                                        nameof(mesh.Normals)),
                                     nameof(mesh.Normals))),
                             TextureCoordinate = textureCoordinate,
                             Reserved0 = 0U,
@@ -3012,6 +3014,26 @@ public sealed class WpfNativeMilSceneCompiler
                     $"Native MIL Viewport3D {parameterName} contains a non-finite or out-of-range value.");
             }
             return new Vector3(x, y, z);
+        }
+
+        private static Vector3 NormalizeFiniteOrZero(
+            Vector3 value,
+            string parameterName)
+        {
+            float lengthSquared = value.LengthSquared();
+            if (!float.IsFinite(lengthSquared))
+            {
+                throw new NotSupportedException(
+                    $"Native MIL Viewport3D {parameterName} contains a normal whose length is out of range.");
+            }
+            if (!(lengthSquared > 0.0f))
+            {
+                return Vector3.Zero;
+            }
+
+            // Vector3 division is hardware-intrinsic accelerated by the .NET
+            // runtime and retains XMVector3Normalize's exact zero handling.
+            return value / MathF.Sqrt(lengthSquared);
         }
 
         private static Vector2 ToFiniteVector2(

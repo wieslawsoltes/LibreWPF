@@ -42,6 +42,8 @@ public sealed class WpfViewport3DSceneBridgeTests
         Assert.Same(viewport.GeometryKey, mesh.Geometry);
         Assert.Equal(13, mesh.GeometryVersion);
         Assert.Equal(new[] { 0, 1, 2 }, mesh.Indices);
+        Assert.Equal(Vector3.UnitZ, mesh.Normals[0]);
+        Assert.Equal(Vector3.Zero, mesh.Normals[1]);
         Assert.Equal(new Vector2(0.25f, 0.75f),
             Assert.Single(mesh.TextureCoordinates));
         Assert.Equal(10, mesh.ModelTransform.M41);
@@ -98,6 +100,24 @@ public sealed class WpfViewport3DSceneBridgeTests
             spot.Kind);
         Assert.Equal(-1f, spot.Direction.Z);
         Assert.Equal(spot.OuterConeCosine, spot.InnerConeCosine);
+    }
+
+    [Fact]
+    public void TryCreateReplayDataRejectsNonFiniteMeshNormal()
+    {
+        var viewport = new PortableViewport3DVisual
+        {
+            Normals =
+            [
+                new PortableVector3(double.PositiveInfinity, 0, 1),
+                new PortableVector3(0, 0, 1),
+                new PortableVector3(0, 0, 1)
+            ]
+        };
+
+        Assert.False(WpfViewport3DSceneBridge.TryCreateReplayData(
+            viewport,
+            out _));
     }
 
     [Fact]
@@ -358,6 +378,13 @@ public sealed class WpfViewport3DSceneBridgeTests
 
         public PortableViewport3DCamera? PortableCamera { get; init; }
 
+        public PortableVector3[] Normals { get; init; } =
+        [
+            new PortableVector3(0, 0, 4),
+            new PortableVector3(0, 0, 0),
+            new PortableVector3(0, 0, 1)
+        ];
+
         public object Viewport => throw new InvalidOperationException("Portable scene should not probe Viewport.");
 
         public object Camera => throw new InvalidOperationException("Portable scene should not probe Camera.");
@@ -393,12 +420,7 @@ public sealed class WpfViewport3DSceneBridgeTests
                             new PortableVector3(1, 0, 0),
                             new PortableVector3(0, 1, 0)
                         },
-                        Normals = new[]
-                        {
-                            new PortableVector3(0, 0, 1),
-                            new PortableVector3(0, 0, 1),
-                            new PortableVector3(0, 0, 1)
-                        },
+                        Normals = Normals,
                         TextureCoordinates =
                         [
                             new PortablePoint(0.25, 0.75)

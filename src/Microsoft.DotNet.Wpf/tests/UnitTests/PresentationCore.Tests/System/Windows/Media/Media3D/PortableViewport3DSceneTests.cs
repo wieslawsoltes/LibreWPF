@@ -23,6 +23,10 @@ public sealed class PortableViewport3DSceneTests
                 new Point(0.25, 0.75),
                 new Point(1, 0)
             },
+            Normals = new Vector3DCollection
+            {
+                new Vector3D(0, 3, 0)
+            },
             TriangleIndices = new Int32Collection { 0, 1, 2 }
         };
         var frontBrush = new SolidColorBrush(
@@ -169,8 +173,14 @@ public sealed class PortableViewport3DSceneTests
         Assert.Same(mesh, back.Geometry);
         Assert.Equal([0, 1, 2], front.Indices);
         Assert.Equal([0, 1, 2], back.Indices);
-        Assert.All(front.Normals, normal =>
-            Assert.Equal(new PortableVector3(0, 0, 1), normal));
+        Assert.Equal(
+            [
+                new PortableVector3(0, 1, 0),
+                new PortableVector3(0, 0, 1),
+                new PortableVector3(0, 0, 1)
+            ],
+            front.Normals);
+        Assert.Equal(front.Normals, back.Normals);
         Assert.Equal(
             [
                 new PortablePoint(0.25, 0.75),

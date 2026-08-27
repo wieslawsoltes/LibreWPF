@@ -2687,6 +2687,12 @@ public sealed class WpfNativeMilSceneCompilerTests
         Assert.Equal(3, retained.Scene.Vertices.Length);
         Assert.Equal([0U, 1U, 2U], retained.Scene.Indices);
         Assert.Equal(2.0f, retained.Scene.Camera.CameraPosition.Z);
+        Assert.Equal(0.0f, retained.Scene.Vertices[0].Normal.X);
+        Assert.Equal(0.0f, retained.Scene.Vertices[0].Normal.Y);
+        Assert.Equal(1.0f, retained.Scene.Vertices[0].Normal.Z);
+        Assert.Equal(0.0f, retained.Scene.Vertices[1].Normal.X);
+        Assert.Equal(0.0f, retained.Scene.Vertices[1].Normal.Y);
+        Assert.Equal(0.0f, retained.Scene.Vertices[1].Normal.Z);
         Assert.Equal(0.25f, retained.Scene.Vertices[0].TextureCoordinate.X);
         Assert.Equal(0.75f, retained.Scene.Vertices[0].TextureCoordinate.Y);
         Assert.Equal(Vector2.Zero,
@@ -2708,6 +2714,18 @@ public sealed class WpfNativeMilSceneCompilerTests
         Assert.Equal(
             (uint)NativeMesh3DFlags.BackFace,
             Assert.Single(retained.Scene.Meshes).Flags);
+    }
+
+    [Fact]
+    public void BuildBatchRejectsNonFiniteViewport3DNormal()
+    {
+        PortableViewport3DScene scene = CreatePortableViewport3DScene();
+        scene.Meshes[0].Normals[0] =
+            new PortableVector3(double.NaN, 0, 1);
+
+        Assert.Throws<NotSupportedException>(() =>
+            new WpfNativeMilSceneCompiler().BuildBatch(
+                new FakeViewport3DVisual(scene), 160, 120));
     }
 
     [Fact]
@@ -2937,8 +2955,8 @@ public sealed class WpfNativeMilSceneCompilerTests
                     ],
                     Normals =
                     [
-                        new PortableVector3(0, 0, 1),
-                        new PortableVector3(0, 0, 1),
+                        new PortableVector3(0, 0, 4),
+                        new PortableVector3(0, 0, 0),
                         new PortableVector3(0, 0, 1)
                     ],
                     TextureCoordinates =

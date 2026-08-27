@@ -2874,7 +2874,7 @@ using WPF's own typed camera implementation. Both the managed compositor bridge
 and native MIL compiler preserve those matrices directly, derive camera position
 from the inverse view for GPU specular lighting, and reject non-finite or singular
 views rather than substituting a perspective camera. Focused managed/native
-bridge coverage passes 102/102, and the real PresentationCore exporter suite
+bridge coverage passes 104/104, and the real PresentationCore exporter suite
 passes 3/3 on macOS.
 
 WPF mesh texture coordinates are now preserved end to end as typed geometry
@@ -2886,6 +2886,14 @@ into the stable `progpu_native_scene_mesh_3d_vertex.texture_coordinate` field.
 Extra WPF coordinates are ignored by vertex count, matching MIL. This does not
 invent a brush fallback: it establishes the UV half of the next typed 3D brush
 resource gate.
+
+Mesh normals now follow WPF MIL's upload contract as well. Source-built WPF
+normalizes every supplied normal, computes the complete face-normal set when
+the collection is short, and then preserves the normalized supplied prefix;
+zero normals remain zero and extra normals are ignored. Both ProGPU consumers
+repeat finite/range validation and normalization for non-WPF typed producers.
+The `System.Numerics.Vector3` divide in those hot loops is runtime-intrinsic
+SIMD, while non-finite inputs fail closed instead of reaching a GPU buffer.
 
 The same native face-mode addition closes the initial back-material gap.
 LibreWPF maps each typed `PortableViewport3DMesh.IsBackFace` entry to an

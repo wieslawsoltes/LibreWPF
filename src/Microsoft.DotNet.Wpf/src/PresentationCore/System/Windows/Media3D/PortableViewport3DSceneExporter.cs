@@ -248,10 +248,22 @@ namespace System.Windows.Media.Media3D
                 indices = CreateSequentialTriangleIndices(positions.Length);
             }
 
-            normals = ReadVector3DCollection(mesh.Normals);
-            if (normals.Length != positions.Length)
+            var suppliedNormals = ReadVector3DCollection(mesh.Normals);
+            if (suppliedNormals.Length < positions.Length)
             {
                 normals = ComputeNormals(positions, indices);
+            }
+            else
+            {
+                normals = new PortableVector3[positions.Length];
+            }
+
+            var suppliedNormalCount = Math.Min(
+                suppliedNormals.Length,
+                positions.Length);
+            for (var i = 0; i < suppliedNormalCount; i++)
+            {
+                normals[i] = NormalizeOrZero(suppliedNormals[i]);
             }
 
             textureCoordinates = ReadTextureCoordinates(
@@ -511,8 +523,8 @@ namespace System.Windows.Media.Media3D
 
                 var edge1 = Subtract(positions[i1], positions[i0]);
                 var edge2 = Subtract(positions[i2], positions[i0]);
-                var normal = NormalizeOrDefault(Cross(edge1, edge2), default);
-                if (LengthSquared(normal) <= 0.000001)
+                var normal = NormalizeOrZero(Cross(edge1, edge2));
+                if (LengthSquared(normal) == 0)
                 {
                     continue;
                 }
@@ -524,7 +536,7 @@ namespace System.Windows.Media.Media3D
 
             for (var i = 0; i < normals.Length; i++)
             {
-                normals[i] = NormalizeOrDefault(normals[i], new PortableVector3(0, 0, 1));
+                normals[i] = NormalizeOrZero(normals[i]);
             }
 
             return normals;
@@ -600,6 +612,28 @@ namespace System.Windows.Media.Media3D
 
             var length = Math.Sqrt(lengthSquared);
             return new PortableVector3(value.X / length, value.Y / length, value.Z / length);
+        }
+
+        private static PortableVector3 NormalizeOrZero(PortableVector3 value)
+        {
+            var lengthSquared = LengthSquared(value);
+            if (!double.IsFinite(lengthSquared))
+            {
+                // Preserve malformed input for the typed consumer to reject;
+                // silently converting it to a valid zero normal would hide a
+                // scene-contract error.
+                return value;
+            }
+            if (!(lengthSquared > 0))
+            {
+                return default;
+            }
+
+            var inverseLength = 1.0 / Math.Sqrt(lengthSquared);
+            return new PortableVector3(
+                value.X * inverseLength,
+                value.Y * inverseLength,
+                value.Z * inverseLength);
         }
 
         private static bool IsUsableViewport(Rect viewport)

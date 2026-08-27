@@ -87,11 +87,33 @@ public static class WpfViewport3DSceneBridge
         for (var meshIndex = 0; meshIndex < meshes.Length; meshIndex++)
         {
             var mesh = meshes[meshIndex];
-            if (mesh == null
-                || mesh.Positions.Length == 0
-                || mesh.Indices.Length == 0)
+            if (mesh == null)
             {
                 continue;
+            }
+            if (mesh.Positions == null
+                || mesh.Normals == null
+                || mesh.Indices == null
+                || mesh.Normals.Length < mesh.Positions.Length)
+            {
+                return false;
+            }
+            if (mesh.Positions.Length == 0 || mesh.Indices.Length == 0)
+            {
+                continue;
+            }
+            if (!TryToVector3Array(
+                    mesh.Positions,
+                    mesh.Positions.Length,
+                    normalize: false,
+                    out Vector3[] positions)
+                || !TryToVector3Array(
+                    mesh.Normals,
+                    mesh.Positions.Length,
+                    normalize: true,
+                    out Vector3[] normals))
+            {
+                return false;
             }
             if (!TryToVector2Array(
                     mesh.TextureCoordinates,
@@ -104,8 +126,8 @@ public static class WpfViewport3DSceneBridge
             {
                 Geometry = mesh.Geometry,
                 GeometryVersion = mesh.GeometryVersion,
-                Positions = ToVector3Array(mesh.Positions),
-                Normals = ToVector3Array(mesh.Normals),
+                Positions = positions,
+                Normals = normals,
                 TextureCoordinates = textureCoordinates,
                 Indices = mesh.Indices,
                 ModelTransform = ToMatrix4x4(mesh.ModelTransform),
@@ -342,20 +364,51 @@ public static class WpfViewport3DSceneBridge
         return new Vector4((float)value.R, (float)value.G, (float)value.B, (float)value.A);
     }
 
-    private static Vector3[] ToVector3Array(PortableVector3[] values)
+    private static bool TryToVector3Array(
+        PortableVector3[]? values,
+        int count,
+        bool normalize,
+        out Vector3[] result)
     {
-        if (values.Length == 0)
+        if (values is null || count < 0 || values.Length < count)
         {
-            return Array.Empty<Vector3>();
+            result = Array.Empty<Vector3>();
+            return false;
+        }
+        if (count == 0)
+        {
+            result = Array.Empty<Vector3>();
+            return true;
         }
 
-        var result = new Vector3[values.Length];
-        for (var i = 0; i < values.Length; i++)
+        result = new Vector3[count];
+        for (var i = 0; i < count; i++)
         {
-            result[i] = ToVector3(values[i]);
+            Vector3 value = ToVector3(values[i]);
+            if (!float.IsFinite(value.X)
+                || !float.IsFinite(value.Y)
+                || !float.IsFinite(value.Z))
+            {
+                result = Array.Empty<Vector3>();
+                return false;
+            }
+
+            if (normalize)
+            {
+                float lengthSquared = value.LengthSquared();
+                if (!float.IsFinite(lengthSquared))
+                {
+                    result = Array.Empty<Vector3>();
+                    return false;
+                }
+                value = lengthSquared > 0.0f
+                    ? value / MathF.Sqrt(lengthSquared)
+                    : Vector3.Zero;
+            }
+            result[i] = value;
         }
 
-        return result;
+        return true;
     }
 
     private static bool TryToVector2Array(
