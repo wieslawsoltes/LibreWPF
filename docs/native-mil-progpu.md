@@ -2942,9 +2942,13 @@ canonical 256-byte `NativeSceneBrush` per mesh plus shared 32-byte gradient
 stops. The camera payload prefix and 256-byte mesh ABI remain unchanged; an
 optional versioned suffix references the shared brush table. Solid-only scenes
 retain the camera-only compatibility path, while mixed scenes fill non-gradient
-passes with an opaque-white multiplier. Specular-gradient and tile-brush
-materials remain typed fail-closed gaps; no CPU texture staging or readback is
-used.
+passes with an opaque-white multiplier. A dedicated native mesh flag now makes
+the canonical brush multiply the existing specular-color vector for ordered
+specular-gradient passes, preserving the 256-byte mesh ABI. Tile-brush
+materials remain a typed fail-closed gap; no CPU texture staging or readback is
+used. The separate managed portable bridge deliberately still rejects
+specular gradients until its framework-neutral Mesh3D record gains an
+equivalent typed semantic flag.
 
 That managed gradient checkpoint is now qualified on Windows D3D12 as well.
 The exact pushed ProGPU `8eee2170` archive, hydrated only with the commit's
@@ -2969,8 +2973,25 @@ at 291 clipped pixels, 75 red-dominant pixels, and 96 blue-dominant pixels on
 `Parallels Display Adapter (WDDM)` without WebGPU validation/device errors.
 LibreWPF converts the already mapped typed ProGPU vector brush without
 reflection; focused producer coverage preserves coordinates, opacity, spread,
-scRGB interpolation, stop offsets/colors, and continues rejecting specular
-gradients.
+scRGB interpolation, stop offsets/colors, and proves the managed portable
+bridge continues rejecting specular gradients. The native compiler instead
+preserves that layer with the new specular flag, black diffuse RGB, material
+color/exponent in the specular vector, and the canonical gradient sideband.
+Apple M3 Pro Metal observes 64 red-dominant plus 85 blue-dominant pixels from
+the specular-only generation inside the same 291-pixel clip, distinct from the
+75/96 unlit-gradient evidence.
+
+The exact pushed ProGPU `fd455edf` checkpoint is independently qualified from
+isolated archive SHA-256
+`46B06076344DE8518622AD66F5C9BE129C5E6231FAB874066FE83BFFDB6E5201`
+in Windows 11 ARM64 Parallels. MSVC 19.44 compiled both providers under
+`/W4 /WX`; both export allowlists and all 11 CTests passed, and the managed
+harness built warning-free. `Parallels Display Adapter (WDDM)` selected D3D12
+as a discrete GPU and reproduced the 291-pixel clip plus 75/96 ordinary and
+64/85 specular gradient evidence exactly. Qualified DLL SHA-256 values are
+`635A68C0D9EDDD54230CC6CB8B37B6EDC8E994D6739AEA75FE006DDA44364EF5`
+and `3DC03BD509449F560765FE9B9F73AEAD3DB4440D1CAF409D851834CBB847D722`
+for the native and Dawn providers, respectively.
 
 The same native face-mode addition closes the initial back-material gap.
 LibreWPF maps each typed `PortableViewport3DMesh.IsBackFace` entry to an

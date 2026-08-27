@@ -250,6 +250,38 @@ public sealed class WpfViewport3DSceneBridgeTests
     }
 
     [Fact]
+    public void TryCreateReplayDataRejectsSpecularGradientMaterial()
+    {
+        var viewport = new PortableViewport3DVisual
+        {
+            Materials =
+            [
+                new PortableViewport3DMaterial
+                {
+                    Kind = PortableViewport3DMaterialKind.Specular,
+                    Brush = PortableBrush.LinearGradient(
+                        new PortablePoint(0, 0),
+                        new PortablePoint(1, 0),
+                        [
+                            new PortableGradientStop(
+                                new PortableColor(255, 255, 0, 0),
+                                0),
+                            new PortableGradientStop(
+                                new PortableColor(255, 0, 0, 255),
+                                1)
+                        ]),
+                    Color = new PortableColor4(1, 1, 1, 1),
+                    SpecularPower = 16
+                }
+            ]
+        };
+
+        Assert.False(WpfViewport3DSceneBridge.TryCreateReplayData(
+            viewport,
+            out _));
+    }
+
+    [Fact]
     public void TryCreateReplayDataPreservesTypedMatrixCameraForManagedGpuPath()
     {
         Matrix4x4 view = Matrix4x4.CreateTranslation(-2, -3, -4);

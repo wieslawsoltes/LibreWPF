@@ -2776,12 +2776,12 @@ public sealed class WpfNativeMilSceneCompiler
                          materialIndex < mesh.Materials.Length;
                          materialIndex++)
                     {
-                        if (!WpfViewport3DMaterialMapper.TryMapManaged(
+                        if (!WpfViewport3DMaterialMapper.TryMapNative(
                                 mesh.Materials[materialIndex],
                                 out WpfViewport3DMaterialPass materialPass))
                         {
                             throw new NotSupportedException(
-                                "Native MIL Viewport3D requires typed solid, linear-gradient, or radial-gradient diffuse/emissive material layers; specular gradients remain fail-closed.");
+                                "Native MIL Viewport3D requires typed solid, linear-gradient, or radial-gradient material layers.");
                         }
                         NativeSceneMesh3D materialMesh = nativeMesh;
                         materialMesh.Color = materialPass.Color;
@@ -2794,6 +2794,13 @@ public sealed class WpfNativeMilSceneCompiler
                         materialMesh.Opacity = materialPass.Opacity;
                         materialMesh.ShadingMode =
                             materialPass.IsUnlit ? 0U : 1U;
+                        if (materialPass.Kind ==
+                            PortableViewport3DMaterialKind.Specular &&
+                            materialPass.MaterialBrush is not null)
+                        {
+                            materialMesh.Flags |= (uint)
+                                NativeMesh3DFlags.SpecularMaterial;
+                        }
                         int materialMeshIndex = nativeMeshIndex++;
                         nativeMeshes[materialMeshIndex] = materialMesh;
                         if (materialPass.MaterialBrush is not null)

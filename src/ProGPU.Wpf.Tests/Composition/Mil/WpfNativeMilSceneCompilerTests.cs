@@ -2870,7 +2870,7 @@ public sealed class WpfNativeMilSceneCompilerTests
     }
 
     [Fact]
-    public void BuildBatchRejectsSpecularGradientViewport3DMaterial()
+    public void BuildBatchPreservesSpecularGradientViewport3DMaterial()
     {
         PortableViewport3DScene scene = CreatePortableViewport3DScene();
         scene.Meshes[0].Materials =
@@ -2878,6 +2878,8 @@ public sealed class WpfNativeMilSceneCompilerTests
             new PortableViewport3DMaterial
             {
                 Kind = PortableViewport3DMaterialKind.Specular,
+                Color = new PortableColor4(0.25, 0.5, 0.75, 0.625),
+                SpecularPower = 24,
                 Brush = PortableBrush.LinearGradient(
                     new PortablePoint(0, 0),
                     new PortablePoint(1, 1),
@@ -2890,10 +2892,23 @@ public sealed class WpfNativeMilSceneCompilerTests
             }
         ];
 
-        NotSupportedException exception = Assert.Throws<NotSupportedException>(
-            () => new WpfNativeMilSceneCompiler().BuildBatch(
-                new FakeViewport3DVisual(scene), 160, 120));
-        Assert.Contains("specular gradients", exception.Message);
+        NativeMilViewport3DScene retained = Assert.Single(
+            new WpfNativeMilSceneCompiler().BuildBatch(
+                new FakeViewport3DVisual(scene), 160, 120)
+                .Viewport3DScenes!).Scene;
+
+        NativeSceneMesh3D mesh = Assert.Single(retained.Meshes);
+        Assert.NotEqual(0U, mesh.Flags &
+            (uint)NativeMesh3DFlags.SpecularMaterial);
+        Assert.Equal(new Vector4(0, 0, 0, 1), mesh.Color);
+        Assert.Equal(0.25f, mesh.SpecularColor.X);
+        Assert.Equal(0.5f, mesh.SpecularColor.Y);
+        Assert.Equal(0.75f, mesh.SpecularColor.Z);
+        Assert.Equal(24f, mesh.SpecularColor.W);
+        Assert.Equal(0.625f, mesh.Opacity);
+        Assert.Equal(NativeSceneBrushKind.LinearGradient,
+            Assert.Single(retained.Materials).Kind);
+        Assert.Equal(2, retained.GradientStops.Length);
     }
 
     [Fact]

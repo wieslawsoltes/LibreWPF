@@ -21,18 +21,26 @@ internal static class WpfViewport3DMaterialMapper
     internal static bool TryMapManaged(
         PortableViewport3DMaterial? material,
         out WpfViewport3DMaterialPass pass)
+        => TryMapSolid(material, out pass) ||
+            TryMapGradient(material, allowSpecular: false, out pass);
+
+    internal static bool TryMapNative(
+        PortableViewport3DMaterial? material,
+        out WpfViewport3DMaterialPass pass)
+        => TryMapSolid(material, out pass) ||
+            TryMapGradient(material, allowSpecular: true, out pass);
+
+    private static bool TryMapGradient(
+        PortableViewport3DMaterial? material,
+        bool allowSpecular,
+        out WpfViewport3DMaterialPass pass)
     {
-        if (TryMapSolid(material, out pass))
-        {
-            return true;
-        }
         if (material is null ||
             material.Brush is null ||
             material.TileBrush is not null ||
             material.Brush.Kind is not (
                 PortableBrushKind.LinearGradient or
                 PortableBrushKind.RadialGradient) ||
-            material.Kind == PortableViewport3DMaterialKind.Specular ||
             !TryToColor(material.Color, out Vector4 materialColor))
         {
             pass = default;
@@ -48,6 +56,33 @@ internal static class WpfViewport3DMaterialMapper
         {
             pass = default;
             return false;
+        }
+
+        if (material.Kind == PortableViewport3DMaterialKind.Specular)
+        {
+            if (!allowSpecular ||
+                !TryToFiniteFloat(
+                    material.SpecularPower,
+                    out float shininess))
+            {
+                pass = default;
+                return false;
+            }
+            pass = new WpfViewport3DMaterialPass(
+                material.Kind,
+                new Vector4(0, 0, 0, 1),
+                new Vector3(
+                    materialColor.X,
+                    materialColor.Y,
+                    materialColor.Z),
+                MathF.Max(shininess, 0.001f),
+                Vector3.Zero,
+                materialColor.W,
+                IsUnlit: false)
+            {
+                MaterialBrush = nativeBrush
+            };
+            return true;
         }
 
         bool isUnlit =
