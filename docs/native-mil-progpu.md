@@ -3562,6 +3562,28 @@ not physical-adapter performance. LibreWPF now tracks the documented ProGPU
 checkpoint so subsequent WPF image/effect work can consume the neutral lease
 contract instead of adding a managed bridge-local workaround.
 
+LibreWPF consumer checkpoint `8d466d211` carries that ownership contract
+through retained WPF image replay. `IPortableNativeImageSource` payloads may
+now publish either a direct `GpuTexture` or an `IProGpuTextureSource`, while
+lease-capable payloads are retained by the ProGPU scene `DrawingContext` until
+the recorded command list is cleared or disposed. A lease-capable source that
+cannot produce a compatible lease fails closed instead of falling back to an
+unowned raw texture. The invalidation tracker also traverses the typed native
+image payload and subscribes directly to
+`IProGpuInvalidatingTextureSource.TextureChanged`, releasing that subscription
+when the retained tracker is disposed. This keeps owner disposal, resize, and
+post-recording DirectX writes safe without reflection, CPU readback, or a
+WPF-owned lifetime wrapper.
+
+The focused consumer gate passes 4/4 tests, including retained lease disposal,
+typed texture invalidation, LibreWinForms carrier ordering, and the package
+graph contract. The complete `ProGPU.Wpf.Tests` assembly currently reports
+1,448 passed and seven unrelated pre-existing source-shape failures in window
+activation registration, shader review assertions, project inclusion,
+render scheduling, and retained-branch-map assertions. Those baseline failures
+are not counted as consumer-checkpoint regressions and remain visible rather
+than being weakened or hidden by this change.
+
 ## Next parity gates
 
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested
