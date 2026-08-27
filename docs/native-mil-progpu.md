@@ -2798,6 +2798,16 @@ kept the same exact hashes, while median submission/frame p50 regressed
 1.9296/6.0166 ms at 2x; every p95 median also worsened. The qualified kernel
 therefore retains the lower-cost direction branch.
 
+ProGPU `447ec566` records two additional exact but rejected candidates. Checked
+32-bit row-crossing offsets improved the complete 2x median set but regressed
+1x synchronized-frame p50 by 2.0%; hoisting only the row's base span generated
+a byte-identical dylib because Clang already performs that optimization. A
+paired `uint32x2_t` NEON total improved submission p50 by 3.0% at 1x and 5.3%
+at 2x, yet regressed 1x frame p50 by 3.8% and 2x frame p95 by 2.2%. All 32
+process reports per experiment retained exact hashes
+`5B6EF4F70536C862`/`706B261418EC5C3B`; both source candidates were reverted
+and the previously qualified folded reduction remains authoritative.
+
 The next reflection-free render-data slice preserves canonical `PushClip` and
 `PushOpacityMask` scopes in the native MIL stream. Geometry and mask resources
 resolve only through typed portable contracts, opacity-mask bounds retain the
