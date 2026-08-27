@@ -2743,6 +2743,15 @@ regressed 1x from 1.0949/5.1557 to 1.1324/5.3494 ms and worsened frame p95.
 All eight 120-frame processes retained the managed/native hashes above. The
 qualified implementation therefore avoids the added metadata traffic.
 
+A first-reset branch candidate then improved p50 at both DPIs but regressed 2x
+frame p95 by 1.6%, so it was rejected. Accepted ProGPU `deb50413` instead folds
+the exact NEON 0-or-1 lane reduction and removes one vector add per pixel with
+no new branch or floating-point change. Across eight alternating 120-frame
+runs, submission/frame p50 improved 3.2%/4.9% at 1x and 5.3%/5.7% at 2x;
+p95 improved in all four comparisons and both managed/native hashes remained
+exact. The local ten-test native suite, strict x86_64 SSE2 syntax gate, and a
+Windows 11 Parallels ARM64 MSVC/Ninja rebuild with all ten non-Dawn CTests pass.
+
 The next reflection-free render-data slice preserves canonical `PushClip` and
 `PushOpacityMask` scopes in the native MIL stream. Geometry and mask resources
 resolve only through typed portable contracts, opacity-mask bounds retain the
