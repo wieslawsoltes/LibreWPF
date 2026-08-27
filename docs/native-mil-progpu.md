@@ -3505,6 +3505,15 @@ accumulator/output/checksum results and zero allocation. The processed-float
 effect lane keeps its explicit finite/rounding/Int64-overflow semantics until
 it receives a separately qualified cross-architecture vector kernel.
 
+ProGPU documentation checkpoint `ab6107e4` additionally qualifies both
+`Vector256` product kernels with the self-contained `win-x64` benchmark in the
+Windows 11 ARM64 Parallels integration VM. .NET 10.0.5 reported `arch=X64`,
+`Vector256=True`; all runs retained exact scalar checksums and zero allocation.
+Median-of-run p50 was `48.669` versus `171.175 us/block` (3.52x) for the
+48,000-frame gain/balance path and `1.277` versus `4.877 us/block` (3.82x) for
+the 1,024-frame wide mix. This is emulated-x64 correctness and relative
+performance evidence, not a physical-x64 hardware claim.
+
 The Windows host harness now accepts `PROGPU_WPF_REAL_ASSEMBLY_DIR` so a
 deployment bundle can load one adjacent, source-built PresentationCore/
 PresentationFramework graph instead of inferring repository artifact paths.
