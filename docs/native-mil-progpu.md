@@ -3286,6 +3286,17 @@ legacy/stateful scenes through wgpu-native and Dawn. Dynamic GuidelineSet still
 fails closed: the per-resource Start/Quiet/Animation/Landing/Flight phase state
 and scheduler invalidation are the next implementation checkpoint.
 
+ProGPU checkpoint `83759aa1` adds the shared semantic output required by that
+phase state. An append-only explicit-offset flag extends guideline payloads
+with one physical-device-pixel offset per existing sorted coordinate without
+changing the resource header or static payloads. The typed builder and scene
+validator enforce matching counts, finite sorted coordinates, finite offsets
+within WPF's one-pixel driven range, and valid multi-guide modes. The common
+semantic cursor applies those offsets with exactly one target-DPI conversion,
+so WebGPU/Dawn and DirectX require no separate animation implementation. The
+full native/provider matrix remains 12/12; MIL dynamic resources still fail
+closed until their retained phase machine emits this representation.
+
 ## Next parity gates
 
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested
