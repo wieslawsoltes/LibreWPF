@@ -2794,8 +2794,22 @@ deduplicated by source identity, emitted as canonical typed MIL resources, and
 retained by each animated command handle. ProGPU owns the exact packet writers,
 including type-50 `SizeResource` and type-52 `RectResource`; missing typed
 values, malformed sizes, or nonzero reserved padding fail closed. The focused
-native-scene compiler suite now passes 85/85 cases, while ProGPU's focused
+native-scene compiler suite now passes 88/88 cases, while ProGPU's focused
 native interop suite passes 87/87.
+
+The first typed retained `Viewport3DVisual` slice now crosses the same native
+MIL compiler without reflection or CPU projection. LibreWPF recognizes only
+`IPortableViewport3DSceneSource`, creates the canonical type-44 visual, and
+flattens its finite camera, viewport, light/material, model/normal matrices,
+vertices, and indices into ProGPU's copied pointer-free sideband. ProGPU then
+emits its reusable semantic 3D mesh draw; projection, viewport placement,
+lighting, depth, and rasterization stay in the shared GPU backend for Metal,
+D3D12, Vulkan, and browser WebGPU. The compiler preserves retained offset,
+axis-preserving transform, and opacity. Back-material selection, non-axis-
+preserving 2D transforms, clips, opacity masks, effects, caches, and guidelines
+fail closed until the native 3D compositor can reproduce them exactly. Focused
+coverage validates the sideband and both representative unsupported-state
+boundaries.
 
 The WPF MCG `csp` tool also rebuilds cleanly and its unmodified `Resources.rsp`
 regenerates all 378 resource outputs into an isolated temporary tree. The

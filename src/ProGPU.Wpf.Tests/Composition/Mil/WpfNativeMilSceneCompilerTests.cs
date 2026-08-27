@@ -2657,6 +2657,112 @@ public sealed class WpfNativeMilSceneCompilerTests
         Assert.Contains(nameof(IPortablePenSource), exception.Message);
     }
 
+    [Fact]
+    public void BuildBatchFlattensTypedViewport3DIntoNativeSideband()
+    {
+        PortableViewport3DScene scene = CreatePortableViewport3DScene();
+        var visual = new FakeViewport3DVisual(scene);
+
+        WpfNativeMilBatch result = new WpfNativeMilSceneCompiler().BuildBatch(
+            visual, 160, 120);
+
+        Assert.Equal(
+            [0x07, 0x1a, 0x1b, 0x20, 0x07, 0x34, 0x36, 0x35],
+            ReadCommands(result.Bytes));
+        Assert.Equal(
+            (uint)NativeMilResourceType.Viewport3DVisual,
+            ReadUInt32(result.Bytes, 12));
+        WpfNativeMilViewport3DScene retained = Assert.Single(
+            result.Viewport3DScenes!);
+        Assert.Equal(1U, retained.Handle);
+        Assert.Equal(12.0f, retained.Scene.Viewport.X);
+        Assert.Equal(18.0f, retained.Scene.Viewport.Y);
+        Assert.Equal(80.0f, retained.Scene.Viewport.Width);
+        Assert.Equal(60.0f, retained.Scene.Viewport.Height);
+        NativeSceneMesh3D mesh = Assert.Single(retained.Scene.Meshes);
+        Assert.Equal(3U, mesh.VertexCount);
+        Assert.Equal(3U, mesh.IndexCount);
+        Assert.Equal(1U, mesh.ShadingMode);
+        Assert.Equal(3, retained.Scene.Vertices.Length);
+        Assert.Equal([0U, 1U, 2U], retained.Scene.Indices);
+        Assert.Equal(2.0f, retained.Scene.Camera.CameraPosition.Z);
+    }
+
+    [Fact]
+    public void BuildBatchRejectsViewport3DBackMaterialUntilFaceModeIsNative()
+    {
+        PortableViewport3DScene scene = CreatePortableViewport3DScene();
+        scene.Meshes[0].IsBackFace = true;
+
+        Assert.Throws<NotSupportedException>(() =>
+            new WpfNativeMilSceneCompiler().BuildBatch(
+                new FakeViewport3DVisual(scene), 160, 120));
+    }
+
+    [Fact]
+    public void BuildBatchRejectsViewport3DClipUntilNative3DClipIsExact()
+    {
+        var visual = new FakeViewport3DVisual(
+            CreatePortableViewport3DScene(),
+            new PortableVisualState
+            {
+                HasClip = true,
+                Clip = new object()
+            });
+
+        Assert.Throws<NotSupportedException>(() =>
+            new WpfNativeMilSceneCompiler().BuildBatch(
+                visual, 160, 120));
+    }
+
+    private static PortableViewport3DScene CreatePortableViewport3DScene()
+    {
+        return new PortableViewport3DScene
+        {
+            Viewport = new PortableRect(12, 18, 80, 60),
+            Camera = new PortableViewport3DCamera
+            {
+                Kind = PortableViewport3DCameraKind.Perspective,
+                Position = new PortableVector3(0, 0, 2),
+                LookDirection = new PortableVector3(0, 0, -1),
+                UpDirection = new PortableVector3(0, 1, 0),
+                NearPlaneDistance = 0.1,
+                FarPlaneDistance = 100,
+                FieldOfView = 45,
+                Width = 2
+            },
+            LightDirection = new PortableVector3(0.5, 1, -0.5),
+            LightIntensity = 1,
+            AmbientColor = new PortableVector3(1, 1, 1),
+            AmbientIntensity = 0.2,
+            Meshes =
+            [
+                new PortableViewport3DMesh
+                {
+                    Positions =
+                    [
+                        new PortableVector3(-0.8, -0.8, 0),
+                        new PortableVector3(0.8, -0.8, 0),
+                        new PortableVector3(0, 0.8, 0)
+                    ],
+                    Normals =
+                    [
+                        new PortableVector3(0, 0, 1),
+                        new PortableVector3(0, 0, 1),
+                        new PortableVector3(0, 0, 1)
+                    ],
+                    Indices = [0, 1, 2],
+                    ModelTransform = PortableMatrix4x4.Identity,
+                    DiffuseColor = new PortableColor4(0.25, 0.5, 0.75, 1),
+                    SpecularColor = new PortableColor4(0.1, 0.1, 0.1, 1),
+                    Shininess = 24,
+                    AmbientColor = new PortableVector3(0.2, 0.2, 0.2),
+                    Opacity = 1
+                }
+            ]
+        };
+    }
+
     private static List<int> ReadCommands(byte[] batch)
     {
         var commands = new List<int>();
@@ -3116,6 +3222,54 @@ public sealed class WpfNativeMilSceneCompilerTests
                 HasDescendantBounds = true,
                 DescendantBounds = new PortableRect(1, 2, 30, 20)
             };
+            return true;
+        }
+    }
+
+    private sealed class FakeViewport3DVisual :
+        IPortableVisualStateSource,
+        IPortableVisualChildrenSource,
+        IPortableViewport3DSceneSource
+    {
+        private readonly PortableViewport3DScene _scene;
+        private readonly PortableVisualState _state;
+
+        internal FakeViewport3DVisual(
+            PortableViewport3DScene scene,
+            PortableVisualState? state = null)
+        {
+            _scene = scene;
+            _state = state ?? new PortableVisualState
+            {
+                HasOffset = true,
+                Offset = new PortablePoint(0, 0),
+                HasOpacity = true,
+                Opacity = 1
+            };
+        }
+
+        public bool TryGetPortableVisualState(out PortableVisualState state)
+        {
+            state = _state;
+            return true;
+        }
+
+        public bool TryGetPortableVisualChildCount(out int count)
+        {
+            count = 0;
+            return true;
+        }
+
+        public bool TryGetPortableVisualChild(int index, out object? child)
+        {
+            child = null;
+            return false;
+        }
+
+        public bool TryGetPortableViewport3DScene(
+            out PortableViewport3DScene scene)
+        {
+            scene = _scene;
             return true;
         }
     }

@@ -1,4 +1,6 @@
 using System.Buffers.Binary;
+using System.Numerics;
+using System.Runtime.CompilerServices;
 using ProGPU.Backend.Native;
 using ProGPU.Wpf.Interop;
 using WpfPortableGeometryBoundsReader = System.Windows.Media.ProGPU.Composition.WpfPortableGeometryBoundsReader;
@@ -35,6 +37,10 @@ public sealed record WpfNativeMilVisualCacheBounds(
     uint Handle,
     NativeMilRect Bounds);
 
+public sealed record WpfNativeMilViewport3DScene(
+    uint Handle,
+    NativeMilViewport3DScene Scene);
+
 public sealed record WpfNativeMilBatch(
     byte[] Bytes,
     uint TargetHandle,
@@ -42,7 +48,8 @@ public sealed record WpfNativeMilBatch(
     IReadOnlyList<WpfNativeMilGlyphRunFont>? GlyphRunFonts = null,
     IReadOnlyList<WpfNativeMilDrawingImageBounds>? DrawingImageBounds = null,
     IReadOnlyList<WpfNativeMilVisualCacheBounds>? VisualCacheBounds = null,
-    IReadOnlyList<WpfNativeMilDrawingGroupBounds>? DrawingGroupBounds = null);
+    IReadOnlyList<WpfNativeMilDrawingGroupBounds>? DrawingGroupBounds = null,
+    IReadOnlyList<WpfNativeMilViewport3DScene>? Viewport3DScenes = null);
 
 public sealed record WpfNativeMilCompilation(
     NativeMilCompiledScene Scene,
@@ -82,7 +89,8 @@ public sealed class WpfNativeMilSceneCompiler
             context.GlyphRunFonts.ToArray(),
             context.DrawingImageBounds.ToArray(),
             context.VisualCacheBounds.ToArray(),
-            context.DrawingGroupBounds.ToArray());
+            context.DrawingGroupBounds.ToArray(),
+            context.Viewport3DScenes.ToArray());
     }
 
     public WpfNativeMilCompilation Compile(
@@ -139,6 +147,13 @@ public sealed class WpfNativeMilSceneCompiler
             channel.SetVisualCacheBounds(
                 visualCache.Handle, visualCache.Bounds);
         }
+        foreach (WpfNativeMilViewport3DScene viewport3D in
+                 batch.Viewport3DScenes ??
+                 Array.Empty<WpfNativeMilViewport3DScene>())
+        {
+            channel.SetViewport3DScene(
+                viewport3D.Handle, viewport3D.Scene);
+        }
         NativeMilCompiledScene scene = channel.CompileScene(
             batch.TargetHandle, sceneId, generation);
         return new WpfNativeMilCompilation(scene, batchMetrics);
@@ -193,6 +208,9 @@ public sealed class WpfNativeMilSceneCompiler
         internal List<WpfNativeMilVisualCacheBounds> VisualCacheBounds
             { get; } = [];
 
+        internal List<WpfNativeMilViewport3DScene> Viewport3DScenes
+            { get; } = [];
+
         internal uint NextHandle()
         {
             if (_nextHandle == 0)
@@ -217,10 +235,34 @@ public sealed class WpfNativeMilSceneCompiler
             }
             RejectUnsupportedState(state);
 
+            bool isViewport3D = visual is IPortableViewport3DSceneSource;
+            if (isViewport3D)
+            {
+                RejectUnsupportedViewport3DState(state);
+            }
+
             uint visualHandle = NextHandle();
             _visualHandles.Add(visual, visualHandle);
-            Batch.CreateResource(visualHandle, NativeMilResourceType.Visual);
+            Batch.CreateResource(
+                visualHandle,
+                isViewport3D
+                    ? NativeMilResourceType.Viewport3DVisual
+                    : NativeMilResourceType.Visual);
             Batch.CreateVisual(visualHandle);
+            if (isViewport3D)
+            {
+                var viewportSource = (IPortableViewport3DSceneSource)visual;
+                if (!viewportSource.TryGetPortableViewport3DScene(
+                        out PortableViewport3DScene portableScene))
+                {
+                    throw MissingContract(
+                        nameof(IPortableViewport3DSceneSource));
+                }
+                Viewport3DScenes.Add(
+                    new WpfNativeMilViewport3DScene(
+                        visualHandle,
+                        CreateNativeViewport3DScene(portableScene)));
+            }
             if (state.HasTransform)
             {
                 if (state.Transform is null)
@@ -451,7 +493,8 @@ public sealed class WpfNativeMilSceneCompiler
                         textHintingMode));
             }
 
-            if (visual is IPortableDrawingContentSource contentSource &&
+            if (!isViewport3D &&
+                visual is IPortableDrawingContentSource contentSource &&
                 contentSource.TryGetPortableDrawingContent(out object? content) &&
                 content is not null)
             {
@@ -2510,6 +2553,426 @@ public sealed class WpfNativeMilSceneCompiler
             int offset)
         {
             return BinaryPrimitives.ReadSingleLittleEndian(source[offset..]);
+        }
+
+        private static NativeMilViewport3DScene CreateNativeViewport3DScene(
+            PortableViewport3DScene scene)
+        {
+            ArgumentNullException.ThrowIfNull(scene);
+            if (scene.Camera is null || scene.Viewport.IsEmpty ||
+                !TryToFiniteFloat(scene.Viewport.X, out float viewportX) ||
+                !TryToFiniteFloat(scene.Viewport.Y, out float viewportY) ||
+                !TryToFinitePositiveFloat(
+                    scene.Viewport.Width, out float viewportWidth) ||
+                !TryToFinitePositiveFloat(
+                    scene.Viewport.Height, out float viewportHeight))
+            {
+                throw new NotSupportedException(
+                    "Native MIL Viewport3D requires a finite positive typed viewport and camera.");
+            }
+
+            float aspectRatio = viewportWidth / viewportHeight;
+            if (!TryCreateViewportCamera(
+                    scene.Camera,
+                    aspectRatio,
+                    out Matrix4x4 projection,
+                    out Matrix4x4 view,
+                    out Vector3 cameraPosition))
+            {
+                throw new NotSupportedException(
+                    "Native MIL Viewport3D camera state is invalid or unsupported.");
+            }
+
+            PortableViewport3DMesh[] sourceMeshes =
+                scene.Meshes ?? Array.Empty<PortableViewport3DMesh>();
+            if (sourceMeshes.Length == 0)
+            {
+                throw new NotSupportedException(
+                    "Native MIL Viewport3D requires at least one typed mesh.");
+            }
+
+            int totalVertexCount = 0;
+            int totalIndexCount = 0;
+            for (int meshIndex = 0;
+                 meshIndex < sourceMeshes.Length;
+                 meshIndex++)
+            {
+                PortableViewport3DMesh? mesh = sourceMeshes[meshIndex];
+                if (mesh is null || mesh.IsBackFace ||
+                    mesh.Positions is null || mesh.Normals is null ||
+                    mesh.Indices is null || mesh.Positions.Length < 3 ||
+                    mesh.Normals.Length != mesh.Positions.Length ||
+                    mesh.Indices.Length < 3 ||
+                    mesh.Indices.Length % 3 != 0)
+                {
+                    throw new NotSupportedException(
+                        "Native MIL Viewport3D currently requires front-face triangle meshes with one typed normal per position.");
+                }
+                totalVertexCount = checked(
+                    totalVertexCount + mesh.Positions.Length);
+                totalIndexCount = checked(
+                    totalIndexCount + mesh.Indices.Length);
+            }
+
+            var nativeMeshes =
+                new NativeSceneMesh3D[sourceMeshes.Length];
+            var vertices =
+                new NativeSceneMesh3DVertex[totalVertexCount];
+            var indices = new uint[totalIndexCount];
+            Vector3 lightDirection = ToFiniteVector3(
+                scene.LightDirection, nameof(scene.LightDirection));
+            if (lightDirection.LengthSquared() <= 0.000001f ||
+                !TryToFiniteNonNegativeFloat(
+                    scene.LightIntensity, out float lightIntensity))
+            {
+                throw new NotSupportedException(
+                    "Native MIL Viewport3D requires a finite nonzero light direction and nonnegative intensity.");
+            }
+            Vector3 sceneAmbient = ToFiniteVector3(
+                scene.AmbientColor, nameof(scene.AmbientColor));
+            if (!TryToFiniteNonNegativeFloat(
+                    scene.AmbientIntensity, out float ambientIntensity))
+            {
+                throw new NotSupportedException(
+                    "Native MIL Viewport3D ambient intensity must be finite and nonnegative.");
+            }
+
+            int vertexOffset = 0;
+            int indexOffset = 0;
+            for (int meshIndex = 0;
+                 meshIndex < sourceMeshes.Length;
+                 meshIndex++)
+            {
+                PortableViewport3DMesh mesh = sourceMeshes[meshIndex];
+                Matrix4x4 model = ToFiniteMatrix(
+                    mesh.ModelTransform,
+                    nameof(mesh.ModelTransform));
+                if (!Matrix4x4.Invert(model, out Matrix4x4 inverseModel))
+                {
+                    throw new NotSupportedException(
+                        "Native MIL Viewport3D mesh transforms must be invertible.");
+                }
+                Matrix4x4 normal = Matrix4x4.Transpose(inverseModel);
+                if (!IsFinite(normal) ||
+                    !TryToFiniteUnitFloat(mesh.Opacity, out float opacity) ||
+                    !TryToFinitePositiveFloat(
+                        mesh.Shininess, out float shininess))
+                {
+                    throw new NotSupportedException(
+                        "Native MIL Viewport3D material state is invalid.");
+                }
+
+                for (int vertexIndex = 0;
+                     vertexIndex < mesh.Positions.Length;
+                     vertexIndex++)
+                {
+                    vertices[vertexOffset + vertexIndex] =
+                        new NativeSceneMesh3DVertex
+                        {
+                            Position = new NativePoint3D(
+                                ToFiniteVector3(
+                                    mesh.Positions[vertexIndex],
+                                    nameof(mesh.Positions))),
+                            Normal = new NativePoint3D(
+                                ToFiniteVector3(
+                                    mesh.Normals[vertexIndex],
+                                    nameof(mesh.Normals))),
+                            TextureCoordinate = Vector2.Zero,
+                            Reserved0 = 0U,
+                            Reserved1 = 0U
+                        };
+                }
+                for (int meshIndexOffset = 0;
+                     meshIndexOffset < mesh.Indices.Length;
+                     meshIndexOffset++)
+                {
+                    int sourceIndex = mesh.Indices[meshIndexOffset];
+                    if ((uint)sourceIndex >=
+                        (uint)mesh.Positions.Length)
+                    {
+                        throw new NotSupportedException(
+                            "Native MIL Viewport3D mesh indices must address the typed position range.");
+                    }
+                    indices[indexOffset + meshIndexOffset] =
+                        (uint)sourceIndex;
+                }
+
+                Vector4 diffuse = ToFiniteVector4(
+                    mesh.DiffuseColor, nameof(mesh.DiffuseColor));
+                Vector3 specular = ToFiniteVector3(
+                    mesh.SpecularColor, nameof(mesh.SpecularColor));
+                Vector3 materialAmbient = ToFiniteVector3(
+                    mesh.AmbientColor, nameof(mesh.AmbientColor));
+                nativeMeshes[meshIndex] = new NativeSceneMesh3D
+                {
+                    StructSize = (uint)Unsafe.SizeOf<NativeSceneMesh3D>(),
+                    Flags = 0U,
+                    Topology = (uint)NativeMesh3DTopology.Triangles,
+                    RenderMode = (uint)NativeMesh3DRenderMode.Solid,
+                    VertexOffset = (uint)vertexOffset,
+                    VertexCount = (uint)mesh.Positions.Length,
+                    IndexOffset = (uint)indexOffset,
+                    IndexCount = (uint)mesh.Indices.Length,
+                    ModelTransform = new NativeMatrix4x4(model),
+                    NormalTransform = new NativeMatrix4x4(normal),
+                    Color = diffuse,
+                    LightDirection = ToNativeFloat4(
+                        lightDirection, lightIntensity),
+                    AmbientColor = ToNativeFloat4(
+                        sceneAmbient, ambientIntensity),
+                    SpecularColor = ToNativeFloat4(specular, shininess),
+                    MaterialAmbient = ToNativeFloat4(
+                        materialAmbient, 1.0f),
+                    Opacity = opacity,
+                    ShadingMode = 1U,
+                    Reserved0 = 0U,
+                    Reserved1 = 0U
+                };
+                vertexOffset += mesh.Positions.Length;
+                indexOffset += mesh.Indices.Length;
+            }
+
+            return new NativeMilViewport3DScene(
+                new NativeSceneCamera3D(
+                    projection, view, cameraPosition),
+                new NativeImageRect(
+                    viewportX,
+                    viewportY,
+                    viewportWidth,
+                    viewportHeight),
+                nativeMeshes,
+                vertices,
+                indices);
+        }
+
+        private static bool TryCreateViewportCamera(
+            PortableViewport3DCamera camera,
+            float aspectRatio,
+            out Matrix4x4 projection,
+            out Matrix4x4 view,
+            out Vector3 position)
+        {
+            projection = Matrix4x4.Identity;
+            view = Matrix4x4.Identity;
+            position = ToFiniteVector3(
+                camera.Position, nameof(camera.Position));
+            Vector3 lookDirection = ToFiniteVector3(
+                camera.LookDirection, nameof(camera.LookDirection));
+            Vector3 upDirection = ToFiniteVector3(
+                camera.UpDirection, nameof(camera.UpDirection));
+            if (lookDirection.LengthSquared() <= 0.000001f ||
+                upDirection.LengthSquared() <= 0.000001f ||
+                !float.IsFinite(aspectRatio) || aspectRatio <= 0.0f)
+            {
+                return false;
+            }
+            if (camera.HasTransform)
+            {
+                Matrix4x4 transform = ToFiniteMatrix(
+                    camera.Transform, nameof(camera.Transform));
+                position = Vector3.Transform(position, transform);
+                lookDirection = Vector3.TransformNormal(
+                    lookDirection, transform);
+                upDirection = Vector3.TransformNormal(
+                    upDirection, transform);
+            }
+            if (!IsFinite(position) || !IsFinite(lookDirection) ||
+                !IsFinite(upDirection) ||
+                lookDirection.LengthSquared() <= 0.000001f ||
+                upDirection.LengthSquared() <= 0.000001f)
+            {
+                return false;
+            }
+            view = Matrix4x4.CreateLookAt(
+                position, position + lookDirection, upDirection);
+            if (!TryToFinitePositiveFloat(
+                    camera.NearPlaneDistance, out float nearPlane))
+            {
+                return false;
+            }
+            float farPlane;
+            if (!TryToFiniteFloat(
+                    camera.FarPlaneDistance, out farPlane) ||
+                farPlane <= nearPlane)
+            {
+                return false;
+            }
+            switch (camera.Kind)
+            {
+                case PortableViewport3DCameraKind.Orthographic:
+                    if (!TryToFinitePositiveFloat(
+                            camera.Width, out float width))
+                    {
+                        return false;
+                    }
+                    projection = Matrix4x4.CreateOrthographic(
+                        width,
+                        width / aspectRatio,
+                        nearPlane,
+                        farPlane);
+                    break;
+                case PortableViewport3DCameraKind.Perspective:
+                    if (!TryToFiniteFloat(
+                            camera.FieldOfView,
+                            out float horizontalFovDegrees) ||
+                        horizontalFovDegrees <= 0.0f ||
+                        horizontalFovDegrees >= 180.0f)
+                    {
+                        return false;
+                    }
+                    float horizontalFovRadians =
+                        horizontalFovDegrees * MathF.PI / 180.0f;
+                    float verticalFovRadians = 2.0f * MathF.Atan(
+                        MathF.Tan(horizontalFovRadians * 0.5f) /
+                        aspectRatio);
+                    projection = Matrix4x4.CreatePerspectiveFieldOfView(
+                        verticalFovRadians,
+                        aspectRatio,
+                        nearPlane,
+                        farPlane);
+                    break;
+                default:
+                    return false;
+            }
+            return IsFinite(projection) && IsFinite(view);
+        }
+
+        private static Vector3 ToFiniteVector3(
+            PortableVector3 value,
+            string parameterName)
+        {
+            if (!TryToFiniteFloat(value.X, out float x) ||
+                !TryToFiniteFloat(value.Y, out float y) ||
+                !TryToFiniteFloat(value.Z, out float z))
+            {
+                throw new NotSupportedException(
+                    $"Native MIL Viewport3D {parameterName} contains a non-finite or out-of-range value.");
+            }
+            return new Vector3(x, y, z);
+        }
+
+        private static Vector3 ToFiniteVector3(
+            PortableColor4 value,
+            string parameterName)
+        {
+            if (!TryToFiniteFloat(value.R, out float r) ||
+                !TryToFiniteFloat(value.G, out float g) ||
+                !TryToFiniteFloat(value.B, out float b))
+            {
+                throw new NotSupportedException(
+                    $"Native MIL Viewport3D {parameterName} contains a non-finite or out-of-range value.");
+            }
+            return new Vector3(r, g, b);
+        }
+
+        private static Vector4 ToFiniteVector4(
+            PortableColor4 value,
+            string parameterName)
+        {
+            Vector3 rgb = ToFiniteVector3(value, parameterName);
+            if (!TryToFiniteFloat(value.A, out float alpha))
+            {
+                throw new NotSupportedException(
+                    $"Native MIL Viewport3D {parameterName} contains a non-finite or out-of-range alpha.");
+            }
+            return new Vector4(rgb, alpha);
+        }
+
+        private static Matrix4x4 ToFiniteMatrix(
+            PortableMatrix4x4 value,
+            string parameterName)
+        {
+            var matrix = new Matrix4x4(
+                ToFiniteFloat(value.M11, parameterName),
+                ToFiniteFloat(value.M12, parameterName),
+                ToFiniteFloat(value.M13, parameterName),
+                ToFiniteFloat(value.M14, parameterName),
+                ToFiniteFloat(value.M21, parameterName),
+                ToFiniteFloat(value.M22, parameterName),
+                ToFiniteFloat(value.M23, parameterName),
+                ToFiniteFloat(value.M24, parameterName),
+                ToFiniteFloat(value.M31, parameterName),
+                ToFiniteFloat(value.M32, parameterName),
+                ToFiniteFloat(value.M33, parameterName),
+                ToFiniteFloat(value.M34, parameterName),
+                ToFiniteFloat(value.M41, parameterName),
+                ToFiniteFloat(value.M42, parameterName),
+                ToFiniteFloat(value.M43, parameterName),
+                ToFiniteFloat(value.M44, parameterName));
+            return matrix;
+        }
+
+        private static float ToFiniteFloat(
+            double value,
+            string parameterName)
+        {
+            if (!TryToFiniteFloat(value, out float result))
+            {
+                throw new NotSupportedException(
+                    $"Native MIL Viewport3D {parameterName} contains a non-finite or out-of-range matrix value.");
+            }
+            return result;
+        }
+
+        private static NativeFloat4 ToNativeFloat4(
+            Vector3 value,
+            float w) => new()
+            {
+                X = value.X,
+                Y = value.Y,
+                Z = value.Z,
+                W = w
+            };
+
+        private static bool TryToFiniteFloat(
+            double value,
+            out float result)
+        {
+            result = (float)value;
+            return double.IsFinite(value) && float.IsFinite(result);
+        }
+
+        private static bool TryToFinitePositiveFloat(
+            double value,
+            out float result) =>
+            TryToFiniteFloat(value, out result) && result > 0.0f;
+
+        private static bool TryToFiniteNonNegativeFloat(
+            double value,
+            out float result) =>
+            TryToFiniteFloat(value, out result) && result >= 0.0f;
+
+        private static bool TryToFiniteUnitFloat(
+            double value,
+            out float result) =>
+            TryToFiniteFloat(value, out result) &&
+            result >= 0.0f && result <= 1.0f;
+
+        private static bool IsFinite(Vector3 value) =>
+            float.IsFinite(value.X) && float.IsFinite(value.Y) &&
+            float.IsFinite(value.Z);
+
+        private static bool IsFinite(Matrix4x4 value) =>
+            float.IsFinite(value.M11) && float.IsFinite(value.M12) &&
+            float.IsFinite(value.M13) && float.IsFinite(value.M14) &&
+            float.IsFinite(value.M21) && float.IsFinite(value.M22) &&
+            float.IsFinite(value.M23) && float.IsFinite(value.M24) &&
+            float.IsFinite(value.M31) && float.IsFinite(value.M32) &&
+            float.IsFinite(value.M33) && float.IsFinite(value.M34) &&
+            float.IsFinite(value.M41) && float.IsFinite(value.M42) &&
+            float.IsFinite(value.M43) && float.IsFinite(value.M44);
+
+        private static void RejectUnsupportedViewport3DState(
+            PortableVisualState state)
+        {
+            if (state.HasClip || state.HasScrollableAreaClip ||
+                state.HasOpacityMask || state.HasEffect ||
+                state.HasCacheMode || state.HasSnappingGuidelinesX ||
+                state.HasSnappingGuidelinesY)
+            {
+                throw new NotSupportedException(
+                    "Native MIL Viewport3D currently supports retained offset, axis-preserving transform, and opacity state; clip, mask, effect, cache, and guideline scopes fail closed.");
+            }
         }
 
         private static void RejectUnsupportedState(PortableVisualState state)
