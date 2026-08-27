@@ -2741,8 +2741,11 @@ The next reflection-free render-data slice preserves canonical `PushClip` and
 resolve only through typed portable contracts, opacity-mask bounds retain the
 WPF single-precision layout, null-resource scopes become balanced identity
 scopes, malformed packet sizes fail closed, and the existing `Pop` balance
-validation remains authoritative. The focused native-scene compiler suite now
-passes 76/76 cases.
+validation remains authoritative. Canonical static `PushGuidelineSet` scopes
+now resolve through `IPortableGuidelineSetSource` and native guideline
+resources too; null sets are valid no-op scopes, while dynamic pairs remain
+fail-closed until their MIL preprocessing contract is implemented. The
+focused native-scene compiler suite now passes 78/78 cases.
 
 The preceding exact `e510039d` Windows checkpoint completed the entire
 Parallels D3D12 lane: strict ARM64 MSVC `/W4 /WX`, 11/11 native/Dawn CTests,

@@ -775,6 +775,22 @@ public sealed class WpfNativeMilSceneCompiler
                         destination.PushOpacity(ReadDouble(payload, 0));
                         scopeDepth++;
                         break;
+                    case WpfMilCommandId.PushGuidelineSet:
+                        if (recordSize != 16)
+                        {
+                            throw new InvalidOperationException(
+                                "The portable WPF guideline-scope record has an invalid size.");
+                        }
+                        uint guidelineToken =
+                            BinaryPrimitives.ReadUInt32LittleEndian(payload);
+                        destination.PushGuidelineSet(
+                            guidelineToken == 0
+                                ? 0
+                                : ResolveGuidelineSet(
+                                    snapshot.DependentResources,
+                                    guidelineToken));
+                        scopeDepth++;
+                        break;
                     case WpfMilCommandId.PushTransform:
                         if (recordSize != 16)
                         {
@@ -1596,6 +1612,19 @@ public sealed class WpfNativeMilSceneCompiler
                 guidelines.GuidelinesX,
                 guidelines.GuidelinesY);
             return handle;
+        }
+
+        private uint ResolveGuidelineSet(
+            IReadOnlyList<object?> resources,
+            uint token)
+        {
+            if (token == 0 || token > resources.Count ||
+                resources[checked((int)token - 1)] is not object resource)
+            {
+                throw new InvalidOperationException(
+                    $"Portable guideline-set token {token} is unavailable.");
+            }
+            return ResolveGuidelineSet(resource);
         }
 
         private uint ResolveDrawing(object resource)

@@ -2054,6 +2054,56 @@ public sealed class WpfNativeMilSceneCompilerTests
     }
 
     [Fact]
+    public void BuildBatchTranslatesTypedStaticGuidelineScope()
+    {
+        var guidelines = new FakeGuidelineSet(
+            new PortableGuidelineSet(
+                isFrozen: true,
+                isDynamic: false,
+                [3.5, 12.25],
+                [7.75]));
+        byte[] renderData = CreatePushGuidelineSetRecord(1)
+            .Concat(CreatePopRecord())
+            .ToArray();
+        var visual = new FakeVisual(
+            new FakeRenderData(renderData, [guidelines]));
+
+        WpfNativeMilBatch result = new WpfNativeMilSceneCompiler().BuildBatch(
+            visual, 64, 64);
+        int renderDataOffset = FindCommand(result.Bytes, 0x18);
+        int nestedOffset = renderDataOffset + 16;
+
+        Assert.Equal(16, ReadInt32(result.Bytes, nestedOffset));
+        Assert.Equal(0x52, ReadInt32(result.Bytes, nestedOffset + 4));
+        Assert.NotEqual(0U, ReadUInt32(result.Bytes, nestedOffset + 8));
+        Assert.Equal(8, ReadInt32(result.Bytes, nestedOffset + 16));
+        Assert.Equal(0x56, ReadInt32(result.Bytes, nestedOffset + 20));
+    }
+
+    [Fact]
+    public void BuildBatchRejectsDynamicGuidelineScope()
+    {
+        var guidelines = new FakeGuidelineSet(
+            new PortableGuidelineSet(
+                isFrozen: false,
+                isDynamic: true,
+                [3.5],
+                [7.75]));
+        var visual = new FakeVisual(
+            new FakeRenderData(
+                CreatePushGuidelineSetRecord(1)
+                    .Concat(CreatePopRecord())
+                    .ToArray(),
+                [guidelines]));
+
+        NotSupportedException exception = Assert.Throws<NotSupportedException>(
+            () => new WpfNativeMilSceneCompiler().BuildBatch(
+                visual, 64, 64));
+
+        Assert.Contains("Dynamic WPF guideline pairs", exception.Message);
+    }
+
+    [Fact]
     public void BuildBatchFailsClosedForUnbalancedOpacityScope()
     {
         var visual = new FakeVisual(
@@ -2490,6 +2540,15 @@ public sealed class WpfNativeMilSceneCompilerTests
         BinaryPrimitives.WriteSingleLittleEndian(record.AsSpan(16), width);
         BinaryPrimitives.WriteSingleLittleEndian(record.AsSpan(20), height);
         BinaryPrimitives.WriteUInt32LittleEndian(record.AsSpan(24), brush);
+        return record;
+    }
+
+    private static byte[] CreatePushGuidelineSetRecord(uint guidelines)
+    {
+        byte[] record = new byte[16];
+        BinaryPrimitives.WriteInt32LittleEndian(record, record.Length);
+        BinaryPrimitives.WriteInt32LittleEndian(record.AsSpan(4), 0x52);
+        BinaryPrimitives.WriteUInt32LittleEndian(record.AsSpan(8), guidelines);
         return record;
     }
 
