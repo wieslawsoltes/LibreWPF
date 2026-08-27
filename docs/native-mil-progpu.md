@@ -2946,9 +2946,13 @@ passes with an opaque-white multiplier. A dedicated native mesh flag now makes
 the canonical brush multiply the existing specular-color vector for ordered
 specular-gradient passes, preserving the 256-byte mesh ABI. Tile-brush
 materials remain a typed fail-closed gap; no CPU texture staging or readback is
-used. The separate managed portable bridge deliberately still rejects
-specular gradients until its framework-neutral Mesh3D record gains an
-equivalent typed semantic flag.
+used. The managed 560-byte Mesh3D record now uses its previously reserved
+`MaterialStopMetadata.z` lane for the equivalent typed
+`MaterialBrushTarget3D`: zero preserves the established color target, while
+one multiplies the sampled brush into the specular vector. LibreWPF maps typed
+specular-gradient layers to that target with black diffuse RGB, preserved
+material color/power, and no reflection or CPU texture conversion. Invalid
+target/brush combinations fail closed.
 
 That managed gradient checkpoint is now qualified on Windows D3D12 as well.
 The exact pushed ProGPU `8eee2170` archive, hydrated only with the commit's
@@ -2973,13 +2977,20 @@ at 291 clipped pixels, 75 red-dominant pixels, and 96 blue-dominant pixels on
 `Parallels Display Adapter (WDDM)` without WebGPU validation/device errors.
 LibreWPF converts the already mapped typed ProGPU vector brush without
 reflection; focused producer coverage preserves coordinates, opacity, spread,
-scRGB interpolation, stop offsets/colors, and proves the managed portable
-bridge continues rejecting specular gradients. The native compiler instead
-preserves that layer with the new specular flag, black diffuse RGB, material
+scRGB interpolation, and stop offsets/colors. The native compiler preserves
+the same layer with its specular flag, black diffuse RGB, material
 color/exponent in the specular vector, and the canonical gradient sideband.
 Apple M3 Pro Metal observes 64 red-dominant plus 85 blue-dominant pixels from
 the specular-only generation inside the same 291-pixel clip, distinct from the
 75/96 unlit-gradient evidence.
+
+The framework-neutral managed route is now executable rather than a retained
+record-only assertion. Its focused Metal gate renders the specular brush under
+an explicit point light and observes 3,300 red-dominant plus 3,300
+blue-dominant pixels, with maximum endpoint-channel deltas of 134. The
+ordinary gradient test runs beside it to protect default-target compatibility;
+the complete managed Mesh3D family passes 22/22 with a warning-free Release
+build. The LibreWPF bridge/compiler selection passes 110/110 focused tests.
 
 The exact pushed ProGPU `fd455edf` checkpoint is independently qualified from
 isolated archive SHA-256

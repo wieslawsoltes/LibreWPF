@@ -250,7 +250,7 @@ public sealed class WpfViewport3DSceneBridgeTests
     }
 
     [Fact]
-    public void TryCreateReplayDataRejectsSpecularGradientMaterial()
+    public void TryCreateReplayDataPreservesSpecularGradientMaterial()
     {
         var viewport = new PortableViewport3DVisual
         {
@@ -276,9 +276,19 @@ public sealed class WpfViewport3DSceneBridgeTests
             ]
         };
 
-        Assert.False(WpfViewport3DSceneBridge.TryCreateReplayData(
+        Assert.True(WpfViewport3DSceneBridge.TryCreateReplayData(
             viewport,
-            out _));
+            out var replayData));
+        var mesh = Assert.Single(replayData.Payload.Meshes);
+        Assert.Equal(
+            global::ProGPU.Scene.Extensions
+                .MaterialBrushTarget3D.Specular,
+            mesh.MaterialBrushTarget);
+        Assert.Equal(Vector4.UnitW, mesh.Color);
+        Assert.Equal(Vector3.One, mesh.SpecularColor);
+        Assert.Equal(16f, mesh.Shininess);
+        Assert.IsType<global::ProGPU.Vector.LinearGradientBrush>(
+            mesh.MaterialBrush);
     }
 
     [Fact]

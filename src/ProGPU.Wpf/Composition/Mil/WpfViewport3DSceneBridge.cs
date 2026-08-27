@@ -391,6 +391,13 @@ public static class WpfViewport3DSceneBridge
             MaterialBrush = hasMaterialPass
                 ? material.MaterialBrush
                 : null,
+            MaterialBrushTarget =
+                hasMaterialPass && material.Kind ==
+                    PortableViewport3DMaterialKind.Specular
+                    ? global::ProGPU.Scene.Extensions
+                        .MaterialBrushTarget3D.Specular
+                    : global::ProGPU.Scene.Extensions
+                        .MaterialBrushTarget3D.Color,
             Indices = mesh.Indices,
             ModelTransform = ToMatrix4x4(mesh.ModelTransform),
             Color = hasMaterialPass

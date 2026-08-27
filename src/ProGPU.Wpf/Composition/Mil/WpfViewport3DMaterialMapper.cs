@@ -22,7 +22,7 @@ internal static class WpfViewport3DMaterialMapper
         PortableViewport3DMaterial? material,
         out WpfViewport3DMaterialPass pass)
         => TryMapSolid(material, out pass) ||
-            TryMapGradient(material, allowSpecular: false, out pass);
+            TryMapGradient(material, allowSpecular: true, out pass);
 
     internal static bool TryMapNative(
         PortableViewport3DMaterial? material,
