@@ -3218,7 +3218,17 @@ ProGPU checkpoint `711e169f` additionally runs that exact five-node program in
 the provider-resolved Metal vector-mask fixture. Live Apple M3 Pro readback
 asserts surviving cyan coverage, a clear Difference hole, and a clear final-XOR
 island; the complete configured native/provider matrix passes 12/12. The
-superproject now tracks ProGPU checkpoint `711e169f`.
+standard hardware sample checkpoint `3bd6bb40` then adds the same isolated
+boolean tile to the shared Metal/D3D12/Vulkan oracle. Metal and Parallels
+D3D12 both produced inside `51/209/242`, Difference hole `5/6/10`, and XOR
+island `5/6/10`, while preserving all four gradient pixels. Exact archive
+`B8740F7C484A1B763253185C1DBC395D07A0016B4E691CB86A271F5ABAEEDF89`
+passed the Windows 312-step dual-provider build and 11/11 CTests. Qualified
+provider hashes are
+`C5E90611B1BDB249DB940A11AC6F8C4C5816392FF14BE9A7D5A5246AAD177991`
+and
+`C29207284FDDC19E193A131651F7A70E10ECABF12D1BD9816A6954E3E6808655`.
+The superproject now tracks ProGPU documentation checkpoint `ff930177`.
 
 ## Next parity gates
 
