@@ -3230,6 +3230,40 @@ and
 `C29207284FDDC19E193A131651F7A70E10ECABF12D1BD9816A6954E3E6808655`.
 The superproject now tracks ProGPU documentation checkpoint `ff930177`.
 
+ProGPU implementation checkpoint `b97b99e3` closes transform-bearing
+SolidColorBrush protocol parity without changing uniform-color rendering.
+Absolute and relative transform handles are retained, type-checked,
+deletion-protected, and included in dependency revisions, while realized
+color/opacity remains transform-invariant exactly like WPF MIL. The same
+checkpoint documents the append-only dynamic-guideline state machine and ABI
+required for exact Start/Quiet/Animation/Landing/Flight behavior; dynamic
+guidelines remain fail closed until DPI, monotonic time, stable request serial,
+VisualBrush-use state, idempotent compile/copy, and scheduler feedback are all
+present together.
+
+The exact `b97b99e3` archive completed the full Windows 11 ARM64 Parallels
+D3D12 smoke/package lane. MSVC 19.44 rebuilt the 312-step dual-provider graph
+under `/W4 /WX`; all 11 native/Dawn CTests passed; automatic/forced raster and
+forced NEON retained `5B6EF4F70536C862`; the bounded scalar oracle retained
+`6C59592F05595EFE`; and forced compute failed at the typed pre-resource
+boundary. Microsoft D3D12HelloTriangle and D3D12HelloTexture ProGPU oracles,
+native mixed-picture stress, bounded managed/native parity, retained
+cache/guideline/Viewport3D/effect/clip/text/blend families, and runtime package
+staging all passed. The VM lacked PowerShell Core and Parallels Tools guest RPC,
+so the repository script ran under Windows PowerShell 5.1 with `IsWindows`
+defined only in that child process; no machine policy or installed software was
+changed.
+
+Two further SIMD scratch-layout candidates were measured and rejected rather
+than merged. Retaining coverage/crossing/curve vectors improved 1x medians but
+regressed 2x p50 by roughly eight percent. Replacing the reserved crossing
+vector with an exactly bounded uninitialized arena removed append-capacity
+checks and stayed byte-exact across 48 processes, but its uncontended 1x
+extension regressed submission/frame p50 and p95; the combined frame p95 was
+3.0% worse. ProGPU therefore keeps the qualified folded two-pixel NEON/SSE2
+kernel and documents both negative results. The superproject now tracks ProGPU
+documentation checkpoint `58b35ccb`.
+
 ## Next parity gates
 
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested
