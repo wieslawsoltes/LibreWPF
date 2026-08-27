@@ -2805,8 +2805,8 @@ vertices, and indices into ProGPU's copied pointer-free sideband. ProGPU then
 emits its reusable semantic 3D mesh draw; projection, viewport placement,
 lighting, depth, and rasterization stay in the shared GPU backend for Metal,
 D3D12, Vulkan, and browser WebGPU. The compiler preserves retained offset,
-axis-preserving transform, and opacity. Back-material selection, non-axis-
-preserving 2D transforms, clips, opacity masks, effects, caches, and guidelines
+axis-preserving transform, opacity, and exact front/back material selection.
+Non-axis-preserving 2D transforms, clips, opacity masks, effects, caches, and guidelines
 fail closed until the native 3D compositor can reproduce them exactly. Focused
 coverage validates the sideband and both representative unsupported-state
 boundaries.
@@ -2823,6 +2823,15 @@ With explicit line-corner selection, valid unused stencil state, and
 same gate is now part of macOS/Linux and Windows native integration scripts so
 D3D12 and Vulkan must reproduce this placement rather than merely accepting
 the scene bytes.
+
+The same native face-mode addition closes the initial back-material gap.
+LibreWPF maps each typed `PortableViewport3DMesh.IsBackFace` entry to an
+exclusive ProGPU `FrontFace` or `BackFace` flag. ProGPU selects back or front
+culling from its shared retained 3D pipeline family; zero remains the
+source-compatible two-sided mode for non-WPF consumers. The Metal gate renders
+front winding and reversed back winding in consecutive retained generations
+and requires byte-identical readbacks, while the focused compiler test verifies
+that back-material identity survives the pointer-free sideband.
 
 The WPF MCG `csp` tool also rebuilds cleanly and its unmodified `Resources.rsp`
 regenerates all 378 resource outputs into an isolated temporary tree. The

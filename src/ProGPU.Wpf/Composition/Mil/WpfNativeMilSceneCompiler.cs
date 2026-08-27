@@ -2598,7 +2598,7 @@ public sealed class WpfNativeMilSceneCompiler
                  meshIndex++)
             {
                 PortableViewport3DMesh? mesh = sourceMeshes[meshIndex];
-                if (mesh is null || mesh.IsBackFace ||
+                if (mesh is null ||
                     mesh.Positions is null || mesh.Normals is null ||
                     mesh.Indices is null || mesh.Positions.Length < 3 ||
                     mesh.Normals.Length != mesh.Positions.Length ||
@@ -2606,7 +2606,7 @@ public sealed class WpfNativeMilSceneCompiler
                     mesh.Indices.Length % 3 != 0)
                 {
                     throw new NotSupportedException(
-                        "Native MIL Viewport3D currently requires front-face triangle meshes with one typed normal per position.");
+                        "Native MIL Viewport3D requires triangle meshes with one typed normal per position.");
                 }
                 totalVertexCount = checked(
                     totalVertexCount + mesh.Positions.Length);
@@ -2706,7 +2706,9 @@ public sealed class WpfNativeMilSceneCompiler
                 nativeMeshes[meshIndex] = new NativeSceneMesh3D
                 {
                     StructSize = (uint)Unsafe.SizeOf<NativeSceneMesh3D>(),
-                    Flags = 0U,
+                    Flags = (uint)(mesh.IsBackFace
+                        ? NativeMesh3DFlags.BackFace
+                        : NativeMesh3DFlags.FrontFace),
                     Topology = (uint)NativeMesh3DTopology.Triangles,
                     RenderMode = (uint)NativeMesh3DRenderMode.Solid,
                     VertexOffset = (uint)vertexOffset,

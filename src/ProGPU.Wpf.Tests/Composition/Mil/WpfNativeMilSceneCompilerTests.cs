@@ -2680,6 +2680,7 @@ public sealed class WpfNativeMilSceneCompilerTests
         Assert.Equal(80.0f, retained.Scene.Viewport.Width);
         Assert.Equal(60.0f, retained.Scene.Viewport.Height);
         NativeSceneMesh3D mesh = Assert.Single(retained.Scene.Meshes);
+        Assert.Equal((uint)NativeMesh3DFlags.FrontFace, mesh.Flags);
         Assert.Equal(3U, mesh.VertexCount);
         Assert.Equal(3U, mesh.IndexCount);
         Assert.Equal(1U, mesh.ShadingMode);
@@ -2689,14 +2690,20 @@ public sealed class WpfNativeMilSceneCompilerTests
     }
 
     [Fact]
-    public void BuildBatchRejectsViewport3DBackMaterialUntilFaceModeIsNative()
+    public void BuildBatchPreservesViewport3DBackMaterialFaceMode()
     {
         PortableViewport3DScene scene = CreatePortableViewport3DScene();
         scene.Meshes[0].IsBackFace = true;
 
-        Assert.Throws<NotSupportedException>(() =>
+        WpfNativeMilBatch result =
             new WpfNativeMilSceneCompiler().BuildBatch(
-                new FakeViewport3DVisual(scene), 160, 120));
+                new FakeViewport3DVisual(scene), 160, 120);
+
+        WpfNativeMilViewport3DScene retained = Assert.Single(
+            result.Viewport3DScenes!);
+        Assert.Equal(
+            (uint)NativeMesh3DFlags.BackFace,
+            Assert.Single(retained.Scene.Meshes).Flags);
     }
 
     [Fact]
