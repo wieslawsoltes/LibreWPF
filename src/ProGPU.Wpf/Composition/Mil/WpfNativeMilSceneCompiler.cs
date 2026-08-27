@@ -1,6 +1,7 @@
 using System.Buffers.Binary;
 using System.Numerics;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using ProGPU.Backend.Native;
 using ProGPU.Wpf.Interop;
 using WpfPortableGeometryBoundsReader = System.Windows.Media.ProGPU.Composition.WpfPortableGeometryBoundsReader;
@@ -2626,6 +2627,14 @@ public sealed class WpfNativeMilSceneCompiler
 
             var nativeMeshes =
                 new NativeSceneMesh3D[totalMeshCount];
+            var nativeMaterials =
+                new NativeSceneBrush[totalMeshCount];
+            Array.Fill(
+                nativeMaterials,
+                NativeSceneBrush.Solid(Vector4.One));
+            var nativeGradientStops =
+                new List<NativeSceneGradientStop>();
+            bool hasNativeGradientMaterial = false;
             var vertices =
                 new NativeSceneMesh3DVertex[totalVertexCount];
             var indices = new uint[totalIndexCount];
@@ -2767,12 +2776,12 @@ public sealed class WpfNativeMilSceneCompiler
                          materialIndex < mesh.Materials.Length;
                          materialIndex++)
                     {
-                        if (!WpfViewport3DMaterialMapper.TryMapSolid(
+                        if (!WpfViewport3DMaterialMapper.TryMapManaged(
                                 mesh.Materials[materialIndex],
                                 out WpfViewport3DMaterialPass materialPass))
                         {
                             throw new NotSupportedException(
-                                "Native MIL Viewport3D currently requires typed solid-color material layers.");
+                                "Native MIL Viewport3D requires typed solid, linear-gradient, or radial-gradient diffuse/emissive material layers; specular gradients remain fail-closed.");
                         }
                         NativeSceneMesh3D materialMesh = nativeMesh;
                         materialMesh.Color = materialPass.Color;
@@ -2785,14 +2794,23 @@ public sealed class WpfNativeMilSceneCompiler
                         materialMesh.Opacity = materialPass.Opacity;
                         materialMesh.ShadingMode =
                             materialPass.IsUnlit ? 0U : 1U;
-                        nativeMeshes[nativeMeshIndex++] = materialMesh;
+                        int materialMeshIndex = nativeMeshIndex++;
+                        nativeMeshes[materialMeshIndex] = materialMesh;
+                        if (materialPass.MaterialBrush is not null)
+                        {
+                            nativeMaterials[materialMeshIndex] =
+                                CreateNativeMeshMaterial(
+                                    materialPass.MaterialBrush,
+                                    nativeGradientStops);
+                            hasNativeGradientMaterial = true;
+                        }
                     }
                 }
                 vertexOffset += mesh.Positions.Length;
                 indexOffset += mesh.Indices.Length;
             }
 
-            return new NativeMilViewport3DScene(
+            var nativeScene = new NativeMilViewport3DScene(
                 new NativeSceneCamera3D(
                     projection, view, cameraPosition),
                 new NativeImageRect(
@@ -2804,7 +2822,135 @@ public sealed class WpfNativeMilSceneCompiler
                 vertices,
                 indices,
                 nativeLights);
+            return hasNativeGradientMaterial
+                ? nativeScene with
+                {
+                    Materials = nativeMaterials,
+                    GradientStops = nativeGradientStops.ToArray()
+                }
+                : nativeScene;
         }
+
+        private static NativeSceneBrush CreateNativeMeshMaterial(
+            global::ProGPU.Vector.Brush source,
+            List<NativeSceneGradientStop> gradientStops)
+        {
+            ArgumentNullException.ThrowIfNull(source);
+            ArgumentNullException.ThrowIfNull(gradientStops);
+            global::ProGPU.Vector.GradientStop[] sourceStops;
+            Vector2 start;
+            Vector2 end = default;
+            Vector2 center = default;
+            float radiusX = 0.0f;
+            float radiusY = 0.0f;
+            Matrix4x4 coordinateTransform;
+            global::ProGPU.Vector.GradientSpreadMethod spread;
+            global::ProGPU.Vector.GradientColorInterpolationMode
+                interpolation;
+            bool radial;
+            if (source is global::ProGPU.Vector.LinearGradientBrush linear)
+            {
+                sourceStops = linear.Stops;
+                start = linear.StartPoint;
+                end = linear.EndPoint;
+                coordinateTransform = linear.CoordinateTransform;
+                spread = linear.SpreadMethod;
+                interpolation = linear.ColorInterpolationMode;
+                radial = false;
+            }
+            else if (source is
+                global::ProGPU.Vector.RadialGradientBrush radialBrush)
+            {
+                sourceStops = radialBrush.Stops;
+                start = radialBrush.GradientOrigin;
+                center = radialBrush.Center;
+                radiusX = radialBrush.RadiusX;
+                radiusY = radialBrush.RadiusY;
+                coordinateTransform = radialBrush.CoordinateTransform;
+                spread = radialBrush.SpreadMethod;
+                interpolation = radialBrush.ColorInterpolationMode;
+                radial = true;
+            }
+            else
+            {
+                throw new NotSupportedException(
+                    "Native MIL Mesh3D material sidebands accept only typed linear and radial ProGPU brushes.");
+            }
+
+            if (sourceStops is null || sourceStops.Length == 0 ||
+                !float.IsFinite(source.Opacity) || source.Opacity < 0.0f ||
+                source.Opacity > 1.0f ||
+                !IsFinite(start) || !IsFinite(end) || !IsFinite(center) ||
+                !float.IsFinite(radiusX) || !float.IsFinite(radiusY) ||
+                (radial && (radiusX <= 0.0f || radiusY <= 0.0f)) ||
+                !IsFinite2DAffine(coordinateTransform))
+            {
+                throw new NotSupportedException(
+                    "Native MIL Mesh3D gradient material state is invalid.");
+            }
+
+            int stopOffset = gradientStops.Count;
+            for (int index = 0; index < sourceStops.Length; index++)
+            {
+                global::ProGPU.Vector.GradientStop stop = sourceStops[index];
+                if (!IsFinite(stop.Color) || !float.IsFinite(stop.Offset))
+                {
+                    throw new NotSupportedException(
+                        "Native MIL Mesh3D gradient stops must be finite.");
+                }
+                gradientStops.Add(new NativeSceneGradientStop(
+                    stop.Color,
+                    stop.Offset));
+            }
+            ReadOnlySpan<NativeSceneGradientStop> localStops =
+                CollectionsMarshal.AsSpan(gradientStops).Slice(
+                    stopOffset,
+                    sourceStops.Length);
+            var nativeTransform = new Matrix3x2(
+                coordinateTransform.M11,
+                coordinateTransform.M12,
+                coordinateTransform.M21,
+                coordinateTransform.M22,
+                coordinateTransform.M41,
+                coordinateTransform.M42);
+            var nativeSpread = (NativeSceneGradientSpread)(uint)spread;
+            var nativeInterpolation =
+                (NativeSceneGradientInterpolation)(uint)interpolation;
+            return radial
+                ? NativeSceneBrush.RadialGradient(
+                    center,
+                    start,
+                    radiusX,
+                    radiusY,
+                    (uint)stopOffset,
+                    localStops,
+                    source.Opacity,
+                    nativeSpread,
+                    nativeInterpolation,
+                    nativeTransform)
+                : NativeSceneBrush.LinearGradient(
+                    start,
+                    end,
+                    (uint)stopOffset,
+                    localStops,
+                    source.Opacity,
+                    nativeSpread,
+                    nativeInterpolation,
+                    nativeTransform);
+        }
+
+        private static bool IsFinite2DAffine(Matrix4x4 value) =>
+            IsFinite(value) &&
+            MathF.Abs(value.M13) <= 0.0001f &&
+            MathF.Abs(value.M14) <= 0.0001f &&
+            MathF.Abs(value.M23) <= 0.0001f &&
+            MathF.Abs(value.M24) <= 0.0001f &&
+            MathF.Abs(value.M31) <= 0.0001f &&
+            MathF.Abs(value.M32) <= 0.0001f &&
+            MathF.Abs(value.M33 - 1.0f) <= 0.0001f &&
+            MathF.Abs(value.M34) <= 0.0001f &&
+            MathF.Abs(value.M43) <= 0.0001f &&
+            MathF.Abs(value.M44 - 1.0f) <= 0.0001f;
 
         private static NativeSceneLight3D[] CreateNativeLights(
             PortableViewport3DLight[]? lights)
@@ -3197,6 +3343,13 @@ public sealed class WpfNativeMilSceneCompiler
         private static bool IsFinite(Vector3 value) =>
             float.IsFinite(value.X) && float.IsFinite(value.Y) &&
             float.IsFinite(value.Z);
+
+        private static bool IsFinite(Vector2 value) =>
+            float.IsFinite(value.X) && float.IsFinite(value.Y);
+
+        private static bool IsFinite(Vector4 value) =>
+            float.IsFinite(value.X) && float.IsFinite(value.Y) &&
+            float.IsFinite(value.Z) && float.IsFinite(value.W);
 
         private static bool IsFinite(Matrix4x4 value) =>
             float.IsFinite(value.M11) && float.IsFinite(value.M12) &&

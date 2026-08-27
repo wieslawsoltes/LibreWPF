@@ -2776,10 +2776,12 @@ public sealed class WpfNativeMilSceneCompilerTests
         Assert.Equal(0U, emissive.ShadingMode);
         Assert.Equal(new Vector4(0, 1, 0, 1), emissive.Color);
         Assert.Equal(128f / 255f * 0.5f, emissive.Opacity);
+        Assert.Empty(retained.Materials);
+        Assert.Empty(retained.GradientStops);
     }
 
     [Fact]
-    public void BuildBatchRejectsGradientViewport3DMaterialUntilGpuRealizationExists()
+    public void BuildBatchPreservesGradientViewport3DMaterialSideband()
     {
         PortableViewport3DScene scene = CreatePortableViewport3DScene();
         scene.Meshes[0].Materials =
@@ -2788,16 +2790,110 @@ public sealed class WpfNativeMilSceneCompilerTests
             {
                 Kind = PortableViewport3DMaterialKind.Diffuse,
                 Brush = PortableBrush.LinearGradient(
+                    new PortablePoint(0.1, 0.2),
+                    new PortablePoint(0.9, 0.8),
+                    [
+                        new PortableGradientStop(
+                            new PortableColor(255, 255, 0, 0), 0),
+                        new PortableGradientStop(
+                            new PortableColor(255, 0, 0, 255), 1)
+                    ],
+                    opacity: 0.75,
+                    spreadMethod: PortableGradientSpreadMethod.Reflect,
+                    colorInterpolationMode:
+                        PortableGradientColorInterpolationMode
+                            .ScRgbLinearInterpolation),
+                Color = new PortableColor4(0.5, 0.75, 1, 0.8),
+                AmbientColor = new PortableVector3(0.1, 0.2, 0.3)
+            },
+            new PortableViewport3DMaterial
+            {
+                Kind = PortableViewport3DMaterialKind.Emissive,
+                Brush = PortableBrush.RadialGradient(
+                    new PortablePoint(0.5, 0.5),
+                    new PortablePoint(0.25, 0.75),
+                    0.6,
+                    0.4,
+                    [
+                        new PortableGradientStop(
+                            new PortableColor(255, 0, 255, 0), 0),
+                        new PortableGradientStop(
+                            new PortableColor(128, 0, 0, 0), 1)
+                    ],
+                    opacity: 0.625,
+                    mappingMode: PortableBrushMappingMode.Absolute,
+                    spreadMethod: PortableGradientSpreadMethod.Repeat),
+                Color = new PortableColor4(1, 1, 1, 0.5)
+            }
+        ];
+
+        NativeMilViewport3DScene retained = Assert.Single(
+            new WpfNativeMilSceneCompiler().BuildBatch(
+                new FakeViewport3DVisual(scene), 160, 120)
+                .Viewport3DScenes!).Scene;
+
+        Assert.Equal(2, retained.Meshes.Length);
+        Assert.Equal(new Vector4(0.5f, 0.75f, 1f, 1f),
+            retained.Meshes[0].Color);
+        Assert.Equal(0.8f, retained.Meshes[0].Opacity);
+        Assert.Equal(0U, retained.Meshes[1].ShadingMode);
+        Assert.Equal(0.5f, retained.Meshes[1].Opacity);
+        Assert.Equal(2, retained.Materials.Length);
+        NativeSceneBrush linear = retained.Materials[0];
+        Assert.Equal(NativeSceneBrushKind.LinearGradient, linear.Kind);
+        Assert.Equal(0.75f, linear.Opacity);
+        Assert.Equal(new Vector2(0.1f, 0.2f), linear.StartPoint);
+        Assert.Equal(new Vector2(0.9f, 0.8f), linear.EndPoint);
+        Assert.Equal(NativeSceneGradientSpread.Reflect, linear.Spread);
+        Assert.Equal(NativeSceneGradientInterpolation.ScRgb,
+            linear.Interpolation);
+        Assert.Equal(0U, linear.StopOffset);
+        Assert.Equal(2U, linear.StopCount);
+        NativeSceneBrush radial = retained.Materials[1];
+        Assert.Equal(NativeSceneBrushKind.RadialGradient, radial.Kind);
+        Assert.Equal(new Vector2(0.5f, 0.5f), radial.Center);
+        Assert.Equal(new Vector2(0.25f, 0.75f), radial.StartPoint);
+        Assert.Equal(0.6f, radial.Radius);
+        Assert.Equal(0.4f, radial.RadiusY);
+        Assert.Equal(NativeSceneGradientSpread.Repeat, radial.Spread);
+        Assert.Equal(2U, radial.StopOffset);
+        Assert.Equal(2U, radial.StopCount);
+        Assert.Equal(4, retained.GradientStops.Length);
+        Assert.Equal(new Vector4(1, 0, 0, 1),
+            retained.GradientStops[0].Color);
+        Assert.Equal(new Vector4(0, 0, 1, 1),
+            retained.GradientStops[1].Color);
+        Assert.Equal(new Vector4(0, 1, 0, 1),
+            retained.GradientStops[2].Color);
+        Assert.Equal(new Vector4(0, 0, 0, 128f / 255f),
+            retained.GradientStops[3].Color);
+    }
+
+    [Fact]
+    public void BuildBatchRejectsSpecularGradientViewport3DMaterial()
+    {
+        PortableViewport3DScene scene = CreatePortableViewport3DScene();
+        scene.Meshes[0].Materials =
+        [
+            new PortableViewport3DMaterial
+            {
+                Kind = PortableViewport3DMaterialKind.Specular,
+                Brush = PortableBrush.LinearGradient(
                     new PortablePoint(0, 0),
                     new PortablePoint(1, 1),
-                    [])
+                    [
+                        new PortableGradientStop(
+                            new PortableColor(255, 255, 255, 255), 0),
+                        new PortableGradientStop(
+                            new PortableColor(255, 0, 0, 0), 1)
+                    ])
             }
         ];
 
         NotSupportedException exception = Assert.Throws<NotSupportedException>(
             () => new WpfNativeMilSceneCompiler().BuildBatch(
                 new FakeViewport3DVisual(scene), 160, 120));
-        Assert.Contains("solid-color material", exception.Message);
+        Assert.Contains("specular gradients", exception.Message);
     }
 
     [Fact]

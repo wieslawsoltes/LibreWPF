@@ -2921,14 +2921,19 @@ material color, ambient color, and specular power. The two ProGPU consumers
 expand solid-color layers into shared-geometry GPU passes: diffuse and
 specular use realistic lighting, while emissive selects a per-mesh unlit
 shader override. Geometry, normal, UV, and index storage is not duplicated.
-The managed LibreWPF bridge now maps diffuse and emissive linear/radial DTOs to
+The LibreWPF bridge maps diffuse and emissive linear/radial DTOs to
 the reusable ProGPU Mesh3D material-brush path. ProGPU uploads finite stops from
 reused scratch through `CollectionsMarshal.AsSpan(...)` and evaluates UV-space
 coordinates, inverse affine transforms, spread, interpolation, brush opacity,
 and stop alpha in WGSL. The live Metal gate renders distinct red/blue gradient
 regions, and WinUI uses the same path instead of its former first-stop
-approximation. Specular-gradient, tile-brush, and native C++ material-resource
-realization remain typed fail-closed gaps; no CPU texture staging or readback is
+approximation. Native MIL now encodes the same mapped ProGPU brush as one
+canonical 256-byte `NativeSceneBrush` per mesh plus shared 32-byte gradient
+stops. The camera payload prefix and 256-byte mesh ABI remain unchanged; an
+optional versioned suffix references the shared brush table. Solid-only scenes
+retain the camera-only compatibility path, while mixed scenes fill non-gradient
+passes with an opaque-white multiplier. Specular-gradient and tile-brush
+materials remain typed fail-closed gaps; no CPU texture staging or readback is
 used.
 
 That managed gradient checkpoint is now qualified on Windows D3D12 as well.
@@ -2940,9 +2945,17 @@ live linear-gradient GPU readback, point/spot lights, planar surfaces, and
 scratch reuse. A diagnostic rerun of the gradient readback selected
 `Parallels Display Adapter (WDDM)`, backend `D3D12`, device type
 `DiscreteGpu`, and passed without WebGPU validation/device errors. Metal and
-D3D12 therefore execute the same reusable managed WGSL material path; the
-native C++ material sideband remains deliberately fail closed until its
-versioned ABI is implemented.
+D3D12 therefore execute the same reusable managed WGSL material path.
+ProGPU checkpoint `318c0b0a` adds the native C++ equivalent: builder, validator,
+stable retained hashing, GPU brush/stop buffers, the MIL copy sideband, managed
+typed wrappers, and export allowlists. Its expanded Metal
+`--semantic-viewport3d` gate preserves the original 291-pixel clip and observes
+75 red-dominant plus 96 blue-dominant pixels from the native linear material.
+All 11 CTests, generated-contract verification, export verification, and two
+focused managed ABI tests pass. LibreWPF converts the already mapped typed
+ProGPU vector brush without reflection; focused producer coverage preserves
+coordinates, opacity, spread, scRGB interpolation, stop offsets/colors, and
+continues rejecting specular gradients.
 
 The same native face-mode addition closes the initial back-material gap.
 LibreWPF maps each typed `PortableViewport3DMesh.IsBackFace` entry to an
