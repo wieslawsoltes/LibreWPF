@@ -3492,6 +3492,19 @@ exact output and zero measured allocation for both. ProGPU's
 `docs/GPU_COMPUTE_FALLBACK_POLICY.md` preserve the rerun method and scope the
 claim to the qualified ARM64 runtime.
 
+ProGPU checkpoint `8a8ce383` extends that requirement to the shared Windows,
+Linux, and Android native-export wide mixer. One typed SIMD implementation now
+owns PCM16-to-Int64 Q15 accumulation and final saturating Int64-to-PCM16
+conversion instead of three platform scalar copies. Differential coverage
+includes mono/stereo patterns, vector tails, signed PCM extrema, wrapping
+accumulator edges, and exact saturation boundaries. The complete 3,872-test
+ProGPU assembly passes. Four alternating Apple M3 Pro runs over the product
+1,024-frame block measured median-of-run p50 `2.027 us/block` SIMD versus
+`6.139 us/block` scalar (3.03x throughput, 67.0% lower latency), with exact
+accumulator/output/checksum results and zero allocation. The processed-float
+effect lane keeps its explicit finite/rounding/Int64-overflow semantics until
+it receives a separately qualified cross-architecture vector kernel.
+
 The Windows host harness now accepts `PROGPU_WPF_REAL_ASSEMBLY_DIR` so a
 deployment bundle can load one adjacent, source-built PresentationCore/
 PresentationFramework graph instead of inferring repository artifact paths.
