@@ -34,9 +34,20 @@ public sealed class PortableViewport3DSceneTests
             Transform = modelTransform
         };
         var visualTransform = new ScaleTransform3D(2, 3, 4);
+        var lightTransform = new RotateTransform3D(
+            new AxisAngleRotation3D(new Vector3D(0, 1, 0), 90));
+        var light = new DirectionalLight(
+            Colors.White,
+            new Vector3D(0, 0, -1))
+        {
+            Transform = lightTransform
+        };
+        var group = new Model3DGroup();
+        group.Children.Add(light);
+        group.Children.Add(model);
         var modelVisual = new ModelVisual3D
         {
-            Content = model,
+            Content = group,
             Transform = visualTransform
         };
         var viewport = new Viewport3DVisual
@@ -66,6 +77,13 @@ public sealed class PortableViewport3DSceneTests
         Assert.Equal(0.25, camera.NearPlaneDistance);
         Assert.Equal(250, camera.FarPlaneDistance);
         Assert.Equal(50, camera.FieldOfView);
+        Vector3D expectedLightDirection =
+            (lightTransform.Value * visualTransform.Value).Transform(
+                light.Direction);
+        expectedLightDirection.Normalize();
+        Assert.Equal(expectedLightDirection.X, scene.LightDirection.X, 6);
+        Assert.Equal(expectedLightDirection.Y, scene.LightDirection.Y, 6);
+        Assert.Equal(expectedLightDirection.Z, scene.LightDirection.Z, 6);
 
         Assert.Equal(2, scene.Meshes.Length);
         PortableViewport3DMesh front = scene.Meshes[0];

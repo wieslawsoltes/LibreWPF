@@ -78,10 +78,12 @@ namespace System.Windows.Media.Media3D
 
             if (model is DirectionalLight directionalLight)
             {
+                var transformedDirection = modelTransform.Transform(
+                    directionalLight.Direction);
                 var direction = new PortableVector3(
-                    directionalLight.Direction.X,
-                    directionalLight.Direction.Y,
-                    directionalLight.Direction.Z);
+                    transformedDirection.X,
+                    transformedDirection.Y,
+                    transformedDirection.Z);
                 state.LightDirection = NormalizeOrDefault(direction, state.LightDirection);
                 var color = ToPortableColor4(directionalLight.Color);
                 state.LightIntensity = Math.Max(color.R, Math.Max(color.G, color.B));

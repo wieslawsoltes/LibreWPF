@@ -2864,8 +2864,11 @@ It constructs a `PerspectiveCamera`, transformed `ModelVisual3D`,
 `GeometryModel3D`, source-built mesh collections, and distinct front/back
 `DiffuseMaterial` values, then verifies the typed scene's viewport/camera,
 computed normals, indices, composed model transform, material opacity/color,
-geometry identity, and face identity. A second case proves that an empty
-viewport fails closed. Both cases pass in the portable macOS source-build lane.
+geometry identity, face identity, and a `DirectionalLight` direction after its
+accumulated source-built `Model3D`/`Visual3D` transform. The exporter now applies
+that typed `Matrix3D` to the light before normalization instead of publishing
+the untransformed local direction. A second case proves that an empty viewport
+fails closed. Both cases pass in the portable macOS source-build lane.
 The matching Windows 11 ARM64 Parallels attempt reached the source graph after
 installing the pinned .NET 11 preview SDK into an isolated clone, but the guest
 does not currently contain the Visual C++ targets required by
