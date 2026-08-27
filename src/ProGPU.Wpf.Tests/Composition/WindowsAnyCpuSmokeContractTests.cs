@@ -107,6 +107,9 @@ public sealed class WindowsAnyCpuSmokeContractTests
         Assert.Contains("\"win-x64\" = \"x64\"", buildScript, StringComparison.Ordinal);
         Assert.Contains("\"win-arm64\" = \"arm64\"", buildScript, StringComparison.Ordinal);
         Assert.Contains("Get-Command perl.exe", buildScript, StringComparison.Ordinal);
+        Assert.Contains("-ErrorAction SilentlyContinue", buildScript, StringComparison.Ordinal);
+        Assert.Contains("$globalJson.'native-tools'.'strawberry-perl'", buildScript, StringComparison.Ordinal);
+        Assert.Contains(".tools/native/bin/strawberry-perl", buildScript, StringComparison.Ordinal);
         Assert.Contains("/p:PerlCommand=$perlCommand", buildScript, StringComparison.Ordinal);
         Assert.Contains("/p:RuntimeIdentifier=$runtimeIdentifier", buildScript, StringComparison.Ordinal);
         Assert.Contains("Microsoft.NETCore.App.Host.$_", buildScript, StringComparison.Ordinal);

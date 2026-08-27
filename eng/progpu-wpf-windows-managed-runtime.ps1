@@ -10,12 +10,28 @@ $buildTasksProject = Join-Path $repoRoot "src/Microsoft.DotNet.Wpf/src/Presentat
 $project = Join-Path $repoRoot "src/Microsoft.DotNet.Wpf/src/PresentationCore/PresentationCore.csproj"
 $outputDirectory = Join-Path $repoRoot "artifacts/windows-managed-runtime"
 $versionDetailsPath = Join-Path $repoRoot "eng/Version.Details.props"
+$globalJsonPath = Join-Path $repoRoot "global.json"
 $packagesDirectory = Join-Path $repoRoot ".packages"
 
 Remove-Item -Path $outputDirectory -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Path $outputDirectory -Force | Out-Null
 
-$perlCommand = (Get-Command perl.exe -ErrorAction Stop).Source
+$perlCommandInfo = Get-Command perl.exe -ErrorAction SilentlyContinue
+if ($null -ne $perlCommandInfo) {
+    $perlCommand = $perlCommandInfo.Source
+}
+else {
+    # Arcade restores this pinned native tool before invoking MSBuild. Resolve
+    # the future path now so a clean Windows build agent or integration VM does
+    # not also need a machine-wide Strawberry Perl installation.
+    $globalJson = Get-Content -Path $globalJsonPath -Raw | ConvertFrom-Json
+    $strawberryPerlVersion = [string]$globalJson.'native-tools'.'strawberry-perl'
+    if ([string]::IsNullOrWhiteSpace($strawberryPerlVersion)) {
+        throw "native-tools.strawberry-perl is missing from $globalJsonPath."
+    }
+
+    $perlCommand = Join-Path $repoRoot ".tools/native/bin/strawberry-perl/$strawberryPerlVersion/portableshell.bat"
+}
 
 $versionDetails = [xml](Get-Content -Path $versionDetailsPath -Raw)
 $netCoreAppVersion = [string]($versionDetails.Project.PropertyGroup.MicrosoftNETCoreAppRefPackageVersion | Select-Object -First 1)
