@@ -3372,6 +3372,15 @@ render-data `PushGuidelineSet` references retain the generated native handle.
 Four focused tests verify the dynamic flag, exact pair byte counts and values,
 scope handle wiring, and unchanged static single/multiple guideline output.
 
+ProGPU checkpoint `2289e9ed` exposes typed compact-guideline production through
+`NativeMilRenderDataBuilder.PushGuidelineY1/Y2`, with finite-value validation
+and exact generated-command plus DWORD-size framing verified by the package
+consumer. LibreWPF's native batch translator now recognizes the corresponding
+16-byte and 24-byte source-built WPF records, writes them through those typed
+APIs, and balances each scope with the ordinary canonical `Pop`. Focused
+coverage verifies both coordinates, the driven offset, command sizes/IDs, and
+stack framing without copying opaque input bytes.
+
 ## Next parity gates
 
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested

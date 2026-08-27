@@ -2299,6 +2299,33 @@ public sealed class WpfNativeMilSceneCompilerTests
     }
 
     [Fact]
+    public void BuildBatchTranslatesCompactDynamicGuidelineScopes()
+    {
+        byte[] renderData = CreatePushGuidelineY1Record(1.25)
+            .Concat(CreatePopRecord())
+            .Concat(CreatePushGuidelineY2Record(2.5, -0.75))
+            .Concat(CreatePopRecord())
+            .ToArray();
+        var visual = new FakeVisual(new FakeRenderData(renderData, []));
+
+        WpfNativeMilBatch result = new WpfNativeMilSceneCompiler().BuildBatch(
+            visual, 64, 64);
+        int nestedOffset = FindCommand(result.Bytes, 0x18) + 16;
+
+        Assert.Equal(16, ReadInt32(result.Bytes, nestedOffset));
+        Assert.Equal(0x53, ReadInt32(result.Bytes, nestedOffset + 4));
+        Assert.Equal(1.25, ReadDouble(result.Bytes, nestedOffset + 8));
+        Assert.Equal(8, ReadInt32(result.Bytes, nestedOffset + 16));
+        Assert.Equal(0x56, ReadInt32(result.Bytes, nestedOffset + 20));
+        Assert.Equal(24, ReadInt32(result.Bytes, nestedOffset + 24));
+        Assert.Equal(0x54, ReadInt32(result.Bytes, nestedOffset + 28));
+        Assert.Equal(2.5, ReadDouble(result.Bytes, nestedOffset + 32));
+        Assert.Equal(-0.75, ReadDouble(result.Bytes, nestedOffset + 40));
+        Assert.Equal(8, ReadInt32(result.Bytes, nestedOffset + 48));
+        Assert.Equal(0x56, ReadInt32(result.Bytes, nestedOffset + 52));
+    }
+
+    [Fact]
     public void BuildBatchLowersLegacyPushEffectToBalancedIdentityScope()
     {
         byte[] renderData = CreatePushEffectRecord(17, 23)
@@ -3411,6 +3438,27 @@ public sealed class WpfNativeMilSceneCompilerTests
         BinaryPrimitives.WriteInt32LittleEndian(record, record.Length);
         BinaryPrimitives.WriteInt32LittleEndian(record.AsSpan(4), 0x52);
         BinaryPrimitives.WriteUInt32LittleEndian(record.AsSpan(8), guidelines);
+        return record;
+    }
+
+    private static byte[] CreatePushGuidelineY1Record(double coordinate)
+    {
+        byte[] record = new byte[16];
+        BinaryPrimitives.WriteInt32LittleEndian(record, record.Length);
+        BinaryPrimitives.WriteInt32LittleEndian(record.AsSpan(4), 0x53);
+        WriteDouble(record, 8, coordinate);
+        return record;
+    }
+
+    private static byte[] CreatePushGuidelineY2Record(
+        double leadingCoordinate,
+        double offsetToDrivenCoordinate)
+    {
+        byte[] record = new byte[24];
+        BinaryPrimitives.WriteInt32LittleEndian(record, record.Length);
+        BinaryPrimitives.WriteInt32LittleEndian(record.AsSpan(4), 0x54);
+        WriteDouble(record, 8, leadingCoordinate);
+        WriteDouble(record, 16, offsetToDrivenCoordinate);
         return record;
     }
 

@@ -1117,6 +1117,26 @@ public sealed class WpfNativeMilSceneCompiler
                                     guidelineToken));
                         scopeDepth++;
                         break;
+                    case WpfMilCommandId.PushGuidelineY1:
+                        if (recordSize != 16)
+                        {
+                            throw new InvalidOperationException(
+                                "The portable WPF compact Y1 guideline-scope record has an invalid size.");
+                        }
+                        destination.PushGuidelineY1(ReadDouble(payload, 0));
+                        scopeDepth++;
+                        break;
+                    case WpfMilCommandId.PushGuidelineY2:
+                        if (recordSize != 24)
+                        {
+                            throw new InvalidOperationException(
+                                "The portable WPF compact Y2 guideline-scope record has an invalid size.");
+                        }
+                        destination.PushGuidelineY2(
+                            ReadDouble(payload, 0),
+                            ReadDouble(payload, 8));
+                        scopeDepth++;
+                        break;
                     case WpfMilCommandId.PushEffect:
                         if (recordSize != 16)
                         {
