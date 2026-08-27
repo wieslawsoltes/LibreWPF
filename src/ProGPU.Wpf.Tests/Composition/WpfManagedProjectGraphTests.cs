@@ -3398,8 +3398,10 @@ public sealed class WpfManagedProjectGraphTests
 
         AssertProjectReference(harnessProject, @"ProGPU.Wpf\ProGPU.Wpf.csproj");
         AssertProjectReference(harnessProject, @"external\ProGPU\src\ProGPU.Backend\ProGPU.Backend.csproj");
+        AssertProjectReference(harnessProject, @"external\ProGPU\src\ProGPU.Backend.Native\ProGPU.Backend.Native.csproj");
         AssertProjectReference(harnessProject, @"external\ProGPU\src\ProGPU.Scene\ProGPU.Scene.csproj");
         AssertProjectReference(harnessProject, @"external\ProGPU\src\ProGPU.Vector\ProGPU.Vector.csproj");
+        AssertProjectReference(harnessProject, @"external\ProGPU\src\ProGPU.Wpf.Interop\ProGPU.Wpf.Interop.csproj");
 
         var presentationCoreReference = AssertProjectReference(
             harnessProject,
@@ -3414,6 +3416,10 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Equal("all", GetItemMetadata(presentationFrameworkReference, "PrivateAssets"));
 
         Assert.Contains("WpfPortableWindowActivation.TryRegisterPresentationFrameworkActivation", harnessProgram, StringComparison.Ordinal);
+        Assert.Contains("--native-mil-host", harnessProgram, StringComparison.Ordinal);
+        Assert.Contains("ProGpuWpfRendererMode.NativeMilWgpu", harnessProgram, StringComparison.Ordinal);
+        Assert.Contains("ValidateNativeMilHostResult(host)", harnessProgram, StringComparison.Ordinal);
+        Assert.Contains("LastNativeMilFrameMetrics.SubmissionCount", harnessProgram, StringComparison.Ordinal);
         Assert.Contains("PortableRenderDataDrawingContextSinkProvider", harnessProgram, StringComparison.Ordinal);
         Assert.Contains("RegisterRealPortableObjectSinkProvider(", harnessProgram, StringComparison.Ordinal);
         Assert.Contains("PushObjectSinkFactory", harnessProgram, StringComparison.Ordinal);
@@ -11609,6 +11615,9 @@ public sealed class WpfManagedProjectGraphTests
         var sdkCiScriptPath = FindRepoPath(
             "eng",
             "progpu-wpf-sdk-ci.sh");
+        var nativeMilHostSmokeScriptPath = FindRepoPath(
+            "eng",
+            "progpu-wpf-native-mil-host-smoke.sh");
         var validationGraphsPath = FindRepoPath(
             "eng",
             "ProGPU.Wpf.ValidationGraphs.proj");
@@ -12060,6 +12069,8 @@ public sealed class WpfManagedProjectGraphTests
         var spellerInteropBase = File.ReadAllText(spellerInteropBasePath);
         var textEditorCopyPaste = File.ReadAllText(textEditorCopyPastePath);
         var sdkCiScript = File.ReadAllText(sdkCiScriptPath);
+        var nativeMilHostSmokeScript = File.ReadAllText(
+            nativeMilHostSmokeScriptPath);
         var validationGraphs = File.ReadAllText(validationGraphsPath);
         var avaloniaPackageSmokeScript = File.ReadAllText(avaloniaPackageSmokeScriptPath);
         var previewPackageAuditScript = File.ReadAllText(previewPackageAuditScriptPath);
@@ -12778,6 +12789,11 @@ public sealed class WpfManagedProjectGraphTests
             "SDK CI must freeze exact ProGPU package inputs before later repository builds can replace Release outputs.");
         Assert.Contains("Running ProGPU Avalonia package consumer smoke", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("\"${repo_root}/eng/progpu-avalonia-package-smoke.sh\"", sdkCiScript, StringComparison.Ordinal);
+        Assert.Contains("PROGPU_WPF_SDK_CI_NATIVE_MIL_HOST", sdkCiScript, StringComparison.Ordinal);
+        Assert.Contains("\"${repo_root}/eng/progpu-wpf-native-mil-host-smoke.sh\"", sdkCiScript, StringComparison.Ordinal);
+        Assert.Contains("--native-mil-host", nativeMilHostSmokeScript, StringComparison.Ordinal);
+        Assert.Contains("PROGPU_NATIVE_BUILD_DIR", nativeMilHostSmokeScript, StringComparison.Ordinal);
+        Assert.Contains("PROGPU_NATIVE_RUNTIME_DIR", nativeMilHostSmokeScript, StringComparison.Ordinal);
         Assert.Contains("pack_project \"src/ProGPU.Wpf/ProGPU.Wpf.csproj\" \"LibreWPF.ProGPU\"", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("pack_project \"packaging/ProGPU.Wpf.Sdk/ProGPU.Wpf.Sdk.ArchNeutral.csproj\" \"LibreWPF.Sdk\"", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("Auditing preview package artifacts", sdkCiScript, StringComparison.Ordinal);

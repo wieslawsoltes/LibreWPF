@@ -3439,6 +3439,29 @@ activation can preserve the selector through `CreateHostOptions(window,
 fallbackOptions)` and a typed host factory. Dawn surface ownership and those
 explicit host features remain follow-up gates.
 
+`eng/progpu-wpf-native-mil-host-smoke.sh` now validates that boundary through a
+real source-built PresentationCore `DrawingVisual`, an owned native window and
+swapchain, the stateful MIL compiler, and ProGPU's external-target compositor.
+The gate waits for an actual presentation and requires a valid semantic scene,
+a nonzero retained target, at least one native draw, and a nonzero GPU
+submission before closing through the host dispatcher. Its load context shares
+the single typed `ProGPU.Wpf.Interop` contract assembly; a duplicate contract
+identity fails before the window is created. The 2026-08-27 Apple M3 Pro Metal
+run presented one frame from three commands, three resources, one semantic
+draw, and one submitted draw call.
+
+The SDK gate controls this smoke with
+`PROGPU_WPF_SDK_CI_NATIVE_MIL_HOST=auto|1|0`. `auto` runs when the current
+ProGPU native library and a graphical session are available; `1` is the
+required setting for qualification machines and fails closed when either is
+missing. `PROGPU_NATIVE_BUILD_DIR` and `PROGPU_NATIVE_RUNTIME_DIR` select the
+exact library under test. Run the same forced gate in the interactive Windows
+Parallels user session after the ProGPU `win-arm64` native build to exercise the
+live wgpu-native/D3D12 surface, and under X11/Wayland on Linux for the Vulkan
+surface. Provider-specific adapter/readback evidence remains in ProGPU's native
+Windows gate; this host smoke proves that LibreWPF reaches that provider through
+the real window path.
+
 ## Next parity gates
 
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested
@@ -3463,9 +3486,9 @@ explicit host features remain follow-up gates.
    snapshot differ retains the native channel, emits mutable packet deltas,
    and avoids unchanged bitmap/font/bounds sideband ABI calls and payload
    copies.
-5. Extend the now-bound native host lane with popup/window-region/viewport and
+5. Extend the now-live native host lane with popup/window-region/viewport and
    nonuniform presentation support, a provider-resolved Dawn surface owner,
-   live sample/package validation, and pixel comparison against the managed
+   package-mode sample validation, and pixel comparison against the managed
    portable lane.
 6. Complete live provider-resolved Dawn rendering and the remaining adapter
    LUID, limits, resize, occlusion, DPI, lifetime, and non-Parallels retained
@@ -3496,6 +3519,9 @@ dotnet build src/ProGPU.Wpf/ProGPU.Wpf.csproj -c Release \
 dotnet vstest \
   src/ProGPU.Wpf.Tests/bin/Release/net10.0/ProGPU.Wpf.Tests.dll \
   --Tests:ProGPU.Wpf.Tests.Composition.Mil.WpfNativeMilSceneCompilerTests
+
+# Requires a current ProGPU native build and a graphical user session.
+./eng/progpu-wpf-native-mil-host-smoke.sh
 ```
 
 Use the ProGPU full qualification gate before publishing native changes:

@@ -272,6 +272,53 @@ run_dotnet msbuild \
   -property:Configuration=Release \
   -verbosity:minimal
 
+native_mil_host_gate="${PROGPU_WPF_SDK_CI_NATIVE_MIL_HOST:-auto}"
+run_native_mil_host_gate=0
+case "${native_mil_host_gate}" in
+  1)
+    run_native_mil_host_gate=1
+    ;;
+  0)
+    ;;
+  auto)
+    native_platform="$(uname -s 2>/dev/null || echo unknown)"
+    native_architecture="$(uname -m 2>/dev/null || echo unknown)"
+    case "${native_platform}" in
+      Darwin)
+        native_mil_library="${PROGPU_NATIVE_BUILD_DIR:-${repo_root}/external/ProGPU/artifacts/progpu-native/build}/libprogpu_native.dylib"
+        [[ -f "${native_mil_library}" ]] && run_native_mil_host_gate=1
+        ;;
+      Linux)
+        native_mil_library="${PROGPU_NATIVE_BUILD_DIR:-${repo_root}/external/ProGPU/artifacts/progpu-native/build}/libprogpu_native.so"
+        if [[ -f "${native_mil_library}" && ( -n "${DISPLAY:-}" || -n "${WAYLAND_DISPLAY:-}" ) ]]; then
+          run_native_mil_host_gate=1
+        fi
+        ;;
+      MINGW*|MSYS*|CYGWIN*)
+        case "${native_architecture}" in
+          arm64|aarch64) native_mil_rid="win-arm64" ;;
+          *) native_mil_rid="win-x64" ;;
+        esac
+        native_mil_library="${PROGPU_NATIVE_BUILD_DIR:-${repo_root}/external/ProGPU/artifacts/progpu-native/build-${native_mil_rid}}/progpu_native.dll"
+        [[ -f "${native_mil_library}" ]] && run_native_mil_host_gate=1
+        ;;
+    esac
+    ;;
+  *)
+    echo "Invalid PROGPU_WPF_SDK_CI_NATIVE_MIL_HOST value '${native_mil_host_gate}'. Expected 0, 1, or auto." >&2
+    exit 1
+    ;;
+esac
+
+if [[ "${run_native_mil_host_gate}" == "1" ]]; then
+  echo "Running real WPF native MIL host validation..."
+  PROGPU_WPF_NATIVE_MIL_HOST_CONFIGURATION=Release \
+  PROGPU_WPF_NATIVE_MIL_HOST_SKIP_BUILD=1 \
+    "${repo_root}/eng/progpu-wpf-native-mil-host-smoke.sh"
+else
+  echo "Skipping native MIL host validation because its native runtime or graphical session is unavailable."
+fi
+
 echo "Running real WPF XAML runtime harness..."
 run_dotnet run --no-build --project "${repo_root}/src/ProGPU.Wpf.RealXamlRuntimeHarness/ProGPU.Wpf.RealXamlRuntimeHarness.csproj" -c Release -v:minimal
 
