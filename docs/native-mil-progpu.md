@@ -2752,6 +2752,15 @@ p95 improved in all four comparisons and both managed/native hashes remained
 exact. The local ten-test native suite, strict x86_64 SSE2 syntax gate, and a
 Windows 11 Parallels ARM64 MSVC/Ninja rebuild with all ten non-Dawn CTests pass.
 
+An exact NEON absolute-value/unsigned-minimum coverage candidate was then
+measured against that folded baseline and rejected. Eight alternating
+120-frame runs per variant kept hashes `5B6EF4F70536C862` (1x) and
+`706B261418EC5C3B` (2x) with zero channel difference. At 1x,
+submission/frame p95 regressed 1.4299/7.2335 -> 1.5391/7.3918 ms; at 2x,
+frame p50 regressed 5.6484 -> 5.8287 ms even though submission and frame p95
+improved. The source retains the qualified compare/invert/shift flag formation
+and folded lane reduction.
+
 The next reflection-free render-data slice preserves canonical `PushClip` and
 `PushOpacityMask` scopes in the native MIL stream. Geometry and mask resources
 resolve only through typed portable contracts, opacity-mask bounds retain the
