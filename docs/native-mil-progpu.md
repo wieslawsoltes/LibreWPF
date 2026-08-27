@@ -2819,12 +2819,14 @@ that byte-level tests could not expose: wgpu-native-incompatible temporary
 array indexing, invalid zero-initialized stencil comparison enums, and mesh
 positions incorrectly consuming `NativePoint3D.Reserved` as homogeneous `w`.
 With explicit line-corner selection, valid unused stencil state, and
-`vec4(position.xyz, 1)`, Apple M3 Pro Metal executes the typed
-`[32,20]-[96,68]` viewport together with a retained `[50,30]-[78,55]`
-rectangle clip. The resulting 520 pixels occupy `[50,30]-[77,54]`, wholly
-inside both bounds. The same gate is now part of macOS/Linux and Windows native
-integration scripts so D3D12 and Vulkan must reproduce this clipped placement
-rather than merely accepting the scene bytes.
+`vec4(position.xyz, 1)`, Apple M3 Pro Metal executes a 0.75 axis scale,
+`[8,6]` retained offset, 0.5 opacity, a local rectangle clip, and a world-space
+scroll clip together. The viewport becomes `[32,21]-[80,57]`, the effective
+clip is `[48,28.5]-[66.5,47.25]`, and all 291 colored pixels occupy
+`[48,28]-[66,47]` with the expected half-red center sample. The same gate is
+now part of macOS/Linux and Windows native integration scripts so D3D12 and
+Vulkan must reproduce this transformed, clipped, composited placement rather
+than merely accepting the scene bytes.
 
 The same native face-mode addition closes the initial back-material gap.
 LibreWPF maps each typed `PortableViewport3DMesh.IsBackFace` entry to an
