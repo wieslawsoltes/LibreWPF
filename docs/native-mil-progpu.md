@@ -3325,6 +3325,21 @@ at 1x and 26.5% at 2x in the preliminary 120-frame component gates, so it was
 reverted without extending a decisively negative candidate. The qualified
 folded two-pixel NEON/SSE2 kernel remains unchanged.
 
+ProGPU checkpoint `b91f34c9` lowers compact `PushGuidelineY1` and
+`PushGuidelineY2` render-data records through the same retained WPF phase
+machine and explicit-offset semantic resource. Each render-data resource owns
+its compact phase histories by stable packet offset; replacing its bytes
+clears those histories, while unrelated resource updates retain them. The
+stateful compiler detects the records before selecting its transactional graph
+copy, and the legacy compiler rejects them before allocating or mutating phase
+state. Focused coverage proves initial Y snapping, Animation feedback, the Y2
+driven gap, render-data replacement reset, and legacy fail-closed behavior.
+The regenerated serialized native build is incrementally clean, all 12 CTest
+suites pass, the managed native backend builds without warnings, and the
+wgpu-native/Dawn project-reference package consumer passes. Nonuniform X/Y DPI
+and consumption of `NeedsMoreCycles` by LibreWPF's typed render scheduler are
+the remaining dynamic-guideline integration gaps.
+
 ## Next parity gates
 
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested
@@ -3332,8 +3347,7 @@ folded two-pixel NEON/SSE2 kernel remains unchanged.
 2. Add dashed ellipse and rounded-rectangle pen draws, curve dashes, exact
    degenerate zero-axis asymmetric rounded-rectangle widening, exact
    translated-equivalent EvenOdd overlap execution, exact Nonzero groups with
-   boolean children, non-bitmap image sources, compact dynamic-guideline
-   records, exact
+   boolean children, non-bitmap image sources, exact
    WPF-compatible arc lowering, and
    remaining multi-guideline draw-family deformation, general Visual
    effect/clip/mask/opacity ordering, remaining
