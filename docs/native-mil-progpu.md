@@ -2877,6 +2877,16 @@ views rather than substituting a perspective camera. Focused managed/native
 bridge coverage passes 102/102, and the real PresentationCore exporter suite
 passes 3/3 on macOS.
 
+WPF mesh texture coordinates are now preserved end to end as typed geometry
+state rather than discarded. The source exporter copies the finite
+`MeshGeometry3D.TextureCoordinates` prefix and pads missing trailing vertices
+with WPF's canonical `(0,0)` coordinate. The managed ProGPU path feeds that
+array to its existing textured-mesh vertex upload, while native MIL writes it
+into the stable `progpu_native_scene_mesh_3d_vertex.texture_coordinate` field.
+Extra WPF coordinates are ignored by vertex count, matching MIL. This does not
+invent a brush fallback: it establishes the UV half of the next typed 3D brush
+resource gate.
+
 The same native face-mode addition closes the initial back-material gap.
 LibreWPF maps each typed `PortableViewport3DMesh.IsBackFace` entry to an
 exclusive ProGPU `FrontFace` or `BackFace` flag. ProGPU selects back or front

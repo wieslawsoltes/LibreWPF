@@ -2687,6 +2687,10 @@ public sealed class WpfNativeMilSceneCompilerTests
         Assert.Equal(3, retained.Scene.Vertices.Length);
         Assert.Equal([0U, 1U, 2U], retained.Scene.Indices);
         Assert.Equal(2.0f, retained.Scene.Camera.CameraPosition.Z);
+        Assert.Equal(0.25f, retained.Scene.Vertices[0].TextureCoordinate.X);
+        Assert.Equal(0.75f, retained.Scene.Vertices[0].TextureCoordinate.Y);
+        Assert.Equal(Vector2.Zero,
+            retained.Scene.Vertices[2].TextureCoordinate);
     }
 
     [Fact]
@@ -2936,6 +2940,11 @@ public sealed class WpfNativeMilSceneCompilerTests
                         new PortableVector3(0, 0, 1),
                         new PortableVector3(0, 0, 1),
                         new PortableVector3(0, 0, 1)
+                    ],
+                    TextureCoordinates =
+                    [
+                        new PortablePoint(0.25, 0.75),
+                        new PortablePoint(1, 0)
                     ],
                     Indices = [0, 1, 2],
                     ModelTransform = PortableMatrix4x4.Identity,

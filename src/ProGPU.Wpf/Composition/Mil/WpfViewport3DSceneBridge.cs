@@ -93,6 +93,12 @@ public static class WpfViewport3DSceneBridge
             {
                 continue;
             }
+            if (!TryToVector2Array(
+                    mesh.TextureCoordinates,
+                    out Vector2[] textureCoordinates))
+            {
+                return false;
+            }
 
             payload.Meshes.Add(new global::ProGPU.Scene.Extensions.MeshCompilationEntry
             {
@@ -100,6 +106,7 @@ public static class WpfViewport3DSceneBridge
                 GeometryVersion = mesh.GeometryVersion,
                 Positions = ToVector3Array(mesh.Positions),
                 Normals = ToVector3Array(mesh.Normals),
+                TextureCoordinates = textureCoordinates,
                 Indices = mesh.Indices,
                 ModelTransform = ToMatrix4x4(mesh.ModelTransform),
                 Color = ToVector4(mesh.DiffuseColor),
@@ -349,6 +356,37 @@ public static class WpfViewport3DSceneBridge
         }
 
         return result;
+    }
+
+    private static bool TryToVector2Array(
+        PortablePoint[]? values,
+        out Vector2[] result)
+    {
+        if (values is null)
+        {
+            result = Array.Empty<Vector2>();
+            return false;
+        }
+        if (values.Length == 0)
+        {
+            result = Array.Empty<Vector2>();
+            return true;
+        }
+
+        result = new Vector2[values.Length];
+        for (var i = 0; i < values.Length; i++)
+        {
+            var value = new Vector2(
+                (float)values[i].X,
+                (float)values[i].Y);
+            if (!float.IsFinite(value.X) || !float.IsFinite(value.Y))
+            {
+                result = Array.Empty<Vector2>();
+                return false;
+            }
+            result[i] = value;
+        }
+        return true;
     }
 
     private static Matrix4x4 ToMatrix4x4(PortableMatrix4x4 value)

@@ -160,7 +160,12 @@ namespace System.Windows.Media.Media3D
 
             if (model is not GeometryModel3D geometryModel
                 || geometryModel.Geometry is not MeshGeometry3D mesh
-                || !TryCreateMeshData(mesh, out var positions, out var normals, out var indices))
+                || !TryCreateMeshData(
+                    mesh,
+                    out var positions,
+                    out var normals,
+                    out var textureCoordinates,
+                    out var indices))
             {
                 return;
             }
@@ -173,6 +178,7 @@ namespace System.Windows.Media.Media3D
                     mesh,
                     positions,
                     normals,
+                    textureCoordinates,
                     indices,
                     modelTransform,
                     material,
@@ -185,6 +191,7 @@ namespace System.Windows.Media.Media3D
                     mesh,
                     positions,
                     normals,
+                    textureCoordinates,
                     indices,
                     modelTransform,
                     backMaterial,
@@ -196,6 +203,7 @@ namespace System.Windows.Media.Media3D
             MeshGeometry3D mesh,
             PortableVector3[] positions,
             PortableVector3[] normals,
+            PortablePoint[] textureCoordinates,
             int[] indices,
             Matrix3D modelTransform,
             MaterialDescriptor material,
@@ -206,6 +214,7 @@ namespace System.Windows.Media.Media3D
                 Geometry = mesh,
                 Positions = positions,
                 Normals = normals,
+                TextureCoordinates = textureCoordinates,
                 Indices = indices,
                 ModelTransform = ToPortableMatrix(modelTransform),
                 DiffuseColor = material.DiffuseColor,
@@ -221,12 +230,14 @@ namespace System.Windows.Media.Media3D
             MeshGeometry3D mesh,
             out PortableVector3[] positions,
             out PortableVector3[] normals,
+            out PortablePoint[] textureCoordinates,
             out int[] indices)
         {
             positions = ReadPoint3DCollection(mesh.Positions);
             if (positions.Length == 0)
             {
                 normals = Array.Empty<PortableVector3>();
+                textureCoordinates = Array.Empty<PortablePoint>();
                 indices = Array.Empty<int>();
                 return false;
             }
@@ -242,6 +253,10 @@ namespace System.Windows.Media.Media3D
             {
                 normals = ComputeNormals(positions, indices);
             }
+
+            textureCoordinates = ReadTextureCoordinates(
+                mesh.TextureCoordinates,
+                positions.Length);
 
             return indices.Length > 0;
         }
@@ -423,6 +438,26 @@ namespace System.Windows.Media.Media3D
             {
                 var vector = collection[i];
                 values[i] = new PortableVector3(vector.X, vector.Y, vector.Z);
+            }
+
+            return values;
+        }
+
+        private static PortablePoint[] ReadTextureCoordinates(
+            PointCollection collection,
+            int vertexCount)
+        {
+            if (collection == null || collection.Count == 0 || vertexCount == 0)
+            {
+                return Array.Empty<PortablePoint>();
+            }
+
+            var values = new PortablePoint[vertexCount];
+            var count = Math.Min(collection.Count, vertexCount);
+            for (var i = 0; i < count; i++)
+            {
+                var point = collection[i];
+                values[i] = new PortablePoint(point.X, point.Y);
             }
 
             return values;

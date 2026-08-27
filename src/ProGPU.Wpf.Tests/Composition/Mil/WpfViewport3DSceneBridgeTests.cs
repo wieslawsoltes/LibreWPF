@@ -42,6 +42,8 @@ public sealed class WpfViewport3DSceneBridgeTests
         Assert.Same(viewport.GeometryKey, mesh.Geometry);
         Assert.Equal(13, mesh.GeometryVersion);
         Assert.Equal(new[] { 0, 1, 2 }, mesh.Indices);
+        Assert.Equal(new Vector2(0.25f, 0.75f),
+            Assert.Single(mesh.TextureCoordinates));
         Assert.Equal(10, mesh.ModelTransform.M41);
         Assert.Equal(0.25f, replayData.Payload.AmbientIntensity);
     }
@@ -397,6 +399,10 @@ public sealed class WpfViewport3DSceneBridgeTests
                             new PortableVector3(0, 0, 1),
                             new PortableVector3(0, 0, 1)
                         },
+                        TextureCoordinates =
+                        [
+                            new PortablePoint(0.25, 0.75)
+                        ],
                         Indices = new[] { 0, 1, 2 },
                         ModelTransform = new PortableMatrix4x4(
                             1, 0, 0, 0,

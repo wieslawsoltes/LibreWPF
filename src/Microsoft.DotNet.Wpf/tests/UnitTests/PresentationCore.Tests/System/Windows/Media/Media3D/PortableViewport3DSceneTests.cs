@@ -18,6 +18,11 @@ public sealed class PortableViewport3DSceneTests
                 new Point3D(1, -1, 0),
                 new Point3D(0, 1, 0)
             },
+            TextureCoordinates = new PointCollection
+            {
+                new Point(0.25, 0.75),
+                new Point(1, 0)
+            },
             TriangleIndices = new Int32Collection { 0, 1, 2 }
         };
         var frontBrush = new SolidColorBrush(
@@ -166,6 +171,14 @@ public sealed class PortableViewport3DSceneTests
         Assert.Equal([0, 1, 2], back.Indices);
         Assert.All(front.Normals, normal =>
             Assert.Equal(new PortableVector3(0, 0, 1), normal));
+        Assert.Equal(
+            [
+                new PortablePoint(0.25, 0.75),
+                new PortablePoint(1, 0),
+                new PortablePoint(0, 0)
+            ],
+            front.TextureCoordinates);
+        Assert.Equal(front.TextureCoordinates, back.TextureCoordinates);
 
         Matrix3D expectedTransform =
             modelTransform.Value * visualTransform.Value;

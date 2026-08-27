@@ -2601,6 +2601,7 @@ public sealed class WpfNativeMilSceneCompiler
                 PortableViewport3DMesh? mesh = sourceMeshes[meshIndex];
                 if (mesh is null ||
                     mesh.Positions is null || mesh.Normals is null ||
+                    mesh.TextureCoordinates is null ||
                     mesh.Indices is null || mesh.Positions.Length < 3 ||
                     mesh.Normals.Length != mesh.Positions.Length ||
                     mesh.Indices.Length < 3 ||
@@ -2667,6 +2668,12 @@ public sealed class WpfNativeMilSceneCompiler
                      vertexIndex < mesh.Positions.Length;
                      vertexIndex++)
                 {
+                    Vector2 textureCoordinate = vertexIndex <
+                        mesh.TextureCoordinates.Length
+                            ? ToFiniteVector2(
+                                mesh.TextureCoordinates[vertexIndex],
+                                nameof(mesh.TextureCoordinates))
+                            : Vector2.Zero;
                     vertices[vertexOffset + vertexIndex] =
                         new NativeSceneMesh3DVertex
                         {
@@ -2678,7 +2685,7 @@ public sealed class WpfNativeMilSceneCompiler
                                 ToFiniteVector3(
                                     mesh.Normals[vertexIndex],
                                     nameof(mesh.Normals))),
-                            TextureCoordinate = Vector2.Zero,
+                            TextureCoordinate = textureCoordinate,
                             Reserved0 = 0U,
                             Reserved1 = 0U
                         };
@@ -3005,6 +3012,19 @@ public sealed class WpfNativeMilSceneCompiler
                     $"Native MIL Viewport3D {parameterName} contains a non-finite or out-of-range value.");
             }
             return new Vector3(x, y, z);
+        }
+
+        private static Vector2 ToFiniteVector2(
+            PortablePoint value,
+            string parameterName)
+        {
+            if (!TryToFiniteFloat(value.X, out float x) ||
+                !TryToFiniteFloat(value.Y, out float y))
+            {
+                throw new NotSupportedException(
+                    $"Native MIL Viewport3D {parameterName} contains a non-finite or out-of-range value.");
+            }
+            return new Vector2(x, y);
         }
 
         private static Vector3 ToFiniteVector3(
