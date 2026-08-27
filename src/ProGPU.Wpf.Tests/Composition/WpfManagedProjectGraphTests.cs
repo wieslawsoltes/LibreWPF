@@ -15926,7 +15926,7 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("for (var i = 0; i < values.Length; i++)", wpfResourceResolver, StringComparison.Ordinal);
         Assert.Contains("var value = values[i];", wpfResourceResolver, StringComparison.Ordinal);
         Assert.DoesNotContain("foreach (var value in values)", wpfResourceResolver, StringComparison.Ordinal);
-        Assert.Contains("TryGetGpuTexture(imageSource", proGpuWpfCommandSink, StringComparison.Ordinal);
+        Assert.Contains("TryRetainGpuTexture(", proGpuWpfCommandSink, StringComparison.Ordinal);
         Assert.DoesNotContain("bitmapSource.GpuTexture", proGpuWpfCommandSink, StringComparison.Ordinal);
         Assert.Contains("CanProvideGpuTexture(imageSource)", wpfResourceResolver, StringComparison.Ordinal);
         var wpfPooledRemovalBuffer = File.ReadAllText(FindRepoPath(
@@ -15940,6 +15940,8 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("RuntimeHelpers.IsReferenceOrContainsReferences<T>()", wpfPooledRemovalBuffer, StringComparison.Ordinal);
         Assert.Contains("&& CanProvideGpuTexture(mediaImageSource)", wpfBitmapSourceImageAdapter, StringComparison.Ordinal);
         Assert.Contains("imageSource is IProGpuTextureSource", wpfBitmapSourceImageAdapter, StringComparison.Ordinal);
+        Assert.Contains("imageSource is IProGpuTextureLeaseSource directSource", wpfBitmapSourceImageAdapter, StringComparison.Ordinal);
+        Assert.Contains("drawingContext.TryRetainTexture(", wpfBitmapSourceImageAdapter, StringComparison.Ordinal);
         Assert.Contains("BitmapSourceTextureCacheKey", wpfBitmapSourceImageAdapter, StringComparison.Ordinal);
         Assert.Contains("adapted.TryGet(context, cacheKey, out _)", wpfBitmapSourceImageAdapter, StringComparison.Ordinal);
         Assert.Contains(".Set(context, cacheKey, adaptedTexture)", wpfBitmapSourceImageAdapter, StringComparison.Ordinal);

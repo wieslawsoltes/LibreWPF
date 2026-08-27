@@ -549,7 +549,11 @@ public sealed class ProGpuCompositionCommandSink :
     {
         ThrowIfClosed();
 
-        if (WpfBitmapSourceImageAdapter.TryGetGpuTexture(imageSource, out var texture))
+        if (WpfBitmapSourceImageAdapter.TryRetainGpuTexture(
+                imageSource,
+                NativeContext,
+                _context,
+                out var texture))
         {
             AddNativeCommand(new global::ProGPU.Scene.RenderCommand
             {
@@ -576,7 +580,11 @@ public sealed class ProGpuCompositionCommandSink :
     {
         ThrowIfClosed();
 
-        if (WpfBitmapSourceImageAdapter.TryGetGpuTexture(imageSource, out var texture))
+        if (WpfBitmapSourceImageAdapter.TryRetainGpuTexture(
+                imageSource,
+                NativeContext,
+                _context,
+                out var texture))
         {
             AddNativeCommand(new global::ProGPU.Scene.RenderCommand
             {
@@ -877,7 +885,11 @@ public sealed class ProGpuCompositionCommandSink :
     {
         ThrowIfClosed();
 
-        if (WpfBitmapSourceImageAdapter.TryGetGpuTexture(imageSource, out var texture))
+        if (WpfBitmapSourceImageAdapter.TryRetainGpuTexture(
+                imageSource,
+                NativeContext,
+                _context,
+                out var texture))
         {
             AddNativeCommand(new global::ProGPU.Scene.RenderCommand
             {
@@ -897,7 +909,11 @@ public sealed class ProGpuCompositionCommandSink :
     {
         ThrowIfClosed();
 
-        if (WpfBitmapSourceImageAdapter.TryGetGpuTexture(imageSource, out var texture))
+        if (WpfBitmapSourceImageAdapter.TryRetainGpuTexture(
+                imageSource,
+                NativeContext,
+                _context,
+                out var texture))
         {
             AddNativeCommand(new global::ProGPU.Scene.RenderCommand
             {

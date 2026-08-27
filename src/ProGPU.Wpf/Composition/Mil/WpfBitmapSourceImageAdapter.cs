@@ -95,7 +95,7 @@ public sealed class WpfBitmapSourceImageAdapter : IWpfImageSourceAdapter
             try
             {
                 if (nativeImageSource.TryGetPortableNativeImage(out object? nativeImage)
-                    && nativeImage is GpuTexture resolvedTexture
+                    && TryGetNativeGpuTexture(nativeImage, out var resolvedTexture)
                     && IsUsableInContext(resolvedTexture, currentContext))
                 {
                     texture = resolvedTexture;
@@ -113,6 +113,87 @@ public sealed class WpfBitmapSourceImageAdapter : IWpfImageSourceAdapter
             return true;
         }
 
+        return false;
+    }
+
+    internal static bool TryRetainGpuTexture(
+        MediaImageSource imageSource,
+        global::ProGPU.Scene.DrawingContext drawingContext,
+        WgpuContext? requiredContext,
+        out GpuTexture texture)
+    {
+        ArgumentNullException.ThrowIfNull(imageSource);
+        ArgumentNullException.ThrowIfNull(drawingContext);
+
+        if (TryGetTextureLeaseSource(imageSource, out var leaseSource))
+        {
+            try
+            {
+                return requiredContext != null
+                    ? drawingContext.TryRetainTexture(
+                        leaseSource,
+                        requiredContext,
+                        out texture)
+                    : drawingContext.TryRetainTexture(
+                        leaseSource,
+                        out texture);
+            }
+            catch (InvalidOperationException)
+            {
+                texture = null!;
+                return false;
+            }
+        }
+
+        return TryGetGpuTexture(imageSource, out texture);
+    }
+
+    private static bool TryGetTextureLeaseSource(
+        MediaImageSource imageSource,
+        out IProGpuTextureLeaseSource textureSource)
+    {
+        if (imageSource is IProGpuTextureLeaseSource directSource)
+        {
+            textureSource = directSource;
+            return true;
+        }
+
+        if (imageSource is IPortableNativeImageSource nativeImageSource)
+        {
+            try
+            {
+                if (nativeImageSource.TryGetPortableNativeImage(out object? nativeImage)
+                    && nativeImage is IProGpuTextureLeaseSource nativeTextureSource)
+                {
+                    textureSource = nativeTextureSource;
+                    return true;
+                }
+            }
+            catch (InvalidOperationException)
+            {
+            }
+        }
+
+        textureSource = null!;
+        return false;
+    }
+
+    private static bool TryGetNativeGpuTexture(
+        object? nativeImage,
+        out GpuTexture texture)
+    {
+        if (nativeImage is GpuTexture directTexture)
+        {
+            texture = directTexture;
+            return true;
+        }
+
+        if (nativeImage is IProGpuTextureSource textureSource)
+        {
+            return textureSource.TryGetGpuTexture(out texture);
+        }
+
+        texture = null!;
         return false;
     }
 
