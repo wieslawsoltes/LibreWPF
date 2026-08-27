@@ -3401,6 +3401,32 @@ identity changes, and malformed framing. Direct compositor target binding and
 an explicit runtime selector remain separate gates; the current managed
 portable renderer is still the default.
 
+ProGPU checkpoint `20a7438b` adds the reusable target boundary required by the
+host. `NativeSceneExternalTarget` carries a host-owned WebGPU texture-view
+identity and pixel dimensions into the existing provider-resolved
+`NativeCompositor`; it transfers no texture ownership and performs no copy or
+readback. The original `GpuTexture` overload delegates to the same frame
+builder while retaining its stronger device/format/usage validation. The
+project-reference package consumer renders the compiled MIL scene through
+both paths and waits for a valid external-target submission.
+
+LibreWPF exposes the explicit `ProGpuWpfRendererMode.NativeMilWgpu` option and
+keeps `ManagedPortable` as the default. The native host owns one compilation
+session and native compositor beside the existing window/context, applies
+typed retained deltas only for dirty WPF state or resize, compiles every
+stateful continuation with nonzero monotonic request identity, installs the
+semantic stream, renders directly into the acquired swapchain view, presents,
+releases both the view and acquired surface-texture reference on every terminal
+path, and feeds `NeedsMoreCycles` back into the existing delayed scheduler. Public
+last-update/frame metrics expose the selected path without reflection.
+
+This first forced lane fails closed instead of silently mixing unsupported
+managed callbacks, popup roots, window-region clips, partial viewports, or
+nonuniform presentation DPI. Applications using portable PresentationFramework
+activation can preserve the selector through `CreateHostOptions(window,
+fallbackOptions)` and a typed host factory. Dawn surface ownership and those
+explicit host features remain follow-up gates.
+
 ## Next parity gates
 
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested
@@ -3424,8 +3450,10 @@ portable renderer is still the default.
    deterministic snapshot differ already retains the native channel and emits
    mutable packet deltas, but producer-side full snapshot construction and
    unchanged bitmap/font sideband avoidance remain to optimize.
-5. Bind compiled semantic streams directly to `NativeCompositor` targets and
-   expose an explicit LibreWPF runtime selector.
+5. Extend the now-bound native host lane with popup/window-region/viewport and
+   nonuniform presentation support, a provider-resolved Dawn surface owner,
+   live sample/package validation, and pixel comparison against the managed
+   portable lane.
 6. Complete live provider-resolved Dawn rendering and the remaining adapter
    LUID, limits, resize, occlusion, DPI, lifetime, and non-Parallels retained
    hit-test evidence. The Dawn ARM64 build/ABI and wgpu-native D3D12 live lane

@@ -262,6 +262,9 @@ public sealed class ProGpuWpfWindowHostTests
         var options = new ProGpuWpfWindowOptions();
 
         Assert.True(options.IsEventDriven);
+        Assert.Equal(
+            ProGpuWpfRendererMode.ManagedPortable,
+            options.RendererMode);
     }
 
     [Fact]

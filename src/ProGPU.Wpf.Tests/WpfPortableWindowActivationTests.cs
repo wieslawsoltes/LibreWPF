@@ -538,7 +538,8 @@ public sealed class WpfPortableWindowActivationTests
             Top = 2,
             Topmost = false,
             WindowBorder = ProGpuWpfWindowBorder.Hidden,
-            VSync = true
+            VSync = true,
+            RendererMode = ProGpuWpfRendererMode.NativeMilWgpu
         };
         var window = new FakeWindow
         {
@@ -564,6 +565,9 @@ public sealed class WpfPortableWindowActivationTests
         Assert.True(options.Topmost);
         Assert.True(options.TransparentFramebuffer);
         Assert.True(options.VSync);
+        Assert.Equal(
+            ProGpuWpfRendererMode.NativeMilWgpu,
+            options.RendererMode);
         Assert.Equal(ProGpuWpfWindowState.Minimized, options.WindowState);
         Assert.Equal(ProGpuWpfWindowBorder.Resizable, options.WindowBorder);
     }
