@@ -2088,6 +2088,84 @@ public sealed class WpfNativeMilSceneCompilerTests
     }
 
     [Fact]
+    public void BuildBatchTranslatesTypedAnimatedDrawFamily()
+    {
+        var point0 = new FakePointAnimationValue(new PortablePoint(2, 3));
+        var point1 = new FakePointAnimationValue(new PortablePoint(8, 9));
+        var rectangle = new FakeRectAnimationValue(
+            new PortableRect(4, 5, 30, 20));
+        var radiusX = new FakeDoubleAnimationValue(6);
+        var radiusY = new FakeDoubleAnimationValue(7);
+        var bitmap = new FakeBitmapSource(new PortableBitmapSourcePixels(
+            1,
+            1,
+            96,
+            96,
+            4,
+            PortablePixelDataFormat.Pbgra32,
+            [0, 0, 255, 255]));
+        byte[] renderData = CreateAnimatedLineRecord(0, 1, 2)
+            .Concat(CreateAnimatedRectangleRecord(0, 0, 3))
+            .Concat(CreateAnimatedRoundedRectangleRecord(0, 0, 3, 4, 5))
+            .Concat(CreateAnimatedEllipseRecord(0, 0, 1, 4, 5))
+            .Concat(CreateAnimatedImageRecord(6, 3))
+            .ToArray();
+        var visual = new FakeVisual(new FakeRenderData(
+            renderData,
+            [point0, point1, rectangle, radiusX, radiusY, bitmap]));
+
+        WpfNativeMilBatch result = new WpfNativeMilSceneCompiler().BuildBatch(
+            visual, 64, 64);
+
+        int firstPointOffset = FindCommand(result.Bytes, 0x10);
+        uint point0Handle = ReadUInt32(result.Bytes, firstPointOffset + 8);
+        int rectOffset = FindCommand(result.Bytes, 0x11);
+        uint rectHandle = ReadUInt32(result.Bytes, rectOffset + 8);
+        int doubleOffset = FindCommand(result.Bytes, 0x0e);
+        uint radiusXHandle = ReadUInt32(result.Bytes, doubleOffset + 8);
+        int renderDataOffset = FindCommand(result.Bytes, 0x18);
+        int nestedOffset = renderDataOffset + 16;
+
+        Assert.Equal(0x3f, ReadInt32(result.Bytes, nestedOffset + 4));
+        Assert.Equal(point0Handle, ReadUInt32(result.Bytes, nestedOffset + 44));
+        Assert.NotEqual(0U, ReadUInt32(result.Bytes, nestedOffset + 48));
+        nestedOffset += 56;
+        Assert.Equal(0x41, ReadInt32(result.Bytes, nestedOffset + 4));
+        Assert.Equal(rectHandle, ReadUInt32(result.Bytes, nestedOffset + 48));
+        nestedOffset += 56;
+        Assert.Equal(0x43, ReadInt32(result.Bytes, nestedOffset + 4));
+        Assert.Equal(rectHandle, ReadUInt32(result.Bytes, nestedOffset + 64));
+        Assert.Equal(radiusXHandle, ReadUInt32(result.Bytes, nestedOffset + 68));
+        Assert.NotEqual(0U, ReadUInt32(result.Bytes, nestedOffset + 72));
+        nestedOffset += 80;
+        Assert.Equal(0x45, ReadInt32(result.Bytes, nestedOffset + 4));
+        Assert.Equal(point0Handle, ReadUInt32(result.Bytes, nestedOffset + 48));
+        Assert.Equal(radiusXHandle, ReadUInt32(result.Bytes, nestedOffset + 52));
+        Assert.NotEqual(0U, ReadUInt32(result.Bytes, nestedOffset + 56));
+        nestedOffset += 64;
+        Assert.Equal(0x48, ReadInt32(result.Bytes, nestedOffset + 4));
+        Assert.NotEqual(0U, ReadUInt32(result.Bytes, nestedOffset + 40));
+        Assert.Equal(rectHandle, ReadUInt32(result.Bytes, nestedOffset + 44));
+    }
+
+    [Fact]
+    public void BuildBatchRejectsUntypedAnimatedDrawValues()
+    {
+        var visual = new FakeVisual(new FakeRenderData(
+            CreateAnimatedRectangleRecord(0, 0, 1),
+            [new object()]));
+
+        InvalidOperationException exception =
+            Assert.Throws<InvalidOperationException>(() =>
+                new WpfNativeMilSceneCompiler().BuildBatch(
+                    visual, 64, 64));
+
+        Assert.Contains(
+            nameof(IPortableRectAnimationValueSource),
+            exception.Message);
+    }
+
+    [Fact]
     public void BuildBatchTranslatesTypedClipAndOpacityMaskScopes()
     {
         var geometry = new FakePrimitiveGeometry(
@@ -2659,6 +2737,114 @@ public sealed class WpfNativeMilSceneCompilerTests
         BinaryPrimitives.WriteInt32LittleEndian(record.AsSpan(4), 0x50);
         WriteDouble(record, 8, opacity);
         BinaryPrimitives.WriteUInt32LittleEndian(record.AsSpan(16), animation);
+        return record;
+    }
+
+    private static byte[] CreateAnimatedLineRecord(
+        uint pen,
+        uint point0Animation,
+        uint point1Animation)
+    {
+        byte[] record = new byte[56];
+        BinaryPrimitives.WriteInt32LittleEndian(record, record.Length);
+        BinaryPrimitives.WriteInt32LittleEndian(record.AsSpan(4), 0x3f);
+        WriteDouble(record, 8, 1);
+        WriteDouble(record, 16, 2);
+        WriteDouble(record, 24, 3);
+        WriteDouble(record, 32, 4);
+        BinaryPrimitives.WriteUInt32LittleEndian(record.AsSpan(40), pen);
+        BinaryPrimitives.WriteUInt32LittleEndian(
+            record.AsSpan(44), point0Animation);
+        BinaryPrimitives.WriteUInt32LittleEndian(
+            record.AsSpan(48), point1Animation);
+        return record;
+    }
+
+    private static byte[] CreateAnimatedRectangleRecord(
+        uint brush,
+        uint pen,
+        uint rectangleAnimation)
+    {
+        byte[] record = new byte[56];
+        BinaryPrimitives.WriteInt32LittleEndian(record, record.Length);
+        BinaryPrimitives.WriteInt32LittleEndian(record.AsSpan(4), 0x41);
+        WriteDouble(record, 8, 1);
+        WriteDouble(record, 16, 2);
+        WriteDouble(record, 24, 10);
+        WriteDouble(record, 32, 12);
+        BinaryPrimitives.WriteUInt32LittleEndian(record.AsSpan(40), brush);
+        BinaryPrimitives.WriteUInt32LittleEndian(record.AsSpan(44), pen);
+        BinaryPrimitives.WriteUInt32LittleEndian(
+            record.AsSpan(48), rectangleAnimation);
+        return record;
+    }
+
+    private static byte[] CreateAnimatedRoundedRectangleRecord(
+        uint brush,
+        uint pen,
+        uint rectangleAnimation,
+        uint radiusXAnimation,
+        uint radiusYAnimation)
+    {
+        byte[] record = new byte[80];
+        BinaryPrimitives.WriteInt32LittleEndian(record, record.Length);
+        BinaryPrimitives.WriteInt32LittleEndian(record.AsSpan(4), 0x43);
+        WriteDouble(record, 8, 1);
+        WriteDouble(record, 16, 2);
+        WriteDouble(record, 24, 10);
+        WriteDouble(record, 32, 12);
+        WriteDouble(record, 40, 2);
+        WriteDouble(record, 48, 3);
+        BinaryPrimitives.WriteUInt32LittleEndian(record.AsSpan(56), brush);
+        BinaryPrimitives.WriteUInt32LittleEndian(record.AsSpan(60), pen);
+        BinaryPrimitives.WriteUInt32LittleEndian(
+            record.AsSpan(64), rectangleAnimation);
+        BinaryPrimitives.WriteUInt32LittleEndian(
+            record.AsSpan(68), radiusXAnimation);
+        BinaryPrimitives.WriteUInt32LittleEndian(
+            record.AsSpan(72), radiusYAnimation);
+        return record;
+    }
+
+    private static byte[] CreateAnimatedEllipseRecord(
+        uint brush,
+        uint pen,
+        uint centerAnimation,
+        uint radiusXAnimation,
+        uint radiusYAnimation)
+    {
+        byte[] record = new byte[64];
+        BinaryPrimitives.WriteInt32LittleEndian(record, record.Length);
+        BinaryPrimitives.WriteInt32LittleEndian(record.AsSpan(4), 0x45);
+        WriteDouble(record, 8, 8);
+        WriteDouble(record, 16, 9);
+        WriteDouble(record, 24, 2);
+        WriteDouble(record, 32, 3);
+        BinaryPrimitives.WriteUInt32LittleEndian(record.AsSpan(40), brush);
+        BinaryPrimitives.WriteUInt32LittleEndian(record.AsSpan(44), pen);
+        BinaryPrimitives.WriteUInt32LittleEndian(
+            record.AsSpan(48), centerAnimation);
+        BinaryPrimitives.WriteUInt32LittleEndian(
+            record.AsSpan(52), radiusXAnimation);
+        BinaryPrimitives.WriteUInt32LittleEndian(
+            record.AsSpan(56), radiusYAnimation);
+        return record;
+    }
+
+    private static byte[] CreateAnimatedImageRecord(
+        uint image,
+        uint rectangleAnimation)
+    {
+        byte[] record = new byte[48];
+        BinaryPrimitives.WriteInt32LittleEndian(record, record.Length);
+        BinaryPrimitives.WriteInt32LittleEndian(record.AsSpan(4), 0x48);
+        WriteDouble(record, 8, 1);
+        WriteDouble(record, 16, 2);
+        WriteDouble(record, 24, 10);
+        WriteDouble(record, 32, 12);
+        BinaryPrimitives.WriteUInt32LittleEndian(record.AsSpan(40), image);
+        BinaryPrimitives.WriteUInt32LittleEndian(
+            record.AsSpan(44), rectangleAnimation);
         return record;
     }
 
@@ -3324,6 +3510,41 @@ public sealed class WpfNativeMilSceneCompilerTests
         }
 
         public bool TryGetPortableDoubleAnimationValue(out double value)
+        {
+            value = _value;
+            return true;
+        }
+    }
+
+    private sealed class FakePointAnimationValue :
+        IPortablePointAnimationValueSource
+    {
+        private readonly PortablePoint _value;
+
+        internal FakePointAnimationValue(PortablePoint value)
+        {
+            _value = value;
+        }
+
+        public bool TryGetPortablePointAnimationValue(
+            out PortablePoint value)
+        {
+            value = _value;
+            return true;
+        }
+    }
+
+    private sealed class FakeRectAnimationValue :
+        IPortableRectAnimationValueSource
+    {
+        private readonly PortableRect _value;
+
+        internal FakeRectAnimationValue(PortableRect value)
+        {
+            _value = value;
+        }
+
+        public bool TryGetPortableRectAnimationValue(out PortableRect value)
         {
             value = _value;
             return true;

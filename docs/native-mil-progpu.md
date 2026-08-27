@@ -2762,8 +2762,15 @@ future MCG regeneration preserves the seam. The native compiler resolves the
 double resource, emits canonical type-49 `DoubleResource` state, and retains
 the animation handle in `PushOpacityAnimate`. Missing or untyped animation
 resources and nonzero packet padding fail closed. The focused native-scene
-compiler suite now passes 83/83 cases, while ProGPU's focused native interop
-suite passes 85/85.
+compiler now also preserves the complete animated 2D draw family: line point
+pairs, rectangle bounds, rounded-rectangle bounds/radii, ellipse center/radii,
+and image destination bounds. Point, rectangle, and double resources are
+deduplicated by source identity, emitted as canonical typed MIL resources, and
+retained by each animated command handle. ProGPU owns the exact packet writers,
+including type-50 `SizeResource` and type-52 `RectResource`; missing typed
+values, malformed sizes, or nonzero reserved padding fail closed. The focused
+native-scene compiler suite now passes 85/85 cases, while ProGPU's focused
+native interop suite passes 87/87.
 
 Current accepted ProGPU head `97690838` was also rebuilt in the Windows 11
 Parallels ARM64 guest with MSVC/Ninja after the DrawImage and accepted odd-tail

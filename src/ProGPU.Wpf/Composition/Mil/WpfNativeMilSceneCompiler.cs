@@ -166,6 +166,10 @@ public sealed class WpfNativeMilSceneCompiler
             new(ReferenceEqualityComparer.Instance);
         private readonly Dictionary<object, uint> _doubleAnimationHandles =
             new(ReferenceEqualityComparer.Instance);
+        private readonly Dictionary<object, uint> _pointAnimationHandles =
+            new(ReferenceEqualityComparer.Instance);
+        private readonly Dictionary<object, uint> _rectAnimationHandles =
+            new(ReferenceEqualityComparer.Instance);
         private readonly Dictionary<object, uint> _effectHandles =
             new(ReferenceEqualityComparer.Instance);
         private readonly Dictionary<object, uint> _bitmapCacheHandles =
@@ -547,6 +551,46 @@ public sealed class WpfNativeMilSceneCompiler
                             ReadDouble(payload, 24),
                             linePenHandle);
                         break;
+                    case WpfMilCommandId.DrawLineAnimate:
+                        if (recordSize != 56)
+                        {
+                            throw new InvalidOperationException(
+                                "The portable WPF animated-line record has an invalid size.");
+                        }
+                        uint animatedLinePenToken =
+                            BinaryPrimitives.ReadUInt32LittleEndian(payload[32..]);
+                        uint point0AnimationToken =
+                            BinaryPrimitives.ReadUInt32LittleEndian(payload[36..]);
+                        uint point1AnimationToken =
+                            BinaryPrimitives.ReadUInt32LittleEndian(payload[40..]);
+                        uint animatedLinePadding =
+                            BinaryPrimitives.ReadUInt32LittleEndian(payload[44..]);
+                        if (animatedLinePadding != 0)
+                        {
+                            throw new InvalidOperationException(
+                                "The portable WPF animated-line record has nonzero padding.");
+                        }
+                        destination.DrawLine(
+                            ReadDouble(payload, 0),
+                            ReadDouble(payload, 8),
+                            ReadDouble(payload, 16),
+                            ReadDouble(payload, 24),
+                            animatedLinePenToken == 0
+                                ? 0
+                                : ResolvePen(
+                                    snapshot.DependentResources,
+                                    animatedLinePenToken),
+                            point0AnimationToken == 0
+                                ? 0
+                                : ResolvePointAnimation(
+                                    snapshot.DependentResources,
+                                    point0AnimationToken),
+                            point1AnimationToken == 0
+                                ? 0
+                                : ResolvePointAnimation(
+                                    snapshot.DependentResources,
+                                    point1AnimationToken));
+                        break;
                     case WpfMilCommandId.DrawRectangle:
                         if (recordSize != 48)
                         {
@@ -575,6 +619,46 @@ public sealed class WpfNativeMilSceneCompiler
                             brushHandle,
                             penHandle);
                         break;
+                    case WpfMilCommandId.DrawRectangleAnimate:
+                        if (recordSize != 56)
+                        {
+                            throw new InvalidOperationException(
+                                "The portable WPF animated-rectangle record has an invalid size.");
+                        }
+                        uint animatedRectangleBrushToken =
+                            BinaryPrimitives.ReadUInt32LittleEndian(payload[32..]);
+                        uint animatedRectanglePenToken =
+                            BinaryPrimitives.ReadUInt32LittleEndian(payload[36..]);
+                        uint rectangleAnimationToken =
+                            BinaryPrimitives.ReadUInt32LittleEndian(payload[40..]);
+                        uint animatedRectanglePadding =
+                            BinaryPrimitives.ReadUInt32LittleEndian(payload[44..]);
+                        if (animatedRectanglePadding != 0)
+                        {
+                            throw new InvalidOperationException(
+                                "The portable WPF animated-rectangle record has nonzero padding.");
+                        }
+                        destination.DrawRectangle(
+                            ReadDouble(payload, 0),
+                            ReadDouble(payload, 8),
+                            ReadDouble(payload, 16),
+                            ReadDouble(payload, 24),
+                            animatedRectangleBrushToken == 0
+                                ? 0
+                                : ResolveBrush(
+                                    snapshot.DependentResources,
+                                    animatedRectangleBrushToken),
+                            animatedRectanglePenToken == 0
+                                ? 0
+                                : ResolvePen(
+                                    snapshot.DependentResources,
+                                    animatedRectanglePenToken),
+                            rectangleAnimationToken == 0
+                                ? 0
+                                : ResolveRectAnimation(
+                                    snapshot.DependentResources,
+                                    rectangleAnimationToken));
+                        break;
                     case WpfMilCommandId.DrawEllipse:
                         if (recordSize != 48)
                         {
@@ -602,6 +686,60 @@ public sealed class WpfNativeMilSceneCompiler
                             ReadDouble(payload, 24),
                             ellipseBrushHandle,
                             ellipsePenHandle);
+                        break;
+                    case WpfMilCommandId.DrawEllipseAnimate:
+                        if (recordSize != 64)
+                        {
+                            throw new InvalidOperationException(
+                                "The portable WPF animated-ellipse record has an invalid size.");
+                        }
+                        uint animatedEllipseBrushToken =
+                            BinaryPrimitives.ReadUInt32LittleEndian(payload[32..]);
+                        uint animatedEllipsePenToken =
+                            BinaryPrimitives.ReadUInt32LittleEndian(payload[36..]);
+                        uint centerAnimationToken =
+                            BinaryPrimitives.ReadUInt32LittleEndian(payload[40..]);
+                        uint ellipseRadiusXAnimationToken =
+                            BinaryPrimitives.ReadUInt32LittleEndian(payload[44..]);
+                        uint ellipseRadiusYAnimationToken =
+                            BinaryPrimitives.ReadUInt32LittleEndian(payload[48..]);
+                        uint animatedEllipsePadding =
+                            BinaryPrimitives.ReadUInt32LittleEndian(payload[52..]);
+                        if (animatedEllipsePadding != 0)
+                        {
+                            throw new InvalidOperationException(
+                                "The portable WPF animated-ellipse record has nonzero padding.");
+                        }
+                        destination.DrawEllipse(
+                            ReadDouble(payload, 0),
+                            ReadDouble(payload, 8),
+                            ReadDouble(payload, 16),
+                            ReadDouble(payload, 24),
+                            animatedEllipseBrushToken == 0
+                                ? 0
+                                : ResolveBrush(
+                                    snapshot.DependentResources,
+                                    animatedEllipseBrushToken),
+                            animatedEllipsePenToken == 0
+                                ? 0
+                                : ResolvePen(
+                                    snapshot.DependentResources,
+                                    animatedEllipsePenToken),
+                            centerAnimationToken == 0
+                                ? 0
+                                : ResolvePointAnimation(
+                                    snapshot.DependentResources,
+                                    centerAnimationToken),
+                            ellipseRadiusXAnimationToken == 0
+                                ? 0
+                                : ResolveDoubleAnimation(
+                                    snapshot.DependentResources,
+                                    ellipseRadiusXAnimationToken),
+                            ellipseRadiusYAnimationToken == 0
+                                ? 0
+                                : ResolveDoubleAnimation(
+                                    snapshot.DependentResources,
+                                    ellipseRadiusYAnimationToken));
                         break;
                     case WpfMilCommandId.DrawRoundedRectangle:
                         if (recordSize != 64)
@@ -642,6 +780,62 @@ public sealed class WpfNativeMilSceneCompiler
                             radiusY,
                             roundedBrushHandle,
                             roundedPenHandle);
+                        break;
+                    case WpfMilCommandId.DrawRoundedRectangleAnimate:
+                        if (recordSize != 80)
+                        {
+                            throw new InvalidOperationException(
+                                "The portable WPF animated rounded-rectangle record has an invalid size.");
+                        }
+                        uint animatedRoundedBrushToken =
+                            BinaryPrimitives.ReadUInt32LittleEndian(payload[48..]);
+                        uint animatedRoundedPenToken =
+                            BinaryPrimitives.ReadUInt32LittleEndian(payload[52..]);
+                        uint roundedRectangleAnimationToken =
+                            BinaryPrimitives.ReadUInt32LittleEndian(payload[56..]);
+                        uint roundedRadiusXAnimationToken =
+                            BinaryPrimitives.ReadUInt32LittleEndian(payload[60..]);
+                        uint roundedRadiusYAnimationToken =
+                            BinaryPrimitives.ReadUInt32LittleEndian(payload[64..]);
+                        uint animatedRoundedPadding =
+                            BinaryPrimitives.ReadUInt32LittleEndian(payload[68..]);
+                        if (animatedRoundedPadding != 0)
+                        {
+                            throw new InvalidOperationException(
+                                "The portable WPF animated rounded-rectangle record has nonzero padding.");
+                        }
+                        destination.DrawRoundedRectangle(
+                            ReadDouble(payload, 0),
+                            ReadDouble(payload, 8),
+                            ReadDouble(payload, 16),
+                            ReadDouble(payload, 24),
+                            ReadDouble(payload, 32),
+                            ReadDouble(payload, 40),
+                            animatedRoundedBrushToken == 0
+                                ? 0
+                                : ResolveBrush(
+                                    snapshot.DependentResources,
+                                    animatedRoundedBrushToken),
+                            animatedRoundedPenToken == 0
+                                ? 0
+                                : ResolvePen(
+                                    snapshot.DependentResources,
+                                    animatedRoundedPenToken),
+                            roundedRectangleAnimationToken == 0
+                                ? 0
+                                : ResolveRectAnimation(
+                                    snapshot.DependentResources,
+                                    roundedRectangleAnimationToken),
+                            roundedRadiusXAnimationToken == 0
+                                ? 0
+                                : ResolveDoubleAnimation(
+                                    snapshot.DependentResources,
+                                    roundedRadiusXAnimationToken),
+                            roundedRadiusYAnimationToken == 0
+                                ? 0
+                                : ResolveDoubleAnimation(
+                                    snapshot.DependentResources,
+                                    roundedRadiusYAnimationToken));
                         break;
                     case WpfMilCommandId.DrawGeometry:
                         if (recordSize != 24)
@@ -748,6 +942,34 @@ public sealed class WpfNativeMilSceneCompiler
                                 ResolveImageSource(
                                     snapshot.DependentResources,
                                     imageToken));
+                        }
+                        break;
+                    case WpfMilCommandId.DrawImageAnimate:
+                        if (recordSize != 48)
+                        {
+                            throw new InvalidOperationException(
+                                "The portable WPF animated-image record has an invalid size.");
+                        }
+                        uint animatedImageToken =
+                            BinaryPrimitives.ReadUInt32LittleEndian(payload[32..]);
+                        uint imageRectangleAnimationToken =
+                            BinaryPrimitives.ReadUInt32LittleEndian(payload[36..]);
+                        if (animatedImageToken != 0)
+                        {
+                            destination.DrawImage(
+                                new NativeMilRect(
+                                    ReadDouble(payload, 0),
+                                    ReadDouble(payload, 8),
+                                    ReadDouble(payload, 16),
+                                    ReadDouble(payload, 24)),
+                                ResolveImageSource(
+                                    snapshot.DependentResources,
+                                    animatedImageToken),
+                                imageRectangleAnimationToken == 0
+                                    ? 0
+                                    : ResolveRectAnimation(
+                                        snapshot.DependentResources,
+                                        imageRectangleAnimationToken));
                         }
                         break;
                     case WpfMilCommandId.PushClip:
@@ -947,6 +1169,79 @@ public sealed class WpfNativeMilSceneCompiler
             Batch.CreateResource(handle, NativeMilResourceType.DoubleResource);
             Batch.SetDoubleResource(handle, value);
             return handle;
+        }
+
+        private uint ResolvePointAnimation(
+            IReadOnlyList<object?> resources,
+            uint token)
+        {
+            object resource = ResolveAnimationResource(
+                resources, token, "point");
+            if (_pointAnimationHandles.TryGetValue(
+                    resource,
+                    out uint existing))
+            {
+                return existing;
+            }
+            if (resource is not IPortablePointAnimationValueSource source ||
+                !source.TryGetPortablePointAnimationValue(
+                    out PortablePoint value))
+            {
+                throw MissingContract(
+                    nameof(IPortablePointAnimationValueSource));
+            }
+            uint handle = NextHandle();
+            _pointAnimationHandles.Add(resource, handle);
+            Batch.CreateResource(handle, NativeMilResourceType.PointResource);
+            Batch.SetPointResource(
+                handle,
+                new NativeMilPoint(value.X, value.Y));
+            return handle;
+        }
+
+        private uint ResolveRectAnimation(
+            IReadOnlyList<object?> resources,
+            uint token)
+        {
+            object resource = ResolveAnimationResource(
+                resources, token, "rectangle");
+            if (_rectAnimationHandles.TryGetValue(
+                    resource,
+                    out uint existing))
+            {
+                return existing;
+            }
+            if (resource is not IPortableRectAnimationValueSource source ||
+                !source.TryGetPortableRectAnimationValue(out PortableRect value))
+            {
+                throw MissingContract(
+                    nameof(IPortableRectAnimationValueSource));
+            }
+            uint handle = NextHandle();
+            _rectAnimationHandles.Add(resource, handle);
+            Batch.CreateResource(handle, NativeMilResourceType.RectResource);
+            Batch.SetRectResource(
+                handle,
+                new NativeMilRect(
+                    value.X,
+                    value.Y,
+                    value.Width,
+                    value.Height));
+            return handle;
+        }
+
+        private static object ResolveAnimationResource(
+            IReadOnlyList<object?> resources,
+            uint token,
+            string valueKind)
+        {
+            if (token == 0 || token > resources.Count ||
+                resources[checked((int)token - 1)] is not object resource)
+            {
+                throw new InvalidOperationException(
+                    $"Portable {valueKind}-animation token {token} is unavailable.");
+            }
+            return resource;
         }
 
         private uint ResolveBrush(object resource)
