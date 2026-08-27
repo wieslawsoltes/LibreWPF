@@ -3541,6 +3541,27 @@ Focused dispatcher/host/source-contract coverage passed 188/188, the managed
 test project built serially with no errors, and the real PresentationFramework
 harness built with no warnings or errors.
 
+ProGPU checkpoint `63d013e6` closes the typed DirectX-texture ownership boundary
+needed by retained LibreWPF scenes. Eligible GPU-backed
+`ProGpuDirectXTexture2D` resources now publish the shared
+`IProGpuInvalidatingTextureSource` contract. The WPF recorder can retain the
+same-device texture, transfer its reference-counted lease into a `GpuPicture`,
+and compile it as a native external-image resource without readback, repacking,
+upload, reflection, or a raw native-handle ownership contract. DirectX writes,
+render/compute/copy completion, mip generation, writable unmap, and resize
+publish retained invalidation. CPU-only, array, multisample, depth/stencil, and
+non-shader-bindable resources fail closed.
+
+The checkpoint passes ProGPU's full 3,875-test managed suite on Apple ARM64 and
+the focused 3/3 Windows 11 ARM64 lease/invalidation/native-lowering gate from an
+immutable archive. Detailed Windows diagnostics identify
+`Parallels Display Adapter (WDDM)` and backend `D3D12`; the external-image test
+passes in 480 ms on .NET runtime `10.0.11` with SDK `10.0.400`. This qualifies
+the DirectX-to-native-MIL ownership and lowering seam on the integration VM,
+not physical-adapter performance. LibreWPF now tracks the documented ProGPU
+checkpoint so subsequent WPF image/effect work can consume the neutral lease
+contract instead of adding a managed bridge-local workaround.
+
 ## Next parity gates
 
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested
