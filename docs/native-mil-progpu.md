@@ -3161,7 +3161,28 @@ and end Pad `184/51/245`. Provider SHA-256 values are
 `F46B10C0B21D171D4AF1830F85D7499BF4BE4E43B550A53B3D27145340657EEB`
 and
 `B32E22C7BCF4A11F7BB64D60199670DEE3E9DDA0718FC006190A55069CDE27DF`.
-The superproject now tracks ProGPU documentation checkpoint `83b8fffe`.
+The adjacent cap-only gradient-pen gap is closed at ProGPU implementation
+`a124dcb9`. Zero-length lines and point-degenerate ellipses now pass their exact
+WPF stroke-sizing bounds into the existing canonical GPU gradient path. One
+checked native helper owns both brush mapping and cap draw bounds; asymmetric
+Flat/Triangle caps retain their half-stroke X extent while round point ellipses
+retain the full stroke square. This adds no ABI, CPU rasterization, readback, or
+backend fork. The constant-size bounds calculation is dependency-driven scalar
+control work rather than a lane-independent hot loop; all material sampling
+remains in the shared GPU fragment shader.
+
+Exact archive
+`D38337F1AFB33F7E5C4DA9D6BC08D65AEBC544C4E9E5881CE2FD3BF56A672832`
+passed strict Windows ARM64 compilation, 11/11 CTests, and the direct D3D12
+sample with the same four pixels as Metal. The managed graph built with zero
+warnings/errors; eight focused gradient tests passed in fresh GPU test hosts.
+One initial combined host hit a `wgpuDevicePoll` access violation after the
+native sample, while the exact crash-site test and every other group passed in
+isolation, so the provider/VM process-lifetime event is recorded rather than
+treated as a product result. Qualified provider hashes are
+`8213074DAB22FBBAD630BEAF8BF87E09522B77730E7D92E5E33812BC9C68590D` and
+`0E2C0667243F49475E81B23FF7E56999F7E4095D906B1A283637EB7CC148B47E`.
+The superproject now tracks ProGPU documentation checkpoint `9deaefa9`.
 
 ## Next parity gates
 
@@ -3170,8 +3191,8 @@ The superproject now tracks ProGPU documentation checkpoint `83b8fffe`.
 2. Add dashed ellipse and rounded-rectangle pen draws, curve dashes, exact
    degenerate zero-axis asymmetric rounded-rectangle widening, exact
    translated-equivalent EvenOdd overlap execution, exact combined children
-   inside groups, cap-only degenerate gradient pen strokes, non-bitmap image
-   sources, dynamic-guideline pairs, exact WPF-compatible arc lowering, and
+   inside groups, non-bitmap image sources, dynamic-guideline pairs, exact
+   WPF-compatible arc lowering, and
    remaining multi-guideline draw-family deformation, general Visual
    effect/clip/mask/opacity ordering, remaining
    opacity-mask/effect/dynamic-guideline push/pop state,
