@@ -106,7 +106,31 @@ public sealed class WpfNativeMilSceneCompiler
         WpfNativeMilBatch batch = BuildBatch(
             rootVisual, pixelWidth, pixelHeight, clearColor);
         using var channel = new NativeMilChannel(backend);
+        NativeMilBatchMetrics batchMetrics = ApplyBatch(channel, batch);
+        NativeMilCompiledScene scene = channel.CompileScene(
+            batch.TargetHandle, sceneId, generation);
+        return new WpfNativeMilCompilation(scene, batchMetrics);
+    }
+
+    internal static NativeMilBatchMetrics ApplyBatch(
+        NativeMilChannel channel,
+        WpfNativeMilBatch batch)
+    {
+        ArgumentNullException.ThrowIfNull(channel);
+        ArgumentNullException.ThrowIfNull(batch);
+
         NativeMilBatchMetrics batchMetrics = channel.Apply(batch.Bytes);
+        ApplySidebands(channel, batch);
+        return batchMetrics;
+    }
+
+    internal static void ApplySidebands(
+        NativeMilChannel channel,
+        WpfNativeMilBatch batch)
+    {
+        ArgumentNullException.ThrowIfNull(channel);
+        ArgumentNullException.ThrowIfNull(batch);
+
         foreach (WpfNativeMilBitmapSource bitmap in
                  batch.BitmapSources ?? Array.Empty<WpfNativeMilBitmapSource>())
         {
@@ -155,9 +179,6 @@ public sealed class WpfNativeMilSceneCompiler
             channel.SetViewport3DScene(
                 viewport3D.Handle, viewport3D.Scene);
         }
-        NativeMilCompiledScene scene = channel.CompileScene(
-            batch.TargetHandle, sceneId, generation);
-        return new WpfNativeMilCompilation(scene, batchMetrics);
     }
 
     private sealed class BuildContext

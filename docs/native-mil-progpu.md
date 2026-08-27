@@ -3381,6 +3381,26 @@ APIs, and balances each scope with the ordinary canonical `Pop`. Focused
 coverage verifies both coordinates, the driven offset, command sizes/IDs, and
 stack framing without copying opaque input bytes.
 
+LibreWPF now owns a typed `WpfNativeMilCompilationSession` across presentation
+frames. It builds deterministic full producer snapshots, validates their DWORD
+packet framing, and compares packet command/handle identity positionally so
+repeated structural commands such as child insertion cannot collide. Stable
+topology emits only changed mutable packets into the existing native channel;
+unchanged frames issue no protocol batch. Changed resource creation, visual
+creation, child topology, target-root identity, packet ordering, or target
+handle builds a complete replacement channel and swaps it only after the full
+batch plus typed sidebands succeed. A sideband failure after a transactional
+delta marks the session unusable until a full replacement succeeds.
+
+Stateful frame compilation reuses that retained channel and returns the exact
+`NativeMilSceneBuildRequest` beside its semantic scene/result, allowing the
+existing host continuation scheduler to validate serial identity and schedule
+the native phase deadline. Six packet-differ tests cover unchanged snapshots,
+a single mutable update, nested RenderData updates, structural rebuilds,
+identity changes, and malformed framing. Direct compositor target binding and
+an explicit runtime selector remain separate gates; the current managed
+portable renderer is still the default.
+
 ## Next parity gates
 
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested
@@ -3399,9 +3419,11 @@ stack framing without copying opaque input bytes.
    bounds, and broader
    arbitrary-geometry clip/mask/effect gates on the now-executable local-space
    cache primitive.
-4. Cache other stable native handles/generations across frames and emit
-   incremental resource updates plus damage instead of rebuilding the initial
-   scene batch.
+4. Extend the retained compiler session with typed sideband revision tracking,
+   stable cross-frame object handles, and damage production. The current
+   deterministic snapshot differ already retains the native channel and emits
+   mutable packet deltas, but producer-side full snapshot construction and
+   unchanged bitmap/font sideband avoidance remain to optimize.
 5. Bind compiled semantic streams directly to `NativeCompositor` targets and
    expose an explicit LibreWPF runtime selector.
 6. Complete live provider-resolved Dawn rendering and the remaining adapter
