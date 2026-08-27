@@ -2052,17 +2052,12 @@ public sealed class WpfNativeMilSceneCompiler
             {
                 throw MissingContract(nameof(IPortableGuidelineSetSource));
             }
-            if (guidelines.IsDynamic)
-            {
-                throw new NotSupportedException(
-                    "Dynamic WPF guideline pairs are not implemented by the native MIL slice.");
-            }
             uint handle = NextHandle();
             _guidelineSetHandles.Add(resource, handle);
             Batch.CreateResource(handle, NativeMilResourceType.GuidelineSet);
             Batch.SetGuidelineSet(
                 handle,
-                false,
+                guidelines.IsDynamic,
                 guidelines.GuidelinesX,
                 guidelines.GuidelinesY);
             return handle;

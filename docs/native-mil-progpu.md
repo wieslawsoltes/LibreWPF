@@ -3364,6 +3364,14 @@ work is now native-complete for the implemented command families; persistent
 incremental LibreWPF compiler/session ownership remains the end-to-end runtime
 integration requirement.
 
+The LibreWPF typed batch translator now preserves
+`PortableGuidelineSet.IsDynamic` in canonical `MilCmdGuidelineSet` packets
+instead of rejecting the source-built WPF contract. Dynamic X/Y arrays remain
+pair-validated by ProGPU's `NativeMilBatchBuilder`, and both drawing-group and
+render-data `PushGuidelineSet` references retain the generated native handle.
+Four focused tests verify the dynamic flag, exact pair byte counts and values,
+scope handle wiring, and unchanged static single/multiple guideline output.
+
 ## Next parity gates
 
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested

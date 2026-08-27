@@ -1570,7 +1570,7 @@ public sealed class WpfNativeMilSceneCompilerTests
     }
 
     [Fact]
-    public void BuildBatchRejectsDynamicAndPublishesMultipleTypedGuidelines()
+    public void BuildBatchPublishesDynamicAndMultipleTypedGuidelines()
     {
         static FakeVisual CreateVisual(PortableGuidelineSet state)
         {
@@ -1585,12 +1585,27 @@ public sealed class WpfNativeMilSceneCompilerTests
                 new FakeRenderData(CreateDrawDrawingRecord(1), [group]));
         }
 
-        Assert.Throws<NotSupportedException>(() =>
+        WpfNativeMilBatch dynamicResult =
             new WpfNativeMilSceneCompiler().BuildBatch(
                 CreateVisual(new PortableGuidelineSet(
                     true, true, [], [2, 0])),
                 64,
-                64));
+                64);
+        int dynamicGuidelineOffset = FindCommand(
+            dynamicResult.Bytes, 0x8c);
+        Assert.Equal(40, ReadInt32(
+            dynamicResult.Bytes, dynamicGuidelineOffset));
+        Assert.Equal(0U, ReadUInt32(
+            dynamicResult.Bytes, dynamicGuidelineOffset + 12));
+        Assert.Equal(16U, ReadUInt32(
+            dynamicResult.Bytes, dynamicGuidelineOffset + 16));
+        Assert.Equal(1U, ReadUInt32(
+            dynamicResult.Bytes, dynamicGuidelineOffset + 20));
+        Assert.Equal(2, ReadDouble(
+            dynamicResult.Bytes, dynamicGuidelineOffset + 24));
+        Assert.Equal(0, ReadDouble(
+            dynamicResult.Bytes, dynamicGuidelineOffset + 32));
+
         WpfNativeMilBatch result = new WpfNativeMilSceneCompiler().BuildBatch(
             CreateVisual(new PortableGuidelineSet(
                 true, false, [1, 2], [])),
@@ -2255,14 +2270,14 @@ public sealed class WpfNativeMilSceneCompilerTests
     }
 
     [Fact]
-    public void BuildBatchRejectsDynamicGuidelineScope()
+    public void BuildBatchTranslatesTypedDynamicGuidelineScope()
     {
         var guidelines = new FakeGuidelineSet(
             new PortableGuidelineSet(
                 isFrozen: false,
                 isDynamic: true,
-                [3.5],
-                [7.75]));
+                [3.5, 0],
+                [7.75, 0]));
         var visual = new FakeVisual(
             new FakeRenderData(
                 CreatePushGuidelineSetRecord(1)
@@ -2270,11 +2285,17 @@ public sealed class WpfNativeMilSceneCompilerTests
                     .ToArray(),
                 [guidelines]));
 
-        NotSupportedException exception = Assert.Throws<NotSupportedException>(
-            () => new WpfNativeMilSceneCompiler().BuildBatch(
-                visual, 64, 64));
+        WpfNativeMilBatch result = new WpfNativeMilSceneCompiler().BuildBatch(
+            visual, 64, 64);
+        int guidelineOffset = FindCommand(result.Bytes, 0x8c);
+        Assert.Equal(1U, ReadUInt32(result.Bytes, guidelineOffset + 20));
+        Assert.Equal(16U, ReadUInt32(result.Bytes, guidelineOffset + 12));
+        Assert.Equal(16U, ReadUInt32(result.Bytes, guidelineOffset + 16));
 
-        Assert.Contains("Dynamic WPF guideline pairs", exception.Message);
+        int renderDataOffset = FindCommand(result.Bytes, 0x18);
+        int nestedOffset = renderDataOffset + 16;
+        Assert.Equal(0x52, ReadInt32(result.Bytes, nestedOffset + 4));
+        Assert.NotEqual(0U, ReadUInt32(result.Bytes, nestedOffset + 8));
     }
 
     [Fact]
