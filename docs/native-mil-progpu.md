@@ -3297,6 +3297,26 @@ so WebGPU/Dawn and DirectX require no separate animation implementation. The
 full native/provider matrix remains 12/12; MIL dynamic resources still fail
 closed until their retained phase machine emits this representation.
 
+ProGPU checkpoint `897aeb68` implements the retained dynamic-guideline phase
+machine on the versioned stateful build path. Per-resource X/Y pairs now carry
+WPF-compatible Start, Quiet, Animation, Landing, and Flight history. The native
+compiler applies the 200 ms movement window, three-device-pixel jump
+suppression, 0.05-device-pixel landing steps, VisualBrush suppression, and
+rotation/shear Flight behavior, then emits the shared explicit-offset semantic
+resource for both providers. Animated and landing builds return typed
+`NeedsMoreCycles` feedback with a saturated 50 ms next-due timestamp.
+
+Dynamic phase mutation is transactional: the channel copies its graph only
+when dynamic guideline resources exist and commits their history only after a
+complete scene build. An unsupported record after guideline evaluation cannot
+consume a landing step, while an identical request serial returns the cached
+bytes/result without advancing state twice. Focused tests cover phase changes,
+scheduling, VisualBrush behavior, failed-build rollback, Flight recovery, and
+large-jump suppression; all 12 configured native/provider tests, the managed
+native-backend build, and the wgpu-native/Dawn package consumer remain green.
+Nonuniform X/Y DPI and compact `PushGuidelineY1/Y2` lowering remain explicit
+fail-closed gaps.
+
 ## Next parity gates
 
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested
@@ -3304,7 +3324,8 @@ closed until their retained phase machine emits this representation.
 2. Add dashed ellipse and rounded-rectangle pen draws, curve dashes, exact
    degenerate zero-axis asymmetric rounded-rectangle widening, exact
    translated-equivalent EvenOdd overlap execution, exact Nonzero groups with
-   boolean children, non-bitmap image sources, dynamic-guideline pairs, exact
+   boolean children, non-bitmap image sources, compact dynamic-guideline
+   records, exact
    WPF-compatible arc lowering, and
    remaining multi-guideline draw-family deformation, general Visual
    effect/clip/mask/opacity ordering, remaining
