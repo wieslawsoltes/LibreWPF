@@ -2837,6 +2837,15 @@ front winding and reversed back winding in consecutive retained generations
 and requires byte-identical clipped readbacks, while the focused compiler test
 verifies that back-material identity survives the pointer-free sideband.
 
+Source-built PresentationCore now has a focused executable test for the real
+`Viewport3DVisual` exporter rather than only bridge-owned fake scene sources.
+It constructs a `PerspectiveCamera`, transformed `ModelVisual3D`,
+`GeometryModel3D`, source-built mesh collections, and distinct front/back
+`DiffuseMaterial` values, then verifies the typed scene's viewport/camera,
+computed normals, indices, composed model transform, material opacity/color,
+geometry identity, and face identity. A second case proves that an empty
+viewport fails closed. Both cases pass in the portable macOS source-build lane.
+
 The WPF MCG `csp` tool also rebuilds cleanly and its unmodified `Resources.rsp`
 regenerates all 378 resource outputs into an isolated temporary tree. The
 generated Double, Point, Size, and Rect animation-clock resources retain their
