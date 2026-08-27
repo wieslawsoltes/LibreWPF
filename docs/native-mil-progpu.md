@@ -2883,7 +2883,7 @@ using WPF's own typed camera implementation. Both the managed compositor bridge
 and native MIL compiler preserve those matrices directly, derive camera position
 from the inverse view for GPU specular lighting, and reject non-finite or singular
 views rather than substituting a perspective camera. Focused managed/native
-bridge coverage passes 107/107, and the real PresentationCore exporter suite
+bridge coverage passes 108/108, and the real PresentationCore exporter suite
 passes 3/3 on macOS.
 
 WPF mesh texture coordinates are now preserved end to end as typed geometry
@@ -2911,9 +2911,15 @@ material color, ambient color, and specular power. The two ProGPU consumers
 expand solid-color layers into shared-geometry GPU passes: diffuse and
 specular use realistic lighting, while emissive selects a per-mesh unlit
 shader override. Geometry, normal, UV, and index storage is not duplicated.
-Gradient and tile layers are preserved as typed state but deliberately fail
-closed until their GPU realization/cache is connected; the bridge no longer
-approximates those layers by sampling the first gradient stop.
+The managed LibreWPF bridge now maps diffuse and emissive linear/radial DTOs to
+the reusable ProGPU Mesh3D material-brush path. ProGPU uploads finite stops from
+reused scratch through `CollectionsMarshal.AsSpan(...)` and evaluates UV-space
+coordinates, inverse affine transforms, spread, interpolation, brush opacity,
+and stop alpha in WGSL. The live Metal gate renders distinct red/blue gradient
+regions, and WinUI uses the same path instead of its former first-stop
+approximation. Specular-gradient, tile-brush, and native C++ material-resource
+realization remain typed fail-closed gaps; no CPU texture staging or readback is
+used.
 
 The same native face-mode addition closes the initial back-material gap.
 LibreWPF maps each typed `PortableViewport3DMesh.IsBackFace` entry to an

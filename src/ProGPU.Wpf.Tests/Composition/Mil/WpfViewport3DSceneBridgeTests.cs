@@ -175,6 +175,81 @@ public sealed class WpfViewport3DSceneBridgeTests
     }
 
     [Fact]
+    public void TryCreateReplayDataMapsTypedGradientMaterialsToGpuBrushes()
+    {
+        var viewport = new PortableViewport3DVisual
+        {
+            Materials =
+            [
+                new PortableViewport3DMaterial
+                {
+                    Kind = PortableViewport3DMaterialKind.Diffuse,
+                    Brush = PortableBrush.LinearGradient(
+                        new PortablePoint(0, 0.5),
+                        new PortablePoint(1, 0.5),
+                        [
+                            new PortableGradientStop(
+                                new PortableColor(255, 255, 0, 0),
+                                0),
+                            new PortableGradientStop(
+                                new PortableColor(255, 0, 0, 255),
+                                1)
+                        ],
+                        opacity: 0.75,
+                        spreadMethod:
+                            PortableGradientSpreadMethod.Reflect),
+                    Color = new PortableColor4(0.5, 1, 0.25, 0.8),
+                    AmbientColor = new PortableVector3(0.1, 0.2, 0.3)
+                },
+                new PortableViewport3DMaterial
+                {
+                    Kind = PortableViewport3DMaterialKind.Emissive,
+                    Brush = PortableBrush.RadialGradient(
+                        new PortablePoint(0.5, 0.5),
+                        new PortablePoint(0.25, 0.5),
+                        0.5,
+                        0.25,
+                        [
+                            new PortableGradientStop(
+                                new PortableColor(255, 255, 255, 255),
+                                0),
+                            new PortableGradientStop(
+                                new PortableColor(0, 0, 0, 0),
+                                1)
+                        ]),
+                    Color = new PortableColor4(1, 0.5, 0.25, 0.6)
+                }
+            ]
+        };
+
+        Assert.True(WpfViewport3DSceneBridge.TryCreateReplayData(
+            viewport,
+            out var replayData));
+        Assert.Equal(2, replayData.Payload.Meshes.Count);
+        var diffuse = replayData.Payload.Meshes[0];
+        var emissive = replayData.Payload.Meshes[1];
+        var linear = Assert.IsType<
+            global::ProGPU.Vector.LinearGradientBrush>(
+                diffuse.MaterialBrush);
+        Assert.Equal(new Vector2(0, 0.5f), linear.StartPoint);
+        Assert.Equal(0.75f, linear.Opacity);
+        Assert.Equal(new Vector4(0.5f, 1, 0.25f, 1),
+            diffuse.Color);
+        Assert.Equal(0.8f, diffuse.Opacity);
+        var radial = Assert.IsType<
+            global::ProGPU.Vector.RadialGradientBrush>(
+                emissive.MaterialBrush);
+        Assert.Equal(new Vector2(0.25f, 0.5f),
+            radial.GradientOrigin);
+        Assert.Equal(0.5f, radial.RadiusX);
+        Assert.Equal(0.25f, radial.RadiusY);
+        Assert.Equal(0.6f, emissive.Opacity);
+        Assert.Equal(
+            global::ProGPU.Scene.Extensions.ShadingMode3D.Flat,
+            emissive.ShadingModeOverride);
+    }
+
+    [Fact]
     public void TryCreateReplayDataPreservesTypedMatrixCameraForManagedGpuPath()
     {
         Matrix4x4 view = Matrix4x4.CreateTranslation(-2, -3, -4);

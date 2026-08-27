@@ -1110,7 +1110,7 @@ public sealed class WpfResourceResolver :
         }
     }
 
-    private static global::ProGPU.Vector.Brush? AdaptNativePortableBrush(
+    internal static global::ProGPU.Vector.Brush? AdaptNativePortableBrush(
         PortableBrush brush,
         WpfReplayRect bounds,
         out int unsupportedStateCount)

@@ -2769,7 +2769,7 @@ public sealed class WpfNativeMilSceneCompiler
                     {
                         if (!WpfViewport3DMaterialMapper.TryMapSolid(
                                 mesh.Materials[materialIndex],
-                                out WpfViewport3DSolidMaterialPass materialPass))
+                                out WpfViewport3DMaterialPass materialPass))
                         {
                             throw new NotSupportedException(
                                 "Native MIL Viewport3D currently requires typed solid-color material layers.");

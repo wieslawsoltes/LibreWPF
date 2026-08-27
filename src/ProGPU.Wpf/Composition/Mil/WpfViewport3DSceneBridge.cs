@@ -141,9 +141,9 @@ public static class WpfViewport3DSceneBridge
                  materialIndex < materials.Length;
                  materialIndex++)
             {
-                if (!WpfViewport3DMaterialMapper.TryMapSolid(
+                if (!WpfViewport3DMaterialMapper.TryMapManaged(
                         materials[materialIndex],
-                        out WpfViewport3DSolidMaterialPass materialPass))
+                        out WpfViewport3DMaterialPass materialPass))
                 {
                     return false;
                 }
@@ -376,9 +376,9 @@ public static class WpfViewport3DSceneBridge
             Vector3[] positions,
             Vector3[] normals,
             Vector2[] textureCoordinates,
-            WpfViewport3DSolidMaterialPass? materialPass = null)
+            WpfViewport3DMaterialPass? materialPass = null)
     {
-        WpfViewport3DSolidMaterialPass material =
+        WpfViewport3DMaterialPass material =
             materialPass.GetValueOrDefault();
         bool hasMaterialPass = materialPass.HasValue;
         return new global::ProGPU.Scene.Extensions.MeshCompilationEntry
@@ -388,6 +388,9 @@ public static class WpfViewport3DSceneBridge
             Positions = positions,
             Normals = normals,
             TextureCoordinates = textureCoordinates,
+            MaterialBrush = hasMaterialPass
+                ? material.MaterialBrush
+                : null,
             Indices = mesh.Indices,
             ModelTransform = ToMatrix4x4(mesh.ModelTransform),
             Color = hasMaterialPass

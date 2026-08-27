@@ -4,20 +4,89 @@ using ProGPU.Wpf.Interop;
 
 namespace System.Windows.Media.ProGPU.Composition.Mil;
 
-internal readonly record struct WpfViewport3DSolidMaterialPass(
+internal readonly record struct WpfViewport3DMaterialPass(
     PortableViewport3DMaterialKind Kind,
     Vector4 Color,
     Vector3 SpecularColor,
     float Shininess,
     Vector3 AmbientColor,
     float Opacity,
-    bool IsUnlit);
+    bool IsUnlit)
+{
+    public global::ProGPU.Vector.Brush? MaterialBrush { get; init; }
+}
 
 internal static class WpfViewport3DMaterialMapper
 {
+    internal static bool TryMapManaged(
+        PortableViewport3DMaterial? material,
+        out WpfViewport3DMaterialPass pass)
+    {
+        if (TryMapSolid(material, out pass))
+        {
+            return true;
+        }
+        if (material is null ||
+            material.Brush is null ||
+            material.TileBrush is not null ||
+            material.Brush.Kind is not (
+                PortableBrushKind.LinearGradient or
+                PortableBrushKind.RadialGradient) ||
+            material.Kind == PortableViewport3DMaterialKind.Specular ||
+            !TryToColor(material.Color, out Vector4 materialColor))
+        {
+            pass = default;
+            return false;
+        }
+
+        global::ProGPU.Vector.Brush? nativeBrush =
+            WpfResourceResolver.AdaptNativePortableBrush(
+                material.Brush,
+                new WpfReplayRect(0, 0, 1, 1),
+                out int unsupportedStateCount);
+        if (nativeBrush is null || unsupportedStateCount != 0)
+        {
+            pass = default;
+            return false;
+        }
+
+        bool isUnlit =
+            material.Kind == PortableViewport3DMaterialKind.Emissive;
+        if (!isUnlit &&
+            material.Kind != PortableViewport3DMaterialKind.Diffuse)
+        {
+            pass = default;
+            return false;
+        }
+        Vector3 ambient = Vector3.Zero;
+        if (!isUnlit &&
+            !TryToColor(material.AmbientColor, out ambient))
+        {
+            pass = default;
+            return false;
+        }
+
+        pass = new WpfViewport3DMaterialPass(
+            material.Kind,
+            new Vector4(
+                materialColor.X,
+                materialColor.Y,
+                materialColor.Z,
+                1.0f),
+            Vector3.Zero,
+            1.0f,
+            isUnlit ? Vector3.Zero : ambient,
+            materialColor.W,
+            isUnlit)
+        {
+            MaterialBrush = nativeBrush
+        };
+        return true;
+    }
+
     internal static bool TryMapSolid(
         PortableViewport3DMaterial? material,
-        out WpfViewport3DSolidMaterialPass pass)
+        out WpfViewport3DMaterialPass pass)
     {
         pass = default;
         if (material is null
@@ -45,7 +114,7 @@ internal static class WpfViewport3DMaterialMapper
                 {
                     return false;
                 }
-                pass = new WpfViewport3DSolidMaterialPass(
+                pass = new WpfViewport3DMaterialPass(
                     material.Kind,
                     new Vector4(rgb, 1.0f),
                     Vector3.Zero,
@@ -61,7 +130,7 @@ internal static class WpfViewport3DMaterialMapper
                 {
                     return false;
                 }
-                pass = new WpfViewport3DSolidMaterialPass(
+                pass = new WpfViewport3DMaterialPass(
                     material.Kind,
                     new Vector4(0, 0, 0, 1),
                     rgb,
@@ -71,7 +140,7 @@ internal static class WpfViewport3DMaterialMapper
                     IsUnlit: false);
                 return true;
             case PortableViewport3DMaterialKind.Emissive:
-                pass = new WpfViewport3DSolidMaterialPass(
+                pass = new WpfViewport3DMaterialPass(
                     material.Kind,
                     new Vector4(rgb, 1.0f),
                     Vector3.Zero,
