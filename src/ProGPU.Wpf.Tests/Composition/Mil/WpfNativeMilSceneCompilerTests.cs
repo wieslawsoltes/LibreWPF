@@ -1302,6 +1302,53 @@ public sealed class WpfNativeMilSceneCompilerTests
     }
 
     [Fact]
+    public void BuildBatchTranslatesDirectTypedBitmapDrawImage()
+    {
+        var bitmap = new FakeBitmapSource(new PortableBitmapSourcePixels(
+            1,
+            1,
+            96,
+            96,
+            4,
+            PortablePixelDataFormat.Pbgra32,
+            [16, 32, 64, 255]));
+        var visual = new FakeVisual(
+            new FakeRenderData(
+                CreateDrawImageRecord(2, 3, 40, 24, 1),
+                [bitmap]));
+
+        WpfNativeMilBatch result = new WpfNativeMilSceneCompiler().BuildBatch(
+            visual, 64, 64);
+        WpfNativeMilBitmapSource source = Assert.Single(result.BitmapSources!);
+        int nestedOffset = FindCommand(result.Bytes, 0x18) + 16;
+
+        Assert.Equal(48, ReadInt32(result.Bytes, nestedOffset));
+        Assert.Equal(0x47, ReadInt32(result.Bytes, nestedOffset + 4));
+        Assert.Equal(2.0, ReadDouble(result.Bytes, nestedOffset + 8));
+        Assert.Equal(3.0, ReadDouble(result.Bytes, nestedOffset + 16));
+        Assert.Equal(40.0, ReadDouble(result.Bytes, nestedOffset + 24));
+        Assert.Equal(24.0, ReadDouble(result.Bytes, nestedOffset + 32));
+        Assert.Equal(source.Handle, ReadUInt32(result.Bytes, nestedOffset + 40));
+        Assert.Equal(0U, ReadUInt32(result.Bytes, nestedOffset + 44));
+    }
+
+    [Fact]
+    public void BuildBatchPreservesNullDirectImageAsNoOp()
+    {
+        var visual = new FakeVisual(
+            new FakeRenderData(
+                CreateDrawImageRecord(2, 3, 40, 24, 0),
+                []));
+
+        WpfNativeMilBatch result = new WpfNativeMilSceneCompiler().BuildBatch(
+            visual, 64, 64);
+        int renderDataOffset = FindCommand(result.Bytes, 0x18);
+
+        Assert.Equal(16U, ReadUInt32(result.Bytes, renderDataOffset));
+        Assert.Empty(result.BitmapSources!);
+    }
+
+    [Fact]
     public void BuildBatchRejectsImageDrawingWithoutTypedPixels()
     {
         var drawing = new FakeImageDrawing(
@@ -2524,6 +2571,24 @@ public sealed class WpfNativeMilSceneCompilerTests
         WriteDouble(record, 24, 5);
         WriteDouble(record, 32, 8);
         BinaryPrimitives.WriteUInt32LittleEndian(record.AsSpan(40), pen);
+        return record;
+    }
+
+    private static byte[] CreateDrawImageRecord(
+        double x,
+        double y,
+        double width,
+        double height,
+        uint image)
+    {
+        byte[] record = new byte[48];
+        BinaryPrimitives.WriteInt32LittleEndian(record, record.Length);
+        BinaryPrimitives.WriteInt32LittleEndian(record.AsSpan(4), 0x47);
+        WriteDouble(record, 8, x);
+        WriteDouble(record, 16, y);
+        WriteDouble(record, 24, width);
+        WriteDouble(record, 32, height);
+        BinaryPrimitives.WriteUInt32LittleEndian(record.AsSpan(40), image);
         return record;
     }
 

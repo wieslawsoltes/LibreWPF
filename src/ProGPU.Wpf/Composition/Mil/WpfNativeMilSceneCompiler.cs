@@ -720,6 +720,34 @@ public sealed class WpfNativeMilSceneCompiler
                             snapshot.DependentResources,
                             drawingToken));
                         break;
+                    case WpfMilCommandId.DrawImage:
+                        if (recordSize != 48)
+                        {
+                            throw new InvalidOperationException(
+                                "The portable WPF image record has an invalid size.");
+                        }
+                        uint imageToken =
+                            BinaryPrimitives.ReadUInt32LittleEndian(payload[32..]);
+                        uint imagePadding =
+                            BinaryPrimitives.ReadUInt32LittleEndian(payload[36..]);
+                        if (imagePadding != 0)
+                        {
+                            throw new InvalidOperationException(
+                                "The portable WPF image record has nonzero padding.");
+                        }
+                        if (imageToken != 0)
+                        {
+                            destination.DrawImage(
+                                new NativeMilRect(
+                                    ReadDouble(payload, 0),
+                                    ReadDouble(payload, 8),
+                                    ReadDouble(payload, 16),
+                                    ReadDouble(payload, 24)),
+                                ResolveImageSource(
+                                    snapshot.DependentResources,
+                                    imageToken));
+                        }
+                        break;
                     case WpfMilCommandId.PushClip:
                         if (recordSize != 16)
                         {
@@ -1390,6 +1418,19 @@ public sealed class WpfNativeMilSceneCompiler
                 rowBytes,
                 pixels));
             return handle;
+        }
+
+        private uint ResolveImageSource(
+            IReadOnlyList<object?> resources,
+            uint token)
+        {
+            if (token == 0 || token > resources.Count ||
+                resources[checked((int)token - 1)] is not object resource)
+            {
+                throw new InvalidOperationException(
+                    $"Portable image-source token {token} is unavailable.");
+            }
+            return ResolveImageSource(resource);
         }
 
         private uint AddDrawingGroup(

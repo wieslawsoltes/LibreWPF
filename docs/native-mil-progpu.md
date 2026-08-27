@@ -2747,8 +2747,12 @@ resources too; null sets are valid no-op scopes, while dynamic pairs remain
 fail-closed until their MIL preprocessing contract is implemented. Canonical
 legacy `PushEffect` follows milcore's own disabled-BitmapEffect behavior: its
 managed-only handles remain opaque and it lowers to a balanced identity scope,
-not an invented effect implementation. The focused native-scene compiler suite
-now passes 79/79 cases.
+not an invented effect implementation. Static canonical `DrawImage` now uses
+ProGPU's typed writer and the existing bitmap/drawing-image resource resolver;
+finite destination rectangles and zero padding are preserved, null sources are
+no-ops, and pixels still enter only through `IPortableBitmapSourcePixelsSource`
+or the typed DrawingImage graph. The focused native-scene compiler suite now
+passes 81/81 cases, while ProGPU's focused native interop suite passes 85/85.
 
 The preceding exact `e510039d` Windows checkpoint completed the entire
 Parallels D3D12 lane: strict ARM64 MSVC `/W4 /WX`, 11/11 native/Dawn CTests,
