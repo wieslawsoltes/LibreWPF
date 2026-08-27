@@ -2805,11 +2805,12 @@ vertices, and indices into ProGPU's copied pointer-free sideband. ProGPU then
 emits its reusable semantic 3D mesh draw; projection, viewport placement,
 lighting, depth, and rasterization stay in the shared GPU backend for Metal,
 D3D12, Vulkan, and browser WebGPU. The compiler preserves retained offset,
-axis-preserving transform, opacity, and exact front/back material selection.
-Non-axis-preserving 2D transforms, clips, opacity masks, effects, caches, and guidelines
-fail closed until the native 3D compositor can reproduce them exactly. Focused
-coverage validates the sideband and both representative unsupported-state
-boundaries.
+axis-preserving transform, opacity, exact rectangle/scroll clips, and exact
+front/back material selection. Non-axis-preserving 2D transforms, arbitrary
+geometry clips, opacity masks, effects, caches, and guidelines fail closed
+until the native 3D compositor can reproduce them exactly. Focused coverage
+validates the sideband, emitted rectangle/scroll-clip commands, and
+representative unsupported-state boundaries.
 
 ProGPU's new `--semantic-viewport3d` gate exercises the complete retained MIL
 sideband, semantic compiler, shared WGSL pipeline, sub-viewport mapping, Metal
@@ -2818,11 +2819,12 @@ that byte-level tests could not expose: wgpu-native-incompatible temporary
 array indexing, invalid zero-initialized stencil comparison enums, and mesh
 positions incorrectly consuming `NativePoint3D.Reserved` as homogeneous `w`.
 With explicit line-corner selection, valid unused stencil state, and
-`vec4(position.xyz, 1)`, Apple M3 Pro Metal renders 1,058 pixels at extent
-`[41,22]-[86,66]`, wholly inside the typed `[32,20]-[96,68]` viewport. The
-same gate is now part of macOS/Linux and Windows native integration scripts so
-D3D12 and Vulkan must reproduce this placement rather than merely accepting
-the scene bytes.
+`vec4(position.xyz, 1)`, Apple M3 Pro Metal executes the typed
+`[32,20]-[96,68]` viewport together with a retained `[50,30]-[78,55]`
+rectangle clip. The resulting 520 pixels occupy `[50,30]-[77,54]`, wholly
+inside both bounds. The same gate is now part of macOS/Linux and Windows native
+integration scripts so D3D12 and Vulkan must reproduce this clipped placement
+rather than merely accepting the scene bytes.
 
 The same native face-mode addition closes the initial back-material gap.
 LibreWPF maps each typed `PortableViewport3DMesh.IsBackFace` entry to an
@@ -2830,8 +2832,8 @@ exclusive ProGPU `FrontFace` or `BackFace` flag. ProGPU selects back or front
 culling from its shared retained 3D pipeline family; zero remains the
 source-compatible two-sided mode for non-WPF consumers. The Metal gate renders
 front winding and reversed back winding in consecutive retained generations
-and requires byte-identical readbacks, while the focused compiler test verifies
-that back-material identity survives the pointer-free sideband.
+and requires byte-identical clipped readbacks, while the focused compiler test
+verifies that back-material identity survives the pointer-free sideband.
 
 The WPF MCG `csp` tool also rebuilds cleanly and its unmodified `Resources.rsp`
 regenerates all 378 resource outputs into an isolated temporary tree. The

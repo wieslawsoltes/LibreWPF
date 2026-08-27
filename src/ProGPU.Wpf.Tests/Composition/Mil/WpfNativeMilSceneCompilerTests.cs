@@ -2707,19 +2707,31 @@ public sealed class WpfNativeMilSceneCompilerTests
     }
 
     [Fact]
-    public void BuildBatchRejectsViewport3DClipUntilNative3DClipIsExact()
+    public void BuildBatchPreservesExactViewport3DRectangleAndScrollClips()
     {
+        var clip = new FakePrimitiveGeometry(
+            PortablePrimitiveGeometry.Rectangle(
+                new PortableRect(20, 22, 50, 40),
+                0,
+                0,
+                PortableMatrix3x2.Identity));
         var visual = new FakeViewport3DVisual(
             CreatePortableViewport3DScene(),
             new PortableVisualState
             {
                 HasClip = true,
-                Clip = new object()
+                Clip = clip,
+                HasScrollableAreaClip = true,
+                ScrollableAreaClip = new PortableRect(24, 26, 40, 30)
             });
 
-        Assert.Throws<NotSupportedException>(() =>
+        WpfNativeMilBatch result =
             new WpfNativeMilSceneCompiler().BuildBatch(
-                visual, 160, 120));
+                visual, 160, 120);
+
+        List<int> commands = ReadCommands(result.Bytes);
+        Assert.Contains(0x1f, commands);
+        Assert.Contains(0x28, commands);
     }
 
     private static PortableViewport3DScene CreatePortableViewport3DScene()

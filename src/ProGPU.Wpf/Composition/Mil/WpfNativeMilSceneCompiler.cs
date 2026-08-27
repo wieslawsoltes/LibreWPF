@@ -2967,13 +2967,12 @@ public sealed class WpfNativeMilSceneCompiler
         private static void RejectUnsupportedViewport3DState(
             PortableVisualState state)
         {
-            if (state.HasClip || state.HasScrollableAreaClip ||
-                state.HasOpacityMask || state.HasEffect ||
+            if (state.HasOpacityMask || state.HasEffect ||
                 state.HasCacheMode || state.HasSnappingGuidelinesX ||
                 state.HasSnappingGuidelinesY)
             {
                 throw new NotSupportedException(
-                    "Native MIL Viewport3D currently supports retained offset, axis-preserving transform, and opacity state; clip, mask, effect, cache, and guideline scopes fail closed.");
+                    "Native MIL Viewport3D currently supports retained offset, axis-preserving transform, opacity, and exact rectangle/scroll clips; mask, effect, cache, and guideline scopes fail closed.");
             }
         }
 
