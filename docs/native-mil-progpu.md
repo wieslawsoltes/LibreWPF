@@ -2992,6 +2992,21 @@ ordinary gradient test runs beside it to protect default-target compatibility;
 the complete managed Mesh3D family passes 22/22 with a warning-free Release
 build. The LibreWPF bridge/compiler selection passes 110/110 focused tests.
 
+Exact ProGPU implementation `ed98df5d` is independently qualified in the
+Windows 11 ARM64 Parallels guest from archive SHA-256
+`0EAA66E17840D35DE955854F31C0D9398115D4D7473D451218B363071B68AC50`.
+The archive's pinned `microsoft-ui-xaml` gitlink is `25d2cb1c`, and the hydrated
+`generic.xaml` matched the current submodule at SHA-256
+`4C4085838721C0AFCB1A9EE17591C0655CDDDADB26D330788E08BCD7F1AF8285`.
+.NET SDK 10.0.400 rebuilt the complete managed graph with zero warnings and
+errors; all 8 focused compilation, validation, ABI, ordinary-gradient, and
+specular-gradient tests passed. Both live contexts selected
+`Parallels Display Adapter (WDDM)`, backend `D3D12`, device type
+`DiscreteGpu`. The specular readback reproduced 3,304 red-dominant plus 3,304
+blue-dominant pixels and maximum channel deltas of 134 without a WebGPU
+validation/device error. Native C++ sources did not change from the preceding
+strict MSVC/D3D12 checkpoint.
+
 The exact pushed ProGPU `fd455edf` checkpoint is independently qualified from
 isolated archive SHA-256
 `46B06076344DE8518622AD66F5C9BE129C5E6231FAB874066FE83BFFDB6E5201`
