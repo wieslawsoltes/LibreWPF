@@ -2828,6 +2828,16 @@ now part of macOS/Linux and Windows native integration scripts so D3D12 and
 Vulkan must reproduce this transformed, clipped, composited placement rather
 than merely accepting the scene bytes.
 
+The same live gate now covers the lighting fields LibreWPF already lowers from
+the typed WPF scene. ProGPU's shared `Native3D.wgsl` scales diffuse/specular by
+`LightIntensity`, material ambient by `AmbientIntensity`, and uses each
+material's `Shininess` as the specular exponent instead of hardcoding 24. With
+realistic shading, 0.4 directional intensity, 0.2 ambient intensity, and 0.5
+retained opacity, the Metal center sample is exactly `77/51/0/255`; a second
+generation changes shininess from 1 to 256 and must produce a different GPU
+image. The focused ProGPU native suite remains 10/10 and the native interop
+suite passes 88/88.
+
 The same native face-mode addition closes the initial back-material gap.
 LibreWPF maps each typed `PortableViewport3DMesh.IsBackFace` entry to an
 exclusive ProGPU `FrontFace` or `BackFace` flag. ProGPU selects back or front
