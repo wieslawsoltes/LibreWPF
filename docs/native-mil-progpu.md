@@ -2845,6 +2845,9 @@ focused compiler suite passes 89/89 with exact projection-matrix assertions.
 ProGPU renders a fourth retained generation through that camera, requires its
 readback to differ from the perspective frame, and observes 278 colored pixels
 at `[48,28]-[66,47]` inside the same transformed viewport and clip.
+The native boundary also rejects negative directional/ambient intensity and
+nonpositive shininess before retaining the mesh; focused C++ coverage exercises
+all three invalid cases, and the complete native suite remains 10/10.
 
 The same native face-mode addition closes the initial back-material gap.
 LibreWPF maps each typed `PortableViewport3DMesh.IsBackFace` entry to an
