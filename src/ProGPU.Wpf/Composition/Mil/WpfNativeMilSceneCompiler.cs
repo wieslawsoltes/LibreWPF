@@ -2585,11 +2585,7 @@ public sealed class WpfNativeMilSceneCompiler
 
             PortableViewport3DMesh[] sourceMeshes =
                 scene.Meshes ?? Array.Empty<PortableViewport3DMesh>();
-            if (HasUnsupportedPortableLights(scene.Lights))
-            {
-                throw new NotSupportedException(
-                    "Native MIL Viewport3D point, spot, and multiple-light execution requires the retained light-buffer backend.");
-            }
+            NativeSceneLight3D[] nativeLights = CreateNativeLights(scene.Lights);
             if (sourceMeshes.Length == 0)
             {
                 throw new NotSupportedException(
@@ -2732,8 +2728,8 @@ public sealed class WpfNativeMilSceneCompiler
                         materialAmbient, 1.0f),
                     Opacity = opacity,
                     ShadingMode = 1U,
-                    Reserved0 = 0U,
-                    Reserved1 = 0U
+                    LightOffset = 0U,
+                    LightCount = (uint)nativeLights.Length
                 };
                 vertexOffset += mesh.Positions.Length;
                 indexOffset += mesh.Indices.Length;
@@ -2749,41 +2745,141 @@ public sealed class WpfNativeMilSceneCompiler
                     viewportHeight),
                 nativeMeshes,
                 vertices,
-                indices);
+                indices,
+                nativeLights);
         }
 
-        private static bool HasUnsupportedPortableLights(
+        private static NativeSceneLight3D[] CreateNativeLights(
             PortableViewport3DLight[]? lights)
         {
             if (lights is null || lights.Length == 0)
             {
-                return false;
+                return [];
+            }
+            if (lights.Length > 16)
+            {
+                throw new NotSupportedException(
+                    "Native MIL Viewport3D supports at most 16 typed lights per mesh.");
             }
 
-            int ambientCount = 0;
-            int directionalCount = 0;
-            foreach (PortableViewport3DLight? light in lights)
+            var result = new NativeSceneLight3D[lights.Length];
+            for (int index = 0; index < lights.Length; index++)
             {
-                if (light is null)
+                PortableViewport3DLight light = lights[index] ??
+                    throw new NotSupportedException(
+                        "Native MIL Viewport3D light entries cannot be null.");
+                Vector4 color = ToFiniteVector4(
+                    light.Color, nameof(light.Color));
+                var native = new NativeSceneLight3D
                 {
-                    return true;
-                }
-
+                    StructSize = (uint)Unsafe.SizeOf<NativeSceneLight3D>(),
+                    Kind = (uint)(NativeLight3DKind)light.Kind,
+                    Flags = 0U,
+                    Reserved0 = 0U,
+                    Color = color
+                };
                 switch (light.Kind)
                 {
                     case PortableViewport3DLightKind.Ambient:
-                        ambientCount++;
                         break;
                     case PortableViewport3DLightKind.Directional:
-                        directionalCount++;
+                        Vector3 directional = ToFiniteVector3(
+                            light.Direction, nameof(light.Direction));
+                        if (directional.LengthSquared() <= 0.000001f)
+                        {
+                            throw new NotSupportedException(
+                                "Native MIL Viewport3D directional lights require a nonzero direction.");
+                        }
+                        native.DirectionInnerCos = ToNativeFloat4(
+                            Vector3.Normalize(directional), 0.0f);
+                        break;
+                    case PortableViewport3DLightKind.Point:
+                        PopulateNativePointLight(light, ref native);
+                        break;
+                    case PortableViewport3DLightKind.Spot:
+                        PopulateNativePointLight(light, ref native);
+                        Vector3 spotDirection = ToFiniteVector3(
+                            light.Direction, nameof(light.Direction));
+                        if (spotDirection.LengthSquared() <= 0.000001f)
+                        {
+                            throw new NotSupportedException(
+                                "Native MIL Viewport3D spot lights require a nonzero direction.");
+                        }
+                        float outerAngle = ClampConeAngle(
+                            light.OuterConeAngle,
+                            nameof(light.OuterConeAngle));
+                        float innerAngle = MathF.Min(
+                            ClampConeAngle(
+                                light.InnerConeAngle,
+                                nameof(light.InnerConeAngle)),
+                            outerAngle);
+                        float innerCos = ConeHalfAngleCosine(innerAngle);
+                        native.DirectionInnerCos = ToNativeFloat4(
+                            Vector3.Normalize(spotDirection), innerCos);
+                        native.AttenuationOuterCos.W =
+                            ConeHalfAngleCosine(outerAngle);
                         break;
                     default:
-                        return true;
+                        throw new NotSupportedException(
+                            $"Native MIL Viewport3D light kind {light.Kind} is unsupported.");
                 }
+                result[index] = native;
             }
-
-            return ambientCount > 1 || directionalCount > 1;
+            return result;
         }
+
+        private static void PopulateNativePointLight(
+            PortableViewport3DLight source,
+            ref NativeSceneLight3D target)
+        {
+            Vector3 position = ToFiniteVector3(
+                source.Position, nameof(source.Position));
+            float range = double.IsPositiveInfinity(source.Range)
+                ? float.MaxValue
+                : ToFiniteFloat(source.Range, nameof(source.Range));
+            if (range <= 0.0f)
+            {
+                throw new NotSupportedException(
+                    "Native MIL Viewport3D point and spot light ranges must be positive.");
+            }
+            float constantAttenuation = ToFiniteFloat(
+                source.ConstantAttenuation,
+                nameof(source.ConstantAttenuation));
+            float linearAttenuation = ToFiniteFloat(
+                source.LinearAttenuation,
+                nameof(source.LinearAttenuation));
+            float quadraticAttenuation = ToFiniteFloat(
+                source.QuadraticAttenuation,
+                nameof(source.QuadraticAttenuation));
+            if (constantAttenuation < 0.0f || linearAttenuation < 0.0f ||
+                quadraticAttenuation < 0.0f ||
+                (constantAttenuation == 0.0f &&
+                    linearAttenuation == 0.0f &&
+                    quadraticAttenuation == 0.0f))
+            {
+                throw new NotSupportedException(
+                    "Native MIL Viewport3D point and spot light attenuation must be nonnegative and contain a positive term.");
+            }
+            target.PositionRange = ToNativeFloat4(position, range);
+            target.AttenuationOuterCos = new NativeFloat4
+            {
+                X = constantAttenuation,
+                Y = linearAttenuation,
+                Z = quadraticAttenuation,
+                W = 0.0f
+            };
+        }
+
+        private static float ClampConeAngle(
+            double angle,
+            string parameterName)
+        {
+            float value = ToFiniteFloat(angle, parameterName);
+            return Math.Clamp(value, 0.0f, 180.0f);
+        }
+
+        private static float ConeHalfAngleCosine(float angle) =>
+            MathF.Cos(angle * (MathF.PI / 360.0f));
 
         private static bool TryCreateViewportCamera(
             PortableViewport3DCamera camera,

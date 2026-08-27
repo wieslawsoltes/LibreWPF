@@ -2734,7 +2734,7 @@ public sealed class WpfNativeMilSceneCompilerTests
     }
 
     [Fact]
-    public void BuildBatchFailsClosedForPointLightUntilNativeLightBufferLands()
+    public void BuildBatchPreservesPointLightInNativeLightBuffer()
     {
         PortableViewport3DScene scene = CreatePortableViewport3DScene();
         scene.Lights =
@@ -2746,11 +2746,84 @@ public sealed class WpfNativeMilSceneCompilerTests
             }
         ];
 
+        WpfNativeMilBatch result =
+            new WpfNativeMilSceneCompiler().BuildBatch(
+                new FakeViewport3DVisual(scene), 160, 120);
+
+        NativeMilViewport3DScene retained = Assert.Single(
+            result.Viewport3DScenes!).Scene;
+        NativeSceneLight3D light = Assert.Single(retained.Lights);
+        Assert.Equal((uint)NativeLight3DKind.Point, light.Kind);
+        Assert.Equal(2.0f, light.PositionRange.Z);
+        Assert.Equal(float.MaxValue, light.PositionRange.W);
+        Assert.Equal(1.0f, light.AttenuationOuterCos.X);
+        Assert.Equal(1U, Assert.Single(retained.Meshes).LightCount);
+    }
+
+    [Fact]
+    public void BuildBatchPreservesMultipleLightsAndClampsSpotConesLikeWpf()
+    {
+        PortableViewport3DScene scene = CreatePortableViewport3DScene();
+        scene.Lights =
+        [
+            new PortableViewport3DLight
+            {
+                Kind = PortableViewport3DLightKind.Ambient,
+                Color = new PortableColor4(0.1, 0.2, 0.3, 1.0)
+            },
+            new PortableViewport3DLight
+            {
+                Kind = PortableViewport3DLightKind.Spot,
+                Color = new PortableColor4(1.0, 0.5, 0.25, 1.0),
+                Position = new PortableVector3(1, 2, 3),
+                Direction = new PortableVector3(0, 0, -2),
+                Range = 40,
+                ConstantAttenuation = 0.5,
+                LinearAttenuation = 0.25,
+                QuadraticAttenuation = 0.125,
+                InnerConeAngle = 180,
+                OuterConeAngle = 90
+            }
+        ];
+
+        NativeMilViewport3DScene retained = Assert.Single(
+            new WpfNativeMilSceneCompiler().BuildBatch(
+                new FakeViewport3DVisual(scene), 160, 120)
+                .Viewport3DScenes!).Scene;
+
+        Assert.Equal(2, retained.Lights.Length);
+        Assert.Equal((uint)NativeLight3DKind.Ambient, retained.Lights[0].Kind);
+        NativeSceneLight3D spot = retained.Lights[1];
+        Assert.Equal((uint)NativeLight3DKind.Spot, spot.Kind);
+        Assert.Equal(-1.0f, spot.DirectionInnerCos.Z);
+        Assert.Equal(spot.AttenuationOuterCos.W, spot.DirectionInnerCos.W);
+        Assert.Equal(0.5f, spot.AttenuationOuterCos.X);
+        Assert.Equal(0.25f, spot.AttenuationOuterCos.Y);
+        Assert.Equal(0.125f, spot.AttenuationOuterCos.Z);
+        Assert.Equal(2U, Assert.Single(retained.Meshes).LightCount);
+    }
+
+    [Fact]
+    public void BuildBatchRejectsInvalidPointLightAttenuation()
+    {
+        PortableViewport3DScene scene = CreatePortableViewport3DScene();
+        scene.Lights =
+        [
+            new PortableViewport3DLight
+            {
+                Kind = PortableViewport3DLightKind.Point,
+                Position = new PortableVector3(0, 0, 2),
+                ConstantAttenuation = 0,
+                LinearAttenuation = 0,
+                QuadraticAttenuation = 0
+            }
+        ];
+
         NotSupportedException exception = Assert.Throws<NotSupportedException>(
             () => new WpfNativeMilSceneCompiler().BuildBatch(
                 new FakeViewport3DVisual(scene), 160, 120));
 
-        Assert.Contains("retained light-buffer backend", exception.Message);
+        Assert.Contains("positive term", exception.Message);
     }
 
     [Fact]

@@ -2901,12 +2901,30 @@ preserves ambient, directional, point, and spot identity; linear color;
 transformed position/direction; range; constant, linear, and quadratic
 attenuation; and inner/outer cone angles. The real source-built exporter test
 now traverses all four WPF light types and verifies transformed point/spot
-state alongside the existing transformed directional state. Until ProGPU's
-retained light storage buffer is wired, both the managed bridge and native MIL
-compiler reject point, spot, and multiple-light scenes explicitly rather than
-silently substituting the legacy default light. The focused bridge/compiler
-suite passes 90/90 and the executable PresentationCore exporter suite passes
-2/2 on macOS.
+state alongside the existing transformed directional state.
+
+The native MIL route now compiles that array into ProGPU's bounded retained
+light-buffer ABI. Each unchanged 256-byte mesh record addresses up to 16
+80-byte ambient/directional/point/spot records through its former reserved
+words; the auxiliary stream stores lights after vertices and indices and the
+native page binds a sixth read-only WGSL storage buffer. The new versioned MIL
+sideband entry point preserves the legacy zero-light call, and validation
+rejects malformed kinds/ranges/slices, negative or all-zero attenuation, and
+invalid spot-cone ordering before retention. Spot angles use the same clamp as
+WPF MIL (outer `[0,180]`, inner no wider than outer), while point/spot specular
+uses WPF's half-vector model. A zero light count retains the old directional /
+ambient shader path exactly.
+
+Focused bridge/compiler coverage passes 98/98, including multiple-light range,
+spot-cone, point attenuation, and invalid attenuation cases; all 10 native
+CTest executables and generated-contract/export allowlists also pass. The live
+Apple Metal MIL gate executes ambient-plus-point and ambient-plus-spot retained
+generations and reads center RGBA `91/85/0/255` and `103/78/0/255`, distinct
+from the legacy `77/51/0/255` reference. The executable PresentationCore
+exporter suite remains 2/2 on macOS. The portable managed bridge still fails
+closed for point, spot, and multiple lights until its reusable managed
+extension payload gains the same bounded array; it does not silently substitute
+the default directional light.
 
 The WPF MCG `csp` tool also rebuilds cleanly and its unmodified `Resources.rsp`
 regenerates all 378 resource outputs into an isolated temporary tree. The
