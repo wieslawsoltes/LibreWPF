@@ -2771,6 +2771,14 @@ regressed 5.2713 -> 5.3665 ms at 1x and 6.1248 -> 6.1985 ms at 2x; 1x frame
 p95 also worsened 8.0932 -> 8.1285 ms. The qualified implementation retains
 the independently evaluated second origin and its established edge rounding.
 
+A following branchless winding-direction candidate was exact but slower. It
+replicated a normalized `+1`/`-1` direction and masked that delta into every
+paired and odd-tail NEON/SSE2 accumulator. Eight alternating 120-frame runs
+kept the same exact hashes, while median submission/frame p50 regressed
+1.4165/5.2487 -> 1.4850/5.4465 ms at 1x and 1.7186/5.7809 ->
+1.9296/6.0166 ms at 2x; every p95 median also worsened. The qualified kernel
+therefore retains the lower-cost direction branch.
+
 The next reflection-free render-data slice preserves canonical `PushClip` and
 `PushOpacityMask` scopes in the native MIL stream. Geometry and mask resources
 resolve only through typed portable contracts, opacity-mask bounds retain the
