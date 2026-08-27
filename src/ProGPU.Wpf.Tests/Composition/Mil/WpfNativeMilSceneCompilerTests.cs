@@ -2734,6 +2734,53 @@ public sealed class WpfNativeMilSceneCompilerTests
     }
 
     [Fact]
+    public void BuildBatchPreservesTypedMatrixViewport3DCamera()
+    {
+        PortableViewport3DScene scene = CreatePortableViewport3DScene();
+        Assert.NotNull(scene.Camera);
+        Matrix4x4 view = Matrix4x4.CreateTranslation(-3, -4, -5);
+        Matrix4x4 projection = new(
+            2, 0, 0, 0,
+            0, 3, 0, 0,
+            0, 0, 4, 1,
+            0, 0, -2, 0);
+        scene.Camera.Kind = PortableViewport3DCameraKind.Matrix;
+        scene.Camera.ViewMatrix = ToPortableMatrix(view);
+        scene.Camera.ProjectionMatrix = ToPortableMatrix(projection);
+
+        WpfNativeMilBatch result =
+            new WpfNativeMilSceneCompiler().BuildBatch(
+                new FakeViewport3DVisual(scene), 160, 120);
+
+        NativeSceneCamera3D camera = Assert.Single(
+            result.Viewport3DScenes!).Scene.Camera;
+        Assert.Equal(view.M41, camera.View.M41);
+        Assert.Equal(view.M42, camera.View.M42);
+        Assert.Equal(view.M43, camera.View.M43);
+        Assert.Equal(projection.M11, camera.Projection.M11);
+        Assert.Equal(projection.M22, camera.Projection.M22);
+        Assert.Equal(projection.M33, camera.Projection.M33);
+        Assert.Equal(projection.M34, camera.Projection.M34);
+        Assert.Equal(projection.M43, camera.Projection.M43);
+        Assert.Equal(3f, camera.CameraPosition.X);
+        Assert.Equal(4f, camera.CameraPosition.Y);
+        Assert.Equal(5f, camera.CameraPosition.Z);
+    }
+
+    [Fact]
+    public void BuildBatchRejectsSingularTypedMatrixViewport3DCamera()
+    {
+        PortableViewport3DScene scene = CreatePortableViewport3DScene();
+        Assert.NotNull(scene.Camera);
+        scene.Camera.Kind = PortableViewport3DCameraKind.Matrix;
+        scene.Camera.ViewMatrix = new PortableMatrix4x4();
+
+        Assert.Throws<NotSupportedException>(() =>
+            new WpfNativeMilSceneCompiler().BuildBatch(
+                new FakeViewport3DVisual(scene), 160, 120));
+    }
+
+    [Fact]
     public void BuildBatchPreservesPointLightInNativeLightBuffer()
     {
         PortableViewport3DScene scene = CreatePortableViewport3DScene();
@@ -2901,6 +2948,13 @@ public sealed class WpfNativeMilSceneCompilerTests
             ]
         };
     }
+
+    private static PortableMatrix4x4 ToPortableMatrix(Matrix4x4 matrix) =>
+        new(
+            matrix.M11, matrix.M12, matrix.M13, matrix.M14,
+            matrix.M21, matrix.M22, matrix.M23, matrix.M24,
+            matrix.M31, matrix.M32, matrix.M33, matrix.M34,
+            matrix.M41, matrix.M42, matrix.M43, matrix.M44);
 
     private static List<int> ReadCommands(byte[] batch)
     {

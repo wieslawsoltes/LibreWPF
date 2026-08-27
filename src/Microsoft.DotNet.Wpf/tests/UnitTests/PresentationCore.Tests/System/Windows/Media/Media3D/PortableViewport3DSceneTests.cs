@@ -193,6 +193,55 @@ public sealed class PortableViewport3DSceneTests
         Assert.Null(scene);
     }
 
+    [Fact]
+    public void SourceBuiltViewportExportsTypedMatrixCamera()
+    {
+        var view = Matrix3D.Identity;
+        view.Translate(new Vector3D(-2, -3, -4));
+        var projection = new Matrix3D(
+            2, 0, 0, 0,
+            0, 3, 0, 0,
+            0, 0, 4, 1,
+            0, 0, -2, 0);
+        var viewport = CreateRenderableViewport(
+            new MatrixCamera(view, projection));
+        var source = Assert.IsAssignableFrom<IPortableViewport3DSceneSource>(
+            viewport);
+
+        Assert.True(source.TryGetPortableViewport3DScene(out var scene));
+        PortableViewport3DCamera camera = Assert.IsType<PortableViewport3DCamera>(
+            scene.Camera);
+        Assert.Equal(PortableViewport3DCameraKind.Matrix, camera.Kind);
+        Assert.Equal(ToPortableMatrix(view), camera.ViewMatrix);
+        Assert.Equal(ToPortableMatrix(projection), camera.ProjectionMatrix);
+    }
+
+    private static Viewport3DVisual CreateRenderableViewport(Camera camera)
+    {
+        var mesh = new MeshGeometry3D
+        {
+            Positions = new Point3DCollection
+            {
+                new Point3D(-1, -1, 0),
+                new Point3D(1, -1, 0),
+                new Point3D(0, 1, 0)
+            },
+            TriangleIndices = new Int32Collection { 0, 1, 2 }
+        };
+        var viewport = new Viewport3DVisual
+        {
+            Viewport = new Rect(0, 0, 80, 60),
+            Camera = camera
+        };
+        viewport.Children.Add(new ModelVisual3D
+        {
+            Content = new GeometryModel3D(
+                mesh,
+                new DiffuseMaterial(Brushes.Red))
+        });
+        return viewport;
+    }
+
     private static PortableMatrix4x4 ToPortableMatrix(Matrix3D matrix) =>
         new(
             matrix.M11, matrix.M12, matrix.M13, matrix.M14,

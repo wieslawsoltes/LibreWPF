@@ -262,6 +262,14 @@ public static class WpfViewport3DSceneBridge
         projection = Matrix4x4.Identity;
         view = Matrix4x4.Identity;
 
+        if (camera.Kind == PortableViewport3DCameraKind.Matrix)
+        {
+            projection = ToMatrix4x4(camera.ProjectionMatrix);
+            view = ToMatrix4x4(camera.ViewMatrix);
+            return IsFinite(projection) && IsFinite(view) &&
+                Matrix4x4.Invert(view, out _);
+        }
+
         var position = ToVector3(camera.Position);
         var lookDirection = ToVector3(camera.LookDirection);
         var upDirection = ToVector3(camera.UpDirection);
@@ -295,6 +303,11 @@ public static class WpfViewport3DSceneBridge
             var height = width / Math.Max(0.0001f, aspectRatio);
             projection = Matrix4x4.CreateOrthographic(width, height, nearPlane, farPlane);
             return true;
+        }
+
+        if (camera.Kind != PortableViewport3DCameraKind.Perspective)
+        {
+            return false;
         }
 
         var horizontalFovDegrees = camera.FieldOfView > 0
@@ -345,6 +358,18 @@ public static class WpfViewport3DSceneBridge
             (float)value.M21, (float)value.M22, (float)value.M23, (float)value.M24,
             (float)value.M31, (float)value.M32, (float)value.M33, (float)value.M34,
             (float)value.M41, (float)value.M42, (float)value.M43, (float)value.M44);
+    }
+
+    private static bool IsFinite(Matrix4x4 value)
+    {
+        return float.IsFinite(value.M11) && float.IsFinite(value.M12) &&
+            float.IsFinite(value.M13) && float.IsFinite(value.M14) &&
+            float.IsFinite(value.M21) && float.IsFinite(value.M22) &&
+            float.IsFinite(value.M23) && float.IsFinite(value.M24) &&
+            float.IsFinite(value.M31) && float.IsFinite(value.M32) &&
+            float.IsFinite(value.M33) && float.IsFinite(value.M34) &&
+            float.IsFinite(value.M41) && float.IsFinite(value.M42) &&
+            float.IsFinite(value.M43) && float.IsFinite(value.M44);
     }
 }
 

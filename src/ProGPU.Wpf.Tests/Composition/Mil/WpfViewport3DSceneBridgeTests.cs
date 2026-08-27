@@ -99,6 +99,50 @@ public sealed class WpfViewport3DSceneBridgeTests
     }
 
     [Fact]
+    public void TryCreateReplayDataPreservesTypedMatrixCameraForManagedGpuPath()
+    {
+        Matrix4x4 view = Matrix4x4.CreateTranslation(-2, -3, -4);
+        Matrix4x4 projection = new(
+            2, 0, 0, 0,
+            0, 3, 0, 0,
+            0, 0, 4, 1,
+            0, 0, -2, 0);
+        var viewport = new PortableViewport3DVisual
+        {
+            PortableCamera = new PortableViewport3DCamera
+            {
+                Kind = PortableViewport3DCameraKind.Matrix,
+                ViewMatrix = ToPortableMatrix(view),
+                ProjectionMatrix = ToPortableMatrix(projection)
+            }
+        };
+
+        Assert.True(WpfViewport3DSceneBridge.TryCreateReplayData(
+            viewport,
+            out var replayData));
+        Assert.Equal(view, replayData.View);
+        Assert.Equal(projection, replayData.Projection);
+    }
+
+    [Fact]
+    public void TryCreateReplayDataRejectsSingularTypedMatrixCamera()
+    {
+        var viewport = new PortableViewport3DVisual
+        {
+            PortableCamera = new PortableViewport3DCamera
+            {
+                Kind = PortableViewport3DCameraKind.Matrix,
+                ViewMatrix = new PortableMatrix4x4(),
+                ProjectionMatrix = PortableMatrix4x4.Identity
+            }
+        };
+
+        Assert.False(WpfViewport3DSceneBridge.TryCreateReplayData(
+            viewport,
+            out _));
+    }
+
+    [Fact]
     public void ReplaySubtreeRejectsWpfShapedViewport3DVisualWithoutPortableScene()
     {
         var viewport = CreateTriangleViewport();
@@ -310,6 +354,8 @@ public sealed class WpfViewport3DSceneBridgeTests
 
         public PortableViewport3DLight[] Lights { get; init; } = [];
 
+        public PortableViewport3DCamera? PortableCamera { get; init; }
+
         public object Viewport => throw new InvalidOperationException("Portable scene should not probe Viewport.");
 
         public object Camera => throw new InvalidOperationException("Portable scene should not probe Camera.");
@@ -321,7 +367,7 @@ public sealed class WpfViewport3DSceneBridgeTests
             scene = new PortableViewport3DScene
             {
                 Viewport = new PortableRect(4, 8, 320, 180),
-                Camera = new PortableViewport3DCamera
+                Camera = PortableCamera ?? new PortableViewport3DCamera
                 {
                     Kind = PortableViewport3DCameraKind.Perspective,
                     Position = new PortableVector3(0, 0, 4),
@@ -364,6 +410,13 @@ public sealed class WpfViewport3DSceneBridgeTests
             return true;
         }
     }
+
+    private static PortableMatrix4x4 ToPortableMatrix(Matrix4x4 matrix) =>
+        new(
+            matrix.M11, matrix.M12, matrix.M13, matrix.M14,
+            matrix.M21, matrix.M22, matrix.M23, matrix.M24,
+            matrix.M31, matrix.M32, matrix.M33, matrix.M34,
+            matrix.M41, matrix.M42, matrix.M43, matrix.M44);
 
     private sealed class PortableSceneHost : IPortableViewport3DSceneSource
     {

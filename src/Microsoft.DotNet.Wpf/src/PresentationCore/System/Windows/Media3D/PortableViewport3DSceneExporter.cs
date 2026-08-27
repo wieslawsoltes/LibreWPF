@@ -274,6 +274,17 @@ namespace System.Windows.Media.Media3D
         private static bool TryCreateCamera(Camera camera, out PortableViewport3DCamera portableCamera)
         {
             portableCamera = null!;
+            if (camera is MatrixCamera matrixCamera)
+            {
+                portableCamera = new PortableViewport3DCamera
+                {
+                    Kind = PortableViewport3DCameraKind.Matrix,
+                    ViewMatrix = ToPortableMatrix(matrixCamera.GetViewMatrix()),
+                    ProjectionMatrix = ToPortableMatrix(matrixCamera.ProjectionMatrix)
+                };
+                return true;
+            }
+
             if (camera is PerspectiveCamera perspectiveCamera)
             {
                 portableCamera = CreateCamera(

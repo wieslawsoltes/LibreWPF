@@ -2890,6 +2890,27 @@ public sealed class WpfNativeMilSceneCompiler
         {
             projection = Matrix4x4.Identity;
             view = Matrix4x4.Identity;
+            position = Vector3.Zero;
+            if (!float.IsFinite(aspectRatio) || aspectRatio <= 0.0f)
+            {
+                return false;
+            }
+            if (camera.Kind == PortableViewport3DCameraKind.Matrix)
+            {
+                projection = ToFiniteMatrix(
+                    camera.ProjectionMatrix,
+                    nameof(camera.ProjectionMatrix));
+                view = ToFiniteMatrix(
+                    camera.ViewMatrix,
+                    nameof(camera.ViewMatrix));
+                if (!Matrix4x4.Invert(view, out Matrix4x4 cameraToWorld))
+                {
+                    return false;
+                }
+                position = Vector3.Transform(Vector3.Zero, cameraToWorld);
+                return IsFinite(projection) && IsFinite(view) &&
+                    IsFinite(position);
+            }
             position = ToFiniteVector3(
                 camera.Position, nameof(camera.Position));
             Vector3 lookDirection = ToFiniteVector3(
@@ -2897,8 +2918,7 @@ public sealed class WpfNativeMilSceneCompiler
             Vector3 upDirection = ToFiniteVector3(
                 camera.UpDirection, nameof(camera.UpDirection));
             if (lookDirection.LengthSquared() <= 0.000001f ||
-                upDirection.LengthSquared() <= 0.000001f ||
-                !float.IsFinite(aspectRatio) || aspectRatio <= 0.0f)
+                upDirection.LengthSquared() <= 0.000001f)
             {
                 return false;
             }

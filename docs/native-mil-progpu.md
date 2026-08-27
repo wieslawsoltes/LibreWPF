@@ -2867,6 +2867,16 @@ The native boundary also rejects negative directional/ambient intensity and
 nonpositive shininess before retaining the mesh; focused C++ coverage exercises
 all three invalid cases, and the complete native suite remains 10/10.
 
+Source-built `MatrixCamera` now crosses the same reflection-free boundary.
+ProGPU's additive portable camera kind carries the complete WPF view and
+projection matrices; the exporter folds `Camera.Transform` into the view matrix
+using WPF's own typed camera implementation. Both the managed compositor bridge
+and native MIL compiler preserve those matrices directly, derive camera position
+from the inverse view for GPU specular lighting, and reject non-finite or singular
+views rather than substituting a perspective camera. Focused managed/native
+bridge coverage passes 102/102, and the real PresentationCore exporter suite
+passes 3/3 on macOS.
+
 The same native face-mode addition closes the initial back-material gap.
 LibreWPF maps each typed `PortableViewport3DMesh.IsBackFace` entry to an
 exclusive ProGPU `FrontFace` or `BackFace` flag. ProGPU selects back or front
