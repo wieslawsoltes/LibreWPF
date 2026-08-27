@@ -2585,6 +2585,11 @@ public sealed class WpfNativeMilSceneCompiler
 
             PortableViewport3DMesh[] sourceMeshes =
                 scene.Meshes ?? Array.Empty<PortableViewport3DMesh>();
+            if (HasUnsupportedPortableLights(scene.Lights))
+            {
+                throw new NotSupportedException(
+                    "Native MIL Viewport3D point, spot, and multiple-light execution requires the retained light-buffer backend.");
+            }
             if (sourceMeshes.Length == 0)
             {
                 throw new NotSupportedException(
@@ -2745,6 +2750,39 @@ public sealed class WpfNativeMilSceneCompiler
                 nativeMeshes,
                 vertices,
                 indices);
+        }
+
+        private static bool HasUnsupportedPortableLights(
+            PortableViewport3DLight[]? lights)
+        {
+            if (lights is null || lights.Length == 0)
+            {
+                return false;
+            }
+
+            int ambientCount = 0;
+            int directionalCount = 0;
+            foreach (PortableViewport3DLight? light in lights)
+            {
+                if (light is null)
+                {
+                    return true;
+                }
+
+                switch (light.Kind)
+                {
+                    case PortableViewport3DLightKind.Ambient:
+                        ambientCount++;
+                        break;
+                    case PortableViewport3DLightKind.Directional:
+                        directionalCount++;
+                        break;
+                    default:
+                        return true;
+                }
+            }
+
+            return ambientCount > 1 || directionalCount > 1;
         }
 
         private static bool TryCreateViewportCamera(

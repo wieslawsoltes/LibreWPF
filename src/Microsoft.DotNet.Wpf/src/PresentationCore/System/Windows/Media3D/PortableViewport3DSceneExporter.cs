@@ -43,6 +43,7 @@ namespace System.Windows.Media.Media3D
                 LightIntensity = state.LightIntensity,
                 AmbientColor = state.AmbientColor,
                 AmbientIntensity = state.AmbientIntensity,
+                Lights = state.Lights.ToArray(),
                 Meshes = state.Meshes.ToArray()
             };
             return scene.Meshes.Length > 0;
@@ -87,6 +88,12 @@ namespace System.Windows.Media.Media3D
                 state.LightDirection = NormalizeOrDefault(direction, state.LightDirection);
                 var color = ToPortableColor4(directionalLight.Color);
                 state.LightIntensity = Math.Max(color.R, Math.Max(color.G, color.B));
+                state.Lights.Add(new PortableViewport3DLight
+                {
+                    Kind = PortableViewport3DLightKind.Directional,
+                    Color = color,
+                    Direction = state.LightDirection
+                });
                 return;
             }
 
@@ -95,6 +102,49 @@ namespace System.Windows.Media.Media3D
                 var color = ToPortableColor4(ambientLight.Color);
                 state.AmbientColor = new PortableVector3(color.R, color.G, color.B);
                 state.AmbientIntensity = color.A;
+                state.Lights.Add(new PortableViewport3DLight
+                {
+                    Kind = PortableViewport3DLightKind.Ambient,
+                    Color = color
+                });
+                return;
+            }
+
+            if (model is SpotLight spotLight)
+            {
+                var position = modelTransform.Transform(spotLight.Position);
+                var direction = modelTransform.Transform(spotLight.Direction);
+                state.Lights.Add(new PortableViewport3DLight
+                {
+                    Kind = PortableViewport3DLightKind.Spot,
+                    Color = ToPortableColor4(spotLight.Color),
+                    Position = new PortableVector3(position.X, position.Y, position.Z),
+                    Direction = NormalizeOrDefault(
+                        new PortableVector3(direction.X, direction.Y, direction.Z),
+                        new PortableVector3(0, 0, -1)),
+                    Range = spotLight.Range,
+                    ConstantAttenuation = spotLight.ConstantAttenuation,
+                    LinearAttenuation = spotLight.LinearAttenuation,
+                    QuadraticAttenuation = spotLight.QuadraticAttenuation,
+                    OuterConeAngle = spotLight.OuterConeAngle,
+                    InnerConeAngle = spotLight.InnerConeAngle
+                });
+                return;
+            }
+
+            if (model is PointLight pointLight)
+            {
+                var position = modelTransform.Transform(pointLight.Position);
+                state.Lights.Add(new PortableViewport3DLight
+                {
+                    Kind = PortableViewport3DLightKind.Point,
+                    Color = ToPortableColor4(pointLight.Color),
+                    Position = new PortableVector3(position.X, position.Y, position.Z),
+                    Range = pointLight.Range,
+                    ConstantAttenuation = pointLight.ConstantAttenuation,
+                    LinearAttenuation = pointLight.LinearAttenuation,
+                    QuadraticAttenuation = pointLight.QuadraticAttenuation
+                });
                 return;
             }
 
@@ -519,6 +569,8 @@ namespace System.Windows.Media.Media3D
         private sealed class PortableViewport3DExportState
         {
             public List<PortableViewport3DMesh> Meshes { get; } = new();
+
+            public List<PortableViewport3DLight> Lights { get; } = new();
 
             public PortableVector3 LightDirection { get; set; } = new(0.5, 1.0, -0.5);
 

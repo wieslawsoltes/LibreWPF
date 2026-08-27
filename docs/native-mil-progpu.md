@@ -2893,7 +2893,20 @@ does not currently contain the Visual C++ targets required by
 `DirectWriteForwarder`, the WPF native reference-tool payload, or a restored
 `PresentationBuildTasks` asset graph. That host-toolchain gap is recorded
 separately from the exporter result; no product assertion failed, and the
-user's active Windows checkout and Visual Studio installation were not changed.
+user’s active Windows checkout and Visual Studio installation were not changed.
+
+The next typed lighting checkpoint stops collapsing WPF's complete light graph
+into one directional plus one ambient value. `PortableViewport3DLight` now
+preserves ambient, directional, point, and spot identity; linear color;
+transformed position/direction; range; constant, linear, and quadratic
+attenuation; and inner/outer cone angles. The real source-built exporter test
+now traverses all four WPF light types and verifies transformed point/spot
+state alongside the existing transformed directional state. Until ProGPU's
+retained light storage buffer is wired, both the managed bridge and native MIL
+compiler reject point, spot, and multiple-light scenes explicitly rather than
+silently substituting the legacy default light. The focused bridge/compiler
+suite passes 90/90 and the executable PresentationCore exporter suite passes
+2/2 on macOS.
 
 The WPF MCG `csp` tool also rebuilds cleanly and its unmodified `Resources.rsp`
 regenerates all 378 resource outputs into an isolated temporary tree. The

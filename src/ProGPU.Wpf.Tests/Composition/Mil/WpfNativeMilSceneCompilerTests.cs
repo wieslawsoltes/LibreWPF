@@ -2734,6 +2734,26 @@ public sealed class WpfNativeMilSceneCompilerTests
     }
 
     [Fact]
+    public void BuildBatchFailsClosedForPointLightUntilNativeLightBufferLands()
+    {
+        PortableViewport3DScene scene = CreatePortableViewport3DScene();
+        scene.Lights =
+        [
+            new PortableViewport3DLight
+            {
+                Kind = PortableViewport3DLightKind.Point,
+                Position = new PortableVector3(0, 0, 2)
+            }
+        ];
+
+        NotSupportedException exception = Assert.Throws<NotSupportedException>(
+            () => new WpfNativeMilSceneCompiler().BuildBatch(
+                new FakeViewport3DVisual(scene), 160, 120));
+
+        Assert.Contains("retained light-buffer backend", exception.Message);
+    }
+
+    [Fact]
     public void BuildBatchPreservesExactViewport3DRectangleAndScrollClips()
     {
         var clip = new FakePrimitiveGeometry(

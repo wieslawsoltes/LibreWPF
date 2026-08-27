@@ -42,8 +42,34 @@ public sealed class PortableViewport3DSceneTests
         {
             Transform = lightTransform
         };
+        var ambientLight = new AmbientLight(Colors.Gray);
+        var pointLight = new PointLight(
+            Colors.Red,
+            new Point3D(1, 2, 3))
+        {
+            Range = 40,
+            ConstantAttenuation = 0.5,
+            LinearAttenuation = 0.25,
+            QuadraticAttenuation = 0.125,
+            Transform = new TranslateTransform3D(4, 5, 6)
+        };
+        var spotLight = new SpotLight(
+            Colors.Green,
+            new Point3D(-1, 1, 2),
+            new Vector3D(0, 0, -2),
+            70,
+            30)
+        {
+            Range = 80,
+            ConstantAttenuation = 0.75,
+            LinearAttenuation = 0.125,
+            QuadraticAttenuation = 0.0625
+        };
         var group = new Model3DGroup();
         group.Children.Add(light);
+        group.Children.Add(ambientLight);
+        group.Children.Add(pointLight);
+        group.Children.Add(spotLight);
         group.Children.Add(model);
         var modelVisual = new ModelVisual3D
         {
@@ -84,6 +110,50 @@ public sealed class PortableViewport3DSceneTests
         Assert.Equal(expectedLightDirection.X, scene.LightDirection.X, 6);
         Assert.Equal(expectedLightDirection.Y, scene.LightDirection.Y, 6);
         Assert.Equal(expectedLightDirection.Z, scene.LightDirection.Z, 6);
+
+        Assert.Equal(4, scene.Lights.Length);
+        Assert.Equal(
+            PortableViewport3DLightKind.Directional,
+            scene.Lights[0].Kind);
+        Assert.Equal(
+            new PortableVector3(
+                expectedLightDirection.X,
+                expectedLightDirection.Y,
+                expectedLightDirection.Z),
+            scene.Lights[0].Direction);
+        Assert.Equal(
+            PortableViewport3DLightKind.Ambient,
+            scene.Lights[1].Kind);
+        Assert.Equal(
+            PortableViewport3DLightKind.Point,
+            scene.Lights[2].Kind);
+        Point3D expectedPointPosition =
+            (pointLight.Transform.Value * visualTransform.Value).Transform(
+                pointLight.Position);
+        Assert.Equal(
+            new PortableVector3(
+                expectedPointPosition.X,
+                expectedPointPosition.Y,
+                expectedPointPosition.Z),
+            scene.Lights[2].Position);
+        Assert.Equal(40, scene.Lights[2].Range);
+        Assert.Equal(0.5, scene.Lights[2].ConstantAttenuation);
+        Assert.Equal(0.25, scene.Lights[2].LinearAttenuation);
+        Assert.Equal(0.125, scene.Lights[2].QuadraticAttenuation);
+        Assert.Equal(
+            PortableViewport3DLightKind.Spot,
+            scene.Lights[3].Kind);
+        Point3D expectedSpotPosition = visualTransform.Value.Transform(
+            spotLight.Position);
+        Assert.Equal(
+            new PortableVector3(
+                expectedSpotPosition.X,
+                expectedSpotPosition.Y,
+                expectedSpotPosition.Z),
+            scene.Lights[3].Position);
+        Assert.Equal(new PortableVector3(0, 0, -1), scene.Lights[3].Direction);
+        Assert.Equal(70, scene.Lights[3].OuterConeAngle);
+        Assert.Equal(30, scene.Lights[3].InnerConeAngle);
 
         Assert.Equal(2, scene.Meshes.Length);
         PortableViewport3DMesh front = scene.Meshes[0];

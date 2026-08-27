@@ -47,6 +47,27 @@ public sealed class WpfViewport3DSceneBridgeTests
     }
 
     [Fact]
+    public void TryCreateReplayDataFailsClosedForPointLightUntilNativeLightBufferLands()
+    {
+        var viewport = new PortableViewport3DVisual
+        {
+            Lights =
+            [
+                new PortableViewport3DLight
+                {
+                    Kind = PortableViewport3DLightKind.Point,
+                    Position = new PortableVector3(0, 0, 2)
+                }
+            ]
+        };
+
+        Assert.False(WpfViewport3DSceneBridge.TryCreateReplayData(
+            viewport,
+            out var replayData));
+        Assert.Equal(default, replayData);
+    }
+
+    [Fact]
     public void ReplaySubtreeRejectsWpfShapedViewport3DVisualWithoutPortableScene()
     {
         var viewport = CreateTriangleViewport();
@@ -256,6 +277,8 @@ public sealed class WpfViewport3DSceneBridgeTests
     {
         public object GeometryKey { get; } = new();
 
+        public PortableViewport3DLight[] Lights { get; init; } = [];
+
         public object Viewport => throw new InvalidOperationException("Portable scene should not probe Viewport.");
 
         public object Camera => throw new InvalidOperationException("Portable scene should not probe Camera.");
@@ -278,6 +301,7 @@ public sealed class WpfViewport3DSceneBridgeTests
                     FieldOfView = 60
                 },
                 AmbientIntensity = 0.25,
+                Lights = Lights,
                 Meshes = new[]
                 {
                     new PortableViewport3DMesh

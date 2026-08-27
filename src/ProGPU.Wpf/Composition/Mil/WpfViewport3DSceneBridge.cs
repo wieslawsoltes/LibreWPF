@@ -46,7 +46,8 @@ public static class WpfViewport3DSceneBridge
         if (scene.Camera == null
             || scene.Viewport.IsEmpty
             || scene.Viewport.Width <= 0
-            || scene.Viewport.Height <= 0)
+            || scene.Viewport.Height <= 0
+            || HasUnsupportedPortableLights(scene.Lights))
         {
             return false;
         }
@@ -117,6 +118,39 @@ public static class WpfViewport3DSceneBridge
                 viewportWidth,
                 viewportHeight));
         return payload.Meshes.Count > 0;
+    }
+
+    private static bool HasUnsupportedPortableLights(
+        PortableViewport3DLight[]? lights)
+    {
+        if (lights is null || lights.Length == 0)
+        {
+            return false;
+        }
+
+        var ambientCount = 0;
+        var directionalCount = 0;
+        foreach (PortableViewport3DLight? light in lights)
+        {
+            if (light is null)
+            {
+                return true;
+            }
+
+            switch (light.Kind)
+            {
+                case PortableViewport3DLightKind.Ambient:
+                    ambientCount++;
+                    break;
+                case PortableViewport3DLightKind.Directional:
+                    directionalCount++;
+                    break;
+                default:
+                    return true;
+            }
+        }
+
+        return ambientCount > 1 || directionalCount > 1;
     }
 
     private static bool TryCreateCameraMatrices(
