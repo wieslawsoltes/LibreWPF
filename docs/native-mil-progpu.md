@@ -2752,6 +2752,16 @@ NEON/SSE2 updates. It remained byte-exact at `5B6EF4F70536C862` (1x) and
 was rejected immediately; the qualified interleaved `{x,direction}` crossing
 layout remains unchanged.
 
+Precomputing the eight row-local crossing `span` descriptors was also exact
+and rejected. The extra stack-resident descriptors were intended to remove
+repeated offset-based `subspan` construction from each pixel pair and odd
+tail, but Apple M3 Pro Metal 120-frame gates moved submission/frame p50 from
+`1.4922/5.5365` to `1.7465/5.2648` ms at 1x and from
+`1.9650/6.1749` to `2.6905/6.3856` ms at 2x. Both runs retained hashes
+`5B6EF4F70536C862` and `706B261418EC5C3B`; ProGPU `8db55a80` records the
+negative evidence and keeps inline `subspan` construction as the qualified
+form.
+
 A first-reset branch candidate then improved p50 at both DPIs but regressed 2x
 frame p95 by 1.6%, so it was rejected. Accepted ProGPU `deb50413` instead folds
 the exact NEON 0-or-1 lane reduction and removes one vector add per pixel with
@@ -2920,6 +2930,19 @@ regions, and WinUI uses the same path instead of its former first-stop
 approximation. Specular-gradient, tile-brush, and native C++ material-resource
 realization remain typed fail-closed gaps; no CPU texture staging or readback is
 used.
+
+That managed gradient checkpoint is now qualified on Windows D3D12 as well.
+The exact pushed ProGPU `8eee2170` archive, hydrated only with the commit's
+pinned `microsoft-ui-xaml` `generic.xaml`, built the complete test graph under
+.NET SDK 10.0.400 with zero warnings and errors. The focused Mesh3D family
+passed 18/18 in 4.6601 minutes, including typed linear/radial compilation,
+live linear-gradient GPU readback, point/spot lights, planar surfaces, and
+scratch reuse. A diagnostic rerun of the gradient readback selected
+`Parallels Display Adapter (WDDM)`, backend `D3D12`, device type
+`DiscreteGpu`, and passed without WebGPU validation/device errors. Metal and
+D3D12 therefore execute the same reusable managed WGSL material path; the
+native C++ material sideband remains deliberately fail closed until its
+versioned ABI is implemented.
 
 The same native face-mode addition closes the initial back-material gap.
 LibreWPF maps each typed `PortableViewport3DMesh.IsBackFace` entry to an
