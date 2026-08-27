@@ -2104,6 +2104,26 @@ public sealed class WpfNativeMilSceneCompilerTests
     }
 
     [Fact]
+    public void BuildBatchLowersLegacyPushEffectToBalancedIdentityScope()
+    {
+        byte[] renderData = CreatePushEffectRecord(17, 23)
+            .Concat(CreatePopRecord())
+            .ToArray();
+        var visual = new FakeVisual(new FakeRenderData(renderData, []));
+
+        WpfNativeMilBatch result = new WpfNativeMilSceneCompiler().BuildBatch(
+            visual, 64, 64);
+        int renderDataOffset = FindCommand(result.Bytes, 0x18);
+        int nestedOffset = renderDataOffset + 16;
+
+        Assert.Equal(16, ReadInt32(result.Bytes, nestedOffset));
+        Assert.Equal(0x51, ReadInt32(result.Bytes, nestedOffset + 4));
+        Assert.Equal(0U, ReadUInt32(result.Bytes, nestedOffset + 8));
+        Assert.Equal(8, ReadInt32(result.Bytes, nestedOffset + 16));
+        Assert.Equal(0x56, ReadInt32(result.Bytes, nestedOffset + 20));
+    }
+
+    [Fact]
     public void BuildBatchFailsClosedForUnbalancedOpacityScope()
     {
         var visual = new FakeVisual(
@@ -2549,6 +2569,16 @@ public sealed class WpfNativeMilSceneCompilerTests
         BinaryPrimitives.WriteInt32LittleEndian(record, record.Length);
         BinaryPrimitives.WriteInt32LittleEndian(record.AsSpan(4), 0x52);
         BinaryPrimitives.WriteUInt32LittleEndian(record.AsSpan(8), guidelines);
+        return record;
+    }
+
+    private static byte[] CreatePushEffectRecord(uint effect, uint effectInput)
+    {
+        byte[] record = new byte[16];
+        BinaryPrimitives.WriteInt32LittleEndian(record, record.Length);
+        BinaryPrimitives.WriteInt32LittleEndian(record.AsSpan(4), 0x55);
+        BinaryPrimitives.WriteUInt32LittleEndian(record.AsSpan(8), effect);
+        BinaryPrimitives.WriteUInt32LittleEndian(record.AsSpan(12), effectInput);
         return record;
     }
 

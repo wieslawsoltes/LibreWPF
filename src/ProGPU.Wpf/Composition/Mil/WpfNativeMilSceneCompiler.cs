@@ -791,6 +791,19 @@ public sealed class WpfNativeMilSceneCompiler
                                     guidelineToken));
                         scopeDepth++;
                         break;
+                    case WpfMilCommandId.PushEffect:
+                        if (recordSize != 16)
+                        {
+                            throw new InvalidOperationException(
+                                "The portable WPF legacy-effect scope record has an invalid size.");
+                        }
+                        // WPF's native render-data executor disables legacy
+                        // BitmapEffect execution and treats both managed-only
+                        // handles as an opacity-1 scope. Preserve only its Pop
+                        // participation through the canonical identity scope.
+                        destination.PushTransform(0);
+                        scopeDepth++;
+                        break;
                     case WpfMilCommandId.PushTransform:
                         if (recordSize != 16)
                         {
