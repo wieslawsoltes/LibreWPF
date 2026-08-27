@@ -345,16 +345,21 @@ ProGPU currently provides:
   WPF's `CShape::AddShapeData`/outer `SetFillMode` behavior. Nonzero groups keep
   a shared contour batch for cross-child winding cancellation; EvenOdd groups
   use an equivalent postfix XOR of child-inside predicates so raster work stays
-  bounded by each leaf. Overlapping nonzero translated-equivalent leaf streams
-  currently fail closed at semantic scene compilation, before WebGPU device
+  bounded by each leaf. Overlapping translated-equivalent simple leaf streams
+  participating in the same group XOR currently fail closed at semantic scene
+  compilation, before WebGPU device
   creation, because that exact backend pattern is unsafe on the Parallels D3D12
   adapter. Nonsingular affine arc-bearing children remain analytic:
   ProGPU factors the transformed ellipse basis, preserves parameterization, and
   reverses sweep under reflection. Exact translations preserve the original arc
   fields bit-for-bit except for endpoints/center. Exact singular affine
   transforms produce empty fill and stroke coverage, matching WPF's
-  zero-determinant area semantics. Combined children and meaningful group pens
-  remain fail closed pending exact contour/stroke composition.
+  zero-determinant area semantics. EvenOdd groups now preserve a
+  CombinedGeometry child as its existing postfix predicate and XOR it with
+  ordinary outer-fill contour leaves for both fills and vector clips; per-point
+  guideline segments flow through the fill compiler. Nonzero groups containing
+  boolean children and meaningful group pens remain fail closed pending exact
+  winding/stroke composition.
 - Canonical retained `CombinedGeometry` packets with optional transform,
   null-as-empty operands, dependency/cycle validation, and all four WPF combine
   operations. Two identity-local path operands lower to ProGPU's native postfix
@@ -369,10 +374,11 @@ ProGPU currently provides:
   segment/node rollback and conservative descendant bounds. Nonsingular affine
   arc-bearing leaves use the same exact analytic factorization and sweep
   reversal as group children. Singular transformed operands become exact empty
-  leaves. Stroked operands currently fail closed; combined children inside
-  groups also fail closed
-  because flattening a boolean result into raw outer-fill contours would change
-  WPF semantics.
+  leaves. Stroked operands currently fail closed. Combined children inside an
+  EvenOdd group retain their predicate and join the outer postfix program; they
+  are never flattened into raw contours. Nonzero groups with boolean children
+  fail closed because the signed winding required by WPF cannot be reconstructed
+  from an inside predicate.
 - An identical size-versioned C ABI exported by wgpu-native and provider-
   resolved Dawn modules, plus `NativeMilChannel` and typed scene metrics.
 - `NativeMilBatchBuilder` and `NativeMilRenderDataBuilder` managed producers.
@@ -3184,14 +3190,40 @@ treated as a product result. Qualified provider hashes are
 `0E2C0667243F49475E81B23FF7E56999F7E4095D906B1A283637EB7CC148B47E`.
 The superproject now tracks ProGPU documentation checkpoint `9deaefa9`.
 
+ProGPU implementation `1c3bd210` and documentation checkpoint `fd7ac143`
+next add exact CombinedGeometry children to EvenOdd GeometryGroup fills and
+vector clips. Ordinary children retain the compact outer-fill contour leaf;
+the boolean child retains its existing postfix subtree and each subsequent
+nonempty child appends one XOR. Native regression coverage verifies the exact
+five-node `leaf leaf difference leaf xor` program for both fill and clip and
+requires the equivalent Nonzero group to fail closed. The compiler keeps the
+32-child/63-node bounds, transactional segment/node rollback, and the existing
+per-point guideline fill path. Its ordered `O(S + N)` graph walk is not an
+independent-lane SIMD candidate; all pixel coverage remains on the shared GPU
+path rasterizer without CPU readback or repacking.
+
+Exact archive
+`71443727B66A565CF9D270807976859460B29EFBCBB84511630748A830B2CD37`
+passed the strict Windows ARM64 312-step dual-provider build, 11/11 CTests, and
+the direct Parallels D3D12 sample with Metal's exact four Pad-gradient pixels.
+The serial managed graph built in 4:13.66 with zero warnings/errors. The known
+combined-host `wgpuDevicePoll` access violation recurred after the native
+sample; fresh hosts passed the builder test, all five 2D gradient tests,
+ordinary Mesh3D gradient, and specular Mesh3D gradient. The specular readback
+retained 3,304 red-dominant and 3,304 blue-dominant pixels with maximum deltas
+of 134. Qualified provider hashes are
+`D00CEAB00E6E06C18E49D3952DB80A2593B53727BA23B67EB1914013E76AC828` and
+`F17C61D361C9C5F51B19E4B602FA052C55A614895886B27DBDD5E8C7B6182FC5`.
+The superproject now tracks ProGPU documentation checkpoint `fd7ac143`.
+
 ## Next parity gates
 
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested
    render-data command families using the complete generated WPF MCG layouts.
 2. Add dashed ellipse and rounded-rectangle pen draws, curve dashes, exact
    degenerate zero-axis asymmetric rounded-rectangle widening, exact
-   translated-equivalent EvenOdd overlap execution, exact combined children
-   inside groups, non-bitmap image sources, dynamic-guideline pairs, exact
+   translated-equivalent EvenOdd overlap execution, exact Nonzero groups with
+   boolean children, non-bitmap image sources, dynamic-guideline pairs, exact
    WPF-compatible arc lowering, and
    remaining multi-guideline draw-family deformation, general Visual
    effect/clip/mask/opacity ordering, remaining
