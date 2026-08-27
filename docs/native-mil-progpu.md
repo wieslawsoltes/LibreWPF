@@ -2845,6 +2845,13 @@ It constructs a `PerspectiveCamera`, transformed `ModelVisual3D`,
 computed normals, indices, composed model transform, material opacity/color,
 geometry identity, and face identity. A second case proves that an empty
 viewport fails closed. Both cases pass in the portable macOS source-build lane.
+The matching Windows 11 ARM64 Parallels attempt reached the source graph after
+installing the pinned .NET 11 preview SDK into an isolated clone, but the guest
+does not currently contain the Visual C++ targets required by
+`DirectWriteForwarder`, the WPF native reference-tool payload, or a restored
+`PresentationBuildTasks` asset graph. That host-toolchain gap is recorded
+separately from the exporter result; no product assertion failed, and the
+user's active Windows checkout and Visual Studio installation were not changed.
 
 The WPF MCG `csp` tool also rebuilds cleanly and its unmodified `Resources.rsp`
 regenerates all 378 resource outputs into an isolated temporary tree. The
