@@ -2952,10 +2952,15 @@ typed wrappers, and export allowlists. Its expanded Metal
 `--semantic-viewport3d` gate preserves the original 291-pixel clip and observes
 75 red-dominant plus 96 blue-dominant pixels from the native linear material.
 All 11 CTests, generated-contract verification, export verification, and two
-focused managed ABI tests pass. LibreWPF converts the already mapped typed
-ProGPU vector brush without reflection; focused producer coverage preserves
-coordinates, opacity, spread, scRGB interpolation, stop offsets/colors, and
-continues rejecting specular gradients.
+focused managed ABI tests pass. The exact source archive also passes ARM64
+MSVC `/W4 /WX`, both export allowlists, and 11/11 native/Dawn CTests in the
+Windows Parallels VM. Its live D3D12 gate reproduces the Metal evidence exactly
+at 291 clipped pixels, 75 red-dominant pixels, and 96 blue-dominant pixels on
+`Parallels Display Adapter (WDDM)` without WebGPU validation/device errors.
+LibreWPF converts the already mapped typed ProGPU vector brush without
+reflection; focused producer coverage preserves coordinates, opacity, spread,
+scRGB interpolation, stop offsets/colors, and continues rejecting specular
+gradients.
 
 The same native face-mode addition closes the initial back-material gap.
 LibreWPF maps each typed `PortableViewport3DMesh.IsBackFace` entry to an
