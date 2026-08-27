@@ -3138,6 +3138,31 @@ wgpu-native is
 The current full-D3D12 rerun above now covers the newer PushEffect, animation,
 image-draw, Box, and SIMD checkpoints together.
 
+ProGPU checkpoint `ba7b5d74f40d554a6267aeabe3807fe989260cc4`
+closed the WPF gradient-normalization differential. Native MIL now applies the
+same stable double-to-float ordering and strict relative
+`10 * FLT_EPSILON` coincidence test as WPF, retains only the first/last colors
+of internal coincident chains at one exact offset, and preserves WPF's distinct
+Pad colors outside duplicate zero/one endpoint groups. The unchanged 256-byte
+canonical brush carries those two extension colors in its existing inline
+slots behind a validated flag, and the shared Vector, Hatch, and native 3D
+shaders select them only outside the unit interval. The ordered normalization
+pass remains scalar by design because each result depends on the preceding
+normalized stop; this is documented as a non-SIMD resource-compilation path,
+while the actual per-pixel work remains GPU shader execution.
+
+The exact archive SHA-256
+`9A22CC63BB972FD2549C937B88503F4284D8AB3A1874182A87BC9D1EE4376D01`
+passed strict Windows 11 ARM64 MSVC/Ninja compilation, all 11 native/Dawn
+CTests, a zero-warning managed build, and 8/8 focused managed gradient/3D
+tests. The native sample produced identical Metal and Parallels D3D12 samples:
+start Pad `250/133/20`, in-range start `0/255/4`, in-range end `0/255/253`,
+and end Pad `184/51/245`. Provider SHA-256 values are
+`F46B10C0B21D171D4AF1830F85D7499BF4BE4E43B550A53B3D27145340657EEB`
+and
+`B32E22C7BCF4A11F7BB64D60199670DEE3E9DDA0718FC006190A55069CDE27DF`.
+The superproject now tracks ProGPU documentation checkpoint `83b8fffe`.
+
 ## Next parity gates
 
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested
@@ -3145,10 +3170,8 @@ image-draw, Box, and SIMD checkpoints together.
 2. Add dashed ellipse and rounded-rectangle pen draws, curve dashes, exact
    degenerate zero-axis asymmetric rounded-rectangle widening, exact
    translated-equivalent EvenOdd overlap execution, exact combined children
-   inside groups, WPF epsilon-near-coincident gradient-stop normalization,
-   duplicate-endpoint Pad outside-color distinction, cap-only degenerate
-   gradient pen strokes, non-bitmap image sources, dynamic-guideline pairs,
-   exact WPF-compatible arc lowering, and
+   inside groups, cap-only degenerate gradient pen strokes, non-bitmap image
+   sources, dynamic-guideline pairs, exact WPF-compatible arc lowering, and
    remaining multi-guideline draw-family deformation, general Visual
    effect/clip/mask/opacity ordering, remaining
    opacity-mask/effect/dynamic-guideline push/pop state,
