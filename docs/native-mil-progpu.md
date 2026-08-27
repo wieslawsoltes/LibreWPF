@@ -2751,8 +2751,25 @@ not an invented effect implementation. Static canonical `DrawImage` now uses
 ProGPU's typed writer and the existing bitmap/drawing-image resource resolver;
 finite destination rectangles and zero padding are preserved, null sources are
 no-ops, and pixels still enter only through `IPortableBitmapSourcePixelsSource`
-or the typed DrawingImage graph. The focused native-scene compiler suite now
-passes 81/81 cases, while ProGPU's focused native interop suite passes 85/85.
+or the typed DrawingImage graph.
+
+Canonical `PushOpacityAnimate` is the first render-data animation command to
+cross the bridge without reflection. Generated source-built WPF animation-clock
+resources publish live `Double`, `Point`, `Size`, and `Rect` values through
+narrow ProGPU interop contracts and expose clock invalidation through
+`IPortableInvalidationSource`; the code generator emits the same contracts so a
+future MCG regeneration preserves the seam. The native compiler resolves the
+double resource, emits canonical type-49 `DoubleResource` state, and retains
+the animation handle in `PushOpacityAnimate`. Missing or untyped animation
+resources and nonzero packet padding fail closed. The focused native-scene
+compiler suite now passes 83/83 cases, while ProGPU's focused native interop
+suite passes 85/85.
+
+Current accepted ProGPU head `97690838` was also rebuilt in the Windows 11
+Parallels ARM64 guest with MSVC/Ninja after the DrawImage and accepted odd-tail
+SIMD changes. All 10 non-Dawn native CTests passed; this focused current-head
+gate supplements, but does not replace, the exact full D3D12 Box checkpoint
+above.
 
 The preceding exact `e510039d` Windows checkpoint completed the entire
 Parallels D3D12 lane: strict ARM64 MSVC `/W4 /WX`, 11/11 native/Dawn CTests,

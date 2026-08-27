@@ -164,6 +164,8 @@ public sealed class WpfNativeMilSceneCompiler
             new(ReferenceEqualityComparer.Instance);
         private readonly Dictionary<object, uint> _guidelineSetHandles =
             new(ReferenceEqualityComparer.Instance);
+        private readonly Dictionary<object, uint> _doubleAnimationHandles =
+            new(ReferenceEqualityComparer.Instance);
         private readonly Dictionary<object, uint> _effectHandles =
             new(ReferenceEqualityComparer.Instance);
         private readonly Dictionary<object, uint> _bitmapCacheHandles =
@@ -803,6 +805,36 @@ public sealed class WpfNativeMilSceneCompiler
                         destination.PushOpacity(ReadDouble(payload, 0));
                         scopeDepth++;
                         break;
+                    case WpfMilCommandId.PushOpacityAnimate:
+                        if (recordSize != 24)
+                        {
+                            throw new InvalidOperationException(
+                                "The portable WPF animated-opacity scope record has an invalid size.");
+                        }
+                        uint opacityAnimationToken =
+                            BinaryPrimitives.ReadUInt32LittleEndian(payload[8..]);
+                        uint opacityAnimationPadding =
+                            BinaryPrimitives.ReadUInt32LittleEndian(payload[12..]);
+                        if (opacityAnimationPadding != 0)
+                        {
+                            throw new InvalidOperationException(
+                                "The portable WPF animated-opacity scope record has nonzero padding.");
+                        }
+                        double opacityBaseValue = ReadDouble(payload, 0);
+                        if (opacityAnimationToken == 0)
+                        {
+                            destination.PushOpacity(opacityBaseValue);
+                        }
+                        else
+                        {
+                            destination.PushOpacity(
+                                opacityBaseValue,
+                                ResolveDoubleAnimation(
+                                    snapshot.DependentResources,
+                                    opacityAnimationToken));
+                        }
+                        scopeDepth++;
+                        break;
                     case WpfMilCommandId.PushGuidelineSet:
                         if (recordSize != 16)
                         {
@@ -886,6 +918,35 @@ public sealed class WpfNativeMilSceneCompiler
                     $"Portable brush token {token} is unavailable.");
             }
             return ResolveBrush(resource);
+        }
+
+        private uint ResolveDoubleAnimation(
+            IReadOnlyList<object?> resources,
+            uint token)
+        {
+            if (token == 0 || token > resources.Count ||
+                resources[checked((int)token - 1)] is not object resource)
+            {
+                throw new InvalidOperationException(
+                    $"Portable double-animation token {token} is unavailable.");
+            }
+            if (_doubleAnimationHandles.TryGetValue(
+                    resource,
+                    out uint existing))
+            {
+                return existing;
+            }
+            if (resource is not IPortableDoubleAnimationValueSource source ||
+                !source.TryGetPortableDoubleAnimationValue(out double value))
+            {
+                throw MissingContract(
+                    nameof(IPortableDoubleAnimationValueSource));
+            }
+            uint handle = NextHandle();
+            _doubleAnimationHandles.Add(resource, handle);
+            Batch.CreateResource(handle, NativeMilResourceType.DoubleResource);
+            Batch.SetDoubleResource(handle, value);
+            return handle;
         }
 
         private uint ResolveBrush(object resource)

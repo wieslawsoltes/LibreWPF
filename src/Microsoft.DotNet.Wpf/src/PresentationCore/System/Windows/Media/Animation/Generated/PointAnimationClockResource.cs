@@ -9,6 +9,7 @@
 //
 
 using System.Windows.Media.Composition;
+using ProGPU.Wpf.Interop;
 
 namespace System.Windows.Media.Animation
 {
@@ -21,7 +22,7 @@ namespace System.Windows.Media.Animation
     /// They subscribe to the Changed event on the AnimationClock and ensure
     /// that the resource's current value is up to date.
     /// </summary>
-    internal class PointAnimationClockResource: AnimationClockResource, DUCE.IResource
+    internal class PointAnimationClockResource: AnimationClockResource, DUCE.IResource, IPortablePointAnimationValueSource
     {
         /// <summary>
         /// Constructor for public PointAnimationClockResource.
@@ -79,6 +80,14 @@ namespace System.Windows.Media.Animation
                     return _baseValue;
                 }
             }
+        }
+
+        bool IPortablePointAnimationValueSource.TryGetPortablePointAnimationValue(
+            out PortablePoint value)
+        {
+            Point current = CurrentValue;
+            value = new PortablePoint(current.X, current.Y);
+            return true;
         }
 
         #endregion Public Properties

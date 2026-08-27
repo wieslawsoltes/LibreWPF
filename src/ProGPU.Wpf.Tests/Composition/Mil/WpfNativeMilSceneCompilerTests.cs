@@ -2039,6 +2039,55 @@ public sealed class WpfNativeMilSceneCompilerTests
     }
 
     [Fact]
+    public void BuildBatchTranslatesTypedAnimatedOpacityScope()
+    {
+        var animation = new FakeDoubleAnimationValue(0.625);
+        byte[] renderData = CreatePushOpacityAnimateRecord(0.25, 1)
+            .Concat(CreatePopRecord())
+            .ToArray();
+        var visual = new FakeVisual(
+            new FakeRenderData(renderData, [animation]));
+
+        WpfNativeMilBatch result = new WpfNativeMilSceneCompiler().BuildBatch(
+            visual, 64, 64);
+
+        int animationOffset = FindCommand(result.Bytes, 0x0e);
+        uint animationHandle = ReadUInt32(result.Bytes, animationOffset + 8);
+        Assert.Equal(0.625, ReadDouble(result.Bytes, animationOffset + 12));
+        int renderDataOffset = FindCommand(result.Bytes, 0x18);
+        int nestedOffset = renderDataOffset + 16;
+        Assert.Equal(24, ReadInt32(result.Bytes, nestedOffset));
+        Assert.Equal(0x50, ReadInt32(result.Bytes, nestedOffset + 4));
+        Assert.Equal(0.25, ReadDouble(result.Bytes, nestedOffset + 8));
+        Assert.Equal(
+            animationHandle,
+            ReadUInt32(result.Bytes, nestedOffset + 16));
+        Assert.Equal(0U, ReadUInt32(result.Bytes, nestedOffset + 20));
+        Assert.Equal(8, ReadInt32(result.Bytes, nestedOffset + 24));
+        Assert.Equal(0x56, ReadInt32(result.Bytes, nestedOffset + 28));
+    }
+
+    [Fact]
+    public void BuildBatchRejectsUntypedAnimatedOpacity()
+    {
+        var visual = new FakeVisual(
+            new FakeRenderData(
+                CreatePushOpacityAnimateRecord(0.25, 1)
+                    .Concat(CreatePopRecord())
+                    .ToArray(),
+                [new object()]));
+
+        InvalidOperationException exception =
+            Assert.Throws<InvalidOperationException>(() =>
+                new WpfNativeMilSceneCompiler().BuildBatch(
+                    visual, 64, 64));
+
+        Assert.Contains(
+            nameof(IPortableDoubleAnimationValueSource),
+            exception.Message);
+    }
+
+    [Fact]
     public void BuildBatchTranslatesTypedClipAndOpacityMaskScopes()
     {
         var geometry = new FakePrimitiveGeometry(
@@ -2598,6 +2647,18 @@ public sealed class WpfNativeMilSceneCompilerTests
         BinaryPrimitives.WriteInt32LittleEndian(record, record.Length);
         BinaryPrimitives.WriteInt32LittleEndian(record.AsSpan(4), 0x4f);
         WriteDouble(record, 8, opacity);
+        return record;
+    }
+
+    private static byte[] CreatePushOpacityAnimateRecord(
+        double opacity,
+        uint animation)
+    {
+        byte[] record = new byte[24];
+        BinaryPrimitives.WriteInt32LittleEndian(record, record.Length);
+        BinaryPrimitives.WriteInt32LittleEndian(record.AsSpan(4), 0x50);
+        WriteDouble(record, 8, opacity);
+        BinaryPrimitives.WriteUInt32LittleEndian(record.AsSpan(16), animation);
         return record;
     }
 
@@ -3248,6 +3309,23 @@ public sealed class WpfNativeMilSceneCompilerTests
             out PortableGuidelineSet guidelineSet)
         {
             guidelineSet = _state;
+            return true;
+        }
+    }
+
+    private sealed class FakeDoubleAnimationValue :
+        IPortableDoubleAnimationValueSource
+    {
+        private readonly double _value;
+
+        internal FakeDoubleAnimationValue(double value)
+        {
+            _value = value;
+        }
+
+        public bool TryGetPortableDoubleAnimationValue(out double value)
+        {
+            value = _value;
             return true;
         }
     }
