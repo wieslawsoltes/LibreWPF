@@ -2935,6 +2935,22 @@ A real Metal headless render verifies red point-light and blue spot-light output
 while the bridge slice verifies all three lights survive into the managed
 payload.
 
+The same checkpoint now has bounded Windows DirectX evidence. An isolated
+Windows 11 ARM64 snapshot rebuilt both ProGPU native modules under strict MSVC
+warnings-as-errors; all 11 native/Dawn CTests passed, and both DLL export
+tables contain the versioned Viewport3D light entry point. The live retained
+MIL gate selected the
+Parallels Display Adapter (WDDM) D3D12 backend and reproduced point RGBA
+`91/85/0/255` plus spot RGBA `103/79/0/255`, within one blue code value of the
+Metal reference. The ProGPU equivalents of Microsoft's D3D12HelloTriangle and
+D3D12HelloTexture contracts also passed on D3D12 with SHA-256
+`AE1BC0A9B0623BACAB15BE1706FFA3E7FC15E33676A66F05C969C1B86A66FEA3`
+and `591CC311F35E3C2612F529C3D4D7061FC93751A9B8614BF588A73599B0AA2790`.
+The broad standalone mixed-scene sample and managed headless Mesh3D test stall
+on this Parallels driver after entering GPU submission, so neither is reported
+as a pass; the bounded retained gate isolates and proves the new native light
+route while physical/non-Parallels D3D12 coverage remains an open gate.
+
 The WPF MCG `csp` tool also rebuilds cleanly and its unmodified `Resources.rsp`
 regenerates all 378 resource outputs into an isolated temporary tree. The
 generated Double, Point, Size, and Rect animation-clock resources retain their
