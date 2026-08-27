@@ -3264,6 +3264,28 @@ extension regressed submission/frame p50 and p95; the combined frame p95 was
 kernel and documents both negative results. The superproject now tracks ProGPU
 documentation checkpoint `58b35ccb`.
 
+ProGPU checkpoint `c585d26a` implements the first append-only dynamic-guideline
+ABI/state foundation without changing the legacy build contract. Both native
+providers now export a size-versioned stateful scene-build call carrying typed
+target/scene/generation identity, actual X/Y DPI, monotonic nanoseconds, a
+stable nonzero request serial, and VisualBrush-use context. Its typed result
+reserves `NeedsMoreCycles` and next-due-time scheduler feedback and reports the
+exact stream size. Unknown flags, reused serials with changed frame fields,
+invalid DPI, nonzero reserved data, and undersized structures fail closed.
+
+The native channel caches the immutable stream, metrics, and result for an
+identical request, making managed size-query/copy idempotent before any dynamic
+state is allowed to advance. Successful transactional batches and typed
+bitmap/drawing/cache/Viewport3D/font sideband updates invalidate the cache;
+failed mutations preserve it. The managed ProGPU API exposes the same typed
+request/result and validates serial/byte-count consistency. The full macOS
+dual-provider build passed 12/12 CTests, the managed backend built with zero
+warnings, binary compatibility passed, both dylibs exposed old and new build
+symbols, and the project-reference package consumer compiled byte-identical
+legacy/stateful scenes through wgpu-native and Dawn. Dynamic GuidelineSet still
+fails closed: the per-resource Start/Quiet/Animation/Landing/Flight phase state
+and scheduler invalidation are the next implementation checkpoint.
+
 ## Next parity gates
 
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested
