@@ -122,22 +122,38 @@ public static class WpfViewport3DSceneBridge
                 return false;
             }
 
-            payload.Meshes.Add(new global::ProGPU.Scene.Extensions.MeshCompilationEntry
+            if (mesh.Materials is null)
             {
-                Geometry = mesh.Geometry,
-                GeometryVersion = mesh.GeometryVersion,
-                Positions = positions,
-                Normals = normals,
-                TextureCoordinates = textureCoordinates,
-                Indices = mesh.Indices,
-                ModelTransform = ToMatrix4x4(mesh.ModelTransform),
-                Color = ToVector4(mesh.DiffuseColor),
-                SpecularColor = ToVector3(mesh.SpecularColor),
-                Shininess = (float)Math.Clamp(mesh.Shininess, 1, 256),
-                AmbientColor = ToVector3(mesh.AmbientColor),
-                Opacity = (float)Math.Clamp(mesh.Opacity, 0, 1),
-                IsBackFace = mesh.IsBackFace
-            });
+                return false;
+            }
+            PortableViewport3DMaterial[] materials = mesh.Materials;
+            if (materials.Length == 0)
+            {
+                payload.Meshes.Add(CreateMeshEntry(
+                    mesh,
+                    positions,
+                    normals,
+                    textureCoordinates));
+                continue;
+            }
+
+            for (var materialIndex = 0;
+                 materialIndex < materials.Length;
+                 materialIndex++)
+            {
+                if (!WpfViewport3DMaterialMapper.TryMapSolid(
+                        materials[materialIndex],
+                        out WpfViewport3DSolidMaterialPass materialPass))
+                {
+                    return false;
+                }
+                payload.Meshes.Add(CreateMeshEntry(
+                    mesh,
+                    positions,
+                    normals,
+                    textureCoordinates,
+                    materialPass));
+            }
         }
 
         replayData = new WpfViewport3DReplayData(
@@ -352,6 +368,49 @@ public static class WpfViewport3DSceneBridge
     private static Vector3 ToVector3(PortableVector3 value)
     {
         return new Vector3((float)value.X, (float)value.Y, (float)value.Z);
+    }
+
+    private static global::ProGPU.Scene.Extensions.MeshCompilationEntry
+        CreateMeshEntry(
+            PortableViewport3DMesh mesh,
+            Vector3[] positions,
+            Vector3[] normals,
+            Vector2[] textureCoordinates,
+            WpfViewport3DSolidMaterialPass? materialPass = null)
+    {
+        WpfViewport3DSolidMaterialPass material =
+            materialPass.GetValueOrDefault();
+        bool hasMaterialPass = materialPass.HasValue;
+        return new global::ProGPU.Scene.Extensions.MeshCompilationEntry
+        {
+            Geometry = mesh.Geometry,
+            GeometryVersion = mesh.GeometryVersion,
+            Positions = positions,
+            Normals = normals,
+            TextureCoordinates = textureCoordinates,
+            Indices = mesh.Indices,
+            ModelTransform = ToMatrix4x4(mesh.ModelTransform),
+            Color = hasMaterialPass
+                ? material.Color
+                : ToVector4(mesh.DiffuseColor),
+            SpecularColor = hasMaterialPass
+                ? material.SpecularColor
+                : ToVector3(mesh.SpecularColor),
+            Shininess = hasMaterialPass
+                ? material.Shininess
+                : (float)Math.Clamp(mesh.Shininess, 1, 256),
+            AmbientColor = hasMaterialPass
+                ? material.AmbientColor
+                : ToVector3(mesh.AmbientColor),
+            Opacity = hasMaterialPass
+                ? material.Opacity
+                : (float)Math.Clamp(mesh.Opacity, 0, 1),
+            IsBackFace = mesh.IsBackFace,
+            ShadingModeOverride =
+                hasMaterialPass && material.IsUnlit
+                    ? global::ProGPU.Scene.Extensions.ShadingMode3D.Flat
+                    : null
+        };
     }
 
     private static Vector3 ToVector3(PortableColor4 value)

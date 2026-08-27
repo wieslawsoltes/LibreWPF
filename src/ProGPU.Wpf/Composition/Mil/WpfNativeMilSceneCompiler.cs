@@ -2594,6 +2594,7 @@ public sealed class WpfNativeMilSceneCompiler
 
             int totalVertexCount = 0;
             int totalIndexCount = 0;
+            int totalMeshCount = 0;
             for (int meshIndex = 0;
                  meshIndex < sourceMeshes.Length;
                  meshIndex++)
@@ -2610,14 +2611,21 @@ public sealed class WpfNativeMilSceneCompiler
                     throw new NotSupportedException(
                         "Native MIL Viewport3D requires triangle meshes with one typed normal per position.");
                 }
+                if (mesh.Materials is null)
+                {
+                    throw new NotSupportedException(
+                        "Native MIL Viewport3D material-layer storage cannot be null.");
+                }
                 totalVertexCount = checked(
                     totalVertexCount + mesh.Positions.Length);
                 totalIndexCount = checked(
                     totalIndexCount + mesh.Indices.Length);
+                totalMeshCount = checked(totalMeshCount +
+                    Math.Max(1, mesh.Materials.Length));
             }
 
             var nativeMeshes =
-                new NativeSceneMesh3D[sourceMeshes.Length];
+                new NativeSceneMesh3D[totalMeshCount];
             var vertices =
                 new NativeSceneMesh3DVertex[totalVertexCount];
             var indices = new uint[totalIndexCount];
@@ -2641,6 +2649,7 @@ public sealed class WpfNativeMilSceneCompiler
 
             int vertexOffset = 0;
             int indexOffset = 0;
+            int nativeMeshIndex = 0;
             for (int meshIndex = 0;
                  meshIndex < sourceMeshes.Length;
                  meshIndex++)
@@ -2655,13 +2664,10 @@ public sealed class WpfNativeMilSceneCompiler
                         "Native MIL Viewport3D mesh transforms must be invertible.");
                 }
                 Matrix4x4 normal = Matrix4x4.Transpose(inverseModel);
-                if (!IsFinite(normal) ||
-                    !TryToFiniteUnitFloat(mesh.Opacity, out float opacity) ||
-                    !TryToFinitePositiveFloat(
-                        mesh.Shininess, out float shininess))
+                if (!IsFinite(normal))
                 {
                     throw new NotSupportedException(
-                        "Native MIL Viewport3D material state is invalid.");
+                        "Native MIL Viewport3D normal transform is invalid.");
                 }
 
                 for (int vertexIndex = 0;
@@ -2707,13 +2713,7 @@ public sealed class WpfNativeMilSceneCompiler
                         (uint)sourceIndex;
                 }
 
-                Vector4 diffuse = ToFiniteVector4(
-                    mesh.DiffuseColor, nameof(mesh.DiffuseColor));
-                Vector3 specular = ToFiniteVector3(
-                    mesh.SpecularColor, nameof(mesh.SpecularColor));
-                Vector3 materialAmbient = ToFiniteVector3(
-                    mesh.AmbientColor, nameof(mesh.AmbientColor));
-                nativeMeshes[meshIndex] = new NativeSceneMesh3D
+                var nativeMesh = new NativeSceneMesh3D
                 {
                     StructSize = (uint)Unsafe.SizeOf<NativeSceneMesh3D>(),
                     Flags = (uint)(mesh.IsBackFace
@@ -2727,19 +2727,67 @@ public sealed class WpfNativeMilSceneCompiler
                     IndexCount = (uint)mesh.Indices.Length,
                     ModelTransform = new NativeMatrix4x4(model),
                     NormalTransform = new NativeMatrix4x4(normal),
-                    Color = diffuse,
                     LightDirection = ToNativeFloat4(
                         lightDirection, lightIntensity),
                     AmbientColor = ToNativeFloat4(
                         sceneAmbient, ambientIntensity),
-                    SpecularColor = ToNativeFloat4(specular, shininess),
-                    MaterialAmbient = ToNativeFloat4(
-                        materialAmbient, 1.0f),
-                    Opacity = opacity,
                     ShadingMode = 1U,
                     LightOffset = 0U,
                     LightCount = (uint)nativeLights.Length
                 };
+                if (mesh.Materials.Length == 0)
+                {
+                    if (!TryToFiniteUnitFloat(
+                            mesh.Opacity, out float opacity) ||
+                        !TryToFinitePositiveFloat(
+                            mesh.Shininess, out float shininess))
+                    {
+                        throw new NotSupportedException(
+                            "Native MIL Viewport3D material state is invalid.");
+                    }
+                    Vector4 diffuse = ToFiniteVector4(
+                        mesh.DiffuseColor, nameof(mesh.DiffuseColor));
+                    Vector3 specular = ToFiniteVector3(
+                        mesh.SpecularColor, nameof(mesh.SpecularColor));
+                    Vector3 materialAmbient = ToFiniteVector3(
+                        mesh.AmbientColor, nameof(mesh.AmbientColor));
+                    nativeMesh.Color = diffuse;
+                    nativeMesh.SpecularColor = ToNativeFloat4(
+                        specular,
+                        shininess);
+                    nativeMesh.MaterialAmbient = ToNativeFloat4(
+                        materialAmbient,
+                        1.0f);
+                    nativeMesh.Opacity = opacity;
+                    nativeMeshes[nativeMeshIndex++] = nativeMesh;
+                }
+                else
+                {
+                    for (int materialIndex = 0;
+                         materialIndex < mesh.Materials.Length;
+                         materialIndex++)
+                    {
+                        if (!WpfViewport3DMaterialMapper.TryMapSolid(
+                                mesh.Materials[materialIndex],
+                                out WpfViewport3DSolidMaterialPass materialPass))
+                        {
+                            throw new NotSupportedException(
+                                "Native MIL Viewport3D currently requires typed solid-color material layers.");
+                        }
+                        NativeSceneMesh3D materialMesh = nativeMesh;
+                        materialMesh.Color = materialPass.Color;
+                        materialMesh.SpecularColor = ToNativeFloat4(
+                            materialPass.SpecularColor,
+                            materialPass.Shininess);
+                        materialMesh.MaterialAmbient = ToNativeFloat4(
+                            materialPass.AmbientColor,
+                            1.0f);
+                        materialMesh.Opacity = materialPass.Opacity;
+                        materialMesh.ShadingMode =
+                            materialPass.IsUnlit ? 0U : 1U;
+                        nativeMeshes[nativeMeshIndex++] = materialMesh;
+                    }
+                }
                 vertexOffset += mesh.Positions.Length;
                 indexOffset += mesh.Indices.Length;
             }

@@ -2874,7 +2874,7 @@ using WPF's own typed camera implementation. Both the managed compositor bridge
 and native MIL compiler preserve those matrices directly, derive camera position
 from the inverse view for GPU specular lighting, and reject non-finite or singular
 views rather than substituting a perspective camera. Focused managed/native
-bridge coverage passes 104/104, and the real PresentationCore exporter suite
+bridge coverage passes 107/107, and the real PresentationCore exporter suite
 passes 3/3 on macOS.
 
 WPF mesh texture coordinates are now preserved end to end as typed geometry
@@ -2894,6 +2894,17 @@ zero normals remain zero and extra normals are ignored. Both ProGPU consumers
 repeat finite/range validation and normalization for non-WPF typed producers.
 The `System.Numerics.Vector3` divide in those hot loops is runtime-intrinsic
 SIMD, while non-finite inputs fail closed instead of reaching a GPU buffer.
+
+WPF material groups now cross the source boundary as an ordered typed layer
+array. Source-built `MaterialGroup` recursively flattens diffuse, specular, and
+emissive children in MIL order and snapshots each supported brush DTO plus its
+material color, ambient color, and specular power. The two ProGPU consumers
+expand solid-color layers into shared-geometry GPU passes: diffuse and
+specular use realistic lighting, while emissive selects a per-mesh unlit
+shader override. Geometry, normal, UV, and index storage is not duplicated.
+Gradient and tile layers are preserved as typed state but deliberately fail
+closed until their GPU realization/cache is connected; the bridge no longer
+approximates those layers by sampling the first gradient stop.
 
 The same native face-mode addition closes the initial back-material gap.
 LibreWPF maps each typed `PortableViewport3DMesh.IsBackFace` entry to an

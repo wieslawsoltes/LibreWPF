@@ -35,9 +35,19 @@ public sealed class PortableViewport3DSceneTests
             Opacity = 0.5
         };
         var modelTransform = new TranslateTransform3D(1, 2, 3);
+        var frontMaterial = new MaterialGroup();
+        frontMaterial.Children.Add(new DiffuseMaterial(frontBrush));
+        frontMaterial.Children.Add(new SpecularMaterial(Brushes.White, 12)
+        {
+            Color = Colors.Red
+        });
+        frontMaterial.Children.Add(new EmissiveMaterial(Brushes.Green)
+        {
+            Color = Colors.Blue
+        });
         var model = new GeometryModel3D(
             mesh,
-            new DiffuseMaterial(frontBrush))
+            frontMaterial)
         {
             BackMaterial = new DiffuseMaterial(Brushes.Blue),
             Transform = modelTransform
@@ -199,6 +209,19 @@ public sealed class PortableViewport3DSceneTests
         Assert.Equal(50 / 255.0, front.DiffuseColor.B);
         Assert.Equal(0.5 * 128 / 255.0, front.Opacity, 6);
         Assert.Equal(new PortableColor4(0, 0, 1, 1), back.DiffuseColor);
+        Assert.Equal(3, front.Materials.Length);
+        Assert.Equal(
+            PortableViewport3DMaterialKind.Diffuse,
+            front.Materials[0].Kind);
+        Assert.Equal(
+            PortableViewport3DMaterialKind.Specular,
+            front.Materials[1].Kind);
+        Assert.Equal(12, front.Materials[1].SpecularPower);
+        Assert.Equal(
+            PortableViewport3DMaterialKind.Emissive,
+            front.Materials[2].Kind);
+        Assert.NotNull(front.Materials[2].Brush);
+        Assert.Single(back.Materials);
     }
 
     [Fact]

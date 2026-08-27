@@ -2729,6 +2729,78 @@ public sealed class WpfNativeMilSceneCompilerTests
     }
 
     [Fact]
+    public void BuildBatchExpandsOrderedSolidViewport3DMaterialPasses()
+    {
+        PortableViewport3DScene scene = CreatePortableViewport3DScene();
+        scene.Meshes[0].Materials =
+        [
+            new PortableViewport3DMaterial
+            {
+                Kind = PortableViewport3DMaterialKind.Diffuse,
+                Brush = PortableBrush.SolidColor(
+                    new PortableColor(255, 255, 0, 0)),
+                Color = new PortableColor4(1, 1, 1, 1),
+                AmbientColor = new PortableVector3(0.1, 0.2, 0.3)
+            },
+            new PortableViewport3DMaterial
+            {
+                Kind = PortableViewport3DMaterialKind.Specular,
+                Brush = PortableBrush.SolidColor(
+                    new PortableColor(255, 255, 255, 255)),
+                Color = new PortableColor4(0.5, 0.25, 0.125, 1),
+                SpecularPower = 12
+            },
+            new PortableViewport3DMaterial
+            {
+                Kind = PortableViewport3DMaterialKind.Emissive,
+                Brush = PortableBrush.SolidColor(
+                    new PortableColor(128, 0, 255, 0)),
+                Color = new PortableColor4(1, 1, 1, 0.5)
+            }
+        ];
+
+        NativeMilViewport3DScene retained = Assert.Single(
+            new WpfNativeMilSceneCompiler().BuildBatch(
+                new FakeViewport3DVisual(scene), 160, 120)
+                .Viewport3DScenes!).Scene;
+
+        Assert.Equal(3, retained.Meshes.Length);
+        NativeSceneMesh3D diffuse = retained.Meshes[0];
+        NativeSceneMesh3D specular = retained.Meshes[1];
+        NativeSceneMesh3D emissive = retained.Meshes[2];
+        Assert.Equal(diffuse.VertexOffset, specular.VertexOffset);
+        Assert.Equal(diffuse.IndexOffset, emissive.IndexOffset);
+        Assert.Equal(new Vector4(1, 0, 0, 1), diffuse.Color);
+        Assert.Equal(0.5f, specular.SpecularColor.X);
+        Assert.Equal(12f, specular.SpecularColor.W);
+        Assert.Equal(0U, emissive.ShadingMode);
+        Assert.Equal(new Vector4(0, 1, 0, 1), emissive.Color);
+        Assert.Equal(128f / 255f * 0.5f, emissive.Opacity);
+    }
+
+    [Fact]
+    public void BuildBatchRejectsGradientViewport3DMaterialUntilGpuRealizationExists()
+    {
+        PortableViewport3DScene scene = CreatePortableViewport3DScene();
+        scene.Meshes[0].Materials =
+        [
+            new PortableViewport3DMaterial
+            {
+                Kind = PortableViewport3DMaterialKind.Diffuse,
+                Brush = PortableBrush.LinearGradient(
+                    new PortablePoint(0, 0),
+                    new PortablePoint(1, 1),
+                    [])
+            }
+        ];
+
+        NotSupportedException exception = Assert.Throws<NotSupportedException>(
+            () => new WpfNativeMilSceneCompiler().BuildBatch(
+                new FakeViewport3DVisual(scene), 160, 120));
+        Assert.Contains("solid-color material", exception.Message);
+    }
+
+    [Fact]
     public void BuildBatchCreatesTypedOrthographicViewport3DCamera()
     {
         PortableViewport3DScene scene = CreatePortableViewport3DScene();

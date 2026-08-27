@@ -121,6 +121,60 @@ public sealed class WpfViewport3DSceneBridgeTests
     }
 
     [Fact]
+    public void TryCreateReplayDataExpandsOrderedSolidMaterialPasses()
+    {
+        var viewport = new PortableViewport3DVisual
+        {
+            Materials =
+            [
+                new PortableViewport3DMaterial
+                {
+                    Kind = PortableViewport3DMaterialKind.Diffuse,
+                    Brush = PortableBrush.SolidColor(
+                        new PortableColor(255, 255, 0, 0)),
+                    Color = new PortableColor4(1, 1, 1, 1),
+                    AmbientColor = new PortableVector3(0.1, 0.2, 0.3)
+                },
+                new PortableViewport3DMaterial
+                {
+                    Kind = PortableViewport3DMaterialKind.Specular,
+                    Brush = PortableBrush.SolidColor(
+                        new PortableColor(255, 255, 255, 255)),
+                    Color = new PortableColor4(0.5, 0.25, 0.125, 1),
+                    SpecularPower = 12
+                },
+                new PortableViewport3DMaterial
+                {
+                    Kind = PortableViewport3DMaterialKind.Emissive,
+                    Brush = PortableBrush.SolidColor(
+                        new PortableColor(128, 0, 255, 0)),
+                    Color = new PortableColor4(1, 1, 1, 0.5)
+                }
+            ]
+        };
+
+        Assert.True(WpfViewport3DSceneBridge.TryCreateReplayData(
+            viewport,
+            out var replayData));
+        Assert.Equal(3, replayData.Payload.Meshes.Count);
+        var diffuse = replayData.Payload.Meshes[0];
+        var specular = replayData.Payload.Meshes[1];
+        var emissive = replayData.Payload.Meshes[2];
+        Assert.Equal(new Vector4(1, 0, 0, 1), diffuse.Color);
+        Assert.Equal(new Vector3(0.1f, 0.2f, 0.3f),
+            diffuse.AmbientColor);
+        Assert.Equal(Vector4.UnitW, specular.Color);
+        Assert.Equal(new Vector3(0.5f, 0.25f, 0.125f),
+            specular.SpecularColor);
+        Assert.Equal(12, specular.Shininess);
+        Assert.Equal(new Vector4(0, 1, 0, 1), emissive.Color);
+        Assert.Equal(128f / 255f * 0.5f, emissive.Opacity);
+        Assert.Equal(
+            global::ProGPU.Scene.Extensions.ShadingMode3D.Flat,
+            emissive.ShadingModeOverride);
+    }
+
+    [Fact]
     public void TryCreateReplayDataPreservesTypedMatrixCameraForManagedGpuPath()
     {
         Matrix4x4 view = Matrix4x4.CreateTranslation(-2, -3, -4);
@@ -385,6 +439,8 @@ public sealed class WpfViewport3DSceneBridgeTests
             new PortableVector3(0, 0, 1)
         ];
 
+        public PortableViewport3DMaterial[] Materials { get; init; } = [];
+
         public object Viewport => throw new InvalidOperationException("Portable scene should not probe Viewport.");
 
         public object Camera => throw new InvalidOperationException("Portable scene should not probe Camera.");
@@ -431,7 +487,8 @@ public sealed class WpfViewport3DSceneBridgeTests
                             0, 1, 0, 0,
                             0, 0, 1, 0,
                             10, 0, 0, 1),
-                        DiffuseColor = new PortableColor4(1, 0, 0, 1)
+                        DiffuseColor = new PortableColor4(1, 0, 0, 1),
+                        Materials = Materials
                     }
                 }
             };

@@ -222,7 +222,8 @@ namespace System.Windows.Media.Media3D
                 Shininess = material.Shininess,
                 AmbientColor = material.AmbientColor,
                 Opacity = material.Opacity,
-                IsBackFace = isBackFace
+                IsBackFace = isBackFace,
+                Materials = material.Materials
             };
         }
 
@@ -337,72 +338,107 @@ namespace System.Windows.Media.Media3D
 
         private static MaterialDescriptor ReadMaterial(Material material)
         {
-            var descriptor = MaterialDescriptor.Default;
+            var layers = new List<PortableViewport3DMaterial>();
+            AppendMaterialLayers(material, layers);
+            return MaterialDescriptor.FromLayers(layers.ToArray());
+        }
+
+        private static void AppendMaterialLayers(
+            Material material,
+            List<PortableViewport3DMaterial> layers)
+        {
             if (material == null)
             {
-                return descriptor;
+                return;
             }
 
             if (material is MaterialGroup group)
             {
                 foreach (Material child in group.Children)
                 {
-                    descriptor = descriptor.Merge(ReadMaterial(child));
+                    AppendMaterialLayers(child, layers);
                 }
-
-                return descriptor;
+                return;
             }
 
-            if (material is DiffuseMaterial diffuse)
+            if (material is DiffuseMaterial diffuse && diffuse.Brush != null)
             {
-                descriptor = descriptor with
-                {
-                    DiffuseColor = ReadBrushColor(diffuse.Brush, descriptor.DiffuseColor)
-                };
-                descriptor = descriptor with
-                {
-                    DiffuseColor = MultiplyColor(descriptor.DiffuseColor, ToPortableColor4(diffuse.Color)),
-                    AmbientColor = ToPortableVector3(diffuse.AmbientColor)
-                };
+                layers.Add(CreateMaterialLayer(
+                    PortableViewport3DMaterialKind.Diffuse,
+                    diffuse.Brush,
+                    ToPortableColor4(diffuse.Color),
+                    ToPortableVector3(diffuse.AmbientColor),
+                    1.0));
+                return;
             }
 
-            if (material is SpecularMaterial specular)
+            if (material is SpecularMaterial specular && specular.Brush != null)
             {
-                var specularColor = ReadBrushColor(specular.Brush, new PortableColor4(
-                    descriptor.SpecularColor.X,
-                    descriptor.SpecularColor.Y,
-                    descriptor.SpecularColor.Z,
-                    1));
-                descriptor = descriptor with
-                {
-                    SpecularColor = new PortableVector3(specularColor.R, specularColor.G, specularColor.B),
-                    Shininess = Math.Clamp(specular.SpecularPower, 1, 256)
-                };
+                layers.Add(CreateMaterialLayer(
+                    PortableViewport3DMaterialKind.Specular,
+                    specular.Brush,
+                    ToPortableColor4(specular.Color),
+                    default,
+                    specular.SpecularPower));
+                return;
             }
 
-            return descriptor with
+            if (material is EmissiveMaterial emissive && emissive.Brush != null)
             {
-                Opacity = descriptor.Opacity * Math.Clamp(descriptor.DiffuseColor.A, 0, 1),
-                DiffuseColor = new PortableColor4(descriptor.DiffuseColor.R, descriptor.DiffuseColor.G, descriptor.DiffuseColor.B, 1)
-            };
+                layers.Add(CreateMaterialLayer(
+                    PortableViewport3DMaterialKind.Emissive,
+                    emissive.Brush,
+                    ToPortableColor4(emissive.Color),
+                    default,
+                    1.0));
+            }
         }
 
-        private static PortableColor4 ReadBrushColor(Brush brush, PortableColor4 fallback)
+        private static PortableViewport3DMaterial CreateMaterialLayer(
+            PortableViewport3DMaterialKind kind,
+            Brush brush,
+            PortableColor4 color,
+            PortableVector3 ambientColor,
+            double specularPower)
         {
-            if (brush is not IPortableBrushSource portableSource
-                || !portableSource.TryGetPortableBrush(out var portableBrush))
+            var layer = new PortableViewport3DMaterial
+            {
+                Kind = kind,
+                Color = color,
+                AmbientColor = ambientColor,
+                SpecularPower = specularPower
+            };
+            if (brush is IPortableBrushSource brushSource
+                && brushSource.TryGetPortableBrush(out var portableBrush))
+            {
+                layer.Brush = portableBrush;
+            }
+            else if (brush is IPortableTileBrushSource tileBrushSource
+                && tileBrushSource.TryGetPortableTileBrush(out var tileBrush))
+            {
+                layer.TileBrush = tileBrush;
+            }
+            return layer;
+        }
+
+        private static PortableColor4 ReadPortableBrushColor(
+            PortableBrush brush,
+            PortableColor4 fallback)
+        {
+            if (brush == null)
             {
                 return fallback;
             }
 
-            var opacity = Math.Clamp(portableBrush.Opacity, 0, 1);
-            return portableBrush.Kind switch
+            var opacity = Math.Clamp(brush.Opacity, 0, 1);
+            return brush.Kind switch
             {
-                PortableBrushKind.SolidColor => ApplyOpacity(ToPortableColor4(portableBrush.Color), opacity),
-                PortableBrushKind.LinearGradient when portableBrush.GradientStops.Length > 0 =>
-                    ApplyOpacity(ToPortableColor4(portableBrush.GradientStops[0].Color), opacity),
-                PortableBrushKind.RadialGradient when portableBrush.GradientStops.Length > 0 =>
-                    ApplyOpacity(ToPortableColor4(portableBrush.GradientStops[0].Color), opacity),
+                PortableBrushKind.SolidColor =>
+                    ApplyOpacity(ToPortableColor4(brush.Color), opacity),
+                PortableBrushKind.LinearGradient when brush.GradientStops.Length > 0 =>
+                    ApplyOpacity(ToPortableColor4(brush.GradientStops[0].Color), opacity),
+                PortableBrushKind.RadialGradient when brush.GradientStops.Length > 0 =>
+                    ApplyOpacity(ToPortableColor4(brush.GradientStops[0].Color), opacity),
                 _ => fallback
             };
         }
@@ -666,41 +702,64 @@ namespace System.Windows.Media.Media3D
             PortableVector3 SpecularColor,
             double Shininess,
             PortableVector3 AmbientColor,
-            double Opacity)
+            double Opacity,
+            PortableViewport3DMaterial[] Materials)
         {
             public static MaterialDescriptor Default { get; } = new(
                 new PortableColor4(1, 1, 1, 1),
                 new PortableVector3(0.2, 0.2, 0.2),
                 32.0,
                 new PortableVector3(0.2, 0.2, 0.2),
-                1.0);
+                1.0,
+                Array.Empty<PortableViewport3DMaterial>());
 
-            public MaterialDescriptor Merge(MaterialDescriptor next)
+            public static MaterialDescriptor FromLayers(
+                PortableViewport3DMaterial[] layers)
             {
-                var defaultDiffuse = new PortableColor4(1, 1, 1, 1);
-                var defaultVector = new PortableVector3(0.2, 0.2, 0.2);
-                return new MaterialDescriptor(
-                    !ColorEquals(next.DiffuseColor, defaultDiffuse) ? next.DiffuseColor : DiffuseColor,
-                    !VectorEquals(next.SpecularColor, defaultVector) ? next.SpecularColor : SpecularColor,
-                    next.Shininess != 32.0 ? next.Shininess : Shininess,
-                    !VectorEquals(next.AmbientColor, defaultVector) ? next.AmbientColor : AmbientColor,
-                    next.Opacity != 1.0 ? next.Opacity : Opacity);
+                var descriptor = Default;
+                for (var i = 0; i < layers.Length; i++)
+                {
+                    var layer = layers[i];
+                    if (layer.Kind == PortableViewport3DMaterialKind.Diffuse)
+                    {
+                        var diffuseColor = ReadPortableBrushColor(
+                            layer.Brush,
+                            descriptor.DiffuseColor);
+                        diffuseColor = MultiplyColor(
+                            diffuseColor,
+                            layer.Color);
+                        descriptor = descriptor with
+                        {
+                            DiffuseColor = new PortableColor4(
+                                diffuseColor.R,
+                                diffuseColor.G,
+                                diffuseColor.B,
+                                1),
+                            AmbientColor = layer.AmbientColor,
+                            Opacity = Math.Clamp(diffuseColor.A, 0, 1)
+                        };
+                    }
+                    else if (layer.Kind == PortableViewport3DMaterialKind.Specular)
+                    {
+                        var specularColor = ReadPortableBrushColor(
+                            layer.Brush,
+                            layer.Color);
+                        descriptor = descriptor with
+                        {
+                            SpecularColor = new PortableVector3(
+                                specularColor.R,
+                                specularColor.G,
+                                specularColor.B),
+                            Shininess = Math.Clamp(
+                                layer.SpecularPower,
+                                1,
+                                256)
+                        };
+                    }
+                }
+                return descriptor with { Materials = layers };
             }
         }
 
-        private static bool ColorEquals(PortableColor4 left, PortableColor4 right)
-        {
-            return left.R == right.R
-                && left.G == right.G
-                && left.B == right.B
-                && left.A == right.A;
-        }
-
-        private static bool VectorEquals(PortableVector3 left, PortableVector3 right)
-        {
-            return left.X == right.X
-                && left.Y == right.Y
-                && left.Z == right.Z;
-        }
     }
 }
