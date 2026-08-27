@@ -2799,7 +2799,7 @@ native interop suite passes 87/87.
 
 The first typed retained `Viewport3DVisual` slice now crosses the same native
 MIL compiler without reflection or CPU projection. LibreWPF recognizes only
-`IPortableViewport3DSceneSource`, creates the canonical type-44 visual, and
+`IPortableViewport3DSceneSource`, creates the canonical type-40 visual, and
 flattens its finite camera, viewport, light/material, model/normal matrices,
 vertices, and indices into ProGPU's copied pointer-free sideband. ProGPU then
 emits its reusable semantic 3D mesh draw; projection, viewport placement,
@@ -2810,6 +2810,19 @@ preserving 2D transforms, clips, opacity masks, effects, caches, and guidelines
 fail closed until the native 3D compositor can reproduce them exactly. Focused
 coverage validates the sideband and both representative unsupported-state
 boundaries.
+
+ProGPU's new `--semantic-viewport3d` gate exercises the complete retained MIL
+sideband, semantic compiler, shared WGSL pipeline, sub-viewport mapping, Metal
+submission, and GPU readback. The first run found and fixed three backend gaps
+that byte-level tests could not expose: wgpu-native-incompatible temporary
+array indexing, invalid zero-initialized stencil comparison enums, and mesh
+positions incorrectly consuming `NativePoint3D.Reserved` as homogeneous `w`.
+With explicit line-corner selection, valid unused stencil state, and
+`vec4(position.xyz, 1)`, Apple M3 Pro Metal renders 1,058 pixels at extent
+`[41,22]-[86,66]`, wholly inside the typed `[32,20]-[96,68]` viewport. The
+same gate is now part of macOS/Linux and Windows native integration scripts so
+D3D12 and Vulkan must reproduce this placement rather than merely accepting
+the scene bytes.
 
 The WPF MCG `csp` tool also rebuilds cleanly and its unmodified `Resources.rsp`
 regenerates all 378 resource outputs into an isolated temporary tree. The
