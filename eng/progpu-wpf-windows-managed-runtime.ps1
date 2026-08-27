@@ -1,5 +1,6 @@
 param(
-    [string] $Configuration = "Release"
+    [string] $Configuration = "Release",
+    [switch] $NativeToolsOnMachine
 )
 
 $ErrorActionPreference = "Stop"
@@ -80,13 +81,21 @@ function Invoke-WpfProjectBuild([string] $projectPath, [string] $platform, [stri
         $ijwHostArgument = "/p:IjwHostSourcePath=$ijwHostSourcePath"
     }
 
+    $nativeToolsArgument = @()
+    if ($NativeToolsOnMachine) {
+        # This is an optimization for prepared build images only. Clean agents
+        # and integration VMs must let Arcade restore the versions pinned by
+        # global.json instead of depending on mutable machine-wide tools.
+        $nativeToolsArgument = @("-nativeToolsOnMachine")
+    }
+
     & $buildCommand `
         -ci `
         -configuration $Configuration `
         -platform $platform `
         -projects $projectPath `
         -msbuildEngine vs `
-        -nativeToolsOnMachine `
+        $nativeToolsArgument `
         -excludeCIBinarylog `
         -warnAsError 0 `
         "/p:PerlCommand=$perlCommand" `
