@@ -3540,6 +3540,24 @@ documentation checkpoint `a50b57f8` retains the commands, raw runs, platform
 scope, and caveat that this Windows result is x64 emulation rather than
 physical-x64 evidence.
 
+ProGPU checkpoint `e61970f7` applies the same rule to AVFoundation's real-time
+non-interleaved float stereo mix tap. One shared allocation-free layout kernel
+uses ARM64 `ST2`/`LD2` or SSE unpack/shuffle operations for the planar-to-
+interleaved and interleaved-to-planar callback round trip, with a bounded
+scalar tail. Mono remains a direct span copy; dependency-strided layouts above
+two channels retain their scalar implementation. Exact vector-boundary/tail,
+sentinel, length, round-trip, and allocation tests pass, the Apple project
+builds with zero warnings, and the complete managed suite reports 3,878/3,878.
+The first explicit ARM ZIP/UZP loop was measured and rejected because it was
+slower than the scalar oracle; the native interleaved-memory form measured
+median p50 `0.269` versus `1.241 us/block` (4.61x) over three Apple M3 Pro
+1,024-frame runs. Four alternating self-contained Windows 11 ARM64 Parallels
+x64-emulation runs measured median p50 `0.934` versus `1.369 us/block` (1.47x),
+with exact output, zero allocation, and executable SHA-256
+`E38F889B495687BDFFBE61747FAA51ED3C60446092613B28DA8CEC5E0E56EDD8`.
+ProGPU's documentation retains p95/p99 values, the cold-host outlier, rerun
+method, and physical-x64 qualification caveat.
+
 ProGPU documentation checkpoint `ab6107e4` additionally qualifies both
 `Vector256` product kernels with the self-contained `win-x64` benchmark in the
 Windows 11 ARM64 Parallels integration VM. .NET 10.0.5 reported `arch=X64`,
