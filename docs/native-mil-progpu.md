@@ -3760,6 +3760,22 @@ guest with MSVC `19.44.35228.0` under `/W4 /WX`; the focused CTest passed in
 `61622AB8...B23767` test source), and the guest executable SHA-256 was
 `DBDA27CD933D4D4A17B4FE70D55204A6481A16B9AA29DC8BF886974C3C82C6A4`.
 
+ProGPU checkpoint `6a7652a9` adds nested `ImageDrawing` to that exact bounds
+walk. In accordance with WPF `BoundsDrawingContextWalker.DrawImage`, a non-null
+image source contributes its live static or animated destination rectangle;
+the native walker applies the complete current group transform and active clip
+without reading pixels or recursively inspecting image content. The fixture
+wraps a vector-backed ImageDrawing in a sheared DrawingGroup and another
+DrawingImage, verifies the derived general-affine mapping and destination clip,
+then updates the ImageDrawing through a live `RectResource` and verifies the new
+mapping without retransmitting either DrawingImage. Apple native tests pass
+8/8. A clean archive rebuilt all 136 focused target steps under Windows ARM64
+MSVC `19.44.35228.0` with `/W4 /WX`; focused CTest passed in 4.22 seconds and
+direct execution returned zero. Host and guest hashes matched
+(`6ACDD31B...DEEB` native source, `0B239F7E...D11C8` test source), and the guest
+executable SHA-256 was
+`08C83E4E428AD441321281AC701D05B28CF62B4D65B815B7F5ADA999E932BAAB`.
+
 The Windows host harness now accepts `PROGPU_WPF_REAL_ASSEMBLY_DIR` so a
 deployment bundle can load one adjacent, source-built PresentationCore/
 PresentationFramework graph instead of inferring repository artifact paths.
