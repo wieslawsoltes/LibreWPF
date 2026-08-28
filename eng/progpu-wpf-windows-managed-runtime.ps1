@@ -21,9 +21,13 @@ function Initialize-BuildSdk {
         throw "sdk.version is missing from $globalJsonPath."
     }
 
-    $sdkDirectory = $null
+    $sdkDirectory = Join-Path $repoRoot ".dotnet/sdk/$sdkVersion"
+    if (!(Test-Path (Join-Path $sdkDirectory "Sdks/Microsoft.NET.Sdk/Sdk"))) {
+        $sdkDirectory = $null
+    }
+
     $dotnetCommand = Get-Command dotnet.exe -ErrorAction SilentlyContinue
-    if ($null -ne $dotnetCommand) {
+    if ([string]::IsNullOrWhiteSpace($sdkDirectory) -and $null -ne $dotnetCommand) {
         $sdkLine = & $dotnetCommand.Source --list-sdks |
             Where-Object { $_ -like "$sdkVersion *" } |
             Select-Object -Last 1
