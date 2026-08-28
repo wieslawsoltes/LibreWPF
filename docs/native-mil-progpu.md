@@ -3692,6 +3692,18 @@ all 136 focused target steps in the Windows 11 ARM64 Parallels VM with MSVC
 Checkpoint `4dbd79ac` changes only managed PCM code and documentation, so its
 native MIL sources are byte-identical to that Windows-qualified archive.
 
+ProGPU checkpoints `1e764396` and `18e72815` next infer sideband-free
+`DrawingImage` bounds through nested default-state `DrawingGroup` trees.
+Separately drawn child bounds are unioned before each nested axis-preserving
+group transform; group clip, opacity/mask/animation/guideline state and
+non-axis-preserving transforms remain fail closed. Native coverage uses two
+independent rectangle drawings through two transformed group levels and then
+requires a sheared update to return `unsupported_command`. The complete Apple
+native suite passes 8/8. Exact changed-file hashes were rebuilt under Windows
+ARM64 MSVC 19.44 with `/W4 /WX`; the focused native MIL test passed in 1.67
+seconds after that compiler exposed and the follow-up removed a shadowed depth
+name in the recursive lambda.
+
 The Windows host harness now accepts `PROGPU_WPF_REAL_ASSEMBLY_DIR` so a
 deployment bundle can load one adjacent, source-built PresentationCore/
 PresentationFramework graph instead of inferring repository artifact paths.
