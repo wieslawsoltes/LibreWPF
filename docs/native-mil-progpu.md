@@ -322,8 +322,14 @@ ProGPU currently provides:
   retained on its incoming segment and forces only that endpoint's native join
   to Round, including the closing endpoint. A dashed open run crossing a
   closed figure's start remains one rotated semantic polyline, preserving dash
-  phase and DashCap at both geometry-gap boundaries. Dashed curves/smooth
-  joins and degenerate tangents adjacent to nondegenerate joins fail closed.
+  phase and DashCap at both geometry-gap boundaries. Nondegenerate dashed
+  line/quadratic/cubic/analytic-arc contours now use the native curve-dash
+  compiler: thickness-scaled phase continues across segment boundaries,
+  visible Bézier spans retain De Casteljau control points, visible arcs retain
+  their analytic center/radii/rotation/sub-sweep, true open endpoints keep the
+  source caps, internal endpoints use DashCap, SmoothJoin still forces Round,
+  and first/final visible runs merge across a closed seam without coincident
+  caps. Degenerate tangents adjacent to nondegenerate joins fail closed.
   Zero-length immediate/open path strokes compose their configured point-cap
   halves around WPF's horizontal shape-space direction; wholly degenerate
   closed contours force Round/Round caps and form an exact point disk. Finite
@@ -3558,6 +3564,26 @@ with exact output, zero allocation, and executable SHA-256
 ProGPU's documentation retains p95/p99 values, the cold-host outlier, rerun
 method, and physical-x64 qualification caveat.
 
+ProGPU checkpoint `86f7ade8` removes the retained MIL compiler's curved-dash
+fail-closed branch. The new C++ helper is a clean-room port of ProGPU's owned
+managed `DashPattern`, `BezierSegmentGeometry`, `ArcSegmentGeometry`, and
+`Compositor.TryCreateDashedStrokePath` algorithms. It uses the same 32-chord
+Bézier and bounded 64-entry analytic-arc cumulative-length tables only to map
+dash distances back to parameters; final line, quadratic, cubic, and arc spans
+remain exact reusable ProGPU geometry primitives. Direct fixtures match the
+managed quadratic/cubic/arc reference cases, odd-pattern duplication,
+thickness scaling, negative phase normalization, and closed-seam SmoothJoin
+merging. Retained-scene coverage verifies dashed arcs and mixed closed curves
+emit native bodies and typed caps instead of `unsupported_command`. The local
+Apple Clang native matrix passes 8/8 CTests and the docs verifier passes; PR
+#139 independently passes the strict GCC and MSVC compiler-compatibility jobs,
+macOS/Ubuntu build-and-test jobs, native/managed image parity, and Windows,
+Linux, and macOS Avalonia native Dawn contracts. The Parallels Windows ARM64
+MSVC 19.44 lane also compiles the exact changed MIL library and test sources
+under `/W4 /WX`; its reused older staged build manifest reaches link only after
+successful compilation, then reports an unrelated missing newer scene-builder
+object, so the clean PR MSVC job remains the authoritative link/test result.
+
 ProGPU documentation checkpoint `ab6107e4` additionally qualifies both
 `Vector256` product kernels with the self-contained `win-x64` benchmark in the
 Windows 11 ARM64 Parallels integration VM. .NET 10.0.5 reported `arch=X64`,
@@ -3694,7 +3720,7 @@ arithmetic.
 
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested
    render-data command families using the complete generated WPF MCG layouts.
-2. Add dashed ellipse and rounded-rectangle pen draws, curve dashes, exact
+2. Add dashed ellipse and rounded-rectangle pen draws, exact
    degenerate zero-axis asymmetric rounded-rectangle widening, exact
    translated-equivalent EvenOdd overlap execution, exact Nonzero groups with
    boolean children, non-bitmap image sources, exact
