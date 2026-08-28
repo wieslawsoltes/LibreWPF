@@ -3695,14 +3695,26 @@ native MIL sources are byte-identical to that Windows-qualified archive.
 ProGPU checkpoints `1e764396` and `18e72815` next infer sideband-free
 `DrawingImage` bounds through nested default-state `DrawingGroup` trees.
 Separately drawn child bounds are unioned before each nested axis-preserving
-group transform; group clip, opacity/mask/animation/guideline state and
-non-axis-preserving transforms remain fail closed. Native coverage uses two
+group transform. Native coverage uses two
 independent rectangle drawings through two transformed group levels and then
 requires a sheared update to return `unsupported_command`. The complete Apple
 native suite passes 8/8. Exact changed-file hashes were rebuilt under Windows
 ARM64 MSVC 19.44 with `/W4 /WX`; the focused native MIL test passed in 1.67
 seconds after that compiler exposed and the follow-up removed a shadowed depth
 name in the recursive lambda.
+
+ProGPU implementation checkpoint `022a44cc` then matches WPF's authoritative
+`BoundsDrawingContextWalker` state rules: static fixed/path/geometry-group clip
+bounds intersect the local child union before the group transform, while
+opacity, animated opacity, opacity masks, guidelines, edge mode, bitmap
+sampling, and ClearType do not alter drawing bounds. Unsupported clip geometry
+and non-axis-preserving group transforms remain fail closed. The differential
+fixture combines all of those ignored states with a real rectangle clip,
+verifies the resulting exact DrawingImage mapping, and retains the shear
+rejection oracle. The Apple native suite remains 8/8. Exact host/guest SHA-256
+values matched for both changed sources, and Windows 11 ARM64 Parallels rebuilt
+the native target under MSVC 19.44 `/W4 /WX`; the focused test passed in 1.70
+seconds. ProGPU documentation checkpoint `fb18dbd7` pins that qualification.
 
 The Windows host harness now accepts `PROGPU_WPF_REAL_ASSEMBLY_DIR` so a
 deployment bundle can load one adjacent, source-built PresentationCore/
