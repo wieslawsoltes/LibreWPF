@@ -3485,6 +3485,23 @@ its already-qualified NEON/SSE2 two-pixel kernels. Detailed benchmark method,
 research sources, rerun commands, and rejected alternatives live in ProGPU's
 `docs/GLYPH_CPU_FALLBACK_SIMD_RESEARCH.md`.
 
+ProGPU checkpoints `2960fb39` and `ffb285af` continue that managed SIMD lane
+by removing its remaining per-subscanline X traversal. The rasterizer now
+collects all eight Y crossing spans first, builds each pixel's horizontal
+Vector256 or Vector128 samples once, applies the eight winding spans, and
+writes the exact quantized coverage byte directly. It keeps the scalar oracle,
+one pooled crossing arena, stack-resident offsets, and the unchanged output
+allocation; Vector128-only machines do not execute unsupported Vector256 setup.
+All 19 focused differential tests pass. Eight alternating Apple ARM64
+processes improved median p50/p95 from `218.649/227.590` to
+`205.471/212.347 us/glyph` (6.0%/6.7%) with checksum 175 and
+`4,120 B/glyph` throughout. The immutable final archive rebuilt with zero
+warnings in Windows 11 ARM64 Parallels and three .NET 10.0.11 Vector128 runs
+retained the checksum/allocation. Host and guest hashes matched
+(`45BA556F...CD3FE0C` source, `C6A295B3...E1E242F` archive). Both available
+Windows and Rosetta x64 runtimes reported `Vector256=False`, so actual
+Vector256 execution remains an explicit x64 CI/hardware qualification gate.
+
 ProGPU checkpoint `e07e1411` applies the same intrinsic requirement to the
 shared managed PCM16 media hot path. Interleaved stereo gain/balance widens
 signed samples into `Vector256<int>` or `Vector128<int>` lanes, performs exact
