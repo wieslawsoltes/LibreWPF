@@ -101,7 +101,9 @@ public sealed class WindowsAnyCpuSmokeContractTests
         Assert.Contains("PresentationCore.dll", buildScript, StringComparison.Ordinal);
         Assert.Contains("PresentationBuildTasks.csproj", buildScript, StringComparison.Ordinal);
         Assert.Contains("build.cmd", buildScript, StringComparison.Ordinal);
-        Assert.Contains("-msbuildEngine vs", buildScript, StringComparison.Ordinal);
+        Assert.Contains("[ValidateSet(\"vs\", \"dotnet\")]", buildScript, StringComparison.Ordinal);
+        Assert.Contains("[string] $MSBuildEngine = \"vs\"", buildScript, StringComparison.Ordinal);
+        Assert.Contains("-msbuildEngine $MSBuildEngine", buildScript, StringComparison.Ordinal);
         Assert.Contains("function Initialize-BuildSdk", buildScript, StringComparison.Ordinal);
         Assert.Contains("$globalJson.sdk.version", buildScript, StringComparison.Ordinal);
         Assert.Contains(".dotnet/sdk/$sdkVersion", buildScript, StringComparison.Ordinal);

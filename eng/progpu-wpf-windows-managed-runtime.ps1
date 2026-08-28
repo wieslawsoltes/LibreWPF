@@ -1,5 +1,7 @@
 param(
     [string] $Configuration = "Release",
+    [ValidateSet("vs", "dotnet")]
+    [string] $MSBuildEngine = "vs",
     [switch] $NativeToolsOnMachine
 )
 
@@ -145,7 +147,7 @@ function Invoke-WpfProjectBuild([string] $projectPath, [string] $platform, [stri
         -configuration $Configuration `
         -platform $platform `
         -projects $projectPath `
-        -msbuildEngine vs `
+        -msbuildEngine $MSBuildEngine `
         $nativeToolsArgument `
         -excludeCIBinarylog `
         -warnAsError 0 `
