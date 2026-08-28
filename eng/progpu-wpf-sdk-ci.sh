@@ -14,6 +14,8 @@ fi
 export DOTNET_ROLL_FORWARD="${DOTNET_ROLL_FORWARD:-Major}"
 export DOTNET_ROLL_FORWARD_TO_PRERELEASE="${DOTNET_ROLL_FORWARD_TO_PRERELEASE:-1}"
 
+"${repo_root}/eng/progpu-wpf-verify-librewinforms-compat.sh"
+
 resolve_dotnet_runtime_framework_version() {
   local runtime_version
   runtime_version="$("${dotnet}" --list-runtimes 2>/dev/null | awk '$1 == "Microsoft.NETCore.App" && $2 ~ /^11\./ { version = $2 } END { print version }')"

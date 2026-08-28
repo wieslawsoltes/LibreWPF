@@ -10,6 +10,8 @@ For mutable development package versions such as `0.1.0-preview.45`, the SDK cle
 
 The SDK owns the package dependency closure. `LibreWPF.Transport` supplies the real managed WPF assembly identities and runtime payload, while `LibreWPF.ProGPU` is the adapter/runtime bridge package and does not publish dependencies on the ProGPU shim `PresentationCore` package.
 
+Mixed WPF/WinForms projects currently use the transitional `LibreWinForms.WindowsFormsIntegration` bridge. Until that bridge is rebuilt against canonical source-first WinForms, `LibreWPF.Sdk` pairs it with `LibreWinForms.Compatibility.System.Windows.Forms`; it does not claim the canonical `LibreWinForms.System.Windows.Forms` package. `ProGpuWpfLibreWinFormsRuntimePackageId` remains configurable for coordinated package testing, but changing it requires a bridge built against the same runtime ABI.
+
 Existing WPF application projects should keep their normal WPF project shape and switch only the project SDK, whether the original project used `Microsoft.NET.Sdk.WindowsDesktop` or the newer `Microsoft.NET.Sdk` plus `UseWPF=true`. The SDK treats `UseWPF=true` as the app's markup intent, keeps the normal `net*-windows` target-framework shape, and internally redirects framework references to the portable WPF transport and ProGPU/Silk.NET package graph.
 
 Windows, macOS, and Linux are supported runtime targets. A Windows RID restores the same platform-independent `LibreWPF.Transport` payload as the other hosts; no `runtime.win-*` LibreWPF companion package is required or published.
