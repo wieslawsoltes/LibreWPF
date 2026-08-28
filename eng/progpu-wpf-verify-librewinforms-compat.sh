@@ -28,9 +28,11 @@ if grep -Fq -- 'librewinforms.system.windows.forms/' "${sdk_targets}"; then
 fi
 
 dotnet_command=""
-if [[ -x "${repo_root}/.dotnet/dotnet" ]]; then
+if [[ -x "${repo_root}/.dotnet/dotnet" ]] \
+  && "${repo_root}/.dotnet/dotnet" msbuild -version >/dev/null 2>&1; then
   dotnet_command="${repo_root}/.dotnet/dotnet"
-elif command -v dotnet >/dev/null 2>&1 && dotnet --list-sdks 2>/dev/null | grep -q .; then
+elif command -v dotnet >/dev/null 2>&1 \
+  && dotnet msbuild -version >/dev/null 2>&1; then
   dotnet_command="dotnet"
 fi
 
