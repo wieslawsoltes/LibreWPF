@@ -3743,13 +3743,11 @@ host/guest hashes matched at the empty-DashStyle implementation head
 `/W4 /WX` rebuilt the target and passed the focused test in 1.93 seconds.
 ProGPU documentation checkpoint `e291d485` pins the result.
 
-ProGPU checkpoint `34529979` extends solid line-stroke inference to general
-affine effective transforms for flat, square, and triangle caps. It transforms
-the actual strip and cap vertices and reduces those world-space points rather
-than transforming a broadened local AABB. Fixed shapes still require
-axis-preserving transforms, and round-capped affine lines remain fail closed
-until their transformed semicircle extrema are qualified. Coverage verifies
-exact sheared square- and triangle-cap mappings while retaining nonempty-dash
+ProGPU checkpoint `34529979` begins general-affine solid line-stroke inference
+for flat, square, and triangle caps by reducing actual strip and cap vertices
+rather than transforming a broadened local AABB. Fixed shapes still require
+axis-preserving transforms. Coverage verifies sheared square- and triangle-cap
+mappings while retaining nonempty-dash
 rejection and live empty-DashStyle success. Apple native tests pass 8/8. A clean
 archive rebuilt all 136 focused target steps under Windows ARM64 MSVC
 `19.44.35228.0` with `/W4 /WX`; focused CTest passed in 1.00 second and direct
@@ -3758,6 +3756,24 @@ native source, `8EC1AC25...751CF6` test source), and the guest executable
 SHA-256 was
 `FE386E7FB3B93E0BE7125E8AD60B7005CBF6D2264C1A12FAA8A4EB2CC38A2051`.
 
+ProGPU checkpoint `cd3e70c3` completes that cap lane and corrects transform
+ordering against live Windows PresentationCore. WPF applies
+`Geometry.Transform` to the line spine before Pen widening, but applies
+`DrawingGroup.Transform` to the widened stroke; ProGPU now keeps those stages
+separate. Round caps use WpfGfx's exact `ARC_AS_BEZIER` constant plus analytic
+cubic extrema. For an 8-unit round-capped line under matrix
+`[1,.25,.5,1,0,0]`, the Parallels WPF oracle returned
+`15.999053955078125,18.499053955078125,28.00189208984375,13.00189208984375`
+for `Geometry.Transform` and
+`15.526884078979492,18.375919342041016,28.946229934692383,13.248161315917969`
+for `DrawingGroup.Transform`; native tests lock down both mappings plus the
+square and triangle variants. Apple native tests pass 8/8. A clean archive
+rebuilt all 136 focused target steps under Windows ARM64 MSVC `19.44.35228.0`
+with `/W4 /WX`; focused CTest passed in 1.62 seconds and direct execution
+returned zero. Host and guest hashes matched (`C1A647F6...BA7E0F` native,
+`554160BF...83E08D` test), and the guest executable SHA-256 was
+`02BB1A776DBDC7A019D12BC362944B8253324334C97EF2B5796FFEB48F0AD2EE`.
+
 ProGPU checkpoint `30fcf084` removes the earlier group-level affine
 restriction for supported fill leaves. The native walker now composes every
 nested `DrawingGroup` transform into leaf geometry before calculating bounds,
@@ -3765,8 +3781,8 @@ transforms group clips into the same world space, intersects every transformed
 child with the active clip, and only then unions the separately drawn results.
 This mirrors WPF `BoundsDrawingContextWalker` ordering without broadening a
 pre-transform union. Rotation and shear are exact for the supported fixed,
-path, and single-child geometry-group fill lane; stroked children under a
-non-axis-preserving effective transform still fail closed. Empty and singular
+path, and single-child geometry-group fill lane; the solid fixed-line subset
+has the broader cap-qualified affine support described above. Empty and singular
 groups are valid empty draws. Coverage verifies the earlier axis-aligned
 mapping, an exact sheared mapping, destination clipping, and empty singular and
 childless results. The complete Apple native suite passes 8/8. A clean commit
