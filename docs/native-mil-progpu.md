@@ -3828,6 +3828,25 @@ stroke header, `7E305BF5...B641C2` MIL, `0E2EC09A...FAB1E5` MIL test,
 internal executable SHA-256 values were `707D8EEA...6962D4` and
 `4A36E7E6...0D1958`.
 
+ProGPU checkpoint `269005a5` extends the exact affine rectangle lane to WPF
+round joins. It mirrors WpfGfx `CSimplePen::RoundCorner` and
+`GetBezierDistance`, including the 0.25 widening-tolerance refinement test,
+the one/two-cubic split, and analytic cubic extrema after the group/world
+transform. No transformed circle box or broadened local AABB is substituted.
+For rectangle `[20,10,30,15]`, thickness 8, and matrix
+`[1,.25,.5,1,0,0]`, live PresentationCore returned
+`20.999963760376,10.9998416900635,45.5000743865967,30.5003185272217`
+for `Geometry.Transform` and
+`20.5268840789795,10.875919342041,46.4462299346924,30.748161315918`
+for `DrawingGroup.Transform`; tests lock down both resulting native image
+mappings. Apple native tests pass 8/8. The exact archive rebuilt 153
+MIL/internal steps with Windows ARM64 MSVC `19.44.35228.0`; 161 Ninja flag
+lines carry `/W4 /WX`, both focused CTests passed in 4.01 seconds, and both
+executables returned zero. Host/guest hashes matched (`1CAB3180...F60569`
+archive, `D6730AFD...91BDB` MIL source, `8581A4D5...FCD3F` MIL test); guest MIL
+and internal executable hashes were `865BB142...99714` and
+`287ECC0A...48117`.
+
 ProGPU checkpoint `30fcf084` removes the earlier group-level affine
 restriction for supported fill leaves. The native walker now composes every
 nested `DrawingGroup` transform into leaf geometry before calculating bounds,
