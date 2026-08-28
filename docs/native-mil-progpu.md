@@ -3584,6 +3584,39 @@ render scheduling, and retained-branch-map assertions. Those baseline failures
 are not counted as consumer-checkpoint regressions and remain visible rather
 than being weakened or hidden by this change.
 
+The package-mode gate now treats `ProGPU.Backend.Native` as a required runtime
+package instead of allowing NuGet to resolve an older published managed
+assembly beside current native binaries. The package list, SDK staging snapshot,
+release manifest, README/release documentation, and package audit all include
+the managed binding plus `progpu_native` and Dawn assets for `win-x64`,
+`win-arm64`, `linux-x64`, `linux-arm64`, `osx-x64`, and `osx-arm64`. A source
+pack with an incomplete RID set fails closed; release/package qualification
+must consume the exact six-RID artifact produced from the tracked ProGPU
+commit. This closes the stale-type failure that previously surfaced as a
+`TypeLoadException` for `NativeMilBatchMetrics` only after the bundle consumer
+started.
+
+The Windows managed payload and SDK transport fallback now pin the serviced
+`Microsoft.WindowsDesktop.App.Runtime` `10.0.11` packages for x64, x86, and
+ARM64. The immutable Windows qualification artifact contains all three RIDs;
+the ARM64 Parallels DirectX lease/lowering tests pass on runtime `10.0.11` and
+SDK `10.0.400`. Package values remain runtime/deployment inputs rather than
+being recovered through reflection.
+
+ProGPU's native CI also qualifies this checkpoint with strict GCC, MSVC, and
+ClangCL builds. Portable engine flags no longer mix scoped enums with integer
+bitmasks, and Windows ClangCL links its compiler-rt builtins explicitly so the
+ARM64 and x64 native-MIL test executables resolve compiler-generated wide
+integer helpers. Glyph fallback validation separates two contracts: dedicated
+intrinsic-SIMD/scalar coverage tests remain byte exact, while independently
+rendered native/managed final frames allow only the bounded GPU pipeline tie of
+3/255 maximum per channel, zero pixels beyond that tolerance, and mean absolute
+difference at most 0.001 byte/channel. On Microsoft Basic Render Driver the
+forced raster and SIMD routes produced the same native frame hash and the same
+bounded `2/255`, `0`-over-tolerance, `0.000109` mean result, proving that the
+remaining tie is downstream GPU draw/sampling rather than CPU coverage
+arithmetic.
+
 ## Next parity gates
 
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested
