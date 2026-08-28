@@ -4210,13 +4210,41 @@ bounded `2/255`, `0`-over-tolerance, `0.000109` mean result, proving that the
 remaining tie is downstream GPU draw/sampling rather than CPU coverage
 arithmetic.
 
+ProGPU implementation checkpoint `d4ca87d9` and documentation checkpoint
+`0e139ea2` close the canonical translated-equivalent two-leaf EvenOdd overlap.
+The native compiler recognizes only the exact `leaf leaf xor` postfix form,
+batches its two ordinary leaf records into ordered A/B GPU raster phases, and
+combines their packed masks with the shared XOR compute kernel before the atlas
+copy. Pending semantic work is flushed once and a fresh encoder is restored;
+normal scenes retain the original single-submission path and do not allocate
+the split buffers or bind groups. The path and vector-clip implementations
+perform no CPU readback/repacking and no per-item submission. Larger or mixed
+translated-equivalent postfix programs remain deterministically fail closed.
+
+The exact implementation archive SHA-256 is
+`CBA84443FA2EFC2AE74A6677370E9C6CF4E69729FEC5FEF15EC27E5EBEEB3DA2`.
+Apple M3 Pro Metal passed 10/10 native CTests and the permanent XOR pixel gate.
+The same source then rebuilt both providers under Windows ARM64 MSVC/Ninja in
+the Parallels VM, passed 11/11 CTests, and reproduced cyan/clear/cyan pixels
+`51/209/242`, `5/6/10`, `51/209/242` on the real D3D12 adapter. The complete
+bounded Windows integration matrix passed managed/native readback, automatic
+and forced raster-shader compute fallback, intrinsic-SIMD CPU and scalar
+oracle modes, typed fail-closed forced native compute, DirectX HelloTriangle
+and HelloTexture oracles, retained masks/effects/3D/text/images/caches, and the
+final vector-clip/blur/effect/blend smoke profiles. Final provider SHA-256
+values are
+`894B9C4337FED2134245E0D59ED17E0A0BCBBE52988681453393D3462F48CA97`
+and `BEC988C393985D52900A787F667501ADB4F7A3CB8ADC6A29EDF9497C7D7BFF4B`.
+LibreWPF advances its ProGPU submodule to the qualified documentation
+checkpoint.
+
 ## Next parity gates
 
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested
    render-data command families using the complete generated WPF MCG layouts.
-2. Add exact translated-equivalent EvenOdd overlap execution, exact Nonzero groups with
-   boolean children, non-bitmap image sources, exact
-   WPF-compatible arc lowering, and
+2. Extend translated-equivalent EvenOdd execution beyond the canonical binary
+   XOR form, add exact Nonzero groups with boolean children, non-bitmap image
+   sources, exact WPF-compatible arc lowering, and
    remaining multi-guideline draw-family deformation, general Visual
    effect/clip/mask/opacity ordering, remaining
    opacity-mask/effect/dynamic-guideline push/pop state,
