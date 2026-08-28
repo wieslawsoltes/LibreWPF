@@ -3776,6 +3776,23 @@ direct execution returned zero. Host and guest hashes matched
 executable SHA-256 was
 `08C83E4E428AD441321281AC701D05B28CF62B4D65B815B7F5ADA999E932BAAB`.
 
+ProGPU checkpoint `14e870f5` adds exact `GlyphRunDrawing` bounds. Canonical WPF
+already serializes `ComputeInkBoundingBox()` offset by `BaselineOrigin` as
+`MilCmdGlyphRunCreate.ManagedBounds`, the same rectangle consumed by
+`BoundsDrawingContextWalker.DrawGlyphRun`. ProGPU uses that typed packet field
+directly instead of reconstructing metrics or inspecting font outlines for
+bounds; null foreground brushes and empty managed ink boxes are valid empty
+draws. Coverage renders the pointer-free SFNT glyph directly and through a
+sheared DrawingGroup/DrawingImage, checks the complete affine mapping,
+destination clip, and transformed glyph command bounds, and retains the
+existing grayscale/ClearType/aliased text checks. Apple native tests pass 8/8.
+A clean archive rebuilt all 136 focused target steps under Windows ARM64 MSVC
+`19.44.35228.0` with `/W4 /WX`; focused CTest passed in 0.84 seconds and direct
+execution returned zero. Host and guest hashes matched (`FA158FC6...BF398`
+native source, `B2F34697...7CA6E` test source), and the guest executable
+SHA-256 was
+`48153630050BEDA01C79EDF0D9B4F7FE4EF5CBE881B89DD577820352D5E93604`.
+
 The Windows host harness now accepts `PROGPU_WPF_REAL_ASSEMBLY_DIR` so a
 deployment bundle can load one adjacent, source-built PresentationCore/
 PresentationFramework graph instead of inferring repository artifact paths.
