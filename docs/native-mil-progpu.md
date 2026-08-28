@@ -3609,8 +3609,9 @@ one closed full-sweep analytic arc; uniform and independent-X/Y rounded
 rectangles reuse the existing exact line/quarter-arc contour. Solid ellipse and
 uniform rounded-rectangle draws keep their original analytic fast paths.
 Native scene tests now require multiple retained arc/body primitives plus typed
-DashCap records for both shape families. Collapsed one-axis ellipses and
-degenerate rounded rectangles remain explicit fail-closed work. Follow-up
+DashCap records for both shape families. This checkpoint's collapsed one-axis
+ellipse and degenerate rectangle boundary is superseded by `f308c676`; rounded
+degenerate rectangles remain explicit fail-closed work. Follow-up
 checkpoint `2450bdd0` reuses the caller's already resolved native brush index
 when an analytic shape enters the curve-dash lane, avoiding a second gradient
 brush insertion and redundant brush resolution without changing the solid
@@ -3914,6 +3915,29 @@ and direct execution returned zero. Host/guest hashes matched
 `45ABD421...F6D0E` MIL test); guest MIL/internal executable hashes were
 `F7E4E8F7...626C1` and `62A9AE08...F175`.
 
+ProGPU checkpoint `f308c676` implements exact shared 180-degree reversal
+joins and uses them to traverse collapsed MIL dash contours. Miter and Bevel
+emit WPF's half-width three-triangle square; Round emits the incoming
+semicircle. One-axis sharp rectangles retain their canonical four points and
+one-axis ellipses retain the four ordered collapsed quarter traversals with
+forced Round smooth joins. The semantic stroke resource continues to own dash
+phase, DashCap, closed-seam merging, affine state, and backend-independent
+execution, so this adds no WPF-only renderer or CPU readback. Fully collapsed
+ellipses keep the typed visible-initial-dash point disk/initial-gap no-op rule;
+fully collapsed sharp rectangles and rounded degenerate rectangles remain
+fail closed. Live Windows PresentationCore probes cover all DashCap bounds,
+the `2.0` boundary versus `2.01` gap transition, and each reversal join shape.
+Apple passes 10/10 native CTests and 3,883 managed tests. Polyline Metal parity
+is byte exact at `C67040E2A28F2507` with 3,408/5,112 vertices/indices on both
+sides; dash parity retains matching 31,840/47,760 counts and the existing
+one-channel raster-edge budget. The immutable archive SHA-256 is
+`DD7E6B9D66305527E0F20F3445619F393943B00BEAABD4FEA88CD8450526491A`.
+Windows ARM64 MSVC `19.44.35228.0` rebuilt 178 steps with 161 `/W4 /WX` flag
+lines; focused MIL/internal CTests passed in 2.98 seconds and both executables
+returned zero directly. Host/guest hashes matched for the six changed source
+and test files; guest MIL/internal executable hashes were
+`A5272CE9...FAAC` and `30295F83...D0D6`.
+
 ProGPU checkpoint `30fcf084` removes the earlier group-level affine
 restriction for supported fill leaves. The native walker now composes every
 nested `DrawingGroup` transform into leaf geometry before calculating bounds,
@@ -4092,8 +4116,8 @@ arithmetic.
 
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested
    render-data command families using the complete generated WPF MCG layouts.
-2. Add exact collapsed ellipse and degenerate rounded-rectangle dashes, exact
-   degenerate zero-axis asymmetric rounded-rectangle widening, exact
+2. Add exact fully collapsed sharp-rectangle and degenerate rounded-rectangle
+   dashes, exact degenerate zero-axis asymmetric rounded-rectangle widening, exact
    translated-equivalent EvenOdd overlap execution, exact Nonzero groups with
    boolean children, non-bitmap image sources, exact
    WPF-compatible arc lowering, and
