@@ -13,6 +13,50 @@ $outputDirectory = Join-Path $repoRoot "artifacts/windows-managed-runtime"
 $versionDetailsPath = Join-Path $repoRoot "eng/Version.Details.props"
 $globalJsonPath = Join-Path $repoRoot "global.json"
 $packagesDirectory = Join-Path $repoRoot ".packages"
+$globalJson = Get-Content -Path $globalJsonPath -Raw | ConvertFrom-Json
+
+function Initialize-BuildSdk {
+    $sdkVersion = [string]$globalJson.sdk.version
+    if ([string]::IsNullOrWhiteSpace($sdkVersion)) {
+        throw "sdk.version is missing from $globalJsonPath."
+    }
+
+    $sdkDirectory = $null
+    $dotnetCommand = Get-Command dotnet.exe -ErrorAction SilentlyContinue
+    if ($null -ne $dotnetCommand) {
+        $sdkLine = & $dotnetCommand.Source --list-sdks |
+            Where-Object { $_ -like "$sdkVersion *" } |
+            Select-Object -Last 1
+        if ($sdkLine -match '^\S+\s+\[(.+)\]$') {
+            $candidate = Join-Path $Matches[1] $sdkVersion
+            if (Test-Path (Join-Path $candidate "Sdks/Microsoft.NET.Sdk/Sdk")) {
+                $sdkDirectory = $candidate
+            }
+        }
+    }
+
+    if ([string]::IsNullOrWhiteSpace($sdkDirectory)) {
+        $dotnetInstall = Join-Path $repoRoot "eng/common/dotnet-install.ps1"
+        & $dotnetInstall -version $sdkVersion -runtime sdk
+        if ($LASTEXITCODE -ne 0) {
+            throw "Installing the pinned .NET SDK $sdkVersion failed."
+        }
+
+        $sdkDirectory = Join-Path $repoRoot ".dotnet/sdk/$sdkVersion"
+    }
+
+    $sdkResolverPath = Join-Path $sdkDirectory "Sdks"
+    if (!(Test-Path (Join-Path $sdkResolverPath "Microsoft.NET.Sdk/Sdk"))) {
+        throw "The pinned .NET SDK resolver is missing from $sdkResolverPath."
+    }
+
+    $dotnetRoot = Split-Path -Parent (Split-Path -Parent $sdkDirectory)
+    $env:DOTNET_ROOT = $dotnetRoot
+    $env:PATH = "$dotnetRoot;$env:PATH"
+    $env:MSBuildSDKsPath = $sdkResolverPath
+}
+
+Initialize-BuildSdk
 
 Remove-Item -Path $outputDirectory -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Path $outputDirectory -Force | Out-Null
@@ -25,7 +69,6 @@ else {
     # Arcade restores this pinned native tool before invoking MSBuild. Resolve
     # the future path now so a clean Windows build agent or integration VM does
     # not also need a machine-wide Strawberry Perl installation.
-    $globalJson = Get-Content -Path $globalJsonPath -Raw | ConvertFrom-Json
     $strawberryPerlVersion = [string]$globalJson.'native-tools'.'strawberry-perl'
     if ([string]::IsNullOrWhiteSpace($strawberryPerlVersion)) {
         throw "native-tools.strawberry-perl is missing from $globalJsonPath."

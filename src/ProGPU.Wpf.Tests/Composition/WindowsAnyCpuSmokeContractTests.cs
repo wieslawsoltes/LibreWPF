@@ -102,6 +102,10 @@ public sealed class WindowsAnyCpuSmokeContractTests
         Assert.Contains("PresentationBuildTasks.csproj", buildScript, StringComparison.Ordinal);
         Assert.Contains("build.cmd", buildScript, StringComparison.Ordinal);
         Assert.Contains("-msbuildEngine vs", buildScript, StringComparison.Ordinal);
+        Assert.Contains("function Initialize-BuildSdk", buildScript, StringComparison.Ordinal);
+        Assert.Contains("$globalJson.sdk.version", buildScript, StringComparison.Ordinal);
+        Assert.Contains("eng/common/dotnet-install.ps1", buildScript, StringComparison.Ordinal);
+        Assert.Contains("$env:MSBuildSDKsPath = $sdkResolverPath", buildScript, StringComparison.Ordinal);
         Assert.Contains("[switch] $NativeToolsOnMachine", buildScript, StringComparison.Ordinal);
         Assert.Contains("if ($NativeToolsOnMachine)", buildScript, StringComparison.Ordinal);
         Assert.Contains("-nativeToolsOnMachine", buildScript, StringComparison.Ordinal);
