@@ -3519,6 +3519,27 @@ The self-contained Windows 11 ARM64 Parallels x64-emulation lane reported
 ProGPU documentation checkpoint `e33a668a` records the complete measurements
 and scopes the Windows result as emulated-x64 rather than physical-x64 evidence.
 
+ProGPU checkpoints `2c7bf929` and `86855726` also remove the duplicated scalar
+PCM16-to-float normalization loops from the Windows Media Foundation, Linux,
+and Android decode paths. A shared allocation-free converter widens signed
+samples through unrolled `Vector256` or `Vector128` lanes, applies the exact
+power-of-two `1 / 32768` scale, and keeps only a bounded scalar tail. The
+independent scalar oracle covers PCM extrema, vector boundaries and tails,
+sentinel preservation, invalid ranges, exact output bits, and allocation
+behavior; the complete ProGPU test assembly passes 3,877/3,877 tests. Three
+fresh Apple M3 Pro 48,000-frame runs measured median-of-run p50 `10.451`
+versus `33.191 us/block` (3.18x), with median p95 `27.255` versus `42.697` and
+p99 `35.809` versus `47.037 us/block`. Four self-contained `win-x64` runs in
+the Windows 11 ARM64 Parallels VM over the product 1,024-frame block reported
+`Vector128=True`, `Vector256=True`, median p50 `1.492` versus `14.874
+us/block` (9.97x), p95 `3.285` versus `23.408`, and p99 `5.406` versus
+`30.666 us/block`. Both lanes remained bit exact and allocation free. The
+Windows executable SHA-256 was
+`95ECEAE96594EAE211491850692CD76FBDDC908800D69CCD1E59779A2E3B557F`;
+documentation checkpoint `a50b57f8` retains the commands, raw runs, platform
+scope, and caveat that this Windows result is x64 emulation rather than
+physical-x64 evidence.
+
 ProGPU documentation checkpoint `ab6107e4` additionally qualifies both
 `Vector256` product kernels with the self-contained `win-x64` benchmark in the
 Windows 11 ARM64 Parallels integration VM. .NET 10.0.5 reported `arch=X64`,
@@ -3609,6 +3630,26 @@ must consume the exact six-RID artifact produced from the tracked ProGPU
 commit. This closes the stale-type failure that previously surfaced as a
 `TypeLoadException` for `NativeMilBatchMetrics` only after the bundle consumer
 started.
+
+The exact-head production gate is qualified at ProGPU commit `6babe3f8` by
+[workflow run 33140719250](https://github.com/wieslawsoltes/ProGPU/actions/runs/33140719250):
+all 27 jobs passed and produced version `0.1.0-preview.1934.ci`. All 40 NuGet
+packages were audited for that exact package version and repository commit;
+`ProGPU.Backend.Native` contains native assets for all six required RIDs. The
+same immutable artifact then passed the complete LibreWPF package-mode gate,
+including generated MIL layout verification, native transport/host, real XAML
+and `Application.Run`, Fluent, release bundle audit, bundle consumer, runtime
+and external no-source-change harnesses, live geometry/input, the MVP renderer,
+Toolkit/AvalonDock, paid Xceed, SciChart, and the focused package-graph guard.
+The qualified bundle is
+`librewpf-preview-0.1.0-preview.45.tar.gz`, SHA-256
+`6b0faf9f9ba2f08f466a1a450f381cc65602cf6614f6f89fb238d43a7a8329d6`.
+LibreWPF checkpoints `1c10d47a9` and `7b0a38248` make the exact ProGPU version
+an explicit input to every packaged harness and separate serial build from
+`dotnet run --no-build`, so the MSBuild concurrency flag can never leak into
+application arguments. The tracked ProGPU submodule has since advanced to the
+post-gate PCM16 normalization checkpoints above; the exact package evidence
+intentionally identifies the earlier immutable commit that produced it.
 
 The Windows managed payload and SDK transport fallback now pin the serviced
 `Microsoft.WindowsDesktop.App.Runtime` `10.0.11` packages for x64, x86, and
