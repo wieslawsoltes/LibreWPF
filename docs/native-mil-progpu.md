@@ -3728,10 +3728,11 @@ collapsed-axis ellipses, and point ellipses.
 It reuses ProGPU's canonical live Pen resolver, cap-aware line bounds, and the
 same positive-shape stroke-bounds helper used by native rendering, so a
 thickness animation updates the image mapping without retransmitting the Pen or
-Drawing. Only axis-preserving geometry transforms are accepted, where
-transforming the local stroke AABB remains exact. A missing DashStyle and an
-empty DashStyle interval collection both select the solid lane; nonempty
-dashed, path/group, and non-axis-preserving stroked cases fail closed. Native
+Drawing. Fixed shapes require axis-preserving transforms, where transforming
+the local stroke AABB remains exact; polygonal-cap lines gain broader affine
+support in the checkpoint below. A missing DashStyle and an empty DashStyle
+interval collection both select the solid lane; nonempty dashed and path/group
+stroke cases fail closed. Native
 coverage checks
 square-cap mappings at two live thicknesses, positive and degenerate fixed
 shape mappings, plus sheared-transform and nonempty-dashed-Pen rejection, then
@@ -3741,6 +3742,21 @@ host/guest hashes matched at the empty-DashStyle implementation head
 (`680D3CBE...FBF7` native and `BD6A99C8...FECC` test); Windows ARM64 MSVC 19.44
 `/W4 /WX` rebuilt the target and passed the focused test in 1.93 seconds.
 ProGPU documentation checkpoint `e291d485` pins the result.
+
+ProGPU checkpoint `34529979` extends solid line-stroke inference to general
+affine effective transforms for flat, square, and triangle caps. It transforms
+the actual strip and cap vertices and reduces those world-space points rather
+than transforming a broadened local AABB. Fixed shapes still require
+axis-preserving transforms, and round-capped affine lines remain fail closed
+until their transformed semicircle extrema are qualified. Coverage verifies
+exact sheared square- and triangle-cap mappings while retaining nonempty-dash
+rejection and live empty-DashStyle success. Apple native tests pass 8/8. A clean
+archive rebuilt all 136 focused target steps under Windows ARM64 MSVC
+`19.44.35228.0` with `/W4 /WX`; focused CTest passed in 1.00 second and direct
+execution returned zero. Host and guest hashes matched (`00917E30...3E64A2`
+native source, `8EC1AC25...751CF6` test source), and the guest executable
+SHA-256 was
+`FE386E7FB3B93E0BE7125E8AD60B7005CBF6D2264C1A12FAA8A4EB2CC38A2051`.
 
 ProGPU checkpoint `30fcf084` removes the earlier group-level affine
 restriction for supported fill leaves. The native walker now composes every
