@@ -276,8 +276,7 @@ ProGPU currently provides:
   while Round emits analytic quarter arcs. One-axis dashed rectangles retain
   the four-point closed contour and WPF reversal joins. Fully collapsed sharp
   rectangles use the typed Round/Round point disk when the initial dash is
-  visible and emit no draw for an initial gap. Degenerate fills stay empty;
-  rounded degenerate dashes remain fail closed.
+  visible and emit no draw for an initial gap. Degenerate fills stay empty.
 - Typed ellipse pen production for fill-only, stroke-only, and combined
   records. Solid ellipse outlines use ProGPU's exact full-ellipse analytic arc,
   preserve non-uniform radii, and publish affine-expanded stroke bounds;
@@ -293,10 +292,12 @@ ProGPU currently provides:
   connected-curve stroke. Positive-area records with either radius zero follow
   WPF's sharp-rectangle equivalence and retain rectangle join/dash behavior,
   while positive-area uniform and independent-X/Y curved dashes reuse the
-  exact closed line/quarter-arc contour. Degenerate uniform and positive-radius
-  records use the same outer
-  widened path with WPF's independently clamped X/Y radii; degenerate
-  zero-axis asymmetric records remain fail closed.
+  exact closed line/quarter-arc contour. Degenerate records with both radii
+  positive retain WpfGfx's canonical 17-point alternating cubic/line contour,
+  independently clamp X/Y radii, and reuse the native curve-dash compiler;
+  point records reduce to the visible-initial-dash Round/Round disk or
+  initial-gap no-op. Degenerate zero-axis asymmetric records remain fail
+  closed pending sharp-rectangle normalization.
 - Typed retained `LineGeometry`, `RectangleGeometry`, and `EllipseGeometry`
   resources with nested `DrawGeometry` lowering. Optional geometry-local
   affine transforms compose with visual and drawing scopes; line pen semantics
@@ -3992,6 +3993,28 @@ Guest MIL/internal executable SHA-256 values were
 and `72633B0DB0A4B5A1908F6EB92AA8C0D469A3DB197A5EE09923B4712C60E7C1F3`.
 LibreWPF advances its ProGPU submodule to this checkpoint.
 
+ProGPU checkpoint `35edc9c6` closes dashed degenerate rounded rectangles when
+both radii are positive. It independently clamps X/Y radii, recreates
+WpfGfx's exact 17 float-point alternating cubic/line contour with
+`ARC_AS_BEZIER`, and routes that contour through the existing typed curve-dash
+compiler. Vertical, horizontal, asymmetric-radius, and point records retain
+the shared dash phase, DashCap, smooth joins, exact cubic spans, affine state,
+and DirectX/WebGPU execution; the point case reduces to the qualified
+Round/Round disk or no-op. A live Windows PresentationCore oracle covered six
+uniform/asymmetric vertical, horizontal, and point profiles across every
+DashCap and seven offsets, locking phase-dependent bounds, alpha totals, and
+pixel hashes. Apple passes all 10 native CTests. The immutable archive SHA-256
+is `C9C4FD6BB74BF15EAB6CBD03408C36F23DF945C205B3A6FE038CE4520F62720D`.
+Its exact sources rebuilt all 257 steps under Windows ARM64 MSVC
+`19.44.35228.0`; all 10 CTests passed in 24.07 seconds and both focused
+executables returned zero. Host/guest source hashes matched at
+`667394D8B2BF70C10C14B9695144F4066EC6680A41F6B2B64E1C334EBD2AC2C0`
+and `DAC859981EF978FCCDC1C7CEEF6E382F611DA2B23A0E01BF37E535B35AB89549`.
+Guest MIL/internal executable SHA-256 values were
+`DE5C145CA0529B82B292B43E558509476AE62C95C63819805115D0F77D0D37DD`
+and `61ADE59E104E6D29FC4FDA04550FE2CFAE34C871455E3510E04ED07F606823C7`.
+LibreWPF advances its ProGPU submodule to this checkpoint.
+
 ProGPU checkpoint `30fcf084` removes the earlier group-level affine
 restriction for supported fill leaves. The native walker now composes every
 nested `DrawingGroup` transform into leaf geometry before calculating bounds,
@@ -4170,8 +4193,7 @@ arithmetic.
 
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested
    render-data command families using the complete generated WPF MCG layouts.
-2. Add exact fully collapsed sharp-rectangle and degenerate rounded-rectangle
-   dashes, exact degenerate zero-axis asymmetric rounded-rectangle widening, exact
+2. Add exact degenerate zero-axis asymmetric rounded-rectangle widening, exact
    translated-equivalent EvenOdd overlap execution, exact Nonzero groups with
    boolean children, non-bitmap image sources, exact
    WPF-compatible arc lowering, and
