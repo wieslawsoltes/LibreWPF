@@ -3664,6 +3664,29 @@ Median-of-run p50 was `48.669` versus `171.175 us/block` (3.52x) for the
 the 1,024-frame wide mix. This is emulated-x64 correctness and relative
 performance evidence, not a physical-x64 hardware claim.
 
+ProGPU checkpoint `4dbd79ac` further reduces processed-float SIMD validation
+overhead without changing its scalar oracle or failure boundary. The hot lane
+tests the IEEE-754 exponent field directly and falls back at the first vector
+containing infinity or NaN. Its differential corpus now includes 4,099 finite
+raw bit patterns, adjacent positive/negative half-boundary values, alternating
+Int64 saturation edges, and all supported level pairs. Six paired Apple M3 Pro
+runs reduced median p50 from `1.926` to `1.858 us/block` (3.5%) and p95 from
+`18.348` to `17.033 us/block` (7.2%), with exact checksum `-68911` and zero
+allocation. Measured two-vector unrolling and forced helper inlining were
+rejected because they did not improve the product workload.
+
+The native MIL checkpoints from `f2b0b579` through `96c0a2d2` also remove
+sideband bounds from additional `DrawingImage` brush-mapping cases. Fixed
+positive rectangles, rounded rectangles and ellipses; exact line, quadratic,
+cubic and arc paths; transformed paths; and nested single-child geometry
+groups now derive exact emitted fill bounds in C++. Multi-child groups,
+stroked drawings and boolean cancellation remain fail closed until their exact
+WPF bounds semantics are implemented. A clean archive of `96c0a2d2` compiled
+all 136 focused target steps in the Windows 11 ARM64 Parallels VM with MSVC
+`19.44` under `/W4 /WX`; `progpu_native_mil_tests` passed in 1.26 seconds.
+Checkpoint `4dbd79ac` changes only managed PCM code and documentation, so its
+native MIL sources are byte-identical to that Windows-qualified archive.
+
 The Windows host harness now accepts `PROGPU_WPF_REAL_ASSEMBLY_DIR` so a
 deployment bundle can load one adjacent, source-built PresentationCore/
 PresentationFramework graph instead of inferring repository artifact paths.
