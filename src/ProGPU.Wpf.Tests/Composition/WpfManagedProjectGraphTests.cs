@@ -12193,6 +12193,7 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("<None Include=\"$(IntermediateOutputPath)LibreWPF.Sdk.Version.props\"", sdkProject.ToString(), StringComparison.Ordinal);
         Assert.Contains("BeforeTargets=\"_GetPackageFiles\"", sdkProject.ToString(), StringComparison.Ordinal);
         Assert.Contains("&lt;_LibreWpfSdkPackageVersion&gt;$(_LibreWpfSdkPackageVersionToPack)&lt;/_LibreWpfSdkPackageVersion&gt;", sdkProject.ToString(), StringComparison.Ordinal);
+        Assert.Contains("&lt;_LibreWpfSdkProGpuPackageVersion&gt;$(ProGpuRuntimePackageVersion)&lt;/_LibreWpfSdkProGpuPackageVersion&gt;", sdkProject.ToString(), StringComparison.Ordinal);
         Assert.Contains("<WriteLinesToFile File=\"$(IntermediateOutputPath)LibreWPF.Sdk.Version.props\"", sdkProject.ToString(), StringComparison.Ordinal);
         Assert.Contains("<None Include=\"targets\\**\\*\" Pack=\"true\" PackagePath=\"targets\\%(RecursiveDir)\" />", sdkProject.ToString(), StringComparison.Ordinal);
         Assert.Contains("PackagePath=\"tools\\net10.0\"", sdkProject.ToString(), StringComparison.Ordinal);
@@ -12224,6 +12225,7 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("<Import Project=\"$(MSBuildThisFileDirectory)LibreWPF.Sdk.Version.props\"", sdkProps, StringComparison.Ordinal);
         Assert.Contains("<ProGpuWpfSdkVersion Condition=\"'$(ProGpuWpfSdkVersion)' == '' And '$(_LibreWpfSdkPackageVersion)' != ''\">$(_LibreWpfSdkPackageVersion)</ProGpuWpfSdkVersion>", sdkProps, StringComparison.Ordinal);
         Assert.Contains("<ProGpuWpfSdkVersion Condition=\"'$(ProGpuWpfSdkVersion)' == ''\">0.1.0-preview.45</ProGpuWpfSdkVersion>", sdkProps, StringComparison.Ordinal);
+        Assert.Contains("<ProGpuPackageVersion Condition=\"'$(ProGpuPackageVersion)' == '' And '$(_LibreWpfSdkProGpuPackageVersion)' != ''\">$(_LibreWpfSdkProGpuPackageVersion)</ProGpuPackageVersion>", sdkProps, StringComparison.Ordinal);
         Assert.Contains("<ProGpuWpfRuntimeFrameworkVersion Condition=\"'$(ProGpuWpfRuntimeFrameworkVersion)' == ''\"></ProGpuWpfRuntimeFrameworkVersion>", sdkProps, StringComparison.Ordinal);
         Assert.Contains("<RuntimeFrameworkVersion Condition=\"'$(ProGpuWpfUsePortableFrameworkReferences)' == 'true' And '$(RuntimeFrameworkVersion)' == '' And '$(ProGpuWpfRuntimeFrameworkVersion)' != ''\">$(ProGpuWpfRuntimeFrameworkVersion)</RuntimeFrameworkVersion>", sdkProps, StringComparison.Ordinal);
         Assert.DoesNotContain("11.0.0-preview.4.26210.111", sdkProps, StringComparison.Ordinal);
@@ -12867,6 +12869,7 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("require_entry LibreWPF.Sdk \"Sdk/Sdk.props\"", previewPackageAuditScript, StringComparison.Ordinal);
         Assert.Contains("require_entry LibreWPF.Sdk \"Sdk/LibreWPF.Sdk.Version.props\"", previewPackageAuditScript, StringComparison.Ordinal);
         Assert.Contains("<_LibreWpfSdkPackageVersion>${dev_package_version}</_LibreWpfSdkPackageVersion>", previewPackageAuditScript, StringComparison.Ordinal);
+        Assert.Contains("<_LibreWpfSdkProGpuPackageVersion>${progpu_package_version}</_LibreWpfSdkProGpuPackageVersion>", previewPackageAuditScript, StringComparison.Ordinal);
         Assert.Contains("require_entry LibreWPF.Sdk \"targets/ProGPU.Wpf.Sdk.targets\"", previewPackageAuditScript, StringComparison.Ordinal);
         Assert.Contains("require_nuspec_contains LibreWPF.Sdk \"<packageType name=\\\"MSBuildSdk\\\" />\"", previewPackageAuditScript, StringComparison.Ordinal);
         Assert.Contains("require_entry LibreWPF.ProGPU \"lib/net10.0/ProGPU.Wpf.dll\"", previewPackageAuditScript, StringComparison.Ordinal);
@@ -13029,6 +13032,7 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("require_package_cache_entry \"LibreWPF.Transport\"", previewReleaseSdkSmokeScript, StringComparison.Ordinal);
         Assert.Contains("require_package_cache_entry \"LibreWPF.ProGPU\"", previewReleaseSdkSmokeScript, StringComparison.Ordinal);
         Assert.Contains("require_package_cache_entry \"LibreWPF.Sdk\"", previewReleaseSdkSmokeScript, StringComparison.Ordinal);
+        Assert.Contains("require_package_cache_entry \"ProGPU.Backend.Native\"", previewReleaseSdkSmokeScript, StringComparison.Ordinal);
         Assert.Contains("LibreWPF preview release bundle SDK smoke succeeded.", previewReleaseSdkSmokeScript, StringComparison.Ordinal);
         Assert.Contains("avalonia_project_dir=\"${feed_dir}/BundleAvaloniaSmoke\"", previewReleaseSdkSmokeScript, StringComparison.Ordinal);
         Assert.Contains("<Import Project=\"${repo_root}/external/ProGPU/Directory.Packages.props\" />", previewReleaseSdkSmokeScript, StringComparison.Ordinal);
