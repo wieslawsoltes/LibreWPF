@@ -3703,18 +3703,22 @@ ARM64 MSVC 19.44 with `/W4 /WX`; the focused native MIL test passed in 1.67
 seconds after that compiler exposed and the follow-up removed a shadowed depth
 name in the recursive lambda.
 
-ProGPU implementation checkpoint `022a44cc` then matches WPF's authoritative
-`BoundsDrawingContextWalker` state rules: static fixed/path/geometry-group clip
-bounds intersect the local child union before the group transform, while
-opacity, animated opacity, opacity masks, guidelines, edge mode, bitmap
+ProGPU implementation checkpoints `022a44cc` and `b83c1b5f` then match WPF's
+authoritative `BoundsDrawingContextWalker` state rules: static
+fixed/path/geometry-group clip bounds intersect each local child before union
+and the group transform, so empty space between separately drawn children is
+not added to the bounds.
+Opacity, animated opacity, opacity masks, guidelines, edge mode, bitmap
 sampling, and ClearType do not alter drawing bounds. Unsupported clip geometry
 and non-axis-preserving group transforms remain fail closed. The differential
-fixture combines all of those ignored states with a real rectangle clip,
-verifies the resulting exact DrawingImage mapping, and retains the shear
-rejection oracle. The Apple native suite remains 8/8. Exact host/guest SHA-256
-values matched for both changed sources, and Windows 11 ARM64 Parallels rebuilt
-the native target under MSVC 19.44 `/W4 /WX`; the focused test passed in 1.70
-seconds. ProGPU documentation checkpoint `fb18dbd7` pins that qualification.
+fixture combines all of those ignored states with a rectangle clip that
+intersects only one of two separated children, verifies the resulting exact
+DrawingImage mapping, and retains the shear rejection oracle. The Apple native
+suite remains 8/8. Exact host/guest SHA-256 values matched at the final
+implementation head (`3737C2B5...03DD` for the native source and
+`6F60A9C7...BCCA` for its test), and Windows 11 ARM64 Parallels rebuilt the
+native target under MSVC 19.44 `/W4 /WX`; the focused test passed in 1.12
+seconds. ProGPU documentation checkpoint `d841466e` pins that qualification.
 
 The Windows host harness now accepts `PROGPU_WPF_REAL_ASSEMBLY_DIR` so a
 deployment bundle can load one adjacent, source-built PresentationCore/
