@@ -3720,9 +3720,9 @@ implementation head (`3737C2B5...03DD` for the native source and
 native target under MSVC 19.44 `/W4 /WX`; the focused test passed in 1.12
 seconds. ProGPU documentation checkpoint `d841466e` pins that qualification.
 
-ProGPU implementation checkpoints `f5c3245d`, `81b5e0c4`, and `dbec7d09`
-provide exact sideband-free bounds for fixed GeometryDrawings with a positive
-non-dashed Pen.
+ProGPU implementation checkpoints `f5c3245d`, `81b5e0c4`, `dbec7d09`, and
+`cc629948` provide exact sideband-free bounds for fixed GeometryDrawings with a
+positive solid Pen.
 The lane covers lines and positive-area rectangles, rounded rectangles, and
 ellipses, then extends the same rule to zero-width/zero-height rectangles,
 collapsed-axis ellipses, and point ellipses.
@@ -3730,14 +3730,18 @@ It reuses ProGPU's canonical live Pen resolver, cap-aware line bounds, and the
 same positive-shape stroke-bounds helper used by native rendering, so a
 thickness animation updates the image mapping without retransmitting the Pen or
 Drawing. Only axis-preserving geometry transforms are accepted, where
-transforming the local stroke AABB remains exact; dashed, path/group, and
-non-axis-preserving stroked cases fail closed. Native coverage checks
+transforming the local stroke AABB remains exact. A missing DashStyle and an
+empty DashStyle interval collection both select the solid lane; nonempty
+dashed, path/group, and non-axis-preserving stroked cases fail closed. Native
+coverage checks
 square-cap mappings at two live thicknesses, positive and degenerate fixed
-shape mappings, plus sheared-transform and dashed-Pen rejection. Exact
-host/guest hashes matched at the degenerate-shape implementation head
-(`B47CA86F...63B5` native and `CD79B514...0D7A` test); Windows ARM64 MSVC 19.44
-`/W4 /WX` rebuilt the target and passed the focused test in 1.69 seconds.
-ProGPU documentation checkpoint `01a383c2` pins the result.
+shape mappings, plus sheared-transform and nonempty-dashed-Pen rejection, then
+updates that DashStyle to empty intervals and succeeds without retransmitting
+the Pen or Drawing. Exact
+host/guest hashes matched at the empty-DashStyle implementation head
+(`680D3CBE...FBF7` native and `BD6A99C8...FECC` test); Windows ARM64 MSVC 19.44
+`/W4 /WX` rebuilt the target and passed the focused test in 1.93 seconds.
+ProGPU documentation checkpoint `e291d485` pins the result.
 
 The Windows host harness now accepts `PROGPU_WPF_REAL_ASSEMBLY_DIR` so a
 deployment bundle can load one adjacent, source-built PresentationCore/
