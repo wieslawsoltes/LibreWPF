@@ -58,6 +58,10 @@ function Initialize-BuildSdk {
     $env:DOTNET_ROOT = $dotnetRoot
     $env:PATH = "$dotnetRoot;$env:PATH"
     $env:MSBuildSDKsPath = $sdkResolverPath
+    # PresentationCore does not consume SDK workloads. Visual Studio MSBuild
+    # otherwise asks its own resolver for workload locator SDKs that are not
+    # part of the standalone pinned SDK layout used by clean Build Tools VMs.
+    $env:MSBuildEnableWorkloadResolver = "false"
 }
 
 Initialize-BuildSdk
