@@ -3847,6 +3847,27 @@ archive, `D6730AFD...91BDB` MIL source, `8581A4D5...FCD3F` MIL test); guest MIL
 and internal executable hashes were `865BB142...99714` and
 `287ECC0A...48117`.
 
+ProGPU checkpoint `aadd184f` adds exact affine ellipse-stroke bounds for the
+qualified non-refined profile. It reconstructs WPF's four float-quantized
+`ARC_AS_BEZIER` cubics and mirrors `CBezierFlattener` hybrid forward
+differencing at the 0.25 tolerance, using fixed-size arrays, before offsetting
+the emitted tangents by the pen radius. `Geometry.Transform` is applied before
+that widening and `DrawingGroup.Transform` afterward. For center `(20,30)`,
+radii `(10,5)`, thickness 8, and matrix `[1,.25,.5,1,0,0]`, live WPF returned
+`20.719608306884766,25.423517227172852,28.560783386230469,19.152963638305664`
+for `Geometry.Transform` and
+`20.239826202392578,25.299463272094727,29.520347595214844,19.40107536315918`
+for `DrawingGroup.Transform`; native mapping tests lock down both. Profiles
+that cross WpfGfx's thick-stroke refinement threshold still fail closed until
+the extra `RoundTo` cubics are shared, and a regression test locks that
+boundary. Apple native tests pass 8/8. A clean exact archive rebuilt 153
+MIL/internal steps under Windows ARM64 MSVC `19.44.35228.0`; 161 Ninja flag
+lines carry `/W4 /WX`, both focused tests passed in 1.57 seconds, and direct
+executions returned zero. Host/guest hashes matched (`471096C4...D6234D`
+archive, `F55BB225...ACFAF8` MIL source, `1BE90C6C...5D51BE` MIL test); guest
+MIL/internal executable hashes were `BB97651B...85AAE6` and
+`2B2E729A...8F8FE7`.
+
 ProGPU checkpoint `30fcf084` removes the earlier group-level affine
 restriction for supported fill leaves. The native walker now composes every
 nested `DrawingGroup` transform into leaf geometry before calculating bounds,
