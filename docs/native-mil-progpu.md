@@ -3895,6 +3895,25 @@ pixels, identical `C67040E2A28F2507` hashes), with native and managed output
 both using 3,408 vertices and 5,112 indices. The managed suite passes
 3,880/3,880 and the Apple native suite passes 10/10.
 
+ProGPU checkpoint `5a47e701` adds exact affine rounded-rectangle stroke
+bounds. Its allocation-free contour walker consumes WPF's alternating smooth
+cubic/line shape, widens after Geometry.Transform, applies DrawingGroup/world
+state afterward, evaluates HFD flatness in device space, and derives the
+`RoundTo` refinement threshold from the world transform's maximum singular
+value. For rectangle `[20,10,30,15]`, radii `(5,3)`, thickness 8, and matrix
+`[1,.25,.5,1,0,0]`, live WPF returned
+`22.42738151550293,11.999236106872559,42.645235061645508,28.501526832580566`
+for `Geometry.Transform` and
+`21.880094528198242,11.876118659973145,43.739809036254883,28.747763633728027`
+for `DrawingGroup.Transform`; both native image mappings are locked down.
+Apple native tests pass 10/10 and 8/8 in the two configurations. The immutable
+archive rebuilt 153 steps under Windows ARM64 MSVC `19.44.35228.0`; all 161
+Ninja flag lines carry `/W4 /WX`, both focused CTests passed in 2.57 seconds,
+and direct execution returned zero. Host/guest hashes matched
+(`21C131E2...D8C4D` archive, `3D67CDD5...2B43C` MIL source,
+`45ABD421...F6D0E` MIL test); guest MIL/internal executable hashes were
+`F7E4E8F7...626C1` and `62A9AE08...F175`.
+
 ProGPU checkpoint `30fcf084` removes the earlier group-level affine
 restriction for supported fill leaves. The native walker now composes every
 nested `DrawingGroup` transform into leaf geometry before calculating bounds,
