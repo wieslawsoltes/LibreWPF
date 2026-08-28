@@ -3599,6 +3599,18 @@ when an analytic shape enters the curve-dash lane, avoiding a second gradient
 brush insertion and redundant brush resolution without changing the solid
 fast path.
 
+ProGPU checkpoint `c5a5e7b6` removes the remaining per-visible-run container
+cost from the native curve-dash compiler. Run ranges, exact segments, and join
+flags now occupy three flat buffers shared by every dashed path in one render
+stream; the transactionally copied MIL channel state does not retain scratch
+storage. A dense 256-segment contract produces 64 runs, 192 segments, and 128
+joins, then requires identical storage addresses and capacities across 32
+recompilations. This makes high-water reuse a tested steady-state
+no-allocation property rather than a benchmark inference. The full native
+Apple Clang qualification rebuilt 96 targets, passed 10/10 CTests, verified the
+exported-symbol allowlist, and completed Metal retained render/readback; exact
+curve and scene parity fixtures remain unchanged.
+
 ProGPU documentation checkpoint `ab6107e4` additionally qualifies both
 `Vector256` product kernels with the self-contained `win-x64` benchmark in the
 Windows 11 ARM64 Parallels integration VM. .NET 10.0.5 reported `arch=X64`,
