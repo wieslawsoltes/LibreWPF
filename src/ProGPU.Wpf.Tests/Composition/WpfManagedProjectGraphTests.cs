@@ -12773,6 +12773,8 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("cmp \"${source_package}\" \"${destination_package}\"", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("cmp \"${source_package}\" \"${snapshot_package}\"", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("\"${package_output}/${package_id}.${progpu_package_version}.nupkg\"", sdkCiScript, StringComparison.Ordinal);
+        Assert.Contains("-p:ProGpuRuntimePackageVersion=\"${progpu_package_version}\"", sdkCiScript, StringComparison.Ordinal);
+        Assert.Contains("-p:RestoreAdditionalProjectSources=\"${package_output}\"", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("stage_or_pack_progpu_project \"external/ProGPU/src/ProGPU.DirectX/ProGPU.DirectX.csproj\" \"ProGPU.DirectX\"", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("stage_or_pack_progpu_project \"external/ProGPU/src/ProGPU.Backend.Dawn/ProGPU.Backend.Dawn.csproj\" \"ProGPU.Backend.Dawn\"", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("stage_or_pack_progpu_project \"external/ProGPU/src/ProGPU.Backend.Native/ProGPU.Backend.Native.csproj\" \"ProGPU.Backend.Native\"", sdkCiScript, StringComparison.Ordinal);

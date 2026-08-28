@@ -70,7 +70,9 @@ pack_project() {
     -o "${package_output}" \
     -v:minimal \
     -p:Version="${package_version}" \
-    -p:PackageVersion="${package_version}"
+    -p:PackageVersion="${package_version}" \
+    -p:ProGpuRuntimePackageVersion="${progpu_package_version}" \
+    -p:RestoreAdditionalProjectSources="${package_output}"
 }
 
 stage_or_pack_progpu_project() {
