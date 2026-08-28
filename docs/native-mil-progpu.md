@@ -3886,6 +3886,15 @@ returned zero. Host/guest source hashes matched (`8B71B473...77D4D` MIL and
 `691DAD8A...CE95` MIL test); guest MIL/internal executable hashes were
 `037D26AF...7BFBD` and `B5635F7D...6EE5`.
 
+ProGPU checkpoint `e4d1d2c8` then brings the shared managed renderer onto the
+same WPF clipped-miter rule through both the allocation-free span writer and
+the allocating compatibility API. This fixes the four Unix native-renderer
+CI jobs without relaxing their differential budgets: the formerly divergent
+96-polyline Apple Metal frame is now byte exact (`max=0`, zero differing
+pixels, identical `C67040E2A28F2507` hashes), with native and managed output
+both using 3,408 vertices and 5,112 indices. The managed suite passes
+3,880/3,880 and the Apple native suite passes 10/10.
+
 ProGPU checkpoint `30fcf084` removes the earlier group-level affine
 restriction for supported fill leaves. The native walker now composes every
 nested `DrawingGroup` transform into leaf geometry before calculating bounds,
