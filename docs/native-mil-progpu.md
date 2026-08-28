@@ -3611,6 +3611,20 @@ Apple Clang qualification rebuilt 96 targets, passed 10/10 CTests, verified the
 exported-symbol allowlist, and completed Metal retained render/readback; exact
 curve and scene parity fixtures remain unchanged.
 
+ProGPU checkpoint `4d714cb3` adds exact pen execution for `GeometryGroup`
+resources whose children are typed `PathGeometry` values. The implementation
+follows the tracked WPF `CMilGeometryGroupDuce::GetShapeDataCore` and
+`CDrawingContext::DrawGeometry` ordering: figures retain their separate
+open/closed and fillable/stroked state, child/group/drawing transforms compose
+in WPF order, one aggregate pen brush is reused, fill submits before stroke,
+and dash phase restarts per figure. Native fixtures cover a filled child plus
+an explicitly unfilled-but-stroked closed child, independent transforms, exact
+solid line/quadratic/cubic bodies, and dashed bodies/triangle caps on both
+children. Fixed, nested, and boolean group children remain fail closed for a
+meaningful pen; their stroke contours are the next typed extensions rather
+than candidates for fill-boundary approximation. All 8 native CTests and both
+documentation/package verifiers pass locally.
+
 ProGPU documentation checkpoint `ab6107e4` additionally qualifies both
 `Vector256` product kernels with the self-contained `win-x64` benchmark in the
 Windows 11 ARM64 Parallels integration VM. .NET 10.0.5 reported `arch=X64`,
