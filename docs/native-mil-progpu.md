@@ -3692,10 +3692,9 @@ all 136 focused target steps in the Windows 11 ARM64 Parallels VM with MSVC
 Checkpoint `4dbd79ac` changes only managed PCM code and documentation, so its
 native MIL sources are byte-identical to that Windows-qualified archive.
 
-ProGPU checkpoints `1e764396` and `18e72815` next infer sideband-free
+ProGPU checkpoints `1e764396` and `18e72815` first infer sideband-free
 `DrawingImage` bounds through nested default-state `DrawingGroup` trees.
-Separately drawn child bounds are unioned before each nested axis-preserving
-group transform. Native coverage uses two
+Native coverage uses two
 independent rectangle drawings through two transformed group levels and then
 requires a sheared update to return `unsupported_command`. The complete Apple
 native suite passes 8/8. Exact changed-file hashes were rebuilt under Windows
@@ -3742,6 +3741,24 @@ host/guest hashes matched at the empty-DashStyle implementation head
 (`680D3CBE...FBF7` native and `BD6A99C8...FECC` test); Windows ARM64 MSVC 19.44
 `/W4 /WX` rebuilt the target and passed the focused test in 1.93 seconds.
 ProGPU documentation checkpoint `e291d485` pins the result.
+
+ProGPU checkpoint `30fcf084` removes the earlier group-level affine
+restriction for supported fill leaves. The native walker now composes every
+nested `DrawingGroup` transform into leaf geometry before calculating bounds,
+transforms group clips into the same world space, intersects every transformed
+child with the active clip, and only then unions the separately drawn results.
+This mirrors WPF `BoundsDrawingContextWalker` ordering without broadening a
+pre-transform union. Rotation and shear are exact for the supported fixed,
+path, and single-child geometry-group fill lane; stroked children under a
+non-axis-preserving effective transform still fail closed. Empty and singular
+groups are valid empty draws. Coverage verifies the earlier axis-aligned
+mapping, an exact sheared mapping, destination clipping, and empty singular and
+childless results. The complete Apple native suite passes 8/8. A clean commit
+archive rebuilt all 136 focused target steps in the Windows 11 ARM64 Parallels
+guest with MSVC `19.44.35228.0` under `/W4 /WX`; the focused CTest passed in
+0.79 seconds. Host and guest hashes matched (`AB4E6081...DFEE08` native source,
+`61622AB8...B23767` test source), and the guest executable SHA-256 was
+`DBDA27CD933D4D4A17B4FE70D55204A6481A16B9AA29DC8BF886974C3C82C6A4`.
 
 The Windows host harness now accepts `PROGPU_WPF_REAL_ASSEMBLY_DIR` so a
 deployment bundle can load one adjacent, source-built PresentationCore/
