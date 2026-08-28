@@ -3593,7 +3593,11 @@ rectangles reuse the existing exact line/quarter-arc contour. Solid ellipse and
 uniform rounded-rectangle draws keep their original analytic fast paths.
 Native scene tests now require multiple retained arc/body primitives plus typed
 DashCap records for both shape families. Collapsed one-axis ellipses and
-degenerate rounded rectangles remain explicit fail-closed work.
+degenerate rounded rectangles remain explicit fail-closed work. Follow-up
+checkpoint `2450bdd0` reuses the caller's already resolved native brush index
+when an analytic shape enters the curve-dash lane, avoiding a second gradient
+brush insertion and redundant brush resolution without changing the solid
+fast path.
 
 ProGPU documentation checkpoint `ab6107e4` additionally qualifies both
 `Vector256` product kernels with the self-contained `win-x64` benchmark in the
