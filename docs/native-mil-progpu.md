@@ -3720,18 +3720,22 @@ implementation head (`3737C2B5...03DD` for the native source and
 native target under MSVC 19.44 `/W4 /WX`; the focused test passed in 1.12
 seconds. ProGPU documentation checkpoint `d841466e` pins that qualification.
 
-ProGPU implementation checkpoint `f5c3245d` derives exact sideband-free bounds
-for a fixed `LineGeometry` drawn with a positive non-dashed Pen. It reuses
-ProGPU's canonical live Pen resolver and cap-aware line-stroke bounds, so a
+ProGPU implementation checkpoints `f5c3245d` and `81b5e0c4` provide exact
+sideband-free bounds for fixed GeometryDrawings with a positive non-dashed Pen.
+The lane covers lines and positive-area rectangles, rounded rectangles, and
+ellipses.
+It reuses ProGPU's canonical live Pen resolver, cap-aware line bounds, and the
+same positive-shape stroke-bounds helper used by native rendering, so a
 thickness animation updates the image mapping without retransmitting the Pen or
-Drawing. The lane accepts only axis-preserving geometry transforms, where
-transforming the local stroke AABB remains exact; dashed, degenerate, non-line,
-and non-axis-preserving stroked cases fail closed. Native coverage checks
-square-cap mappings at two live thicknesses and a sheared-transform rejection.
-Exact host/guest hashes matched (`B22CCDF1...B752` native and
-`68640828...A803` test); Windows ARM64 MSVC 19.44 `/W4 /WX` rebuilt the target
-and passed the focused test in 2.20 seconds. ProGPU documentation checkpoint
-`a4ddb6e9` pins the result.
+Drawing. Only axis-preserving geometry transforms are accepted, where
+transforming the local stroke AABB remains exact; dashed, degenerate,
+path/group, and non-axis-preserving stroked cases fail closed. Native coverage
+checks square-cap mappings at two live thicknesses, rounded-rectangle and
+ellipse mappings, plus sheared-transform and dashed-Pen rejection. Exact
+host/guest hashes matched at the expanded implementation head
+(`4CD38BAC...4595` native and `B0948378...32C7` test); Windows ARM64 MSVC 19.44
+`/W4 /WX` rebuilt the target and passed the focused test in 2.53 seconds.
+ProGPU documentation checkpoint `91259bd0` pins the result.
 
 The Windows host harness now accepts `PROGPU_WPF_REAL_ASSEMBLY_DIR` so a
 deployment bundle can load one adjacent, source-built PresentationCore/
