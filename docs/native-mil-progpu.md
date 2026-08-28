@@ -3673,7 +3673,12 @@ Int64 saturation edges, and all supported level pairs. Six paired Apple M3 Pro
 runs reduced median p50 from `1.926` to `1.858 us/block` (3.5%) and p95 from
 `18.348` to `17.033 us/block` (7.2%), with exact checksum `-68911` and zero
 allocation. Measured two-vector unrolling and forced helper inlining were
-rejected because they did not improve the product workload.
+rejected because they did not improve the product workload. The exact
+self-contained `win-x64` checkpoint then ran in the Windows 11 ARM64 Parallels
+guest with .NET 10.0.11 and `Vector256=True`. Four alternating runs measured
+median p50 `13.059` versus `23.917 us/block` for SIMD and the scalar oracle
+(1.83x), with exact checksum and zero allocation. Guest p95 remained noisy and
+is not used as a speed claim; this qualifies x64 emulation, not physical x64.
 
 The native MIL checkpoints from `f2b0b579` through `96c0a2d2` also remove
 sideband bounds from additional `DrawingImage` brush-mapping cases. Fixed
