@@ -3811,6 +3811,23 @@ clean Windows ARM64 archive rebuilt all 136 target steps with MSVC
 `C7CD2AD9...A3A5F` archive), and the guest executable SHA-256 was
 `D7F63F0EAEE4574872B88D20DD2E6E75C2DE71706D7094D342CC607434211CC8`.
 
+ProGPU checkpoint `d1025caf`, finalized for strict MSVC/internal coverage at
+`026ce1a7`, closes the clipped-miter gap in both native rendering and MIL
+bounds. The shared tessellator implements WpfGfx
+`CSimplePen::DoLimitedMiter`, derives the two limit-plane clip points from the
+adjacent directions and radius, and emits a three-triangle fan; bounds consume
+the same formula before the world transform. The live `MiterLimit=1` WPF
+rectangle bounds
+`20.276056289672852,10.497797012329102,46.94788932800293,31.50440788269043`
+now map exactly. Apple native tests pass 10/10. A clean current archive built
+153 MIL/internal steps under Windows ARM64 MSVC `19.44.35228.0`, with 161
+`/W4 /WX` Ninja flag lines; both focused tests passed in 2.71 seconds and both
+executables returned zero. Host/guest hashes matched (`924F4560...2F6FF6`
+stroke header, `7E305BF5...B641C2` MIL, `0E2EC09A...FAB1E5` MIL test,
+`10CD93E7...3D16D0` internal test, `0995611D...222AD` archive). Guest MIL and
+internal executable SHA-256 values were `707D8EEA...6962D4` and
+`4A36E7E6...0D1958`.
+
 ProGPU checkpoint `30fcf084` removes the earlier group-level affine
 restriction for supported fill leaves. The native walker now composes every
 nested `DrawingGroup` transform into leaf geometry before calculating bounds,
