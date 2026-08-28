@@ -3620,10 +3620,20 @@ in WPF order, one aggregate pen brush is reused, fill submits before stroke,
 and dash phase restarts per figure. Native fixtures cover a filled child plus
 an explicitly unfilled-but-stroked closed child, independent transforms, exact
 solid line/quadratic/cubic bodies, and dashed bodies/triangle caps on both
-children. Fixed, nested, and boolean group children remain fail closed for a
-meaningful pen; their stroke contours are the next typed extensions rather
-than candidates for fill-boundary approximation. All 8 native CTests and both
-documentation/package verifiers pass locally.
+children. Rectangle/ellipse, nested, and boolean group children remain fail
+closed for a meaningful pen; their stroke contours are the next typed
+extensions rather than candidates for fill-boundary approximation. All 8
+native CTests and both documentation/package verifiers pass locally.
+
+Follow-up ProGPU checkpoint `43f23999` admits `LineGeometry` children through
+the same group pen contract. Direct and grouped lines now share one resolved
+line helper for solid/dashed submission, caps, bounds, metrics, and brush-index
+reuse. The fixture adds an independently transformed open line, requires its
+exact solid native primitive, then requires its two-point dashed stroke,
+interval payload, phase, and start/end caps alongside the dashed path children.
+Rectangle, ellipse, nested, and boolean group strokes remain the explicit
+fail-closed boundary. The complete 8/8 native CTest set and documentation
+verifiers pass after the extension.
 
 ProGPU documentation checkpoint `ab6107e4` additionally qualifies both
 `Vector256` product kernels with the self-contained `win-x64` benchmark in the
