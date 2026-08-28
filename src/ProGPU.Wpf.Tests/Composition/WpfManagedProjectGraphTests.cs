@@ -12775,6 +12775,7 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("\"${package_output}/${package_id}.${progpu_package_version}.nupkg\"", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("stage_or_pack_progpu_project \"external/ProGPU/src/ProGPU.DirectX/ProGPU.DirectX.csproj\" \"ProGPU.DirectX\"", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("stage_or_pack_progpu_project \"external/ProGPU/src/ProGPU.Backend.Dawn/ProGPU.Backend.Dawn.csproj\" \"ProGPU.Backend.Dawn\"", sdkCiScript, StringComparison.Ordinal);
+        Assert.Contains("stage_or_pack_progpu_project \"external/ProGPU/src/ProGPU.Backend.Native/ProGPU.Backend.Native.csproj\" \"ProGPU.Backend.Native\"", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("stage_or_pack_progpu_project \"external/ProGPU/src/ProGPU.Scene/ProGPU.Scene.csproj\" \"ProGPU.Scene\"", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("stage_or_pack_progpu_project \"external/ProGPU/src/ProGPU.Layout/ProGPU.Layout.csproj\" \"ProGPU.Layout\"", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("stage_or_pack_progpu_project \"external/ProGPU/src/ProGPU.Virtualization/ProGPU.Virtualization.csproj\" \"ProGPU.Virtualization\"", sdkCiScript, StringComparison.Ordinal);
@@ -12835,6 +12836,7 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("LibreWPF.Transport", previewPackageListScript, StringComparison.Ordinal);
         Assert.Contains("ProGPU.Text.Shaping", previewPackageListScript, StringComparison.Ordinal);
         Assert.Contains("ProGPU.Backend.Dawn", previewPackageListScript, StringComparison.Ordinal);
+        Assert.Contains("ProGPU.Backend.Native", previewPackageListScript, StringComparison.Ordinal);
         Assert.Contains("ProGPU.WinRT", previewPackageListScript, StringComparison.Ordinal);
         Assert.Contains("ProGPU.Media", previewPackageListScript, StringComparison.Ordinal);
         Assert.Contains("ProGPU.Media.Scene", previewPackageListScript, StringComparison.Ordinal);
@@ -12867,6 +12869,9 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("require_nuspec_contains LibreWPF.Sdk \"<packageType name=\\\"MSBuildSdk\\\" />\"", previewPackageAuditScript, StringComparison.Ordinal);
         Assert.Contains("require_entry LibreWPF.ProGPU \"lib/net10.0/ProGPU.Wpf.dll\"", previewPackageAuditScript, StringComparison.Ordinal);
         Assert.Contains("dependency id=\\\"ProGPU.DirectX\\\" version=\\\"${progpu_package_version}\\\"", previewPackageAuditScript, StringComparison.Ordinal);
+        Assert.Contains("dependency id=\\\"ProGPU.Backend.Native\\\" version=\\\"${progpu_package_version}\\\"", previewPackageAuditScript, StringComparison.Ordinal);
+        Assert.Contains("require_entry ProGPU.Backend.Native \"lib/net10.0/ProGPU.Backend.Native.dll\"", previewPackageAuditScript, StringComparison.Ordinal);
+        Assert.Contains("for native_rid in linux-x64 linux-arm64 osx-x64 osx-arm64 win-x64 win-arm64", previewPackageAuditScript, StringComparison.Ordinal);
         Assert.Contains("dependency id=\\\"Silk.NET.WebGPU\\\" version=\\\"2.23.0\\\"", previewPackageAuditScript, StringComparison.Ordinal);
         Assert.Contains("dependency id=\\\"ProGPU.WinUI\\\" version=\\\"${progpu_package_version}\\\"", previewPackageAuditScript, StringComparison.Ordinal);
         Assert.Contains("dependency id=\\\"ProGPU.Text.Shaping\\\" version=\\\"${progpu_package_version}\\\"", previewPackageAuditScript, StringComparison.Ordinal);
