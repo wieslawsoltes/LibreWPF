@@ -3645,6 +3645,16 @@ retaining one aggregate pen-brush realization. Collapsed fixed shapes remain
 on their specialized WPF widening rules, and nested/boolean group strokes still
 fail closed. All 8 native CTests and documentation/package verifiers pass.
 
+ProGPU checkpoint `23e6b925` extends the same pen contract recursively through
+nested `GeometryGroup` resources. Bounds and execution use matched typed tree
+walks with the existing 256-level depth bound; leaf, inner-group, root-group,
+and drawing transforms compose in WPF order, singular nested branches produce
+no coverage, dash phase still resets per figure, and one root pen brush is
+shared. The fixture draws the same line directly at translation `(60,10)` and
+through an inner group at `(260,25)`, requiring both transforms in solid and
+dashed output. Collapsed shapes and boolean-boundary strokes remain fail
+closed. All 8 native CTests and documentation/package verifiers pass.
+
 ProGPU documentation checkpoint `ab6107e4` additionally qualifies both
 `Vector256` product kernels with the self-contained `win-x64` benchmark in the
 Windows 11 ARM64 Parallels integration VM. .NET 10.0.5 reported `arch=X64`,
