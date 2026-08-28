@@ -3868,6 +3868,24 @@ archive, `F55BB225...ACFAF8` MIL source, `1BE90C6C...5D51BE` MIL test); guest
 MIL/internal executable hashes were `BB97651B...85AAE6` and
 `2B2E729A...8F8FE7`.
 
+ProGPU checkpoint `7521787d` removes that thick-stroke boundary. Its
+allocation-free fixed-array walker mirrors WpfGfx `CPen::AcceptCurvePoint`,
+including the previous-tangent-to-chord and chord-to-current-tangent
+`RoundTo` refinements, the intermediate chord offset pair, WpfGfx's very-flat
+bevel endpoint, and the one/two-cubic round arcs with analytic transformed
+extrema. With thickness 64, the same live WPF oracle returned
+`-7.13843107223511,-2.55054593086243,84.2768588066101,75.101090669632`
+for `Geometry.Transform` and
+`-10.9766893386841,-3.54298257827759,91.9533739089966,77.0859665870667`
+for `DrawingGroup.Transform`; the native tests lock both down alongside the
+thickness-8 mappings. Apple native tests pass 8/8. The immutable archive
+SHA-256 is `FA85410E...E3E01`; its exact sources rebuilt 153 MIL/internal
+steps under Windows ARM64 MSVC `19.44.35228.0`, with 161 `/W4 /WX` Ninja flag
+lines. Both focused CTests passed in 1.39 seconds and direct executions
+returned zero. Host/guest source hashes matched (`8B71B473...77D4D` MIL and
+`691DAD8A...CE95` MIL test); guest MIL/internal executable hashes were
+`037D26AF...7BFBD` and `B5635F7D...6EE5`.
+
 ProGPU checkpoint `30fcf084` removes the earlier group-level affine
 restriction for supported fill leaves. The native walker now composes every
 nested `DrawingGroup` transform into leaf geometry before calculating bounds,
