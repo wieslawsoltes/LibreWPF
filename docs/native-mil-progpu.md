@@ -3501,9 +3501,23 @@ accumulator edges, and exact saturation boundaries. The complete 3,872-test
 ProGPU assembly passes. Four alternating Apple M3 Pro runs over the product
 1,024-frame block measured median-of-run p50 `2.027 us/block` SIMD versus
 `6.139 us/block` scalar (3.03x throughput, 67.0% lower latency), with exact
-accumulator/output/checksum results and zero allocation. The processed-float
-effect lane keeps its explicit finite/rounding/Int64-overflow semantics until
-it receives a separately qualified cross-architecture vector kernel.
+accumulator/output/checksum results and zero allocation.
+
+ProGPU checkpoint `e6236472` separately vectorizes that processed-float effect
+lane for Windows, Linux, and Android without weakening its finite validation,
+away-from-zero rounding, contribution clamp, or saturating Int64-add contract.
+Valid float lanes widen to double through `Vector256` or `Vector128`; a vector
+containing NaN/infinity resumes at its first lane through the scalar operation
+so the exact exception and prior writes remain compatible. Vector-tail,
+subnormal, signed-zero, midpoint, float-extrema, Int64-overflow, NaN partial-
+write, mono/stereo, and allocation tests match the independent scalar oracle.
+Four alternating Apple M3 Pro 1,024-frame runs measured median p50 `3.705
+us/block` SIMD versus `8.064 us/block` scalar (2.18x, 54.1% lower latency).
+The self-contained Windows 11 ARM64 Parallels x64-emulation lane reported
+`Vector256=True` and measured `28.571` versus `38.003 us/block` (1.33x,
+24.8% lower latency). Both platforms remained exact and allocation free;
+ProGPU documentation checkpoint `e33a668a` records the complete measurements
+and scopes the Windows result as emulated-x64 rather than physical-x64 evidence.
 
 ProGPU documentation checkpoint `ab6107e4` additionally qualifies both
 `Vector256` product kernels with the self-contained `win-x64` benchmark in the
