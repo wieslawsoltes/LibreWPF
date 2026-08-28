@@ -3631,9 +3631,19 @@ line helper for solid/dashed submission, caps, bounds, metrics, and brush-index
 reuse. The fixture adds an independently transformed open line, requires its
 exact solid native primitive, then requires its two-point dashed stroke,
 interval payload, phase, and start/end caps alongside the dashed path children.
-Rectangle, ellipse, nested, and boolean group strokes remain the explicit
-fail-closed boundary. The complete 8/8 native CTest set and documentation
-verifiers pass after the extension.
+Collapsed fixed shapes plus nested and boolean group strokes remain the
+explicit fail-closed boundary. The complete 8/8 native CTest set and
+documentation verifiers pass after the extension.
+
+ProGPU checkpoint `ba0ee5ff` completes the positive-area fixed-shape portion
+of group pens. Direct and grouped plain rectangles, analytic ellipses, and
+uniform/nonuniform rounded rectangles now share one typed fixed-shape helper,
+including solid analytic fast paths and dashed exact-curve paths. The expanded
+group scene requires a 20-segment fill and independently transformed solid and
+dashed rectangle, ellipse, and nonuniform rounded-rectangle strokes while
+retaining one aggregate pen-brush realization. Collapsed fixed shapes remain
+on their specialized WPF widening rules, and nested/boolean group strokes still
+fail closed. All 8 native CTests and documentation/package verifiers pass.
 
 ProGPU documentation checkpoint `ab6107e4` additionally qualifies both
 `Vector256` product kernels with the self-contained `win-x64` benchmark in the
