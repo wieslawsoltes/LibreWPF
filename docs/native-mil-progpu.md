@@ -273,15 +273,20 @@ ProGPU currently provides:
   exact join/dash metadata and affine-expanded stroke bounds. Solid
   zero-width/height rectangles lower WPF's single outer widened figure to an
   exact vector fill: Miter and Bevel preserve the source bevel-offset formula,
-  while Round emits analytic quarter arcs. Degenerate fills stay empty and
-  nonempty collapsed dashes fail closed.
+  while Round emits analytic quarter arcs. One-axis dashed rectangles retain
+  the four-point closed contour and WPF reversal joins. Fully collapsed sharp
+  rectangles use the typed Round/Round point disk when the initial dash is
+  visible and emit no draw for an initial gap. Degenerate fills stay empty;
+  rounded degenerate dashes remain fail closed.
 - Typed ellipse pen production for fill-only, stroke-only, and combined
   records. Solid ellipse outlines use ProGPU's exact full-ellipse analytic arc,
   preserve non-uniform radii, and publish affine-expanded stroke bounds;
   one-axis ellipses use WPF's SmoothJoin-derived Round/Round capsule and point
   ellipses use the native point disk. Positive-area dashed ellipses reuse one
-  closed analytic arc contour and the native curve-dash compiler; degenerate
-  fills stay empty, while collapsed dashed ellipses remain fail closed.
+  closed analytic arc contour and the native curve-dash compiler; one-axis
+  dashed ellipses retain four ordered collapsed quarter traversals, while a
+  fully collapsed ellipse uses the visible-initial-dash point disk/initial-gap
+  no-op rule. Degenerate fills stay empty.
 - Typed rounded-rectangle pen production for fill-only, stroke-only, and
   combined records. Uniform positive radii use ProGPU's analytic primitive;
   positive independent X/Y radii use its exact elliptical vector path and
@@ -3964,6 +3969,27 @@ executables returned zero directly. Host/guest source hashes matched, and the
 guest MIL/internal executable SHA-256 values were
 `3082D4214B1B6147A8BD40B2D6B9A56D39A2B3FE929AADF071043A4E42DD56CC`
 and `0328FBF9528582E54D7E90F4051290ACD1C7F419709DAE16BA3A0D87EE4CE872`.
+LibreWPF advances its ProGPU submodule to this checkpoint.
+
+ProGPU checkpoint `0f72b5f1` closes fully collapsed sharp-rectangle dashes by
+reusing the typed degenerate-cap stroke path, including its finite dash phase
+selection, and forcing WPF's Round/Round caps for a wholly degenerate closed
+figure. A visible initial dash becomes one backend-independent point disk; an
+initial gap becomes an exact no-op. Rounded degenerate rectangle dashes remain
+fail closed. A live Windows 11 PresentationCore raster oracle with thickness 8
+and dash array `[1,1]` returned the same 8-by-8 disk (60 covered pixels, alpha
+sum 12,452) for every LineJoin and DashCap at offset `1.0`, and no covered
+pixels at `1.01`. Apple passes all 10 native CTests. The immutable archive
+SHA-256 is
+`5BE5A14AA65021CA1D1273623169F766DBA834E968C9BEFF9A37BF0D96FBFFE3`.
+Its exact sources rebuilt all 257 steps under Windows ARM64 MSVC
+`19.44.35228.0`; all 10 CTests passed in 24.33 seconds and both focused
+executables returned zero. Host/guest source hashes matched at
+`D89307B4A78DB4BE457647F25C5C9DD1BC1305D3BE9535E444F1A0C693C3F90D`
+and `D756F7E0138D44FAF012D34FF704A4A0EFCD6EAA03EF9AADDF8924C0BFC5C5AA`.
+Guest MIL/internal executable SHA-256 values were
+`7E907A8ADD470AEFA5904EB51FCCD697C648992BAE37E94283666E7A27FC07D4`
+and `72633B0DB0A4B5A1908F6EB92AA8C0D469A3DB197A5EE09923B4712C60E7C1F3`.
 LibreWPF advances its ProGPU submodule to this checkpoint.
 
 ProGPU checkpoint `30fcf084` removes the earlier group-level affine
