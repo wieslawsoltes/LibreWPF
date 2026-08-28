@@ -3,6 +3,7 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 sdk_targets="${repo_root}/packaging/ProGPU.Wpf.Sdk/targets/ProGPU.Wpf.Sdk.targets"
+sdk_ci="${repo_root}/eng/progpu-wpf-sdk-ci.sh"
 
 require_text() {
   local text="$1"
@@ -26,6 +27,17 @@ if grep -Fq -- 'librewinforms.system.windows.forms/' "${sdk_targets}"; then
   echo "LibreWPF.Sdk still contains a hard-coded global-package-cache path for the canonical LibreWinForms runtime package." >&2
   exit 1
 fi
+
+for expected in \
+  'external/LibreWinForms/src/LibreWinForms.Portable/LibreWinForms.System.Windows.Forms/LibreWinForms.System.Windows.Forms.csproj' \
+  'LibreWinForms.Compatibility.System.Windows.Forms' \
+  'external/LibreWinForms/src/LibreWinForms.Portable/LibreWinForms.WindowsFormsIntegration/LibreWinForms.WindowsFormsIntegration.csproj'
+do
+  if ! grep -Fq -- "${expected}" "${sdk_ci}"; then
+    echo "LibreWPF SDK smoke does not stage '${expected}' from the pinned LibreWinForms source checkout." >&2
+    exit 1
+  fi
+done
 
 dotnet_command=""
 if [[ -x "${repo_root}/.dotnet/dotnet" ]] \
