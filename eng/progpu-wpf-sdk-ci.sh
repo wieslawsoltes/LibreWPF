@@ -143,12 +143,15 @@ run_dotnet() {
   local command="$1"
   shift
   case "${command}" in
-    msbuild|build|pack|run)
+    msbuild|build|pack)
       if [[ "${PROGPU_WPF_SERIAL_BUILD:-0}" == "1" ]]; then
         "${dotnet}" "${command}" -m:1 -p:UseSharedCompilation=false "$@"
       else
         "${dotnet}" "${command}" "$@"
       fi
+      ;;
+    run)
+      "${dotnet}" "${command}" "$@"
       ;;
     *)
       "${dotnet}" "${command}" "$@"
@@ -363,10 +366,12 @@ run_dotnet build "${repo_root}/src/ProGPU.Wpf.SdkSwitchSmoke/MixedDesktop/ProGPU
 run_dotnet run --no-build --project "${repo_root}/src/ProGPU.Wpf.SdkSwitchSmoke/MixedDesktop/ProGPU.Wpf.SdkMixedDesktopSmoke.csproj" -v:minimal
 
 echo "Running SDK switch runtime smoke..."
-run_dotnet run --project "${repo_root}/src/ProGPU.Wpf.SdkSwitchRuntimeHarness/ProGPU.Wpf.SdkSwitchRuntimeHarness.csproj" -v:minimal
+run_dotnet build "${repo_root}/src/ProGPU.Wpf.SdkSwitchRuntimeHarness/ProGPU.Wpf.SdkSwitchRuntimeHarness.csproj" -v:minimal
+run_dotnet run --no-build --project "${repo_root}/src/ProGPU.Wpf.SdkSwitchRuntimeHarness/ProGPU.Wpf.SdkSwitchRuntimeHarness.csproj" -v:minimal
 
 echo "Running external no-source-change SDK smoke..."
-run_dotnet run --project "${repo_root}/src/ProGPU.Wpf.SdkExternalSmokeHarness/ProGPU.Wpf.SdkExternalSmokeHarness.csproj" -v:minimal
+run_dotnet build "${repo_root}/src/ProGPU.Wpf.SdkExternalSmokeHarness/ProGPU.Wpf.SdkExternalSmokeHarness.csproj" -v:minimal
+run_dotnet run --no-build --project "${repo_root}/src/ProGPU.Wpf.SdkExternalSmokeHarness/ProGPU.Wpf.SdkExternalSmokeHarness.csproj" -v:minimal
 
 echo "Building Hello SDK app..."
 run_dotnet build "${repo_root}/samples/ProGPU.Wpf.HelloApp/ProGPU.Wpf.HelloApp.csproj" -v:minimal

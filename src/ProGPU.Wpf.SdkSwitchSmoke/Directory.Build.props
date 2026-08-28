@@ -11,7 +11,8 @@
 
   <PropertyGroup>
     <LibreWpfSdkSwitchPackageVersion>0.1.0-preview.45</LibreWpfSdkSwitchPackageVersion>
-    <ProGpuWpfSdkSwitchPackageVersion>0.1.0-preview.55</ProGpuWpfSdkSwitchPackageVersion>
+    <ProGpuWpfSdkSwitchPackageVersion Condition="'$(PROGPU_WPF_PROGPU_PACKAGE_VERSION)' != ''">$(PROGPU_WPF_PROGPU_PACKAGE_VERSION)</ProGpuWpfSdkSwitchPackageVersion>
+    <ProGpuWpfSdkSwitchPackageVersion Condition="'$(ProGpuWpfSdkSwitchPackageVersion)' == ''">0.1.0-preview.55</ProGpuWpfSdkSwitchPackageVersion>
     <!-- LibreWinForms preview.45 is released after its matching LibreWPF bridge. -->
     <ProGpuWpfLibreWinFormsPackageVersion>0.1.0-preview.42</ProGpuWpfLibreWinFormsPackageVersion>
     <RestorePackagesPath>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../../artifacts/nuget/ProGPU.Wpf.SdkSwitchSmoke'))</RestorePackagesPath>
