@@ -296,8 +296,9 @@ ProGPU currently provides:
   positive retain WpfGfx's canonical 17-point alternating cubic/line contour,
   independently clamp X/Y radii, and reuse the native curve-dash compiler;
   point records reduce to the visible-initial-dash Round/Round disk or
-  initial-gap no-op. Degenerate zero-axis asymmetric records remain fail
-  closed pending sharp-rectangle normalization.
+  initial-gap no-op. Records with either radius zero, including asymmetric
+  degenerates, normalize to the qualified sharp one-axis or point lane before
+  widening and dashing.
 - Typed retained `LineGeometry`, `RectangleGeometry`, and `EllipseGeometry`
   resources with nested `DrawGeometry` lowering. Optional geometry-local
   affine transforms compose with visual and drawing scopes; line pen semantics
@@ -4015,6 +4016,26 @@ Guest MIL/internal executable SHA-256 values were
 and `61ADE59E104E6D29FC4FDA04550FE2CFAE34C871455E3510E04ED07F606823C7`.
 LibreWPF advances its ProGPU submodule to this checkpoint.
 
+ProGPU checkpoint `649fe3a5` completes degenerate zero-radius normalization
+using WpfGfx's explicit `CShape::AddRoundedRectangle` rule: if either radius is
+zero, the record is a sharp rectangle before widening or dashing. Vertical and
+horizontal one-axis records reuse the typed four-point semantic polyline and
+WPF reversal joins; point visible/gap phases reuse the qualified Round/Round
+disk decision. Coverage includes both asymmetric orientations, both point
+phases, and the invalid brush-handle boundary. Apple passes all 10 native
+CTests. The exact archive SHA-256 is
+`E831663733B21EF2232F11F3225F27DDABDF1FF2198F6625DE157C4CD6C491BE`.
+Against the fully qualified `35edc9c6` parent build, MSVC rebuilt the exact two
+changed sources through the 7-step incremental graph; all 10 Windows ARM64
+CTests passed in 7.53 seconds and both focused executables returned zero.
+Host/guest source hashes matched at
+`89D7E319A6E51F9AFBAA79DD21921D64645F7EF5B2F92C9BF1D1147801500858`
+and `F16CB5EAA918C04A47BFB895A4682046D22BF195B56688A2428AA18746E7B63F`.
+Guest MIL/internal executable SHA-256 values were
+`F78174BC5DF1E31207F37BDD10AA56ED680EB965BA5E0B7F5A1107D97E666AED`
+and `61ADE59E104E6D29FC4FDA04550FE2CFAE34C871455E3510E04ED07F606823C7`.
+LibreWPF advances its ProGPU submodule to this checkpoint.
+
 ProGPU checkpoint `30fcf084` removes the earlier group-level affine
 restriction for supported fill leaves. The native walker now composes every
 nested `DrawingGroup` transform into leaf geometry before calculating bounds,
@@ -4193,8 +4214,7 @@ arithmetic.
 
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested
    render-data command families using the complete generated WPF MCG layouts.
-2. Add exact degenerate zero-axis asymmetric rounded-rectangle widening, exact
-   translated-equivalent EvenOdd overlap execution, exact Nonzero groups with
+2. Add exact translated-equivalent EvenOdd overlap execution, exact Nonzero groups with
    boolean children, non-bitmap image sources, exact
    WPF-compatible arc lowering, and
    remaining multi-guideline draw-family deformation, general Visual
