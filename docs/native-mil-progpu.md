@@ -360,10 +360,10 @@ ProGPU currently provides:
   WPF's `CShape::AddShapeData`/outer `SetFillMode` behavior. Nonzero groups keep
   a shared contour batch for cross-child winding cancellation; EvenOdd groups
   use an equivalent postfix XOR of child-inside predicates so raster work stays
-  bounded by each leaf. The exact two-leaf and three-leaf left-fold forms with
-  overlapping translated-equivalent simple leaf streams execute as ordered,
-  phase-batched GPU raster masks followed by a packed XOR combine. Programs
-  with four or more leaves, or mixed postfix operations, retain the typed
+  bounded by each leaf. Every pure left-fold XOR form from two leaves through
+  the existing 32-child MIL ceiling with overlapping translated-equivalent
+  simple leaf streams executes as ordered, phase-batched GPU raster masks
+  followed by a packed XOR combine. Mixed postfix operations retain the typed
   fail-closed guard at semantic scene compilation before WebGPU device creation
   because those backend patterns are not yet qualified on the Parallels D3D12
   adapter. Nonsingular affine arc-bearing children remain analytic:
@@ -4214,14 +4214,16 @@ arithmetic.
 
 ProGPU implementation checkpoint `d4ca87d9` and documentation checkpoint
 `0e139ea2` close the canonical translated-equivalent two-leaf EvenOdd overlap.
-The native compiler recognizes only the exact `leaf leaf xor` postfix form,
-batches its two ordinary leaf records into ordered A/B GPU raster phases, and
-combines their packed masks with the shared XOR compute kernel before the atlas
+At that exact checkpoint, the native compiler recognized only the
+`leaf leaf xor` postfix form,
+batched its two ordinary leaf records into ordered A/B GPU raster phases, and
+combined their packed masks with the shared XOR compute kernel before the atlas
 copy. Pending semantic work is flushed once and a fresh encoder is restored;
 normal scenes retain the original single-submission path and do not allocate
 the split buffers or bind groups. The path and vector-clip implementations
-perform no CPU readback/repacking and no per-item submission. Larger or mixed
-translated-equivalent postfix programs remain deterministically fail closed.
+perform no CPU readback/repacking and no per-item submission. At that
+checkpoint, larger or mixed translated-equivalent postfix programs remained
+deterministically fail closed.
 
 The exact implementation archive SHA-256 is
 `CBA84443FA2EFC2AE74A6677370E9C6CF4E69729FEC5FEF15EC27E5EBEEB3DA2`.
@@ -4249,8 +4251,10 @@ the packed coverage shader. Phase-C buffers, bind groups, uploads, and a phase-C
 submission exist only when a ternary program is present. Ordinary paths retain
 the single-submission fast path, binary XOR retains its two leaf phases, and no
 CPU readback, repacking, managed fallback, public ABI change, or per-item
-submission is introduced. MIL tests accept the exact three-leaf program and
-prove that a four-leaf translated-equivalent program still fails closed.
+submission is introduced. At that exact checkpoint, MIL tests accepted the
+exact three-leaf program and proved that a four-leaf translated-equivalent
+program still failed closed; the generalized checkpoint below supersedes that
+temporary ceiling.
 
 The exact source archive
 `ProGPU-native-ternary-xor-db4ffef2.zip` has SHA-256
@@ -4268,12 +4272,58 @@ SHA-256 values are
 and `AE1B4271CB9D16296539170BA3C0191D45A149847A14E4B51C66F4B47A530A07`.
 LibreWPF advances its ProGPU submodule to `e8ba9246`.
 
+ProGPU implementation checkpoint `402ecfb9`, with MSVC portability checkpoint
+`c5fb5244`, generalizes the fixed A/B/C resources to every pure
+`leaf leaf xor ... leaf xor` program through the existing 32-child MIL ceiling.
+The unchanged 32-byte combine record carries a source base, stride, and count;
+path fills and vector clips use one phase-batched GPU mask resource per leaf
+ordinal, and the shared WGSL kernel loops across the bounded source range.
+Ordinary scenes keep their single-submission path without reserving the outer
+split-program vectors. The path performs no CPU readback, CPU repacking,
+managed fallback, public ABI change, or per-item submission. Mixed boolean
+postfix programs remain typed fail closed.
+
+Native coverage now includes binary, ternary, quaternary, mixed rejection, and
+the full 32-leaf boundary. Apple M3 Pro Metal passed 10/10 CTests and rendered
+the permanent four-leaf regions cyan/black/cyan/black/cyan/black/cyan. Windows
+ARM64 strict MSVC/Ninja rebuilt both providers, passed 11/11 CTests, and
+reproduced the binary, ternary, and quaternary sample through the real D3D12
+Parallels adapter. The expanded sample executed thirteen draws from twenty-one
+retained commands and uploaded 13,408 vertex bytes.
+
+The immutable full source archive
+`ProGPU-native-general-xor-c5fb5244.zip` has SHA-256
+`D68DE4BDB753A1FCB3E7E2C6DF3DBF9C55D9BEE68FAD6F57BFD8FF43BDF2574E`.
+The exact ten-file retry delta used after the shared-folder extraction stall,
+`ProGPU-native-general-xor-delta-retry-c5fb5244.zip`, has SHA-256
+`224E41DA07D2531FC93C5AD5DAF866FAC4F31A4DBFC3D54FC60E03FF61D2B538`;
+all copied sources were hash-checked before the rebuild. The complete bounded
+D3D12 integration matrix passed managed/native readback, fastest and forced
+raster-shader paths, forced intrinsic-SIMD and scalar-reference CPU paths,
+typed fail-closed native compute, stable DirectX HelloTriangle/HelloTexture
+oracles, and all retained effect/mask/3D/text/image/cache smoke families. The
+terminal ColorDodge result was pixel-exact with matching native/managed FNV-1a
+`41DAE69420EE7C25`.
+
+Final Windows SHA-256 values are
+`07CB46633DE7AB2D872475CF2682D8AAA493D2CACDC707924948F625F0DDBA39`
+for `progpu_native.dll`,
+`E29F579504B66A974BD14786E4A6D9D4AACDDC1E30C07B9DA814196C6BBE7598`
+for `progpu_native_dawn.dll`,
+`372174B1FD90D370AB333301EAD0B0CC72895BE172E7AAAABD4D0C7C8BA3B5A6`
+for the native sample,
+`C9920BE3B258F55D9101F23B4EC610666D1D2D5E606D6E5B9A8E1F911D71D6EB`
+for the MIL tests, and
+`EF4FDFB21F49F9BAD8A078E03D219C60BF40A843A8CDFB529CD724AF18BD44FD`
+for the internal tests. LibreWPF advances its ProGPU submodule to the resulting
+documentation checkpoint.
+
 ## Next parity gates
 
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested
    render-data command families using the complete generated WPF MCG layouts.
-2. Extend translated-equivalent EvenOdd execution beyond the exact ternary
-   left-fold XOR form, add exact Nonzero groups with boolean children, non-bitmap image
+2. Extend translated-equivalent EvenOdd execution to the remaining mixed
+   boolean postfix programs, add exact Nonzero groups with boolean children, non-bitmap image
    sources, exact WPF-compatible arc lowering, and
    remaining multi-guideline draw-family deformation, general Visual
    effect/clip/mask/opacity ordering, remaining
