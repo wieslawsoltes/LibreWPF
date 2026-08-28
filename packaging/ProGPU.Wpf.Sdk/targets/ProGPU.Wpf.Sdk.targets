@@ -6,7 +6,7 @@
     <ProGpuWpfManagedPackageVersion Condition="'$(ProGpuWpfManagedPackageVersion)' == ''">$(ProGpuWpfPackageVersion)</ProGpuWpfManagedPackageVersion>
     <ProGpuWpfLibreWinFormsPackageVersion Condition="'$(ProGpuWpfLibreWinFormsPackageVersion)' == ''">$(ProGpuWpfManagedPackageVersion)</ProGpuWpfLibreWinFormsPackageVersion>
     <ProGpuPackageVersion Condition="'$(ProGpuPackageVersion)' == ''">0.1.0-preview.55</ProGpuPackageVersion>
-    <ProGpuWpfNet10SupportPackageVersion Condition="'$(ProGpuWpfNet10SupportPackageVersion)' == ''">10.0.10</ProGpuWpfNet10SupportPackageVersion>
+    <ProGpuWpfNet10SupportPackageVersion Condition="'$(ProGpuWpfNet10SupportPackageVersion)' == ''">10.0.11</ProGpuWpfNet10SupportPackageVersion>
     <ProGpuWpfSystemConfigurationConfigurationManagerVersion Condition="'$(ProGpuWpfSystemConfigurationConfigurationManagerVersion)' == '' And $(TargetFramework.StartsWith('net10.'))">$(ProGpuWpfNet10SupportPackageVersion)</ProGpuWpfSystemConfigurationConfigurationManagerVersion>
     <ProGpuWpfSystemFormatsNrbfVersion Condition="'$(ProGpuWpfSystemFormatsNrbfVersion)' == '' And $(TargetFramework.StartsWith('net10.'))">$(ProGpuWpfNet10SupportPackageVersion)</ProGpuWpfSystemFormatsNrbfVersion>
     <ProGpuWpfSystemIOPackagingVersion Condition="'$(ProGpuWpfSystemIOPackagingVersion)' == '' And $(TargetFramework.StartsWith('net10.'))">$(ProGpuWpfNet10SupportPackageVersion)</ProGpuWpfSystemIOPackagingVersion>

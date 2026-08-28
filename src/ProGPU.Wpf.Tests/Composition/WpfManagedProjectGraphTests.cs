@@ -12168,7 +12168,7 @@ public sealed class WpfManagedProjectGraphTests
 
         Assert.Contains("<add key=\"nuget.org\" value=\"https://api.nuget.org/v3/index.json\" />", rootNuGetConfig, StringComparison.Ordinal);
         Assert.Contains("<PropertyGroup Condition=\"'$(ProGpuWpfTargetFramework)' == 'net10.0'\">", rootDirectoryBuildProps, StringComparison.Ordinal);
-        Assert.Contains("<ProGpuWpfNet10SupportPackageVersion>10.0.10</ProGpuWpfNet10SupportPackageVersion>", rootDirectoryBuildProps, StringComparison.Ordinal);
+        Assert.Contains("<ProGpuWpfNet10SupportPackageVersion>10.0.11</ProGpuWpfNet10SupportPackageVersion>", rootDirectoryBuildProps, StringComparison.Ordinal);
         Assert.Contains("<SystemConfigurationConfigurationManagerPackageVersion>$(ProGpuWpfNet10SupportPackageVersion)</SystemConfigurationConfigurationManagerPackageVersion>", rootDirectoryBuildProps, StringComparison.Ordinal);
         Assert.Contains("<SystemDiagnosticsEventLogPackageVersion>$(ProGpuWpfNet10SupportPackageVersion)</SystemDiagnosticsEventLogPackageVersion>", rootDirectoryBuildProps, StringComparison.Ordinal);
         Assert.Contains("<SystemDrawingCommonPackageVersion>$(ProGpuWpfNet10SupportPackageVersion)</SystemDrawingCommonPackageVersion>", rootDirectoryBuildProps, StringComparison.Ordinal);
@@ -14546,7 +14546,7 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("<None Remove=\"**/*.xaml\"", portableProps, StringComparison.Ordinal);
         Assert.DoesNotContain("<PackageReference", portableProps, StringComparison.Ordinal);
 
-        Assert.Contains("<ProGpuWpfNet10SupportPackageVersion Condition=\"'$(ProGpuWpfNet10SupportPackageVersion)' == ''\">10.0.10</ProGpuWpfNet10SupportPackageVersion>", portableTargets, StringComparison.Ordinal);
+        Assert.Contains("<ProGpuWpfNet10SupportPackageVersion Condition=\"'$(ProGpuWpfNet10SupportPackageVersion)' == ''\">10.0.11</ProGpuWpfNet10SupportPackageVersion>", portableTargets, StringComparison.Ordinal);
         Assert.Contains("<ProGpuWpfSystemConfigurationConfigurationManagerVersion Condition=\"'$(ProGpuWpfSystemConfigurationConfigurationManagerVersion)' == '' And $(TargetFramework.StartsWith('net10.'))\">$(ProGpuWpfNet10SupportPackageVersion)</ProGpuWpfSystemConfigurationConfigurationManagerVersion>", portableTargets, StringComparison.Ordinal);
         Assert.Contains("<ProGpuWpfSystemFormatsNrbfVersion Condition=\"'$(ProGpuWpfSystemFormatsNrbfVersion)' == '' And $(TargetFramework.StartsWith('net10.'))\">$(ProGpuWpfNet10SupportPackageVersion)</ProGpuWpfSystemFormatsNrbfVersion>", portableTargets, StringComparison.Ordinal);
         Assert.Contains("<ProGpuWpfSystemIOPackagingVersion Condition=\"'$(ProGpuWpfSystemIOPackagingVersion)' == '' And $(TargetFramework.StartsWith('net10.'))\">$(ProGpuWpfNet10SupportPackageVersion)</ProGpuWpfSystemIOPackagingVersion>", portableTargets, StringComparison.Ordinal);
