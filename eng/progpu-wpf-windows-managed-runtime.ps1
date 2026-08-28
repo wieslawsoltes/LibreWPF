@@ -30,13 +30,24 @@ function Initialize-BuildSdk {
 
     $dotnetCommand = Get-Command dotnet.exe -ErrorAction SilentlyContinue
     if ([string]::IsNullOrWhiteSpace($sdkDirectory) -and $null -ne $dotnetCommand) {
-        $sdkLine = & $dotnetCommand.Source --list-sdks |
-            Where-Object { $_ -like "$sdkVersion *" } |
-            Select-Object -Last 1
-        if ($sdkLine -match '^\S+\s+\[(.+)\]$') {
-            $candidate = Join-Path $Matches[1] $sdkVersion
-            if (Test-Path (Join-Path $candidate "Sdks/Microsoft.NET.Sdk/Sdk")) {
-                $sdkDirectory = $candidate
+        Push-Location $repoRoot
+        try {
+            $effectiveSdkVersion = (& $dotnetCommand.Source --version 2>$null | Select-Object -Last 1)
+            $sdkResolutionExitCode = $LASTEXITCODE
+        }
+        finally {
+            Pop-Location
+        }
+
+        if ($sdkResolutionExitCode -eq 0 -and ![string]::IsNullOrWhiteSpace($effectiveSdkVersion)) {
+            $sdkLine = & $dotnetCommand.Source --list-sdks |
+                Where-Object { $_ -like "$effectiveSdkVersion *" } |
+                Select-Object -Last 1
+            if ($sdkLine -match '^\S+\s+\[(.+)\]$') {
+                $candidate = Join-Path $Matches[1] $effectiveSdkVersion
+                if (Test-Path (Join-Path $candidate "Sdks/Microsoft.NET.Sdk/Sdk")) {
+                    $sdkDirectory = $candidate
+                }
             }
         }
     }
