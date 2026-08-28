@@ -3791,6 +3791,26 @@ returned zero. Host and guest hashes matched (`C1A647F6...BA7E0F` native,
 `554160BF...83E08D` test), and the guest executable SHA-256 was
 `02BB1A776DBDC7A019D12BC362944B8253324334C97EF2B5796FFEB48F0AD2EE`.
 
+ProGPU checkpoint `c16178cd` extends the same WPF ordering to positive-area,
+non-rounded rectangle strokes. It maps the closed rectangular spine through
+`Geometry.Transform`, widens normalized edges with exact in-limit miter or
+bevel joins, and applies `DrawingGroup.Transform` afterward. For rectangle
+`[20,10,30,15]`, thickness 8, and matrix `[1,.25,.5,1,0,0]`, live WPF bounds
+were
+`17.532926559448242,9.0101261138916016,52.434144973754883,34.479745864868164`
+for `Geometry.Transform`, `19,10,49.5,32.5` for `DrawingGroup.Transform`, and
+`21.422290802001953,11.119429588317871,44.655414581298828,30.261139869689941`
+for the affine bevel join. Tests lock down all three mappings. WPF clipped
+miters deliberately fail closed because the current native renderer reduces
+an over-limit miter to a bevel; round joins, rounded rectangles, ellipses, and
+dashed fixed shapes remain follow-up lanes. Apple native tests pass 10/10. A
+clean Windows ARM64 archive rebuilt all 136 target steps with MSVC
+`19.44.35228.0`; 161 Ninja flag lines carry `/W4 /WX`, focused CTest passed in
+0.96 seconds, and direct execution returned zero. Host/guest hashes matched
+(`D70BEB9B...267072` native, `83DB8A55...58449F` test,
+`C7CD2AD9...A3A5F` archive), and the guest executable SHA-256 was
+`D7F63F0EAEE4574872B88D20DD2E6E75C2DE71706D7094D342CC607434211CC8`.
+
 ProGPU checkpoint `30fcf084` removes the earlier group-level affine
 restriction for supported fill leaves. The native walker now composes every
 nested `DrawingGroup` transform into leaf geometry before calculating bounds,
