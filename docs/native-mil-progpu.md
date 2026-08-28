@@ -4318,12 +4318,66 @@ for the MIL tests, and
 for the internal tests. LibreWPF advances its ProGPU submodule to the resulting
 documentation checkpoint.
 
+ProGPU implementation checkpoint `73319afa` generalizes the phased route to
+overlapping translated-equivalent leaves inside mixed postfix boolean programs.
+Each leaf preserves all 64 supersamples in two packed words per pixel; one
+shared GPU combine evaluator executes Difference, Intersect, Union, XOR, and
+ReverseDifference in original program order before a single R8 average. Pure
+left-fold XOR continues to phase. Safe non-overlapping mixed programs retain
+the ordinary single-dispatch fast path. Work is batched by leaf ordinal, with
+no CPU mask construction, readback, repacking, managed fallback, public ABI
+change, or per-item submission.
+
+Apple M3 Pro Metal passed all 10 configured CTests and the complete native
+gate. The permanent sample requires exact mixed cyan/black/cyan pixels and
+fractional XOR edge pixels `28/108/126`, overlap `5/6/10`, and
+`28/108/126`. The immutable full and delta archives have SHA-256
+`791BDEC1D4D18124A1AB6A55B866A6F4B4F502EEE1BF5B89E41F7CCEA7043E80`
+and `7188E717842C04D4BC28708B65709FB17548FF5AE2DA3AEDAD56D42CDFC851BC`.
+
+The exact full archive then completed Windows 11 ARM64 strict MSVC/Ninja and
+live Parallels D3D12 qualification: 11/11 native/Dawn CTests, both zero-warning
+managed builds, native/managed samples, automatic/raster/intrinsic-SIMD/scalar
+policies, typed pre-resource forced-compute rejection, native stress, the
+complete bounded differential matrix, and package staging. Overlay,
+ColorDodge, group box blur, and the mixed boolean pixels were exact. Staged
+SHA-256 values are
+`11DBB21369E7BFB375650AEFFB2A0DD2F21626ED2250FC01F3F583F0D7688009`
+for `progpu_native.dll` and
+`FC6E3796EB62F435606AC8821D947262FACF7E751FDAC471D55FD2EE6AB2AC64`
+for `progpu_native_dawn.dll`. The preserved 130,829-byte terminal evidence has
+SHA-256
+`F01C054984C9A24B241A203DAAF3390219E165769D524FEF36F3650476A071C5`.
+This is correctness evidence on the virtual adapter, not a physical-D3D12
+performance claim. LibreWPF advances its submodule to ProGPU documentation and
+Win2D-planning checkpoint `fa3e9e4a`.
+
+## Direct2D and Win2D boundary
+
+`ProGPU.DirectX` currently implements a Direct3D-style portable facade, not
+`ID2D1*` COM APIs. ProGPU checkpoint `fa3e9e4a` classifies `d2d1.dll`,
+`dwrite.dll`, `windowscodecs.dll`, and `Microsoft.Graphics.Canvas.dll` as
+Windows-native graphics dependencies so the native resolver cannot impersonate
+them. The same checkpoint pins exact Win2D and Win2D-Samples commits and adds a
+source-verification gate for the native Direct2D/Direct3D contract plus
+SimpleSample and ExampleGallery oracle sources.
+
+The implementation plan has two tiers. Windows may run the real Win2D/
+Direct2D runtime into a same-adapter shared BGRA8 DXGI allocation and import it
+through ProGPU's existing Dawn keyed-mutex/shared-texture path without CPU
+readback. Cross-platform applications recompile source against a portable
+Canvas recording API over the existing ProGPU scene/vector/text/effect engine.
+The Microsoft Win2D binary remains Windows-only, native COM resource wrapping
+fails closed off Windows, and ProGPU will not publish a fake `d2d1.dll`.
+The support matrix, API mapping, delivery stages, and Windows/Metal/Vulkan
+oracle gate are documented in
+[`DIRECT2D_WIN2D_COMPATIBILITY.md`](../external/ProGPU/docs/DIRECT2D_WIN2D_COMPATIBILITY.md).
+
 ## Next parity gates
 
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested
    render-data command families using the complete generated WPF MCG layouts.
-2. Extend translated-equivalent EvenOdd execution to the remaining mixed
-   boolean postfix programs, add exact Nonzero groups with boolean children, non-bitmap image
+2. Add exact Nonzero groups with boolean children, non-bitmap image
    sources, exact WPF-compatible arc lowering, and
    remaining multi-guideline draw-family deformation, general Visual
    effect/clip/mask/opacity ordering, remaining

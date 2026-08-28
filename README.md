@@ -7,7 +7,7 @@ This branch ports WPF onto the ProGPU/Silk.NET platform while reusing as much ma
 Current focus areas:
 
 - Reuse WPF managed code for application model, dependency properties, layout, controls, data binding, documents, XAML, resources, themes, and the XAML compiler.
-- Replace Windows-only MIL/D3D rendering with ProGPU WebGPU composition, shaders, DirectX-compatible shims, GPU hit testing, and Silk.NET windowing/input.
+- Replace Windows-only MIL/D3D rendering with ProGPU WebGPU composition, shaders, Direct3D-style compatibility shims, GPU hit testing, and Silk.NET windowing/input. Direct2D/Win2D use a separate [Windows-native interop and portable Canvas plan](external/ProGPU/docs/DIRECT2D_WIN2D_COMPATIBILITY.md).
 - Package the runtime as a preview SDK and NuGet set that can be consumed from a local feed or NuGet.org.
 - Keep third-party validation active through basic WPF apps, Xceed Toolkit/AvalonDock, Xceed paid Toolkit/DataGrid, SciChart MVP, ProGPU Avalonia package smoke, and no-source-change SDK smoke tests.
 
@@ -139,7 +139,7 @@ release dispatch remains the full-rebuild recovery path.
 | `ProGPU.Backend.Native` | [![NuGet](https://img.shields.io/nuget/vpre/ProGPU.Backend.Native.svg)](https://www.nuget.org/packages/ProGPU.Backend.Native) | Managed bindings and RID-specific C++ retained compositor/native backend assets used by the MIL replacement. |
 | `ProGPU.Backend.Dawn` | [![NuGet](https://img.shields.io/nuget/vpre/ProGPU.Backend.Dawn.svg)](https://www.nuget.org/packages/ProGPU.Backend.Dawn) | Dawn native backend assets used by package-mode presentation hosts. |
 | `ProGPU.Text.Shaping` | [![NuGet](https://img.shields.io/nuget/vpre/ProGPU.Text.Shaping.svg)](https://www.nuget.org/packages/ProGPU.Text.Shaping) | AOT-safe OpenType shaping contracts and execution used by the text renderer. |
-| `ProGPU.DirectX` | [![NuGet](https://img.shields.io/nuget/vpre/ProGPU.DirectX.svg)](https://www.nuget.org/packages/ProGPU.DirectX) | DirectX-compatible facade for SciChart and future D3D-style interop on ProGPU/WebGPU. |
+| `ProGPU.DirectX` | [![NuGet](https://img.shields.io/nuget/vpre/ProGPU.DirectX.svg)](https://www.nuget.org/packages/ProGPU.DirectX) | Direct3D-style facade for SciChart and typed D3D interop on ProGPU/WebGPU; it is not a Direct2D COM implementation. |
 | `ProGPU.Transpiler` | [![NuGet](https://img.shields.io/nuget/vpre/ProGPU.Transpiler.svg)](https://www.nuget.org/packages/ProGPU.Transpiler) | Shader/source transformation helpers used by generated GPU pipelines. |
 | `ProGPU.Compute` | [![NuGet](https://img.shields.io/nuget/vpre/ProGPU.Compute.svg)](https://www.nuget.org/packages/ProGPU.Compute) | Compute pipeline helpers for GPU effects, indexes, and acceleration structures. |
 | `ProGPU.Vector` | [![NuGet](https://img.shields.io/nuget/vpre/ProGPU.Vector.svg)](https://www.nuget.org/packages/ProGPU.Vector) | Vector paths, geometry, brushes, pens, and rasterization data models. |
