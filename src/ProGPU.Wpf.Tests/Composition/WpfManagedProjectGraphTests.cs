@@ -16478,7 +16478,10 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("<RuntimeFrameworkVersion Condition=\"&apos;$(ProGpuWpfRuntimeFrameworkVersion)&apos; != &apos;&apos;\">$(ProGpuWpfRuntimeFrameworkVersion)</RuntimeFrameworkVersion>", runtimeHarnessProject, StringComparison.Ordinal);
         Assert.Contains("private const string SmokeTargetFramework = \"net10.0-windows\";", runtimeHarnessProgram, StringComparison.Ordinal);
         Assert.Contains("private const string LibreWpfPackageVersion = \"0.1.0-preview.45\";", runtimeHarnessProgram, StringComparison.Ordinal);
-        Assert.Contains("private const string ProGpuPackageVersion = \"0.1.0-preview.55\";", runtimeHarnessProgram, StringComparison.Ordinal);
+        Assert.Contains("private const string DefaultProGpuPackageVersion = \"0.1.0-preview.55\";", runtimeHarnessProgram, StringComparison.Ordinal);
+        Assert.Contains("ProGpuPackageVersionEnvironmentVariable = \"PROGPU_WPF_PROGPU_PACKAGE_VERSION\"", runtimeHarnessProgram, StringComparison.Ordinal);
+        Assert.Contains("private static readonly string ProGpuPackageVersion =\n        ResolveProGpuPackageVersion();", runtimeHarnessProgram, StringComparison.Ordinal);
+        Assert.Contains("Environment.GetEnvironmentVariable(\n            ProGpuPackageVersionEnvironmentVariable)", runtimeHarnessProgram, StringComparison.Ordinal);
         Assert.Contains("packageId is \"LibreWPF.Transport\" or \"LibreWPF.ProGPU\"\n            ? LibreWpfPackageVersion\n            : ProGpuPackageVersion", runtimeHarnessProgram, StringComparison.Ordinal);
         Assert.Contains("<CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>", runtimeHarnessProject, StringComparison.Ordinal);
         Assert.DoesNotContain("Microsoft.NET.Sdk.WindowsDesktop", runtimeHarnessProject, StringComparison.Ordinal);
@@ -16572,7 +16575,10 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("<ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>", externalSdkHarnessProgram, StringComparison.Ordinal);
         Assert.Contains("<PackageVersion Include=\"System.Reactive\" Version=\"6.0.1\" />", externalSdkHarnessProgram, StringComparison.Ordinal);
         Assert.Contains("private const string SdkVersion = \"0.1.0-preview.45\";", externalSdkHarnessProgram, StringComparison.Ordinal);
-        Assert.Contains("private const string ProGpuPackageVersion = \"0.1.0-preview.55\";", externalSdkHarnessProgram, StringComparison.Ordinal);
+        Assert.Contains("private const string DefaultProGpuPackageVersion = \"0.1.0-preview.55\";", externalSdkHarnessProgram, StringComparison.Ordinal);
+        Assert.Contains("ProGpuPackageVersionEnvironmentVariable = \"PROGPU_WPF_PROGPU_PACKAGE_VERSION\"", externalSdkHarnessProgram, StringComparison.Ordinal);
+        Assert.Contains("private static readonly string ProGpuPackageVersion =\n        ResolveProGpuPackageVersion();", externalSdkHarnessProgram, StringComparison.Ordinal);
+        Assert.Contains("Environment.GetEnvironmentVariable(\n            ProGpuPackageVersionEnvironmentVariable)", externalSdkHarnessProgram, StringComparison.Ordinal);
         Assert.Contains("packageId is \"LibreWPF.Sdk\" or \"LibreWPF.Transport\" or \"LibreWPF.ProGPU\"\n            ? SdkVersion\n            : ProGpuPackageVersion", externalSdkHarnessProgram, StringComparison.Ordinal);
         Assert.Contains("<PackageReference Include=\"System.Reactive\" />", externalSdkHarnessProgram, StringComparison.Ordinal);
         Assert.Contains("restore\", centralPackageManagementProjectPath", externalSdkHarnessProgram, StringComparison.Ordinal);
