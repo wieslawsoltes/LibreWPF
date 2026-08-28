@@ -279,15 +279,17 @@ ProGPU currently provides:
   records. Solid ellipse outlines use ProGPU's exact full-ellipse analytic arc,
   preserve non-uniform radii, and publish affine-expanded stroke bounds;
   one-axis ellipses use WPF's SmoothJoin-derived Round/Round capsule and point
-  ellipses use the native point disk. Degenerate fills stay empty. Nonempty
-  dashed non-point ellipses fail closed pending phase-continuous curve dashing.
+  ellipses use the native point disk. Positive-area dashed ellipses reuse one
+  closed analytic arc contour and the native curve-dash compiler; degenerate
+  fills stay empty, while collapsed dashed ellipses remain fail closed.
 - Typed rounded-rectangle pen production for fill-only, stroke-only, and
   combined records. Uniform positive radii use ProGPU's analytic primitive;
   positive independent X/Y radii use its exact elliptical vector path and
   connected-curve stroke. Positive-area records with either radius zero follow
   WPF's sharp-rectangle equivalence and retain rectangle join/dash behavior,
-  while nonempty curved dashes fail closed pending phase-continuous curve
-  dashing. Degenerate uniform and positive-radius records use the same outer
+  while positive-area uniform and independent-X/Y curved dashes reuse the
+  exact closed line/quarter-arc contour. Degenerate uniform and positive-radius
+  records use the same outer
   widened path with WPF's independently clamped X/Y radii; degenerate
   zero-axis asymmetric records remain fail closed.
 - Typed retained `LineGeometry`, `RectangleGeometry`, and `EllipseGeometry`
@@ -3584,6 +3586,15 @@ under `/W4 /WX`; its reused older staged build manifest reaches link only after
 successful compilation, then reports an unrelated missing newer scene-builder
 object, so the clean PR MSVC job remains the authoritative link/test result.
 
+ProGPU checkpoint `eddae8b3` routes the remaining positive-area analytic shape
+outlines into that compiler only when a nonempty dash is present. Ellipses use
+one closed full-sweep analytic arc; uniform and independent-X/Y rounded
+rectangles reuse the existing exact line/quarter-arc contour. Solid ellipse and
+uniform rounded-rectangle draws keep their original analytic fast paths.
+Native scene tests now require multiple retained arc/body primitives plus typed
+DashCap records for both shape families. Collapsed one-axis ellipses and
+degenerate rounded rectangles remain explicit fail-closed work.
+
 ProGPU documentation checkpoint `ab6107e4` additionally qualifies both
 `Vector256` product kernels with the self-contained `win-x64` benchmark in the
 Windows 11 ARM64 Parallels integration VM. .NET 10.0.5 reported `arch=X64`,
@@ -3720,7 +3731,7 @@ arithmetic.
 
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested
    render-data command families using the complete generated WPF MCG layouts.
-2. Add dashed ellipse and rounded-rectangle pen draws, exact
+2. Add exact collapsed ellipse and degenerate rounded-rectangle dashes, exact
    degenerate zero-axis asymmetric rounded-rectangle widening, exact
    translated-equivalent EvenOdd overlap execution, exact Nonzero groups with
    boolean children, non-bitmap image sources, exact
