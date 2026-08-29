@@ -3054,6 +3054,25 @@ Apple ARM64 also records `1.742/0.240 us` for 256 pixels and
 not physical Windows performance. The exact Windows source archive SHA-256 is
 `C8B1C7949EDE5BF18D85ED1B0E159E2C7B52056D4CA2721A4BDD493420B0477E`;
 native C++ remains unchanged and reuses the qualified DLL/theme hashes above.
+
+ProGPU `3dad29a9` completes the current Win2D bitmap-copy group. The whole-
+bitmap, destination-offset, and source-subrectangle
+`CopyPixelsFromBitmap(...)` overloads submit one typed same-device base-level
+WebGPU texture-to-texture copy. A source texture lease covers submission and
+the destination shares the byte/Color mutation guard. Active render-target
+sessions, deferred destination leases, cross-device copies, and self-copy fail
+closed. In particular, ProGPU does not use Win2D's cross-device system-memory
+fallback because that would require a GPU readback and upload.
+
+The live checker now executes all three copy shapes before its retained
+image-brush draw and verifies both self-copy and lease-protected destination
+rejection. macOS, Windows ARM64, and Linux ARM64 each pass 11/11 contracts and
+a warning-free build. Their exact Metal, D3D12, and Vulkan hashes remain the
+three `d51b289b` hashes above, proving the GPU-copy route preserves the exact
+checker and the existing named differential. The exact Windows archive
+SHA-256 is
+`C545A591DBBE3FFBE274BF6D11DED211BCC5DA41CF34107E14E2A78A9434BD01`;
+native C++/ABI and the qualified DLL/theme remain unchanged.
 .NET SDK 10.0.400 rebuilt the complete managed graph with zero warnings and
 errors; all 8 focused compilation, validation, ABI, ordinary-gradient, and
 specular-gradient tests passed. Both live contexts selected
@@ -4703,7 +4722,7 @@ existing Dawn keyed-mutex/shared-texture path without CPU readback; that native
 interop adapter remains planned. The Microsoft Win2D binary remains
 Windows-only, native COM resource wrapping fails closed off Windows, and
 ProGPU will not publish a fake `d2d1.dll`. The portable package is source
-compatible rather than binary compatible; bitmap file/buffer/copy APIs,
+compatible rather than binary compatible; bitmap file/buffer APIs,
 geometry query/stroke/outline operations, command-list/effect image brushes, layer
 opacity brushes, formatted text, effects, sprite batches, and XAML controls
 remain incremental compatibility groups.
