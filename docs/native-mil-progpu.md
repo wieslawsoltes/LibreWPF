@@ -4489,6 +4489,27 @@ Against D3D12, Vulkan changes 42 antialiased-edge pixels and Metal changes two;
 every changed channel is exactly 1/255, the Vulkan mean absolute channel
 difference is `0.0003602431`, and the three-backend differential passes.
 
+ProGPU `db43e5eb` removes the next ArcOptions source blocker with a mutable,
+typed `CanvasStrokeStyle`. Start/end/dash caps, miter/bevel/round joins, miter
+limit, standard and custom dash patterns, dash offset, fixed strokes, and
+hairlines map to immutable ProGPU `Pen` realizations. Each style caches its last
+brush/width/version realization and invalidates it on mutation; recorded
+pictures retain the earlier immutable pen. Custom dash data is defensively
+copied and takes precedence over the standard dash enum. `MiterOrBevel` fails
+closed rather than silently becoming a different join.
+
+The pinned ArcOptions-shaped draw overload now compiles, seven isolated tests
+pass on macOS and Windows ARM64, and a dashed/capped line advances the live
+frame to `11+2` native draws. Metal SHA-256 is
+`0D9BB2695BF85767A0AFF3683392172D9A02EE1C17D5362C38EB060E848C69BB`,
+Parallels D3D12 is
+`CA50647DD915E8D42B4F5DD724BC96DE74383689157824186C52BF12D6B1577E`,
+and Ubuntu Vulkan is
+`AABC336A0F851925C70566E1CFFEC64BE943E29B41127CE7233386C930782FF2`.
+The new stroke is exact across the three backends: the full-frame comparison
+retains only the earlier 2-pixel Metal and 42-pixel Vulkan curve-edge
+differences, all exactly 1/255.
+
 Windows may additionally run the real Win2D/Direct2D runtime into a
 same-adapter shared BGRA8 DXGI allocation and import it through ProGPU's
 existing Dawn keyed-mutex/shared-texture path without CPU readback; that native
