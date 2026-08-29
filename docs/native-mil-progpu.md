@@ -4411,6 +4411,15 @@ without device loss. The short VM p50 samples (`10.699 ms` inline,
 `35.3319 ms` staged) are correctness evidence only, not a physical-D3D12
 performance claim.
 
+ProGPU checkpoint `2391367d` closes the browser-WGSL side of the same SIMD
+winding work. WGSL logical `&&` and `||` accept scalar booleans only, while the
+desktop shader compilers had accepted their use with four-lane boolean vectors.
+The shared inline and staged signed-winding shaders now express difference,
+intersection, union, and reverse difference with component-wise `select`
+operations. The Emscripten/Chromium native browser contract passes with no
+WebGPU validation errors, and 21 focused managed shader/boolean tests remain
+green; no scalar fallback or browser-specific algorithm was introduced.
+
 ## Direct2D and Win2D boundary
 
 `ProGPU.DirectX` currently implements a Direct3D-style portable facade, not
