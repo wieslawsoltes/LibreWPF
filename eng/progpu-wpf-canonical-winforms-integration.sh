@@ -45,9 +45,9 @@ if [[ "${PROGPU_WPF_RUN_DRAWING_QUALITY_GATES:-1}" == "1" ]]; then
     --verbosity minimal
 fi
 
-echo "Building canonical LibreWinForms for ${target_framework} from the aligned ProGPU checkout..."
+echo "Building canonical LibreWinForms runtime and design assemblies for ${target_framework} from the aligned ProGPU checkout..."
 "${librewinforms_root}/eng/common/dotnet.sh" build \
-  "${librewinforms_root}/src/System.Windows.Forms/System.Windows.Forms.csproj" \
+  "${librewinforms_root}/src/System.Windows.Forms.Design/src/System.Windows.Forms.Design.csproj" \
   --configuration "${configuration}" \
   -p:NetCurrent="${target_framework}" \
   -p:LibreWinFormsReferenceMode=Project \
@@ -278,6 +278,16 @@ echo "Packing canonical WindowsFormsIntegration ${canonical_package_version}..."
 for package_file in "${canonical_forms_package}" "${canonical_backend_package}" "${canonical_integration_package}"; do
   if [[ ! -f "${package_file}" ]]; then
     echo "Canonical WinForms package was not produced: ${package_file}" >&2
+    exit 1
+  fi
+done
+
+for expected_entry in \
+  "lib/${target_framework}/System.Windows.Forms.Design.dll" \
+  "ref/${target_framework}/System.Windows.Forms.Design.dll"
+do
+  if ! unzip -Z1 "${canonical_forms_package}" | grep -Fxq "${expected_entry}"; then
+    echo "Canonical System.Windows.Forms package is missing ${expected_entry}." >&2
     exit 1
   fi
 done
