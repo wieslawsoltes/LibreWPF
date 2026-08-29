@@ -25,6 +25,9 @@ if [[ -z "${dotnet_command}" ]]; then
   exit 1
 fi
 
+export DOTNET_ROLL_FORWARD="${DOTNET_ROLL_FORWARD:-Major}"
+export DOTNET_ROLL_FORWARD_TO_PRERELEASE="${DOTNET_ROLL_FORWARD_TO_PRERELEASE:-1}"
+
 resolve_single_version() {
   local package_source="$1"
   local package_id="$2"

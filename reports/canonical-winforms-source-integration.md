@@ -71,8 +71,12 @@ gate checks that invariant before compiling anything.
   `LibreWPF.Sdk` with only the canonical Forms/backend/WFI identities selected.
 
 Local qualification produced both assemblies with zero errors and no assembly
-conflict warnings. The `LibreWPF Build` workflow runs the source integration
-gate on Ubuntu in addition to the existing package-mode SDK lane.
+conflict warnings. The clean package consumer then restored and built with zero
+warnings and errors, started successfully on Linux, resolved canonical Forms,
+WFI, and backend assemblies, and found no transitional Forms package in its
+assets graph. The `LibreWPF Build` workflow runs the source integration gate and
+this downstream SDK consumer on Ubuntu in addition to the existing released
+NuGet package-mode SDK lane.
 
 ## Remaining Cutover Work
 

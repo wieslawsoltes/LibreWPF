@@ -47,8 +47,10 @@ require_text "eng/progpu-wpf-canonical-winforms-integration.sh" 'LibreWinForms.P
 require_text "eng/progpu-wpf-canonical-winforms-integration.sh" 'LibreWinFormsSkipCanonicalPackageBuild=true'
 require_text "packaging/ProGPU.Wpf.Sdk/targets/ProGPU.Wpf.Sdk.targets" '<ProGpuWpfUseCanonicalLibreWinForms'
 require_text "packaging/ProGPU.Wpf.Sdk/targets/ProGPU.Wpf.Sdk.targets" 'Include="LibreWinForms.ProGPU"'
+require_text "packaging/ProGPU.Wpf.Sdk/targets/ProGPU.Wpf.Sdk.targets" '<Compile Remove="$(MSBuildThisFileDirectory)ProGPU.Wpf.Sdk.PortableBootstrap.cs" />'
 require_text "packaging/ProGPU.Wpf.Sdk/targets/ProGPU.Wpf.Sdk.PortableBootstrap.cs" 'global::LibreWinForms.ProGPU.ProGpuPlatform.Register();'
 require_text "eng/progpu-wpf-canonical-sdk-smoke.sh" 'LibreWinForms.Compatibility.System.Windows.Forms/'
+require_text "eng/progpu-wpf-canonical-sdk-smoke.sh" 'DOTNET_ROLL_FORWARD_TO_PRERELEASE'
 require_text "docs/progpu-wpf-release.md" 'terminal-success `LibreWPF Build` run for the exact tagged commit'
 require_text ".github/workflows/progpu-wpf-release.yml" "Stage exact ProGPU release packages"
 require_text ".github/workflows/progpu-wpf-release.yml" "LibreWPF.Transport LibreWPF.ProGPU LibreWPF.Sdk"

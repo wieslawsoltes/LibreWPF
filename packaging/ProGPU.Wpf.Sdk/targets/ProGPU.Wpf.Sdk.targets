@@ -78,6 +78,7 @@
   </Target>
 
   <ItemGroup Condition="'$(ProGpuWpfUsePortableFrameworkReferences)' == 'true' And '$(ProGpuWpfEnablePortableBootstrap)' == 'true' And ('$(OutputType)' == 'Exe' Or '$(OutputType)' == 'WinExe')">
+    <Compile Remove="$(MSBuildThisFileDirectory)ProGPU.Wpf.Sdk.PortableBootstrap.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)ProGPU.Wpf.Sdk.PortableBootstrap.cs"
              Link="ProGPU.Wpf.Sdk.PortableBootstrap.cs"
              Visible="false" />
