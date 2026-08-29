@@ -4510,6 +4510,27 @@ The new stroke is exact across the three backends: the full-frame comparison
 retains only the earlier 2-pixel Metal and 42-pixel Vulkan curve-edge
 differences, all exactly 1/255.
 
+ProGPU `d9431558` adds the pinned GeometryOperations creation subset:
+`CreateGroup`, affine `Transform`, and `CombineWith` union, intersection, xor,
+and exclusion. Combined geometry remains an immutable retained DAG evaluated
+by the existing native vector-mask shaders. Identity-transformed operands are
+referenced directly, and no synchronous path solver, GPU readback, CPU curve
+flattening, or scalar fallback is used. Groups accept ordinary path geometries
+and fail closed for combined entries until their `GeometryGroup` fill semantics
+can be preserved without flattening.
+
+The live exclusion test adds a rectangle-minus-circle fill (`12+2` native
+draws) whose solid ring and transparent center are exact on all backends.
+Metal SHA-256 is
+`32F9926D292FB2A109268B42D5CC01B17EE7449EE69CEBC2CD7F2E14B24A063A`,
+Parallels D3D12 is
+`A48B37AE5DE4E77CE0FE8F69C0C7D4E9FCC93179CAA852B247D6C41B7072D9DD`,
+and Ubuntu Vulkan is
+`3191C015FF87F1FC4899DEFDFCBC5B518754B2908350E4BE47B81796C7D3C7E5`.
+The three-backend differential still contains only the original two Metal and
+42 Vulkan curve-edge pixels at exactly 1/255, proving the boolean fill itself
+is backend-exact.
+
 Windows may additionally run the real Win2D/Direct2D runtime into a
 same-adapter shared BGRA8 DXGI allocation and import it through ProGPU's
 existing Dawn keyed-mutex/shared-texture path without CPU readback; that native
