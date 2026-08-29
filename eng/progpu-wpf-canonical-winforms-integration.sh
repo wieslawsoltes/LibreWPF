@@ -6,6 +6,7 @@ librewinforms_root="${repo_root}/external/LibreWinForms"
 progpu_root="${repo_root}/external/ProGPU"
 configuration="${CONFIGURATION:-Release}"
 target_framework="net10.0"
+canonical_support_package_version="${PROGPU_WPF_CANONICAL_SUPPORT_PACKAGE_VERSION:-10.0.10}"
 canonical_package_output="${PROGPU_WPF_CANONICAL_WINFORMS_PACKAGE_OUTPUT:-${repo_root}/artifacts/packages/CanonicalWinForms}"
 
 if [[ ! -f "${librewinforms_root}/src/System.Windows.Forms/System.Windows.Forms.csproj" ]]; then
@@ -15,6 +16,14 @@ fi
 
 if [[ ! -f "${progpu_root}/src/System.Drawing.Common/System.Drawing.Common.csproj" ]]; then
   echo "Initialize the external/ProGPU submodule before running the canonical integration gate." >&2
+  exit 1
+fi
+
+expected_librewinforms_commit="$(git -C "${repo_root}" ls-tree HEAD external/LibreWinForms | awk '{ print $3 }')"
+librewinforms_commit="$(git -C "${librewinforms_root}" rev-parse HEAD)"
+if [[ -z "${expected_librewinforms_commit}" || "${expected_librewinforms_commit}" != "${librewinforms_commit}" ]]; then
+  echo "LibreWPF pins LibreWinForms ${expected_librewinforms_commit:-missing}, but the initialized checkout has ${librewinforms_commit}." >&2
+  echo "Run 'git submodule update --init external/LibreWinForms' before continuing." >&2
   exit 1
 fi
 
@@ -49,7 +58,9 @@ echo "Building canonical LibreWinForms runtime and design assemblies for ${targe
 "${librewinforms_root}/eng/common/dotnet.sh" build \
   "${librewinforms_root}/src/System.Windows.Forms.Design/src/System.Windows.Forms.Design.csproj" \
   --configuration "${configuration}" \
+  --no-incremental \
   -p:NetCurrent="${target_framework}" \
+  -p:SystemCodeDomPackageVersion="${canonical_support_package_version}" \
   -p:LibreWinFormsReferenceMode=Project \
   -p:LibreWinFormsUseProGpuSystemDrawing=true \
   -p:LibreWinFormsProGpuSourceRoot="${progpu_root}/" \
@@ -291,6 +302,12 @@ do
     exit 1
   fi
 done
+
+forms_nuspec="$(unzip -p "${canonical_forms_package}" '*.nuspec')"
+if [[ "${forms_nuspec}" != *"<dependency id=\"System.CodeDom\" version=\"${canonical_support_package_version}\""* ]]; then
+  echo "Canonical System.Windows.Forms package does not depend on the qualified System.CodeDom version ${canonical_support_package_version}." >&2
+  exit 1
+fi
 
 for expected_entry in \
   "lib/${target_framework}/WindowsFormsIntegration.dll" \
