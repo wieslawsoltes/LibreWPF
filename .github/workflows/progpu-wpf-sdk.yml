@@ -111,10 +111,17 @@ jobs:
           if [[ -z "${tag_commit}" ]]; then
             tag_commit="$(git ls-remote https://github.com/wieslawsoltes/ProGPU.git "${tag_ref}" | awk 'NR == 1 { print $1 }')"
           fi
+          if [[ -z "${tag_commit}" ]]; then
+            echo "Could not resolve ${tag}." >&2
+            exit 1
+          fi
           submodule_commit="$(git -C external/ProGPU rev-parse HEAD)"
-          if [[ -z "${tag_commit}" ]] \
-            || ! git -C external/ProGPU merge-base --is-ancestor "${tag_commit}" "${submodule_commit}"; then
-            echo "LibreWPF ProGPU submodule ${submodule_commit} is not based on ${tag} (${tag_commit:-missing})." >&2
+          if [[ "$(git -C external/ProGPU rev-parse --is-shallow-repository)" == "true" ]]; then
+            git -C external/ProGPU fetch --no-tags --unshallow origin
+          fi
+          git -C external/ProGPU fetch --no-tags origin "${tag_commit}"
+          if ! git -C external/ProGPU merge-base --is-ancestor "${tag_commit}" "${submodule_commit}"; then
+            echo "LibreWPF ProGPU submodule ${submodule_commit} is not based on ${tag} (${tag_commit})." >&2
             exit 1
           fi
 

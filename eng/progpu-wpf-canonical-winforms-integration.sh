@@ -63,6 +63,7 @@ primitive_project="${repo_root}/src/Microsoft.DotNet.Wpf/src/System.Windows.Prim
 system_xaml_project="${repo_root}/src/Microsoft.DotNet.Wpf/src/System.Xaml/System.Xaml.csproj"
 windows_base_project="${repo_root}/src/Microsoft.DotNet.Wpf/src/WindowsBase/WindowsBase.csproj"
 progpu_interop_project="${progpu_root}/src/ProGPU.Wpf.Interop/ProGPU.Wpf.Interop.csproj"
+presentation_build_tasks_project="${repo_root}/src/Microsoft.DotNet.Wpf/src/PresentationBuildTasks/PresentationBuildTasks.csproj"
 system_printing_ref_project="${repo_root}/src/Microsoft.DotNet.Wpf/src/System.Printing/ref/System.Printing-ref.csproj"
 presentation_framework_ref_project="${repo_root}/src/Microsoft.DotNet.Wpf/src/PresentationFramework/ref/PresentationFramework-ref.csproj"
 
@@ -70,7 +71,8 @@ for prerequisite in \
   "${primitive_project}" \
   "${system_xaml_project}" \
   "${windows_base_project}" \
-  "${progpu_interop_project}"
+  "${progpu_interop_project}" \
+  "${presentation_build_tasks_project}"
 do
   "${dotnet_command}" restore "${prerequisite}" --disable-parallel --verbosity minimal
 done

@@ -18,6 +18,7 @@ require_text ".github/workflows/progpu-wpf-sdk.yml" "./eng/progpu-wpf-canonical-
 require_text ".github/workflows/progpu-wpf-sdk.yml" "submodules: recursive"
 require_text ".github/workflows/progpu-wpf-sdk.yml" "canonical-librewinforms-"
 require_text ".github/workflows/progpu-wpf-sdk.yml" "PROGPU_WPF_PROGPU_PACKAGE_VERSION: 0.1.0-preview.62"
+require_text ".github/workflows/progpu-wpf-sdk.yml" "--unshallow origin"
 require_text ".github/workflows/progpu-wpf-sdk.yml" "librewpf-ci-packages-"
 require_text ".github/workflows/progpu-wpf-sdk.yml" "if-no-files-found: error"
 require_text ".github/workflows/progpu-wpf-sdk.yml" "./eng/progpu-wpf-linux-xwayland-smoke.sh"
@@ -39,6 +40,7 @@ require_text "eng/LibreWinForms.WindowsFormsIntegration.Package/LibreWinForms.Wi
 require_text "eng/LibreWinForms.WindowsFormsIntegration.Package/LibreWinForms.WindowsFormsIntegration.Package.csproj" "LibreWinForms.System.Windows.Forms"
 require_text "eng/LibreWinForms.WindowsFormsIntegration.Package/LibreWinForms.WindowsFormsIntegration.Package.csproj" 'PrivateAssets=""'
 require_text "eng/progpu-wpf-canonical-winforms-integration.sh" 'ref/${target_framework}/WindowsFormsIntegration.dll'
+require_text "eng/progpu-wpf-canonical-winforms-integration.sh" 'PresentationBuildTasks/PresentationBuildTasks.csproj'
 require_text "eng/progpu-wpf-canonical-winforms-integration.sh" "packaged_implementation_hash"
 require_text "docs/progpu-wpf-release.md" 'terminal-success `LibreWPF Build` run for the exact tagged commit'
 require_text ".github/workflows/progpu-wpf-release.yml" "Stage exact ProGPU release packages"
