@@ -152,6 +152,40 @@ jobs:
             artifacts/packages/Release/NonShipping/NuGet.config
           if-no-files-found: error
 
+  canonical-sdk-consumer:
+    name: Canonical LibreWPF SDK package consumer
+    needs:
+      - canonical-winforms-integration
+      - sdk-smoke
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Download canonical LibreWinForms closure
+        uses: actions/download-artifact@v4
+        with:
+          name: canonical-librewinforms-${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}
+          path: artifacts/packages/CanonicalWinForms
+
+      - name: Download LibreWPF SDK package bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: librewpf-ci-packages-${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}
+          path: artifacts/packages/Release/NonShipping
+
+      - name: Consume canonical Forms, backend, and WFI through LibreWPF.Sdk
+        run: ./eng/progpu-wpf-canonical-sdk-smoke.sh
+
   windows-anycpu-smoke:
     name: Windows AnyCPU package launch
     needs: sdk-smoke

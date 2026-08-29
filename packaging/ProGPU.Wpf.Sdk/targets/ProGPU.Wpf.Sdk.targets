@@ -4,7 +4,10 @@
     <CopyLocalLockFileAssemblies Condition="'$(ProGpuWpfUsePortableFrameworkReferences)' == 'true'">true</CopyLocalLockFileAssemblies>
     <ProGpuWpfPackageVersion Condition="'$(ProGpuWpfPackageVersion)' == ''">$(ProGpuWpfSdkVersion)</ProGpuWpfPackageVersion>
     <ProGpuWpfManagedPackageVersion Condition="'$(ProGpuWpfManagedPackageVersion)' == ''">$(ProGpuWpfPackageVersion)</ProGpuWpfManagedPackageVersion>
+    <ProGpuWpfUseCanonicalLibreWinForms Condition="'$(ProGpuWpfUseCanonicalLibreWinForms)' == ''">false</ProGpuWpfUseCanonicalLibreWinForms>
     <ProGpuWpfLibreWinFormsPackageVersion Condition="'$(ProGpuWpfLibreWinFormsPackageVersion)' == ''">$(ProGpuWpfManagedPackageVersion)</ProGpuWpfLibreWinFormsPackageVersion>
+    <ProGpuWpfLibreWinFormsBackendPackageVersion Condition="'$(ProGpuWpfLibreWinFormsBackendPackageVersion)' == ''">$(ProGpuWpfLibreWinFormsPackageVersion)</ProGpuWpfLibreWinFormsBackendPackageVersion>
+    <ProGpuWpfLibreWinFormsRuntimePackageId Condition="'$(ProGpuWpfLibreWinFormsRuntimePackageId)' == '' And '$(ProGpuWpfUseCanonicalLibreWinForms)' == 'true'">LibreWinForms.System.Windows.Forms</ProGpuWpfLibreWinFormsRuntimePackageId>
     <ProGpuWpfLibreWinFormsRuntimePackageId Condition="'$(ProGpuWpfLibreWinFormsRuntimePackageId)' == ''">LibreWinForms.Compatibility.System.Windows.Forms</ProGpuWpfLibreWinFormsRuntimePackageId>
     <ProGpuPackageVersion Condition="'$(ProGpuPackageVersion)' == ''">0.1.0-preview.62</ProGpuPackageVersion>
     <ProGpuWpfNet10SupportPackageVersion Condition="'$(ProGpuWpfNet10SupportPackageVersion)' == ''">10.0.10</ProGpuWpfNet10SupportPackageVersion>
@@ -56,6 +59,7 @@
 
   <PropertyGroup Condition="'$(ProGpuWpfUsePortableFrameworkReferences)' == 'true' And '$(ProGpuWpfEnablePortableBootstrap)' == 'true' And ('$(OutputType)' == 'Exe' Or '$(OutputType)' == 'WinExe') And '$(ProGpuWpfUsePortableWinFormsCompat)' == 'true' And '$(ProGpuWpfUseLibreWinForms)' == 'true'">
     <DefineConstants>$(DefineConstants);PROGPU_WPF_USE_LIBREWINFORMS</DefineConstants>
+    <DefineConstants Condition="'$(ProGpuWpfUseCanonicalLibreWinForms)' == 'true'">$(DefineConstants);PROGPU_WPF_USE_CANONICAL_LIBREWINFORMS</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup Condition="'$(ProGpuWpfUsePortableFrameworkReferences)' == 'true'">
@@ -144,6 +148,7 @@
     <PackageReference Include="ProGPU.Compute" Version="$(ProGpuPackageVersion)" />
     <PackageReference Include="ProGPU.Transpiler" Version="$(ProGpuPackageVersion)" />
     <PackageReference Include="$(ProGpuWpfLibreWinFormsRuntimePackageId)" Version="$(ProGpuWpfLibreWinFormsPackageVersion)" Condition="'$(ProGpuWpfUsePortableWinFormsCompat)' == 'true' And '$(ProGpuWpfUseLibreWinForms)' == 'true'" />
+    <PackageReference Include="LibreWinForms.ProGPU" Version="$(ProGpuWpfLibreWinFormsBackendPackageVersion)" Condition="'$(ProGpuWpfUsePortableWinFormsCompat)' == 'true' And '$(ProGpuWpfUseLibreWinForms)' == 'true' And '$(ProGpuWpfUseCanonicalLibreWinForms)' == 'true'" />
     <PackageReference Include="LibreWinForms.WindowsFormsIntegration" Version="$(ProGpuWpfLibreWinFormsPackageVersion)" Condition="'$(ProGpuWpfUsePortableWinFormsCompat)' == 'true' And '$(ProGpuWpfUseLibreWinForms)' == 'true'" />
     <PackageReference Include="LibreWPF.WinFormsCompat.System.Windows.Forms" Version="$(ProGpuWpfManagedPackageVersion)" Condition="'$(ProGpuWpfUsePortableWinFormsCompat)' == 'true' And '$(ProGpuWpfUseLibreWinForms)' != 'true'" />
     <PackageReference Include="LibreWPF.WinFormsCompat.WindowsFormsIntegration" Version="$(ProGpuWpfManagedPackageVersion)" Condition="'$(ProGpuWpfUsePortableWinFormsCompat)' == 'true' And '$(ProGpuWpfUseLibreWinForms)' != 'true'" />
@@ -161,6 +166,7 @@
     <PackageReference Include="ProGPU.Compute" VersionOverride="$(ProGpuPackageVersion)" />
     <PackageReference Include="ProGPU.Transpiler" VersionOverride="$(ProGpuPackageVersion)" />
     <PackageReference Include="$(ProGpuWpfLibreWinFormsRuntimePackageId)" VersionOverride="$(ProGpuWpfLibreWinFormsPackageVersion)" Condition="'$(ProGpuWpfUsePortableWinFormsCompat)' == 'true' And '$(ProGpuWpfUseLibreWinForms)' == 'true'" />
+    <PackageReference Include="LibreWinForms.ProGPU" VersionOverride="$(ProGpuWpfLibreWinFormsBackendPackageVersion)" Condition="'$(ProGpuWpfUsePortableWinFormsCompat)' == 'true' And '$(ProGpuWpfUseLibreWinForms)' == 'true' And '$(ProGpuWpfUseCanonicalLibreWinForms)' == 'true'" />
     <PackageReference Include="LibreWinForms.WindowsFormsIntegration" VersionOverride="$(ProGpuWpfLibreWinFormsPackageVersion)" Condition="'$(ProGpuWpfUsePortableWinFormsCompat)' == 'true' And '$(ProGpuWpfUseLibreWinForms)' == 'true'" />
     <PackageReference Include="LibreWPF.WinFormsCompat.System.Windows.Forms" VersionOverride="$(ProGpuWpfManagedPackageVersion)" Condition="'$(ProGpuWpfUsePortableWinFormsCompat)' == 'true' And '$(ProGpuWpfUseLibreWinForms)' != 'true'" />
     <PackageReference Include="LibreWPF.WinFormsCompat.WindowsFormsIntegration" VersionOverride="$(ProGpuWpfManagedPackageVersion)" Condition="'$(ProGpuWpfUsePortableWinFormsCompat)' == 'true' And '$(ProGpuWpfUseLibreWinForms)' != 'true'" />
@@ -277,6 +283,7 @@
       <_ProGpuWpfSdkMutablePackageOutput Include="$(TargetDir)System.Windows.Primitives.dll" />
       <_ProGpuWpfSdkMutablePackageOutput Include="$(TargetDir)System.Windows.Forms.dll" />
       <_ProGpuWpfSdkMutablePackageOutput Include="$(TargetDir)WindowsFormsIntegration.dll" />
+      <_ProGpuWpfSdkMutablePackageOutput Include="$(TargetDir)LibreWinForms.ProGPU.dll" />
       <_ProGpuWpfSdkMutablePackageOutput Include="$(TargetDir)PresentationFramework.Aero.dll" />
       <_ProGpuWpfSdkMutablePackageOutput Include="$(TargetDir)PresentationFramework.Aero2.dll" />
       <_ProGpuWpfSdkMutablePackageOutput Include="$(TargetDir)PresentationFramework.AeroLite.dll" />

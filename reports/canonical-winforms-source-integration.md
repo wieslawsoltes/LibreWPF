@@ -14,7 +14,7 @@ lane for replacing the transitional LibreWinForms compatibility packages.
 
 ## Qualified Source Pins
 
-- LibreWinForms: `cd0f9dfeb8ce3fa526e650777ecf3af1f432ca91`
+- LibreWinForms: `7ee0b6107918126090dfa37f5b15e10443ba0647`
 - ProGPU: `d73cef34b92dfc71b40288dbc004d6f23c3b6fa8`
 - ProGPU release base: `v0.1.0-preview.62` / `00cf8707`
 
@@ -49,6 +49,10 @@ gate checks that invariant before compiling anything.
 8. Clean hosted validation restores `PresentationBuildTasks` before the
    managed transport build and unshallows the ProGPU checkout before checking
    that the pinned source descends from the released package baseline.
+9. `LibreWPF.Sdk` has an opt-in canonical mode that selects
+   `LibreWinForms.System.Windows.Forms`, adds the typed `LibreWinForms.ProGPU`
+   backend, registers it before WFI startup, and rejects the transitional
+   Forms package in a clean external package consumer.
 
 ## Verification
 
@@ -62,7 +66,9 @@ gate checks that invariant before compiling anything.
 - builds `WindowsFormsIntegration-ref` and `WindowsFormsIntegration` with
   `MSB3243` and `MSB3277` promoted to errors; and
 - packs the exact ProGPU/Forms/WFI dependency closure and verifies that the
-  WFI package contains the byte-identical ref/lib outputs.
+  WFI package contains the byte-identical ref/lib outputs; and
+- restores, builds, and runs a mixed WPF/WinForms app through the packaged
+  `LibreWPF.Sdk` with only the canonical Forms/backend/WFI identities selected.
 
 Local qualification produced both assemblies with zero errors and no assembly
 conflict warnings. The `LibreWPF Build` workflow runs the source integration

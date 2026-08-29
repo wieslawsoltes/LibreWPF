@@ -198,12 +198,15 @@ progpu_short_commit="$(git -C "${progpu_root}" rev-parse --short=8 HEAD)"
 canonical_package_version="${PROGPU_WPF_CANONICAL_WINFORMS_PACKAGE_VERSION:-0.1.0-canonical.${librewinforms_short_commit}.${librewpf_short_commit}}"
 progpu_source_package_version="${PROGPU_WPF_CANONICAL_PROGPU_PACKAGE_VERSION:-0.1.0-source.${progpu_short_commit}}"
 canonical_forms_package="${canonical_package_output}/LibreWinForms.System.Windows.Forms.${canonical_package_version}.nupkg"
+canonical_backend_package="${canonical_package_output}/LibreWinForms.ProGPU.${canonical_package_version}.nupkg"
 canonical_integration_package="${canonical_package_output}/LibreWinForms.WindowsFormsIntegration.${canonical_package_version}.nupkg"
 
 mkdir -p "${canonical_package_output}"
 rm -f \
   "${canonical_forms_package}" \
   "${canonical_package_output}/LibreWinForms.System.Windows.Forms.${canonical_package_version}.snupkg" \
+  "${canonical_backend_package}" \
+  "${canonical_package_output}/LibreWinForms.ProGPU.${canonical_package_version}.snupkg" \
   "${canonical_integration_package}" \
   "${canonical_package_output}/LibreWinForms.WindowsFormsIntegration.${canonical_package_version}.snupkg"
 
@@ -214,6 +217,25 @@ PROGPU_PACKAGE_OUTPUT="${canonical_package_output}" \
 PROGPU_PACKAGE_GROUP=drawing-runtime \
   "${progpu_root}/eng/progpu-pack.sh"
 
+for package_spec in \
+  "src/ProGPU.DirectX/ProGPU.DirectX.csproj|ProGPU.DirectX" \
+  "src/ProGPU.Wpf.Interop/ProGPU.Wpf.Interop.csproj|LibreWPF.Interop"
+do
+  package_project="${package_spec%%|*}"
+  package_id="${package_spec##*|}"
+  rm -f \
+    "${canonical_package_output}/${package_id}.${progpu_source_package_version}.nupkg" \
+    "${canonical_package_output}/${package_id}.${progpu_source_package_version}.snupkg"
+  "${dotnet_command}" pack \
+    "${progpu_root}/${package_project}" \
+    --configuration "${configuration}" \
+    --output "${canonical_package_output}" \
+    --verbosity minimal \
+    -p:Version="${progpu_source_package_version}" \
+    -p:PackageVersion="${progpu_source_package_version}" \
+    -p:ContinuousIntegrationBuild=true
+done
+
 echo "Packing canonical System.Windows.Forms ${canonical_package_version}..."
 NetCurrent="${target_framework}" \
   "${librewinforms_root}/eng/common/dotnet.sh" pack \
@@ -223,6 +245,20 @@ NetCurrent="${target_framework}" \
   -p:Version="${canonical_package_version}" \
   -p:PackageVersion="${canonical_package_version}" \
   -p:NetCurrent="${target_framework}" \
+  -p:LibreWinFormsProGpuPackageVersion="${progpu_source_package_version}" \
+  -p:RestoreAdditionalProjectSources="${canonical_package_output}" \
+  -p:ContinuousIntegrationBuild=true
+
+echo "Packing canonical LibreWinForms.ProGPU ${canonical_package_version}..."
+NetCurrent="${target_framework}" \
+  "${librewinforms_root}/eng/common/dotnet.sh" pack \
+  "${librewinforms_root}/packaging/LibreWinForms.ProGPU/LibreWinForms.ProGPU.Package.csproj" \
+  --configuration "${configuration}" \
+  --output "${canonical_package_output}" \
+  -p:Version="${canonical_package_version}" \
+  -p:PackageVersion="${canonical_package_version}" \
+  -p:NetCurrent="${target_framework}" \
+  -p:LibreWinFormsCanonicalPackageVersion="${canonical_package_version}" \
   -p:LibreWinFormsProGpuPackageVersion="${progpu_source_package_version}" \
   -p:RestoreAdditionalProjectSources="${canonical_package_output}" \
   -p:ContinuousIntegrationBuild=true
@@ -238,7 +274,7 @@ echo "Packing canonical WindowsFormsIntegration ${canonical_package_version}..."
   -p:RestoreAdditionalProjectSources="${canonical_package_output}" \
   -p:ContinuousIntegrationBuild=true
 
-for package_file in "${canonical_forms_package}" "${canonical_integration_package}"; do
+for package_file in "${canonical_forms_package}" "${canonical_backend_package}" "${canonical_integration_package}"; do
   if [[ ! -f "${package_file}" ]]; then
     echo "Canonical WinForms package was not produced: ${package_file}" >&2
     exit 1
@@ -267,6 +303,13 @@ fi
 integration_nuspec="$(unzip -p "${canonical_integration_package}" '*.nuspec')"
 if [[ "${integration_nuspec}" != *"<dependency id=\"LibreWinForms.System.Windows.Forms\" version=\"${canonical_package_version}\""* ]]; then
   echo "Canonical WindowsFormsIntegration package does not depend on the matching canonical Forms package." >&2
+  exit 1
+fi
+
+backend_nuspec="$(unzip -p "${canonical_backend_package}" '*.nuspec')"
+if [[ "${backend_nuspec}" != *"<dependency id=\"LibreWinForms.System.Windows.Forms\" version=\"${canonical_package_version}\""* \
+  || "${backend_nuspec}" != *"<dependency id=\"ProGPU.System.Drawing.Common\" version=\"${progpu_source_package_version}\""* ]]; then
+  echo "Canonical LibreWinForms.ProGPU package does not carry the exact Forms and drawing dependencies." >&2
   exit 1
 fi
 
