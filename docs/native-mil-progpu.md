@@ -4830,7 +4830,7 @@ for `progpu_native_direct2d.dll` and
 `cab7f76311cd5115a0f8f84ee680115eb6481c6842eb45a85eea0633c08292fc`
 for its test executable.
 
-ABI v3 and the new `ProGPU.Direct2D` package now bind the producer lifecycle to
+ABI v5 and the `ProGPU.Direct2D` package now bind the producer lifecycle to
 Dawn's same-adapter import and the already-qualified D3DImage texture lease.
 `ProGpuDirect2DSurface` validates the D3D12 context, adapter, BGRA8 premultiplied
 format, NT handle, keyed mutex, dimensions, and DPI before importing the
@@ -4852,17 +4852,45 @@ closed before the first successful draw and forwards `TextureChanged`; the
 application retains ownership of the wrapped surface. This adds no bridge
 copy, new MIL resource kind, COM pointer in a packet, readback, or repack. The
 Windows build now stages `progpu_native_direct2d.dll` for x64/ARM64 and checks
-the exact 12-export ABI. Its generic GUID-based `QueryInterface` seam lets
+the exact 14-export ABI. Its generic GUID-based `QueryInterface` seam lets
 typed native/AOT callers request later genuine `ID2D1*` generations supported
 by the installed Windows runtime, with explicit `E_NOINTERFACE` failure and no
-emulated vtables. Microsoft Win2D activation/resource wrapping and full device-
-loss recreation remain the next native-Win2D layer.
+emulated vtables.
+
+ABI v5 adds the official Win2D `ICanvasFactoryNative::GetOrCreate` resource
+wrappers. The registered factory wraps the provider's exact `ID2D1Device1` as
+a real `Microsoft.Graphics.Canvas.CanvasDevice`, then wraps the exact target
+`ID2D1Bitmap1` as a real `CanvasRenderTarget` at the surface DPI. The managed
+`TryBeginMicrosoftWin2DProducerAccess(...)` scope transfers the keyed mutex
+from Dawn without beginning a competing native Direct2D draw session. The
+caller creates, uses, and disposes its real `CanvasDrawingSession` inside that
+scope; disposing the outer scope returns ownership to Dawn, refreshes the
+descriptor/content version, and publishes texture invalidation. Missing Win2D
+package registration, missing apartment initialization, a cross-device
+resource, an overlapping producer, or an active GPU lease fails closed through
+typed HRESULT/state results. The provider does not search for or load the
+Win2D DLL.
+
+Exact ProGPU implementation commit `f751cd0b` was rebuilt in the Windows 11
+ARM64 Parallels VM with MSVC 19.44 and Windows SDK 26100 under `/W4 /WX`. The
+native regression exits zero and the exact 14-export `dumpbin` audit passes.
+SHA-256 is
+`d9224ee806635ba3086d299912bb7bd2d9cf52a7ef56451ae54656058e7175d8`
+for `progpu_native_direct2d.dll` and
+`0e8fc690ba5bd4a7a40d461d1691f8efd32dbef7338ae90a1635ccc5b0f2e02d`
+for its test executable. That VM has no registered Canvas/Win2D AppX package,
+so it qualifies the explicit unavailable-runtime behavior for both wrappers;
+the real Win2D success path still requires the package-deployed oracle and the
+full device-loss/recreation gate.
 
 The provider now also creates the genuine WinRT `IDirect3DDevice` required by
 Win2D `CanvasDevice.CreateFromDirect3D11Device` from the surface's exact
 `IDXGIDevice`. Its native regression unwraps the object through
 `IDirect3DDxgiInterfaceAccess` and requires the original `ID3D11Device`
 identity, preventing a second adapter/resource domain or cross-device copy.
+The factory-native wrapper is preferred over constructing a CanvasDevice only
+from that WinRT object because it preserves the provider's exact Direct2D
+resource domain.
 
 ## Native MIL canonical D3DImage checkpoint
 
@@ -4905,16 +4933,17 @@ for the test executable. Windows SHA-256 is
 for `progpu_native.dll` and
 `d94382db3f1087573615c91ff983cd2343b6144b68c4f3db160f7c59f0f8568f`
 for the test executable. The genuine Windows `ID2D1Bitmap1`/DXGI producer is
-now implemented at ProGPU `59045316`, and ABI v3 supplies the typed Dawn
-lifecycle/lease binding. Real Microsoft Win2D still additionally needs
-resource-wrapper activation and complete device-loss recreation tests.
+implemented at ProGPU `59045316`; ABI v5 supplies typed Dawn lifecycle/lease
+binding plus real CanvasDevice and CanvasRenderTarget factory-native wrappers.
+Microsoft Win2D still needs a package-deployed success oracle and complete
+device-loss recreation tests.
 
 ## Next parity gates
 
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested
    render-data command families using the complete generated WPF MCG layouts.
-2. Add remaining non-bitmap image sources, bind Microsoft Win2D resource
-   wrappers to the implemented Direct2D/Dawn ownership surface, complete its
+2. Add remaining non-bitmap image sources, qualify the implemented Microsoft
+   Win2D resource wrappers with a package-deployed success oracle, complete the
    device-loss gate, and add remaining exact WPF-compatible arc lowering,
    and
    remaining multi-guideline draw-family deformation, general Visual
