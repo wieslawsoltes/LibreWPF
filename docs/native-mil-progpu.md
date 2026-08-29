@@ -4352,6 +4352,43 @@ This is correctness evidence on the virtual adapter, not a physical-D3D12
 performance claim. LibreWPF advances its submodule to ProGPU documentation and
 Win2D-planning checkpoint `fa3e9e4a`.
 
+## Exact WPF Nonzero boolean winding
+
+ProGPU checkpoint `a35e1d67` completes exact WPF Nonzero aggregation when
+ordinary GeometryGroup contours contain or surround CombinedGeometry results.
+The public 48-byte boolean-node layout is unchanged; appended winding-leaf,
+winding-add, and winding-negate values preserve raw contour orientation until
+the final Nonzero test. Boolean results normalize to `+1`, and only a reflected
+containing GeometryGroup negates that contribution, matching the standalone
+Windows WPF contour oracle.
+
+The native path and retained-clip routes use staged GPU shaders: analytic leaf
+rasterization records raw signed winding, the postfix evaluator carries eight
+horizontal samples through two `vec4<i32>` lanes per supersample row, and the
+coverage stage counts two predicate-mask words before packing R8 atlas texels.
+This reduces evaluator dispatch width by 8x and result staging from 64 to two
+u32 words per texel relative to the scalar-per-supersample staging prototype.
+There is no CPU readback, CPU repacking, per-item submission, or managed
+fallback. The existing portable managed PathAtlas keeps its inline evaluator
+and composes the same shared analytic WGSL source.
+
+The D3D12 reduction also separated WebGPU row pitch from copy placement: rows
+remain 256-byte aligned, while every path, retained-clip, and glyph atlas copy
+source is now 512-byte aligned. A source offset of 72,960 was valid for row
+pitch but lost the Parallels D3D12 device; the next 512-byte boundary at 73,216
+passed without a backend-specific path.
+
+Apple M3 Pro Metal passed both 10/10 native CTest configurations, managed
+shader coverage passed 20/20, and selected managed PathAtlas GPU cases passed
+5/5. The exact committed archive then completed all 315 strict Windows ARM64
+MSVC `/W4 /WX` build steps and 11/11 native/Dawn CTests. The live Parallels
+WDDM D3D12 sample reproduced Metal at all six decisive probes: cancellation
+and EvenOdd are `5,6,10`; positive islands and Nonzero are `51,209,242`. The
+qualified source commit is `51d63ed2`, source archive SHA-256 is
+`0a09a31491e115bf4794c0567e43e98013ecae91ed1d127a9717dd9365f9e9c2`,
+and evidence-bundle SHA-256 is
+`2459e7141471ab2101b885fe51b95a6b041e82e60ac1aaf093ddd75ee0b78aef`.
+
 ## Direct2D and Win2D boundary
 
 `ProGPU.DirectX` currently implements a Direct3D-style portable facade, not
@@ -4377,8 +4414,8 @@ oracle gate are documented in
 
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested
    render-data command families using the complete generated WPF MCG layouts.
-2. Add exact Nonzero groups with boolean children, non-bitmap image
-   sources, exact WPF-compatible arc lowering, and
+2. Add non-bitmap image sources, remaining exact WPF-compatible arc lowering,
+   and
    remaining multi-guideline draw-family deformation, general Visual
    effect/clip/mask/opacity ordering, remaining
    opacity-mask/effect/dynamic-guideline push/pop state,
