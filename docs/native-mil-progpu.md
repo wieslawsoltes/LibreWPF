@@ -4830,7 +4830,7 @@ for `progpu_native_direct2d.dll` and
 `cab7f76311cd5115a0f8f84ee680115eb6481c6842eb45a85eea0633c08292fc`
 for its test executable.
 
-ABI v2 and the new `ProGPU.Direct2D` package now bind the producer lifecycle to
+ABI v3 and the new `ProGPU.Direct2D` package now bind the producer lifecycle to
 Dawn's same-adapter import and the already-qualified D3DImage texture lease.
 `ProGpuDirect2DSurface` validates the D3D12 context, adapter, BGRA8 premultiplied
 format, NT handle, keyed mutex, dimensions, and DPI before importing the
@@ -4852,8 +4852,11 @@ closed before the first successful draw and forwards `TextureChanged`; the
 application retains ownership of the wrapped surface. This adds no bridge
 copy, new MIL resource kind, COM pointer in a packet, readback, or repack. The
 Windows build now stages `progpu_native_direct2d.dll` for x64/ARM64 and checks
-the exact 11-export ABI. Microsoft Win2D activation/resource wrapping and full
-device-loss recreation remain the next native-Win2D layer.
+the exact 12-export ABI. Its generic GUID-based `QueryInterface` seam lets
+typed native/AOT callers request later genuine `ID2D1*` generations supported
+by the installed Windows runtime, with explicit `E_NOINTERFACE` failure and no
+emulated vtables. Microsoft Win2D activation/resource wrapping and full device-
+loss recreation remain the next native-Win2D layer.
 
 ## Native MIL canonical D3DImage checkpoint
 
@@ -4891,7 +4894,7 @@ for the test executable. Windows SHA-256 is
 for `progpu_native.dll` and
 `d94382db3f1087573615c91ff983cd2343b6144b68c4f3db160f7c59f0f8568f`
 for the test executable. The genuine Windows `ID2D1Bitmap1`/DXGI producer is
-now implemented at ProGPU `59045316`, and ABI v2 supplies the typed Dawn
+now implemented at ProGPU `59045316`, and ABI v3 supplies the typed Dawn
 lifecycle/lease binding. Real Microsoft Win2D still additionally needs
 resource-wrapper activation and complete device-loss recreation tests.
 
