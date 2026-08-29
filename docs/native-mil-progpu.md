@@ -4432,7 +4432,7 @@ SimpleSample and ExampleGallery oracle sources.
 
 The implementation has two tiers. ProGPU checkpoints `862077fe`, `4c716f4f`,
 `7f7d6971`, `7c9fe63b`, `4133db10`, `42b43d6d`, `db43e5eb`,
-`d9431558`, and `ee84a0b3`
+`d9431558`, `ee84a0b3`, `2e8683ee`, and `f86481b5`
 ship the first `ProGPU.Win2D` portable Canvas tier: `CanvasDevice`,
 `CanvasBitmap`, `CanvasRenderTarget`, `CanvasCommandList`, `CanvasGeometry`,
 `CanvasPathBuilder`, `CanvasActiveLayer`, and `CanvasDrawingSession` record a
@@ -4562,6 +4562,35 @@ channel difference `0.0005946181`; all exact gradient, boolean-fill, clip, and
 solid probes pass the named three-backend gate. VM timing remains correctness
 evidence only.
 
+ProGPU `2e8683ee` adds source-compatible `CanvasImageBrush` over the same
+retained texture lease used by `DrawImage`. Same-device `CanvasBitmap` and
+`CanvasRenderTarget` sources support an optional DIP source rectangle,
+independent clamp/wrap/mirror axes, opacity, and qualified nearest, linear,
+multisample-linear, or cubic sampling. Positive axis-preserving
+scale/translation lowers to one native external-image draw with extended
+source coordinates, flat shader address metadata, and a hardware sampler. No
+CPU tiling, pixel readback/repacking, or per-tile submissions are introduced.
+Public source and brush disposal before drawing-session commit is safe because
+the recorded picture owns the typed texture lease. Command-list/effect image
+sources, rotation/skew/reflection, anisotropic sampling, and high-quality cubic
+fail closed until their retained semantics are implemented.
+
+The three-backend gate caught the first D3D12 run clamping extended UVs while
+Metal repeated them. ProGPU `f86481b5` keeps the compatibility fallback on the
+GPU: the texture shader normalizes repeat/mirror coordinates and addresses
+cubic integer taps from the same flat mode while the sampler retains filtering
+and tap behavior. The corrected `14+2` frame hashes are Metal
+`09BA76F11AD8477D3D4852CE09B816FA84176DA8461DB5C974C2A8C6B6AC47F8`,
+Parallels WDDM D3D12
+`0D1EC07A46B5CCB9495C3BB30FFE20D78CE3AD7DD5CABE03BBE7B52DA7D088A9`,
+and Ubuntu llvmpipe/Vulkan
+`60BD4E94ED3BBBD99A34F6577CD1FA6EF7693263E040B304D4166F0227520C64`.
+The entire image-brush region is exact. The full D3D12/Metal comparison keeps
+only two earlier pixels at 1/255; Vulkan keeps 84 earlier pixels at 1/255 with
+mean absolute channel difference `0.0005946181`. Windows passes 11/11 native
+CTest executables and the isolated Win2D suite passes 10/10; Linux passes
+10/10 native CTest executables. VM timing is correctness evidence only.
+
 Windows may additionally run the real Win2D/Direct2D runtime into a
 same-adapter shared BGRA8 DXGI allocation and import it through ProGPU's
 existing Dawn keyed-mutex/shared-texture path without CPU readback; that native
@@ -4570,7 +4599,8 @@ Windows-only, native COM resource wrapping fails closed off Windows, and
 ProGPU will not publish a fake `d2d1.dll`. The portable package is source
 compatible rather than binary compatible; command-list bounds/scaling, bitmap
 creation/update, geometry query/stroke/outline operations, image and layer
-opacity brushes, formatted text, effects, sprite batches, and XAML controls
+opacity brushes beyond the qualified bitmap lane, formatted text, effects,
+sprite batches, and XAML controls
 remain incremental compatibility groups.
 The support matrix, API mapping, delivery stages, and Windows/Metal/Vulkan
 oracle gate are documented in
