@@ -3021,6 +3021,39 @@ Windows 11 ARM64 Parallels guest from archive SHA-256
 The archive's pinned `microsoft-ui-xaml` gitlink is `25d2cb1c`, and the hydrated
 `generic.xaml` matched the current submodule at SHA-256
 `4C4085838721C0AFCB1A9EE17591C0655CDDDADB26D330788E08BCD7F1AF8285`.
+
+ProGPU `d51b289b` adds Win2D `CanvasBitmap.CreateFromColors(...)` and full or
+subrectangle `SetPixelColors(...)` over an allocation-free-after-warmup pooled
+conversion buffer. It preserves upstream Win2D's exact ARGB-to-BGRA swizzle;
+it does not invent a premultiplication pass. The typed
+`ProGpuCanvasCpuConversionMode` supports `Automatic`, forced
+`IntrinsicSimd`, and `ScalarReference`. Automatic selects AVX2/Vector256,
+portable Vector128 (including ARM64), or scalar for only the 1–3-pixel all-tail
+case. Forced intrinsic fails closed without Vector128 hardware support, and
+`CanvasDevice.LastPixelConversionPath` exposes the selected path.
+
+The 11-test suite compares automatic and forced SIMD with the scalar oracle,
+checks the four-byte WinRT ARGB layout, an 11-pixel bounded tail, destination
+canaries, and small-buffer dispatch on macOS, Windows ARM64, and Linux ARM64.
+The live checker uses asymmetric Color values and records Vector128 for its
+four-pixel update plus ScalarReference for the 1x1 bounded tail. The exact
+`16+2` hashes are Metal
+`D72F667FCB6AC14B2C28A1C45001734C3B62B85B1816069521C9019985D1B39B`,
+Parallels WDDM D3D12
+`319939D4E5CC8544502BE837B04FDD8DD68D4F54ADB8D8AB83B49D86A4120122`,
+and Ubuntu llvmpipe/Vulkan
+`D2410112CF400C826A4855C134AE93E236932C879F690F93AA5B4422075B09C8`.
+The new checker is exact; the full-frame differential remains two
+Metal/D3D12 and 84 D3D12/Vulkan pixels at 1/255.
+
+For 262,144 pixels, allocation-free scalar/Vector128 p50 is
+`241.740/28.657 us` on Apple M3 Pro, `469.310/63.055 us` in the Windows ARM64
+VM, and `237.920/29.545 us` in the Ubuntu ARM64 VM with identical checksums.
+Apple ARM64 also records `1.742/0.240 us` for 256 pixels and
+`2.601/0.320 us` for 4,096 pixels. The VM values qualify dispatch correctness,
+not physical Windows performance. The exact Windows source archive SHA-256 is
+`C8B1C7949EDE5BF18D85ED1B0E159E2C7B52056D4CA2721A4BDD493420B0477E`;
+native C++ remains unchanged and reuses the qualified DLL/theme hashes above.
 .NET SDK 10.0.400 rebuilt the complete managed graph with zero warnings and
 errors; all 8 focused compilation, validation, ABI, ordinary-gradient, and
 specular-gradient tests passed. Both live contexts selected
@@ -4670,7 +4703,7 @@ existing Dawn keyed-mutex/shared-texture path without CPU readback; that native
 interop adapter remains planned. The Microsoft Win2D binary remains
 Windows-only, native COM resource wrapping fails closed off Windows, and
 ProGPU will not publish a fake `d2d1.dll`. The portable package is source
-compatible rather than binary compatible; bitmap file/color/buffer/copy APIs,
+compatible rather than binary compatible; bitmap file/buffer/copy APIs,
 geometry query/stroke/outline operations, command-list/effect image brushes, layer
 opacity brushes, formatted text, effects, sprite batches, and XAML controls
 remain incremental compatibility groups.
