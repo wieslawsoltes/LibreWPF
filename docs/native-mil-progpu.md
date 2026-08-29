@@ -2625,8 +2625,10 @@ for `progpu_native.dll`,
 for `progpu_native_dawn.dll`, and
 `9F73E41536B3BD96A0A44692EA65888C9DE004B19FBF5DE90489768667FBBDBC`
 for wgpu-native. The canonical process-pointer BitmapSource packet,
-BitmapInvalidate, direct DrawingImage image commands, D3DImage/video, and
-external shared textures remain fail-closed typed-contract work.
+BitmapInvalidate, direct DrawingImage image commands, D3DImage/shared-surface
+synchronization, and planar/HDR media remain fail-closed typed-contract work.
+The later typed MediaPlayer lane covers packed same-device external textures
+without weakening those boundaries.
 
 ProGPU framing checkpoint `d7538fe7` validates every nested RenderData packet
 against the generated managed-producer size before dispatch. Unsupported but
@@ -4765,10 +4767,13 @@ explicit follow-up contracts.
 
 The Apple Silicon checkpoint passes the ProGPU native MIL CTest, exact managed
 packet test, 15 focused LibreWPF compiler/session/portable-video tests, and two
-source-built `MediaPlayer` tests running on macOS without `wpfgfx`. Windows
-D3D12 and Linux Vulkan validation use the same native MIL test plus the live
-host gate; results are recorded when the exact commits are qualified in the
-Parallels guests.
+source-built `MediaPlayer` tests running on macOS without `wpfgfx`. Ubuntu
+24.04 ARM64 builds exact ProGPU archive `bb2313ab` with GCC 13.3.0, passes the
+native MIL CTest 1/1, exposes the new media-player external-image C export, and
+produces `libprogpu_native.so` SHA-256
+`17a2e5fd74de64a3697b98b41245a747c75850292573407346cda8671e7dba3a`.
+Windows D3D12 validation uses the same exact source and remains pending while
+its full ABI build runs in the Parallels guest.
 
 ## Next parity gates
 
