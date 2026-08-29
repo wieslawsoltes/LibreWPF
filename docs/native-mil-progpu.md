@@ -4787,7 +4787,7 @@ records validated dimensions and the lease source, and calls ProGPU's new
 bitmap external-image sideband instead of requesting portable CPU pixels. This
 covers a `ProGPU.Win2D.CanvasBitmap` exposed through
 `PortableNativeImageSourceFactory.Create(...)`, shared ProGPU textures, and the
-consumer half of a future synchronized D3DImage/Direct2D provider.
+consumer half of the synchronized D3DImage/Direct2D provider.
 
 External bitmap and MediaPlayer lists remain individually handle-ordered. The
 host merges them with two indices and no temporary combined collection,
@@ -4820,7 +4820,7 @@ DPI, dimensions, format, alpha mode, synchronization keys, software-adapter
 state, and monotonic content version. COM pointers remain confined to its
 Windows process-local header and never enter the portable MIL ABI.
 
-The strict Windows 11 ARM64 MSVC `/W4 /WX` gate queries every advertised COM
+The archived ABI v1 Windows 11 ARM64 MSVC `/W4 /WX` gate queries every advertised COM
 interface, verifies multithread protection and bitmap target state, executes a
 real Direct2D clear and rectangle fill, reopens the NT handle through
 `ID3D11Device1`, and completes keyed-mutex handoff `0 -> 1 -> 2 -> 3`. CTest
@@ -4828,9 +4828,28 @@ passes 1/1 in 7.74 seconds and all eight exports are present. SHA-256 is
 `f115ea21f43c218444a2d9fd9ebb622e073a5b3cafb52ec1745990e7984e498c`
 for `progpu_native_direct2d.dll` and
 `cab7f76311cd5115a0f8f84ee680115eb6481c6842eb45a85eea0633c08292fc`
-for its test executable. The remaining adapter binds the producer lifecycle to
-Dawn same-adapter import, Microsoft Win2D wrapping, and the already-qualified
-D3DImage texture lease; the compositor consumer path no longer blocks it.
+for its test executable.
+
+ABI v2 and the new `ProGPU.Direct2D` package now bind the producer lifecycle to
+Dawn's same-adapter import and the already-qualified D3DImage texture lease.
+`ProGpuDirect2DSurface` validates the D3D12 context, adapter, BGRA8 premultiplied
+format, NT handle, keyed mutex, dimensions, and DPI before importing the
+allocation. `BeginDrawing()` transfers ownership from Dawn to a genuine
+`ID2D1DeviceContext1`; session disposal performs native `EndDraw`, returns
+ownership to Dawn, advances the content version, and invalidates the typed
+texture source. Active deferred compositor leases fail closed. Both sides use
+the Dawn-qualified zero mutex key; initialization is represented separately by
+content version zero/nonzero. Ownership transitions occur outside the provider
+state lock, avoiding a render-lock/provider-lock inversion.
+
+The managed surface is reflection-free and AOT-safe through source-generated
+`LibraryImport` and caller-owned `SafeHandle` COM references. It implements
+`IProGpuContextTextureLeaseSource`, so source-built
+`PortableD3DImageSourceFactory.Attach(...)` can consume it without a bridge
+copy, new MIL resource kind, COM pointer in a packet, readback, or repack. The
+Windows build now stages `progpu_native_direct2d.dll` for x64/ARM64 and checks
+the exact 11-export ABI. Microsoft Win2D activation/resource wrapping and full
+device-loss recreation remain the next native-Win2D layer.
 
 ## Native MIL canonical D3DImage checkpoint
 
@@ -4868,16 +4887,16 @@ for the test executable. Windows SHA-256 is
 for `progpu_native.dll` and
 `d94382db3f1087573615c91ff983cd2343b6144b68c4f3db160f7c59f0f8568f`
 for the test executable. The genuine Windows `ID2D1Bitmap1`/DXGI producer is
-now implemented at ProGPU `59045316`; real Microsoft Win2D still additionally
-needs Dawn lifecycle binding, resource-wrapper activation, and device-loss
-tests.
+now implemented at ProGPU `59045316`, and ABI v2 supplies the typed Dawn
+lifecycle/lease binding. Real Microsoft Win2D still additionally needs
+resource-wrapper activation and complete device-loss recreation tests.
 
 ## Next parity gates
 
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested
    render-data command families using the complete generated WPF MCG layouts.
-2. Add remaining non-bitmap image sources, bind the implemented Windows
-   D3DImage/Direct2D DXGI producer to Dawn and Win2D ownership, complete its
+2. Add remaining non-bitmap image sources, bind Microsoft Win2D resource
+   wrappers to the implemented Direct2D/Dawn ownership surface, complete its
    device-loss gate, and add remaining exact WPF-compatible arc lowering,
    and
    remaining multi-guideline draw-family deformation, general Visual
