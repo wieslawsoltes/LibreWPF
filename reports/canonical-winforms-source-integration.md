@@ -14,7 +14,7 @@ lane for replacing the transitional LibreWinForms compatibility packages.
 
 ## Qualified Source Pins
 
-- LibreWinForms: `ab3898cca09ad2270f0c05e4404168162e822b74`
+- LibreWinForms: `eec707131557dec1b1e791fa0164962454745920`
 - ProGPU: `d73cef34b92dfc71b40288dbc004d6f23c3b6fa8`
 - ProGPU release base: `v0.1.0-preview.62` / `00cf8707`
 
