@@ -44,6 +44,7 @@ require_text "eng/progpu-wpf-canonical-winforms-integration.sh" 'ref/${target_fr
 require_text "eng/progpu-wpf-canonical-winforms-integration.sh" 'PresentationBuildTasks/PresentationBuildTasks.csproj'
 require_text "eng/progpu-wpf-canonical-winforms-integration.sh" "packaged_implementation_hash"
 require_text "eng/progpu-wpf-canonical-winforms-integration.sh" 'LibreWinForms.ProGPU/LibreWinForms.ProGPU.Package.csproj'
+require_text "eng/progpu-wpf-canonical-winforms-integration.sh" 'LibreWinFormsSkipCanonicalPackageBuild=true'
 require_text "packaging/ProGPU.Wpf.Sdk/targets/ProGPU.Wpf.Sdk.targets" '<ProGpuWpfUseCanonicalLibreWinForms'
 require_text "packaging/ProGPU.Wpf.Sdk/targets/ProGPU.Wpf.Sdk.targets" 'Include="LibreWinForms.ProGPU"'
 require_text "packaging/ProGPU.Wpf.Sdk/targets/ProGPU.Wpf.Sdk.PortableBootstrap.cs" 'global::LibreWinForms.ProGPU.ProGpuPlatform.Register();'

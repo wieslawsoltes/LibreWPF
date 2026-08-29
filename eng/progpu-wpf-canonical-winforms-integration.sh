@@ -245,6 +245,7 @@ NetCurrent="${target_framework}" \
   -p:Version="${canonical_package_version}" \
   -p:PackageVersion="${canonical_package_version}" \
   -p:NetCurrent="${target_framework}" \
+  -p:LibreWinFormsSkipCanonicalPackageBuild=true \
   -p:LibreWinFormsProGpuPackageVersion="${progpu_source_package_version}" \
   -p:RestoreAdditionalProjectSources="${canonical_package_output}" \
   -p:ContinuousIntegrationBuild=true
