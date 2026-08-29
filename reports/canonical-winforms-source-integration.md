@@ -14,7 +14,7 @@ lane for replacing the transitional LibreWinForms compatibility packages.
 
 ## Qualified Source Pins
 
-- LibreWinForms: `eec707131557dec1b1e791fa0164962454745920`
+- LibreWinForms: `d82249ce1508694cb56e51e2639ba36abc7171e0`
 - ProGPU: `d73cef34b92dfc71b40288dbc004d6f23c3b6fa8`
 - ProGPU release base: `v0.1.0-preview.62` / `00cf8707`
 
@@ -53,6 +53,10 @@ gate checks that invariant before compiling anything.
    `LibreWinForms.System.Windows.Forms`, adds the typed `LibreWinForms.ProGPU`
    backend, registers it before WFI startup, and rejects the transitional
    Forms package in a clean external package consumer.
+10. The qualified LibreWinForms pin includes the canonical-only SDK contract:
+    source development uses canonical project references, ordinary consumers
+    use canonical packages, and compatibility/`LocalArtifacts` selection is
+    rejected before restore can introduce a second Forms identity.
 
 ## Verification
 
