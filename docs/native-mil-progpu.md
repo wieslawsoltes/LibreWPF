@@ -4836,11 +4836,21 @@ synchronization entirely in lease acquire/release while Metal/Vulkan/WebGPU
 providers use the same consumer contract.
 
 Apple Silicon validation passes the ProGPU native MIL CTest, the managed
-canonical packet test, 116/116 LibreWPF compiler/session tests, three focused
+canonical packet test, 117/117 LibreWPF compiler/session tests, three focused
 D3DImage seam tests, and the source-built PresentationCore build with zero
-errors. Windows and Ubuntu native rebuild qualification is the next gate for
-this checkpoint; real Microsoft Win2D still additionally needs the Windows
-same-adapter `ID2D1Bitmap1`/DXGI import provider and device-loss tests.
+errors. The exact ProGPU `1f1d921b` checkpoint then rebuilt and relinked on
+Ubuntu 24.04 ARM64 and Windows 11 ARM64. Both guests pass the native MIL CTest
+1/1 and expose
+`progpu_native_mil_channel_set_d3d_image_external_image`. Ubuntu SHA-256 is
+`21798600a4c5d4f4a58d6ea456b5919fa782164d4ebf0ab9f40f1949dcb0ea2e`
+for `libprogpu_native.so` and
+`c485873cf4d532ab956a44ed729a399486805ba83d815b624fe1c64c8844f3bb`
+for the test executable. Windows SHA-256 is
+`81f1078e89d9f9f8e4bfdcead25ebc8a84e3d6c425350c865217ff74cb50bd5d`
+for `progpu_native.dll` and
+`d94382db3f1087573615c91ff983cd2343b6144b68c4f3db160f7c59f0f8568f`
+for the test executable. Real Microsoft Win2D still additionally needs the
+Windows same-adapter `ID2D1Bitmap1`/DXGI import provider and device-loss tests.
 
 ## Next parity gates
 
