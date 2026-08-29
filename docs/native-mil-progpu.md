@@ -4496,8 +4496,9 @@ green; no scalar fallback or browser-specific algorithm was introduced.
 
 ## Direct2D and Win2D boundary
 
-`ProGPU.DirectX` currently implements a Direct3D-style portable facade, not
-`ID2D1*` COM APIs. ProGPU checkpoint `fa3e9e4a` classifies `d2d1.dll`,
+`ProGPU.DirectX` implements the portable Direct3D-style facade, while the C++
+backend now also owns a separate Windows-only genuine Direct2D COM provider.
+ProGPU checkpoint `fa3e9e4a` classifies `d2d1.dll`,
 `dwrite.dll`, `windowscodecs.dll`, and `Microsoft.Graphics.Canvas.dll` as
 Windows-native graphics dependencies so the native resolver cannot impersonate
 them. The same checkpoint pins exact Win2D and Win2D-Samples commits and adds a
@@ -4809,10 +4810,27 @@ Windows 11 ARM64 with MSVC 19.44.35228.0 passes the same CTest 1/1 in
 2.50 seconds, exposes the export, and produces `progpu_native.dll` SHA-256
 `fc627fff1240a9f06ae4e785101f9052b9dac8dbe600ae1a331d094087d79fdf`.
 
-Native Microsoft Win2D binary and `ID2D1*` support are still Windows-only
-interop work: a same-adapter DXGI provider must perform keyed-mutex/shared-fence
-synchronization and expose the resulting ProGPU texture lease. The compositor
-consumer path no longer blocks that provider.
+Native Microsoft Win2D binary and `ID2D1*` support remain Windows-only. ProGPU
+`59045316` implements the first real producer in the separate
+`progpu_native_direct2d` library: it creates genuine system
+`ID2D1Factory1/2`, `ID2D1Device/1`, `ID2D1DeviceContext/1`, and
+`ID2D1Bitmap/1` objects over a BGRA8-premultiplied D3D11 target with an NT
+shared handle and keyed mutex. Its versioned descriptor includes adapter LUID,
+DPI, dimensions, format, alpha mode, synchronization keys, software-adapter
+state, and monotonic content version. COM pointers remain confined to its
+Windows process-local header and never enter the portable MIL ABI.
+
+The strict Windows 11 ARM64 MSVC `/W4 /WX` gate queries every advertised COM
+interface, verifies multithread protection and bitmap target state, executes a
+real Direct2D clear and rectangle fill, reopens the NT handle through
+`ID3D11Device1`, and completes keyed-mutex handoff `0 -> 1 -> 2 -> 3`. CTest
+passes 1/1 in 7.74 seconds and all eight exports are present. SHA-256 is
+`f115ea21f43c218444a2d9fd9ebb622e073a5b3cafb52ec1745990e7984e498c`
+for `progpu_native_direct2d.dll` and
+`cab7f76311cd5115a0f8f84ee680115eb6481c6842eb45a85eea0633c08292fc`
+for its test executable. The remaining adapter binds the producer lifecycle to
+Dawn same-adapter import, Microsoft Win2D wrapping, and the already-qualified
+D3DImage texture lease; the compositor consumer path no longer blocks it.
 
 ## Native MIL canonical D3DImage checkpoint
 
@@ -4849,15 +4867,18 @@ for the test executable. Windows SHA-256 is
 `81f1078e89d9f9f8e4bfdcead25ebc8a84e3d6c425350c865217ff74cb50bd5d`
 for `progpu_native.dll` and
 `d94382db3f1087573615c91ff983cd2343b6144b68c4f3db160f7c59f0f8568f`
-for the test executable. Real Microsoft Win2D still additionally needs the
-Windows same-adapter `ID2D1Bitmap1`/DXGI import provider and device-loss tests.
+for the test executable. The genuine Windows `ID2D1Bitmap1`/DXGI producer is
+now implemented at ProGPU `59045316`; real Microsoft Win2D still additionally
+needs Dawn lifecycle binding, resource-wrapper activation, and device-loss
+tests.
 
 ## Next parity gates
 
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested
    render-data command families using the complete generated WPF MCG layouts.
-2. Add remaining non-bitmap image sources, the Windows D3DImage/Direct2D DXGI
-   import provider, remaining exact WPF-compatible arc lowering,
+2. Add remaining non-bitmap image sources, bind the implemented Windows
+   D3DImage/Direct2D DXGI producer to Dawn and Win2D ownership, complete its
+   device-loss gate, and add remaining exact WPF-compatible arc lowering,
    and
    remaining multi-guideline draw-family deformation, general Visual
    effect/clip/mask/opacity ordering, remaining
