@@ -4777,6 +4777,34 @@ the native MIL CTest 1/1 in 3.61 seconds, exposes the same C export, and
 produces `progpu_native.dll` SHA-256
 `0eeb5e34086b753ac6abd93192c3def9aaec9559fb71cca053e33c7fdfbe258d`.
 
+## Native MIL portable external ImageSource checkpoint
+
+ProGPU `cfebce57` and LibreWPF `e4ac9d762` add a zero-copy native-MIL lane for
+general typed image providers. When an `IPortableNativeImageSource` returns an
+`IProGpuTextureLeaseSource`, the compiler creates canonical resource type 95,
+records validated dimensions and the lease source, and calls ProGPU's new
+bitmap external-image sideband instead of requesting portable CPU pixels. This
+covers a `ProGPU.Win2D.CanvasBitmap` exposed through
+`PortableNativeImageSourceFactory.Create(...)`, shared ProGPU textures, and the
+consumer half of a future synchronized D3DImage/Direct2D provider.
+
+External bitmap and MediaPlayer lists remain individually handle-ordered. The
+host merges them with two indices and no temporary combined collection,
+acquires context-qualified leases, and binds resource IDs `1..N` in the same
+global handle order used by the native C++ scene builder. Lease-table
+replacement is transactional and the old leases are released only after the
+new table succeeds. Cross-device, unavailable, untyped, invalid-size, and
+non-lease native images fail closed; no CPU readback, pixel conversion, repack,
+or upload is introduced.
+
+The ProGPU native MIL CTest passes on Apple Silicon, the native managed backend
+builds with zero warnings, the LibreWPF product/test assemblies build, and the
+full compiler/session classes pass 114/114. Native Microsoft Win2D binary and
+`ID2D1*` support are still Windows-only interop work: a same-adapter DXGI
+provider must perform keyed-mutex/shared-fence synchronization and expose the
+resulting ProGPU texture lease. The compositor consumer path no longer blocks
+that provider.
+
 ## Next parity gates
 
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested
