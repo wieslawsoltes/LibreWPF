@@ -2048,6 +2048,7 @@ public sealed class WpfVisualTreeRenderer
     private sealed class BoundsAccumulatingSink :
         IWpfCompositionCommandSink,
         IWpfNativePrimitiveCommandSink,
+        IWpfNativeVideoCommandSink,
         IWpfNativeTransformCommandSink,
         IWpfNativeClipCommandSink,
         IWpfNativeGeometryCommandSink
@@ -2168,6 +2169,14 @@ public sealed class WpfVisualTreeRenderer
         public void DrawNativeImage(MediaImageSource imageSource, WpfReplayRect rectangle, WpfReplayRect sourceRectangle)
         {
             AddBounds(rectangle);
+        }
+
+        public bool DrawNativeVideo(
+            global::ProGPU.Wpf.Interop.PortableMediaPlayerFrame frame,
+            WpfReplayRect rectangle)
+        {
+            AddBounds(rectangle);
+            return true;
         }
 
         public void DrawText(MediaFormattedText formattedText, Point origin)

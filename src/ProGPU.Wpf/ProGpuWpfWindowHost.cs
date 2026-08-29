@@ -57,6 +57,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
     private uint _nativeMilCompiledPixelHeight;
     private ulong _nativeMilGeneration;
     private ulong _nativeMilRequestSerial;
+    private IProGpuTextureLease[] _nativeMilExternalImageLeases = [];
     private ProGpuDirectXDevice? _directXDevice;
     private IDisposable? _inputSubscription;
     private IWpfInputService? _attachedInputService;
@@ -2110,6 +2111,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
             dpiScaleY);
         LastNativeMilSessionFrame = frame;
         TraceNativeLoop("native MIL compile leaving: " + CreateNativeLoopTraceState());
+        BindNativeMilExternalImages(frame);
         LastNativeMilSceneUpdateMetrics = _nativeMilCompositor.UpdateScene(
             frame.Scene.Stream);
         TraceNativeLoop("native MIL scene installed: " + CreateNativeLoopTraceState());
@@ -2129,6 +2131,70 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
                 frame.Scene.BuildResult);
         }
         return presented;
+    }
+
+    private void BindNativeMilExternalImages(WpfNativeMilSessionFrame frame)
+    {
+        NativeCompositor compositor = _nativeMilCompositor ??
+            throw new InvalidOperationException(
+                "The native MIL compositor is unavailable.");
+        WgpuContext context = _target?.Context ??
+            throw new InvalidOperationException(
+                "The native MIL target context is unavailable.");
+        IReadOnlyList<WpfNativeMilMediaPlayerSource> sources =
+            frame.MediaPlayerSources;
+        var leases = new IProGpuTextureLease[sources.Count];
+        var bindings = new NativeSceneExternalImageBinding[sources.Count];
+        try
+        {
+            uint previousHandle = 0;
+            for (int index = 0; index < sources.Count; ++index)
+            {
+                WpfNativeMilMediaPlayerSource source = sources[index];
+                if (source.Handle <= previousHandle)
+                {
+                    throw new InvalidOperationException(
+                        "Native MIL media-player handles must be strictly increasing.");
+                }
+                previousHandle = source.Handle;
+                bool acquired = source.TextureSource is
+                    IProGpuContextTextureLeaseSource contextSource
+                        ? contextSource.TryAcquireGpuTextureLease(
+                            context,
+                            out IProGpuTextureLease lease)
+                        : source.TextureSource.TryAcquireGpuTextureLease(
+                            out lease);
+                if (!acquired || lease is null)
+                {
+                    throw new InvalidOperationException(
+                        $"Native MIL MediaPlayer handle {source.Handle} has no current GPU texture lease.");
+                }
+                leases[index] = lease;
+                bindings[index] = new NativeSceneExternalImageBinding(
+                    checked((ulong)index + 1U),
+                    frame.Request.Generation,
+                    lease.Texture);
+            }
+            compositor.BindSceneExternalImages(bindings);
+        }
+        catch
+        {
+            DisposeNativeMilExternalImageLeases(leases);
+            throw;
+        }
+
+        IProGpuTextureLease[] previous = _nativeMilExternalImageLeases;
+        _nativeMilExternalImageLeases = leases;
+        DisposeNativeMilExternalImageLeases(previous);
+    }
+
+    private static void DisposeNativeMilExternalImageLeases(
+        IProGpuTextureLease[] leases)
+    {
+        foreach (IProGpuTextureLease? lease in leases)
+        {
+            lease?.Dispose();
+        }
     }
 
     private bool PresentNativeMil(
@@ -3709,6 +3775,8 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         _nativeMilSession = null;
         _nativeMilCompositor?.Dispose();
         _nativeMilCompositor = null;
+        DisposeNativeMilExternalImageLeases(_nativeMilExternalImageLeases);
+        _nativeMilExternalImageLeases = [];
         _nativeMilCompiledRootVisual = null;
         _nativeMilCompiledPixelWidth = 0;
         _nativeMilCompiledPixelHeight = 0;

@@ -845,6 +845,7 @@
     <Compile Include="System\Windows\Media\mediaeventargs.cs" />
     <Compile Include="System\Windows\Media\mediaeventshelper.cs" />
     <Compile Include="System\Windows\Media\MediaPlayer.cs" />
+    <Compile Include="System\Windows\Media\PortableMediaPlayerSourceFactory.cs" />
     <Compile Include="System\Windows\Media\MediaPlayerState.cs" />
     <Compile Include="System\Windows\Media\MediaSystem.cs" />
     <Compile Include="System\Windows\Media\MediaTimeline.cs" />

@@ -2491,6 +2491,30 @@ public sealed class WpfCompositionDrawingContextTests
     }
 
     [Fact]
+    public void TypedVideoUsesLiveGpuFrameAndTypedAnimationValue()
+    {
+        var nativeImage = new object();
+        var player = new FakeMediaPlayer(
+            new PortableMediaPlayerFrame(64, 32, 9, nativeImage));
+        var animation = new FakeRectAnimationValue(
+            new PortableRect(3, 4, 50, 60));
+        var sink = new RecordingSink { AcceptVideos = true };
+        using var context = new WpfCompositionDrawingContext(sink);
+
+        context.DrawVideo(player, new Rect(0, 0, 10, 20), animation);
+
+        Assert.Equal(
+            new WpfCompositionDrawingContextResult(1, 1, 0),
+            context.Result);
+        var video = Assert.Single(sink.Videos);
+        Assert.Equal(9UL, video.Frame.ContentVersion);
+        Assert.Same(nativeImage, video.Frame.NativeImage);
+        Assert.Equal(new WpfReplayRect(3, 4, 50, 60), video.Rectangle);
+        Assert.Contains(player, sink.VisualDependencies);
+        Assert.Contains(nativeImage, sink.VisualDependencies);
+    }
+
+    [Fact]
     public void PushEffectUsesNativeVisualEffectScopeWhenLegacyEffectCanBeEmulated()
     {
         var sink = new RecordingSink { AcceptVisualEffects = true };
@@ -3349,11 +3373,33 @@ public sealed class WpfCompositionDrawingContextTests
         public void Dispose() { }
     }
 
+    private sealed class FakeMediaPlayer(PortableMediaPlayerFrame frame) :
+        IPortableMediaPlayerSource
+    {
+        public bool TryGetPortableMediaPlayerFrame(
+            out PortableMediaPlayerFrame value)
+        {
+            value = frame;
+            return true;
+        }
+    }
+
+    private sealed class FakeRectAnimationValue(PortableRect value) :
+        IPortableRectAnimationValueSource
+    {
+        public bool TryGetPortableRectAnimationValue(out PortableRect result)
+        {
+            result = value;
+            return true;
+        }
+    }
+
     private class RecordingSink :
         IWpfCompositionCommandSink,
         IWpfVisualEffectCommandSink,
         IWpfRetainedVisualBranchSink,
-        IWpfNativeTransformCommandSink
+        IWpfNativeTransformCommandSink,
+        IWpfNativeVideoCommandSink
     {
         public List<string> Operations { get; } = new();
 
@@ -3381,11 +3427,16 @@ public sealed class WpfCompositionDrawingContextTests
 
         public List<ProGpuEffectBase> VisualEffects { get; } = new();
 
+        public List<(PortableMediaPlayerFrame Frame, WpfReplayRect Rectangle)>
+            Videos { get; } = new();
+
         public List<object> VisualOwners { get; } = new();
 
         public List<object> VisualDependencies { get; } = new();
 
         public bool AcceptVisualEffects { get; init; }
+
+        public bool AcceptVideos { get; init; }
 
         public MediaDrawingContext DrawingContext => null!;
 
@@ -3417,6 +3468,20 @@ public sealed class WpfCompositionDrawingContextTests
         {
             Operations.Add("DrawGeometry");
             Geometries.Add((brush, pen, geometry));
+        }
+
+        public bool DrawNativeVideo(
+            PortableMediaPlayerFrame frame,
+            WpfReplayRect rectangle)
+        {
+            if (!AcceptVideos)
+            {
+                return false;
+            }
+
+            Operations.Add("DrawVideo");
+            Videos.Add((frame, rectangle));
+            return true;
         }
 
         public void DrawImage(MediaImageSource imageSource, Rect rectangle)

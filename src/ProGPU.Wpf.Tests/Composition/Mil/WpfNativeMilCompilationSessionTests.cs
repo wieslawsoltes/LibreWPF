@@ -1,5 +1,6 @@
 using System.Buffers.Binary;
 using System.Windows.Media.ProGPU.Composition.Mil;
+using ProGPU.Backend;
 using ProGPU.Backend.Native;
 using Xunit;
 
@@ -103,7 +104,10 @@ public sealed class WpfNativeMilCompilationSessionTests
             [new WpfNativeMilBitmapSource(2, 1, 1, 4, [1, 2, 3, 4])],
             DrawingImageBounds:
             [new WpfNativeMilDrawingImageBounds(
-                3, new NativeMilRect(1, 2, 3, 4))]);
+                3, new NativeMilRect(1, 2, 3, 4))],
+            MediaPlayerSources:
+            [new WpfNativeMilMediaPlayerSource(
+                4, 64, 32, 1, new FakeTextureSource())]);
         var sameTopology = previous with
         {
             BitmapSources =
@@ -114,14 +118,30 @@ public sealed class WpfNativeMilCompilationSessionTests
         };
         var changedHandle = sameTopology with
         {
-            BitmapSources =
-            [new WpfNativeMilBitmapSource(4, 1, 1, 4, [4, 3, 2, 1])]
+            MediaPlayerSources =
+            [new WpfNativeMilMediaPlayerSource(
+                5, 64, 32, 2, new FakeTextureSource())]
         };
 
         Assert.True(WpfNativeMilCompilationSession.HasStableSidebandTopology(
             previous, sameTopology));
         Assert.False(WpfNativeMilCompilationSession.HasStableSidebandTopology(
             previous, changedHandle));
+    }
+
+    [Fact]
+    public void MediaPlayerSidebandEqualityUsesStableExternalDescriptor()
+    {
+        var previous = new WpfNativeMilMediaPlayerSource(
+            2, 64, 32, 1, new FakeTextureSource());
+        var newerFrame = new WpfNativeMilMediaPlayerSource(
+            2, 64, 32, 9, new FakeTextureSource());
+        var resized = newerFrame with { Width = 65 };
+
+        Assert.True(WpfNativeMilCompilationSession.SidebandEquals(
+            previous, newerFrame));
+        Assert.False(WpfNativeMilCompilationSession.SidebandEquals(
+            previous, resized));
     }
 
     [Fact]
@@ -210,4 +230,19 @@ public sealed class WpfNativeMilCompilationSessionTests
         BitConverter.Int64BitsToDouble(
             BinaryPrimitives.ReadInt64LittleEndian(
                 bytes.AsSpan(offset, 8)));
+
+    private sealed class FakeTextureSource : IProGpuTextureLeaseSource
+    {
+        public bool TryGetGpuTexture(out GpuTexture texture)
+        {
+            texture = null!;
+            return false;
+        }
+
+        public bool TryAcquireGpuTextureLease(out IProGpuTextureLease lease)
+        {
+            lease = null!;
+            return false;
+        }
+    }
 }

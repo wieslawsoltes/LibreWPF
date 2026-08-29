@@ -17,7 +17,8 @@ public readonly record struct WpfNativeMilSessionUpdate(
 /// </summary>
 public sealed record WpfNativeMilSessionFrame(
     NativeMilSceneBuildRequest Request,
-    NativeMilStatefulCompiledScene Scene);
+    NativeMilStatefulCompiledScene Scene,
+    IReadOnlyList<WpfNativeMilMediaPlayerSource> MediaPlayerSources);
 
 /// <summary>
 /// Owns the native MIL channel across WPF frames so dynamic guideline and
@@ -101,7 +102,9 @@ public sealed class WpfNativeMilCompilationSession : IDisposable
             flags);
         return new WpfNativeMilSessionFrame(
             request,
-            channel.CompileScene(request));
+            channel.CompileScene(request),
+            _lastBatch.MediaPlayerSources ??
+                Array.Empty<WpfNativeMilMediaPlayerSource>());
     }
 
     internal WpfNativeMilSessionUpdate Update(WpfNativeMilBatch batch)
@@ -264,6 +267,26 @@ public sealed class WpfNativeMilCompilationSession : IDisposable
         WpfNativeMilBatch current)
     {
         uint appliedCount = 0;
+        IReadOnlyList<WpfNativeMilMediaPlayerSource> previousMediaPlayers =
+            previous.MediaPlayerSources ??
+            Array.Empty<WpfNativeMilMediaPlayerSource>();
+        IReadOnlyList<WpfNativeMilMediaPlayerSource> currentMediaPlayers =
+            current.MediaPlayerSources ??
+            Array.Empty<WpfNativeMilMediaPlayerSource>();
+        for (int i = 0; i < currentMediaPlayers.Count; ++i)
+        {
+            WpfNativeMilMediaPlayerSource oldValue = previousMediaPlayers[i];
+            WpfNativeMilMediaPlayerSource newValue = currentMediaPlayers[i];
+            if (SidebandEquals(oldValue, newValue))
+            {
+                continue;
+            }
+            channel.SetMediaPlayerExternalImage(
+                newValue.Handle,
+                newValue.Width,
+                newValue.Height);
+            ++appliedCount;
+        }
         IReadOnlyList<WpfNativeMilBitmapSource> previousBitmaps =
             previous.BitmapSources ?? Array.Empty<WpfNativeMilBitmapSource>();
         IReadOnlyList<WpfNativeMilBitmapSource> currentBitmaps =
@@ -405,6 +428,8 @@ public sealed class WpfNativeMilCompilationSession : IDisposable
         WpfNativeMilBatch previous,
         WpfNativeMilBatch current) =>
         HasStableHandles(previous.BitmapSources, current.BitmapSources) &&
+        HasStableHandles(
+            previous.MediaPlayerSources, current.MediaPlayerSources) &&
         HasStableHandles(previous.GlyphRunFonts, current.GlyphRunFonts) &&
         HasStableHandles(
             previous.DrawingImageBounds, current.DrawingImageBounds) &&
@@ -413,6 +438,13 @@ public sealed class WpfNativeMilCompilationSession : IDisposable
         HasStableHandles(
             previous.VisualCacheBounds, current.VisualCacheBounds) &&
         HasStableHandles(previous.Viewport3DScenes, current.Viewport3DScenes);
+
+    internal static bool SidebandEquals(
+        WpfNativeMilMediaPlayerSource previous,
+        WpfNativeMilMediaPlayerSource current) =>
+        previous.Handle == current.Handle &&
+        previous.Width == current.Width &&
+        previous.Height == current.Height;
 
     internal static bool SidebandEquals(
         WpfNativeMilBitmapSource previous,
@@ -455,6 +487,7 @@ public sealed class WpfNativeMilCompilationSession : IDisposable
     private static uint GetHandle<T>(T value) where T : class => value switch
     {
         WpfNativeMilBitmapSource item => item.Handle,
+        WpfNativeMilMediaPlayerSource item => item.Handle,
         WpfNativeMilGlyphRunFont item => item.Handle,
         WpfNativeMilDrawingImageBounds item => item.Handle,
         WpfNativeMilDrawingGroupBounds item => item.Handle,
@@ -466,6 +499,7 @@ public sealed class WpfNativeMilCompilationSession : IDisposable
     private static uint CountSidebands(WpfNativeMilBatch batch) => checked(
         (uint)(
             (batch.BitmapSources?.Count ?? 0) +
+            (batch.MediaPlayerSources?.Count ?? 0) +
             (batch.GlyphRunFonts?.Count ?? 0) +
             (batch.DrawingImageBounds?.Count ?? 0) +
             (batch.DrawingGroupBounds?.Count ?? 0) +

@@ -12,6 +12,7 @@ using MediaImageSource = System.Windows.Media.ImageSource;
 using MediaPen = System.Windows.Media.Pen;
 using MediaTransform = System.Windows.Media.Transform;
 using PortableGeometryPath = ProGPU.Wpf.Interop.PortableGeometryPath;
+using PortableMediaPlayerFrame = ProGPU.Wpf.Interop.PortableMediaPlayerFrame;
 using ProGpuContainerVisual = global::ProGPU.Scene.ContainerVisual;
 using ProGpuDrawingContext = global::ProGPU.Scene.DrawingContext;
 using ProGpuEffectBase = global::ProGPU.Scene.EffectBase;
@@ -37,6 +38,7 @@ internal sealed class ProGpuRetainedCompositionCommandSink :
     IWpfRetainedVisualStateSink,
     IWpfNativeTransformCommandSink,
     IWpfNativePrimitiveCommandSink,
+    IWpfNativeVideoCommandSink,
     IWpfNativeClipCommandSink,
     IWpfNativeGeometryCommandSink,
     IWpfHitTestOwnerScopeCommandSink,
@@ -348,6 +350,14 @@ internal sealed class ProGpuRetainedCompositionCommandSink :
     public void DrawNativeImage(MediaImageSource imageSource, WpfReplayRect rectangle, WpfReplayRect sourceRectangle)
     {
         ((IWpfNativePrimitiveCommandSink)Current.Sink).DrawNativeImage(imageSource, rectangle, sourceRectangle);
+    }
+
+    public bool DrawNativeVideo(
+        PortableMediaPlayerFrame frame,
+        WpfReplayRect rectangle)
+    {
+        return Current.Sink is IWpfNativeVideoCommandSink videoSink &&
+            videoSink.DrawNativeVideo(frame, rectangle);
     }
 
     public void DrawText(MediaFormattedText formattedText, Point origin)

@@ -2,6 +2,7 @@ using System.Buffers.Binary;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using ProGPU.Backend;
 using ProGPU.Backend.Native;
 using ProGPU.Wpf.Interop;
 using WpfPortableGeometryBoundsReader = System.Windows.Media.ProGPU.Composition.WpfPortableGeometryBoundsReader;
@@ -15,6 +16,13 @@ public sealed record WpfNativeMilBitmapSource(
     uint Height,
     uint RowBytes,
     byte[] Rgba8Pixels);
+
+public sealed record WpfNativeMilMediaPlayerSource(
+    uint Handle,
+    uint Width,
+    uint Height,
+    ulong ContentVersion,
+    IProGpuTextureLeaseSource TextureSource);
 
 public sealed record WpfNativeMilGlyphRunFont(
     uint Handle,
@@ -50,7 +58,8 @@ public sealed record WpfNativeMilBatch(
     IReadOnlyList<WpfNativeMilDrawingImageBounds>? DrawingImageBounds = null,
     IReadOnlyList<WpfNativeMilVisualCacheBounds>? VisualCacheBounds = null,
     IReadOnlyList<WpfNativeMilDrawingGroupBounds>? DrawingGroupBounds = null,
-    IReadOnlyList<WpfNativeMilViewport3DScene>? Viewport3DScenes = null);
+    IReadOnlyList<WpfNativeMilViewport3DScene>? Viewport3DScenes = null,
+    IReadOnlyList<WpfNativeMilMediaPlayerSource>? MediaPlayerSources = null);
 
 public sealed record WpfNativeMilCompilation(
     NativeMilCompiledScene Scene,
@@ -91,7 +100,8 @@ public sealed class WpfNativeMilSceneCompiler
             context.DrawingImageBounds.ToArray(),
             context.VisualCacheBounds.ToArray(),
             context.DrawingGroupBounds.ToArray(),
-            context.Viewport3DScenes.ToArray());
+            context.Viewport3DScenes.ToArray(),
+            context.MediaPlayerSources.ToArray());
     }
 
     public WpfNativeMilCompilation Compile(
@@ -141,6 +151,16 @@ public sealed class WpfNativeMilSceneCompiler
                 bitmap.Height,
                 bitmap.RowBytes,
                 bitmap.Rgba8Pixels);
+            ++appliedCount;
+        }
+        foreach (WpfNativeMilMediaPlayerSource mediaPlayer in
+                 batch.MediaPlayerSources ??
+                 Array.Empty<WpfNativeMilMediaPlayerSource>())
+        {
+            channel.SetMediaPlayerExternalImage(
+                mediaPlayer.Handle,
+                mediaPlayer.Width,
+                mediaPlayer.Height);
             ++appliedCount;
         }
         foreach (WpfNativeMilGlyphRunFont glyphRunFont in
@@ -207,6 +227,8 @@ public sealed class WpfNativeMilSceneCompiler
             new(ReferenceEqualityComparer.Instance);
         private readonly Dictionary<object, uint> _imageSourceHandles =
             new(ReferenceEqualityComparer.Instance);
+        private readonly Dictionary<object, uint> _mediaPlayerHandles =
+            new(ReferenceEqualityComparer.Instance);
         private readonly Dictionary<object, uint> _guidelineSetHandles =
             new(ReferenceEqualityComparer.Instance);
         private readonly Dictionary<object, uint> _doubleAnimationHandles =
@@ -226,6 +248,9 @@ public sealed class WpfNativeMilSceneCompiler
         internal NativeMilBatchBuilder Batch { get; } = new();
 
         internal List<WpfNativeMilBitmapSource> BitmapSources { get; } = [];
+
+        internal List<WpfNativeMilMediaPlayerSource> MediaPlayerSources
+            { get; } = [];
 
         internal List<WpfNativeMilGlyphRunFont> GlyphRunFonts { get; } = [];
 
@@ -1043,6 +1068,64 @@ public sealed class WpfNativeMilSceneCompiler
                                     : ResolveRectAnimation(
                                         snapshot.DependentResources,
                                         imageRectangleAnimationToken));
+                        }
+                        break;
+                    case WpfMilCommandId.DrawVideo:
+                        if (recordSize != 48)
+                        {
+                            throw new InvalidOperationException(
+                                "The portable WPF video record has an invalid size.");
+                        }
+                        uint mediaPlayerToken =
+                            BinaryPrimitives.ReadUInt32LittleEndian(payload[32..]);
+                        uint videoPadding =
+                            BinaryPrimitives.ReadUInt32LittleEndian(payload[36..]);
+                        if (videoPadding != 0)
+                        {
+                            throw new InvalidOperationException(
+                                "The portable WPF video record has nonzero padding.");
+                        }
+                        uint mediaPlayerHandle = ResolveMediaPlayer(
+                            snapshot.DependentResources,
+                            mediaPlayerToken);
+                        if (mediaPlayerHandle != 0)
+                        {
+                            destination.DrawVideo(
+                                new NativeMilRect(
+                                    ReadDouble(payload, 0),
+                                    ReadDouble(payload, 8),
+                                    ReadDouble(payload, 16),
+                                    ReadDouble(payload, 24)),
+                                mediaPlayerHandle);
+                        }
+                        break;
+                    case WpfMilCommandId.DrawVideoAnimate:
+                        if (recordSize != 48)
+                        {
+                            throw new InvalidOperationException(
+                                "The portable WPF animated-video record has an invalid size.");
+                        }
+                        uint animatedMediaPlayerToken =
+                            BinaryPrimitives.ReadUInt32LittleEndian(payload[32..]);
+                        uint videoRectangleAnimationToken =
+                            BinaryPrimitives.ReadUInt32LittleEndian(payload[36..]);
+                        uint animatedMediaPlayerHandle = ResolveMediaPlayer(
+                            snapshot.DependentResources,
+                            animatedMediaPlayerToken);
+                        if (animatedMediaPlayerHandle != 0)
+                        {
+                            destination.DrawVideo(
+                                new NativeMilRect(
+                                    ReadDouble(payload, 0),
+                                    ReadDouble(payload, 8),
+                                    ReadDouble(payload, 16),
+                                    ReadDouble(payload, 24)),
+                                animatedMediaPlayerHandle,
+                                videoRectangleAnimationToken == 0
+                                    ? 0
+                                    : ResolveRectAnimation(
+                                        snapshot.DependentResources,
+                                        videoRectangleAnimationToken));
                         }
                         break;
                     case WpfMilCommandId.PushClip:
@@ -1880,6 +1963,49 @@ public sealed class WpfNativeMilSceneCompiler
                     $"Portable image-source token {token} is unavailable.");
             }
             return ResolveImageSource(resource);
+        }
+
+        private uint ResolveMediaPlayer(
+            IReadOnlyList<object?> resources,
+            uint token)
+        {
+            if (token == 0 || token > resources.Count ||
+                resources[checked((int)token - 1)] is not object resource)
+            {
+                throw new InvalidOperationException(
+                    $"Portable media-player token {token} is unavailable.");
+            }
+            if (_mediaPlayerHandles.TryGetValue(resource, out uint existing))
+            {
+                return existing;
+            }
+            if (resource is not IPortableMediaPlayerSource mediaPlayer)
+            {
+                throw MissingContract(nameof(IPortableMediaPlayerSource));
+            }
+            if (!mediaPlayer.TryGetPortableMediaPlayerFrame(
+                    out PortableMediaPlayerFrame frame))
+            {
+                _mediaPlayerHandles.Add(resource, 0);
+                return 0;
+            }
+            if (frame.PixelWidth <= 0 || frame.PixelHeight <= 0 ||
+                frame.PixelWidth > 16_384 || frame.PixelHeight > 16_384 ||
+                frame.NativeImage is not IProGpuTextureLeaseSource textureSource)
+            {
+                throw new InvalidOperationException(
+                    "Portable media-player frame state is incomplete or does not expose a typed texture lease source.");
+            }
+            uint handle = NextHandle();
+            _mediaPlayerHandles.Add(resource, handle);
+            Batch.CreateResource(handle, NativeMilResourceType.MediaPlayer);
+            MediaPlayerSources.Add(new WpfNativeMilMediaPlayerSource(
+                handle,
+                checked((uint)frame.PixelWidth),
+                checked((uint)frame.PixelHeight),
+                frame.ContentVersion,
+                textureSource));
+            return handle;
         }
 
         private uint AddDrawingGroup(

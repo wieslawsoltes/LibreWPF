@@ -6836,7 +6836,7 @@ namespace System.Windows.Media
         protected override void SpeedChanged() { }
         protected override void Stopped() { }
     }
-    public partial class MediaPlayer : System.Windows.Media.Animation.Animatable
+    public partial class MediaPlayer : System.Windows.Media.Animation.Animatable, ProGPU.Wpf.Interop.IPortableInvalidationSource, ProGPU.Wpf.Interop.IPortableMediaPlayerSource
     {
         public MediaPlayer() { }
         public double Balance { get { throw null; } set { } }
@@ -6873,6 +6873,13 @@ namespace System.Windows.Media
         protected new void ReadPreamble() { }
         public void Stop() { }
         protected new void WritePreamble() { }
+        bool ProGPU.Wpf.Interop.IPortableInvalidationSource.TrySubscribeInvalidated(System.EventHandler handler, out System.IDisposable subscription) { throw null; }
+        bool ProGPU.Wpf.Interop.IPortableMediaPlayerSource.TryGetPortableMediaPlayerFrame(out ProGPU.Wpf.Interop.PortableMediaPlayerFrame frame) { throw null; }
+    }
+    public static partial class PortableMediaPlayerSourceFactory
+    {
+        public static void Attach(System.Windows.Media.MediaPlayer player, ProGPU.Wpf.Interop.IPortableMediaPlayerSource source) { }
+        public static void Detach(System.Windows.Media.MediaPlayer player) { }
     }
     public sealed partial class MediaScriptCommandEventArgs : System.EventArgs
     {

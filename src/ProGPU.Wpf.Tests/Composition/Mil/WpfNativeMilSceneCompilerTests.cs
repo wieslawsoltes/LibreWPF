@@ -1,6 +1,7 @@
 using System.Buffers.Binary;
 using System.Numerics;
 using System.Windows.Media.ProGPU.Composition.Mil;
+using ProGPU.Backend;
 using ProGPU.Backend.Native;
 using ProGPU.Text;
 using ProGPU.Wpf.Interop;
@@ -1346,6 +1347,77 @@ public sealed class WpfNativeMilSceneCompilerTests
 
         Assert.Equal(16U, ReadUInt32(result.Bytes, renderDataOffset));
         Assert.Empty(result.BitmapSources!);
+    }
+
+    [Fact]
+    public void BuildBatchTranslatesTypedLiveVideoWithoutCpuPixels()
+    {
+        var player = new FakeMediaPlayer(64, 32, 7);
+        var rectangle = new FakeRectAnimationValue(
+            new PortableRect(4, 5, 30, 20));
+        byte[] renderData = CreateDrawVideoRecord(
+                2, 3, 40, 24, 1)
+            .Concat(CreateDrawVideoRecord(
+                1, 2, 10, 12, 1, 2))
+            .ToArray();
+        var visual = new FakeVisual(new FakeRenderData(
+            renderData,
+            [player, rectangle]));
+
+        WpfNativeMilBatch result = new WpfNativeMilSceneCompiler().BuildBatch(
+            visual, 64, 64);
+        WpfNativeMilMediaPlayerSource source = Assert.Single(
+            result.MediaPlayerSources!);
+        int nestedOffset = FindCommand(result.Bytes, 0x18) + 16;
+
+        Assert.Equal(64U, source.Width);
+        Assert.Equal(32U, source.Height);
+        Assert.Equal(7UL, source.ContentVersion);
+        Assert.Same(player, source.TextureSource);
+        Assert.Empty(result.BitmapSources!);
+        Assert.Equal(0x4b, ReadInt32(result.Bytes, nestedOffset + 4));
+        Assert.Equal(source.Handle, ReadUInt32(
+            result.Bytes, nestedOffset + 40));
+        nestedOffset += 48;
+        Assert.Equal(0x4c, ReadInt32(result.Bytes, nestedOffset + 4));
+        Assert.Equal(source.Handle, ReadUInt32(
+            result.Bytes, nestedOffset + 40));
+        Assert.NotEqual(0U, ReadUInt32(result.Bytes, nestedOffset + 44));
+        int createOffset = FindCreateResource(
+            result.Bytes,
+            source.Handle);
+        Assert.Equal(1U, ReadUInt32(result.Bytes, createOffset + 12));
+    }
+
+    [Fact]
+    public void BuildBatchTreatsMediaPlayerWithoutReadyFrameAsNoOp()
+    {
+        var player = new FakeMediaPlayer();
+        var visual = new FakeVisual(new FakeRenderData(
+            CreateDrawVideoRecord(2, 3, 40, 24, 1),
+            [player]));
+
+        WpfNativeMilBatch result = new WpfNativeMilSceneCompiler().BuildBatch(
+            visual, 64, 64);
+        int renderDataOffset = FindCommand(result.Bytes, 0x18);
+
+        Assert.Equal(16U, ReadUInt32(result.Bytes, renderDataOffset));
+        Assert.Empty(result.MediaPlayerSources!);
+    }
+
+    [Fact]
+    public void BuildBatchRejectsUntypedVideoPlayer()
+    {
+        var visual = new FakeVisual(new FakeRenderData(
+            CreateDrawVideoRecord(2, 3, 40, 24, 1),
+            [new object()]));
+
+        InvalidOperationException exception =
+            Assert.Throws<InvalidOperationException>(() =>
+                new WpfNativeMilSceneCompiler().BuildBatch(
+                    visual, 64, 64));
+
+        Assert.Contains(nameof(IPortableMediaPlayerSource), exception.Message);
     }
 
     [Fact]
@@ -3276,6 +3348,29 @@ public sealed class WpfNativeMilSceneCompilerTests
         return record;
     }
 
+    private static byte[] CreateDrawVideoRecord(
+        double x,
+        double y,
+        double width,
+        double height,
+        uint player,
+        uint rectangleAnimation = 0)
+    {
+        byte[] record = new byte[48];
+        BinaryPrimitives.WriteInt32LittleEndian(record, record.Length);
+        BinaryPrimitives.WriteInt32LittleEndian(
+            record.AsSpan(4),
+            rectangleAnimation == 0 ? 0x4b : 0x4c);
+        WriteDouble(record, 8, x);
+        WriteDouble(record, 16, y);
+        WriteDouble(record, 24, width);
+        WriteDouble(record, 32, height);
+        BinaryPrimitives.WriteUInt32LittleEndian(record.AsSpan(40), player);
+        BinaryPrimitives.WriteUInt32LittleEndian(
+            record.AsSpan(44), rectangleAnimation);
+        return record;
+    }
+
     private static byte[] CreatePushOpacityRecord(double opacity)
     {
         byte[] record = new byte[16];
@@ -3579,6 +3674,22 @@ public sealed class WpfNativeMilSceneCompilerTests
             $"MIL command 0x{command:x} was not found.");
     }
 
+    private static int FindCreateResource(byte[] batch, uint handle)
+    {
+        int offset = 0;
+        while (offset < batch.Length)
+        {
+            if (ReadInt32(batch, offset + 4) == 0x07 &&
+                ReadUInt32(batch, offset + 8) == handle)
+            {
+                return offset;
+            }
+            offset += ReadInt32(batch, offset);
+        }
+        throw new Xunit.Sdk.XunitException(
+            $"MIL resource handle {handle} was not created.");
+    }
+
     private static int ReadInt32(byte[] bytes, int offset) =>
         BinaryPrimitives.ReadInt32LittleEndian(bytes.AsSpan(offset, 4));
 
@@ -3760,6 +3871,46 @@ public sealed class WpfNativeMilSceneCompilerTests
         {
             snapshot = _snapshot;
             return true;
+        }
+    }
+
+    private sealed class FakeMediaPlayer :
+        IPortableMediaPlayerSource,
+        IProGpuTextureLeaseSource
+    {
+        private readonly PortableMediaPlayerFrame? _frame;
+
+        internal FakeMediaPlayer()
+        {
+        }
+
+        internal FakeMediaPlayer(int width, int height, ulong contentVersion)
+        {
+            _frame = new PortableMediaPlayerFrame(
+                width,
+                height,
+                contentVersion,
+                this);
+        }
+
+        public bool TryGetPortableMediaPlayerFrame(
+            out PortableMediaPlayerFrame frame)
+        {
+            frame = _frame.GetValueOrDefault();
+            return _frame.HasValue;
+        }
+
+        public bool TryGetGpuTexture(out GpuTexture texture)
+        {
+            texture = null!;
+            return false;
+        }
+
+        public bool TryAcquireGpuTextureLease(
+            out IProGpuTextureLease lease)
+        {
+            lease = null!;
+            return false;
         }
     }
 
