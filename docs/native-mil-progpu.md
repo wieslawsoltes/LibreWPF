@@ -4799,11 +4799,20 @@ or upload is introduced.
 
 The ProGPU native MIL CTest passes on Apple Silicon, the native managed backend
 builds with zero warnings, the LibreWPF product/test assemblies build, and the
-full compiler/session classes pass 114/114. Native Microsoft Win2D binary and
-`ID2D1*` support are still Windows-only interop work: a same-adapter DXGI
-provider must perform keyed-mutex/shared-fence synchronization and expose the
-resulting ProGPU texture lease. The compositor consumer path no longer blocks
-that provider.
+full compiler/session classes pass 114/114. Source-built PresentationCore,
+including `PortableNativeImageSourceFactory`, builds with zero errors. Ubuntu
+24.04 ARM64 rebuilds the exact tracked ProGPU delta through `4ece2969`, passes
+the native MIL CTest 1/1 in 0.03 seconds, exposes the new export, and produces
+`libprogpu_native.so` SHA-256
+`c7633cc318977e69373c5d26d0bceed24de86d52bfe8b6506fe731ad14b24f54`.
+Windows 11 ARM64 with MSVC 19.44.35228.0 passes the same CTest 1/1 in
+2.50 seconds, exposes the export, and produces `progpu_native.dll` SHA-256
+`fc627fff1240a9f06ae4e785101f9052b9dac8dbe600ae1a331d094087d79fdf`.
+
+Native Microsoft Win2D binary and `ID2D1*` support are still Windows-only
+interop work: a same-adapter DXGI provider must perform keyed-mutex/shared-fence
+synchronization and expose the resulting ProGPU texture lease. The compositor
+consumer path no longer blocks that provider.
 
 ## Next parity gates
 
