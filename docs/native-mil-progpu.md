@@ -4858,6 +4858,12 @@ by the installed Windows runtime, with explicit `E_NOINTERFACE` failure and no
 emulated vtables. Microsoft Win2D activation/resource wrapping and full device-
 loss recreation remain the next native-Win2D layer.
 
+The provider now also creates the genuine WinRT `IDirect3DDevice` required by
+Win2D `CanvasDevice.CreateFromDirect3D11Device` from the surface's exact
+`IDXGIDevice`. Its native regression unwraps the object through
+`IDirect3DDxgiInterfaceAccess` and requires the original `ID3D11Device`
+identity, preventing a second adapter/resource domain or cross-device copy.
+
 ## Native MIL canonical D3DImage checkpoint
 
 ProGPU `72c9d794`/`20918afb` and this LibreWPF checkpoint add canonical
