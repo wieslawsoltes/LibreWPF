@@ -4730,6 +4730,46 @@ The support matrix, API mapping, delivery stages, and Windows/Metal/Vulkan
 oracle gate are documented in
 [`DIRECT2D_WIN2D_COMPATIBILITY.md`](../external/ProGPU/docs/DIRECT2D_WIN2D_COMPATIBILITY.md).
 
+## Live MediaPlayer video checkpoint
+
+ProGPU `f5f7988b` and the matching LibreWPF producer implement the last missing
+canonical draw family from the current nested-render-data compiler audit:
+`DrawVideo` and `DrawVideoAnimate`. Source-built `MediaPlayer` now publishes a
+neutral `IPortableMediaPlayerSource` frame through
+`PortableMediaPlayerSourceFactory.Attach(...)`; the attachment calls the
+`Freezable` base write guard and deliberately does not create the Windows MIL
+media state. Providers may also publish `IPortableInvalidationSource`, which is
+delegated by `MediaPlayer` so retained replay sees new frames without private
+field/event discovery.
+
+Both LibreWPF rendering lanes consume the same contract:
+
+- The current portable renderer resolves the live frame, applies a typed
+  `IPortableRectAnimationValueSource` destination when present, retains the
+  `IProGpuTextureLeaseSource` directly in the ProGPU drawing context, and emits
+  `DrawTexture`. It does not adapt the frame into `ImageSource` or copy pixels.
+- The native MIL compiler creates resource type 1, preserves the exact 48-byte
+  video records, publishes width/height through ProGPU's pointer-free sideband,
+  and records the lease source beside the compiled frame. The host acquires a
+  context-qualified lease, binds deterministic external-image resource IDs
+  `1..N` for the semantic-scene generation, installs the scene, and releases
+  the prior frame leases only after the new table succeeds.
+
+Forced or accidental CPU video fallback is not part of this path. An untyped
+player, invalid dimensions, unavailable/cross-device texture, malformed
+packet, or incompatible animation fails closed or is reported as a skipped
+not-ready frame. The initial lane supports a single packed straight-alpha
+RGBA/BGRA 8-bit texture; D3DImage synchronization, shared Direct2D surfaces,
+NV12/P010 planes, HDR/color-space metadata, and protected content remain
+explicit follow-up contracts.
+
+The Apple Silicon checkpoint passes the ProGPU native MIL CTest, exact managed
+packet test, 15 focused LibreWPF compiler/session/portable-video tests, and two
+source-built `MediaPlayer` tests running on macOS without `wpfgfx`. Windows
+D3D12 and Linux Vulkan validation use the same native MIL test plus the live
+host gate; results are recorded when the exact commits are qualified in the
+Parallels guests.
+
 ## Next parity gates
 
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested
