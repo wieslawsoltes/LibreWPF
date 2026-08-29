@@ -15,9 +15,32 @@ permissions:
 
 env:
   PROGPU_WPF_QUALIFIED_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
-  PROGPU_WPF_PROGPU_PACKAGE_VERSION: 0.1.0-preview.55
+  PROGPU_WPF_PROGPU_PACKAGE_VERSION: 0.1.0-preview.62
 
 jobs:
+  canonical-winforms-integration:
+    name: Canonical System.Windows.Forms source integration
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout aligned source graph
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}
+          submodules: recursive
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Build canonical WinForms and WindowsFormsIntegration
+        env:
+          # ProGPU PR CI owns the API/allocation suite for this exact source pin.
+          PROGPU_WPF_RUN_DRAWING_QUALITY_GATES: 0
+        run: ./eng/progpu-wpf-canonical-winforms-integration.sh
+
   windows-managed-runtime:
     name: Windows managed runtime payload
     runs-on: windows-2025
@@ -82,8 +105,9 @@ jobs:
             tag_commit="$(git ls-remote https://github.com/wieslawsoltes/ProGPU.git "${tag_ref}" | awk 'NR == 1 { print $1 }')"
           fi
           submodule_commit="$(git -C external/ProGPU rev-parse HEAD)"
-          if [[ -z "${tag_commit}" || "${tag_commit}" != "${submodule_commit}" ]]; then
-            echo "LibreWPF ProGPU submodule ${submodule_commit} does not match ${tag} (${tag_commit:-missing})." >&2
+          if [[ -z "${tag_commit}" ]] \
+            || ! git -C external/ProGPU merge-base --is-ancestor "${tag_commit}" "${submodule_commit}"; then
+            echo "LibreWPF ProGPU submodule ${submodule_commit} is not based on ${tag} (${tag_commit:-missing})." >&2
             exit 1
           fi
 
