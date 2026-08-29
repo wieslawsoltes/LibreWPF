@@ -4638,14 +4638,40 @@ rebuilt ARM64 DLL SHA-256 values are respectively
 `7FCD5A09E672C61102066C60FEB0F9EDBEEE279521AF0251015F17AE3C5942EF` and
 `39C0FD9F5B13CF277581C64096668CAF3673742719B55D6C6252AC9EB009262D`.
 
+ProGPU `3390388e` adds the first portable Win2D bitmap-pixel creation/update
+lane: the three `CanvasBitmap.CreateFromBytes(...)` overloads plus full and
+subrectangle `SetPixelBytes(...)` for BGRA8-unorm premultiplied data. Uploads
+flow from the caller array directly through the typed `GpuTexture` queue-write
+APIs; no WIC/reflection shim, GPU readback, staging repack, or whole-buffer
+scalar conversion is introduced. Oversized arrays retain Win2D's accepted
+"at least required bytes" contract while only the required prefix reaches the
+backend. Mutation fails closed once a retained draw owns a texture lease, and
+render targets additionally reject mutation during an active drawing session,
+preserving Win2D's immediate-draw observation despite ProGPU's deferred scene
+submission.
+
+The live gate creates the image-brush checker with `CreateFromBytes`, performs
+one full upload and one 1x1 update, checks all four resulting sample cells, and
+verifies that post-record mutation throws. macOS Metal, Parallels WDDM D3D12,
+and Ubuntu llvmpipe/Vulkan retain the exact `16+2` frame hashes above. The
+complete Metal/D3D12 differential remains two pixels at 1/255, and
+D3D12/Vulkan remains 84 pixels at 1/255. The Win2D contract suite passes 10/10
+on all three systems and all three benchmark builds are warning-free. The exact
+Windows source archive SHA-256 is
+`24FD8FC118952E4C51B857C01D476E06873472F43DEEBE46490C443510A98248`.
+This managed-only change reuses the unchanged exact ARM64 native DLL SHA-256
+`39C0FD9F5B13CF277581C64096668CAF3673742719B55D6C6252AC9EB009262D`;
+the staged WinUI `generic.xaml` SHA-256 is
+`4C4085838721C0AFCB1A9EE17591C0655CDDDADB26D330788E08BCD7F1AF8285`.
+
 Windows may additionally run the real Win2D/Direct2D runtime into a
 same-adapter shared BGRA8 DXGI allocation and import it through ProGPU's
 existing Dawn keyed-mutex/shared-texture path without CPU readback; that native
 interop adapter remains planned. The Microsoft Win2D binary remains
 Windows-only, native COM resource wrapping fails closed off Windows, and
 ProGPU will not publish a fake `d2d1.dll`. The portable package is source
-compatible rather than binary compatible; bitmap creation/update, geometry
-query/stroke/outline operations, command-list/effect image brushes, layer
+compatible rather than binary compatible; bitmap file/color/buffer/copy APIs,
+geometry query/stroke/outline operations, command-list/effect image brushes, layer
 opacity brushes, formatted text, effects, sprite batches, and XAML controls
 remain incremental compatibility groups.
 The support matrix, API mapping, delivery stages, and Windows/Metal/Vulkan
