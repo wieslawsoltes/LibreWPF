@@ -4421,20 +4421,27 @@ them. The same checkpoint pins exact Win2D and Win2D-Samples commits and adds a
 source-verification gate for the native Direct2D/Direct3D contract plus
 SimpleSample and ExampleGallery oracle sources.
 
-The implementation has two tiers. ProGPU checkpoints `862077fe` and `4c716f4f`
+The implementation has two tiers. ProGPU checkpoints `862077fe`, `4c716f4f`,
+and `7f7d6971`
 ship the first `ProGPU.Win2D` portable Canvas tier: `CanvasDevice`,
 `CanvasBitmap`, `CanvasRenderTarget`, and `CanvasDrawingSession` record a
 source-compatible Win2D subset into immutable `GpuPicture` values, compile them
 through `ProGPU.Scene.Native`, and submit them to the retained C++ renderer.
 BGRA8-premultiplied targets, Win2D DPI rounding, transforms, solid primitive
-draw/fill operations, default text, target-preserving later sessions, explicit
-readback, and execution diagnostics are implemented. The ordinary render path
-does not use the managed compositor, CPU readback, or CPU repacking.
+draw/fill operations, default text, same-device bitmap drawing with source and
+destination rectangles, opacity and qualified sampling, target-preserving
+later sessions, explicit readback, and execution diagnostics are implemented.
+Typed texture leases preserve bitmap sources through deferred native
+submission without staging copies. The ordinary render path does not use the
+managed compositor, CPU readback, or CPU repacking.
 
 The locked Microsoft SimpleSample drawing body compiles against that package.
 Live Apple M3 Pro Metal and Windows 11 ARM64 Parallels WDDM D3D12 runs produced
 byte-identical frames with SHA-256
-`404F1313FD713A516CAA69D685D47F6B7F472F787EF40C90D1AE0F965F640AD6`.
+`06CD9FDE62D7400D7C9FC3ABF0A248023E70A9A57D15D48F197D237D7CF01767`.
+The frame qualifies full-opacity and half-opacity bitmap draws and disposes the
+public source before destination-session close, proving deferred GPU lease
+ownership.
 The dedicated four-test source/DPI/fail-closed/signature gate passes from the
 exact `4c716f4f` archive on both macOS and the Windows VM. VM timings are
 correctness evidence only.
@@ -4445,9 +4452,9 @@ existing Dawn keyed-mutex/shared-texture path without CPU readback; that native
 interop adapter remains planned. The Microsoft Win2D binary remains
 Windows-only, native COM resource wrapping fails closed off Windows, and
 ProGPU will not publish a fake `d2d1.dll`. The portable package is source
-compatible rather than binary compatible; command lists, bitmap drawing,
-arbitrary geometry, clips/layers, formatted text, effects, sprite batches, and
-XAML controls remain incremental compatibility groups.
+compatible rather than binary compatible; command lists, bitmap
+creation/update, arbitrary geometry, clips/layers, formatted text, effects,
+sprite batches, and XAML controls remain incremental compatibility groups.
 The support matrix, API mapping, delivery stages, and Windows/Metal/Vulkan
 oracle gate are documented in
 [`DIRECT2D_WIN2D_COMPATIBILITY.md`](../external/ProGPU/docs/DIRECT2D_WIN2D_COMPATIBILITY.md).
