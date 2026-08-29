@@ -2,8 +2,8 @@
 
 ## Outcome
 
-LibreWPF can compile its real `WindowsFormsIntegration` reference and
-implementation assemblies against the source-built `System.Windows.Forms`
+LibreWPF can compile and package its real `WindowsFormsIntegration` reference
+and implementation assemblies against the source-built `System.Windows.Forms`
 identity from LibreWinForms and ProGPU's `System.Drawing.Common`. The opt-in
 path uses typed assembly references only; it does not introduce reflection,
 duck typing, fake WinForms objects, or a second compatibility-shaped runtime.
@@ -14,7 +14,7 @@ lane for replacing the transitional LibreWinForms compatibility packages.
 
 ## Qualified Source Pins
 
-- LibreWinForms: `dfbc15b8f6bb22d09416d777957f54504a0f7e44`
+- LibreWinForms: `23547c8d793ed0e75370be00d8084eb7ed17835b`
 - ProGPU: `d73cef34b92dfc71b40288dbc004d6f23c3b6fa8`
 - ProGPU release base: `v0.1.0-preview.62` / `00cf8707`
 
@@ -39,6 +39,13 @@ gate checks that invariant before compiling anything.
 5. The gate serializes CsWin32 generation and the WPF reference/API-cycle
    roots. This prevents clean caches from producing an empty primitive
    assembly or compiling ReachFramework before its cycle-breaker contracts.
+6. `LibreWinForms.WindowsFormsIntegration` now packages the exact qualified
+   implementation under `lib/net10.0` and reference assembly under
+   `ref/net10.0`, with an exact dependency on the matching canonical
+   `LibreWinForms.System.Windows.Forms` package.
+7. The source gate stages ProGPU's drawing-runtime packages from the qualified
+   commit, packs canonical Forms and WFI from source, verifies ref/lib hashes,
+   and rejects a WFI package whose canonical Forms dependency is not exact.
 
 ## Verification
 
@@ -51,7 +58,8 @@ gate checks that invariant before compiling anything.
   in deterministic order;
 - builds `WindowsFormsIntegration-ref` and `WindowsFormsIntegration` with
   `MSB3243` and `MSB3277` promoted to errors; and
-- verifies that both output assemblies exist.
+- packs the exact ProGPU/Forms/WFI dependency closure and verifies that the
+  WFI package contains the byte-identical ref/lib outputs.
 
 Local qualification produced both assemblies with zero errors and no assembly
 conflict warnings. The `LibreWPF Build` workflow runs the source integration
@@ -64,9 +72,9 @@ still requires:
 
 1. publishing a ProGPU release that contains the qualified post-preview.62
    source fixes;
-2. packaging the canonical WFI output and proving package/runtime load identity;
-3. migrating the SharpDevelop integration driver to that package closure; and
-4. deleting `src/LibreWinForms.Portable` only after compatibility, designer,
+2. migrating the LibreWPF SDK package-mode defaults and SharpDevelop integration
+   driver to the canonical package closure;
+3. deleting `src/LibreWinForms.Portable` only after compatibility, designer,
    resource, and runtime gates pass without it.
 
 Until those gates are complete, Portable stays frozen rather than receiving

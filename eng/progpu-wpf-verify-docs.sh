@@ -16,6 +16,7 @@ require_text() {
 require_text ".github/workflows/progpu-wpf-sdk.yml" "./eng/progpu-wpf-sdk-ci.sh"
 require_text ".github/workflows/progpu-wpf-sdk.yml" "./eng/progpu-wpf-canonical-winforms-integration.sh"
 require_text ".github/workflows/progpu-wpf-sdk.yml" "submodules: recursive"
+require_text ".github/workflows/progpu-wpf-sdk.yml" "canonical-librewinforms-"
 require_text ".github/workflows/progpu-wpf-sdk.yml" "PROGPU_WPF_PROGPU_PACKAGE_VERSION: 0.1.0-preview.62"
 require_text ".github/workflows/progpu-wpf-sdk.yml" "librewpf-ci-packages-"
 require_text ".github/workflows/progpu-wpf-sdk.yml" "if-no-files-found: error"
@@ -34,6 +35,11 @@ require_text "README.md" "Tag releases promote and re-verify the exact package a
 require_text "README.md" "Canonical WinForms integration is validated separately from the normal NuGet"
 require_text "docs/progpu-wpf-release.md" "clean-cache WPF reference/cycle ordering"
 require_text "reports/canonical-winforms-source-integration.md" "Portable stays frozen"
+require_text "eng/LibreWinForms.WindowsFormsIntegration.Package/LibreWinForms.WindowsFormsIntegration.Package.csproj" "<PackageId>LibreWinForms.WindowsFormsIntegration</PackageId>"
+require_text "eng/LibreWinForms.WindowsFormsIntegration.Package/LibreWinForms.WindowsFormsIntegration.Package.csproj" "LibreWinForms.System.Windows.Forms"
+require_text "eng/LibreWinForms.WindowsFormsIntegration.Package/LibreWinForms.WindowsFormsIntegration.Package.csproj" 'PrivateAssets=""'
+require_text "eng/progpu-wpf-canonical-winforms-integration.sh" 'ref/${target_framework}/WindowsFormsIntegration.dll'
+require_text "eng/progpu-wpf-canonical-winforms-integration.sh" "packaged_implementation_hash"
 require_text "docs/progpu-wpf-release.md" 'terminal-success `LibreWPF Build` run for the exact tagged commit'
 require_text ".github/workflows/progpu-wpf-release.yml" "Stage exact ProGPU release packages"
 require_text ".github/workflows/progpu-wpf-release.yml" "LibreWPF.Transport LibreWPF.ProGPU LibreWPF.Sdk"

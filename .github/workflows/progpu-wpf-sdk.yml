@@ -41,6 +41,13 @@ jobs:
           PROGPU_WPF_RUN_DRAWING_QUALITY_GATES: 0
         run: ./eng/progpu-wpf-canonical-winforms-integration.sh
 
+      - name: Upload canonical WinForms package closure
+        uses: actions/upload-artifact@v4
+        with:
+          name: canonical-librewinforms-${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}
+          path: artifacts/packages/CanonicalWinForms/*.nupkg
+          if-no-files-found: error
+
   windows-managed-runtime:
     name: Windows managed runtime payload
     runs-on: windows-2025

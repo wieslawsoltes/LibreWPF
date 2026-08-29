@@ -1,0 +1,50 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>$(ProGpuWpfTargetFramework)</TargetFramework>
+    <EnableDefaultItems>false</EnableDefaultItems>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <IsPackable>true</IsPackable>
+    <PackageId>LibreWinForms.WindowsFormsIntegration</PackageId>
+    <Title>LibreWinForms canonical WindowsFormsIntegration</Title>
+    <Description>Source-built canonical WindowsFormsIntegration for LibreWPF and the LibreWinForms ProGPU cross-platform runtime.</Description>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>librewinforms;librewpf;winforms;wpf;progpu;cross-platform;source-built</PackageTags>
+    <SuppressDependenciesWhenPacking>false</SuppressDependenciesWhenPacking>
+    <NoWarn>$(NoWarn);NU5128;NU5131</NoWarn>
+    <LibreWinFormsCanonicalPackageVersion Condition="'$(LibreWinFormsCanonicalPackageVersion)' == ''">$(PackageVersion)</LibreWinFormsCanonicalPackageVersion>
+    <CanonicalWindowsFormsIntegrationOutput>$(ArtifactsDir)bin/WindowsFormsIntegration/$(Configuration)/$(TargetFramework)/</CanonicalWindowsFormsIntegrationOutput>
+    <CanonicalWindowsFormsIntegrationReferenceOutput>$(ArtifactsDir)bin/WindowsFormsIntegration-ref/$(Configuration)/$(TargetFramework)/</CanonicalWindowsFormsIntegrationReferenceOutput>
+    <TargetsForTfmSpecificContentInPackage>$(TargetsForTfmSpecificContentInPackage);CollectCanonicalWindowsFormsIntegrationPackageFiles</TargetsForTfmSpecificContentInPackage>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- WPF's transport packaging defaults every PackageReference to
+         PrivateAssets=All. This public package must expose its exact canonical
+         Forms dependency instead of inheriting that transport-only policy. -->
+    <PackageReference Include="LibreWinForms.System.Windows.Forms"
+                      Version="$(LibreWinFormsCanonicalPackageVersion)"
+                      PrivateAssets="" />
+    <None Include="$(RepoRoot)README.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
+
+  <Target Name="CollectCanonicalWindowsFormsIntegrationPackageFiles">
+    <Error Condition="!Exists('$(CanonicalWindowsFormsIntegrationOutput)WindowsFormsIntegration.dll')"
+           Text="The canonical source-built WindowsFormsIntegration implementation was not produced." />
+    <Error Condition="!Exists('$(CanonicalWindowsFormsIntegrationReferenceOutput)WindowsFormsIntegration.dll')"
+           Text="The canonical WindowsFormsIntegration reference assembly was not produced." />
+
+    <ItemGroup>
+      <_CanonicalWindowsFormsIntegrationRuntime Include="$(CanonicalWindowsFormsIntegrationOutput)WindowsFormsIntegration.dll" />
+      <_CanonicalWindowsFormsIntegrationRuntime Include="$(CanonicalWindowsFormsIntegrationOutput)WindowsFormsIntegration.xml"
+                                                Condition="Exists('$(CanonicalWindowsFormsIntegrationOutput)WindowsFormsIntegration.xml')" />
+      <_CanonicalWindowsFormsIntegrationReference Include="$(CanonicalWindowsFormsIntegrationReferenceOutput)WindowsFormsIntegration.dll" />
+
+      <TfmSpecificPackageFile Include="@(_CanonicalWindowsFormsIntegrationRuntime)">
+        <PackagePath>lib/$(TargetFramework)/%(_CanonicalWindowsFormsIntegrationRuntime.FileName)%(_CanonicalWindowsFormsIntegrationRuntime.Extension)</PackagePath>
+      </TfmSpecificPackageFile>
+      <TfmSpecificPackageFile Include="@(_CanonicalWindowsFormsIntegrationReference)">
+        <PackagePath>ref/$(TargetFramework)/%(_CanonicalWindowsFormsIntegrationReference.FileName)%(_CanonicalWindowsFormsIntegrationReference.Extension)</PackagePath>
+      </TfmSpecificPackageFile>
+    </ItemGroup>
+  </Target>
+</Project>

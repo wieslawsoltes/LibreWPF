@@ -6,6 +6,7 @@ librewinforms_root="${repo_root}/external/LibreWinForms"
 progpu_root="${repo_root}/external/ProGPU"
 configuration="${CONFIGURATION:-Release}"
 target_framework="net10.0"
+canonical_package_output="${PROGPU_WPF_CANONICAL_WINFORMS_PACKAGE_OUTPUT:-${repo_root}/artifacts/packages/CanonicalWinForms}"
 
 if [[ ! -f "${librewinforms_root}/src/System.Windows.Forms/System.Windows.Forms.csproj" ]]; then
   echo "Initialize the external/LibreWinForms submodule before running the canonical integration gate." >&2
@@ -189,4 +190,82 @@ if [[ ! -f "${ref_output}" || ! -f "${implementation_output}" ]]; then
   exit 1
 fi
 
-echo "Canonical WindowsFormsIntegration source gate succeeded for LibreWinForms $(git -C "${librewinforms_root}" rev-parse --short HEAD) and ProGPU $(git -C "${progpu_root}" rev-parse --short HEAD)."
+librewinforms_short_commit="$(git -C "${librewinforms_root}" rev-parse --short=8 HEAD)"
+librewpf_short_commit="$(git -C "${repo_root}" rev-parse --short=8 HEAD)"
+progpu_short_commit="$(git -C "${progpu_root}" rev-parse --short=8 HEAD)"
+canonical_package_version="${PROGPU_WPF_CANONICAL_WINFORMS_PACKAGE_VERSION:-0.1.0-canonical.${librewinforms_short_commit}.${librewpf_short_commit}}"
+progpu_source_package_version="${PROGPU_WPF_CANONICAL_PROGPU_PACKAGE_VERSION:-0.1.0-source.${progpu_short_commit}}"
+canonical_forms_package="${canonical_package_output}/LibreWinForms.System.Windows.Forms.${canonical_package_version}.nupkg"
+canonical_integration_package="${canonical_package_output}/LibreWinForms.WindowsFormsIntegration.${canonical_package_version}.nupkg"
+
+mkdir -p "${canonical_package_output}"
+rm -f \
+  "${canonical_forms_package}" \
+  "${canonical_package_output}/LibreWinForms.System.Windows.Forms.${canonical_package_version}.snupkg" \
+  "${canonical_integration_package}" \
+  "${canonical_package_output}/LibreWinForms.WindowsFormsIntegration.${canonical_package_version}.snupkg"
+
+echo "Packing the exact ProGPU drawing dependency closure..."
+PROGPU_CONFIGURATION="${configuration}" \
+PROGPU_PACKAGE_VERSION="${progpu_source_package_version}" \
+PROGPU_PACKAGE_OUTPUT="${canonical_package_output}" \
+PROGPU_PACKAGE_GROUP=drawing-runtime \
+  "${progpu_root}/eng/progpu-pack.sh"
+
+echo "Packing canonical System.Windows.Forms ${canonical_package_version}..."
+NetCurrent="${target_framework}" \
+  "${librewinforms_root}/eng/common/dotnet.sh" pack \
+  "${librewinforms_root}/packaging/LibreWinForms.System.Windows.Forms/LibreWinForms.System.Windows.Forms.csproj" \
+  --configuration "${configuration}" \
+  --output "${canonical_package_output}" \
+  -p:Version="${canonical_package_version}" \
+  -p:PackageVersion="${canonical_package_version}" \
+  -p:NetCurrent="${target_framework}" \
+  -p:LibreWinFormsProGpuPackageVersion="${progpu_source_package_version}" \
+  -p:RestoreAdditionalProjectSources="${canonical_package_output}" \
+  -p:ContinuousIntegrationBuild=true
+
+echo "Packing canonical WindowsFormsIntegration ${canonical_package_version}..."
+"${dotnet_command}" pack \
+  "${repo_root}/eng/LibreWinForms.WindowsFormsIntegration.Package/LibreWinForms.WindowsFormsIntegration.Package.csproj" \
+  --configuration "${configuration}" \
+  --output "${canonical_package_output}" \
+  -p:Version="${canonical_package_version}" \
+  -p:PackageVersion="${canonical_package_version}" \
+  -p:LibreWinFormsCanonicalPackageVersion="${canonical_package_version}" \
+  -p:RestoreAdditionalProjectSources="${canonical_package_output}" \
+  -p:ContinuousIntegrationBuild=true
+
+for package_file in "${canonical_forms_package}" "${canonical_integration_package}"; do
+  if [[ ! -f "${package_file}" ]]; then
+    echo "Canonical WinForms package was not produced: ${package_file}" >&2
+    exit 1
+  fi
+done
+
+for expected_entry in \
+  "lib/${target_framework}/WindowsFormsIntegration.dll" \
+  "ref/${target_framework}/WindowsFormsIntegration.dll"
+do
+  if ! unzip -Z1 "${canonical_integration_package}" | grep -Fxq "${expected_entry}"; then
+    echo "Canonical WindowsFormsIntegration package is missing ${expected_entry}." >&2
+    exit 1
+  fi
+done
+
+implementation_hash="$(sha256sum "${implementation_output}" | cut -d' ' -f1)"
+packaged_implementation_hash="$(unzip -p "${canonical_integration_package}" "lib/${target_framework}/WindowsFormsIntegration.dll" | sha256sum | cut -d' ' -f1)"
+reference_hash="$(sha256sum "${ref_output}" | cut -d' ' -f1)"
+packaged_reference_hash="$(unzip -p "${canonical_integration_package}" "ref/${target_framework}/WindowsFormsIntegration.dll" | sha256sum | cut -d' ' -f1)"
+if [[ "${implementation_hash}" != "${packaged_implementation_hash}" || "${reference_hash}" != "${packaged_reference_hash}" ]]; then
+  echo "Canonical WindowsFormsIntegration package payload does not match the qualified source outputs." >&2
+  exit 1
+fi
+
+integration_nuspec="$(unzip -p "${canonical_integration_package}" '*.nuspec')"
+if [[ "${integration_nuspec}" != *"<dependency id=\"LibreWinForms.System.Windows.Forms\" version=\"${canonical_package_version}\""* ]]; then
+  echo "Canonical WindowsFormsIntegration package does not depend on the matching canonical Forms package." >&2
+  exit 1
+fi
+
+echo "Canonical WindowsFormsIntegration source and package gates succeeded for LibreWinForms ${librewinforms_short_commit} and ProGPU ${progpu_short_commit}."
