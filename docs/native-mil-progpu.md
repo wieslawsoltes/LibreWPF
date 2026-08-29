@@ -4814,11 +4814,40 @@ interop work: a same-adapter DXGI provider must perform keyed-mutex/shared-fence
 synchronization and expose the resulting ProGPU texture lease. The compositor
 consumer path no longer blocks that provider.
 
+## Native MIL canonical D3DImage checkpoint
+
+ProGPU `72c9d794`/`20918afb` and this LibreWPF checkpoint add canonical
+`TYPE_D3DIMAGE` (97), `MilCmdD3DImage`, and `MilCmdD3DImagePresent` replay.
+Source-built `D3DImage` implements the neutral `IPortableD3DImageSource` and
+forwards provider invalidation through `IPortableInvalidationSource`.
+`PortableD3DImageSourceFactory.Attach(...)` is mutually exclusive with the
+legacy process-local D3D9 back buffer and cloning retains the typed provider
+without calling `wpfgfx`.
+
+The compiler emits WPF's exact 24-byte update and 16-byte present packets with
+zero COM pointers and zero event handle, records dimensions/content version,
+and binds an `IProGpuTextureLeaseSource` through the native sideband. Raw
+process pointers and handles never enter the portable ABI. The host merges
+BitmapSource, MediaPlayer, and D3DImage sources through three sorted indices,
+acquires all context-qualified leases before replacing the old table, and
+disposes a D3DImage lease only after submission ownership has moved forward.
+This permits a Windows DXGI adapter to implement keyed-mutex/shared-fence
+synchronization entirely in lease acquire/release while Metal/Vulkan/WebGPU
+providers use the same consumer contract.
+
+Apple Silicon validation passes the ProGPU native MIL CTest, the managed
+canonical packet test, 116/116 LibreWPF compiler/session tests, three focused
+D3DImage seam tests, and the source-built PresentationCore build with zero
+errors. Windows and Ubuntu native rebuild qualification is the next gate for
+this checkpoint; real Microsoft Win2D still additionally needs the Windows
+same-adapter `ID2D1Bitmap1`/DXGI import provider and device-loss tests.
+
 ## Next parity gates
 
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested
    render-data command families using the complete generated WPF MCG layouts.
-2. Add non-bitmap image sources, remaining exact WPF-compatible arc lowering,
+2. Add remaining non-bitmap image sources, the Windows D3DImage/Direct2D DXGI
+   import provider, remaining exact WPF-compatible arc lowering,
    and
    remaining multi-guideline draw-family deformation, general Visual
    effect/clip/mask/opacity ordering, remaining
