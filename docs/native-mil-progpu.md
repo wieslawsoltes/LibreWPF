@@ -4772,8 +4772,10 @@ source-built `MediaPlayer` tests running on macOS without `wpfgfx`. Ubuntu
 native MIL CTest 1/1, exposes the new media-player external-image C export, and
 produces `libprogpu_native.so` SHA-256
 `17a2e5fd74de64a3697b98b41245a747c75850292573407346cda8671e7dba3a`.
-Windows D3D12 validation uses the same exact source and remains pending while
-its full ABI build runs in the Parallels guest.
+Windows 11 ARM64 builds the same exact archive with MSVC 19.44.35228.0, passes
+the native MIL CTest 1/1 in 3.61 seconds, exposes the same C export, and
+produces `progpu_native.dll` SHA-256
+`0eeb5e34086b753ac6abd93192c3def9aaec9559fb71cca053e33c7fdfbe258d`.
 
 ## Next parity gates
 
