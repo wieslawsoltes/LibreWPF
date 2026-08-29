@@ -15,8 +15,9 @@
     <ManagedTransportProject Include="$(MSBuildThisFileDirectory)../src/Microsoft.DotNet.Wpf/src/System.Windows.Presentation/System.Windows.Presentation.csproj" />
     <ManagedTransportProject Include="$(MSBuildThisFileDirectory)../src/Microsoft.DotNet.Wpf/src/PresentationCore/PresentationCore.csproj" />
     <ManagedTransportProject Include="$(MSBuildThisFileDirectory)../src/Microsoft.DotNet.Wpf/src/ReachFramework/ReachFramework.csproj" />
-    <ManagedTransportProject Include="$(MSBuildThisFileDirectory)../src/Microsoft.DotNet.Wpf/src/PresentationUI/PresentationUI.csproj" />
+    <!-- The implementation-cycle PresentationUI assembly lets PresentationFramework build first. -->
     <ManagedTransportProject Include="$(MSBuildThisFileDirectory)../src/Microsoft.DotNet.Wpf/src/PresentationFramework/PresentationFramework.csproj" />
+    <ManagedTransportProject Include="$(MSBuildThisFileDirectory)../src/Microsoft.DotNet.Wpf/src/PresentationUI/PresentationUI.csproj" />
 
     <ThemeProject Include="../src/Microsoft.DotNet.Wpf/src/Themes/PresentationFramework.Aero/PresentationFramework.Aero.csproj" />
     <ThemeProject Include="../src/Microsoft.DotNet.Wpf/src/Themes/PresentationFramework.Aero2/PresentationFramework.Aero2.csproj" />
