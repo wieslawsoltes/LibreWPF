@@ -4431,12 +4431,12 @@ source-verification gate for the native Direct2D/Direct3D contract plus
 SimpleSample and ExampleGallery oracle sources.
 
 The implementation has two tiers. ProGPU checkpoints `862077fe`, `4c716f4f`,
-`7f7d6971`, and `7c9fe63b`
+`7f7d6971`, `7c9fe63b`, `4133db10`, and `42b43d6d`
 ship the first `ProGPU.Win2D` portable Canvas tier: `CanvasDevice`,
-`CanvasBitmap`, `CanvasRenderTarget`, `CanvasCommandList`, and
-`CanvasDrawingSession` record a source-compatible Win2D subset into immutable
-`GpuPicture` values, compile them through `ProGPU.Scene.Native`, and submit them
-to the retained C++ renderer.
+`CanvasBitmap`, `CanvasRenderTarget`, `CanvasCommandList`, `CanvasGeometry`,
+`CanvasPathBuilder`, `CanvasActiveLayer`, and `CanvasDrawingSession` record a
+source-compatible Win2D subset into immutable `GpuPicture` values, compile them
+through `ProGPU.Scene.Native`, and submit them to the retained C++ renderer.
 BGRA8-premultiplied targets, Win2D DPI rounding, transforms, solid primitive
 draw/fill operations, default text, same-device bitmap drawing with source and
 destination rectangles, opacity and qualified sampling, target-preserving
@@ -4447,6 +4447,15 @@ do not allocate an intermediate bitmap. Typed ownership clones and texture
 leases preserve command-list and bitmap sources through deferred native
 submission without staging copies. The ordinary render path does not use the
 managed compositor, CPU readback, or CPU repacking.
+
+The geometry slice adds rectangle, rounded-rectangle, ellipse, circle,
+polygon, line, quadratic, cubic, and both Win2D arc-builder forms. Color
+`DrawGeometry`/`FillGeometry` operations retain the shared ProGPU
+`PathGeometry` directly. Scoped opacity layers use exact rectangle scissors or
+native vector geometry clips; they enforce LIFO disposal and fail closed if a
+scope would cross `Flush()` or drawing-session close. `CreatePath` consumes its
+builder as Win2D does, arc rotation is converted from public radians to the
+native vector degree contract, and no Direct2D COM emulation is introduced.
 
 The locked Microsoft SimpleSample drawing body compiles against that package.
 Live Apple M3 Pro Metal and Windows 11 ARM64 Parallels WDDM D3D12 runs produced
@@ -4462,6 +4471,18 @@ destination submission. The exact `7c9fe63b` source also passes the four
 isolated source/DPI/fail-closed/signature contracts on macOS and Windows ARM64.
 VM timings are correctness evidence only.
 
+Exact ProGPU `4133db10` then passed five isolated source/signature contracts
+on macOS and Windows ARM64 and rendered one retained quadratic/cubic path plus
+circle and rectangle clips as `10+2` native draws. Metal produced SHA-256
+`BE7227D7224576EC3C74963CD18CA9736FAC67657350CC739170E496AE28991A`;
+Parallels WDDM D3D12 produced
+`6FEC0F3EF3F628E18395542383E487C5D8CDA6FE0B49906299A6CDB9D19BE502`.
+Only two antialiased curve-edge pixels differ, each by one channel level; all
+solid interiors and both clip probes are exact. Checkpoint `42b43d6d` turns
+that observation into a D3D12/Metal/Vulkan CI artifact gate with a named,
+bounded differential contract instead of treating backend edge rounding as an
+unexplained hash exception.
+
 Windows may additionally run the real Win2D/Direct2D runtime into a
 same-adapter shared BGRA8 DXGI allocation and import it through ProGPU's
 existing Dawn keyed-mutex/shared-texture path without CPU readback; that native
@@ -4469,8 +4490,9 @@ interop adapter remains planned. The Microsoft Win2D binary remains
 Windows-only, native COM resource wrapping fails closed off Windows, and
 ProGPU will not publish a fake `d2d1.dll`. The portable package is source
 compatible rather than binary compatible; command-list bounds/scaling, bitmap
-creation/update, arbitrary geometry, clips/layers, formatted text, effects,
-sprite batches, and XAML controls remain incremental compatibility groups.
+creation/update, geometry boolean/query operations, layer opacity brushes,
+formatted text, effects, sprite batches, and XAML controls remain incremental
+compatibility groups.
 The support matrix, API mapping, delivery stages, and Windows/Metal/Vulkan
 oracle gate are documented in
 [`DIRECT2D_WIN2D_COMPATIBILITY.md`](../external/ProGPU/docs/DIRECT2D_WIN2D_COMPATIBILITY.md).
