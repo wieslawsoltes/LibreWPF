@@ -4431,7 +4431,8 @@ source-verification gate for the native Direct2D/Direct3D contract plus
 SimpleSample and ExampleGallery oracle sources.
 
 The implementation has two tiers. ProGPU checkpoints `862077fe`, `4c716f4f`,
-`7f7d6971`, `7c9fe63b`, `4133db10`, and `42b43d6d`
+`7f7d6971`, `7c9fe63b`, `4133db10`, `42b43d6d`, `db43e5eb`,
+`d9431558`, and `ee84a0b3`
 ship the first `ProGPU.Win2D` portable Canvas tier: `CanvasDevice`,
 `CanvasBitmap`, `CanvasRenderTarget`, `CanvasCommandList`, `CanvasGeometry`,
 `CanvasPathBuilder`, `CanvasActiveLayer`, and `CanvasDrawingSession` record a
@@ -4531,6 +4532,36 @@ The three-backend differential still contains only the original two Metal and
 42 Vulkan curve-edge pixels at exactly 1/255, proving the boolean fill itself
 is backend-exact.
 
+ProGPU `ee84a0b3` adds source-compatible `ICanvasBrush`, solid-color,
+linear-gradient, and radial-gradient resources, including color and HDR stop
+DTOs. Canvas primitive, geometry, text, and styled-stroke overloads consume the
+typed brush directly. Mutable opacity, affine brush transforms, gradient
+coordinates/radii/origin offset, and clamp/wrap/mirror spread are snapshotted
+into immutable cached ProGPU brush realizations. Pen caching keys on that
+realized brush identity and width, so the steady path allocates neither a new
+brush nor pen, while mutation or public brush disposal cannot rewrite an
+earlier retained picture. Device mismatches and missing typed brush contracts
+fail closed. The qualified interpolation subset is premultiplied sRGB with
+8-bit normalized precision; unsupported alpha, color-space, and precision
+semantics are rejected rather than approximated.
+
+The lock now hashes the official Win2D brush ABI and default-gradient source,
+and the isolated source/signature/validation suite passes 9/9. The live native
+frame adds one linear and one radial gradient and disposes both public brush
+objects before destination-session submission, directly exercising native
+brush-table and gradient-stop retention rather than a CPU pixel fallback.
+It renders `13+2` native draws with SHA-256
+`25829098701BE31CADAD8A3306D0AE4E66D50088891CD446A2B35A568108A295`
+on Apple M3 Pro Metal,
+`2B516B3243BEF0C59BD0428035B748E07E737679809B505F9FCF57AE3F74F005`
+on the Parallels WDDM D3D12 adapter, and
+`FAB68DBDD8997E364EBDA6833F8F825825945DE7230F110CABC4F653C0D91E46`
+on Ubuntu llvmpipe/Vulkan. D3D12 versus Metal retains only the original two
+1/255 curve-edge ties. Vulkan changes 84 pixels by 1/255 with mean absolute
+channel difference `0.0005946181`; all exact gradient, boolean-fill, clip, and
+solid probes pass the named three-backend gate. VM timing remains correctness
+evidence only.
+
 Windows may additionally run the real Win2D/Direct2D runtime into a
 same-adapter shared BGRA8 DXGI allocation and import it through ProGPU's
 existing Dawn keyed-mutex/shared-texture path without CPU readback; that native
@@ -4538,9 +4569,9 @@ interop adapter remains planned. The Microsoft Win2D binary remains
 Windows-only, native COM resource wrapping fails closed off Windows, and
 ProGPU will not publish a fake `d2d1.dll`. The portable package is source
 compatible rather than binary compatible; command-list bounds/scaling, bitmap
-creation/update, geometry boolean/query operations, layer opacity brushes,
-formatted text, effects, sprite batches, and XAML controls remain incremental
-compatibility groups.
+creation/update, geometry query/stroke/outline operations, image and layer
+opacity brushes, formatted text, effects, sprite batches, and XAML controls
+remain incremental compatibility groups.
 The support matrix, API mapping, delivery stages, and Windows/Metal/Vulkan
 oracle gate are documented in
 [`DIRECT2D_WIN2D_COMPATIBILITY.md`](../external/ProGPU/docs/DIRECT2D_WIN2D_COMPATIBILITY.md).
