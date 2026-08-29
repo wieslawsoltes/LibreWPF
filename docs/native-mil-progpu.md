@@ -4421,13 +4421,33 @@ them. The same checkpoint pins exact Win2D and Win2D-Samples commits and adds a
 source-verification gate for the native Direct2D/Direct3D contract plus
 SimpleSample and ExampleGallery oracle sources.
 
-The implementation plan has two tiers. Windows may run the real Win2D/
-Direct2D runtime into a same-adapter shared BGRA8 DXGI allocation and import it
-through ProGPU's existing Dawn keyed-mutex/shared-texture path without CPU
-readback. Cross-platform applications recompile source against a portable
-Canvas recording API over the existing ProGPU scene/vector/text/effect engine.
-The Microsoft Win2D binary remains Windows-only, native COM resource wrapping
-fails closed off Windows, and ProGPU will not publish a fake `d2d1.dll`.
+The implementation has two tiers. ProGPU checkpoints `862077fe` and `4c716f4f`
+ship the first `ProGPU.Win2D` portable Canvas tier: `CanvasDevice`,
+`CanvasBitmap`, `CanvasRenderTarget`, and `CanvasDrawingSession` record a
+source-compatible Win2D subset into immutable `GpuPicture` values, compile them
+through `ProGPU.Scene.Native`, and submit them to the retained C++ renderer.
+BGRA8-premultiplied targets, Win2D DPI rounding, transforms, solid primitive
+draw/fill operations, default text, target-preserving later sessions, explicit
+readback, and execution diagnostics are implemented. The ordinary render path
+does not use the managed compositor, CPU readback, or CPU repacking.
+
+The locked Microsoft SimpleSample drawing body compiles against that package.
+Live Apple M3 Pro Metal and Windows 11 ARM64 Parallels WDDM D3D12 runs produced
+byte-identical frames with SHA-256
+`404F1313FD713A516CAA69D685D47F6B7F472F787EF40C90D1AE0F965F640AD6`.
+The dedicated four-test source/DPI/fail-closed/signature gate passes from the
+exact `4c716f4f` archive on both macOS and the Windows VM. VM timings are
+correctness evidence only.
+
+Windows may additionally run the real Win2D/Direct2D runtime into a
+same-adapter shared BGRA8 DXGI allocation and import it through ProGPU's
+existing Dawn keyed-mutex/shared-texture path without CPU readback; that native
+interop adapter remains planned. The Microsoft Win2D binary remains
+Windows-only, native COM resource wrapping fails closed off Windows, and
+ProGPU will not publish a fake `d2d1.dll`. The portable package is source
+compatible rather than binary compatible; command lists, bitmap drawing,
+arbitrary geometry, clips/layers, formatted text, effects, sprite batches, and
+XAML controls remain incremental compatibility groups.
 The support matrix, API mapping, delivery stages, and Windows/Metal/Vulkan
 oracle gate are documented in
 [`DIRECT2D_WIN2D_COMPATIBILITY.md`](../external/ProGPU/docs/DIRECT2D_WIN2D_COMPATIBILITY.md).
