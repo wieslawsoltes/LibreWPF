@@ -2141,33 +2141,57 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         WgpuContext context = _target?.Context ??
             throw new InvalidOperationException(
                 "The native MIL target context is unavailable.");
-        IReadOnlyList<WpfNativeMilMediaPlayerSource> sources =
+        IReadOnlyList<WpfNativeMilMediaPlayerSource> mediaSources =
             frame.MediaPlayerSources;
-        var leases = new IProGpuTextureLease[sources.Count];
-        var bindings = new NativeSceneExternalImageBinding[sources.Count];
+        IReadOnlyList<WpfNativeMilBitmapExternalImageSource> bitmapSources =
+            frame.BitmapExternalImageSources;
+        int sourceCount = checked(mediaSources.Count + bitmapSources.Count);
+        var leases = new IProGpuTextureLease[sourceCount];
+        var bindings = new NativeSceneExternalImageBinding[sourceCount];
         try
         {
             uint previousHandle = 0;
-            for (int index = 0; index < sources.Count; ++index)
+            int mediaIndex = 0;
+            int bitmapIndex = 0;
+            for (int index = 0; index < sourceCount; ++index)
             {
-                WpfNativeMilMediaPlayerSource source = sources[index];
-                if (source.Handle <= previousHandle)
+                bool useBitmap = mediaIndex >= mediaSources.Count ||
+                    (bitmapIndex < bitmapSources.Count &&
+                     bitmapSources[bitmapIndex].Handle <
+                        mediaSources[mediaIndex].Handle);
+                uint handle;
+                IProGpuTextureLeaseSource textureSource;
+                if (useBitmap)
+                {
+                    WpfNativeMilBitmapExternalImageSource bitmap =
+                        bitmapSources[bitmapIndex++];
+                    handle = bitmap.Handle;
+                    textureSource = bitmap.TextureSource;
+                }
+                else
+                {
+                    WpfNativeMilMediaPlayerSource media =
+                        mediaSources[mediaIndex++];
+                    handle = media.Handle;
+                    textureSource = media.TextureSource;
+                }
+                if (handle <= previousHandle)
                 {
                     throw new InvalidOperationException(
-                        "Native MIL media-player handles must be strictly increasing.");
+                        "Native MIL external-image handles must be globally strictly increasing.");
                 }
-                previousHandle = source.Handle;
-                bool acquired = source.TextureSource is
+                previousHandle = handle;
+                bool acquired = textureSource is
                     IProGpuContextTextureLeaseSource contextSource
                         ? contextSource.TryAcquireGpuTextureLease(
                             context,
                             out IProGpuTextureLease lease)
-                        : source.TextureSource.TryAcquireGpuTextureLease(
+                        : textureSource.TryAcquireGpuTextureLease(
                             out lease);
                 if (!acquired || lease is null)
                 {
                     throw new InvalidOperationException(
-                        $"Native MIL MediaPlayer handle {source.Handle} has no current GPU texture lease.");
+                        $"Native MIL external-image handle {handle} has no current GPU texture lease.");
                 }
                 leases[index] = lease;
                 bindings[index] = new NativeSceneExternalImageBinding(

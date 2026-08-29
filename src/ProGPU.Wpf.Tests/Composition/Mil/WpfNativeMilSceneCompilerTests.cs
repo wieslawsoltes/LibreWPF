@@ -1334,6 +1334,30 @@ public sealed class WpfNativeMilSceneCompilerTests
     }
 
     [Fact]
+    public void BuildBatchTranslatesPortableNativeImageWithoutCpuPixels()
+    {
+        var bitmap = new FakePortableNativeImage(128, 64);
+        var visual = new FakeVisual(
+            new FakeRenderData(
+                CreateDrawImageRecord(2, 3, 40, 24, 1),
+                [bitmap]));
+
+        WpfNativeMilBatch result = new WpfNativeMilSceneCompiler().BuildBatch(
+            visual, 256, 128);
+        WpfNativeMilBitmapExternalImageSource source = Assert.Single(
+            result.BitmapExternalImageSources!);
+        int nestedOffset = FindCommand(result.Bytes, 0x18) + 16;
+
+        Assert.Empty(result.BitmapSources!);
+        Assert.Equal(128U, source.Width);
+        Assert.Equal(64U, source.Height);
+        Assert.Same(bitmap, source.TextureSource);
+        Assert.Equal(source.Handle, ReadUInt32(result.Bytes, nestedOffset + 40));
+        int createOffset = FindCreateResource(result.Bytes, source.Handle);
+        Assert.Equal(95U, ReadUInt32(result.Bytes, createOffset + 12));
+    }
+
+    [Fact]
     public void BuildBatchPreservesNullDirectImageAsNoOp()
     {
         var visual = new FakeVisual(
@@ -3898,6 +3922,40 @@ public sealed class WpfNativeMilSceneCompilerTests
         {
             frame = _frame.GetValueOrDefault();
             return _frame.HasValue;
+        }
+
+        public bool TryGetGpuTexture(out GpuTexture texture)
+        {
+            texture = null!;
+            return false;
+        }
+
+        public bool TryAcquireGpuTextureLease(
+            out IProGpuTextureLease lease)
+        {
+            lease = null!;
+            return false;
+        }
+    }
+
+    private sealed class FakePortableNativeImage :
+        IPortableNativeImageSource,
+        IProGpuTextureLeaseSource
+    {
+        internal FakePortableNativeImage(int width, int height)
+        {
+            PixelWidth = width;
+            PixelHeight = height;
+        }
+
+        public int PixelWidth { get; }
+
+        public int PixelHeight { get; }
+
+        public bool TryGetPortableNativeImage(out object? nativeImage)
+        {
+            nativeImage = this;
+            return true;
         }
 
         public bool TryGetGpuTexture(out GpuTexture texture)

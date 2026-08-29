@@ -107,7 +107,10 @@ public sealed class WpfNativeMilCompilationSessionTests
                 3, new NativeMilRect(1, 2, 3, 4))],
             MediaPlayerSources:
             [new WpfNativeMilMediaPlayerSource(
-                4, 64, 32, 1, new FakeTextureSource())]);
+                4, 64, 32, 1, new FakeTextureSource())],
+            BitmapExternalImageSources:
+            [new WpfNativeMilBitmapExternalImageSource(
+                5, 32, 16, new FakeTextureSource())]);
         var sameTopology = previous with
         {
             BitmapSources =
@@ -127,6 +130,21 @@ public sealed class WpfNativeMilCompilationSessionTests
             previous, sameTopology));
         Assert.False(WpfNativeMilCompilationSession.HasStableSidebandTopology(
             previous, changedHandle));
+    }
+
+    [Fact]
+    public void ExternalBitmapSidebandEqualityUsesStableDescriptor()
+    {
+        var previous = new WpfNativeMilBitmapExternalImageSource(
+            2, 64, 32, new FakeTextureSource());
+        var replacementSource = new WpfNativeMilBitmapExternalImageSource(
+            2, 64, 32, new FakeTextureSource());
+        var resized = replacementSource with { Height = 33 };
+
+        Assert.True(WpfNativeMilCompilationSession.SidebandEquals(
+            previous, replacementSource));
+        Assert.False(WpfNativeMilCompilationSession.SidebandEquals(
+            previous, resized));
     }
 
     [Fact]

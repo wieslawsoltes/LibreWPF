@@ -18,7 +18,9 @@ public readonly record struct WpfNativeMilSessionUpdate(
 public sealed record WpfNativeMilSessionFrame(
     NativeMilSceneBuildRequest Request,
     NativeMilStatefulCompiledScene Scene,
-    IReadOnlyList<WpfNativeMilMediaPlayerSource> MediaPlayerSources);
+    IReadOnlyList<WpfNativeMilMediaPlayerSource> MediaPlayerSources,
+    IReadOnlyList<WpfNativeMilBitmapExternalImageSource>
+        BitmapExternalImageSources);
 
 /// <summary>
 /// Owns the native MIL channel across WPF frames so dynamic guideline and
@@ -104,7 +106,9 @@ public sealed class WpfNativeMilCompilationSession : IDisposable
             request,
             channel.CompileScene(request),
             _lastBatch.MediaPlayerSources ??
-                Array.Empty<WpfNativeMilMediaPlayerSource>());
+                Array.Empty<WpfNativeMilMediaPlayerSource>(),
+            _lastBatch.BitmapExternalImageSources ??
+                Array.Empty<WpfNativeMilBitmapExternalImageSource>());
     }
 
     internal WpfNativeMilSessionUpdate Update(WpfNativeMilBatch batch)
@@ -307,6 +311,30 @@ public sealed class WpfNativeMilCompilationSession : IDisposable
                 newValue.Rgba8Pixels);
             ++appliedCount;
         }
+        IReadOnlyList<WpfNativeMilBitmapExternalImageSource>
+            previousExternalBitmaps =
+                previous.BitmapExternalImageSources ??
+                Array.Empty<WpfNativeMilBitmapExternalImageSource>();
+        IReadOnlyList<WpfNativeMilBitmapExternalImageSource>
+            currentExternalBitmaps =
+                current.BitmapExternalImageSources ??
+                Array.Empty<WpfNativeMilBitmapExternalImageSource>();
+        for (int i = 0; i < currentExternalBitmaps.Count; ++i)
+        {
+            WpfNativeMilBitmapExternalImageSource oldValue =
+                previousExternalBitmaps[i];
+            WpfNativeMilBitmapExternalImageSource newValue =
+                currentExternalBitmaps[i];
+            if (SidebandEquals(oldValue, newValue))
+            {
+                continue;
+            }
+            channel.SetBitmapSourceExternalImage(
+                newValue.Handle,
+                newValue.Width,
+                newValue.Height);
+            ++appliedCount;
+        }
 
         IReadOnlyList<WpfNativeMilGlyphRunFont> previousFonts =
             previous.GlyphRunFonts ?? Array.Empty<WpfNativeMilGlyphRunFont>();
@@ -429,6 +457,9 @@ public sealed class WpfNativeMilCompilationSession : IDisposable
         WpfNativeMilBatch current) =>
         HasStableHandles(previous.BitmapSources, current.BitmapSources) &&
         HasStableHandles(
+            previous.BitmapExternalImageSources,
+            current.BitmapExternalImageSources) &&
+        HasStableHandles(
             previous.MediaPlayerSources, current.MediaPlayerSources) &&
         HasStableHandles(previous.GlyphRunFonts, current.GlyphRunFonts) &&
         HasStableHandles(
@@ -442,6 +473,13 @@ public sealed class WpfNativeMilCompilationSession : IDisposable
     internal static bool SidebandEquals(
         WpfNativeMilMediaPlayerSource previous,
         WpfNativeMilMediaPlayerSource current) =>
+        previous.Handle == current.Handle &&
+        previous.Width == current.Width &&
+        previous.Height == current.Height;
+
+    internal static bool SidebandEquals(
+        WpfNativeMilBitmapExternalImageSource previous,
+        WpfNativeMilBitmapExternalImageSource current) =>
         previous.Handle == current.Handle &&
         previous.Width == current.Width &&
         previous.Height == current.Height;
@@ -487,6 +525,7 @@ public sealed class WpfNativeMilCompilationSession : IDisposable
     private static uint GetHandle<T>(T value) where T : class => value switch
     {
         WpfNativeMilBitmapSource item => item.Handle,
+        WpfNativeMilBitmapExternalImageSource item => item.Handle,
         WpfNativeMilMediaPlayerSource item => item.Handle,
         WpfNativeMilGlyphRunFont item => item.Handle,
         WpfNativeMilDrawingImageBounds item => item.Handle,
@@ -499,6 +538,7 @@ public sealed class WpfNativeMilCompilationSession : IDisposable
     private static uint CountSidebands(WpfNativeMilBatch batch) => checked(
         (uint)(
             (batch.BitmapSources?.Count ?? 0) +
+            (batch.BitmapExternalImageSources?.Count ?? 0) +
             (batch.MediaPlayerSources?.Count ?? 0) +
             (batch.GlyphRunFonts?.Count ?? 0) +
             (batch.DrawingImageBounds?.Count ?? 0) +

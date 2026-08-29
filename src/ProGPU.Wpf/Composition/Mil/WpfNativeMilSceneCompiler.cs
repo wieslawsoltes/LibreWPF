@@ -17,6 +17,12 @@ public sealed record WpfNativeMilBitmapSource(
     uint RowBytes,
     byte[] Rgba8Pixels);
 
+public sealed record WpfNativeMilBitmapExternalImageSource(
+    uint Handle,
+    uint Width,
+    uint Height,
+    IProGpuTextureLeaseSource TextureSource);
+
 public sealed record WpfNativeMilMediaPlayerSource(
     uint Handle,
     uint Width,
@@ -59,7 +65,9 @@ public sealed record WpfNativeMilBatch(
     IReadOnlyList<WpfNativeMilVisualCacheBounds>? VisualCacheBounds = null,
     IReadOnlyList<WpfNativeMilDrawingGroupBounds>? DrawingGroupBounds = null,
     IReadOnlyList<WpfNativeMilViewport3DScene>? Viewport3DScenes = null,
-    IReadOnlyList<WpfNativeMilMediaPlayerSource>? MediaPlayerSources = null);
+    IReadOnlyList<WpfNativeMilMediaPlayerSource>? MediaPlayerSources = null,
+    IReadOnlyList<WpfNativeMilBitmapExternalImageSource>?
+        BitmapExternalImageSources = null);
 
 public sealed record WpfNativeMilCompilation(
     NativeMilCompiledScene Scene,
@@ -101,7 +109,8 @@ public sealed class WpfNativeMilSceneCompiler
             context.VisualCacheBounds.ToArray(),
             context.DrawingGroupBounds.ToArray(),
             context.Viewport3DScenes.ToArray(),
-            context.MediaPlayerSources.ToArray());
+            context.MediaPlayerSources.ToArray(),
+            context.BitmapExternalImageSources.ToArray());
     }
 
     public WpfNativeMilCompilation Compile(
@@ -151,6 +160,16 @@ public sealed class WpfNativeMilSceneCompiler
                 bitmap.Height,
                 bitmap.RowBytes,
                 bitmap.Rgba8Pixels);
+            ++appliedCount;
+        }
+        foreach (WpfNativeMilBitmapExternalImageSource bitmap in
+                 batch.BitmapExternalImageSources ??
+                 Array.Empty<WpfNativeMilBitmapExternalImageSource>())
+        {
+            channel.SetBitmapSourceExternalImage(
+                bitmap.Handle,
+                bitmap.Width,
+                bitmap.Height);
             ++appliedCount;
         }
         foreach (WpfNativeMilMediaPlayerSource mediaPlayer in
@@ -248,6 +267,9 @@ public sealed class WpfNativeMilSceneCompiler
         internal NativeMilBatchBuilder Batch { get; } = new();
 
         internal List<WpfNativeMilBitmapSource> BitmapSources { get; } = [];
+
+        internal List<WpfNativeMilBitmapExternalImageSource>
+            BitmapExternalImageSources { get; } = [];
 
         internal List<WpfNativeMilMediaPlayerSource> MediaPlayerSources
             { get; } = [];
@@ -1927,6 +1949,25 @@ public sealed class WpfNativeMilSceneCompiler
                                 bounds.Height)));
                 }
                 return drawingImageHandle;
+            }
+            if (imageSource is IPortableNativeImageSource nativeImageSource &&
+                nativeImageSource.PixelWidth is > 0 and <= 16_384 &&
+                nativeImageSource.PixelHeight is > 0 and <= 16_384 &&
+                nativeImageSource.TryGetPortableNativeImage(
+                    out object? nativeImage) &&
+                nativeImage is IProGpuTextureLeaseSource textureSource)
+            {
+                uint nativeImageHandle = NextHandle();
+                Batch.CreateResource(
+                    nativeImageHandle, NativeMilResourceType.BitmapSource);
+                _imageSourceHandles.Add(imageSource, nativeImageHandle);
+                BitmapExternalImageSources.Add(
+                    new WpfNativeMilBitmapExternalImageSource(
+                        nativeImageHandle,
+                        checked((uint)nativeImageSource.PixelWidth),
+                        checked((uint)nativeImageSource.PixelHeight),
+                        textureSource));
+                return nativeImageHandle;
             }
             if (!WpfBitmapSourceImageAdapter.TryCopyPixelsAsRgba32(
                     imageSource,
