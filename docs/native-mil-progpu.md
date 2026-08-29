@@ -3511,6 +3511,26 @@ retained the checksum/allocation. Host and guest hashes matched
 Windows and Rosetta x64 runtimes reported `Vector256=False`, so actual
 Vector256 execution remains an explicit x64 CI/hardware qualification gate.
 
+ProGPU checkpoint `f8c6cc7e` removes the next measured managed glyph SIMD
+cost. Every fixed-capacity Y-subscanline block now stores positive crossings
+from the front and negative crossings from the back, so Vector128/Vector256
+winding loops no longer load or branch on direction per crossing. Bounded
+ref-plus-offset access also removes two transient span views per
+pixel/subscanline, and the logical pooled crossing payload falls from eight to
+four bytes per root. The scalar oracle, 8x8 grid, exact quantization, GPU-first
+policy, and C++ fallback are unchanged. The differential suite expands to
+opposed contours and empty glyphs and passes 21/21 on Apple, Windows ARM64,
+and Ubuntu ARM64. Eight alternating Apple M3 Pro pairs improved median
+p50/p95/p99 from `208.648/240.219/302.034` to
+`174.606/222.808/262.180 us/glyph` with exact checksum and unchanged
+`4,120 B/glyph`. The exact archive and pinned WinUI submodule content rebuilt
+in Windows 11 ARM64, and three Ubuntu ARM64 runs retained the same output.
+A self-contained Windows x64 publish reported `Vector256=True` and preserved
+checksum 175 across three processes, closing functional 256-bit coverage;
+Windows-on-ARM timing remains correctness evidence rather than a physical-x64
+performance claim. ProGPU's glyph SIMD research log records the full paired
+distribution, hashes, trace ownership, and rejected micro-optimizations.
+
 ProGPU checkpoint `e07e1411` applies the same intrinsic requirement to the
 shared managed PCM16 media hot path. Interleaved stereo gain/balance widens
 signed samples into `Vector256<int>` or `Vector128<int>` lanes, performs exact
