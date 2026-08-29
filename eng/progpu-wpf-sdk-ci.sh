@@ -14,6 +14,8 @@ fi
 export DOTNET_ROLL_FORWARD="${DOTNET_ROLL_FORWARD:-Major}"
 export DOTNET_ROLL_FORWARD_TO_PRERELEASE="${DOTNET_ROLL_FORWARD_TO_PRERELEASE:-1}"
 
+"${repo_root}/eng/progpu-wpf-verify-librewinforms-compat.sh"
+
 resolve_dotnet_runtime_framework_version() {
   local runtime_version
   runtime_version="$("${dotnet}" --list-runtimes 2>/dev/null | awk '$1 == "Microsoft.NETCore.App" && $2 ~ /^11\./ { version = $2 } END { print version }')"
@@ -34,6 +36,7 @@ fi
 package_output="${PROGPU_WPF_PACKAGE_OUTPUT:-${repo_root}/artifacts/packages/Release/NonShipping}"
 dev_package_version="${PROGPU_WPF_DEV_PACKAGE_VERSION:-0.1.0-preview.45}"
 progpu_package_version="${PROGPU_WPF_PROGPU_PACKAGE_VERSION:-0.1.0-preview.55}"
+librewinforms_compat_package_version="${PROGPU_WPF_LIBREWINFORMS_COMPAT_PACKAGE_VERSION:-0.1.0-preview.42}"
 prepackaged_progpu_dir="${PROGPU_WPF_PREPACKAGED_PROGPU_DIR:-}"
 progpu_package_snapshot_dir="${repo_root}/artifacts/progpu-wpf-sdk-smoke/exact-progpu-packages"
 sdk_sample_target_framework="${PROGPU_WPF_SDK_SAMPLE_TARGET_FRAMEWORK:-net10.0-windows}"
@@ -63,6 +66,24 @@ pack_project() {
     -v:minimal \
     -p:Version="${package_version}" \
     -p:PackageVersion="${package_version}"
+}
+
+pack_librewinforms_compat_project() {
+  local project="$1"
+  local package_id="$2"
+  rm -f \
+    "${package_output}/${package_id}.${librewinforms_compat_package_version}.nupkg" \
+    "${package_output}/${package_id}.${librewinforms_compat_package_version}.snupkg"
+  run_dotnet pack "${repo_root}/${project}" \
+    -c Release \
+    -o "${package_output}" \
+    -v:minimal \
+    -p:Version="${librewinforms_compat_package_version}" \
+    -p:PackageVersion="${librewinforms_compat_package_version}" \
+    -p:LibreWinFormsReferenceMode=Package \
+    -p:LibreWinFormsBridgePackageVersion="${dev_package_version}" \
+    -p:LibreWinFormsProGpuPackageVersion="${progpu_package_version}" \
+    -p:RestoreAdditionalProjectSources="${package_output}"
 }
 
 stage_or_pack_progpu_project() {
@@ -292,6 +313,14 @@ echo "Verifying preview release bundle..."
 
 echo "Running preview release bundle SDK smoke..."
 "${repo_root}/eng/progpu-preview-release-sdk-smoke.sh"
+
+echo "Staging the source-pinned LibreWinForms compatibility bridge for mixed-desktop smoke..."
+pack_librewinforms_compat_project \
+  "external/LibreWinForms/src/LibreWinForms.Portable/LibreWinForms.System.Windows.Forms/LibreWinForms.System.Windows.Forms.csproj" \
+  "LibreWinForms.Compatibility.System.Windows.Forms"
+pack_librewinforms_compat_project \
+  "external/LibreWinForms/src/LibreWinForms.Portable/LibreWinForms.WindowsFormsIntegration/LibreWinForms.WindowsFormsIntegration.csproj" \
+  "LibreWinForms.WindowsFormsIntegration"
 
 echo "Cleaning package-mode SDK smoke outputs..."
 clean_sdk_smoke_outputs
