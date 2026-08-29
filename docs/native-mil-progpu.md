@@ -4362,15 +4362,18 @@ the final Nonzero test. Boolean results normalize to `+1`, and only a reflected
 containing GeometryGroup negates that contribution, matching the standalone
 Windows WPF contour oracle.
 
-The native path and retained-clip routes use staged GPU shaders: analytic leaf
-rasterization records raw signed winding, the postfix evaluator carries eight
-horizontal samples through two `vec4<i32>` lanes per supersample row, and the
-coverage stage counts two predicate-mask words before packing R8 atlas texels.
-This reduces evaluator dispatch width by 8x and result staging from 64 to two
-u32 words per texel relative to the scalar-per-supersample staging prototype.
-There is no CPU readback, CPU repacking, per-item submission, or managed
-fallback. The existing portable managed PathAtlas keeps its inline evaluator
-and composes the same shared analytic WGSL source.
+The native path and retained-clip routes now default to the bounded inline
+vector evaluator, matching the portable managed PathAtlas and avoiding
+per-leaf intermediate storage. A typed forced compatibility option retains the
+staged GPU shaders: analytic leaf rasterization records raw signed winding, the
+postfix evaluator carries eight horizontal samples through two `vec4<i32>`
+lanes per supersample row, and the coverage stage counts two predicate-mask
+words before packing R8 atlas texels. Relative to the scalar-per-supersample
+staging prototype, this reduces evaluator launches to one sixty-fourth and
+result storage from 64 to two u32 words per texel. Neither route performs CPU
+readback, CPU repacking, per-item submission, or managed fallback. Typed
+fastest, forced-inline, and forced-staged modes report their resolved path and
+invalid forced values fail closed.
 
 The D3D12 reduction also separated WebGPU row pitch from copy placement: rows
 remain 256-byte aligned, while every path, retained-clip, and glyph atlas copy
@@ -4388,6 +4391,25 @@ qualified source commit is `51d63ed2`, source archive SHA-256 is
 `0a09a31491e115bf4794c0567e43e98013ecae91ed1d127a9717dd9365f9e9c2`,
 and evidence-bundle SHA-256 is
 `2459e7141471ab2101b885fe51b95a6b041e82e60ac1aaf093ddd75ee0b78aef`.
+
+ProGPU checkpoint `cf0792aa` adds a matched high-precision rerasterization
+benchmark and makes inline the qualified fastest/default path. Four alternating
+Apple M3 Pro/Metal Release runs per mode measured median-of-run native p50/p95
+at `3.1407/3.3726 ms` inline versus `7.7894/9.3647 ms` staged. Coverage staging
+fell from `119,844,576` to `165,888` bytes (722.44-fold); both modes allocated
+zero managed bytes per frame and matched all 518,400 pixels exactly with hash
+`4026F1AF5062CEA5`. Time Profiler and Metal System Trace captures accompany the
+ignored benchmark evidence.
+
+The exact `cf0792aa` archive (SHA-256
+`4606478e5e70db32d312186171d7816a60842335e862272ebfb143c971636e01`)
+then completed all 315 strict Windows ARM64 MSVC `/W4 /WX` build steps and
+11/11 native/Dawn CTests. The Parallels WDDM D3D12 sample retained all six exact
+winding probes, and forced inline plus forced staged each matched the complete
+managed frame with the same hash, reported the requested path, and completed
+without device loss. The short VM p50 samples (`10.699 ms` inline,
+`35.3319 ms` staged) are correctness evidence only, not a physical-D3D12
+performance claim.
 
 ## Direct2D and Win2D boundary
 
