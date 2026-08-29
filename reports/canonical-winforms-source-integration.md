@@ -21,6 +21,14 @@ lane for replacing the transitional LibreWinForms compatibility packages.
 LibreWinForms and LibreWPF must point at the same ProGPU commit. The executable
 gate checks that invariant before compiling anything.
 
+The default gate also requires LibreWPF's LibreWinForms gitlink exactly. A
+cross-repository LibreWinForms release orchestrator may instead set
+`PROGPU_WPF_CANONICAL_LIBREWINFORMS_ROOT` and the mandatory
+`PROGPU_WPF_CANONICAL_EXPECTED_LIBREWINFORMS_COMMIT`; the gate compares the
+supplied checkout to that immutable commit and still derives and validates the
+ProGPU pin from LibreWinForms. This avoids a circular pair of repository pins
+without weakening source provenance.
+
 ## Implemented Fixes
 
 1. `WindowsFormsIntegration.csproj` and its reference project accept an

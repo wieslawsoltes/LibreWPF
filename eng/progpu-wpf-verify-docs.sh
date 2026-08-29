@@ -43,6 +43,8 @@ require_text "eng/LibreWinForms.WindowsFormsIntegration.Package/LibreWinForms.Wi
 require_text "eng/progpu-wpf-canonical-winforms-integration.sh" 'ref/${target_framework}/WindowsFormsIntegration.dll'
 require_text "eng/progpu-wpf-canonical-winforms-integration.sh" '-p:SystemCodeDomPackageVersion="${canonical_support_package_version}"'
 require_text "eng/progpu-wpf-canonical-winforms-integration.sh" 'git submodule update --init external/LibreWinForms'
+require_text "eng/progpu-wpf-canonical-winforms-integration.sh" 'PROGPU_WPF_CANONICAL_LIBREWINFORMS_ROOT'
+require_text "eng/progpu-wpf-canonical-winforms-integration.sh" 'PROGPU_WPF_CANONICAL_EXPECTED_LIBREWINFORMS_COMMIT'
 require_text "eng/progpu-wpf-canonical-winforms-integration.sh" 'Canonical System.Windows.Forms package does not depend on the qualified System.CodeDom version'
 require_text "eng/progpu-wpf-canonical-winforms-integration.sh" 'PresentationBuildTasks/PresentationBuildTasks.csproj'
 require_text "eng/progpu-wpf-canonical-winforms-integration.sh" "packaged_implementation_hash"

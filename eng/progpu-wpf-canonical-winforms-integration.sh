@@ -2,8 +2,10 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-librewinforms_root="${repo_root}/external/LibreWinForms"
-progpu_root="${repo_root}/external/ProGPU"
+default_librewinforms_root="${repo_root}/external/LibreWinForms"
+default_progpu_root="${repo_root}/external/ProGPU"
+librewinforms_root="${PROGPU_WPF_CANONICAL_LIBREWINFORMS_ROOT:-${default_librewinforms_root}}"
+progpu_root="${PROGPU_WPF_CANONICAL_PROGPU_ROOT:-${default_progpu_root}}"
 configuration="${CONFIGURATION:-Release}"
 target_framework="net10.0"
 canonical_support_package_version="${PROGPU_WPF_CANONICAL_SUPPORT_PACKAGE_VERSION:-10.0.10}"
@@ -19,11 +21,23 @@ if [[ ! -f "${progpu_root}/src/System.Drawing.Common/System.Drawing.Common.cspro
   exit 1
 fi
 
-expected_librewinforms_commit="$(git -C "${repo_root}" ls-tree HEAD external/LibreWinForms | awk '{ print $3 }')"
+if [[ "${librewinforms_root}" == "${default_librewinforms_root}" ]]; then
+  expected_librewinforms_commit="$(git -C "${repo_root}" ls-tree HEAD external/LibreWinForms | awk '{ print $3 }')"
+else
+  expected_librewinforms_commit="${PROGPU_WPF_CANONICAL_EXPECTED_LIBREWINFORMS_COMMIT:-}"
+  if [[ -z "${expected_librewinforms_commit}" ]]; then
+    echo "An external canonical LibreWinForms root requires PROGPU_WPF_CANONICAL_EXPECTED_LIBREWINFORMS_COMMIT." >&2
+    exit 1
+  fi
+fi
 librewinforms_commit="$(git -C "${librewinforms_root}" rev-parse HEAD)"
 if [[ -z "${expected_librewinforms_commit}" || "${expected_librewinforms_commit}" != "${librewinforms_commit}" ]]; then
   echo "LibreWPF pins LibreWinForms ${expected_librewinforms_commit:-missing}, but the initialized checkout has ${librewinforms_commit}." >&2
-  echo "Run 'git submodule update --init external/LibreWinForms' before continuing." >&2
+  if [[ "${librewinforms_root}" == "${default_librewinforms_root}" ]]; then
+    echo "Run 'git submodule update --init external/LibreWinForms' before continuing." >&2
+  else
+    echo "The supplied external LibreWinForms root must match PROGPU_WPF_CANONICAL_EXPECTED_LIBREWINFORMS_COMMIT." >&2
+  fi
   exit 1
 fi
 
