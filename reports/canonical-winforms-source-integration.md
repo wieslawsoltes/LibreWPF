@@ -14,7 +14,7 @@ lane for replacing the transitional LibreWinForms compatibility packages.
 
 ## Qualified Source Pins
 
-- LibreWinForms: `23547c8d793ed0e75370be00d8084eb7ed17835b`
+- LibreWinForms: `cd0f9dfeb8ce3fa526e650777ecf3af1f432ca91`
 - ProGPU: `d73cef34b92dfc71b40288dbc004d6f23c3b6fa8`
 - ProGPU release base: `v0.1.0-preview.62` / `00cf8707`
 
@@ -46,6 +46,9 @@ gate checks that invariant before compiling anything.
 7. The source gate stages ProGPU's drawing-runtime packages from the qualified
    commit, packs canonical Forms and WFI from source, verifies ref/lib hashes,
    and rejects a WFI package whose canonical Forms dependency is not exact.
+8. Clean hosted validation restores `PresentationBuildTasks` before the
+   managed transport build and unshallows the ProGPU checkout before checking
+   that the pinned source descends from the released package baseline.
 
 ## Verification
 
