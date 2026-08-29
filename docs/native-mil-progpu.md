@@ -4483,6 +4483,12 @@ that observation into a D3D12/Metal/Vulkan CI artifact gate with a named,
 bounded differential contract instead of treating backend edge rounding as an
 unexplained hash exception.
 
+The same checkpoint ran on Ubuntu 24.04 ARM64 llvmpipe/Vulkan with SHA-256
+`4443D80D541A386DEEEB6B35933550FE6FA437FDCC2ABA54BE8CA66E16877DF9`.
+Against D3D12, Vulkan changes 42 antialiased-edge pixels and Metal changes two;
+every changed channel is exactly 1/255, the Vulkan mean absolute channel
+difference is `0.0003602431`, and the three-backend differential passes.
+
 Windows may additionally run the real Win2D/Direct2D runtime into a
 same-adapter shared BGRA8 DXGI allocation and import it through ProGPU's
 existing Dawn keyed-mutex/shared-texture path without CPU readback; that native
