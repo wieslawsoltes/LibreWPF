@@ -8,6 +8,36 @@ namespace ProGPU.Wpf.Tests.Composition.Mil;
 public sealed class WpfPortableD3DImageSourceTests
 {
     [Fact]
+    public void Direct2DSurfaceUsesExplicitTypedD3DImageAdapter()
+    {
+        string adapter = File.ReadAllText(FindRepoPath(
+            "external", "ProGPU", "src", "ProGPU.Direct2D",
+            "ProGpuDirect2DD3DImageSource.cs"));
+        string surface = File.ReadAllText(FindRepoPath(
+            "external", "ProGPU", "src", "ProGPU.Direct2D",
+            "ProGpuDirect2DSurface.cs"));
+
+        Assert.Contains("IPortableD3DImageSource", adapter,
+            StringComparison.Ordinal);
+        Assert.Contains("IPortableInvalidationSource", adapter,
+            StringComparison.Ordinal);
+        Assert.Contains("contentVersion == 0U", adapter,
+            StringComparison.Ordinal);
+        Assert.Contains("_surface);", adapter,
+            StringComparison.Ordinal);
+        Assert.Contains("_surface.TextureChanged += handler", adapter,
+            StringComparison.Ordinal);
+        Assert.Contains("IProGpuContextTextureLeaseSource", surface,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain("System.Reflection", adapter,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain("ReadPixels", adapter,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain("ToArray()", adapter,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void D3DImageUsesTypedPointerFreeCanonicalMilSeam()
     {
         string interop = File.ReadAllText(FindRepoPath(

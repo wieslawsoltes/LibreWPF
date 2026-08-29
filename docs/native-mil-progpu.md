@@ -4844,8 +4844,12 @@ state lock, avoiding a render-lock/provider-lock inversion.
 
 The managed surface is reflection-free and AOT-safe through source-generated
 `LibraryImport` and caller-owned `SafeHandle` COM references. It implements
-`IProGpuContextTextureLeaseSource`, so source-built
-`PortableD3DImageSourceFactory.Attach(...)` can consume it without a bridge
+`IProGpuContextTextureLeaseSource`; the reflection-free
+`ProGpuDirect2DD3DImageSource` adapter publishes it through the neutral
+`IPortableD3DImageSource` and `IPortableInvalidationSource` contracts consumed
+by source-built `PortableD3DImageSourceFactory.Attach(...)`. The adapter fails
+closed before the first successful draw and forwards `TextureChanged`; the
+application retains ownership of the wrapped surface. This adds no bridge
 copy, new MIL resource kind, COM pointer in a packet, readback, or repack. The
 Windows build now stages `progpu_native_direct2d.dll` for x64/ARM64 and checks
 the exact 11-export ABI. Microsoft Win2D activation/resource wrapping and full
