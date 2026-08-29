@@ -4611,16 +4611,42 @@ mean absolute channel difference `0.0005946181`. Windows passes 11/11 native
 CTest executables and the isolated Win2D suite passes 10/10; Linux passes
 10/10 native CTest executables. VM timing is correctness evidence only.
 
+ProGPU `2196beaa` completes the next portable Canvas image group for bitmap
+and command-list bounds plus cropped/destination-scaled command-list drawing.
+`ICanvasImage.GetBounds(...)` is now typed on both bitmap and retained command
+list resources. The shared `GpuPictureBounds` reader traverses immutable
+commands without materializing the compatibility command array, composes
+nested affine transforms, reuses clip/stroke/path bounds from the hit-test
+lowering, and fails closed for malformed state, cycles, GPU/3D transforms, or
+unknown commands. A cropped scale records one destination clip and affine
+nested-picture transform; it does not allocate an intermediate bitmap, read or
+upload pixels, or split primitives into separate submissions.
+
+The exact `16+2` validation frame is Metal
+`AFF6CBF059B5F2CDBF24243B1DA94E41F227A4E348FD0B76F07E9D1F239C5497`,
+Parallels WDDM D3D12
+`82592978570D34A2E5D110B95D963E051F01026184C23E0DF4703D7B6DEDA2B5`,
+and Ubuntu llvmpipe/Vulkan
+`59E132D93DDE652E0FE569162B248178F7EEA83806BA2CE0F3A7A81600B89617`.
+The new region is exact across all three backends. The complete Metal/D3D12
+frame changes only two pixels by 1/255; D3D12/Vulkan retains the previous 84
+one-level antialiasing ties with mean absolute channel difference
+`0.0005946181`. The Win2D contract suite passes 10/10 and retained-picture
+bounds pass 4/4 on macOS, Windows ARM64, and Linux ARM64. Exact Windows and
+Linux native builds pass 10/10 CTest suites. The Windows source archive and
+rebuilt ARM64 DLL SHA-256 values are respectively
+`7FCD5A09E672C61102066C60FEB0F9EDBEEE279521AF0251015F17AE3C5942EF` and
+`39C0FD9F5B13CF277581C64096668CAF3673742719B55D6C6252AC9EB009262D`.
+
 Windows may additionally run the real Win2D/Direct2D runtime into a
 same-adapter shared BGRA8 DXGI allocation and import it through ProGPU's
 existing Dawn keyed-mutex/shared-texture path without CPU readback; that native
 interop adapter remains planned. The Microsoft Win2D binary remains
 Windows-only, native COM resource wrapping fails closed off Windows, and
 ProGPU will not publish a fake `d2d1.dll`. The portable package is source
-compatible rather than binary compatible; command-list bounds/scaling, bitmap
-creation/update, geometry query/stroke/outline operations, image and layer
-opacity brushes beyond the qualified bitmap lane, formatted text, effects,
-sprite batches, and XAML controls
+compatible rather than binary compatible; bitmap creation/update, geometry
+query/stroke/outline operations, command-list/effect image brushes, layer
+opacity brushes, formatted text, effects, sprite batches, and XAML controls
 remain incremental compatibility groups.
 The support matrix, API mapping, delivery stages, and Windows/Metal/Vulkan
 oracle gate are documented in
