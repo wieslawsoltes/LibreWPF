@@ -4874,6 +4874,11 @@ forwards provider invalidation through `IPortableInvalidationSource`.
 legacy process-local D3D9 back buffer and cloning retains the typed provider
 without calling `wpfgfx`.
 
+ProGPU's exact base-native export allowlist now pins both the canonical
+BitmapSource and D3DImage external-image sidebands, so every native package
+lane rejects a build that compiles these zero-copy paths without exporting
+them.
+
 The compiler emits WPF's exact 24-byte update and 16-byte present packets with
 zero COM pointers and zero event handle, records dimensions/content version,
 and binds an `IProGpuTextureLeaseSource` through the native sideband. Raw
