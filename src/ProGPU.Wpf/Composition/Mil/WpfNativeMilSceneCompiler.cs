@@ -30,6 +30,13 @@ public sealed record WpfNativeMilMediaPlayerSource(
     ulong ContentVersion,
     IProGpuTextureLeaseSource TextureSource);
 
+public sealed record WpfNativeMilD3DImageSource(
+    uint Handle,
+    uint Width,
+    uint Height,
+    ulong ContentVersion,
+    IProGpuTextureLeaseSource TextureSource);
+
 public sealed record WpfNativeMilGlyphRunFont(
     uint Handle,
     uint FaceIndex,
@@ -67,7 +74,8 @@ public sealed record WpfNativeMilBatch(
     IReadOnlyList<WpfNativeMilViewport3DScene>? Viewport3DScenes = null,
     IReadOnlyList<WpfNativeMilMediaPlayerSource>? MediaPlayerSources = null,
     IReadOnlyList<WpfNativeMilBitmapExternalImageSource>?
-        BitmapExternalImageSources = null);
+        BitmapExternalImageSources = null,
+    IReadOnlyList<WpfNativeMilD3DImageSource>? D3DImageSources = null);
 
 public sealed record WpfNativeMilCompilation(
     NativeMilCompiledScene Scene,
@@ -110,7 +118,8 @@ public sealed class WpfNativeMilSceneCompiler
             context.DrawingGroupBounds.ToArray(),
             context.Viewport3DScenes.ToArray(),
             context.MediaPlayerSources.ToArray(),
-            context.BitmapExternalImageSources.ToArray());
+            context.BitmapExternalImageSources.ToArray(),
+            context.D3DImageSources.ToArray());
     }
 
     public WpfNativeMilCompilation Compile(
@@ -180,6 +189,17 @@ public sealed class WpfNativeMilSceneCompiler
                 mediaPlayer.Handle,
                 mediaPlayer.Width,
                 mediaPlayer.Height);
+            ++appliedCount;
+        }
+        foreach (WpfNativeMilD3DImageSource d3dImage in
+                 batch.D3DImageSources ??
+                 Array.Empty<WpfNativeMilD3DImageSource>())
+        {
+            channel.SetD3DImageExternalImage(
+                d3dImage.Handle,
+                d3dImage.Width,
+                d3dImage.Height,
+                d3dImage.ContentVersion);
             ++appliedCount;
         }
         foreach (WpfNativeMilGlyphRunFont glyphRunFont in
@@ -272,6 +292,9 @@ public sealed class WpfNativeMilSceneCompiler
             BitmapExternalImageSources { get; } = [];
 
         internal List<WpfNativeMilMediaPlayerSource> MediaPlayerSources
+            { get; } = [];
+
+        internal List<WpfNativeMilD3DImageSource> D3DImageSources
             { get; } = [];
 
         internal List<WpfNativeMilGlyphRunFont> GlyphRunFonts { get; } = [];
@@ -1908,6 +1931,34 @@ public sealed class WpfNativeMilSceneCompiler
                     imageSource, out uint existing))
             {
                 return existing;
+            }
+            if (imageSource is IPortableD3DImageSource d3dImageSource)
+            {
+                if (!d3dImageSource.TryGetPortableD3DImageFrame(
+                        out PortableD3DImageFrame frame) ||
+                    frame.PixelWidth is <= 0 or > 16_384 ||
+                    frame.PixelHeight is <= 0 or > 16_384 ||
+                    frame.ContentVersion == 0 ||
+                    frame.NativeImage is not
+                        IProGpuTextureLeaseSource d3dTextureSource)
+                {
+                    throw new InvalidOperationException(
+                        "Portable D3DImage state is incomplete or does not expose a synchronized typed texture lease.");
+                }
+                uint d3dImageHandle = NextHandle();
+                Batch.CreateResource(
+                    d3dImageHandle, NativeMilResourceType.D3DImage);
+                Batch.SetD3DImage(d3dImageHandle);
+                Batch.PresentD3DImage(d3dImageHandle);
+                _imageSourceHandles.Add(imageSource, d3dImageHandle);
+                D3DImageSources.Add(
+                    new WpfNativeMilD3DImageSource(
+                        d3dImageHandle,
+                        checked((uint)frame.PixelWidth),
+                        checked((uint)frame.PixelHeight),
+                        frame.ContentVersion,
+                        d3dTextureSource));
+                return d3dImageHandle;
             }
             if (imageSource is IPortableDrawingImageSource drawingImageSource)
             {

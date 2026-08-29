@@ -20,7 +20,8 @@ public sealed record WpfNativeMilSessionFrame(
     NativeMilStatefulCompiledScene Scene,
     IReadOnlyList<WpfNativeMilMediaPlayerSource> MediaPlayerSources,
     IReadOnlyList<WpfNativeMilBitmapExternalImageSource>
-        BitmapExternalImageSources);
+        BitmapExternalImageSources,
+    IReadOnlyList<WpfNativeMilD3DImageSource> D3DImageSources);
 
 /// <summary>
 /// Owns the native MIL channel across WPF frames so dynamic guideline and
@@ -108,7 +109,9 @@ public sealed class WpfNativeMilCompilationSession : IDisposable
             _lastBatch.MediaPlayerSources ??
                 Array.Empty<WpfNativeMilMediaPlayerSource>(),
             _lastBatch.BitmapExternalImageSources ??
-                Array.Empty<WpfNativeMilBitmapExternalImageSource>());
+                Array.Empty<WpfNativeMilBitmapExternalImageSource>(),
+            _lastBatch.D3DImageSources ??
+                Array.Empty<WpfNativeMilD3DImageSource>());
     }
 
     internal WpfNativeMilSessionUpdate Update(WpfNativeMilBatch batch)
@@ -335,6 +338,27 @@ public sealed class WpfNativeMilCompilationSession : IDisposable
                 newValue.Height);
             ++appliedCount;
         }
+        IReadOnlyList<WpfNativeMilD3DImageSource> previousD3DImages =
+            previous.D3DImageSources ??
+            Array.Empty<WpfNativeMilD3DImageSource>();
+        IReadOnlyList<WpfNativeMilD3DImageSource> currentD3DImages =
+            current.D3DImageSources ??
+            Array.Empty<WpfNativeMilD3DImageSource>();
+        for (int i = 0; i < currentD3DImages.Count; ++i)
+        {
+            WpfNativeMilD3DImageSource oldValue = previousD3DImages[i];
+            WpfNativeMilD3DImageSource newValue = currentD3DImages[i];
+            if (SidebandEquals(oldValue, newValue))
+            {
+                continue;
+            }
+            channel.SetD3DImageExternalImage(
+                newValue.Handle,
+                newValue.Width,
+                newValue.Height,
+                newValue.ContentVersion);
+            ++appliedCount;
+        }
 
         IReadOnlyList<WpfNativeMilGlyphRunFont> previousFonts =
             previous.GlyphRunFonts ?? Array.Empty<WpfNativeMilGlyphRunFont>();
@@ -461,6 +485,8 @@ public sealed class WpfNativeMilCompilationSession : IDisposable
             current.BitmapExternalImageSources) &&
         HasStableHandles(
             previous.MediaPlayerSources, current.MediaPlayerSources) &&
+        HasStableHandles(
+            previous.D3DImageSources, current.D3DImageSources) &&
         HasStableHandles(previous.GlyphRunFonts, current.GlyphRunFonts) &&
         HasStableHandles(
             previous.DrawingImageBounds, current.DrawingImageBounds) &&
@@ -483,6 +509,14 @@ public sealed class WpfNativeMilCompilationSession : IDisposable
         previous.Handle == current.Handle &&
         previous.Width == current.Width &&
         previous.Height == current.Height;
+
+    internal static bool SidebandEquals(
+        WpfNativeMilD3DImageSource previous,
+        WpfNativeMilD3DImageSource current) =>
+        previous.Handle == current.Handle &&
+        previous.Width == current.Width &&
+        previous.Height == current.Height &&
+        previous.ContentVersion == current.ContentVersion;
 
     internal static bool SidebandEquals(
         WpfNativeMilBitmapSource previous,
@@ -527,6 +561,7 @@ public sealed class WpfNativeMilCompilationSession : IDisposable
         WpfNativeMilBitmapSource item => item.Handle,
         WpfNativeMilBitmapExternalImageSource item => item.Handle,
         WpfNativeMilMediaPlayerSource item => item.Handle,
+        WpfNativeMilD3DImageSource item => item.Handle,
         WpfNativeMilGlyphRunFont item => item.Handle,
         WpfNativeMilDrawingImageBounds item => item.Handle,
         WpfNativeMilDrawingGroupBounds item => item.Handle,
@@ -540,6 +575,7 @@ public sealed class WpfNativeMilCompilationSession : IDisposable
             (batch.BitmapSources?.Count ?? 0) +
             (batch.BitmapExternalImageSources?.Count ?? 0) +
             (batch.MediaPlayerSources?.Count ?? 0) +
+            (batch.D3DImageSources?.Count ?? 0) +
             (batch.GlyphRunFonts?.Count ?? 0) +
             (batch.DrawingImageBounds?.Count ?? 0) +
             (batch.DrawingGroupBounds?.Count ?? 0) +

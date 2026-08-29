@@ -4825,7 +4825,7 @@ namespace System.Windows.Interop
     {
         public static System.Windows.Input.Cursor Create(System.Runtime.InteropServices.SafeHandle cursorHandle) { throw null; }
     }
-    public partial class D3DImage : System.Windows.Media.ImageSource
+    public partial class D3DImage : System.Windows.Media.ImageSource, ProGPU.Wpf.Interop.IPortableD3DImageSource, ProGPU.Wpf.Interop.IPortableInvalidationSource
     {
         public static readonly System.Windows.DependencyProperty IsFrontBufferAvailableProperty;
         public D3DImage() { }
@@ -4853,6 +4853,13 @@ namespace System.Windows.Interop
         public void SetBackBuffer(System.Windows.Interop.D3DResourceType backBufferType, System.IntPtr backBuffer, bool enableSoftwareFallback) { }
         public bool TryLock(System.Windows.Duration timeout) { throw null; }
         public void Unlock() { }
+        bool ProGPU.Wpf.Interop.IPortableD3DImageSource.TryGetPortableD3DImageFrame(out ProGPU.Wpf.Interop.PortableD3DImageFrame frame) { throw null; }
+        bool ProGPU.Wpf.Interop.IPortableInvalidationSource.TrySubscribeInvalidated(System.EventHandler handler, out System.IDisposable subscription) { throw null; }
+    }
+    public static partial class PortableD3DImageSourceFactory
+    {
+        public static void Attach(System.Windows.Interop.D3DImage image, ProGPU.Wpf.Interop.IPortableD3DImageSource source) { }
+        public static void Detach(System.Windows.Interop.D3DImage image) { }
     }
     public enum D3DResourceType
     {

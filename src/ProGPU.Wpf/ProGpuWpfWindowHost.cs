@@ -2145,7 +2145,11 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
             frame.MediaPlayerSources;
         IReadOnlyList<WpfNativeMilBitmapExternalImageSource> bitmapSources =
             frame.BitmapExternalImageSources;
-        int sourceCount = checked(mediaSources.Count + bitmapSources.Count);
+        IReadOnlyList<WpfNativeMilD3DImageSource> d3dImageSources =
+            frame.D3DImageSources;
+        int sourceCount = checked(
+            mediaSources.Count + bitmapSources.Count +
+            d3dImageSources.Count);
         var leases = new IProGpuTextureLease[sourceCount];
         var bindings = new NativeSceneExternalImageBinding[sourceCount];
         try
@@ -2153,27 +2157,41 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
             uint previousHandle = 0;
             int mediaIndex = 0;
             int bitmapIndex = 0;
+            int d3dImageIndex = 0;
             for (int index = 0; index < sourceCount; ++index)
             {
-                bool useBitmap = mediaIndex >= mediaSources.Count ||
-                    (bitmapIndex < bitmapSources.Count &&
-                     bitmapSources[bitmapIndex].Handle <
-                        mediaSources[mediaIndex].Handle);
+                uint mediaHandle = mediaIndex < mediaSources.Count
+                    ? mediaSources[mediaIndex].Handle
+                    : uint.MaxValue;
+                uint bitmapHandle = bitmapIndex < bitmapSources.Count
+                    ? bitmapSources[bitmapIndex].Handle
+                    : uint.MaxValue;
+                uint d3dImageHandle = d3dImageIndex < d3dImageSources.Count
+                    ? d3dImageSources[d3dImageIndex].Handle
+                    : uint.MaxValue;
                 uint handle;
                 IProGpuTextureLeaseSource textureSource;
-                if (useBitmap)
+                if (bitmapHandle <= mediaHandle &&
+                    bitmapHandle <= d3dImageHandle)
                 {
                     WpfNativeMilBitmapExternalImageSource bitmap =
                         bitmapSources[bitmapIndex++];
                     handle = bitmap.Handle;
                     textureSource = bitmap.TextureSource;
                 }
-                else
+                else if (mediaHandle <= d3dImageHandle)
                 {
                     WpfNativeMilMediaPlayerSource media =
                         mediaSources[mediaIndex++];
                     handle = media.Handle;
                     textureSource = media.TextureSource;
+                }
+                else
+                {
+                    WpfNativeMilD3DImageSource d3dImage =
+                        d3dImageSources[d3dImageIndex++];
+                    handle = d3dImage.Handle;
+                    textureSource = d3dImage.TextureSource;
                 }
                 if (handle <= previousHandle)
                 {

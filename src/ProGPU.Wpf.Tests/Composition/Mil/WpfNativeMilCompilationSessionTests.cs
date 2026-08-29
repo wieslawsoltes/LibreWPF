@@ -110,7 +110,10 @@ public sealed class WpfNativeMilCompilationSessionTests
                 4, 64, 32, 1, new FakeTextureSource())],
             BitmapExternalImageSources:
             [new WpfNativeMilBitmapExternalImageSource(
-                5, 32, 16, new FakeTextureSource())]);
+                5, 32, 16, new FakeTextureSource())],
+            D3DImageSources:
+            [new WpfNativeMilD3DImageSource(
+                6, 128, 64, 1, new FakeTextureSource())]);
         var sameTopology = previous with
         {
             BitmapSources =
@@ -160,6 +163,21 @@ public sealed class WpfNativeMilCompilationSessionTests
             previous, newerFrame));
         Assert.False(WpfNativeMilCompilationSession.SidebandEquals(
             previous, resized));
+    }
+
+    [Fact]
+    public void D3DImageSidebandEqualityIncludesPresentVersion()
+    {
+        var previous = new WpfNativeMilD3DImageSource(
+            2, 64, 32, 1, new FakeTextureSource());
+        var replacementSource = new WpfNativeMilD3DImageSource(
+            2, 64, 32, 1, new FakeTextureSource());
+        var presented = replacementSource with { ContentVersion = 2 };
+
+        Assert.True(WpfNativeMilCompilationSession.SidebandEquals(
+            previous, replacementSource));
+        Assert.False(WpfNativeMilCompilationSession.SidebandEquals(
+            previous, presented));
     }
 
     [Fact]

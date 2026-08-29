@@ -1358,6 +1358,42 @@ public sealed class WpfNativeMilSceneCompilerTests
     }
 
     [Fact]
+    public void BuildBatchTranslatesPortableD3DImageWithCanonicalPresent()
+    {
+        var image = new FakeD3DImage(192, 108, 7);
+        var visual = new FakeVisual(
+            new FakeRenderData(
+                CreateDrawImageRecord(2, 3, 40, 24, 1),
+                [image]));
+
+        WpfNativeMilBatch result = new WpfNativeMilSceneCompiler().BuildBatch(
+            visual, 256, 128);
+        WpfNativeMilD3DImageSource source = Assert.Single(
+            result.D3DImageSources!);
+        int updateOffset = FindCommand(result.Bytes, 0x0a);
+        int presentOffset = FindCommand(result.Bytes, 0x0b);
+        int nestedOffset = FindCommand(result.Bytes, 0x18) + 16;
+
+        Assert.Equal(192U, source.Width);
+        Assert.Equal(108U, source.Height);
+        Assert.Equal(7UL, source.ContentVersion);
+        Assert.Same(image, source.TextureSource);
+        Assert.Equal(source.Handle, ReadUInt32(result.Bytes, updateOffset + 8));
+        Assert.Equal(0U, ReadUInt32(result.Bytes, updateOffset + 12));
+        Assert.Equal(0U, ReadUInt32(result.Bytes, updateOffset + 16));
+        Assert.Equal(0U, ReadUInt32(result.Bytes, updateOffset + 20));
+        Assert.Equal(0U, ReadUInt32(result.Bytes, updateOffset + 24));
+        Assert.Equal(source.Handle, ReadUInt32(result.Bytes, presentOffset + 8));
+        Assert.Equal(0U, ReadUInt32(result.Bytes, presentOffset + 12));
+        Assert.Equal(0U, ReadUInt32(result.Bytes, presentOffset + 16));
+        Assert.Equal(source.Handle, ReadUInt32(result.Bytes, nestedOffset + 40));
+        int createOffset = FindCreateResource(result.Bytes, source.Handle);
+        Assert.Equal(97U, ReadUInt32(result.Bytes, createOffset + 12));
+        Assert.Empty(result.BitmapSources!);
+        Assert.Empty(result.BitmapExternalImageSources!);
+    }
+
+    [Fact]
     public void BuildBatchPreservesNullDirectImageAsNoOp()
     {
         var visual = new FakeVisual(
@@ -3955,6 +3991,42 @@ public sealed class WpfNativeMilSceneCompilerTests
         public bool TryGetPortableNativeImage(out object? nativeImage)
         {
             nativeImage = this;
+            return true;
+        }
+
+        public bool TryGetGpuTexture(out GpuTexture texture)
+        {
+            texture = null!;
+            return false;
+        }
+
+        public bool TryAcquireGpuTextureLease(
+            out IProGpuTextureLease lease)
+        {
+            lease = null!;
+            return false;
+        }
+    }
+
+    private sealed class FakeD3DImage :
+        IPortableD3DImageSource,
+        IProGpuTextureLeaseSource
+    {
+        private readonly PortableD3DImageFrame _frame;
+
+        internal FakeD3DImage(int width, int height, ulong contentVersion)
+        {
+            _frame = new PortableD3DImageFrame(
+                width,
+                height,
+                contentVersion,
+                this);
+        }
+
+        public bool TryGetPortableD3DImageFrame(
+            out PortableD3DImageFrame frame)
+        {
+            frame = _frame;
             return true;
         }
 
