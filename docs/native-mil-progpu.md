@@ -5326,7 +5326,8 @@ under `/W4 /WX`, passes the live regression 1/1 in 3.35 seconds, decodes the
 three-draw scene header, verifies typed rejection of DirectWrite rendering
 parameters, and reports exactly 123 exports. Provider SHA-256 is
 `0C552556B68BDB2F34B9B4ADA552B1DBBC2EB25A247483ED27710787CBF787D2`.
-Clean-checkout ProGPU Build run `33341817572` is pending.
+Clean-checkout ProGPU CI qualification for documentation checkpoint `28b4610b`
+is pending.
 
 ## Native MIL canonical D3DImage checkpoint
 
