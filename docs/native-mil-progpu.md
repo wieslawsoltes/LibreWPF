@@ -5263,6 +5263,19 @@ restore state before existing rendering gates. The exact allowlist grows from
 regression passes in 0.18 seconds, all 11 native suites pass in 1.33 seconds,
 and the exact 118-export gate is accepted.
 
+ProGPU ABI v31 at checkpoint `2d24157d` adds typed `ID2D1Bitmap1` metadata,
+bounded caller-span upload, and same-generation GPU bitmap-to-bitmap copy. The
+descriptor exposes pixel/DIP dimensions, DPI, format, alpha mode, and bitmap
+options without a readback. Managed and native validation proves resource
+kind/generation, pitch and byte extent, both copy rectangles, and canonical COM
+identity; invalid or unsupported operations fail closed. The input span is
+pinned only for the synchronous native upload, with no array materialization or
+repack. Native coverage draws the mutated bitmap into the shared target and
+checks distinct exact BGRA pixels for the memory update and GPU copy. The exact
+allowlist grows from 118 to 121 exports; contracts pass 5/5 with zero warnings.
+Windows MSVC/native Direct2D qualification is pending for ProGPU documentation
+checkpoint `dfedc70e`.
+
 ## Native MIL canonical D3DImage checkpoint
 
 ProGPU `72c9d794`/`20918afb` and this LibreWPF checkpoint add canonical
