@@ -157,10 +157,24 @@ release dispatch remains the full-rebuild recovery path.
 ## Build And Release
 
 ```bash
-PROGPU_WPF_DEV_PACKAGE_VERSION=0.1.0-preview.45 PROGPU_WPF_PROGPU_PACKAGE_VERSION=0.1.0-preview.55 ./eng/progpu-wpf-sdk-ci.sh
+PROGPU_WPF_DEV_PACKAGE_VERSION=0.1.0-preview.45 PROGPU_WPF_PROGPU_PACKAGE_VERSION=0.1.0-preview.62 ./eng/progpu-wpf-sdk-ci.sh
 ```
 
 The SDK CI script stages ProGPU runtime packages, builds managed WPF transport assemblies, `LibreWPF.ProGPU`, and `LibreWPF.Sdk`, then audits the packages, writes the preview manifest, creates and verifies the release bundle, and runs package-mode SDK smoke tests. Public releases consume the hash-identical packages from the matching ProGPU GitHub release instead of repacking or republishing them.
+
+Canonical WinForms integration is validated separately from the normal NuGet
+development path:
+
+```bash
+./eng/progpu-wpf-canonical-winforms-integration.sh
+```
+
+That clean-source gate requires the LibreWinForms and ProGPU submodule pins to
+agree, builds the upstream-derived `System.Windows.Forms` identity against
+ProGPU `System.Drawing.Common`, serializes the WPF reference/cycle foundation,
+and compiles both the real `WindowsFormsIntegration` reference and implementation
+assemblies. It treats unresolved or duplicate assembly closures as errors. The
+ordinary SDK/package path remains on released ProGPU `0.1.0-preview.62` packages.
 
 For a faster source-development loop, use the same qualified managed, theme,
 and harness project sets through the validation graph:
@@ -187,11 +201,13 @@ GPU gates remain required before a release.
 
 GitHub workflows:
 
-- `LibreWPF Build` runs the SDK package/no-source-change smoke on macOS.
+- `LibreWPF Build` runs the canonical WinForms source gate on Linux and the SDK package/no-source-change smoke on macOS.
 - `LibreWPF Docs` verifies README and release docs against the preview package list.
 - `LibreWPF Release` builds preview packages/bundle artifacts and can publish to NuGet.org with `NUGET_API_KEY`.
 
-See [docs/progpu-wpf-release.md](docs/progpu-wpf-release.md) and the ongoing porting reports in [reports/](reports/).
+See [docs/progpu-wpf-release.md](docs/progpu-wpf-release.md), the
+[canonical WinForms source integration report](reports/canonical-winforms-source-integration.md),
+and the ongoing porting reports in [reports/](reports/).
 
 ## Original Upstream README
 

@@ -1,12 +1,13 @@
 using System.Collections.Generic;
 using System.Globalization;
 using System.Runtime.CompilerServices;
+using ProGPU.Backend;
 using ProGPU.Wpf.Interop;
 using System.Windows.Media.ProGPU.Platform;
 
 namespace System.Windows.Media.ProGPU;
 
-public sealed class WpfPortableWindowActivation : IDisposable
+public sealed class WpfPortableWindowActivation : IDisposable, INativeWindowOwner
 {
     private const int WM_ACTIVATE = 0x0006;
     private const int WM_ACTIVATEAPP = 0x001C;
@@ -55,6 +56,7 @@ public sealed class WpfPortableWindowActivation : IDisposable
     private bool _isFlushingWpfDispatcher;
     private bool _isNativeRunStarted;
     private IDisposable? _mediaContextRenderRegistration;
+    private IDisposable? _nativeWindowOwnerRegistration;
     private IWpfTimer? _dispatcherTimerPump;
     private bool _showActivated = true;
     private bool _isRegisteredNonActivatingOwnedWindow;
@@ -97,6 +99,18 @@ public sealed class WpfPortableWindowActivation : IDisposable
     public object RootVisual { get; }
 
     public object PortablePresentationSource { get; }
+
+    NativeWindowHandle INativeWindowOwner.NativeHandle => Host.NativeWindowHandle;
+
+    bool INativeWindowOwner.IsAlive => !_isDisposed;
+
+    bool INativeWindowOwner.IsVisible => Host.IsVisible;
+
+    bool INativeWindowOwner.IsEnabled => Host.IsEnabled;
+
+    bool INativeWindowOwner.TrySetEnabled(bool enabled) => Host.TrySetEnabled(enabled);
+
+    bool INativeWindowOwner.TryActivate() => TryActivate();
 
     public static bool TryRegisterPresentationFrameworkActivation(
         Func<object, ProGpuWpfWindowHost>? hostFactory = null)
@@ -542,6 +556,10 @@ public sealed class WpfPortableWindowActivation : IDisposable
             return;
         }
 
+        activation._nativeWindowOwnerRegistration?.Dispose();
+        activation._nativeWindowOwnerRegistration =
+            NativeWindowOwnerRegistry.Register(handle, activation);
+
         lock (s_activeActivationsByHandleLock)
         {
             s_activeActivationsByHandle[handle] = new WeakReference<WpfPortableWindowActivation>(activation);
@@ -550,6 +568,9 @@ public sealed class WpfPortableWindowActivation : IDisposable
 
     private static void UnregisterActiveActivationHandle(WpfPortableWindowActivation activation)
     {
+        activation._nativeWindowOwnerRegistration?.Dispose();
+        activation._nativeWindowOwnerRegistration = null;
+
         lock (s_activeActivationsByHandleLock)
         {
             foreach (var entry in s_activeActivationsByHandle.ToArray())
@@ -687,16 +708,28 @@ public sealed class WpfPortableWindowActivation : IDisposable
         activation = null;
         var rootVisual = ResolveRootVisual(window);
         if (!host.TryCreatePortablePresentationSource(
-                rootVisual,
+                rootVisual: null,
                 dpiScaleX,
                 dpiScaleY) ||
-            host.PortablePresentationSource is not { } portablePresentationSource)
+            host.PortablePresentationSource is not { } portablePresentationSource ||
+            host.PortablePresentationSourceBridge is not { } bridge)
         {
             return false;
         }
 
         activation = new WpfPortableWindowActivation(host, window, rootVisual, portablePresentationSource);
-        activation.TryRegisterMediaContextRenderService();
+        try
+        {
+            bridge.RootVisual = rootVisual;
+            activation.TryRegisterMediaContextRenderService();
+        }
+        catch
+        {
+            activation.Dispose();
+            activation = null;
+            throw;
+        }
+
         return true;
     }
 
@@ -718,9 +751,19 @@ public sealed class WpfPortableWindowActivation : IDisposable
         }
 
         var rootVisual = ResolveRootVisual(window);
-        bridge.RootVisual = rootVisual;
         activation = new WpfPortableWindowActivation(host, window, rootVisual, portablePresentationSource);
-        activation.TryRegisterMediaContextRenderService();
+        try
+        {
+            bridge.RootVisual = rootVisual;
+            activation.TryRegisterMediaContextRenderService();
+        }
+        catch
+        {
+            activation.Dispose();
+            activation = null;
+            throw;
+        }
+
         return true;
     }
 

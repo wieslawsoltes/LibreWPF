@@ -14,7 +14,12 @@ require_text() {
 }
 
 require_text ".github/workflows/progpu-wpf-sdk.yml" "./eng/progpu-wpf-sdk-ci.sh"
-require_text ".github/workflows/progpu-wpf-sdk.yml" "PROGPU_WPF_PROGPU_PACKAGE_VERSION: 0.1.0-preview.55"
+require_text ".github/workflows/progpu-wpf-sdk.yml" "./eng/progpu-wpf-canonical-winforms-integration.sh"
+require_text ".github/workflows/progpu-wpf-sdk.yml" "submodules: recursive"
+require_text ".github/workflows/progpu-wpf-sdk.yml" "canonical-librewinforms-"
+require_text ".github/workflows/progpu-wpf-sdk.yml" "./eng/progpu-wpf-canonical-sdk-smoke.sh"
+require_text ".github/workflows/progpu-wpf-sdk.yml" "PROGPU_WPF_PROGPU_PACKAGE_VERSION: 0.1.0-preview.62"
+require_text ".github/workflows/progpu-wpf-sdk.yml" "--unshallow origin"
 require_text ".github/workflows/progpu-wpf-sdk.yml" "librewpf-ci-packages-"
 require_text ".github/workflows/progpu-wpf-sdk.yml" "if-no-files-found: error"
 require_text ".github/workflows/progpu-wpf-sdk.yml" "./eng/progpu-wpf-linux-xwayland-smoke.sh"
@@ -23,12 +28,34 @@ require_text ".github/workflows/progpu-wpf-release.yml" "librewpf-v*"
 require_text ".github/workflows/progpu-wpf-release.yml" "refs/tags/librewpf-v"
 require_text ".github/workflows/progpu-wpf-release.yml" "librewpf-packages-"
 require_text ".github/workflows/progpu-wpf-release.yml" "default: 0.1.0-preview.45"
-require_text ".github/workflows/progpu-wpf-release.yml" "default: 0.1.0-preview.55"
+require_text ".github/workflows/progpu-wpf-release.yml" "default: 0.1.0-preview.62"
 require_text ".github/workflows/progpu-wpf-release.yml" 'name: librewpf-packages-${{ needs.promote-qualified-preview.outputs.version || needs.preview.outputs.version }}'
 require_text ".github/workflows/progpu-wpf-release.yml" "Create GitHub Release"
 require_text ".github/workflows/progpu-wpf-release.yml" "gh release create"
 require_text ".github/workflows/progpu-wpf-release.yml" "--generate-notes"
 require_text "README.md" "Tag releases promote and re-verify the exact package artifact"
+require_text "README.md" "Canonical WinForms integration is validated separately from the normal NuGet"
+require_text "docs/progpu-wpf-release.md" "clean-cache WPF reference/cycle ordering"
+require_text "reports/canonical-winforms-source-integration.md" "Portable stays frozen"
+require_text "eng/LibreWinForms.WindowsFormsIntegration.Package/LibreWinForms.WindowsFormsIntegration.Package.csproj" "<PackageId>LibreWinForms.WindowsFormsIntegration</PackageId>"
+require_text "eng/LibreWinForms.WindowsFormsIntegration.Package/LibreWinForms.WindowsFormsIntegration.Package.csproj" "LibreWinForms.System.Windows.Forms"
+require_text "eng/LibreWinForms.WindowsFormsIntegration.Package/LibreWinForms.WindowsFormsIntegration.Package.csproj" 'PrivateAssets=""'
+require_text "eng/progpu-wpf-canonical-winforms-integration.sh" 'ref/${target_framework}/WindowsFormsIntegration.dll'
+require_text "eng/progpu-wpf-canonical-winforms-integration.sh" '-p:SystemCodeDomPackageVersion="${canonical_support_package_version}"'
+require_text "eng/progpu-wpf-canonical-winforms-integration.sh" 'git submodule update --init external/LibreWinForms'
+require_text "eng/progpu-wpf-canonical-winforms-integration.sh" 'PROGPU_WPF_CANONICAL_LIBREWINFORMS_ROOT'
+require_text "eng/progpu-wpf-canonical-winforms-integration.sh" 'PROGPU_WPF_CANONICAL_EXPECTED_LIBREWINFORMS_COMMIT'
+require_text "eng/progpu-wpf-canonical-winforms-integration.sh" 'Canonical System.Windows.Forms package does not depend on the qualified System.CodeDom version'
+require_text "eng/progpu-wpf-canonical-winforms-integration.sh" 'PresentationBuildTasks/PresentationBuildTasks.csproj'
+require_text "eng/progpu-wpf-canonical-winforms-integration.sh" "packaged_implementation_hash"
+require_text "eng/progpu-wpf-canonical-winforms-integration.sh" 'LibreWinForms.ProGPU/LibreWinForms.ProGPU.Package.csproj'
+require_text "eng/progpu-wpf-canonical-winforms-integration.sh" 'LibreWinFormsSkipCanonicalPackageBuild=true'
+require_text "packaging/ProGPU.Wpf.Sdk/targets/ProGPU.Wpf.Sdk.targets" '<ProGpuWpfUseCanonicalLibreWinForms'
+require_text "packaging/ProGPU.Wpf.Sdk/targets/ProGPU.Wpf.Sdk.targets" 'Include="LibreWinForms.ProGPU"'
+require_text "packaging/ProGPU.Wpf.Sdk/targets/ProGPU.Wpf.Sdk.targets" '<Compile Remove="$(MSBuildThisFileDirectory)ProGPU.Wpf.Sdk.PortableBootstrap.cs" />'
+require_text "packaging/ProGPU.Wpf.Sdk/targets/ProGPU.Wpf.Sdk.PortableBootstrap.cs" 'global::LibreWinForms.ProGPU.ProGpuPlatform.Register();'
+require_text "eng/progpu-wpf-canonical-sdk-smoke.sh" 'LibreWinForms.Compatibility.System.Windows.Forms/'
+require_text "eng/progpu-wpf-canonical-sdk-smoke.sh" 'DOTNET_ROLL_FORWARD_TO_PRERELEASE'
 require_text "docs/progpu-wpf-release.md" 'terminal-success `LibreWPF Build` run for the exact tagged commit'
 require_text ".github/workflows/progpu-wpf-release.yml" "Stage exact ProGPU release packages"
 require_text ".github/workflows/progpu-wpf-release.yml" "LibreWPF.Transport LibreWPF.ProGPU LibreWPF.Sdk"

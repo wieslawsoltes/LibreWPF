@@ -10,6 +10,20 @@ namespace System.Windows;
 public class PortablePresentationSourceTests
 {
     [Fact]
+    public void FromVisualExposesPortableHandleThroughWin32WindowContract()
+    {
+        using IPortablePresentationSourceHost source = PortablePresentationSourceHost.Create();
+        var root = new DrawingVisual();
+        source.RootVisual = root;
+
+        PresentationSource presentationSource = PresentationSource.FromVisual(root);
+        var window = presentationSource.Should().BeAssignableTo<Interop.IWin32Window>().Subject;
+
+        window.Handle.Should().Be(source.Handle);
+        window.Handle.Should().NotBe(IntPtr.Zero);
+    }
+
+    [Fact]
     public void InitialDeviceScaleIsAppliedToRootVisual()
     {
         using IPortablePresentationSourceHost source = PortablePresentationSourceHost.Create(2.0, 1.5);
@@ -23,6 +37,19 @@ public class PortablePresentationSourceTests
         dpi.DpiScaleY.Should().BeApproximately(1.5, 0.000001);
         root.DpiChangedCount.Should().Be(1);
         root.MeasureCount.Should().BeGreaterThan(0);
+    }
+
+    [Fact]
+    public void InitialDpiCallbackCanResolvePortablePresentationSource()
+    {
+        using IPortablePresentationSourceHost source = PortablePresentationSourceHost.Create(2.0, 1.5);
+        var root = new DpiTrackingElement();
+
+        source.RootVisual = root;
+
+        var window = root.PresentationSourceAtDpiChange.Should()
+            .BeAssignableTo<Interop.IWin32Window>().Subject;
+        window.Handle.Should().Be(source.Handle);
     }
 
     [Fact]
@@ -305,9 +332,12 @@ public class PortablePresentationSourceTests
 
         internal int MeasureCount { get; private set; }
 
+        internal PresentationSource PresentationSourceAtDpiChange { get; private set; }
+
         protected override void OnDpiChanged(DpiScale oldDpi, DpiScale newDpi)
         {
             DpiChangedCount++;
+            PresentationSourceAtDpiChange = PresentationSource.FromVisual(this);
             base.OnDpiChanged(oldDpi, newDpi);
         }
 
