@@ -5080,6 +5080,10 @@ official Win2D seam wraps the same device-independent reference as
 indices through the projection, and feeds them into the native draw oracle.
 The allowlist grows from 52 to exactly 55 exports. This remains parallel to,
 not a replacement for, the portable cross-platform glyph DTO path.
+GitHub Actions Build run `33326634929`, MSVC job `99297867722`, compiles and
+links the provider plus native regression under the warning-as-error lane. The
+focused `progpu_native_direct2d_tests` passes in 0.16 seconds, the complete
+native suite passes 11/11, and the exact 55-symbol allowlist is accepted.
 
 ## Native MIL canonical D3DImage checkpoint
 
