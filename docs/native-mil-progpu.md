@@ -5249,6 +5249,17 @@ qualification passes in ProGPU Build run `33336026310`, dedicated MSVC job
 regression passes in 0.14 seconds, all 11 native suites pass in 1.02 seconds,
 and the exact 110-export gate is accepted.
 
+ProGPU ABI v30 at checkpoint `96735d95` adds typed live bitmap/image-brush
+state required by native Win2D projections. Sampling, tiling, source rectangle,
+and nullable bitmap/image bindings can be changed and queried; returned
+interfaces are caller-owned and preserve canonical COM identity. Managed
+generation/kind validation and safe-handle borrowing pair with independent C++
+`QueryInterface` checks. The path performs no reflection, CPU pixel transfer,
+repack, or portable MIL/WebGPU COM transport. Tests cover detach/rebind and
+restore state before existing rendering gates. The exact allowlist grows from
+110 to 118 exports; contracts pass 5/5 with zero warnings. Windows MSVC
+qualification remains pending.
+
 ## Native MIL canonical D3DImage checkpoint
 
 ProGPU `72c9d794`/`20918afb` and this LibreWPF checkpoint add canonical
