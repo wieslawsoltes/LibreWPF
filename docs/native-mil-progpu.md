@@ -5131,6 +5131,14 @@ closed. The allowlist grows from 58 to 59 exports. Deterministic regression
 coverage includes invalid-state structs, initial non-lost state, registered
 removal notification, and unique replacement generations; real adapter-loss
 injection/recreation remains a separate destructive Windows VM gate.
+Exact implementation `d67fe1bf` is Windows-qualified by GitHub Actions Build
+run `33329548704`, dedicated MSVC job `99305585595`. The provider and regression
+compile/link under the warning-as-error lane, the focused Direct2D test passes
+in 0.15 seconds, all 11 configured native suites pass, and the exact 59-export
+allowlist is accepted. The broader ClangCL job `99305585623` independently
+passes the Direct2D test in 0.14 seconds and all 12 native suites before an
+unrelated later Dawn readback loses Microsoft Basic Render Driver; that
+software-D3D12 stability failure remains separate from ABI v23 evidence.
 
 ## Native MIL canonical D3DImage checkpoint
 
