@@ -251,6 +251,28 @@ public sealed class WpfPortableWindowActivationTests
     }
 
     [Fact]
+    public void PortablePresentationHandleIsRegisteredBeforeRootVisualAttachment()
+    {
+        using var host = new ProGpuWpfWindowHost();
+        var window = new FakeWindow();
+        var source = new FakePortablePresentationSource
+        {
+            Handle = new IntPtr(0x505702)
+        };
+        INativeWindowOwner? ownerObservedDuringAttachment = null;
+        source.RootVisualChanged = _ =>
+        {
+            Assert.True(NativeWindowOwnerRegistry.TryResolve(source.Handle, out ownerObservedDuringAttachment));
+        };
+
+        Assert.True(WpfPortableWindowActivation.TryAttach(host, window, source, out var activation));
+        Assert.NotNull(activation);
+        Assert.Same(activation, ownerObservedDuringAttachment);
+
+        activation.Dispose();
+    }
+
+    [Fact]
     public void DiagnosticsResolveActiveHostWithoutReflectionUntilActivationDisposes()
     {
         using var host = new ProGpuWpfWindowHost();
@@ -2819,9 +2841,12 @@ public sealed class WpfPortableWindowActivationTests
             set
             {
                 _rootVisual = value;
+                RootVisualChanged?.Invoke(value);
                 RenderRequested?.Invoke(this, EventArgs.Empty);
             }
         }
+
+        public Action<object?>? RootVisualChanged { get; set; }
 
         public double ClientWidth { get; private set; }
 

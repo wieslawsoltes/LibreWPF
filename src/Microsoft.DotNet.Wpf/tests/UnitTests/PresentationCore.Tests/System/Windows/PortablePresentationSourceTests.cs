@@ -40,6 +40,19 @@ public class PortablePresentationSourceTests
     }
 
     [Fact]
+    public void InitialDpiCallbackCanResolvePortablePresentationSource()
+    {
+        using IPortablePresentationSourceHost source = PortablePresentationSourceHost.Create(2.0, 1.5);
+        var root = new DpiTrackingElement();
+
+        source.RootVisual = root;
+
+        var window = root.PresentationSourceAtDpiChange.Should()
+            .BeAssignableTo<Interop.IWin32Window>().Subject;
+        window.Handle.Should().Be(source.Handle);
+    }
+
+    [Fact]
     public void DeviceScaleChangeUpdatesVisualDpiLayoutAndHwndSource()
     {
         using IPortablePresentationSourceHost source = PortablePresentationSourceHost.Create();
@@ -319,9 +332,12 @@ public class PortablePresentationSourceTests
 
         internal int MeasureCount { get; private set; }
 
+        internal PresentationSource PresentationSourceAtDpiChange { get; private set; }
+
         protected override void OnDpiChanged(DpiScale oldDpi, DpiScale newDpi)
         {
             DpiChangedCount++;
+            PresentationSourceAtDpiChange = PresentationSource.FromVisual(this);
             base.OnDpiChanged(oldDpi, newDpi);
         }
 

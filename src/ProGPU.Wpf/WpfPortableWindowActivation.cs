@@ -708,16 +708,28 @@ public sealed class WpfPortableWindowActivation : IDisposable, INativeWindowOwne
         activation = null;
         var rootVisual = ResolveRootVisual(window);
         if (!host.TryCreatePortablePresentationSource(
-                rootVisual,
+                rootVisual: null,
                 dpiScaleX,
                 dpiScaleY) ||
-            host.PortablePresentationSource is not { } portablePresentationSource)
+            host.PortablePresentationSource is not { } portablePresentationSource ||
+            host.PortablePresentationSourceBridge is not { } bridge)
         {
             return false;
         }
 
         activation = new WpfPortableWindowActivation(host, window, rootVisual, portablePresentationSource);
-        activation.TryRegisterMediaContextRenderService();
+        try
+        {
+            bridge.RootVisual = rootVisual;
+            activation.TryRegisterMediaContextRenderService();
+        }
+        catch
+        {
+            activation.Dispose();
+            activation = null;
+            throw;
+        }
+
         return true;
     }
 
@@ -739,9 +751,19 @@ public sealed class WpfPortableWindowActivation : IDisposable, INativeWindowOwne
         }
 
         var rootVisual = ResolveRootVisual(window);
-        bridge.RootVisual = rootVisual;
         activation = new WpfPortableWindowActivation(host, window, rootVisual, portablePresentationSource);
-        activation.TryRegisterMediaContextRenderService();
+        try
+        {
+            bridge.RootVisual = rootVisual;
+            activation.TryRegisterMediaContextRenderService();
+        }
+        catch
+        {
+            activation.Dispose();
+            activation = null;
+            throw;
+        }
+
         return true;
     }
 
