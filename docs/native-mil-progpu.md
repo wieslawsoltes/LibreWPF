@@ -5249,7 +5249,7 @@ qualification passes in ProGPU Build run `33336026310`, dedicated MSVC job
 regression passes in 0.14 seconds, all 11 native suites pass in 1.02 seconds,
 and the exact 110-export gate is accepted.
 
-ProGPU ABI v30 at checkpoint `96735d95` adds typed live bitmap/image-brush
+ProGPU ABI v30 at checkpoints `96735d95`/`058f6f1f` adds typed live bitmap/image-brush
 state required by native Win2D projections. Sampling, tiling, source rectangle,
 and nullable bitmap/image bindings can be changed and queried; returned
 interfaces are caller-owned and preserve canonical COM identity. Managed
