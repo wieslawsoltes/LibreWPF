@@ -4830,7 +4830,7 @@ for `progpu_native_direct2d.dll` and
 `cab7f76311cd5115a0f8f84ee680115eb6481c6842eb45a85eea0633c08292fc`
 for its test executable.
 
-ABI v7 and the `ProGPU.Direct2D` package now bind the producer lifecycle to
+ABI v8 and the `ProGPU.Direct2D` package now bind the producer lifecycle to
 Dawn's same-adapter import and the already-qualified D3DImage texture lease.
 `ProGpuDirect2DSurface` validates the D3D12 context, adapter, BGRA8 premultiplied
 format, NT handle, keyed mutex, dimensions, and DPI before importing the
@@ -4852,7 +4852,7 @@ closed before the first successful draw and forwards `TextureChanged`; the
 application retains ownership of the wrapped surface. This adds no bridge
 copy, new MIL resource kind, COM pointer in a packet, readback, or repack. The
 Windows build now stages `progpu_native_direct2d.dll` for x64/ARM64 and checks
-the exact 18-export ABI. Its generic GUID-based `QueryInterface` seam lets
+the exact 21-export ABI. Its generic GUID-based `QueryInterface` seam lets
 typed native/AOT callers request later genuine `ID2D1*` generations supported
 by the installed Windows runtime, with explicit `E_NOINTERFACE` failure and no
 emulated vtables.
@@ -4888,6 +4888,15 @@ pointer seam internal, require the exact brush handle kinds, and use
 `DangerousAddRef` around every borrowed `SafeHandle` pointer. This provides the
 resource-family shape for gradients, images, geometry, text, command lists,
 and effects without placing COM pointers in the portable MIL protocol.
+
+ABI v8 implements that shape for gradients. A pinned blittable managed stop
+span creates a genuine `ID2D1GradientStopCollection1` with explicit pre/post
+color spaces, buffer precision, extend mode, and interpolation mode without an
+intermediate array. Kind-checked collection handles then create genuine linear
+and radial brushes with typed geometry, opacity, and affine transform state.
+Both brush families use the generic native Win2D factory/resource-wrapper seam
+but expose only kind-specific managed methods; each borrowed safe handle is
+protected by `DangerousAddRef`.
 
 Exact ProGPU implementation commit `f751cd0b` was rebuilt in the Windows 11
 ARM64 Parallels VM with MSVC 19.44 and Windows SDK 26100 under `/W4 /WX`. The
@@ -4927,6 +4936,19 @@ solid-brush identity, reads brush ARGB `(255,224,48,96)`, and draws through the
 brush overload to the exact same center pixel while the corner remains
 transparent. Device/bitmap identity, content version `0 -> 1`, and
 `Dawn D3D12` also pass in that run.
+
+Exact ProGPU `8e62b5e5` was rebuilt in the Windows 11 ARM64 Parallels VM with
+MSVC 19.44, Windows SDK 26100, and `/W4 /WX`. The native regression exits zero
+and `dumpbin` matches all 21 allowed exports. SHA-256 is
+`c291eac6efc959acd39ba1bdea03d80e8e9025b001c145c13b4c174f003ffc96`
+for `progpu_native_direct2d.dll` and
+`712ba33d7cd121bb8a7d3c68585c3895c00ad5575e4cdc64971783857d2020a3`
+for its test executable. The signed official Win2D 1.4.0 oracle projects real
+`CanvasLinearGradientBrush` and `CanvasRadialGradientBrush` objects, proves
+exact reverse native identities, validates two-stop and geometry metadata, and
+draws exact solid/linear/radial samples `(255,224,48,96)`,
+`(255,32,160,224)`, and `(255,64,192,96)` while the corner remains
+transparent. Content advances `0 -> 1` on `Dawn D3D12`.
 
 Exact ProGPU ABI-v6 commit `1be881ca` was rebuilt in the same guest with MSVC
 19.44 and Windows SDK 26100 under `/W4 /WX`. The native regression exits zero
@@ -4988,13 +5010,13 @@ for the test executable. Windows SHA-256 is
 for `progpu_native.dll` and
 `d94382db3f1087573615c91ff983cd2343b6144b68c4f3db160f7c59f0f8568f`
 for the test executable. The genuine Windows `ID2D1Bitmap1`/DXGI producer is
-implemented at ProGPU `59045316`; ABI v7 supplies typed Dawn lifecycle/lease
+implemented at ProGPU `59045316`; ABI v8 supplies typed Dawn lifecycle/lease
 binding, real CanvasDevice/CanvasRenderTarget factory-native wrappers, exact
 reverse device/bitmap identity, and the first exact
-`ID2D1SolidColorBrush <-> CanvasSolidColorBrush` resource round trip.
-Microsoft Win2D device/target/solid-brush wrapping now has a package-deployed
-success oracle; complete device-loss recreation and broader resource-family
-tests remain required.
+solid, linear-gradient, and radial-gradient brush resource round trips.
+Microsoft Win2D device/target/brush wrapping now has a package-deployed success
+oracle; complete device-loss recreation and image/geometry/text/effect
+resource-family tests remain required.
 
 ## Next parity gates
 
