@@ -5326,8 +5326,28 @@ under `/W4 /WX`, passes the live regression 1/1 in 3.35 seconds, decodes the
 three-draw scene header, verifies typed rejection of DirectWrite rendering
 parameters, and reports exactly 123 exports. Provider SHA-256 is
 `0C552556B68BDB2F34B9B4ADA552B1DBBC2EB25A247483ED27710787CBF787D2`.
-Clean-checkout ProGPU CI qualification for documentation checkpoint `28b4610b`
-is pending.
+Clean-checkout ProGPU MSVC compatibility job `99339089791` at checkpoint
+`b91df2da` passes; its longer Windows renderer jobs were superseded by ABI v34.
+
+ProGPU ABI v34 at implementation `c4dca894` and documentation checkpoint
+`e938bce7` adds exact nested aliased Direct2D axis-aligned clip translation.
+Each push captures the active transform, converts the rectangle to target
+space, intersects it with its parent, and emits native scene state plus balanced
+save/restore commands. This preserves Direct2D push-time transform semantics
+and gives WPF scroll/viewport clips one backend-neutral representation across
+D3D12, Metal, Vulkan, and WebGPU. Depth is bounded by the native scene maximum
+of 64 with an explicit capacity result.
+
+Per-primitive antialiased clips remain fail-closed `E_NOTIMPL`: the current
+native rectangle clip is an exact scissor, not a coverage mask. The Windows
+oracle decodes the seven-command stream and verifies transformed outer state
+`[3,5,37.5,22.5]` and nested intersection `[15.5,12.5,25,15]` exactly, then
+proves that antialiased clip mode produces no partial scene. Managed build is
+warning-free, contracts pass 5/5, and the allowlist remains 123 exports.
+Incremental Windows 11 ARM64 Parallels MSVC 19.44/SDK 10.0.26100.0 compiles
+under `/W4 /WX` and passes the live Direct2D regression 1/1. Provider SHA-256
+is `9C38D9BFFC95D7453EDCA5F3D63B53C973C1E24F9DDA2EB3214477BF497464AE`;
+clean-checkout ABI v34 CI qualification is pending.
 
 ## Native MIL canonical D3DImage checkpoint
 
