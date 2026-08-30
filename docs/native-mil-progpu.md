@@ -5236,6 +5236,16 @@ qualification passes in ProGPU Build run `33335230522`, dedicated MSVC job
 regression passes in 0.17 seconds, all 11 native suites pass in 1.07 seconds,
 and the exact 102-export gate is accepted.
 
+ProGPU ABI v29 at checkpoint `2086632e` adds mutable native Direct2D brush
+parity: typed common opacity/affine transform, solid color, linear endpoints,
+and radial center/origin/radii set/query operations. Handles remain generation-
+and kind-checked and protected during the C++ call; finite values, opacity, and
+radii fail closed on both boundaries. No reflection, CPU pixels, command arrays,
+or portable COM identity are introduced. The native regression restores the
+solid brush before the exact-BGRA oracle. The exact allowlist grows from 102 to
+110 exports; managed contracts pass 5/5 with zero warnings. Windows MSVC
+qualification remains pending.
+
 ## Native MIL canonical D3DImage checkpoint
 
 ProGPU `72c9d794`/`20918afb` and this LibreWPF checkpoint add canonical
