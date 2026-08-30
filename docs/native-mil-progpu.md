@@ -4722,7 +4722,7 @@ the staged WinUI `generic.xaml` SHA-256 is
 Windows may additionally run the real Win2D/Direct2D runtime into a
 same-adapter shared BGRA8 DXGI allocation and import it through ProGPU's
 existing Dawn keyed-mutex/shared-texture path without CPU readback; that native
-interop adapter remains planned. The Microsoft Win2D binary remains
+interop adapter is implemented in `ProGPU.Direct2D`. The Microsoft Win2D binary remains
 Windows-only, native COM resource wrapping fails closed off Windows, and
 ProGPU will not publish a fake `d2d1.dll`. The portable package is source
 compatible rather than binary compatible; bitmap file/buffer APIs,
@@ -4830,7 +4830,7 @@ for `progpu_native_direct2d.dll` and
 `cab7f76311cd5115a0f8f84ee680115eb6481c6842eb45a85eea0633c08292fc`
 for its test executable.
 
-ABI v8 and the `ProGPU.Direct2D` package now bind the producer lifecycle to
+ABI v9 and the `ProGPU.Direct2D` package now bind the producer lifecycle to
 Dawn's same-adapter import and the already-qualified D3DImage texture lease.
 `ProGpuDirect2DSurface` validates the D3D12 context, adapter, BGRA8 premultiplied
 format, NT handle, keyed mutex, dimensions, and DPI before importing the
@@ -4852,7 +4852,7 @@ closed before the first successful draw and forwards `TextureChanged`; the
 application retains ownership of the wrapped surface. This adds no bridge
 copy, new MIL resource kind, COM pointer in a packet, readback, or repack. The
 Windows build now stages `progpu_native_direct2d.dll` for x64/ARM64 and checks
-the exact 21-export ABI. Its generic GUID-based `QueryInterface` seam lets
+the exact 27-export ABI. Its generic GUID-based `QueryInterface` seam lets
 typed native/AOT callers request later genuine `ID2D1*` generations supported
 by the installed Windows runtime, with explicit `E_NOINTERFACE` failure and no
 emulated vtables.
@@ -4897,6 +4897,17 @@ and radial brushes with typed geometry, opacity, and affine transform state.
 Both brush families use the generic native Win2D factory/resource-wrapper seam
 but expose only kind-specific managed methods; each borrowed safe handle is
 protected by `DangerousAddRef`.
+
+ABI v9 adds genuine `ID2D1RectangleGeometry`,
+`ID2D1RoundedRectangleGeometry`, `ID2D1EllipseGeometry`,
+`ID2D1PathGeometry1`, and `ID2D1TransformedGeometry` creation plus union,
+intersection, XOR, and exclusion through Direct2D's boolean geometry sink.
+The batched blittable path ABI preserves filled/closed figures and line,
+quadratic, cubic, and arc segments without per-segment P/Invoke or CPU
+tessellation. The managed owner accepts both low-level spans and the same
+neutral `PortablePrimitiveGeometry`/`PortableGeometryPath` DTOs already used
+by LibreWPF retained replay. Kind-checked `CanvasGeometry` projection and
+reverse unwrapping must preserve canonical `ID2D1Geometry` identity.
 
 Exact ProGPU implementation commit `f751cd0b` was rebuilt in the Windows 11
 ARM64 Parallels VM with MSVC 19.44 and Windows SDK 26100 under `/W4 /WX`. The
@@ -4949,6 +4960,23 @@ exact reverse native identities, validates two-stop and geometry metadata, and
 draws exact solid/linear/radial samples `(255,224,48,96)`,
 `(255,32,160,224)`, and `(255,64,192,96)` while the corner remains
 transparent. Content advances `0 -> 1` on `Dawn D3D12`.
+
+ABI v9 at exact ProGPU `0b96328e` was rebuilt in the same Windows 11 ARM64
+Parallels guest with MSVC 19.44, Windows SDK 26100, and `/W4 /WX`. The native
+regression exits zero and the exact 27-export audit passes. SHA-256 is
+`83a67ee9007902ca477bada185ea99d298f879b8798b91aad18d4bf996eda29e`
+for the DLL and
+`eb9cdf5346e8f72ae49b2486051298a7bbce44bd83bde36b554dee50d7b8f0fa`
+for its test executable; the source archive is
+`3a3726ee61792a98558a02e2cb6a050340fbadf757b0908c5f1b318514f55f5b`.
+The signed official Win2D 1.4.0 oracle built from exact app `3a058643`
+projects a real `Microsoft.Graphics.Canvas.Geometry.CanvasGeometry`, proves
+exact reverse native identity, and fills a boolean-exclude geometry. Its ring
+sample is exact ARGB `(255,240,208,32)` while the excluded hole preserves the
+solid sample `(255,224,48,96)`. Existing brush samples, transparent corner,
+all native identities, content version `0 -> 1`, and `Dawn D3D12` remain
+green. The package gate persists JSON before uninstall and records a
+best-effort last completed stage for native-termination diagnosis.
 
 Exact ProGPU ABI-v6 commit `1be881ca` was rebuilt in the same guest with MSVC
 19.44 and Windows SDK 26100 under `/W4 /WX`. The native regression exits zero
@@ -5010,12 +5038,12 @@ for the test executable. Windows SHA-256 is
 for `progpu_native.dll` and
 `d94382db3f1087573615c91ff983cd2343b6144b68c4f3db160f7c59f0f8568f`
 for the test executable. The genuine Windows `ID2D1Bitmap1`/DXGI producer is
-implemented at ProGPU `59045316`; ABI v8 supplies typed Dawn lifecycle/lease
+implemented at ProGPU `59045316`; ABI v9 supplies typed Dawn lifecycle/lease
 binding, real CanvasDevice/CanvasRenderTarget factory-native wrappers, exact
 reverse device/bitmap identity, and the first exact
-solid, linear-gradient, and radial-gradient brush resource round trips.
-Microsoft Win2D device/target/brush wrapping now has a package-deployed success
-oracle; complete device-loss recreation and image/geometry/text/effect
+solid, linear-gradient, radial-gradient, and geometry resource round trips.
+Microsoft Win2D device/target/brush/geometry wrapping now has a package-deployed success
+oracle; complete device-loss recreation and image/text/effect
 resource-family tests remain required.
 
 ## Next parity gates
