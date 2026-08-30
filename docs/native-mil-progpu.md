@@ -5285,6 +5285,24 @@ seconds. Its later managed WebGPU sample lost the Microsoft Basic Render Driver
 device after those gates completed. ProGPU qualification documentation is at
 checkpoint `13475078`.
 
+ProGPU ABI v32 at implementation `3f5078af`, with Windows oracle correction
+`8e812820`, adds the first genuine Direct2D command-list ingestion boundary for
+the C++ backend. `ID2D1CommandList::Stream` feeds an allocation-free internal
+`ID2D1CommandSink1` that validates mixed clip/layer scope order and publishes a
+64-byte pointer-free summary of state, clear, draw, fill, text, image, clip,
+layer, and unsupported operation counts. Callback COM resources remain
+Windows-local and are never retained or transported through MIL/WebGPU. Audit
+mode reports unsupported classes; strict mode fails closed with `E_NOTIMPL` for
+non-null text rendering parameters, GDI metafiles, meshes, and opacity masks.
+This checkpoint is operation-set preflight, not yet resource conversion or
+native scene emission. Managed builds have zero warnings, contracts pass 5/5,
+and the ABI allowlist is exactly 122 exports. Incremental Windows 11 ARM64 MSVC
+19.44/SDK 10.0.26100.0 compiles the full sink vtable under `/W4 /WX` and passes
+the supported/fail-closed regression 1/1; provider SHA-256 is
+`E2A0F827107450E5C6D0ED8C2CA3C8C20656F6A32C1A6361DB788C14117CD1D3`.
+ProGPU documentation checkpoint is `a048cff9`; clean-checkout Build
+qualification is pending.
+
 ## Native MIL canonical D3DImage checkpoint
 
 ProGPU `72c9d794`/`20918afb` and this LibreWPF checkpoint add canonical
