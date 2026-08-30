@@ -5231,7 +5231,10 @@ allocates no command objects or callbacks, and leaves MIL/WebGPU free of COM
 identity. The native regression restores all state before the existing clipped
 bitmap/image and exact-BGRA oracle. The exact allowlist grows from 90 to 102
 exports; managed contracts pass 5/5 with zero package warnings. Windows MSVC
-qualification remains pending.
+qualification passes in ProGPU Build run `33335230522`, dedicated MSVC job
+`99320851539`: warning-as-error compile/link succeeds, the focused Direct2D
+regression passes in 0.17 seconds, all 11 native suites pass in 1.07 seconds,
+and the exact 102-export gate is accepted.
 
 ## Native MIL canonical D3DImage checkpoint
 
