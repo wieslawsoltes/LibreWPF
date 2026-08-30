@@ -5053,6 +5053,18 @@ layout back through Win2D, and draws it; execution of that signed package gate
 remains pending explicit approval for its temporary test-certificate trust.
 The native export allowlist grows from 49 to exactly 50.
 
+ProGPU `4d36f331` advances the provider to ABI v19 with genuine
+device-independent `IDWriteTypography`. A bounded pinned span of typed
+OpenType name-tag/parameter pairs crosses managed/native once; DirectWrite
+copies it into the owned typography object, which is then assigned to a
+nonempty retained-layout UTF-16 range. The Win2D resource seam applies the
+correct null-device/zero-DPI rule for official `CanvasTypography`, validates
+the projected feature metadata, and reverse-unwraps the exact native identity.
+Empty or oversized feature sets, zero tags, invalid ranges, and wrong COM
+kinds fail closed. The allowlist grows from 50 to exactly 52 exports without
+reflection, text readback, or per-feature managed/native calls. Signed package
+execution remains a separate approval-gated oracle.
+
 ## Native MIL canonical D3DImage checkpoint
 
 ProGPU `72c9d794`/`20918afb` and this LibreWPF checkpoint add canonical
@@ -5100,9 +5112,10 @@ reverse device/bitmap identity, and the first exact
 solid, linear-gradient, radial-gradient, and geometry resource round trips.
 Microsoft Win2D device/target/brush/geometry wrapping now has a package-deployed success
 oracle. The native DirectWrite text-format/draw path is ABI-v16 qualified and
-ABI v17 implements retained text layouts and ABI v18 implements typed range
-formatting plus the corresponding official-Win2D oracle assertions. Signed
-package execution, advanced typography, glyph runs/color fonts, complete
+ABI v17 implements retained text layouts, ABI v18 implements typed range
+formatting, and ABI v19 implements OpenType typography plus corresponding
+official-Win2D oracle assertions. Signed package execution, remaining
+typography, glyph runs/color fonts, complete
 device-loss recreation, and remaining image/effect resource-family tests
 remain required.
 
