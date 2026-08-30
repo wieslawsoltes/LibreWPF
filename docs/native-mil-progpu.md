@@ -4830,7 +4830,7 @@ for `progpu_native_direct2d.dll` and
 `cab7f76311cd5115a0f8f84ee680115eb6481c6842eb45a85eea0633c08292fc`
 for its test executable.
 
-ABI v5 and the `ProGPU.Direct2D` package now bind the producer lifecycle to
+ABI v6 and the `ProGPU.Direct2D` package now bind the producer lifecycle to
 Dawn's same-adapter import and the already-qualified D3DImage texture lease.
 `ProGpuDirect2DSurface` validates the D3D12 context, adapter, BGRA8 premultiplied
 format, NT handle, keyed mutex, dimensions, and DPI before importing the
@@ -4852,7 +4852,7 @@ closed before the first successful draw and forwards `TextureChanged`; the
 application retains ownership of the wrapped surface. This adds no bridge
 copy, new MIL resource kind, COM pointer in a packet, readback, or repack. The
 Windows build now stages `progpu_native_direct2d.dll` for x64/ARM64 and checks
-the exact 14-export ABI. Its generic GUID-based `QueryInterface` seam lets
+the exact 15-export ABI. Its generic GUID-based `QueryInterface` seam lets
 typed native/AOT callers request later genuine `ID2D1*` generations supported
 by the installed Windows runtime, with explicit `E_NOINTERFACE` failure and no
 emulated vtables.
@@ -4870,6 +4870,14 @@ package registration, missing apartment initialization, a cross-device
 resource, an overlapping producer, or an active GPU lease fails closed through
 typed HRESULT/state results. The provider does not search for or load the
 Win2D DLL.
+
+ABI v6 adds the reverse official
+`ICanvasResourceWrapperNative::GetNativeResource` seam. Public typed methods
+return caller-owned exact `ID2D1Device1` and `ID2D1Bitmap1` references from the
+real CanvasDevice and CanvasRenderTarget while native code supplies the cached
+CanvasDevice and target DPI. Canonical `IUnknown` identity comparison proves
+both round trips return the original ProGPU provider resources without a
+second device domain or copy.
 
 Exact ProGPU implementation commit `f751cd0b` was rebuilt in the Windows 11
 ARM64 Parallels VM with MSVC 19.44 and Windows SDK 26100 under `/W4 /WX`. The
@@ -4895,6 +4903,16 @@ The optional Windows lane is enabled with
 `PROGPU_RUN_REAL_WIN2D_INTEGRATION=1`; it requires a pre-provisioned signing
 certificate thumbprint and never mutates trust stores. Full device-loss/domain
 recreation and broader Win2D resource wrapping remain open parity gates.
+
+Exact ProGPU ABI-v6 commit `1be881ca` was rebuilt in the same guest with MSVC
+19.44 and Windows SDK 26100 under `/W4 /WX`. The native regression exits zero
+and the exact 15-export audit passes. SHA-256 is
+`160037e11339ec6ad38a3cc2bc121ca6da5ba73ad3fd25c29d9eb8d030a132d9`
+for `progpu_native_direct2d.dll` and
+`46884523bd6ba4700c8113ac9df2f09689b134d429327a07d9fcd083511159ec`
+for its test executable. The packaged Win2D evidence adds
+`NativeDeviceIdentityMatches=true` and `NativeBitmapIdentityMatches=true` while
+retaining the exact pixel, `0 -> 1` content-version, and `Dawn D3D12` results.
 
 The provider now also creates the genuine WinRT `IDirect3DDevice` required by
 Win2D `CanvasDevice.CreateFromDirect3D11Device` from the surface's exact
@@ -4946,8 +4964,9 @@ for the test executable. Windows SHA-256 is
 for `progpu_native.dll` and
 `d94382db3f1087573615c91ff983cd2343b6144b68c4f3db160f7c59f0f8568f`
 for the test executable. The genuine Windows `ID2D1Bitmap1`/DXGI producer is
-implemented at ProGPU `59045316`; ABI v5 supplies typed Dawn lifecycle/lease
-binding plus real CanvasDevice and CanvasRenderTarget factory-native wrappers.
+implemented at ProGPU `59045316`; ABI v6 supplies typed Dawn lifecycle/lease
+binding, real CanvasDevice/CanvasRenderTarget factory-native wrappers, and
+exact reverse native-resource identity.
 Microsoft Win2D device/target wrapping now has a package-deployed success
 oracle; complete device-loss recreation and broader resource-family tests
 remain required.
