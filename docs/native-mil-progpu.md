@@ -5257,8 +5257,11 @@ generation/kind validation and safe-handle borrowing pair with independent C++
 `QueryInterface` checks. The path performs no reflection, CPU pixel transfer,
 repack, or portable MIL/WebGPU COM transport. Tests cover detach/rebind and
 restore state before existing rendering gates. The exact allowlist grows from
-110 to 118 exports; contracts pass 5/5 with zero warnings. Windows MSVC
-qualification remains pending.
+110 to 118 exports; contracts pass 5/5 with zero warnings. Corrected checkpoint
+`058f6f1f` is qualified by ProGPU Build run `33336912843`, dedicated MSVC job
+`99325361848`: warning-as-error compile/link succeeds, the focused Direct2D
+regression passes in 0.18 seconds, all 11 native suites pass in 1.33 seconds,
+and the exact 118-export gate is accepted.
 
 ## Native MIL canonical D3DImage checkpoint
 
