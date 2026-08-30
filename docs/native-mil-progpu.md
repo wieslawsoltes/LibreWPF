@@ -5215,7 +5215,11 @@ bitmap, and image commands into an `ID2D1CommandList`, verifies mixed layer/clip
 mismatch behavior, composites through the keyed-mutex target, and retains the
 exact BGRA staging-pixel oracle. Portable managed contracts pass 5/5 with zero
 warnings. Windows MSVC compile, exact-export, and native pixel qualification
-are pending Build run `33334553038`.
+are qualified by Build run `33334553038`, dedicated MSVC job `99319045125`:
+warning-as-error compile/link succeeds, the focused Direct2D regression passes
+in 0.16 seconds, all 11 native suites pass in 1.05 seconds, and the successful
+Windows build accepts the exact 90-export allowlist. The recorded ProGPU
+documentation checkpoint is `8d9ad714`.
 
 ## Native MIL canonical D3DImage checkpoint
 
