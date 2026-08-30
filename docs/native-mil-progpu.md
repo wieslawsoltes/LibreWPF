@@ -5200,6 +5200,23 @@ seconds, all 11 native suites pass, and the exact 86-export gate is accepted.
 Clip APIs remain a follow-up because exact clip/layer cross-ordering requires
 one unified LIFO draw-state stack rather than independent depth counters.
 
+ProGPU ABI v27 at checkpoint `10ef4c1a` implements that exact draw-state
+ordering and adds the next typed Win2D image slice. Axis-aligned clip scopes
+and layers share one fixed-capacity, allocation-free LIFO stack; cross-kind
+pop attempts fail closed without consuming the active scope, and producer
+cleanup unwinds mixed scopes in exact reverse order. Shared-target and command-
+list sessions expose typed `DrawBitmap` and `DrawImage` operations with optional
+source/destination rectangles, target offsets, full finite 4x4 bitmap
+perspective transforms, and the complete Direct2D interpolation and composite
+mode enums. Bitmap and image handles remain kind- and generation-checked and
+protected by `DangerousAddRef` across native calls. The allowlist grows from 86
+to exactly 90 exports. Deterministic native coverage records clipped vector,
+bitmap, and image commands into an `ID2D1CommandList`, verifies mixed layer/clip
+mismatch behavior, composites through the keyed-mutex target, and retains the
+exact BGRA staging-pixel oracle. Portable managed contracts pass 5/5 with zero
+warnings. Windows MSVC compile, exact-export, and native pixel qualification
+are pending Build run `33334553038`.
+
 ## Native MIL canonical D3DImage checkpoint
 
 ProGPU `72c9d794`/`20918afb` and this LibreWPF checkpoint add canonical
