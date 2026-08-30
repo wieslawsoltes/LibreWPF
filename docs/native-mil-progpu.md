@@ -5300,8 +5300,9 @@ and the ABI allowlist is exactly 122 exports. Incremental Windows 11 ARM64 MSVC
 19.44/SDK 10.0.26100.0 compiles the full sink vtable under `/W4 /WX` and passes
 the supported/fail-closed regression 1/1; provider SHA-256 is
 `E2A0F827107450E5C6D0ED8C2CA3C8C20656F6A32C1A6361DB788C14117CD1D3`.
-ProGPU documentation checkpoint is `a048cff9`; clean-checkout Build
-qualification is pending.
+ProGPU documentation checkpoint is `a048cff9`; ClangCL COM exception-spec
+portability fix `7a5feda4` is tracked by the submodule. Clean-checkout Build
+run `33340281658` is pending.
 
 ## Native MIL canonical D3DImage checkpoint
 
