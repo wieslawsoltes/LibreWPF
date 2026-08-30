@@ -5273,8 +5273,17 @@ pinned only for the synchronous native upload, with no array materialization or
 repack. Native coverage draws the mutated bitmap into the shared target and
 checks distinct exact BGRA pixels for the memory update and GPU copy. The exact
 allowlist grows from 118 to 121 exports; contracts pass 5/5 with zero warnings.
-Windows MSVC/native Direct2D qualification is pending for ProGPU documentation
-checkpoint `dfedc70e`.
+Immutable archive SHA-256
+`CBEF4F7F71DE3B61B43CE0A1C2C14941B0589C6440C92F0CD7553FA4DBAE82E3`
+is qualified in the Windows 11 ARM64 Parallels VM using MSVC 19.44 and Windows
+SDK 10.0.26100.0: strict compile/link, the exact 121-export comparison, and the
+focused live Direct2D regression all pass. The provider DLL SHA-256 is
+`07751974494C643CF899F60988AED1335EC10BF493E26142099528D4041B7C1C`.
+ProGPU Build run `33337753262`, x64 native job `99327677774`, independently
+passes the Direct2D regression in 0.17 seconds and all 12 native suites in 1.14
+seconds. Its later managed WebGPU sample lost the Microsoft Basic Render Driver
+device after those gates completed. ProGPU qualification documentation is at
+checkpoint `13475078`.
 
 ## Native MIL canonical D3DImage checkpoint
 
