@@ -4878,10 +4878,23 @@ SHA-256 is
 `d9224ee806635ba3086d299912bb7bd2d9cf52a7ef56451ae54656058e7175d8`
 for `progpu_native_direct2d.dll` and
 `0e8fc690ba5bd4a7a40d461d1691f8efd32dbef7338ae90a1635ccc5b0f2e02d`
-for its test executable. That VM has no registered Canvas/Win2D AppX package,
-so it qualifies the explicit unavailable-runtime behavior for both wrappers;
-the real Win2D success path still requires the package-deployed oracle and the
-full device-loss/recreation gate.
+for its test executable. That isolated native regression had no registered
+Canvas/Win2D AppX package, so it also qualifies the explicit unavailable-
+runtime behavior for both wrappers.
+
+The real package-deployed path is now qualified from exact ProGPU source
+`d201494a` in that Windows 11 ARM64 Parallels VM. A full-trust MSIX containing
+official Microsoft Win2D 1.4.0 projects the returned native pointer through
+`CanvasRenderTarget.FromAbi`, creates a genuine `CanvasDrawingSession`, and
+draws into the ProGPU Direct2D/Dawn shared target. Validation-only pixel access
+reports an exact transparent corner and center ARGB `(255,32,96,192)` after a
+48x48 fill on a 64x64 target. Content version advances `0 -> 1`, native wrapping
+returns `S_OK`, the three runtime types are the official
+`Microsoft.Graphics.Canvas` types, and the adapter reports `Dawn D3D12`.
+The optional Windows lane is enabled with
+`PROGPU_RUN_REAL_WIN2D_INTEGRATION=1`; it requires a pre-provisioned signing
+certificate thumbprint and never mutates trust stores. Full device-loss/domain
+recreation and broader Win2D resource wrapping remain open parity gates.
 
 The provider now also creates the genuine WinRT `IDirect3DDevice` required by
 Win2D `CanvasDevice.CreateFromDirect3D11Device` from the surface's exact
@@ -4935,17 +4948,18 @@ for `progpu_native.dll` and
 for the test executable. The genuine Windows `ID2D1Bitmap1`/DXGI producer is
 implemented at ProGPU `59045316`; ABI v5 supplies typed Dawn lifecycle/lease
 binding plus real CanvasDevice and CanvasRenderTarget factory-native wrappers.
-Microsoft Win2D still needs a package-deployed success oracle and complete
-device-loss recreation tests.
+Microsoft Win2D device/target wrapping now has a package-deployed success
+oracle; complete device-loss recreation and broader resource-family tests
+remain required.
 
 ## Next parity gates
 
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested
    render-data command families using the complete generated WPF MCG layouts.
-2. Add remaining non-bitmap image sources, qualify the implemented Microsoft
-   Win2D resource wrappers with a package-deployed success oracle, complete the
-   device-loss gate, and add remaining exact WPF-compatible arc lowering,
-   and
+2. Add remaining non-bitmap image sources, extend the package-qualified
+   Microsoft Win2D device/target wrappers to broader resource families,
+   complete the device-loss gate, and add remaining exact WPF-compatible arc
+   lowering, and
    remaining multi-guideline draw-family deformation, general Visual
    effect/clip/mask/opacity ordering, remaining
    opacity-mask/effect/dynamic-guideline push/pop state,
