@@ -5112,6 +5112,10 @@ closed. The official Win2D seam wraps and reverse-unwraps the exact resource as
 `CanvasSvgDocument`, while portable LibreWPF SVG continues to use ProGPU's
 backend-neutral retained vector path. The allowlist grows from 56 to exactly
 58 exports.
+GitHub Actions Build run `33328289063`, MSVC job `99302278126`, compiles and
+links the warning-as-error provider and native regression. The focused
+`progpu_native_direct2d_tests` passes in 0.49 seconds, all 11 native suites
+pass, and the exact 58-symbol allowlist is accepted.
 
 ## Native MIL canonical D3DImage checkpoint
 
