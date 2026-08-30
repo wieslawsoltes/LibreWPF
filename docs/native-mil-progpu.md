@@ -5178,7 +5178,7 @@ Corrected native-identical commit `84ece34c` passes ClangCL x64 job
 `99312705172` in 0.15 seconds and all 12 native suites; the final commit changes
 only managed operation-label scope covered by the aggregate job.
 
-ProGPU ABI v26 at checkpoint `d9982c73` adds the typed immediate Direct2D
+ProGPU ABI v26 at checkpoints `d9982c73`/`f1b1ca18` adds the typed immediate Direct2D
 vector-drawing surface needed by Windows MIL and native Win2D integration.
 Both shared-target and `ID2D1CommandList` sessions expose transparent or
 colored clear, affine transform get/set, and line, rectangle,
