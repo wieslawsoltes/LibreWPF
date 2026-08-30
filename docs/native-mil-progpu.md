@@ -5096,6 +5096,10 @@ missing required COM support and other translation failures fail closed. No
 font payload is decoded in managed code or copied through CPU pixel buffers.
 The session returns a typed context7/translated-context4/no-color diagnostic,
 and the allowlist grows from 55 to exactly 56 exports.
+GitHub Actions Build run `33327156224`, MSVC job `99299265980`, compiles and
+links the provider plus regression under the warning-as-error lane. The
+focused `progpu_native_direct2d_tests` passes in 0.14 seconds, all 11 native
+suites pass, and the exact 56-symbol allowlist is accepted.
 
 ## Native MIL canonical D3DImage checkpoint
 
