@@ -16,7 +16,7 @@ namespace System.Windows
     /// <summary>
     /// Presentation source for non-HWND hosts.
     /// </summary>
-    internal sealed class PortablePresentationSource : PresentationSource, IPortablePresentationSourceHost, IDisposable
+    internal sealed class PortablePresentationSource : PresentationSource, IPortablePresentationSourceHost, IWin32Window, IDisposable
     {
         private readonly PortableCompositionTarget _compositionTarget;
         private readonly PortableKeyboardInputProvider _keyboardInputProvider;
@@ -120,6 +120,11 @@ namespace System.Windows
         IntPtr IPortablePresentationSourceHost.Handle
         {
             get { return _isDisposed ? IntPtr.Zero : _handle; }
+        }
+
+        IntPtr IWin32Window.Handle
+        {
+            get { return Handle; }
         }
 
         object IPortablePresentationSourceHost.RequestedCursor

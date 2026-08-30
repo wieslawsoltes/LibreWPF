@@ -10,6 +10,20 @@ namespace System.Windows;
 public class PortablePresentationSourceTests
 {
     [Fact]
+    public void FromVisualExposesPortableHandleThroughWin32WindowContract()
+    {
+        using IPortablePresentationSourceHost source = PortablePresentationSourceHost.Create();
+        var root = new DrawingVisual();
+        source.RootVisual = root;
+
+        PresentationSource presentationSource = PresentationSource.FromVisual(root);
+        var window = presentationSource.Should().BeAssignableTo<Interop.IWin32Window>().Subject;
+
+        window.Handle.Should().Be(source.Handle);
+        window.Handle.Should().NotBe(IntPtr.Zero);
+    }
+
+    [Fact]
     public void InitialDeviceScaleIsAppliedToRootVisual()
     {
         using IPortablePresentationSourceHost source = PortablePresentationSourceHost.Create(2.0, 1.5);
