@@ -5170,8 +5170,13 @@ per-triangle allocation or managed callbacks. Filled and stroked
 All geometry, stroke-style, realization, and brush handles remain kind- and
 generation-checked. Invalid options, transforms, tolerances, widths, buffers,
 and producer state fail closed. The allowlist grows from 67 to exactly 74
-exports. Portable build and all 5 focused AOT/reflection-free contracts pass
-for ProGPU `9dc74d09`; Windows qualification is pending its Build workflow.
+exports. Final ProGPU checkpoint `9dc74d09` passes the managed aggregate in
+Build run `33332388195`, Ubuntu job `99313260684`. Dedicated MSVC job
+`99313260762` compiles/links the 74-export DLL under warning-as-error, passes
+the Direct2D regression in 0.14 seconds, and passes all 11 native suites.
+Corrected native-identical commit `84ece34c` passes ClangCL x64 job
+`99312705172` in 0.15 seconds and all 12 native suites; the final commit changes
+only managed operation-label scope covered by the aggregate job.
 
 ## Native MIL canonical D3DImage checkpoint
 
