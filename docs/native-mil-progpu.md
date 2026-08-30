@@ -5101,6 +5101,18 @@ links the provider plus regression under the warning-as-error lane. The
 focused `progpu_native_direct2d_tests` passes in 0.14 seconds, all 11 native
 suites pass, and the exact 56-symbol allowlist is accepted.
 
+The next ProGPU ABI v22 checkpoint adds genuine same-device
+`ID2D1SvgDocument` resources through `ID2D1DeviceContext5`. Caller-owned UTF-8
+XML is exposed by a bounded borrowed `IStream` only for the synchronous
+Direct2D parse, avoiding both a retained pointer and an intermediate managed
+array. Surface and command-list draws temporarily apply Win2D-compatible
+viewport/origin state and restore it before return. Foreign resource domains,
+invalid viewports, oversized input, wrong COM kinds, and inactive draws fail
+closed. The official Win2D seam wraps and reverse-unwraps the exact resource as
+`CanvasSvgDocument`, while portable LibreWPF SVG continues to use ProGPU's
+backend-neutral retained vector path. The allowlist grows from 56 to exactly
+58 exports.
+
 ## Native MIL canonical D3DImage checkpoint
 
 ProGPU `72c9d794`/`20918afb` and this LibreWPF checkpoint add canonical
