@@ -5221,6 +5221,18 @@ in 0.16 seconds, all 11 native suites pass in 1.05 seconds, and the successful
 Windows build accepts the exact 90-export allowlist. The recorded ProGPU
 documentation checkpoint is `8d9ad714`.
 
+ProGPU ABI v28 at checkpoint `ac10d4af` adds typed native Win2D drawing-state
+parity on the same genuine device context. Shared-target and command-list
+sessions round-trip geometry antialiasing, text antialiasing, primitive blend,
+DIP/pixel unit mode, two 64-bit tags, and DPI. Both managed and C++ boundaries
+reject unknown enums and invalid DPI; `(0, 0)` preserves Direct2D's exact
+reset-to-96-DPI behavior. Every operation requires the active typed producer,
+allocates no command objects or callbacks, and leaves MIL/WebGPU free of COM
+identity. The native regression restores all state before the existing clipped
+bitmap/image and exact-BGRA oracle. The exact allowlist grows from 90 to 102
+exports; managed contracts pass 5/5 with zero package warnings. Windows MSVC
+qualification remains pending.
+
 ## Native MIL canonical D3DImage checkpoint
 
 ProGPU `72c9d794`/`20918afb` and this LibreWPF checkpoint add canonical
