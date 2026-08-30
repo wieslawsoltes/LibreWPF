@@ -5178,6 +5178,25 @@ Corrected native-identical commit `84ece34c` passes ClangCL x64 job
 `99312705172` in 0.15 seconds and all 12 native suites; the final commit changes
 only managed operation-label scope covered by the aggregate job.
 
+ProGPU ABI v26 at checkpoint `d9982c73` adds the typed immediate Direct2D
+vector-drawing surface needed by Windows MIL and native Win2D integration.
+Both shared-target and `ID2D1CommandList` sessions expose transparent or
+colored clear, affine transform get/set, and line, rectangle,
+rounded-rectangle, ellipse, and arbitrary geometry fill/stroke operations.
+Brushes, optional stroke styles, geometries, and optional opacity brushes are
+kind- and generation-checked, and each borrowed safe handle is retained across
+the native call. The C++ boundary repeats finite scalar validation and genuine
+COM `QueryInterface` checks; operations require an active producer and defer
+device-context errors to the existing tagged `EndDraw` transaction. There is
+no reflection, managed callback, CPU command-array materialization, readback,
+or portable-scene COM pointer. The exact allowlist grows from 74 to 86 exports.
+The native regression records every operation, round-trips transform state,
+composites the command list into the keyed-mutex target, and checks an exact
+BGRA staging pixel. Portable managed contract coverage passes 5/5 with zero
+warnings; Windows MSVC/ClangCL execution is pending Build run `33333496713`.
+Clip APIs remain a follow-up because exact clip/layer cross-ordering requires
+one unified LIFO draw-state stack rather than independent depth counters.
+
 ## Native MIL canonical D3DImage checkpoint
 
 ProGPU `72c9d794`/`20918afb` and this LibreWPF checkpoint add canonical
