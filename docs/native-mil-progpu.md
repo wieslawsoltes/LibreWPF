@@ -4997,6 +4997,33 @@ The factory-native wrapper is preferred over constructing a CanvasDevice only
 from that WinRT object because it preserves the provider's exact Direct2D
 resource domain.
 
+ABI v16 at ProGPU implementation checkpoint `6a87f320` extends the same
+Windows-only native COM producer with a genuine shared `IDWriteFactory3`,
+caller-owned `IDWriteTextFormat1` resources, and typed
+`ID2D1RenderTarget::DrawText` submission on both shared-surface and
+command-list transactions. Family, locale, and text enter through explicit
+UTF-16 spans. Only the cold format-creation boundary builds the NUL-terminated
+DirectWrite family and locale strings; the hot draw path consumes the pinned
+caller span directly without provider-side text copies, readback, repacking,
+reflection, or per-glyph interop. Device-independent Win2D wrapping uses a
+null CanvasDevice and zero DPI, and reverse unwrapping requests the exact
+`IDWriteTextFormat1` IID so a later signed oracle can prove canonical identity
+without creating another Direct2D resource domain. Invalid descriptors,
+unknown flags, wrong resource kinds, and calls outside an active draw fail
+closed.
+
+Two consecutive `/Brepro` builds in the Windows 11 ARM64 Parallels guest with
+MSVC 19.44, Windows SDK 10.0.26100.0, and `/W4 /WX` produce identical
+artifacts. The focused native regression exits zero after creating and
+querying the DirectWrite resources and executing a real Direct2D text draw;
+`dumpbin` matches the exact 47-export allowlist. SHA-256 is
+`6BC503DBE9BB5506B709CA6D97D8B78F82F302BF33BCE4352B104722DA05FCDC`
+for `progpu_native_direct2d.dll` and
+`8C634D6EC4963786D87D5E87BEE5FBD83F6B843A8BCE535E0E9149CB806FCDC5`
+for its native test executable. This qualifies the native COM path; official
+Win2D `CanvasTextFormat` projection remains a separate signed-package gate and
+is not inferred from native identity alone.
+
 ## Native MIL canonical D3DImage checkpoint
 
 ProGPU `72c9d794`/`20918afb` and this LibreWPF checkpoint add canonical
@@ -5043,8 +5070,10 @@ binding, real CanvasDevice/CanvasRenderTarget factory-native wrappers, exact
 reverse device/bitmap identity, and the first exact
 solid, linear-gradient, radial-gradient, and geometry resource round trips.
 Microsoft Win2D device/target/brush/geometry wrapping now has a package-deployed success
-oracle; complete device-loss recreation and image/text/effect
-resource-family tests remain required.
+oracle. The native DirectWrite text-format/draw path is ABI-v16 qualified;
+official Win2D text projection, text layouts/glyph runs/color fonts, complete
+device-loss recreation, and remaining image/effect resource-family tests
+remain required.
 
 ## Next parity gates
 
