@@ -5193,7 +5193,10 @@ or portable-scene COM pointer. The exact allowlist grows from 74 to 86 exports.
 The native regression records every operation, round-trips transform state,
 composites the command list into the keyed-mutex target, and checks an exact
 BGRA staging pixel. Portable managed contract coverage passes 5/5 with zero
-warnings; Windows MSVC/ClangCL execution is pending Build run `33333496713`.
+warnings. Corrected ProGPU checkpoint `f1b1ca18` is qualified by Build run
+`33333671491`, dedicated MSVC job `99316705077`: warning-as-error native
+compile/link succeeds, the focused Direct2D pixel regression passes in 0.16
+seconds, all 11 native suites pass, and the exact 86-export gate is accepted.
 Clip APIs remain a follow-up because exact clip/layer cross-ordering requires
 one unified LIFO draw-state stack rather than independent depth counters.
 
