@@ -5085,6 +5085,18 @@ links the provider plus native regression under the warning-as-error lane. The
 focused `progpu_native_direct2d_tests` passes in 0.16 seconds, the complete
 native suite passes 11/11, and the exact 55-symbol allowlist is accepted.
 
+ProGPU `ef2cc90b` advances the provider to ABI v21 with a GPU-native color-font
+path over the same shaped spans. Fastest/default queries
+`ID2D1DeviceContext7::DrawGlyphRunWithColorSupport`, keeping current COLR
+paint-tree, SVG, embedded bitmap, layered-color, and monochrome selection
+inside Direct2D. Down-level Windows 10 falls back on-GPU through
+`IDWriteFactory4::TranslateColorGlyphRun` and `ID2D1DeviceContext4` bitmap,
+SVG, or outline draws. Only `DWRITE_E_NOCOLOR` selects monochrome semantics;
+missing required COM support and other translation failures fail closed. No
+font payload is decoded in managed code or copied through CPU pixel buffers.
+The session returns a typed context7/translated-context4/no-color diagnostic,
+and the allowlist grows from 55 to exactly 56 exports.
+
 ## Native MIL canonical D3DImage checkpoint
 
 ProGPU `72c9d794`/`20918afb` and this LibreWPF checkpoint add canonical
@@ -5135,8 +5147,9 @@ oracle. The native DirectWrite text-format/draw path is ABI-v16 qualified and
 ABI v17 implements retained text layouts, ABI v18 implements typed range
 formatting, ABI v19 implements OpenType typography, and ABI v20 implements
 system font-face references plus shaped glyph-run drawing with corresponding
-official-Win2D oracle assertions. Signed package execution, remaining
-typography/color-font extensions, complete
+official-Win2D oracle assertions. ABI v21 adds GPU-native color-font drawing
+with a typed selected-path diagnostic. Signed package execution, remaining
+typography/color-paint customization, complete
 device-loss recreation, and remaining image/effect resource-family tests
 remain required.
 
