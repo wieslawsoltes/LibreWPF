@@ -5154,8 +5154,24 @@ portable ProGPU geometry implementation on other backends. The allowlist grows
 from 59 to exactly 67 exports. Deterministic native coverage uses a rectangle
 oracle for all eight operations and invalid-output clearing. Simplify,
 outline, widen, tessellate, and realization sinks remain the next typed slice.
-Portable managed ABI/build/contracts are green for ProGPU `13f6906b`; Windows
-MSVC/ClangCL qualification is pending the corresponding Build workflow.
+Exact ProGPU implementation `13f6906b` is qualified by GitHub Actions Build
+run `33330942215`: dedicated MSVC job `99309300180` passes the focused
+Direct2D regression in 0.25 seconds and all 11 native suites under
+warning-as-error, while ClangCL x64 job `99309300268` passes it in 0.14 seconds
+and all 12 native suites before the unrelated later Dawn software-adapter loss.
+
+ProGPU ABI v25 keeps those realization sinks internal and typed. Simplify,
+outline, and widen materialize same-factory `ID2D1PathGeometry1` resources;
+tessellation writes blittable triangles directly into a caller span and
+returns the required count plus a typed insufficient-buffer result without
+per-triangle allocation or managed callbacks. Filled and stroked
+`ID2D1GeometryRealization` resources are created and drawn through
+`ID2D1DeviceContext1` from both target and command-list producer sessions.
+All geometry, stroke-style, realization, and brush handles remain kind- and
+generation-checked. Invalid options, transforms, tolerances, widths, buffers,
+and producer state fail closed. The allowlist grows from 67 to exactly 74
+exports. Portable build and all 5 focused AOT/reflection-free contracts pass
+for ProGPU `a5404130`; Windows qualification is pending its Build workflow.
 
 ## Native MIL canonical D3DImage checkpoint
 
