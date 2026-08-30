@@ -5065,6 +5065,22 @@ kinds fail closed. The allowlist grows from 50 to exactly 52 exports without
 reflection, text readback, or per-feature managed/native calls. Signed package
 execution remains a separate approval-gated oracle.
 
+ProGPU `6dfdd082` advances the provider to ABI v20 with the genuine shaped
+glyph resource boundary required by WPF/MIL replay. It resolves a typed system
+family/weight/style/stretch match as `IDWriteFontFaceReference`, creates the
+corresponding `IDWriteFontFace5`, and submits already-shaped glyph indices,
+optional advances, and optional offsets directly through
+`ID2D1DeviceContext::DrawGlyphRun` in either shared-surface or command-list
+transactions. The spans stay caller-owned and pinned only for the synchronous
+call; the provider performs no text reshaping, CPU raster fallback, pixel
+readback, intermediate glyph arrays, or per-glyph native calls. Counts,
+floating state, bidi level, COM kinds, and draw ownership fail closed. The
+official Win2D seam wraps the same device-independent reference as
+`CanvasFontFace`, reverse-unwraps its exact COM identity, obtains real glyph
+indices through the projection, and feeds them into the native draw oracle.
+The allowlist grows from 52 to exactly 55 exports. This remains parallel to,
+not a replacement for, the portable cross-platform glyph DTO path.
+
 ## Native MIL canonical D3DImage checkpoint
 
 ProGPU `72c9d794`/`20918afb` and this LibreWPF checkpoint add canonical
@@ -5113,9 +5129,10 @@ solid, linear-gradient, radial-gradient, and geometry resource round trips.
 Microsoft Win2D device/target/brush/geometry wrapping now has a package-deployed success
 oracle. The native DirectWrite text-format/draw path is ABI-v16 qualified and
 ABI v17 implements retained text layouts, ABI v18 implements typed range
-formatting, and ABI v19 implements OpenType typography plus corresponding
+formatting, ABI v19 implements OpenType typography, and ABI v20 implements
+system font-face references plus shaped glyph-run drawing with corresponding
 official-Win2D oracle assertions. Signed package execution, remaining
-typography, glyph runs/color fonts, complete
+typography/color-font extensions, complete
 device-loss recreation, and remaining image/effect resource-family tests
 remain required.
 
