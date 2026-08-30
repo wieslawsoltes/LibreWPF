@@ -5304,6 +5304,30 @@ ProGPU documentation checkpoint is `a048cff9`; ClangCL COM exception-spec
 portability fix `7a5feda4` is tracked by the submodule. Clean-checkout Build
 run `33340281658` is pending.
 
+ProGPU ABI v33 at implementation `bb4818bf` and documentation checkpoint
+`28b4610b` moves from structural preflight to real scene emission. A strict
+`ID2D1CommandSink1` translates finite transforms, source-over/DIPs state,
+solid-color brushes, rectangle fills/default strokes, default flat-cap lines,
+edge-antialias selection, and one leading clear into ProGPU's existing C++
+semantic scene builder. The clear remains frame metadata. Unsupported state,
+resources, scopes, or operations return `E_NOTIMPL` with a typed reason and
+one-based callback index; no partial stream is accepted. This is an explicit
+first subset, not a claim of complete arbitrary `ID2D1*` command parity.
+
+The AOT-safe two-pass ABI reports the exact required size and writes directly
+to caller-owned storage. COM pointers never enter the stream, and there is no
+managed staging array, reflection, CPU pixel readback/repack, or raster
+fallback. Linking the Windows provider to the backend-neutral scene builder
+keeps the output reusable by ProGPU D3D12, Metal, Vulkan, and WebGPU rather
+than creating a Windows-only renderer. Managed build is warning-free,
+contracts pass 5/5, and the allowlist is exactly 123 exports. Incremental
+Windows 11 ARM64 Parallels qualification uses MSVC 19.44/SDK 10.0.26100.0
+under `/W4 /WX`, passes the live regression 1/1 in 3.35 seconds, decodes the
+three-draw scene header, verifies typed rejection of DirectWrite rendering
+parameters, and reports exactly 123 exports. Provider SHA-256 is
+`0C552556B68BDB2F34B9B4ADA552B1DBBC2EB25A247483ED27710787CBF787D2`.
+Clean-checkout ProGPU Build run `33341817572` is pending.
+
 ## Native MIL canonical D3DImage checkpoint
 
 ProGPU `72c9d794`/`20918afb` and this LibreWPF checkpoint add canonical
