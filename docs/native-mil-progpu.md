@@ -5171,7 +5171,7 @@ All geometry, stroke-style, realization, and brush handles remain kind- and
 generation-checked. Invalid options, transforms, tolerances, widths, buffers,
 and producer state fail closed. The allowlist grows from 67 to exactly 74
 exports. Portable build and all 5 focused AOT/reflection-free contracts pass
-for ProGPU `84ece34c`; Windows qualification is pending its Build workflow.
+for ProGPU `9dc74d09`; Windows qualification is pending its Build workflow.
 
 ## Native MIL canonical D3DImage checkpoint
 
