@@ -5140,6 +5140,23 @@ passes the Direct2D test in 0.14 seconds and all 12 native suites before an
 unrelated later Dawn readback loses Microsoft Basic Render Driver; that
 software-D3D12 stability failure remains separate from ABI v23 evidence.
 
+ProGPU ABI v24 adds typed genuine-`ID2D1Geometry` analysis for LibreWPF bounds
+and hit-test parity. The Windows provider now exposes bounds, widened bounds,
+fill/stroke point containment, geometry relation, area, length, and
+point/unit-tangent sampling through eight fixed AOT-safe exports. Managed
+geometry and optional `ID2D1StrokeStyle1` safe handles must belong to the same
+monotonic resource generation and remain protected by `DangerousAddRef` for
+the borrowed call. Invalid points, widths, lengths, affine transforms, and
+flattening tolerances fail closed; output rectangles convert Direct2D's edge
+layout to ProGPU's `x/y/width/height` form. This removes the need for reflected
+WPF shapes or CPU tessellation on the Windows native path and preserves the
+portable ProGPU geometry implementation on other backends. The allowlist grows
+from 59 to exactly 67 exports. Deterministic native coverage uses a rectangle
+oracle for all eight operations and invalid-output clearing. Simplify,
+outline, widen, tessellate, and realization sinks remain the next typed slice.
+Portable managed ABI/build/contracts are green for ProGPU `13f6906b`; Windows
+MSVC/ClangCL qualification is pending the corresponding Build workflow.
+
 ## Native MIL canonical D3DImage checkpoint
 
 ProGPU `72c9d794`/`20918afb` and this LibreWPF checkpoint add canonical
