@@ -5039,6 +5039,20 @@ resource kinds, and drawing outside an active transaction fail closed. The
 reflection-free managed owner exposes reusable layout creation/drawing and the
 native export allowlist grows from 47 to exactly 49.
 
+ProGPU `15249f32` advances the provider to ABI v18 with one typed,
+pointer-free mutable range descriptor over those retained layouts. Selected
+font size, numeric weight,
+style, stretch, underline, strikethrough, and an optional genuine
+`ID2D1Brush` drawing effect flow through one synchronous call. Both managed
+and native validation reject unknown flags, empty or overflowing ranges,
+malformed selected values, and non-brush effects without reflection, text
+copies, CPU rendering, or per-character interop. The native regression reads
+the applied DirectWrite state and canonical brush identity back. The official
+Win2D gate now observes that state through `CanvasTextLayout`, mutates the same
+layout back through Win2D, and draws it; execution of that signed package gate
+remains pending explicit approval for its temporary test-certificate trust.
+The native export allowlist grows from 49 to exactly 50.
+
 ## Native MIL canonical D3DImage checkpoint
 
 ProGPU `72c9d794`/`20918afb` and this LibreWPF checkpoint add canonical
@@ -5086,9 +5100,11 @@ reverse device/bitmap identity, and the first exact
 solid, linear-gradient, radial-gradient, and geometry resource round trips.
 Microsoft Win2D device/target/brush/geometry wrapping now has a package-deployed success
 oracle. The native DirectWrite text-format/draw path is ABI-v16 qualified and
-ABI v17 implements retained text layouts. Official Win2D format/layout
-projection, range formatting, glyph runs/color fonts, complete device-loss
-recreation, and remaining image/effect resource-family tests remain required.
+ABI v17 implements retained text layouts and ABI v18 implements typed range
+formatting plus the corresponding official-Win2D oracle assertions. Signed
+package execution, advanced typography, glyph runs/color fonts, complete
+device-loss recreation, and remaining image/effect resource-family tests
+remain required.
 
 ## Next parity gates
 
