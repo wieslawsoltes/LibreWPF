@@ -5024,6 +5024,21 @@ for its native test executable. This qualifies the native COM path; official
 Win2D `CanvasTextFormat` projection remains a separate signed-package gate and
 is not inferred from native identity alone.
 
+ProGPU `e6647ffd` advances the provider to ABI v17 with retained genuine
+`IDWriteTextLayout4` resources and typed
+`ID2D1RenderTarget::DrawTextLayout` submission for both shared-surface and
+command-list transactions. Layout creation consumes one explicit UTF-16 span,
+an existing typed format, and positive finite bounds. DirectWrite copies the
+text into its retained layout during that synchronous call; ProGPU neither
+retains the caller span nor creates another provider text buffer. The Win2D
+factory path checks for a text layout before its inherited text-format
+interface, supplies the surface's exact CanvasDevice as required by the pinned
+Microsoft `CanvasTextLayout` implementation, and reverse-unwraps the exact
+`IDWriteTextLayout4` identity. Invalid dimensions/origins/options, wrong
+resource kinds, and drawing outside an active transaction fail closed. The
+reflection-free managed owner exposes reusable layout creation/drawing and the
+native export allowlist grows from 47 to exactly 49.
+
 ## Native MIL canonical D3DImage checkpoint
 
 ProGPU `72c9d794`/`20918afb` and this LibreWPF checkpoint add canonical
@@ -5070,10 +5085,10 @@ binding, real CanvasDevice/CanvasRenderTarget factory-native wrappers, exact
 reverse device/bitmap identity, and the first exact
 solid, linear-gradient, radial-gradient, and geometry resource round trips.
 Microsoft Win2D device/target/brush/geometry wrapping now has a package-deployed success
-oracle. The native DirectWrite text-format/draw path is ABI-v16 qualified;
-official Win2D text projection, text layouts/glyph runs/color fonts, complete
-device-loss recreation, and remaining image/effect resource-family tests
-remain required.
+oracle. The native DirectWrite text-format/draw path is ABI-v16 qualified and
+ABI v17 implements retained text layouts. Official Win2D format/layout
+projection, range formatting, glyph runs/color fonts, complete device-loss
+recreation, and remaining image/effect resource-family tests remain required.
 
 ## Next parity gates
 
