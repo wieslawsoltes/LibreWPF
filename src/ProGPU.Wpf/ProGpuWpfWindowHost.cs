@@ -196,6 +196,11 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
 
     public bool IsVisible => _isHostVisible || (_window?.IsVisible ?? false);
 
+    public NativeWindowHandle NativeWindowHandle =>
+        _windowController?.Handle ?? global::ProGPU.Backend.NativeWindowHandle.Empty;
+
+    public bool IsEnabled => _windowController?.IsEnabled ?? true;
+
     public ProGpuWpfWindowState WindowState => _windowState;
 
     public string Title => _window?.Title ?? _windowTitle;
@@ -617,6 +622,14 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
 
         TraceNativeLoop("native activation requested: accepted=" + activated + ", " + CreateNativeLoopTraceState());
         return activated;
+    }
+
+    internal bool TrySetEnabled(bool enabled)
+    {
+        ThrowIfDisposed();
+        EnsureWindow();
+        _windowController!.SetEnabled(enabled);
+        return true;
     }
 
     private static void QueuePendingNativeActivation(ProGpuWpfWindowHost host)
