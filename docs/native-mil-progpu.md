@@ -5117,6 +5117,21 @@ links the warning-as-error provider and native regression. The focused
 `progpu_native_direct2d_tests` passes in 0.49 seconds, all 11 native suites
 pass, and the exact 58-symbol allowlist is accepted.
 
+ProGPU ABI v23 then adds typed device-loss and resource-generation ownership.
+Each genuine Direct2D/DirectWrite/Win2D COM safe handle inherits its surface's
+nonzero monotonic generation. The native surface registers an
+`ID3D11Device4` removal event when supported, polls it without blocking,
+confirms the reason through `ID3D11Device::GetDeviceRemovedReason`, and retains
+`DXGI_ERROR_DEVICE_REMOVED`, `DXGI_ERROR_DEVICE_RESET`, or
+`D2DERR_RECREATE_TARGET` as terminal state. Managed loss invalidates the shared
+safe-handle token, reports into the same Dawn `WgpuContext`, and raises one
+typed notification requiring a new Dawn/Direct2D domain and rebuilt resources.
+Cross-generation use and direct `QueryInterface` on a lost generation fail
+closed. The allowlist grows from 58 to 59 exports. Deterministic regression
+coverage includes invalid-state structs, initial non-lost state, registered
+removal notification, and unique replacement generations; real adapter-loss
+injection/recreation remains a separate destructive Windows VM gate.
+
 ## Native MIL canonical D3DImage checkpoint
 
 ProGPU `72c9d794`/`20918afb` and this LibreWPF checkpoint add canonical
@@ -5184,7 +5199,8 @@ remain required.
    remaining multi-guideline draw-family deformation, general Visual
    effect/clip/mask/opacity ordering, remaining
    opacity-mask/effect/dynamic-guideline push/pop state,
-   DirectWrite/system-display text realization, and the
+DirectWrite/system-display text realization, destructive device-loss injection
+and replacement-domain reconstruction, and the
    explicit advanced glyph/text gaps listed above.
 3. Complete general multi-guideline geometry, transformed/nonorthogonal advanced effect
    bounds, and broader
