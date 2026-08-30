@@ -5244,7 +5244,10 @@ radii fail closed on both boundaries. No reflection, CPU pixels, command arrays,
 or portable COM identity are introduced. The native regression restores the
 solid brush before the exact-BGRA oracle. The exact allowlist grows from 102 to
 110 exports; managed contracts pass 5/5 with zero warnings. Windows MSVC
-qualification remains pending.
+qualification passes in ProGPU Build run `33336026310`, dedicated MSVC job
+`99322989531`: warning-as-error compile/link succeeds, the focused Direct2D
+regression passes in 0.14 seconds, all 11 native suites pass in 1.02 seconds,
+and the exact 110-export gate is accepted.
 
 ## Native MIL canonical D3DImage checkpoint
 
