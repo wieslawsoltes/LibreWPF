@@ -5794,12 +5794,13 @@ COM/native differential qualification is pending.
 
 The Windows system oracle measured the `4 x 2` ellipse perimeter as `19.2537`
 at public flattening tolerance `0.25`, while the original retained-cubic
-delegation returned `19.1810`. Analytic ellipse and rounded-rectangle length
-and point-at-length delegation now uses Direct2D's observed half-tolerance
-threshold (`0.125` for that query), which produces the system value. Arbitrary
-path geometry keeps the caller's unscaled tolerance and its separate passing
-system differential. Recursive child termination is data-dependent, so this
-bounded subdivision is not an independent-lane SIMD workload.
+delegation returned `19.1810`. Ellipse length and point-at-length delegation
+now uses Direct2D's observed half-tolerance threshold (`0.125` for that query),
+which produces the system value. Arbitrary paths and rounded rectangles keep
+the caller's unscaled tolerance: the rounded Windows oracle reports `35.6731`,
+versus `35.7652` when the ellipse-only compensation was applied. Recursive
+child termination is data-dependent, so this bounded subdivision is not an
+independent-lane SIMD workload.
 
 ProGPU Direct2D ABI v52 adds immutable
 `ID2D1RoundedRectangleGeometry`. The resource preserves its original
