@@ -5779,6 +5779,19 @@ four-segment constructor is bounded scalar work rather than a bulk loop that
 would benefit from SIMD. Focused managed ABI contracts pass 5/5; exact Windows
 COM/native differential qualification is pending.
 
+ProGPU Direct2D ABI v52 adds immutable
+`ID2D1RoundedRectangleGeometry`. The resource preserves its original
+`D2D1_ROUNDED_RECT`, base-interface COM identity, and creating factory, while
+its retained path clamps each construction radius to the corresponding
+rectangle half-extent. Four lines and four cubic quarter-ellipse corners are
+created once, then shared path analysis supplies bounds, containment,
+tolerance-controlled metrics, fills, and strokes through the same pointer-free
+scene compiler used on D3D12, Metal, Vulkan, and WebGPU. The replay path adds
+no reflection, CPU pixel work, readback, or per-frame geometry reconstruction;
+the fixed eight-segment constructor is scalar because it is not a bulk
+independent-lane workload. Focused managed ABI contracts pass 5/5 and the
+system-Direct2D Windows differential is pending.
+
 ## Native MIL canonical D3DImage checkpoint
 
 ProGPU `72c9d794`/`20918afb` and this LibreWPF checkpoint add canonical
