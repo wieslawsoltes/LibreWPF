@@ -5383,6 +5383,36 @@ the resulting provider SHA-256 is
 `E5651DF33F23EB909FF2AB42F2A4E3592CDE81E21B57B3ADABFF38F493FDC2ED`.
 Clean-checkout ABI v35 CI qualification is pending.
 
+ProGPU ABI v36 at implementation `e9788c5e` and documentation checkpoint
+`c4e4ce34` adds genuine Direct2D `ID2D1Geometry` fill ingestion. A typed
+`ID2D1SimplifiedGeometrySink` captures Direct2D's cubic-and-line contours,
+excludes hollow figures, preserves open/closed topology and alternate/nonzero
+fill rules, and emits at most 1,048,576 finite segments into ProGPU's existing
+pointer-free path resource. The active Direct2D draw matrix remains the path
+transform, and typed local/target geometry bounds become conservative scene
+bounds. Every COM callback resource is released before return.
+
+This is one-time device-independent scene compilation, not CPU rasterization.
+The retained path executes through ProGPU's shared GPU path lane on D3D12,
+Metal, Vulkan, and WebGPU. Per-primitive edges use the eight-sample quality
+path. Aliased path edges and a non-null opacity brush fail closed until their
+coverage/mask semantics are exact; stroked `DrawGeometry` remains a separate
+slice so caps, joins, miter limits, and dashes are not silently reduced.
+
+The Windows oracle decodes a transformed winding line/cubic figure, its
+explicit closing edge, and the absence of hollow-figure segments; its
+negative case proves aliased fill returns typed unsupported state with no
+partial scene. Managed AOT contracts pass 5/5 and the package is warning-free.
+Windows 11 ARM64 Parallels with MSVC 19.44/SDK 10.0.26100.0 compiles provider
+and test under `/W4 /WX`; CTest passes 1/1 in 3.00 seconds (3.51 seconds
+total). The 96 KiB payload SHA-256 is
+`4BD4A70EE6575824BF33F37118434A185405F4BE3B484ADE2AE4B53374820F54`;
+the unchanged 123-export provider SHA-256 is
+`12467CF6BE48235928B396A76AD5AE0AAD15CAA3E1949AB8A4E9BA4323EB744A`.
+Explicit matrix field assignments also close the ClangCL anonymous-union
+warning found by the ABI v35 clean runner. ABI v36 clean qualification is
+pending.
+
 ## Native MIL canonical D3DImage checkpoint
 
 ProGPU `72c9d794`/`20918afb` and this LibreWPF checkpoint add canonical
