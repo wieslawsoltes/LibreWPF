@@ -5882,7 +5882,16 @@ independently positioned members, bounds, containment, area, length,
 simplified topology, invalid creation, semantic recording, and a
 world-transformed system-Direct2D differential. Focused managed ABI contracts
 pass 5/5. ProGPU implementation and contract checkpoints are `501136d3` and
-`0e93f94e`; Windows MSVC/native qualification is pending for the latter.
+`0e93f94e`. The first Windows execution compiled and linked but exposed that
+child `Simplify` calls attempted to change the target sink fill mode after its
+first figure. ProGPU `ada83ef7` adds a typed forwarding sink that makes the
+group fill mode authoritative without changing child geometry.
+
+That exact correction passes ProGPU's hosted
+[`Native C++20 compiler compatibility (MSVC)` job](https://github.com/wieslawsoltes/ProGPU/actions/runs/33422845973/job/99589327621):
+the system Direct2D group differential, semantic recorder, and all 11 native
+CTests pass. ABI v54 is therefore qualified on Windows x64; documentation
+checkpoint `64dcfef5` records both the failed first run and corrected proof.
 
 ## Native MIL canonical D3DImage checkpoint
 
