@@ -5802,7 +5802,7 @@ scene fill/stroke translation. This adds no reflection, CPU pixel readback,
 per-frame path recreation, or renderer-specific ellipse protocol. The fixed
 four-segment constructor is bounded scalar work rather than a bulk loop that
 would benefit from SIMD. Focused managed ABI contracts pass 5/5; exact Windows
-COM/native differential qualification is pending.
+COM/native differential qualification passes with ABI v52 below.
 
 The Windows system oracle measured the `4 x 2` ellipse perimeter as `19.2537`
 at public flattening tolerance `0.25`, while the original retained-cubic
@@ -5825,7 +5825,17 @@ scene compiler used on D3D12, Metal, Vulkan, and WebGPU. The replay path adds
 no reflection, CPU pixel work, readback, or per-frame geometry reconstruction;
 the fixed eight-segment constructor is scalar because it is not a bulk
 independent-lane workload. Focused managed ABI contracts pass 5/5 and the
-system-Direct2D Windows differential is pending.
+system-Direct2D Windows differential passes.
+
+Hosted Windows qualification passes in ProGPU's
+[`Native C++20 compiler compatibility (MSVC)` job](https://github.com/wieslawsoltes/ProGPU/actions/runs/33417514376/job/99571802634)
+for implementation `e5a75a9b`. MSVC builds the provider and all 11 native
+CTests pass, including ellipse/rounded-rectangle COM identity, metadata,
+bounds, containment, area, length, semantic fill replay, analytic curved
+strokes, recorder serialization, and resource canonicalization. The ClangCL
+x64/ARM64 lanes remain separately blocked only by the three pre-existing
+missing-braces warning-as-error sites; ABI v52 introduced no new ClangCL
+warning.
 
 ## Native MIL canonical D3DImage checkpoint
 
