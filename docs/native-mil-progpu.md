@@ -5582,6 +5582,23 @@ matches all 127 allowlisted exports exactly. The 183,296-byte provider hash is
 and the test executable hash is
 `08A3E37727EA14A579D6333E3E20914D15DE17F4F016AE10E6EC368F330A474D`.
 
+ProGPU ABI v44 extends the explicit COM facade with a ProGPU-owned
+`ID2D1Factory1` and immutable `ID2D1RectangleGeometry`. The factory preserves
+canonical `IUnknown`/base-factory identity, publishes the standard
+`ID2D1Multithread` contract, and returns `E_NOTIMPL` plus null outputs for
+resource families outside this slice. Rectangle objects own the factory and
+support retrieval, transformed bounds, fill containment, simplification,
+tessellation, area, length, and point-at-length queries.
+
+LibreWPF can pass the ProGPU geometry directly to the existing
+`ID2D1CommandSink1::FillGeometry` recorder. Standard COM vtable calls lower it
+to the same pointer-free ProGPU vector-path scene consumed by D3D12, Metal,
+Vulkan, and WebGPU, without a system Direct2D geometry dependency, retained COM
+pointer, CPU pixel fallback, or alternate renderer. Creation remains an
+explicit ProGPU API; it does not replace `D2D1CreateFactory` or shadow
+`d2d1.dll`. Windows ARM64 `/W4 /WX`, runtime, and exact-export evidence will be
+filled from the committed ABI v44 archive after Parallels qualification.
+
 ## Native MIL canonical D3DImage checkpoint
 
 ProGPU `72c9d794`/`20918afb` and this LibreWPF checkpoint add canonical
