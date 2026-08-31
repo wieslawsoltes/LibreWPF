@@ -5349,6 +5349,40 @@ under `/W4 /WX` and passes the live Direct2D regression 1/1. Provider SHA-256
 is `9C38D9BFFC95D7453EDCA5F3D63B53C973C1E24F9DDA2EB3214477BF497464AE`;
 clean-checkout ABI v34 CI qualification is pending.
 
+ProGPU ABI v35 at implementation `226085da` and documentation checkpoint
+`0b8d54f5` adds typed Direct2D linear and radial gradient brushes to native
+scene translation. During `ID2D1CommandList::Stream`, the Windows adapter
+queries `ID2D1LinearGradientBrush`, `ID2D1RadialGradientBrush`, and
+`ID2D1GradientStopCollection1`, snapshots finite ordered stops into ProGPU's
+backend-neutral brush table, and releases every COM reference before return.
+Clamp, wrap, and mirror reuse the existing pad, repeat, and reflect shader
+paths; no CPU rasterization, readback, or Windows-only retained resource is
+introduced.
+
+The translator stores Direct2D target-relative gradient coordinates as
+`inverse(active draw transform) * inverse(brush transform)`. Its synchronous
+COM-identity cache includes the active draw transform, so reuse under a new
+transform cannot accidentally share the old material mapping. The admitted
+color subset is sRGB-to-sRGB straight alpha, plus premultiplied interpolation
+when all stops have uniform alpha and therefore the same mathematical result.
+Varying-alpha premultiplied interpolation, other color spaces, and
+non-invertible transforms fail closed with typed unsupported state and no
+partial stream. Source buffer precision remains a raster quality dimension
+for the cross-backend pixel gate rather than a CPU stop-quantization step.
+
+The native oracle decodes six draws, two nested clips, four brushes, six
+gradient stops, two distinct mappings for one reused brush, and a radial
+origin. Its negative case proves the varying-alpha premultiplied boundary.
+Managed AOT contracts pass 5/5 and the package builds warning-free. Windows 11
+ARM64 Parallels with MSVC 19.44/SDK 10.0.26100.0 compiles provider and test
+under `/W4 /WX`; the live regression passes 1/1 in 1.70 seconds (2.01 seconds
+total under concurrent VM load), with exactly 123 exports. The incremental
+qualification payload SHA-256 is
+`B545679CDCC7C81A826A333D3975C8BB7E8ED977A58FFBFC0601D4431DAAA368`;
+the resulting provider SHA-256 is
+`E5651DF33F23EB909FF2AB42F2A4E3592CDE81E21B57B3ADABFF38F493FDC2ED`.
+Clean-checkout ABI v35 CI qualification is pending.
+
 ## Native MIL canonical D3DImage checkpoint
 
 ProGPU `72c9d794`/`20918afb` and this LibreWPF checkpoint add canonical
