@@ -4496,6 +4496,17 @@ green; no scalar fallback or browser-specific algorithm was introduced.
 
 ## Direct2D and Win2D boundary
 
+COM-heavy applications are portable only at typed graphics boundaries. Source
+rebuilt for macOS/Linux can retain `IUnknown` ownership and supported
+`ID2D1*`/Direct3D-shaped call structure through ProGPU-owned C++ objects; those
+objects lower to the same pointer-free retained scene used by native MIL and
+select Metal/Vulkan through WebGPU. Unchanged Windows PE/WinRT binaries,
+arbitrary registered COM servers, HWND/HDC/DXGI-handle APIs, and native Win2D
+remain Windows execution concerns and require the Windows VM, Wine, or an
+isolated Windows service/plugin. They are not silently approximated by the
+portable renderer. The detailed routing and migration tiers live in
+[`DIRECT2D_WIN2D_COMPATIBILITY.md`](../external/ProGPU/docs/DIRECT2D_WIN2D_COMPATIBILITY.md#application-compatibility-tiers).
+
 `ProGPU.DirectX` implements the portable Direct3D-style facade, while the C++
 backend now also owns a separate Windows-only genuine Direct2D COM provider.
 ProGPU checkpoint `fa3e9e4a` classifies `d2d1.dll`,
