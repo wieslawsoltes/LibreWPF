@@ -5865,6 +5865,25 @@ MSVC compiles the complete provider and test suite, the transformed-geometry
 system differential passes, and all 11 native CTests pass. ABI v53 is therefore
 qualified on Windows x64.
 
+ProGPU Direct2D ABI v54 adds immutable `ID2D1GeometryGroup` to the owned COM
+factory. It retains ordered child and factory identities, alternate/winding
+metadata, and a single multi-figure path constructed from its immutable
+sources. Independently transformed children contribute through the ABI-v53
+composition path; later bounds, containment, metrics, simplification, and
+semantic fills reuse the retained result without per-frame expansion, CPU
+readback, pixel repacking, or a new host-specific MIL command.
+
+Null children, invalid fill modes, cross-factory resources, and nested groups
+fail closed. Nested Direct2D group predicates will remain gated until the
+compatibility scene represents the inner predicate explicitly; flattening one
+into the outer rule would be observably wrong for interacting contour
+orientations. The native oracle covers ordered source identity, metadata, two
+independently positioned members, bounds, containment, area, length,
+simplified topology, invalid creation, semantic recording, and a
+world-transformed system-Direct2D differential. Focused managed ABI contracts
+pass 5/5. ProGPU implementation and contract checkpoints are `501136d3` and
+`0e93f94e`; Windows MSVC/native qualification is pending for the latter.
+
 ## Native MIL canonical D3DImage checkpoint
 
 ProGPU `72c9d794`/`20918afb` and this LibreWPF checkpoint add canonical
