@@ -4520,6 +4520,16 @@ The Apple Silicon/macOS no-provider native build passes all 11 CTests under
 warnings-as-errors, and the focused managed Direct2D contract gate passes 6/6
 with zero build warnings.
 
+ProGPU `6c48a2a9` adds installed `progpu_native_com.hpp` as the actual portable
+COM identity/lifetime foundation. It aliases real GUID/HRESULT/`IUnknown` on
+Windows and supplies the matching fixed-width interface shape on other targets,
+plus field-wise GUID comparison, canonical `IID_IUnknown`, atomic reference
+counting, and allocation-free attach/detach/copy/move/query ownership. This is
+not a general COM runtime; it is the shared base for extracting ProGPU-owned
+Direct2D resources from WRL and Windows headers. The macOS no-provider suite
+passes 12/12 CTests and the managed Direct2D contract passes 7/7 with zero
+warnings.
+
 `ProGPU.DirectX` implements the portable Direct3D-style facade, while the C++
 backend now also owns a separate Windows-only genuine Direct2D COM provider.
 ProGPU checkpoint `fa3e9e4a` classifies `d2d1.dll`,
