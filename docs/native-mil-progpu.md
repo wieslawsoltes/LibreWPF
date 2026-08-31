@@ -5537,6 +5537,21 @@ executable exits zero. The 176,640-byte provider SHA-256 is
 `50FD9745C40EE045B53F06D1CD089B48F20BABC502D48DB014BAD795A3466C7F`,
 with all 123 exports matching the allowlist.
 
+ProGPU ABI v42 at implementation `f56ebe75` combines finite Direct2D
+geometric masks and opacity brushes through the reusable typed composite-mask
+builder added at `1ce62657`. The pointer-free resource contains the brush
+child, exact vector path/segments, and shared stops. ProGPU rasterizes both R8
+children and multiplies them in `ClipCompose.wgsl` on D3D12, Metal, Vulkan, and
+WebGPU without a CPU pixel fallback, readback, repacking, or retained COM data.
+
+The native oracle requires a genuine transformed line/cubic geometry and
+two-stop Direct2D linear brush to decode as two components, one brush, one
+path, three segments, and two stops with exact content/mask bound intersection.
+Managed AOT build is warning-free and contracts pass 5/5. Windows VM execution
+is explicitly pending because Parallels guest-command dispatch stalled after
+the exact archive transfer; the clean PR Windows jobs are the current compile
+oracle, and no runtime pass is claimed yet.
+
 ## Native MIL canonical D3DImage checkpoint
 
 ProGPU `72c9d794`/`20918afb` and this LibreWPF checkpoint add canonical
