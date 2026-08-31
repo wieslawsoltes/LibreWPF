@@ -5768,10 +5768,11 @@ contracts pass 5/5 and the native MIL oracle exits zero on macOS.
 
 ProGPU Direct2D ABI v51 extends the ProGPU-owned COM factory with immutable
 `ID2D1EllipseGeometry`. The resource preserves factory and base-interface COM
-identity, reports exact affine support-function bounds and determinant-scaled
-area, performs inverse-transform fill containment, and retains its original
+identity, reports exact affine support-function bounds, performs
+inverse-transform fill containment, and retains its original
 ellipse descriptor. It constructs a closed four-cubic path once and reuses the
-same typed path algorithms for simplification, metric queries, and portable
+same typed path algorithms for simplification, tolerance-controlled area and
+length queries, and portable
 scene fill/stroke translation. This adds no reflection, CPU pixel readback,
 per-frame path recreation, or renderer-specific ellipse protocol. The fixed
 four-segment constructor is bounded scalar work rather than a bulk loop that
