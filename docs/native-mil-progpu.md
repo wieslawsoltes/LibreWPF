@@ -5547,10 +5547,31 @@ WebGPU without a CPU pixel fallback, readback, repacking, or retained COM data.
 The native oracle requires a genuine transformed line/cubic geometry and
 two-stop Direct2D linear brush to decode as two components, one brush, one
 path, three segments, and two stops with exact content/mask bound intersection.
-Managed AOT build is warning-free and contracts pass 5/5. Windows VM execution
-is explicitly pending because Parallels guest-command dispatch stalled after
-the exact archive transfer; the clean PR Windows jobs are the current compile
-oracle, and no runtime pass is claimed yet.
+Managed AOT build is warning-free and contracts pass 5/5. After the Windows
+VM's existing restart restored Guest Tools, the exact source archive SHA-256
+`E01D2B571D8C11CCC41A3639DEBE5C4DB4B08CE571A60B0C4EE4802F80DEFBAC`
+was extracted and confirmed as ABI v42. Windows 11 ARM64 Parallels rebuilt the
+provider/test cleanly with MSVC 19.44/SDK 10.0.26100.0 `/W4 /WX`, and the
+native executable exits zero. The 181,248-byte provider SHA-256 is
+`D20084AFFC6C8FE39C2F10EBBBA565BB8CA0D6C0771B595A33C5527135F09698`.
+
+ProGPU ABI v43 starts an explicit ProGPU-owned Direct2D COM facade. Native
+callers create a typed scene recorder and acquire a caller-owned genuine
+`ID2D1CommandSink1*` implemented by the C++ backend. Supported `BeginDraw`,
+state, drawing, and `EndDraw` callbacks compile directly into the same
+pointer-free semantic scene used by LibreWPF native MIL on D3D12, Metal,
+Vulkan, and WebGPU. Canonical `IUnknown`/base/versioned sink identity is
+preserved; the recorder retains its own reference, rejects serialization until
+recording is complete, and retains no COM pointer in the scene.
+
+This is an explicit compatibility factory rather than a replacement
+`d2d1.dll`. Full ProGPU-owned factory, immutable geometry, device-context,
+brush/bitmap, command-list, and effect vtables will be added in dependency
+slices while unsupported callbacks continue to fail closed. The initial
+native oracle issues clear and fill callbacks directly against the ProGPU COM
+sink, performs required-size and write passes, and verifies the scene identity,
+command/brush counts, and clear metadata without first creating a system
+Direct2D command list.
 
 ## Native MIL canonical D3DImage checkpoint
 
