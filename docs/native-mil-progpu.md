@@ -5513,6 +5513,30 @@ Parallels rebuilds provider/test from deleted objects under MSVC 19.44/SDK
 `21CB1B6F5DD483A6E6F1F3546D76C1EC158A22F042120AA8A503247CF58B4789`,
 with all 123 exports matching the allowlist.
 
+ProGPU ABI v41 at implementation `b84845fb` adds finite Direct2D
+opacity-brush layers through the existing backend-neutral GPU brush-mask
+resource. Genuine solid, linear-gradient, and radial-gradient brushes become
+pointer-free material and stop data. Local content bounds plus the active draw
+transform define mask coverage, and inverse draw/brush coordinates retain
+Direct2D target-space mapping. The mapped alpha multiplies the isolated layer
+at composition time, independently of uniform group opacity.
+
+The R8 brush mask is generated and consumed on the D3D12, Metal, Vulkan, and
+WebGPU paths without CPU pixels, readback, repacking, per-stop submission, or
+retained COM pointers. Full-target opacity-brush layers remain fail-closed
+until their content-derived bounds can be retained. Combined geometric and
+opacity-brush masks remain fail-closed until ProGPU's executable composite-mask
+resource is exposed through the native scene builder.
+
+The Windows oracle decodes a transformed genuine two-stop Direct2D linear
+brush, exact target/local bounds, active transform, 75% brush opacity, and
+inverse draw/brush coordinates. Managed AOT contracts pass 5/5 and build with
+zero warnings. Windows 11 ARM64 Parallels rebuilds provider/test from deleted
+objects under MSVC 19.44/SDK 10.0.26100.0 `/W4 /WX`; the fresh native
+executable exits zero. The 176,640-byte provider SHA-256 is
+`50FD9745C40EE045B53F06D1CD089B48F20BABC502D48DB014BAD795A3466C7F`,
+with all 123 exports matching the allowlist.
+
 ## Native MIL canonical D3DImage checkpoint
 
 ProGPU `72c9d794`/`20918afb` and this LibreWPF checkpoint add canonical
