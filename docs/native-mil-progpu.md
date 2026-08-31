@@ -5837,6 +5837,30 @@ x64/ARM64 lanes remain separately blocked only by the three pre-existing
 missing-braces warning-as-error sites; ABI v52 introduced no new ClangCL
 warning.
 
+ProGPU Direct2D ABI v53 adds immutable
+`ID2D1TransformedGeometry` to the ProGPU-owned factory. The resource retains
+its source and factory with genuine COM ownership, preserves canonical
+resource/geometry/transformed-geometry identity, and exposes the original
+source and affine matrix. Creation rejects null/non-finite matrices and
+cross-factory source resources.
+
+Supported operations compose the stored matrix before the optional caller
+world matrix in Direct2D row-vector order. Double intermediates reject
+non-finite or out-of-range composition before delegating bounds, containment,
+simplification, tessellation, outline, area/length/point queries, widening, or
+semantic fill recording to the retained source. This makes nested transformed
+geometries reusable without copying paths or adding a host-specific MIL
+command, CPU readback, pixel repacking, or per-frame construction. Independent
+two-geometry compare/combine transforms remain fail-closed instead of silently
+discarding the stored matrix.
+
+The exact ProGPU implementation checkpoint is `998c9ec2`. Its native oracle
+covers source/factory identity, transform metadata, bounds, containment,
+metrics, point-at-length, simplified topology, invalid creation, semantic
+recorder lowering, and a non-commuting stored-plus-world differential against
+system Direct2D. Focused managed ABI contracts pass 5/5. Windows MSVC/native
+qualification remains pending for this ABI-v53 checkpoint.
+
 ## Native MIL canonical D3DImage checkpoint
 
 ProGPU `72c9d794`/`20918afb` and this LibreWPF checkpoint add canonical
