@@ -5657,6 +5657,32 @@ provider SHA-256 is
 the 118,272-byte test executable SHA-256 is
 `1845C2C96B3B8AA0DA46D909384AB3D417AB607205EAB921C84AC626FB084586`.
 
+ProGPU ABI v47 adds immutable ProGPU-owned `ID2D1StrokeStyle1` resources to
+both standard factory stroke-style creation vtables. The resource preserves
+canonical `IUnknown`/resource/stroke/stroke1 identity, owns its factory, and
+retains start/end/dash caps, line join, miter limit, dash kind and offset,
+normal/fixed/hairline transform policy, and a copied custom-dash array.
+Invalid enums, non-finite metadata, invalid miter limits, malformed custom
+dash ownership, negative intervals, and all-zero custom patterns fail closed.
+
+This is the resource prerequisite for portable COM `DrawGeometry` stroking.
+The next recorder slice will translate compatible path figures and this style
+to ProGPU's existing pointer-free semantic stroke batch, which already renders
+caps, joins, miters, dashes, and transform policy on D3D12, Metal, Vulkan, and
+WebGPU. It will not call system Direct2D `Widen`, manufacture CPU-filled
+outlines, or add a second renderer. The Windows native oracle compares every
+getter and dash interval with a genuine system `ID2D1StrokeStyle1`; focused
+managed contracts pass 5/5. The exact implementation checkpoint is
+`71118006`; its committed source archive SHA-256 is
+`FF58C3EF89AADB24AA5E1A88416F399F75CCD1D9DB559180333B274441AAF999`.
+Windows 11 ARM64 Parallels rebuilds it with MSVC 19.44/SDK 10.0.26100.0
+`/W4 /WX`, and the native differential oracle exits zero. `dumpbin` matches
+all 129 allowlisted exports with zero differences. The 228,864-byte provider
+SHA-256 is
+`D259FFBF25B8F9B2950A1DBE876901175D4EC31E7BFBE665324678BAEE68E095`;
+the 120,320-byte test executable SHA-256 is
+`E2C71C12741DB7A71C01EBCE510664BBE20E693131C21DA4DCCC2C1ACAF54CAE`.
+
 ## Native MIL canonical D3DImage checkpoint
 
 ProGPU `72c9d794`/`20918afb` and this LibreWPF checkpoint add canonical
@@ -5719,8 +5745,9 @@ remain required.
    render-data command families using the complete generated WPF MCG layouts.
 2. Add remaining non-bitmap image sources, extend the package-qualified
    Microsoft Win2D device/target wrappers to broader resource families,
-   complete the device-loss gate, and add remaining exact WPF-compatible arc
-   lowering, and
+   complete the device-loss gate, translate ProGPU-owned Direct2D path/stroke
+   resources to the existing retained stroke batch, and add remaining exact
+   WPF-compatible arc lowering, and
    remaining multi-guideline draw-family deformation, general Visual
    effect/clip/mask/opacity ordering, remaining
    opacity-mask/effect/dynamic-guideline push/pop state,
