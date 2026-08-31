@@ -5627,6 +5627,36 @@ Windows 11 ARM64 Parallels rebuilds it cleanly with MSVC 19.44/SDK
 the 113,664-byte test executable SHA-256 is
 `5B6EC4E52D17BB185A3E513A22628CC9BF93AE98AF28AFFD90F2FC448DFEB45C`.
 
+ProGPU ABI v46 adds ProGPU-owned `ID2D1PathGeometry1` and
+`ID2D1GeometrySink` identities through both standard factory path-creation
+vtables. The one-shot sink records line, cubic, quadratic, and arc segments,
+fill mode, segment flags, and filled/hollow open/closed figures; successful
+`Close` publishes an immutable path. Invalid or abandoned construction fails
+closed, and the public segment count includes Direct2D's implicit closed-figure
+edge while `Stream` retains the canonical `EndFigure(CLOSED)` vocabulary.
+
+LibreWPF can pass that path directly to the existing ProGPU
+`ID2D1CommandSink1::FillGeometry` recorder. Supported path queries cover
+transformed bounds, simplification, ordinary non-overlapping fill
+containment/area, length, point-at-length, and point-plus-segment data. Complex
+self-intersection/overlap analysis, strokes/widening, tessellation, outline,
+geometry compare, and boolean combination remain gated and return
+`E_NOTIMPL`; no CPU raster fallback or system Direct2D delegation is hidden
+behind those calls. The direct native oracle records the full
+line/quadratic/cubic/arc vocabulary and differentially checks counts, bounds,
+and flattened length against genuine Windows Direct2D before serializing the
+same pointer-free path scene for D3D12, Metal, Vulkan, and WebGPU. Focused
+managed contracts pass 5/5. The exact implementation checkpoint is
+`3f42538c`; its committed source archive SHA-256 is
+`32A3ECA03C6C721B505D40A6638A7D55E139C6132E65C296DFFFBD4D2A633EC3`.
+Windows 11 ARM64 Parallels rebuilds it cleanly with MSVC 19.44/SDK
+10.0.26100.0 `/W4 /WX`, and the native differential oracle exits zero.
+`dumpbin` matches all 129 allowlisted exports exactly. The 225,280-byte
+provider SHA-256 is
+`681EC3239D4B235BDD0E024A9D3C1DCD5D0444F8F1ACD3CB6FE31F0DC8A6940B`;
+the 118,272-byte test executable SHA-256 is
+`1845C2C96B3B8AA0DA46D909384AB3D417AB607205EAB921C84AC626FB084586`.
+
 ## Native MIL canonical D3DImage checkpoint
 
 ProGPU `72c9d794`/`20918afb` and this LibreWPF checkpoint add canonical
