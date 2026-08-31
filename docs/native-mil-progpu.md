@@ -5411,7 +5411,35 @@ the unchanged 123-export provider SHA-256 is
 `12467CF6BE48235928B396A76AD5AE0AAD15CAA3E1949AB8A4E9BA4323EB744A`.
 Explicit matrix field assignments also close the ClangCL anonymous-union
 warning found by the ABI v35 clean runner. ABI v36 clean qualification is
-pending.
+complete for this boundary: clean ProGPU Build run `33345291817`, Windows x64
+job `99348168246`, compiled provider and test under ClangCL `/W4 /WX` and
+passed all 12 native CTests, including Direct2D in 0.17 seconds. Its overall
+red result occurred later when an unrelated managed renderer readback lost the
+Microsoft Basic Render Driver. Clean MSVC compatibility job `99348168261`
+passed independently.
+
+ProGPU ABI v37 at implementation `163fa686` adds genuine Direct2D stroked
+geometry ingestion. `ID2D1CommandSink::DrawGeometry` supplies the original
+stroke width/style and active draw transform to `ID2D1Geometry::Widen`, so the
+Windows platform resolves exact caps, joins, miters, custom dashes, and
+`ID2D1StrokeStyle1` normal/fixed/hairline transform behavior. The resulting
+filled outline is captured through the typed simplified-geometry sink and
+retained as an identity-transformed, pointer-free ProGPU path with bounds from
+`GetWidenedBounds`. Brush mapping still observes the active draw transform.
+
+The conversion runs once while compiling the command list; D3D12, Metal,
+Vulkan, and WebGPU replay the retained outline through the existing GPU path
+rasterizer. It introduces no CPU pixel raster/readback/repacking path and
+retains no COM object. Aliased edges, invalid typed inputs, unsupported
+widening, and capacity overflow fail closed. The Windows native oracle compares
+the translated stroke topology with a second genuine Direct2D `Widen` result
+for a transformed custom dashed/beveled/capped fixed-transform stroke, then
+decodes both fill and stroke path resources. Managed AOT contracts pass 5/5
+and the package builds warning-free. The final 95,520-byte payload SHA-256 is
+`304477EB0796599D9015E7652DF15AEA53A61A79B69B93CFBD52101F7CA41974`.
+Windows 11 ARM64 Parallels with MSVC 19.44/SDK 10.0.26100.0 compiles under
+`/W4 /WX`; focused CTest passes 1/1 in 40.29 seconds (78.46 seconds total under
+concurrent guest load). No native export is added.
 
 ## Native MIL canonical D3DImage checkpoint
 
