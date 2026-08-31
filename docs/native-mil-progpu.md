@@ -4496,11 +4496,13 @@ green; no scalar fallback or browser-specific algorithm was introduced.
 
 ## Direct2D and Win2D boundary
 
-COM-heavy applications are portable only at typed graphics boundaries. Source
-rebuilt for macOS/Linux can retain `IUnknown` ownership and supported
-`ID2D1*`/Direct3D-shaped call structure through ProGPU-owned C++ objects; those
-objects lower to the same pointer-free retained scene used by native MIL and
-select Metal/Vulkan through WebGPU. Unchanged Windows PE/WinRT binaries,
+COM-heavy applications are portable only at typed graphics boundaries. The
+ProGPU-owned `ID2D1*` C++ object library is currently a `WIN32` target, while
+the pointer-free retained scene it records already selects Metal/Vulkan through
+WebGPU. Source rebuilt for macOS/Linux currently uses `ProGPU.DirectX`,
+`ProGPU.Win2D`, or the typed scene API; it will be able to retain supported
+`IUnknown`/`ID2D1*` call structure after the planned portable compatibility
+header and object target are implemented. Unchanged Windows PE/WinRT binaries,
 arbitrary registered COM servers, HWND/HDC/DXGI-handle APIs, and native Win2D
 remain Windows execution concerns and require the Windows VM, Wine, or an
 isolated Windows service/plugin. They are not silently approximated by the
