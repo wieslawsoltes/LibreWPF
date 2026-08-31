@@ -5766,6 +5766,19 @@ Direct2D oracle records all three `ID2D1StrokeStyle1` policies and requires the
 corresponding distinct flags, thickness, and cubic bodies. Focused managed ABI
 contracts pass 5/5 and the native MIL oracle exits zero on macOS.
 
+The exact 1,732,223-byte `0e3906bc` ABI-v50 archive was rebuilt in Windows 11
+ARM64 Parallels with MSVC 19.44.35228.0; archive SHA-256 is
+`1CBC6FF1998D2DEB84279E051FF84E82D695C47EC47AD471F4E0EFB89F63D946`.
+The provider and test executable linked, but the oracle exited 1 at
+`ProGPU Direct2D COM recorder write pass changed`, so this run is recorded as
+negative evidence and does not qualify ABI v50 on Windows. The 266,240-byte
+provider hash is
+`7130146F32B31597C5B716B6569D285EAD4A9D750F6911AD8C0A8F2847094157`;
+the 122,880-byte test hash is
+`7A39E6AB242413EAF9704FC43C4FCCCF8DE1C507CCCE08BDB7C59B8AE282FF70`.
+The current ABI-v52 oracle emits the recorder status, HRESULT, byte counts,
+command count, and brush count on this failure path.
+
 ProGPU Direct2D ABI v51 extends the ProGPU-owned COM factory with immutable
 `ID2D1EllipseGeometry`. The resource preserves factory and base-interface COM
 identity, reports exact affine support-function bounds, performs
