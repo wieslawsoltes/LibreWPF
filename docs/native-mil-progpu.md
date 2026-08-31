@@ -5785,6 +5785,11 @@ solid brush across draw transforms. ABI v52 now requires the correct
 single-brush result. The archived ABI-v50 executable still exited 1 and remains
 negative qualification evidence, but that failure is an oracle false negative
 rather than provider stream corruption.
+The next exposed command-list check was likewise older than ABI v50's analytic
+curved-stroke compiler: it expected fill and stroke to both use `PATH_BATCH`.
+The translator correctly emits one fill `PATH_BATCH` plus one analytic
+`GEOMETRY_BATCH` stroke. ABI v52 now requires that split while retaining the
+later detailed cubic, join, gap, dash, fixed-device, and hairline assertions.
 
 ProGPU Direct2D ABI v51 extends the ProGPU-owned COM factory with immutable
 `ID2D1EllipseGeometry`. The resource preserves factory and base-interface COM
