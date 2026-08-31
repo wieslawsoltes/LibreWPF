@@ -5468,6 +5468,25 @@ Provider SHA-256 is
 `305C1D7D3BC72F0CFC016778721CC36D90FDC91ABE1F9FCDE5DA2A8C5CFEF121`;
 all 123 exports exactly match the checked-in allowlist.
 
+ProGPU ABI v39 at implementation `35a8fadc` extends grouped-opacity layers to
+finite Direct2D `contentBounds` under axis-preserving active draw transforms.
+The rectangle is transformed once at `PushLayer` into exact target-space
+ProGPU layer bounds; later transform changes cannot move it. Scale,
+translation, reflection, and their combinations are exact. Rotation and shear
+remain fail-closed until the transformed region can flow through a native
+geometry-mask/coverage resource instead of a broadened axis-aligned box.
+
+The Windows oracle maps `[1,2,21,22]` through
+`[2,0,0,0.5,7,9]` and decodes target bounds `[9,10,40,10]`, while retaining
+37.5% grouped opacity and valid outer-clip nesting. Managed contracts pass 5/5
+and AOT build is warning-free. Windows 11 ARM64 Parallels rebuilds provider
+and test from deleted objects with MSVC 19.44/SDK 10.0.26100.0 `/W4 /WX`; the
+fresh native executable exits zero. Payload SHA-256 is
+`EDCD1850DABE2055AC05B6ACAC5583ADA8899C5A7806FC8A177551FF7D03B282`;
+provider SHA-256 is
+`C42A075E13706B42F7AA617CA437A194B20076BB538F5C2E91520A4F28BFE81E`,
+with all 123 exports matching the allowlist.
+
 ## Native MIL canonical D3DImage checkpoint
 
 ProGPU `72c9d794`/`20918afb` and this LibreWPF checkpoint add canonical
