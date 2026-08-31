@@ -5441,6 +5441,33 @@ Windows 11 ARM64 Parallels with MSVC 19.44/SDK 10.0.26100.0 compiles under
 `/W4 /WX`; focused CTest passes 1/1 in 40.29 seconds (78.46 seconds total under
 concurrent guest load). No native export is added.
 
+ProGPU ABI v38 at implementation `a308e7df` adds the first exact Direct2D
+opacity-layer ingestion. Full-target `D2D1::InfiniteRect()` layers with finite
+uniform opacity, no geometric/opacity mask, and
+`D2D1_LAYER_OPTIONS1_NONE` compile to the existing backend-neutral isolated
+layer. ProGPU therefore applies opacity once when compositing the grouped
+content—including overlapping descendants—and owns the pooled GPU layer on
+D3D12, Metal, Vulkan, and WebGPU. No `ID2D1Layer` COM identity, CPU pixel
+fallback, readback, or repacking enters the retained scene.
+
+The command sink now uses one bounded typed scope stack for clips and layers,
+so Direct2D's valid nested pairs are retained and overlapping/wrong-order pops
+fail with typed drawing state. Finite content bounds, geometric masks, opacity
+brushes, `INITIALIZE_FROM_BACKGROUND`, and `IGNORE_ALPHA` remain fail-closed
+until their distinct native bounds/mask/backdrop semantics are wired.
+
+The Windows oracle decodes one 37.5% source-over layer containing two
+overlapping rectangles inside an outer axis clip and requires exact
+save/push/pop/restore order. A negative command list proves background
+initialization produces no partial scene. Managed AOT contracts pass 5/5 and
+the package builds warning-free. Windows 11 ARM64 Parallels with MSVC
+19.44/SDK 10.0.26100.0 recompiles provider/test under `/W4 /WX`; the fresh
+test exits zero. The final 97,082-byte payload SHA-256 is
+`84A118A67091ED4DA4854B1B00A4AEB26F760073D22A729DFCE1B8460859C270`.
+Provider SHA-256 is
+`305C1D7D3BC72F0CFC016778721CC36D90FDC91ABE1F9FCDE5DA2A8C5CFEF121`;
+all 123 exports exactly match the checked-in allowlist.
+
 ## Native MIL canonical D3DImage checkpoint
 
 ProGPU `72c9d794`/`20918afb` and this LibreWPF checkpoint add canonical
