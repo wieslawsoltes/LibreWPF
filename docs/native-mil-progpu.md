@@ -5712,6 +5712,39 @@ is `ECC61FFBA903F53532094CD5A7492CA1F9DEC828CB1C91BE08EB0241FB020587`;
 the 121,856-byte test executable SHA-256 is
 `21C542CEFF8805DB694A4D449891486F2A4F094BF4A0BD428ABF8F9063B3C23D`.
 
+ProGPU ABI v49 at implementation `aecb6883` removes that normal-transform
+curved-path limitation. The Direct2D recorder now requests
+`CUBICS_AND_LINES`, retains line/cubic control points and active
+`D2D1_PATH_SEGMENT` flags, and compiles curves through the shared
+`progpu_native_semantic_path_stroke.hpp` helper. Un-stroked edges split a
+figure into bounded open runs with dash caps. Forced-round joins are translated
+from Direct2D's incoming-segment convention to ProGPU's outgoing-edge
+convention, including the closing-to-first and last-explicit-to-closing seams.
+
+Uniform line runs retain the one-record `STROKE_BATCH` fast path. Curves and
+per-segment joins emit the same analytic line/cubic/path-cap/path-join
+primitives already consumed by native MIL on D3D12, Metal, Vulkan, and WebGPU.
+The compiler reuses the bounded MIL curve-dash splitter, validates all style,
+flag, and transform inputs transactionally, and rolls back partial output on
+failure. No widened CPU outline, pixel readback, repacking, retained COM
+pointer, or per-segment GPU submission is introduced. Fixed/hairline curves
+remain fail-closed for ProGPU-owned geometry until their device-space dash
+metric is qualified; genuine Windows geometry retains the system `Widen`
+fallback.
+
+Focused managed contracts pass 5/5 and the portable native MIL oracle exits
+zero on macOS. Windows 11 ARM64 build `10.0.26200.9168` in Parallels 26.4.1
+extracts and builds the exact 1,731,087-byte native qualification archive from
+`aecb6883`; its SHA-256 is
+`ED54C0F280595EC92B2D182C3E7AC02E49A494F5D969257DD62D9B3ED0B162F1`.
+MSVC 19.44.35228.0 compiles the provider and oracle with `/W4 /WX`, the oracle
+exits zero, and `dumpbin` reports the expected 129 exported symbols. The
+265,216-byte provider SHA-256 is
+`FDA4E04F94D3DA60C6C8574C6D8196ADCB16ACF654DD6DC1A8AF2342017BAFC9`;
+the 122,880-byte test executable SHA-256 is
+`3D285A96AA096967ACB5E4A6AA1DCD46B1D040CA6603AFC54804360707B6A7DA`.
+Documentation checkpoint `e15f67f9` records the same evidence in ProGPU.
+
 ## Native MIL canonical D3DImage checkpoint
 
 ProGPU `72c9d794`/`20918afb` and this LibreWPF checkpoint add canonical
@@ -5774,8 +5807,8 @@ remain required.
    render-data command families using the complete generated WPF MCG layouts.
 2. Add remaining non-bitmap image sources, extend the package-qualified
    Microsoft Win2D device/target wrappers to broader resource families,
-   complete the device-loss gate, add exact per-segment Direct2D curved-stroke
-   metadata to the retained stroke batch, and add remaining exact
+   complete the device-loss gate, qualify fixed/hairline curved-stroke
+   device-space dash metrics, add remaining exact
    WPF-compatible arc lowering, and
    remaining multi-guideline draw-family deformation, general Visual
    effect/clip/mask/opacity ordering, remaining
