@@ -5606,6 +5606,20 @@ Windows 11 ARM64 Parallels rebuilds it cleanly with MSVC 19.44/SDK
 the 111,104-byte test executable SHA-256 is
 `7910843D99080398B21DDD8F383FBEBBCB99E662B76338800C97034844B4C722`.
 
+ProGPU ABI v45 adds a mutable ProGPU-owned `ID2D1SolidColorBrush` to the
+explicit compatibility-factory domain. The object preserves canonical
+resource/brush/solid-brush COM identity and factory ownership, synchronizes
+valid color/opacity/transform state, and rejects invalid creation with typed
+status/HRESULT output. Invalid void-returning Direct2D mutations retain the
+last valid state.
+
+The direct COM oracle now records with only ProGPU-owned factory, rectangle,
+solid brush, and command sink objects. LibreWPF therefore has a system-Direct2D
+independent COM resource-to-scene path while the same pointer-free brush and
+drawing commands continue to render through D3D12, Metal, Vulkan, and WebGPU.
+Committed-source Windows ARM64 qualification is recorded after the ABI v45
+archive is rebuilt in Parallels.
+
 ## Native MIL canonical D3DImage checkpoint
 
 ProGPU `72c9d794`/`20918afb` and this LibreWPF checkpoint add canonical
