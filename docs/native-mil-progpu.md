@@ -5793,13 +5793,13 @@ would benefit from SIMD. Focused managed ABI contracts pass 5/5; exact Windows
 COM/native differential qualification is pending.
 
 The Windows system oracle measured the `4 x 2` ellipse perimeter as `19.2537`
-at public flattening tolerance `0.25`, while the original ProGPU path visitor
-returned `19.1810`. The shared visitor now uses Direct2D's observed
-half-tolerance subdivision threshold (`0.125` for that query), which produces
-the system value and applies consistently to path-backed length, area,
-containment, and point-at-length analysis. Recursive child termination is
-data-dependent, so this bounded subdivision is not an independent-lane SIMD
-workload.
+at public flattening tolerance `0.25`, while the original retained-cubic
+delegation returned `19.1810`. Analytic ellipse and rounded-rectangle length
+and point-at-length delegation now uses Direct2D's observed half-tolerance
+threshold (`0.125` for that query), which produces the system value. Arbitrary
+path geometry keeps the caller's unscaled tolerance and its separate passing
+system differential. Recursive child termination is data-dependent, so this
+bounded subdivision is not an independent-lane SIMD workload.
 
 ProGPU Direct2D ABI v52 adds immutable
 `ID2D1RoundedRectangleGeometry`. The resource preserves its original
