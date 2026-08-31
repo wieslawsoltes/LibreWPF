@@ -5683,6 +5683,35 @@ SHA-256 is
 the 120,320-byte test executable SHA-256 is
 `E2C71C12741DB7A71C01EBCE510664BBE20E693131C21DA4DCCC2C1ACAF54CAE`.
 
+ProGPU ABI v48 maps compatible Direct2D `DrawGeometry` callbacks to the
+existing pointer-free semantic stroke batch. A bounded simplified-geometry
+capture emits one retained polyline per figure and preserves open/closed
+topology, caps, uniform joins, miter limit, normal/fixed/hairline transform
+policy, predefined or copied custom dash intervals, dash cap/offset, active
+transform, and brush indirection. Transform-aware flattening changes geometry
+metadata only; no COM pointer, CPU pixel buffer, widened outline, readback, or
+per-item submission enters the portable scene.
+
+Direct2D curved-path simplification can attach per-segment un-stroked or
+forced-round join hints that the current uniform stroke descriptor cannot
+represent exactly. Genuine system geometries carrying those hints retain the
+qualified Windows `Widen` path, while ProGPU-owned resources without an exact
+fallback fail closed. The direct COM oracle proves a ProGPU-owned closed
+rectangle plus the ABI v47 fixed custom style serializes as `STROKE_BATCH`;
+the existing genuine Direct2D cubic oracle separately preserves the hinted
+Windows path. Exact per-segment scene metadata remains the next portable
+curved-stroke dependency.
+
+Focused managed contracts pass 5/5. The exact implementation checkpoint is
+`2d7809f9`; its committed source archive SHA-256 is
+`D010D1EF377FE30D47FCA9411EC1921BDC20A04F69637B53B2DDB53FD25E5F8F`.
+Windows 11 ARM64 Parallels rebuilds it with MSVC 19.44/SDK 10.0.26100.0
+`/W4 /WX`; the full native oracle exits zero and `dumpbin` matches all 129
+allowlisted exports with zero differences. The 243,712-byte provider SHA-256
+is `ECC61FFBA903F53532094CD5A7492CA1F9DEC828CB1C91BE08EB0241FB020587`;
+the 121,856-byte test executable SHA-256 is
+`21C542CEFF8805DB694A4D449891486F2A4F094BF4A0BD428ABF8F9063B3C23D`.
+
 ## Native MIL canonical D3DImage checkpoint
 
 ProGPU `72c9d794`/`20918afb` and this LibreWPF checkpoint add canonical
@@ -5745,8 +5774,8 @@ remain required.
    render-data command families using the complete generated WPF MCG layouts.
 2. Add remaining non-bitmap image sources, extend the package-qualified
    Microsoft Win2D device/target wrappers to broader resource families,
-   complete the device-loss gate, translate ProGPU-owned Direct2D path/stroke
-   resources to the existing retained stroke batch, and add remaining exact
+   complete the device-loss gate, add exact per-segment Direct2D curved-stroke
+   metadata to the retained stroke batch, and add remaining exact
    WPF-compatible arc lowering, and
    remaining multi-guideline draw-family deformation, general Visual
    effect/clip/mask/opacity ordering, remaining
