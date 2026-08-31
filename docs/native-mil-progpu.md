@@ -5745,6 +5745,27 @@ the 122,880-byte test executable SHA-256 is
 `3D285A96AA096967ACB5E4A6AA1DCD46B1D040CA6603AFC54804360707B6A7DA`.
 Documentation checkpoint `e15f67f9` records the same evidence in ProGPU.
 
+ProGPU ABI v50 at implementation `0e3906bc` completes portable Direct2D
+normal/fixed/hairline curved-stroke policy. The shared semantic compiler keeps
+analytic local curve records, while its bounded dash table measures fixed and
+hairline distance through the active transform's linear component. Translation
+is excluded because it cannot affect arc length and can reduce precision for a
+small curve at a large world offset. Normal strokes retain local-space dash
+distance. Fixed strokes retain the requested width with device-space dash
+placement. Hairlines use a one-device-unit dash scale, store zero scene
+thickness, and ignore the supplied stroke width.
+
+The existing line-only `STROKE_BATCH` remains the fast path. Curves, geometry
+gaps, and forced joins emit analytic primitives into one pointer-free
+`GEOMETRY_BATCH` with no CPU outline widening, pixel readback, repacking, or
+per-segment GPU submission. Invalid zero-width normal/fixed strokes remain
+empty, fixed and hairline flags are mutually exclusive, and malformed forced
+states fail closed. A portable native MIL oracle differentiates the three dash
+end positions under the same non-uniform transform; the genuine Windows
+Direct2D oracle records all three `ID2D1StrokeStyle1` policies and requires the
+corresponding distinct flags, thickness, and cubic bodies. Focused managed ABI
+contracts pass 5/5 and the native MIL oracle exits zero on macOS.
+
 ## Native MIL canonical D3DImage checkpoint
 
 ProGPU `72c9d794`/`20918afb` and this LibreWPF checkpoint add canonical
@@ -5807,8 +5828,7 @@ remain required.
    render-data command families using the complete generated WPF MCG layouts.
 2. Add remaining non-bitmap image sources, extend the package-qualified
    Microsoft Win2D device/target wrappers to broader resource families,
-   complete the device-loss gate, qualify fixed/hairline curved-stroke
-   device-space dash metrics, add remaining exact
+   complete the device-loss gate, add remaining exact
    WPF-compatible arc lowering, and
    remaining multi-guideline draw-family deformation, general Visual
    effect/clip/mask/opacity ordering, remaining
