@@ -4509,6 +4509,17 @@ isolated Windows service/plugin. They are not silently approximated by the
 portable renderer. The detailed routing and migration tiers live in
 [`DIRECT2D_WIN2D_COMPATIBILITY.md`](../external/ProGPU/docs/DIRECT2D_WIN2D_COMPATIBILITY.md#application-compatibility-tiers).
 
+ProGPU `4186a305` makes the fixed-layout
+`progpu_native_direct2d.h` contract includable and installable on macOS/Linux.
+`PROGPU_NATIVE_DIRECT2D_HAS_WINDOWS_PROVIDER` distinguishes the current genuine
+Windows provider from the portable declarations, and a warning-as-error native
+CTest verifies the ABI layouts without any Windows SDK link dependency. This
+does not yet make provider calls available off Windows; it establishes the
+compiled seam used to extract the ProGPU-owned COM and geometry core next.
+The Apple Silicon/macOS no-provider native build passes all 11 CTests under
+warnings-as-errors, and the focused managed Direct2D contract gate passes 6/6
+with zero build warnings.
+
 `ProGPU.DirectX` implements the portable Direct3D-style facade, while the C++
 backend now also owns a separate Windows-only genuine Direct2D COM provider.
 ProGPU checkpoint `fa3e9e4a` classifies `d2d1.dll`,
