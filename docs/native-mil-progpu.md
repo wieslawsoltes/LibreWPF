@@ -5778,6 +5778,13 @@ the 122,880-byte test hash is
 `7A39E6AB242413EAF9704FC43C4FCCCF8DE1C507CCCE08BDB7C59B8AE282FF70`.
 The current ABI-v52 oracle emits the recorder status, HRESULT, byte counts,
 command count, and brush count on this failure path.
+It reports successful status/S_OK, exact `17,936/17,936` byte production,
+eight commands, and one brush. The old test incorrectly expected two brush
+entries even though the semantic builder canonically deduplicates the same
+solid brush across draw transforms. ABI v52 now requires the correct
+single-brush result. The archived ABI-v50 executable still exited 1 and remains
+negative qualification evidence, but that failure is an oracle false negative
+rather than provider stream corruption.
 
 ProGPU Direct2D ABI v51 extends the ProGPU-owned COM factory with immutable
 `ID2D1EllipseGeometry`. The resource preserves factory and base-interface COM
