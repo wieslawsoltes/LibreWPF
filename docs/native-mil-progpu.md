@@ -5858,8 +5858,12 @@ The exact ProGPU implementation checkpoint is `998c9ec2`. Its native oracle
 covers source/factory identity, transform metadata, bounds, containment,
 metrics, point-at-length, simplified topology, invalid creation, semantic
 recorder lowering, and a non-commuting stored-plus-world differential against
-system Direct2D. Focused managed ABI contracts pass 5/5. Windows MSVC/native
-qualification remains pending for this ABI-v53 checkpoint.
+system Direct2D. Focused managed ABI contracts pass 5/5. The exact
+implementation checkpoint passes ProGPU's hosted
+[`Native C++20 compiler compatibility (MSVC)` job](https://github.com/wieslawsoltes/ProGPU/actions/runs/33420113029/job/99580305821):
+MSVC compiles the complete provider and test suite, the transformed-geometry
+system differential passes, and all 11 native CTests pass. ABI v53 is therefore
+qualified on Windows x64.
 
 ## Native MIL canonical D3DImage checkpoint
 
