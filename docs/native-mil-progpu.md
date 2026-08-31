@@ -5617,8 +5617,15 @@ The direct COM oracle now records with only ProGPU-owned factory, rectangle,
 solid brush, and command sink objects. LibreWPF therefore has a system-Direct2D
 independent COM resource-to-scene path while the same pointer-free brush and
 drawing commands continue to render through D3D12, Metal, Vulkan, and WebGPU.
-Committed-source Windows ARM64 qualification is recorded after the ABI v45
-archive is rebuilt in Parallels.
+Focused managed contracts pass 5/5. The exact implementation checkpoint is
+`73b6ff5e`; its committed source archive SHA-256 is
+`59A755509F2E3FF32B8A4C5FE5C32CB7C8752C10B2A02F84276393D2FC157DDA`.
+Windows 11 ARM64 Parallels rebuilds it cleanly with MSVC 19.44/SDK
+10.0.26100.0 `/W4 /WX`, and the native oracle exits zero. `dumpbin` matches all
+129 allowlisted exports exactly. The 195,584-byte provider SHA-256 is
+`4126FB918B4A577BB728BF1E0B27E35E388185841223BBAD4044FD80DEE836ED`;
+the 113,664-byte test executable SHA-256 is
+`5B6EC4E52D17BB185A3E513A22628CC9BF93AE98AF28AFFD90F2FC448DFEB45C`.
 
 ## Native MIL canonical D3DImage checkpoint
 
