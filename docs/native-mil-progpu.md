@@ -5487,6 +5487,32 @@ provider SHA-256 is
 `C42A075E13706B42F7AA617CA437A194B20076BB538F5C2E91520A4F28BFE81E`,
 with all 123 exports matching the allowlist.
 
+ProGPU ABI v40 at implementation `21be13a9` extends the same Direct2D
+command-list ingestion path with per-primitive geometric layer masks. Genuine
+`ID2D1Geometry` masks are simplified once to filled line/cubic paths, then
+serialized as pointer-free ProGPU vector-mask resources. The retained transform
+is `maskTransform * activeDrawTransform`, matching Direct2D's rule that the
+mask transform is relative to the world transform. Exact Direct2D target mask
+bounds constrain full-target layers and intersect finite content bounds.
+
+Execution stays in ProGPU's shared GPU path rasterizer and isolated-layer
+compositor on D3D12, Metal, Vulkan, and WebGPU; no CPU pixel fallback,
+readback, repacking, per-segment submission, or retained COM pointer is added.
+Empty filled geometry becomes an empty layer. Aliased masks, opacity brushes,
+background initialization, ignored alpha, non-finite transform composition,
+and unsupported geometry fail closed rather than approximating coverage.
+
+The Windows oracle independently obtains transformed bounds from the genuine
+Direct2D geometry and decodes the layer reference, intersected bounds,
+line/cubic topology, fill rule, eight-sample mask, and composed transform. Its
+negative command list proves aliased masks emit zero partial scene bytes.
+Managed AOT contracts pass 5/5 and build warning-free. Windows 11 ARM64
+Parallels rebuilds provider/test from deleted objects under MSVC 19.44/SDK
+10.0.26100.0 `/W4 /WX`; the fresh native executable exits zero. The
+170,496-byte provider SHA-256 is
+`21CB1B6F5DD483A6E6F1F3546D76C1EC158A22F042120AA8A503247CF58B4789`,
+with all 123 exports matching the allowlist.
+
 ## Native MIL canonical D3DImage checkpoint
 
 ProGPU `72c9d794`/`20918afb` and this LibreWPF checkpoint add canonical
