@@ -6625,6 +6625,15 @@ the software device after roughly 80 seconds at half size. The independent
 full C++ D3D12 sample remains mandatory there, and no CPU renderer or retry is
 substituted.
 
+The hosted x64 Microsoft Basic Render Driver also explicitly defers the two
+forced signed-winding compute stress profiles. Its inline four-rectangle
+rerasterization reached final readback only after roughly 100 seconds and then
+lost the CPU-only device, after every earlier differential had passed. Exact
+native validators and compiler contracts still run in that job; live forced
+inline/staged execution remains mandatory on Windows Parallels/hardware,
+Metal, and Vulkan. Automatic production selection is unchanged and no CPU
+result is substituted.
+
 ProGPU checkpoint `4e7bef78` implements allocation-free rectangle
 `CombineWithGeometry` for union, intersection, XOR, and exclusion. A fixed
 3x3 edge grid classifies cells, labels four-connected components, emits only
