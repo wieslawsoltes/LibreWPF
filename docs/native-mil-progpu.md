@@ -6713,6 +6713,12 @@ assertions are unchanged; local Metal reproduces the established 37,536/11,542
 baseline sums, 40,800/13,045 guided/reference sums, 76 changed pixels, and zero
 reference differences.
 
+ProGPU checkpoint `5e1687d2` fixes the mixed semantic-stream allocation test's
+measurement boundary: the 10,000-iteration builder delta is captured before
+the first xUnit assertion can allocate during JIT initialization. The required
+product delta remains exactly zero, and the focused test passes after rebuild
+plus three isolated repeat runs.
+
 ## Next parity gates
 
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested
