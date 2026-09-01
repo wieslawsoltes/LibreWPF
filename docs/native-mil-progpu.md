@@ -6726,6 +6726,16 @@ and reference frames use generations 2, 3, and 4 and the rejection probe uses
 no-damage reuse to elide it. Local Metal again matches the exact established
 extent, color-sum, and zero-reference-difference evidence.
 
+ProGPU checkpoint `9f6ed1f9` removes the remaining coincident-boundary gap in
+the fixed-capacity affine rectangle Boolean engine. Collinear operand edges are
+split at both overlap endpoints, each sub-edge evaluates union, intersection,
+xor, or exclusion membership on its left and right sides, and duplicate
+directed boundaries are suppressed before contour tracing. Identical sheared
+rectangles, full and partial shared edges, and same-side partial overlap now
+remain allocation-free instead of returning `E_NOTIMPL`. The optimized and
+ASan/UBSan focused native tests pass locally; the Windows system-Direct2D oracle
+now repeats the four-mode corpus over a 361-point lattice per case.
+
 ## Next parity gates
 
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested
