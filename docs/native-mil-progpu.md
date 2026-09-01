@@ -6486,13 +6486,36 @@ source IIDs fail closed. Actual Windows SDK vtable coverage and portable scene
 serialization validate both resource aliases; WIC locks and DXGI surfaces
 remain explicit follow-up ownership lanes.
 
+## Portable Direct2D glyph-run checkpoint
+
+The portable C++ `ID2D1RenderTarget::DrawGlyphRun` slot now consumes the exact
+already-shaped `DWRITE_GLYPH_RUN` contract. ProGPU publishes the canonical
+glyph-offset/run layouts, `IID_IDWriteFontFace`, and the font-face vtable prefix
+through `GetGlyphRunOutline`, so both a genuine Windows DirectWrite face and a
+portable provider enter the same code. The target requests the complete run
+outline once, closes the one-shot typed sink, applies the baseline plus active
+Direct2D transform, and records one pointer-free retained path draw through the
+existing arbitrary-brush GPU pipeline. Optional advances and offsets, RTL,
+sideways, and measuring-mode data reach the provider unchanged. No character
+mapping, reshaping, per-glyph submission, CPU pixel rasterization, target
+readback, or managed callback is introduced.
+
+The portable test validates one callback and one scene command for a two-glyph
+run with translated bounds. The Windows compiler gate additionally calls the
+same ProGPU target through real SDK `ID2D1RenderTarget*`, `DWRITE_GLYPH_RUN`,
+and `IDWriteFontFace*` types. `DrawTextLayout` remains the next typed
+`IDWriteTextRenderer` bridge, while `DrawText` also requires a portable layout-
+factory contract. Until those two seams and color-glyph translation land, they
+continue to fail closed rather than selecting a hidden platform or CPU
+fallback.
+
 ## Next parity gates
 
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested
    render-data command families using the complete generated WPF MCG layouts.
 2. Add remaining non-bitmap image sources and portable Direct2D WIC-lock/DXGI
    shared bitmap lanes, advanced stroke transform modes,
-   text, and device-context bitmap
+   `DrawTextLayout`/`DrawText`, color glyphs, and device-context bitmap
    generations; extend the package-qualified
    Microsoft Win2D device/target wrappers to broader resource families,
    complete the device-loss gate, add remaining exact
