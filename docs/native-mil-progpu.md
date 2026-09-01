@@ -6768,6 +6768,15 @@ dependency. Optimized and ASan/UBSan Direct2D suites pass 4/4 locally. A clean
 Windows 11 ARM64 MSVC 19.44 build compiled all 30 focused core/provider targets
 and compared every mode over a dense lattice with genuine system Direct2D.
 
+Follow-up checkpoint `6b3a4201` implements the same simple-path domain for
+`CompareWithGeometry`. It reports equality and source containment as
+`IS_CONTAINED`, reverse containment as `CONTAINS`, separation as `DISJOINT`,
+and crossing or boundary-only contact as `OVERLAP`. Transformed input,
+same-factory validation, transactional `UNKNOWN` failure state, and the SIMD
+boundary broad phase are retained. Optimized and sanitizer fixtures pass
+locally; a clean 30-target Windows ARM64 rebuild matches genuine system
+Direct2D for all five relations.
+
 ## Next parity gates
 
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested
