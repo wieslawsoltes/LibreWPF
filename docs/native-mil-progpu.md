@@ -6736,6 +6736,21 @@ remain allocation-free instead of returning `E_NOTIMPL`. The optimized and
 ASan/UBSan focused native tests pass locally; the Windows system-Direct2D oracle
 now repeats the four-mode corpus over a 361-point lattice per case.
 
+ProGPU checkpoints `0df9d765`, `972eb0cf`, and `32dacd72` enable nested
+`ID2D1GeometryGroup` creation through both the portable COM factory and the
+Windows SDK-vtable provider. Nested resources republish their immutable
+multi-figure path under the authoritative outer alternate/winding mode while a
+64-level transformed-source bound still fails closed. The Windows system
+oracle uses a guaranteed rectangle/ellipse overlap point and proves the outer
+winding result, transformed bounds, source topology, and simplified transcript
+against genuine Direct2D. That oracle also exposed and closed an older ellipse
+gap: system `Simplify(CUBICS_AND_LINES)` emits `B,L,B,L,B,L,B`, with a
+zero-length line after the first three cubic endpoints. Direct ellipses,
+ordinary groups, and nested groups now preserve that exact sequence in both
+providers. Optimized and ASan/UBSan tests pass on Apple Silicon; a clean
+Windows 11 ARM64 MSVC 19.44 rebuild compiled 30 focused core/provider targets
+under warnings-as-errors and passed the system-Direct2D CTest.
+
 ## Next parity gates
 
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested
