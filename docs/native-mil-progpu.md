@@ -6456,12 +6456,28 @@ drift. The focused portable Direct2D, live Metal/WebGPU, and native MIL suites
 cover styled line, rectangle, unequal-radius rounded rectangle, ellipse, and a
 closed four-cubic dashed contour.
 
+## Portable Direct2D WIC bitmap-source checkpoint
+
+The portable C++ `ID2D1RenderTarget::CreateBitmapFromWicBitmap` path now
+consumes the canonical `IWICBitmapSource` COM contract directly. It accepts
+exact `GUID_WICPixelFormat32bppPBGRA` and `32bppPRGBA` sources, maps them to
+premultiplied BGRA8/RGBA8 without conversion, and lets `CopyPixels` write
+straight into the final bounded bitmap allocation. Null/default bitmap
+properties infer the source format and use Direct2D's specified 96 DPI;
+embedded WIC DPI is deliberately ignored. Unsupported formats, alpha modes,
+format mismatches, invalid dimensions, and oversized payloads fail closed
+before the copy. There is no reflection, codec activation, intermediate CPU
+repack, per-pixel scalar conversion, or GPU readback in this resource-upload
+seam. Portable tests serialize the resulting bitmap and compare its retained
+payload byte for byte; Windows compiler coverage also validates the canonical
+IID/GUID values, `WICRect` layout, and actual SDK vtable call.
+
 ## Next parity gates
 
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested
    render-data command families using the complete generated WPF MCG layouts.
-2. Add remaining non-bitmap image sources and portable Direct2D WIC/shared
-   bitmap creation, advanced stroke transform modes, text, and device-context bitmap
+2. Add remaining non-bitmap image sources and portable Direct2D shared bitmap
+   creation, advanced stroke transform modes, text, and device-context bitmap
    generations; extend the package-qualified
    Microsoft Win2D device/target wrappers to broader resource families,
    complete the device-loss gate, add remaining exact
