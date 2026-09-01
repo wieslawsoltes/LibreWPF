@@ -6473,23 +6473,25 @@ payload byte for byte; Windows compiler coverage also validates the canonical
 IID/GUID values, `WICRect` layout, and actual SDK vtable call.
 
 The same bitmap-resource lane now implements
-`CreateSharedBitmap(IID_ID2D1Bitmap, ...)` for same-factory portable upload and
-WIC bitmaps. A shared view retains its source, forwards mutable bitmap writes,
-observes the source generation, and can carry independent DPI without copying
-pixel storage. Source and views publish one typed storage identity, so drawing
-both in a frame emits one retained image resource/GPU upload while preserving
-per-view DIP mapping. Format mismatch, unsupported alpha reinterpretation,
-foreign domains, null data, and other source IIDs fail closed. Actual Windows
-SDK vtable coverage and portable scene serialization validate the resource
-alias; compatible-target scene bitmaps, WIC locks, and DXGI surfaces remain
-explicit follow-up ownership lanes.
+`CreateSharedBitmap(IID_ID2D1Bitmap, ...)` for same-factory portable upload,
+WIC, and compatible-target bitmaps. An ordinary shared view retains its source,
+forwards mutable writes, observes the source generation, and can carry
+independent DPI without copying pixel storage. Source and views publish one
+typed storage identity, so drawing both in a frame emits one retained image
+resource/GPU upload while preserving per-view DIP mapping. A compatible-target
+view retains and forwards the child semantic scene, so drawing or masking it
+still uses the bounded GPU attachment without readback. Format mismatch,
+unsupported alpha reinterpretation, foreign domains, null data, and other
+source IIDs fail closed. Actual Windows SDK vtable coverage and portable scene
+serialization validate both resource aliases; WIC locks and DXGI surfaces
+remain explicit follow-up ownership lanes.
 
 ## Next parity gates
 
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested
    render-data command families using the complete generated WPF MCG layouts.
-2. Add remaining non-bitmap image sources and portable Direct2D compatible-
-   scene/WIC-lock/DXGI shared bitmap lanes, advanced stroke transform modes,
+2. Add remaining non-bitmap image sources and portable Direct2D WIC-lock/DXGI
+   shared bitmap lanes, advanced stroke transform modes,
    text, and device-context bitmap
    generations; extend the package-qualified
    Microsoft Win2D device/target wrappers to broader resource families,
