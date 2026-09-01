@@ -6585,6 +6585,17 @@ queries on Windows. Explicit styles, degeneracy, singular transforms, and
 general-affine intrinsic transformed rectangles remain typed fail-closed
 cases pending the shared styled-offset engine.
 
+ProGPU checkpoint `31557963` implements `ID2D1Geometry::Widen` for default
+nondegenerate rectangles and positive axis-aligned transformed rectangles.
+The base lane emits Direct2D's alternate-fill closed outer/inner contours;
+the transformed lane emits its single winding-fill, force-unstroked open
+bridge contour before applying the caller transform. Native macOS,
+ASan/UBSan, managed source-contract, and Windows 11 ARM64 system-Direct2D
+transcript comparison gate every figure, flag, closure, and point. LibreWPF's
+package-mode CI now waits for the exact pinned ProGPU Build and stages its
+six-RID native package artifact before repacking an untagged source checkout,
+so the package audit cannot accidentally pass from stale local runtimes.
+
 ## Next parity gates
 
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested

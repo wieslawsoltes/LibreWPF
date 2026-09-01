@@ -11,6 +11,7 @@ on:
   workflow_dispatch:
 
 permissions:
+  actions: read
   contents: read
 
 env:
@@ -71,6 +72,8 @@ jobs:
           path: artifacts/windows-managed-runtime
 
       - name: Stage matching ProGPU release packages when available
+        env:
+          GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
@@ -94,7 +97,10 @@ jobs:
             done
             echo "PROGPU_WPF_PREPACKAGED_PROGPU_DIR=${package_dir}" >> "${GITHUB_ENV}"
           else
-            echo "ProGPU ${submodule_commit} is not the ${tag} release; the SDK gate will pack the exact checked-out submodule source."
+            echo "ProGPU ${submodule_commit} is not the ${tag} release; staging native runtimes from its exact successful Build."
+            ./eng/progpu-stage-ci-native-runtimes.sh \
+              "${submodule_commit}" \
+              "${GITHUB_WORKSPACE}/external/ProGPU/artifacts/progpu-native/package"
           fi
 
       - name: Run LibreWPF SDK gate
