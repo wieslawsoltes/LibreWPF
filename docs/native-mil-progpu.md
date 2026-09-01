@@ -6604,9 +6604,23 @@ preserves Direct2D's observable relation ordering: equality is
 general-affine cases leave `UNKNOWN` while failing closed. Native,
 ASan/UBSan, managed contract, and Windows 11 ARM64 system-Direct2D oracles
 cover every relation plus caller and intrinsic transforms. The extended
-Windows CI also retries its unrelated disposable software-D3D12 managed
-sample once in a fresh process; two failures still fail the gate, while C++
-samples, Direct2D oracles, export checks, and CTests remain single-shot.
+Windows CI keeps full 640x360 validation on hardware and Parallels. Microsoft
+Basic Render Driver executes the identical logical managed scene at 320x180
+and 0.5 DPI, preserving native compilation, retained second-frame zero-upload,
+readback, and nondegenerate pixel checks while avoiding its deterministic
+75-second full-frame device loss. The zero-radius point remains structurally
+checked there and pixel-checked by the full-resolution lanes.
+
+ProGPU checkpoint `4e7bef78` implements allocation-free rectangle
+`CombineWithGeometry` for union, intersection, XOR, and exclusion. A fixed
+3x3 edge grid classifies cells, labels four-connected components, emits only
+external orthogonal boundaries, and removes collinear vertices without heap
+allocation. Same-factory base and axis-preserving transformed rectangles are
+supported; general affine and cross-factory inputs fail before sink mutation.
+Native semantic probes cover disjoint components and holes, ASan/UBSan guards
+the fixed topology buffers, and the Windows system-Direct2D oracle compares
+the exact undirected boundary edge set, fill mode, segment flags, figure count,
+and closure contract for all four operations.
 
 ## Next parity gates
 
