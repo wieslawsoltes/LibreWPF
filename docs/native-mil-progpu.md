@@ -6680,6 +6680,14 @@ pass locally. Windows 11 ARM64 Parallels recompiles the focused portable core
 and genuine system-Direct2D oracle with MSVC 19.44 under explicit `/W4 /WX`;
 the system comparison passes without a COM ABI or export-list change.
 
+ProGPU checkpoint `72bd06bb` hardens the hosted Basic Render Driver gate after
+one exact-head run preserved the already-qualified native vector-clip image
+hash `8430B1A822156BAC` but returned a corrupted managed-reference frame. The
+software-adapter lane now retries that one complete 96-item differential in a
+fresh process. It does not reduce dimensions, work count, warmups, iterations,
+native or managed execution, or pixel thresholds; a second failure remains a
+hard error. Hardware Windows and Parallels retain their single-attempt gate.
+
 ## Next parity gates
 
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested
