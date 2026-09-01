@@ -6596,6 +6596,18 @@ package-mode CI now waits for the exact pinned ProGPU Build and stages its
 six-RID native package artifact before repacking an untagged source checkout,
 so the package audit cannot accidentally pass from stale local runtimes.
 
+ProGPU checkpoint `32bc8e33` implements allocation-free rectangle
+`CompareWithGeometry` for same-factory rectangles and bounded transformed
+rectangle chains whose composed input transform remains axis preserving. It
+preserves Direct2D's observable relation ordering: equality is
+`IS_CONTAINED`, boundary contact is `OVERLAP`, and cross-factory or
+general-affine cases leave `UNKNOWN` while failing closed. Native,
+ASan/UBSan, managed contract, and Windows 11 ARM64 system-Direct2D oracles
+cover every relation plus caller and intrinsic transforms. The extended
+Windows CI also retries its unrelated disposable software-D3D12 managed
+sample once in a fresh process; two failures still fail the gate, while C++
+samples, Direct2D oracles, export checks, and CTests remain single-shot.
+
 ## Next parity gates
 
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested
