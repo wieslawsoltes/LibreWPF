@@ -6818,6 +6818,12 @@ genuine Windows Direct2D after a clean ARM64 30-target rebuild; all optimized
 and sanitizer Direct2D tests pass locally. Dashed and round joins remain
 explicit fail-closed gates for shared run/arc output geometry.
 
+ProGPU checkpoint `8de437a3` completes the solid closed-path join set by
+adding round joins as exact vertex disks over the shared SIMD segment body.
+Round inside/outside arc probes match genuine system Direct2D after a clean
+Windows ARM64 30-target build, while optimized and sanitizer suites remain
+green. Dashed styles remain the explicit shared-run geometry gate.
+
 ## Next parity gates
 
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested
