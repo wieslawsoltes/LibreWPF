@@ -6539,6 +6539,17 @@ claim DirectWrite raster-filter pixel effects; native GPU quality mapping and
 deferred incompatible-antialias validation remain explicit parity work with
 no CPU raster fallback.
 
+Portable rectangle and path geometries now implement
+`ID2D1Geometry::Outline` for the exact single-filled-contour lane. The path
+implementation applies the requested transform and flattening tolerance,
+removes degenerate duplicate edges, rejects transverse self-intersections,
+normalizes direction, and writes Direct2D's fill-invariant alternate-mode
+closed contour with an explicit closing point. Rectangle geometry emits the
+same sink contract analytically. Multiple contours, holes, overlaps, and
+self-intersections remain typed fail-closed cases until the shared native
+boolean-topology engine lands. Those topology walks are dependency-bound
+scalar work and are documented exceptions to SIMD policy.
+
 ## Next parity gates
 
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested
