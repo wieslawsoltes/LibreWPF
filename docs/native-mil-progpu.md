@@ -6402,13 +6402,60 @@ typography/color-paint customization, complete
 device-loss recreation, and remaining image/effect resource-family tests
 remain required.
 
+## Portable Direct2D meshes, masks, and compatible targets checkpoint
+
+The portable C++ backend now implements canonical `ID2D1Mesh` ownership and
+`ID2D1TessellationSink` recording. `FillMesh` validates the resource domain and
+lowers the immutable triangle arena directly to the semantic geometry batch;
+the brush remains a typed resource and mesh replay does not introduce a
+managed callback or one submission per triangle.
+
+`ID2D1RenderTarget::FillOpacityMask` now consumes both ordinary portable
+bitmaps and compatible-target bitmaps. Ordinary R8 masks sample red and RGBA or
+BGRA masks sample alpha. Source crop, destination scale/translation, and full
+finite affine mapping are represented by retained GPU uniforms and evaluated
+by the shared texture/vector/text mask shaders. The implementation performs no
+CPU pixel readback or repacking.
+
+`CreateCompatibleRenderTarget` and the canonical
+`ID2D1BitmapRenderTarget` vtable now record an independently versioned child
+semantic scene. `GetBitmap` returns a same-domain proxy retaining that scene,
+and later draw/mask use renders the child to its bounded GPU attachment before
+sampling it. RGBA8, BGRA8, and A8 premultiplied targets are supported;
+GDI-compatible requests, nonuniform DPI, and incompatible formats fail closed.
+The live Apple M3 Pro Metal gate records 15 Direct2D draws in four submissions,
+including an A8 child target with destination scaling. Portable ABI tests also
+exercise the exact Windows `ID2D1*` method order and canonical compatible-target
+IID.
+
+## Portable Direct2D styled-primitives checkpoint
+
+The portable C++ `ID2D1RenderTarget` now accepts a non-null base
+`ID2D1StrokeStyle` for `DrawLine`, `DrawRectangle`, `DrawRoundedRectangle`, and
+`DrawEllipse`. These calls create same-factory portable geometry and enter the
+existing pointer-free semantic stroke compiler, preserving custom/standard
+dashes, dash phase and caps, endpoint caps, joins, and miter limits. Solid
+unstyled primitives keep their analytic fast path. Styled line-only contours
+retain the stroke-batch fast path, while rounded and elliptical curves retain
+native cubic geometry; no system Direct2D delegation, CPU raster outline, COM
+identity retention, or per-dash submission is introduced.
+
+This slice also fixes closed curved dashes at their retained-data boundary.
+When independently evaluated curve fragments meet within the existing bounded
+dash epsilon, the appended fragment start is normalized to the exact preceding
+endpoint. The same normalization is applied when first/final visible runs are
+merged across a closed seam. Exact join compilation can therefore remain
+strict without rejecting valid dashed ellipses through floating-point endpoint
+drift. The focused portable Direct2D, live Metal/WebGPU, and native MIL suites
+cover styled line, rectangle, unequal-radius rounded rectangle, ellipse, and a
+closed four-cubic dashed contour.
+
 ## Next parity gates
 
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested
    render-data command families using the complete generated WPF MCG layouts.
 2. Add remaining non-bitmap image sources and portable Direct2D WIC/shared
-   bitmap creation, opacity masks, advanced stroke transform modes,
-   clips/layers, text, and device-context bitmap
+   bitmap creation, advanced stroke transform modes, text, and device-context bitmap
    generations; extend the package-qualified
    Microsoft Win2D device/target wrappers to broader resource families,
    complete the device-loss gate, add remaining exact
