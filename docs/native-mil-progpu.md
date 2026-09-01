@@ -6203,7 +6203,7 @@ the system Direct2D group differential, semantic recorder, and all 11 native
 CTests pass. ABI v54 is therefore qualified on Windows x64; documentation
 checkpoint `64dcfef5` records both the failed first run and corrected proof.
 
-## Portable Direct2D gradient and bitmap checkpoint
+## Portable Direct2D gradient, bitmap, and bitmap-brush checkpoint
 
 The ProGPU-owned cross-platform `ID2D1RenderTarget` now records device-
 dependent gradient and bitmap resources into the same retained semantic scene
@@ -6231,7 +6231,7 @@ raster fallback, or readback. Nearest/linear sampling, bitmap-DPI source
 rectangles, destination rectangles, opacity, premultiplied alpha, and the
 active Direct2D transform lower to the existing image command. WIC decoding,
 shared bitmaps, render-target readback copies, alpha-ignore/straight formats,
-bitmap brushes, and opacity masks remain explicit fail-closed gaps.
+and opacity masks remain explicit fail-closed gaps.
 
 The expanded 64x48 cross-backend fixture records a linear-gradient rectangle,
 radial-gradient ellipse, nearest-sampled 2x2 BGRA bitmap, solid stroked
@@ -6253,6 +6253,37 @@ bytes. The focused managed `Direct2DInteropContractTests` pass 10/10; native
 COM/internal-scene tests and Metal/Vulkan/D3D12 live fixtures also pass. This
 validates source-rebuilt COM compatibility; it does not
 make an unchanged Windows `d2d1.dll` consumer portable.
+
+ProGPU `f5453920` adds the next device-dependent resource: a canonical mutable
+`ID2D1BitmapBrush` with exact `IUnknown`/resource/brush/bitmap-brush identity,
+same-factory source ownership, clamp/wrap/mirror addressing, nearest/linear
+sampling, opacity, and affine transforms. Existing portable line, rectangle,
+equal-radius rounded-rectangle, and ellipse fill/stroke calls lower that brush
+to an image draw plus a typed GPU geometry or analytic mask. The source bitmap
+continues to use the generation cache and its original premultiplied RGBA/BGRA
+bytes. Tiling and transformed coordinates execute in the shared image shader;
+there is no CPU rasterization, pixel replication, readback, repacking, or
+per-tile submission. Geometry-mask generation now uses the same semantic
+command encoder as the following image pass, preserving one queue submission
+for the complete frame.
+
+The cross-backend fixture now records seven draws by adding a repeated nearest-
+sampled bitmap-brush rectangle and a bitmap-brush stroked ellipse. Apple M3 Pro
+Metal and Windows 11 ARM64 Parallels D3D12 are byte-identical at SHA-256
+`08fba84c33ac65590568e8e5209b47c5295eb7a642ad99c05b885f5a9f6b7495`.
+Ubuntu 24.04 ARM64 llvmpipe LLVM 20.1.2/Vulkan produces SHA-256
+`90459b346415605e57bc828b433b7e64e2ad452fde59985c937a10821d570ad4`;
+all 13 semantic probes are exact, 149 of 3,072 antialiased edge pixels differ
+by at most 1/255, no pixel exceeds that bound, and mean absolute channel
+difference is `0.026801215277777776`. All three lanes report seven draws and
+one submission.
+
+Windows MSVC 19.44 `/W4 /WX` also validates the object through genuine SDK
+`ID2D1BitmapBrush*`, `ID2D1Brush*`, and `ID2D1RenderTarget*` vtables. The
+independent system-Direct2D/WIC versus ProGPU D3D12 oracle passes with mean
+byte error `0.5718` across 12,288 BGRA bytes. Arbitrary geometry brush
+coverage, opacity masks, clips/layers, text, WIC/shared bitmap creation, and
+device-context generations remain fail-closed parity work.
 
 ## Native MIL canonical D3DImage checkpoint
 
@@ -6315,7 +6346,8 @@ remain required.
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested
    render-data command families using the complete generated WPF MCG layouts.
 2. Add remaining non-bitmap image sources and portable Direct2D WIC/shared
-   bitmap creation, bitmap brushes, opacity masks, and device-context bitmap
+   bitmap creation, opacity masks, arbitrary geometry brush coverage,
+   clips/layers, text, and device-context bitmap
    generations; extend the package-qualified
    Microsoft Win2D device/target wrappers to broader resource families,
    complete the device-loss gate, add remaining exact
