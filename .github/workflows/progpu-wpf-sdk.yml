@@ -70,7 +70,7 @@ jobs:
           name: librewpf-windows-managed-runtime-${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}
           path: artifacts/windows-managed-runtime
 
-      - name: Stage exact ProGPU release packages
+      - name: Stage matching ProGPU release packages when available
         shell: bash
         run: |
           set -euo pipefail
@@ -82,21 +82,20 @@ jobs:
             tag_commit="$(git ls-remote https://github.com/wieslawsoltes/ProGPU.git "${tag_ref}" | awk 'NR == 1 { print $1 }')"
           fi
           submodule_commit="$(git -C external/ProGPU rev-parse HEAD)"
-          if [[ -z "${tag_commit}" || "${tag_commit}" != "${submodule_commit}" ]]; then
-            echo "LibreWPF ProGPU submodule ${submodule_commit} does not match ${tag} (${tag_commit:-missing})." >&2
-            exit 1
+          if [[ -n "${tag_commit}" && "${tag_commit}" == "${submodule_commit}" ]]; then
+            package_dir="${RUNNER_TEMP}/progpu-${progpu_version}"
+            mkdir -p "${package_dir}"
+            source eng/progpu-preview-package-list.sh
+            for package_id in "${progpu_preview_runtime_package_ids[@]}"; do
+              package_file="${package_id}.${progpu_version}.nupkg"
+              curl --fail --location --retry 5 --retry-all-errors \
+                --output "${package_dir}/${package_file}" \
+                "https://github.com/wieslawsoltes/ProGPU/releases/download/${tag}/${package_file}"
+            done
+            echo "PROGPU_WPF_PREPACKAGED_PROGPU_DIR=${package_dir}" >> "${GITHUB_ENV}"
+          else
+            echo "ProGPU ${submodule_commit} is not the ${tag} release; the SDK gate will pack the exact checked-out submodule source."
           fi
-
-          package_dir="${RUNNER_TEMP}/progpu-${progpu_version}"
-          mkdir -p "${package_dir}"
-          source eng/progpu-preview-package-list.sh
-          for package_id in "${progpu_preview_runtime_package_ids[@]}"; do
-            package_file="${package_id}.${progpu_version}.nupkg"
-            curl --fail --location --retry 5 --retry-all-errors \
-              --output "${package_dir}/${package_file}" \
-              "https://github.com/wieslawsoltes/ProGPU/releases/download/${tag}/${package_file}"
-          done
-          echo "PROGPU_WPF_PREPACKAGED_PROGPU_DIR=${package_dir}" >> "${GITHUB_ENV}"
 
       - name: Run LibreWPF SDK gate
         run: ./eng/progpu-wpf-sdk-ci.sh
