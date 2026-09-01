@@ -4756,6 +4756,23 @@ configuration and compatibility limits in ProGPU. Linux/Vulkan live pixels
 and the bitmap, gradient, arbitrary-geometry, clip/layer, text, effect, and
 device-context families remain fail-closed parity gates.
 
+ProGPU implementation `b22ed672` converts that fixture into a normal
+backend-neutral native CTest and CI artifact gate. The test selects only D3D12,
+Metal, or Vulkan for the current platform, records through the portable COM
+vtables, requires four retained draws and one renderer submission, and emits a
+complete 64x48 PPM. Windows 11 ARM64 Parallels D3D12 and Apple M3 Pro Metal are
+byte-identical at SHA-256
+`f71fc0daeb6f9e9dcb9326b45c4988220befe6981e486035d6075c859c71fa9a`.
+Ubuntu 24.04 ARM64 llvmpipe LLVM 20.1.2/Vulkan produces
+`b0a36a8a7c49e4fbc6ee3f7d4addb998fa2a47355a7532f000c70f8c81095599`:
+all five semantic probes are exact, while 140 analytic-edge pixels differ by
+exactly 1/255 and mean channel error is `0.0247395833`. The aggregate CI job
+caps the whole frame at 160 changed pixels, 1/255 maximum, zero pixels above
+that difference, and mean `0.03`. The Linux strict build also caught and fixed
+a typed enum/unsigned antialias-flag return; GCC 13, AppleClang, and Windows
+ARM64 MSVC 19.44 `/W4 /WX` now compile the path. ProGPU documentation
+checkpoint `f8016e38` records the evidence and its software-Vulkan limitation.
+
 `ProGPU.DirectX` implements the portable Direct3D-style facade, while the C++
 backend now also owns a separate Windows-only genuine Direct2D COM provider.
 ProGPU checkpoint `fa3e9e4a` classifies `d2d1.dll`,
