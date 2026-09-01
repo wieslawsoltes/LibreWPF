@@ -6795,6 +6795,14 @@ nonuniformly transformed results match genuine system Direct2D. Optimized and
 sanitizer Direct2D suites pass 4/4 locally, and a clean Windows ARM64 build
 again compiled all 30 focused targets and passed the differential oracle.
 
+ProGPU checkpoint `1658aeba` implements the first general-path `Widen` output
+lane for a strictly convex simple closed contour and positive-width default
+miter stroke. It validates complete outer/inner offset topology before sink
+mutation, transforms points four-wide through NEON/SSE2, and emits
+alternate-fill force-unstroked figures. Dense local predicates match
+`StrokeContainsPoint`; optimized and sanitizer suites pass 4/4, and a clean
+Windows ARM64 30-target build matches genuine system Direct2D widened output.
+
 ## Next parity gates
 
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested
