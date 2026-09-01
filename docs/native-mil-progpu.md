@@ -6565,14 +6565,16 @@ self-intersections remain typed fail-closed cases until the shared native
 boolean-topology engine lands. Those topology walks are dependency-bound
 scalar work and are documented exceptions to SIMD policy.
 
-ProGPU checkpoint `a454eab8` adds exact portable
+ProGPU checkpoints `a454eab8` and `4c070929` add exact portable
 `ID2D1RectangleGeometry::GetWidenedBounds` for nondegenerate rectangles using
 the default stroke or a same-factory solid stroke style. Expansion occurs in
-local geometry space before the caller's affine transform, including
-nonuniform scaling. Dashed and degenerate bounds remain fail closed until
-their cap/run calculation is shared with the retained stroke compiler. Native,
-ASan, managed source-contract, transformed-geometry, and Windows
-system-Direct2D oracle coverage gate the implementation.
+local geometry space before the caller's affine transform. Axis-preserving
+`ID2D1TransformedGeometry` materializes its intrinsic transform first, then
+widens with the unscaled stroke width, then applies the caller transform.
+Dashed, degenerate, and general-affine transformed bounds remain fail closed
+until their cap/run/offset calculation is shared with the retained stroke
+compiler. Native, ASan, managed source-contract, transformed-geometry, and
+Windows system-Direct2D oracle coverage gate the implementation.
 
 ## Next parity gates
 
