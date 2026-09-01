@@ -4721,6 +4721,26 @@ creation, `FillRectangle`, and session completion through a real SDK
 `ID2D1RenderTarget*`. Native Direct2D pixel-oracle comparison and portable
 surface presentation remain follow-up gates.
 
+ProGPU `1f6748b4` adds the installed typed bridge from that COM-shaped target
+to the existing native WebGPU engine. The host supplies one reusable scratch
+span and a borrowed same-device texture view; the adapter builds and
+transactionally updates the retained scene, maps target size, isotropic DPI,
+generation, and explicit clear state into the native frame, and issues one
+scene render. No managed replay, second device/provider, CPU pixel path, or
+per-primitive submission is introduced. Missing views, insufficient scratch,
+unsupported flags, and non-isotropic DPI fail before submission with typed
+stage/HRESULT/native-status diagnostics.
+
+The live pinned WebScene/Dawn gate now records the standard Direct2D target
+through its COM interfaces and verifies clear plus red rectangle, green
+ellipse, blue stroked rectangle, and magenta rounded rectangle pixels in a
+64x48 Metal IOSurface. Metrics require four retained draws and one GPU
+submission. The macOS no-provider suite remains 14/14, managed Direct2D
+contracts remain 9/9, and Windows ARM64 MSVC 19.44 `/W4 /WX` compiles and runs
+the installed submission declarations with the real SDK target ABI. The next
+differential gate is the same fixture through native system Direct2D and
+ProGPU/D3D12 inside the Windows VM.
+
 `ProGPU.DirectX` implements the portable Direct3D-style facade, while the C++
 backend now also owns a separate Windows-only genuine Direct2D COM provider.
 ProGPU checkpoint `fa3e9e4a` classifies `d2d1.dll`,
