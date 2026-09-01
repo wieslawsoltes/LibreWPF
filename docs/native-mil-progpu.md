@@ -6315,7 +6315,34 @@ GPU timeout accommodates cold D3D12 shader compilation in the Parallels VM;
 the observed 81.62-second cold run is validation timing, not a performance
 claim.
 
-Non-null `FillGeometry` opacity brushes, `DrawGeometry`, opacity masks,
+ProGPU `dda3ca0f` plus strict-compiler correction `35fbf05d` adds arbitrary
+portable `ID2D1RenderTarget::DrawGeometry`. A second bounded typed sink captures
+filled and hollow figures, open/closed seams, line/cubic segments,
+forced-unstroked edges, and forced-round joins. Standard/custom dash styles,
+caps, joins, miter limits, and offsets come from the same-factory base portable
+`ID2D1StrokeStyle`. The callback data is compiled immediately into pointer-free
+native stroke resources; neither geometry nor style COM identity is retained,
+and ProGPU never calls `Widen` or rasterizes a CPU outline.
+
+Line-only non-bitmap geometry selects the existing `STROKE_BATCH` fast path.
+Curves, special joins/edges, and dashed runs use the shared semantic
+path-stroke compiler. Bitmap brushes feed those compiled primitives into a GPU
+geometry mask and the retained image shader. The complete nine-draw frame
+still submits once. Metal and D3D12 are byte-identical at SHA-256
+`42c55b1dc88b1d855f5948d870355af0bcac78975ec26469a90cb531e1f4a131`.
+Vulkan/llvmpipe produces SHA-256
+`2e6babc3968974c3d4769a31388b10c3d043ff897c417d8ec8c1a255e0962dfd`;
+all 15 semantic probes are exact, 153 of 3,072 antialiased edge pixels differ
+by at most 1/255, no pixel exceeds that bound, and mean absolute channel
+difference is `0.026258680555555556`. Native Windows Direct2D/WIC versus
+ProGPU D3D12 passes at mean byte error `0.7175` over 12,288 BGRA bytes.
+
+The exact native suites pass 15/15 on macOS, 15/15 on Linux, and 17/17 on
+Windows with full ARM64 MSVC `/W4 /WX` provider DLL compilation. A cold new
+D3D12 stroke pipeline took 161.85 seconds in the Parallels VM, so the
+Windows-only integration-test bound is 300 seconds; this is validation timing,
+not a performance claim. Non-null `FillGeometry` opacity brushes,
+`ID2D1StrokeStyle1` fixed/hairline transform modes, opacity masks,
 clips/layers, text, WIC/shared bitmap creation, and device-context generations
 remain fail-closed parity work.
 
@@ -6380,7 +6407,7 @@ remain required.
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested
    render-data command families using the complete generated WPF MCG layouts.
 2. Add remaining non-bitmap image sources and portable Direct2D WIC/shared
-   bitmap creation, opacity masks, arbitrary `DrawGeometry` stroke coverage,
+   bitmap creation, opacity masks, advanced stroke transform modes,
    clips/layers, text, and device-context bitmap
    generations; extend the package-qualified
    Microsoft Win2D device/target wrappers to broader resource families,
