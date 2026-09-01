@@ -6750,6 +6750,11 @@ ordinary groups, and nested groups now preserve that exact sequence in both
 providers. Optimized and ASan/UBSan tests pass on Apple Silicon; a clean
 Windows 11 ARM64 MSVC 19.44 rebuild compiled 30 focused core/provider targets
 under warnings-as-errors and passed the system-Direct2D CTest.
+Follow-up checkpoint `c6aadf05` keeps that public COM transcript exact while
+the typed fill/stroke scene sinks elide zero-length continuation markers after
+a real segment. The markers therefore add no GPU primitive and cannot disrupt
+curved-stroke tangent or dash compilation; existing styled-ellipse scene
+coverage plus optimized and sanitizer CTests remain green.
 
 ## Next parity gates
 
