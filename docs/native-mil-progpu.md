@@ -4499,9 +4499,10 @@ green; no scalar fallback or browser-specific algorithm was introduced.
 COM-heavy applications are portable only at typed graphics boundaries. ProGPU
 now has an installed portable C++ COM target for its supported `ID2D1*`
 factory, rectangle, transformed, path/sink, ellipse, rounded-rectangle, and
-geometry-group subset, while the broader genuine Direct2D/DXGI provider
-remains a `WIN32` target. The pointer-free retained scene selected by those typed
-boundaries already executes through Metal/Vulkan/WebGPU. Source rebuilt for
+geometry-group subset plus immutable stroke styles, while the broader genuine
+Direct2D/DXGI provider remains a `WIN32` target. The pointer-free retained
+scene selected by those typed boundaries already executes through
+Metal/Vulkan/WebGPU. Source rebuilt for
 macOS/Linux can keep the supported `IUnknown`/`ID2D1*` call structure by using
 `progpu_native_direct2d_compat.hpp`, or use `ProGPU.DirectX`, `ProGPU.Win2D`,
 or the typed scene API for broader surfaces. Unchanged Windows PE/WinRT binaries,
@@ -4653,6 +4654,19 @@ contracts remain 9/9. Windows 11 ARM64 MSVC 19.44 `/W4 /WX` calls the portable
 object through the real SDK `ID2D1GeometryGroup*` and matches system Direct2D
 fill metadata, source identities, and non-axis-transformed
 rectangle-plus-ellipse bounds.
+
+ProGPU implementation `5e7a4022` adds canonical portable
+`ID2D1StrokeStyle` identity and factory creation with the exact 28-byte base
+property layout and copied immutable custom-dash storage. The shared core now
+owns enum, finite-value, miter, dash-pointer/count, dash-entry, and nonzero
+custom-pattern validation, and the Windows provider calls the same function.
+Invalid creation clears output and fails closed. The macOS suite remains 14/14
+and managed contracts remain 9/9; Windows 11 ARM64 MSVC 19.44 `/W4 /WX`
+creates the resource through real SDK factory/stroke-style pointers and
+matches every property and four custom dash entries with system Direct2D.
+This establishes portable pen metadata without claiming stroke rasterization:
+path stroke analysis and portable device-context execution remain separate
+gates.
 
 `ProGPU.DirectX` implements the portable Direct3D-style facade, while the C++
 backend now also owns a separate Windows-only genuine Direct2D COM provider.
