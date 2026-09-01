@@ -6756,6 +6756,18 @@ a real segment. The markers therefore add no GPU primitive and cannot disrupt
 curved-stroke tangent or dash compilation; existing styled-ellipse scene
 coverage plus optimized and sanitizer CTests remain green.
 
+ProGPU checkpoint `e3f67f73` implements general
+`ID2D1PathGeometry::CombineWithGeometry` for two simple single-filled
+contours. The transactional native topology engine tolerance-flattens curves,
+applies the caller transform only to the input operand, splits crossings and
+positive collinear overlaps, classifies both sides for union/intersection/xor/
+exclude, deduplicates coincident directed edges, and traces complete output
+contours before mutating the caller sink. Its independent AABB broad phase is
+four-lane ARM64 NEON or SSE2; dynamically ordered topology remains scalar by
+dependency. Optimized and ASan/UBSan Direct2D suites pass 4/4 locally. A clean
+Windows 11 ARM64 MSVC 19.44 build compiled all 30 focused core/provider targets
+and compared every mode over a dense lattice with genuine system Direct2D.
+
 ## Next parity gates
 
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested
