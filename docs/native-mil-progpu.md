@@ -4773,6 +4773,39 @@ a typed enum/unsigned antialias-flag return; GCC 13, AppleClang, and Windows
 ARM64 MSVC 19.44 `/W4 /WX` now compile the path. ProGPU documentation
 checkpoint `f8016e38` records the evidence and its software-Vulkan limitation.
 
+ProGPU implementation `d5cb1f71` adds the first non-solid portable Direct2D
+resource family. The C++ compatibility header now exposes canonical
+`ID2D1GradientStopCollection`, `ID2D1LinearGradientBrush`, and
+`ID2D1RadialGradientBrush` COM identities and vtables. Immutable collections
+retain finite ordered stops, gamma, extend mode, and their parent factory;
+mutable brushes retain the collection, serialize opacity/transform/geometry
+updates, and reject foreign-factory resources. The render target snapshots
+these objects into ProGPU's existing retained gradient table, including
+clamp/wrap/mirror, sRGB/linear-light interpolation, and the inverse composed
+target/brush coordinate transform. It remains one WebGPU scene submission with
+no CPU raster fallback or pixel readback in the product path.
+
+The cross-backend fixture now draws a linear-gradient rectangle and a
+radial-gradient ellipse. Windows invokes the portable objects through actual
+SDK `ID2D1*` pointers and passes MSVC 19.44 `/W4 /WX`; native Direct2D/WIC
+versus ProGPU D3D12 passes at mean byte error `0.3576`. D3D12 and Apple M3 Pro
+Metal captures are byte-identical at SHA-256
+`9faf2dfb22a05fa758f9428ab50e94d76b6fac9425c3928226c9b267d1e9b2f7`.
+Ubuntu 24.04 ARM64 llvmpipe/Vulkan SHA-256 is
+`8e410ae092922ff59a76b3aee24d76a7c3955b969585b99cfcb553872ba518ab`:
+all six probes are exact, 140 edge pixels differ by at most 1/255, no channel
+exceeds that limit, and mean channel difference is `0.0256076389`.
+
+For a COM/DirectX-heavy application, this is source-level portability rather
+than arbitrary Windows binary compatibility. The app rebuilds against
+ProGPU's installed C++ contracts; supported `IUnknown`/`ID2D1*` calls create
+in-process ProGPU objects and lower to retained WebGPU work. External COM
+servers, `CoCreateInstance` classes, HWND/HDC/WIC ownership, unchanged PE
+binaries, and unimplemented D3D/DXGI protocols remain Windows-only until a
+typed adapter exists. Every standard vtable slot remains present, but an
+unsupported call fails closed instead of selecting a CPU renderer or pretending
+that a Windows system DLL exists.
+
 `ProGPU.DirectX` implements the portable Direct3D-style facade, while the C++
 backend now also owns a separate Windows-only genuine Direct2D COM provider.
 ProGPU checkpoint `fa3e9e4a` classifies `d2d1.dll`,
