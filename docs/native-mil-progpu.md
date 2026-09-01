@@ -4498,9 +4498,9 @@ green; no scalar fallback or browser-specific algorithm was introduced.
 
 COM-heavy applications are portable only at typed graphics boundaries. ProGPU
 now has an installed portable C++ COM target for its supported `ID2D1*`
-factory, rectangle, transformed, path/sink, ellipse, and rounded-rectangle
-geometry subset, while the broader genuine Direct2D/DXGI provider remains a
-`WIN32` target. The pointer-free retained scene selected by those typed
+factory, rectangle, transformed, path/sink, ellipse, rounded-rectangle, and
+geometry-group subset, while the broader genuine Direct2D/DXGI provider
+remains a `WIN32` target. The pointer-free retained scene selected by those typed
 boundaries already executes through Metal/Vulkan/WebGPU. Source rebuilt for
 macOS/Linux can keep the supported `IUnknown`/`ID2D1*` call structure by using
 `progpu_native_direct2d_compat.hpp`, or use `ProGPU.DirectX`, `ProGPU.Win2D`,
@@ -4638,6 +4638,21 @@ Windows 11 ARM64 MSVC 19.44 `/W4 /WX` focused core/compatibility executables.
 The Windows test calls the object through the real SDK
 `ID2D1RoundedRectangleGeometry*` and requires non-axis-transformed bounds plus
 center/corner containment to match system `D2D1CreateFactory` Direct2D.
+
+ProGPU implementation `14be583c` adds canonical portable
+`ID2D1GeometryGroup` identity, factory creation, fill-mode/source metadata,
+balanced source lifetime, transformed bounds, and cubic-and-line
+simplification. The group validates same-factory children and rejects direct
+or transformed nested groups with `E_NOTIMPL` until recursive fill-rule
+analysis can preserve exact semantics. Child figures are concatenated into one
+group-owned retained path through a typed forwarding sink; child fill modes
+cannot override the group rule. Fill/stroke containment, tessellation,
+boolean, outline, metric, and widen operations remain explicit fail-closed
+path gates. The macOS warning-as-error suite remains 14/14 and managed
+contracts remain 9/9. Windows 11 ARM64 MSVC 19.44 `/W4 /WX` calls the portable
+object through the real SDK `ID2D1GeometryGroup*` and matches system Direct2D
+fill metadata, source identities, and non-axis-transformed
+rectangle-plus-ellipse bounds.
 
 `ProGPU.DirectX` implements the portable Direct3D-style facade, while the C++
 backend now also owns a separate Windows-only genuine Direct2D COM provider.
