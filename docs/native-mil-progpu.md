@@ -4550,6 +4550,21 @@ known SDK `near` macro collision in `progpu_native_mil_curve_dash.hpp` before
 adapter qualification; that unrelated failure is recorded rather than changed
 as part of the portable rectangle extraction.
 
+The next C++ layer installs `progpu_native_direct2d_compat.hpp` and exposes
+portable factory activation with the canonical `ID2D1Factory`,
+`ID2D1Resource`, `ID2D1Geometry`, and `ID2D1RectangleGeometry` IIDs. Its base
+factory preserves all original vtable slots, with unsupported resource
+families clearing outputs and returning `E_NOTIMPL`. Rectangle resources keep
+their factory alive, preserve `IUnknown` identity and hierarchy queries, and
+route all implemented behavior through the shared core. On Windows ARM64 the
+strict test reinterprets the portable object as the system SDK
+`ID2D1Factory*`, obtains an SDK `ID2D1RectangleGeometry*`, and executes
+`ComputeArea`, proving the first literal ABI-compatible resource path. The
+same declarations and object code pass on macOS. The no-provider native suite
+now passes 12/12 and the managed Direct2D contract passes 9/9. Global
+`d2d1.h` source names and the remaining resource/device-context families are
+still explicit follow-up work.
+
 `ProGPU.DirectX` implements the portable Direct3D-style facade, while the C++
 backend now also owns a separate Windows-only genuine Direct2D COM provider.
 ProGPU checkpoint `fa3e9e4a` classifies `d2d1.dll`,
