@@ -4499,9 +4499,12 @@ green; no scalar fallback or browser-specific algorithm was introduced.
 COM-heavy applications are portable only at typed graphics boundaries. ProGPU
 now has an installed portable C++ COM target for its supported `ID2D1*`
 factory, rectangle, transformed, path/sink, ellipse, rounded-rectangle, and
-geometry-group subset plus immutable stroke styles, while the broader genuine
-Direct2D/DXGI provider remains a `WIN32` target. Portable drawing-state blocks
-also preserve save/restore metadata and opaque DirectWrite parameter lifetime.
+geometry-group subset plus immutable stroke styles and mutable solid-color
+brushes, while the broader genuine Direct2D/DXGI provider remains a `WIN32`
+target. Portable drawing-state blocks also preserve save/restore metadata and
+opaque DirectWrite parameter lifetime. Solid brushes are activated through the
+same stable ProGPU native-factory extension IID used by the Windows provider,
+because the original base factory has no brush-creation slot.
 The pointer-free retained
 scene selected by those typed boundaries already executes through
 Metal/Vulkan/WebGPU. Source rebuilt for
@@ -4680,8 +4683,22 @@ activating DirectWrite. The macOS suite remains 14/14 and managed contracts
 remain 9/9. Windows 11 ARM64 MSVC 19.44 `/W4 /WX` calls the object through real
 SDK factory/state-block pointers and matches descriptor and null-parameter
 behavior with system Direct2D. The portable base factory's device-independent
-resource slots are now covered; render targets, brushes, bitmaps, and actual
-draw recording are the next larger ABI layer.
+resource slots are now covered; render targets, draw resources, bitmaps, and
+actual draw recording are the next larger ABI layer.
+
+ProGPU implementation `a8d94060` adds canonical portable `ID2D1Brush` and
+`ID2D1SolidColorBrush` identity plus the existing Windows provider's stable
+`IProGpuD2DCompatFactoryNative::CreateSolidColorBrush` activation seam. Exact
+16-byte color and 28-byte property layouts map to Windows SDK structures.
+Null properties select opacity one and identity transform; invalid nonfinite
+color/transform or out-of-range opacity fails closed. Mutable color, opacity,
+and transform state is serialized, and the brush keeps its parent factory
+alive. The macOS warning-as-error suite remains 14/14. Windows 11 ARM64 MSVC
+19.44 `/W4 /WX` creates and mutates the object through real SDK
+`ID2D1Brush*`/`ID2D1SolidColorBrush*` vtables. This checkpoint establishes the
+first portable draw resource without claiming rasterization: a system pixel
+oracle and semantic-scene recording remain part of the portable render-target
+gate.
 
 `ProGPU.DirectX` implements the portable Direct3D-style facade, while the C++
 backend now also owns a separate Windows-only genuine Direct2D COM provider.
