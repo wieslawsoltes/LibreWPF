@@ -6787,6 +6787,14 @@ closed. All four optimized and sanitizer Direct2D tests pass locally; Windows
 ARM64 matches system Direct2D for body, miter, concave, transformed, strict
 exterior, interior, and zero-width probes.
 
+ProGPU checkpoint `3afcd1be` extends that domain to
+`ID2D1PathGeometry::GetWidenedBounds`. It derives local segment-offset and
+limited-miter extrema before applying world state, then transforms and reduces
+four candidates per ARM64 NEON/SSE2 batch. Ordinary, concave, zero-width, and
+nonuniformly transformed results match genuine system Direct2D. Optimized and
+sanitizer Direct2D suites pass 4/4 locally, and a clean Windows ARM64 build
+again compiled all 30 focused targets and passed the differential oracle.
+
 ## Next parity gates
 
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested
