@@ -4565,6 +4565,17 @@ now passes 12/12 and the managed Direct2D contract passes 9/9. Global
 `d2d1.h` source names and the remaining resource/device-context families are
 still explicit follow-up work.
 
+ProGPU `f1c4879d` adds the canonical `ID2D1TransformedGeometry` IID and vtable
+to that portable family. Shared core code now owns finite Direct2D row-vector
+affine composition, replacing the Windows provider's private formula.
+Transformed resources retain their source/factory, reject cross-factory input
+with `D2DERR_WRONG_FACTORY`, compose local then world transforms, and delegate
+all supported geometry analysis and sink operations without allocation. The
+Windows ARM64 `/W4 /WX` test creates and calls the resource through the real
+SDK `ID2D1Factory*` and `ID2D1TransformedGeometry*` types; the portable core
+and compatibility executables both pass, as do 12/12 macOS native tests and
+9/9 managed Direct2D contracts.
+
 `ProGPU.DirectX` implements the portable Direct3D-style facade, while the C++
 backend now also owns a separate Windows-only genuine Direct2D COM provider.
 ProGPU checkpoint `fa3e9e4a` classifies `d2d1.dll`,
