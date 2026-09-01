@@ -4496,15 +4496,15 @@ green; no scalar fallback or browser-specific algorithm was introduced.
 
 ## Direct2D and Win2D boundary
 
-COM-heavy applications are portable only at typed graphics boundaries. The
-ProGPU-owned `ID2D1*` C++ object library is currently a `WIN32` target, while
-its COM lifetime foundation and first rectangle behavior core are portable and
-the pointer-free retained scene it records already selects Metal/Vulkan through
-WebGPU. Source rebuilt for macOS/Linux currently uses `ProGPU.DirectX`,
-`ProGPU.Win2D`, or the typed scene API; it will be able to retain supported
-`IUnknown`/`ID2D1*` call structure after the portable compatibility interface
-and factory activation target are implemented. Unchanged Windows PE/WinRT
-binaries,
+COM-heavy applications are portable only at typed graphics boundaries. ProGPU
+now has an installed portable C++ COM target for its supported `ID2D1*`
+factory, rectangle, transformed, path/sink, ellipse, and rounded-rectangle
+geometry subset, while the broader genuine Direct2D/DXGI provider remains a
+`WIN32` target. The pointer-free retained scene selected by those typed
+boundaries already executes through Metal/Vulkan/WebGPU. Source rebuilt for
+macOS/Linux can keep the supported `IUnknown`/`ID2D1*` call structure by using
+`progpu_native_direct2d_compat.hpp`, or use `ProGPU.DirectX`, `ProGPU.Win2D`,
+or the typed scene API for broader surfaces. Unchanged Windows PE/WinRT binaries,
 arbitrary registered COM servers, HWND/HDC/DXGI-handle APIs, and native Win2D
 remain Windows execution concerns and require the Windows VM, Wine, or an
 isolated Windows service/plugin. They are not silently approximated by the
@@ -4624,6 +4624,20 @@ to the retained path and matches the system result. The checkpoint passes
 `ID2D1EllipseGeometry*`; transformed bounds and center containment equal a
 system `D2D1CreateFactory` ellipse. Remaining ellipse stroke, tessellation,
 boolean, outline, and metric methods are explicit path-level follow-up gates.
+
+ProGPU implementation `a536e019` adds the canonical portable
+`ID2D1RoundedRectangleGeometry` IID, factory slot, immutable metadata, retained
+path, transformed bounds, analytic fill containment, and four-line/four-cubic
+simplification. Radius validation/clamping, primitive-to-path construction,
+and inverse-affine containment live in the allocation-free shared core and are
+used by both the portable resource and Windows provider source. Invalid inputs
+clear outputs and fail closed; unsupported stroke, tessellation, boolean,
+outline, metric, and widen operations remain explicit path gates. The
+checkpoint passes all 14 macOS native CTests, 9/9 managed contracts, and the
+Windows 11 ARM64 MSVC 19.44 `/W4 /WX` focused core/compatibility executables.
+The Windows test calls the object through the real SDK
+`ID2D1RoundedRectangleGeometry*` and requires non-axis-transformed bounds plus
+center/corner containment to match system `D2D1CreateFactory` Direct2D.
 
 `ProGPU.DirectX` implements the portable Direct3D-style facade, while the C++
 backend now also owns a separate Windows-only genuine Direct2D COM provider.
