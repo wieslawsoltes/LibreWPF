@@ -2495,7 +2495,8 @@ public partial class MainWindow : Window
             this);
         object? hit = InputHitTest(center);
         targetState += $", Input=({center.X:0.###}, {center.Y:0.###}), InputHitTest={DescribeInputElement(hit)}";
-        if (hit == null)
+        if (hit is not DependencyObject hitElement ||
+            (!ReferenceEquals(hitElement, target) && !target.IsAncestorOf(hitElement)))
         {
             return false;
         }
@@ -2755,6 +2756,7 @@ public partial class MainWindow : Window
             "selector wheel tab activation");
 
         bool sentWheelInput = false;
+        bool observedWheelInput = false;
         for (int attempt = 0; attempt < LiveValidationMaxAttempts; attempt++)
         {
             sentWheelInput = await InvokeWithLiveHostWakeAsync(
@@ -2771,7 +2773,15 @@ public partial class MainWindow : Window
                 DispatcherPriority.Send);
             if (sentWheelInput)
             {
-                break;
+                await InvokeWithLiveHostWakeAsync(liveHost, static () => { }, DispatcherPriority.Background);
+                observedWheelInput = await InvokeWithLiveHostWakeAsync(
+                    liveHost,
+                    () => SelectorMouseWheelCount > wheelCountBefore,
+                    DispatcherPriority.Send);
+                if (observedWheelInput)
+                {
+                    break;
+                }
             }
 
             await Task.Delay(LiveValidationRetryDelay);
@@ -2783,7 +2793,11 @@ public partial class MainWindow : Window
                 $"Expected MVP live selector ScrollViewer to become wheel-testable before injecting input, but last state was: {lastTargetState}.");
         }
 
-        await InvokeWithLiveHostWakeAsync(liveHost, static () => { }, DispatcherPriority.Background);
+        if (!observedWheelInput)
+        {
+            throw new InvalidOperationException(
+                $"Expected MVP live selector ScrollViewer to observe routed wheel input before timeout, but last state was: {lastTargetState}.");
+        }
 
         await InvokeWithLiveHostWakeAsync(
             liveHost,
