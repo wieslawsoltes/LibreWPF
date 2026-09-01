@@ -4500,7 +4500,9 @@ COM-heavy applications are portable only at typed graphics boundaries. ProGPU
 now has an installed portable C++ COM target for its supported `ID2D1*`
 factory, rectangle, transformed, path/sink, ellipse, rounded-rectangle, and
 geometry-group subset plus immutable stroke styles, while the broader genuine
-Direct2D/DXGI provider remains a `WIN32` target. The pointer-free retained
+Direct2D/DXGI provider remains a `WIN32` target. Portable drawing-state blocks
+also preserve save/restore metadata and opaque DirectWrite parameter lifetime.
+The pointer-free retained
 scene selected by those typed boundaries already executes through
 Metal/Vulkan/WebGPU. Source rebuilt for
 macOS/Linux can keep the supported `IUnknown`/`ID2D1*` call structure by using
@@ -4667,6 +4669,19 @@ matches every property and four custom dash entries with system Direct2D.
 This establishes portable pen metadata without claiming stroke rasterization:
 path stroke analysis and portable device-context execution remain separate
 gates.
+
+ProGPU implementation `cb42e99c` adds canonical portable
+`ID2D1DrawingStateBlock` identity and factory creation. The exact 48-byte
+descriptor holds antialias modes, 64-bit tags, and the affine transform; null
+creation uses Direct2D defaults. Valid mutations are serialized, invalid enum
+or nonfinite-transform updates do not publish partial state, and optional text
+rendering parameters are retained through opaque `IUnknown` ownership without
+activating DirectWrite. The macOS suite remains 14/14 and managed contracts
+remain 9/9. Windows 11 ARM64 MSVC 19.44 `/W4 /WX` calls the object through real
+SDK factory/state-block pointers and matches descriptor and null-parameter
+behavior with system Direct2D. The portable base factory's device-independent
+resource slots are now covered; render targets, brushes, bitmaps, and actual
+draw recording are the next larger ABI layer.
 
 `ProGPU.DirectX` implements the portable Direct3D-style facade, while the C++
 backend now also owns a separate Windows-only genuine Direct2D COM provider.
