@@ -6516,9 +6516,18 @@ flow through the callback; `CLIP` reads the layout's ABI-stable maximum size
 and records one balanced aliased scene clip around all callback draws. The
 portable fixture produces one glyph plus two decoration draws inside one clip,
 and the Windows gate calls the slot through an actual SDK
-`ID2D1RenderTarget*`/`IDWriteTextLayout*` pair. Color-font options and
-`DrawText` continue to fail closed until color-glyph and typed layout-factory
-seams land; no hidden platform or CPU fallback is selected.
+`ID2D1RenderTarget*`/`IDWriteTextLayout*` pair. Color-font options continue to
+fail closed until color-glyph translation lands.
+
+The portable target also implements `ID2D1RenderTarget::DrawText` through an
+explicit typed layout-factory extension on the supplied text-format object.
+It forwards the exact UTF-16 span, measuring mode, and rectangle extent,
+retains the returned layout for the synchronous operation, and delegates to
+the same `DrawTextLayout` path at the rectangle origin. A foreign format that
+does not expose that ProGPU contract fails closed; the target never discovers
+a hidden system factory or selects CPU shaping/rasterization. Portable and
+Windows SDK-pointer fixtures verify one factory call and the same retained
+glyph/decorations/clip output as direct layout drawing.
 
 ## Next parity gates
 
