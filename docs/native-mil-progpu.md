@@ -4738,8 +4738,23 @@ ellipse, blue stroked rectangle, and magenta rounded rectangle pixels in a
 submission. The macOS no-provider suite remains 14/14, managed Direct2D
 contracts remain 9/9, and Windows ARM64 MSVC 19.44 `/W4 /WX` compiles and runs
 the installed submission declarations with the real SDK target ABI. The next
-differential gate is the same fixture through native system Direct2D and
+differential gate was the same fixture through native system Direct2D and
 ProGPU/D3D12 inside the Windows VM.
+
+ProGPU implementation `b2b4e31d` completes that gate. A Windows-only native
+test records the portable COM scene, renders it through the full current Dawn
+D3D12 engine, renders the independent reference through system
+`D2D1CreateFactory` and a WIC bitmap target, and compares both semantic probes
+and the complete premultiplied BGRA image. The exact Windows 11 ARM64
+Parallels run built with MSVC 19.44 `/W4 /WX`, selected D3D12, and passed the
+64x48 comparison with mean absolute error `0.2727` byte values across 12,288
+bytes. The portable path retains four draws and one GPU submission. Its
+readback uses Dawn's explicit `WaitAnyOnly` future plus the requested
+`TimedWaitAny` instance feature, avoiding reliance on driver-specific
+spontaneous callback delivery. Documentation checkpoint `4cbabe08` records
+configuration and compatibility limits in ProGPU. Linux/Vulkan live pixels
+and the bitmap, gradient, arbitrary-geometry, clip/layer, text, effect, and
+device-context families remain fail-closed parity gates.
 
 `ProGPU.DirectX` implements the portable Direct3D-style facade, while the C++
 backend now also owns a separate Windows-only genuine Direct2D COM provider.
