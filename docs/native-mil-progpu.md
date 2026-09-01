@@ -6625,6 +6625,15 @@ the software device after roughly 80 seconds at half size. The independent
 full C++ D3D12 sample remains mandatory there, and no CPU renderer or retry is
 substituted.
 
+The separate mixed-picture benchmark now uses the same named-adapter boundary.
+Microsoft Basic Render Driver and Parallels execute the complete 384-item
+stress through ProGPU's C++ renderer, then run a live one-item managed/native
+GPU pixel differential after one cache-establishing warm frame. Hardware
+Windows retains the full 384-item managed/native differential. The hosted
+software adapter otherwise loses its D3D12 device after roughly 96 seconds in
+the dense managed glyph path; the bounded lane remains a real GPU submission
+and pixel comparison, not a CPU or validation-only substitute.
+
 The hosted x64 Microsoft Basic Render Driver also explicitly defers the two
 forced signed-winding compute stress profiles. Its inline four-rectangle
 rerasterization reached final readback only after roughly 100 seconds and then
