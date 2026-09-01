@@ -4598,6 +4598,18 @@ and figure counts plus exact bounds. This is source/ABI-compatible path
 construction on every backend; it is not yet global `d2d1.dll` replacement,
 portable device-context drawing, or complete arc/geometry analysis.
 
+ProGPU `69ecef5e` immediately supersedes the path checkpoint's arc-analysis
+gap. It moves the existing Windows Direct2D endpoint-arc-to-cubic algorithm
+into the installed portable behavior core, then makes both the Windows COM
+provider and portable path call that shared allocation-free implementation.
+Portable arc paths now compute transformed cubic-extrema bounds and simplify
+to zero through four cubic pieces; coincident endpoints stay empty and
+zero-radius arcs retain line semantics. The exact semicircle fixture passes
+the macOS 12/12 native and 9/9 managed gates plus Windows ARM64 MSVC 19.44
+`/W4 /WX`, where its bounds must equal a real system
+`D2D1CreateFactory` path. Flatten-to-lines and remaining path
+fill/stroke/boolean/metric operations stay explicit follow-up gates.
+
 `ProGPU.DirectX` implements the portable Direct3D-style facade, while the C++
 backend now also owns a separate Windows-only genuine Direct2D COM provider.
 ProGPU checkpoint `fa3e9e4a` classifies `d2d1.dll`,
