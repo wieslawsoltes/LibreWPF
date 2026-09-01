@@ -4610,6 +4610,21 @@ the macOS 12/12 native and 9/9 managed gates plus Windows ARM64 MSVC 19.44
 `D2D1CreateFactory` path. Flatten-to-lines and remaining path
 fill/stroke/boolean/metric operations stay explicit follow-up gates.
 
+ProGPU `6efc8fe6` adds canonical portable `ID2D1EllipseGeometry` creation,
+identity, metadata, transformed bounds, fill containment, and four-cubic
+simplification in the original factory slot. Validation, cubic construction,
+and inverse-transform containment are shared with the Windows provider source;
+the immutable COM resource retains its factory and one generated path. A
+non-axis-preserving Windows oracle exposed that native Direct2D returns the
+slightly conservative bounds of this retained four-cubic representation, not
+the tighter analytic ellipse AABB. ProGPU now intentionally delegates bounds
+to the retained path and matches the system result. The checkpoint passes
+12/12 macOS native tests, 9/9 managed contracts, and Windows ARM64 MSVC 19.44
+`/W4 /WX` focused core/compatibility executables through a real SDK
+`ID2D1EllipseGeometry*`; transformed bounds and center containment equal a
+system `D2D1CreateFactory` ellipse. Remaining ellipse stroke, tessellation,
+boolean, outline, and metric methods are explicit path-level follow-up gates.
+
 `ProGPU.DirectX` implements the portable Direct3D-style facade, while the C++
 backend now also owns a separate Windows-only genuine Direct2D COM provider.
 ProGPU checkpoint `fa3e9e4a` classifies `d2d1.dll`,
