@@ -6626,13 +6626,16 @@ full C++ D3D12 sample remains mandatory there, and no CPU renderer or retry is
 substituted.
 
 The separate mixed-picture benchmark now uses the same named-adapter boundary.
-Microsoft Basic Render Driver and Parallels execute the complete 384-item
-stress through ProGPU's C++ renderer, then run a live one-item managed/native
-GPU pixel differential after one cache-establishing warm frame. Hardware
-Windows retains the full 384-item managed/native differential. The hosted
-software adapter otherwise loses its D3D12 device after roughly 96 seconds in
-the dense managed glyph path; the bounded lane remains a real GPU submission
-and pixel comparison, not a CPU or validation-only substitute.
+Microsoft Basic Render Driver compiles and transactionally updates the
+complete 384-item native stream, verifies exact command/draw counters and
+retained snapshot reuse, then runs a live one-item managed/native GPU pixel
+differential after one cache-establishing warm frame. Its dense managed path
+and repeated full native-only profile can independently remove the CPU-only
+D3D12 device. Parallels retains the complete 384-item C++ stress plus bounded
+live parity, and hardware Windows retains the full 384-item managed/native
+differential. The Basic lane still initializes D3D12 for full stream update
+and submits both renderers for bounded pixel comparison; it is neither a CPU
+substitute nor a reduced full-stream validation.
 
 The full portable Win2D Canvas oracle remains part of the
 D3D12/Metal/Vulkan image comparison. Microsoft Basic Render Driver alone
@@ -6687,6 +6690,16 @@ software-adapter lane now retries that one complete 96-item differential in a
 fresh process. It does not reduce dimensions, work count, warmups, iterations,
 native or managed execution, or pixel thresholds; a second failure remains a
 hard error. Hardware Windows and Parallels retain their single-attempt gate.
+
+ProGPU checkpoint `9f52bdc4` also removes nondeterminism from the earlier
+mixed-picture stage. A clean hosted run completed the partitioned full Win2D
+oracle, then the 384-item native-only process printed its timing line but
+exited nonzero during device teardown before reaching vector-clip testing.
+The Basic lane now uses the full stream-validation contract described above
+and retains the live bounded pixel differential. Local Metal qualification
+reports 391 source commands, 28 native commands, 22 draws, a 107,216-byte
+snapshot with exact reuse, and bounded native/managed parity with maximum
+channel delta 2, zero pixels over 3, and zero per-frame managed allocations.
 
 ## Next parity gates
 
