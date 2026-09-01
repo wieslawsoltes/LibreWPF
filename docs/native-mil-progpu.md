@@ -4700,6 +4700,27 @@ first portable draw resource without claiming rasterization: a system pixel
 oracle and semantic-scene recording remain part of the portable render-target
 gate.
 
+ProGPU implementation `ea2a4f8d` crosses that recording gate with a canonical
+portable `ID2D1RenderTarget` vtable and a separately versioned ProGPU scene
+factory/target extension. Source-rebuilt COM-heavy applications can create a
+pixel-sized target without WIC/HWND/HDC/DXGI handles, call standard
+`BeginDraw`/`EndDraw`, create a solid brush, clear, set drawing state, and draw
+or fill lines, rectangles, equal-radius rounded rectangles, and ellipses. The
+target emits the same pointer-free `semantic_scene_builder` stream consumed by
+the native MIL renderer into caller-owned storage; it does not rasterize or
+read pixels on the CPU and does not submit once per primitive.
+
+Unsupported bitmap, gradient, text, arbitrary-geometry, layer, mesh, and clip
+slots keep their original vtable positions and fail closed. Because Direct2D
+draw methods return `void`, failures are latched and surfaced by
+`Flush`/`EndDraw` with the active tags. The target also rejects zero-width
+`Draw*` calls instead of misencoding them as fills and gates unequal rounded
+radii until exact lowering exists. The macOS warning-as-error suite remains
+14/14. Windows 11 ARM64 MSVC 19.44 `/W4 /WX` executes target sizing, brush
+creation, `FillRectangle`, and session completion through a real SDK
+`ID2D1RenderTarget*`. Native Direct2D pixel-oracle comparison and portable
+surface presentation remain follow-up gates.
+
 `ProGPU.DirectX` implements the portable Direct3D-style facade, while the C++
 backend now also owns a separate Windows-only genuine Direct2D COM provider.
 ProGPU checkpoint `fa3e9e4a` classifies `d2d1.dll`,
