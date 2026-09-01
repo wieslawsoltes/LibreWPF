@@ -6440,6 +6440,12 @@ retain the stroke-batch fast path, while rounded and elliptical curves retain
 native cubic geometry; no system Direct2D delegation, CPU raster outline, COM
 identity retention, or per-dash submission is introduced.
 
+Unequal-radius rounded rectangles now use the same portable cubic geometry
+for both fill and unstyled/styled stroke. Equal-radius unstyled rounded
+rectangles retain the analytic fast path. The live Metal/WebGPU fixture uses
+unequal radii, so this fallback is exercised through actual GPU scene
+compilation and pixels rather than only through COM metadata.
+
 This slice also fixes closed curved dashes at their retained-data boundary.
 When independently evaluated curve fragments meet within the existing bounded
 dash epsilon, the appended fragment start is normalized to the exact preceding
