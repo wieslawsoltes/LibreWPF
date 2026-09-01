@@ -6281,9 +6281,43 @@ one submission.
 Windows MSVC 19.44 `/W4 /WX` also validates the object through genuine SDK
 `ID2D1BitmapBrush*`, `ID2D1Brush*`, and `ID2D1RenderTarget*` vtables. The
 independent system-Direct2D/WIC versus ProGPU D3D12 oracle passes with mean
-byte error `0.5718` across 12,288 BGRA bytes. Arbitrary geometry brush
-coverage, opacity masks, clips/layers, text, WIC/shared bitmap creation, and
-device-context generations remain fail-closed parity work.
+byte error `0.5718` across 12,288 BGRA bytes.
+
+ProGPU `65a25b4f` adds arbitrary portable
+`ID2D1RenderTarget::FillGeometry`. A typed, bounded
+`ID2D1SimplifiedGeometrySink` captures filled line/cubic contours from any
+same-factory portable rectangle, path, ellipse, rounded-rectangle,
+transformed, or grouped geometry. Solid and gradient brushes become a native
+pointer-free path command. Bitmap brushes use that path as a GPU vector mask
+for the retained image draw. Fill rule, active and brush transforms, sampling,
+addressing, opacity, and bitmap identity/generation caching remain typed scene
+state; no COM pointer, CPU rasterized mask, pixel readback, or source repack is
+retained.
+
+The mask and image work share the semantic frame command encoder, so the
+expanded eight-draw fixture still submits once. Metal and Windows D3D12 are
+byte-identical at SHA-256
+`4e277be9cf8613fd9f12b5e7c3cec287e9c70bc49348e0fab305ac55a1ab2d26`.
+Vulkan/llvmpipe produces SHA-256
+`7fb3768723da1a4c1e5f7c16c7a261c70281dc733b46a14a8296f25ca367ec09`;
+all 14 semantic probes are exact, 151 of 3,072 antialiased edge pixels differ
+by at most 1/255, no pixel exceeds that bound, and mean absolute channel
+difference is `0.026801215277777776`. The native Windows Direct2D/WIC versus
+ProGPU D3D12 differential passes at mean byte error `0.7188` over 12,288 BGRA
+bytes.
+
+The exact implementation passes all 15 native CTests on macOS and Linux and
+all 17 on Windows. The full Windows ARM64 MSVC 19.44 `/W4 /WX` build includes
+the actual Direct2D provider DLL, not only compatibility fixtures. That gate
+also corrected a Windows `near` macro collision and qualified standard COM
+`ComPtr::As(&result)` output-pointer usage. Its Windows-only 180-second live
+GPU timeout accommodates cold D3D12 shader compilation in the Parallels VM;
+the observed 81.62-second cold run is validation timing, not a performance
+claim.
+
+Non-null `FillGeometry` opacity brushes, `DrawGeometry`, opacity masks,
+clips/layers, text, WIC/shared bitmap creation, and device-context generations
+remain fail-closed parity work.
 
 ## Native MIL canonical D3DImage checkpoint
 
@@ -6346,7 +6380,7 @@ remain required.
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested
    render-data command families using the complete generated WPF MCG layouts.
 2. Add remaining non-bitmap image sources and portable Direct2D WIC/shared
-   bitmap creation, opacity masks, arbitrary geometry brush coverage,
+   bitmap creation, opacity masks, arbitrary `DrawGeometry` stroke coverage,
    clips/layers, text, and device-context bitmap
    generations; extend the package-qualified
    Microsoft Win2D device/target wrappers to broader resource families,
