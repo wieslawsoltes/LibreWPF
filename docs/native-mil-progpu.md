@@ -6666,6 +6666,20 @@ the fixed topology buffers, and the Windows system-Direct2D oracle compares
 the exact undirected boundary edge set, fill mode, segment flags, figure count,
 and closure contract for all four operations.
 
+ProGPU checkpoint `d9367361` extends that Boolean domain to independently
+affine-transformed rectangle operands. The exact axis-preserving grid tracer is
+unchanged; the general non-collinear path splits both convex quadrilateral
+boundaries at bounded pairwise intersections, classifies sub-edges, orients
+exclusion/XOR boundaries, and traces closed contours using fixed arrays only.
+Both transformed-candidate and transformed-source positions cover union,
+intersection, XOR, and exclusion. A deterministic corpus checks 2,016 region
+predicates against the two source geometries, while overlapping-collinear,
+degenerate, cross-factory, and non-rectangle cases fail before sink mutation.
+All 17 native CTests, sanitizer coverage, and 10 managed Direct2D contracts
+pass locally. Windows 11 ARM64 Parallels recompiles the focused portable core
+and genuine system-Direct2D oracle with MSVC 19.44 under explicit `/W4 /WX`;
+the system comparison passes without a COM ABI or export-list change.
+
 ## Next parity gates
 
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested
