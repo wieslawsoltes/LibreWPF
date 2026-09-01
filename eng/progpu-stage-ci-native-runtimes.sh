@@ -12,7 +12,7 @@ progpu_repository="${PROGPU_CI_REPOSITORY:-wieslawsoltes/ProGPU}"
 poll_seconds="${PROGPU_CI_POLL_SECONDS:-20}"
 timeout_seconds="${PROGPU_CI_TIMEOUT_SECONDS:-5400}"
 
-for command in gh jq rg unzip; do
+for command in find gh jq unzip; do
   command -v "${command}" >/dev/null 2>&1 || {
     echo "${command} is required to stage exact ProGPU CI runtimes." >&2
     exit 1
@@ -118,9 +118,8 @@ gh api \
 unzip -q "${artifact_archive}" -d "${artifact_contents}"
 
 native_package="$(
-  rg --files "${artifact_contents}" \
-    | rg '(^|/)ProGPU\.Backend\.Native\.[^/]+\.nupkg$' \
-    | head -n 1
+  find "${artifact_contents}" \
+    -type f -name 'ProGPU.Backend.Native.*.nupkg' -print -quit
 )"
 if [[ -z "${native_package}" ]]; then
   echo "The exact ProGPU native-package artifact contains no ProGPU.Backend.Native package." >&2
