@@ -6203,6 +6203,57 @@ the system Direct2D group differential, semantic recorder, and all 11 native
 CTests pass. ABI v54 is therefore qualified on Windows x64; documentation
 checkpoint `64dcfef5` records both the failed first run and corrected proof.
 
+## Portable Direct2D gradient and bitmap checkpoint
+
+The ProGPU-owned cross-platform `ID2D1RenderTarget` now records device-
+dependent gradient and bitmap resources into the same retained semantic scene
+used by LibreWPF, WinUI, Avalonia, and the portable Win2D layer. ProGPU
+`d5cb1f71` adds canonical `ID2D1GradientStopCollection`,
+`ID2D1LinearGradientBrush`, and `ID2D1RadialGradientBrush` COM resources with
+typed factory ownership, mutable properties, gamma/spread semantics, and
+inverse draw/brush transform mapping. No host-specific WPF brush carrier or
+reflection seam is involved.
+
+ProGPU `b61052c9` through `803bd506` adds canonical upload-backed
+`ID2D1Bitmap` plus `ID2D1RenderTarget::DrawBitmap`. The object supports
+premultiplied `DXGI_FORMAT_R8G8B8A8_UNORM` and
+`DXGI_FORMAT_B8G8R8A8_UNORM`, size/pixel-size/format/DPI queries, full and
+subrectangle `CopyFromMemory`, same-factory `CopyFromBitmap`, and mutation
+generations. A target session caches one immutable image resource for repeated
+draws of the same generation. A later bitmap mutation creates a new retained
+resource, preserving the already-recorded draw without hidden pointer
+retention.
+
+The semantic-scene ABI has a typed BGRA8 image-resource flag. The builder
+copies caller bytes once into the retained scene and the WebGPU backend creates
+`BGRA8Unorm` directly, so steady drawing performs no CPU BGRA/RGBA repack,
+raster fallback, or readback. Nearest/linear sampling, bitmap-DPI source
+rectangles, destination rectangles, opacity, premultiplied alpha, and the
+active Direct2D transform lower to the existing image command. WIC decoding,
+shared bitmaps, render-target readback copies, alpha-ignore/straight formats,
+bitmap brushes, and opacity masks remain explicit fail-closed gaps.
+
+The expanded 64x48 cross-backend fixture records a linear-gradient rectangle,
+radial-gradient ellipse, nearest-sampled 2x2 BGRA bitmap, solid stroked
+rectangle, and rounded rectangle as five retained draws and one GPU
+submission. Apple Metal and Windows D3D12 produce identical captures with
+SHA-256
+`8289f940323a2dd242b6dd5870108d75e37ed57ba332b8f4422915d51d61faf4`.
+Ubuntu 24.04 ARM64 Vulkan/llvmpipe differs at 140 analytic edge pixels, with
+maximum channel difference one, no pixels over one, mean difference
+`0.025607638888888888`, and all eight semantic probes exact. The Linux capture
+SHA-256 is
+`2cf861081681d8a0b8c4de67c5b417bf10fb9e7e78f99bba5d47af18331718da`.
+
+Windows 11 ARM64 compiles the complete native target and tests with MSVC 19.44
+`/W4 /WX`, calls the portable resources through SDK `ID2D1Bitmap*` and
+`ID2D1RenderTarget*` pointers, and passes the genuine Direct2D/WIC versus
+ProGPU D3D12 differential with mean byte error `0.3576` over 12,288 BGRA
+bytes. The focused managed `Direct2DInteropContractTests` pass 10/10; native
+COM/internal-scene tests and Metal/Vulkan/D3D12 live fixtures also pass. This
+validates source-rebuilt COM compatibility; it does not
+make an unchanged Windows `d2d1.dll` consumer portable.
+
 ## Native MIL canonical D3DImage checkpoint
 
 ProGPU `72c9d794`/`20918afb` and this LibreWPF checkpoint add canonical
@@ -6263,7 +6314,9 @@ remain required.
 
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested
    render-data command families using the complete generated WPF MCG layouts.
-2. Add remaining non-bitmap image sources, extend the package-qualified
+2. Add remaining non-bitmap image sources and portable Direct2D WIC/shared
+   bitmap creation, bitmap brushes, opacity masks, and device-context bitmap
+   generations; extend the package-qualified
    Microsoft Win2D device/target wrappers to broader resource families,
    complete the device-loss gate, add remaining exact
    WPF-compatible arc lowering, and
