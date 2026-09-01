@@ -6700,6 +6700,9 @@ and retains the live bounded pixel differential. Local Metal qualification
 reports 391 source commands, 28 native commands, 22 draws, a 107,216-byte
 snapshot with exact reuse, and bounded native/managed parity with maximum
 channel delta 2, zero pixels over 3, and zero per-frame managed allocations.
+Follow-up checkpoint `f481c3f2` updates the managed CI contract to require the
+separate Basic and Parallels branches, the full-stream validation flag, and
+retained snapshot reuse; its focused test passes locally.
 
 ## Next parity gates
 
