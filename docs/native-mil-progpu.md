@@ -6576,6 +6576,15 @@ until their cap/run/offset calculation is shared with the retained stroke
 compiler. Native, ASan, managed source-contract, transformed-geometry, and
 Windows system-Direct2D oracle coverage gate the implementation.
 
+ProGPU checkpoint `8ece2f19` extends the same default-stroke lane to
+`ID2D1Geometry::StrokeContainsPoint`. It tests the transformed outer miter
+rectangle and removes only the strict transformed inner rectangle, preserving
+both centered-stroke boundaries. Base and axis-preserving intrinsic-transform
+cases share the same ordering and are compared to system Direct2D edge/center
+queries on Windows. Explicit styles, degeneracy, singular transforms, and
+general-affine intrinsic transformed rectangles remain typed fail-closed
+cases pending the shared styled-offset engine.
+
 ## Next parity gates
 
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested
