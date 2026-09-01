@@ -6539,6 +6539,11 @@ claim DirectWrite raster-filter pixel effects; native GPU quality mapping and
 deferred incompatible-antialias validation remain explicit parity work with
 no CPU raster fallback.
 
+`D2D1_DRAW_TEXT_OPTIONS_DISABLE_COLOR_BITMAP_SNAPPING` is also accepted on
+the monochrome layout lane because it has no observable effect unless color
+fonts are enabled. `ENABLE_COLOR_FONT` itself remains fail closed until typed
+color-vector/bitmap/SVG glyph translation lands.
+
 Portable rectangle and path geometries now implement
 `ID2D1Geometry::Outline` for the exact single-filled-contour lane. The path
 implementation applies the requested transform and flattening tolerance,
