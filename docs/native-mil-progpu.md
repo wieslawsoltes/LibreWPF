@@ -4498,11 +4498,13 @@ green; no scalar fallback or browser-specific algorithm was introduced.
 
 COM-heavy applications are portable only at typed graphics boundaries. The
 ProGPU-owned `ID2D1*` C++ object library is currently a `WIN32` target, while
+its COM lifetime foundation and first rectangle behavior core are portable and
 the pointer-free retained scene it records already selects Metal/Vulkan through
 WebGPU. Source rebuilt for macOS/Linux currently uses `ProGPU.DirectX`,
 `ProGPU.Win2D`, or the typed scene API; it will be able to retain supported
-`IUnknown`/`ID2D1*` call structure after the planned portable compatibility
-header and object target are implemented. Unchanged Windows PE/WinRT binaries,
+`IUnknown`/`ID2D1*` call structure after the portable compatibility interface
+and factory activation target are implemented. Unchanged Windows PE/WinRT
+binaries,
 arbitrary registered COM servers, HWND/HDC/DXGI-handle APIs, and native Win2D
 remain Windows execution concerns and require the Windows VM, Wine, or an
 isolated Windows service/plugin. They are not silently approximated by the
@@ -4529,6 +4531,24 @@ not a general COM runtime; it is the shared base for extracting ProGPU-owned
 Direct2D resources from WRL and Windows headers. The macOS no-provider suite
 passes 12/12 CTests and the managed Direct2D contract passes 7/7 with zero
 warnings.
+
+The current portable Direct2D extraction adds installed static target/header
+`progpu_native_direct2d_core`/`progpu_native_direct2d_core.hpp`. The shared,
+allocation-free rectangle implementation owns finite validation, affine
+vertices/bounds, fill hit testing, tessellation, area, perimeter, and
+point-at-length. Windows `ID2D1RectangleGeometry` delegates these operations to
+that same core, and a portable warning-as-error CTest plus managed source
+contract prevents algorithm drift. This is behavior parity underneath the
+adapter; literal portable `ID2D1*` vtables and activation remain the next
+interface layer rather than being claimed prematurely.
+
+The Apple Silicon warnings-as-errors no-provider build passes 11/11 native
+CTests and the focused managed Direct2D contract passes 8/8. An exact source
+archive builds and runs the new core executable under Windows 11 ARM64 with
+MSVC 19.44 and `/W4 /WX`. The full Windows Direct2D provider still reaches the
+known SDK `near` macro collision in `progpu_native_mil_curve_dash.hpp` before
+adapter qualification; that unrelated failure is recorded rather than changed
+as part of the portable rectangle extraction.
 
 `ProGPU.DirectX` implements the portable Direct3D-style facade, while the C++
 backend now also owns a separate Windows-only genuine Direct2D COM provider.
