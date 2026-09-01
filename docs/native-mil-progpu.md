@@ -6529,6 +6529,16 @@ a hidden system factory or selects CPU shaping/rasterization. Portable and
 Windows SDK-pointer fixtures verify one factory call and the same retained
 glyph/decorations/clip output as direct layout drawing.
 
+The portable target now also preserves canonical `IDWriteRenderingParams`
+identity and COM lifetime across `SetTextRenderingParams` and
+`GetTextRenderingParams`, including null reset and actual Windows SDK-pointer
+calls. The installed vtable exposes gamma, contrast, ClearType level, pixel
+geometry, and rendering mode. Because portable text currently emits complete
+vector outlines into GPU coverage, this checkpoint intentionally does not
+claim DirectWrite raster-filter pixel effects; native GPU quality mapping and
+deferred incompatible-antialias validation remain explicit parity work with
+no CPU raster fallback.
+
 ## Next parity gates
 
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested
