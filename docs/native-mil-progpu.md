@@ -4576,6 +4576,28 @@ SDK `ID2D1Factory*` and `ID2D1TransformedGeometry*` types; the portable core
 and compatibility executables both pass, as do 12/12 macOS native tests and
 9/9 managed Direct2D contracts.
 
+ProGPU `bd16f5d8` adds canonical portable `ID2D1PathGeometry`,
+`ID2D1GeometrySink`, and `ID2D1SimplifiedGeometrySink` vtables. The owned
+factory now creates one-shot paths with real COM lifetime and strict
+fresh/open/closed/failed state. The sink records fill mode, segment flags,
+figures, lines, cubic and quadratic Beziers, and arcs; a successful `Close`
+publishes immutable segment and figure counts and an exact typed stream.
+Line/cubic/quadratic paths compute affine bounds including curve extrema and
+simplify quadratics to source-space-equivalent cubics before transformation.
+Arc records already round-trip through `Stream`, but arc bounds and simplify
+fail with `E_NOTIMPL` before caller output until the existing ProGPU arc
+converter becomes shared portable core. All other unimplemented analysis and
+boolean operations remain explicit fail-closed gates.
+
+The checkpoint passes all 12 Apple Silicon warning-as-error CTests and 9/9
+managed Direct2D contracts. Windows 11 ARM64 MSVC 19.44 `/W4 /WX` builds and
+runs the focused core and compatibility executables through actual Windows SDK
+factory/path/sink pointers. The same executable builds an equivalent path with
+the system `D2D1CreateFactory` implementation and requires identical segment
+and figure counts plus exact bounds. This is source/ABI-compatible path
+construction on every backend; it is not yet global `d2d1.dll` replacement,
+portable device-context drawing, or complete arc/geometry analysis.
+
 `ProGPU.DirectX` implements the portable Direct3D-style facade, while the C++
 backend now also owns a separate Windows-only genuine Direct2D COM provider.
 ProGPU checkpoint `fa3e9e4a` classifies `d2d1.dll`,
