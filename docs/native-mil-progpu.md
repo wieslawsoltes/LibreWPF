@@ -6719,6 +6719,13 @@ the first xUnit assertion can allocate during JIT initialization. The required
 product delta remains exactly zero, and the focused test passes after rebuild
 plus three isolated repeat runs.
 
+ProGPU checkpoint `5c811fa9` corrects retained generation ownership in the
+guideline warmup: generation 1 is discarded, while measured baseline, guided,
+and reference frames use generations 2, 3, and 4 and the rejection probe uses
+5. This forces the measured baseline redraw instead of allowing same-generation
+no-damage reuse to elide it. Local Metal again matches the exact established
+extent, color-sum, and zero-reference-difference evidence.
+
 ## Next parity gates
 
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested
