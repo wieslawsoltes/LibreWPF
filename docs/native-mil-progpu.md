@@ -6634,15 +6634,17 @@ software adapter otherwise loses its D3D12 device after roughly 96 seconds in
 the dense managed glyph path; the bounded lane remains a real GPU submission
 and pixel comparison, not a CPU or validation-only substitute.
 
-The full 16+2-draw portable Win2D Canvas oracle remains part of the
-D3D12/Metal/Vulkan image comparison. Microsoft Basic Render Driver alone now
-forces ProGPU's qualified intrinsic-SIMD glyph coverage for that unchanged
-frame because its CPU-only software GPU coverage path intermittently loses the
-device at final readback after roughly 79 seconds. Geometry, images,
-gradients, command lists, layers, native D3D12 submission, and readback remain
-live, and the scoped setting is restored immediately afterward. Hardware and
-Parallels retain automatic fastest selection; this does not introduce a CPU
-renderer or change product defaults.
+The full portable Win2D Canvas oracle remains part of the
+D3D12/Metal/Vulkan image comparison. Microsoft Basic Render Driver alone
+partitions independent feature groups with `CanvasDrawingSession.Flush()` so
+one CPU-D3D12 batch does not contain the complete path/text/layer workload.
+Every original draw and pixel probe remains under automatic GPU-first
+selection, with no intermediate readback or CPU composition. This exposed and
+fixed preserved incremental Canvas commits that contained isolated layers:
+the managed backend requests typed full-target preservation and the native root
+pass loads the existing attachment. Partitioned Metal is byte-identical to the
+qualified full frame and reports all work as 17+2 native draws after the extra
+submission boundaries.
 
 The hosted x64 Microsoft Basic Render Driver also explicitly defers the two
 forced signed-winding compute stress profiles. Its inline four-rectangle
