@@ -6704,6 +6704,15 @@ Follow-up checkpoint `f481c3f2` updates the managed CI contract to require the
 separate Basic and Parallels branches, the full-stream validation flag, and
 retained snapshot reuse; its focused test passes locally.
 
+ProGPU checkpoint `2eab37d6` qualifies the tiny per-point path pipeline with
+one discarded baseline GPU submission before measuring parity. Hosted Basic
+Render Driver returned an empty first 40x28 baseline even though the next
+guided frame and independent reference were identical. The measured baseline,
+guided, reference, extent, color, changed-pixel, submission, and exact-reference
+assertions are unchanged; local Metal reproduces the established 37,536/11,542
+baseline sums, 40,800/13,045 guided/reference sums, 76 changed pixels, and zero
+reference differences.
+
 ## Next parity gates
 
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested
