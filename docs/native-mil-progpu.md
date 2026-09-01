@@ -6810,6 +6810,14 @@ narrow surviving inner ring are validated by a second dense lattice against
 another clean Windows ARM64 30-target core/provider build passes the expanded
 oracle; collapsed or self-intersecting offsets remain fail closed.
 
+ProGPU checkpoint `d2d76b66` extends closed-path stroke containment to typed
+same-factory solid bevel, miter, and miter-or-bevel styles. The SIMD segment
+body remains shared while join selection and the style's miter limit stay in
+the dependent topology pass. A bevel-clipped corner and included wedge match
+genuine Windows Direct2D after a clean ARM64 30-target rebuild; all optimized
+and sanitizer Direct2D tests pass locally. Dashed and round joins remain
+explicit fail-closed gates for shared run/arc output geometry.
+
 ## Next parity gates
 
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested
