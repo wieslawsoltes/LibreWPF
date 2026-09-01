@@ -6777,6 +6777,16 @@ boundary broad phase are retained. Optimized and sanitizer fixtures pass
 locally; a clean 30-target Windows ARM64 rebuild matches genuine system
 Direct2D for all five relations.
 
+ProGPU checkpoint `4e216567` implements default solid-miter
+`ID2D1PathGeometry::StrokeContainsPoint` for one simple closed contour. It
+inverse-maps queries through arbitrary nonsingular affine transforms, checks
+four segment-distance lanes per ARM64 NEON/SSE2 batch, and handles convex and
+concave join wedges in the dependent topology pass. Styled, flagged, open,
+multi-figure, degenerate, self-intersecting, and singular cases remain fail
+closed. All four optimized and sanitizer Direct2D tests pass locally; Windows
+ARM64 matches system Direct2D for body, miter, concave, transformed, strict
+exterior, interior, and zero-width probes.
+
 ## Next parity gates
 
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested
