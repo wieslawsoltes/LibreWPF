@@ -6603,13 +6603,27 @@ preserves Direct2D's observable relation ordering: equality is
 `IS_CONTAINED`, boundary contact is `OVERLAP`, and cross-factory or
 general-affine cases leave `UNKNOWN` while failing closed. Native,
 ASan/UBSan, managed contract, and Windows 11 ARM64 system-Direct2D oracles
-cover every relation plus caller and intrinsic transforms. The extended
-Windows CI keeps full 640x360 validation on hardware and Parallels. Microsoft
-Basic Render Driver executes the identical logical managed scene at 320x180
-and 0.5 DPI, preserving native compilation, retained second-frame zero-upload,
-readback, and nondegenerate pixel checks while avoiding its deterministic
-75-second full-frame device loss. The zero-radius point remains structurally
-checked there and pixel-checked by the full-resolution lanes.
+cover every relation plus caller and intrinsic transforms.
+
+ProGPU checkpoint `60b8a851` extends the same typed rectangle resolver to
+arbitrary nonsingular affine and reflected transforms. Double-width convex
+containment plus separating-axis projections classify the two resulting
+quadrilaterals without allocation; equality, boundary touch, containment, and
+crossing topology retain system Direct2D ordering. Normal, ASan/UBSan, and
+Windows 11 ARM64 system-Direct2D oracles cover shear overlap/disjoint,
+reflected equality, and a sheared transformed source.
+
+The extended Windows CI keeps the complete 640x360 managed GPU scene on
+hardware and Parallels. Microsoft Basic Render Driver compiles that complete
+16-command picture and passes its full native stream through exact C++ parser
+counters, then GPU-executes a bounded four-source-command analytic managed
+scene at 320x180 and 0.5 DPI. Its nested/direct solid rectangles and linear
+gradient coalesce into one native batch while retaining submission,
+second-frame zero-upload, readback, and pixel assertions. This replaces an
+ineffective resolution-only reduction: the full path/glyph scene still lost
+the software device after roughly 80 seconds at half size. The independent
+full C++ D3D12 sample remains mandatory there, and no CPU renderer or retry is
+substituted.
 
 ProGPU checkpoint `4e7bef78` implements allocation-free rectangle
 `CombineWithGeometry` for union, intersection, XOR, and exclusion. A fixed
