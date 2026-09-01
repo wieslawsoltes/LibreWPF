@@ -6539,6 +6539,16 @@ claim DirectWrite raster-filter pixel effects; native GPU quality mapping and
 deferred incompatible-antialias validation remain explicit parity work with
 no CPU raster fallback.
 
+ProGPU checkpoint `fd5675a7` connects `D2D1_TEXT_ANTIALIAS_MODE_ALIASED` to
+the shared path rasterizer's exact 1x1 pixel-center coverage mode. Default,
+grayscale, and ClearType continue to use the fastest qualified 8x8 GPU path
+until their remaining filter differences land. Scene validation, retained
+path execution, and vector-mask execution all accept the one-sample mode, so
+solid, gradient, and bitmap-brush glyphs remain GPU-only. Direct2D drawing
+state now persists across `BeginDraw`/`EndDraw`, while per-session commands,
+scopes, and latched errors are reset. The same change repairs the Windows
+system-Direct2D outline oracle so it compares identical rectangle inputs.
+
 `D2D1_DRAW_TEXT_OPTIONS_DISABLE_COLOR_BITMAP_SNAPPING` is also accepted on
 the monochrome layout lane because it has no observable effect unless color
 fonts are enabled. `ENABLE_COLOR_FONT` itself remains fail closed until typed
@@ -6561,7 +6571,7 @@ scalar work and are documented exceptions to SIMD policy.
    render-data command families using the complete generated WPF MCG layouts.
 2. Add remaining non-bitmap image sources and portable Direct2D WIC-lock/DXGI
    shared bitmap lanes, advanced stroke transform modes,
-   `DrawText`, color glyphs, and device-context bitmap
+   color glyphs, and device-context bitmap
    generations; extend the package-qualified
    Microsoft Win2D device/target wrappers to broader resource families,
    complete the device-loss gate, add remaining exact
