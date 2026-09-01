@@ -6803,6 +6803,13 @@ alternate-fill force-unstroked figures. Dense local predicates match
 `StrokeContainsPoint`; optimized and sanitizer suites pass 4/4, and a clean
 Windows ARM64 30-target build matches genuine system Direct2D widened output.
 
+ProGPU checkpoint `31f4e6dd` extends widening to concave simple contours when
+both offset rings remain simple and non-collapsed. The re-entrant join and
+narrow surviving inner ring are validated by a second dense lattice against
+`StrokeContainsPoint` and genuine system Direct2D. Sanitizers pass locally and
+another clean Windows ARM64 30-target core/provider build passes the expanded
+oracle; collapsed or self-intersecting offsets remain fail closed.
+
 ## Next parity gates
 
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested
