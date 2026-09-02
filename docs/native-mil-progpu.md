@@ -6473,8 +6473,11 @@ The portable C++ `ID2D1RenderTarget::CreateBitmapFromWicBitmap` path now
 consumes the canonical `IWICBitmapSource` COM contract directly. It accepts
 exact `GUID_WICPixelFormat32bppPBGRA`, `32bppPRGBA`, `32bppBGRA`, and
 `32bppRGBA` sources. Premultiplied sources map directly to BGRA8/RGBA8, while
-straight-alpha sources are converted in place in the final bounded bitmap
-allocation with NEON or SSE2 and a bounded scalar tail. `CopyPixels` therefore
+straight-alpha sources requested as premultiplied are converted in place in
+the final bounded bitmap allocation with NEON or SSE2 and a bounded scalar
+tail. An explicit alpha-ignore bitmap instead preserves the source RGB and
+uses typed retained-scene metadata to force sampled alpha opaque in the shared
+WebGPU shader. `CopyPixels` therefore
 still writes directly into the sole destination allocation; the path introduces
 no intermediate repack buffer or GPU readback. Null/default bitmap properties
 infer the source format and use Direct2D's specified 96 DPI; embedded WIC DPI
@@ -6495,10 +6498,13 @@ independent DPI without copying pixel storage. Source and views publish one
 typed storage identity, so drawing both in a frame emits one retained image
 resource/GPU upload while preserving per-view DIP mapping. A compatible-target
 view retains and forwards the child semantic scene, so drawing or masking it
-still uses the bounded GPU attachment without readback. Format mismatch,
-unsupported alpha reinterpretation, foreign domains, null data, and other
-source IIDs fail closed. Actual Windows SDK vtable coverage and portable scene
-serialization validate both resource aliases.
+still uses the bounded GPU attachment without readback. An ordinary color
+bitmap may be reinterpreted between premultiplied and alpha-ignore views over
+the same storage and upload; a per-draw shader flag selects opaque source alpha
+without mutation. Format mismatch, incompatible alpha interpretation, foreign
+domains, null data, and other source IIDs fail closed. Actual Windows SDK
+vtable coverage, portable scene serialization, and Metal/D3D12 pixel readback
+validate the resource aliases.
 
 The WIC-lock lane is now implemented through the canonical
 `IID_IWICBitmapLock` and four-method COM vtable. PBGRA/PRGBA locks are retained
@@ -6507,11 +6513,15 @@ without a copy. The wrapper preserves padded stride, uses target or explicit
 DPI, serializes the current bytes into the retained scene, and forwards
 `CopyFromMemory`/`CopyFromBitmap` mutations to the locked allocation. Size,
 stride, buffer extent, pixel format, alpha mode, and scene bounds are validated
-before publication; straight-alpha lock sharing fails closed because a shared
-view cannot silently convert its owner's bytes. Byte oracles cover padding,
-live caller mutation, and both copy paths. A clean Windows ARM64 full-provider
-MSVC `/W4 /WX` build and 16/16 native tests plus ARM64/x64 real-SDK vtable tests
-qualify the lane. DXGI-surface sharing remains the device-domain follow-up.
+before publication. Straight BGRA/RGBA locks are accepted only for explicit
+alpha-ignore views, which alias RGB and force sampled alpha opaque on the GPU;
+requesting the same owner as premultiplied fails closed because sharing cannot
+silently convert its bytes. Byte oracles cover padding, live caller mutation,
+both copy paths, and alpha reinterpretation. ProGPU checkpoint `c1681b5d`
+passes all 15 macOS native CTests, ARM64/x64 real-SDK compatibility suites, a
+clean Windows ARM64 full-provider MSVC `/W4 /WX` build, and all 16 Windows
+native tests including the D3D12 pixel oracle. DXGI-surface sharing remains the
+device-domain follow-up.
 
 ## Portable Direct2D glyph-run checkpoint
 
