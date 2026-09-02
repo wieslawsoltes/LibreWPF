@@ -4258,6 +4258,17 @@ Toolkit/AvalonDock, paid Xceed, SciChart, and the focused package-graph guard.
 The qualified bundle is
 `librewpf-preview-0.1.0-preview.45.tar.gz`, SHA-256
 `6b0faf9f9ba2f08f466a1a450f381cc65602cf6614f6f89fb238d43a7a8329d6`.
+
+The MVP live harness uses a bounded 180-second qualification deadline, matching
+the Toolkit live gate. This accommodates cold hosted macOS runners that may
+need more than 60 seconds to create the native surface and reach the complete
+input/command sequence; it does not relax the semantic oracle. The application
+must still report the final typed success record after frame, geometry,
+windowing, resize, text-editing, binding, and routed `Ctrl+R` validation, and an
+exit or missing success record still fails the gate. The previous 60-second
+limit was observed terminating a healthy run immediately after the routed
+command was injected, before the application could publish its result.
+
 LibreWPF checkpoints `1c10d47a9` and `7b0a38248` make the exact ProGPU version
 an explicit input to every packaged harness and separate serial build from
 `dotnet run --no-build`, so the MSBuild concurrency flag can never leak into
