@@ -6523,6 +6523,40 @@ clean Windows ARM64 full-provider MSVC `/W4 /WX` build, and all 16 Windows
 native tests including the D3D12 pixel oracle. DXGI-surface sharing remains the
 device-domain follow-up.
 
+## Portable Direct2D full-target opacity-layer checkpoint
+
+ProGPU `5f1d6be0` extends `ID2D1RenderTarget::PushLayer` so Direct2D's default
+infinite content bounds can be combined with a non-null opacity brush. The
+portable target inverse-maps its finite pixel/DPI extent into local coordinates
+through an invertible axis-preserving world transform and uses those exact
+finite local bounds for the retained brush mask. The semantic layer remains a
+full-target layer. Rotation, shear, singular transforms, and non-finite extents
+fail closed rather than broadening coverage. The existing GPU mask/composite
+path performs the operation without CPU readback, CPU repacking, or an extra
+submission.
+
+The compatibility suite verifies the serialized inverse-mapped bounds and
+calls the canonical Windows SDK `ID2D1RenderTarget::PushLayer` vtable with
+infinite bounds and a real opacity brush. The live WebGPU fixture adds the
+full-target brush layer to the shared 27-probe D3D12/Metal/Vulkan comparison;
+it retains four submissions. macOS ARM64 passes all 15 native CTests and the
+real Metal pixel oracle, Rosetta x64 and ASan/UBSan pass the focused suite,
+managed Direct2D contracts pass 10/10, and clean Windows ARM64 passes all 16
+native tests including the live D3D12 oracle. Windows ARM64 and x64 SDK
+compatibility builds pass under MSVC `/W4 /WX`.
+
+ProGPU `f4a889f6` also keys the native package Build workflow by exact head SHA
+and disables in-progress cancellation. LibreWPF's package-mode gate waits for
+and downloads the matching `progpu-native-package` artifact, so later ProGPU
+pushes can no longer cancel the exact binary build needed by an already-pinned
+submodule revision. ClangCL warning-as-error portability is fixed through
+`613e5ce5` without changing the Direct2D behavior. ProGPU `936b37a0` keeps the
+78-command broad seed as dual-export compilation on the hosted Windows x64
+software adapter after two approximately 77-second device-loss/black-frame
+runs, while nine bounded retained GPU scenes and the direct renderer remain
+live in both JIT and NativeAOT package consumers. Physical/Parallels Windows
+and every other package RID retain the full broad-seed render.
+
 ## Portable Direct2D glyph-run checkpoint
 
 The portable C++ `ID2D1RenderTarget::DrawGlyphRun` slot now consumes the exact
