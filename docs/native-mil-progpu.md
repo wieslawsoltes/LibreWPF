@@ -6498,8 +6498,20 @@ view retains and forwards the child semantic scene, so drawing or masking it
 still uses the bounded GPU attachment without readback. Format mismatch,
 unsupported alpha reinterpretation, foreign domains, null data, and other
 source IIDs fail closed. Actual Windows SDK vtable coverage and portable scene
-serialization validate both resource aliases; WIC locks and DXGI surfaces
-remain explicit follow-up ownership lanes.
+serialization validate both resource aliases.
+
+The WIC-lock lane is now implemented through the canonical
+`IID_IWICBitmapLock` and four-method COM vtable. PBGRA/PRGBA locks are retained
+for the complete bitmap lifetime and their live memory is aliased at creation
+without a copy. The wrapper preserves padded stride, uses target or explicit
+DPI, serializes the current bytes into the retained scene, and forwards
+`CopyFromMemory`/`CopyFromBitmap` mutations to the locked allocation. Size,
+stride, buffer extent, pixel format, alpha mode, and scene bounds are validated
+before publication; straight-alpha lock sharing fails closed because a shared
+view cannot silently convert its owner's bytes. Byte oracles cover padding,
+live caller mutation, and both copy paths. A clean Windows ARM64 full-provider
+MSVC `/W4 /WX` build and 16/16 native tests plus ARM64/x64 real-SDK vtable tests
+qualify the lane. DXGI-surface sharing remains the device-domain follow-up.
 
 ## Portable Direct2D glyph-run checkpoint
 
@@ -6843,8 +6855,8 @@ green. Dashed styles remain the explicit shared-run geometry gate.
 
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested
    render-data command families using the complete generated WPF MCG layouts.
-2. Add remaining non-bitmap image sources and portable Direct2D WIC-lock/DXGI
-   shared bitmap lanes, advanced stroke transform modes,
+2. Add remaining non-bitmap image sources and the portable Direct2D DXGI
+   shared-bitmap lane, advanced stroke transform modes,
    color glyphs, and device-context bitmap
    generations; extend the package-qualified
    Microsoft Win2D device/target wrappers to broader resource families,
