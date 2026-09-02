@@ -6471,17 +6471,21 @@ closed four-cubic dashed contour.
 
 The portable C++ `ID2D1RenderTarget::CreateBitmapFromWicBitmap` path now
 consumes the canonical `IWICBitmapSource` COM contract directly. It accepts
-exact `GUID_WICPixelFormat32bppPBGRA` and `32bppPRGBA` sources, maps them to
-premultiplied BGRA8/RGBA8 without conversion, and lets `CopyPixels` write
-straight into the final bounded bitmap allocation. Null/default bitmap
-properties infer the source format and use Direct2D's specified 96 DPI;
-embedded WIC DPI is deliberately ignored. Unsupported formats, alpha modes,
-format mismatches, invalid dimensions, and oversized payloads fail closed
-before the copy. There is no reflection, codec activation, intermediate CPU
-repack, per-pixel scalar conversion, or GPU readback in this resource-upload
-seam. Portable tests serialize the resulting bitmap and compare its retained
-payload byte for byte; Windows compiler coverage also validates the canonical
-IID/GUID values, `WICRect` layout, and actual SDK vtable call.
+exact `GUID_WICPixelFormat32bppPBGRA`, `32bppPRGBA`, `32bppBGRA`, and
+`32bppRGBA` sources. Premultiplied sources map directly to BGRA8/RGBA8, while
+straight-alpha sources are converted in place in the final bounded bitmap
+allocation with NEON or SSE2 and a bounded scalar tail. `CopyPixels` therefore
+still writes directly into the sole destination allocation; the path introduces
+no intermediate repack buffer or GPU readback. Null/default bitmap properties
+infer the source format and use Direct2D's specified 96 DPI; embedded WIC DPI
+is deliberately ignored. Unsupported formats, alpha modes, format mismatches,
+invalid dimensions, and oversized payloads fail closed before the copy. There
+is no reflection or codec activation in this resource-upload seam. Portable
+tests serialize the resulting bitmap and compare its retained payload byte for
+byte, including an exhaustive 65,536 channel/alpha-pair oracle that covers the
+SIMD body and scalar tail. Windows ARM64 and x64 compiler/runtime coverage also
+validates the canonical IID/GUID values, `WICRect` layout, actual SDK vtable
+call, and both native intrinsic implementations.
 
 The same bitmap-resource lane now implements
 `CreateSharedBitmap(IID_ID2D1Bitmap, ...)` for same-factory portable upload,
