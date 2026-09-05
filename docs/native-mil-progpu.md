@@ -7658,6 +7658,20 @@ Final runtime/image/VM, verifier, benchmark, and PR CI gates remain mandatory an
 deferred. Detailed provenance and managed/native applicability are recorded in
 ProGPU's `docs/native-mil-compositor.md`.
 
+### Implementation-first checkpoint: physical-DPI glyph preparation
+
+ProGPU native MIL now applies the build request's uniform target DPI when sizing
+glyph outlines and snapping baselines. Solid, gradient, and tiled glyphs share
+the change, while inverse atlas scaling preserves logical geometry. This follows
+the existing managed text rasterization/placement contract. Legacy requests stay
+at DPI 1; unequal target X/Y DPI fails closed until per-axis native frames exist.
+
+Added 42 unexecuted font/DPI/foreground/command cases and 21 anisotropic-target
+failure cases, including the managed renderer's four high-DPI UI font fixtures.
+Build-only qualification continues; image quality, atlas-size/transform edge
+cases, Windows parity, performance, and CI remain for the final validation phase.
+The complete MIL/DirectX/Direct2D/Win2D goal remains active.
+
 ## Developer commands
 
 ```sh
