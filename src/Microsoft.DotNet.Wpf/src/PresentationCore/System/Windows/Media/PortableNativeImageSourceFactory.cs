@@ -31,7 +31,14 @@ namespace System.Windows.Media
                 throw new ArgumentOutOfRangeException(nameof(nativeImageSource), "The native image height must be positive.");
             }
 
-            return new PortableNativeImageSource(nativeImageSource, pixelWidth, pixelHeight);
+            double dpiX = nativeImageSource.DpiX;
+            double dpiY = nativeImageSource.DpiY;
+            if (!double.IsFinite(dpiX) || !double.IsFinite(dpiY) || dpiX <= 0 || dpiY <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(nativeImageSource), "The native image DPI must be finite and positive.");
+            }
+
+            return new PortableNativeImageSource(nativeImageSource, pixelWidth, pixelHeight, dpiX, dpiY);
         }
 
         private sealed class PortableNativeImageSource : ImageSource, IPortableNativeImageSource
@@ -39,15 +46,21 @@ namespace System.Windows.Media
             private readonly IPortableNativeImageSource _nativeImageSource;
             private readonly int _pixelWidth;
             private readonly int _pixelHeight;
+            private readonly double _dpiX;
+            private readonly double _dpiY;
 
             internal PortableNativeImageSource(
                 IPortableNativeImageSource nativeImageSource,
                 int pixelWidth,
-                int pixelHeight)
+                int pixelHeight,
+                double dpiX,
+                double dpiY)
             {
                 _nativeImageSource = nativeImageSource;
                 _pixelWidth = pixelWidth;
                 _pixelHeight = pixelHeight;
+                _dpiX = dpiX;
+                _dpiY = dpiY;
             }
 
             public override double Width
@@ -55,7 +68,7 @@ namespace System.Windows.Media
                 get
                 {
                     ReadPreamble();
-                    return _pixelWidth;
+                    return PixelsToDIPs(_dpiX, _pixelWidth);
                 }
             }
 
@@ -64,7 +77,7 @@ namespace System.Windows.Media
                 get
                 {
                     ReadPreamble();
-                    return _pixelHeight;
+                    return PixelsToDIPs(_dpiY, _pixelHeight);
                 }
             }
 
@@ -81,6 +94,10 @@ namespace System.Windows.Media
 
             int IPortableNativeImageSource.PixelHeight => _pixelHeight;
 
+            double IPortableNativeImageSource.DpiX => _dpiX;
+
+            double IPortableNativeImageSource.DpiY => _dpiY;
+
             bool IPortableNativeImageSource.TryGetPortableNativeImage(out object nativeImage)
             {
                 ReadPreamble();
@@ -89,7 +106,7 @@ namespace System.Windows.Media
 
             protected override Freezable CreateInstanceCore()
             {
-                return new PortableNativeImageSource(_nativeImageSource, _pixelWidth, _pixelHeight);
+                return new PortableNativeImageSource(_nativeImageSource, _pixelWidth, _pixelHeight, _dpiX, _dpiY);
             }
 
             protected override bool FreezeCore(bool isChecking)

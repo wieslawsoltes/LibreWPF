@@ -2170,6 +2170,36 @@ public sealed class WpfReplayToProGpuCommandTests
     }
 
     [Fact]
+    public void DrawPortableNativeImageRetainsTypedTextureLeaseUntilContextClear()
+    {
+        var texture = (GpuTexture)RuntimeHelpers.GetUninitializedObject(
+            typeof(GpuTexture));
+        var textureSource = new FakeTextureLeaseSource(texture);
+        var imageSource = new FakePortableNativeMediaImageSource(
+            textureSource);
+        var nativeContext = new ProGpuDrawingContext();
+
+        using (var sink = new ProGpuCompositionCommandSink(
+                   new MediaDrawingContext(nativeContext)))
+        {
+            sink.DrawImage(
+                imageSource,
+                new System.Windows.Rect(2, 3, 40, 50));
+        }
+
+        var command = Assert.Single(nativeContext.Commands);
+        Assert.Equal(RenderCommandType.DrawTexture, command.Type);
+        Assert.Same(texture, command.Texture);
+        Assert.Equal(1, nativeContext.RetainedResourceCount);
+        Assert.Equal(1, textureSource.AcquireCount);
+        Assert.Equal(0, textureSource.LeaseDisposeCount);
+
+        nativeContext.Clear();
+
+        Assert.Equal(1, textureSource.LeaseDisposeCount);
+    }
+
+    [Fact]
     public void DrawImageWithNearestBitmapScalingThroughProGpuSinkStoresTextureSamplingMode()
     {
         var nativeContext = new ProGpuDrawingContext();
@@ -3080,6 +3110,75 @@ public sealed class WpfReplayToProGpuCommandTests
         public override int PixelHeight => 1;
 
         public override GpuTexture GpuTexture => s_texture;
+    }
+
+    private sealed class FakePortableNativeMediaImageSource :
+        System.Windows.Media.ImageSource,
+        IPortableNativeImageSource
+    {
+        private readonly object _nativeImage;
+
+        public FakePortableNativeMediaImageSource(object nativeImage)
+        {
+            _nativeImage = nativeImage;
+        }
+
+        public int PixelWidth => 1;
+
+        public int PixelHeight => 1;
+
+        public bool TryGetPortableNativeImage(out object? nativeImage)
+        {
+            nativeImage = _nativeImage;
+            return true;
+        }
+    }
+
+    private sealed class FakeTextureLeaseSource : IProGpuTextureLeaseSource
+    {
+        private readonly GpuTexture _texture;
+
+        public FakeTextureLeaseSource(GpuTexture texture)
+        {
+            _texture = texture;
+        }
+
+        public int AcquireCount { get; private set; }
+
+        public int LeaseDisposeCount { get; private set; }
+
+        public bool TryGetGpuTexture(out GpuTexture texture)
+        {
+            texture = _texture;
+            return true;
+        }
+
+        public bool TryAcquireGpuTextureLease(out IProGpuTextureLease lease)
+        {
+            AcquireCount++;
+            lease = new FakeTextureLease(
+                _texture,
+                () => LeaseDisposeCount++);
+            return true;
+        }
+    }
+
+    private sealed class FakeTextureLease : IProGpuTextureLease
+    {
+        private Action? _onDispose;
+
+        public FakeTextureLease(GpuTexture texture, Action onDispose)
+        {
+            Texture = texture;
+            _onDispose = onDispose;
+        }
+
+        public GpuTexture Texture { get; }
+
+        public void Dispose()
+        {
+            Interlocked.Exchange(ref _onDispose, null)?.Invoke();
+        }
     }
 
     private sealed class FakeGeometryDrawing : IPortableGeometryDrawingStateSource

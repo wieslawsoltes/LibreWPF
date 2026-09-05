@@ -75,6 +75,50 @@ public sealed class QueuedWpfDispatcherServiceTests
     }
 
     [Fact]
+    public void ProcessPendingDefersCallbacksPostedByCallbackUntilNextTurn()
+    {
+        var dispatcher = new QueuedWpfDispatcherService();
+        var order = new List<int>();
+
+        dispatcher.Post(
+            () =>
+            {
+                order.Add(1);
+                dispatcher.Post(() => order.Add(2), WpfDispatcherPriority.Normal);
+            },
+            WpfDispatcherPriority.Normal);
+
+        Assert.True(dispatcher.ProcessPending());
+        Assert.Equal(new[] { 1 }, order);
+
+        Assert.True(dispatcher.ProcessPending());
+        Assert.Equal(new[] { 1, 2 }, order);
+    }
+
+    [Fact]
+    public void WorkAvailableCannotReenterAnActiveDispatcherTurn()
+    {
+        var dispatcher = new QueuedWpfDispatcherService();
+        var order = new List<int>();
+        var nestedProcessResults = new List<bool>();
+        dispatcher.WorkAvailable += (_, _) =>
+            nestedProcessResults.Add(dispatcher.ProcessPending());
+
+        dispatcher.Post(
+            () =>
+            {
+                order.Add(1);
+                dispatcher.Post(() => order.Add(2));
+            });
+
+        Assert.Equal(new[] { 1 }, order);
+        Assert.Equal(new[] { false, true }, nestedProcessResults);
+
+        Assert.True(dispatcher.ProcessPending());
+        Assert.Equal(new[] { 1, 2 }, order);
+    }
+
+    [Fact]
     public void CanceledOperationDoesNotRun()
     {
         var dispatcher = new QueuedWpfDispatcherService();

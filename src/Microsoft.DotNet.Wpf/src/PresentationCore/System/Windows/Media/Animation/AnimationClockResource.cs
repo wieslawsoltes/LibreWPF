@@ -12,6 +12,7 @@
 //
 
 using System.Windows.Media.Composition;
+using ProGPU.Wpf.Interop;
 
 namespace System.Windows.Media.Animation
 {
@@ -24,7 +25,7 @@ namespace System.Windows.Media.Animation
     /// They subscribe to the Changed event on the AnimationClock and ensure
     /// that the resource's current value is up to date.
     /// </summary>
-    internal abstract class AnimationClockResource: DUCE.IResource
+    internal abstract class AnimationClockResource: DUCE.IResource, IPortableInvalidationSource
     {
         /// <summary>
         /// Protected constructor for AnimationClockResource.
@@ -48,6 +49,24 @@ namespace System.Windows.Media.Animation
             {
                 return _animationClock;
             }
+        }
+
+        bool IPortableInvalidationSource.TrySubscribeInvalidated(
+            EventHandler handler,
+            out IDisposable subscription)
+        {
+            ArgumentNullException.ThrowIfNull(handler);
+
+            if (_animationClock == null)
+            {
+                subscription = null;
+                return false;
+            }
+
+            _animationClock.CurrentTimeInvalidated += handler;
+            subscription = new PortableInvalidationSubscription(
+                () => _animationClock.CurrentTimeInvalidated -= handler);
+            return true;
         }
 
         #endregion Public Properties

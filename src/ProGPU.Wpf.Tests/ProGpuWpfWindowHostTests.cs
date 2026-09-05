@@ -6,6 +6,7 @@ using System.Windows.Media;
 using System.Windows.Media.ProGPU;
 using System.Windows.Media.ProGPU.Composition;
 using System.Windows.Media.ProGPU.Platform;
+using ProGPU.Backend.Native;
 using ProGPU.Vector;
 using ProGPU.Wpf.Interop;
 using Silk.NET.Maths;
@@ -261,6 +262,9 @@ public sealed class ProGpuWpfWindowHostTests
         var options = new ProGpuWpfWindowOptions();
 
         Assert.True(options.IsEventDriven);
+        Assert.Equal(
+            ProGpuWpfRendererMode.ManagedPortable,
+            options.RendererMode);
     }
 
     [Fact]
@@ -289,16 +293,30 @@ public sealed class ProGpuWpfWindowHostTests
         Assert.Contains("while (ShouldKeepPortableNativeRunLoopAlive())", source, StringComparison.Ordinal);
         Assert.Contains("DoEvents();", source, StringComparison.Ordinal);
         Assert.Contains("if (!EnsureCompositionTargetLoaded() || !ShouldKeepPortableNativeRunLoopAlive())", source, StringComparison.Ordinal);
-        Assert.Contains("window.DoEvents();\n        }\n        finally\n        {\n            ProcessDeferredNativeWindowDisposals();", source, StringComparison.Ordinal);
+        Assert.Contains("window.IsEventDriven = false;", source, StringComparison.Ordinal);
+        Assert.Contains("window.DoEvents();\n            TraceNativeLoop(\"native event poll leaving:", source, StringComparison.Ordinal);
+        Assert.Contains("finally\n        {\n            if (useNonBlockingNativePoll)", source, StringComparison.Ordinal);
         Assert.True(doEventsMethodStart >= 0);
         Assert.True(nativeEventPoll > doEventsMethodStart);
         Assert.True(ownerDispatcherDrain > nativeEventPoll);
         Assert.Contains(
-            "if (!_usesExternalNativeLoopPump && PresentedFrameCount == 0)",
+            "if (pumpRenderBeforeEvents)\n        {\n            // Externally pumped popup windows",
             source,
             StringComparison.Ordinal);
         Assert.Contains(
-            "if (pumpExternalRenderBeforeEvents)\n        {\n            // Externally pumped popup windows",
+            "if (_usesExternalNativeLoopPump)\n            {\n                ProcessDispatcherQueueCore();",
+            source,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "owner loop must not drain WPF's self-rescheduling dispatcher",
+            source,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "_options.RendererMode == ProGpuWpfRendererMode.NativeMilWgpu &&\n                !HasPresentedFrame",
+            source,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "native MIL cold-start dispatcher deferred",
             source,
             StringComparison.Ordinal);
         Assert.Contains("if (ShouldPumpNativeRender())", source, StringComparison.Ordinal);
@@ -445,20 +463,43 @@ public sealed class ProGpuWpfWindowHostTests
     }
 
     [Theory]
-    [InlineData(true, true, true)]
-    [InlineData(true, false, false)]
-    [InlineData(false, true, false)]
-    [InlineData(false, false, false)]
-    public void ExternallyPumpedHostRendersPendingFrameBeforeNativeEvents(
+    [InlineData(true, true, true, true)]
+    [InlineData(true, true, false, false)]
+    [InlineData(true, false, false, true)]
+    [InlineData(false, false, true, true)]
+    [InlineData(false, false, false, true)]
+    [InlineData(false, true, true, false)]
+    public void ExternalOrColdStartHostRendersPendingFrameBeforeNativeEvents(
         bool usesExternalNativeLoopPump,
+        bool hasPresentedFrame,
         bool shouldPumpNativeRender,
         bool expected)
     {
         Assert.Equal(
             expected,
-            ProGpuWpfWindowHost.ShouldPumpExternalNativeRenderBeforeEvents(
+            ProGpuWpfWindowHost.ShouldPumpNativeRenderBeforeEvents(
                 usesExternalNativeLoopPump,
+                hasPresentedFrame,
                 shouldPumpNativeRender));
+    }
+
+    [Theory]
+    [InlineData(true, false, true, true)]
+    [InlineData(true, false, false, false)]
+    [InlineData(true, true, true, false)]
+    [InlineData(false, false, true, false)]
+    public void OwnerLoopUsesBoundedNonBlockingNativeEventPoll(
+        bool isNativeLoopRunning,
+        bool usesExternalNativeLoopPump,
+        bool isEventDriven,
+        bool expected)
+    {
+        Assert.Equal(
+            expected,
+            ProGpuWpfWindowHost.ShouldUseNonBlockingNativeEventPoll(
+                isNativeLoopRunning,
+                usesExternalNativeLoopPump,
+                isEventDriven));
     }
 
     [Theory]
@@ -677,6 +718,114 @@ public sealed class ProGpuWpfWindowHostTests
 
         Assert.True(host.ShouldRenderFrame(frameState));
         Assert.True(host.ConsumeScheduledRenderRequest());
+    }
+
+    [Fact]
+    public void NativeMilContinuationSchedulesDelayedPresentation()
+    {
+        var scheduler = new TestRenderScheduler();
+        using var host = new ProGpuWpfWindowHost
+        {
+            WpfRenderScheduler = scheduler
+        };
+        var frameState = new ProGpuWpfFrameState(100, 50, 1, 2, 3);
+        host.RecordPresentedFrame(frameState);
+        var request = new NativeMilSceneBuildRequest(
+            TargetHandle: 1,
+            SceneId: 2,
+            Generation: 3,
+            MonotonicTimeNanoseconds: 1_000_000_000,
+            RequestSerial: 4);
+        var result = new NativeMilSceneBuildResult(
+            NativeMilSceneBuildResultFlags.NeedsMoreCycles,
+            RequestSerial: 4,
+            NextDueTimeNanoseconds: 1_050_000_000,
+            StreamBytes: 5);
+
+        Assert.True(host.RequestNativeMilContinuationAndWakeNativeLoop(
+            request, result));
+
+        Assert.Equal(1, scheduler.RequestCount);
+        Assert.Equal(TimeSpan.FromMilliseconds(50), scheduler.LastDelay);
+        Assert.True(host.ShouldRenderFrame(frameState));
+        Assert.True(host.ConsumeScheduledRenderRequest());
+    }
+
+    [Fact]
+    public void CompletedNativeMilSceneDoesNotSchedulePresentation()
+    {
+        var scheduler = new TestRenderScheduler();
+        using var host = new ProGpuWpfWindowHost
+        {
+            WpfRenderScheduler = scheduler
+        };
+        var request = new NativeMilSceneBuildRequest(
+            TargetHandle: 1,
+            SceneId: 2,
+            Generation: 3,
+            MonotonicTimeNanoseconds: 1_000,
+            RequestSerial: 4);
+        var result = new NativeMilSceneBuildResult(
+            NativeMilSceneBuildResultFlags.None,
+            RequestSerial: 4,
+            NextDueTimeNanoseconds: 0,
+            StreamBytes: 5);
+
+        Assert.False(host.RequestNativeMilContinuationAndWakeNativeLoop(
+            request, result));
+        Assert.Equal(0, scheduler.RequestCount);
+    }
+
+    [Fact]
+    public void NativeMilContinuationRejectsMismatchedRequestSerial()
+    {
+        var scheduler = new TestRenderScheduler();
+        using var host = new ProGpuWpfWindowHost
+        {
+            WpfRenderScheduler = scheduler
+        };
+        var request = new NativeMilSceneBuildRequest(
+            TargetHandle: 1,
+            SceneId: 2,
+            Generation: 3,
+            MonotonicTimeNanoseconds: 1_000,
+            RequestSerial: 4);
+        var result = new NativeMilSceneBuildResult(
+            NativeMilSceneBuildResultFlags.NeedsMoreCycles,
+            RequestSerial: 5,
+            NextDueTimeNanoseconds: 2_000,
+            StreamBytes: 6);
+
+        Assert.Throws<ArgumentException>(() =>
+            host.RequestNativeMilContinuationAndWakeNativeLoop(
+                request, result));
+        Assert.Equal(0, scheduler.RequestCount);
+    }
+
+    [Fact]
+    public void NativeMilContinuationRejectsUnknownResultFlags()
+    {
+        var scheduler = new TestRenderScheduler();
+        using var host = new ProGpuWpfWindowHost
+        {
+            WpfRenderScheduler = scheduler
+        };
+        var request = new NativeMilSceneBuildRequest(
+            TargetHandle: 1,
+            SceneId: 2,
+            Generation: 3,
+            MonotonicTimeNanoseconds: 1_000,
+            RequestSerial: 4);
+        var result = new NativeMilSceneBuildResult(
+            (NativeMilSceneBuildResultFlags)(1U << 31),
+            RequestSerial: 4,
+            NextDueTimeNanoseconds: 2_000,
+            StreamBytes: 6);
+
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            host.RequestNativeMilContinuationAndWakeNativeLoop(
+                request, result));
+        Assert.Equal(0, scheduler.RequestCount);
     }
 
     [Fact]
@@ -3052,7 +3201,7 @@ public sealed class ProGpuWpfWindowHostTests
         }
     }
 
-    private sealed class TestRenderScheduler : IWpfRenderScheduler
+    private sealed class TestRenderScheduler : IWpfDelayedRenderScheduler
     {
         public event EventHandler? RenderRequested;
 
@@ -3060,9 +3209,20 @@ public sealed class ProGpuWpfWindowHostTests
 
         public int RequestCount { get; private set; }
 
+        public TimeSpan? LastDelay { get; private set; }
+
         public void RequestRender()
         {
             RequestCount++;
+            LastDelay = null;
+            HasPendingRenderRequest = true;
+            RenderRequested?.Invoke(this, EventArgs.Empty);
+        }
+
+        public void RequestRender(TimeSpan delay)
+        {
+            RequestCount++;
+            LastDelay = delay;
             HasPendingRenderRequest = true;
             RenderRequested?.Invoke(this, EventArgs.Empty);
         }

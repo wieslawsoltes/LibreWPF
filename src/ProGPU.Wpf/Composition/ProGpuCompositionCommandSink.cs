@@ -34,6 +34,7 @@ using VectorSolidColorBrush = ProGPU.Vector.SolidColorBrush;
 using NativePathGeometrySource = ProGPU.Scene.INativePathGeometrySource;
 using PortableGeometryPath = ProGPU.Wpf.Interop.PortableGeometryPath;
 using PortableGeometryPathSource = ProGPU.Wpf.Interop.IPortableGeometryPathSource;
+using PortableMediaPlayerFrame = ProGPU.Wpf.Interop.PortableMediaPlayerFrame;
 
 namespace System.Windows.Media.ProGPU.Composition;
 
@@ -43,6 +44,7 @@ public sealed class ProGpuCompositionCommandSink :
     IWpfCompositionCommandSinkDiagnostics,
     IWpfNativeTransformCommandSink,
     IWpfNativePrimitiveCommandSink,
+    IWpfNativeVideoCommandSink,
     IWpfNativeClipCommandSink,
     IWpfNativeGeometryCommandSink,
     IWpfHitTestOwnerScopeCommandSink,
@@ -549,7 +551,11 @@ public sealed class ProGpuCompositionCommandSink :
     {
         ThrowIfClosed();
 
-        if (WpfBitmapSourceImageAdapter.TryGetGpuTexture(imageSource, out var texture))
+        if (WpfBitmapSourceImageAdapter.TryRetainGpuTexture(
+                imageSource,
+                NativeContext,
+                _context,
+                out var texture))
         {
             AddNativeCommand(new global::ProGPU.Scene.RenderCommand
             {
@@ -576,7 +582,11 @@ public sealed class ProGpuCompositionCommandSink :
     {
         ThrowIfClosed();
 
-        if (WpfBitmapSourceImageAdapter.TryGetGpuTexture(imageSource, out var texture))
+        if (WpfBitmapSourceImageAdapter.TryRetainGpuTexture(
+                imageSource,
+                NativeContext,
+                _context,
+                out var texture))
         {
             AddNativeCommand(new global::ProGPU.Scene.RenderCommand
             {
@@ -588,6 +598,44 @@ public sealed class ProGpuCompositionCommandSink :
                 TextureSamplingMode = _bitmapScalingModeStack.Peek()
             });
         }
+    }
+
+    bool IWpfNativeVideoCommandSink.DrawNativeVideo(
+        PortableMediaPlayerFrame frame,
+        WpfReplayRect rectangle)
+    {
+        ThrowIfClosed();
+        if (frame.PixelWidth <= 0 || frame.PixelHeight <= 0 ||
+            frame.NativeImage is not global::ProGPU.Backend.IProGpuTextureLeaseSource source)
+        {
+            return false;
+        }
+
+        global::ProGPU.Backend.GpuTexture texture;
+        try
+        {
+            bool retained = _context != null
+                ? NativeContext.TryRetainTexture(source, _context, out texture)
+                : NativeContext.TryRetainTexture(source, out texture);
+            if (!retained)
+            {
+                return false;
+            }
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
+        }
+
+        AddNativeCommand(new global::ProGPU.Scene.RenderCommand
+        {
+            Type = global::ProGPU.Scene.RenderCommandType.DrawTexture,
+            Texture = texture,
+            Rect = ToNativeRect(rectangle),
+            Transform = _transformStack.Peek(),
+            TextureSamplingMode = _bitmapScalingModeStack.Peek()
+        });
+        return true;
     }
 
     public void DrawText(MediaFormattedText formattedText, Point origin)
@@ -877,7 +925,11 @@ public sealed class ProGpuCompositionCommandSink :
     {
         ThrowIfClosed();
 
-        if (WpfBitmapSourceImageAdapter.TryGetGpuTexture(imageSource, out var texture))
+        if (WpfBitmapSourceImageAdapter.TryRetainGpuTexture(
+                imageSource,
+                NativeContext,
+                _context,
+                out var texture))
         {
             AddNativeCommand(new global::ProGPU.Scene.RenderCommand
             {
@@ -897,7 +949,11 @@ public sealed class ProGpuCompositionCommandSink :
     {
         ThrowIfClosed();
 
-        if (WpfBitmapSourceImageAdapter.TryGetGpuTexture(imageSource, out var texture))
+        if (WpfBitmapSourceImageAdapter.TryRetainGpuTexture(
+                imageSource,
+                NativeContext,
+                _context,
+                out var texture))
         {
             AddNativeCommand(new global::ProGPU.Scene.RenderCommand
             {

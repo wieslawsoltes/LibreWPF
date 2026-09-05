@@ -157,6 +157,11 @@ NUGET_PACKAGES="${smoke_root}/packages" "${dotnet}" build "${project_dir}/Bundle
 require_package_cache_entry "LibreWPF.Transport"
 require_package_cache_entry "LibreWPF.ProGPU"
 require_package_cache_entry "LibreWPF.Sdk"
+require_package_cache_entry "ProGPU.Backend"
+require_package_cache_entry "ProGPU.Backend.Native"
+require_package_cache_entry "ProGPU.DirectX"
+require_package_cache_entry "ProGPU.Scene"
+require_package_cache_entry "LibreWPF.Interop"
 
 NUGET_PACKAGES="${smoke_root}/packages" \
 PROGPU_WPF_BUNDLE_SDK_SMOKE_VALIDATE=1 \

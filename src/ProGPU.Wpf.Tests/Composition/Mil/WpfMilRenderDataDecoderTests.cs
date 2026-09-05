@@ -104,6 +104,48 @@ public sealed class WpfMilRenderDataDecoderTests
     }
 
     [Fact]
+    public void DecodeDrawVideoUsesTypedLiveFrameAndAnimatedRectangle()
+    {
+        var nativeImage = new object();
+        var resolver = new TestResolver();
+        resolver.RawResources[1] = new FakeMediaPlayer(
+            new PortableMediaPlayerFrame(64, 32, 7, nativeImage));
+        resolver.RawResources[2] = new FakeRectAnimation(
+            new PortableRect(11, 12, 13, 14));
+        var sink = new VideoTestSink();
+
+        var staticPayload = new byte[40];
+        WriteRect(staticPayload, 0, 1, 2, 30, 40);
+        WriteUInt32(staticPayload, 32, 1);
+        var animatedPayload = new byte[40];
+        WriteRect(animatedPayload, 0, 3, 4, 50, 60);
+        WriteUInt32(animatedPayload, 32, 1);
+        WriteUInt32(animatedPayload, 36, 2);
+
+        WpfMilDecodeResult result = new WpfMilRenderDataDecoder().Decode(
+            CreateRecord(WpfMilCommandId.DrawVideo, staticPayload)
+                .Concat(CreateRecord(
+                    WpfMilCommandId.DrawVideoAnimate,
+                    animatedPayload))
+                .ToArray(),
+            sink,
+            resolver);
+
+        Assert.Equal(new WpfMilDecodeResult(2, 2, 0, 0), result);
+        Assert.Collection(
+            sink.Videos,
+            video =>
+            {
+                Assert.Equal(7UL, video.Frame.ContentVersion);
+                Assert.Same(nativeImage, video.Frame.NativeImage);
+                Assert.Equal(new WpfReplayRect(1, 2, 30, 40), video.Rectangle);
+            },
+            video => Assert.Equal(
+                new WpfReplayRect(11, 12, 13, 14),
+                video.Rectangle));
+    }
+
+    [Fact]
     public void DecodeNativeDrawImageReplaysTypedDrawingImageAsVectorGeometry()
     {
         var portableGeometry = CreatePortableRectangleGeometry(10, 20, 20, 10);
@@ -604,6 +646,41 @@ public sealed class WpfMilRenderDataDecoderTests
         public bool TryResolveRawResource(uint resourceToken, out object resource)
         {
             return RawResources.TryGetValue(resourceToken, out resource!);
+        }
+    }
+
+    private sealed class FakeMediaPlayer(PortableMediaPlayerFrame frame) :
+        IPortableMediaPlayerSource
+    {
+        public bool TryGetPortableMediaPlayerFrame(
+            out PortableMediaPlayerFrame value)
+        {
+            value = frame;
+            return true;
+        }
+    }
+
+    private sealed class FakeRectAnimation(PortableRect value) :
+        IPortableRectAnimationValueSource
+    {
+        public bool TryGetPortableRectAnimationValue(out PortableRect result)
+        {
+            result = value;
+            return true;
+        }
+    }
+
+    private sealed class VideoTestSink : TestSink, IWpfNativeVideoCommandSink
+    {
+        public List<(PortableMediaPlayerFrame Frame, WpfReplayRect Rectangle)>
+            Videos { get; } = new();
+
+        public bool DrawNativeVideo(
+            PortableMediaPlayerFrame frame,
+            WpfReplayRect rectangle)
+        {
+            Videos.Add((frame, rectangle));
+            return true;
         }
     }
 

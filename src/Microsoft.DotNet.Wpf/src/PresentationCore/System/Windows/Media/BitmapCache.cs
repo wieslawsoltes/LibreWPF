@@ -3,9 +3,11 @@
 
 //
 
+using ProGPU.Wpf.Interop;
+
 namespace System.Windows.Media
 {
-    public partial class BitmapCache : CacheMode
+    public partial class BitmapCache : CacheMode, IPortableBitmapCacheSource
     {
         public BitmapCache()
         {
@@ -14,6 +16,16 @@ namespace System.Windows.Media
         public BitmapCache(double renderAtScale)
         {
             RenderAtScale = renderAtScale;
+        }
+
+        bool IPortableBitmapCacheSource.TryGetPortableBitmapCache(
+            out PortableBitmapCache cache)
+        {
+            cache = new PortableBitmapCache(
+                RenderAtScale,
+                SnapsToDevicePixels,
+                EnableClearType);
+            return true;
         }
     }
 }

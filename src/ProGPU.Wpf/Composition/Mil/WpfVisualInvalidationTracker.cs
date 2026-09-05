@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using ProGPU.Backend;
 using PortableDrawingContentSource = ProGPU.Wpf.Interop.IPortableDrawingContentSource;
 using PortableDrawingGroupChildrenSource = ProGPU.Wpf.Interop.IPortableDrawingGroupChildrenSource;
 using PortableDrawingImageSource = ProGPU.Wpf.Interop.IPortableDrawingImageSource;
@@ -13,6 +14,7 @@ using PortableGeometryDrawingStateSource = ProGPU.Wpf.Interop.IPortableGeometryD
 using PortableGlyphRunDrawingStateSource = ProGPU.Wpf.Interop.IPortableGlyphRunDrawingStateSource;
 using PortableImageDrawingStateSource = ProGPU.Wpf.Interop.IPortableImageDrawingStateSource;
 using PortableInvalidationSource = ProGPU.Wpf.Interop.IPortableInvalidationSource;
+using PortableNativeImageSource = ProGPU.Wpf.Interop.IPortableNativeImageSource;
 using PortableRenderDataSource = ProGPU.Wpf.Interop.IPortableRenderDataSource;
 using PortableShaderEffectSource = ProGPU.Wpf.Interop.IPortableShaderEffectSource;
 using PortableShaderSamplerKind = ProGPU.Wpf.Interop.PortableShaderSamplerKind;
@@ -857,6 +859,16 @@ public sealed class WpfVisualInvalidationTracker : IDisposable
                 _subscriptions.Add(InvalidationSubscription.ForDisposable(subscription));
             }
         }
+        else if (source is IProGpuInvalidatingTextureSource textureSource)
+        {
+            var handlerTarget = new SourceInvalidationHandler(this, source);
+            EventHandler handler = handlerTarget.OnInvalidated;
+            textureSource.TextureChanged += handler;
+            _subscriptions.Add(InvalidationSubscription.ForDisposable(
+                new ProGpuTextureInvalidationSubscription(
+                    textureSource,
+                    handler)));
+        }
 
         if (source is INotifyPropertyChanged propertyChanged)
         {
@@ -978,6 +990,13 @@ public sealed class WpfVisualInvalidationTracker : IDisposable
             && drawingImageContent != null)
         {
             VisitPortableDependency(ref state, visitor, drawingImageContent);
+        }
+
+        if (source is PortableNativeImageSource nativeImageSource
+            && nativeImageSource.TryGetPortableNativeImage(out var nativeImage)
+            && nativeImage != null)
+        {
+            VisitPortableDependency(ref state, visitor, nativeImage);
         }
 
         if (source is PortableRenderDataSource renderDataSource
@@ -2063,6 +2082,30 @@ public sealed class WpfVisualInvalidationTracker : IDisposable
         public void OnInvalidated(object? sender, EventArgs e)
         {
             _tracker.MarkDirtyAndRefresh(_source);
+        }
+    }
+
+    private sealed class ProGpuTextureInvalidationSubscription : IDisposable
+    {
+        private IProGpuInvalidatingTextureSource? _source;
+        private EventHandler? _handler;
+
+        public ProGpuTextureInvalidationSubscription(
+            IProGpuInvalidatingTextureSource source,
+            EventHandler handler)
+        {
+            _source = source;
+            _handler = handler;
+        }
+
+        public void Dispose()
+        {
+            var source = Interlocked.Exchange(ref _source, null);
+            var handler = Interlocked.Exchange(ref _handler, null);
+            if (source != null && handler != null)
+            {
+                source.TextureChanged -= handler;
+            }
         }
     }
 

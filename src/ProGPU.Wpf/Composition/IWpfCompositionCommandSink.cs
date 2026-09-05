@@ -10,6 +10,7 @@ using MediaPen = System.Windows.Media.Pen;
 using MediaTransform = System.Windows.Media.Transform;
 using MediaFormattedText = System.Windows.Media.FormattedText;
 using PortableGeometryPath = ProGPU.Wpf.Interop.PortableGeometryPath;
+using PortableMediaPlayerFrame = ProGPU.Wpf.Interop.PortableMediaPlayerFrame;
 
 namespace System.Windows.Media.ProGPU.Composition;
 
@@ -114,6 +115,13 @@ internal interface IWpfNativePrimitiveCommandSink
     void DrawNativeGlyphRun(MediaBrush? foregroundBrush, object glyphRun);
 
     void PushNativeOpacityMask(MediaBrush? opacityMask, WpfReplayRect bounds);
+}
+
+internal interface IWpfNativeVideoCommandSink
+{
+    bool DrawNativeVideo(
+        PortableMediaPlayerFrame frame,
+        WpfReplayRect rectangle);
 }
 
 internal interface IWpfNativeClipCommandSink

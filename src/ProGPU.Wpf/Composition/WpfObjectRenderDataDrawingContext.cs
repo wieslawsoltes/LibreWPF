@@ -17,6 +17,8 @@ using PortableDrawingImageSource = ProGPU.Wpf.Interop.IPortableDrawingImageSourc
 using PortableNativeDrawingContextSource = ProGPU.Wpf.Interop.IPortableNativeDrawingContextSource;
 using PortableNativeDrawingContextState = ProGPU.Wpf.Interop.PortableNativeDrawingContextState;
 using PortableNativeDrawingContextStateSource = ProGPU.Wpf.Interop.IPortableNativeDrawingContextStateSource;
+using PortableMediaPlayerSource = ProGPU.Wpf.Interop.IPortableMediaPlayerSource;
+using PortableRectAnimationValueSource = ProGPU.Wpf.Interop.IPortableRectAnimationValueSource;
 using PortablePoint = ProGPU.Wpf.Interop.PortablePoint;
 using PortableRect = ProGPU.Wpf.Interop.PortableRect;
 
@@ -1206,12 +1208,69 @@ public sealed class WpfObjectRenderDataDrawingContext :
     public void DrawVideo(object? player, object? rectangle)
     {
         ThrowIfClosed();
-        CountUnsupportedIfPresent(player);
+        if (player == null)
+        {
+            return;
+        }
+        if (!TryReadReplayRect(rectangle, out var replayRectangle))
+        {
+            CountUnsupported();
+            return;
+        }
+
+        DrawPortableVideo(player, replayRectangle);
     }
 
     public void DrawVideo(object? player, object? rectangle, object? rectangleAnimations)
     {
-        DrawVideo(player, rectangle);
+        ThrowIfClosed();
+        if (player == null)
+        {
+            return;
+        }
+        if (!TryReadReplayRect(rectangle, out var replayRectangle))
+        {
+            CountUnsupported();
+            return;
+        }
+        bool animationResolved = false;
+        if (rectangleAnimations is PortableRectAnimationValueSource animation &&
+            animation.TryGetPortableRectAnimationValue(out var animatedRectangle))
+        {
+            animationResolved = true;
+            replayRectangle = new WpfReplayRect(
+                animatedRectangle.X,
+                animatedRectangle.Y,
+                animatedRectangle.Width,
+                animatedRectangle.Height);
+        }
+        bool unsupportedAnimation = rectangleAnimations != null &&
+            !animationResolved;
+        bool hasTypedFrame = DrawPortableVideo(player, replayRectangle);
+        if (hasTypedFrame && unsupportedAnimation)
+        {
+            CountUnsupportedStateIfAny(rectangleAnimations);
+        }
+    }
+
+    private bool DrawPortableVideo(object player, WpfReplayRect rectangle)
+    {
+        if (player is not PortableMediaPlayerSource source ||
+            !source.TryGetPortableMediaPlayerFrame(out var frame))
+        {
+            CountUnsupported();
+            return false;
+        }
+        if (_sink is not IWpfNativeVideoCommandSink videoSink ||
+            !videoSink.DrawNativeVideo(frame, rectangle))
+        {
+            CountUnsupported();
+            return true;
+        }
+
+        RegisterRetainedDependencies(player, frame.NativeImage);
+        CountApplied();
+        return true;
     }
 
     public void PushClip(object? clipGeometry)

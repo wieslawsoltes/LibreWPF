@@ -5,6 +5,8 @@ using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.ProGPU.Composition;
 using System.Windows.Media.ProGPU.Composition.Mil;
+using ProGPU.Backend;
+using ProGPU.Wpf.Interop;
 using Xunit;
 using PortableAlignmentX = ProGPU.Wpf.Interop.PortableAlignmentX;
 using PortableAlignmentY = ProGPU.Wpf.Interop.PortableAlignmentY;
@@ -90,6 +92,26 @@ public sealed class WpfVisualInvalidationTrackerTests
         Assert.True(root.PortableSubscriptionCount > 0);
         Assert.Equal(0, root.ReflectedChangedSubscriptionCount);
         Assert.Equal(0, root.ReflectedVersionProbeCount);
+    }
+
+    [Fact]
+    public void PortableNativeImageTracksTypedGpuTextureInvalidation()
+    {
+        var textureSource = new FakeInvalidatingTextureSource();
+        var root = new FakePortableNativeImageSource(textureSource);
+        var tracker = new WpfVisualInvalidationTracker();
+        tracker.Attach(root);
+        tracker.ConsumeDirty();
+
+        textureSource.RaiseTextureChanged();
+
+        Assert.True(tracker.IsDirty);
+        Assert.Same(textureSource, tracker.LastDirtySource);
+        Assert.Contains(textureSource, tracker.DirtySources);
+        Assert.Equal(1, textureSource.SubscriptionCount);
+
+        tracker.Dispose();
+        Assert.Equal(0, textureSource.SubscriptionCount);
     }
 
     [Fact]
@@ -1215,6 +1237,65 @@ public sealed class WpfVisualInvalidationTrackerTests
                 _unsubscribe = null;
                 unsubscribe?.Invoke();
             }
+        }
+    }
+
+    private sealed class FakePortableNativeImageSource : IPortableNativeImageSource
+    {
+        private readonly object _nativeImage;
+
+        public FakePortableNativeImageSource(object nativeImage)
+        {
+            _nativeImage = nativeImage;
+        }
+
+        public int PixelWidth => 1;
+
+        public int PixelHeight => 1;
+
+        public bool TryGetPortableNativeImage(out object? nativeImage)
+        {
+            nativeImage = _nativeImage;
+            return true;
+        }
+    }
+
+    private sealed class FakeInvalidatingTextureSource :
+        IProGpuInvalidatingTextureSource
+    {
+        private EventHandler? _textureChanged;
+
+        public event EventHandler? TextureChanged
+        {
+            add
+            {
+                _textureChanged += value;
+                SubscriptionCount++;
+            }
+            remove
+            {
+                _textureChanged -= value;
+                SubscriptionCount--;
+            }
+        }
+
+        public int SubscriptionCount { get; private set; }
+
+        public bool TryGetGpuTexture(out GpuTexture texture)
+        {
+            texture = null!;
+            return false;
+        }
+
+        public bool TryAcquireGpuTextureLease(out IProGpuTextureLease lease)
+        {
+            lease = null!;
+            return false;
+        }
+
+        public void RaiseTextureChanged()
+        {
+            _textureChanged?.Invoke(this, EventArgs.Empty);
         }
     }
 

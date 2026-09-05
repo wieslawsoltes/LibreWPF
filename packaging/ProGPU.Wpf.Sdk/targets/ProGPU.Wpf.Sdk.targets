@@ -6,7 +6,7 @@
     <ProGpuWpfManagedPackageVersion Condition="'$(ProGpuWpfManagedPackageVersion)' == ''">$(ProGpuWpfPackageVersion)</ProGpuWpfManagedPackageVersion>
     <ProGpuWpfLibreWinFormsPackageVersion Condition="'$(ProGpuWpfLibreWinFormsPackageVersion)' == ''">$(ProGpuWpfManagedPackageVersion)</ProGpuWpfLibreWinFormsPackageVersion>
     <ProGpuPackageVersion Condition="'$(ProGpuPackageVersion)' == ''">0.1.0-preview.55</ProGpuPackageVersion>
-    <ProGpuWpfNet10SupportPackageVersion Condition="'$(ProGpuWpfNet10SupportPackageVersion)' == ''">10.0.10</ProGpuWpfNet10SupportPackageVersion>
+    <ProGpuWpfNet10SupportPackageVersion Condition="'$(ProGpuWpfNet10SupportPackageVersion)' == ''">10.0.11</ProGpuWpfNet10SupportPackageVersion>
     <ProGpuWpfSystemConfigurationConfigurationManagerVersion Condition="'$(ProGpuWpfSystemConfigurationConfigurationManagerVersion)' == '' And $(TargetFramework.StartsWith('net10.'))">$(ProGpuWpfNet10SupportPackageVersion)</ProGpuWpfSystemConfigurationConfigurationManagerVersion>
     <ProGpuWpfSystemFormatsNrbfVersion Condition="'$(ProGpuWpfSystemFormatsNrbfVersion)' == '' And $(TargetFramework.StartsWith('net10.'))">$(ProGpuWpfNet10SupportPackageVersion)</ProGpuWpfSystemFormatsNrbfVersion>
     <ProGpuWpfSystemIOPackagingVersion Condition="'$(ProGpuWpfSystemIOPackagingVersion)' == '' And $(TargetFramework.StartsWith('net10.'))">$(ProGpuWpfNet10SupportPackageVersion)</ProGpuWpfSystemIOPackagingVersion>
@@ -136,6 +136,7 @@
     <PackageReference Include="LibreWPF.ProGPU" Version="$(ProGpuWpfPackageVersion)" />
     <PackageReference Include="LibreWPF.Interop" Version="$(ProGpuPackageVersion)" />
     <PackageReference Include="ProGPU.Backend" Version="$(ProGpuPackageVersion)" />
+    <PackageReference Include="ProGPU.Backend.Native" Version="$(ProGpuPackageVersion)" />
     <PackageReference Include="ProGPU.DirectX" Version="$(ProGpuPackageVersion)" />
     <PackageReference Include="ProGPU.Scene" Version="$(ProGpuPackageVersion)" />
     <PackageReference Include="ProGPU.Vector" Version="$(ProGpuPackageVersion)" />
@@ -153,6 +154,7 @@
     <PackageReference Include="LibreWPF.ProGPU" VersionOverride="$(ProGpuWpfPackageVersion)" />
     <PackageReference Include="LibreWPF.Interop" VersionOverride="$(ProGpuPackageVersion)" />
     <PackageReference Include="ProGPU.Backend" VersionOverride="$(ProGpuPackageVersion)" />
+    <PackageReference Include="ProGPU.Backend.Native" VersionOverride="$(ProGpuPackageVersion)" />
     <PackageReference Include="ProGPU.DirectX" VersionOverride="$(ProGpuPackageVersion)" />
     <PackageReference Include="ProGPU.Scene" VersionOverride="$(ProGpuPackageVersion)" />
     <PackageReference Include="ProGPU.Vector" VersionOverride="$(ProGpuPackageVersion)" />
@@ -216,6 +218,7 @@
     <Reference Include="ProGPU.Wpf" HintPath="$(_ProGpuReferenceRoot)ProGPU.Wpf.dll" Private="true" Condition="Exists('$(_ProGpuReferenceRoot)ProGPU.Wpf.dll')" />
     <Reference Include="ProGPU.Wpf.Interop" HintPath="$(_ProGpuReferenceRoot)ProGPU.Wpf.Interop.dll" Private="true" Condition="Exists('$(_ProGpuReferenceRoot)ProGPU.Wpf.Interop.dll')" />
     <Reference Include="ProGPU.Backend" HintPath="$(_ProGpuReferenceRoot)ProGPU.Backend.dll" Private="true" Condition="Exists('$(_ProGpuReferenceRoot)ProGPU.Backend.dll')" />
+    <Reference Include="ProGPU.Backend.Native" HintPath="$(_ProGpuReferenceRoot)ProGPU.Backend.Native.dll" Private="true" Condition="Exists('$(_ProGpuReferenceRoot)ProGPU.Backend.Native.dll')" />
     <Reference Include="ProGPU.DirectX" HintPath="$(_ProGpuReferenceRoot)ProGPU.DirectX.dll" Private="true" Condition="Exists('$(_ProGpuReferenceRoot)ProGPU.DirectX.dll')" />
     <Reference Include="ProGPU.Scene" HintPath="$(_ProGpuReferenceRoot)ProGPU.Scene.dll" Private="true" Condition="Exists('$(_ProGpuReferenceRoot)ProGPU.Scene.dll')" />
     <Reference Include="ProGPU.Vector" HintPath="$(_ProGpuReferenceRoot)ProGPU.Vector.dll" Private="true" Condition="Exists('$(_ProGpuReferenceRoot)ProGPU.Vector.dll')" />
@@ -228,6 +231,7 @@
     <_ProGpuWpfLocalRuntimeAsset Include="$(_ProGpuReferenceRoot)ProGPU.Wpf.dll" TargetPath="ProGPU.Wpf.dll" Condition="Exists('$(_ProGpuReferenceRoot)ProGPU.Wpf.dll')" />
     <_ProGpuWpfLocalRuntimeAsset Include="$(_ProGpuReferenceRoot)ProGPU.Wpf.Interop.dll" TargetPath="ProGPU.Wpf.Interop.dll" Condition="Exists('$(_ProGpuReferenceRoot)ProGPU.Wpf.Interop.dll')" />
     <_ProGpuWpfLocalRuntimeAsset Include="$(_ProGpuReferenceRoot)ProGPU.Backend.dll" TargetPath="ProGPU.Backend.dll" Condition="Exists('$(_ProGpuReferenceRoot)ProGPU.Backend.dll')" />
+    <_ProGpuWpfLocalRuntimeAsset Include="$(_ProGpuReferenceRoot)ProGPU.Backend.Native.dll" TargetPath="ProGPU.Backend.Native.dll" Condition="Exists('$(_ProGpuReferenceRoot)ProGPU.Backend.Native.dll')" />
     <_ProGpuWpfLocalRuntimeAsset Include="$(_ProGpuReferenceRoot)ProGPU.DirectX.dll" TargetPath="ProGPU.DirectX.dll" Condition="Exists('$(_ProGpuReferenceRoot)ProGPU.DirectX.dll')" />
     <_ProGpuWpfLocalRuntimeAsset Include="$(_ProGpuReferenceRoot)ProGPU.Scene.dll" TargetPath="ProGPU.Scene.dll" Condition="Exists('$(_ProGpuReferenceRoot)ProGPU.Scene.dll')" />
     <_ProGpuWpfLocalRuntimeAsset Include="$(_ProGpuReferenceRoot)ProGPU.Vector.dll" TargetPath="ProGPU.Vector.dll" Condition="Exists('$(_ProGpuReferenceRoot)ProGPU.Vector.dll')" />
@@ -287,6 +291,7 @@
       <_ProGpuWpfSdkMutablePackageOutput Include="$(TargetDir)ProGPU.Wpf.dll" />
       <_ProGpuWpfSdkMutablePackageOutput Include="$(TargetDir)ProGPU.Wpf.Interop.dll" />
       <_ProGpuWpfSdkMutablePackageOutput Include="$(TargetDir)ProGPU.Backend.dll" />
+      <_ProGpuWpfSdkMutablePackageOutput Include="$(TargetDir)ProGPU.Backend.Native.dll" />
       <_ProGpuWpfSdkMutablePackageOutput Include="$(TargetDir)ProGPU.DirectX.dll" />
       <_ProGpuWpfSdkMutablePackageOutput Include="$(TargetDir)ProGPU.Scene.dll" />
       <_ProGpuWpfSdkMutablePackageOutput Include="$(TargetDir)ProGPU.Vector.dll" />

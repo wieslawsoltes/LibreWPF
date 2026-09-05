@@ -60,6 +60,17 @@ namespace System.Windows.Media
         }
 
         #endregion
+
+        internal override bool TryGetPortablePrimitiveGeometryCore(out ProGPU.Wpf.Interop.PortablePrimitiveGeometry geometry)
+        {
+            Rect rect = Rect;
+            geometry = ProGPU.Wpf.Interop.PortablePrimitiveGeometry.Rectangle(
+                PortableGeometryPathExporter.ToPortableRect(rect),
+                RadiusX,
+                RadiusY,
+                PortableGeometryPathExporter.ToPortableMatrix(Transform));
+            return !rect.IsEmpty;
+        }
         
         /// <summary>
         /// Gets the bounds of this Geometry as an axis-aligned bounding box

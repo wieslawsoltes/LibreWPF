@@ -1935,27 +1935,72 @@ public partial class MainWindow : Window
                 return Require<MainViewModel>(DataContext, "MVP live menu view model before popup click").Items.Count;
             },
             DispatcherPriority.Send);
-        await InvokeWithLiveHostWakeAsync(
-            liveHost,
-            () =>
+        bool observedMenuCommand = false;
+        string lastMenuCommandState = "not checked";
+        for (int attempt = 0; attempt < LiveValidationMaxAttempts; attempt++)
+        {
+            await InvokeWithLiveHostWakeAsync(
+                liveHost,
+                () =>
+                {
+                    var model = Require<MainViewModel>(DataContext, "MVP live menu view model before popup click attempt");
+                    var fileMenuItem = Require<MenuItem>(FindName("FileMenuItem"), "MVP live File MenuItem before popup click attempt");
+                    lastMenuCommandState = $"items={model.Items.Count}, menuOpen={fileMenuItem.IsSubmenuOpen}";
+                    if (model.Items.Count != itemCountBefore || !fileMenuItem.IsSubmenuOpen)
+                    {
+                        return;
+                    }
+
+                    addItemCenter = GetLivePopupInputCenter(
+                        Require<MenuItem>(FindName("AddMenuItem"), "MVP live Add MenuItem click attempt"),
+                        "MVP live Add MenuItem",
+                        usesNativePopup);
+                    RaiseLivePopupInput(
+                        liveHost,
+                        WpfInputEventKind.MouseMove,
+                        addItemCenter.X,
+                        addItemCenter.Y,
+                        usesNativePopup);
+                    RaiseLivePopupInput(
+                        liveHost,
+                        WpfInputEventKind.MouseDown,
+                        addItemCenter.X,
+                        addItemCenter.Y,
+                        usesNativePopup,
+                        WpfMouseButton.Left);
+                    RaiseLivePopupInput(
+                        liveHost,
+                        WpfInputEventKind.MouseUp,
+                        addItemCenter.X,
+                        addItemCenter.Y,
+                        usesNativePopup,
+                        WpfMouseButton.Left);
+                },
+                DispatcherPriority.Send);
+            await InvokeWithLiveHostWakeAsync(liveHost, static () => { }, DispatcherPriority.Background);
+            observedMenuCommand = await InvokeWithLiveHostWakeAsync(
+                liveHost,
+                () =>
+                {
+                    var model = Require<MainViewModel>(DataContext, "MVP live menu view model while awaiting popup click");
+                    return model.Items.Count == itemCountBefore + 1 &&
+                        !Require<MenuItem>(FindName("FileMenuItem"), "MVP live File MenuItem while awaiting popup click").IsSubmenuOpen;
+                },
+                DispatcherPriority.Send);
+            if (observedMenuCommand)
             {
-                RaiseLivePopupInput(
-                    liveHost,
-                    WpfInputEventKind.MouseDown,
-                    addItemCenter.X,
-                    addItemCenter.Y,
-                    usesNativePopup,
-                    WpfMouseButton.Left);
-                RaiseLivePopupInput(
-                    liveHost,
-                    WpfInputEventKind.MouseUp,
-                    addItemCenter.X,
-                    addItemCenter.Y,
-                    usesNativePopup,
-                    WpfMouseButton.Left);
-            },
-            DispatcherPriority.Send);
-        await InvokeWithLiveHostWakeAsync(liveHost, static () => { }, DispatcherPriority.Background);
+                break;
+            }
+
+            await Task.Delay(LiveValidationRetryDelay);
+        }
+
+        if (!observedMenuCommand)
+        {
+            throw new InvalidOperationException(
+                $"Expected the MVP live Add MenuItem popup command and close transition to complete before timeout; last state was {lastMenuCommandState}.");
+        }
+
         await InvokeWithLiveHostWakeAsync(
             liveHost,
             () =>
@@ -2013,16 +2058,15 @@ public partial class MainWindow : Window
         Point localCenter = target.TranslatePoint(
             new Point(target.ActualWidth / 2.0, target.ActualHeight / 2.0),
             root);
-        if (usesNativePopup && !OperatingSystem.IsMacOS())
+        if (usesNativePopup)
         {
+            // Native popup diagnostics accept popup-local coordinates and convert
+            // them through the bridge's settled logical origin. This avoids stale
+            // owner/screen geometry while a transient Cocoa window is positioning.
             return localCenter;
         }
 
-        // Cocoa/GLFW reports pointer coordinates for transient child windows in
-        // the owner client's logical coordinate space. The diagnostic input must
-        // match that native contract so the popup bridge can normalize it exactly
-        // once, just as it does for a real pointer event. X11 native popups report
-        // popup-local coordinates and use localCenter above.
+        // Owner-composited popups share the owner input surface.
         Point screenCenter = target.PointToScreen(
             new Point(target.ActualWidth / 2.0, target.ActualHeight / 2.0));
         Point ownerScreenOrigin = PointToScreen(new Point(0.0, 0.0));
@@ -2046,7 +2090,7 @@ public partial class MainWindow : Window
         }
 
         var input = new WpfInputEventArgs(kind, x: x, y: y, button: button);
-        if (!ProGpuWpfDiagnostics.TryRaiseTopmostNativePopupInput(liveHost, input))
+        if (!ProGpuWpfDiagnostics.TryRaiseTopmostNativePopupLocalInput(liveHost, input))
         {
             throw new InvalidOperationException(
                 $"Expected a visible native popup for {kind} input at ({x:0.###}, {y:0.###}).");
@@ -2330,7 +2374,8 @@ public partial class MainWindow : Window
             portable.PresentedNativeWindowCount >= expectedPopupChildren &&
             portable.NativeWindowGpuHitTestCount >= expectedPopupChildren &&
             portable.NativeWindowGpuHitTestOwnerCount >= expectedPopupChildren;
-        return retainedReady || nativeReady;
+        bool usesNativePopup = portable.VisibleCount > 0 || portable.NativeWindowCount > 0;
+        return usesNativePopup ? nativeReady : retainedReady;
     }
 
     private async Task<string> ValidateLiveMouseBindingAsync(ProGpuWpfWindowHost liveHost)
@@ -2495,7 +2540,8 @@ public partial class MainWindow : Window
             this);
         object? hit = InputHitTest(center);
         targetState += $", Input=({center.X:0.###}, {center.Y:0.###}), InputHitTest={DescribeInputElement(hit)}";
-        if (hit == null)
+        if (hit is not DependencyObject hitElement ||
+            (!ReferenceEquals(hitElement, target) && !target.IsAncestorOf(hitElement)))
         {
             return false;
         }
@@ -2755,6 +2801,7 @@ public partial class MainWindow : Window
             "selector wheel tab activation");
 
         bool sentWheelInput = false;
+        bool observedWheelInput = false;
         for (int attempt = 0; attempt < LiveValidationMaxAttempts; attempt++)
         {
             sentWheelInput = await InvokeWithLiveHostWakeAsync(
@@ -2771,7 +2818,15 @@ public partial class MainWindow : Window
                 DispatcherPriority.Send);
             if (sentWheelInput)
             {
-                break;
+                await InvokeWithLiveHostWakeAsync(liveHost, static () => { }, DispatcherPriority.Background);
+                observedWheelInput = await InvokeWithLiveHostWakeAsync(
+                    liveHost,
+                    () => SelectorMouseWheelCount > wheelCountBefore,
+                    DispatcherPriority.Send);
+                if (observedWheelInput)
+                {
+                    break;
+                }
             }
 
             await Task.Delay(LiveValidationRetryDelay);
@@ -2783,7 +2838,11 @@ public partial class MainWindow : Window
                 $"Expected MVP live selector ScrollViewer to become wheel-testable before injecting input, but last state was: {lastTargetState}.");
         }
 
-        await InvokeWithLiveHostWakeAsync(liveHost, static () => { }, DispatcherPriority.Background);
+        if (!observedWheelInput)
+        {
+            throw new InvalidOperationException(
+                $"Expected MVP live selector ScrollViewer to observe routed wheel input before timeout, but last state was: {lastTargetState}.");
+        }
 
         await InvokeWithLiveHostWakeAsync(
             liveHost,

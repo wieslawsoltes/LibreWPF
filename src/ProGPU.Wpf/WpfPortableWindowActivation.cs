@@ -743,6 +743,7 @@ public sealed class WpfPortableWindowActivation : IDisposable
             Topmost = fallback.Topmost,
             ShowActivated = fallback.ShowActivated,
             TransparentFramebuffer = fallback.TransparentFramebuffer,
+            RendererMode = fallback.RendererMode,
             WindowBorder = fallback.WindowBorder,
             WindowState = fallback.WindowState
         };

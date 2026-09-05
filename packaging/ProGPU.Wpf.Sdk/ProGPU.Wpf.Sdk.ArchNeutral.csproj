@@ -4,6 +4,7 @@
     <ProjectGuid>{3D5C6752-3B11-4A83-A1F9-238C67B3E6ED}</ProjectGuid>
     <Platforms>x86;x64;arm64</Platforms>
     <PlatformIndependentPackage>true</PlatformIndependentPackage>
+    <ProGpuRuntimePackageVersion Condition="'$(ProGpuRuntimePackageVersion)' == ''">0.1.0-preview.55</ProGpuRuntimePackageVersion>
   </PropertyGroup>
 
   <PropertyGroup>
@@ -49,6 +50,7 @@
       <_LibreWpfSdkVersionPropsLine Include="&lt;Project&gt;" />
       <_LibreWpfSdkVersionPropsLine Include="  &lt;PropertyGroup&gt;" />
       <_LibreWpfSdkVersionPropsLine Include="    &lt;_LibreWpfSdkPackageVersion&gt;$(_LibreWpfSdkPackageVersionToPack)&lt;/_LibreWpfSdkPackageVersion&gt;" />
+      <_LibreWpfSdkVersionPropsLine Include="    &lt;_LibreWpfSdkProGpuPackageVersion&gt;$(ProGpuRuntimePackageVersion)&lt;/_LibreWpfSdkProGpuPackageVersion&gt;" />
       <_LibreWpfSdkVersionPropsLine Include="  &lt;/PropertyGroup&gt;" />
       <_LibreWpfSdkVersionPropsLine Include="&lt;/Project&gt;" />
     </ItemGroup>

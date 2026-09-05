@@ -67,6 +67,10 @@ public static class WpfViewport3DSceneBridge
             AmbientColor = ToVector3(scene.AmbientColor),
             AmbientIntensity = (float)Math.Clamp(scene.AmbientIntensity, 0, double.MaxValue)
         };
+        if (!TryAddPortableLights(scene.Lights, payload))
+        {
+            return false;
+        }
 
         if (textureCache != null)
         {
@@ -83,28 +87,73 @@ public static class WpfViewport3DSceneBridge
         for (var meshIndex = 0; meshIndex < meshes.Length; meshIndex++)
         {
             var mesh = meshes[meshIndex];
-            if (mesh == null
-                || mesh.Positions.Length == 0
-                || mesh.Indices.Length == 0)
+            if (mesh == null)
             {
                 continue;
             }
-
-            payload.Meshes.Add(new global::ProGPU.Scene.Extensions.MeshCompilationEntry
+            if (mesh.Positions == null
+                || mesh.Normals == null
+                || mesh.Indices == null
+                || mesh.Normals.Length < mesh.Positions.Length)
             {
-                Geometry = mesh.Geometry,
-                GeometryVersion = mesh.GeometryVersion,
-                Positions = ToVector3Array(mesh.Positions),
-                Normals = ToVector3Array(mesh.Normals),
-                Indices = mesh.Indices,
-                ModelTransform = ToMatrix4x4(mesh.ModelTransform),
-                Color = ToVector4(mesh.DiffuseColor),
-                SpecularColor = ToVector3(mesh.SpecularColor),
-                Shininess = (float)Math.Clamp(mesh.Shininess, 1, 256),
-                AmbientColor = ToVector3(mesh.AmbientColor),
-                Opacity = (float)Math.Clamp(mesh.Opacity, 0, 1),
-                IsBackFace = mesh.IsBackFace
-            });
+                return false;
+            }
+            if (mesh.Positions.Length == 0 || mesh.Indices.Length == 0)
+            {
+                continue;
+            }
+            if (!TryToVector3Array(
+                    mesh.Positions,
+                    mesh.Positions.Length,
+                    normalize: false,
+                    out Vector3[] positions)
+                || !TryToVector3Array(
+                    mesh.Normals,
+                    mesh.Positions.Length,
+                    normalize: true,
+                    out Vector3[] normals))
+            {
+                return false;
+            }
+            if (!TryToVector2Array(
+                    mesh.TextureCoordinates,
+                    out Vector2[] textureCoordinates))
+            {
+                return false;
+            }
+
+            if (mesh.Materials is null)
+            {
+                return false;
+            }
+            PortableViewport3DMaterial[] materials = mesh.Materials;
+            if (materials.Length == 0)
+            {
+                payload.Meshes.Add(CreateMeshEntry(
+                    mesh,
+                    positions,
+                    normals,
+                    textureCoordinates));
+                continue;
+            }
+
+            for (var materialIndex = 0;
+                 materialIndex < materials.Length;
+                 materialIndex++)
+            {
+                if (!WpfViewport3DMaterialMapper.TryMapManaged(
+                        materials[materialIndex],
+                        out WpfViewport3DMaterialPass materialPass))
+                {
+                    return false;
+                }
+                payload.Meshes.Add(CreateMeshEntry(
+                    mesh,
+                    positions,
+                    normals,
+                    textureCoordinates,
+                    materialPass));
+            }
         }
 
         replayData = new WpfViewport3DReplayData(
@@ -119,6 +168,136 @@ public static class WpfViewport3DSceneBridge
         return payload.Meshes.Count > 0;
     }
 
+    private static bool TryAddPortableLights(
+        PortableViewport3DLight[]? lights,
+        global::ProGPU.Scene.Extensions.Viewport3DCompilationPayload payload)
+    {
+        if (lights is null || lights.Length == 0)
+        {
+            return true;
+        }
+        if (lights.Length > 16)
+        {
+            return false;
+        }
+        foreach (PortableViewport3DLight? light in lights)
+        {
+            if (light is null ||
+                !TryToFiniteVector4(light.Color, out Vector4 color))
+            {
+                return false;
+            }
+            var entry = new global::ProGPU.Scene.Extensions.Light3DCompilationEntry
+            {
+                Kind = (global::ProGPU.Scene.Extensions.LightKind3D)light.Kind,
+                Color = color
+            };
+            switch (light.Kind)
+            {
+                case PortableViewport3DLightKind.Ambient:
+                    break;
+                case PortableViewport3DLightKind.Directional:
+                    if (!TryToFiniteVector3(
+                            light.Direction, out Vector3 direction) ||
+                        direction.LengthSquared() <= 0.000001f)
+                    {
+                        return false;
+                    }
+                    entry.Direction = Vector3.Normalize(direction);
+                    break;
+                case PortableViewport3DLightKind.Point:
+                case PortableViewport3DLightKind.Spot:
+                    if (!TryPopulatePointLight(light, ref entry))
+                    {
+                        return false;
+                    }
+                    if (light.Kind == PortableViewport3DLightKind.Spot)
+                    {
+                        if (!TryToFiniteVector3(
+                                light.Direction, out Vector3 spotDirection) ||
+                            spotDirection.LengthSquared() <= 0.000001f ||
+                            !TryToFiniteFloat(
+                                light.InnerConeAngle, out float innerAngle) ||
+                            !TryToFiniteFloat(
+                                light.OuterConeAngle, out float outerAngle))
+                        {
+                            return false;
+                        }
+                        outerAngle = Math.Clamp(outerAngle, 0f, 180f);
+                        innerAngle = Math.Min(
+                            Math.Clamp(innerAngle, 0f, 180f),
+                            outerAngle);
+                        entry.Direction = Vector3.Normalize(spotDirection);
+                        entry.InnerConeCosine = MathF.Cos(
+                            innerAngle * (MathF.PI / 360f));
+                        entry.OuterConeCosine = MathF.Cos(
+                            outerAngle * (MathF.PI / 360f));
+                    }
+                    break;
+                default:
+                    return false;
+            }
+            payload.Lights.Add(entry);
+        }
+        return true;
+    }
+
+    private static bool TryPopulatePointLight(
+        PortableViewport3DLight source,
+        ref global::ProGPU.Scene.Extensions.Light3DCompilationEntry target)
+    {
+        if (!TryToFiniteVector3(source.Position, out Vector3 position) ||
+            (!double.IsPositiveInfinity(source.Range) &&
+                !TryToFiniteFloat(source.Range, out _)) ||
+            !TryToFiniteFloat(
+                source.ConstantAttenuation, out float constant) ||
+            !TryToFiniteFloat(
+                source.LinearAttenuation, out float linear) ||
+            !TryToFiniteFloat(
+                source.QuadraticAttenuation, out float quadratic))
+        {
+            return false;
+        }
+        float range = double.IsPositiveInfinity(source.Range)
+            ? float.MaxValue
+            : (float)source.Range;
+        if (range <= 0f || constant < 0f || linear < 0f || quadratic < 0f ||
+            (constant == 0f && linear == 0f && quadratic == 0f))
+        {
+            return false;
+        }
+        target.Position = position;
+        target.Range = range;
+        target.ConstantAttenuation = constant;
+        target.LinearAttenuation = linear;
+        target.QuadraticAttenuation = quadratic;
+        return true;
+    }
+
+    private static bool TryToFiniteVector3(
+        PortableVector3 value,
+        out Vector3 result)
+    {
+        result = ToVector3(value);
+        return float.IsFinite(result.X) && float.IsFinite(result.Y) &&
+            float.IsFinite(result.Z);
+    }
+
+    private static bool TryToFiniteVector4(
+        PortableColor4 value,
+        out Vector4 result)
+    {
+        result = ToVector4(value);
+        return float.IsFinite(result.X) && float.IsFinite(result.Y) &&
+            float.IsFinite(result.Z) && float.IsFinite(result.W);
+    }
+
+    private static bool TryToFiniteFloat(double value, out float result)
+    {
+        result = (float)value;
+        return float.IsFinite(result);
+    }
+
     private static bool TryCreateCameraMatrices(
         PortableViewport3DCamera camera,
         float aspectRatio,
@@ -127,6 +306,14 @@ public static class WpfViewport3DSceneBridge
     {
         projection = Matrix4x4.Identity;
         view = Matrix4x4.Identity;
+
+        if (camera.Kind == PortableViewport3DCameraKind.Matrix)
+        {
+            projection = ToMatrix4x4(camera.ProjectionMatrix);
+            view = ToMatrix4x4(camera.ViewMatrix);
+            return IsFinite(projection) && IsFinite(view) &&
+                Matrix4x4.Invert(view, out _);
+        }
 
         var position = ToVector3(camera.Position);
         var lookDirection = ToVector3(camera.LookDirection);
@@ -163,6 +350,11 @@ public static class WpfViewport3DSceneBridge
             return true;
         }
 
+        if (camera.Kind != PortableViewport3DCameraKind.Perspective)
+        {
+            return false;
+        }
+
         var horizontalFovDegrees = camera.FieldOfView > 0
             ? (float)camera.FieldOfView
             : DefaultPerspectiveFieldOfView;
@@ -178,6 +370,59 @@ public static class WpfViewport3DSceneBridge
         return new Vector3((float)value.X, (float)value.Y, (float)value.Z);
     }
 
+    private static global::ProGPU.Scene.Extensions.MeshCompilationEntry
+        CreateMeshEntry(
+            PortableViewport3DMesh mesh,
+            Vector3[] positions,
+            Vector3[] normals,
+            Vector2[] textureCoordinates,
+            WpfViewport3DMaterialPass? materialPass = null)
+    {
+        WpfViewport3DMaterialPass material =
+            materialPass.GetValueOrDefault();
+        bool hasMaterialPass = materialPass.HasValue;
+        return new global::ProGPU.Scene.Extensions.MeshCompilationEntry
+        {
+            Geometry = mesh.Geometry,
+            GeometryVersion = mesh.GeometryVersion,
+            Positions = positions,
+            Normals = normals,
+            TextureCoordinates = textureCoordinates,
+            MaterialBrush = hasMaterialPass
+                ? material.MaterialBrush
+                : null,
+            MaterialBrushTarget =
+                hasMaterialPass && material.Kind ==
+                    PortableViewport3DMaterialKind.Specular
+                    ? global::ProGPU.Scene.Extensions
+                        .MaterialBrushTarget3D.Specular
+                    : global::ProGPU.Scene.Extensions
+                        .MaterialBrushTarget3D.Color,
+            Indices = mesh.Indices,
+            ModelTransform = ToMatrix4x4(mesh.ModelTransform),
+            Color = hasMaterialPass
+                ? material.Color
+                : ToVector4(mesh.DiffuseColor),
+            SpecularColor = hasMaterialPass
+                ? material.SpecularColor
+                : ToVector3(mesh.SpecularColor),
+            Shininess = hasMaterialPass
+                ? material.Shininess
+                : (float)Math.Clamp(mesh.Shininess, 1, 256),
+            AmbientColor = hasMaterialPass
+                ? material.AmbientColor
+                : ToVector3(mesh.AmbientColor),
+            Opacity = hasMaterialPass
+                ? material.Opacity
+                : (float)Math.Clamp(mesh.Opacity, 0, 1),
+            IsBackFace = mesh.IsBackFace,
+            ShadingModeOverride =
+                hasMaterialPass && material.IsUnlit
+                    ? global::ProGPU.Scene.Extensions.ShadingMode3D.Flat
+                    : null
+        };
+    }
+
     private static Vector3 ToVector3(PortableColor4 value)
     {
         return new Vector3((float)value.R, (float)value.G, (float)value.B);
@@ -188,20 +433,82 @@ public static class WpfViewport3DSceneBridge
         return new Vector4((float)value.R, (float)value.G, (float)value.B, (float)value.A);
     }
 
-    private static Vector3[] ToVector3Array(PortableVector3[] values)
+    private static bool TryToVector3Array(
+        PortableVector3[]? values,
+        int count,
+        bool normalize,
+        out Vector3[] result)
     {
+        if (values is null || count < 0 || values.Length < count)
+        {
+            result = Array.Empty<Vector3>();
+            return false;
+        }
+        if (count == 0)
+        {
+            result = Array.Empty<Vector3>();
+            return true;
+        }
+
+        result = new Vector3[count];
+        for (var i = 0; i < count; i++)
+        {
+            Vector3 value = ToVector3(values[i]);
+            if (!float.IsFinite(value.X)
+                || !float.IsFinite(value.Y)
+                || !float.IsFinite(value.Z))
+            {
+                result = Array.Empty<Vector3>();
+                return false;
+            }
+
+            if (normalize)
+            {
+                float lengthSquared = value.LengthSquared();
+                if (!float.IsFinite(lengthSquared))
+                {
+                    result = Array.Empty<Vector3>();
+                    return false;
+                }
+                value = lengthSquared > 0.0f
+                    ? value / MathF.Sqrt(lengthSquared)
+                    : Vector3.Zero;
+            }
+            result[i] = value;
+        }
+
+        return true;
+    }
+
+    private static bool TryToVector2Array(
+        PortablePoint[]? values,
+        out Vector2[] result)
+    {
+        if (values is null)
+        {
+            result = Array.Empty<Vector2>();
+            return false;
+        }
         if (values.Length == 0)
         {
-            return Array.Empty<Vector3>();
+            result = Array.Empty<Vector2>();
+            return true;
         }
 
-        var result = new Vector3[values.Length];
+        result = new Vector2[values.Length];
         for (var i = 0; i < values.Length; i++)
         {
-            result[i] = ToVector3(values[i]);
+            var value = new Vector2(
+                (float)values[i].X,
+                (float)values[i].Y);
+            if (!float.IsFinite(value.X) || !float.IsFinite(value.Y))
+            {
+                result = Array.Empty<Vector2>();
+                return false;
+            }
+            result[i] = value;
         }
-
-        return result;
+        return true;
     }
 
     private static Matrix4x4 ToMatrix4x4(PortableMatrix4x4 value)
@@ -211,6 +518,18 @@ public static class WpfViewport3DSceneBridge
             (float)value.M21, (float)value.M22, (float)value.M23, (float)value.M24,
             (float)value.M31, (float)value.M32, (float)value.M33, (float)value.M34,
             (float)value.M41, (float)value.M42, (float)value.M43, (float)value.M44);
+    }
+
+    private static bool IsFinite(Matrix4x4 value)
+    {
+        return float.IsFinite(value.M11) && float.IsFinite(value.M12) &&
+            float.IsFinite(value.M13) && float.IsFinite(value.M14) &&
+            float.IsFinite(value.M21) && float.IsFinite(value.M22) &&
+            float.IsFinite(value.M23) && float.IsFinite(value.M24) &&
+            float.IsFinite(value.M31) && float.IsFinite(value.M32) &&
+            float.IsFinite(value.M33) && float.IsFinite(value.M34) &&
+            float.IsFinite(value.M41) && float.IsFinite(value.M42) &&
+            float.IsFinite(value.M43) && float.IsFinite(value.M44);
     }
 }
 

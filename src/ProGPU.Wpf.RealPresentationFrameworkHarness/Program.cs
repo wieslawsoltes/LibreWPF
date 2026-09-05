@@ -2,9 +2,11 @@ using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.Loader;
 using System.Collections;
+using System.Diagnostics;
 using System.Globalization;
 using System.Windows.Media.ProGPU;
 using System.Windows.Media.ProGPU.Composition.Mil;
+using ProGPU.Wpf.Interop;
 using ProGpuContainerVisual = global::ProGPU.Scene.ContainerVisual;
 using ProGpuDrawingContext = global::ProGPU.Scene.DrawingContext;
 using ProGpuGradientSpreadMethod = global::ProGPU.Vector.GradientSpreadMethod;
@@ -16,15 +18,25 @@ using ProGpuVisual = global::ProGPU.Scene.Visual;
 
 public static class Program
 {
+    private static readonly TimeSpan NativeMilHostTimeout =
+        TimeSpan.FromSeconds(15);
     private const string PortableWindowActivationServiceTypeName = "System.Windows.PortableWindowActivationService";
     private const string PortableRenderDataProviderTypeName = "System.Windows.Media.PortableRenderDataDrawingContextSinkProvider";
     private const string PortableRenderDataSinkInterfaceTypeName = "System.Windows.Media.IPortableRenderDataDrawingContextSink";
+    private const string RealWpfAssemblyDirectoryVariable = "PROGPU_WPF_REAL_ASSEMBLY_DIR";
 
     [STAThread]
     private static int Main(string[] args)
     {
         try
         {
+            if (args.Contains("--native-mil-retention", StringComparer.Ordinal))
+            {
+                NativeMilViewportRetentionSmoke.Run();
+                NativeMilBitmapDpiSmoke.RunChannel();
+                NativeMilImageBrushSmoke.Run();
+                return 0;
+            }
             string repoRoot = FindRepoRoot();
             string presentationFrameworkPath = FindRealAssembly(repoRoot, "PresentationFramework");
             string presentationCorePath = FindRealAssembly(repoRoot, "PresentationCore");
@@ -33,6 +45,17 @@ public static class Program
             {
                 RunTextWrappingHarness(repoRoot, presentationFrameworkPath, presentationCorePath);
                 Console.WriteLine("Real PresentationFramework portable text wrapping smoke succeeded.");
+                return 0;
+            }
+
+            if (args.Contains("--native-mil-host", StringComparer.Ordinal))
+            {
+                RunNativeMilHostHarness(
+                    repoRoot,
+                    presentationFrameworkPath,
+                    presentationCorePath);
+                Console.WriteLine(
+                    "Real PresentationFramework native MIL host smoke succeeded.");
                 return 0;
             }
 
@@ -45,6 +68,234 @@ public static class Program
             Console.Error.WriteLine(ex);
             return 1;
         }
+    }
+
+    private static void RunNativeMilHostHarness(
+        string repoRoot,
+        string presentationFrameworkPath,
+        string presentationCorePath)
+    {
+        var loadContext = new WpfAssemblyLoadContext(
+            repoRoot,
+            presentationFrameworkPath,
+            presentationCorePath,
+            isCollectible: false);
+        try
+        {
+            Assembly presentationCore =
+                loadContext.LoadFromAssemblyPath(presentationCorePath);
+            Assembly windowsBase =
+                loadContext.LoadFromAssemblyName(new AssemblyName("WindowsBase"));
+            Assembly? ResolveDefaultWpfAssembly(
+                AssemblyLoadContext _,
+                AssemblyName assemblyName)
+            {
+                if (string.Equals(
+                        assemblyName.Name,
+                        presentationCore.GetName().Name,
+                        StringComparison.Ordinal))
+                {
+                    return presentationCore;
+                }
+                if (string.Equals(
+                        assemblyName.Name,
+                        windowsBase.GetName().Name,
+                        StringComparison.Ordinal))
+                {
+                    return windowsBase;
+                }
+                return null;
+            }
+
+            AssemblyLoadContext.Default.Resolving += ResolveDefaultWpfAssembly;
+            try
+            {
+                NativeMilBitmapDpiSmoke.RunFactory(presentationCore);
+                object drawingVisual = CreateNativeMilHostDrawingVisual(
+                    presentationCore,
+                    windowsBase);
+                if (drawingVisual is not IPortableVisualStateSource)
+                {
+                    string interfaces = string.Join(
+                        ", ",
+                        drawingVisual.GetType().GetInterfaces().Select(
+                            type =>
+                                $"{type.AssemblyQualifiedName} " +
+                                $"[{AssemblyLoadContext.GetLoadContext(type.Assembly)?.Name ?? "default"}]"));
+                    throw new InvalidOperationException(
+                        $"Native MIL smoke DrawingVisual does not share the typed " +
+                        $"{typeof(IPortableVisualStateSource).AssemblyQualifiedName} contract " +
+                        $"[{AssemblyLoadContext.GetLoadContext(typeof(IPortableVisualStateSource).Assembly)?.Name ?? "default"}]. " +
+                        $"Published interfaces: {interfaces}.");
+                }
+
+                var host = new ProGpuWpfWindowHost(
+                    new ProGpuWpfWindowOptions
+                    {
+                        Title = "LibreWPF native MIL host smoke",
+                        Width = 160,
+                        Height = 96,
+                        RendererMode = ProGpuWpfRendererMode.NativeMilWgpu
+                    })
+                {
+                    WpfRootVisual = drawingVisual
+                };
+
+                string? status = null;
+                Exception? validationFailure = null;
+                using var monitorCancellation = new CancellationTokenSource();
+                Task monitor = Task.Run(
+                    async () =>
+                    {
+                        var timeout = Stopwatch.StartNew();
+                        while (!monitorCancellation.IsCancellationRequested &&
+                               !host.HasPresentedFrame &&
+                               timeout.Elapsed < NativeMilHostTimeout)
+                        {
+                            await Task.Delay(1, monitorCancellation.Token)
+                                .ConfigureAwait(false);
+                        }
+
+                        if (monitorCancellation.IsCancellationRequested)
+                        {
+                            return;
+                        }
+
+                        host.PlatformServices.Dispatcher.Post(
+                            () =>
+                            {
+                                try
+                                {
+                                    status = ValidateNativeMilHostResult(host);
+                                }
+                                catch (Exception ex)
+                                {
+                                    validationFailure = ex;
+                                }
+                                finally
+                                {
+                                    host.Close();
+                                }
+                            });
+                    },
+                    monitorCancellation.Token);
+
+                try
+                {
+                    host.Run();
+                    monitor.GetAwaiter().GetResult();
+                }
+                finally
+                {
+                    monitorCancellation.Cancel();
+                }
+
+                if (validationFailure != null)
+                {
+                    throw validationFailure;
+                }
+                Console.WriteLine(status ?? throw new TimeoutException(
+                    $"Native MIL host did not present within " +
+                    $"{NativeMilHostTimeout.TotalSeconds:0} seconds."));
+                host.Dispose();
+            }
+            finally
+            {
+                AssemblyLoadContext.Default.Resolving -=
+                    ResolveDefaultWpfAssembly;
+            }
+        }
+        finally
+        {
+            if (loadContext.IsCollectible)
+            {
+                loadContext.Unload();
+            }
+        }
+    }
+
+    private static string ValidateNativeMilHostResult(
+        ProGpuWpfWindowHost host)
+    {
+        if (!host.HasPresentedFrame)
+        {
+            throw new TimeoutException(
+                $"Native MIL host did not present within " +
+                $"{NativeMilHostTimeout.TotalSeconds:0} seconds.");
+        }
+        if (host.LastNativeMilSessionFrame == null)
+        {
+            throw new InvalidOperationException(
+                "Native MIL host did not publish a stateful session frame.");
+        }
+        if (!host.LastNativeMilSessionUpdate.RecreatedChannel ||
+            host.LastNativeMilSessionUpdate.TargetHandle == 0)
+        {
+            throw new InvalidOperationException(
+                "Native MIL host did not publish its initial retained channel update.");
+        }
+        if (host.LastNativeMilSceneUpdateMetrics.ValidationError != default ||
+            host.LastNativeMilSceneUpdateMetrics.DrawCount == 0)
+        {
+            throw new InvalidOperationException(
+                $"Native MIL scene update was not valid and drawable: " +
+                $"{host.LastNativeMilSceneUpdateMetrics}.");
+        }
+        if (host.LastNativeMilFrameMetrics.DrawCallCount == 0 ||
+            host.LastNativeMilFrameMetrics.SubmissionCount == 0)
+        {
+            throw new InvalidOperationException(
+                $"Native MIL compositor did not submit a draw: " +
+                $"{host.LastNativeMilFrameMetrics}.");
+        }
+
+        return
+            $"Native MIL host presented {host.PresentedFrameCount} frame(s), " +
+            $"compiled {host.LastNativeMilSceneUpdateMetrics.CommandCount} commands/" +
+            $"{host.LastNativeMilSceneUpdateMetrics.ResourceCount} resources/" +
+            $"{host.LastNativeMilSceneUpdateMetrics.DrawCount} draws, and submitted " +
+            $"{host.LastNativeMilFrameMetrics.DrawCallCount} draw call(s).";
+    }
+
+    private static object CreateNativeMilHostDrawingVisual(
+        Assembly presentationCore,
+        Assembly windowsBase)
+    {
+        object drawingVisual = Create(
+            presentationCore,
+            "System.Windows.Media.DrawingVisual");
+        object drawingContext = Invoke(drawingVisual, "RenderOpen");
+        Type brushType = GetRequiredType(
+            presentationCore,
+            "System.Windows.Media.Brush");
+        Type penType = GetRequiredType(
+            presentationCore,
+            "System.Windows.Media.Pen");
+        Type rectType = GetRequiredType(windowsBase, "System.Windows.Rect");
+        Type colorsType = GetRequiredType(
+            presentationCore,
+            "System.Windows.Media.Colors");
+        object brush = Create(
+            presentationCore,
+            "System.Windows.Media.SolidColorBrush",
+            GetStaticProperty(colorsType, "CornflowerBlue"));
+        object rect = Activator.CreateInstance(
+            rectType,
+            8.0,
+            8.0,
+            144.0,
+            80.0)
+            ?? throw new InvalidOperationException(
+                "Failed to create the native MIL smoke rectangle.");
+        InvokeDrawing(
+            drawingContext,
+            "DrawRectangle",
+            new[] { brushType, penType, rectType },
+            brush,
+            null,
+            rect);
+        Invoke(drawingContext, "Close");
+        return drawingVisual;
     }
 
     private static void RunTextWrappingHarness(
@@ -1430,6 +1681,19 @@ public static class Program
 
     private static string FindRealAssembly(string repoRoot, string assemblyName)
     {
+        string? configuredDirectory = GetConfiguredRealWpfAssemblyDirectory();
+        if (configuredDirectory != null)
+        {
+            string configuredAssembly = Path.Combine(
+                configuredDirectory,
+                $"{assemblyName}.dll");
+            return File.Exists(configuredAssembly)
+                ? configuredAssembly
+                : throw new FileNotFoundException(
+                    $"Configured real WPF assembly was not found: {configuredAssembly}",
+                    configuredAssembly);
+        }
+
         string artifactsRoot = Path.Combine(repoRoot, "artifacts", "bin", assemblyName);
         if (!Directory.Exists(artifactsRoot))
         {
@@ -1452,6 +1716,12 @@ public static class Program
 
     private static string FindRepoRoot()
     {
+        string? configuredDirectory = GetConfiguredRealWpfAssemblyDirectory();
+        if (configuredDirectory != null)
+        {
+            return configuredDirectory;
+        }
+
         DirectoryInfo? directory = new(AppContext.BaseDirectory);
         while (directory != null)
         {
@@ -1472,6 +1742,23 @@ public static class Program
         }
 
         throw new DirectoryNotFoundException("Could not locate the WPF repository root.");
+    }
+
+    private static string? GetConfiguredRealWpfAssemblyDirectory()
+    {
+        string? configured = Environment.GetEnvironmentVariable(
+            RealWpfAssemblyDirectoryVariable);
+        if (string.IsNullOrWhiteSpace(configured))
+        {
+            return null;
+        }
+
+        string fullPath = Path.GetFullPath(
+            Environment.ExpandEnvironmentVariables(configured));
+        return Directory.Exists(fullPath)
+            ? fullPath
+            : throw new DirectoryNotFoundException(
+                $"{RealWpfAssemblyDirectoryVariable} does not exist: {fullPath}");
     }
 
     private static IDisposable RegisterRealPortableObjectSinkProvider(
@@ -1664,6 +1951,7 @@ public static class Program
     private sealed class WpfAssemblyLoadContext : AssemblyLoadContext
     {
         private readonly string _repoRoot;
+        private readonly string _wpfAssemblyDirectory;
         private readonly string _presentationFrameworkPath;
         private readonly string _presentationCorePath;
         private readonly AssemblyDependencyResolver _resolver;
@@ -1671,10 +1959,14 @@ public static class Program
         public WpfAssemblyLoadContext(
             string repoRoot,
             string presentationFrameworkPath,
-            string presentationCorePath)
-            : base(isCollectible: true)
+            string presentationCorePath,
+            bool isCollectible = true)
+            : base(isCollectible)
         {
             _repoRoot = repoRoot;
+            _wpfAssemblyDirectory = Path.GetDirectoryName(presentationCorePath)
+                ?? throw new InvalidOperationException(
+                    "Real PresentationCore path has no assembly directory.");
             _presentationFrameworkPath = presentationFrameworkPath;
             _presentationCorePath = presentationCorePath;
             _resolver = new AssemblyDependencyResolver(presentationFrameworkPath);
@@ -1682,6 +1974,16 @@ public static class Program
 
         protected override Assembly? Load(AssemblyName assemblyName)
         {
+            Assembly sharedInteropAssembly =
+                typeof(IPortableVisualStateSource).Assembly;
+            if (string.Equals(
+                    assemblyName.Name,
+                    sharedInteropAssembly.GetName().Name,
+                    StringComparison.Ordinal))
+            {
+                return sharedInteropAssembly;
+            }
+
             if (string.Equals(assemblyName.Name, "PresentationFramework", StringComparison.Ordinal))
             {
                 return LoadFromAssemblyPath(_presentationFrameworkPath);
@@ -1690,6 +1992,15 @@ public static class Program
             if (string.Equals(assemblyName.Name, "PresentationCore", StringComparison.Ordinal))
             {
                 return LoadFromAssemblyPath(_presentationCorePath);
+            }
+
+            string realWpfAssemblyPath = Path.Combine(
+                _wpfAssemblyDirectory,
+                $"{assemblyName.Name}.dll");
+
+            if (File.Exists(realWpfAssemblyPath))
+            {
+                return LoadFromAssemblyPath(realWpfAssemblyPath);
             }
 
             string outputAssemblyPath = Path.Combine(
