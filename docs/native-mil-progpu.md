@@ -7612,6 +7612,21 @@ snapping: per-point stroke deformation, single/composite translation, mask bound
 and avoiding double-snapping at layer restore still require integration. The
 existing rejection guards and final validation requirements remain intact.
 
+### Implementation-first checkpoint: uniform tile-pen guideline translation
+
+ProGPU native MIL now carries single-coordinate-per-axis guidelines into tile-pen
+coverage, mask bounds, and brush placement. The builder and executor share one
+rounding/explicit-offset implementation. Paint scopes clear the consumed guideline
+before layer restore to avoid a second snap. Multi-guideline/per-point deformation
+and nonuniform target DPI still fail explicitly rather than being approximated.
+
+Native library, MIL/internal tests, and the C++20 module consumer compile. Added
+400 MIL combinations, a paired translation case, and query/rejection regression
+sources; none were executed. Documentation records remaining nested-clip and
+restore pixel qualification, other guideline/consumer work, and mixed-mask costs.
+The final runtime/image/VM, verifier, benchmark, and CI gates remain deferred; the
+full MIL/DirectX/Direct2D/Win2D goal is still active.
+
 ## Developer commands
 
 ```sh
