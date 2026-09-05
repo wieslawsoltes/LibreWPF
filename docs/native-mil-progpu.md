@@ -7908,6 +7908,21 @@ tests and the extended Windows COM ABI case remain unexecuted. General bounded
 rotation/shear, broader device-context/Win2D support, and full cross-platform
 qualification remain open; implementation-first sequencing is unchanged.
 
+### Compact native A8 opacity bitmap uploads
+
+ProGPU now retains Direct2D A8 uploads as one-byte pixels, including updates,
+overlap-safe copies and shared aliases. Its reusable C++ scene builder exposes
+R8 resources, and the WebGPU uploader creates R8 textures. Direct2D maps red
+samples to alpha through the existing GPU color-matrix stage for bitmap draws,
+brushes, opacity masks and layer capture; no CPU RGBA expansion is added.
+
+The [Direct2D checkpoint](../external/ProGPU/docs/DIRECT2D_WIN2D_COMPATIBILITY.md#implementation-first-checkpoint-compact-a8-bitmap-uploads)
+documents the additive wire flag, matching producer/consumer deployment,
+provenance, complexity and authored cases. Native library, portable/internal
+test targets, and module-import consumer compile. Runtime/platform/CI/performance
+qualification remains deferred. WIC alpha import and render-target copy/readback
+support are not included in this upload implementation.
+
 ## Developer commands
 
 ```sh
