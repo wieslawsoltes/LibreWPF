@@ -7524,6 +7524,24 @@ remain deferred. No speed or fidelity claim is made.
 CombinedGeometry children in stroked groups, degenerate caps, guidelines, tiled
 text/masks and the broader full goal remain open.
 
+### Implementation-first checkpoint: combined children in stroked groups
+
+ProGPU native MIL now accepts combined-geometry children inside stroked geometry
+groups, including repeated resources under different nested transforms. It reuses
+the portable Direct2D boolean boundary once per occurrence for bounds and strokes;
+tiled pens retain one group geometry mask and one brush paint. Empty boolean
+results retain traversal identity. No LibreWPF bridge reflection or host-specific
+rendering workaround was added.
+
+The WebGPU-enabled native library and MIL regression executable compile. Added
+128 regression cases covering nested transforms, all four boolean operations,
+solid/tiled and dashed/continuous pens, four brush sources, and empty results.
+These cases have not been executed: runtime/image/VM tests, verifiers, benchmarks,
+and CI qualification remain deferred to the final validation phase as requested.
+See ProGPU `docs/native-mil-compositor.md` for provenance and complexity details.
+Degenerate caps, guidelines, remaining tile consumers/DPI/filter work, and the
+broader DirectX/Direct2D/Win2D scope remain incomplete.
+
 ## Developer commands
 
 ```sh
