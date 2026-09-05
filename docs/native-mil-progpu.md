@@ -7315,6 +7315,25 @@ boolean clips, open/nonfilled paths, guideline behavior and sibling restoration.
 This supersedes the preceding checkpoint's path/group/boolean-fill implementation
 gap, but not its remaining stroke/text/mask, repetition or qualification gaps.
 
+### Repeat/flip dependency: occupied GPU tile-page sampling
+
+ProGPU now has a canonical GPU sampling primitive and paired C++/managed quad
+encoders for repeating or mirroring the occupied zero-origin tile extent inside
+a larger pooled texture. Nearest/linear address individual taps within the tile,
+preserving transparent padding and filtering boundaries without CPU pixel work.
+This is source/mapping infrastructure, **not enabled MIL repeat/flip support**:
+retained page capture, lifetime/cache keys, scene integration, execution-policy
+selection and diagnostics remain to be wired before those modes stop failing closed.
+
+The native and managed test projects compile, and native WGSL embedding was
+regenerated. Matched encoding regressions are authored but unexecuted; no GPU
+pipeline validation, VM work, image comparison or benchmark ran. Final tests must
+cover seams on deliberately oversized/poisoned pool allocations, negative UVs,
+independent mirror axes, once-only premultiplied opacity, masks/color processing,
+page reuse/eviction/device loss and native Windows WPF comparison. Cubic/Fant/mips
+and forced sampling preferences must retain their own semantics, not be silently
+downgraded to this base-level primitive.
+
 ## Developer commands
 
 ```sh
