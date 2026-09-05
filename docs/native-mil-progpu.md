@@ -7776,6 +7776,25 @@ unknown enum values. Runtime and visual parity remain deferred to final validati
 The Release producer/test-project compilation completed with zero errors; the
 build also reported existing compatibility-project and display-metrics warnings.
 
+### Resource-preserving pen producer adoption
+
+ProGPU's new `IPortablePenStateSource`/`PortablePenState` contract retains the
+typed brush resource rather than restricting pen paint to `PortableBrush`'s
+solid/gradient descriptor. Source-built WPF and the ProGPU PresentationCore shim
+publish brush identity, thickness, cap/join/miter values, and an owned dash snapshot.
+The native producer prefers this authoritative state, rejects unavailable state,
+and reuses its normal brush graph and pen encoder. Tile-pen source capture and
+stroke coverage remain implemented in ProGPU C++, with no bridge-side rasterizer.
+
+The existing `IPortablePenSource` remains a compatible fallback only for publishers
+without the new contract. Managed tile-pen replay adoption remains open and is not
+implicitly qualified by native producer support. Documentation and authored cases
+in ProGPU accompany the neutral contract; LibreWPF cases cover tile source kinds,
+shared brush handles, stroke settings, and fail-closed unavailable state. All test
+execution and runtime/performance/VM/CI qualification remain deferred.
+ProGPU.Tests and source-built PresentationCore Release compilation succeed. The
+latter reports four existing warnings in linked font source, with zero errors.
+
 ## Developer commands
 
 ```sh

@@ -188,6 +188,64 @@ public sealed class WpfNativeMilSceneCompilerTests
         { brush = tile; return true; }
     }
 
+    [Theory]
+    [InlineData(0, 0x81)]
+    [InlineData(1, 0x81)]
+    [InlineData(2, 0x82)]
+    [InlineData(3, 0x83)]
+    public void BuildBatchPreservesTypedTilePenSourceAndSharedFill(int sourceKind, int command)
+    {
+        var tile = CreateOpacityMaskTile(sourceKind);
+        var pen = new FakeResourcePen(new PortablePenState(tile, 3,
+            PortablePenLineCap.Square, PortablePenLineCap.Triangle, PortablePenLineCap.Round,
+            PortablePenLineJoin.Bevel, 7, new double[] { 1, 2 }, 0.25));
+        var visual = new FakeVisual(new FakeRenderData(CreateRectangleRecord(1, 2), [tile, pen]));
+        WpfNativeMilBatch batch = new WpfNativeMilSceneCompiler().BuildBatch(visual, 64, 64);
+        Assert.Single(ReadCommands(batch.Bytes), value => value == command);
+        uint brush = ReadUInt32(batch.Bytes, FindCommand(batch.Bytes, command) + 8);
+        int offset = FindCommand(batch.Bytes, 0x86);
+        Assert.Equal(brush, ReadUInt32(batch.Bytes, offset + 28));
+        Assert.Equal(3.0, ReadDouble(batch.Bytes, offset + 12));
+        Assert.Equal(7.0, ReadDouble(batch.Bytes, offset + 20));
+        Assert.NotEqual(0U, ReadUInt32(batch.Bytes, offset + 52));
+        Assert.Equal(1U, ReadUInt32(batch.Bytes, offset + 36));
+        Assert.Equal(3U, ReadUInt32(batch.Bytes, offset + 40));
+        Assert.Equal(2U, ReadUInt32(batch.Bytes, offset + 44));
+        Assert.Equal(1U, ReadUInt32(batch.Bytes, offset + 48));
+    }
+
+    [Fact]
+    public void BuildBatchUnavailablePenStateCannotUseLegacyFallback()
+    {
+        var pen = new FakeResourcePen(default, available: false);
+        var visual = new FakeVisual(new FakeRenderData(CreateRectangleRecord(0, 1), [pen]));
+        Assert.Contains(nameof(IPortablePenStateSource), Assert.Throws<InvalidOperationException>(() =>
+            new WpfNativeMilSceneCompiler().BuildBatch(visual, 64, 64)).Message);
+    }
+
+    [Fact]
+    public void BuildBatchTilePenPreservesVisualSourceCycleRejection()
+    {
+        object?[] resources = new object?[1];
+        var source = new FakeVisual(new FakeRenderData(CreateRectangleRecord(0, 1), resources));
+        var pen = new FakeResourcePen(new PortablePenState(CreateVisualTile(source), 3,
+            PortablePenLineCap.Flat, PortablePenLineCap.Flat, PortablePenLineCap.Flat,
+            PortablePenLineJoin.Miter, 10, ReadOnlyMemory<double>.Empty, 0));
+        resources[0] = pen;
+        var visual = new FakeVisual(new FakeRenderData(CreateRectangleRecord(0, 1), [pen]));
+        Assert.Contains("cycle", Assert.Throws<InvalidOperationException>(() =>
+            new WpfNativeMilSceneCompiler().BuildBatch(visual, 64, 64)).Message);
+    }
+
+    private sealed class FakeResourcePen(PortablePenState state, bool available = true)
+        : IPortablePenStateSource, IPortablePenSource
+    {
+        public bool TryGetPortablePenState(out PortablePenState value)
+        { value = state; return available; }
+        public bool TryGetPortablePen(out PortablePen value) =>
+            throw new InvalidOperationException("Legacy pen fallback must not be invoked.");
+    }
+
     private static FakeTileBrush CreateVisualTile(object visual) => new(new PortableTileBrush(
         PortableTileBrushKind.Visual, visual, 0.5,
         new(0, 0, 1, 1), new(0, 0, 1, 1),

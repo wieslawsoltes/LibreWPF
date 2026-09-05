@@ -1727,14 +1727,33 @@ public sealed class WpfNativeMilSceneCompiler
             {
                 return existing;
             }
+            if (resource is IPortablePenStateSource stateSource)
+            {
+                if (!stateSource.TryGetPortablePenState(out PortablePenState state))
+                    throw MissingContract(nameof(IPortablePenStateSource));
+                uint brush = state.Brush is null ? 0 : ResolveBrush(state.Brush);
+                return AddPen(resource, brush, state.Thickness, state.StartLineCap,
+                    state.EndLineCap, state.DashCap, state.LineJoin, state.MiterLimit,
+                    state.Dashes.Span, state.DashOffset);
+            }
             if (resource is not IPortablePenSource source ||
                 !source.TryGetPortablePen(out PortablePen pen))
             {
                 throw MissingContract(nameof(IPortablePenSource));
             }
             uint brushHandle = AddPortableBrush(pen.Brush);
+            return AddPen(resource, brushHandle, pen.Thickness, pen.StartLineCap,
+                pen.EndLineCap, pen.DashCap, pen.LineJoin, pen.MiterLimit,
+                pen.DashArray, pen.DashOffset);
+        }
+
+        private uint AddPen(object resource, uint brushHandle, double thickness,
+            PortablePenLineCap startLineCap, PortablePenLineCap endLineCap,
+            PortablePenLineCap dashCap, PortablePenLineJoin lineJoin, double miterLimit,
+            ReadOnlySpan<double> dashes, double dashOffset)
+        {
             uint dashStyleHandle = 0;
-            if (pen.DashArray.Length != 0)
+            if (!dashes.IsEmpty)
             {
                 dashStyleHandle = NextHandle();
                 Batch.CreateResource(
@@ -1742,8 +1761,8 @@ public sealed class WpfNativeMilSceneCompiler
                     NativeMilResourceType.DashStyle);
                 Batch.SetDashStyle(
                     dashStyleHandle,
-                    pen.DashOffset,
-                    pen.DashArray);
+                    dashOffset,
+                    dashes);
             }
             uint penHandle = NextHandle();
             _penHandles.Add(resource, penHandle);
@@ -1752,12 +1771,12 @@ public sealed class WpfNativeMilSceneCompiler
                 penHandle,
                 new NativeMilPen(
                     brushHandle,
-                    pen.Thickness,
-                    ToNativeLineCap(pen.StartLineCap),
-                    ToNativeLineCap(pen.EndLineCap),
-                    ToNativeLineCap(pen.DashCap),
-                    ToNativeLineJoin(pen.LineJoin),
-                    pen.MiterLimit,
+                    thickness,
+                    ToNativeLineCap(startLineCap),
+                    ToNativeLineCap(endLineCap),
+                    ToNativeLineCap(dashCap),
+                    ToNativeLineJoin(lineJoin),
+                    miterLimit,
                     dashStyleHandle));
             return penHandle;
         }

@@ -22,7 +22,7 @@ namespace System.Windows.Media
     /// Pen - The pen class is used to describe how a shape is stroked.
     /// </summary>
     [Localizability(LocalizationCategory.None, Readability = Readability.Unreadable)]
-    public sealed partial class Pen : Animatable, DUCE.IResource, IPortablePenSource
+    public sealed partial class Pen : Animatable, DUCE.IResource, IPortablePenSource, IPortablePenStateSource
     {
         #region Constructors
 
@@ -79,6 +79,20 @@ namespace System.Windows.Media
         }
 
         #endregion Constructors
+
+        bool IPortablePenStateSource.TryGetPortablePenState(out PortablePenState state)
+        {
+            ReadPreamble();
+            // Algorithm: retain the source brush and snapshot stroke settings once per export.
+            // Time: O(D) for D dash entries. Space: O(D) owned dash snapshot.
+            DashStyle dashStyle = DashStyle;
+            state = new PortablePenState(Brush, Thickness,
+                (PortablePenLineCap)StartLineCap, (PortablePenLineCap)EndLineCap,
+                (PortablePenLineCap)DashCap, (PortablePenLineJoin)LineJoin, MiterLimit,
+                dashStyle == null ? Array.Empty<double>() : CopyDashes(dashStyle.Dashes),
+                dashStyle?.Offset ?? 0.0);
+            return true;
+        }
 
         bool IPortablePenSource.TryGetPortablePen(out PortablePen pen)
         {
