@@ -7446,6 +7446,27 @@ native frame submission still exposes a scalar raster DPI. The repeated-capture
 guard remains until the frame/host mapping and guideline contracts are implemented
 together. The full MIL/DirectX/Direct2D/Win2D goal remains open.
 
+### Implementation-first checkpoint: tile-brush fixed-shape pens
+
+ProGPU native MIL now consumes tile-brush pens for nondegenerate lines,
+rectangles, ellipses and rounded rectangles. It reuses the shared stroke/dash
+compiler and GPU geometry alpha masks, then paints through the normal native
+tile-source path. The outer stroke mask survives inner tile clipping; brush
+opacity remains once-only. This adds GPU mask/isolation work, not CPU pixels,
+readback, reflection or per-visible-tile submission.
+
+The LibreWPF producer already emits these typed pen/brush/dash contracts through
+`IPortablePenSource` and `WpfNativeMilSceneCompiler.ResolvePen`; no bridge or ABI
+change is required. The GPU-enabled C++ library and native MIL test executable
+compile. A 160-case source/shape/tile-mode/dash matrix is authored with transform,
+clip, opacity and Fant coverage, but **has not run**. Runtime, Windows/macOS/Linux
+parity, performance and CI qualification remain deferred.
+
+General path/group/combined-geometry and degenerate tile pens remain work, along
+with tiled glyphs/opacity masks, per-axis target DPI, filtering and the broader
+MIL/DirectX/Direct2D/Win2D implementation. Final tests must explicitly compare
+caps, joins, dashes, bounds, alpha and nested clipping; compilation is not parity.
+
 ## Developer commands
 
 ```sh
