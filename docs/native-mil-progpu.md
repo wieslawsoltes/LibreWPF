@@ -7834,6 +7834,20 @@ final validation phase; compilation is not filter or native-Windows parity evide
 The Release `ProGPU.Wpf.Tests` build completes with zero errors and the existing
 compatibility-project/display-metrics warnings.
 
+### Portable Direct2D mesh antialiasing contract
+
+ProGPU's portable C++ FillMesh now requires aliased render-target state, reporting
+an incompatible mode through the existing deferred error path. Both ordinary
+brush triangle paths and bitmap-brush vector masks use pixel-center coverage;
+texture filtering is unchanged. Existing batching and resource ownership remain
+intact. The native library and Direct2D compatibility test target compile; authored
+state/coverage cases and Windows ABI case changes remain unexecuted.
+
+See the [Direct2D checkpoint](../external/ProGPU/docs/DIRECT2D_WIN2D_COMPATIBILITY.md#implementation-first-checkpoint-aliased-mesh-coverage)
+for contract provenance and applicability. Arbitrary native Windows command-list
+mesh extraction, broader Win2D support, and final cross-platform runtime/image/CI
+qualification remain open; this checkpoint does not qualify them.
+
 ## Developer commands
 
 ```sh
