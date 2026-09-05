@@ -7894,6 +7894,20 @@ support remain open. Native library and test-target compilation succeeds; author
 regressions, Windows/macOS/Linux runtime/image comparisons, performance, and CI
 qualification remain unexecuted under the implementation-first sequencing.
 
+### Automatic native Direct2D layer resources
+
+ProGPU now supports the Windows 8-and-later optional layer resource:
+`PushLayer(parameters, nullptr)`. Automatic scopes share the existing semantic
+compositor and may nest with explicit layers and clips without synthetic COM
+allocations. Explicit resource ownership and failure cleanup remain intact.
+The [Direct2D checkpoint](../external/ProGPU/docs/DIRECT2D_WIN2D_COMPATIBILITY.md#implementation-first-checkpoint-automatic-direct2d-layers)
+records API provenance, authored regressions, and applicability.
+
+Native library and portable compatibility target compilation succeeds. Authored
+tests and the extended Windows COM ABI case remain unexecuted. General bounded
+rotation/shear, broader device-context/Win2D support, and full cross-platform
+qualification remain open; implementation-first sequencing is unchanged.
+
 ## Developer commands
 
 ```sh
