@@ -6979,9 +6979,46 @@ pass without changing PCM code or relaxing its allocation budget. This remains
 an investigation item, not a claimed fix. The subsequent complete ProGPU
 managed rerun passes 3,922/3,922; its TRX is retained with the investigation.
 
-Direct local-cache clip/opacity-mask/guideline composition without an outer
-effect and Viewport3D masks remain unfinished. The broader protocol, DirectX,
-Direct2D, Win2D, and final cross-platform qualification goal is unchanged.
+The following checkpoint implements direct local-cache geometry composition;
+Viewport3D masks and the broader protocol, DirectX, Direct2D, Win2D, and final
+cross-platform qualification goal remain unfinished.
+
+### Exact native MIL local-cache geometry composition, 2026-09-05
+
+ProGPU `c6a4edce` moves cache-root and inherited vector clips onto the local
+BitmapCache's output. A simultaneous linear/radial gradient opacity mask uses
+the shared native GPU composite-mask resource. Brush coverage follows cache
+snapping and composite guidelines; world-space geometry clips remain
+independent. Cache content gets its own empty clip frame, preserving nested
+render-data clips and sibling restoration. Clip-only mutations do not change
+cached content revision or owner identity.
+
+The raw-MIL GPU gate covers plain/gradient caches, RenderAtScale=2,
+fractional placement with SnapsToDevicePixels and multiple guidelines, and
+nested caches. It exposed and repairs native scissoring that truncated cache
+pages larger than the presentation window. Identity caches match uncached
+pixels exactly; warm cache replays match cold pixels, submit once, and report
+zero content passes. LibreWPF's existing typed producer needs no product
+workaround; its regression test now emits rounded, sheared, and ellipse clips
+alongside a typed scaled BitmapCache, with and without gradient opacity.
+
+ProGPU macOS native 15/15, managed 3,922/3,922, MIL/internal sanitizers 2/2,
+and x64/Rosetta 2/2 pass. A strict Windows ARM64 build passes all 16 native
+tests including the cold cache variants (GPU 143.07 seconds within the
+unchanged 300-second limit); the additional warm-cache checks and exact-head
+hosted CI remain separate qualification records. The prior Windows CI
+timeouts were addressed by retaining one test engine across fixture scene
+updates, with unique scene identities and unchanged pixel assertions.
+
+Viewport3D output masks, wider nested effect/oversized-cache domains,
+programmable shader effects, tile-brush packet families, and the remaining
+DirectX/Direct2D/Win2D and final package/platform gates remain in scope.
+
+The final Windows GPU rerun at `c6a4edce` also passes every warm-cache
+assertion and one-byte gradient probe in 73.53 seconds. Rebuilt LibreWPF
+scene-compiler tests pass 106/106. The previous LibreWPF SDK job failed
+because its pinned ProGPU build ended with the now-addressed GPU timeouts;
+the refreshed submodule must still pass the complete exact-head package gate.
 
 ## Next parity gates
 

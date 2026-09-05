@@ -667,8 +667,11 @@ public sealed class WpfNativeMilSceneCompilerTests
         Assert.Equal(new NativeMilRect(1, 2, 30, 20), bounds.Bounds);
     }
 
-    [Fact]
-    public void BuildBatchPreservesExactEffectGeometryClips()
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void BuildBatchPreservesExactEffectGeometryClips(bool cached, bool masked)
     {
         PortablePrimitiveGeometry[] clips =
         [
@@ -695,8 +698,16 @@ public sealed class WpfNativeMilSceneCompilerTests
                 null,
                 new PortableVisualState
                 {
-                    HasEffect = true,
-                    Effect = new FakeEffect(PortableEffect.Blur(5)),
+                    HasEffect = !cached,
+                    Effect = cached ? null : new FakeEffect(PortableEffect.Blur(5)),
+                    HasCacheMode = cached,
+                    CacheMode = cached ? new FakeBitmapCache(
+                        new PortableBitmapCache(2, true, false)) : null,
+                    HasOpacityMask = masked,
+                    OpacityMask = masked ? new FakeBrush(PortableBrush.LinearGradient(
+                        new PortablePoint(0, 0), new PortablePoint(1, 0),
+                        [new PortableGradientStop(new PortableColor(0, 255, 255, 255), 0),
+                         new PortableGradientStop(new PortableColor(255, 255, 255, 255), 1)])) : null,
                     HasClip = true,
                     Clip = new FakePrimitiveGeometry(clip)
                 });
@@ -708,6 +719,13 @@ public sealed class WpfNativeMilSceneCompilerTests
             Assert.NotEqual(0U, ReadUInt32(result.Bytes, clipOffset + 12));
             Assert.Contains(clip.Kind == PortablePrimitiveGeometryKind.Ellipse
                 ? 0x7a : 0x79, ReadCommands(result.Bytes));
+            Assert.Contains(cached ? 0x1e : 0x1d, ReadCommands(result.Bytes));
+            Assert.Single(result.VisualCacheBounds!);
+            if (masked)
+            {
+                Assert.Contains(0x7f, ReadCommands(result.Bytes));
+                Assert.Contains(0x23, ReadCommands(result.Bytes));
+            }
         }
     }
 
