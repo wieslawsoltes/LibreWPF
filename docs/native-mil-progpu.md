@@ -7043,6 +7043,23 @@ remains unresolved and its allocation budget was not changed. Hosted exact-head
 CI and the remaining Viewport3D, protocol, DirectX/Direct2D/Win2D, and final
 package/platform gates remain outstanding.
 
+## Viewport3D output-mask implementation, 2026-09-05
+
+ProGPU now applies exact Viewport3D geometry clips through GPU output
+isolation, including effect/cache-owned output and gradient-masked caches.
+It also owns depth textures for retained cache pages and separates 2D group
+composites from depth-bearing mesh passes. LibreWPF permits these typed
+effect/cache contracts and retains fail-closed guideline deformation. Three
+new bridge cases preserve ellipse clips, blur/cache packets, typed bounds,
+mesh sidebands, and gradient-mask state without reflection.
+
+The seven raw-MIL pixel variants pass on Metal and Windows ARM64 D3D12 in
+Parallels; the Windows GPU gate takes 101.79 seconds under its unchanged
+300-second timeout. ProGPU managed 3,922/3,922 and LibreWPF 1,472/1,472 pass,
+as do focused native sanitizer and x64/Rosetta suites. Full hosted PR CI,
+mixed 2D/3D transitions, transformed viewport/guideline behavior, shading-mode
+parity, and the broader protocol/API/platform gates below remain required.
+
 ## Next parity gates
 
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested

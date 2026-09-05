@@ -3306,6 +3306,38 @@ public sealed class WpfNativeMilSceneCompilerTests
         Assert.Contains(0x28, commands);
     }
 
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void BuildBatchPreservesViewport3DGeometryClipAndIsolation(bool cached, bool masked)
+    {
+        var visual = new FakeViewport3DVisual(CreatePortableViewport3DScene(),
+            new PortableVisualState
+            {
+                HasClip = true,
+                Clip = new FakePrimitiveGeometry(PortablePrimitiveGeometry.Ellipse(
+                    new PortablePoint(40, 30), 20, 15, PortableMatrix3x2.Identity)),
+                HasEffect = !cached,
+                Effect = cached ? null : new FakeEffect(PortableEffect.Blur(5)),
+                HasCacheMode = cached,
+                CacheMode = cached ? new FakeBitmapCache(new PortableBitmapCache(2, false, false)) : null,
+                HasOpacityMask = masked,
+                OpacityMask = masked ? new FakeBrush(PortableBrush.LinearGradient(
+                    new PortablePoint(0, 0), new PortablePoint(1, 0),
+                    [new PortableGradientStop(new PortableColor(0, 255, 255, 255), 0),
+                     new PortableGradientStop(new PortableColor(255, 255, 255, 255), 1)])) : null
+            });
+        WpfNativeMilBatch result = new WpfNativeMilSceneCompiler().BuildBatch(visual, 160, 120);
+        List<int> commands = ReadCommands(result.Bytes);
+        Assert.Contains(0x1f, commands);
+        Assert.Contains(0x7a, commands);
+        Assert.Contains(cached ? 0x1e : 0x1d, commands);
+        Assert.Single(result.Viewport3DScenes!);
+        Assert.Single(result.VisualCacheBounds!);
+        if (masked) Assert.Contains(0x23, commands);
+    }
+
     private static PortableViewport3DScene CreatePortableViewport3DScene()
     {
         return new PortableViewport3DScene
@@ -3892,6 +3924,7 @@ public sealed class WpfNativeMilSceneCompilerTests
     private sealed class FakeViewport3DVisual :
         IPortableVisualStateSource,
         IPortableVisualChildrenSource,
+        IPortableVisualBoundsSource,
         IPortableViewport3DSceneSource
     {
         private readonly PortableViewport3DScene _scene;
@@ -3927,6 +3960,16 @@ public sealed class WpfNativeMilSceneCompilerTests
         {
             child = null;
             return false;
+        }
+
+        public bool TryGetPortableVisualBounds(out PortableVisualBounds bounds)
+        {
+            bounds = new PortableVisualBounds
+            {
+                HasDescendantBounds = true,
+                DescendantBounds = _scene.Viewport
+            };
+            return true;
         }
 
         public bool TryGetPortableViewport3DScene(
