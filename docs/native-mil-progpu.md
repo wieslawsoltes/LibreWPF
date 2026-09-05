@@ -7489,6 +7489,22 @@ CI qualification remain deferred. Final gates must include overlapping contours,
 stroke-break caps, smooth joins, dashes, transforms, opacity and native WPF parity.
 The full goal remains in progress.
 
+### Implementation-first checkpoint: nested geometry-group tile pens
+
+ProGPU now collects nested GeometryGroup strokes into one GPU geometry mask and
+applies the tile brush once across the group. Path, line, rectangle/rounded-
+rectangle and ellipse children reuse the existing native stroke compiler and
+retain nested transforms. Tile-group mask/placement bounds expand the pen before
+child scale/shear; final WPF images must qualify that conservative bound policy.
+No managed bridge, ABI, shader fork or CPU-pixel workaround was added.
+
+Fixtures author 80 additional basic/nested group combinations with mixed children,
+transforms, clipping, opacity, Fant and dashes, asserting one group stroke mask.
+The GPU-enabled native library and MIL test executable compile. Cases have not
+run; runtime/pixel/VM/performance/CI qualification remains deferred.
+CombinedGeometry, degenerate children, guideline-aware masks and the broader
+MIL/DirectX/Direct2D/Win2D goal remain unfinished.
+
 ## Developer commands
 
 ```sh
