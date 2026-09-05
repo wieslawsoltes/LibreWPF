@@ -7848,6 +7848,20 @@ for contract provenance and applicability. Arbitrary native Windows command-list
 mesh extraction, broader Win2D support, and final cross-platform runtime/image/CI
 qualification remain open; this checkpoint does not qualify them.
 
+### Portable Direct2D geometry and layer-mask antialias state
+
+ProGPU now passes the render target's antialias mode to general geometry and
+geometry-backed shape fills, including bitmap-brush coverage. Text retains its
+independent explicit coverage mode. Geometric layer masks now accept aliased mode
+and honor the layer parameter independently of the target, including combined
+geometry/opacity-brush masks. Existing native shaders and resource serialization
+are reused; no managed WPF fallback or shader duplication is added.
+
+The [Direct2D checkpoint](../external/ProGPU/docs/DIRECT2D_WIN2D_COMPATIBILITY.md#implementation-first-checkpoint-geometry-and-layer-mask-antialias-state)
+documents API provenance, applicability, and authored mode/material cases. Full
+runtime/VM/image/performance/CI qualification remains deferred. Unsupported
+ClearType layer initialization and layer transform cases remain open.
+
 ## Developer commands
 
 ```sh
