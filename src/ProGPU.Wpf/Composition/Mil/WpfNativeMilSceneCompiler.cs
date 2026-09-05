@@ -294,6 +294,9 @@ public sealed class WpfNativeMilSceneCompiler
             new(ReferenceEqualityComparer.Instance);
         private readonly HashSet<object> _activeDrawings =
             new(ReferenceEqualityComparer.Instance);
+        private readonly HashSet<object> _activeVisuals = new(ReferenceEqualityComparer.Instance);
+        private readonly HashSet<object> _parentedVisuals = new(ReferenceEqualityComparer.Instance);
+        private readonly HashSet<uint> _visualBoundsHandles = [];
         private uint _nextHandle = 1;
 
         internal NativeMilBatchBuilder Batch { get; } = new();
@@ -333,13 +336,53 @@ public sealed class WpfNativeMilSceneCompiler
             return _nextHandle++;
         }
 
-        internal uint AddVisual(object visual)
+        internal uint AddVisual(object visual) => AddVisual(visual, brushSource: false);
+
+        private uint AddVisual(object visual, bool brushSource)
         {
-            if (_visualHandles.ContainsKey(visual))
+            if (_activeVisuals.Count + _activeDrawings.Count >= 256)
+                throw new InvalidOperationException("The portable visual/drawing source graph exceeds the native depth limit.");
+            if (_activeVisuals.Contains(visual) ||
+                (!brushSource && !_parentedVisuals.Add(visual)))
             {
                 throw new InvalidOperationException(
                     "The portable visual graph contains a cycle or a visual with multiple parents.");
             }
+            if (_visualHandles.TryGetValue(visual, out uint existing))
+            {
+                if (brushSource) AddVisualBounds(visual, existing);
+                return existing;
+            }
+            _activeVisuals.Add(visual);
+            try
+            {
+                return AddVisualCore(visual, brushSource);
+            }
+            finally
+            {
+                _activeVisuals.Remove(visual);
+            }
+        }
+
+        private void AddVisualBounds(object visual, uint visualHandle)
+        {
+            if (_visualBoundsHandles.Contains(visualHandle)) return;
+            if (!TryGetVisualBounds(visual, out NativeMilRect bounds))
+                throw new NotSupportedException(
+                    "Native MIL visual isolation and VisualBrush require exact typed Visual descendant bounds.");
+            VisualCacheBounds.Add(new WpfNativeMilVisualCacheBounds(visualHandle, bounds));
+            _visualBoundsHandles.Add(visualHandle);
+        }
+
+        private uint ResolveVisualBrushSource(object visual)
+        {
+            if (TryGetVisualBounds(visual, out NativeMilRect bounds, allowEmpty: true) &&
+                (bounds.Width == 0 || bounds.Height == 0)) return 0U;
+            return AddVisual(visual, brushSource: true);
+        }
+
+        private uint AddVisualCore(object visual, bool brushSource)
+        {
             if (visual is not IPortableVisualStateSource stateSource ||
                 !stateSource.TryGetPortableVisualState(out PortableVisualState state))
             {
@@ -407,18 +450,9 @@ public sealed class WpfNativeMilSceneCompiler
                 state.HasEffect ||
                 (state.HasOpacity && state.Opacity != 1.0) ||
                 state.HasOpacityMask;
-            if (requiresVisualIsolationBounds)
+            if (requiresVisualIsolationBounds || brushSource)
             {
-                if (!TryGetVisualBounds(
-                        visual, out NativeMilRect visualBounds))
-                {
-                    throw new NotSupportedException(
-                        "Native MIL BitmapCache/effect/opacity/opacity-mask isolation requires exact typed Visual descendant bounds.");
-                }
-                VisualCacheBounds.Add(
-                    new WpfNativeMilVisualCacheBounds(
-                        visualHandle,
-                        visualBounds));
+                AddVisualBounds(visual, visualHandle);
             }
             if (state.HasClip)
             {
@@ -1485,17 +1519,23 @@ public sealed class WpfNativeMilSceneCompiler
             {
                 if (!tileSource.TryGetPortableTileBrush(out PortableTileBrush tile))
                     throw MissingContract(nameof(IPortableTileBrushSource));
-                if (tile.Kind is not (PortableTileBrushKind.Image or PortableTileBrushKind.Drawing))
-                    throw new NotSupportedException("Native MIL VisualBrush capture is not implemented.");
+                if (tile.Kind is not (PortableTileBrushKind.Image or PortableTileBrushKind.Drawing or PortableTileBrushKind.Visual))
+                    throw new NotSupportedException("Unknown portable tile brush source kind.");
                 uint sourceHandle = tile.Content is null ? 0U
+                    : tile.Kind == PortableTileBrushKind.Visual
+                        ? ResolveVisualBrushSource(tile.Content)
                     : tile.Kind == PortableTileBrushKind.Drawing
                         ? ResolveDrawing(tile.Content)
                         : ResolveImageSource(tile.Content);
                 uint transform = tile.HasTransform ? AddGeometryTransform(tile.Transform) : 0;
                 uint relative = tile.HasRelativeTransform ? AddGeometryTransform(tile.RelativeTransform) : 0;
                 uint tileHandle = NextHandle();
-                Batch.CreateResource(tileHandle, tile.Kind == PortableTileBrushKind.Drawing
-                    ? NativeMilResourceType.DrawingBrush : NativeMilResourceType.ImageBrush);
+                Batch.CreateResource(tileHandle, tile.Kind switch
+                {
+                    PortableTileBrushKind.Drawing => NativeMilResourceType.DrawingBrush,
+                    PortableTileBrushKind.Visual => NativeMilResourceType.VisualBrush,
+                    _ => NativeMilResourceType.ImageBrush
+                });
                 var descriptor = new NativeMilTileBrush(
                     new(tile.Viewport.X, tile.Viewport.Y, tile.Viewport.Width, tile.Viewport.Height),
                     new(tile.Viewbox.X, tile.Viewbox.Y, tile.Viewbox.Width, tile.Viewbox.Height),
@@ -1516,7 +1556,9 @@ public sealed class WpfNativeMilSceneCompiler
                     AlignmentY: (NativeMilAlignment)tile.AlignmentY,
                     TransformHandle: transform,
                     RelativeTransformHandle: relative);
-                if (tile.Kind == PortableTileBrushKind.Drawing)
+                if (tile.Kind == PortableTileBrushKind.Visual)
+                    Batch.SetVisualBrush(tileHandle, descriptor, sourceHandle);
+                else if (tile.Kind == PortableTileBrushKind.Drawing)
                     Batch.SetDrawingBrush(tileHandle, descriptor, sourceHandle);
                 else
                     Batch.SetImageBrush(tileHandle, descriptor, sourceHandle);
@@ -2397,6 +2439,8 @@ public sealed class WpfNativeMilSceneCompiler
 
         private uint ResolveDrawing(object resource)
         {
+            if (_activeVisuals.Count + _activeDrawings.Count >= 256)
+                throw new InvalidOperationException("The portable visual/drawing source graph exceeds the native depth limit.");
             if (_drawingHandles.TryGetValue(resource, out uint existing))
             {
                 return existing;
@@ -2540,7 +2584,8 @@ public sealed class WpfNativeMilSceneCompiler
 
         private static bool TryGetVisualBounds(
             object visual,
-            out NativeMilRect bounds)
+            out NativeMilRect bounds,
+            bool allowEmpty = false)
         {
             bounds = default;
             if (visual is not IPortableVisualBoundsSource source ||
@@ -2562,12 +2607,14 @@ public sealed class WpfNativeMilSceneCompiler
             {
                 return false;
             }
+            if (allowEmpty && candidate.IsEmpty) return true;
             if (candidate.IsEmpty ||
                 !double.IsFinite(candidate.X) ||
                 !double.IsFinite(candidate.Y) ||
                 !double.IsFinite(candidate.Width) ||
                 !double.IsFinite(candidate.Height) ||
-                candidate.Width <= 0 || candidate.Height <= 0)
+                (allowEmpty ? candidate.Width < 0 || candidate.Height < 0
+                    : candidate.Width <= 0 || candidate.Height <= 0))
             {
                 return false;
             }

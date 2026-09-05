@@ -7203,6 +7203,14 @@ Exact-head hosted CI remains required and is not replaced by these local passes.
 
 ## Next parity gates
 
+ProGPU checkpoint `cb5afd40` routes VisualBrush single-tile rectangle
+fills through native visual replay, with exact typed source bounds and shared
+visual/drawing cycle tracking. Producer identity reuse is separate from visual
+parenting, so brushes can reference an onscreen source without duplicating it.
+Brush-mode dynamic guidelines and cached pages are isolated from onscreen
+realization. Source/cycle/producer regressions are compiled, not executed; the
+ProGPU VisualBrush checkpoint records the outstanding final differential gates.
+
 ProGPU checkpoint `87747134` adds canonical DrawingBrush,
 DrawingImage-backed ImageBrush and existing synchronized D3DImage-backed
 ImageBrush to native rectangle fills. Source-built packet production remains

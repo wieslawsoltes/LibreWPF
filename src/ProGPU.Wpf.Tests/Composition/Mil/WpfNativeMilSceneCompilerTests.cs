@@ -51,6 +51,52 @@ public sealed class WpfNativeMilSceneCompilerTests
         { brush = tile; return true; }
     }
 
+    private static FakeTileBrush CreateVisualTile(object visual) => new(new PortableTileBrush(
+        PortableTileBrushKind.Visual, visual, 0.5,
+        new(0, 0, 1, 1), new(0, 0, 1, 1),
+        PortableBrushMappingMode.RelativeToBoundingBox, PortableBrushMappingMode.RelativeToBoundingBox,
+        PortableTileMode.None, PortableStretch.Fill, PortableAlignmentX.Center, PortableAlignmentY.Center,
+        false, PortableMatrix3x2.Identity, false, PortableMatrix3x2.Identity));
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void VisualBrushReferencesShareOneVisualAndBoundsRegardlessOfTreeOrder(bool sourceFirst)
+    {
+        var source = new FakeVisual(new FakeRenderData(CreateRectangleRecord(1, 0),
+            [new FakeBrush(new PortableColor(255, 255, 0, 0))]));
+        var first = new FakeVisual(new FakeRenderData(CreateRectangleRecord(1, 0), [CreateVisualTile(source)]));
+        var second = new FakeVisual(new FakeRenderData(CreateRectangleRecord(1, 0), [CreateVisualTile(source)]));
+        var root = new FakeVisual(null, null, sourceFirst ? [source, first, second] : [first, source, second]);
+        WpfNativeMilBatch batch = new WpfNativeMilSceneCompiler().BuildBatch(root, 64, 64);
+        WpfNativeMilVisualCacheBounds bounds = Assert.Single(batch.VisualCacheBounds!);
+        Assert.Equal(new NativeMilRect(1, 2, 30, 20), bounds.Bounds);
+        var sources = new List<uint>();
+        for (int offset = 0; offset < batch.Bytes.Length; offset += checked((int)ReadUInt32(batch.Bytes, offset)))
+            if (ReadUInt32(batch.Bytes, offset + 4) == 0x83U)
+                sources.Add(ReadUInt32(batch.Bytes, offset + 148));
+        Assert.Equal(new[] { bounds.Handle, bounds.Handle }, sources);
+        Assert.Empty(batch.BitmapSources!);
+    }
+
+    [Fact]
+    public void VisualBrushReferenceDoesNotPermitMultipleVisualParents()
+    {
+        var source = new FakeVisual(null);
+        var painter = new FakeVisual(new FakeRenderData(CreateRectangleRecord(1, 0), [CreateVisualTile(source)]));
+        var root = new FakeVisual(null, null, painter, source, source);
+        Assert.Throws<InvalidOperationException>(() => new WpfNativeMilSceneCompiler().BuildBatch(root, 64, 64));
+    }
+
+    [Fact]
+    public void VisualBrushSelfReferenceFailsClosed()
+    {
+        object?[] resources = new object?[1];
+        var source = new FakeVisual(new FakeRenderData(CreateRectangleRecord(1, 0), resources));
+        resources[0] = CreateVisualTile(source);
+        Assert.Throws<InvalidOperationException>(() => new WpfNativeMilSceneCompiler().BuildBatch(source, 64, 64));
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
