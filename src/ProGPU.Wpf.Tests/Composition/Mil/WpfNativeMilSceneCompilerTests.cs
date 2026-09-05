@@ -51,6 +51,32 @@ public sealed class WpfNativeMilSceneCompilerTests
         { brush = tile; return true; }
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void BuildBatchEmitsVectorTileSourcesWithoutBitmapConversion(bool imageWrapper)
+    {
+        var bounds = new PortableRect(10, 20, 20, 10);
+        var drawing = new FakeGeometryDrawing(new FakeBrush(new PortableColor(255, 255, 0, 0)),
+            null, new FakePrimitiveGeometry(PortablePrimitiveGeometry.Rectangle(
+                bounds, 0, 0, PortableMatrix3x2.Identity)), bounds);
+        var tile = new FakeTileBrush(new PortableTileBrush(
+            imageWrapper ? PortableTileBrushKind.Image : PortableTileBrushKind.Drawing,
+            imageWrapper ? new FakeDrawingImage(drawing) : drawing, 0.5,
+            new(0, 0, 1, 1), new(0, 0, 1, 1),
+            PortableBrushMappingMode.RelativeToBoundingBox, PortableBrushMappingMode.RelativeToBoundingBox,
+            PortableTileMode.None, PortableStretch.Fill, PortableAlignmentX.Center, PortableAlignmentY.Center,
+            false, PortableMatrix3x2.Identity, false, PortableMatrix3x2.Identity));
+        var visual = new FakeVisual(new FakeRenderData(CreateRectangleRecord(1, 0), [tile]));
+        WpfNativeMilBatch result = new WpfNativeMilSceneCompiler().BuildBatch(visual, 64, 64);
+        int offset = FindCommand(result.Bytes, imageWrapper ? 0x81 : 0x82);
+        Assert.Equal(0.5, ReadDouble(result.Bytes, offset + 12));
+        Assert.NotEqual(0U, ReadUInt32(result.Bytes, offset + 148));
+        Assert.Empty(result.BitmapSources!);
+        if (imageWrapper) Assert.Single(result.DrawingImageBounds!);
+        else Assert.Empty(result.DrawingImageBounds!);
+    }
+
     [Fact]
     public void BuildBatchTranslatesTypedBitmapCache()
     {

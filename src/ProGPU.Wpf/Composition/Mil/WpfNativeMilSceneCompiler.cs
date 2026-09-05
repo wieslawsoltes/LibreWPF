@@ -1485,16 +1485,18 @@ public sealed class WpfNativeMilSceneCompiler
             {
                 if (!tileSource.TryGetPortableTileBrush(out PortableTileBrush tile))
                     throw MissingContract(nameof(IPortableTileBrushSource));
-                if (tile.Kind != PortableTileBrushKind.Image)
-                    throw new NotSupportedException("Native MIL DrawingBrush and VisualBrush capture is not implemented.");
-                if (tile.Content is IPortableDrawingImageSource)
-                    throw new NotSupportedException("Native MIL ImageBrush DrawingImage capture is not implemented.");
-                uint image = ResolveImageSource(tile.Content);
+                if (tile.Kind is not (PortableTileBrushKind.Image or PortableTileBrushKind.Drawing))
+                    throw new NotSupportedException("Native MIL VisualBrush capture is not implemented.");
+                uint sourceHandle = tile.Content is null ? 0U
+                    : tile.Kind == PortableTileBrushKind.Drawing
+                        ? ResolveDrawing(tile.Content)
+                        : ResolveImageSource(tile.Content);
                 uint transform = tile.HasTransform ? AddGeometryTransform(tile.Transform) : 0;
                 uint relative = tile.HasRelativeTransform ? AddGeometryTransform(tile.RelativeTransform) : 0;
                 uint tileHandle = NextHandle();
-                Batch.CreateResource(tileHandle, NativeMilResourceType.ImageBrush);
-                Batch.SetImageBrush(tileHandle, new NativeMilTileBrush(
+                Batch.CreateResource(tileHandle, tile.Kind == PortableTileBrushKind.Drawing
+                    ? NativeMilResourceType.DrawingBrush : NativeMilResourceType.ImageBrush);
+                var descriptor = new NativeMilTileBrush(
                     new(tile.Viewport.X, tile.Viewport.Y, tile.Viewport.Width, tile.Viewport.Height),
                     new(tile.Viewbox.X, tile.Viewbox.Y, tile.Viewbox.Width, tile.Viewbox.Height),
                     Opacity: tile.Opacity,
@@ -1513,7 +1515,11 @@ public sealed class WpfNativeMilSceneCompiler
                     AlignmentX: (NativeMilAlignment)tile.AlignmentX,
                     AlignmentY: (NativeMilAlignment)tile.AlignmentY,
                     TransformHandle: transform,
-                    RelativeTransformHandle: relative), image);
+                    RelativeTransformHandle: relative);
+                if (tile.Kind == PortableTileBrushKind.Drawing)
+                    Batch.SetDrawingBrush(tileHandle, descriptor, sourceHandle);
+                else
+                    Batch.SetImageBrush(tileHandle, descriptor, sourceHandle);
                 _brushHandles.Add(resource, tileHandle);
                 return tileHandle;
             }

@@ -7203,6 +7203,16 @@ Exact-head hosted CI remains required and is not replaced by these local passes.
 
 ## Next parity gates
 
+ProGPU checkpoint `87747134` adds canonical DrawingBrush,
+DrawingImage-backed ImageBrush and existing synchronized D3DImage-backed
+ImageBrush to native rectangle fills. Source-built packet production remains
+typed and the managed portable renderer remains available. Native vector sources
+use isolated GPU composition so brush-level opacity and final clipping are
+applied once. New source/cycle and packet-emission regressions are compiled but
+not executed; runtime/image validation remains deferred. See ProGPU's
+"Vector and shared-image single-tile sources" section for provenance, remaining
+VisualBrush/repeated-tile work, and the retained tile-page design.
+
 Execution sequencing update (2026-09-05): the user requested implementation and
 compilation first, with exhaustive validation/verification after feature work.
 Keep the following full-goal gates intact, author regressions with new code, but
