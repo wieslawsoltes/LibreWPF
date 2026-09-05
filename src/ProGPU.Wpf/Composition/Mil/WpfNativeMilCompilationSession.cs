@@ -44,6 +44,7 @@ public sealed class WpfNativeMilCompilationSession : IDisposable
     private readonly NativeMilBackend _backend;
     private NativeMilChannel? _channel;
     private WpfNativeMilBatch? _lastBatch;
+    private NativeMilViewport3DSnapshot[] _viewportSnapshots = [];
     private bool _requiresRebuild;
     private int _disposeState;
 
@@ -238,6 +239,7 @@ public sealed class WpfNativeMilCompilationSession : IDisposable
         _channel?.Dispose();
         _channel = null;
         _lastBatch = null;
+        _viewportSnapshots = [];
     }
 
     private WpfNativeMilSessionUpdate ReplaceChannel(
@@ -245,10 +247,12 @@ public sealed class WpfNativeMilCompilationSession : IDisposable
     {
         var replacement = new NativeMilChannel(_backend);
         NativeMilBatchMetrics metrics;
+        NativeMilViewport3DSnapshot[] viewportSnapshots;
         try
         {
             metrics = WpfNativeMilSceneCompiler.ApplyBatch(
                 replacement, batch);
+            viewportSnapshots = CaptureViewportSnapshots(batch);
         }
         catch
         {
@@ -259,6 +263,7 @@ public sealed class WpfNativeMilCompilationSession : IDisposable
         NativeMilChannel? previous = _channel;
         _channel = replacement;
         _lastBatch = batch;
+        _viewportSnapshots = viewportSnapshots;
         _requiresRebuild = false;
         previous?.Dispose();
         return new WpfNativeMilSessionUpdate(
@@ -268,7 +273,7 @@ public sealed class WpfNativeMilCompilationSession : IDisposable
             CountSidebands(batch));
     }
 
-    private static uint ApplyChangedSidebands(
+    private uint ApplyChangedSidebands(
         NativeMilChannel channel,
         WpfNativeMilBatch previous,
         WpfNativeMilBatch current)
@@ -387,18 +392,39 @@ public sealed class WpfNativeMilCompilationSession : IDisposable
         appliedCount += ApplyChangedVisualCacheBounds(
             channel, previous, current);
 
-        // Viewport scenes contain several pointer-free struct arrays. Until
-        // they publish a canonical content revision/hash, rebind them on a
-        // dirty producer update rather than comparing padding bytes or array
-        // identities and risking a stale 3D scene.
-        foreach (WpfNativeMilViewport3DScene viewport in
-                 current.Viewport3DScenes ??
-                 Array.Empty<WpfNativeMilViewport3DScene>())
+        // Handle order is checked before reaching this path. Own the previous
+        // wire bytes: producer arrays may be reused and mutated between updates.
+        IReadOnlyList<WpfNativeMilViewport3DScene> viewports =
+            current.Viewport3DScenes ?? Array.Empty<WpfNativeMilViewport3DScene>();
+        for (int i = 0; i < viewports.Count; ++i)
         {
+            WpfNativeMilViewport3DScene viewport = viewports[i];
+            if (_viewportSnapshots[i].Matches(viewport.Scene))
+            {
+                continue;
+            }
             channel.SetViewport3DScene(viewport.Handle, viewport.Scene);
+            _viewportSnapshots[i] = NativeMilViewport3DSnapshot.Capture(viewport.Scene);
             ++appliedCount;
         }
         return appliedCount;
+    }
+
+    internal static NativeMilViewport3DSnapshot[] CaptureViewportSnapshots(
+        WpfNativeMilBatch batch)
+    {
+        int count = batch.Viewport3DScenes?.Count ?? 0;
+        if (count == 0)
+        {
+            return [];
+        }
+        var snapshots = new NativeMilViewport3DSnapshot[count];
+        for (int i = 0; i < count; ++i)
+        {
+            snapshots[i] = NativeMilViewport3DSnapshot.Capture(
+                batch.Viewport3DScenes![i].Scene);
+        }
+        return snapshots;
     }
 
     private static uint ApplyChangedDrawingImageBounds(

@@ -64,13 +64,19 @@ echo "Running source-built LibreWPF native MIL host smoke on ${platform}/${archi
 case "${platform}" in
   Darwin)
     DYLD_LIBRARY_PATH="${native_build_dir}:${native_runtime_dir}${DYLD_LIBRARY_PATH:+:${DYLD_LIBRARY_PATH}}" \
+      "${dotnet}" "${host_dll}" --native-mil-retention
+    DYLD_LIBRARY_PATH="${native_build_dir}:${native_runtime_dir}${DYLD_LIBRARY_PATH:+:${DYLD_LIBRARY_PATH}}" \
       "${dotnet}" "${host_dll}" --native-mil-host
     ;;
   Linux)
     LD_LIBRARY_PATH="${native_build_dir}:${native_runtime_dir}${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}" \
+      "${dotnet}" "${host_dll}" --native-mil-retention
+    LD_LIBRARY_PATH="${native_build_dir}:${native_runtime_dir}${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}" \
       "${dotnet}" "${host_dll}" --native-mil-host
     ;;
   *)
+    PATH="${native_build_dir}:${native_runtime_dir}${PATH:+:${PATH}}" \
+      "${dotnet}" "${host_dll}" --native-mil-retention
     PATH="${native_build_dir}:${native_runtime_dir}${PATH:+:${PATH}}" \
       "${dotnet}" "${host_dll}" --native-mil-host
     ;;

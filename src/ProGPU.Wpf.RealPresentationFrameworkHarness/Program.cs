@@ -30,6 +30,11 @@ public static class Program
     {
         try
         {
+            if (args.Contains("--native-mil-retention", StringComparer.Ordinal))
+            {
+                NativeMilViewportRetentionSmoke.Run();
+                return 0;
+            }
             string repoRoot = FindRepoRoot();
             string presentationFrameworkPath = FindRealAssembly(repoRoot, "PresentationFramework");
             string presentationCorePath = FindRealAssembly(repoRoot, "PresentationCore");

@@ -7101,6 +7101,32 @@ compiler evidence, scope, and the workaround's exit condition are recorded
 in the ProGPU specification. Full parity and all-PR green CI are not yet
 claimed.
 
+## Immutable retained Viewport3D sidebands, 2026-09-05
+
+`WpfNativeMilCompilationSession` now owns ProGPU immutable viewport snapshots
+after successful binding and skips unchanged ABI calls. It does not retain
+caller array identity as a content revision. Exact wire comparison includes
+camera, viewport, mesh, vertex, index, light, material, and gradient data; ProGPU
+tests prove byte coverage, mutation detection, and allocation-free matching.
+The native channel also preserves generation/cache on identical validated
+bindings from direct C++/Dawn callers.
+
+Initial or changed binding retains one O(B) managed payload copy per viewport;
+unchanged matching scans O(B) bytes through runtime intrinsics. Rebuild installs
+new baselines only with the successfully constructed replacement channel;
+failed updates still require a rebuild, and disposal clears ownership. Target
+resize can remain a mutable packet update without resending unchanged meshes.
+Producer-side scene flattening is still rebuilt and remains a separate gate.
+
+The actual-channel `--native-mil-retention` harness validates unchanged streams,
+in-place producer mutations, resize, parent-topology replacement, and disposal.
+It runs before the real-window harness in `eng/progpu-wpf-native-mil-host-smoke.sh`
+on macOS, Linux, and Windows, including the package SDK lane. Local Release
+qualification passes 1,473 LibreWPF tests, 3,926 ProGPU managed tests, native
+macOS 15/15, and the new comparison tests with hardware intrinsics disabled.
+See ProGPU's engine specification and PR for platform/profiling qualification;
+component ingress timings do not establish application FPS or full parity.
+
 ## Next parity gates
 
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested
@@ -7122,11 +7148,13 @@ and replacement-domain reconstruction, and the
    bounds, and broader
    arbitrary-geometry clip/mask/effect gates on the now-executable local-space
    cache primitive.
-4. Extend the retained compiler session with a canonical Viewport3D sideband
-   revision/hash, stable cross-frame object handles, damage production, and
-   producer-side incremental snapshot construction. The current deterministic
+4. Extend the retained compiler session with stable cross-frame object handles,
+   damage production, and producer-side incremental snapshot construction.
+   Viewport3D now uses ProGPU-owned immutable exact-byte snapshots to skip unchanged
+   sideband bindings, rather than requiring a collision-prone content hash.
+   The current deterministic
    snapshot differ retains the native channel, emits mutable packet deltas,
-   and avoids unchanged bitmap/font/bounds sideband ABI calls and payload
+   and avoids unchanged bitmap/font/bounds/Viewport3D sideband ABI calls and payload
    copies.
 5. Extend the now-live native host lane with popup/window-region/viewport and
    nonuniform presentation support, a provider-resolved Dawn surface owner,

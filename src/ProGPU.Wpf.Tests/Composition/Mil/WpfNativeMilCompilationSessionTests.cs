@@ -9,6 +9,30 @@ namespace ProGPU.Wpf.Tests.Composition.Mil;
 public sealed class WpfNativeMilCompilationSessionTests
 {
     [Fact]
+    public void ViewportSnapshotsOwnEachAppliedPayloadAcrossProducerMutations()
+    {
+        var first = new NativeMilViewport3DScene(default, new(0, 0, 100, 100),
+            new NativeSceneMesh3D[1], new NativeSceneMesh3DVertex[3], [0, 1, 2], []);
+        var second = first with { Indices = [2, 1, 0] };
+        var batch = new WpfNativeMilBatch([], 1, Viewport3DScenes:
+            [new(2, first), new(3, second)]);
+        NativeMilViewport3DSnapshot[] snapshots =
+            WpfNativeMilCompilationSession.CaptureViewportSnapshots(batch);
+        Assert.Equal(2, snapshots.Length);
+        Assert.True(snapshots[0].Matches(first));
+        Assert.True(snapshots[1].Matches(second));
+        first.Indices[0] = 2;
+        Assert.False(snapshots[0].Matches(first));
+        Assert.True(snapshots[1].Matches(second));
+        NativeMilViewport3DSnapshot[] replacement =
+            WpfNativeMilCompilationSession.CaptureViewportSnapshots(batch);
+        Assert.True(replacement[0].Matches(first));
+        Assert.False(snapshots[0].Matches(first));
+        Assert.Empty(WpfNativeMilCompilationSession.CaptureViewportSnapshots(
+            new WpfNativeMilBatch([], 1)));
+    }
+
+    [Fact]
     public void CreateDeltaSkipsIdenticalBatchesWithoutAllocatingCommands()
     {
         WpfNativeMilBatch batch = CreateVisualBatch(2, 3);
