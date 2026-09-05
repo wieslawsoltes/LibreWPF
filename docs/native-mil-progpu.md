@@ -7557,6 +7557,19 @@ forms; they have not been run. Final runtime/image/VM validation, verifiers,
 benchmarks, and CI qualification are still deferred as requested. Full goal
 completion is not claimed.
 
+### Implementation-first checkpoint: collapsed fixed-shape tile pens
+
+ProGPU native MIL now routes tiled pens on directly drawn collapsed rectangles,
+rounded rectangles, and ellipses through the existing native contour/centerline
+rules. Shared helpers preserve ordinary rectangle joins and collapsed ellipse dash
+ordering; no bridge workaround or new shader implementation was introduced.
+
+The WebGPU-enabled native library and MIL regression executable compile. Added
+432 cases for shape/axis collapse, brush sources, joins, and dash phases; execution
+is deferred with the final runtime/image/VM, verifier, benchmark, and CI gates.
+Collapsed fixed children in geometry groups and guideline-aware tile masks remain
+open, as does the full MIL/DirectX/Direct2D/Win2D goal.
+
 ## Developer commands
 
 ```sh
