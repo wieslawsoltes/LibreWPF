@@ -7570,6 +7570,20 @@ is deferred with the final runtime/image/VM, verifier, benchmark, and CI gates.
 Collapsed fixed children in geometry groups and guideline-aware tile masks remain
 open, as does the full MIL/DirectX/Direct2D/Win2D goal.
 
+### Implementation-first checkpoint: collapsed fixed children in tile-pen groups
+
+ProGPU native MIL now collects collapsed rectangle/ellipse children under nested
+geometry-group transforms for tiled pens. Primitive-only groups retain their
+geometry mask; mixed filled/stroked coverage uses one existing GPU picture mask
+and one brush paint. The picture executor's child-engine/intermediate costs need
+final performance qualification; no fastest-path claim is made.
+
+Native-library and MIL-test builds pass. Added 720 regression cases without running
+them; runtime/image/VM tests, verifiers, benchmarks, and CI qualification remain
+deferred. Non-tiled collapsed fixed children, guideline-aware masks, and the broader
+MIL/DirectX/Direct2D/Win2D work remain incomplete. Implementation details and
+complexity are recorded in ProGPU's compositor document.
+
 ## Developer commands
 
 ```sh
