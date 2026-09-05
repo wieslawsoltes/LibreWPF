@@ -7300,6 +7300,21 @@ Arbitrary path/group/boolean tile-brush fills, strokes/text/masks, repeated/flip
 tile capture and the broader completion gates above remain outstanding. Build
 success is not a claim of DirectX, MIL or visual parity.
 
+### Follow-up: native path/group/boolean brush fills
+
+ProGPU now also reuses its native path, geometry-group and combined-geometry fill
+programs for single-tile brush sources. Fill rules and boolean holes stay in exact
+GPU masks; the shared helper rebases leaf references when adding inherited clips.
+Empty boolean-program offsets were corrected for subsequent simple clips.
+
+The Release native library/test executable compile. The expanded authored matrix
+contains 40 source/shape/transform cases, including curved paths, even-odd groups,
+difference geometry and local geometry transforms. No cases have been executed.
+Final validation must include nested winding/boolean combinations, inherited
+boolean clips, open/nonfilled paths, guideline behavior and sibling restoration.
+This supersedes the preceding checkpoint's path/group/boolean-fill implementation
+gap, but not its remaining stroke/text/mask, repetition or qualification gaps.
+
 ## Developer commands
 
 ```sh
