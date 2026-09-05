@@ -7423,6 +7423,29 @@ minification, mirrored/skewed footprints, crops, alpha, masks and color matrices
 Runtime, pixel, VM, performance and CI qualification remain deferred while code
 and compilation proceed. The broader MIL/DirectX/Direct2D/Win2D goal remains open.
 
+### Implementation-first checkpoint: occupied-extent layer restoration
+
+ProGPU explicit sampling now restores ordinary semantic layers/local caches with
+occupied-page nearest, linear or Fant filtering. The restore quad retains its
+transformed/snapped positions while shader taps clamp to captured content, not
+pooled padding. Paired native/managed full-page encoders reuse the canonical tile
+shader and retain existing resource ownership; no CPU pixel work, extra capture
+pass or readback was added. Managed portable retained-capture adoption remains
+separate work; native semantic submission uses the updated executor.
+
+Paired encoder regression cases are authored for skewed positions, all filters,
+opacity, mismatched capture/allocation extents and transactional failure. The
+GPU-enabled C++ library/native MIL test executable and managed test project build
+successfully (managed: zero warnings/errors); authored cases were not run. Runtime
+and pixel validation remain deferred; final gates must include poisoned pool
+padding, cache reuse/eviction and masked/effected/fixed-blend restores across
+macOS/Linux/Windows.
+
+Nonuniform DPI is not closed by this checkpoint. MIL requests carry X/Y DPI, but
+native frame submission still exposes a scalar raster DPI. The repeated-capture
+guard remains until the frame/host mapping and guideline contracts are implemented
+together. The full MIL/DirectX/Direct2D/Win2D goal remains open.
+
 ## Developer commands
 
 ```sh
