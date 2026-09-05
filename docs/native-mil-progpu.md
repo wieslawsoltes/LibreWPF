@@ -7542,6 +7542,21 @@ See ProGPU `docs/native-mil-compositor.md` for provenance and complexity details
 Degenerate caps, guidelines, remaining tile consumers/DPI/filter work, and the
 broader DirectX/Direct2D/Win2D scope remain incomplete.
 
+### Implementation-first checkpoint: degenerate tile-pen caps
+
+ProGPU native MIL now handles tiled pens on zero-length line commands/resources
+and collapsed open/closed paths by collecting the existing ordinary-stroke cap
+primitives. Asymmetric caps and dash-gap suppression share their implementation
+with non-tiled strokes. No bridge change, reflection, readback, or shader fork was
+added. Degenerate fixed rectangle/ellipse pens and guideline-aware masks remain
+open.
+
+Release native-library and MIL-test builds pass. Added 1,024 regression cases for
+four brush sources, start/end cap combinations, dash phases, and collapsed shape
+forms; they have not been run. Final runtime/image/VM validation, verifiers,
+benchmarks, and CI qualification are still deferred as requested. Full goal
+completion is not claimed.
+
 ## Developer commands
 
 ```sh
