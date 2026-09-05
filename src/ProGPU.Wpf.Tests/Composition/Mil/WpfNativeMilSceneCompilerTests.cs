@@ -668,14 +668,14 @@ public sealed class WpfNativeMilSceneCompilerTests
     }
 
     [Fact]
-    public void BuildBatchRejectsInexactEffectVisualClips()
+    public void BuildBatchPreservesExactEffectGeometryClips()
     {
         PortablePrimitiveGeometry[] clips =
         [
             PortablePrimitiveGeometry.Rectangle(
                 new PortableRect(2, 3, 20, 12),
                 2,
-                0,
+                2,
                 PortableMatrix3x2.Identity),
             PortablePrimitiveGeometry.Rectangle(
                 new PortableRect(2, 3, 20, 12),
@@ -701,11 +701,13 @@ public sealed class WpfNativeMilSceneCompilerTests
                     Clip = new FakePrimitiveGeometry(clip)
                 });
 
-            NotSupportedException exception =
-                Assert.Throws<NotSupportedException>(() =>
-                    new WpfNativeMilSceneCompiler().BuildBatch(
-                        visual, 64, 64));
-            Assert.Contains("exact axis-aligned", exception.Message);
+            WpfNativeMilBatch result =
+                new WpfNativeMilSceneCompiler().BuildBatch(visual, 64, 64);
+            int clipOffset = FindCommand(result.Bytes, 0x1f);
+            Assert.Equal(1U, ReadUInt32(result.Bytes, clipOffset + 8));
+            Assert.NotEqual(0U, ReadUInt32(result.Bytes, clipOffset + 12));
+            Assert.Contains(clip.Kind == PortablePrimitiveGeometryKind.Ellipse
+                ? 0x7a : 0x79, ReadCommands(result.Bytes));
         }
     }
 

@@ -6949,6 +6949,40 @@ rotated accelerated scroll clips remain fail-closed gaps, as do the separate
 tile-brush and programmable shader-effect packet families. These are retained
 in the full goal, not removed from its completion criteria.
 
+## Geometry clips at effect output (2026-09-05)
+
+ProGPU `86f8bfb2` now applies exact visual geometry masks to completed effect
+output rather than effect source draws. The existing GPU layer-mask contract
+handles Gaussian/box blur, drop shadow, zero-radius clip-only isolation, and a
+BitmapCache source inside the effect. Nested content clips remain inside the
+effect and use an independent scratch frame, so they neither inherit the
+final output mask nor overwrite the ancestor prefix needed by a sibling.
+
+LibreWPF removes its obsolete effect-only rectangle restriction and routes
+all effect clips through the normal typed geometry resolver. The rebuilt
+scene-compiler tests verify rounded, affine, and elliptical clip packets;
+missing typed geometry still fails closed. Native tests inspect mask ownership
+and GPU pixels, including exact zero-radius equivalence, blur/shadow spread
+past an inner content clip, and rejection of output outside final clips.
+The effect fixtures use four submissions, sixteen commands normally and
+twenty-four with a cached source. No public ABI, shader fork, reflection, or
+CPU pixel fallback was introduced.
+
+macOS native 15/15 and native MIL ASan/UBSan plus x64/Rosetta checks pass.
+The full rebuilt LibreWPF suite passes 1,467/1,467 after repairing stale
+source-contract assertions and event-driven registration count expectations;
+these fixes retain the typed/performance invariants and do not skip tests.
+Windows and exact-head hosted CI remain separate qualification records in
+the PR. A separate ProGPU full-suite run observed a transient PCM allocation
+assertion failure; the focused method and three 39-test media-class reruns
+pass without changing PCM code or relaxing its allocation budget. This remains
+an investigation item, not a claimed fix. The subsequent complete ProGPU
+managed rerun passes 3,922/3,922; its TRX is retained with the investigation.
+
+Direct local-cache clip/opacity-mask/guideline composition without an outer
+effect and Viewport3D masks remain unfinished. The broader protocol, DirectX,
+Direct2D, Win2D, and final cross-platform qualification goal is unchanged.
+
 ## Next parity gates
 
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested
