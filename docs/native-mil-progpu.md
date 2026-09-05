@@ -7467,6 +7467,28 @@ with tiled glyphs/opacity masks, per-axis target DPI, filtering and the broader
 MIL/DirectX/Direct2D/Win2D implementation. Final tests must explicitly compare
 caps, joins, dashes, bounds, alpha and nested clipping; compilation is not parity.
 
+### Implementation-first checkpoint: multi-contour tile path pens
+
+ProGPU now consumes tile-brush PathGeometry and LineGeometry pens. Path contours
+share one GPU stroke mask and one tile paint, preserving contour closure, smooth
+joins, dash phase and dash-cap boundaries at unstroked segments. Existing native
+stroke algorithms and the typed LibreWPF producer are reused without a bridge or
+ABI workaround. Geometry groups/combined geometry and degenerate cap shapes are
+still open.
+
+Tile pens now reject active guidelines explicitly: the GPU geometry-mask contract
+does not yet carry the required snapping resource. The brush fixture also now
+uses the stateful MIL request API needed by repeated pages and visual sources;
+the previous legacy-fixture matrices were compiled but never executed.
+
+Authored coverage adds 64 path/source/mode/dash combinations, 40 LineGeometry
+cases and a transactional guideline-rejection case. The GPU-enabled C++ library
+and native MIL test executable compile successfully; cases have not run.
+Tests and pixel/VM/performance/
+CI qualification remain deferred. Final gates must include overlapping contours,
+stroke-break caps, smooth joins, dashes, transforms, opacity and native WPF parity.
+The full goal remains in progress.
+
 ## Developer commands
 
 ```sh
