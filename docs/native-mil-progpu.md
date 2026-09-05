@@ -7505,6 +7505,25 @@ run; runtime/pixel/VM/performance/CI qualification remains deferred.
 CombinedGeometry, degenerate children, guideline-aware masks and the broader
 MIL/DirectX/Direct2D/Win2D goal remain unfinished.
 
+### Implementation-first checkpoint: combined-geometry stroke boundaries
+
+ProGPU native MIL now obtains CombinedGeometry pen contours from its portable
+Direct2D boolean/outline implementation, preserving union/intersection/XOR/
+difference boundaries rather than drawing hidden operand edges. Solid/gradient
+and tile pens reuse existing native stroke paths, with fill before stroke.
+Typed native segment/outline adapters and a private link to the portable Direct2D
+core avoid Windows COM activation, reflection or managed bridge changes.
+
+Tolerance follows a conservative quarter-physical-pixel target through nested
+transforms; exact topology, curve-join behavior and WPF parity remain unqualified.
+Authored tests cover four rectangle-boundary operations and 64 MIL operation/
+source/pen/dash combinations. Direct2D core and GPU-enabled native/MIL test builds
+are the current evidence; tests and runtime/pixel/VM/performance/CI qualification
+remain deferred. No speed or fidelity claim is made.
+
+CombinedGeometry children in stroked groups, degenerate caps, guidelines, tiled
+text/masks and the broader full goal remain open.
+
 ## Developer commands
 
 ```sh
