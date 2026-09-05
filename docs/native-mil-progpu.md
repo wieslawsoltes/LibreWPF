@@ -7376,6 +7376,32 @@ WPF pixel comparisons, padding/seams, cache reuse and invalidation, D3DImage fen
 forced-mode rejection, high-quality/nonuniform support, stroke/text/mask brushes
 and adoption by the managed retained recorder. The full goal remains open.
 
+### Implementation-first checkpoint: repeated-brush Fant filtering
+
+ProGPU's native MIL repeated ImageBrush/DrawingBrush/VisualBrush capture now accepts
+Fant, using the shared bounded 4-by-4 GPU footprint with explicit occupied-page
+bilinear loads (at most 64 loads per fragment). Each footprint sample applies its
+own repeat/mirror addressing before texel access; the shader does not sample pooled
+padding. Native and managed tile encoders and scene-layer contracts support the
+same filter, without changing ABI layout. Ordinary full-image Fant still uses its
+existing hardware sampler; explicit full-image Fant policy remains separate work.
+
+This supersedes the earlier repeated-capture Fant rejection, not the remaining
+cubic/mipmap/anisotropy or nonuniform-DPI limitations. The portable managed replay
+remains alongside native MIL; migrating its historical tile loop to retained
+capture remains open. Broader MIL, DirectX, Direct2D COM and Win2D completion is
+not implied by this checkpoint.
+
+Implementation-first evidence: GPU-enabled native library and native MIL test
+executable compile; managed test-project build passes with zero warnings/errors.
+The authored native source/repeat/filter matrix has 48 cases and the tile encoder
+has 27 filter/address combinations, with paired managed cases. **No cases were
+executed.** Runtime/GPU shader validation, cross-platform/Windows VM images,
+sanitizers, measurements and PR CI qualification remain deferred to the final
+validation phase at the user's request. Final gates must include mirrored/skewed
+seams, threshold/large-footprint minification, poisoned pool padding, alpha/opacity
+and native WPF comparison; builds alone establish neither fidelity nor speed.
+
 ## Developer commands
 
 ```sh
