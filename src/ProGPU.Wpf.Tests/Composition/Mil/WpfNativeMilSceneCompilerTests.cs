@@ -2373,6 +2373,109 @@ public sealed class WpfNativeMilSceneCompilerTests
         Assert.Equal(4U, ReadUInt32(result.Bytes, nestedOffset + 16));
     }
 
+    [Theory]
+    [InlineData(0, 3U)]
+    [InlineData(1, 1U)]
+    [InlineData(2, 0U)]
+    [InlineData(3, 2U)]
+    public void BuildBatchSerializesCombinedGeometryDagWithoutFlattening(int operation, uint nativeOperation)
+    {
+        var leaf = CreateCombinedGeometryOperand();
+        var nested = new PortableGeometryPath
+        {
+            Kind = PortableGeometryPathKind.Combined,
+            CombineOperation = 2,
+            PathA = leaf,
+            PathB = leaf
+        };
+        var combined = new FakeGeometry(new PortableGeometryPath
+        {
+            Kind = PortableGeometryPathKind.Combined,
+            CombineOperation = operation,
+            PathA = nested,
+            PathB = leaf,
+            Transform = new PortableMatrix3x2(2, 0.25, -0.5, 3, 11, 13)
+        });
+        var brush = new FakeBrush(new PortableColor(255, 32, 96, 192));
+        var visual = new FakeVisual(new FakeRenderData(CreateDrawGeometryRecord(1, 0, 2),
+            [brush, combined]), new PortableVisualState { HasClip = true, Clip = combined });
+        WpfNativeMilBatch batch = new WpfNativeMilSceneCompiler().BuildBatch(visual, 64, 64);
+        Assert.Single(ReadCommands(batch.Bytes), command => command == 0x7d);
+        var offsets = new List<int>();
+        for (int offset = 0; offset < batch.Bytes.Length; offset += checked((int)ReadUInt32(batch.Bytes, offset)))
+            if (ReadUInt32(batch.Bytes, offset + 4) == 0x7cU) offsets.Add(offset);
+        Assert.Equal(2, offsets.Count);
+        uint leafHandle = ReadUInt32(batch.Bytes, FindCommand(batch.Bytes, 0x7d) + 8);
+        Assert.Equal(leafHandle, ReadUInt32(batch.Bytes, offsets[0] + 20));
+        Assert.Equal(leafHandle, ReadUInt32(batch.Bytes, offsets[0] + 24));
+        Assert.Equal(0U, ReadUInt32(batch.Bytes, offsets[0] + 16));
+        Assert.Equal(ReadUInt32(batch.Bytes, offsets[0] + 8), ReadUInt32(batch.Bytes, offsets[1] + 20));
+        Assert.Equal(leafHandle, ReadUInt32(batch.Bytes, offsets[1] + 24));
+        Assert.Equal(nativeOperation, ReadUInt32(batch.Bytes, offsets[1] + 16));
+        Assert.NotEqual(0U, ReadUInt32(batch.Bytes, offsets[1] + 12));
+        Assert.Equal(ReadUInt32(batch.Bytes, offsets[1] + 8),
+            ReadUInt32(batch.Bytes, FindCommand(batch.Bytes, 0x1f) + 12));
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    public void BuildBatchPreservesEmptyCombinedGeometryOperands(int operation)
+    {
+        var path = new PortableGeometryPath
+        {
+            Kind = PortableGeometryPathKind.Combined,
+            CombineOperation = operation,
+            PathA = new PortableGeometryPath(),
+            PathB = null
+        };
+        WpfNativeMilBatch batch = BuildGeometryBatch(path);
+        int combined = FindCommand(batch.Bytes, 0x7c);
+        Assert.NotEqual(0U, ReadUInt32(batch.Bytes, combined + 20));
+        Assert.Equal(0U, ReadUInt32(batch.Bytes, combined + 24));
+        Assert.Single(ReadCommands(batch.Bytes), command => command == 0x7d);
+    }
+
+    [Fact]
+    public void BuildBatchRejectsCyclicDeepAndUnknownCombinedGeometry()
+    {
+        var cyclic = new PortableGeometryPath { Kind = PortableGeometryPathKind.Combined };
+        cyclic.PathA = cyclic;
+        Assert.Contains("cycle", Assert.Throws<InvalidOperationException>(() => BuildGeometryBatch(cyclic)).Message);
+        var deep = CreateCombinedGeometryOperand();
+        for (int index = 0; index < 256; index++)
+            deep = new PortableGeometryPath { Kind = PortableGeometryPathKind.Combined, PathA = deep };
+        Assert.Contains("depth limit", Assert.Throws<InvalidOperationException>(() => BuildGeometryBatch(deep)).Message);
+        Assert.Throws<NotSupportedException>(() => BuildGeometryBatch(new PortableGeometryPath
+            { Kind = PortableGeometryPathKind.Combined, CombineOperation = 4 }));
+        Assert.Throws<NotSupportedException>(() => BuildGeometryBatch(new PortableGeometryPath
+            { Kind = (PortableGeometryPathKind)2 }));
+    }
+
+    private static WpfNativeMilBatch BuildGeometryBatch(PortableGeometryPath path) =>
+        new WpfNativeMilSceneCompiler().BuildBatch(new FakeVisual(new FakeRenderData(
+            CreateDrawGeometryRecord(1, 0, 2),
+            [new FakeBrush(new PortableColor(255, 32, 96, 192)), new FakeGeometry(path)])), 64, 64);
+
+    private static PortableGeometryPath CreateCombinedGeometryOperand() => new()
+    {
+        Figures =
+        [
+            new PortablePathFigure
+            {
+                StartPoint = new PortablePoint(1, 2), IsClosed = true,
+                Segments =
+                [
+                    PortablePathSegment.Line(new PortablePoint(9, 2), false, true),
+                    PortablePathSegment.Line(new PortablePoint(9, 8), false, true),
+                    PortablePathSegment.Line(new PortablePoint(1, 8), false, true)
+                ]
+            }
+        ]
+    };
+
     [Fact]
     public void BuildBatchTranslatesTypedPathArcRecord()
     {

@@ -295,6 +295,8 @@ public sealed class WpfNativeMilSceneCompiler
         private readonly HashSet<object> _activeDrawings =
             new(ReferenceEqualityComparer.Instance);
         private readonly HashSet<object> _activeVisuals = new(ReferenceEqualityComparer.Instance);
+        private readonly HashSet<PortableGeometryPath> _activeGeometryPaths =
+            new(ReferenceEqualityComparer.Instance);
         private readonly HashSet<object> _parentedVisuals = new(ReferenceEqualityComparer.Instance);
         private readonly HashSet<uint> _visualBoundsHandles = [];
         private uint _nextHandle = 1;
@@ -1792,29 +1794,63 @@ public sealed class WpfNativeMilSceneCompiler
                 throw MissingContract(
                     nameof(IPortablePrimitiveGeometrySource));
             }
-            if (path.Kind != PortableGeometryPathKind.Path)
-            {
-                throw new NotSupportedException(
-                    "Combined portable geometry is not implemented by the native MIL slice.");
-            }
-            if (!IsSingleStrokedLine(path))
-            {
-                return AddPathGeometry(resource, path);
-            }
-            uint transformHandle = AddGeometryTransform(path.Transform);
-            uint handle = NextHandle();
+            uint handle = ResolvePortableGeometryPath(path);
             _geometryHandles.Add(resource, handle);
-            Batch.CreateResource(handle, NativeMilResourceType.LineGeometry);
-            PortablePoint start = path.Figures[0].StartPoint;
-            PortablePoint end = path.Figures[0].Segments[0].Point1;
-            Batch.SetLineGeometry(
-                handle,
-                start.X,
-                start.Y,
-                end.X,
-                end.Y,
-                transformHandle);
             return handle;
+        }
+
+        private uint ResolvePortableGeometryPath(PortableGeometryPath path)
+        {
+            // Algorithm: serialize a typed geometry DAG in postorder, memoizing
+            // completed nodes and rejecting active-node cycles before native emission.
+            // Time: O(V + E + path segments); Space: O(V) handles and O(depth) active nodes.
+            if (_activeGeometryPaths.Contains(path))
+                throw new InvalidOperationException("The portable geometry graph contains a cycle.");
+            if (_geometryHandles.TryGetValue(path, out uint existing))
+                return existing;
+            if (_activeGeometryPaths.Count + _activeVisuals.Count + _activeDrawings.Count >= 256)
+                throw new InvalidOperationException("The portable geometry source graph exceeds the native depth limit.");
+            _activeGeometryPaths.Add(path);
+            try
+            {
+                if (path.Kind == PortableGeometryPathKind.Combined)
+                {
+                    // Portable operations use the shared vector convention, not
+                    // the WPF/MIL enum ordinals: difference, intersect, union, xor.
+                    NativeMilGeometryCombineMode mode = path.CombineOperation switch
+                    {
+                        0 => NativeMilGeometryCombineMode.Exclude,
+                        1 => NativeMilGeometryCombineMode.Intersect,
+                        2 => NativeMilGeometryCombineMode.Union,
+                        3 => NativeMilGeometryCombineMode.Xor,
+                        _ => throw new NotSupportedException("Unknown portable geometry combine operation.")
+                    };
+                    uint first = path.PathA is null ? 0 : ResolvePortableGeometryPath(path.PathA);
+                    uint second = path.PathB is null ? 0 : ResolvePortableGeometryPath(path.PathB);
+                    uint transform = AddGeometryTransform(path.Transform);
+                    uint combined = NextHandle();
+                    Batch.CreateResource(combined, NativeMilResourceType.CombinedGeometry);
+                    Batch.SetCombinedGeometry(combined, mode, first, second, transform);
+                    _geometryHandles.Add(path, combined);
+                    return combined;
+                }
+                if (path.Kind != PortableGeometryPathKind.Path)
+                    throw new NotSupportedException("Unknown portable geometry path kind.");
+                if (!IsSingleStrokedLine(path))
+                    return AddPathGeometry(path, path);
+                uint transformHandle = AddGeometryTransform(path.Transform);
+                uint handle = NextHandle();
+                Batch.CreateResource(handle, NativeMilResourceType.LineGeometry);
+                PortablePoint start = path.Figures[0].StartPoint;
+                PortablePoint end = path.Figures[0].Segments[0].Point1;
+                Batch.SetLineGeometry(handle, start.X, start.Y, end.X, end.Y, transformHandle);
+                _geometryHandles.Add(path, handle);
+                return handle;
+            }
+            finally
+            {
+                _activeGeometryPaths.Remove(path);
+            }
         }
 
         private uint ResolveDrawing(
@@ -2642,9 +2678,11 @@ public sealed class WpfNativeMilSceneCompiler
             object resource,
             PortableGeometryPath path)
         {
-            if (!WpfPortableGeometryBoundsReader.TryGetLocalGeometryBounds(
+            WpfReplayRect bounds = default;
+            if (path.Figures.Length != 0 &&
+                !WpfPortableGeometryBoundsReader.TryGetLocalGeometryBounds(
                     path,
-                    out WpfReplayRect bounds))
+                    out bounds))
             {
                 throw new NotSupportedException(
                     "Portable path geometry has no exact local bounds for native MIL replay.");

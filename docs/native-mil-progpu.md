@@ -7750,6 +7750,32 @@ The Release build of `ProGPU.Wpf.Tests` compiles the producer and authored cases
 Compilation is tracked separately from final image, Windows/VM, runtime, SIMD,
 performance, and CI qualification; this checkpoint does not claim mask parity.
 
+### Typed combined-geometry producer adoption
+
+The native producer now serializes `PortableGeometryPathKind.Combined` as actual
+MIL CombinedGeometry resources, retaining nested operands, shared subpaths, and
+each node's affine transform. Source-built WPF's portable operation convention
+is explicitly translated: difference/intersect/union/xor (`0/1/2/3`) becomes MIL
+exclude/intersect/union/xor (`3/1/0/2`). This is not an ordinal enum cast.
+
+The serializer walks the DTO graph in postorder and memoizes completed resources.
+Active-node cycles and combined visual/drawing/geometry depth beyond the native
+limit fail closed. Null operands use MIL's null geometry handle; the empty path
+DTO emitted for a source-built null child now produces an empty native PathGeometry
+with zero bounds. Unknown kinds and combine operations are rejected. Existing
+primitive and single-line lowering is preserved, and no combined geometry is
+flattened or converted to a bounding rectangle in the WPF bridge.
+
+Applicability: this closes a LibreWPF native-producer restriction; the managed
+portable path remains available unchanged. Boolean fill, exact clipping, and
+combined-boundary stroking stay in the existing ProGPU C++ implementation. No new
+ProGPU ABI, shader, or host-side Boolean renderer is needed for this adoption.
+Authored, unexecuted producer cases cover all four mappings, nested shared graphs,
+clip/fill resource reuse, transforms, empty operands, cycles, depth limits, and
+unknown enum values. Runtime and visual parity remain deferred to final validation.
+The Release producer/test-project compilation completed with zero errors; the
+build also reported existing compatibility-project and display-metrics warnings.
+
 ## Developer commands
 
 ```sh
