@@ -7712,6 +7712,18 @@ none were executed. Image parity, fractional-scale edge behavior, per-axis DPI,
 broader per-point rendering, and performance qualification remain open. Final
 runtime/VM, verifier, benchmark, and CI gates remain deferred.
 
+### Implementation-first checkpoint: physical cache-origin snapping
+
+Native MIL BitmapCache pixel snapping now uses the retained bitmap origin and
+uniform physical target DPI, applying one logical displacement to both cache and
+opacity mask. This follows the existing managed compositor calculation; it does
+not rescale cached content or change its content revision.
+
+Added 320 unexecuted paired placement cases covering DPI, negative offsets,
+transforms, tile-mask sources, and effects. Native library and MIL tests compile.
+Windows/image parity and final runtime/VM, verifier, benchmark, and CI gates remain
+deferred; per-axis frame support and the complete broader goal remain open.
+
 ## Developer commands
 
 ```sh
