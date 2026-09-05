@@ -69,6 +69,7 @@ public sealed class WpfPortableWindowActivationTests
         using var fileDialogRegistration = PortableWpfServiceRegistry.RegisterFileDialogService(fileDialogService);
         var launcherRegisterCountBefore = launcherService.RegisterCount;
         var messageBoxRegisterCountBefore = messageBoxService.RegisterCount;
+        var messageBoxFallbackCountBefore = messageBoxService.FallbackRegisterCount;
         var fileDialogRegisterCountBefore = fileDialogService.RegisterCount;
 
         var launcherRegistered = WpfPortableWindowActivation.TryRegisterPresentationFrameworkLauncherService();
@@ -80,7 +81,7 @@ public sealed class WpfPortableWindowActivationTests
         Assert.True(fileDialogRegistered);
         Assert.Equal(launcherRegisterCountBefore + 1, launcherService.RegisterCount);
         Assert.Equal(messageBoxRegisterCountBefore + 1, messageBoxService.RegisterCount);
-        Assert.Equal(1, messageBoxService.FallbackRegisterCount);
+        Assert.Equal(messageBoxFallbackCountBefore + 1, messageBoxService.FallbackRegisterCount);
         Assert.Equal(fileDialogRegisterCountBefore + 1, fileDialogService.RegisterCount);
         Assert.NotNull(launcherService.Launch);
         Assert.NotNull(messageBoxService.Show);
@@ -93,12 +94,13 @@ public sealed class WpfPortableWindowActivationTests
         var service = new TestMessageBoxServiceRegistrar(PortableWpfServiceKey.WinForms);
         using var registration = PortableWpfServiceRegistry.RegisterMessageBoxService(service);
         var registerCountBefore = service.RegisterCount;
+        var fallbackCountBefore = service.FallbackRegisterCount;
 
         var registered = WpfPortableWindowActivation.TryRegisterWinFormsCompatMessageBoxService();
 
         Assert.True(registered);
         Assert.Equal(registerCountBefore + 1, service.RegisterCount);
-        Assert.Equal(1, service.FallbackRegisterCount);
+        Assert.Equal(fallbackCountBefore + 1, service.FallbackRegisterCount);
         Assert.NotNull(service.Show);
     }
 
