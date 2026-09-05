@@ -7627,6 +7627,20 @@ restore pixel qualification, other guideline/consumer work, and mixed-mask costs
 The final runtime/image/VM, verifier, benchmark, and CI gates remain deferred; the
 full MIL/DirectX/Direct2D/Win2D goal is still active.
 
+### Implementation-first checkpoint: tiled glyph-run foregrounds
+
+ProGPU native MIL now accepts tiled foregrounds for `DrawGlyphRun` and
+`GlyphRunDrawing`. One white retained glyph-run scene supplies GPU alpha coverage,
+then the existing tile path paints the material once. Font decoding, placement,
+and style simulations reuse ordinary native text code; solid text keeps its
+existing direct path. Typed run bounds and font sideband are required.
+
+Native library and MIL-test builds pass. Added 320 unexecuted combinations plus a
+missing-font failure case. The picture-mask route's child-engine/intermediate and
+changed-scene reuse costs still require performance qualification. Gradient glyph
+foregrounds, per-point guidelines, remaining consumers, and broader goal work stay
+open. Final runtime/image/VM, verifier, benchmark, and CI gates remain deferred.
+
 ## Developer commands
 
 ```sh
