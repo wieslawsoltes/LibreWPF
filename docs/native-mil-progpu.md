@@ -7584,6 +7584,20 @@ deferred. Non-tiled collapsed fixed children, guideline-aware masks, and the bro
 MIL/DirectX/Direct2D/Win2D work remain incomplete. Implementation details and
 complexity are recorded in ProGPU's compositor document.
 
+### Implementation-first checkpoint: non-tiled collapsed group strokes
+
+ProGPU native MIL now supports ordinary pens on collapsed rectangle/ellipse group
+children. Existing direct-shape routines accept the group's resolved material,
+preserving one relative-gradient mapping across children instead of resolving a
+new brush for each collapsed shape. No bridge, shader, or public ABI change was
+needed.
+
+The native library and MIL-test executable compile. Added 144 unexecuted cases for
+solid/gradient pens, nesting, collapse axes, joins, and dash phases. Final runtime,
+image, VM, verifier, benchmark, and CI gates remain deferred. Guideline-aware tile
+masks, mixed-mask performance qualification, and the full MIL/DirectX/Direct2D/Win2D
+scope remain open.
+
 ## Developer commands
 
 ```sh
