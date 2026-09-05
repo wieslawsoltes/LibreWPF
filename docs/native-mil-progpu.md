@@ -7402,6 +7402,27 @@ validation phase at the user's request. Final gates must include mirrored/skewed
 seams, threshold/large-footprint minification, poisoned pool padding, alpha/opacity
 and native WPF comparison; builds alone establish neither fidelity nor speed.
 
+### Implementation-first checkpoint: explicit full-image Fant policy
+
+ProGPU now extends explicit shader sampling to full-image Fant, including direct
+images, retained image commands and cached-layer restoration. This closes the
+full-image policy gap from the previous checkpoint. The managed and native paths
+preserve the existing bounded Fant footprint and threshold; explicit mode replaces
+bilinear sampler operations with per-tap texel loads (at most 64 per fragment).
+Automatic adapter selection and the independent occupied-tile policy are unchanged.
+Ordinary-image and cached-Fant address metadata now explicitly preserves clamp;
+retained images continue to use their typed U/V address modes.
+
+Encoding regression sources accompany both implementations. The GPU-enabled C++
+library/native MIL test executable compile, and the managed test project builds
+with zero warnings/errors. Native compile-time encoding assertions compiled;
+managed cases were not run. These do not establish GPU output equivalence.
+Final gates must run native and explicit policies on
+qualified adapters, explicit on Parallels D3D12, and cover image/cached-layer
+minification, mirrored/skewed footprints, crops, alpha, masks and color matrices.
+Runtime, pixel, VM, performance and CI qualification remain deferred while code
+and compilation proceed. The broader MIL/DirectX/Direct2D/Win2D goal remains open.
+
 ## Developer commands
 
 ```sh
