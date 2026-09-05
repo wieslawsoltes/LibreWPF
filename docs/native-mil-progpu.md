@@ -7684,6 +7684,20 @@ Native compilation continues as the only current qualification. Visual-level and
 effect/cache opacity masks still require integration; picture-mask costs and all
 image/Windows/performance/CI gates remain deferred. The full goal remains active.
 
+### Implementation-first checkpoint: visual tile opacity masks
+
+ProGPU now shares tile-mask compilation across ordinary, cached, and effect-bearing
+native MIL visuals. Cache masks combine with exact vector clips through the GPU
+composite-mask path; uniform cache guideline shifts preserve material alignment.
+Exact visual bounds and shared cycle/depth checks remain mandatory. Multi-point
+cached-picture deformation still fails closed pending backend support.
+
+Added 960 unexecuted visual combinations and 36 non-mutation failure cases. Native
+library and test compilation are the only qualification; picture-mask performance,
+image/Windows parity, per-axis DPI and remaining goal work stay open. Documentation
+records composition order, provenance, and managed/native applicability. Final
+runtime/VM, verifier, benchmark, and CI qualification remain deferred.
+
 ## Developer commands
 
 ```sh
