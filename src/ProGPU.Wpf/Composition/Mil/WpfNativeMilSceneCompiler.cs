@@ -15,13 +15,21 @@ public sealed record WpfNativeMilBitmapSource(
     uint Width,
     uint Height,
     uint RowBytes,
-    byte[] Rgba8Pixels);
+    byte[] Rgba8Pixels)
+{
+    public double DpiX { get; init; } = 96.0;
+    public double DpiY { get; init; } = 96.0;
+}
 
 public sealed record WpfNativeMilBitmapExternalImageSource(
     uint Handle,
     uint Width,
     uint Height,
-    IProGpuTextureLeaseSource TextureSource);
+    IProGpuTextureLeaseSource TextureSource)
+{
+    public double DpiX { get; init; } = 96.0;
+    public double DpiY { get; init; } = 96.0;
+}
 
 public sealed record WpfNativeMilMediaPlayerSource(
     uint Handle,
@@ -168,7 +176,9 @@ public sealed class WpfNativeMilSceneCompiler
                 bitmap.Width,
                 bitmap.Height,
                 bitmap.RowBytes,
-                bitmap.Rgba8Pixels);
+                bitmap.Rgba8Pixels,
+                bitmap.DpiX,
+                bitmap.DpiY);
             ++appliedCount;
         }
         foreach (WpfNativeMilBitmapExternalImageSource bitmap in
@@ -178,7 +188,9 @@ public sealed class WpfNativeMilSceneCompiler
             channel.SetBitmapSourceExternalImage(
                 bitmap.Handle,
                 bitmap.Width,
-                bitmap.Height);
+                bitmap.Height,
+                bitmap.DpiX,
+                bitmap.DpiY);
             ++appliedCount;
         }
         foreach (WpfNativeMilMediaPlayerSource mediaPlayer in
@@ -1988,14 +2000,21 @@ public sealed class WpfNativeMilSceneCompiler
                         nativeImageHandle,
                         checked((uint)nativeImageSource.PixelWidth),
                         checked((uint)nativeImageSource.PixelHeight),
-                        textureSource));
+                        textureSource)
+                    {
+                        DpiX = nativeImageSource.DpiX,
+                        DpiY = nativeImageSource.DpiY
+                    });
                 return nativeImageHandle;
             }
             if (!WpfBitmapSourceImageAdapter.TryCopyPixelsAsRgba32(
                     imageSource,
+                    int.MaxValue,
                     out byte[] pixels,
                     out int width,
-                    out int height) ||
+                    out int height,
+                    out double dpiX,
+                    out double dpiY) ||
                 width <= 0 || height <= 0 || width > 16_384 ||
                 height > 16_384)
             {
@@ -2011,7 +2030,7 @@ public sealed class WpfNativeMilSceneCompiler
                 checked((uint)width),
                 checked((uint)height),
                 rowBytes,
-                pixels));
+                pixels) { DpiX = dpiX, DpiY = dpiY });
             return handle;
         }
 

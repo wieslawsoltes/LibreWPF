@@ -221,6 +221,18 @@ public sealed class WpfNativeMilCompilationSessionTests
     }
 
     [Fact]
+    public void BitmapSidebandEqualityIncludesBothDpiAxes()
+    {
+        var pixels = new WpfNativeMilBitmapSource(2, 1, 1, 4, [1, 2, 3, 4]);
+        Assert.False(WpfNativeMilCompilationSession.SidebandEquals(pixels, pixels with { DpiX = 144 }));
+        Assert.False(WpfNativeMilCompilationSession.SidebandEquals(pixels, pixels with { DpiY = 192 }));
+        var external = new WpfNativeMilBitmapExternalImageSource(2, 1, 1, null!);
+        Assert.True(WpfNativeMilCompilationSession.SidebandEquals(external, external with { }));
+        Assert.False(WpfNativeMilCompilationSession.SidebandEquals(external, external with { DpiX = 144 }));
+        Assert.False(WpfNativeMilCompilationSession.SidebandEquals(external, external with { DpiY = 192 }));
+    }
+
+    [Fact]
     public void FontSidebandEqualityComparesSfntContentAndFace()
     {
         var previous = new WpfNativeMilGlyphRunFont(

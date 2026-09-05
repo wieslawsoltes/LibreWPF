@@ -1328,8 +1328,8 @@ public sealed class WpfNativeMilSceneCompilerTests
         var bitmap = new FakeBitmapSource(new PortableBitmapSourcePixels(
             1,
             1,
-            96,
-            96,
+            144,
+            192,
             4,
             PortablePixelDataFormat.Pbgra32,
             [16, 32, 64, 255]));
@@ -1341,6 +1341,8 @@ public sealed class WpfNativeMilSceneCompilerTests
         WpfNativeMilBatch result = new WpfNativeMilSceneCompiler().BuildBatch(
             visual, 64, 64);
         WpfNativeMilBitmapSource source = Assert.Single(result.BitmapSources!);
+        Assert.Equal(144.0, source.DpiX);
+        Assert.Equal(192.0, source.DpiY);
         int nestedOffset = FindCommand(result.Bytes, 0x18) + 16;
 
         Assert.Equal(48, ReadInt32(result.Bytes, nestedOffset));
@@ -1356,7 +1358,7 @@ public sealed class WpfNativeMilSceneCompilerTests
     [Fact]
     public void BuildBatchTranslatesPortableNativeImageWithoutCpuPixels()
     {
-        var bitmap = new FakePortableNativeImage(128, 64);
+        var bitmap = new FakePortableNativeImage(128, 64) { DpiX = 144, DpiY = 192 };
         var visual = new FakeVisual(
             new FakeRenderData(
                 CreateDrawImageRecord(2, 3, 40, 24, 1),
@@ -1371,6 +1373,8 @@ public sealed class WpfNativeMilSceneCompilerTests
         Assert.Empty(result.BitmapSources!);
         Assert.Equal(128U, source.Width);
         Assert.Equal(64U, source.Height);
+        Assert.Equal(144.0, source.DpiX);
+        Assert.Equal(192.0, source.DpiY);
         Assert.Same(bitmap, source.TextureSource);
         Assert.Equal(source.Handle, ReadUInt32(result.Bytes, nestedOffset + 40));
         int createOffset = FindCreateResource(result.Bytes, source.Handle);
@@ -4050,6 +4054,10 @@ public sealed class WpfNativeMilSceneCompilerTests
         public int PixelWidth { get; }
 
         public int PixelHeight { get; }
+
+        public double DpiX { get; init; } = 96.0;
+
+        public double DpiY { get; init; } = 96.0;
 
         public bool TryGetPortableNativeImage(out object? nativeImage)
         {

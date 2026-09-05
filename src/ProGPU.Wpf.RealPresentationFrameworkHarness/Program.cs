@@ -33,6 +33,7 @@ public static class Program
             if (args.Contains("--native-mil-retention", StringComparer.Ordinal))
             {
                 NativeMilViewportRetentionSmoke.Run();
+                NativeMilBitmapDpiSmoke.RunChannel();
                 return 0;
             }
             string repoRoot = FindRepoRoot();
@@ -108,6 +109,7 @@ public static class Program
             AssemblyLoadContext.Default.Resolving += ResolveDefaultWpfAssembly;
             try
             {
+                NativeMilBitmapDpiSmoke.RunFactory(presentationCore);
                 object drawingVisual = CreateNativeMilHostDrawingVisual(
                     presentationCore,
                     windowsBase);

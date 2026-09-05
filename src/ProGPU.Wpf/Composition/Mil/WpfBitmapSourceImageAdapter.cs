@@ -427,9 +427,24 @@ public sealed class WpfBitmapSourceImageAdapter : IWpfImageSourceAdapter
         out int width,
         out int height)
     {
+        return TryCopyPixelsAsRgba32(imageSource, maxDimension,
+            out pixels, out width, out height, out _, out _);
+    }
+
+    internal static bool TryCopyPixelsAsRgba32(
+        object imageSource,
+        int maxDimension,
+        out byte[] pixels,
+        out int width,
+        out int height,
+        out double dpiX,
+        out double dpiY)
+    {
         pixels = Array.Empty<byte>();
         width = 0;
         height = 0;
+        dpiX = 96.0;
+        dpiY = 96.0;
 
         if (maxDimension <= 0)
         {
@@ -464,6 +479,12 @@ public sealed class WpfBitmapSourceImageAdapter : IWpfImageSourceAdapter
             height = sourceHeight;
         }
 
+        // The metadata and pixels belong to the same typed source snapshot.
+        // If this explicit thumbnail helper resizes, preserve natural DIP size.
+        dpiX = width == sourceWidth ? portablePixels.DpiX
+            : portablePixels.DpiX * ((double)width / sourceWidth);
+        dpiY = height == sourceHeight ? portablePixels.DpiY
+            : portablePixels.DpiY * ((double)height / sourceHeight);
         pixels = new byte[checked(width * height * 4)];
         for (var y = 0; y < height; y++)
         {

@@ -316,7 +316,9 @@ public sealed class WpfNativeMilCompilationSession : IDisposable
                 newValue.Width,
                 newValue.Height,
                 newValue.RowBytes,
-                newValue.Rgba8Pixels);
+                newValue.Rgba8Pixels,
+                newValue.DpiX,
+                newValue.DpiY);
             ++appliedCount;
         }
         IReadOnlyList<WpfNativeMilBitmapExternalImageSource>
@@ -340,7 +342,9 @@ public sealed class WpfNativeMilCompilationSession : IDisposable
             channel.SetBitmapSourceExternalImage(
                 newValue.Handle,
                 newValue.Width,
-                newValue.Height);
+                newValue.Height,
+                newValue.DpiX,
+                newValue.DpiY);
             ++appliedCount;
         }
         IReadOnlyList<WpfNativeMilD3DImageSource> previousD3DImages =
@@ -534,7 +538,9 @@ public sealed class WpfNativeMilCompilationSession : IDisposable
         WpfNativeMilBitmapExternalImageSource current) =>
         previous.Handle == current.Handle &&
         previous.Width == current.Width &&
-        previous.Height == current.Height;
+        previous.Height == current.Height &&
+        previous.DpiX == current.DpiX &&
+        previous.DpiY == current.DpiY;
 
     internal static bool SidebandEquals(
         WpfNativeMilD3DImageSource previous,
@@ -551,6 +557,8 @@ public sealed class WpfNativeMilCompilationSession : IDisposable
         previous.Width == current.Width &&
         previous.Height == current.Height &&
         previous.RowBytes == current.RowBytes &&
+        previous.DpiX == current.DpiX &&
+        previous.DpiY == current.DpiY &&
         previous.Rgba8Pixels.AsSpan().SequenceEqual(current.Rgba8Pixels);
 
     internal static bool SidebandEquals(

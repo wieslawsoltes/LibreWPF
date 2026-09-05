@@ -1,5 +1,37 @@
 # LibreWPF native MIL on ProGPU
 
+## Current tile-brush/DPI checkpoint (2026-09-05)
+
+ProGPU now retains canonical ImageBrush, DrawingBrush, and VisualBrush packets
+with typed dependency/transaction checks. This is not tile-rendering completion:
+sampled brush lowering remains explicitly unsupported, and LibreWPF has not
+switched its native brush producer to those packets. See the
+[ProGPU implementation and remaining rendering gates](../external/ProGPU/docs/native-mil-compositor.md#tile-brush-ingress-and-source-dpi-checkpoint-2026-09-05)
+and [research/provenance audit](../external/ProGPU/docs/NATIVE_CPP_ENGINE_SPECIFICATION.md#tile-brush-resource-ingress-and-bitmap-resolution-2026-09-05).
+
+LibreWPF bitmap sidebands now preserve both source DPI axes, obtained from the
+same typed pixel snapshot or a native image provider. DPI participates in
+retained equality and is bound in the same native content call. Source-built
+portable native ImageSource carriers snapshot/clone/forward DPI and report
+natural DIP dimensions through WPF's existing conversion. Legacy providers and
+overloads retain 96-DPI behavior. Explicit image drawing destinations, physical
+texture sizes, GPU leases, and the current portable renderer remain intact.
+
+The native SDK host gate now includes actual-channel coverage for all four
+copied/external bitmap DPI imports, invalid-state rollback, and old overloads.
+Its source-built WPF diagnostic checks anisotropic natural size, typed metadata,
+cloning, and invalid DPI rejection. Public reflection is confined to that test
+harness's existing real-assembly boundary, never the product bridge.
+
+Local regression results: native macOS 15/15, ProGPU managed 3,931/3,931,
+headless 240/240, LibreWPF 1,474/1,474. Windows ARM64 native passes 16/16;
+Ubuntu ARM64 GCC 13 MIL passes ASan/UBSan/leak checks. The macOS source-built host
+passes the new DPI channel/factory smokes and presents a native frame. These are
+checkpoint regressions, not full cross-platform tile image comparisons.
+Full tile pixel parity, all remaining MIL/DirectX/Direct2D/COM
+features, cross-platform Windows comparisons, SIMD cleanup, and exact-head PR CI
+remain part of the active goal. These packet counts are not a release claim.
+
 ## Objective and ownership
 
 LibreWPF is adding an opt-in native composition lane beside the current managed
