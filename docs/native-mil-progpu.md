@@ -7334,6 +7334,26 @@ page reuse/eviction/device loss and native Windows WPF comparison. Cubic/Fant/mi
 and forced sampling preferences must retain their own semantics, not be silently
 downgraded to this base-level primitive.
 
+### Follow-up: retained tile composite scene operation
+
+ProGPU now connects the occupied-page sampler to its native local-layer restore
+path. A typed 64-byte tile-composite resource separates output bounds, inverse
+mapping and address modes from captured content. Native and managed scene builders
+publish the same contract; stream validation, resource-normalized cache identity
+and a single four-vertex restore path are implemented. Existing page ownership and
+bounded local-layer caches remain authoritative.
+
+The GPU-backed native library, header-based native test executable and managed
+renderer test project compile. The managed build reports zero warnings/errors.
+Contract/regression cases are authored but unexecuted, and generated C# is refreshed.
+The public C++ module consumer also compiles with LLVM Clang 22.1.8. No runtime/VM/image/shader
+validation, sanitizer, benchmark or final CI qualification was performed.
+
+MIL repeat/flip remains disabled until source-to-page capture, exact revisions,
+execution policy and producer integration are complete. This advances the scene
+integration dependency; it does not close the remaining MIL, DirectX, Direct2D,
+Win2D or final cross-platform validation requirements.
+
 ## Developer commands
 
 ```sh
