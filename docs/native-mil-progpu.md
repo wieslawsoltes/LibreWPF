@@ -7203,6 +7203,24 @@ Exact-head hosted CI remains required and is not replaced by these local passes.
 
 ## Next parity gates
 
+Execution sequencing update (2026-09-05): the user requested implementation and
+compilation first, with exhaustive validation/verification after feature work.
+Keep the following full-goal gates intact, author regressions with new code, but
+defer runtime/image/VM/sample/sanitizer/performance runs to that final phase.
+Do not disable hosted PR CI or treat old passing tests as evidence for new code.
+
+ProGPU checkpoint `419047e6` adds a typed same-device base-level image sampling
+policy to managed compilation, native semantic/direct image rendering, Dawn and
+browser engine flags. `PROGPU_IMAGE_SAMPLING=auto|native-sampler|explicit-shader`
+defaults to explicit nearest/linear reconstruction on Parallels D3D12 and native
+sampling elsewhere. Both renderers consume the canonical shader; no bridge
+reflection, CPU pixel fallback, extra pass or device substitution was added.
+The managed Release dependency graph and native macOS C++ image target build.
+Integrated runtime, image, backend and performance qualification is deliberately
+deferred; the detailed implementation/provenance and final verification queue
+are in ProGPU's `docs/native-mil-compositor.md`. This checkpoint does not imply
+that MIL, DirectX, Direct2D/Win2D or the full goal is complete.
+
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested
    render-data command families using the complete generated WPF MCG layouts.
 2. Add remaining non-bitmap image sources and the portable Direct2D DXGI
