@@ -7939,6 +7939,24 @@ A8 import/lock gap is implemented; WIC render-target creation and render-target
 copy/readback support remain open. ProGPU `main` was fetched and is contained in
 the working feature branch.
 
+### Retained native picture images and compatible bitmap drawing
+
+ProGPU now records cleared compatible render-target bitmaps as owned picture
+images and routes `DrawBitmap`, bitmap brushes and opacity capture through the
+same native image pipeline. Shared aliases retain typed identity, DPI and alpha
+metadata; source generation changes create new snapshots. The backend shares its
+existing GPU picture rasterizer and retains one texture per distinct picture in
+the compiled image page. Clear color, exact uniform DPI and A8 alpha projection
+are preserved without CPU pixel readback or a managed WPF workaround.
+
+The [Direct2D checkpoint](../external/ProGPU/docs/DIRECT2D_WIN2D_COMPATIBILITY.md#implementation-first-checkpoint-retained-picture-images-and-compatible-bitmap-draws)
+documents the additive native resource/module contract, ownership, complexity,
+authored cases and remaining gaps. Native library, portable/internal test targets
+and the module consumer compile; runtime tests and cross-platform/CI qualification
+remain deferred. Delta-only target updates, nonuniform source raster DPI,
+render-target copy/readback and broader Win2D coverage remain open; unsupported
+captures fail closed rather than losing previously rendered content.
+
 ## Developer commands
 
 ```sh
