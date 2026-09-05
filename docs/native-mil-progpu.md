@@ -6895,6 +6895,31 @@ Round inside/outside arc probes match genuine system Direct2D after a clean
 Windows ARM64 30-target build, while optimized and sanitizer suites remain
 green. Dashed styles remain the explicit shared-run geometry gate.
 
+## Portable Direct2D stroke-transform checkpoint (2026-09-05)
+
+ProGPU `cffc51fd` and `d22c5c97` add portable `ID2D1StrokeStyle1`
+normal/fixed/hairline recording through the existing native semantic stroke
+compiler. The typed portable constructor, COM IID/identity, custom-dash SIMD
+scaling, curved geometry, bitmap-mask bounds, aliased edges, and physical-pixel
+hairline width are implemented in ProGPU, not the LibreWPF bridge. The shared
+WGSL correction applies to both managed and native renderers, including
+high-DPI hairline bodies/caps/joins. A largest-finite-width regression ensures
+an ignored hairline width cannot overflow normal-stroke bounds.
+
+macOS validation passed native 15/15, focused sanitizer and x64/Rosetta
+compatibility, managed 3,922/3,922, and headless 240/240. An intermediate
+Windows ARM64 `/W4 /WX` build passed 16/16 with real D3D12. Final Windows
+rebuilds and exact-head hosted CI remain separate qualification evidence,
+not implied by those earlier results. The expanded GPU test preserves the
+original comparison capture and adds straight/cubic stroke checks at
+96/192 DPI, each with three commands and one submission; managed coverage
+also checks 384 DPI.
+
+Portable Factory1 activation and the wider device-context/Win2D families
+remain unfinished. This checkpoint does not complete MIL parity, the broader
+DirectX implementation, or the final cross-platform validation campaign.
+See ProGPU's [design and provenance record](../external/ProGPU/docs/DIRECT2D_WIN2D_COMPATIBILITY.md#portable-stroke-transform-parity-2026-09-05).
+
 ## Next parity gates
 
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested
