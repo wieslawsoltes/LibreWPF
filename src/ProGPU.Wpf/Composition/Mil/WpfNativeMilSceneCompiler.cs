@@ -390,7 +390,7 @@ public sealed class WpfNativeMilSceneCompiler
             {
                 throw MissingContract(nameof(IPortableVisualStateSource));
             }
-            RejectUnsupportedState(state);
+            ValidateEffectState(state);
 
             bool isViewport3D = visual is IPortableViewport3DSceneSource;
             if (isViewport3D)
@@ -429,14 +429,15 @@ public sealed class WpfNativeMilSceneCompiler
                 Batch.SetVisualTransform(
                     visualHandle, ResolveTransform(state.Transform));
             }
-            if (state.HasEffect)
+            if (state.HasEffect || state.HasBitmapEffect)
             {
-                if (state.Effect is null)
+                object? effect = state.HasEffect ? state.Effect : state.BitmapEffect;
+                if (effect is null)
                 {
                     throw MissingContract(nameof(IPortableEffectSource));
                 }
                 Batch.SetVisualEffect(
-                    visualHandle, ResolveEffect(state.Effect));
+                    visualHandle, ResolveEffect(effect));
             }
             if (state.HasCacheMode)
             {
@@ -450,6 +451,7 @@ public sealed class WpfNativeMilSceneCompiler
             bool requiresVisualIsolationBounds =
                 state.HasCacheMode ||
                 state.HasEffect ||
+                state.HasBitmapEffect ||
                 (state.HasOpacity && state.Opacity != 1.0) ||
                 state.HasOpacityMask;
             if (requiresVisualIsolationBounds || brushSource)
@@ -3809,12 +3811,27 @@ public sealed class WpfNativeMilSceneCompiler
             }
         }
 
-        private static void RejectUnsupportedState(PortableVisualState state)
+        private static void ValidateEffectState(PortableVisualState state)
         {
-            if (state.HasBitmapEffect || state.HasBitmapEffectInput)
+            // Algorithm: admit legacy descriptors only for the same context-input
+            // emulation contract used by managed replay, then reuse native effects.
+            // Time/Space: O(1); source-built WPF owns legacy effect conversion.
+            if (state.HasEffect && state.HasBitmapEffect)
             {
                 throw new NotSupportedException(
-                    "The portable visual contains state not implemented by the native MIL slice.");
+                    "Native MIL requires one authoritative Visual effect, not simultaneous modern and bitmap effects.");
+            }
+            if (!state.HasBitmapEffectInput)
+                return;
+            if (!state.HasBitmapEffect)
+                throw new NotSupportedException("Native MIL bitmap-effect input requires a bitmap effect.");
+            if (state.BitmapEffectInput is not IPortableBitmapEffectInputSource inputSource ||
+                !inputSource.TryGetPortableBitmapEffectInput(out PortableBitmapEffectInput input))
+                throw MissingContract(nameof(IPortableBitmapEffectInputSource));
+            if (!input.UsesContextInput || !input.HasDefaultAreaToApplyEffect)
+            {
+                throw new NotSupportedException(
+                    "Native MIL bitmap-effect emulation requires context input and the default effect area.");
             }
         }
 

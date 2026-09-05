@@ -1086,6 +1086,90 @@ public sealed class WpfNativeMilSceneCompilerTests
         Assert.Contains(0x1e, cachedCommands);
     }
 
+    [Theory]
+    [InlineData(0, false)]
+    [InlineData(0, true)]
+    [InlineData(1, false)]
+    [InlineData(1, true)]
+    [InlineData(2, false)]
+    [InlineData(2, true)]
+    public void BuildBatchBitmapEffectDescriptorMatchesModernEffectTransport(int kind, bool explicitInput)
+    {
+        var effect = new FakeEffect(kind switch
+        {
+            0 => PortableEffect.Blur(5),
+            1 => PortableEffect.Blur(3, PortableBlurKernel.Box, PortableEffectRenderingBias.Quality),
+            _ => PortableEffect.DropShadow(4, 2, 135, 0.75, new PortableColor(192, 32, 64, 96))
+        });
+        for (int isolation = 0; isolation < 4; isolation++)
+        {
+            var tile = CreateOpacityMaskTile(0);
+            var cache = new FakeBitmapCache(new PortableBitmapCache(1.5, true, false));
+            WpfNativeMilBatch Compile(bool legacy) => new WpfNativeMilSceneCompiler().BuildBatch(
+                new FakeVisual(null, new PortableVisualState
+                {
+                    HasEffect = !legacy,
+                    Effect = legacy ? null : effect,
+                    HasBitmapEffect = legacy,
+                    BitmapEffect = legacy ? effect : null,
+                    HasBitmapEffectInput = legacy && explicitInput,
+                    BitmapEffectInput = legacy && explicitInput ? new FakeBitmapEffectInput(true, true) : null,
+                    HasCacheMode = (isolation & 1) != 0,
+                    CacheMode = cache,
+                    HasOpacityMask = (isolation & 2) != 0,
+                    OpacityMask = tile,
+                    HasOpacity = true,
+                    Opacity = 0.75
+                }), 64, 64);
+            WpfNativeMilBatch modern = Compile(false);
+            WpfNativeMilBatch legacy = Compile(true);
+            Assert.Equal(modern.Bytes, legacy.Bytes);
+            Assert.Equal(modern.VisualCacheBounds, legacy.VisualCacheBounds);
+        }
+    }
+
+    [Theory]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(false, false)]
+    public void BuildBatchBitmapEffectRejectsNonContextOrCustomArea(bool context, bool defaultArea)
+    {
+        var visual = new FakeVisual(null, new PortableVisualState
+        {
+            HasBitmapEffect = true,
+            BitmapEffect = new FakeEffect(PortableEffect.Blur(3)),
+            HasBitmapEffectInput = true,
+            BitmapEffectInput = new FakeBitmapEffectInput(context, defaultArea)
+        });
+        Assert.Contains("context input", Assert.Throws<NotSupportedException>(() =>
+            new WpfNativeMilSceneCompiler().BuildBatch(visual, 64, 64)).Message);
+    }
+
+    [Fact]
+    public void BuildBatchBitmapEffectRequiresTypedEffectAndExactBounds()
+    {
+        var effect = new FakeEffect(PortableEffect.Blur(3));
+        var state = new PortableVisualState { HasBitmapEffect = true, BitmapEffect = effect };
+        Assert.Contains("exact typed Visual descendant bounds", Assert.Throws<NotSupportedException>(() =>
+            new WpfNativeMilSceneCompiler().BuildBatch(new FakeVisualWithoutBounds(state), 64, 64)).Message);
+        Assert.Contains(nameof(IPortableEffectSource), Assert.Throws<InvalidOperationException>(() =>
+            new WpfNativeMilSceneCompiler().BuildBatch(new FakeVisual(null, new PortableVisualState
+                { HasBitmapEffect = true, BitmapEffect = new object() }), 64, 64)).Message);
+        Assert.Contains("one authoritative", Assert.Throws<NotSupportedException>(() =>
+            new WpfNativeMilSceneCompiler().BuildBatch(new FakeVisual(null, new PortableVisualState
+                { HasEffect = true, Effect = effect, HasBitmapEffect = true, BitmapEffect = effect }), 64, 64)).Message);
+        Assert.Contains(nameof(IPortableBitmapEffectInputSource), Assert.Throws<InvalidOperationException>(() =>
+            new WpfNativeMilSceneCompiler().BuildBatch(new FakeVisual(null, new PortableVisualState
+                { HasBitmapEffect = true, BitmapEffect = effect, HasBitmapEffectInput = true,
+                    BitmapEffectInput = new object() }), 64, 64)).Message);
+    }
+
+    private sealed class FakeBitmapEffectInput(bool context, bool defaultArea) : IPortableBitmapEffectInputSource
+    {
+        public bool TryGetPortableBitmapEffectInput(out PortableBitmapEffectInput input)
+        { input = new PortableBitmapEffectInput(context, defaultArea); return true; }
+    }
+
     [Fact]
     public void BuildBatchRejectsUnknownBlurKernelButAllowsUniformOpacity()
     {

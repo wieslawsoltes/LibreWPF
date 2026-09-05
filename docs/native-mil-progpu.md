@@ -1,6 +1,17 @@
 # LibreWPF native MIL on ProGPU
 
-## Current single ImageBrush rendering checkpoint (2026-09-05)
+## Current implementation-first phase
+
+Implementation has advanced beyond the historical single-ImageBrush qualification
+below: repeat/flip and vector/visual tile sources, native spatial glyph/opacity-mask
+materials, cache-mask placement, combined geometry ingress, and resource-preserving
+tile-pen ingress have been added. Later checkpoints record their remaining limits.
+These additions have compilation evidence, not final runtime or cross-platform
+parity evidence. Tests, VM/image comparisons, verifiers, benchmarks, and exact-head
+CI qualification are deferred at the user's request until implementation is ready.
+Historical passing counts below apply only to their named snapshots.
+
+## Historical single ImageBrush rendering checkpoint (2026-09-05)
 
 The native producer now emits typed ImageBrush packets and ProGPU paints single
 `TileMode.None` bitmap-backed, non-rounded rectangular fills. Stretch, viewport/
@@ -7794,6 +7805,34 @@ shared brush handles, stroke settings, and fail-closed unavailable state. All te
 execution and runtime/performance/VM/CI qualification remain deferred.
 ProGPU.Tests and source-built PresentationCore Release compilation succeed. The
 latter reports four existing warnings in linked font source, with zero errors.
+
+### Typed legacy Visual bitmap-effect emulation
+
+The native producer now accepts a legacy Visual bitmap effect when source-built
+WPF publishes its supported emulation through `IPortableEffectSource`. It serializes
+the resulting blur (Gaussian/box) or drop-shadow descriptor through the same native
+effect encoder as modern effects. Exact typed Visual isolation bounds, mask/cache
+composition, rendering bias, and native resource identity remain on existing paths.
+
+This reuses the source-owned conversion in `BitmapEffect.TryGetPortableEffect`;
+the bridge does not inspect legacy types, invoke reflected emulation methods, or
+implement a second filter. An explicit bitmap-effect input must publish
+`IPortableBitmapEffectInputSource` with context input and the default effect area,
+matching the managed `WpfEffectMapper.TryCreateProGpuPushEffect` admission policy.
+Custom source images/regions, missing input contracts, input without a bitmap effect,
+and simultaneous modern/legacy effect state fail closed. Unsupported legacy effects
+still fail when WPF cannot provide an emulation descriptor.
+
+Applicability: native and managed execution use their existing ProGPU effect
+implementations; only the native Visual producer gate changes. Canonical legacy
+render-data PushEffect remains an identity scope, matching its existing native WPF
+contract; this checkpoint does not change that separate command or DrawingGroup
+effect support. Authored cases compare modern and legacy batch bytes across three
+descriptors, implicit/explicit context input, cache and mask combinations, plus
+unsupported inputs and missing bounds/contracts. They remain unexecuted until the
+final validation phase; compilation is not filter or native-Windows parity evidence.
+The Release `ProGPU.Wpf.Tests` build completes with zero errors and the existing
+compatibility-project/display-metrics warnings.
 
 ## Developer commands
 
