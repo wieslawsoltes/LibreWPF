@@ -7923,6 +7923,22 @@ test targets, and module-import consumer compile. Runtime/platform/CI/performanc
 qualification remains deferred. WIC alpha import and render-target copy/readback
 support are not included in this upload implementation.
 
+### WIC native A8 import and shared locks
+
+ProGPU now recognizes WIC 8bpp-alpha sources and shared bitmap locks, retaining
+compact one-byte rows and the shared GPU red-to-alpha path. Imports own a copy;
+locks retain the original COM lifetime and padded storage. Copies, subrectangle
+updates, overlap and shared aliases use the format-aware native bitmap code.
+No managed WPF workaround or CPU RGBA conversion is added.
+
+The [Direct2D checkpoint](../external/ProGPU/docs/DIRECT2D_WIN2D_COMPATIBILITY.md#implementation-first-checkpoint-wic-a8-sources-and-locks)
+records Microsoft GUID/format provenance, authored cases and remaining limits.
+Native library and compatibility tests compile. Tests, Windows ABI execution,
+GPU/platform parity, performance and CI qualification remain deferred. The WIC
+A8 import/lock gap is implemented; WIC render-target creation and render-target
+copy/readback support remain open. ProGPU `main` was fetched and is contained in
+the working feature branch.
+
 ## Developer commands
 
 ```sh
