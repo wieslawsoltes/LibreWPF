@@ -7598,6 +7598,20 @@ image, VM, verifier, benchmark, and CI gates remain deferred. Guideline-aware ti
 masks, mixed-mask performance qualification, and the full MIL/DirectX/Direct2D/Win2D
 scope remain open.
 
+### Implementation-first checkpoint: nested-scene guideline ownership
+
+ProGPU's C++ scene builder now has a typed guideline-copy API for nested mask
+scenes. It preserves coordinates, flags, and resolved dynamic offsets with
+independent destination ownership, without serializing/parsing a whole parent
+scene or re-evaluating animation state. Include/module regression sources cover
+copy fidelity, self-copy, invalid inputs, and source-reset independence.
+
+Native library, native/MIL/internal test executables, and the C++20 module consumer
+compile; tests remain unexecuted. This is a prerequisite, not finished tile-mask
+snapping: per-point stroke deformation, single/composite translation, mask bounds,
+and avoiding double-snapping at layer restore still require integration. The
+existing rejection guards and final validation requirements remain intact.
+
 ## Developer commands
 
 ```sh
