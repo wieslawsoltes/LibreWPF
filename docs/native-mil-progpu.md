@@ -7127,6 +7127,12 @@ macOS 15/15, and the new comparison tests with hardware intrinsics disabled.
 See ProGPU's engine specification and PR for platform/profiling qualification;
 component ingress timings do not establish application FPS or full parity.
 
+Final native qualification also passes Windows 16/16 (GPU 95.29 s), Linux
+GCC 13 ARM64 MIL with ASan/UBSan/leak detection, and ProGPU headless 240/240.
+The ProGPU follow-up refreshes the generated coverage ledger after CI caught
+its stale source digest; the complete contract-verification gate passes locally.
+Exact-head hosted CI remains required and is not replaced by these local passes.
+
 ## Next parity gates
 
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested
