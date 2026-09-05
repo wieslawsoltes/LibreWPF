@@ -7877,6 +7877,23 @@ initialization, bitmap opacity brushes, and final cross-platform runtime/CI
 qualification remain open; a full-target mask domain does not replace an exact
 geometric clip for those pending cases.
 
+### Native Direct2D bitmap opacity brushes
+
+ProGPU now captures native bitmap opacity brushes into retained GPU picture
+masks for layers and geometry fills, including bitmap-painted geometry and
+geometric layer masks. The shared image encoder preserves source DPI, addressing,
+sampling, transforms and opacity. Child-scene resources remain isolated from
+parent indices, with source references retained for the parent scene lifetime.
+No managed WPF workaround, CPU pixel fallback, or shader fork is introduced.
+
+The [Direct2D checkpoint](../external/ProGPU/docs/DIRECT2D_WIN2D_COMPATIBILITY.md#implementation-first-checkpoint-bitmap-opacity-brushes)
+records implementation, provenance, and limitations. This supersedes the previous
+bitmap-opacity gap for supported native bitmap sources. Bounded rotated/sheared
+layers, ClearType initialization, arbitrary Windows providers, and full Win2D
+support remain open. Native library and test-target compilation succeeds; authored
+regressions, Windows/macOS/Linux runtime/image comparisons, performance, and CI
+qualification remain unexecuted under the implementation-first sequencing.
+
 ## Developer commands
 
 ```sh
