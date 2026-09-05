@@ -2351,6 +2351,18 @@ public sealed class WpfNativeMilSceneCompiler
             bool allowSpatialMask,
             out bool isSpatialMask)
         {
+            // Algorithm: classify typed tile masks before ordinary brush DTOs and
+            // reuse the normal resource graph serializer, including cycle guards.
+            // Time: O(1) classification plus unresolved source graph traversal.
+            // Space: O(1) here; shared resolver storage owns serialized resources.
+            if (resource is IPortableTileBrushSource)
+            {
+                isSpatialMask = true;
+                if (!allowSpatialMask)
+                    throw new NotSupportedException(
+                        "Only static solid opacity masks are implemented by the native MIL slice.");
+                return ResolveBrush(resource);
+            }
             if (resource is not IPortableBrushSource source ||
                 !source.TryGetPortableBrush(out PortableBrush brush))
             {
@@ -2365,7 +2377,7 @@ public sealed class WpfNativeMilSceneCompiler
             {
                 throw new NotSupportedException(
                     allowSpatialMask
-                        ? "Only typed solid, linear-gradient, and radial-gradient Visual opacity masks are implemented by the native MIL isolation slice."
+                        ? "Native MIL isolation requires typed solid, gradient, or image/drawing/visual tile opacity masks."
                         : "Only static solid opacity masks are implemented by the native MIL slice.");
             }
             if (_brushHandles.TryGetValue(resource, out uint existing))

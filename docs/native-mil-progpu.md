@@ -7724,6 +7724,32 @@ transforms, tile-mask sources, and effects. Native library and MIL tests compile
 Windows/image parity and final runtime/VM, verifier, benchmark, and CI gates remain
 deferred; per-axis frame support and the complete broader goal remain open.
 
+### Typed producer adoption of native tile opacity masks
+
+The LibreWPF native MIL producer now accepts `IPortableTileBrushSource` for
+Visual and DrawingGroup opacity masks. It routes image, drawing-image, drawing,
+and visual sources through the existing brush/resource graph serializer rather
+than requiring an ordinary solid/gradient `IPortableBrushSource` DTO. This closes
+the producer-side gate left after the ProGPU native mask implementation above.
+Render-data PushOpacityMask already uses the shared brush resolver.
+
+Tile masks remain spatial masks: Visual isolation still requires exact typed
+descendant bounds, and DrawingGroup masks require exact typed local content
+bounds. Unavailable tile contracts fail closed even when the object also exposes
+an ordinary brush contract. Shared mask/fill brush handles and source graph
+cycle/depth checks stay owned by the existing resolver. No reflection, host-side
+pixel processing, new C ABI, or shader duplication is introduced. The managed
+portable compositor remains alongside this native producer; native rendering and
+the previously documented restrictions remain ProGPU responsibilities.
+
+Authored producer cases cover the four source forms across ordinary, cached,
+effect, and cached-effect visuals; shared fill/mask resources; bounded and
+unbounded groups/visuals; unavailable contracts; and cyclic visual sources.
+These cases are intentionally unexecuted during the implementation-first phase.
+The Release build of `ProGPU.Wpf.Tests` compiles the producer and authored cases.
+Compilation is tracked separately from final image, Windows/VM, runtime, SIMD,
+performance, and CI qualification; this checkpoint does not claim mask parity.
+
 ## Developer commands
 
 ```sh

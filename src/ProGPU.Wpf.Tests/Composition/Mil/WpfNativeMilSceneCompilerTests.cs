@@ -45,6 +45,143 @@ public sealed class WpfNativeMilSceneCompilerTests
         Assert.Equal(192.0, image.DpiY);
     }
 
+    [Theory]
+    [InlineData(0, 0x81)]
+    [InlineData(1, 0x81)]
+    [InlineData(2, 0x82)]
+    [InlineData(3, 0x83)]
+    public void BuildBatchRoutesTileVisualMasksThroughSharedBrushResources(int sourceKind, int command)
+    {
+        for (int isolation = 0; isolation < 4; isolation++)
+        {
+            var tile = CreateOpacityMaskTile(sourceKind);
+            var visual = new FakeVisual(
+                new FakeRenderData(CreateRectangleRecord(1, 0), [tile]),
+                new PortableVisualState
+                {
+                    HasOpacityMask = true,
+                    OpacityMask = tile,
+                    HasOpacity = true,
+                    Opacity = 0.75,
+                    HasCacheMode = (isolation & 1) != 0,
+                    CacheMode = new FakeBitmapCache(new PortableBitmapCache(1.5, true, false)),
+                    HasEffect = (isolation & 2) != 0,
+                    Effect = new FakeEffect(PortableEffect.Blur(3))
+                });
+            WpfNativeMilBatch batch = new WpfNativeMilSceneCompiler().BuildBatch(visual, 64, 64);
+            Assert.Single(ReadCommands(batch.Bytes), value => value == command);
+            int brushOffset = FindCommand(batch.Bytes, command);
+            uint brushHandle = ReadUInt32(batch.Bytes, brushOffset + 8);
+            int maskOffset = FindCommand(batch.Bytes, 0x23);
+            Assert.Equal(brushHandle, ReadUInt32(batch.Bytes, maskOffset + 12));
+            Assert.Equal(0.5, ReadDouble(batch.Bytes, brushOffset + 12));
+            Assert.Contains(batch.VisualCacheBounds!, entry => entry.Handle == 1U &&
+                entry.Bounds == new NativeMilRect(1, 2, 30, 20));
+            Assert.Equal(sourceKind == 0 ? 1 : 0, batch.BitmapSources!.Count);
+        }
+    }
+
+    [Theory]
+    [InlineData(0, 0x81)]
+    [InlineData(1, 0x81)]
+    [InlineData(2, 0x82)]
+    [InlineData(3, 0x83)]
+    public void BuildBatchRoutesTileDrawingGroupMasksAndRequiresLocalBounds(int sourceKind, int command)
+    {
+        var tile = CreateOpacityMaskTile(sourceKind);
+        for (int bounded = 0; bounded < 2; bounded++)
+        {
+            var group = new FakeDrawingGroup(new PortableDrawingGroupState
+            {
+                HasOpacityMask = true,
+                OpacityMask = tile,
+                HasLocalBounds = bounded != 0,
+                LocalBounds = new PortableRect(2, 3, 20, 12)
+            }, []);
+            var visual = new FakeVisual(new FakeRenderData(CreateDrawDrawingRecord(1), [group]));
+            if (bounded == 0)
+            {
+                var error = Assert.Throws<NotSupportedException>(() =>
+                    new WpfNativeMilSceneCompiler().BuildBatch(visual, 64, 64));
+                Assert.Contains("local content bounds", error.Message);
+                continue;
+            }
+            WpfNativeMilBatch batch = new WpfNativeMilSceneCompiler().BuildBatch(visual, 64, 64);
+            uint brushHandle = ReadUInt32(batch.Bytes, FindCommand(batch.Bytes, command) + 8);
+            Assert.Equal(brushHandle, ReadUInt32(batch.Bytes, FindCommand(batch.Bytes, 0x8b) + 32));
+            Assert.Equal(new NativeMilRect(2, 3, 20, 12), Assert.Single(batch.DrawingGroupBounds!).Bounds);
+        }
+        var unbounded = new FakeVisualWithoutBounds(new PortableVisualState
+        {
+            HasOpacityMask = true,
+            OpacityMask = tile
+        });
+        Assert.Contains("exact typed Visual descendant bounds",
+            Assert.Throws<NotSupportedException>(() =>
+                new WpfNativeMilSceneCompiler().BuildBatch(unbounded, 64, 64)).Message);
+    }
+
+    [Fact]
+    public void BuildBatchTileMaskCannotFallBackToOrdinaryBrushWhenTileContractIsUnavailable()
+    {
+        var visual = new FakeVisual(null, new PortableVisualState
+        {
+            HasOpacityMask = true,
+            OpacityMask = new UnavailableTileMask()
+        });
+        Assert.Contains(nameof(IPortableTileBrushSource),
+            Assert.Throws<InvalidOperationException>(() =>
+                new WpfNativeMilSceneCompiler().BuildBatch(visual, 64, 64)).Message);
+    }
+
+    [Fact]
+    public void BuildBatchTileVisualMaskPreservesSourceCycleRejection()
+    {
+        object?[] resources = new object?[1];
+        var source = new FakeVisual(new FakeRenderData(CreateRectangleRecord(1, 0), resources));
+        var tile = CreateVisualTile(source);
+        resources[0] = tile;
+        var visual = new FakeVisual(null, new PortableVisualState
+        {
+            HasOpacityMask = true,
+            OpacityMask = tile
+        });
+        Assert.Contains("cycle", Assert.Throws<InvalidOperationException>(() =>
+            new WpfNativeMilSceneCompiler().BuildBatch(visual, 64, 64)).Message);
+    }
+
+    private sealed class UnavailableTileMask : IPortableTileBrushSource, IPortableBrushSource
+    {
+        public bool TryGetPortableTileBrush(out PortableTileBrush brush)
+        { brush = null!; return false; }
+        public bool TryGetPortableBrush(out PortableBrush brush)
+        { brush = PortableBrush.SolidColor(new PortableColor(255, 255, 255, 255)); return true; }
+    }
+
+    private static FakeTileBrush CreateOpacityMaskTile(int sourceKind)
+    {
+        var bounds = new PortableRect(10, 20, 20, 10);
+        var brush = new FakeBrush(new PortableColor(128, 255, 0, 0));
+        var drawing = new FakeGeometryDrawing(brush, null,
+            new FakePrimitiveGeometry(PortablePrimitiveGeometry.Rectangle(
+                bounds, 0, 0, PortableMatrix3x2.Identity)), bounds);
+        object source = sourceKind switch
+        {
+            0 => new FakeBitmapSource(new PortableBitmapSourcePixels(1, 1,
+                96, 96, 4, PortablePixelDataFormat.Pbgra32, [0, 0, 128, 128])),
+            1 => new FakeDrawingImage(drawing),
+            2 => drawing,
+            _ => new FakeVisual(new FakeRenderData(CreateRectangleRecord(1, 0), [brush]))
+        };
+        return new FakeTileBrush(new PortableTileBrush(
+            sourceKind == 3 ? PortableTileBrushKind.Visual :
+                sourceKind == 2 ? PortableTileBrushKind.Drawing : PortableTileBrushKind.Image,
+            source, 0.5, new(0, 0, 1, 1), new(0, 0, 1, 1),
+            PortableBrushMappingMode.RelativeToBoundingBox, PortableBrushMappingMode.RelativeToBoundingBox,
+            PortableTileMode.FlipXY, PortableStretch.Fill, PortableAlignmentX.Center, PortableAlignmentY.Center,
+            false, PortableMatrix3x2.Identity, false, PortableMatrix3x2.Identity));
+    }
+
     private sealed class FakeTileBrush(PortableTileBrush tile) : IPortableTileBrushSource
     {
         public bool TryGetPortableTileBrush(out PortableTileBrush brush)
