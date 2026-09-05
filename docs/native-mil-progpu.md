@@ -7354,6 +7354,28 @@ execution policy and producer integration are complete. This advances the scene
 integration dependency; it does not close the remaining MIL, DirectX, Direct2D,
 Win2D or final cross-platform validation requirements.
 
+### Follow-up: repeated MIL source capture
+
+Native MIL now records Tile/FlipX/FlipY/FlipXY image, drawing and visual brush
+sources into mapped zero-origin GPU pages and restores one repeated/mirrored quad
+for nearest/linear sampling at uniform DPI. Exact paint clipping and once-only
+opacity stay outside the page; source mapping, raster scale and resource-graph
+generations drive cache identity. Visual source subtrees are included in revision
+tracking, and page rounding preserves the intended physical texel extent.
+
+The existing typed image sampling preference now propagates forced native-sampler
+requirements to native engines; those reject occupied-page shaders. Automatic and
+explicit-shader tile selection is separately exposed by NativeCompositor diagnostics.
+Higher-quality filtering and nonuniform DPI are still rejected, not downgraded.
+
+Native GPU/library and regression executables compile; the managed renderer test
+project builds with zero warnings/errors. Thirty-two repeat/source/filter cases
+and source-cycle checks are authored but not run. No runtime, shader, VM, image,
+sanitizer, benchmark or CI qualification was performed. Final work includes native
+WPF pixel comparisons, padding/seams, cache reuse and invalidation, D3DImage fences,
+forced-mode rejection, high-quality/nonuniform support, stroke/text/mask brushes
+and adoption by the managed retained recorder. The full goal remains open.
+
 ## Developer commands
 
 ```sh
