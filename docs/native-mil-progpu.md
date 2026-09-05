@@ -1,11 +1,47 @@
 # LibreWPF native MIL on ProGPU
 
-## Current tile-brush/DPI checkpoint (2026-09-05)
+## Current single ImageBrush rendering checkpoint (2026-09-05)
+
+The native producer now emits typed ImageBrush packets and ProGPU paints single
+`TileMode.None` bitmap-backed, non-rounded rectangular fills. Stretch, viewport/
+viewbox mapping, source DPI, alignment, brush transforms and opacity use existing
+native image/clip pipelines. The current portable implementation remains intact.
+Repeat/flip, DrawingBrush/VisualBrush capture, arbitrary geometry, stroke/text/
+mask use and full filtering parity remain unfinished.
+
+The source-built macOS host checks production, stable replay, stretch changes and
+DPI rebinding. A discovered JIT dependency on shim WindowsBase `Rect` was removed
+from bitmap compilation: DrawingImage reads neutral typed bounds first, with
+existing managed inference isolated in a non-inlined compatibility helper. Its
+exit path is completing native typed bounds for all remaining legacy drawings;
+no reflection was introduced.
+
+Eight linear-filtered ProGPU macOS frames match Windows native WPF over 32,768
+pixels (RGB tolerance 1). A new ProGPU CI job requires this comparison for Metal,
+Vulkan and D3D12 captures. Hosted exact-head completion remains a separate gate.
+Nearest-neighbor uses an independent ProGPU integer-box oracle; Windows WPF
+RenderTargetBitmap blended this fixture despite nearest being requested, which
+remains an explicit filtering qualification gap.
+
+Current results: native macOS 15/15, Windows ARM64 16/16, LibreWPF 1,479/1,479 and
+source-built native host smoke pass. See [implementation and remaining scope](../external/ProGPU/docs/native-mil-compositor.md#single-imagebrush-rendering-checkpoint-2026-09-05).
+
+Follow-up linear captures expose a Parallels D3D12 filtering failure despite the
+correct MIL sampling enum. The 16-target Windows baseline above did not enable
+that capture variant; it must not be presented as full Windows parity. The new
+strict comparison remains required. Latest ProGPU main `102e39e5` is merged;
+managed/headless regressions pass 3,936/240 tests, with LibreWPF and the real host
+rechecked after the merge.
+The same focused test and all eight pixel comparisons pass on Microsoft's
+software D3D12 adapter (WARP). This distinguishes the Parallels-specific failure;
+it does not qualify that hardware adapter or change the product's default path.
+
+## Earlier tile-brush/DPI ingress checkpoint (2026-09-05)
 
 ProGPU now retains canonical ImageBrush, DrawingBrush, and VisualBrush packets
-with typed dependency/transaction checks. This is not tile-rendering completion:
-sampled brush lowering remains explicitly unsupported, and LibreWPF has not
-switched its native brush producer to those packets. See the
+with typed dependency/transaction checks. At this earlier checkpoint sampled
+brush lowering was unsupported and the native producer was not yet switched;
+the subsequent single-tile subset above supersedes that limitation. See the
 [ProGPU implementation and remaining rendering gates](../external/ProGPU/docs/native-mil-compositor.md#tile-brush-ingress-and-source-dpi-checkpoint-2026-09-05)
 and [research/provenance audit](../external/ProGPU/docs/NATIVE_CPP_ENGINE_SPECIFICATION.md#tile-brush-resource-ingress-and-bitmap-resolution-2026-09-05).
 

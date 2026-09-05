@@ -1481,6 +1481,42 @@ public sealed class WpfNativeMilSceneCompiler
             {
                 return existing;
             }
+            if (resource is IPortableTileBrushSource tileSource)
+            {
+                if (!tileSource.TryGetPortableTileBrush(out PortableTileBrush tile))
+                    throw MissingContract(nameof(IPortableTileBrushSource));
+                if (tile.Kind != PortableTileBrushKind.Image)
+                    throw new NotSupportedException("Native MIL DrawingBrush and VisualBrush capture is not implemented.");
+                if (tile.Content is IPortableDrawingImageSource)
+                    throw new NotSupportedException("Native MIL ImageBrush DrawingImage capture is not implemented.");
+                uint image = ResolveImageSource(tile.Content);
+                uint transform = tile.HasTransform ? AddGeometryTransform(tile.Transform) : 0;
+                uint relative = tile.HasRelativeTransform ? AddGeometryTransform(tile.RelativeTransform) : 0;
+                uint tileHandle = NextHandle();
+                Batch.CreateResource(tileHandle, NativeMilResourceType.ImageBrush);
+                Batch.SetImageBrush(tileHandle, new NativeMilTileBrush(
+                    new(tile.Viewport.X, tile.Viewport.Y, tile.Viewport.Width, tile.Viewport.Height),
+                    new(tile.Viewbox.X, tile.Viewbox.Y, tile.Viewbox.Width, tile.Viewbox.Height),
+                    Opacity: tile.Opacity,
+                    ViewportUnits: ToNativeBrushMappingMode(tile.ViewportUnits),
+                    ViewboxUnits: ToNativeBrushMappingMode(tile.ViewboxUnits),
+                    Stretch: (NativeMilStretch)tile.Stretch,
+                    TileMode: tile.TileMode switch
+                    {
+                        PortableTileMode.None => NativeMilTileMode.None,
+                        PortableTileMode.Tile => NativeMilTileMode.Tile,
+                        PortableTileMode.FlipX => NativeMilTileMode.FlipX,
+                        PortableTileMode.FlipY => NativeMilTileMode.FlipY,
+                        PortableTileMode.FlipXY => NativeMilTileMode.FlipXY,
+                        _ => throw new NotSupportedException("Unknown portable tile mode.")
+                    },
+                    AlignmentX: (NativeMilAlignment)tile.AlignmentX,
+                    AlignmentY: (NativeMilAlignment)tile.AlignmentY,
+                    TransformHandle: transform,
+                    RelativeTransformHandle: relative), image);
+                _brushHandles.Add(resource, tileHandle);
+                return tileHandle;
+            }
             if (resource is not IPortableBrushSource source ||
                 !source.TryGetPortableBrush(out PortableBrush brush))
             {
@@ -1962,8 +1998,7 @@ public sealed class WpfNativeMilSceneCompiler
                 _imageSourceHandles.Add(imageSource, drawingImageHandle);
                 if (drawingHandle != 0)
                 {
-                    if (!WpfDrawingReplay.TryGetDrawingBounds(
-                            drawing!, null, out Rect bounds) ||
+                    if (!TryGetDrawingImageBounds(drawing!, out NativeMilRect bounds) ||
                         !double.IsFinite(bounds.X) ||
                         !double.IsFinite(bounds.Y) ||
                         !double.IsFinite(bounds.Width) ||
@@ -2032,6 +2067,27 @@ public sealed class WpfNativeMilSceneCompiler
                 rowBytes,
                 pixels) { DpiX = dpiX, DpiY = dpiY });
             return handle;
+        }
+
+        // Keep shim-owned Rect and the managed replay dependency out of bitmap
+        // compilation/JIT. Native source-built drawings publish neutral bounds.
+        private static bool TryGetDrawingImageBounds(object drawing, out NativeMilRect bounds)
+        {
+            if (drawing is IPortableDrawingBoundsSource source)
+            {
+                bool available = source.TryGetPortableDrawingBounds(out PortableRect value);
+                bounds = new NativeMilRect(value.X, value.Y, value.Width, value.Height);
+                return available;
+            }
+            return TryGetManagedDrawingImageBounds(drawing, out bounds);
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static bool TryGetManagedDrawingImageBounds(object drawing, out NativeMilRect bounds)
+        {
+            bool available = WpfDrawingReplay.TryGetDrawingBounds(drawing, null, out Rect value);
+            bounds = new NativeMilRect(value.X, value.Y, value.Width, value.Height);
+            return available;
         }
 
         private uint ResolveImageSource(

@@ -11,6 +11,46 @@ namespace ProGPU.Wpf.Tests.Composition.Mil;
 
 public sealed class WpfNativeMilSceneCompilerTests
 {
+    [Theory]
+    [InlineData(PortableTileMode.None, 0U)]
+    [InlineData(PortableTileMode.Tile, 4U)]
+    [InlineData(PortableTileMode.FlipX, 1U)]
+    [InlineData(PortableTileMode.FlipY, 2U)]
+    [InlineData(PortableTileMode.FlipXY, 3U)]
+    public void BuildBatchEmitsTypedImageBrushAndMapsCanonicalTileModes(PortableTileMode tileMode, uint canonical)
+    {
+        var bitmap = new FakeBitmapSource(new PortableBitmapSourcePixels(1, 1,
+            144, 192, 4, PortablePixelDataFormat.Pbgra32, [0, 0, 255, 255]));
+        var tile = new FakeTileBrush(new PortableTileBrush(PortableTileBrushKind.Image,
+            bitmap, 0.75, new(0.1, 0.2, 0.5, 0.25), new(1, 2, 3, 4),
+            PortableBrushMappingMode.RelativeToBoundingBox, PortableBrushMappingMode.Absolute,
+            tileMode, PortableStretch.Uniform, PortableAlignmentX.Right, PortableAlignmentY.Top,
+            false, PortableMatrix3x2.Identity, false, PortableMatrix3x2.Identity));
+        var visual = new FakeVisual(new FakeRenderData(CreateRectangleRecord(1, 0), [tile]));
+        WpfNativeMilBatch result = new WpfNativeMilSceneCompiler().BuildBatch(visual, 64, 64);
+        int offset = FindCommand(result.Bytes, 0x81);
+        Assert.Equal(152U, ReadUInt32(result.Bytes, offset));
+        Assert.Equal(0.75, ReadDouble(result.Bytes, offset + 12));
+        Assert.Equal(0.1, ReadDouble(result.Bytes, offset + 20));
+        Assert.Equal(1.0, ReadDouble(result.Bytes, offset + 52));
+        Assert.Equal(1U, ReadUInt32(result.Bytes, offset + 112));
+        Assert.Equal(0U, ReadUInt32(result.Bytes, offset + 116));
+        Assert.Equal(2U, ReadUInt32(result.Bytes, offset + 128));
+        Assert.Equal(canonical, ReadUInt32(result.Bytes, offset + 132));
+        Assert.Equal(2U, ReadUInt32(result.Bytes, offset + 136));
+        Assert.Equal(0U, ReadUInt32(result.Bytes, offset + 140));
+        WpfNativeMilBitmapSource image = Assert.Single(result.BitmapSources!);
+        Assert.Equal(image.Handle, ReadUInt32(result.Bytes, offset + 148));
+        Assert.Equal(144.0, image.DpiX);
+        Assert.Equal(192.0, image.DpiY);
+    }
+
+    private sealed class FakeTileBrush(PortableTileBrush tile) : IPortableTileBrushSource
+    {
+        public bool TryGetPortableTileBrush(out PortableTileBrush brush)
+        { brush = tile; return true; }
+    }
+
     [Fact]
     public void BuildBatchTranslatesTypedBitmapCache()
     {

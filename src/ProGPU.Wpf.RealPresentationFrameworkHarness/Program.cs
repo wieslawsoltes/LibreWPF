@@ -34,6 +34,7 @@ public static class Program
             {
                 NativeMilViewportRetentionSmoke.Run();
                 NativeMilBitmapDpiSmoke.RunChannel();
+                NativeMilImageBrushSmoke.Run();
                 return 0;
             }
             string repoRoot = FindRepoRoot();
