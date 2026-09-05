@@ -6920,12 +6920,41 @@ remain unfinished. This checkpoint does not complete MIL parity, the broader
 DirectX implementation, or the final cross-platform validation campaign.
 See ProGPU's [design and provenance record](../external/ProGPU/docs/DIRECT2D_WIN2D_COMPATIBILITY.md#portable-stroke-transform-parity-2026-09-05).
 
+## Exact native visual geometry clips (2026-09-05)
+
+ProGPU `67cd77cb` replaces the ordinary native Visual clip rectangle-only
+restriction with its existing exact render-data geometry mask compiler.
+Ellipse, rounded rectangle, path, geometry-group, combined, and sheared clips
+now share typed GPU geometry resources. Scene-owned scratch buffers preserve
+ancestor prefixes through nested render-data clips and restore them between
+siblings. Plain axis-preserving rectangles keep their existing fast path.
+No reflection, new ABI, shader fork, or CPU raster fallback was introduced.
+
+The raw-MIL GPU fixture is part of the existing portable Direct2D integration
+gate and does not replace its comparison capture. It checks independent red
+and blue sibling ellipses, an inherited rounded visual clip, and an additional
+rounded render-data clip: two draws, twelve commands, two submissions.
+Validation passed macOS ARM64 15/15 native tests, Windows 11 ARM64 strict
+MSVC `/W4 /WX` 16/16 with actual D3D12 (GPU fixture suite 185.18 seconds),
+ASan/UBSan native MIL, x64/Rosetta native MIL, the complete prebuilt managed
+suite 3,922/3,922, and prebuilt LibreWPF scene-compiler tests 104/104.
+The real source-built PresentationFramework native host still presents one
+frame with three commands/resources, one draw, and one submission. Generated
+native/MIL/Unicode contract verification also passes.
+
+The ProGPU and LibreWPF PRs are updated with this checkpoint. Exact-head CI
+must still qualify the changed commits; earlier green runs are not substitutes.
+Arbitrary masks at visual effect/cache/Viewport3D composite boundaries and
+rotated accelerated scroll clips remain fail-closed gaps, as do the separate
+tile-brush and programmable shader-effect packet families. These are retained
+in the full goal, not removed from its completion criteria.
+
 ## Next parity gates
 
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested
    render-data command families using the complete generated WPF MCG layouts.
 2. Add remaining non-bitmap image sources and the portable Direct2D DXGI
-   shared-bitmap lane, advanced stroke transform modes,
+   shared-bitmap lane, portable Factory1 activation,
    color glyphs, and device-context bitmap
    generations; extend the package-qualified
    Microsoft Win2D device/target wrappers to broader resource families,
