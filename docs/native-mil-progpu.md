@@ -7281,6 +7281,25 @@ and replacement-domain reconstruction, and the
 8. Run package-mode Toolkit/AvalonDock continuously and Xceed paid coverage
    only when the required license environment variables are present.
 
+## Implementation-first checkpoint: curved native brush fills
+
+ProGPU now lowers single-tile image/vector/visual brush fills on ellipses and
+rounded rectangles through its exact native vector-mask chain. Unequal corner
+radii, inherited curved clips, geometry transforms and transformed brush viewports
+are represented without bounding-box substitutions or LibreWPF bridge workarounds.
+The existing managed portable replay remains available alongside this native lane.
+
+The native Release library and test executable compile. Sixteen new source/shape/
+transform cases were authored and compiled, but no tests, VM captures, image
+comparisons, sanitizers, benchmarks or hosted-CI qualification were run for this
+checkpoint, following the requested implementation-first sequence. Final validation
+must cover edge aliasing, radius clamping, degenerate and mirrored geometry,
+clip-stack restoration and once-only opacity on overlapping vector sources.
+
+Arbitrary path/group/boolean tile-brush fills, strokes/text/masks, repeated/flipped
+tile capture and the broader completion gates above remain outstanding. Build
+success is not a claim of DirectX, MIL or visual parity.
+
 ## Developer commands
 
 ```sh
