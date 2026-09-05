@@ -7672,6 +7672,18 @@ Build-only qualification continues; image quality, atlas-size/transform edge
 cases, Windows parity, performance, and CI remain for the final validation phase.
 The complete MIL/DirectX/Direct2D/Win2D goal remains active.
 
+### Implementation-first checkpoint: tile opacity-mask consumers
+
+Native MIL `PushOpacityMask` and `DrawingGroup.OpacityMask` now route tile brushes
+through one owned GPU source scene and consume its alpha. Existing tile mapping,
+source replay, sampling, and cycle/depth handling are reused. Exact drawing-group
+bounds remain mandatory; gradient and uniform masks retain their direct paths.
+
+Added 480 unexecuted combinations and ten missing-bounds/cycle failure cases.
+Native compilation continues as the only current qualification. Visual-level and
+effect/cache opacity masks still require integration; picture-mask costs and all
+image/Windows/performance/CI gates remain deferred. The full goal remains active.
+
 ## Developer commands
 
 ```sh
