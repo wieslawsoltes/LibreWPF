@@ -7020,6 +7020,29 @@ scene-compiler tests pass 106/106. The previous LibreWPF SDK job failed
 because its pinned ProGPU build ended with the now-addressed GPU timeouts;
 the refreshed submodule must still pass the complete exact-head package gate.
 
+### Nested effects in oversized native caches, 2026-09-05
+
+ProGPU `2f9ce50f` extends target-domain handling to isolated child layers:
+an effect inside a twice-resolution BitmapCache is no longer cut to the
+presentation window before compositing. Both a CPU cursor test and raw-MIL
+GPU pixels reproduced the defect before the fix. Ordinary and cached blur
+sources now preserve their center pixels and exact output geometry clips
+inside the larger parent cache.
+
+The GPU gate also keeps one native MIL channel alive, mutates its ellipse
+clips, advances scene generation, and verifies updated mask pixels with zero
+cache-content passes for plain and gradient-masked caches. This exercises
+real mutable-channel updates rather than only identical-frame cache hits.
+
+macOS native 15/15, MIL/internal sanitizer and x64 checks, and Windows ARM64
+native 16/16 pass. The final Windows GPU rerun includes the live clip updates
+and nested effects and passes in 83.44 seconds. The complete managed rerun
+passes 3,922/3,922 after one earlier intermittent AppWindow zero-allocation
+assertion; its isolated and three class reruns also pass, but that observation
+remains unresolved and its allocation budget was not changed. Hosted exact-head
+CI and the remaining Viewport3D, protocol, DirectX/Direct2D/Win2D, and final
+package/platform gates remain outstanding.
+
 ## Next parity gates
 
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested
