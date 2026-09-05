@@ -7060,6 +7060,23 @@ as do focused native sanitizer and x64/Rosetta suites. Full hosted PR CI,
 mixed 2D/3D transitions, transformed viewport/guideline behavior, shading-mode
 parity, and the broader protocol/API/platform gates below remain required.
 
+### Mixed 2D/3D follow-up
+
+ProGPU `9c4f4a4b` removes the frame-wide depth requirement from 2D bundles.
+Each draw bundle records whether it needs depth, and native replay transitions
+between compatible 2D/3D passes while preserving stored depth. Three new
+raw-MIL cases exercise 2D content before/after Viewport3D, direct-to-window
+rectangle clips without isolation, and nested caches. The ten cold/warm GPU
+variants pass on Metal and Windows ARM64 D3D12 (final GPU 158.45 seconds).
+
+Linux hosted CI passed the earlier pixel gate but exposed three leaked native
+3D storage buffers at teardown. This checkpoint adds the omitted light,
+material, and gradient-stop releases plus a guard for all eight 3D buffers;
+LeakSanitizer stays enabled. Exact-head Linux sanitizer and the complete PR
+checks must still confirm the fix. Two intermittent managed-suite observations
+(rounded-scene cache miss and SurfaceBrush allocation) are recorded in the
+ProGPU specification; isolated/class reruns pass but do not establish a fix.
+
 ## Next parity gates
 
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested
