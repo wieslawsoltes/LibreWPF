@@ -7698,6 +7698,20 @@ image/Windows parity, per-axis DPI and remaining goal work stay open. Documentat
 records composition order, provenance, and managed/native applicability. Final
 runtime/VM, verifier, benchmark, and CI qualification remain deferred.
 
+### Implementation-first checkpoint: cached mask guideline deformation
+
+ProGPU's native picture-mask executor now follows the snapped cache rectangle
+through an inverse sampling transform, including multiple guideline coordinates.
+MIL's previous uniform-only restriction and pre-baked offset are removed; exact
+world clips stay fixed. Collapsed coverage becomes transparent and invalid
+transforms fail closed. No new shader, pixel fallback, or extra draw is added.
+
+Native library, MIL tests, and internal tests compile. Added inverse/collapse/DPI
+regressions and converted eight cached-mask rejection cases into positive cases;
+none were executed. Image parity, fractional-scale edge behavior, per-axis DPI,
+broader per-point rendering, and performance qualification remain open. Final
+runtime/VM, verifier, benchmark, and CI gates remain deferred.
+
 ## Developer commands
 
 ```sh
