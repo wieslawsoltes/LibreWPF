@@ -7085,6 +7085,22 @@ The subsequent full managed run passes 3,923/3,923 and LibreWPF passes
 qualified: UBSan stops at Direct2D layer release before the leak check can
 finish. This is tracked separately from the fixed 3D buffer ownership gap.
 
+ProGPU `a6f10240` resolves that GPU stop with a method-local workaround for
+GCC 13 ARM64 sanitizer interprocedural optimization; all sanitizer checks
+remain enabled, and ordinary release builds are unchanged. Linux's full GPU
+gate now passes with leak detection, including a new active-layer ownership
+regression (Vulkan llvmpipe software adapter). macOS native passes 15/15;
+Windows native passes 16/16 with the buffer cleanup and nested COM ownership
+case (GPU 238.26 seconds). The final GPU-only caller-reference release case
+is locally qualified on Metal/Linux and awaits Windows exact-head CI.
+
+The broader GCC-sanitized COM suite separately times out at its unchanged
+60-second deadline, with a sampled stack in stroke containment before the
+layer cases. That CPU qualification gap remains open. Detailed commands,
+compiler evidence, scope, and the workaround's exit condition are recorded
+in the ProGPU specification. Full parity and all-PR green CI are not yet
+claimed.
+
 ## Next parity gates
 
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested
