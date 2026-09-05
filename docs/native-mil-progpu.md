@@ -7862,6 +7862,21 @@ documents API provenance, applicability, and authored mode/material cases. Full
 runtime/VM/image/performance/CI qualification remains deferred. Unsupported
 ClearType layer initialization and layer transform cases remain open.
 
+### Affine full-target Direct2D opacity layers
+
+ProGPU now derives full-target opacity-brush mask domains by inverse-mapping all
+four viewport corners, supporting finite invertible rotation, shear, reflection,
+and axis-swapping transforms with separate DPI axes. Mask extents are rounded
+outward for float transport; singular/unrepresentable domains remain fail-closed.
+Existing native brush-mask execution is reused, without CPU pixel processing or
+new shaders. Authored cases remain unexecuted pending final validation.
+
+The [Direct2D checkpoint](../external/ProGPU/docs/DIRECT2D_WIN2D_COMPATIBILITY.md#implementation-first-checkpoint-affine-full-target-opacity-layers)
+records provenance and limits. Bounded transformed layers, ClearType layer
+initialization, bitmap opacity brushes, and final cross-platform runtime/CI
+qualification remain open; a full-target mask domain does not replace an exact
+geometric clip for those pending cases.
+
 ## Developer commands
 
 ```sh
