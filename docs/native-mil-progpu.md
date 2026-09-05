@@ -7077,6 +7077,14 @@ checks must still confirm the fix. Two intermittent managed-suite observations
 (rounded-scene cache miss and SurfaceBrush allocation) are recorded in the
 ProGPU specification; isolated/class reruns pass but do not establish a fix.
 
+ProGPU `c98f7aa1` also makes Unicode syllable action-table extents explicit
+through bounded spans, resolving a strict GCC 13.3 ARM64 build diagnostic.
+Both action directions now test the final valid and maximum invalid states.
+The subsequent full managed run passes 3,923/3,923 and LibreWPF passes
+1,472/1,472. The additional Ubuntu ARM64 sanitizer GPU run is not yet
+qualified: UBSan stops at Direct2D layer release before the leak check can
+finish. This is tracked separately from the fixed 3D buffer ownership gap.
+
 ## Next parity gates
 
 1. Implement the remaining 2D/3D resource, media, cache, effect, and nested
