@@ -7641,6 +7641,23 @@ changed-scene reuse costs still require performance qualification. Gradient glyp
 foregrounds, per-point guidelines, remaining consumers, and broader goal work stay
 open. Final runtime/image/VM, verifier, benchmark, and CI gates remain deferred.
 
+### Implementation-first checkpoint: gradient glyph-run foregrounds
+
+ProGPU native MIL now routes linear/radial foregrounds in `DrawGlyphRun` and
+`GlyphRunDrawing` through whole-run glyph coverage and the existing gradient
+mapper. One world-space material rectangle preserves gradient RGB and opacity;
+identity draw state avoids applying the run transform twice. Solid glyph drawing
+is unchanged. Typed bounds and font-sideband requirements remain fail-closed.
+
+Added 384 unexecuted combinations for mapping, spread, interpolation, both command
+forms, uniform guidelines, and styles, plus 24 missing-font failure cases.
+Native compilation is the only qualification in this implementation-first phase.
+Picture-mask costs still need measurement; per-point guidelines, nonuniform DPI,
+remaining MIL consumers, and the wider DirectX/Direct2D/Win2D goal stay open.
+Final runtime/image/VM, verifier, benchmark, and PR CI gates remain mandatory and
+deferred. Detailed provenance and managed/native applicability are recorded in
+ProGPU's `docs/native-mil-compositor.md`.
+
 ## Developer commands
 
 ```sh
