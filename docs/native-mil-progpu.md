@@ -8095,6 +8095,21 @@ color/alpha fixtures. Execution and CI/platform qualification remain deferred.
 Implementation and detailed limitations stay in ProGPU; stable C ABI, public COM
 layouts and the independent managed WPF renderer are unchanged.
 
+## Implementation-first checkpoint: MIL nonpainting pen bounds
+
+ProGPU native `DrawingImage` bounds now follow the source-built WPF distinction
+between a pen resource and its contribution: brushless pens do not suppress fills,
+while brushed zero-width pens retain unwidened geometry bounds. Resolved animated
+thickness uses the same branch. Null geometry or no contributing brush yields an
+empty drawing instead of failing the containing scene.
+
+This reuses native typed pen/geometry metadata without reflection, new pixel work
+or a managed workaround. Positive-width path/dashed-stroke bounds remain open.
+The MIL coverage manifest is regenerated, and native library/MIL test compilation
+is performed. Authored mapping/empty-drawing fixtures remain unexecuted; platform,
+VM, benchmark, verifier and CI qualification stay deferred. ProGPU owns the change
+and detailed contract notes in `docs/native-mil-compositor.md`.
+
 ## Developer commands
 
 ```sh
