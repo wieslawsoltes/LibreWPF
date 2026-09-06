@@ -7972,6 +7972,21 @@ and CI qualification remain deferred. Changed pictures still replay their comple
 history: incremental GPU backing/history compaction, mixed/nonuniform DPI,
 render-target copies/readback and broader Win2D parity remain required work.
 
+### Incremental native GPU picture backing
+
+ProGPU now recognizes unchanged command/resource prefixes and can copy the prior
+picture on the GPU, then draw only appended commands. Older captured generations
+keep independent pixels. A bounded device-local backing cache retains up to eight
+entries/64 MiB; changed earlier content and ineligible sources use full replay.
+Exact prefix comparisons use NEON/SSE2/Wasm SIMD where supported.
+
+The [Direct2D checkpoint](../external/ProGPU/docs/DIRECT2D_WIN2D_COMPATIBILITY.md#implementation-first-checkpoint-incremental-gpu-picture-backing)
+records ownership, budgets, provenance and authored full-versus-incremental GPU
+cases. Native library, internal/compatibility tests and GPU test target compile;
+execution, platform/CI qualification and measured performance remain deferred.
+CPU capture/classification still scales with full history. History compaction,
+mixed/nonuniform DPI, render-target copies/readback and broader Win2D work remain.
+
 ## Developer commands
 
 ```sh
