@@ -7987,6 +7987,19 @@ execution, platform/CI qualification and measured performance remain deferred.
 CPU capture/classification still scales with full history. History compaction,
 mixed/nonuniform DPI, render-target copies/readback and broader Win2D work remain.
 
+### Atomic cached native scene exports
+
+ProGPU now serializes each completed native scene generation lazily once and
+reuses that export. Compatible bitmap metadata reads are constant-time; picture
+capture takes bytes, generation and raster DPI under one lock and copies directly
+into the destination builder, removing the wrapper's temporary full-scene vector.
+
+The [Direct2D checkpoint](../external/ProGPU/docs/DIRECT2D_WIN2D_COMPATIBILITY.md#implementation-first-checkpoint-atomic-cached-native-scene-exports)
+documents ownership, cold/warm costs and authored invalidation/buffer cases.
+Native library, compatibility tests and GPU test executable compile. Execution,
+performance and CI qualification remain deferred. Cold export/cross-owner copying
+still scales with retained history; CPU compaction and full parity remain open.
+
 ## Developer commands
 
 ```sh
