@@ -8151,6 +8151,23 @@ collapsed-cap cases, retained bounds-query caching and full platform/VM/image/CI
 qualification remain open. Detailed provenance and complexity are in ProGPU's
 native MIL and Direct2D compatibility work logs.
 
+## Implementation-first checkpoint: crossing and point-cap source bounds
+
+ProGPU native stroke queries now accept crossing/retraced closed contours without
+requiring a simple filled polygon. Point-contour MIL bounds reuse existing cap
+support, including open/gap cap choices, closed round pairs and empty flat pairs.
+A shared zero-length dash visibility method keeps cap replay and bounds aligned
+for odd patterns and animated/negative phase offsets. Fixed point lines use the
+same cap extrema. Direct2D round-reversal hit queries are also corrected.
+
+All changes stay in ProGPU; no managed WPF, public ABI/module or pixel/readback
+path is added. Native library, MIL/Direct2D compatibility and Direct2D WebGPU test
+targets compile, with regression fixtures authored but unexecuted. Complex
+widened-outline construction, broader Direct2D point-cap parity, transform-induced
+collapse replay fidelity, tiny/all-gap contours and platform/VM/image/performance/
+CI qualification remain open. ProGPU's native MIL/Direct2D work logs record the
+scope, original-code provenance and complexity.
+
 ## Developer commands
 
 ```sh
