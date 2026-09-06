@@ -8000,6 +8000,31 @@ Native library, compatibility tests and GPU test executable compile. Execution,
 performance and CI qualification remain deferred. Cold export/cross-owner copying
 still scales with retained history; CPU compaction and full parity remain open.
 
+## Implementation-first checkpoint: writable compatible bitmap uploads
+
+ProGPU native compatible render-target bitmaps now accept `CopyFromMemory` for
+their supported RGBA8/BGRA8/A8 formats, including shared aliases. Uploads own padded
+source bytes, address destination pixels independently of drawing transforms,
+and use native GPU source replacement so copied alpha overwrites old alpha.
+The reusable C++ scene builder records upload/layer/image/pop atomically and rolls
+back failed appends without cloning prior history. A8 reuses the compact R8 upload
+and canonical alpha matrix, with no CPU pixel expansion or GPU readback.
+
+Fresh-target initialization, completed-session writes and unscoped active writes
+advance native generations and invalidate cached exports. Copies inside active
+clips/layers fail explicitly pending scope suspension support. Mixed/nonuniform
+DPI, bitmap/target-to-bitmap copies, readback and full-upload history compaction
+remain open. Native and managed Direct2D callers use this ProGPU endpoint; this
+does not replace the independent managed WPF renderer or establish full MIL parity.
+
+Compatibility, module rollback and GPU pixel fixtures are authored; only native
+code/test and module-consumer compilation is performed. Test execution, native
+Windows/VM comparison, cross-platform fidelity, benchmarks and CI qualification
+remain deferred under the requested implementation-first sequence. ProGPU owns
+the implementation and detailed contract/provenance in
+`docs/DIRECT2D_WIN2D_COMPATIBILITY.md`; no reflection or managed hot-path workaround
+is introduced.
+
 ## Developer commands
 
 ```sh
