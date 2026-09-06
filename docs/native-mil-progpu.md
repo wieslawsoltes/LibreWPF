@@ -7957,6 +7957,21 @@ remain deferred. Delta-only target updates, nonuniform source raster DPI,
 render-target copy/readback and broader Win2D coverage remain open; unsupported
 captures fail closed rather than losing previously rendered content.
 
+### Retained compatible-target drawing sessions
+
+ProGPU now preserves compatible-target commands/resources across successful
+drawing sessions without `Clear`, keeping one flat history rather than nesting
+a new picture per session. Full unscoped clears replace that history, and existing
+parent captures remain independent. Bitmap DPI stays fixed at target creation;
+picture raster DPI is separate. Mixed-DPI history fails closed until a full clear.
+
+The [Direct2D checkpoint](../external/ProGPU/docs/DIRECT2D_WIN2D_COMPATIBILITY.md#implementation-first-checkpoint-retained-compatible-target-drawing-sessions)
+records the API references, authored single-session/multi-session comparison,
+ownership and limits. Native library and compatibility tests compile; execution
+and CI qualification remain deferred. Changed pictures still replay their complete
+history: incremental GPU backing/history compaction, mixed/nonuniform DPI,
+render-target copies/readback and broader Win2D parity remain required work.
+
 ## Developer commands
 
 ```sh
