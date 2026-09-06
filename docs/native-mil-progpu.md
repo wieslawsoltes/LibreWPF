@@ -8110,6 +8110,26 @@ is performed. Authored mapping/empty-drawing fixtures remain unexecuted; platfor
 VM, benchmark, verifier and CI qualification stay deferred. ProGPU owns the change
 and detailed contract notes in `docs/native-mil-compositor.md`.
 
+## Implementation-first checkpoint: native path and dashed-pen bounds
+
+ProGPU now infers native MIL drawing-source bounds for positive-width path pens
+and dashed fixed lines/positive-area rectangles/ellipses through shared native
+Direct2D widening. The internal stroke adapter preserves open/closed contours,
+gap cap choices and smooth joins; fill conversion keeps its separate semantics.
+Geometry transforms affect the spine before widening, while drawing/world state
+applies afterward. Filled geometry bounds remain part of the result.
+
+This reuses original ProGPU path/dash/fixed-shape algorithms. Dash descriptor
+conversion uses NEON/SSE2 where available, without new pixel work or readback.
+Curved/dashed bounds are tolerance-based, not proven exact Windows parity.
+Unsupported topology, collapsed-cap cases and general stroked groups/combined
+geometries remain open. Managed WPF is unchanged.
+
+The native library and authored MIL/Direct2D test targets compile; no fixtures,
+VM/image comparisons, benchmarks or CI qualification are run. Detailed contracts,
+complexity, provenance and remaining limits are recorded in ProGPU's
+`docs/native-mil-compositor.md` and `docs/DIRECT2D_WIN2D_COMPATIBILITY.md`.
+
 ## Developer commands
 
 ```sh
