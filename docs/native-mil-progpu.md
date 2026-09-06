@@ -8081,6 +8081,20 @@ shape-rejection and GPU fixtures remain unexecuted. Partial/compound histories,
 pre-existing nesting and general persistent GPU copies remain open. Stable C ABI,
 public COM and the independent managed WPF renderer are unchanged.
 
+## Implementation-first checkpoint: native integer crop copy metadata
+
+ProGPU can now carry exact source-image offsets through full-view bitmap copies
+and repeated crops, including differing bitmap DPIs. Copy snapshots distinguish
+view size from resource size/pitch; requested pixel rectangles compose with the
+original offsets without CPU repacking or additional picture nesting. Fractional
+or scaled crops retain the normal picture path. Ownership still copies the complete
+underlying resource; partial destination/compound history remains open.
+
+Native/test/module targets compile, with authored repeated-crop, metadata and GPU
+color/alpha fixtures. Execution and CI/platform qualification remain deferred.
+Implementation and detailed limitations stay in ProGPU; stable C ABI, public COM
+layouts and the independent managed WPF renderer are unchanged.
+
 ## Developer commands
 
 ```sh
