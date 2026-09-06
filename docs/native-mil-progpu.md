@@ -8025,6 +8025,29 @@ the implementation and detailed contract/provenance in
 `docs/DIRECT2D_WIN2D_COMPATIBILITY.md`; no reflection or managed hot-path workaround
 is introduced.
 
+## Implementation-first checkpoint: native bitmap and target copies
+
+ProGPU native compatible bitmap destinations now implement `CopyFromBitmap` and
+`CopyFromRenderTarget` from typed pixel/WIC/shared bitmap sources and compatible
+targets. Copies use physical pixel coordinates, immutable source capture and
+bounded GPU SRC replacement, including alpha. Source capture occurs before
+destination locking; self/alias overlap avoids reading earlier copy writes and
+cross-target copies do not hold both target locks. Captured image resources move
+into the atomic destination builder without a second payload copy.
+
+Unscoped active sources can be captured without ending their session or reusing
+completed-export caches. Source clip/layer and existing-error results propagate.
+Tests are authored for overlap, active capture, source mutation, DPI, error state,
+GPU pixels and transferred-resource rollback; only native/test/module compilation
+is performed. Execution and CI qualification remain deferred.
+
+This is not complete copy parity: arbitrary presentation targets and CPU readback
+destinations, scoped destinations, mixed/nonuniform DPI and bounded-storage long
+copy chains remain open. Retained source capture costs O(source bytes/history),
+and repeated self-copies can grow history/nesting. ProGPU owns the implementation
+and detailed limitations in `docs/DIRECT2D_WIN2D_COMPATIBILITY.md`; the independent
+managed WPF renderer remains unchanged.
+
 ## Developer commands
 
 ```sh
