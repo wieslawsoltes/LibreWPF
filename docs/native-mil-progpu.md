@@ -8048,6 +8048,23 @@ and repeated self-copies can grow history/nesting. ProGPU owns the implementatio
 and detailed limitations in `docs/DIRECT2D_WIN2D_COMPATIBILITY.md`; the independent
 managed WPF renderer remains unchanged.
 
+## Implementation-first checkpoint: bounded full-overwrite destination history
+
+ProGPU now records full compatible-bitmap overwrites in a separate native builder
+and atomically replaces obsolete destination commands, resources and export bytes.
+Repeated full memory uploads retain one image and three commands. Full bitmap or
+compatible-target copies also discard old destination history; identical-region
+self/alias copies do not add commands or advance generation. A full replacement
+can discard mixed-DPI history at the current uniform DPI without changing drawing
+settings or clearing latched errors.
+
+The native library and authored Direct2D test executables compile. Tests cover
+repeated full writes, invalid-input preservation, DPI replacement, self-copy
+generation and populated-destination GPU copies; execution remains deferred.
+Source-picture nesting, partial-copy growth and general persistent GPU copy
+storage remain open. This is ProGPU-side native implementation, not a claim of
+full MIL parity or a change to the independent managed WPF renderer.
+
 ## Developer commands
 
 ```sh
