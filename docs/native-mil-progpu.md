@@ -8130,6 +8130,27 @@ VM/image comparisons, benchmarks or CI qualification are run. Detailed contracts
 complexity, provenance and remaining limits are recorded in ProGPU's
 `docs/native-mil-compositor.md` and `docs/DIRECT2D_WIN2D_COMPATIBILITY.md`.
 
+## Implementation-first checkpoint: composite source bounds and dash direction
+
+ProGPU now derives native MIL group/combined drawing-source bounds from actual
+filled outlines while retaining original group child contours for pen bounds.
+Even-odd fill cancellation no longer requires rejecting multi-child sources, and
+it cannot erase visible strokes. Nested geometry transforms precede widening;
+drawing/world transforms follow it. Singleton fill groups keep exact leaf bounds.
+
+The shared native Direct2D path core also preserves closed-contour start/direction
+during dash splitting for bounds, hit queries and dashed widening. This fixes
+phase changes caused by orientation normalization. All implementation remains in
+ProGPU; the independent managed WPF renderer and public ABI/module surfaces are
+unchanged.
+
+Native library, MIL/Direct2D compatibility and Direct2D WebGPU test targets compile.
+Authored boolean/group/transform and counter-clockwise dash fixtures remain
+unexecuted. Curved bounds are tolerance-based; unsupported stroke topology,
+collapsed-cap cases, retained bounds-query caching and full platform/VM/image/CI
+qualification remain open. Detailed provenance and complexity are in ProGPU's
+native MIL and Direct2D compatibility work logs.
+
 ## Developer commands
 
 ```sh
