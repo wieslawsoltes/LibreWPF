@@ -8065,6 +8065,22 @@ Source-picture nesting, partial-copy growth and general persistent GPU copy
 storage remain open. This is ProGPU-side native implementation, not a claim of
 full MIL parity or a change to the independent managed WPF renderer.
 
+## Implementation-first checkpoint: flattened native full-image copy chains
+
+ProGPU copy-only capture now reuses an underlying owned image when a compatible
+target contains exactly one qualified full-image SRC replacement. Full-copy chains
+preserve uploaded bytes or the original nested picture instead of adding a new
+picture wrapper per transfer. Typed checks include full source/destination bounds,
+sampling, transform, format, alpha and A8 matrix semantics; other histories retain
+the existing picture path. Recognition is O(1), but source ownership still copies
+O(source bytes); this is not a constant-time device-local copy.
+
+Native C++ builder metadata/import APIs and module exposure are implemented in
+ProGPU. Native/test/module compilation is performed; authored long-chain, ownership,
+shape-rejection and GPU fixtures remain unexecuted. Partial/compound histories,
+pre-existing nesting and general persistent GPU copies remain open. Stable C ABI,
+public COM and the independent managed WPF renderer are unchanged.
+
 ## Developer commands
 
 ```sh
