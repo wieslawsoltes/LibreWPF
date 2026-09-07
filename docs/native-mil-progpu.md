@@ -8540,6 +8540,29 @@ keys. These fixtures are authored only; no runtime validation is claimed.
 
 ## Developer commands
 
+### Solid cached rectangle pen checkpoint
+
+ProGPU now prepares affine solid rectangle stroke spines and join-aware material
+bounds using original native MIL algorithms and intrinsic coordinate pairs.
+LibreWPF direct rectangle routes (object, managed, animated, native primitive and
+raw MIL) consume typed cached pens before adaptation, preserve ordinary/cached
+fill ordering, and record a closed stroke mask over the shared source lease.
+Partial fill success cannot conceal a rejected pen. Source dependency traversal,
+outer transforms and edge aliasing remain on existing typed seams.
+
+The native MIL implementation already supports these consumers; paired native
+fixtures now assert all join families and rotated-geometry relative mapping.
+Managed scalar-oracle/topology/invalid-state fixtures and WPF recording fixtures
+are authored but unexecuted. See ProGPU `docs/cached-pictures.md`, solid rectangle
+pen consumers, for research, original source provenance and complexity.
+
+Release builds: ProGPU.Tests 0 warnings/errors; WPF.Tests 14 warnings/0 errors
+after fixtures, following a broader rebuild with 108 warnings/0 errors; native
+MIL fixture target compiled. No validation or warning qualification was run.
+RectangleGeometry/general paths, rounded/ellipse/dashed pens and broader native
+transport/parity remain open. Runtime/image/SIMD/platform/VM/performance/verifier
+and CI gates stay deferred to the final validation phase.
+
 ### Cached LineGeometry/GeometryDrawing checkpoint
 
 Cached pens now reach shared ProGPU stroke preparation from object/managed geometry

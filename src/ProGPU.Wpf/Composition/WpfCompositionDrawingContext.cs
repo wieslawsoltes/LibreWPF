@@ -96,6 +96,13 @@ public sealed class WpfCompositionDrawingContext : IWpfGeneratedRenderDataDrawin
     public void DrawRectangle(MediaBrush? brush, MediaPen? pen, Rect rectangle)
     {
         ThrowIfClosed();
+        if (WpfDrawingReplay.TryReplayBitmapCachePenRectangle(brush, pen, ToReplayRect(rectangle), _sink,
+            _imageSourceAdapter, out var cachedStatus))
+        {
+            RegisterRetainedDependencies(brush, pen);
+            CountDrawingReplayStatus(cachedStatus);
+            return;
+        }
         if (brush == null && pen == null)
         {
             return;
@@ -114,14 +121,8 @@ public sealed class WpfCompositionDrawingContext : IWpfGeneratedRenderDataDrawin
     public void DrawRectangle(MediaBrush? brush, MediaPen? pen, Rect rectangle, object? rectangleAnimations)
     {
         ThrowIfClosed();
-        if (brush == null && pen == null)
-        {
-            return;
-        }
-
-        RegisterRetainedDependencies(brush, pen);
-        _sink.DrawRectangle(brush, pen, rectangle);
-        CountApplied();
+        if (brush == null && pen == null) return;
+        DrawRectangle(brush, pen, rectangle);
         CountUnsupportedStateIfAny(rectangleAnimations);
     }
 

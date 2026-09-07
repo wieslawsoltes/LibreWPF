@@ -194,6 +194,15 @@ internal sealed class ProGpuRetainedCompositionCommandSink :
         return ((IWpfBitmapCacheBrushCommandSink)Current.Sink).DrawBitmapCacheBrushLine(source, pen, start, end, imageSourceAdapter);
     }
 
+    bool IWpfBitmapCacheBrushCommandSink.DrawBitmapCacheBrushRectangleStroke(
+        global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource source,
+        in global::ProGPU.Wpf.Interop.PortablePenState pen, WpfReplayRect rectangle,
+        Func<object?, MediaImageSource?>? imageSourceAdapter)
+    {
+        ThrowIfClosed();
+        return ((IWpfBitmapCacheBrushCommandSink)Current.Sink).DrawBitmapCacheBrushRectangleStroke(source, pen, rectangle, imageSourceAdapter);
+    }
+
     public void RegisterVisualOwner(object sourceVisual)
     {
         ThrowIfClosed();

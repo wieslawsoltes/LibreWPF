@@ -508,6 +508,80 @@ public sealed class WpfVisualTreeRendererTests
         finally { commands.Clear(); }
     }
 
+    [Theory]
+    [InlineData(0, 0)]
+    [InlineData(0, 1)]
+    [InlineData(0, 2)]
+    [InlineData(1, 0)]
+    [InlineData(1, 1)]
+    [InlineData(1, 2)]
+    [InlineData(2, 2)]
+    public void CachedRectanglePenPreservesFillAndClosedStroke(int route, int fillKind)
+    {
+        var target = new FakePortableVisualStateDrawingVisual(CreateRenderData(Brushes.Red), new PortableVisualState())
+        { Bounds = new Rect(0, 0, 30, 30) };
+        var brush = new CaptureBrush(new(target, Opacity: 0.5, HasRelativeTransform: true,
+            RelativeTransform: new(0.5, 0, 0, 0.5, 0.25, 0.25)));
+        var pen = new CapturePen(new(brush, 4, default, default, default,
+            global::ProGPU.Wpf.Interop.PortablePenLineJoin.Miter, 10, default, 0));
+        object? fill = fillKind == 0 ? null : fillKind == 1 ? Brushes.Blue : brush;
+        var commands = new global::ProGPU.Scene.DrawingContext();
+        try
+        {
+            using var sink = new ProGpuCompositionCommandSink(commands);
+            if (route != 0)
+            {
+                var resources = new WpfMilResourceRegistry();
+                resources.Register(1, pen);
+                if (fill != null) resources.Register(2, fill);
+                byte[] payload = new byte[route == 2 ? 48 : 40];
+                WriteDouble(payload, 0, 8); WriteDouble(payload, 8, 8);
+                WriteDouble(payload, 16, 48); WriteDouble(payload, 24, 48);
+                WriteInt32(payload, 32, fill == null ? 0 : 2); WriteInt32(payload, 36, 1);
+                Assert.Equal(new WpfMilDecodeResult(1, 1, 0, 0), new WpfMilRenderDataDecoder().Decode(
+                    CreateRecord(route == 2 ? WpfMilCommandId.DrawRectangleAnimate : WpfMilCommandId.DrawRectangle, payload),
+                    sink, resources));
+            }
+            else
+            {
+                using var replay = new WpfObjectRenderDataDrawingContext(sink);
+                replay.DrawRectangle(fill, pen, new PortableRect(8, 8, 48, 48));
+                Assert.Equal(0, replay.Result.UnsupportedCount);
+            }
+            var mask = Assert.Single(commands.Commands.Where(value =>
+                value.Type == global::ProGPU.Scene.RenderCommandType.PushOpacityMask && value.Pen != null));
+            Assert.Equal(new global::ProGPU.Scene.Rect(6, 6, 52, 52), mask.Rect);
+            Assert.True(Assert.Single(mask.Path!.Figures).IsClosed);
+            Assert.Equal(global::ProGPU.Vector.PenLineJoin.Miter, mask.Pen!.LineJoin);
+            Assert.Equal(fillKind == 2 ? 2 : 1, commands.Commands.Count(value =>
+                value.Type == global::ProGPU.Scene.RenderCommandType.DrawVisual));
+            var strokeSource = commands.Commands.Last(value => value.Type == global::ProGPU.Scene.RenderCommandType.DrawVisual);
+            Assert.Equal(16, strokeSource.Transform.M41);
+            Assert.Equal(16, strokeSource.Transform.M42);
+            Assert.Equal(global::ProGPU.Scene.RenderCommandType.PopOpacityMask, commands.Commands[^1].Type);
+        }
+        finally { commands.Clear(); }
+    }
+
+    [Fact]
+    public void DashedCachedRectangleReportsUnsupportedStrokeWithoutDroppingFill()
+    {
+        var target = new FakePortableVisualStateDrawingVisual(CreateRenderData(Brushes.Red), new PortableVisualState());
+        var brush = new CaptureBrush(new(target));
+        var pen = new CapturePen(new(brush, 4, default, default, default, default, 10, new double[] { 2, 1 }, 0));
+        var commands = new global::ProGPU.Scene.DrawingContext();
+        try
+        {
+            using var sink = new ProGpuCompositionCommandSink(commands);
+            using var replay = new WpfObjectRenderDataDrawingContext(sink);
+            replay.DrawRectangle(Brushes.Blue, pen, new PortableRect(8, 8, 48, 48));
+            Assert.True(replay.Result.UnsupportedCount > 0);
+            Assert.Single(commands.Commands.Where(value => value.Type == global::ProGPU.Scene.RenderCommandType.DrawRect));
+            Assert.DoesNotContain(commands.Commands, value => value.Type == global::ProGPU.Scene.RenderCommandType.DrawVisual);
+        }
+        finally { commands.Clear(); }
+    }
+
     private sealed class CapturePen(global::ProGPU.Wpf.Interop.PortablePenState state)
         : global::ProGPU.Wpf.Interop.IPortablePenStateSource
     {

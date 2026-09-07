@@ -1131,6 +1131,20 @@ public sealed class WpfMilRenderDataDecoder
     {
         status = WpfDrawingReplayStatus.Unsupported;
         unsupportedAnimations = 0;
+        if (command is WpfMilCommandId.DrawRectangle or WpfMilCommandId.DrawRectangleAnimate
+            && TryResolveRawResource(resources, ReadUInt32(payload, 36), out var rectanglePen))
+        {
+            uint fillToken = ReadUInt32(payload, 32);
+            object? rectangleFill = null;
+            if ((fillToken == 0 || TryResolveRawResource(resources, fillToken, out rectangleFill))
+                && WpfDrawingReplay.TryReplayBitmapCachePenRectangle(rectangleFill, rectanglePen,
+                    ReadReplayRect(payload, 0), sink, GetImageSourceAdapter(resources, imageSourceAdapter), out status))
+            {
+                if (command == WpfMilCommandId.DrawRectangleAnimate)
+                    unsupportedAnimations = CountUnsupportedAnimationHandles(payload, 40);
+                return true;
+            }
+        }
         if (command == WpfMilCommandId.DrawGeometry
             && TryResolveRawResource(resources, ReadUInt32(payload, 4), out var geometryPen)
             && TryResolveRawResource(resources, ReadUInt32(payload, 8), out var lineGeometry)

@@ -281,6 +281,29 @@ public sealed class ProGpuCompositionCommandSink :
         return true;
     }
 
+    bool IWpfBitmapCacheBrushCommandSink.DrawBitmapCacheBrushRectangleStroke(
+        global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource source,
+        in global::ProGPU.Wpf.Interop.PortablePenState pen, WpfReplayRect rectangle,
+        Func<object?, MediaImageSource?>? imageSourceAdapter)
+    {
+        ThrowIfClosed();
+        if (!source.TryGetPortableBitmapCacheBrush(out var brush)
+            || !double.IsFinite(brush.Opacity) || brush.Opacity < 0 || brush.Opacity > 1) return false;
+        if (brush.InternalTarget == null || brush.Opacity == 0) return true;
+        if (!WpfResourceResolver.TryAdaptNativeStrokePen(pen, out var nativePen)) return false;
+        var snapped = SnapGuidelines(new Rect(rectangle.X, rectangle.Y, rectangle.Width, rectangle.Height));
+        if (!global::ProGPU.Scene.StrokeCoverageGeometry.TryPrepareRectangle(ToNativeRect(snapped),
+                Matrix3x2.Identity, nativePen, out var path, out var coveragePen, out var bounds)) return false;
+        if (bounds.Width == 0 || bounds.Height == 0) return true;
+        var ink = new global::ProGPU.Wpf.Interop.PortableRect(bounds.X, bounds.Y, bounds.Width, bounds.Height);
+        if (!global::ProGPU.Wpf.Interop.PortableBitmapCacheBrushPolicy.TryGetMapping(brush, ink, out var mapping)) return false;
+        if (mapping.M11 * mapping.M22 - mapping.M12 * mapping.M21 == 0) return true;
+        using var lease = WpfBitmapCacheBrushSourceLookup.Acquire(source, _context, _viewport3DTextureCache, imageSourceAdapter);
+        NativeContext.DrawCachedPictureStroke(lease, path, coveragePen, bounds, mapping,
+            (float)brush.Opacity, _transformStack.Peek(), _edgeModeStack.Peek());
+        return true;
+    }
+
     bool IWpfHitTestOwnerScopeCommandSink.PushHitTestOwner(object sourceVisual)
     {
         ThrowIfClosed();
@@ -488,6 +511,12 @@ public sealed class ProGpuCompositionCommandSink :
     public void DrawRectangle(MediaBrush? brush, MediaPen? pen, Rect rectangle)
     {
         ThrowIfClosed();
+        if (WpfDrawingReplay.TryReplayBitmapCachePenRectangle(brush, pen,
+            new(rectangle.X, rectangle.Y, rectangle.Width, rectangle.Height), this, null, out var cachedStatus))
+        {
+            if (cachedStatus != WpfDrawingReplayStatus.Applied) UnsupportedStateCount++;
+            return;
+        }
         rectangle = SnapGuidelines(rectangle);
         var nativeBrush = ToNativeBrush(brush, rectangle);
         var nativePen = ToNativePen(pen, rectangle);
@@ -1027,6 +1056,11 @@ public sealed class ProGpuCompositionCommandSink :
     void IWpfNativePrimitiveCommandSink.DrawNativeRectangle(MediaBrush? brush, MediaPen? pen, WpfReplayRect rectangle)
     {
         ThrowIfClosed();
+        if (WpfDrawingReplay.TryReplayBitmapCachePenRectangle(brush, pen, rectangle, this, null, out var cachedStatus))
+        {
+            if (cachedStatus != WpfDrawingReplayStatus.Applied) UnsupportedStateCount++;
+            return;
+        }
 
         var nativeBrush = ToNativeBrush(brush, rectangle);
         var nativePen = ToNativePen(pen, rectangle);

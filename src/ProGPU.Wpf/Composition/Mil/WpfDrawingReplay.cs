@@ -252,6 +252,42 @@ internal static class WpfDrawingReplay
         return true;
     }
 
+    internal static bool TryReplayBitmapCachePenRectangle(object? brush, object? pen, WpfReplayRect rectangle,
+        IWpfCompositionCommandSink sink, Func<object?, MediaImageSource?>? imageSourceAdapter,
+        out WpfDrawingReplayStatus status)
+    {
+        status = WpfDrawingReplayStatus.Unsupported;
+        if (!WpfResourceResolver.TryGetBitmapCachePen(pen, out var state, out var source)) return false;
+        if (!double.IsFinite(rectangle.X) || !double.IsFinite(rectangle.Y)
+            || !double.IsFinite(rectangle.Width) || !double.IsFinite(rectangle.Height)
+            || rectangle.Width <= 0 || rectangle.Height <= 0) return true;
+        var mediaRectangle = new Rect(rectangle.X, rectangle.Y, rectangle.Width, rectangle.Height);
+        bool fillApplied = brush == null;
+        bool partialFill = false;
+        if (brush != null)
+        {
+            if (IsSourceBrush(brush))
+            {
+                if (TryReplaySourceBrushFill(brush, mediaRectangle, sink, imageSourceAdapter, out var fillStatus))
+                {
+                    fillApplied = fillStatus == WpfDrawingReplayStatus.Applied;
+                    partialFill = fillStatus == WpfDrawingReplayStatus.PartiallyApplied;
+                }
+            }
+            else if (WpfResourceResolver.AdaptBrush(brush) is { } fill)
+            {
+                sink.DrawRectangle(fill, null, mediaRectangle);
+                fillApplied = true;
+            }
+        }
+        bool strokeApplied = sink is IWpfBitmapCacheBrushCommandSink cached
+            && cached.DrawBitmapCacheBrushRectangleStroke(source, state, rectangle, imageSourceAdapter);
+        status = fillApplied && strokeApplied ? WpfDrawingReplayStatus.Applied
+            : strokeApplied || partialFill || (brush != null && fillApplied)
+                ? WpfDrawingReplayStatus.PartiallyApplied : WpfDrawingReplayStatus.Unsupported;
+        return true;
+    }
+
     internal static bool TryReplayBitmapCachePenLineGeometry(object? pen, object? geometry,
         IWpfCompositionCommandSink sink, Func<object?, MediaImageSource?>? imageSourceAdapter,
         out WpfDrawingReplayStatus status)

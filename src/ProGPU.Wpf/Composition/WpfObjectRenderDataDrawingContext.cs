@@ -153,6 +153,14 @@ public sealed class WpfObjectRenderDataDrawingContext :
     public void DrawRectangle(object? brush, object? pen, object? rectangle)
     {
         ThrowIfClosed();
+        if (TryReadReplayRect(rectangle, out var cachedRectangle)
+            && WpfDrawingReplay.TryReplayBitmapCachePenRectangle(brush, pen, cachedRectangle, _sink,
+                _resources.AdaptImageSource, out var cachedStatus))
+        {
+            RegisterRetainedDependencies(brush, pen);
+            CountDrawingReplayStatus(cachedStatus);
+            return;
+        }
         MediaBrush? mediaBrush = WpfResourceResolver.AdaptBrush(brush);
         MediaPen? mediaPen = WpfResourceResolver.AdaptPen(pen);
         if (TryReplayTileBrushRectangle(brush, pen, rectangle, mediaPen))

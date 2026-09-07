@@ -10,6 +10,13 @@ The product bridge source is currently reflection-free by audit; keep that as an
 
 ## GPU-First Compute and SIMD Fallback Priority
 
+Cached rectangle pen consumers must preserve typed brush identity before material
+adaptation, record fill before stroke, and use the shared ProGPU closed-rectangle
+preparer for coverage and stroke-relative mapping. Preserve source dependencies,
+outer transforms and alias state. Unsupported dashed/degenerate or other shape
+pens must remain explicit partial/unsupported results, never successful fill-only
+draws or bridge-local fill-bound inflation.
+
 Cached line-geometry pens should consume `IPortablePrimitiveGeometrySource` before
 requesting packed paths. Apply geometry-local transforms to endpoints before
 shared stroke preparation, preserve outer transforms on completed coverage, and
