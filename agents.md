@@ -15,6 +15,10 @@ emitted-outline material bounds, keeping source fill geometry independent. Do
 not substitute ideal solid bounds, inflate fill bounds, silently discard terminal
 point caps, or introduce a WPF-local dash stroker. Preserve partial/unsupported
 reporting for representations that ProGPU cannot yet prepare exactly.
+When ProGPU returns a complete filled-coverage outline, consume it instead of
+stroking the spine again. Preserve one retained nonzero-fill mask, edge alias
+state, outer transforms and source leases; do not blend terminal caps as separate
+coverage draws or omit the optional payload through a legacy overload.
 
 General cached linear paths must delegate contour preparation and stroke bounds
 to ProGPU, preserve the original fill path independently from gap-split stroke

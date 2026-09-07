@@ -11,6 +11,34 @@ parity evidence. Tests, VM/image comparisons, verifiers, benchmarks, and exact-h
 CI qualification are deferred at the user's request until implementation is ready.
 Historical passing counts below apply only to their named snapshots.
 
+### Directed terminal cached dash coverage checkpoint (2026-09-07)
+
+ProGPU `44c1d2fc` adds complete filled-coverage outputs to the shared line and
+linear-path preparers. Visible zero-length terminal dashes now retain their
+endpoint/tangent plus independent backward dash cap and forward source cap.
+Their complete stroke is recorded as one positive-winding compound filled path
+inside one retained mask, rather than adding fake tiny lines or alpha-blending
+caps separately. Ordinary cached strokes retain the existing direct pen/path
+mask. Zero-width dashed line and path pens consistently produce no coverage.
+
+LibreWPF's direct-line and general-path cached-pen routes consume the optional
+filled payload, preserving edge aliasing, outer transforms, bounds mapping and
+source leases. Legacy spine-only ProGPU overloads fail closed if that payload
+would otherwise be lost. Native already has the corresponding terminal/compound
+algorithms; matched cap/direction and WPF recording fixtures plus mask/source
+lifetime fixtures are authored. See [design, provenance, costs and limits](../external/ProGPU/docs/cached-pictures.md#directed-terminal-dash-coverage-2026-09-07).
+
+This supersedes the cached terminal-cap rejection below, not the whole goal.
+Ordinary non-cached terminal routing, tiny/point-only geometry, curves, boolean
+boundaries and device-width policies remain unfinished. Native compilation of
+live managed tree transport is unchanged and still unsupported. ProGPU main was
+refreshed with zero missing commits. All tests, images, SIMD/performance,
+platform/VM/package, source-verifier and CI qualification remain deferred.
+
+Final compilation: ProGPU.Tests Release 0 warnings/errors, Apple Clang native
+MIL fixtures compile/link, LibreWPF.Tests Release 116 warnings and 0 errors.
+Warnings are recorded, not qualified or claimed fixed.
+
 ### Cached dashed linear paths checkpoint (2026-09-07)
 
 ProGPU `a3c7ef6c` extends the shared linear-path preparer to bounded positive

@@ -838,6 +838,55 @@ public sealed class WpfVisualTreeRendererTests
         finally { commands.Clear(); }
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void TerminalCachedDashCapsUseOneFilledCoverageMask(bool geometryRoute)
+    {
+        var target = new FakePortableVisualStateDrawingVisual(CreateRenderData(Brushes.Red), new PortableVisualState())
+        { Bounds = new Rect(0, 0, 30, 30) };
+        var brush = new CaptureBrush(new(target));
+        var pen = new CapturePen(new(brush, 1, default,
+            global::ProGPU.Wpf.Interop.PortablePenLineCap.Triangle,
+            global::ProGPU.Wpf.Interop.PortablePenLineCap.Round, default, 10, new double[] { 2, 2 }, 0));
+        var commands = new global::ProGPU.Scene.DrawingContext();
+        try
+        {
+            using var sink = new ProGpuCompositionCommandSink(commands);
+            using var replay = new WpfObjectRenderDataDrawingContext(sink);
+            if (geometryRoute) replay.DrawGeometry(null, pen, new CaptureTerminalPath());
+            else replay.DrawLine(pen, new PortablePoint(0, 0), new PortablePoint(4, 0));
+            Assert.Equal(0, replay.Result.UnsupportedCount);
+            var mask = Assert.Single(commands.Commands.Where(command => command.Type == global::ProGPU.Scene.RenderCommandType.PushOpacityMask));
+            Assert.Equal(new global::ProGPU.Scene.Rect(0, -0.5f, 4.5f, 1), mask.Rect);
+            Assert.NotNull(mask.Picture);
+            Assert.Equal(1, mask.Picture.CommandCount);
+            var coverage = mask.Picture.GetCommand(0);
+            Assert.Equal(global::ProGPU.Scene.RenderCommandType.DrawPath, coverage.Type);
+            Assert.Null(coverage.Pen);
+            Assert.NotNull(coverage.Brush);
+            Assert.Equal(global::ProGPU.Vector.FillRule.Nonzero, coverage.Path!.FillRule);
+            Assert.All(coverage.Path.Figures, figure => Assert.True(figure.IsFilled && figure.IsClosed));
+            Assert.Single(commands.Commands.Where(command => command.Type == global::ProGPU.Scene.RenderCommandType.DrawVisual));
+        }
+        finally { commands.Clear(); }
+    }
+
+    private sealed class CaptureTerminalPath : global::ProGPU.Wpf.Interop.IPortableGeometryPathSource
+    {
+        public bool TryGetPortableGeometryPath(out global::ProGPU.Wpf.Interop.PortableGeometryPath path)
+        {
+            path = new()
+            {
+                Figures = [new() { StartPoint = new(0, 0),
+                    Segments = [
+                        global::ProGPU.Wpf.Interop.PortablePathSegment.Line(new(2, 0), false, true),
+                        global::ProGPU.Wpf.Interop.PortablePathSegment.Line(new(4, 0), false, true)] }]
+            };
+            return true;
+        }
+    }
+
     private sealed class CaptureLinearPath(bool closed, bool gap) : global::ProGPU.Wpf.Interop.IPortableGeometryPathSource
     {
         public bool TryGetPortableGeometryPath(out global::ProGPU.Wpf.Interop.PortableGeometryPath path)
