@@ -155,6 +155,7 @@ internal static class WpfDrawingReplay
             return WpfDrawingReplayStatus.Skipped;
         }
 
+        using var graphNodeScope = WpfCaptureReplayGuard.Enter(drawing);
         if (drawing is PortableGeometryDrawingStateSource)
         {
             return TryReplayGeometryDrawing(drawing, sink, imageSourceAdapter);
@@ -3033,6 +3034,7 @@ internal static class WpfDrawingReplay
         Func<object?, MediaImageSource?>? imageSourceAdapter,
         out Rect bounds)
     {
+        using var graphBoundsScope = WpfCaptureReplayGuard.EnterBounds(drawing);
         if (drawing is PortableDrawingBoundsSource drawingBoundsSource)
         {
             if (drawingBoundsSource.TryGetPortableDrawingBounds(out var portableBounds)

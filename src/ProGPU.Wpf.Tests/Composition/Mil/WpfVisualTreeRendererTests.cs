@@ -128,6 +128,159 @@ public sealed class WpfVisualTreeRendererTests
     }
 
     [Fact]
+    public void CacheSourceSuppressesOuterRootStateButPreservesRasterStateAndDescendants()
+    {
+        var root = new FakePortableVisualStateDrawingVisual(CreateRenderData(Brushes.Red), new PortableVisualState
+        {
+            HasOffset = true, Offset = new PortablePoint(500, 400),
+            HasTransform = true, Transform = new object(),
+            HasClip = true, Clip = new object(),
+            HasOpacity = true, Opacity = 0.01,
+            HasOpacityMask = true, OpacityMask = new object(),
+            HasEffect = true, Effect = new object(),
+            HasBitmapEffect = true, BitmapEffect = new object(),
+            HasBitmapEffectInput = true, BitmapEffectInput = new object(),
+            HasCacheMode = true, CacheMode = new object(),
+            HasBitmapScalingMode = true, BitmapScalingMode = new FakeRenderingHint("NearestNeighbor"),
+            HasEdgeMode = true, EdgeMode = new FakeRenderingHint("Aliased"),
+            HasTextRenderingMode = true, TextRenderingMode = new FakeRenderingHint("ClearType"),
+            HasTextHintingMode = true, TextHintingMode = new FakeRenderingHint("Fixed"),
+            HasSnappingGuidelinesX = true, SnappingGuidelinesX = [1, 2],
+            HasSnappingGuidelinesY = true, SnappingGuidelinesY = [3]
+        });
+        root.Children.Add(new FakePortableVisualStateDrawingVisual(CreateRenderData(Brushes.Blue), new PortableVisualState
+        {
+            HasOffset = true, Offset = new PortablePoint(2, 3),
+            HasOpacity = true, Opacity = 0.5
+        }));
+        var sink = new TestSink();
+        var result = new WpfVisualTreeRenderer().ReplayBitmapCacheBrushSource(root, sink);
+        Assert.Equal(2, result.VisualCount);
+        Assert.Equal(2, sink.DrawRectangles.Count);
+        Assert.Equal(0, result.UnsupportedVisualStateCount);
+        Assert.Equal(0.5, Assert.Single(sink.Opacities));
+        Assert.Equal(2, Assert.Single(sink.NativeTransforms).M41);
+        Assert.Empty(sink.Clips);
+        Assert.Empty(sink.NativeClips);
+        Assert.Empty(sink.OpacityMasks);
+        Assert.Empty(sink.VisualEffects);
+        Assert.Empty(sink.VisualCacheBounds);
+        Assert.Single(sink.GuidelineSets);
+        Assert.Single(sink.BitmapScalingModes);
+        Assert.Single(sink.EdgeModes);
+        Assert.Single(sink.TextRenderingModes);
+        Assert.Single(sink.TextHintingModes);
+    }
+
+    [Fact]
+    public void CacheSourceRejectsCyclesAndRecoversRendererAfterFailure()
+    {
+        var root = new FakePortableVisualStateDrawingVisual(null, new PortableVisualState());
+        root.Children.Add(root);
+        var renderer = new WpfVisualTreeRenderer();
+        Assert.Throws<InvalidOperationException>(() => renderer.ReplayBitmapCacheBrushSource(root, new TestSink()));
+        var leaf = new FakePortableVisualStateDrawingVisual(CreateRenderData(Brushes.Red), new PortableVisualState());
+        Assert.Equal(1, renderer.ReplayBitmapCacheBrushSource(leaf, new TestSink()).VisualCount);
+        var shared = new FakePortableVisualStateDrawingVisual(null, new PortableVisualState());
+        shared.Children.Add(leaf);
+        shared.Children.Add(leaf);
+        Assert.Throws<InvalidOperationException>(() => renderer.ReplayBitmapCacheBrushSource(shared, new TestSink()));
+    }
+
+    [Fact]
+    public void CacheSourceRejectsRootScrollClipAndMissingTypedState()
+    {
+        var root = new FakePortableVisualStateDrawingVisual(null, new PortableVisualState
+        {
+            HasScrollableAreaClip = true, ScrollableAreaClip = new PortableRect(0, 0, 10, 10)
+        });
+        Assert.Throws<NotSupportedException>(() => new WpfVisualTreeRenderer().ReplayBitmapCacheBrushSource(root, new TestSink()));
+        Assert.Throws<NotSupportedException>(() => new WpfVisualTreeRenderer().ReplayBitmapCacheBrushSource(new object(), new TestSink()));
+    }
+
+    [Fact]
+    public void CacheSourceRejectsDrawingCyclesAcrossReplayLayers()
+    {
+        var state = new PortableDrawingGroupState();
+        var drawing = new ThrowingPortableDrawingGroup(state);
+        state.Children = [drawing];
+        var root = new FakePortableVisualStateDrawingVisual(drawing, new PortableVisualState());
+        Assert.Throws<InvalidOperationException>(() => new WpfVisualTreeRenderer().ReplayBitmapCacheBrushSource(root, new TestSink()));
+    }
+
+    [Fact]
+    public void CacheSourceBoundsTraversalRejectsCyclesAndRecovers()
+    {
+        var state = new PortableDrawingGroupState();
+        var drawing = new ThrowingPortableDrawingGroup(state);
+        state.Children = [drawing];
+        using (WpfCaptureReplayGuard.Begin())
+        {
+            using var replayScope = WpfCaptureReplayGuard.Enter(drawing);
+            Assert.Throws<InvalidOperationException>(() => WpfDrawingReplay.TryGetDrawingBounds(drawing, null, out _));
+            state.Children = [];
+            // A legal bounds query for the drawing currently being replayed
+            // must not conflict with replay ancestry after the failed query.
+            Assert.False(WpfDrawingReplay.TryGetDrawingBounds(drawing, null, out _));
+        }
+        Assert.False(WpfCaptureReplayGuard.IsActive);
+        using (WpfCaptureReplayGuard.Begin())
+        {
+            using var replayScope = WpfCaptureReplayGuard.Enter(drawing);
+            using var nestedCapture = WpfCaptureReplayGuard.Begin();
+            Assert.Throws<InvalidOperationException>(() => WpfCaptureReplayGuard.Enter(drawing));
+            Assert.False(WpfDrawingReplay.TryGetDrawingBounds(drawing, null, out _));
+        }
+        Assert.False(WpfCaptureReplayGuard.IsActive);
+    }
+
+    [Fact]
+    public void BitmapCacheBrushCaptureProducesOwnedPictureAndSeparatePolicy()
+    {
+        var targetCache = new CaptureCache(new(3, true, false));
+        var root = new FakePortableVisualStateDrawingVisual(CreateRenderData(Brushes.Red), new PortableVisualState
+        {
+            HasOpacity = true, Opacity = 0.25,
+            HasCacheMode = true, CacheMode = targetCache
+        }) { Bounds = new Rect(1, 2, 30, 40) };
+        var descriptor = new ProGPU.Wpf.Interop.PortableBitmapCacheBrush(root, Opacity: 0.5);
+        using var capture = WpfBitmapCacheBrushCapture.Create(new CaptureBrush(descriptor));
+        Assert.Equal(1, capture.Picture.CommandCount);
+        Assert.Equal(1, capture.Bounds.X);
+        Assert.Equal(30, capture.Bounds.Width);
+        Assert.Equal(3, capture.CachePolicy.RenderAtScale);
+        Assert.False(capture.CachePolicy.SnapsToDevicePixels);
+        Assert.Equal(0.5, capture.Brush.Opacity);
+        Assert.Same(root, capture.Brush.InternalTarget);
+        using var cached = capture.CreateCachedPicture();
+        Assert.Equal(3, cached.RenderScale);
+        Assert.False(cached.EnableClearType);
+        capture.UpdateCachedPicture(cached);
+        using var clone = capture.Picture.Clone();
+        capture.Dispose();
+        Assert.Equal(1, clone.CommandCount);
+        using var empty = WpfBitmapCacheBrushCapture.Create(new CaptureBrush(new(null)));
+        Assert.Equal(0, empty.Picture.CommandCount);
+        using var zero = WpfBitmapCacheBrushCapture.Create(new CaptureBrush(new(root, new CaptureCache(new(0, true, true)))));
+        Assert.Equal(0, zero.Picture.CommandCount);
+        Assert.True(zero.CachePolicy.EnableClearType);
+    }
+
+    private sealed class CaptureBrush(ProGPU.Wpf.Interop.PortableBitmapCacheBrush value)
+        : ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource
+    {
+        public bool TryGetPortableBitmapCacheBrush(out ProGPU.Wpf.Interop.PortableBitmapCacheBrush brush)
+        { brush = value; return true; }
+    }
+
+    private sealed class CaptureCache(ProGPU.Wpf.Interop.PortableBitmapCache value)
+        : ProGPU.Wpf.Interop.IPortableBitmapCacheSource
+    {
+        public bool TryGetPortableBitmapCache(out ProGPU.Wpf.Interop.PortableBitmapCache cache)
+        { cache = value; return true; }
+    }
+
+    [Fact]
     public void ReplaySubtreeRecursesThroughChildren()
     {
         var parentBrush = Brushes.Red;

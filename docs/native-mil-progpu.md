@@ -8509,7 +8509,43 @@ support: source-root capture, brush consumer routing, cache policy/ClearType and
 typed lifetime/invalidation integration are still required. The full goal remains
 active, including native/managed and platform differentials plus all PR CI gates.
 
+## Implementation-first checkpoint: managed cache-brush source capture
+
+`WpfBitmapCacheBrushCapture.Create(...)` now produces an owned ProGPU picture from
+a typed brush target. Root offset/transform/clip/opacity/mask/effects/cache scopes
+are excluded; root raster options/guidelines and normal descendant replay remain.
+Malformed graph contracts, cycles, repeated parents, excessive depth, root scroll
+clips and unsupported content fail closed. Empty/null/zero-scale sources remain
+empty. ProGPU owns explicit/target/default cache selection and ClearType policy.
+
+`CreateCachedPicture()` and `UpdateCachedPicture(...)` transfer independent
+picture leases to the shared ProGPU resource with selected raster scale and text
+policy. Brush opacity, transforms and geometry coverage remain separate consumer
+state, not baked into capture. ProGPU text/glyph compilation and compiled-page
+keys now account for ClearType suppression and exact capture projection.
+
+Source/policy/ownership/replay and GPU comparison fixtures are authored, not run.
+Normal managed brush routing and shared cache lifetime/invalidation still need
+integration; this source API is not an automatic replacement for ordinary replay.
+Recording scopes not supported by the direct sink also remain explicit failures.
+ProGPU documentation records costs and native applicability. Runtime/VM/images,
+performance, Svg.Skia, verifier and CI qualification remain deferred; the full
+goal stays active.
+
+Capture graph guards cover nested drawing replay and independent drawing-bounds
+inference, with cleanup after failure and nested-capture ancestry preservation.
+Normal non-capture replay takes an inactive branch. ProGPU also qualifies nested
+layer/effect texture reuse against inherited text policy, beyond compiled-page
+keys. These fixtures are authored only; no runtime validation is claimed.
+
 ## Developer commands
+
+Latest implementation-first compilation checkpoint (2026-09-07):
+`dotnet build src/ProGPU.Wpf.Tests/ProGPU.Wpf.Tests.csproj -c Release --no-restore`
+succeeded with 96 warnings and zero errors after the ProGPU raster-policy update
+`65af5581`. The ProGPU test graph compiled with zero warnings/errors. No tests,
+GPU/VM captures, performance measurements, source verifiers or CI qualification
+were run in this checkpoint; these remain required before completion.
 
 ```sh
 cmake -S external/ProGPU/src/ProGPU.Native \
