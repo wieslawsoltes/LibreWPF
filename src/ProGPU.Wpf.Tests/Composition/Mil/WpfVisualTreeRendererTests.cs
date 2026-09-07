@@ -770,6 +770,81 @@ public sealed class WpfVisualTreeRendererTests
             throw new System.InvalidOperationException("Primitive rectangle replay must not request packed geometry.");
     }
 
+    [Theory]
+    [InlineData(false, false, 0)]
+    [InlineData(false, true, 0)]
+    [InlineData(true, false, 0)]
+    [InlineData(true, true, 0)]
+    [InlineData(false, true, 1)]
+    [InlineData(true, true, 1)]
+    [InlineData(false, true, 2)]
+    [InlineData(true, true, 2)]
+    public void CachedLinearPathsKeepFillAndGapSplitStrokeSeparate(bool closed, bool gap, int route)
+    {
+        var target = new FakePortableVisualStateDrawingVisual(CreateRenderData(Brushes.Red), new PortableVisualState())
+        { Bounds = new Rect(0, 0, 30, 30) };
+        var brush = new CaptureBrush(new(target, HasRelativeTransform: true,
+            RelativeTransform: new(0.5, 0, 0, 0.5, 0.25, 0.25)));
+        var pen = new CapturePen(new(brush, 4,
+            global::ProGPU.Wpf.Interop.PortablePenLineCap.Round,
+            global::ProGPU.Wpf.Interop.PortablePenLineCap.Triangle, default, default, 10, default, 0));
+        var geometry = new CaptureLinearPath(closed, gap);
+        var commands = new global::ProGPU.Scene.DrawingContext();
+        try
+        {
+            using var sink = new ProGpuCompositionCommandSink(commands);
+            if (route == 0)
+            {
+                using var replay = new WpfObjectRenderDataDrawingContext(sink);
+                replay.DrawGeometry(brush, pen, geometry);
+                Assert.Equal(0, replay.Result.UnsupportedCount);
+            }
+            else if (route == 1)
+            {
+                var drawing = new ThrowingPortableGeometryDrawing(new PortableGeometryDrawingState
+                { HasGeometry = true, Geometry = geometry, HasPen = true, Pen = pen, HasBrush = true, Brush = brush });
+                Assert.Equal(WpfDrawingReplayStatus.Applied, WpfDrawingReplay.Replay(drawing, sink));
+            }
+            else
+            {
+                var resources = new WpfMilResourceRegistry();
+                resources.Register(1, brush); resources.Register(2, pen); resources.Register(3, geometry);
+                byte[] payload = new byte[16];
+                WriteInt32(payload, 0, 1); WriteInt32(payload, 4, 2); WriteInt32(payload, 8, 3);
+                Assert.Equal(new WpfMilDecodeResult(1, 1, 0, 0), new WpfMilRenderDataDecoder().Decode(
+                    CreateRecord(WpfMilCommandId.DrawGeometry, payload), sink, resources));
+            }
+            var mask = Assert.Single(commands.Commands.Where(command => command.Type == global::ProGPU.Scene.RenderCommandType.PushOpacityMask));
+            Assert.Equal(new global::ProGPU.Scene.Rect(8, 18, gap ? 22 : 24, 24), mask.Rect);
+            var fill = commands.Commands[0];
+            Assert.Equal(global::ProGPU.Scene.RenderCommandType.PushGeometryClip, fill.Type);
+            Assert.NotSame(fill.Path, mask.Path);
+            Assert.True(Assert.Single(fill.Path!.Figures).IsFilled);
+            Assert.All(mask.Path!.Figures, figure => Assert.False(figure.IsFilled));
+            if (gap) Assert.All(mask.Path.Figures, figure => Assert.False(figure.IsClosed));
+            var sourceDraw = commands.Commands.Last(command => command.Type == global::ProGPU.Scene.RenderCommandType.DrawVisual);
+            Assert.Equal(gap ? 9.5f : 10f, sourceDraw.Transform.M41);
+            Assert.Equal(15f, sourceDraw.Transform.M42);
+        }
+        finally { commands.Clear(); }
+    }
+
+    private sealed class CaptureLinearPath(bool closed, bool gap) : global::ProGPU.Wpf.Interop.IPortableGeometryPathSource
+    {
+        public bool TryGetPortableGeometryPath(out global::ProGPU.Wpf.Interop.PortableGeometryPath path)
+        {
+            path = new()
+            {
+                Figures = [new() { StartPoint = new(10, 20), IsClosed = closed, IsFilled = true,
+                    Segments = [
+                        global::ProGPU.Wpf.Interop.PortablePathSegment.Line(new(30, 20), false, true),
+                        global::ProGPU.Wpf.Interop.PortablePathSegment.Line(new(30, 40), false, !gap),
+                        global::ProGPU.Wpf.Interop.PortablePathSegment.Line(new(10, 40), false, true)] }]
+            };
+            return true;
+        }
+    }
+
     [Fact]
     public void EmptyCacheBrushMaskIsTransparentNotAnAbsentMask()
     {

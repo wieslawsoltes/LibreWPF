@@ -10,6 +10,12 @@ The product bridge source is currently reflection-free by audit; keep that as an
 
 ## GPU-First Compute and SIMD Fallback Priority
 
+General cached linear paths must delegate contour preparation and stroke bounds
+to ProGPU, preserve the original fill path independently from gap-split stroke
+coverage, and retain typed pen/source identity. Primitive and strict single-line
+shortcuts stay first; broader typed/local/native path consumers must not reduce
+closed, multi-segment or gapped contours to an endpoint pair.
+
 Cached ellipse and rounded-rectangle pens must use shared ProGPU smooth stroke
 preparation, retain one analytic path for fill and stroke, and report rejected
 pens even when fill succeeds. Direct commands preserve guideline snapping;
@@ -32,7 +38,7 @@ draws or bridge-local fill-bound inflation.
 Cached line-geometry pens should consume `IPortablePrimitiveGeometrySource` before
 requesting packed paths. Apply geometry-local transforms to endpoints before
 shared stroke preparation, preserve outer transforms on completed coverage, and
-do not capture a fill brush for zero-area open lines. Path-only lowering must
+do not capture a fill brush for zero-area open lines. Single-line lowering must
 reject closed, curved, multi-segment and combined topology rather than treat it
 as a single line; unavailable typed descriptors must not trigger shape probing.
 

@@ -203,6 +203,24 @@ internal sealed class ProGpuRetainedCompositionCommandSink :
         return ((IWpfBitmapCacheBrushCommandSink)Current.Sink).DrawBitmapCacheBrushRectangleStroke(source, pen, rectangle, imageSourceAdapter);
     }
 
+    WpfDrawingReplayStatus IWpfBitmapCacheBrushCommandSink.DrawBitmapCacheBrushPathGeometry(object? fill,
+        global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource source,
+        in global::ProGPU.Wpf.Interop.PortablePenState pen, global::ProGPU.Vector.PathGeometry geometry,
+        Func<object?, MediaImageSource?>? imageSourceAdapter)
+    {
+        ThrowIfClosed();
+        return ((IWpfBitmapCacheBrushCommandSink)Current.Sink).DrawBitmapCacheBrushPathGeometry(fill, source, pen, geometry, imageSourceAdapter);
+    }
+
+    WpfDrawingReplayStatus IWpfBitmapCacheBrushCommandSink.DrawBitmapCacheBrushPathGeometry(object? fill,
+        global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource source,
+        in global::ProGPU.Wpf.Interop.PortablePenState pen, MediaGeometry geometry,
+        Func<object?, MediaImageSource?>? imageSourceAdapter)
+    {
+        ThrowIfClosed();
+        return ((IWpfBitmapCacheBrushCommandSink)Current.Sink).DrawBitmapCacheBrushPathGeometry(fill, source, pen, geometry, imageSourceAdapter);
+    }
+
     WpfDrawingReplayStatus IWpfBitmapCacheBrushCommandSink.DrawBitmapCacheBrushPrimitiveGeometry(object? fill,
         global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource source,
         in global::ProGPU.Wpf.Interop.PortablePenState pen,

@@ -406,10 +406,48 @@ public sealed class ProGpuCompositionCommandSink :
             new(minimum.X, minimum.Y, extent.X, extent.Y), prepared, imageSourceAdapter);
     }
 
+    WpfDrawingReplayStatus IWpfBitmapCacheBrushCommandSink.DrawBitmapCacheBrushPathGeometry(object? fill,
+        global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource source,
+        in global::ProGPU.Wpf.Interop.PortablePenState pen, MediaGeometry geometry,
+        Func<object?, MediaImageSource?>? imageSourceAdapter)
+    {
+        ThrowIfClosed();
+        if (!TryConvertGeometryToNativePath(geometry, Matrix4x4.Identity, out var path, out _))
+            return WpfDrawingReplayStatus.Unsupported;
+        return ((IWpfBitmapCacheBrushCommandSink)this).DrawBitmapCacheBrushPathGeometry(fill, source, pen, path, imageSourceAdapter);
+    }
+
+    WpfDrawingReplayStatus IWpfBitmapCacheBrushCommandSink.DrawBitmapCacheBrushPathGeometry(object? fill,
+        global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource source,
+        in global::ProGPU.Wpf.Interop.PortablePenState pen, VectorPathGeometry geometry,
+        Func<object?, MediaImageSource?>? imageSourceAdapter)
+    {
+        ThrowIfClosed();
+        VectorPathGeometry strokePath = null!;
+        VectorPen coveragePen = null!;
+        global::ProGPU.Scene.Rect strokeBounds = default;
+        bool prepared = WpfResourceResolver.TryAdaptNativeStrokePen(pen, out var nativePen)
+            && global::ProGPU.Scene.StrokeCoverageGeometry.TryPrepareLinearPath(geometry, nativePen,
+                out strokePath, out coveragePen, out strokeBounds);
+        // Fill follows the original path, not a gap-split stroke-only contour.
+        WpfReplayRect fillBounds = default;
+        if (fill != null)
+        {
+            if (!geometry.TryGetBounds(out var minimum, out var maximum)) return WpfDrawingReplayStatus.Unsupported;
+            var extent = maximum - minimum;
+            if (!float.IsFinite(minimum.X) || !float.IsFinite(minimum.Y)
+                || !float.IsFinite(extent.X) || !float.IsFinite(extent.Y)) return WpfDrawingReplayStatus.Unsupported;
+            fillBounds = new(minimum.X, minimum.Y, extent.X, extent.Y);
+        }
+        return DrawPreparedBitmapCacheGeometry(fill, source, geometry, coveragePen, strokeBounds,
+            fillBounds, prepared, imageSourceAdapter, strokePath);
+    }
+
     private WpfDrawingReplayStatus DrawPreparedBitmapCacheGeometry(object? fill,
         global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource source,
         VectorPathGeometry path, VectorPen coveragePen, global::ProGPU.Scene.Rect strokeBounds,
-        WpfReplayRect fillBounds, bool prepared, Func<object?, MediaImageSource?>? imageSourceAdapter)
+        WpfReplayRect fillBounds, bool prepared, Func<object?, MediaImageSource?>? imageSourceAdapter,
+        VectorPathGeometry? strokePath = null)
     {
         bool fillApplied = fill == null, partialFill = false;
         if (fill != null)
@@ -434,7 +472,7 @@ public sealed class ProGpuCompositionCommandSink :
                 }
             }
         }
-        bool strokeApplied = prepared && TryDrawPreparedBitmapCacheStroke(source, path, coveragePen, strokeBounds, imageSourceAdapter);
+        bool strokeApplied = prepared && TryDrawPreparedBitmapCacheStroke(source, strokePath ?? path, coveragePen, strokeBounds, imageSourceAdapter);
         return fillApplied && strokeApplied ? WpfDrawingReplayStatus.Applied
             : strokeApplied || partialFill || (fill != null && fillApplied)
                 ? WpfDrawingReplayStatus.PartiallyApplied : WpfDrawingReplayStatus.Unsupported;

@@ -355,13 +355,13 @@ internal static class WpfDrawingReplay
                     new(ellipse.Center.X, ellipse.Center.Y), ellipse.RadiusX, ellipse.RadiusY, affine);
             }
         }
-        else return TryReplayBitmapCachePenLinePath(source, state, geometry, sink, imageSourceAdapter, out status);
+        else return TryReplayBitmapCachePenPath(brush, source, state, geometry, sink, imageSourceAdapter, out status);
         if (sink is IWpfBitmapCacheBrushCommandSink cached)
             status = cached.DrawBitmapCacheBrushPrimitiveGeometry(brush, source, state, primitive, imageSourceAdapter);
         return true;
     }
 
-    private static bool TryReplayBitmapCachePenLinePath(global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource source,
+    private static bool TryReplayBitmapCachePenPath(object? brush, global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource source,
         in global::ProGPU.Wpf.Interop.PortablePenState state, object? geometry,
         IWpfCompositionCommandSink sink, Func<object?, MediaImageSource?>? imageSourceAdapter,
         out WpfDrawingReplayStatus status)
@@ -375,8 +375,13 @@ internal static class WpfDrawingReplay
         }
         if (portable != null)
         {
-            if (!WpfPortablePathGeometryConverter.TryConvert(portable, Matrix4x4.Identity, out var path, out _)
-                || !global::ProGPU.Vector.PrimitivePathGeometry.TryGetOpenLine(path, out var first, out var last)) return false;
+            if (!WpfPortablePathGeometryConverter.TryConvert(portable, Matrix4x4.Identity, out var path, out _)) return true;
+            if (!global::ProGPU.Vector.PrimitivePathGeometry.TryGetOpenLine(path, out var first, out var last))
+            {
+                if (sink is IWpfBitmapCacheBrushCommandSink pathSink)
+                    status = pathSink.DrawBitmapCacheBrushPathGeometry(brush, source, state, path, imageSourceAdapter);
+                return true;
+            }
             start = new(first.X, first.Y);
             end = new(last.X, last.Y);
         }
@@ -385,6 +390,18 @@ internal static class WpfDrawingReplay
         {
             start = new(first.X, first.Y);
             end = new(last.X, last.Y);
+        }
+        else if (geometry is MediaGeometry mediaPath)
+        {
+            if (sink is IWpfBitmapCacheBrushCommandSink pathSink)
+                status = pathSink.DrawBitmapCacheBrushPathGeometry(brush, source, state, mediaPath, imageSourceAdapter);
+            return true;
+        }
+        else if (geometry is global::ProGPU.Vector.PathGeometry nativePath)
+        {
+            if (sink is IWpfBitmapCacheBrushCommandSink pathSink)
+                status = pathSink.DrawBitmapCacheBrushPathGeometry(brush, source, state, nativePath, imageSourceAdapter);
+            return true;
         }
         else return false;
 

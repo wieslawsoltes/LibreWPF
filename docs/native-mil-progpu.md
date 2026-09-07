@@ -8540,6 +8540,28 @@ keys. These fixtures are authored only; no runtime validation is claimed.
 
 ## Developer commands
 
+### Linear cached path checkpoint
+
+Typed packed/local/native geometry, GeometryDrawing and raw MIL cached pens now
+reach ProGPU solid linear-path preparation after primitive/single-line shortcuts.
+Owned stroke runs preserve open/closed seams, gap caps, smooth flags and point
+caps; source fill stays on the original geometry. Direct and retained sinks
+record these separate paths with their own material bounds. Unsupported curved
+or dashed strokes keep partial/unsupported results rather than silently losing
+the pen. C++ Direct2D support-point arithmetic also uses NEON/SSE2 double lanes.
+
+[ProGPU linear cached paths](../external/ProGPU/docs/cached-pictures.md#linear-path-cached-pens-and-gap-preserving-contours)
+records exact original-source provenance, complexity, research and authored
+scalar/native/WPF fixtures. Runtime, image/SIMD/performance, VM/platform,
+Svg.Skia, source-verifier and CI qualification remain deferred. Curved/dashed
+general paths, generic live native-picture transport and the full goal remain open.
+
+Compilation checkpoint (2026-09-07), ProGPU `c33c0591`: final ProGPU.Tests
+Release build 0 warnings/errors; Apple Clang native MIL fixture and Direct2D core
+targets built; final incremental WPF.Tests build 0 warnings/errors. The preceding
+WPF fixture compile reported 18 warnings; warning attribution remains unqualified.
+Fixtures are authored and compiled, not executed.
+
 ### Smooth cached ellipse and rounded-rectangle checkpoint
 
 Typed primitive/local geometry and GeometryDrawing now route ellipse and rounded

@@ -164,6 +164,16 @@ internal interface IWpfProGpuSceneDrawingContextSource
 
 internal interface IWpfBitmapCacheBrushCommandSink
 {
+    Mil.WpfDrawingReplayStatus DrawBitmapCacheBrushPathGeometry(object? fill,
+        global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource source,
+        in global::ProGPU.Wpf.Interop.PortablePenState pen, global::ProGPU.Vector.PathGeometry geometry,
+        Func<object?, MediaImageSource?>? imageSourceAdapter) => Mil.WpfDrawingReplayStatus.Unsupported;
+
+    Mil.WpfDrawingReplayStatus DrawBitmapCacheBrushPathGeometry(object? fill,
+        global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource source,
+        in global::ProGPU.Wpf.Interop.PortablePenState pen, MediaGeometry geometry,
+        Func<object?, MediaImageSource?>? imageSourceAdapter) => Mil.WpfDrawingReplayStatus.Unsupported;
+
     Mil.WpfDrawingReplayStatus DrawBitmapCacheBrushPrimitiveGeometry(object? fill,
         global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource source,
         in global::ProGPU.Wpf.Interop.PortablePenState pen,
