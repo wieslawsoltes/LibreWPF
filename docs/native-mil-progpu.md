@@ -11,6 +11,35 @@ parity evidence. Tests, VM/image comparisons, verifiers, benchmarks, and exact-h
 CI qualification are deferred at the user's request until implementation is ready.
 Historical passing counts below apply only to their named snapshots.
 
+### Curved dash continuity checkpoint (2026-09-07)
+
+ProGPU `8d7a63d0` keeps curved visible intervals
+separate even when a hidden retrace returns to the previous endpoint. Only a
+real continued source junction inherits its smooth-join flag. Managed and C++
+subsegment consumers preserve nonconstant returning Béziers instead of applying
+line-degeneracy rules to curves; native full-turn arcs remain analytic. Exact
+constant managed Béziers and empty endpoint arcs preserve phase without output.
+
+Managed curve metric and subsegment failures now propagate rather than silently
+omitting a span and reporting success. Accumulated metric overflow is rejected
+before interval walking. Original retained caches and analytic GPU primitives
+remain in use; there is no new WPF-local stroker, CPU pixel path, readback,
+per-dash submission or native ABI change.
+
+Matched managed/native fixtures are authored for returning curves, hidden
+retraces, smooth joins and invalid/overflowed metrics. See
+[research, original ProGPU provenance and costs](../external/ProGPU/docs/cached-pictures.md#curved-dash-continuity-prerequisites-2026-09-07).
+This fixes prerequisites, not general cached curved coverage. Curved terminal
+filled coverage, tiny/point-only cases, density budgets, boolean/device-width
+policies and the broader full MIL/DirectX/Direct2D/COM/Win2D goal remain open.
+Runtime/image, performance/SIMD, VM/platform/package, source-verifier and CI
+qualification remain deferred; no fixtures were executed.
+
+Final compilation: ProGPU.Tests Release 0 warnings/errors, Apple Clang C++20
+native MIL fixtures compile/link, LibreWPF.Tests Release 116 warnings and 0 errors.
+Warnings are recorded, not qualified or fixed. Main was refreshed with zero
+missing ProGPU commits.
+
 ### Ordinary linear dash consumers checkpoint (2026-09-07)
 
 ProGPU `94106859` shares complete normal-width linear dash coverage between ordinary
