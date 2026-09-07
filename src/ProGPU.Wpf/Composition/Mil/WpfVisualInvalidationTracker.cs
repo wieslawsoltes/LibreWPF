@@ -5,6 +5,7 @@ using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using ProGPU.Backend;
+using PortableBitmapCacheBrushSource = ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource;
 using PortableDrawingContentSource = ProGPU.Wpf.Interop.IPortableDrawingContentSource;
 using PortableDrawingGroupChildrenSource = ProGPU.Wpf.Interop.IPortableDrawingGroupChildrenSource;
 using PortableDrawingImageSource = ProGPU.Wpf.Interop.IPortableDrawingImageSource;
@@ -1146,6 +1147,13 @@ public sealed class WpfVisualInvalidationTracker : IDisposable
             }
 
             VisitPortableDrawingGroupChildren(ref state, visitor, source, drawingGroupState);
+        }
+
+        if (source is PortableBitmapCacheBrushSource cacheBrushSource
+            && cacheBrushSource.TryGetPortableBitmapCacheBrush(out var cacheBrush))
+        {
+            VisitPortableDependency(ref state, visitor, cacheBrush.InternalTarget);
+            VisitPortableDependency(ref state, visitor, cacheBrush.BitmapCache);
         }
 
         if (source is PortableTileBrushSource tileBrushSource

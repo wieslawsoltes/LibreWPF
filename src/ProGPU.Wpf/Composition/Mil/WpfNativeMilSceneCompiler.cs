@@ -371,7 +371,7 @@ public sealed class WpfNativeMilSceneCompiler
             if (_visualBoundsHandles.Contains(visualHandle)) return;
             if (!TryGetVisualBounds(visual, out NativeMilRect bounds))
                 throw new NotSupportedException(
-                    "Native MIL visual isolation and VisualBrush require exact typed Visual descendant bounds.");
+                    "Native MIL visual isolation and visual-source brushes require exact typed Visual descendant bounds.");
             VisualCacheBounds.Add(new WpfNativeMilVisualCacheBounds(visualHandle, bounds));
             _visualBoundsHandles.Add(visualHandle);
         }
@@ -1519,6 +1519,26 @@ public sealed class WpfNativeMilSceneCompiler
             {
                 return existing;
             }
+            if (resource is IPortableBitmapCacheBrushSource cacheSource)
+            {
+                if (!cacheSource.TryGetPortableBitmapCacheBrush(out PortableBitmapCacheBrush cacheBrush))
+                    throw MissingContract(nameof(IPortableBitmapCacheBrushSource));
+                // Resolve before publishing the brush handle so a source that
+                // paints itself reaches the existing active-visual cycle guard.
+                uint target = cacheBrush.InternalTarget is null ? 0U
+                    : ResolveVisualBrushSource(cacheBrush.InternalTarget);
+                uint cache = cacheBrush.BitmapCache is null ? 0U
+                    : ResolveBitmapCache(cacheBrush.BitmapCache);
+                uint transform = cacheBrush.HasTransform ? AddGeometryTransform(cacheBrush.Transform) : 0U;
+                uint relative = cacheBrush.HasRelativeTransform ? AddGeometryTransform(cacheBrush.RelativeTransform) : 0U;
+                uint cacheBrushHandle = NextHandle();
+                Batch.CreateResource(cacheBrushHandle, NativeMilResourceType.BitmapCacheBrush);
+                Batch.SetBitmapCacheBrush(cacheBrushHandle, new NativeMilBitmapCacheBrush(
+                    target, cache, cacheBrush.Opacity,
+                    TransformHandle: transform, RelativeTransformHandle: relative));
+                _brushHandles.Add(resource, cacheBrushHandle);
+                return cacheBrushHandle;
+            }
             if (resource is IPortableTileBrushSource tileSource)
             {
                 if (!tileSource.TryGetPortableTileBrush(out PortableTileBrush tile))
@@ -2408,11 +2428,11 @@ public sealed class WpfNativeMilSceneCompiler
             bool allowSpatialMask,
             out bool isSpatialMask)
         {
-            // Algorithm: classify typed tile masks before ordinary brush DTOs and
+            // Algorithm: classify typed sampled masks before ordinary brush DTOs and
             // reuse the normal resource graph serializer, including cycle guards.
             // Time: O(1) classification plus unresolved source graph traversal.
             // Space: O(1) here; shared resolver storage owns serialized resources.
-            if (resource is IPortableTileBrushSource)
+            if (resource is IPortableTileBrushSource or IPortableBitmapCacheBrushSource)
             {
                 isSpatialMask = true;
                 if (!allowSpatialMask)

@@ -583,6 +583,35 @@ public sealed class WpfVisualInvalidationTrackerTests
     }
 
     [Fact]
+    public void BitmapCacheBrushDependenciesIncludeTargetAndExplicitCache()
+    {
+        var target = new FakeResource();
+        var cache = new FakeResource();
+        var brush = new FakeCacheBrush(target, cache);
+        var root = new FakePortableDrawingVisual(brush);
+        using var tracker = new WpfVisualInvalidationTracker();
+        tracker.Attach(root);
+        tracker.ConsumeDirty();
+        target.RaisePortableInvalidated();
+        Assert.True(tracker.IsDirty);
+        Assert.Same(target, tracker.LastDirtySource);
+        tracker.ConsumeDirty();
+        cache.RaisePortableInvalidated();
+        Assert.True(tracker.IsDirty);
+        Assert.Same(cache, tracker.LastDirtySource);
+        var dependencies = WpfVisualInvalidationTracker.EnumerateTrackedDependencies(brush);
+        Assert.Contains(target, dependencies);
+        Assert.Contains(cache, dependencies);
+    }
+
+    private sealed class FakeCacheBrush(object target, object cache)
+        : ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource
+    {
+        public bool TryGetPortableBitmapCacheBrush(out ProGPU.Wpf.Interop.PortableBitmapCacheBrush brush)
+        { brush = new(target, cache); return true; }
+    }
+
+    [Fact]
     public void VisualEffectChangeMarksTrackerDirty()
     {
         var effect = new FakeResource();

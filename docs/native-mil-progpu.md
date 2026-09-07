@@ -8469,6 +8469,28 @@ qualification remain deferred. On-screen target-cache unification, dirty regions
 CPU preparation reuse, root scroll clips and independent managed integration
 remain open. The full goal is not complete.
 
+## Implementation-first checkpoint: typed BitmapCacheBrush producer integration
+
+ProGPU now owns a neutral `PortableBitmapCacheBrush` snapshot and typed source
+interface. Source-built WPF exports its resolved `InternalTarget` and cache, with
+the matching reference-assembly surface. The native MIL compiler serializes this
+as a cache-brush resource, not a VisualBrush, and shares source/cache handles across
+fill, pen and spatial opacity-mask consumers. Null targets remain empty; cycles
+and unavailable contracts fail closed. Retained invalidation follows the typed
+target and explicit cache without reflection or copied pixel buffers.
+
+Contract, packet/reference, source-adapter (including auto-wrapped targets) and
+invalidation fixtures are authored. Release builds of ProGPU's test graph, the
+LibreWPF bridge/test graph, source-built PresentationCore and PresentationCore's
+test project succeed; the source-built graph still reports warnings. Its initial
+test compile rejected an existing redundant `using Xunit` in animation resource
+tests; removing that import restored compilation without suppressing diagnostics.
+No tests were executed. This connects the managed native-MIL producer to C++
+rendering, not the independent managed cache-brush renderer. That implementation,
+root scroll clips, page unification, dirty regions/preparation reuse and all final
+platform/VM/image/performance/CI qualification remain open. Detailed costs and
+original-code provenance are recorded in ProGPU's native MIL document.
+
 ## Developer commands
 
 ```sh

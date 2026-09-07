@@ -1,5 +1,4 @@
 using ProGPU.Wpf.Interop;
-using Xunit;
 
 namespace System.Windows.Media.Animation.Tests;
 

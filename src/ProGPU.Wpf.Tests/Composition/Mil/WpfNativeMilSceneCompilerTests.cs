@@ -182,6 +182,79 @@ public sealed class WpfNativeMilSceneCompilerTests
             false, PortableMatrix3x2.Identity, false, PortableMatrix3x2.Identity));
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void BitmapCacheBrushSharesTypedSourceAndCacheAcrossFillPenAndMask(bool sourceFirst)
+    {
+        var cache = new FakeBitmapCache(new PortableBitmapCache(2, true, true));
+        var source = new FakeVisual(null, new PortableVisualState { HasCacheMode = true, CacheMode = cache });
+        var brush = new FakeCacheBrush(new PortableBitmapCacheBrush(source, cache, 0.5,
+            true, new(1, 0, 0, 1, 4, 5), true, new(2, 0, 0, 2, 0, 0)));
+        var pen = new FakeResourcePen(new PortablePenState(brush, 2,
+            PortablePenLineCap.Flat, PortablePenLineCap.Flat, PortablePenLineCap.Flat,
+            PortablePenLineJoin.Miter, 10, ReadOnlyMemory<double>.Empty, 0));
+        var painter = new FakeVisual(new FakeRenderData(CreateRectangleRecord(1, 2), [brush, pen]),
+            new PortableVisualState { HasOpacityMask = true, OpacityMask = brush });
+        var root = new FakeVisual(null, null, sourceFirst ? [source, painter] : [painter, source]);
+        var batch = new WpfNativeMilSceneCompiler().BuildBatch(root, 64, 64);
+        Assert.Single(ReadCommands(batch.Bytes), value => value == 0x84);
+        Assert.DoesNotContain(0x83, ReadCommands(batch.Bytes));
+        int offset = FindCommand(batch.Bytes, 0x84);
+        Assert.Equal(40U, ReadUInt32(batch.Bytes, offset));
+        Assert.Equal(0.5, ReadDouble(batch.Bytes, offset + 12));
+        Assert.NotEqual(0U, ReadUInt32(batch.Bytes, offset + 24));
+        Assert.NotEqual(0U, ReadUInt32(batch.Bytes, offset + 28));
+        Assert.Equal(ReadUInt32(batch.Bytes, FindCommand(batch.Bytes, 0x8d) + 8),
+            ReadUInt32(batch.Bytes, offset + 32));
+        Assert.Equal(2, batch.VisualCacheBounds!.Count);
+        Assert.Contains(batch.VisualCacheBounds!, bounds => bounds.Handle == ReadUInt32(batch.Bytes, offset + 36));
+        Assert.Equal(ReadUInt32(batch.Bytes, offset + 8),
+            ReadUInt32(batch.Bytes, FindCommand(batch.Bytes, 0x86) + 28));
+        Assert.Empty(batch.BitmapSources!);
+    }
+
+    [Fact]
+    public void BitmapCacheBrushNullTargetKeepsEmptyCanonicalResource()
+    {
+        var brush = new FakeCacheBrush(new PortableBitmapCacheBrush(null));
+        var batch = new WpfNativeMilSceneCompiler().BuildBatch(
+            new FakeVisual(new FakeRenderData(CreateRectangleRecord(1, 0), [brush])), 64, 64);
+        int offset = FindCommand(batch.Bytes, 0x84);
+        Assert.Equal(1.0, ReadDouble(batch.Bytes, offset + 12));
+        Assert.Equal(0U, ReadUInt32(batch.Bytes, offset + 32));
+        Assert.Equal(0U, ReadUInt32(batch.Bytes, offset + 36));
+        Assert.Empty(batch.VisualCacheBounds!);
+    }
+
+    [Fact]
+    public void BitmapCacheBrushUnavailableContractCannotUseOrdinaryBrushFallback()
+    {
+        var brush = new FakeCacheBrush(default, available: false);
+        var root = new FakeVisual(new FakeRenderData(CreateRectangleRecord(1, 0), [brush]));
+        Assert.Contains(nameof(IPortableBitmapCacheBrushSource), Assert.Throws<InvalidOperationException>(() =>
+            new WpfNativeMilSceneCompiler().BuildBatch(root, 64, 64)).Message);
+    }
+
+    [Fact]
+    public void BitmapCacheBrushSourceCycleFailsClosed()
+    {
+        object?[] resources = new object?[1];
+        var source = new FakeVisual(new FakeRenderData(CreateRectangleRecord(1, 0), resources));
+        resources[0] = new FakeCacheBrush(new PortableBitmapCacheBrush(source));
+        Assert.Contains("cycle", Assert.Throws<InvalidOperationException>(() =>
+            new WpfNativeMilSceneCompiler().BuildBatch(source, 64, 64)).Message);
+    }
+
+    private sealed class FakeCacheBrush(PortableBitmapCacheBrush value, bool available = true)
+        : IPortableBitmapCacheBrushSource, IPortableBrushSource
+    {
+        public bool TryGetPortableBitmapCacheBrush(out PortableBitmapCacheBrush brush)
+        { brush = value; return available; }
+        public bool TryGetPortableBrush(out PortableBrush brush) =>
+            throw new InvalidOperationException("Cache brushes must not use ordinary brush fallback.");
+    }
+
     private sealed class FakeTileBrush(PortableTileBrush tile) : IPortableTileBrushSource
     {
         public bool TryGetPortableTileBrush(out PortableTileBrush brush)

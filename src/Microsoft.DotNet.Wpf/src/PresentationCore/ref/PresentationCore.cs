@@ -5067,7 +5067,7 @@ namespace System.Windows.Media
         bool ProGPU.Wpf.Interop.IPortableBitmapCacheSource.TryGetPortableBitmapCache(out ProGPU.Wpf.Interop.PortableBitmapCache cache) { throw null; }
         protected override System.Windows.Freezable CreateInstanceCore() { throw null; }
     }
-    public sealed partial class BitmapCacheBrush : System.Windows.Media.Brush
+    public sealed partial class BitmapCacheBrush : System.Windows.Media.Brush, ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource
     {
         public static readonly System.Windows.DependencyProperty AutoLayoutContentProperty;
         public static readonly System.Windows.DependencyProperty BitmapCacheProperty;
@@ -5079,6 +5079,7 @@ namespace System.Windows.Media
         public System.Windows.Media.Visual Target { get { throw null; } set { } }
         public new System.Windows.Media.BitmapCacheBrush Clone() { throw null; }
         public new System.Windows.Media.BitmapCacheBrush CloneCurrentValue() { throw null; }
+        bool ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource.TryGetPortableBitmapCacheBrush(out ProGPU.Wpf.Interop.PortableBitmapCacheBrush brush) { throw null; }
         protected override System.Windows.Freezable CreateInstanceCore() { throw null; }
         protected override void OnPropertyChanged(System.Windows.DependencyPropertyChangedEventArgs e) { }
     }
