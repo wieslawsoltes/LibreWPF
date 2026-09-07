@@ -8308,6 +8308,24 @@ documents complexity and the pending Windows join-propagation comparison;
 nested groups, other fixed-shape transforms, preparation caching and the full
 goal remain open.
 
+## Implementation-first checkpoint: native nested-group stroke preparation
+
+ProGPU now prepares each group child occurrence once in drawing coordinates and
+uses that same spine for bounds and replay. Paths, lines, positive-size fixed
+shapes and combined outlines compose geometry transforms before widening.
+Gradient/tile pens share one group mapping, tile coverage remains one mask/paint,
+and world transforms remain after widening. Collapsed full ellipses reuse the
+original bounded cubic lowering through two half arcs.
+
+Already-zero-size fixed shapes still use documented specialized legacy entries;
+their geometry-transform ordering and direct non-group fixed shapes remain open.
+Preparation caching across compilations is also pending. Implementation,
+provenance and complexity documentation remain in ProGPU; no public bridge or
+managed workaround is added. Nested-versus-flattened and fixed/combined collapse
+fixtures are authored, and native library plus MIL/Direct2D compatibility/WebGPU
+targets compile. Runtime/VM/image/performance/verifier/CI qualification remains
+deferred; the full goal is not complete.
+
 ## Developer commands
 
 ```sh
