@@ -8439,6 +8439,21 @@ root scroll-clip/render-options/guidelines, Viewport3D roots and independent
 managed cache-brush integration remain implementation work. Unsupported forms
 fail closed. Full BitmapCacheBrush and the full goal remain incomplete.
 
+## Implementation-first checkpoint: native cache-brush policies and Viewport3D
+
+ProGPU cache brushes now reuse ordinary Viewport3D content replay and preserve
+root render options/static guidelines inside the captured page. Content keys
+include these policies, distinguish guideline axes and keep Viewport3D sideband
+generation separate from ignored outer visual state. Shared guideline mapping
+uses NEON/SSE2 coordinate pairs with a bounded tail. No WPF-local adapter is added.
+
+Native semantic fixtures cover both 3D source forms, root-policy mapping and
+invalidation. Native library/MIL/Direct2D compatibility/WebGPU targets compile;
+fixtures are not executed. Runtime, platform/VM/images, precision/performance,
+verifier and CI qualification remain deferred. Root scroll clips, shared cache
+pages/dirty regions, unsupported 3D combinations, managed integration and the
+broader goal remain open. Details and provenance stay in ProGPU documentation.
+
 ## Developer commands
 
 ```sh
