@@ -8540,6 +8540,24 @@ keys. These fixtures are authored only; no runtime validation is claimed.
 
 ## Developer commands
 
+### Cached LineGeometry/GeometryDrawing checkpoint
+
+Cached pens now reach shared ProGPU stroke preparation from object/managed geometry
+calls, GeometryDrawing, direct native command sinks and both raw MIL decoder lanes.
+Source-built LineGeometry uses its existing typed primitive descriptor, with paired
+double-coordinate transform math in ProGPU interop and no path packing. Path-only
+sources use the existing cached converter and a strict ProGPU open-line classifier.
+Geometry-local transforms map the spine before widening; outer draw transforms
+remain on completed coverage/material. A single line has zero fill area and must
+not capture a supplied fill source. Non-line cached pens remain unsupported, and
+fill-only partial results now report that gap explicitly.
+
+Native MIL already implements the paired transformed LineGeometry path; no native
+product or shader change is needed. New fixtures cover nonuniform mapping, typed
+routes, scalar/intrinsic math, topology guards and source-capture avoidance.
+Original source provenance, costs, research, limits and deferred qualification:
+[ProGPU LineGeometry consumers](../external/ProGPU/docs/cached-pictures.md#cached-linegeometry-and-geometrydrawing-consumers).
+
 ### Typed cached-line pen checkpoint
 
 Object/managed/direct-native and raw MIL line calls now retain raw cached brush
@@ -8686,6 +8704,12 @@ remain open. Runtime/VM/platform, performance, renderer/Svg.Skia, verifier and
 CI gates stay deferred until the final validation phase.
 
 ### Compilation checkpoints
+
+Cached LineGeometry checkpoint (2026-09-07): native MIL fixtures compile in Release;
+ProGPU.Tests reports 0 warnings/0 errors. Final incremental WPF compilation reports
+13 warnings/0 errors, following an earlier broader rebuild with 106 warnings/0
+errors. Warning attribution and all fixture execution remain deferred. These builds
+do not establish pixel, SIMD/performance, platform/VM parity or green CI.
 
 Typed cached-line checkpoint (2026-09-07): native `progpu_native_mil_tests`
 compiles in Release; ProGPU.Tests reports 0 warnings/0 errors. The final incremental

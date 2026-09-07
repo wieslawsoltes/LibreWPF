@@ -535,6 +535,13 @@ public sealed class WpfObjectRenderDataDrawingContext :
     public void DrawGeometry(object? brush, object? pen, object? geometry)
     {
         ThrowIfClosed();
+        if (WpfDrawingReplay.TryReplayBitmapCachePenLineGeometry(pen, geometry, _sink,
+                _resources.AdaptImageSource, out var cachedLineStatus))
+        {
+            RegisterRetainedDependencies(brush, pen, geometry);
+            CountDrawingReplayStatus(cachedLineStatus);
+            return;
+        }
         MediaBrush? mediaBrush = WpfResourceResolver.AdaptBrush(brush);
         MediaPen? mediaPen = WpfResourceResolver.AdaptPen(pen);
         if (brush != null
@@ -548,6 +555,9 @@ public sealed class WpfObjectRenderDataDrawingContext :
         {
             RegisterRetainedDependencies(brush, pen, geometry);
             var replayStatus = portableBrushReplayStatus;
+            if (pen != null && mediaPen == null)
+                replayStatus = portableBrushReplayStatus == WpfDrawingReplayStatus.Applied
+                    ? WpfDrawingReplayStatus.PartiallyApplied : WpfDrawingReplayStatus.Unsupported;
             if (mediaPen != null
                 && !TryDrawNativePortableGeometryPen(geometry, mediaPen)
                 && !TryDrawPrimitiveLineGeometryPen(geometry, mediaPen)

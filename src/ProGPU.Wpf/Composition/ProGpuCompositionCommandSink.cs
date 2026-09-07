@@ -599,10 +599,17 @@ public sealed class ProGpuCompositionCommandSink :
     public bool DrawNativeGeometry(MediaBrush? brush, MediaPen? pen, MediaGeometry geometry)
     {
         ThrowIfClosed();
+        if (WpfDrawingReplay.TryReplayBitmapCachePenLineGeometry(pen, geometry, this, null, out var cachedLineStatus))
+        {
+            if (cachedLineStatus != WpfDrawingReplayStatus.Applied) UnsupportedStateCount++;
+            return true;
+        }
         if (brush == null && pen == null)
         {
             return false;
         }
+
+        if (WpfResourceResolver.TryGetBitmapCachePen(pen, out _, out _)) UnsupportedStateCount++;
 
         if (TryConvertGeometryToNativePath(geometry, Matrix4x4.Identity, out var path, out var bounds))
         {
@@ -619,10 +626,17 @@ public sealed class ProGpuCompositionCommandSink :
     public bool DrawNativeGeometry(MediaBrush? brush, MediaPen? pen, PortableGeometryPath geometry)
     {
         ThrowIfClosed();
+        if (WpfDrawingReplay.TryReplayBitmapCachePenLineGeometry(pen, geometry, this, null, out var cachedLineStatus))
+        {
+            if (cachedLineStatus != WpfDrawingReplayStatus.Applied) UnsupportedStateCount++;
+            return true;
+        }
         if (brush == null && pen == null)
         {
             return false;
         }
+
+        if (WpfResourceResolver.TryGetBitmapCachePen(pen, out _, out _)) UnsupportedStateCount++;
 
         if (!TryConvertPortableGeometryPath(geometry, Matrix4x4.Identity, out var path, out var bounds)
             || (!path.IsCombined && path.Figures.Count == 0))

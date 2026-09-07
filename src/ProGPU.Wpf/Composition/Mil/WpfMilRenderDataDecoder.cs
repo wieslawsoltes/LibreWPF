@@ -1131,6 +1131,11 @@ public sealed class WpfMilRenderDataDecoder
     {
         status = WpfDrawingReplayStatus.Unsupported;
         unsupportedAnimations = 0;
+        if (command == WpfMilCommandId.DrawGeometry
+            && TryResolveRawResource(resources, ReadUInt32(payload, 4), out var geometryPen)
+            && TryResolveRawResource(resources, ReadUInt32(payload, 8), out var lineGeometry)
+            && WpfDrawingReplay.TryReplayBitmapCachePenLineGeometry(geometryPen, lineGeometry, sink,
+                GetImageSourceAdapter(resources, imageSourceAdapter), out status)) return true;
         if (command is WpfMilCommandId.DrawLine or WpfMilCommandId.DrawLineAnimate)
         {
             if (!TryResolveRawResource(resources, ReadUInt32(payload, 32), out var rawPen)

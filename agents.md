@@ -10,6 +10,13 @@ The product bridge source is currently reflection-free by audit; keep that as an
 
 ## GPU-First Compute and SIMD Fallback Priority
 
+Cached line-geometry pens should consume `IPortablePrimitiveGeometrySource` before
+requesting packed paths. Apply geometry-local transforms to endpoints before
+shared stroke preparation, preserve outer transforms on completed coverage, and
+do not capture a fill brush for zero-area open lines. Path-only lowering must
+reject closed, curved, multi-segment and combined topology rather than treat it
+as a single line; unavailable typed descriptors must not trigger shape probing.
+
 Cached-brush pen replay must consume `IPortablePenStateSource` before color/gradient
 pen adaptation can erase raw brush identity. Retained dependency traversal must
 visit `PortablePenState.Brush`, including target and cache-policy resources. Keep

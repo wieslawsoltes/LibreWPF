@@ -252,6 +252,52 @@ internal static class WpfDrawingReplay
         return true;
     }
 
+    internal static bool TryReplayBitmapCachePenLineGeometry(object? pen, object? geometry,
+        IWpfCompositionCommandSink sink, Func<object?, MediaImageSource?>? imageSourceAdapter,
+        out WpfDrawingReplayStatus status)
+    {
+        status = WpfDrawingReplayStatus.Unsupported;
+        if (!WpfResourceResolver.TryGetBitmapCachePen(pen, out var state, out var source)) return false;
+        WpfReplayPoint start, end;
+        if (geometry is global::ProGPU.Wpf.Interop.IPortablePrimitiveGeometrySource primitiveSource
+            && primitiveSource.TryGetPortablePrimitiveGeometry(out var primitive))
+        {
+            if (primitive.Kind != global::ProGPU.Wpf.Interop.PortablePrimitiveGeometryKind.Line) return false;
+            if (primitive.TryGetTransformedLinePoints(out var firstPoint, out var lastPoint)
+                && sink is IWpfBitmapCacheBrushCommandSink primitiveSink
+                && primitiveSink.DrawBitmapCacheBrushLine(source, state,
+                    new(firstPoint.X, firstPoint.Y), new(lastPoint.X, lastPoint.Y), imageSourceAdapter))
+                status = WpfDrawingReplayStatus.Applied;
+            return true;
+        }
+        PortableGeometryPath? portable = geometry as PortableGeometryPath;
+        if (geometry is PortableGeometryPathSource publisher)
+        {
+            if (!publisher.TryGetPortableGeometryPath(out portable) || portable is null) return true;
+        }
+        if (portable != null)
+        {
+            if (!WpfPortablePathGeometryConverter.TryConvert(portable, Matrix4x4.Identity, out var path, out _)
+                || !global::ProGPU.Vector.PrimitivePathGeometry.TryGetOpenLine(path, out var first, out var last)) return false;
+            start = new(first.X, first.Y);
+            end = new(last.X, last.Y);
+        }
+        else if (geometry is MediaGeometry media
+            && WpfMediaLineGeometryReader.TryGetLinePoints(media, out var first, out var last))
+        {
+            start = new(first.X, first.Y);
+            end = new(last.X, last.Y);
+        }
+        else return false;
+
+        // A single open line has no fill area. Do not replay a source brush or
+        // manufacture a fill rectangle merely because DrawGeometry has a brush.
+        if (sink is IWpfBitmapCacheBrushCommandSink cached
+            && cached.DrawBitmapCacheBrushLine(source, state, start, end, imageSourceAdapter))
+            status = WpfDrawingReplayStatus.Applied;
+        return true;
+    }
+
     private static WpfDrawingReplayStatus TryReplayGeometryDrawing(
         object drawing,
         IWpfCompositionCommandSink sink,
@@ -280,6 +326,9 @@ internal static class WpfDrawingReplay
             hasPortableGeometryDrawingState,
             geometryDrawingState,
             out var penValue);
+
+        if (TryReplayBitmapCachePenLineGeometry(penValue, geometryValue, sink, imageSourceAdapter, out var cachedLineStatus))
+            return cachedLineStatus;
 
         var brush = WpfResourceResolver.AdaptBrush(brushValue);
         var pen = WpfResourceResolver.AdaptPen(penValue);

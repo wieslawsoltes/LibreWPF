@@ -222,6 +222,14 @@ public sealed class WpfCompositionDrawingContext : IWpfGeneratedRenderDataDrawin
             return;
         }
 
+        if (WpfDrawingReplay.TryReplayBitmapCachePenLineGeometry(pen, geometry, _sink,
+                _imageSourceAdapter, out var cachedLineStatus))
+        {
+            RegisterRetainedDependencies(brush, pen, geometry);
+            CountDrawingReplayStatus(cachedLineStatus);
+            return;
+        }
+
         if (brush != null && TryReplayTileBrushGeometry(brush, pen, geometry))
         {
             return;
