@@ -8186,6 +8186,23 @@ transform-collapse fidelity work plus full platform/VM/image/performance/CI
 qualification remain open. ProGPU's work logs document provenance, allocation
 costs and the distinction between compiled implementation and qualified parity.
 
+## Implementation-first checkpoint: closed-stroke inset topology
+
+ProGPU now keeps compact native Direct2D stroke rings only for suitable simple
+convex contours. An inset whose edges reverse falls back to compound widening,
+including cases where signed area and source bounding dimensions look valid.
+Non-convex closed contours use compound output directly. The eligibility
+predicate uses paired NEON/SSE2 dot products, and explicit-style compact strokes
+reuse SIMD line frames across both sides instead of recalculating normals.
+
+Authored triangle, kite and concave-notch fixtures cover both source windings,
+all joins, multiple widths, affine transforms, retained narrow-ring output and
+elimination of a false inner hole. Native library and MIL/Direct2D compatibility/
+WebGPU test targets compile. Tests and all runtime/VM/image/performance/CI
+qualification remain deferred. The change stays in ProGPU, without WPF-local
+workarounds or public ABI changes; point/tiny-contour and transform-collapse
+work plus the rest of the full goal remain open.
+
 ## Developer commands
 
 ```sh
