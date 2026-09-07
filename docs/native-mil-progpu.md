@@ -11,6 +11,25 @@ parity evidence. Tests, VM/image comparisons, verifiers, benchmarks, and exact-h
 CI qualification are deferred at the user's request until implementation is ready.
 Historical passing counts below apply only to their named snapshots.
 
+### Shared dashed-path metadata checkpoint (2026-09-07)
+
+ProGPU `18ee4f8b` fixes the shared dash generator's source-figure endpoint caps,
+interior line smooth joins and closed-seam smooth joins, and removes an
+intermediate public dash-array clone. LibreWPF consumes the shared implementation
+through the updated submodule; no bridge-local stroker or reflection is added.
+Native already retains equivalent metadata; new matched fixtures cover both
+implementations. See [design, provenance and remaining work](../external/ProGPU/docs/cached-pictures.md#dash-metadata-preparation-2026-09-07).
+
+This prepares the existing rendering path for further cached dash work. General
+cached dashed-path coverage remains rejected until emitted-outline material
+bounds and remaining edge cases are implemented. It is not a full-parity claim.
+
+Compilation only: ProGPU.Tests Release 0 warnings/errors, Apple Clang native MIL
+fixtures built, LibreWPF.Tests Release 114 warnings and 0 errors. Warning
+attribution and all fixture/runtime/image/SIMD/performance/source-verifier/VM/
+package/CI qualification remain deferred under the requested implementation-first
+sequence. ProGPU main was refreshed with no missing commits.
+
 ## Historical single ImageBrush rendering checkpoint (2026-09-05)
 
 The native producer now emits typed ImageBrush packets and ProGPU paints single
