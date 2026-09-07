@@ -11,6 +11,32 @@ parity evidence. Tests, VM/image comparisons, verifiers, benchmarks, and exact-h
 CI qualification are deferred at the user's request until implementation is ready.
 Historical passing counts below apply only to their named snapshots.
 
+### Direct2D command-stream antialiasing checkpoint (2026-09-07)
+
+ProGPU `9d75d313` extends the Windows Direct2D command-list translator with
+antialiased rectangular clips and aliased geometric layer masks, including
+geometry-plus-opacity-brush masks. It ports the existing original portable C++
+lowering: fractional rectangle coverage is applied once to the completed group,
+and geometric mask coverage remains independent of primitive antialiasing.
+Managed native-scene mask/path validation now accepts the same declared 1/4/8
+sample grids as C++. Unknown modes remain rejected.
+
+Shared portable/Windows transformed nested-clip fixtures and paired geometric
+mask fixtures are authored. Managed accepted-grid/allocation and invalid-grid
+fixtures are authored too. No ABI, shader, WPF-local drawing implementation,
+readback or execution-policy default changes are introduced. See
+[design, primary research, original provenance and remaining limits](../external/ProGPU/docs/direct2d-command-stream-antialiasing.md).
+
+Final ProGPU.Tests Release compilation succeeds with zero warnings/errors and
+Apple Clang C++20 portable COM fixtures compile/link. LibreWPF.Tests Release
+compiles with 116 warnings and zero errors; warnings are recorded, not qualified
+or claimed fixed. The fast native build does
+not include the Windows provider target; its changed Windows code and fixtures
+still require Windows compilation. Full renderer builds, all tests/images,
+GPU/VM/platform/package runs, SIMD/performance measurements, source verifiers
+and exact-head PR CI qualification remain deferred. Main was refreshed with
+zero missing ProGPU commits. Full MIL/DirectX/Direct2D/COM/Win2D parity remains open.
+
 ### Source endpoint traversal checkpoint (2026-09-07)
 
 ProGPU `c00ff194` managed and native dash preparation requires visible endpoint
