@@ -8343,6 +8343,23 @@ documents provenance, preparation costs and pending caching/fast-path recovery;
 there is no WPF-local workaround or public bridge change, and the full goal
 remains active.
 
+## Implementation-first checkpoint: zero-size native geometry transforms
+
+ProGPU now maps zero-size rectangle/rounded-rectangle/ellipse spines before pen
+widening in direct and grouped MIL replay. A rigid pen frame preserves source
+traversal without scaling thickness, and drawing-coordinate bounds map spatial
+brushes. DrawingImage bounds use the same ordering, including group ancestors.
+This replaces the previous specialized handlers' legacy geometry-transform order;
+the handlers themselves retain their original zero-size shape conventions.
+
+Direct/group, independently pre-scaled geometry and scalar DrawingImage bounds
+fixtures are authored. Native library and MIL/Direct2D compatibility/WebGPU
+targets compile; runtime tests, VM/image/SIMD comparisons, benchmarks, verifiers
+and CI qualification remain deferred. ProGPU documentation records original
+helper provenance, costs, uncached preparation and managed applicability. No
+WPF-local workaround or public bridge change was needed. The full goal remains
+active; this is implementation progress, not validated cross-platform parity.
+
 ## Developer commands
 
 ```sh
