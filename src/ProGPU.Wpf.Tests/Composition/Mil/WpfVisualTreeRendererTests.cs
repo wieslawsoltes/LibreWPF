@@ -341,6 +341,90 @@ public sealed class WpfVisualTreeRendererTests
     }
 
     [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    public void CachedOpacityMasksRetainTypedSourceAcrossAllBoundedScopes(int scope)
+    {
+        var target = new FakePortableVisualStateDrawingVisual(CreateRenderData(Brushes.Red), new PortableVisualState())
+        { Bounds = new Rect(0, 0, 30, 30) };
+        var policy = new EventCaptureCache { Value = new(1, false, false) };
+        var brush = new CaptureBrush(new(target, policy, Opacity: 0.5,
+            HasTransform: true, Transform: new PortableMatrix3x2(1, 0, 0, 1, 2, 3)));
+        var commands = new global::ProGPU.Scene.DrawingContext();
+        try
+        {
+            using var sink = new ProGpuCompositionCommandSink(commands);
+            if (scope == 0)
+            {
+                using var replay = new WpfObjectRenderDataDrawingContext(sink);
+                replay.PushOpacityMask(brush, new PortableRect(0, 0, 30, 30));
+                replay.DrawRectangle(Brushes.Blue, null, new Rect(0, 0, 30, 30));
+                replay.Pop();
+                Assert.Equal(0, replay.Result.UnsupportedCount);
+            }
+            else if (scope == 1)
+            {
+                var child = new ThrowingPortableGeometryDrawing(new PortableGeometryDrawingState
+                { HasGeometry = true, Geometry = new PortableRect(0, 0, 30, 30), HasBrush = true, Brush = Brushes.Blue });
+                var group = new ThrowingPortableDrawingGroup(new PortableDrawingGroupState
+                { HasOpacityMask = true, OpacityMask = brush, Children = [child] });
+                Assert.Equal(WpfDrawingReplayStatus.Applied, WpfDrawingReplay.Replay(group, sink));
+                Assert.Equal(0, group.ReflectedStateProbeCount);
+            }
+            else if (scope == 2)
+            {
+                var visual = new FakePortableVisualStateDrawingVisual(CreateRenderData(Brushes.Blue),
+                    new PortableVisualState { HasOpacityMask = true, OpacityMask = brush })
+                { Bounds = new Rect(0, 0, 30, 30) };
+                var result = new WpfVisualTreeRenderer().ReplaySubtree(visual, sink);
+                Assert.Equal(0, result.UnsupportedVisualStateCount);
+            }
+            else
+            {
+                var registry = new WpfMilResourceRegistry();
+                registry.Register(1, brush);
+                registry.Register(2, Brushes.Blue);
+                byte[] mask = new byte[24], fill = new byte[40];
+                WriteInt32(mask, 8, BitConverter.SingleToInt32Bits(30));
+                WriteInt32(mask, 12, BitConverter.SingleToInt32Bits(30));
+                WriteInt32(mask, 16, 1);
+                WriteDouble(fill, 16, 30); WriteDouble(fill, 24, 30); WriteInt32(fill, 32, 2);
+                byte[] stream = [.. CreateRecord(WpfMilCommandId.PushOpacityMask, mask),
+                    .. CreateRecord(WpfMilCommandId.DrawRectangle, fill), .. CreateRecord(WpfMilCommandId.Pop, [])];
+                Assert.Equal(new WpfMilDecodeResult(3, 3, 0, 0), new WpfMilRenderDataDecoder().Decode(stream, sink, registry));
+            }
+            var maskCommand = Assert.Single(commands.Commands.Where(value => value.Type == global::ProGPU.Scene.RenderCommandType.PushOpacityMask));
+            Assert.NotNull(maskCommand.Picture);
+            Assert.Equal(3, maskCommand.Picture!.CommandCount);
+            Assert.Equal(0.5f, maskCommand.Picture.GetCommand(0).FontSize);
+            var sourceDraw = maskCommand.Picture.GetCommand(1);
+            Assert.Equal(global::ProGPU.Scene.RenderCommandType.DrawVisual, sourceDraw.Type);
+            Assert.Equal(Matrix4x4.CreateTranslation(2, 3, 0), sourceDraw.Transform);
+            Assert.Single(commands.Commands.Where(value => value.Type == global::ProGPU.Scene.RenderCommandType.PopOpacityMask));
+            Assert.Equal(1, policy.SubscriptionCount);
+        }
+        finally { commands.Clear(); }
+        Assert.Equal(0, policy.SubscriptionCount);
+    }
+
+    [Fact]
+    public void EmptyCacheBrushMaskIsTransparentNotAnAbsentMask()
+    {
+        var commands = new global::ProGPU.Scene.DrawingContext();
+        using var sink = new ProGpuCompositionCommandSink(commands);
+        Assert.True(WpfPortableCommandSinkBridge.TryPushOpacityMask(sink,
+            new CaptureBrush(new(null)), new WpfReplayRect(0, 0, 10, 10)));
+        sink.Pop();
+        Assert.Equal(2, commands.Commands.Count);
+        Assert.Equal(global::ProGPU.Scene.RenderCommandType.PushOpacity, commands.Commands[0].Type);
+        Assert.Equal(0, commands.Commands[0].FontSize);
+        Assert.Equal(global::ProGPU.Scene.RenderCommandType.PopOpacity, commands.Commands[1].Type);
+        Assert.Equal(0, commands.RetainedResourceCount);
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public void DirectEllipseCacheBrushUsesNativeArcClip(bool objectRenderData)

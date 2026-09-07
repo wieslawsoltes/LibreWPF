@@ -1371,16 +1371,19 @@ public sealed class WpfObjectRenderDataDrawingContext :
     }
 
     public void PushOpacityMask(object? opacityMask)
+        => PushOpacityMask(opacityMask, Rect.Empty);
+
+    public void PushOpacityMask(object? opacityMask, object? bounds)
     {
         ThrowIfClosed();
         if (opacityMask == null)
         {
             _sink.PushNoOpScope();
         }
-        else if (WpfResourceResolver.AdaptBrush(opacityMask) is { } mediaOpacityMask)
+        else if (TryReadRect(bounds, out var maskBounds)
+            && WpfPortableCommandSinkBridge.TryPushOpacityMask(_sink, opacityMask, ToReplayRect(maskBounds), _resources.AdaptImageSource))
         {
             RegisterRetainedDependencies(opacityMask);
-            _sink.PushOpacityMask(mediaOpacityMask, Rect.Empty);
         }
         else
         {

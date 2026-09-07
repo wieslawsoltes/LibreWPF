@@ -884,6 +884,12 @@ public sealed class WpfVisualTreeRenderer
             return true;
         }
 
+        // Brush-only retained owner metadata cannot own a cached-source lease.
+        // Keep these masks on normal typed command scopes until that metadata
+        // has an explicit picture-source contract.
+        if (opacityMaskValue is global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource)
+            return false;
+
         opacityMask = WpfResourceResolver.AdaptBrush(opacityMaskValue);
         if (opacityMask == null || !TryReadOpacityMaskBounds(visual, out var bounds))
         {
@@ -1131,10 +1137,10 @@ public sealed class WpfVisualTreeRenderer
 
         if (TryGetOpacityMask(visual, out var opacityMask) && opacityMask != null)
         {
-            var mediaOpacityMask = WpfResourceResolver.AdaptBrush(opacityMask);
-            if (mediaOpacityMask != null && TryGetVisualStateBounds(out var opacityMaskBounds))
+            if (TryGetVisualStateBounds(out var opacityMaskBounds)
+                && WpfPortableCommandSinkBridge.TryPushOpacityMask(sink, opacityMask, opacityMaskBounds,
+                    imageSourceAdapter == null ? null : imageSourceAdapter.AdaptImageSource))
             {
-                WpfPortableCommandSinkBridge.PushOpacityMask(sink, mediaOpacityMask, opacityMaskBounds);
                 popCount++;
             }
             else

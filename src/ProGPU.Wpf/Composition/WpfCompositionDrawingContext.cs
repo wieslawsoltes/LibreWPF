@@ -488,7 +488,12 @@ public sealed class WpfCompositionDrawingContext : IWpfGeneratedRenderDataDrawin
         else
         {
             RegisterRetainedDependencies(opacityMask);
-            _sink.PushOpacityMask(opacityMask, bounds);
+            if (!WpfPortableCommandSinkBridge.TryPushOpacityMask(_sink, opacityMask,
+                    new WpfReplayRect(bounds.X, bounds.Y, bounds.Width, bounds.Height), _imageSourceAdapter))
+            {
+                _sink.PushNoOpScope();
+                CountUnsupported();
+            }
         }
 
         _stackDepth++;

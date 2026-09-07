@@ -192,6 +192,35 @@ public sealed class ProGpuCompositionCommandSink :
         NativeContext.DrawCachedPicture(lease, _transformStack.Peek());
     }
 
+    bool IWpfBitmapCacheBrushCommandSink.PushBitmapCacheBrushOpacityMask(
+        global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource source, WpfReplayRect bounds,
+        Func<object?, MediaImageSource?>? imageSourceAdapter)
+    {
+        ThrowIfClosed();
+        if (!source.TryGetPortableBitmapCacheBrush(out var brush)
+            || !double.IsFinite(brush.Opacity) || brush.Opacity < 0 || brush.Opacity > 1) return false;
+        // An empty source is a transparent mask, not an absent/no-op mask.
+        if (brush.InternalTarget == null || brush.Opacity == 0)
+        {
+            PushOpacity(0);
+            return true;
+        }
+        if (!global::ProGPU.Wpf.Interop.PortableBitmapCacheBrushPolicy.TryGetMapping(brush,
+                new global::ProGPU.Wpf.Interop.PortableRect(bounds.X, bounds.Y, bounds.Width, bounds.Height), out var mapping)) return false;
+        var nativeBounds = ToNativeRect(bounds);
+        if (!float.IsFinite(nativeBounds.Right) || !float.IsFinite(nativeBounds.Bottom)
+            || nativeBounds.Width <= 0 || nativeBounds.Height <= 0) return false;
+        if (mapping.M11 * mapping.M22 - mapping.M12 * mapping.M21 == 0)
+        {
+            PushOpacity(0);
+            return true;
+        }
+        using var lease = WpfBitmapCacheBrushSourceLookup.Acquire(source, _context, _viewport3DTextureCache, imageSourceAdapter);
+        NativeContext.PushCachedPictureOpacityMask(lease, nativeBounds, mapping, (float)brush.Opacity, _transformStack.Peek());
+        _pushStack.Push(PushKind.OpacityMask);
+        return true;
+    }
+
     bool IWpfHitTestOwnerScopeCommandSink.PushHitTestOwner(object sourceVisual)
     {
         ThrowIfClosed();
@@ -820,6 +849,14 @@ public sealed class ProGpuCompositionCommandSink :
     {
         ThrowIfClosed();
 
+        if (opacityMask is global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource source)
+        {
+            if (!((IWpfBitmapCacheBrushCommandSink)this).PushBitmapCacheBrushOpacityMask(source,
+                    new WpfReplayRect(bounds.X, bounds.Y, bounds.Width, bounds.Height), null))
+                throw new NotSupportedException("The cached opacity mask requires finite mapping bounds and typed source state.");
+            return;
+        }
+
         if (opacityMask == null)
         {
             PushNoOpScope();
@@ -1049,6 +1086,13 @@ public sealed class ProGpuCompositionCommandSink :
     void IWpfNativePrimitiveCommandSink.PushNativeOpacityMask(MediaBrush? opacityMask, WpfReplayRect bounds)
     {
         ThrowIfClosed();
+
+        if (opacityMask is global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource source)
+        {
+            if (!((IWpfBitmapCacheBrushCommandSink)this).PushBitmapCacheBrushOpacityMask(source, bounds, null))
+                throw new NotSupportedException("The cached opacity mask requires finite mapping bounds and typed source state.");
+            return;
+        }
 
         if (opacityMask == null)
         {

@@ -1403,13 +1403,16 @@ internal static class WpfDrawingReplay
             return WpfDrawingReplayStatus.Unsupported;
         }
 
-        MediaBrush? opacityMask = null;
+        object? opacityMask = null;
         var opacityMaskBounds = default(Rect);
         var hasOpacityMask = false;
         if (TryGetDrawingGroupOpacityMask(drawingGroup, hasPortableDrawingGroupState, drawingGroupState, out var maskValue))
         {
-            opacityMask = WpfResourceResolver.AdaptBrush(maskValue);
-            if (opacityMask == null || !TryGetDrawingGroupScopeBounds(out opacityMaskBounds))
+            opacityMask = maskValue;
+            if ((maskValue is global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource
+                    ? sink is not IWpfBitmapCacheBrushCommandSink
+                    : WpfResourceResolver.AdaptBrush(maskValue) == null)
+                || !TryGetDrawingGroupScopeBounds(out opacityMaskBounds))
             {
                 return WpfDrawingReplayStatus.Unsupported;
             }
@@ -1488,7 +1491,11 @@ internal static class WpfDrawingReplay
 
         if (hasOpacityMask)
         {
-            WpfPortableCommandSinkBridge.PushOpacityMask(sink, opacityMask, ToReplayRect(opacityMaskBounds));
+            if (!WpfPortableCommandSinkBridge.TryPushOpacityMask(sink, opacityMask, ToReplayRect(opacityMaskBounds), imageSourceAdapter))
+            {
+                PopPushedScopes(sink, popCount);
+                return WpfDrawingReplayStatus.Unsupported;
+            }
             popCount++;
         }
 

@@ -167,6 +167,16 @@ internal sealed class ProGpuRetainedCompositionCommandSink :
         ((IWpfBitmapCacheBrushCommandSink)Current.Sink).DrawBitmapCacheBrushSource(source, imageSourceAdapter);
     }
 
+    bool IWpfBitmapCacheBrushCommandSink.PushBitmapCacheBrushOpacityMask(
+        global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource source, WpfReplayRect bounds,
+        Func<object?, MediaImageSource?>? imageSourceAdapter)
+    {
+        ThrowIfClosed();
+        if (!((IWpfBitmapCacheBrushCommandSink)Current.Sink).PushBitmapCacheBrushOpacityMask(source, bounds, imageSourceAdapter)) return false;
+        _scopeStack.Push(ScopeKind.Delegate);
+        return true;
+    }
+
     public void RegisterVisualOwner(object sourceVisual)
     {
         ThrowIfClosed();

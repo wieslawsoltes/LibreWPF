@@ -340,6 +340,15 @@ public sealed class WpfMilRenderDataDecoder
                         pushStack.Push(true);
                         appliedCount++;
                     }
+                    else if (TryResolveRawResource(resources, opacityMaskToken, out var rawMask)
+                        && rawMask is global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource)
+                    {
+                        bool pushed = WpfPortableCommandSinkBridge.TryPushOpacityMask(sink, rawMask,
+                            ReadReplayRectF(payload, 0), GetImageSourceAdapter(resources, imageSourceAdapter));
+                        pushStack.Push(pushed);
+                        if (pushed) appliedCount++;
+                        else unsupportedCount++;
+                    }
                     else if (TryResolveBrush(resources, opacityMaskToken, out var opacityMask))
                     {
                         sink.PushOpacityMask(opacityMask, ReadRectF(payload, 0));
@@ -768,6 +777,15 @@ public sealed class WpfMilRenderDataDecoder
                         sink.PushNoOpScope();
                         pushStack.Push(true);
                         appliedCount++;
+                    }
+                    else if (TryResolveRawResource(resources, opacityMaskToken, out var rawMask)
+                        && rawMask is global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource)
+                    {
+                        bool pushed = WpfPortableCommandSinkBridge.TryPushOpacityMask(sink, rawMask,
+                            ReadReplayRectF(payload, 0), GetImageSourceAdapter(resources, imageSourceAdapter));
+                        pushStack.Push(pushed);
+                        if (pushed) appliedCount++;
+                        else unsupportedCount++;
                     }
                     else if (TryResolveBrush(resources, opacityMaskToken, out var opacityMask))
                     {

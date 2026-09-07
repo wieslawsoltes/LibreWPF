@@ -8540,6 +8540,23 @@ keys. These fixtures are authored only; no runtime validation is claimed.
 
 ## Developer commands
 
+### Cached opacity-mask checkpoint
+
+Bounded direct object/managed, visual, drawing-group and raw MIL mask scopes now
+preserve typed BitmapCacheBrush sources. ProGPU owns the mask picture and source
+lease through parent recordings/clones, keeping source mapping/opacity separate
+from outer placement and mask bounds. Empty sources mask content out rather than
+becoming no-op scopes. Brush-only retained-owner state cannot represent this
+lifetime and is bypassed for normal typed command replay. Nonempty unbounded
+mask calls remain unsupported until painted-content bounds can be supplied;
+the bridge does not guess them from source bounds.
+
+Native C++ already uses owned sampled-mask child scenes and shared cache pages.
+Paired native source-page/mapping/alpha fixtures, managed ownership and GPU alpha
+fixtures, and WPF bounded-scope/empty-mask fixtures are authored. No test or
+runtime qualification was run. See [recording-owned masks](../external/ProGPU/docs/cached-pictures.md#recording-owned-cached-opacity-masks)
+for primary-contract research, original-source provenance, costs and open work.
+
 ### Target-anchored aliases and direct ellipses
 
 Shared source keys now use target and explicit-cache identities, not the first
@@ -8615,6 +8632,12 @@ remain open. Runtime/VM/platform, performance, renderer/Svg.Skia, verifier and
 CI gates stay deferred until the final validation phase.
 
 ### Compilation checkpoints
+
+Cached opacity-mask checkpoint (2026-09-07): native `progpu_native_mil_tests`
+compiles in Release; ProGPU.Tests has 0 warnings/errors and ProGPU.Wpf.Tests has
+1 warning/0 errors. Fixtures are compiled only. Runtime/VM/platform comparisons,
+renderer/Svg.Skia, source verifiers, performance and CI gates remain deferred
+and required for full completion.
 
 Rounded cached-fill checkpoint (2026-09-07): native `progpu_native_mil_tests`
 compiles in Release; ProGPU.Tests builds with 0 warnings/errors and
