@@ -8203,6 +8203,23 @@ qualification remain deferred. The change stays in ProGPU, without WPF-local
 workarounds or public ABI changes; point/tiny-contour and transform-collapse
 work plus the rest of the full goal remain open.
 
+## Implementation-first checkpoint: dashed drawing-source coverage bounds
+
+Native MIL now derives dashed stroke source bounds from actual emitted outlines.
+This avoids stretching a partial dash over the entire hollow path and accepts
+confirmed all-gap lines/curves as empty instead of rejecting them or using their
+unpainted original extent. Existing fill bounds are unioned separately, and point
+cap/phase semantics remain intact. Tiny nonzero line fixtures are included;
+curves lost by flattening still fail closed pending that separate fidelity work.
+
+The implementation stays in ProGPU's shared Direct2D path core and native MIL.
+Its bounds-only sink reuses SIMD line reduction and analytic cubic extrema without
+recording a second path. Public Direct2D bounds behavior and public ABI are unchanged.
+Native library, MIL and Direct2D compatibility/WebGPU test targets compile; the MIL
+coverage digest is regenerated. Regression fixtures are authored but unexecuted.
+Runtime/VM/image/performance/verifier/CI qualification and the broader goal remain
+open; the ProGPU work logs record source provenance and allocation/complexity.
+
 ## Developer commands
 
 ```sh
