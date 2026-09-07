@@ -8390,6 +8390,21 @@ race/lifetime/allocation, VM/image/SIMD/performance/Instruments, verifier and CI
 qualification remain deferred. No managed workaround or public bridge change
 is introduced, and no speed or full-goal completion claim is made.
 
+## Implementation-first checkpoint: native preparation residency budget
+
+ProGPU prepared path caches now share an 8 MiB payload budget across a channel's
+transactional snapshots. Move-only reservations remain attached to live geometry
+allocations, so eviction does not release charges while group/bounds leases
+still use them. Admission failure preserves the exact uncached route; this is a
+prepared-payload limit, not a total process-memory cap. No bridge change is added.
+
+Capacity/overflow, ownership, alias-lifetime and concurrent-admission tests are
+authored. Native library, MIL/Direct2D compatibility/WebGPU/internal targets and
+module consumer compile. Runtime/race/lifetime/allocation, VM/images, SIMD/
+performance/Instruments, verifier and CI qualification remain deferred. ProGPU
+documents the original budget helper, costs and remaining tuning/replacement
+policy work. The full goal stays active.
+
 ## Developer commands
 
 ```sh
