@@ -8454,6 +8454,21 @@ verifier and CI qualification remain deferred. Root scroll clips, shared cache
 pages/dirty regions, unsupported 3D combinations, managed integration and the
 broader goal remain open. Details and provenance stay in ProGPU documentation.
 
+## Implementation-first checkpoint: shared native cache-brush pages
+
+ProGPU adds an opt-in shared-local-cache contract in native/managed scene builders
+and module exports. Repeated cache-brush consumers now share GPU source pages,
+including captured descendant caches, while retaining their own composites.
+Conflicting metadata and recursive ownership fail closed. Explicit brush caches
+remain distinct; brushes using the same target/default policy share ownership.
+
+Native budget/MIL, managed and module fixtures plus GPU cold/warm pass assertions
+are authored, not executed. Native targets, module consumer and managed test graph
+compile. Runtime, Windows/native/platform images, performance, verifier and CI
+qualification remain deferred. On-screen target-cache unification, dirty regions,
+CPU preparation reuse, root scroll clips and independent managed integration
+remain open. The full goal is not complete.
+
 ## Developer commands
 
 ```sh
