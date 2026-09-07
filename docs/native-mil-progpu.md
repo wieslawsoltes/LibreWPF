@@ -8237,6 +8237,22 @@ qualification remain deferred. ProGPU docs record algorithm provenance, work
 bounds, managed-provider applicability and remaining precision/point/collapse
 limitations. This is implementation progress, not full parity qualification.
 
+## Implementation-first checkpoint: round-sector and terminal-cap bounds
+
+ProGPU's shared bounds query now uses actual round-cap/round-join sectors rather
+than full circles, avoiding excess extents on short asymmetric strokes and
+reversals. A terminal visible dash includes its inward cap and cap-base endpoints
+even when no nonzero dash segment was emitted. Reflection/shear uses the same
+double direction predicates and shared transformed-bounds reducer.
+
+Authored fixtures cover short round caps/joins, straight continuations, reversals
+and terminal round/square/triangle caps, including affine comparisons with emitted
+outlines. Native library and MIL/Direct2D compatibility/WebGPU test targets compile;
+the MIL digest is refreshed. Tests and runtime/VM/image/performance/verifier/CI
+qualification remain deferred. Implementation and detailed provenance stay in
+ProGPU; there is no WPF-local workaround or public ABI change, and the full goal
+remains open.
+
 ## Developer commands
 
 ```sh
