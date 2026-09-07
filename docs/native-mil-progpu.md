@@ -8220,6 +8220,23 @@ coverage digest is regenerated. Regression fixtures are authored but unexecuted.
 Runtime/VM/image/performance/verifier/CI qualification and the broader goal remain
 open; the ProGPU work logs record source provenance and allocation/complexity.
 
+## Implementation-first checkpoint: pen-aware tiny-curve preservation
+
+ProGPU's native stroke queries and widening now refine curves using both
+centerline and pen-normal error. Small loops and reversals no longer disappear
+solely because their centerline fits inside the tolerance. Internal flattened
+curve joins remain smooth, and MIL uses actual curved-stroke outline bounds for
+solid as well as dashed sources. The predicate uses fixed NEON/SSE2 double lanes;
+the existing subdivision limit remains bounded and fails closed when insufficient.
+
+Authored fixtures cover analytic large/tiny reversals, cap-side hit tests, all
+join styles, tiny 2D loops and solid/on/gap DrawingImage mapping. Native library,
+MIL and Direct2D compatibility/WebGPU test targets compile; the MIL coverage
+digest is regenerated. Runtime tests and all VM/image/performance/verifier/CI
+qualification remain deferred. ProGPU docs record algorithm provenance, work
+bounds, managed-provider applicability and remaining precision/point/collapse
+limitations. This is implementation progress, not full parity qualification.
+
 ## Developer commands
 
 ```sh
