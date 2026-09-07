@@ -208,9 +208,9 @@ public sealed class WpfObjectRenderDataDrawingContext :
         MediaPen? mediaPen)
     {
         if (brush == null
-            || !WpfDrawingReplay.IsTileBrush(brush)
+            || !WpfDrawingReplay.IsSourceBrush(brush)
             || !TryReadRect(rectangle, out var mediaRectangle)
-            || !WpfDrawingReplay.TryReplayTileBrushFill(
+            || !WpfDrawingReplay.TryReplaySourceBrushFill(
                 brush,
                 mediaRectangle,
                 _sink,
@@ -508,8 +508,8 @@ public sealed class WpfObjectRenderDataDrawingContext :
         MediaBrush? mediaBrush = WpfResourceResolver.AdaptBrush(brush);
         MediaPen? mediaPen = WpfResourceResolver.AdaptPen(pen);
         if (brush != null
-            && WpfDrawingReplay.IsTileBrush(brush)
-            && WpfDrawingReplay.TryReplayTileBrushFill(
+            && WpfDrawingReplay.IsSourceBrush(brush)
+            && WpfDrawingReplay.TryReplaySourceBrushFill(
                 brush,
                 geometry,
                 _sink,

@@ -280,6 +280,16 @@ internal static class WpfDrawingReplay
         var appliedAny = false;
         var unsupportedAny = hasPen && pen == null;
 
+        if (hasBrush && brushValue is global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource cacheBrush)
+        {
+            var cacheStatus = ReplayBitmapCacheBrushFill(cacheBrush, geometryValue, sink, imageSourceAdapter);
+            bool penApplied = pen != null && TryDrawGeometryPen(geometryValue, pen, sink);
+            if (pen != null && !penApplied) unsupportedAny = true;
+            if (cacheStatus != WpfDrawingReplayStatus.Applied)
+                return penApplied ? WpfDrawingReplayStatus.PartiallyApplied : cacheStatus;
+            return unsupportedAny ? WpfDrawingReplayStatus.PartiallyApplied : WpfDrawingReplayStatus.Applied;
+        }
+
         if (hasBrush
             && brushValue != null
             && IsTileBrush(brushValue)
@@ -837,6 +847,50 @@ internal static class WpfDrawingReplay
 
         status = WpfDrawingReplayStatus.Skipped;
         return false;
+    }
+
+    internal static WpfDrawingReplayStatus ReplayBitmapCacheBrushFill(
+        global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource source,
+        object? geometry, IWpfCompositionCommandSink sink,
+        Func<object?, MediaImageSource?>? imageSourceAdapter)
+    {
+        if (!source.TryGetPortableBitmapCacheBrush(out var brush)) return WpfDrawingReplayStatus.Unsupported;
+        if (!double.IsFinite(brush.Opacity) || brush.Opacity < 0 || brush.Opacity > 1)
+            return WpfDrawingReplayStatus.Unsupported;
+        if (brush.InternalTarget == null || brush.Opacity == 0) return WpfDrawingReplayStatus.Applied;
+        if (sink is not IWpfBitmapCacheBrushCommandSink cachedSink
+            || sink is not IWpfNativeTransformCommandSink transformSink
+            || !TryGetTileBrushFillGeometry(geometry, out var fill)) return WpfDrawingReplayStatus.Unsupported;
+        if (fill.Bounds.IsEmpty || fill.Bounds.Width == 0 || fill.Bounds.Height == 0) return WpfDrawingReplayStatus.Applied;
+        if (!global::ProGPU.Wpf.Interop.PortableBitmapCacheBrushPolicy.TryGetMapping(brush,
+                new PortableRect(fill.Bounds.X, fill.Bounds.Y, fill.Bounds.Width, fill.Bounds.Height), out var mapping))
+            return WpfDrawingReplayStatus.Unsupported;
+        if (mapping.M11 * mapping.M22 - mapping.M12 * mapping.M21 == 0) return WpfDrawingReplayStatus.Applied;
+        if (!PushTileBrushFillClip(sink, fill)) return WpfDrawingReplayStatus.Unsupported;
+        int pops = 1;
+        try
+        {
+            if (brush.Opacity != 1) { sink.PushOpacity(brush.Opacity); pops++; }
+            if (!mapping.IsIdentity) { transformSink.PushNativeTransform(mapping); pops++; }
+            cachedSink.DrawBitmapCacheBrushSource(source, imageSourceAdapter);
+            return WpfDrawingReplayStatus.Applied;
+        }
+        finally { while (pops-- > 0) sink.Pop(); }
+    }
+
+    internal static bool IsSourceBrush(object? brush) => IsTileBrush(brush)
+        || brush is global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource;
+
+    internal static bool TryReplaySourceBrushFill(object brush, object? geometry,
+        IWpfCompositionCommandSink sink, Func<object?, MediaImageSource?>? imageSourceAdapter,
+        out WpfDrawingReplayStatus status)
+    {
+        if (brush is global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource source)
+        {
+            status = ReplayBitmapCacheBrushFill(source, geometry, sink, imageSourceAdapter);
+            return true;
+        }
+        return TryReplayTileBrushFill(brush, geometry, sink, imageSourceAdapter, out status);
     }
 
     private static bool TryReplayPortableTileBrushFill(

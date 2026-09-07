@@ -273,6 +273,46 @@ public sealed class WpfVisualTreeRendererTests
         { brush = value; return true; }
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void GeometryCacheBrushFillSharesSourceAndCommandOwnedSubscriptions(bool objectRenderData)
+    {
+        var target = new FakePortableVisualStateDrawingVisual(CreateRenderData(Brushes.Red), new PortableVisualState())
+        { Bounds = new Rect(1, 2, 30, 40) };
+        var brush = new EventCaptureBrush { Value = new(target, Opacity: 0.5) };
+        var geometry = new RectangleGeometry(new Rect(0, 0, 20, 20));
+        var commands = new global::ProGPU.Scene.DrawingContext();
+        try
+        {
+            using var sink = new ProGpuCompositionCommandSink(commands);
+            if (objectRenderData)
+            {
+                using var replay = new WpfObjectRenderDataDrawingContext(sink);
+                replay.DrawGeometry(brush, null, geometry);
+                replay.DrawGeometry(brush, null, geometry);
+                Assert.Equal(0, replay.Result.UnsupportedCount);
+            }
+            else
+            {
+                var drawing = new ThrowingPortableGeometryDrawing(new PortableGeometryDrawingState
+                { HasGeometry = true, Geometry = geometry, HasBrush = true, Brush = brush });
+                Assert.Equal(WpfDrawingReplayStatus.Applied, WpfDrawingReplay.Replay(drawing, sink));
+                Assert.Equal(WpfDrawingReplayStatus.Applied, WpfDrawingReplay.Replay(drawing, sink));
+                Assert.Equal(0, drawing.ReflectedStateProbeCount);
+            }
+            Assert.Equal(1, commands.RetainedResourceCount);
+            var sources = commands.Commands.Where(command => command.Type == global::ProGPU.Scene.RenderCommandType.DrawVisual).ToArray();
+            Assert.Equal(2, sources.Length);
+            Assert.Same(sources[0].Visual, sources[1].Visual);
+            Assert.Equal(1, brush.SubscriptionCount);
+            Assert.Contains(commands.Commands, command => command.Type == global::ProGPU.Scene.RenderCommandType.PushClip);
+            Assert.Contains(commands.Commands, command => command.Type == global::ProGPU.Scene.RenderCommandType.PushOpacity);
+        }
+        finally { commands.Clear(); }
+        Assert.Equal(0, brush.SubscriptionCount);
+    }
+
     [Fact]
     public void LiveBitmapCachePictureTracksTypedDependenciesAndReleasesSubscriptions()
     {

@@ -155,3 +155,9 @@ internal interface IWpfProGpuSceneDrawingContextSource
         out global::ProGPU.Scene.DrawingContext? drawingContext,
         out Matrix4x4 transform);
 }
+
+internal interface IWpfBitmapCacheBrushCommandSink
+{
+    void DrawBitmapCacheBrushSource(global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource source,
+        Func<object?, MediaImageSource?>? imageSourceAdapter);
+}

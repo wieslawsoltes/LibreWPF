@@ -8540,6 +8540,25 @@ keys. These fixtures are authored only; no runtime validation is claimed.
 
 ## Developer commands
 
+### Recording-owned cache-brush fills
+
+GeometryDrawing fills and object/managed render-data geometry/rectangle calls now
+route typed BitmapCacheBrush sources to ProGPU. Exact native fill clips remain
+outside capture; opacity and shared consumer-relative/absolute brush mapping are
+applied without TileBrush stretching or tiling. Cached source acquisition is
+keyed by brush/capture-context identity on the rendering thread, and retained
+commands own independent ProGPU source leases. Multiple recordings can share
+one source; the final release removes its lookup entry and subscriptions.
+
+ProGPU owns the source cache, lease/snapshot lifetime and mapping contract, based
+on its existing native MIL affine behavior and retained-resource ownership. The
+WPF layer only selects typed inputs and emits clip/state/source commands. Tests
+for clip/opacity scopes, same-source sharing, snapshot lifetime and subscription
+cleanup are authored, not executed. Direct ellipse calls, cached-brush strokes,
+glyphs, masks and equal-target/policy sharing across distinct brushes are still
+implementation work. Full native/managed/platform and performance qualification
+remains deferred; no complete brush or DirectX parity is claimed.
+
 ### Live typed cache sources
 
 `WpfBitmapCacheBrushCapture.CreateLiveCachedPicture` now owns a typed dependency
@@ -8560,6 +8579,12 @@ changes are added across the ABI. Automatic normal brush routing and shared
 target/policy lookup still remain to be connected.
 
 ### Compilation checkpoints
+
+Recording-owned fill checkpoint (2026-09-07, ProGPU `4cd2a580`): Release
+ProGPU.Tests builds with zero warnings/errors; the final ProGPU.Wpf.Tests build
+has 96 warnings and zero errors. Fixtures remain compiled-only. Runtime/pixel,
+native differentials, VM/platform, performance, verifier and CI qualification are
+still deferred and required before goal completion.
 
 Live-source checkpoint (2026-09-07): Release builds of ProGPU.Tests and
 ProGPU.Wpf.Tests succeeded with respectively 0 and 96 warnings, both with zero

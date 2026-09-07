@@ -42,6 +42,7 @@ internal sealed class ProGpuRetainedCompositionCommandSink :
     IWpfNativeClipCommandSink,
     IWpfNativeGeometryCommandSink,
     IWpfHitTestOwnerScopeCommandSink,
+    IWpfBitmapCacheBrushCommandSink,
     IWpfProGpuSceneDrawingContextSource
 {
     private enum ScopeKind
@@ -141,6 +142,14 @@ internal sealed class ProGpuRetainedCompositionCommandSink :
     }
 
     internal ProGpuRetainedDrawingVisual RootVisual { get; }
+
+    void IWpfBitmapCacheBrushCommandSink.DrawBitmapCacheBrushSource(
+        global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource source,
+        Func<object?, MediaImageSource?>? imageSourceAdapter)
+    {
+        ThrowIfClosed();
+        ((IWpfBitmapCacheBrushCommandSink)Current.Sink).DrawBitmapCacheBrushSource(source, imageSourceAdapter);
+    }
 
     public void RegisterVisualOwner(object sourceVisual)
     {

@@ -662,12 +662,12 @@ public sealed class WpfCompositionDrawingContext : IWpfGeneratedRenderDataDrawin
 
     private bool TryReplayTileBrushRectangle(MediaBrush brush, MediaPen? pen, Rect rectangle)
     {
-        if (!WpfDrawingReplay.IsTileBrush(brush))
+        if (!WpfDrawingReplay.IsSourceBrush(brush))
         {
             return false;
         }
 
-        if (WpfDrawingReplay.TryReplayTileBrushFill(
+        if (WpfDrawingReplay.TryReplaySourceBrushFill(
                 brush,
                 rectangle,
                 _sink,
@@ -689,12 +689,12 @@ public sealed class WpfCompositionDrawingContext : IWpfGeneratedRenderDataDrawin
 
     private bool TryReplayTileBrushGeometry(MediaBrush brush, MediaPen? pen, MediaGeometry geometry)
     {
-        if (!WpfDrawingReplay.IsTileBrush(brush))
+        if (!WpfDrawingReplay.IsSourceBrush(brush))
         {
             return false;
         }
 
-        if (WpfDrawingReplay.TryReplayTileBrushFill(
+        if (WpfDrawingReplay.TryReplaySourceBrushFill(
                 brush,
                 geometry,
                 _sink,

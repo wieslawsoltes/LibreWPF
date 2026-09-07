@@ -48,6 +48,7 @@ public sealed class ProGpuCompositionCommandSink :
     IWpfNativeClipCommandSink,
     IWpfNativeGeometryCommandSink,
     IWpfHitTestOwnerScopeCommandSink,
+    IWpfBitmapCacheBrushCommandSink,
     IWpfProGpuSceneDrawingContextSource
 {
     private const float TransformEpsilon = 0.0001f;
@@ -180,6 +181,15 @@ public sealed class ProGpuCompositionCommandSink :
     {
         command.HitTestId = _activeHitTestId;
         NativeContext.Commands.Add(command);
+    }
+
+    void IWpfBitmapCacheBrushCommandSink.DrawBitmapCacheBrushSource(
+        global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource source,
+        Func<object?, MediaImageSource?>? imageSourceAdapter)
+    {
+        ThrowIfClosed();
+        using var lease = WpfBitmapCacheBrushSourceLookup.Acquire(source, _context, _viewport3DTextureCache, imageSourceAdapter);
+        NativeContext.DrawCachedPicture(lease, _transformStack.Peek());
     }
 
     bool IWpfHitTestOwnerScopeCommandSink.PushHitTestOwner(object sourceVisual)
