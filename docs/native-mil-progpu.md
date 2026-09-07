@@ -8375,6 +8375,21 @@ targets compile. Runtime/VM/image/SIMD/performance/verifier/CI qualification sta
 deferred. ProGPU documents costs, provenance, managed applicability and pending
 retained caching; no WPF-local workaround is added. The full goal remains open.
 
+## Implementation-first checkpoint: retained native path preparation
+
+ProGPU decoded MIL PathGeometry snapshots now own a two-entry prepared-spine
+cache shared by direct replay, group replay and bounds inference. Exact composed
+geometry matrices select immutable leases; path replacement resets ownership,
+and current pen/world/DPI state remains outside this geometry-only cache. Entries
+larger than 64 KiB stay uncached. ProGPU documents capacity/ownership, original
+helper provenance, cross-engine references and remaining aggregate budgeting.
+
+Warm-versus-fresh, live eviction, transform/path/pen update fixtures are authored.
+Native library and MIL/Direct2D compatibility/WebGPU targets compile. Runtime,
+race/lifetime/allocation, VM/image/SIMD/performance/Instruments, verifier and CI
+qualification remain deferred. No managed workaround or public bridge change
+is introduced, and no speed or full-goal completion claim is made.
+
 ## Developer commands
 
 ```sh
