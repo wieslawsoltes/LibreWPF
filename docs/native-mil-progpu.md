@@ -11,6 +11,30 @@ parity evidence. Tests, VM/image comparisons, verifiers, benchmarks, and exact-h
 CI qualification are deferred at the user's request until implementation is ready.
 Historical passing counts below apply only to their named snapshots.
 
+### Finite affine Direct2D layers checkpoint (2026-09-07)
+
+ProGPU `c85262bd` removes the finite rotation/shear layer rejection in both C++
+producers. Shared double-lane SIMD maps the target-aligned content rectangle
+back to a conservative local opacity-material domain. Exact geometric masks,
+group opacity and push-time transforms remain separate retained state. Finite
+layers also work through legacy targetless recorders; output-size descriptors
+are still required for full-target brush domains. Managed source, scene ABI,
+shaders and execution-policy defaults are unchanged.
+
+See [design interpretation, original provenance, research and qualification limits](../external/ProGPU/docs/direct2d-finite-affine-layers.md).
+Authored coverage includes 108 translated-domain scalar-oracle combinations,
+18 portable and 24 Windows finite layer cases, bitmap/composite shear cases,
+and two focused Windows native-vs-ProGPU D3D12 image cases. The image cases
+distinguish AABB coverage from the sheared source quadrilateral and require
+visible group opacity; they do not qualify fractional edge quality.
+
+Apple Clang C++20 core/portable COM/header targets compile/link. No fixtures,
+images, VM/platform/package workloads, benchmarks, verifiers or CI qualification
+ran. Windows provider/differential fixtures and the full renderer remain
+uncompiled for this batch. Native-Windows conformance of affine content bounds
+remains a final-oracle requirement, not an established parity claim. Main was
+refreshed with zero missing commits; the full goal remains active.
+
 ### Target-aware standalone recorder checkpoint (2026-09-07)
 
 ProGPU `565e079f` adds the ABI v55 immutable target descriptor and public managed
