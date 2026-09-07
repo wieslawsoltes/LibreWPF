@@ -304,6 +304,81 @@ public sealed class ProGpuCompositionCommandSink :
         return true;
     }
 
+    WpfDrawingReplayStatus IWpfBitmapCacheBrushCommandSink.DrawBitmapCacheBrushRectangleGeometry(object? fill,
+        global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource source,
+        in global::ProGPU.Wpf.Interop.PortablePenState pen,
+        in global::ProGPU.Wpf.Interop.PortablePrimitiveGeometry geometry,
+        Func<object?, MediaImageSource?>? imageSourceAdapter)
+    {
+        ThrowIfClosed();
+        Span<global::ProGPU.Wpf.Interop.PortablePoint> corners = stackalloc global::ProGPU.Wpf.Interop.PortablePoint[4];
+        if (!geometry.TryWriteTransformedRectangleCorners(corners)) return WpfDrawingReplayStatus.Unsupported;
+        Span<Vector2> points = stackalloc Vector2[4];
+        var minimum = new Vector2(float.PositiveInfinity);
+        var maximum = new Vector2(float.NegativeInfinity);
+        for (int i = 0; i < 4; i++)
+        {
+            points[i] = new((float)corners[i].X, (float)corners[i].Y);
+            if (!float.IsFinite(points[i].X) || !float.IsFinite(points[i].Y)) return WpfDrawingReplayStatus.Unsupported;
+            minimum = Vector2.Min(minimum, points[i]);
+            maximum = Vector2.Max(maximum, points[i]);
+        }
+        var extent = maximum - minimum;
+        if (!float.IsFinite(extent.X) || !float.IsFinite(extent.Y)) return WpfDrawingReplayStatus.Unsupported;
+        VectorPathGeometry path = null!;
+        VectorPen coveragePen = null!;
+        global::ProGPU.Scene.Rect strokeBounds = default;
+        bool prepared = WpfResourceResolver.TryAdaptNativeStrokePen(pen, out var nativePen)
+            && global::ProGPU.Scene.StrokeCoverageGeometry.TryPrepareConvexQuadrilateral(points, nativePen,
+                out path, out coveragePen, out strokeBounds);
+        // Even a rejected stroke must not erase valid fill. Success shares the
+        // same immutable spine between fill coverage and the stroke mask.
+        path ??= global::ProGPU.Scene.RenderCommandGeometryCache.CreatePolylinePath(points, isClosed: true);
+        bool fillApplied = fill == null, partialFill = false;
+        if (fill != null)
+        {
+            if (WpfDrawingReplay.IsSourceBrush(fill))
+            {
+                if (WpfDrawingReplay.TryReplaySourceBrushFill(fill, path, this, imageSourceAdapter, out var fillStatus))
+                {
+                    fillApplied = fillStatus == WpfDrawingReplayStatus.Applied;
+                    partialFill = fillStatus == WpfDrawingReplayStatus.PartiallyApplied;
+                }
+            }
+            else if (WpfResourceResolver.AdaptBrush(fill) is { } mediaFill)
+            {
+                int unsupportedBefore = UnsupportedStateCount;
+                var fillBrush = ToNativeBrush(mediaFill, new WpfReplayRect(minimum.X, minimum.Y, extent.X, extent.Y));
+                if (fillBrush != null)
+                {
+                    AddNativePath(fillBrush, null, path);
+                    fillApplied = UnsupportedStateCount == unsupportedBefore;
+                    partialFill = !fillApplied;
+                }
+            }
+        }
+        bool strokeApplied = prepared && TryDrawPreparedBitmapCacheStroke(source, path, coveragePen, strokeBounds, imageSourceAdapter);
+        return fillApplied && strokeApplied ? WpfDrawingReplayStatus.Applied
+            : strokeApplied || partialFill || (fill != null && fillApplied)
+                ? WpfDrawingReplayStatus.PartiallyApplied : WpfDrawingReplayStatus.Unsupported;
+    }
+
+    private bool TryDrawPreparedBitmapCacheStroke(global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource source,
+        VectorPathGeometry path, VectorPen pen, global::ProGPU.Scene.Rect bounds,
+        Func<object?, MediaImageSource?>? imageSourceAdapter)
+    {
+        if (!source.TryGetPortableBitmapCacheBrush(out var brush)
+            || !double.IsFinite(brush.Opacity) || brush.Opacity < 0 || brush.Opacity > 1) return false;
+        if (brush.InternalTarget == null || brush.Opacity == 0 || bounds.Width == 0 || bounds.Height == 0) return true;
+        var ink = new global::ProGPU.Wpf.Interop.PortableRect(bounds.X, bounds.Y, bounds.Width, bounds.Height);
+        if (!global::ProGPU.Wpf.Interop.PortableBitmapCacheBrushPolicy.TryGetMapping(brush, ink, out var mapping)) return false;
+        if (mapping.M11 * mapping.M22 - mapping.M12 * mapping.M21 == 0) return true;
+        using var lease = WpfBitmapCacheBrushSourceLookup.Acquire(source, _context, _viewport3DTextureCache, imageSourceAdapter);
+        NativeContext.DrawCachedPictureStroke(lease, path, pen, bounds, mapping,
+            (float)brush.Opacity, _transformStack.Peek(), _edgeModeStack.Peek());
+        return true;
+    }
+
     bool IWpfHitTestOwnerScopeCommandSink.PushHitTestOwner(object sourceVisual)
     {
         ThrowIfClosed();
@@ -628,7 +703,7 @@ public sealed class ProGpuCompositionCommandSink :
     public bool DrawNativeGeometry(MediaBrush? brush, MediaPen? pen, MediaGeometry geometry)
     {
         ThrowIfClosed();
-        if (WpfDrawingReplay.TryReplayBitmapCachePenLineGeometry(pen, geometry, this, null, out var cachedLineStatus))
+        if (WpfDrawingReplay.TryReplayBitmapCachePenGeometry(brush, pen, geometry, this, null, out var cachedLineStatus))
         {
             if (cachedLineStatus != WpfDrawingReplayStatus.Applied) UnsupportedStateCount++;
             return true;
@@ -655,7 +730,7 @@ public sealed class ProGpuCompositionCommandSink :
     public bool DrawNativeGeometry(MediaBrush? brush, MediaPen? pen, PortableGeometryPath geometry)
     {
         ThrowIfClosed();
-        if (WpfDrawingReplay.TryReplayBitmapCachePenLineGeometry(pen, geometry, this, null, out var cachedLineStatus))
+        if (WpfDrawingReplay.TryReplayBitmapCachePenGeometry(brush, pen, geometry, this, null, out var cachedLineStatus))
         {
             if (cachedLineStatus != WpfDrawingReplayStatus.Applied) UnsupportedStateCount++;
             return true;
@@ -901,6 +976,17 @@ public sealed class ProGpuCompositionCommandSink :
         }
 
         NativeContext.PushGeometryClip(path);
+        _pushStack.Push(PushKind.GeometryClip);
+        return true;
+    }
+
+    public bool PushNativeGeometryClip(VectorPathGeometry clipGeometry)
+    {
+        ThrowIfClosed();
+        if (clipGeometry == null || !clipGeometry.TryGetBounds(out var minimum, out var maximum)
+            || !float.IsFinite(minimum.X) || !float.IsFinite(minimum.Y)
+            || !float.IsFinite(maximum.X) || !float.IsFinite(maximum.Y)) return false;
+        NativeContext.PushGeometryClip(clipGeometry, _transformStack.Peek());
         _pushStack.Push(PushKind.GeometryClip);
         return true;
     }

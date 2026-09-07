@@ -139,6 +139,8 @@ internal interface IWpfNativeGeometryCommandSink
 
     bool PushNativeGeometryClip(MediaGeometry clipGeometry) => false;
 
+    bool PushNativeGeometryClip(global::ProGPU.Vector.PathGeometry clipGeometry) => false;
+
     bool PushNativeEllipseClip(WpfReplayPoint center, double radiusX, double radiusY) => false;
 
     bool PushNativeRoundedRectangleClip(WpfReplayRect bounds, double radiusX, double radiusY) => false;
@@ -162,6 +164,12 @@ internal interface IWpfProGpuSceneDrawingContextSource
 
 internal interface IWpfBitmapCacheBrushCommandSink
 {
+    Mil.WpfDrawingReplayStatus DrawBitmapCacheBrushRectangleGeometry(object? fill,
+        global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource source,
+        in global::ProGPU.Wpf.Interop.PortablePenState pen,
+        in global::ProGPU.Wpf.Interop.PortablePrimitiveGeometry geometry,
+        Func<object?, MediaImageSource?>? imageSourceAdapter) => Mil.WpfDrawingReplayStatus.Unsupported;
+
     bool DrawBitmapCacheBrushRectangleStroke(global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource source,
         in global::ProGPU.Wpf.Interop.PortablePenState pen, WpfReplayRect rectangle,
         Func<object?, MediaImageSource?>? imageSourceAdapter) => false;

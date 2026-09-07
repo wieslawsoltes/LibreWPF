@@ -10,6 +10,12 @@ The product bridge source is currently reflection-free by audit; keep that as an
 
 ## GPU-First Compute and SIMD Fallback Priority
 
+Cached RectangleGeometry replay should consume each typed primitive descriptor
+once, use ProGPU double corner mapping and shared closed-stroke preparation, and
+reuse the resulting immutable native path for fill and stroke. Source brush fills
+may use typed native-path clips directly; do not repack paths, create shim shapes,
+drop perspective components, or broaden affine geometry clips to their bounds.
+
 Cached rectangle pen consumers must preserve typed brush identity before material
 adaptation, record fill before stroke, and use the shared ProGPU closed-rectangle
 preparer for coverage and stroke-relative mapping. Preserve source dependencies,

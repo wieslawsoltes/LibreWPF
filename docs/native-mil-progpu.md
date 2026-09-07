@@ -8540,6 +8540,30 @@ keys. These fixtures are authored only; no runtime validation is claimed.
 
 ## Developer commands
 
+### Affine cached RectangleGeometry checkpoint
+
+Typed primitive/local RectangleGeometry and GeometryDrawing now route cached
+pens from object, managed, direct native geometry and raw MIL replay. ProGPU
+maps descriptor corners in double precision to caller spans, then uses the same
+convex four-corner core as direct rectangle preparation. Fill and stroke share
+one native path with distinct material bounds and preserved outer transforms;
+source brushes use a typed exact native-path clip rather than repacking geometry.
+Failed pens still report partial/unsupported output even when fill succeeds.
+
+Native MIL already supports this producer behavior. Its new paired fixture
+checks GeometryDrawing fill/pen consumers sharing source content revision and
+rotated material mapping. CPU/recording fixtures are authored but not executed.
+Provenance, complexity, primary research and remaining limits are recorded in
+ProGPU `docs/cached-pictures.md`, affine RectangleGeometry consumers. General
+packed-path, rounded/ellipse/dashed/degenerate pen work and generic live-picture
+native transport remain incomplete. All runtime/image/SIMD/VM/platform/performance,
+source-verifier and CI qualification remains deferred.
+
+Compilation: ProGPU.Tests Release 0 warnings/errors, final WPF.Tests Release
+17 warnings/0 errors, native MIL fixture target compiled. The initial WPF compile
+caught a missing sink-contract namespace reference, now corrected. Fixtures were
+not executed and the warning inventory was not qualified.
+
 ### Solid cached rectangle pen checkpoint
 
 ProGPU now prepares affine solid rectangle stroke spines and join-aware material

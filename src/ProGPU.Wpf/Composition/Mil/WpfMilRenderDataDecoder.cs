@@ -1147,9 +1147,14 @@ public sealed class WpfMilRenderDataDecoder
         }
         if (command == WpfMilCommandId.DrawGeometry
             && TryResolveRawResource(resources, ReadUInt32(payload, 4), out var geometryPen)
-            && TryResolveRawResource(resources, ReadUInt32(payload, 8), out var lineGeometry)
-            && WpfDrawingReplay.TryReplayBitmapCachePenLineGeometry(geometryPen, lineGeometry, sink,
-                GetImageSourceAdapter(resources, imageSourceAdapter), out status)) return true;
+            && TryResolveRawResource(resources, ReadUInt32(payload, 8), out var cachedGeometry))
+        {
+            uint fillToken = ReadUInt32(payload, 0);
+            object? geometryFill = null;
+            if ((fillToken == 0 || TryResolveRawResource(resources, fillToken, out geometryFill))
+                && WpfDrawingReplay.TryReplayBitmapCachePenGeometry(geometryFill, geometryPen, cachedGeometry, sink,
+                    GetImageSourceAdapter(resources, imageSourceAdapter), out status)) return true;
+        }
         if (command is WpfMilCommandId.DrawLine or WpfMilCommandId.DrawLineAnimate)
         {
             if (!TryResolveRawResource(resources, ReadUInt32(payload, 32), out var rawPen)

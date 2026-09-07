@@ -203,6 +203,17 @@ internal sealed class ProGpuRetainedCompositionCommandSink :
         return ((IWpfBitmapCacheBrushCommandSink)Current.Sink).DrawBitmapCacheBrushRectangleStroke(source, pen, rectangle, imageSourceAdapter);
     }
 
+    WpfDrawingReplayStatus IWpfBitmapCacheBrushCommandSink.DrawBitmapCacheBrushRectangleGeometry(object? fill,
+        global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource source,
+        in global::ProGPU.Wpf.Interop.PortablePenState pen,
+        in global::ProGPU.Wpf.Interop.PortablePrimitiveGeometry geometry,
+        Func<object?, MediaImageSource?>? imageSourceAdapter)
+    {
+        ThrowIfClosed();
+        return ((IWpfBitmapCacheBrushCommandSink)Current.Sink).DrawBitmapCacheBrushRectangleGeometry(
+            fill, source, pen, geometry, imageSourceAdapter);
+    }
+
     public void RegisterVisualOwner(object sourceVisual)
     {
         ThrowIfClosed();
@@ -467,6 +478,14 @@ internal sealed class ProGpuRetainedCompositionCommandSink :
             return false;
         }
 
+        _scopeStack.Push(ScopeKind.Delegate);
+        return true;
+    }
+
+    public bool PushNativeGeometryClip(global::ProGPU.Vector.PathGeometry clipGeometry)
+    {
+        if (Current.Sink is not IWpfNativeGeometryCommandSink nativeSink
+            || !nativeSink.PushNativeGeometryClip(clipGeometry)) return false;
         _scopeStack.Push(ScopeKind.Delegate);
         return true;
     }

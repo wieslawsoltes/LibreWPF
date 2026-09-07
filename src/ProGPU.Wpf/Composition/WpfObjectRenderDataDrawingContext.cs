@@ -543,7 +543,7 @@ public sealed class WpfObjectRenderDataDrawingContext :
     public void DrawGeometry(object? brush, object? pen, object? geometry)
     {
         ThrowIfClosed();
-        if (WpfDrawingReplay.TryReplayBitmapCachePenLineGeometry(pen, geometry, _sink,
+        if (WpfDrawingReplay.TryReplayBitmapCachePenGeometry(brush, pen, geometry, _sink,
                 _resources.AdaptImageSource, out var cachedLineStatus))
         {
             RegisterRetainedDependencies(brush, pen, geometry);

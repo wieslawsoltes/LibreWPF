@@ -137,7 +137,8 @@ internal static class WpfDrawingReplay
         double EllipseRadiusY = 0,
         bool IsRoundedRectangle = false,
         double CornerRadiusX = 0,
-        double CornerRadiusY = 0);
+        double CornerRadiusY = 0,
+        global::ProGPU.Vector.PathGeometry? NativeGeometry = null);
 
     public static bool TryReplay(
         object? drawing,
@@ -288,24 +289,53 @@ internal static class WpfDrawingReplay
         return true;
     }
 
-    internal static bool TryReplayBitmapCachePenLineGeometry(object? pen, object? geometry,
+    internal static bool TryReplayBitmapCachePenGeometry(object? brush, object? pen, object? geometry,
         IWpfCompositionCommandSink sink, Func<object?, MediaImageSource?>? imageSourceAdapter,
         out WpfDrawingReplayStatus status)
     {
         status = WpfDrawingReplayStatus.Unsupported;
         if (!WpfResourceResolver.TryGetBitmapCachePen(pen, out var state, out var source)) return false;
-        WpfReplayPoint start, end;
-        if (geometry is global::ProGPU.Wpf.Interop.IPortablePrimitiveGeometrySource primitiveSource
-            && primitiveSource.TryGetPortablePrimitiveGeometry(out var primitive))
+        global::ProGPU.Wpf.Interop.PortablePrimitiveGeometry primitive;
+        if (geometry is global::ProGPU.Wpf.Interop.IPortablePrimitiveGeometrySource publisher
+            && publisher.TryGetPortablePrimitiveGeometry(out primitive))
         {
-            if (primitive.Kind != global::ProGPU.Wpf.Interop.PortablePrimitiveGeometryKind.Line) return false;
-            if (primitive.TryGetTransformedLinePoints(out var firstPoint, out var lastPoint)
-                && sink is IWpfBitmapCacheBrushCommandSink primitiveSink
-                && primitiveSink.DrawBitmapCacheBrushLine(source, state,
-                    new(firstPoint.X, firstPoint.Y), new(lastPoint.X, lastPoint.Y), imageSourceAdapter))
-                status = WpfDrawingReplayStatus.Applied;
-            return true;
+            if (primitive.Kind == global::ProGPU.Wpf.Interop.PortablePrimitiveGeometryKind.Line)
+            {
+                if (primitive.TryGetTransformedLinePoints(out var first, out var last)
+                    && sink is IWpfBitmapCacheBrushCommandSink lineSink
+                    && lineSink.DrawBitmapCacheBrushLine(source, state,
+                        new(first.X, first.Y), new(last.X, last.Y), imageSourceAdapter))
+                    status = WpfDrawingReplayStatus.Applied;
+                return true;
+            }
+            if (primitive.Kind != global::ProGPU.Wpf.Interop.PortablePrimitiveGeometryKind.Rectangle)
+                return false;
         }
+        else if (geometry is MediaRectangleGeometry rectangle)
+        {
+            Matrix4x4 matrix = Matrix4x4.Identity;
+            if (rectangle.Transform != null && !WpfResourceResolver.TryAdaptTransformMatrix(rectangle.Transform, out matrix)) return true;
+            if (matrix.M13 != 0 || matrix.M14 != 0 || matrix.M23 != 0 || matrix.M24 != 0
+                || matrix.M31 != 0 || matrix.M32 != 0 || matrix.M33 != 1 || matrix.M34 != 0
+                || matrix.M43 != 0 || matrix.M44 != 1) return true;
+            primitive = global::ProGPU.Wpf.Interop.PortablePrimitiveGeometry.Rectangle(
+                new(rectangle.Rect.X, rectangle.Rect.Y, rectangle.Rect.Width, rectangle.Rect.Height),
+                rectangle.RadiusX, rectangle.RadiusY, new(matrix.M11, matrix.M12, matrix.M21, matrix.M22, matrix.M41, matrix.M42));
+        }
+        else return TryReplayBitmapCachePenLinePath(source, state, geometry, sink, imageSourceAdapter, out status);
+        if (primitive.RadiusX != 0 || primitive.RadiusY != 0) return false;
+        if (sink is IWpfBitmapCacheBrushCommandSink cached)
+            status = cached.DrawBitmapCacheBrushRectangleGeometry(brush, source, state, primitive, imageSourceAdapter);
+        return true;
+    }
+
+    private static bool TryReplayBitmapCachePenLinePath(global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource source,
+        in global::ProGPU.Wpf.Interop.PortablePenState state, object? geometry,
+        IWpfCompositionCommandSink sink, Func<object?, MediaImageSource?>? imageSourceAdapter,
+        out WpfDrawingReplayStatus status)
+    {
+        status = WpfDrawingReplayStatus.Unsupported;
+        WpfReplayPoint start, end;
         PortableGeometryPath? portable = geometry as PortableGeometryPath;
         if (geometry is PortableGeometryPathSource publisher)
         {
@@ -363,7 +393,7 @@ internal static class WpfDrawingReplay
             geometryDrawingState,
             out var penValue);
 
-        if (TryReplayBitmapCachePenLineGeometry(penValue, geometryValue, sink, imageSourceAdapter, out var cachedLineStatus))
+        if (TryReplayBitmapCachePenGeometry(brushValue, penValue, geometryValue, sink, imageSourceAdapter, out var cachedLineStatus))
             return cachedLineStatus;
 
         var brush = WpfResourceResolver.AdaptBrush(brushValue);
@@ -1819,6 +1849,17 @@ internal static class WpfDrawingReplay
 
     private static bool TryGetTileBrushFillGeometry(object? geometry, out TileBrushFillGeometry fillGeometry)
     {
+        if (geometry is global::ProGPU.Vector.PathGeometry nativeGeometry)
+        {
+            if (nativeGeometry.TryGetBounds(out var minimum, out var maximum)
+                && IsUsableRect(new Rect(minimum.X, minimum.Y, maximum.X - minimum.X, maximum.Y - minimum.Y), out var nativeBounds))
+            {
+                fillGeometry = new TileBrushFillGeometry(geometry, nativeBounds, null, null, false, NativeGeometry: nativeGeometry);
+                return true;
+            }
+            fillGeometry = default;
+            return false;
+        }
         if (TryGetPortableGeometryPath(geometry, out var portableGeometry)
             && TryGetPortableGeometryBounds(geometry, out var portableBounds)
             && IsUsableRect(portableBounds, out portableBounds))
@@ -1877,6 +1918,9 @@ internal static class WpfDrawingReplay
 
     private static bool PushTileBrushFillClip(IWpfCompositionCommandSink sink, TileBrushFillGeometry geometry)
     {
+        if (geometry.NativeGeometry != null)
+            return sink is IWpfNativeGeometryCommandSink nativePathSink
+                && nativePathSink.PushNativeGeometryClip(geometry.NativeGeometry);
         if (geometry.IsRoundedRectangle)
             return sink is IWpfNativeGeometryCommandSink roundedSink
                 && roundedSink.PushNativeRoundedRectangleClip(ToReplayRect(geometry.Bounds), geometry.CornerRadiusX, geometry.CornerRadiusY);

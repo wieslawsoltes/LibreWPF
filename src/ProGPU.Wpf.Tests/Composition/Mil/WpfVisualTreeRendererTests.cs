@@ -676,7 +676,7 @@ public sealed class WpfVisualTreeRendererTests
     }
 
     [Fact]
-    public void UnconnectedCachedGeometryPenReportsPartialFillInsteadOfSuccess()
+    public void LocalCachedRectangleGeometrySharesFillAndStrokePath()
     {
         var target = new FakePortableVisualStateDrawingVisual(CreateRenderData(Brushes.Red), new PortableVisualState())
         { Bounds = new Rect(0, 0, 30, 30) };
@@ -688,10 +688,86 @@ public sealed class WpfVisualTreeRendererTests
             using var sink = new ProGpuCompositionCommandSink(commands);
             using var replay = new WpfObjectRenderDataDrawingContext(sink);
             replay.DrawGeometry(brush, pen, new RectangleGeometry(new Rect(8, 8, 20, 20)));
-            Assert.True(replay.Result.UnsupportedCount > 0);
-            Assert.Single(commands.Commands.Where(command => command.Type == global::ProGPU.Scene.RenderCommandType.DrawVisual));
+            Assert.Equal(0, replay.Result.UnsupportedCount);
+            Assert.Equal(2, commands.Commands.Count(command => command.Type == global::ProGPU.Scene.RenderCommandType.DrawVisual));
+            var clip = Assert.Single(commands.Commands.Where(command => command.Type == global::ProGPU.Scene.RenderCommandType.PushGeometryClip));
+            var mask = Assert.Single(commands.Commands.Where(command => command.Type == global::ProGPU.Scene.RenderCommandType.PushOpacityMask));
+            Assert.Same(clip.Path, mask.Path);
         }
         finally { commands.Clear(); }
+    }
+
+    [Theory]
+    [InlineData(0, false)]
+    [InlineData(0, true)]
+    [InlineData(1, false)]
+    [InlineData(1, true)]
+    [InlineData(2, false)]
+    [InlineData(2, true)]
+    public void PrimitiveRectangleGeometryMapsBeforeWideningWithoutPackedPaths(int route, bool cachedFill)
+    {
+        var target = new FakePortableVisualStateDrawingVisual(CreateRenderData(Brushes.Red), new PortableVisualState())
+        { Bounds = new Rect(0, 0, 30, 30) };
+        var brush = new CaptureBrush(new(target, HasRelativeTransform: true,
+            RelativeTransform: new(0.5, 0, 0, 0.5, 0.25, 0.25)));
+        object fill = cachedFill ? brush : Brushes.Blue;
+        var pen = new CapturePen(new(brush, 4, default, default, default,
+            global::ProGPU.Wpf.Interop.PortablePenLineJoin.Miter, 10, default, 0));
+        var geometry = new CaptureRectangleGeometry();
+        var commands = new global::ProGPU.Scene.DrawingContext();
+        try
+        {
+            using var sink = new ProGpuCompositionCommandSink(commands);
+            if (route == 0)
+            {
+                using var replay = new WpfObjectRenderDataDrawingContext(sink);
+                replay.DrawGeometry(fill, pen, geometry);
+                Assert.Equal(0, replay.Result.UnsupportedCount);
+            }
+            else if (route == 1)
+            {
+                var drawing = new ThrowingPortableGeometryDrawing(new PortableGeometryDrawingState
+                { HasGeometry = true, Geometry = geometry, HasPen = true, Pen = pen, HasBrush = true, Brush = fill });
+                Assert.Equal(WpfDrawingReplayStatus.Applied, WpfDrawingReplay.Replay(drawing, sink));
+            }
+            else
+            {
+                var resources = new WpfMilResourceRegistry();
+                resources.Register(1, fill); resources.Register(2, pen); resources.Register(3, geometry);
+                byte[] payload = new byte[16];
+                WriteInt32(payload, 0, 1); WriteInt32(payload, 4, 2); WriteInt32(payload, 8, 3);
+                Assert.Equal(new WpfMilDecodeResult(1, 1, 0, 0), new WpfMilRenderDataDecoder().Decode(
+                    CreateRecord(WpfMilCommandId.DrawGeometry, payload), sink, resources));
+            }
+            var mask = Assert.Single(commands.Commands.Where(command => command.Type == global::ProGPU.Scene.RenderCommandType.PushOpacityMask));
+            Assert.Equal(4f, mask.Pen!.Thickness);
+            // Scalar rotated offset rectangle: [6,6..34,22], then its affine map.
+            Assert.InRange(System.Math.Abs(mask.Rect.X - (-5.4f)), 0, 0.0001f);
+            Assert.InRange(System.Math.Abs(mask.Rect.Y - 6.4f), 0, 0.0001f);
+            Assert.InRange(System.Math.Abs(mask.Rect.Right - 26.6f), 0, 0.0001f);
+            Assert.InRange(System.Math.Abs(mask.Rect.Bottom - 36f), 0, 0.0001f);
+            Assert.True(Assert.Single(mask.Path!.Figures).IsClosed);
+            var fillCommand = commands.Commands[0];
+            Assert.Equal(cachedFill ? global::ProGPU.Scene.RenderCommandType.PushGeometryClip : global::ProGPU.Scene.RenderCommandType.DrawPath, fillCommand.Type);
+            Assert.Same(fillCommand.Path, mask.Path);
+            var sourceDraw = commands.Commands.Last(command => command.Type == global::ProGPU.Scene.RenderCommandType.DrawVisual);
+            Assert.InRange(System.Math.Abs(sourceDraw.Transform.M41 - 5.3f), 0, 0.0001f);
+            Assert.InRange(System.Math.Abs(sourceDraw.Transform.M42 - 10.6f), 0, 0.0001f);
+        }
+        finally { commands.Clear(); }
+    }
+
+    private sealed class CaptureRectangleGeometry : global::ProGPU.Wpf.Interop.IPortablePrimitiveGeometrySource,
+        global::ProGPU.Wpf.Interop.IPortableGeometryPathSource
+    {
+        public bool TryGetPortablePrimitiveGeometry(out global::ProGPU.Wpf.Interop.PortablePrimitiveGeometry value)
+        {
+            value = global::ProGPU.Wpf.Interop.PortablePrimitiveGeometry.Rectangle(new(8, 8, 24, 12), 0, 0,
+                new(0.8, 0.6, -0.6, 0.8, 3, -2));
+            return true;
+        }
+        public bool TryGetPortableGeometryPath(out global::ProGPU.Wpf.Interop.PortableGeometryPath value) =>
+            throw new System.InvalidOperationException("Primitive rectangle replay must not request packed geometry.");
     }
 
     [Fact]
