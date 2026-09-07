@@ -32,6 +32,7 @@ using PortableNativeGlyphRunSource = ProGPU.Wpf.Interop.IPortableNativeGlyphRunS
 using PortablePathSegment = ProGPU.Wpf.Interop.PortablePathSegment;
 using PortablePathSegmentKind = ProGPU.Wpf.Interop.PortablePathSegmentKind;
 using PortablePoint = ProGPU.Wpf.Interop.PortablePoint;
+using PortableRect = ProGPU.Wpf.Interop.PortableRect;
 using PortableSize = ProGPU.Wpf.Interop.PortableSize;
 using PortableSweepDirection = ProGPU.Wpf.Interop.PortableSweepDirection;
 using PortableBrushSource = ProGPU.Wpf.Interop.IPortableBrushSource;
@@ -69,7 +70,9 @@ internal readonly struct WpfNativeGlyphRun
         Vector2 position,
         Matrix4x4 transform,
         bool isBold,
-        bool isItalic)
+        bool isItalic,
+        bool hasInkBounds = false,
+        PortableRect inkBounds = default)
     {
         GlyphIndices = glyphIndices;
         GlyphPositions = glyphPositions;
@@ -79,6 +82,8 @@ internal readonly struct WpfNativeGlyphRun
         Transform = transform;
         IsBold = isBold;
         IsItalic = isItalic;
+        HasInkBounds = hasInkBounds;
+        InkBounds = inkBounds;
 
         if (TryCreateLocalBounds(glyphPositions, fontSize, position, out var localBounds))
         {
@@ -111,6 +116,10 @@ internal readonly struct WpfNativeGlyphRun
     public bool IsItalic { get; }
 
     public bool HasBounds { get; }
+
+    public bool HasInkBounds { get; }
+
+    public PortableRect InkBounds { get; }
 
     public WpfReplayRect LocalBounds { get; }
 
@@ -2072,6 +2081,8 @@ public sealed class WpfResourceResolver :
         private bool _isItalic;
         private bool _hasTransform;
         private Matrix4x4 _transform;
+        private bool _hasInkBounds;
+        private PortableRect _inkBounds;
         private WpfNativeGlyphRun _glyphRun;
 
         public bool TryGetOrCreate(PortableNativeGlyphRun portableGlyphRun, out WpfNativeGlyphRun glyphRun)
@@ -2087,6 +2098,8 @@ public sealed class WpfResourceResolver :
                 && portableGlyphRun.IsBold == _isBold
                 && portableGlyphRun.IsItalic == _isItalic
                 && portableGlyphRun.HasTransform == _hasTransform
+                && portableGlyphRun.HasInkBounds == _hasInkBounds
+                && (!portableGlyphRun.HasInkBounds || PortableInkBoundsEqual(portableGlyphRun.InkBounds, _inkBounds))
                 && (!portableGlyphRun.HasTransform || portableGlyphRun.Transform.Equals(_transform)))
             {
                 glyphRun = _glyphRun;
@@ -2118,7 +2131,8 @@ public sealed class WpfResourceResolver :
                 portableGlyphRun.BaselineOrigin,
                 transform,
                 portableGlyphRun.IsBold,
-                portableGlyphRun.IsItalic);
+                portableGlyphRun.IsItalic,
+                portableGlyphRun.HasInkBounds, portableGlyphRun.InkBounds);
 
             _hasGlyphRun = true;
             _glyphIndices = portableGlyphRun.GlyphIndices;
@@ -2132,6 +2146,8 @@ public sealed class WpfResourceResolver :
             _isItalic = portableGlyphRun.IsItalic;
             _hasTransform = portableGlyphRun.HasTransform;
             _transform = portableGlyphRun.Transform;
+            _hasInkBounds = portableGlyphRun.HasInkBounds;
+            _inkBounds = portableGlyphRun.InkBounds;
             _glyphRun = glyphRun;
             return true;
         }
@@ -2153,6 +2169,8 @@ public sealed class WpfResourceResolver :
         private bool _isItalic;
         private bool _hasTransform;
         private PortableMatrix3x2 _transform;
+        private bool _hasInkBounds;
+        private PortableRect _inkBounds;
         private WpfNativeGlyphRun _glyphRun;
 
         public bool TryGetOrCreate(PortableGlyphRun portableGlyphRun, out WpfNativeGlyphRun glyphRun)
@@ -2170,6 +2188,8 @@ public sealed class WpfResourceResolver :
                 && portableGlyphRun.IsBold == _isBold
                 && portableGlyphRun.IsItalic == _isItalic
                 && portableGlyphRun.HasTransform == _hasTransform
+                && portableGlyphRun.HasInkBounds == _hasInkBounds
+                && (!portableGlyphRun.HasInkBounds || PortableInkBoundsEqual(portableGlyphRun.InkBounds, _inkBounds))
                 && (!portableGlyphRun.HasTransform || PortableMatrixEquals(portableGlyphRun.Transform, _transform)))
             {
                 glyphRun = _glyphRun;
@@ -2202,7 +2222,8 @@ public sealed class WpfResourceResolver :
                 ToVector2(portableGlyphRun.BaselineOrigin),
                 transform,
                 portableGlyphRun.IsBold,
-                portableGlyphRun.IsItalic);
+                portableGlyphRun.IsItalic,
+                portableGlyphRun.HasInkBounds, portableGlyphRun.InkBounds);
 
             _hasGlyphRun = true;
             _glyphIndices = portableGlyphRun.GlyphIndices;
@@ -2218,10 +2239,16 @@ public sealed class WpfResourceResolver :
             _isItalic = portableGlyphRun.IsItalic;
             _hasTransform = portableGlyphRun.HasTransform;
             _transform = portableGlyphRun.Transform;
+            _hasInkBounds = portableGlyphRun.HasInkBounds;
+            _inkBounds = portableGlyphRun.InkBounds;
             _glyphRun = glyphRun;
             return true;
         }
     }
+
+    private static bool PortableInkBoundsEqual(PortableRect left, PortableRect right) =>
+        left.IsEmpty == right.IsEmpty && left.X.Equals(right.X) && left.Y.Equals(right.Y)
+        && left.Width.Equals(right.Width) && left.Height.Equals(right.Height);
 
     private static MediaGlyphRun? AdaptPortableNativeGlyphRun(PortableNativeGlyphRun portableGlyphRun)
     {

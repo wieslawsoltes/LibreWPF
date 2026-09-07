@@ -179,7 +179,7 @@ internal static class WpfDrawingReplay
 
         if (drawing is PortableGlyphRunDrawingStateSource)
         {
-            return TryReplayGlyphRunDrawing(drawing, sink);
+            return TryReplayGlyphRunDrawing(drawing, sink, imageSourceAdapter);
         }
 
         return WpfDrawingReplayStatus.Unsupported;
@@ -2398,7 +2398,8 @@ internal static class WpfDrawingReplay
         return true;
     }
 
-    private static WpfDrawingReplayStatus TryReplayGlyphRunDrawing(object drawing, IWpfCompositionCommandSink sink)
+    private static WpfDrawingReplayStatus TryReplayGlyphRunDrawing(object drawing, IWpfCompositionCommandSink sink,
+        Func<object?, MediaImageSource?>? imageSourceAdapter)
     {
         var hasPortableGlyphRunDrawingState = TryGetPortableGlyphRunDrawingState(
             drawing,
@@ -2422,6 +2423,10 @@ internal static class WpfDrawingReplay
             hasPortableGlyphRunDrawingState,
             glyphRunDrawingState,
             out var foregroundBrushValue);
+        if (foregroundBrushValue is global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource cacheSource)
+            return glyphRunValue != null && sink is IWpfBitmapCacheBrushCommandSink cachedSink
+                && cachedSink.DrawBitmapCacheBrushGlyphRun(cacheSource, glyphRunValue, imageSourceAdapter)
+                    ? WpfDrawingReplayStatus.Applied : WpfDrawingReplayStatus.Unsupported;
         var foregroundBrush = WpfResourceResolver.AdaptBrush(foregroundBrushValue);
         if (sink is IWpfNativePrimitiveCommandSink nativeSink
             && WpfResourceResolver.TryAdaptNativeGlyphRun(glyphRunValue, out var nativeGlyphRun))

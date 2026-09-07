@@ -1166,6 +1166,14 @@ public sealed class WpfObjectRenderDataDrawingContext :
     public void DrawGlyphRun(object? foregroundBrush, object? glyphRun)
     {
         ThrowIfClosed();
+        if (foregroundBrush is global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource cacheSource)
+        {
+            RegisterRetainedDependencies(foregroundBrush, glyphRun);
+            if (glyphRun != null && _sink is IWpfBitmapCacheBrushCommandSink cachedSink
+                && cachedSink.DrawBitmapCacheBrushGlyphRun(cacheSource, glyphRun, _resources.AdaptImageSource)) CountApplied();
+            else CountUnsupported();
+            return;
+        }
         MediaBrush? mediaBrush = WpfResourceResolver.AdaptBrush(foregroundBrush);
         if (mediaBrush == null || glyphRun == null)
         {

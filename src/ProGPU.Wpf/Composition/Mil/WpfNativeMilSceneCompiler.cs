@@ -1936,7 +1936,7 @@ public sealed class WpfNativeMilSceneCompiler
             if (glyphRun.GlyphIndices.Length == 0 ||
                 glyphRun.GlyphPositions.Length < glyphRun.GlyphIndices.Length ||
                 !glyphRun.Transform.IsIdentity ||
-                !glyphRun.HasBounds ||
+                (!glyphRun.HasInkBounds && !glyphRun.HasBounds) ||
                 glyphRun.Font.FaceIndex < 0 ||
                 glyphRun.Font.FontData.IsEmpty)
             {
@@ -1945,7 +1945,13 @@ public sealed class WpfNativeMilSceneCompiler
             }
             uint handle = NextHandle();
             _glyphRunHandles.Add(resource, handle);
-            WpfReplayRect bounds = glyphRun.LocalBounds;
+            // Source-provided ink includes overhangs/descenders and baseline.
+            // Keep legacy size bounds only for old descriptors that lack it.
+            WpfReplayRect bounds = glyphRun.HasInkBounds
+                ? glyphRun.InkBounds.IsEmpty ? default
+                    : new WpfReplayRect(glyphRun.InkBounds.X, glyphRun.InkBounds.Y,
+                        glyphRun.InkBounds.Width, glyphRun.InkBounds.Height)
+                : glyphRun.LocalBounds;
             Batch.SetGlyphRun(
                 handle,
                 new NativeMilGlyphRun(

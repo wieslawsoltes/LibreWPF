@@ -1136,12 +1136,20 @@ public sealed class WpfMilRenderDataDecoder
             WpfMilCommandId.DrawRectangle or WpfMilCommandId.DrawRectangleAnimate
                 or WpfMilCommandId.DrawEllipse or WpfMilCommandId.DrawEllipseAnimate => 32,
             WpfMilCommandId.DrawRoundedRectangle or WpfMilCommandId.DrawRoundedRectangleAnimate => 48,
-            WpfMilCommandId.DrawGeometry => 0,
+            WpfMilCommandId.DrawGeometry or WpfMilCommandId.DrawGlyphRun => 0,
             _ => -1
         };
         if (brushOffset < 0 || !TryResolveRawResource(resources, ReadUInt32(payload, brushOffset), out var rawBrush)
             || rawBrush is not global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource source) return false;
         var adapter = GetImageSourceAdapter(resources, imageSourceAdapter);
+        if (command == WpfMilCommandId.DrawGlyphRun)
+        {
+            if (TryResolveRawResource(resources, ReadUInt32(payload, 4), out var glyph)
+                && sink is IWpfBitmapCacheBrushCommandSink cachedSink
+                && cachedSink.DrawBitmapCacheBrushGlyphRun(source, glyph, adapter))
+                status = WpfDrawingReplayStatus.Applied;
+            return true;
+        }
         uint penToken = ReadUInt32(payload, brushOffset + 4);
         var pen = ResolveOptionalPen(resources, penToken);
         bool penApplied = false;

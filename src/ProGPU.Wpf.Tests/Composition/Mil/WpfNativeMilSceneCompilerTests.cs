@@ -1615,6 +1615,8 @@ public sealed class WpfNativeMilSceneCompilerTests
             BaselineOrigin = new Vector2(4, 24),
             FontRenderingEmSize = 20,
             NativeFont = font,
+            HasInkBounds = true,
+            InkBounds = new PortableRect(2, 6, 32, 23),
             IsBold = true
         });
         var brush = new FakeBrush(new PortableColor(255, 32, 96, 192));
@@ -1641,6 +1643,10 @@ public sealed class WpfNativeMilSceneCompilerTests
         Assert.Equal(4.0f, ReadSingle(result.Bytes, glyphOffset + 24));
         Assert.Equal(24.0f, ReadSingle(result.Bytes, glyphOffset + 28));
         Assert.Equal(20.0f, ReadSingle(result.Bytes, glyphOffset + 32));
+        Assert.Equal(2.0, ReadDouble(result.Bytes, glyphOffset + 36));
+        Assert.Equal(6.0, ReadDouble(result.Bytes, glyphOffset + 44));
+        Assert.Equal(32.0, ReadDouble(result.Bytes, glyphOffset + 52));
+        Assert.Equal(23.0, ReadDouble(result.Bytes, glyphOffset + 60));
         Assert.Equal(2, ReadUInt16(result.Bytes, glyphOffset + 68));
 
         int nestedOffset = FindCommand(result.Bytes, 0x18) + 16;

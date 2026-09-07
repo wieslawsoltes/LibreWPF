@@ -162,6 +162,9 @@ internal interface IWpfProGpuSceneDrawingContextSource
 
 internal interface IWpfBitmapCacheBrushCommandSink
 {
+    bool DrawBitmapCacheBrushGlyphRun(global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource source,
+        object glyphRun, Func<object?, MediaImageSource?>? imageSourceAdapter) => false;
+
     bool PushBitmapCacheBrushOpacityMask(global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource source,
         WpfReplayRect bounds, Func<object?, MediaImageSource?>? imageSourceAdapter) => false;
 

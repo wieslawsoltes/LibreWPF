@@ -8540,6 +8540,25 @@ keys. These fixtures are authored only; no runtime validation is claimed.
 
 ## Developer commands
 
+### Cached glyph-foreground checkpoint
+
+Source-built GlyphRun now caches authoritative ink bounds (including baseline,
+before glyph transform) into both portable DTOs. Resolver caches include that
+metadata, and native MIL production prefers it in the existing ManagedBounds
+field. Cached-brush foregrounds route through a single retained glyph coverage
+command and ProGPU-owned coverage/source leases in object/managed calls,
+GlyphRunDrawing replay and raw MIL. Missing ink metadata is unsupported for this
+path; the bridge does not clip coverage to a font-size estimate.
+
+Coverage keeps Aliased mode or uses Grayscale alpha while retaining font/style,
+glyph arrays, baseline, hinting and shared cached source mapping. ProGPU documents
+the original implementation sources, primary-contract research, allocation and
+GPU costs, paired native fixtures and remaining limits in
+[cached glyph coverage](../external/ProGPU/docs/cached-pictures.md#cached-glyph-coverage-and-authoritative-ink-bounds).
+Native product glyph masks already exist; no ABI/shader change was needed.
+Strokes, unbounded masks, legacy glyph metadata, retained-owner mask metadata and
+broader parity remain open. Fixtures were authored/compiled, not executed.
+
 ### Cached opacity-mask checkpoint
 
 Bounded direct object/managed, visual, drawing-group and raw MIL mask scopes now
@@ -8632,6 +8651,11 @@ remain open. Runtime/VM/platform, performance, renderer/Svg.Skia, verifier and
 CI gates stay deferred until the final validation phase.
 
 ### Compilation checkpoints
+
+Cached glyph checkpoint (2026-09-07): native `progpu_native_mil_tests` compiles
+in Release; ProGPU.Tests builds with 0 warnings/errors and ProGPU.Wpf.Tests with
+10 warnings/0 errors. Runtime/image/VM/platform, renderer/Svg.Skia, performance,
+source verifier and CI qualification remain deferred and required for completion.
 
 Cached opacity-mask checkpoint (2026-09-07): native `progpu_native_mil_tests`
 compiles in Release; ProGPU.Tests has 0 warnings/errors and ProGPU.Wpf.Tests has

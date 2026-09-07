@@ -311,6 +311,13 @@ public sealed class WpfCompositionDrawingContext : IWpfGeneratedRenderDataDrawin
         }
 
         RegisterRetainedDependencies(foregroundBrush, glyphRun);
+        if (foregroundBrush is global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource cacheSource)
+        {
+            if (_sink is IWpfBitmapCacheBrushCommandSink cachedSink
+                && cachedSink.DrawBitmapCacheBrushGlyphRun(cacheSource, glyphRun, _imageSourceAdapter)) CountApplied();
+            else CountUnsupported();
+            return;
+        }
         _sink.DrawGlyphRun(foregroundBrush, glyphRun);
         CountApplied();
     }

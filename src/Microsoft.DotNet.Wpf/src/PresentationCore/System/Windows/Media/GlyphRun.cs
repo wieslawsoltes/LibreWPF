@@ -2475,9 +2475,12 @@ namespace System.Windows.Media
                 return false;
             }
 
+            bool hasInkBounds = TryGetPortableInkBounds(out PortableRect inkBounds);
             StyleSimulations styleSimulations = _glyphTypeface?.StyleSimulations ?? StyleSimulations.None;
             glyphRun = new PortableGlyphRun
             {
+                HasInkBounds = hasInkBounds,
+                InkBounds = inkBounds,
                 GlyphIndices = CopyUShorts(_glyphIndices),
                 AdvanceWidths = CopyDoubles(_advanceWidths),
                 GlyphOffsets = CopyPoints(_glyphOffsets),
@@ -2513,9 +2516,12 @@ namespace System.Windows.Media
                 return false;
             }
 
+            bool hasInkBounds = TryGetPortableInkBounds(out PortableRect inkBounds);
             StyleSimulations styleSimulations = _glyphTypeface?.StyleSimulations ?? StyleSimulations.None;
             glyphRun = new PortableNativeGlyphRun
             {
+                HasInkBounds = hasInkBounds,
+                InkBounds = inkBounds,
                 GlyphIndices = CopyUShorts(_glyphIndices),
                 GlyphPositions = CreateNativeGlyphPositions(_glyphIndices.Count, _advanceWidths, _glyphOffsets),
                 BaselineOrigin = new Vector2((float)_baselineOrigin.X, (float)_baselineOrigin.Y),
@@ -2531,6 +2537,25 @@ namespace System.Windows.Media
                 _portableNativeGlyphRunCache = glyphRun;
             }
 
+            return true;
+        }
+
+        private bool TryGetPortableInkBounds(out PortableRect bounds)
+        {
+            bounds = PortableRect.Empty;
+            if (!IsInitialized) return false;
+            if (_portableInkBoundsCache is PortableRect cached)
+            {
+                bounds = cached;
+                return true;
+            }
+            Rect ink = ComputeInkBoundingBox();
+            if (!ink.IsEmpty)
+            {
+                ink.Offset(_baselineOrigin.X, _baselineOrigin.Y);
+                bounds = new PortableRect(ink.X, ink.Y, ink.Width, ink.Height);
+            }
+            _portableInkBoundsCache = bounds;
             return true;
         }
 
@@ -2659,6 +2684,7 @@ namespace System.Windows.Media
         private object              _inkBoundingBox;    // Used when CacheInkBounds is on
         private PortableGlyphRun    _portableGlyphRunCache;
         private PortableNativeGlyphRun _portableNativeGlyphRunCache;
+        private PortableRect? _portableInkBoundsCache;
         private TextFormattingMode      _textFormattingMode;
         private float               _pixelsPerDip = MS.Internal.FontCache.Util.PixelsPerDip;
 

@@ -221,6 +221,41 @@ public sealed class ProGpuCompositionCommandSink :
         return true;
     }
 
+    bool IWpfBitmapCacheBrushCommandSink.DrawBitmapCacheBrushGlyphRun(
+        global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource source, object glyphRunResource,
+        Func<object?, MediaImageSource?>? imageSourceAdapter)
+    {
+        ThrowIfClosed();
+        if (!source.TryGetPortableBitmapCacheBrush(out var brush)
+            || !double.IsFinite(brush.Opacity) || brush.Opacity < 0 || brush.Opacity > 1) return false;
+        if (brush.InternalTarget == null || brush.Opacity == 0) return true;
+        if (!WpfResourceResolver.TryAdaptNativeGlyphRun(glyphRunResource, out var run) || !run.HasInkBounds) return false;
+        var ink = run.InkBounds;
+        if (ink.IsEmpty || ink.Width == 0 || ink.Height == 0) return true;
+        if (!global::ProGPU.Wpf.Interop.PortableBitmapCacheBrushPolicy.TryGetMapping(brush, ink, out var mapping)) return false;
+        if (mapping.M11 * mapping.M22 - mapping.M12 * mapping.M21 == 0) return true;
+        var bounds = ToNativeRect(new WpfReplayRect(ink.X, ink.Y, ink.Width, ink.Height));
+        if (!float.IsFinite(bounds.Right) || !float.IsFinite(bounds.Bottom) || bounds.Width <= 0 || bounds.Height <= 0) return false;
+        var recorder = new global::ProGPU.Scene.GpuPictureRecorder();
+        var coverageCommands = recorder.BeginRecording(bounds);
+        global::ProGPU.Scene.GpuPicture coverage;
+        try
+        {
+            coverageCommands.DrawGlyphRun(run.GlyphIndices, run.GlyphPositions, run.Font, run.FontSize,
+                new VectorSolidColorBrush(Vector4.One), run.Position, isBold: run.IsBold, isItalic: run.IsItalic,
+                textRenderingMode: _textRenderingModeStack.Peek() == global::ProGPU.Scene.TextRenderingMode.Aliased
+                    ? global::ProGPU.Scene.TextRenderingMode.Aliased : global::ProGPU.Scene.TextRenderingMode.Grayscale,
+                textHintingMode: _textHintingModeStack.Peek());
+            coverage = recorder.EndRecording();
+        }
+        finally { coverageCommands.Clear(); }
+        using (coverage)
+        using (var lease = WpfBitmapCacheBrushSourceLookup.Acquire(source, _context, _viewport3DTextureCache, imageSourceAdapter))
+            NativeContext.DrawCachedPictureWithCoverage(lease, coverage, bounds, mapping,
+                (float)brush.Opacity, run.Transform * _transformStack.Peek());
+        return true;
+    }
+
     bool IWpfHitTestOwnerScopeCommandSink.PushHitTestOwner(object sourceVisual)
     {
         ThrowIfClosed();
@@ -712,6 +747,12 @@ public sealed class ProGpuCompositionCommandSink :
     public void DrawGlyphRun(MediaBrush? foregroundBrush, MediaGlyphRun glyphRun)
     {
         ThrowIfClosed();
+        if (foregroundBrush is global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource source)
+        {
+            if (!((IWpfBitmapCacheBrushCommandSink)this).DrawBitmapCacheBrushGlyphRun(source, glyphRun, null))
+                UnsupportedStateCount++;
+            return;
+        }
 
         if (foregroundBrush == null || glyphRun == null)
         {
@@ -1052,6 +1093,12 @@ public sealed class ProGpuCompositionCommandSink :
     void IWpfNativePrimitiveCommandSink.DrawNativeGlyphRun(MediaBrush? foregroundBrush, object glyphRunResource)
     {
         ThrowIfClosed();
+        if (foregroundBrush is global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource source)
+        {
+            if (!((IWpfBitmapCacheBrushCommandSink)this).DrawBitmapCacheBrushGlyphRun(source, glyphRunResource, null))
+                UnsupportedStateCount++;
+            return;
+        }
 
         if (foregroundBrush == null
             || !WpfResourceResolver.TryAdaptNativeGlyphRun(glyphRunResource, out var glyphRun))

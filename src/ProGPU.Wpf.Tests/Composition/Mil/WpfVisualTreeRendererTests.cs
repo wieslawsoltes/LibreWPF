@@ -409,6 +409,56 @@ public sealed class WpfVisualTreeRendererTests
         Assert.Equal(0, policy.SubscriptionCount);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void CachedGlyphBrushUsesAuthoritativeInkBoundsAndRetainedGlyphCoverage(bool mil)
+    {
+        var target = new FakePortableVisualStateDrawingVisual(CreateRenderData(Brushes.Red), new PortableVisualState())
+        { Bounds = new Rect(0, 0, 30, 30) };
+        var brush = new CaptureBrush(new(target, Opacity: 0.5));
+        var glyph = new global::ProGPU.Wpf.Interop.PortableNativeGlyphRun
+        {
+            GlyphIndices = [3, 4], GlyphPositions = [Vector2.Zero, new Vector2(8, 0)],
+            BaselineOrigin = new Vector2(10, 20), FontRenderingEmSize = 12,
+            FontFamilyNames = ["Arial"], HasInkBounds = true,
+            InkBounds = new PortableRect(8, 8, 22, 18),
+            HasTransform = true, Transform = Matrix4x4.CreateTranslation(2, 3, 0)
+        };
+        var commands = new global::ProGPU.Scene.DrawingContext();
+        try
+        {
+            using var sink = new ProGpuCompositionCommandSink(commands);
+            if (mil)
+            {
+                var resources = new WpfMilResourceRegistry();
+                resources.Register(1, brush); resources.Register(2, glyph);
+                byte[] payload = new byte[8]; WriteInt32(payload, 0, 1); WriteInt32(payload, 4, 2);
+                Assert.Equal(new WpfMilDecodeResult(1, 1, 0, 0),
+                    new WpfMilRenderDataDecoder().Decode(CreateRecord(WpfMilCommandId.DrawGlyphRun, payload), sink, resources));
+            }
+            else
+            {
+                using var replay = new WpfObjectRenderDataDrawingContext(sink);
+                replay.DrawGlyphRun(brush, glyph);
+                Assert.Equal(0, replay.Result.UnsupportedCount);
+            }
+            var mask = commands.Commands[0];
+            Assert.Equal(global::ProGPU.Scene.RenderCommandType.PushOpacityMask, mask.Type);
+            Assert.Equal(new global::ProGPU.Scene.Rect(8, 8, 22, 18), mask.Rect);
+            Assert.Equal(glyph.Transform, mask.Transform);
+            Assert.Equal(1, mask.Picture!.CommandCount);
+            var coverage = mask.Picture.GetCommand(0);
+            Assert.Equal(global::ProGPU.Scene.RenderCommandType.DrawGlyphRun, coverage.Type);
+            Assert.Same(glyph.GlyphIndices, coverage.GlyphIndices);
+            Assert.Same(glyph.GlyphPositions, coverage.GlyphPositions);
+            Assert.Equal(global::ProGPU.Scene.TextRenderingMode.Grayscale, coverage.TextRenderingMode);
+            Assert.Single(commands.Commands.Where(value => value.Type == global::ProGPU.Scene.RenderCommandType.DrawVisual));
+            Assert.Equal(global::ProGPU.Scene.RenderCommandType.PopOpacityMask, commands.Commands[^1].Type);
+        }
+        finally { commands.Clear(); }
+    }
+
     [Fact]
     public void EmptyCacheBrushMaskIsTransparentNotAnAbsentMask()
     {
