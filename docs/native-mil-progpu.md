@@ -8271,6 +8271,24 @@ were executed. General path/group/other fixed-shape transform ordering and the
 full goal remain open. See ProGPU's native MIL specification for provenance,
 complexity and the deferred qualification scope.
 
+## Implementation-first checkpoint: native PathGeometry pen transforms
+
+Direct native PathGeometry now maps stroke contours before widening while keeping
+fill transforms separate. Bezier controls reuse paired NEON/SSE2 mapping;
+non-singular arcs stay analytic and collapsed arcs use ProGPU's existing bounded
+cubic lowering. Source cap/gap/smooth-join metadata is retained. Gradient and tile
+pen mapping uses native widened stroke bounds, and draw bounds now include curve
+extrema. Only drawing/world state transforms the widened result.
+
+The changes remain in ProGPU without a WPF-local workaround or public bridge
+change. Authored comparisons use scalar-pretransformed path packets; additional
+fixtures distinguish arc/cubic/cap output and nonpainting world collapse. The
+native compile lane covers library and MIL/Direct2D compatibility/WebGPU targets;
+tests, VM/images, performance, verifiers and CI qualification remain deferred.
+ProGPU documents the added preparation/widening costs and pending retained
+caching. Nested groups, other fixed-shape pens, mixed collapsed segments,
+precision limits and the full goal remain open.
+
 ## Developer commands
 
 ```sh
