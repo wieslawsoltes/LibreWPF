@@ -11,6 +11,33 @@ parity evidence. Tests, VM/image comparisons, verifiers, benchmarks, and exact-h
 CI qualification are deferred at the user's request until implementation is ready.
 Historical passing counts below apply only to their named snapshots.
 
+### Source endpoint traversal checkpoint (2026-09-07)
+
+ProGPU `c00ff194` managed and native dash preparation requires visible endpoint
+traversal before assigning source caps or closing a seam. Hidden leading/trailing
+retraces cannot acquire those caps just by returning to a source coordinate.
+A newly visible terminal point retains separate directed caps without also
+extending an earlier coincident run. Explicit managed unstroked endpoint edges
+remain ineligible after phase resets; no-op records preserve existing traversal.
+
+Paired linear/quadratic, closed-seam and emitted-outline bounds fixtures are
+authored. The reversed terminal example preserves right bound `1`, not the
+incorrect `1.5` caused by capping the earlier run in the opposite direction.
+This remains shared ProGPU implementation with no WPF-local geometry code,
+native ABI, shader, readback or per-dash submission changes. See
+[phase rules, original provenance and costs](../external/ProGPU/docs/cached-pictures.md#endpoint-traversal-and-closed-dash-seams-2026-09-07).
+
+Final managed compilation: ProGPU.Tests Release 0 warnings/errors; LibreWPF.Tests
+Release 116 warnings and 0 errors. Native MIL fixtures compile/link with Apple
+Clang C++20. Warnings are recorded, not qualified or fixed. Main was refreshed
+with zero missing ProGPU commits. No tests, images, GPU/VM/platform/package runs,
+SIMD/performance measurements, source verifiers or CI qualification ran.
+General curved cached/terminal coverage and the full goal remain unfinished.
+
+The fast native build tree disables the full wgpu renderer target; only its
+native MIL/core fixture compilation is established here, not a rebuilt renderer
+package or runtime parity.
+
 ### Curved dash continuity checkpoint (2026-09-07)
 
 ProGPU `8d7a63d0` keeps curved visible intervals
