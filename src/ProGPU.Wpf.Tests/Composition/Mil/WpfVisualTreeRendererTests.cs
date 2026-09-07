@@ -771,15 +771,23 @@ public sealed class WpfVisualTreeRendererTests
     }
 
     [Theory]
-    [InlineData(false, false, 0)]
-    [InlineData(false, true, 0)]
-    [InlineData(true, false, 0)]
-    [InlineData(true, true, 0)]
-    [InlineData(false, true, 1)]
-    [InlineData(true, true, 1)]
-    [InlineData(false, true, 2)]
-    [InlineData(true, true, 2)]
-    public void CachedLinearPathsKeepFillAndGapSplitStrokeSeparate(bool closed, bool gap, int route)
+    [InlineData(false, false, 0, false)]
+    [InlineData(false, true, 0, false)]
+    [InlineData(true, false, 0, false)]
+    [InlineData(true, true, 0, false)]
+    [InlineData(false, true, 1, false)]
+    [InlineData(true, true, 1, false)]
+    [InlineData(false, true, 2, false)]
+    [InlineData(true, true, 2, false)]
+    [InlineData(false, false, 0, true)]
+    [InlineData(false, true, 0, true)]
+    [InlineData(true, false, 0, true)]
+    [InlineData(true, true, 0, true)]
+    [InlineData(false, true, 1, true)]
+    [InlineData(true, true, 1, true)]
+    [InlineData(false, true, 2, true)]
+    [InlineData(true, true, 2, true)]
+    public void CachedLinearPathsKeepFillAndGapSplitStrokeSeparate(bool closed, bool gap, int route, bool dashed)
     {
         var target = new FakePortableVisualStateDrawingVisual(CreateRenderData(Brushes.Red), new PortableVisualState())
         { Bounds = new Rect(0, 0, 30, 30) };
@@ -787,7 +795,8 @@ public sealed class WpfVisualTreeRendererTests
             RelativeTransform: new(0.5, 0, 0, 0.5, 0.25, 0.25)));
         var pen = new CapturePen(new(brush, 4,
             global::ProGPU.Wpf.Interop.PortablePenLineCap.Round,
-            global::ProGPU.Wpf.Interop.PortablePenLineCap.Triangle, default, default, 10, default, 0));
+            global::ProGPU.Wpf.Interop.PortablePenLineCap.Triangle, default, default, 10,
+            dashed ? new double[] { 2.0, 1.0 } : Array.Empty<double>(), dashed ? 0.25 : 0));
         var geometry = new CaptureLinearPath(closed, gap);
         var commands = new global::ProGPU.Scene.DrawingContext();
         try

@@ -11,6 +11,29 @@ parity evidence. Tests, VM/image comparisons, verifiers, benchmarks, and exact-h
 CI qualification are deferred at the user's request until implementation is ready.
 Historical passing counts below apply only to their named snapshots.
 
+### Cached dashed linear paths checkpoint (2026-09-07)
+
+ProGPU `a3c7ef6c` extends the shared linear-path preparer to bounded positive
+normal-width dashes. It preserves gap-split/cyclic contours, original fill
+geometry, source leases and an independent undashed stroke-coverage pen. Material
+bounds follow emitted native cubic caps/joins, not ideal solid bounds or fill
+inflation. A hidden retrace no longer joins unrelated dash intervals merely
+because their positions coincide. LibreWPF's existing typed/object/drawing/raw
+path routes consume this shared implementation; paired native, managed and WPF
+fixtures are authored. See [design, provenance and limits](../external/ProGPU/docs/cached-pictures.md#dashed-linear-cached-coverage-and-emitted-bounds-2026-09-07).
+
+Visible terminal point dashes requiring directed caps, tiny/point-only geometry,
+zero-width dashed pens, curves, boolean boundaries, and fixed/hairline policies
+remain unfinished and explicitly rejected by this path. No full-parity or
+performance claim is made. This supersedes the blanket dashed-path rejection
+recorded at the preceding metadata-only checkpoint.
+
+Final compilation: ProGPU.Tests Release 0 warnings/errors, Apple Clang native MIL
+fixtures built, LibreWPF.Tests Release 18 warnings and 0 errors. The preceding
+WPF fixture compile reported 114 warnings; changing incremental totals do not
+establish warning fixes. Tests, images, SIMD/performance, VM/package/platform,
+source verifiers and PR CI qualification remain deferred and required.
+
 ### Shared dashed-path metadata checkpoint (2026-09-07)
 
 ProGPU `18ee4f8b` fixes the shared dash generator's source-figure endpoint caps,

@@ -10,6 +10,12 @@ The product bridge source is currently reflection-free by audit; keep that as an
 
 ## GPU-First Compute and SIMD Fallback Priority
 
+Cached dashed linear path pens must use ProGPU's owned normalized dash spines and
+emitted-outline material bounds, keeping source fill geometry independent. Do
+not substitute ideal solid bounds, inflate fill bounds, silently discard terminal
+point caps, or introduce a WPF-local dash stroker. Preserve partial/unsupported
+reporting for representations that ProGPU cannot yet prepare exactly.
+
 General cached linear paths must delegate contour preparation and stroke bounds
 to ProGPU, preserve the original fill path independently from gap-split stroke
 coverage, and retain typed pen/source identity. Primitive and strict single-line
