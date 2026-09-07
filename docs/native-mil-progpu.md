@@ -8557,8 +8557,9 @@ are authored but unexecuted. See ProGPU `docs/cached-pictures.md`, solid rectang
 pen consumers, for research, original source provenance and complexity.
 
 Release builds: ProGPU.Tests 0 warnings/errors; WPF.Tests 14 warnings/0 errors
-after fixtures, following a broader rebuild with 108 warnings/0 errors; native
-MIL fixture target compiled. No validation or warning qualification was run.
+after fixtures, following a broader rebuild with 108 warnings/0 errors; the
+final null-material guard rebuild had 110 warnings/0 errors. The native MIL
+fixture target compiled. No validation or warning qualification was run.
 RectangleGeometry/general paths, rounded/ellipse/dashed pens and broader native
 transport/parity remain open. Runtime/image/SIMD/platform/VM/performance/verifier
 and CI gates stay deferred to the final validation phase.
