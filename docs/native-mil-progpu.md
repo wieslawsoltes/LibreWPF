@@ -8491,6 +8491,24 @@ root scroll clips, page unification, dirty regions/preparation reuse and all fin
 platform/VM/image/performance/CI qualification remain open. Detailed costs and
 original-code provenance are recorded in ProGPU's native MIL document.
 
+## Implementation-first checkpoint: reusable managed cached pictures
+
+ProGPU adds `CachedPicture`/`DrawCachedPicture` to the independent managed renderer.
+The resource owns a picture snapshot and shares one retained cache owner across
+consumers. Source bounds, replacement/invalidation, render scale and disposal are
+explicit; capture preserves fractional logical extent and remains GPU-backed even
+when optional visual-layer caching is disabled. No WPF-local bitmap-copy fallback
+is introduced. ProGPU's `docs/cached-pictures.md` records API use, provenance,
+costs, primary research and managed/native applicability.
+
+CPU and GPU fixtures are authored. ProGPU.Scene, the ProGPU test graph and the
+LibreWPF bridge/test graph compile in Release; the latter retains warnings.
+Runtime and full qualification remain deferred.
+This is the source-resource building block, not finished managed BitmapCacheBrush
+support: source-root capture, brush consumer routing, cache policy/ClearType and
+typed lifetime/invalidation integration are still required. The full goal remains
+active, including native/managed and platform differentials plus all PR CI gates.
+
 ## Developer commands
 
 ```sh
