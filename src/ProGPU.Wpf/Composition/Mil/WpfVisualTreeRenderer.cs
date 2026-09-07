@@ -48,6 +48,8 @@ public sealed class WpfVisualTreeRenderer
     }
 
     private readonly WpfRenderDataBridge _renderDataBridge;
+    private HashSet<object>? _cacheCaptureAncestry;
+    private HashSet<object>? _cacheCaptureVisited;
 
     public WpfVisualTreeRenderer()
         : this(new WpfRenderDataBridge())
@@ -73,6 +75,33 @@ public sealed class WpfVisualTreeRenderer
         var stats = new ReplayStats();
         ReplaySubtreeCore(rootVisual, sink, resources, imageSourceAdapter, stats, RetainedOwnerScopeMode.Full, includePortablePopupRoots);
         return stats.ToResult();
+    }
+
+    internal WpfVisualReplayResult ReplayBitmapCacheBrushSource(
+        object rootVisual,
+        IWpfCompositionCommandSink sink,
+        IWpfImageSourceAdapter? imageSourceAdapter = null)
+    {
+        ArgumentNullException.ThrowIfNull(rootVisual);
+        ArgumentNullException.ThrowIfNull(sink);
+        if (_cacheCaptureAncestry != null)
+            throw new InvalidOperationException("A cache-source capture cannot reenter the same renderer.");
+        using var graphCaptureScope = WpfCaptureReplayGuard.Begin();
+        using var visualStateCacheScope = BeginVisualStateReplayCache();
+        var stats = new ReplayStats();
+        _cacheCaptureAncestry = new HashSet<object>(ReferenceEqualityComparer.Instance);
+        _cacheCaptureVisited = new HashSet<object>(ReferenceEqualityComparer.Instance);
+        try
+        {
+            ReplaySubtreeCore(rootVisual, sink, null, imageSourceAdapter, stats,
+                RetainedOwnerScopeMode.None, includePortablePopupRoots: true, cacheBrushRoot: true);
+            return stats.ToResult();
+        }
+        finally
+        {
+            _cacheCaptureAncestry = null;
+            _cacheCaptureVisited = null;
+        }
     }
 
     internal bool CanReplaySubtreeIntoCurrentRetainedVisual(
@@ -113,7 +142,41 @@ public sealed class WpfVisualTreeRenderer
         IWpfImageSourceAdapter? imageSourceAdapter,
         ReplayStats stats,
         RetainedOwnerScopeMode retainedOwnerScopeMode,
-        bool includePortablePopupRoots)
+        bool includePortablePopupRoots,
+        bool cacheBrushRoot = false)
+    {
+        using var graphNodeScope = WpfCaptureReplayGuard.Enter(visual);
+        bool capture = _cacheCaptureAncestry != null;
+        if (capture)
+        {
+            if (_cacheCaptureAncestry!.Count >= 256 || !_cacheCaptureVisited!.Add(visual))
+                throw new InvalidOperationException("The cached visual source has a cycle, multiple parents or exceeds the native depth limit.");
+            _cacheCaptureAncestry.Add(visual);
+        }
+        try
+        {
+            if (WpfCaptureReplayGuard.IsActive && (!TryGetPortableVisualState(visual, out _) ||
+                visual is not PortableVisualChildrenSource children ||
+                !children.TryGetPortableVisualChildCount(out int count) || count < 0))
+                throw new NotSupportedException("Cache-source capture requires typed visual state and children.");
+            ReplaySubtreeNode(visual, sink, resources, imageSourceAdapter, stats,
+                retainedOwnerScopeMode, includePortablePopupRoots, cacheBrushRoot);
+        }
+        finally
+        {
+            if (capture) _cacheCaptureAncestry!.Remove(visual);
+        }
+    }
+
+    private void ReplaySubtreeNode(
+        object visual,
+        IWpfCompositionCommandSink sink,
+        IWpfMilResourceResolver? resources,
+        IWpfImageSourceAdapter? imageSourceAdapter,
+        ReplayStats stats,
+        RetainedOwnerScopeMode retainedOwnerScopeMode,
+        bool includePortablePopupRoots,
+        bool cacheBrushRoot)
     {
         if (ShouldSkipPortablePopupRoot(visual, includePortablePopupRoots))
         {
@@ -132,7 +195,13 @@ public sealed class WpfVisualTreeRenderer
             TryPushHitTestOwner(visual, sink);
         try
         {
-            var popCount = PushVisualState(visual, sink, imageSourceAdapter, stats);
+            // Cached source roots omit outer visual state, but not raster policy.
+            // Descendants use the ordinary state path below this single boundary.
+            if (cacheBrushRoot && TryGetScrollableAreaClipBounds(visual, out _))
+                throw new NotSupportedException("Cache-source root scroll clips are not implemented.");
+            var popCount = cacheBrushRoot
+                ? PushVisualRasterState(visual, sink, stats)
+                : PushVisualState(visual, sink, imageSourceAdapter, stats);
             try
             {
                 RegisterRetainedVisualOwner(visual, sink);
@@ -318,6 +387,8 @@ public sealed class WpfVisualTreeRenderer
         {
             if (!childrenSource.TryGetPortableVisualChild(i, out var child) || child == null)
             {
+                if (WpfCaptureReplayGuard.IsActive)
+                    throw new NotSupportedException("A cached visual source did not publish its declared child.");
                 continue;
             }
 
@@ -1123,6 +1194,15 @@ public sealed class WpfVisualTreeRenderer
             }
         }
 
+        return popCount + PushVisualRasterState(visual, sink, stats);
+    }
+
+    private static int PushVisualRasterState(
+        object visual,
+        IWpfCompositionCommandSink sink,
+        ReplayStats stats)
+    {
+        var popCount = 0;
         if (TryCreateVisualGuidelineSet(visual, out var guidelineSet))
         {
             sink.PushGuidelineSet(guidelineSet);
@@ -2048,6 +2128,7 @@ public sealed class WpfVisualTreeRenderer
     private sealed class BoundsAccumulatingSink :
         IWpfCompositionCommandSink,
         IWpfNativePrimitiveCommandSink,
+        IWpfNativeVideoCommandSink,
         IWpfNativeTransformCommandSink,
         IWpfNativeClipCommandSink,
         IWpfNativeGeometryCommandSink
@@ -2168,6 +2249,14 @@ public sealed class WpfVisualTreeRenderer
         public void DrawNativeImage(MediaImageSource imageSource, WpfReplayRect rectangle, WpfReplayRect sourceRectangle)
         {
             AddBounds(rectangle);
+        }
+
+        public bool DrawNativeVideo(
+            global::ProGPU.Wpf.Interop.PortableMediaPlayerFrame frame,
+            WpfReplayRect rectangle)
+        {
+            AddBounds(rectangle);
+            return true;
         }
 
         public void DrawText(MediaFormattedText formattedText, Point origin)

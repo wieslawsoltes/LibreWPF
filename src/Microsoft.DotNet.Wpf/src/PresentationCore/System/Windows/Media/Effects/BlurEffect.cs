@@ -24,7 +24,14 @@ namespace System.Windows.Media.Effects
 
         bool IPortableEffectSource.TryGetPortableEffect(out PortableEffect effect)
         {
-            effect = PortableEffect.Blur(Radius);
+            effect = PortableEffect.Blur(
+                Radius,
+                KernelType == KernelType.Gaussian
+                    ? PortableBlurKernel.Gaussian
+                    : PortableBlurKernel.Box,
+                RenderingBias == RenderingBias.Performance
+                    ? PortableEffectRenderingBias.Performance
+                    : PortableEffectRenderingBias.Quality);
             return true;
         }
         

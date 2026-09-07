@@ -95,7 +95,7 @@ public sealed class WpfBitmapSourceImageAdapter : IWpfImageSourceAdapter
             try
             {
                 if (nativeImageSource.TryGetPortableNativeImage(out object? nativeImage)
-                    && nativeImage is GpuTexture resolvedTexture
+                    && TryGetNativeGpuTexture(nativeImage, out var resolvedTexture)
                     && IsUsableInContext(resolvedTexture, currentContext))
                 {
                     texture = resolvedTexture;
@@ -113,6 +113,87 @@ public sealed class WpfBitmapSourceImageAdapter : IWpfImageSourceAdapter
             return true;
         }
 
+        return false;
+    }
+
+    internal static bool TryRetainGpuTexture(
+        MediaImageSource imageSource,
+        global::ProGPU.Scene.DrawingContext drawingContext,
+        WgpuContext? requiredContext,
+        out GpuTexture texture)
+    {
+        ArgumentNullException.ThrowIfNull(imageSource);
+        ArgumentNullException.ThrowIfNull(drawingContext);
+
+        if (TryGetTextureLeaseSource(imageSource, out var leaseSource))
+        {
+            try
+            {
+                return requiredContext != null
+                    ? drawingContext.TryRetainTexture(
+                        leaseSource,
+                        requiredContext,
+                        out texture)
+                    : drawingContext.TryRetainTexture(
+                        leaseSource,
+                        out texture);
+            }
+            catch (InvalidOperationException)
+            {
+                texture = null!;
+                return false;
+            }
+        }
+
+        return TryGetGpuTexture(imageSource, out texture);
+    }
+
+    private static bool TryGetTextureLeaseSource(
+        MediaImageSource imageSource,
+        out IProGpuTextureLeaseSource textureSource)
+    {
+        if (imageSource is IProGpuTextureLeaseSource directSource)
+        {
+            textureSource = directSource;
+            return true;
+        }
+
+        if (imageSource is IPortableNativeImageSource nativeImageSource)
+        {
+            try
+            {
+                if (nativeImageSource.TryGetPortableNativeImage(out object? nativeImage)
+                    && nativeImage is IProGpuTextureLeaseSource nativeTextureSource)
+                {
+                    textureSource = nativeTextureSource;
+                    return true;
+                }
+            }
+            catch (InvalidOperationException)
+            {
+            }
+        }
+
+        textureSource = null!;
+        return false;
+    }
+
+    private static bool TryGetNativeGpuTexture(
+        object? nativeImage,
+        out GpuTexture texture)
+    {
+        if (nativeImage is GpuTexture directTexture)
+        {
+            texture = directTexture;
+            return true;
+        }
+
+        if (nativeImage is IProGpuTextureSource textureSource)
+        {
+            return textureSource.TryGetGpuTexture(out texture);
+        }
+
+        texture = null!;
         return false;
     }
 
@@ -346,9 +427,24 @@ public sealed class WpfBitmapSourceImageAdapter : IWpfImageSourceAdapter
         out int width,
         out int height)
     {
+        return TryCopyPixelsAsRgba32(imageSource, maxDimension,
+            out pixels, out width, out height, out _, out _);
+    }
+
+    internal static bool TryCopyPixelsAsRgba32(
+        object imageSource,
+        int maxDimension,
+        out byte[] pixels,
+        out int width,
+        out int height,
+        out double dpiX,
+        out double dpiY)
+    {
         pixels = Array.Empty<byte>();
         width = 0;
         height = 0;
+        dpiX = 96.0;
+        dpiY = 96.0;
 
         if (maxDimension <= 0)
         {
@@ -383,6 +479,12 @@ public sealed class WpfBitmapSourceImageAdapter : IWpfImageSourceAdapter
             height = sourceHeight;
         }
 
+        // The metadata and pixels belong to the same typed source snapshot.
+        // If this explicit thumbnail helper resizes, preserve natural DIP size.
+        dpiX = width == sourceWidth ? portablePixels.DpiX
+            : portablePixels.DpiX * ((double)width / sourceWidth);
+        dpiY = height == sourceHeight ? portablePixels.DpiY
+            : portablePixels.DpiY * ((double)height / sourceHeight);
         pixels = new byte[checked(width * height * 4)];
         for (var y = 0; y < height; y++)
         {

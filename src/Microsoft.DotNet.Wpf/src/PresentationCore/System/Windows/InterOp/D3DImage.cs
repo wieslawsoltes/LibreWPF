@@ -13,6 +13,7 @@ using System.Windows.Media.Composition;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using System.Threading;
+using ProGPU.Wpf.Interop;
 
 namespace System.Windows.Interop
 {
@@ -24,7 +25,8 @@ namespace System.Windows.Interop
         IDirect3DSurface9
     }
 
-    public class D3DImage : ImageSource, IAppDomainShutdownListener
+    public class D3DImage : ImageSource, IAppDomainShutdownListener,
+        IPortableD3DImageSource, IPortableInvalidationSource
     {
         static D3DImage()
         {            
@@ -127,6 +129,12 @@ namespace System.Windows.Interop
             if (_lockCount == 0)
             {
                 throw new InvalidOperationException(SR.Image_MustBeLocked);
+            }
+
+            if (_portableD3DImageSource != null)
+            {
+                throw new InvalidOperationException(
+                    "Detach the portable D3DImage source before setting a process-local Direct3D surface.");
             }
 
             // In case the user passed in something like "(D3DResourceType)-1"
@@ -539,11 +547,87 @@ namespace System.Windows.Interop
 
             _dpiX = source._dpiX;
             _dpiY = source._dpiY;
+            if (source._portableD3DImageSource != null)
+            {
+                _portableD3DImageSource = source._portableD3DImageSource;
+                _pixelWidth = source._pixelWidth;
+                _pixelHeight = source._pixelHeight;
+                return;
+            }
             
             Lock();
             // If we've lost the front buffer, _pUserSurface unsafe will be null
             SetBackBuffer(D3DResourceType.IDirect3DSurface9, source._pUserSurfaceUnsafe);
             Unlock();
+        }
+
+        internal void SetPortableD3DImageSource(
+            IPortableD3DImageSource source)
+        {
+            ArgumentNullException.ThrowIfNull(source);
+            if (ReferenceEquals(source, this))
+            {
+                throw new ArgumentException(
+                    "A D3DImage cannot use itself as its portable frame provider.",
+                    nameof(source));
+            }
+            base.WritePreamble();
+            if (_lockCount != 0 || _pInteropDeviceBitmap != null)
+            {
+                throw new InvalidOperationException(
+                    "A portable D3DImage source can only be attached while no process-local back buffer is active.");
+            }
+            _portableD3DImageSource = source;
+            if (source.TryGetPortableD3DImageFrame(
+                    out PortableD3DImageFrame frame) &&
+                frame.PixelWidth is > 0 and <= 16_384 &&
+                frame.PixelHeight is > 0 and <= 16_384)
+            {
+                _pixelWidth = checked((uint)frame.PixelWidth);
+                _pixelHeight = checked((uint)frame.PixelHeight);
+            }
+            WritePostscript();
+        }
+
+        internal void ClearPortableD3DImageSource()
+        {
+            base.WritePreamble();
+            if (_portableD3DImageSource == null)
+            {
+                return;
+            }
+            _portableD3DImageSource = null;
+            _pixelWidth = 0;
+            _pixelHeight = 0;
+            WritePostscript();
+        }
+
+        bool IPortableD3DImageSource.TryGetPortableD3DImageFrame(
+            out PortableD3DImageFrame frame)
+        {
+            IPortableD3DImageSource source = _portableD3DImageSource;
+            if (source == null)
+            {
+                frame = default;
+                return false;
+            }
+            return source.TryGetPortableD3DImageFrame(out frame);
+        }
+
+        bool IPortableInvalidationSource.TrySubscribeInvalidated(
+            EventHandler handler,
+            out IDisposable subscription)
+        {
+            ArgumentNullException.ThrowIfNull(handler);
+            if (_portableD3DImageSource is
+                IPortableInvalidationSource invalidationSource)
+            {
+                return invalidationSource.TrySubscribeInvalidated(
+                    handler,
+                    out subscription);
+            }
+            subscription = null;
+            return false;
         }
 
         private void SubscribeToCommittingBatch()
@@ -923,6 +1007,8 @@ namespace System.Windows.Interop
         // Size of the user's surface in pixels
         private uint _pixelWidth;
         private uint _pixelHeight;
+
+        private IPortableD3DImageSource _portableD3DImageSource;
 
         //
         // This is incremented every time a new back buffer is set and it's passed to the bitmap.

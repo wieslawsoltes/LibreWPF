@@ -14,7 +14,10 @@ namespace ProGPU.Wpf.SdkSwitchSmoke;
 public partial class App : Application
 {
     private const string LibreWpfPackageVersion = "0.1.0-preview.45";
-    private const string ProGpuPackageVersion = "0.1.0-preview.55";
+    private const string DefaultProGpuPackageVersion = "0.1.0-preview.55";
+    private const string ProGpuPackageVersionEnvironmentVariable = "PROGPU_WPF_PROGPU_PACKAGE_VERSION";
+    private static readonly string ProGpuPackageVersion =
+        ResolveProGpuPackageVersion();
 
     public int StartupEventCount { get; private set; }
 
@@ -694,6 +697,15 @@ public partial class App : Application
             throw new InvalidOperationException(
                 $"Expected {description} not to contain the logical marker, but found RGBA({r}, {g}, {b}, {a}). Rebuild the package-mode SDK smoke output.");
         }
+    }
+
+    private static string ResolveProGpuPackageVersion()
+    {
+        string? configured = Environment.GetEnvironmentVariable(
+            ProGpuPackageVersionEnvironmentVariable);
+        return string.IsNullOrWhiteSpace(configured)
+            ? DefaultProGpuPackageVersion
+            : configured.Trim();
     }
 
     private static void ValidateRuntimeAssetMatchesLocalPackage(

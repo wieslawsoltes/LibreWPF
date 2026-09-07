@@ -8,6 +8,7 @@ projects on the ProGPU/Silk.NET platform.
 
 - `LibreWPF.Transport`
 - `ProGPU.Backend`
+- `ProGPU.Backend.Native`
 - `ProGPU.Backend.Dawn`
 - `ProGPU.Text.Shaping`
 - `ProGPU.DirectX`

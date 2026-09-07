@@ -43,6 +43,7 @@ namespace System.Windows.Media.Media3D
                 LightIntensity = state.LightIntensity,
                 AmbientColor = state.AmbientColor,
                 AmbientIntensity = state.AmbientIntensity,
+                Lights = state.Lights.ToArray(),
                 Meshes = state.Meshes.ToArray()
             };
             return scene.Meshes.Length > 0;
@@ -78,13 +79,21 @@ namespace System.Windows.Media.Media3D
 
             if (model is DirectionalLight directionalLight)
             {
+                var transformedDirection = modelTransform.Transform(
+                    directionalLight.Direction);
                 var direction = new PortableVector3(
-                    directionalLight.Direction.X,
-                    directionalLight.Direction.Y,
-                    directionalLight.Direction.Z);
+                    transformedDirection.X,
+                    transformedDirection.Y,
+                    transformedDirection.Z);
                 state.LightDirection = NormalizeOrDefault(direction, state.LightDirection);
                 var color = ToPortableColor4(directionalLight.Color);
                 state.LightIntensity = Math.Max(color.R, Math.Max(color.G, color.B));
+                state.Lights.Add(new PortableViewport3DLight
+                {
+                    Kind = PortableViewport3DLightKind.Directional,
+                    Color = color,
+                    Direction = state.LightDirection
+                });
                 return;
             }
 
@@ -93,6 +102,49 @@ namespace System.Windows.Media.Media3D
                 var color = ToPortableColor4(ambientLight.Color);
                 state.AmbientColor = new PortableVector3(color.R, color.G, color.B);
                 state.AmbientIntensity = color.A;
+                state.Lights.Add(new PortableViewport3DLight
+                {
+                    Kind = PortableViewport3DLightKind.Ambient,
+                    Color = color
+                });
+                return;
+            }
+
+            if (model is SpotLight spotLight)
+            {
+                var position = modelTransform.Transform(spotLight.Position);
+                var direction = modelTransform.Transform(spotLight.Direction);
+                state.Lights.Add(new PortableViewport3DLight
+                {
+                    Kind = PortableViewport3DLightKind.Spot,
+                    Color = ToPortableColor4(spotLight.Color),
+                    Position = new PortableVector3(position.X, position.Y, position.Z),
+                    Direction = NormalizeOrDefault(
+                        new PortableVector3(direction.X, direction.Y, direction.Z),
+                        new PortableVector3(0, 0, -1)),
+                    Range = spotLight.Range,
+                    ConstantAttenuation = spotLight.ConstantAttenuation,
+                    LinearAttenuation = spotLight.LinearAttenuation,
+                    QuadraticAttenuation = spotLight.QuadraticAttenuation,
+                    OuterConeAngle = spotLight.OuterConeAngle,
+                    InnerConeAngle = spotLight.InnerConeAngle
+                });
+                return;
+            }
+
+            if (model is PointLight pointLight)
+            {
+                var position = modelTransform.Transform(pointLight.Position);
+                state.Lights.Add(new PortableViewport3DLight
+                {
+                    Kind = PortableViewport3DLightKind.Point,
+                    Color = ToPortableColor4(pointLight.Color),
+                    Position = new PortableVector3(position.X, position.Y, position.Z),
+                    Range = pointLight.Range,
+                    ConstantAttenuation = pointLight.ConstantAttenuation,
+                    LinearAttenuation = pointLight.LinearAttenuation,
+                    QuadraticAttenuation = pointLight.QuadraticAttenuation
+                });
                 return;
             }
 
@@ -108,7 +160,12 @@ namespace System.Windows.Media.Media3D
 
             if (model is not GeometryModel3D geometryModel
                 || geometryModel.Geometry is not MeshGeometry3D mesh
-                || !TryCreateMeshData(mesh, out var positions, out var normals, out var indices))
+                || !TryCreateMeshData(
+                    mesh,
+                    out var positions,
+                    out var normals,
+                    out var textureCoordinates,
+                    out var indices))
             {
                 return;
             }
@@ -121,6 +178,7 @@ namespace System.Windows.Media.Media3D
                     mesh,
                     positions,
                     normals,
+                    textureCoordinates,
                     indices,
                     modelTransform,
                     material,
@@ -133,6 +191,7 @@ namespace System.Windows.Media.Media3D
                     mesh,
                     positions,
                     normals,
+                    textureCoordinates,
                     indices,
                     modelTransform,
                     backMaterial,
@@ -144,6 +203,7 @@ namespace System.Windows.Media.Media3D
             MeshGeometry3D mesh,
             PortableVector3[] positions,
             PortableVector3[] normals,
+            PortablePoint[] textureCoordinates,
             int[] indices,
             Matrix3D modelTransform,
             MaterialDescriptor material,
@@ -154,6 +214,7 @@ namespace System.Windows.Media.Media3D
                 Geometry = mesh,
                 Positions = positions,
                 Normals = normals,
+                TextureCoordinates = textureCoordinates,
                 Indices = indices,
                 ModelTransform = ToPortableMatrix(modelTransform),
                 DiffuseColor = material.DiffuseColor,
@@ -161,7 +222,8 @@ namespace System.Windows.Media.Media3D
                 Shininess = material.Shininess,
                 AmbientColor = material.AmbientColor,
                 Opacity = material.Opacity,
-                IsBackFace = isBackFace
+                IsBackFace = isBackFace,
+                Materials = material.Materials
             };
         }
 
@@ -169,12 +231,14 @@ namespace System.Windows.Media.Media3D
             MeshGeometry3D mesh,
             out PortableVector3[] positions,
             out PortableVector3[] normals,
+            out PortablePoint[] textureCoordinates,
             out int[] indices)
         {
             positions = ReadPoint3DCollection(mesh.Positions);
             if (positions.Length == 0)
             {
                 normals = Array.Empty<PortableVector3>();
+                textureCoordinates = Array.Empty<PortablePoint>();
                 indices = Array.Empty<int>();
                 return false;
             }
@@ -185,11 +249,27 @@ namespace System.Windows.Media.Media3D
                 indices = CreateSequentialTriangleIndices(positions.Length);
             }
 
-            normals = ReadVector3DCollection(mesh.Normals);
-            if (normals.Length != positions.Length)
+            var suppliedNormals = ReadVector3DCollection(mesh.Normals);
+            if (suppliedNormals.Length < positions.Length)
             {
                 normals = ComputeNormals(positions, indices);
             }
+            else
+            {
+                normals = new PortableVector3[positions.Length];
+            }
+
+            var suppliedNormalCount = Math.Min(
+                suppliedNormals.Length,
+                positions.Length);
+            for (var i = 0; i < suppliedNormalCount; i++)
+            {
+                normals[i] = NormalizeOrZero(suppliedNormals[i]);
+            }
+
+            textureCoordinates = ReadTextureCoordinates(
+                mesh.TextureCoordinates,
+                positions.Length);
 
             return indices.Length > 0;
         }
@@ -222,6 +302,17 @@ namespace System.Windows.Media.Media3D
         private static bool TryCreateCamera(Camera camera, out PortableViewport3DCamera portableCamera)
         {
             portableCamera = null!;
+            if (camera is MatrixCamera matrixCamera)
+            {
+                portableCamera = new PortableViewport3DCamera
+                {
+                    Kind = PortableViewport3DCameraKind.Matrix,
+                    ViewMatrix = ToPortableMatrix(matrixCamera.GetViewMatrix()),
+                    ProjectionMatrix = ToPortableMatrix(matrixCamera.ProjectionMatrix)
+                };
+                return true;
+            }
+
             if (camera is PerspectiveCamera perspectiveCamera)
             {
                 portableCamera = CreateCamera(
@@ -247,72 +338,107 @@ namespace System.Windows.Media.Media3D
 
         private static MaterialDescriptor ReadMaterial(Material material)
         {
-            var descriptor = MaterialDescriptor.Default;
+            var layers = new List<PortableViewport3DMaterial>();
+            AppendMaterialLayers(material, layers);
+            return MaterialDescriptor.FromLayers(layers.ToArray());
+        }
+
+        private static void AppendMaterialLayers(
+            Material material,
+            List<PortableViewport3DMaterial> layers)
+        {
             if (material == null)
             {
-                return descriptor;
+                return;
             }
 
             if (material is MaterialGroup group)
             {
                 foreach (Material child in group.Children)
                 {
-                    descriptor = descriptor.Merge(ReadMaterial(child));
+                    AppendMaterialLayers(child, layers);
                 }
-
-                return descriptor;
+                return;
             }
 
-            if (material is DiffuseMaterial diffuse)
+            if (material is DiffuseMaterial diffuse && diffuse.Brush != null)
             {
-                descriptor = descriptor with
-                {
-                    DiffuseColor = ReadBrushColor(diffuse.Brush, descriptor.DiffuseColor)
-                };
-                descriptor = descriptor with
-                {
-                    DiffuseColor = MultiplyColor(descriptor.DiffuseColor, ToPortableColor4(diffuse.Color)),
-                    AmbientColor = ToPortableVector3(diffuse.AmbientColor)
-                };
+                layers.Add(CreateMaterialLayer(
+                    PortableViewport3DMaterialKind.Diffuse,
+                    diffuse.Brush,
+                    ToPortableColor4(diffuse.Color),
+                    ToPortableVector3(diffuse.AmbientColor),
+                    1.0));
+                return;
             }
 
-            if (material is SpecularMaterial specular)
+            if (material is SpecularMaterial specular && specular.Brush != null)
             {
-                var specularColor = ReadBrushColor(specular.Brush, new PortableColor4(
-                    descriptor.SpecularColor.X,
-                    descriptor.SpecularColor.Y,
-                    descriptor.SpecularColor.Z,
-                    1));
-                descriptor = descriptor with
-                {
-                    SpecularColor = new PortableVector3(specularColor.R, specularColor.G, specularColor.B),
-                    Shininess = Math.Clamp(specular.SpecularPower, 1, 256)
-                };
+                layers.Add(CreateMaterialLayer(
+                    PortableViewport3DMaterialKind.Specular,
+                    specular.Brush,
+                    ToPortableColor4(specular.Color),
+                    default,
+                    specular.SpecularPower));
+                return;
             }
 
-            return descriptor with
+            if (material is EmissiveMaterial emissive && emissive.Brush != null)
             {
-                Opacity = descriptor.Opacity * Math.Clamp(descriptor.DiffuseColor.A, 0, 1),
-                DiffuseColor = new PortableColor4(descriptor.DiffuseColor.R, descriptor.DiffuseColor.G, descriptor.DiffuseColor.B, 1)
-            };
+                layers.Add(CreateMaterialLayer(
+                    PortableViewport3DMaterialKind.Emissive,
+                    emissive.Brush,
+                    ToPortableColor4(emissive.Color),
+                    default,
+                    1.0));
+            }
         }
 
-        private static PortableColor4 ReadBrushColor(Brush brush, PortableColor4 fallback)
+        private static PortableViewport3DMaterial CreateMaterialLayer(
+            PortableViewport3DMaterialKind kind,
+            Brush brush,
+            PortableColor4 color,
+            PortableVector3 ambientColor,
+            double specularPower)
         {
-            if (brush is not IPortableBrushSource portableSource
-                || !portableSource.TryGetPortableBrush(out var portableBrush))
+            var layer = new PortableViewport3DMaterial
+            {
+                Kind = kind,
+                Color = color,
+                AmbientColor = ambientColor,
+                SpecularPower = specularPower
+            };
+            if (brush is IPortableBrushSource brushSource
+                && brushSource.TryGetPortableBrush(out var portableBrush))
+            {
+                layer.Brush = portableBrush;
+            }
+            else if (brush is IPortableTileBrushSource tileBrushSource
+                && tileBrushSource.TryGetPortableTileBrush(out var tileBrush))
+            {
+                layer.TileBrush = tileBrush;
+            }
+            return layer;
+        }
+
+        private static PortableColor4 ReadPortableBrushColor(
+            PortableBrush brush,
+            PortableColor4 fallback)
+        {
+            if (brush == null)
             {
                 return fallback;
             }
 
-            var opacity = Math.Clamp(portableBrush.Opacity, 0, 1);
-            return portableBrush.Kind switch
+            var opacity = Math.Clamp(brush.Opacity, 0, 1);
+            return brush.Kind switch
             {
-                PortableBrushKind.SolidColor => ApplyOpacity(ToPortableColor4(portableBrush.Color), opacity),
-                PortableBrushKind.LinearGradient when portableBrush.GradientStops.Length > 0 =>
-                    ApplyOpacity(ToPortableColor4(portableBrush.GradientStops[0].Color), opacity),
-                PortableBrushKind.RadialGradient when portableBrush.GradientStops.Length > 0 =>
-                    ApplyOpacity(ToPortableColor4(portableBrush.GradientStops[0].Color), opacity),
+                PortableBrushKind.SolidColor =>
+                    ApplyOpacity(ToPortableColor4(brush.Color), opacity),
+                PortableBrushKind.LinearGradient when brush.GradientStops.Length > 0 =>
+                    ApplyOpacity(ToPortableColor4(brush.GradientStops[0].Color), opacity),
+                PortableBrushKind.RadialGradient when brush.GradientStops.Length > 0 =>
+                    ApplyOpacity(ToPortableColor4(brush.GradientStops[0].Color), opacity),
                 _ => fallback
             };
         }
@@ -360,6 +486,26 @@ namespace System.Windows.Media.Media3D
             {
                 var vector = collection[i];
                 values[i] = new PortableVector3(vector.X, vector.Y, vector.Z);
+            }
+
+            return values;
+        }
+
+        private static PortablePoint[] ReadTextureCoordinates(
+            PointCollection collection,
+            int vertexCount)
+        {
+            if (collection == null || collection.Count == 0 || vertexCount == 0)
+            {
+                return Array.Empty<PortablePoint>();
+            }
+
+            var values = new PortablePoint[vertexCount];
+            var count = Math.Min(collection.Count, vertexCount);
+            for (var i = 0; i < count; i++)
+            {
+                var point = collection[i];
+                values[i] = new PortablePoint(point.X, point.Y);
             }
 
             return values;
@@ -413,8 +559,8 @@ namespace System.Windows.Media.Media3D
 
                 var edge1 = Subtract(positions[i1], positions[i0]);
                 var edge2 = Subtract(positions[i2], positions[i0]);
-                var normal = NormalizeOrDefault(Cross(edge1, edge2), default);
-                if (LengthSquared(normal) <= 0.000001)
+                var normal = NormalizeOrZero(Cross(edge1, edge2));
+                if (LengthSquared(normal) == 0)
                 {
                     continue;
                 }
@@ -426,7 +572,7 @@ namespace System.Windows.Media.Media3D
 
             for (var i = 0; i < normals.Length; i++)
             {
-                normals[i] = NormalizeOrDefault(normals[i], new PortableVector3(0, 0, 1));
+                normals[i] = NormalizeOrZero(normals[i]);
             }
 
             return normals;
@@ -504,6 +650,28 @@ namespace System.Windows.Media.Media3D
             return new PortableVector3(value.X / length, value.Y / length, value.Z / length);
         }
 
+        private static PortableVector3 NormalizeOrZero(PortableVector3 value)
+        {
+            var lengthSquared = LengthSquared(value);
+            if (!double.IsFinite(lengthSquared))
+            {
+                // Preserve malformed input for the typed consumer to reject;
+                // silently converting it to a valid zero normal would hide a
+                // scene-contract error.
+                return value;
+            }
+            if (!(lengthSquared > 0))
+            {
+                return default;
+            }
+
+            var inverseLength = 1.0 / Math.Sqrt(lengthSquared);
+            return new PortableVector3(
+                value.X * inverseLength,
+                value.Y * inverseLength,
+                value.Z * inverseLength);
+        }
+
         private static bool IsUsableViewport(Rect viewport)
         {
             return double.IsFinite(viewport.X)
@@ -517,6 +685,8 @@ namespace System.Windows.Media.Media3D
         private sealed class PortableViewport3DExportState
         {
             public List<PortableViewport3DMesh> Meshes { get; } = new();
+
+            public List<PortableViewport3DLight> Lights { get; } = new();
 
             public PortableVector3 LightDirection { get; set; } = new(0.5, 1.0, -0.5);
 
@@ -532,41 +702,64 @@ namespace System.Windows.Media.Media3D
             PortableVector3 SpecularColor,
             double Shininess,
             PortableVector3 AmbientColor,
-            double Opacity)
+            double Opacity,
+            PortableViewport3DMaterial[] Materials)
         {
             public static MaterialDescriptor Default { get; } = new(
                 new PortableColor4(1, 1, 1, 1),
                 new PortableVector3(0.2, 0.2, 0.2),
                 32.0,
                 new PortableVector3(0.2, 0.2, 0.2),
-                1.0);
+                1.0,
+                Array.Empty<PortableViewport3DMaterial>());
 
-            public MaterialDescriptor Merge(MaterialDescriptor next)
+            public static MaterialDescriptor FromLayers(
+                PortableViewport3DMaterial[] layers)
             {
-                var defaultDiffuse = new PortableColor4(1, 1, 1, 1);
-                var defaultVector = new PortableVector3(0.2, 0.2, 0.2);
-                return new MaterialDescriptor(
-                    !ColorEquals(next.DiffuseColor, defaultDiffuse) ? next.DiffuseColor : DiffuseColor,
-                    !VectorEquals(next.SpecularColor, defaultVector) ? next.SpecularColor : SpecularColor,
-                    next.Shininess != 32.0 ? next.Shininess : Shininess,
-                    !VectorEquals(next.AmbientColor, defaultVector) ? next.AmbientColor : AmbientColor,
-                    next.Opacity != 1.0 ? next.Opacity : Opacity);
+                var descriptor = Default;
+                for (var i = 0; i < layers.Length; i++)
+                {
+                    var layer = layers[i];
+                    if (layer.Kind == PortableViewport3DMaterialKind.Diffuse)
+                    {
+                        var diffuseColor = ReadPortableBrushColor(
+                            layer.Brush,
+                            descriptor.DiffuseColor);
+                        diffuseColor = MultiplyColor(
+                            diffuseColor,
+                            layer.Color);
+                        descriptor = descriptor with
+                        {
+                            DiffuseColor = new PortableColor4(
+                                diffuseColor.R,
+                                diffuseColor.G,
+                                diffuseColor.B,
+                                1),
+                            AmbientColor = layer.AmbientColor,
+                            Opacity = Math.Clamp(diffuseColor.A, 0, 1)
+                        };
+                    }
+                    else if (layer.Kind == PortableViewport3DMaterialKind.Specular)
+                    {
+                        var specularColor = ReadPortableBrushColor(
+                            layer.Brush,
+                            layer.Color);
+                        descriptor = descriptor with
+                        {
+                            SpecularColor = new PortableVector3(
+                                specularColor.R,
+                                specularColor.G,
+                                specularColor.B),
+                            Shininess = Math.Clamp(
+                                layer.SpecularPower,
+                                1,
+                                256)
+                        };
+                    }
+                }
+                return descriptor with { Materials = layers };
             }
         }
 
-        private static bool ColorEquals(PortableColor4 left, PortableColor4 right)
-        {
-            return left.R == right.R
-                && left.G == right.G
-                && left.B == right.B
-                && left.A == right.A;
-        }
-
-        private static bool VectorEquals(PortableVector3 left, PortableVector3 right)
-        {
-            return left.X == right.X
-                && left.Y == right.Y
-                && left.Z == right.Z;
-        }
     }
 }

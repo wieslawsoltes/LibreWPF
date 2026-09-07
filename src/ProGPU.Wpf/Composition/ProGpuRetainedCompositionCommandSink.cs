@@ -12,6 +12,7 @@ using MediaImageSource = System.Windows.Media.ImageSource;
 using MediaPen = System.Windows.Media.Pen;
 using MediaTransform = System.Windows.Media.Transform;
 using PortableGeometryPath = ProGPU.Wpf.Interop.PortableGeometryPath;
+using PortableMediaPlayerFrame = ProGPU.Wpf.Interop.PortableMediaPlayerFrame;
 using ProGpuContainerVisual = global::ProGPU.Scene.ContainerVisual;
 using ProGpuDrawingContext = global::ProGPU.Scene.DrawingContext;
 using ProGpuEffectBase = global::ProGPU.Scene.EffectBase;
@@ -37,9 +38,11 @@ internal sealed class ProGpuRetainedCompositionCommandSink :
     IWpfRetainedVisualStateSink,
     IWpfNativeTransformCommandSink,
     IWpfNativePrimitiveCommandSink,
+    IWpfNativeVideoCommandSink,
     IWpfNativeClipCommandSink,
     IWpfNativeGeometryCommandSink,
     IWpfHitTestOwnerScopeCommandSink,
+    IWpfBitmapCacheBrushCommandSink,
     IWpfProGpuSceneDrawingContextSource
 {
     private enum ScopeKind
@@ -139,6 +142,30 @@ internal sealed class ProGpuRetainedCompositionCommandSink :
     }
 
     internal ProGpuRetainedDrawingVisual RootVisual { get; }
+
+    public bool PushNativeEllipseClip(WpfReplayPoint center, double radiusX, double radiusY)
+    {
+        ThrowIfClosed();
+        if (!((IWpfNativeGeometryCommandSink)Current.Sink).PushNativeEllipseClip(center, radiusX, radiusY)) return false;
+        _scopeStack.Push(ScopeKind.Delegate);
+        return true;
+    }
+
+    public bool PushNativeRoundedRectangleClip(WpfReplayRect bounds, double radiusX, double radiusY)
+    {
+        ThrowIfClosed();
+        if (!((IWpfNativeGeometryCommandSink)Current.Sink).PushNativeRoundedRectangleClip(bounds, radiusX, radiusY)) return false;
+        _scopeStack.Push(ScopeKind.Delegate);
+        return true;
+    }
+
+    void IWpfBitmapCacheBrushCommandSink.DrawBitmapCacheBrushSource(
+        global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource source,
+        Func<object?, MediaImageSource?>? imageSourceAdapter)
+    {
+        ThrowIfClosed();
+        ((IWpfBitmapCacheBrushCommandSink)Current.Sink).DrawBitmapCacheBrushSource(source, imageSourceAdapter);
+    }
 
     public void RegisterVisualOwner(object sourceVisual)
     {
@@ -348,6 +375,14 @@ internal sealed class ProGpuRetainedCompositionCommandSink :
     public void DrawNativeImage(MediaImageSource imageSource, WpfReplayRect rectangle, WpfReplayRect sourceRectangle)
     {
         ((IWpfNativePrimitiveCommandSink)Current.Sink).DrawNativeImage(imageSource, rectangle, sourceRectangle);
+    }
+
+    public bool DrawNativeVideo(
+        PortableMediaPlayerFrame frame,
+        WpfReplayRect rectangle)
+    {
+        return Current.Sink is IWpfNativeVideoCommandSink videoSink &&
+            videoSink.DrawNativeVideo(frame, rectangle);
     }
 
     public void DrawText(MediaFormattedText formattedText, Point origin)

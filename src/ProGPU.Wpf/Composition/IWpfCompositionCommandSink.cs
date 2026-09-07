@@ -10,6 +10,7 @@ using MediaPen = System.Windows.Media.Pen;
 using MediaTransform = System.Windows.Media.Transform;
 using MediaFormattedText = System.Windows.Media.FormattedText;
 using PortableGeometryPath = ProGPU.Wpf.Interop.PortableGeometryPath;
+using PortableMediaPlayerFrame = ProGPU.Wpf.Interop.PortableMediaPlayerFrame;
 
 namespace System.Windows.Media.ProGPU.Composition;
 
@@ -116,6 +117,13 @@ internal interface IWpfNativePrimitiveCommandSink
     void PushNativeOpacityMask(MediaBrush? opacityMask, WpfReplayRect bounds);
 }
 
+internal interface IWpfNativeVideoCommandSink
+{
+    bool DrawNativeVideo(
+        PortableMediaPlayerFrame frame,
+        WpfReplayRect rectangle);
+}
+
 internal interface IWpfNativeClipCommandSink
 {
     void PushNativeClip(WpfReplayRect bounds);
@@ -130,6 +138,10 @@ internal interface IWpfNativeGeometryCommandSink
     bool PushNativeGeometryClip(PortableGeometryPath clipGeometry);
 
     bool PushNativeGeometryClip(MediaGeometry clipGeometry) => false;
+
+    bool PushNativeEllipseClip(WpfReplayPoint center, double radiusX, double radiusY) => false;
+
+    bool PushNativeRoundedRectangleClip(WpfReplayRect bounds, double radiusX, double radiusY) => false;
 }
 
 internal interface IWpfHitTestOwnerScopeCommandSink
@@ -146,4 +158,10 @@ internal interface IWpfProGpuSceneDrawingContextSource
     bool TryGetProGpuSceneDrawingContextState(
         out global::ProGPU.Scene.DrawingContext? drawingContext,
         out Matrix4x4 transform);
+}
+
+internal interface IWpfBitmapCacheBrushCommandSink
+{
+    void DrawBitmapCacheBrushSource(global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource source,
+        Func<object?, MediaImageSource?>? imageSourceAdapter);
 }

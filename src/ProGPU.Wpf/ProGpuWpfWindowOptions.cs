@@ -27,6 +27,13 @@ public sealed class ProGpuWpfWindowOptions
 
     public bool TransparentFramebuffer { get; set; }
 
+    /// <summary>
+    /// Selects the WPF scene compiler and compositor lane. The established
+    /// managed portable renderer remains the compatibility default.
+    /// </summary>
+    public ProGpuWpfRendererMode RendererMode { get; set; } =
+        ProGpuWpfRendererMode.ManagedPortable;
+
     internal bool EnablePortablePopupService { get; set; } = true;
 
     internal WgpuContext? SharedRenderDeviceContext { get; set; }
@@ -40,6 +47,12 @@ public sealed class ProGpuWpfWindowOptions
     public ProGpuWpfWindowBorder WindowBorder { get; set; } = ProGpuWpfWindowBorder.Resizable;
 
     public ProGpuWpfWindowState WindowState { get; set; } = ProGpuWpfWindowState.Normal;
+}
+
+public enum ProGpuWpfRendererMode
+{
+    ManagedPortable,
+    NativeMilWgpu
 }
 
 public enum ProGpuWpfWindowState

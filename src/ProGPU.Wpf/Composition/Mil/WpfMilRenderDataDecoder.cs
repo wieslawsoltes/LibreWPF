@@ -13,6 +13,8 @@ using MediaRectangleGeometry = System.Windows.Media.RectangleGeometry;
 using MediaTransform = System.Windows.Media.Transform;
 using PortableGeometryPath = ProGPU.Wpf.Interop.PortableGeometryPath;
 using PortableGeometryPathSource = ProGPU.Wpf.Interop.IPortableGeometryPathSource;
+using PortableMediaPlayerSource = ProGPU.Wpf.Interop.IPortableMediaPlayerSource;
+using PortableRectAnimationValueSource = ProGPU.Wpf.Interop.IPortableRectAnimationValueSource;
 
 namespace System.Windows.Media.ProGPU.Composition.Mil;
 
@@ -134,7 +136,13 @@ public sealed class WpfMilRenderDataDecoder
             recordCount++;
             var unsupportedStateBefore = GetUnsupportedStateCount(diagnostics);
 
-            switch (commandId)
+            if (TryReplayRawCacheBrushRecord(commandId, payload, sink, resources, imageSourceAdapter,
+                    out var cacheStatus, out var cacheAnimations))
+            {
+                CountDrawingReplayStatus(cacheStatus, ref appliedCount, ref skippedCount, ref unsupportedCount);
+                unsupportedCount += cacheAnimations;
+            }
+            else switch (commandId)
             {
                 case WpfMilCommandId.DrawLine:
                 case WpfMilCommandId.DrawLineAnimate:
@@ -425,6 +433,22 @@ public sealed class WpfMilRenderDataDecoder
 
                 case WpfMilCommandId.DrawVideo:
                 case WpfMilCommandId.DrawVideoAnimate:
+                    CountVideoReplayStatus(
+                        ReplayVideo(
+                            resources,
+                            sink,
+                            payload,
+                            commandId == WpfMilCommandId.DrawVideoAnimate,
+                            out bool typedVideoAnimationUnsupported),
+                        ref appliedCount,
+                        ref skippedCount,
+                        ref unsupportedCount);
+                    if (typedVideoAnimationUnsupported)
+                    {
+                        unsupportedCount++;
+                    }
+                    break;
+
                 case WpfMilCommandId.PushEffect:
                     if (IsPushCommand(commandId))
                     {
@@ -505,7 +529,13 @@ public sealed class WpfMilRenderDataDecoder
             recordCount++;
             var unsupportedStateBefore = GetUnsupportedStateCount(diagnostics);
 
-            switch (commandId)
+            if (TryReplayRawCacheBrushRecord(commandId, payload, sink, resources, imageSourceAdapter,
+                    out var cacheStatus, out var cacheAnimations))
+            {
+                CountDrawingReplayStatus(cacheStatus, ref appliedCount, ref skippedCount, ref unsupportedCount);
+                unsupportedCount += cacheAnimations;
+            }
+            else switch (commandId)
             {
                 case WpfMilCommandId.DrawLine:
                 case WpfMilCommandId.DrawLineAnimate:
@@ -832,6 +862,22 @@ public sealed class WpfMilRenderDataDecoder
 
                 case WpfMilCommandId.DrawVideo:
                 case WpfMilCommandId.DrawVideoAnimate:
+                    CountVideoReplayStatus(
+                        ReplayVideo(
+                            resources,
+                            sink,
+                            payload,
+                            commandId == WpfMilCommandId.DrawVideoAnimate,
+                            out bool nativeVideoAnimationUnsupported),
+                        ref appliedCount,
+                        ref skippedCount,
+                        ref unsupportedCount);
+                    if (nativeVideoAnimationUnsupported)
+                    {
+                        unsupportedCount++;
+                    }
+                    break;
+
                 case WpfMilCommandId.PushEffect:
                     if (IsPushCommand(commandId))
                     {
@@ -870,6 +916,92 @@ public sealed class WpfMilRenderDataDecoder
     private static int GetUnsupportedStateCount(IWpfCompositionCommandSinkDiagnostics? diagnostics)
     {
         return diagnostics?.UnsupportedStateCount ?? 0;
+    }
+
+    private enum VideoReplayStatus
+    {
+        Applied,
+        Skipped,
+        Unsupported
+    }
+
+    private static VideoReplayStatus ReplayVideo(
+        IWpfMilResourceResolver resources,
+        IWpfCompositionCommandSink sink,
+        ReadOnlySpan<byte> payload,
+        bool animated,
+        out bool animationUnsupported)
+    {
+        animationUnsupported = false;
+        uint playerToken = ReadUInt32(payload, 32);
+        if (playerToken == 0 ||
+            !TryResolveRawResource(resources, playerToken, out object player))
+        {
+            return VideoReplayStatus.Skipped;
+        }
+        if (player is not PortableMediaPlayerSource source)
+        {
+            return VideoReplayStatus.Unsupported;
+        }
+        if (!source.TryGetPortableMediaPlayerFrame(out var frame))
+        {
+            return VideoReplayStatus.Skipped;
+        }
+
+        var rectangle = ReadReplayRect(payload, 0);
+        if (animated)
+        {
+            uint animationToken = ReadUInt32(payload, 36);
+            if (animationToken != 0)
+            {
+                if (TryResolveRawResource(
+                        resources,
+                        animationToken,
+                        out object animationResource) &&
+                    animationResource is PortableRectAnimationValueSource animation &&
+                    animation.TryGetPortableRectAnimationValue(out var animatedRectangle))
+                {
+                    rectangle = new WpfReplayRect(
+                        animatedRectangle.X,
+                        animatedRectangle.Y,
+                        animatedRectangle.Width,
+                        animatedRectangle.Height);
+                }
+                else
+                {
+                    animationUnsupported = true;
+                }
+            }
+        }
+        else if (ReadUInt32(payload, 36) != 0)
+        {
+            return VideoReplayStatus.Unsupported;
+        }
+
+        return sink is IWpfNativeVideoCommandSink videoSink &&
+            videoSink.DrawNativeVideo(frame, rectangle)
+                ? VideoReplayStatus.Applied
+                : VideoReplayStatus.Skipped;
+    }
+
+    private static void CountVideoReplayStatus(
+        VideoReplayStatus status,
+        ref int appliedCount,
+        ref int skippedCount,
+        ref int unsupportedCount)
+    {
+        switch (status)
+        {
+            case VideoReplayStatus.Applied:
+                appliedCount++;
+                break;
+            case VideoReplayStatus.Skipped:
+                skippedCount++;
+                break;
+            default:
+                unsupportedCount++;
+                break;
+        }
     }
 
     private static bool IsPushCommand(WpfMilCommandId commandId)
@@ -972,6 +1104,95 @@ public sealed class WpfMilRenderDataDecoder
             DrawMediaGeometry(sink, null, pen, mediaGeometry);
         }
 
+        return true;
+    }
+
+    private static bool TryReplayRawCacheBrushRecord(WpfMilCommandId command, ReadOnlySpan<byte> payload,
+        IWpfCompositionCommandSink sink, IWpfMilResourceResolver resources, IWpfImageSourceAdapter? imageSourceAdapter,
+        out WpfDrawingReplayStatus status, out int unsupportedAnimations)
+    {
+        status = WpfDrawingReplayStatus.Unsupported;
+        unsupportedAnimations = 0;
+        int brushOffset = command switch
+        {
+            WpfMilCommandId.DrawRectangle or WpfMilCommandId.DrawRectangleAnimate
+                or WpfMilCommandId.DrawEllipse or WpfMilCommandId.DrawEllipseAnimate => 32,
+            WpfMilCommandId.DrawRoundedRectangle or WpfMilCommandId.DrawRoundedRectangleAnimate => 48,
+            WpfMilCommandId.DrawGeometry => 0,
+            _ => -1
+        };
+        if (brushOffset < 0 || !TryResolveRawResource(resources, ReadUInt32(payload, brushOffset), out var rawBrush)
+            || rawBrush is not global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource source) return false;
+        var adapter = GetImageSourceAdapter(resources, imageSourceAdapter);
+        uint penToken = ReadUInt32(payload, brushOffset + 4);
+        var pen = ResolveOptionalPen(resources, penToken);
+        bool penApplied = false;
+        switch (command)
+        {
+            case WpfMilCommandId.DrawRectangle:
+            case WpfMilCommandId.DrawRectangleAnimate:
+                var rectangle = ReadRect(payload, 0);
+                status = WpfDrawingReplay.ReplayBitmapCacheBrushRectangleFill(source, rectangle, sink, adapter);
+                if (pen != null)
+                {
+                    if (sink is IWpfNativePrimitiveCommandSink primitive)
+                        primitive.DrawNativeRectangle(null, pen, ReadReplayRect(payload, 0));
+                    else sink.DrawRectangle(null, pen, rectangle);
+                    penApplied = true;
+                }
+                if (command == WpfMilCommandId.DrawRectangleAnimate)
+                    unsupportedAnimations = CountUnsupportedAnimationHandles(payload, 40);
+                break;
+            case WpfMilCommandId.DrawEllipse:
+            case WpfMilCommandId.DrawEllipseAnimate:
+                var center = ReadPoint(payload, 0);
+                double radiusX = ReadDouble(payload, 16), radiusY = ReadDouble(payload, 24);
+                WpfDrawingReplay.TryReplaySourceBrushEllipseFill(source, center, radiusX, radiusY, sink, adapter, out status);
+                if (pen != null)
+                {
+                    if (sink is IWpfNativePrimitiveCommandSink primitive)
+                        primitive.DrawNativeEllipse(null, pen, ReadReplayPoint(payload, 0), radiusX, radiusY);
+                    else sink.DrawEllipse(null, pen, center, radiusX, radiusY);
+                    penApplied = true;
+                }
+                if (command == WpfMilCommandId.DrawEllipseAnimate)
+                    unsupportedAnimations = CountUnsupportedAnimationHandles(payload, 40, 44, 48);
+                break;
+            case WpfMilCommandId.DrawGeometry:
+                uint geometryToken = ReadUInt32(payload, 8);
+                if (TryResolveTileBrushGeometry(resources, geometryToken, out var geometry))
+                {
+                    status = WpfDrawingReplay.ReplayBitmapCacheBrushFill(source, geometry, sink, adapter);
+                    if (pen != null)
+                    {
+                        penApplied = TryDrawNativeGeometry(resources, sink, null, pen, geometryToken);
+                        if (!penApplied && geometry is MediaGeometry mediaGeometry)
+                        {
+                            DrawMediaGeometry(sink, null, pen, mediaGeometry);
+                            penApplied = true;
+                        }
+                    }
+                }
+                break;
+            case WpfMilCommandId.DrawRoundedRectangle:
+            case WpfMilCommandId.DrawRoundedRectangleAnimate:
+                var roundedBounds = ReadRect(payload, 0);
+                double roundedRadiusX = ReadDouble(payload, 32), roundedRadiusY = ReadDouble(payload, 40);
+                status = WpfDrawingReplay.ReplayBitmapCacheBrushRoundedRectangleFill(source, roundedBounds,
+                    roundedRadiusX, roundedRadiusY, sink, adapter);
+                if (pen != null)
+                {
+                    if (sink is IWpfNativePrimitiveCommandSink primitive)
+                        primitive.DrawNativeRoundedRectangle(null, pen, ReadReplayRect(payload, 0), roundedRadiusX, roundedRadiusY);
+                    else sink.DrawRoundedRectangle(null, pen, roundedBounds, roundedRadiusX, roundedRadiusY);
+                    penApplied = true;
+                }
+                if (command == WpfMilCommandId.DrawRoundedRectangleAnimate)
+                    unsupportedAnimations = CountUnsupportedAnimationHandles(payload, 56, 60, 64);
+                break;
+        }
+        if ((status == WpfDrawingReplayStatus.Applied && penToken != 0 && !penApplied)
+            || (status != WpfDrawingReplayStatus.Applied && penApplied)) status = WpfDrawingReplayStatus.PartiallyApplied;
         return true;
     }
 

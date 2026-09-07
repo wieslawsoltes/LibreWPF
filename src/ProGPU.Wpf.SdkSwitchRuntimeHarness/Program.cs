@@ -12,7 +12,8 @@ using System.Security.Cryptography;
 internal static class Program
 {
     private const string LibreWpfPackageVersion = "0.1.0-preview.45";
-    private const string ProGpuPackageVersion = "0.1.0-preview.55";
+    private const string DefaultProGpuPackageVersion = "0.1.0-preview.55";
+    private const string ProGpuPackageVersionEnvironmentVariable = "PROGPU_WPF_PROGPU_PACKAGE_VERSION";
     private const string PrepackagedProGpuDirectoryEnvironmentVariable = "PROGPU_WPF_PREPACKAGED_PROGPU_DIR";
     private const string SmokeTargetFramework = "net10.0-windows";
     private const string SmokeAssemblyName = "ProGPU.Wpf.SdkSwitchSmoke";
@@ -51,6 +52,7 @@ internal static class Program
         "ProGPU.Wpf",
         "ProGPU.Wpf.Interop",
         "ProGPU.Backend",
+        "ProGPU.Backend.Native",
         "ProGPU.DirectX",
         "ProGPU.Scene",
         "ProGPU.Vector",
@@ -80,6 +82,8 @@ internal static class Program
         "System.Windows.Extensions",
         "OpenFontSharp"
     ];
+    private static readonly string ProGpuPackageVersion =
+        ResolveProGpuPackageVersion();
 
     public sealed class PortableClipboardJsonPayload
     {
@@ -258,6 +262,15 @@ internal static class Program
         return packageId is "LibreWPF.Transport" or "LibreWPF.ProGPU"
             ? LibreWpfPackageVersion
             : ProGpuPackageVersion;
+    }
+
+    private static string ResolveProGpuPackageVersion()
+    {
+        string? configured = Environment.GetEnvironmentVariable(
+            ProGpuPackageVersionEnvironmentVariable);
+        return string.IsNullOrWhiteSpace(configured)
+            ? DefaultProGpuPackageVersion
+            : configured.Trim();
     }
 
     private static void ValidateLocalPackageAssemblyMatchesFile(

@@ -48,7 +48,7 @@
           Condition="!Exists('$(WpfArcadeSdkProps)') Or !Exists('$(WpfArcadeSdkTargets)')"/>
 
   <PropertyGroup Condition="'$(ProGpuWpfTargetFramework)' == 'net10.0'">
-    <ProGpuWpfNet10SupportPackageVersion>10.0.10</ProGpuWpfNet10SupportPackageVersion>
+    <ProGpuWpfNet10SupportPackageVersion>10.0.11</ProGpuWpfNet10SupportPackageVersion>
     <SystemCodeDomPackageVersion>$(ProGpuWpfNet10SupportPackageVersion)</SystemCodeDomPackageVersion>
     <SystemCodeDomVersion>$(ProGpuWpfNet10SupportPackageVersion)</SystemCodeDomVersion>
     <SystemConfigurationConfigurationManagerPackageVersion>$(ProGpuWpfNet10SupportPackageVersion)</SystemConfigurationConfigurationManagerPackageVersion>

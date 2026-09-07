@@ -17,6 +17,8 @@ using PortableDrawingImageSource = ProGPU.Wpf.Interop.IPortableDrawingImageSourc
 using PortableNativeDrawingContextSource = ProGPU.Wpf.Interop.IPortableNativeDrawingContextSource;
 using PortableNativeDrawingContextState = ProGPU.Wpf.Interop.PortableNativeDrawingContextState;
 using PortableNativeDrawingContextStateSource = ProGPU.Wpf.Interop.IPortableNativeDrawingContextStateSource;
+using PortableMediaPlayerSource = ProGPU.Wpf.Interop.IPortableMediaPlayerSource;
+using PortableRectAnimationValueSource = ProGPU.Wpf.Interop.IPortableRectAnimationValueSource;
 using PortablePoint = ProGPU.Wpf.Interop.PortablePoint;
 using PortableRect = ProGPU.Wpf.Interop.PortableRect;
 
@@ -206,9 +208,9 @@ public sealed class WpfObjectRenderDataDrawingContext :
         MediaPen? mediaPen)
     {
         if (brush == null
-            || !WpfDrawingReplay.IsTileBrush(brush)
+            || !WpfDrawingReplay.IsSourceBrush(brush)
             || !TryReadRect(rectangle, out var mediaRectangle)
-            || !WpfDrawingReplay.TryReplayTileBrushFill(
+            || !WpfDrawingReplay.TryReplaySourceBrushFill(
                 brush,
                 mediaRectangle,
                 _sink,
@@ -310,6 +312,27 @@ public sealed class WpfObjectRenderDataDrawingContext :
         ThrowIfClosed();
         MediaBrush? mediaBrush = WpfResourceResolver.AdaptBrush(brush);
         MediaPen? mediaPen = WpfResourceResolver.AdaptPen(pen);
+        if (brush is global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource cacheSource)
+        {
+            if (!TryReadRect(rectangle, out var bounds) || !TryReadDouble(radiusX, out var rx) || !TryReadDouble(radiusY, out var ry))
+            {
+                CountUnsupported();
+                return;
+            }
+            RegisterRetainedDependencies(brush, pen);
+            var status = WpfDrawingReplay.ReplayBitmapCacheBrushRoundedRectangleFill(cacheSource, bounds, rx, ry,
+                _sink, _resources.AdaptImageSource);
+            if (mediaPen != null)
+            {
+                if (_sink is IWpfNativePrimitiveCommandSink primitive)
+                    primitive.DrawNativeRoundedRectangle(null, mediaPen, ToReplayRect(bounds), rx, ry);
+                else _sink.DrawRoundedRectangle(null, mediaPen, bounds, rx, ry);
+                if (status != WpfDrawingReplayStatus.Applied) status = WpfDrawingReplayStatus.PartiallyApplied;
+            }
+            else if (pen != null && status == WpfDrawingReplayStatus.Applied) status = WpfDrawingReplayStatus.PartiallyApplied;
+            CountDrawingReplayStatus(status);
+            return;
+        }
         if (mediaBrush == null && mediaPen == null)
         {
             CountUnsupportedIfPresent(brush, pen);
@@ -391,11 +414,11 @@ public sealed class WpfObjectRenderDataDrawingContext :
         MediaBrush? mediaBrush = WpfResourceResolver.AdaptBrush(brush);
         MediaPen? mediaPen = WpfResourceResolver.AdaptPen(pen);
         if (brush != null
-            && WpfDrawingReplay.IsTileBrush(brush)
+            && WpfDrawingReplay.IsSourceBrush(brush)
             && TryReadPoint(center, out var tileCenter)
             && TryReadDouble(radiusX, out var tileRadiusX)
             && TryReadDouble(radiusY, out var tileRadiusY)
-            && WpfDrawingReplay.TryReplayTileBrushEllipseFill(
+            && WpfDrawingReplay.TryReplaySourceBrushEllipseFill(
                 brush,
                 tileCenter,
                 tileRadiusX,
@@ -506,8 +529,8 @@ public sealed class WpfObjectRenderDataDrawingContext :
         MediaBrush? mediaBrush = WpfResourceResolver.AdaptBrush(brush);
         MediaPen? mediaPen = WpfResourceResolver.AdaptPen(pen);
         if (brush != null
-            && WpfDrawingReplay.IsTileBrush(brush)
-            && WpfDrawingReplay.TryReplayTileBrushFill(
+            && WpfDrawingReplay.IsSourceBrush(brush)
+            && WpfDrawingReplay.TryReplaySourceBrushFill(
                 brush,
                 geometry,
                 _sink,
@@ -1206,12 +1229,69 @@ public sealed class WpfObjectRenderDataDrawingContext :
     public void DrawVideo(object? player, object? rectangle)
     {
         ThrowIfClosed();
-        CountUnsupportedIfPresent(player);
+        if (player == null)
+        {
+            return;
+        }
+        if (!TryReadReplayRect(rectangle, out var replayRectangle))
+        {
+            CountUnsupported();
+            return;
+        }
+
+        DrawPortableVideo(player, replayRectangle);
     }
 
     public void DrawVideo(object? player, object? rectangle, object? rectangleAnimations)
     {
-        DrawVideo(player, rectangle);
+        ThrowIfClosed();
+        if (player == null)
+        {
+            return;
+        }
+        if (!TryReadReplayRect(rectangle, out var replayRectangle))
+        {
+            CountUnsupported();
+            return;
+        }
+        bool animationResolved = false;
+        if (rectangleAnimations is PortableRectAnimationValueSource animation &&
+            animation.TryGetPortableRectAnimationValue(out var animatedRectangle))
+        {
+            animationResolved = true;
+            replayRectangle = new WpfReplayRect(
+                animatedRectangle.X,
+                animatedRectangle.Y,
+                animatedRectangle.Width,
+                animatedRectangle.Height);
+        }
+        bool unsupportedAnimation = rectangleAnimations != null &&
+            !animationResolved;
+        bool hasTypedFrame = DrawPortableVideo(player, replayRectangle);
+        if (hasTypedFrame && unsupportedAnimation)
+        {
+            CountUnsupportedStateIfAny(rectangleAnimations);
+        }
+    }
+
+    private bool DrawPortableVideo(object player, WpfReplayRect rectangle)
+    {
+        if (player is not PortableMediaPlayerSource source ||
+            !source.TryGetPortableMediaPlayerFrame(out var frame))
+        {
+            CountUnsupported();
+            return false;
+        }
+        if (_sink is not IWpfNativeVideoCommandSink videoSink ||
+            !videoSink.DrawNativeVideo(frame, rectangle))
+        {
+            CountUnsupported();
+            return true;
+        }
+
+        RegisterRetainedDependencies(player, frame.NativeImage);
+        CountApplied();
+        return true;
     }
 
     public void PushClip(object? clipGeometry)

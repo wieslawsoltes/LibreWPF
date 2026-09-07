@@ -34,6 +34,7 @@ using VectorSolidColorBrush = ProGPU.Vector.SolidColorBrush;
 using NativePathGeometrySource = ProGPU.Scene.INativePathGeometrySource;
 using PortableGeometryPath = ProGPU.Wpf.Interop.PortableGeometryPath;
 using PortableGeometryPathSource = ProGPU.Wpf.Interop.IPortableGeometryPathSource;
+using PortableMediaPlayerFrame = ProGPU.Wpf.Interop.PortableMediaPlayerFrame;
 
 namespace System.Windows.Media.ProGPU.Composition;
 
@@ -43,9 +44,11 @@ public sealed class ProGpuCompositionCommandSink :
     IWpfCompositionCommandSinkDiagnostics,
     IWpfNativeTransformCommandSink,
     IWpfNativePrimitiveCommandSink,
+    IWpfNativeVideoCommandSink,
     IWpfNativeClipCommandSink,
     IWpfNativeGeometryCommandSink,
     IWpfHitTestOwnerScopeCommandSink,
+    IWpfBitmapCacheBrushCommandSink,
     IWpfProGpuSceneDrawingContextSource
 {
     private const float TransformEpsilon = 0.0001f;
@@ -178,6 +181,15 @@ public sealed class ProGpuCompositionCommandSink :
     {
         command.HitTestId = _activeHitTestId;
         NativeContext.Commands.Add(command);
+    }
+
+    void IWpfBitmapCacheBrushCommandSink.DrawBitmapCacheBrushSource(
+        global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource source,
+        Func<object?, MediaImageSource?>? imageSourceAdapter)
+    {
+        ThrowIfClosed();
+        using var lease = WpfBitmapCacheBrushSourceLookup.Acquire(source, _context, _viewport3DTextureCache, imageSourceAdapter);
+        NativeContext.DrawCachedPicture(lease, _transformStack.Peek());
     }
 
     bool IWpfHitTestOwnerScopeCommandSink.PushHitTestOwner(object sourceVisual)
@@ -549,7 +561,11 @@ public sealed class ProGpuCompositionCommandSink :
     {
         ThrowIfClosed();
 
-        if (WpfBitmapSourceImageAdapter.TryGetGpuTexture(imageSource, out var texture))
+        if (WpfBitmapSourceImageAdapter.TryRetainGpuTexture(
+                imageSource,
+                NativeContext,
+                _context,
+                out var texture))
         {
             AddNativeCommand(new global::ProGPU.Scene.RenderCommand
             {
@@ -576,7 +592,11 @@ public sealed class ProGpuCompositionCommandSink :
     {
         ThrowIfClosed();
 
-        if (WpfBitmapSourceImageAdapter.TryGetGpuTexture(imageSource, out var texture))
+        if (WpfBitmapSourceImageAdapter.TryRetainGpuTexture(
+                imageSource,
+                NativeContext,
+                _context,
+                out var texture))
         {
             AddNativeCommand(new global::ProGPU.Scene.RenderCommand
             {
@@ -588,6 +608,44 @@ public sealed class ProGpuCompositionCommandSink :
                 TextureSamplingMode = _bitmapScalingModeStack.Peek()
             });
         }
+    }
+
+    bool IWpfNativeVideoCommandSink.DrawNativeVideo(
+        PortableMediaPlayerFrame frame,
+        WpfReplayRect rectangle)
+    {
+        ThrowIfClosed();
+        if (frame.PixelWidth <= 0 || frame.PixelHeight <= 0 ||
+            frame.NativeImage is not global::ProGPU.Backend.IProGpuTextureLeaseSource source)
+        {
+            return false;
+        }
+
+        global::ProGPU.Backend.GpuTexture texture;
+        try
+        {
+            bool retained = _context != null
+                ? NativeContext.TryRetainTexture(source, _context, out texture)
+                : NativeContext.TryRetainTexture(source, out texture);
+            if (!retained)
+            {
+                return false;
+            }
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
+        }
+
+        AddNativeCommand(new global::ProGPU.Scene.RenderCommand
+        {
+            Type = global::ProGPU.Scene.RenderCommandType.DrawTexture,
+            Texture = texture,
+            Rect = ToNativeRect(rectangle),
+            Transform = _transformStack.Peek(),
+            TextureSamplingMode = _bitmapScalingModeStack.Peek()
+        });
+        return true;
     }
 
     public void DrawText(MediaFormattedText formattedText, Point origin)
@@ -697,6 +755,38 @@ public sealed class ProGpuCompositionCommandSink :
         }
 
         NativeContext.PushGeometryClip(path);
+        _pushStack.Push(PushKind.GeometryClip);
+        return true;
+    }
+
+    bool IWpfNativeGeometryCommandSink.PushNativeEllipseClip(WpfReplayPoint center, double radiusX, double radiusY)
+    {
+        ThrowIfClosed();
+        if (!float.IsFinite((float)center.X) || !float.IsFinite((float)center.Y)
+            || !float.IsFinite((float)radiusX) || !float.IsFinite((float)radiusY)
+            || radiusX <= 0 || radiusY <= 0 || (float)radiusX == 0 || (float)radiusY == 0
+            || !float.IsFinite((float)(center.X + radiusX)) || !float.IsFinite((float)(center.X - radiusX))
+            || !float.IsFinite((float)(center.Y + radiusY)) || !float.IsFinite((float)(center.Y - radiusY))) return false;
+        NativeContext.PushEllipseClip(new Vector2((float)center.X, (float)center.Y),
+            (float)radiusX, (float)radiusY, _transformStack.Peek());
+        _pushStack.Push(PushKind.GeometryClip);
+        return true;
+    }
+
+    bool IWpfNativeGeometryCommandSink.PushNativeRoundedRectangleClip(WpfReplayRect bounds, double radiusX, double radiusY)
+    {
+        ThrowIfClosed();
+        if (!double.IsFinite(radiusX) || !double.IsFinite(radiusY) || radiusX < 0 || radiusY < 0
+            || !float.IsFinite((float)bounds.X) || !float.IsFinite((float)bounds.Y)
+            || !float.IsFinite((float)bounds.Width) || !float.IsFinite((float)bounds.Height)
+            || (float)bounds.Width <= 0 || (float)bounds.Height <= 0
+            || !float.IsFinite((float)(bounds.X + bounds.Width))
+            || !float.IsFinite((float)(bounds.Y + bounds.Height))) return false;
+        // Clamp before narrowing; large finite radii remain valid WPF inputs.
+        float rx = (float)Math.Min(radiusX, bounds.Width * 0.5);
+        float ry = (float)Math.Min(radiusY, bounds.Height * 0.5);
+        if ((radiusX > 0 && rx == 0) || (radiusY > 0 && ry == 0)) return false;
+        NativeContext.PushRoundedRectangleClip(ToNativeRect(bounds), rx, ry, _transformStack.Peek());
         _pushStack.Push(PushKind.GeometryClip);
         return true;
     }
@@ -877,7 +967,11 @@ public sealed class ProGpuCompositionCommandSink :
     {
         ThrowIfClosed();
 
-        if (WpfBitmapSourceImageAdapter.TryGetGpuTexture(imageSource, out var texture))
+        if (WpfBitmapSourceImageAdapter.TryRetainGpuTexture(
+                imageSource,
+                NativeContext,
+                _context,
+                out var texture))
         {
             AddNativeCommand(new global::ProGPU.Scene.RenderCommand
             {
@@ -897,7 +991,11 @@ public sealed class ProGpuCompositionCommandSink :
     {
         ThrowIfClosed();
 
-        if (WpfBitmapSourceImageAdapter.TryGetGpuTexture(imageSource, out var texture))
+        if (WpfBitmapSourceImageAdapter.TryRetainGpuTexture(
+                imageSource,
+                NativeContext,
+                _context,
+                out var texture))
         {
             AddNativeCommand(new global::ProGPU.Scene.RenderCommand
             {

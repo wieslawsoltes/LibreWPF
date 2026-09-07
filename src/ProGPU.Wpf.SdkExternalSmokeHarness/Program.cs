@@ -19,7 +19,8 @@ internal static class Program
     private const string OriginalWpfSdk = "Microsoft.NET.Sdk";
     private const string OriginalWindowsDesktopWpfSdk = "Microsoft.NET.Sdk.WindowsDesktop";
     private const string SdkVersion = "0.1.0-preview.45";
-    private const string ProGpuPackageVersion = "0.1.0-preview.55";
+    private const string DefaultProGpuPackageVersion = "0.1.0-preview.55";
+    private const string ProGpuPackageVersionEnvironmentVariable = "PROGPU_WPF_PROGPU_PACKAGE_VERSION";
     private const string PrepackagedProGpuDirectoryEnvironmentVariable = "PROGPU_WPF_PREPACKAGED_PROGPU_DIR";
     private const string ExternalAppTargetFramework = "net10.0-windows";
     private const string AppAssemblyName = "ExternalSdkApp";
@@ -60,6 +61,7 @@ internal static class Program
         "ProGPU.Wpf",
         "ProGPU.Wpf.Interop",
         "ProGPU.Backend",
+        "ProGPU.Backend.Native",
         "ProGPU.DirectX",
         "ProGPU.Scene",
         "ProGPU.Vector",
@@ -124,6 +126,8 @@ internal static class Program
         new("ProGPU.Compute", "ProGPU.Compute", "net10.0", "ProGPU"),
         new("ProGPU.Transpiler", "ProGPU.Transpiler", "net10.0", "ProGPU")
     ];
+    private static readonly string ProGpuPackageVersion =
+        ResolveProGpuPackageVersion();
 
     private static int Main()
     {
@@ -505,6 +509,15 @@ internal static class Program
         return packageId is "LibreWPF.Sdk" or "LibreWPF.Transport" or "LibreWPF.ProGPU"
             ? SdkVersion
             : ProGpuPackageVersion;
+    }
+
+    private static string ResolveProGpuPackageVersion()
+    {
+        string? configured = Environment.GetEnvironmentVariable(
+            ProGpuPackageVersionEnvironmentVariable);
+        return string.IsNullOrWhiteSpace(configured)
+            ? DefaultProGpuPackageVersion
+            : configured.Trim();
     }
 
     private static void ValidateLocalWpfPackageMatchesAvailableRepositoryBuilds(string repoRoot, string packageFeed)

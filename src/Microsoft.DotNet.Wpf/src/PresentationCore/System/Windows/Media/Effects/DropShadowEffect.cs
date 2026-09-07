@@ -30,7 +30,10 @@ namespace System.Windows.Media.Effects
                 ShadowDepth,
                 Direction,
                 Opacity,
-                new PortableColor(color.A, color.R, color.G, color.B));
+                new PortableColor(color.A, color.R, color.G, color.B),
+                RenderingBias == RenderingBias.Performance
+                    ? PortableEffectRenderingBias.Performance
+                    : PortableEffectRenderingBias.Quality);
             return true;
         }
 

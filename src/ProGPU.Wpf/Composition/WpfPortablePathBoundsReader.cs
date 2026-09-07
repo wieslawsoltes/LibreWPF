@@ -9,6 +9,13 @@ namespace System.Windows.Media.ProGPU.Composition;
 
 internal static class WpfPortablePathBoundsReader
 {
+    public static bool TryGetLocalPathBounds(
+        PortableGeometryPath geometry,
+        out WpfReplayRect bounds)
+    {
+        return TryGetPathBoundsCore(geometry, out bounds);
+    }
+
     public static bool TryGetPathBounds(PortableGeometryPath geometry, out WpfReplayRect bounds)
     {
         bounds = default;

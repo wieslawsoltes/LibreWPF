@@ -720,6 +720,7 @@
     <Compile Include="System\Windows\Input\Stylus\Wisp\WispTabletDeviceCollection.cs" />
     <Compile Include="System\Windows\InterOp\CursorInteropHelper.cs" />
     <Compile Include="System\Windows\InterOp\D3DImage.cs" />
+    <Compile Include="System\Windows\InterOp\PortableD3DImageSourceFactory.cs" />
     <Compile Include="System\Windows\InterOp\HwndAppCommandInputProvider.cs" />
     <Compile Include="System\Windows\InterOp\HwndKeyboardInputProvider.cs" />
     <Compile Include="System\Windows\InterOp\HwndMouseInputProvider.cs" />
@@ -845,6 +846,7 @@
     <Compile Include="System\Windows\Media\mediaeventargs.cs" />
     <Compile Include="System\Windows\Media\mediaeventshelper.cs" />
     <Compile Include="System\Windows\Media\MediaPlayer.cs" />
+    <Compile Include="System\Windows\Media\PortableMediaPlayerSourceFactory.cs" />
     <Compile Include="System\Windows\Media\MediaPlayerState.cs" />
     <Compile Include="System\Windows\Media\MediaSystem.cs" />
     <Compile Include="System\Windows\Media\MediaTimeline.cs" />
