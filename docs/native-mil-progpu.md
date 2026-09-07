@@ -8423,6 +8423,22 @@ targets and managed backend/test projects compile. Runtime, VM/images,
 performance, verifiers and CI qualification remain deferred. The full goal stays
 active, including cache-brush execution.
 
+## Implementation-first checkpoint: native BitmapCacheBrush cached rendering
+
+ProGPU now routes 2D BitmapCacheBrush targets through its retained GPU cache and
+shared sampled-brush coverage paths. Explicit/target/default cache policy,
+root-state suppression, logical brush placement, opacity-once composition and
+per-consumer cache identities are implemented without a WPF-local workaround.
+Descendants retain normal typed replay and cache owners receive a capture scope.
+
+Native semantic and GPU pixel/warm-replay fixtures are authored, not executed.
+Native library/MIL/Direct2D compatibility/WebGPU targets and the managed native
+backend compile. Runtime, VM/platform/image, performance, verifier and CI
+qualification remain deferred as requested. Shared cache pages/dirty regions,
+root scroll-clip/render-options/guidelines, Viewport3D roots and independent
+managed cache-brush integration remain implementation work. Unsupported forms
+fail closed. Full BitmapCacheBrush and the full goal remain incomplete.
+
 ## Developer commands
 
 ```sh
