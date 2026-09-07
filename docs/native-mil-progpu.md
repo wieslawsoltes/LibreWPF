@@ -8326,6 +8326,23 @@ fixtures are authored, and native library plus MIL/Direct2D compatibility/WebGPU
 targets compile. Runtime/VM/image/performance/verifier/CI qualification remains
 deferred; the full goal is not complete.
 
+## Implementation-first checkpoint: direct native fixed-shape pen transforms
+
+Positive-size RectangleGeometry, rounded rectangles and EllipseGeometry now use
+the same ProGPU stroke preparation as single-child groups. Resource transforms
+map spines before widening, spatial pens use native widened bounds, and world
+state remains after widening. Geometry-collapse fill suppression no longer
+discards remaining stroke/cap coverage. Immediate drawing commands and existing
+zero-size shape handlers are unchanged; zero-size resource-transform parity is
+still open.
+
+Direct-versus-group stream and collapsed-world fill/pen fixtures are authored.
+Native library and MIL/Direct2D compatibility/WebGPU targets compile. Execution,
+VM/images, performance, verifiers and CI qualification remain deferred. ProGPU
+documents provenance, preparation costs and pending caching/fast-path recovery;
+there is no WPF-local workaround or public bridge change, and the full goal
+remains active.
+
 ## Developer commands
 
 ```sh
