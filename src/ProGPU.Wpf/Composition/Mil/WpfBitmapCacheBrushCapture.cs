@@ -48,6 +48,16 @@ public sealed class WpfBitmapCacheBrushCapture : IDisposable
     public static WpfBitmapCacheBrushCapture Create(IPortableBitmapCacheBrushSource source) =>
         Create(source, null, null, null);
 
+    /// <summary>
+    /// Creates one shared live ProGPU source. Typed source/dependency events
+    /// defer recapture until rendering; disposal releases all subscriptions.
+    /// Retain this object across consumers instead of constructing it per draw.
+    /// Sources without change events require explicit CachedPicture.Invalidate.
+    /// Consumer brush mapping, opacity and shape coverage remain separate.
+    /// </summary>
+    public static CachedPicture CreateLiveCachedPicture(IPortableBitmapCacheBrushSource source) =>
+        new(new WpfBitmapCacheBrushPictureSource(source), ownsSource: true);
+
     internal static WpfBitmapCacheBrushCapture Create(
         IPortableBitmapCacheBrushSource source,
         global::ProGPU.Backend.WgpuContext? context,

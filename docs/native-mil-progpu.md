@@ -8540,6 +8540,33 @@ keys. These fixtures are authored only; no runtime validation is claimed.
 
 ## Developer commands
 
+### Live typed cache sources
+
+`WpfBitmapCacheBrushCapture.CreateLiveCachedPicture` now owns a typed dependency
+tracker through ProGPU's `ICachedPictureSource`. Retain the returned CachedPicture
+across consumers; source/cache events defer recording until render preparation.
+The existing source capture transfers its owned picture without another clone,
+and ProGPU owns recapture, source stability checks, sizing, retained identity,
+GPU caching and disposal. A failed capture remains dirty and fails rendering
+instead of selecting the old pixels. Providers without change events require
+explicit `CachedPicture.Invalidate`.
+
+Authored fixtures cover typed brush/cache changes, failed target replacement,
+empty target recovery and subscription removal. ProGPU fixtures cover coalescing,
+independent ownership, reentry/change-during-capture rejection and GPU zero-scale
+recovery. These are compiled-only under the requested sequence. Native C++ uses
+the existing host-update/resource-generation contract; no callbacks or wire
+changes are added across the ABI. Automatic normal brush routing and shared
+target/policy lookup still remain to be connected.
+
+### Compilation checkpoints
+
+Live-source checkpoint (2026-09-07): Release builds of ProGPU.Tests and
+ProGPU.Wpf.Tests succeeded with respectively 0 and 96 warnings, both with zero
+errors. No fixtures, runtime/platform checks, benchmarks, verifiers or CI
+qualification were executed. Source capture and subscription ownership are
+implemented; final integration and cross-backend qualification remain open.
+
 Latest implementation-first compilation checkpoint (2026-09-07):
 `dotnet build src/ProGPU.Wpf.Tests/ProGPU.Wpf.Tests.csproj -c Release --no-restore`
 succeeded with 96 warnings and zero errors after the ProGPU raster-policy update

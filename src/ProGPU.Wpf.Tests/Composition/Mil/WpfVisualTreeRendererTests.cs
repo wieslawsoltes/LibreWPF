@@ -273,6 +273,71 @@ public sealed class WpfVisualTreeRendererTests
         { brush = value; return true; }
     }
 
+    [Fact]
+    public void LiveBitmapCachePictureTracksTypedDependenciesAndReleasesSubscriptions()
+    {
+        var target = new FakePortableVisualStateDrawingVisual(CreateRenderData(Brushes.Red), new PortableVisualState())
+        { Bounds = new Rect(1, 2, 30, 40) };
+        var policy = new EventCaptureCache { Value = new(1, false, false) };
+        var brush = new EventCaptureBrush { Value = new(target, policy) };
+        using var picture = WpfBitmapCacheBrushCapture.CreateLiveCachedPicture(brush);
+        Assert.Equal(1, brush.SubscriptionCount);
+        Assert.Equal(1, policy.SubscriptionCount);
+        Assert.False(picture.IsSourceDirty);
+        policy.Value = new(3, true, true);
+        policy.Change();
+        Assert.True(picture.IsSourceDirty);
+        Assert.Equal(1, picture.RenderScale);
+        picture.Refresh();
+        Assert.Equal(3, picture.RenderScale);
+        Assert.True(picture.EnableClearType);
+        Assert.False(picture.IsSourceDirty);
+        brush.Value = new(new object(), policy);
+        brush.Change();
+        Assert.Throws<NotSupportedException>(() => picture.Refresh());
+        Assert.True(picture.IsSourceDirty);
+        Assert.Equal(30, picture.Bounds.Width);
+        brush.Value = new(null, policy);
+        brush.Change();
+        picture.Refresh();
+        Assert.Equal(0, picture.Bounds.Width);
+        picture.Dispose();
+        Assert.Equal(0, brush.SubscriptionCount);
+        Assert.Equal(0, policy.SubscriptionCount);
+    }
+
+    private abstract class CaptureInvalidationSource : ProGPU.Wpf.Interop.IPortableInvalidationSource
+    {
+        private event EventHandler? Invalidated;
+        public int SubscriptionCount { get; private set; }
+        public void Change() => Invalidated?.Invoke(this, EventArgs.Empty);
+        public bool TrySubscribeInvalidated(EventHandler handler, out IDisposable subscription)
+        {
+            Invalidated += handler;
+            SubscriptionCount++;
+            subscription = new ProGPU.Wpf.Interop.PortableInvalidationSubscription(() =>
+            {
+                Invalidated -= handler;
+                SubscriptionCount--;
+            });
+            return true;
+        }
+    }
+
+    private sealed class EventCaptureBrush : CaptureInvalidationSource, ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource
+    {
+        public ProGPU.Wpf.Interop.PortableBitmapCacheBrush Value { get; set; }
+        public bool TryGetPortableBitmapCacheBrush(out ProGPU.Wpf.Interop.PortableBitmapCacheBrush brush)
+        { brush = Value; return true; }
+    }
+
+    private sealed class EventCaptureCache : CaptureInvalidationSource, ProGPU.Wpf.Interop.IPortableBitmapCacheSource
+    {
+        public ProGPU.Wpf.Interop.PortableBitmapCache Value { get; set; }
+        public bool TryGetPortableBitmapCache(out ProGPU.Wpf.Interop.PortableBitmapCache cache)
+        { cache = Value; return true; }
+    }
+
     private sealed class CaptureCache(ProGPU.Wpf.Interop.PortableBitmapCache value)
         : ProGPU.Wpf.Interop.IPortableBitmapCacheSource
     {
