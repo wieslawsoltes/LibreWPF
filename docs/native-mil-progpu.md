@@ -8405,6 +8405,24 @@ performance/Instruments, verifier and CI qualification remain deferred. ProGPU
 documents the original budget helper, costs and remaining tuning/replacement
 policy work. The full goal stays active.
 
+## Implementation-first checkpoint: BitmapCacheBrush protocol support
+
+ProGPU now decodes canonical BitmapCacheBrush state with typed opacity,
+transform, cache and internal-target dependencies. Managed native-MIL producers
+have a matching DTO and batch method. Deletion protection, retained dependency
+hashing and transactional validation include this resource.
+
+This is ingress support, not rendering completion: execution still fails closed
+until brush-specific cache selection and root-state suppression are implemented.
+The ProGPU design records why ordinary VisualBrush rendering is not equivalent
+and specifies the remaining cache/mapping/lifetime work. No reflected WPF adapter
+or generic tile-brush substitution is added.
+
+Native and managed packet/dependency/rejection fixtures are authored; native
+targets and managed backend/test projects compile. Runtime, VM/images,
+performance, verifiers and CI qualification remain deferred. The full goal stays
+active, including cache-brush execution.
+
 ## Developer commands
 
 ```sh
