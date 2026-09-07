@@ -11,6 +11,30 @@ parity evidence. Tests, VM/image comparisons, verifiers, benchmarks, and exact-h
 CI qualification are deferred at the user's request until implementation is ready.
 Historical passing counts below apply only to their named snapshots.
 
+### Target-aware standalone recorder checkpoint (2026-09-07)
+
+ProGPU `565e079f` adds the ABI v55 immutable target descriptor and public managed
+scene-recorder owner. Physical size and independent horizontal/vertical DPI now
+reach standalone full-target brush translation without creating a GPU surface.
+The C header generates the managed wire record; SafeHandle ownership covers the
+recorder and independently acquired command-sink references, with serialization
+into caller spans. Target changes require a new recorder and scene generation.
+Legacy targetless recording still rejects missing full-target bounds.
+
+See [design, original provenance, research, costs and deferred fixtures](../external/ProGPU/docs/direct2d-target-aware-recorders.md).
+Native header/core and managed descriptor fixtures are authored. Windows fixtures
+compare standalone and surface-backed bytes across 36 DPI/affine/brush/geometry
+cases, poison caller descriptor memory after creation, check COM lifetime, and
+check failure output clearing. None were executed in this implementation phase.
+
+Apple Clang C++20 core/portable COM/header targets compile/link. ProGPU.Tests
+Release compiles with zero warnings/errors; LibreWPF.Tests Release compiles with
+116 warnings and zero errors. Main was refreshed with zero missing commits.
+Windows provider/fixture compilation, full renderer packaging, managed native
+runtime ownership tests, all platform/image/VM/package gates, SIMD/performance
+measurements, source verifiers and exact-head PR CI qualification remain pending.
+This does not establish full MIL/DirectX/Direct2D/Win2D parity.
+
 ### Full-target Direct2D brush domains checkpoint (2026-09-07)
 
 ProGPU `cb2e5d05` adds full-target opacity-brush layers to surface-backed Windows
