@@ -11,6 +11,33 @@ parity evidence. Tests, VM/image comparisons, verifiers, benchmarks, and exact-h
 CI qualification are deferred at the user's request until implementation is ready.
 Historical passing counts below apply only to their named snapshots.
 
+### Full-target Direct2D brush domains checkpoint (2026-09-07)
+
+ProGPU `cb2e5d05` adds full-target opacity-brush layers to surface-backed Windows
+command-list translation, including geometric-mask combinations. Portable and
+Windows C++ share the original local-domain calculation with double-lane NEON,
+SSE2 and enabled Wasm SIMD128 paths. The four-corner envelope is brush metadata,
+not a replacement for an exact geometric clip; no CPU pixel path is introduced.
+
+The typed `HasTargetDependentMasks` result flag reports dependence on physical
+surface dimensions and current horizontal/vertical context DPI. Consumers must
+rebuild with a new generation after changes or before replay on a different
+target. Standalone recorders lack target descriptors and still reject this case.
+Fixed wire layouts, exports, shader sources and ABI version remain unchanged.
+See [contracts, original provenance, primary research and SIMD costs](../external/ProGPU/docs/direct2d-target-brush-domains.md).
+
+Core scalar-oracle, Windows affine/DPI/brush/geometry and targetless-recorder
+fixtures are authored, not executed; existing portable fixtures remain paired.
+Apple Clang C++20 core and portable COM fixtures compile/link. ProGPU.Tests
+Release compiles with zero warnings/errors; LibreWPF.Tests Release compiles with
+116 warnings and zero errors. Warnings are recorded, not qualified or claimed
+fixed. Main was refreshed with zero missing ProGPU commits.
+
+Windows provider/fixture and SSE2/Wasm compilation, full renderer builds,
+runtime/image/VM/platform/package validation, SIMD measurements, source verifiers
+and exact-head PR CI qualification remain pending. This checkpoint does not
+establish full Direct2D/Win2D or MIL parity.
+
 ### Direct2D command-stream antialiasing checkpoint (2026-09-07)
 
 ProGPU `9d75d313` extends the Windows Direct2D command-list translator with
