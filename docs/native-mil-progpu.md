@@ -8540,6 +8540,30 @@ keys. These fixtures are authored only; no runtime validation is claimed.
 
 ## Developer commands
 
+### Smooth cached ellipse and rounded-rectangle checkpoint
+
+Typed primitive/local geometry and GeometryDrawing now route ellipse and rounded
+cached pens through shared ProGPU adaptive intrinsic preparation. Direct object,
+managed/native primitive and raw MIL ellipse/rounded commands use that same path,
+with direct guideline snapping and existing animation diagnostics. Fill and pen
+share analytic geometry; pen-relative bounds remain separate from fill bounds.
+Rejected strokes retain partial/unsupported status instead of becoming successful
+fill-only draws. Native MIL skips exact zero-length straight connectors between
+half-extent-clamped rounded corners, with paired authored mapping fixtures.
+
+See [ProGPU smooth cached pens](../external/ProGPU/docs/cached-pictures.md#smooth-cached-pens-ellipse-and-rounded-rectangle)
+for provenance, research, complexity and precision boundaries. Dashed, tiny,
+degenerate/general-path cached pens and generic live native-picture transport
+remain incomplete. Runtime/image/SIMD/VM/platform/performance, source verifiers,
+Svg.Skia and CI qualification remain deferred and required for goal completion.
+
+Compilation checkpoint (2026-09-07), ProGPU `fc0d178a`: ProGPU.Tests Release
+0 warnings/errors; native MIL fixture target built; final WPF.Tests Release
+113 warnings/0 errors. The initial integration compiles caught a local-variable
+name collision and a test-only matrix constructor mismatch, both corrected.
+Warning attribution and fixture execution remain unqualified. No test, VM, GPU,
+benchmark, source-verifier or CI run was used to qualify this checkpoint.
+
 ### Affine cached RectangleGeometry checkpoint
 
 Typed primitive/local RectangleGeometry and GeometryDrawing now route cached

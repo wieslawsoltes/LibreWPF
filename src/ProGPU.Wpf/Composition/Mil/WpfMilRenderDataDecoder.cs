@@ -1131,6 +1131,32 @@ public sealed class WpfMilRenderDataDecoder
     {
         status = WpfDrawingReplayStatus.Unsupported;
         unsupportedAnimations = 0;
+        if (command is WpfMilCommandId.DrawEllipse or WpfMilCommandId.DrawEllipseAnimate
+            or WpfMilCommandId.DrawRoundedRectangle or WpfMilCommandId.DrawRoundedRectangleAnimate)
+        {
+            bool ellipse = command is WpfMilCommandId.DrawEllipse or WpfMilCommandId.DrawEllipseAnimate;
+            int fillOffset = ellipse ? 32 : 48;
+            uint fillToken = ReadUInt32(payload, fillOffset);
+            object? rawFill = null;
+            if (TryResolveRawResource(resources, ReadUInt32(payload, fillOffset + 4), out var rawPen)
+                && (fillToken == 0 || TryResolveRawResource(resources, fillToken, out rawFill)))
+            {
+                var smoothAdapter = GetImageSourceAdapter(resources, imageSourceAdapter);
+                bool handled = ellipse
+                    ? WpfDrawingReplay.TryReplayBitmapCachePenEllipse(rawFill, rawPen, ReadReplayPoint(payload, 0),
+                        ReadDouble(payload, 16), ReadDouble(payload, 24), sink, smoothAdapter, out status)
+                    : WpfDrawingReplay.TryReplayBitmapCachePenRoundedRectangle(rawFill, rawPen, ReadReplayRect(payload, 0),
+                        ReadDouble(payload, 32), ReadDouble(payload, 40), sink, smoothAdapter, out status);
+                if (handled)
+                {
+                    if (command == WpfMilCommandId.DrawEllipseAnimate)
+                        unsupportedAnimations = CountUnsupportedAnimationHandles(payload, 40, 44, 48);
+                    else if (command == WpfMilCommandId.DrawRoundedRectangleAnimate)
+                        unsupportedAnimations = CountUnsupportedAnimationHandles(payload, 56, 60, 64);
+                    return true;
+                }
+            }
+        }
         if (command is WpfMilCommandId.DrawRectangle or WpfMilCommandId.DrawRectangleAnimate
             && TryResolveRawResource(resources, ReadUInt32(payload, 36), out var rectanglePen))
         {

@@ -304,13 +304,40 @@ public sealed class ProGpuCompositionCommandSink :
         return true;
     }
 
-    WpfDrawingReplayStatus IWpfBitmapCacheBrushCommandSink.DrawBitmapCacheBrushRectangleGeometry(object? fill,
+    WpfDrawingReplayStatus IWpfBitmapCacheBrushCommandSink.DrawBitmapCacheBrushPrimitiveGeometry(object? fill,
         global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource source,
         in global::ProGPU.Wpf.Interop.PortablePenState pen,
         in global::ProGPU.Wpf.Interop.PortablePrimitiveGeometry geometry,
-        Func<object?, MediaImageSource?>? imageSourceAdapter)
+        Func<object?, MediaImageSource?>? imageSourceAdapter, bool snapShape)
     {
         ThrowIfClosed();
+        if (snapShape)
+        {
+            var shape = geometry;
+            if (geometry.Kind == global::ProGPU.Wpf.Interop.PortablePrimitiveGeometryKind.Ellipse)
+            {
+                double rx = geometry.RadiusX, ry = geometry.RadiusY;
+                if (!double.IsFinite(rx * 2) || !double.IsFinite(ry * 2) || rx <= 0 || ry <= 0
+                    || !double.IsFinite(geometry.Point1.X - rx) || !double.IsFinite(geometry.Point1.Y - ry))
+                    return WpfDrawingReplayStatus.Unsupported;
+                var bounds = SnapGuidelines(new Rect(geometry.Point1.X - rx, geometry.Point1.Y - ry, rx * 2, ry * 2));
+                shape = global::ProGPU.Wpf.Interop.PortablePrimitiveGeometry.Ellipse(
+                    new(bounds.X + bounds.Width * 0.5, bounds.Y + bounds.Height * 0.5), bounds.Width * 0.5, bounds.Height * 0.5, geometry.Transform);
+            }
+            else if (geometry.Kind == global::ProGPU.Wpf.Interop.PortablePrimitiveGeometryKind.Rectangle)
+            {
+                if (!double.IsFinite(geometry.Rect.Width) || !double.IsFinite(geometry.Rect.Height)
+                    || !double.IsFinite(geometry.Rect.X) || !double.IsFinite(geometry.Rect.Y)
+                    || geometry.Rect.Width <= 0 || geometry.Rect.Height <= 0) return WpfDrawingReplayStatus.Unsupported;
+                var bounds = SnapGuidelines(new Rect(geometry.Rect.X, geometry.Rect.Y, geometry.Rect.Width, geometry.Rect.Height));
+                shape = global::ProGPU.Wpf.Interop.PortablePrimitiveGeometry.Rectangle(
+                    new(bounds.X, bounds.Y, bounds.Width, bounds.Height), geometry.RadiusX, geometry.RadiusY, geometry.Transform);
+            }
+            return ((IWpfBitmapCacheBrushCommandSink)this).DrawBitmapCacheBrushPrimitiveGeometry(fill, source, pen, shape, imageSourceAdapter);
+        }
+        if (geometry.Kind == global::ProGPU.Wpf.Interop.PortablePrimitiveGeometryKind.Ellipse
+            || geometry.RadiusX != 0 || geometry.RadiusY != 0)
+            return DrawBitmapCacheBrushSmoothGeometry(fill, source, pen, geometry, imageSourceAdapter);
         Span<global::ProGPU.Wpf.Interop.PortablePoint> corners = stackalloc global::ProGPU.Wpf.Interop.PortablePoint[4];
         if (!geometry.TryWriteTransformedRectangleCorners(corners)) return WpfDrawingReplayStatus.Unsupported;
         Span<Vector2> points = stackalloc Vector2[4];
@@ -334,6 +361,56 @@ public sealed class ProGpuCompositionCommandSink :
         // Even a rejected stroke must not erase valid fill. Success shares the
         // same immutable spine between fill coverage and the stroke mask.
         path ??= global::ProGPU.Scene.RenderCommandGeometryCache.CreatePolylinePath(points, isClosed: true);
+        return DrawPreparedBitmapCacheGeometry(fill, source, path, coveragePen, strokeBounds,
+            new(minimum.X, minimum.Y, extent.X, extent.Y), prepared, imageSourceAdapter);
+    }
+
+    private WpfDrawingReplayStatus DrawBitmapCacheBrushSmoothGeometry(object? fill,
+        global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource source,
+        in global::ProGPU.Wpf.Interop.PortablePenState pen,
+        in global::ProGPU.Wpf.Interop.PortablePrimitiveGeometry geometry,
+        Func<object?, MediaImageSource?>? imageSourceAdapter)
+    {
+        // Only metadata conversion belongs in the host; curve preparation,
+        // authoritative stroke bounds and SIMD arithmetic stay in ProGPU.
+        var matrix = geometry.Transform;
+        var affine = new Matrix3x2((float)matrix.M11, (float)matrix.M12, (float)matrix.M21,
+            (float)matrix.M22, (float)matrix.OffsetX, (float)matrix.OffsetY);
+        var descriptor = geometry;
+        bool Prepare(VectorPen value, out VectorPathGeometry path, out VectorPen coverage, out global::ProGPU.Scene.Rect ink)
+        {
+            if (descriptor.Kind == global::ProGPU.Wpf.Interop.PortablePrimitiveGeometryKind.Ellipse)
+                return global::ProGPU.Scene.StrokeCoverageGeometry.TryPrepareEllipse(
+                    new((float)descriptor.Point1.X, (float)descriptor.Point1.Y), (float)descriptor.RadiusX,
+                    (float)descriptor.RadiusY, affine, value, out path, out coverage, out ink);
+            if (descriptor.Kind == global::ProGPU.Wpf.Interop.PortablePrimitiveGeometryKind.Rectangle)
+                return global::ProGPU.Scene.StrokeCoverageGeometry.TryPrepareRoundedRectangle(
+                    new((float)descriptor.Rect.X, (float)descriptor.Rect.Y, (float)descriptor.Rect.Width, (float)descriptor.Rect.Height),
+                    (float)descriptor.RadiusX, (float)descriptor.RadiusY, affine, value, out path, out coverage, out ink);
+            path = null!; coverage = null!; ink = default;
+            return false;
+        }
+        VectorPathGeometry path = null!;
+        VectorPen coveragePen = null!;
+        global::ProGPU.Scene.Rect strokeBounds = default;
+        bool prepared = WpfResourceResolver.TryAdaptNativeStrokePen(pen, out var nativePen)
+            && Prepare(nativePen, out path, out coveragePen, out strokeBounds);
+        // A rejected pen may still have a valid fill. Zero-width preparation
+        // requests only an owned analytic spine, never a substitute stroke.
+        if (!prepared && (fill == null || !Prepare(new VectorPen(new VectorSolidColorBrush(Vector4.One), 0),
+                out path, out _, out _))) return WpfDrawingReplayStatus.Unsupported;
+        if (!path.TryGetBounds(out var minimum, out var maximum)) return WpfDrawingReplayStatus.Unsupported;
+        var extent = maximum - minimum;
+        if (!float.IsFinite(extent.X) || !float.IsFinite(extent.Y)) return WpfDrawingReplayStatus.Unsupported;
+        return DrawPreparedBitmapCacheGeometry(fill, source, path, coveragePen, strokeBounds,
+            new(minimum.X, minimum.Y, extent.X, extent.Y), prepared, imageSourceAdapter);
+    }
+
+    private WpfDrawingReplayStatus DrawPreparedBitmapCacheGeometry(object? fill,
+        global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource source,
+        VectorPathGeometry path, VectorPen coveragePen, global::ProGPU.Scene.Rect strokeBounds,
+        WpfReplayRect fillBounds, bool prepared, Func<object?, MediaImageSource?>? imageSourceAdapter)
+    {
         bool fillApplied = fill == null, partialFill = false;
         if (fill != null)
         {
@@ -348,7 +425,7 @@ public sealed class ProGpuCompositionCommandSink :
             else if (WpfResourceResolver.AdaptBrush(fill) is { } mediaFill)
             {
                 int unsupportedBefore = UnsupportedStateCount;
-                var fillBrush = ToNativeBrush(mediaFill, new WpfReplayRect(minimum.X, minimum.Y, extent.X, extent.Y));
+                var fillBrush = ToNativeBrush(mediaFill, fillBounds);
                 if (fillBrush != null)
                 {
                     AddNativePath(fillBrush, null, path);
@@ -620,6 +697,12 @@ public sealed class ProGpuCompositionCommandSink :
     public void DrawRoundedRectangle(MediaBrush? brush, MediaPen? pen, Rect rectangle, double radiusX, double radiusY)
     {
         ThrowIfClosed();
+        if (WpfDrawingReplay.TryReplayBitmapCachePenRoundedRectangle(brush, pen,
+            new(rectangle.X, rectangle.Y, rectangle.Width, rectangle.Height), radiusX, radiusY, this, null, out var cachedStatus))
+        {
+            if (cachedStatus != WpfDrawingReplayStatus.Applied) UnsupportedStateCount++;
+            return;
+        }
         rectangle = SnapGuidelines(rectangle);
         var nativeBrush = ToNativeBrush(brush, rectangle);
         var nativePen = ToNativePen(pen, rectangle);
@@ -650,6 +733,12 @@ public sealed class ProGpuCompositionCommandSink :
     public void DrawEllipse(MediaBrush? brush, MediaPen? pen, Point center, double radiusX, double radiusY)
     {
         ThrowIfClosed();
+        if (WpfDrawingReplay.TryReplayBitmapCachePenEllipse(brush, pen, new(center.X, center.Y), radiusX, radiusY,
+            this, null, out var cachedStatus))
+        {
+            if (cachedStatus != WpfDrawingReplayStatus.Applied) UnsupportedStateCount++;
+            return;
+        }
         var bounds = new Rect(center.X - radiusX, center.Y - radiusY, radiusX * 2, radiusY * 2);
         bounds = SnapGuidelines(bounds);
         center = new Point(bounds.X + bounds.Width / 2, bounds.Y + bounds.Height / 2);
@@ -1169,6 +1258,12 @@ public sealed class ProGpuCompositionCommandSink :
     void IWpfNativePrimitiveCommandSink.DrawNativeRoundedRectangle(MediaBrush? brush, MediaPen? pen, WpfReplayRect rectangle, double radiusX, double radiusY)
     {
         ThrowIfClosed();
+        if (WpfDrawingReplay.TryReplayBitmapCachePenRoundedRectangle(brush, pen, rectangle, radiusX, radiusY,
+            this, null, out var cachedStatus))
+        {
+            if (cachedStatus != WpfDrawingReplayStatus.Applied) UnsupportedStateCount++;
+            return;
+        }
 
         var nativeBrush = ToNativeBrush(brush, rectangle);
         var nativePen = ToNativePen(pen, rectangle);
@@ -1193,6 +1288,12 @@ public sealed class ProGpuCompositionCommandSink :
     void IWpfNativePrimitiveCommandSink.DrawNativeEllipse(MediaBrush? brush, MediaPen? pen, WpfReplayPoint center, double radiusX, double radiusY)
     {
         ThrowIfClosed();
+        if (WpfDrawingReplay.TryReplayBitmapCachePenEllipse(brush, pen, center, radiusX, radiusY,
+            this, null, out var cachedStatus))
+        {
+            if (cachedStatus != WpfDrawingReplayStatus.Applied) UnsupportedStateCount++;
+            return;
+        }
 
         var bounds = new WpfReplayRect(center.X - radiusX, center.Y - radiusY, radiusX * 2, radiusY * 2);
         var nativeBrush = ToNativeBrush(brush, bounds);

@@ -289,6 +289,29 @@ internal static class WpfDrawingReplay
         return true;
     }
 
+    internal static bool TryReplayBitmapCachePenEllipse(object? brush, object? pen, WpfReplayPoint center,
+        double radiusX, double radiusY, IWpfCompositionCommandSink sink, Func<object?, MediaImageSource?>? adapter,
+        out WpfDrawingReplayStatus status) => TryReplayBitmapCachePenPrimitive(brush, pen,
+            global::ProGPU.Wpf.Interop.PortablePrimitiveGeometry.Ellipse(new(center.X, center.Y), radiusX, radiusY,
+                global::ProGPU.Wpf.Interop.PortableMatrix3x2.Identity), sink, adapter, out status);
+
+    internal static bool TryReplayBitmapCachePenRoundedRectangle(object? brush, object? pen, WpfReplayRect rectangle,
+        double radiusX, double radiusY, IWpfCompositionCommandSink sink, Func<object?, MediaImageSource?>? adapter,
+        out WpfDrawingReplayStatus status) => TryReplayBitmapCachePenPrimitive(brush, pen,
+            global::ProGPU.Wpf.Interop.PortablePrimitiveGeometry.Rectangle(new(rectangle.X, rectangle.Y, rectangle.Width, rectangle.Height),
+                radiusX, radiusY, global::ProGPU.Wpf.Interop.PortableMatrix3x2.Identity), sink, adapter, out status);
+
+    private static bool TryReplayBitmapCachePenPrimitive(object? brush, object? pen,
+        in global::ProGPU.Wpf.Interop.PortablePrimitiveGeometry geometry, IWpfCompositionCommandSink sink,
+        Func<object?, MediaImageSource?>? adapter, out WpfDrawingReplayStatus status)
+    {
+        status = WpfDrawingReplayStatus.Unsupported;
+        if (!WpfResourceResolver.TryGetBitmapCachePen(pen, out var state, out var source)) return false;
+        if (sink is IWpfBitmapCacheBrushCommandSink cached)
+            status = cached.DrawBitmapCacheBrushPrimitiveGeometry(brush, source, state, geometry, adapter, snapShape: true);
+        return true;
+    }
+
     internal static bool TryReplayBitmapCachePenGeometry(object? brush, object? pen, object? geometry,
         IWpfCompositionCommandSink sink, Func<object?, MediaImageSource?>? imageSourceAdapter,
         out WpfDrawingReplayStatus status)
@@ -308,24 +331,33 @@ internal static class WpfDrawingReplay
                     status = WpfDrawingReplayStatus.Applied;
                 return true;
             }
-            if (primitive.Kind != global::ProGPU.Wpf.Interop.PortablePrimitiveGeometryKind.Rectangle)
+            if (primitive.Kind != global::ProGPU.Wpf.Interop.PortablePrimitiveGeometryKind.Rectangle
+                && primitive.Kind != global::ProGPU.Wpf.Interop.PortablePrimitiveGeometryKind.Ellipse)
                 return false;
         }
-        else if (geometry is MediaRectangleGeometry rectangle)
+        else if (geometry is MediaRectangleGeometry or MediaEllipseGeometry)
         {
+            var media = (MediaGeometry)geometry;
             Matrix4x4 matrix = Matrix4x4.Identity;
-            if (rectangle.Transform != null && !WpfResourceResolver.TryAdaptTransformMatrix(rectangle.Transform, out matrix)) return true;
+            if (media.Transform != null && !WpfResourceResolver.TryAdaptTransformMatrix(media.Transform, out matrix)) return true;
             if (matrix.M13 != 0 || matrix.M14 != 0 || matrix.M23 != 0 || matrix.M24 != 0
                 || matrix.M31 != 0 || matrix.M32 != 0 || matrix.M33 != 1 || matrix.M34 != 0
                 || matrix.M43 != 0 || matrix.M44 != 1) return true;
-            primitive = global::ProGPU.Wpf.Interop.PortablePrimitiveGeometry.Rectangle(
-                new(rectangle.Rect.X, rectangle.Rect.Y, rectangle.Rect.Width, rectangle.Rect.Height),
-                rectangle.RadiusX, rectangle.RadiusY, new(matrix.M11, matrix.M12, matrix.M21, matrix.M22, matrix.M41, matrix.M42));
+            var affine = new global::ProGPU.Wpf.Interop.PortableMatrix3x2(matrix.M11, matrix.M12, matrix.M21, matrix.M22, matrix.M41, matrix.M42);
+            if (media is MediaRectangleGeometry rectangle)
+                primitive = global::ProGPU.Wpf.Interop.PortablePrimitiveGeometry.Rectangle(
+                    new(rectangle.Rect.X, rectangle.Rect.Y, rectangle.Rect.Width, rectangle.Rect.Height),
+                    rectangle.RadiusX, rectangle.RadiusY, affine);
+            else
+            {
+                var ellipse = (MediaEllipseGeometry)media;
+                primitive = global::ProGPU.Wpf.Interop.PortablePrimitiveGeometry.Ellipse(
+                    new(ellipse.Center.X, ellipse.Center.Y), ellipse.RadiusX, ellipse.RadiusY, affine);
+            }
         }
         else return TryReplayBitmapCachePenLinePath(source, state, geometry, sink, imageSourceAdapter, out status);
-        if (primitive.RadiusX != 0 || primitive.RadiusY != 0) return false;
         if (sink is IWpfBitmapCacheBrushCommandSink cached)
-            status = cached.DrawBitmapCacheBrushRectangleGeometry(brush, source, state, primitive, imageSourceAdapter);
+            status = cached.DrawBitmapCacheBrushPrimitiveGeometry(brush, source, state, primitive, imageSourceAdapter);
         return true;
     }
 

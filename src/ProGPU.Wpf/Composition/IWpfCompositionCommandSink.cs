@@ -164,11 +164,11 @@ internal interface IWpfProGpuSceneDrawingContextSource
 
 internal interface IWpfBitmapCacheBrushCommandSink
 {
-    Mil.WpfDrawingReplayStatus DrawBitmapCacheBrushRectangleGeometry(object? fill,
+    Mil.WpfDrawingReplayStatus DrawBitmapCacheBrushPrimitiveGeometry(object? fill,
         global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource source,
         in global::ProGPU.Wpf.Interop.PortablePenState pen,
         in global::ProGPU.Wpf.Interop.PortablePrimitiveGeometry geometry,
-        Func<object?, MediaImageSource?>? imageSourceAdapter) => Mil.WpfDrawingReplayStatus.Unsupported;
+        Func<object?, MediaImageSource?>? imageSourceAdapter, bool snapShape = false) => Mil.WpfDrawingReplayStatus.Unsupported;
 
     bool DrawBitmapCacheBrushRectangleStroke(global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource source,
         in global::ProGPU.Wpf.Interop.PortablePenState pen, WpfReplayRect rectangle,

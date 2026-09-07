@@ -129,6 +129,13 @@ public sealed class WpfCompositionDrawingContext : IWpfGeneratedRenderDataDrawin
     public void DrawRoundedRectangle(MediaBrush? brush, MediaPen? pen, Rect rectangle, double radiusX, double radiusY)
     {
         ThrowIfClosed();
+        if (WpfDrawingReplay.TryReplayBitmapCachePenRoundedRectangle(brush, pen, ToReplayRect(rectangle), radiusX, radiusY,
+            _sink, _imageSourceAdapter, out var cachedStatus))
+        {
+            RegisterRetainedDependencies(brush, pen);
+            CountDrawingReplayStatus(cachedStatus);
+            return;
+        }
         if (brush == null && pen == null)
         {
             return;
@@ -170,6 +177,13 @@ public sealed class WpfCompositionDrawingContext : IWpfGeneratedRenderDataDrawin
     public void DrawEllipse(MediaBrush? brush, MediaPen? pen, Point center, double radiusX, double radiusY)
     {
         ThrowIfClosed();
+        if (WpfDrawingReplay.TryReplayBitmapCachePenEllipse(brush, pen, new(center.X, center.Y), radiusX, radiusY,
+            _sink, _imageSourceAdapter, out var cachedStatus))
+        {
+            RegisterRetainedDependencies(brush, pen);
+            CountDrawingReplayStatus(cachedStatus);
+            return;
+        }
         if (brush == null && pen == null)
         {
             return;

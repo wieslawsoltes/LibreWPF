@@ -10,6 +10,12 @@ The product bridge source is currently reflection-free by audit; keep that as an
 
 ## GPU-First Compute and SIMD Fallback Priority
 
+Cached ellipse and rounded-rectangle pens must use shared ProGPU smooth stroke
+preparation, retain one analytic path for fill and stroke, and report rejected
+pens even when fill succeeds. Direct commands preserve guideline snapping;
+geometry-local transforms precede widening without direct-shape snapping.
+Raw MIL must preserve typed pen brush identity and animation diagnostics.
+
 Cached RectangleGeometry replay should consume each typed primitive descriptor
 once, use ProGPU double corner mapping and shared closed-stroke preparation, and
 reuse the resulting immutable native path for fill and stroke. Source brush fills

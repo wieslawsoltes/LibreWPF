@@ -327,6 +327,14 @@ public sealed class WpfObjectRenderDataDrawingContext :
     public void DrawRoundedRectangle(object? brush, object? pen, object? rectangle, object? radiusX, object? radiusY)
     {
         ThrowIfClosed();
+        if (TryReadRect(rectangle, out var cachedRect) && TryReadDouble(radiusX, out var cachedRx) && TryReadDouble(radiusY, out var cachedRy)
+            && WpfDrawingReplay.TryReplayBitmapCachePenRoundedRectangle(brush, pen, ToReplayRect(cachedRect), cachedRx, cachedRy,
+                _sink, _resources.AdaptImageSource, out var cachedStatus))
+        {
+            RegisterRetainedDependencies(brush, pen);
+            CountDrawingReplayStatus(cachedStatus);
+            return;
+        }
         MediaBrush? mediaBrush = WpfResourceResolver.AdaptBrush(brush);
         MediaPen? mediaPen = WpfResourceResolver.AdaptPen(pen);
         if (brush is global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource cacheSource)
@@ -428,6 +436,14 @@ public sealed class WpfObjectRenderDataDrawingContext :
     public void DrawEllipse(object? brush, object? pen, object? center, object? radiusX, object? radiusY)
     {
         ThrowIfClosed();
+        if (TryReadPoint(center, out var cachedCenter) && TryReadDouble(radiusX, out var cachedRx) && TryReadDouble(radiusY, out var cachedRy)
+            && WpfDrawingReplay.TryReplayBitmapCachePenEllipse(brush, pen, new(cachedCenter.X, cachedCenter.Y), cachedRx, cachedRy,
+                _sink, _resources.AdaptImageSource, out var cachedStatus))
+        {
+            RegisterRetainedDependencies(brush, pen);
+            CountDrawingReplayStatus(cachedStatus);
+            return;
+        }
         MediaBrush? mediaBrush = WpfResourceResolver.AdaptBrush(brush);
         MediaPen? mediaPen = WpfResourceResolver.AdaptPen(pen);
         if (brush != null
