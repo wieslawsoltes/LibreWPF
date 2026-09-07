@@ -8595,7 +8595,32 @@ the existing host-update/resource-generation contract; no callbacks or wire
 changes are added across the ABI. Automatic normal brush routing and shared
 target/policy lookup still remain to be connected.
 
+### Rounded cache-brush fill checkpoint
+
+Direct object/managed rounded drawing and raw rounded/animated MIL records now
+route typed BitmapCacheBrush fills through ProGPU's analytic rounded clip and
+shared cached source. Consumer opacity/mapping and ordinary pen replay remain
+separate from source capture; animated handles retain unsupported diagnostics.
+No reflected adapter or shim geometry is added. Negative radii normalize to
+zero and large finite doubles clamp before float narrowing. Tiny positive
+corners remain curved through ProGPU's shared primitive classifier.
+
+Paired native changes normalize immediate rounded radii before float conversion.
+Native mask/source fixtures and managed clip/direct/raw-MIL fixtures are authored,
+not executed. ProGPU documents the original-source provenance, public contract
+research, costs and native cubic-versus-analytic representation caveat in
+[rounded cached fills](../external/ProGPU/docs/cached-pictures.md#rounded-cache-brush-fills-and-radius-normalization).
+Cache-brush strokes, glyphs, masks, remaining source scopes and the full goal
+remain open. Runtime/VM/platform, performance, renderer/Svg.Skia, verifier and
+CI gates stay deferred until the final validation phase.
+
 ### Compilation checkpoints
+
+Rounded cached-fill checkpoint (2026-09-07): native `progpu_native_mil_tests`
+compiles in Release; ProGPU.Tests builds with 0 warnings/errors and
+ProGPU.Wpf.Tests with 7 warnings and 0 errors. The native MIL coverage ledger
+was regenerated. No tests, runtime comparisons, benchmarks or CI qualification
+were run; compilation does not prove parity.
 
 Target-anchor/ellipse/raw-MIL checkpoint (2026-09-07, ProGPU `a0c3e167`): final
 Release builds succeeded with zero warnings/errors in ProGPU.Tests and four

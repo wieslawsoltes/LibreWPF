@@ -312,6 +312,27 @@ public sealed class WpfObjectRenderDataDrawingContext :
         ThrowIfClosed();
         MediaBrush? mediaBrush = WpfResourceResolver.AdaptBrush(brush);
         MediaPen? mediaPen = WpfResourceResolver.AdaptPen(pen);
+        if (brush is global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource cacheSource)
+        {
+            if (!TryReadRect(rectangle, out var bounds) || !TryReadDouble(radiusX, out var rx) || !TryReadDouble(radiusY, out var ry))
+            {
+                CountUnsupported();
+                return;
+            }
+            RegisterRetainedDependencies(brush, pen);
+            var status = WpfDrawingReplay.ReplayBitmapCacheBrushRoundedRectangleFill(cacheSource, bounds, rx, ry,
+                _sink, _resources.AdaptImageSource);
+            if (mediaPen != null)
+            {
+                if (_sink is IWpfNativePrimitiveCommandSink primitive)
+                    primitive.DrawNativeRoundedRectangle(null, mediaPen, ToReplayRect(bounds), rx, ry);
+                else _sink.DrawRoundedRectangle(null, mediaPen, bounds, rx, ry);
+                if (status != WpfDrawingReplayStatus.Applied) status = WpfDrawingReplayStatus.PartiallyApplied;
+            }
+            else if (pen != null && status == WpfDrawingReplayStatus.Applied) status = WpfDrawingReplayStatus.PartiallyApplied;
+            CountDrawingReplayStatus(status);
+            return;
+        }
         if (mediaBrush == null && mediaPen == null)
         {
             CountUnsupportedIfPresent(brush, pen);

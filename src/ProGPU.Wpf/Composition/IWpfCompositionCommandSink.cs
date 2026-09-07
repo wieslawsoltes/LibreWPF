@@ -140,6 +140,8 @@ internal interface IWpfNativeGeometryCommandSink
     bool PushNativeGeometryClip(MediaGeometry clipGeometry) => false;
 
     bool PushNativeEllipseClip(WpfReplayPoint center, double radiusX, double radiusY) => false;
+
+    bool PushNativeRoundedRectangleClip(WpfReplayRect bounds, double radiusX, double radiusY) => false;
 }
 
 internal interface IWpfHitTestOwnerScopeCommandSink

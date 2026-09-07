@@ -134,7 +134,10 @@ internal static class WpfDrawingReplay
         bool IsRectangle,
         WpfReplayPoint EllipseCenter = default,
         double EllipseRadiusX = 0,
-        double EllipseRadiusY = 0);
+        double EllipseRadiusY = 0,
+        bool IsRoundedRectangle = false,
+        double CornerRadiusX = 0,
+        double CornerRadiusY = 0);
 
     public static bool TryReplay(
         object? drawing,
@@ -863,6 +866,17 @@ internal static class WpfDrawingReplay
         IWpfCompositionCommandSink sink, Func<object?, MediaImageSource?>? imageSourceAdapter)
         => ReplayBitmapCacheBrushFillCore(source, null,
             new TileBrushFillGeometry(null, bounds, null, null, true), sink, imageSourceAdapter);
+
+    internal static WpfDrawingReplayStatus ReplayBitmapCacheBrushRoundedRectangleFill(
+        global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource source, Rect bounds, double radiusX, double radiusY,
+        IWpfCompositionCommandSink sink, Func<object?, MediaImageSource?>? imageSourceAdapter)
+    {
+        if (!double.IsFinite(radiusX) || !double.IsFinite(radiusY))
+            return WpfDrawingReplayStatus.Unsupported;
+        return ReplayBitmapCacheBrushFillCore(source, null,
+            new TileBrushFillGeometry(null, bounds, null, null, false,
+                IsRoundedRectangle: true, CornerRadiusX: Math.Max(0, radiusX), CornerRadiusY: Math.Max(0, radiusY)), sink, imageSourceAdapter);
+    }
 
     private static WpfDrawingReplayStatus ReplayBitmapCacheBrushFillCore(
         global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource source,
@@ -1771,6 +1785,9 @@ internal static class WpfDrawingReplay
 
     private static bool PushTileBrushFillClip(IWpfCompositionCommandSink sink, TileBrushFillGeometry geometry)
     {
+        if (geometry.IsRoundedRectangle)
+            return sink is IWpfNativeGeometryCommandSink roundedSink
+                && roundedSink.PushNativeRoundedRectangleClip(ToReplayRect(geometry.Bounds), geometry.CornerRadiusX, geometry.CornerRadiusY);
         if (geometry.EllipseRadiusX > 0)
             return sink is IWpfNativeGeometryCommandSink ellipseSink
                 && ellipseSink.PushNativeEllipseClip(geometry.EllipseCenter, geometry.EllipseRadiusX, geometry.EllipseRadiusY);

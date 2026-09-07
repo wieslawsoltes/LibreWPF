@@ -1174,10 +1174,21 @@ public sealed class WpfMilRenderDataDecoder
                     }
                 }
                 break;
-            // Rounded source-brush records require their dedicated exact clip
-            // route. Report this explicitly rather than adapting to a null fill.
+            case WpfMilCommandId.DrawRoundedRectangle:
             case WpfMilCommandId.DrawRoundedRectangleAnimate:
-                unsupportedAnimations = CountUnsupportedAnimationHandles(payload, 56, 60, 64);
+                var roundedBounds = ReadRect(payload, 0);
+                double roundedRadiusX = ReadDouble(payload, 32), roundedRadiusY = ReadDouble(payload, 40);
+                status = WpfDrawingReplay.ReplayBitmapCacheBrushRoundedRectangleFill(source, roundedBounds,
+                    roundedRadiusX, roundedRadiusY, sink, adapter);
+                if (pen != null)
+                {
+                    if (sink is IWpfNativePrimitiveCommandSink primitive)
+                        primitive.DrawNativeRoundedRectangle(null, pen, ReadReplayRect(payload, 0), roundedRadiusX, roundedRadiusY);
+                    else sink.DrawRoundedRectangle(null, pen, roundedBounds, roundedRadiusX, roundedRadiusY);
+                    penApplied = true;
+                }
+                if (command == WpfMilCommandId.DrawRoundedRectangleAnimate)
+                    unsupportedAnimations = CountUnsupportedAnimationHandles(payload, 56, 60, 64);
                 break;
         }
         if ((status == WpfDrawingReplayStatus.Applied && penToken != 0 && !penApplied)

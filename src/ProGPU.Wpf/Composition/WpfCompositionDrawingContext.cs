@@ -118,6 +118,20 @@ public sealed class WpfCompositionDrawingContext : IWpfGeneratedRenderDataDrawin
         }
 
         RegisterRetainedDependencies(brush, pen);
+        if (brush is global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource cacheSource)
+        {
+            var status = WpfDrawingReplay.ReplayBitmapCacheBrushRoundedRectangleFill(cacheSource, rectangle, radiusX, radiusY,
+                _sink, _imageSourceAdapter);
+            if (pen != null)
+            {
+                if (_sink is IWpfNativePrimitiveCommandSink primitive)
+                    primitive.DrawNativeRoundedRectangle(null, pen, new WpfReplayRect(rectangle.X, rectangle.Y, rectangle.Width, rectangle.Height), radiusX, radiusY);
+                else _sink.DrawRoundedRectangle(null, pen, rectangle, radiusX, radiusY);
+                if (status != WpfDrawingReplayStatus.Applied) status = WpfDrawingReplayStatus.PartiallyApplied;
+            }
+            CountDrawingReplayStatus(status);
+            return;
+        }
         _sink.DrawRoundedRectangle(brush, pen, rectangle, radiusX, radiusY);
         CountApplied();
     }
@@ -132,15 +146,7 @@ public sealed class WpfCompositionDrawingContext : IWpfGeneratedRenderDataDrawin
         double radiusY,
         object? radiusYAnimations)
     {
-        ThrowIfClosed();
-        if (brush == null && pen == null)
-        {
-            return;
-        }
-
-        RegisterRetainedDependencies(brush, pen);
-        _sink.DrawRoundedRectangle(brush, pen, rectangle, radiusX, radiusY);
-        CountApplied();
+        DrawRoundedRectangle(brush, pen, rectangle, radiusX, radiusY);
         CountUnsupportedStateIfAny(rectangleAnimations, radiusXAnimations, radiusYAnimations);
     }
 

@@ -375,9 +375,54 @@ public sealed class WpfVisualTreeRendererTests
     }
 
     [Theory]
+    [InlineData(false, 2.0, 3.0)]
+    [InlineData(true, 2.0, 3.0)]
+    [InlineData(false, double.MaxValue, double.MaxValue)]
+    [InlineData(true, 0.00001, 0.00002)]
+    [InlineData(true, -1.0, 3.0)]
+    public void RoundedCacheBrushClampsRadiiAndKeepsExactClip(bool objectRenderData, double radiusX, double radiusY)
+    {
+        var target = new FakePortableVisualStateDrawingVisual(CreateRenderData(Brushes.Red), new PortableVisualState())
+        { Bounds = new Rect(0, 0, 30, 30) };
+        var brush = new CaptureBrush(new(target));
+        var commands = new global::ProGPU.Scene.DrawingContext();
+        try
+        {
+            using var sink = new ProGpuCompositionCommandSink(commands);
+            if (objectRenderData)
+            {
+                using var replay = new WpfObjectRenderDataDrawingContext(sink);
+                replay.DrawRoundedRectangle(brush, null, new Rect(1, 2, 20, 10), radiusX, radiusY);
+                Assert.Equal(0, replay.Result.UnsupportedCount);
+            }
+            else
+                Assert.Equal(WpfDrawingReplayStatus.Applied,
+                    WpfDrawingReplay.ReplayBitmapCacheBrushRoundedRectangleFill(brush, new Rect(1, 2, 20, 10),
+                        radiusX, radiusY, sink, null));
+            var clip = Assert.Single(commands.Commands.Where(command => command.Type == global::ProGPU.Scene.RenderCommandType.PushGeometryClip));
+            var figure = Assert.Single(clip.Path!.Figures);
+            if (radiusX <= 0 || radiusY <= 0)
+                Assert.All(figure.Segments, segment => Assert.IsType<global::ProGPU.Vector.LineSegment>(segment));
+            else
+            {
+                Assert.Equal(8, figure.Segments.Count);
+                var arcs = figure.Segments.OfType<global::ProGPU.Vector.ArcSegment>().ToArray();
+                Assert.Equal(4, arcs.Length);
+                Assert.All(arcs, arc => Assert.Equal(new Vector2((float)Math.Min(10, radiusX), (float)Math.Min(5, radiusY)), arc.Size));
+                Assert.False(global::ProGPU.Vector.PrimitivePathGeometry.TryGetAxisAlignedRectangleBounds(clip.Path, out _, out _));
+            }
+            Assert.Single(commands.Commands.Where(command => command.Type == global::ProGPU.Scene.RenderCommandType.PopGeometryClip));
+            Assert.Single(commands.Commands.Where(command => command.Type == global::ProGPU.Scene.RenderCommandType.DrawVisual));
+        }
+        finally { commands.Clear(); }
+    }
+
+    [Theory]
     [InlineData(WpfMilCommandId.DrawRectangle)]
     [InlineData(WpfMilCommandId.DrawEllipse)]
     [InlineData(WpfMilCommandId.DrawGeometry)]
+    [InlineData(WpfMilCommandId.DrawRoundedRectangle)]
+    [InlineData(WpfMilCommandId.DrawRoundedRectangleAnimate)]
     public void MilDecoderDispatchesRawTypedCacheBrushBeforeMediaAdaptation(WpfMilCommandId command)
     {
         var target = new FakePortableVisualStateDrawingVisual(CreateRenderData(Brushes.Red), new PortableVisualState())
@@ -385,7 +430,9 @@ public sealed class WpfVisualTreeRendererTests
         var registry = new WpfMilResourceRegistry();
         registry.Register(1, new CaptureBrush(new(target)));
         registry.Register(2, new RectangleGeometry(new Rect(0, 0, 20, 20)));
-        byte[] payload = new byte[command == WpfMilCommandId.DrawGeometry ? 16 : 40];
+        bool rounded = command is WpfMilCommandId.DrawRoundedRectangle or WpfMilCommandId.DrawRoundedRectangleAnimate;
+        bool animated = command == WpfMilCommandId.DrawRoundedRectangleAnimate;
+        byte[] payload = new byte[command == WpfMilCommandId.DrawGeometry ? 16 : animated ? 72 : rounded ? 56 : 40];
         if (command == WpfMilCommandId.DrawGeometry)
         {
             WriteInt32(payload, 0, 1);
@@ -397,13 +444,20 @@ public sealed class WpfVisualTreeRendererTests
             WriteDouble(payload, 8, 10);
             WriteDouble(payload, 16, 5);
             WriteDouble(payload, 24, 6);
-            WriteInt32(payload, 32, 1);
+            if (rounded)
+            {
+                WriteDouble(payload, 32, 2);
+                WriteDouble(payload, 40, 3);
+                WriteInt32(payload, 48, 1);
+                if (animated) WriteInt32(payload, 56, 99);
+            }
+            else WriteInt32(payload, 32, 1);
         }
         var commands = new global::ProGPU.Scene.DrawingContext();
         try
         {
             using var sink = new ProGpuCompositionCommandSink(commands);
-            Assert.Equal(new WpfMilDecodeResult(1, 1, 0, 0),
+            Assert.Equal(new WpfMilDecodeResult(1, 1, 0, animated ? 1 : 0),
                 new WpfMilRenderDataDecoder().Decode(CreateRecord(command, payload), sink, registry));
             Assert.Single(commands.Commands.Where(value => value.Type == global::ProGPU.Scene.RenderCommandType.DrawVisual));
         }

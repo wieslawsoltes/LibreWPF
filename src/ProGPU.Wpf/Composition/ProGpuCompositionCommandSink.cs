@@ -773,6 +773,24 @@ public sealed class ProGpuCompositionCommandSink :
         return true;
     }
 
+    bool IWpfNativeGeometryCommandSink.PushNativeRoundedRectangleClip(WpfReplayRect bounds, double radiusX, double radiusY)
+    {
+        ThrowIfClosed();
+        if (!double.IsFinite(radiusX) || !double.IsFinite(radiusY) || radiusX < 0 || radiusY < 0
+            || !float.IsFinite((float)bounds.X) || !float.IsFinite((float)bounds.Y)
+            || !float.IsFinite((float)bounds.Width) || !float.IsFinite((float)bounds.Height)
+            || (float)bounds.Width <= 0 || (float)bounds.Height <= 0
+            || !float.IsFinite((float)(bounds.X + bounds.Width))
+            || !float.IsFinite((float)(bounds.Y + bounds.Height))) return false;
+        // Clamp before narrowing; large finite radii remain valid WPF inputs.
+        float rx = (float)Math.Min(radiusX, bounds.Width * 0.5);
+        float ry = (float)Math.Min(radiusY, bounds.Height * 0.5);
+        if ((radiusX > 0 && rx == 0) || (radiusY > 0 && ry == 0)) return false;
+        NativeContext.PushRoundedRectangleClip(ToNativeRect(bounds), rx, ry, _transformStack.Peek());
+        _pushStack.Push(PushKind.GeometryClip);
+        return true;
+    }
+
     void IWpfNativeClipCommandSink.PushNativeClip(WpfReplayRect bounds)
     {
         ThrowIfClosed();

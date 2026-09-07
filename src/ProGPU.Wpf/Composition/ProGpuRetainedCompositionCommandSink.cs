@@ -151,6 +151,14 @@ internal sealed class ProGpuRetainedCompositionCommandSink :
         return true;
     }
 
+    public bool PushNativeRoundedRectangleClip(WpfReplayRect bounds, double radiusX, double radiusY)
+    {
+        ThrowIfClosed();
+        if (!((IWpfNativeGeometryCommandSink)Current.Sink).PushNativeRoundedRectangleClip(bounds, radiusX, radiusY)) return false;
+        _scopeStack.Push(ScopeKind.Delegate);
+        return true;
+    }
+
     void IWpfBitmapCacheBrushCommandSink.DrawBitmapCacheBrushSource(
         global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource source,
         Func<object?, MediaImageSource?>? imageSourceAdapter)
