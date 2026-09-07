@@ -979,6 +979,12 @@ public sealed class WpfVisualInvalidationTracker : IDisposable
         TVisitor visitor)
         where TVisitor : struct, IPortableDependencyVisitor<TState>
     {
+        if (source is global::ProGPU.Wpf.Interop.IPortablePenStateSource penSource
+            && penSource.TryGetPortablePenState(out var penState))
+        {
+            VisitPortableDependency(ref state, visitor, penState.Brush);
+        }
+
         if (source is PortableDrawingContentSource drawingContentSource
             && drawingContentSource.TryGetPortableDrawingContent(out var drawingContent)
             && drawingContent != null)

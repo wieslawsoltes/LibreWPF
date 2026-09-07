@@ -8540,6 +8540,24 @@ keys. These fixtures are authored only; no runtime validation is claimed.
 
 ## Developer commands
 
+### Typed cached-line pen checkpoint
+
+Object/managed/direct-native and raw MIL line calls now retain raw cached brush
+identity through PortablePenState instead of trying the solid/gradient-only pen
+adapter first. The retained sink forwards to ProGPU line/dash preparation, whose
+emitted spine/cap bounds determine relative brush mapping. The dependency visitor
+now follows typed pen brush state, and aliased-edge metadata reaches stroke masks.
+The implementation remains in ProGPU; WPF performs typed adaptation, guideline
+snapping, source lookup and command routing.
+
+General geometry/other primitive pens and LineGeometry/GeometryDrawing lowering
+remain open. Zero/tiny dash intervals, invalid or overly dense patterns and bounds
+for fixed/hairline strokes explicitly fail instead of using approximate fallback
+geometry. Native MIL already has sampled pens and widened bounds; new paired
+mapping cases are authored. Design, original-source provenance, intrinsic/scalar
+fixtures, costs, exact limitations and deferred gates:
+[ProGPU typed cached-line pens](../external/ProGPU/docs/cached-pictures.md#typed-cached-line-pens-and-intrinsic-cap-bounds).
+
 ### Retained cached-stroke coverage checkpoint
 
 ProGPU now exposes `DrawCachedPictureStroke`: a retained pen/path coverage mask,
@@ -8668,6 +8686,13 @@ remain open. Runtime/VM/platform, performance, renderer/Svg.Skia, verifier and
 CI gates stay deferred until the final validation phase.
 
 ### Compilation checkpoints
+
+Typed cached-line checkpoint (2026-09-07): native `progpu_native_mil_tests`
+compiles in Release; ProGPU.Tests reports 0 warnings/0 errors. The final incremental
+WPF build reports 11 warnings/0 errors; the preceding broader rebuild reported
+106 warnings/0 errors. Warnings were not audited, and the smaller incremental
+total is not evidence of fixes. All authored tests, scalar/SIMD/image comparisons,
+VM/platform runs, performance, source audits and CI qualification remain deferred.
 
 Cached stroke-coverage checkpoint (2026-09-07): native `progpu_native_mil_tests`
 compiles in Release; ProGPU.Tests reports 0 warnings/0 errors and the WPF test

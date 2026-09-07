@@ -459,6 +459,62 @@ public sealed class WpfVisualTreeRendererTests
         finally { commands.Clear(); }
     }
 
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void CachedLinePenUsesTypedStateAndStrokeBounds(bool mil, bool dashed)
+    {
+        var target = new FakePortableVisualStateDrawingVisual(CreateRenderData(Brushes.Red), new PortableVisualState())
+        { Bounds = new Rect(0, 0, 30, 30) };
+        var brush = new CaptureBrush(new(target, Opacity: 0.5));
+        var pen = new CapturePen(new(brush, 4,
+            global::ProGPU.Wpf.Interop.PortablePenLineCap.Round,
+            global::ProGPU.Wpf.Interop.PortablePenLineCap.Flat,
+            global::ProGPU.Wpf.Interop.PortablePenLineCap.Square,
+            global::ProGPU.Wpf.Interop.PortablePenLineJoin.Miter, 10,
+            dashed ? new double[] { 2, 1 } : System.Array.Empty<double>(), 0.25));
+        var commands = new global::ProGPU.Scene.DrawingContext();
+        try
+        {
+            using var sink = new ProGpuCompositionCommandSink(commands);
+            if (mil)
+            {
+                var resources = new WpfMilResourceRegistry();
+                resources.Register(1, pen);
+                byte[] payload = new byte[40];
+                WriteDouble(payload, 0, 10); WriteDouble(payload, 8, 20);
+                WriteDouble(payload, 16, 30); WriteDouble(payload, 24, 20);
+                WriteInt32(payload, 32, 1);
+                Assert.Equal(new WpfMilDecodeResult(1, 1, 0, 0),
+                    new WpfMilRenderDataDecoder().Decode(CreateRecord(WpfMilCommandId.DrawLine, payload), sink, resources));
+            }
+            else
+            {
+                using var replay = new WpfObjectRenderDataDrawingContext(sink);
+                replay.DrawLine(pen, new PortablePoint(10, 20), new PortablePoint(30, 20));
+                Assert.Equal(0, replay.Result.UnsupportedCount);
+            }
+            var mask = commands.Commands[0];
+            Assert.Equal(global::ProGPU.Scene.RenderCommandType.PushOpacityMask, mask.Type);
+            Assert.Null(mask.Picture);
+            Assert.NotNull(mask.Path);
+            Assert.False(mask.Pen!.HasDashPattern);
+            if (!dashed) Assert.Equal(new global::ProGPU.Scene.Rect(8, 18, 22, 4), mask.Rect);
+            Assert.Single(commands.Commands.Where(value => value.Type == global::ProGPU.Scene.RenderCommandType.DrawVisual));
+            Assert.Equal(global::ProGPU.Scene.RenderCommandType.PopOpacityMask, commands.Commands[^1].Type);
+        }
+        finally { commands.Clear(); }
+    }
+
+    private sealed class CapturePen(global::ProGPU.Wpf.Interop.PortablePenState state)
+        : global::ProGPU.Wpf.Interop.IPortablePenStateSource
+    {
+        public bool TryGetPortablePenState(out global::ProGPU.Wpf.Interop.PortablePenState value)
+        { value = state; return true; }
+    }
+
     [Fact]
     public void EmptyCacheBrushMaskIsTransparentNotAnAbsentMask()
     {

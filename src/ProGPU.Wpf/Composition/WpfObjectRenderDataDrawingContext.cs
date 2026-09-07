@@ -87,6 +87,15 @@ public sealed class WpfObjectRenderDataDrawingContext :
     public void DrawLine(object? pen, object? point0, object? point1)
     {
         ThrowIfClosed();
+        if (WpfResourceResolver.TryGetBitmapCachePen(pen, out var state, out var source))
+        {
+            RegisterRetainedDependencies(pen);
+            if (TryReadReplayPoint(point0, out var first) && TryReadReplayPoint(point1, out var last)
+                && _sink is IWpfBitmapCacheBrushCommandSink cached
+                && cached.DrawBitmapCacheBrushLine(source, state, first, last, _resources.AdaptImageSource)) CountApplied();
+            else CountUnsupported();
+            return;
+        }
         MediaPen? mediaPen = WpfResourceResolver.AdaptPen(pen);
         if (mediaPen == null)
         {

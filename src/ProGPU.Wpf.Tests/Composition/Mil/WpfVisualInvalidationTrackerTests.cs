@@ -612,6 +612,31 @@ public sealed class WpfVisualInvalidationTrackerTests
     }
 
     [Fact]
+    public void TypedPenTraversesCachedBrushTargetAndPolicy()
+    {
+        var target = new FakeResource();
+        var cache = new FakeResource();
+        var pen = new CachePen(new FakeCacheBrush(target, cache));
+        using var tracker = new WpfVisualInvalidationTracker();
+        tracker.Attach(new FakePortableDrawingVisual(pen));
+        tracker.ConsumeDirty();
+        target.RaisePortableInvalidated();
+        Assert.True(tracker.IsDirty);
+        Assert.Same(target, tracker.LastDirtySource);
+        tracker.ConsumeDirty();
+        cache.RaisePortableInvalidated();
+        Assert.True(tracker.IsDirty);
+        Assert.Same(cache, tracker.LastDirtySource);
+        Assert.Contains(target, WpfVisualInvalidationTracker.EnumerateTrackedDependencies(pen));
+    }
+
+    private sealed class CachePen(object brush) : ProGPU.Wpf.Interop.IPortablePenStateSource
+    {
+        public bool TryGetPortablePenState(out ProGPU.Wpf.Interop.PortablePenState state)
+        { state = new(brush, 4, default, default, default, default, 10, default, 0); return true; }
+    }
+
+    [Fact]
     public void VisualEffectChangeMarksTrackerDirty()
     {
         var effect = new FakeResource();

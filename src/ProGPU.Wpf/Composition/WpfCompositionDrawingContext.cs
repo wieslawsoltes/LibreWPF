@@ -54,8 +54,11 @@ public sealed class WpfCompositionDrawingContext : IWpfGeneratedRenderDataDrawin
         }
 
         RegisterRetainedDependencies(pen);
-        _sink.DrawLine(pen, point0, point1);
-        CountApplied();
+        if (!TryReplayCachedLine(pen, point0, point1))
+        {
+            _sink.DrawLine(pen, point0, point1);
+            CountApplied();
+        }
     }
 
     public void DrawLine(
@@ -72,9 +75,22 @@ public sealed class WpfCompositionDrawingContext : IWpfGeneratedRenderDataDrawin
         }
 
         RegisterRetainedDependencies(pen);
-        _sink.DrawLine(pen, point0, point1);
-        CountApplied();
+        if (!TryReplayCachedLine(pen, point0, point1))
+        {
+            _sink.DrawLine(pen, point0, point1);
+            CountApplied();
+        }
         CountUnsupportedStateIfAny(point0Animations, point1Animations);
+    }
+
+    private bool TryReplayCachedLine(MediaPen pen, Point first, Point last)
+    {
+        if (!WpfResourceResolver.TryGetBitmapCachePen(pen, out var state, out var source)) return false;
+        if (_sink is IWpfBitmapCacheBrushCommandSink cached
+            && cached.DrawBitmapCacheBrushLine(source, state, new WpfReplayPoint(first.X, first.Y),
+                new WpfReplayPoint(last.X, last.Y), _imageSourceAdapter)) CountApplied();
+        else CountUnsupported();
+        return true;
     }
 
     public void DrawRectangle(MediaBrush? brush, MediaPen? pen, Rect rectangle)

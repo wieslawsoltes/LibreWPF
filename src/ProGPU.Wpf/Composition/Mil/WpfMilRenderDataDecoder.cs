@@ -1131,6 +1131,18 @@ public sealed class WpfMilRenderDataDecoder
     {
         status = WpfDrawingReplayStatus.Unsupported;
         unsupportedAnimations = 0;
+        if (command is WpfMilCommandId.DrawLine or WpfMilCommandId.DrawLineAnimate)
+        {
+            if (!TryResolveRawResource(resources, ReadUInt32(payload, 32), out var rawPen)
+                || !WpfResourceResolver.TryGetBitmapCachePen(rawPen, out var penState, out var penSource)) return false;
+            if (sink is IWpfBitmapCacheBrushCommandSink lineSink
+                && lineSink.DrawBitmapCacheBrushLine(penSource, penState, ReadReplayPoint(payload, 0),
+                    ReadReplayPoint(payload, 16), GetImageSourceAdapter(resources, imageSourceAdapter)))
+                status = WpfDrawingReplayStatus.Applied;
+            if (command == WpfMilCommandId.DrawLineAnimate)
+                unsupportedAnimations = CountUnsupportedAnimationHandles(payload, 36, 40);
+            return true;
+        }
         int brushOffset = command switch
         {
             WpfMilCommandId.DrawRectangle or WpfMilCommandId.DrawRectangleAnimate

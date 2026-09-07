@@ -1729,6 +1729,37 @@ public sealed class WpfResourceResolver :
             dashOffset);
     }
 
+    internal static bool TryGetBitmapCachePen(object? resource,
+        out global::ProGPU.Wpf.Interop.PortablePenState state,
+        out global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource source)
+    {
+        state = default;
+        source = null!;
+        if (resource is not global::ProGPU.Wpf.Interop.IPortablePenStateSource publisher
+            || !publisher.TryGetPortablePenState(out state)
+            || state.Brush is not global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource cached) return false;
+        source = cached;
+        return true;
+    }
+
+    internal static bool TryAdaptNativeStrokePen(in global::ProGPU.Wpf.Interop.PortablePenState state,
+        out global::ProGPU.Vector.Pen pen)
+    {
+        pen = null!;
+        float width = (float)Math.Max(0, state.Thickness);
+        float miter = (float)Math.Max(1, state.MiterLimit);
+        if (!double.IsFinite(state.Thickness) || !float.IsFinite(width)
+            || (state.Thickness > 0 && width == 0)
+            || !double.IsFinite(state.MiterLimit) || !float.IsFinite(miter)
+            || !double.IsFinite(state.DashOffset) || (uint)state.StartLineCap > 3
+            || (uint)state.EndLineCap > 3 || (uint)state.DashCap > 3 || (uint)state.LineJoin > 2) return false;
+        pen = new global::ProGPU.Vector.Pen(new global::ProGPU.Vector.SolidColorBrush(Vector4.One),
+            width, ToVectorLineJoin(state.LineJoin), miter, ToVectorLineCap(state.StartLineCap),
+            ToVectorLineCap(state.EndLineCap), ToVectorLineCap(state.DashCap), dashOffset: state.DashOffset);
+        pen.SetDashPattern(state.Dashes.Span);
+        return true;
+    }
+
     private static Color ToMediaColor(PortableBrush brush)
     {
         var color = brush.Color;

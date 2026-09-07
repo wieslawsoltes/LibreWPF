@@ -10,6 +10,12 @@ The product bridge source is currently reflection-free by audit; keep that as an
 
 ## GPU-First Compute and SIMD Fallback Priority
 
+Cached-brush pen replay must consume `IPortablePenStateSource` before color/gradient
+pen adaptation can erase raw brush identity. Retained dependency traversal must
+visit `PortablePenState.Brush`, including target and cache-policy resources. Keep
+line/dash coverage and cap-derived bounds in ProGPU; do not add a WPF-local stroker,
+silent epsilon dash replacement, reflected pen probes, or fill-bound inflation.
+
 Compute-heavy ProGPU and LibreWPF work must use a typed, configurable execution policy whose default selects the fastest qualified path. Prefer native compute shaders first. When a kernel is data-parallel and expressible without compute-only workgroup memory, barriers, atomics, indirect-dispatch semantics, or storage-write requirements, the next fallback must stay on the GPU through an equivalent render/fragment (or other compatible shader-stage) implementation. Do not jump directly from a rejected compute profile to CPU work when a same-device GPU shader path can preserve semantics and avoid readback/upload.
 
 GPU-stage fallbacks must share typed resources, algorithms, quality constants, and differential tests with the compute path, remain reusable across WPF, WinUI, and Avalonia, and expose the selected execution path through diagnostics. Configuration must support fastest/automatic, forced native-compute, forced compatible GPU-shader, forced intrinsic-SIMD CPU, and explicit scalar-reference modes. An incompatible forced path must fail closed; it must not silently select a slower or behaviorally reduced implementation. A GPU fallback must not introduce CPU pixel readback, CPU repacking, or per-item submissions merely to reuse a shader stage.

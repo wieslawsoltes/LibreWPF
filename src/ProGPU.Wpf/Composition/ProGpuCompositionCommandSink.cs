@@ -256,6 +256,31 @@ public sealed class ProGpuCompositionCommandSink :
         return true;
     }
 
+    bool IWpfBitmapCacheBrushCommandSink.DrawBitmapCacheBrushLine(
+        global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource source,
+        in global::ProGPU.Wpf.Interop.PortablePenState pen, WpfReplayPoint start, WpfReplayPoint end,
+        Func<object?, MediaImageSource?>? imageSourceAdapter)
+    {
+        ThrowIfClosed();
+        if (!source.TryGetPortableBitmapCacheBrush(out var brush)
+            || !double.IsFinite(brush.Opacity) || brush.Opacity < 0 || brush.Opacity > 1) return false;
+        if (brush.InternalTarget == null || brush.Opacity == 0) return true;
+        if (!WpfResourceResolver.TryAdaptNativeStrokePen(pen, out var nativePen)) return false;
+        var first = SnapGuideline(new Point(start.X, start.Y));
+        var last = SnapGuideline(new Point(end.X, end.Y));
+        if (!global::ProGPU.Scene.StrokeCoverageGeometry.TryPrepareLine(
+                new Vector2((float)first.X, (float)first.Y), new Vector2((float)last.X, (float)last.Y),
+                nativePen, out var path, out var coveragePen, out var bounds)) return false;
+        if (bounds.Width == 0 || bounds.Height == 0) return true;
+        var ink = new global::ProGPU.Wpf.Interop.PortableRect(bounds.X, bounds.Y, bounds.Width, bounds.Height);
+        if (!global::ProGPU.Wpf.Interop.PortableBitmapCacheBrushPolicy.TryGetMapping(brush, ink, out var mapping)) return false;
+        if (mapping.M11 * mapping.M22 - mapping.M12 * mapping.M21 == 0) return true;
+        using var lease = WpfBitmapCacheBrushSourceLookup.Acquire(source, _context, _viewport3DTextureCache, imageSourceAdapter);
+        NativeContext.DrawCachedPictureStroke(lease, path, coveragePen, bounds, mapping,
+            (float)brush.Opacity, _transformStack.Peek(), _edgeModeStack.Peek());
+        return true;
+    }
+
     bool IWpfHitTestOwnerScopeCommandSink.PushHitTestOwner(object sourceVisual)
     {
         ThrowIfClosed();
@@ -328,6 +353,14 @@ public sealed class ProGpuCompositionCommandSink :
     public void DrawLine(MediaPen? pen, Point point0, Point point1)
     {
         ThrowIfClosed();
+
+        if (WpfResourceResolver.TryGetBitmapCachePen(pen, out var state, out var source))
+        {
+            if (!((IWpfBitmapCacheBrushCommandSink)this).DrawBitmapCacheBrushLine(source, state,
+                    new WpfReplayPoint(point0.X, point0.Y), new WpfReplayPoint(point1.X, point1.Y), null))
+                UnsupportedStateCount++;
+            return;
+        }
 
         point0 = SnapGuideline(point0);
         point1 = SnapGuideline(point1);
@@ -952,6 +985,13 @@ public sealed class ProGpuCompositionCommandSink :
     void IWpfNativePrimitiveCommandSink.DrawNativeLine(MediaPen? pen, WpfReplayPoint point0, WpfReplayPoint point1)
     {
         ThrowIfClosed();
+
+        if (WpfResourceResolver.TryGetBitmapCachePen(pen, out var state, out var source))
+        {
+            if (!((IWpfBitmapCacheBrushCommandSink)this).DrawBitmapCacheBrushLine(source, state, point0, point1, null))
+                UnsupportedStateCount++;
+            return;
+        }
 
         var nativePen = ToNativePen(pen, CreateLineBounds(point0, point1));
         if (nativePen == null)
