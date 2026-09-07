@@ -11,6 +11,36 @@ parity evidence. Tests, VM/image comparisons, verifiers, benchmarks, and exact-h
 CI qualification are deferred at the user's request until implementation is ready.
 Historical passing counts below apply only to their named snapshots.
 
+### Ordinary linear dash consumers checkpoint (2026-09-07)
+
+ProGPU `94106859` shares complete normal-width linear dash coverage between ordinary
+rendering, retained geometric hit testing and native picture path compilation.
+Directed terminal caps are preserved as one filled outline, not separately
+blended caps. Nonterminal strokes retain their prepared spine/pen representation.
+Original fills, outer transforms and edge aliasing remain independent. Entirely
+hidden dash intervals emit no native stroke draw.
+
+The geometry cache keys all outline-relevant style values, shares immutable
+interval storage and excludes brush identity. Paint changes refresh only derived
+paint; stable geometry and failed invalid styles do not reprepare. Span-recorded
+polyline hit testing retains its source graph in the rendering cache. Solid and
+device-width pens bypass the new preparation cache. These are shared ProGPU
+changes with no additional WPF-local stroke code or native ABI changes.
+
+Native C++ already implements directed terminal state and compound outlines;
+the existing matched native cap fixtures remain applicable. New managed fixtures
+cover cache invalidation/reuse, failure recovery, retained hit coverage, native
+path serialization and hidden-interval no-ops. See
+[design, provenance, costs and limits](../external/ProGPU/docs/cached-pictures.md#shared-ordinary-linear-dash-coverage-2026-09-07).
+Fixtures are authored, not executed. Curves, tiny/point-only cases, boolean
+boundaries, device-width coverage, live managed-tree native transport and broader
+MIL/DirectX/Direct2D/COM/Win2D parity remain open. Final image/platform/VM/package,
+performance/SIMD, source-verifier and CI qualification remains deferred.
+
+Final compilation: ProGPU.Tests Release 0 warnings/errors; LibreWPF.Tests Release
+116 warnings and 0 errors. Warnings remain recorded, not qualified or fixed.
+ProGPU main was refreshed with zero missing commits. No runtime validation ran.
+
 ### Directed terminal cached dash coverage checkpoint (2026-09-07)
 
 ProGPU `44c1d2fc` adds complete filled-coverage outputs to the shared line and
