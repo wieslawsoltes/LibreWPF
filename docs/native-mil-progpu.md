@@ -8289,6 +8289,25 @@ ProGPU documents the added preparation/widening costs and pending retained
 caching. Nested groups, other fixed-shape pens, mixed collapsed segments,
 precision limits and the full goal remain open.
 
+## Implementation-first checkpoint: shared partial-collapse strokes
+
+MIL curved/smooth strokes now use ProGPU's shared native semantic stroke
+compiler, removing the duplicate MIL cap/join/tangent/dash implementation. The
+shared compiler compacts exact constant segments from otherwise moving contours,
+checks connectivity before mutation and preserves forced-round metadata. SIMD
+control-coordinate comparisons retain tiny nonzero and retracing curves.
+Transformed MIL spines compact owned arrays; other compiler consumers allocate
+a normalized copy only for mixed input. Public bridge/ABI contracts are unchanged.
+
+Authored tests cover scalar/SIMD constancy, compacted output, open/closed joins,
+dashes/caps, disconnected-input transactionality and partially collapsing MIL
+transforms. An authored arc assertion now correctly reads center/basis layout.
+The native library, Direct2D core and MIL/Direct2D compatibility/WebGPU targets
+compile. Runtime/VM/image/performance/verifier/CI gates remain deferred. ProGPU
+documents complexity and the pending Windows join-propagation comparison;
+nested groups, other fixed-shape transforms, preparation caching and the full
+goal remain open.
+
 ## Developer commands
 
 ```sh
