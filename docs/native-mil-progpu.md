@@ -8168,6 +8168,24 @@ collapse replay fidelity, tiny/all-gap contours and platform/VM/image/performanc
 CI qualification remain open. ProGPU's native MIL/Direct2D work logs record the
 scope, original-code provenance and complexity.
 
+## Implementation-first checkpoint: compound Direct2D widening
+
+ProGPU's native path core now builds crossing/retraced, multi-edge open/dashed
+and mixed-figure stroke outlines from consistently oriented strips, joins and
+caps. Overlaps remain filled, including a line crossing a closed ring; insets
+that collapse the contour bounding box no longer leave an inverted hole.
+The implementation reuses ProGPU's existing dash/join/cap algorithms, adds paired
+NEON/SSE2 line-frame preparation, and batches affine transforms across pieces.
+No WPF-local workaround, shader fork, pixel readback or public ABI change is added.
+
+Native library, MIL and Direct2D compatibility/WebGPU test targets compile.
+Authored coverage fixtures include all join styles, asymmetric caps, odd dashes,
+negative phase, reflected/sheared transforms, crossings and reversals. They have
+not been executed. Remaining compact-offset topology, point/tiny-contour and
+transform-collapse fidelity work plus full platform/VM/image/performance/CI
+qualification remain open. ProGPU's work logs document provenance, allocation
+costs and the distinction between compiled implementation and qualified parity.
+
 ## Developer commands
 
 ```sh
