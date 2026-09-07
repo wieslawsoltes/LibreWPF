@@ -8540,6 +8540,23 @@ keys. These fixtures are authored only; no runtime validation is claimed.
 
 ## Developer commands
 
+### Retained cached-stroke coverage checkpoint
+
+ProGPU now exposes `DrawCachedPictureStroke`: a retained pen/path coverage mask,
+one shared cached-source draw and balanced consumer opacity. Pen snapshots retain
+caps, joins, miter, dash, width and transform-mode semantics without duplicating
+the dash buffer. The native MIL sampled-pen implementation is unchanged; paired
+fixtures cover line/rectangle strokes, dashes, asymmetric caps, alpha and shared
+source revisions. No runtime or pixel parity is claimed from compilation.
+
+This is the reusable rendering operation, **not completed WPF pen routing**.
+WPF still needs typed pen preservation and authoritative stroke bounds in direct,
+drawing and MIL replay before relative cached-brush mapping can use it. The native
+generic picture compiler also still rejects live managed DrawVisual commands.
+Do not hide either gap with conservative fill-bound inflation or CPU rasterization.
+Design, original-code provenance, costs, research and authored cases:
+[ProGPU cached stroke coverage](../external/ProGPU/docs/cached-pictures.md#retained-cached-source-stroke-coverage).
+
 ### Cached glyph-foreground checkpoint
 
 Source-built GlyphRun now caches authoritative ink bounds (including baseline,
@@ -8651,6 +8668,13 @@ remain open. Runtime/VM/platform, performance, renderer/Svg.Skia, verifier and
 CI gates stay deferred until the final validation phase.
 
 ### Compilation checkpoints
+
+Cached stroke-coverage checkpoint (2026-09-07): native `progpu_native_mil_tests`
+compiles in Release; ProGPU.Tests reports 0 warnings/0 errors and the WPF test
+graph reports 105 warnings/0 errors. New fixture constructor/field compilation
+errors were corrected. Warning attribution, tests, images, VM/platform execution,
+benchmarks, source verifiers and CI qualification are deferred. WPF cached-pen
+routing is still implementation work, not a passed gate.
 
 Cached glyph checkpoint (2026-09-07): native `progpu_native_mil_tests` compiles
 in Release; ProGPU.Tests builds with 0 warnings/errors and ProGPU.Wpf.Tests with
