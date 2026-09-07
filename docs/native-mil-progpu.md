@@ -8253,6 +8253,24 @@ qualification remain deferred. Implementation and detailed provenance stay in
 ProGPU; there is no WPF-local workaround or public ABI change, and the full goal
 remains open.
 
+## Implementation-first checkpoint: native LineGeometry pen transforms
+
+Native direct LineGeometry now transforms its endpoints before widening rather
+than scaling/collapsing the pen with Geometry.Transform. Solid, gradient and tile
+pens share the existing native stroke adapters with mapped endpoints; drawing/
+world transforms remain after widening. A collapsed geometry can retain line or
+endpoint-cap coverage, while a zero-area world transform remains nonpainting.
+The endpoint mapper uses constant-space NEON/SSE2 double lanes. This is ProGPU-
+owned implementation, not a WPF-local workaround or public bridge/ABI change.
+
+Authored comparisons use scalar-mapped DrawLine as the stream oracle across
+geometry/world transforms, caps, dashes, solid/gradient brushes and all four tile
+source families. The native library and MIL/Direct2D compatibility/WebGPU test
+targets compile; no tests, platform/VM/image, performance, verifier or CI gates
+were executed. General path/group/other fixed-shape transform ordering and the
+full goal remain open. See ProGPU's native MIL specification for provenance,
+complexity and the deferred qualification scope.
+
 ## Developer commands
 
 ```sh
