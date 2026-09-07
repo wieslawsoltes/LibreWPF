@@ -153,8 +153,8 @@ public sealed class WpfCompositionDrawingContext : IWpfGeneratedRenderDataDrawin
         }
 
         if (brush != null
-            && WpfDrawingReplay.IsTileBrush(brush)
-            && WpfDrawingReplay.TryReplayTileBrushEllipseFill(
+            && WpfDrawingReplay.IsSourceBrush(brush)
+            && WpfDrawingReplay.TryReplaySourceBrushEllipseFill(
                 brush,
                 center,
                 radiusX,
@@ -188,15 +188,7 @@ public sealed class WpfCompositionDrawingContext : IWpfGeneratedRenderDataDrawin
         double radiusY,
         object? radiusYAnimations)
     {
-        ThrowIfClosed();
-        if (brush == null && pen == null)
-        {
-            return;
-        }
-
-        RegisterRetainedDependencies(brush, pen);
-        _sink.DrawEllipse(brush, pen, center, radiusX, radiusY);
-        CountApplied();
+        DrawEllipse(brush, pen, center, radiusX, radiusY);
         CountUnsupportedStateIfAny(centerAnimations, radiusXAnimations, radiusYAnimations);
     }
 

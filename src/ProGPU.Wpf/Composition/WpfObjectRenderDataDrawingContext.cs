@@ -393,11 +393,11 @@ public sealed class WpfObjectRenderDataDrawingContext :
         MediaBrush? mediaBrush = WpfResourceResolver.AdaptBrush(brush);
         MediaPen? mediaPen = WpfResourceResolver.AdaptPen(pen);
         if (brush != null
-            && WpfDrawingReplay.IsTileBrush(brush)
+            && WpfDrawingReplay.IsSourceBrush(brush)
             && TryReadPoint(center, out var tileCenter)
             && TryReadDouble(radiusX, out var tileRadiusX)
             && TryReadDouble(radiusY, out var tileRadiusY)
-            && WpfDrawingReplay.TryReplayTileBrushEllipseFill(
+            && WpfDrawingReplay.TryReplaySourceBrushEllipseFill(
                 brush,
                 tileCenter,
                 tileRadiusX,

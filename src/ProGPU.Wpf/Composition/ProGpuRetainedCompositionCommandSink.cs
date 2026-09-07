@@ -143,6 +143,14 @@ internal sealed class ProGpuRetainedCompositionCommandSink :
 
     internal ProGpuRetainedDrawingVisual RootVisual { get; }
 
+    public bool PushNativeEllipseClip(WpfReplayPoint center, double radiusX, double radiusY)
+    {
+        ThrowIfClosed();
+        if (!((IWpfNativeGeometryCommandSink)Current.Sink).PushNativeEllipseClip(center, radiusX, radiusY)) return false;
+        _scopeStack.Push(ScopeKind.Delegate);
+        return true;
+    }
+
     void IWpfBitmapCacheBrushCommandSink.DrawBitmapCacheBrushSource(
         global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource source,
         Func<object?, MediaImageSource?>? imageSourceAdapter)

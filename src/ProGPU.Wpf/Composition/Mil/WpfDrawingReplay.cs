@@ -131,7 +131,10 @@ internal static class WpfDrawingReplay
         Rect Bounds,
         MediaGeometry? MediaGeometry,
         PortableGeometryPath? PortableGeometry,
-        bool IsRectangle);
+        bool IsRectangle,
+        WpfReplayPoint EllipseCenter = default,
+        double EllipseRadiusX = 0,
+        double EllipseRadiusY = 0);
 
     public static bool TryReplay(
         object? drawing,
@@ -853,14 +856,28 @@ internal static class WpfDrawingReplay
         global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource source,
         object? geometry, IWpfCompositionCommandSink sink,
         Func<object?, MediaImageSource?>? imageSourceAdapter)
+        => ReplayBitmapCacheBrushFillCore(source, geometry, null, sink, imageSourceAdapter);
+
+    internal static WpfDrawingReplayStatus ReplayBitmapCacheBrushRectangleFill(
+        global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource source, Rect bounds,
+        IWpfCompositionCommandSink sink, Func<object?, MediaImageSource?>? imageSourceAdapter)
+        => ReplayBitmapCacheBrushFillCore(source, null,
+            new TileBrushFillGeometry(null, bounds, null, null, true), sink, imageSourceAdapter);
+
+    private static WpfDrawingReplayStatus ReplayBitmapCacheBrushFillCore(
+        global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource source,
+        object? geometry, TileBrushFillGeometry? preparedFill, IWpfCompositionCommandSink sink,
+        Func<object?, MediaImageSource?>? imageSourceAdapter)
     {
         if (!source.TryGetPortableBitmapCacheBrush(out var brush)) return WpfDrawingReplayStatus.Unsupported;
         if (!double.IsFinite(brush.Opacity) || brush.Opacity < 0 || brush.Opacity > 1)
             return WpfDrawingReplayStatus.Unsupported;
         if (brush.InternalTarget == null || brush.Opacity == 0) return WpfDrawingReplayStatus.Applied;
         if (sink is not IWpfBitmapCacheBrushCommandSink cachedSink
-            || sink is not IWpfNativeTransformCommandSink transformSink
-            || !TryGetTileBrushFillGeometry(geometry, out var fill)) return WpfDrawingReplayStatus.Unsupported;
+            || sink is not IWpfNativeTransformCommandSink transformSink) return WpfDrawingReplayStatus.Unsupported;
+        TileBrushFillGeometry fill;
+        if (preparedFill is { } ready) fill = ready;
+        else if (!TryGetTileBrushFillGeometry(geometry, out fill)) return WpfDrawingReplayStatus.Unsupported;
         if (fill.Bounds.IsEmpty || fill.Bounds.Width == 0 || fill.Bounds.Height == 0) return WpfDrawingReplayStatus.Applied;
         if (!global::ProGPU.Wpf.Interop.PortableBitmapCacheBrushPolicy.TryGetMapping(brush,
                 new PortableRect(fill.Bounds.X, fill.Bounds.Y, fill.Bounds.Width, fill.Bounds.Height), out var mapping))
@@ -876,6 +893,23 @@ internal static class WpfDrawingReplay
             return WpfDrawingReplayStatus.Applied;
         }
         finally { while (pops-- > 0) sink.Pop(); }
+    }
+
+    internal static bool TryReplaySourceBrushEllipseFill(object brush, Point center, double radiusX, double radiusY,
+        IWpfCompositionCommandSink sink, Func<object?, MediaImageSource?>? imageSourceAdapter,
+        out WpfDrawingReplayStatus status)
+    {
+        if (brush is not global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource source)
+            return TryReplayTileBrushEllipseFill(brush, center, radiusX, radiusY, sink, imageSourceAdapter, out status);
+        status = WpfDrawingReplayStatus.Unsupported;
+        if (!double.IsFinite(center.X) || !double.IsFinite(center.Y) || !double.IsFinite(radiusX)
+            || !double.IsFinite(radiusY) || radiusX < 0 || radiusY < 0) return true;
+        if (radiusX == 0 || radiusY == 0) { status = WpfDrawingReplayStatus.Applied; return true; }
+        var bounds = new Rect(center.X - radiusX, center.Y - radiusY, radiusX * 2, radiusY * 2);
+        var fill = new TileBrushFillGeometry(null, bounds, null, null, false,
+            new WpfReplayPoint(center.X, center.Y), radiusX, radiusY);
+        status = ReplayBitmapCacheBrushFillCore(source, null, fill, sink, imageSourceAdapter);
+        return true;
     }
 
     internal static bool IsSourceBrush(object? brush) => IsTileBrush(brush)
@@ -1737,6 +1771,9 @@ internal static class WpfDrawingReplay
 
     private static bool PushTileBrushFillClip(IWpfCompositionCommandSink sink, TileBrushFillGeometry geometry)
     {
+        if (geometry.EllipseRadiusX > 0)
+            return sink is IWpfNativeGeometryCommandSink ellipseSink
+                && ellipseSink.PushNativeEllipseClip(geometry.EllipseCenter, geometry.EllipseRadiusX, geometry.EllipseRadiusY);
         if (geometry.PortableGeometry != null)
         {
             if (sink is IWpfNativeClipCommandSink nativeClipSink

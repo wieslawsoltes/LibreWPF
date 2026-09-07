@@ -136,7 +136,13 @@ public sealed class WpfMilRenderDataDecoder
             recordCount++;
             var unsupportedStateBefore = GetUnsupportedStateCount(diagnostics);
 
-            switch (commandId)
+            if (TryReplayRawCacheBrushRecord(commandId, payload, sink, resources, imageSourceAdapter,
+                    out var cacheStatus, out var cacheAnimations))
+            {
+                CountDrawingReplayStatus(cacheStatus, ref appliedCount, ref skippedCount, ref unsupportedCount);
+                unsupportedCount += cacheAnimations;
+            }
+            else switch (commandId)
             {
                 case WpfMilCommandId.DrawLine:
                 case WpfMilCommandId.DrawLineAnimate:
@@ -523,7 +529,13 @@ public sealed class WpfMilRenderDataDecoder
             recordCount++;
             var unsupportedStateBefore = GetUnsupportedStateCount(diagnostics);
 
-            switch (commandId)
+            if (TryReplayRawCacheBrushRecord(commandId, payload, sink, resources, imageSourceAdapter,
+                    out var cacheStatus, out var cacheAnimations))
+            {
+                CountDrawingReplayStatus(cacheStatus, ref appliedCount, ref skippedCount, ref unsupportedCount);
+                unsupportedCount += cacheAnimations;
+            }
+            else switch (commandId)
             {
                 case WpfMilCommandId.DrawLine:
                 case WpfMilCommandId.DrawLineAnimate:
@@ -1092,6 +1104,84 @@ public sealed class WpfMilRenderDataDecoder
             DrawMediaGeometry(sink, null, pen, mediaGeometry);
         }
 
+        return true;
+    }
+
+    private static bool TryReplayRawCacheBrushRecord(WpfMilCommandId command, ReadOnlySpan<byte> payload,
+        IWpfCompositionCommandSink sink, IWpfMilResourceResolver resources, IWpfImageSourceAdapter? imageSourceAdapter,
+        out WpfDrawingReplayStatus status, out int unsupportedAnimations)
+    {
+        status = WpfDrawingReplayStatus.Unsupported;
+        unsupportedAnimations = 0;
+        int brushOffset = command switch
+        {
+            WpfMilCommandId.DrawRectangle or WpfMilCommandId.DrawRectangleAnimate
+                or WpfMilCommandId.DrawEllipse or WpfMilCommandId.DrawEllipseAnimate => 32,
+            WpfMilCommandId.DrawRoundedRectangle or WpfMilCommandId.DrawRoundedRectangleAnimate => 48,
+            WpfMilCommandId.DrawGeometry => 0,
+            _ => -1
+        };
+        if (brushOffset < 0 || !TryResolveRawResource(resources, ReadUInt32(payload, brushOffset), out var rawBrush)
+            || rawBrush is not global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource source) return false;
+        var adapter = GetImageSourceAdapter(resources, imageSourceAdapter);
+        uint penToken = ReadUInt32(payload, brushOffset + 4);
+        var pen = ResolveOptionalPen(resources, penToken);
+        bool penApplied = false;
+        switch (command)
+        {
+            case WpfMilCommandId.DrawRectangle:
+            case WpfMilCommandId.DrawRectangleAnimate:
+                var rectangle = ReadRect(payload, 0);
+                status = WpfDrawingReplay.ReplayBitmapCacheBrushRectangleFill(source, rectangle, sink, adapter);
+                if (pen != null)
+                {
+                    if (sink is IWpfNativePrimitiveCommandSink primitive)
+                        primitive.DrawNativeRectangle(null, pen, ReadReplayRect(payload, 0));
+                    else sink.DrawRectangle(null, pen, rectangle);
+                    penApplied = true;
+                }
+                if (command == WpfMilCommandId.DrawRectangleAnimate)
+                    unsupportedAnimations = CountUnsupportedAnimationHandles(payload, 40);
+                break;
+            case WpfMilCommandId.DrawEllipse:
+            case WpfMilCommandId.DrawEllipseAnimate:
+                var center = ReadPoint(payload, 0);
+                double radiusX = ReadDouble(payload, 16), radiusY = ReadDouble(payload, 24);
+                WpfDrawingReplay.TryReplaySourceBrushEllipseFill(source, center, radiusX, radiusY, sink, adapter, out status);
+                if (pen != null)
+                {
+                    if (sink is IWpfNativePrimitiveCommandSink primitive)
+                        primitive.DrawNativeEllipse(null, pen, ReadReplayPoint(payload, 0), radiusX, radiusY);
+                    else sink.DrawEllipse(null, pen, center, radiusX, radiusY);
+                    penApplied = true;
+                }
+                if (command == WpfMilCommandId.DrawEllipseAnimate)
+                    unsupportedAnimations = CountUnsupportedAnimationHandles(payload, 40, 44, 48);
+                break;
+            case WpfMilCommandId.DrawGeometry:
+                uint geometryToken = ReadUInt32(payload, 8);
+                if (TryResolveTileBrushGeometry(resources, geometryToken, out var geometry))
+                {
+                    status = WpfDrawingReplay.ReplayBitmapCacheBrushFill(source, geometry, sink, adapter);
+                    if (pen != null)
+                    {
+                        penApplied = TryDrawNativeGeometry(resources, sink, null, pen, geometryToken);
+                        if (!penApplied && geometry is MediaGeometry mediaGeometry)
+                        {
+                            DrawMediaGeometry(sink, null, pen, mediaGeometry);
+                            penApplied = true;
+                        }
+                    }
+                }
+                break;
+            // Rounded source-brush records require their dedicated exact clip
+            // route. Report this explicitly rather than adapting to a null fill.
+            case WpfMilCommandId.DrawRoundedRectangleAnimate:
+                unsupportedAnimations = CountUnsupportedAnimationHandles(payload, 56, 60, 64);
+                break;
+        }
+        if ((status == WpfDrawingReplayStatus.Applied && penToken != 0 && !penApplied)
+            || (status != WpfDrawingReplayStatus.Applied && penApplied)) status = WpfDrawingReplayStatus.PartiallyApplied;
         return true;
     }
 

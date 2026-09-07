@@ -759,6 +759,20 @@ public sealed class ProGpuCompositionCommandSink :
         return true;
     }
 
+    bool IWpfNativeGeometryCommandSink.PushNativeEllipseClip(WpfReplayPoint center, double radiusX, double radiusY)
+    {
+        ThrowIfClosed();
+        if (!float.IsFinite((float)center.X) || !float.IsFinite((float)center.Y)
+            || !float.IsFinite((float)radiusX) || !float.IsFinite((float)radiusY)
+            || radiusX <= 0 || radiusY <= 0 || (float)radiusX == 0 || (float)radiusY == 0
+            || !float.IsFinite((float)(center.X + radiusX)) || !float.IsFinite((float)(center.X - radiusX))
+            || !float.IsFinite((float)(center.Y + radiusY)) || !float.IsFinite((float)(center.Y - radiusY))) return false;
+        NativeContext.PushEllipseClip(new Vector2((float)center.X, (float)center.Y),
+            (float)radiusX, (float)radiusY, _transformStack.Peek());
+        _pushStack.Push(PushKind.GeometryClip);
+        return true;
+    }
+
     void IWpfNativeClipCommandSink.PushNativeClip(WpfReplayRect bounds)
     {
         ThrowIfClosed();

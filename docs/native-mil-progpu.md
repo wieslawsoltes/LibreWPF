@@ -8540,6 +8540,23 @@ keys. These fixtures are authored only; no runtime validation is claimed.
 
 ## Developer commands
 
+### Target-anchored aliases and direct ellipses
+
+Shared source keys now use target and explicit-cache identities, not the first
+consumer brush. ProGPU's immutable capture anchor owns those typed references,
+so distinct brushes share compatible capture output and changing one brush's
+target cannot retarget another brush's recording. Independent explicit cache
+objects do not alias merely because their current settings compare equal.
+
+Direct ellipse calls use ProGPU `PushEllipseClip` to retain an analytic curved
+clip, with no shim-geometry or bounding-rectangle substitution. Managed MIL
+rectangle/ellipse/geometry records dispatch raw cache-brush DTO producers before
+media conversion, with regular pen replay and unsupported-animation accounting.
+Rounded records fail closed pending their exact source-clip route. Fixture
+execution and native/managed/platform/VM/performance/CI qualification remain
+deferred. Rounded calls, cached-brush strokes, glyphs, masks and unsupported source
+scopes remain open; this is not full parity.
+
 ### Recording-owned cache-brush fills
 
 GeometryDrawing fills and object/managed render-data geometry/rectangle calls now
@@ -8579,6 +8596,12 @@ changes are added across the ABI. Automatic normal brush routing and shared
 target/policy lookup still remain to be connected.
 
 ### Compilation checkpoints
+
+Target-anchor/ellipse/raw-MIL checkpoint (2026-09-07, ProGPU `a0c3e167`): final
+Release builds succeeded with zero warnings/errors in ProGPU.Tests and four
+warnings/zero errors in ProGPU.Wpf.Tests. Fixtures were compiled, not executed.
+All runtime/native/platform/VM, performance, verifier and CI qualification
+remains deferred and required for completion.
 
 Recording-owned fill checkpoint (2026-09-07, ProGPU `4cd2a580`): Release
 ProGPU.Tests builds with zero warnings/errors; the final ProGPU.Wpf.Tests build
