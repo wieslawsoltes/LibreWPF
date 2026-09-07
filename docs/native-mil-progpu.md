@@ -8360,6 +8360,21 @@ helper provenance, costs, uncached preparation and managed applicability. No
 WPF-local workaround or public bridge change was needed. The full goal remains
 active; this is implementation progress, not validated cross-platform parity.
 
+## Implementation-first checkpoint: prepared native image-source stroke bounds
+
+ProGPU now shares intrinsic stroke-spine preparation between MIL replay and
+DrawingImage bounds. The separate COM transform/simplification pass is removed;
+arc collapse and constant-segment handling now follow replay. Positive fixed
+shapes with collapsed geometry transforms use prepared bounds, while normal
+solid shapes retain analytic bounds. Direct line source mapping uses the shared
+paired-double SIMD helper.
+
+Authored source-image fixtures cover scalar-pretransformed hollow paths and
+projected positive ellipses. Native library and MIL/Direct2D compatibility/WebGPU
+targets compile. Runtime/VM/image/SIMD/performance/verifier/CI qualification stays
+deferred. ProGPU documents costs, provenance, managed applicability and pending
+retained caching; no WPF-local workaround is added. The full goal remains open.
+
 ## Developer commands
 
 ```sh
