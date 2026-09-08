@@ -59,7 +59,7 @@ native presentation contract for partial viewports and independent X/Y DPI.
 
 Presentation contract checkpoint: ProGPU now has the opt-in generated native/managed
 viewport-plus-per-axis-DPI descriptor and strict submission validation. Advanced
-mapping execution is **not implemented** yet; the native backend rejects it and
+mapping execution is **partially integrated**, not enabled; the native backend rejects it and
 host guards remain. The ordered consumer checklist is in
 [native scene presentation](../external/ProGPU/docs/native-scene-presentation.md).
 
@@ -75,6 +75,15 @@ render-bundle identities include viewport and independent DPI. The main native
 semantic render-execution source compiles against pinned WebGPU headers. Layer
 composites, masks/effects, 3D and remaining raster/identity consumers still block
 advanced presentation enablement; runtime parity is unproven.
+
+Layer/effect checkpoint: cached and tiled layer composites now map through the
+parent presentation, blur/shadow preflight and dispatch share per-axis physical
+parameters, and layer/effect output content keys include presentation changes.
+The semantic renderer, layer-resource execution, state and authored internal
+fixtures compile; the portable MIL target builds. Masks/pictures, raster detail,
+3D and damage/clear consumers still block removing the host/backend guards.
+This is core rendering work, not a new Direct2D/Win2D expansion or a qualification
+result. Finish these existing blockers before opening another feature family.
 
 Source-backed blockers are in
 `src/ProGPU.Wpf/ProGpuWpfWindowHost.cs:ValidateNativeMilHostConfiguration` and
