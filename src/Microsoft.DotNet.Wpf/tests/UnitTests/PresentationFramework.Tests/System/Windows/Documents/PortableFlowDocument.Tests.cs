@@ -3,10 +3,12 @@
 
 using System.Runtime.CompilerServices;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Media;
 using System.Windows.Media.TextFormatting;
 using MS.Internal.Documents;
 using ProGPU.Wpf.Interop;
+using WpfDrawing = System.Windows.Media.Drawing;
 
 namespace System.Windows.Documents;
 
@@ -77,6 +79,116 @@ public sealed class PortableFlowDocumentTests
         Assert.Equal(layout.Lines[1].Advance, flow.Lines[1].Height);
         Assert.Equal(110, layout.Positions[1].Y);
         Assert.Equal(new Size(300, 250), layout.Size);
+    }
+
+    [PortableMediaFact]
+    public void ViewerSharesLiveLayoutForDrawingContentHitSelectionAndScrolling()
+    {
+        var text = new TextProvider(); var flow = new FlowProvider();
+        using var textRegistration = PortableWpfServiceRegistry.RegisterTextFormatting(text);
+        using var flowRegistration = PortableWpfServiceRegistry.RegisterDocumentFlow(flow);
+        var first = new Run("first"); var second = new Run("second");
+        var link = new Hyperlink(second);
+        var document = new FlowDocument(new Paragraph(first));
+        document.Blocks.Add(new Paragraph(link));
+        var viewer = new FlowDocumentView { Document = document };
+        var scroll = (IScrollInfo)viewer; scroll.ScrollOwner = new ScrollViewer();
+        var textView = Assert.IsAssignableFrom<ITextView>(((IServiceProvider)viewer).GetService(typeof(ITextView)));
+        document.TextContainer.TextView = textView;
+        LayoutViewer(viewer);
+        Assert.True(textView.IsValid);
+        Assert.False(document.StructuralCache.HasPtsContext());
+        var visual = Assert.IsType<PortableFlowDocumentVisual>(VisualTreeHelper.GetChild(viewer, 0));
+        var content = (IContentHost)visual;
+        Rect firstCaret = textView.GetRectangleFromTextPosition(first.ContentStart);
+        Rect secondCaret = textView.GetRectangleFromTextPosition(second.ContentStart);
+        Assert.Equal(10, firstCaret.Y); Assert.Equal(110, secondCaret.Y);
+        Assert.Equal(250, scroll.ExtentHeight); Assert.Equal(60, scroll.ViewportHeight);
+        Assert.Same(first, content.InputHitTest(new(6, firstCaret.Y + 1)));
+        Assert.Contains(Drawings(visual.Drawing), drawing => drawing is GlyphRunDrawing);
+        Assert.True(textView.IsAtCaretUnitBoundary(second.ContentEnd.GetFrozenPointer(LogicalDirection.Backward)));
+        var generation = viewer.PortableLayout;
+        scroll.SetVerticalOffset(100);
+        Assert.False(textView.IsValid);
+        viewer.Arrange(new Rect(0, 0, 300, 60));
+        Assert.True(textView.IsValid);
+        Assert.Same(generation, viewer.PortableLayout);
+        Assert.Equal(new Vector(0, -100), VisualTreeHelper.GetOffset(visual));
+        Assert.Equal(new Rect(0, 100, 300, 60), Assert.IsType<RectangleGeometry>(visual.Clip).Rect);
+        Assert.Equal(10, textView.GetRectangleFromTextPosition(second.ContentStart).Y);
+        Assert.Same(second, ((TextPointer)textView.GetTextPositionFromPoint(new(6, 11), false)).Parent);
+        Assert.Same(second, content.InputHitTest(new(6, 111))); // Content-host space is unscrolled.
+        var rectangles = content.GetRectangles(link);
+        Assert.NotEmpty(rectangles); Assert.Equal(110, rectangles[0].Y);
+        Geometry selection = textView.GetTightBoundingGeometryFromTextPositions(second.ContentStart, second.ContentEnd);
+        Assert.True(((IPortableGeometryPathSource)selection).TryGetPortableGeometryPath(out var selectionPath));
+        Assert.Equal(10, Assert.Single(selectionPath.Figures).StartPoint.Y);
+        Assert.Single(content.GetRectangles(document));
+        var hosted = new System.Collections.Generic.List<IInputElement>();
+        using (var elements = content.HostedElements) while (elements.MoveNext()) hosted.Add(elements.Current);
+        Assert.Contains(link, hosted);
+        viewer.Document = null!;
+        Assert.False(textView.IsValid);
+        Assert.Equal(0, VisualTreeHelper.GetChildrenCount(viewer));
+        Assert.Null(content.InputHitTest(new(6, 111)));
+        Assert.Empty(content.GetRectangles(link));
+        Assert.Empty(generation.Lines);
+    }
+
+    [PortableMediaFact]
+    public void ViewerUpdatesEditsAndSupportsLinePageAndBringIntoViewNavigation()
+    {
+        var text = new TextProvider(); var flow = new FlowProvider();
+        using var textRegistration = PortableWpfServiceRegistry.RegisterTextFormatting(text);
+        using var flowRegistration = PortableWpfServiceRegistry.RegisterDocumentFlow(flow);
+        var first = new Run("one"); var second = new Run("two");
+        var document = new FlowDocument(new Paragraph(first)); document.Blocks.Add(new Paragraph(second));
+        var viewer = new FlowDocumentView { Document = document };
+        var scroll = (IScrollInfo)viewer; scroll.ScrollOwner = new ScrollViewer();
+        var textView = Assert.IsAssignableFrom<ITextView>(((IServiceProvider)viewer).GetService(typeof(ITextView)));
+        document.TextContainer.TextView = textView;
+        LayoutViewer(viewer);
+        var generation = viewer.PortableLayout;
+        var next = textView.GetPositionAtNextLine(first.ContentStart, 5, 1, out double x, out int moved);
+        Assert.Equal(1, moved); Assert.Equal(5, x);
+        Assert.Same(second.Parent, ((TextPointer)next).Paragraph);
+        next = textView.GetPositionAtNextLine(first.ContentStart, 5, 0, out _, out moved);
+        Assert.Equal(0, moved); Assert.Equal(first.ContentStart.Offset, next.Offset);
+        next = textView.GetPositionAtNextPage(first.ContentStart, new Point(5, 10), 2, out _, out int pages);
+        Assert.Equal(2, pages); Assert.Same(second.Parent, ((TextPointer)next).Paragraph);
+        bool completed = false;
+        textView.BringPositionIntoViewCompleted += (_, args) => completed = !args.Cancelled && args.Error is null;
+        textView.BringPositionIntoViewAsync(second.ContentStart, null!);
+        Assert.True(completed);
+        Assert.True(scroll.VerticalOffset > 0);
+        viewer.Arrange(new Rect(0, 0, 300, 60));
+        Assert.Same(generation, viewer.PortableLayout);
+        first.Text = "changed";
+        Assert.False(textView.IsValid);
+        LayoutViewer(viewer);
+        Assert.NotSame(generation, viewer.PortableLayout);
+        Assert.Empty(generation.Lines);
+        Assert.Contains("changed", text.Texts);
+        viewer.SuspendLayout();
+        Assert.False(textView.IsValid);
+        Assert.Equal(0.5, VisualTreeHelper.GetOpacity(Assert.IsAssignableFrom<Visual>(VisualTreeHelper.GetChild(viewer, 0))));
+        viewer.ResumeLayout(); LayoutViewer(viewer);
+        Assert.True(textView.IsValid);
+        viewer.Document = null!;
+    }
+
+    private static void LayoutViewer(FlowDocumentView viewer)
+    {
+        viewer.Measure(new Size(300, 60));
+        viewer.Arrange(new Rect(0, 0, 300, 60));
+    }
+
+    private static IEnumerable<WpfDrawing> Drawings(WpfDrawing drawing)
+    {
+        yield return drawing;
+        if (drawing is DrawingGroup group)
+            foreach (WpfDrawing child in group.Children)
+                foreach (WpfDrawing descendant in Drawings(child)) yield return descendant;
     }
 
     [PortableMediaFact]

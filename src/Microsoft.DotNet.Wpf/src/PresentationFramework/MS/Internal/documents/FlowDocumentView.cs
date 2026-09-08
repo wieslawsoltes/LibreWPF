@@ -19,7 +19,7 @@ namespace MS.Internal.Documents
     /// <summary>
     /// Provides a view port for content of FlowDocument formatted bottomless area.
     /// </summary>
-    internal class FlowDocumentView : FrameworkElement, IScrollInfo, IServiceProvider
+    internal partial class FlowDocumentView : FrameworkElement, IScrollInfo, IServiceProvider
     {
         //-------------------------------------------------------------------
         //
@@ -41,6 +41,7 @@ namespace MS.Internal.Documents
         /// </summary>
         internal FlowDocumentView()
         {
+            LayoutUpdated += OnPortableLayoutUpdated;
         }
 
         #endregion Constructors
@@ -68,6 +69,7 @@ namespace MS.Internal.Documents
             }
             else if (Document != null)
             {
+                if (UsesPortableDocument) return MeasurePortableDocument(constraint);
                 if (!IsNativePtsFormatterAvailable)
                 {
                     ResetScrollData(new Size(), new Size(), new Vector());
@@ -114,6 +116,11 @@ namespace MS.Internal.Documents
 
                 if (Document != null)
                 {
+                    if (UsesPortableDocument)
+                    {
+                        ArrangePortableDocument(safeArrangeSize);
+                        return arrangeSize;
+                    }
                     if (!IsNativePtsFormatterAvailable)
                     {
                         DisconnectPageVisual();
@@ -247,11 +254,11 @@ namespace MS.Internal.Documents
         /// </summary>
         protected override Visual GetVisualChild(int index)
         {
-            if (index != 0)
+            if (index != 0 || VisualChildrenCount == 0)
             {
                 throw new ArgumentOutOfRangeException(nameof(index), index, SR.Visual_ArgumentOutOfRange);
             }
-            return _pageVisual;
+            return (Visual)_portableVisual ?? _pageVisual;
         }
 
         #endregion Protected Methods
@@ -271,7 +278,7 @@ namespace MS.Internal.Documents
         {
             get
             {
-                return _pageVisual == null ? 0 : 1;
+                return _pageVisual == null && _portableVisual == null ? 0 : 1;
             }
         }
 
@@ -292,6 +299,7 @@ namespace MS.Internal.Documents
         {
             _suspendLayout = true;
             _pageVisual?.Opacity = 0.5;
+            _portableVisual?.Opacity = 0.5;
         }
 
         /// <summary>
@@ -301,6 +309,7 @@ namespace MS.Internal.Documents
         {
             _suspendLayout = false;
             _pageVisual?.Opacity = 1.0;
+            _portableVisual?.Opacity = 1.0;
             InvalidateMeasure();
         }
 
@@ -325,12 +334,14 @@ namespace MS.Internal.Documents
             }
             set
             {
+                DetachPortableFormatter();
                 if (_formatter != null)
                 {
                     HandleFormatterSuspended(_formatter, EventArgs.Empty);
                 }
                 _suspendLayout = false;
                 _textView = null;
+                _portableTextView = null;
                 _document = value;
                 InvalidateMeasure();
                 InvalidateVisual(); //ensure re-rendering
@@ -346,7 +357,7 @@ namespace MS.Internal.Documents
             {
                 if (_document != null)
                 {
-                    if (!IsNativePtsFormatterAvailable)
+                    if (UsesPortableDocument || !IsNativePtsFormatterAvailable)
                     {
                         return null;
                     }
@@ -713,6 +724,7 @@ namespace MS.Internal.Documents
 
             if (serviceType == typeof(ITextView))
             {
+                if (UsesPortableDocument && _document != null) return PortableTextView;
                 if (IsNativePtsFormatterAvailable && _textView == null && _document != null)
                 {
                     _textView = new DocumentPageTextView(this, _document.StructuralCache.TextContainer);
@@ -742,6 +754,7 @@ namespace MS.Internal.Documents
 
         private void DisconnectPageVisual()
         {
+            DisconnectPortableVisual();
             if (_pageVisual != null)
             {
                 _textView?.OnPageDisconnected();

@@ -137,7 +137,7 @@ namespace System.Windows.Media.TextFormatting
         /// codepoint is a valid caret stop if moving forward and then backward will 
         /// return back to it,  vice versa for the trailing edge of a codepoint. 
         /// </remarks>
-        internal bool IsAtCaretCharacterHit(CharacterHit characterHit, int cpFirst)
+        internal virtual bool IsAtCaretCharacterHit(CharacterHit characterHit, int cpFirst)
         {   
             // TrailingLength is used as a flag to indicate whether the character 
             // hit is on the leading or trailing edge of the character.

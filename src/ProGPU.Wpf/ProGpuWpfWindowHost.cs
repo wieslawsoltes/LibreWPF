@@ -150,6 +150,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         {
             WpfPortableGeometryOperations.EnsureRegistered();
             WpfPortableDocumentFlow.EnsureRegistered();
+            WpfPortableTextFormatting.EnsureRegistered();
         }
         _isHostVisible = _options.IsVisible;
         _windowState = _options.WindowState;

@@ -22,7 +22,7 @@ subsystem roadmap. None of these rows is runtime-qualified yet.
 
 | Order | Implementation batch | Exit to the next batch |
 | --- | --- | --- |
-| 1 — current | Native package activation: source-built harness and package MVP, including Windows. Close required source-media routing from startup through first frame and common resource construction. Popup ownership, pre-host services, provider-first text dispatch, intrinsic measurement, whole-word wrapping and rich-editor media routing/per-line metrics are connected. Required FlowDocument viewer layout, remaining source text/document and media utility routes plus Windows SDK admission remain open. | Required paths select ProGPU explicitly, compile, and have no known route into unintended Windows MIL or silent managed rendering. Keep Windows admission guarded until its dependencies are implemented. |
+| 1 — current | Native package activation: source-built harness and package MVP, including Windows. Close required source-media routing from startup through first frame and common resource construction. Popup ownership, pre-host services, provider-first text dispatch, intrinsic measurement, whole-word wrapping, rich-editor media routing/per-line metrics and FlowDocument scroll-view drawing/interaction are connected. Required symbol-marker fonts and paginated document consumers, remaining source text/document and media utility routes plus Windows SDK admission remain open. | Required paths select ProGPU explicitly, compile, and have no known route into unintended Windows MIL or silent managed rendering. Keep Windows admission guarded until its dependencies are implemented. |
 | 2 | Application closure: use the same MVP, Toolkit/AvalonDock, license-controlled Xceed and existing SciChart gate. Finish required text/selection, scroll/clip, popup/input, resize/DPI, content/effect/cache updates and close/reopen/device-loss ownership. Reuse existing implementations; fix concrete missing connections. | Each required action has an implemented path and authored regression coverage. Record any known blocking branch against that action; do not reopen already connected subsystems for optional refinements. |
 | 3 | Feature freeze, final qualification and delivery: build complete platform artifacts and packages, execute the existing cross-platform/Windows comparison and application gates, fix failures, and bring both PRs' required CI to green at the delivery commits. | Record exact-head package consumption and required gate results, with explicit failures or environment/license limitations. Only then report the core release delivered. |
 
@@ -116,7 +116,26 @@ commit. Their next-step text is historical, may be superseded by later changes,
 and must not be treated as an additional active backlog. Use the active completion
 queue above for current priorities.
 
-Source document formatter checkpoint: `PortableFlowDocumentLayout` now sends
+Source scroll-view checkpoint: the MVP's actual `FlowDocumentView` now consumes
+the live portable formatter before PTS access on every OS. Its real source
+DrawingVisual/IContentHost draws paragraphs, markers, backgrounds and border
+rings; ITextView shares original document pointers and retained TextLines for
+selection, caret/content hit tests, navigation and bring-into-view. Scroll offsets
+move retained drawing without reformatting; document-local content rectangles and
+viewport interaction geometry remain distinct. Edits, suspension and document
+replacement invalidate interaction and release owned generations. Portable caret
+boundary checks now accept equivalent trailing affinities through native logical
+boundaries without accepting shaped-cluster interiors. Lazy text defaults are
+shared by direct managed and native hosts. No new WPF-local composer or native
+algorithm copy was introduced. Required symbol fonts, paginated consumers and
+Windows SDK admission remain open; viewport page navigation is not pagination.
+Source fixtures compile (PresentationFramework: 3 warnings/0 errors;
+PresentationCore: 5 warnings/0 errors; source-built host: 1 warning/0 errors).
+Tests, apps, VM/GPU, benchmarks and CI
+remain deferred. See the [connection record](../external/ProGPU/docs/native-mil-document-flow.md#source-scroll-view-connection).
+
+Source document formatter checkpoint (historical; viewer connection above supersedes
+its next step): `PortableFlowDocumentLayout` now sends
 source Paragraph/Section/List/ListItem properties and real TextLines to ProGPU's
 native block service. Original document objects, UTF-16/source-edge positions,
 scoped properties, source line advances and separate numbered markers are retained.

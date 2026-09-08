@@ -547,6 +547,21 @@ internal sealed class PortableTextLine : TextLine
     public override CharacterHit GetNextCaretCharacterHit(CharacterHit hit) => Move(hit, false);
     public override CharacterHit GetPreviousCaretCharacterHit(CharacterHit hit) => Move(hit, true);
     public override CharacterHit GetBackspaceCaretCharacterHit(CharacterHit hit) => Move(hit, true);
+    internal override bool IsAtCaretCharacterHit(CharacterHit hit, int cpFirst)
+    {
+        CheckAlive();
+        int position = checked(hit.FirstCharacterIndex + hit.TrailingLength);
+        if (position < First || position > First + Length) return false;
+        // Logical native moves return canonical leading hits. CharacterHit object
+        // equality would incorrectly reject every equivalent trailing affinity.
+        // Hidden formatting edges map to the same shaping boundary, while CR/LF
+        // and LineBreak source interiors are not additional caret stops.
+        if (position >= End) return position == End || position == First + Length;
+        int textPosition = _sourceMap.ToText(position - _paragraphStart);
+        if (textPosition == Info.InputStart || textPosition == Info.InputEnd) return true;
+        int previous = _paragraph.GetNextLogicalCaret(_lineIndex, textPosition, true);
+        return _paragraph.GetNextLogicalCaret(_lineIndex, previous, false) == textPosition;
+    }
     private CharacterHit Move(CharacterHit hit, bool previous)
     {
         CheckAlive(); int position = hit.FirstCharacterIndex + hit.TrailingLength;

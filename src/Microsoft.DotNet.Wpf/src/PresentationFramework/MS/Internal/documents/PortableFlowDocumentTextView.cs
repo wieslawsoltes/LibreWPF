@@ -1,0 +1,274 @@
+// Licensed to the .NET Foundation under one or more agreements.
+// The .NET Foundation licenses this file to you under the MIT license.
+
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Windows;
+using System.Windows.Documents;
+using System.Windows.Controls.Primitives;
+using System.Windows.Media;
+using System.Windows.Media.TextFormatting;
+
+namespace MS.Internal.Documents;
+
+// Interaction borrows the same live TextLines that the document visual draws.
+// No text copy, nominal glyph positions or independently formatted hit-test tree.
+internal sealed class PortableFlowDocumentTextView(FlowDocumentView owner, FlowDocument document) : TextViewBase
+{
+    private PortableFlowDocumentLayout Layout => owner.PortableLayout;
+    internal override UIElement RenderScope => owner;
+    internal override ITextContainer TextContainer => document.TextContainer;
+    internal override bool IsValid => ReferenceEquals(owner.Document, document) && owner.PortableLayoutValid &&
+        owner.IsMeasureValid && owner.IsArrangeValid;
+    internal override ReadOnlyCollection<TextSegment> TextSegments => IsValid
+        ? new(new[] { new TextSegment(TextContainer.Start, TextContainer.End, true) })
+        : ReadOnlyCollection<TextSegment>.Empty;
+
+    internal void PublishUpdate() => OnUpdated(EventArgs.Empty);
+    internal override bool Validate()
+    {
+        if (ReferenceEquals(owner.Document, document) && (!owner.IsMeasureValid || !owner.IsArrangeValid)) owner.UpdateLayout();
+        return IsValid;
+    }
+
+    internal override bool Contains(ITextPointer position) => IsValid && position != null &&
+        ReferenceEquals(position.TextContainer, TextContainer) && position.Offset >= TextContainer.Start.Offset &&
+        position.Offset <= TextContainer.End.Offset;
+
+    private void RequireValid()
+    {
+        if (!IsValid) throw new InvalidOperationException(SR.TextViewInvalidLayout);
+    }
+    private void RequirePosition(ITextPointer position)
+    {
+        RequireValid();
+        if (!Contains(position)) throw new ArgumentException("Position belongs to another document.", nameof(position));
+    }
+
+    // Ordered native line positions permit logarithmic pointer lookup. Margins
+    // are not text: only snapped queries choose the nearest adjacent line.
+    internal override ITextPointer GetTextPositionFromPoint(Point point, bool snapToText)
+    {
+        RequireValid();
+        if (!double.IsFinite(point.X) || !double.IsFinite(point.Y)) return null;
+        point += owner.PortableScrollOffset;
+        int count = Layout.Lines.Count;
+        if (count == 0) return snapToText ? TextContainer.Start.GetFrozenPointer(LogicalDirection.Forward) : null;
+        int low = 0, high = count;
+        while (low < high)
+        {
+            int middle = low + (high - low) / 2;
+            if (Layout.Positions[middle].Y <= point.Y) low = middle + 1; else high = middle;
+        }
+        int index = Math.Max(0, low - 1);
+        double bottom = Layout.Positions[index].Y + Layout.Lines[index].Advance;
+        if (point.Y > bottom && index + 1 < count && point.Y - bottom > Layout.Positions[index + 1].Y - point.Y) ++index;
+        var entry = Layout.Lines[index]; var origin = Layout.Positions[index];
+        if (!snapToText && (point.Y < origin.Y || point.Y >= origin.Y + entry.Advance ||
+            point.X < origin.X + entry.Line.Start || point.X > origin.X + entry.Line.Start + entry.Line.WidthIncludingTrailingWhitespace)) return null;
+        return PositionFromDistance(index, point.X - origin.X);
+    }
+
+    private ITextPointer PositionFromDistance(int index, double distance)
+    {
+        var entry = Layout.Lines[index];
+        CharacterHit hit = entry.Line.GetCharacterHitFromDistance(distance);
+        int offset = Math.Clamp(hit.FirstCharacterIndex + hit.TrailingLength, entry.Start, ContentEnd(index));
+        return Pointer(offset, hit.TrailingLength > 0 ? LogicalDirection.Backward : LogicalDirection.Forward);
+    }
+
+    private ITextPointer Pointer(int offset, LogicalDirection direction)
+    {
+        var pointer = TextContainer.CreatePointerAtOffset(Math.Clamp(offset, TextContainer.Start.Offset, TextContainer.End.Offset), direction);
+        pointer = pointer.GetInsertionPosition(direction);
+        pointer.Freeze();
+        return pointer;
+    }
+
+    private int ContentEnd(int index) => Layout.Lines[index].Start + Layout.Lines[index].Line.Length - Layout.Lines[index].Line.NewlineLength;
+    private int FindLine(ITextPointer position)
+    {
+        int low = 0, high = Layout.Lines.Count;
+        while (low < high)
+        {
+            int middle = low + (high - low) / 2;
+            if (Layout.Lines[middle].Start <= position.Offset) low = middle + 1; else high = middle;
+        }
+        int index = Math.Max(0, low - 1);
+        if (index > 0 && Layout.Lines[index].Start == position.Offset && position.LogicalDirection == LogicalDirection.Backward) --index;
+        else if (index + 1 < Layout.Lines.Count && position.Offset >= Layout.Lines[index].Start + Layout.Lines[index].Line.Length &&
+            position.LogicalDirection == LogicalDirection.Forward) ++index;
+        return index;
+    }
+
+    private CharacterHit Hit(int index, ITextPointer position)
+    {
+        var entry = Layout.Lines[index];
+        int offset = Math.Clamp(position.Offset, entry.Start, ContentEnd(index));
+        if (position.LogicalDirection == LogicalDirection.Backward && offset > entry.Start)
+        {
+            CharacterHit previous = entry.Line.GetPreviousCaretCharacterHit(new(offset, 0));
+            int previousOffset = previous.FirstCharacterIndex + previous.TrailingLength;
+            if (previousOffset >= entry.Start && previousOffset < offset) return new(previousOffset, offset - previousOffset);
+        }
+        return new(offset, 0);
+    }
+
+    internal override Rect GetRawRectangleFromTextPosition(ITextPointer position, out Transform transform)
+    {
+        RequirePosition(position);
+        Vector offset = owner.PortableScrollOffset;
+        transform = offset == new Vector() ? Transform.Identity : new TranslateTransform(-offset.X, -offset.Y);
+        if (Layout.Lines.Count == 0) return Rect.Empty;
+        int index = FindLine(position);
+        var entry = Layout.Lines[index]; var origin = Layout.Positions[index];
+        return new(origin.X + entry.Line.GetDistanceFromCharacterHit(Hit(index, position)), origin.Y, 0, entry.Line.Height);
+    }
+
+    internal ReadOnlyCollection<Rect> GetDocumentRectangles(ITextPointer start, ITextPointer end, bool paragraphBreaks)
+    {
+        RequirePosition(start); RequirePosition(end);
+        if (end.Offset < start.Offset) throw new ArgumentException("A document range must be ordered.");
+        var result = new List<Rect>();
+        if (Layout.Lines.Count == 0 || start.Offset == end.Offset) return result.AsReadOnly();
+        int first = FindLine(start), last = FindLine(end);
+        for (int index = first; index <= last; ++index)
+        {
+            var entry = Layout.Lines[index]; var origin = Layout.Positions[index];
+            int from = Math.Max(start.Offset, entry.Start), to = Math.Min(end.Offset, ContentEnd(index));
+            if (to > from)
+                foreach (TextBounds bounds in entry.Line.GetTextBounds(from, to - from))
+                {
+                    Rect rectangle = bounds.Rectangle; rectangle.Offset(origin.X, origin.Y); result.Add(rectangle);
+                }
+            if (paragraphBreaks && entry.Line.NewlineLength > 0 && end.Offset > ContentEnd(index) &&
+                start.Offset < entry.Start + entry.Line.Length)
+            {
+                double x = origin.X + entry.Line.GetDistanceFromCharacterHit(new(ContentEnd(index), 0));
+                result.Add(new(x, origin.Y, entry.Paragraph.FontSize * CaretElement.c_endOfParaMagicMultiplier, entry.Advance));
+            }
+        }
+        return result.AsReadOnly();
+    }
+
+    internal override Geometry GetTightBoundingGeometryFromTextPositions(ITextPointer startPosition, ITextPointer endPosition)
+    {
+        var rectangles = GetDocumentRectangles(startPosition, endPosition, true);
+        var geometry = new StreamGeometry { FillRule = FillRule.Nonzero };
+        Vector offset = owner.PortableScrollOffset;
+        Rect viewport = new(owner.RenderSize);
+        using (var context = geometry.Open())
+            foreach (Rect rectangle in rectangles)
+            {
+                Rect visible = rectangle; visible.Offset(-offset.X, -offset.Y); visible.Intersect(viewport);
+                if (visible.IsEmpty || visible.Width == 0 || visible.Height == 0) continue;
+                AddRectangle(context, visible);
+            }
+        geometry.Freeze();
+        return geometry;
+    }
+
+    internal static void AddRectangle(StreamGeometryContext context, Rect rectangle)
+    {
+        context.BeginFigure(rectangle.TopLeft, true, true);
+        context.LineTo(rectangle.TopRight, true, false);
+        context.LineTo(rectangle.BottomRight, true, false);
+        context.LineTo(rectangle.BottomLeft, true, false);
+    }
+
+    internal override ITextPointer GetPositionAtNextLine(ITextPointer position, double suggestedX, int count,
+        out double newSuggestedX, out int linesMoved)
+    {
+        RequirePosition(position);
+        newSuggestedX = suggestedX; linesMoved = 0;
+        if (Layout.Lines.Count == 0) return position;
+        int index = FindLine(position);
+        int target = (int)Math.Clamp((long)index + count, 0, Layout.Lines.Count - 1);
+        linesMoved = target - index;
+        if (linesMoved == 0) return position.GetFrozenPointer(position.LogicalDirection);
+        if (double.IsNaN(suggestedX)) return Pointer(Layout.Lines[target].Start, LogicalDirection.Forward);
+        if (!double.IsFinite(newSuggestedX)) throw new ArgumentOutOfRangeException(nameof(suggestedX));
+        return PositionFromDistance(target, newSuggestedX + owner.PortableScrollOffset.X - Layout.Positions[target].X);
+    }
+
+    internal override ITextPointer GetPositionAtNextPage(ITextPointer position, Point suggestedOffset, int count,
+        out Point newSuggestedOffset, out int pagesMoved)
+    {
+        RequirePosition(position);
+        newSuggestedOffset = suggestedOffset; pagesMoved = 0;
+        var scroll = (IScrollInfo)owner;
+        if (count == 0 || Layout.Lines.Count == 0 || scroll.ScrollOwner == null || scroll.ViewportHeight <= 0) return position;
+        Rect caret = GetRectangleFromTextPosition(position);
+        double x = double.IsNaN(suggestedOffset.X) ? caret.X : suggestedOffset.X;
+        double y = double.IsNaN(suggestedOffset.Y) ? caret.Y : suggestedOffset.Y;
+        if (!double.IsFinite(x) || !double.IsFinite(y)) throw new ArgumentOutOfRangeException(nameof(suggestedOffset));
+        double documentY = y + scroll.VerticalOffset;
+        double targetY = Math.Clamp(documentY + count * scroll.ViewportHeight, 0, Layout.Size.Height);
+        var target = GetTextPositionFromPoint(new(x, targetY - scroll.VerticalOffset), true);
+        if (target.CompareTo(position) == 0) return position;
+        pagesMoved = (int)(Math.Sign(count) * Math.Min(Math.Abs((long)count), Math.Ceiling(Math.Abs(targetY - documentY) / scroll.ViewportHeight)));
+        newSuggestedOffset = GetRectangleFromTextPosition(target).TopLeft;
+        return target;
+    }
+
+    internal override bool IsAtCaretUnitBoundary(ITextPointer position)
+    {
+        RequirePosition(position);
+        if (Layout.Lines.Count == 0) return position.Offset == TextContainer.Start.Offset;
+        int index = FindLine(position);
+        if (position.Offset < Layout.Lines[index].Start || position.Offset > ContentEnd(index)) return false;
+        return Layout.Lines[index].Line.IsAtCaretCharacterHit(Hit(index, position), Layout.Lines[index].Start);
+    }
+
+    internal override ITextPointer GetNextCaretUnitPosition(ITextPointer position, LogicalDirection direction)
+        => Move(position, direction, false);
+    internal override ITextPointer GetBackspaceCaretUnitPosition(ITextPointer position) => Move(position, LogicalDirection.Backward, true);
+    private ITextPointer Move(ITextPointer position, LogicalDirection direction, bool backspace)
+    {
+        RequirePosition(position);
+        if (direction is not LogicalDirection.Forward and not LogicalDirection.Backward) throw new ArgumentOutOfRangeException(nameof(direction));
+        if (Layout.Lines.Count == 0) return position;
+        int index = FindLine(position);
+        var entry = Layout.Lines[index];
+        CharacterHit hit = new(Math.Clamp(position.Offset, entry.Start, ContentEnd(index)), 0);
+        CharacterHit next = backspace ? entry.Line.GetBackspaceCaretCharacterHit(hit) : direction == LogicalDirection.Forward
+            ? entry.Line.GetNextCaretCharacterHit(hit) : entry.Line.GetPreviousCaretCharacterHit(hit);
+        int offset = next.FirstCharacterIndex + next.TrailingLength;
+        if (direction == LogicalDirection.Forward && offset <= position.Offset && index + 1 < Layout.Lines.Count)
+            offset = Layout.Lines[index + 1].Start;
+        else if (direction == LogicalDirection.Backward && offset >= position.Offset && index > 0)
+            offset = ContentEnd(index - 1);
+        return Pointer(offset, direction);
+    }
+
+    internal override TextSegment GetLineRange(ITextPointer position)
+    {
+        RequirePosition(position);
+        if (Layout.Lines.Count == 0) return new(TextContainer.Start, TextContainer.End, true);
+        int index = FindLine(position);
+        return new(TextContainer.CreatePointerAtOffset(Layout.Lines[index].Start, LogicalDirection.Forward),
+            TextContainer.CreatePointerAtOffset(ContentEnd(index), LogicalDirection.Backward), true);
+    }
+
+    internal override ReadOnlyCollection<GlyphRun> GetGlyphRuns(ITextPointer start, ITextPointer end)
+    {
+        RequirePosition(start); RequirePosition(end);
+        if (end.Offset < start.Offset) throw new ArgumentException("A document range must be ordered.");
+        var result = new List<GlyphRun>();
+        if (Layout.Lines.Count != 0)
+            for (int index = FindLine(start); index <= FindLine(end); ++index)
+                foreach (IndexedGlyphRun run in Layout.Lines[index].Line.GetIndexedGlyphRuns())
+                    if (run.TextSourceCharacterIndex < end.Offset && run.TextSourceCharacterIndex + run.TextSourceLength > start.Offset)
+                        result.Add(run.GlyphRun);
+        return result.AsReadOnly();
+    }
+
+    internal override void BringPositionIntoViewAsync(ITextPointer position, object userState)
+    {
+        RequirePosition(position);
+        BringRectIntoViewMinimally(this, GetRectangleFromTextPosition(position));
+        // Scrolling invalidates arrange; do not query stale geometry again while
+        // reporting completion of this already-resolved source-position request.
+        OnBringPositionIntoViewCompleted(new(position, true, null, false, userState));
+    }
+}

@@ -150,6 +150,8 @@ public class PortableTextLineTests
         Assert.Equal(4, first.GetDistanceFromCharacterHit(new(4, 0)));
         Assert.Equal(new CharacterHit(6, 0), first.GetNextCaretCharacterHit(new(2, 0)));
         Assert.Equal(new CharacterHit(2, 0), first.GetPreviousCaretCharacterHit(new(6, 0)));
+        Assert.True(first.IsAtCaretCharacterHit(new(2, 1), 0));
+        Assert.True(first.IsAtCaretCharacterHit(new(4, 0), 0)); // Equivalent hidden formatting edge.
         using var original = first.GetTextLineBreak();
         using var continuation = original.Clone();
         original.Dispose(); first.Dispose();
@@ -343,6 +345,10 @@ public class PortableTextLineTests
         Assert.Equal(0, line.NewlineLength);
         Assert.Equal(new CharacterHit(0, 2), line.GetCharacterHitFromDistance(7));
         Assert.Equal(new CharacterHit(2, 0), line.GetNextCaretCharacterHit(new(0, 0)));
+        Assert.True(line.IsAtCaretCharacterHit(new(0, 2), 0));
+        Assert.True(line.IsAtCaretCharacterHit(new(2, 0), 0));
+        Assert.False(line.IsAtCaretCharacterHit(new(1, 0), 0));
+        Assert.False(line.IsAtCaretCharacterHit(new(0, 1), 0)); // Inside one native cluster.
         Assert.Equal(8, line.GetDistanceFromCharacterHit(new(0, 2)));
         Assert.Equal(8, Assert.Single(line.GetTextBounds(0, 2)).Rectangle.Width);
         var glyph = Assert.Single(line.GetIndexedGlyphRuns()).GlyphRun;
