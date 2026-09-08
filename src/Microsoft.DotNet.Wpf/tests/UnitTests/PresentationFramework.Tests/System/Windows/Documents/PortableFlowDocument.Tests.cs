@@ -82,6 +82,26 @@ public sealed class PortableFlowDocumentTests
     }
 
     [PortableMediaFact]
+    public void PortableEditorLayoutDoesNotAttachAWindowsTsfStore()
+    {
+        using var textRegistration = PortableWpfServiceRegistry.RegisterTextFormatting(new TextProvider());
+        using var flowRegistration = PortableWpfServiceRegistry.RegisterDocumentFlow(new FlowProvider());
+        var document = new FlowDocument(new Paragraph(new Run("host-owned input")));
+        var viewer = new FlowDocumentView { Document = document };
+        LayoutViewer(viewer);
+        var editor = new TextEditor(document.TextContainer, viewer, false);
+        try
+        {
+            editor.TextView = viewer.PortableTextView;
+            viewer.PortableTextView.PublishUpdate();
+            viewer.Dispatcher.Invoke(new Action(() => { }), System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+            Assert.Null(editor.TextStore);
+            Assert.Null(editor.ImmComposition);
+        }
+        finally { editor.OnDetach(); viewer.Document = null!; }
+    }
+
+    [PortableMediaFact]
     public void ViewerSharesLiveLayoutForDrawingContentHitSelectionAndScrolling()
     {
         var text = new TextProvider(); var flow = new FlowProvider();

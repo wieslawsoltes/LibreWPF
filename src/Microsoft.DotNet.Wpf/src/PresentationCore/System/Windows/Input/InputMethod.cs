@@ -1299,6 +1299,18 @@ namespace System.Windows.Input
             if (focus == null)
                 return;
 
+            if (InputManager.UnsecureCurrent.UsesPortableInput)
+            {
+                // Committed host text remains supported. Applying composition
+                // preferences needs a typed host IME contract, not WPF TSF's
+                // document manager or a fabricated successful state change.
+                if ((InputMethodState)focus.GetValue(PreferredImeStateProperty) != InputMethodState.DoNotCare ||
+                    ((ImeConversionModeValues)focus.GetValue(PreferredImeConversionModeProperty) & ImeConversionModeValues.DoNotCare) == 0 ||
+                    ((ImeSentenceModeValues)focus.GetValue(PreferredImeSentenceModeProperty) & ImeSentenceModeValues.DoNotCare) == 0)
+                    throw new PlatformNotSupportedException("Portable input-method preferences require the host composition contract.");
+                return;
+            }
+
             //
             // Check the InputLanguageProperty of the focus element.
             //
@@ -1387,6 +1399,11 @@ namespace System.Windows.Input
         /// </summary> 
         internal void EnableOrDisableInputMethod(bool bEnabled)
         {
+            // Portable sources have no WPF-owned HWND/TSF association. Keep the
+            // attached setting; the host composition contract must consume it.
+            if (InputManager.UnsecureCurrent.UsesPortableInput)
+                return;
+
             // InputMethod enable/disabled status was changed on the current focus Element.
             if (TextServicesLoader.ServicesInstalled &&
                 TextServicesContext.DispatcherCurrent != null)

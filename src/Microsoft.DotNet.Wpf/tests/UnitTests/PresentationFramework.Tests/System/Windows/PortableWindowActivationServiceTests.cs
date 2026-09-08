@@ -19,6 +19,59 @@ public class PortableWindowActivationServiceTests
     private const int MouseUpInputKind = 5;
     private const int LeftMouseButton = 1;
 
+    private sealed class PortableInputFactAttribute : FactAttribute
+    {
+        public PortableInputFactAttribute([CallerFilePath] string? path = null, [CallerLineNumber] int line = 0) : base(path, line)
+        {
+            if (PortableWpfRuntime.ConfiguredMediaBackend != PortableWpfMediaBackend.Portable)
+                Skip = "Requires portable media selected before input-manager construction, including on Windows.";
+        }
+    }
+
+    [PortableInputFact]
+    public void PortableDeviceStateAndCommittedTextHaveOneOwnerOnEveryOs()
+    {
+        RunInUiApartment(() =>
+        {
+            using IPortablePresentationSourceHost host = PortablePresentationSourceHost.Create();
+            var source = (PresentationSource)host;
+            var root = new HitTestElement { Focusable = true };
+            host.RootVisual = root; host.SetClientSize(200, 100);
+            Keyboard.Focus(root).Should().BeSameAs(root);
+            int keyDowns = 0, keyUps = 0, texts = 0;
+            root.KeyDown += (_, e) =>
+            {
+                e.Key.Should().Be(Key.A);
+                e.InputSource.Should().BeSameAs(source);
+                Keyboard.IsKeyDown(Key.A).Should().BeTrue();
+                Keyboard.Modifiers.Should().Be(ModifierKeys.Shift);
+                ++keyDowns;
+            };
+            root.KeyUp += (_, e) => { e.Key.Should().Be(Key.A); ++keyUps; };
+            root.TextInput += (_, e) => { e.Text.Should().Be("A"); ++texts; };
+            root.MouseDown += (_, e) => e.LeftButton.Should().Be(MouseButtonState.Pressed);
+            try
+            {
+                PortableWindowActivationService.ProcessInput(source,
+                    new PortableInputEventArgs(PortableInputEventKind.KeyDown, key: "A", modifiers: PortableInputModifiers.Shift));
+                texts.Should().Be(0); // Key delivery must not fabricate a second text event.
+                PortableWindowActivationService.ProcessInput(source,
+                    new PortableInputEventArgs(PortableInputEventKind.TextInput, character: 'A', modifiers: PortableInputModifiers.Shift));
+                PortableWindowActivationService.ProcessInput(source,
+                    new PortableInputEventArgs(PortableInputEventKind.KeyUp, key: "A"));
+                keyDowns.Should().Be(1); keyUps.Should().Be(1); texts.Should().Be(1);
+                Keyboard.IsKeyDown(Key.A).Should().BeFalse(); Keyboard.Modifiers.Should().Be(ModifierKeys.None);
+                PortableWindowActivationService.ProcessInput(source,
+                    new PortableInputEventArgs(PortableInputEventKind.MouseDown, x: 10, y: 10, button: PortableMouseButton.Left));
+                Mouse.LeftButton.Should().Be(MouseButtonState.Pressed);
+                PortableWindowActivationService.ProcessInput(source,
+                    new PortableInputEventArgs(PortableInputEventKind.MouseUp, x: 10, y: 10, button: PortableMouseButton.Left));
+                Mouse.LeftButton.Should().Be(MouseButtonState.Released);
+            }
+            finally { Keyboard.ClearFocus(); Mouse.Capture(null); }
+        });
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

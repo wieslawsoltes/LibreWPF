@@ -116,6 +116,27 @@ commit. Their next-step text is historical, may be superseded by later changes,
 and must not be treated as an additional active backlog. Use the active completion
 queue above for current priorities.
 
+Windows portable input ownership: the MVP/Toolkit editor-focus, modifier-key,
+typing and mouse-selection path exposed OS-selected Win32 devices even after
+portable media selection. InputManager now freezes that selection before device
+construction and uses portable key/button state on Windows as well. WPF TSF does
+not re-promote host-delivered keys, enable its message pump for portable focus or
+attach source editor stores lacking WPF-owned HWND composition geometry. Existing
+committed-character delivery stays on the typed input report pipeline; native
+Windows WPF keeps its devices and TSF path. Nondefault automatic IME preferences
+are explicitly unsupported pending host composition policy; this is not full IME,
+candidate-window or reconversion support. The Windows native SDK guard remains.
+Authored device/input/editor fixtures await final execution. The final source
+fixture graphs compile with 9 warnings/0 errors (PresentationCore) and 7 warnings/
+0 errors (PresentationFramework); the source host compiles with 1 warning/0 errors.
+These include existing source/package warnings, not real-device or TSF qualification.
+A shared test-only module initializer accepts
+`LIBREWPF_TEST_MEDIA_BACKEND=Portable` or `WindowsMil` before test source objects
+are constructed. Final Windows qualification must run both separate process lanes;
+skipped portable fixtures in the native-Windows default lane are not evidence.
+This does not bypass the package admission guard or reset product ownership. See the
+[input ownership record](../external/ProGPU/docs/native-mil-startup-selection.md#input-device-ownership-connection).
+
 Source paginated-viewer connection: the MVP's real FlowDocument paginator now
 selects portable media before PTS, shares source page/column policy and passes
 actual TextLine advances and source break constraints to ProGPU C++ pagination.

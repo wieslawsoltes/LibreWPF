@@ -1,5 +1,9 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
+  <ItemGroup>
+    <Compile Include="..\Shared\PortableMediaTestStartup.cs" Link="PortableMediaTestStartup.cs" />
+  </ItemGroup>
+
   <PropertyGroup>
     <AssemblyName>PresentationCore.Tests</AssemblyName>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>

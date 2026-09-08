@@ -166,6 +166,15 @@ frozen before any composition lock, channel or media-system ownership. Preserve
 that choice across shutdown/device recovery and reject late backend switches.
 Extend this typed policy to remaining MIL resource consumers; do not equate a
 portable transport selection with completed Windows package support.
+InputManager must freeze this same choice before creating keyboard/mouse devices.
+Portable raw reports require host-owned device state on Windows too; do not use
+Win32 asynchronous state for those reports or promote their keys through WPF TSF
+a second time. Portable focus does not enable WPF's TSF pump/IMM association, and
+source editors must not queue or attach WPF TSF text stores for portable input.
+Keep native Windows input and actual OS language/system services separate. Host
+composition/candidate bounds and input-method preferences are explicit unfinished
+contracts; committed character delivery is not full IME support or Windows SDK
+admission. Do not replace unrelated text-service OS guards indiscriminately.
 Hidden interop-source creation must use the explicit typed `CreateHidden` host
 capability, preserve a detached visual tree until Show, and publish one stable
 source identity before SourceInitialized. Missing capability or invalid handles
