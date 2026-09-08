@@ -1818,9 +1818,14 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
                 return;
             }
 
+            if (_target.Context.IsDeviceLost)
+            {
+                throw new InvalidOperationException(
+                    "The WPF presentation device was lost; its target must be recreated before rendering.");
+            }
             if (!_target.Context.TryReconfigureIfNeeded(pixelWidth, pixelHeight))
             {
-                RequestRenderAndWakeNativeLoop();
+                RequestPresentationRetryAndWakeNativeLoop();
                 return;
             }
 
@@ -2022,7 +2027,14 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
             {
                 _target.Context.Wgpu.TextureRelease(surfaceTexture.Texture);
             }
+            HandleSurfaceAcquisitionFailure(_target.Context, surfaceTexture.Status);
             return false;
+        }
+
+        if (surfaceTexture.Texture == null)
+        {
+            throw new InvalidOperationException(
+                "WebGPU reported successful surface acquisition without a texture.");
         }
 
         var viewDescriptor = new TextureViewDescriptor
@@ -2039,6 +2051,11 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         var targetView = _target.Context.Wgpu.TextureCreateView(surfaceTexture.Texture, &viewDescriptor);
         try
         {
+            if (targetView == null)
+            {
+                RequestPresentationRetryAndWakeNativeLoop();
+                return false;
+            }
             _target.Render(
                 logicalWidth,
                 logicalHeight,
@@ -2302,7 +2319,14 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
             {
                 _target.Context.Wgpu.TextureRelease(surfaceTexture.Texture);
             }
+            HandleSurfaceAcquisitionFailure(_target.Context, surfaceTexture.Status);
             return false;
+        }
+
+        if (surfaceTexture.Texture == null)
+        {
+            throw new InvalidOperationException(
+                "WebGPU reported successful surface acquisition without a texture.");
         }
 
         var viewDescriptor = new TextureViewDescriptor
@@ -2321,6 +2345,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         if (targetView == null)
         {
             _target.Context.Wgpu.TextureRelease(surfaceTexture.Texture);
+            RequestPresentationRetryAndWakeNativeLoop();
             return false;
         }
         try
@@ -4013,6 +4038,50 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         }
 
         TryRequestNativeLoopWakeup();
+    }
+
+    internal void HandleSurfaceAcquisitionFailure(
+        WgpuContext context,
+        SurfaceGetCurrentTextureStatus status)
+    {
+        if (!context.HandleSurfaceAcquisitionFailure(status))
+        {
+            throw new InvalidOperationException(
+                "The WPF presentation device was lost; its target must be recreated before rendering.");
+        }
+        RequestPresentationRetryAndWakeNativeLoop();
+    }
+
+    internal bool RequestPresentationRetryAndWakeNativeLoop()
+    {
+        if (_isDisposed || _hasNativeWindowCloseStarted)
+        {
+            return false;
+        }
+
+        try
+        {
+            // A failed acquisition consumed the current request, not the work
+            // that still needs presenting. Upgrade wake-only ticks even when
+            // the scene itself is unchanged. Retry through the host scheduler,
+            // never recursively acquire or block the render/event thread.
+            Volatile.Write(ref _pendingRenderRequestIsWakeOnly, 0);
+            if (WpfRenderScheduler is IWpfDelayedRenderScheduler delayedScheduler)
+            {
+                delayedScheduler.RequestRender(TimeSpan.FromMilliseconds(16));
+            }
+            else
+            {
+                WpfRenderScheduler.RequestRender();
+            }
+        }
+        catch (ObjectDisposedException)
+        {
+            return false;
+        }
+
+        TryRequestNativeLoopWakeup();
+        return true;
     }
 
     internal bool RequestNativeMilContinuationAndWakeNativeLoop(

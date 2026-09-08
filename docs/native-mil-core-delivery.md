@@ -80,6 +80,18 @@ their explicitly selected interop samples. Preserve texture/fence/device-domain,
 format, alpha, pitch and device-loss correctness. Keep configured GPU/SIMD
 fallback semantics; performance defaults may only claim speed after measurement.
 
+## Core application closure checkpoints
+
+Surface recovery: source inspection of the native host harness/MVP presentation
+path found that both renderer modes discarded failed acquisition requests and
+kept stale surface configuration. The shared ProGPU recovery policy now handles
+Timeout/Outdated/Lost, and both host paths schedule a presentation-bearing retry,
+retain correct frame counters and reject null acquired textures. Null views never
+reach either renderer. Device loss and out-of-memory fail explicitly; automatic
+device/resource recreation remains open. See
+[surface recovery contract and qualification](../external/ProGPU/docs/native-mil-surface-recovery.md).
+Regression fixtures are authored; runtime/VM/CI qualification remains deferred.
+
 ## Implementation history: popup and presentation integration
 
 These checkpoints record completed implementation batches and remaining subsystem

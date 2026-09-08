@@ -9,6 +9,11 @@ general Direct2D/Win2D API expansion or isolated geometry refinements unless a
 concrete core application dependency makes them blocking. Keep those broader
 requests explicitly deferred, not silently removed or reported complete. Keep
 implementation/compilation before the final validation phase as requested.
+Before each new implementation batch, name the acceptance application, user action,
+blocking source path and bounded outcome. Presentation/3D consumer completion is
+not automatically a core prerequisite: trace ordinary host resize/DPI/popup needs
+first. Historical checkpoint next-step suggestions do not override the delivery
+plan's finish-first rule. Preserve all existing SDK and final qualification gates.
 
 ## Reflection-Free Port Priority
 

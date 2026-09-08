@@ -18,12 +18,75 @@ using PortableVisualLayoutState = ProGPU.Wpf.Interop.PortableVisualLayoutState;
 using PortableVisualLayoutStateSource = ProGPU.Wpf.Interop.IPortableVisualLayoutStateSource;
 using ProGpuDrawingContext = ProGPU.Scene.DrawingContext;
 using ProGpuRenderCommandType = ProGPU.Scene.RenderCommandType;
+using WgpuContext = ProGPU.Backend.WgpuContext;
+using SurfaceGetCurrentTextureStatus = Silk.NET.WebGPU.SurfaceGetCurrentTextureStatus;
 
 namespace ProGPU.Wpf.Tests;
 
 [Collection(PortableRenderDataSinkProviderCollection.Name)]
 public sealed class ProGpuWpfWindowHostTests
 {
+    [Theory]
+    [InlineData(ProGpuWpfRendererMode.ManagedPortable, SurfaceGetCurrentTextureStatus.Timeout)]
+    [InlineData(ProGpuWpfRendererMode.ManagedPortable, SurfaceGetCurrentTextureStatus.Outdated)]
+    [InlineData(ProGpuWpfRendererMode.ManagedPortable, SurfaceGetCurrentTextureStatus.Lost)]
+    [InlineData(ProGpuWpfRendererMode.NativeMilWgpu, SurfaceGetCurrentTextureStatus.Timeout)]
+    [InlineData(ProGpuWpfRendererMode.NativeMilWgpu, SurfaceGetCurrentTextureStatus.Outdated)]
+    [InlineData(ProGpuWpfRendererMode.NativeMilWgpu, SurfaceGetCurrentTextureStatus.Lost)]
+    public void SurfaceRetryPreservesUnpresentedWorkInBothRendererModes(
+        ProGpuWpfRendererMode rendererMode,
+        SurfaceGetCurrentTextureStatus status)
+    {
+        using var context = new WgpuContext();
+        var scheduler = new TestRenderScheduler();
+        using var host = new ProGpuWpfWindowHost(new ProGpuWpfWindowOptions { RendererMode = rendererMode })
+            { WpfRenderScheduler = scheduler };
+        var state = new ProGpuWpfFrameState(100, 50, 1, 2, 3);
+        host.RecordPresentedFrame(state);
+        host.RequestRenderAndWakeNativeLoop();
+        Assert.True(host.ConsumeScheduledRenderRequest());
+        // WPF may enqueue an otherwise wake-only tick while a frame is assembled.
+        host.RequestMediaContextRenderAndWakeNativeLoop(null, TimeSpan.Zero);
+        Assert.False(host.ShouldRenderFrame(state));
+
+        host.HandleSurfaceAcquisitionFailure(context, status);
+
+        Assert.Equal(TimeSpan.FromMilliseconds(16), scheduler.LastDelay);
+        Assert.True(host.ShouldRenderFrame(state));
+        Assert.Equal(1, host.PresentedFrameCount);
+        Assert.Equal(state, host.LastPresentedFrameState);
+        Assert.True(host.ConsumeScheduledRenderRequest());
+        Assert.False(host.ConsumeScheduledRenderRequest());
+    }
+
+    [Theory]
+    [InlineData(ProGpuWpfRendererMode.ManagedPortable)]
+    [InlineData(ProGpuWpfRendererMode.NativeMilWgpu)]
+    public void TerminalSurfaceFailuresDoNotScheduleRetries(ProGpuWpfRendererMode rendererMode)
+    {
+        using var context = new WgpuContext();
+        var scheduler = new TestRenderScheduler();
+        using var host = new ProGpuWpfWindowHost(new ProGpuWpfWindowOptions { RendererMode = rendererMode })
+            { WpfRenderScheduler = scheduler };
+        Assert.Throws<OutOfMemoryException>(() =>
+            host.HandleSurfaceAcquisitionFailure(context, SurfaceGetCurrentTextureStatus.OutOfMemory));
+        Assert.Throws<InvalidOperationException>(() =>
+            host.HandleSurfaceAcquisitionFailure(context, SurfaceGetCurrentTextureStatus.DeviceLost));
+        Assert.True(context.IsDeviceLost);
+        Assert.Equal(0, scheduler.RequestCount);
+        Assert.Equal(0, host.PresentedFrameCount);
+    }
+
+    [Fact]
+    public void DisposedHostDoesNotQueuePresentationRetries()
+    {
+        var scheduler = new TestRenderScheduler();
+        var host = new ProGpuWpfWindowHost { WpfRenderScheduler = scheduler };
+        host.Dispose();
+        Assert.False(host.RequestPresentationRetryAndWakeNativeLoop());
+        Assert.Equal(0, scheduler.RequestCount);
+    }
+
     [Fact]
     public void NativePopupHostInheritsRendererAndOwnerSurfaceAcceptsPopupRoots()
     {
