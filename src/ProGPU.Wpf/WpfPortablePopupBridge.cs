@@ -399,8 +399,10 @@ internal sealed class WpfPortablePopupBridge : IDisposable
         SetSourceClientOrigin();
         if (scaleChanged)
         {
-            _source.SetDeviceScale(dpiScaleX, dpiScaleY);
-            _nativeHost?.SetDeviceScale(dpiScaleX, dpiScaleY);
+            if (_nativeHost is { } nativeHost)
+                nativeHost.SetOwnerTransportScale(dpiScaleX, dpiScaleY);
+            else
+                _source.SetDeviceScale(dpiScaleX, dpiScaleY);
         }
         _nativeHost?.SetPosition(X, Y);
         Trace($"owner origin=({x},{y}) scale=({dpiScaleX:0.###},{dpiScaleY:0.###}) popup=({X},{Y})");

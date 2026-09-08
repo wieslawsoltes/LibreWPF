@@ -509,7 +509,10 @@ public sealed class WpfManagedProjectGraphTests
             "SilkNetWpfWindowDecorationService.cs"));
 
         Assert.Contains("Topmost = false", popupHost, StringComparison.Ordinal);
-        Assert.Contains("ToNativeLogicalScreenCoordinate(request.PopupScreenDeviceX, _dpiScaleX)", popupHost, StringComparison.Ordinal);
+        Assert.Contains("ToNativeLogicalScreenCoordinate(request.PopupScreenDeviceX, _ownerTransportScaleX)", popupHost, StringComparison.Ordinal);
+        int transportSetter = popupHost.IndexOf("public void SetOwnerTransportScale(", StringComparison.Ordinal);
+        int positionSetter = popupHost.IndexOf("public void SetPosition(", transportSetter, StringComparison.Ordinal);
+        Assert.DoesNotContain("UpdatePortablePresentationSourceDpiScale", popupHost[transportSetter..positionSetter], StringComparison.Ordinal);
         Assert.Contains("_popupHost.ShowWithoutActivation();", popupHost, StringComparison.Ordinal);
         Assert.Contains("internal static int ToDeviceScreenCoordinate", windowHost, StringComparison.Ordinal);
         Assert.Contains("UpdatePortablePopupOwnerOrigins(bridge.Source, deviceX, deviceY, popupDeviceScale)", windowHost, StringComparison.Ordinal);
@@ -1103,6 +1106,8 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("public bool TrySetDeviceScale(double dpiScaleX, double dpiScaleY)", proGpuPortablePopupBridge, StringComparison.Ordinal);
         Assert.Contains("public bool TrySetOwnerClientGeometry(", proGpuPortablePopupBridge, StringComparison.Ordinal);
         Assert.Contains("_source.SetDeviceScale(dpiScaleX, dpiScaleY);", proGpuPortablePopupBridge, StringComparison.Ordinal);
+        Assert.Contains("if (_nativeHost is { } nativeHost)", proGpuPortablePopupBridge, StringComparison.Ordinal);
+        Assert.Contains("nativeHost.SetOwnerTransportScale(dpiScaleX, dpiScaleY);", proGpuPortablePopupBridge, StringComparison.Ordinal);
         Assert.Contains("_portablePopupBridges[i].TrySetDeviceScale(dpiScaleX, dpiScaleY);", proGpuHost, StringComparison.Ordinal);
         Assert.Contains("nativeLogicalLeft, nativeLogicalTop, new WpfDeviceScale(dpiScaleX, dpiScaleY)", proGpuHost, StringComparison.Ordinal);
         Assert.Contains("UpdatePortablePopupOwnerOrigins(popup.Source, popup.X, popup.Y, deviceScale)", proGpuHost, StringComparison.Ordinal);

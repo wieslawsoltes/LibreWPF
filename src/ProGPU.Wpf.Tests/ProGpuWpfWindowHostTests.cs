@@ -2894,6 +2894,13 @@ public sealed class ProGpuWpfWindowHostTests
                 null, parentSource, IntPtr.Zero, ownerX + 130, ownerY + 70,
                 ownerX + 40, ownerY + 30, false, false), out _));
 
+            // Model independently resolved native framebuffer scales. Owner
+            // transport changes must preserve both, even when unequal.
+            parent.SetDeviceScale(1.25, 1.5);
+            child.SetDeviceScale(2.5, 3);
+            int parentScaleChanges = parent.DeviceScaleChangeCount;
+            int childScaleChanges = child.DeviceScaleChangeCount;
+
             foreach (double scale in new[] { 2.0, 1.5, 1.0 })
             {
                 parent.ClientOrigins.Clear();
@@ -2910,6 +2917,10 @@ public sealed class ProGpuWpfWindowHostTests
                 Assert.Equal(new[] { (ownerX + 130, ownerY + 70) }, childNative.NativePositions);
                 Assert.Equal(new[] { "Scale", "Position" }, parentNative.CallLog);
                 Assert.Equal(new[] { "Scale", "Position" }, childNative.CallLog);
+                Assert.Equal((1.25, 1.5), (parent.DpiScaleX, parent.DpiScaleY));
+                Assert.Equal((2.5, 3.0), (child.DpiScaleX, child.DpiScaleY));
+                Assert.Equal(parentScaleChanges, parent.DeviceScaleChangeCount);
+                Assert.Equal(childScaleChanges, child.DeviceScaleChangeCount);
                 Assert.False(host.UpdatePortablePresentationSourceDpiScale(scale, scale));
                 Assert.Single(parentNative.NativePositions);
                 Assert.Single(childNative.NativePositions);
@@ -2933,6 +2944,31 @@ public sealed class ProGpuWpfWindowHostTests
             WpfPortablePopupBridge.PortablePresentationSourceFactory = previousSourceFactory;
             WpfPortablePopupBridge.NativePopupHostFactory = previousNativeHostFactory;
         }
+    }
+
+    [Fact]
+    public void NativePopupAdapterUpdatesOnlyOwnerPositionTransportScale()
+    {
+        // Adapter construction is hidden and does not initialize a native window.
+        // Unlike the bridge fake above, this exercises the actual adapter setter.
+        using var owner = new ProGpuWpfWindowHost();
+        var source = new FakePortablePresentationSource();
+        using var popup = new WpfPortableNativePopupHost(
+            owner, source, new PortablePopupCreateRequest(null, null, IntPtr.Zero,
+                -1500, 300, -1600, 200, false, false), 2, 2);
+        source.SetDeviceScale(1.25, 1.5);
+        source.SetDesktopTransform(new PortableDesktopTransform(-750, 150, 1.25, 1.5));
+        int changes = source.DeviceScaleChangeCount;
+
+        popup.SetOwnerTransportScale(3, 3);
+        popup.SetPosition(-2190, 480);
+        Assert.Equal((1.25, 1.5), (source.DpiScaleX, source.DpiScaleY));
+        Assert.Equal(changes, source.DeviceScaleChangeCount);
+        Assert.Equal(new PortableDesktopTransform(-730, 160, 1.25, 1.5), source.DesktopTransform);
+        popup.SetOwnerTransportScale(1, 1);
+        popup.SetPosition(-750, 150);
+        Assert.Equal(changes, source.DeviceScaleChangeCount);
+        Assert.Equal(new PortableDesktopTransform(-750, 150, 1.25, 1.5), source.DesktopTransform);
     }
 
     [Fact]
@@ -3688,7 +3724,7 @@ public sealed class ProGpuWpfWindowHostTests
 
         public (int X, int Y) Position { get; private set; }
 
-        public (double X, double Y) DeviceScale { get; private set; } = (1, 1);
+        public (double X, double Y) OwnerTransportScale { get; private set; } = (1, 1);
 
         public List<(int X, int Y)> NativePositions { get; } = new();
 
@@ -3706,9 +3742,9 @@ public sealed class ProGpuWpfWindowHostTests
 
         public void RaiseInputForDiagnostics(WpfInputEventArgs input) => InputHandler?.Invoke(input);
 
-        public void SetDeviceScale(double dpiScaleX, double dpiScaleY)
+        public void SetOwnerTransportScale(double dpiScaleX, double dpiScaleY)
         {
-            DeviceScale = (dpiScaleX, dpiScaleY);
+            OwnerTransportScale = (dpiScaleX, dpiScaleY);
             CallLog.Add("Scale");
         }
 
@@ -3716,8 +3752,8 @@ public sealed class ProGpuWpfWindowHostTests
         {
             Position = (x, y);
             NativePositions.Add((
-                WpfPortableNativePopupHost.ToNativeLogicalScreenCoordinate(x, DeviceScale.X),
-                WpfPortableNativePopupHost.ToNativeLogicalScreenCoordinate(y, DeviceScale.Y)));
+                WpfPortableNativePopupHost.ToNativeLogicalScreenCoordinate(x, OwnerTransportScale.X),
+                WpfPortableNativePopupHost.ToNativeLogicalScreenCoordinate(y, OwnerTransportScale.Y)));
             CallLog.Add("Position");
         }
 

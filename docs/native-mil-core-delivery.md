@@ -82,6 +82,33 @@ fallback semantics; performance defaults may only claim speed after measurement.
 
 ## Core application closure checkpoints
 
+Native-popup framebuffer ownership (MVP/Toolkit menu open while its owner moves
+between monitors): source inspection confirmed two owner-DPI writes into a
+separately surfaced popup, in `WpfPortablePopupBridge.TrySetOwnerGeometry` and
+`WpfPortableNativePopupHost.SetDeviceScale`. The native adapter now exposes
+`SetOwnerTransportScale`, updating only legacy position decoding. The bridge
+updates source framebuffer DPI only for owner-surface popups. Native popups retain
+their one-time creation seed until their own host resolves surface geometry, and
+subsequent owner changes cannot overwrite it. Existing parent-first single-move
+fixtures now also assert independent parent/child framebuffer scales remain
+unchanged; a real-adapter hidden-construction fixture covers the second write
+path. Both renderer modes share this host-only implementation; no ProGPU scene,
+shader, GPU fallback, native C ABI or renderer algorithm changes apply.
+
+The next source-backed Windows application blocker is explicit: native portable
+popups are rejected by `WpfPortableNativePopupHost.ShouldUseNativePopup`, and
+`SilkNetWpfWindowDecorationService.TryConfigurePopupOwner` implements Cocoa/X11
+but no Win32 owner route. The ProGPU backend already owns Win32 window-parent and
+style primitives in `Win32NativeWindowPlatform`; use shared typed platform support
+to connect a nonactivating owned native popup before admitting the Windows SDK.
+Do not simply remove the SDK guard or silently constrain that application path
+to an owner surface. The completed framebuffer-write fix is not a monitor/input
+runtime qualification claim. Final tests, VM/image comparisons and CI are deferred.
+Compile-only checkpoint: bridge fixtures 116 warnings/0 errors initially and
+20/0 on the final rebuild; source-built application harness 4/0. No fixture or
+application execution. Latest ProGPU `origin/main` is contained in the branch.
+
+
 Host/popup desktop connection (MVP/Toolkit ComboBox/menu open, move and click):
 the stock host now publishes desktop scale from its actual native client-size
 policy, via ProGPU's `FromWindowCoordinates` and the optional typed source seam.

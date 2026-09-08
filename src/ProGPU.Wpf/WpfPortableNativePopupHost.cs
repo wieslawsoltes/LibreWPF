@@ -27,7 +27,8 @@ internal interface IWpfPortableNativePopupHost : IDisposable
 
     void RaiseInputForDiagnostics(WpfInputEventArgs input);
 
-    void SetDeviceScale(double dpiScaleX, double dpiScaleY);
+    // Scale of the owner's legacy position transport, never the popup framebuffer.
+    void SetOwnerTransportScale(double dpiScaleX, double dpiScaleY);
 
     void SetPosition(int x, int y);
 
@@ -43,8 +44,8 @@ internal sealed class WpfPortableNativePopupHost : IWpfPortableNativePopupHost
     private readonly ProGpuWpfWindowHost _ownerHost;
     private readonly ProGpuWpfWindowHost _popupHost;
     private Func<WpfInputEventArgs, bool>? _inputHandler;
-    private double _dpiScaleX;
-    private double _dpiScaleY;
+    private double _ownerTransportScaleX;
+    private double _ownerTransportScaleY;
     private int _nativeLogicalX;
     private int _nativeLogicalY;
     private bool _isInitialized;
@@ -88,7 +89,7 @@ internal sealed class WpfPortableNativePopupHost : IWpfPortableNativePopupHost
             out ownerCount);
     }
 
-    private WpfPortableNativePopupHost(
+    internal WpfPortableNativePopupHost(
         ProGpuWpfWindowHost ownerHost,
         IPortablePresentationSourceHost source,
         PortablePopupCreateRequest request,
@@ -96,10 +97,10 @@ internal sealed class WpfPortableNativePopupHost : IWpfPortableNativePopupHost
         double dpiScaleY)
     {
         _ownerHost = ownerHost;
-        _dpiScaleX = NormalizeDeviceScale(dpiScaleX);
-        _dpiScaleY = NormalizeDeviceScale(dpiScaleY);
-        _nativeLogicalX = ToNativeLogicalScreenCoordinate(request.PopupScreenDeviceX, _dpiScaleX);
-        _nativeLogicalY = ToNativeLogicalScreenCoordinate(request.PopupScreenDeviceY, _dpiScaleY);
+        _ownerTransportScaleX = NormalizeDeviceScale(dpiScaleX);
+        _ownerTransportScaleY = NormalizeDeviceScale(dpiScaleY);
+        _nativeLogicalX = ToNativeLogicalScreenCoordinate(request.PopupScreenDeviceX, _ownerTransportScaleX);
+        _nativeLogicalY = ToNativeLogicalScreenCoordinate(request.PopupScreenDeviceY, _ownerTransportScaleY);
         _popupHost = new ProGpuWpfWindowHost(new ProGpuWpfWindowOptions
         {
             RendererMode = ownerHost.RendererMode,
@@ -148,6 +149,8 @@ internal sealed class WpfPortableNativePopupHost : IWpfPortableNativePopupHost
             throw new PlatformNotSupportedException("The popup presentation source cannot be bound to a native ProGPU host.");
         }
 
+        // Seed the not-yet-created surface once. After initialization its own
+        // native framebuffer/content callbacks are authoritative for source DPI.
         _popupHost.UpdatePortablePresentationSourceDpiScale(dpiScaleX, dpiScaleY);
         _popupHost.InputReceived += OnPopupInputReceived;
         _ownerHost.UpdateTick += OnOwnerUpdateTick;
@@ -213,19 +216,18 @@ internal sealed class WpfPortableNativePopupHost : IWpfPortableNativePopupHost
         _popupHost.RaiseInputForDiagnostics(input);
     }
 
-    public void SetDeviceScale(double dpiScaleX, double dpiScaleY)
+    public void SetOwnerTransportScale(double dpiScaleX, double dpiScaleY)
     {
         ObjectDisposedException.ThrowIf(_isDisposed, this);
-        _dpiScaleX = NormalizeDeviceScale(dpiScaleX);
-        _dpiScaleY = NormalizeDeviceScale(dpiScaleY);
-        _popupHost.UpdatePortablePresentationSourceDpiScale(dpiScaleX, dpiScaleY);
+        _ownerTransportScaleX = NormalizeDeviceScale(dpiScaleX);
+        _ownerTransportScaleY = NormalizeDeviceScale(dpiScaleY);
     }
 
     public void SetPosition(int x, int y)
     {
         ObjectDisposedException.ThrowIf(_isDisposed, this);
-        _nativeLogicalX = ToNativeLogicalScreenCoordinate(x, _dpiScaleX);
-        _nativeLogicalY = ToNativeLogicalScreenCoordinate(y, _dpiScaleY);
+        _nativeLogicalX = ToNativeLogicalScreenCoordinate(x, _ownerTransportScaleX);
+        _nativeLogicalY = ToNativeLogicalScreenCoordinate(y, _ownerTransportScaleY);
         _popupHost.SetPosition(_nativeLogicalX, _nativeLogicalY);
     }
 

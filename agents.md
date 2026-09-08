@@ -70,6 +70,11 @@ owner DIPs. Owner-surface overlays and input share those DIPs. Preserve independ
 native-popup client scale and parent-before-child geometry updates; framebuffer
 changes alone must not alter desktop scale. Do not remove Windows SDK admission
 guards before closing the remaining cross-monitor/native-source ownership path.
+Native popup owner-DPI updates must use `SetOwnerTransportScale` solely to decode
+legacy placement coordinates. Never forward them to the separately surfaced
+popup's presentation-source DPI; its native host owns framebuffer geometry after
+the initial seed. Owner-surface popups still inherit owner DPI. Keep single-move
+ordering fixtures and independent native-source DPI fixtures paired.
 Source-WPF geometry Combine must use the typed geometry operations provider and
 bounds-free operand export. Do not restore bounds-only boolean results or request
 CombinedGeometry.Bounds while exporting a combination. Groups preserve figure
