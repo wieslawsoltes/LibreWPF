@@ -333,49 +333,63 @@ internal sealed class WpfPortablePopupBridge : IDisposable
             return false;
         }
 
-        if (Math.Abs(_dpiScaleX - dpiScaleX) < double.Epsilon &&
-            Math.Abs(_dpiScaleY - dpiScaleY) < double.Epsilon)
+        if (_dpiScaleX == dpiScaleX && _dpiScaleY == dpiScaleY)
         {
             return false;
         }
 
-        _ownerClientScreenDeviceX = _ownerPopup?.X ?? _ownerClientScreenDeviceX;
-        _ownerClientScreenDeviceY = _ownerPopup?.Y ?? _ownerClientScreenDeviceY;
-        X = ToScreenDeviceCoordinate(
-            _ownerClientScreenDeviceX,
-            _localLogicalX,
-            dpiScaleX);
-        Y = ToScreenDeviceCoordinate(
-            _ownerClientScreenDeviceY,
-            _localLogicalY,
+        // Unpositioned owners have no native origin to republish. Preserve the
+        // origin carried by the create request in the new device-coordinate
+        // frame; nested owners have already published their new device origin.
+        return TrySetOwnerGeometry(
+            _ownerPopup?.X ?? ToScreenDeviceCoordinate(0, _ownerClientScreenDeviceX / _dpiScaleX, dpiScaleX),
+            _ownerPopup?.Y ?? ToScreenDeviceCoordinate(0, _ownerClientScreenDeviceY / _dpiScaleY, dpiScaleY),
+            dpiScaleX,
             dpiScaleY);
-        _dpiScaleX = dpiScaleX;
-        _dpiScaleY = dpiScaleY;
-        _source.SetDeviceScale(dpiScaleX, dpiScaleY);
-        SetSourceClientOrigin();
-        _nativeHost?.SetDeviceScale(dpiScaleX, dpiScaleY);
-        _nativeHost?.SetPosition(X, Y);
-        Trace($"dpi scale=({dpiScaleX:0.###},{dpiScaleY:0.###}) origin=({X},{Y})");
-        RequestRender();
-        return true;
     }
 
-    public bool TrySetOwnerClientScreenOrigin(object? ownerPresentationSource, int x, int y)
+    public bool TrySetOwnerClientGeometry(
+        object? ownerPresentationSource,
+        int x,
+        int y,
+        WpfDeviceScale? deviceScale = null)
     {
         ThrowIfDisposed();
-        if (!ReferenceEquals(_ownerPresentationSource, ownerPresentationSource) ||
-            (_ownerClientScreenDeviceX == x && _ownerClientScreenDeviceY == y))
+        return ReferenceEquals(_ownerPresentationSource, ownerPresentationSource) &&
+            TrySetOwnerGeometry(x, y, deviceScale?.X ?? _dpiScaleX, deviceScale?.Y ?? _dpiScaleY);
+    }
+
+    private bool TrySetOwnerGeometry(int x, int y, double dpiScaleX, double dpiScaleY)
+    {
+        if (!double.IsFinite(dpiScaleX) || dpiScaleX <= 0.0 ||
+            !double.IsFinite(dpiScaleY) || dpiScaleY <= 0.0)
         {
             return false;
         }
 
+        bool scaleChanged = _dpiScaleX != dpiScaleX || _dpiScaleY != dpiScaleY;
+        if (!scaleChanged && _ownerClientScreenDeviceX == x && _ownerClientScreenDeviceY == y)
+        {
+            return false;
+        }
+
+        // Publish one coherent device frame before notifying either source or
+        // native host. Moving with the new origin and old scale first produces
+        // a real, incorrect native-window move during an owner DPI transition.
         _ownerClientScreenDeviceX = x;
         _ownerClientScreenDeviceY = y;
-        X = ToScreenDeviceCoordinate(x, _localLogicalX, _dpiScaleX);
-        Y = ToScreenDeviceCoordinate(y, _localLogicalY, _dpiScaleY);
+        X = ToScreenDeviceCoordinate(x, _localLogicalX, dpiScaleX);
+        Y = ToScreenDeviceCoordinate(y, _localLogicalY, dpiScaleY);
+        _dpiScaleX = dpiScaleX;
+        _dpiScaleY = dpiScaleY;
         SetSourceClientOrigin();
+        if (scaleChanged)
+        {
+            _source.SetDeviceScale(dpiScaleX, dpiScaleY);
+            _nativeHost?.SetDeviceScale(dpiScaleX, dpiScaleY);
+        }
         _nativeHost?.SetPosition(X, Y);
-        Trace($"owner origin x={x} y={y} popup=({X},{Y})");
+        Trace($"owner origin=({x},{y}) scale=({dpiScaleX:0.###},{dpiScaleY:0.###}) popup=({X},{Y})");
         RequestRender();
         return true;
     }

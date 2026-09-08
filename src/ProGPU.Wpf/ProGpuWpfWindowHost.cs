@@ -4396,9 +4396,12 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         _portablePresentationSourceDpiScaleY = dpiScaleY;
         if (Left is int nativeLogicalLeft && Top is int nativeLogicalTop)
         {
-            UpdatePortablePresentationSourceClientOrigin(nativeLogicalLeft, nativeLogicalTop);
+            UpdatePortablePresentationSourceClientOrigin(
+                nativeLogicalLeft, nativeLogicalTop, new WpfDeviceScale(dpiScaleX, dpiScaleY));
         }
-
+        // Unpositioned owners and legacy handle-only requests cannot participate
+        // in the source-identity traversal above. Already updated popups are
+        // no-ops here. Creation order keeps nested owners before their children.
         for (int i = 0; i < _portablePopupBridges.Count; i++)
         {
             _portablePopupBridges[i].TrySetDeviceScale(dpiScaleX, dpiScaleY);
@@ -4435,6 +4438,9 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
     }
 
     internal bool UpdatePortablePresentationSourceClientOrigin(int x, int y)
+        => UpdatePortablePresentationSourceClientOrigin(x, y, popupDeviceScale: null);
+
+    private bool UpdatePortablePresentationSourceClientOrigin(int x, int y, WpfDeviceScale? popupDeviceScale)
     {
         WpfPortablePresentationSourceBridge? bridge = _portablePresentationSourceBridge;
         if (bridge == null)
@@ -4452,7 +4458,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
 
         int deviceX = ToDeviceScreenCoordinate(x, _portablePresentationSourceDpiScaleX);
         int deviceY = ToDeviceScreenCoordinate(y, _portablePresentationSourceDpiScaleY);
-        UpdatePortablePopupOwnerOrigins(bridge.Source, deviceX, deviceY);
+        UpdatePortablePopupOwnerOrigins(bridge.Source, deviceX, deviceY, popupDeviceScale);
 
         _portablePresentationSourceClientOriginX = x;
         _portablePresentationSourceClientOriginY = y;
@@ -4590,20 +4596,22 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
     private void UpdatePortablePopupOwnerOrigins(
         object ownerPresentationSource,
         int ownerClientScreenDeviceX,
-        int ownerClientScreenDeviceY)
+        int ownerClientScreenDeviceY,
+        WpfDeviceScale? deviceScale = null)
     {
         for (int i = 0; i < _portablePopupBridges.Count; i++)
         {
             WpfPortablePopupBridge popup = _portablePopupBridges[i];
-            if (!popup.TrySetOwnerClientScreenOrigin(
+            if (!popup.TrySetOwnerClientGeometry(
                     ownerPresentationSource,
                     ownerClientScreenDeviceX,
-                    ownerClientScreenDeviceY))
+                    ownerClientScreenDeviceY,
+                    deviceScale))
             {
                 continue;
             }
 
-            UpdatePortablePopupOwnerOrigins(popup.Source, popup.X, popup.Y);
+            UpdatePortablePopupOwnerOrigins(popup.Source, popup.X, popup.Y, deviceScale);
         }
     }
 

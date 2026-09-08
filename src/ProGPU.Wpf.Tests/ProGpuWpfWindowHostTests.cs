@@ -2799,6 +2799,80 @@ public sealed class ProGpuWpfWindowHostTests
         Assert.Equal(5, activationService.LastPresentationSourceInput.Y);
     }
 
+    [Theory]
+    [InlineData(100, 200, true, false, ProGpuWpfRendererMode.NativeMilWgpu)]
+    [InlineData(-800, 150, true, false, ProGpuWpfRendererMode.NativeMilWgpu)]
+    [InlineData(0, 0, true, false, ProGpuWpfRendererMode.ManagedPortable)]
+    [InlineData(-800, 150, false, false, ProGpuWpfRendererMode.ManagedPortable)]
+    [InlineData(100, 200, true, true, ProGpuWpfRendererMode.ManagedPortable)]
+    public void PopupDpiTransitionPublishesOnlyFinalNativePositionForEachNestedSurface(
+        int ownerX, int ownerY, bool positionedOwner, bool legacyHandleOwner, ProGpuWpfRendererMode rendererMode)
+    {
+        var parent = new FakePortablePresentationSource();
+        var child = new FakePortablePresentationSource();
+        var parentNative = new FakePortableNativePopupHost();
+        var childNative = new FakePortableNativePopupHost();
+        var previousSourceFactory = WpfPortablePopupBridge.PortablePresentationSourceFactory;
+        var previousNativeHostFactory = WpfPortablePopupBridge.NativePopupHostFactory;
+        int sourceIndex = 0;
+        WpfPortablePopupBridge.PortablePresentationSourceFactory = (_, _) => sourceIndex++ == 0 ? parent : child;
+        WpfPortablePopupBridge.NativePopupHostFactory = (_, source, _, _, _) =>
+            ReferenceEquals(source, parent) ? parentNative : childNative;
+        try
+        {
+            using var host = new ProGpuWpfWindowHost(new ProGpuWpfWindowOptions { RendererMode = rendererMode });
+            var owner = new FakePortablePresentationSource { RootVisual = new object(), Handle = new IntPtr(11) };
+            if (positionedOwner)
+                host.SetPosition(ownerX, ownerY);
+            Assert.True(host.TryBindPortablePresentationSource(owner));
+            Assert.True(host.TryCreatePortablePopup(new PortablePopupCreateRequest(
+                null, legacyHandleOwner ? null : owner, owner.Handle,
+                ownerX + 40, ownerY + 30, ownerX, ownerY, false, false), out var parentSource));
+            Assert.True(host.TryCreatePortablePopup(new PortablePopupCreateRequest(
+                null, parentSource, IntPtr.Zero, ownerX + 130, ownerY + 70,
+                ownerX + 40, ownerY + 30, false, false), out _));
+
+            foreach (double scale in new[] { 2.0, 1.5, 1.0 })
+            {
+                parent.ClientOrigins.Clear();
+                child.ClientOrigins.Clear();
+                parentNative.NativePositions.Clear();
+                childNative.NativePositions.Clear();
+                parentNative.CallLog.Clear();
+                childNative.CallLog.Clear();
+
+                Assert.True(host.UpdatePortablePresentationSourceDpiScale(scale, scale));
+                Assert.Equal(new[] { (ownerX + 40.0, ownerY + 30.0) }, parent.ClientOrigins);
+                Assert.Equal(new[] { (ownerX + 130.0, ownerY + 70.0) }, child.ClientOrigins);
+                Assert.Equal(new[] { (ownerX + 40, ownerY + 30) }, parentNative.NativePositions);
+                Assert.Equal(new[] { (ownerX + 130, ownerY + 70) }, childNative.NativePositions);
+                Assert.Equal(new[] { "Scale", "Position" }, parentNative.CallLog);
+                Assert.Equal(new[] { "Scale", "Position" }, childNative.CallLog);
+                Assert.False(host.UpdatePortablePresentationSourceDpiScale(scale, scale));
+                Assert.Single(parentNative.NativePositions);
+                Assert.Single(childNative.NativePositions);
+            }
+
+            if (positionedOwner && !legacyHandleOwner)
+            {
+                parentNative.NativePositions.Clear();
+                childNative.NativePositions.Clear();
+                parentNative.CallLog.Clear();
+                childNative.CallLog.Clear();
+                host.SetPosition(ownerX + 20, ownerY - 10);
+                Assert.Equal(new[] { (ownerX + 60, ownerY + 20) }, parentNative.NativePositions);
+                Assert.Equal(new[] { (ownerX + 150, ownerY + 60) }, childNative.NativePositions);
+                Assert.Equal(new[] { "Position" }, parentNative.CallLog);
+                Assert.Equal(new[] { "Position" }, childNative.CallLog);
+            }
+        }
+        finally
+        {
+            WpfPortablePopupBridge.PortablePresentationSourceFactory = previousSourceFactory;
+            WpfPortablePopupBridge.NativePopupHostFactory = previousNativeHostFactory;
+        }
+    }
+
     [Fact]
     public void NestedPortablePopupTracksOwnerDeviceOriginAndKeepsLocalInputCoordinates()
     {
@@ -3552,6 +3626,12 @@ public sealed class ProGpuWpfWindowHostTests
 
         public (int X, int Y) Position { get; private set; }
 
+        public (double X, double Y) DeviceScale { get; private set; } = (1, 1);
+
+        public List<(int X, int Y)> NativePositions { get; } = new();
+
+        public List<string> CallLog { get; } = new();
+
         public (int Width, int Height) Size { get; private set; }
 
         public int ShowCount { get; private set; }
@@ -3566,9 +3646,18 @@ public sealed class ProGpuWpfWindowHostTests
 
         public void SetDeviceScale(double dpiScaleX, double dpiScaleY)
         {
+            DeviceScale = (dpiScaleX, dpiScaleY);
+            CallLog.Add("Scale");
         }
 
-        public void SetPosition(int x, int y) => Position = (x, y);
+        public void SetPosition(int x, int y)
+        {
+            Position = (x, y);
+            NativePositions.Add((
+                WpfPortableNativePopupHost.ToNativeLogicalScreenCoordinate(x, DeviceScale.X),
+                WpfPortableNativePopupHost.ToNativeLogicalScreenCoordinate(y, DeviceScale.Y)));
+            CallLog.Add("Position");
+        }
 
         public void SetSize(int width, int height) => Size = (width, height);
 
@@ -3668,7 +3757,7 @@ public sealed class ProGpuWpfWindowHostTests
 
         public object CompositionTarget { get; } = new();
 
-        public IntPtr Handle => IntPtr.Zero;
+        public IntPtr Handle { get; init; }
 
         public object? RequestedCursor => null;
 
@@ -3716,6 +3805,8 @@ public sealed class ProGpuWpfWindowHostTests
 
         public System.Collections.Generic.List<string> CallLog { get; } = new();
 
+        public List<(double X, double Y)> ClientOrigins { get; } = new();
+
         public bool IsDisposed { get; private set; }
 
         public void SetDeviceScale(double dpiScaleX, double dpiScaleY)
@@ -3740,6 +3831,7 @@ public sealed class ProGpuWpfWindowHostTests
         {
             ClientOriginX = x;
             ClientOriginY = y;
+            ClientOrigins.Add((x, y));
             CallLog.Add("ClientOrigin");
             RenderRequested?.Invoke(this, EventArgs.Empty);
         }

@@ -50,6 +50,10 @@ Show: native surfaces use monitor/work-area bounds, owner-surface popups use the
 real owner client rectangle. Missing monitor capability is an explicit failure,
 not permission to silently constrain native popups to the owner. Preserve host
 desktop coordinates; do not independently rescale monitor origins by content DPI.
+Owner DPI changes must publish popup owner origin and device scale together,
+parent before child. Never move a native popup with a new device origin and its
+old scale, then correct it in a second pass. Retain scale-only handling for
+unpositioned/legacy owners without moving already updated surfaces again.
 Source-WPF geometry Combine must use the typed geometry operations provider and
 bounds-free operand export. Do not restore bounds-only boolean results or request
 CombinedGeometry.Bounds while exporting a combination. Groups preserve figure

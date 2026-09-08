@@ -82,6 +82,45 @@ fallback semantics; performance defaults may only claim speed after measurement.
 
 ## Core application closure checkpoints
 
+Popup DPI publication checkpoint (MVP/Toolkit ComboBoxes and nested menus):
+`UpdatePortablePresentationSourceDpiScale` previously propagated the new owner
+device origin while popups still had their old scale, then updated scales in a
+second pass. For an owner at desktop X=100 and a popup at X=140, a 1-to-2 scale
+change could publish a native move to X=240 before correcting it to X=140.
+Nested popup propagation repeated those intermediate moves. This is source-backed
+ordering evidence, not a reproduced desktop run.
+
+The host now sends owner origin and scale through one typed popup geometry
+update, parent before child. Bridge device state is assigned together; only
+the final source origin and one native position are published, with the native
+scale updated before position conversion. The fallback for unpositioned owners
+and legacy handle-only requests preserves the request origin across scale
+changes; already updated popups are no-ops in that pass. Ordinary owner movement
+continues to update positions without republishing scale.
+
+This is host/source integration shared by both renderer modes, not a rendering
+algorithm change: no new ProGPU C++, shader, managed renderer or geometry algorithm
+is needed. The existing device-coordinate transport ABI and monitor coordinates
+are unchanged. Regression fixtures capture every source origin/native position
+for nested surfaces, positive/negative/zero origins, 1/2/1.5/1 scale transitions,
+repeated notifications, native and managed host selections, and unpositioned or
+legacy owners. They are authored for final qualification, not executed here.
+Mixed-monitor coordinate projection, independently changing popup DPI, actual
+capture/input fidelity and Windows package admission remain open. Continue those
+application integration blockers; do not expand the general Direct2D surface.
+The next bounded trace is the same ComboBox/menu placement action through
+source `PointUtil.ClientToScreen`, `Popup.ToPortableScreenDevicePoint` and
+`WpfPortableNativePopupHost.SetPosition`, compared with the host's existing
+`ResolveLogicalClientDimension` content-scale handling. Portable client-to-screen
+currently adds the source origin without a separate client-to-desktop scale.
+Resolve that coordinate contract before treating scaled desktop placement as
+implemented or removing a Windows admission guard.
+Compile-only results: the final bridge/fixture Release build succeeds with
+21 warnings and 0 errors; the source-built PresentationFramework host harness
+succeeds with 4 warnings and 0 errors. An earlier bridge rebuild reported 116
+warnings; incremental counts do not establish warning cleanup. No fixtures,
+source verifiers, graphical/VM workloads, benchmarks or CI qualification ran.
+
 Fill-query connection checkpoint (MVP/Toolkit layout clips and pointer input):
 portable unstroked bounds now route by frozen media backend through the typed
 geometry provider, including generic groups, serialized paths and primitive MIL
