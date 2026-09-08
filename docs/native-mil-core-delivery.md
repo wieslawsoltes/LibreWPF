@@ -287,7 +287,8 @@ rules and absolute tolerance, returning actual closed contours with one owned
 snapshot. No GPU/window/system COM activation, bounds substitute or new boolean
 algorithm is introduced. The shared core's intrinsic kernels remain authoritative.
 
-The source-WPF bounds-only implementation **has not yet been replaced**. The next
+At that prerequisite checkpoint, the source-WPF bounds-only implementation had
+not yet been replaced. The next
 bounded outcome is its typed adapter and startup registration, preserving nested
 geometry, transforms, relative tolerance and invalid-number behavior for both
 renderer modes. This native prerequisite cannot by itself admit Windows SDK
@@ -304,6 +305,37 @@ ProGPU implementation commit `93120e82` is pushed to PR #139 and tracked by the
 superproject. The utility fixture is included by the existing unfiltered CTest
 commands in the Unix and Windows native build scripts; those commands have not
 been executed during this implementation-first phase.
+
+Geometry connection checkpoint: source-built `PathGeometry.InternalCombine` now
+selects a typed `IPortableGeometryOperations` provider using frozen media backend
+identity. Its bounds-only implementation is removed. A separate bounds-free
+operand export preserves groups and nested combinations without asking for
+CombinedGeometry.Bounds. The host adapter uses existing ProGPU path conversion,
+affine/arc handling and fill compilation, then the C++ actual-boundary utility;
+returned contours become real source-WPF PathGeometry. Default provider installation
+occurs in host construction and activation bootstrap without native/GPU work.
+Explicit provider registrations remain authoritative. Both renderer modes now
+require the matching native CPU geometry binary for these operations.
+
+Source-backed contract handling includes group fill versus union semantics,
+operand/result transforms, absolute/relative tolerance, nonfinite input and
+explicit unsupported finite-range failures. This is not runtime/image parity.
+The Windows SDK guard remains: other source geometry bounds/hit-test utilities
+still have OS-selected legacy MIL routes. Finish those required core consumers
+next, then qualify transformed clips/editing in real applications; do not expand
+general Direct2D API breadth. See the updated ProGPU geometry utility document
+for exact provenance, startup/dependency boundaries and authored fixtures.
+
+Connection compilation checkpoint: final Release builds report ProGPU tests
+0 warnings/0 errors, WPF bridge tests 116/0, PresentationCore tests 8/0 and the
+real source-built WPF host harness 4/0. Earlier compilation defects in the new
+adapter's namespace, widening call and empty-bounds signaling were corrected;
+these final totals are not test passes or warning-cleanup claims. Exact
+transformed curve extrema now feed relative tolerance instead of control hulls,
+with a scaled-cubic regression authored. ProGPU contract commit `83bc51ad` is
+pushed to PR #139 and tracked here. No test bodies, source verifiers, GPU/VM/image,
+lifetime, benchmark or CI qualification were executed. All acceptance gates and
+the existing Windows SDK guard remain intact.
 
 Transport-selection compilation checkpoint: final Release ProGPU tests compile
 with 0 warnings/0 errors, the source-built WPF host harness with 4/0, WPF tests

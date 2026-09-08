@@ -8965,8 +8965,9 @@ public sealed class WpfManagedProjectGraphTests
         AssertGuardBefore(bitmapDecoder, "IconBitmapDecoder.TryCreatePortableFrame", "SetupDecoderFromUriOrStream");
         AssertGuardBefore(uiElement, "if (!OperatingSystem.IsWindows())", "UnsafeNativeMethods.GetDC(desktopWnd)");
         AssertGuardBefore(pathGeometry, "if (!OperatingSystem.IsWindows())", "UnsafeNativeMethods.MilCoreApi.MilUtility_PathGeometryBounds");
-        AssertGuardBefore(pathGeometry, "if (!OperatingSystem.IsWindows())\n            {\n                return InternalCombineManaged", "UnsafeNativeMethods.MilCoreApi.MilUtility_PathGeometryCombine");
-        Assert.Contains("private static PathGeometry InternalCombineManaged(", pathGeometry, StringComparison.Ordinal);
+        AssertGuardBefore(pathGeometry, "return PortableGeometryOperationsBridge.Combine(geometry1, geometry2, mode, transform, tolerance, type);", "UnsafeNativeMethods.MilCoreApi.MilUtility_PathGeometryCombine");
+        Assert.Contains("PortableWpfRuntime.GetMediaBackendAndFreeze() == PortableWpfMediaBackend.Portable", pathGeometry, StringComparison.Ordinal);
+        Assert.DoesNotContain("InternalCombineManaged", pathGeometry, StringComparison.Ordinal);
         AssertGuardBefore(geometry, "if (!OperatingSystem.IsWindows())\n            {\n                if (pen == null &&\n                    PathGeometry.TryContainsFillProGpu", "MilCoreApi.MilUtility_PathGeometryHitTest");
         AssertGuardBefore(geometry, "if (!OperatingSystem.IsWindows())\n            {\n                return ContainsPolygonProGpuBounds", "MilCoreApi.MilUtility_PolygonHitTest");
         Assert.Contains(@"external\ProGPU\src\ProGPU.Vector\BoundsHitTesting.cs", presentationCoreProject, StringComparison.Ordinal);

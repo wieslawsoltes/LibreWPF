@@ -865,6 +865,7 @@
     <Compile Include="System\Windows\Media\PixelFormatConverter.cs" />
     <Compile Include="System\Windows\Media\PixelFormats.cs" />
     <Compile Include="System\Windows\Media\PortableGeometryPathExporter.cs" />
+    <Compile Include="System\Windows\Media\PortableGeometryOperationsBridge.cs" />
     <Compile Include="System\Windows\Media\PointCollection.cs" />
     <Compile Include="System\Windows\Media\PointHitTestParameters.cs" />
     <Compile Include="System\Windows\Media\PointHitTestResult.cs" />

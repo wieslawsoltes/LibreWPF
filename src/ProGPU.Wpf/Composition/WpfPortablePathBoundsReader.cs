@@ -1,5 +1,6 @@
 using System;
 using System.Numerics;
+using System.Runtime.Intrinsics;
 using ProGPU.Wpf.Interop;
 using VectorArcSegment = ProGPU.Vector.ArcSegment;
 using VectorArcSegmentGeometry = ProGPU.Vector.ArcSegmentGeometry;
@@ -9,6 +10,64 @@ namespace System.Windows.Media.ProGPU.Composition;
 
 internal static class WpfPortablePathBoundsReader
 {
+    // Stream already-transformed native geometry through the same exact curve
+    // extrema helpers as portable paths. Vector PathGeometry.TryGetBounds uses
+    // Bezier control hulls; those must not enlarge relative Combine tolerance.
+    internal static bool TryGetMaterializedPathBounds(global::ProGPU.Vector.PathGeometry path, out WpfReplayRect bounds, out bool hasPoints)
+    {
+        bounds = WpfReplayRect.Empty;
+        hasPoints = false;
+        if (path.IsCombined) return false;
+        bool hasPoint = false;
+        double left = 0, top = 0, right = 0, bottom = 0;
+        for (int figureIndex = 0; figureIndex < path.Figures.Count; figureIndex++)
+        {
+            var figure = path.Figures[figureIndex];
+            var current = Widen(figure.StartPoint);
+            if (!TryIncludePoint(current, ref hasPoint, ref left, ref top, ref right, ref bottom)) return false;
+            for (int index = 0; index < figure.Segments.Count; index++)
+            {
+                switch (figure.Segments[index])
+                {
+                    case global::ProGPU.Vector.LineSegment line:
+                        current = Widen(line.Point);
+                        if (!TryIncludePoint(current, ref hasPoint, ref left, ref top, ref right, ref bottom)) return false;
+                        break;
+                    case global::ProGPU.Vector.QuadraticBezierSegment quadratic:
+                        if (!TryIncludeQuadraticBezier(current, Widen(quadratic.ControlPoint), Widen(quadratic.Point),
+                            ref hasPoint, ref left, ref top, ref right, ref bottom)) return false;
+                        current = Widen(quadratic.Point);
+                        break;
+                    case global::ProGPU.Vector.CubicBezierSegment cubic:
+                        if (!TryIncludeCubicBezier(current, Widen(cubic.ControlPoint1), Widen(cubic.ControlPoint2), Widen(cubic.Point),
+                            ref hasPoint, ref left, ref top, ref right, ref bottom)) return false;
+                        current = Widen(cubic.Point);
+                        break;
+                    case VectorArcSegment arc:
+                        if (VectorArcSegmentGeometry.TryGetArcBounds(new Vector2((float)current.X, (float)current.Y), arc,
+                            out var min, out var max))
+                        {
+                            if (!TryIncludePoint(Widen(min), ref hasPoint, ref left, ref top, ref right, ref bottom) ||
+                                !TryIncludePoint(Widen(max), ref hasPoint, ref left, ref top, ref right, ref bottom)) return false;
+                        }
+                        current = Widen(arc.Point);
+                        if (!TryIncludePoint(current, ref hasPoint, ref left, ref top, ref right, ref bottom)) return false;
+                        break;
+                    default: return false;
+                }
+            }
+        }
+        hasPoints = hasPoint;
+        if (hasPoint) bounds = new WpfReplayRect(left, top, right - left, bottom - top);
+        return true;
+    }
+
+    private static PortablePoint Widen(Vector2 point)
+    {
+        var value = Vector128.WidenLower(Vector128.Create(point.X, point.Y, 0f, 0f));
+        return new PortablePoint(value[0], value[1]);
+    }
+
     public static bool TryGetLocalPathBounds(
         PortableGeometryPath geometry,
         out WpfReplayRect bounds)
