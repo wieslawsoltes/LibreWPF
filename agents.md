@@ -1,5 +1,14 @@
 # Agent Guidance
 
+Portable FlowDocument layout must consume the typed `IPortableDocumentFlow`
+service backed by ProGPU C++, using source-resolved block policy and actual
+formatted paragraph lines. Keep original TextContainer/TextPointer ownership,
+lists/markers, selection and content hit testing; do not clone the document into
+fake TextBlocks or treat the empty portable FlowDocumentView as completion.
+Width constraints precede formatting, placement follows it; an exhausted zero
+width is not unbounded. Lazy pre-host document registration is only a prerequisite.
+The actual viewer consumer, pagination and Windows SDK admission remain open.
+
 Portable source text must preserve actual shaped content, clusters, styled runs
 and caret/selection semantics. `SimpleTextLine.CreatePortableFallback` currently
 manufactures an empty paragraph for unsupported cases; this is an outstanding

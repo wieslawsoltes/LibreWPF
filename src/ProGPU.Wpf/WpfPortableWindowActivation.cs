@@ -65,6 +65,7 @@ public sealed class WpfPortableWindowActivation : IDisposable
     static WpfPortableWindowActivation()
     {
         Composition.WpfPortableGeometryOperations.EnsureRegistered();
+        Composition.WpfPortableDocumentFlow.EnsureRegistered();
         PortableWpfServiceRegistry.ClipboardServiceRegistered += OnClipboardServiceRegistered;
         PortableWpfServiceRegistry.MessageBoxServiceRegistered += OnMessageBoxServiceRegistered;
         PortableWpfServiceRegistry.FileDialogServiceRegistered += OnFileDialogServiceRegistered;

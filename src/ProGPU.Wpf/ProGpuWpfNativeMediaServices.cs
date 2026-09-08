@@ -7,7 +7,7 @@ namespace System.Windows.Media.ProGPU;
 public static class ProGpuWpfNativeMediaServices
 {
     /// <summary>
-    /// Selects portable media and installs lazy text/geometry defaults. Idempotent;
+    /// Selects portable media and installs lazy text/geometry/document defaults. Idempotent;
     /// preserves explicit service overrides. Creates no window, device, font context,
     /// native renderer or surface. A conflicting frozen media choice fails before
     /// service registration. SDK platform admission remains a separate requirement.
@@ -17,5 +17,6 @@ public static class ProGpuWpfNativeMediaServices
         PortableWpfRuntime.SelectMediaBackend(PortableWpfMediaBackend.Portable);
         WpfPortableGeometryOperations.EnsureRegistered();
         WpfPortableTextFormatting.EnsureRegistered();
+        WpfPortableDocumentFlow.EnsureRegistered();
     }
 }

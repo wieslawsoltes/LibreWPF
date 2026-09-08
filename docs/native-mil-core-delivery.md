@@ -116,6 +116,24 @@ commit. Their next-step text is historical, may be superseded by later changes,
 and must not be treated as an additional active backlog. Use the active completion
 queue above for current priorities.
 
+Native document placement prerequisite: ProGPU now resolves nested source block
+widths and arranges actual formatted lines with positive margin collapse, insets
+and overflow. The fixed C ABI has generated double-precision records, a zero-copy
+typed LibreWPF adapter and lazy registration before native SDK media construction.
+Fixtures cover spacing, invalid topology/ranges/aliasing, preserved failure outputs,
+scalar metric/prefix oracles and neutral/native field layouts. The strict C++
+fixture target and managed adapter fixtures compile; no tests or runtime/CI
+qualification ran. Source `FlowDocumentView` still needs its actual consumer:
+original document extraction, paragraph/list rendering, source text-view/content
+ownership, scrolling and invalidation. Pagination remains open. This native layer
+is not viewer completion and does not remove the Windows package admission guard.
+Continue that consumer, not additional block-layout API breadth.
+See the [implementation record](../external/ProGPU/docs/native-mil-document-flow.md).
+Compilation: ProGPU fixtures 0 warnings/errors; LibreWPF adapter fixture graph
+116 warnings/0 errors on its first build and 1 warning/0 errors incrementally.
+ProGPU commit `3dc0c223` contains the latest fetched `main`; this checkpoint does
+not assert that the required CI or installed native package exports are qualified.
+
 Standard source run underlines: the MVP FlowDocument viewer's Hyperlink exposed
 a required decoration rejection in PortableTextLine. Standard underlines now
 consume native paragraph range geometry, actual font metrics and source brushes,
