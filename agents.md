@@ -30,6 +30,11 @@ Window callbacks/render-wakeup registration do not by themselves select the
 source-built MIL transport: establish that choice before media-system startup
 and route popup/interop handles by ownership before enabling Windows native SDK
 activation. Do not mechanically remove Windows platform-service checks.
+Source-built MIL transport guards use the shared `PortableWpfRuntime` choice,
+frozen before any composition lock, channel or media-system ownership. Preserve
+that choice across shutdown/device recovery and reject late backend switches.
+Extend this typed policy to remaining MIL resource consumers; do not equate a
+portable transport selection with completed Windows package support.
 
 ## Reflection-Free Port Priority
 

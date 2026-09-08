@@ -7,13 +7,19 @@ internal static class ProGpuWpfSdkPortableBootstrap
     {
 #if PROGPU_WPF_NATIVE_MIL
         // Typed Application/Window activation accepts Windows hosts, but the
-        // source-built MIL startup and popup paths still select by OS.
+        // media-resource utility and popup paths still select by OS.
         // Do not let an explicit native SDK selection run Windows MIL instead.
         if (global::System.OperatingSystem.IsWindows())
         {
             throw new global::System.PlatformNotSupportedException(
-                "LibreWPF NativeMilWgpu SDK activation on Windows requires explicit portable MIL startup and popup routing, which are not connected yet. The direct native host gate remains available.");
+                "LibreWPF NativeMilWgpu SDK activation on Windows requires explicit portable media-resource and popup routing, which are not connected yet. The direct native host gate remains available.");
         }
+#endif
+#if PROGPU_WPF_NATIVE_MIL
+        // Resolve transport ownership before any source-built WPF module or
+        // WinForms interop initializer can construct media resources.
+        global::ProGPU.Wpf.Interop.PortableWpfRuntime.SelectMediaBackend(
+            global::ProGPU.Wpf.Interop.PortableWpfMediaBackend.Portable);
 #endif
 #if PROGPU_WPF_USE_LIBREWINFORMS
         global::System.Windows.Forms.Integration.WindowsFormsHost.EnableWindowsFormsInterop();

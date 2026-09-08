@@ -92,8 +92,9 @@ selection. Invalid configuration and missing activation fail explicitly.
 
 **Known core blocker:** the Windows package path still needs a complete source-built
 backend selection. Typed window activation and render-wakeup registration now
-accept Windows hosts; this does not redirect the remaining OS-selected MIL startup
-and popup implementation. The native SDK selector continues to report this
+accept Windows hosts. MIL transport startup now uses the shared frozen selection
+described below; media-resource utilities and popup/interop creation remain open.
+The native SDK selector continues to report this
 limitation instead of silently using Windows MIL. Do not count the direct Windows
 drawing harness as completion of this application path. macOS/Linux native SDK
 selection is wired, not runtime-qualified. See the SDK README's renderer-selection
@@ -130,7 +131,7 @@ Windows activation prerequisite checkpoint:
   matching the existing PresentationCore test arrangement; no public test seam
   or reflected invocation is added.
 
-Next bounded dependency, before removing the SDK guard: select the portable MIL
+Historical next dependency (transport selection is implemented below): select the portable MIL
 transport **before** source-built `MediaContext`/`MediaSystem` initialization and
 composition locking, then route ordinary Toolkit popup/interop-handle creation
 by portable source ownership. `MediaContext` calls `MediaSystem.Startup`, which
@@ -144,6 +145,30 @@ may remain Windows-specific, but portable source handles must never enter the
 Windows MIL/HWND renderer. The direct-host harness bypasses package startup and
 therefore cannot close this dependency. Keep the explicit Windows SDK guard until
 the complete required route is connected.
+
+Media transport checkpoint: the package MVP/Toolkit startup path now has the
+ProGPU-owned `PortableWpfRuntime` choice before media initialization. First use
+freezes transport identity across dispatchers; a late backend switch throws.
+`MediaSystem`, composition locks and the MIL notification window consume it;
+direct synchronous/asynchronous Windows channel requests fail closed in portable
+mode. The native host harness and SDK native bootstrap select portable transport
+before loading/initializing source-built WPF. This does not remove the SDK guard.
+See [contract, provenance, references and qualification limits](../external/ProGPU/docs/native-mil-startup-selection.md).
+
+Next core dependency: connect ordinary media-resource helpers (for example
+`Geometry.GetProGpuPolygonBounds` versus the Windows MIL utility and
+`PathGeometry.InternalCombine`), hidden interop-handle creation and popup ownership
+to the selected portable backend. The initial transport choice is implemented,
+not proof that the whole application no longer calls legacy MIL. Preserve the
+existing ordinary managed/native renderer algorithms rather than adding reduced
+Windows-only substitutes. Required Windows package admission remains pending.
+
+Transport-selection compilation checkpoint: final Release ProGPU tests compile
+with 0 warnings/0 errors, the source-built WPF host harness with 4/0, WPF tests
+with 115/0 and SDK smoke harness with 0/0. Both actual conditional SDK bootstrap
+branches compile with 0/0 against updated interop/source-built WPF assemblies.
+Tests, native dependency observation, runtime/VM/image/benchmark work and CI
+qualification remain deferred; these are compilation results only.
 
 Compilation-only evidence for this prerequisite (Release, macOS host):
 

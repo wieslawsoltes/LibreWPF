@@ -6,7 +6,7 @@
 //     domain and the underlying transport system.
 
 using System.Collections;
-using System.Runtime.InteropServices;
+using ProGPU.Wpf.Interop;
 using System.Windows.Media.Composition;
 using System.Windows.Threading;
 using System.Threading;
@@ -26,7 +26,9 @@ namespace System.Windows.Media
     /// </remarks>
     internal static class MediaSystem
     {
-        private static readonly bool s_isWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
+        private static readonly object s_portableContextLock = new object();
+        private static bool UsesWindowsMil =>
+            PortableWpfRuntime.GetMediaBackendAndFreeze() == PortableWpfMediaBackend.WindowsMil;
 
         /// <summary>
         /// This function initializes the MediaSystem. It must be called before any functions in the Media namespace
@@ -35,9 +37,9 @@ namespace System.Windows.Media
         /// <seealso cref="Shutdown"/>
         public static bool Startup(MediaContext mc)
         {
-            if (!s_isWindows)
+            if (!UsesWindowsMil)
             {
-                using (CompositionEngineLock.Acquire())
+                lock (s_portableContextLock)
                 {
                     _mediaContexts.Add(mc);
                     s_refCount++;
@@ -95,7 +97,7 @@ namespace System.Windows.Media
 
         internal static bool ConnectChannels(MediaContext mc)
         {
-            if (!s_isWindows)
+            if (!UsesWindowsMil)
             {
                 return false;
             }
@@ -140,9 +142,9 @@ namespace System.Windows.Media
         /// </summary>
         internal static void Shutdown(MediaContext mc)
         {
-            if (!s_isWindows)
+            if (!UsesWindowsMil)
             {
-                using (CompositionEngineLock.Acquire())
+                lock (s_portableContextLock)
                 {
                     Debug.Assert(s_refCount > 0);
                     _mediaContexts.Remove(mc);
@@ -200,7 +202,7 @@ namespace System.Windows.Media
         /// </summary>
         internal static void NotifyRedirectionEnvironmentChanged()
         {
-            if (!s_isWindows)
+            if (!UsesWindowsMil)
             {
                 return;
             }
@@ -337,7 +339,7 @@ namespace System.Windows.Media
         {
             get
             {
-                if (!s_isWindows)
+                if (!UsesWindowsMil)
                 {
                     return false;
                 }

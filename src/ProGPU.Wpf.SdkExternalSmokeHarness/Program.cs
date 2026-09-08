@@ -352,6 +352,13 @@ internal static class Program
         AssertContains(portableBootstrap, "ProGpuWpfRendererMode.NativeMilWgpu", "SDK native host factory");
         AssertContains(portableBootstrap, "if (!registered)", "SDK native activation fails closed");
         AssertContains(portableBootstrap, "NativeMilWgpu SDK activation on Windows", "SDK Windows activation limitation is explicit");
+        AssertContains(portableBootstrap, "PortableWpfRuntime.SelectMediaBackend(", "SDK typed media transport selection");
+        AssertContains(portableBootstrap, "PortableWpfMediaBackend.Portable", "SDK native mode requires portable media transport");
+        if (portableBootstrap.IndexOf("PortableWpfRuntime.SelectMediaBackend(", StringComparison.Ordinal) >=
+            portableBootstrap.IndexOf("RuntimeHelpers.RunModuleConstructor(", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("SDK transport choice must precede WPF module initialization.");
+        }
         AssertContains(portableTargets, "_ProGpuWpfSdkCopyManagedTransportRuntimeAssets", "SDK managed transport runtime copy target");
         AssertContains(portableTargets, "_ProGpuWpfSdkPreserveManagedTransportRuntimeAssetsInDependencyFile", "SDK managed transport dependency target");
         AssertContains(portableTargets, "BeforeTargets=\"GenerateBuildDependencyFile\"", "SDK managed transport dependency ordering");

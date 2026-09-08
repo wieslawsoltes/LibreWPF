@@ -77,6 +77,8 @@ public static class Program
         string presentationCorePath,
         bool exerciseDeviceRecovery)
     {
+        ProGPU.Wpf.Interop.PortableWpfRuntime.SelectMediaBackend(
+            ProGPU.Wpf.Interop.PortableWpfMediaBackend.Portable);
         var loadContext = new WpfAssemblyLoadContext(
             repoRoot,
             presentationFrameworkPath,
@@ -232,6 +234,12 @@ public static class Program
     private static string ValidateNativeMilHostResult(
         ProGpuWpfWindowHost host)
     {
+        if (!PortableWpfRuntime.IsMediaBackendFrozen ||
+            PortableWpfRuntime.ConfiguredMediaBackend != PortableWpfMediaBackend.Portable)
+        {
+            throw new InvalidOperationException(
+                "Source-built WPF did not acquire the selected portable media backend.");
+        }
         if (!host.HasPresentedFrame)
         {
             throw new TimeoutException(

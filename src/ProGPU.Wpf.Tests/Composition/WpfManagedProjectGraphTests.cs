@@ -210,7 +210,7 @@ public sealed class WpfManagedProjectGraphTests
     }
 
     [Fact]
-    public void MediaContextNotificationWindowSkipsWin32WindowCreationOnNonWindows()
+    public void PortableMediaBackendSkipsMilNotificationWindowCreation()
     {
         var sourcePath = FindRepoPath(
             "src",
@@ -223,13 +223,13 @@ public sealed class WpfManagedProjectGraphTests
             "MediaContextNotificationWindow.cs");
         var source = File.ReadAllText(sourcePath);
 
-        Assert.Contains("RuntimeInformation.IsOSPlatform(OSPlatform.Windows)", source, StringComparison.Ordinal);
-        Assert.Contains("if (!s_isWindows)", source, StringComparison.Ordinal);
+        Assert.Contains("PortableWpfRuntime.GetMediaBackendAndFreeze()", source, StringComparison.Ordinal);
+        Assert.Contains("if (!UsesWindowsMil)", source, StringComparison.Ordinal);
         Assert.Contains("new HwndWrapper", source, StringComparison.Ordinal);
         Assert.True(
-            source.IndexOf("if (!s_isWindows)", StringComparison.Ordinal)
+            source.IndexOf("if (!UsesWindowsMil)", StringComparison.Ordinal)
                 < source.IndexOf("new HwndWrapper", StringComparison.Ordinal),
-            "The non-Windows guard must run before creating the hidden HWND notification window.");
+            "The backend guard must run before creating the hidden MIL notification window.");
         Assert.Contains("_ownerMediaContext.Channel.SetNotificationWindow", source, StringComparison.Ordinal);
     }
 
@@ -2255,7 +2255,7 @@ public sealed class WpfManagedProjectGraphTests
     }
 
     [Fact]
-    public void MediaSystemSkipsMilCoreStartupOnNonWindows()
+    public void PortableMediaBackendSkipsWindowsMilStartupAndChannels()
     {
         var sourcePath = FindRepoPath(
             "src",
@@ -2268,8 +2268,9 @@ public sealed class WpfManagedProjectGraphTests
             "MediaSystem.cs");
         var source = File.ReadAllText(sourcePath);
 
-        Assert.Contains("RuntimeInformation.IsOSPlatform(OSPlatform.Windows)", source, StringComparison.Ordinal);
-        Assert.Contains("if (!s_isWindows)", source, StringComparison.Ordinal);
+        Assert.Contains("PortableWpfRuntime.GetMediaBackendAndFreeze()", source, StringComparison.Ordinal);
+        Assert.Contains("lock (s_portableContextLock)", source, StringComparison.Ordinal);
+        Assert.Contains("if (!UsesWindowsMil)", source, StringComparison.Ordinal);
         Assert.Contains("return false;", source, StringComparison.Ordinal);
         Assert.Contains("UnsafeNativeMethods.MilVersionCheck", source, StringComparison.Ordinal);
         Assert.Contains("SafeNativeMethods.MilCompositionEngine_InitializePartitionManager", source, StringComparison.Ordinal);
@@ -2278,21 +2279,28 @@ public sealed class WpfManagedProjectGraphTests
         Assert.True(
             source.IndexOf("return false;", StringComparison.Ordinal)
                 < source.IndexOf("UnsafeNativeMethods.MilVersionCheck", StringComparison.Ordinal),
-            "The non-Windows startup path must return disconnected before any MILCore version check or partition startup.");
+            "The portable startup path must return disconnected before any Windows MIL version check or partition startup.");
 
         var connectChannelsIndex = source.IndexOf("internal static bool ConnectChannels", StringComparison.Ordinal);
-        var connectGuardIndex = source.IndexOf("if (!s_isWindows)", connectChannelsIndex, StringComparison.Ordinal);
+        var connectGuardIndex = source.IndexOf("if (!UsesWindowsMil)", connectChannelsIndex, StringComparison.Ordinal);
         var createChannelsIndex = source.IndexOf("mc.CreateChannels()", StringComparison.Ordinal);
         Assert.True(
             connectGuardIndex > connectChannelsIndex && connectGuardIndex < createChannelsIndex,
-            "The non-Windows channel path must return before creating DUCE channels.");
+            "The portable channel path must return before creating Windows DUCE channels.");
 
         var shutdownIndex = source.IndexOf("internal static void Shutdown", StringComparison.Ordinal);
-        var shutdownGuardIndex = source.IndexOf("if (!s_isWindows)", shutdownIndex, StringComparison.Ordinal);
+        var shutdownGuardIndex = source.IndexOf("if (!UsesWindowsMil)", shutdownIndex, StringComparison.Ordinal);
         var deinitializeIndex = source.IndexOf("SafeNativeMethods.MilCompositionEngine_DeinitializePartitionManager", StringComparison.Ordinal);
         Assert.True(
             shutdownGuardIndex > shutdownIndex && shutdownGuardIndex < deinitializeIndex,
-            "The non-Windows shutdown path must return before MILCore partition deinitialization.");
+            "The portable shutdown path must return before Windows MIL partition deinitialization.");
+
+        var channelManager = File.ReadAllText(FindRepoPath(
+            "src", "Microsoft.DotNet.Wpf", "src", "PresentationCore", "System", "Windows", "Media", "ChannelManager.cs"));
+        Assert.Contains("PortableWpfRuntime.GetMediaBackendAndFreeze() != PortableWpfMediaBackend.WindowsMil", channelManager, StringComparison.Ordinal);
+        AssertGuardBefore(channelManager, "RequireWindowsMilTransport();", "new DUCE.Channel(");
+        var syncSource = channelManager[channelManager.IndexOf("internal DUCE.Channel AllocateSyncChannel()", StringComparison.Ordinal)..];
+        AssertGuardBefore(syncSource, "RequireWindowsMilTransport();", "UnsafeNativeMethods.WgxConnection_Create(");
     }
 
     [Fact]
@@ -8847,7 +8855,7 @@ public sealed class WpfManagedProjectGraphTests
             "Imaging",
             "BitmapPalette.cs"));
 
-        AssertGuardBefore(compositionExports, "if (!OperatingSystem.IsWindows())", "UnsafeNativeMethods.MilCoreApi.EnterCompositionEngineLock()");
+        AssertGuardBefore(compositionExports, "PortableWpfRuntime.GetMediaBackendAndFreeze() != PortableWpfMediaBackend.WindowsMil", "UnsafeNativeMethods.MilCoreApi.EnterCompositionEngineLock()");
         Assert.Contains("CreateManagedPredefinedColors", bitmapPalette, StringComparison.Ordinal);
         Assert.Contains("InitializeManagedFromBitmapSource", bitmapPalette, StringComparison.Ordinal);
         Assert.Contains("ExtractManagedColors", bitmapPalette, StringComparison.Ordinal);
