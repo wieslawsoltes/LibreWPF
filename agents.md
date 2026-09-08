@@ -7,14 +7,21 @@ lists/markers, selection and content hit testing; do not clone the document into
 fake TextBlocks or treat the empty portable FlowDocumentView as completion.
 Width constraints precede formatting, placement follows it; an exhausted zero
 width is not unbounded. Lazy pre-host document registration is only a prerequisite.
-The actual viewer consumer, pagination and Windows SDK admission remain open.
+The scroll-view consumer is connected; pagination and Windows SDK admission remain open.
 `PortableFlowDocumentFormatter` owns source invalidation and retained layout
 generations without a PTS context. Consume that live generation from the viewer;
 do not rebuild a second tree or serve interaction from disposed/stale TextLines.
 Keep caught formatting-time mutations invalid, source page/block policies shared,
 and marker text separate from document indices. Symbol markers require the actual
-symbol face, not ordinary-font fallback. Connect visual/IContentHost/ITextView and
-scrolling next; compiled formatter fixtures alone do not activate FlowDocumentView.
+symbol face, not ordinary-font fallback. `FlowDocumentView` selects its portable
+visual/IContentHost/ITextView through frozen media ownership before PTS access on
+every OS. Drawing and interaction borrow the same live layout; scrolling moves
+retained content and translates viewport queries exactly once. Keep document-local
+content rectangles distinct from viewport selection/caret geometry. Layout edits,
+suspension and document replacement invalidate interaction before disposing lines.
+Native logical caret boundaries must accept equivalent leading/trailing source
+affinities without accepting positions inside shaped clusters. Compiled fixtures
+do not qualify the actual MVP, symbol fonts or package-mode startup.
 
 Portable source text must preserve actual shaped content, clusters, styled runs
 and caret/selection semantics. `SimpleTextLine.CreatePortableFallback` currently
