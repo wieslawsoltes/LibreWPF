@@ -54,8 +54,10 @@ public sealed class WpfPortableWindowActivation : IDisposable, INativeWindowOwne
     private bool _isClosingFromNative;
     private bool _isClosingFromWpf;
     private bool _isFlushingWpfDispatcher;
+    private int _dispatcherIdleWorkPosted;
     private bool _isNativeRunStarted;
     private IDisposable? _mediaContextRenderRegistration;
+    private IDisposable? _dispatcherIdleWorkRegistration;
     private IDisposable? _nativeWindowOwnerRegistration;
     private IWpfTimer? _dispatcherTimerPump;
     private bool _showActivated = true;
@@ -88,6 +90,10 @@ public sealed class WpfPortableWindowActivation : IDisposable, INativeWindowOwne
         Host.DragDropReceived += OnHostDragDropReceived;
         Host.RenderWakeupRequested += OnHostRenderWakeupRequested;
         Host.UpdateTick += OnHostUpdateTick;
+        TryRegisterDispatcherIdleWorkNotification(
+            Window,
+            OnDispatcherIdleWorkPosted,
+            out _dispatcherIdleWorkRegistration);
         RegisterActiveActivation(window, this);
         SynchronizeInitialWindowState(updatePortablePresentationSource: false);
     }
@@ -531,6 +537,8 @@ public sealed class WpfPortableWindowActivation : IDisposable, INativeWindowOwne
         Host.RenderWakeupRequested -= OnHostRenderWakeupRequested;
         Host.UpdateTick -= OnHostUpdateTick;
         StopDispatcherTimerPump();
+        _dispatcherIdleWorkRegistration?.Dispose();
+        _dispatcherIdleWorkRegistration = null;
         _mediaContextRenderRegistration?.Dispose();
         _mediaContextRenderRegistration = null;
         _pressedMouseButtons.Clear();
@@ -1292,8 +1300,32 @@ public sealed class WpfPortableWindowActivation : IDisposable, INativeWindowOwne
             return;
         }
 
+        bool flushIdleWork = Interlocked.Exchange(ref _dispatcherIdleWorkPosted, 0) != 0;
         FlushWpfDispatcherOperation("Background", UpdateTickFlushTimeout);
+        if (flushIdleWork)
+        {
+            FlushWpfDispatcherOperation("ApplicationIdle", ApplicationIdleFlushTimeout);
+        }
+
         TryCloseHostWhenWindowDisposed();
+    }
+
+    private void OnDispatcherIdleWorkPosted()
+    {
+        if (_isDisposed)
+        {
+            return;
+        }
+
+        Interlocked.Exchange(ref _dispatcherIdleWorkPosted, 1);
+        try
+        {
+            Host.TryRequestNativeLoopWakeup();
+        }
+        catch (ObjectDisposedException)
+        {
+            // A dispatcher post can race host teardown after a WPF close request.
+        }
     }
 
     private void FlushWpfDispatcherOperations(params string[] markerPriorityNames)
@@ -1662,6 +1694,19 @@ public sealed class WpfPortableWindowActivation : IDisposable, INativeWindowOwne
         }
 
         return false;
+    }
+
+    private static bool TryRegisterDispatcherIdleWorkNotification(
+        object window,
+        Action workPosted,
+        out IDisposable? registration)
+    {
+        registration = null;
+        return TryGetWindowActivationService(out var activationService) &&
+            activationService.TryRegisterDispatcherIdleWorkNotification(
+                window,
+                workPosted,
+                out registration);
     }
 
     private static bool TryPromoteDispatcherTimers(object window)

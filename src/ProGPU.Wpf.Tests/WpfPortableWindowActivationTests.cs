@@ -1618,6 +1618,35 @@ public sealed class WpfPortableWindowActivationTests
     }
 
     [Fact]
+    public void PostedIdleDispatcherWorkIsCoalescedAndFlushedOnNextHostUpdate()
+    {
+        var service = new TestWindowActivationServiceRegistrar();
+        using var serviceRegistration = PortableWpfServiceRegistry.RegisterWindowActivationService(service);
+        using var host = new ProGpuWpfWindowHost();
+        var window = new FakeWindow();
+        var source = new FakePortablePresentationSource();
+
+        Assert.True(WpfPortableWindowActivation.TryAttach(host, window, source, out var activation));
+        Assert.NotNull(activation);
+        Assert.Equal(1, service.DispatcherIdleWorkRegisterCount);
+
+        service.FlushedPriorities.Clear();
+        service.PostDispatcherIdleWork();
+        service.PostDispatcherIdleWork();
+        RaiseHostUpdate(host);
+
+        Assert.Equal(new[] { "Background", "ApplicationIdle" }, service.FlushedPriorities);
+
+        service.FlushedPriorities.Clear();
+        RaiseHostUpdate(host);
+
+        Assert.Equal(new[] { "Background" }, service.FlushedPriorities);
+
+        activation.Dispose();
+        Assert.True(service.LastDispatcherIdleWorkRegistration?.IsDisposed);
+    }
+
+    [Fact]
     public void RenderWakeupTreatsSuspendedTypedDispatcherFlushAsDeferred()
     {
         var service = new TestWindowActivationServiceRegistrar
@@ -1901,6 +1930,13 @@ public sealed class WpfPortableWindowActivationTests
         typeof(ProGpuWpfWindowHost)
             .GetMethod("OnPlatformDragDropReceived", BindingFlags.Instance | BindingFlags.NonPublic)!
             .Invoke(host, new object?[] { null, args });
+    }
+
+    private static void RaiseHostUpdate(ProGpuWpfWindowHost host)
+    {
+        typeof(ProGpuWpfWindowHost)
+            .GetMethod("OnUpdate", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(host, new object[] { 0d });
     }
 
     private sealed class FakeWindow : IPortableWindowStateSource
@@ -2538,6 +2574,12 @@ public sealed class WpfPortableWindowActivationTests
 
         public TestPortableServiceRegistration? LastMediaContextRenderRegistration { get; private set; }
 
+        public int DispatcherIdleWorkRegisterCount { get; private set; }
+
+        public Action? DispatcherIdleWorkPosted { get; private set; }
+
+        public TestPortableServiceRegistration? LastDispatcherIdleWorkRegistration { get; private set; }
+
         public int SetActivationStateCount { get; private set; }
 
         public object? LastActivationStateWindow { get; private set; }
@@ -2721,6 +2763,24 @@ public sealed class WpfPortableWindowActivationTests
             return true;
         }
 
+        public bool TryRegisterDispatcherIdleWorkNotification(
+            object window,
+            Action workPosted,
+            out IDisposable? registration)
+        {
+            DispatcherIdleWorkRegisterCount++;
+            DispatcherIdleWorkPosted = workPosted;
+            LastDispatcherIdleWorkRegistration = new TestPortableServiceRegistration(
+                () => DispatcherIdleWorkPosted = null);
+            registration = LastDispatcherIdleWorkRegistration;
+            return true;
+        }
+
+        public void PostDispatcherIdleWork()
+        {
+            DispatcherIdleWorkPosted?.Invoke();
+        }
+
         public bool TryProcessDragDropEvent(
             object window,
             int dragDropEventKind,
@@ -2753,6 +2813,8 @@ public sealed class WpfPortableWindowActivationTests
             LastMediaContextRenderWindow = null;
             RequestRender = null;
             LastMediaContextRenderRegistration = null;
+            DispatcherIdleWorkPosted = null;
+            LastDispatcherIdleWorkRegistration = null;
             LastActivationStateWindow = null;
             LastBeginInvokeInputWindow = null;
             LastBeginInvokeInputCallback = null;
@@ -2770,11 +2832,19 @@ public sealed class WpfPortableWindowActivationTests
 
     private sealed class TestPortableServiceRegistration : IDisposable
     {
+        private readonly Action? _dispose;
+
+        public TestPortableServiceRegistration(Action? dispose = null)
+        {
+            _dispose = dispose;
+        }
+
         public bool IsDisposed { get; private set; }
 
         public void Dispose()
         {
             IsDisposed = true;
+            _dispose?.Invoke();
         }
     }
 

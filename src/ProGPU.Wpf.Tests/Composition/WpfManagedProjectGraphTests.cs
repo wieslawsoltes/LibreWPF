@@ -6,6 +6,27 @@ namespace ProGPU.Wpf.Tests.Composition;
 public sealed class WpfManagedProjectGraphTests
 {
     [Fact]
+    public void PortableCanonicalWindowsFormsHostCreatesTheRealChildControlTree()
+    {
+        string source = File.ReadAllText(FindRepoPath(
+            "src",
+            "Microsoft.DotNet.Wpf",
+            "src",
+            "WindowsFormsIntegration",
+            "System",
+            "Windows",
+            "Integration",
+            "WindowsFormsHost.cs"));
+
+        Assert.Contains("if (!OperatingSystem.IsWindows())", source, StringComparison.Ordinal);
+        Assert.Contains("HostContainerInternal.CreateControl();", source, StringComparison.Ordinal);
+        AssertGuardBefore(
+            source,
+            "if (!OperatingSystem.IsWindows())",
+            "UnsafeNativeMethods.SetParent(/* child = */ HostContainerInternal.Handle");
+    }
+
+    [Fact]
     public void PortableCaretBlinkFallbackIsAValidPositiveInterval()
     {
         var safeNativeMethods = File.ReadAllText(FindRepoPath(
@@ -932,6 +953,7 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("bool TryProcessInputEvent(object window, PortableWindowInputEvent input);", portableWpfServiceRegistry, StringComparison.Ordinal);
         Assert.Contains("bool TryProcessPresentationSourceInputEvent(object presentationSource, PortableWindowInputEvent input)", portableWpfServiceRegistry, StringComparison.Ordinal);
         Assert.Contains("bool TryFlushDispatcherOperations(object window, string markerPriorityName, TimeSpan? timeout);", portableWpfServiceRegistry, StringComparison.Ordinal);
+        Assert.Contains("bool TryRegisterDispatcherIdleWorkNotification(", portableWpfServiceRegistry, StringComparison.Ordinal);
         Assert.Contains("bool TryRegisterMediaContextRenderService(", portableWpfServiceRegistry, StringComparison.Ordinal);
         Assert.Contains("bool TryProcessDragDropEvent(", portableWpfServiceRegistry, StringComparison.Ordinal);
         Assert.Contains("List<Action<object, TimeSpan>>", renderService, StringComparison.Ordinal);
@@ -975,6 +997,9 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("public bool TryProcessPresentationSourceInputEvent(object presentationSource, PortableWindowInputEvent input)", activationService, StringComparison.Ordinal);
         Assert.Contains("PortableWindowActivationService.ProcessInput(typedSource, mappedInput);", activationService, StringComparison.Ordinal);
         Assert.Contains("public bool TryFlushDispatcherOperations(object window, string markerPriorityName, TimeSpan? timeout)", activationService, StringComparison.Ordinal);
+        Assert.Contains("public bool TryRegisterDispatcherIdleWorkNotification(", activationService, StringComparison.Ordinal);
+        Assert.Contains("hooks.OperationPosted += OnOperationPosted;", activationService, StringComparison.Ordinal);
+        Assert.Contains("priority < DispatcherPriority.Background", activationService, StringComparison.Ordinal);
         Assert.Contains("Enum.TryParse(markerPriorityName, ignoreCase: false, out DispatcherPriority markerPriority)", activationService, StringComparison.Ordinal);
         Assert.Contains("public bool TryRegisterMediaContextRenderService(", activationService, StringComparison.Ordinal);
         Assert.Contains("Media.PortableMediaContextRenderService.Register(", activationService, StringComparison.Ordinal);
@@ -1167,6 +1192,9 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("FlushWpfDispatcherOperations(\"Input\", \"Render\", \"ApplicationIdle\")", proGpuActivation, StringComparison.Ordinal);
         Assert.Contains("private void OnHostUpdateTick(object? sender, EventArgs e)", proGpuActivation, StringComparison.Ordinal);
         Assert.Contains("FlushWpfDispatcherOperation(\"Background\", UpdateTickFlushTimeout)", proGpuActivation, StringComparison.Ordinal);
+        Assert.Contains("Interlocked.Exchange(ref _dispatcherIdleWorkPosted, 0)", proGpuActivation, StringComparison.Ordinal);
+        Assert.Contains("FlushWpfDispatcherOperation(\"ApplicationIdle\", ApplicationIdleFlushTimeout)", proGpuActivation, StringComparison.Ordinal);
+        Assert.Contains("activationService.TryRegisterDispatcherIdleWorkNotification(", proGpuActivation, StringComparison.Ordinal);
         Assert.DoesNotContain("FlushWpfDispatcherOperations(\"ApplicationIdle\")", proGpuActivation, StringComparison.Ordinal);
         Assert.Contains("FlushWpfDispatcherOperation(markerPriorityName, timeout)", proGpuActivation, StringComparison.Ordinal);
         Assert.Contains("TryFlushDispatcherOperations(Window, markerPriorityName, timeout)", proGpuActivation, StringComparison.Ordinal);
@@ -12558,8 +12586,8 @@ public sealed class WpfManagedProjectGraphTests
 
         Assert.Contains("name: LibreWPF Build", sdkCiWorkflow, StringComparison.Ordinal);
         Assert.Contains("PROGPU_WPF_QUALIFIED_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}", sdkCiWorkflow, StringComparison.Ordinal);
-        Assert.Equal(5, sdkCiWorkflow.Split("ref: ${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}", StringSplitOptions.None).Length - 1);
-        Assert.Equal(10, sdkCiWorkflow.Split("${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}", StringSplitOptions.None).Length - 1);
+        Assert.Equal(6, sdkCiWorkflow.Split("ref: ${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}", StringSplitOptions.None).Length - 1);
+        Assert.Equal(14, sdkCiWorkflow.Split("${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}", StringSplitOptions.None).Length - 1);
         Assert.DoesNotContain("librewpf-ci-packages-${{ github.sha }}", sdkCiWorkflow, StringComparison.Ordinal);
         Assert.DoesNotContain("librewpf-windows-managed-runtime-${{ github.sha }}", sdkCiWorkflow, StringComparison.Ordinal);
         Assert.Equal(2, sdkCiWorkflow.Split("submodules: true", StringSplitOptions.None).Length - 1);
