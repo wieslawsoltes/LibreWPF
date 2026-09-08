@@ -3,6 +3,7 @@ using System.Buffers;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Numerics;
+using System.Runtime.InteropServices;
 using System.Threading;
 using ProGPU.Backend;
 using ProGPU.Backend.Native;
@@ -71,6 +72,9 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
     private IWpfRenderScheduler _wpfRenderScheduler;
     private WpfPortablePresentationSourceBridge? _portablePresentationSourceBridge;
     private readonly List<WpfPortablePopupBridge> _portablePopupBridges = new();
+    private readonly List<WpfNativeMilVisualOverlay> _nativeMilPopupScratch = new();
+    private ulong _nativeMilPopupVersion;
+    private ulong _nativeMilCompiledPopupVersion;
     private readonly WpfPortablePopupService? _portablePopupService;
     private readonly IDisposable? _portablePopupServiceRegistration;
     private object? _wpfRootVisual;
@@ -337,6 +341,23 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
     internal long SkippedNativeRenderPumpCount { get; private set; }
 
     internal bool HasGpuHitTestCache => !_isDisposed && _target?.LastGpuHitTestIndex != null;
+
+    internal ProGpuWpfRendererMode RendererMode => _options.RendererMode;
+
+    internal ulong NativeMilPopupVersion => _nativeMilPopupVersion;
+
+    internal void InvalidateNativeMilPopups()
+    {
+        unchecked { _nativeMilPopupVersion++; }
+    }
+
+    internal void CaptureNativeMilPopupOverlays(List<WpfNativeMilVisualOverlay> destination)
+    {
+        destination.Clear();
+        for (int i = 0; i < _portablePopupBridges.Count; i++)
+            if (_portablePopupBridges[i].TryGetNativeMilOverlay(out var overlay))
+                destination.Add(overlay);
+    }
 
     internal bool HasVisibleNativePortablePopup
     {
@@ -2079,17 +2100,30 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
             !ReferenceEquals(_nativeMilCompiledRootVisual, rootVisual) ||
             _nativeMilCompiledPixelWidth != pixelWidth ||
             _nativeMilCompiledPixelHeight != pixelHeight ||
+            _nativeMilCompiledPopupVersion != _nativeMilPopupVersion ||
             _target.WpfInvalidationTracker.IsDirty ||
             _forceFullWpfReplay;
         if (update)
         {
             TraceNativeLoop("native MIL session update entering: " + CreateNativeLoopTraceState());
             Vector4 clear = _target.Compositor.ClearColor;
-            LastNativeMilSessionUpdate = _nativeMilSession.Update(
-                rootVisual,
-                pixelWidth,
-                pixelHeight,
-                new NativeMilColor(clear.X, clear.Y, clear.Z, clear.W));
+            _nativeMilPopupScratch.Clear();
+            try
+            {
+                ulong popupVersion = _nativeMilPopupVersion;
+                CaptureNativeMilPopupOverlays(_nativeMilPopupScratch);
+                LastNativeMilSessionUpdate = _nativeMilSession.Update(
+                    rootVisual, pixelWidth, pixelHeight,
+                    new NativeMilColor(clear.X, clear.Y, clear.Z, clear.W),
+                    CollectionsMarshal.AsSpan(_nativeMilPopupScratch));
+                _nativeMilCompiledPopupVersion = popupVersion;
+            }
+            finally
+            {
+                // The compiler snapshots canonical resources synchronously. Do not
+                // keep closed popup visual roots alive in frame scratch storage.
+                _nativeMilPopupScratch.Clear();
+            }
             _nativeMilCompiledRootVisual = rootVisual;
             _nativeMilCompiledPixelWidth = pixelWidth;
             _nativeMilCompiledPixelHeight = pixelHeight;
@@ -2326,12 +2360,6 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         {
             throw new NotSupportedException(
                 "Native MIL mode does not mix managed drawing callbacks into the native semantic scene.");
-        }
-        if (_portablePopupBridges.Count != 0 ||
-            _options.IncludePortablePopupRootsInWpfReplay)
-        {
-            throw new NotSupportedException(
-                "Native MIL mode does not yet compose portable popup roots.");
         }
         if (_windowRegion is not null)
         {
@@ -4458,6 +4486,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
 
         _portablePopupBridges.Remove(popup);
         popup.Dispose();
+        InvalidateNativeMilPopups();
         RequestRenderAndWakeNativeLoop();
         return true;
     }
@@ -4528,6 +4557,8 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         }
 
         _portablePopupBridges.Clear();
+        _nativeMilPopupScratch.Clear();
+        InvalidateNativeMilPopups();
     }
 
     private void DisposeOwnedRenderScheduler()

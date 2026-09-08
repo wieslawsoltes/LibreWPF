@@ -11,6 +11,52 @@ namespace ProGPU.Wpf.Tests.Composition.Mil;
 
 public sealed class WpfNativeMilSceneCompilerTests
 {
+    [Fact]
+    public void OwnerSurfacePopupPlacementUsesIndependentCanonicalVisualsAndMutableDeltas()
+    {
+        var root = new FakeVisual(null);
+        var popup = new FakeVisual(null);
+        var compiler = new WpfNativeMilSceneCompiler();
+        WpfNativeMilBatch before = compiler.BuildBatch(root, 100, 80, default,
+            [new(popup, 12, 18, 30, 20)]);
+        WpfNativeMilBatch after = compiler.BuildBatch(root, 100, 80, default,
+            [new(popup, 15, 21, 30, 20)]);
+        Assert.Equal(3, ReadCommands(before.Bytes).Count(command => command == 0x26));
+        int clip = FindCommand(before.Bytes, 0x79);
+        Assert.Equal(0, ReadDouble(before.Bytes, clip + 28));
+        Assert.Equal(0, ReadDouble(before.Bytes, clip + 36));
+        Assert.Equal(30, ReadDouble(before.Bytes, clip + 44));
+        Assert.Equal(20, ReadDouble(before.Bytes, clip + 52));
+        int clipBinding = FindCommand(before.Bytes, 0x1f);
+        Assert.Equal(ReadUInt32(before.Bytes, clip + 8), ReadUInt32(before.Bytes, clipBinding + 12));
+        Assert.DoesNotContain(0x28, ReadCommands(before.Bytes));
+        NativeMilBatchDelta delta = WpfNativeMilCompilationSession.CreateDelta(before, after);
+        Assert.False(delta.RequiresRebuild);
+        Assert.Equal(new int[] { 0x1b }, ReadCommands(delta.Bytes));
+        Assert.Equal(ReadUInt32(before.Bytes, clipBinding + 8), ReadUInt32(delta.Bytes, 8));
+        Assert.Equal(15, ReadDouble(delta.Bytes, 12));
+        Assert.Equal(21, ReadDouble(delta.Bytes, 20));
+        Assert.True(WpfNativeMilCompilationSession.CreateDelta(after,
+            compiler.BuildBatch(root, 100, 80)).RequiresRebuild);
+        Assert.Empty(WpfNativeMilCompilationSession.CreateDelta(after, after).Bytes);
+    }
+
+    [Fact]
+    public void PopupOverlayRejectsDuplicateParentsAndInvalidPlacement()
+    {
+        var root = new FakeVisual(null);
+        var popup = new FakeVisual(null);
+        var compiler = new WpfNativeMilSceneCompiler();
+        Assert.Throws<InvalidOperationException>(() => compiler.BuildBatch(root, 64, 64, default,
+            [new(root, 0, 0, 20, 20)]));
+        Assert.Throws<InvalidOperationException>(() => compiler.BuildBatch(root, 64, 64, default,
+            [new(popup, 0, 0, 20, 20), new(popup, 4, 5, 20, 20)]));
+        Assert.Throws<ArgumentOutOfRangeException>(() => compiler.BuildBatch(root, 64, 64, default,
+            [new(popup, double.NaN, 0, 20, 20)]));
+        Assert.Throws<ArgumentOutOfRangeException>(() => compiler.BuildBatch(root, 64, 64, default,
+            [new(popup, 0, 0, 0, 20)]));
+    }
+
     [Theory]
     [InlineData(PortableTileMode.None, 0U)]
     [InlineData(PortableTileMode.Tile, 4U)]

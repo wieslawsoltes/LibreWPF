@@ -18,7 +18,7 @@ do not automatically expand the release checklist.
 | Milestone | Required outcome | Current implementation evidence / open work |
 | --- | --- | --- |
 | 1. Native application pipeline | Source-built WPF state and updates reach canonical MIL, C++ scene compilation and WebGPU presentation; managed portable mode remains independently selectable. | `WpfNativeMilSceneCompiler`, `WpfNativeMilCompilationSession` and `RenderNativeMilFrame` exist. Close remaining producer/renderer failures encountered by the core applications; do not replace missing native rendering with silent managed replay. |
-| 2. Essential desktop interaction | Windows, scrolling, editing, selection, menus, ComboBoxes, tooltips, popups, input, resize and DPI transitions render and respond through typed contracts. | Native host explicitly rejects portable popups, host window regions, partial viewports and nonuniform DPI. Popup windows currently construct options without inheriting their owner's renderer mode. These are the first confirmed integration blockers to address. |
+| 2. Essential desktop interaction | Windows, scrolling, editing, selection, menus, ComboBoxes, tooltips, popups, input, resize and DPI transitions render and respond through typed contracts. | Popup owner-surface MIL composition and native-window renderer inheritance are implemented, not runtime-qualified. Host window regions, partial viewports and nonuniform DPI remain explicitly rejected. Popup platform/lifetime/input behavior and escape beyond owner-surface bounds remain open. |
 | 3. Essential rendering and lifetime | Core application text, bitmap/vector content, brushes, clipping, opacity, common effects and caches update correctly; device/surface loss and resource release do not leave stale content or invalid handles. | Many implementations exist, but final output/lifetime qualification is absent. Fix missing shared algorithms in ProGPU, not WPF-local renderers. Retained update/handle stability and external image leases require review in the full application path. |
 | 4. Deliverable and qualification | Installable LibreWPF packages run representative applications on macOS/Linux and Windows Parallels; native/managed/native-Windows comparisons and exact-head required CI pass. | Packaging and host/SDK gates exist. New changes are not qualified. Full renderer and Windows builds, final runtime/image/lifetime/performance runs and CI remain mandatory. |
 
@@ -42,6 +42,13 @@ format, alpha, pitch and device-loss correctness. Keep configured GPU/SIMD
 fallback semantics; performance defaults may only claim speed after measurement.
 
 ## First implementation block: popup and presentation integration
+
+Popup checkpoint: canonical owner-surface composition, local clipping, change
+revision and separate native-window renderer inheritance are implemented. See
+[contract and qualification limits](../external/ProGPU/docs/native-mil-popup-composition.md).
+This supersedes the blanket popup rejection below, but does not close the core
+desktop milestone. Next implementation focus is presentation region/viewport/DPI
+support plus any popup platform gap that prevents the acceptance applications.
 
 Source-backed blockers are in
 `src/ProGPU.Wpf/ProGpuWpfWindowHost.cs:ValidateNativeMilHostConfiguration` and

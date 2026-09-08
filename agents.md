@@ -12,6 +12,13 @@ implementation/compilation before the final validation phase as requested.
 
 ## Reflection-Free Port Priority
 
+Native MIL popup composition must use canonical visual placement and local
+geometry clips, never fake WPF roots or ScrollableAreaClip as a placement clip.
+Separately surfaced popups inherit the owner renderer and are excluded from
+owner-surface replay. Popup movement/content/visibility/removal must invalidate
+the native source snapshot independently of the main root, and frame scratch
+must release visual references after synchronous serialization.
+
 The ProGPU WPF port must now prioritize a reflection-free, high-performance implementation. Runtime reflection in the WPF bridge or ProGPU is temporary scaffolding only: keep it limited to compatibility probes, diagnostics, or transitional adapters that are documented with an exit path, and replace product hot-path reflection with typed/source-integrated seams as soon as the local blocker is handled.
 
 As the port approaches a workable MVP, performance and clean reflection-free code are release criteria, not polish. New WPF/progpu work should fail closed or add a typed portable seam when data is missing; do not keep samples alive by adding new duck-typed property probes, private-field scans, or reflection-based fake shapes.

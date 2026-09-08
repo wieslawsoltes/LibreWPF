@@ -102,6 +102,7 @@ internal sealed class WpfPortableNativePopupHost : IWpfPortableNativePopupHost
         _nativeLogicalY = ToNativeLogicalScreenCoordinate(request.PopupScreenDeviceY, _dpiScaleY);
         _popupHost = new ProGpuWpfWindowHost(new ProGpuWpfWindowOptions
         {
+            RendererMode = ownerHost.RendererMode,
             Title = string.Empty,
             Width = 1,
             Height = 1,

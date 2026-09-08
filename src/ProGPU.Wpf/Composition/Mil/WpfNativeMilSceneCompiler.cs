@@ -89,6 +89,10 @@ public sealed record WpfNativeMilCompilation(
     NativeMilCompiledScene Scene,
     NativeMilBatchMetrics BatchMetrics);
 
+/// <summary>A separate visual root placed in owner-client DIPs, after the main root.</summary>
+internal readonly record struct WpfNativeMilVisualOverlay(
+    object Visual, double X, double Y, double Width, double Height);
+
 /// <summary>
 /// Compiles the typed portable state published by source-built LibreWPF
 /// visuals into canonical MIL and then into ProGPU's native semantic scene.
@@ -106,10 +110,20 @@ public sealed class WpfNativeMilSceneCompiler
         uint pixelWidth,
         uint pixelHeight,
         NativeMilColor clearColor = default)
+        => BuildBatch(rootVisual, pixelWidth, pixelHeight, clearColor, []);
+
+    internal WpfNativeMilBatch BuildBatch(
+        object rootVisual,
+        uint pixelWidth,
+        uint pixelHeight,
+        NativeMilColor clearColor,
+        ReadOnlySpan<WpfNativeMilVisualOverlay> overlays)
     {
         ArgumentNullException.ThrowIfNull(rootVisual);
         var context = new BuildContext();
         uint rootHandle = context.AddVisual(rootVisual);
+        if (!overlays.IsEmpty)
+            rootHandle = context.AddOverlayRoot(rootHandle, overlays);
         uint targetHandle = context.NextHandle();
         context.Batch.CreateResource(
             targetHandle, NativeMilResourceType.GenericRenderTarget);
@@ -339,6 +353,35 @@ public sealed class WpfNativeMilSceneCompiler
         }
 
         internal uint AddVisual(object visual) => AddVisual(visual, brushSource: false);
+
+        internal uint AddOverlayRoot(uint mainRoot, ReadOnlySpan<WpfNativeMilVisualOverlay> overlays)
+        {
+            uint container = NextHandle();
+            Batch.CreateResource(container, NativeMilResourceType.Visual);
+            Batch.CreateVisual(container);
+            Batch.InsertVisualChild(container, mainRoot, 0);
+            for (int i = 0; i < overlays.Length; i++)
+            {
+                WpfNativeMilVisualOverlay overlay = overlays[i];
+                ArgumentNullException.ThrowIfNull(overlay.Visual);
+                if (!double.IsFinite(overlay.X) || !double.IsFinite(overlay.Y) ||
+                    !double.IsFinite(overlay.Width) || !double.IsFinite(overlay.Height) ||
+                    overlay.Width <= 0 || overlay.Height <= 0)
+                    throw new ArgumentOutOfRangeException(nameof(overlays));
+                uint visual = AddVisual(overlay.Visual);
+                uint placement = NextHandle();
+                Batch.CreateResource(placement, NativeMilResourceType.Visual);
+                Batch.CreateVisual(placement);
+                Batch.SetVisualOffset(placement, overlay.X, overlay.Y);
+                uint clip = NextHandle();
+                Batch.CreateResource(clip, NativeMilResourceType.RectangleGeometry);
+                Batch.SetRectangleGeometry(clip, 0, 0, overlay.Width, overlay.Height);
+                Batch.SetVisualClip(placement, clip);
+                Batch.InsertVisualChild(placement, visual, 0);
+                Batch.InsertVisualChild(container, placement, checked((uint)i + 1U));
+            }
+            return container;
+        }
 
         private uint AddVisual(object visual, bool brushSource)
         {

@@ -3,9 +3,9 @@
 ## Delivery priority — core native MIL first (2026-09-08)
 
 Follow the [fixed core-delivery milestones](native-mil-core-delivery.md) before
-general Direct2D/Win2D expansion. The next confirmed application blockers are
-native-MIL popup composition/renderer inheritance and presentation regions,
-viewports and independent DPI. Finish the usable native application path, freeze
+general Direct2D/Win2D expansion. Popup composition/renderer inheritance now have
+implementation checkpoints below; remaining confirmed blockers include presentation
+regions, viewports, independent DPI and popup platform behavior. Finish the usable native application path, freeze
 core features, then run the deferred full qualification and fix cycle. Existing
 historical checkpoints are implementation records, not a prioritized work queue.
 
@@ -20,6 +20,23 @@ provider/full-renderer compilation and all runtime, VM/image, package,
 performance, verifier and CI qualification remain deferred. No parity claim.
 
 ## Current implementation-first phase
+
+### Core popup composition checkpoint (2026-09-08)
+
+The native host now composes visible owner-surface popup roots as canonical MIL
+visuals after the main root. Placement uses a local geometry clip, preserving
+root-independent transforms/effects. Popup revisions cover movement, visibility,
+root/render requests and removal; separate native windows inherit renderer mode
+and are not drawn again into the owner. No fake WPF visual or second stroker is
+introduced. ProGPU's C++ visual compiler is unchanged and has a paired ordered
+root/clip fixture. See [provenance, ownership, costs and limitations](../external/ProGPU/docs/native-mil-popup-composition.md).
+
+Native C++ fixtures compile/link; the final managed Release fixture graph builds
+with 116 warnings and zero errors. Fixtures were not executed. Runtime/image/input, VM/platform,
+SDK/package, performance, verifier and CI qualification remain deferred. Popup
+content outside an owner surface, mixed-surface nesting and platform lifetime
+need final coverage; window-region/partial-viewport/nonuniform-DPI guards remain.
+The core milestone is not yet qualified.
 
 Implementation has advanced beyond the historical single-ImageBrush qualification
 below: repeat/flip and vector/visual tile sources, native spatial glyph/opacity-mask

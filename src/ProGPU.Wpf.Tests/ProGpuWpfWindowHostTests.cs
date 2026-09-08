@@ -5,6 +5,7 @@ using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.ProGPU;
 using System.Windows.Media.ProGPU.Composition;
+using System.Windows.Media.ProGPU.Composition.Mil;
 using System.Windows.Media.ProGPU.Platform;
 using ProGPU.Backend.Native;
 using ProGPU.Vector;
@@ -23,6 +24,62 @@ namespace ProGPU.Wpf.Tests;
 [Collection(PortableRenderDataSinkProviderCollection.Name)]
 public sealed class ProGpuWpfWindowHostTests
 {
+    [Fact]
+    public void NativePopupHostInheritsRendererAndOwnerSurfaceAcceptsPopupRoots()
+    {
+        string popupSource = File.ReadAllText(FindRepoPath("src", "ProGPU.Wpf", "WpfPortableNativePopupHost.cs"));
+        Assert.Contains("RendererMode = ownerHost.RendererMode", popupSource);
+        string ownerSource = File.ReadAllText(FindRepoPath("src", "ProGPU.Wpf", "ProGpuWpfWindowHost.cs"));
+        Assert.DoesNotContain("Native MIL mode does not yet compose portable popup roots.", ownerSource);
+        Assert.Contains("CaptureNativeMilPopupOverlays(_nativeMilPopupScratch)", ownerSource);
+        Assert.Contains("CollectionsMarshal.AsSpan(_nativeMilPopupScratch)", ownerSource);
+    }
+
+    [Fact]
+    public void NativeMilOwnerPopupSnapshotsTrackVisibilityPlacementAndRemoval()
+    {
+        var popup = new FakePortablePresentationSource { RootVisual = new object() };
+        using var factory = UsePortablePopupSourceFactory(() => popup);
+        using var host = new ProGpuWpfWindowHost(new ProGpuWpfWindowOptions
+            { RendererMode = ProGpuWpfRendererMode.NativeMilWgpu });
+        var owner = new FakePortablePresentationSource { RootVisual = new object() };
+        Assert.True(host.TryBindPortablePresentationSource(owner));
+        Assert.Equal(ProGpuWpfRendererMode.NativeMilWgpu, host.RendererMode);
+        var request = new PortablePopupCreateRequest(null, owner, owner.Handle,
+            popupScreenDeviceX: 24, popupScreenDeviceY: 32,
+            ownerClientScreenDeviceX: 4, ownerClientScreenDeviceY: 8,
+            isTransparent: true, isChildPopup: false);
+        Assert.True(host.TryCreatePortablePopup(request, out object? source));
+        var overlays = new List<WpfNativeMilVisualOverlay>();
+        host.CaptureNativeMilPopupOverlays(overlays);
+        Assert.Empty(overlays);
+        Assert.True(host.TrySetPortablePopupSize(source!, 100, 60));
+        Assert.True(host.TryShowPortablePopup(source!));
+        host.CaptureNativeMilPopupOverlays(overlays);
+        WpfNativeMilVisualOverlay overlay = Assert.Single(overlays);
+        Assert.Same(popup.RootVisual, overlay.Visual);
+        Assert.Equal((20.0, 24.0, 100.0, 60.0), (overlay.X, overlay.Y, overlay.Width, overlay.Height));
+        ulong version = host.NativeMilPopupVersion;
+        Assert.True(host.TrySetPortablePopupPosition(source!, 44, 58));
+        Assert.NotEqual(version, host.NativeMilPopupVersion);
+        host.CaptureNativeMilPopupOverlays(overlays);
+        Assert.Equal((40.0, 50.0), (overlays[0].X, overlays[0].Y));
+        version = host.NativeMilPopupVersion;
+        popup.RootVisual = new object();
+        Assert.NotEqual(version, host.NativeMilPopupVersion);
+        host.CaptureNativeMilPopupOverlays(overlays);
+        Assert.Same(popup.RootVisual, overlays[0].Visual);
+        Assert.True(host.TryHidePortablePopup(source!));
+        host.CaptureNativeMilPopupOverlays(overlays);
+        Assert.Empty(overlays);
+        Assert.True(host.TryShowPortablePopup(source!));
+        version = host.NativeMilPopupVersion;
+        Assert.True(host.TryDestroyPortablePopup(source!));
+        Assert.NotEqual(version, host.NativeMilPopupVersion);
+        host.CaptureNativeMilPopupOverlays(overlays);
+        Assert.Empty(overlays);
+    }
+
     [Fact]
     public void MemoryDiagnosticsSeparateManagedProcessAndTrackedGpuOwnership()
     {
@@ -2303,6 +2360,9 @@ public sealed class ProGpuWpfWindowHostTests
             Assert.True(host.TrySetPortablePopupPosition(popupSource!, 40, 50));
             Assert.True(host.TryShowPortablePopup(popupSource!));
             Assert.True(host.HasVisibleNativePortablePopup);
+            var nativeOverlays = new List<WpfNativeMilVisualOverlay>();
+            host.CaptureNativeMilPopupOverlays(nativeOverlays);
+            Assert.Empty(nativeOverlays);
             host.GetPortablePopupDiagnostics(
                 out int openCount,
                 out int visibleCount,

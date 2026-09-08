@@ -69,10 +69,18 @@ public sealed class WpfNativeMilCompilationSession : IDisposable
         uint pixelWidth,
         uint pixelHeight,
         NativeMilColor clearColor = default)
+        => Update(rootVisual, pixelWidth, pixelHeight, clearColor, []);
+
+    internal WpfNativeMilSessionUpdate Update(
+        object rootVisual,
+        uint pixelWidth,
+        uint pixelHeight,
+        NativeMilColor clearColor,
+        ReadOnlySpan<WpfNativeMilVisualOverlay> overlays)
     {
         ThrowIfDisposed();
         WpfNativeMilBatch batch = _compiler.BuildBatch(
-            rootVisual, pixelWidth, pixelHeight, clearColor);
+            rootVisual, pixelWidth, pixelHeight, clearColor, overlays);
         return Update(batch);
     }
 

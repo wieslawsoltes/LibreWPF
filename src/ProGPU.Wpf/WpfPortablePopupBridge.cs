@@ -84,6 +84,19 @@ internal sealed class WpfPortablePopupBridge : IDisposable
 
     internal bool IsVisibleNativeWindow => IsVisible && _nativeHost != null;
 
+    internal bool TryGetNativeMilOverlay(out WpfNativeMilVisualOverlay overlay)
+    {
+        overlay = default;
+        if (_isDisposed || _nativeHost != null || !IsVisible || RootVisual is not { } root)
+            return false;
+        EnsureRootLayout(root);
+        // Layout can synchronously close the popup or replace its source root.
+        if (_isDisposed || !IsVisible || RootVisual is not { } currentRoot)
+            return false;
+        overlay = new(currentRoot, LogicalX, LogicalY, Width, Height);
+        return true;
+    }
+
     internal bool HasPresentedNativeFrame => IsVisibleNativeWindow && _nativeHost!.HasPresentedFrame;
 
     internal bool HasNativeGpuHitTestCache => IsVisibleNativeWindow && _nativeHost!.HasGpuHitTestCache;
@@ -876,6 +889,8 @@ internal sealed class WpfPortablePopupBridge : IDisposable
 
     private void RequestRender()
     {
+        if (_nativeHost == null)
+            _host.InvalidateNativeMilPopups();
         _host.RequestRenderAndWakeNativeLoop();
     }
 
