@@ -57,6 +57,12 @@ The existing native compiler flattens rectangle exclusions into one nonzero leaf
 this does not need a new shader or a per-hole boolean program. Next is the shared
 native presentation contract for partial viewports and independent X/Y DPI.
 
+Presentation contract checkpoint: ProGPU now has the opt-in generated native/managed
+viewport-plus-per-axis-DPI descriptor and strict submission validation. Advanced
+mapping execution is **not implemented** yet; the native backend rejects it and
+host guards remain. The ordered consumer checklist is in
+[native scene presentation](../external/ProGPU/docs/native-scene-presentation.md).
+
 Source-backed blockers are in
 `src/ProGPU.Wpf/ProGpuWpfWindowHost.cs:ValidateNativeMilHostConfiguration` and
 `src/ProGPU.Wpf/WpfPortableNativePopupHost.cs`:
