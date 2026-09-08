@@ -3,6 +3,7 @@
 
 using System.Windows.Input;
 using System.Windows.Media;
+using ProGPU.Wpf.Interop;
 
 namespace System.Windows;
 
@@ -75,6 +76,46 @@ public class PortablePresentationSourceTests
         CompositionTarget compositionTarget = ((PresentationSource)source).CompositionTarget;
         compositionTarget.TransformToDevice.M11.Should().BeApproximately(dpiScaleX, 0.000001);
         compositionTarget.TransformToDevice.M22.Should().BeApproximately(dpiScaleY, 0.000001);
+    }
+
+    [Theory]
+    [InlineData(1.0, 1.0, 2.0, 2.0)]
+    [InlineData(2.0, 2.0, 2.0, 2.0)]
+    [InlineData(1.5, 2.0, 2.0, 1.5)]
+    public void DesktopMappingIsIndependentOfFramebufferDpi(double sx, double sy, double dpiX, double dpiY)
+    {
+        using IPortablePresentationSourceHost source = PortablePresentationSourceHost.Create(dpiX, dpiY);
+        var geometry = (IPortableDesktopGeometryHost)source;
+        var root = new DrawingVisual();
+        source.RootVisual = root;
+        geometry.SetDesktopTransform(new PortableDesktopTransform(-1920, 24, sx, sy));
+        var client = new Point(8, 12);
+        var expected = new Point(-1920 + 8 * sx, 24 + 12 * sy);
+        root.PointToScreen(client).Should().Be(expected);
+        root.PointFromScreen(expected).Should().Be(client);
+        var portable = (PortablePresentationSource)source;
+        MS.Internal.PointUtil.ClientToScreen(client, portable.HwndSource).Should().Be(expected);
+        MS.Internal.PointUtil.ScreenToClient(expected, portable.HwndSource).Should().Be(client);
+
+        source.SetDeviceScale(3, 3);
+        root.PointToScreen(client).Should().Be(expected);
+        source.SetClientOrigin(-1600, -100);
+        geometry.DesktopTransform.ScaleX.Should().Be(sx);
+        geometry.DesktopTransform.ScaleY.Should().Be(sy);
+        root.PointToScreen(client).Should().Be(new Point(-1600 + 8 * sx, -100 + 12 * sy));
+    }
+
+    [Fact]
+    public void InvalidDesktopGeometryDoesNotReplaceSourceState()
+    {
+        using IPortablePresentationSourceHost source = PortablePresentationSourceHost.Create();
+        var geometry = (IPortableDesktopGeometryHost)source;
+        var expected = new PortableDesktopTransform(-800, 100, 2, 2);
+        geometry.SetDesktopTransform(expected);
+        Assert.Throws<ArgumentException>(() => geometry.SetDesktopTransform(default));
+        geometry.DesktopTransform.Should().Be(expected);
+        source.Dispose();
+        Assert.Throws<ObjectDisposedException>(() => geometry.SetDesktopTransform(expected));
     }
 
     [Fact]

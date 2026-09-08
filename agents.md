@@ -54,6 +54,11 @@ Owner DPI changes must publish popup owner origin and device scale together,
 parent before child. Never move a native popup with a new device origin and its
 old scale, then correct it in a second pass. Retain scale-only handling for
 unpositioned/legacy owners without moving already updated surfaces again.
+Client-to-desktop conversion uses the ProGPU-owned `PortableDesktopTransform`
+snapshot and optional `IPortableDesktopGeometryHost` source capability. Preserve
+its scale on legacy origin-only updates; framebuffer DPI is independent. Complete
+popup child/limit/offset/input conversion with host publication before selecting
+nonidentity desktop scale automatically; changing only screen anchors mixes units.
 Source-WPF geometry Combine must use the typed geometry operations provider and
 bounds-free operand export. Do not restore bounds-only boolean results or request
 CombinedGeometry.Bounds while exporting a combination. Groups preserve figure

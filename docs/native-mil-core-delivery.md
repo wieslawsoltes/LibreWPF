@@ -82,6 +82,25 @@ fallback semantics; performance defaults may only claim speed after measurement.
 
 ## Core application closure checkpoints
 
+Client-to-desktop source prerequisite (same MVP/Toolkit popup placement action):
+ProGPU now owns an immutable validated desktop transform and optional typed source
+capability. Source-built WPF point-to/from-screen conversion, including portable
+HwndSource ownership, uses its shared intrinsic forward/inverse mapping. Legacy
+origin changes retain desktop scale; framebuffer DPI changes stay independent.
+Both renderers share this source integration, with no new native render algorithm.
+The stock host's automatic scale policy is deliberately unchanged pending the
+coupled popup migration: child-interest points, size restrictions, relative
+offsets, owner-surface placement and input must use the same units as the anchor.
+See [contract, provenance, public specification and unexecuted fixtures](../external/ProGPU/docs/native-mil-popup-placement.md#client-to-desktop-source-contract-prerequisite).
+This is a connected source capability, not full host/popup admission or runtime
+qualification. Continue the named popup consumers and host publication next.
+Compile checkpoint: ProGPU.Tests Release succeeds with 0 warnings/0 errors.
+The source PresentationCore.Tests build stops with three MSB3491 generated-file
+write errors because the host disk is full (104 MiB available when inspected).
+That build is incomplete and must be retried after space is restored; the source
+and bridge fixtures and the full harness are not qualified at this checkpoint.
+No tests, source verifiers, VM/image workloads, benchmarks or CI qualification ran.
+
 Popup DPI publication checkpoint (MVP/Toolkit ComboBoxes and nested menus):
 `UpdatePortablePresentationSourceDpiScale` previously propagated the new owner
 device origin while popups still had their old scale, then updated scales in a
@@ -112,7 +131,8 @@ The next bounded trace is the same ComboBox/menu placement action through
 source `PointUtil.ClientToScreen`, `Popup.ToPortableScreenDevicePoint` and
 `WpfPortableNativePopupHost.SetPosition`, compared with the host's existing
 `ResolveLogicalClientDimension` content-scale handling. Portable client-to-screen
-currently adds the source origin without a separate client-to-desktop scale.
+previously added the source origin without a separate client-to-desktop scale;
+the source prerequisite above adds that capability, with host publication pending.
 Resolve that coordinate contract before treating scaled desktop placement as
 implemented or removing a Windows admission guard.
 Compile-only results: the final bridge/fixture Release build succeeds with

@@ -9377,8 +9377,8 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("Point corner1 = ClientToScreen(rectClient.TopLeft, presentationSource);", pointUtil, StringComparison.Ordinal);
         Assert.DoesNotContain("ClientToScreen(Rect rectClient, HwndSource hwndSource)", pointUtil, StringComparison.Ordinal);
         Assert.Contains("TryGetPortablePresentationSource(presentationSource, out PortablePresentationSource portableSource)", pointUtil, StringComparison.Ordinal);
-        Assert.Contains("pointClient.X + origin.X", pointUtil, StringComparison.Ordinal);
-        Assert.Contains("pointScreen.X - origin.X", pointUtil, StringComparison.Ordinal);
+        Assert.Contains("portableSource.DesktopTransform.ClientToDesktop(", pointUtil, StringComparison.Ordinal);
+        Assert.Contains("portableSource.DesktopTransform.DesktopToClient(", pointUtil, StringComparison.Ordinal);
         Assert.Contains("inputSource == null || inputSource.IsPortable", pointUtil, StringComparison.Ordinal);
         Assert.Contains("PresentationSource sourceFrom = PresentationSource.CriticalFromVisual(rootFrom);", inputElement, StringComparison.Ordinal);
         Assert.Contains("PresentationSource sourceTo = PresentationSource.CriticalFromVisual(rootTo);", inputElement, StringComparison.Ordinal);
