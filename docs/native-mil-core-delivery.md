@@ -116,6 +116,26 @@ commit. Their next-step text is historical, may be superseded by later changes,
 and must not be treated as an additional active backlog. Use the active completion
 queue above for current priorities.
 
+Linux/X11 system-menu connection: the same MVP Window / Show system menu action
+now resolves the actual native Display/XID in the Silk.NET host adapter and calls
+ProGPU's shared provider. The provider requires a WM-managed client and the menu
+extension advertised on its actual root, preserves signed desktop coordinates,
+and resolves the owning client's real XInput pointer on a temporary connection.
+XI2 negotiation never changes the host's input protocol. Temporary connections
+and Xlib property buffers are released; malformed/oversized capability metadata
+and missing XInput fail explicitly. The native-long event/property layout supports
+ILP32/LP64 instead of assuming C long is always 64 bits. Request acceptance is
+asynchronous and is not menu-display evidence. Cocoa/Wayland providers, unsupported
+X11 environments and Windows SDK admission remain open. Both renderer modes use
+this platform path; no WPF-local menu renderer or C++ rendering fork was introduced.
+See the [protocol and qualification record](../external/ProGPU/docs/native-mil-system-menu.md#x11-window-manager-request).
+Policy/payload/cleanup/ABI fixtures are authored but not executed. Compile-only:
+ProGPU.Tests 0 warnings/0 errors, bridge fixtures 116/0 and the source-built
+application harness 4/0. No fixture, verifier,
+application, VM/GPU, benchmark or CI qualification ran. ProGPU `141621a3` is pushed
+and includes latest fetched main; this does not close the package application
+acceptance batch.
+
 Windows system-menu connection: the MVP Window / Show system menu action now
 uses a typed optional activation callback before source HWND/DPI handling.
 ProGPU owns the new native provider: local same-thread top-level owner admission,

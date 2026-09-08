@@ -274,6 +274,13 @@ clone independence, outermost-unlock publication and frozen write rejection.
 
 ## Reflection-Free Port Priority
 
+System-menu host adapters resolve real native window/display ownership before
+calling ProGPU's shared provider. X11 uses the owner's advertised WM capability
+and native desktop coordinates, not an opaque WPF source handle or framebuffer
+DPI conversion. Temporary XI2 negotiation must not alter the host input display.
+Request submission is not menu-display evidence; keep Cocoa/Wayland and rejected
+X11 environments explicit until their required capabilities are implemented.
+
 Native MIL popup composition must use canonical visual placement and local
 geometry clips, never fake WPF roots or ScrollableAreaClip as a placement clip.
 Separately surfaced popups inherit the owner renderer and are excluded from

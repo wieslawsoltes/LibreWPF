@@ -71,13 +71,21 @@ public sealed unsafe class SilkNetWpfWindowDecorationService : IWpfWindowDecorat
 
     public bool TryShowSystemMenu(object window, double desktopX, double desktopY)
     {
-        if (!OperatingSystem.IsWindows() || window is not IView view ||
+        if (window is not IView view ||
             !double.IsFinite(desktopX) || !double.IsFinite(desktopY) ||
             desktopX < int.MinValue || desktopX > int.MaxValue ||
             desktopY < int.MinValue || desktopY > int.MaxValue)
             return false;
-        return NativeWindowSystemMenu.TryShow(
-            new NativeWindowHandle(NativeWindowKind.Win32, GetWin32Hwnd(view), 0, "HWND"),
+        NativeWindowHandle owner;
+        if (OperatingSystem.IsWindows())
+            owner = new(NativeWindowKind.Win32, GetWin32Hwnd(view), 0, "HWND");
+        else if (OperatingSystem.IsLinux())
+        {
+            var x11 = GetX11Window(view);
+            owner = new(NativeWindowKind.X11, unchecked((nint)x11.Window), x11.Display, "XID");
+        }
+        else return false;
+        return NativeWindowSystemMenu.TryShow(owner,
             new NativeWindowPoint((int)Math.Round(desktopX, MidpointRounding.AwayFromZero),
                 (int)Math.Round(desktopY, MidpointRounding.AwayFromZero)));
     }
