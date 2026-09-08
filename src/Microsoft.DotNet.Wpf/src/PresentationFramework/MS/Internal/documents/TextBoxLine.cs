@@ -13,6 +13,7 @@ using System.Windows.Media.TextFormatting;
 using MS.Internal;
 using MS.Internal.Documents;
 using MS.Internal.Text;
+using ProGPU.Wpf.Interop;
 
 namespace System.Windows.Controls
 {
@@ -80,6 +81,7 @@ namespace System.Windows.Controls
 
                 case TextPointerContext.ElementStart:
                     Invariant.Assert(_owner.Host is RichTextBox, "Element edges are only supported for the portable RichTextBox view.");
+                    ValidateRichElement((TextElement)position.GetAdjacentElement(LogicalDirection.Forward));
                     run = position.GetAdjacentElement(LogicalDirection.Forward) is LineBreak
                         ? new TextEndOfLine(2)
                         : new TextHidden(1);
@@ -95,14 +97,32 @@ namespace System.Windows.Controls
 
                 case TextPointerContext.EmbeddedElement:
                     Invariant.Assert(_owner.Host is RichTextBox, "Embedded elements are only supported for the portable RichTextBox view.");
-                    run = new TextHidden(TextContainerHelper.EmbeddedObjectLength);
-                    break;
+                    throw new PlatformNotSupportedException("Portable rich-text embedded objects require an inline-object layout contract.");
             }
             Invariant.Assert(run != null, "TextRun has not been created.");
             Invariant.Assert(run.Length > 0, "TextRun has to have positive length.");
             run.Properties?.PixelsPerDip = this.PixelsPerDip;
 
             return run;
+        }
+
+        // TextBoxView owns a linear editor, not a PTS block/object formatter.
+        // Structural source edges are non-ink positions, but their semantics may
+        // not disappear just because the text inside can be shaped by ProGPU.
+        private static void ValidateRichElement(TextElement element)
+        {
+            if (element is InlineUIContainer || (element is not Inline && element is not Paragraph))
+                throw new PlatformNotSupportedException("Portable rich-text block and embedded-object layout is not implemented.");
+
+            if (element is Inline inline)
+            {
+                if (inline.Parent is DependencyObject parent &&
+                    inline.FlowDirection != (FlowDirection)parent.GetValue(FrameworkElement.FlowDirectionProperty))
+                    throw new PlatformNotSupportedException("Portable rich-text directional scopes require the document formatter contract.");
+
+                if (DynamicPropertyReader.GetTextDecorations(inline) is { Count: > 0 })
+                    throw new PlatformNotSupportedException("Portable rich-text decorations require the native decoration contract.");
+            }
         }
 
         /// <summary>
@@ -212,11 +232,12 @@ namespace System.Windows.Controls
 
             // We must ignore TextAlignment here since formatWidth does not
             // necessarilly equal paragraphWidth.  We'll adjust on later calls.
-            // The native LineServices fallback is unavailable in the portable bring-up.
-            // Ignore justification so TextBox-hosted controls can stay on the managed
-            // SimpleTextLine path until a cross-platform full formatter is available.
+            // Only the old provider-less, non-Windows compatibility formatter
+            // suppresses justification. A registered provider must implement or
+            // explicitly reject it, never silently draw left-aligned text.
             lineProperties.IgnoreTextAlignment =
-                !global::System.OperatingSystem.IsWindows() ||
+                (!global::System.OperatingSystem.IsWindows() &&
+                 !PortableWpfServiceRegistry.TryGetTextFormatting(out _)) ||
                 lineProperties.TextAlignment != TextAlignment.Justify;
             try
             {
@@ -461,11 +482,12 @@ namespace System.Windows.Controls
             //      b) the natural end of this textrun
             StaticTextPointer endOfRunPosition = _owner.Host.TextContainer.Highlights.GetNextPropertyChangePosition(position, LogicalDirection.Forward);
 
-            // Clamp the text run at an arbitrary limit, so we don't make
-            // an unbounded allocation.
-            if (position.GetOffsetToPosition(endOfRunPosition) > 4096)
+            // Copy one lookahead code unit at the allocation bound so that a
+            // valid UTF-16 scalar is never partitioned into separate source runs.
+            const int maximumRunLength = 4096;
+            if (position.GetOffsetToPosition(endOfRunPosition) > maximumRunLength + 1)
             {
-                endOfRunPosition = position.CreatePointer(4096);
+                endOfRunPosition = position.CreatePointer(maximumRunLength + 1);
             }
 
             var highlights = position.TextContainer.Highlights;
@@ -479,7 +501,9 @@ namespace System.Windows.Controls
 
             if (highlightDecorations != null)
             {
-                if (_spellerErrorProperties == null)
+                // Rich runs may have different physical faces, sizes and brushes.
+                // A cached plain-TextBox spelling style cannot be reused across them.
+                if (_spellerErrorProperties == null || _owner.Host is RichTextBox)
                 {
                     _spellerErrorProperties = new TextProperties((TextProperties)properties, highlightDecorations);
                 }
@@ -522,6 +546,14 @@ namespace System.Windows.Controls
             // we expect to get all the characters from position to endOfRunPosition.
             int charactersCopied = position.GetTextInRun(LogicalDirection.Forward, textBuffer, 0, textBuffer.Length);
             Invariant.Assert(charactersCopied == textBuffer.Length);
+
+            if (charactersCopied > maximumRunLength)
+            {
+                charactersCopied = maximumRunLength;
+                if (char.IsHighSurrogate(textBuffer[charactersCopied - 1]) &&
+                    char.IsLowSurrogate(textBuffer[charactersCopied]))
+                    charactersCopied--;
+            }
 
             // Create text run, using characters copied as length
             return new TextCharacters(textBuffer, 0, charactersCopied, properties);

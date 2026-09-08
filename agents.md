@@ -54,6 +54,15 @@ rewrite or claims of qualified codec/worker/SIMD parity follow from this routing
 
 ## Core Native MIL Delivery Priority
 
+RichTextBox render-scope selection follows frozen media ownership on every OS;
+Windows portable media must not enter the PTS-backed FlowDocumentView. The source
+TextBoxView editor retains real document symbols and per-run style ownership.
+Never hide embedded objects, block layout, directional scopes or decorations as
+successful non-ink edges when their layout contracts are absent. Registered text
+providers must implement or reject justification, not receive silent left alignment.
+Bounded source run copies must not split UTF-16 scalars. This editor route is not
+full FlowDocument layout or Windows package admission evidence.
+
 Explicit native SDK/custom-host startup must call `ProGpuWpfNativeMediaServices.Initialize`
 before source module initialization or construction of WPF media objects. Do not
 wait for the first host to register the text provider: application constructors

@@ -116,6 +116,24 @@ commit. Their next-step text is historical, may be superseded by later changes,
 and must not be treated as an additional active backlog. Use the active completion
 queue above for current priorities.
 
+Portable rich-editor admission: the MVP `EditorRichTextBox` now selects its
+source-owned `TextBoxView` by frozen media ownership, including Windows portable
+mode. Windows MIL still selects PTS. The editor sends actual styled runs through
+the registered paragraph provider, preserves source element positions, and rejects
+embedded objects, unsupported block structures, directional scopes and decorations
+instead of hiding their semantics. Registered providers no longer receive silently
+left-aligned justified text. Spelling-highlight properties retain each rich run's
+face/brush, and bounded source text copies do not split a UTF-16 surrogate pair.
+Source regression fixtures compile (2 warnings, 0 errors); they were not executed.
+No application, VM/GPU, verification, benchmark or CI workload ran.
+
+This is an editor routing connection, not complete rich-document layout. The source
+trace also identified `TextBoxView`'s uniform-height line cache, paragraph/page
+layout limitations and the independent `FlowDocumentView` empty portable measure
+path. The MVP's document viewers include headings, a hyperlink and lists; their
+PTS replacement remains required. Do not remove the Windows SDK admission guard
+or report this editor connection as document-viewer or package-mode qualification.
+
 Native intrinsic measurement and WrapWithOverflow: ProGPU's shared C++ logical
 paragraph pipeline now supplies min/max widths and explicit whole-word wrapping.
 The actual source-backed startup blocker was FormattedText's default
