@@ -76,7 +76,19 @@
     <Compile Include="$(MSBuildThisFileDirectory)ProGPU.Wpf.Sdk.PortableBootstrap.cs"
              Link="ProGPU.Wpf.Sdk.PortableBootstrap.cs"
              Visible="false" />
+    <RuntimeHostConfigurationOption Include="LibreWPF.RequestedRendererMode" Value="$(ProGpuWpfRendererMode)" />
   </ItemGroup>
+
+  <PropertyGroup Condition="'$(ProGpuWpfRendererMode)' == 'NativeMilWgpu'">
+    <DefineConstants>$(DefineConstants);PROGPU_WPF_NATIVE_MIL</DefineConstants>
+  </PropertyGroup>
+
+  <Target Name="_ProGpuWpfSdkValidateRendererMode" BeforeTargets="PrepareForBuild">
+    <Error Condition="'$(ProGpuWpfRendererMode)' != 'ManagedPortable' And '$(ProGpuWpfRendererMode)' != 'NativeMilWgpu'"
+           Text="ProGpuWpfRendererMode must be ManagedPortable or NativeMilWgpu." />
+    <Error Condition="'$(ProGpuWpfRendererMode)' == 'NativeMilWgpu' And ('$(OutputType)' == 'Exe' Or '$(OutputType)' == 'WinExe') And ('$(ProGpuWpfUsePortableFrameworkReferences)' != 'true' Or '$(ProGpuWpfEnablePortableBootstrap)' != 'true')"
+           Text="NativeMilWgpu requires portable framework references and the portable SDK bootstrap; it must not silently run another renderer." />
+  </Target>
 
   <ItemGroup Condition="'$(EnableDefaultItems)' == 'true' And '$(EnableDefaultResourceItems)' == 'true' And '$(ProGpuWpfUseWpfMarkup)' == 'true'">
     <_ProGpuWpfDefaultResourceItem Include="**/*.bmp;**/*.cur;**/*.gif;**/*.ico;**/*.jpg;**/*.jpeg;**/*.png;**/*.tif;**/*.tiff;**/*.wdp;**/*.webp"
@@ -252,7 +264,7 @@
   <Target Name="_ProGpuWpfSdkReportConfiguration"
           BeforeTargets="PrepareForBuild"
           Condition="'$(ProGpuWpfEnableSdkDiagnostics)' == 'true'">
-    <Message Importance="High" Text="ProGPU.Wpf.Sdk platform=$(ProGpuWpfPlatform) backend=$(ProGpuWpfRenderingBackend) referenceMode=$(ProGpuWpfReferenceMode)" />
+    <Message Importance="High" Text="ProGPU.Wpf.Sdk platform=$(ProGpuWpfPlatform) backend=$(ProGpuWpfRenderingBackend) rendererMode=$(ProGpuWpfRendererMode) referenceMode=$(ProGpuWpfReferenceMode)" />
   </Target>
 
   <Target Name="_ProGpuWpfSdkCopyLocalRuntimeAssets"

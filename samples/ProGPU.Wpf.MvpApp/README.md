@@ -31,3 +31,12 @@ If the local `0.1.0-preview.45` LibreWPF packages are stale or missing, rebuild 
 ```bash
 PROGPU_WPF_MVP_REBUILD_PACKAGES=1 ./eng/run-progpu-wpf-mvp.sh
 ```
+
+## Native MIL selection
+
+With an SDK package containing the native renderer selector, build this same app
+with `-p:ProGpuWpfRendererMode=NativeMilWgpu`; no application source edit is needed.
+`ManagedPortable` remains the default. Native package-mode activation on Windows
+is still an explicit unsupported path; macOS/Linux integration awaits final
+qualification. See [SDK renderer selection](../../packaging/ProGPU.Wpf.Sdk/README.md#renderer-selection)
+for package requirements, current host restrictions and the two-mode SDK gate.

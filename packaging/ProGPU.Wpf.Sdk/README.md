@@ -26,6 +26,49 @@ The SDK also supplies the WPF markup compiler defaults and portable runtime-fram
 </Project>
 ```
 
+## Renderer selection
+
+`ProGpuWpfRendererMode` selects the SDK-created window renderer at build time:
+`ManagedPortable` is the unchanged default; `NativeMilWgpu` selects canonical MIL
+compilation and ProGPU C++ rendering through the typed host factory. Application
+XAML/code-behind does not need a custom host or bootstrap:
+
+```xml
+<ProGpuWpfRendererMode>NativeMilWgpu</ProGpuWpfRendererMode>
+```
+
+For an existing SDK app, use `dotnet build -p:ProGpuWpfRendererMode=NativeMilWgpu`.
+Rebuild with `ManagedPortable` to return to the established portable renderer.
+This is independent of `ProGpuWpfRenderingBackend=ProGPU`; it does not select a
+different compute/SIMD fallback policy. The executable runtime configuration
+records `LibreWPF.RequestedRendererMode` for diagnostics, not as proof of the
+active renderer. Editing that record at runtime does not change the compiled
+bootstrap. Unknown values fail the build; native
+executables cannot disable portable references/bootstrap and silently use another
+renderer. Failure to register typed source-built activation is a startup error.
+
+Native SDK activation is currently wired for macOS/Linux, **not runtime-qualified**.
+It requires the matching `ProGPU.Backend.Native` package and its RID-native assets,
+and inherits the current native host's full-surface/uniform-DPI restrictions.
+Windows SDK native selection currently throws explicitly: source-built WPF's
+portable `Application`/`Window` activation service is still disabled on Windows.
+The direct native host harness remains a separate Windows integration path, not
+proof that package-mode application activation works there. The default Windows
+SDK bootstrap behavior remains unchanged. Closing this Windows activation gap is
+required for the core delivery milestone.
+
+The final SDK qualification matrix uses the same applications in both modes:
+
+```bash
+./eng/progpu-wpf-sdk-ci.sh
+PROGPU_WPF_SDK_CI_RENDERER_MODE=NativeMilWgpu ./eng/progpu-wpf-sdk-ci.sh
+```
+
+The native lane also requires the direct native host/recovery gate. It retains
+Toolkit/AvalonDock, license-controlled paid Xceed and the existing SDK coverage;
+unsupported required paths are failures, not permission to skip them. These
+commands are qualification work, not an assertion that either lane has passed.
+
 The current repo MVP validation is intentionally apphost-based, because that is how users run a built SDK-switched WPF application. From the repository root:
 
 ```bash

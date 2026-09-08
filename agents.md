@@ -19,6 +19,10 @@ outside active frames, retain source-built WPF roots/native windows, renew exter
 image leases, and resolve popup sharing from the live owner rather than a captured
 context. Catch typed device-loss failures only; do not hide unrelated application,
 allocation or validation errors in a generic recovery loop.
+An explicit native SDK renderer selection must not fall through to Windows MIL
+or managed portable rendering. Keep package activation limits explicit until
+the source-built Application/Window services support that platform; direct-host
+smoke success is not package-mode application evidence.
 
 ## Reflection-Free Port Priority
 

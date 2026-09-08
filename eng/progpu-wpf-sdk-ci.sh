@@ -14,6 +14,20 @@ fi
 export DOTNET_ROLL_FORWARD="${DOTNET_ROLL_FORWARD:-Major}"
 export DOTNET_ROLL_FORWARD_TO_PRERELEASE="${DOTNET_ROLL_FORWARD_TO_PRERELEASE:-1}"
 
+# Keep the normal SDK lane unchanged, and allow the same package-mode applications
+# to qualify the native renderer without modifying their project/source files.
+export ProGpuWpfRendererMode="${PROGPU_WPF_SDK_CI_RENDERER_MODE:-ManagedPortable}"
+case "${ProGpuWpfRendererMode}" in
+  ManagedPortable|NativeMilWgpu) ;;
+  *)
+    echo "PROGPU_WPF_SDK_CI_RENDERER_MODE must be ManagedPortable or NativeMilWgpu." >&2
+    exit 1
+    ;;
+esac
+if [[ "${ProGpuWpfRendererMode}" == "NativeMilWgpu" ]]; then
+  export PROGPU_WPF_SDK_CI_NATIVE_MIL_HOST=1
+fi
+
 command -v python3 >/dev/null 2>&1 || {
   echo "python3 is required to verify the generated MIL protocol contract." >&2
   exit 1

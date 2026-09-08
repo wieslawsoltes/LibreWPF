@@ -82,6 +82,28 @@ fallback semantics; performance defaults may only claim speed after measurement.
 
 ## Core application closure checkpoints
 
+SDK activation checkpoint: the package bootstrap previously always selected
+managed portable hosts, so the native direct-host harness did not establish a
+native path for the MVP/Toolkit applications. `ProGpuWpfRendererMode=NativeMilWgpu`
+now selects the existing typed native host factory in the SDK bootstrap; the
+managed default is unchanged. The SDK gate accepts a renderer-mode lane for the
+same package applications and requires the direct native host gate for native
+selection. Invalid configuration and missing activation fail explicitly.
+
+**Known core blocker:** Windows source-built `PortableWindowActivationService`
+and some `Window` operations still bypass portable activation based on the OS.
+The native SDK selector reports this limitation instead of silently using Windows
+MIL. Trace and implement Windows package activation/window ownership as a named
+core application dependency; do not count the direct Windows drawing harness as
+completion of this application path. macOS/Linux native SDK selection is wired,
+not runtime-qualified. See the SDK README's renderer-selection contract.
+
+Compilation checkpoint: both conditional SDK bootstrap branches compile against
+the source-built WPF/ProGPU assemblies, and the updated external SDK gate harness
+compiles. These compilation-only checks do not pack the SDK, run its initializer,
+validate MSBuild error cases or execute an application. Exact-package two-mode
+build/runtime behavior remains in the final qualification phase.
+
 Surface recovery: source inspection of the native host harness/MVP presentation
 path found that both renderer modes discarded failed acquisition requests and
 kept stale surface configuration. The shared ProGPU recovery policy now handles
