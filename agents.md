@@ -62,6 +62,12 @@ successful non-ink edges when their layout contracts are absent. Registered text
 providers must implement or reject justification, not receive silent left alignment.
 Bounded source run copies must not split UTF-16 scalars. This editor route is not
 full FlowDocument layout or Windows package admission evidence.
+Retained editor line records own each source-formatted line advance and top.
+Drawing, caret/selection, hit testing, scrolling and incremental updates must use
+that same prefix map; do not restore a last-line-height-times-index approximation.
+Rich editor selection uses document symbol offsets, including hidden source edges,
+not flattened character offsets. The cache is not a replacement paragraph composer
+or evidence of implemented block/page/decoration/inline-object layout.
 
 Explicit native SDK/custom-host startup must call `ProGpuWpfNativeMediaServices.Initialize`
 before source module initialization or construction of WPF media objects. Do not

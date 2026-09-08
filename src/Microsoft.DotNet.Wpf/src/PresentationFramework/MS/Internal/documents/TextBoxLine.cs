@@ -422,6 +422,8 @@ namespace System.Windows.Controls
         /// </summary>
         internal double Height { get { return _line.Height; } }
 
+        internal double Advance { get { return _lineProperties.CalcLineAdvance(_line.Height); } }
+
         /// <summary>
         /// Is this the last line of the paragraph?
         /// </summary>

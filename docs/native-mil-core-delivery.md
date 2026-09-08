@@ -22,7 +22,7 @@ subsystem roadmap. None of these rows is runtime-qualified yet.
 
 | Order | Implementation batch | Exit to the next batch |
 | --- | --- | --- |
-| 1 — current | Native package activation: source-built harness and package MVP, including Windows. Close required source-media routing from startup through first frame and common resource construction. Popup ownership, pre-host services, provider-first text dispatch, intrinsic measurement and whole-word wrapping are connected. Remaining required text/document and media utility routes plus Windows SDK admission remain open. | Required paths select ProGPU explicitly, compile, and have no known route into unintended Windows MIL or silent managed rendering. Keep Windows admission guarded until its dependencies are implemented. |
+| 1 — current | Native package activation: source-built harness and package MVP, including Windows. Close required source-media routing from startup through first frame and common resource construction. Popup ownership, pre-host services, provider-first text dispatch, intrinsic measurement, whole-word wrapping and rich-editor media routing/per-line metrics are connected. Required FlowDocument viewer layout, remaining source text/document and media utility routes plus Windows SDK admission remain open. | Required paths select ProGPU explicitly, compile, and have no known route into unintended Windows MIL or silent managed rendering. Keep Windows admission guarded until its dependencies are implemented. |
 | 2 | Application closure: use the same MVP, Toolkit/AvalonDock, license-controlled Xceed and existing SciChart gate. Finish required text/selection, scroll/clip, popup/input, resize/DPI, content/effect/cache updates and close/reopen/device-loss ownership. Reuse existing implementations; fix concrete missing connections. | Each required action has an implemented path and authored regression coverage. Record any known blocking branch against that action; do not reopen already connected subsystems for optional refinements. |
 | 3 | Feature freeze, final qualification and delivery: build complete platform artifacts and packages, execute the existing cross-platform/Windows comparison and application gates, fix failures, and bring both PRs' required CI to green at the delivery commits. | Record exact-head package consumption and required gate results, with explicit failures or environment/license limitations. Only then report the core release delivered. |
 
@@ -115,6 +115,27 @@ These checkpoints preserve implementation provenance and the state at each
 commit. Their next-step text is historical, may be superseded by later changes,
 and must not be treated as an additional active backlog. Use the active completion
 queue above for current priorities.
+
+Mixed-size editor line metrics: `TextBoxView` now retains each formatted line's
+source advance and accumulated top instead of reusing the last formatted line's
+height for the entire document. Drawing, caret/selection geometry, point lookup,
+scroll visibility and incremental edits consume the same retained prefix map.
+The viewport bottom is exclusive, including an exact line boundary. Inline
+selection drawing now uses source symbol offsets, preserving hidden document
+edges, rather than flattened character offsets. The prefix rebuild is ordered
+and allocation-free over existing records; it is not a new paragraph composer,
+does not introduce scalar shaping and makes no performance claim. Its dependent
+prefix accumulation cannot be treated as independent SIMD lanes.
+
+Fixtures cover different-sized paragraphs, font-size mutation, visual/caret/extent
+agreement, point and selection bounds, exact viewport edges and styled source
+selection offsets. Their deterministic provider is a source-consumer fixture,
+not a native shaper or evidence of GPU rendering. Full document/page/paragraph
+layout, native decoration/inline-object contracts and application qualification
+remain open; do not substitute this editor cache for the MVP's document viewers.
+Compile-only: the source PresentationFramework fixture project builds with
+2 warnings and 0 errors. No fixture, verifier, application, VM/GPU, benchmark or
+CI workload was executed; these are authored contracts awaiting final qualification.
 
 Portable rich-editor admission: the MVP `EditorRichTextBox` now selects its
 source-owned `TextBoxView` by frozen media ownership, including Windows portable
