@@ -239,7 +239,10 @@ namespace MS.Internal.TextFormatting
             {
                 if (!IsNativeLineServicesAvailable)
                 {
-                    textLine = SimpleTextLine.Create(
+                    textLine = PortableTextLine.Create(settings, firstCharIndex,
+                        RealToIdealFloor(paragraphWidth), textSource.PixelsPerDip);
+
+                    textLine ??= SimpleTextLine.Create(
                         settings,
                         firstCharIndex,
                         0,
@@ -341,7 +344,8 @@ namespace MS.Internal.TextFormatting
                     return simpleMinMax;
                 }
 
-                TextLine fallbackLine = SimpleTextLine.CreatePortableFallback(
+                TextLine fallbackLine = PortableTextLine.Create(settings, firstCharIndex, 0, textSource.PixelsPerDip);
+                fallbackLine ??= SimpleTextLine.CreatePortableFallback(
                     settings,
                     firstCharIndex,
                     0,

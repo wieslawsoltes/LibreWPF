@@ -115,6 +115,13 @@ public static class Program
             try
             {
                 NativeMilBitmapDpiSmoke.RunFactory(presentationCore);
+                using var host = new ProGpuWpfWindowHost(new ProGpuWpfWindowOptions
+                {
+                    Title = "LibreWPF native MIL host smoke",
+                    Width = 160,
+                    Height = 96,
+                    RendererMode = ProGpuWpfRendererMode.NativeMilWgpu
+                });
                 object drawingVisual = CreateNativeMilHostDrawingVisual(
                     presentationCore,
                     windowsBase);
@@ -133,20 +140,12 @@ public static class Program
                         $"Published interfaces: {interfaces}.");
                 }
 
-                using var host = new ProGpuWpfWindowHost(
-                    new ProGpuWpfWindowOptions
-                    {
-                        Title = "LibreWPF native MIL host smoke",
-                        Width = 160,
-                        Height = 96,
-                        RendererMode = ProGpuWpfRendererMode.NativeMilWgpu
-                    })
-                {
-                    WpfRootVisual = drawingVisual
-                };
+                host.WpfRootVisual = drawingVisual;
 
                 NativeMilGeometryRelationSmoke.Run(presentationCore, drawingVisual);
                 NativeMilBitmapDpiSmoke.RequireSourceBitmapBinding(drawingVisual);
+                if (new WpfNativeMilSceneCompiler().BuildBatch(drawingVisual, 160, 96).GlyphRunFonts is not { Count: > 0 })
+                    throw new InvalidOperationException("Native host text did not publish source font bindings.");
 
                 string? status = null;
                 Exception? validationFailure = null;
@@ -327,6 +326,15 @@ public static class Program
         object decodedRect = Activator.CreateInstance(rectType, 64.0, 16.0, 32.0, 32.0)!;
         InvokeDrawing(drawingContext, "DrawImage",
             new[] { GetRequiredType(presentationCore, "System.Windows.Media.ImageSource"), rectType }, decodedBitmap, decodedRect);
+        // Existing dual-assembly diagnostic harness only. These known public API
+        // lookups disappear when the harness can bind the source assembly directly.
+        object textBrush = Create(presentationCore, "System.Windows.Media.SolidColorBrush", GetStaticProperty(colorsType, "Black"));
+        object text = CreateRealFormattedText(presentationCore, textBrush, "\u05d0\u05d1 fi a\u0301", rightToLeft: true);
+        if (Convert.ToDouble(GetProperty(text, "Width"), CultureInfo.InvariantCulture) <= 0)
+            throw new InvalidOperationException("Native host shaped text unexpectedly has zero width.");
+        Type pointType = GetRequiredType(windowsBase, "System.Windows.Point");
+        InvokeDrawing(drawingContext, "DrawText", new[] { GetRequiredType(presentationCore, "System.Windows.Media.FormattedText"), pointType },
+            text, Activator.CreateInstance(pointType, 16.0, 60.0));
         Invoke(drawingContext, "Close");
         return drawingVisual;
     }
@@ -1221,7 +1229,7 @@ public static class Program
         });
     }
 
-    private static object CreateRealFormattedText(Assembly presentationCore, object foregroundBrush)
+    private static object CreateRealFormattedText(Assembly presentationCore, object foregroundBrush, string text = "Text", bool rightToLeft = false)
     {
         Type brushType = GetRequiredType(presentationCore, "System.Windows.Media.Brush");
         Type fontFamilyType = GetRequiredType(presentationCore, "System.Windows.Media.FontFamily");
@@ -1248,7 +1256,7 @@ public static class Program
                 GetStaticProperty(fontStretchesType, "Normal")
             })
             ?? throw new InvalidOperationException("Failed to create System.Windows.Media.Typeface.");
-        object flowDirection = Enum.Parse(flowDirectionType, "LeftToRight");
+        object flowDirection = Enum.Parse(flowDirectionType, rightToLeft ? "RightToLeft" : "LeftToRight");
 
         ConstructorInfo constructor = formattedTextType.GetConstructor(
             BindingFlags.Instance | BindingFlags.Public,
@@ -1268,7 +1276,7 @@ public static class Program
 
         return constructor.Invoke(new object[]
         {
-            "Text",
+            text,
             System.Globalization.CultureInfo.InvariantCulture,
             flowDirection,
             typeface,

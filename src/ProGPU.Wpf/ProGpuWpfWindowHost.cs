@@ -145,6 +145,8 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
     {
         WpfPortableGeometryOperations.EnsureRegistered();
         _options = options ?? new ProGpuWpfWindowOptions();
+        if (_options.RendererMode == ProGpuWpfRendererMode.NativeMilWgpu)
+            WpfPortableTextFormatting.EnsureRegistered();
         _isHostVisible = _options.IsVisible;
         _windowState = _options.WindowState;
         _windowTitle = _options.Title;

@@ -339,6 +339,7 @@
     <Compile Include="MS\internal\TextFormatting\LineServicesRun.cs" />
     <Compile Include="MS\internal\TextFormatting\NumberSubstitution.cs" />
     <Compile Include="MS\internal\TextFormatting\SimpleTextLine.cs" />
+    <Compile Include="MS\internal\TextFormatting\PortableTextLine.cs" />
     <Compile Include="MS\internal\TextFormatting\TextFormatterImp.cs" />
     <Compile Include="MS\internal\TextFormatting\TextMarkerSource.cs" />
     <Compile Include="MS\internal\TextFormatting\TextMetrics.cs" />

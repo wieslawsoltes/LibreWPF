@@ -116,6 +116,26 @@ commit. Their next-step text is historical, may be superseded by later changes,
 and must not be treated as an additional active backlog. Use the active completion
 queue above for current priorities.
 
+Source text adapter checkpoint: `PortableTextLine` now connects the registered
+native paragraph provider to source WPF glyph replay, clusters, hit/selection,
+logical caret navigation and cloned wrapped-line continuation. ProGPU owns the
+snapshot over its existing C++ pipeline, UTF-16 intrinsic expansion, bidi/cluster
+metadata and native interaction buffers; source WPF owns actual GlyphRun and font
+identity/state. The existing native host harness now draws mixed-direction text
+with a combining mark and requires positive width/native font bindings. This is
+an authored application gate addition, not runtime evidence. The initial adapter
+accepts one typography domain; mixed styles, composite/fallback fonts, tabs,
+document objects, trimming and other enumerated gaps remain explicit in the
+native text integration record. The old simple path and Windows LineServices are
+unchanged; an active provider failure cannot become an empty line. Next work must
+close these remaining MVP/Toolkit editor connections, not expand unrelated APIs.
+Compile-only evidence: ProGPU fixtures completed with zero warnings/errors;
+bridge fixtures with 116 warnings and zero errors; the native host harness with
+five warnings and zero errors; final source fixtures with eight warnings and zero errors.
+no authored fixture, source verifier, app/VM/GPU run, benchmark or CI gate has been
+executed. The native C++ algorithms/ABI are unchanged in this adapter batch.
+Latest fetched ProGPU main is contained and unrelated worktree changes are preserved.
+
 Editable-text interaction connection: ProGPU's existing native cluster/caret,
 hit-test and selection algorithms now have generated C/.NET contracts and borrowed
 span entry points. C++ and C ABI callers share the original implementation without
