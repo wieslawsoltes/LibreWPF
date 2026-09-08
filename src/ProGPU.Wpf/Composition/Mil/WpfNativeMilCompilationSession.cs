@@ -1,5 +1,6 @@
 using System.Buffers.Binary;
 using ProGPU.Backend.Native;
+using ProGPU.Wpf.Interop;
 
 namespace System.Windows.Media.ProGPU.Composition.Mil;
 
@@ -76,11 +77,12 @@ public sealed class WpfNativeMilCompilationSession : IDisposable
         uint pixelWidth,
         uint pixelHeight,
         NativeMilColor clearColor,
-        ReadOnlySpan<WpfNativeMilVisualOverlay> overlays)
+        ReadOnlySpan<WpfNativeMilVisualOverlay> overlays,
+        PortableWindowRegion? windowRegion = null)
     {
         ThrowIfDisposed();
         WpfNativeMilBatch batch = _compiler.BuildBatch(
-            rootVisual, pixelWidth, pixelHeight, clearColor, overlays);
+            rootVisual, pixelWidth, pixelHeight, clearColor, overlays, windowRegion);
         return Update(batch);
     }
 

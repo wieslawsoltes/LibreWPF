@@ -948,6 +948,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         ArgumentNullException.ThrowIfNull(region);
 
         _windowRegion = region.IsEmpty ? null : region;
+        _forceFullWpfReplay = true;
         ApplyWindowRegionToCompositionTarget();
         RequestRenderAndWakeNativeLoop();
     }
@@ -2115,7 +2116,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
                 LastNativeMilSessionUpdate = _nativeMilSession.Update(
                     rootVisual, pixelWidth, pixelHeight,
                     new NativeMilColor(clear.X, clear.Y, clear.Z, clear.W),
-                    CollectionsMarshal.AsSpan(_nativeMilPopupScratch));
+                    CollectionsMarshal.AsSpan(_nativeMilPopupScratch), _windowRegion);
                 _nativeMilCompiledPopupVersion = popupVersion;
             }
             finally
@@ -2360,11 +2361,6 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         {
             throw new NotSupportedException(
                 "Native MIL mode does not mix managed drawing callbacks into the native semantic scene.");
-        }
-        if (_windowRegion is not null)
-        {
-            throw new NotSupportedException(
-                "Native MIL mode does not yet apply the host window-region clip.");
         }
         if (viewportX != 0 || viewportY != 0 ||
             viewportWidth != pixelWidth || viewportHeight != pixelHeight)

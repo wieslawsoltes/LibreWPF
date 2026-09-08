@@ -12,6 +12,47 @@ namespace ProGPU.Wpf.Tests.Composition.Mil;
 public sealed class WpfNativeMilSceneCompilerTests
 {
     [Fact]
+    public void HostWindowRegionUsesNonzeroHoleUnionOutsideRootAndPopups()
+    {
+        var root = new FakeVisual(null);
+        var popup = new FakeVisual(null);
+        var region = new PortableWindowRegion(new(0, 0, 100, 80),
+            [new(-10, 10, 30, 20), new(10, 10, 30, 20), new(200, 200, 10, 10)]);
+        WpfNativeMilBatch batch = new WpfNativeMilSceneCompiler().BuildBatch(root, 100, 80,
+            default, [new(popup, 5, 6, 50, 40)], region);
+        Assert.Equal(4, ReadCommands(batch.Bytes).Count(command => command == 0x79));
+        int group = FindCommand(batch.Bytes, 0x7b);
+        Assert.Equal(1U, ReadUInt32(batch.Bytes, group + 16));
+        Assert.Equal(8U, ReadUInt32(batch.Bytes, group + 20));
+        int combined = FindCommand(batch.Bytes, 0x7c);
+        Assert.Equal(3U, ReadUInt32(batch.Bytes, combined + 16));
+        Assert.Equal(ReadUInt32(batch.Bytes, group + 8), ReadUInt32(batch.Bytes, combined + 24));
+        int clip = FindCommand(batch.Bytes, 0x1f);
+        Assert.Equal(ReadUInt32(batch.Bytes, combined + 8), ReadUInt32(batch.Bytes, clip + 12));
+        int target = FindCommand(batch.Bytes, 0x35);
+        Assert.Equal(ReadUInt32(batch.Bytes, clip + 8), ReadUInt32(batch.Bytes, target + 12));
+    }
+
+    [Fact]
+    public void HostRegionUpdatesRemainMutableAndClearingRestoresSingleRoot()
+    {
+        var root = new FakeVisual(null);
+        var compiler = new WpfNativeMilSceneCompiler();
+        WpfNativeMilBatch first = compiler.BuildBatch(root, 100, 80, default, [],
+            new PortableWindowRegion(new(0, 0, 100, 80), [new(10, 10, 20, 20)]));
+        WpfNativeMilBatch moved = compiler.BuildBatch(root, 100, 80, default, [],
+            new PortableWindowRegion(new(0, 0, 100, 80), [new(15, 10, 20, 20)]));
+        NativeMilBatchDelta delta = WpfNativeMilCompilationSession.CreateDelta(first, moved);
+        Assert.False(delta.RequiresRebuild);
+        Assert.Equal(new int[] { 0x79 }, ReadCommands(delta.Bytes));
+        Assert.Equal(15, ReadDouble(delta.Bytes, 28));
+        Assert.True(WpfNativeMilCompilationSession.CreateDelta(moved,
+            compiler.BuildBatch(root, 100, 80)).RequiresRebuild);
+        Assert.Equal(compiler.BuildBatch(root, 100, 80).Bytes,
+            compiler.BuildBatch(root, 100, 80, default, [], new PortableWindowRegion(PortableRect.Empty)).Bytes);
+    }
+
+    [Fact]
     public void OwnerSurfacePopupPlacementUsesIndependentCanonicalVisualsAndMutableDeltas()
     {
         var root = new FakeVisual(null);

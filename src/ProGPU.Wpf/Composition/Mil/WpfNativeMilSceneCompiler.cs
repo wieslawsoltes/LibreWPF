@@ -117,13 +117,14 @@ public sealed class WpfNativeMilSceneCompiler
         uint pixelWidth,
         uint pixelHeight,
         NativeMilColor clearColor,
-        ReadOnlySpan<WpfNativeMilVisualOverlay> overlays)
+        ReadOnlySpan<WpfNativeMilVisualOverlay> overlays,
+        PortableWindowRegion? windowRegion = null)
     {
         ArgumentNullException.ThrowIfNull(rootVisual);
         var context = new BuildContext();
         uint rootHandle = context.AddVisual(rootVisual);
-        if (!overlays.IsEmpty)
-            rootHandle = context.AddOverlayRoot(rootHandle, overlays);
+        if (!overlays.IsEmpty || windowRegion is { IsEmpty: false })
+            rootHandle = context.AddHostRoot(rootHandle, overlays, windowRegion);
         uint targetHandle = context.NextHandle();
         context.Batch.CreateResource(
             targetHandle, NativeMilResourceType.GenericRenderTarget);
@@ -354,11 +355,14 @@ public sealed class WpfNativeMilSceneCompiler
 
         internal uint AddVisual(object visual) => AddVisual(visual, brushSource: false);
 
-        internal uint AddOverlayRoot(uint mainRoot, ReadOnlySpan<WpfNativeMilVisualOverlay> overlays)
+        internal uint AddHostRoot(uint mainRoot, ReadOnlySpan<WpfNativeMilVisualOverlay> overlays,
+            PortableWindowRegion? windowRegion)
         {
             uint container = NextHandle();
             Batch.CreateResource(container, NativeMilResourceType.Visual);
             Batch.CreateVisual(container);
+            if (windowRegion is { IsEmpty: false })
+                Batch.SetVisualClip(container, AddWindowRegion(windowRegion));
             Batch.InsertVisualChild(container, mainRoot, 0);
             for (int i = 0; i < overlays.Length; i++)
             {
@@ -381,6 +385,55 @@ public sealed class WpfNativeMilSceneCompiler
                 Batch.InsertVisualChild(container, placement, checked((uint)i + 1U));
             }
             return container;
+        }
+
+        private uint AddWindowRegion(PortableWindowRegion region)
+        {
+            PortableRect bounds = region.Bounds;
+            if (!IsFiniteRegionRectangle(bounds))
+                throw new ArgumentOutOfRangeException(nameof(region));
+            uint outer = AddRegionRectangle(bounds);
+            ReadOnlySpan<PortableRect> exclusions = region.ExcludedRectSpan;
+            var holes = new List<uint>();
+            for (int i = 0; i < exclusions.Length; i++)
+            {
+                PortableRect hole = exclusions[i];
+                if (!IsFiniteRegionRectangle(hole)) continue;
+                double left = Math.Max(bounds.X, hole.X);
+                double top = Math.Max(bounds.Y, hole.Y);
+                double right = Math.Min(bounds.X + bounds.Width, hole.X + hole.Width);
+                double bottom = Math.Min(bounds.Y + bounds.Height, hole.Y + hole.Height);
+                if (right <= left || bottom <= top) continue;
+                holes.Add(AddRegionRectangle(new PortableRect(left, top, right - left, bottom - top)));
+            }
+            if (holes.Count == 0) return outer;
+            uint union = holes[0];
+            if (holes.Count > 1)
+            {
+                union = NextHandle();
+                Batch.CreateResource(union, NativeMilResourceType.GeometryGroup);
+                // All rectangles have the same winding. Nonzero fill unions
+                // overlaps; even-odd would accidentally restore overlap holes.
+                Batch.SetGeometryGroup(union, NativeMilPathFillRule.Nonzero, CollectionsMarshal.AsSpan(holes));
+            }
+            uint result = NextHandle();
+            Batch.CreateResource(result, NativeMilResourceType.CombinedGeometry);
+            Batch.SetCombinedGeometry(result, NativeMilGeometryCombineMode.Exclude, outer, union);
+            return result;
+        }
+
+        private static bool IsFiniteRegionRectangle(PortableRect rect) =>
+            !rect.IsEmpty && double.IsFinite(rect.X) && double.IsFinite(rect.Y) &&
+            double.IsFinite(rect.Width) && double.IsFinite(rect.Height) &&
+            rect.Width > 0 && rect.Height > 0 &&
+            double.IsFinite(rect.X + rect.Width) && double.IsFinite(rect.Y + rect.Height);
+
+        private uint AddRegionRectangle(PortableRect rect)
+        {
+            uint handle = NextHandle();
+            Batch.CreateResource(handle, NativeMilResourceType.RectangleGeometry);
+            Batch.SetRectangleGeometry(handle, rect.X, rect.Y, rect.Width, rect.Height);
+            return handle;
         }
 
         private uint AddVisual(object visual, bool brushSource)
