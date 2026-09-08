@@ -28,6 +28,57 @@ public class PortableWindowActivationServiceTests
         }
     }
 
+    private sealed class WindowsMilFactAttribute : FactAttribute
+    {
+        public WindowsMilFactAttribute([CallerFilePath] string? path = null, [CallerLineNumber] int line = 0) : base(path, line)
+        {
+            if (!OperatingSystem.IsWindows() || PortableWpfRuntime.ConfiguredMediaBackend != PortableWpfMediaBackend.WindowsMil)
+                Skip = "Requires the independently selected native Windows WPF lane.";
+        }
+    }
+
+    [WindowsMilFact]
+    public void NativeWindowSystemCommandsKeepPostedHwndMessages()
+    {
+        RunInUiApartment(() =>
+        {
+            PortableWindowActivationService.IsEnabled.Should().BeFalse();
+            var window = new Window { Width = 200, Height = 100 };
+            var commands = new List<int>();
+            HwndSource? source = null;
+            HwndSourceHook hook = (IntPtr hwnd, int message, IntPtr wParam, IntPtr lParam, ref bool handled) =>
+            {
+                if (message == 0x0112) // WM_SYSCOMMAND
+                {
+                    commands.Add(wParam.ToInt32());
+                    handled = true; // Observe dispatch without showing/minimizing the test window.
+                }
+                return IntPtr.Zero;
+            };
+            try
+            {
+                IntPtr handle = new WindowInteropHelper(window).EnsureHandle();
+                source = HwndSource.FromHwnd(handle);
+                source.Should().NotBeNull();
+                source!.AddHook(hook);
+                SystemCommands.MaximizeWindow(window);
+                SystemCommands.MinimizeWindow(window);
+                SystemCommands.RestoreWindow(window);
+                SystemCommands.CloseWindow(window);
+                commands.Should().BeEmpty(); // These remain asynchronous Windows messages.
+                window.WindowState.Should().Be(WindowState.Normal);
+                window.IsDisposed.Should().BeFalse();
+                window.Dispatcher.Invoke(() => { }, Threading.DispatcherPriority.ApplicationIdle);
+                commands.Should().Equal(0xF030, 0xF020, 0xF120, 0xF060);
+            }
+            finally
+            {
+                source?.RemoveHook(hook);
+                if (!window.IsDisposed) window.Close();
+            }
+        });
+    }
+
     [PortableInputFact]
     public void PortableDeviceStateAndCommittedTextHaveOneOwnerOnEveryOs()
     {
@@ -69,6 +120,68 @@ public class PortableWindowActivationServiceTests
                 Mouse.LeftButton.Should().Be(MouseButtonState.Released);
             }
             finally { Keyboard.ClearFocus(); Mouse.Capture(null); }
+        });
+    }
+
+    [PortableInputFact]
+    public void SystemWindowCommandsUsePortableOwnerStateAndCancelableCloseOnEveryOs()
+    {
+        RunInUiApartment(() =>
+        {
+            var activation = new object();
+            var states = new List<WindowState>();
+            int handleQueries = 0, closes = 0, disposals = 0;
+            PortableWindowActivationService.Register(
+                activate: _ => activation, createHidden: _ => activation,
+                getHandle: owner =>
+                {
+                    owner.Should().BeSameAs(activation);
+                    handleQueries++;
+                    return new IntPtr(5678); // Deliberately not an HWND.
+                },
+                setWindowState: (owner, state) =>
+                {
+                    owner.Should().BeSameAs(activation);
+                    states.Add((WindowState)state);
+                },
+                close: owner => { owner.Should().BeSameAs(activation); closes++; },
+                dispose: owner => { owner.Should().BeSameAs(activation); disposals++; });
+            var window = new Window { Width = 200, Height = 100 };
+            bool cancelClose = true;
+            int closing = 0, closed = 0;
+            window.Closing += (_, e) => { closing++; e.Cancel = cancelClose; };
+            window.Closed += (_, _) => closed++;
+            try
+            {
+                new WindowInteropHelper(window).EnsureHandle().Should().Be(new IntPtr(5678));
+                int initialHandleQueries = handleQueries;
+                SystemCommands.MaximizeWindow(window);
+                window.WindowState.Should().Be(WindowState.Maximized);
+                SystemCommands.MinimizeWindow(window);
+                window.WindowState.Should().Be(WindowState.Minimized);
+                SystemCommands.RestoreWindow(window);
+                window.WindowState.Should().Be(WindowState.Normal);
+                states.Should().Equal(WindowState.Maximized, WindowState.Minimized, WindowState.Normal);
+
+                SystemCommands.CloseWindow(window);
+                window.IsDisposed.Should().BeFalse();
+                window.PortableWindowActivation.Should().BeSameAs(activation);
+                closing.Should().Be(1); closed.Should().Be(0);
+                closes.Should().Be(0); disposals.Should().Be(0);
+                cancelClose = false;
+                SystemCommands.CloseWindow(window);
+                window.IsDisposed.Should().BeTrue();
+                window.PortableWindowActivation.Should().BeNull();
+                closing.Should().Be(2); closed.Should().Be(1);
+                closes.Should().Be(1); disposals.Should().Be(1);
+                handleQueries.Should().Be(initialHandleQueries);
+            }
+            finally
+            {
+                cancelClose = false;
+                if (!window.IsDisposed) window.Close();
+                PortableWindowActivationService.Clear();
+            }
         });
     }
 

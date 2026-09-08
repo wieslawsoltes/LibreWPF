@@ -27,7 +27,10 @@ namespace System.Windows
 
         private static void _PostSystemCommand(Window window, SC command)
         {
-            if (!OperatingSystem.IsWindows())
+            // A portable window's handle belongs to its host, not to a WPF
+            // HwndSource. Keep state/close notifications and cancellation on
+            // the source Window's typed activation path on Windows as well.
+            if (window.PortableWindowActivation != null || !OperatingSystem.IsWindows())
             {
                 switch (command)
                 {

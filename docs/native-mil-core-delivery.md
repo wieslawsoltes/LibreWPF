@@ -116,6 +116,26 @@ commit. Their next-step text is historical, may be superseded by later changes,
 and must not be treated as an additional active backlog. Use the active completion
 queue above for current priorities.
 
+Portable Window menu state commands: the MVP's maximize/minimize/restore/close
+path now selects an active portable Window before Win32 handle access on every
+OS. It uses the existing source WindowState/Close implementation and typed host
+callbacks, preserving source state, cancelable Closing and one close/dispose.
+Native WPF HWND windows keep their posted asynchronous system commands. Authored
+fixtures exercise a real source Window with a deliberately non-HWND portable
+handle, all three state transitions and canceled/accepted close; the separate
+Windows-MIL fixture observes all four posted commands through a real HwndSource
+hook. They require independent portable/native test-process lanes and have not
+been executed. This host/source routing fix requires no new ProGPU algorithm.
+Portable ShowSystemMenu remains a distinct missing host capability: the current
+source implementation is still OS-selected and must be connected before claiming
+that MVP action or Windows SDK admission complete. Do not count the existing
+non-Windows no-op as successful menu display. Compile-only: the final source
+PresentationFramework fixture graph builds with 2 warnings/0 errors (6 warnings
+on its initial source dependency rebuild). Warnings are the existing test-package
+compatibility and nullable diagnostics; no fixture, verifier, application, VM/GPU,
+benchmark or CI workload ran. Latest fetched ProGPU main remains included in the
+unchanged ProGPU feature head. Windows native SDK activation remains guarded.
+
 Windows popup service connection (MVP/Toolkit ComboBox and menu open, nested menu
 movement, two-window ownership and close): ProGPU root hosts now register with
 the existing typed popup router on Windows as well as macOS/Linux. Native popup
