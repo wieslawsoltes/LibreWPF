@@ -116,6 +116,28 @@ commit. Their next-step text is historical, may be superseded by later changes,
 and must not be treated as an additional active backlog. Use the active completion
 queue above for current priorities.
 
+Native modal-input prerequisite: source inspection of the shared ProGPU enable
+path found that Win32 EnableWindow's previous-state result was treated as success,
+and an unrelated shadow refresh could mask rejected/unsupported enabled-state
+handling. The shared controller now reports enabled-state admission alone; Win32
+checks local host-thread/process ownership and the actual post-callback state.
+Source-generated integer-BOOL bindings replace the old enable import. Authored
+policy fixtures cover state changes/idempotence, rejection, destruction and
+callback failures. This corrects a prerequisite for the MVP dialog's remaining
+other-window input blocker, not a completed WPF modal-input coordinator. Cocoa
+currently updates native buttons only, and X11/Wayland input suppression remains
+incomplete. Keep native ownership, nested input restriction and activation
+restoration in the same core dialog batch; do not report them complete or expand
+unrelated window customization. See the [admission contract](../external/ProGPU/docs/native-mil-dialog-lifetime.md#native-enabled-state-admission-prerequisite).
+Compile-only: ProGPU.Tests 0 warnings/0 errors and source-built WPF application
+harness 5 warnings/0 errors. No fixture, verifier, native input/application/VM/GPU
+workload, benchmark or CI qualification ran. Latest fetched ProGPU main is included;
+unrelated native semantic-state and performance-artifact changes are preserved.
+The next core integration must share one effective modal restriction across host
+ingress, queued dispatch, popup ownership and source captured-mouse routing, while
+preserving application-owned enabled values. Existing WinUI modal owner code
+assigns IsEnabled directly and must not be copied as the WPF product contract.
+
 Portable dialog lifetime connection: the MVP About dialog now admits a separate
 typed `RunDialog` capability before Show. Source ShowHelper no longer enters a WPF
 HWND dispatcher modal frame for an active portable window on Windows. The host's
