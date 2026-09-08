@@ -6,6 +6,26 @@ namespace ProGPU.Wpf.Tests.Composition;
 public sealed class WpfManagedProjectGraphTests
 {
     [Fact]
+    public void DecoderStorageUsesMediaPolicyAndFailsBeforeWicActivation()
+    {
+        string ReadImaging(string name) => File.ReadAllText(FindRepoPath("src", "Microsoft.DotNet.Wpf", "src",
+            "PresentationCore", "System", "Windows", "Media", "Imaging", name));
+        string decoder = ReadImaging("BitmapDecoder.cs");
+        string image = ReadImaging("BitmapImage.cs");
+        Assert.DoesNotContain("!OperatingSystem.IsWindows()", decoder, StringComparison.Ordinal);
+        Assert.Contains("if (BitmapSource.UsesPortablePixelStorage &&", decoder, StringComparison.Ordinal);
+        int setupStart = decoder.IndexOf("internal static SafeMILHandle SetupDecoderFromUriOrStream(", StringComparison.Ordinal);
+        Assert.True(setupStart >= 0);
+        string setup = decoder[setupStart..];
+        AssertGuardBefore(setup, "if (BitmapSource.UsesPortablePixelStorage)", "IntPtr decoder = IntPtr.Zero;");
+        Assert.Contains("throw new NotSupportedException(\"Portable bitmap decoding", setup, StringComparison.Ordinal);
+        Assert.DoesNotContain("OperatingSystem.IsWindows()", image, StringComparison.Ordinal);
+        Assert.Contains("byte[] cachedManagedPixels = bitmapImage.CloneManagedPixelBuffer();", image, StringComparison.Ordinal);
+        Assert.Contains("if (managedPixels != null)", image, StringComparison.Ordinal);
+        AssertGuardBefore(image, "throw new NotSupportedException(\"The decoded bitmap", "WicSourceHandle = source.WicSourceHandle;");
+    }
+
+    [Fact]
     public void MemoryBitmapOwnershipUsesFrozenMediaSelectionAndGcOwnedPins()
     {
         string ReadImaging(string name) => File.ReadAllText(FindRepoPath("src", "Microsoft.DotNet.Wpf", "src",

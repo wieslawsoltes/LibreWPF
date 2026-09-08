@@ -304,9 +304,7 @@ namespace System.Windows.Media.Imaging
                 object cachedSyncObject = bitmapImage.SyncObject;
                 lock (cachedSyncObject)
                 {
-                    byte[] cachedManagedPixels = !OperatingSystem.IsWindows()
-                        ? bitmapImage.CloneManagedPixelBuffer()
-                        : null;
+                    byte[] cachedManagedPixels = bitmapImage.CloneManagedPixelBuffer();
 
                     if (cachedManagedPixels != null)
                     {
@@ -320,7 +318,7 @@ namespace System.Windows.Media.Imaging
                             cachedManagedPixels,
                             bitmapImage._managedPixelStride);
                     }
-                    else if (OperatingSystem.IsWindows())
+                    else if (!UsesPortablePixelStorage)
                     {
                         _syncObject = cachedSyncObject;
                         WicSourceHandle = bitmapImage.WicSourceHandle;
@@ -643,7 +641,7 @@ namespace System.Windows.Media.Imaging
             }
 
             byte[] managedPixels = source.CloneManagedPixelBuffer();
-            if (!OperatingSystem.IsWindows() && managedPixels != null)
+            if (managedPixels != null)
             {
                 InitializeManagedPixelBuffer(
                     source.PixelWidth,
@@ -657,6 +655,8 @@ namespace System.Windows.Media.Imaging
             }
             else
             {
+                if (UsesPortablePixelStorage)
+                    throw new NotSupportedException("The decoded bitmap does not expose portable pixel storage.");
                 WicSourceHandle = source.WicSourceHandle;
             }
 

@@ -323,6 +323,10 @@ public static class Program
         object imageRect = Activator.CreateInstance(rectType, 16.0, 16.0, 32.0, 32.0)!;
         InvokeDrawing(drawingContext, "DrawImage",
             new[] { GetRequiredType(presentationCore, "System.Windows.Media.ImageSource"), rectType }, bitmap, imageRect);
+        object decodedBitmap = NativeMilBitmapDpiSmoke.CreateDecodedBitmap(presentationCore);
+        object decodedRect = Activator.CreateInstance(rectType, 64.0, 16.0, 32.0, 32.0)!;
+        InvokeDrawing(drawingContext, "DrawImage",
+            new[] { GetRequiredType(presentationCore, "System.Windows.Media.ImageSource"), rectType }, decodedBitmap, decodedRect);
         Invoke(drawingContext, "Close");
         return drawingVisual;
     }

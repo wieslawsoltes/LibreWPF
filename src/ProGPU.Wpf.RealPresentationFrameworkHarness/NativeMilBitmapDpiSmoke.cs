@@ -77,13 +77,41 @@ internal static class NativeMilBitmapDpiSmoke
     internal static void RequireSourceBitmapBinding(object drawingVisual)
     {
         var batch = new WpfNativeMilSceneCompiler().BuildBatch(drawingVisual, 160, 96);
-        if (batch.BitmapSources is not { Count: 1 })
+        if (batch.BitmapSources is not { Count: 2 })
             throw new InvalidOperationException("Native MIL did not bind the source-built WriteableBitmap.");
         var bitmap = batch.BitmapSources[0];
         byte[] rgba = [3, 2, 1, 255, 6, 5, 4, 255, 9, 8, 7, 255, 12, 11, 10, 255];
         if (bitmap.Width != 2 || bitmap.Height != 2 || bitmap.RowBytes != 8 || bitmap.DpiX != 144 || bitmap.DpiY != 192 ||
             !bitmap.Rgba8Pixels.AsSpan().SequenceEqual(rgba))
             throw new InvalidOperationException("Native MIL bitmap sideband lost source DPI or RGBA channel order.");
+        var decoded = batch.BitmapSources[1];
+        if (decoded.Width != 2 || decoded.Height != 2 || decoded.RowBytes != 8 ||
+            decoded.Rgba8Pixels.Length != 16 || decoded.Rgba8Pixels[0] != 255 || decoded.Rgba8Pixels[15] != 255)
+            throw new InvalidOperationException("Native MIL did not preserve the SDK PNG source binding.");
+    }
+
+    // Public-API diagnostics share the dual-assembly removal condition above.
+    internal static object CreateDecodedBitmap(Assembly presentationCore)
+    {
+        Type type = presentationCore.GetType("System.Windows.Media.Imaging.BitmapImage", true)!;
+        Type cacheType = presentationCore.GetType("System.Windows.Media.Imaging.BitmapCacheOption", true)!;
+        object bitmap = Activator.CreateInstance(type)!;
+        // Same PNG as the package SDK's Assets/ExternalImage.png resource.
+        using (var stream = new MemoryStream(Convert.FromBase64String(
+            "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAE0lEQVR4nGP4z8DwHwwZGP6DAQBJyAn3FGMynQAAAABJRU5ErkJggg==")))
+        {
+            type.GetMethod("BeginInit", Type.EmptyTypes)!.Invoke(bitmap, null);
+            type.GetProperty("CacheOption")!.SetValue(bitmap, Enum.Parse(cacheType, "OnLoad"));
+            type.GetProperty("StreamSource")!.SetValue(bitmap, stream);
+            type.GetMethod("EndInit", Type.EmptyTypes)!.Invoke(bitmap, null);
+        }
+        type.GetMethod("Freeze", Type.EmptyTypes)!.Invoke(bitmap, null);
+        if (bitmap is not IPortableBitmapSourcePixelsSource source ||
+            !source.TryGetPortableBitmapSourcePixels(out var pixels) || pixels.Width != 2 || pixels.Height != 2 ||
+            pixels.Stride != 8 || pixels.Format != PortablePixelDataFormat.Bgra32 ||
+            pixels.Pixels.Length != 16 || pixels.Pixels[2] != 255 || pixels.Pixels[15] != 255)
+            throw new InvalidOperationException("The SDK PNG did not expose owned portable pixels after stream disposal.");
+        return bitmap;
     }
 
     internal static void RunChannel()

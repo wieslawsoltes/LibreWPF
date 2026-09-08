@@ -116,6 +116,24 @@ commit. Their next-step text is historical, may be superseded by later changes,
 and must not be treated as an additional active backlog. Use the active completion
 queue above for current priorities.
 
+Decoder-backed SDK image connection: the existing package SDK gate loads
+`Assets/ExternalImage.png` through XAML Image/ImageBrush and BitmapImage pack URI
+paths. Source decoder constructors and format discovery now use the frozen media
+choice on Windows too. Unsupported portable formats fail before WIC activation;
+BitmapImage cache and decoded-source adoption preserve owned portable pixels
+without OS gating. Windows-MIL mode retains native decoding. Existing decoder
+algorithms, pack/HTTP stream acquisition, transforms and renderer pixel consumers
+are unchanged. The source-built native host now draws the SDK PNG after OnLoad
+stream disposal; authored source fixtures cover generic/specific decoder selection,
+unknown-format rejection and cached URI pixel ownership. These fixtures are not
+runtime evidence. Windows admission is still guarded. Async/nonseekable downloading,
+color profiles and full codec parity remain unqualified; no SIMD speed claim is
+made for existing codec algorithms. See the ProGPU memory-bitmap record.
+Compile-only checkpoint: the native host harness completed with five warnings
+and zero errors, source PresentationCore fixtures with four warnings and zero
+errors, and bridge fixtures with 115 warnings and zero errors. No fixtures, graphical
+applications, VM comparisons, source verifiers, benchmarks or CI checks ran.
+
 Memory-bitmap connection (SciChart MVP chart-to-Image display and SDK memory
 images): source WriteableBitmap construction/copy and CachedBitmap memory
 construction now select portable storage by frozen media policy, not OS.

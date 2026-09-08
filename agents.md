@@ -1,5 +1,13 @@
 # Agent Guidance
 
+Decoder-backed core application images follow `BitmapSource.UsesPortablePixelStorage`
+for backend selection on every OS. Existing portable format dispatch must not fall
+through to WIC when a format is rejected. `BitmapImage` adopts cached/decoded owned
+pixels by their actual storage, and rejects missing portable pixels before reading
+a WIC handle. Preserve native Windows decoding when Windows MIL is selected;
+actual Windows network cache services remain OS-specific. No source-local codec
+rewrite or claims of qualified codec/worker/SIMD parity follow from this routing fix.
+
 ## Core Native MIL Delivery Priority
 
 The current delivery sequence is defined in `docs/native-mil-core-delivery.md`.
