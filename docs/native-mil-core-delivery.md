@@ -116,6 +116,23 @@ commit. Their next-step text is historical, may be superseded by later changes,
 and must not be treated as an additional active backlog. Use the active completion
 queue above for current priorities.
 
+Document inline connection: source `TextHidden` positions now stay in document
+lengths, glyph indices, caret/selection and continuation metadata without entering
+shaping text. ProGPU owns the reusable source-position map; WPF uses its existing
+typed property-modifier scopes and preserves open scopes across explicit line
+breaks. The native host now contains a real nested Run/Span TextBlock with positive
+width and native font-binding assertions. Regressions are authored, not executed.
+Directional embedding, decorations and embedded objects still block broader
+document content; startup/Windows SDK admission and all application qualification
+remain open. See the [source integration record](../external/ProGPU/docs/native-mil-text-source-integration.md).
+After this ordinary inline connection, return to native package startup and its
+Windows admission dependencies in batch 1. Do not expand directional/decorated
+text merely to complete a text API inventory; tie the next change to a required
+startup or acceptance-application action.
+Compile-only evidence: ProGPU fixtures 0 warnings/0 errors, source PresentationCore
+fixtures 8 warnings/0 errors, native host harness 1 warning/0 errors. No fixture,
+verifier, runtime, VM/GPU, performance or CI validation was executed in this batch.
+
 Incremental editor tabs: default tab-separated input now has a native measurement
 path rather than hitting the source tab-expansion rejection. The shared C++
 composer resolves the source interval/indent grid before wrapping, retains advances

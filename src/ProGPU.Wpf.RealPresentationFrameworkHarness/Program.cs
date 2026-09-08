@@ -140,12 +140,19 @@ public static class Program
                         $"Published interfaces: {interfaces}.");
                 }
 
-                host.WpfRootVisual = drawingVisual;
+                Assembly presentationFramework = loadContext.LoadFromAssemblyPath(presentationFrameworkPath);
+                object inlineText = CreateNativeMilInlineTextVisual(presentationFramework, presentationCore, windowsBase);
+                object root = Create(presentationCore, "System.Windows.Media.ContainerVisual");
+                AddToCollection(GetProperty(root, "Children"), drawingVisual);
+                AddToCollection(GetProperty(root, "Children"), inlineText);
+                host.WpfRootVisual = root;
 
                 NativeMilGeometryRelationSmoke.Run(presentationCore, drawingVisual);
                 NativeMilBitmapDpiSmoke.RequireSourceBitmapBinding(drawingVisual);
                 if (new WpfNativeMilSceneCompiler().BuildBatch(drawingVisual, 160, 96).GlyphRunFonts is not { Count: > 0 })
                     throw new InvalidOperationException("Native host text did not publish source font bindings.");
+                if (new WpfNativeMilSceneCompiler().BuildBatch(inlineText, 160, 96).GlyphRunFonts is not { Count: > 0 })
+                    throw new InvalidOperationException("Native inline document text did not publish source font bindings.");
 
                 string? status = null;
                 Exception? validationFailure = null;
@@ -279,6 +286,27 @@ public static class Program
             $"{host.LastNativeMilSceneUpdateMetrics.ResourceCount} resources/" +
             $"{host.LastNativeMilSceneUpdateMetrics.DrawCount} draws, and submitted " +
             $"{host.LastNativeMilFrameMetrics.DrawCallCount} draw call(s).";
+    }
+
+    private static object CreateNativeMilInlineTextVisual(Assembly presentationFramework, Assembly presentationCore, Assembly windowsBase)
+    {
+        // Existing dual-assembly diagnostic public API access; not product reflection.
+        object text = Create(presentationFramework, "System.Windows.Controls.TextBlock");
+        SetProperty(text, "FontFamily", Create(presentationCore, "System.Windows.Media.FontFamily", "#GLOBAL USER INTERFACE"));
+        SetProperty(text, "FontSize", 12.0);
+        object first = Create(presentationFramework, "System.Windows.Documents.Run", "Inline ");
+        object second = Create(presentationFramework, "System.Windows.Documents.Run", "document");
+        object span = Create(presentationFramework, "System.Windows.Documents.Span", second);
+        AddToCollection(GetProperty(text, "Inlines"), first);
+        AddToCollection(GetProperty(text, "Inlines"), span);
+        Type size = GetRequiredType(windowsBase, "System.Windows.Size");
+        Type rect = GetRequiredType(windowsBase, "System.Windows.Rect");
+        text.GetType().GetMethod("Measure", new[] { size })!.Invoke(text, new[] { Activator.CreateInstance(size, 160.0, 20.0) });
+        text.GetType().GetMethod("Arrange", new[] { rect })!.Invoke(text, new[] { Activator.CreateInstance(rect, 0.0, 76.0, 160.0, 20.0) });
+        Invoke(text, "UpdateLayout");
+        if (Convert.ToDouble(GetProperty(GetProperty(text, "DesiredSize"), "Width"), CultureInfo.InvariantCulture) <= 0)
+            throw new InvalidOperationException("Source inline document produced no measured width.");
+        return text;
     }
 
     private static object CreateNativeMilHostDrawingVisual(

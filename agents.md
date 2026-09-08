@@ -30,6 +30,12 @@ as a non-ink item: retain source ranges, caret/selection and background bounds,
 but never construct a GlyphRun containing its reserved native glyph id. Do not
 replace tabs with spaces or a source-local width guess. Custom stop collections,
 leaders and disabled-grid behavior remain explicit gaps until implemented.
+Hidden document edges must retain source positions through `PortableTextSourceMap`
+without entering shaping text. Preserve source run spans, glyph indices, logical
+caret/selection affinities and wrapped-line lengths. Property modifiers use the
+source-owned TextModifierScope inside-out evaluation, retain scope across explicit
+line breaks, and end at EndOfParagraph. Do not silently discard directional scopes,
+decorations or embedded objects while their native contracts are still missing.
 
 `WindowChromeWorker` must select source ownership before HWND access: an active
 portable window, a registered portable activation service, or frozen portable

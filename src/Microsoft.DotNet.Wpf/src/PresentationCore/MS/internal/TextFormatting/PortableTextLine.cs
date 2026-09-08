@@ -2,6 +2,7 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 using System.IO;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows;
 using System.Windows.Markup;
@@ -20,6 +21,8 @@ internal sealed class PortableTextLine : TextLine
     internal sealed record Continuation(PortableTextLine Owner, int LineIndex, int NextSourceIndex);
     private readonly IPortableTextParagraph _paragraph;
     private readonly string _text;
+    private readonly PortableTextSourceMap _sourceMap;
+    private readonly TextModifierScope _endScope;
     private readonly TextRunProperties _properties;
     private readonly GlyphTypeface _face;
     private sealed record SourceStyle(int Start, int End, TextRunProperties Properties, GlyphTypeface Face,
@@ -39,8 +42,8 @@ internal sealed class PortableTextLine : TextLine
     private readonly double _width;
     private bool _disposed;
     private PortableTextLineInfo Info => _paragraph.Lines.Span[_lineIndex];
-    private int First => _paragraphStart + Info.InputStart;
-    private int End => _paragraphStart + Info.InputEnd;
+    private int First => _paragraphStart + (_lineIndex == 0 ? 0 : _sourceMap.ToSource(Info.InputStart, true));
+    private int End => _paragraphStart + _sourceMap.ToSource(Info.InputEnd, true);
 
     internal static TextLine Create(FormatSettings settings, int first, int idealWidth, double pixelsPerDip)
     {
@@ -62,20 +65,45 @@ internal sealed class PortableTextLine : TextLine
         var runs = new List<TextSpan<TextRun>>();
         var styles = new List<SourceStyle>();
         var mappedFonts = new List<TextSpan<ScaledShapeTypeface>>();
+        var sourceRanges = new List<PortableTextSourceRange>();
+        var scope = settings.PreviousLineBreak?.TextModifierScope;
+        int scopeDepth = 0;
+        for (var current = scope; current != null; current = current.ParentScope)
+        {
+            if (current.TextModifier.HasDirectionalEmbedding) throw Unsupported("directional modifier embedding");
+            if (++scopeDepth > 128) throw Unsupported("modifier nesting budget");
+        }
         TextRunProperties properties = null;
         bool hasTabs = false;
-        int cp = first, newlines = 0;
+        int cp = first, newlines = 0, sourceLength = 0;
         while (true)
         {
             var range = settings.FetchTextRun(cp, first, out TextRun run, out int length);
-            if (length <= 0 || builder.Length > (1 << 20) - length)
+            if (length <= 0 || cp - first > (1 << 20) - length)
                 throw Unsupported("invalid run length or paragraph input budget");
             if (run is TextEndOfLine)
             {
+                if (run is TextEndOfParagraph) scope = null;
                 newlines = length; runs.Add(new(length, run)); break;
             }
-            if (run is not TextCharacters) throw Unsupported("document objects, modifiers or hidden runs");
-            var p = run.Properties;
+            if (run is TextHidden or TextModifier or TextEndOfSegment)
+            {
+                if (run is TextModifier modifier)
+                {
+                    if (modifier.HasDirectionalEmbedding) throw Unsupported("directional modifier embedding");
+                    if (++scopeDepth > 128) throw Unsupported("modifier nesting budget");
+                    scope = new TextModifierScope(scope, modifier, cp);
+                }
+                else if (run is TextEndOfSegment)
+                {
+                    if (scope == null) throw Unsupported("unmatched modifier scope end");
+                    scope = scope.ParentScope; scopeDepth--;
+                }
+                runs.Add(new(length, run)); cp = checked(cp + length); sourceLength = cp - first;
+                continue;
+            }
+            if (run is not TextCharacters) throw Unsupported("embedded document objects");
+            var p = scope == null ? run.Properties : scope.ModifyProperties(run.Properties);
             if (p == null || (p.TextDecorations?.Count ?? 0) != 0 || (p.TextEffects?.Count ?? 0) != 0 ||
                 p.BaselineAlignment != BaselineAlignment.Baseline)
                 throw Unsupported("run decorations, effects, baseline changes, custom typography or number substitution");
@@ -98,6 +126,7 @@ internal sealed class PortableTextLine : TextLine
                 }
                 if (c is '\r' or '\n' or '\u2028' or '\u2029')
                 {
+                    if (c == '\u2029') scope = null;
                     newlines = c == '\r' && i + 1 < builder.Length && builder[i + 1] == '\n' ? 2 : 1;
                     used = i - start + newlines;
                     builder.Length = i;
@@ -106,6 +135,7 @@ internal sealed class PortableTextLine : TextLine
             }
             if (builder.Length > start)
             {
+                sourceRanges.Add(new(cp - first, start, builder.Length - start));
                 mappedFonts.Clear();
                 settings.Formatter.GlyphingCache.GetPortableFontRuns(p.Typeface,
                     new CharacterBufferRange(range, 0, builder.Length - start), p.CultureInfo, mappedFonts);
@@ -124,7 +154,7 @@ internal sealed class PortableTextLine : TextLine
                 }
                 if (mappedStart != builder.Length) throw new InvalidOperationException("Source font ranges do not cover the styled run.");
             }
-            runs.Add(new(used, run)); cp += used;
+            runs.Add(new(used, run)); cp = checked(cp + used); sourceLength = cp - first - newlines;
             if (newlines != 0) break;
         }
         properties ??= pap.DefaultTextRunProperties;
@@ -165,7 +195,8 @@ internal sealed class PortableTextLine : TextLine
         var paragraph = service.Format(in request);
         if (paragraph.Lines.Length == 0) throw new InvalidOperationException("The text provider returned no line.");
         return new PortableTextLine(paragraph, text, properties, face, first, 0, newlines,
-            width, indent, baseline, height, pap.RightToLeft, runs, pixelsPerDip, pap.Align, styles.ToArray(), pap.LineHeight > 0);
+            width, indent, baseline, height, pap.RightToLeft, runs, pixelsPerDip, pap.Align, styles.ToArray(), pap.LineHeight > 0,
+            new PortableTextSourceMap(sourceLength, text.Length, CollectionsMarshal.AsSpan(sourceRanges)), scope);
     }
 
     private static void ValidateMappedFont(ScaledShapeTypeface selected)
@@ -188,7 +219,7 @@ internal sealed class PortableTextLine : TextLine
     private PortableTextLine(PortableTextLine owner, int index) : this(owner._paragraph, owner._text,
         owner._properties, owner._face, owner._paragraphStart, index, owner._newlines,
         owner._paragraphWidth, owner._indent, owner._baseline, owner._height, owner._rightToLeft,
-        owner._runs, owner.PixelsPerDip, owner._alignment, owner._styles, owner._fixedHeight) { }
+        owner._runs, owner.PixelsPerDip, owner._alignment, owner._styles, owner._fixedHeight, owner._sourceMap, owner._endScope) { }
 
     private static PortableTextFeature[] Features(TextRunTypographyProperties p)
     {
@@ -215,10 +246,11 @@ internal sealed class PortableTextLine : TextLine
     private PortableTextLine(IPortableTextParagraph paragraph, string text, TextRunProperties properties,
         GlyphTypeface face, int paragraphStart, int lineIndex, int newlines, double width, double indent,
         double baseline, double height, bool rtl, List<TextSpan<TextRun>> runs, double pixelsPerDip, TextAlignment alignment,
-        SourceStyle[] styles, bool fixedHeight)
+        SourceStyle[] styles, bool fixedHeight, PortableTextSourceMap sourceMap, TextModifierScope endScope)
         : base(pixelsPerDip)
     {
         _paragraph = paragraph; _text = text; _properties = properties; _face = face;
+        _sourceMap = sourceMap; _endScope = endScope;
         _paragraphStart = paragraphStart; _lineIndex = lineIndex; _newlines = newlines;
         _paragraphWidth = width; _indent = indent; _baseline = baseline; _height = height;
         _rightToLeft = rtl; _runs = runs; _alignment = alignment;
@@ -237,7 +269,7 @@ internal sealed class PortableTextLine : TextLine
         }
         int visibleEnd = Info.InputEnd;
         while (visibleEnd > Info.InputStart && char.IsWhiteSpace(text[visibleEnd - 1])) visibleEnd--;
-        _trailing = Info.InputEnd - visibleEnd;
+        _trailing = End - _paragraphStart - Math.Max(First - _paragraphStart, _sourceMap.ToSource(visibleEnd, false));
         double trailingWidth = 0;
         foreach (var glyph in paragraph.Glyphs.Span.Slice(Info.GlyphStart, Info.GlyphCount))
             if (glyph.Cluster >= visibleEnd) trailingWidth += glyph.Advance;
@@ -312,7 +344,10 @@ internal sealed class PortableTextLine : TextLine
                 ids, new Point(Start, Baseline), advances, offsets, _text.AsSpan(cpStart, cpEnd - cpStart).ToArray(),
                 null, clusters, carets, XmlLanguage.GetLanguage(properties.CultureInfo.IetfLanguageTag));
             run.InitializePortableGlyphPositions(positions, _paragraph.GetNativeFont(fontIndex));
-            _glyphRuns.Add(new(_paragraphStart + cpStart, cpEnd - cpStart, run));
+            int sourceStart = _sourceMap.ToSource(cpStart, true), sourceEnd = _sourceMap.ToSource(cpEnd, false);
+            if (sourceEnd - sourceStart != cpEnd - cpStart)
+                throw new InvalidOperationException("A glyph run crosses hidden source content.");
+            _glyphRuns.Add(new(_paragraphStart + sourceStart, sourceEnd - sourceStart, run));
             _glyphProperties.Add(properties);
             _selectionRuns.Add((cpStart, cpEnd, level));
             CacheBackground(properties.BackgroundBrush, cpStart, cpEnd);
@@ -365,12 +400,15 @@ internal sealed class PortableTextLine : TextLine
     public override CharacterHit GetCharacterHitFromDistance(double distance)
     {
         CheckAlive(); var hit = _paragraph.HitTest(_lineIndex, (float)(distance - Start));
-        if (!hit.Trailing) return new(_paragraphStart + hit.Position, 0);
+        if (!hit.Trailing) return new(_paragraphStart + _sourceMap.ToSource(hit.Position, true), 0);
         int before = _paragraph.GetNextLogicalCaret(_lineIndex, hit.Position, true);
-        return new(_paragraphStart + before, hit.Position - before);
+        int sourceStart = _sourceMap.ToSource(before, true), sourceEnd = _sourceMap.ToSource(hit.Position, false);
+        if (sourceEnd <= sourceStart) return new(_paragraphStart + sourceStart, 0);
+        return new(_paragraphStart + sourceStart, sourceEnd - sourceStart);
     }
     public override double GetDistanceFromCharacterHit(CharacterHit hit)
-    { CheckAlive(); return Start + _paragraph.GetCaretDistance(_lineIndex, new(hit.FirstCharacterIndex + hit.TrailingLength - _paragraphStart, hit.TrailingLength != 0)); }
+    { CheckAlive(); return Start + _paragraph.GetCaretDistance(_lineIndex,
+        new(_sourceMap.ToText(Math.Clamp(checked(hit.FirstCharacterIndex + hit.TrailingLength) - _paragraphStart, 0, _sourceMap.SourceLength)), hit.TrailingLength != 0)); }
     public override CharacterHit GetNextCaretCharacterHit(CharacterHit hit) => Move(hit, false);
     public override CharacterHit GetPreviousCaretCharacterHit(CharacterHit hit) => Move(hit, true);
     public override CharacterHit GetBackspaceCaretCharacterHit(CharacterHit hit) => Move(hit, true);
@@ -378,14 +416,15 @@ internal sealed class PortableTextLine : TextLine
     {
         CheckAlive(); int position = hit.FirstCharacterIndex + hit.TrailingLength;
         if (position >= End && !previous) return new(First + Length, 0);
-        return new(_paragraphStart + _paragraph.GetNextLogicalCaret(_lineIndex, position - _paragraphStart, previous), 0);
+        int textPosition = _sourceMap.ToText(Math.Clamp(position - _paragraphStart, 0, _sourceMap.SourceLength));
+        return new(_paragraphStart + _sourceMap.ToSource(_paragraph.GetNextLogicalCaret(_lineIndex, textPosition, previous), true), 0);
     }
     public override IList<TextBounds> GetTextBounds(int first, int length)
     {
         CheckAlive();
         if (length < 0) { first += length; length = -length; }
-        int start = Math.Clamp(first, First, End) - _paragraphStart;
-        int end = Math.Clamp(checked(first + length), First, End) - _paragraphStart;
+        int start = _sourceMap.ToText(Math.Clamp(first, First, End) - _paragraphStart);
+        int end = _sourceMap.ToText(Math.Clamp(checked(first + length), First, End) - _paragraphStart);
         var rectangles = new PortableRect[Math.Max(1, Info.GlyphCount)];
         var result = new List<TextBounds>();
         foreach (var run in _selectionRuns)
@@ -414,13 +453,14 @@ internal sealed class PortableTextLine : TextLine
     }
     public override IEnumerable<IndexedGlyphRun> GetIndexedGlyphRuns() => _glyphRuns;
     public override TextLineBreak GetTextLineBreak() => _lineIndex + 1 < _paragraph.Lines.Length ?
-        new TextLineBreak(null, IntPtr.Zero) { PortableContinuation = new(this, _lineIndex + 1, End) } : null;
+        new TextLineBreak(null, IntPtr.Zero) { PortableContinuation = new(this, _lineIndex + 1, End) } :
+        _endScope == null ? null : new TextLineBreak(_endScope, IntPtr.Zero);
     public override bool HasOverflowed => _paragraphWidth > 0 && Start + Width > _paragraphWidth;
     public override bool HasCollapsed => false;
-    public override int Length => Info.InputEnd - Info.InputStart + NewlineLength;
+    public override int Length => End - First + NewlineLength;
     public override int NewlineLength => _lineIndex + 1 == _paragraph.Lines.Length ? _newlines : 0;
     public override int TrailingWhitespaceLength => _trailing + NewlineLength;
-    public override int DependentLength => _text.Length - Info.InputEnd;
+    public override int DependentLength => _sourceMap.SourceLength - (End - _paragraphStart);
     public override double Start => _indent + (_paragraphWidth <= 0 ? 0 : _alignment switch
     { TextAlignment.Right => _paragraphWidth - _indent - _width, TextAlignment.Center => (_paragraphWidth - _indent - _width) / 2, _ => 0 });
     public override double Width => _width;
