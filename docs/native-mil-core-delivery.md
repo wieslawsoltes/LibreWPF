@@ -113,16 +113,20 @@ C ABI and managed wrapper for whole-figure stroke bounds/hits, retaining source
 gaps, incoming smooth joins, pen/dash state and post-widen transforms. It shares
 the existing native segment emitter and Direct2D stroker; native/managed dash
 validation uses intrinsic lanes. This is a prerequisite, **not closure of the
-application pen path**. Source inspection found that the core query polyline
-builder drops constant stroked segments. The new entry point rejects them
-explicitly until existing point-cap/endpoint preparation is connected. Next:
-close that shared coverage gap, add the host/source query encoder preserving
+application pen path**. The follow-up closes constant-edge loss in shared native
+preparation: point caps, dash-phase visibility, source endpoint eligibility,
+zero-distance gaps and incoming joins now survive. Original ProGPU cap/transform
+helpers are reused. Next: add the host/source query encoder preserving
 figure/segment flags, and route the named DrawGeometry bounds/hit consumers.
 The Windows SDK guard and final acceptance gates remain unchanged. See the
 [stroke transport and remaining dependency](../external/ProGPU/docs/native-mil-geometry-utilities.md#stroke-query-prerequisite--not-yet-source-wpf-pen-admission).
 Compile-only checkpoint: the strict AppleClang C++20 native query fixture target
 is up to date, and the final ProGPU.Tests Release build succeeds with 0 warnings
 and 0 errors. No fixtures, runtime gates or CI qualification were executed.
+The point/endpoint follow-up also compiles and links the native geometry-utility,
+Direct2D core and Direct2D compatibility fixture targets. Added cap-oracle and
+public COM query fixtures remain unexecuted. This closes the native preparation
+dependency, not the source-WPF consumer or final application acceptance gate.
 
 SDK activation checkpoint: the package bootstrap previously always selected
 managed portable hosts, so the native direct-host harness did not establish a
