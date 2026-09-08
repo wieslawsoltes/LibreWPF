@@ -555,12 +555,23 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         RunCore(showActivated: false, showWindow: false);
     }
 
-    private void RunCore(bool showActivated, bool showWindow)
+    internal void RunDialog(Func<bool> continueRunning)
+    {
+        ArgumentNullException.ThrowIfNull(continueRunning);
+        // ShowPortableDialog already showed the source. Do not show it again if
+        // a synchronous activation/layout callback hid it before pumping starts.
+        RunCore(showActivated: false, showWindow: false, continueRunning);
+    }
+
+    private void RunCore(bool showActivated, bool showWindow, Func<bool>? continueRunning = null)
     {
         ThrowIfDisposed();
         // Nonactivating native windows must be created hidden. Otherwise the
         // Cocoa/GLFW window can take focus before the platform show policy runs.
-        _isHostVisible = showWindow && showActivated;
+        if (continueRunning == null)
+        {
+            _isHostVisible = showWindow && showActivated;
+        }
         EnsureWindow();
         if (!_window!.IsInitialized)
         {
@@ -576,7 +587,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         TraceNativeLoop("run entering: " + CreateNativeLoopTraceState());
         try
         {
-            RunPortableNativeLoop();
+            RunPortableNativeLoop(continueRunning);
         }
         catch (Exception ex)
         {
@@ -591,7 +602,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         }
     }
 
-    private void RunPortableNativeLoop()
+    private void RunPortableNativeLoop(Func<bool>? continueRunning = null)
     {
         if (!ShouldKeepPortableNativeRunLoopAlive())
         {
@@ -603,6 +614,10 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         TraceNativeLoop("owner loop entering: " + CreateNativeLoopTraceState());
         while (ShouldKeepPortableNativeRunLoopAlive())
         {
+            if (continueRunning != null && !continueRunning())
+            {
+                break;
+            }
             var hadPendingRender = WpfRenderScheduler.HasPendingRenderRequest;
             NativeLoopOwnerDoEventsCallCount++;
             try
@@ -637,6 +652,11 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
             {
                 TraceNativeLoop("owner loop stopping after DoEvents: " + CreateNativeLoopTraceState());
                 return;
+            }
+
+            if (continueRunning != null && !continueRunning())
+            {
+                break;
             }
 
             Thread.Sleep(hadPendingRender || WpfRenderScheduler.HasPendingRenderRequest

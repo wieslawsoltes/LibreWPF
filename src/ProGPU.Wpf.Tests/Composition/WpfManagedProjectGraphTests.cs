@@ -2672,12 +2672,14 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("if (PortableWindowActivationService.IsEnabled)", window, StringComparison.Ordinal);
         Assert.Contains("return ShowPortableDialog();", window, StringComparison.Ordinal);
         Assert.Contains("private Nullable<bool> ShowPortableDialog()", window, StringComparison.Ordinal);
-        Assert.Contains("PortableWindowActivationService.TryRun(this);", window, StringComparison.Ordinal);
+        Assert.Contains("PortableWindowActivationService.GetDialogRunCallback();", window, StringComparison.Ordinal);
+        Assert.Contains("if (!IsPortableWindowActive && (_showingAsDialog) && (_isVisible))", window, StringComparison.Ordinal);
+        Assert.Contains("runDialog(_portableWindowActivation, () => _showingAsDialog && _isVisible && !_disposed);", window, StringComparison.Ordinal);
         Assert.Contains("ComponentDispatcher.PushModal();", window, StringComparison.Ordinal);
         Assert.Contains("ComponentDispatcher.PopModal();", window, StringComparison.Ordinal);
         Assert.True(
             window.IndexOf("ComponentDispatcher.PushModal();", StringComparison.Ordinal)
-                < window.IndexOf("PortableWindowActivationService.TryRun(this);", StringComparison.Ordinal),
+                < window.IndexOf("runDialog(_portableWindowActivation,", StringComparison.Ordinal),
             "Portable Window.ShowDialog must enter modal state before running the dialog native host.");
         Assert.Contains("if (_showingAsDialog)", window, StringComparison.Ordinal);
         Assert.Contains("DoDialogHide();", window, StringComparison.Ordinal);

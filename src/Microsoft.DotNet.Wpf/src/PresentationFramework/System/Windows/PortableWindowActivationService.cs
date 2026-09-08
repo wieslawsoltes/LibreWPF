@@ -28,6 +28,7 @@ namespace System.Windows
         private static Action<object, object, object> _setWindowBorder;
         private static Action<object> _close;
         private static Action<object> _run;
+        private static Action<object, Func<bool>> _runDialog;
         private static Action<object> _dispose;
         private static Func<object, bool> _dragMove;
         private static Func<object, IntPtr> _getHandle;
@@ -69,7 +70,8 @@ namespace System.Windows
             Func<object, bool> requestActivation = null,
             Action<object, object> setIcon = null,
             Func<object, object> createHidden = null,
-            Func<object, double, double, bool> showSystemMenu = null)
+            Func<object, double, double, bool> showSystemMenu = null,
+            Action<object, Func<bool>> runDialog = null)
         {
             ArgumentNullException.ThrowIfNull(activate);
 
@@ -83,6 +85,7 @@ namespace System.Windows
             Volatile.Write(ref _setWindowBorder, setWindowBorder);
             Volatile.Write(ref _close, close);
             Volatile.Write(ref _run, run);
+            Volatile.Write(ref _runDialog, runDialog);
             Volatile.Write(ref _dispose, dispose);
             Volatile.Write(ref _dragMove, dragMove);
             Volatile.Write(ref _getHandle, getHandle);
@@ -109,6 +112,7 @@ namespace System.Windows
             Volatile.Write(ref _setWindowBorder, null);
             Volatile.Write(ref _close, null);
             Volatile.Write(ref _run, null);
+            Volatile.Write(ref _runDialog, null);
             Volatile.Write(ref _dispose, null);
             Volatile.Write(ref _dragMove, null);
             Volatile.Write(ref _getHandle, null);
@@ -857,6 +861,12 @@ namespace System.Windows
             return true;
         }
 
+        internal static Action<object, Func<bool>> GetDialogRunCallback()
+        {
+            return Volatile.Read(ref _runDialog) ?? throw new PlatformNotSupportedException(
+                "The portable window host does not support a source-controlled dialog run loop.");
+        }
+
         internal static void FlushDispatcherOperations(object window, DispatcherPriority markerPriority)
         {
             FlushDispatcherOperations(window, markerPriority, Timeout.InfiniteTimeSpan);
@@ -969,7 +979,8 @@ namespace System.Windows
                     callbacks.RequestActivation,
                     callbacks.SetIcon,
                     callbacks.CreateHidden,
-                    callbacks.ShowSystemMenu);
+                    callbacks.ShowSystemMenu,
+                    callbacks.RunDialog);
             }
 
             public bool TryRegisterMediaContextRenderService(

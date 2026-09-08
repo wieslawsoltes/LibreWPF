@@ -541,6 +541,9 @@ namespace System.Windows
 
         private Nullable<bool> ShowPortableDialog()
         {
+            // Capture admission before showing a window. A normal application
+            // loop cannot represent Hide ending a synchronous dialog lifetime.
+            Action<object, Func<bool>> runDialog = PortableWindowActivationService.GetDialogRunCallback();
             EnsureDialogCommand();
             bool pushedModal = false;
 
@@ -549,14 +552,18 @@ namespace System.Windows
                 _showingAsDialog = true;
                 Show();
 
-                // The portable dispatcher uses short frames because the platform host owns
-                // the native event loop. Run the dialog host itself to preserve synchronous
-                // ShowDialog semantics without blocking ProGPU/Silk.NET event processing.
+                // The platform host owns the event/render loop on every OS.
+                // Borrow a source-controlled dialog lifetime, not the application's
+                // close-only loop or a WPF HWND dispatcher frame.
                 if (_showingAsDialog && _isVisible)
                 {
                     ComponentDispatcher.PushModal();
                     pushedModal = true;
-                    PortableWindowActivationService.TryRun(this);
+                    runDialog(_portableWindowActivation, () => _showingAsDialog && _isVisible && !_disposed);
+                    if (_showingAsDialog && _isVisible && !_disposed)
+                    {
+                        throw new InvalidOperationException("The portable dialog loop returned while the dialog was still open.");
+                    }
                 }
             }
             catch
@@ -1470,8 +1477,8 @@ namespace System.Windows
                 {
                     // This value should be set only after the window is created and shown as dialog.
 
-                    // When _showingAsDialog is set, _sourceWindow must be set too.
-                    Debug.Assert(!IsSourceWindowNull, "IsSourceWindowNull cannot be true when _showingAsDialog is true");
+                    // Both portable and native dialogs require their own source identity.
+                    Debug.Assert(IsPortableWindowActive || !IsSourceWindowNull, "A dialog requires an active presentation source.");
 
 
                     // According to the new design, setting DialogResult to its current value will not have any effect.
@@ -2361,6 +2368,9 @@ namespace System.Windows
                 else
                 {
                     _isClosing = false;
+                    // A canceled portable dialog remains open. Allow a later
+                    // assignment of the same result to request closing again.
+                    _dialogResult = null;
                 }
 
                 return;
@@ -5809,7 +5819,7 @@ namespace System.Windows
 
 
             // dialog functionality; start dispatcher loop to block the call
-            if ((_showingAsDialog) && (_isVisible))
+            if (!IsPortableWindowActive && (_showingAsDialog) && (_isVisible))
             {
                 //
                 // Since we exited the Context, we need to make sure

@@ -412,8 +412,10 @@ public sealed class ProGpuWpfWindowHostTests
             StringComparison.Ordinal);
 
         Assert.DoesNotContain("_window!.Run();", source, StringComparison.Ordinal);
-        Assert.Contains("RunPortableNativeLoop();", source, StringComparison.Ordinal);
-        Assert.Contains("private void RunPortableNativeLoop()", source, StringComparison.Ordinal);
+        Assert.Contains("RunPortableNativeLoop(continueRunning);", source, StringComparison.Ordinal);
+        Assert.Contains("private void RunPortableNativeLoop(Func<bool>? continueRunning = null)", source, StringComparison.Ordinal);
+        Assert.Contains("if (continueRunning != null && !continueRunning())", source, StringComparison.Ordinal);
+        Assert.Contains("RunCore(showActivated: false, showWindow: false, continueRunning);", source, StringComparison.Ordinal);
         Assert.Contains("while (ShouldKeepPortableNativeRunLoopAlive())", source, StringComparison.Ordinal);
         Assert.Contains("DoEvents();", source, StringComparison.Ordinal);
         Assert.Contains("if (!EnsureCompositionTargetLoaded() || !ShouldKeepPortableNativeRunLoopAlive())", source, StringComparison.Ordinal);

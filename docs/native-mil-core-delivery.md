@@ -116,6 +116,31 @@ commit. Their next-step text is historical, may be superseded by later changes,
 and must not be treated as an additional active backlog. Use the active completion
 queue above for current priorities.
 
+Portable dialog lifetime connection: the MVP About dialog now admits a separate
+typed `RunDialog` capability before Show. Source ShowHelper no longer enters a WPF
+HWND dispatcher modal frame for an active portable window on Windows. The host's
+existing event/render loop borrows the source continuation and ends that invocation
+on Hide without closing/disposal or changing the ordinary application lifetime.
+Canceled DialogResult closes reset the result, allowing the same value to close
+again later. Premature host return and missing capability fail explicitly; source
+modal notifications and host pump cleanup remain finally-balanced. Both renderers
+share the same host path. Authored source/interop fixtures and the extended existing
+MVP dialog gate cover Hide/reuse, cancellation and failure cleanup; they are not
+executed runtime evidence. Native owner-window configuration, other-window input
+disabling/nested modality and activation restoration are still concrete dialog
+integration blockers, not completed by this loop fix. Windows SDK admission stays
+guarded. See the [contract and qualification scope](../external/ProGPU/docs/native-mil-dialog-lifetime.md).
+Compile-only: ProGPU.Tests 0 warnings/0 errors, final PresentationFramework source
+fixtures 2/0 (6/0 initially), bridge fixtures 116/0 and source application harness
+0/0. The package-mode MVP build did **not** compile: no-restore failed with
+NETSDK1004 for missing assets; ordinary restore then failed with NU1301 because
+`artifacts/packages/Release/NonShipping` does not exist. The live MVP gate extension
+is authored, not package-compiled or executed. Fresh package production/consumption
+remains mandatory; no feed bypass or old-package success substitutes for it.
+ProGPU `62867381` contains the typed contract and latest fetched main; unrelated
+submodule changes remain untouched. No tests/verifiers, applications, VM/GPU
+workloads, benchmarks or CI qualification ran.
+
 Package imaging ownership connection: the existing external SDK application's
 `ValidateManagedImagingObjects` constructs custom/predefined palettes, derives a
 palette from owned BGRA/indexed pixels, wraps the bitmap in `BitmapFrame` and saves

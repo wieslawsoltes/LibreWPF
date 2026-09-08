@@ -90,6 +90,13 @@ absolute desktop coordinates without framebuffer-DPI scaling. Win32 tracking,
 advertised X11 requests and Cocoa native-action menus share that provider;
 Wayland and rejected platform capabilities remain explicit, not successful no-ops.
 Windows SDK package admission remains separate.
+Portable ShowDialog must use source-controlled dialog pumping, not application
+Run or the WPF HWND dispatcher frame inside ShowHelper. Admit the typed RunDialog
+capability before Show, preserve modal notification cleanup, return on Hide without
+disposing the source, and reset a canceled DialogResult so the same result can
+request closing again. Host callbacks borrow the continuation on the host thread;
+premature return while the dialog is still open is a failure. Native owner setup,
+other-window input disabling and activation restoration remain separate blockers.
 
 Decoder-backed core application images follow `BitmapSource.UsesPortablePixelStorage`
 for backend selection on every OS. Existing portable format dispatch must not fall

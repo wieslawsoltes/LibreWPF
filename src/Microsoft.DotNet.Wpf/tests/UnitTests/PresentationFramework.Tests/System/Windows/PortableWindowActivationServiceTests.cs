@@ -443,6 +443,135 @@ public class PortableWindowActivationServiceTests
         });
     }
 
+    [PortableInputFact]
+    public void PortableDialogHideReturnsAndReusesSourceWithCancelableResult()
+    {
+        RunInUiApartment(() =>
+        {
+            var activation = new object();
+            var window = new Window { Width = 200, Height = 100 };
+            int creates = 0, runs = 0, shows = 0, hides = 0, closes = 0, disposals = 0;
+            int closingCalls = 0;
+            window.Closing += (_, e) => e.Cancel = ++closingCalls == 1;
+            PortableWindowActivationService.Register(
+                activate: _ => { creates++; return activation; },
+                show: _ => shows++, hide: _ => hides++,
+                close: _ => closes++, dispose: _ => disposals++,
+                getHandle: _ => new IntPtr(5678),
+                run: _ => throw new InvalidOperationException("Application loop must not run a dialog."),
+                runDialog: (owner, continuation) =>
+                {
+                    owner.Should().BeSameAs(activation);
+                    ComponentDispatcher.IsThreadModal.Should().BeTrue();
+                    continuation().Should().BeTrue();
+                    runs++;
+                    if (runs == 1)
+                    {
+                        window.Hide();
+                        window.IsDisposed.Should().BeFalse();
+                    }
+                    else
+                    {
+                        window.DialogResult = true;
+                        window.DialogResult.Should().BeNull();
+                        continuation().Should().BeTrue(); // Canceled close keeps pumping.
+                        window.DialogResult = true;
+                    }
+                    continuation().Should().BeFalse();
+                });
+            try
+            {
+                window.ShowDialog().Should().Be(false);
+                window.PortableWindowActivation.Should().BeSameAs(activation);
+                ComponentDispatcher.IsThreadModal.Should().BeFalse();
+                closes.Should().Be(0); disposals.Should().Be(0);
+                window.ShowDialog().Should().Be(true);
+                creates.Should().Be(1); runs.Should().Be(2); shows.Should().Be(2); hides.Should().Be(1);
+                closes.Should().Be(1); disposals.Should().Be(1);
+                ComponentDispatcher.IsThreadModal.Should().BeFalse();
+            }
+            finally
+            {
+                if (!window.IsDisposed) window.Close();
+                PortableWindowActivationService.Clear();
+            }
+        });
+    }
+
+    [PortableInputFact]
+    public void PortableDialogRequiresCapabilityBeforeShowAndRejectsPrematureReturn()
+    {
+        RunInUiApartment(() =>
+        {
+            var activation = new object();
+            var window = new Window { Width = 200, Height = 100 };
+            int creates = 0;
+            PortableWindowActivationService.Register(activate: _ => { creates++; return activation; });
+            try
+            {
+                Action show = () => window.ShowDialog();
+                show.Should().Throw<PlatformNotSupportedException>().WithMessage("*dialog run loop*");
+                creates.Should().Be(0); window.IsVisible.Should().BeFalse();
+                PortableWindowActivationService.Register(activate: _ => activation,
+                    getHandle: _ => new IntPtr(5678), runDialog: (_, _) => { });
+                show.Should().Throw<InvalidOperationException>().WithMessage("*still open*");
+                ComponentDispatcher.IsThreadModal.Should().BeFalse();
+                window.Hide();
+                var failure = new InvalidOperationException("Host event pump failure.");
+                PortableWindowActivationService.Register(activate: _ => activation,
+                    runDialog: (_, _) => throw failure);
+                show.Should().Throw<InvalidOperationException>().Which.Should().BeSameAs(failure);
+                ComponentDispatcher.IsThreadModal.Should().BeFalse();
+                window.Hide();
+                PortableWindowActivationService.Register(activate: _ => activation);
+                show.Should().Throw<PlatformNotSupportedException>(); // Clear old optional callback.
+            }
+            finally
+            {
+                if (!window.IsDisposed) window.Close();
+                PortableWindowActivationService.Clear();
+            }
+        });
+    }
+
+    [PortableInputFact]
+    public void NestedPortableDialogScopesRestoreTheOuterInvocation()
+    {
+        RunInUiApartment(() =>
+        {
+            var outer = new Window { Width = 200, Height = 100 };
+            var inner = new Window { Width = 100, Height = 100 };
+            int runs = 0;
+            PortableWindowActivationService.Register(activate: window => window,
+                getHandle: owner => ReferenceEquals(owner, outer) ? new IntPtr(5678) : new IntPtr(5679),
+                runDialog: (owner, continuation) =>
+                {
+                    runs++;
+                    ComponentDispatcher.IsThreadModal.Should().BeTrue();
+                    continuation().Should().BeTrue();
+                    if (ReferenceEquals(owner, outer))
+                    {
+                        inner.ShowDialog().Should().Be(false);
+                        ComponentDispatcher.IsThreadModal.Should().BeTrue();
+                        continuation().Should().BeTrue();
+                    }
+                    ((Window)owner).Hide();
+                    continuation().Should().BeFalse();
+                });
+            try
+            {
+                outer.ShowDialog().Should().Be(false);
+                runs.Should().Be(2);
+                ComponentDispatcher.IsThreadModal.Should().BeFalse();
+            }
+            finally
+            {
+                inner.Close(); outer.Close();
+                PortableWindowActivationService.Clear();
+            }
+        });
+    }
+
     [Fact]
     public void RegisteredHostRejectionDoesNotCreateAWindowsMilWindow()
     {

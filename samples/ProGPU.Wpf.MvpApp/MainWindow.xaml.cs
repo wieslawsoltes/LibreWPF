@@ -8142,6 +8142,26 @@ internal static class MvpSelfTest
         AssertEqual(0, window.OwnedWindows.Count, "main window owned window count after modal dialog");
         AssertEqual(modalInitialWindowCount - 1, CountApplicationWindows(application), "Application Windows count after modal dialog");
         AssertEqual(false, ApplicationContainsWindow(application, modalDialog), "Application Windows excludes modal dialog after close");
+
+        var hiddenDialog = new AboutWindow { Owner = window };
+        void HideLoadedDialog(object sender, RoutedEventArgs e)
+        {
+            hiddenDialog.Loaded -= HideLoadedDialog;
+            hiddenDialog.Dispatcher.BeginInvoke(DispatcherPriority.Render, new Action(hiddenDialog.Hide));
+        }
+        hiddenDialog.Loaded += HideLoadedDialog;
+        int hiddenDialogClosed = 0;
+        hiddenDialog.Closed += (_, _) => hiddenDialogClosed++;
+        bool? hiddenResult = hiddenDialog.ShowDialog();
+        AssertEqual(false, hiddenResult, "hidden modal dialog result");
+        AssertEqual(false, hiddenDialog.IsVisible, "hidden modal dialog visibility");
+        AssertEqual(0, hiddenDialogClosed, "hiding modal dialog does not close it");
+        AssertEqual(true, ApplicationContainsWindow(application, hiddenDialog), "hidden modal dialog retains application ownership");
+        hiddenDialog.Show();
+        hiddenDialog.Close();
+        DrainDispatcher(window);
+        AssertEqual(1, hiddenDialogClosed, "hidden modal dialog can be reused and closed");
+        AssertEqual(0, window.OwnedWindows.Count, "hidden modal dialog releases owner on close");
     }
 
     private static int CountApplicationWindows(Application application)

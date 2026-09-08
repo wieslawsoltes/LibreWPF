@@ -36,6 +36,7 @@ public sealed class WpfPortableWindowActivationTests
         Assert.NotNull(service.Callbacks.SetWindowBorder);
         Assert.NotNull(service.Callbacks.Close);
         Assert.NotNull(service.Callbacks.Run);
+        Assert.NotNull(service.Callbacks.RunDialog);
         Assert.NotNull(service.Callbacks.Dispose);
         Assert.NotNull(service.Callbacks.DragMove);
         Assert.NotNull(service.Callbacks.GetHandle);

@@ -165,7 +165,8 @@ public sealed class WpfPortableWindowActivation : IDisposable
             CreateHidden = window => TryCreateActivation(window, hostFactory, out var activation, hidden: true)
                 ? activation
                 : null,
-            ShowSystemMenu = (activation, x, y) => ((WpfPortableWindowActivation)activation).TryShowSystemMenu(x, y)
+            ShowSystemMenu = (activation, x, y) => ((WpfPortableWindowActivation)activation).TryShowSystemMenu(x, y),
+            RunDialog = (activation, continueRunning) => ((WpfPortableWindowActivation)activation).RunCore(continueRunning)
         };
     }
 
@@ -497,6 +498,11 @@ public sealed class WpfPortableWindowActivation : IDisposable
 
     public void Run()
     {
+        RunCore(continueRunning: null);
+    }
+
+    private void RunCore(Func<bool>? continueRunning)
+    {
         ThrowIfDisposed();
         _isNativeRunStarted = true;
         SynchronizeInitialWindowState(updatePortablePresentationSource: true);
@@ -508,7 +514,11 @@ public sealed class WpfPortableWindowActivation : IDisposable
         StartDispatcherTimerPump();
         try
         {
-            if (_attachRootOnShow)
+            if (continueRunning != null)
+            {
+                Host.RunDialog(continueRunning);
+            }
+            else if (_attachRootOnShow)
             {
                 Host.RunHidden();
             }
