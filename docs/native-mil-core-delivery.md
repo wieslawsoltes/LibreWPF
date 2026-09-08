@@ -116,6 +116,32 @@ commit. Their next-step text is historical, may be superseded by later changes,
 and must not be treated as an additional active backlog. Use the active completion
 queue above for current priorities.
 
+Cocoa system-menu connection: the MVP Window / Show system menu action now
+resolves its real NSWindow and uses the shared ProGPU AppKit native-action menu.
+Minimize/Zoom/Close retain native button policy and delegate close cancellation;
+this is a macOS adaptation, not arbitrary Win32 menu customization or Windows
+Move/Size/fullscreen parity. Main-thread admission and application-window identity
+precede owner access. Window/view/delegate leases survive synchronous tracking,
+and the reverse callback only records a known item for its scoped target. Actual
+action dispatch follows owner/identity/capability revalidation after tracking.
+Native menus, targets, autoreleased objects and owner leases are released; no
+WPF rendering workaround, generic recovery or source-local menu was introduced.
+Desktop placement uses the current primary screen and real AppKit window/view
+conversion without framebuffer scaling, with arm64/x64 native struct-return
+bindings. Collectible callback providers and rejected platform capabilities fail
+explicitly. Both renderer modes share this provider. Wayland and Windows SDK
+admission remain open, and menu display/interaction is not runtime-qualified.
+See the [native-action contract and qualification record](../external/ProGPU/docs/native-mil-system-menu.md#cocoa-native-action-menu).
+Policy/selection/lease/coordinate/ABI fixtures are authored but not executed.
+Compile-only: final ProGPU.Tests 0 warnings/0 errors, bridge fixtures 21/0
+(116/0 initially), and the source-built application harness 0/0 (4/0 initially).
+No tests, source verifiers, applications, VM/GPU workloads, benchmarks or CI
+qualification ran. This closes the identified provider connection, not the
+package application acceptance batch; final actual-app qualification remains.
+ProGPU `133f8134` is pushed and includes latest fetched main. Continue the active
+native package-startup queue; this checkpoint does not make general platform menu
+expansion a prerequisite for the Windows application path.
+
 Linux/X11 system-menu connection: the same MVP Window / Show system menu action
 now resolves the actual native Display/XID in the Silk.NET host adapter and calls
 ProGPU's shared provider. The provider requires a WM-managed client and the menu

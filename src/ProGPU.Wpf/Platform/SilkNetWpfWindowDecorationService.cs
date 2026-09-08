@@ -79,6 +79,8 @@ public sealed unsafe class SilkNetWpfWindowDecorationService : IWpfWindowDecorat
         NativeWindowHandle owner;
         if (OperatingSystem.IsWindows())
             owner = new(NativeWindowKind.Win32, GetWin32Hwnd(view), 0, "HWND");
+        else if (OperatingSystem.IsMacOS())
+            owner = new(NativeWindowKind.Cocoa, GetCocoaWindow(view), 0, "NSWindow");
         else if (OperatingSystem.IsLinux())
         {
             var x11 = GetX11Window(view);

@@ -86,9 +86,10 @@ Close/WindowState path so cancellation and typed host notifications are retained
 native WPF windows keep posted HWND system commands. System-menu display uses
 the typed optional activation callback and shared ProGPU NativeWindowSystemMenu
 provider, never a portable source handle passed to WPF Win32 helpers. Preserve
-absolute desktop coordinates without framebuffer-DPI scaling. The Win32 provider
-is connected; Cocoa/X11/Wayland providers remain explicit missing capabilities,
-not successful no-ops. Windows SDK package admission remains separate.
+absolute desktop coordinates without framebuffer-DPI scaling. Win32 tracking,
+advertised X11 requests and Cocoa native-action menus share that provider;
+Wayland and rejected platform capabilities remain explicit, not successful no-ops.
+Windows SDK package admission remains separate.
 
 Decoder-backed core application images follow `BitmapSource.UsesPortablePixelStorage`
 for backend selection on every OS. Existing portable format dispatch must not fall
@@ -278,8 +279,13 @@ System-menu host adapters resolve real native window/display ownership before
 calling ProGPU's shared provider. X11 uses the owner's advertised WM capability
 and native desktop coordinates, not an opaque WPF source handle or framebuffer
 DPI conversion. Temporary XI2 negotiation must not alter the host input display.
-Request submission is not menu-display evidence; keep Cocoa/Wayland and rejected
-X11 environments explicit until their required capabilities are implemented.
+Request submission is not menu-display evidence; keep Wayland and rejected X11
+environments explicit until their required capabilities are implemented. Cocoa
+selection must record an action without calling WPF during native tracking, then
+revalidate retained window/view/delegate identity and current native capabilities
+before invoking AppKit button-equivalent actions. Close must preserve delegate
+cancellation. Map the top-left desktop through the actual primary screen and
+AppKit view conversion, never the focus-dependent main screen or Retina pixels.
 
 Native MIL popup composition must use canonical visual placement and local
 geometry clips, never fake WPF roots or ScrollableAreaClip as a placement clip.
