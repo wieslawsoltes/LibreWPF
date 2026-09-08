@@ -1558,7 +1558,7 @@ namespace MS.Internal.TextFormatting
         internal static void LoGetEscString(
             ref EscStringInfo escStringInfo)
         {
-            if (OperatingSystem.IsWindows())
+            if (TextFormatterImp.IsNativeLineServicesAvailable)
             {
                 LoGetEscStringImpl(ref escStringInfo);
                 return;

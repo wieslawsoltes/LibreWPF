@@ -11,6 +11,7 @@
 using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Windows.Media.TextFormatting;
+using ProGPU.Wpf.Interop;
 
 namespace MS.Internal
 {
@@ -201,7 +202,7 @@ namespace MS.Internal
         internal static extern void MILGetClassificationTables(out RawClassificationTables ct);
         static Classification()
         {
-            if (OperatingSystem.IsWindows())
+            if (PortableWpfRuntime.GetMediaBackendAndFreeze() == PortableWpfMediaBackend.WindowsMil)
             {
                 unsafe
                 {

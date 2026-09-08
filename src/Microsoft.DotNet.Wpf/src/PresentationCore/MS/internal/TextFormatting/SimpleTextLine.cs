@@ -167,9 +167,8 @@ namespace MS.Internal.TextFormatting
             {
                 if(!run.EOT && run.IdealWidth > widthLeft)
                 {
-                    // Windows delegates classification-based line breaking to native LineServices.
-                    // Keep the managed fallback scoped to platforms where that OS service is unavailable.
-                    if (!OperatingSystem.IsWindows() && pap.Wrap)
+                    // Only Windows-MIL text may delegate to native LineServices.
+                    if (!TextFormatterImp.IsNativeLineServicesAvailable && pap.Wrap)
                     {
                         SimpleRun wrappingRun = CreatePortableWrappingRun(
                             run,
@@ -273,7 +272,7 @@ namespace MS.Internal.TextFormatting
             double pixelsPerDip,
             ref TextModifierScope portableModifierScope)
         {
-            if (OperatingSystem.IsWindows())
+            if (TextFormatterImp.IsNativeLineServicesAvailable)
             {
                 return SimpleRun.Create(
                     settings,
@@ -752,7 +751,7 @@ namespace MS.Internal.TextFormatting
 
             Invariant.Assert(_settings != null);
 
-            if (!OperatingSystem.IsWindows())
+            if (!TextFormatterImp.IsNativeLineServicesAvailable)
             {
                 return CollapsePortable(collapsingPropertiesList) ?? this;
             }

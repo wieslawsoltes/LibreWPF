@@ -22,7 +22,7 @@ subsystem roadmap. None of these rows is runtime-qualified yet.
 
 | Order | Implementation batch | Exit to the next batch |
 | --- | --- | --- |
-| 1 — current | Native package activation: source-built harness and package MVP, including Windows. Close required source-media routing from startup through first frame and common resource construction. Windows popup ownership and pre-host text/geometry defaults are connected; Windows text/utility routing and SDK admission remain open. | Required paths select ProGPU explicitly, compile, and have no known route into unintended Windows MIL or silent managed rendering. Keep Windows admission guarded until its dependencies are implemented. |
+| 1 — current | Native package activation: source-built harness and package MVP, including Windows. Close required source-media routing from startup through first frame and common resource construction. Popup ownership, pre-host services and provider-first text dispatch are connected. Core text measurement/document contracts, remaining media utilities and Windows SDK admission remain open. | Required paths select ProGPU explicitly, compile, and have no known route into unintended Windows MIL or silent managed rendering. Keep Windows admission guarded until its dependencies are implemented. |
 | 2 | Application closure: use the same MVP, Toolkit/AvalonDock, license-controlled Xceed and existing SciChart gate. Finish required text/selection, scroll/clip, popup/input, resize/DPI, content/effect/cache updates and close/reopen/device-loss ownership. Reuse existing implementations; fix concrete missing connections. | Each required action has an implemented path and authored regression coverage. Record any known blocking branch against that action; do not reopen already connected subsystems for optional refinements. |
 | 3 | Feature freeze, final qualification and delivery: build complete platform artifacts and packages, execute the existing cross-platform/Windows comparison and application gates, fix failures, and bring both PRs' required CI to green at the delivery commits. | Record exact-head package consumption and required gate results, with explicit failures or environment/license limitations. Only then report the core release delivered. |
 
@@ -115,6 +115,25 @@ These checkpoints preserve implementation provenance and the state at each
 commit. Their next-step text is historical, may be superseded by later changes,
 and must not be treated as an additional active backlog. Use the active completion
 queue above for current priorities.
+
+Provider-first source text dispatch: TextFormatter now selects by frozen media
+ownership. Portable simple/complex lines use the registered native paragraph before
+the old simple path; Windows-MIL mode retains native services. Classification table
+and control-string initialization follow that same selection. Immutable wrapped
+continuations survive provider unregister and preceding-line/break disposal.
+Provider failure/null output is not an empty line. Context acquisition, optimal
+paragraph caches, forced-break reconstruction and intrinsic min/max measurement
+reject explicitly where contracts are missing. Full-line width is not a valid
+intrinsic minimum. These are implementation connections and exposed gaps, not
+Windows admission or application parity. Continue core constructor/first-layout
+dependencies, specifically intrinsic measurement if requested by the acceptance
+app; do not expand general DirectWrite or typography API coverage.
+See the [source dispatch record](../external/ProGPU/docs/native-mil-startup-services.md#source-formatter-dispatch-connection).
+Compile-only checkpoint: PresentationCore fixtures 8 warnings/0 errors; bridge
+fixtures 116 warnings/0 errors. The new fixture-attribute source-information warning
+was fixed before the final build. No tests, verifiers, applications, VM/GPU workloads,
+benchmarks or CI polling ran. Latest fetched ProGPU main is included. Windows SDK
+admission and final qualification remain open.
 
 Native package pre-host services: the SDK now calls `ProGpuWpfNativeMediaServices.Initialize`
 before source-module/LibreWinForms initialization. Native hosts share that path,

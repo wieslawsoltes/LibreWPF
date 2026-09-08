@@ -6,6 +6,26 @@ namespace ProGPU.Wpf.Tests.Composition;
 public sealed class WpfManagedProjectGraphTests
 {
     [Fact]
+    public void PortableTextSelectionPrecedesSimpleLinesAndProtectsLineServicesContexts()
+    {
+        string ReadText(string name) => File.ReadAllText(FindRepoPath("src", "Microsoft.DotNet.Wpf", "src",
+            "PresentationCore", "MS", "internal", "TextFormatting", name));
+        string formatter = ReadText("TextFormatterImp.cs");
+        Assert.Contains("PortableWpfRuntime.GetMediaBackendAndFreeze() == PortableWpfMediaBackend.WindowsMil", formatter, StringComparison.Ordinal);
+        AssertGuardBefore(formatter, "textLine = PortableTextLine.Create(", "textLine = SimpleTextLine.Create(");
+        AssertGuardBefore(formatter[formatter.IndexOf("internal TextFormatterContext AcquireContext(", StringComparison.Ordinal)..],
+            "if (!IsNativeLineServicesAvailable)", "new TextFormatterContext()");
+        AssertGuardBefore(formatter[formatter.IndexOf("TextParagraphCache CreateParagraphCache(", StringComparison.Ordinal)..],
+            "if (!IsNativeLineServicesAvailable)", "return new TextParagraphCache(");
+        Assert.DoesNotContain("OperatingSystem.IsWindows()", ReadText("SimpleTextLine.cs"), StringComparison.Ordinal);
+        Assert.Contains("text intrinsic minimum/maximum paragraph widths are not implemented", formatter, StringComparison.Ordinal);
+        string portable = ReadText("PortableTextLine.cs");
+        AssertGuardBefore(portable, "TextLine continuation = CreateContinuation(", "PortableWpfServiceRegistry.TryGetTextFormatting(");
+        Assert.Contains("IPortableTextFormatting service)", portable, StringComparison.Ordinal);
+        Assert.Contains("The text provider returned no paragraph.", portable, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void NativeSdkInitializesSourceServicesBeforeModulesAndHostCreation()
     {
         string bootstrap = File.ReadAllText(FindRepoPath("packaging", "ProGPU.Wpf.Sdk", "targets", "ProGPU.Wpf.Sdk.PortableBootstrap.cs"));
@@ -9398,18 +9418,18 @@ public sealed class WpfManagedProjectGraphTests
         AssertGuardBefore(cursor, "if (!OperatingSystem.IsWindows())", "UnsafeNativeMethods.LoadImageCursor");
         Assert.Contains("LoadPortableCursorFallback()", cursor, StringComparison.Ordinal);
         Assert.Contains("_cursorType = CursorType.Arrow", cursor, StringComparison.Ordinal);
-        AssertGuardBefore(classification, "if (OperatingSystem.IsWindows())", "MILGetClassificationTables(out ct)");
+        AssertGuardBefore(classification, "if (PortableWpfRuntime.GetMediaBackendAndFreeze() == PortableWpfMediaBackend.WindowsMil)", "MILGetClassificationTables(out ct)");
         Assert.Contains("GetManagedUnicodeClass", classification, StringComparison.Ordinal);
         Assert.Contains("ManagedCharAttributeOf", classification, StringComparison.Ordinal);
         Assert.Contains("case UnicodeCategory.PrivateUse:", classification, StringComparison.Ordinal);
         Assert.Contains("return ManagedPrivateUseClass;", classification, StringComparison.Ordinal);
         Assert.Contains("ManagedPrivateUseClass => CreateManagedAttribute", classification, StringComparison.Ordinal);
-        AssertGuardBefore(lineServices, "if (OperatingSystem.IsWindows())", "LoGetEscStringImpl(ref escStringInfo)");
+        AssertGuardBefore(lineServices, "if (TextFormatterImp.IsNativeLineServicesAvailable)", "LoGetEscStringImpl(ref escStringInfo)");
         Assert.Contains("s_managedObjectReplacement", lineServices, StringComparison.Ordinal);
-        Assert.Contains("private static bool IsNativeLineServicesAvailable", textFormatterImp, StringComparison.Ordinal);
-        Assert.Contains("return OperatingSystem.IsWindows();", textFormatterImp, StringComparison.Ordinal);
+        Assert.Contains("internal static bool IsNativeLineServicesAvailable", textFormatterImp, StringComparison.Ordinal);
+        Assert.Contains("PortableWpfRuntime.GetMediaBackendAndFreeze() == PortableWpfMediaBackend.WindowsMil", textFormatterImp, StringComparison.Ordinal);
         Assert.Contains("if (!IsNativeLineServicesAvailable)", textFormatterImp, StringComparison.Ordinal);
-        AssertGuardBefore(textFormatterImp, "if (!IsNativeLineServicesAvailable)", "new TextMetrics.FullTextLine");
+        AssertGuardBefore(textFormatterImp, "if (!nativeLineServices)", "new TextMetrics.FullTextLine");
         Assert.Contains("new MinMaxParagraphWidth(simpleLine.Width, simpleLine.WidthIncludingTrailingWhitespace)", textFormatterImp, StringComparison.Ordinal);
         Assert.Contains("SimpleTextLine.CreatePortableFallback", textFormatterImp, StringComparison.Ordinal);
         Assert.Contains("public static TextLine CreatePortableFallback", simpleTextLine, StringComparison.Ordinal);
@@ -9678,7 +9698,7 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("new TextCollapsedRange(_cpFirst + keptCharacters, collapsedLength, collapsedWidth)", simpleTextLine, StringComparison.Ordinal);
         Assert.Contains("private IList<TextCollapsedRange> _collapsedRanges", simpleTextLine, StringComparison.Ordinal);
         Assert.Contains("get { return (_statusFlags & StatusFlags.HasCollapsed) != 0; }", simpleTextLine, StringComparison.Ordinal);
-        AssertGuardBefore(simpleTextLine, "if (!OperatingSystem.IsWindows())", "new TextMetrics.FullTextLine");
+        AssertGuardBefore(simpleTextLine, "if (!TextFormatterImp.IsNativeLineServicesAvailable)", "new TextMetrics.FullTextLine");
     }
 
     [Fact]

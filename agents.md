@@ -60,6 +60,15 @@ wait for the first host to register the text provider: application constructors
 can measure content. Keep registration lazy and preserve explicit provider priority;
 ProGPU defaults survive temporary override disposal. Windows SDK admission and
 remaining source consumer routing stay independent requirements.
+TextFormatter must select from frozen media ownership, not OS or text complexity.
+Under portable media, the registered provider owns simple and complex lines; retain
+one provider reference per request and resolve immutable wrapped continuations
+before registry lookup. Do not lose a shaped paragraph when its override is removed.
+Classification and source control-string initialization follow the same frozen
+selection before legacy MIL imports. Portable intrinsic min/max widths, optimal
+paragraph caches and forced-break reconstruction must fail explicitly until their
+real native contracts exist; do not substitute full-line widths for intrinsic minima.
+Windows-MIL text keeps its native services; this routing is not SDK admission.
 
 The current delivery sequence is defined in `docs/native-mil-core-delivery.md`.
 Prioritize the usable end-to-end native MIL LibreWPF application path and its

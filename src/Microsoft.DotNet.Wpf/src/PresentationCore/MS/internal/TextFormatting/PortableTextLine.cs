@@ -47,14 +47,30 @@ internal sealed class PortableTextLine : TextLine
 
     internal static TextLine Create(FormatSettings settings, int first, int idealWidth, double pixelsPerDip)
     {
+        TextLine continuation = CreateContinuation(settings, first, idealWidth, pixelsPerDip);
+        if (continuation != null) return continuation;
         if (!PortableWpfServiceRegistry.TryGetTextFormatting(out var service)) return null;
+        return Create(settings, first, idealWidth, pixelsPerDip, service);
+    }
+
+    internal static TextLine CreateContinuation(FormatSettings settings, int first, int idealWidth, double pixelsPerDip)
+    {
+        if (settings.PreviousLineBreak?.PortableContinuation is not Continuation next) return null;
         double width = settings.Formatter.IdealToReal(idealWidth, pixelsPerDip);
-        if (settings.PreviousLineBreak?.PortableContinuation is Continuation next)
-        {
-            if (next.NextSourceIndex != first || next.Owner._paragraphWidth != width)
-                throw Unsupported("changed continuation width or source index");
-            return new PortableTextLine(next.Owner, next.LineIndex);
-        }
+        if (next.NextSourceIndex != first || next.Owner._paragraphWidth != width)
+            throw Unsupported("changed continuation width or source index");
+        return new PortableTextLine(next.Owner, next.LineIndex);
+    }
+
+    // The formatter captures one provider for the request. Concurrent override
+    // disposal cannot turn an admitted request into the legacy missing-provider path.
+    internal static TextLine Create(FormatSettings settings, int first, int idealWidth, double pixelsPerDip,
+        IPortableTextFormatting service)
+    {
+        ArgumentNullException.ThrowIfNull(service);
+        double width = settings.Formatter.IdealToReal(idealWidth, pixelsPerDip);
+        TextLine continuation = CreateContinuation(settings, first, idealWidth, pixelsPerDip);
+        if (continuation != null) return continuation;
         var pap = settings.Pap;
         if (settings.IsSideways || settings.TextFormattingMode != TextFormattingMode.Ideal || pap.TextMarkerProperties != null ||
             (pap.TextDecorations?.Count ?? 0) != 0 || pap.Justify ||
@@ -192,7 +208,8 @@ internal sealed class PortableTextLine : TextLine
             (float)layoutHeight, pap.Wrap && width > 0 ? (float)Math.Max(float.Epsilon, width - indent) : 0,
             pap.RightToLeft, PortableTextAlignment.Left, Features(properties.TypographyProperties), portableStyles,
             hasTabs ? (float)pap.DefaultIncrementalTab : 0, (float)indent);
-        var paragraph = service.Format(in request);
+        var paragraph = service.Format(in request) ??
+            throw new InvalidOperationException("The text provider returned no paragraph.");
         if (paragraph.Lines.Length == 0) throw new InvalidOperationException("The text provider returned no line.");
         return new PortableTextLine(paragraph, text, properties, face, first, 0, newlines,
             width, indent, baseline, height, pap.RightToLeft, runs, pixelsPerDip, pap.Align, styles.ToArray(), pap.LineHeight > 0,

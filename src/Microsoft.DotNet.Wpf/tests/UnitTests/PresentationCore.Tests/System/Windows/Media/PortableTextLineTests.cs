@@ -2,6 +2,7 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 using System.Globalization;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using MS.Internal.TextFormatting;
 using ProGPU.Wpf.Interop;
 using System.Windows.Media.TextFormatting;
@@ -11,6 +12,74 @@ namespace System.Windows.Media;
 [Collection("Sequential")]
 public class PortableTextLineTests
 {
+    // A Windows-MIL test process must not switch its frozen resource domain.
+    // The explicit-portable Windows host/application gate covers that platform.
+    private sealed class PortableMediaFactAttribute : FactAttribute
+    {
+        public PortableMediaFactAttribute([CallerFilePath] string? sourceFilePath = null,
+            [CallerLineNumber] int sourceLineNumber = 0) : base(sourceFilePath, sourceLineNumber)
+        {
+            if (PortableWpfRuntime.ConfiguredMediaBackend != PortableWpfMediaBackend.Portable)
+                Skip = "Requires a process initialized with portable media before WPF construction.";
+        }
+    }
+
+    [PortableMediaFact]
+    public void PublicFormatterUsesProviderForSimpleLatinAndRetainsContinuationAfterUnregister()
+    {
+        var source = new Source { Properties = new Properties(new FontFamily(
+            Path.Combine(AppContext.BaseDirectory, "LibreWPF", "Fonts", "Inter-Medium.ttf") + "#Inter")) };
+        var properties = new ParagraphProperties(source.Properties, false, false);
+        var provider = new Provider();
+        using var registration = PortableWpfServiceRegistry.RegisterTextFormatting(provider);
+        using var formatter = new TextFormatterImp();
+        using var first = formatter.FormatLine(source, 0, 8.0 / 3, properties, null, new TextRunCache());
+        Assert.IsType<PortableTextLine>(first);
+        Assert.Equal("abc", provider.Text);
+        Assert.Equal(8, first.Width);
+        using var original = first.GetTextLineBreak();
+        using var continuation = original.Clone();
+        original.Dispose(); first.Dispose(); registration.Dispose();
+        using var second = formatter.FormatLine(source, 2, 8.0 / 3, properties, continuation, new TextRunCache());
+        Assert.IsType<PortableTextLine>(second);
+        Assert.Equal(6, second.Width);
+        Assert.Equal(1, provider.Calls);
+        Assert.False(TextFormatterImp.IsNativeLineServicesAvailable);
+    }
+
+    [PortableMediaFact]
+    public void PublicFormatterDoesNotHideProviderFailureOrNullParagraph()
+    {
+        var source = new Source();
+        var properties = new ParagraphProperties(source.Properties, false);
+        var failure = new InvalidOperationException("Fixture provider failure");
+        using var formatter = new TextFormatterImp();
+        using (PortableWpfServiceRegistry.RegisterTextFormatting(new Provider { Failure = failure }))
+            Assert.Same(failure, Assert.Throws<InvalidOperationException>(() =>
+                formatter.FormatLine(source, 0, 30, properties, null, new TextRunCache())));
+        using (PortableWpfServiceRegistry.RegisterTextFormatting(new Provider { NullParagraph = true }))
+            Assert.Contains("no paragraph", Assert.Throws<InvalidOperationException>(() =>
+                formatter.FormatLine(source, 0, 30, properties, null, new TextRunCache())).Message);
+    }
+
+    [PortableMediaFact]
+    public void PortableFormattingRejectsUnimplementedMeasurementAndOptimalLineServicesOperations()
+    {
+        var source = new Source();
+        var properties = new ParagraphProperties(source.Properties, false);
+        var provider = new Provider();
+        using var registration = PortableWpfServiceRegistry.RegisterTextFormatting(provider);
+        using var formatter = new TextFormatterImp();
+        Assert.Contains("intrinsic", Assert.Throws<PlatformNotSupportedException>(() =>
+            formatter.FormatMinMaxParagraphWidth(source, 0, properties)).Message);
+        Assert.Throws<PlatformNotSupportedException>(() =>
+            formatter.RecreateLine(source, 0, 2, 30, properties, null, new TextRunCache()));
+        Assert.Throws<PlatformNotSupportedException>(() =>
+            formatter.CreateParagraphCache(source, 0, 30, properties, null, new TextRunCache()));
+        Assert.Throws<PlatformNotSupportedException>(() => formatter.AcquireContext(new object(), IntPtr.Zero));
+        Assert.Equal(0, provider.Calls);
+    }
+
     [Fact]
     public void HiddenDocumentEdgesPreserveSourceRangesAcrossWrappedContinuation()
     {
@@ -320,9 +389,9 @@ public class PortableTextLineTests
         public override TextEffectCollection TextEffects => null!;
     }
 
-    private sealed class ParagraphProperties(TextRunProperties properties, bool autoHeight) : TextParagraphProperties
+    private sealed class ParagraphProperties(TextRunProperties properties, bool autoHeight, bool rightToLeft = true) : TextParagraphProperties
     {
-        public override FlowDirection FlowDirection => FlowDirection.RightToLeft;
+        public override FlowDirection FlowDirection => rightToLeft ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
         public override TextAlignment TextAlignment => TextAlignment.Left;
         public override double LineHeight => autoHeight ? 0 : 20;
         public override double DefaultIncrementalTab => 32;
@@ -336,6 +405,8 @@ public class PortableTextLineTests
     // A typed source contract fixture, not native shaping/parity evidence.
     private sealed class Provider : IPortableTextFormatting, IPortableTextParagraph
     {
+        internal Exception? Failure { get; init; }
+        internal bool NullParagraph { get; init; }
         internal bool Mixed { get; init; }
         internal bool Tabs { get; init; }
         internal bool Empty { get; init; }
@@ -347,7 +418,13 @@ public class PortableTextLineTests
         internal int Calls { get; private set; }
         internal string? Text { get; private set; }
         public IPortableTextParagraph Format(in PortableTextParagraphRequest request)
-        { Calls++; Text = request.Text.ToString(); Styles = request.Styles; IncrementalTab = request.IncrementalTab; Assert.False(request.Font.Data.IsEmpty); return this; }
+        {
+            Calls++;
+            if (Failure != null) throw Failure;
+            if (NullParagraph) return null!;
+            Text = request.Text.ToString(); Styles = request.Styles; IncrementalTab = request.IncrementalTab;
+            Assert.False(request.Font.Data.IsEmpty); return this;
+        }
         public ReadOnlyMemory<PortableTextGlyph> Glyphs => Empty ? ReadOnlyMemory<PortableTextGlyph>.Empty : Tabs ? new PortableTextGlyph[]
         { new(0, 0, 1, 0, 0, 8, 0), new(uint.MaxValue, 1, 2, 8, 0, 24, 0, IsTab: true), new(0, 2, 3, 32, 0, 6, 0) } : Mixed ? new PortableTextGlyph[]
         { new(0, 0, 1, 0, 0, 4, 0), new(0, 1, 2, 0, 20, 6, 0, 1), new(0, 2, 3, 6, 20, 6, 0, 1) } : new PortableTextGlyph[]
