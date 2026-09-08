@@ -7473,6 +7473,7 @@ internal static class Program
 
                     WindowChrome.SetWindowChrome(window, chrome);
                     AssertEqual(chrome, WindowChrome.GetWindowChrome(window), "external SDK WindowChrome attached value");
+                    RequirePortableChromeStyle(window, WindowStyle.None);
                     AssertEqual(32.0, chrome.CaptionHeight, "external SDK WindowChrome caption height");
                     AssertEqual(NonClientFrameEdges.Top, chrome.NonClientFrameEdges, "external SDK WindowChrome non-client frame edges");
 
@@ -7484,6 +7485,18 @@ internal static class Program
                     {
                         throw new InvalidOperationException("Expected external SDK WindowChrome cleared value to be null.");
                     }
+                    RequirePortableChromeStyle(window, window.WindowStyle);
+                }
+
+                private static void RequirePortableChromeStyle(Window window, WindowStyle expected)
+                {
+                    if (global::ProGPU.Wpf.Interop.PortableWpfRuntime.ConfiguredMediaBackend !=
+                        global::ProGPU.Wpf.Interop.PortableWpfMediaBackend.Portable)
+                        return;
+                    if (window is not global::ProGPU.Wpf.Interop.IPortableWindowStateSource source ||
+                        !source.TryGetPortableWindowState(out var state) || !state.HasWindowStyle)
+                        throw new InvalidOperationException("Portable WindowChrome requires typed source window state.");
+                    AssertEqual((int)expected, state.WindowStyle, "external SDK WindowChrome portable host border");
                 }
 
                 private static void ValidateSystemCommands(MainWindow window)

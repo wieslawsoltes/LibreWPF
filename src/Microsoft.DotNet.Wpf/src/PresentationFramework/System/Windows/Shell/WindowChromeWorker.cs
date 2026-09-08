@@ -9,6 +9,7 @@ using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Threading;
 using Standard;
+using ProGPU.Wpf.Interop;
 
 using HANDLE_MESSAGE = System.Collections.Generic.KeyValuePair<Standard.WM, Standard.MessageHandler>;
 
@@ -20,6 +21,14 @@ namespace Microsoft.Windows.Shell
 {
     internal class WindowChromeWorker : DependencyObject
     {
+        // Select before HWND creation as well as after activation. A ProGPU
+        // Windows HWND is not a source-built WPF HwndSource.
+        private bool UsesPortableChrome =>
+            _window?.PortableWindowActivation != null ||
+            ((_window == null || _window.IsSourceWindowNull) &&
+             (System.Windows.PortableWindowActivationService.IsEnabled ||
+              PortableWpfRuntime.GetMediaBackendAndFreeze() == PortableWpfMediaBackend.Portable));
+
         // Delegate signature used for Dispatcher.BeginInvoke.
         private delegate void _Action();
 
@@ -127,7 +136,7 @@ namespace Microsoft.Windows.Shell
 
             _window.Closed += _UnsetWindow;
 
-            if (!OperatingSystem.IsWindows())
+            if (UsesPortableChrome)
             {
                 return;
             }
@@ -160,7 +169,7 @@ namespace Microsoft.Windows.Shell
 
         private void _WindowSourceInitialized(object sender, EventArgs e)
         {
-            if (!OperatingSystem.IsWindows())
+            if (UsesPortableChrome)
             {
                 _ApplyNewCustomChrome();
                 return;
@@ -237,7 +246,7 @@ namespace Microsoft.Windows.Shell
 
         private void _OnWindowPropertyChangedThatRequiresTemplateFixup(object sender, EventArgs e)
         {
-            if (_chromeInfo != null && (!OperatingSystem.IsWindows() || _hwnd != IntPtr.Zero))
+            if (_chromeInfo != null && (UsesPortableChrome || _hwnd != IntPtr.Zero))
             {
                 // Assume that when the template changes it's going to be applied.
                 // We don't have a good way to externally hook into the template
@@ -253,7 +262,7 @@ namespace Microsoft.Windows.Shell
 
         private void _ApplyNewCustomChrome()
         {
-            if (!OperatingSystem.IsWindows())
+            if (UsesPortableChrome)
             {
                 _ApplyPortableCustomChrome();
                 return;
@@ -764,7 +773,7 @@ namespace Microsoft.Windows.Shell
 
         private void _UpdateFrameState(bool force)
         {
-            if (!OperatingSystem.IsWindows() || IntPtr.Zero == _hwnd || _hwndSource == null || _hwndSource.IsDisposed)
+            if (UsesPortableChrome || IntPtr.Zero == _hwnd || _hwndSource == null || _hwndSource.IsDisposed)
             {
                 return;
             }
@@ -1127,7 +1136,7 @@ namespace Microsoft.Windows.Shell
         // agree on the signature.
         private bool GetEffectiveClientArea(ref MS.Win32.NativeMethods.RECT rcClient)
         {
-            if (_window == null || _chromeInfo == null || !OperatingSystem.IsWindows() || _hwnd == IntPtr.Zero)
+            if (_window == null || _chromeInfo == null || UsesPortableChrome || _hwnd == IntPtr.Zero)
                 return false;
 
             DpiScale dpi = _window.GetDpi();
@@ -1159,7 +1168,7 @@ namespace Microsoft.Windows.Shell
         {
             VerifyAccess();
 
-            if (!OperatingSystem.IsWindows())
+            if (UsesPortableChrome)
             {
                 if (!isClosing)
                 {
@@ -1184,7 +1193,7 @@ namespace Microsoft.Windows.Shell
 
         private void _UnhookCustomChrome()
         {
-            if (!OperatingSystem.IsWindows() || _hwnd == IntPtr.Zero || _hwndSource == null)
+            if (UsesPortableChrome || _hwnd == IntPtr.Zero || _hwndSource == null)
             {
                 _isHooked = false;
                 return;

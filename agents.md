@@ -1,5 +1,12 @@
 # Agent Guidance
 
+`WindowChromeWorker` must select source ownership before HWND access: an active
+portable window, a registered portable activation service, or frozen portable
+media selection uses the typed portable chrome path even on Windows and before
+source creation. A ProGPU HWND is not a WPF `HwndSource`; do not install WPF
+chrome hooks, query WPF client areas or restore DWM frames on that assumption.
+Preserve typed border updates and restoration when attached chrome is removed.
+
 Decoder-backed core application images follow `BitmapSource.UsesPortablePixelStorage`
 for backend selection on every OS. Existing portable format dispatch must not fall
 through to WIC when a format is rejected. `BitmapImage` adopts cached/decoded owned

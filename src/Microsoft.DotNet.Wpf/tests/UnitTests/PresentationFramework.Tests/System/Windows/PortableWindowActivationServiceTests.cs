@@ -22,6 +22,49 @@ public class PortableWindowActivationServiceTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    public void CustomChromeUsesPortableOwnerBeforeAndAfterSourceCreation(bool attachBeforeSource)
+    {
+        RunInUiApartment(() =>
+        {
+            var activation = new object();
+            var borders = new List<WindowStyle>();
+            PortableWindowActivationService.Register(
+                activate: _ => activation, createHidden: _ => activation,
+                getHandle: _ => new IntPtr(5678),
+                setWindowBorder: (owner, _, style) =>
+                {
+                    owner.Should().BeSameAs(activation);
+                    borders.Add((WindowStyle)style);
+                });
+            var window = new Window { Width = 200, Height = 100, WindowStyle = WindowStyle.SingleBorderWindow };
+            var chrome = new Shell.WindowChrome { CaptionHeight = 32, GlassFrameThickness = new Thickness(0) };
+            try
+            {
+                if (attachBeforeSource) Shell.WindowChrome.SetWindowChrome(window, chrome);
+                new WindowInteropHelper(window).EnsureHandle().Should().Be(new IntPtr(5678));
+                if (!attachBeforeSource) Shell.WindowChrome.SetWindowChrome(window, chrome);
+                var source = (IPortableWindowStateSource)window;
+                source.TryGetPortableWindowState(out var custom).Should().BeTrue();
+                custom.WindowStyle.Should().Be((int)WindowStyle.None);
+                chrome.CaptionHeight = 40;
+                Shell.WindowChrome.SetWindowChrome(window, null);
+                source.TryGetPortableWindowState(out var standard).Should().BeTrue();
+                standard.WindowStyle.Should().Be((int)WindowStyle.SingleBorderWindow);
+                borders.Should().Contain(WindowStyle.SingleBorderWindow);
+                if (!attachBeforeSource) borders.Should().Contain(WindowStyle.None);
+                window.WindowStyle.Should().Be(WindowStyle.SingleBorderWindow);
+            }
+            finally
+            {
+                if (!window.IsDisposed) window.Close();
+                PortableWindowActivationService.Clear();
+            }
+        });
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
     public void EnsureHandleCreatesOneHiddenSourceAndReusesItForShow(bool showAfterCreation)
     {
         RunInUiApartment(() =>

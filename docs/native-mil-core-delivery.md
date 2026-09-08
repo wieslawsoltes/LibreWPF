@@ -116,6 +116,32 @@ commit. Their next-step text is historical, may be superseded by later changes,
 and must not be treated as an additional active backlog. Use the active completion
 queue above for current priorities.
 
+SDK attached window-chrome connection: `ValidateWindowChrome` in the existing
+package SDK gate attaches/replaces/removes chrome. `WindowChromeWorker` formerly
+selected its WPF HWND/HwndSource hook path by OS, despite a ProGPU-owned source
+on Windows. It now selects the existing portable path by active ownership,
+registered activation, or frozen portable media policy, before source creation
+as well as afterwards. Typed window state selects borderless custom chrome and
+restores the original style on removal; native-WPF mode retains its hook path.
+Source fixtures cover attachment before/after hidden source creation, live chrome
+updates, border callbacks and removal. The existing SDK app assertion now checks
+typed host style after attach/remove. No new rendering/native algorithm applies.
+Windows startup remains guarded pending remaining application integration.
+Compile-only checkpoint: source-framework fixtures completed with two warnings
+and zero errors on the final rebuild; bridge fixtures with 20 warnings and zero
+errors; SDK harness with zero warnings/errors after restoring its missing assets
+file. Building the SDK harness compiles the generator, not its generated package
+application; that application assertion remains authored-only. No tests, source
+verifiers, graphical/VM/GPU runs, benchmarks or CI qualification ran. ProGPU
+contains the latest fetched main; unrelated worktree changes were preserved.
+
+The startup trace also found `SimpleTextLine.CreatePortableFallback` can construct
+an empty paragraph for unsupported text. Do not enable a Windows portable-text
+route by replacing OS checks indiscriminately: native LineServices is a separate
+dependency from MIL rendering, and the empty portable result is not text parity.
+Track required complex-text/document cases against the existing MVP editor gate;
+this batch neither changes text services nor claims those cases complete.
+
 Decoder-backed SDK image connection: the existing package SDK gate loads
 `Assets/ExternalImage.png` through XAML Image/ImageBrush and BitmapImage pack URI
 paths. Source decoder constructors and format discovery now use the frozen media
