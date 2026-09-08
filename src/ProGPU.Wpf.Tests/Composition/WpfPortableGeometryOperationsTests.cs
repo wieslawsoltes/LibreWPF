@@ -12,6 +12,31 @@ namespace ProGPU.Wpf.Tests.Composition;
 public class WpfPortableGeometryOperationsTests
 {
     [Fact]
+    public void QueryDashNarrowingMatchesScalarAcrossVectorTails()
+    {
+        for (int count = 0; count <= 17; count++)
+        {
+            var source = new double[count + 1];
+            for (int i = 0; i < count; i++) source[i + 1] = (i + 0.125) / 3;
+            var actual = WpfPortableGeometryOperations.QueryDashes(source.AsSpan(1));
+            Assert.Equal(count, actual.Length);
+            for (int i = 0; i < count; i++) Assert.Equal((float)source[i + 1], actual[i]);
+        }
+    }
+
+    [Fact]
+    public void StrokeBadNumbersFailBeforeNativeLoading()
+    {
+        var service = new WpfPortableGeometryOperations();
+        var geometry = new PortableGeometryOperand { Path = new() };
+        var pen = new PortablePenState(new object(), double.NaN, 0, 0, 0, 0, 10, default, 0);
+        Assert.False(service.StrokeContains(geometry, pen, new(1, 2), 0.25, false));
+        Assert.True(service.GetRenderBounds(geometry, pen, PortableMatrix3x2.Identity, 0.25, false, true).IsEmpty);
+        pen = pen with { Thickness = 0 };
+        Assert.True(service.GetRenderBounds(geometry, pen, PortableMatrix3x2.Identity, 0.25, false, true).IsEmpty);
+    }
+
+    [Fact]
     public void BoundsPreserveCurveExtremaHollowsAndBothTransforms()
     {
         var path = new PortableGeometryOperand { Path = new PortableGeometryPath

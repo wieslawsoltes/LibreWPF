@@ -9,6 +9,33 @@ namespace System.Windows.Media;
 public class PortableGeometryOperationsTests
 {
     [Fact]
+    public void PenQueriesForwardTypedBrushDashAndOutputTransformState()
+    {
+        var service = new GeometryService();
+        using var registration = PortableWpfServiceRegistry.RegisterGeometryOperations(service);
+        var brush = new SolidColorBrush(Colors.Red);
+        var pen = new Pen(brush, 3) { StartLineCap = PenLineCap.Square, EndLineCap = PenLineCap.Triangle,
+            DashCap = PenLineCap.Round, LineJoin = PenLineJoin.Bevel, MiterLimit = 4,
+            DashStyle = new DashStyle(new double[] { 1, 2, 3 }, -2) };
+        var geometry = new LineGeometry(new Point(1, 2), new Point(3, 4));
+        PortableGeometryOperationsBridge.GetRenderBounds(PortableGeometryOperationsBridge.Export(geometry, 0),
+            pen, new Matrix(2, 0, 0, 3, 7, 8), 0.01, ToleranceType.Relative, true)
+            .Should().Be(new Rect(11, 12, 13, 14));
+        service.Pen.Brush.Should().BeSameAs(brush);
+        service.Pen.Thickness.Should().Be(3);
+        service.Pen.StartLineCap.Should().Be(PortablePenLineCap.Square);
+        service.Pen.EndLineCap.Should().Be(PortablePenLineCap.Triangle);
+        service.Pen.DashCap.Should().Be(PortablePenLineCap.Round);
+        service.Pen.LineJoin.Should().Be(PortablePenLineJoin.Bevel);
+        service.Pen.Dashes.ToArray().Should().Equal(1, 2, 3);
+        service.Pen.DashOffset.Should().Be(-2);
+        service.Transform.M22.Should().Be(3); service.SkipHollows.Should().BeTrue();
+        service.Relative.Should().BeTrue(); service.Tolerance.Should().Be(0.01);
+        PortableGeometryOperationsBridge.Contains(geometry, pen, new Point(8, 9), 0.125, ToleranceType.Absolute)
+            .Should().BeTrue();
+        service.Point.X.Should().Be(8); service.Relative.Should().BeFalse(); service.Calls.Should().Be(2);
+    }
+    [Fact]
     public void PathDataBoundsPreserveFillTransformAndSkipHollows()
     {
         var service = new GeometryService();
@@ -123,6 +150,19 @@ public class PortableGeometryOperationsTests
         public bool Relative;
         public bool SkipHollows;
         public PortablePoint Point;
+        public PortablePenState Pen;
+        public PortableRect GetRenderBounds(PortableGeometryOperand geometry, in PortablePenState pen,
+            PortableMatrix3x2 transform, double tolerance, bool relative, bool skipHollows)
+        {
+            Pen = pen; Tolerance = tolerance; Relative = relative;
+            return GetBounds(geometry, transform, skipHollows);
+        }
+        public bool StrokeContains(PortableGeometryOperand geometry, in PortablePenState pen,
+            PortablePoint point, double tolerance, bool relative)
+        {
+            Pen = pen;
+            return FillContains(geometry, point, tolerance, relative);
+        }
         public PortableRect GetBounds(PortableGeometryOperand geometry, PortableMatrix3x2 transform, bool skipHollows)
         {
             Calls++; Transform = transform; SkipHollows = skipHollows;

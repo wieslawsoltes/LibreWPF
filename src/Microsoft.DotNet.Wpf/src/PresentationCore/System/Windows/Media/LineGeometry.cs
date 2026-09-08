@@ -83,6 +83,8 @@ namespace System.Windows.Media
         /// </summary>
         internal override Rect GetBoundsInternal(Pen pen, Matrix worldMatrix, double tolerance, ToleranceType type)
         {
+            if (PortableGeometryOperationsBridge.IsPortable)
+                return base.GetBoundsInternal(pen, worldMatrix, tolerance, type);
             Matrix geometryMatrix;
             
             Transform.GetTransformValue(Transform, out geometryMatrix);
@@ -133,7 +135,8 @@ namespace System.Windows.Media
         internal override bool ContainsInternal(Pen pen, Point hitPoint, double tolerance, ToleranceType type)
         {
             // A line has no filled area, regardless of transform or tolerance.
-            if (pen == null && PortableGeometryOperationsBridge.IsPortable) return false;
+            if (PortableGeometryOperationsBridge.IsPortable)
+                return pen != null && base.ContainsInternal(pen, hitPoint, tolerance, type);
 
             if (!OperatingSystem.IsWindows() && (pen == null || pen.DoesNotContainGaps))
             {

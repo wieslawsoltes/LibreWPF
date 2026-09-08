@@ -93,7 +93,7 @@ and stroke hit tests are not redirected into fill algorithms. The Windows SDK
 guard remains, pending the remaining media utilities and application admission.
 See the [contract, provenance and unexecuted fixtures](../external/ProGPU/docs/native-mil-geometry-utilities.md#fill-bounds-and-point-queries--core-layoutinput-connection).
 This is an implementation connection, not runtime, image or performance proof.
-The concrete remaining pen dependency is ordinary stroked content:
+The next pen dependency at that checkpoint was ordinary stroked content:
 `BoundsDrawingContextWalker.DrawGeometry` passes the pen to `GetBoundsInternal`,
 while its clip pushes pass null pens and use the newly connected route. Close
 the contributing-pen path through shared ProGPU stroke coverage before Windows
@@ -116,8 +116,8 @@ validation uses intrinsic lanes. This is a prerequisite, **not closure of the
 application pen path**. The follow-up closes constant-edge loss in shared native
 preparation: point caps, dash-phase visibility, source endpoint eligibility,
 zero-distance gaps and incoming joins now survive. Original ProGPU cap/transform
-helpers are reused. Next: add the host/source query encoder preserving
-figure/segment flags, and route the named DrawGeometry bounds/hit consumers.
+helpers are reused. The subsequent connection below adds the host/source query
+encoder and routes the named DrawGeometry bounds/hit consumers.
 The Windows SDK guard and final acceptance gates remain unchanged. See the
 [stroke transport and remaining dependency](../external/ProGPU/docs/native-mil-geometry-utilities.md#stroke-query-prerequisite--not-yet-source-wpf-pen-admission).
 Compile-only checkpoint: the strict AppleClang C++20 native query fixture target
@@ -127,6 +127,26 @@ The point/endpoint follow-up also compiles and links the native geometry-utility
 Direct2D core and Direct2D compatibility fixture targets. Added cap-oracle and
 public COM query fixtures remain unexecuted. This closes the native preparation
 dependency, not the source-WPF consumer or final application acceptance gate.
+
+Source-WPF pen connection checkpoint: the shared typed provider now implements
+render bounds and stroke containment using the new complete-figure ProGPU query
+encoder. `Geometry`, serialized path/primitive transport and Rectangle/Ellipse/Line
+instance overrides select it by frozen portable media policy. Source pen state
+retains brush identity, thickness, caps, joins, miter and dash data; dash narrowing
+uses SIMD. Geometry-local transforms precede native widening and world transforms
+follow it. Bounds union actual fill and emitted stroke coverage, rather than
+inflating fill rectangles. Both renderer modes use this same provider.
+See [connection contracts and authored fixtures](../external/ProGPU/docs/native-mil-geometry-utilities.md#source-wpf-pen-query-connection--implementation-only).
+This closes the named source-level DrawGeometry bounds/point-hit dependency, not
+runtime application acceptance. Continue the application startup/interaction
+trace for remaining core blockers; do not use this connection as a reason to
+expand geometry or Direct2D API breadth. Windows SDK admission and every final
+package, VM, image, lifetime, performance and CI gate remain required.
+Compile-only results for this connection: ProGPU.Tests 0 warnings/0 errors;
+ProGPU.Wpf.Tests 116/0; source PresentationCore.Tests 8/0; the existing source-built
+PresentationFramework host harness 0/0. Fixtures were authored but not executed.
+No native-module loading, graphical application, VM, benchmark or CI qualification
+was performed; warning counts do not establish cleanup or runtime compatibility.
 
 SDK activation checkpoint: the package bootstrap previously always selected
 managed portable hosts, so the native direct-host harness did not establish a

@@ -166,6 +166,8 @@ namespace System.Windows.Media
         /// </summary>
         internal override Rect GetBoundsInternal(Pen pen, Matrix worldMatrix, double tolerance, ToleranceType type)
         {
+            if (PortableGeometryOperationsBridge.IsPortable)
+                return base.GetBoundsInternal(pen, worldMatrix, tolerance, type);
             Matrix geometryMatrix;
             
             Transform.GetTransformValue(Transform, out geometryMatrix);
@@ -242,7 +244,7 @@ namespace System.Windows.Media
 
         internal override bool ContainsInternal(Pen pen, Point hitPoint, double tolerance, ToleranceType type)
         {
-            if (pen == null && PortableGeometryOperationsBridge.IsPortable)
+            if (PortableGeometryOperationsBridge.IsPortable)
                 return base.ContainsInternal(pen, hitPoint, tolerance, type);
 
             if (IsEmpty())

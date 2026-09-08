@@ -27,6 +27,30 @@ internal static class PortableGeometryOperationsBridge
             tolerance, type == ToleranceType.Relative);
     }
 
+    internal static Rect GetRenderBounds(PortableGeometryOperand operand, Pen pen, Matrix worldMatrix,
+        double tolerance, ToleranceType type, bool skipHollows)
+    {
+        if (type != ToleranceType.Absolute && type != ToleranceType.Relative)
+            throw new ArgumentException("Invalid geometry tolerance policy.");
+        if (!Pen.ContributesToBounds(pen)) return GetBounds(operand, worldMatrix, skipHollows);
+        if (!((IPortablePenStateSource)pen).TryGetPortablePenState(out var state))
+            throw new InvalidOperationException("The source pen has no portable state.");
+        PortableRect bounds = Service.GetRenderBounds(operand, state, Matrix(worldMatrix), tolerance,
+            type == ToleranceType.Relative, skipHollows);
+        return bounds.IsEmpty ? Rect.Empty : new Rect(bounds.X, bounds.Y, bounds.Width, bounds.Height);
+    }
+
+    internal static bool Contains(Geometry geometry, Pen pen, Point point, double tolerance, ToleranceType type)
+    {
+        if (pen == null) return FillContains(geometry, point, tolerance, type);
+        if (type != ToleranceType.Absolute && type != ToleranceType.Relative)
+            throw new ArgumentException("Invalid geometry tolerance policy.");
+        if (!((IPortablePenStateSource)pen).TryGetPortablePenState(out var state))
+            throw new InvalidOperationException("The source pen has no portable state.");
+        return Service.StrokeContains(Export(geometry, 0), state, new PortablePoint(point.X, point.Y),
+            tolerance, type == ToleranceType.Relative);
+    }
+
     internal static PortableGeometryOperand ExportPathData(Geometry.PathGeometryData data)
     {
         var matrix = CompositionResourceManager.MilMatrix3x2DToMatrix(ref data.Matrix);

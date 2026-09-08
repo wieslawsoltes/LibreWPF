@@ -160,9 +160,9 @@ namespace System.Windows.Media
                 return Rect.Empty;
             }
 
-            if (!Pen.ContributesToBounds(pen) && PortableGeometryOperationsBridge.IsPortable)
-                return PortableGeometryOperationsBridge.GetBounds(
-                    PortableGeometryOperationsBridge.Export(this, 0), matrix, true);
+            if (PortableGeometryOperationsBridge.IsPortable)
+                return PortableGeometryOperationsBridge.GetRenderBounds(
+                    PortableGeometryOperationsBridge.Export(this, 0), pen, matrix, tolerance, type, true);
 
             PathGeometryData pathData = GetPathGeometryData();
 
@@ -200,12 +200,12 @@ namespace System.Windows.Media
             // If the pen contributes to the bounds, populate the CMD struct
             bool fPenContributesToBounds = Pen.ContributesToBounds(pen);
 
-            if (!fPenContributesToBounds && PortableGeometryOperationsBridge.IsPortable)
+            if (PortableGeometryOperationsBridge.IsPortable)
             {
-                return PortableGeometryOperationsBridge.GetBounds(
+                return PortableGeometryOperationsBridge.GetRenderBounds(
                     PortableGeometryOperationsBridge.ExportPolygon(pPoints, pointCount, pTypes, segmentCount,
                         pGeometryMatrix == null ? Matrix.Identity : *pGeometryMatrix),
-                    pWorldMatrix == null ? Matrix.Identity : *pWorldMatrix, fSkipHollows);
+                    pen, pWorldMatrix == null ? Matrix.Identity : *pWorldMatrix, tolerance, type, fSkipHollows);
             }
 
             if (!OperatingSystem.IsWindows())
@@ -499,8 +499,8 @@ namespace System.Windows.Media
                 return false;
             }
 
-            if (pen == null && PortableGeometryOperationsBridge.IsPortable)
-                return PortableGeometryOperationsBridge.FillContains(this, hitPoint, tolerance, type);
+            if (PortableGeometryOperationsBridge.IsPortable)
+                return PortableGeometryOperationsBridge.Contains(this, pen, hitPoint, tolerance, type);
 
             PathGeometryData pathData = GetPathGeometryData();
 
@@ -571,6 +571,8 @@ namespace System.Windows.Media
         internal unsafe bool ContainsInternal(Pen pen, Point hitPoint, double tolerance, ToleranceType type, 
                                                 Point *pPoints, uint pointCount, byte *pTypes, uint typeCount)
         {
+            if (PortableGeometryOperationsBridge.IsPortable)
+                return PortableGeometryOperationsBridge.Contains(this, pen, hitPoint, tolerance, type);
             if (!OperatingSystem.IsWindows())
             {
                 return ContainsPolygonProGpuBounds(

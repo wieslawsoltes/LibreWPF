@@ -66,6 +66,13 @@ media backend rather than OS. Primitive MIL point/type arrays are source-owned
 transport to decode, not permission to compute bounds from their control hulls.
 Do not route contributing pens through these fill-only operations or broaden
 unsupported stroke hit tests into rectangle containment.
+Contributing-pen bounds and point hits route through the typed geometry provider
+using complete ProGPU query figures, source gaps, incoming joins and pen snapshots.
+Geometry-local transforms precede widening; the drawing/world transform follows
+it. Bounds union actual fill and emitted stroke, not an inflated fill rectangle.
+Primitive overrides must not bypass this route under portable media selection.
+Keep dash conversion intrinsic and default provider registration shared by both
+renderer modes; source-owned WPF transport remains decoding, not a second stroker.
 
 ## Reflection-Free Port Priority
 

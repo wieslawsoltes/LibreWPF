@@ -16,6 +16,107 @@ internal sealed class WpfPortableGeometryOperations : IPortableGeometryOperation
     private static readonly WpfPortableGeometryOperations Default = new();
     internal static void EnsureRegistered() => PortableWpfServiceRegistry.EnsureGeometryOperations(Default);
 
+    public PortableRect GetRenderBounds(PortableGeometryOperand geometry, in PortablePenState pen,
+        PortableMatrix3x2 worldTransform, double tolerance, bool relativeTolerance, bool skipHollows)
+    {
+        try
+        {
+            int budget = 1 << 20;
+            VectorPath path = Resolve(geometry, 0, ref budget);
+            Matrix4x4 world = Matrix(worldTransform);
+            VectorPath transformed = world.IsIdentity ? path : path.CreateTransformed(world);
+            PortableRect fill = MeasureBounds(transformed, skipHollows);
+            var nativePen = QueryPen(pen);
+            if (nativePen.Thickness == 0 || pen.Brush == null) return fill;
+            var (figures, segments, flags) = CompileStroke(path);
+            // Tolerance is specified in output coordinates. A conservative
+            // linear norm bounds pre-world widening error under shear/scale.
+            double norm = Math.Sqrt((double)world.M11 * world.M11 + (double)world.M12 * world.M12 +
+                (double)world.M21 * world.M21 + (double)world.M22 * world.M22);
+            float absolute = Math.Max(float.Epsilon, (float)(QueryTolerance(transformed, tolerance, relativeTolerance) / Math.Max(1, norm)));
+            if (!NativeGeometryUtilities.GetStrokeBounds(figures,
+                    MemoryMarshal.Cast<GpuPathSegment, NativePathSegment>(segments.AsSpan()), flags, nativePen,
+                    QueryDashes(pen.Dashes.Span), new Matrix3x2(world.M11, world.M12, world.M21, world.M22, world.M41, world.M42),
+                    absolute, out var stroke)) return fill;
+            if (fill.IsEmpty) return new(stroke.X, stroke.Y, stroke.Width, stroke.Height);
+            double left = Math.Min(fill.X, stroke.X), top = Math.Min(fill.Y, stroke.Y);
+            return new(left, top, Math.Max(fill.X + fill.Width, (double)stroke.X + stroke.Width) - left,
+                Math.Max(fill.Y + fill.Height, (double)stroke.Y + stroke.Height) - top);
+        }
+        catch (BadGeometryNumberException) { return PortableRect.Empty; }
+    }
+
+    public bool StrokeContains(PortableGeometryOperand geometry, in PortablePenState pen,
+        PortablePoint point, double tolerance, bool relativeTolerance)
+    {
+        try
+        {
+            Check(point.X, point.Y);
+            int budget = 1 << 20;
+            VectorPath path = Resolve(geometry, 0, ref budget);
+            var nativePen = QueryPen(pen);
+            var (figures, segments, flags) = CompileStroke(path);
+            return NativeGeometryUtilities.StrokeContains(figures,
+                MemoryMarshal.Cast<GpuPathSegment, NativePathSegment>(segments.AsSpan()), flags, nativePen,
+                QueryDashes(pen.Dashes.Span), Matrix3x2.Identity, new((float)point.X, (float)point.Y),
+                QueryTolerance(path, tolerance, relativeTolerance));
+        }
+        catch (BadGeometryNumberException) { return false; }
+    }
+
+    private static (NativeGeometryQueryFigure[], GpuPathSegment[], byte[]) CompileStroke(VectorPath path)
+    {
+        var (source, segments, flags) = PathAtlas.CompileStrokeQuery(path);
+        var figures = new NativeGeometryQueryFigure[source.Length];
+        for (int i = 0; i < source.Length; i++)
+            figures[i] = new(source[i].Start, checked((uint)source[i].FirstSegment), checked((uint)source[i].SegmentCount),
+                source[i].Closed, source[i].Filled);
+        return (figures, segments, flags);
+    }
+
+    private static NativeGeometryQueryPen QueryPen(in PortablePenState pen)
+    {
+        Check(pen.Thickness, pen.MiterLimit); Check(pen.DashOffset, 0);
+        return new((float)Math.Abs(pen.Thickness), (float)Math.Max(1, pen.MiterLimit), (float)pen.DashOffset,
+            (NativeStrokeCap)pen.StartLineCap, (NativeStrokeCap)pen.EndLineCap,
+            (NativeStrokeCap)pen.DashCap, (NativeStrokeJoin)pen.LineJoin);
+    }
+
+    internal static float[] QueryDashes(ReadOnlySpan<double> source)
+    {
+        if (source.Length > 1 << 20) throw new ArgumentException("Dash query budget exceeded.");
+        if (source.IsEmpty) return [];
+        var result = new float[source.Length];
+        int i = 0;
+        ref double input = ref MemoryMarshal.GetReference(source);
+        ref float output = ref MemoryMarshal.GetArrayDataReference(result);
+        for (; i <= source.Length - 4; i += 4)
+        {
+            Check(source[i], source[i + 1]); Check(source[i + 2], source[i + 3]);
+            Vector128.Narrow(Vector128.LoadUnsafe(ref input, (nuint)i), Vector128.LoadUnsafe(ref input, (nuint)(i + 2)))
+                .StoreUnsafe(ref output, (nuint)i);
+        }
+        for (; i < source.Length; i++) { Check(source[i], 0); result[i] = (float)source[i]; }
+        return result;
+    }
+
+    private static float QueryTolerance(VectorPath path, double tolerance, bool relative)
+    {
+        double left = double.PositiveInfinity, top = double.PositiveInfinity;
+        double right = double.NegativeInfinity, bottom = double.NegativeInfinity;
+        IncludeBounds(path, ref left, ref top, ref right, ref bottom);
+        return ResolveTolerance(tolerance, relative, double.IsPositiveInfinity(left) ? 0 : Math.Max(right - left, bottom - top));
+    }
+
+    private static PortableRect MeasureBounds(VectorPath path, bool skipHollows)
+    {
+        if (!WpfPortablePathBoundsReader.TryGetMaterializedPathBounds(path, out var bounds, out bool hasPoints, skipHollows))
+            throw new NotSupportedException("The transformed geometry has no valid exact bounds.");
+        if (!hasPoints) return PortableRect.Empty;
+        Check(bounds.X, bounds.Y); Check(bounds.X + bounds.Width, bounds.Y + bounds.Height);
+        return new(bounds.X, bounds.Y, bounds.Width, bounds.Height);
+    }
+
     public PortableRect GetBounds(PortableGeometryOperand geometry, PortableMatrix3x2 worldTransform, bool skipHollows)
     {
         try
@@ -24,11 +125,7 @@ internal sealed class WpfPortableGeometryOperations : IPortableGeometryOperation
             Matrix4x4 transform = Matrix(worldTransform);
             VectorPath path = Resolve(geometry, 0, ref budget);
             if (!transform.IsIdentity) path = path.CreateTransformed(transform);
-            if (!WpfPortablePathBoundsReader.TryGetMaterializedPathBounds(path, out var bounds, out bool hasPoints, skipHollows))
-                throw new NotSupportedException("The transformed geometry has no valid exact bounds.");
-            if (!hasPoints) return PortableRect.Empty;
-            Check(bounds.X, bounds.Y); Check(bounds.X + bounds.Width, bounds.Y + bounds.Height);
-            return new PortableRect(bounds.X, bounds.Y, bounds.Width, bounds.Height);
+            return MeasureBounds(path, skipHollows);
         }
         catch (BadGeometryNumberException) { return PortableRect.Empty; }
     }
