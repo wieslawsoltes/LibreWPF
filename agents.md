@@ -1,5 +1,13 @@
 # Agent Guidance
 
+Portable source text must preserve actual shaped content, clusters, styled runs
+and caret/selection semantics. `SimpleTextLine.CreatePortableFallback` currently
+manufactures an empty paragraph for unsupported cases; this is an outstanding
+contract gap, never evidence of native/managed text parity or a permitted new
+fallback. Reuse ProGPU's existing retained C++ paragraph pipeline for the typed
+adapter, with leased context ownership; do not duplicate that composer in WPF
+or indiscriminately replace Windows text-service OS guards.
+
 `WindowChromeWorker` must select source ownership before HWND access: an active
 portable window, a registered portable activation service, or frozen portable
 media selection uses the typed portable chrome path even on Windows and before

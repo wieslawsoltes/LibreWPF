@@ -116,6 +116,22 @@ commit. Their next-step text is historical, may be superseded by later changes,
 and must not be treated as an additional active backlog. Use the active completion
 queue above for current priorities.
 
+Retained native text prerequisite: the source empty-paragraph fallback identified
+in the SDK startup trace requires a real WPF TextLine adapter. ProGPU already has
+a C++ bidi/OpenType/fallback/positioned-paragraph pipeline, so no duplicate composer
+was added. Its managed retained context now holds an exclusive pointer-use scope
+across every native call. This closes concurrent plan mutation and dispose-during-
+call hazards before a reusable source-font cache can retain those contexts.
+Nested/reentrant disposal, exactly-once release and concurrent owner fixtures are
+authored. Source styled-run/font/cluster/caret integration is still required; the
+empty WPF fallback has not been replaced by this ownership prerequisite.
+See the [native text integration record](../external/ProGPU/docs/native-mil-text-source-integration.md).
+Compile-only checkpoint: native managed backend and the ProGPU fixture project
+completed with zero warnings/errors, including the final source-guard rebuild.
+No fixture, native workload, application/VM/GPU, benchmark or CI execution ran.
+The native header change is synchronization documentation only; C++ shaping and
+paragraph algorithms are unchanged. Latest fetched ProGPU main is contained.
+
 SDK attached window-chrome connection: `ValidateWindowChrome` in the existing
 package SDK gate attaches/replaces/removes chrome. `WindowChromeWorker` formerly
 selected its WPF HWND/HwndSource hook path by OS, despite a ProGPU-owned source
