@@ -400,15 +400,110 @@ public class PortableTextLineTests
         new(formatter, source, new TextRunCacheImp(), new ParaProp(formatter, new ParagraphProperties(source.Properties, source.AutoHeight), false),
             previous, true, TextFormattingMode.Ideal, false);
 
+    [PortableMediaFact]
+    public void NativeRangeUnderlinePreservesSourceBrushFontMetricsInkAndContinuation()
+    {
+        var provider = new Provider();
+        using var registration = PortableWpfServiceRegistry.RegisterTextFormatting(provider);
+        using var formatter = new TextFormatterImp();
+        var source = new Source { Properties = new Properties(new FontFamily(
+            Path.Combine(AppContext.BaseDirectory, "LibreWPF", "Fonts", "Inter-Medium.ttf") + "#Inter"))
+            { Decorations = TextDecorations.Underline } };
+        using var first = PortableTextLine.Create(Settings(formatter, source), 0, 800, 1);
+        var underline = Assert.Single(DrawLeaves(first).OfType<GeometryDrawing>());
+        var glyph = Assert.Single(first.GetIndexedGlyphRuns()).GlyphRun;
+        var bounds = underline.Geometry.Bounds;
+        Assert.Null(underline.Pen);
+        Assert.Same(source.Properties.ForegroundBrush, underline.Brush);
+        Assert.Equal(8, bounds.Width);
+        Assert.Equal(glyph.GlyphTypeface.UnderlineThickness * glyph.FontRenderingEmSize, bounds.Height, 6);
+        Assert.Equal(first.Baseline - glyph.GlyphTypeface.UnderlinePosition * glyph.FontRenderingEmSize,
+            bounds.Top + bounds.Height / 2, 6);
+        Rect expectedInk = glyph.ComputeInkBoundingBox();
+        expectedInk.Offset(glyph.BaselineOrigin.X, glyph.BaselineOrigin.Y);
+        expectedInk.Union(bounds);
+        Assert.Equal(expectedInk.Height, first.Extent, 6);
+        using var continuation = first.GetTextLineBreak();
+        first.Dispose();
+        using var second = PortableTextLine.Create(Settings(formatter, source, continuation), 2, 800, 1);
+        Assert.Equal(6, Assert.Single(DrawLeaves(second).OfType<GeometryDrawing>()).Geometry.Bounds.Width);
+        Assert.Equal(1, provider.Calls);
+    }
+
+    [PortableMediaFact]
+    public void UnderlineUsesNativeTabRangeButDoesNotDrawTrailingWhitespace()
+    {
+        var provider = new Provider { Tabs = true };
+        using var registration = PortableWpfServiceRegistry.RegisterTextFormatting(provider);
+        using var formatter = new TextFormatterImp();
+        var properties = new Properties(new FontFamily(Path.Combine(AppContext.BaseDirectory,
+            "LibreWPF", "Fonts", "Inter-Medium.ttf") + "#Inter")) { Decorations = TextDecorations.Underline };
+        using var line = PortableTextLine.Create(Settings(formatter, new Source { Text = "a\tb", Properties = properties }), 0, 800, 1);
+        Assert.Equal(38, Assert.Single(DrawLeaves(line).OfType<GeometryDrawing>()).Geometry.Bounds.Width);
+        using var spaces = PortableTextLine.Create(Settings(formatter, new Source { Text = " \t ", Properties = properties }), 0, 800, 1);
+        Assert.Empty(DrawLeaves(spaces).OfType<GeometryDrawing>());
+    }
+
+    [PortableMediaFact]
+    public void ContinuousUnderlineRejectsUnimplementedMixedMetricAveraging()
+    {
+        var provider = new Provider { MixedOneLine = true };
+        using var registration = PortableWpfServiceRegistry.RegisterTextFormatting(provider);
+        using var formatter = new TextFormatterImp();
+        var family = new FontFamily(Path.Combine(AppContext.BaseDirectory, "LibreWPF", "Fonts", "Inter-Medium.ttf") + "#Inter");
+        var source = new Source
+        {
+            Mixed = true,
+            Properties = new Properties(family) { Decorations = TextDecorations.Underline },
+            FollowingProperties = new Properties(family) { Size = 24, Decorations = TextDecorations.Underline }
+        };
+        Assert.Contains("averaging", Assert.Throws<PlatformNotSupportedException>(() =>
+            PortableTextLine.Create(Settings(formatter, source), 0, 800, 1)).Message);
+    }
+
+    [PortableMediaFact]
+    public void UnsupportedDecorationShapesRemainExplicit()
+    {
+        using var registration = PortableWpfServiceRegistry.RegisterTextFormatting(new Provider());
+        using var formatter = new TextFormatterImp();
+        TextDecoration[] decorations =
+        [
+            new() { Location = TextDecorationLocation.Strikethrough },
+            new() { Pen = new Pen(Brushes.Red, 2) },
+            new() { PenOffset = 1 },
+            new() { PenThicknessUnit = TextDecorationUnit.Pixel }
+        ];
+        foreach (var decoration in decorations)
+        {
+            var source = new Source { Properties = new Properties { Decorations = new() { decoration } } };
+            Assert.Contains("decorations", Assert.Throws<PlatformNotSupportedException>(() =>
+                PortableTextLine.Create(Settings(formatter, source), 0, 800, 1)).Message);
+        }
+    }
+
+    private static IEnumerable<Drawing> DrawLeaves(TextLine line)
+    {
+        var visual = new DrawingVisual();
+        using (var context = visual.RenderOpen()) line.Draw(context, new Point(), InvertAxes.None);
+        return Leaves(visual.Drawing);
+        static IEnumerable<Drawing> Leaves(Drawing drawing)
+        {
+            if (drawing is DrawingGroup group)
+                foreach (Drawing child in group.Children) foreach (Drawing leaf in Leaves(child)) yield return leaf;
+            else yield return drawing;
+        }
+    }
+
     private sealed class Source : TextSource
     {
         internal Properties Properties { get; init; } = new();
+        internal Properties? FollowingProperties { get; init; }
         internal bool Mixed { get; init; }
         internal bool AutoHeight { get; init; }
         internal string Text { get; init; } = "abc";
         public override TextRun GetTextRun(int index) => index >= Text.Length ? new TextEndOfParagraph(1) :
             new TextCharacters(Text, index, Mixed && index == 0 ? 1 : Text.Length - index,
-                Mixed && index != 0 ? new Properties { Size = 24 } : Properties);
+                Mixed && index != 0 ? FollowingProperties ?? new Properties { Size = 24 } : Properties);
         public override TextSpan<CultureSpecificCharacterBufferRange> GetPrecedingText(int limit) =>
             new(limit, new(CultureInfo.InvariantCulture, new CharacterBufferRange(Text, 0, Math.Min(limit, Text.Length))));
         public override int GetTextEffectCharacterIndexFromTextSourceCharacterIndex(int index) => index;
@@ -417,6 +512,7 @@ public class PortableTextLineTests
     private sealed class Properties : TextRunProperties
     {
         private readonly Typeface _face;
+        internal TextDecorationCollection? Decorations { get; init; }
         internal double Size { get; init; } = 12;
         internal Properties(FontFamily? family = null)
         {
@@ -427,7 +523,7 @@ public class PortableTextLineTests
         public override Typeface Typeface => _face;
         public override double FontRenderingEmSize => Size;
         public override double FontHintingEmSize => Size;
-        public override TextDecorationCollection TextDecorations => null!;
+        public override TextDecorationCollection TextDecorations => Decorations!;
         public override Brush ForegroundBrush => Size == 24 ? Brushes.Red : Brushes.Black;
         public override Brush BackgroundBrush => Size == 24 ? Brushes.Blue : null!;
         public override CultureInfo CultureInfo => CultureInfo.InvariantCulture;
@@ -458,6 +554,7 @@ public class PortableTextLineTests
         internal bool NullParagraph { get; init; }
         internal bool Mixed { get; init; }
         internal bool Tabs { get; init; }
+        internal bool MixedOneLine { get; init; }
         internal bool Empty { get; init; }
         internal float IncrementalTab { get; private set; }
         internal ReadOnlyMemory<PortableTextStyle> Styles { get; private set; }
@@ -477,11 +574,13 @@ public class PortableTextLineTests
             Assert.False(request.Font.Data.IsEmpty); return this;
         }
         public ReadOnlyMemory<PortableTextGlyph> Glyphs => Empty ? ReadOnlyMemory<PortableTextGlyph>.Empty : Tabs ? new PortableTextGlyph[]
-        { new(0, 0, 1, 0, 0, 8, 0), new(uint.MaxValue, 1, 2, 8, 0, 24, 0, IsTab: true), new(0, 2, 3, 32, 0, 6, 0) } : Mixed ? new PortableTextGlyph[]
+        { new(0, 0, 1, 0, 0, 8, 0), new(uint.MaxValue, 1, 2, 8, 0, 24, 0, IsTab: true), new(0, 2, 3, 32, 0, 6, 0) } : MixedOneLine ? new PortableTextGlyph[]
+        { new(0, 0, 1, 0, 0, 4, 0), new(0, 1, 2, 4, 0, 6, 0, 1), new(0, 2, 3, 10, 0, 6, 0, 1) } : Mixed ? new PortableTextGlyph[]
         { new(0, 0, 1, 0, 0, 4, 0), new(0, 1, 2, 0, 20, 6, 0, 1), new(0, 2, 3, 6, 20, 6, 0, 1) } : new PortableTextGlyph[]
         { new(0, 0, 2, 0, 0, 8, 1), new(0, 2, 3, 0, 20, 6, 1) };
         public ReadOnlyMemory<PortableTextLineInfo> Lines => Empty ? new PortableTextLineInfo[] { new(0, 0, 0, 0, 0, 0, 20) } : Tabs ? new PortableTextLineInfo[]
-        { new(0, 3, 0, 3, 38, 0, 20) } : Mixed ? new PortableTextLineInfo[]
+        { new(0, 3, 0, 3, 38, 0, 20) } : MixedOneLine ? new PortableTextLineInfo[]
+        { new(0, 3, 0, 3, 16, 0, 20) } : Mixed ? new PortableTextLineInfo[]
         { new(0, 1, 0, 1, 4, 0, 20), new(1, 2, 1, 3, 12, 20, 20) } : new PortableTextLineInfo[]
         { new(0, 1, 0, 2, 8, 0, 20), new(1, 1, 2, 3, 6, 20, 20) };
         public PortableTextHit HitTest(int lineIndex, float distance) => new(lineIndex == 0 ? Mixed ? 1 : 2 : 3, true);

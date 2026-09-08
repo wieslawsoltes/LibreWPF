@@ -116,6 +116,22 @@ commit. Their next-step text is historical, may be superseded by later changes,
 and must not be treated as an additional active backlog. Use the active completion
 queue above for current priorities.
 
+Standard source run underlines: the MVP FlowDocument viewer's Hyperlink exposed
+a required decoration rejection in PortableTextLine. Standard underlines now
+consume native paragraph range geometry, actual font metrics and source brushes,
+including wrapped lines, interior tabs, trailing-whitespace exclusion and ink
+bounds. Source replay keeps paired baseline/top-edge guidelines and native MIL
+rectangle commands. The native host now contains a real Hyperlink and asserts
+underline coverage/guidelines in its typed render stream. This is a prerequisite,
+not complete document-viewer layout. Custom/paragraph/animated decorations,
+other locations, mixed-font underline metric averaging and the RichTextBox
+structural decoration scope adapter remain explicit gaps.
+See the [implementation record](../external/ProGPU/docs/native-mil-standard-underlines.md).
+Compile-only: source PresentationCore fixtures build with 4 warnings/0 errors;
+the native host harness builds with 1 warning/0 errors. No tests, verifiers, apps,
+VM/GPU, benchmarks or CI qualification ran. Return to FlowDocument block/view
+integration, not optional decoration expansion, after this required connection.
+
 Mixed-size editor line metrics: `TextBoxView` now retains each formatted line's
 source advance and accumulated top instead of reusing the last formatted line's
 height for the entire document. Drawing, caret/selection geometry, point lookup,

@@ -54,6 +54,14 @@ rewrite or claims of qualified codec/worker/SIMD parity follow from this routing
 
 ## Core Native MIL Delivery Priority
 
+Standard portable run underlines use native paragraph range geometry and actual
+source physical font metrics, with retained fill rectangles and baseline/top-edge
+guidelines. Preserve brush identity, wrapped ownership, interior tabs, trailing
+whitespace exclusion and ink bounds. Do not infer widths from codepoint counts or
+reintroduce blanket rejection in TextBlock/Hyperlink. Custom/animated/paragraph
+decorations and mixed-font averaging remain explicit, as does the separate rich
+editor structural decoration-scope contract; do not erase those semantics.
+
 RichTextBox render-scope selection follows frozen media ownership on every OS;
 Windows portable media must not enter the PTS-backed FlowDocumentView. The source
 TextBoxView editor retains real document symbols and per-run style ownership.

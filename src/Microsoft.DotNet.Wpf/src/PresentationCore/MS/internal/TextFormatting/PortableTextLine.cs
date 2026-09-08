@@ -1,6 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 using System.IO;
+using System.Buffers;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -36,6 +37,7 @@ internal sealed class PortableTextLine : TextLine
     private readonly List<TextRunProperties> _glyphProperties = new();
     private readonly List<(int Start, int End, sbyte Level)> _selectionRuns = new();
     private readonly List<(Rect Bounds, Brush Brush)> _backgrounds = new();
+    private List<(Rect Bounds, Brush Brush)> _underlines;
     private readonly List<TextSpan<TextRun>> _runs;
     private readonly Rect _ink;
     private readonly int _trailing;
@@ -82,7 +84,7 @@ internal sealed class PortableTextLine : TextLine
         if (settings.IsSideways || settings.TextFormattingMode != TextFormattingMode.Ideal || pap.TextMarkerProperties != null ||
             (pap.TextDecorations?.Count ?? 0) != 0 || pap.Justify ||
             pap.Tabs?.Count > 0)
-            throw Unsupported("display hinting, sideways text, markers, decorations, justification or custom tabs");
+            throw Unsupported("display hinting, sideways text, markers, paragraph decorations, justification or custom tabs");
 
         var builder = new StringBuilder();
         var runs = new List<TextSpan<TextRun>>();
@@ -128,9 +130,10 @@ internal sealed class PortableTextLine : TextLine
             }
             if (run is not TextCharacters) throw Unsupported("embedded document objects");
             var p = scope == null ? run.Properties : scope.ModifyProperties(run.Properties);
-            if (p == null || (p.TextDecorations?.Count ?? 0) != 0 || (p.TextEffects?.Count ?? 0) != 0 ||
+            if (p == null || (p.TextEffects?.Count ?? 0) != 0 ||
                 p.BaselineAlignment != BaselineAlignment.Baseline)
-                throw Unsupported("run decorations, effects, baseline changes, custom typography or number substitution");
+                throw Unsupported("run effects, baseline changes, custom typography or number substitution");
+            ValidateUnderlines(p.TextDecorations);
             var digits = new DigitState();
             digits.SetTextRunProperties(p);
             if (digits.DigitCulture != null || digits.Contextual) throw Unsupported("digit substitution");
@@ -335,7 +338,69 @@ internal sealed class PortableTextLine : TextLine
         foreach (var glyph in paragraph.Glyphs.Span.Slice(Info.GlyphStart, Info.GlyphCount))
             if (glyph.Cluster >= visibleEnd) trailingWidth += glyph.Advance;
         _width = Math.Max(0, Info.Width - trailingWidth);
-        _ink = CreateGlyphRuns();
+        Rect ink = CreateGlyphRuns();
+        CacheUnderlines(visibleEnd, ref ink);
+        _ink = ink;
+    }
+
+    private static void ValidateUnderlines(TextDecorationCollection decorations)
+    {
+        if (decorations == null) return;
+        foreach (TextDecoration decoration in decorations)
+            if (!decoration.CanFreeze || decoration.Location != TextDecorationLocation.Underline ||
+                decoration.Pen != null || decoration.PenOffset != 0 ||
+                decoration.PenOffsetUnit != TextDecorationUnit.FontRecommended ||
+                decoration.PenThicknessUnit != TextDecorationUnit.FontRecommended)
+                throw Unsupported("custom, animated or non-underline run decorations");
+    }
+
+    private void CacheUnderlines(int visibleEnd, ref Rect ink)
+    {
+        PortableRect[] rented = null;
+        Span<PortableRect> rectangles = stackalloc PortableRect[64];
+        try
+        {
+            SourceStyle previous = null;
+            foreach (SourceStyle style in _styles)
+            {
+                int start = Math.Max(style.Start, Info.InputStart);
+                int end = Math.Min(style.End, visibleEnd);
+                if (start >= end || (style.Properties.TextDecorations?.Count ?? 0) == 0)
+                { previous = null; continue; }
+
+                // LineServices averages metrics for a continuous mixed-font
+                // underline. Do not substitute disconnected per-face heights.
+                if (previous != null && previous.End == style.Start &&
+                    (previous.Face.UnderlineThickness * previous.EmSize != style.Face.UnderlineThickness * style.EmSize ||
+                     previous.Face.UnderlinePosition * previous.EmSize != style.Face.UnderlinePosition * style.EmSize))
+                    throw Unsupported("continuous mixed-font underline metric averaging");
+                previous = style;
+
+                double thickness = style.Face.UnderlineThickness * style.EmSize;
+                double center = Baseline - style.Face.UnderlinePosition * style.EmSize;
+                if (!double.IsFinite(thickness) || thickness <= 0 || !double.IsFinite(center))
+                    throw Unsupported("invalid font underline metrics");
+                if (style.Properties.ForegroundBrush == null) continue;
+                if (Info.GlyphCount > rectangles.Length)
+                    rectangles = rented = ArrayPool<PortableRect>.Shared.Rent(Info.GlyphCount);
+                int count = _paragraph.GetSelection(_lineIndex, start, end, rectangles);
+                if ((uint)count > (uint)rectangles.Length)
+                    throw new InvalidOperationException("The text provider returned an invalid decoration range count.");
+                _underlines ??= new();
+                for (int i = 0; i < count; i++)
+                {
+                    var range = rectangles[i];
+                    if (!double.IsFinite(range.X) || !double.IsFinite(range.Width) || range.Width < 0)
+                        throw new InvalidOperationException("The text provider returned invalid decoration geometry.");
+                    if (range.Width == 0) continue;
+                    var bounds = new Rect(Start + range.X, center - thickness / 2, range.Width, thickness);
+                    foreach (TextDecoration decoration in style.Properties.TextDecorations)
+                        _underlines.Add((bounds, style.Properties.ForegroundBrush));
+                    ink.Union(bounds);
+                }
+            }
+        }
+        finally { if (rented != null) ArrayPool<PortableRect>.Shared.Return(rented); }
     }
 
     private Rect CreateGlyphRuns()
@@ -451,6 +516,15 @@ internal sealed class PortableTextLine : TextLine
         {
             foreach (var background in _backgrounds) drawingContext.DrawRectangle(background.Brush, null, background.Bounds);
             for (int i = 0; i < _glyphRuns.Count; i++) drawingContext.DrawGlyphRun(_glyphProperties[i].ForegroundBrush, _glyphRuns[i].GlyphRun);
+            if (_underlines != null)
+                foreach (var underline in _underlines)
+                {
+                    // Match the existing source SimpleTextLine baseline/top-edge
+                    // pairing. Both ProGPU renderers consume the typed rectangle.
+                    drawingContext.PushGuidelineY2(Baseline, underline.Bounds.Top - Baseline);
+                    try { drawingContext.DrawRectangle(underline.Brush, null, underline.Bounds); }
+                    finally { drawingContext.Pop(); }
+                }
         }
         finally { drawingContext.Pop(); if (antiInversion != null) drawingContext.Pop(); }
     }

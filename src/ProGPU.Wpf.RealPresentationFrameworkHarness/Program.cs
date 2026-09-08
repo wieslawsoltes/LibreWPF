@@ -294,7 +294,7 @@ public static class Program
         SetProperty(text, "FontSize", 12.0);
         object first = Create(presentationFramework, "System.Windows.Documents.Run", "Inline ");
         object second = Create(presentationFramework, "System.Windows.Documents.Run", "document");
-        object span = Create(presentationFramework, "System.Windows.Documents.Span", second);
+        object span = Create(presentationFramework, "System.Windows.Documents.Hyperlink", second);
         AddToCollection(GetProperty(text, "Inlines"), first);
         AddToCollection(GetProperty(text, "Inlines"), span);
         Type size = GetRequiredType(windowsBase, "System.Windows.Size");
@@ -304,6 +304,7 @@ public static class Program
         Invoke(text, "UpdateLayout");
         if (Convert.ToDouble(GetProperty(GetProperty(text, "DesiredSize"), "Width"), CultureInfo.InvariantCulture) <= 0)
             throw new InvalidOperationException("Source inline document produced no measured width.");
+        NativeMilTextDecorationSmoke.RequireUnderline(text);
         return text;
     }
 
