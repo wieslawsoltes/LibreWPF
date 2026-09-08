@@ -6,6 +6,18 @@ namespace ProGPU.Wpf.Tests.Composition;
 public sealed class WpfManagedProjectGraphTests
 {
     [Fact]
+    public void SourceTestNrbfVersionDoesNotReplaceThePortableProductPin()
+    {
+        string props = File.ReadAllText(FindRepoPath("Directory.Build.props"));
+        string tests = File.ReadAllText(FindRepoPath("src", "Microsoft.DotNet.Wpf", "tests", "UnitTests",
+            "PresentationCore.Tests", "PresentationCore.Tests.csproj"));
+        AssertGuardBefore(props, "<ProGpuWpfTestFormatsNrbfVersion", "<SystemFormatsNrbfVersion>");
+        Assert.Contains(">$(SystemFormatsNrbfVersion)</ProGpuWpfTestFormatsNrbfVersion>", props, StringComparison.Ordinal);
+        Assert.Contains("<SystemFormatsNrbfVersion>$(ProGpuWpfNet10SupportPackageVersion)</SystemFormatsNrbfVersion>", props, StringComparison.Ordinal);
+        Assert.Contains("Include=\"System.Formats.Nrbf\" Version=\"$(ProGpuWpfTestFormatsNrbfVersion)\"", tests, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void PortableCaretBlinkFallbackIsAValidPositiveInterval()
     {
         var safeNativeMethods = File.ReadAllText(FindRepoPath(
@@ -9142,13 +9154,13 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("PortablePopupMonitorSelection.IsValidMonitorBounds(bounds.Screen, bounds.WorkArea)", popup, StringComparison.Ordinal);
         Assert.Contains("The portable popup host did not provide placement bounds.", popup, StringComparison.Ordinal);
         Assert.DoesNotContain("GetPortablePrimaryScreenBounds", popup, StringComparison.Ordinal);
-        Assert.Contains("bool usesPortableLogicalScreenCoordinates = UsesPortableLogicalScreenCoordinates(_popupRoot);", popup, StringComparison.Ordinal);
-        Assert.Contains("if (!usesPortableLogicalScreenCoordinates)", popup, StringComparison.Ordinal);
-        AssertGuardBefore(popup, "if (!usesPortableLogicalScreenCoordinates)", "desiredSize = (Size)_secHelper.GetTransformToDevice().Transform((Point)desiredSize);");
-        Assert.Contains(
-            "if (!usesPortableLogicalScreenCoordinates)\n            {\n                // Convert back from screen space to popup's space\n                desiredSize = (Size)_secHelper.GetTransformFromDevice().Transform((Point)desiredSize);",
-            popup,
-            StringComparison.Ordinal);
+        Assert.Contains("childBounds = new Rect(_secHelper.ClientSizeToScreen(_popupRoot.RenderSize));", popup, StringComparison.Ordinal);
+        Assert.Contains("desiredSize = _secHelper.ClientSizeToScreen(desiredSize);", popup, StringComparison.Ordinal);
+        Assert.Contains("desiredSize = _secHelper.ScreenSizeToClient(desiredSize);", popup, StringComparison.Ordinal);
+        Assert.Contains("interestPoints[i] = _secHelper.ClientOffsetToScreen(interestPoints[i]);", popup, StringComparison.Ordinal);
+        Assert.Contains("offset = (Vector)_secHelper.ClientOffsetToScreen((Point)offset);", popup, StringComparison.Ordinal);
+        Assert.Contains("PointUtil.TryGetPortableDesktopTransform(source, out transform)", popup, StringComparison.Ordinal);
+        Assert.DoesNotContain("new Rect((Size)_secHelper.GetTransformToDevice().Transform((Point)_popupRoot.RenderSize))", popup, StringComparison.Ordinal);
         AssertGuardBefore(popup, "if (!PopupSecurityHelper.RequiresPortableWindow(popup?.GetTarget())", "SafeNativeMethods.MonitorFromPoint");
         Assert.Contains("if (IsPortable)\n                {\n                    if (position)", popup, StringComparison.Ordinal);
         Assert.Contains("if (IsPortable)\n                {\n                    TryShowPortablePopup();", popup, StringComparison.Ordinal);

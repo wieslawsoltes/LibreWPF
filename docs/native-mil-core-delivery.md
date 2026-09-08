@@ -82,6 +82,37 @@ fallback semantics; performance defaults may only claim speed after measurement.
 
 ## Core application closure checkpoints
 
+Popup extent/limit connection (MVP/Toolkit menus and ComboBoxes at desktop edges):
+source `Popup.UpdatePosition` previously used framebuffer DPI for root-size
+nudging even on a logical-unit desktop. It now uses the ProGPU desktop-vector
+contract, alongside child-interest points, absolute-placement offsets and
+desired-size restrictions. Screen constraints operate in desktop units and return
+client-DIP sizes; legacy HWND sources keep their device-transform path.
+ProGPU owns intrinsic forward/inverse vector arithmetic without origin translation
+or inverse-reciprocal overflow. Both renderer modes consume the same source helper,
+not separate rendering algorithms. See the [connection and authored fixtures](../external/ProGPU/docs/native-mil-popup-placement.md#popup-extent-and-limit-connection).
+Host publication and bridge-local overlay/input conversion remain the next coupled
+dependency. Automatic mapping, Windows admission and final gates remain unchanged.
+Build-infrastructure follow-up: space became available again, but the clean source
+test restore exposed NU1605: PresentationCore.Tests pins System.Formats.Nrbf
+10.0.11 while System.Private.Windows.Core.TestUtilities
+11.0.0-preview.7.26359.117 requires its matching 11.0 preview. The test project now
+uses `ProGpuWpfTestFormatsNrbfVersion`, capturing the upstream NRBF pin before the
+portable product pins apply. Product NRBF stays at 10.0.11; only the source test
+dependency is aligned with its utility package. A normal restore/build now succeeds
+for PresentationCore.Tests (9 warnings/0 errors), closing the earlier disk/restore
+compile blocker. NU1701 remains visible and runtime compatibility remains a final
+qualification item. No downgrade warning was suppressed. The source-contract
+fixture protects the separation between test and product pins.
+Compile-only results: ProGPU.Tests 0 warnings/0 errors; the source-built
+application harness 4/0; PresentationCore.Tests 9/0 after normal restore;
+PresentationFramework.Tests 3/0 after normal restore; final bridge fixtures 116/0.
+An earlier bridge rebuild reported 115 warnings; this is not a warning-cleanup
+claim. These builds close the
+source-consumer compilation gap, not application/runtime acceptance. Existing
+NU1701 and other warnings remain visible. No tests, source verifiers, graphical
+applications, VM/image workloads, benchmarks or CI qualification were executed.
+
 Client-to-desktop source prerequisite (same MVP/Toolkit popup placement action):
 ProGPU now owns an immutable validated desktop transform and optional typed source
 capability. Source-built WPF point-to/from-screen conversion, including portable

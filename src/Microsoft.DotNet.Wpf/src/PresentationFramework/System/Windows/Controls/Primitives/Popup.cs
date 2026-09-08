@@ -2297,7 +2297,7 @@ namespace System.Windows.Controls.Primitives
             // Popups are not nudged if their axes do not align with the screen axes
 
             // Use the size of the popupRoot in case it is clipping the popup content
-            childBounds = new Rect((Size)_secHelper.GetTransformToDevice().Transform((Point)_popupRoot.RenderSize));
+            childBounds = new Rect(_secHelper.ClientSizeToScreen(_popupRoot.RenderSize));
 
             childBounds.Offset(bestTranslation);
             screenBounds = GetScreenBounds(targetBounds, placementTargetInterestPoints[(int)InterestPoint.TopLeft]);
@@ -2492,10 +2492,7 @@ namespace System.Windows.Controls.Primitives
                     placementRect = new Rect();
                 }
 
-                if (!UsesPortableLogicalScreenCoordinates(target))
-                {
-                    offset = _secHelper.GetTransformToDevice().Transform(offset);
-                }
+                offset = (Vector)_secHelper.ClientOffsetToScreen((Point)offset);
 
                 // Offset the rect
                 placementRect.Offset(offset);
@@ -2577,11 +2574,18 @@ namespace System.Windows.Controls.Primitives
 
             // Transform InterestPoints to popup's space
             GeneralTransform childToPopupTransform = TransformToClient(child, _popupRoot);
+            bool portableClient = _secHelper.IsPortable;
 
             for (int i = 0; i < 5; i++)
             {
                 // subtract Animation offset and transform point to the screen coordinate space
                 childToPopupTransform.TryTransform(interestPoints[i] - offset, out interestPoints[i]);
+                if (portableClient)
+                {
+                    // TransformToClient deliberately leaves portable points in
+                    // DIPs. Scoring and nudging compare desktop-sized extents.
+                    interestPoints[i] = _secHelper.ClientOffsetToScreen(interestPoints[i]);
+                }
             }
 
             return interestPoints;
@@ -2809,14 +2813,9 @@ namespace System.Windows.Controls.Primitives
             Size limitSize;
             GetPopupRootLimits(out targetBounds, out screenBounds, out limitSize);
 
-            bool usesPortableLogicalScreenCoordinates = UsesPortableLogicalScreenCoordinates(_popupRoot);
-
-            // Native HWND screen bounds are expressed in device pixels. Portable screen
-            // bounds stay in logical units, matching the popup root's desired size.
-            if (!usesPortableLogicalScreenCoordinates)
-            {
-                desiredSize = (Size)_secHelper.GetTransformToDevice().Transform((Point)desiredSize);
-            }
+            // Restrict in the same desktop units as the monitor/work-area bounds.
+            // Portable desktop scale is independent of framebuffer DPI.
+            desiredSize = _secHelper.ClientSizeToScreen(desiredSize);
 
             desiredSize.Width = Math.Min(desiredSize.Width, screenBounds.Width);
             desiredSize.Width = Math.Min(desiredSize.Width, limitSize.Width);
@@ -2827,11 +2826,7 @@ namespace System.Windows.Controls.Primitives
             desiredSize.Height = Math.Min(desiredSize.Height, maxHeight);
             desiredSize.Height = Math.Min(desiredSize.Height, limitSize.Height);
 
-            if (!usesPortableLogicalScreenCoordinates)
-            {
-                // Convert back from screen space to popup's space
-                desiredSize = (Size)_secHelper.GetTransformFromDevice().Transform((Point)desiredSize);
-            }
+            desiredSize = _secHelper.ScreenSizeToClient(desiredSize);
 
             return desiredSize;
         }
@@ -3468,6 +3463,45 @@ namespace System.Windows.Controls.Primitives
                 }
 
                 return PointUtil.ToRect(rect);
+            }
+
+            private bool TryGetDesktopTransform(out PortableDesktopTransform transform)
+            {
+                PresentationSource source = _window ?? _portableOwnerPresentationSource;
+                if (PointUtil.TryGetPortableDesktopTransform(source, out transform))
+                {
+                    return true;
+                }
+                if (source != null && PointUtil.IsPortablePresentationSource(source))
+                {
+                    throw new PlatformNotSupportedException("Portable popup desktop geometry is unavailable.");
+                }
+                return false;
+            }
+
+            internal Point ClientOffsetToScreen(Point offset)
+            {
+                if (TryGetDesktopTransform(out PortableDesktopTransform transform))
+                {
+                    PortablePoint point = transform.ClientVectorToDesktop(new PortablePoint(offset.X, offset.Y));
+                    return new Point(point.X, point.Y);
+                }
+                return GetTransformToDevice().Transform(offset);
+            }
+
+            internal Size ClientSizeToScreen(Size size)
+            {
+                return (Size)ClientOffsetToScreen((Point)size);
+            }
+
+            internal Size ScreenSizeToClient(Size size)
+            {
+                if (TryGetDesktopTransform(out PortableDesktopTransform transform))
+                {
+                    PortablePoint point = transform.DesktopVectorToClient(new PortablePoint(size.Width, size.Height));
+                    return new Size(point.X, point.Y);
+                }
+                return (Size)GetTransformFromDevice().Transform((Point)size);
             }
 
             internal Matrix GetTransformToDevice()

@@ -226,6 +226,19 @@ namespace MS.Internal
             return ToPoint(ptClient);
         }
 
+        internal static bool TryGetPortableDesktopTransform(
+            PresentationSource source,
+            out PortableDesktopTransform transform)
+        {
+            if (TryGetPortablePresentationSource(source, out PortablePresentationSource portableSource))
+            {
+                transform = portableSource.DesktopTransform;
+                return true;
+            }
+            transform = default;
+            return false;
+        }
+
         private static bool TryGetPortablePresentationSource(
             PresentationSource presentationSource,
             out PortablePresentationSource portableSource)

@@ -13,6 +13,42 @@ namespace System.Windows;
 public class PortablePopupOwnershipTests
 {
     [Theory]
+    [InlineData(1.0, 1.0, 2.0, 2.0)]
+    [InlineData(2.0, 2.0, 2.0, 2.0)]
+    [InlineData(1.5, 2.0, 2.0, 1.5)]
+    public void PopupExtentsAndOffsetsUseDesktopScaleNotFramebufferDpi(double sx, double sy, double dpiX, double dpiY)
+    {
+        RunInUiApartment(() =>
+        {
+            using var owner = PortablePresentationSourceHost.Create();
+            var target = new Border();
+            owner.RootVisual = target;
+            var service = new PopupService(owner);
+            using var registration = PortableWpfServiceRegistry.RegisterPopupService(service);
+            var helper = new Popup.PopupSecurityHelper();
+            try
+            {
+                helper.BuildWindow(0, 0, target, true, null!, null!, null!);
+                service.Source!.SetDeviceScale(dpiX, dpiY);
+                ((IPortableDesktopGeometryHost)service.Source).SetDesktopTransform(
+                    new PortableDesktopTransform(-1920, 24, sx, sy));
+                var clientSize = new Size(100, 80);
+                var screenSize = new Size(100 * sx, 80 * sy);
+                helper.ClientSizeToScreen(clientSize).Should().Be(screenSize);
+                helper.ScreenSizeToClient(screenSize).Should().Be(clientSize);
+                helper.ClientOffsetToScreen(new Point(-5, 7)).Should().Be(new Point(-5 * sx, 7 * sy));
+
+                service.Source.SetDeviceScale(3, 3);
+                helper.ClientSizeToScreen(clientSize).Should().Be(screenSize);
+                service.Source.SetClientOrigin(2560, -1440);
+                helper.ClientSizeToScreen(clientSize).Should().Be(screenSize);
+                helper.ScreenSizeToClient(screenSize).Should().Be(clientSize);
+            }
+            finally { helper.DestroyWindow(null!, null!, null!); }
+        });
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public void PortableOwnerRoutesLifecycleIncludingAlreadyDisposedSources(bool disposeBeforeDestroy)

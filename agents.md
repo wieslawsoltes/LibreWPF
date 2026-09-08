@@ -59,6 +59,10 @@ snapshot and optional `IPortableDesktopGeometryHost` source capability. Preserve
 its scale on legacy origin-only updates; framebuffer DPI is independent. Complete
 popup child/limit/offset/input conversion with host publication before selecting
 nonidentity desktop scale automatically; changing only screen anchors mixes units.
+Popup child extents, screen-edge nudging, size restrictions and absolute-placement
+offsets use the shared desktop vector mapping, not framebuffer DPI. Keep monitor
+bounds in desktop units and convert restricted sizes back to client DIPs; native
+HWND placement retains its existing device-transform route.
 Source-WPF geometry Combine must use the typed geometry operations provider and
 bounds-free operand export. Do not restore bounds-only boolean results or request
 CombinedGeometry.Bounds while exporting a combination. Groups preserve figure
