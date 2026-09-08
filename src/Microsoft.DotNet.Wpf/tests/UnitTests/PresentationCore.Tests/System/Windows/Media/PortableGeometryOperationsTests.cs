@@ -9,6 +9,55 @@ namespace System.Windows.Media;
 public class PortableGeometryOperationsTests
 {
     [Fact]
+    public void PathDataBoundsPreserveFillTransformAndSkipHollows()
+    {
+        var service = new GeometryService();
+        using var registration = PortableWpfServiceRegistry.RegisterGeometryOperations(service);
+        var geometry = new PathGeometry { FillRule = FillRule.EvenOdd, Transform = new TranslateTransform(10, 20) };
+        geometry.Figures.Add(new PathFigure(new Point(1, 2), [new LineSegment(new Point(3, 4), false)], false)
+        { IsFilled = false });
+        var operand = PortableGeometryOperationsBridge.ExportPathData(geometry.GetPathGeometryData());
+        var result = PortableGeometryOperationsBridge.GetBounds(operand, new Matrix(2, 0, 0, 3, 7, 8), true);
+        operand.Path!.FillRule.Should().Be(PortableFillRule.EvenOdd);
+        operand.Path.Transform.OffsetX.Should().Be(10);
+        operand.Path.Transform.OffsetY.Should().Be(20);
+        operand.Path.Figures[0].IsFilled.Should().BeFalse();
+        operand.Path.Figures[0].Segments[0].IsStroked.Should().BeFalse();
+        service.SkipHollows.Should().BeTrue();
+        service.Transform.M11.Should().Be(2);
+        result.Should().Be(new Rect(11, 12, 13, 14));
+    }
+
+    [Fact]
+    public void FillQueryForwardsPointAndToleranceWithoutBoundsQueries()
+    {
+        var service = new GeometryService();
+        using var registration = PortableWpfServiceRegistry.RegisterGeometryOperations(service);
+        PortableGeometryOperationsBridge.FillContains(new RectangleGeometry(new Rect(0, 0, 10, 10)),
+            new Point(8, 9), 0.125, ToleranceType.Relative).Should().BeTrue();
+        service.Point.X.Should().Be(8); service.Point.Y.Should().Be(9);
+        service.Tolerance.Should().Be(0.125); service.Relative.Should().BeTrue();
+        service.Calls.Should().Be(1);
+    }
+
+    [Fact]
+    public unsafe void PrimitiveDecoderPreservesCubicsFlagsAndRejectsTruncatedTransport()
+    {
+        Point* points = stackalloc Point[] { new(1, 2), new(3, 4), new(5, 6), new(7, 8) };
+        byte* types = stackalloc byte[] { 2 | 4 | 8 | 16 | 32 };
+        var operand = PortableGeometryOperationsBridge.ExportPolygon(points, 4, types, 1, Matrix.Identity);
+        var figure = operand.Path!.Figures[0];
+        figure.IsClosed.Should().BeTrue(); figure.IsFilled.Should().BeTrue();
+        figure.Segments[0].Kind.Should().Be(PortablePathSegmentKind.CubicBezier);
+        figure.Segments[0].IsSmoothJoin.Should().BeTrue(); figure.Segments[0].IsStroked.Should().BeFalse();
+        figure.Segments[0].Point3.X.Should().Be(7);
+        bool rejected = false;
+        try { PortableGeometryOperationsBridge.ExportPolygon(points, 3, types, 1, Matrix.Identity); }
+        catch (ArgumentException) { rejected = true; }
+        rejected.Should().BeTrue();
+    }
+
+    [Fact]
     public void NestedGroupExportDoesNotAskForCombinedBoundsOrExecuteTheProvider()
     {
         var service = new GeometryService();
@@ -72,6 +121,18 @@ public class PortableGeometryOperationsTests
         public PortableMatrix3x2 Transform;
         public double Tolerance;
         public bool Relative;
+        public bool SkipHollows;
+        public PortablePoint Point;
+        public PortableRect GetBounds(PortableGeometryOperand geometry, PortableMatrix3x2 transform, bool skipHollows)
+        {
+            Calls++; Transform = transform; SkipHollows = skipHollows;
+            return new PortableRect(11, 12, 13, 14);
+        }
+        public bool FillContains(PortableGeometryOperand geometry, PortablePoint point, double tolerance, bool relative)
+        {
+            Calls++; Point = point; Tolerance = tolerance; Relative = relative;
+            return true;
+        }
         public PortableGeometryPath Combine(PortableGeometryOperand first, PortableGeometryOperand second,
             PortableGeometryCombineMode mode, PortableMatrix3x2 transform, double tolerance, bool relative)
         {

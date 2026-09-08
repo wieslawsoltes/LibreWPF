@@ -56,6 +56,10 @@ namespace System.Windows.Media
         { 
             get
             {
+                if (PortableGeometryOperationsBridge.IsPortable)
+                    return PortableGeometryOperationsBridge.GetBounds(
+                        PortableGeometryOperationsBridge.Export(this, 0), Matrix.Identity, false);
+
                 return PathGeometry.GetPathBounds(
                     GetPathGeometryData(),
                     null,   // pen
@@ -156,6 +160,10 @@ namespace System.Windows.Media
                 return Rect.Empty;
             }
 
+            if (!Pen.ContributesToBounds(pen) && PortableGeometryOperationsBridge.IsPortable)
+                return PortableGeometryOperationsBridge.GetBounds(
+                    PortableGeometryOperationsBridge.Export(this, 0), matrix, true);
+
             PathGeometryData pathData = GetPathGeometryData();
 
             return PathGeometry.GetPathBounds(
@@ -191,6 +199,14 @@ namespace System.Windows.Media
         {
             // If the pen contributes to the bounds, populate the CMD struct
             bool fPenContributesToBounds = Pen.ContributesToBounds(pen);
+
+            if (!fPenContributesToBounds && PortableGeometryOperationsBridge.IsPortable)
+            {
+                return PortableGeometryOperationsBridge.GetBounds(
+                    PortableGeometryOperationsBridge.ExportPolygon(pPoints, pointCount, pTypes, segmentCount,
+                        pGeometryMatrix == null ? Matrix.Identity : *pGeometryMatrix),
+                    pWorldMatrix == null ? Matrix.Identity : *pWorldMatrix, fSkipHollows);
+            }
 
             if (!OperatingSystem.IsWindows())
             {
@@ -482,6 +498,9 @@ namespace System.Windows.Media
             {
                 return false;
             }
+
+            if (pen == null && PortableGeometryOperationsBridge.IsPortable)
+                return PortableGeometryOperationsBridge.FillContains(this, hitPoint, tolerance, type);
 
             PathGeometryData pathData = GetPathGeometryData();
 

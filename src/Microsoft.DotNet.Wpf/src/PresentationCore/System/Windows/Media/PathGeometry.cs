@@ -767,6 +767,13 @@ namespace System.Windows.Media
             // return Rect.Empty. Callers should do their own check.
             Debug.Assert(!pathData.IsEmpty());
 
+            if (!Pen.ContributesToBounds(pen) && PortableGeometryOperationsBridge.IsPortable)
+            {
+                Rect bounds = PortableGeometryOperationsBridge.GetBounds(
+                    PortableGeometryOperationsBridge.ExportPathData(pathData), worldMatrix, skipHollows);
+                return bounds.IsEmpty ? MilRectD.Empty : new MilRectD(bounds.Left, bounds.Top, bounds.Right, bounds.Bottom);
+            }
+
             if (!OperatingSystem.IsWindows())
             {
                 return GetProGpuPathBoundsAsRB(pathData, pen, worldMatrix);

@@ -16,6 +16,45 @@ internal sealed class WpfPortableGeometryOperations : IPortableGeometryOperation
     private static readonly WpfPortableGeometryOperations Default = new();
     internal static void EnsureRegistered() => PortableWpfServiceRegistry.EnsureGeometryOperations(Default);
 
+    public PortableRect GetBounds(PortableGeometryOperand geometry, PortableMatrix3x2 worldTransform, bool skipHollows)
+    {
+        try
+        {
+            int budget = 1 << 20;
+            Matrix4x4 transform = Matrix(worldTransform);
+            VectorPath path = Resolve(geometry, 0, ref budget);
+            if (!transform.IsIdentity) path = path.CreateTransformed(transform);
+            if (!WpfPortablePathBoundsReader.TryGetMaterializedPathBounds(path, out var bounds, out bool hasPoints, skipHollows))
+                throw new NotSupportedException("The transformed geometry has no valid exact bounds.");
+            if (!hasPoints) return PortableRect.Empty;
+            Check(bounds.X, bounds.Y); Check(bounds.X + bounds.Width, bounds.Y + bounds.Height);
+            return new PortableRect(bounds.X, bounds.Y, bounds.Width, bounds.Height);
+        }
+        catch (BadGeometryNumberException) { return PortableRect.Empty; }
+    }
+
+    public bool FillContains(PortableGeometryOperand geometry, PortablePoint point, double tolerance, bool relativeTolerance)
+    {
+        try
+        {
+            Check(point.X, point.Y); Check(tolerance, 0, nativeRange: false);
+            int budget = 1 << 20;
+            VectorPath path = Resolve(geometry, 0, ref budget);
+            if (path.IsCombined) throw new InvalidOperationException("Unresolved geometry operand.");
+            var (_, segments) = PathAtlas.CompileFillPath(path, out _, out _, out _, out _);
+            double left = double.PositiveInfinity, top = double.PositiveInfinity;
+            double right = double.NegativeInfinity, bottom = double.NegativeInfinity;
+            IncludeBounds(path, ref left, ref top, ref right, ref bottom);
+            float absolute = ResolveTolerance(tolerance, relativeTolerance,
+                double.IsPositiveInfinity(left) ? 0 : Math.Max(right - left, bottom - top));
+            return NativeGeometryUtilities.FillContains(
+                MemoryMarshal.Cast<GpuPathSegment, NativePathSegment>(segments.AsSpan()),
+                path.FillRule == VectorFill.EvenOdd ? NativeFillRule.EvenOdd : NativeFillRule.NonZero,
+                new Vector2((float)point.X, (float)point.Y), absolute);
+        }
+        catch (BadGeometryNumberException) { return false; }
+    }
+
     public PortableGeometryPath Combine(PortableGeometryOperand first, PortableGeometryOperand second,
         PortableGeometryCombineMode mode, PortableMatrix3x2 resultTransform, double tolerance, bool relativeTolerance)
     {

@@ -8965,6 +8965,9 @@ public sealed class WpfManagedProjectGraphTests
         AssertGuardBefore(bitmapDecoder, "IconBitmapDecoder.TryCreatePortableFrame", "SetupDecoderFromUriOrStream");
         AssertGuardBefore(uiElement, "if (!OperatingSystem.IsWindows())", "UnsafeNativeMethods.GetDC(desktopWnd)");
         AssertGuardBefore(pathGeometry, "if (!OperatingSystem.IsWindows())", "UnsafeNativeMethods.MilCoreApi.MilUtility_PathGeometryBounds");
+        AssertGuardBefore(pathGeometry, "if (!Pen.ContributesToBounds(pen) && PortableGeometryOperationsBridge.IsPortable)", "UnsafeNativeMethods.MilCoreApi.MilUtility_PathGeometryBounds");
+        AssertGuardBefore(geometry, "if (!fPenContributesToBounds && PortableGeometryOperationsBridge.IsPortable)", "MilCoreApi.MilUtility_PolygonBounds");
+        AssertGuardBefore(geometry, "return PortableGeometryOperationsBridge.FillContains(this, hitPoint, tolerance, type);", "MilCoreApi.MilUtility_PathGeometryHitTest");
         AssertGuardBefore(pathGeometry, "return PortableGeometryOperationsBridge.Combine(geometry1, geometry2, mode, transform, tolerance, type);", "UnsafeNativeMethods.MilCoreApi.MilUtility_PathGeometryCombine");
         Assert.Contains("PortableWpfRuntime.GetMediaBackendAndFreeze() == PortableWpfMediaBackend.Portable", pathGeometry, StringComparison.Ordinal);
         Assert.DoesNotContain("InternalCombineManaged", pathGeometry, StringComparison.Ordinal);

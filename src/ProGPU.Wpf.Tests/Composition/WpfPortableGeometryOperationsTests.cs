@@ -11,6 +11,42 @@ namespace ProGPU.Wpf.Tests.Composition;
 
 public class WpfPortableGeometryOperationsTests
 {
+    [Fact]
+    public void BoundsPreserveCurveExtremaHollowsAndBothTransforms()
+    {
+        var path = new PortableGeometryOperand { Path = new PortableGeometryPath
+        {
+            Transform = new PortableMatrix3x2(2, 0, 0, 3, 10, 20),
+            Figures = [new PortablePathFigure
+            {
+                StartPoint = new(0, 0), IsFilled = true,
+                Segments = [PortablePathSegment.CubicBezier(new(0, 100), new(100, 100), new(100, 0), false, true)]
+            }, new PortablePathFigure { StartPoint = new(-10, -20), IsFilled = false }]
+        }};
+        var service = new WpfPortableGeometryOperations();
+        var world = new PortableMatrix3x2(1, 0, 0, 1, 7, 8);
+        var fill = service.GetBounds(path, world, true);
+        Assert.False(fill.IsEmpty);
+        Assert.Equal(17, fill.X); Assert.Equal(28, fill.Y);
+        Assert.Equal(200, fill.Width); Assert.Equal(225, fill.Height);
+        var all = service.GetBounds(path, world, false);
+        Assert.Equal(-3, all.X); Assert.Equal(-32, all.Y);
+        Assert.Equal(220, all.Width); Assert.Equal(285, all.Height);
+    }
+
+    [Fact]
+    public void BoundsDistinguishEmptyFromSinglePointAndPreserveNonfinitePolicy()
+    {
+        var service = new WpfPortableGeometryOperations();
+        Assert.True(service.GetBounds(new() { Path = new() }, PortableMatrix3x2.Identity, false).IsEmpty);
+        var point = new PortableGeometryOperand { Path = new() { Figures = [new() { StartPoint = new(3, 4) }] } };
+        var bounds = service.GetBounds(point, PortableMatrix3x2.Identity, false);
+        Assert.False(bounds.IsEmpty); Assert.Equal(3, bounds.X); Assert.Equal(4, bounds.Y);
+        Assert.Equal(0, bounds.Width); Assert.Equal(0, bounds.Height);
+        Assert.False(service.FillContains(point, new(double.NaN, 0), 0.25, false));
+        Assert.True(service.GetBounds(point, new(1, 0, 0, 1, double.NaN, 0), false).IsEmpty);
+    }
+
     [Theory]
     [InlineData(0.01, true, 200, 2)]
     [InlineData(0.25, false, 200, 0.25)]

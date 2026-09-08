@@ -13,7 +13,8 @@ internal static class WpfPortablePathBoundsReader
     // Stream already-transformed native geometry through the same exact curve
     // extrema helpers as portable paths. Vector PathGeometry.TryGetBounds uses
     // Bezier control hulls; those must not enlarge relative Combine tolerance.
-    internal static bool TryGetMaterializedPathBounds(global::ProGPU.Vector.PathGeometry path, out WpfReplayRect bounds, out bool hasPoints)
+    internal static bool TryGetMaterializedPathBounds(global::ProGPU.Vector.PathGeometry path, out WpfReplayRect bounds, out bool hasPoints,
+        bool skipHollows = false)
     {
         bounds = WpfReplayRect.Empty;
         hasPoints = false;
@@ -23,6 +24,7 @@ internal static class WpfPortablePathBoundsReader
         for (int figureIndex = 0; figureIndex < path.Figures.Count; figureIndex++)
         {
             var figure = path.Figures[figureIndex];
+            if (skipHollows && !figure.IsFilled) continue;
             var current = Widen(figure.StartPoint);
             if (!TryIncludePoint(current, ref hasPoint, ref left, ref top, ref right, ref bottom)) return false;
             for (int index = 0; index < figure.Segments.Count; index++)

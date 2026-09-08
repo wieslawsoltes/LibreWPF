@@ -82,6 +82,32 @@ fallback semantics; performance defaults may only claim speed after measurement.
 
 ## Core application closure checkpoints
 
+Fill-query connection checkpoint (MVP/Toolkit layout clips and pointer input):
+portable unstroked bounds now route by frozen media backend through the typed
+geometry provider, including generic groups, serialized paths and primitive MIL
+line/cubic transport. Curve extrema and hollow filtering replace control-hull
+bounds on those routes. Fill point queries use the shared ProGPU C++ Direct2D
+core through one synchronous span call, with intrinsic double edge metrics;
+source LineGeometry retains its no-filled-area result. Contributing-pen bounds
+and stroke hit tests are not redirected into fill algorithms. The Windows SDK
+guard remains, pending the remaining media utilities and application admission.
+See the [contract, provenance and unexecuted fixtures](../external/ProGPU/docs/native-mil-geometry-utilities.md#fill-bounds-and-point-queries--core-layoutinput-connection).
+This is an implementation connection, not runtime, image or performance proof.
+The concrete remaining pen dependency is ordinary stroked content:
+`BoundsDrawingContextWalker.DrawGeometry` passes the pen to `GetBoundsInternal`,
+while its clip pushes pass null pens and use the newly connected route. Close
+the contributing-pen path through shared ProGPU stroke coverage before Windows
+admission; do not replace it with fill-bound inflation or expand unrelated APIs.
+Final compile-only checkpoint: ProGPU `7d8ef97b` is pushed to PR #139; native
+geometry fixture/shared Direct2D core compile under strict AppleClang C++20.
+Release managed builds: ProGPU tests 0 warnings/0 errors, bridge fixtures 20/0,
+source PresentationCore fixtures 8/0, source-built application host harness 5/0.
+An earlier bridge rebuild reported 116 warnings; the final incremental count is
+not a warning-cleanup claim. No tests, source verifiers, application/GPU/VM runs,
+image comparisons, benchmarks or CI qualification were executed in this batch.
+Both PRs remain open; unrelated native presentation edits and deleted performance
+artifacts were preserved outside these commits.
+
 SDK activation checkpoint: the package bootstrap previously always selected
 managed portable hosts, so the native direct-host harness did not establish a
 native path for the MVP/Toolkit applications. `ProGpuWpfRendererMode=NativeMilWgpu`

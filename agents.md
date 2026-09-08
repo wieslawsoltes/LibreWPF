@@ -60,6 +60,12 @@ Relative geometry-operation tolerance must use actual transformed curve extrema
 through the shared bounds reader, not Bezier control-hull bounds. Preserve the
 allocation-free materialized-path traversal rather than creating a second DTO
 snapshot just to infer tolerance bounds.
+Portable fill bounds and point queries must use the same typed geometry provider,
+preserve hollow figures and empty-versus-zero-size bounds, and select by frozen
+media backend rather than OS. Primitive MIL point/type arrays are source-owned
+transport to decode, not permission to compute bounds from their control hulls.
+Do not route contributing pens through these fill-only operations or broaden
+unsupported stroke hit tests into rectangle containment.
 
 ## Reflection-Free Port Priority
 

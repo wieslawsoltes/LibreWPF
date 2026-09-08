@@ -132,6 +132,9 @@ namespace System.Windows.Media
 
         internal override bool ContainsInternal(Pen pen, Point hitPoint, double tolerance, ToleranceType type)
         {
+            // A line has no filled area, regardless of transform or tolerance.
+            if (pen == null && PortableGeometryOperationsBridge.IsPortable) return false;
+
             if (!OperatingSystem.IsWindows() && (pen == null || pen.DoesNotContainGaps))
             {
                 return pen == null

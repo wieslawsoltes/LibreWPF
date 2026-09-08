@@ -242,6 +242,9 @@ namespace System.Windows.Media
 
         internal override bool ContainsInternal(Pen pen, Point hitPoint, double tolerance, ToleranceType type)
         {
+            if (pen == null && PortableGeometryOperationsBridge.IsPortable)
+                return base.ContainsInternal(pen, hitPoint, tolerance, type);
+
             if (IsEmpty())
             {
                 return false;
