@@ -279,6 +279,32 @@ ProGPU contract commit `52aafb89` is pushed to PR #139; the superproject tracks
 it. No tests, source verifiers, runtime/GPU/VM work, images, benchmarks or CI
 qualification were run. All existing qualification gates remain required.
 
+Geometry utility prerequisite checkpoint (MVP/Toolkit transformed layout clips
+and editing selection): ProGPU now exposes the existing C++ Direct2D boolean
+boundary algorithm through a device-independent main-backend C API and managed
+`NativeGeometryUtilities` wrapper. It accepts canonical paths, independent fill
+rules and absolute tolerance, returning actual closed contours with one owned
+snapshot. No GPU/window/system COM activation, bounds substitute or new boolean
+algorithm is introduced. The shared core's intrinsic kernels remain authoritative.
+
+The source-WPF bounds-only implementation **has not yet been replaced**. The next
+bounded outcome is its typed adapter and startup registration, preserving nested
+geometry, transforms, relative tolerance and invalid-number behavior for both
+renderer modes. This native prerequisite cannot by itself admit Windows SDK
+applications. See the [contract/provenance and remaining connection](../external/ProGPU/docs/native-mil-geometry-utilities.md).
+
+The device-independent C++ conformance executable and managed ProGPU test project
+compile in Release; managed builds report 0 warnings/0 errors and the strict
+AppleClang native build reports no diagnostics. Test bodies, verifiers,
+runtime/GPU/VM/image/lifetime/benchmark work and CI were not run. The CTest gate is
+registered for final qualification. Full backend shared libraries and actual
+managed/native P/Invoke still require qualification. ProGPU `origin/main` was
+refreshed with zero commits missing; unrelated native edits remain preserved.
+ProGPU implementation commit `93120e82` is pushed to PR #139 and tracked by the
+superproject. The utility fixture is included by the existing unfiltered CTest
+commands in the Unix and Windows native build scripts; those commands have not
+been executed during this implementation-first phase.
+
 Transport-selection compilation checkpoint: final Release ProGPU tests compile
 with 0 warnings/0 errors, the source-built WPF host harness with 4/0, WPF tests
 with 115/0 and SDK smoke harness with 0/0. Both actual conditional SDK bootstrap
