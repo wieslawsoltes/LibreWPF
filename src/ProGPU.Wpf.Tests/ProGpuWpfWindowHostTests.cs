@@ -503,6 +503,18 @@ public sealed class ProGpuWpfWindowHostTests
     }
 
     [Fact]
+    public void SystemMenuDoesNotCreateAWindowAndRejectsDisposedHosts()
+    {
+        using var host = new ProGpuWpfWindowHost();
+        Assert.False(host.TryShowSystemMenu(-200, 40));
+        Assert.Null(host.SilkWindow);
+        host.Dispose();
+        Assert.Throws<ObjectDisposedException>(() => host.TryShowSystemMenu(-200, 40));
+        var platform = new SilkNetWpfWindowDecorationService();
+        Assert.False(platform.TryShowSystemMenu(new object(), -200, 40));
+    }
+
+    [Fact]
     public void X11DragMoveFallbackPreservesThePointerToWindowOffset()
     {
         var position = SilkNetWpfWindowDecorationService.ResolveX11FallbackPosition(

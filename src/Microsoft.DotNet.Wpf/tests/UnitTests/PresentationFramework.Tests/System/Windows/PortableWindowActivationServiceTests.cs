@@ -124,6 +124,63 @@ public class PortableWindowActivationServiceTests
     }
 
     [PortableInputFact]
+    public void SystemMenuUsesTypedRegistrationAndDesktopCoordinatesWithoutSourceHandleAccess()
+    {
+        RunInUiApartment(() =>
+        {
+            var activation = new object();
+            int handleQueries = 0;
+            bool accepted = true;
+            var positions = new List<Point>();
+            PortableWindowActivationService.RegisterPortableInteropService();
+            PortableWpfServiceRegistry.TryGetWindowActivationService(
+                PortableWpfServiceKey.PresentationFramework, out var registrar).Should().BeTrue();
+            registrar!.Register(new PortableWindowActivationCallbacks(_ => activation,
+                getHandle: _ => { handleQueries++; return new IntPtr(5678); })
+            {
+                CreateHidden = _ => activation,
+                ShowSystemMenu = (owner, x, y) =>
+                {
+                    owner.Should().BeSameAs(activation);
+                    positions.Add(new Point(x, y));
+                    return accepted;
+                }
+            });
+            var window = new Window { Width = 200, Height = 100 };
+            try
+            {
+                new WindowInteropHelper(window).EnsureHandle().Should().Be(new IntPtr(5678));
+                int initialHandleQueries = handleQueries;
+                SystemCommands.ShowSystemMenu(window, new Point(-1234.5, 67.25));
+                SystemCommands.ShowSystemMenuPhysicalCoordinates(window, new Point(-900, 450));
+                positions.Should().Equal(new Point(-1234.5, 67.25), new Point(-900, 450));
+                accepted = false;
+                Action rejected = () => SystemCommands.ShowSystemMenu(window, new Point(12, 24));
+                rejected.Should().Throw<PlatformNotSupportedException>().WithMessage("*system menu*");
+                Action invalid = () => SystemCommands.ShowSystemMenu(window, new Point(double.NaN, 0));
+                invalid.Should().Throw<ArgumentException>();
+                positions.Count.Should().Be(3);
+
+                // Registering a legacy host must clear the optional capability,
+                // not retain the previous host's system-menu callback.
+                registrar.Register(new PortableWindowActivationCallbacks(_ => activation));
+                rejected.Should().Throw<PlatformNotSupportedException>();
+                positions.Count.Should().Be(3);
+                var failure = new InvalidOperationException("Host menu failure.");
+                registrar.Register(new PortableWindowActivationCallbacks(_ => activation)
+                    { ShowSystemMenu = (_, _, _) => throw failure });
+                rejected.Should().Throw<InvalidOperationException>().Which.Should().BeSameAs(failure);
+                handleQueries.Should().Be(initialHandleQueries);
+            }
+            finally
+            {
+                if (!window.IsDisposed) window.Close();
+                PortableWindowActivationService.Clear();
+            }
+        });
+    }
+
+    [PortableInputFact]
     public void SystemWindowCommandsUsePortableOwnerStateAndCancelableCloseOnEveryOs()
     {
         RunInUiApartment(() =>

@@ -1278,6 +1278,12 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         return _window != null && PlatformServices.WindowDecorations.TryBeginDragMove(_window);
     }
 
+    public bool TryShowSystemMenu(double desktopX, double desktopY)
+    {
+        ThrowIfDisposed();
+        return _window != null && PlatformServices.WindowDecorations.TryShowSystemMenu(_window, desktopX, desktopY);
+    }
+
     public bool ProcessDispatcherQueue()
     {
         ThrowIfDisposed();

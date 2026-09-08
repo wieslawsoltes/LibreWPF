@@ -33,6 +33,7 @@ namespace System.Windows
         private static Func<object, IntPtr> _getHandle;
         private static Func<IntPtr, PortableWindowRegion, bool> _setWindowRegion;
         private static Func<object, bool> _requestActivation;
+        private static Func<object, double, double, bool> _showSystemMenu;
 
         internal static bool IsEnabled
         {
@@ -67,7 +68,8 @@ namespace System.Windows
             Func<IntPtr, PortableWindowRegion, bool> setWindowRegion = null,
             Func<object, bool> requestActivation = null,
             Action<object, object> setIcon = null,
-            Func<object, object> createHidden = null)
+            Func<object, object> createHidden = null,
+            Func<object, double, double, bool> showSystemMenu = null)
         {
             ArgumentNullException.ThrowIfNull(activate);
 
@@ -88,6 +90,7 @@ namespace System.Windows
             Volatile.Write(ref _requestActivation, requestActivation);
             Volatile.Write(ref _setIcon, setIcon);
             Volatile.Write(ref _createHidden, createHidden);
+            Volatile.Write(ref _showSystemMenu, showSystemMenu);
             Volatile.Write(ref _activate, activate);
         }
 
@@ -95,6 +98,7 @@ namespace System.Windows
         {
             Volatile.Write(ref _activate, null);
             Volatile.Write(ref _createHidden, null);
+            Volatile.Write(ref _showSystemMenu, null);
             Volatile.Write(ref _show, null);
             Volatile.Write(ref _hide, null);
             Volatile.Write(ref _setWindowState, null);
@@ -199,6 +203,12 @@ namespace System.Windows
 
             Func<object, bool> dragMove = Volatile.Read(ref _dragMove);
             return dragMove != null && dragMove(activation);
+        }
+
+        internal static bool TryShowSystemMenu(object activation, double desktopX, double desktopY)
+        {
+            return activation != null && double.IsFinite(desktopX) && double.IsFinite(desktopY) &&
+                Volatile.Read(ref _showSystemMenu)?.Invoke(activation, desktopX, desktopY) == true;
         }
 
         internal static IntPtr GetHandle(object activation)
@@ -958,7 +968,8 @@ namespace System.Windows
                     callbacks.SetWindowRegion,
                     callbacks.RequestActivation,
                     callbacks.SetIcon,
-                    callbacks.CreateHidden);
+                    callbacks.CreateHidden,
+                    callbacks.ShowSystemMenu);
             }
 
             public bool TryRegisterMediaContextRenderService(

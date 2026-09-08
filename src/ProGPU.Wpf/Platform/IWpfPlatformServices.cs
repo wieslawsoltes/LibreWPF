@@ -158,6 +158,11 @@ public interface IWpfWindowDecorationService
 {
     bool TryBeginDragMove(object window);
 
+    bool TryShowSystemMenu(object window, double desktopX, double desktopY)
+    {
+        return false;
+    }
+
     void TrackDragMoveInput(object window, WpfInputEventArgs input)
     {
     }

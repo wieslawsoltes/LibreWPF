@@ -89,6 +89,11 @@ namespace System.Windows
         public static void ShowSystemMenu(Window window, Point screenLocation)
         {
             Verify.IsNotNull(window, "window");
+            if (window.PortableWindowActivation != null)
+            {
+                ShowPortableSystemMenu(window, screenLocation);
+                return;
+            }
             DpiScale dpi = window.GetDpi();
             ShowSystemMenuPhysicalCoordinates(window, DpiHelper.LogicalPixelsToDevice(screenLocation, dpi.DpiScaleX, dpi.DpiScaleY));
         }
@@ -100,6 +105,11 @@ namespace System.Windows
             const uint TPM_RIGHTBUTTON = 0x2;
 
             Verify.IsNotNull(window, "window");
+            if (window.PortableWindowActivation != null)
+            {
+                ShowPortableSystemMenu(window, physicalScreenLocation);
+                return;
+            }
             if (!OperatingSystem.IsWindows())
             {
                 return;
@@ -118,6 +128,18 @@ namespace System.Windows
             {
                 NativeMethods.PostMessage(hwnd, WM.SYSCOMMAND, new IntPtr(cmd), IntPtr.Zero);
             }
+        }
+
+        private static void ShowPortableSystemMenu(Window window, Point desktopLocation)
+        {
+            window.VerifyAccess();
+            // Portable PointToScreen and native host placement already share
+            // desktop coordinates. Framebuffer DPI must not rescale the origin.
+            if (!double.IsFinite(desktopLocation.X) || !double.IsFinite(desktopLocation.Y))
+                throw new ArgumentException("System-menu coordinates must be finite.", nameof(desktopLocation));
+            if (!PortableWindowActivationService.TryShowSystemMenu(
+                window.PortableWindowActivation, desktopLocation.X, desktopLocation.Y))
+                throw new PlatformNotSupportedException("The portable window host cannot display its system menu.");
         }
     }
 }

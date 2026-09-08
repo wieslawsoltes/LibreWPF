@@ -164,7 +164,8 @@ public sealed class WpfPortableWindowActivation : IDisposable
         {
             CreateHidden = window => TryCreateActivation(window, hostFactory, out var activation, hidden: true)
                 ? activation
-                : null
+                : null,
+            ShowSystemMenu = (activation, x, y) => ((WpfPortableWindowActivation)activation).TryShowSystemMenu(x, y)
         };
     }
 
@@ -531,6 +532,12 @@ public sealed class WpfPortableWindowActivation : IDisposable
     {
         ThrowIfDisposed();
         return Host.TryBeginDragMove();
+    }
+
+    public bool TryShowSystemMenu(double desktopX, double desktopY)
+    {
+        ThrowIfDisposed();
+        return Host.TryShowSystemMenu(desktopX, desktopY);
     }
 
     public void Dispose()

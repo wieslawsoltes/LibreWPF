@@ -83,8 +83,12 @@ Preserve typed border updates and restoration when attached chrome is removed.
 SystemCommands close/maximize/minimize/restore must select an active portable
 Window before querying a handle, including on Windows. Use its existing source
 Close/WindowState path so cancellation and typed host notifications are retained;
-native WPF windows keep posted HWND system commands. This does not implement
-portable system-menu display or admit the Windows native SDK package path.
+native WPF windows keep posted HWND system commands. System-menu display uses
+the typed optional activation callback and shared ProGPU NativeWindowSystemMenu
+provider, never a portable source handle passed to WPF Win32 helpers. Preserve
+absolute desktop coordinates without framebuffer-DPI scaling. The Win32 provider
+is connected; Cocoa/X11/Wayland providers remain explicit missing capabilities,
+not successful no-ops. Windows SDK package admission remains separate.
 
 Decoder-backed core application images follow `BitmapSource.UsesPortablePixelStorage`
 for backend selection on every OS. Existing portable format dispatch must not fall

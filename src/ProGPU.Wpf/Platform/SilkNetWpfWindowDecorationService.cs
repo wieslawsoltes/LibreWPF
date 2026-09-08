@@ -69,6 +69,19 @@ public sealed unsafe class SilkNetWpfWindowDecorationService : IWpfWindowDecorat
         return false;
     }
 
+    public bool TryShowSystemMenu(object window, double desktopX, double desktopY)
+    {
+        if (!OperatingSystem.IsWindows() || window is not IView view ||
+            !double.IsFinite(desktopX) || !double.IsFinite(desktopY) ||
+            desktopX < int.MinValue || desktopX > int.MaxValue ||
+            desktopY < int.MinValue || desktopY > int.MaxValue)
+            return false;
+        return NativeWindowSystemMenu.TryShow(
+            new NativeWindowHandle(NativeWindowKind.Win32, GetWin32Hwnd(view), 0, "HWND"),
+            new NativeWindowPoint((int)Math.Round(desktopX, MidpointRounding.AwayFromZero),
+                (int)Math.Round(desktopY, MidpointRounding.AwayFromZero)));
+    }
+
     public void TrackDragMoveInput(object window, WpfInputEventArgs input)
     {
         if (!OperatingSystem.IsLinux() || window is not IWindow view)

@@ -116,6 +116,24 @@ commit. Their next-step text is historical, may be superseded by later changes,
 and must not be treated as an additional active backlog. Use the active completion
 queue above for current priorities.
 
+Windows system-menu connection: the MVP Window / Show system menu action now
+uses a typed optional activation callback before source HWND/DPI handling.
+ProGPU owns the new native provider: local same-thread top-level owner admission,
+existing menu lifetime, desktop coordinates, system alignment, modal selection
+and one posted command after owner/menu revalidation. Both renderers share it.
+Missing/rejected capabilities fail explicitly; unrelated host exceptions propagate.
+Native WPF's original menu path remains separate. Authored source and shared
+policy fixtures cover ownership, optional registration, coordinates, cancellation,
+errors and reentrancy; Windows admission fixtures use real child/foreign-thread
+HWNDs. These are not executed menu-display evidence. Cocoa/X11/Wayland system-menu
+providers are still missing and the native Windows SDK guard remains in place.
+See the [design and qualification record](../external/ProGPU/docs/native-mil-system-menu.md).
+Compile-only: ProGPU.Tests 0 warnings/0 errors, bridge fixtures 116/0 and source
+PresentationFramework fixtures 6/0; the source-built application harness builds
+with 5 warnings/0 errors. ProGPU `dab85b76` is pushed and includes latest fetched
+main. No fixture, verifier, application, VM/GPU,
+benchmark or CI workload ran. No runtime validation is implied by this connection.
+
 Portable Window menu state commands: the MVP's maximize/minimize/restore/close
 path now selects an active portable Window before Win32 handle access on every
 OS. It uses the existing source WindowState/Close implementation and typed host
