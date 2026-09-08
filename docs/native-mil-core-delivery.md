@@ -116,6 +116,31 @@ commit. Their next-step text is historical, may be superseded by later changes,
 and must not be treated as an additional active backlog. Use the active completion
 queue above for current priorities.
 
+Windows popup service connection (MVP/Toolkit ComboBox and menu open, nested menu
+movement, two-window ownership and close): ProGPU root hosts now register with
+the existing typed popup router on Windows as well as macOS/Linux. Native popup
+child hosts retain their explicit opt-out. A supplied source identity cannot be
+overridden by a colliding opaque handle while the router probes other windows;
+legacy handle-only lookup remains available only when no source was supplied.
+Factory-created popup sources are now disposed by their bridge on teardown and
+failed setup, while main-window bindings remain borrowed. Native setup exceptions
+propagate after cleanup; only an explicit null factory result selects the existing
+owner-surface path. These are host adapter/ownership fixes, not a new compositor,
+native algorithm or API family, and need no paired ProGPU implementation change.
+Authored fixtures cover both renderer registrations, nested movement, foreign
+owner rejection, disposal/unregistration, child-host opt-out and native creation/
+input-handler failure cleanup. Compile-only: the final bridge fixture graph builds
+with 21 warnings/0 errors (116 warnings on the first dependency rebuild), and the
+source-built PresentationFramework application harness builds with 4 warnings/
+0 errors. These include existing analyzer/source warnings. No fixture, verifier,
+application, VM/GPU, benchmark or CI workload ran. Latest fetched ProGPU main is
+already included by the existing feature branch; its unrelated worktree changes
+remain untouched.
+This closes the identified popup registration and creation-lifetime blockers, not
+Windows SDK admission. The next application integration work remains startup and
+common source-media routing before removing that guard; no optional API expansion
+is added to the queue.
+
 Windows portable input ownership: the MVP/Toolkit editor-focus, modifier-key,
 typing and mouse-selection path exposed OS-selected Win32 devices even after
 portable media selection. InputManager now freezes that selection before device

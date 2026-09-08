@@ -168,7 +168,9 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         _wpfRenderScheduler = CreateDefaultRenderScheduler(_platformServices, out _ownsRenderScheduler);
         AttachDispatcherService(_platformServices.Dispatcher);
         AttachRenderScheduler(_wpfRenderScheduler);
-        if (!OperatingSystem.IsWindows() && _options.EnablePortablePopupService)
+        // Host ownership, not the OS, selects portable popup services. Native
+        // popup child hosts opt out so creation stays with the owning root host.
+        if (_options.EnablePortablePopupService)
         {
             _portablePopupService = new WpfPortablePopupService(this);
             _portablePopupServiceRegistration = PortableWpfServiceRegistry.RegisterPopupService(_portablePopupService);
@@ -4747,10 +4749,12 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
 
     private bool OwnsPortablePopupOwner(object? ownerPresentationSource, IntPtr ownerHandle)
     {
+        // An explicit source is authoritative. Handle-only lookup is a legacy
+        // contract and must not let another registered window claim this owner.
         var rootBridge = _portablePresentationSourceBridge;
         if (rootBridge != null &&
             (ReferenceEquals(ownerPresentationSource, rootBridge.Source) ||
-             (ownerHandle != IntPtr.Zero && ownerHandle == rootBridge.Handle)))
+             (ownerPresentationSource == null && ownerHandle != IntPtr.Zero && ownerHandle == rootBridge.Handle)))
         {
             return true;
         }
@@ -4759,7 +4763,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         {
             var popup = _portablePopupBridges[i];
             if (ReferenceEquals(ownerPresentationSource, popup.Source) ||
-                (ownerHandle != IntPtr.Zero && ownerHandle == popup.Handle))
+                (ownerPresentationSource == null && ownerHandle != IntPtr.Zero && ownerHandle == popup.Handle))
             {
                 return true;
             }

@@ -314,16 +314,20 @@ internal sealed class WpfPortablePopupBridge : IDisposable
             source.Dispose();
             throw;
         }
-        bridge.SubscribeToSource();
-        bridge.InstallHitTestOverrides();
         try
         {
+            bridge.SubscribeToSource();
+            bridge.InstallHitTestOverrides();
+            // Null is the factory's explicit owner-surface selection. Once it
+            // selects a native host, a failure must not change surface kind.
             bridge._nativeHost = NativePopupHostFactory(host, source, request, dpiScaleX, dpiScaleY);
             bridge._nativeHost?.SetInputHandler(bridge.TryProcessNativeInput);
         }
-        catch (PlatformNotSupportedException)
+        catch
         {
-            // A composited owner-surface popup remains the supported fallback.
+            bridge.Dispose();
+            bridge = null;
+            throw;
         }
         Trace(
             "create " +
@@ -685,7 +689,30 @@ internal sealed class WpfPortablePopupBridge : IDisposable
             return;
         }
 
-        _nativeHost?.Dispose();
+        _isDisposed = true;
+        try
+        {
+            _nativeHost?.Dispose();
+        }
+        finally
+        {
+            try
+            {
+                DetachSourceCallbacks();
+            }
+            finally
+            {
+                // Unlike a borrowed main-window binding, this source was
+                // created by our factory. Release it even if WPF never accepted
+                // the popup or the owning window closes before Popup cleanup.
+                _source.Dispose();
+            }
+        }
+        GC.SuppressFinalize(this);
+    }
+
+    private void DetachSourceCallbacks()
+    {
         _source.RenderRequested -= OnSourceRenderRequested;
         _source.CursorRequested -= OnSourceCursorRequested;
 
@@ -730,9 +757,6 @@ internal sealed class WpfPortablePopupBridge : IDisposable
         {
             _source.HitTestEllipseBoundsBufferOverride = null;
         }
-
-        _isDisposed = true;
-        GC.SuppressFinalize(this);
     }
 
     private void SubscribeToSource()

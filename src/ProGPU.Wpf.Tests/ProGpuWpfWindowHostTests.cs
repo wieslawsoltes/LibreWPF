@@ -2353,6 +2353,154 @@ public sealed class ProGpuWpfWindowHostTests
         Assert.Equal(requestCountAfterReplacement, scheduler.RequestCount);
     }
 
+    [Theory]
+    [InlineData(ProGpuWpfRendererMode.ManagedPortable)]
+    [InlineData(ProGpuWpfRendererMode.NativeMilWgpu)]
+    public void RegisteredPopupServiceTracksHostLifetimeAndChildHostOptOut(ProGpuWpfRendererMode rendererMode)
+    {
+        using var factory = UsePortablePopupSourceFactory(() => new FakePortablePresentationSource());
+        using var host = new ProGpuWpfWindowHost(new ProGpuWpfWindowOptions { RendererMode = rendererMode });
+        var owner = new FakePortablePresentationSource { RootVisual = new object(), Handle = new IntPtr(101) };
+        Assert.True(host.TryBindPortablePresentationSource(owner));
+        Assert.True(PortableWpfServiceRegistry.TryGetPopupService(
+            PortableWpfServiceKey.PresentationFramework, out var service));
+        var request = new PortablePopupCreateRequest(null, owner, owner.Handle, 24, 32, false, false);
+        Assert.True(service!.TryCreatePopup(request, out var popup));
+        Assert.NotNull(popup);
+        Assert.True(service.TrySetPopupSize(popup!, 100, 60));
+        Assert.True(service.TryShowPopup(popup!));
+
+        // A separately surfaced popup host must not register another creator.
+        using var childHost = new ProGpuWpfWindowHost(new ProGpuWpfWindowOptions
+            { RendererMode = rendererMode, EnablePortablePopupService = false });
+        var childOwner = new FakePortablePresentationSource { RootVisual = new object(), Handle = new IntPtr(102) };
+        Assert.True(childHost.TryBindPortablePresentationSource(childOwner));
+        Assert.False(service.TryCreatePopup(
+            new PortablePopupCreateRequest(null, childOwner, childOwner.Handle, 0, 0, false, false), out var rejected));
+        Assert.Null(rejected);
+
+        host.Dispose();
+        Assert.True(Assert.IsType<FakePortablePresentationSource>(popup).IsDisposed);
+        Assert.Equal(1, Assert.IsType<FakePortablePresentationSource>(popup).DisposeCount);
+        Assert.False(owner.IsDisposed); // The main-window source is borrowed.
+        Assert.False(service.TryShowPopup(popup!));
+        Assert.False(service.TryCreatePopup(request, out rejected));
+        Assert.Null(rejected);
+    }
+
+    [Theory]
+    [InlineData(ProGpuWpfRendererMode.ManagedPortable)]
+    [InlineData(ProGpuWpfRendererMode.NativeMilWgpu)]
+    public void RegisteredPopupServiceUsesSourceIdentityAcrossWindowsAndNestedPopups(ProGpuWpfRendererMode rendererMode)
+    {
+        // Colliding opaque handles must not override the authoritative source.
+        // Register the other window last: the router tries it first.
+        using var factory = UsePortablePopupSourceFactory(() => new FakePortablePresentationSource
+            { RootVisual = new object(), Handle = new IntPtr(201) });
+        using var firstHost = new ProGpuWpfWindowHost(new ProGpuWpfWindowOptions { RendererMode = rendererMode });
+        using var secondHost = new ProGpuWpfWindowHost(new ProGpuWpfWindowOptions { RendererMode = rendererMode });
+        var firstOwner = new FakePortablePresentationSource { RootVisual = new object(), Handle = new IntPtr(201) };
+        var secondOwner = new FakePortablePresentationSource { RootVisual = new object(), Handle = new IntPtr(201) };
+        Assert.True(firstHost.TryBindPortablePresentationSource(firstOwner));
+        Assert.True(secondHost.TryBindPortablePresentationSource(secondOwner));
+        Assert.True(PortableWpfServiceRegistry.TryGetPopupService(
+            PortableWpfServiceKey.PresentationFramework, out var service));
+        Assert.True(service!.TryCreatePopup(
+            new PortablePopupCreateRequest(null, firstOwner, firstOwner.Handle, 20, 30, false, false), out var parent));
+        Assert.NotNull(parent);
+        Assert.True(firstHost.TrySetPortablePopupSize(parent!, 100, 60));
+        Assert.False(secondHost.TrySetPortablePopupSize(parent!, 100, 60));
+        Assert.True(service.TryCreatePopup(
+            new PortablePopupCreateRequest(null, parent, new IntPtr(201),
+                popupScreenDeviceX: 35, popupScreenDeviceY: 45,
+                ownerClientScreenDeviceX: 20, ownerClientScreenDeviceY: 30,
+                isTransparent: false, isChildPopup: false), out var child));
+        Assert.NotNull(child);
+        Assert.True(firstHost.TrySetPortablePopupSize(child!, 40, 30));
+        Assert.False(secondHost.TrySetPortablePopupSize(child!, 40, 30));
+        Assert.True(service.TrySetPopupPosition(parent!, 50, 60));
+        var childSource = Assert.IsType<FakePortablePresentationSource>(child);
+        Assert.Equal((65.0, 75.0), (childSource.ClientOriginX, childSource.ClientOriginY));
+
+        Assert.True(service.TryCreatePopup(
+            new PortablePopupCreateRequest(null, secondOwner, secondOwner.Handle, 0, 0, false, false), out var secondPopup));
+        Assert.True(secondHost.TrySetPortablePopupSize(secondPopup!, 80, 50));
+        Assert.False(firstHost.TrySetPortablePopupSize(secondPopup!, 80, 50));
+        firstHost.Dispose();
+        Assert.True(childSource.IsDisposed);
+        Assert.False(service.TrySetPopupPosition(child!, 0, 0));
+        Assert.True(service.TryShowPopup(secondPopup!));
+        Assert.True(service.TryDestroyPopup(secondPopup!));
+        Assert.False(service.TryShowPopup(secondPopup!));
+    }
+
+    [Fact]
+    public void PopupCreationRejectsUnknownSourceEvenWhenItsHandleMatchesAnOwnedSource()
+    {
+        int creations = 0;
+        using var factory = UsePortablePopupSourceFactory(() =>
+        {
+            creations++;
+            return new FakePortablePresentationSource { Handle = new IntPtr(302) };
+        });
+        using var host = new ProGpuWpfWindowHost();
+        var owner = new FakePortablePresentationSource { RootVisual = new object(), Handle = new IntPtr(301) };
+        Assert.True(host.TryBindPortablePresentationSource(owner));
+        Assert.True(PortableWpfServiceRegistry.TryGetPopupService(
+            PortableWpfServiceKey.PresentationFramework, out var service));
+        // Preserve legacy root handle-only lookup when no source was supplied.
+        Assert.True(service!.TryCreatePopup(
+            new PortablePopupCreateRequest(null, null, owner.Handle, 0, 0, false, false), out var popup));
+        Assert.NotNull(popup);
+        var unknownSource = new FakePortablePresentationSource { Handle = owner.Handle };
+        foreach (IntPtr handle in new[] { owner.Handle, new IntPtr(302), IntPtr.Zero })
+        {
+            Assert.False(service.TryCreatePopup(
+                new PortablePopupCreateRequest(null, unknownSource, handle, 0, 0, false, false), out var rejected));
+            Assert.Null(rejected);
+        }
+        Assert.Equal(1, creations);
+    }
+
+    [Theory]
+    [InlineData(true, true)]
+    [InlineData(true, false)]
+    [InlineData(false, false)]
+    public void SelectedNativePopupFailureReleasesUnpublishedSourceWithoutSurfaceFallback(
+        bool failInFactory, bool unsupported)
+    {
+        var source = new FakePortablePresentationSource { RootVisual = new object() };
+        using var factory = UsePortablePopupSourceFactory(() => source);
+        Exception failure = unsupported
+            ? new PlatformNotSupportedException("Native popup source binding rejected.")
+            : new InvalidOperationException("Native popup setup rejected.");
+        var nativeHost = new FakePortableNativePopupHost { InputHandlerFailure = failure };
+        WpfPortablePopupBridge.NativePopupHostFactory = (_, _, _, _, _) =>
+            failInFactory ? throw failure : nativeHost;
+        var scheduler = new TestRenderScheduler();
+        using var host = new ProGpuWpfWindowHost(new ProGpuWpfWindowOptions
+            { RendererMode = ProGpuWpfRendererMode.NativeMilWgpu }) { WpfRenderScheduler = scheduler };
+        var owner = new FakePortablePresentationSource { RootVisual = new object() };
+        Assert.True(host.TryBindPortablePresentationSource(owner));
+        Assert.True(PortableWpfServiceRegistry.TryGetPopupService(
+            PortableWpfServiceKey.PresentationFramework, out var service));
+        Assert.Same(failure, Record.Exception(() => service!.TryCreatePopup(
+            new PortablePopupCreateRequest(null, owner, owner.Handle, 0, 0, false, false), out _)));
+        Assert.True(source.IsDisposed);
+        Assert.Equal(1, source.DisposeCount);
+        Assert.Equal(!failInFactory, nativeHost.IsDisposed);
+        Assert.Null(source.HitTestOverride);
+        Assert.Null(source.HitTestAllBufferOverride);
+        Assert.Null(source.HitTestBoundsBufferOverride);
+        Assert.Null(source.HitTestEllipseBoundsBufferOverride);
+        Assert.False(service!.TryShowPopup(source));
+        int requests = scheduler.RequestCount;
+        source.RootVisual = new object();
+        Assert.Equal(requests, scheduler.RequestCount);
+        host.Dispose();
+        Assert.Equal(1, source.DisposeCount);
+    }
+
     [Fact]
     public void PortablePopupHostCreatesAndControlsPopupForBoundOwner()
     {
@@ -3738,7 +3886,13 @@ public sealed class ProGpuWpfWindowHostTests
 
         public bool IsDisposed { get; private set; }
 
-        public void SetInputHandler(Func<WpfInputEventArgs, bool> inputHandler) => InputHandler = inputHandler;
+        public Exception? InputHandlerFailure { get; init; }
+
+        public void SetInputHandler(Func<WpfInputEventArgs, bool> inputHandler)
+        {
+            if (InputHandlerFailure != null) throw InputHandlerFailure;
+            InputHandler = inputHandler;
+        }
 
         public void RaiseInputForDiagnostics(WpfInputEventArgs input) => InputHandler?.Invoke(input);
 
@@ -3916,6 +4070,8 @@ public sealed class ProGpuWpfWindowHostTests
 
         public bool IsDisposed { get; private set; }
 
+        public int DisposeCount { get; private set; }
+
         public void SetDeviceScale(double dpiScaleX, double dpiScaleY)
         {
             DpiScaleX = dpiScaleX;
@@ -3961,6 +4117,7 @@ public sealed class ProGpuWpfWindowHostTests
         public void Dispose()
         {
             IsDisposed = true;
+            DisposeCount++;
         }
     }
 

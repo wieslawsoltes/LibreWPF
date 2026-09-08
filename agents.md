@@ -185,6 +185,13 @@ existing popup operations select by source identity, including disposed-source
 cleanup. Never create an unhosted portable source after host rejection. Popup,
 ComboBox, menu and tooltip capture/focus checks must share the source-aware
 `PopupControlService` policy instead of treating portable identities as HWNDs.
+ProGPU root hosts register their typed popup service on every OS; native popup
+child hosts explicitly opt out. A supplied owner source is authoritative over
+opaque handles when the shared router probes multiple windows. The popup bridge
+owns its factory-created source and releases it on failed creation and teardown;
+main-window source bindings remain borrowed. A native-popup factory returning
+null selects owner-surface composition, but thrown native setup failures must
+release partial ownership and propagate, never silently switch surface kind.
 Popup placement must query its registered owner for actual surface kind before
 Show: native surfaces use monitor/work-area bounds, owner-surface popups use the
 real owner client rectangle. Missing monitor capability is an explicit failure,
