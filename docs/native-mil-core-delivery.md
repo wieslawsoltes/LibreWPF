@@ -63,6 +63,12 @@ mapping execution is **not implemented** yet; the native backend rejects it and
 host guards remain. The ordered consumer checklist is in
 [native scene presentation](../external/ProGPU/docs/native-scene-presentation.md).
 
+Native state/domain checkpoint: per-axis guideline snapping and viewport-aware
+layer/scissor domains now consume that record, including zero-origin local-cache
+pages and scope restoration. Geometry localization, glyph/path rasterization,
+masks/effects and cache keys still need integration; no viewport/DPI guard has
+been removed and this is not qualified presentation support.
+
 Source-backed blockers are in
 `src/ProGPU.Wpf/ProGpuWpfWindowHost.cs:ValidateNativeMilHostConfiguration` and
 `src/ProGPU.Wpf/WpfPortableNativePopupHost.cs`:
