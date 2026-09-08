@@ -364,6 +364,10 @@ public static class Program
             .Invoke(text, new object[] { styledBrush, 3, 2 });
         if (Convert.ToDouble(GetProperty(text, "Width"), CultureInfo.InvariantCulture) <= 0)
             throw new InvalidOperationException("Native host shaped text unexpectedly has zero width.");
+        double minimumWidth = Convert.ToDouble(GetProperty(text, "MinWidth"), CultureInfo.InvariantCulture);
+        double maximumWidth = Convert.ToDouble(GetProperty(text, "Width"), CultureInfo.InvariantCulture);
+        if (!double.IsFinite(minimumWidth) || minimumWidth <= 0 || minimumWidth > maximumWidth + 0.01)
+            throw new InvalidOperationException("Native host intrinsic text width is not a valid shaped paragraph measurement.");
         Type pointType = GetRequiredType(windowsBase, "System.Windows.Point");
         InvokeDrawing(drawingContext, "DrawText", new[] { GetRequiredType(presentationCore, "System.Windows.Media.FormattedText"), pointType },
             text, Activator.CreateInstance(pointType, 16.0, 60.0));

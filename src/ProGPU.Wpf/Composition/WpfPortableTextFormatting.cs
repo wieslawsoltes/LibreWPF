@@ -37,7 +37,8 @@ internal sealed class WpfPortableTextFormatting : IPortableTextFormatting
         for (int i = 0; i < features.Length; i++) features[i] = new(request.Features.Span[i].Tag, request.Features.Span[i].Value);
         return new Paragraph(NativeTextParagraphSnapshot.Create(font.Context, request.Text.Span,
             request.RightToLeft ? NativeTextDirection.RightToLeft : NativeTextDirection.LeftToRight, in options, features,
-            incrementalTab: request.IncrementalTab, tabOrigin: request.TabOrigin), [font.RenderFont]);
+            incrementalTab: request.IncrementalTab, tabOrigin: request.TabOrigin,
+            measureIntrinsicWidths: request.MeasureIntrinsicWidths, wrapping: ConvertWrapping(request.Wrapping)), [font.RenderFont]);
     }
 
     private Paragraph FormatStyled(in PortableTextParagraphRequest request, in NativeTextParagraphOptions options, FontState primary)
@@ -75,8 +76,16 @@ internal sealed class WpfPortableTextFormatting : IPortableTextFormatting
         }
         return new Paragraph(NativeTextParagraphSnapshot.Create(context, request.Text.Span,
             request.RightToLeft ? NativeTextDirection.RightToLeft : NativeTextDirection.LeftToRight,
-            in options, features, styles, request.IncrementalTab, request.TabOrigin), fonts.ToArray());
+            in options, features, styles, request.IncrementalTab, request.TabOrigin, request.MeasureIntrinsicWidths,
+            ConvertWrapping(request.Wrapping)), fonts.ToArray());
     }
+
+    private static NativeTextWrapping ConvertWrapping(PortableTextWrapping wrapping) => wrapping switch
+    {
+        PortableTextWrapping.Emergency => NativeTextWrapping.Emergency,
+        PortableTextWrapping.WholeWord => NativeTextWrapping.WholeWord,
+        _ => throw new ArgumentOutOfRangeException(nameof(wrapping))
+    };
 
     private sealed class Paragraph : IPortableTextParagraph
     {
@@ -87,6 +96,8 @@ internal sealed class WpfPortableTextFormatting : IPortableTextFormatting
         public ReadOnlyMemory<PortableTextGlyph> Glyphs { get; }
         public ReadOnlyMemory<PortableTextLineInfo> Lines { get; }
         private readonly TtfFont[] _fonts;
+        public PortableTextIntrinsicWidths? IntrinsicWidths => _native.IntrinsicWidths is { } widths ?
+            new PortableTextIntrinsicWidths(widths.Minimum, widths.Maximum) : null;
         public object NativeFont => _fonts[0];
         public object GetNativeFont(uint fontIndex) => _fonts[checked((int)fontIndex)];
 

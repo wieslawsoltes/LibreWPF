@@ -63,7 +63,7 @@ public class PortableTextLineTests
     }
 
     [PortableMediaFact]
-    public void PortableFormattingRejectsUnimplementedMeasurementAndOptimalLineServicesOperations()
+    public void PortableFormattingRejectsMissingMeasurementAndOptimalLineServicesOperations()
     {
         var source = new Source();
         var properties = new ParagraphProperties(source.Properties, false);
@@ -77,7 +77,52 @@ public class PortableTextLineTests
         Assert.Throws<PlatformNotSupportedException>(() =>
             formatter.CreateParagraphCache(source, 0, 30, properties, null, new TextRunCache()));
         Assert.Throws<PlatformNotSupportedException>(() => formatter.AcquireContext(new object(), IntPtr.Zero));
-        Assert.Equal(0, provider.Calls);
+        Assert.Equal(1, provider.Calls);
+    }
+
+    [PortableMediaFact]
+    public void IntrinsicMeasurementUsesProviderMetricsNotFormattedLineWidth()
+    {
+        var source = new Source();
+        var properties = new ParagraphProperties(source.Properties, false);
+        var provider = new Provider { IntrinsicWidths = new(5, 20) };
+        using var registration = PortableWpfServiceRegistry.RegisterTextFormatting(provider);
+        using var formatter = new TextFormatterImp();
+        var widths = formatter.FormatMinMaxParagraphWidth(source, 0, properties);
+        Assert.Equal(5, widths.MinWidth);
+        Assert.Equal(20, widths.MaxWidth);
+        Assert.True(provider.MeasureIntrinsicWidths);
+        Assert.Equal(1, provider.Calls);
+    }
+
+    [PortableMediaFact]
+    public void WrapWithOverflowSelectsWholeWordNativePolicy()
+    {
+        var source = new Source();
+        var provider = new Provider();
+        using var registration = PortableWpfServiceRegistry.RegisterTextFormatting(provider);
+        using var formatter = new TextFormatterImp();
+        using var line = formatter.FormatLine(source, 0, 1,
+            new ParagraphProperties(source.Properties, false, wrapping: TextWrapping.WrapWithOverflow), null, new TextRunCache());
+        Assert.IsType<PortableTextLine>(line);
+        Assert.Equal(PortableTextWrapping.WholeWord, provider.Wrapping);
+        Assert.Equal(1, provider.Calls);
+    }
+
+    [PortableMediaFact]
+    public void IntrinsicMeasurementVisitsHardLinesAndPreservesPropertyScopes()
+    {
+        var p = new Properties();
+        var source = new DocumentSource([new Modifier(properties => new Properties { Size = 24 }),
+            new TextCharacters("abc", p), new TextEndOfLine(1), new TextCharacters("abc", p), new TextEndOfSegment(1)]);
+        var provider = new Provider { IntrinsicWidths = new(5, 20) };
+        using var registration = PortableWpfServiceRegistry.RegisterTextFormatting(provider);
+        using var formatter = new TextFormatterImp();
+        var widths = formatter.FormatMinMaxParagraphWidth(source, 0, new ParagraphProperties(p, false));
+        Assert.Equal(5, widths.MinWidth);
+        Assert.Equal(20, widths.MaxWidth);
+        Assert.Equal(2, provider.Calls);
+        Assert.Equal(24, provider.Styles.Span[0].FontSize);
     }
 
     [Fact]
@@ -389,7 +434,8 @@ public class PortableTextLineTests
         public override TextEffectCollection TextEffects => null!;
     }
 
-    private sealed class ParagraphProperties(TextRunProperties properties, bool autoHeight, bool rightToLeft = true) : TextParagraphProperties
+    private sealed class ParagraphProperties(TextRunProperties properties, bool autoHeight, bool rightToLeft = true,
+        TextWrapping wrapping = TextWrapping.Wrap) : TextParagraphProperties
     {
         public override FlowDirection FlowDirection => rightToLeft ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
         public override TextAlignment TextAlignment => TextAlignment.Left;
@@ -397,7 +443,7 @@ public class PortableTextLineTests
         public override double DefaultIncrementalTab => 32;
         public override bool FirstLineInParagraph => true;
         public override TextRunProperties DefaultTextRunProperties => properties;
-        public override TextWrapping TextWrapping => TextWrapping.Wrap;
+        public override TextWrapping TextWrapping => wrapping;
         public override TextMarkerProperties TextMarkerProperties => null!;
         public override double Indent => 0;
     }
@@ -405,6 +451,9 @@ public class PortableTextLineTests
     // A typed source contract fixture, not native shaping/parity evidence.
     private sealed class Provider : IPortableTextFormatting, IPortableTextParagraph
     {
+        public PortableTextIntrinsicWidths? IntrinsicWidths { get; init; }
+        internal bool MeasureIntrinsicWidths { get; private set; }
+        internal PortableTextWrapping Wrapping { get; private set; }
         internal Exception? Failure { get; init; }
         internal bool NullParagraph { get; init; }
         internal bool Mixed { get; init; }
@@ -420,6 +469,8 @@ public class PortableTextLineTests
         public IPortableTextParagraph Format(in PortableTextParagraphRequest request)
         {
             Calls++;
+            MeasureIntrinsicWidths = request.MeasureIntrinsicWidths;
+            Wrapping = request.Wrapping;
             if (Failure != null) throw Failure;
             if (NullParagraph) return null!;
             Text = request.Text.ToString(); Styles = request.Styles; IncrementalTab = request.IncrementalTab;

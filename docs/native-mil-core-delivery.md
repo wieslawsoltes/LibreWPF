@@ -22,7 +22,7 @@ subsystem roadmap. None of these rows is runtime-qualified yet.
 
 | Order | Implementation batch | Exit to the next batch |
 | --- | --- | --- |
-| 1 — current | Native package activation: source-built harness and package MVP, including Windows. Close required source-media routing from startup through first frame and common resource construction. Popup ownership, pre-host services and provider-first text dispatch are connected. Core text measurement/document contracts, remaining media utilities and Windows SDK admission remain open. | Required paths select ProGPU explicitly, compile, and have no known route into unintended Windows MIL or silent managed rendering. Keep Windows admission guarded until its dependencies are implemented. |
+| 1 — current | Native package activation: source-built harness and package MVP, including Windows. Close required source-media routing from startup through first frame and common resource construction. Popup ownership, pre-host services, provider-first text dispatch, intrinsic measurement and whole-word wrapping are connected. Remaining required text/document and media utility routes plus Windows SDK admission remain open. | Required paths select ProGPU explicitly, compile, and have no known route into unintended Windows MIL or silent managed rendering. Keep Windows admission guarded until its dependencies are implemented. |
 | 2 | Application closure: use the same MVP, Toolkit/AvalonDock, license-controlled Xceed and existing SciChart gate. Finish required text/selection, scroll/clip, popup/input, resize/DPI, content/effect/cache updates and close/reopen/device-loss ownership. Reuse existing implementations; fix concrete missing connections. | Each required action has an implemented path and authored regression coverage. Record any known blocking branch against that action; do not reopen already connected subsystems for optional refinements. |
 | 3 | Feature freeze, final qualification and delivery: build complete platform artifacts and packages, execute the existing cross-platform/Windows comparison and application gates, fix failures, and bring both PRs' required CI to green at the delivery commits. | Record exact-head package consumption and required gate results, with explicit failures or environment/license limitations. Only then report the core release delivered. |
 
@@ -115,6 +115,22 @@ These checkpoints preserve implementation provenance and the state at each
 commit. Their next-step text is historical, may be superseded by later changes,
 and must not be treated as an additional active backlog. Use the active completion
 queue above for current priorities.
+
+Native intrinsic measurement and WrapWithOverflow: ProGPU's shared C++ logical
+paragraph pipeline now supplies min/max widths and explicit whole-word wrapping.
+The actual source-backed startup blocker was FormattedText's default
+WrapWithOverflow policy, which the provider rejected. Source MinWidth now requests
+real native measurements instead of substituting a formatted-line width. Hard-line
+scopes/indentation, shaped clusters, mixed font scales and tab grids are preserved.
+The existing pre-host FormattedText harness and package App require valid MinWidth.
+This connects two core text dependencies; it does not close optimal paragraphs,
+trimming/display mode, Windows admission, full application closure or final gates.
+See [implementation and qualification boundaries](../external/ProGPU/docs/native-mil-intrinsic-text.md).
+Compile-only: native text/C ABI targets link; ProGPU fixtures 0/0, source
+PresentationCore fixtures 8/0, bridge fixtures 116/0 and native host harness 0/0
+(warnings/errors). The package constructor's native checks await rebuilt packages.
+Tests, verifiers, applications, VM/GPU workloads, benchmarks and CI polling were
+not run. The previously observed CI failures are not fixed by this text batch.
 
 Provider-first source text dispatch: TextFormatter now selects by frozen media
 ownership. Portable simple/complex lines use the registered native paragraph before

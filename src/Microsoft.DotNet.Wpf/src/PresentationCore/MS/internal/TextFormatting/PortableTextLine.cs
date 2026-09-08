@@ -65,8 +65,15 @@ internal sealed class PortableTextLine : TextLine
     // The formatter captures one provider for the request. Concurrent override
     // disposal cannot turn an admitted request into the legacy missing-provider path.
     internal static TextLine Create(FormatSettings settings, int first, int idealWidth, double pixelsPerDip,
-        IPortableTextFormatting service)
+        IPortableTextFormatting service) => CreateCore(settings, first, idealWidth, pixelsPerDip, service, false, out _);
+
+    private readonly record struct Measurement(int SourceLength, int Newlines, bool EndsParagraph,
+        TextModifierScope EndScope, PortableTextIntrinsicWidths Widths, double Indent);
+
+    private static TextLine CreateCore(FormatSettings settings, int first, int idealWidth, double pixelsPerDip,
+        IPortableTextFormatting service, bool measureIntrinsicWidths, out Measurement measurement)
     {
+        measurement = default;
         ArgumentNullException.ThrowIfNull(service);
         double width = settings.Formatter.IdealToReal(idealWidth, pixelsPerDip);
         TextLine continuation = CreateContinuation(settings, first, idealWidth, pixelsPerDip);
@@ -74,8 +81,8 @@ internal sealed class PortableTextLine : TextLine
         var pap = settings.Pap;
         if (settings.IsSideways || settings.TextFormattingMode != TextFormattingMode.Ideal || pap.TextMarkerProperties != null ||
             (pap.TextDecorations?.Count ?? 0) != 0 || pap.Justify ||
-            pap.Tabs?.Count > 0 || (pap.Wrap && !pap.EmergencyWrap))
-            throw Unsupported("display hinting, sideways text, markers, decorations, justification, custom tabs or WrapWithOverflow");
+            pap.Tabs?.Count > 0)
+            throw Unsupported("display hinting, sideways text, markers, decorations, justification or custom tabs");
 
         var builder = new StringBuilder();
         var runs = new List<TextSpan<TextRun>>();
@@ -91,6 +98,7 @@ internal sealed class PortableTextLine : TextLine
         }
         TextRunProperties properties = null;
         bool hasTabs = false;
+        bool endsParagraph = false;
         int cp = first, newlines = 0, sourceLength = 0;
         while (true)
         {
@@ -99,7 +107,7 @@ internal sealed class PortableTextLine : TextLine
                 throw Unsupported("invalid run length or paragraph input budget");
             if (run is TextEndOfLine)
             {
-                if (run is TextEndOfParagraph) scope = null;
+                if (run is TextEndOfParagraph) { scope = null; endsParagraph = true; }
                 newlines = length; runs.Add(new(length, run)); break;
             }
             if (run is TextHidden or TextModifier or TextEndOfSegment)
@@ -142,7 +150,7 @@ internal sealed class PortableTextLine : TextLine
                 }
                 if (c is '\r' or '\n' or '\u2028' or '\u2029')
                 {
-                    if (c == '\u2029') scope = null;
+                    if (c == '\u2029') { scope = null; endsParagraph = true; }
                     newlines = c == '\r' && i + 1 < builder.Length && builder[i + 1] == '\n' ? 2 : 1;
                     used = i - start + newlines;
                     builder.Length = i;
@@ -207,13 +215,49 @@ internal sealed class PortableTextLine : TextLine
         var request = new PortableTextParagraphRequest(text.AsMemory(), font, (float)primaryEmSize,
             (float)layoutHeight, pap.Wrap && width > 0 ? (float)Math.Max(float.Epsilon, width - indent) : 0,
             pap.RightToLeft, PortableTextAlignment.Left, Features(properties.TypographyProperties), portableStyles,
-            hasTabs ? (float)pap.DefaultIncrementalTab : 0, (float)indent);
+            hasTabs ? (float)pap.DefaultIncrementalTab : 0, (float)indent, measureIntrinsicWidths,
+            pap.EmergencyWrap ? PortableTextWrapping.Emergency : PortableTextWrapping.WholeWord);
         var paragraph = service.Format(in request) ??
             throw new InvalidOperationException("The text provider returned no paragraph.");
         if (paragraph.Lines.Length == 0) throw new InvalidOperationException("The text provider returned no line.");
+        if (measureIntrinsicWidths)
+        {
+            var widths = paragraph.IntrinsicWidths ?? throw Unsupported("the text provider does not publish intrinsic paragraph widths");
+            if (!float.IsFinite(widths.Minimum) || !float.IsFinite(widths.Maximum) ||
+                widths.Minimum < 0 || widths.Maximum < widths.Minimum)
+                throw new InvalidOperationException("The text provider returned invalid intrinsic paragraph widths.");
+            measurement = new(sourceLength, newlines, endsParagraph, scope, widths, indent);
+            return null; // Measurement never constructs source GlyphRuns or a drawing TextLine.
+        }
         return new PortableTextLine(paragraph, text, properties, face, first, 0, newlines,
             width, indent, baseline, height, pap.RightToLeft, runs, pixelsPerDip, pap.Align, styles.ToArray(), pap.LineHeight > 0,
             new PortableTextSourceMap(sourceLength, text.Length, CollectionsMarshal.AsSpan(sourceRanges)), scope);
+    }
+
+    internal static MinMaxParagraphWidth MeasureIntrinsicWidths(FormatSettings settings, int first,
+        double pixelsPerDip, IPortableTextFormatting service)
+    {
+        double minimum = 0, maximum = 0;
+        int start = first;
+        TextLineBreak previous = null;
+        try
+        {
+            while (true)
+            {
+                _ = CreateCore(settings, first, 0, pixelsPerDip, service, true, out var measured);
+                minimum = Math.Max(minimum, measured.Indent + measured.Widths.Minimum);
+                maximum = Math.Max(maximum, measured.Indent + measured.Widths.Maximum);
+                int consumed = checked(measured.SourceLength + measured.Newlines);
+                if (consumed <= 0 || first - start > (1 << 20) - consumed)
+                    throw Unsupported("intrinsic paragraph input budget or nonprogressing source");
+                if (measured.EndsParagraph) return new MinMaxParagraphWidth(minimum, maximum);
+                first = checked(first + consumed);
+                previous?.Dispose();
+                previous = measured.EndScope == null ? null : new TextLineBreak(measured.EndScope, IntPtr.Zero);
+                settings.UpdateSettingsForCurrentLine(0, previous, false);
+            }
+        }
+        finally { previous?.Dispose(); }
     }
 
     private static void ValidateMappedFont(ScaledShapeTypeface selected)

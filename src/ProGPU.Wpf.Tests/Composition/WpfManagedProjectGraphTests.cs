@@ -18,7 +18,7 @@ public sealed class WpfManagedProjectGraphTests
         AssertGuardBefore(formatter[formatter.IndexOf("TextParagraphCache CreateParagraphCache(", StringComparison.Ordinal)..],
             "if (!IsNativeLineServicesAvailable)", "return new TextParagraphCache(");
         Assert.DoesNotContain("OperatingSystem.IsWindows()", ReadText("SimpleTextLine.cs"), StringComparison.Ordinal);
-        Assert.Contains("text intrinsic minimum/maximum paragraph widths are not implemented", formatter, StringComparison.Ordinal);
+        Assert.Contains("return PortableTextLine.MeasureIntrinsicWidths(", formatter, StringComparison.Ordinal);
         string portable = ReadText("PortableTextLine.cs");
         AssertGuardBefore(portable, "TextLine continuation = CreateContinuation(", "PortableWpfServiceRegistry.TryGetTextFormatting(");
         Assert.Contains("IPortableTextFormatting service)", portable, StringComparison.Ordinal);

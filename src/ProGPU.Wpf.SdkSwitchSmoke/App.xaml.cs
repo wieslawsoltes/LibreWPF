@@ -24,8 +24,12 @@ public partial class App : Application
         var text = new FormattedText("אב fi a\u0301", System.Globalization.CultureInfo.InvariantCulture,
             FlowDirection.RightToLeft, new Typeface("#GLOBAL USER INTERFACE"), 14, Brushes.Black, 1);
         NativeStartupTextWidth = text.Width;
+        NativeStartupMinimumTextWidth = text.MinWidth;
         if (!double.IsFinite(NativeStartupTextWidth) || NativeStartupTextWidth <= 0)
             throw new InvalidOperationException("Native SDK startup text did not produce real measured content.");
+        if (!double.IsFinite(NativeStartupMinimumTextWidth) || NativeStartupMinimumTextWidth <= 0 ||
+            NativeStartupMinimumTextWidth > NativeStartupTextWidth + 0.01)
+            throw new InvalidOperationException("Native SDK startup intrinsic text measurement is invalid.");
         var combined = Geometry.Combine(new RectangleGeometry(new Rect(0, 0, 12, 12)),
             new RectangleGeometry(new Rect(6, 0, 12, 12)), GeometryCombineMode.Union, null);
         if (!combined.FillContains(new Point(15, 6)))
@@ -34,6 +38,7 @@ public partial class App : Application
     }
 
     public double NativeStartupTextWidth { get; }
+    public double NativeStartupMinimumTextWidth { get; }
 
     private const string LibreWpfPackageVersion = "0.1.0-preview.45";
     private const string DefaultProGpuPackageVersion = "0.1.0-preview.55";

@@ -65,9 +65,12 @@ Under portable media, the registered provider owns simple and complex lines; ret
 one provider reference per request and resolve immutable wrapped continuations
 before registry lookup. Do not lose a shaped paragraph when its override is removed.
 Classification and source control-string initialization follow the same frozen
-selection before legacy MIL imports. Portable intrinsic min/max widths, optimal
-paragraph caches and forced-break reconstruction must fail explicitly until their
-real native contracts exist; do not substitute full-line widths for intrinsic minima.
+selection before legacy MIL imports. Intrinsic min/max widths use ProGPU's native
+logical scan through the optional typed measurement contract, never formatted-line
+envelopes. Preserve hard-line modifier scope and source indentation. WrapWithOverflow
+selects native whole-word wrapping; Wrap keeps emergency cluster breaking. Optimal
+paragraph caches and forced-break reconstruction still fail explicitly until their
+real native contracts exist.
 Windows-MIL text keeps its native services; this routing is not SDK admission.
 
 The current delivery sequence is defined in `docs/native-mil-core-delivery.md`.

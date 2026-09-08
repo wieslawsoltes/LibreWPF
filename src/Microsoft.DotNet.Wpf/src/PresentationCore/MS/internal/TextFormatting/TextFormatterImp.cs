@@ -346,8 +346,10 @@ namespace MS.Internal.TextFormatting
 
             if (!IsNativeLineServicesAvailable)
             {
-                if (PortableWpfServiceRegistry.TryGetTextFormatting(out _) || OperatingSystem.IsWindows())
-                    throw new PlatformNotSupportedException("Portable text intrinsic minimum/maximum paragraph widths are not implemented. A formatted line width is not an intrinsic minimum.");
+                if (PortableWpfServiceRegistry.TryGetTextFormatting(out var service))
+                    return PortableTextLine.MeasureIntrinsicWidths(settings, firstCharIndex, textSource.PixelsPerDip, service);
+                if (OperatingSystem.IsWindows())
+                    throw new PlatformNotSupportedException("Portable Windows text requires a registered text formatting provider for intrinsic measurement.");
 
                 TextLine simpleLine = SimpleTextLine.Create(
                     settings,
