@@ -7,7 +7,8 @@ lists/markers, selection and content hit testing; do not clone the document into
 fake TextBlocks or treat the empty portable FlowDocumentView as completion.
 Width constraints precede formatting, placement follows it; an exhausted zero
 width is not unbounded. Lazy pre-host document registration is only a prerequisite.
-The scroll-view consumer is connected; pagination and Windows SDK admission remain open.
+The scroll-view and source paginator consumers are connected but not runtime-qualified;
+Windows SDK admission remains open.
 `PortableFlowDocumentFormatter` owns source invalidation and retained layout
 generations without a PTS context. Consume that live generation from the viewer;
 do not rebuild a second tree or serve interaction from disposed/stale TextLines.
@@ -27,8 +28,14 @@ retain source page/column policy and original page-local text positions, and
 explicitly resolve keep/widow/orphan behavior before admitting break boundaries.
 Do not treat static paragraph-edge break flags as complete fragment-relative
 widow/orphan policy. Impossible native fits must not silently clip a line or
-switch the viewer to scrolling. The current native fitter is a prerequisite;
-source paginator/page visuals remain the next core integration dependency.
+switch the viewer to scrolling. `PortableFlowDocumentPaginator` selects before PTS
+through frozen media ownership; its real DocumentPages and existing DocumentPageView
+share original TextLines and page-local ITextView. Reserve native block insets at
+fragment edges and preserve one translation for both drawing and interaction.
+Continuation pages host their already-open source content ancestors. Disposed pages
+release drawing, not the paginator-owned lines; edits/suspension invalidate the
+whole generation. Nonzero widow/orphan constraints, decorated blocks crossing
+fragments and empty decorated blocks remain explicit missing contracts, not parity.
 
 Portable source text must preserve actual shaped content, clusters, styled runs
 and caret/selection semantics. `SimpleTextLine.CreatePortableFallback` currently

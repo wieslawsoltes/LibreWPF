@@ -22,7 +22,7 @@ subsystem roadmap. None of these rows is runtime-qualified yet.
 
 | Order | Implementation batch | Exit to the next batch |
 | --- | --- | --- |
-| 1 — current | Native package activation: source-built harness and package MVP, including Windows. Close required source-media routing from startup through first frame and common resource construction. Popup ownership, pre-host services, provider-first text dispatch, intrinsic measurement, whole-word wrapping, rich-editor media routing/per-line metrics and FlowDocument scroll-view drawing/interaction are connected. Required symbol-marker fonts and paginated document consumers, remaining source text/document and media utility routes plus Windows SDK admission remain open. | Required paths select ProGPU explicitly, compile, and have no known route into unintended Windows MIL or silent managed rendering. Keep Windows admission guarded until its dependencies are implemented. |
+| 1 — current | Native package activation: source-built harness and package MVP, including Windows. Close required source-media routing from startup through first frame and common resource construction. Popup ownership, pre-host services, provider-first text dispatch, intrinsic measurement, whole-word wrapping, rich-editor media routing/per-line metrics and FlowDocument scroll-view/paginated drawing and interaction are connected. Required symbol-marker font integration, unsupported source document policies needed by acceptance content, remaining source-media routes and Windows SDK admission remain open. | Required paths select ProGPU explicitly, compile, and have no known route into unintended Windows MIL or silent managed rendering. Keep Windows admission guarded until its dependencies are implemented. |
 | 2 | Application closure: use the same MVP, Toolkit/AvalonDock, license-controlled Xceed and existing SciChart gate. Finish required text/selection, scroll/clip, popup/input, resize/DPI, content/effect/cache updates and close/reopen/device-loss ownership. Reuse existing implementations; fix concrete missing connections. | Each required action has an implemented path and authored regression coverage. Record any known blocking branch against that action; do not reopen already connected subsystems for optional refinements. |
 | 3 | Feature freeze, final qualification and delivery: build complete platform artifacts and packages, execute the existing cross-platform/Windows comparison and application gates, fix failures, and bring both PRs' required CI to green at the delivery commits. | Record exact-head package consumption and required gate results, with explicit failures or environment/license limitations. Only then report the core release delivered. |
 
@@ -116,7 +116,30 @@ commit. Their next-step text is historical, may be superseded by later changes,
 and must not be treated as an additional active backlog. Use the active completion
 queue above for current priorities.
 
-Native pagination prerequisite: the MVP page viewer is still a known PTS consumer.
+Source paginated-viewer connection: the MVP's real FlowDocument paginator now
+selects portable media before PTS, shares source page/column policy and passes
+actual TextLine advances and source break constraints to ProGPU C++ pagination.
+Real DocumentPages feed the existing DocumentPageView and shared ITextView with
+original document positions, page affinities, column-local caret/selection/hits,
+source content ancestors and list/brush ownership. Block insets are reserved;
+native fragment positions must preserve the drawing/interaction translation.
+Page disposal releases its drawing only; edits, page-size changes and formatter
+replacement invalidate and dispose the owned layout generation. Background work
+coalesces a whole generation on the source dispatcher, not an incremental worker.
+Nonzero widow/orphan policy, cross-fragment block decorations and empty decorated
+blocks remain explicitly unsupported, alongside existing indentation/hyphenation,
+embedded-object/table and RTL limitations. This closes the unconditional paginator
+import route, not native document fidelity or Windows package admission.
+Source fixtures are authored, including actual DocumentPageView consumption.
+The source PresentationFramework fixture graph compiles with 3 warnings/0 errors
+(two package compatibility warnings and an existing nullable warning); no fixture
+was executed. The source-built host harness compiles with 1 warning/0 errors.
+Application/VM/GPU, benchmarks and CI remain deferred. See the
+[source pagination record](../external/ProGPU/docs/native-mil-document-flow.md#source-paginated-viewer-connection).
+Return to the acceptance application's startup/resource path and Windows admission
+dependencies next; optional document policy breadth is not a new prerequisite.
+
+Native pagination prerequisite (historical): the MVP page viewer was still a known PTS consumer.
 ProGPU now supplies generated native records and a typed zero-copy service for
 sequential page/column fitting over actual line advances and source-admitted
 breaks. Forced page/column boundaries, leading-space replacement and failure

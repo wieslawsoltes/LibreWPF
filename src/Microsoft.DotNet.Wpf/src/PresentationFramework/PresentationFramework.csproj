@@ -218,6 +218,8 @@
     <Compile Include="MS\Internal\documents\PortableFlowDocumentLayout.cs" />
     <Compile Include="MS\Internal\documents\PortableFlowDocumentFormatter.cs" />
     <Compile Include="MS\Internal\documents\PortableFlowDocumentTextView.cs" />
+    <Compile Include="MS\Internal\documents\PortableFlowDocumentPaginator.cs" />
+    <Compile Include="MS\Internal\documents\PortableFlowDocumentPage.cs" />
     <Compile Include="MS\Internal\documents\PortableFlowDocumentVisual.cs" />
     <Compile Include="MS\Internal\documents\HostedElements.cs" />
     <Compile Include="MS\Internal\documents\IAcceptInsertion.cs" />

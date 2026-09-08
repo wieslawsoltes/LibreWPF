@@ -1725,6 +1725,15 @@ namespace System.Windows.Documents
         {
             get
             {
+                if (PortableWpfRuntime.GetMediaBackendAndFreeze() == PortableWpfMediaBackend.Portable)
+                {
+                    if (_formatter is not PortableFlowDocumentPaginator)
+                    {
+                        _formatter?.Suspend();
+                        _formatter = new PortableFlowDocumentPaginator(this);
+                    }
+                    return (PortableFlowDocumentPaginator)_formatter;
+                }
                 if (_formatter != null && !(_formatter is FlowDocumentPaginator))
                 {
                     _formatter.Suspend();

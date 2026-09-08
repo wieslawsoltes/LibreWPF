@@ -177,6 +177,172 @@ public sealed class PortableFlowDocumentTests
         viewer.Document = null!;
     }
 
+    [PortableMediaFact]
+    public void PaginatorPublishesRealPagesWithSourceOwnedColumnInteractionAndLifetime()
+    {
+        var text = new TextProvider(); var flow = new FlowProvider {
+            PaginatedPositions = [new() { Page = 0, Column = 0, Y = 10 },
+                new() { Page = 0, Column = 1, Y = 4 }, new() { Page = 1, Column = 0, Y = 5 }] };
+        using var textRegistration = PortableWpfServiceRegistry.RegisterTextFormatting(text);
+        using var flowRegistration = PortableWpfServiceRegistry.RegisterDocumentFlow(flow);
+        var first = new Run("one"); var second = new Run("two"); var third = new Run("three");
+        var link = new Hyperlink(second);
+        var document = new FlowDocument(new Paragraph(first)) { PagePadding = new Thickness(8),
+            ColumnWidth = 120, ColumnGap = 12, IsColumnWidthFlexible = false };
+        document.Blocks.Add(new Paragraph(link)); document.Blocks.Add(new Paragraph(third));
+        var paginator = Assert.IsType<PortableFlowDocumentPaginator>(((IDocumentPaginatorSource)document).DocumentPaginator);
+        paginator.PageSize = new Size(300, 200);
+        var page = Assert.IsType<PortableFlowDocumentPage>(paginator.GetPage(0));
+        Assert.True(paginator.IsPageCountValid); Assert.Equal(2, paginator.PageCount);
+        Assert.Equal(2U, flow.PaginationColumns); Assert.Equal(184, flow.PaginationHeight);
+        Assert.Equal(120, paginator.ColumnWidth); Assert.Equal(new Size(300, 200), page.Size);
+        Assert.False(document.StructuralCache.HasPtsContext());
+        Assert.Same(document, ((IServiceProvider)paginator).GetService(typeof(ITextContainer)) is TextContainer container ? container.Parent : null);
+        var view = Assert.IsAssignableFrom<ITextView>(((IServiceProvider)page).GetService(typeof(ITextView)));
+        Assert.True(view.IsValid); Assert.True(view.Contains(first.ContentStart)); Assert.True(view.Contains(second.ContentStart));
+        Assert.False(view.Contains(third.ContentStart));
+        Rect firstCaret = view.GetRectangleFromTextPosition(first.ContentStart);
+        Rect secondCaret = view.GetRectangleFromTextPosition(second.ContentStart);
+        Assert.Equal(13, firstCaret.X); Assert.Equal(18, firstCaret.Y);
+        Assert.Equal(145, secondCaret.X); Assert.Equal(12, secondCaret.Y);
+        var hit = Assert.IsType<TextPointer>(view.GetTextPositionFromPoint(new(146, 13), false));
+        Assert.Same(second, hit.Parent);
+        var content = Assert.IsAssignableFrom<IContentHost>(page.Visual);
+        Assert.Same(second, content.InputHitTest(new(146, 13)));
+        Assert.Equal(145, Assert.Single(content.GetRectangles(link)).X);
+        var next = view.GetPositionAtNextLine(first.ContentStart, firstCaret.X, 1, out double x, out int moved);
+        Assert.Equal(1, moved); Assert.Equal(secondCaret.X, x); Assert.Same(second.Parent, ((TextPointer)next).Paragraph);
+        Assert.Equal(1, paginator.GetPageNumber(third.ContentStart));
+        Assert.Same(DocumentPage.Missing, paginator.GetPage(2));
+        var secondPage = Assert.IsType<PortableFlowDocumentPage>(paginator.GetPage(1));
+        Assert.True(secondPage.TextView.Contains(third.ContentStart));
+        Assert.Equal(13, secondPage.TextView.GetRectangleFromTextPosition(third.ContentStart).Y);
+        var boundary = document.TextContainer.CreatePointerAtOffset(page.Layout.Lines[2].Start, LogicalDirection.Forward);
+        Assert.Equal(1, paginator.GetPageNumber(boundary));
+        Assert.Equal(0, paginator.GetPageNumber(boundary.GetFrozenPointer(LogicalDirection.Backward)));
+        var generation = page.Layout;
+        page.Dispose(); Assert.False(view.IsValid); Assert.NotEmpty(generation.Lines);
+        Assert.NotSame(page, paginator.GetPage(0));
+        first.Text = "edited";
+        Assert.False(paginator.IsPageCountValid); Assert.False(secondPage.IsValid); Assert.Empty(generation.Lines);
+        Assert.IsType<PortableFlowDocumentPage>(paginator.GetPage(0));
+        Assert.Contains("edited", text.Texts);
+        _ = document.PortableBottomlessFormatter;
+        Assert.False(paginator.IsPageCountValid);
+        Assert.Throws<InvalidOperationException>(() => paginator.GetPage(0));
+    }
+
+    [PortableMediaFact]
+    public void PaginatorPreservesBreakPoliciesAndRejectsInvalidProviderPages()
+    {
+        var text = new TextProvider(); var flow = new FlowProvider {
+            PaginatedPositions = [new() { Page = 0, Column = 0, Y = 10 }, new() { Page = 1, Column = 0, Y = 0 }] };
+        using var textRegistration = PortableWpfServiceRegistry.RegisterTextFormatting(text);
+        using var flowRegistration = PortableWpfServiceRegistry.RegisterDocumentFlow(flow);
+        var first = new Paragraph(new Run("one")) { KeepWithNext = true };
+        var second = new Paragraph(new Run("two"));
+        var section = new Section(second) { BreakPageBefore = true };
+        var document = new FlowDocument(first); document.Blocks.Add(section);
+        var paginator = Assert.IsType<PortableFlowDocumentPaginator>(((IDocumentPaginatorSource)document).DocumentPaginator);
+        paginator.ComputePageCount();
+        Assert.Equal(0U, flow.FragmentLines[1].AllowBreakBefore);
+        Assert.Equal(1U, flow.FragmentLines[1].ForcePageBefore);
+        var old = Assert.IsType<PortableFlowDocumentPage>(paginator.GetPage(0));
+        second.MinOrphanLines = 2;
+        Assert.Throws<PlatformNotSupportedException>(() => paginator.GetPage(0));
+        Assert.False(old.IsValid); Assert.False(paginator.IsPageCountValid);
+        second.MinOrphanLines = 0;
+        flow.PaginatedPositions[1] = new() { Page = 1, Column = 1024, Y = 0 };
+        Assert.Throws<InvalidOperationException>(() => paginator.GetPage(0));
+        Assert.False(paginator.IsPageCountValid); Assert.Equal(0, paginator.PageCount);
+        Assert.False(document.StructuralCache.HasPtsContext());
+        ((IFlowDocumentFormatter)paginator).Suspend();
+    }
+
+    [PortableMediaFact]
+    public void ContinuationPageHostsOriginalOpenContentAncestors()
+    {
+        var flow = new FlowProvider { PaginatedPositions = [new() { Y = 10 }, new() { Page = 1 }] };
+        using var textRegistration = PortableWpfServiceRegistry.RegisterTextFormatting(new TextProvider());
+        using var flowRegistration = PortableWpfServiceRegistry.RegisterDocumentFlow(flow);
+        var second = new Run("continued");
+        var link = new Hyperlink(new Run("first"));
+        link.Inlines.Add(new LineBreak()); link.Inlines.Add(second);
+        var paragraph = new Paragraph(link);
+        var document = new FlowDocument(paragraph);
+        var paginator = Assert.IsType<PortableFlowDocumentPaginator>(((IDocumentPaginatorSource)document).DocumentPaginator);
+        var page = Assert.IsType<PortableFlowDocumentPage>(paginator.GetPage(1));
+        var elements = new System.Collections.Generic.List<IInputElement>();
+        using (var enumerator = ((IContentHost)page.Visual).HostedElements)
+            while (enumerator.MoveNext()) elements.Add(enumerator.Current);
+        Assert.Contains(paragraph, elements); Assert.Contains(link, elements); Assert.Contains(second, elements);
+        Assert.Equal(elements.IndexOf(link), elements.LastIndexOf(link));
+        Assert.True(page.TextView.Contains(second.ContentStart));
+        ((IFlowDocumentFormatter)paginator).Suspend();
+    }
+
+    [PortableMediaFact]
+    public void PaginatorReservesBlockInsetsAndRejectsUnrepresentedDecorationFragments()
+    {
+        var flow = new FlowProvider { PaginatedPositions = [new() { Y = 20 }, new() { Y = 120 }] };
+        using var textRegistration = PortableWpfServiceRegistry.RegisterTextFormatting(new TextProvider());
+        using var flowRegistration = PortableWpfServiceRegistry.RegisterDocumentFlow(flow);
+        var section = new Section(new Paragraph(new Run("first"))) {
+            Padding = new Thickness(0, 20, 0, 7), Background = Brushes.Gold };
+        section.Blocks.Add(new Paragraph(new Run("second")));
+        var document = new FlowDocument(section) { PagePadding = new Thickness(), ColumnWidth = 300 };
+        var paginator = Assert.IsType<PortableFlowDocumentPaginator>(((IDocumentPaginatorSource)document).DocumentPaginator);
+        paginator.PageSize = new Size(300, 400);
+        var page = Assert.IsType<PortableFlowDocumentPage>(paginator.GetPage(0));
+        Assert.Equal(20, flow.FragmentLines[0].LeadingSpace);
+        Assert.Equal(flow.Lines[1].Height + 7, flow.FragmentLines[1].Height);
+        Assert.Equal(120, page.Position(1).Y);
+
+        flow.PaginatedPositions = [new() { Y = 20 }, new() { Page = 1, Y = 0 }];
+        paginator.PageSize = new Size(300, 401);
+        Assert.Throws<PlatformNotSupportedException>(() => paginator.GetPage(0));
+        Assert.False(page.IsValid); Assert.False(paginator.IsPageCountValid);
+        section.Background = null;
+        Assert.IsType<PortableFlowDocumentPage>(paginator.GetPage(1));
+
+        // Both painting and interaction require one translation per fragment.
+        flow.PaginatedPositions = [new() { Y = 20 }, new() { Y = 121 }];
+        paginator.PageSize = new Size(300, 402);
+        Assert.Throws<InvalidOperationException>(() => paginator.GetPage(0));
+        flow.PaginatedPositions = [new() { Y = 20 }, new() { Page = 1, Y = 403 - flow.Lines[1].Height }];
+        paginator.PageSize = new Size(300, 403);
+        Assert.Throws<InvalidOperationException>(() => paginator.GetPage(0));
+        Assert.False(document.StructuralCache.HasPtsContext());
+        ((IFlowDocumentFormatter)paginator).Suspend();
+    }
+
+    [PortableMediaFact]
+    public void DocumentPageViewConsumesPortablePageTextViewWithoutPts()
+    {
+        var flow = new FlowProvider { PaginatedPositions = [new() { Y = 10 }] };
+        using var textRegistration = PortableWpfServiceRegistry.RegisterTextFormatting(new TextProvider());
+        using var flowRegistration = PortableWpfServiceRegistry.RegisterDocumentFlow(flow);
+        var run = new Run("page wrapper");
+        var document = new FlowDocument(new Paragraph(run)) { PagePadding = new Thickness(8) };
+        var paginator = Assert.IsType<PortableFlowDocumentPaginator>(((IDocumentPaginatorSource)document).DocumentPaginator);
+        paginator.PageSize = new Size(300, 200);
+        Assert.True(paginator.IsBackgroundPaginationEnabled);
+        using var host = new DocumentPageView { DocumentPaginator = paginator, Stretch = Stretch.None };
+        var view = Assert.IsAssignableFrom<ITextView>(((IServiceProvider)host).GetService(typeof(ITextView)));
+        host.Measure(new Size(300, 200)); host.Arrange(new Rect(0, 0, 300, 200));
+        Assert.True(view.IsValid);
+        Assert.IsType<PortableFlowDocumentPage>(host.DocumentPage);
+        Assert.False(document.StructuralCache.HasPtsContext());
+        Assert.NotEmpty(view.TextSegments);
+        Assert.True(view.Contains(run.ContentStart));
+        Rect caret = view.GetRectangleFromTextPosition(run.ContentStart);
+        Assert.Equal(13, caret.X); Assert.Equal(18, caret.Y);
+        Assert.Same(run, Assert.IsType<TextPointer>(view.GetTextPositionFromPoint(new(14, 19), false)).Parent);
+        host.DocumentPaginator = null!;
+        Assert.False(view.IsValid);
+        ((IFlowDocumentFormatter)paginator).Suspend();
+    }
+
     private static void LayoutViewer(FlowDocumentView viewer)
     {
         viewer.Measure(new Size(300, 60));
@@ -270,6 +436,22 @@ public sealed class PortableFlowDocumentTests
         internal PortableDocumentLine[] Lines { get; private set; } = [];
         internal bool Fail { get; set; }
         internal Action? DuringWidth { get; set; }
+        internal PortableDocumentFragmentPosition[] PaginatedPositions { get; set; } = [];
+        internal PortableDocumentFragmentLine[] FragmentLines { get; private set; } = [];
+        internal uint PaginationColumns { get; private set; }
+        internal double PaginationHeight { get; private set; }
+        public PortableDocumentPagination Paginate(ReadOnlySpan<PortableDocumentFragmentLine> lines,
+            double height, uint columns, Span<PortableDocumentFragmentPosition> positions)
+        {
+            // Prescribed geometry tests source consumption, not native fitting.
+            FragmentLines = lines.ToArray(); PaginationColumns = columns; PaginationHeight = height;
+            if (PaginatedPositions.Length != lines.Length) throw new InvalidOperationException("Fixture line count mismatch.");
+            PaginatedPositions.CopyTo(positions);
+            uint fragments = 0;
+            for (int i = 0; i < positions.Length; ++i)
+                if (i == 0 || positions[i].Page != positions[i - 1].Page || positions[i].Column != positions[i - 1].Column) ++fragments;
+            return new(fragments, lines.IsEmpty ? 0 : PaginatedPositions[^1].Page + 1);
+        }
         public void ResolveWidths(ReadOnlySpan<PortableDocumentBlock> blocks, double width, Span<PortableDocumentBox> boxes)
         {
             DuringWidth?.Invoke();
@@ -281,6 +463,18 @@ public sealed class PortableFlowDocumentTests
         {
             Blocks = blocks.ToArray(); Lines = lines.ToArray();
             for (int i = 0; i < positions.Length; ++i) positions[i] = new() { X = 5, Y = 10 + i * 100 };
+            // Prescribe content envelopes around the fixture's fixed line grid;
+            // this is not a second implementation of native block placement.
+            for (int i = 0; i < blocks.Length; ++i)
+            {
+                int first = (int)blocks[i].LineStart;
+                int end = blocks[i].SubtreeEnd < blocks.Length ? (int)blocks[(int)blocks[i].SubtreeEnd].LineStart : lines.Length;
+                if (first < end)
+                {
+                    boxes[i].Y = positions[first].Y;
+                    boxes[i].Height = positions[end - 1].Y + lines[end - 1].Height - boxes[i].Y;
+                }
+            }
             return new(width, 250);
         }
     }

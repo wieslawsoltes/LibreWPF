@@ -31,12 +31,13 @@ internal sealed class PortableFlowDocumentLayout : IDisposable
     internal IReadOnlyList<BlockEntry> Blocks => _entries;
     internal IReadOnlyList<LineEntry> Lines => _lines;
     internal IReadOnlyList<MarkerEntry> Markers => _markers;
+    internal ReadOnlySpan<PortableDocumentBlock> BlockDescriptors => CollectionsMarshal.AsSpan(_blocks);
     internal PortableDocumentBox[] Boxes { get; private set; }
     internal PortableDocumentLinePosition[] Positions { get; private set; }
     internal Size Size { get; private set; }
 
     internal static PortableFlowDocumentLayout Create(FlowDocument document, double pageWidth, double pixelsPerDip,
-        TextFormattingMode formattingMode)
+        TextFormattingMode formattingMode, Thickness? pagePadding = null)
     {
         ArgumentNullException.ThrowIfNull(document);
         if (PortableWpfRuntime.GetMediaBackendAndFreeze() != PortableWpfMediaBackend.Portable)
@@ -51,7 +52,7 @@ internal sealed class PortableFlowDocumentLayout : IDisposable
         var layout = new PortableFlowDocumentLayout();
         try
         {
-            Thickness padding = document.ComputePageMargin();
+            Thickness padding = pagePadding ?? document.ComputePageMargin();
             // PagePadding policy is source-owned. Proportional reduction is the
             // documented FlowDocument behavior when padding exhausts page width.
             double horizontal = padding.Left + padding.Right;

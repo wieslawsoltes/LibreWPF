@@ -22,27 +22,7 @@ internal sealed class PortableFlowDocumentVisual(FlowDocumentView owner) : Drawi
         {
             drawing.DrawRectangle(owner.Document.Background ?? Brushes.Transparent, null, new Rect(layout.Size));
             for (int index = 1; index < layout.Blocks.Count; ++index)
-            {
-                var entry = layout.Blocks[index]; var content = layout.Boxes[index];
-                Thickness border = entry.Box.Border, padding = entry.Box.Padding;
-                Rect outer = new(content.X - padding.Left - border.Left, content.Y - padding.Top - border.Top,
-                    content.Width + padding.Left + padding.Right + border.Left + border.Right,
-                    content.Height + padding.Top + padding.Bottom + border.Top + border.Bottom);
-                if (entry.Element.Background != null) drawing.DrawRectangle(entry.Element.Background, null, outer);
-                if (entry.Box.BorderBrush != null && border != new Thickness())
-                {
-                    var ring = new StreamGeometry { FillRule = FillRule.EvenOdd };
-                    using (var context = ring.Open())
-                    {
-                        PortableFlowDocumentTextView.AddRectangle(context, outer);
-                        Rect inner = new(outer.X + border.Left, outer.Y + border.Top,
-                            Math.Max(0, outer.Width - border.Left - border.Right), Math.Max(0, outer.Height - border.Top - border.Bottom));
-                        if (inner.Width > 0 && inner.Height > 0) PortableFlowDocumentTextView.AddRectangle(context, inner);
-                    }
-                    ring.Freeze();
-                    drawing.DrawGeometry(entry.Box.BorderBrush, null, ring);
-                }
-            }
+                DrawBlock(drawing, layout.Blocks[index], layout.Boxes[index]);
             for (int index = 0; index < layout.Lines.Count; ++index)
             {
                 var position = layout.Positions[index];
@@ -56,6 +36,29 @@ internal sealed class PortableFlowDocumentVisual(FlowDocumentView owner) : Drawi
             }
         }
         _drawn = layout;
+    }
+
+    internal static void DrawBlock(DrawingContext drawing, PortableFlowDocumentLayout.BlockEntry entry,
+        ProGPU.Wpf.Interop.PortableDocumentBox content)
+    {
+        Thickness border = entry.Box.Border, padding = entry.Box.Padding;
+        Rect outer = new(content.X - padding.Left - border.Left, content.Y - padding.Top - border.Top,
+            content.Width + padding.Left + padding.Right + border.Left + border.Right,
+            content.Height + padding.Top + padding.Bottom + border.Top + border.Bottom);
+        if (entry.Element.Background != null) drawing.DrawRectangle(entry.Element.Background, null, outer);
+        if (entry.Box.BorderBrush != null && border != new Thickness())
+        {
+            var ring = new StreamGeometry { FillRule = FillRule.EvenOdd };
+            using (var context = ring.Open())
+            {
+                PortableFlowDocumentTextView.AddRectangle(context, outer);
+                Rect inner = new(outer.X + border.Left, outer.Y + border.Top,
+                    Math.Max(0, outer.Width - border.Left - border.Right), Math.Max(0, outer.Height - border.Top - border.Bottom));
+                if (inner.Width > 0 && inner.Height > 0) PortableFlowDocumentTextView.AddRectangle(context, inner);
+            }
+            ring.Freeze();
+            drawing.DrawGeometry(entry.Box.BorderBrush, null, ring);
+        }
     }
 
     internal void Clear()
