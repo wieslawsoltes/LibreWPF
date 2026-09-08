@@ -12,14 +12,15 @@ internal sealed class WpfPortableTextFormatting : IPortableTextFormatting
     private sealed class FontState(PortableTextFont source)
     {
         internal TtfFont RenderFont { get; } = new(source.Data.ToArray(), checked((int)source.FaceIndex));
-        internal NativeTextShapingContext Context { get; } = new(source.Data.Span, source.FaceIndex);
+        private readonly Lazy<NativeTextShapingContext> _context = new(() => new(source.Data.Span, source.FaceIndex));
+        internal NativeTextShapingContext Context => _context.Value;
     }
     private readonly ConditionalWeakTable<PortableTextFont, FontState> _fonts = new();
     internal static void EnsureRegistered() => PortableWpfServiceRegistry.EnsureTextFormatting(Default);
 
     public IPortableTextParagraph Format(in PortableTextParagraphRequest request)
     {
-        if (request.Font.UnitsPerEm == 0 || !float.IsFinite(request.FontSize) || request.FontSize <= 0)
+        if (request.Font == null || request.Font.UnitsPerEm == 0 || !float.IsFinite(request.FontSize) || request.FontSize <= 0)
             throw new ArgumentException("A real source face and positive em size are required.");
         var font = _fonts.GetValue(request.Font, static font => new(font));
         var options = new NativeTextParagraphOptions(request.FontSize / request.Font.UnitsPerEm,
@@ -31,10 +32,49 @@ internal sealed class WpfPortableTextFormatting : IPortableTextFormatting
                 PortableTextAlignment.Justify => NativeTextAlignment.Justify,
                 _ => throw new ArgumentOutOfRangeException(nameof(request))
             });
+        if (!request.Styles.IsEmpty) return FormatStyled(in request, in options, font);
         var features = new NativeTextFeature[request.Features.Length];
         for (int i = 0; i < features.Length; i++) features[i] = new(request.Features.Span[i].Tag, request.Features.Span[i].Value);
         return new Paragraph(NativeTextParagraphSnapshot.Create(font.Context, request.Text.Span,
-            request.RightToLeft ? NativeTextDirection.RightToLeft : NativeTextDirection.LeftToRight, in options, features), font.RenderFont);
+            request.RightToLeft ? NativeTextDirection.RightToLeft : NativeTextDirection.LeftToRight, in options, features), [font.RenderFont]);
+    }
+
+    private Paragraph FormatStyled(in PortableTextParagraphRequest request, in NativeTextParagraphOptions options, FontState primary)
+    {
+        // Size/brush/feature changes on one face reuse its retained plans. Multiple
+        // explicit faces use an isolated temporary context so they cannot alter
+        // the cached primary context's uniform fallback behavior.
+        bool oneFace = true;
+        foreach (var style in request.Styles.Span) oneFace &= ReferenceEquals(style.Font, request.Font);
+        using var ownedContext = oneFace ? null : new NativeTextShapingContext(request.Font.Data.Span, request.Font.FaceIndex);
+        var context = ownedContext ?? primary.Context;
+        var indices = new Dictionary<PortableTextFont, uint> { [request.Font] = 0 };
+        var fonts = new List<TtfFont> { primary.RenderFont };
+        var styles = new NativeTextParagraphStyle[request.Styles.Length];
+        int featureCount = 0;
+        foreach (var style in request.Styles.Span) featureCount = checked(featureCount + style.Features.Length);
+        var features = new NativeTextFeature[featureCount];
+        int feature = 0;
+        for (int i = 0; i < styles.Length; i++)
+        {
+            var style = request.Styles.Span[i];
+            if (style.Font == null || style.Font.UnitsPerEm == 0 || !float.IsFinite(style.FontSize) || style.FontSize <= 0)
+                throw new ArgumentException("Each style requires a real source face and positive em size.");
+            if (!indices.TryGetValue(style.Font, out uint index))
+            {
+                var status = context.AddFallbackFont(style.Font.Data.Span, out index, style.Font.FaceIndex);
+                if (status != NativeRendererStatus.Success || index != fonts.Count)
+                    throw new InvalidOperationException($"Native styled font registration failed: {status}.");
+                indices.Add(style.Font, index);
+                fonts.Add(_fonts.GetValue(style.Font, static f => new(f)).RenderFont);
+            }
+            styles[i] = new(style.Start, style.Length, index, style.FontSize / style.Font.UnitsPerEm,
+                (uint)feature, (uint)style.Features.Length, style.Language);
+            foreach (var value in style.Features.Span) features[feature++] = new(value.Tag, value.Value);
+        }
+        return new Paragraph(NativeTextParagraphSnapshot.Create(context, request.Text.Span,
+            request.RightToLeft ? NativeTextDirection.RightToLeft : NativeTextDirection.LeftToRight,
+            in options, features, styles), fonts.ToArray());
     }
 
     private sealed class Paragraph : IPortableTextParagraph
@@ -45,18 +85,20 @@ internal sealed class WpfPortableTextFormatting : IPortableTextFormatting
         private readonly int[][] _logicalCarets;
         public ReadOnlyMemory<PortableTextGlyph> Glyphs { get; }
         public ReadOnlyMemory<PortableTextLineInfo> Lines { get; }
-        public object NativeFont { get; }
+        private readonly TtfFont[] _fonts;
+        public object NativeFont => _fonts[0];
+        public object GetNativeFont(uint fontIndex) => _fonts[checked((int)fontIndex)];
 
-        internal Paragraph(NativeTextParagraphSnapshot native, TtfFont renderFont)
+        internal Paragraph(NativeTextParagraphSnapshot native, TtfFont[] fonts)
         {
-            NativeFont = renderFont;
+            _fonts = fonts;
             _native = native;
             var glyphs = new PortableTextGlyph[native.Glyphs.Length];
             for (int i = 0; i < glyphs.Length; i++)
             {
                 var g = native.Glyphs.Span[i];
-                if (g.FontIndex != 0) throw new NotSupportedException("The source font map must include native fallback faces.");
-                glyphs[i] = new(g.GlyphId, g.Cluster, native.ClusterEnds.Span[i], g.X, g.Y, g.AdvanceX, native.BidiLevels.Span[i]);
+                if (g.FontIndex >= fonts.Length) throw new NotSupportedException("The source font map must include native fallback faces.");
+                glyphs[i] = new(g.GlyphId, g.Cluster, native.ClusterEnds.Span[i], g.X, g.Y, g.AdvanceX, native.BidiLevels.Span[i], g.FontIndex);
             }
             Glyphs = glyphs;
             var lines = new PortableTextLineInfo[native.Lines.Length];

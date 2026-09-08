@@ -116,6 +116,28 @@ commit. Their next-step text is historical, may be superseded by later changes,
 and must not be treated as an additional active backlog. Use the active completion
 queue above for current priorities.
 
+Styled editor connection: the MVP/source-host action of changing font size,
+physical face or brushes no longer hits the source mixed-typography rejection.
+ProGPU's existing C++ paragraph now accepts explicit face/feature/scale domains;
+source WPF carries their actual glyph face annotations, source clusters, brushes
+and participating per-line ascent/descent. Wrapping and bidi ordering use native
+floating-point scaled metrics; NEON/SSE2 cover independent metric lanes. Single-
+face styles reuse leased plans; multi-face paragraph contexts are isolated and
+disposed after owned output. This is implemented connection work, not executed
+editor parity. Existing native host text now changes size/foreground inline;
+native and source regressions are authored for the final gate. Composite/fallback
+font resolution, tabs and document objects remain the next concrete text blockers.
+Do not reopen general Direct2D/Win2D or advanced-presentation breadth for this slice.
+See the [styled integration and research record](../external/ProGPU/docs/native-mil-text-source-integration.md).
+Windows SDK admission remains guarded. Testing, verification, app/VM/GPU work,
+benchmarks and CI qualification remain deferred to core feature freeze.
+Compile-only evidence for this connection: ProGPU fixtures 0 warnings/0 errors;
+final bridge fixtures 21/0; final source PresentationCore fixtures 8/0; final
+source-host harness 4/0. Native text and shaping-showcase targets compile with
+strict AppleClang C++20. These are compilation results, not passes of fixture
+bodies or application gates. ProGPU implementation `50c98e1c` is pushed to PR #139
+and tracked here; latest fetched main is included and unrelated changes preserved.
+
 Source text adapter checkpoint: `PortableTextLine` now connects the registered
 native paragraph provider to source WPF glyph replay, clusters, hit/selection,
 logical caret navigation and cloned wrapped-line continuation. ProGPU owns the

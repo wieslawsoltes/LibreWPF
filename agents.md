@@ -7,8 +7,12 @@ contract gap, never evidence of native/managed text parity or a permitted new
 fallback. Reuse ProGPU's existing retained C++ paragraph pipeline for the typed
 adapter, with leased context ownership; do not duplicate that composer in WPF
 or indiscriminately replace Windows text-service OS guards.
-`PortableTextLine` now connects a single typography domain through the registered
-typed text provider. Keep missing styled/font/document/trimming behavior explicit;
+`PortableTextLine` connects explicit styled physical faces, sizes, boolean features
+and brushes through the registered typed text provider and the shared native
+paragraph. Styles partition actual UTF-16 input; never split a scalar or infer the
+render face from family names. Keep per-glyph font annotations, per-line source
+ascent/descent and run-specific drawing brushes. Keep remaining composite/fallback
+font, language, document and trimming behavior explicit;
 do not convert its provider failure into the legacy empty paragraph. Preserve
 source clusters, logical versus visual caret semantics and cloned continuation
 ownership. Source GlyphRun native positions may be initialized only once before

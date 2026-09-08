@@ -21,10 +21,16 @@ internal sealed class PortableTextLine : TextLine
     private readonly string _text;
     private readonly TextRunProperties _properties;
     private readonly GlyphTypeface _face;
+    private sealed record SourceStyle(int Start, int End, TextRunProperties Properties, GlyphTypeface Face,
+        PortableTextFont Font, double Baseline, double Height);
+    private readonly SourceStyle[] _styles;
+    private readonly bool _fixedHeight;
     private readonly int _paragraphStart, _lineIndex, _newlines;
     private readonly double _paragraphWidth, _indent, _baseline, _height;
     private readonly bool _rightToLeft;
     private readonly List<IndexedGlyphRun> _glyphRuns = new();
+    private readonly List<TextRunProperties> _glyphProperties = new();
+    private readonly List<(Rect Bounds, Brush Brush)> _backgrounds = new();
     private readonly List<TextSpan<TextRun>> _runs;
     private readonly Rect _ink;
     private readonly int _trailing;
@@ -52,6 +58,7 @@ internal sealed class PortableTextLine : TextLine
 
         var builder = new StringBuilder();
         var runs = new List<TextSpan<TextRun>>();
+        var styles = new List<SourceStyle>();
         TextRunProperties properties = null;
         int cp = first, newlines = 0;
         while (true)
@@ -71,11 +78,8 @@ internal sealed class PortableTextLine : TextLine
             var digits = new DigitState();
             digits.SetTextRunProperties(p);
             if (digits.DigitCulture != null || digits.Contextual) throw Unsupported("digit substitution");
-            if (properties != null && (!Equals(properties.Typeface, p.Typeface) ||
-                properties.FontRenderingEmSize != p.FontRenderingEmSize || !Equals(properties.CultureInfo, p.CultureInfo) ||
-                !Equals(properties.TypographyProperties, p.TypographyProperties) ||
-                !Equals(properties.ForegroundBrush, p.ForegroundBrush) || !Equals(properties.BackgroundBrush, p.BackgroundBrush)))
-                throw Unsupported("mixed styled runs");
+            if (properties != null && !Equals(properties.CultureInfo, p.CultureInfo))
+                throw Unsupported("mixed run languages");
             properties ??= p;
             int start = builder.Length;
             range.CharacterBuffer.AppendToStringBuilder(builder, range.OffsetToFirstChar, length);
@@ -92,37 +96,57 @@ internal sealed class PortableTextLine : TextLine
                     break;
                 }
             }
+            if (builder.Length > start)
+            {
+                if (!p.Typeface.TryGetGlyphTypeface(out var runFace)) throw Unsupported("composite-font source resolution");
+                styles.Add(new(start, builder.Length, p, runFace, GetFont(runFace),
+                    p.Typeface.Baseline(p.FontRenderingEmSize, 1, pixelsPerDip, settings.TextFormattingMode),
+                    p.Typeface.LineSpacing(p.FontRenderingEmSize, 1, pixelsPerDip, settings.TextFormattingMode)));
+            }
             runs.Add(new(used, run)); cp += used;
             if (newlines != 0) break;
         }
         properties ??= pap.DefaultTextRunProperties;
-        if (!properties.Typeface.TryGetGlyphTypeface(out GlyphTypeface face))
+        GlyphTypeface face;
+        if (styles.Count > 0) face = styles[0].Face;
+        else if (!properties.Typeface.TryGetGlyphTypeface(out face))
             throw Unsupported("composite-font source resolution");
         string text = builder.ToString();
-        var font = Fonts.GetValue(face, static source =>
-        {
-            using Stream stream = source.GetFontStream();
-            using var bytes = new MemoryStream();
-            stream.CopyTo(bytes);
-            return new PortableTextFont(bytes.ToArray(), checked((uint)source.FaceIndex), source.DesignEmHeight);
-        });
+        var font = styles.Count > 0 ? styles[0].Font : GetFont(face);
         double indent = settings.Formatter.IdealToReal(settings.TextIndent + pap.ParagraphIndent, pixelsPerDip);
         double height = pap.LineHeight > 0 ? settings.Formatter.IdealToReal(pap.LineHeight, pixelsPerDip) :
             properties.Typeface.LineSpacing(properties.FontRenderingEmSize, 1, pixelsPerDip, settings.TextFormattingMode);
         double baseline = properties.Typeface.Baseline(properties.FontRenderingEmSize, 1, pixelsPerDip, settings.TextFormattingMode);
+        var portableStyles = new PortableTextStyle[styles.Count];
+        double layoutHeight = height;
+        for (int i = 0; i < styles.Count; i++)
+        {
+            var style = styles[i];
+            portableStyles[i] = new(style.Start, style.End - style.Start, style.Font,
+                (float)style.Properties.FontRenderingEmSize, Features(style.Properties.TypographyProperties));
+            layoutHeight = Math.Max(layoutHeight, style.Height);
+        }
         var request = new PortableTextParagraphRequest(text.AsMemory(), font, (float)properties.FontRenderingEmSize,
-            (float)height, pap.Wrap && width > 0 ? (float)Math.Max(float.Epsilon, width - indent) : 0,
-            pap.RightToLeft, PortableTextAlignment.Left, Features(properties.TypographyProperties));
+            (float)layoutHeight, pap.Wrap && width > 0 ? (float)Math.Max(float.Epsilon, width - indent) : 0,
+            pap.RightToLeft, PortableTextAlignment.Left, Features(properties.TypographyProperties), portableStyles);
         var paragraph = service.Format(in request);
         if (paragraph.Lines.Length == 0) throw new InvalidOperationException("The text provider returned no line.");
         return new PortableTextLine(paragraph, text, properties, face, first, 0, newlines,
-            width, indent, baseline, height, pap.RightToLeft, runs, pixelsPerDip, pap.Align);
+            width, indent, baseline, height, pap.RightToLeft, runs, pixelsPerDip, pap.Align, styles.ToArray(), pap.LineHeight > 0);
     }
+
+    private static PortableTextFont GetFont(GlyphTypeface face) => Fonts.GetValue(face, static source =>
+    {
+        using Stream stream = source.GetFontStream();
+        using var bytes = new MemoryStream();
+        stream.CopyTo(bytes);
+        return new PortableTextFont(bytes.ToArray(), checked((uint)source.FaceIndex), source.DesignEmHeight);
+    });
 
     private PortableTextLine(PortableTextLine owner, int index) : this(owner._paragraph, owner._text,
         owner._properties, owner._face, owner._paragraphStart, index, owner._newlines,
         owner._paragraphWidth, owner._indent, owner._baseline, owner._height, owner._rightToLeft,
-        owner._runs, owner.PixelsPerDip, owner._alignment) { }
+        owner._runs, owner.PixelsPerDip, owner._alignment, owner._styles, owner._fixedHeight) { }
 
     private static PortableTextFeature[] Features(TextRunTypographyProperties p)
     {
@@ -148,13 +172,27 @@ internal sealed class PortableTextLine : TextLine
     private readonly TextAlignment _alignment;
     private PortableTextLine(IPortableTextParagraph paragraph, string text, TextRunProperties properties,
         GlyphTypeface face, int paragraphStart, int lineIndex, int newlines, double width, double indent,
-        double baseline, double height, bool rtl, List<TextSpan<TextRun>> runs, double pixelsPerDip, TextAlignment alignment)
+        double baseline, double height, bool rtl, List<TextSpan<TextRun>> runs, double pixelsPerDip, TextAlignment alignment,
+        SourceStyle[] styles, bool fixedHeight)
         : base(pixelsPerDip)
     {
         _paragraph = paragraph; _text = text; _properties = properties; _face = face;
         _paragraphStart = paragraphStart; _lineIndex = lineIndex; _newlines = newlines;
         _paragraphWidth = width; _indent = indent; _baseline = baseline; _height = height;
         _rightToLeft = rtl; _runs = runs; _alignment = alignment;
+        _styles = styles; _fixedHeight = fixedHeight;
+        double ascent = 0, descent = 0;
+        foreach (var style in styles)
+        {
+            if (style.Start >= Info.InputEnd || style.End <= Info.InputStart) continue;
+            ascent = Math.Max(ascent, style.Baseline);
+            descent = Math.Max(descent, style.Height - style.Baseline);
+        }
+        if (ascent + descent > 0)
+        {
+            _baseline = ascent;
+            if (!fixedHeight) _height = ascent + descent;
+        }
         int visibleEnd = Info.InputEnd;
         while (visibleEnd > Info.InputStart && char.IsWhiteSpace(text[visibleEnd - 1])) visibleEnd--;
         _trailing = Info.InputEnd - visibleEnd;
@@ -174,7 +212,13 @@ internal sealed class PortableTextLine : TextLine
         {
             int stop = first + 1;
             sbyte level = glyphs[first].BidiLevel;
-            while (stop < end && glyphs[stop].BidiLevel == level)
+            int styleIndex = StyleIndex(glyphs[first].Cluster);
+            var style = _styles[styleIndex];
+            var face = style.Face;
+            var properties = style.Properties;
+            uint fontIndex = glyphs[first].FontIndex;
+            while (stop < end && glyphs[stop].BidiLevel == level && glyphs[stop].FontIndex == fontIndex &&
+                StyleIndex(glyphs[stop].Cluster) == styleIndex)
             {
                 var previous = glyphs[stop - 1]; var next = glyphs[stop];
                 if (previous.Cluster != next.Cluster && ((level & 1) == 0 ?
@@ -198,10 +242,12 @@ internal sealed class PortableTextLine : TextLine
             for (int i = 0; i < indices.Length; i++)
             {
                 var g = glyphs[indices[i]];
+                if (g.Cluster < style.Start || g.ClusterEnd > style.End)
+                    throw new InvalidOperationException("A native cluster crosses its source style domain.");
                 ids[i] = checked((ushort)g.GlyphId); advances[i] = g.Advance;
                 positions[i] = new(g.X, g.Y - Info.Y);
                 double offset = (level & 1) == 0 ? g.X - advance :
-                    -advance - _face.AdvanceWidths[ids[i]] * _properties.FontRenderingEmSize - g.X;
+                    -advance - face.AdvanceWidths[ids[i]] * properties.FontRenderingEmSize - g.X;
                 offsets[i] = new(offset, -(g.Y - Info.Y));
                 advance += g.Advance;
                 if (i == 0 || g.Cluster != glyphs[indices[i - 1]].Cluster)
@@ -210,16 +256,33 @@ internal sealed class PortableTextLine : TextLine
                     carets[g.Cluster - cpStart] = true; carets[g.ClusterEnd - cpStart] = true;
                 }
             }
-            var run = new GlyphRun(_face, level, false, _properties.FontRenderingEmSize, (float)PixelsPerDip,
+            var run = new GlyphRun(face, level, false, properties.FontRenderingEmSize, (float)PixelsPerDip,
                 ids, new Point(Start, Baseline), advances, offsets, _text.AsSpan(cpStart, cpEnd - cpStart).ToArray(),
-                null, clusters, carets, XmlLanguage.GetLanguage(_properties.CultureInfo.IetfLanguageTag));
-            run.InitializePortableGlyphPositions(positions, _paragraph.NativeFont);
+                null, clusters, carets, XmlLanguage.GetLanguage(properties.CultureInfo.IetfLanguageTag));
+            run.InitializePortableGlyphPositions(positions, _paragraph.GetNativeFont(fontIndex));
             _glyphRuns.Add(new(_paragraphStart + cpStart, cpEnd - cpStart, run));
+            _glyphProperties.Add(properties);
+            if (properties.BackgroundBrush != null)
+            {
+                var rectangles = new PortableRect[Math.Max(1, Info.GlyphCount)];
+                int count = _paragraph.GetSelection(_lineIndex, cpStart, cpEnd, rectangles);
+                for (int i = 0; i < count; i++)
+                    _backgrounds.Add((new Rect(Start + rectangles[i].X, 0, rectangles[i].Width, Height), properties.BackgroundBrush));
+            }
             Rect bounds = run.ComputeInkBoundingBox();
             if (!bounds.IsEmpty) { bounds.Offset(run.BaselineOrigin.X, run.BaselineOrigin.Y); ink.Union(bounds); }
             first = stop;
         }
         return ink;
+    }
+
+    private int StyleIndex(int position)
+    {
+        int lo = 0, hi = _styles.Length;
+        while (lo < hi) { int mid = lo + (hi - lo) / 2; if (_styles[mid].End <= position) lo = mid + 1; else hi = mid; }
+        if (lo == _styles.Length || position < _styles[lo].Start)
+            throw new InvalidOperationException("A positioned glyph has no source style.");
+        return lo;
     }
 
     public override void Dispose() => _disposed = true;
@@ -234,8 +297,8 @@ internal sealed class PortableTextLine : TextLine
         drawingContext.PushTransform(new TranslateTransform(origin.X, origin.Y));
         try
         {
-            if (_properties.BackgroundBrush != null) drawingContext.DrawRectangle(_properties.BackgroundBrush, null, new Rect(Start, 0, WidthIncludingTrailingWhitespace, Height));
-            foreach (var run in _glyphRuns) drawingContext.DrawGlyphRun(_properties.ForegroundBrush, run.GlyphRun);
+            foreach (var background in _backgrounds) drawingContext.DrawRectangle(background.Brush, null, background.Bounds);
+            for (int i = 0; i < _glyphRuns.Count; i++) drawingContext.DrawGlyphRun(_glyphProperties[i].ForegroundBrush, _glyphRuns[i].GlyphRun);
         }
         finally { drawingContext.Pop(); if (antiInversion != null) drawingContext.Pop(); }
     }
@@ -277,7 +340,7 @@ internal sealed class PortableTextLine : TextLine
             int count = _paragraph.GetSelection(_lineIndex, from, to, rectangles);
             for (int i = 0; i < count; i++)
             {
-                var r = rectangles[i]; result.Add(new(new Rect(Start + r.X, r.Y, r.Width, r.Height),
+                var r = rectangles[i]; result.Add(new(new Rect(Start + r.X, 0, r.Width, Height),
                     (run.GlyphRun.BidiLevel & 1) != 0 ? FlowDirection.RightToLeft : FlowDirection.LeftToRight, null));
             }
         }
