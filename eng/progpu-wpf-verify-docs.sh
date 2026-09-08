@@ -47,6 +47,7 @@ require_text "eng/progpu-wpf-canonical-winforms-integration.sh" 'PROGPU_WPF_CANO
 require_text "eng/progpu-wpf-canonical-winforms-integration.sh" 'PROGPU_WPF_CANONICAL_EXPECTED_LIBREWINFORMS_COMMIT'
 require_text "eng/progpu-wpf-canonical-winforms-integration.sh" 'Canonical System.Windows.Forms package does not depend on the qualified System.CodeDom version'
 require_text "eng/progpu-wpf-canonical-winforms-integration.sh" 'PresentationBuildTasks/PresentationBuildTasks.csproj'
+require_text "eng/progpu-wpf-canonical-winforms-integration.sh" 'PresentationUI-PresentationFramework-impl-cycle.csproj'
 require_text "eng/progpu-wpf-canonical-winforms-integration.sh" "packaged_implementation_hash"
 require_text "eng/progpu-wpf-canonical-winforms-integration.sh" 'LibreWinForms.ProGPU/LibreWinForms.ProGPU.Package.csproj'
 require_text "eng/progpu-wpf-canonical-winforms-integration.sh" 'LibreWinFormsSkipCanonicalPackageBuild=true'

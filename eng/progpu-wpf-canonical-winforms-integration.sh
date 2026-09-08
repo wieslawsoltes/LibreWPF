@@ -91,13 +91,15 @@ progpu_interop_project="${progpu_root}/src/ProGPU.Wpf.Interop/ProGPU.Wpf.Interop
 presentation_build_tasks_project="${repo_root}/src/Microsoft.DotNet.Wpf/src/PresentationBuildTasks/PresentationBuildTasks.csproj"
 system_printing_ref_project="${repo_root}/src/Microsoft.DotNet.Wpf/src/System.Printing/ref/System.Printing-ref.csproj"
 presentation_framework_ref_project="${repo_root}/src/Microsoft.DotNet.Wpf/src/PresentationFramework/ref/PresentationFramework-ref.csproj"
+presentation_ui_impl_cycle_project="${repo_root}/src/Microsoft.DotNet.Wpf/cycle-breakers/PresentationUI/PresentationUI-PresentationFramework-impl-cycle.csproj"
 
 for prerequisite in \
   "${primitive_project}" \
   "${system_xaml_project}" \
   "${windows_base_project}" \
   "${progpu_interop_project}" \
-  "${presentation_build_tasks_project}"
+  "${presentation_build_tasks_project}" \
+  "${presentation_ui_impl_cycle_project}"
 do
   "${dotnet_command}" restore "${prerequisite}" --disable-parallel --verbosity minimal
 done
@@ -165,6 +167,17 @@ echo "Building the WPF reference and implementation-cycle foundation..."
   -p:ContinuousIntegrationBuild=true \
   --verbosity minimal
 "${dotnet_command}" build "${presentation_framework_ref_project}" \
+  --configuration "${configuration}" \
+  --no-restore \
+  -m:1 \
+  -p:UseSharedCompilation=false \
+  -p:ContinuousIntegrationBuild=true \
+  --verbosity minimal
+
+# BuildManagedTransport deliberately disables project-reference builds to keep
+# the serialized graph deterministic. Produce PresentationFramework's cycle
+# breaker explicitly so clean agents do not depend on a stale local artifact.
+"${dotnet_command}" build "${presentation_ui_impl_cycle_project}" \
   --configuration "${configuration}" \
   --no-restore \
   -m:1 \
