@@ -537,18 +537,31 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
 
     internal void Run(bool showActivated)
     {
+        RunCore(showActivated, showWindow: true);
+    }
+
+    internal void RunHidden()
+    {
+        RunCore(showActivated: false, showWindow: false);
+    }
+
+    private void RunCore(bool showActivated, bool showWindow)
+    {
         ThrowIfDisposed();
         // Nonactivating native windows must be created hidden. Otherwise the
         // Cocoa/GLFW window can take focus before the platform show policy runs.
-        _isHostVisible = showActivated;
+        _isHostVisible = showWindow && showActivated;
         EnsureWindow();
         if (!_window!.IsInitialized)
         {
             _window.Initialize();
         }
 
-        _isHostVisible = true;
-        ShowNativeWindow(showActivated);
+        if (showWindow)
+        {
+            _isHostVisible = true;
+            ShowNativeWindow(showActivated);
+        }
         _isNativeLoopRunning = true;
         TraceNativeLoop("run entering: " + CreateNativeLoopTraceState());
         try

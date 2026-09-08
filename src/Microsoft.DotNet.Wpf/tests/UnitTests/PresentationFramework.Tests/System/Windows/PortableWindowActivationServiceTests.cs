@@ -5,6 +5,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.ExceptionServices;
 using System.Threading;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media;
 using ProGPU.Wpf.Interop;
 
@@ -17,6 +18,106 @@ public class PortableWindowActivationServiceTests
     private const int MouseDownInputKind = 4;
     private const int MouseUpInputKind = 5;
     private const int LeftMouseButton = 1;
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void EnsureHandleCreatesOneHiddenSourceAndReusesItForShow(bool showAfterCreation)
+    {
+        RunInUiApartment(() =>
+        {
+            var activation = new object();
+            int hiddenCreates = 0, ordinaryCreates = 0, shows = 0, closes = 0, disposals = 0;
+            PortableWindowActivationService.Register(
+                activate: _ => { ordinaryCreates++; return new object(); },
+                createHidden: _ => { hiddenCreates++; return activation; },
+                getHandle: value => ReferenceEquals(value, activation) ? new IntPtr(5678) : IntPtr.Zero,
+                show: value => { value.Should().BeSameAs(activation); shows++; },
+                close: _ => closes++,
+                dispose: _ => disposals++);
+            var window = new Window { Width = 200, Height = 100 };
+            var interop = new WindowInteropHelper(window);
+            int initialized = 0;
+            window.SourceInitialized += (_, _) =>
+            {
+                initialized++;
+                interop.Handle.Should().Be(new IntPtr(5678));
+                window.IsVisible.Should().BeFalse();
+                // Event reentrancy must see the published identity, not create a second source.
+                interop.EnsureHandle().Should().Be(interop.Handle);
+            };
+            try
+            {
+                interop.Handle.Should().Be(IntPtr.Zero);
+                Visibility originalVisibility = window.Visibility;
+                interop.EnsureHandle().Should().Be(new IntPtr(5678));
+                interop.EnsureHandle().Should().Be(new IntPtr(5678));
+                window.Visibility.Should().Be(originalVisibility);
+                window.IsVisible.Should().BeFalse();
+                window.IsActive.Should().BeFalse();
+                shows.Should().Be(0);
+                if (showAfterCreation)
+                {
+                    window.Show();
+                    interop.EnsureHandle().Should().Be(new IntPtr(5678));
+                    window.Hide();
+                    window.Show();
+                    shows.Should().Be(2);
+                }
+                hiddenCreates.Should().Be(1);
+                ordinaryCreates.Should().Be(0);
+                initialized.Should().Be(1);
+                window.Close();
+                window.PortableWindowActivation.Should().BeNull();
+                closes.Should().Be(1);
+                disposals.Should().Be(1);
+            }
+            finally
+            {
+                if (!window.IsDisposed) window.Close();
+                PortableWindowActivationService.Clear();
+            }
+        });
+    }
+
+    [Theory]
+    [InlineData(0)] // Legacy callback set has no hidden creation capability.
+    [InlineData(1)] // Registered hidden factory rejects this window.
+    [InlineData(2)] // Factory returns a source without a usable identity.
+    public void EnsureHandleFailsClosedForUnavailableHiddenSources(int failure)
+    {
+        RunInUiApartment(() =>
+        {
+            int ordinaryCreates = 0, closes = 0, disposals = 0, initialized = 0;
+            PortableWindowActivationService.Register(
+                activate: _ => { ordinaryCreates++; return new object(); },
+                createHidden: failure == 0 ? null : _ => failure == 1 ? null! : new object(),
+                getHandle: _ => IntPtr.Zero,
+                close: _ => closes++, dispose: _ => disposals++);
+            var window = new Window();
+            window.SourceInitialized += (_, _) => initialized++;
+            var interop = new WindowInteropHelper(window);
+            try
+            {
+                Action ensure = () => interop.EnsureHandle();
+                if (failure == 0)
+                    ensure.Should().Throw<PlatformNotSupportedException>().WithMessage("*hidden window sources*");
+                else
+                    ensure.Should().Throw<InvalidOperationException>();
+                ordinaryCreates.Should().Be(0);
+                initialized.Should().Be(0);
+                interop.Handle.Should().Be(IntPtr.Zero);
+                window.PortableWindowActivation.Should().BeNull();
+                closes.Should().Be(failure == 2 ? 1 : 0);
+                disposals.Should().Be(failure == 2 ? 1 : 0);
+            }
+            finally
+            {
+                window.Close();
+                PortableWindowActivationService.Clear();
+            }
+        });
+    }
 
     [Fact]
     public void ExplicitRegistrationRoutesWindowLifecycleOnEveryPlatform()

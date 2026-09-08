@@ -57,6 +57,7 @@ public sealed class WpfPortableWindowActivation : IDisposable
     private IDisposable? _mediaContextRenderRegistration;
     private IWpfTimer? _dispatcherTimerPump;
     private bool _showActivated = true;
+    private bool _attachRootOnShow;
     private bool _isRegisteredNonActivatingOwnedWindow;
     private object? _ownerWindow;
     private readonly HashSet<WpfMouseButton> _pressedMouseButtons = new();
@@ -156,7 +157,12 @@ public sealed class WpfPortableWindowActivation : IDisposable
             requestActivation: activation =>
                 ((WpfPortableWindowActivation)activation).TryActivate(),
             setIcon: (activation, icon) =>
-                ((WpfPortableWindowActivation)activation).SetIcon(icon));
+                ((WpfPortableWindowActivation)activation).SetIcon(icon))
+        {
+            CreateHidden = window => TryCreateActivation(window, hostFactory, out var activation, hidden: true)
+                ? activation
+                : null
+        };
     }
 
     public static bool TryRegisterPresentationCoreClipboardService()
@@ -336,6 +342,7 @@ public sealed class WpfPortableWindowActivation : IDisposable
     public void Show()
     {
         ThrowIfDisposed();
+        AttachRootForShow();
         SynchronizeInitialWindowState(updatePortablePresentationSource: true);
         if (ShouldDeferNativeShowUntilRun())
         {
@@ -360,6 +367,19 @@ public sealed class WpfPortableWindowActivation : IDisposable
         }
 
         FlushWpfDispatcherOperations("Loaded", "Render");
+    }
+
+    private void AttachRootForShow()
+    {
+        if (!_attachRootOnShow)
+        {
+            return;
+        }
+
+        var bridge = Host.PortablePresentationSourceBridge ?? throw new InvalidOperationException(
+            "The hidden portable window has lost its presentation source.");
+        bridge.RootVisual = RootVisual;
+        _attachRootOnShow = false;
     }
 
     internal bool TryActivate()
@@ -484,7 +504,14 @@ public sealed class WpfPortableWindowActivation : IDisposable
         StartDispatcherTimerPump();
         try
         {
-            Host.Run(_showActivated);
+            if (_attachRootOnShow)
+            {
+                Host.RunHidden();
+            }
+            else
+            {
+                Host.Run(_showActivated);
+            }
         }
         finally
         {
@@ -2125,18 +2152,56 @@ public sealed class WpfPortableWindowActivation : IDisposable
     private static bool TryCreateActivation(
         object window,
         Func<object, ProGpuWpfWindowHost>? hostFactory,
-        out WpfPortableWindowActivation? activation)
+        out WpfPortableWindowActivation? activation,
+        bool hidden = false)
     {
         activation = null;
-        ProGpuWpfWindowHost host = hostFactory?.Invoke(window) ??
-            new ProGpuWpfWindowHost(CreateHostOptions(window));
-        if (TryAttach(host, window, out activation))
+        ProGpuWpfWindowHost host = hostFactory == null
+            ? new ProGpuWpfWindowHost(CreateHostOptions(window))
+            : hostFactory(window) ?? throw new InvalidOperationException("The configured portable host factory returned no host.");
+        bool transferred = false;
+        try
         {
+            if (hidden)
+            {
+                // EnsureHandle publishes a source, not a visible/renderable WPF
+                // root. Use the existing hidden platform window initializer;
+                // the first Show attaches the tree to this same source.
+                if (!host.TryCreatePortablePresentationSource() ||
+                    host.PortablePresentationSource is not { } source)
+                {
+                    return false;
+                }
+                activation = new WpfPortableWindowActivation(host, window, ResolveRootVisual(window), source)
+                {
+                    _attachRootOnShow = true
+                };
+                host.InitializeHidden();
+                activation.TryRegisterMediaContextRenderService();
+            }
+            else if (!TryAttach(host, window, out activation))
+            {
+                return false;
+            }
+
+            transferred = true;
             return true;
         }
-
-        host.Dispose();
-        return false;
+        finally
+        {
+            if (!transferred)
+            {
+                if (activation != null)
+                {
+                    activation.Dispose();
+                    activation = null;
+                }
+                else
+                {
+                    host.Dispose();
+                }
+            }
+        }
     }
 
     private static bool TryMapPositiveDimension(object? value, out double mappedValue)

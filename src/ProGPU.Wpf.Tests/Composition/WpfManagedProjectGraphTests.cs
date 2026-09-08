@@ -1007,6 +1007,14 @@ public sealed class WpfManagedProjectGraphTests
         Assert.DoesNotContain("currentType.Assembly", proGpuActivation, StringComparison.Ordinal);
         Assert.Contains("exception.GetBaseException()", proGpuActivation, StringComparison.Ordinal);
         Assert.Contains("CreateWindowActivationCallbacks(hostFactory)", proGpuActivation, StringComparison.Ordinal);
+        Assert.Contains("CreateHidden = window => TryCreateActivation(window, hostFactory, out var activation, hidden: true)", proGpuActivation, StringComparison.Ordinal);
+        Assert.Contains("host.TryCreatePortablePresentationSource()", proGpuActivation, StringComparison.Ordinal);
+        Assert.Contains("host.InitializeHidden();", proGpuActivation, StringComparison.Ordinal);
+        Assert.Contains("AttachRootForShow();", proGpuActivation, StringComparison.Ordinal);
+        Assert.Contains("bridge.RootVisual = RootVisual;", proGpuActivation, StringComparison.Ordinal);
+        Assert.Contains("Host.RunHidden();", proGpuActivation, StringComparison.Ordinal);
+        Assert.Contains("RunCore(showActivated: false, showWindow: false);", proGpuHost, StringComparison.Ordinal);
+        Assert.Contains("The configured portable host factory returned no host.", proGpuActivation, StringComparison.Ordinal);
         Assert.Contains("requestActivation: activation =>", proGpuActivation, StringComparison.Ordinal);
         Assert.Contains("((WpfPortableWindowActivation)activation).TryActivate()", proGpuActivation, StringComparison.Ordinal);
         Assert.Contains("activationService.TryIsCurrentApplicationMainWindow(window, out bool isMainWindow)", proGpuActivation, StringComparison.Ordinal);
@@ -1020,7 +1028,7 @@ public sealed class WpfManagedProjectGraphTests
             proGpuActivation,
             StringComparison.Ordinal);
         Assert.Contains("internal void Run(bool showActivated)", proGpuHost, StringComparison.Ordinal);
-        Assert.Contains("_isHostVisible = showActivated;\n        EnsureWindow();", proGpuHost, StringComparison.Ordinal);
+        Assert.Contains("_isHostVisible = showWindow && showActivated;\n        EnsureWindow();", proGpuHost, StringComparison.Ordinal);
         Assert.Contains("_isHostVisible = false;\n        EnsureWindow();", proGpuHost, StringComparison.Ordinal);
         Assert.DoesNotContain("ProcessDispatcherQueueCore();\n        EnsureWindow();\n        _window!.IsVisible = _isHostVisible;", proGpuHost, StringComparison.Ordinal);
         Assert.Contains("!IsPlatformEventForCurrentWindow(sender)", proGpuHost, StringComparison.Ordinal);
@@ -2420,7 +2428,7 @@ public sealed class WpfManagedProjectGraphTests
         Assert.DoesNotContain("OperatingSystem.IsWindows()", activationService, StringComparison.Ordinal);
         Assert.Contains("Falling back to Windows MIL is not permitted", activationService, StringComparison.Ordinal);
         Assert.Contains("Falling back to the Windows application loop is not permitted", activationService, StringComparison.Ordinal);
-        Assert.Contains("internal static bool TryActivate(Window window, out object activation)", activationService, StringComparison.Ordinal);
+        Assert.Contains("internal static bool TryActivate(Window window, out object activation, bool duringShow = true)", activationService, StringComparison.Ordinal);
         Assert.Contains("Action<object, object> setWindowState", activationService, StringComparison.Ordinal);
         Assert.Contains("internal static void SetWindowState(object activation, WindowState windowState)", activationService, StringComparison.Ordinal);
         Assert.Contains("Action<object, string> setTitle", activationService, StringComparison.Ordinal);
@@ -2492,8 +2500,10 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("internal object PortableWindowActivation", window, StringComparison.Ordinal);
         Assert.Contains("internal void HandlePortableInput(PortableInputEventArgs input)", window, StringComparison.Ordinal);
         Assert.Contains("PortableWindowActivationService.ProcessInput(this, input)", window, StringComparison.Ordinal);
-        Assert.Contains("TryCreatePortableWindowDuringShow()", window, StringComparison.Ordinal);
-        Assert.Contains("PortableWindowActivationService.TryActivate(this, out object activation)", window, StringComparison.Ordinal);
+        Assert.Contains("TryCreatePortableWindow(duringShow)", window, StringComparison.Ordinal);
+        Assert.Contains("PortableWindowActivationService.TryActivate(this, out object activation, duringShow)", window, StringComparison.Ordinal);
+        Assert.Contains("callbacks.CreateHidden", activationService, StringComparison.Ordinal);
+        Assert.Contains("does not support hidden window sources", activationService, StringComparison.Ordinal);
         Assert.DoesNotContain("PortableWindowActivationService.SetActivationState(this, true)", window, StringComparison.Ordinal);
         Assert.Contains("PortableWindowActivationService.TryRequestActivation(_portableWindowActivation)", window, StringComparison.Ordinal);
         Assert.Contains("PortableWindowActivationService.Show(_portableWindowActivation)", window, StringComparison.Ordinal);
@@ -2585,9 +2595,9 @@ public sealed class WpfManagedProjectGraphTests
                 < window.IndexOf("PortableWindowActivationService.Show(_portableWindowActivation)", StringComparison.Ordinal),
             "Portable Window.Show must refresh the WPF root template, inherited visibility, and layout before showing the native host.");
         Assert.True(
-            window.IndexOf("if (TryCreatePortableWindowDuringShow())", StringComparison.Ordinal)
-                < window.IndexOf("CreateSourceWindow(true);", StringComparison.Ordinal),
-            "Window.Show must try the portable activation service before falling back to HWND creation.");
+            window.IndexOf("if (TryCreatePortableWindow(duringShow))", StringComparison.Ordinal)
+                < window.IndexOf("HwndSourceParameters param = CreateHwndSourceParameters();", StringComparison.Ordinal),
+            "Show and EnsureHandle must select portable ownership before HWND/MIL source creation.");
 
         Assert.Contains("if (!OperatingSystem.IsWindows())", application, StringComparison.Ordinal);
         Assert.Contains("PortableWindowActivationService.IsEnabled", application, StringComparison.Ordinal);

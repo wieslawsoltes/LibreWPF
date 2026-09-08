@@ -163,6 +163,43 @@ not proof that the whole application no longer calls legacy MIL. Preserve the
 existing ordinary managed/native renderer algorithms rather than adding reduced
 Windows-only substitutes. Required Windows package admission remains pending.
 
+Hidden-source checkpoint (core MVP/Toolkit startup, interop hooks, show/close):
+`WindowInteropHelper.EnsureHandle()` now reaches the same ownership decision as
+`Show` before any Windows HWND/MIL source creation. The explicit ProGPU-owned
+`CreateHidden` callback creates a hidden host/source with no WPF root attached;
+the first `Show` attaches the existing root to that source. Source initialization
+publishes the handle before its one-time event, repeated queries reuse it, and
+close-before-show releases ownership. Missing/rejected hidden factories and zero
+handles fail closed, with cleanup for rejected owned activations. A custom host
+factory returning null no longer silently selects a default host.
+
+The portable handle remains the existing typed presentation-source identity,
+**not a general-purpose HWND**. Native user32 calls require an explicit platform
+adapter; this checkpoint does not make arbitrary third-party P/Invoke portable.
+The Windows SDK guard stays in place. Popup creation/placement/capture still needs
+ownership routing, and all of this implementation remains runtime-unqualified.
+See the [hidden-source contract](../external/ProGPU/docs/native-mil-hidden-window-source.md).
+
+Hidden-source Release compilation checkpoint (macOS, final incremental builds):
+ProGPU tests 0 warnings/0 errors; source-built WPF host harness 0/0;
+PresentationFramework lifecycle tests 2/0; WPF bridge tests 20/0. Earlier builds
+in this batch reported 5 and 116 warnings while rebuilding dependencies; the
+incremental totals are not warning-cleanup claims. Regression bodies, source
+assertions and native hidden windows were not executed. ProGPU was refreshed
+from `origin/main` with zero missing commits; shared contract commit `97fd4b3e`
+is on PR #139. Runtime, VM, image, lifetime, benchmark and CI qualification are
+still deferred, and the existing SDK acceptance gates remain intact.
+
+Media-resource source finding: `PathGeometry.InternalCombineManaged` currently
+returns a bounding rectangle, not a boolean path result. `FrameworkElement` uses
+`Geometry.Combine` for transformed layout clips; `CaretElement` uses it for
+selection unions/intersections. This is a named core dependency, not deferred
+API breadth. Do not simply enable that approximation on Windows or replace
+arbitrary clips with bounding boxes. Reuse ProGPU's owned geometry algorithms
+for the synchronous source-WPF contract; its existing portable C++ Direct2D
+geometry core is an implementation candidate, not yet a connected WPF utility.
+Keep the next geometry batch bounded to these real application callers.
+
 Transport-selection compilation checkpoint: final Release ProGPU tests compile
 with 0 warnings/0 errors, the source-built WPF host harness with 4/0, WPF tests
 with 115/0 and SDK smoke harness with 0/0. Both actual conditional SDK bootstrap

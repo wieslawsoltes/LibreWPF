@@ -16,6 +16,7 @@ namespace System.Windows
         private static readonly WindowActivationServiceRegistrar s_registrar = new WindowActivationServiceRegistrar();
         private static IDisposable s_registrarRegistration;
         private static Func<object, object> _activate;
+        private static Func<object, object> _createHidden;
         private static Action<object> _show;
         private static Action<object> _hide;
         private static Action<object, object> _setWindowState;
@@ -65,7 +66,8 @@ namespace System.Windows
             Func<object, IntPtr> getHandle = null,
             Func<IntPtr, PortableWindowRegion, bool> setWindowRegion = null,
             Func<object, bool> requestActivation = null,
-            Action<object, object> setIcon = null)
+            Action<object, object> setIcon = null,
+            Func<object, object> createHidden = null)
         {
             ArgumentNullException.ThrowIfNull(activate);
 
@@ -85,12 +87,14 @@ namespace System.Windows
             Volatile.Write(ref _setWindowRegion, setWindowRegion);
             Volatile.Write(ref _requestActivation, requestActivation);
             Volatile.Write(ref _setIcon, setIcon);
+            Volatile.Write(ref _createHidden, createHidden);
             Volatile.Write(ref _activate, activate);
         }
 
         internal static void Clear()
         {
             Volatile.Write(ref _activate, null);
+            Volatile.Write(ref _createHidden, null);
             Volatile.Write(ref _show, null);
             Volatile.Write(ref _hide, null);
             Volatile.Write(ref _setWindowState, null);
@@ -109,7 +113,7 @@ namespace System.Windows
             Volatile.Write(ref _setIcon, null);
         }
 
-        internal static bool TryActivate(Window window, out object activation)
+        internal static bool TryActivate(Window window, out object activation, bool duringShow = true)
         {
             activation = null;
 
@@ -117,6 +121,12 @@ namespace System.Windows
             if (activate == null)
             {
                 return false;
+            }
+
+            if (!duringShow)
+            {
+                activate = Volatile.Read(ref _createHidden) ?? throw new PlatformNotSupportedException(
+                    "The registered portable host does not support hidden window sources. Falling back to Windows MIL is not permitted.");
             }
 
             activation = activate(window) ?? throw new InvalidOperationException(
@@ -947,7 +957,8 @@ namespace System.Windows
                     callbacks.GetHandle,
                     callbacks.SetWindowRegion,
                     callbacks.RequestActivation,
-                    callbacks.SetIcon);
+                    callbacks.SetIcon,
+                    callbacks.CreateHidden);
             }
 
             public bool TryRegisterMediaContextRenderService(

@@ -2602,11 +2602,6 @@ namespace System.Windows
         /// </summary>
         internal virtual void CreateSourceWindowDuringShow()
         {
-            if (TryCreatePortableWindowDuringShow())
-            {
-                return;
-            }
-
             CreateSourceWindow(true);
         }
 
@@ -2649,6 +2644,19 @@ namespace System.Windows
             if (!duringShow)
             {
                 VerifyApiSupported();
+            }
+
+            // Both Show and WindowInteropHelper.EnsureHandle must honor source
+            // ownership before any Windows HWND/MIL renderer is created.
+            if (TryCreatePortableWindow(duringShow))
+            {
+                return;
+            }
+
+            if (PortableWpfRuntime.GetMediaBackendAndFreeze() == PortableWpfMediaBackend.Portable)
+            {
+                throw new PlatformNotSupportedException(
+                    "Portable media requires a registered portable window host; Windows MIL window creation is not permitted.");
             }
 
             // we need to cache initial requested top and left as the very first thing
@@ -7407,16 +7415,39 @@ namespace System.Windows
             }
         }
 
-        private bool TryCreatePortableWindowDuringShow()
+        private bool TryCreatePortableWindow(bool duringShow)
         {
             if (_portableWindowActivation != null)
             {
                 return true;
             }
 
-            if (!PortableWindowActivationService.TryActivate(this, out object activation))
+            if (!PortableWindowActivationService.TryActivate(this, out object activation, duringShow))
             {
                 return false;
+            }
+
+            if (!duringShow)
+            {
+                try
+                {
+                    if (PortableWindowActivationService.GetHandle(activation) == IntPtr.Zero)
+                    {
+                        throw new InvalidOperationException("The portable hidden source did not publish a window handle.");
+                    }
+                }
+                catch
+                {
+                    try
+                    {
+                        PortableWindowActivationService.Close(activation);
+                    }
+                    finally
+                    {
+                        PortableWindowActivationService.Dispose(activation);
+                    }
+                    throw;
+                }
             }
 
             _portableWindowActivation = activation;
@@ -7434,8 +7465,14 @@ namespace System.Windows
             }
 
             _portableWindowActivation = null;
-            PortableWindowActivationService.Close(activation);
-            PortableWindowActivationService.Dispose(activation);
+            try
+            {
+                PortableWindowActivationService.Close(activation);
+            }
+            finally
+            {
+                PortableWindowActivationService.Dispose(activation);
+            }
         }
 
         internal object PortableWindowActivation

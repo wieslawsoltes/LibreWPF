@@ -194,6 +194,19 @@ public sealed class WpfPortableWindowActivationTests
     }
 
     [Fact]
+    public void RejectedConfiguredFactoryDoesNotConstructADefaultHost()
+    {
+        var service = new TestWindowActivationServiceRegistrar();
+        using var registration = PortableWpfServiceRegistry.RegisterWindowActivationService(service);
+        Assert.True(WpfPortableWindowActivation.TryRegisterPresentationFrameworkActivation(_ => null!));
+        var callbacks = Assert.IsType<PortableWindowActivationCallbacks>(service.Callbacks);
+        var window = new FakeWindow();
+        Assert.Throws<InvalidOperationException>(() => callbacks.Activate(window));
+        Assert.NotNull(callbacks.CreateHidden);
+        Assert.Throws<InvalidOperationException>(() => callbacks.CreateHidden(window));
+    }
+
+    [Fact]
     public void WindowRegionCallbackUsesTypedHandleMap()
     {
         using var host = new ProGpuWpfWindowHost();

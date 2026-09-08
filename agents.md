@@ -35,6 +35,11 @@ frozen before any composition lock, channel or media-system ownership. Preserve
 that choice across shutdown/device recovery and reject late backend switches.
 Extend this typed policy to remaining MIL resource consumers; do not equate a
 portable transport selection with completed Windows package support.
+Hidden interop-source creation must use the explicit typed `CreateHidden` host
+capability, preserve a detached visual tree until Show, and publish one stable
+source identity before SourceInitialized. Missing capability or invalid handles
+must not fall through to another renderer. Portable source handles are not native
+HWNDs; keep third-party native-handle calls behind their platform adapters.
 
 ## Reflection-Free Port Priority
 
