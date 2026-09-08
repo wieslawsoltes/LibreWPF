@@ -7,6 +7,7 @@ using System.Windows;
 using System.Windows.Markup;
 using System.Windows.Media;
 using System.Windows.Media.TextFormatting;
+using MS.Internal.Shaping;
 using ProGPU.Wpf.Interop;
 using Vector2 = System.Numerics.Vector2;
 
@@ -22,7 +23,7 @@ internal sealed class PortableTextLine : TextLine
     private readonly TextRunProperties _properties;
     private readonly GlyphTypeface _face;
     private sealed record SourceStyle(int Start, int End, TextRunProperties Properties, GlyphTypeface Face,
-        PortableTextFont Font, double Baseline, double Height);
+        PortableTextFont Font, double EmSize, double Baseline, double Height);
     private readonly SourceStyle[] _styles;
     private readonly bool _fixedHeight;
     private readonly int _paragraphStart, _lineIndex, _newlines;
@@ -59,6 +60,7 @@ internal sealed class PortableTextLine : TextLine
         var builder = new StringBuilder();
         var runs = new List<TextSpan<TextRun>>();
         var styles = new List<SourceStyle>();
+        var mappedFonts = new List<TextSpan<ScaledShapeTypeface>>();
         TextRunProperties properties = null;
         int cp = first, newlines = 0;
         while (true)
@@ -98,19 +100,43 @@ internal sealed class PortableTextLine : TextLine
             }
             if (builder.Length > start)
             {
-                if (!p.Typeface.TryGetGlyphTypeface(out var runFace)) throw Unsupported("composite-font source resolution");
-                styles.Add(new(start, builder.Length, p, runFace, GetFont(runFace),
-                    p.Typeface.Baseline(p.FontRenderingEmSize, 1, pixelsPerDip, settings.TextFormattingMode),
-                    p.Typeface.LineSpacing(p.FontRenderingEmSize, 1, pixelsPerDip, settings.TextFormattingMode)));
+                mappedFonts.Clear();
+                settings.Formatter.GlyphingCache.GetPortableFontRuns(p.Typeface,
+                    new CharacterBufferRange(range, 0, builder.Length - start), p.CultureInfo, mappedFonts);
+                int mappedStart = start;
+                foreach (var mapped in mappedFonts)
+                {
+                    var selected = mapped.Value;
+                    ValidateMappedFont(selected);
+                    var runFace = selected.ShapeTypeface.GlyphTypeface;
+                    double emSize = p.FontRenderingEmSize * selected.ScaleInEm;
+                    if (!double.IsFinite(emSize) || emSize <= 0) throw Unsupported("invalid composite-font scale");
+                    styles.Add(new(mappedStart, checked(mappedStart + mapped.Length), p, runFace, GetFont(runFace), emSize,
+                        p.Typeface.Baseline(p.FontRenderingEmSize, 1, pixelsPerDip, settings.TextFormattingMode),
+                        p.Typeface.LineSpacing(p.FontRenderingEmSize, 1, pixelsPerDip, settings.TextFormattingMode)));
+                    mappedStart += mapped.Length;
+                }
+                if (mappedStart != builder.Length) throw new InvalidOperationException("Source font ranges do not cover the styled run.");
             }
             runs.Add(new(used, run)); cp += used;
             if (newlines != 0) break;
         }
         properties ??= pap.DefaultTextRunProperties;
         GlyphTypeface face;
-        if (styles.Count > 0) face = styles[0].Face;
-        else if (!properties.Typeface.TryGetGlyphTypeface(out face))
-            throw Unsupported("composite-font source resolution");
+        double primaryEmSize;
+        if (styles.Count > 0) { face = styles[0].Face; primaryEmSize = styles[0].EmSize; }
+        else
+        {
+            // An empty line still needs the source family's real font/metrics,
+            // but this probe is not inserted into its text or rendered as a glyph.
+            mappedFonts.Clear();
+            settings.Formatter.GlyphingCache.GetPortableFontRuns(properties.Typeface,
+                new CharacterBufferRange(" ", 0, 1), properties.CultureInfo, mappedFonts);
+            if (mappedFonts.Count != 1) throw new InvalidOperationException("No default physical face for an empty line.");
+            ValidateMappedFont(mappedFonts[0].Value);
+            face = mappedFonts[0].Value.ShapeTypeface.GlyphTypeface;
+            primaryEmSize = properties.FontRenderingEmSize * mappedFonts[0].Value.ScaleInEm;
+        }
         string text = builder.ToString();
         var font = styles.Count > 0 ? styles[0].Font : GetFont(face);
         double indent = settings.Formatter.IdealToReal(settings.TextIndent + pap.ParagraphIndent, pixelsPerDip);
@@ -123,16 +149,25 @@ internal sealed class PortableTextLine : TextLine
         {
             var style = styles[i];
             portableStyles[i] = new(style.Start, style.End - style.Start, style.Font,
-                (float)style.Properties.FontRenderingEmSize, Features(style.Properties.TypographyProperties));
+                (float)style.EmSize, Features(style.Properties.TypographyProperties));
             layoutHeight = Math.Max(layoutHeight, style.Height);
         }
-        var request = new PortableTextParagraphRequest(text.AsMemory(), font, (float)properties.FontRenderingEmSize,
+        var request = new PortableTextParagraphRequest(text.AsMemory(), font, (float)primaryEmSize,
             (float)layoutHeight, pap.Wrap && width > 0 ? (float)Math.Max(float.Epsilon, width - indent) : 0,
             pap.RightToLeft, PortableTextAlignment.Left, Features(properties.TypographyProperties), portableStyles);
         var paragraph = service.Format(in request);
         if (paragraph.Lines.Length == 0) throw new InvalidOperationException("The text provider returned no line.");
         return new PortableTextLine(paragraph, text, properties, face, first, 0, newlines,
             width, indent, baseline, height, pap.RightToLeft, runs, pixelsPerDip, pap.Align, styles.ToArray(), pap.LineHeight > 0);
+    }
+
+    private static void ValidateMappedFont(ScaledShapeTypeface selected)
+    {
+        if (selected == null || selected.NullShape || selected.ShapeTypeface?.GlyphTypeface == null ||
+            selected.ShapeTypeface.DeviceFont != null)
+            throw Unsupported("unresolved null-shape or device-font mapping");
+        if (selected.ShapeTypeface.GlyphTypeface.StyleSimulations != StyleSimulations.None)
+            throw Unsupported("synthetic font simulations");
     }
 
     private static PortableTextFont GetFont(GlyphTypeface face) => Fonts.GetValue(face, static source =>
@@ -247,7 +282,7 @@ internal sealed class PortableTextLine : TextLine
                 ids[i] = checked((ushort)g.GlyphId); advances[i] = g.Advance;
                 positions[i] = new(g.X, g.Y - Info.Y);
                 double offset = (level & 1) == 0 ? g.X - advance :
-                    -advance - face.AdvanceWidths[ids[i]] * properties.FontRenderingEmSize - g.X;
+                    -advance - face.AdvanceWidths[ids[i]] * style.EmSize - g.X;
                 offsets[i] = new(offset, -(g.Y - Info.Y));
                 advance += g.Advance;
                 if (i == 0 || g.Cluster != glyphs[indices[i - 1]].Cluster)
@@ -256,7 +291,7 @@ internal sealed class PortableTextLine : TextLine
                     carets[g.Cluster - cpStart] = true; carets[g.ClusterEnd - cpStart] = true;
                 }
             }
-            var run = new GlyphRun(face, level, false, properties.FontRenderingEmSize, (float)PixelsPerDip,
+            var run = new GlyphRun(face, level, false, style.EmSize, (float)PixelsPerDip,
                 ids, new Point(Start, Baseline), advances, offsets, _text.AsSpan(cpStart, cpEnd - cpStart).ToArray(),
                 null, clusters, carets, XmlLanguage.GetLanguage(properties.CultureInfo.IetfLanguageTag));
             run.InitializePortableGlyphPositions(positions, _paragraph.GetNativeFont(fontIndex));

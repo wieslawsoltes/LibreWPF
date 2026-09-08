@@ -35,6 +35,9 @@
     <None Include="$(WpfSourceDir)PresentationCore\Fonts\LibreWPF.FluentSymbols\LibreWPF.FluentSymbols.ttf"
           Link="LibreWPF\Fonts\LibreWPF.FluentSymbols.ttf"
           CopyToOutputDirectory="PreserveNewest" />
+    <None Include="$(WpfSourceDir)..\..\..\external\ProGPU\src\ProGPU.Fonts.Inter\Fonts\Inter-Medium.ttf"
+          Link="LibreWPF\Fonts\Inter-Medium.ttf"
+          CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

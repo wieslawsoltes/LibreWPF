@@ -329,7 +329,8 @@ public static class Program
         // Existing dual-assembly diagnostic harness only. These known public API
         // lookups disappear when the harness can bind the source assembly directly.
         object textBrush = Create(presentationCore, "System.Windows.Media.SolidColorBrush", GetStaticProperty(colorsType, "Black"));
-        object text = CreateRealFormattedText(presentationCore, textBrush, "\u05d0\u05d1 fi a\u0301", rightToLeft: true);
+        object text = CreateRealFormattedText(presentationCore, textBrush, "\u05d0\u05d1 fi a\u0301", rightToLeft: true,
+            fontFamilyName: "#GLOBAL USER INTERFACE");
         text.GetType().GetMethod("SetFontSize", new[] { typeof(double), typeof(int), typeof(int) })!
             .Invoke(text, new object[] { 28.0, 3, 2 });
         object styledBrush = Create(presentationCore, "System.Windows.Media.SolidColorBrush", GetStaticProperty(colorsType, "Blue"));
@@ -1234,7 +1235,8 @@ public static class Program
         });
     }
 
-    private static object CreateRealFormattedText(Assembly presentationCore, object foregroundBrush, string text = "Text", bool rightToLeft = false)
+    private static object CreateRealFormattedText(Assembly presentationCore, object foregroundBrush, string text = "Text", bool rightToLeft = false,
+        string fontFamilyName = "Arial")
     {
         Type brushType = GetRequiredType(presentationCore, "System.Windows.Media.Brush");
         Type fontFamilyType = GetRequiredType(presentationCore, "System.Windows.Media.FontFamily");
@@ -1247,7 +1249,7 @@ public static class Program
         Type fontWeightType = GetRequiredType(presentationCore, "System.Windows.FontWeight");
         Type fontWeightsType = GetRequiredType(presentationCore, "System.Windows.FontWeights");
         Type typefaceType = GetRequiredType(presentationCore, "System.Windows.Media.Typeface");
-        object fontFamily = Activator.CreateInstance(fontFamilyType, "Arial")
+        object fontFamily = Activator.CreateInstance(fontFamilyType, fontFamilyName)
             ?? throw new InvalidOperationException("Failed to create System.Windows.Media.FontFamily.");
         object typeface = typefaceType.GetConstructor(
             BindingFlags.Instance | BindingFlags.Public,

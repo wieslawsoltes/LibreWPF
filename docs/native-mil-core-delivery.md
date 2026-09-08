@@ -116,6 +116,24 @@ commit. Their next-step text is historical, may be superseded by later changes,
 and must not be treated as an additional active backlog. Use the active completion
 queue above for current priorities.
 
+Source composite/fallback connection: the native host's styled bidi text now uses
+WPF's composite UI family. The adapter consumes typed font ranges from the existing
+source GlyphingCache/TypefaceMap without calling the DirectWrite itemizer; mapped
+physical face identities and composite em scales reach the existing ProGPU native
+paragraph and actual source GlyphRuns. Source Typeface continues to own line
+metrics. Bundled-font fallback, cache reuse, culture/scale and UTF-16 range fixtures
+are authored, not executed. This closes the identified first-physical-face-only
+source branch; null-shape, device-font and synthetic style contracts remain
+explicitly unsupported. Tabs/document objects and the other required editor
+connections remain next, followed by startup admission and application closure.
+The native algorithms/ABI are reused unchanged; do not port WPF font-family policy
+into ProGPU or reopen unrelated API families. See the
+[source integration record](../external/ProGPU/docs/native-mil-text-source-integration.md).
+Compile-only checkpoint: source PresentationCore fixtures 4 warnings/0 errors;
+source-host harness 1/0; bridge fixtures 115/0. No tests, source verifiers,
+app/VM/GPU workloads, benchmarks or CI qualification ran. Native algorithms/ABI
+are unchanged; ProGPU main is current and unrelated worktree changes preserved.
+
 Styled editor connection: the MVP/source-host action of changing font size,
 physical face or brushes no longer hits the source mixed-typography rejection.
 ProGPU's existing C++ paragraph now accepts explicit face/feature/scale domains;

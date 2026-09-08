@@ -11,8 +11,14 @@ or indiscriminately replace Windows text-service OS guards.
 and brushes through the registered typed text provider and the shared native
 paragraph. Styles partition actual UTF-16 input; never split a scalar or infer the
 render face from family names. Keep per-glyph font annotations, per-line source
-ascent/descent and run-specific drawing brushes. Keep remaining composite/fallback
-font, language, document and trimming behavior explicit;
+ascent/descent and run-specific drawing brushes. Source composite/fallback fonts
+must use `GlyphingCache.GetPortableFontRuns` and the existing `TypefaceMap` family
+linking rules without invoking the DirectWrite itemizer. Preserve mapped em-scale
+in native styles and actual GlyphRun size; source Typeface owns line metrics.
+Do not substitute a first-family face for the mapped text ranges, bypass required
+digit-substitution checks, or guess a render font by family name. Null-shape,
+device-font and synthetic-font cases remain explicit unsupported contracts.
+Keep remaining language, document and trimming behavior explicit;
 do not convert its provider failure into the legacy empty paragraph. Preserve
 source clusters, logical versus visual caret semantics and cloned continuation
 ownership. Source GlyphRun native positions may be initialized only once before

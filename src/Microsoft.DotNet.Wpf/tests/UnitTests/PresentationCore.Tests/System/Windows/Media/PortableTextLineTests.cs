@@ -12,6 +12,34 @@ namespace System.Windows.Media;
 public class PortableTextLineTests
 {
     [Fact]
+    public void CompositeFontRangesPreserveMappingScaleThroughWrappedGlyphRuns()
+    {
+        string path = Path.Combine(AppContext.BaseDirectory, "LibreWPF", "Fonts", "Inter-Medium.ttf");
+        var face = new GlyphTypeface(new Uri(path));
+        string target = path + "#" + face.FamilyNames.Values.First();
+        var composite = new FontFamily();
+        composite.FamilyMaps.Add(new FontFamilyMap { Unicode = "0061", Target = target, Scale = .75 });
+        composite.FamilyMaps.Add(new FontFamilyMap { Unicode = "0062-0063", Target = target, Scale = 1.5 });
+        var source = new Source { Properties = new Properties(composite) };
+        Assert.False(source.Properties.Typeface.TryGetGlyphTypeface(out _));
+        var provider = new Provider { Mixed = true };
+        using var registration = PortableWpfServiceRegistry.RegisterTextFormatting(provider);
+        using var formatter = new TextFormatterImp();
+        using var first = PortableTextLine.Create(Settings(formatter, source), 0, 800, 1);
+        Assert.Equal(2, provider.Styles.Length);
+        Assert.Equal(9, provider.Styles.Span[0].FontSize);
+        Assert.Equal(18, provider.Styles.Span[1].FontSize);
+        Assert.Equal(9, Assert.Single(first.GetIndexedGlyphRuns()).GlyphRun.FontRenderingEmSize);
+        using var continuation = first.GetTextLineBreak();
+        using var second = PortableTextLine.Create(Settings(formatter, source, continuation), 1, 800, 1);
+        var glyphs = Assert.Single(second.GetIndexedGlyphRuns());
+        Assert.Equal(18, glyphs.GlyphRun.FontRenderingEmSize);
+        Assert.Equal(1, glyphs.TextSourceCharacterIndex);
+        Assert.Equal(2, glyphs.TextSourceLength);
+        Assert.Equal(new ushort[] { 0, 1 }, glyphs.GlyphRun.ClusterMap);
+    }
+
+    [Fact]
     public void SourceAdapterKeepsClustersAndClonedContinuationAfterLineDisposal()
     {
         var provider = new Provider();
@@ -83,7 +111,7 @@ public class PortableTextLineTests
 
     private sealed class Source : TextSource
     {
-        internal Properties Properties { get; } = new();
+        internal Properties Properties { get; init; } = new();
         internal bool Mixed { get; init; }
         internal bool AutoHeight { get; init; }
         public override TextRun GetTextRun(int index) => index >= 3 ? new TextEndOfParagraph(1) :
@@ -98,11 +126,11 @@ public class PortableTextLineTests
     {
         private readonly Typeface _face;
         internal double Size { get; init; } = 12;
-        internal Properties()
+        internal Properties(FontFamily? family = null)
         {
             string path = Path.Combine(AppContext.BaseDirectory, "LibreWPF", "Fonts", "LibreWPF.FluentSymbols.ttf");
             var glyph = new GlyphTypeface(new Uri(path));
-            _face = new Typeface(new FontFamily(path + "#" + glyph.FamilyNames.Values.First()), FontStyles.Normal, FontWeights.Normal, FontStretches.Normal);
+            _face = new Typeface(family ?? new FontFamily(path + "#" + glyph.FamilyNames.Values.First()), FontStyles.Normal, FontWeights.Normal, FontStretches.Normal);
         }
         public override Typeface Typeface => _face;
         public override double FontRenderingEmSize => Size;
