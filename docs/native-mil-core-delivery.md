@@ -69,6 +69,13 @@ pages and scope restoration. Geometry localization, glyph/path rasterization,
 masks/effects and cache keys still need integration; no viewport/DPI guard has
 been removed and this is not qualified presentation support.
 
+Geometry/cache checkpoint: native draw-family preflight/preparation and target
+scissors now use the current layer mapping; affected compiled-page, upload and
+render-bundle identities include viewport and independent DPI. The main native
+semantic render-execution source compiles against pinned WebGPU headers. Layer
+composites, masks/effects, 3D and remaining raster/identity consumers still block
+advanced presentation enablement; runtime parity is unproven.
+
 Source-backed blockers are in
 `src/ProGPU.Wpf/ProGpuWpfWindowHost.cs:ValidateNativeMilHostConfiguration` and
 `src/ProGPU.Wpf/WpfPortableNativePopupHost.cs`:
