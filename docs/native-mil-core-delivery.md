@@ -127,7 +127,9 @@ not complete document-viewer layout. Custom/paragraph/animated decorations,
 other locations, mixed-font underline metric averaging and the RichTextBox
 structural decoration scope adapter remain explicit gaps.
 See the [implementation record](../external/ProGPU/docs/native-mil-standard-underlines.md).
-Compile-only: source PresentationCore fixtures build with 4 warnings/0 errors;
+Compile-only: source PresentationCore fixtures build with 0 errors (4 warnings
+incrementally, 8 when the source graph rebuilt). The ink fixture handles an empty
+missing-glyph outline without treating it as an offsettable rectangle;
 the native host harness builds with 1 warning/0 errors. No tests, verifiers, apps,
 VM/GPU, benchmarks or CI qualification ran. Return to FlowDocument block/view
 integration, not optional decoration expansion, after this required connection.

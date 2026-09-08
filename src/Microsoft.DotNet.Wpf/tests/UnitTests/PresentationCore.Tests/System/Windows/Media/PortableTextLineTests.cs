@@ -420,7 +420,7 @@ public class PortableTextLineTests
         Assert.Equal(first.Baseline - glyph.GlyphTypeface.UnderlinePosition * glyph.FontRenderingEmSize,
             bounds.Top + bounds.Height / 2, 6);
         Rect expectedInk = glyph.ComputeInkBoundingBox();
-        expectedInk.Offset(glyph.BaselineOrigin.X, glyph.BaselineOrigin.Y);
+        if (!expectedInk.IsEmpty) expectedInk.Offset(glyph.BaselineOrigin.X, glyph.BaselineOrigin.Y);
         expectedInk.Union(bounds);
         Assert.Equal(expectedInk.Height, first.Extent, 6);
         using var continuation = first.GetTextLineBreak();
