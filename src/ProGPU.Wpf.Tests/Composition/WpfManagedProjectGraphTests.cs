@@ -67,6 +67,28 @@ public sealed class WpfManagedProjectGraphTests
     }
 
     [Fact]
+    public void PackagePaletteFrameAndEncoderPathsDoNotSelectWicByOperatingSystem()
+    {
+        string ReadImaging(string name) => File.ReadAllText(FindRepoPath("src", "Microsoft.DotNet.Wpf", "src",
+            "PresentationCore", "System", "Windows", "Media", "Imaging", name));
+        string palette = ReadImaging("BitmapPalette.cs");
+        string frame = ReadImaging("BitmapFrameEncode.cs");
+        string encoder = ReadImaging("BitmapEncoder.cs");
+        Assert.DoesNotContain("OperatingSystem.IsWindows()", palette, StringComparison.Ordinal);
+        Assert.DoesNotContain("OperatingSystem.IsWindows()", frame, StringComparison.Ordinal);
+        Assert.DoesNotContain("OperatingSystem.IsWindows()", encoder, StringComparison.Ordinal);
+        Assert.Contains("bitmapSource._managedPixelBuffer != null || BitmapSource.UsesPortablePixelStorage", palette, StringComparison.Ordinal);
+        Assert.Contains("source._managedPixelBuffer != null || BitmapSource.UsesPortablePixelStorage", palette, StringComparison.Ordinal);
+        AssertGuardBefore(frame, "if (managedPixels != null)", "WicSourceHandle = _source.WicSourceHandle;");
+        AssertGuardBefore(frame, "Portable bitmap frames require source-owned pixels.", "WicSourceHandle = _source.WicSourceHandle;");
+        string save = encoder[encoder.IndexOf("public virtual void Save(", StringComparison.Ordinal)..];
+        AssertGuardBefore(save, "if (BitmapSource.UsesPortablePixelStorage)", "EnsureUnmanagedEncoder();");
+        Assert.Contains("Portable bitmap encoding currently supports BMP only.", save, StringComparison.Ordinal);
+        string nativeCodec = encoder[encoder.IndexOf("private void EnsureUnmanagedEncoder()", StringComparison.Ordinal)..];
+        AssertGuardBefore(nativeCodec, "Portable bitmap encoders do not expose WIC codec services.", "new FactoryMaker()");
+    }
+
+    [Fact]
     public void MemoryBitmapOwnershipUsesFrozenMediaSelectionAndGcOwnedPins()
     {
         string ReadImaging(string name) => File.ReadAllText(FindRepoPath("src", "Microsoft.DotNet.Wpf", "src",
@@ -8980,7 +9002,7 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("InitializeManagedFromBitmapSource", bitmapPalette, StringComparison.Ordinal);
         Assert.Contains("ExtractManagedColors", bitmapPalette, StringComparison.Ordinal);
         Assert.Contains("AddRgbCube", bitmapPalette, StringComparison.Ordinal);
-        AssertGuardBefore(bitmapPalette, "if (!OperatingSystem.IsWindows())", "_palette = CreateInternalPalette();");
+        AssertGuardBefore(bitmapPalette, "if (BitmapSource.UsesPortablePixelStorage)", "_palette = CreateInternalPalette();");
         Assert.Contains("IReadOnlyDictionary<string, object> portableQueries", bitmapMetadata, StringComparison.Ordinal);
         Assert.Contains("_portableQueries = new Dictionary<string, object>(portableQueries, StringComparer.Ordinal);", bitmapMetadata, StringComparison.Ordinal);
         Assert.Contains("return _portableQueries.TryGetValue(query, out object value) ? value : null;", bitmapMetadata, StringComparison.Ordinal);

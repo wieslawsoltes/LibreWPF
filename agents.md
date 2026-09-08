@@ -272,6 +272,13 @@ WriteableBitmap initialization/copy path must own pinned-heap storage before a
 lock exposes it; do not reintroduce a per-lock GCHandle that can leak when a
 locked bitmap is abandoned. Preserve typed pixel snapshots, source DPI/stride,
 clone independence, outermost-unlock publication and frozen write rejection.
+Palette analysis and BitmapFrame encoding consume actual source-owned pixels on
+every OS; portable media must reject missing storage before WIC access. Palette
+construction and encoder admission follow the same frozen media choice. Keep
+native Windows-MIL encoding separate, and reject unsupported portable containers
+and WIC codec-info/handle requests explicitly before activating a native codec.
+Existing portable palette enumeration and BMP serialization are not qualified
+WIC quantization/codec parity or evidence of complete SIMD implementation.
 
 ## Reflection-Free Port Priority
 

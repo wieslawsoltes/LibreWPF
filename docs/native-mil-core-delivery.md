@@ -116,6 +116,33 @@ commit. Their next-step text is historical, may be superseded by later changes,
 and must not be treated as an additional active backlog. Use the active completion
 queue above for current priorities.
 
+Package imaging ownership connection: the existing external SDK application's
+`ValidateManagedImagingObjects` constructs custom/predefined palettes, derives a
+palette from owned BGRA/indexed pixels, wraps the bitmap in `BitmapFrame` and saves
+BMP. Source inspection found those consumers still selected WIC by OS on Windows
+after portable BitmapSource construction. Palette selection now follows frozen
+media ownership, and source/frame adapters adopt actual owned pixels before any
+native handle read. Missing portable frame/analysis pixels fail explicitly.
+Portable BMP saving uses the existing serializer on every OS; other containers
+and WIC codec-info/palette-handle requests reject before native codec activation.
+Windows-MIL storage/codec routes remain separate. This is source-WPF ownership
+plumbing, not a new ProGPU rendering algorithm or a codec rewrite. Existing
+first-distinct-color palette analysis, predefined palette generation and BMP
+serialization remain unqualified for WIC quantization, full codec fidelity and
+SIMD/performance parity; no new scalar kernel or speed claim is introduced.
+Authored source fixtures cover indexed palette/frame ownership, independent
+clones, DPI, freeze, a BMP round trip and unsupported codec rejection. Separate
+portable and Windows-MIL test processes are required. Source graph guards also
+cover admission before WIC. No tests or application validation have run for this
+checkpoint; Windows package admission remains guarded. Continue the same package
+startup/common-resource queue, not a general image-codec expansion.
+Compile-only: PresentationCore source fixtures 4 warnings/0 errors, bridge fixtures
+116 warnings/0 errors and the source-built application harness 0 warnings/0 errors.
+An unnecessary test import was removed after the initial analyzer failure.
+Latest fetched ProGPU main is already included in feature head `133f8134`;
+unrelated ProGPU changes remain untouched. No source verifier, test, application,
+VM/GPU workload, benchmark or CI qualification was executed.
+
 Cocoa system-menu connection: the MVP Window / Show system menu action now
 resolves its real NSWindow and uses the shared ProGPU AppKit native-action menu.
 Minimize/Zoom/Close retain native button policy and delegate close cancellation;

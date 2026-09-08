@@ -33,7 +33,7 @@ namespace System.Windows.Media.Imaging
             Debug.Assert(source != null);
             _source = source;
             byte[] managedPixels = _source.CloneManagedPixelBuffer();
-            if (!OperatingSystem.IsWindows() && managedPixels != null)
+            if (managedPixels != null)
             {
                 InitializeManagedPixelBuffer(
                     _source.PixelWidth,
@@ -47,6 +47,11 @@ namespace System.Windows.Media.Imaging
             }
             else
             {
+                if (UsesPortablePixelStorage)
+                {
+                    throw new PlatformNotSupportedException("Portable bitmap frames require source-owned pixels.");
+                }
+
                 WicSourceHandle = _source.WicSourceHandle;
             }
             IsSourceCached = _source.IsSourceCached;
