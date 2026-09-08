@@ -9,6 +9,68 @@ namespace System.Windows.Media.Imaging;
 [Collection("WriteableBitmapTests")]
 public sealed class WriteableBitmapTests
 {
+    [Fact]
+    public void PixelStorageFollowsMediaSelectionAndClonesRemainIndependent()
+    {
+        byte[] initial = [1, 2, 3, 255, 4, 5, 6, 255, 7, 8, 9, 255, 10, 11, 12, 255];
+        BitmapSource source = BitmapSource.Create(2, 2, 144, 192, PixelFormats.Pbgra32, null, initial, 8);
+        Assert.Equal(BitmapSource.UsesPortablePixelStorage, source._managedPixelBuffer != null);
+        var bitmap = new WriteableBitmap(source);
+        var clone = bitmap.Clone();
+        var currentClone = bitmap.CloneCurrentValue();
+        Assert.Equal(BitmapSource.UsesPortablePixelStorage, bitmap._managedPixelBuffer != null);
+        Assert.Equal(BitmapSource.UsesPortablePixelStorage, clone._managedPixelBuffer != null);
+        Assert.NotSame(bitmap._managedPixelBuffer ?? (object)bitmap, clone._managedPixelBuffer ?? (object)clone);
+        bitmap.WritePixels(new Int32Rect(0, 0, 1, 1), new byte[] { 20, 21, 22, 255 }, 4, 0);
+        foreach (BitmapSource unchanged in new BitmapSource[] { source, clone, currentClone })
+        {
+            byte[] copy = new byte[16];
+            unchanged.CopyPixels(copy, 8, 0);
+            Assert.Equal(initial, copy);
+            Assert.Equal(144, unchanged.DpiX); Assert.Equal(192, unchanged.DpiY);
+        }
+        clone.Freeze();
+        Assert.True(clone.IsFrozen);
+        Assert.Throws<InvalidOperationException>(() => clone.WritePixels(new Int32Rect(0, 0, 1, 1), initial, 8, 0));
+    }
+
+    [Fact]
+    public void NestedLocksKeepTheAddressStableAndPublishOneDirtyNotification()
+    {
+        var bitmap = new WriteableBitmap(2, 2, 144, 192, PixelFormats.Pbgra32, null);
+        int changed = 0;
+        bitmap.Changed += (_, _) => changed++;
+        bitmap.Lock();
+        IntPtr address = bitmap.BackBuffer;
+        try
+        {
+            bitmap.Lock();
+            try
+            {
+                Assert.NotEqual(IntPtr.Zero, address);
+                Marshal.WriteInt32(address, unchecked((int)0xff030201));
+                bitmap.AddDirtyRect(new Int32Rect(0, 0, 1, 1));
+                Assert.False(bitmap.CanFreeze);
+                GC.Collect();
+                Assert.Equal(address, bitmap.BackBuffer);
+                Assert.Equal(unchecked((int)0xff030201), Marshal.ReadInt32(bitmap.BackBuffer));
+            }
+            finally { bitmap.Unlock(); }
+            Assert.Equal(0, changed);
+        }
+        finally { bitmap.Unlock(); }
+        Assert.Equal(1, changed);
+        bitmap.Lock();
+        try { Assert.Equal(address, bitmap.BackBuffer); }
+        finally { bitmap.Unlock(); }
+        Assert.Equal(1, changed); // An unmodified lock does not publish a frame.
+        byte[] copy = new byte[16];
+        bitmap.CopyPixels(copy, 8, 0);
+        Assert.Equal(new byte[] { 1, 2, 3, 255 }, copy[..4]);
+        bitmap.Freeze();
+        Assert.True(bitmap.IsFrozen);
+    }
+
     // Under 2GB back-buffer (4 channels)
     [InlineData(128, 128, 96.0, 96.0)]
     [InlineData(256, 512, 96.0, 96.0)]

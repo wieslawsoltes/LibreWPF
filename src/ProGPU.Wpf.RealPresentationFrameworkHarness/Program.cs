@@ -146,6 +146,7 @@ public static class Program
                 };
 
                 NativeMilGeometryRelationSmoke.Run(presentationCore, drawingVisual);
+                NativeMilBitmapDpiSmoke.RequireSourceBitmapBinding(drawingVisual);
 
                 string? status = null;
                 Exception? validationFailure = null;
@@ -318,6 +319,10 @@ public static class Program
             brush,
             null,
             rect);
+        object bitmap = NativeMilBitmapDpiSmoke.CreateWriteableBitmap(presentationCore, windowsBase);
+        object imageRect = Activator.CreateInstance(rectType, 16.0, 16.0, 32.0, 32.0)!;
+        InvokeDrawing(drawingContext, "DrawImage",
+            new[] { GetRequiredType(presentationCore, "System.Windows.Media.ImageSource"), rectType }, bitmap, imageRect);
         Invoke(drawingContext, "Close");
         return drawingVisual;
     }

@@ -6,6 +6,28 @@ namespace ProGPU.Wpf.Tests.Composition;
 public sealed class WpfManagedProjectGraphTests
 {
     [Fact]
+    public void MemoryBitmapOwnershipUsesFrozenMediaSelectionAndGcOwnedPins()
+    {
+        string ReadImaging(string name) => File.ReadAllText(FindRepoPath("src", "Microsoft.DotNet.Wpf", "src",
+            "PresentationCore", "System", "Windows", "Media", "Imaging", name));
+        string source = ReadImaging("BitmapSource.cs");
+        string writeable = ReadImaging("WriteableBitmap.cs");
+        string cached = ReadImaging("CachedBitmap.cs");
+        Assert.Contains("PortableWpfRuntime.GetMediaBackendAndFreeze() == PortableWpfMediaBackend.Portable", source, StringComparison.Ordinal);
+        AssertGuardBefore(writeable, "if (UsesPortablePixelStorage)", "MILSwDoubleBufferedBitmap.Create(");
+        AssertGuardBefore(cached, "if (UsesPortablePixelStorage)", "UnsafeNativeMethods.WICImagingFactory.CreateBitmapFromMemory(");
+        Assert.DoesNotContain("OperatingSystem.IsWindows()", writeable, StringComparison.Ordinal);
+        Assert.DoesNotContain("OperatingSystem.IsWindows()", cached, StringComparison.Ordinal);
+        Assert.Contains("GC.AllocateArray<byte>(checked(stride * pixelHeight), pinned: true)", writeable, StringComparison.Ordinal);
+        Assert.Contains("GC.AllocateArray<byte>(checked(stride * source.PixelHeight), pinned: true)", writeable, StringComparison.Ordinal);
+        Assert.DoesNotContain("_managedBackBufferHandle", writeable, StringComparison.Ordinal);
+        Assert.DoesNotContain("GCHandle.Alloc(_managedPixelBuffer", writeable, StringComparison.Ordinal);
+        string harness = File.ReadAllText(FindRepoPath("src", "ProGPU.Wpf.RealPresentationFrameworkHarness", "Program.cs"));
+        Assert.Contains("NativeMilBitmapDpiSmoke.CreateWriteableBitmap(presentationCore, windowsBase)", harness, StringComparison.Ordinal);
+        Assert.Contains("NativeMilBitmapDpiSmoke.RequireSourceBitmapBinding(drawingVisual)", harness, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void SourceTestNrbfVersionDoesNotReplaceThePortableProductPin()
     {
         string props = File.ReadAllText(FindRepoPath("Directory.Build.props"));

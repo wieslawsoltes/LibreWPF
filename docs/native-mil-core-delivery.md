@@ -116,6 +116,29 @@ commit. Their next-step text is historical, may be superseded by later changes,
 and must not be treated as an additional active backlog. Use the active completion
 queue above for current priorities.
 
+Memory-bitmap connection (SciChart MVP chart-to-Image display and SDK memory
+images): source WriteableBitmap construction/copy and CachedBitmap memory
+construction now select portable storage by frozen media policy, not OS.
+Cached sources consume existing managed pixels directly and decode-failure
+replacement follows the same policy. WriteableBitmap storage uses bitmap-owned
+pinned arrays, avoiding orphaned per-lock GCHandle pins while preserving nested
+lock/dirty publication and freeze behavior. The existing native host gate now
+draws a source-built bitmap and requires its exact RGBA sideband plus source DPI.
+Source fixtures cover copies/clones, locks, collection/relock address stability
+and freezing. Both renderers consume existing typed pixel contracts; no ProGPU
+renderer algorithm or ABI changes apply. See the
+[ownership and qualification record](../external/ProGPU/docs/native-mil-memory-bitmaps.md).
+This closes the named constructor/MIL-storage route, not all imaging APIs or
+Windows SDK admission. Decoder-backed images and shared-worker locked-image
+publication remain explicitly unqualified; do not count these authored fixtures
+as runtime evidence.
+Compile-only checkpoint: source-built native host harness completed with five
+warnings and zero errors; PresentationCore fixtures with four warnings and zero
+errors; bridge fixtures with zero warnings/errors. No tests, source verifiers,
+application/GPU/VM runs, benchmarks or CI qualification were executed. ProGPU
+contains the latest fetched `origin/main`; this batch adds its shared ownership
+documentation/rules, while the implementation belongs in source-built WPF.
+
 Geometry-region selection connection: portable `PathGeometry.HitTestWithPathGeometry`
 now exports bounds-free operands to the typed provider before its WPF graphics-DLL
 import. ProGPU shares its original Direct2D comparison body between the COM entry

@@ -108,6 +108,13 @@ Geometry-region hit traversal must use the typed CompareFill provider before
 legacy MIL imports under portable media selection. Preserve first/second relation
 direction, first-operand relative tolerance and exact fill/clip topology; do not
 replace selection with envelope containment or swallow unsupported finite inputs.
+Memory-bitmap constructors and decode-failure replacement use the frozen media
+choice through `BitmapSource.UsesPortablePixelStorage`, not OS-based MIL storage.
+Cached sources consume managed pixel ownership directly. Every portable
+WriteableBitmap initialization/copy path must own pinned-heap storage before a
+lock exposes it; do not reintroduce a per-lock GCHandle that can leak when a
+locked bitmap is abandoned. Preserve typed pixel snapshots, source DPI/stride,
+clone independence, outermost-unlock publication and frozen write rejection.
 
 ## Reflection-Free Port Priority
 

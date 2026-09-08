@@ -101,7 +101,7 @@ namespace System.Windows.Media.Imaging
                 HRESULT.Check(MS.Win32.NativeMethods.E_INVALIDARG);
             }
 
-            if (!OperatingSystem.IsWindows())
+            if (UsesPortablePixelStorage)
             {
                 InitManagedBackBuffer(pixelWidth, pixelHeight, dpiX, dpiY, pixelFormat, palette);
                 EndInit();
@@ -260,12 +260,14 @@ namespace System.Windows.Media.Imaging
             {
                 if (_lockCount == 0)
                 {
-                    if (!_managedBackBufferHandle.IsAllocated)
+                    // This bitmap owns pinned-heap storage from construction.
+                    // No GCHandle can outlive an abandoned locked bitmap, and
+                    // nested/repeated locks do not allocate another pin.
+                    unsafe
                     {
-                        _managedBackBufferHandle = GCHandle.Alloc(_managedPixelBuffer, GCHandleType.Pinned);
+                        fixed (byte* pixels = _managedPixelBuffer)
+                            BackBuffer = (IntPtr)pixels;
                     }
-
-                    BackBuffer = _managedBackBufferHandle.AddrOfPinnedObject();
                     _backBufferStride = _managedPixelStride;
                     _backBufferSize = (uint)_managedPixelBuffer.Length;
                 }
@@ -344,11 +346,6 @@ namespace System.Windows.Media.Imaging
             {
                 if (_managedPixelBuffer != null)
                 {
-                    if (_managedBackBufferHandle.IsAllocated)
-                    {
-                        _managedBackBufferHandle.Free();
-                    }
-
                     BackBuffer = IntPtr.Zero;
 
                     if (_hasDirtyRects)
@@ -743,7 +740,7 @@ namespace System.Windows.Media.Imaging
             BitmapPalette palette)
         {
             int stride = checked(((pixelWidth * pixelFormat.BitsPerPixel) + 7) / 8);
-            byte[] pixels = new byte[checked((stride * (pixelHeight - 1)) + stride)];
+            byte[] pixels = GC.AllocateArray<byte>(checked(stride * pixelHeight), pinned: true);
             InitializeManagedPixelBuffer(pixelWidth, pixelHeight, dpiX, dpiY, pixelFormat, palette, pixels, stride);
             _backBufferStride = stride;
             _backBufferSize = (uint)pixels.Length;
@@ -787,10 +784,10 @@ namespace System.Windows.Media.Imaging
 
             BeginInit();
 
-            if (!OperatingSystem.IsWindows())
+            if (UsesPortablePixelStorage)
             {
                 int stride = checked(((source.PixelWidth * source.Format.BitsPerPixel) + 7) / 8);
-                byte[] pixels = new byte[checked((stride * (source.PixelHeight - 1)) + stride)];
+                byte[] pixels = GC.AllocateArray<byte>(checked(stride * source.PixelHeight), pinned: true);
                 source.CopyPixels(pixels, stride, 0);
                 InitializeManagedPixelBuffer(source.PixelWidth, source.PixelHeight, source.DpiX, source.DpiY, source.Format, source.Palette, pixels, stride);
                 _backBufferStride = stride;
@@ -1537,8 +1534,6 @@ namespace System.Windows.Media.Imaging
         private EventHandler _committingBatchHandler; // = OnCommittingBatch (CS0236)
 
         private bool _actLikeSimpleBitmap = false;
-
-        private GCHandle _managedBackBufferHandle;
 
         #endregion // Fields
     }

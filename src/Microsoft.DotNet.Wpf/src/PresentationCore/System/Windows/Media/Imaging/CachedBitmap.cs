@@ -214,7 +214,7 @@ namespace System.Windows.Media.Imaging
         internal override void FinalizeCreation()
         {
             byte[] managedPixels = _source.CloneManagedPixelBuffer();
-            if (!OperatingSystem.IsWindows() && managedPixels != null)
+            if (managedPixels != null)
             {
                 InitializeManagedPixelBuffer(
                     _source.PixelWidth,
@@ -390,7 +390,7 @@ namespace System.Windows.Media.Imaging
                         );
             }
 
-            if (!OperatingSystem.IsWindows())
+            if (UsesPortablePixelStorage)
             {
                 _bitmapInit.BeginInit();
 
