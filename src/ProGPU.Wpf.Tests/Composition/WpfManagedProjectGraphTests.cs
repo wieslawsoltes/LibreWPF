@@ -9062,16 +9062,19 @@ public sealed class WpfManagedProjectGraphTests
         AssertGuardBefore(systemResources, "if (!OperatingSystem.IsWindows())", "new HwndWrapper(");
         AssertGuardBefore(systemResources, "if (OperatingSystem.IsWindows())", "XamlAccessLevel.AssemblyAccessTo(assembly)");
         AssertGuardBefore(xamlReader, "if (internalTypeHelper != null && OperatingSystem.IsWindows())", "XamlAccessLevel.AssemblyAccessTo(streamInfo.Assembly)");
-        AssertGuardBefore(popupControlService, "if (!OperatingSystem.IsWindows()", "MS.Win32.SafeNativeMethods.GetCapture()");
-        AssertGuardBefore(comboBox, "(!OperatingSystem.IsWindows()", "MS.Win32.SafeNativeMethods.GetCapture()");
+        Assert.Contains("UsesNativeWindowing(source) && MS.Win32.SafeNativeMethods.GetCapture()", popupControlService, StringComparison.Ordinal);
+        Assert.Contains("!PointUtil.IsPortablePresentationSource(source)", popupControlService, StringComparison.Ordinal);
+        Assert.Contains("!HasNativeMouseCapture(mouseReport.InputSource)", popupControlService, StringComparison.Ordinal);
+        Assert.Contains("!PopupControlService.HasNativeMouseCapture(PresentationSource.CriticalFromVisual(comboBox))", comboBox, StringComparison.Ordinal);
         Assert.Contains("PresentationSource source = PresentationSource.CriticalFromVisual(itemsHost);", comboBox, StringComparison.Ordinal);
         Assert.Contains("CompositionTarget compositionTarget = source?.CompositionTarget;", comboBox, StringComparison.Ordinal);
         Assert.DoesNotContain("HwndSource source = PresentationSource.CriticalFromVisual(itemsHost) as HwndSource;", comboBox, StringComparison.Ordinal);
-        AssertGuardBefore(popup, "(!OperatingSystem.IsWindows()", "MS.Win32.SafeNativeMethods.GetCapture()");
+        Assert.Contains("!PopupControlService.HasNativeMouseCapture(PresentationSource.CriticalFromVisual(root))", popup, StringComparison.Ordinal);
+        Assert.DoesNotContain("MS.Win32.SafeNativeMethods.GetCapture()", popup, StringComparison.Ordinal);
         Assert.Contains("return GetPresentationSourceRootRect(_portableOwnerPresentationSource);", popup, StringComparison.Ordinal);
         Assert.Contains("return GetPresentationSourceRootRect(_window);", popup, StringComparison.Ordinal);
         Assert.Contains("private static Rect GetPresentationSourceRootRect(PresentationSource source)", popup, StringComparison.Ordinal);
-        Assert.Contains("_window = new PortablePresentationSource();", popup, StringComparison.Ordinal);
+        Assert.Contains("_window = portableWindow;", popup, StringComparison.Ordinal);
         Assert.Contains("private PresentationSource _window;", popup, StringComparison.Ordinal);
         Assert.Contains("private PresentationSource _portableOwnerPresentationSource;", popup, StringComparison.Ordinal);
         Assert.Contains("private IPortablePopupServiceRegistrar _portablePopupService;", popup, StringComparison.Ordinal);
@@ -9092,11 +9095,12 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("TryDestroyPortablePopup(source);", popup, StringComparison.Ordinal);
         Assert.Contains("internal bool HasWindowReference() => _window is not null;", popup, StringComparison.Ordinal);
         Assert.Contains("internal bool CanDestroyWindow() =>", popup, StringComparison.Ordinal);
-        Assert.Contains("(!visible && !OperatingSystem.IsWindows() && popup._secHelper.HasWindowReference())", popup, StringComparison.Ordinal);
+        Assert.Contains("(!visible && popup._secHelper.IsPortable && popup._secHelper.HasWindowReference())", popup, StringComparison.Ordinal);
         Assert.Contains("popup.CancelAsyncDestroy();\n                popup.HideWindow();", popup, StringComparison.Ordinal);
         Assert.Contains("Treat every portable IsOpen=false transition as authoritative", popup, StringComparison.Ordinal);
         Assert.Contains("// Remove the host bridge even if the portable PresentationSource was already", popup, StringComparison.Ordinal);
-        Assert.Contains("TryDestroyPortablePopup(source);\n                    if (!source.IsDisposed)", popup, StringComparison.Ordinal);
+        Assert.Contains("if (PointUtil.IsPortablePresentationSource(source))", popup, StringComparison.Ordinal);
+        Assert.Contains("_portablePopupService = null;\n                        if (!source.IsDisposed)", popup, StringComparison.Ordinal);
         Assert.Contains("AttachPortablePopupRootLayoutUpdates();", popup, StringComparison.Ordinal);
         Assert.Contains("DetachPortablePopupRootLayoutUpdates();", popup, StringComparison.Ordinal);
         Assert.Contains("_popupRoot.LayoutUpdated += OnPortablePopupRootLayoutUpdated;", popup, StringComparison.Ordinal);
@@ -9106,20 +9110,27 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("OnWindowResize(_popupRoot, new AutoResizedEventArgs(clientSize));", popup, StringComparison.Ordinal);
         Assert.Contains("internal bool TryUpdatePortablePopupRootClientSize(Visual rootVisual, out Size clientSize)", popup, StringComparison.Ordinal);
         Assert.Contains("private static IntPtr GetHandle(PresentationSource source)", popup, StringComparison.Ordinal);
-        Assert.Contains("return (source is HwndSource hwnd ? hwnd.Handle : IntPtr.Zero);", popup, StringComparison.Ordinal);
-        Assert.Contains("_window is not PortablePresentationSource portableSource", popup, StringComparison.Ordinal);
+        Assert.Contains("PortablePresentationSource portable => portable.Handle", popup, StringComparison.Ordinal);
+        Assert.Contains("HwndSource hwnd => hwnd.Handle", popup, StringComparison.Ordinal);
+        Assert.Contains("(_window as HwndSource)?.PortableOwner as PortablePresentationSource", popup, StringComparison.Ordinal);
         Assert.Contains("portableSource.SetClientSize(clientSize.Width, clientSize.Height);", popup, StringComparison.Ordinal);
         Assert.Contains("private static Size GetPortableRootClientSize(Visual rootVisual)", popup, StringComparison.Ordinal);
         Assert.Contains("private static NativeMethods.POINT GetPortableMouseCursorFallbackPos(Visual targetVisual)", popup, StringComparison.Ordinal);
         Assert.Contains("private static Point GetPortableVisualAnchor(Visual targetVisual)", popup, StringComparison.Ordinal);
         Assert.Contains("return PointUtil.ClientToScreen(clientPoint, targetWindow);", popup, StringComparison.Ordinal);
         Assert.DoesNotContain("TransformToDevice.Transform(clientPoint)", popup, StringComparison.Ordinal);
-        AssertGuardBefore(popup, "if (!OperatingSystem.IsWindows())\n                {\n                    return GetPortableMouseCursorFallbackPos(targetVisual);", "UnsafeNativeMethods.TryGetCursorPos");
+        AssertGuardBefore(popup, "if (RequiresPortableWindow(targetVisual))\n                {\n                    return GetPortableMouseCursorFallbackPos(targetVisual);", "UnsafeNativeMethods.TryGetCursorPos");
         Assert.Contains("ForceMsaaToUiaBridgeWindows(popupRoot);", popup, StringComparison.Ordinal);
         Assert.Contains("private void ForceMsaaToUiaBridgeWindows(PopupRoot popupRoot)", popup, StringComparison.Ordinal);
-        AssertGuardBefore(popup, "if (!OperatingSystem.IsWindows())\n                {\n                    return;\n                }\n\n                ForceMsaaToUiaBridgeWindows(popupRoot);", "IAccessible acc");
-        AssertGuardBefore(popup, "if (!OperatingSystem.IsWindows())\n                {\n                    if (TryCreatePortablePopupSource", "HwndSource newWindow = new HwndSource(param)");
-        AssertGuardBefore(popup, "if (!OperatingSystem.IsWindows())\n            {\n                // Portable popups share the owner's compositor surface", "SafeNativeMethods.MonitorFromRect");
+        AssertGuardBefore(popup, "if (IsPortable || !OperatingSystem.IsWindows())\n                {\n                    return;\n                }\n\n                ForceMsaaToUiaBridgeWindows(popupRoot);", "IAccessible acc");
+        AssertGuardBefore(popup, "if (RequiresPortableWindow(placementTarget))", "HwndSource newWindow = new HwndSource(param)");
+        AssertGuardBefore(popup, "if (_secHelper.IsPortable)\n            {\n                // Portable popups share the owner's compositor surface", "SafeNativeMethods.MonitorFromRect");
+        Assert.Contains("internal bool IsPortable => PointUtil.IsPortablePresentationSource(_window);", popup, StringComparison.Ordinal);
+        Assert.Contains("PortableWpfRuntime.GetMediaBackendAndFreeze() == PortableWpfMediaBackend.Portable", popup, StringComparison.Ordinal);
+        Assert.Contains("No portable popup host accepted this owner.", popup, StringComparison.Ordinal);
+        Assert.DoesNotContain("_window = new PortablePresentationSource();", popup, StringComparison.Ordinal);
+        Assert.Contains("typedPresentationSource.IsDisposed", popup, StringComparison.Ordinal);
+        Assert.Contains("service.TryDestroyPopup(presentationSource);", popup, StringComparison.Ordinal);
         Assert.Contains("Rect sourceBounds = _secHelper.GetParentWindowRect();", popup, StringComparison.Ordinal);
         Assert.DoesNotContain("GetPortablePrimaryScreenBounds", popup, StringComparison.Ordinal);
         Assert.Contains("bool usesPortableLogicalScreenCoordinates = UsesPortableLogicalScreenCoordinates(_popupRoot);", popup, StringComparison.Ordinal);
@@ -9129,23 +9140,24 @@ public sealed class WpfManagedProjectGraphTests
             "if (!usesPortableLogicalScreenCoordinates)\n            {\n                // Convert back from screen space to popup's space\n                desiredSize = (Size)_secHelper.GetTransformFromDevice().Transform((Point)desiredSize);",
             popup,
             StringComparison.Ordinal);
-        AssertGuardBefore(popup, "if (IsPerMonitorDpiScalingActive && OperatingSystem.IsWindows())", "SafeNativeMethods.MonitorFromPoint");
-        Assert.Contains("if (!OperatingSystem.IsWindows())\n                {\n                    if (position)", popup, StringComparison.Ordinal);
-        Assert.Contains("if (!OperatingSystem.IsWindows())\n                {\n                    TryShowPortablePopup();", popup, StringComparison.Ordinal);
+        AssertGuardBefore(popup, "if (!PopupSecurityHelper.RequiresPortableWindow(popup?.GetTarget())", "SafeNativeMethods.MonitorFromPoint");
+        Assert.Contains("if (IsPortable)\n                {\n                    if (position)", popup, StringComparison.Ordinal);
+        Assert.Contains("if (IsPortable)\n                {\n                    TryShowPortablePopup();", popup, StringComparison.Ordinal);
         AssertGuardBefore(
             popup,
             "_popupRoot.StopAnimations();\n\n            // Portable popups are independent transient native surfaces.",
             "if (animation != PopupAnimation.None && IsTransparent)");
         Assert.Contains(
-            "if (!OperatingSystem.IsWindows())\n            {\n                return false;\n            }\n\n            // Only animate if popup is transparent",
+            "if (_secHelper.IsPortable)\n            {\n                return false;\n            }\n\n            // Only animate if popup is transparent",
             popup,
             StringComparison.Ordinal);
         Assert.Contains("return false;\n                }\n\n                IntPtr foregroundWindow", popup, StringComparison.Ordinal);
         Assert.Contains("return IntPtr.Zero;\n                }\n\n                if (source is HwndSource hwnd)", popup, StringComparison.Ordinal);
-        AssertGuardBefore(menuBase, "(!OperatingSystem.IsWindows()", "MS.Win32.SafeNativeMethods.GetCapture()");
-        AssertGuardBefore(menu, "if (OperatingSystem.IsWindows())", "PresentationSource.CriticalFromVisual(this) as System.Windows.Interop.HwndSource");
+        Assert.Contains("!PopupControlService.HasNativeMouseCapture(PresentationSource.CriticalFromVisual(menu))", menuBase, StringComparison.Ordinal);
+        AssertGuardBefore(menu, "if (PopupControlService.UsesNativeWindowing(PresentationSource.CriticalFromVisual(this)))", "PresentationSource.CriticalFromVisual(this) as System.Windows.Interop.HwndSource");
         Assert.Contains("else\n                {\n                    e.Handled = true;\n                }", menu, StringComparison.Ordinal);
-        AssertGuardBefore(menuBase, "if (OperatingSystem.IsWindows())", "MS.Win32.UnsafeNativeMethods.GetFocus()");
+        AssertGuardBefore(menuBase, "if (usesNativeWindowing)", "MS.Win32.UnsafeNativeMethods.GetFocus()");
+        Assert.Contains("if(!usesNativeWindowing || hwndSourceWithFocus != null)", menuBase, StringComparison.Ordinal);
         Assert.Contains("AreComponentResourceUrisEquivalent(loadBamlSyncInfo.BamlUri, curComponentUri)", application, StringComparison.Ordinal);
         Assert.Contains("BaseUriHelper.GetAssemblyNameAndPart(", application, StringComparison.Ordinal);
         Assert.Contains("AreComponentPartNamesEquivalent(firstPartName, secondPartName)", application, StringComparison.Ordinal);

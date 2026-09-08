@@ -200,6 +200,60 @@ for the synchronous source-WPF contract; its existing portable C++ Direct2D
 geometry core is an implementation candidate, not yet a connected WPF utility.
 Keep the next geometry batch bounded to these real application callers.
 
+Popup ownership checkpoint (MVP/Toolkit ComboBox, menu and tooltip open/close):
+
+- Source-backed blocker: `Popup.BuildWindow` and its placement, resize, visibility,
+  capture, automation and destroy branches used the OS instead of the owner/source.
+  On Windows this could feed portable identities into HWND/MIL operations. Host
+  rejection elsewhere silently created an unhosted `PortablePresentationSource`.
+- Implementation: the owner and frozen transport select creation; the resulting
+  source identity selects all subsequent portable branches. A missing, rejected,
+  disposed, wrong-kind or zero-handle host result is not published. Accepted invalid
+  results are returned to their host for cleanup. Creation failure drops cached
+  owner/service references. Destroy uses the captured source after clearing the
+  helper reference and removes host ownership even after prior source disposal;
+  local source disposal is attempted even if the host or root detachment throws.
+  Portable HwndSource wrappers use their typed portable owner for client sizing.
+- Related input consumers: ComboBox and Popup capture restoration, MenuBase capture
+  and focus restoration, Menu system-menu routing, and tooltip deactivation now
+  share `PopupControlService.UsesNativeWindowing`/`HasNativeMouseCapture`. Portable
+  sources skip user32 focus/capture checks even on Windows; native WPF keeps them.
+  Portable placement avoids native HWND-recreation/monitor-origin DPI heuristics.
+- Applicability/provenance: original source-built WPF host integration, shared by
+  both ProGPU renderer modes. Existing ProGPU-owned popup host/scene algorithms,
+  callbacks, native/managed renderers, shaders and geometry are unchanged; there
+  is no matching C++ algorithm to alter for these source-WPF OS guards. Owner
+  resolution walks the existing visual/placement chain in O(H) time for height H;
+  ordinary source-policy checks are allocation-free O(1). This is control/lifetime
+  work, not a new compute or scalar fallback. The shared startup/ownership research
+  documented in the ProGPU contract remains applicable; no rendering speed claim.
+- Authored fixtures: real portable presentation sources with a typed fake host
+  cover create/size/place/show/hide/hit-test/destroy, already-disposed sources,
+  host rejection and invalid source results, and host-destroy exceptions. The
+  existing helper is internal for signed unit-test access, not a public test API
+  or reflected probe. Source assertions cover related control routing. These are
+  not acceptance applications or runtime/parity evidence; execution is deferred.
+
+This closes the identified ownership-routing implementation gap, **not complete
+popup fidelity or Windows SDK admission**. Existing portable screen bounds still
+constrain placement to the owner client even for separately surfaced popups;
+monitor work-area/edge escape and mouse-cursor geometry/coordinate utilities need
+their typed platform route. Existing portable animation/system-menu limitations
+are unchanged and remain explicit. Final qualification must exercise nested
+menus, ComboBox/tooltip open/close, capture restoration, owner close/reopen,
+cross-monitor DPI/placement and resource lifetime in the real package apps.
+Do not enable the Windows SDK merely because these branches compile.
+
+Popup checkpoint compilation: final Release PresentationFramework tests compile
+with 2 warnings/0 errors (the earlier dependency rebuild reported 6/0), WPF bridge
+tests with 116/0, and the source-built host harness with 0/0. These totals include
+existing dependency/analyzer warnings; no warning-cleanup claim is made. All
+commands used the repository SDK with `--no-restore -m:1 -nr:false -v:q`.
+No test bodies, source verifiers, VM/GPU workloads, image/lifetime/benchmark runs
+or CI qualification were executed. Existing SDK gates are unchanged. ProGPU
+`origin/main` was refreshed with zero commits missing; this WPF-specific slice
+does not change the submodule commit or pending unrelated native work.
+
 Transport-selection compilation checkpoint: final Release ProGPU tests compile
 with 0 warnings/0 errors, the source-built WPF host harness with 4/0, WPF tests
 with 115/0 and SDK smoke harness with 0/0. Both actual conditional SDK bootstrap

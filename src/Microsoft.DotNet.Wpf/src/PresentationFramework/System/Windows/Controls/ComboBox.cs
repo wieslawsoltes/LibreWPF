@@ -1672,7 +1672,7 @@ namespace System.Windows.Controls
                         // Take capture if one of our children gave up capture (by closing their drop down)
                         if (comboBox.IsDropDownOpen &&
                             Mouse.Captured == null &&
-                            (!OperatingSystem.IsWindows() || MS.Win32.SafeNativeMethods.GetCapture() == IntPtr.Zero))
+                            !PopupControlService.HasNativeMouseCapture(PresentationSource.CriticalFromVisual(comboBox)))
                         {
                             Mouse.Capture(comboBox, CaptureMode.SubTree);
                             e.Handled = true;

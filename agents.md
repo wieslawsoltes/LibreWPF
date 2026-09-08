@@ -40,6 +40,11 @@ capability, preserve a detached visual tree until Show, and publish one stable
 source identity before SourceInitialized. Missing capability or invalid handles
 must not fall through to another renderer. Portable source handles are not native
 HWNDs; keep third-party native-handle calls behind their platform adapters.
+Popup creation selects by the owning presentation source and frozen media policy;
+existing popup operations select by source identity, including disposed-source
+cleanup. Never create an unhosted portable source after host rejection. Popup,
+ComboBox, menu and tooltip capture/focus checks must share the source-aware
+`PopupControlService` policy instead of treating portable identities as HWNDs.
 
 ## Reflection-Free Port Priority
 
