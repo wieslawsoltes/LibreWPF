@@ -75,6 +75,12 @@ legacy placement coordinates. Never forward them to the separately surfaced
 popup's presentation-source DPI; its native host owns framebuffer geometry after
 the initial seed. Owner-surface popups still inherit owner DPI. Keep single-move
 ordering fixtures and independent native-source DPI fixtures paired.
+Portable Windows popup hosts use ProGPU `NativePopupWindow` for owned,
+nonactivating top-level configuration. Native WPF HWND routing remains separate.
+Configure the real hidden native window before Show; reject and dispose it on
+configuration failure, never silently show it unowned or fall back to owner-surface
+placement after native selection. Keep native/managed renderers on the same host
+path and the Windows SDK guard until package startup integration is complete.
 Source-WPF geometry Combine must use the typed geometry operations provider and
 bounds-free operand export. Do not restore bounds-only boolean results or request
 CombinedGeometry.Bounds while exporting a combination. Groups preserve figure

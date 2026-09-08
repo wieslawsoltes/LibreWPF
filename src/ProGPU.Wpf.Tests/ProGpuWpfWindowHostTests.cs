@@ -3135,7 +3135,7 @@ public sealed class ProGpuWpfWindowHostTests
 
     [Theory]
     [InlineData(false, false, false, false, true)]
-    [InlineData(true, false, false, false, false)]
+    [InlineData(true, false, false, false, true)]
     [InlineData(false, true, false, false, true)]
     [InlineData(false, false, true, false, false)]
     [InlineData(false, false, false, true, false)]

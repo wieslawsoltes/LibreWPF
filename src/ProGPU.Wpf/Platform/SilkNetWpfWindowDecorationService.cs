@@ -5,6 +5,7 @@ using Silk.NET.Core.Contexts;
 using Silk.NET.GLFW;
 using Silk.NET.Maths;
 using Silk.NET.Windowing;
+using ProGPU.Backend;
 
 namespace System.Windows.Media.ProGPU.Platform;
 
@@ -157,6 +158,13 @@ public sealed unsafe class SilkNetWpfWindowDecorationService : IWpfWindowDecorat
         if (ownerWindow is not IView ownerView || popupWindow is not IView popupView)
         {
             return false;
+        }
+
+        if (OperatingSystem.IsWindows())
+        {
+            return NativePopupWindow.TryConfigureOwner(
+                new NativeWindowHandle(NativeWindowKind.Win32, GetWin32Hwnd(ownerView), 0, "HWND"),
+                new NativeWindowHandle(NativeWindowKind.Win32, GetWin32Hwnd(popupView), 0, "HWND"));
         }
 
         if (OperatingSystem.IsMacOS())

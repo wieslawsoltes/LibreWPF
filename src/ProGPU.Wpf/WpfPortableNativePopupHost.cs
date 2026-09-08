@@ -193,10 +193,11 @@ internal sealed class WpfPortableNativePopupHost : IWpfPortableNativePopupHost
         // GLFW exposes Wayland popup surfaces as ordinary xdg_toplevel windows and
         // cannot position them. Cocoa transient child windows are positionable and
         // their owner-relative pointer coordinates are normalized by the popup bridge.
-        // Windows continues to use WPF's native HWND popup path. X11 and Cocoa use
-        // native transient popup windows.
+        // This factory is reached only for a portable owner. Windows, X11 and
+        // Cocoa use owned native surfaces; native WPF HWND routing is separate.
+        _ = isWindows;
         _ = isMacOS;
-        return !isWindows && !explicitlyDisabled && !isWayland;
+        return !explicitlyDisabled && !isWayland;
     }
 
     public void SetInputHandler(Func<WpfInputEventArgs, bool> inputHandler)
@@ -314,9 +315,26 @@ internal sealed class WpfPortableNativePopupHost : IWpfPortableNativePopupHost
         }
 
         _popupHost.InitializeHidden();
+        bool ownerConfigured = false;
         if (_ownerHost.SilkWindow is { } ownerWindow && _popupHost.SilkWindow is { } popupWindow)
         {
-            _ownerHost.PlatformServices.WindowDecorations.TryConfigurePopupOwner(ownerWindow, popupWindow);
+            try
+            {
+                ownerConfigured = _ownerHost.PlatformServices.WindowDecorations.TryConfigurePopupOwner(ownerWindow, popupWindow);
+            }
+            catch when (OperatingSystem.IsWindows())
+            {
+                Dispose();
+                throw;
+            }
+        }
+
+        if (OperatingSystem.IsWindows() && !ownerConfigured)
+        {
+            // Never show an unowned/activating replacement after explicit native
+            // popup selection. Dispose the still-hidden surface on rejection.
+            Dispose();
+            throw new PlatformNotSupportedException("The native Windows popup owner could not be configured.");
         }
 
         _isInitialized = true;

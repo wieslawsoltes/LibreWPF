@@ -530,6 +530,9 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("TryShowCocoaWithoutActivation(GetCocoaWindow(view))", silkDecorations, StringComparison.Ordinal);
         Assert.Contains("TryShowGlfwWithoutActivation(view)", silkDecorations, StringComparison.Ordinal);
         Assert.Contains("WindowAttributeSetter.FocusOnShow", silkDecorations, StringComparison.Ordinal);
+        Assert.Contains("NativePopupWindow.TryConfigureOwner(", silkDecorations, StringComparison.Ordinal);
+        Assert.Contains("OperatingSystem.IsWindows() && !ownerConfigured", popupHost, StringComparison.Ordinal);
+        Assert.DoesNotContain("return !isWindows && !explicitlyDisabled", popupHost, StringComparison.Ordinal);
         Assert.Contains("\"_NET_WM_WINDOW_TYPE_DROPDOWN_MENU\"", silkDecorations, StringComparison.Ordinal);
         Assert.Contains("\"_NET_WM_WINDOW_TYPE_POPUP_MENU\"", silkDecorations, StringComparison.Ordinal);
         Assert.Contains("CWOverrideRedirect", silkDecorations, StringComparison.Ordinal);

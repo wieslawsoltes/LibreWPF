@@ -82,6 +82,48 @@ fallback semantics; performance defaults may only claim speed after measurement.
 
 ## Core application closure checkpoints
 
+Windows native popup connection (MVP/Toolkit ComboBox/menu open and click):
+ProGPU now owns `NativePopupWindow.TryConfigureOwner` and a Win32 implementation
+using its existing native window accessors. It validates local same-thread
+top-level windows, configures a hidden owned popup with nonactivating/tool-window
+styles, preserves unrelated style bits, and refreshes its frame without showing,
+moving, activating or promoting it to topmost. A static native subclass returns
+MA_NOACTIVATE without eating clicks, forwards other messages, and removes itself
+on destruction. Configuration failures restore attributes where possible; the
+caller must destroy any rejected hidden popup.
+
+LibreWPF's decoration service now calls that shared typed API, and portable native
+popup selection admits Windows. This affects portable owners only; native WPF
+HWND routing is unchanged. Hidden Windows popup setup now disposes and fails
+explicitly on rejected or throwing configuration before Show. Both renderer modes
+use this host/platform path; no C++ scene, shader, wire or fallback algorithm needs
+a paired change. Fixtures cover style preservation, every apply-stage failure,
+invalid/foreign/child/visible windows and actual hidden HWND ownership plus click
+activation messages on Windows. Fixture execution is deferred, not passed.
+
+This closes the specific missing native-owner route, not the Windows SDK gate.
+Next is the source-built package activation/media-startup path from the module
+initializer through first frame and common resource construction; identify any
+remaining native-Windows MIL entry before enabling explicit native SDK activation.
+Keep SDK/sample/image/VM/CI qualification deferred until implementation freeze,
+then mandatory. See ProGPU `docs/native-mil-popup-placement.md` for public Win32
+references, original implementation provenance and native callback lifetime.
+Compile-only checkpoint: ProGPU.Tests 0 warnings/0 errors; bridge fixtures 21/0
+on the final rebuild; source-built application harness 5/0. The initial parallel
+bridge build also succeeded with 117 warnings, including one shared-output copy
+retry; subsequent overlapping-graph builds were serialized. No tests, source
+verifiers, applications, VM/GPU workloads, benchmarks or CI qualification ran.
+
+The initial startup trace confirms `MediaSystem.Startup` already branches on the
+frozen portable media choice before `MilVersionCheck`. The next concrete utility
+trace is `Visual` geometry-hit traversal (`FillContainsWithDetail`) through
+`PathGeometry.HitTestWithPathGeometry`, which still directly enters legacy
+`MilUtility_PathGeometryHitTestPathGeometry`. Separately, path animations enter
+`GetPointAtFractionLength` and its legacy utility. Determine their actual import
+routing and connect required source operations through shared ProGPU algorithms;
+do not enable the SDK by assuming the new popup route also closes those calls.
+
+
 Native-popup framebuffer ownership (MVP/Toolkit menu open while its owner moves
 between monitors): source inspection confirmed two owner-DPI writes into a
 separately surfaced popup, in `WpfPortablePopupBridge.TrySetOwnerGeometry` and
