@@ -13,6 +13,33 @@ below. Finish a vertical application path before expanding API breadth. New
 findings go into the appropriate core blocker or deferred expansion list; they
 do not automatically expand the release checklist.
 
+## Active completion queue
+
+Work through these application-level batches in order. This queue, not the
+historical checkpoint suggestions below, determines the next work. Update the
+current row with concrete remaining blockers rather than starting another
+subsystem roadmap. None of these rows is runtime-qualified yet.
+
+| Order | Implementation batch | Exit to the next batch |
+| --- | --- | --- |
+| 1 — current | Native package activation: source-built harness and package MVP, including Windows. Close required source-media routing from startup through first frame and common resource construction. Windows popup ownership is connected; remaining utility routing and SDK admission are open. | Required paths select ProGPU explicitly, compile, and have no known route into unintended Windows MIL or silent managed rendering. Keep Windows admission guarded until its dependencies are implemented. |
+| 2 | Application closure: use the same MVP, Toolkit/AvalonDock, license-controlled Xceed and existing SciChart gate. Finish required text/selection, scroll/clip, popup/input, resize/DPI, content/effect/cache updates and close/reopen/device-loss ownership. Reuse existing implementations; fix concrete missing connections. | Each required action has an implemented path and authored regression coverage. Record any known blocking branch against that action; do not reopen already connected subsystems for optional refinements. |
+| 3 | Feature freeze, final qualification and delivery: build complete platform artifacts and packages, execute the existing cross-platform/Windows comparison and application gates, fix failures, and bring both PRs' required CI to green at the delivery commits. | Record exact-head package consumption and required gate results, with explicit failures or environment/license limitations. Only then report the core release delivered. |
+
+The immediate investigation is the existing `Visual` geometry-hit consumer through
+`PathGeometry.HitTestWithPathGeometry`. Confirm its import routing and required
+application dependency before implementing a shared ProGPU connection. This is
+not authorization to complete every geometry utility: path-length animation or
+other neighboring APIs enter this queue only if a required application action
+uses them. Do not exhaustively scan unrelated API families before feature freeze.
+
+General DirectX/Direct2D/COM/Win2D completeness, advanced presentation and
+nonblocking optimizations remain in the broader backlog. They cannot delay this
+core release solely because they are unfinished. Existing acceptance gates,
+reflection-free contracts, GPU-first/SIMD requirements and explicit unsupported
+behavior remain mandatory. Documentation records closure and evidence; a new
+plan or another compiled fixture alone does not close an application batch.
+
 ## Finish-first rule — renewed scope decision
 
 The four milestones below are the immediate finish line. API coverage counts,
@@ -80,7 +107,12 @@ their explicitly selected interop samples. Preserve texture/fence/device-domain,
 format, alpha, pitch and device-loss correctness. Keep configured GPU/SIMD
 fallback semantics; performance defaults may only claim speed after measurement.
 
-## Core application closure checkpoints
+## Historical core application closure checkpoints
+
+These checkpoints preserve implementation provenance and the state at each
+commit. Their next-step text is historical, may be superseded by later changes,
+and must not be treated as an additional active backlog. Use the active completion
+queue above for current priorities.
 
 Windows native popup connection (MVP/Toolkit ComboBox/menu open and click):
 ProGPU now owns `NativePopupWindow.TryConfigureOwner` and a Win32 implementation
