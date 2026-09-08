@@ -18,6 +18,7 @@ using MS.Internal.PtsHost;
 using MS.Internal.PtsHost.UnsafeNativeMethods; // PTS restrictions
 using MS.Internal.Telemetry.PresentationFramework;
 using MS.Internal.Text;
+using ProGPU.Wpf.Interop;
 
 namespace System.Windows.Documents
 {
@@ -1051,8 +1052,24 @@ namespace System.Windows.Documents
         #region Internal Properties
 
         /// <summary>
-        /// An object which formats botomless content.
+        /// Source-owned portable bottomless layout and invalidation lifecycle.
         /// </summary>
+        internal PortableFlowDocumentFormatter PortableBottomlessFormatter
+        {
+            get
+            {
+                if (PortableWpfRuntime.GetMediaBackendAndFreeze() != PortableWpfMediaBackend.Portable)
+                    throw new InvalidOperationException("Portable document formatting requires portable media ownership.");
+                if (_formatter is not PortableFlowDocumentFormatter)
+                {
+                    _formatter?.Suspend();
+                    _formatter = new PortableFlowDocumentFormatter(this);
+                }
+                return (PortableFlowDocumentFormatter)_formatter;
+            }
+        }
+
+        /// <summary>Native Windows PTS bottomless formatter.</summary>
         internal FlowDocumentFormatter BottomlessFormatter
         {
             get
@@ -1724,4 +1741,3 @@ namespace System.Windows.Documents
         #endregion IDocumentPaginatorSource Members
     }
 }
-

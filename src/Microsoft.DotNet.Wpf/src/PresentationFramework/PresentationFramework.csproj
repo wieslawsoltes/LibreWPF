@@ -213,6 +213,9 @@
     <Compile Include="MS\Internal\documents\FlowDocumentFormatter.cs" />
     <Compile Include="MS\Internal\documents\FlowDocumentPaginator.cs" />
     <Compile Include="MS\Internal\documents\FlowDocumentView.cs" />
+    <Compile Include="MS\Internal\documents\PortableDocumentParagraphSource.cs" />
+    <Compile Include="MS\Internal\documents\PortableFlowDocumentLayout.cs" />
+    <Compile Include="MS\Internal\documents\PortableFlowDocumentFormatter.cs" />
     <Compile Include="MS\Internal\documents\HostedElements.cs" />
     <Compile Include="MS\Internal\documents\IAcceptInsertion.cs" />
     <Compile Include="MS\Internal\documents\IDocumentScrollInfo.cs" />

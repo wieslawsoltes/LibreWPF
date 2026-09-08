@@ -8,6 +8,13 @@ fake TextBlocks or treat the empty portable FlowDocumentView as completion.
 Width constraints precede formatting, placement follows it; an exhausted zero
 width is not unbounded. Lazy pre-host document registration is only a prerequisite.
 The actual viewer consumer, pagination and Windows SDK admission remain open.
+`PortableFlowDocumentFormatter` owns source invalidation and retained layout
+generations without a PTS context. Consume that live generation from the viewer;
+do not rebuild a second tree or serve interaction from disposed/stale TextLines.
+Keep caught formatting-time mutations invalid, source page/block policies shared,
+and marker text separate from document indices. Symbol markers require the actual
+symbol face, not ordinary-font fallback. Connect visual/IContentHost/ITextView and
+scrolling next; compiled formatter fixtures alone do not activate FlowDocumentView.
 
 Portable source text must preserve actual shaped content, clusters, styled runs
 and caret/selection semantics. `SimpleTextLine.CreatePortableFallback` currently

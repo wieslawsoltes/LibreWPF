@@ -116,6 +116,24 @@ commit. Their next-step text is historical, may be superseded by later changes,
 and must not be treated as an additional active backlog. Use the active completion
 queue above for current priorities.
 
+Source document formatter checkpoint: `PortableFlowDocumentLayout` now sends
+source Paragraph/Section/List/ListItem properties and real TextLines to ProGPU's
+native block service. Original document objects, UTF-16/source-edge positions,
+scoped properties, source line advances and separate numbered markers are retained.
+`PortableFlowDocumentFormatter` owns source invalidation, generation reuse,
+reentrancy detection and disposal without a PTS context. Its typed source getter
+requires frozen portable media. Source fixtures are authored for those boundaries;
+they do not qualify native typography or document rendering. **FlowDocumentView
+is not switched yet**: visual/IContentHost, ITextView and scroll integration are
+the next required connection. Symbol-marker fonts, pagination, zero-width wrapping,
+indentation/hyphenation and Windows SDK admission remain explicit dependencies.
+Do not spend another batch on optional formatter APIs before the actual viewer
+consumer. See the [source checkpoint](../external/ProGPU/docs/native-mil-document-flow.md#source-formatter-checkpoint--not-viewer-activation).
+Compile-only: source PresentationFramework builds with 0 warnings/errors;
+its source fixture graph builds with 3 warnings/0 errors incrementally and
+7 warnings/0 errors when the source graph rebuilds. No fixture, verifier,
+application, VM/GPU, benchmark or CI workload was executed.
+
 Native document placement prerequisite: ProGPU now resolves nested source block
 widths and arranges actual formatted lines with positive margin collapse, insets
 and overflow. The fixed C ABI has generated double-precision records, a zero-copy
