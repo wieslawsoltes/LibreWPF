@@ -108,6 +108,22 @@ image comparisons, benchmarks or CI qualification were executed in this batch.
 Both PRs remain open; unrelated native presentation edits and deleted performance
 artifacts were preserved outside these commits.
 
+Stroke-query backend checkpoint: ProGPU now has a batched device-independent
+C ABI and managed wrapper for whole-figure stroke bounds/hits, retaining source
+gaps, incoming smooth joins, pen/dash state and post-widen transforms. It shares
+the existing native segment emitter and Direct2D stroker; native/managed dash
+validation uses intrinsic lanes. This is a prerequisite, **not closure of the
+application pen path**. Source inspection found that the core query polyline
+builder drops constant stroked segments. The new entry point rejects them
+explicitly until existing point-cap/endpoint preparation is connected. Next:
+close that shared coverage gap, add the host/source query encoder preserving
+figure/segment flags, and route the named DrawGeometry bounds/hit consumers.
+The Windows SDK guard and final acceptance gates remain unchanged. See the
+[stroke transport and remaining dependency](../external/ProGPU/docs/native-mil-geometry-utilities.md#stroke-query-prerequisite--not-yet-source-wpf-pen-admission).
+Compile-only checkpoint: the strict AppleClang C++20 native query fixture target
+is up to date, and the final ProGPU.Tests Release build succeeds with 0 warnings
+and 0 errors. No fixtures, runtime gates or CI qualification were executed.
+
 SDK activation checkpoint: the package bootstrap previously always selected
 managed portable hosts, so the native direct-host harness did not establish a
 native path for the MVP/Toolkit applications. `ProGpuWpfRendererMode=NativeMilWgpu`
