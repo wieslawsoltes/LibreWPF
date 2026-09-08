@@ -2852,10 +2852,8 @@ namespace System.Windows.Controls.Primitives
         {
             if (_secHelper.IsPortable)
             {
-                // Portable popups share the owner's compositor surface rather than independent
-                // native screen windows.  Keep placement and edge nudging inside that client area.
-                Rect sourceBounds = _secHelper.GetParentWindowRect();
-                return !sourceBounds.IsEmpty ? sourceBounds : boundingBox;
+                bool preferWorkArea = Child is MenuBase || Child is ToolTip || TemplatedParent is MenuItem;
+                return _secHelper.GetPortablePlacementBounds(boundingBox, p, preferWorkArea);
             }
 
             if (_secHelper.IsChildPopup)
@@ -3402,6 +3400,34 @@ namespace System.Windows.Controls.Primitives
                 }
 
                 return PointUtil.ToRect(rect);
+            }
+
+            internal Rect GetPortablePlacementBounds(Rect target, Point anchor, bool preferWorkArea)
+            {
+                if (_window == null || !TryGetPortablePopupService(out var service) ||
+                    !service.TryGetPopupPlacementBounds(_window,
+                        new PortableRect(target.X, target.Y, target.Width, target.Height), out var bounds))
+                {
+                    throw new PlatformNotSupportedException("The portable popup host did not provide placement bounds.");
+                }
+
+                if (bounds.Kind == PortablePopupPlacementBoundsKind.OwnerSurface)
+                {
+                    Rect owner = GetParentWindowRect();
+                    if (owner.IsEmpty) throw new InvalidOperationException("The owner-surface popup has no client bounds.");
+                    return owner;
+                }
+
+                if (bounds.Kind != PortablePopupPlacementBoundsKind.NativeScreen ||
+                    !PortablePopupMonitorSelection.IsValidMonitorBounds(bounds.Screen, bounds.WorkArea))
+                {
+                    throw new InvalidOperationException("The portable popup host returned invalid monitor bounds.");
+                }
+
+                PortableRect work = bounds.WorkArea;
+                PortableRect selected = preferWorkArea && anchor.X >= work.X && anchor.X <= work.X + work.Width &&
+                    anchor.Y >= work.Y && anchor.Y <= work.Y + work.Height ? work : bounds.Screen;
+                return new Rect(selected.X, selected.Y, selected.Width, selected.Height);
             }
 
             private static Rect GetPresentationSourceRootRect(PresentationSource source)

@@ -9124,14 +9124,16 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("private void ForceMsaaToUiaBridgeWindows(PopupRoot popupRoot)", popup, StringComparison.Ordinal);
         AssertGuardBefore(popup, "if (IsPortable || !OperatingSystem.IsWindows())\n                {\n                    return;\n                }\n\n                ForceMsaaToUiaBridgeWindows(popupRoot);", "IAccessible acc");
         AssertGuardBefore(popup, "if (RequiresPortableWindow(placementTarget))", "HwndSource newWindow = new HwndSource(param)");
-        AssertGuardBefore(popup, "if (_secHelper.IsPortable)\n            {\n                // Portable popups share the owner's compositor surface", "SafeNativeMethods.MonitorFromRect");
+        AssertGuardBefore(popup, "return _secHelper.GetPortablePlacementBounds(boundingBox, p, preferWorkArea);", "SafeNativeMethods.MonitorFromRect");
         Assert.Contains("internal bool IsPortable => PointUtil.IsPortablePresentationSource(_window);", popup, StringComparison.Ordinal);
         Assert.Contains("PortableWpfRuntime.GetMediaBackendAndFreeze() == PortableWpfMediaBackend.Portable", popup, StringComparison.Ordinal);
         Assert.Contains("No portable popup host accepted this owner.", popup, StringComparison.Ordinal);
         Assert.DoesNotContain("_window = new PortablePresentationSource();", popup, StringComparison.Ordinal);
         Assert.Contains("typedPresentationSource.IsDisposed", popup, StringComparison.Ordinal);
         Assert.Contains("service.TryDestroyPopup(presentationSource);", popup, StringComparison.Ordinal);
-        Assert.Contains("Rect sourceBounds = _secHelper.GetParentWindowRect();", popup, StringComparison.Ordinal);
+        Assert.Contains("bounds.Kind == PortablePopupPlacementBoundsKind.OwnerSurface", popup, StringComparison.Ordinal);
+        Assert.Contains("PortablePopupMonitorSelection.IsValidMonitorBounds(bounds.Screen, bounds.WorkArea)", popup, StringComparison.Ordinal);
+        Assert.Contains("The portable popup host did not provide placement bounds.", popup, StringComparison.Ordinal);
         Assert.DoesNotContain("GetPortablePrimaryScreenBounds", popup, StringComparison.Ordinal);
         Assert.Contains("bool usesPortableLogicalScreenCoordinates = UsesPortableLogicalScreenCoordinates(_popupRoot);", popup, StringComparison.Ordinal);
         Assert.Contains("if (!usesPortableLogicalScreenCoordinates)", popup, StringComparison.Ordinal);

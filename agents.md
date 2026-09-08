@@ -45,6 +45,11 @@ existing popup operations select by source identity, including disposed-source
 cleanup. Never create an unhosted portable source after host rejection. Popup,
 ComboBox, menu and tooltip capture/focus checks must share the source-aware
 `PopupControlService` policy instead of treating portable identities as HWNDs.
+Popup placement must query its registered owner for actual surface kind before
+Show: native surfaces use monitor/work-area bounds, owner-surface popups use the
+real owner client rectangle. Missing monitor capability is an explicit failure,
+not permission to silently constrain native popups to the owner. Preserve host
+desktop coordinates; do not independently rescale monitor origins by content DPI.
 
 ## Reflection-Free Port Priority
 

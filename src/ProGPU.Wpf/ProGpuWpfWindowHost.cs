@@ -4578,6 +4578,14 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         return true;
     }
 
+    internal bool TryGetPortablePopupPlacementBounds(object presentationSource, PortableRect targetBounds,
+        out PortablePopupPlacementBounds bounds)
+    {
+        bounds = default;
+        return !_isDisposed && TryFindPortablePopup(presentationSource, out var popup) &&
+            popup.TryGetPlacementBounds(targetBounds, out bounds);
+    }
+
     private void UpdatePortablePopupOwnerOrigins(
         object ownerPresentationSource,
         int ownerClientScreenDeviceX,

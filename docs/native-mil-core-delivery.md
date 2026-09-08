@@ -57,7 +57,7 @@ qualification phase below; only qualification failures reopen core code work.
 | Milestone | Required outcome | Current implementation evidence / open work |
 | --- | --- | --- |
 | 1. Native application pipeline | Source-built WPF state and updates reach canonical MIL, C++ scene compilation and WebGPU presentation; managed portable mode remains independently selectable. | `WpfNativeMilSceneCompiler`, `WpfNativeMilCompilationSession` and `RenderNativeMilFrame` exist. Close remaining producer/renderer failures encountered by the core applications; do not replace missing native rendering with silent managed replay. |
-| 2. Essential desktop interaction | Windows, scrolling, editing, selection, menus, ComboBoxes, tooltips, popups, input, resize and DPI transitions render and respond through typed contracts. | Popup owner-surface MIL composition, native-window renderer inheritance and host window-region clipping are implemented, not runtime-qualified. Partial viewports and nonuniform DPI remain explicitly rejected. Popup platform/lifetime/input behavior and escape beyond owner-surface bounds remain open. |
+| 2. Essential desktop interaction | Windows, scrolling, editing, selection, menus, ComboBoxes, tooltips, popups, input, resize and DPI transitions render and respond through typed contracts. | Popup ownership/lifetime/input routing and actual-surface placement selection are implemented, not runtime-qualified. Mixed-DPI coordinate transport, interactive capture and application fidelity remain open. Partial viewports and nonuniform DPI remain explicitly rejected. |
 | 3. Essential rendering and lifetime | Core application text, bitmap/vector content, brushes, clipping, opacity, common effects and caches update correctly; device/surface loss and resource release do not leave stale content or invalid handles. | Many implementations exist, but final output/lifetime qualification is absent. Fix missing shared algorithms in ProGPU, not WPF-local renderers. Retained update/handle stability and external image leases require review in the full application path. |
 | 4. Deliverable and qualification | Installable LibreWPF packages run representative applications on macOS/Linux and Windows Parallels; native/managed/native-Windows comparisons and exact-head required CI pass. | Packaging and host/SDK gates exist. New changes are not qualified. Full renderer and Windows builds, final runtime/image/lifetime/performance runs and CI remain mandatory. |
 
@@ -235,7 +235,7 @@ Popup ownership checkpoint (MVP/Toolkit ComboBox, menu and tooltip open/close):
   not acceptance applications or runtime/parity evidence; execution is deferred.
 
 This closes the identified ownership-routing implementation gap, **not complete
-popup fidelity or Windows SDK admission**. Existing portable screen bounds still
+popup fidelity or Windows SDK admission**. At that checkpoint, portable screen bounds still
 constrain placement to the owner client even for separately surfaced popups;
 monitor work-area/edge escape and mouse-cursor geometry/coordinate utilities need
 their typed platform route. Existing portable animation/system-menu limitations
@@ -253,6 +253,31 @@ No test bodies, source verifiers, VM/GPU workloads, image/lifetime/benchmark run
 or CI qualification were executed. Existing SDK gates are unchanged. ProGPU
 `origin/main` was refreshed with zero commits missing; this WPF-specific slice
 does not change the submodule commit or pending unrelated native work.
+
+Popup placement checkpoint (MVP/Toolkit menus, ComboBoxes and tooltips at an
+owner-window edge): ProGPU now owns a typed actual-surface bounds query and
+streaming monitor selection. The bridge reports owner-surface bounds only for
+popups without a native host, including before first Show. Native hosts use
+selected screen/work-area limits instead of owner-client limits. Source WPF
+retains its menu/tooltip work-area preference and fails explicitly on unavailable
+or invalid bounds. Queries cannot fall through to another window's registrar.
+See the [contract and qualification limits](../external/ProGPU/docs/native-mil-popup-placement.md).
+
+This closes the source-backed owner-only placement constraint, not mixed-DPI
+coordinate projection, cursor geometry or interactive popup fidelity. Both
+renderer modes share this host seam; no new native/managed rendering algorithm
+or fallback was introduced. The Windows SDK admission guard remains. The next
+core implementation dependency is the source-WPF geometry utility route used by
+transformed layout clips and editing selection, already identified above;
+do not resume general Direct2D API expansion.
+
+Placement compilation checkpoint: ProGPU tests 0 warnings/0 errors; WPF bridge
+tests 116/0; PresentationFramework tests 6/0; real source-built WPF host harness
+5/0 (Release on macOS, repository SDK, `--no-restore -m:1 -nr:false -v:q`).
+Warnings include existing dependency/analyzer diagnostics, not a cleanup claim.
+ProGPU contract commit `52aafb89` is pushed to PR #139; the superproject tracks
+it. No tests, source verifiers, runtime/GPU/VM work, images, benchmarks or CI
+qualification were run. All existing qualification gates remain required.
 
 Transport-selection compilation checkpoint: final Release ProGPU tests compile
 with 0 warnings/0 errors, the source-built WPF host harness with 4/0, WPF tests

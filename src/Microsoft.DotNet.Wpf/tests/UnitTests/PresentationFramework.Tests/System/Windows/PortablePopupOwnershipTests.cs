@@ -102,6 +102,96 @@ public class PortablePopupOwnershipTests
         });
     }
 
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void NativePlacementUsesWorkAreaOnlyForPreferredAnchorsInsideIt(bool preferWorkArea, bool outsideWorkArea)
+    {
+        RunInUiApartment(() =>
+        {
+            using var owner = PortablePresentationSourceHost.Create();
+            var target = new Border { Width = 100, Height = 80 };
+            owner.RootVisual = target;
+            var screen = new PortableRect(-1920, 0, 1920, 1080);
+            var work = new PortableRect(-1920, 24, 1920, 1056);
+            var service = new PopupService(owner)
+            {
+                PlacementBounds = new(PortablePopupPlacementBoundsKind.NativeScreen, screen, work)
+            };
+            using var registration = PortableWpfServiceRegistry.RegisterPopupService(service);
+            var helper = new Popup.PopupSecurityHelper();
+            try
+            {
+                helper.BuildWindow(0, 0, target, true, null!, null!, null!);
+                var query = new Rect(-30, 20, 20, 30);
+                var result = helper.GetPortablePlacementBounds(query,
+                    new Point(-10, outsideWorkArea ? 10 : 50), preferWorkArea);
+                result.Should().Be(preferWorkArea && !outsideWorkArea
+                    ? new Rect(-1920, 24, 1920, 1056) : new Rect(-1920, 0, 1920, 1080));
+                service.LastPlacementTarget.Should().Be(new PortableRect(-30, 20, 20, 30));
+            }
+            finally { helper.DestroyWindow(null!, null!, null!); }
+        });
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void MissingOrInvalidNativePlacementFailsInsteadOfConfiningToOwner(bool invalid)
+    {
+        RunInUiApartment(() =>
+        {
+            using var owner = PortablePresentationSourceHost.Create();
+            var target = new Border();
+            owner.RootVisual = target;
+            var service = new PopupService(owner)
+            {
+                RejectBounds = !invalid,
+                PlacementBounds = new(PortablePopupPlacementBoundsKind.NativeScreen,
+                    new(0, 0, 100, 100), new(-1, 0, 100, 100))
+            };
+            using var registration = PortableWpfServiceRegistry.RegisterPopupService(service);
+            var helper = new Popup.PopupSecurityHelper();
+            try
+            {
+                helper.BuildWindow(0, 0, target, true, null!, null!, null!);
+                Action query = () => helper.GetPortablePlacementBounds(new Rect(0, 0, 10, 10), new Point(), false);
+                if (invalid) query.Should().Throw<InvalidOperationException>();
+                else query.Should().Throw<PlatformNotSupportedException>();
+            }
+            finally { helper.DestroyWindow(null!, null!, null!); }
+        });
+    }
+
+    [Fact]
+    public void OwnerSurfacePlacementUsesTheRealLaidOutOwner()
+    {
+        RunInUiApartment(() =>
+        {
+            using var owner = PortablePresentationSourceHost.Create();
+            var target = new Border { Width = 200, Height = 100 };
+            owner.RootVisual = target;
+            owner.SetClientSize(200, 100);
+            target.Measure(new Size(200, 100));
+            target.Arrange(new Rect(0, 0, 200, 100));
+            var service = new PopupService(owner)
+            {
+                PlacementBounds = new(PortablePopupPlacementBoundsKind.OwnerSurface, PortableRect.Empty, PortableRect.Empty)
+            };
+            using var registration = PortableWpfServiceRegistry.RegisterPopupService(service);
+            var helper = new Popup.PopupSecurityHelper();
+            try
+            {
+                helper.BuildWindow(0, 0, target, true, null!, null!, null!);
+                helper.GetPortablePlacementBounds(new Rect(190, 90, 50, 50), new Point(), true)
+                    .Should().Be(helper.GetParentWindowRect());
+                helper.GetParentWindowRect().IsEmpty.Should().BeFalse();
+            }
+            finally { helper.DestroyWindow(null!, null!, null!); }
+        });
+    }
+
     private sealed class PopupService(IPortablePresentationSourceHost owner) : IPortablePopupServiceRegistrar
     {
         public PortableWpfServiceKey ServiceKey => PortableWpfServiceKey.PresentationFramework;
@@ -110,8 +200,18 @@ public class PortablePopupOwnershipTests
         public bool Reject { get; init; }
         public bool InvalidSource { get; init; }
         public bool ThrowOnDestroy { get; init; }
+        public bool RejectBounds { get; init; }
+        public PortablePopupPlacementBounds PlacementBounds { get; init; }
+        public PortableRect LastPlacementTarget { get; private set; }
         public int Positions, Sizes, Shows, Hides, HitTestChanges, Destroys;
         private object? _identity;
+
+        public bool TryGetPopupPlacementBounds(object source, PortableRect target, out PortablePopupPlacementBounds bounds)
+        {
+            LastPlacementTarget = target;
+            bounds = PlacementBounds;
+            return !RejectBounds && ReferenceEquals(source, _identity);
+        }
 
         public bool TryCreatePopup(PortablePopupCreateRequest request, out object? source)
         {

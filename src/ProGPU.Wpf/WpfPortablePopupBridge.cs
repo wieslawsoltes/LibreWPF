@@ -84,6 +84,32 @@ internal sealed class WpfPortablePopupBridge : IDisposable
 
     internal bool IsVisibleNativeWindow => IsVisible && _nativeHost != null;
 
+    internal bool TryGetPlacementBounds(PortableRect targetBounds, out PortablePopupPlacementBounds bounds)
+    {
+        bounds = default;
+        if (_isDisposed || !PortablePopupMonitorSelection.IsFiniteRectangle(targetBounds, allowZeroSize: true))
+            return false;
+        if (_nativeHost == null)
+        {
+            bounds = new(PortablePopupPlacementBoundsKind.OwnerSurface, PortableRect.Empty, PortableRect.Empty);
+            return true;
+        }
+
+        // Placement and native window positions share platform screen coordinates.
+        // Per-monitor framebuffer/content scales must not rescale desktop origins.
+        var selection = new PortablePopupMonitorSelection(targetBounds);
+        var monitors = _host.PlatformServices.Monitors.GetMonitors();
+        for (int i = 0; i < monitors.Count; i++)
+        {
+            WpfMonitorInfo monitor = monitors[i];
+            selection.Consider(
+                new PortableRect(monitor.X, monitor.Y, monitor.Width, monitor.Height),
+                new PortableRect(monitor.WorkAreaX, monitor.WorkAreaY, monitor.WorkAreaWidth, monitor.WorkAreaHeight),
+                monitor.IsPrimary);
+        }
+        return selection.TryGetBounds(out bounds);
+    }
+
     internal bool TryGetNativeMilOverlay(out WpfNativeMilVisualOverlay overlay)
     {
         overlay = default;

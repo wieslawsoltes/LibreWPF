@@ -2394,6 +2394,65 @@ public sealed class ProGpuWpfWindowHostTests
         Assert.True(scheduler.RequestCount > 1);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void PopupPlacementBoundsFollowActualHostKindBeforeShow(bool nativeWindow)
+    {
+        var previousSourceFactory = WpfPortablePopupBridge.PortablePresentationSourceFactory;
+        var previousNativeHostFactory = WpfPortablePopupBridge.NativePopupHostFactory;
+        WpfPortablePopupBridge.PortablePresentationSourceFactory = (_, _) => new FakePortablePresentationSource();
+        WpfPortablePopupBridge.NativePopupHostFactory = (_, _, _, _, _) => nativeWindow ? new FakePortableNativePopupHost() : null;
+        try
+        {
+            var monitorService = new PopupMonitorService();
+            using var host = new ProGpuWpfWindowHost
+            {
+                PlatformServices = new CrossPlatformWpfPlatformServices(new ProcessWpfLauncher(), monitorService)
+            };
+            var owner = new FakePortablePresentationSource { RootVisual = new object() };
+            Assert.True(host.TryBindPortablePresentationSource(owner));
+            var request = new PortablePopupCreateRequest(null, owner, owner.Handle, 0, 0, 0, 0, false, false);
+            Assert.True(host.TryCreatePortablePopup(request, out var popup));
+            var target = new PortableRect(-100, 30, 20, 20);
+            Assert.True(host.TryGetPortablePopupPlacementBounds(popup!, target, out var bounds));
+            Assert.Equal(nativeWindow ? PortablePopupPlacementBoundsKind.NativeScreen : PortablePopupPlacementBoundsKind.OwnerSurface, bounds.Kind);
+            Assert.Equal(nativeWindow ? 1 : 0, monitorService.Queries);
+            if (nativeWindow)
+            {
+                // Content scale is metadata, not permission to divide desktop origins.
+                Assert.Equal(new PortableRect(-1920, 0, 1920, 1080), bounds.Screen);
+                Assert.Equal(new PortableRect(-1920, 24, 1920, 1056), bounds.WorkArea);
+                monitorService.Empty = true;
+                Assert.False(host.TryGetPortablePopupPlacementBounds(popup!, target, out _));
+            }
+            Assert.False(host.TryGetPortablePopupPlacementBounds(new object(), target, out _));
+            Assert.True(host.TryDestroyPortablePopup(popup!));
+            Assert.False(host.TryGetPortablePopupPlacementBounds(popup!, target, out _));
+        }
+        finally
+        {
+            WpfPortablePopupBridge.PortablePresentationSourceFactory = previousSourceFactory;
+            WpfPortablePopupBridge.NativePopupHostFactory = previousNativeHostFactory;
+        }
+    }
+
+    private sealed class PopupMonitorService : IWpfMonitorService
+    {
+        public int Queries;
+        public bool Empty;
+        public IReadOnlyList<WpfMonitorInfo> GetMonitors()
+        {
+            Queries++;
+            return Empty ? Array.Empty<WpfMonitorInfo>() : new[]
+            {
+                new WpfMonitorInfo("Primary", 0, 0, 1920, 1080, 1, true),
+                new WpfMonitorInfo("Left", -1920, 0, 1920, 1080, 2, false)
+                { WorkAreaY = 24, WorkAreaHeight = 1056 }
+            };
+        }
+    }
+
     [Fact]
     public void PortablePopupUsesNativeHostLifecycleAndLocalInputWhenAvailable()
     {
