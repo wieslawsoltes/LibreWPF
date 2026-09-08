@@ -13,6 +13,45 @@ below. Finish a vertical application path before expanding API breadth. New
 findings go into the appropriate core blocker or deferred expansion list; they
 do not automatically expand the release checklist.
 
+## Finish-first rule — renewed scope decision
+
+The four milestones below are the immediate finish line. API coverage counts,
+additional compatibility families and completion of every presentation consumer
+are not separate prerequisites for that finish line. This rule supersedes the
+next-step suggestions in the historical checkpoints below.
+
+Before starting or continuing an implementation batch, identify the existing
+acceptance application, user action, blocking source path and bounded outcome.
+Source inspection is sufficient to identify an implementation blocker while
+runtime validation is deferred; label it as source-backed, not reproduced.
+If no core dependency can be identified, park the work in the broader backlog.
+Do not spend consecutive batches improving a subsystem without closing an
+application-level blocker or explaining the remaining dependency.
+
+The next implementation pass is application integration: trace the native host
+harness and package-mode MVP from startup through first frame, content update,
+popup, resize and shutdown; close their known unsupported/lifetime branches.
+Then apply the same closure to Toolkit/AvalonDock and the license-controlled
+paid Xceed path. Preserve the existing SDK gate, including its SciChart coverage;
+this scope decision does not authorize deleting tests or reducing that gate.
+
+Full-surface presentation and equal X/Y DPI are the existing native host profile,
+not a claim of runtime qualification. Ordinary desktop resize, DPI transitions,
+window chrome and popup placement remain core requirements. Trace their actual
+platform geometry before deciding whether partial viewports or unequal-axis
+mapping are needed. If they are required for those ordinary actions, implement
+the necessary shared presentation behavior; otherwise keep advanced mappings
+explicitly unsupported and defer their remaining consumers. Do not force a
+contrived host configuration, silently change scaling, or omit an application
+feature merely to fit the existing profile. In particular, do not begin the
+advanced 3D presentation rewrite solely to remove the global presentation guard.
+
+Preserve current implementation work, including unfinished changes, without
+equating it with delivered functionality. Correctness, reflection-free contracts,
+GPU-first/SIMD policy and resource ownership remain mandatory for core code.
+After core implementation closure, freeze feature development and run the final
+qualification phase below; only qualification failures reopen core code work.
+
 ## Fixed core milestones
 
 | Milestone | Required outcome | Current implementation evidence / open work |
@@ -41,7 +80,12 @@ their explicitly selected interop samples. Preserve texture/fence/device-domain,
 format, alpha, pitch and device-loss correctness. Keep configured GPU/SIMD
 fallback semantics; performance defaults may only claim speed after measurement.
 
-## First implementation block: popup and presentation integration
+## Implementation history: popup and presentation integration
+
+These checkpoints record completed implementation batches and remaining subsystem
+limitations. Their suggested next steps are historical, not an instruction to
+finish every advanced mapping consumer before returning to the applications.
+Use the finish-first rule above to admit work to the current core queue.
 
 Popup checkpoint: canonical owner-surface composition, local clipping, change
 revision and separate native-window renderer inheritance are implemented. See
@@ -139,7 +183,9 @@ with code, but do not run tests, source verifiers, VM/image workloads, benchmark
 or CI qualification until the feature phase ends. Do not disable automatic CI.
 
 Feature freeze occurs when the core paths have implementations with no known
-blocking unsupported branch. Then switch to qualification and fixes only:
+blocking unsupported branch in their required configurations. Deferred API or
+advanced-presentation branches may remain explicitly unsupported; a branch used
+by an acceptance action may not. Then switch to qualification and fixes only:
 
 - Build the complete native renderer and Windows provider, not only the portable
   C++ fixture library. Build managed consumers against those exact artifacts.
@@ -168,6 +214,11 @@ DirectX features unrelated to the core applications; additional shader families,
 advanced typography/effects/codecs/3D and nonblocking geometry corner cases remain
 recorded requirements. Work already implemented is preserved. Bring an item back
 onto the critical path only with a concrete core application dependency.
+
+Partial-viewport/unequal-axis presentation consumers, their 3D projection work and
+viewport-only clear/copy behavior follow the same admission rule. Their existing
+contract and partial implementation remain documented in ProGPU; they are neither
+declared complete nor automatically allowed to delay the core application pass.
 
 In particular, do not continue the general Windows Direct2D command-list bitmap,
 image, glyph, mesh and blend expansion merely because its unsupported methods
