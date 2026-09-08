@@ -116,6 +116,18 @@ commit. Their next-step text is historical, may be superseded by later changes,
 and must not be treated as an additional active backlog. Use the active completion
 queue above for current priorities.
 
+Editable-text interaction connection: ProGPU's existing native cluster/caret,
+hit-test and selection algorithms now have generated C/.NET contracts and borrowed
+span entry points. C++ and C ABI callers share the original implementation without
+per-glyph repacking. Source adapters must supply actual cluster ends and resolved
+bidi levels per positioned glyph, and consume successful output counts. Native
+interaction and text fixture targets compile; the managed backend and fixture
+project compile with zero warnings/errors. Fixtures are authored, not executed.
+The WPF TextLine adapter and styled-run metadata producer remain open: this API
+does not replace the empty portable paragraph or close Windows SDK admission.
+Finish that existing editor connection next, not another text subsystem roadmap.
+No tests, verifiers, application/VM/GPU runs, benchmarks or CI qualification ran.
+
 Retained native text prerequisite: the source empty-paragraph fallback identified
 in the SDK startup trace requires a real WPF TextLine adapter. ProGPU already has
 a C++ bidi/OpenType/fallback/positioned-paragraph pipeline, so no duplicate composer
