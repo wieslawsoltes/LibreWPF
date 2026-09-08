@@ -93,6 +93,14 @@ viewport/DPI guard is removed. Continue with nested picture raster/sampling,
 remaining raster/3D and damage/clear consumers, then the core application/lifetime
 closure and final qualification phase.
 
+Nested-picture checkpoint: source-owned raster axes and inherited target-space
+viewports are resolved before child texture creation; standalone picture-mask UVs
+include parent crop/DPI and logical guideline deformation. The affected sources
+and authored child-frame fixtures compile. Composite picture masks still bypass
+child sampling uniforms/opacity in their existing direct-texel composition path;
+close that shared GPU composition gap next. Renderer/host presentation guards and
+all final qualification requirements remain in place.
+
 Source-backed blockers are in
 `src/ProGPU.Wpf/ProGpuWpfWindowHost.cs:ValidateNativeMilHostConfiguration` and
 `src/ProGPU.Wpf/WpfPortableNativePopupHost.cs`:
