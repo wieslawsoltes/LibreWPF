@@ -1,5 +1,24 @@
 # LibreWPF native MIL on ProGPU
 
+## Delivery priority — core native MIL first (2026-09-08)
+
+Follow the [fixed core-delivery milestones](native-mil-core-delivery.md) before
+general Direct2D/Win2D expansion. The next confirmed application blockers are
+native-MIL popup composition/renderer inheritance and presentation regions,
+viewports and independent DPI. Finish the usable native application path, freeze
+core features, then run the deferred full qualification and fix cycle. Existing
+historical checkpoints are implementation records, not a prioritized work queue.
+
+### Styled Direct2D primitive checkpoint (2026-09-08)
+
+ProGPU `af36ba00` closes the in-progress styled line/rectangle ingress and aliased
+geometry/fill changes. Both native producers accept normal zero-width primitives
+without coverage, while explicit hairline styles retain their existing path.
+See [contracts, provenance, costs and authored cases](../external/ProGPU/docs/direct2d-styled-primitives.md).
+Apple Clang C++20 portable fixture compilation/linking succeeded; Windows
+provider/full-renderer compilation and all runtime, VM/image, package,
+performance, verifier and CI qualification remain deferred. No parity claim.
+
 ## Current implementation-first phase
 
 Implementation has advanced beyond the historical single-ImageBrush qualification

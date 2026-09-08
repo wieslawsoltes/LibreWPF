@@ -1,5 +1,15 @@
 # Agent Guidance
 
+## Core Native MIL Delivery Priority
+
+The current delivery sequence is defined in `docs/native-mil-core-delivery.md`.
+Prioritize the usable end-to-end native MIL LibreWPF application path and its
+major integration blockers, then feature-freeze and qualify it. Do not continue
+general Direct2D/Win2D API expansion or isolated geometry refinements unless a
+concrete core application dependency makes them blocking. Keep those broader
+requests explicitly deferred, not silently removed or reported complete. Keep
+implementation/compilation before the final validation phase as requested.
+
 ## Reflection-Free Port Priority
 
 The ProGPU WPF port must now prioritize a reflection-free, high-performance implementation. Runtime reflection in the WPF bridge or ProGPU is temporary scaffolding only: keep it limited to compatibility probes, diagnostics, or transitional adapters that are documented with an exit path, and replace product hot-path reflection with typed/source-integrated seams as soon as the local blocker is handled.
