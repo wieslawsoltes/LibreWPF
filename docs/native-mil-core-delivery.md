@@ -92,6 +92,16 @@ device/resource recreation remains open. See
 [surface recovery contract and qualification](../external/ProGPU/docs/native-mil-surface-recovery.md).
 Regression fixtures are authored; runtime/VM/CI qualification remains deferred.
 
+Device recreation checkpoint (supersedes the preceding open implementation item):
+both host modes now retire a lost target outside the active frame and reconstruct
+its renderer/session on a fresh device, preserving source-built WPF roots and
+native windows. Popups resolve their owner's current device instead of a captured
+context. A typed recreation event lets application-owned resources renew before
+the first replacement frame; old image leases cannot cross device domains. The
+native host gate now includes an authored first-frame/loss/recovery case. Device
+recreation is implemented, not runtime-qualified; popup cohorts, external producers,
+mid-submission loss and failure/close paths remain final qualification requirements.
+
 ## Implementation history: popup and presentation integration
 
 These checkpoints record completed implementation batches and remaining subsystem

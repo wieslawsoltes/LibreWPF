@@ -1,4 +1,3 @@
-using ProGPU.Backend;
 using ProGPU.Scene;
 
 namespace System.Windows.Media.ProGPU;
@@ -36,7 +35,8 @@ public sealed class ProGpuWpfWindowOptions
 
     internal bool EnablePortablePopupService { get; set; } = true;
 
-    internal WgpuContext? SharedRenderDeviceContext { get; set; }
+    // Resolve the live owner at target creation, including after device loss.
+    internal ProGpuWpfWindowHost? SharedRenderDeviceOwner { get; set; }
 
     internal CompositorOptions? CompositorOptions { get; set; }
 

@@ -53,7 +53,8 @@ public static class Program
                 RunNativeMilHostHarness(
                     repoRoot,
                     presentationFrameworkPath,
-                    presentationCorePath);
+                    presentationCorePath,
+                    args.Contains("--native-mil-device-recovery", StringComparer.Ordinal));
                 Console.WriteLine(
                     "Real PresentationFramework native MIL host smoke succeeded.");
                 return 0;
@@ -73,7 +74,8 @@ public static class Program
     private static void RunNativeMilHostHarness(
         string repoRoot,
         string presentationFrameworkPath,
-        string presentationCorePath)
+        string presentationCorePath,
+        bool exerciseDeviceRecovery)
     {
         var loadContext = new WpfAssemblyLoadContext(
             repoRoot,
@@ -159,6 +161,19 @@ public static class Program
                         if (monitorCancellation.IsCancellationRequested)
                         {
                             return;
+                        }
+
+                        if (exerciseDeviceRecovery)
+                        {
+                            try
+                            {
+                                await NativeMilHostDeviceRecoverySmoke.RunAsync(
+                                    host, NativeMilHostTimeout, monitorCancellation.Token).ConfigureAwait(false);
+                            }
+                            catch (Exception ex)
+                            {
+                                validationFailure = ex;
+                            }
                         }
 
                         host.PlatformServices.Dispatcher.Post(

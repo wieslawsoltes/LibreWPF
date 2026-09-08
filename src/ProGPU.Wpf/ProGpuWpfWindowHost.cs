@@ -89,6 +89,9 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
     private bool _isNativeLoopRunning;
     private bool _usesExternalNativeLoopPump;
     private bool _isLoadingCompositionTarget;
+    private bool _hasPendingDeviceRecovery;
+    private Vector4 _deviceRecoveryClearColor;
+    private long _renderDeviceRecoveryCount;
     private bool _disposeNativeWindowWhenLoopExits;
     private bool _hasPresentedFrame;
     private long _presentedFrameCount;
@@ -177,6 +180,15 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
     public event EventHandler<WpfWindowEventArgs>? WindowEventReceived;
 
     public event EventHandler<ProGpuWpfWindowClosingEventArgs>? Closing;
+
+    /// <summary>
+    /// Raised on the host thread after a lost device's target has been rebuilt,
+    /// before its first frame. Recreate application-owned device resources using
+    /// <see cref="CompositionTarget"/>; old-device texture leases cannot be reused.
+    /// </summary>
+    public event EventHandler? RenderDeviceRecreated;
+
+    public long RenderDeviceRecoveryCount => Interlocked.Read(ref _renderDeviceRecoveryCount);
 
     public IWindow? SilkWindow => _window;
 
@@ -1490,7 +1502,20 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
 
         if (_target != null)
         {
-            return true;
+            if (!_target.Context.IsDeviceLost)
+            {
+                return true;
+            }
+            // Never release an acquired target or native scene during its frame.
+            // A notification only schedules work; this boundary owns rebuilding.
+            if (_isRendering)
+            {
+                return false;
+            }
+            _deviceRecoveryClearColor = _target.Compositor.ClearColor;
+            _hasPendingDeviceRecovery = true;
+            DisposeTarget();
+            _forceFullWpfReplay = true;
         }
 
         if (_window == null)
@@ -1507,9 +1532,21 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         try
         {
             IWindow window = _window;
+            WgpuContext? sharedDeviceContext = null;
+            if (_options.SharedRenderDeviceOwner is { } owner)
+            {
+                if (!owner.EnsureCompositionTargetLoaded() ||
+                    owner._target is not { } ownerTarget ||
+                    ownerTarget.Context.IsDeviceLost)
+                {
+                    RequestPresentationRetryAndWakeNativeLoop();
+                    return false;
+                }
+                sharedDeviceContext = ownerTarget.Context;
+            }
             ProGpuWpfCompositionTarget target = ProGpuWpfCompositionTarget.CreateForWindow(
                 window,
-                _options.SharedRenderDeviceContext,
+                sharedDeviceContext,
                 _options.CompositorOptions);
             NativeCompositor? nativeMilCompositor = null;
             WpfNativeMilCompilationSession? nativeMilSession = null;
@@ -1518,6 +1555,10 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
                 if (_options.TransparentFramebuffer)
                 {
                     target.Compositor.ClearColor = System.Numerics.Vector4.Zero;
+                }
+                if (_hasPendingDeviceRecovery)
+                {
+                    target.Compositor.ClearColor = _deviceRecoveryClearColor;
                 }
                 if (_options.RendererMode == ProGpuWpfRendererMode.NativeMilWgpu)
                 {
@@ -1548,6 +1589,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
             _nativeMilCompositor = nativeMilCompositor;
             _nativeMilSession = nativeMilSession;
             target.RenderInvalidated += OnCompositionTargetRenderInvalidated;
+            WgpuContext.OnWebGpuDeviceLost += OnRenderDeviceLost;
             target.Context.VSync = _options.VSync;
             ApplyWindowRegionToCompositionTarget();
             if (!CanFinishCompositionTargetLoad(target, window))
@@ -1576,8 +1618,27 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
             {
                 UpdatePortablePresentationSourceClientOrigin(nativeLogicalLeft, nativeLogicalTop);
             }
+            if (_hasPendingDeviceRecovery)
+            {
+                Interlocked.Increment(ref _renderDeviceRecoveryCount);
+                RenderDeviceRecreated?.Invoke(this, EventArgs.Empty);
+                if (!CanFinishCompositionTargetLoad(target, window))
+                {
+                    DisposeTarget();
+                    return false;
+                }
+                _hasPendingDeviceRecovery = false;
+            }
             RequestRenderAndWakeNativeLoop();
             return true;
+        }
+        catch (WgpuDeviceLostException) when (
+            _target?.Context.IsDeviceLost == true ||
+            _options.SharedRenderDeviceOwner?._target?.Context.IsDeviceLost == true)
+        {
+            DisposeTarget();
+            RequestPresentationRetryAndWakeNativeLoop();
+            return false;
         }
         catch
         {
@@ -1594,6 +1655,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
     {
         return !_isDisposed &&
             !_hasNativeWindowCloseStarted &&
+            !target.Context.IsDeviceLost &&
             ReferenceEquals(window, _window) &&
             ReferenceEquals(target, _target);
     }
@@ -1744,6 +1806,11 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
             return;
         }
 
+        if (!EnsureCompositionTargetLoaded())
+        {
+            return;
+        }
+
         _isRendering = true;
         try
         {
@@ -1820,8 +1887,8 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
 
             if (_target.Context.IsDeviceLost)
             {
-                throw new InvalidOperationException(
-                    "The WPF presentation device was lost; its target must be recreated before rendering.");
+                RequestPresentationRetryAndWakeNativeLoop();
+                return;
             }
             if (!_target.Context.TryReconfigureIfNeeded(pixelWidth, pixelHeight))
             {
@@ -1994,6 +2061,17 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
                     dpiScale));
                 TraceRenderSurfaceGeometryIfRequested(geometry);
             }
+        }
+        catch (WgpuDeviceLostException) when (_target?.Context.IsDeviceLost == true)
+        {
+            RequestPresentationRetryAndWakeNativeLoop();
+        }
+        catch (NativeRendererException error) when (
+            error.Status == NativeRendererStatus.DeviceLost &&
+            _options.RendererMode == ProGpuWpfRendererMode.NativeMilWgpu && _target != null)
+        {
+            _target.Context.ReportDeviceLost(DeviceLostReason.Unknown, error.Message);
+            RequestPresentationRetryAndWakeNativeLoop();
         }
         finally
         {
@@ -3858,6 +3936,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
 
     private void DisposeTarget()
     {
+        WgpuContext.OnWebGpuDeviceLost -= OnRenderDeviceLost;
         DetachInputService();
         DetachDragDropService();
         DetachWindowEventService();
@@ -4044,12 +4123,20 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         WgpuContext context,
         SurfaceGetCurrentTextureStatus status)
     {
-        if (!context.HandleSurfaceAcquisitionFailure(status))
-        {
-            throw new InvalidOperationException(
-                "The WPF presentation device was lost; its target must be recreated before rendering.");
-        }
+        // Device loss also schedules a host turn, but never another acquisition
+        // on that device: EnsureCompositionTargetLoaded rebuilds it first.
+        _ = context.HandleSurfaceAcquisitionFailure(status);
         RequestPresentationRetryAndWakeNativeLoop();
+    }
+
+    private void OnRenderDeviceLost(DeviceLostReason reason, string message)
+    {
+        // Notifications may arrive on a backend thread. Do not dispose, allocate
+        // GPU resources or traverse WPF state here. Ignore other device domains.
+        if (_target?.Context.IsDeviceLost == true)
+        {
+            RequestPresentationRetryAndWakeNativeLoop();
+        }
     }
 
     internal bool RequestPresentationRetryAndWakeNativeLoop()

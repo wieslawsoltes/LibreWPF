@@ -121,7 +121,7 @@ internal sealed class WpfPortableNativePopupHost : IWpfPortableNativePopupHost
             EnablePortablePopupService = false,
             IncludePortablePopupRootsInWpfReplay = true,
             NativePointerCoordinatesAreOwnerRelative = OperatingSystem.IsMacOS(),
-            SharedRenderDeviceContext = ownerHost.CompositionTarget?.Context,
+            SharedRenderDeviceOwner = ownerHost,
             CompositorOptions = new CompositorOptions
             {
                 GlyphAtlasSize = 1024,

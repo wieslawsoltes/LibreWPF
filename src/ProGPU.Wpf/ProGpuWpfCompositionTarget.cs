@@ -144,23 +144,31 @@ public unsafe sealed class ProGpuWpfCompositionTarget : IDisposable
         ArgumentNullException.ThrowIfNull(window);
 
         var context = new ProGpuWgpuContext();
-        if (sharedDeviceContext == null)
+        ProGpuCompositor? compositor = null;
+        try
         {
-            context.Initialize(window);
-        }
-        else
-        {
-            context.InitializeSharedDevice(window, sharedDeviceContext);
-        }
+            if (sharedDeviceContext == null)
+            {
+                context.Initialize(window);
+            }
+            else
+            {
+                context.InitializeSharedDevice(window, sharedDeviceContext);
+            }
 
-        return new ProGpuWpfCompositionTarget(
-            context,
-            new ProGpuCompositor(
+            compositor = new ProGpuCompositor(
                 context,
                 context.SwapChainFormat,
-                compositorOptions ?? global::ProGPU.Scene.CompositorOptions.Default),
-            ownsContext: true,
-            ownsCompositor: true);
+                compositorOptions ?? global::ProGPU.Scene.CompositorOptions.Default);
+            return new ProGpuWpfCompositionTarget(
+                context, compositor, ownsContext: true, ownsCompositor: true);
+        }
+        catch
+        {
+            compositor?.Dispose();
+            context.Dispose();
+            throw;
+        }
     }
 
     public MediaDrawingContext OpenDrawingContext(uint pixelWidth, uint pixelHeight)

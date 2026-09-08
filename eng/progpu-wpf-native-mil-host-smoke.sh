@@ -66,18 +66,18 @@ case "${platform}" in
     DYLD_LIBRARY_PATH="${native_build_dir}:${native_runtime_dir}${DYLD_LIBRARY_PATH:+:${DYLD_LIBRARY_PATH}}" \
       "${dotnet}" "${host_dll}" --native-mil-retention
     DYLD_LIBRARY_PATH="${native_build_dir}:${native_runtime_dir}${DYLD_LIBRARY_PATH:+:${DYLD_LIBRARY_PATH}}" \
-      "${dotnet}" "${host_dll}" --native-mil-host
+      "${dotnet}" "${host_dll}" --native-mil-host --native-mil-device-recovery
     ;;
   Linux)
     LD_LIBRARY_PATH="${native_build_dir}:${native_runtime_dir}${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}" \
       "${dotnet}" "${host_dll}" --native-mil-retention
     LD_LIBRARY_PATH="${native_build_dir}:${native_runtime_dir}${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}" \
-      "${dotnet}" "${host_dll}" --native-mil-host
+      "${dotnet}" "${host_dll}" --native-mil-host --native-mil-device-recovery
     ;;
   *)
     PATH="${native_build_dir}:${native_runtime_dir}${PATH:+:${PATH}}" \
       "${dotnet}" "${host_dll}" --native-mil-retention
     PATH="${native_build_dir}:${native_runtime_dir}${PATH:+:${PATH}}" \
-      "${dotnet}" "${host_dll}" --native-mil-host
+      "${dotnet}" "${host_dll}" --native-mil-host --native-mil-device-recovery
     ;;
 esac

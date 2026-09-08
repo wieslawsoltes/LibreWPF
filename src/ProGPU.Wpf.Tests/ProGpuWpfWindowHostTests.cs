@@ -62,7 +62,7 @@ public sealed class ProGpuWpfWindowHostTests
     [Theory]
     [InlineData(ProGpuWpfRendererMode.ManagedPortable)]
     [InlineData(ProGpuWpfRendererMode.NativeMilWgpu)]
-    public void TerminalSurfaceFailuresDoNotScheduleRetries(ProGpuWpfRendererMode rendererMode)
+    public void DeviceLossSchedulesRecoveryButOutOfMemoryRemainsTerminal(ProGpuWpfRendererMode rendererMode)
     {
         using var context = new WgpuContext();
         var scheduler = new TestRenderScheduler();
@@ -70,10 +70,12 @@ public sealed class ProGpuWpfWindowHostTests
             { WpfRenderScheduler = scheduler };
         Assert.Throws<OutOfMemoryException>(() =>
             host.HandleSurfaceAcquisitionFailure(context, SurfaceGetCurrentTextureStatus.OutOfMemory));
-        Assert.Throws<InvalidOperationException>(() =>
-            host.HandleSurfaceAcquisitionFailure(context, SurfaceGetCurrentTextureStatus.DeviceLost));
-        Assert.True(context.IsDeviceLost);
         Assert.Equal(0, scheduler.RequestCount);
+        host.HandleSurfaceAcquisitionFailure(context, SurfaceGetCurrentTextureStatus.DeviceLost);
+        Assert.True(context.IsDeviceLost);
+        Assert.Equal(1, scheduler.RequestCount);
+        Assert.True(host.ConsumeScheduledRenderRequest());
+        Assert.Equal(0, host.RenderDeviceRecoveryCount);
         Assert.Equal(0, host.PresentedFrameCount);
     }
 
@@ -92,6 +94,8 @@ public sealed class ProGpuWpfWindowHostTests
     {
         string popupSource = File.ReadAllText(FindRepoPath("src", "ProGPU.Wpf", "WpfPortableNativePopupHost.cs"));
         Assert.Contains("RendererMode = ownerHost.RendererMode", popupSource);
+        Assert.Contains("SharedRenderDeviceOwner = ownerHost", popupSource);
+        Assert.DoesNotContain("SharedRenderDeviceContext = ownerHost.CompositionTarget?.Context", popupSource);
         string ownerSource = File.ReadAllText(FindRepoPath("src", "ProGPU.Wpf", "ProGpuWpfWindowHost.cs"));
         Assert.DoesNotContain("Native MIL mode does not yet compose portable popup roots.", ownerSource);
         Assert.Contains("CaptureNativeMilPopupOverlays(_nativeMilPopupScratch)", ownerSource);
