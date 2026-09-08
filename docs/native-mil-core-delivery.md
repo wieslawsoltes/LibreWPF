@@ -101,6 +101,15 @@ child sampling uniforms/opacity in their existing direct-texel composition path;
 close that shared GPU composition gap next. Renderer/host presentation guards and
 all final qualification requirements remain in place.
 
+Sampled-composition checkpoint: composite picture/vector/brush/geometry masks now
+consume each child's actual sampling uniforms and opacity through a common shader
+function shared with managed/native texture rendering. The existing composition
+passes remain GPU-only, the new pipeline is lazy, and child uniform lifetime is
+retained through encoded work. The picture-specific gate is removed; the overall
+presentation guard remains for the other raster/3D/damage consumers. Native
+compilation and the managed ProGPU build succeed; shader execution and image,
+lifetime, package and CI qualification remain deferred.
+
 Source-backed blockers are in
 `src/ProGPU.Wpf/ProGpuWpfWindowHost.cs:ValidateNativeMilHostConfiguration` and
 `src/ProGPU.Wpf/WpfPortableNativePopupHost.cs`:
