@@ -6,6 +6,27 @@ namespace ProGPU.Wpf.Tests.Composition;
 public sealed class WpfManagedProjectGraphTests
 {
     [Fact]
+    public void NativeSdkInitializesSourceServicesBeforeModulesAndHostCreation()
+    {
+        string bootstrap = File.ReadAllText(FindRepoPath("packaging", "ProGPU.Wpf.Sdk", "targets", "ProGPU.Wpf.Sdk.PortableBootstrap.cs"));
+        string services = File.ReadAllText(FindRepoPath("src", "ProGPU.Wpf", "ProGpuWpfNativeMediaServices.cs"));
+        string host = File.ReadAllText(FindRepoPath("src", "ProGPU.Wpf", "ProGpuWpfWindowHost.cs"));
+        string harness = File.ReadAllText(FindRepoPath("src", "ProGPU.Wpf.RealPresentationFrameworkHarness", "Program.cs"));
+        AssertGuardBefore(bootstrap, "ProGpuWpfNativeMediaServices.Initialize();", "RuntimeHelpers.RunModuleConstructor(");
+        AssertGuardBefore(bootstrap, "ProGpuWpfNativeMediaServices.Initialize();", "WindowsFormsHost.EnableWindowsFormsInterop();");
+        AssertGuardBefore(bootstrap, "throw new global::System.PlatformNotSupportedException(", "ProGpuWpfNativeMediaServices.Initialize();");
+        AssertGuardBefore(services, "PortableWpfRuntime.SelectMediaBackend", "WpfPortableTextFormatting.EnsureRegistered();");
+        Assert.Contains("WpfPortableGeometryOperations.EnsureRegistered();", services, StringComparison.Ordinal);
+        Assert.Contains("ProGpuWpfNativeMediaServices.Initialize();", host, StringComparison.Ordinal);
+        Assert.DoesNotContain("new ProGpuWpfWindowHost", services, StringComparison.Ordinal);
+        Assert.DoesNotContain("WgpuContext", services, StringComparison.Ordinal);
+        Assert.DoesNotContain("System.Reflection", services, StringComparison.Ordinal);
+        AssertGuardBefore(harness, "CreateNativeMilHostDrawingVisual(presentationCore, windowsBase);", "using var host = new ProGpuWpfWindowHost");
+        string text = File.ReadAllText(FindRepoPath("src", "ProGPU.Wpf", "Composition", "WpfPortableTextFormatting.cs"));
+        Assert.Contains("Lazy<NativeTextShapingContext>", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void DecoderStorageUsesMediaPolicyAndFailsBeforeWicActivation()
     {
         string ReadImaging(string name) => File.ReadAllText(FindRepoPath("src", "Microsoft.DotNet.Wpf", "src",
@@ -14844,7 +14865,7 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("if (global::System.OperatingSystem.IsWindows())", portableBootstrap, StringComparison.Ordinal);
         Assert.True(
             portableBootstrap.IndexOf("global::System.Windows.Forms.Integration.WindowsFormsHost.EnableWindowsFormsInterop();", StringComparison.Ordinal)
-                < portableBootstrap.IndexOf("if (global::System.OperatingSystem.IsWindows())", StringComparison.Ordinal),
+                < portableBootstrap.LastIndexOf("if (global::System.OperatingSystem.IsWindows())", StringComparison.Ordinal),
             "LibreWinForms interop must initialize before the Windows early return.");
         Assert.Contains("typeof(global::System.Windows.Application).Module.ModuleHandle", portableBootstrap, StringComparison.Ordinal);
         Assert.Contains("typeof(global::System.Windows.Clipboard).Module.ModuleHandle", portableBootstrap, StringComparison.Ordinal);

@@ -13,6 +13,28 @@ namespace ProGPU.Wpf.SdkSwitchSmoke;
 
 public partial class App : Application
 {
+    public App()
+    {
+#if PROGPU_WPF_NATIVE_MIL
+        // Application construction precedes the first host. The SDK module
+        // initializer must already have selected media and registered providers.
+        if (!global::ProGPU.Wpf.Interop.PortableWpfServiceRegistry.TryGetTextFormatting(out _) ||
+            !global::ProGPU.Wpf.Interop.PortableWpfServiceRegistry.TryGetGeometryOperations(out _))
+            throw new InvalidOperationException("Native SDK source services were not ready before application construction.");
+        var text = new FormattedText("אב fi a\u0301", System.Globalization.CultureInfo.InvariantCulture,
+            FlowDirection.RightToLeft, new Typeface("#GLOBAL USER INTERFACE"), 14, Brushes.Black, 1);
+        NativeStartupTextWidth = text.Width;
+        if (!double.IsFinite(NativeStartupTextWidth) || NativeStartupTextWidth <= 0)
+            throw new InvalidOperationException("Native SDK startup text did not produce real measured content.");
+        var combined = Geometry.Combine(new RectangleGeometry(new Rect(0, 0, 12, 12)),
+            new RectangleGeometry(new Rect(6, 0, 12, 12)), GeometryCombineMode.Union, null);
+        if (!combined.FillContains(new Point(15, 6)))
+            throw new InvalidOperationException("Native SDK startup geometry provider did not preserve the union.");
+#endif
+    }
+
+    public double NativeStartupTextWidth { get; }
+
     private const string LibreWpfPackageVersion = "0.1.0-preview.45";
     private const string DefaultProGpuPackageVersion = "0.1.0-preview.55";
     private const string ProGpuPackageVersionEnvironmentVariable = "PROGPU_WPF_PROGPU_PACKAGE_VERSION";

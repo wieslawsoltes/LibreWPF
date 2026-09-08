@@ -54,6 +54,13 @@ rewrite or claims of qualified codec/worker/SIMD parity follow from this routing
 
 ## Core Native MIL Delivery Priority
 
+Explicit native SDK/custom-host startup must call `ProGpuWpfNativeMediaServices.Initialize`
+before source module initialization or construction of WPF media objects. Do not
+wait for the first host to register the text provider: application constructors
+can measure content. Keep registration lazy and preserve explicit provider priority;
+ProGPU defaults survive temporary override disposal. Windows SDK admission and
+remaining source consumer routing stay independent requirements.
+
 The current delivery sequence is defined in `docs/native-mil-core-delivery.md`.
 Prioritize the usable end-to-end native MIL LibreWPF application path and its
 major integration blockers, then feature-freeze and qualify it. Do not continue

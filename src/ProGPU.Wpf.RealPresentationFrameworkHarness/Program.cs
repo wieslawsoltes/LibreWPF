@@ -77,8 +77,7 @@ public static class Program
         string presentationCorePath,
         bool exerciseDeviceRecovery)
     {
-        ProGPU.Wpf.Interop.PortableWpfRuntime.SelectMediaBackend(
-            ProGPU.Wpf.Interop.PortableWpfMediaBackend.Portable);
+        ProGpuWpfNativeMediaServices.Initialize();
         var loadContext = new WpfAssemblyLoadContext(
             repoRoot,
             presentationFrameworkPath,
@@ -115,6 +114,8 @@ public static class Program
             try
             {
                 NativeMilBitmapDpiSmoke.RunFactory(presentationCore);
+                // Exercise source text/resource construction before any window host.
+                object drawingVisual = CreateNativeMilHostDrawingVisual(presentationCore, windowsBase);
                 using var host = new ProGpuWpfWindowHost(new ProGpuWpfWindowOptions
                 {
                     Title = "LibreWPF native MIL host smoke",
@@ -122,9 +123,6 @@ public static class Program
                     Height = 96,
                     RendererMode = ProGpuWpfRendererMode.NativeMilWgpu
                 });
-                object drawingVisual = CreateNativeMilHostDrawingVisual(
-                    presentationCore,
-                    windowsBase);
                 if (drawingVisual is not IPortableVisualStateSource)
                 {
                     string interfaces = string.Join(

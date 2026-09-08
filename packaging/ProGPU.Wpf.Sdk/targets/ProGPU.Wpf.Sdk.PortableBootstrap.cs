@@ -17,10 +17,9 @@ internal static class ProGpuWpfSdkPortableBootstrap
         }
 #endif
 #if PROGPU_WPF_NATIVE_MIL
-        // Resolve transport ownership before any source-built WPF module or
-        // WinForms interop initializer can construct media resources.
-        global::ProGPU.Wpf.Interop.PortableWpfRuntime.SelectMediaBackend(
-            global::ProGPU.Wpf.Interop.PortableWpfMediaBackend.Portable);
+        // Install lazy text/geometry providers as well as transport selection:
+        // application constructors can measure content before the first host exists.
+        global::System.Windows.Media.ProGPU.ProGpuWpfNativeMediaServices.Initialize();
 #endif
 #if PROGPU_WPF_USE_LIBREWINFORMS
         global::System.Windows.Forms.Integration.WindowsFormsHost.EnableWindowsFormsInterop();

@@ -22,7 +22,7 @@ subsystem roadmap. None of these rows is runtime-qualified yet.
 
 | Order | Implementation batch | Exit to the next batch |
 | --- | --- | --- |
-| 1 — current | Native package activation: source-built harness and package MVP, including Windows. Close required source-media routing from startup through first frame and common resource construction. Windows popup ownership is connected; remaining utility routing and SDK admission are open. | Required paths select ProGPU explicitly, compile, and have no known route into unintended Windows MIL or silent managed rendering. Keep Windows admission guarded until its dependencies are implemented. |
+| 1 — current | Native package activation: source-built harness and package MVP, including Windows. Close required source-media routing from startup through first frame and common resource construction. Windows popup ownership and pre-host text/geometry defaults are connected; Windows text/utility routing and SDK admission remain open. | Required paths select ProGPU explicitly, compile, and have no known route into unintended Windows MIL or silent managed rendering. Keep Windows admission guarded until its dependencies are implemented. |
 | 2 | Application closure: use the same MVP, Toolkit/AvalonDock, license-controlled Xceed and existing SciChart gate. Finish required text/selection, scroll/clip, popup/input, resize/DPI, content/effect/cache updates and close/reopen/device-loss ownership. Reuse existing implementations; fix concrete missing connections. | Each required action has an implemented path and authored regression coverage. Record any known blocking branch against that action; do not reopen already connected subsystems for optional refinements. |
 | 3 | Feature freeze, final qualification and delivery: build complete platform artifacts and packages, execute the existing cross-platform/Windows comparison and application gates, fix failures, and bring both PRs' required CI to green at the delivery commits. | Record exact-head package consumption and required gate results, with explicit failures or environment/license limitations. Only then report the core release delivered. |
 
@@ -115,6 +115,20 @@ These checkpoints preserve implementation provenance and the state at each
 commit. Their next-step text is historical, may be superseded by later changes,
 and must not be treated as an additional active backlog. Use the active completion
 queue above for current priorities.
+
+Native package pre-host services: the SDK now calls `ProGpuWpfNativeMediaServices.Initialize`
+before source-module/LibreWinForms initialization. Native hosts share that path,
+which selects portable media and installs lazy text/geometry defaults without
+creating a device. ProGPU keeps defaults separate from explicit overrides, so
+temporary override disposal cannot erase readiness. The existing native host
+constructs styled text before its host; the SDK smoke App has native constructor-time
+text/geometry assertions. Windows admission is still guarded, and Windows
+TextFormatter LineServices selection remains OS-based. Continue that source/package
+routing dependency; this does not prove full startup or application parity.
+See the [startup implementation record](../external/ProGPU/docs/native-mil-startup-services.md).
+Compile-only: ProGPU fixtures 0 warnings/0 errors, bridge fixtures 116 warnings/0
+errors, native host harness 4 warnings/0 errors. Native SDK App constructor checks
+await package rebuild; no tests, verifiers, apps, VM/GPU, benchmarks or CI ran.
 
 Document inline connection: source `TextHidden` positions now stay in document
 lengths, glyph indices, caret/selection and continuation metadata without entering
