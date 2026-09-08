@@ -23,6 +23,13 @@ An explicit native SDK renderer selection must not fall through to Windows MIL
 or managed portable rendering. Keep package activation limits explicit until
 the source-built Application/Window services support that platform; direct-host
 smoke success is not package-mode application evidence.
+Typed portable host registration selects window-service routing on every OS;
+existing portable window identity, not an OS test, owns its operations. Rejected
+registered activation and missing active-host run callbacks must fail closed.
+Window callbacks/render-wakeup registration do not by themselves select the
+source-built MIL transport: establish that choice before media-system startup
+and route popup/interop handles by ownership before enabling Windows native SDK
+activation. Do not mechanically remove Windows platform-service checks.
 
 ## Reflection-Free Port Priority
 

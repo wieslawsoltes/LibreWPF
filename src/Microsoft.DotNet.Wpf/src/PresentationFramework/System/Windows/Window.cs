@@ -299,7 +299,7 @@ namespace System.Windows
             {
                 if (WindowState == WindowState.Normal)
                 {
-                    if (!OperatingSystem.IsWindows())
+                    if (IsPortableWindowActive || !OperatingSystem.IsWindows())
                     {
                         if (IsPortableWindowActive)
                         {
@@ -596,15 +596,11 @@ namespace System.Windows
             VerifyContextAndObjectState();
             VerifyHwndCreateShowState();
 
-            if (!OperatingSystem.IsWindows() && _portableWindowActivation != null)
+            if (_portableWindowActivation != null)
             {
-                if (PortableWindowActivationService.TryRequestActivation(_portableWindowActivation))
-                {
-                    return true;
-                }
-
-                PortableWindowActivationService.SetActivationState(this, true);
-                return IsActive;
+                // Activation state comes from the host's actual window event.
+                // A rejected or unavailable request must not fabricate activation.
+                return PortableWindowActivationService.TryRequestActivation(_portableWindowActivation);
             }
 
             // Adding check for IsCompositionTargetInvalid
@@ -5273,7 +5269,7 @@ namespace System.Windows
             // dispose it.
             _icon = newIcon;
 
-            if (!OperatingSystem.IsWindows() && _portableWindowActivation != null)
+            if (_portableWindowActivation != null)
             {
                 PortableWindowActivationService.SetIcon(
                     _portableWindowActivation,

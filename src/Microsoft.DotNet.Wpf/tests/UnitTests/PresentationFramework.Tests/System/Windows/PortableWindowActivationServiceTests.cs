@@ -19,6 +19,139 @@ public class PortableWindowActivationServiceTests
     private const int LeftMouseButton = 1;
 
     [Fact]
+    public void ExplicitRegistrationRoutesWindowLifecycleOnEveryPlatform()
+    {
+        RunInUiApartment(() =>
+        {
+            PortableWindowActivationService.Clear();
+            PortableWindowActivationService.IsEnabled.Should().BeFalse();
+            var activation = new object();
+            int creates = 0, shows = 0, hides = 0, requests = 0, runs = 0, closes = 0, disposals = 0;
+            string? title = null;
+            PortableWindowActivationService.Register(
+                activate: _ => { creates++; return activation; },
+                show: value => { value.Should().BeSameAs(activation); shows++; },
+                hide: value => { value.Should().BeSameAs(activation); hides++; },
+                setTitle: (_, value) => title = value,
+                close: _ => closes++,
+                run: _ => runs++,
+                dispose: _ => disposals++,
+                getHandle: _ => new IntPtr(1234),
+                requestActivation: _ => { requests++; return true; });
+            var window = new Window { Width = 200, Height = 100 };
+            int initialized = 0;
+            window.SourceInitialized += (_, _) => initialized++;
+            try
+            {
+                PortableWindowActivationService.IsEnabled.Should().BeTrue();
+                window.Show();
+                window.PortableWindowActivation.Should().BeSameAs(activation);
+                window.Title = "Portable title";
+                title.Should().Be("Portable title");
+                window.Activate().Should().BeTrue();
+                PortableWindowActivationService.GetHandle(activation).Should().Be(new IntPtr(1234));
+                PortableWindowActivationService.TryRun(window).Should().BeTrue();
+                window.Hide();
+                window.Show();
+                creates.Should().Be(1);
+                initialized.Should().Be(1);
+                shows.Should().Be(2);
+                hides.Should().Be(1);
+                requests.Should().Be(1);
+                runs.Should().Be(1);
+                window.Close();
+                window.PortableWindowActivation.Should().BeNull();
+                closes.Should().Be(1);
+                disposals.Should().Be(1);
+            }
+            finally
+            {
+                if (!window.IsDisposed)
+                {
+                    window.Close();
+                }
+                PortableWindowActivationService.Clear();
+            }
+            PortableWindowActivationService.IsEnabled.Should().BeFalse();
+        });
+    }
+
+    [Fact]
+    public void RegisteredHostRejectionDoesNotCreateAWindowsMilWindow()
+    {
+        RunInUiApartment(() =>
+        {
+            PortableWindowActivationService.Register(activate: _ => null!);
+            var window = new Window();
+            int initialized = 0;
+            window.SourceInitialized += (_, _) => initialized++;
+            try
+            {
+                Action show = window.Show;
+                show.Should().Throw<InvalidOperationException>()
+                    .WithMessage("*Falling back to Windows MIL is not permitted*");
+                initialized.Should().Be(0);
+                window.PortableWindowActivation.Should().BeNull();
+            }
+            finally
+            {
+                window.Close();
+                PortableWindowActivationService.Clear();
+            }
+        });
+    }
+
+    [Fact]
+    public void ActivePortableWindowRequiresItsHostRunLoop()
+    {
+        RunInUiApartment(() =>
+        {
+            PortableWindowActivationService.Register(activate: _ => new object());
+            var window = new Window { Width = 200, Height = 100 };
+            try
+            {
+                window.Show();
+                Action run = () => PortableWindowActivationService.TryRun(window);
+                run.Should().Throw<InvalidOperationException>()
+                    .WithMessage("*no run-loop callback*");
+            }
+            finally
+            {
+                window.Close();
+                PortableWindowActivationService.Clear();
+            }
+        });
+    }
+
+    [Fact]
+    public void RejectedActivationRequestDoesNotFabricateActiveState()
+    {
+        RunInUiApartment(() =>
+        {
+            PortableWindowActivationService.Register(
+                activate: _ => new object(), requestActivation: _ => false);
+            var window = new Window { Width = 200, Height = 100 };
+            int activations = 0;
+            window.Activated += (_, _) => activations++;
+            try
+            {
+                window.Show();
+                window.Activate().Should().BeFalse();
+                window.IsActive.Should().BeFalse();
+                activations.Should().Be(0);
+                PortableWindowActivationService.SetActivationState(window, true);
+                window.IsActive.Should().BeTrue();
+                activations.Should().Be(1);
+            }
+            finally
+            {
+                window.Close();
+                PortableWindowActivationService.Clear();
+            }
+        });
+    }
+
+    [Fact]
     public void CapturedElementReceivesMouseInputReportedByAnotherPresentationSource()
     {
         RunInUiApartment(VerifyCapturedElementReceivesMouseInputReportedByAnotherPresentationSource);

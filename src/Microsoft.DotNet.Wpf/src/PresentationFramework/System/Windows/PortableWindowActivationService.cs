@@ -37,7 +37,9 @@ namespace System.Windows
         {
             get
             {
-                return !OperatingSystem.IsWindows() && Volatile.Read(ref _activate) != null;
+                // Registering a host is the explicit selection of portable windowing.
+                // Ordinary Windows WPF has no registration and retains its native path.
+                return Volatile.Read(ref _activate) != null;
             }
         }
 
@@ -67,7 +69,6 @@ namespace System.Windows
         {
             ArgumentNullException.ThrowIfNull(activate);
 
-            Volatile.Write(ref _activate, activate);
             Volatile.Write(ref _show, show);
             Volatile.Write(ref _hide, hide);
             Volatile.Write(ref _setWindowState, setWindowState);
@@ -84,6 +85,7 @@ namespace System.Windows
             Volatile.Write(ref _setWindowRegion, setWindowRegion);
             Volatile.Write(ref _requestActivation, requestActivation);
             Volatile.Write(ref _setIcon, setIcon);
+            Volatile.Write(ref _activate, activate);
         }
 
         internal static void Clear()
@@ -111,19 +113,15 @@ namespace System.Windows
         {
             activation = null;
 
-            if (OperatingSystem.IsWindows())
-            {
-                return false;
-            }
-
             Func<object, object> activate = Volatile.Read(ref _activate);
             if (activate == null)
             {
                 return false;
             }
 
-            activation = activate(window);
-            return activation != null;
+            activation = activate(window) ?? throw new InvalidOperationException(
+                "The registered portable window host could not activate this Window. Falling back to Windows MIL is not permitted.");
+            return true;
         }
 
         internal static void Show(object activation)
@@ -133,7 +131,7 @@ namespace System.Windows
 
         internal static bool TryRequestActivation(object activation)
         {
-            if (OperatingSystem.IsWindows() || activation == null)
+            if (activation == null)
             {
                 return false;
             }
@@ -184,7 +182,7 @@ namespace System.Windows
 
         internal static bool TryDragMove(object activation)
         {
-            if (OperatingSystem.IsWindows() || activation == null)
+            if (activation == null)
             {
                 return false;
             }
@@ -195,7 +193,7 @@ namespace System.Windows
 
         internal static IntPtr GetHandle(object activation)
         {
-            if (OperatingSystem.IsWindows() || activation == null)
+            if (activation == null)
             {
                 return IntPtr.Zero;
             }
@@ -206,7 +204,7 @@ namespace System.Windows
 
         internal static bool TrySetWindowRegion(IntPtr handle, PortableWindowRegion region)
         {
-            if (OperatingSystem.IsWindows() || handle == IntPtr.Zero || region == null)
+            if (handle == IntPtr.Zero || region == null)
             {
                 return false;
             }
@@ -217,7 +215,7 @@ namespace System.Windows
 
         internal static void SetActivationState(Window window, bool isActive)
         {
-            if (OperatingSystem.IsWindows() || window == null)
+            if (window == null)
             {
                 return;
             }
@@ -244,7 +242,7 @@ namespace System.Windows
 
         internal static void ProcessInput(Window window, PortableInputEventArgs input)
         {
-            if (OperatingSystem.IsWindows() || window == null || input == null)
+            if (window == null || input == null)
             {
                 return;
             }
@@ -260,7 +258,7 @@ namespace System.Windows
 
         internal static void ProcessInput(PresentationSource source, PortableInputEventArgs input)
         {
-            if (OperatingSystem.IsWindows() || source == null || input == null)
+            if (source == null || input == null)
             {
                 return;
             }
@@ -298,7 +296,7 @@ namespace System.Windows
             int allowedEffects,
             int acceptedEffect)
         {
-            if (OperatingSystem.IsWindows() || window == null)
+            if (window == null)
             {
                 return (int)DragDropEffects.None;
             }
@@ -817,7 +815,7 @@ namespace System.Windows
 
         internal static bool TryRun(Window window)
         {
-            if (OperatingSystem.IsWindows() || window == null)
+            if (window == null)
             {
                 return false;
             }
@@ -831,7 +829,8 @@ namespace System.Windows
             Action<object> run = Volatile.Read(ref _run);
             if (run == null)
             {
-                return false;
+                throw new InvalidOperationException(
+                    "The active portable window host has no run-loop callback. Falling back to the Windows application loop is not permitted.");
             }
 
             run(activation);
@@ -845,8 +844,7 @@ namespace System.Windows
 
         internal static bool FlushDispatcherOperations(object window, DispatcherPriority markerPriority, TimeSpan timeout)
         {
-            if (OperatingSystem.IsWindows() ||
-                window is not Window typedWindow ||
+            if (window is not Window typedWindow ||
                 typedWindow.Dispatcher == null ||
                 typedWindow.Dispatcher.HasShutdownStarted ||
                 typedWindow.Dispatcher.HasShutdownFinished)
@@ -893,8 +891,7 @@ namespace System.Windows
 
         internal static bool PromoteDispatcherTimers(object window, int currentTimeInTicks)
         {
-            if (OperatingSystem.IsWindows() ||
-                window is not Window typedWindow ||
+            if (window is not Window typedWindow ||
                 typedWindow.Dispatcher == null ||
                 typedWindow.Dispatcher.HasShutdownStarted ||
                 typedWindow.Dispatcher.HasShutdownFinished)

@@ -6,13 +6,13 @@ internal static class ProGpuWpfSdkPortableBootstrap
     internal static void Initialize()
     {
 #if PROGPU_WPF_NATIVE_MIL
-        // The direct native host supports Windows, but source-built WPF's
-        // Application/Window activation service is still disabled there.
+        // Typed Application/Window activation accepts Windows hosts, but the
+        // source-built MIL startup and popup paths still select by OS.
         // Do not let an explicit native SDK selection run Windows MIL instead.
         if (global::System.OperatingSystem.IsWindows())
         {
             throw new global::System.PlatformNotSupportedException(
-                "LibreWPF NativeMilWgpu SDK activation on Windows requires the portable Application/Window activation path, which is not enabled yet. The direct native host gate remains available.");
+                "LibreWPF NativeMilWgpu SDK activation on Windows requires explicit portable MIL startup and popup routing, which are not connected yet. The direct native host gate remains available.");
         }
 #endif
 #if PROGPU_WPF_USE_LIBREWINFORMS

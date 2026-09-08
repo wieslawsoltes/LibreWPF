@@ -50,8 +50,10 @@ renderer. Failure to register typed source-built activation is a startup error.
 Native SDK activation is currently wired for macOS/Linux, **not runtime-qualified**.
 It requires the matching `ProGPU.Backend.Native` package and its RID-native assets,
 and inherits the current native host's full-surface/uniform-DPI restrictions.
-Windows SDK native selection currently throws explicitly: source-built WPF's
-portable `Application`/`Window` activation service is still disabled on Windows.
+Windows SDK native selection currently throws explicitly. Typed portable
+`Application`/`Window` activation and render-wakeup registration now accept
+Windows hosts, but source-built MIL startup and popup routing still select their
+implementation by OS. Registration alone is not a complete backend switch.
 The direct native host harness remains a separate Windows integration path, not
 proof that package-mode application activation works there. The default Windows
 SDK bootstrap behavior remains unchanged. Closing this Windows activation gap is

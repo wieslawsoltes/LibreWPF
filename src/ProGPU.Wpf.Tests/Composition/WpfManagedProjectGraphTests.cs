@@ -899,7 +899,8 @@ public sealed class WpfManagedProjectGraphTests
 
         Assert.Contains(@"<Compile Include=""System\Windows\Media\PortableMediaContextRenderService.cs"" />", presentationCoreProject, StringComparison.Ordinal);
         Assert.Contains("internal static class PortableMediaContextRenderService", renderService, StringComparison.Ordinal);
-        Assert.Contains("RuntimeInformation.IsOSPlatform(OSPlatform.Windows)", renderService, StringComparison.Ordinal);
+        Assert.DoesNotContain("OSPlatform.Windows", renderService, StringComparison.Ordinal);
+        Assert.DoesNotContain("EmptyRegistration", renderService, StringComparison.Ordinal);
         Assert.DoesNotContain("using ProGPU.Wpf.Interop;", renderService, StringComparison.Ordinal);
         Assert.DoesNotContain("internal static void RegisterPortableInteropService()", renderService, StringComparison.Ordinal);
         Assert.DoesNotContain("PortableWpfServiceRegistry.RegisterMediaContextRenderService", renderService, StringComparison.Ordinal);
@@ -2408,7 +2409,9 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("internal static class PortableWindowActivationService", activationService, StringComparison.Ordinal);
         Assert.Contains("internal static void Register", activationService, StringComparison.Ordinal);
         Assert.Contains("Func<object, object> activate", activationService, StringComparison.Ordinal);
-        Assert.Contains("!OperatingSystem.IsWindows()", activationService, StringComparison.Ordinal);
+        Assert.DoesNotContain("OperatingSystem.IsWindows()", activationService, StringComparison.Ordinal);
+        Assert.Contains("Falling back to Windows MIL is not permitted", activationService, StringComparison.Ordinal);
+        Assert.Contains("Falling back to the Windows application loop is not permitted", activationService, StringComparison.Ordinal);
         Assert.Contains("internal static bool TryActivate(Window window, out object activation)", activationService, StringComparison.Ordinal);
         Assert.Contains("Action<object, object> setWindowState", activationService, StringComparison.Ordinal);
         Assert.Contains("internal static void SetWindowState(object activation, WindowState windowState)", activationService, StringComparison.Ordinal);
@@ -2483,7 +2486,7 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("PortableWindowActivationService.ProcessInput(this, input)", window, StringComparison.Ordinal);
         Assert.Contains("TryCreatePortableWindowDuringShow()", window, StringComparison.Ordinal);
         Assert.Contains("PortableWindowActivationService.TryActivate(this, out object activation)", window, StringComparison.Ordinal);
-        Assert.Contains("PortableWindowActivationService.SetActivationState(this, true)", window, StringComparison.Ordinal);
+        Assert.DoesNotContain("PortableWindowActivationService.SetActivationState(this, true)", window, StringComparison.Ordinal);
         Assert.Contains("PortableWindowActivationService.TryRequestActivation(_portableWindowActivation)", window, StringComparison.Ordinal);
         Assert.Contains("PortableWindowActivationService.Show(_portableWindowActivation)", window, StringComparison.Ordinal);
         Assert.Contains("PortableWindowActivationService.Hide(_portableWindowActivation)", window, StringComparison.Ordinal);

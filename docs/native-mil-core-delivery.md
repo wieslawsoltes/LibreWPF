@@ -90,13 +90,78 @@ managed default is unchanged. The SDK gate accepts a renderer-mode lane for the
 same package applications and requires the direct native host gate for native
 selection. Invalid configuration and missing activation fail explicitly.
 
-**Known core blocker:** Windows source-built `PortableWindowActivationService`
-and some `Window` operations still bypass portable activation based on the OS.
-The native SDK selector reports this limitation instead of silently using Windows
-MIL. Trace and implement Windows package activation/window ownership as a named
-core application dependency; do not count the direct Windows drawing harness as
-completion of this application path. macOS/Linux native SDK selection is wired,
-not runtime-qualified. See the SDK README's renderer-selection contract.
+**Known core blocker:** the Windows package path still needs a complete source-built
+backend selection. Typed window activation and render-wakeup registration now
+accept Windows hosts; this does not redirect the remaining OS-selected MIL startup
+and popup implementation. The native SDK selector continues to report this
+limitation instead of silently using Windows MIL. Do not count the direct Windows
+drawing harness as completion of this application path. macOS/Linux native SDK
+selection is wired, not runtime-qualified. See the SDK README's renderer-selection
+contract and the bounded checkpoint below.
+
+Windows activation prerequisite checkpoint:
+
+- Acceptance application/action: package-mode MVP and Toolkit/AvalonDock startup,
+  first window, hide/show, activation, title updates, redraw and close.
+- Source-backed blocker: `PortableWindowActivationService` rejected Windows even
+  after explicit typed registration; `Window.Activate`, `DragMove` and icon updates
+  also selected by OS, and `PortableMediaContextRenderService` returned an empty
+  registration on Windows.
+- Implementation: explicit host registration now enables portable windowing on
+  every platform, existing portable window identity selects those operations,
+  and real callback registrations deliver render invalidation/delays. Ordinary
+  unregistered Windows WPF retains its existing native path. A registered factory
+  that rejects a window throws before native HWND creation; an active portable
+  window without a host run-loop callback also throws instead of changing loops.
+  The portable application loop no longer creates the Windows parking window.
+  `Window.Activate()` reports the host request result and no longer fabricates
+  activation after rejection; actual host events own `IsActive` changes.
+- Boundaries: this is window-service plumbing for **both** ProGPU renderer modes,
+  not a renderer algorithm change. No ProGPU C++/shader/scene implementation needs
+  a paired change. Existing ProGPU-owned typed callback contracts are reused;
+  source-built WPF owns the integration. No reflected adapters or new CPU/GPU
+  fallback are introduced. Registrations are startup/lifetime configuration, not
+  permission to switch a live application between Windows MIL and ProGPU.
+- Authored regressions cover explicit registration/clear, window lifecycle and
+  reuse, rejected activation, missing run-loop callbacks, delayed invalidation,
+  and independent render-wakeup registration disposal. These service fixtures
+  are not image or real-device proof. Runtime execution remains deferred.
+  PresentationFramework grants its signed unit-test assembly internal access,
+  matching the existing PresentationCore test arrangement; no public test seam
+  or reflected invocation is added.
+
+Next bounded dependency, before removing the SDK guard: select the portable MIL
+transport **before** source-built `MediaContext`/`MediaSystem` initialization and
+composition locking, then route ordinary Toolkit popup/interop-handle creation
+by portable source ownership. `MediaContext` calls `MediaSystem.Startup`, which
+still chooses MIL transport using `s_isWindows`; `CompositionEngineLock` in
+`Common/Graphics/exports.cs` still selects native MIL locking by OS. `Popup` has
+separate OS guards, and `WindowInteropHelper.EnsureHandle()` directly calls
+`Window.CreateSourceWindow(false)`, bypassing the portable show-time factory.
+Its hidden-window creation/ownership semantics must be preserved by that route.
+Do not replace every Windows API check mechanically: native platform services
+may remain Windows-specific, but portable source handles must never enter the
+Windows MIL/HWND renderer. The direct-host harness bypasses package startup and
+therefore cannot close this dependency. Keep the explicit Windows SDK guard until
+the complete required route is connected.
+
+Compilation-only evidence for this prerequisite (Release, macOS host):
+
+| Project | Compiler result |
+| --- | --- |
+| `ProGPU.Wpf.RealPresentationFrameworkHarness` including source-built WPF | 5 warnings, 0 errors |
+| `PresentationCore.Tests` including the new wakeup fixtures | 4 warnings, 0 errors |
+| `PresentationFramework.Tests` including the new lifecycle fixtures | 6 warnings, 0 errors |
+| `ProGPU.Wpf.Tests` including updated source-contract assertions | 115 warnings, 0 errors |
+
+The initial PresentationFramework test compile rejected internal access; the
+signed friend-assembly declaration above fixes that compile failure. Builds use
+the repository dotnet SDK and `-c Release -m:1 -nr:false -v:q`; no tests, source
+verifiers, package runtime, VM, image, benchmark or CI qualification were run.
+Warnings remain visible, including the existing test-utility package compatibility
+warning. ProGPU `origin/main` was refreshed with zero commits missing from the
+feature branch; this prerequisite does not change its native implementation or
+the submodule commit. Existing unfinished ProGPU work remains untouched.
 
 Compilation checkpoint: both conditional SDK bootstrap branches compile against
 the source-built WPF/ProGPU assemblies, and the updated external SDK gate harness

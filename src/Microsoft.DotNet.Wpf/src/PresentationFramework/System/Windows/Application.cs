@@ -2083,7 +2083,7 @@ namespace System.Windows
         /// </summary>
         private void EnsureHwndSource()
         {
-            if (!OperatingSystem.IsWindows())
+            if (PortableWindowActivationService.IsEnabled || !OperatingSystem.IsWindows())
             {
                 return;
             }

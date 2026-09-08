@@ -22,6 +22,7 @@ using System.Runtime.CompilerServices;
 #endif
 
 [assembly: InternalsVisibleTo(BuildInfo.PresentationFrameworkRoyale)]
+[assembly: InternalsVisibleTo($"PresentationFramework.Tests, PublicKey={BuildInfo.WCP_PUBLIC_KEY_STRING}")]
 [assembly: InternalsVisibleTo(BuildInfo.PresentationFrameworkLuna)]
 [assembly: InternalsVisibleTo(BuildInfo.PresentationFrameworkAero)]
 [assembly: InternalsVisibleTo(BuildInfo.PresentationFrameworkAero2)]
