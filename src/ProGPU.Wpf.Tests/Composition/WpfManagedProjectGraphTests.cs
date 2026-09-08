@@ -1094,8 +1094,12 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("private void SetSourceClientOrigin()", proGpuPortablePopupBridge, StringComparison.Ordinal);
         Assert.Contains("ToLogicalScreenCoordinate(X, _dpiScaleX)", proGpuPortablePopupBridge, StringComparison.Ordinal);
         Assert.Contains("(_ownerPopup?.LogicalX ?? 0.0)", proGpuPortablePopupBridge, StringComparison.Ordinal);
-        Assert.Contains("_localLogicalX = ((double)popupScreenDeviceX - ownerClientScreenDeviceX) / dpiScaleX;", proGpuPortablePopupBridge, StringComparison.Ordinal);
-        Assert.Contains("_localLogicalY = ((double)popupScreenDeviceY - ownerClientScreenDeviceY) / dpiScaleY;", proGpuPortablePopupBridge, StringComparison.Ordinal);
+        Assert.Contains("_ownerDesktopTransform.DesktopVectorToClient(new PortablePoint(", proGpuPortablePopupBridge, StringComparison.Ordinal);
+        Assert.Contains("desktopTransform.ClientVectorToDesktop(new PortablePoint(_localLogicalX, _localLogicalY))", proGpuPortablePopupBridge, StringComparison.Ordinal);
+        Assert.Contains("ScreenDeviceToPopupClient(screenDeviceX, screenDeviceY)", proGpuPortablePopupBridge, StringComparison.Ordinal);
+        Assert.Contains("_localLogicalY = local.Y;", proGpuPortablePopupBridge, StringComparison.Ordinal);
+        Assert.Contains("NormalizeNativeDesktopInput(input, desktop,", proGpuHost, StringComparison.Ordinal);
+        Assert.Contains("PortableDesktopTransform.FromWindowCoordinates(0, 0,", proGpuHost, StringComparison.Ordinal);
         Assert.Contains("public bool TrySetDeviceScale(double dpiScaleX, double dpiScaleY)", proGpuPortablePopupBridge, StringComparison.Ordinal);
         Assert.Contains("public bool TrySetOwnerClientGeometry(", proGpuPortablePopupBridge, StringComparison.Ordinal);
         Assert.Contains("_source.SetDeviceScale(dpiScaleX, dpiScaleY);", proGpuPortablePopupBridge, StringComparison.Ordinal);

@@ -82,6 +82,33 @@ fallback semantics; performance defaults may only claim speed after measurement.
 
 ## Core application closure checkpoints
 
+Host/popup desktop connection (MVP/Toolkit ComboBox/menu open, move and click):
+the stock host now publishes desktop scale from its actual native client-size
+policy, via ProGPU's `FromWindowCoordinates` and the optional typed source seam.
+Native pointer events use the same desktop-vector inverse, independently of
+framebuffer DPI; compatibility/diagnostic input retains its existing route.
+The popup bridge now decodes legacy device transport to desktop offsets before
+mapping to owner DIPs, so overlay placement and local input share one frame.
+Owner moves/scale changes map those offsets forward and keep coherent parent-first
+publication. Native diagnostic queries use the popup source's own desktop frame;
+independently surfaced popup scales are not replaced with their owner's scale.
+Both renderer modes share these platform/source changes; no native renderer,
+shader, fallback or C ABI algorithm changes apply. Regression fixtures are authored
+for fractional/unequal desktop scales, negative origins, independent framebuffer
+changes, movement and pointer mapping; execution is deferred.
+
+This closes the identified host/overlay/input unit mismatch, not full mixed-monitor
+qualification. The remaining application dependency is native-popup framebuffer
+ownership across independent monitor changes: owner DPI propagation still enters
+the popup's native host/source, while the surface can subsequently resolve its own
+DPI. Trace and close that lifetime/update ordering before Windows SDK admission;
+do not keep expanding placement math in isolation. Windows admission, final app
+fidelity, VM/image comparisons, package production and exact-head CI remain open.
+Compile-only checkpoint: ProGPU.Tests 0 warnings/0 errors, bridge fixtures 21/0
+(final source-guard rebuild 20/0), source-built application harness 4/0.
+No test execution or CI qualification.
+
+
 Popup extent/limit connection (MVP/Toolkit menus and ComboBoxes at desktop edges):
 source `Popup.UpdatePosition` previously used framebuffer DPI for root-size
 nudging even on a logical-unit desktop. It now uses the ProGPU desktop-vector

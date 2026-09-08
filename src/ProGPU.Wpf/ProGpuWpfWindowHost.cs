@@ -2698,9 +2698,43 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
     internal bool SynchronizePortablePresentationSourceGeometry(RenderSurfaceGeometry geometry)
     {
         LastResolvedRenderSurfaceGeometry = geometry;
+        var contentScale = ResolveCurrentWindowContentScale();
+        var desktop = PortableDesktopTransform.FromWindowCoordinates(0, 0,
+            contentScale.X, contentScale.Y, UsesMonitorScaledWindowCoordinates());
+        bool desktopScaleChanged = UpdatePortablePresentationSourceDesktopScale(
+            desktop.ScaleX, desktop.ScaleY, synchronizePopups: false);
         bool dpiScaleChanged = UpdatePortablePresentationSourceDpiScale(geometry.DpiScaleX, geometry.DpiScaleY);
+        if (desktopScaleChanged)
+            RefreshPortablePopupDesktopGeometry();
         bool clientSizeChanged = UpdatePortablePresentationSourceClientSize(geometry.LogicalWidth, geometry.LogicalHeight);
-        return clientSizeChanged || dpiScaleChanged;
+        return clientSizeChanged || dpiScaleChanged || desktopScaleChanged;
+    }
+
+    internal bool UpdatePortablePresentationSourceDesktopScale(
+        double scaleX, double scaleY, bool synchronizePopups = true)
+    {
+        if (_portablePresentationSourceBridge is not { } bridge) return false;
+        var previous = bridge.DesktopTransform;
+        var next = new PortableDesktopTransform(
+            _hasPortablePresentationSourceClientOrigin ? _portablePresentationSourceClientOriginX : previous.OriginX,
+            _hasPortablePresentationSourceClientOrigin ? _portablePresentationSourceClientOriginY : previous.OriginY,
+            scaleX, scaleY);
+        if (previous == next) return false;
+        bridge.SetDesktopTransform(next);
+        if (synchronizePopups) RefreshPortablePopupDesktopGeometry();
+        InvalidateWpfRootVisualForPresentationSourceGeometryChange();
+        return true;
+    }
+
+    private void RefreshPortablePopupDesktopGeometry()
+    {
+        // Creation order is parent before child, including legacy handle owners.
+        for (int i = 0; i < _portablePopupBridges.Count; i++)
+        {
+            var popup = _portablePopupBridges[i];
+            if (popup.RefreshOwnerDesktopGeometry())
+                UpdatePortablePopupOwnerOrigins(popup.Source, popup.X, popup.Y);
+        }
     }
 
     private bool SynchronizePortablePresentationSourceGeometry()
@@ -3623,6 +3657,14 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
             return input;
         }
 
+        if (isNativePlatformEvent)
+        {
+            var contentScale = ResolveCurrentWindowContentScale();
+            var desktop = PortableDesktopTransform.FromWindowCoordinates(0, 0,
+                contentScale.X, contentScale.Y, UsesMonitorScaledWindowCoordinates());
+            return NormalizeNativeDesktopInput(input, desktop, _options.NativePointerCoordinatesAreOwnerRelative);
+        }
+
         var geometry = ResolveCurrentRenderSurfaceGeometry();
         return NormalizeInputEventForRenderSurfaceGeometry(
             input,
@@ -3634,6 +3676,18 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
                 geometry,
                 input),
             _options.NativePointerCoordinatesAreOwnerRelative);
+    }
+
+    internal static WpfInputEventArgs NormalizeNativeDesktopInput(
+        WpfInputEventArgs input, PortableDesktopTransform desktop, bool preserveOwnerCoordinates = false)
+    {
+        if (preserveOwnerCoordinates || !IsPointerInput(input.Kind) ||
+            (desktop.ScaleX == 1 && desktop.ScaleY == 1)) return input;
+        // Native pointer positions are client-local desktop units, not framebuffer pixels.
+        var point = desktop.DesktopVectorToClient(new PortablePoint(input.X, input.Y));
+        return new WpfInputEventArgs(input.Kind, input.Key, input.ScanCode, input.Character,
+            point.X, point.Y, input.DeltaX, input.DeltaY, input.Button, input.Modifiers)
+        { Handled = input.Handled };
     }
 
     internal static bool NativeInputCoordinatesArePhysical(

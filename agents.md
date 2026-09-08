@@ -63,6 +63,13 @@ Popup child extents, screen-edge nudging, size restrictions and absolute-placeme
 offsets use the shared desktop vector mapping, not framebuffer DPI. Keep monitor
 bounds in desktop units and convert restricted sizes back to client DIPs; native
 HWND placement retains its existing device-transform route.
+Host desktop-scale publication and native pointer normalization must share the
+actual native client-size/content-scale policy. Legacy popup device coordinates
+remain desktop times transport DPI; decode that frame before mapping offsets to
+owner DIPs. Owner-surface overlays and input share those DIPs. Preserve independent
+native-popup client scale and parent-before-child geometry updates; framebuffer
+changes alone must not alter desktop scale. Do not remove Windows SDK admission
+guards before closing the remaining cross-monitor/native-source ownership path.
 Source-WPF geometry Combine must use the typed geometry operations provider and
 bounds-free operand export. Do not restore bounds-only boolean results or request
 CombinedGeometry.Bounds while exporting a combination. Groups preserve figure

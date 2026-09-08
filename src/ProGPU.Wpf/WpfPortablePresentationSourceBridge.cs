@@ -116,6 +116,21 @@ public sealed class WpfPortablePresentationSourceBridge : IDisposable
         return true;
     }
 
+    internal PortableDesktopTransform DesktopTransform =>
+        _source is IPortableDesktopGeometryHost geometry ? geometry.DesktopTransform : PortableDesktopTransform.Identity;
+
+    internal void SetDesktopTransform(in PortableDesktopTransform transform)
+    {
+        ThrowIfDisposed();
+        if (!transform.IsValid) throw new ArgumentException("Invalid desktop geometry.", nameof(transform));
+        if (_source is IPortableDesktopGeometryHost geometry)
+            geometry.SetDesktopTransform(transform);
+        else if (transform.ScaleX == 1 && transform.ScaleY == 1)
+            _source.SetClientOrigin(transform.OriginX, transform.OriginY);
+        else
+            throw new PlatformNotSupportedException("Scaled desktop coordinates require the typed portable desktop geometry capability.");
+    }
+
     public bool TryDispatchHwndSourceHook(int message, IntPtr wParam, IntPtr lParam, out IntPtr result, out bool handled)
     {
         ThrowIfDisposed();

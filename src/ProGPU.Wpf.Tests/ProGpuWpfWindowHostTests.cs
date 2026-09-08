@@ -2800,6 +2800,68 @@ public sealed class ProGpuWpfWindowHostTests
     }
 
     [Theory]
+    [InlineData(ProGpuWpfRendererMode.ManagedPortable)]
+    [InlineData(ProGpuWpfRendererMode.NativeMilWgpu)]
+    public void PopupDesktopScaleKeepsOverlayAndInputInOwnerDips(ProGpuWpfRendererMode rendererMode)
+    {
+        var activation = new TestWindowActivationServiceRegistrar();
+        using var registration = PortableWpfServiceRegistry.RegisterWindowActivationService(activation);
+        var popup = new FakePortablePresentationSource();
+        using var factory = UsePortablePopupSourceFactory(() => popup);
+        using var host = new ProGpuWpfWindowHost(new ProGpuWpfWindowOptions { RendererMode = rendererMode });
+        var owner = new FakePortablePresentationSource { RootVisual = new object() };
+        host.SetPosition(-800, 150);
+        Assert.True(host.TryBindPortablePresentationSource(owner));
+        Assert.True(host.UpdatePortablePresentationSourceDpiScale(2, 2));
+        Assert.True(host.UpdatePortablePresentationSourceDesktopScale(1.5, 2));
+        // Owner DIP offset (20,30) -> desktop delta (30,60), then legacy transport * 2.
+        Assert.True(host.TryCreatePortablePopup(new PortablePopupCreateRequest(
+            null, owner, owner.Handle, -1540, 420, -1600, 300, false, false), out var source));
+        Assert.True(host.TrySetPortablePopupSize(source!, 100, 80));
+        Assert.True(host.TryShowPortablePopup(source!));
+        Assert.Equal(new PortableDesktopTransform(-770, 210, 1.5, 2), popup.DesktopTransform);
+        AssertLocalInput();
+
+        Assert.True(host.UpdatePortablePresentationSourceDesktopScale(2, 1));
+        Assert.Equal(new PortableDesktopTransform(-760, 180, 2, 1), popup.DesktopTransform);
+        AssertLocalInput();
+        Assert.True(host.UpdatePortablePresentationSourceDpiScale(1.5, 1.5));
+        Assert.Equal(new PortableDesktopTransform(-760, 180, 2, 1), popup.DesktopTransform);
+        AssertLocalInput();
+        // Move in the same legacy frame: new owner DIP offset (40,50).
+        Assert.True(host.TrySetPortablePopupPosition(source!, -1080, 300));
+        Assert.Equal(new PortableDesktopTransform(-720, 200, 2, 1), popup.DesktopTransform);
+        var moved = new WpfInputEventArgs(WpfInputEventKind.MouseDown, x: 45, y: 55, button: WpfMouseButton.Left);
+        Assert.True(host.TryProcessPortablePopupInput(moved));
+        Assert.Equal(5, activation.LastPresentationSourceInput!.X);
+        Assert.Equal(5, activation.LastPresentationSourceInput.Y);
+
+        void AssertLocalInput()
+        {
+            var input = new WpfInputEventArgs(WpfInputEventKind.MouseDown, x: 25, y: 35, button: WpfMouseButton.Left);
+            Assert.True(host.TryProcessPortablePopupInput(input));
+            Assert.Same(source, activation.LastPresentationSourceInputSource);
+            Assert.Equal(5, activation.LastPresentationSourceInput!.X);
+            Assert.Equal(5, activation.LastPresentationSourceInput.Y);
+        }
+    }
+
+    [Theory]
+    [InlineData(1, 1)]
+    [InlineData(1.5, 2)]
+    [InlineData(0.75, 1.25)]
+    public void NativePointerUsesDesktopVectorsNotFramebufferOrDesktopOrigin(double sx, double sy)
+    {
+        var input = new WpfInputEventArgs(WpfInputEventKind.MouseMove, x: 12 * sx, y: 20 * sy) { Handled = true };
+        var desktop = new PortableDesktopTransform(-1920, 24, sx, sy);
+        var mapped = ProGpuWpfWindowHost.NormalizeNativeDesktopInput(input, desktop);
+        Assert.Equal(12, mapped.X);
+        Assert.Equal(20, mapped.Y);
+        Assert.True(mapped.Handled);
+        Assert.Same(input, ProGpuWpfWindowHost.NormalizeNativeDesktopInput(input, desktop, preserveOwnerCoordinates: true));
+    }
+
+    [Theory]
     [InlineData(100, 200, true, false, ProGpuWpfRendererMode.NativeMilWgpu)]
     [InlineData(-800, 150, true, false, ProGpuWpfRendererMode.NativeMilWgpu)]
     [InlineData(0, 0, true, false, ProGpuWpfRendererMode.ManagedPortable)]
@@ -3743,7 +3805,7 @@ public sealed class ProGpuWpfWindowHostTests
         }
     }
 
-    private sealed class FakePortablePresentationSource : IPortablePresentationSourceHost
+    private sealed class FakePortablePresentationSource : IPortablePresentationSourceHost, IPortableDesktopGeometryHost
     {
         private object? _rootVisual;
 
@@ -3807,6 +3869,15 @@ public sealed class ProGpuWpfWindowHostTests
 
         public List<(double X, double Y)> ClientOrigins { get; } = new();
 
+        public PortableDesktopTransform DesktopTransform { get; private set; } = PortableDesktopTransform.Identity;
+
+        public void SetDesktopTransform(in PortableDesktopTransform transform)
+        {
+            if (!transform.IsValid) throw new ArgumentException(nameof(transform));
+            DesktopTransform = transform;
+            SetClientOrigin(transform.OriginX, transform.OriginY);
+        }
+
         public bool IsDisposed { get; private set; }
 
         public void SetDeviceScale(double dpiScaleX, double dpiScaleY)
@@ -3829,6 +3900,7 @@ public sealed class ProGpuWpfWindowHostTests
 
         public void SetClientOrigin(double x, double y)
         {
+            DesktopTransform = new PortableDesktopTransform(x, y, DesktopTransform.ScaleX, DesktopTransform.ScaleY);
             ClientOriginX = x;
             ClientOriginY = y;
             ClientOrigins.Add((x, y));
