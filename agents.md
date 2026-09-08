@@ -22,6 +22,13 @@ suspension and document replacement invalidate interaction before disposing line
 Native logical caret boundaries must accept equivalent leading/trailing source
 affinities without accepting positions inside shaped clusters. Compiled fixtures
 do not qualify the actual MVP, symbol fonts or package-mode startup.
+Paginated document consumers must use the shared native fragmentation service,
+retain source page/column policy and original page-local text positions, and
+explicitly resolve keep/widow/orphan behavior before admitting break boundaries.
+Do not treat static paragraph-edge break flags as complete fragment-relative
+widow/orphan policy. Impossible native fits must not silently clip a line or
+switch the viewer to scrolling. The current native fitter is a prerequisite;
+source paginator/page visuals remain the next core integration dependency.
 
 Portable source text must preserve actual shaped content, clusters, styled runs
 and caret/selection semantics. `SimpleTextLine.CreatePortableFallback` currently

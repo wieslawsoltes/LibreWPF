@@ -10,6 +10,15 @@ internal sealed class WpfPortableDocumentFlow : IPortableDocumentFlow
     private static readonly WpfPortableDocumentFlow Default = new();
     internal static void EnsureRegistered() => PortableWpfServiceRegistry.EnsureDocumentFlow(Default);
 
+    public PortableDocumentPagination Paginate(ReadOnlySpan<PortableDocumentFragmentLine> lines,
+        double contentHeight, uint columns, Span<PortableDocumentFragmentPosition> positions)
+    {
+        var result = NativeDocumentFlow.Paginate(
+            MemoryMarshal.Cast<PortableDocumentFragmentLine, NativeDocumentFragmentLine>(lines), contentHeight, columns,
+            MemoryMarshal.Cast<PortableDocumentFragmentPosition, NativeDocumentFragmentPosition>(positions));
+        return new(result.FragmentCount, result.PageCount);
+    }
+
     public void ResolveWidths(ReadOnlySpan<PortableDocumentBlock> blocks, double width, Span<PortableDocumentBox> boxes)
         => NativeDocumentFlow.ResolveWidths(MemoryMarshal.Cast<PortableDocumentBlock, NativeDocumentBlock>(blocks), width,
             MemoryMarshal.Cast<PortableDocumentBox, NativeDocumentBox>(boxes));

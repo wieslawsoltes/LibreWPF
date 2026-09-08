@@ -116,6 +116,22 @@ commit. Their next-step text is historical, may be superseded by later changes,
 and must not be treated as an additional active backlog. Use the active completion
 queue above for current priorities.
 
+Native pagination prerequisite: the MVP page viewer is still a known PTS consumer.
+ProGPU now supplies generated native records and a typed zero-copy service for
+sequential page/column fitting over actual line advances and source-admitted
+breaks. Forced page/column boundaries, leading-space replacement and failure
+atomicity are implemented; indivisible non-fitting ranges fail explicitly.
+This does not switch the source paginator. Connect source column/page policy,
+keep/widow/orphan constraints, page visuals/fragmented decorations and page-local
+document interaction next; do not open another pagination utility family first.
+Native fixtures compile; ProGPU managed fixtures build with 0 warnings/errors
+and LibreWPF adapter fixtures with 116 warnings/0 errors. None is executed.
+ProGPU's existing managed/native
+symbol-cmap support and the installed macOS Wingdings face mean symbol markers
+are an availability/integration qualification item, not proof of a missing cmap
+implementation; Linux font availability remains unqualified. See the
+[pagination record](../external/ProGPU/docs/native-mil-document-flow.md#sequential-native-pagination-prerequisite).
+
 Source scroll-view checkpoint: the MVP's actual `FlowDocumentView` now consumes
 the live portable formatter before PTS access on every OS. Its real source
 DrawingVisual/IContentHost draws paragraphs, markers, backgrounds and border
