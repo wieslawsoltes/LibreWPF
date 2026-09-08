@@ -329,7 +329,7 @@ public static class Program
         // Existing dual-assembly diagnostic harness only. These known public API
         // lookups disappear when the harness can bind the source assembly directly.
         object textBrush = Create(presentationCore, "System.Windows.Media.SolidColorBrush", GetStaticProperty(colorsType, "Black"));
-        object text = CreateRealFormattedText(presentationCore, textBrush, "\u05d0\u05d1 fi a\u0301", rightToLeft: true,
+        object text = CreateRealFormattedText(presentationCore, textBrush, "\u05d0\u05d1\tfi a\u0301", rightToLeft: true,
             fontFamilyName: "#GLOBAL USER INTERFACE");
         text.GetType().GetMethod("SetFontSize", new[] { typeof(double), typeof(int), typeof(int) })!
             .Invoke(text, new object[] { 28.0, 3, 2 });

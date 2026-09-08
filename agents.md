@@ -24,6 +24,12 @@ source clusters, logical versus visual caret semantics and cloned continuation
 ownership. Source GlyphRun native positions may be initialized only once before
 publication and must feed both native and neutral exports. Its existing public
 bidi/offset state must remain real WPF glyph state, not a nominal fake run.
+Default incremental tabs must pass the source interval and text-start grid origin
+through the typed paragraph request to ProGPU. Consume `PortableTextGlyph.IsTab`
+as a non-ink item: retain source ranges, caret/selection and background bounds,
+but never construct a GlyphRun containing its reserved native glyph id. Do not
+replace tabs with spaces or a source-local width guess. Custom stop collections,
+leaders and disabled-grid behavior remain explicit gaps until implemented.
 
 `WindowChromeWorker` must select source ownership before HWND access: an active
 portable window, a registered portable activation service, or frozen portable

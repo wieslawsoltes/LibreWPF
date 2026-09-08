@@ -116,6 +116,24 @@ commit. Their next-step text is historical, may be superseded by later changes,
 and must not be treated as an additional active backlog. Use the active completion
 queue above for current priorities.
 
+Incremental editor tabs: default tab-separated input now has a native measurement
+path rather than hitting the source tab-expansion rejection. The shared C++
+composer resolves the source interval/indent grid before wrapping, retains advances
+through bidi reordering and publishes non-ink tab clusters. WPF retains tab-only
+selection/caret/background extents and does not send the tab sentinel to a glyph
+atlas. The existing host case includes a tab in styled composite-family bidi text;
+native/source regressions are authored. Custom stop collections/leaders and tab
+trimming remain explicit gaps. Continue required document/editor connections,
+not general API expansion; the full core app and Windows admission remain open.
+See the [tab implementation/qualification record](../external/ProGPU/docs/native-mil-text-source-integration.md).
+Compile-only checkpoint: native text targets, ProGPU fixtures, source PresentationCore
+fixtures, bridge fixtures and the source-host harness build with zero errors.
+Source and bridge graphs report one and 116 warnings respectively; no tests or
+runtime/CI gates were executed. The next identified document action blocker is
+`ComplexLine` producing `TextHidden`/`TextSpanModifier` for ordinary inline element
+edges while `PortableTextLine.Create` rejects them. Close that required source
+connection within the existing application queue, not optional custom-tab breadth.
+
 Source composite/fallback connection: the native host's styled bidi text now uses
 WPF's composite UI family. The adapter consumes typed font ranges from the existing
 source GlyphingCache/TypefaceMap without calling the DirectWrite itemizer; mapped

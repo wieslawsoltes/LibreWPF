@@ -12,6 +12,27 @@ namespace System.Windows.Media;
 public class PortableTextLineTests
 {
     [Fact]
+    public void IncrementalTabKeepsCaretSelectionAndWidthWithoutAnInkGlyph()
+    {
+        var provider = new Provider { Tabs = true };
+        using var registration = PortableWpfServiceRegistry.RegisterTextFormatting(provider);
+        using var formatter = new TextFormatterImp();
+        var source = new Source { Text = "a\tb" };
+        using var line = PortableTextLine.Create(Settings(formatter, source), 0, 800, 1);
+        Assert.Equal("a\tb", provider.Text);
+        Assert.Equal(32, provider.IncrementalTab);
+        Assert.Equal(38, line.WidthIncludingTrailingWhitespace);
+        Assert.Equal(2, line.GetIndexedGlyphRuns().Count());
+        Assert.All(line.GetIndexedGlyphRuns(), run => Assert.DoesNotContain('\t', run.GlyphRun.Characters));
+        Assert.Equal(new CharacterHit(1, 1), line.GetCharacterHitFromDistance(20));
+        Assert.Equal(32, line.GetDistanceFromCharacterHit(new(1, 1)));
+        var selection = Assert.Single(line.GetTextBounds(1, 1)).Rectangle;
+        Assert.Equal(8, selection.X);
+        Assert.Equal(24, selection.Width);
+        Assert.Equal(new CharacterHit(2, 0), line.GetNextCaretCharacterHit(new(1, 0)));
+    }
+
+    [Fact]
     public void CompositeFontRangesPreserveMappingScaleThroughWrappedGlyphRuns()
     {
         string path = Path.Combine(AppContext.BaseDirectory, "LibreWPF", "Fonts", "Inter-Medium.ttf");
@@ -114,11 +135,12 @@ public class PortableTextLineTests
         internal Properties Properties { get; init; } = new();
         internal bool Mixed { get; init; }
         internal bool AutoHeight { get; init; }
-        public override TextRun GetTextRun(int index) => index >= 3 ? new TextEndOfParagraph(1) :
-            new TextCharacters("abc", index, Mixed && index == 0 ? 1 : 3 - index,
+        internal string Text { get; init; } = "abc";
+        public override TextRun GetTextRun(int index) => index >= Text.Length ? new TextEndOfParagraph(1) :
+            new TextCharacters(Text, index, Mixed && index == 0 ? 1 : Text.Length - index,
                 Mixed && index != 0 ? new Properties { Size = 24 } : Properties);
         public override TextSpan<CultureSpecificCharacterBufferRange> GetPrecedingText(int limit) =>
-            new(limit, new(CultureInfo.InvariantCulture, new CharacterBufferRange("abc", 0, Math.Min(limit, 3))));
+            new(limit, new(CultureInfo.InvariantCulture, new CharacterBufferRange(Text, 0, Math.Min(limit, Text.Length))));
         public override int GetTextEffectCharacterIndexFromTextSourceCharacterIndex(int index) => index;
     }
 
@@ -147,6 +169,7 @@ public class PortableTextLineTests
         public override FlowDirection FlowDirection => FlowDirection.RightToLeft;
         public override TextAlignment TextAlignment => TextAlignment.Left;
         public override double LineHeight => autoHeight ? 0 : 20;
+        public override double DefaultIncrementalTab => 32;
         public override bool FirstLineInParagraph => true;
         public override TextRunProperties DefaultTextRunProperties => properties;
         public override TextWrapping TextWrapping => TextWrapping.Wrap;
@@ -158,6 +181,8 @@ public class PortableTextLineTests
     private sealed class Provider : IPortableTextFormatting, IPortableTextParagraph
     {
         internal bool Mixed { get; init; }
+        internal bool Tabs { get; init; }
+        internal float IncrementalTab { get; private set; }
         internal ReadOnlyMemory<PortableTextStyle> Styles { get; private set; }
         public object NativeFont { get; } = new();
         public object SecondNativeFont { get; } = new();
@@ -165,17 +190,20 @@ public class PortableTextLineTests
         internal int Calls { get; private set; }
         internal string? Text { get; private set; }
         public IPortableTextParagraph Format(in PortableTextParagraphRequest request)
-        { Calls++; Text = request.Text.ToString(); Styles = request.Styles; Assert.False(request.Font.Data.IsEmpty); return this; }
-        public ReadOnlyMemory<PortableTextGlyph> Glyphs => Mixed ? new PortableTextGlyph[]
+        { Calls++; Text = request.Text.ToString(); Styles = request.Styles; IncrementalTab = request.IncrementalTab; Assert.False(request.Font.Data.IsEmpty); return this; }
+        public ReadOnlyMemory<PortableTextGlyph> Glyphs => Tabs ? new PortableTextGlyph[]
+        { new(0, 0, 1, 0, 0, 8, 0), new(uint.MaxValue, 1, 2, 8, 0, 24, 0, IsTab: true), new(0, 2, 3, 32, 0, 6, 0) } : Mixed ? new PortableTextGlyph[]
         { new(0, 0, 1, 0, 0, 4, 0), new(0, 1, 2, 0, 20, 6, 0, 1), new(0, 2, 3, 6, 20, 6, 0, 1) } : new PortableTextGlyph[]
         { new(0, 0, 2, 0, 0, 8, 1), new(0, 2, 3, 0, 20, 6, 1) };
-        public ReadOnlyMemory<PortableTextLineInfo> Lines => Mixed ? new PortableTextLineInfo[]
+        public ReadOnlyMemory<PortableTextLineInfo> Lines => Tabs ? new PortableTextLineInfo[]
+        { new(0, 3, 0, 3, 38, 0, 20) } : Mixed ? new PortableTextLineInfo[]
         { new(0, 1, 0, 1, 4, 0, 20), new(1, 2, 1, 3, 12, 20, 20) } : new PortableTextLineInfo[]
         { new(0, 1, 0, 2, 8, 0, 20), new(1, 1, 2, 3, 6, 20, 20) };
         public PortableTextHit HitTest(int lineIndex, float distance) => new(lineIndex == 0 ? 2 : 3, true);
-        public float GetCaretDistance(int lineIndex, PortableTextHit hit) => hit.Position == (lineIndex == 0 ? 0 : 2) ? 0 : lineIndex == 0 ? 8 : 6;
-        public int GetNextLogicalCaret(int lineIndex, int position, bool previous) => lineIndex == 0 ? previous ? 0 : 2 : previous ? 2 : 3;
+        public float GetCaretDistance(int lineIndex, PortableTextHit hit) => Tabs ? TabDistance(hit.Position) : hit.Position == (lineIndex == 0 ? 0 : 2) ? 0 : lineIndex == 0 ? 8 : 6;
+        public int GetNextLogicalCaret(int lineIndex, int position, bool previous) => Tabs ? Math.Clamp(position + (previous ? -1 : 1), 0, 3) : lineIndex == 0 ? previous ? 0 : 2 : previous ? 2 : 3;
         public int GetSelection(int lineIndex, int start, int end, Span<PortableRect> rectangles)
-        { rectangles[0] = new(0, 0, lineIndex == 0 ? 8 : 6, 20); return 1; }
+        { rectangles[0] = Tabs ? new(TabDistance(start), 0, TabDistance(end) - TabDistance(start), 20) : new(0, 0, lineIndex == 0 ? 8 : 6, 20); return 1; }
+        private static float TabDistance(int position) => position switch { 0 => 0, 1 => 8, 2 => 32, _ => 38 };
     }
 }

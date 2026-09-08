@@ -36,7 +36,8 @@ internal sealed class WpfPortableTextFormatting : IPortableTextFormatting
         var features = new NativeTextFeature[request.Features.Length];
         for (int i = 0; i < features.Length; i++) features[i] = new(request.Features.Span[i].Tag, request.Features.Span[i].Value);
         return new Paragraph(NativeTextParagraphSnapshot.Create(font.Context, request.Text.Span,
-            request.RightToLeft ? NativeTextDirection.RightToLeft : NativeTextDirection.LeftToRight, in options, features), [font.RenderFont]);
+            request.RightToLeft ? NativeTextDirection.RightToLeft : NativeTextDirection.LeftToRight, in options, features,
+            incrementalTab: request.IncrementalTab, tabOrigin: request.TabOrigin), [font.RenderFont]);
     }
 
     private Paragraph FormatStyled(in PortableTextParagraphRequest request, in NativeTextParagraphOptions options, FontState primary)
@@ -74,7 +75,7 @@ internal sealed class WpfPortableTextFormatting : IPortableTextFormatting
         }
         return new Paragraph(NativeTextParagraphSnapshot.Create(context, request.Text.Span,
             request.RightToLeft ? NativeTextDirection.RightToLeft : NativeTextDirection.LeftToRight,
-            in options, features, styles), fonts.ToArray());
+            in options, features, styles, request.IncrementalTab, request.TabOrigin), fonts.ToArray());
     }
 
     private sealed class Paragraph : IPortableTextParagraph
@@ -98,7 +99,8 @@ internal sealed class WpfPortableTextFormatting : IPortableTextFormatting
             {
                 var g = native.Glyphs.Span[i];
                 if (g.FontIndex >= fonts.Length) throw new NotSupportedException("The source font map must include native fallback faces.");
-                glyphs[i] = new(g.GlyphId, g.Cluster, native.ClusterEnds.Span[i], g.X, g.Y, g.AdvanceX, native.BidiLevels.Span[i], g.FontIndex);
+                glyphs[i] = new(g.GlyphId, g.Cluster, native.ClusterEnds.Span[i], g.X, g.Y, g.AdvanceX,
+                    native.BidiLevels.Span[i], g.FontIndex, g.GlyphId == NativeTextParagraphSnapshot.TabGlyphId);
             }
             Glyphs = glyphs;
             var lines = new PortableTextLineInfo[native.Lines.Length];

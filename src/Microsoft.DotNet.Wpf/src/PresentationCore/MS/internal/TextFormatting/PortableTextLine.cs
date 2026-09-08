@@ -31,6 +31,7 @@ internal sealed class PortableTextLine : TextLine
     private readonly bool _rightToLeft;
     private readonly List<IndexedGlyphRun> _glyphRuns = new();
     private readonly List<TextRunProperties> _glyphProperties = new();
+    private readonly List<(int Start, int End, sbyte Level)> _selectionRuns = new();
     private readonly List<(Rect Bounds, Brush Brush)> _backgrounds = new();
     private readonly List<TextSpan<TextRun>> _runs;
     private readonly Rect _ink;
@@ -62,6 +63,7 @@ internal sealed class PortableTextLine : TextLine
         var styles = new List<SourceStyle>();
         var mappedFonts = new List<TextSpan<ScaledShapeTypeface>>();
         TextRunProperties properties = null;
+        bool hasTabs = false;
         int cp = first, newlines = 0;
         while (true)
         {
@@ -89,7 +91,11 @@ internal sealed class PortableTextLine : TextLine
             for (int i = start; i < builder.Length; i++)
             {
                 char c = builder[i];
-                if (c == '\t') throw Unsupported("tab expansion");
+                if (c == '\t')
+                {
+                    if (pap.DefaultIncrementalTab <= 0) throw Unsupported("tabs with a disabled incremental grid");
+                    hasTabs = true;
+                }
                 if (c is '\r' or '\n' or '\u2028' or '\u2029')
                 {
                     newlines = c == '\r' && i + 1 < builder.Length && builder[i + 1] == '\n' ? 2 : 1;
@@ -154,7 +160,8 @@ internal sealed class PortableTextLine : TextLine
         }
         var request = new PortableTextParagraphRequest(text.AsMemory(), font, (float)primaryEmSize,
             (float)layoutHeight, pap.Wrap && width > 0 ? (float)Math.Max(float.Epsilon, width - indent) : 0,
-            pap.RightToLeft, PortableTextAlignment.Left, Features(properties.TypographyProperties), portableStyles);
+            pap.RightToLeft, PortableTextAlignment.Left, Features(properties.TypographyProperties), portableStyles,
+            hasTabs ? (float)pap.DefaultIncrementalTab : 0, (float)indent);
         var paragraph = service.Format(in request);
         if (paragraph.Lines.Length == 0) throw new InvalidOperationException("The text provider returned no line.");
         return new PortableTextLine(paragraph, text, properties, face, first, 0, newlines,
@@ -252,7 +259,17 @@ internal sealed class PortableTextLine : TextLine
             var face = style.Face;
             var properties = style.Properties;
             uint fontIndex = glyphs[first].FontIndex;
-            while (stop < end && glyphs[stop].BidiLevel == level && glyphs[stop].FontIndex == fontIndex &&
+            if (glyphs[first].IsTab)
+            {
+                var tab = glyphs[first];
+                if (tab.ClusterEnd != tab.Cluster + 1 || _text[tab.Cluster] != '\t' || tab.ClusterEnd > style.End)
+                    throw new InvalidOperationException("Native tab does not match a source tab cluster.");
+                _selectionRuns.Add((tab.Cluster, tab.ClusterEnd, level));
+                CacheBackground(properties.BackgroundBrush, tab.Cluster, tab.ClusterEnd);
+                first = stop;
+                continue;
+            }
+            while (stop < end && !glyphs[stop].IsTab && glyphs[stop].BidiLevel == level && glyphs[stop].FontIndex == fontIndex &&
                 StyleIndex(glyphs[stop].Cluster) == styleIndex)
             {
                 var previous = glyphs[stop - 1]; var next = glyphs[stop];
@@ -297,18 +314,22 @@ internal sealed class PortableTextLine : TextLine
             run.InitializePortableGlyphPositions(positions, _paragraph.GetNativeFont(fontIndex));
             _glyphRuns.Add(new(_paragraphStart + cpStart, cpEnd - cpStart, run));
             _glyphProperties.Add(properties);
-            if (properties.BackgroundBrush != null)
-            {
-                var rectangles = new PortableRect[Math.Max(1, Info.GlyphCount)];
-                int count = _paragraph.GetSelection(_lineIndex, cpStart, cpEnd, rectangles);
-                for (int i = 0; i < count; i++)
-                    _backgrounds.Add((new Rect(Start + rectangles[i].X, 0, rectangles[i].Width, Height), properties.BackgroundBrush));
-            }
+            _selectionRuns.Add((cpStart, cpEnd, level));
+            CacheBackground(properties.BackgroundBrush, cpStart, cpEnd);
             Rect bounds = run.ComputeInkBoundingBox();
             if (!bounds.IsEmpty) { bounds.Offset(run.BaselineOrigin.X, run.BaselineOrigin.Y); ink.Union(bounds); }
             first = stop;
         }
         return ink;
+    }
+
+    private void CacheBackground(Brush brush, int start, int end)
+    {
+        if (brush == null) return;
+        var rectangles = new PortableRect[Math.Max(1, Info.GlyphCount)];
+        int count = _paragraph.GetSelection(_lineIndex, start, end, rectangles);
+        for (int i = 0; i < count; i++)
+            _backgrounds.Add((new Rect(Start + rectangles[i].X, 0, rectangles[i].Width, Height), brush));
     }
 
     private int StyleIndex(int position)
@@ -367,16 +388,16 @@ internal sealed class PortableTextLine : TextLine
         int end = Math.Clamp(checked(first + length), First, End) - _paragraphStart;
         var rectangles = new PortableRect[Math.Max(1, Info.GlyphCount)];
         var result = new List<TextBounds>();
-        foreach (var run in _glyphRuns)
+        foreach (var run in _selectionRuns)
         {
-            int from = Math.Max(start, run.TextSourceCharacterIndex - _paragraphStart);
-            int to = Math.Min(end, run.TextSourceCharacterIndex + run.TextSourceLength - _paragraphStart);
+            int from = Math.Max(start, run.Start);
+            int to = Math.Min(end, run.End);
             if (from >= to) continue;
             int count = _paragraph.GetSelection(_lineIndex, from, to, rectangles);
             for (int i = 0; i < count; i++)
             {
                 var r = rectangles[i]; result.Add(new(new Rect(Start + r.X, 0, r.Width, Height),
-                    (run.GlyphRun.BidiLevel & 1) != 0 ? FlowDirection.RightToLeft : FlowDirection.LeftToRight, null));
+                    (run.Level & 1) != 0 ? FlowDirection.RightToLeft : FlowDirection.LeftToRight, null));
             }
         }
         return result;
