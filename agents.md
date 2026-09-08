@@ -104,6 +104,10 @@ it. Bounds union actual fill and emitted stroke, not an inflated fill rectangle.
 Primitive overrides must not bypass this route under portable media selection.
 Keep dash conversion intrinsic and default provider registration shared by both
 renderer modes; source-owned WPF transport remains decoding, not a second stroker.
+Geometry-region hit traversal must use the typed CompareFill provider before
+legacy MIL imports under portable media selection. Preserve first/second relation
+direction, first-operand relative tolerance and exact fill/clip topology; do not
+replace selection with envelope containment or swallow unsupported finite inputs.
 
 ## Reflection-Free Port Priority
 

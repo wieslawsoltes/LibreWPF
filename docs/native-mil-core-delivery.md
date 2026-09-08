@@ -26,12 +26,14 @@ subsystem roadmap. None of these rows is runtime-qualified yet.
 | 2 | Application closure: use the same MVP, Toolkit/AvalonDock, license-controlled Xceed and existing SciChart gate. Finish required text/selection, scroll/clip, popup/input, resize/DPI, content/effect/cache updates and close/reopen/device-loss ownership. Reuse existing implementations; fix concrete missing connections. | Each required action has an implemented path and authored regression coverage. Record any known blocking branch against that action; do not reopen already connected subsystems for optional refinements. |
 | 3 | Feature freeze, final qualification and delivery: build complete platform artifacts and packages, execute the existing cross-platform/Windows comparison and application gates, fix failures, and bring both PRs' required CI to green at the delivery commits. | Record exact-head package consumption and required gate results, with explicit failures or environment/license limitations. Only then report the core release delivered. |
 
-The immediate investigation is the existing `Visual` geometry-hit consumer through
-`PathGeometry.HitTestWithPathGeometry`. Confirm its import routing and required
-application dependency before implementing a shared ProGPU connection. This is
-not authorization to complete every geometry utility: path-length animation or
-other neighboring APIs enter this queue only if a required application action
-uses them. Do not exhaustively scan unrelated API families before feature freeze.
+The `Visual` geometry-hit consumer through `PathGeometry.HitTestWithPathGeometry`
+is now connected to ProGPU's shared native fill-relation query under portable
+media selection. The existing native host harness includes region selection
+inside/outside an actual clip; execution is deferred. This closes the identified
+source import route, not Windows SDK admission. Continue the package MVP's startup
+and common resource path. Path-length animation or neighboring APIs enter this
+queue only if a required application action uses them; do not exhaustively scan
+unrelated API families before feature freeze.
 
 General DirectX/Direct2D/COM/Win2D completeness, advanced presentation and
 nonblocking optimizations remain in the broader backlog. They cannot delay this
@@ -113,6 +115,25 @@ These checkpoints preserve implementation provenance and the state at each
 commit. Their next-step text is historical, may be superseded by later changes,
 and must not be treated as an additional active backlog. Use the active completion
 queue above for current priorities.
+
+Geometry-region selection connection: portable `PathGeometry.HitTestWithPathGeometry`
+now exports bounds-free operands to the typed provider before its WPF graphics-DLL
+import. ProGPU shares its original Direct2D comparison body between the COM entry
+and a bounded synchronous C query; both renderer modes use the same provider.
+Holes/cancellation, containment direction, transforms and first-operand relative
+tolerance remain explicit. The existing host harness now exercises public geometry
+comparison and clipped `VisualTreeHelper.HitTest`; it owns the host with `using`
+so a rejected pre-run query cannot leak it. Native, managed, bridge and source
+fixtures are authored, not executed. See the ProGPU
+[contract and original-code provenance](../external/ProGPU/docs/native-mil-geometry-utilities.md#filled-relation-connection--core-selection-traversal).
+No Windows SDK guard or qualification gate is removed by this connection.
+Compile-only checkpoint: ProGPU `4c29b833` is pushed and contains latest fetched
+`origin/main`. Strict AppleClang C++20 geometry-utility and Direct2D compatibility
+targets compile/link. Release ProGPU.Tests builds with 0 warnings/0 errors;
+bridge fixtures 116/0; source-built application harness 4/0; source
+PresentationCore fixtures 4/0, including the existing NU1701 package warning.
+No fixture, source verifier, application, VM/GPU/image, benchmark or CI
+qualification was executed. These counts are not evidence of runtime parity.
 
 Windows native popup connection (MVP/Toolkit ComboBox/menu open and click):
 ProGPU now owns `NativePopupWindow.TryConfigureOwner` and a Win32 implementation

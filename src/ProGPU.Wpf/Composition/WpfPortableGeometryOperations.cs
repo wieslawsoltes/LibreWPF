@@ -173,6 +173,37 @@ internal sealed class WpfPortableGeometryOperations : IPortableGeometryOperation
         }
     }
 
+    public PortableGeometryRelation CompareFill(PortableGeometryOperand first, PortableGeometryOperand second,
+        double tolerance, bool relativeTolerance)
+    {
+        try
+        {
+            Check(tolerance, 0, nativeRange: false);
+            int budget = 1 << 20;
+            VectorPath a = Resolve(first, 0, ref budget), b = Resolve(second, 0, ref budget);
+            if (a.IsCombined || b.IsCombined) throw new InvalidOperationException("Unresolved geometry operand.");
+            var (_, firstSegments) = PathAtlas.CompileFillPath(a, out _, out _, out _, out _);
+            var (_, secondSegments) = PathAtlas.CompileFillPath(b, out _, out _, out _, out _);
+            // WPF relation tolerance is relative to the first operand, unlike
+            // Combine's union-of-operands tolerance. Bounds only set accuracy.
+            var relation = NativeGeometryUtilities.CompareFill(
+                MemoryMarshal.Cast<GpuPathSegment, NativePathSegment>(firstSegments.AsSpan()),
+                a.FillRule == VectorFill.EvenOdd ? NativeFillRule.EvenOdd : NativeFillRule.NonZero,
+                MemoryMarshal.Cast<GpuPathSegment, NativePathSegment>(secondSegments.AsSpan()),
+                b.FillRule == VectorFill.EvenOdd ? NativeFillRule.EvenOdd : NativeFillRule.NonZero,
+                QueryTolerance(a, tolerance, relativeTolerance));
+            return relation switch
+            {
+                NativeGeometryRelation.Disjoint => PortableGeometryRelation.Disjoint,
+                NativeGeometryRelation.IsContained => PortableGeometryRelation.IsContained,
+                NativeGeometryRelation.Contains => PortableGeometryRelation.Contains,
+                NativeGeometryRelation.Overlap => PortableGeometryRelation.Overlap,
+                _ => throw new InvalidOperationException("Invalid native geometry relation.")
+            };
+        }
+        catch (BadGeometryNumberException) { return PortableGeometryRelation.Disjoint; }
+    }
+
     private static VectorPath Resolve(PortableGeometryOperand node, int depth, ref int budget)
     {
         ArgumentNullException.ThrowIfNull(node);

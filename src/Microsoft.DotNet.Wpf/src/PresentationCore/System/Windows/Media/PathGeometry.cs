@@ -1059,6 +1059,9 @@ namespace System.Windows.Media
             double tolerance,
             ToleranceType type)
         {
+            if (PortableGeometryOperationsBridge.IsPortable)
+                return PortableGeometryOperationsBridge.CompareFill(geometry1, geometry2, tolerance, type);
+
             IntersectionDetail detail = IntersectionDetail.NotCalculated;
 
             unsafe

@@ -133,7 +133,7 @@ public static class Program
                         $"Published interfaces: {interfaces}.");
                 }
 
-                var host = new ProGpuWpfWindowHost(
+                using var host = new ProGpuWpfWindowHost(
                     new ProGpuWpfWindowOptions
                     {
                         Title = "LibreWPF native MIL host smoke",
@@ -144,6 +144,8 @@ public static class Program
                 {
                     WpfRootVisual = drawingVisual
                 };
+
+                NativeMilGeometryRelationSmoke.Run(presentationCore, drawingVisual);
 
                 string? status = null;
                 Exception? validationFailure = null;
@@ -214,7 +216,6 @@ public static class Program
                 Console.WriteLine(status ?? throw new TimeoutException(
                     $"Native MIL host did not present within " +
                     $"{NativeMilHostTimeout.TotalSeconds:0} seconds."));
-                host.Dispose();
             }
             finally
             {

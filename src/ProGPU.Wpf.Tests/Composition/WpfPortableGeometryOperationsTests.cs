@@ -12,6 +12,19 @@ namespace ProGPU.Wpf.Tests.Composition;
 public class WpfPortableGeometryOperationsTests
 {
     [Fact]
+    public void RelationBadNumbersFailBeforeNativeLoadingButFiniteRangeErrorsThrow()
+    {
+        var service = new WpfPortableGeometryOperations();
+        var empty = new PortableGeometryOperand { Path = new() };
+        var bad = new PortableGeometryOperand { Path = new() { Figures = [new() { StartPoint = new(double.NaN, 0) }] } };
+        Assert.Equal(PortableGeometryRelation.Disjoint, service.CompareFill(bad, empty, 0.25, false));
+        Assert.Equal(PortableGeometryRelation.Disjoint, service.CompareFill(empty, bad, 0.25, true));
+        Assert.Equal(PortableGeometryRelation.Disjoint, service.CompareFill(empty, empty, double.NaN, false));
+        var large = new PortableGeometryOperand { Path = new() { Figures = [new() { StartPoint = new(double.MaxValue, 0) }] } };
+        Assert.Throws<NotSupportedException>(() => service.CompareFill(large, empty, 0.25, false));
+    }
+
+    [Fact]
     public void QueryDashNarrowingMatchesScalarAcrossVectorTails()
     {
         for (int count = 0; count <= 17; count++)

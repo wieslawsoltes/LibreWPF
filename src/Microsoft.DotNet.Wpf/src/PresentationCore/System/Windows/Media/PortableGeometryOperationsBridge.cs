@@ -27,6 +27,20 @@ internal static class PortableGeometryOperationsBridge
             tolerance, type == ToleranceType.Relative);
     }
 
+    internal static IntersectionDetail CompareFill(Geometry first, Geometry second, double tolerance, ToleranceType type)
+    {
+        if (type != ToleranceType.Absolute && type != ToleranceType.Relative)
+            throw new ArgumentException("Invalid geometry tolerance policy.");
+        return Service.CompareFill(Export(first, 0), Export(second, 0), tolerance, type == ToleranceType.Relative) switch
+        {
+            PortableGeometryRelation.Disjoint => IntersectionDetail.Empty,
+            PortableGeometryRelation.IsContained => IntersectionDetail.FullyInside,
+            PortableGeometryRelation.Contains => IntersectionDetail.FullyContains,
+            PortableGeometryRelation.Overlap => IntersectionDetail.Intersects,
+            _ => throw new InvalidOperationException("The geometry provider returned an invalid relation.")
+        };
+    }
+
     internal static Rect GetRenderBounds(PortableGeometryOperand operand, Pen pen, Matrix worldMatrix,
         double tolerance, ToleranceType type, bool skipHollows)
     {

@@ -8,6 +8,38 @@ namespace System.Windows.Media;
 [Collection("Sequential")]
 public class PortableGeometryOperationsTests
 {
+    [Theory]
+    [InlineData(PortableGeometryRelation.Disjoint, IntersectionDetail.Empty)]
+    [InlineData(PortableGeometryRelation.IsContained, IntersectionDetail.FullyInside)]
+    [InlineData(PortableGeometryRelation.Contains, IntersectionDetail.FullyContains)]
+    [InlineData(PortableGeometryRelation.Overlap, IntersectionDetail.Intersects)]
+    public void RelationQueryPreservesOperandDirectionAndPolicy(PortableGeometryRelation relation, IntersectionDetail expected)
+    {
+        var service = new GeometryService { Relation = relation };
+        using var registration = PortableWpfServiceRegistry.RegisterGeometryOperations(service);
+        var first = new RectangleGeometry(new Rect(0, 0, 20, 20), 0, 0, new TranslateTransform(7, 8));
+        var second = new GeometryGroup { FillRule = FillRule.EvenOdd };
+        second.Children.Add(new RectangleGeometry(new Rect(2, 2, 3, 4)));
+        PortableGeometryOperationsBridge.CompareFill(first, second, 0.125, ToleranceType.Relative).Should().Be(expected);
+        service.Calls.Should().Be(1);
+        service.First!.Path!.Transform.OffsetX.Should().Be(7);
+        service.Second!.Kind.Should().Be(PortableGeometryOperandKind.Group);
+        service.Second.FillRule.Should().Be(PortableFillRule.EvenOdd);
+        service.Tolerance.Should().Be(0.125); service.Relative.Should().BeTrue();
+    }
+
+    [Fact]
+    public void InvalidRelationOrToleranceCannotBecomeSuccessfulSelection()
+    {
+        var service = new GeometryService { Relation = (PortableGeometryRelation)99 };
+        using var registration = PortableWpfServiceRegistry.RegisterGeometryOperations(service);
+        Action invalidResult = () => PortableGeometryOperationsBridge.CompareFill(new PathGeometry(), new PathGeometry(), 0.25, ToleranceType.Absolute);
+        invalidResult.Should().Throw<InvalidOperationException>();
+        Action invalidType = () => PortableGeometryOperationsBridge.CompareFill(new PathGeometry(), new PathGeometry(), 0.25, (ToleranceType)99);
+        invalidType.Should().Throw<ArgumentException>();
+        service.Calls.Should().Be(1);
+    }
+
     [Fact]
     public void PenQueriesForwardTypedBrushDashAndOutputTransformState()
     {
@@ -151,6 +183,14 @@ public class PortableGeometryOperationsTests
         public bool SkipHollows;
         public PortablePoint Point;
         public PortablePenState Pen;
+        public PortableGeometryRelation Relation;
+        public PortableGeometryOperand? First, Second;
+        public PortableGeometryRelation CompareFill(PortableGeometryOperand first, PortableGeometryOperand second,
+            double tolerance, bool relative)
+        {
+            Calls++; First = first; Second = second; Tolerance = tolerance; Relative = relative;
+            return Relation;
+        }
         public PortableRect GetRenderBounds(PortableGeometryOperand geometry, in PortablePenState pen,
             PortableMatrix3x2 transform, double tolerance, bool relative, bool skipHollows)
         {
