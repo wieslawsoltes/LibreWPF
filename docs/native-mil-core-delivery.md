@@ -85,6 +85,14 @@ fixtures compile; the portable MIL target builds. Masks/pictures, raster detail,
 This is core rendering work, not a new Direct2D/Win2D expansion or a qualification
 result. Finish these existing blockers before opening another feature family.
 
+Mask checkpoint: analytic/rounded, bitmap coverage, vector clips, brush/geometry
+and non-picture composite masks now receive the current presentation mapping.
+Shared affine mapping and authored inverse-UV fixtures compile with the affected
+native renderer sources. Picture-backed masks remain explicitly pending; no
+viewport/DPI guard is removed. Continue with nested picture raster/sampling,
+remaining raster/3D and damage/clear consumers, then the core application/lifetime
+closure and final qualification phase.
+
 Source-backed blockers are in
 `src/ProGPU.Wpf/ProGpuWpfWindowHost.cs:ValidateNativeMilHostConfiguration` and
 `src/ProGPU.Wpf/WpfPortableNativePopupHost.cs`:
