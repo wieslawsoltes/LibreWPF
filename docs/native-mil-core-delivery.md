@@ -116,6 +116,19 @@ commit. Their next-step text is historical, may be superseded by later changes,
 and must not be treated as an additional active backlog. Use the active completion
 queue above for current priorities.
 
+Native package payload build (2026-09-09): clean macOS ARM64 and Intel C++ builds
+now produce both wgpu-native and Dawn renderer libraries plus the required SDK
+archives. The first Dawn build exposed a raw queue-submit call in retained picture
+seed copying; ProGPU `95504c8d` routes it through the existing engine submission,
+completion-identity and retirement path. Complete native targets and the authored
+ProGPU source-contract fixture compile; no tests or renderer workloads executed.
+Artifacts remain an isolated, unqualified two-RID staging set, not a full package.
+Windows Parallels resume failed with a critical error, and its bundle listing
+stalled; saved state was preserved and user assistance requested. The Windows and
+Linux payloads remain missing, so fresh package production/MVP consumption and
+Windows SDK admission are still open. See the
+[build evidence and remaining prerequisites](../reports/native-mil-core-payload-build-2026-09-09.md).
+
 Package production/qualification separation (2026-09-09): the package-mode MVP's
 automatic rebuild invokes the full SDK gate, including application execution,
 even when the launcher's individual validation flags are disabled. The SDK script
