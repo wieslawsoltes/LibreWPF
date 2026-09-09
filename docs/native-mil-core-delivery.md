@@ -57,6 +57,19 @@ identified unowned SetCaretPos route, not Windows package admission or native
 accessibility/IME qualification. See the
 [caret checkpoint](../reports/native-mil-native-caret-2026-09-09.md).
 
+Editor drag admission and context-menu client clipping now select by source
+ownership on Windows as well as Unix. Accepted drops request actual owner-host
+activation through the existing popup owner chain; denied moves report None.
+Source fixtures cover admission, activation rejection/lifetime and client-DIP
+clipping. This is an implementation connection, not end-to-end drag transport or
+visible menu qualification. See the
+[editor drop checkpoint](../reports/native-mil-editor-drop-routing-2026-09-09.md).
+Portable DragDrop.DoDragDrop still declines outgoing source drags. End-to-end
+editor-to-editor text dragging therefore has a known implementation gap; do not
+treat the ingress connection or its authored fixtures as source-drag completion.
+The default Silk.NET service only supplies file drops; OS text-drag transport is
+also still an implementation requirement for external text dragging.
+
 Native Cocoa popup ownership now uses ProGPU's checked hidden-window parent
 configuration. A selected native popup is disposed when owner setup rejects or
 throws on every platform, rather than proceeding unowned. The main MVP menus and

@@ -178,6 +178,93 @@ public sealed class PortableFlowDocumentTests
     }
 
     [PortableMediaFact]
+    public void EditorDragEnterUsesLiveEnabledSourceAndNormalizesRejectedMoves()
+    {
+        using var textRegistration = PortableWpfServiceRegistry.RegisterTextFormatting(new TextProvider());
+        using var flowRegistration = PortableWpfServiceRegistry.RegisterDocumentFlow(new FlowProvider());
+        var document = new FlowDocument(new Paragraph(new Run("drop ownership")));
+        var viewer = new FlowDocumentView { Document = document };
+        var root = new AdornerDecorator { Child = viewer };
+        using IPortablePresentationSourceHost source = PortablePresentationSourceHost.Create();
+        source.RootVisual = root;
+        source.SetClientSize(300, 200);
+        root.UpdateLayout();
+        var editor = new TextEditor(document.TextContainer, viewer, false) { TextView = viewer.PortableTextView };
+        var process = new TextEditorDragDrop._DragDropProcess(editor);
+        viewer.AllowDrop = true;
+        int entered = 0;
+        DragEventHandler onEnter = (_, args) =>
+        {
+            entered++;
+            args.Handled = true;
+            process.TargetOnDragEnter(args);
+        };
+        viewer.DragEnter += onEnter;
+        try
+        {
+            DragDropEffects Enter()
+            {
+                int before = entered;
+                DragDropEffects result = DragDrop.ProcessPortableDragDrop(viewer, DragDrop.DragEnterEvent,
+                    new DataObject(DataFormats.UnicodeText, "text"), DragDropKeyStates.None,
+                    DragDropEffects.Copy | DragDropEffects.Move, DragDropEffects.None, new Point(5, 5));
+                Assert.Equal(before + 1, entered);
+                return result;
+            }
+
+            Assert.Equal(DragDropEffects.Move, Enter());
+            viewer.IsEnabled = false;
+            Assert.Equal(DragDropEffects.None, Enter());
+            viewer.IsEnabled = true;
+            root.IsEnabled = false;
+            Assert.Equal(DragDropEffects.None, Enter());
+            root.IsEnabled = true;
+            viewer.SetValue(TextEditor.IsReadOnlyProperty, true);
+            Assert.Equal(DragDropEffects.None, Enter());
+            viewer.SetValue(TextEditor.IsReadOnlyProperty, false);
+            using (PortableModalInputScope.Enter(new object()))
+                Assert.Equal(DragDropEffects.None, Enter());
+            Assert.Equal(DragDropEffects.Move, Enter());
+            source.RootVisual = null;
+            Assert.Equal(DragDropEffects.None, Enter());
+            source.Dispose();
+            Assert.Equal(DragDropEffects.None, Enter());
+        }
+        finally
+        {
+            viewer.DragEnter -= onEnter;
+            process.DeleteCaret();
+            editor.OnDetach();
+            viewer.Document = null!;
+        }
+    }
+
+    [PortableMediaFact]
+    public void EditorContextMenuClipsInSourceDipsRegardlessOfFramebufferScale()
+    {
+        var root = new Canvas();
+        var child = new Border { Width = 40, Height = 30 };
+        Canvas.SetLeft(child, 20); Canvas.SetTop(child, 30);
+        root.Children.Add(child);
+        using IPortablePresentationSourceHost host = PortablePresentationSourceHost.Create(2, 2);
+        host.RootVisual = root;
+        host.SetClientSize(300, 200);
+        root.UpdateLayout();
+        foreach (PresentationSource source in new[] { (PresentationSource)host, PresentationSource.FromVisual(child) })
+        {
+            double x = 1000, y = 1000;
+            TextEditorContextMenu.ClipToSourceClient(source, child, ref x, ref y);
+            Assert.Equal(280, x); Assert.Equal(170, y);
+            x = -1000; y = -1000;
+            TextEditorContextMenu.ClipToSourceClient(source, child, ref x, ref y);
+            Assert.Equal(-20, x); Assert.Equal(-30, y);
+            x = 5; y = 7;
+            TextEditorContextMenu.ClipToSourceClient(source, child, ref x, ref y);
+            Assert.Equal(5, x); Assert.Equal(7, y);
+        }
+    }
+
+    [PortableMediaFact]
     public void ViewerSharesLiveLayoutForDrawingContentHitSelectionAndScrolling()
     {
         var text = new TextProvider(); var flow = new FlowProvider();

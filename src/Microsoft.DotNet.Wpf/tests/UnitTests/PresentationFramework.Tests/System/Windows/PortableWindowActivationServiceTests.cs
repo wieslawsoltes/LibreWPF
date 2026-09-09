@@ -73,6 +73,54 @@ public class PortableWindowActivationServiceTests
     private const int LeftMouseButton = 1;
 
     [PortableInputFact]
+    public void DropActivationUsesTypedLiveOwnerWithoutFabricatingActivation()
+    {
+        RunInUiApartment(() =>
+        {
+            using IPortablePresentationSourceHost host = PortablePresentationSourceHost.Create();
+            var window = new Window { Width = 200, Height = 100 };
+            int requests = 0;
+            bool accept = true;
+            PortableWindowActivationService.Register(activate: value => value,
+                getHandle: _ => host.Handle,
+                requestActivation: value => { value.Should().BeSameAs(window); requests++; return accept; });
+            try
+            {
+                window.Show(); host.RootVisual = window; host.SetClientSize(200, 100);
+                PortableWindowActivationService.TryActivateInputOwner((PresentationSource)host).Should().BeTrue();
+                window.IsActive.Should().BeFalse();
+                accept = false;
+                PortableWindowActivationService.TryActivateInputOwner(PresentationSource.FromVisual(window)).Should().BeFalse();
+                requests.Should().Be(2);
+                window.IsActive.Should().BeFalse();
+                accept = true;
+                window.IsEnabled = false;
+                PortableWindowActivationService.TryActivateInputOwner((PresentationSource)host).Should().BeFalse();
+                window.IsEnabled = true;
+                using (PortableModalInputScope.Enter(new object()))
+                    PortableWindowActivationService.TryActivateInputOwner((PresentationSource)host).Should().BeFalse();
+                window.Hide();
+                PortableWindowActivationService.TryActivateInputOwner((PresentationSource)host).Should().BeFalse();
+                window.Show();
+                host.RootVisual = new HitTestElement();
+                PortableWindowActivationService.TryActivateInputOwner((PresentationSource)host).Should().BeFalse();
+                host.RootVisual = window;
+                window.Close();
+                PortableWindowActivationService.TryActivateInputOwner((PresentationSource)host).Should().BeFalse();
+                host.Dispose();
+                PortableWindowActivationService.TryActivateInputOwner((PresentationSource)host).Should().BeFalse();
+                requests.Should().Be(2);
+            }
+            finally
+            {
+                if (!((PresentationSource)host).IsDisposed) host.RootVisual = null;
+                if (!window.IsDisposed) window.Close();
+                PortableWindowActivationService.Clear();
+            }
+        });
+    }
+
+    [PortableInputFact]
     public void FailedGateReleaseStillClosesAcceptedDialogAndDisposesItsHost()
     {
         RunInUiApartment(() =>

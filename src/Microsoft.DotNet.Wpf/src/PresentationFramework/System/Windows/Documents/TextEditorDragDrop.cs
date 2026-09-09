@@ -592,7 +592,7 @@ namespace System.Windows.Documents
                     if (e.Handled)
                     {
                         // Set the drop target as the foreground window.
-                        Win32SetForegroundWindow();
+                        ActivateDropTargetWindow();
 
                         // Set the focus into the drop target.
                         _textEditor.UiScope.Focus();
@@ -635,21 +635,31 @@ namespace System.Windows.Documents
             {
                 if (!_textEditor.IsReadOnly && _textEditor.TextView != null && _textEditor.TextView.RenderScope != null)
                 {
-                    Window window = Window.GetWindow(_textEditor.TextView.RenderScope);
-                    if (window == null)
+                    PresentationSource source = PresentationSource.CriticalFromVisual(_textEditor.TextView.RenderScope);
+                    if (!PopupControlService.UsesNativeWindowing(source))
                     {
-                        return true;
+                        // Portable identities are not HWNDs, including on Windows. A stale or
+                        // unhosted view cannot admit a drop, nor can a modal-blocked popup owner.
+                        if (source != null && !source.IsDisposed && source.RootVisual is UIElement root &&
+                            root.IsEnabled && _textEditor.UiScope.IsEnabled &&
+                            PortableWindowActivationService.IsModalInputAllowed(root))
+                        {
+                            return true;
+                        }
                     }
-
-                    if (!OperatingSystem.IsWindows())
+                    else
                     {
-                        return window.IsEnabled;
-                    }
+                        Window window = Window.GetWindow(_textEditor.TextView.RenderScope);
+                        if (window == null)
+                        {
+                            return true;
+                        }
 
-                    WindowInteropHelper helper = new WindowInteropHelper(window);
-                    if (SafeNativeMethods.IsWindowEnabled(new HandleRef(null, helper.Handle)))
-                    {
-                        return true;
+                        WindowInteropHelper helper = new WindowInteropHelper(window);
+                        if (SafeNativeMethods.IsWindowEnabled(new HandleRef(null, helper.Handle)))
+                        {
+                            return true;
+                        }
                     }
                 }
 
@@ -658,18 +668,18 @@ namespace System.Windows.Documents
             }
 
             /// <summary>
-            /// Call Win32 SetForegroundWindow to set the drop target as the foreground window.
+            /// Request foreground activation through the drop target's actual source owner.
             /// </summary>
-            private void Win32SetForegroundWindow()
+            private void ActivateDropTargetWindow()
             {
-                if (!OperatingSystem.IsWindows())
+                PresentationSource source = PresentationSource.CriticalFromVisual(_textEditor.UiScope);
+                if (!PopupControlService.UsesNativeWindowing(source))
                 {
+                    PortableWindowActivationService.TryActivateInputOwner(source);
                     return;
                 }
 
-                PresentationSource source = null;
                 IntPtr hwnd = IntPtr.Zero;
-                source = PresentationSource.CriticalFromVisual(_textEditor.UiScope);
                 if (source != null)
                 {
                     hwnd = (source as IWin32Window)?.Handle ?? IntPtr.Zero;

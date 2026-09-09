@@ -498,6 +498,18 @@ namespace System.Windows
             return new ModalInputRestoreState(window, source, focus);
         }
 
+        // Drop targets in separately surfaced popups activate their real owner, not a
+        // placement target or an HWND inferred from the portable presentation identity.
+        internal static bool TryActivateInputOwner(PresentationSource source)
+        {
+            if (source == null || !source.CheckAccess() || source.IsDisposed ||
+                !PointUtil.IsPortablePresentationSource(source)) return false;
+            Window window = GetModalInputOwnerWindow(source.RootVisual as UIElement);
+            return window != null && window.Dispatcher.CheckAccess() && !window.IsDisposed &&
+                window.PortableWindowActivation != null && window.IsVisible && window.IsEnabled &&
+                PortableModalInputScope.AllowsInput(window) && window.Activate();
+        }
+
         private static Window GetModalInputOwnerWindow(UIElement root)
         {
             UIElement fast = root;

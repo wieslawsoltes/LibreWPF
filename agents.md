@@ -1,5 +1,14 @@
 # Agent Guidance
 
+Editor drop admission and context-menu client clipping select by the shared
+source-owned windowing policy before HWND access on every OS. Portable drops
+require a live enabled source/editor and actual-owner modal admission; rejected
+moves publish DragDropEffects.None. Post-drop activation follows the existing
+popup input-owner chain and typed live Window activation callback, never a
+placement target or fake HWND. Missing/rejected activation does not fabricate
+IsActive or fall through to user32. Source client clipping stays in root/local
+DIPs independently of framebuffer scale; Popup retains desktop placement.
+
 CaretElement selects its actual portable presentation source before legacy Win32
 caret synchronization on every OS. Use the optional typed native-caret service
 with source insertion geometry and the device transform exactly once; never pass
