@@ -26,6 +26,13 @@ subsystem roadmap. None of these rows is runtime-qualified yet.
 | 2 | Application closure: use the same MVP, Toolkit/AvalonDock, license-controlled Xceed and existing SciChart gate. Finish required text/selection, scroll/clip, popup/input, resize/DPI, content/effect/cache updates and close/reopen/device-loss ownership. Reuse existing implementations; fix concrete missing connections. | Each required action has an implemented path and authored regression coverage. Record any known blocking branch against that action; do not reopen already connected subsystems for optional refinements. |
 | 3 | Feature freeze, final qualification and delivery: build complete platform artifacts and packages, execute the existing cross-platform/Windows comparison and application gates, fix failures, and bring both PRs' required CI to green at the delivery commits. | Record exact-head package consumption and required gate results, with explicit failures or environment/license limitations. Only then report the core release delivered. |
 
+Package input refresh: macOS ARM64/x64 now have build-only payloads from ProGPU
+2ab498be. Refresh the preserved Linux ARM64/x64 build sets to that source next;
+they still carry older native inputs. Windows native/managed production remains
+a separate open dependency. Do not bypass complete-RID or Windows transport checks
+to report package production complete. See the
+[current macOS build record](../reports/native-mil-macos-payload-refresh-2026-09-09.md).
+
 The Toolkit top-header CharacterEllipsis connection is now implemented through
 typed native collapsed views and source symbol/range/interaction mapping, with
 native and source-header fixtures authored. This removes the identified blanket
@@ -175,6 +182,16 @@ These checkpoints preserve implementation provenance and the state at each
 commit. Their next-step text is historical, may be superseded by later changes,
 and must not be treated as an additional active backlog. Use the active completion
 queue above for current priorities.
+
+Current macOS package inputs (2026-09-09): ProGPU 2ab498be adds explicit build-only
+osx-arm64/osx-x64 target selection with matched compiler architecture, pinned
+linker input and staging RID. The clean isolated checkout completed both builds
+(62 ARM64 and 193 x64 incremental steps), requiring both providers and all six
+SDK archives before staging. Source-contract fixtures compile with 0 warnings
+and errors. No tests, apps or CI checks ran. Windows native/managed payloads,
+current-commit Linux refresh, complete packages and all runtime qualification
+remain open; complete package gates and Windows admission were not weakened.
+See the [build input record](../reports/native-mil-macos-payload-refresh-2026-09-09.md).
 
 X11 About-dialog native-state connection (2026-09-09): ProGPU 91104e9f owns a typed,
 thread-bound EWMH modal-hint lease, preserving preexisting/unrelated state and
