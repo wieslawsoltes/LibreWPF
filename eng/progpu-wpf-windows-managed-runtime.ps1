@@ -197,6 +197,9 @@ function Invoke-WpfProjectBuild([string] $projectPath, [string] $platform, [stri
 
     # Arcade exits its process; keep each build isolated and preserve the
     # current host's execution policy rather than requesting an override.
+    # The repository's inherited Framework-hosted compiler cannot load the
+    # pinned SDK's native-image analyzers on this cross-architecture lane.
+    # Use its .NET compiler through DOTNET_HOST_PATH; VS still owns C++/CLI.
     & $buildPowerShell -NoProfile -NonInteractive -File $buildCommand `
         -restore -build `
         -ci `
@@ -210,6 +213,7 @@ function Invoke-WpfProjectBuild([string] $projectPath, [string] $platform, [stri
         "/p:PerlCommand=$perlCommand" `
         $runtimeIdentifierArgument `
         $ijwHostArgument `
+        /p:BuildWithNetFrameworkHostedCompiler=false `
         /p:RunNetFrameworkApiCompat=false `
         /p:RunRefApiCompat=false
     if ($LASTEXITCODE -ne 0) {

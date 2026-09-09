@@ -192,6 +192,30 @@ continues to select its pinned x64 SDK independently of the installed component.
 The initial launcher returned immediately; completion must be established from
 installer state and actual resolver files, not that exit code.
 
+The component installation completed at guest time 13:44:18. The setup log
+records Completed install and release of its singleton lock; fresh process
+inventory found no installer/bootstrapper remaining. The official resolver
+directory and Microsoft.Deployment.DotNet.Releases.dll now exist, and a
+component-filtered vswhere query matches the complete VS 2026 instance without
+a reboot requirement. The unchanged corrected package script has resumed.
+
+This retry compiled PresentationBuildTasks for both net472/net10.0 (2 warnings,
+0 errors, 59.44 seconds), then restored PresentationCore's project graph and
+compiled/linked the x86 DirectWriteForwarder C++/CLI library. The x86
+PresentationCore graph then completed with 26 warnings, 0 errors in 3:56.24,
+and the script continued to x64. No complete three-RID payload set is claimed.
+
+The two build-task warnings are CS8034 analyzer load failures, also seen in
+subsequent source projects. Root Directory.Build.props unconditionally requests
+the .NET Framework-hosted compiler, and guest process inspection confirmed the
+framework compiler toolset was used. The pinned SDK's BeforeCommon.targets
+supports selecting the .NET compiler through DOTNET_HOST_PATH when that request
+is false. The package lane now passes
+`/p:BuildWithNetFrameworkHostedCompiler=false` to each Arcade child, with an
+authored contract assertion. This leaves Visual Studio/C++/CLI and all analyzer
+inputs enabled; the active older invocation is not modified in place. A fresh
+build is required to establish the result of this compiler-host correction.
+
 The updated ProGPU.Wpf.Tests project compiled locally with the pinned SDK using
 `dotnet build --no-restore -c Release -m:1 -p:UseSharedCompilation=false`:
 116 warnings, 0 errors, 38.87 seconds. This compiles the new contract assertion;

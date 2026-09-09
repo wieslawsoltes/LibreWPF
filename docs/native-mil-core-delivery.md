@@ -72,9 +72,13 @@ had no `DOTNET_HOST_PATH`. The package entry now publishes the validated x64
 host executable as well as the SDK directory. That retry passed toolset setup,
 then exposed the missing Visual Studio .NET SDK resolver: MSBuild's assembly
 binding points to its absent directory. Installation of the official .NET SDK
-component has been requested for the existing VS 2026 instance. The pinned SDK
-and all payload requirements remain unchanged. No completed managed transport
-payload or Windows SDK admission is claimed yet. See the
+component completed for the existing VS 2026 instance; the resolver files are
+present. The resumed build produced x86 PresentationCore/DirectWriteForwarder
+and continued to x64, but reported analyzer-host load warnings. A package-lane
+.NET compiler-host correction is prepared for the next invocation; no analyzer
+inputs are removed. The pinned SDK and all payload requirements remain unchanged.
+No complete three-RID managed transport payload set or Windows SDK admission is
+claimed yet. See the
 [managed build-entry record](../reports/native-mil-windows-managed-build-entry-2026-09-09.md).
 
 The Toolkit top-header CharacterEllipsis connection is now implemented through
