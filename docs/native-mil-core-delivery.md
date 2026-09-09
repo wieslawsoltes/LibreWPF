@@ -39,8 +39,10 @@ closes strict MSVC compilation failures in native MIL/text and test fixtures;
 both ARM64 and x64 builds completed, each staging three DLLs/seven SDK libraries.
 The x64 build completed all 356 steps without further fixes.
 Windows managed/IJW payloads, complete packages and SDK admission
-remain open. Existing Unix inputs precede this source-fix checkpoint and need final
-refresh. This is build-only progress, not runtime qualification; see the
+remain open. Both macOS architectures now also use da36a718, completing 62
+incremental compile/link steps each and staging both providers/six SDK archives.
+Linux inputs still precede this checkpoint and need refresh. This is build-only
+progress, not runtime qualification; see the
 [Windows build record](../reports/native-mil-windows-payload-build-2026-09-09.md).
 
 Windows managed production now uses the current PowerShell 7 host without a

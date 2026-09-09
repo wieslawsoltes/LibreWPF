@@ -1,5 +1,35 @@
 # Native MIL macOS package inputs — 2026-09-09
 
+## Latest refresh: Windows compilation-fix checkpoint
+
+The package-mode MVP requires native payloads aligned with the implementation
+checkpoint. After the Windows native MSVC fixes, the clean isolated checkout was
+advanced from `2ab498be` to `da36a7188bb887b3935ac7929b03534b333658ef` and both
+macOS targets were rebuilt using the same commands, target-specific caches and
+pinned dependencies documented below. This is a refresh of package inputs, not
+another rendering feature or runtime qualification batch.
+
+- osx-arm64 completed all 62 incremental compile/link steps and exited 0.
+- osx-x64 completed all 62 incremental compile/link steps and exited 0.
+- Each target staged both provider dylibs and all six SDK archives. Fresh output
+  inventory confirmed the complete target sets under the existing package root.
+- Native tests and samples compiled but did not execute. No renderer, verifier,
+  benchmark, application or CI gate ran; C++ modules remain OFF for this existing
+  Apple Clang header-compatibility build profile.
+- The isolated source checkout is clean. Unrelated ProGPU semantic-state edits
+  and performance-artifact deletions were not incorporated.
+- Freshly fetched ProGPU main remains
+  `102e39e5088b462624da6296ff70a43ed2c5d8b4`, an ancestor of the build commit.
+
+The macOS and Windows native sets now share `da36a718`; Linux sets still use
+`2ab498be` and need their corresponding refresh. Windows managed/IJW production
+awaits approval of the already-launched VS 2026 installer UAC prompt: the guest
+still has bootstrapper PID 10980 and consent PID 12060, only VS 2022 is registered,
+and `C:\BuildTools2026` is absent. No duplicate installer or automatic approval
+was attempted. Complete packages and final qualification remain open.
+
+The following sections retain the earlier `2ab498be` production provenance.
+
 ## Acceptance dependency and implementation
 
 The existing package-mode MVP must launch with an explicitly selected native
