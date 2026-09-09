@@ -116,6 +116,13 @@ bounds. This is an implementation connection, not qualification of MVP scrolling
 Required cache/mask/effect input combinations and the remaining application
 actions in row 2 stay current before default admission and feature freeze.
 
+The [visible effect input connection](../reports/native-mil-visible-effect-input-2026-09-09.md)
+now captures managed source own-content and descendants before Blur/DropShadow
+raster composition, excluding padded output textures and duplicate descendant
+input. C++ MIL retains its existing source-identity layer path with paired update
+fixtures. This closes the identified visible-effect routing branch in code, not
+runtime fidelity, native index default admission or remaining cache/mask contracts.
+
 Package input refresh: macOS, Linux and Windows ARM64/x64 native payloads now
 share ProGPU da36a718 in the same staging root. Both Linux refresh builds completed
 all 709 compile/module/link steps. ProGPU.Backend.Native.0.1.0-preview.55.nupkg

@@ -739,6 +739,38 @@ public sealed class ProGpuWpfDrawingFrameTests
     }
 
     [Fact]
+    public void RetainedEffectScopeKeepsSourcePointAndDrawingGeometryInSourceCoordinates()
+    {
+        var retainedRoot = new ProGpuContainerVisual();
+        var owners = new WpfGpuHitTestOwnerMap();
+        var frame = new ProGpuWpfDrawingFrame(new ProGpuContainerVisual(), retainedRoot,
+            new ProGpuDrawingVisual(), 200, 100, hitTestOwnerMap: owners);
+        using var sink = new ProGpuRetainedCompositionCommandSink(frame, context: null, viewport3DTextureCache: null);
+        var owner = new object();
+        Assert.True(sink.PushVisualOwner(owner));
+        Assert.True(sink.PushVisualEffect(new ProGpuBlurEffect(6), new Rect(10, 20, 30, 40)));
+        var pointSink = (IWpfPointHitRegionCommandSink)sink;
+        pointSink.PushPointHitRegion(new WpfReplayRect(10, 20, 30, 40));
+        sink.DrawRectangle(Brushes.Red, null, new Rect(10, 20, 5, 6));
+        pointSink.PopPointHitRegion();
+        sink.Pop(); sink.PopVisualOwner();
+
+        var root = Assert.IsType<ProGpuRetainedDrawingVisual>(Assert.Single(retainedRoot.Children));
+        using var capture = new ProGPU.Scene.GpuRenderCommandHitTestCacheBuilder();
+        capture.AddSourceVisual(root, Matrix4x4.Identity);
+        var hits = capture.BuildIndex().Primitives;
+        Assert.Equal(2, hits.Count);
+        Assert.Equal(frame.GetOrCreateHitTestOwnerId(owner), hits[0].Id);
+        Assert.Equal(hits[0].Id, hits[1].Id);
+        Assert.True(hits[0].Flags.HasFlag(ProGPU.Vector.GpuHitTestPrimitiveFlags.PointOnly));
+        Assert.True(hits[1].Flags.HasFlag(ProGPU.Vector.GpuHitTestPrimitiveFlags.RegionOnly));
+        Assert.Equal(new Vector2(10, 20), hits[0].BoundsMin);
+        Assert.Equal(new Vector2(40, 60), hits[0].BoundsMax);
+        Assert.Equal(new Vector2(10, 20), hits[1].BoundsMin);
+        Assert.Equal(new Vector2(15, 26), hits[1].BoundsMax);
+    }
+
+    [Fact]
     public void RetainedSinkMapsOwnerToNestedEffectBranchAfterEffectPush()
     {
         var branchMap = new WpfRetainedVisualBranchMap();

@@ -234,6 +234,10 @@ snapshot and the paired retained own-content scope. End that scope before childr
 preserve empty text and region-only drawing overhang, and replace metadata on layout
 changes without painting a rectangle. Typed source-command visuals must not acquire
 generic Size hit bounds through compositor replay or layer descendant traversal.
+Source retained Blur/DropShadow visuals share ProGPU's complete pre-effect input
+capture, including own drawing and point-only children. Keep output texture padding
+out of point/region input and preserve source coordinate normalization exactly
+once. No bridge-local hit geometry or WPF-specific compositor fork is permitted.
 
 Native host point/region callbacks select the presented native owner snapshot
 before any managed index. Preserve explicit EnableNativeMilHitTesting admission,
