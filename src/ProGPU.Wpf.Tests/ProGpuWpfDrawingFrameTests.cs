@@ -1457,6 +1457,13 @@ public sealed class ProGpuWpfDrawingFrameTests
         Assert.Equal(1, command.HitTestId);
         Assert.True(ownerMap.TryGetOwner(cacheVisual.HitTestId, out object? mappedOwner));
         Assert.Same(sourceOwner, mappedOwner);
+
+        using var capture = new ProGPU.Scene.GpuRenderCommandHitTestCacheBuilder();
+        capture.AddSourceVisual(retainedRootVisual, Matrix4x4.Identity);
+        var hit = Assert.Single(capture.BuildIndex().Primitives);
+        Assert.Equal(command.HitTestId, hit.Id);
+        Assert.Equal(new Vector2(5, 6), hit.BoundsMin);
+        Assert.Equal(new Vector2(15, 17), hit.BoundsMax); // drawing, not the 70 x 80 cache allocation
     }
 
     [Fact]

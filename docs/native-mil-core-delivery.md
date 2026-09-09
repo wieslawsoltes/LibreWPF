@@ -123,6 +123,14 @@ input. C++ MIL retains its existing source-identity layer path with paired updat
 fixtures. This closes the identified visible-effect routing branch in code, not
 runtime fidelity, native index default admission or remaining cache/mask contracts.
 
+The [cache input implementation checkpoint](../reports/native-mil-cache-input-2026-09-09.md)
+connects managed optional source caches to pre-composite input traversal, preserving
+unsnapped geometry and content updates instead of texture allocation bounds.
+Native cache-local coordinate mapping, zero-scale source input and paired fixtures
+remain required next work; indexed native caches still fail explicitly. Required
+cached-picture sources and spatial masks are not silently admitted. This does not
+close row 2, refresh packages or start feature freeze.
+
 Package input refresh: macOS, Linux and Windows ARM64/x64 native payloads now
 share ProGPU da36a718 in the same staging root. Both Linux refresh builds completed
 all 709 compile/module/link steps. ProGPU.Backend.Native.0.1.0-preview.55.nupkg
