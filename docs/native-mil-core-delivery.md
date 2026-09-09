@@ -116,6 +116,22 @@ commit. Their next-step text is historical, may be superseded by later changes,
 and must not be treated as an additional active backlog. Use the active completion
 queue above for current priorities.
 
+Deferred native dialog Hide (2026-09-09): ProGPU now provides window-scoped native
+modal release completion after actual End and identity cleanup, including nested
+sessions and callback unwinding. LibreWPF host Hide consumes that completion,
+coalesces pending requests, and checks current visibility/disposal and new leases
+before changing native visibility. A later Show supersedes the deferred Hide.
+End failure retains the host and faults the coordinator rather than retrying a
+possibly consumed native token; callback failures do not skip other ready cleanup.
+This closes the identified host-Hide ordering branch for an explicitly owned
+native session, not automatic About-dialog modality. Source gate-release/focus
+restoration and genuine Cocoa native popup admission remain open, as do Linux
+modality, package payload completion and Windows SDK admission. Authored lifecycle
+and host-source fixtures compile but have not run. See the
+[deferred completion contract](../external/ProGPU/docs/native-mil-cocoa-modal-session.md#deferred-native-hide-completion).
+Final compile-only results: backend fixtures 0 warnings/0 errors; WPF bridge
+fixtures 116/0. See the [implementation and build record](../reports/native-mil-deferred-dialog-hide-2026-09-09.md).
+
 Native package payload build (2026-09-09): clean macOS ARM64 and Intel C++ builds
 now produce both wgpu-native and Dawn renderer libraries plus the required SDK
 archives. The first Dawn build exposed a raw queue-submit call in retained picture

@@ -124,6 +124,11 @@ dispatch and defer native destruction while its session retains the host. This
 polling seam is not automatic ShowDialog admission. Connect real native popup
 admission and source gate-release/focus ordering after native End before enabling
 it; do not hide popup failures with default polling or owner-surface substitution.
+Portable host Hide must request ProGPU native modal release before changing native
+visibility. Deferred completion checks latest Show/Hide and disposed state and
+rechecks native leases; do not apply an old Hide after a newer Show. This callback
+does not replace source modal-gate/focus restoration ordering or admit GLFW popups
+to AppKit modality. Keep automatic session activation guarded until both connect.
 
 Decoder-backed core application images follow `BitmapSource.UsesPortablePixelStorage`
 for backend selection on every OS. Existing portable format dispatch must not fall

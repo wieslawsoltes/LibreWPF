@@ -26,6 +26,22 @@ namespace ProGPU.Wpf.Tests;
 [Collection(PortableRenderDataSinkProviderCollection.Name)]
 public sealed class ProGpuWpfWindowHostTests
 {
+    [Fact]
+    public void NativeHideWaitsForModalReleaseAndRechecksCurrentVisibilityIntent()
+    {
+        string source = File.ReadAllText(FindRepoPath("src", "ProGPU.Wpf", "ProGpuWpfWindowHost.cs"));
+        int hideStart = source.IndexOf("public void Hide()", StringComparison.Ordinal);
+        int hideEnd = source.IndexOf("public void SetWindowState", hideStart, StringComparison.Ordinal);
+        string hide = source[hideStart..hideEnd];
+        Assert.Contains("HideNativeWindowAfterModalRelease();", hide);
+        Assert.Contains("if (_nativeHidePending) return;", hide);
+        Assert.Contains("NativeWindowModalSession.TryReleaseWindow(", hide);
+        Assert.Contains("CompleteDeferredNativeHide)) return;", hide);
+        Assert.Contains("if (!_isDisposed && !_isHostVisible) HideNativeWindowAfterModalRelease();", hide);
+        Assert.True(hide.IndexOf("TryReleaseWindow(", StringComparison.Ordinal) <
+            hide.IndexOf("_window.IsVisible = false;", StringComparison.Ordinal));
+    }
+
     [Theory]
     [InlineData(ProGpuWpfRendererMode.ManagedPortable, SurfaceGetCurrentTextureStatus.Timeout)]
     [InlineData(ProGpuWpfRendererMode.ManagedPortable, SurfaceGetCurrentTextureStatus.Outdated)]

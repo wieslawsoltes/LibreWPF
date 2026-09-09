@@ -105,6 +105,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
     private bool _isProcessingDispatcherWorkWakeup;
     private bool _forceFullWpfReplay;
     private bool _isHostVisible;
+    private bool _nativeHidePending;
     private bool _hasNativeWindowCloseStarted;
     private bool _dpiWindowHintsConfigured;
     private bool _hasPendingNativeDpiChange;
@@ -930,12 +931,42 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         ThrowIfDisposed();
 
         _isHostVisible = false;
-        if (_window != null)
-        {
-            _window.IsVisible = false;
-        }
+        HideNativeWindowAfterModalRelease();
 
         RequestRenderAndWakeNativeLoop();
+    }
+
+    private void HideNativeWindowAfterModalRelease()
+    {
+        if (_nativeHidePending) return;
+        if (_window != null)
+        {
+            if (NativeWindowModalSession.IsActive && _window.IsInitialized &&
+                _window.Native?.Cocoa is { } cocoa && cocoa != 0)
+            {
+                _nativeHidePending = true;
+                try
+                {
+                    if (NativeWindowModalSession.TryReleaseWindow(
+                        new(NativeWindowKind.Cocoa, cocoa, 0, "NSWindow"), CompleteDeferredNativeHide)) return;
+                }
+                catch
+                {
+                    _nativeHidePending = false;
+                    throw;
+                }
+                _nativeHidePending = false;
+            }
+            _window.IsVisible = false;
+        }
+    }
+
+    private void CompleteDeferredNativeHide()
+    {
+        _nativeHidePending = false;
+        // Show or disposal can supersede Hide while a nested native poll unwinds.
+        // Recheck for any newly entered lease before touching native visibility.
+        if (!_isDisposed && !_isHostVisible) HideNativeWindowAfterModalRelease();
     }
 
     public void SetWindowState(ProGpuWpfWindowState windowState)
