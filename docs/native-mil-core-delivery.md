@@ -142,6 +142,14 @@ input. This closes that drawing-scope branch, not visual-level mask/cache/effect
 ownership, package/runtime qualification or the application queue. Identify a
 concrete acceptance action before expanding another mask or clip family.
 
+The [MVP ellipse input connection](../reports/native-mil-mvp-ellipse-input-2026-09-09.md)
+closes a concrete Shapes-tab branch: source Ellipse.OnRender emits EllipseGeometry,
+whose native stroke uses a full elliptical arc rather than an analytic command.
+The producer now shares its existing ellipse encoder across both representations,
+with paired managed/native update and affine fixtures. General partial/skew-basis/
+device-width arcs remain explicit; this does not qualify application input or
+complete row 2. Continue the existing applications, not general arc expansion.
+
 Package input refresh: macOS, Linux and Windows ARM64/x64 native payloads now
 share ProGPU da36a718 in the same staging root. Both Linux refresh builds completed
 all 709 compile/module/link steps. ProGPU.Backend.Native.0.1.0-preview.55.nupkg
