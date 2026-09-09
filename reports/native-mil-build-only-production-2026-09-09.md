@@ -74,6 +74,10 @@ error; fresh status again reported suspended. No reset, forced stop, saved-state
 discard, Tools upgrade or VM-bundle edits were performed. The storage/VM issue
 still needs resolution before Windows payload production. No guest build ran.
 
+A read-only alternative Linux-build-host check found the Docker CLI but no live
+daemon: the sole default context points at a missing /var/run/docker.sock. No
+container, image download, Docker context change or service startup was performed.
+
 Latest fetched ProGPU main is included. Unrelated native semantic-state edits and
 performance artifact deletions remain untouched. The goal stays active: core
 application/native-popup/platform work and all final qualification gates remain.
