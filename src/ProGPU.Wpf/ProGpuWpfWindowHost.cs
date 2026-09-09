@@ -126,6 +126,9 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
     private int _windowIconWidth;
     private int _windowIconHeight;
     private SilkWindowController? _windowController;
+    private object? _modalInputOwner;
+    private IDisposable? _modalInputRegistration;
+    private bool _nativeInputAllowed = true;
     private PortableWindowRegion? _windowRegion;
 
     internal readonly record struct RenderSurfaceGeometry(
@@ -694,6 +697,50 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
     }
 
     internal Func<ProGpuWpfWindowHost?, bool>? NativeOwnerSetterOverride { get; set; }
+    internal Func<bool, bool>? NativeInputAllowedSetterOverride { get; set; }
+
+    internal void BindModalInputOwner(object owner)
+    {
+        ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(owner);
+        if (_modalInputOwner != null)
+        {
+            if (!ReferenceEquals(owner, _modalInputOwner))
+                throw new InvalidOperationException("A native input surface cannot change its source owner identity.");
+            return;
+        }
+        _modalInputOwner = owner;
+        try
+        {
+            // Cocoa currently changes buttons only; Linux lacks full suppression.
+            // Never present those operations as native modal-input qualification.
+            if (OperatingSystem.IsWindows() || NativeInputAllowedSetterOverride != null)
+                _modalInputRegistration = PortableModalInputScope.RegisterWindow(owner, SetNativeInputAllowed);
+        }
+        catch { _modalInputOwner = null; throw; }
+    }
+
+    internal void InheritModalInputOwner(ProGpuWpfWindowHost owner)
+    {
+        // Native popup services are registered by the real owning source host.
+        // Standalone hosts without source Window activation keep no registration.
+        if (owner._modalInputOwner is { } identity) BindModalInputOwner(identity);
+    }
+
+    private void SetNativeInputAllowed(bool allowed)
+    {
+        _nativeInputAllowed = allowed;
+        if (_isDisposed || _hasNativeWindowCloseStarted) return;
+        if (NativeInputAllowedSetterOverride is { } setter)
+        {
+            if (!setter(allowed)) throw new PlatformNotSupportedException("Native input admission was rejected.");
+            return;
+        }
+        // Cache admission for a not-yet-created native window. OnLoad applies it
+        // before the window is shown, including newly created inactive owners.
+        if (_window?.IsInitialized == true && _windowController?.SetInputAllowed(allowed) != true)
+            throw new PlatformNotSupportedException("Native input admission was rejected.");
+    }
 
     internal bool TrySetNativeOwner(ProGpuWpfWindowHost? owner)
     {
@@ -858,7 +905,10 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
 
     private void ShowNativeWindow(bool showActivated)
     {
-        if (showActivated ||
+        // Recheck admission on every show, including retries after failed load
+        // or native callbacks. Cached desired state alone is not native success.
+        if (_modalInputRegistration != null) SetNativeInputAllowed(_nativeInputAllowed);
+        if ((showActivated && _nativeInputAllowed) ||
             !PlatformServices.WindowDecorations.TryShowWithoutActivation(_window!))
         {
             _window!.IsVisible = true;
@@ -1376,6 +1426,9 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         }
 
         _isDisposed = true;
+        _modalInputRegistration?.Dispose();
+        _modalInputRegistration = null;
+        _modalInputOwner = null;
         ClearNativeActivationForHost(this);
 
         IWindow? window = _window;
@@ -1521,7 +1574,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         windowOptions.Title = _windowTitle;
         windowOptions.VSync = _options.VSync;
         windowOptions.IsEventDriven = _options.IsEventDriven;
-        windowOptions.IsVisible = _isHostVisible;
+        windowOptions.IsVisible = _isHostVisible && _modalInputRegistration == null;
         windowOptions.WindowState = ToSilkWindowState(_windowState);
         windowOptions.TopMost = _windowTopmost;
         windowOptions.WindowBorder = ToSilkWindowBorder(_windowBorder);
@@ -1548,6 +1601,8 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
     {
         AttachNativeDpiService();
         _windowController?.Attach();
+        if (_modalInputRegistration != null)
+            SetNativeInputAllowed(_nativeInputAllowed);
         ApplyWindowIcon();
         EnsureCompositionTargetLoaded();
     }
@@ -4869,9 +4924,8 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
     {
         _isHostVisible = true;
         EnsureWindow();
-        _window!.IsVisible = true;
 
-        if (!_window.IsInitialized)
+        if (!_window!.IsInitialized)
         {
             _window.Initialize();
         }
@@ -4879,6 +4933,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         {
             RequestRenderAndWakeNativeLoop();
         }
+        ShowNativeWindow(showActivated: true);
     }
 
     private static IDisposable? RegisterDefaultRenderDataSinkProvider(

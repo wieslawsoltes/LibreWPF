@@ -90,6 +90,35 @@ public sealed class WpfPortableWindowActivationTests
     }
 
     [Fact]
+    public void NativeInputGatesFollowSourceIdentityAndPopupInheritance()
+    {
+        using var ownerHost = new ProGpuWpfWindowHost { WpfRenderScheduler = new TestRenderScheduler() };
+        using var dialogHost = new ProGpuWpfWindowHost { WpfRenderScheduler = new TestRenderScheduler() };
+        using var popupHost = new ProGpuWpfWindowHost { WpfRenderScheduler = new TestRenderScheduler() };
+        bool ownerAllowed = true, dialogAllowed = true, popupAllowed = true;
+        ownerHost.NativeInputAllowedSetterOverride = value => { ownerAllowed = value; return true; };
+        dialogHost.NativeInputAllowedSetterOverride = value => { dialogAllowed = value; return true; };
+        popupHost.NativeInputAllowedSetterOverride = value => { popupAllowed = value; return true; };
+        var owner = new FakeWindow();
+        var dialog = new FakeWindow();
+        Assert.True(WpfPortableWindowActivation.TryAttach(ownerHost, owner, new FakePortablePresentationSource(), out var ownerActivation));
+        Assert.True(WpfPortableWindowActivation.TryAttach(dialogHost, dialog, new FakePortablePresentationSource(), out var dialogActivation));
+        using var ownerLease = ownerActivation;
+        using var dialogLease = dialogActivation;
+        using (PortableModalInputScope.Enter(dialog))
+        {
+            Assert.False(ownerAllowed);
+            Assert.True(dialogAllowed);
+            popupHost.InheritModalInputOwner(ownerHost);
+            Assert.False(popupAllowed);
+            using (PortableModalInputScope.Enter(new object())) Assert.False(dialogAllowed);
+            Assert.True(dialogAllowed);
+            Assert.False(ownerAllowed || popupAllowed);
+        }
+        Assert.True(ownerAllowed && dialogAllowed && popupAllowed);
+    }
+
+    [Fact]
     public void ClipboardRegistrationUsesTypedInteropServiceOnly()
     {
         var service = new TestClipboardServiceRegistrar();

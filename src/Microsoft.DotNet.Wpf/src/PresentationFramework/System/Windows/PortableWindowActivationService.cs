@@ -470,6 +470,82 @@ namespace System.Windows
                 Keyboard.ClearFocus();
         }
 
+        internal static IDisposable CaptureModalInputRestoreState()
+        {
+            IInputElement focus = Keyboard.FocusedElement;
+            DependencyObject visual = focus is DependencyObject element
+                ? InputElement.GetContainingVisual(element) : null;
+            PresentationSource source = visual != null ? PresentationSource.CriticalFromVisual(visual) : null;
+            Window window = GetModalInputOwnerWindow(source?.RootVisual as UIElement);
+            if (window != null && (window.IsDisposed || !window.IsActive)) window = null;
+            if (window == null && Application.Current is Application application && application.Dispatcher.CheckAccess())
+            {
+                WindowCollection windows = application.Windows;
+                for (int i = 0; i < windows.Count; i++)
+                {
+                    Window candidate = windows[i];
+                    if (candidate.Dispatcher.CheckAccess() && !candidate.IsDisposed && candidate.IsActive)
+                    {
+                        window = candidate;
+                        break;
+                    }
+                }
+            }
+            return new ModalInputRestoreState(window, source, focus);
+        }
+
+        private static Window GetModalInputOwnerWindow(UIElement root)
+        {
+            UIElement fast = root;
+            while (root != null && root is not Window)
+            {
+                root = GetPopupInputOwnerRoot(root);
+                fast = GetPopupInputOwnerRoot(GetPopupInputOwnerRoot(fast));
+                if (root != null && ReferenceEquals(root, fast)) { root = null; break; }
+            }
+            return root as Window;
+        }
+
+        private sealed class ModalInputRestoreState : IDisposable
+        {
+            private readonly int _threadId = Environment.CurrentManagedThreadId;
+            private Window _window;
+            private PresentationSource _source;
+            private IInputElement _focus;
+
+            internal ModalInputRestoreState(Window window, PresentationSource source, IInputElement focus)
+            {
+                _window = window;
+                _source = source;
+                _focus = focus;
+            }
+
+            public void Dispose()
+            {
+                if (_threadId != Environment.CurrentManagedThreadId)
+                    throw new InvalidOperationException("Dialog focus restoration requires its source thread.");
+                Window window = _window;
+                PresentationSource source = _source;
+                IInputElement focus = _focus;
+                _window = null;
+                _source = null;
+                _focus = null;
+                if (window == null || window.IsDisposed || !window.IsVisible || !window.IsEnabled ||
+                    window.PortableWindowActivation == null || !PortableModalInputScope.AllowsInput(window) ||
+                    !PortableModalInputScope.IsNativeInputPolicySynchronized) return;
+                // Native admission is required; never manufacture IsActive or
+                // restore a detached/moved element into another source.
+                if (!TryRequestActivation(window.PortableWindowActivation) || window.IsDisposed ||
+                    !window.IsVisible || !PortableModalInputScope.AllowsInput(window)) return;
+                if (source == null || source.IsDisposed || focus is not DependencyObject element ||
+                    !ReferenceEquals(GetModalInputOwnerWindow(source.RootVisual as UIElement), window) ||
+                    !IsModalInputElementAllowed(focus)) return;
+                DependencyObject visual = InputElement.GetContainingVisual(element);
+                if (visual != null && ReferenceEquals(PresentationSource.CriticalFromVisual(visual), source))
+                    Keyboard.Focus(focus);
+            }
+        }
+
         private static bool IsMouseInputKind(PortableInputEventKind kind)
         {
             return kind == PortableInputEventKind.MouseMove ||

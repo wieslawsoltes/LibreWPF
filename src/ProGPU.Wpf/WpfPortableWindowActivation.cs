@@ -774,6 +774,7 @@ public sealed class WpfPortableWindowActivation : IDisposable
         }
 
         activation = new WpfPortableWindowActivation(host, window, rootVisual, portablePresentationSource);
+        activation.RegisterNativeInputPolicy();
         activation.TryRegisterMediaContextRenderService();
         return true;
     }
@@ -798,8 +799,15 @@ public sealed class WpfPortableWindowActivation : IDisposable
         var rootVisual = ResolveRootVisual(window);
         bridge.RootVisual = rootVisual;
         activation = new WpfPortableWindowActivation(host, window, rootVisual, portablePresentationSource);
+        activation.RegisterNativeInputPolicy();
         activation.TryRegisterMediaContextRenderService();
         return true;
+    }
+
+    private void RegisterNativeInputPolicy()
+    {
+        try { Host.BindModalInputOwner(Window); }
+        catch { Dispose(); throw; }
     }
 
     public static ProGpuWpfWindowOptions CreateHostOptions(
@@ -2255,6 +2263,7 @@ public sealed class WpfPortableWindowActivation : IDisposable
                 {
                     _attachRootOnShow = true
                 };
+                activation.RegisterNativeInputPolicy();
                 host.InitializeHidden();
                 activation.TryRegisterMediaContextRenderService();
             }

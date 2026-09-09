@@ -116,6 +116,35 @@ commit. Their next-step text is historical, may be superseded by later changes,
 and must not be treated as an additional active backlog. Use the active completion
 queue above for current priorities.
 
+Win32 modal gate/source restoration connection: the MVP About dialog now publishes
+native input admission for source-owned windows and separately surfaced popups,
+including windows created during the dialog. ProGPU retains an independent input
+gate alongside latest application-enabled intent; controller refresh cannot erase
+it. Weak registrations and transition snapshots preserve lifetime under callback
+creation/removal; failed entry rolls back, failed exit reports unsynchronized
+gates and still notifies survivors. Accepted Hide/Close releases gates before
+native destruction, with owned nested windows unwound first; canceled close keeps
+modality. Actual previous activation/source focus is captured before blocking and
+restored only after gate/host admission, without fake IsActive or stale captures.
+Failed gate release cannot skip accepted dialog host cleanup, and its diagnostics
+prevent speculative activation while predecessor input state is uncertain.
+Registered Win32 surfaces are created hidden until their input policy is applied.
+Both renderers share this host connection. Cocoa/Linux native suppression, other
+UI threads/custom native windows and startup-placement/interaction qualification
+remain open. Windows package admission stays guarded. Authored fixtures include
+real hidden Win32 enabled-state assertions, source restoration and Hide/Close
+ordering; no fixtures, applications, VM/GPU, benchmark or CI runs have executed.
+See the [input contract](../external/ProGPU/docs/native-mil-dialog-lifetime.md#win32-input-gates-and-source-focus-restoration).
+Compile-only checkpoint (2026-09-09): final ProGPU.Tests 0 warnings/0 errors,
+bridge fixtures 0/0, source PresentationFramework fixtures 2/0, and source
+RealPresentationFrameworkHarness 0/0. The earlier unobserved bridge/harness
+processes were confirmed absent before compiling again. Callback-created native
+surfaces and active-then-hidden restoration have authored coverage, not executed
+results. Latest fetched ProGPU main is included; unrelated submodule work remains
+excluded. No package feed/restore bypass was introduced. The concrete remaining
+About-dialog implementation blocker is native input suppression on Cocoa/Linux;
+the source policy and checked Win32 integration do not close that requirement.
+
 Native dialog owner connection: the MVP About dialog's Window.Owner now resolves
 its live ProGPU host and applies shared native top-level ownership before Show.
 The child initializes hidden when needed; missing/disposed owners or unsupported

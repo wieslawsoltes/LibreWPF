@@ -544,12 +544,17 @@ namespace System.Windows
             // Capture admission before showing a window. A normal application
             // loop cannot represent Hide ending a synchronous dialog lifetime.
             Action<object, Func<bool>> runDialog = PortableWindowActivationService.GetDialogRunCallback();
+            // Dispose in reverse order: reopen the previous input scope/native
+            // gates before asking its window and source element to regain focus.
+            using IDisposable restoreInput = PortableWindowActivationService.CaptureModalInputRestoreState();
             using PortableModalInputScope modalInput = PortableModalInputScope.Enter(this);
             EnsureDialogCommand();
             bool pushedModal = false;
 
             try
             {
+                _portableDialogInputScope = modalInput;
+                _portableDialogInputRestore = restoreInput;
                 _showingAsDialog = true;
                 PortableWindowActivationService.PrepareForModalInput();
                 Show();
@@ -582,6 +587,11 @@ namespace System.Windows
                 }
 
                 _showingAsDialog = false;
+                if (ReferenceEquals(_portableDialogInputScope, modalInput))
+                {
+                    _portableDialogInputScope = null;
+                    _portableDialogInputRestore = null;
+                }
             }
 
             return _dialogResult;
@@ -2377,12 +2387,11 @@ namespace System.Windows
 
                 if (ShouldCloseWindow(e.Cancel))
                 {
-                    if (_showingAsDialog)
+                    try
                     {
-                        DoDialogHide();
+                        if (_showingAsDialog) DoDialogHide();
                     }
-
-                    CloseWindowBeforeShow();
+                    finally { CloseWindowBeforeShow(); }
                 }
                 else
                 {
@@ -2414,12 +2423,11 @@ namespace System.Windows
 
                 if (ShouldCloseWindow(e.Cancel))
                 {
-                    if (_showingAsDialog)
+                    try
                     {
-                        DoDialogHide();
+                        if (_showingAsDialog) DoDialogHide();
                     }
-
-                    CloseWindowBeforeShow();
+                    finally { CloseWindowBeforeShow(); }
                 }
                 else
                 {
@@ -2559,19 +2567,25 @@ namespace System.Windows
 
             try
             {
-                ClosePortableWindowActivation();
-                ClearSourceWindow();
-
-                Utilities.SafeDispose(ref _hiddenWindow);
-                Utilities.SafeDispose(ref _defaultLargeIconHandle);
-                Utilities.SafeDispose(ref _defaultSmallIconHandle);
-                Utilities.SafeDispose(ref _currentLargeIconHandle);
-                Utilities.SafeDispose(ref _currentSmallIconHandle);
-                Utilities.SafeRelease(ref _taskbarList);
-
-                if(ThemeMode != ThemeMode.None)
+                // Owned nested dialogs have now unwound. Even a failed native
+                // gate release must not strand an already-disposed source host.
+                try { ReleasePortableDialogInput(); }
+                finally
                 {
-                    ThemeManager.FluentEnabledWindows.Remove(this);
+                    ClosePortableWindowActivation();
+                    ClearSourceWindow();
+
+                    Utilities.SafeDispose(ref _hiddenWindow);
+                    Utilities.SafeDispose(ref _defaultLargeIconHandle);
+                    Utilities.SafeDispose(ref _defaultSmallIconHandle);
+                    Utilities.SafeDispose(ref _currentLargeIconHandle);
+                    Utilities.SafeDispose(ref _currentSmallIconHandle);
+                    Utilities.SafeRelease(ref _taskbarList);
+
+                    if(ThemeMode != ThemeMode.None)
+                    {
+                        ThemeManager.FluentEnabledWindows.Remove(this);
+                    }
                 }
             }
             finally
@@ -4692,8 +4706,9 @@ namespace System.Windows
             // clears _showingAsDialog
             _showingAsDialog = false;
 
-            if (IsPortableWindowActive)
+            if (IsPortableWindowActive || _portableDialogInputScope != null)
             {
+                ReleasePortableDialogInput();
                 return;
             }
 
@@ -4731,6 +4746,20 @@ namespace System.Windows
                 // rare situation, figure this out later
                 // talk to user team as to what we need to do here
             }
+        }
+
+        private void ReleasePortableDialogInput()
+        {
+            // An outer dialog may close while an owned nested dialog is active.
+            // InternalDispose retries after closing its owned windows; Hide can
+            // defer to the ordinary reverse-order ShowDialog scope unwind.
+            if (_portableDialogInputScope?.IsCurrent != true) return;
+            PortableModalInputScope scope = _portableDialogInputScope;
+            IDisposable restore = _portableDialogInputRestore;
+            _portableDialogInputScope = null;
+            _portableDialogInputRestore = null;
+            try { scope.Dispose(); }
+            finally { restore?.Dispose(); }
         }
 
         private void UpdateWindowListsOnClose()
@@ -7838,6 +7867,8 @@ namespace System.Windows
 
         private SourceWindowHelper  _swh;                               // object that will hold the window
         private object              _portableWindowActivation;          // object that will hold the non-Windows window
+        private PortableModalInputScope _portableDialogInputScope;
+        private IDisposable _portableDialogInputRestore;
         private bool                _hasPortableCustomChrome;
         private Window              _ownerWindow;                       // owner window
         private bool                _refreshingPortableRootVisualState;

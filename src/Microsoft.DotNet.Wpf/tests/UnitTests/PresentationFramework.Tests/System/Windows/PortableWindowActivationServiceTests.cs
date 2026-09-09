@@ -20,6 +20,105 @@ public class PortableWindowActivationServiceTests
     private const int LeftMouseButton = 1;
 
     [PortableInputFact]
+    public void FailedGateReleaseStillClosesAcceptedDialogAndDisposesItsHost()
+    {
+        RunInUiApartment(() =>
+        {
+            bool rejectEnable = false;
+            int closes = 0, disposals = 0;
+            using var gate = PortableModalInputScope.RegisterWindow(new object(), allowed =>
+            {
+                if (allowed && rejectEnable) throw new InvalidOperationException("Native gate release failed.");
+            });
+            var window = new Window { Width = 200, Height = 100 };
+            PortableWindowActivationService.Register(activate: _ => window,
+                getHandle: _ => new IntPtr(1234),
+                close: _ => closes++, dispose: _ => disposals++,
+                runDialog: (_, continuation) =>
+                {
+                    rejectEnable = true;
+                    Action close = window.Close;
+                    close.Should().Throw<AggregateException>();
+                    window.IsDisposed.Should().BeTrue();
+                    continuation().Should().BeFalse();
+                    PortableModalInputScope.IsActive.Should().BeFalse();
+                    PortableModalInputScope.IsNativeInputPolicySynchronized.Should().BeFalse();
+                });
+            try
+            {
+                window.ShowDialog().Should().BeFalse();
+                closes.Should().Be(1);
+                disposals.Should().Be(1);
+            }
+            finally
+            {
+                rejectEnable = false;
+                if (!window.IsDisposed) window.Close();
+                PortableWindowActivationService.Clear();
+                using var restored = PortableModalInputScope.Enter(new object());
+            }
+        });
+    }
+
+    [PortableInputFact]
+    public void DialogRestoresSourceFocusOnlyAfterInputAdmissionAndNativeActivation()
+    {
+        RunInUiApartment(() =>
+        {
+            foreach (bool accepted in new[] { true, false })
+            {
+                using IPortablePresentationSourceHost host = PortablePresentationSourceHost.Create();
+                var window = new Window { Width = 200, Height = 100, Focusable = true };
+                int requests = 0;
+                PortableWindowActivationService.Register(activate: _ => window,
+                    getHandle: _ => host.Handle,
+                    requestActivation: value =>
+                    {
+                        value.Should().BeSameAs(window);
+                        PortableModalInputScope.AllowsInput(window).Should().BeTrue();
+                        PortableModalInputScope.IsNativeInputPolicySynchronized.Should().BeTrue();
+                        requests++;
+                        return accepted;
+                    });
+                try
+                {
+                    window.Show();
+                    host.RootVisual = window;
+                    host.SetClientSize(200, 100);
+                    Keyboard.Focus(window).Should().BeSameAs(window);
+                    PortableWindowActivationService.SetActivationState(window, true);
+                    using (PortableWindowActivationService.CaptureModalInputRestoreState())
+                    {
+                        using (PortableModalInputScope.Enter(new object()))
+                        {
+                            PortableWindowActivationService.PrepareForModalInput();
+                            PortableWindowActivationService.SetActivationState(window, false);
+                            Keyboard.FocusedElement.Should().BeNull();
+                            requests.Should().Be(0);
+                        }
+                    }
+                    requests.Should().Be(1);
+                    Keyboard.FocusedElement.Should().BeSameAs(accepted ? window : null);
+                    window.IsActive.Should().BeFalse(); // Only actual host events publish IsActive.
+                    PortableWindowActivationService.SetActivationState(window, true);
+                    using (PortableWindowActivationService.CaptureModalInputRestoreState())
+                    {
+                        window.Hide();
+                    }
+                    requests.Should().Be(1); // Hidden windows are not reactivated.
+                }
+                finally
+                {
+                    Keyboard.ClearFocus();
+                    host.RootVisual = null;
+                    window.Close();
+                    PortableWindowActivationService.Clear();
+                }
+            }
+        });
+    }
+
+    [PortableInputFact]
     public void TypedOwnerChangesPreserveCollectionsWhenHostRejectsAndNeverUseOpaqueHandles()
     {
         RunInUiApartment(() =>
@@ -509,8 +608,10 @@ public class PortableWindowActivationServiceTests
             window.Closing += (_, e) => e.Cancel = ++closingCalls == 1;
             PortableWindowActivationService.Register(
                 activate: _ => { creates++; return activation; },
-                show: _ => shows++, hide: _ => hides++,
-                close: _ => closes++, dispose: _ => disposals++,
+                show: _ => shows++,
+                hide: _ => { PortableModalInputScope.IsActive.Should().BeFalse(); hides++; },
+                close: _ => { PortableModalInputScope.IsActive.Should().BeFalse(); closes++; },
+                dispose: _ => disposals++,
                 getHandle: _ => new IntPtr(5678),
                 run: _ => throw new InvalidOperationException("Application loop must not run a dialog."),
                 runDialog: (owner, continuation) =>

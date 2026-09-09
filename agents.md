@@ -111,6 +111,14 @@ reject opaque WindowInteropHelper owner handles before WPF HWND/hidden-window co
 Top-level ownership is distinct from nonactivating popup configuration and modal
 input suppression. Keep native owners local, thread-bound and cycle-free, with
 unsupported platforms explicit. Do not report this as completed dialog modality.
+Native modal gates register source Window identities and inherit that identity
+for separately surfaced popups. New surfaces receive admission before native Show;
+preserve independent controller enabled intent and weak registration ownership.
+Win32 gate release precedes accepted native Hide/Close, after owned nested dialogs
+unwind when necessary. Canceled closes retain the gate. Restore actual prior
+activation/focus only after successful gate publication; reject moved/disposed
+focus sources and never assign IsActive to simulate host activation. Cocoa/Linux
+native suppression and cross-thread application coordination remain explicit.
 
 Decoder-backed core application images follow `BitmapSource.UsesPortablePixelStorage`
 for backend selection on every OS. Existing portable format dispatch must not fall
