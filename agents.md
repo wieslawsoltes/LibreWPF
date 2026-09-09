@@ -207,6 +207,11 @@ for package production, not the MVP launcher or normal SDK gate. It must retain
 all pack-time runtime/payload requirements and stop before application/verifier
 execution. Never introduce an environment-inherited CI bypass, publish its output
 as qualified, or claim exact-head provenance from dirty/stale native payloads.
+ProGPU native payloads have separate CLI-only --build-only / -BuildOnly modes.
+Use these for compilation/staging before qualification; retain both providers,
+all required SDK/Windows Direct2D files and test/sample compilation. No reduced
+compiler profile or environment-inherited bypass may stand in for this mode.
+Staged files remain unqualified and never satisfy missing Windows managed payloads.
 Device-loss callbacks must only schedule host-thread recovery. Rebuild targets
 outside active frames, retain source-built WPF roots/native windows, renew external
 image leases, and resolve popup sharing from the live owner rather than a captured

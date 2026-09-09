@@ -69,6 +69,16 @@ do not set runtime-validation bypass properties or substitute old artifacts to
 claim exact-head packages. Prebuilt ProGPU packages can use the existing
 `PROGPU_WPF_PREPACKAGED_PROGPU_DIR` input, subject to final provenance qualification.
 
+Native payload preparation has its own explicit build-only modes:
+`external/ProGPU/eng/build-progpu-native.sh --build-only` on a matching macOS/Linux
+host, and `eng/build-progpu-native-windows.ps1 -Rid <win-x64|win-arm64> -BuildOnly`
+inside a Windows ProGPU checkout. These compile both providers and the required
+SDK payloads without running the native qualification scripts or executables.
+They do not produce Windows managed transport/IJW payloads or qualify the staged
+files. Use ProGPU's required SDK when running from its checkout, and retain the
+full package gate after freeze. See the
+[native payload build contract](../external/ProGPU/docs/native-mil-build-only-payloads.md).
+
 The script rebuilds its configured local package output and transport staging
 directory just as the full gate does. Use a dedicated checkout/feed for isolated
 development; packages from a dirty checkout are not exact-commit release evidence.

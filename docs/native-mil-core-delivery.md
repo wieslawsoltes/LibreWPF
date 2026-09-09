@@ -116,6 +116,18 @@ commit. Their next-step text is historical, may be superseded by later changes,
 and must not be treated as an additional active backlog. Use the active completion
 queue above for current priorities.
 
+Native build-only payload production (2026-09-09): ProGPU now has explicit Unix
+--build-only and Windows -BuildOnly modes. Both providers and required native SDK
+files compile/stage before returning, while normal no-switch qualification gates
+remain intact. Unix build-only shares pinned Dawn header preparation with the
+existing verifier rather than executing that verifier to obtain a library.
+The clean ProGPU 979f72ca checkout completed a macOS ARM64 run, staging two renderer
+libraries and six SDK archives. Contract fixtures compile with 0 warnings/0 errors
+but have not run. A repeated graceful Windows VM resume failed with a critical
+error and returned to suspended; saved state and VM configuration were preserved.
+Windows/Linux payloads, Windows managed transport and complete packages remain
+open. See the [production record](../reports/native-mil-build-only-production-2026-09-09.md).
+
 Source dialog completion (2026-09-09): the MVP About-dialog Hide/Close path now
 transfers source input/focus cleanup through captured typed ReleaseDialog and
 ProGPU ReleaseAfterNative contracts. Source scopes remain blocked until native
