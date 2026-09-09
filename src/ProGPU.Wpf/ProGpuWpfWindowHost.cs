@@ -560,6 +560,11 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         RunCore(showActivated: false, showWindow: false);
     }
 
+    internal void RunExisting()
+    {
+        RunCore(showActivated: false, showWindow: false, preserveWindowVisibility: true);
+    }
+
     internal void RunDialog(Func<bool> continueRunning)
     {
         ArgumentNullException.ThrowIfNull(continueRunning);
@@ -571,12 +576,13 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         finally { ReleaseNativeDialogHint(); }
     }
 
-    private void RunCore(bool showActivated, bool showWindow, Func<bool>? continueRunning = null)
+    private void RunCore(bool showActivated, bool showWindow, Func<bool>? continueRunning = null,
+        bool preserveWindowVisibility = false)
     {
         ThrowIfDisposed();
         // Nonactivating native windows must be created hidden. Otherwise the
         // Cocoa/GLFW window can take focus before the platform show policy runs.
-        if (continueRunning == null)
+        if (continueRunning == null && !preserveWindowVisibility)
         {
             _isHostVisible = showWindow && showActivated;
         }

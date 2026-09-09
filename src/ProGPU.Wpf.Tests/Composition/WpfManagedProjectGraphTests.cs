@@ -1184,7 +1184,9 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("host.InitializeHidden();", proGpuActivation, StringComparison.Ordinal);
         Assert.Contains("AttachRootForShow();", proGpuActivation, StringComparison.Ordinal);
         Assert.Contains("bridge.RootVisual = RootVisual;", proGpuActivation, StringComparison.Ordinal);
-        Assert.Contains("Host.RunHidden();", proGpuActivation, StringComparison.Ordinal);
+        Assert.Contains("Host.RunExisting();", proGpuActivation, StringComparison.Ordinal);
+        Assert.Contains("_showDeferredUntilRun = false;", proGpuActivation, StringComparison.Ordinal);
+        Assert.Contains("preserveWindowVisibility: true", proGpuHost, StringComparison.Ordinal);
         Assert.Contains("RunCore(showActivated: false, showWindow: false);", proGpuHost, StringComparison.Ordinal);
         Assert.Contains("The configured portable host factory returned no host.", proGpuActivation, StringComparison.Ordinal);
         Assert.Contains("requestActivation: activation =>", proGpuActivation, StringComparison.Ordinal);
@@ -2786,7 +2788,7 @@ public sealed class WpfManagedProjectGraphTests
                 < window.IndexOf("HwndSourceParameters param = CreateHwndSourceParameters();", StringComparison.Ordinal),
             "Show and EnsureHandle must select portable ownership before HWND/MIL source creation.");
 
-        Assert.Contains("if (!OperatingSystem.IsWindows())", application, StringComparison.Ordinal);
+        Assert.Contains("if (PortableWindowActivationService.IsEnabled || !OperatingSystem.IsWindows())", application, StringComparison.Ordinal);
         Assert.Contains("PortableWindowActivationService.IsEnabled", application, StringComparison.Ordinal);
         Assert.Contains("FlushPortableDispatcherOperations(DispatcherPriority.Send)", application, StringComparison.Ordinal);
         Assert.Contains("FlushPortableDispatcherOperations(DispatcherPriority.ApplicationIdle)", application, StringComparison.Ordinal);
@@ -2795,22 +2797,27 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("wnd.Show();", application, StringComparison.Ordinal);
         Assert.Contains("wnd.Visibility = Visibility.Visible;", application, StringComparison.Ordinal);
         Assert.Contains("Dispatcher.PushFrame(frame)", application, StringComparison.Ordinal);
-        Assert.Contains("PortableWindowActivationService.TryRun(MainWindow)", application, StringComparison.Ordinal);
+        Assert.Contains("PortableApplicationRunLoop.Run(ref source)", application, StringComparison.Ordinal);
+        Assert.Contains("if (_portableRunEntered)", application, StringComparison.Ordinal);
+        Assert.Contains("PortableWindowActivationService.TryRun((Window)host)", application, StringComparison.Ordinal);
+        Assert.Contains("Dispatcher.Hooks.OperationCompleted += OnCompleted", application, StringComparison.Ordinal);
+        Assert.Contains("Dispatcher.Hooks.OperationCompleted -= OnCompleted", application, StringComparison.Ordinal);
+        Assert.Contains("window.PortableWindowActivation != null", application, StringComparison.Ordinal);
         Assert.Contains("if (!_appIsShutdown)", application, StringComparison.Ordinal);
         Assert.True(
-            application.IndexOf("if (!OperatingSystem.IsWindows())", StringComparison.Ordinal)
+            application.IndexOf("if (PortableWindowActivationService.IsEnabled || !OperatingSystem.IsWindows())", StringComparison.Ordinal)
                 < application.IndexOf("new HwndWrapper", StringComparison.Ordinal),
-            "Application.Run must skip the parking HWND before any HwndWrapper is created on non-Windows.");
+            "Application.Run must skip the parking HWND before any HwndWrapper is created for registered portable hosting on every OS.");
         Assert.True(
             application.IndexOf("FlushPortableDispatcherOperations(DispatcherPriority.Send)", StringComparison.Ordinal)
                 < application.IndexOf("window.Show();", StringComparison.Ordinal),
             "Application.Run must service queued startup work before synchronously showing the portable startup window.");
         Assert.True(
             application.IndexOf("window.Show();", StringComparison.Ordinal)
-                < application.IndexOf("PortableWindowActivationService.TryRun(MainWindow)", StringComparison.Ordinal),
+                < application.IndexOf("PortableApplicationRunLoop.Run(ref source)", StringComparison.Ordinal),
             "Application.Run must synchronously show the startup window before handing ownership to the portable native run loop.");
         int portableTryRun = application.IndexOf(
-            "PortableWindowActivationService.TryRun(MainWindow)",
+            "PortableApplicationRunLoop.Run(ref source)",
             StringComparison.Ordinal);
         int applicationIdleFlush = application.IndexOf(
             "FlushPortableDispatcherOperations(DispatcherPriority.ApplicationIdle)",
@@ -2819,7 +2826,7 @@ public sealed class WpfManagedProjectGraphTests
             portableTryRun < applicationIdleFlush,
             "Application.Run must leave normal and idle app work for the portable native run loop, then service queued shutdown work after it exits.");
         Assert.True(
-            application.IndexOf("PortableWindowActivationService.TryRun(MainWindow)", StringComparison.Ordinal)
+            application.IndexOf("PortableApplicationRunLoop.Run(ref source)", StringComparison.Ordinal)
                 < application.IndexOf("RunDispatcher(null);", StringComparison.Ordinal),
             "Application.Run must use the portable native run loop before falling back to WPF Dispatcher.Run.");
     }
@@ -5494,6 +5501,26 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("InvokeStatic(keyboardType, \"Focus\", inputBox)", harnessProgram, StringComparison.Ordinal);
         Assert.Contains("compiled TextBox Keyboard.Focus return value", harnessProgram, StringComparison.Ordinal);
         Assert.Contains("IsKeyboardFocused", harnessProgram, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void PortableApplicationLifetimeScenariosRemainInTheFullSdkGate()
+    {
+        string program = File.ReadAllText(FindRepoPath("src", "ProGPU.Wpf.RealApplicationRunHarness", "Program.cs"));
+        string lifetime = File.ReadAllText(FindRepoPath("src", "ProGPU.Wpf.RealApplicationRunHarness", "ApplicationLifetimeHarness.cs"));
+        string gate = File.ReadAllText(FindRepoPath("eng", "progpu-wpf-sdk-ci.sh"));
+        Assert.Contains("registrar.Register(new PortableWindowActivationCallbacks(", program, StringComparison.Ordinal);
+        Assert.Contains("return typeof(PortableWpfServiceRegistry).Assembly;", program, StringComparison.Ordinal);
+        Assert.Contains("Invoke(_application, \"Shutdown\");", program, StringComparison.Ordinal);
+        Assert.Contains("--portable-application-lifetime-only", program, StringComparison.Ordinal);
+        Assert.Contains("for lifetime_scenario in last-window main-window explicit; do", gate, StringComparison.Ordinal);
+        Assert.Contains("--portable-application-lifetime-only \"${lifetime_scenario}\"", gate, StringComparison.Ordinal);
+        Assert.Contains("PortableWpfRuntime.SelectMediaBackend(PortableWpfMediaBackend.Portable)", lifetime, StringComparison.Ordinal);
+        Assert.Contains("single application Exit event", lifetime, StringComparison.Ordinal);
+        Assert.Contains("explicit lifetime survives no windows", lifetime, StringComparison.Ordinal);
+        Assert.Contains("hostless dispatcher delivered reopen once", lifetime, StringComparison.Ordinal);
+        Assert.Contains("Nested Application.Run was accepted.", lifetime, StringComparison.Ordinal);
+        Assert.Contains("sourceHostType.GetProperty(\"RootVisual\")", lifetime, StringComparison.Ordinal);
     }
 
     [Fact]

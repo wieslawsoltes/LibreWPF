@@ -54,6 +54,7 @@ public sealed class WpfPortableWindowActivation : IDisposable
     private bool _isClosingFromWpf;
     private bool _isFlushingWpfDispatcher;
     private bool _isNativeRunStarted;
+    private bool _showDeferredUntilRun;
     private IDisposable? _mediaContextRenderRegistration;
     private IWpfTimer? _dispatcherTimerPump;
     private bool _showActivated = true;
@@ -356,10 +357,13 @@ public sealed class WpfPortableWindowActivation : IDisposable
         SetOwner(_ownerWindow);
         if (ShouldDeferNativeShowUntilRun())
         {
+            _showDeferredUntilRun = true;
             Host.DeferShowUntilRun();
             DispatchPortableShowWindowHook(isShown: true);
             return;
         }
+
+        _showDeferredUntilRun = false;
 
         if (_showActivated)
         {
@@ -426,6 +430,7 @@ public sealed class WpfPortableWindowActivation : IDisposable
     public void Hide()
     {
         ThrowIfDisposed();
+        _showDeferredUntilRun = false;
         Host.Hide();
         DispatchPortableShowWindowHook(isShown: false);
     }
@@ -548,13 +553,14 @@ public sealed class WpfPortableWindowActivation : IDisposable
             {
                 Host.RunDialog(continueRunning);
             }
-            else if (_attachRootOnShow)
+            else if (_showDeferredUntilRun)
             {
-                Host.RunHidden();
+                _showDeferredUntilRun = false;
+                Host.Run(_showActivated);
             }
             else
             {
-                Host.Run(_showActivated);
+                Host.RunExisting();
             }
         }
         finally

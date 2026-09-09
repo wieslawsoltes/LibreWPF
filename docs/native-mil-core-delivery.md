@@ -34,6 +34,14 @@ Continue the startup/package and concrete application closure queue above; do no
 expand unrelated trimming API families before freeze. See the
 [connection checkpoint](../reports/native-mil-toolkit-text-collapse-connection-2026-09-09.md).
 
+Portable Application.Run now follows source shutdown policy across native polling
+host retirement. It can hand off to a remaining window or wait for posted work
+without windows under explicit lifetime; existing-host entry preserves visibility
+without Show/activation or dialog hints. The existing application harness includes
+three authored shutdown-mode scenarios in the SDK gate. This is a source-backed
+lifetime connection, not visible multi-window or package qualification. See the
+[application lifetime checkpoint](../reports/native-mil-application-lifetime-2026-09-09.md).
+
 The MVP's no-focus F10/Alt menu-entry fallback now shares a typed active-source
 resolver with default access keys. It no longer calls user32 unconditionally or
 chooses the first registered portable root. Actual source activation, visibility,

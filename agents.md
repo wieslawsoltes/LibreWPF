@@ -1,5 +1,15 @@
 # Agent Guidance
 
+Portable Application.Run uses ProGPU's typed application-lifetime coordinator.
+Window close policy, not return from the first native host, owns shutdown. Select
+existing live source windows on the application dispatcher without reassigning
+MainWindow. With no host, block on actual source dispatcher work and remove the
+completion hook in finally. Reject reentrant Run and prematurely returning live
+hosts; do not turn those failures into implicit Shutdown or renderer fallback.
+Handoff pumps existing visibility without Show/activation or dialog modal hints;
+Hide cancels deferred first Show. Keep managed/native hosts shared and Windows
+SDK admission guarded until package integration is complete.
+
 Drawing bounds distinguish known empty content from missing metadata. A successful
 IPortableDrawingBoundsSource result may carry PortableRect.Empty; false never
 means empty. Native DrawingImage lowering and managed image/tile replay consume

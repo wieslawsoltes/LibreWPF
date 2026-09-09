@@ -2,8 +2,9 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Runtime.Loader;
+using ProGPU.Wpf.Interop;
 
-internal static class Program
+internal static partial class Program
 {
     private const string CompilerHarnessAssemblyName = "ProGPU.Wpf.RealXamlCompilerHarness";
     private const string AppTypeName = "ProGPU.Wpf.RealXamlCompilerHarness.App";
@@ -16,7 +17,7 @@ internal static class Program
     private const string PortableWindowActivationServiceTypeName = "System.Windows.PortableWindowActivationService";
 
     [STAThread]
-    private static int Main()
+    private static int Main(string[] args)
     {
         try
         {
@@ -25,6 +26,13 @@ internal static class Program
             string presentationCorePath = FindArtifactAssembly(repoRoot, "PresentationCore");
             string compilerHarnessPath = FindArtifactAssembly(repoRoot, CompilerHarnessAssemblyName);
 
+            if (args.Length == 2 && args[0] == "--portable-application-lifetime-only")
+            {
+                RunApplicationLifetimeHarness(repoRoot, presentationFrameworkPath, presentationCorePath, compilerHarnessPath, args[1]);
+                Console.WriteLine($"Real WPF portable application lifetime smoke succeeded: {args[1]}.");
+                return 0;
+            }
+            if (args.Length != 0) throw new ArgumentException("Unknown Application.Run harness arguments.");
             RunHarness(repoRoot, presentationFrameworkPath, presentationCorePath, compilerHarnessPath);
             Console.WriteLine("Real WPF Application.Run smoke succeeded.");
             return 0;
@@ -5395,34 +5403,20 @@ internal static class Program
         out Type activationServiceType)
     {
         activationServiceType = GetRequiredType(presentationFramework, PortableWindowActivationServiceTypeName);
-        MethodInfo register = activationServiceType.GetMethod(
-            "Register",
-            BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)
-            ?? throw new MissingMethodException(activationServiceType.FullName, "Register");
+        System.Runtime.CompilerServices.RuntimeHelpers.RunModuleConstructor(presentationFramework.ManifestModule.ModuleHandle);
+        if (!PortableWpfServiceRegistry.TryGetWindowActivationService(PortableWpfServiceKey.PresentationFramework, out var registrar))
+            throw new InvalidOperationException("Source WPF did not publish its typed window registrar.");
 
         var recorder = new ActivationRecorder(presentationFramework, presentationCore, compilerHarness, application, activationServiceType);
-        register.Invoke(
-            null,
-            new object?[]
-            {
-                new Func<object, object>(recorder.Activate),
-                new Action<object>(recorder.Show),
-                new Action<object>(recorder.Hide),
-                new Action<object, object>(recorder.SetWindowState),
-                new Action<object, string>(recorder.SetTitle),
-                new Action<object, double, double>(recorder.SetClientSize),
-                new Action<object, double, double>(recorder.SetPosition),
-                new Action<object, bool>(recorder.SetTopmost),
-                new Action<object, object, object>(recorder.SetWindowBorder),
-                new Action<object>(recorder.Close),
-                new Action<object>(recorder.Run),
-                new Action<object>(recorder.Dispose),
-                new Func<object, bool>(_ => false),
-                new Func<object, IntPtr>(recorder.GetHandle),
-                null,
-                new Func<object, bool>(recorder.RequestActivation),
-                null
-            });
+        registrar.Register(new PortableWindowActivationCallbacks(
+            activate: recorder.Activate,
+            show: recorder.Show, hide: recorder.Hide,
+            setWindowState: recorder.SetWindowState, setTitle: recorder.SetTitle,
+            setClientSize: recorder.SetClientSize, setPosition: recorder.SetPosition,
+            setTopmost: recorder.SetTopmost, setWindowBorder: recorder.SetWindowBorder,
+            close: recorder.Close, run: recorder.Run, dispose: recorder.Dispose,
+            dragMove: _ => false, getHandle: recorder.GetHandle,
+            requestActivation: recorder.RequestActivation));
 
         RegisterPortableMessageBox(presentationFramework);
         AssertEqual(true, GetStaticProperty(activationServiceType, "IsEnabled"), "portable activation enabled");
@@ -6608,6 +6602,9 @@ internal static class Program
             ValidatePortableMouseClickActivation(typedActivation.Window);
             ValidatePortableMouseWheelActivation(typedActivation.Window);
             ValidatePortableMessageBox(_presentationFramework, typedActivation.Window);
+            // The application owns shutdown; returning a live host is a contract
+            // failure, not an implicit request to terminate all source windows.
+            Invoke(_application, "Shutdown");
         }
 
         public void Dispose(object activation)
@@ -7159,6 +7156,9 @@ internal static class Program
 
         protected override Assembly? Load(AssemblyName assemblyName)
         {
+            if (assemblyName.Name == typeof(PortableWpfServiceRegistry).Assembly.GetName().Name)
+                return typeof(PortableWpfServiceRegistry).Assembly;
+
             if (string.Equals(assemblyName.Name, CompilerHarnessAssemblyName, StringComparison.Ordinal))
             {
                 return LoadFromAssemblyPath(_compilerHarnessPath);

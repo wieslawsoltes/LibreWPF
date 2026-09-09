@@ -390,6 +390,11 @@ run_dotnet run --no-build --project "${repo_root}/src/ProGPU.Wpf.RealXamlRuntime
 echo "Running real WPF Application.Run harness..."
 run_dotnet run --no-build --project "${repo_root}/src/ProGPU.Wpf.RealApplicationRunHarness/ProGPU.Wpf.RealApplicationRunHarness.csproj" -c Release -v:minimal
 
+for lifetime_scenario in last-window main-window explicit; do
+  echo "Running real WPF application lifetime scenario: ${lifetime_scenario}..."
+  run_dotnet run --no-build --project "${repo_root}/src/ProGPU.Wpf.RealApplicationRunHarness/ProGPU.Wpf.RealApplicationRunHarness.csproj" -c Release -v:minimal -- --portable-application-lifetime-only "${lifetime_scenario}"
+done
+
 echo "Running real WPF Fluent theme runtime harness..."
 run_dotnet run --no-build --project "${repo_root}/src/ProGPU.Wpf.RealThemeRuntimeHarness/ProGPU.Wpf.RealThemeRuntimeHarness.csproj" -c Release -v:minimal
 
