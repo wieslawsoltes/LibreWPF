@@ -34,6 +34,15 @@ Windows transport checks to report package production complete. See the
 [macOS build record](../reports/native-mil-macos-payload-refresh-2026-09-09.md) and
 [Linux refresh record](../reports/native-mil-linux-payload-refresh-2026-09-09.md).
 
+Windows production has resumed in the existing Parallels guest. ProGPU da36a718
+closes strict MSVC compilation failures in native MIL/text and test fixtures;
+the ARM64 build completed and its three DLLs/seven SDK libraries were staged and
+copied beside the Unix inputs. The separate x64 build has started but is not yet
+recorded complete. Windows managed/IJW payloads, complete packages and SDK admission
+remain open. Existing Unix inputs precede this source-fix checkpoint and need final
+refresh. This is build-only progress, not runtime qualification; see the
+[Windows build record](../reports/native-mil-windows-payload-build-2026-09-09.md).
+
 The Toolkit top-header CharacterEllipsis connection is now implemented through
 typed native collapsed views and source symbol/range/interaction mapping, with
 native and source-header fixtures authored. This removes the identified blanket
