@@ -74,6 +74,10 @@ Native payload preparation has its own explicit build-only modes:
 host, and `eng/build-progpu-native-windows.ps1 -Rid <win-x64|win-arm64> -BuildOnly`
 inside a Windows ProGPU checkout. These compile both providers and the required
 SDK payloads without running the native qualification scripts or executables.
+On Linux, `--build-only --rid linux-x64` or `--build-only --rid linux-arm64`
+selects an explicit target using Clang plus its target GNU toolchain, with a
+separate default build directory and target-matched wgpu input/staging label.
+Cross-compilation is not target runtime qualification and requires no emulator.
 They do not produce Windows managed transport/IJW payloads or qualify the staged
 files. Use ProGPU's required SDK when running from its checkout, and retain the
 full package gate after freeze. See the

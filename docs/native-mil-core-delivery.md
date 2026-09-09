@@ -22,7 +22,7 @@ subsystem roadmap. None of these rows is runtime-qualified yet.
 
 | Order | Implementation batch | Exit to the next batch |
 | --- | --- | --- |
-| 1 — current | Native package activation: source-built harness and package MVP, including Windows. Close required source-media routing from startup through first frame and common resource construction. Popup ownership, pre-host services, provider-first text dispatch, intrinsic measurement, whole-word wrapping, rich-editor media routing/per-line metrics and FlowDocument scroll-view/paginated drawing and interaction are connected. Source marker formatting and ProGPU symbol-cmap support already exist; actual font availability and acceptance document-policy compatibility require qualification, not another parser/composer. Fresh platform payload/package production, concrete remaining source-media routes and Windows SDK admission remain open. | Required paths select ProGPU explicitly, compile, and have no known route into unintended Windows MIL or silent managed rendering. Keep Windows admission guarded until its dependencies are implemented. |
+| 1 — current | Native package activation: source-built harness and package MVP, including Windows. Close required source-media routing from startup through first frame and common resource construction. Popup ownership, pre-host services, provider-first text dispatch, intrinsic measurement, whole-word wrapping, rich-editor media routing/per-line metrics and FlowDocument scroll-view/paginated drawing and interaction are connected. Source marker formatting and ProGPU symbol-cmap support already exist; actual font availability and acceptance document-policy compatibility require qualification, not another parser/composer. Native macOS/Linux ARM64/x64 payloads have compiled in isolated unqualified sets. Fresh Windows native/managed payloads, complete package production, concrete remaining source-media routes and Windows SDK admission remain open. | Required paths select ProGPU explicitly, compile, and have no known route into unintended Windows MIL or silent managed rendering. Keep Windows admission guarded until its dependencies are implemented. |
 | 2 | Application closure: use the same MVP, Toolkit/AvalonDock, license-controlled Xceed and existing SciChart gate. Finish required text/selection, scroll/clip, popup/input, resize/DPI, content/effect/cache updates and close/reopen/device-loss ownership. Reuse existing implementations; fix concrete missing connections. | Each required action has an implemented path and authored regression coverage. Record any known blocking branch against that action; do not reopen already connected subsystems for optional refinements. |
 | 3 | Feature freeze, final qualification and delivery: build complete platform artifacts and packages, execute the existing cross-platform/Windows comparison and application gates, fix failures, and bring both PRs' required CI to green at the delivery commits. | Record exact-head package consumption and required gate results, with explicit failures or environment/license limitations. Only then report the core release delivered. |
 
@@ -115,6 +115,19 @@ These checkpoints preserve implementation provenance and the state at each
 commit. Their next-step text is historical, may be superseded by later changes,
 and must not be treated as an additional active backlog. Use the active completion
 queue above for current priorities.
+
+Linux payload production (2026-09-09): a dedicated no-host-mount Colima build
+profile supplied Ubuntu ARM64 without changing the suspended Parallels guests or
+active Docker context. Both Linux ARM64 and x64 completed 709 native build steps,
+including both renderers, all SDK archives and test/sample/module compilation.
+ProGPU 87014829 adds explicit build-only Linux RID selection with aligned Clang
+target, target GNU linker/standard-library dependencies, pinned wgpu input and
+staging RID, plus isolated build directories. No x64 emulation or link-probe
+bypass was used. The authored source-contract graph compiled with 0 warnings and
+0 errors; tests and all runtime qualification remain deferred. These Linux inputs
+close the missing build-host/payload obstacle, not Linux application modality,
+full package production or Windows SDK admission. See the
+[production and source-provenance record](../reports/native-mil-linux-payload-build-2026-09-09.md).
 
 Native build-only payload production (2026-09-09): ProGPU now has explicit Unix
 --build-only and Windows -BuildOnly modes. Both providers and required native SDK
