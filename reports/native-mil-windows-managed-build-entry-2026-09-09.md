@@ -131,11 +131,71 @@ No existing-instance update, forced reboot or security-policy change was request
 The Parallels launch returned immediately; this was not installation completion.
 A fresh inventory found bootstrapper PID 10980 and consent PID 12060. A guest
 screenshot confirmed the Visual Studio Installer UAC prompt with verified
-publisher Microsoft Corporation. Installation awaits user approval; no approval
-was automated and the target directory remains absent. After approval, inspect
-installer completion and installed MSBuild/v145/C++/CLI components before retrying
-the default Visual Studio engine. Do not start a duplicate installer from the
-launcher exit code alone.
+publisher Microsoft Corporation. At that checkpoint installation awaited user
+approval; no approval was automated and the target directory was absent. Do not
+start a duplicate installer from the launcher exit code alone.
+
+## Resumed Windows build after toolchain installation
+
+On goal resumption, fresh guest inventory found no installer/consent or build
+process. VS 2026 Build Tools was registered at `C:\BuildTools2026`, instance
+`200f1eec`, installation version `18.10.12201.205`, complete and launchable with
+no reboot required. The existing VS 2022 instance remains installed. A component-
+filtered vswhere query matched MSBuild, C++/CLI, ARM64 and x86/x64 tools in the
+new instance. Direct MSBuild version output was `18.10.1.42706`; the installed
+MSVC directory is `14.51.36231`. No UAC approval or reboot was automated.
+
+The existing dedicated WPF guest checkout resumed its current managed-runtime
+script with the default Visual Studio engine, existing x64 SDK and unchanged
+RID/payload requirements. Its IJW packs and Arcade toolset restored, but the
+build stopped in Tools.proj before source compilation: the MSBuild .NET Runtime
+Task Host could not be found. The terminal result was 0 warnings, 1 error in
+26.24 seconds, propagated through the PresentationBuildTasks child-build check.
+The binlog is `C:\lwpf-eb8660165\artifacts\log\Release\x86\Build.binlog`.
+Native-tool bootstrap still reports the previously documented mismatch
+between tool-name executable checks and actual extracted package layouts; no
+fake executable or bootstrap bypass was introduced. Completion and final payload
+staging were not claimed for this retry.
+
+### .NET task-host discovery correction
+
+Read-only project evaluation under VS 18.10 resolved the pinned SDK and its
+NetCoreRoot, but returned an empty `DOTNET_HOST_PATH`. The SDK contains
+MSBuild.exe, MSBuild.dll and its runtime configuration; searching for a separate
+TaskHost-named binary was not the right prerequisite check.
+MSBuild's [task factory implementation](https://github.com/dotnet/msbuild/blob/main/src/Build/Instance/TaskFactories/AssemblyTaskFactory.cs)
+requires both the .NET executable and SDK root to populate .NET task-host
+parameters. The [task-host launcher](https://github.com/dotnet/msbuild/blob/main/src/Build/BackEnd/Components/Communications/NodeProviderOutOfProcTaskHost.cs)
+raises the observed error when those parameters lack the SDK location.
+
+The package entry now sets `DOTNET_HOST_PATH` to the same PE-validated x64
+dotnet.exe selected by Initialize-BuildSdk. It does not pass a directory as the
+executable, change the SDK, suppress task execution or alter the VS/C++ engine.
+The existing source-contract fixture now asserts this executable mapping and
+rejects a root-directory-only assignment. Fixture execution remains deferred.
+The corrected retry passed Arcade toolset setup and entered source project
+restore. It then failed in ProcessFrameworkReferences with MSB4018 because
+Microsoft.Deployment.DotNet.Releases 2.0.0.0 could not load (0 warnings, 1 error,
+24.12 seconds). The build is terminal; managed payloads remain incomplete.
+
+The assembly is present in the pinned SDK, including its net472 task directory.
+However, VS 2026 MSBuild.exe.config explicitly binds that version to
+`SdkResolvers/Microsoft.DotNet.MSBuildSdkResolver/`, which is absent in the
+C++-only Build Tools instance. This is an installation prerequisite, not a
+missing application reference. The installed VS catalog identifies
+`Microsoft.NetCore.Component.SDK` as depending on
+`Microsoft.Net.Core.SDK.MSBuildExtensions`. A scoped bootstrapper modification
+was requested for that official component in `C:\BuildTools2026`, using
+`--passive --norestart --wait`. No existing SDK was removed, binding config
+edited, resolver assembly copied or UAC approval automated. The repository
+continues to select its pinned x64 SDK independently of the installed component.
+The initial launcher returned immediately; completion must be established from
+installer state and actual resolver files, not that exit code.
+
+The updated ProGPU.Wpf.Tests project compiled locally with the pinned SDK using
+`dotnet build --no-restore -c Release -m:1 -p:UseSharedCompilation=false`:
+116 warnings, 0 errors, 38.87 seconds. This compiles the new contract assertion;
+no test method executed and the warnings remain visible rather than suppressed.
 
 No tests, renderer workloads, apps,
 verifiers, benchmarks or CI polling are part of this batch. Windows SDK admission

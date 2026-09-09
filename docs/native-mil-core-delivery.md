@@ -65,9 +65,16 @@ entry now requires an x64 SDK build host while preserving all output RIDs and
 rejecting incompatible existing SDK roots. The corrected x64 SDK compiled
 PresentationBuildTasks; PresentationCore then stopped at missing Visual Studio
 C++ targets under the dotnet engine. The pinned SDK requires MSBuild 18.6 or newer
-and source C++ requires v145. A separate VS 2026 Build Tools installation awaits
-user UAC approval in the guest, preserving VS 2022. No completed managed transport
-payload or Windows SDK admission is claimed. See the
+and source C++ requires v145. VS 2026 Build Tools is now installed alongside VS
+2022, with MSBuild 18.10 and the required C++/CLI target tools. The first default
+Visual Studio retry stopped before source compilation because .NET task hosting
+had no `DOTNET_HOST_PATH`. The package entry now publishes the validated x64
+host executable as well as the SDK directory. That retry passed toolset setup,
+then exposed the missing Visual Studio .NET SDK resolver: MSBuild's assembly
+binding points to its absent directory. Installation of the official .NET SDK
+component has been requested for the existing VS 2026 instance. The pinned SDK
+and all payload requirements remain unchanged. No completed managed transport
+payload or Windows SDK admission is claimed yet. See the
 [managed build-entry record](../reports/native-mil-windows-managed-build-entry-2026-09-09.md).
 
 The Toolkit top-header CharacterEllipsis connection is now implemented through

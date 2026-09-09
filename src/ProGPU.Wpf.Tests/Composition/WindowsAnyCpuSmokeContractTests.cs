@@ -127,6 +127,8 @@ public sealed class WindowsAnyCpuSmokeContractTests
         Assert.Contains("Test-X64DotNetHost $dotnetCommand.Source", buildScript, StringComparison.Ordinal);
         Assert.Contains("Test-X64DotNetHost (Join-Path $dotnetRoot \"dotnet.exe\")", buildScript, StringComparison.Ordinal);
         Assert.Contains("$reader.ReadUInt16() -eq 0x8664", buildScript, StringComparison.Ordinal);
+        Assert.Contains("$env:DOTNET_HOST_PATH = Join-Path $dotnetRoot \"dotnet.exe\"", buildScript, StringComparison.Ordinal);
+        Assert.DoesNotContain("$env:DOTNET_HOST_PATH = $dotnetRoot", buildScript, StringComparison.Ordinal);
         Assert.Contains("$env:MSBuildSDKsPath = $sdkResolverPath", buildScript, StringComparison.Ordinal);
         Assert.Contains("$env:MSBuildEnableWorkloadResolver = \"false\"", buildScript, StringComparison.Ordinal);
         Assert.Contains("[switch] $NativeToolsOnMachine", buildScript, StringComparison.Ordinal);

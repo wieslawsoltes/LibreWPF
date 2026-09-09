@@ -107,6 +107,10 @@ function Initialize-BuildSdk {
         throw "The selected SDK does not have the required x64 build host at $dotnetRoot."
     }
     $env:DOTNET_ROOT = $dotnetRoot
+    # MSBuild.exe does not populate the CLI's DOTNET_HOST_PATH. SDK tasks
+    # hosted out-of-process on .NET require the executable, not just DOTNET_ROOT
+    # or MSBuildSDKsPath. Keep task hosting on the same validated x64 SDK host.
+    $env:DOTNET_HOST_PATH = Join-Path $dotnetRoot "dotnet.exe"
     $env:PATH = "$dotnetRoot;$env:PATH"
     $env:MSBuildSDKsPath = $sdkResolverPath
     # PresentationCore does not consume SDK workloads. Visual Studio MSBuild
