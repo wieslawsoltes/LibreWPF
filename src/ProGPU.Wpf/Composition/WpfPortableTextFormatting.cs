@@ -19,6 +19,9 @@ internal sealed class WpfPortableTextFormatting : IPortableTextFormatting
     internal static void EnsureRegistered() => PortableWpfServiceRegistry.EnsureTextFormatting(Default);
 
     public IPortableTextParagraph Format(in PortableTextParagraphRequest request)
+        => FormatCore(in request, null, null);
+
+    private Paragraph FormatCore(in PortableTextParagraphRequest request, Paragraph? original, PortableTextCollapseRequest? collapse)
     {
         if (request.Font == null || request.Font.UnitsPerEm == 0 || !float.IsFinite(request.FontSize) || request.FontSize <= 0)
             throw new ArgumentException("A real source face and positive em size are required.");
@@ -32,16 +35,14 @@ internal sealed class WpfPortableTextFormatting : IPortableTextFormatting
                 PortableTextAlignment.Justify => NativeTextAlignment.Justify,
                 _ => throw new ArgumentOutOfRangeException(nameof(request))
             });
-        if (!request.Styles.IsEmpty) return FormatStyled(in request, in options, font);
+        if (!request.Styles.IsEmpty) return FormatStyled(in request, in options, font, original, collapse);
         var features = new NativeTextFeature[request.Features.Length];
         for (int i = 0; i < features.Length; i++) features[i] = new(request.Features.Span[i].Tag, request.Features.Span[i].Value);
-        return new Paragraph(NativeTextParagraphSnapshot.Create(font.Context, request.Text.Span,
-            request.RightToLeft ? NativeTextDirection.RightToLeft : NativeTextDirection.LeftToRight, in options, features,
-            incrementalTab: request.IncrementalTab, tabOrigin: request.TabOrigin,
-            measureIntrinsicWidths: request.MeasureIntrinsicWidths, wrapping: ConvertWrapping(request.Wrapping)), [font.RenderFont]);
+        return new Paragraph(this, request, CreateNative(font.Context, request, options, features, [], original, collapse), [font.RenderFont]);
     }
 
-    private Paragraph FormatStyled(in PortableTextParagraphRequest request, in NativeTextParagraphOptions options, FontState primary)
+    private Paragraph FormatStyled(in PortableTextParagraphRequest request, in NativeTextParagraphOptions options, FontState primary,
+        Paragraph? original, PortableTextCollapseRequest? collapse)
     {
         // Size/brush/feature changes on one face reuse its retained plans. Multiple
         // explicit faces use an isolated temporary context so they cannot alter
@@ -74,10 +75,26 @@ internal sealed class WpfPortableTextFormatting : IPortableTextFormatting
                 (uint)feature, (uint)style.Features.Length, style.Language);
             foreach (var value in style.Features.Span) features[feature++] = new(value.Tag, value.Value);
         }
-        return new Paragraph(NativeTextParagraphSnapshot.Create(context, request.Text.Span,
+        return new Paragraph(this, request, CreateNative(context, request, options, features, styles, original, collapse), fonts.ToArray());
+    }
+
+    private static NativeTextParagraphSnapshot CreateNative(NativeTextShapingContext context, PortableTextParagraphRequest request,
+        NativeTextParagraphOptions options, NativeTextFeature[] features, NativeTextParagraphStyle[] styles,
+        Paragraph? original, PortableTextCollapseRequest? collapse)
+    {
+        if (collapse is { } c)
+            return NativeTextParagraphSnapshot.CreateCollapsed(context, request.Text.Span,
+                request.RightToLeft ? NativeTextDirection.RightToLeft : NativeTextDirection.LeftToRight, options, original!._native,
+                new(c.LineIndex, c.Width, c.SymbolWidth, c.Trimming switch
+                {
+                    PortableTextTrimming.Character => NativeTextTrimming.CharacterEllipsis,
+                    PortableTextTrimming.Word => NativeTextTrimming.WordEllipsis,
+                    _ => throw new ArgumentOutOfRangeException(nameof(collapse))
+                }), features, styles, request.IncrementalTab, request.TabOrigin, ConvertWrapping(request.Wrapping));
+        return NativeTextParagraphSnapshot.Create(context, request.Text.Span,
             request.RightToLeft ? NativeTextDirection.RightToLeft : NativeTextDirection.LeftToRight,
             in options, features, styles, request.IncrementalTab, request.TabOrigin, request.MeasureIntrinsicWidths,
-            ConvertWrapping(request.Wrapping)), fonts.ToArray());
+            ConvertWrapping(request.Wrapping));
     }
 
     private static NativeTextWrapping ConvertWrapping(PortableTextWrapping wrapping) => wrapping switch
@@ -89,7 +106,22 @@ internal sealed class WpfPortableTextFormatting : IPortableTextFormatting
 
     private sealed class Paragraph : IPortableTextParagraph
     {
-        private readonly NativeTextParagraphSnapshot _native;
+        internal readonly NativeTextParagraphSnapshot _native;
+        private readonly WpfPortableTextFormatting _owner;
+        private readonly PortableTextParagraphRequest _request;
+        private sealed record CollapseCache(PortableTextCollapseRequest Key, Paragraph Paragraph);
+        private CollapseCache? _collapseCache;
+        public PortableTextCollapsedRange? CollapsedRange => _native.CollapsedRange is { } c ?
+            new(c.LineIndex, c.Start, c.End, c.SymbolGlyphIndex) : null;
+        public IPortableTextParagraph Collapse(in PortableTextCollapseRequest request)
+        {
+            if (CollapsedRange != null) throw new InvalidOperationException("Collapse the original paragraph, not a collapsed view.");
+            var cached = _collapseCache;
+            if (cached?.Key == request) return cached.Paragraph;
+            var result = _owner.FormatCore(in _request, this, request);
+            _collapseCache = new(request, result);
+            return result;
+        }
         private readonly (int Start, int Count)[] _boxes;
         private readonly (int Start, int Count)[] _carets;
         private readonly int[][] _logicalCarets;
@@ -101,8 +133,9 @@ internal sealed class WpfPortableTextFormatting : IPortableTextFormatting
         public object NativeFont => _fonts[0];
         public object GetNativeFont(uint fontIndex) => _fonts[checked((int)fontIndex)];
 
-        internal Paragraph(NativeTextParagraphSnapshot native, TtfFont[] fonts)
+        internal Paragraph(WpfPortableTextFormatting owner, PortableTextParagraphRequest request, NativeTextParagraphSnapshot native, TtfFont[] fonts)
         {
+            _owner = owner; _request = request;
             _fonts = fonts;
             _native = native;
             var glyphs = new PortableTextGlyph[native.Glyphs.Length];
@@ -111,7 +144,8 @@ internal sealed class WpfPortableTextFormatting : IPortableTextFormatting
                 var g = native.Glyphs.Span[i];
                 if (g.FontIndex >= fonts.Length) throw new NotSupportedException("The source font map must include native fallback faces.");
                 glyphs[i] = new(g.GlyphId, g.Cluster, native.ClusterEnds.Span[i], g.X, g.Y, g.AdvanceX,
-                    native.BidiLevels.Span[i], g.FontIndex, g.GlyphId == NativeTextParagraphSnapshot.TabGlyphId);
+                    native.BidiLevels.Span[i], g.FontIndex, g.GlyphId == NativeTextParagraphSnapshot.TabGlyphId,
+                    native.CollapsedRange?.SymbolGlyphIndex == i);
             }
             Glyphs = glyphs;
             var lines = new PortableTextLineInfo[native.Lines.Length];

@@ -1,5 +1,15 @@
 # Agent Guidance
 
+Portable TextLine collapse uses the captured typed provider and ProGPU's explicit
+collapsed native view, preserving the original source map, metrics, newlines and
+continuation. Format the real TextCharacters sign through source physical-font
+mapping; never draw the native placeholder or assign hidden text to the last
+visible glyph cluster. Preserve symbol brushes/decorations, hidden-range carets
+and selection, baseline-positioned indexed exports and independent wrapper life.
+Ordinary glyph export stays on retained list storage. Non-text/multiline symbols
+and remaining text contracts stay explicit; compiled header fixtures are not
+Toolkit package/runtime/performance qualification.
+
 Portable FlowDocument layout must consume the typed `IPortableDocumentFlow`
 service backed by ProGPU C++, using source-resolved block policy and actual
 formatted paragraph lines. Keep original TextContainer/TextPointer ownership,

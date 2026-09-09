@@ -114,6 +114,7 @@ public static class Program
             try
             {
                 NativeMilBitmapDpiSmoke.RunFactory(presentationCore);
+                NativeMilTextCollapseSmoke.Run();
                 // Exercise source text/resource construction before any window host.
                 object drawingVisual = CreateNativeMilHostDrawingVisual(presentationCore, windowsBase);
                 using var host = new ProGpuWpfWindowHost(new ProGpuWpfWindowOptions
@@ -139,6 +140,7 @@ public static class Program
                 }
 
                 Assembly presentationFramework = loadContext.LoadFromAssemblyPath(presentationFrameworkPath);
+                NativeMilTextCollapseSmoke.RunSourceHeader(presentationFramework, presentationCore, windowsBase);
                 object inlineText = CreateNativeMilInlineTextVisual(presentationFramework, presentationCore, windowsBase);
                 object root = Create(presentationCore, "System.Windows.Media.ContainerVisual");
                 AddToCollection(GetProperty(root, "Children"), drawingVisual);

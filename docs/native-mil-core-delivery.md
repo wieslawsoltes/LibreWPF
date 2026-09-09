@@ -26,12 +26,13 @@ subsystem roadmap. None of these rows is runtime-qualified yet.
 | 2 | Application closure: use the same MVP, Toolkit/AvalonDock, license-controlled Xceed and existing SciChart gate. Finish required text/selection, scroll/clip, popup/input, resize/DPI, content/effect/cache updates and close/reopen/device-loss ownership. Reuse existing implementations; fix concrete missing connections. | Each required action has an implemented path and authored regression coverage. Record any known blocking branch against that action; do not reopen already connected subsystems for optional refinements. |
 | 3 | Feature freeze, final qualification and delivery: build complete platform artifacts and packages, execute the existing cross-platform/Windows comparison and application gates, fix failures, and bring both PRs' required CI to green at the delivery commits. | Record exact-head package consumption and required gate results, with explicit failures or environment/license limitations. Only then report the core release delivered. |
 
-Concrete current source blocker: narrowing the Toolkit application's top header
-requires `PortableTextLine.Collapse` for CharacterEllipsis, which still rejects
-overflow. The shared native tab/shaping-safe trim scan is corrected, but the typed
-collapsed view, source symbol/range/interaction mapping and WPF consumer remain
-open. Continue that application dependency; do not remove its trimming request.
-See [the implementation checkpoint](../reports/native-mil-toolkit-text-collapse-2026-09-09.md).
+The Toolkit top-header CharacterEllipsis connection is now implemented through
+typed native collapsed views and source symbol/range/interaction mapping, with
+native and source-header fixtures authored. This removes the identified blanket
+source rejection, not the need for application/pixel/performance qualification.
+Continue the startup/package and concrete application closure queue above; do not
+expand unrelated trimming API families before freeze. See the
+[connection checkpoint](../reports/native-mil-toolkit-text-collapse-connection-2026-09-09.md).
 
 The `Visual` geometry-hit consumer through `PathGeometry.HitTestWithPathGeometry`
 is now connected to ProGPU's shared native fill-relation query under portable

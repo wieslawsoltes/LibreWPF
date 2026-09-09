@@ -12,6 +12,89 @@ namespace System.Windows.Media;
 [Collection("Sequential")]
 public class PortableTextLineTests
 {
+    [PortableMediaFact]
+    public void CollapseRetainsSourceRangesAndIndependentStyledSymbolAfterProviderRemoval()
+    {
+        var properties = new Properties(new FontFamily(Path.Combine(AppContext.BaseDirectory,
+            "LibreWPF", "Fonts", "Inter-Medium.ttf") + "#Inter"));
+        var source = new Source { Text = "abc", Properties = properties };
+        var provider = new CollapseProvider();
+        using var registration = PortableWpfServiceRegistry.RegisterTextFormatting(provider);
+        using var formatter = new TextFormatterImp();
+        using var original = formatter.FormatLine(source, 0, 7,
+            new ParagraphProperties(properties, false, false, TextWrapping.NoWrap), null, new TextRunCache());
+        registration.Dispose();
+        var signProperties = new Properties(properties.Typeface.FontFamily) { Size = 24 };
+        using var collapsed = original.Collapse(new TextTrailingCharacterEllipsis(7, signProperties));
+        Assert.True(collapsed.HasCollapsed);
+        Assert.False(original.HasCollapsed);
+        Assert.Equal(original.Length, collapsed.Length);
+        Assert.Equal(original.Height, collapsed.Height);
+        Assert.Equal(original.Baseline, collapsed.Baseline);
+        Assert.Equal(7, collapsed.Width);
+        Assert.Equal(1, collapsed.NewlineLength);
+        var range = Assert.Single(collapsed.GetTextCollapsedRanges());
+        Assert.Equal(1, range.TextSourceCharacterIndex);
+        Assert.Equal(2, range.Length);
+        Assert.Equal(8, range.Width);
+        Assert.Equal(new CharacterHit(1, 2), collapsed.GetCharacterHitFromDistance(6));
+        Assert.Equal(4, collapsed.GetDistanceFromCharacterHit(new CharacterHit(2, 0)));
+        Assert.Equal(7, collapsed.GetDistanceFromCharacterHit(new CharacterHit(1, 2)));
+        var bounds = Assert.Single(collapsed.GetTextBounds(1, 2));
+        Assert.Equal(new Rect(4, 0, 3, collapsed.Height), bounds.Rectangle);
+        var glyphs = collapsed.GetIndexedGlyphRuns().ToArray();
+        Assert.Equal(2, glyphs.Length);
+        Assert.Equal(24, glyphs[1].GlyphRun.FontRenderingEmSize);
+        Assert.Equal(new Point(4, collapsed.Baseline), glyphs[1].GlyphRun.BaselineOrigin);
+        Assert.Equal(1, glyphs[1].TextSourceCharacterIndex);
+        Assert.Equal(2, glyphs[1].TextSourceLength);
+        Assert.Equal(2, provider.FormatCalls); // Symbol uses the captured provider, not the current registry.
+        original.Dispose();
+        Assert.Single(collapsed.GetTextCollapsedRanges());
+        using var expanded = collapsed.Collapse(new TextTrailingCharacterEllipsis(100, signProperties));
+        Assert.False(expanded.HasCollapsed);
+        Assert.Equal(12, expanded.Width);
+        Assert.Equal(3, Assert.Single(expanded.GetIndexedGlyphRuns()).TextSourceLength);
+        var visual = new DrawingVisual();
+        using var drawing = visual.RenderOpen();
+        collapsed.Draw(drawing, new Point(), InvertAxes.None);
+    }
+
+    // Typed adapter fixture only; native shaping/layout is covered separately.
+    private sealed class CollapseProvider : IPortableTextFormatting
+    {
+        internal int FormatCalls { get; private set; }
+        public IPortableTextParagraph Format(in PortableTextParagraphRequest request)
+        {
+            FormatCalls++;
+            return new CollapseParagraph(request.Text.Length == 1, false);
+        }
+    }
+
+    private sealed class CollapseParagraph(bool symbol, bool collapsed) : IPortableTextParagraph
+    {
+        public PortableTextCollapsedRange? CollapsedRange => collapsed ? new(0, 1, 3, 1) : null;
+        public IPortableTextParagraph Collapse(in PortableTextCollapseRequest request)
+        {
+            Assert.Equal(0, request.LineIndex); Assert.Equal(7, request.Width); Assert.Equal(3, request.SymbolWidth);
+            Assert.Equal(PortableTextTrimming.Character, request.Trimming);
+            return new CollapseParagraph(false, true);
+        }
+        public ReadOnlyMemory<PortableTextGlyph> Glyphs => symbol ? new PortableTextGlyph[] { new(0, 0, 1, 0, 0, 3, 0) } :
+            collapsed ? new PortableTextGlyph[] { new(0, 0, 1, 0, 0, 4, 0), new(0, 1, 3, 4, 0, 3, 0, IsCollapseSymbol: true) } :
+            new PortableTextGlyph[] { new(0, 0, 1, 0, 0, 4, 0), new(0, 1, 2, 4, 0, 4, 0), new(0, 2, 3, 8, 0, 4, 0) };
+        public ReadOnlyMemory<PortableTextLineInfo> Lines => new PortableTextLineInfo[] { new(0, Glyphs.Length, 0,
+            symbol ? 1 : 3, symbol ? 3 : collapsed ? 7 : 12, 0, 20) };
+        public PortableTextHit HitTest(int lineIndex, float distance) => new(3, true);
+        public float GetCaretDistance(int lineIndex, PortableTextHit hit) => hit.Position == 3 ? 7 : hit.Position * 4;
+        public int GetNextLogicalCaret(int lineIndex, int position, bool previous) => previous ? position > 1 ? 1 : 0 : position < 1 ? 1 : 3;
+        public int GetSelection(int lineIndex, int start, int end, Span<PortableRect> rectangles)
+        {
+            rectangles[0] = symbol ? new(0, 0, 3, 20) : collapsed && start >= 1 ? new(4, 0, 3, 20) : new(0, 0, 4, 20);
+            return 1;
+        }
+    }
+
     // A Windows-MIL test process must not switch its frozen resource domain.
     // The explicit-portable Windows host/application gate covers that platform.
     private sealed class PortableMediaFactAttribute : FactAttribute

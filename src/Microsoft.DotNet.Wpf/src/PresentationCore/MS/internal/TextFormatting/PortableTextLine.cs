@@ -43,6 +43,11 @@ internal sealed class PortableTextLine : TextLine
     private readonly int _trailing;
     private readonly double _width;
     private bool _disposed;
+    private readonly TextFormatterImp _formatter;
+    private readonly IPortableTextFormatting _service;
+    private readonly PortableTextLine _symbol;
+    private readonly PortableTextLine _uncollapsed;
+    private readonly List<IndexedGlyphRun> _collapsedGlyphRuns;
     private PortableTextLineInfo Info => _paragraph.Lines.Span[_lineIndex];
     private int First => _paragraphStart + (_lineIndex == 0 ? 0 : _sourceMap.ToSource(Info.InputStart, true));
     private int End => _paragraphStart + _sourceMap.ToSource(Info.InputEnd, true);
@@ -234,7 +239,8 @@ internal sealed class PortableTextLine : TextLine
         }
         return new PortableTextLine(paragraph, text, properties, face, first, 0, newlines,
             width, indent, baseline, height, pap.RightToLeft, runs, pixelsPerDip, pap.Align, styles.ToArray(), pap.LineHeight > 0,
-            new PortableTextSourceMap(sourceLength, text.Length, CollectionsMarshal.AsSpan(sourceRanges)), scope);
+            new PortableTextSourceMap(sourceLength, text.Length, CollectionsMarshal.AsSpan(sourceRanges)), scope,
+            settings.Formatter, service);
     }
 
     internal static MinMaxParagraphWidth MeasureIntrinsicWidths(FormatSettings settings, int first,
@@ -283,7 +289,8 @@ internal sealed class PortableTextLine : TextLine
     private PortableTextLine(PortableTextLine owner, int index) : this(owner._paragraph, owner._text,
         owner._properties, owner._face, owner._paragraphStart, index, owner._newlines,
         owner._paragraphWidth, owner._indent, owner._baseline, owner._height, owner._rightToLeft,
-        owner._runs, owner.PixelsPerDip, owner._alignment, owner._styles, owner._fixedHeight, owner._sourceMap, owner._endScope) { }
+        owner._runs, owner.PixelsPerDip, owner._alignment, owner._styles, owner._fixedHeight, owner._sourceMap, owner._endScope,
+        owner._formatter, owner._service) { }
 
     private static PortableTextFeature[] Features(TextRunTypographyProperties p)
     {
@@ -310,7 +317,9 @@ internal sealed class PortableTextLine : TextLine
     private PortableTextLine(IPortableTextParagraph paragraph, string text, TextRunProperties properties,
         GlyphTypeface face, int paragraphStart, int lineIndex, int newlines, double width, double indent,
         double baseline, double height, bool rtl, List<TextSpan<TextRun>> runs, double pixelsPerDip, TextAlignment alignment,
-        SourceStyle[] styles, bool fixedHeight, PortableTextSourceMap sourceMap, TextModifierScope endScope)
+        SourceStyle[] styles, bool fixedHeight, PortableTextSourceMap sourceMap, TextModifierScope endScope,
+        TextFormatterImp formatter, IPortableTextFormatting service, PortableTextLine symbol = null,
+        PortableTextLine uncollapsed = null, double? baselineOverride = null)
         : base(pixelsPerDip)
     {
         _paragraph = paragraph; _text = text; _properties = properties; _face = face;
@@ -319,6 +328,7 @@ internal sealed class PortableTextLine : TextLine
         _paragraphWidth = width; _indent = indent; _baseline = baseline; _height = height;
         _rightToLeft = rtl; _runs = runs; _alignment = alignment;
         _styles = styles; _fixedHeight = fixedHeight;
+        _formatter = formatter; _service = service; _uncollapsed = uncollapsed;
         double ascent = 0, descent = 0;
         foreach (var style in styles)
         {
@@ -331,15 +341,35 @@ internal sealed class PortableTextLine : TextLine
             _baseline = ascent;
             if (!fixedHeight) _height = ascent + descent;
         }
-        int visibleEnd = Info.InputEnd;
+        // Collapse keeps original line metrics; a taller sign contributes ink
+        // overhang, not a new advance that would move following source lines.
+        if (baselineOverride is { } forcedBaseline) _baseline = forcedBaseline;
+        int visibleEnd = paragraph.CollapsedRange is { } collapsed ? collapsed.Start : Info.InputEnd;
         while (visibleEnd > Info.InputStart && char.IsWhiteSpace(text[visibleEnd - 1])) visibleEnd--;
-        _trailing = End - _paragraphStart - Math.Max(First - _paragraphStart, _sourceMap.ToSource(visibleEnd, false));
+        _trailing = paragraph.CollapsedRange != null ? 0 :
+            End - _paragraphStart - Math.Max(First - _paragraphStart, _sourceMap.ToSource(visibleEnd, false));
         double trailingWidth = 0;
-        foreach (var glyph in paragraph.Glyphs.Span.Slice(Info.GlyphStart, Info.GlyphCount))
-            if (glyph.Cluster >= visibleEnd) trailingWidth += glyph.Advance;
+        if (paragraph.CollapsedRange == null)
+            foreach (var glyph in paragraph.Glyphs.Span.Slice(Info.GlyphStart, Info.GlyphCount))
+                if (glyph.Cluster >= visibleEnd) trailingWidth += glyph.Advance;
         _width = Math.Max(0, Info.Width - trailingWidth);
         Rect ink = CreateGlyphRuns();
         CacheUnderlines(visibleEnd, ref ink);
+        if (symbol != null && paragraph.CollapsedRange is { } range)
+        {
+            var placement = paragraph.Glyphs.Span[range.SymbolGlyphIndex];
+            _symbol = new PortableTextLine(symbol._paragraph, symbol._text, symbol._properties, symbol._face,
+                0, 0, 0, 0, Start + placement.X, symbol._baseline, symbol._height, symbol._rightToLeft,
+                symbol._runs, PixelsPerDip, TextAlignment.Left, symbol._styles, symbol._fixedHeight,
+                symbol._sourceMap, null, symbol._formatter, symbol._service, baselineOverride: Baseline);
+            ink.Union(_symbol._ink);
+            int sourceStart = _paragraphStart + _sourceMap.ToSource(range.Start, true);
+            int sourceEnd = _paragraphStart + _sourceMap.ToSource(range.End, true);
+            _collapsedGlyphRuns = new(_glyphRuns.Count + _symbol._glyphRuns.Count);
+            _collapsedGlyphRuns.AddRange(_glyphRuns);
+            for (int i = 0; i < _symbol._glyphRuns.Count; ++i)
+                _collapsedGlyphRuns.Add(new(sourceStart, sourceEnd - sourceStart, _symbol._glyphRuns[i].GlyphRun));
+        }
         _ink = ink;
     }
 
@@ -412,6 +442,12 @@ internal sealed class PortableTextLine : TextLine
         {
             int stop = first + 1;
             sbyte level = glyphs[first].BidiLevel;
+            if (glyphs[first].IsCollapseSymbol)
+            {
+                _selectionRuns.Add((glyphs[first].Cluster, glyphs[first].ClusterEnd, level));
+                first = stop;
+                continue; // Its independently formatted source symbol owns ink/style.
+            }
             int styleIndex = StyleIndex(glyphs[first].Cluster);
             var style = _styles[styleIndex];
             var face = style.Face;
@@ -427,7 +463,7 @@ internal sealed class PortableTextLine : TextLine
                 first = stop;
                 continue;
             }
-            while (stop < end && !glyphs[stop].IsTab && glyphs[stop].BidiLevel == level && glyphs[stop].FontIndex == fontIndex &&
+            while (stop < end && !glyphs[stop].IsTab && !glyphs[stop].IsCollapseSymbol && glyphs[stop].BidiLevel == level && glyphs[stop].FontIndex == fontIndex &&
                 StyleIndex(glyphs[stop].Cluster) == styleIndex)
             {
                 var previous = glyphs[stop - 1]; var next = glyphs[stop];
@@ -516,6 +552,7 @@ internal sealed class PortableTextLine : TextLine
         {
             foreach (var background in _backgrounds) drawingContext.DrawRectangle(background.Brush, null, background.Bounds);
             for (int i = 0; i < _glyphRuns.Count; i++) drawingContext.DrawGlyphRun(_glyphProperties[i].ForegroundBrush, _glyphRuns[i].GlyphRun);
+            _symbol?.Draw(drawingContext, new Point(), InvertAxes.None);
             if (_underlines != null)
                 foreach (var underline in _underlines)
                 {
@@ -530,8 +567,84 @@ internal sealed class PortableTextLine : TextLine
     }
 
     public override TextLine Collapse(params TextCollapsingProperties[] properties)
-    { CheckAlive(); if (properties.Length == 0 || Width <= properties[0].Width) return this; throw Unsupported("source collapsing symbols"); }
-    public override IList<TextCollapsedRange> GetTextCollapsedRanges() => null;
+    {
+        CheckAlive();
+        return CollapseCore(properties);
+    }
+
+    private TextLine CollapseCore(TextCollapsingProperties[] properties)
+    {
+        ArgumentNullException.ThrowIfNull(properties);
+        if (properties.Length == 0) return this;
+        var collapsing = properties[0] ?? throw new ArgumentException("Collapsing properties cannot be null.", nameof(properties));
+        if (!double.IsFinite(collapsing.Width) || collapsing.Width < 0 || collapsing.Width > float.MaxValue)
+            throw new ArgumentOutOfRangeException(nameof(properties));
+        // The immutable original paragraph remains usable through this view
+        // even when its original TextLine wrapper has been disposed.
+        if (_uncollapsed != null)
+        {
+            var result = _uncollapsed.CollapseCore(properties);
+            return ReferenceEquals(result, _uncollapsed) ? new PortableTextLine(_uncollapsed, _lineIndex) : result;
+        }
+        if (Width + _indent <= collapsing.Width) return this;
+        if (collapsing.Symbol is not TextCharacters characters || characters.Properties == null || characters.Length <= 0)
+            throw Unsupported("non-text collapsing symbols");
+        var source = new CollapsingSymbolSource(characters, PixelsPerDip);
+        source.Initialize();
+        var paragraphProperties = new CollapsingSymbolProperties(characters.Properties, _rightToLeft);
+        var settings = new FormatSettings(_formatter, source, new TextRunCacheImp(),
+            new ParaProp(_formatter, paragraphProperties, false), null, true, TextFormattingMode.Ideal, false);
+        using var symbol = (PortableTextLine)Create(settings, 0, 0, PixelsPerDip, _service);
+        if (symbol._paragraph.Lines.Length != 1 || symbol._text.Length != characters.Length)
+            throw Unsupported("multiline collapsing symbols");
+        var request = new PortableTextCollapseRequest(_lineIndex, (float)Math.Max(0, collapsing.Width - _indent),
+            (float)symbol.WidthIncludingTrailingWhitespace, collapsing.Style switch
+            {
+                TextCollapsingStyle.TrailingCharacter => PortableTextTrimming.Character,
+                TextCollapsingStyle.TrailingWord => PortableTextTrimming.Word,
+                _ => throw Unsupported("unknown collapsing granularity")
+            });
+        var collapsed = _paragraph.Collapse(request) ?? throw new InvalidOperationException("The provider returned no collapsed paragraph.");
+        if (collapsed.CollapsedRange is not { } range || range.LineIndex != _lineIndex ||
+            range.Start < Info.InputStart || range.Start >= range.End || range.End != Info.InputEnd ||
+            (uint)range.SymbolGlyphIndex >= collapsed.Glyphs.Length || !collapsed.Glyphs.Span[range.SymbolGlyphIndex].IsCollapseSymbol)
+            throw new InvalidOperationException("The provider returned invalid collapsed source ranges.");
+        return new PortableTextLine(collapsed, _text, _properties, _face, _paragraphStart, _lineIndex, _newlines,
+            _paragraphWidth, _indent, _baseline, _height, _rightToLeft, _runs, PixelsPerDip, _alignment,
+            _styles, _fixedHeight, _sourceMap, _endScope, _formatter, _service, symbol, this);
+    }
+
+    public override IList<TextCollapsedRange> GetTextCollapsedRanges()
+    {
+        CheckAlive();
+        if (_paragraph.CollapsedRange is not { } c) return null;
+        int first = _paragraphStart + _sourceMap.ToSource(c.Start, true);
+        int end = _paragraphStart + _sourceMap.ToSource(c.End, true);
+        double sign = _paragraph.Glyphs.Span[c.SymbolGlyphIndex].Advance;
+        return new[] { new TextCollapsedRange(first, end - first,
+            Math.Max(0, _uncollapsed.WidthIncludingTrailingWhitespace - WidthIncludingTrailingWhitespace + sign)) };
+    }
+
+    private sealed class CollapsingSymbolSource(TextCharacters characters, double pixelsPerDip) : TextSource
+    {
+        public override TextRun GetTextRun(int index) => index == 0 ? characters : new TextEndOfParagraph(1);
+        public override TextSpan<CultureSpecificCharacterBufferRange> GetPrecedingText(int index)
+            => new(0, new(characters.Properties.CultureInfo, new CharacterBufferRange(string.Empty, 0, 0)));
+        public override int GetTextEffectCharacterIndexFromTextSourceCharacterIndex(int index) => index;
+        internal void Initialize() => PixelsPerDip = pixelsPerDip;
+    }
+
+    private sealed class CollapsingSymbolProperties(TextRunProperties properties, bool rtl) : TextParagraphProperties
+    {
+        public override FlowDirection FlowDirection => rtl ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
+        public override TextAlignment TextAlignment => TextAlignment.Left;
+        public override double LineHeight => 0;
+        public override bool FirstLineInParagraph => true;
+        public override TextRunProperties DefaultTextRunProperties => properties;
+        public override TextWrapping TextWrapping => TextWrapping.NoWrap;
+        public override TextMarkerProperties TextMarkerProperties => null;
+        public override double Indent => 0;
+    }
     public override CharacterHit GetCharacterHitFromDistance(double distance)
     {
         CheckAlive(); var hit = _paragraph.HitTest(_lineIndex, (float)(distance - Start));
@@ -542,8 +655,13 @@ internal sealed class PortableTextLine : TextLine
         return new(_paragraphStart + sourceStart, sourceEnd - sourceStart);
     }
     public override double GetDistanceFromCharacterHit(CharacterHit hit)
-    { CheckAlive(); return Start + _paragraph.GetCaretDistance(_lineIndex,
-        new(_sourceMap.ToText(Math.Clamp(checked(hit.FirstCharacterIndex + hit.TrailingLength) - _paragraphStart, 0, _sourceMap.SourceLength)), hit.TrailingLength != 0)); }
+    {
+        CheckAlive();
+        int position = _sourceMap.ToText(Math.Clamp(checked(hit.FirstCharacterIndex + hit.TrailingLength) - _paragraphStart, 0, _sourceMap.SourceLength));
+        if (_paragraph.CollapsedRange is { } c && position > c.Start && position < c.End)
+            position = hit.TrailingLength != 0 ? c.End : c.Start;
+        return Start + _paragraph.GetCaretDistance(_lineIndex, new(position, hit.TrailingLength != 0));
+    }
     public override CharacterHit GetNextCaretCharacterHit(CharacterHit hit) => Move(hit, false);
     public override CharacterHit GetPreviousCaretCharacterHit(CharacterHit hit) => Move(hit, true);
     public override CharacterHit GetBackspaceCaretCharacterHit(CharacterHit hit) => Move(hit, true);
@@ -601,14 +719,20 @@ internal sealed class PortableTextLine : TextLine
         }
         return result;
     }
-    public override IEnumerable<IndexedGlyphRun> GetIndexedGlyphRuns() => _glyphRuns;
-    public override TextLineBreak GetTextLineBreak() => _lineIndex + 1 < _paragraph.Lines.Length ?
+    public override IEnumerable<IndexedGlyphRun> GetIndexedGlyphRuns()
+    {
+        CheckAlive();
+        return _collapsedGlyphRuns ?? _glyphRuns;
+    }
+    public override TextLineBreak GetTextLineBreak() => _uncollapsed != null ? _uncollapsed.GetTextLineBreak() :
+        _lineIndex + 1 < _paragraph.Lines.Length ?
         new TextLineBreak(null, IntPtr.Zero) { PortableContinuation = new(this, _lineIndex + 1, End) } :
         _endScope == null ? null : new TextLineBreak(_endScope, IntPtr.Zero);
     public override bool HasOverflowed => _paragraphWidth > 0 && Start + Width > _paragraphWidth;
-    public override bool HasCollapsed => false;
+    public override bool HasCollapsed => _paragraph.CollapsedRange != null;
     public override int Length => End - First + NewlineLength;
-    public override int NewlineLength => _lineIndex + 1 == _paragraph.Lines.Length ? _newlines : 0;
+    public override int NewlineLength => _uncollapsed != null ? _uncollapsed.NewlineLength :
+        _lineIndex + 1 == _paragraph.Lines.Length ? _newlines : 0;
     public override int TrailingWhitespaceLength => _trailing + NewlineLength;
     public override int DependentLength => _sourceMap.SourceLength - (End - _paragraphStart);
     public override double Start => _indent + (_paragraphWidth <= 0 ? 0 : _alignment switch
