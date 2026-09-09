@@ -44,6 +44,13 @@ spatial masks or caches.
 This does not refresh the complete package feed or qualify host input. The
 following package-production paragraphs retain their earlier provenance.
 
+The [MVP line-input connection](../reports/native-mil-mvp-line-input-2026-09-09.md)
+adds ordinary geometry-line strokes to the native producer and fixes diagonal
+square-cap broad-phase bounds in both encoders. It traces the real `MvpShapeLine`,
+not a reduced application. Other geometry kinds, stroke batches (including the
+MVP's closed stroked path), caches/effects and native host routing remain open.
+Authored fixtures and build-only artifacts do not qualify those interactions.
+
 Package input refresh: macOS, Linux and Windows ARM64/x64 native payloads now
 share ProGPU da36a718 in the same staging root. Both Linux refresh builds completed
 all 709 compile/module/link steps. ProGPU.Backend.Native.0.1.0-preview.55.nupkg
