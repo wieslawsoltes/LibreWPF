@@ -148,6 +148,13 @@ rewrite or claims of qualified codec/worker/SIMD parity follow from this routing
 
 ## Core Native MIL Delivery Priority
 
+Native X11 dialog hints use ProGPU's typed controller lease, not a WPF-local Xlib
+adapter. Release before source focus completion, native hide and destruction;
+advisory WM submission is not native input-gate qualification. A rejected or failed
+portable dialog loop must hide through the source Window path before returning an
+error, preserving source identity for retry rather than leaving a visible modeless
+window. Keep native/managed modes on the same host and all final platform gates.
+
 Standard portable run underlines use native paragraph range geometry and actual
 source physical font metrics, with retained fill rectangles and baseline/top-edge
 guidelines. Preserve brush identity, wrapped ownership, interior tabs, trailing

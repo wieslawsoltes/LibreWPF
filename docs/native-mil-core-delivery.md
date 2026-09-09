@@ -116,6 +116,19 @@ commit. Their next-step text is historical, may be superseded by later changes,
 and must not be treated as an additional active backlog. Use the active completion
 queue above for current priorities.
 
+X11 About-dialog native-state connection (2026-09-09): ProGPU 91104e9f owns a typed,
+thread-bound EWMH modal-hint lease, preserving preexisting/unrelated state and
+queued-removal/reopen ownership. LibreWPF acquires it for the actual X11 dialog
+and releases it before source focus completion, native Hide and destruction.
+Unsupported hint admission is explicit. Source ShowPortableDialog now hides the
+real Window after host admission/pump failure, retaining its identity for retry
+instead of leaving it visibly modeless after an exception. Both renderers share
+this connection. This is advisory WM state, not full Linux native input gating;
+Wayland, Cocoa native popup admission, Windows package startup and final visible
+application/WM qualification remain open. See the
+[X11 hint contract](../external/ProGPU/docs/native-mil-x11-modal-hint.md) and
+[implementation record](../reports/native-mil-x11-dialog-hint-2026-09-09.md).
+
 Linux payload production (2026-09-09): a dedicated no-host-mount Colima build
 profile supplied Ubuntu ARM64 without changing the suspended Parallels guests or
 active Docker context. Both Linux ARM64 and x64 completed 709 native build steps,

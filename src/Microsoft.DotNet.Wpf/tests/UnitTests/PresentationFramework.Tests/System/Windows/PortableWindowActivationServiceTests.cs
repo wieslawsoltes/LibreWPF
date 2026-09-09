@@ -745,7 +745,7 @@ public class PortableWindowActivationServiceTests
         {
             var activation = new object();
             var window = new Window { Width = 200, Height = 100 };
-            int creates = 0;
+            int creates = 0, hides = 0;
             PortableWindowActivationService.Register(activate: _ => { creates++; return activation; });
             try
             {
@@ -758,15 +758,33 @@ public class PortableWindowActivationServiceTests
                 creates.Should().Be(0); window.IsVisible.Should().BeFalse();
                 PortableWindowActivationService.Register(activate: _ => activation,
                     getHandle: _ => new IntPtr(5678), runDialog: (_, _) => { },
+                    hide: _ => hides++,
                     releaseDialog: (_, completed) => completed());
                 show.Should().Throw<InvalidOperationException>().WithMessage("*still open*");
                 ComponentDispatcher.IsThreadModal.Should().BeFalse();
-                window.Hide();
+                window.IsVisible.Should().BeFalse();
+                window.IsDisposed.Should().BeFalse();
+                window.PortableWindowActivation.Should().BeSameAs(activation);
+                hides.Should().Be(1);
                 var failure = new InvalidOperationException("Host event pump failure.");
                 PortableWindowActivationService.Register(activate: _ => activation,
+                    hide: _ => hides++,
                     runDialog: (_, _) => throw failure, releaseDialog: (_, completed) => completed());
                 show.Should().Throw<InvalidOperationException>().Which.Should().BeSameAs(failure);
                 ComponentDispatcher.IsThreadModal.Should().BeFalse();
+                window.IsVisible.Should().BeFalse();
+                window.IsDisposed.Should().BeFalse();
+                hides.Should().Be(2);
+                var hideFailure = new InvalidOperationException("Host hide failure.");
+                PortableWindowActivationService.Register(activate: _ => activation,
+                    hide: _ => throw hideFailure,
+                    runDialog: (_, _) => throw failure, releaseDialog: (_, completed) => completed());
+                var combined = show.Should().Throw<AggregateException>().Which;
+                combined.InnerExceptions.Should().Contain(failure).And.Contain(hideFailure);
+                ComponentDispatcher.IsThreadModal.Should().BeFalse();
+                PortableModalInputScope.IsActive.Should().BeFalse();
+                // Repair the deliberately rejected hide before the next case.
+                PortableWindowActivationService.Register(activate: _ => activation, hide: _ => { });
                 window.Hide();
                 PortableWindowActivationService.Register(activate: _ => activation);
                 show.Should().Throw<PlatformNotSupportedException>(); // Clear old optional callback.

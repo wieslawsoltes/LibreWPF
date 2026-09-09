@@ -578,10 +578,21 @@ namespace System.Windows
                     }
                 }
             }
-            catch
+            catch (Exception failure)
             {
                 ClearShowKeyboardCueState();
                 _showingAsDialog = false;
+                // Native admission/pump failure must not leave a visible source
+                // window running modelessly after ShowDialog throws. Hide through
+                // the real source path, preserving its identity for a later retry.
+                try
+                {
+                    if (_isVisible && !_disposed) Hide();
+                }
+                catch (Exception cleanup)
+                {
+                    throw new AggregateException("Portable dialog failure and hide cleanup failed.", failure, cleanup);
+                }
                 throw;
             }
             finally

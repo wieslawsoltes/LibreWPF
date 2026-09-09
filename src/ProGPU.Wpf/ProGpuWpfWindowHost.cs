@@ -129,6 +129,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
     private SilkWindowController? _windowController;
     private object? _modalInputOwner;
     private IDisposable? _modalInputRegistration;
+    private NativeWindowModalHint? _nativeDialogHint;
     private bool _nativeInputAllowed = true;
     private PortableWindowRegion? _windowRegion;
 
@@ -562,9 +563,12 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
     internal void RunDialog(Func<bool> continueRunning)
     {
         ArgumentNullException.ThrowIfNull(continueRunning);
+        if (_nativeDialogHint is { IsReleased: false })
+            throw new InvalidOperationException("This native window already owns a dialog hint.");
         // ShowPortableDialog already showed the source. Do not show it again if
         // a synchronous activation/layout callback hid it before pumping starts.
-        RunCore(showActivated: false, showWindow: false, continueRunning);
+        try { RunCore(showActivated: false, showWindow: false, continueRunning); }
+        finally { ReleaseNativeDialogHint(); }
     }
 
     private void RunCore(bool showActivated, bool showWindow, Func<bool>? continueRunning = null)
@@ -587,6 +591,10 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
             _isHostVisible = true;
             ShowNativeWindow(showActivated);
         }
+        if (continueRunning != null && _isHostVisible &&
+            _windowController?.Handle.Kind == NativeWindowKind.X11 &&
+            !_windowController.TryBeginModalHint(out _nativeDialogHint))
+            throw new PlatformNotSupportedException("The X11 window manager did not accept modal-hint submission.");
         _isNativeLoopRunning = true;
         TraceNativeLoop("run entering: " + CreateNativeLoopTraceState());
         try
@@ -601,6 +609,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         finally
         {
             _isNativeLoopRunning = false;
+            if (continueRunning != null) ReleaseNativeDialogHint();
             DisposeDeferredNativeWindowIfNeeded();
             TraceNativeLoop("run leaving: " + CreateNativeLoopTraceState());
         }
@@ -938,6 +947,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
 
     private void HideNativeWindowAfterModalRelease()
     {
+        ReleaseNativeDialogHint();
         if (_nativeHidePending) return;
         if (_window != null)
         {
@@ -972,6 +982,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
     internal void ReleaseNativeDialog(Action completed)
     {
         ArgumentNullException.ThrowIfNull(completed);
+        ReleaseNativeDialogHint();
         // Cleanup can arrive after source Close disposed its activation. The
         // native window may still be retained by the active native event poll.
         if (NativeWindowModalSession.IsActive && _window?.IsInitialized == true &&
@@ -979,6 +990,14 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
             NativeWindowModalSession.TryReleaseWindow(
                 new(NativeWindowKind.Cocoa, cocoa, 0, "NSWindow"), completed)) return;
         completed();
+    }
+
+    private void ReleaseNativeDialogHint()
+    {
+        // EWMH submission is synchronous; source gate/focus publication follows
+        // it, without claiming that the WM has acknowledged native suppression.
+        _nativeDialogHint?.Dispose();
+        _nativeDialogHint = null;
     }
 
     public void SetWindowState(ProGpuWpfWindowState windowState)
@@ -1468,6 +1487,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
             return;
         }
 
+        ReleaseNativeDialogHint();
         _isDisposed = true;
         _modalInputRegistration?.Dispose();
         _modalInputRegistration = null;
