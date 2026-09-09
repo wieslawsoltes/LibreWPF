@@ -1,5 +1,12 @@
 # Agent Guidance
 
+Default access keys and no-focus F10/Alt menu entry share source-aware active
+scope lookup. Portable roots require the typed active-scope capability, current
+dispatcher, live source and actual visible/active/modal-allowed Window state.
+Never pick the first registered root or interpret a ProGPU handle as a WPF HWND.
+Missing/ambiguous portable scope fails closed; native Windows MIL retains its
+HWND lookup. Do not infer activation from retained keyboard focus or Show intent.
+
 Portable TextLine collapse uses the captured typed provider and ProGPU's explicit
 collapsed native view, preserving the original source map, metrics, newlines and
 continuation. Format the real TextCharacters sign through source physical-font

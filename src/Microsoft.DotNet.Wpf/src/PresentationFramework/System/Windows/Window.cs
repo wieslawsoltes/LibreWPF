@@ -29,7 +29,7 @@ using Win32Error = MS.Internal.Interop.Win32Error;
 namespace System.Windows
 {
     [Localizability(LocalizationCategory.Ignore)]
-    public class Window : ContentControl, IWindowService, IPortableVisualOwnerHost, IPortableWindowStateSource
+    public class Window : ContentControl, IWindowService, IPortableVisualOwnerHost, IPortableWindowStateSource, IPortableAccessKeyScopeSource
     {
         //---------------------------------------------------
         //
@@ -99,6 +99,10 @@ namespace System.Windows
         {
             get { return PortableVisualOwnerKind.Window; }
         }
+
+        bool IPortableAccessKeyScopeSource.IsPortableAccessKeyScopeActive =>
+            IsPortableWindowActive && !_disposed && _isVisible && IsActive &&
+            PortableModalInputScope.AllowsInput(this);
 
         bool IPortableWindowStateSource.TryGetPortableWindowState(out PortableWindowState state)
         {

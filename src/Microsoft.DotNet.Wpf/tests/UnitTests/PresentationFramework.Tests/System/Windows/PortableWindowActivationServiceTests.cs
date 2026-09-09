@@ -14,6 +14,59 @@ namespace System.Windows;
 [Collection("Sequential")]
 public class PortableWindowActivationServiceTests
 {
+    [PortableInputFact]
+    public void MenuEntryWithoutFocusUsesActiveVisibleUnblockedPortableWindow()
+    {
+        RunInUiApartment(() =>
+        {
+            using IPortablePresentationSourceHost firstHost = PortablePresentationSourceHost.Create();
+            using IPortablePresentationSourceHost secondHost = PortablePresentationSourceHost.Create();
+            var first = new Window { Width = 200, Height = 100 };
+            var second = new Window { Width = 200, Height = 100 };
+            PortableWindowActivationService.Register(activate: value => value,
+                getHandle: value => ReferenceEquals(value, first) ? firstHost.Handle : secondHost.Handle);
+            var firstScope = (IPortableAccessKeyScopeSource)first;
+            var secondScope = (IPortableAccessKeyScopeSource)second;
+            object? menuSource = null;
+            KeyboardNavigation.EnterMenuModeEventHandler handler = (source, _) => { menuSource = source; return true; };
+            KeyboardNavigation.Current.EnterMenuMode += handler;
+            try
+            {
+                first.Show(); second.Show();
+                firstHost.RootVisual = first; secondHost.RootVisual = second;
+                firstHost.SetClientSize(200, 100); secondHost.SetClientSize(200, 100);
+                PortableWindowActivationService.SetActivationState(second, true);
+                firstScope.IsPortableAccessKeyScopeActive.Should().BeFalse();
+                secondScope.IsPortableAccessKeyScopeActive.Should().BeTrue();
+                Keyboard.ClearFocus();
+                foreach (RoutedEvent routedEvent in new[] { Keyboard.KeyDownEvent, Keyboard.KeyUpEvent })
+                    InputManager.Current.ProcessInput(new KeyEventArgs(Keyboard.PrimaryDevice,
+                        (PresentationSource)secondHost, 0, Key.F10) { RoutedEvent = routedEvent });
+                menuSource.Should().BeSameAs(secondHost);
+                using (PortableModalInputScope.Enter(first))
+                    secondScope.IsPortableAccessKeyScopeActive.Should().BeFalse();
+                second.Hide();
+                secondScope.IsPortableAccessKeyScopeActive.Should().BeFalse();
+                second.Show();
+                PortableWindowActivationService.SetActivationState(second, false);
+                secondScope.IsPortableAccessKeyScopeActive.Should().BeFalse();
+                PortableWindowActivationService.SetActivationState(first, true);
+                firstScope.IsPortableAccessKeyScopeActive.Should().BeTrue();
+                first.Close();
+                firstScope.IsPortableAccessKeyScopeActive.Should().BeFalse();
+            }
+            finally
+            {
+                KeyboardNavigation.Current.EnterMenuMode -= handler;
+                Keyboard.ClearFocus();
+                firstHost.RootVisual = null; secondHost.RootVisual = null;
+                if (!first.IsDisposed) first.Close();
+                if (!second.IsDisposed) second.Close();
+                PortableWindowActivationService.Clear();
+            }
+        });
+    }
+
     private const int MouseMoveInputKind = 3;
     private const int MouseDownInputKind = 4;
     private const int MouseUpInputKind = 5;

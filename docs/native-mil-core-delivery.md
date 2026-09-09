@@ -34,6 +34,13 @@ Continue the startup/package and concrete application closure queue above; do no
 expand unrelated trimming API families before freeze. See the
 [connection checkpoint](../reports/native-mil-toolkit-text-collapse-connection-2026-09-09.md).
 
+The MVP's no-focus F10/Alt menu-entry fallback now shares a typed active-source
+resolver with default access keys. It no longer calls user32 unconditionally or
+chooses the first registered portable root. Actual source activation, visibility,
+dispatcher, disposal and modal admission select the scope; authored regressions
+are not runtime qualification. See the
+[menu-entry checkpoint](../reports/native-mil-active-menu-scope-2026-09-09.md).
+
 The `Visual` geometry-hit consumer through `PathGeometry.HitTestWithPathGeometry`
 is now connected to ProGPU's shared native fill-relation query under portable
 media selection. The existing native host harness includes region selection

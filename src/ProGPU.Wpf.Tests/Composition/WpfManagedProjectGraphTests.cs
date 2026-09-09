@@ -6,6 +6,19 @@ namespace ProGPU.Wpf.Tests.Composition;
 public sealed class WpfManagedProjectGraphTests
 {
     [Fact]
+    public void NoFocusMenuEntrySharesSourceOwnedAccessKeyAdmission()
+    {
+        string framework = FindRepoPath("src", "Microsoft.DotNet.Wpf", "src", "PresentationFramework", "System", "Windows");
+        string navigation = File.ReadAllText(Path.Combine(framework, "Input", "KeyboardNavigation.cs"));
+        string window = File.ReadAllText(Path.Combine(framework, "Window.cs"));
+        Assert.Contains("source = AccessKeyManager.GetActivePresentationSource();", navigation, StringComparison.Ordinal);
+        Assert.DoesNotContain("UnsafeNativeMethods.GetActiveWindow()", navigation, StringComparison.Ordinal);
+        Assert.Contains("IPortableAccessKeyScopeSource.IsPortableAccessKeyScopeActive", window, StringComparison.Ordinal);
+        Assert.Contains("IsPortableWindowActive && !_disposed && _isVisible && IsActive &&", window, StringComparison.Ordinal);
+        Assert.Contains("PortableModalInputScope.AllowsInput(this)", window, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void SdkPackageBuildOnlyKeepsQualificationOutsideProductionPath()
     {
         string script = File.ReadAllText(FindRepoPath("eng", "progpu-wpf-sdk-ci.sh"));
@@ -9209,7 +9222,10 @@ public sealed class WpfManagedProjectGraphTests
         AssertGuardBefore(ellipseGeometry, "if (!OperatingSystem.IsWindows())", "return ContainsInternal(\n                        pen");
         Assert.Contains("return OperatingSystem.IsWindows() && !CoreAppContextSwitches.DisableStylusAndTouchSupport", stylusLogic, StringComparison.Ordinal);
         AssertGuardBefore(stylusLogic, "if (!OperatingSystem.IsWindows())", "Registry.CurrentUser.OpenSubKey");
-        AssertGuardBefore(accessKeyManager, "if (!global::System.OperatingSystem.IsWindows())", "UnsafeNativeMethods.GetActiveWindow()");
+        AssertGuardBefore(accessKeyManager, "PortableWpfRuntime.GetMediaBackendAndFreeze() == PortableWpfMediaBackend.Portable", "UnsafeNativeMethods.GetActiveWindow()");
+        Assert.Contains("source.Dispatcher.CheckAccess() && !source.IsDisposed", accessKeyManager, StringComparison.Ordinal);
+        Assert.Contains("IPortableAccessKeyScopeSource { IsPortableAccessKeyScopeActive: true }", accessKeyManager, StringComparison.Ordinal);
+        Assert.Contains("if (active != null) return null;", accessKeyManager, StringComparison.Ordinal);
         Assert.Contains("PresentationSource.CriticalCurrentSources", accessKeyManager, StringComparison.Ordinal);
         Assert.Contains("GetPortableActiveSource()", accessKeyManager, StringComparison.Ordinal);
         Assert.Contains("scope = NormalizePortableScope(scope);", accessKeyManager, StringComparison.Ordinal);

@@ -10,6 +10,67 @@ namespace System.Windows;
 [Collection("Sequential")]
 public class PortablePresentationSourceTests
 {
+    [PortableScopeFact]
+    public void DefaultAccessKeyScopeRequiresActualActivePortableRoot()
+    {
+        using IPortablePresentationSourceHost first = PortablePresentationSourceHost.Create();
+        using IPortablePresentationSourceHost second = PortablePresentationSourceHost.Create();
+        var firstRoot = new AccessKeyRoot();
+        var secondRoot = new AccessKeyRoot();
+        first.RootVisual = firstRoot;
+        second.RootVisual = secondRoot;
+        first.SetClientSize(200, 100);
+        second.SetClientSize(200, 100);
+        AccessKeyManager.Register("Q", firstRoot);
+        AccessKeyManager.Register("Q", secondRoot);
+        try
+        {
+            Assert.Null(AccessKeyManager.GetActivePresentationSource());
+            secondRoot.Active = true;
+            Assert.Same(second, AccessKeyManager.GetActivePresentationSource());
+            AccessKeyManager.ProcessKey(null, "Q", false);
+            Assert.Equal(0, firstRoot.Invocations);
+            Assert.Equal(1, secondRoot.Invocations);
+            firstRoot.Active = true;
+            Assert.Null(AccessKeyManager.GetActivePresentationSource()); // Ambiguous publication.
+            secondRoot.Active = false;
+            Assert.Same(first, AccessKeyManager.GetActivePresentationSource());
+            first.RootVisual = null;
+            Assert.Null(AccessKeyManager.GetActivePresentationSource());
+            first.RootVisual = firstRoot;
+            first.Dispose();
+            Assert.Null(AccessKeyManager.GetActivePresentationSource());
+            second.RootVisual = new HitTestElement(); // No typed active-scope capability.
+            Assert.Null(AccessKeyManager.GetActivePresentationSource());
+        }
+        finally
+        {
+            AccessKeyManager.Unregister("Q", firstRoot);
+            AccessKeyManager.Unregister("Q", secondRoot);
+        }
+    }
+
+    private sealed class PortableScopeFactAttribute : StaFactAttribute
+    {
+        public PortableScopeFactAttribute()
+        {
+            if (PortableWpfRuntime.ConfiguredMediaBackend != PortableWpfMediaBackend.Portable)
+                Skip = "Requires portable media selected before input initialization, including on Windows.";
+        }
+    }
+
+    private sealed class AccessKeyRoot : UIElement, IPortableAccessKeyScopeSource
+    {
+        internal bool Active { get; set; }
+        internal int Invocations { get; private set; }
+        public bool IsPortableAccessKeyScopeActive => Active;
+        internal AccessKeyRoot()
+        {
+            AccessKeyManager.AddAccessKeyPressedHandler(this, (_, e) => e.Target = this);
+        }
+        protected override void OnAccessKey(AccessKeyEventArgs e) => Invocations++;
+    }
+
     [Fact]
     public void InitialDeviceScaleIsAppliedToRootVisual()
     {
