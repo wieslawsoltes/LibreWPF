@@ -4,7 +4,7 @@
 
 This initial package skeleton layers on the existing WindowsDesktop SDK so WPF markup compilation remains owned by the real `PresentationBuildTasks` implementation. It then selects the portable ProGPU/Silk.NET platform and redirects WPF framework references through either package references or local artifact roots while the port is still source-built.
 
-Package mode is the intended delivery path. It references the ported managed WPF bundle through `ProGpuWpfManagedPackageId`/`ProGpuWpfManagedPackageVersion`, references the ProGPU runtime packages, injects the non-Windows portable activation bootstrap, and copies resolved managed and native runtime assets to the application output. Local-artifact mode remains available for source-tree validation by setting `ProGpuWpfManagedReferenceRoot` and `ProGpuReferenceRoot`.
+Package mode is the intended delivery path. It references the ported managed WPF bundle through `ProGpuWpfManagedPackageId`/`ProGpuWpfManagedPackageVersion`, references the ProGPU runtime packages, injects portable activation on non-Windows hosts and for explicit native MIL selection on Windows, and copies resolved managed and native runtime assets to the application output. Local-artifact mode remains available for source-tree validation by setting `ProGpuWpfManagedReferenceRoot` and `ProGpuReferenceRoot`.
 
 For mutable development package versions such as `0.1.0-preview.45`, the SDK clears known WPF and ProGPU runtime assemblies from the app output before recopying package assets. This prevents an incremental app rebuild from launching stale bridge/compositor DLLs after a local package refresh while preserving normal incremental copy behavior for stable package versions. Set `ProGpuWpfClearMutablePackageOutputs=false` to disable this development safeguard.
 
@@ -47,20 +47,22 @@ bootstrap. Unknown values fail the build; native
 executables cannot disable portable references/bootstrap and silently use another
 renderer. Failure to register typed source-built activation is a startup error.
 
-Native SDK activation is currently wired for macOS/Linux, **not runtime-qualified**.
+Native SDK activation is wired for macOS/Linux/Windows x64 and ARM64 desktop
+processes, **not runtime-qualified**.
 It requires the matching `ProGPU.Backend.Native` package and its RID-native assets,
 and inherits the current native host's full-surface/uniform-DPI restrictions.
-Windows SDK native selection currently throws explicitly. Typed portable
-`Application`/`Window` activation and render-wakeup registration now accept
-Windows hosts. MIL transport startup/locking now use an explicit, frozen
-`PortableWpfRuntime` selection; native bootstrap selects portable media before
-WPF initialization. Media-resource utility calls and popup/interop-handle routing
-still need ownership-aware integration. Registration alone is not a complete
-backend switch, and the Windows SDK guard remains.
+Native selection rejects other process architectures before WPF initialization;
+in particular, Windows x86 transport assets do not supply a native MIL backend.
+On Windows too, the bootstrap selects frozen portable media and lazy typed
+providers before source startup, then registers the explicit native host factory.
+Source window/input/media ownership and popup desktop/DPI routing use the shared
+portable contracts. Missing host registration or native resources fail rather
+than silently selecting Windows MIL or managed replay. This connects application
+startup but does not establish complete API coverage or application fidelity.
 The direct native host harness remains a separate Windows integration path, not
 proof that package-mode application activation works there. The default Windows
-SDK bootstrap behavior remains unchanged. Closing this Windows activation gap is
-required for the core delivery milestone.
+SDK bootstrap behavior remains unchanged. Windows runtime, popup/input/mixed-DPI
+and package application qualification remain required for core delivery.
 
 The final SDK qualification matrix uses the same applications in both modes:
 

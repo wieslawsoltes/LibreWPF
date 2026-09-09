@@ -22,8 +22,8 @@ subsystem roadmap. None of these rows is runtime-qualified yet.
 
 | Order | Implementation batch | Exit to the next batch |
 | --- | --- | --- |
-| 1 — current | Native package activation: source-built harness and package MVP, including Windows. Close required source-media routing from startup through first frame and common resource construction. Popup ownership, pre-host services, provider-first text dispatch, intrinsic measurement, whole-word wrapping, rich-editor media routing/per-line metrics and FlowDocument scroll-view/paginated drawing and interaction are connected. Source marker formatting and ProGPU symbol-cmap support already exist; actual font availability and acceptance document-policy compatibility require qualification, not another parser/composer. Native macOS/Linux/Windows ARM64/x64 payloads use da36a718. Corrected Windows managed/IJW builds now complete for x86/x64/ARM64 with zero warnings/errors, and all 23 selected SDK packages are produced, unqualified. Concrete remaining source-media routes, Windows SDK admission and package consumption remain open. | Required paths select ProGPU explicitly, compile, and have no known route into unintended Windows MIL or silent managed rendering. Keep Windows admission guarded until its dependencies are implemented. |
-| 2 | Application closure: use the same MVP, Toolkit/AvalonDock, license-controlled Xceed and existing SciChart gate. Finish required text/selection, scroll/clip, popup/input, resize/DPI, content/effect/cache updates and close/reopen/device-loss ownership. Reuse existing implementations; fix concrete missing connections. | Each required action has an implemented path and authored regression coverage. Record any known blocking branch against that action; do not reopen already connected subsystems for optional refinements. |
+| 1 — startup connected, qualification pending | Native package activation: source-built harness and complete package MVP, including Windows x64/ARM64. Popup ownership, pre-host services, frozen media/input selection, typed text/document/geometry/bitmap routes and native host factory registration are connected. The SDK now enters those portable paths on Windows for explicit native selection, rejecting unsupported process architectures or failed registration. Native desktop payloads use da36a718; corrected Windows transport builds and all 23 selected SDK packages are produced. Isolated package-mode MVP compilation succeeds; source/application runtime behavior remains unqualified. | Continue concrete acceptance actions below. Any newly identified startup/source-media blocker reopens this row; package compilation is not first-frame or Windows runtime proof. |
+| 2 — current | Application closure: use the same MVP, Toolkit/AvalonDock, license-controlled Xceed and existing SciChart gate. Finish required text/selection, scroll/clip, popup/input, resize/DPI, content/effect/cache updates and close/reopen/device-loss ownership. Reuse existing implementations; fix concrete missing connections. | Each required action has an implemented path and authored regression coverage. Record any known blocking branch against that action; do not reopen already connected subsystems for optional refinements. |
 | 3 | Feature freeze, final qualification and delivery: build complete platform artifacts and packages, execute the existing cross-platform/Windows comparison and application gates, fix failures, and bring both PRs' required CI to green at the delivery commits. | Record exact-head package consumption and required gate results, with explicit failures or environment/license limitations. Only then report the core release delivered. |
 
 Package input refresh: macOS, Linux and Windows ARM64/x64 native payloads now
@@ -52,8 +52,8 @@ Windows production has resumed in the existing Parallels guest. ProGPU da36a718
 closes strict MSVC compilation failures in native MIL/text and test fixtures;
 both ARM64 and x64 builds completed, each staging three DLLs/seven SDK libraries.
 The x64 build completed all 356 steps without further fixes.
-Windows SDK admission remains open; managed/IJW and package production completed
-in the follow-up below. Both macOS architectures now also use da36a718, completing 62
+Windows SDK activation is connected in the follow-up below; managed/IJW and
+package production also completed. Both macOS architectures use da36a718, completing 62
 incremental compile/link steps each and staging both providers/six SDK archives.
 Both Linux inputs have also been refreshed. This is build-only progress, not
 runtime qualification; see the
@@ -87,8 +87,20 @@ metadata. The corrected rebuild now completed for x86, x64 and ARM64 with zero
 warnings/errors in each graph and staged all required Windows managed/IJW inputs.
 This closes the build blockers, not package consumption or runtime qualification.
 The pinned SDK and payload requirements remain unchanged. Corrected package
-inputs are exported and packed; Windows SDK admission remains guarded. See the
+inputs are exported and packed. See the
 [managed build-entry record](../reports/native-mil-windows-managed-build-entry-2026-09-09.md).
+
+Windows native SDK startup now enters the existing typed activation path for
+x64/ARM64 processes instead of rejecting Windows or returning before registration.
+Native media/provider selection precedes source startup; failed registration and
+unsupported process architectures still throw. Ordinary managed Windows startup
+is unchanged. The source-backed prerequisite trace covers frozen media/input,
+hidden-source ownership, common media, popup desktop/DPI/input units and native
+first-frame compilation. The full isolated package MVP compiles, but no app was
+launched. Its existing final gates now assert frozen portable media and an actual
+native session frame for compiled native mode. Continue application closure,
+not general compatibility expansion. See the
+[Windows SDK connection record](../reports/native-mil-windows-sdk-activation-2026-09-09.md).
 
 The Toolkit top-header CharacterEllipsis connection is now implemented through
 typed native collapsed views and source symbol/range/interaction mapping, with

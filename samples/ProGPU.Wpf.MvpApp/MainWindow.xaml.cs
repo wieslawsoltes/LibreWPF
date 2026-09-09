@@ -1008,7 +1008,11 @@ public partial class MainWindow : Window
             Console.WriteLine("ProGPU WPF MVP live input validation frame ready.");
             string geometryStatus = await InvokeWithLiveHostWakeAsync(
                 liveHost,
-                () => ValidateLiveRenderSurfaceGeometryCore(liveHost, 760, 560),
+                () =>
+                {
+                    MvpSelfTest.ValidateNativeSdkSelection(liveHost);
+                    return ValidateLiveRenderSurfaceGeometryCore(liveHost, 760, 560);
+                },
                 DispatcherPriority.Send);
             Console.WriteLine("ProGPU WPF MVP live input validation geometry ready.");
             string windowingStatus = await InvokeWithLiveHostWakeAsync(
@@ -4127,9 +4131,27 @@ internal sealed class MvpStatusAdorner : Adorner
 
 internal static class MvpSelfTest
 {
+    internal static void ValidateNativeSdkSelection(ProGpuWpfWindowHost? presentedHost = null)
+    {
+#if PROGPU_WPF_NATIVE_MIL
+        if (!string.Equals(AppContext.GetData("LibreWPF.RequestedRendererMode") as string,
+                "NativeMilWgpu", StringComparison.Ordinal))
+            throw new InvalidOperationException("The native SDK executable is missing its requested renderer record.");
+
+        if (PortableWpfRuntime.ConfiguredMediaBackend != PortableWpfMediaBackend.Portable ||
+            !PortableWpfRuntime.IsMediaBackendFrozen)
+            throw new InvalidOperationException("Native SDK startup did not select and freeze portable source media.");
+
+        if (presentedHost != null &&
+            (!presentedHost.HasPresentedFrame || presentedHost.LastNativeMilSessionFrame == null))
+            throw new InvalidOperationException("The explicitly selected native SDK host did not present a native MIL session frame.");
+#endif
+    }
+
     public static void Validate(MainWindow window, bool expectLoadedStoryboardApplied = false)
     {
         ArgumentNullException.ThrowIfNull(window);
+        ValidateNativeSdkSelection();
 
         var viewModel = window.DataContext as MainViewModel
             ?? throw new InvalidOperationException("Expected MVP DataContext.");
