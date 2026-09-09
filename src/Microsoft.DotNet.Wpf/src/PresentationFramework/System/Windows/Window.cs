@@ -544,17 +544,22 @@ namespace System.Windows
             // Capture admission before showing a window. A normal application
             // loop cannot represent Hide ending a synchronous dialog lifetime.
             Action<object, Func<bool>> runDialog = PortableWindowActivationService.GetDialogRunCallback();
-            // Dispose in reverse order: reopen the previous input scope/native
-            // gates before asking its window and source element to regain focus.
-            using IDisposable restoreInput = PortableWindowActivationService.CaptureModalInputRestoreState();
-            using PortableModalInputScope modalInput = PortableModalInputScope.Enter(this);
-            EnsureDialogCommand();
+            Action<object, Action> releaseDialog = PortableWindowActivationService.GetDialogReleaseCallback();
+            if (_portableDialogInputScope is { IsReleased: false })
+                throw new InvalidOperationException("The previous portable dialog is still completing native release.");
+            IDisposable restoreInput = PortableWindowActivationService.CaptureModalInputRestoreState();
+            PortableModalInputScope modalInput;
+            try { modalInput = PortableModalInputScope.Enter(this); }
+            catch { restoreInput.Dispose(); throw; }
             bool pushedModal = false;
 
             try
             {
+                restoreInput = new PortableDialogInputRestore(this, modalInput, restoreInput);
                 _portableDialogInputScope = modalInput;
                 _portableDialogInputRestore = restoreInput;
+                _portableDialogReleaseCallback = releaseDialog;
+                EnsureDialogCommand();
                 _showingAsDialog = true;
                 PortableWindowActivationService.PrepareForModalInput();
                 Show();
@@ -581,16 +586,14 @@ namespace System.Windows
             }
             finally
             {
-                if (pushedModal)
+                try
                 {
-                    ComponentDispatcher.PopModal();
+                    if (pushedModal) ComponentDispatcher.PopModal();
                 }
-
-                _showingAsDialog = false;
-                if (ReferenceEquals(_portableDialogInputScope, modalInput))
+                finally
                 {
-                    _portableDialogInputScope = null;
-                    _portableDialogInputRestore = null;
+                    _showingAsDialog = false;
+                    ReleasePortableDialogInput(modalInput, restoreInput, releaseDialog);
                 }
             }
 
@@ -4750,16 +4753,52 @@ namespace System.Windows
 
         private void ReleasePortableDialogInput()
         {
-            // An outer dialog may close while an owned nested dialog is active.
-            // InternalDispose retries after closing its owned windows; Hide can
-            // defer to the ordinary reverse-order ShowDialog scope unwind.
-            if (_portableDialogInputScope?.IsCurrent != true) return;
-            PortableModalInputScope scope = _portableDialogInputScope;
-            IDisposable restore = _portableDialogInputRestore;
-            _portableDialogInputScope = null;
-            _portableDialogInputRestore = null;
-            try { scope.Dispose(); }
-            finally { restore?.Dispose(); }
+            if (_portableDialogInputScope == null) return;
+            ReleasePortableDialogInput(_portableDialogInputScope, _portableDialogInputRestore,
+                _portableDialogReleaseCallback);
+        }
+
+        private void ReleasePortableDialogInput(PortableModalInputScope scope, IDisposable restore,
+            Action<object, Action> releaseDialog)
+        {
+            // Capture before accepted Close clears the activation. ProGPU owns
+            // native completion and deferred source LIFO order, not a using that
+            // would reopen input as soon as this managed callback returns.
+            object activation = _portableWindowActivation;
+            scope.ReleaseAfterNative(completed =>
+            {
+                if (activation == null) completed(); // Show failed before host admission.
+                else releaseDialog(activation, completed);
+            }, restore);
+        }
+
+        private sealed class PortableDialogInputRestore : IDisposable
+        {
+            private Window _owner;
+            private PortableModalInputScope _scope;
+            private IDisposable _restore;
+
+            internal PortableDialogInputRestore(Window owner, PortableModalInputScope scope, IDisposable restore)
+            {
+                _owner = owner; _scope = scope; _restore = restore;
+            }
+
+            public void Dispose()
+            {
+                Window owner = _owner;
+                IDisposable restore = _restore;
+                if (owner == null) return;
+                if (ReferenceEquals(owner._portableDialogInputScope, _scope))
+                {
+                    owner._portableDialogInputScope = null;
+                    owner._portableDialogInputRestore = null;
+                    owner._portableDialogReleaseCallback = null;
+                }
+                _owner = null; _scope = null; _restore = null;
+                // This source-owned snapshot rechecks gate synchronization,
+                // activation, visibility and the actual focused-element source.
+                restore.Dispose();
+            }
         }
 
         private void UpdateWindowListsOnClose()
@@ -7869,6 +7908,7 @@ namespace System.Windows
         private object              _portableWindowActivation;          // object that will hold the non-Windows window
         private PortableModalInputScope _portableDialogInputScope;
         private IDisposable _portableDialogInputRestore;
+        private Action<object, Action> _portableDialogReleaseCallback;
         private bool                _hasPortableCustomChrome;
         private Window              _ownerWindow;                       // owner window
         private bool                _refreshingPortableRootVisualState;

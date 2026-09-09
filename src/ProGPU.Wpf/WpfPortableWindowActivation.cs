@@ -169,6 +169,7 @@ public sealed class WpfPortableWindowActivation : IDisposable
                 : null,
             ShowSystemMenu = (activation, x, y) => ((WpfPortableWindowActivation)activation).TryShowSystemMenu(x, y),
             RunDialog = (activation, continueRunning) => ((WpfPortableWindowActivation)activation).RunCore(continueRunning),
+            ReleaseDialog = (activation, completed) => ((WpfPortableWindowActivation)activation).Host.ReleaseNativeDialog(completed),
             SetOwner = (activation, owner) => ((WpfPortableWindowActivation)activation).SetOwner(owner)
         };
     }

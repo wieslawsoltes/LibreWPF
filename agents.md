@@ -129,6 +129,14 @@ visibility. Deferred completion checks latest Show/Hide and disposed state and
 rechecks native leases; do not apply an old Hide after a newer Show. This callback
 does not replace source modal-gate/focus restoration ordering or admit GLFW popups
 to AppKit modality. Keep automatic session activation guarded until both connect.
+Source ShowDialog now captures both typed RunDialog and ReleaseDialog capabilities
+before Show. Transfer its input scope and source-owned focus snapshot through
+ProGPU ReleaseAfterNative instead of using/finally disposal before native End.
+Keep cleanup generation-bound, native completion on the source thread, source
+scopes LIFO even when native completions arrive out of order, and prior-focus
+checks after gate publication. Reopening that Window as a dialog while its earlier
+release is pending must fail explicitly. This connection does not qualify Cocoa
+popup admission, Linux modality, native interaction or Windows package startup.
 
 Decoder-backed core application images follow `BitmapSource.UsesPortablePixelStorage`
 for backend selection on every OS. Existing portable format dispatch must not fall

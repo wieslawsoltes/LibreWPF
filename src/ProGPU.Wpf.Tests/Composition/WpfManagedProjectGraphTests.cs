@@ -2706,6 +2706,10 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("return ShowPortableDialog();", window, StringComparison.Ordinal);
         Assert.Contains("private Nullable<bool> ShowPortableDialog()", window, StringComparison.Ordinal);
         Assert.Contains("PortableWindowActivationService.GetDialogRunCallback();", window, StringComparison.Ordinal);
+        Assert.Contains("PortableWindowActivationService.GetDialogReleaseCallback();", window, StringComparison.Ordinal);
+        Assert.Contains("scope.ReleaseAfterNative(completed =>", window, StringComparison.Ordinal);
+        Assert.DoesNotContain("using PortableModalInputScope modalInput", window, StringComparison.Ordinal);
+        Assert.DoesNotContain("using IDisposable restoreInput", window, StringComparison.Ordinal);
         Assert.Contains("if (!IsPortableWindowActive && (_showingAsDialog) && (_isVisible))", window, StringComparison.Ordinal);
         Assert.Contains("runDialog(_portableWindowActivation, () => _showingAsDialog && _isVisible && !_disposed);", window, StringComparison.Ordinal);
         Assert.Contains("ComponentDispatcher.PushModal();", window, StringComparison.Ordinal);

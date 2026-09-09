@@ -37,12 +37,30 @@ public sealed class WpfPortableWindowActivationTests
         Assert.NotNull(service.Callbacks.Close);
         Assert.NotNull(service.Callbacks.Run);
         Assert.NotNull(service.Callbacks.RunDialog);
+        Assert.NotNull(service.Callbacks.ReleaseDialog);
         Assert.NotNull(service.Callbacks.SetOwner);
         Assert.NotNull(service.Callbacks.Dispose);
         Assert.NotNull(service.Callbacks.DragMove);
         Assert.NotNull(service.Callbacks.GetHandle);
         Assert.NotNull(service.Callbacks.SetWindowRegion);
         Assert.NotNull(service.Callbacks.RequestActivation);
+    }
+
+    [Fact]
+    public void DialogReleaseWithoutNativeSessionCompletesEvenAfterActivationDisposal()
+    {
+        var service = new TestWindowActivationServiceRegistrar();
+        using var registration = PortableWpfServiceRegistry.RegisterWindowActivationService(service);
+        Assert.True(WpfPortableWindowActivation.TryRegisterPresentationFrameworkActivation());
+        using var host = new ProGpuWpfWindowHost { WpfRenderScheduler = new TestRenderScheduler() };
+        Assert.True(WpfPortableWindowActivation.TryAttach(host, new FakeWindow(), new FakePortablePresentationSource(), out var activation));
+        using var lease = activation;
+        int completed = 0;
+        service.Callbacks!.ReleaseDialog!(activation!, () => completed++);
+        Assert.Equal(1, completed);
+        activation!.Dispose();
+        service.Callbacks.ReleaseDialog(activation, () => completed++);
+        Assert.Equal(2, completed);
     }
 
     [Fact]

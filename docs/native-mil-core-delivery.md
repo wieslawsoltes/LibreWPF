@@ -116,6 +116,21 @@ commit. Their next-step text is historical, may be superseded by later changes,
 and must not be treated as an additional active backlog. Use the active completion
 queue above for current priorities.
 
+Source dialog completion (2026-09-09): the MVP About-dialog Hide/Close path now
+transfers source input/focus cleanup through captured typed ReleaseDialog and
+ProGPU ReleaseAfterNative contracts. Source scopes remain blocked until native
+completion and unwind inside-out, including out-of-order native completions.
+The original focus snapshot is restored only after source gate publication and
+its existing synchronization/native-activation/source-identity checks. Managed
+ShowDialog finally no longer disposes pending scopes early. Cancellation stays
+modal; repeated release/completion is idempotent, and reopening the same dialog
+before completion fails explicitly. Both renderer modes share this connection.
+Native Cocoa popup admission still blocks automatic AppKit sessions; this source
+connection is not modal runtime qualification or package/Windows admission.
+See the [source completion contract](../external/ProGPU/docs/native-mil-dialog-lifetime.md#native-completion-before-source-input-and-focus-restoration).
+Build commands, authored coverage and qualification limits are recorded in the
+[implementation report](../reports/native-mil-source-dialog-completion-2026-09-09.md).
+
 Deferred native dialog Hide (2026-09-09): ProGPU now provides window-scoped native
 modal release completion after actual End and identity cleanup, including nested
 sessions and callback unwinding. LibreWPF host Hide consumes that completion,

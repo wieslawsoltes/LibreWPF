@@ -34,6 +34,7 @@ public class PortableWindowActivationServiceTests
             PortableWindowActivationService.Register(activate: _ => window,
                 getHandle: _ => new IntPtr(1234),
                 close: _ => closes++, dispose: _ => disposals++,
+                releaseDialog: (_, completed) => completed(),
                 runDialog: (_, continuation) =>
                 {
                     rejectEnable = true;
@@ -56,6 +57,86 @@ public class PortableWindowActivationServiceTests
                 if (!window.IsDisposed) window.Close();
                 PortableWindowActivationService.Clear();
                 using var restored = PortableModalInputScope.Enter(new object());
+            }
+        });
+    }
+
+    [PortableInputFact]
+    public void DialogHideAndCloseKeepInputAndFocusBlockedUntilNativeCompletion()
+    {
+        RunInUiApartment(() =>
+        {
+            foreach (bool closeDialog in new[] { false, true })
+            {
+                using IPortablePresentationSourceHost ownerHost = PortablePresentationSourceHost.Create();
+                var owner = new Window { Width = 200, Height = 100, Focusable = true };
+                var dialog = new Window { Width = 100, Height = 100 };
+                Action? completed = null;
+                bool nativeEnded = false, ownerAllowed = true;
+                int releaseRequests = 0, activationRequests = 0;
+                using var gate = PortableModalInputScope.RegisterWindow(owner, allowed => ownerAllowed = allowed);
+                PortableWindowActivationService.Register(activate: value => value,
+                    getHandle: value => ReferenceEquals(value, owner) ? ownerHost.Handle : new IntPtr(5679),
+                    requestActivation: value =>
+                    {
+                        value.Should().BeSameAs(owner);
+                        nativeEnded.Should().BeTrue();
+                        ownerAllowed.Should().BeTrue();
+                        PortableModalInputScope.IsNativeInputPolicySynchronized.Should().BeTrue();
+                        activationRequests++;
+                        return true;
+                    },
+                    runDialog: (_, continuation) =>
+                    {
+                        PortableWindowActivationService.SetActivationState(owner, false);
+                        if (closeDialog) dialog.Close(); else dialog.Hide();
+                        continuation().Should().BeFalse();
+                        ownerAllowed.Should().BeFalse();
+                        activationRequests.Should().Be(0);
+                        Keyboard.FocusedElement.Should().BeNull();
+                    },
+                    releaseDialog: (value, callback) =>
+                    {
+                        value.Should().BeSameAs(dialog);
+                        releaseRequests++;
+                        completed = callback;
+                    });
+                try
+                {
+                    owner.Show();
+                    ownerHost.RootVisual = owner;
+                    ownerHost.SetClientSize(200, 100);
+                    Keyboard.Focus(owner).Should().BeSameAs(owner);
+                    PortableWindowActivationService.SetActivationState(owner, true);
+                    dialog.ShowDialog().Should().BeFalse();
+                    releaseRequests.Should().Be(1); // Hide/Close plus finally transfer only once.
+                    ownerAllowed.Should().BeFalse();
+                    activationRequests.Should().Be(0);
+                    dialog.IsDisposed.Should().Be(closeDialog);
+                    if (!closeDialog)
+                    {
+                        Action reopen = () => dialog.ShowDialog();
+                        reopen.Should().Throw<InvalidOperationException>().WithMessage("*still completing native release*");
+                    }
+                    nativeEnded = true;
+                    completed.Should().NotBeNull();
+                    completed!();
+                    completed(); // An accidental duplicate cannot restore focus twice.
+                    ownerAllowed.Should().BeTrue();
+                    activationRequests.Should().Be(1);
+                    Keyboard.FocusedElement.Should().BeSameAs(owner);
+                    PortableModalInputScope.IsActive.Should().BeFalse();
+                }
+                finally
+                {
+                    nativeEnded = true;
+                    completed?.Invoke();
+                    Keyboard.ClearFocus();
+                    if (!dialog.IsDisposed) dialog.Close();
+                    ownerHost.RootVisual = null;
+                    owner.Close();
+                    PortableWindowActivationService.Clear();
+                }
             }
         });
     }
@@ -614,6 +695,7 @@ public class PortableWindowActivationServiceTests
                 dispose: _ => disposals++,
                 getHandle: _ => new IntPtr(5678),
                 run: _ => throw new InvalidOperationException("Application loop must not run a dialog."),
+                releaseDialog: (_, completed) => completed(),
                 runDialog: (owner, continuation) =>
                 {
                     owner.Should().BeSameAs(activation);
@@ -672,12 +754,17 @@ public class PortableWindowActivationServiceTests
                 creates.Should().Be(0); window.IsVisible.Should().BeFalse();
                 PortableWindowActivationService.Register(activate: _ => activation,
                     getHandle: _ => new IntPtr(5678), runDialog: (_, _) => { });
+                show.Should().Throw<PlatformNotSupportedException>().WithMessage("*dialog release completion*");
+                creates.Should().Be(0); window.IsVisible.Should().BeFalse();
+                PortableWindowActivationService.Register(activate: _ => activation,
+                    getHandle: _ => new IntPtr(5678), runDialog: (_, _) => { },
+                    releaseDialog: (_, completed) => completed());
                 show.Should().Throw<InvalidOperationException>().WithMessage("*still open*");
                 ComponentDispatcher.IsThreadModal.Should().BeFalse();
                 window.Hide();
                 var failure = new InvalidOperationException("Host event pump failure.");
                 PortableWindowActivationService.Register(activate: _ => activation,
-                    runDialog: (_, _) => throw failure);
+                    runDialog: (_, _) => throw failure, releaseDialog: (_, completed) => completed());
                 show.Should().Throw<InvalidOperationException>().Which.Should().BeSameAs(failure);
                 ComponentDispatcher.IsThreadModal.Should().BeFalse();
                 window.Hide();
@@ -702,6 +789,7 @@ public class PortableWindowActivationServiceTests
             int runs = 0;
             PortableWindowActivationService.Register(activate: window => window,
                 getHandle: owner => ReferenceEquals(owner, outer) ? new IntPtr(5678) : new IntPtr(5679),
+                releaseDialog: (_, completed) => completed(),
                 runDialog: (owner, continuation) =>
                 {
                     runs++;

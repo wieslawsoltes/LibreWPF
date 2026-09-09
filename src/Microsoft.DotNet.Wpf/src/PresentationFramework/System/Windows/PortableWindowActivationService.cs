@@ -30,6 +30,7 @@ namespace System.Windows
         private static Action<object> _close;
         private static Action<object> _run;
         private static Action<object, Func<bool>> _runDialog;
+        private static Action<object, Action> _releaseDialog;
         private static Action<object, object> _setOwner;
         private static Action<object> _dispose;
         private static Func<object, bool> _dragMove;
@@ -74,7 +75,8 @@ namespace System.Windows
             Func<object, object> createHidden = null,
             Func<object, double, double, bool> showSystemMenu = null,
             Action<object, Func<bool>> runDialog = null,
-            Action<object, object> setOwner = null)
+            Action<object, object> setOwner = null,
+            Action<object, Action> releaseDialog = null)
         {
             ArgumentNullException.ThrowIfNull(activate);
 
@@ -89,6 +91,7 @@ namespace System.Windows
             Volatile.Write(ref _close, close);
             Volatile.Write(ref _run, run);
             Volatile.Write(ref _runDialog, runDialog);
+            Volatile.Write(ref _releaseDialog, releaseDialog);
             Volatile.Write(ref _setOwner, setOwner);
             Volatile.Write(ref _dispose, dispose);
             Volatile.Write(ref _dragMove, dragMove);
@@ -117,6 +120,7 @@ namespace System.Windows
             Volatile.Write(ref _close, null);
             Volatile.Write(ref _run, null);
             Volatile.Write(ref _runDialog, null);
+            Volatile.Write(ref _releaseDialog, null);
             Volatile.Write(ref _setOwner, null);
             Volatile.Write(ref _dispose, null);
             Volatile.Write(ref _dragMove, null);
@@ -1017,6 +1021,12 @@ namespace System.Windows
                 "The portable window host does not support a source-controlled dialog run loop.");
         }
 
+        internal static Action<object, Action> GetDialogReleaseCallback()
+        {
+            return Volatile.Read(ref _releaseDialog) ?? throw new PlatformNotSupportedException(
+                "The portable window host does not support native dialog release completion.");
+        }
+
         internal static void FlushDispatcherOperations(object window, DispatcherPriority markerPriority)
         {
             FlushDispatcherOperations(window, markerPriority, Timeout.InfiniteTimeSpan);
@@ -1131,7 +1141,8 @@ namespace System.Windows
                     callbacks.CreateHidden,
                     callbacks.ShowSystemMenu,
                     callbacks.RunDialog,
-                    callbacks.SetOwner);
+                    callbacks.SetOwner,
+                    callbacks.ReleaseDialog);
             }
 
             public bool TryRegisterMediaContextRenderService(

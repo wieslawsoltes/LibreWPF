@@ -969,6 +969,18 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         if (!_isDisposed && !_isHostVisible) HideNativeWindowAfterModalRelease();
     }
 
+    internal void ReleaseNativeDialog(Action completed)
+    {
+        ArgumentNullException.ThrowIfNull(completed);
+        // Cleanup can arrive after source Close disposed its activation. The
+        // native window may still be retained by the active native event poll.
+        if (NativeWindowModalSession.IsActive && _window?.IsInitialized == true &&
+            _window.Native?.Cocoa is { } cocoa && cocoa != 0 &&
+            NativeWindowModalSession.TryReleaseWindow(
+                new(NativeWindowKind.Cocoa, cocoa, 0, "NSWindow"), completed)) return;
+        completed();
+    }
+
     public void SetWindowState(ProGpuWpfWindowState windowState)
     {
         ThrowIfDisposed();
