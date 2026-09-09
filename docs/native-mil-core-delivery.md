@@ -22,15 +22,17 @@ subsystem roadmap. None of these rows is runtime-qualified yet.
 
 | Order | Implementation batch | Exit to the next batch |
 | --- | --- | --- |
-| 1 — current | Native package activation: source-built harness and package MVP, including Windows. Close required source-media routing from startup through first frame and common resource construction. Popup ownership, pre-host services, provider-first text dispatch, intrinsic measurement, whole-word wrapping, rich-editor media routing/per-line metrics and FlowDocument scroll-view/paginated drawing and interaction are connected. Source marker formatting and ProGPU symbol-cmap support already exist; actual font availability and acceptance document-policy compatibility require qualification, not another parser/composer. Native macOS/Linux ARM64/x64 payloads have compiled in isolated unqualified sets. Fresh Windows native/managed payloads, complete package production, concrete remaining source-media routes and Windows SDK admission remain open. | Required paths select ProGPU explicitly, compile, and have no known route into unintended Windows MIL or silent managed rendering. Keep Windows admission guarded until its dependencies are implemented. |
+| 1 — current | Native package activation: source-built harness and package MVP, including Windows. Close required source-media routing from startup through first frame and common resource construction. Popup ownership, pre-host services, provider-first text dispatch, intrinsic measurement, whole-word wrapping, rich-editor media routing/per-line metrics and FlowDocument scroll-view/paginated drawing and interaction are connected. Source marker formatting and ProGPU symbol-cmap support already exist; actual font availability and acceptance document-policy compatibility require qualification, not another parser/composer. Native macOS/Linux/Windows ARM64/x64 payloads and the ProGPU native package are produced at da36a718, unqualified. Windows managed/IJW payloads, the complete LibreWPF package set, concrete remaining source-media routes and Windows SDK admission remain open. | Required paths select ProGPU explicitly, compile, and have no known route into unintended Windows MIL or silent managed rendering. Keep Windows admission guarded until its dependencies are implemented. |
 | 2 | Application closure: use the same MVP, Toolkit/AvalonDock, license-controlled Xceed and existing SciChart gate. Finish required text/selection, scroll/clip, popup/input, resize/DPI, content/effect/cache updates and close/reopen/device-loss ownership. Reuse existing implementations; fix concrete missing connections. | Each required action has an implemented path and authored regression coverage. Record any known blocking branch against that action; do not reopen already connected subsystems for optional refinements. |
 | 3 | Feature freeze, final qualification and delivery: build complete platform artifacts and packages, execute the existing cross-platform/Windows comparison and application gates, fix failures, and bring both PRs' required CI to green at the delivery commits. | Record exact-head package consumption and required gate results, with explicit failures or environment/license limitations. Only then report the core release delivered. |
 
-Package input refresh: macOS and Linux ARM64/x64 now have build-only payloads
-from ProGPU 2ab498be in the same staging root. Both Linux targets completed all
-709 compile/module/link steps. Windows native/managed production is the remaining
-platform-input dependency at this checkpoint. Do not bypass complete-RID or
-Windows transport checks to report package production complete. See the
+Package input refresh: macOS, Linux and Windows ARM64/x64 native payloads now
+share ProGPU da36a718 in the same staging root. Both Linux refresh builds completed
+all 709 compile/module/link steps. ProGPU.Backend.Native.0.1.0-preview.55.nupkg
+was then produced successfully with normal required-RID/provider checks enabled.
+Windows managed/IJW production and the complete LibreWPF package set remain open.
+Do not bypass Windows transport checks or claim package/runtime qualification
+from this build-only result. See the
 [macOS build record](../reports/native-mil-macos-payload-refresh-2026-09-09.md) and
 [Linux refresh record](../reports/native-mil-linux-payload-refresh-2026-09-09.md).
 
@@ -41,8 +43,8 @@ The x64 build completed all 356 steps without further fixes.
 Windows managed/IJW payloads, complete packages and SDK admission
 remain open. Both macOS architectures now also use da36a718, completing 62
 incremental compile/link steps each and staging both providers/six SDK archives.
-Linux inputs still precede this checkpoint and need refresh. This is build-only
-progress, not runtime qualification; see the
+Both Linux inputs have also been refreshed. This is build-only progress, not
+runtime qualification; see the
 [Windows build record](../reports/native-mil-windows-payload-build-2026-09-09.md).
 
 Windows managed production now uses the current PowerShell 7 host without a
