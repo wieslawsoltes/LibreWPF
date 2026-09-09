@@ -26,12 +26,13 @@ subsystem roadmap. None of these rows is runtime-qualified yet.
 | 2 | Application closure: use the same MVP, Toolkit/AvalonDock, license-controlled Xceed and existing SciChart gate. Finish required text/selection, scroll/clip, popup/input, resize/DPI, content/effect/cache updates and close/reopen/device-loss ownership. Reuse existing implementations; fix concrete missing connections. | Each required action has an implemented path and authored regression coverage. Record any known blocking branch against that action; do not reopen already connected subsystems for optional refinements. |
 | 3 | Feature freeze, final qualification and delivery: build complete platform artifacts and packages, execute the existing cross-platform/Windows comparison and application gates, fix failures, and bring both PRs' required CI to green at the delivery commits. | Record exact-head package consumption and required gate results, with explicit failures or environment/license limitations. Only then report the core release delivered. |
 
-Package input refresh: macOS ARM64/x64 now have build-only payloads from ProGPU
-2ab498be. Refresh the preserved Linux ARM64/x64 build sets to that source next;
-they still carry older native inputs. Windows native/managed production remains
-a separate open dependency. Do not bypass complete-RID or Windows transport checks
-to report package production complete. See the
-[current macOS build record](../reports/native-mil-macos-payload-refresh-2026-09-09.md).
+Package input refresh: macOS and Linux ARM64/x64 now have build-only payloads
+from ProGPU 2ab498be in the same staging root. Both Linux targets completed all
+709 compile/module/link steps. Windows native/managed production is the remaining
+platform-input dependency at this checkpoint. Do not bypass complete-RID or
+Windows transport checks to report package production complete. See the
+[macOS build record](../reports/native-mil-macos-payload-refresh-2026-09-09.md) and
+[Linux refresh record](../reports/native-mil-linux-payload-refresh-2026-09-09.md).
 
 The Toolkit top-header CharacterEllipsis connection is now implemented through
 typed native collapsed views and source symbol/range/interaction mapping, with

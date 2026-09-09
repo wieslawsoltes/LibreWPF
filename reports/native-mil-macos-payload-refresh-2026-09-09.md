@@ -69,10 +69,12 @@ its `sdk` subdirectory. Older Linux sets remain distinct and unqualified.
 
 These are unqualified package inputs, not installable LibreWPF packages or proof
 of application startup/rendering. Windows native/managed payload production,
-remaining application integration and exact-head Linux refresh remain open.
+remaining application integration and final qualification remain open. Linux
+ARM64/x64 subsequently completed the same-commit refresh, recorded in the
+[Linux refresh checkpoint](native-mil-linux-payload-refresh-2026-09-09.md).
 The suspended Windows Parallels VM and its saved state were not touched or retried.
-No tests, renderer applications, GPU workloads, verifiers, benchmarks or CI checks
-ran. Final architecture/ABI, output, input, lifetime, performance and package-mode
+No tests, renderer applications, GPU workloads, verifiers, benchmarks or CI polling
+were performed. Final architecture/ABI, output, input, lifetime, performance and package-mode
 qualification remain mandatory after feature freeze.
 
 See the [ProGPU build contract and compiler-setting provenance](../external/ProGPU/docs/native-mil-build-only-payloads.md)
