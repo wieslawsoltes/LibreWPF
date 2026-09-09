@@ -40,7 +40,9 @@ The twenty ProGPU-side packages selected by the existing SDK gate are now produc
 at da36a718 using the lane's preview.55 version. The source-built portable WPF
 transport, eight theme/Ribbon projects, bridge and four real harnesses also compile.
 These source/project-reference builds did not consume or execute the new packages.
-Windows managed inputs, complete LibreWPF packaging and all final qualification
+LibreWPF.ProGPU and LibreWPF.Sdk preview.45 packages also build successfully, giving
+22 of the 23 explicitly selected SDK packages. LibreWPF.Transport still requires
+the missing Windows managed/IJW payloads. Complete packaging and all qualification
 remain open; see the [SDK build record](../reports/native-mil-sdk-package-build-2026-09-09.md).
 
 Windows production has resumed in the existing Parallels guest. ProGPU da36a718

@@ -71,3 +71,39 @@ Windows SDK admission and the complete LibreWPF package set remain open.
 
 No tests, renderer workloads, application launches, package/ABI/export verifiers,
 benchmarks or CI polling are part of this batch. All final gates remain mandatory.
+
+## Bridge and SDK package production
+
+At WPF source checkpoint `617251a57`, both remaining host-buildable packages were
+produced successfully into the same `packages-da36a718` feed:
+
+- `LibreWPF.ProGPU.0.1.0-preview.45.nupkg`
+- `LibreWPF.Sdk.0.1.0-preview.45.nupkg`
+
+Each uses the normal `dotnet pack` project entry, Release, `-m:1`,
+`UseSharedCompilation=false`, `Version`/`PackageVersion=0.1.0-preview.45` and
+`ProGpuRuntimePackageVersion=0.1.0-preview.55`. SDK production rebuilt
+PresentationBuildTasks for net10.0 and net472. Both commands exited 0; the bridge
+reported its existing unused-event CS0067 warning. No payload/admission guards
+were changed.
+
+Restore used a task-local cache under
+`artifacts/native-core-build.KvxVug/nuget-package-build.UFN4t0/packages` and an
+adjacent temporary NuGet.config, leaving global package caches intact. The first
+attempt failed with NU1100 because an explicitly selected configuration does not
+inherit the root's feed definitions. The corrected configuration includes the
+repository's existing external feeds and audit source, plus local-feed-only
+mapping for `ProGPU.*`/`LibreWPF.*`. The successful retry retained these mappings;
+no external source was allowed to supply those development package IDs.
+
+The normal bridge graph still selects its project references during this pack
+invocation; source/compiler output confirms those projects were built. Source
+mapping and a fresh cache therefore do not establish isolated ProGPU package
+consumption. Keep the task-local cache because generated restore assets reference
+it; a later normal restore may replace those generated assets.
+
+The feed now contains 22 of the 23 packages explicitly selected by the SDK gate.
+`LibreWPF.Transport` is still missing: its normal pack requires the separately
+built Windows PresentationCore/DirectWriteForwarder/IJW assets. Do not substitute
+the portable macOS transport or an older package. No complete release bundle,
+dependency-closure audit, SDK application success or renderer parity is claimed.
