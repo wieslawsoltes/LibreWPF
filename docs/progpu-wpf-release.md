@@ -83,6 +83,28 @@ files. Use ProGPU's required SDK when running from its checkout, and retain the
 full package gate after freeze. See the
 [native payload build contract](../external/ProGPU/docs/native-mil-build-only-payloads.md).
 
+Produce Windows managed/IJW inputs in a Windows checkout using PowerShell 7:
+
+```powershell
+./eng/progpu-wpf-windows-managed-runtime.ps1
+```
+
+This restores/builds PresentationCore and DirectWriteForwarder for win-x86,
+win-x64 and win-arm64 and stages their matching IJW hosts. It uses the repository's
+pinned SDK, installing it locally when missing. SDK installation clears Arcade's
+runtime-only default rather than passing the unsupported `-Runtime sdk` option.
+The SDK build host is x64 even on ARM64 Windows, matching Arcade's pinned x64
+runtime restoration into that root; all three output architectures remain.
+An incompatible existing repository SDK host is rejected before installation.
+Use a clean checkout or preserve/move that generated SDK directory explicitly;
+do not overlay a different host architecture. Visual Studio MSBuild must meet
+the minimum recorded in the selected SDK's bundled MSBuild information.
+Each Arcade restore/build runs in a child of the current PowerShell installation,
+without requesting an execution-policy override. The existing host policy must
+permit the trusted scripts; script rejection remains an explicit failure.
+No user/machine policy change or legacy wrapper fallback is performed. This is
+package input production, not Windows native SDK admission or application testing.
+
 The script rebuilds its configured local package output and transport staging
 directory just as the full gate does. Use a dedicated checkout/feed for isolated
 development; packages from a dirty checkout are not exact-commit release evidence.

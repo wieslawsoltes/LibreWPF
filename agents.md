@@ -206,6 +206,14 @@ rewrite or claims of qualified codec/worker/SIMD parity follow from this routing
 
 ## Core Native MIL Delivery Priority
 
+Windows managed package production uses PowerShell 7 child processes to invoke
+the existing Arcade build script with explicit restore/build flags. Preserve the
+host execution policy, child exit status, all Windows RIDs and pinned tool inputs;
+do not reintroduce a wrapper-imposed policy override or edit Arcade-owned files.
+The managed build SDK host must be x64 because Arcade restores its pinned x64
+runtime into that root. Keep ARM64 as an output target, reject mixed existing
+SDK roots before installation, and never relabel or overwrite an ARM64 host.
+
 Native X11 dialog hints use ProGPU's typed controller lease, not a WPF-local Xlib
 adapter. Release before source focus completion, native hide and destruction;
 advisory WM submission is not native input-gate qualification. A rejected or failed

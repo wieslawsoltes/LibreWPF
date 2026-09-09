@@ -1,3 +1,5 @@
+#Requires -Version 7.0
+
 param(
     [string] $Configuration = "Release",
     [ValidateSet("vs", "dotnet")]
@@ -6,9 +8,16 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+if (-not $IsWindows) {
+    throw "Windows managed runtime production requires a Windows PowerShell 7 host."
+}
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
-$buildCommand = Join-Path $repoRoot "build.cmd"
+$buildCommand = Join-Path $repoRoot "eng/common/build.ps1"
+$buildPowerShell = Join-Path $PSHOME "pwsh.exe"
+if (!(Test-Path $buildPowerShell -PathType Leaf)) {
+    throw "The current PowerShell host has no child executable at $buildPowerShell."
+}
 $buildTasksProject = Join-Path $repoRoot "src/Microsoft.DotNet.Wpf/src/PresentationBuildTasks/PresentationBuildTasks.csproj"
 $project = Join-Path $repoRoot "src/Microsoft.DotNet.Wpf/src/PresentationCore/PresentationCore.csproj"
 $outputDirectory = Join-Path $repoRoot "artifacts/windows-managed-runtime"
@@ -17,19 +26,43 @@ $globalJsonPath = Join-Path $repoRoot "global.json"
 $packagesDirectory = Join-Path $repoRoot ".packages"
 $globalJson = Get-Content -Path $globalJsonPath -Raw | ConvertFrom-Json
 
+function Test-X64DotNetHost([string] $path) {
+    if (!(Test-Path $path -PathType Leaf)) { return $false }
+    $stream = [System.IO.File]::OpenRead($path)
+    try {
+        $reader = [System.IO.BinaryReader]::new($stream)
+        if ($stream.Length -lt 64 -or $reader.ReadUInt16() -ne 0x5a4d) { return $false }
+        $stream.Position = 0x3c
+        $peOffset = $reader.ReadUInt32()
+        if ($peOffset -gt $stream.Length - 6) { return $false }
+        $stream.Position = $peOffset
+        return $reader.ReadUInt32() -eq 0x00004550 -and $reader.ReadUInt16() -eq 0x8664
+    }
+    finally {
+        $stream.Dispose()
+    }
+}
+
 function Initialize-BuildSdk {
     $sdkVersion = [string]$globalJson.sdk.version
     if ([string]::IsNullOrWhiteSpace($sdkVersion)) {
         throw "sdk.version is missing from $globalJsonPath."
     }
 
+    # Arcade restores tools.runtimes dotnet/x64 into the SDK root. Keep the
+    # build host x64 even on ARM64 Windows; target RIDs remain independent.
+    $localDotnetHost = Join-Path $repoRoot ".dotnet/dotnet.exe"
+    if ((Test-Path $localDotnetHost) -and !(Test-X64DotNetHost $localDotnetHost)) {
+        throw "The repository .dotnet host is not x64. Use a clean build checkout or preserve and move the incompatible SDK directory before building."
+    }
     $sdkDirectory = Join-Path $repoRoot ".dotnet/sdk/$sdkVersion"
     if (!(Test-Path (Join-Path $sdkDirectory "Sdks/Microsoft.NET.Sdk/Sdk"))) {
         $sdkDirectory = $null
     }
 
     $dotnetCommand = Get-Command dotnet.exe -ErrorAction SilentlyContinue
-    if ([string]::IsNullOrWhiteSpace($sdkDirectory) -and $null -ne $dotnetCommand) {
+    if ([string]::IsNullOrWhiteSpace($sdkDirectory) -and $null -ne $dotnetCommand -and
+        (Test-X64DotNetHost $dotnetCommand.Source)) {
         Push-Location $repoRoot
         try {
             $effectiveSdkVersion = (& $dotnetCommand.Source --version 2>$null | Select-Object -Last 1)
@@ -54,7 +87,9 @@ function Initialize-BuildSdk {
 
     if ([string]::IsNullOrWhiteSpace($sdkDirectory)) {
         $dotnetInstall = Join-Path $repoRoot "eng/common/dotnet-install.ps1"
-        & $dotnetInstall -version $sdkVersion -runtime sdk
+        # Arcade's wrapper defaults to a runtime-only install. An empty runtime
+        # selects the SDK and omits -Runtime from the upstream installer call.
+        & $dotnetInstall -version $sdkVersion -architecture x64 -runtime ''
         if ($LASTEXITCODE -ne 0) {
             throw "Installing the pinned .NET SDK $sdkVersion failed."
         }
@@ -68,6 +103,9 @@ function Initialize-BuildSdk {
     }
 
     $dotnetRoot = Split-Path -Parent (Split-Path -Parent $sdkDirectory)
+    if (!(Test-X64DotNetHost (Join-Path $dotnetRoot "dotnet.exe"))) {
+        throw "The selected SDK does not have the required x64 build host at $dotnetRoot."
+    }
     $env:DOTNET_ROOT = $dotnetRoot
     $env:PATH = "$dotnetRoot;$env:PATH"
     $env:MSBuildSDKsPath = $sdkResolverPath
@@ -153,7 +191,10 @@ function Invoke-WpfProjectBuild([string] $projectPath, [string] $platform, [stri
         $nativeToolsArgument = @("-nativeToolsOnMachine")
     }
 
-    & $buildCommand `
+    # Arcade exits its process; keep each build isolated and preserve the
+    # current host's execution policy rather than requesting an override.
+    & $buildPowerShell -NoProfile -NonInteractive -File $buildCommand `
+        -restore -build `
         -ci `
         -configuration $Configuration `
         -platform $platform `
@@ -161,7 +202,7 @@ function Invoke-WpfProjectBuild([string] $projectPath, [string] $platform, [stri
         -msbuildEngine $MSBuildEngine `
         $nativeToolsArgument `
         -excludeCIBinarylog `
-        -warnAsError 0 `
+        '-warnAsError:$false' `
         "/p:PerlCommand=$perlCommand" `
         $runtimeIdentifierArgument `
         $ijwHostArgument `
