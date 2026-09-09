@@ -72,6 +72,13 @@ Native and managed fixtures compile but have not executed. Cached-brush/scroll
 coordinate frames, exact geometry clips, spatial masks, caches and native host
 query routing remain open; this is not complete application input coverage.
 
+The [source geometry-clip connection](../reports/native-mil-source-vector-clip-input-2026-09-09.md)
+connects the existing source-built harness's triangular selection clip to the
+native index using declared source mask metadata and actual polynomial segments.
+Containing rectangle clips remain redundant; nonredundant intersections,
+multiple/boolean/arc clips, spatial opacity masks, caches and native host queries
+remain open. Authored paired fixtures and compilation are not runtime evidence.
+
 Package input refresh: macOS, Linux and Windows ARM64/x64 native payloads now
 share ProGPU da36a718 in the same staging root. Both Linux refresh builds completed
 all 709 compile/module/link steps. ProGPU.Backend.Native.0.1.0-preview.55.nupkg
