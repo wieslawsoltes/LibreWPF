@@ -16,7 +16,7 @@ namespace System.Windows
     /// <summary>
     /// Presentation source for non-HWND hosts.
     /// </summary>
-    internal sealed class PortablePresentationSource : PresentationSource, IPortablePresentationSourceHost, IPortableDesktopGeometryHost, IDisposable
+    internal sealed class PortablePresentationSource : PresentationSource, IPortablePresentationSourceHost, IPortableDesktopGeometryHost, IPortableNativeCaretHost, IDisposable
     {
         private readonly PortableCompositionTarget _compositionTarget;
         private readonly PortableKeyboardInputProvider _keyboardInputProvider;
@@ -66,6 +66,8 @@ namespace System.Windows
         }
 
         internal Cursor RequestedCursor { get; private set; }
+
+        public IPortableNativeCaretService NativeCaretService { get; set; }
 
         internal HwndSource HwndSource
         {
@@ -374,6 +376,7 @@ namespace System.Windows
                 RenderRequested = null;
                 CursorRequested = null;
                 Disposed = null;
+                NativeCaretService = null;
                 _isDisposed = true;
                 GC.SuppressFinalize(this);
             }

@@ -10,6 +10,46 @@ namespace ProGPU.Wpf.Tests;
 public sealed class WpfPortablePresentationSourceBridgeTests
 {
     [Fact]
+    public void NativeCaretAttachmentNeverTreatsPortableSourceHandleAsAnHwnd()
+    {
+        using var host = new ProGpuWpfWindowHost();
+        var source = new FakePortablePresentationSource { Handle = new IntPtr(0x50575046) };
+        Assert.True(WpfPortablePresentationSourceBridge.TryBind(host, source, out var bridge));
+        using (bridge)
+        {
+            Assert.Same(bridge, source.NativeCaretService);
+            Assert.False(source.NativeCaretService!.TryUpdate(new object(), new PortableRect(1, 2, 1, 14)));
+            // No native window was created just to obtain an accessibility mirror.
+            Assert.Equal(ProGPU.Backend.NativeWindowHandle.Empty, host.NativeCaretWindow);
+        }
+        Assert.Null(source.NativeCaretService);
+    }
+
+    [Fact]
+    public void NativeCaretRebindPreservesNewRegistrationAndExplicitProviderPriority()
+    {
+        using var host = new ProGpuWpfWindowHost();
+        var source = new FakePortablePresentationSource();
+        Assert.True(WpfPortablePresentationSourceBridge.TryBind(host, source, out var first));
+        Assert.True(WpfPortablePresentationSourceBridge.TryBind(host, source, out var second));
+        first!.Dispose();
+        Assert.Same(second, source.NativeCaretService);
+        second!.Dispose();
+        Assert.Null(source.NativeCaretService);
+        var explicitProvider = new CaretService();
+        source.NativeCaretService = explicitProvider;
+        Assert.True(WpfPortablePresentationSourceBridge.TryBind(host, source, out var third));
+        third!.Dispose();
+        Assert.Same(explicitProvider, source.NativeCaretService);
+    }
+
+    private sealed class CaretService : IPortableNativeCaretService
+    {
+        public bool TryUpdate(object owner, in PortableRect clientBounds) => false;
+        public void Release(object owner) { }
+    }
+
+    [Fact]
     public void TryBindMirrorsBridgeRootVisualIntoHost()
     {
         var scheduler = new TestRenderScheduler();
@@ -553,8 +593,9 @@ public sealed class WpfPortablePresentationSourceBridgeTests
             .Invoke(target.Compositor, new object[] { index });
     }
 
-    private sealed class FakePortablePresentationSource : IPortablePresentationSourceHost
+    private sealed class FakePortablePresentationSource : IPortablePresentationSourceHost, IPortableNativeCaretHost
     {
+        public IPortableNativeCaretService? NativeCaretService { get; set; }
         private object? _rootVisual;
 
         public event EventHandler? RenderRequested;

@@ -49,6 +49,14 @@ dispatcher, disposal and modal admission select the scope; authored regressions
 are not runtime qualification. See the
 [menu-entry checkpoint](../reports/native-mil-active-menu-scope-2026-09-09.md).
 
+The MVP editor caret now selects actual portable source ownership before Win32
+caret calls. ProGPU owns an optional hidden native caret mirror for the real
+Windows host; source drawing and caret semantics remain authoritative. Source
+and native GUI fixtures are authored, with execution deferred. This closes the
+identified unowned SetCaretPos route, not Windows package admission or native
+accessibility/IME qualification. See the
+[caret checkpoint](../reports/native-mil-native-caret-2026-09-09.md).
+
 Native Cocoa popup ownership now uses ProGPU's checked hidden-window parent
 configuration. A selected native popup is disposed when owner setup rejects or
 throws on every platform, rather than proceeding unowned. The main MVP menus and

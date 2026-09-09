@@ -127,6 +127,9 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
     private int _windowIconWidth;
     private int _windowIconHeight;
     private SilkWindowController? _windowController;
+    internal NativeWindowHandle NativeCaretWindow =>
+        !_isDisposed && !_hasNativeWindowCloseStarted && _window?.IsInitialized == true
+            ? _windowController?.Handle ?? NativeWindowHandle.Empty : NativeWindowHandle.Empty;
     private object? _modalInputOwner;
     private IDisposable? _modalInputRegistration;
     private NativeWindowModalHint? _nativeDialogHint;
@@ -1494,6 +1497,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         }
 
         ReleaseNativeDialogHint();
+        _portablePresentationSourceBridge?.ReleaseNativeCaret();
         _isDisposed = true;
         _modalInputRegistration?.Dispose();
         _modalInputRegistration = null;

@@ -4,10 +4,11 @@ using System.Text;
 using System.Windows;
 using System.Windows.Media.ProGPU.Platform;
 using ProGPU.Wpf.Interop;
+using ProGPU.Backend;
 
 namespace System.Windows.Media.ProGPU;
 
-public sealed class WpfPortablePresentationSourceBridge : IDisposable
+public sealed class WpfPortablePresentationSourceBridge : IDisposable, IPortableNativeCaretService
 {
     private const string TraceHitTestEnvironmentVariable = "PROGPU_WPF_TRACE_HIT_TEST";
     private const int HitTestOwnerBufferCapacity = 64;
@@ -25,6 +26,8 @@ public sealed class WpfPortablePresentationSourceBridge : IDisposable
     private Func<double, double, double, double, object?[]?>? _hitTestEllipseBoundsOverrideHandler;
     private PortableGeometryHitTestBufferOverride? _hitTestEllipseBoundsBufferOverrideHandler;
     private bool _isDisposed;
+    private NativeWindowCaret? _nativeCaret;
+    private NativeWindowHandle _nativeCaretWindow;
 
     private WpfPortablePresentationSourceBridge(
         ProGpuWpfWindowHost host,
@@ -34,6 +37,10 @@ public sealed class WpfPortablePresentationSourceBridge : IDisposable
         _host = host;
         _source = source;
         _ownsSource = ownsSource;
+        if (source is IPortableNativeCaretHost caretHost &&
+            (caretHost.NativeCaretService == null ||
+             caretHost.NativeCaretService is WpfPortablePresentationSourceBridge previous && ReferenceEquals(previous._host, host)))
+            caretHost.NativeCaretService = this;
     }
 
     public object Source => _source;
@@ -41,6 +48,41 @@ public sealed class WpfPortablePresentationSourceBridge : IDisposable
     public object? CompositionTarget => _source.CompositionTarget;
 
     public IntPtr Handle => _source.Handle;
+
+    bool IPortableNativeCaretService.TryUpdate(object owner, in PortableRect clientBounds)
+    {
+        ThrowIfDisposed();
+        NativeWindowHandle window = _host.NativeCaretWindow;
+        if (window != _nativeCaretWindow)
+        {
+            _nativeCaret?.Dispose();
+            _nativeCaret = null;
+            _nativeCaretWindow = window;
+        }
+        if (_nativeCaret == null && !NativeWindowCaret.TryCreate(window, out _nativeCaret)) return false;
+        if (clientBounds.IsEmpty || clientBounds.Width < 0 || !TryCaretInteger(clientBounds.X, out int x) ||
+            !TryCaretInteger(clientBounds.Y, out int y) ||
+            !TryCaretInteger(Math.Ceiling(clientBounds.Width), out int width) ||
+            !TryCaretInteger(Math.Ceiling(clientBounds.Height), out int height) || height <= 0)
+            return false;
+        return _nativeCaret!.TryUpdate(owner, x, y, Math.Max(1, width), height);
+    }
+
+    void IPortableNativeCaretService.Release(object owner) => _nativeCaret?.Release(owner);
+
+    internal void ReleaseNativeCaret()
+    {
+        _nativeCaret?.Dispose();
+        _nativeCaret = null;
+    }
+
+    private static bool TryCaretInteger(double value, out int result)
+    {
+        result = 0;
+        if (!double.IsFinite(value) || value < int.MinValue || value > int.MaxValue) return false;
+        result = (int)Math.Round(value, MidpointRounding.AwayFromZero);
+        return true;
+    }
 
     public object? RootVisual
     {
@@ -157,6 +199,10 @@ public sealed class WpfPortablePresentationSourceBridge : IDisposable
         {
             return;
         }
+
+        ReleaseNativeCaret();
+        if (_source is IPortableNativeCaretHost caretHost && ReferenceEquals(caretHost.NativeCaretService, this))
+            caretHost.NativeCaretService = null;
 
         _source.RenderRequested -= OnSourceRenderRequested;
         _source.CursorRequested -= OnSourceCursorRequested;

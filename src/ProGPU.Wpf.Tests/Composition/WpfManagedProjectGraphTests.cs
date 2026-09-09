@@ -9476,6 +9476,11 @@ public sealed class WpfManagedProjectGraphTests
         AssertGuardBefore(caretElement, "if (!OperatingSystem.IsWindows())", "SafeNativeMethods.DestroyCaret()");
         AssertGuardBefore(caretElement, "if (!OperatingSystem.IsWindows())", "SafeNativeMethods.SetCaretPos");
         Assert.Contains("source is IWin32Window win32Window", caretElement, StringComparison.Ordinal);
+        AssertGuardBefore(caretElement, "if (TrySynchronizePortableNativeCaret()) return;", "SafeNativeMethods.SetCaretPos");
+        Assert.Contains("PresentationSource.CriticalFromVisual(this) is PortablePresentationSource", caretElement, StringComparison.Ordinal);
+        Assert.Contains("IsPortableNativeCaretSynchronized = service.TryUpdate(this", caretElement, StringComparison.Ordinal);
+        Assert.Contains("if (!IsPortableNativeCaretSynchronized) ReleasePortableNativeCaret();", caretElement, StringComparison.Ordinal);
+        Assert.Contains("if (!value) ReleasePortableNativeCaret();", caretElement, StringComparison.Ordinal);
         AssertGuardBefore(safeNativeMethodsOther, "if (!OperatingSystem.IsWindows())", "SafeNativeMethodsPrivate.GetCaretBlinkTime()");
         AssertGuardBefore(safeNativeMethodsClr, "if (!OperatingSystem.IsWindows())", "SafeNativeMethodsPrivate.GetTickCount()");
         Assert.Contains("return Environment.TickCount;", safeNativeMethodsClr, StringComparison.Ordinal);

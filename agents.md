@@ -1,5 +1,15 @@
 # Agent Guidance
 
+CaretElement selects its actual portable presentation source before legacy Win32
+caret synchronization on every OS. Use the optional typed native-caret service
+with source insertion geometry and the device transform exactly once; never pass
+a portable source identity to user32 or call SetCaretPos without an owned caret.
+Source drawing remains authoritative. Release the opaque caret owner on hide,
+inactive selection, adorner migration/detach, service change and rejected update.
+The ProGPU host owns the real Win32 mirror and releases it before native-window
+disposal. Missing optional mirrors remain explicit unqualified accessibility,
+not fallback to Windows MIL or permission to open Windows SDK admission.
+
 Portable Application.Run uses ProGPU's typed application-lifetime coordinator.
 Window close policy, not return from the first native host, owns shutdown. Select
 existing live source windows on the application dispatcher without reassigning

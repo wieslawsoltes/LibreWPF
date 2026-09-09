@@ -10,6 +10,7 @@ using MS.Internal.Documents; // IFlowDocumentViewer
 using System.Runtime.InteropServices; // HandleRef
 using System.Windows.Interop;
 using System.Windows.Controls.Primitives;
+using ProGPU.Wpf.Interop;
 
 //
 // Description: Caret rendering visual.
@@ -570,6 +571,7 @@ namespace System.Windows.Documents
         // Removes this CaretElement from its AdornerLayer.
         internal void DetachFromView()
         {
+            ReleasePortableNativeCaret();
             SetBlinking(/*isBlinkEnabled:*/false);
             _adornerLayer?.Remove(this);
             _adornerLayer = null;
@@ -805,6 +807,7 @@ namespace System.Windows.Documents
             set
             {
                 _isSelectionActive = value;
+                if (!value) ReleasePortableNativeCaret();
             }
         }
 
@@ -855,6 +858,7 @@ namespace System.Windows.Documents
             AdornerLayer layer = AdornerLayer.GetAdornerLayer(_textEditor.TextView.RenderScope);
             if (layer == null)
             {
+                ReleasePortableNativeCaret();
                 // There is no AdornerLayer available.  Clear cached value and exit.
                 // We're currently in a layer that doesn't exist.
                 _adornerLayer?.Remove(this);
@@ -870,6 +874,7 @@ namespace System.Windows.Documents
             }
 
             // We're currently in the wrong layer.
+            ReleasePortableNativeCaret();
             _adornerLayer?.Remove(this);
 
             // Add ourselves to the correct layer.
@@ -946,6 +951,10 @@ namespace System.Windows.Documents
         // Win32 application have the compatibility to handle the caret event which is Magnifier or Tablet Tip.
         private void Win32CreateCaret()
         {
+            // A portable source identity is never a source-owned Win32 HWND.
+            // Its optional host mirror is updated with real placement at render.
+            if (PresentationSource.CriticalFromVisual(this) is PortablePresentationSource)
+                return;
             if (!OperatingSystem.IsWindows())
             {
                 return;
@@ -1010,6 +1019,7 @@ namespace System.Windows.Documents
         // Destroy Win32 caret if we create it with checking Win32 error.
         private void Win32DestroyCaret()
         {
+            ReleasePortableNativeCaret();
             if (!OperatingSystem.IsWindows())
             {
                 return;
@@ -1045,6 +1055,7 @@ namespace System.Windows.Documents
         // Set Win32 caret position with checking Win32 error.
         private void Win32SetCaretPos()
         {
+            if (TrySynchronizePortableNativeCaret()) return;
             if (!OperatingSystem.IsWindows())
             {
                 return;
@@ -1107,6 +1118,51 @@ namespace System.Windows.Documents
                 }
             }
         }
+
+        private bool TrySynchronizePortableNativeCaret()
+        {
+            if (PresentationSource.CriticalFromVisual(this) is not PortablePresentationSource source)
+            {
+                ReleasePortableNativeCaret();
+                return false;
+            }
+
+            IPortableNativeCaretService service = source.NativeCaretService;
+            if (!ReferenceEquals(service, _portableCaretService)) ReleasePortableNativeCaret();
+            if (!_isSelectionActive || !_showCaret || service == null || source.RootVisual == null || _height <= 0)
+            {
+                ReleasePortableNativeCaret();
+                return true;
+            }
+
+            // Use the real caret visual's root placement (including document
+            // zoom/scroll), then the source device transform exactly once. This
+            // rectangle is OS metadata, not replacement caret drawing geometry.
+            Rect bounds = _caretElement.TransformToAncestor(source.RootVisual)
+                .TransformBounds(new Rect(0, 0, IsInInterimState ? _interimWidth : _systemCaretWidth, _height));
+            bounds.Transform(source.CompositionTarget.TransformToDevice);
+            if (bounds.IsEmpty || !double.IsFinite(bounds.X) || !double.IsFinite(bounds.Y) ||
+                !double.IsFinite(bounds.Width) || !double.IsFinite(bounds.Height) || bounds.Height <= 0)
+            {
+                ReleasePortableNativeCaret();
+                return true;
+            }
+            _portableCaretService = service;
+            IsPortableNativeCaretSynchronized = service.TryUpdate(this,
+                new PortableRect(bounds.X, bounds.Y, bounds.Width, bounds.Height));
+            if (!IsPortableNativeCaretSynchronized) ReleasePortableNativeCaret();
+            return true;
+        }
+
+        private void ReleasePortableNativeCaret()
+        {
+            _portableCaretService?.Release(this);
+            _portableCaretService = null;
+            IsPortableNativeCaretSynchronized = false;
+        }
+
+        internal bool IsPortableNativeCaretSynchronized { get; private set; }
+        private IPortableNativeCaretService _portableCaretService;
 
         // Converts a double into a 32 bit integer, truncating values that
         // exceed Int32.MinValue or Int32.MaxValue.

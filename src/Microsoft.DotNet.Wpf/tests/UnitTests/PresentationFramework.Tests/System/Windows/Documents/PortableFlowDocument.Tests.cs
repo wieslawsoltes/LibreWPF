@@ -102,6 +102,82 @@ public sealed class PortableFlowDocumentTests
     }
 
     [PortableMediaFact]
+    public void RealCaretUsesTypedHostPlacementAndReleasesOnRejectionAndDetach()
+    {
+        using var textRegistration = PortableWpfServiceRegistry.RegisterTextFormatting(new TextProvider());
+        using var flowRegistration = PortableWpfServiceRegistry.RegisterDocumentFlow(new FlowProvider());
+        var document = new FlowDocument(new Paragraph(new Run("caret ownership")));
+        var viewer = new FlowDocumentView { Document = document };
+        var root = new AdornerDecorator { Child = viewer };
+        using IPortablePresentationSourceHost source = PortablePresentationSourceHost.Create(2, 2);
+        var mirror = new CaretMirror();
+        ((IPortableNativeCaretHost)source).NativeCaretService = mirror;
+        source.RootVisual = root;
+        source.SetClientSize(300, 200);
+        root.UpdateLayout();
+        var editor = new TextEditor(document.TextContainer, viewer, false) { TextView = viewer.PortableTextView };
+        var caret = new CaretElement(editor, false) { IsSelectionActive = true };
+        try
+        {
+            void DrawCaret()
+            {
+                root.UpdateLayout();
+                using DrawingContext context = new DrawingVisual().RenderOpen();
+                caret.OnRenderCaretSubElement(context);
+            }
+            caret.Update(true, new Rect(3, 4, 0, 16), Brushes.Black, 1, false, CaretScrollMethod.None, 0);
+            DrawCaret();
+            Assert.True(caret.IsPortableNativeCaretSynchronized);
+            Assert.Same(caret, mirror.Owner);
+            Assert.Equal(32, mirror.Bounds.Height);
+            double firstX = mirror.Bounds.X;
+            caret.Update(true, new Rect(13, 4, 0, 16), Brushes.Black, 1, false, CaretScrollMethod.None, 0);
+            DrawCaret();
+            Assert.Equal(20, mirror.Bounds.X - firstX);
+
+            mirror.Accept = false;
+            DrawCaret();
+            Assert.False(caret.IsPortableNativeCaretSynchronized);
+            Assert.Null(mirror.Owner);
+            mirror.Accept = true;
+            DrawCaret();
+            Assert.Same(caret, mirror.Owner);
+            caret.IsSelectionActive = false;
+            Assert.Null(mirror.Owner);
+            caret.IsSelectionActive = true;
+            DrawCaret();
+            caret.DetachFromView();
+            Assert.Null(mirror.Owner);
+            Assert.False(caret.IsPortableNativeCaretSynchronized);
+
+            ((IPortableNativeCaretHost)source).NativeCaretService = null;
+            caret.Update(true, new Rect(3, 4, 0, 16), Brushes.Black, 1, false, CaretScrollMethod.None, 0);
+            DrawCaret(); // Missing optional OS mirror must not enter source Win32 APIs.
+            Assert.False(caret.IsPortableNativeCaretSynchronized);
+        }
+        finally
+        {
+            caret.DetachFromView();
+            editor.OnDetach();
+            source.RootVisual = null;
+            viewer.Document = null!;
+        }
+    }
+
+    private sealed class CaretMirror : IPortableNativeCaretService
+    {
+        internal object? Owner { get; private set; }
+        internal PortableRect Bounds { get; private set; }
+        internal bool Accept { get; set; } = true;
+        public bool TryUpdate(object owner, in PortableRect clientBounds)
+        {
+            Owner = owner; Bounds = clientBounds;
+            return Accept;
+        }
+        public void Release(object owner) { if (ReferenceEquals(owner, Owner)) Owner = null; }
+    }
+
+    [PortableMediaFact]
     public void ViewerSharesLiveLayoutForDrawingContentHitSelectionAndScrolling()
     {
         var text = new TextProvider(); var flow = new FlowProvider();
