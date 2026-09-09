@@ -201,10 +201,22 @@ internal static class WpfDrawingReplay
             return false;
         }
 
-        if (!drawingImageSource.TryGetPortableDrawingImage(out var drawing)
-            || drawing == null
-            || !IsUsableRect(destinationBounds, out destinationBounds))
+        if (!IsUsableRect(destinationBounds, out destinationBounds))
         {
+            return true;
+        }
+
+        if (!drawingImageSource.TryGetPortableDrawingImage(out var drawing))
+        {
+            // This source contract returns false for Drawing == null, unlike
+            // the bounds provider's false == unavailable contract below.
+            RecordEmptyImageHitScope(sink, destinationBounds);
+            return true;
+        }
+
+        if (drawing == null)
+        {
+            status = WpfDrawingReplayStatus.Unsupported;
             return true;
         }
 
@@ -216,6 +228,7 @@ internal static class WpfDrawingReplay
 
         if (isEmpty)
         {
+            RecordEmptyImageHitScope(sink, destinationBounds);
             return true;
         }
 
@@ -236,26 +249,45 @@ internal static class WpfDrawingReplay
             return true;
         }
 
-        PushRectangleClip(sink, destinationBounds);
-        WpfPortableCommandSinkBridge.PushTransform(
-            sink,
-            new Matrix4x4(
-                nativeScaleX, 0, 0, 0,
-                0, nativeScaleY, 0, 0,
-                0, 0, 1, 0,
-                nativeOffsetX, nativeOffsetY, 0, 1));
-
+        if (sink is IWpfImageHitTestScopeCommandSink imageHitSink)
+            imageHitSink.PushImageHitTestScope(ToReplayRect(destinationBounds));
+        else
+            PushRectangleClip(sink, destinationBounds);
         try
         {
-            status = Replay(drawing, sink, imageSourceAdapter);
+            WpfPortableCommandSinkBridge.PushTransform(
+                sink,
+                new Matrix4x4(
+                    nativeScaleX, 0, 0, 0,
+                    0, nativeScaleY, 0, 0,
+                    0, 0, 1, 0,
+                    nativeOffsetX, nativeOffsetY, 0, 1));
+            try
+            {
+                status = Replay(drawing, sink, imageSourceAdapter);
+            }
+            finally
+            {
+                sink.Pop();
+            }
         }
         finally
         {
             sink.Pop();
-            sink.Pop();
         }
 
         return true;
+    }
+
+    private static void RecordEmptyImageHitScope(IWpfCompositionCommandSink sink, Rect destination)
+    {
+        // Bounds/diagnostic/native-WPF sinks do not produce the managed GPU
+        // index. Only its typed product sinks need the source input annotation.
+        if (sink is IWpfImageHitTestScopeCommandSink imageHitSink)
+        {
+            imageHitSink.PushImageHitTestScope(ToReplayRect(destination));
+            sink.Pop();
+        }
     }
 
     internal static bool TryReplayBitmapCachePenRectangle(object? brush, object? pen, WpfReplayRect rectangle,

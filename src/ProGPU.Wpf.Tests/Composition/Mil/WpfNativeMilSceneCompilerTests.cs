@@ -1792,6 +1792,8 @@ public sealed class WpfNativeMilSceneCompilerTests
             BaselineOrigin = new Vector2(3, 22),
             FontRenderingEmSize = 18,
             NativeFont = font,
+            HasInkBounds = true,
+            InkBounds = new PortableRect(2, 6, 20, 19),
             IsItalic = true
         });
         var brush = new FakeBrush(new PortableColor(255, 16, 32, 64));
@@ -1820,6 +1822,23 @@ public sealed class WpfNativeMilSceneCompilerTests
     }
 
     [Fact]
+    public void BuildBatchRejectsGlyphRunWithoutSourceInkBounds()
+    {
+        var glyphRun = new FakeNativeGlyphRun(new PortableNativeGlyphRun
+        {
+            GlyphIndices = [1], GlyphPositions = [Vector2.Zero],
+            BaselineOrigin = new Vector2(0, 16), FontRenderingEmSize = 16,
+            NativeFont = LoadInterFont()
+        });
+        var brush = new FakeBrush(new PortableColor(255, 0, 0, 0));
+        var visual = new FakeVisual(new FakeRenderData(
+            CreateDrawGlyphRunRecord(1, 2), [brush, glyphRun]));
+        var error = Assert.Throws<NotSupportedException>(() =>
+            new WpfNativeMilSceneCompiler().BuildBatch(visual, 64, 64));
+        Assert.Contains("source ink bounds", error.Message);
+    }
+
+    [Fact]
     public void BuildBatchRejectsGlyphRunWithNonidentityTransform()
     {
         TtfFont font = LoadInterFont();
@@ -1831,6 +1850,8 @@ public sealed class WpfNativeMilSceneCompilerTests
             FontRenderingEmSize = 16,
             NativeFont = font,
             HasTransform = true,
+            HasInkBounds = true,
+            InkBounds = new PortableRect(0, 0, 10, 16),
             Transform = Matrix4x4.CreateTranslation(2, 3, 0)
         });
         var visual = new FakeVisual(new FakeRenderData(

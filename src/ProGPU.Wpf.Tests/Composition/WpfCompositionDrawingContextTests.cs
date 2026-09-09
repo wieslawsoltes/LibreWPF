@@ -965,6 +965,34 @@ public sealed class WpfCompositionDrawingContextTests
     }
 
     [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    public void ProductDrawingImageReplayRetainsLogicalHitRectangle(int contentKind)
+    {
+        var nativeContext = new global::ProGPU.Scene.DrawingContext();
+        using var sink = new ProGpuCompositionCommandSink(new MediaDrawingContext(nativeContext));
+        using var context = new WpfCompositionDrawingContext(sink);
+        object? drawing = contentKind switch
+        {
+            0 => new FakeGeometryDrawing(Brushes.Blue, null,
+                new FakeRectangleGeometry(new FakeRect(2, 3, 5, 7))),
+            1 => new FakeBoundedGeometryDrawing(PortableRect.Empty, null, null, null),
+            _ => null
+        };
+        context.DrawImage(new FakeDrawingImageSource(drawing), new Rect(10, 20, 30, 40));
+        Assert.True(nativeContext.Commands[0].IsImageHitTestScope);
+        using var hits = new global::ProGPU.Scene.GpuRenderCommandHitTestCacheBuilder();
+        foreach (var command in nativeContext.Commands)
+            hits.AddCommand(command, command.Transform, id: 4321);
+        var hit = Assert.Single(hits.BuildIndex().Primitives);
+        Assert.Equal(global::ProGPU.Vector.GpuHitTestPrimitiveKind.RectangleFill, hit.Kind);
+        Assert.Equal(new Vector2(10, 20), hit.BoundsMin);
+        Assert.Equal(new Vector2(40, 60), hit.BoundsMax);
+        Assert.Equal(0, context.Result.UnsupportedCount);
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public void EmptyDrawingImageAndDrawingBrushSkipTileReplay(bool imageBrush)

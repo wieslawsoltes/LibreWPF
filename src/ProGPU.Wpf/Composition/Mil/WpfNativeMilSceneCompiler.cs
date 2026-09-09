@@ -2047,22 +2047,20 @@ public sealed class WpfNativeMilSceneCompiler
             if (glyphRun.GlyphIndices.Length == 0 ||
                 glyphRun.GlyphPositions.Length < glyphRun.GlyphIndices.Length ||
                 !glyphRun.Transform.IsIdentity ||
-                (!glyphRun.HasInkBounds && !glyphRun.HasBounds) ||
+                !glyphRun.HasInkBounds ||
                 glyphRun.Font.FaceIndex < 0 ||
                 glyphRun.Font.FontData.IsEmpty)
             {
                 throw new NotSupportedException(
-                    "Native MIL glyph runs require cached finite native positions, an identity glyph transform, exact bounds, and typed SFNT font bytes.");
+                    "Native MIL glyph runs require cached finite native positions, an identity glyph transform, exact source ink bounds, and typed SFNT font bytes.");
             }
             uint handle = NextHandle();
             _glyphRunHandles.Add(resource, handle);
             // Source-provided ink includes overhangs/descenders and baseline.
-            // Keep legacy size bounds only for old descriptors that lack it.
-            WpfReplayRect bounds = glyphRun.HasInkBounds
-                ? glyphRun.InkBounds.IsEmpty ? default
-                    : new WpfReplayRect(glyphRun.InkBounds.X, glyphRun.InkBounds.Y,
-                        glyphRun.InkBounds.Width, glyphRun.InkBounds.Height)
-                : glyphRun.LocalBounds;
+            // Layout estimates cannot own native text hit coverage.
+            WpfReplayRect bounds = glyphRun.InkBounds.IsEmpty ? default
+                : new WpfReplayRect(glyphRun.InkBounds.X, glyphRun.InkBounds.Y,
+                    glyphRun.InkBounds.Width, glyphRun.InkBounds.Height);
             Batch.SetGlyphRun(
                 handle,
                 new NativeMilGlyphRun(

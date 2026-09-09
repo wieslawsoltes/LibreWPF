@@ -1897,7 +1897,9 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("TryAddDevicePathStrokePrimitive(path, transform, id, zIndex, pen);", proGpuHitTestCache, StringComparison.Ordinal);
         Assert.Contains("TryAddPathStrokePrimitive(path, transform, id, zIndex, pen, localThickness);", proGpuHitTestCache, StringComparison.Ordinal);
         Assert.Contains("if (!command.Rect.IsEmpty)", proGpuHitTestCache, StringComparison.Ordinal);
-        Assert.Contains("AddBounds(command.Rect, transform, id, zIndex);", proGpuHitTestCache, StringComparison.Ordinal);
+        Assert.Contains("AddRectangleCoverage(command.Rect, transform, id, zIndex);", proGpuHitTestCache, StringComparison.Ordinal);
+        Assert.Contains("AddImageCoverage(command, activeTransform, primitiveId, zIndex);", proGpuHitTestCache, StringComparison.Ordinal);
+        Assert.Contains("ref readonly TexturePatch patch = ref patches[i];", proGpuHitTestCache, StringComparison.Ordinal);
         Assert.Contains("RenderCommandCacheUsesDashedPathSegmentsForStrokeHitTesting", proGpuHitTestingTests, StringComparison.Ordinal);
         Assert.Contains("RenderCommandCacheUsesGlyphRunCommandBoundsWhenAvailable", proGpuHitTestingTests, StringComparison.Ordinal);
         Assert.Contains("RenderCommandCacheFeedsGpuCombinedPathFillHitTesting", proGpuHitTestingTests, StringComparison.Ordinal);

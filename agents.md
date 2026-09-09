@@ -35,6 +35,15 @@ means empty. Native DrawingImage lowering and managed image/tile replay consume
 that distinction before mapping, retain source invalidation for clear/refill,
 and never turn zero-sized or unavailable mapping bounds into successful no-ops.
 
+DrawingImage DrawImage input retains its destination rectangle, including an
+authoritative empty drawing, through ProGPU logical hit-scope metadata. Product
+managed sinks use IWpfImageHitTestScopeCommandSink on the existing clip scope;
+native MIL uses the shared builder save/restore annotation. Do not index sparse
+flattened contents as the image hit geometry or replace an unavailable descriptor
+with an empty drawing. Outer source clipping/ownership stays authoritative.
+The drawing getter returns false for absent Drawing; unlike the bounds getter,
+that is a valid empty source, not unavailable bounds.
+
 Every selected native popup must complete owner configuration before Show, on
 Cocoa/X11 as well as Windows. Rejection or exception disposes the hidden popup;
 do not continue unowned or silently switch surface kind. Cocoa owner setup belongs

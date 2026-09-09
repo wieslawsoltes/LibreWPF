@@ -153,6 +153,13 @@ internal interface IWpfHitTestOwnerScopeCommandSink
     void PopHitTestOwner();
 }
 
+internal interface IWpfImageHitTestScopeCommandSink
+{
+    // One real destination clip, paired with the ordinary sink Pop. Source image
+    // coverage is metadata on that scope, never a fake rendering command.
+    void PushImageHitTestScope(WpfReplayRect destination);
+}
+
 internal interface IWpfProGpuSceneDrawingContextSource
 {
     bool TryGetProGpuSceneDrawingContext(out global::ProGPU.Scene.DrawingContext? drawingContext);

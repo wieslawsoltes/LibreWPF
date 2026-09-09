@@ -48,6 +48,7 @@ public sealed class ProGpuCompositionCommandSink :
     IWpfNativeClipCommandSink,
     IWpfNativeGeometryCommandSink,
     IWpfHitTestOwnerScopeCommandSink,
+    IWpfImageHitTestScopeCommandSink,
     IWpfBitmapCacheBrushCommandSink,
     IWpfProGpuSceneDrawingContextSource
 {
@@ -1168,6 +1169,19 @@ public sealed class ProGpuCompositionCommandSink :
             Type = global::ProGPU.Scene.RenderCommandType.PushClip,
             Rect = ToNativeRect(bounds),
             Transform = _transformStack.Peek()
+        });
+        _pushStack.Push(PushKind.Clip);
+    }
+
+    void IWpfImageHitTestScopeCommandSink.PushImageHitTestScope(WpfReplayRect destination)
+    {
+        ThrowIfClosed();
+        AddNativeCommand(new global::ProGPU.Scene.RenderCommand
+        {
+            Type = global::ProGPU.Scene.RenderCommandType.PushClip,
+            Rect = ToNativeRect(destination),
+            Transform = _transformStack.Peek(),
+            IsImageHitTestScope = true
         });
         _pushStack.Push(PushKind.Clip);
     }
