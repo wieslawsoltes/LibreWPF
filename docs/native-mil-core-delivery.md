@@ -65,6 +65,13 @@ managed typed identity-effect input policy, without making raster padding
 hittable. Spatial masks, caches, remaining guideline/geometry-clip coverage and
 native host query routing remain open. Final execution/CI qualification is pending.
 
+The [MVP guideline-input connection](../reports/native-mil-mvp-guideline-input-2026-09-09.md)
+preserves original source geometry through native guideline state and ordinary
+managed primitive snapping, without changing raster placement or raster bounds.
+Native and managed fixtures compile but have not executed. Cached-brush/scroll
+coordinate frames, exact geometry clips, spatial masks, caches and native host
+query routing remain open; this is not complete application input coverage.
+
 Package input refresh: macOS, Linux and Windows ARM64/x64 native payloads now
 share ProGPU da36a718 in the same staging root. Both Linux refresh builds completed
 all 709 compile/module/link steps. ProGPU.Backend.Native.0.1.0-preview.55.nupkg

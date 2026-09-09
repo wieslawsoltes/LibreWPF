@@ -586,6 +586,8 @@ public sealed class ProGpuCompositionCommandSink :
             return;
         }
 
+        var sourcePoint0 = point0;
+        var sourcePoint1 = point1;
         point0 = SnapGuideline(point0);
         point1 = SnapGuideline(point1);
         var bounds = new Rect(point0, point1);
@@ -594,7 +596,13 @@ public sealed class ProGpuCompositionCommandSink :
             return;
         }
 
-        AddNativeLine(nativePen, point0, point1, pen.StartLineCap, pen.EndLineCap);
+        var sourceGeometry = sourcePoint0.X != point0.X || sourcePoint0.Y != point0.Y ||
+            sourcePoint1.X != point1.X || sourcePoint1.Y != point1.Y ||
+            pen.StartLineCap != MediaPenLineCap.Flat || pen.EndLineCap != MediaPenLineCap.Flat
+            ? new global::ProGPU.Scene.SourceHitTestGeometry(global::ProGPU.Scene.SourceHitTestGeometryKind.Line,
+                new Vector4((float)sourcePoint0.X, (float)sourcePoint0.Y, (float)sourcePoint1.X, (float)sourcePoint1.Y))
+            : default;
+        AddNativeLine(nativePen, point0, point1, pen.StartLineCap, pen.EndLineCap, sourceGeometry);
     }
 
     private void AddNativeLine(
@@ -602,7 +610,8 @@ public sealed class ProGpuCompositionCommandSink :
         Point point0,
         Point point1,
         MediaPenLineCap startLineCap = MediaPenLineCap.Flat,
-        MediaPenLineCap endLineCap = MediaPenLineCap.Flat)
+        MediaPenLineCap endLineCap = MediaPenLineCap.Flat,
+        global::ProGPU.Scene.SourceHitTestGeometry sourceHitGeometry = default)
     {
         var originalPoint0 = point0;
         var originalPoint1 = point1;
@@ -611,6 +620,7 @@ public sealed class ProGpuCompositionCommandSink :
         AddNativeCommand(new global::ProGPU.Scene.RenderCommand
         {
             Type = global::ProGPU.Scene.RenderCommandType.DrawLine,
+            SourceHitGeometry = sourceHitGeometry,
             Pen = pen,
             Position = new Vector2((float)point0.X, (float)point0.Y),
             Position2 = new Vector2((float)point1.X, (float)point1.Y),
@@ -618,10 +628,12 @@ public sealed class ProGpuCompositionCommandSink :
             IsEdgeAliased = _edgeModeStack.Peek()
         });
 
-        AddRoundLineCap(pen, originalPoint0, startLineCap);
-        AddRoundLineCap(pen, originalPoint1, endLineCap);
-        AddTriangleLineCap(pen, originalPoint0, originalPoint1, startLineCap, isStart: true);
-        AddTriangleLineCap(pen, originalPoint0, originalPoint1, endLineCap, isStart: false);
+        var capHitGeometry = sourceHitGeometry.Kind != global::ProGPU.Scene.SourceHitTestGeometryKind.None
+            ? global::ProGPU.Scene.SourceHitTestGeometry.Excluded : default;
+        AddRoundLineCap(pen, originalPoint0, startLineCap, capHitGeometry);
+        AddRoundLineCap(pen, originalPoint1, endLineCap, capHitGeometry);
+        AddTriangleLineCap(pen, originalPoint0, originalPoint1, startLineCap, isStart: true, capHitGeometry);
+        AddTriangleLineCap(pen, originalPoint0, originalPoint1, endLineCap, isStart: false, capHitGeometry);
     }
 
     private static void ApplySquareLineCaps(
@@ -659,7 +671,8 @@ public sealed class ProGpuCompositionCommandSink :
         }
     }
 
-    private void AddRoundLineCap(VectorPen pen, Point point, MediaPenLineCap lineCap)
+    private void AddRoundLineCap(VectorPen pen, Point point, MediaPenLineCap lineCap,
+        global::ProGPU.Scene.SourceHitTestGeometry sourceHitGeometry)
     {
         if (lineCap != MediaPenLineCap.Round || pen.Thickness <= TransformEpsilon)
         {
@@ -667,7 +680,7 @@ public sealed class ProGpuCompositionCommandSink :
         }
 
         var radius = pen.Thickness / 2;
-        AddNativeEllipse(pen.Brush, null, point, radius, radius);
+        AddNativeEllipse(pen.Brush, null, point, radius, radius, sourceHitGeometry);
     }
 
     private void AddTriangleLineCap(
@@ -675,7 +688,8 @@ public sealed class ProGpuCompositionCommandSink :
         Point point0,
         Point point1,
         MediaPenLineCap lineCap,
-        bool isStart)
+        bool isStart,
+        global::ProGPU.Scene.SourceHitTestGeometry sourceHitGeometry)
     {
         if (lineCap != MediaPenLineCap.Triangle || pen.Thickness <= TransformEpsilon)
         {
@@ -700,6 +714,7 @@ public sealed class ProGpuCompositionCommandSink :
         AddNativeCommand(new global::ProGPU.Scene.RenderCommand
         {
             Type = global::ProGPU.Scene.RenderCommandType.FillTriangle,
+            SourceHitGeometry = sourceHitGeometry,
             Brush = pen.Brush,
             Position = center - perpendicular,
             Position2 = center + outward * radius,
@@ -718,14 +733,22 @@ public sealed class ProGpuCompositionCommandSink :
             if (cachedStatus != WpfDrawingReplayStatus.Applied) UnsupportedStateCount++;
             return;
         }
+        var sourceRectangle = rectangle;
         rectangle = SnapGuidelines(rectangle);
         var nativeBrush = ToNativeBrush(brush, rectangle);
         var nativePen = ToNativePen(pen, rectangle);
 
-        AddNativeRect(nativeBrush, nativePen, rectangle);
+        AddNativeRect(nativeBrush, nativePen, rectangle,
+            SourceRectangleHitGeometry(sourceRectangle, rectangle, global::ProGPU.Scene.SourceHitTestGeometryKind.Rectangle));
     }
 
-    private void AddNativeRect(VectorBrush? brush, VectorPen? pen, Rect rectangle)
+    private static global::ProGPU.Scene.SourceHitTestGeometry SourceRectangleHitGeometry(
+        Rect source, Rect raster, global::ProGPU.Scene.SourceHitTestGeometryKind kind) =>
+        source.X == raster.X && source.Y == raster.Y && source.Width == raster.Width && source.Height == raster.Height
+        ? default : new(kind, new Vector4((float)source.X, (float)source.Y, (float)source.Width, (float)source.Height));
+
+    private void AddNativeRect(VectorBrush? brush, VectorPen? pen, Rect rectangle,
+        global::ProGPU.Scene.SourceHitTestGeometry sourceHitGeometry = default)
     {
         if (brush == null && pen == null)
         {
@@ -735,6 +758,7 @@ public sealed class ProGpuCompositionCommandSink :
         AddNativeCommand(new global::ProGPU.Scene.RenderCommand
         {
             Type = global::ProGPU.Scene.RenderCommandType.DrawRect,
+            SourceHitGeometry = sourceHitGeometry,
             Brush = brush,
             Pen = pen,
             Rect = ToNativeRect(rectangle),
@@ -752,14 +776,17 @@ public sealed class ProGpuCompositionCommandSink :
             if (cachedStatus != WpfDrawingReplayStatus.Applied) UnsupportedStateCount++;
             return;
         }
+        var sourceRectangle = rectangle;
         rectangle = SnapGuidelines(rectangle);
         var nativeBrush = ToNativeBrush(brush, rectangle);
         var nativePen = ToNativePen(pen, rectangle);
 
-        AddNativeRoundedRect(nativeBrush, nativePen, rectangle, radiusX, radiusY);
+        AddNativeRoundedRect(nativeBrush, nativePen, rectangle, radiusX, radiusY,
+            SourceRectangleHitGeometry(sourceRectangle, rectangle, global::ProGPU.Scene.SourceHitTestGeometryKind.RoundedRectangle));
     }
 
-    private void AddNativeRoundedRect(VectorBrush? brush, VectorPen? pen, Rect rectangle, double radiusX, double radiusY)
+    private void AddNativeRoundedRect(VectorBrush? brush, VectorPen? pen, Rect rectangle, double radiusX, double radiusY,
+        global::ProGPU.Scene.SourceHitTestGeometry sourceHitGeometry = default)
     {
         if (brush == null && pen == null)
         {
@@ -769,6 +796,7 @@ public sealed class ProGpuCompositionCommandSink :
         AddNativeCommand(new global::ProGPU.Scene.RenderCommand
         {
             Type = global::ProGPU.Scene.RenderCommandType.DrawRoundedRect,
+            SourceHitGeometry = sourceHitGeometry,
             Brush = brush,
             Pen = pen,
             Rect = ToNativeRect(rectangle),
@@ -789,6 +817,9 @@ public sealed class ProGpuCompositionCommandSink :
             return;
         }
         var bounds = new Rect(center.X - radiusX, center.Y - radiusY, radiusX * 2, radiusY * 2);
+        var sourceCenter = center;
+        var sourceRadiusX = radiusX;
+        var sourceRadiusY = radiusY;
         bounds = SnapGuidelines(bounds);
         center = new Point(bounds.X + bounds.Width / 2, bounds.Y + bounds.Height / 2);
         radiusX = bounds.Width / 2;
@@ -796,10 +827,16 @@ public sealed class ProGpuCompositionCommandSink :
         var nativeBrush = ToNativeBrush(brush, bounds);
         var nativePen = ToNativePen(pen, bounds);
 
-        AddNativeEllipse(nativeBrush, nativePen, center, radiusX, radiusY);
+        var sourceGeometry = sourceCenter.X != center.X || sourceCenter.Y != center.Y ||
+            sourceRadiusX != radiusX || sourceRadiusY != radiusY
+            ? new global::ProGPU.Scene.SourceHitTestGeometry(global::ProGPU.Scene.SourceHitTestGeometryKind.Ellipse,
+                new Vector4((float)sourceCenter.X, (float)sourceCenter.Y, (float)sourceRadiusX, (float)sourceRadiusY))
+            : default;
+        AddNativeEllipse(nativeBrush, nativePen, center, radiusX, radiusY, sourceGeometry);
     }
 
-    private void AddNativeEllipse(VectorBrush? brush, VectorPen? pen, Point center, double radiusX, double radiusY)
+    private void AddNativeEllipse(VectorBrush? brush, VectorPen? pen, Point center, double radiusX, double radiusY,
+        global::ProGPU.Scene.SourceHitTestGeometry sourceHitGeometry = default)
     {
         if (brush == null && pen == null)
         {
@@ -809,6 +846,7 @@ public sealed class ProGpuCompositionCommandSink :
         AddNativeCommand(new global::ProGPU.Scene.RenderCommand
         {
             Type = global::ProGPU.Scene.RenderCommandType.DrawEllipse,
+            SourceHitGeometry = sourceHitGeometry,
             Brush = brush,
             Pen = pen,
             Position2 = new Vector2((float)center.X, (float)center.Y),

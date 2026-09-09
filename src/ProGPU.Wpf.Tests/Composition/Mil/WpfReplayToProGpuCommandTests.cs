@@ -2552,6 +2552,75 @@ public sealed class WpfReplayToProGpuCommandTests
         Assert.Empty(nativeContext.Commands);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void DirectGuidelineRectangleRetainsSourceInputAfterPictureSnapshot(bool rounded)
+    {
+        var context = new ProGpuDrawingContext();
+        using var sink = new ProGpuCompositionCommandSink(new MediaDrawingContext(context));
+        sink.PushGuidelineY2(20.25, 40);
+        if (rounded) sink.DrawRoundedRectangle(Brushes.Red, null, new System.Windows.Rect(10.25, 20.25, 30, 40), 3, 4);
+        else sink.DrawRectangle(Brushes.Red, null, new System.Windows.Rect(10.25, 20.25, 30, 40));
+        sink.Pop();
+        var raster = Assert.Single(context.Commands);
+        Assert.Equal(20f, raster.Rect.Y);
+        Assert.Equal(40f, raster.Rect.Height);
+        using var picture = new GpuPicture([raster], [], [], [], []);
+        using var capture = new GpuRenderCommandHitTestCacheBuilder();
+        capture.AddCommand(picture.GetCommand(0), Matrix4x4.CreateTranslation(5, 6, 0));
+        var hit = Assert.Single(capture.BuildIndex().Primitives);
+        Assert.Equal(new Vector2(15.25f, 26.25f), hit.BoundsMin);
+        Assert.Equal(new Vector2(45.25f, 66.25f), hit.BoundsMax);
+        Assert.Equal(rounded ? SourceHitTestGeometryKind.RoundedRectangle : SourceHitTestGeometryKind.Rectangle,
+            picture.GetCommand(0).SourceHitGeometry.Kind);
+    }
+
+    [Fact]
+    public void DirectGuidelineEllipseRetainsOriginalCenterAndRadii()
+    {
+        var context = new ProGpuDrawingContext();
+        using var sink = new ProGpuCompositionCommandSink(new MediaDrawingContext(context));
+        sink.PushGuidelineY2(20.25, 40);
+        sink.DrawEllipse(Brushes.Red, null, new Point(25.25, 40.25), 15, 20);
+        sink.Pop();
+        var raster = Assert.Single(context.Commands);
+        Assert.Equal(40f, raster.Position2.Y);
+        using var capture = new GpuRenderCommandHitTestCacheBuilder();
+        capture.AddCommand(raster, Matrix4x4.Identity);
+        var hit = Assert.Single(capture.BuildIndex().Primitives);
+        Assert.Equal(new Vector2(10.25f, 20.25f), hit.BoundsMin);
+        Assert.Equal(new Vector2(40.25f, 60.25f), hit.BoundsMax);
+    }
+
+    [Theory]
+    [InlineData(PenLineCap.Flat)]
+    [InlineData(PenLineCap.Square)]
+    [InlineData(PenLineCap.Round)]
+    [InlineData(PenLineCap.Triangle)]
+    public void DirectGuidelineLineIndexesOriginalSpineAndNotAuxiliaryRasterCaps(PenLineCap cap)
+    {
+        var context = new ProGpuDrawingContext();
+        using var sink = new ProGpuCompositionCommandSink(new MediaDrawingContext(context));
+        sink.PushGuidelineY1(12.25);
+        sink.DrawLine(new Pen(Brushes.Black, 2) { StartLineCap = cap, EndLineCap = cap },
+            new Point(1, 12.25), new Point(30, 12.25));
+        sink.Pop();
+        var raster = context.Commands[0];
+        Assert.Equal(12f, raster.Position.Y);
+        Assert.Equal(new Vector4(1, 12.25f, 30, 12.25f), raster.SourceHitGeometry.Coordinates);
+        using var picture = new GpuPicture(context.Commands.ToArray(), [], [], [], []);
+        using var capture = new GpuRenderCommandHitTestCacheBuilder();
+        for (int i = 0; i < picture.CommandCount; i++) capture.AddCommand(picture.GetCommand(i), Matrix4x4.Identity);
+        var hit = Assert.Single(capture.BuildIndex().Primitives);
+        Assert.Equal(new Vector4(1, 12.25f, 30, 12.25f), hit.Data0);
+        var padding = cap == PenLineCap.Square ? MathF.Sqrt(2) : 1f;
+        Assert.Equal(12.25f - padding, hit.BoundsMin.Y);
+        Assert.Equal(12.25f + padding, hit.BoundsMax.Y);
+        for (int i = 1; i < picture.CommandCount; i++)
+            Assert.Equal(SourceHitTestGeometryKind.Excluded, picture.GetCommand(i).SourceHitGeometry.Kind);
+    }
+
     [Fact]
     public void DecodeGuidelineY1ThroughProGpuSinkPreservesNativeLineYCoordinate()
     {

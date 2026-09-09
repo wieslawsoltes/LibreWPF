@@ -429,6 +429,12 @@ WIC quantization/codec parity or evidence of complete SIMD implementation.
 
 ## Reflection-Free Port Priority
 
+Ordinary primitive guideline snapping must retain original input coordinates
+through ProGPU SourceHitTestGeometry. Keep typed native primitive ingress unsnapped,
+raster fields unchanged, real pen caps and source owner identity. Auxiliary cap
+draws must not create duplicate source coverage. Do not generalize this annotation
+to cached brush/mask/scroll geometry or introduce a WPF-local hit algorithm.
+
 System-menu host adapters resolve real native window/display ownership before
 calling ProGPU's shared provider. X11 uses the owner's advertised WM capability
 and native desktop coordinates, not an opaque WPF source handle or framebuffer
