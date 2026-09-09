@@ -52,3 +52,50 @@ No native artifacts or packages were restaged. Tests, verifiers, applications,
 GPU/VM workloads, benchmarks and CI qualification remain deferred until feature
 freeze; automatic CI remains enabled. Final exact-head platform packages, paired
 native fixtures and all existing SDK/PR gates remain outstanding.
+
+## Native positive-scale implementation follow-up
+
+ProGPU `278ef660` connects positive-scale native cache input through copied
+`source_local_cache` builder metadata. MIL records its raster-to-parent input
+transform before cache pixel snapping; neither the raster stream nor cache
+content/composite revisions are replaced. The producer maps actual command states,
+point/image scopes, glyph bounds and clip controls to source coordinates. Nested
+frames and source clips restore independently; frame-qualified clip caches cannot
+reuse another cached layer's transformed segments. `4251cac8` keeps the frame
+table lazy so ordinary noncached indices acquire no extra table allocation.
+
+Independent affine rows use NEON/SSE2 with the existing multiply/add ordering,
+and corners/clip controls reuse the existing intrinsic transform. The scalar
+composition oracle appears only in fixtures. There is no new CPU fallback,
+source-local geometry implementation, query-time scene traversal or pixel readback.
+
+Paired canonical native fixtures now cover scales 1/2, fractional placement,
+movement, source clipping and content replacement/clear; cached Blur/DropShadow
+variants retain point-only children. The nested builder fixture covers source
+frame composition, frame-qualified rectangle clip reuse, sibling restoration,
+invalid mapping rejection and reset. Managed nested source traversal and the
+import-based consumer receive matched authored coverage.
+
+The earlier blanket native rejection is superseded for this positive-scale
+branch only. Zero-scale native caches still need input-only command retention;
+cache-boundary source masks and non-axis rectangle clipping within a cached frame
+remain explicit failures, not silent empty results. Full cache parity, actual
+application interaction and feature freeze remain incomplete.
+
+Build-only results for `278ef660`:
+
+- Clean detached native checkout: macOS ARM64 and x64 both completed all 41
+  configured incremental compile/link steps, including MIL, builder, native
+  wgpu/Dawn providers, and configured test/sample binaries.
+- Managed ProGPU Release fixture graph (SDK 10): success, zero warnings/errors,
+  49.75 seconds. No fixture body executed.
+- Native headers use the existing Apple Clang C++20 configuration. Modules remain
+  off in these local graphs; import fixtures and full compiler/platform matrix
+  still require final qualification. No native payload/package was restaged.
+- The MIL coverage ledger was regenerated through the existing generator.
+  Contract verifiers, runtime tests and PR CI qualification remain deferred.
+
+Final `4251cac8` builds succeeded for both macOS ARM64 and x64: each completed
+16 incremental compile/link steps, including both provider libraries and configured
+fixtures/samples. No executable was run and no payload was restaged. Unrelated
+native worktree changes and performance artifact deletions remain untouched.

@@ -239,10 +239,11 @@ capture, including own drawing and point-only children. Keep output texture padd
 out of point/region input and preserve source coordinate normalization exactly
 once. No bridge-local hit geometry or WPF-specific compositor fork is permitted.
 Retained optional bitmap-cache input follows ProGPU's original source coordinates,
-not cache allocation bounds, resolution or pixel snapping. Keep native cached
-input admission closed until ProGPU maps cache-local records and clips back to
-the unsnapped source frame, including zero-scale raster suppression. A managed
-connection or compiled fixture is not native cache parity or application closure.
+not cache allocation bounds, resolution or pixel snapping. Native positive-scale
+caches now carry an unsnapped input frame through ProGPU builder scopes. Preserve
+clip-frame identity and keep native zero-scale input, boundary masks and unsupported
+clip topology explicit. A compiled fixture is not full cache parity or application
+closure; never bypass native input with the managed compositor index.
 
 Native host point/region callbacks select the presented native owner snapshot
 before any managed index. Preserve explicit EnableNativeMilHitTesting admission,

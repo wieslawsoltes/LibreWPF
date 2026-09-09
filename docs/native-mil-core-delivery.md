@@ -126,10 +126,12 @@ runtime fidelity, native index default admission or remaining cache/mask contrac
 The [cache input implementation checkpoint](../reports/native-mil-cache-input-2026-09-09.md)
 connects managed optional source caches to pre-composite input traversal, preserving
 unsnapped geometry and content updates instead of texture allocation bounds.
-Native cache-local coordinate mapping, zero-scale source input and paired fixtures
-remain required next work; indexed native caches still fail explicitly. Required
-cached-picture sources and spatial masks are not silently admitted. This does not
-close row 2, refresh packages or start feature freeze.
+Native positive-scale caches now carry unsnapped input-frame metadata through
+the existing builder, with paired source placement/update fixtures and nested
+frame/clip ownership. Zero-scale source input, cache-boundary masks and remaining
+exact clip combinations still fail explicitly. Required cached-picture sources
+are not silently admitted. This does not close row 2, refresh packages or start
+feature freeze; continue the concrete remaining cache/mask application branches.
 
 Package input refresh: macOS, Linux and Windows ARM64/x64 native payloads now
 share ProGPU da36a718 in the same staging root. Both Linux refresh builds completed
