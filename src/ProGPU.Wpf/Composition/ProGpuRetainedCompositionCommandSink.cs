@@ -839,9 +839,12 @@ internal sealed class ProGpuRetainedCompositionCommandSink :
     }
 }
 
-internal sealed class ProGpuRetainedDrawingVisual : ProGpuContainerVisual
+internal sealed class ProGpuRetainedDrawingVisual : ProGpuContainerVisual,
+    global::ProGPU.Scene.ISourceGeometryHitTestCommands
 {
     public ProGpuDrawingContext Context { get; } = new();
+
+    public ProGpuDrawingContext SourceHitTestCommands => Context;
 
     public override void OnRender(ProGpuDrawingContext context)
     {

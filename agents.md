@@ -46,9 +46,11 @@ that is a valid empty source, not unavailable bounds.
 
 Source DrawingContext opacity changes pixels, not geometry input. Use ProGPU's
 typed source opacity policy, retain real render alpha and balanced scopes, and
-preserve it through retained command snapshots. Native visual-group admission
-does not close the managed retained-visual opacity-zero early rejection; keep
-that separate source policy blocker explicit until connected and qualified.
+preserve it through retained command snapshots. Retained product visuals publish
+ISourceGeometryHitTestCommands over their existing context, letting ProGPU retain
+input while culling zero-alpha rendering. Do not call OnRender or invent Size
+rectangles for that traversal. Effects/masks/caches and native host-query coverage
+remain separate blockers; this connection is not runtime qualification.
 
 Every selected native popup must complete owner configuration before Show, on
 Cocoa/X11 as well as Windows. Rejection or exception disposes the hidden popup;
