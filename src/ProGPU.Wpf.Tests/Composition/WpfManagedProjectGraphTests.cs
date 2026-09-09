@@ -682,7 +682,8 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("TryShowGlfwWithoutActivation(view)", silkDecorations, StringComparison.Ordinal);
         Assert.Contains("WindowAttributeSetter.FocusOnShow", silkDecorations, StringComparison.Ordinal);
         Assert.Contains("NativePopupWindow.TryConfigureOwner(", silkDecorations, StringComparison.Ordinal);
-        Assert.Contains("OperatingSystem.IsWindows() && !ownerConfigured", popupHost, StringComparison.Ordinal);
+        Assert.Contains("if (!ownerConfigured)", popupHost, StringComparison.Ordinal);
+        Assert.DoesNotContain("catch when (OperatingSystem.IsWindows())", popupHost, StringComparison.Ordinal);
         Assert.DoesNotContain("return !isWindows && !explicitlyDisabled", popupHost, StringComparison.Ordinal);
         Assert.Contains("\"_NET_WM_WINDOW_TYPE_DROPDOWN_MENU\"", silkDecorations, StringComparison.Ordinal);
         Assert.Contains("\"_NET_WM_WINDOW_TYPE_POPUP_MENU\"", silkDecorations, StringComparison.Ordinal);
@@ -690,8 +691,10 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("XChangeWindowAttributes(", silkDecorations, StringComparison.Ordinal);
         Assert.Contains("XChangeProperty(", silkDecorations, StringComparison.Ordinal);
         Assert.Contains("SelRegisterName(\"orderFront:\")", silkDecorations, StringComparison.Ordinal);
-        Assert.Contains("SelRegisterName(\"addChildWindow:ordered:\")", silkDecorations, StringComparison.Ordinal);
-        Assert.Contains("SelRegisterName(\"setHidesOnDeactivate:\")", silkDecorations, StringComparison.Ordinal);
+        Assert.Contains("new(NativeWindowKind.Cocoa, GetCocoaWindow(ownerView)", silkDecorations, StringComparison.Ordinal);
+        Assert.DoesNotContain("TryConfigureCocoaPopupOwner", silkDecorations, StringComparison.Ordinal);
+        Assert.DoesNotContain("SelRegisterName(\"addChildWindow:ordered:\")", silkDecorations, StringComparison.Ordinal);
+        Assert.DoesNotContain("SelRegisterName(\"setHidesOnDeactivate:\")", silkDecorations, StringComparison.Ordinal);
         Assert.Contains("_popupHost.SetPosition(_nativeLogicalX, _nativeLogicalY);", popupHost, StringComparison.Ordinal);
         Assert.Contains("ShouldPumpEvents(_isDisposed, _isInitialized, _isVisible, _isPumping)", popupHost, StringComparison.Ordinal);
         Assert.Contains(

@@ -192,7 +192,9 @@ public sealed unsafe class SilkNetWpfWindowDecorationService : IWpfWindowDecorat
 
         if (OperatingSystem.IsMacOS())
         {
-            return TryConfigureCocoaPopupOwner(GetCocoaWindow(ownerView), GetCocoaWindow(popupView));
+            return NativePopupWindow.TryConfigureOwner(
+                new(NativeWindowKind.Cocoa, GetCocoaWindow(ownerView), 0, "NSWindow"),
+                new(NativeWindowKind.Cocoa, GetCocoaWindow(popupView), 0, "NSWindow"));
         }
 
         if (OperatingSystem.IsLinux())
@@ -457,37 +459,6 @@ public sealed unsafe class SilkNetWpfWindowDecorationService : IWpfWindowDecorat
             }
 
             ObjCMsgSend(nsWindow, performDragSelector, currentEvent);
-            return true;
-        }
-        catch (DllNotFoundException)
-        {
-            return false;
-        }
-        catch (EntryPointNotFoundException)
-        {
-            return false;
-        }
-    }
-
-    [SupportedOSPlatform("macos")]
-    private static bool TryConfigureCocoaPopupOwner(IntPtr ownerWindow, IntPtr popupWindow)
-    {
-        if (ownerWindow == IntPtr.Zero || popupWindow == IntPtr.Zero)
-        {
-            return false;
-        }
-
-        try
-        {
-            IntPtr addChildWindow = SelRegisterName("addChildWindow:ordered:");
-            IntPtr setHidesOnDeactivate = SelRegisterName("setHidesOnDeactivate:");
-            if (addChildWindow == IntPtr.Zero || setHidesOnDeactivate == IntPtr.Zero)
-            {
-                return false;
-            }
-
-            ObjCMsgSend(popupWindow, setHidesOnDeactivate, false);
-            ObjCMsgSend(ownerWindow, addChildWindow, popupWindow, 1);
             return true;
         }
         catch (DllNotFoundException)
@@ -846,12 +817,6 @@ public sealed unsafe class SilkNetWpfWindowDecorationService : IWpfWindowDecorat
 
     [DllImport(ObjCLibrary, EntryPoint = "objc_msgSend")]
     private static extern void ObjCMsgSend(IntPtr receiver, IntPtr selector, IntPtr argument);
-
-    [DllImport(ObjCLibrary, EntryPoint = "objc_msgSend")]
-    private static extern void ObjCMsgSend(IntPtr receiver, IntPtr selector, [MarshalAs(UnmanagedType.Bool)] bool argument);
-
-    [DllImport(ObjCLibrary, EntryPoint = "objc_msgSend")]
-    private static extern void ObjCMsgSend(IntPtr receiver, IntPtr selector, IntPtr argument, long orderingMode);
 
     [DllImport(X11Library)]
     private static extern UIntPtr XDefaultRootWindow(IntPtr display);

@@ -1,5 +1,11 @@
 # Agent Guidance
 
+Every selected native popup must complete owner configuration before Show, on
+Cocoa/X11 as well as Windows. Rejection or exception disposes the hidden popup;
+do not continue unowned or silently switch surface kind. Cocoa owner setup belongs
+in ProGPU's checked NativePopupWindow provider, not WPF-local Objective-C calls.
+Native child ownership is not AppKit modal-session admission for GLFW NSWindows.
+
 Default access keys and no-focus F10/Alt menu entry share source-aware active
 scope lookup. Portable roots require the typed active-scope capability, current
 dispatcher, live source and actual visible/active/modal-allowed Window state.

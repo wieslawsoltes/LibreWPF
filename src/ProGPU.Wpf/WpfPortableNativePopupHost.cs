@@ -324,19 +324,19 @@ internal sealed class WpfPortableNativePopupHost : IWpfPortableNativePopupHost
             {
                 ownerConfigured = _ownerHost.PlatformServices.WindowDecorations.TryConfigurePopupOwner(ownerWindow, popupWindow);
             }
-            catch when (OperatingSystem.IsWindows())
+            catch
             {
                 Dispose();
                 throw;
             }
         }
 
-        if (OperatingSystem.IsWindows() && !ownerConfigured)
+        if (!ownerConfigured)
         {
             // Never show an unowned/activating replacement after explicit native
             // popup selection. Dispose the still-hidden surface on rejection.
             Dispose();
-            throw new PlatformNotSupportedException("The native Windows popup owner could not be configured.");
+            throw new PlatformNotSupportedException("The selected native popup owner could not be configured.");
         }
 
         _isInitialized = true;

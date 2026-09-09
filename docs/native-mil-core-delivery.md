@@ -41,6 +41,13 @@ dispatcher, disposal and modal admission select the scope; authored regressions
 are not runtime qualification. See the
 [menu-entry checkpoint](../reports/native-mil-active-menu-scope-2026-09-09.md).
 
+Native Cocoa popup ownership now uses ProGPU's checked hidden-window parent
+configuration. A selected native popup is disposed when owner setup rejects or
+throws on every platform, rather than proceeding unowned. The main MVP menus and
+ComboBoxes still require visible qualification; this is not genuine NSPanel
+modal-popup hosting or automatic AppKit session admission. See the
+[popup ownership checkpoint](../reports/native-mil-cocoa-popup-ownership-2026-09-09.md).
+
 The `Visual` geometry-hit consumer through `PathGeometry.HitTestWithPathGeometry`
 is now connected to ProGPU's shared native fill-relation query under portable
 media selection. The existing native host harness includes region selection
