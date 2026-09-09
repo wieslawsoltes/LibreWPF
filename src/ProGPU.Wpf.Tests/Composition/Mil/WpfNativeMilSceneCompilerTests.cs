@@ -12,6 +12,44 @@ namespace ProGPU.Wpf.Tests.Composition.Mil;
 public sealed class WpfNativeMilSceneCompilerTests
 {
     [Fact]
+    public void NativeOwnerSnapshotsDistinguishReplacedVisualsWithIdenticalMilBytes()
+    {
+        var compiler = new WpfNativeMilSceneCompiler();
+        var first = new FakeVisual(null);
+        var second = new FakeVisual(null);
+        WpfNativeMilBatch before = compiler.BuildBatch(first, 64, 64);
+        WpfNativeMilBatch after = compiler.BuildBatch(second, 64, 64);
+        Assert.Equal(before.Bytes, after.Bytes);
+        Assert.Empty(WpfNativeMilCompilationSession.CreateDelta(before, after).Bytes);
+        Assert.Equal(1, before.VisualOwners.Count);
+        Assert.Equal(1, after.VisualOwners.Count);
+        Assert.True(before.VisualOwners.TryGetOwner(1, out object? oldOwner));
+        Assert.True(after.VisualOwners.TryGetOwner(1, out object? newOwner));
+        Assert.Same(first, oldOwner);
+        Assert.Same(second, newOwner);
+    }
+
+    [Fact]
+    public void NativeOwnerSnapshotContainsSourcePopupsButNotPlacementContainers()
+    {
+        var root = new FakeVisual(null);
+        var popup = new FakeVisual(null);
+        WpfNativeMilBatch batch = new WpfNativeMilSceneCompiler().BuildBatch(
+            root, 64, 64, default, [new(popup, 2, 3, 20, 30)]);
+        Assert.Equal(2, batch.VisualOwners.Count);
+        Assert.True(batch.VisualOwners.TryGetOwner(1, out object? rootOwner));
+        Assert.Same(root, rootOwner);
+        int popupOwners = 0;
+        for (int handle = 1; handle < batch.TargetHandle; handle++)
+        {
+            if (batch.VisualOwners.TryGetOwner(handle, out object? owner) && ReferenceEquals(owner, popup))
+                popupOwners++;
+        }
+        Assert.Equal(1, popupOwners);
+        Assert.False(batch.VisualOwners.TryGetOwner(checked((int)batch.TargetHandle), out _));
+    }
+
+    [Fact]
     public void HostWindowRegionUsesNonzeroHoleUnionOutsideRootAndPopups()
     {
         var root = new FakeVisual(null);

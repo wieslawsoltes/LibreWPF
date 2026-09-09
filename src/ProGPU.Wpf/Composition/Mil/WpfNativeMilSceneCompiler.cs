@@ -83,7 +83,13 @@ public sealed record WpfNativeMilBatch(
     IReadOnlyList<WpfNativeMilMediaPlayerSource>? MediaPlayerSources = null,
     IReadOnlyList<WpfNativeMilBitmapExternalImageSource>?
         BitmapExternalImageSources = null,
-    IReadOnlyList<WpfNativeMilD3DImageSource>? D3DImageSources = null);
+    IReadOnlyList<WpfNativeMilD3DImageSource>? D3DImageSources = null)
+{
+    // Host identities are deliberately absent from the canonical MIL byte stream.
+    // Handles may be reused by a subsequent batch with identical drawing bytes.
+    public NativeGpuHitTestOwnerMap<object> VisualOwners { get; init; } =
+        NativeGpuHitTestOwnerMap<object>.Empty;
+}
 
 public sealed record WpfNativeMilCompilation(
     NativeMilCompiledScene Scene,
@@ -142,7 +148,10 @@ public sealed class WpfNativeMilSceneCompiler
             context.Viewport3DScenes.ToArray(),
             context.MediaPlayerSources.ToArray(),
             context.BitmapExternalImageSources.ToArray(),
-            context.D3DImageSources.ToArray());
+            context.D3DImageSources.ToArray())
+        {
+            VisualOwners = context.SnapshotVisualOwners()
+        };
     }
 
     public WpfNativeMilCompilation Compile(
@@ -279,6 +288,10 @@ public sealed class WpfNativeMilSceneCompiler
     {
         private readonly Dictionary<object, uint> _visualHandles =
             new(ReferenceEqualityComparer.Instance);
+        private readonly List<KeyValuePair<int, object>> _visualOwners = new();
+
+        internal NativeGpuHitTestOwnerMap<object> SnapshotVisualOwners() =>
+            new(CollectionsMarshal.AsSpan(_visualOwners));
         private readonly Dictionary<object, uint> _brushHandles =
             new(ReferenceEqualityComparer.Instance);
         private readonly Dictionary<object, uint> _transformHandles =
@@ -496,6 +509,8 @@ public sealed class WpfNativeMilSceneCompiler
 
             uint visualHandle = NextHandle();
             _visualHandles.Add(visual, visualHandle);
+            // The GPU ABI carries a signed ID; preserve the MIL handle's bits.
+            _visualOwners.Add(new(unchecked((int)visualHandle), visual));
             Batch.CreateResource(
                 visualHandle,
                 isViewport3D

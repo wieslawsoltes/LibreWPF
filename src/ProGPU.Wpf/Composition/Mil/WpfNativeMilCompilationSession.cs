@@ -22,7 +22,12 @@ public sealed record WpfNativeMilSessionFrame(
     IReadOnlyList<WpfNativeMilMediaPlayerSource> MediaPlayerSources,
     IReadOnlyList<WpfNativeMilBitmapExternalImageSource>
         BitmapExternalImageSources,
-    IReadOnlyList<WpfNativeMilD3DImageSource> D3DImageSources);
+    IReadOnlyList<WpfNativeMilD3DImageSource> D3DImageSources)
+{
+    /// <summary>Source identities captured by this frame's batch, never a live owner lookup.</summary>
+    public NativeGpuHitTestOwnerMap<object> VisualOwners { get; init; } =
+        NativeGpuHitTestOwnerMap<object>.Empty;
+}
 
 /// <summary>
 /// Owns the native MIL channel across WPF frames so dynamic guideline and
@@ -122,7 +127,10 @@ public sealed class WpfNativeMilCompilationSession : IDisposable
             _lastBatch.BitmapExternalImageSources ??
                 Array.Empty<WpfNativeMilBitmapExternalImageSource>(),
             _lastBatch.D3DImageSources ??
-                Array.Empty<WpfNativeMilD3DImageSource>());
+                Array.Empty<WpfNativeMilD3DImageSource>())
+        {
+            VisualOwners = _lastBatch.VisualOwners
+        };
     }
 
     internal WpfNativeMilSessionUpdate Update(WpfNativeMilBatch batch)

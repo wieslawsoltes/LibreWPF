@@ -322,6 +322,10 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
 
     public WpfNativeMilSessionFrame? LastNativeMilSessionFrame { get; private set; }
 
+    // Published only after presentation succeeds. A newly compiled batch may
+    // reuse integer handles while replacing every corresponding source object.
+    internal NativeGpuHitTestOwnerSnapshot<object> NativeMilHitTestOwners { get; private set; }
+
     public NativeSceneUpdateMetrics LastNativeMilSceneUpdateMetrics { get; private set; }
 
     public NativeSceneFrameMetrics LastNativeMilFrameMetrics { get; private set; }
@@ -2449,6 +2453,8 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         LastNativeMilSessionFrame = frame;
         TraceNativeLoop("native MIL compile leaving: " + CreateNativeLoopTraceState());
         BindNativeMilExternalImages(frame);
+        // Do not expose owners for a previous scene if install/presentation fails.
+        NativeMilHitTestOwners = default;
         LastNativeMilSceneUpdateMetrics = _nativeMilCompositor.UpdateScene(
             frame.Scene.Stream);
         TraceNativeLoop("native MIL scene installed: " + CreateNativeLoopTraceState());
@@ -2463,6 +2469,8 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
             _target.Compositor.ClearColor);
         if (presented)
         {
+            NativeMilHitTestOwners = _nativeMilCompositor.BindGpuHitTestOwners(
+                frame.VisualOwners, frame.Request.SceneId, frame.Request.Generation);
             RequestNativeMilContinuationAndWakeNativeLoop(
                 frame.Request,
                 frame.Scene.BuildResult);
@@ -4215,6 +4223,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         _nativeMilRequestSerial = 0;
         LastNativeMilSessionUpdate = default;
         LastNativeMilSessionFrame = null;
+        NativeMilHitTestOwners = default;
         LastNativeMilSceneUpdateMetrics = default;
         LastNativeMilFrameMetrics = default;
 

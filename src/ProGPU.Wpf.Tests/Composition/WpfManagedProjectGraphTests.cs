@@ -6,6 +6,23 @@ namespace ProGPU.Wpf.Tests.Composition;
 public sealed class WpfManagedProjectGraphTests
 {
     [Fact]
+    public void NativeMilOwnerSnapshotIsPublishedAfterPresentationAndClearedAtTeardown()
+    {
+        string host = File.ReadAllText(FindRepoPath("src", "ProGPU.Wpf", "ProGpuWpfWindowHost.cs"));
+        int start = host.IndexOf("private bool RenderNativeMilFrame(", StringComparison.Ordinal);
+        int end = host.IndexOf("return presented;", start, StringComparison.Ordinal);
+        string frame = host[start..end];
+        Assert.True(frame.IndexOf("NativeMilHitTestOwners = default;", StringComparison.Ordinal) <
+            frame.IndexOf("_nativeMilCompositor.UpdateScene(", StringComparison.Ordinal));
+        Assert.True(frame.IndexOf("if (presented)", StringComparison.Ordinal) <
+            frame.IndexOf("NativeMilHitTestOwners = _nativeMilCompositor.BindGpuHitTestOwners(", StringComparison.Ordinal));
+        Assert.Contains("frame.VisualOwners, frame.Request.SceneId, frame.Request.Generation", frame, StringComparison.Ordinal);
+        Assert.Contains("LastNativeMilSessionFrame = null;\n        NativeMilHitTestOwners = default;", host, StringComparison.Ordinal);
+        string session = File.ReadAllText(FindRepoPath("src", "ProGPU.Wpf", "Composition", "Mil", "WpfNativeMilCompilationSession.cs"));
+        Assert.Contains("VisualOwners = _lastBatch.VisualOwners", session, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void NoFocusMenuEntrySharesSourceOwnedAccessKeyAdmission()
     {
         string framework = FindRepoPath("src", "Microsoft.DotNet.Wpf", "src", "PresentationFramework", "System", "Windows");
