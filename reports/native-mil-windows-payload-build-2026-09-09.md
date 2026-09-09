@@ -65,12 +65,16 @@ The successful ARM64 staging contains:
 
 The complete ARM64 RID directory was copied back beside the Unix build inputs at
 `artifacts/native-core-build.KvxVug/progpu/artifacts/progpu-native/package/runtimes/win-arm64`.
-The x64 command has started its separate 356-step graph with the actual MSVC x64
-toolchain and matching pinned x64 linker input; completion is not yet recorded.
+The x64 command completed all 356 steps successfully with the actual MSVC x64
+toolchain and matching pinned x64 linker input. It produced the same three DLLs
+and seven SDK libraries. Both Windows RIDs use the native source at da36a718;
+no target test/sample executable ran, including no emulated x64 renderer workload.
+The complete x64 RID directory was also copied into the same host staging root
+under `win-x64`. Both Windows native build processes exited 0 and are finished.
 
 ## Remaining work and evidence limits
 
-Finish x64 native production, Windows managed/IJW production and complete package
+Finish Windows managed/IJW production and complete package
 construction. Keep Windows SDK admission guarded until source/package integration
 dependencies are implemented. Refresh Unix inputs from the final delivery source:
 their existing `2ab498be` payloads precede the compiler-fix checkpoint.

@@ -36,9 +36,9 @@ Windows transport checks to report package production complete. See the
 
 Windows production has resumed in the existing Parallels guest. ProGPU da36a718
 closes strict MSVC compilation failures in native MIL/text and test fixtures;
-the ARM64 build completed and its three DLLs/seven SDK libraries were staged and
-copied beside the Unix inputs. The separate x64 build has started but is not yet
-recorded complete. Windows managed/IJW payloads, complete packages and SDK admission
+both ARM64 and x64 builds completed, each staging three DLLs/seven SDK libraries.
+The x64 build completed all 356 steps without further fixes.
+Windows managed/IJW payloads, complete packages and SDK admission
 remain open. Existing Unix inputs precede this source-fix checkpoint and need final
 refresh. This is build-only progress, not runtime qualification; see the
 [Windows build record](../reports/native-mil-windows-payload-build-2026-09-09.md).
