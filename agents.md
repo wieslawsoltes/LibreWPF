@@ -119,6 +119,11 @@ unwind when necessary. Canceled closes retain the gate. Restore actual prior
 activation/focus only after successful gate publication; reject moved/disposed
 focus sources and never assign IsActive to simulate host activation. Cocoa/Linux
 native suppression and cross-thread application coordination remain explicit.
+Cocoa host polls consult ProGPU NativeWindowModalSession before ordinary GLFW
+dispatch and defer native destruction while its session retains the host. This
+polling seam is not automatic ShowDialog admission. Connect real native popup
+admission and source gate-release/focus ordering after native End before enabling
+it; do not hide popup failures with default polling or owner-surface substitution.
 
 Decoder-backed core application images follow `BitmapSource.UsesPortablePixelStorage`
 for backend selection on every OS. Existing portable format dispatch must not fall

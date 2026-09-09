@@ -836,7 +836,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
             // WPF dispatcher resumes and observes IsActive.
             try
             {
-                host._window.DoEvents();
+                if (!NativeWindowModalSession.TryPumpEvents()) host._window.DoEvents();
             }
             finally
             {
@@ -1270,7 +1270,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
             TraceNativeLoop(
                 $"native event poll entering: nonBlocking={useNonBlockingNativePoll}, " +
                 CreateNativeLoopTraceState());
-            window.DoEvents();
+            if (!NativeWindowModalSession.TryPumpEvents()) window.DoEvents();
             TraceNativeLoop("native event poll leaving: " + CreateNativeLoopTraceState());
         }
         finally
@@ -1434,6 +1434,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         IWindow? window = _window;
         bool deferNativeWindowDispose = window != null &&
             (_isNativeLoopRunning ||
+                IsNativeWindowRetainedByModalSession(window) ||
                 _isRendering ||
                 _isProcessingDispatcherWorkWakeup ||
                 _isInNativeWindowCloseCallback);
@@ -1453,7 +1454,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         {
             _disposeNativeWindowWhenLoopExits = true;
             RequestNativeWindowClose(window!);
-            if (_isInNativeWindowCloseCallback)
+            if (_isInNativeWindowCloseCallback || IsNativeWindowRetainedByModalSession(window!))
             {
                 QueueDeferredNativeWindowDisposal(this);
             }
@@ -1490,6 +1491,14 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
             return;
         }
 
+        if (_window != null && IsNativeWindowRetainedByModalSession(_window))
+        {
+            // A callback can close a host while AppKit still owns its native
+            // session. Keep the deferred host queued until its lease has ended.
+            QueueDeferredNativeWindowDisposal(this);
+            return;
+        }
+
         _disposeNativeWindowWhenLoopExits = false;
         IWindow? window = _window;
         if (window == null)
@@ -1507,6 +1516,11 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         window.Dispose();
         _window = null;
     }
+
+    private static bool IsNativeWindowRetainedByModalSession(IWindow window) =>
+        NativeWindowModalSession.IsActive && window.IsInitialized &&
+        window.Native?.Cocoa is { } cocoa && cocoa != 0 &&
+        NativeWindowModalSession.RetainsWindow(new(NativeWindowKind.Cocoa, cocoa, 0, "NSWindow"));
 
     private static void QueueDeferredNativeWindowDisposal(ProGpuWpfWindowHost host)
     {

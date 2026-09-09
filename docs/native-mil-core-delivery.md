@@ -116,6 +116,24 @@ commit. Their next-step text is historical, may be superseded by later changes,
 and must not be treated as an additional active backlog. Use the active completion
 queue above for current priorities.
 
+Cocoa About-dialog native-session prerequisite: ProGPU now owns an incremental
+AppKit modal session, retained native host identity, nested polling and deferred
+End after native callbacks. WPF's two native-poll sites respect that session and
+defer native window destruction while retained. This is not enabled automatically
+by ShowDialog: existing GLFW-native popups still need real modal admission, and
+source release/focus restoration must follow actual native End, including deferred
+End. Local monitors miss native tracking loops and are not a full substitute.
+Keep these concrete application dependencies open; do not use this API/compiled
+fixture as macOS modal parity, package startup or Windows SDK admission evidence.
+See the [Cocoa session contract](../external/ProGPU/docs/native-mil-cocoa-modal-session.md).
+Compile-only: ProGPU.Tests 0 warnings/0 errors, final bridge fixtures 0/0 and source
+RealPresentationFrameworkHarness 4/0. Corrected initial fixture internal access
+with a signed backend friend contract; existing platform fixtures now use the
+actual assembly instead of duplicated source. No fixtures, verifiers, applications,
+VM/GPU workloads, benchmarks or CI checks ran. Automatic Cocoa modality, native
+popup admission, source deferred-End restoration and Linux modality remain open;
+these compilations do not change the package-mode or Windows admission gates.
+
 Win32 modal gate/source restoration connection: the MVP About dialog now publishes
 native input admission for source-owned windows and separately surfaced popups,
 including windows created during the dialog. ProGPU retains an independent input
