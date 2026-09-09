@@ -2922,6 +2922,9 @@ public partial class MainWindow : Window
             },
             DispatcherPriority.Send);
 
+        string clippedScrollStatus = await ValidateLiveClippedScrollAsync(liveHost,
+            Require<ScrollViewer>(selectorScrollViewer, "MVP clipped scroll viewer"));
+
         LivePresentedFrameState inputThumbTabFrameBefore = await CaptureLivePresentedFrameStateAsync(liveHost);
         await InvokeWithLiveHostWakeAsync(
             liveHost,
@@ -3013,9 +3016,126 @@ public partial class MainWindow : Window
                 AssertEqual(false, LastInputThumbDragCompletedCanceled, "MVP live input Thumb DragCompleted canceled state");
                 AssertLiveContains("Dragged ", Require<TextBlock>(inputDragStatusText, "MVP live input drag status").Text, "MVP live input Thumb drag status");
                 AssertEqual(true, ReferenceEquals(inputThumbPanel, thumb.Parent), "MVP live input Thumb parent");
-                return "MouseWheel routed through SelectorScrollViewer and Thumb drag captured, moved, and released through host mouse input";
+                return $"{clippedScrollStatus}; MouseWheel routed through SelectorScrollViewer and Thumb drag captured, moved, and released through host mouse input";
             },
             DispatcherPriority.Send);
+    }
+
+    private async Task<string> ValidateLiveClippedScrollAsync(ProGpuWpfWindowHost liveHost, ScrollViewer viewer)
+    {
+        TextBlock text = await InvokeWithLiveHostWakeAsync(liveHost,
+            () => Require<TextBlock>(FindName("SelectorScrollText"), "MVP clipped scroll text"), DispatcherPriority.Send);
+        string originalText = string.Empty;
+        double originalOffset = 0;
+        bool changedContent = false;
+        try
+        {
+            var before = await CaptureLivePresentedFrameStateAsync(liveHost);
+            await InvokeWithLiveHostWakeAsync(liveHost, () =>
+            {
+                originalText = text.Text;
+                originalOffset = viewer.VerticalOffset;
+                // Exercise a normal content edit in the complete application. The
+                // original short details can fit entirely and cannot prove scrolling.
+                var paragraphs = new string[12];
+                Array.Fill(paragraphs, originalText);
+                changedContent = true;
+                text.Text = string.Join("\n", paragraphs);
+                viewer.ScrollToTop();
+                UpdateLayout();
+            }, DispatcherPriority.Send);
+            await InvokeWithLiveHostWakeAsync(liveHost, static () => { }, DispatcherPriority.Background);
+            await WaitForLiveInputPresentedFrameAsync(liveHost, before, "scrolling details content expansion");
+
+            ScrollContentPresenter presenter = await InvokeWithLiveHostWakeAsync(liveHost, () =>
+            {
+                if (viewer.CanContentScroll || viewer.ScrollableHeight <= viewer.ViewportHeight || viewer.VerticalOffset != 0)
+                    throw new InvalidOperationException($"MVP details must have overflowing pixel-scrolled content: " +
+                        $"logical={viewer.CanContentScroll}, range={viewer.ScrollableHeight}, viewport={viewer.ViewportHeight}, offset={viewer.VerticalOffset}.");
+                return Require<ScrollContentPresenter>(viewer.Template.FindName("PART_ScrollContentPresenter", viewer),
+                    "MVP actual scroll content presenter");
+            }, DispatcherPriority.Send);
+            double initialTop = await InvokeWithLiveHostWakeAsync(liveHost,
+                () => text.TranslatePoint(new Point(), presenter).Y, DispatcherPriority.Send);
+            before = await CaptureLivePresentedFrameStateAsync(liveHost);
+            await InvokeWithLiveHostWakeAsync(liveHost, () =>
+            {
+                AssertPresentedScrollPoint(liveHost, presenter, text, new Point(5, presenter.ActualHeight / 2), true);
+                if (!TryRaiseLiveMouseWheel(liveHost, presenter, "MVP clipped details presenter", -1, out string state))
+                    throw new InvalidOperationException($"MVP scrolling details cannot receive wheel input: {state}.");
+            }, DispatcherPriority.Send);
+            await InvokeWithLiveHostWakeAsync(liveHost, static () => { }, DispatcherPriority.Background);
+            await WaitForLiveInputPresentedFrameAsync(liveHost, before, "wheel-driven clipped content movement");
+
+            double scrolledOffset = await InvokeWithLiveHostWakeAsync(liveHost, () =>
+            {
+                if (viewer.VerticalOffset <= 2)
+                    throw new InvalidOperationException("MVP wheel event did not actually scroll its overflowing content.");
+                double movedTop = text.TranslatePoint(new Point(), presenter).Y;
+                AssertLiveClose(-viewer.VerticalOffset, movedTop - initialTop, 0.01,
+                    "MVP source scroll transform applies offset once");
+                AssertPresentedScrollPoint(liveHost, presenter, text, new Point(5, presenter.ActualHeight / 2), true);
+                // This point is inside the text's arranged rectangle but above the
+                // actual source viewport. All-owner queries catch leaks even when
+                // another foreground visual would hide them from a first-hit query.
+                Point clipped = new(5, -2);
+                Point textPoint = presenter.TranslatePoint(clipped, text);
+                if (textPoint.Y < 0 || textPoint.Y >= text.ActualHeight)
+                    throw new InvalidOperationException("MVP clipped probe did not intersect the scrolled source content.");
+                AssertPresentedScrollPoint(liveHost, presenter, text, clipped, false);
+                return viewer.VerticalOffset;
+            }, DispatcherPriority.Send);
+
+            before = await CaptureLivePresentedFrameStateAsync(liveHost);
+            await InvokeWithLiveHostWakeAsync(liveHost, () =>
+            {
+                text.Text = "Updated scrolled content";
+                UpdateLayout();
+            }, DispatcherPriority.Send);
+            await InvokeWithLiveHostWakeAsync(liveHost, static () => { }, DispatcherPriority.Background);
+            await WaitForLiveInputPresentedFrameAsync(liveHost, before, "scrolled content replacement");
+            await InvokeWithLiveHostWakeAsync(liveHost, () =>
+            {
+                AssertEqual("Updated scrolled content", text.Text, "MVP scrolled content replacement");
+                AssertLiveClose(0, viewer.VerticalOffset, 0.01, "MVP shortened content clamps scroll offset");
+                AssertPresentedScrollPoint(liveHost, presenter, text, new Point(5, Math.Min(5, text.ActualHeight / 2)), true);
+                AssertPresentedScrollPoint(liveHost, presenter, text, new Point(5, presenter.ActualHeight - 2), false);
+            }, DispatcherPriority.Send);
+            return $"overflowing details scrolled {scrolledOffset:0.###} DIPs, presented, clipped input and replaced content";
+        }
+        finally
+        {
+            if (changedContent)
+                await InvokeWithLiveHostWakeAsync(liveHost, () =>
+                {
+                    text.Text = originalText;
+                    viewer.ScrollToVerticalOffset(originalOffset);
+                    UpdateLayout();
+                }, DispatcherPriority.Send);
+        }
+    }
+
+    private void AssertPresentedScrollPoint(ProGpuWpfWindowHost liveHost, ScrollContentPresenter presenter,
+        TextBlock text, Point localPoint, bool expectedText)
+    {
+        Point point = presenter.TranslatePoint(localPoint, this);
+        ProGpuWpfDiagnostics.TryHitTestOwners(liveHost, point.X, point.Y, out object?[] owners);
+        // Device index upload is demand-driven: inspect residency after the real
+        // query, not before the first query against this newly presented scene.
+        if (!ProGpuWpfDiagnostics.TryGetGpuHitTestCacheSnapshot(liveHost, out var index) ||
+            !index.HasIndex || !index.HasDeviceIndex)
+            throw new InvalidOperationException("MVP scroll input requires the presented renderer's device index.");
+        bool found = false;
+        for (int i = 0; i < owners.Length; i++) found |= ReferenceEquals(owners[i], text);
+        AssertEqual(expectedText, found, "MVP presented scroll source point coverage");
+        if (!expectedText)
+        {
+            ProGpuWpfDiagnostics.TryQueryHitTestBoundsOwners(liveHost,
+                point.X - 0.25, point.Y - 0.25, point.X + 0.25, point.Y + 0.25, out object?[] regionOwners);
+            for (int i = 0; i < regionOwners.Length; i++)
+                if (ReferenceEquals(regionOwners[i], text))
+                    throw new InvalidOperationException("MVP clipped or replaced text leaked into presented region input.");
+        }
     }
 
     private async Task<LivePresentedFrameState> CaptureLivePresentedFrameStateAsync(ProGpuWpfWindowHost liveHost)
