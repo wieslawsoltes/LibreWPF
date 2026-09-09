@@ -223,6 +223,13 @@ rewrite or claims of qualified codec/worker/SIMD parity follow from this routing
 
 ## Core Native MIL Delivery Priority
 
+TextBlock source point hits cover its arranged rectangle, but geometry-region hits
+remain drawing-based. Connect an explicit source-owned descriptor through ProGPU's
+PointOnly/RegionOnly input policy; do not infer it from type names or assign layout
+rectangles to ordinary visuals. Replacing point coverage also excludes that
+visual's drawing overhang from point queries, without excluding descendants or
+changing rendering. Query flags alone do not close the source/application path.
+
 Native host point/region callbacks select the presented native owner snapshot
 before any managed index. Preserve explicit EnableNativeMilHitTesting admission,
 complete-index compilation, popup inheritance, bounded owner-resolution retry

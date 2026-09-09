@@ -96,6 +96,17 @@ input; missing coverage cannot pass through a managed index. Runtime qualificati
 and default admission remain open. Continue the same MVP scrolling/selection
 path and concrete coverage blockers, not another independent input subsystem.
 
+The [MVP query-participation checkpoint](../reports/native-mil-query-participation-2026-09-09.md)
+traces a concrete remaining scrolling dependency: source TextBlock point input
+covers its arranged rectangle, whereas native drawing input currently covers its
+glyphs. ProGPU now distinguishes point-only from region-only primitive coverage
+in its shared GPU shader and both native stream validators. This prerequisite
+does not yet publish the source rectangle. The next application connection must
+carry the authoritative source point descriptor through MIL and managed retained
+commands, preserving region-only glyph/drawing selection, descendants, clips and
+invalidation. Do not replace all visual input with layout rectangles or report
+the MVP wheel/selection action closed from query flags alone.
+
 Package input refresh: macOS, Linux and Windows ARM64/x64 native payloads now
 share ProGPU da36a718 in the same staging root. Both Linux refresh builds completed
 all 709 compile/module/link steps. ProGPU.Backend.Native.0.1.0-preview.55.nupkg
