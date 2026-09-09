@@ -49,6 +49,7 @@ public sealed class ProGpuCompositionCommandSink :
     IWpfNativeGeometryCommandSink,
     IWpfHitTestOwnerScopeCommandSink,
     IWpfImageHitTestScopeCommandSink,
+    IWpfSourceRectangleHitTestScopeCommandSink,
     IWpfPointHitRegionCommandSink,
     IWpfBitmapCacheBrushCommandSink,
     IWpfProGpuSceneDrawingContextSource
@@ -1213,6 +1214,9 @@ public sealed class ProGpuCompositionCommandSink :
     }
 
     void IWpfImageHitTestScopeCommandSink.PushImageHitTestScope(WpfReplayRect destination)
+        => ((IWpfSourceRectangleHitTestScopeCommandSink)this).PushSourceRectangleHitTestScope(destination);
+
+    void IWpfSourceRectangleHitTestScopeCommandSink.PushSourceRectangleHitTestScope(WpfReplayRect destination)
     {
         ThrowIfClosed();
         AddNativeCommand(new global::ProGPU.Scene.RenderCommand

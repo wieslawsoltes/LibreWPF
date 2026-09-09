@@ -43,6 +43,7 @@ internal sealed class ProGpuRetainedCompositionCommandSink :
     IWpfNativeGeometryCommandSink,
     IWpfHitTestOwnerScopeCommandSink,
     IWpfImageHitTestScopeCommandSink,
+    IWpfSourceRectangleHitTestScopeCommandSink,
     IWpfPointHitRegionCommandSink,
     IWpfBitmapCacheBrushCommandSink,
     IWpfProGpuSceneDrawingContextSource
@@ -537,6 +538,12 @@ internal sealed class ProGpuRetainedCompositionCommandSink :
     public void PushImageHitTestScope(WpfReplayRect destination)
     {
         ((IWpfImageHitTestScopeCommandSink)Current.Sink).PushImageHitTestScope(destination);
+        _scopeStack.Push(ScopeKind.Delegate);
+    }
+
+    public void PushSourceRectangleHitTestScope(WpfReplayRect rectangle)
+    {
+        ((IWpfSourceRectangleHitTestScopeCommandSink)Current.Sink).PushSourceRectangleHitTestScope(rectangle);
         _scopeStack.Push(ScopeKind.Delegate);
     }
 

@@ -150,6 +150,14 @@ with paired managed/native update and affine fixtures. General partial/skew-basi
 device-width arcs remain explicit; this does not qualify application input or
 complete row 2. Continue the existing applications, not general arc expansion.
 
+The [MVP rectangular brush-fill connection](../reports/native-mil-mvp-brush-fill-input-2026-09-09.md)
+now preserves source fill input for the DrawingImage-backed Border independently
+of brush mapping/content and native isolation. Native MIL and managed direct/
+retained adapters share logical source-rectangle scope semantics, ending before
+the pen. This is not nonrectangular brush or arbitrary clip admission, and its
+fixtures/builds are not runtime proof. Continue concrete application closure and
+keep all final package, comparison and CI gates intact.
+
 Package input refresh: macOS, Linux and Windows ARM64/x64 native payloads now
 share ProGPU da36a718 in the same staging root. Both Linux refresh builds completed
 all 709 compile/module/link steps. ProGPU.Backend.Native.0.1.0-preview.55.nupkg

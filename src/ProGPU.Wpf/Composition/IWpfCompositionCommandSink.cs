@@ -160,6 +160,13 @@ internal interface IWpfImageHitTestScopeCommandSink
     void PushImageHitTestScope(WpfReplayRect destination);
 }
 
+internal interface IWpfSourceRectangleHitTestScopeCommandSink
+{
+    // Actual rectangular source fill, not an arbitrary geometry's envelope.
+    // Excludes brush internals from input; balanced by the ordinary sink Pop.
+    void PushSourceRectangleHitTestScope(WpfReplayRect rectangle);
+}
+
 internal interface IWpfProGpuSceneDrawingContextSource
 {
     bool TryGetProGpuSceneDrawingContext(out global::ProGPU.Scene.DrawingContext? drawingContext);

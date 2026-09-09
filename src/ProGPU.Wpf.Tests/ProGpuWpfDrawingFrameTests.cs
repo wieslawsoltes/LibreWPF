@@ -1467,6 +1467,32 @@ public sealed class ProGpuWpfDrawingFrameTests
     }
 
     [Fact]
+    public void RetainedSourceRectangleScopeExcludesBrushInternalsAndRestoresFollowingDraw()
+    {
+        var sceneRoot = new ProGpuContainerVisual();
+        var retainedRoot = new ProGpuContainerVisual();
+        var frame = new ProGpuWpfDrawingFrame(sceneRoot, retainedRoot, new ProGpuDrawingVisual(), 200, 100,
+            retainedVisualBranchMap: new WpfRetainedVisualBranchMap(), hitTestOwnerMap: new WpfGpuHitTestOwnerMap());
+        using var sink = new ProGpuRetainedCompositionCommandSink(frame, context: null, viewport3DTextureCache: null);
+        Assert.True(sink.PushVisualOwner(new object()));
+        sink.PushSourceRectangleHitTestScope(new WpfReplayRect(10, 12, 24, 24));
+        sink.DrawRectangle(Brushes.Blue, null, new Rect(18, 20, 2, 2)); // brush-internal raster content
+        sink.Pop();
+        sink.DrawRectangle(Brushes.Red, null, new Rect(1, 2, 3, 4));
+        sink.PopVisualOwner();
+        var root = Assert.IsType<ProGpuRetainedDrawingVisual>(Assert.Single(retainedRoot.Children));
+        using var capture = new global::ProGPU.Scene.GpuRenderCommandHitTestCacheBuilder();
+        capture.AddSourceVisual(root, Matrix4x4.Identity);
+        var hits = capture.BuildIndex().Primitives;
+        Assert.Equal(2, hits.Count);
+        Assert.Equal(1, hits[0].Id);
+        Assert.Equal(new Vector2(10, 12), hits[0].BoundsMin);
+        Assert.Equal(new Vector2(34, 36), hits[0].BoundsMax);
+        Assert.Equal(new Vector2(1, 2), hits[1].BoundsMin);
+        Assert.Equal(new Vector2(4, 6), hits[1].BoundsMax);
+    }
+
+    [Fact]
     public void RetainedSinkPropagatesSourceOwnerHitTestIdToEffectScopes()
     {
         var sceneRoot = new ProGpuContainerVisual();

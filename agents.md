@@ -1,5 +1,11 @@
 # Agent Guidance
 
+Rectangular image/drawing/visual-brush fills must publish their actual source
+rectangle through the typed source scope before brush mapping/isolation. Keep
+pen replay outside, retain inherited clips and source owner identity, and exclude
+brush-internal drawings from input. Exact rectangle readers may admit geometry;
+arbitrary geometry envelopes may not. Reuse ProGPU's retained logical scopes.
+
 Source drawing opacity masks change pixels, not point/region selection. Preserve
 the typed PushOpacityMask scope through ProGPU's source input policy and retain
 actual geometry clips independently. Do not invent mask-bounds hits, sample mask

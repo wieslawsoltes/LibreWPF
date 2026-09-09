@@ -993,6 +993,49 @@ public sealed class WpfCompositionDrawingContextTests
     }
 
     [Theory]
+    [InlineData(0, false)]
+    [InlineData(1, false)]
+    [InlineData(2, false)]
+    [InlineData(0, true)]
+    [InlineData(1, true)]
+    [InlineData(2, true)]
+    public void ProductImageBrushRectangleRetainsSourceFillAndSeparatePen(int contentKind, bool geometryCommand)
+    {
+        // Same source contract as native rectangle-brush scene 9839: paint
+        // geometry, not the brush's sparse/empty internal DrawingImage.
+        object? drawing = contentKind switch
+        {
+            0 => new FakeGeometryDrawing(Brushes.Blue, null,
+                new FakeRectangleGeometry(new FakeRect(2, 3, 5, 7))),
+            1 => new FakeBoundedGeometryDrawing(PortableRect.Empty, null, null, null),
+            _ => null
+        };
+        var nativeContext = new global::ProGPU.Scene.DrawingContext();
+        using var sink = new ProGpuCompositionCommandSink(new MediaDrawingContext(nativeContext));
+        using var context = new WpfCompositionDrawingContext(sink);
+        context.PushClip(new RectangleGeometry(new Rect(12, 14, 20, 18)));
+        var brush = new FakeMediaImageBrush(new FakeDrawingImageSource(drawing));
+        var pen = new Pen(Brushes.Blue, 2);
+        if (geometryCommand) context.DrawGeometry(brush, pen, new RectangleGeometry(new Rect(10, 12, 24, 24)));
+        else context.DrawRectangle(brush, pen, new Rect(10, 12, 24, 24));
+        context.Pop();
+        context.DrawRectangle(Brushes.Red, null, new Rect(1, 2, 3, 4));
+        Assert.Contains(nativeContext.Commands, command => command.IsImageHitTestScope);
+        using var capture = new global::ProGPU.Scene.GpuRenderCommandHitTestCacheBuilder();
+        foreach (var command in nativeContext.Commands)
+            capture.AddCommand(command, command.Transform, id: 4321);
+        var hits = capture.BuildIndex().Primitives;
+        Assert.Equal(3, hits.Count);
+        Assert.Equal(global::ProGPU.Vector.GpuHitTestPrimitiveKind.RectangleFill, hits[0].Kind);
+        Assert.Equal(global::ProGPU.Vector.GpuHitTestPrimitiveKind.RectangleStroke, hits[1].Kind);
+        Assert.Equal(new Vector2(12, 14), hits[0].BoundsMin);
+        Assert.Equal(new Vector2(32, 32), hits[0].BoundsMax);
+        Assert.Equal(new Vector2(1, 2), hits[2].BoundsMin);
+        Assert.Equal(new Vector2(4, 6), hits[2].BoundsMax);
+        Assert.Equal(0, context.Result.UnsupportedCount);
+    }
+
+    [Theory]
     [InlineData(0.0)]
     [InlineData(0.5)]
     public void ProductDrawingOpacityPreservesSourceGeometryInput(double opacity)

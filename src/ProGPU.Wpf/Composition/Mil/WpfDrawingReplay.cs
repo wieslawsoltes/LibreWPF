@@ -1156,6 +1156,29 @@ internal static class WpfDrawingReplay
             return false;
         }
 
+        WpfReplayRect sourceRectangle = ToReplayRect(fillGeometry.Bounds);
+        bool hasSourceRectangle = fillGeometry.IsRectangle ||
+            (fillGeometry.PortableGeometry != null && TryGetRectangleClipBounds(fillGeometry.PortableGeometry, out sourceRectangle)) ||
+            (fillGeometry.MediaGeometry != null && TryGetRectangleClipBounds(fillGeometry.MediaGeometry, out sourceRectangle));
+        var sourceRectangleSink = hasSourceRectangle &&
+            portableBrush.Kind is PortableTileBrushKind.Image or PortableTileBrushKind.Drawing or PortableTileBrushKind.Visual
+                ? sink as IWpfSourceRectangleHitTestScopeCommandSink : null;
+        sourceRectangleSink?.PushSourceRectangleHitTestScope(sourceRectangle);
+        try
+        {
+            return TryReplayPortableTileBrushFillCore(portableBrush, fillGeometry, sink, imageSourceAdapter, out status);
+        }
+        finally
+        {
+            if (sourceRectangleSink != null) sink.Pop();
+        }
+    }
+
+    private static bool TryReplayPortableTileBrushFillCore(PortableTileBrush portableBrush,
+        TileBrushFillGeometry fillGeometry, IWpfCompositionCommandSink sink,
+        Func<object?, MediaImageSource?>? imageSourceAdapter, out WpfDrawingReplayStatus status)
+    {
+        status = WpfDrawingReplayStatus.Skipped;
         switch (portableBrush.Kind)
         {
             case PortableTileBrushKind.Image:
