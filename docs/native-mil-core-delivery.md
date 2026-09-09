@@ -51,6 +51,13 @@ not a reduced application. Other geometry kinds, stroke batches (including the
 MVP's closed stroked path), caches/effects and native host routing remain open.
 Authored fixtures and build-only artifacts do not qualify those interactions.
 
+The [closed-stroke input connection](../reports/native-mil-mvp-closed-stroke-input-2026-09-09.md)
+now connects the actual MVP closed path's solid stroke batch using the renderer's
+join construction and canonical line/triangle queries. Open/dashed/device-width
+batches remain explicit; geometry clips, caches/effects and native host query
+routing are still open. Continue the same application's remaining input path,
+not optional stroke-family expansion. This is implementation/build evidence only.
+
 Package input refresh: macOS, Linux and Windows ARM64/x64 native payloads now
 share ProGPU da36a718 in the same staging root. Both Linux refresh builds completed
 all 709 compile/module/link steps. ProGPU.Backend.Native.0.1.0-preview.55.nupkg
