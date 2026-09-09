@@ -291,6 +291,23 @@ target was copied to the dedicated guest checkout with source/destination hash
 agreement required, and the existing package entry was invoked with `-Rebuild`.
 Completion is not inferred from dispatch.
 
+At source correction `aa3bc9ad8`, the retry rebuilt both PresentationBuildTasks
+targets with 0 warnings/errors in 41.37 seconds. The x86 PresentationCore graph
+then completed with 0 warnings/errors in 2:26.50, including the previously
+removed System.Xaml-ref, WindowsBase-ref and ProGPU dependencies. x64 completed
+with 0 warnings/errors in 2:34.07. ARM64 completed with 0 warnings/errors in
+2:44.46. The wrapper exited 0 and staged all three corrected Windows RID inputs.
+The compiler/analyzer-host and configured-reference failures are closed at the
+build level. Package production and runtime qualification are separate results.
+
+All nine required DLLs and the available PDBs were exported to
+`artifacts/native-core-build.KvxVug/windows-managed-runtime-aa3bc9ad8`, together
+with all three final Build.binlog files. The export checks every required path
+before copying and requires source/destination SHA-256 agreement for every
+payload file. The earlier warning-bearing outputs remain preserved separately.
+The host's ordinary LibreWPF.Transport pack now selects this exact directory via
+LibreWpfWindowsManagedPayloadDir; no default artifact directory was overwritten.
+
 No tests, renderer workloads, apps,
 verifiers, benchmarks or CI polling are part of this batch. Windows SDK admission
 and final exact-head package/application/CI gates remain mandatory.

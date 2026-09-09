@@ -107,3 +107,43 @@ The feed now contains 22 of the 23 packages explicitly selected by the SDK gate.
 built Windows PresentationCore/DirectWriteForwarder/IJW assets. Do not substitute
 the portable macOS transport or an older package. No complete release bundle,
 dependency-closure audit, SDK application success or renderer parity is claimed.
+
+## Windows inputs and complete selected package production
+
+The Windows compiler-host and rebuild-reference corrections now produced all
+three Windows managed/IJW RID inputs with zero warnings/errors in each graph.
+The dedicated guest checkout uses the previously recorded source snapshot plus
+the package wrapper and project-reference correction from `aa3bc9ad8`; ProGPU
+remains da36a718. This is not a claim of a clean exact-delivery-head checkout.
+Payloads and final binlogs are exported to
+`artifacts/native-core-build.KvxVug/windows-managed-runtime-aa3bc9ad8` with
+source/destination payload hash agreement. See the
+[Windows managed build record](native-mil-windows-managed-build-entry-2026-09-09.md).
+
+The host then successfully produced
+`LibreWPF.Transport.0.1.0-preview.45.nupkg` into the same `packages-da36a718` feed:
+
+```sh
+./.dotnet/dotnet pack \
+  packaging/Microsoft.DotNet.Wpf.GitHub/Microsoft.DotNet.Wpf.GitHub.ArchNeutral.csproj \
+  -c Release -m:1 -p:UseSharedCompilation=false -v:minimal \
+  -o /Users/wieslawsoltes/GitHub/wpf/artifacts/native-core-build.KvxVug/packages-da36a718 \
+  -p:Version=0.1.0-preview.45 -p:PackageVersion=0.1.0-preview.45 \
+  -p:ProGpuRuntimePackageVersion=0.1.0-preview.55 \
+  -p:LibreWpfWindowsManagedPayloadDir=/Users/wieslawsoltes/GitHub/wpf/artifacts/native-core-build.KvxVug/windows-managed-runtime-aa3bc9ad8 \
+  -p:RestoreConfigFile=/Users/wieslawsoltes/GitHub/wpf/artifacts/native-core-build.KvxVug/nuget-package-build.UFN4t0/NuGet.config \
+  -p:RestorePackagesPath=/Users/wieslawsoltes/GitHub/wpf/artifacts/native-core-build.KvxVug/nuget-package-build.UFN4t0/packages
+```
+
+The command exited 0 and reported successful package creation. Existing required
+managed/native input and pack-time checks remained enabled. No package contents
+were substituted, no Windows SDK admission guard removed and no qualification
+command was invoked. Local packing began only after the guest rebuild exited.
+
+All 23 packages selected by the current SDK lane have now been produced. This
+closes their development-production blocker, not a clean exact-head release,
+package dependency/ABI audit, isolated consumer success, runtime parity or CI
+qualification. The feed contains checkpoints built during implementation; final
+qualification must regenerate and consume the delivery artifacts. No public
+NuGet upload occurred. Next work is the existing package MVP's source-media and
+Windows activation closure, then application closure and feature freeze.

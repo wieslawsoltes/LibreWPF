@@ -22,7 +22,7 @@ subsystem roadmap. None of these rows is runtime-qualified yet.
 
 | Order | Implementation batch | Exit to the next batch |
 | --- | --- | --- |
-| 1 — current | Native package activation: source-built harness and package MVP, including Windows. Close required source-media routing from startup through first frame and common resource construction. Popup ownership, pre-host services, provider-first text dispatch, intrinsic measurement, whole-word wrapping, rich-editor media routing/per-line metrics and FlowDocument scroll-view/paginated drawing and interaction are connected. Source marker formatting and ProGPU symbol-cmap support already exist; actual font availability and acceptance document-policy compatibility require qualification, not another parser/composer. Native macOS/Linux/Windows ARM64/x64 payloads and the ProGPU native package are produced at da36a718, unqualified. Windows managed/IJW payloads, the complete LibreWPF package set, concrete remaining source-media routes and Windows SDK admission remain open. | Required paths select ProGPU explicitly, compile, and have no known route into unintended Windows MIL or silent managed rendering. Keep Windows admission guarded until its dependencies are implemented. |
+| 1 — current | Native package activation: source-built harness and package MVP, including Windows. Close required source-media routing from startup through first frame and common resource construction. Popup ownership, pre-host services, provider-first text dispatch, intrinsic measurement, whole-word wrapping, rich-editor media routing/per-line metrics and FlowDocument scroll-view/paginated drawing and interaction are connected. Source marker formatting and ProGPU symbol-cmap support already exist; actual font availability and acceptance document-policy compatibility require qualification, not another parser/composer. Native macOS/Linux/Windows ARM64/x64 payloads use da36a718. Corrected Windows managed/IJW builds now complete for x86/x64/ARM64 with zero warnings/errors, and all 23 selected SDK packages are produced, unqualified. Concrete remaining source-media routes, Windows SDK admission and package consumption remain open. | Required paths select ProGPU explicitly, compile, and have no known route into unintended Windows MIL or silent managed rendering. Keep Windows admission guarded until its dependencies are implemented. |
 | 2 | Application closure: use the same MVP, Toolkit/AvalonDock, license-controlled Xceed and existing SciChart gate. Finish required text/selection, scroll/clip, popup/input, resize/DPI, content/effect/cache updates and close/reopen/device-loss ownership. Reuse existing implementations; fix concrete missing connections. | Each required action has an implemented path and authored regression coverage. Record any known blocking branch against that action; do not reopen already connected subsystems for optional refinements. |
 | 3 | Feature freeze, final qualification and delivery: build complete platform artifacts and packages, execute the existing cross-platform/Windows comparison and application gates, fix failures, and bring both PRs' required CI to green at the delivery commits. | Record exact-head package consumption and required gate results, with explicit failures or environment/license limitations. Only then report the core release delivered. |
 
@@ -30,7 +30,8 @@ Package input refresh: macOS, Linux and Windows ARM64/x64 native payloads now
 share ProGPU da36a718 in the same staging root. Both Linux refresh builds completed
 all 709 compile/module/link steps. ProGPU.Backend.Native.0.1.0-preview.55.nupkg
 was then produced successfully with normal required-RID/provider checks enabled.
-Windows managed/IJW production and the complete LibreWPF package set remain open.
+Windows managed/IJW production and the selected LibreWPF package set are now also
+complete, as recorded below; package consumption remains unqualified.
 Do not bypass Windows transport checks or claim package/runtime qualification
 from this build-only result. See the
 [macOS build record](../reports/native-mil-macos-payload-refresh-2026-09-09.md) and
@@ -41,16 +42,18 @@ at da36a718 using the lane's preview.55 version. The source-built portable WPF
 transport, eight theme/Ribbon projects, bridge and four real harnesses also compile.
 These source/project-reference builds did not consume or execute the new packages.
 LibreWPF.ProGPU and LibreWPF.Sdk preview.45 packages also build successfully, giving
-22 of the 23 explicitly selected SDK packages. LibreWPF.Transport still requires
-the missing Windows managed/IJW payloads. Complete packaging and all qualification
-remain open; see the [SDK build record](../reports/native-mil-sdk-package-build-2026-09-09.md).
+22 of the 23 explicitly selected SDK packages at that checkpoint. The corrected
+Windows x86/x64/ARM64 inputs now also produced LibreWPF.Transport preview.45,
+completing the selected 23-package development feed. This is not a release bundle,
+isolated package-consumption result or runtime qualification; see the
+[SDK build record](../reports/native-mil-sdk-package-build-2026-09-09.md).
 
 Windows production has resumed in the existing Parallels guest. ProGPU da36a718
 closes strict MSVC compilation failures in native MIL/text and test fixtures;
 both ARM64 and x64 builds completed, each staging three DLLs/seven SDK libraries.
 The x64 build completed all 356 steps without further fixes.
-Windows managed/IJW payloads, complete packages and SDK admission
-remain open. Both macOS architectures now also use da36a718, completing 62
+Windows SDK admission remains open; managed/IJW and package production completed
+in the follow-up below. Both macOS architectures now also use da36a718, completing 62
 incremental compile/link steps each and staging both providers/six SDK archives.
 Both Linux inputs have also been refreshed. This is build-only progress, not
 runtime qualification; see the
@@ -80,10 +83,11 @@ PresentationBuildTasks targets with zero warnings/errors, then failed in the
 x86 WindowsBase reference assembly: project-reference filtering removed its
 System.Xaml-ref dependency after Clean. The target now removes only known WPF
 projects absent locally, preserving ordinary configured references and their
-metadata. A corrected rebuild is still required; this is not a staged payload
-or qualification result.
-The pinned SDK and payload requirements remain unchanged. Complete corrected
-package inputs and Windows SDK admission are not claimed yet. See the
+metadata. The corrected rebuild now completed for x86, x64 and ARM64 with zero
+warnings/errors in each graph and staged all required Windows managed/IJW inputs.
+This closes the build blockers, not package consumption or runtime qualification.
+The pinned SDK and payload requirements remain unchanged. Corrected package
+inputs are exported and packed; Windows SDK admission remains guarded. See the
 [managed build-entry record](../reports/native-mil-windows-managed-build-entry-2026-09-09.md).
 
 The Toolkit top-header CharacterEllipsis connection is now implemented through
