@@ -79,6 +79,14 @@ Containing rectangle clips remain redundant; nonredundant intersections,
 multiple/boolean/arc clips, spatial opacity masks, caches and native host queries
 remain open. Authored paired fixtures and compilation are not runtime evidence.
 
+The [native query completion checkpoint](../reports/native-mil-hit-test-completion-2026-09-09.md)
+adds owner-thread desktop completion over the existing native GPU query/readback,
+including map-callback lifetime and scene-qualified owner tokens. Both native
+providers compile on macOS ARM64/x64; regression fixtures remain unexecuted.
+Host callback routing, complete application index coverage and default admission
+are still current blockers. Native payloads/packages have not been restaged by
+these builds; completion API availability must not be inferred from older feeds.
+
 Package input refresh: macOS, Linux and Windows ARM64/x64 native payloads now
 share ProGPU da36a718 in the same staging root. Both Linux refresh builds completed
 all 709 compile/module/link steps. ProGPU.Backend.Native.0.1.0-preview.55.nupkg
