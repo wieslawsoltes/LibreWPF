@@ -195,7 +195,7 @@ public static class Program
                             {
                                 try
                                 {
-                                    status = ValidateNativeMilHostResult(host, drawingVisual);
+                                    status = ValidateNativeMilHostResult(host, drawingVisual, inlineText);
                                 }
                                 catch (Exception ex)
                                 {
@@ -243,7 +243,7 @@ public static class Program
     }
 
     private static string ValidateNativeMilHostResult(
-        ProGpuWpfWindowHost host, object drawingVisual)
+        ProGpuWpfWindowHost host, object drawingVisual, object inlineText)
     {
         if (!PortableWpfRuntime.IsMediaBackendFrozen ||
             PortableWpfRuntime.ConfiguredMediaBackend != PortableWpfMediaBackend.Portable)
@@ -291,6 +291,15 @@ public static class Program
             !ProGpuWpfDiagnostics.TryGetGpuHitTestCacheSnapshot(host, out var inputIndex) ||
             !inputIndex.HasIndex || !inputIndex.HasDeviceIndex || inputIndex.PrimitiveCount == 0)
             throw new InvalidOperationException("Native MIL host input did not resolve the actual presented source drawing.");
+
+        if (inlineText is not IPortablePointHitRegionSource sourcePoint ||
+            !sourcePoint.TryGetPortablePointHitRegion(out var pointBounds) || pointBounds.Width != 160 ||
+            !ProGpuWpfDiagnostics.TryHitTestOwner(host, 150, 90, out var blankOwner) ||
+            !ReferenceEquals(blankOwner, inlineText))
+            throw new InvalidOperationException("Native source TextBlock lost pointer coverage in its arranged blank space.");
+        if (ProGpuWpfDiagnostics.TryQueryHitTestBoundsOwners(host, 148, 90, 154, 94, out var blankRegions) &&
+            blankRegions.Any(owner => ReferenceEquals(owner, inlineText)))
+            throw new InvalidOperationException("Source TextBlock pointer coverage incorrectly enlarged geometry selection.");
 
         return
             $"Native MIL host presented {host.PresentedFrameCount} frame(s), " +

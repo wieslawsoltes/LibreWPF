@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using System.Runtime.InteropServices;
 using ProGPU.Backend.Native;
 using ProGPU.Wpf.Interop;
 
@@ -51,6 +52,7 @@ public sealed class WpfNativeMilCompilationSession : IDisposable
     private NativeMilChannel? _channel;
     private WpfNativeMilBatch? _lastBatch;
     private NativeMilViewport3DSnapshot[] _viewportSnapshots = [];
+    private NativeMilPointHitRectangle[] _pointHitRegionsSnapshot = [];
     private bool _requiresRebuild;
     private int _disposeState;
 
@@ -258,6 +260,7 @@ public sealed class WpfNativeMilCompilationSession : IDisposable
         _channel = null;
         _lastBatch = null;
         _viewportSnapshots = [];
+        _pointHitRegionsSnapshot = [];
     }
 
     private WpfNativeMilSessionUpdate ReplaceChannel(
@@ -266,11 +269,13 @@ public sealed class WpfNativeMilCompilationSession : IDisposable
         var replacement = new NativeMilChannel(_backend);
         NativeMilBatchMetrics metrics;
         NativeMilViewport3DSnapshot[] viewportSnapshots;
+        NativeMilPointHitRectangle[] pointSnapshot;
         try
         {
             metrics = WpfNativeMilSceneCompiler.ApplyBatch(
                 replacement, batch);
             viewportSnapshots = CaptureViewportSnapshots(batch);
+            pointSnapshot = batch.PointHitRegions.ToArray();
         }
         catch
         {
@@ -282,6 +287,7 @@ public sealed class WpfNativeMilCompilationSession : IDisposable
         _channel = replacement;
         _lastBatch = batch;
         _viewportSnapshots = viewportSnapshots;
+        _pointHitRegionsSnapshot = pointSnapshot;
         _requiresRebuild = false;
         previous?.Dispose();
         return new WpfNativeMilSessionUpdate(
@@ -413,6 +419,14 @@ public sealed class WpfNativeMilCompilationSession : IDisposable
             channel, previous, current);
         appliedCount += ApplyChangedVisualCacheBounds(
             channel, previous, current);
+        if (!MemoryMarshal.AsBytes(_pointHitRegionsSnapshot.AsSpan()).SequenceEqual(
+                MemoryMarshal.AsBytes(current.PointHitRegions.Span)))
+        {
+            var nextPointSnapshot = current.PointHitRegions.ToArray();
+            channel.SetPointHitRectangles(nextPointSnapshot);
+            _pointHitRegionsSnapshot = nextPointSnapshot;
+            ++appliedCount;
+        }
 
         // Handle order is checked before reaching this path. Own the previous
         // wire bytes: producer arrays may be reused and mutated between updates.
@@ -632,6 +646,7 @@ public sealed class WpfNativeMilCompilationSession : IDisposable
             (batch.DrawingImageBounds?.Count ?? 0) +
             (batch.DrawingGroupBounds?.Count ?? 0) +
             (batch.VisualCacheBounds?.Count ?? 0) +
+            (batch.PointHitRegions.IsEmpty ? 0 : 1) +
             (batch.Viewport3DScenes?.Count ?? 0)));
 
     private static Packet ReadPacket(ReadOnlySpan<byte> bytes, int offset)

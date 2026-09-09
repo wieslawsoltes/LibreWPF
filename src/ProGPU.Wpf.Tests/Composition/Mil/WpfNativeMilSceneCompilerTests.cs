@@ -12,6 +12,50 @@ namespace ProGPU.Wpf.Tests.Composition.Mil;
 public sealed class WpfNativeMilSceneCompilerTests
 {
     [Fact]
+    public void SourcePointRegionIsIndependentOfDrawingAndTracksLayoutChanges()
+    {
+        var compiler = new WpfNativeMilSceneCompiler();
+        var source = new PointVisual(null) { PointRegion = new(0, 0, 80, 20) };
+        var first = compiler.BuildBatch(source, 160, 96);
+        Assert.Equal(80, first.PointHitRegions.Span[0].Width);
+        source.PointRegion = new(0, 0, 100, 24);
+        var second = compiler.BuildBatch(source, 160, 96);
+        Assert.Equal(first.Bytes, second.Bytes); // no painted input rectangle
+        Assert.Equal(80, first.PointHitRegions.Span[0].Width);
+        Assert.Equal(100, second.PointHitRegions.Span[0].Width);
+        using var session = new WpfNativeMilCompilationSession();
+        session.Update(first);
+        Assert.Equal(0U, session.Update(first).AppliedSidebandCount);
+        Assert.Equal(1U, session.Update(second).AppliedSidebandCount);
+        Assert.Equal(1U, session.Update(second with { PointHitRegions = default }).AppliedSidebandCount);
+        Assert.True(compiler.BuildBatch(new FakeVisual(null), 160, 96).PointHitRegions.IsEmpty);
+    }
+
+    [Fact]
+    public void ManagedReplayPublishesTheSameEmptySourcePointRectangle()
+    {
+        var source = new PointVisual(null) { PointRegion = new(0, 0, 80, 20) };
+        var recorder = new global::ProGPU.Scene.GpuPictureRecorder();
+        var drawing = recorder.BeginRecording(new(0, 0, 80, 20));
+        using var sink = new global::System.Windows.Media.ProGPU.Composition.ProGpuCompositionCommandSink(drawing);
+        new WpfVisualTreeRenderer().ReplaySubtree(source, sink);
+        using var picture = recorder.EndRecording();
+        using var capture = new global::ProGPU.Scene.GpuRenderCommandHitTestCacheBuilder();
+        for (int i = 0; i < picture.CommandCount; ++i)
+            capture.AddCommand(picture.GetCommand(i), Matrix4x4.Identity);
+        var primitive = Assert.Single(capture.BuildIndex().Primitives);
+        Assert.Equal(new Vector2(80, 20), primitive.BoundsMax);
+        Assert.True(primitive.Flags.HasFlag(global::ProGPU.Vector.GpuHitTestPrimitiveFlags.PointOnly));
+        Assert.False(global::ProGPU.Scene.GpuPictureBounds.TryGetBounds(picture, out _));
+    }
+
+    private sealed class PointVisual(object? content) : FakeVisual(content), IPortablePointHitRegionSource
+    {
+        public PortableRect PointRegion { get; set; }
+        public bool TryGetPortablePointHitRegion(out PortableRect rectangle) { rectangle = PointRegion; return true; }
+    }
+
+    [Fact]
     public void NativeOwnerSnapshotsDistinguishReplacedVisualsWithIdenticalMilBytes()
     {
         var compiler = new WpfNativeMilSceneCompiler();
@@ -4607,7 +4651,7 @@ public sealed class WpfNativeMilSceneCompilerTests
             "Could not locate the WPF repository root.");
     }
 
-    private sealed class FakeVisual :
+    private class FakeVisual :
         IPortableVisualStateSource,
         IPortableVisualChildrenSource,
         IPortableDrawingContentSource,

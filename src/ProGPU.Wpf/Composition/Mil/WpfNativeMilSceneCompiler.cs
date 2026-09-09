@@ -89,6 +89,7 @@ public sealed record WpfNativeMilBatch(
     // Handles may be reused by a subsequent batch with identical drawing bytes.
     public NativeGpuHitTestOwnerMap<object> VisualOwners { get; init; } =
         NativeGpuHitTestOwnerMap<object>.Empty;
+    public ReadOnlyMemory<NativeMilPointHitRectangle> PointHitRegions { get; init; }
 }
 
 public sealed record WpfNativeMilCompilation(
@@ -150,7 +151,8 @@ public sealed class WpfNativeMilSceneCompiler
             context.BitmapExternalImageSources.ToArray(),
             context.D3DImageSources.ToArray())
         {
-            VisualOwners = context.SnapshotVisualOwners()
+            VisualOwners = context.SnapshotVisualOwners(),
+            PointHitRegions = context.PointHitRegions.ToArray()
         };
     }
 
@@ -281,6 +283,11 @@ public sealed class WpfNativeMilSceneCompiler
                 viewport3D.Handle, viewport3D.Scene);
             ++appliedCount;
         }
+        if (!batch.PointHitRegions.IsEmpty)
+        {
+            channel.SetPointHitRectangles(batch.PointHitRegions.Span);
+            ++appliedCount;
+        }
         return appliedCount;
     }
 
@@ -352,6 +359,7 @@ public sealed class WpfNativeMilSceneCompiler
 
         internal List<WpfNativeMilVisualCacheBounds> VisualCacheBounds
             { get; } = [];
+        internal List<NativeMilPointHitRectangle> PointHitRegions { get; } = [];
 
         internal List<WpfNativeMilViewport3DScene> Viewport3DScenes
             { get; } = [];
@@ -511,6 +519,21 @@ public sealed class WpfNativeMilSceneCompiler
             _visualHandles.Add(visual, visualHandle);
             // The GPU ABI carries a signed ID; preserve the MIL handle's bits.
             _visualOwners.Add(new(unchecked((int)visualHandle), visual));
+            if (visual is IPortablePointHitRegionSource pointSource)
+            {
+                if (!pointSource.TryGetPortablePointHitRegion(out var pointRegion) || pointRegion.IsEmpty ||
+                    !double.IsFinite(pointRegion.X) || !double.IsFinite(pointRegion.Y) ||
+                    !double.IsFinite(pointRegion.Width) || !double.IsFinite(pointRegion.Height) ||
+                    pointRegion.Width < 0 || pointRegion.Height < 0 ||
+                    Math.Abs(pointRegion.X) > float.MaxValue || Math.Abs(pointRegion.Y) > float.MaxValue ||
+                    pointRegion.Width > float.MaxValue || pointRegion.Height > float.MaxValue ||
+                    Math.Abs(pointRegion.X + pointRegion.Width) > float.MaxValue ||
+                    Math.Abs(pointRegion.Y + pointRegion.Height) > float.MaxValue)
+                    throw MissingContract(nameof(IPortablePointHitRegionSource));
+                PointHitRegions.Add(new NativeMilPointHitRectangle {
+                    Handle = visualHandle, X = pointRegion.X, Y = pointRegion.Y,
+                    Width = pointRegion.Width, Height = pointRegion.Height });
+            }
             Batch.CreateResource(
                 visualHandle,
                 isViewport3D

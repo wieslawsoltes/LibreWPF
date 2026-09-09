@@ -229,6 +229,11 @@ PointOnly/RegionOnly input policy; do not infer it from type names or assign lay
 rectangles to ordinary visuals. Replacing point coverage also excludes that
 visual's drawing overhang from point queries, without excluding descendants or
 changing rendering. Query flags alone do not close the source/application path.
+Consume IPortablePointHitRegionSource through the batched native MIL point-region
+snapshot and the paired retained own-content scope. End that scope before children,
+preserve empty text and region-only drawing overhang, and replace metadata on layout
+changes without painting a rectangle. Typed source-command visuals must not acquire
+generic Size hit bounds through compositor replay or layer descendant traversal.
 
 Native host point/region callbacks select the presented native owner snapshot
 before any managed index. Preserve explicit EnableNativeMilHitTesting admission,

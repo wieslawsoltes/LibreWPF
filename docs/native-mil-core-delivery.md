@@ -107,6 +107,15 @@ commands, preserving region-only glyph/drawing selection, descendants, clips and
 invalidation. Do not replace all visual input with layout rectangles or report
 the MVP wheel/selection action closed from query flags alone.
 
+The [source point-region connection](../reports/native-mil-source-point-region-2026-09-09.md)
+now carries the actual TextBlock descriptor in a batched native MIL snapshot and
+paired managed retained scopes. Own drawing remains region-only and the scope
+ends before descendants; empty source text keeps point input without painted
+rectangles. Typed source-command visuals no longer acquire generic Size selection
+bounds. This is an implementation connection, not qualification of MVP scrolling.
+Required cache/mask/effect input combinations and the remaining application
+actions in row 2 stay current before default admission and feature freeze.
+
 Package input refresh: macOS, Linux and Windows ARM64/x64 native payloads now
 share ProGPU da36a718 in the same staging root. Both Linux refresh builds completed
 all 709 compile/module/link steps. ProGPU.Backend.Native.0.1.0-preview.55.nupkg
