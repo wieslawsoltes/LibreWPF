@@ -49,8 +49,12 @@ without an invalid runtime selector. The SDK and IJW packs restored, but the
 installed VS 2022 MSBuild cannot load a required SDK build-task interface.
 The alternate engine exposed mixed ARM64-host/x64-runtime restoration; the package
 entry now requires an x64 SDK build host while preserving all output RIDs and
-rejecting incompatible existing SDK roots. The pinned SDK requires MSBuild 18.6
-or newer; no managed payload or Windows SDK admission is claimed. See the
+rejecting incompatible existing SDK roots. The corrected x64 SDK compiled
+PresentationBuildTasks; PresentationCore then stopped at missing Visual Studio
+C++ targets under the dotnet engine. The pinned SDK requires MSBuild 18.6 or newer
+and source C++ requires v145. A separate VS 2026 Build Tools installation awaits
+user UAC approval in the guest, preserving VS 2022. No completed managed transport
+payload or Windows SDK admission is claimed. See the
 [managed build-entry record](../reports/native-mil-windows-managed-build-entry-2026-09-09.md).
 
 The Toolkit top-header CharacterEllipsis connection is now implemented through

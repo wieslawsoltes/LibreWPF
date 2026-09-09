@@ -99,6 +99,11 @@ An incompatible existing repository SDK host is rejected before installation.
 Use a clean checkout or preserve/move that generated SDK directory explicitly;
 do not overlay a different host architecture. Visual Studio MSBuild must meet
 the minimum recorded in the selected SDK's bundled MSBuild information.
+The current pinned SDK requires MSBuild 18.6 or newer; the source C++ props require
+Visual Studio 2026's v145 toolset and Windows SDK 10.0.26100.0. Install C++/CLI
+support and x86/x64/ARM64 compiler targets as well as the managed build tools.
+The dotnet engine alone cannot build DirectWriteForwarder's Visual Studio C++
+project; compiling PresentationBuildTasks does not satisfy that prerequisite.
 Each Arcade restore/build runs in a child of the current PowerShell installation,
 without requesting an execution-policy override. The existing host policy must
 permit the trusted scripts; script rejection remains an explicit failure.
