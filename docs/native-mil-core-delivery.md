@@ -36,6 +36,13 @@ from this build-only result. See the
 [macOS build record](../reports/native-mil-macos-payload-refresh-2026-09-09.md) and
 [Linux refresh record](../reports/native-mil-linux-payload-refresh-2026-09-09.md).
 
+The twenty ProGPU-side packages selected by the existing SDK gate are now produced
+at da36a718 using the lane's preview.55 version. The source-built portable WPF
+transport, eight theme/Ribbon projects, bridge and four real harnesses also compile.
+These source/project-reference builds did not consume or execute the new packages.
+Windows managed inputs, complete LibreWPF packaging and all final qualification
+remain open; see the [SDK build record](../reports/native-mil-sdk-package-build-2026-09-09.md).
+
 Windows production has resumed in the existing Parallels guest. ProGPU da36a718
 closes strict MSVC compilation failures in native MIL/text and test fixtures;
 both ARM64 and x64 builds completed, each staging three DLLs/seven SDK libraries.
