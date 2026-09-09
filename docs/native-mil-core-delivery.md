@@ -134,6 +134,14 @@ Cache-boundary masks and remaining exact clip combinations still fail explicitly
 are not silently admitted. This does not close row 2, refresh packages or start
 feature freeze; continue the concrete remaining cache/mask application branches.
 
+The [drawing-mask input connection](../reports/native-mil-drawing-mask-input-2026-09-09.md)
+now admits the existing source-built DrawingVisual harness's PushOpacityMask
+through explicit native alpha-mask layer metadata and balanced managed source
+command scopes. Raster masks stay unchanged; actual geometry clips still govern
+input. This closes that drawing-scope branch, not visual-level mask/cache/effect
+ownership, package/runtime qualification or the application queue. Identify a
+concrete acceptance action before expanding another mask or clip family.
+
 Package input refresh: macOS, Linux and Windows ARM64/x64 native payloads now
 share ProGPU da36a718 in the same staging root. Both Linux refresh builds completed
 all 709 compile/module/link steps. ProGPU.Backend.Native.0.1.0-preview.55.nupkg

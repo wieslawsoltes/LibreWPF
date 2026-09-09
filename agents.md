@@ -1,5 +1,11 @@
 # Agent Guidance
 
+Source drawing opacity masks change pixels, not point/region selection. Preserve
+the typed PushOpacityMask scope through ProGPU's source input policy and retain
+actual geometry clips independently. Do not invent mask-bounds hits, sample mask
+pixels for source selection, or classify geometric clips as alpha-only layers.
+Drawing-scope support does not imply visual mask/cache/effect boundary admission.
+
 Editor drop admission and context-menu client clipping select by the shared
 source-owned windowing policy before HWND access on every OS. Portable drops
 require a live enabled source/editor and actual-owner modal admission; rejected
