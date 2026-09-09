@@ -136,31 +136,6 @@
       <ProjectReference Include="@(_wpfProjectReference)" />
     </ItemGroup>
 
-    <ItemGroup>
-      <_unmatchedProjectReferenceWithConfiguration Remove="@(_unmatchedProjectReferenceWithConfiguration)" />
-      <_unmatched_ProjectReferenceWithConfiguration Remove="@(_unmatched_ProjectReferenceWithConfiguration)" />
-    </ItemGroup>
-    <FilterItem1ByItem2 Item1="@(ProjectReferenceWithConfiguration)"
-                        PreserveItem1Metadata="true"
-                        Item2="@(_wpfProjectPathAvailableLocally)"
-                        Metadata2="ProjectPath"
-                        TreatItemsAsPaths="true">
-      <Output ItemName="_unmatchedProjectReferenceWithConfiguration" TaskParameter="UnmatchedReferences" />
-    </FilterItem1ByItem2>
-    <FilterItem1ByItem2 Item1="@(_ProjectReferenceWithConfiguration)"
-                    PreserveItem1Metadata="true"
-                    Item2="@(_wpfProjectPathAvailableLocally)"
-                    Metadata2="ProjectPath"
-                    TreatItemsAsPaths="true">
-      <Output ItemName="_unmatched_ProjectReferenceWithConfiguration" TaskParameter="UnmatchedReferences" />
-    </FilterItem1ByItem2>
-    <ItemGroup>
-      <ProjectReferenceWithConfiguration Remove="@(_unmatchedProjectReferenceWithConfiguration)" />
-      <_ProjectReferenceWithConfiguration Remove="@(_unmatched_ProjectReferenceWithConfiguration)" />
-      <_MSBuildProjectReferenceNonExistent Remove="@(_unmatchedProjectReferenceWithConfiguration)" />
-    </ItemGroup>
-    
-
     <FilterItem1ByItem2 Item1="@(_unmatchedProjectReference)"
                         PreserveItem1Metadata="true"
                         Item2="@(WpfProjectPath)"
@@ -169,8 +144,16 @@
       <Output ItemName="_wpfUnmatchedProjectReference" TaskParameter="Result" />
     </FilterItem1ByItem2>
 
+    <!-- Rebuild's Clean phase may already have assigned project configurations.
+         Remove only known WPF projects absent locally, just as for the original
+         reference list. Unknown references (including hand-authored reference
+         assemblies and ProGPU projects) must keep their configuration metadata
+         and build ordering; they are not transport-package substitutions. -->
     <ItemGroup>
       <ProjectReference Remove="@(_wpfUnmatchedProjectReference)"/>
+      <ProjectReferenceWithConfiguration Remove="@(_wpfUnmatchedProjectReference)" />
+      <_ProjectReferenceWithConfiguration Remove="@(_wpfUnmatchedProjectReference)" />
+      <_MSBuildProjectReferenceNonExistent Remove="@(_wpfUnmatchedProjectReference)" />
     </ItemGroup>
 
     <FilterItem1ByItem2 Item1="@(_wpfProjectPath->'%(ProjectPath)')"

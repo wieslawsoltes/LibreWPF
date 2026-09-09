@@ -249,6 +249,48 @@ The updated ProGPU.Wpf.Tests project compiled locally with the pinned SDK using
 116 warnings, 0 errors, 38.87 seconds. This compiles the new contract assertion;
 no test method executed and the warnings remain visible rather than suppressed.
 
+### Rebuild project-reference graph correction
+
+Acceptance path: package-mode MVP startup on Windows. The bounded outcome is
+compiling the real Windows managed/IJW transport inputs required by
+LibreWPF.Transport; no renderer fallback or SDK admission change is involved.
+
+The compiler-host-corrected rebuild is terminal (exit 1). PresentationBuildTasks
+compiled both targets with 0 warnings and 0 errors in 48.63 seconds, preserving
+analyzer inputs. The x86 PresentationCore graph then failed with 0 warnings and
+121 errors in 1:46.19 while compiling WindowsBase-ref: System.Xaml markup types
+were missing. No corrected Windows RID payload was staged.
+
+The failed x86 Build.binlog is preserved on the host under
+`artifacts/msbuild-taskhost-source.1avQj5/x86-rebuild-reference-failure.binlog`.
+A read-only replay shows EnsureWpfProjectReference removing System.Xaml-ref from
+both configured project-reference lists in WindowsBase-ref (node 3, context 135).
+The final compiler command contains no System.Xaml reference. The source project
+still declares its real System.Xaml-ref ProjectReference. The diagnostic reader
+uses forward-compatible replay and reports recoverable unknown-record notices;
+these specific removal events and the compiler command, corroborated by the
+target source, establish the fault without treating the log as a complete audit.
+
+The target previously filtered configured references against only the list of
+available named WPF implementation projects. Rebuild's Clean phase had already
+populated those lists, so ordinary projects outside that list were discarded.
+The original ProjectReference list already performed the correct second filter:
+only unmatched paths also known to WpfProjectPath become package substitutions.
+All configured removals now use that same known-missing set. Reference projects,
+ProGPU dependencies and their metadata remain intact; missing known WPF projects
+still follow the existing transport-package substitution. No binary HintPath,
+extra whitelist entry, disabled analyzer or change to eng/common is introduced.
+
+New source-contract fixtures cover all four removal lists, ordered known-missing
+selection, the real reference-assembly dependency and retained substitution.
+Execution remains deferred; a corrected full Windows rebuild is still required.
+
+The updated fixture project compiled with 116 warnings and 0 errors in 12.94
+seconds. No test method executed. After that local build exited, the corrected
+target was copied to the dedicated guest checkout with source/destination hash
+agreement required, and the existing package entry was invoked with `-Rebuild`.
+Completion is not inferred from dispatch.
+
 No tests, renderer workloads, apps,
 verifiers, benchmarks or CI polling are part of this batch. Windows SDK admission
 and final exact-head package/application/CI gates remain mandatory.
