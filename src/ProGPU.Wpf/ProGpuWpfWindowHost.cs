@@ -693,6 +693,22 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         }
     }
 
+    internal Func<ProGpuWpfWindowHost?, bool>? NativeOwnerSetterOverride { get; set; }
+
+    internal bool TrySetNativeOwner(ProGpuWpfWindowHost? owner)
+    {
+        ThrowIfDisposed();
+        if (ReferenceEquals(owner, this) || _hasNativeWindowCloseStarted ||
+            owner is { _isDisposed: true } || owner is { _hasNativeWindowCloseStarted: true })
+            return false;
+        if (NativeOwnerSetterOverride is { } setter) return setter(owner);
+        // An owner must already possess a native identity. Never create/show an
+        // unrelated source merely to satisfy an ownership request.
+        if (owner != null && owner._window?.IsInitialized != true) return false;
+        if (_window?.IsInitialized != true) InitializeHidden();
+        return _windowController?.TrySetOwner(owner?._windowController) == true;
+    }
+
     public void Show()
     {
         ThrowIfDisposed();

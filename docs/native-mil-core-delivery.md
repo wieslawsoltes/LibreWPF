@@ -116,6 +116,32 @@ commit. Their next-step text is historical, may be superseded by later changes,
 and must not be treated as an additional active backlog. Use the active completion
 queue above for current priorities.
 
+Native dialog owner connection: the MVP About dialog's Window.Owner now resolves
+its live ProGPU host and applies shared native top-level ownership before Show.
+The child initializes hidden when needed; missing/disposed owners or unsupported
+native ownership reject explicitly instead of displaying an unowned dialog.
+Live source owner changes admit the typed callback before updating OwnedWindows,
+and raw WindowInteropHelper owner handles reject before WPF HWND/hidden-owner
+access. ProGPU's shared controller checks creating-thread/platform/display and
+owner-chain identity. Win32 checks local top-level native chains and actual writes;
+Cocoa validates before detaching the previous owner; X11 flushes its existing
+transient hint. Both renderers share this host path. Native interaction is not
+qualified: OS input suppression, previous activation/focus restoration, startup
+placement across monitors and Wayland ownership remain explicit. These are still
+the same dialog/application integration batch, not general window customization.
+Fixtures cover policy rejection/cycles, real source collection preservation,
+live-host resolution and rejection before native Show. No tests, verifiers,
+applications, VM/GPU workloads, benchmarks or CI qualification have run.
+See the [owner contract](../external/ProGPU/docs/native-mil-dialog-lifetime.md#native-top-level-owner-connection).
+Compile-only: ProGPU.Tests 0 warnings/0 errors, source PresentationFramework
+fixtures 2/0, final bridge fixtures 21/0, and source RealPresentationFrameworkHarness
+0/0. Fixed test-only WindowCollection
+assertions after the initial source compile failure. Latest fetched ProGPU main
+is included; unrelated native semantic-state/performance changes are preserved.
+An additional RealApplicationRunHarness no-restore build stopped at NETSDK1004
+because its project.assets.json is absent; no restore/feed bypass was used. That
+SDK-run harness remains separate from the source PresentationFramework harness.
+
 Shared source modal-input connection: the MVP About dialog now enters ProGPU's
 thread-bound PortableModalInputScope before Show and restores nested scopes on
 exit. Host receipt and queued dispatch reject inactive owners before input or

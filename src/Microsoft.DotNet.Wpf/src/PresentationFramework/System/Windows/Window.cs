@@ -1372,6 +1372,22 @@ namespace System.Windows
                     return;
                 }
 
+                bool portableOwnership = IsPortableWindowActive || PortableWindowActivationService.IsEnabled ||
+                    PortableWpfRuntime.ConfiguredMediaBackend == PortableWpfMediaBackend.Portable;
+                if (!_disposed && portableOwnership)
+                {
+                    value?.VerifyContextAndObjectState();
+                    if (value != null && !value.IsPortableWindowActive)
+                        throw new InvalidOperationException("A portable Window requires a portable owner source.");
+                    for (Window ancestor = value; ancestor != null; ancestor = ancestor._ownerWindow)
+                        if (ancestor == this)
+                            throw new ArgumentException(SR.Format(SR.CircularOwnerChild, value, this));
+                    // Admit native ownership before changing source collections.
+                    // Pre-source ownership is applied by the host before Show.
+                    if (IsPortableWindowActive)
+                        PortableWindowActivationService.SetOwner(_portableWindowActivation, value);
+                }
+
                 if (!_disposed)
                 {
                     // Check to see if value is already a child of this window.
@@ -1407,7 +1423,8 @@ namespace System.Windows
                     return;
                 }
 
-                SetOwnerHandle(_ownerWindow != null ? _ownerWindow.Handle: IntPtr.Zero);
+                if (!portableOwnership)
+                    SetOwnerHandle(_ownerWindow != null ? _ownerWindow.Handle: IntPtr.Zero);
 
                 // Update OwnerWindows of the new owner
                 // using OwnedWindowsInternl b/c we want to modifying the
@@ -4365,6 +4382,23 @@ namespace System.Windows
         /// <param name="ownerHandle">IntPtr of the parent window</param>
         private void SetOwnerHandle(IntPtr ownerHandle)
         {
+            if (IsPortableWindowActive || PortableWindowActivationService.IsEnabled ||
+                PortableWpfRuntime.ConfiguredMediaBackend == PortableWpfMediaBackend.Portable)
+            {
+                // WindowInteropHelper cannot establish ownership from opaque
+                // source handles. The typed Window.Owner route owns this relation.
+                if (ownerHandle != IntPtr.Zero)
+                    throw new PlatformNotSupportedException("Portable window ownership requires Window.Owner, not a native handle.");
+                if (_ownerWindow != null)
+                {
+                    if (IsPortableWindowActive)
+                        PortableWindowActivationService.SetOwner(_portableWindowActivation, null);
+                    _ownerWindow.OwnedWindowsInternal.Remove(this);
+                    _ownerWindow = null;
+                }
+                _ownerHandle = IntPtr.Zero;
+                return;
+            }
             // Note:
             // "SetWindowLong failed.  Error = 1400" appears in console when setting
             // Window.Owner to a Window hasn't been shown (chk build)

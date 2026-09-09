@@ -37,11 +37,56 @@ public sealed class WpfPortableWindowActivationTests
         Assert.NotNull(service.Callbacks.Close);
         Assert.NotNull(service.Callbacks.Run);
         Assert.NotNull(service.Callbacks.RunDialog);
+        Assert.NotNull(service.Callbacks.SetOwner);
         Assert.NotNull(service.Callbacks.Dispose);
         Assert.NotNull(service.Callbacks.DragMove);
         Assert.NotNull(service.Callbacks.GetHandle);
         Assert.NotNull(service.Callbacks.SetWindowRegion);
         Assert.NotNull(service.Callbacks.RequestActivation);
+    }
+
+    [Fact]
+    public void OwnerUpdatesResolveLiveHostsAndPropagateNativeRejection()
+    {
+        var service = new TestWindowActivationServiceRegistrar();
+        using var registration = PortableWpfServiceRegistry.RegisterWindowActivationService(service);
+        Assert.True(WpfPortableWindowActivation.TryRegisterPresentationFrameworkActivation());
+        using var ownerHost = new ProGpuWpfWindowHost { WpfRenderScheduler = new TestRenderScheduler() };
+        using var childHost = new ProGpuWpfWindowHost { WpfRenderScheduler = new TestRenderScheduler() };
+        var owner = new FakeWindow();
+        var child = new FakeWindow();
+        Assert.True(WpfPortableWindowActivation.TryAttach(ownerHost, owner, new FakePortablePresentationSource(), out var ownerActivation));
+        Assert.True(WpfPortableWindowActivation.TryAttach(childHost, child, new FakePortablePresentationSource(), out var childActivation));
+        using var ownerLease = ownerActivation;
+        using var childLease = childActivation;
+        var owners = new List<ProGpuWpfWindowHost?>();
+        bool accepted = true;
+        childHost.NativeOwnerSetterOverride = candidate => { owners.Add(candidate); return accepted; };
+
+        service.Callbacks!.SetOwner!(childActivation!, owner);
+        Assert.Same(ownerHost, Assert.Single(owners));
+        accepted = false;
+        Assert.Throws<PlatformNotSupportedException>(() => service.Callbacks.SetOwner(childActivation!, null));
+        accepted = true;
+        service.Callbacks.SetOwner(childActivation!, null);
+        Assert.Equal(3, owners.Count); // Rejected clearing did not erase the retained relation.
+        Assert.Null(owners[2]);
+        Assert.Throws<InvalidOperationException>(() => service.Callbacks.SetOwner(childActivation!, child));
+        Assert.Throws<InvalidOperationException>(() => service.Callbacks.SetOwner(childActivation!, new object()));
+        ownerActivation!.Dispose();
+        Assert.Throws<InvalidOperationException>(() => service.Callbacks.SetOwner(childActivation!, owner));
+        Assert.Equal(3, owners.Count);
+    }
+
+    [Fact]
+    public void OwnedShowRejectsMissingOwnerBeforeCreatingOrShowingNativeWindow()
+    {
+        using var host = new ProGpuWpfWindowHost { WpfRenderScheduler = new TestRenderScheduler() };
+        var child = new FakeWindow { Owner = new FakeWindow() };
+        Assert.True(WpfPortableWindowActivation.TryAttach(host, child, new FakePortablePresentationSource(), out var activation));
+        using var lease = activation;
+        Assert.Throws<InvalidOperationException>(() => activation!.Show());
+        Assert.Null(host.SilkWindow);
     }
 
     [Fact]

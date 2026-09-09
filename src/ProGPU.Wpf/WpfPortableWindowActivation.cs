@@ -60,6 +60,8 @@ public sealed class WpfPortableWindowActivation : IDisposable
     private bool _attachRootOnShow;
     private bool _isRegisteredNonActivatingOwnedWindow;
     private object? _ownerWindow;
+    private object? _nativeOwnerWindow;
+    private bool _isSettingNativeOwner;
     private readonly HashSet<WpfMouseButton> _pressedMouseButtons = new();
 
     static WpfPortableWindowActivation()
@@ -166,7 +168,8 @@ public sealed class WpfPortableWindowActivation : IDisposable
                 ? activation
                 : null,
             ShowSystemMenu = (activation, x, y) => ((WpfPortableWindowActivation)activation).TryShowSystemMenu(x, y),
-            RunDialog = (activation, continueRunning) => ((WpfPortableWindowActivation)activation).RunCore(continueRunning)
+            RunDialog = (activation, continueRunning) => ((WpfPortableWindowActivation)activation).RunCore(continueRunning),
+            SetOwner = (activation, owner) => ((WpfPortableWindowActivation)activation).SetOwner(owner)
         };
     }
 
@@ -349,6 +352,7 @@ public sealed class WpfPortableWindowActivation : IDisposable
         ThrowIfDisposed();
         AttachRootForShow();
         SynchronizeInitialWindowState(updatePortablePresentationSource: true);
+        SetOwner(_ownerWindow);
         if (ShouldDeferNativeShowUntilRun())
         {
             Host.DeferShowUntilRun();
@@ -385,6 +389,30 @@ public sealed class WpfPortableWindowActivation : IDisposable
             "The hidden portable window has lost its presentation source.");
         bridge.RootVisual = RootVisual;
         _attachRootOnShow = false;
+    }
+
+    internal void SetOwner(object? owner)
+    {
+        ThrowIfDisposed();
+        ProGpuWpfWindowHost? ownerHost = null;
+        if (owner != null && (ReferenceEquals(owner, Window) || !TryGetActiveHost(owner, out ownerHost)))
+            throw new InvalidOperationException("A portable window owner must have a live ProGPU host.");
+        if (_isSettingNativeOwner)
+            throw new InvalidOperationException("Native window ownership cannot be changed recursively.");
+        if (owner == null && _nativeOwnerWindow == null) return;
+        _isSettingNativeOwner = true;
+        try
+        {
+            if (!Host.TrySetNativeOwner(ownerHost))
+                throw new PlatformNotSupportedException("The native host rejected top-level window ownership.");
+            _nativeOwnerWindow = owner;
+            _ownerWindow = owner;
+            UpdateNonActivatingOwnedWindowRegistration();
+        }
+        finally
+        {
+            _isSettingNativeOwner = false;
+        }
     }
 
     internal bool TryActivate()
@@ -571,6 +599,8 @@ public sealed class WpfPortableWindowActivation : IDisposable
         RemoveNonActivatingOwnedWindowRegistration();
         s_activeActivations.Remove(Window);
         UnregisterActiveActivationHandle(this);
+        _nativeOwnerWindow = null;
+        _ownerWindow = null;
         Host.Dispose();
         _isDisposed = true;
     }

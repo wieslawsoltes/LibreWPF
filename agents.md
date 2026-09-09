@@ -105,6 +105,12 @@ handle guess. Missing/disposed/cyclic ownership is rejected without per-event
 allocation. Modal entry clears blocked capture/focus through source input devices.
 Nested scopes restore their parent and release window references. This is source
 input admission, not native nonclient suppression or previous activation recovery.
+Portable Window.Owner changes use the typed host callback and actual ProGPU native
+owner before Show. Admit live owner changes before updating source collections;
+reject opaque WindowInteropHelper owner handles before WPF HWND/hidden-window code.
+Top-level ownership is distinct from nonactivating popup configuration and modal
+input suppression. Keep native owners local, thread-bound and cycle-free, with
+unsupported platforms explicit. Do not report this as completed dialog modality.
 
 Decoder-backed core application images follow `BitmapSource.UsesPortablePixelStorage`
 for backend selection on every OS. Existing portable format dispatch must not fall

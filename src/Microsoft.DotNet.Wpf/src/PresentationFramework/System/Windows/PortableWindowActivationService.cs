@@ -30,6 +30,7 @@ namespace System.Windows
         private static Action<object> _close;
         private static Action<object> _run;
         private static Action<object, Func<bool>> _runDialog;
+        private static Action<object, object> _setOwner;
         private static Action<object> _dispose;
         private static Func<object, bool> _dragMove;
         private static Func<object, IntPtr> _getHandle;
@@ -72,7 +73,8 @@ namespace System.Windows
             Action<object, object> setIcon = null,
             Func<object, object> createHidden = null,
             Func<object, double, double, bool> showSystemMenu = null,
-            Action<object, Func<bool>> runDialog = null)
+            Action<object, Func<bool>> runDialog = null,
+            Action<object, object> setOwner = null)
         {
             ArgumentNullException.ThrowIfNull(activate);
 
@@ -87,6 +89,7 @@ namespace System.Windows
             Volatile.Write(ref _close, close);
             Volatile.Write(ref _run, run);
             Volatile.Write(ref _runDialog, runDialog);
+            Volatile.Write(ref _setOwner, setOwner);
             Volatile.Write(ref _dispose, dispose);
             Volatile.Write(ref _dragMove, dragMove);
             Volatile.Write(ref _getHandle, getHandle);
@@ -114,6 +117,7 @@ namespace System.Windows
             Volatile.Write(ref _close, null);
             Volatile.Write(ref _run, null);
             Volatile.Write(ref _runDialog, null);
+            Volatile.Write(ref _setOwner, null);
             Volatile.Write(ref _dispose, null);
             Volatile.Write(ref _dragMove, null);
             Volatile.Write(ref _getHandle, null);
@@ -177,6 +181,13 @@ namespace System.Windows
         internal static void SetIcon(object activation, object icon)
         {
             Volatile.Read(ref _setIcon)?.Invoke(activation, icon);
+        }
+
+        internal static void SetOwner(object activation, Window owner)
+        {
+            Action<object, object> callback = Volatile.Read(ref _setOwner) ?? throw new PlatformNotSupportedException(
+                "The registered portable host does not support window ownership.");
+            callback(activation, owner);
         }
 
         internal static void SetClientSize(object activation, double width, double height)
@@ -1043,7 +1054,8 @@ namespace System.Windows
                     callbacks.SetIcon,
                     callbacks.CreateHidden,
                     callbacks.ShowSystemMenu,
-                    callbacks.RunDialog);
+                    callbacks.RunDialog,
+                    callbacks.SetOwner);
             }
 
             public bool TryRegisterMediaContextRenderService(

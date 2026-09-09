@@ -19,6 +19,60 @@ public class PortableWindowActivationServiceTests
     private const int MouseUpInputKind = 5;
     private const int LeftMouseButton = 1;
 
+    [PortableInputFact]
+    public void TypedOwnerChangesPreserveCollectionsWhenHostRejectsAndNeverUseOpaqueHandles()
+    {
+        RunInUiApartment(() =>
+        {
+            var owner = new Window();
+            var secondOwner = new Window();
+            var child = new Window { ShowInTaskbar = false };
+            var updates = new List<Window?>();
+            bool reject = false;
+            PortableWindowActivationService.Register(
+                activate: value => value, createHidden: value => value,
+                getHandle: _ => new IntPtr(123),
+                setOwner: (activation, value) =>
+                {
+                    activation.Should().BeSameAs(child);
+                    if (reject) throw new PlatformNotSupportedException("Rejected owner.");
+                    updates.Add((Window?)value);
+                });
+            try
+            {
+                new WindowInteropHelper(owner).EnsureHandle();
+                new WindowInteropHelper(secondOwner).EnsureHandle();
+                child.Owner = owner; // No native window or hidden taskbar-owner creation.
+                updates.Should().BeEmpty();
+                owner.OwnedWindows.Count.Should().Be(1);
+                owner.OwnedWindows[0].Should().BeSameAs(child);
+                new WindowInteropHelper(child).EnsureHandle();
+                reject = true;
+                Action replace = () => child.Owner = secondOwner;
+                replace.Should().Throw<PlatformNotSupportedException>();
+                child.Owner.Should().BeSameAs(owner);
+                owner.OwnedWindows.Count.Should().Be(1);
+                owner.OwnedWindows[0].Should().BeSameAs(child);
+                secondOwner.OwnedWindows.Count.Should().Be(0);
+                reject = false;
+                child.Owner = secondOwner;
+                updates.Should().ContainSingle().Which.Should().BeSameAs(secondOwner);
+                Action rawOwner = () => new WindowInteropHelper(child).Owner = new IntPtr(456);
+                rawOwner.Should().Throw<PlatformNotSupportedException>();
+                child.Owner.Should().BeSameAs(secondOwner);
+                child.Owner = null;
+                updates.Should().HaveCount(2);
+                updates[1].Should().BeNull();
+                secondOwner.OwnedWindows.Count.Should().Be(0);
+            }
+            finally
+            {
+                child.Close(); secondOwner.Close(); owner.Close();
+                PortableWindowActivationService.Clear();
+            }
+        });
+    }
+
     private sealed class PortableInputFactAttribute : FactAttribute
     {
         public PortableInputFactAttribute([CallerFilePath] string? path = null, [CallerLineNumber] int line = 0) : base(path, line)
