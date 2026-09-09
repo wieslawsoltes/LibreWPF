@@ -1,6 +1,23 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Package production is also needed during implementation, before application
+# qualification. Keep this opt-in on the command line: CI's no-argument contract
+# must never inherit a validation bypass from environment/deployment state.
+build_packages_only=0
+if (( $# > 1 )); then
+  echo "Usage: $0 [--build-packages-only]" >&2
+  exit 2
+fi
+case "${1:-}" in
+  "") ;;
+  --build-packages-only) build_packages_only=1 ;;
+  *)
+    echo "Usage: $0 [--build-packages-only]" >&2
+    exit 2
+    ;;
+esac
+
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 dotnet="${repo_root}/.dotnet/dotnet"
 if [[ ! -x "${dotnet}" ]]; then
@@ -28,13 +45,15 @@ if [[ "${ProGpuWpfRendererMode}" == "NativeMilWgpu" ]]; then
   export PROGPU_WPF_SDK_CI_NATIVE_MIL_HOST=1
 fi
 
-command -v python3 >/dev/null 2>&1 || {
-  echo "python3 is required to verify the generated MIL protocol contract." >&2
-  exit 1
-}
-python3 "${repo_root}/external/ProGPU/eng/progpu-generate-mil-protocol.py" \
-  --wpf-root "${repo_root}" \
-  --check
+if [[ "${build_packages_only}" == "0" ]]; then
+  command -v python3 >/dev/null 2>&1 || {
+    echo "python3 is required to verify the generated MIL protocol contract." >&2
+    exit 1
+  }
+  python3 "${repo_root}/external/ProGPU/eng/progpu-generate-mil-protocol.py" \
+    --wpf-root "${repo_root}" \
+    --check
+fi
 
 resolve_dotnet_runtime_framework_version() {
   local runtime_version
@@ -87,6 +106,13 @@ pack_project() {
     -p:PackageVersion="${package_version}" \
     -p:ProGpuRuntimePackageVersion="${progpu_package_version}" \
     -p:RestoreAdditionalProjectSources="${package_output}"
+}
+
+pack_wpf_projects() {
+  echo "Packing LibreWPF transport, ProGPU bridge, and custom SDK..."
+  pack_project "packaging/Microsoft.DotNet.Wpf.GitHub/Microsoft.DotNet.Wpf.GitHub.ArchNeutral.csproj" "LibreWPF.Transport"
+  pack_project "src/ProGPU.Wpf/ProGPU.Wpf.csproj" "LibreWPF.ProGPU"
+  pack_project "packaging/ProGPU.Wpf.Sdk/ProGPU.Wpf.Sdk.ArchNeutral.csproj" "LibreWPF.Sdk"
 }
 
 stage_or_pack_progpu_project() {
@@ -156,6 +182,15 @@ snapshot_staged_progpu_packages() {
 run_dotnet() {
   local command="$1"
   shift
+  if [[ "${build_packages_only}" == "1" ]]; then
+    case "${command}" in
+      msbuild|build|pack) ;;
+      *)
+        echo "The package-production lane cannot execute dotnet ${command}." >&2
+        return 2
+        ;;
+    esac
+  fi
   case "${command}" in
     msbuild|build|pack)
       if [[ "${PROGPU_WPF_SERIAL_BUILD:-0}" == "1" ]]; then
@@ -256,8 +291,10 @@ stage_or_pack_progpu_project "external/ProGPU/src/System.Drawing.Common/System.D
 stage_or_pack_progpu_project "external/ProGPU/src/ProGPU.Wpf.Interop/ProGPU.Wpf.Interop.csproj" "LibreWPF.Interop"
 snapshot_staged_progpu_packages
 
-echo "Running ProGPU Avalonia package consumer smoke..."
-"${repo_root}/eng/progpu-avalonia-package-smoke.sh"
+if [[ "${build_packages_only}" == "0" ]]; then
+  echo "Running ProGPU Avalonia package consumer smoke..."
+  "${repo_root}/eng/progpu-avalonia-package-smoke.sh"
+fi
 
 echo "Building managed WPF transport payload..."
 run_dotnet msbuild \
@@ -292,6 +329,13 @@ run_dotnet msbuild \
   -target:BuildHarnesses \
   -property:Configuration=Release \
   -verbosity:minimal
+
+if [[ "${build_packages_only}" == "1" ]]; then
+  pack_wpf_projects
+  echo "LibreWPF package production completed; application, protocol, artifact, GPU, test and CI qualification did not run."
+  echo "These are unqualified development packages, not a release bundle. Run the normal SDK gate after feature freeze."
+  exit 0
+fi
 
 native_mil_host_gate="${PROGPU_WPF_SDK_CI_NATIVE_MIL_HOST:-auto}"
 run_native_mil_host_gate=0
@@ -349,10 +393,7 @@ run_dotnet run --no-build --project "${repo_root}/src/ProGPU.Wpf.RealApplication
 echo "Running real WPF Fluent theme runtime harness..."
 run_dotnet run --no-build --project "${repo_root}/src/ProGPU.Wpf.RealThemeRuntimeHarness/ProGPU.Wpf.RealThemeRuntimeHarness.csproj" -c Release -v:minimal
 
-echo "Packing LibreWPF transport, ProGPU bridge, and custom SDK..."
-pack_project "packaging/Microsoft.DotNet.Wpf.GitHub/Microsoft.DotNet.Wpf.GitHub.ArchNeutral.csproj" "LibreWPF.Transport"
-pack_project "src/ProGPU.Wpf/ProGPU.Wpf.csproj" "LibreWPF.ProGPU"
-pack_project "packaging/ProGPU.Wpf.Sdk/ProGPU.Wpf.Sdk.ArchNeutral.csproj" "LibreWPF.Sdk"
+pack_wpf_projects
 
 echo "Auditing preview package artifacts..."
 "${repo_root}/eng/progpu-preview-package-audit.sh"

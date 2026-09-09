@@ -189,6 +189,11 @@ blocking source path and bounded outcome. Presentation/3D consumer completion is
 not automatically a core prerequisite: trace ordinary host resize/DPI/popup needs
 first. Historical checkpoint next-step suggestions do not override the delivery
 plan's finish-first rule. Preserve all existing SDK and final qualification gates.
+Before feature freeze, use the SDK script's explicit `--build-packages-only` lane
+for package production, not the MVP launcher or normal SDK gate. It must retain
+all pack-time runtime/payload requirements and stop before application/verifier
+execution. Never introduce an environment-inherited CI bypass, publish its output
+as qualified, or claim exact-head provenance from dirty/stale native payloads.
 Device-loss callbacks must only schedule host-thread recovery. Rebuild targets
 outside active frames, retain source-built WPF roots/native windows, renew external
 image leases, and resolve popup sharing from the live owner rather than a captured

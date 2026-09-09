@@ -43,6 +43,39 @@ builds can pack ProGPU from the checked-out submodule. The release workflow inst
 exact ProGPU release packages for the matching `v<version>` tag and verifies that tag points at the
 checked-out ProGPU submodule commit.
 
+### Package production before qualification
+
+During implementation, package production can stop before running applications or
+qualification scripts:
+
+```bash
+PROGPU_WPF_SERIAL_BUILD=1 ./eng/progpu-wpf-sdk-ci.sh --build-packages-only
+./.dotnet/dotnet build samples/ProGPU.Wpf.MvpApp/ProGPU.Wpf.MvpApp.csproj -m:1 -p:ProGpuWpfRendererMode=NativeMilWgpu
+```
+
+This uses the same package builders, managed transport/theme graph and harness
+compilation as the full gate. It does not execute the protocol verifier, Avalonia
+consumer smoke, WPF harnesses, native host, package audits, release verifiers,
+applications or tests. It produces no release manifest or release bundle, and a
+successful exit means **package production only**, not qualified application
+startup or renderer parity. The flag is command-line-only; the no-argument CI and
+release workflows retain all existing gates, including Toolkit/AvalonDock, the
+license-controlled Xceed lane and SciChart.
+
+All normal pack-time payload requirements remain mandatory: stage the ProGPU
+native runtimes/adapters for every required RID and the source-built Windows
+managed/native payloads before packing. Missing payloads still fail packaging;
+do not set runtime-validation bypass properties or substitute old artifacts to
+claim exact-head packages. Prebuilt ProGPU packages can use the existing
+`PROGPU_WPF_PREPACKAGED_PROGPU_DIR` input, subject to final provenance qualification.
+
+The script rebuilds its configured local package output and transport staging
+directory just as the full gate does. Use a dedicated checkout/feed for isolated
+development; packages from a dirty checkout are not exact-commit release evidence.
+Do not run the MVP launcher to obtain build-only behavior: it launches the app and
+its automatic package rebuild uses the full SDK gate. After feature freeze, run
+the normal no-argument gate on the delivery commits and record its full results.
+
 ## GitHub Actions
 
 - `LibreWPF Build` runs the SDK package/no-source-change smoke on macOS with submodules checked out.

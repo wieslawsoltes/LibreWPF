@@ -6,6 +6,39 @@ namespace ProGPU.Wpf.Tests.Composition;
 public sealed class WpfManagedProjectGraphTests
 {
     [Fact]
+    public void SdkPackageBuildOnlyKeepsQualificationOutsideProductionPath()
+    {
+        string script = File.ReadAllText(FindRepoPath("eng", "progpu-wpf-sdk-ci.sh"));
+        Assert.Contains("build_packages_only=0", script, StringComparison.Ordinal);
+        Assert.Contains("case \"${1:-}\" in", script, StringComparison.Ordinal);
+        Assert.Contains("--build-packages-only) build_packages_only=1 ;;", script, StringComparison.Ordinal);
+        Assert.Contains("if (( $# > 1 )); then", script, StringComparison.Ordinal);
+        Assert.DoesNotContain("build_packages_only=\"${", script, StringComparison.Ordinal);
+        Assert.Contains("if [[ \"${build_packages_only}\" == \"0\" ]]; then\n  command -v python3", script, StringComparison.Ordinal);
+        Assert.Contains("if [[ \"${build_packages_only}\" == \"0\" ]]; then\n  echo \"Running ProGPU Avalonia package consumer smoke", script, StringComparison.Ordinal);
+        Assert.Contains("The package-production lane cannot execute dotnet ${command}.", script, StringComparison.Ordinal);
+
+        string productionEnd = script[script.IndexOf("if [[ \"${build_packages_only}\" == \"1\" ]]; then\n  pack_wpf_projects", StringComparison.Ordinal)..];
+        AssertGuardBefore(productionEnd, "pack_wpf_projects", "  exit 0\nfi");
+        AssertGuardBefore(productionEnd, "  exit 0\nfi", "native_mil_host_gate=");
+        AssertGuardBefore(productionEnd, "  exit 0\nfi", "run_dotnet run --no-build");
+        AssertGuardBefore(productionEnd, "  exit 0\nfi", "eng/progpu-preview-package-audit.sh");
+        AssertGuardBefore(productionEnd, "  exit 0\nfi", "eng/progpu-preview-package-manifest.sh");
+        AssertGuardBefore(productionEnd, "  exit 0\nfi", "eng/progpu-preview-release-bundle.sh");
+        Assert.Contains("unqualified development packages, not a release bundle", productionEnd, StringComparison.Ordinal);
+        Assert.Equal(2, script.Split("\n  pack_wpf_projects\n", StringSplitOptions.None).Length);
+        Assert.Contains("\npack_wpf_projects\n", script, StringComparison.Ordinal);
+        Assert.DoesNotContain("ProGpuNativeSkipRuntimeValidation", script, StringComparison.Ordinal);
+
+        foreach (string name in new[] { "progpu-wpf-sdk.yml", "progpu-wpf-release.yml" })
+        {
+            string workflow = File.ReadAllText(FindRepoPath(".github", "workflows", name));
+            Assert.Contains("./eng/progpu-wpf-sdk-ci.sh", workflow, StringComparison.Ordinal);
+            Assert.DoesNotContain("--build-packages-only", workflow, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
     public void PortableTextSelectionPrecedesSimpleLinesAndProtectsLineServicesContexts()
     {
         string ReadText(string name) => File.ReadAllText(FindRepoPath("src", "Microsoft.DotNet.Wpf", "src",

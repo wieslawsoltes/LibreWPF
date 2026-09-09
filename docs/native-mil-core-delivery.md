@@ -22,7 +22,7 @@ subsystem roadmap. None of these rows is runtime-qualified yet.
 
 | Order | Implementation batch | Exit to the next batch |
 | --- | --- | --- |
-| 1 — current | Native package activation: source-built harness and package MVP, including Windows. Close required source-media routing from startup through first frame and common resource construction. Popup ownership, pre-host services, provider-first text dispatch, intrinsic measurement, whole-word wrapping, rich-editor media routing/per-line metrics and FlowDocument scroll-view/paginated drawing and interaction are connected. Required symbol-marker font integration, unsupported source document policies needed by acceptance content, remaining source-media routes and Windows SDK admission remain open. | Required paths select ProGPU explicitly, compile, and have no known route into unintended Windows MIL or silent managed rendering. Keep Windows admission guarded until its dependencies are implemented. |
+| 1 — current | Native package activation: source-built harness and package MVP, including Windows. Close required source-media routing from startup through first frame and common resource construction. Popup ownership, pre-host services, provider-first text dispatch, intrinsic measurement, whole-word wrapping, rich-editor media routing/per-line metrics and FlowDocument scroll-view/paginated drawing and interaction are connected. Source marker formatting and ProGPU symbol-cmap support already exist; actual font availability and acceptance document-policy compatibility require qualification, not another parser/composer. Fresh platform payload/package production, concrete remaining source-media routes and Windows SDK admission remain open. | Required paths select ProGPU explicitly, compile, and have no known route into unintended Windows MIL or silent managed rendering. Keep Windows admission guarded until its dependencies are implemented. |
 | 2 | Application closure: use the same MVP, Toolkit/AvalonDock, license-controlled Xceed and existing SciChart gate. Finish required text/selection, scroll/clip, popup/input, resize/DPI, content/effect/cache updates and close/reopen/device-loss ownership. Reuse existing implementations; fix concrete missing connections. | Each required action has an implemented path and authored regression coverage. Record any known blocking branch against that action; do not reopen already connected subsystems for optional refinements. |
 | 3 | Feature freeze, final qualification and delivery: build complete platform artifacts and packages, execute the existing cross-platform/Windows comparison and application gates, fix failures, and bring both PRs' required CI to green at the delivery commits. | Record exact-head package consumption and required gate results, with explicit failures or environment/license limitations. Only then report the core release delivered. |
 
@@ -115,6 +115,33 @@ These checkpoints preserve implementation provenance and the state at each
 commit. Their next-step text is historical, may be superseded by later changes,
 and must not be treated as an additional active backlog. Use the active completion
 queue above for current priorities.
+
+Package production/qualification separation (2026-09-09): the package-mode MVP's
+automatic rebuild invokes the full SDK gate, including application execution,
+even when the launcher's individual validation flags are disabled. The SDK script
+now accepts an explicit command-line-only `--build-packages-only` option. It shares
+the real pack functions and transport/theme/harness compilation, skips the two
+early protocol/Avalonia qualification calls, and exits after packing before native
+host, application, test, audit, manifest and release-bundle work. The no-argument
+SDK/CI/release path retains its gates and ordering. The build-only dotnet wrapper
+rejects non-build commands, and authored graph coverage protects the separation
+and unchanged workflow invocations. No runtime/payload admission is weakened.
+See [package production](progpu-wpf-release.md#package-production-before-qualification).
+
+The complete Release managed transport, themes and four-harness graphs restored
+and compiled in separate serialized processes: transport 4 warnings/0 errors,
+themes 0/0 and harnesses 1/0. This closes the missing restore-assets obstacle for
+the source Application.Run harness, not its execution or package-mode startup.
+The focused bridge/graph fixture project also compiled (116 warnings/0 errors);
+the new build-only contract fixture was authored and compiled, not executed.
+The native runtime staging directory under ProGPU and the WPF Windows managed
+payload directory are absent in this checkout; full fresh package production
+still needs those platform build outputs. Do not substitute release-version or
+dirty native binaries and report exact-head package evidence. No package-production
+script, fixture, verifier, application, VM/GPU workload, benchmark or CI gate was
+executed in this batch. Native/package admission and final qualification remain
+open. Latest fetched ProGPU main is included; unrelated submodule edits remain
+untouched.
 
 Cocoa About-dialog native-session prerequisite: ProGPU now owns an incremental
 AppKit modal session, retained native host identity, nested polling and deferred

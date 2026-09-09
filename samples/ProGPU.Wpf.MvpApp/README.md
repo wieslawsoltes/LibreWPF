@@ -32,6 +32,12 @@ If the local `0.1.0-preview.45` LibreWPF packages are stale or missing, rebuild 
 PROGPU_WPF_MVP_REBUILD_PACKAGES=1 ./eng/run-progpu-wpf-mvp.sh
 ```
 
+That launcher rebuild invokes the full SDK gate and then launches the app. To
+produce packages and compile without running validation or an application, use
+the [build-only package lane](../../docs/progpu-wpf-release.md#package-production-before-qualification).
+Native runtime and Windows payload requirements still apply; this is not a
+reduced package profile or evidence of successful startup.
+
 ## Native MIL selection
 
 With an SDK package containing the native renderer selector, build this same app
