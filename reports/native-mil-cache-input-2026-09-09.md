@@ -99,3 +99,48 @@ Final `4251cac8` builds succeeded for both macOS ARM64 and x64: each completed
 16 incremental compile/link steps, including both provider libraries and configured
 fixtures/samples. No executable was run and no payload was restaged. Unrelated
 native worktree changes and performance artifact deletions remain untouched.
+
+## Zero-scale source connection
+
+ProGPU `b9f08004` closes the zero-scale branch through a balanced input-only
+builder scope. Native MIL retains the original source coordinate frame and
+uses its existing command traversal, including effect layers and descendants.
+The hit producer reads those retained commands before serialization. Stream
+measurement and writing exclude the same complete command ranges; nested ranges
+are not counted twice. Visible siblings retain their own IDs and command payloads.
+Restoring positive scale resumes the normal cache path from current source data.
+
+The resource table remains owned and index-stable, including CPU snapshots shared
+with visible commands. This does not promise zero CPU storage/validation cost.
+The excluded draw/effect/cache commands are absent from the command-driven raster
+pipeline, without a tiny cache texture, second MIL decoder, duplicate source
+composer or CPU pixel fallback. Scope filtering is dependent metadata work;
+the existing intrinsic geometry mapping and canonical GPU queries are unchanged.
+
+Authored native/managed fixtures now include scale zero, source movement and
+content replacement/clear followed by scale-one restoration. Native zero-scale
+fixtures require only the visible sibling's draw, and zero-scale effect-root
+fixtures require no serialized commands for that whole root while retaining its
+source input. Builder fixtures cover nested suppression, visible sibling input,
+stream-size agreement, raster stack-depth metrics, reset and unbalanced-scope
+rejection. The module consumer exercises point-only input inside an input-only
+scope. These are authored fixtures, not executed results.
+
+Build-only evidence at `b9f08004`:
+
+- Clean detached macOS ARM64 and x64 native graphs each completed 41 incremental
+  compile/link steps, including both wgpu-native/Dawn providers and configured
+  fixture/sample binaries. No executable ran and no payload was restaged.
+- Managed ProGPU Release fixture graph, SDK 10: success, 0 warnings, 0 errors,
+  46.44 seconds. WPF bridge product code is unchanged; no WPF-local input adapter
+  or new C ABI declaration is needed for this native builder connection.
+- MIL coverage metadata was regenerated with the existing generator. Freshly
+  fetched ProGPU main remains `102e39e5088b462624da6296ff70a43ed2c5d8b4`, included
+  by the feature branch. Unrelated native edits/deletions remain untouched.
+
+Native boundary masks, required cached-picture sources and remaining exact clip
+combinations stay explicit. Full application/parity qualification, module/compiler
+matrix, exact-head payload/package production, GPU/SIMD/lifetime/performance
+checks and both PRs' required CI remain open. No tests, verifiers, application/VM
+workloads or CI qualification were run before feature freeze; automatic CI remains
+enabled.

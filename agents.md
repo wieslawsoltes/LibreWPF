@@ -241,7 +241,8 @@ once. No bridge-local hit geometry or WPF-specific compositor fork is permitted.
 Retained optional bitmap-cache input follows ProGPU's original source coordinates,
 not cache allocation bounds, resolution or pixel snapping. Native positive-scale
 caches now carry an unsnapped input frame through ProGPU builder scopes. Preserve
-clip-frame identity and keep native zero-scale input, boundary masks and unsupported
+clip-frame identity. Native zero-scale input now uses ProGPU's balanced input-only
+scope, never a tiny cache or a WPF-local replay. Keep boundary masks and unsupported
 clip topology explicit. A compiled fixture is not full cache parity or application
 closure; never bypass native input with the managed compositor index.
 

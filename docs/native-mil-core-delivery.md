@@ -128,8 +128,9 @@ connects managed optional source caches to pre-composite input traversal, preser
 unsnapped geometry and content updates instead of texture allocation bounds.
 Native positive-scale caches now carry unsnapped input-frame metadata through
 the existing builder, with paired source placement/update fixtures and nested
-frame/clip ownership. Zero-scale source input, cache-boundary masks and remaining
-exact clip combinations still fail explicitly. Required cached-picture sources
+frame/clip ownership. Zero-scale source input now uses balanced input-only builder
+scopes, retaining source selection while excluding the subtree's raster commands.
+Cache-boundary masks and remaining exact clip combinations still fail explicitly. Required cached-picture sources
 are not silently admitted. This does not close row 2, refresh packages or start
 feature freeze; continue the concrete remaining cache/mask application branches.
 
