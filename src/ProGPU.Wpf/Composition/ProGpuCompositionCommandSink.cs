@@ -1229,7 +1229,7 @@ public sealed class ProGpuCompositionCommandSink :
         _pushStack.Push(PushKind.Clip);
     }
 
-    void IWpfPointHitRegionCommandSink.PushPointHitRegion(WpfReplayRect rectangle)
+    void IWpfPointHitRegionCommandSink.PushPointHitRegion(WpfReplayRect rectangle, bool isEmpty)
     {
         ThrowIfClosed();
         AddNativeCommand(new global::ProGPU.Scene.RenderCommand
@@ -1238,8 +1238,9 @@ public sealed class ProGpuCompositionCommandSink :
             FontSize = 1f,
             IsSourceOpacityScope = true,
             Transform = _transformStack.Peek(),
-            SourceHitGeometry = new(global::ProGPU.Scene.SourceHitTestGeometryKind.PointRectangleBegin,
-                new Vector4((float)rectangle.X, (float)rectangle.Y, (float)rectangle.Width, (float)rectangle.Height))
+            SourceHitGeometry = new(isEmpty ? global::ProGPU.Scene.SourceHitTestGeometryKind.PointEmptyBegin :
+                global::ProGPU.Scene.SourceHitTestGeometryKind.PointRectangleBegin,
+                isEmpty ? default : new Vector4((float)rectangle.X, (float)rectangle.Y, (float)rectangle.Width, (float)rectangle.Height))
         });
     }
 

@@ -1413,6 +1413,7 @@ public partial class MainWindow : Window
             },
             DispatcherPriority.Send);
 
+        string selectionStatus = await ValidateLiveTextSelectionAsync(liveHost, Require<TextBox>(textBox, "MVP selection TextBox"));
         string controlMouseStatus = await ValidateLiveControlMouseInputAsync(liveHost);
         string mouseBindingStatus = await ValidateLiveMouseBindingAsync(liveHost);
         string discreteControlStatus = await ValidateLiveDiscreteInputControlsAsync(liveHost);
@@ -1421,7 +1422,69 @@ public partial class MainWindow : Window
         string popupStatus = await ValidateLivePopupSurfacesAsync(liveHost);
         string keyboardNavigationStatus = await ValidateLiveKeyboardNavigationAsync(liveHost);
         string wheelAndCaptureStatus = await ValidateLiveWheelAndCaptureInputAsync(liveHost);
-        return $"{textInputStatus}; {controlMouseStatus}; {mouseBindingStatus}; {discreteControlStatus}; {toolBarStatus}; {frameworkThemeStatus}; {popupStatus}; {keyboardNavigationStatus}; {wheelAndCaptureStatus}";
+        return $"{textInputStatus}; {selectionStatus}; {controlMouseStatus}; {mouseBindingStatus}; {discreteControlStatus}; {toolBarStatus}; {frameworkThemeStatus}; {popupStatus}; {keyboardNavigationStatus}; {wheelAndCaptureStatus}";
+    }
+
+    private async Task<string> ValidateLiveTextSelectionAsync(ProGpuWpfWindowHost liveHost, TextBox textBox)
+    {
+        var before = await CaptureLivePresentedFrameStateAsync(liveHost);
+        await InvokeWithLiveHostWakeAsync(liveHost, () =>
+        {
+            AssertEqual("Live", textBox.Text, "MVP selection initial text");
+            RaiseHostInput(liveHost, WpfInputEventKind.KeyDown, key: "LeftCtrl", modifiers: WpfInputModifiers.Control);
+            RaiseHostInput(liveHost, WpfInputEventKind.KeyDown, key: "A", modifiers: WpfInputModifiers.Control);
+            RaiseHostInput(liveHost, WpfInputEventKind.KeyUp, key: "A", modifiers: WpfInputModifiers.Control);
+            RaiseHostInput(liveHost, WpfInputEventKind.KeyUp, key: "LeftCtrl");
+        }, DispatcherPriority.Send);
+        await WaitForLiveInputPresentedFrameAsync(liveHost, before, "TextBox SelectAll highlight");
+
+        await InvokeWithLiveHostWakeAsync(liveHost, () =>
+        {
+            AssertEqual("Live", textBox.SelectedText, "MVP host SelectAll selection");
+            Rect caret = textBox.GetRectFromCharacterIndex(2);
+            if (caret.IsEmpty || caret.Height <= 0 || !double.IsFinite(caret.X) || !double.IsFinite(caret.Y))
+                throw new InvalidOperationException("MVP selected text did not publish actual source caret geometry.");
+            Point point = textBox.TranslatePoint(new Point(caret.X + 0.05, caret.Y + caret.Height / 2), this);
+            // The actual presented renderer index must reach editor content through
+            // the highlight, not return the selection/caret adorner as its owner.
+            if (!ProGpuWpfDiagnostics.TryHitTestOwner(liveHost, point.X, point.Y, out var owner) ||
+                owner is not DependencyObject dependency ||
+                (!ReferenceEquals(owner, textBox) && !textBox.IsAncestorOf(dependency)))
+                throw new InvalidOperationException($"MVP selected text input resolved outside its editor: {DescribeInputElement(owner)}.");
+            RaiseHostInput(liveHost, WpfInputEventKind.MouseMove, x: point.X, y: point.Y);
+            RaiseHostInput(liveHost, WpfInputEventKind.MouseDown, x: point.X, y: point.Y, button: WpfMouseButton.Left);
+            RaiseHostInput(liveHost, WpfInputEventKind.MouseUp, x: point.X, y: point.Y, button: WpfMouseButton.Left);
+        }, DispatcherPriority.Send);
+        await InvokeWithLiveHostWakeAsync(liveHost, static () => { }, DispatcherPriority.Background);
+        before = await CaptureLivePresentedFrameStateAsync(liveHost);
+        await InvokeWithLiveHostWakeAsync(liveHost, () =>
+        {
+            AssertEqual(0, textBox.SelectionLength, "MVP selected-text click clears selection");
+            AssertEqual(2, textBox.CaretIndex, "MVP selected-text click source caret position");
+            RaiseHostInput(liveHost, WpfInputEventKind.KeyDown, key: "LeftShift", modifiers: WpfInputModifiers.Shift);
+            RaiseHostInput(liveHost, WpfInputEventKind.KeyDown, key: "End", modifiers: WpfInputModifiers.Shift);
+            RaiseHostInput(liveHost, WpfInputEventKind.KeyUp, key: "End", modifiers: WpfInputModifiers.Shift);
+            RaiseHostInput(liveHost, WpfInputEventKind.KeyUp, key: "LeftShift");
+        }, DispatcherPriority.Send);
+        await WaitForLiveInputPresentedFrameAsync(liveHost, before, "TextBox Shift+End selection");
+        before = await CaptureLivePresentedFrameStateAsync(liveHost);
+        await InvokeWithLiveHostWakeAsync(liveHost, () =>
+        {
+            AssertEqual(2, textBox.SelectionStart, "MVP keyboard selection source start");
+            AssertEqual("ve", textBox.SelectedText, "MVP keyboard selection source range");
+            RaiseHostInput(liveHost, WpfInputEventKind.TextInput, character: 'v');
+            RaiseHostInput(liveHost, WpfInputEventKind.TextInput, character: 'e');
+        }, DispatcherPriority.Send);
+        await WaitForLiveInputPresentedFrameAsync(liveHost, before, "TextBox selected-text replacement");
+        await InvokeWithLiveHostWakeAsync(liveHost, () =>
+        {
+            AssertEqual("Live", textBox.Text, "MVP replacement retains unselected prefix");
+            AssertEqual(0, textBox.SelectionLength, "MVP replacement clears selection");
+            AssertEqual(4, textBox.CaretIndex, "MVP replacement caret position");
+            AssertEqual("Live", Require<MainViewModel>(DataContext, "MVP selection model").NewItemName,
+                "MVP selected-text replacement binding");
+        }, DispatcherPriority.Send);
+        return "input SelectAll, click-through selection, source caret, Shift+End and replacement presented";
     }
 
     private async Task<string> ValidateLiveControlMouseInputAsync(ProGpuWpfWindowHost liveHost)

@@ -2,6 +2,6 @@ namespace System.Windows.Media.ProGPU.Composition;
 
 internal interface IWpfPointHitRegionCommandSink
 {
-    void PushPointHitRegion(WpfReplayRect rectangle);
+    void PushPointHitRegion(WpfReplayRect rectangle, bool isEmpty = false);
     void PopPointHitRegion();
 }

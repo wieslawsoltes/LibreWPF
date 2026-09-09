@@ -158,6 +158,15 @@ the pen. This is not nonrectangular brush or arbitrary clip admission, and its
 fixtures/builds are not runtime proof. Continue concrete application closure and
 keep all final package, comparison and CI gates intact.
 
+The [MVP selection/caret connection](../reports/native-mil-mvp-selection-input-2026-09-09.md)
+now carries the source caret visuals' explicit null point-hit policy through
+paired native/managed Empty point scopes. Region drawing and descendants remain
+independent. The complete MVP live gate now covers SelectAll, clicking through
+the presented highlight, source caret placement, Shift+End and selected-text
+replacement. This is implemented and compiled, not executed qualification or
+default admission. Continue required application actions rather than enumerating
+unrelated custom HitTestCore overrides.
+
 Package input refresh: macOS, Linux and Windows ARM64/x64 native payloads now
 share ProGPU da36a718 in the same staging root. Both Linux refresh builds completed
 all 709 compile/module/link steps. ProGPU.Backend.Native.0.1.0-preview.55.nupkg

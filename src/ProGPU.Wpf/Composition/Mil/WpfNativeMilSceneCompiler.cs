@@ -521,16 +521,16 @@ public sealed class WpfNativeMilSceneCompiler
             _visualOwners.Add(new(unchecked((int)visualHandle), visual));
             if (visual is IPortablePointHitRegionSource pointSource)
             {
-                if (!pointSource.TryGetPortablePointHitRegion(out var pointRegion) || pointRegion.IsEmpty ||
+                if (!pointSource.TryGetPortablePointHitRegion(out var pointRegion) || (!pointRegion.IsEmpty && (
                     !double.IsFinite(pointRegion.X) || !double.IsFinite(pointRegion.Y) ||
                     !double.IsFinite(pointRegion.Width) || !double.IsFinite(pointRegion.Height) ||
                     pointRegion.Width < 0 || pointRegion.Height < 0 ||
                     Math.Abs(pointRegion.X) > float.MaxValue || Math.Abs(pointRegion.Y) > float.MaxValue ||
                     pointRegion.Width > float.MaxValue || pointRegion.Height > float.MaxValue ||
                     Math.Abs(pointRegion.X + pointRegion.Width) > float.MaxValue ||
-                    Math.Abs(pointRegion.Y + pointRegion.Height) > float.MaxValue)
+                    Math.Abs(pointRegion.Y + pointRegion.Height) > float.MaxValue)))
                     throw MissingContract(nameof(IPortablePointHitRegionSource));
-                PointHitRegions.Add(new NativeMilPointHitRectangle {
+                PointHitRegions.Add(pointRegion.IsEmpty ? new NativeMilPointHitRectangle { Handle = visualHandle, IsEmpty = 1U } : new NativeMilPointHitRectangle {
                     Handle = visualHandle, X = pointRegion.X, Y = pointRegion.Y,
                     Width = pointRegion.Width, Height = pointRegion.Height });
             }

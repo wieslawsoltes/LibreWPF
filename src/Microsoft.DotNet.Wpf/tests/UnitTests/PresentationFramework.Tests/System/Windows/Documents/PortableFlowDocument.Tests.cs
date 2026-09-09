@@ -119,6 +119,11 @@ public sealed class PortableFlowDocumentTests
         var caret = new CaretElement(editor, false) { IsSelectionActive = true };
         try
         {
+            Assert.True(((IPortablePointHitRegionSource)caret).TryGetPortablePointHitRegion(out var ownPoint));
+            Assert.True(ownPoint.IsEmpty);
+            var childPoint = Assert.IsAssignableFrom<IPortablePointHitRegionSource>(VisualTreeHelper.GetChild(caret, 0));
+            Assert.True(childPoint.TryGetPortablePointHitRegion(out var childRegion));
+            Assert.True(childRegion.IsEmpty);
             void DrawCaret()
             {
                 root.UpdateLayout();

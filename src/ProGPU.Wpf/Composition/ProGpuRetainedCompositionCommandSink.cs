@@ -547,8 +547,8 @@ internal sealed class ProGpuRetainedCompositionCommandSink :
         _scopeStack.Push(ScopeKind.Delegate);
     }
 
-    public void PushPointHitRegion(WpfReplayRect rectangle) =>
-        ((IWpfPointHitRegionCommandSink)Current.Sink).PushPointHitRegion(rectangle);
+    public void PushPointHitRegion(WpfReplayRect rectangle, bool isEmpty = false) =>
+        ((IWpfPointHitRegionCommandSink)Current.Sink).PushPointHitRegion(rectangle, isEmpty);
 
     public void PopPointHitRegion() =>
         ((IWpfPointHitRegionCommandSink)Current.Sink).PopPointHitRegion();

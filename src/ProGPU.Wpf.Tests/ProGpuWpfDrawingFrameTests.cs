@@ -771,6 +771,30 @@ public sealed class ProGpuWpfDrawingFrameTests
     }
 
     [Fact]
+    public void RetainedEmptyPointScopeKeepsSelectionDrawingAndFollowingPointInput()
+    {
+        var retainedRoot = new ProGpuContainerVisual();
+        var frame = new ProGpuWpfDrawingFrame(new ProGpuContainerVisual(), retainedRoot,
+            new ProGpuDrawingVisual(), 200, 100, hitTestOwnerMap: new WpfGpuHitTestOwnerMap());
+        using var sink = new ProGpuRetainedCompositionCommandSink(frame, context: null, viewport3DTextureCache: null);
+        Assert.True(sink.PushVisualOwner(new object()));
+        var pointSink = (IWpfPointHitRegionCommandSink)sink;
+        pointSink.PushPointHitRegion(default, isEmpty: true);
+        sink.DrawRectangle(Brushes.Red, null, new Rect(10, 20, 30, 16));
+        pointSink.PopPointHitRegion();
+        sink.DrawRectangle(Brushes.Blue, null, new Rect(1, 2, 3, 4));
+        sink.PopVisualOwner();
+        using var capture = new ProGPU.Scene.GpuRenderCommandHitTestCacheBuilder();
+        capture.AddSourceVisual(retainedRoot, Matrix4x4.Identity);
+        var hits = capture.BuildIndex().Primitives;
+        Assert.Equal(2, hits.Count);
+        Assert.True(hits[0].Flags.HasFlag(ProGPU.Vector.GpuHitTestPrimitiveFlags.RegionOnly));
+        Assert.False(hits[1].Flags.HasFlag(ProGPU.Vector.GpuHitTestPrimitiveFlags.RegionOnly));
+        Assert.Equal(new Vector2(10, 20), hits[0].BoundsMin);
+        Assert.Equal(new Vector2(40, 36), hits[0].BoundsMax);
+    }
+
+    [Fact]
     public void RetainedSinkMapsOwnerToNestedEffectBranchAfterEffectPush()
     {
         var branchMap = new WpfRetainedVisualBranchMap();

@@ -1,5 +1,11 @@
 # Agent Guidance
 
+CaretElement and its caret child must publish their explicit null point-hit
+policy through IPortablePointHitRegionSource with PortableRect.Empty. Preserve
+selection/caret drawing and geometry-region queries; end own-content point scopes
+before descendants. Empty is not a zero-size source rectangle, missing metadata,
+IsHitTestVisible=false or permission to filter owners by their type names.
+
 Rectangular image/drawing/visual-brush fills must publish their actual source
 rectangle through the typed source scope before brush mapping/isolation. Keep
 pen replay outside, retain inherited clips and source owner identity, and exclude

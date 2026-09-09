@@ -996,17 +996,18 @@ public sealed class WpfVisualTreeRenderer
         IWpfPointHitRegionCommandSink? pointSink = null;
         if (visual is global::ProGPU.Wpf.Interop.IPortablePointHitRegionSource pointSource)
         {
-            if (!pointSource.TryGetPortablePointHitRegion(out var bounds) || bounds.IsEmpty ||
+            if (!pointSource.TryGetPortablePointHitRegion(out var bounds) || (!bounds.IsEmpty && (
                 !double.IsFinite(bounds.X) || !double.IsFinite(bounds.Y) ||
                 !double.IsFinite(bounds.Width) || !double.IsFinite(bounds.Height) ||
                 bounds.Width < 0 || bounds.Height < 0 ||
                 Math.Abs(bounds.X) > float.MaxValue || Math.Abs(bounds.Y) > float.MaxValue ||
                 bounds.Width > float.MaxValue || bounds.Height > float.MaxValue ||
-                Math.Abs(bounds.X + bounds.Width) > float.MaxValue || Math.Abs(bounds.Y + bounds.Height) > float.MaxValue ||
+                Math.Abs(bounds.X + bounds.Width) > float.MaxValue || Math.Abs(bounds.Y + bounds.Height) > float.MaxValue)) ||
                 sink is not IWpfPointHitRegionCommandSink supported)
                 throw new NotSupportedException("Source point regions require a typed finite rectangle and an input-aware sink.");
             pointSink = supported;
-            pointSink.PushPointHitRegion(new WpfReplayRect(bounds.X, bounds.Y, bounds.Width, bounds.Height));
+            pointSink.PushPointHitRegion(bounds.IsEmpty ? default :
+                new WpfReplayRect(bounds.X, bounds.Y, bounds.Width, bounds.Height), bounds.IsEmpty);
         }
         try { ReplayVisualDrawingContent(visual, sink, resources, imageSourceAdapter, stats); }
         finally { pointSink?.PopPointHitRegion(); }

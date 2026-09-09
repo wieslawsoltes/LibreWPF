@@ -22,7 +22,7 @@ namespace System.Windows.Documents
     /// This class is sealed because it calls OnVisualChildrenChanged virtual in the
     /// constructor and it does not override it, but derived classes could.
     /// </summary>
-    internal sealed class CaretElement : Adorner
+    internal sealed class CaretElement : Adorner, IPortablePointHitRegionSource
     {
         //------------------------------------------------------
         //
@@ -115,6 +115,14 @@ namespace System.Windows.Documents
         {
             // Return null not to hit testable for CaretElement.
             return null;
+        }
+
+        bool IPortablePointHitRegionSource.TryGetPortablePointHitRegion(out PortableRect rectangle)
+        {
+            // Match own HitTestCore, not subtree visibility: source region queries
+            // still observe selection drawing. The caret child declares its own policy.
+            rectangle = PortableRect.Empty;
+            return true;
         }
 
         // Render override -- we render the selection here.
@@ -1255,10 +1263,16 @@ namespace System.Windows.Documents
 
         #region Private Types
 
-        private class CaretSubElement : UIElement
+        private class CaretSubElement : UIElement, IPortablePointHitRegionSource
         {
             internal CaretSubElement()
             {
+            }
+
+            bool IPortablePointHitRegionSource.TryGetPortablePointHitRegion(out PortableRect rectangle)
+            {
+                rectangle = PortableRect.Empty;
+                return true;
             }
 
             // HitTestCore override not to hit testable Caret.

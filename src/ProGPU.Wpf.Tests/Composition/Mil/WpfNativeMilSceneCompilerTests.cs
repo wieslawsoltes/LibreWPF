@@ -12,6 +12,48 @@ namespace ProGPU.Wpf.Tests.Composition.Mil;
 public sealed class WpfNativeMilSceneCompilerTests
 {
     [Fact]
+    public void EmptyOwnPointCoverageKeepsNativeDrawingAndReplacesSidebandPolicy()
+    {
+        var brush = new FakeBrush(new PortableColor(255, 20, 30, 40));
+        var content = new FakeRenderData(CreateRectangleRecord(1, 0), [brush]);
+        var source = new PointVisual(content) { PointRegion = PortableRect.Empty };
+        var compiler = new WpfNativeMilSceneCompiler();
+        var empty = compiler.BuildBatch(source, 160, 96);
+        Assert.Equal(1U, empty.PointHitRegions.Span[0].IsEmpty);
+        Assert.Equal(0, empty.PointHitRegions.Span[0].Width);
+        source.PointRegion = new PortableRect(0, 0, 0, 0);
+        var zero = compiler.BuildBatch(source, 160, 96);
+        Assert.Equal(0U, zero.PointHitRegions.Span[0].IsEmpty);
+        Assert.Equal(empty.Bytes, zero.Bytes); // point admission never changes paint
+        using var session = new WpfNativeMilCompilationSession();
+        session.Update(empty);
+        Assert.Equal(1U, session.Update(zero).AppliedSidebandCount);
+        Assert.Equal(1U, session.Update(empty).AppliedSidebandCount);
+    }
+
+    [Fact]
+    public void EmptyOwnPointCoverageKeepsManagedDrawingForRegionQueries()
+    {
+        var brush = new FakeBrush(new PortableColor(255, 20, 30, 40));
+        var source = new PointVisual(new FakeRenderData(CreateRectangleRecord(1, 0), [brush]))
+            { PointRegion = PortableRect.Empty };
+        var recorder = new global::ProGPU.Scene.GpuPictureRecorder();
+        var drawing = recorder.BeginRecording(new(0, 0, 80, 80));
+        using var sink = new global::System.Windows.Media.ProGPU.Composition.ProGpuCompositionCommandSink(drawing);
+        new WpfVisualTreeRenderer().ReplaySubtree(source, sink);
+        using var original = recorder.EndRecording();
+        using var picture = original.Clone();
+        Assert.True(global::ProGPU.Scene.GpuPictureBounds.TryGetBounds(picture, out _));
+        using var capture = new global::ProGPU.Scene.GpuRenderCommandHitTestCacheBuilder();
+        for (int i = 0; i < picture.CommandCount; ++i)
+            capture.AddCommand(picture.GetCommand(i), Matrix4x4.Identity);
+        var primitive = Assert.Single(capture.BuildIndex().Primitives);
+        Assert.True(primitive.Flags.HasFlag(global::ProGPU.Vector.GpuHitTestPrimitiveFlags.RegionOnly));
+        Assert.Equal(new Vector2(2, 6), primitive.BoundsMin);
+        Assert.Equal(new Vector2(32, 46), primitive.BoundsMax);
+    }
+
+    [Fact]
     public void SourcePointRegionIsIndependentOfDrawingAndTracksLayoutChanges()
     {
         var compiler = new WpfNativeMilSceneCompiler();
