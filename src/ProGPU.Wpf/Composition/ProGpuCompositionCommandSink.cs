@@ -1195,7 +1195,7 @@ public sealed class ProGpuCompositionCommandSink :
             return;
         }
 
-        NativeContext.PushOpacity((float)opacity);
+        NativeContext.PushOpacity((float)opacity, affectsHitTesting: false);
         _pushStack.Push(PushKind.Opacity);
     }
 

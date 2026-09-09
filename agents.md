@@ -44,6 +44,12 @@ with an empty drawing. Outer source clipping/ownership stays authoritative.
 The drawing getter returns false for absent Drawing; unlike the bounds getter,
 that is a valid empty source, not unavailable bounds.
 
+Source DrawingContext opacity changes pixels, not geometry input. Use ProGPU's
+typed source opacity policy, retain real render alpha and balanced scopes, and
+preserve it through retained command snapshots. Native visual-group admission
+does not close the managed retained-visual opacity-zero early rejection; keep
+that separate source policy blocker explicit until connected and qualified.
+
 Every selected native popup must complete owner configuration before Show, on
 Cocoa/X11 as well as Windows. Rejection or exception disposes the hidden popup;
 do not continue unowned or silently switch surface kind. Cocoa owner setup belongs

@@ -993,6 +993,29 @@ public sealed class WpfCompositionDrawingContextTests
     }
 
     [Theory]
+    [InlineData(0.0)]
+    [InlineData(0.5)]
+    public void ProductDrawingOpacityPreservesSourceGeometryInput(double opacity)
+    {
+        var nativeContext = new global::ProGPU.Scene.DrawingContext();
+        using var sink = new ProGpuCompositionCommandSink(new MediaDrawingContext(nativeContext));
+        using var context = new WpfCompositionDrawingContext(sink);
+        context.PushOpacity(opacity);
+        context.DrawRectangle(Brushes.Blue, null, new Rect(10, 20, 30, 40));
+        context.Pop();
+        Assert.True(nativeContext.Commands[0].IsSourceOpacityScope);
+        Assert.Equal((float)opacity, nativeContext.Commands[0].FontSize);
+        using var hits = new global::ProGPU.Scene.GpuRenderCommandHitTestCacheBuilder();
+        foreach (var command in nativeContext.Commands)
+            hits.AddCommand(command, command.Transform, id: 4321);
+        var hit = Assert.Single(hits.BuildIndex().Primitives);
+        Assert.Equal(4321, hit.Id);
+        Assert.Equal(new Vector2(10, 20), hit.BoundsMin);
+        Assert.Equal(new Vector2(40, 60), hit.BoundsMax);
+        Assert.Equal(0, context.Result.UnsupportedCount);
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public void EmptyDrawingImageAndDrawingBrushSkipTileReplay(bool imageBrush)

@@ -32,6 +32,12 @@ The image connection also retains DrawingImage destination input independently
 of flattened render contents through paired native/managed logical scopes,
 including authoritative empty drawings. This does not close remaining outer
 stroke/clip/cache/effect coverage or select native host queries.
+The [source opacity checkpoint](../reports/native-mil-source-opacity-input-2026-09-09.md)
+connects native ordinary/animated drawing opacity and unmasked visual groups,
+plus paired managed command policy. Managed retained visual traversal still
+rejects opacity-zero nodes before replay; close that source-policy branch along
+with remaining native coverage and query routing. Do not treat input-neutral
+source opacity as permission to bypass effects, spatial masks or caches.
 This does not refresh the complete package feed or qualify host input. The
 following package-production paragraphs retain their earlier provenance.
 

@@ -2931,11 +2931,14 @@ public sealed class WpfNativeMilSceneCompilerTests
         Assert.Equal(64U, ReadUInt32(result.Bytes, geometryOffset + 184));
     }
 
-    [Fact]
-    public void BuildBatchTranslatesBalancedOpacityScopes()
+    [Theory]
+    [InlineData(0.0)]
+    [InlineData(0.5)]
+    [InlineData(1.0)]
+    public void BuildBatchTranslatesBalancedOpacityScopes(double opacity)
     {
         var brush = new FakeBrush(new PortableColor(255, 0, 128, 255));
-        byte[] renderData = CreatePushOpacityRecord(0.5)
+        byte[] renderData = CreatePushOpacityRecord(opacity)
             .Concat(CreateRectangleRecord(1, 0))
             .Concat(CreatePopRecord())
             .ToArray();
@@ -2948,7 +2951,7 @@ public sealed class WpfNativeMilSceneCompilerTests
 
         Assert.Equal(16, ReadInt32(result.Bytes, nestedOffset));
         Assert.Equal(0x4f, ReadInt32(result.Bytes, nestedOffset + 4));
-        Assert.Equal(0.5, ReadDouble(result.Bytes, nestedOffset + 8));
+        Assert.Equal(opacity, ReadDouble(result.Bytes, nestedOffset + 8));
         Assert.Equal(48, ReadInt32(result.Bytes, nestedOffset + 16));
         Assert.Equal(0x40, ReadInt32(result.Bytes, nestedOffset + 20));
         Assert.Equal(8, ReadInt32(result.Bytes, nestedOffset + 64));
