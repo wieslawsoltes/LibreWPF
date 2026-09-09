@@ -58,6 +58,13 @@ batches remain explicit; geometry clips, caches/effects and native host query
 routing are still open. Continue the same application's remaining input path,
 not optional stroke-family expansion. This is implementation/build evidence only.
 
+The [MVP effect-input connection](../reports/native-mil-mvp-effect-input-2026-09-09.md)
+preserves source geometry through built-in Blur/DropShadow layers and their
+nested final-composite rectangle clips. It pairs native layer metadata with
+managed typed identity-effect input policy, without making raster padding
+hittable. Spatial masks, caches, remaining guideline/geometry-clip coverage and
+native host query routing remain open. Final execution/CI qualification is pending.
+
 Package input refresh: macOS, Linux and Windows ARM64/x64 native payloads now
 share ProGPU da36a718 in the same staging root. Both Linux refresh builds completed
 all 709 compile/module/link steps. ProGPU.Backend.Native.0.1.0-preview.55.nupkg
