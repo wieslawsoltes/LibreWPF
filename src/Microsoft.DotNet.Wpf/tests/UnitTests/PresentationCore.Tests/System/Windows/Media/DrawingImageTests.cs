@@ -5,6 +5,21 @@ namespace System.Windows.Media.Tests;
 public sealed class DrawingImageTests
 {
     [Fact]
+    public void PortableDrawingBoundsPublishEmptyGroupWithoutLosingImageIdentity()
+    {
+        var group = new DrawingGroup();
+        var image = new DrawingImage(group);
+        var source = (IPortableDrawingBoundsSource)group;
+
+        Assert.True(source.TryGetPortableDrawingBounds(out var empty));
+        Assert.True(empty.IsEmpty);
+        Assert.True(((IPortableDrawingImageSource)image).TryGetPortableDrawingImage(out var content));
+        Assert.Same(group, content);
+        Assert.Equal(0, image.Width);
+        Assert.Equal(0, image.Height);
+    }
+
+    [Fact]
     public void PortableDrawingImageSourcePublishesSourceBuiltDrawingWithoutCopying()
     {
         var drawing = new GeometryDrawing(

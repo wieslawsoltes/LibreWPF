@@ -2215,9 +2215,27 @@ public sealed class WpfNativeMilSceneCompiler
                     throw new InvalidOperationException(
                         "Portable drawing-image state is incomplete.");
                 }
-                uint drawingHandle = hasDrawing
-                    ? ResolveDrawing(drawing!)
-                    : 0;
+                // Preserve normal drawing graph/cycle validation before asking
+                // source bounds, which may themselves traverse that graph.
+                uint drawingHandle = hasDrawing ? ResolveDrawing(drawing!) : 0;
+                NativeMilRect bounds = default;
+                bool isEmpty = false;
+                if (hasDrawing &&
+                    (!TryGetDrawingImageBounds(drawing!, out bounds, out isEmpty) ||
+                     (!isEmpty && (!double.IsFinite(bounds.X) ||
+                         !double.IsFinite(bounds.Y) ||
+                         !double.IsFinite(bounds.Width) ||
+                         !double.IsFinite(bounds.Height) ||
+                         bounds.Width <= 0 || bounds.Height <= 0))))
+                {
+                    throw new NotSupportedException(
+                        "Native MIL DrawingImage requires exact typed drawing content bounds.");
+                }
+                // Known empty content uses the existing null-drawing MIL
+                // contract. Do not turn unavailable bounds into a no-op or
+                // serialize an empty bounds sideband. Source graph invalidation
+                // still observes the original drawing so refilling restores it.
+                if (isEmpty) drawingHandle = 0;
                 uint drawingImageHandle = NextHandle();
                 Batch.CreateResource(
                     drawingImageHandle, NativeMilResourceType.DrawingImage);
@@ -2225,16 +2243,6 @@ public sealed class WpfNativeMilSceneCompiler
                 _imageSourceHandles.Add(imageSource, drawingImageHandle);
                 if (drawingHandle != 0)
                 {
-                    if (!TryGetDrawingImageBounds(drawing!, out NativeMilRect bounds) ||
-                        !double.IsFinite(bounds.X) ||
-                        !double.IsFinite(bounds.Y) ||
-                        !double.IsFinite(bounds.Width) ||
-                        !double.IsFinite(bounds.Height) ||
-                        bounds.Width <= 0 || bounds.Height <= 0)
-                    {
-                        throw new NotSupportedException(
-                            "Native MIL DrawingImage requires exact typed drawing content bounds.");
-                    }
                     DrawingImageBounds.Add(
                         new WpfNativeMilDrawingImageBounds(
                             drawingImageHandle,
@@ -2298,11 +2306,13 @@ public sealed class WpfNativeMilSceneCompiler
 
         // Keep shim-owned Rect and the managed replay dependency out of bitmap
         // compilation/JIT. Native source-built drawings publish neutral bounds.
-        private static bool TryGetDrawingImageBounds(object drawing, out NativeMilRect bounds)
+        private static bool TryGetDrawingImageBounds(object drawing, out NativeMilRect bounds, out bool isEmpty)
         {
+            isEmpty = false;
             if (drawing is IPortableDrawingBoundsSource source)
             {
                 bool available = source.TryGetPortableDrawingBounds(out PortableRect value);
+                isEmpty = available && value.IsEmpty;
                 bounds = new NativeMilRect(value.X, value.Y, value.Width, value.Height);
                 return available;
             }

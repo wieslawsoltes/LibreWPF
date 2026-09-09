@@ -114,6 +114,7 @@ public static class Program
             try
             {
                 NativeMilBitmapDpiSmoke.RunFactory(presentationCore);
+                NativeMilImageBrushSmoke.RunSourceDrawingImage(presentationCore, windowsBase);
                 NativeMilTextCollapseSmoke.Run();
                 // Exercise source text/resource construction before any window host.
                 object drawingVisual = CreateNativeMilHostDrawingVisual(presentationCore, windowsBase);

@@ -949,6 +949,65 @@ public sealed class WpfCompositionDrawingContextTests
     }
 
     [Fact]
+    public void EmptyDrawingImageSkipsReplayButRetainsItsSourceDependency()
+    {
+        var sink = new NativeRecordingSink();
+        var drawing = new FakeBoundedGeometryDrawing(PortableRect.Empty, null, null, null);
+        var image = new FakeDrawingImageSource(drawing);
+        using var context = new WpfCompositionDrawingContext(sink);
+
+        context.DrawImage(image, new Rect(0, 0, 30, 20));
+
+        Assert.Empty(sink.Operations);
+        Assert.Contains(image, sink.VisualDependencies);
+        Assert.Contains(drawing, sink.VisualDependencies);
+        Assert.Equal(0, context.Result.UnsupportedCount);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void EmptyDrawingImageAndDrawingBrushSkipTileReplay(bool imageBrush)
+    {
+        var sink = new NativeRecordingSink();
+        var drawing = new FakeBoundedGeometryDrawing(PortableRect.Empty, null, null, null);
+        object brush = imageBrush ? new FakeImageBrush(new FakeDrawingImageCarrier(drawing)) : new FakeDrawingBrush(drawing);
+        using var context = new WpfObjectRenderDataDrawingContext(sink);
+
+        context.DrawRectangle(brush, null, new Rect(0, 0, 30, 20));
+
+        Assert.Empty(sink.Operations);
+        Assert.Contains(drawing, sink.VisualDependencies);
+        Assert.Equal(0, context.Result.UnsupportedCount);
+    }
+
+    [Fact]
+    public void ZeroSizedDrawingImageIsNotAnAuthoritativeEmptyImage()
+    {
+        var sink = new NativeRecordingSink();
+        var drawing = new FakeBoundedGeometryDrawing(new PortableRect(0, 0, 0, 10), null, null, null);
+        using var context = new WpfCompositionDrawingContext(sink);
+
+        context.DrawImage(new FakeDrawingImageSource(drawing), new Rect(0, 0, 30, 20));
+
+        Assert.Empty(sink.Operations);
+        Assert.Equal(1, context.Result.UnsupportedCount);
+    }
+
+    [Fact]
+    public void UnavailableDrawingImageBrushBoundsDoNotBecomeSuccessfulEmptyReplay()
+    {
+        var sink = new NativeRecordingSink();
+        var drawing = new FakeBoundedGeometryDrawing(PortableRect.Empty, null, null, null, boundsAvailable: false);
+        using var context = new WpfObjectRenderDataDrawingContext(sink);
+
+        context.DrawRectangle(new FakeImageBrush(new FakeDrawingImageCarrier(drawing)), null, new Rect(0, 0, 30, 20));
+
+        Assert.Empty(sink.Operations);
+        Assert.Equal(1, context.Result.UnsupportedCount);
+    }
+
+    [Fact]
     public void GeneratedDrawingContextUsesStrokeInclusiveAuthoritativeDrawingBounds()
     {
         var sink = new NativeRecordingSink();
@@ -2802,12 +2861,13 @@ public sealed class WpfCompositionDrawingContextTests
         PortableRect bounds,
         object? brush,
         object? pen,
-        object? geometry) : IPortableDrawingBoundsSource, IPortableGeometryDrawingStateSource
+        object? geometry,
+        bool boundsAvailable = true) : IPortableDrawingBoundsSource, IPortableGeometryDrawingStateSource
     {
         public bool TryGetPortableDrawingBounds(out PortableRect drawingBounds)
         {
             drawingBounds = bounds;
-            return true;
+            return boundsAvailable;
         }
 
         public bool TryGetPortableGeometryDrawingState(out PortableGeometryDrawingState state)

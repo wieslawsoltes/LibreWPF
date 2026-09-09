@@ -1,5 +1,11 @@
 # Agent Guidance
 
+Drawing bounds distinguish known empty content from missing metadata. A successful
+IPortableDrawingBoundsSource result may carry PortableRect.Empty; false never
+means empty. Native DrawingImage lowering and managed image/tile replay consume
+that distinction before mapping, retain source invalidation for clear/refill,
+and never turn zero-sized or unavailable mapping bounds into successful no-ops.
+
 Every selected native popup must complete owner configuration before Show, on
 Cocoa/X11 as well as Windows. Rejection or exception disposes the hidden popup;
 do not continue unowned or silently switch surface kind. Cocoa owner setup belongs

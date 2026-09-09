@@ -2138,6 +2138,33 @@ public sealed class WpfNativeMilSceneCompilerTests
     }
 
     [Fact]
+    public void BuildBatchPreservesKnownEmptyDrawingContentAsNoOp()
+    {
+        var drawing = new FakeGeometryDrawing(null, null, null, PortableRect.Empty);
+        var imageDrawing = new FakeImageDrawing(new FakeDrawingImage(drawing), new PortableRect(2, 4, 40, 20));
+        var visual = new FakeVisual(new FakeRenderData(CreateDrawDrawingRecord(1), [imageDrawing]));
+
+        var result = new WpfNativeMilSceneCompiler().BuildBatch(visual, 64, 64);
+
+        Assert.Empty(result.DrawingImageBounds!);
+        Assert.Empty(result.BitmapSources!);
+        Assert.Equal(0U, ReadUInt32(result.Bytes, FindCommand(result.Bytes, 0x71) + 12));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void BuildBatchDoesNotTreatUnavailableOrZeroSizedDrawingBoundsAsEmpty(bool available)
+    {
+        var drawing = new FakeGeometryDrawing(null, null, null,
+            available ? new PortableRect(0, 0, 0, 10) : null);
+        var imageDrawing = new FakeImageDrawing(new FakeDrawingImage(drawing), new PortableRect(2, 4, 40, 20));
+        var visual = new FakeVisual(new FakeRenderData(CreateDrawDrawingRecord(1), [imageDrawing]));
+
+        Assert.Throws<NotSupportedException>(() => new WpfNativeMilSceneCompiler().BuildBatch(visual, 64, 64));
+    }
+
+    [Fact]
     public void BuildBatchTranslatesTypedDrawingGroup()
     {
         var transform = new FakeTransform(

@@ -48,6 +48,15 @@ ComboBoxes still require visible qualification; this is not genuine NSPanel
 modal-popup hosting or automatic AppKit session admission. See the
 [popup ownership checkpoint](../reports/native-mil-cocoa-popup-ownership-2026-09-09.md).
 
+Retained drawing-image clear/refill now distinguishes known empty drawing bounds
+from unavailable metadata. Source DrawingGroup identity and dependencies survive
+empty content; native MIL uses its existing null-drawing image contract and
+managed image/tile replay skips only authoritative emptiness. The existing native
+host harness includes real source-built image and image-brush clear/refill
+fixtures, authored and compiled but not executed. This is content-update closure,
+not offscreen RenderTargetBitmap support or runtime/package qualification. See the
+[image update checkpoint](../reports/native-mil-empty-drawing-images-2026-09-09.md).
+
 The `Visual` geometry-hit consumer through `PathGeometry.HitTestWithPathGeometry`
 is now connected to ProGPU's shared native fill-relation query under portable
 media selection. The existing native host harness includes region selection

@@ -208,9 +208,14 @@ internal static class WpfDrawingReplay
             return true;
         }
 
-        if (!TryGetDrawingBounds(drawing, imageSourceAdapter, out var sourceBounds))
+        if (!TryGetDrawingBounds(drawing, imageSourceAdapter, out var sourceBounds, out bool isEmpty))
         {
             status = WpfDrawingReplayStatus.Unsupported;
+            return true;
+        }
+
+        if (isEmpty)
+        {
             return true;
         }
 
@@ -1130,13 +1135,16 @@ internal static class WpfDrawingReplay
                         return true;
                     }
 
-                    _ = TryReplayPortableDrawingBrushFill(
+                    if (!TryReplayPortableDrawingBrushFill(
                         portableBrush,
                         drawingImageContent,
                         fillGeometry,
                         sink,
                         imageSourceAdapter,
-                        out status);
+                        out status))
+                    {
+                        status = WpfDrawingReplayStatus.Unsupported;
+                    }
                     return true;
                 }
 
@@ -1283,8 +1291,17 @@ internal static class WpfDrawingReplay
             || !TryGetTileBrushAlignment(brush, out var alignmentX, out var alignmentY)
             || !IsUsableRect(geometry.Bounds, out var geometryBounds)
             || !TryGetOptionalRelativeBrushTransform(brush, geometryBounds, out var relativeTransform)
-            || !TryGetDrawingBounds(drawingValue, imageSourceAdapter, out var drawingBounds)
-            || !TryGetTileBrushDestinationBounds(brush, geometryBounds, out var destinationBounds)
+            || !TryGetDrawingBounds(drawingValue, imageSourceAdapter, out var drawingBounds, out bool isEmpty))
+        {
+            return false;
+        }
+
+        if (isEmpty)
+        {
+            return true;
+        }
+
+        if (!TryGetTileBrushDestinationBounds(brush, geometryBounds, out var destinationBounds)
             || !TryGetTileBrushSourceBounds(brush, drawingBounds, out var sourceBounds, out var hasSourceClip)
             || !TryGetTileBounds(destinationBounds, geometryBounds, tileMode, out var tileBounds))
         {
@@ -3332,14 +3349,31 @@ internal static class WpfDrawingReplay
         Func<object?, MediaImageSource?>? imageSourceAdapter,
         out Rect bounds)
     {
+        return TryGetDrawingBounds(drawing, imageSourceAdapter, out bounds, out bool isEmpty) && !isEmpty;
+    }
+
+    private static bool TryGetDrawingBounds(
+        object drawing,
+        Func<object?, MediaImageSource?>? imageSourceAdapter,
+        out Rect bounds,
+        out bool isEmpty)
+    {
+        isEmpty = false;
         using var graphBoundsScope = WpfCaptureReplayGuard.EnterBounds(drawing);
         if (drawing is PortableDrawingBoundsSource drawingBoundsSource)
         {
-            if (drawingBoundsSource.TryGetPortableDrawingBounds(out var portableBounds)
-                && TryReadPortableRect(portableBounds, out bounds)
-                && IsUsableRect(bounds, out bounds))
+            if (drawingBoundsSource.TryGetPortableDrawingBounds(out var portableBounds))
             {
-                return true;
+                if (portableBounds.IsEmpty)
+                {
+                    bounds = Rect.Empty;
+                    isEmpty = true;
+                    return true;
+                }
+                if (TryReadPortableRect(portableBounds, out bounds) && IsUsableRect(bounds, out bounds))
+                {
+                    return true;
+                }
             }
 
             bounds = default;
