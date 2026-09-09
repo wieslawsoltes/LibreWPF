@@ -4,6 +4,7 @@ param(
     [string] $Configuration = "Release",
     [ValidateSet("vs", "dotnet")]
     [string] $MSBuildEngine = "vs",
+    [switch] $Rebuild,
     [switch] $NativeToolsOnMachine
 )
 
@@ -177,6 +178,14 @@ finally {
 }
 
 function Invoke-WpfProjectBuild([string] $projectPath, [string] $platform, [string] $runtimeIdentifier, [string] $ijwHostSourcePath = "") {
+    # Compiler/SDK changes require real compilation, not reuse of assemblies
+    # previously produced with missing analyzers. Use Arcade's scoped Rebuild
+    # action without deleting unrelated checkout outputs or running tests.
+    $buildAction = @("-restore", "-build")
+    if ($Rebuild) {
+        $buildAction = @("-restore", "-rebuild")
+    }
+
     $runtimeIdentifierArgument = @()
     if (![string]::IsNullOrWhiteSpace($runtimeIdentifier)) {
         $runtimeIdentifierArgument = "/p:RuntimeIdentifier=$runtimeIdentifier"
@@ -201,7 +210,7 @@ function Invoke-WpfProjectBuild([string] $projectPath, [string] $platform, [stri
     # pinned SDK's native-image analyzers on this cross-architecture lane.
     # Use its .NET compiler through DOTNET_HOST_PATH; VS still owns C++/CLI.
     & $buildPowerShell -NoProfile -NonInteractive -File $buildCommand `
-        -restore -build `
+        $buildAction `
         -ci `
         -configuration $Configuration `
         -platform $platform `

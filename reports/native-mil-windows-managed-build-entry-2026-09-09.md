@@ -202,8 +202,11 @@ a reboot requirement. The unchanged corrected package script has resumed.
 This retry compiled PresentationBuildTasks for both net472/net10.0 (2 warnings,
 0 errors, 59.44 seconds), then restored PresentationCore's project graph and
 compiled/linked the x86 DirectWriteForwarder C++/CLI library. The x86
-PresentationCore graph then completed with 26 warnings, 0 errors in 3:56.24,
-and the script continued to x64. No complete three-RID payload set is claimed.
+PresentationCore graph then completed with 26 warnings, 0 errors in 3:56.24.
+x64 completed with 26 warnings, 0 errors in 4:02.90; ARM64 completed with
+26 warnings, 0 errors in 3:50.55. The script exited successfully and staged
+PresentationCore, DirectWriteForwarder and IJW for all three Windows RIDs.
+These outputs are compiler-host-warning artifacts, not a qualified package set.
 
 The two build-task warnings are CS8034 analyzer load failures, also seen in
 subsequent source projects. Root Directory.Build.props unconditionally requests
@@ -215,6 +218,31 @@ is false. The package lane now passes
 authored contract assertion. This leaves Visual Studio/C++/CLI and all analyzer
 inputs enabled; the active older invocation is not modified in place. A fresh
 build is required to establish the result of this compiler-host correction.
+
+Read-only PE header inspection confirms both failing SDK analyzers are AMD64
+managed-native images (196-byte managed native headers, not IL-only). The
+framework toolset csc.exe is an I386 IL-only image. The correction therefore
+keeps the SDK and its analyzer architecture together in the validated x64 .NET
+host, independently of the x86/x64/ARM64 output target.
+
+The package script also exposes `-Rebuild`, forwarding restore plus Arcade's
+existing Rebuild action instead of its incremental Build action. This is needed
+for the compiler-host retry so already-produced assemblies do not hide skipped
+analyzer execution. The default remains incremental; no tests, broad output
+deletion or platform/payload exclusions are added. Contract assertions cover
+both action mappings; execution remains deferred.
+
+The first three-RID run is terminal (exit 0). All nine required DLLs were present
+in its staging directory. Before the corrected invocation, that directory was
+moved to `artifacts/windows-managed-runtime-framework-host-preserved`, and the
+three platform Build.binlog files were copied into it. These generated artifacts
+remain recoverable and are not selected for the final package. The guest script
+was then updated from the working tree and invoked with `-Rebuild`.
+
+The final source-contract project, including compiler selection and both rebuild
+action mappings, compiled with 116 warnings, 0 errors in 13.52 seconds. No tests
+executed. The local build exited before the guest rebuild started, preserving
+serialized .NET build scheduling.
 
 The updated ProGPU.Wpf.Tests project compiled locally with the pinned SDK using
 `dotnet build --no-restore -c Release -m:1 -p:UseSharedCompilation=false`:

@@ -105,7 +105,11 @@ public sealed class WindowsAnyCpuSmokeContractTests
         Assert.Contains("eng/common/build.ps1", buildScript, StringComparison.Ordinal);
         Assert.Contains("Join-Path $PSHOME \"pwsh.exe\"", buildScript, StringComparison.Ordinal);
         Assert.Contains("& $buildPowerShell -NoProfile -NonInteractive -File $buildCommand", buildScript, StringComparison.Ordinal);
-        Assert.Contains("-restore -build", buildScript, StringComparison.Ordinal);
+        Assert.Contains("[switch] $Rebuild", buildScript, StringComparison.Ordinal);
+        Assert.Contains("$buildAction = @(\"-restore\", \"-build\")", buildScript, StringComparison.Ordinal);
+        Assert.Contains("$buildAction = @(\"-restore\", \"-rebuild\")", buildScript, StringComparison.Ordinal);
+        Assert.Contains("if ($Rebuild)", buildScript, StringComparison.Ordinal);
+        Assert.Contains("$buildAction `", buildScript, StringComparison.Ordinal);
         Assert.Contains("'-warnAsError:$false'", buildScript, StringComparison.Ordinal);
         Assert.Contains("if ($LASTEXITCODE -ne 0)", buildScript, StringComparison.Ordinal);
         Assert.DoesNotContain("build.cmd", buildScript, StringComparison.Ordinal);
