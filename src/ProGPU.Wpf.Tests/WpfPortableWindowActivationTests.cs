@@ -1347,6 +1347,66 @@ public sealed class WpfPortableWindowActivationTests
     }
 
     [Fact]
+    public void ModalScopeRejectsOwnerIngressAndEventsQueuedBeforeEntry()
+    {
+        var service = new TestWindowActivationServiceRegistrar { QueueInputCallbacks = true };
+        using var registration = PortableWpfServiceRegistry.RegisterWindowActivationService(service);
+        using var host = new ProGpuWpfWindowHost { WpfRenderScheduler = new TestRenderScheduler() };
+        var window = new FakeDispatchingPortableInputWindow();
+        Assert.True(WpfPortableWindowActivation.TryAttach(host, window, new FakePortablePresentationSource(), out _));
+        var queued = new WpfInputEventArgs(WpfInputEventKind.MouseDown, button: WpfMouseButton.Left);
+        RaiseHostInputEvent(host, queued);
+        Action callback = service.LastBeginInvokeInputCallback!;
+        Assert.Equal(1, service.BeginInvokeInputCount);
+        using (PortableModalInputScope.Enter(new object()))
+        {
+            callback();
+            Assert.True(queued.Handled);
+            Assert.Equal(0, service.InputCount);
+            int activationCount = service.SetActivationStateCount;
+            RaiseHostWindowEvent(host, WpfWindowEventKind.Activated);
+            Assert.Equal(activationCount, service.SetActivationStateCount);
+            var drop = new WpfDragDropEventArgs(WpfDragDropEventKind.Drop,
+                new WpfDragDropData(Array.Empty<string>(), "blocked"),
+                acceptedEffect: WpfDragDropEffects.Copy);
+            RaiseHostDragDropEvent(host, drop);
+            Assert.Equal(WpfDragDropEffects.None, drop.AcceptedEffect);
+            Assert.Equal(0, service.DragDropCount);
+            var blocked = new WpfInputEventArgs(WpfInputEventKind.KeyDown, key: "A");
+            RaiseHostInputEvent(host, blocked);
+            Assert.True(blocked.Handled);
+            Assert.Equal(1, service.BeginInvokeInputCount);
+        }
+        using (PortableModalInputScope.Enter(window))
+        {
+            var allowed = new WpfInputEventArgs(WpfInputEventKind.KeyDown, key: "A");
+            RaiseHostInputEvent(host, allowed);
+            service.LastBeginInvokeInputCallback!();
+            Assert.Equal(1, service.InputCount);
+        }
+    }
+
+    [Fact]
+    public void ModalScopeCancelsNativeClosingOfAnotherWindow()
+    {
+        var service = new TestWindowActivationServiceRegistrar { HandleCloseWindow = true };
+        using var registration = PortableWpfServiceRegistry.RegisterWindowActivationService(service);
+        using var host = new ProGpuWpfWindowHost();
+        Assert.True(WpfPortableWindowActivation.TryAttach(host, new FakeWindow(),
+            new FakePortablePresentationSource(), out _));
+        bool canceled = false;
+        host.Closing += (_, args) => canceled = args.Cancel;
+        using (PortableModalInputScope.Enter(new object()))
+        {
+            // Existing diagnostic event adapter; no real native window is opened.
+            typeof(ProGpuWpfWindowHost).GetMethod("OnClosing", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .Invoke(host, Array.Empty<object>());
+        }
+        Assert.True(canceled);
+        Assert.Equal(0, service.CloseWindowCount);
+    }
+
+    [Fact]
     public void QueuedPassivePointerMovesDeferRenderingUntilAfterTheNativeBatch()
     {
         var service = new TestWindowActivationServiceRegistrar

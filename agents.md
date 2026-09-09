@@ -97,6 +97,14 @@ disposing the source, and reset a canceled DialogResult so the same result can
 request closing again. Host callbacks borrow the continuation on the host thread;
 premature return while the dialog is still open is a failure. Native owner setup,
 other-window input disabling and activation restoration remain separate blockers.
+Source dialog input uses ProGPU PortableModalInputScope before Show. Check both
+host ingress and queued callbacks, source reports and capture/focus redirection;
+never alter application IsEnabled to implement modal restriction. Popup permission
+follows its actual retained owner presentation source, not PlacementTarget or a
+handle guess. Missing/disposed/cyclic ownership is rejected without per-event
+allocation. Modal entry clears blocked capture/focus through source input devices.
+Nested scopes restore their parent and release window references. This is source
+input admission, not native nonclient suppression or previous activation recovery.
 
 Decoder-backed core application images follow `BitmapSource.UsesPortablePixelStorage`
 for backend selection on every OS. Existing portable format dispatch must not fall

@@ -544,12 +544,14 @@ namespace System.Windows
             // Capture admission before showing a window. A normal application
             // loop cannot represent Hide ending a synchronous dialog lifetime.
             Action<object, Func<bool>> runDialog = PortableWindowActivationService.GetDialogRunCallback();
+            using PortableModalInputScope modalInput = PortableModalInputScope.Enter(this);
             EnsureDialogCommand();
             bool pushedModal = false;
 
             try
             {
                 _showingAsDialog = true;
+                PortableWindowActivationService.PrepareForModalInput();
                 Show();
 
                 // The platform host owns the event/render loop on every OS.

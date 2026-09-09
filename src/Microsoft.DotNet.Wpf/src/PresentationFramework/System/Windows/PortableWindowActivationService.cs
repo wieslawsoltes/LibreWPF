@@ -5,6 +5,7 @@ using System;
 using System.Collections.Specialized;
 using System.Threading;
 using System.Windows.Input;
+using System.Windows.Controls.Primitives;
 using System.Windows.Threading;
 using MS.Internal;
 using ProGPU.Wpf.Interop;
@@ -244,6 +245,9 @@ namespace System.Windows
                 return;
             }
 
+            if (isActive && !PortableModalInputScope.AllowsInput(window))
+                return;
+
             if (!isActive)
             {
                 NotifyPortableInputProvidersDeactivated(window);
@@ -320,7 +324,7 @@ namespace System.Windows
             int allowedEffects,
             int acceptedEffect)
         {
-            if (window == null)
+            if (window == null || !PortableModalInputScope.AllowsInput(window))
             {
                 return (int)DragDropEffects.None;
             }
@@ -346,7 +350,16 @@ namespace System.Windows
 
         private static bool ProcessInput(PresentationSource source, UIElement rootHitTestElement, PortableInputEventArgs input)
         {
+            if (source.IsDisposed || !IsModalInputAllowed(rootHitTestElement))
+                return true;
+
             InputManager inputManager = InputManager.UnsecureCurrent;
+            if (IsMouseInputKind(input.Kind) && Mouse.Captured != null &&
+                !IsModalInputElementAllowed(Mouse.Captured))
+                return true;
+            if (!IsMouseInputKind(input.Kind) && Keyboard.FocusedElement != null &&
+                !IsModalInputElementAllowed(Keyboard.FocusedElement))
+                return true;
             int timestamp = Environment.TickCount;
             PresentationSource mouseInputSource = source;
             UIElement mouseRootHitTestElement = rootHitTestElement;
@@ -363,6 +376,10 @@ namespace System.Windows
                     out mouseRootPoint);
             }
             RawMouseActions mouseActivation = GetMouseActivationAction(inputManager, mouseInputSource);
+
+            // Capture can redirect an otherwise admitted event to another source.
+            if (!IsModalInputAllowed(mouseRootHitTestElement))
+                return true;
 
             switch (input.Kind)
             {
@@ -394,6 +411,52 @@ namespace System.Windows
                 default:
                     return false;
             }
+        }
+
+        internal static bool IsModalInputAllowed(UIElement root)
+        {
+            if (!PortableModalInputScope.IsActive) return true;
+            UIElement fast = root;
+            while (root != null)
+            {
+                if (root is Window window) return !window.IsDisposed && PortableModalInputScope.AllowsInput(window);
+                root = GetPopupInputOwnerRoot(root);
+                fast = GetPopupInputOwnerRoot(GetPopupInputOwnerRoot(fast));
+                // Reject malformed owner cycles without per-pointer scratch allocations.
+                if (root != null && ReferenceEquals(root, fast)) return false;
+            }
+            return false;
+        }
+
+        private static UIElement GetPopupInputOwnerRoot(UIElement root)
+        {
+            PresentationSource owner = root is PopupRoot popupRoot && popupRoot.Parent is Popup popup
+                ? popup.PortableInputOwnerSource : null;
+            return owner != null && !owner.IsDisposed ? owner.RootVisual as UIElement : null;
+        }
+
+        private static bool IsModalInputElementAllowed(IInputElement element)
+        {
+            if (!PortableModalInputScope.IsActive) return true;
+            DependencyObject visual = element is DependencyObject dependencyObject
+                ? InputElement.GetContainingVisual(dependencyObject) : null;
+            return visual != null && IsModalInputAllowed(
+                PresentationSource.CriticalFromVisual(visual)?.RootVisual as UIElement);
+        }
+
+        internal static void PrepareForModalInput()
+        {
+            InputManager manager = InputManager.UnsecureCurrent;
+            PresentationSource keyboardSource = manager.PrimaryKeyboardDevice.ActiveSource;
+            if (keyboardSource != null && !IsModalInputAllowed(keyboardSource.RootVisual as UIElement))
+                keyboardSource.GetInputProvider(typeof(KeyboardDevice))?.NotifyDeactivate();
+            PresentationSource mouseSource = manager.PrimaryMouseDevice.ActiveSource;
+            if (mouseSource != null && !IsModalInputAllowed(mouseSource.RootVisual as UIElement))
+                mouseSource.GetInputProvider(typeof(MouseDevice))?.NotifyDeactivate();
+            if (Mouse.Captured != null && !IsModalInputElementAllowed(Mouse.Captured))
+                Mouse.Capture(null);
+            if (Keyboard.FocusedElement != null && !IsModalInputElementAllowed(Keyboard.FocusedElement))
+                Keyboard.ClearFocus();
         }
 
         private static bool IsMouseInputKind(PortableInputEventKind kind)

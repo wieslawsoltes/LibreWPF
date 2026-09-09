@@ -390,6 +390,7 @@ public sealed class WpfPortableWindowActivation : IDisposable
     internal bool TryActivate()
     {
         ThrowIfDisposed();
+        if (!PortableModalInputScope.AllowsInput(Window)) return false;
         return Host.TryActivate();
     }
 
@@ -1005,6 +1006,12 @@ public sealed class WpfPortableWindowActivation : IDisposable
             return;
         }
 
+        if (!PortableModalInputScope.AllowsInput(Window))
+        {
+            e.Cancel = true;
+            return;
+        }
+
         _isClosingFromNative = true;
         try
         {
@@ -1032,6 +1039,7 @@ public sealed class WpfPortableWindowActivation : IDisposable
         switch (e.Kind)
         {
             case WpfWindowEventKind.Activated:
+                if (!PortableModalInputScope.AllowsInput(Window)) break;
                 DispatchPortableActivationHooks(isActive: true);
                 TrySetWindowActivationStateForHostEvent(isActive: true);
                 break;
@@ -1060,6 +1068,7 @@ public sealed class WpfPortableWindowActivation : IDisposable
             case WpfWindowEventKind.NonClientMouseDown:
             case WpfWindowEventKind.NonClientMouseUp:
             case WpfWindowEventKind.NonClientMouseDoubleClick:
+                if (!PortableModalInputScope.AllowsInput(Window)) break;
                 DispatchPortableNonClientMouseHook(e);
                 break;
         }
@@ -1337,6 +1346,13 @@ public sealed class WpfPortableWindowActivation : IDisposable
             return;
         }
 
+        if (!PortableModalInputScope.AllowsInput(Window))
+        {
+            _pressedMouseButtons.Clear();
+            e.Handled = true;
+            return;
+        }
+
         bool releaseButtonAfterDispatch = e.Kind == WpfInputEventKind.MouseUp &&
             e.Button != WpfMouseButton.None;
         if (e.Kind == WpfInputEventKind.MouseDown && e.Button != WpfMouseButton.None)
@@ -1364,6 +1380,13 @@ public sealed class WpfPortableWindowActivation : IDisposable
 
     private void ProcessHostInputAndRequestRender(WpfInputEventArgs e)
     {
+        // Recheck after queueing and do not schedule a frame for rejected input.
+        if (!PortableModalInputScope.AllowsInput(Window))
+        {
+            _pressedMouseButtons.Clear();
+            e.Handled = true;
+            return;
+        }
         ProcessHostInput(e);
         RequestRenderFromMediaContext(RootVisual, TimeSpan.Zero);
     }
@@ -1516,6 +1539,12 @@ public sealed class WpfPortableWindowActivation : IDisposable
     {
         if (_isDisposed)
         {
+            return;
+        }
+
+        if (!PortableModalInputScope.AllowsInput(Window))
+        {
+            e.AcceptedEffect = WpfDragDropEffects.None;
             return;
         }
 

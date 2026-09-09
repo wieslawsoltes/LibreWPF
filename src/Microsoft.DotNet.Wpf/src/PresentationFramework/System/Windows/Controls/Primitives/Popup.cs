@@ -3046,6 +3046,10 @@ namespace System.Windows.Controls.Primitives
             return _secHelper.GetParentWindowRect();
         }
 
+        // The actual source selected when this popup was created, not a mutable
+        // placement target or a native handle inferred from the current OS.
+        internal PresentationSource PortableInputOwnerSource => _secHelper.PortableInputOwnerSource;
+
         internal Rect GetWindowRect()
         {
             return _secHelper.GetWindowRect();
@@ -4221,6 +4225,7 @@ namespace System.Windows.Controls.Primitives
             private PresentationSource _window;
             private IPortablePopupServiceRegistrar _portablePopupService;
             private PresentationSource _portableOwnerPresentationSource;
+            internal PresentationSource PortableInputOwnerSource => _portableOwnerPresentationSource;
 
             private const string WebOCWindowClassName = "Shell Embedding";
         }

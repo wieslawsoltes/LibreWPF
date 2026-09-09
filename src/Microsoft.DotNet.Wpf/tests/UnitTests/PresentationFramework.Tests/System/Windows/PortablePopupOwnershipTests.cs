@@ -12,6 +12,41 @@ namespace System.Windows;
 [Collection("Sequential")]
 public class PortablePopupOwnershipTests
 {
+    [Fact]
+    public void PopupModalAdmissionUsesItsActualOwnerSourceAndReleasesItOnDestroy()
+    {
+        RunInUiApartment(() =>
+        {
+            using var owner = PortablePresentationSourceHost.Create();
+            var dialog = new Window { Width = 200, Height = 100 };
+            owner.RootVisual = dialog;
+            var service = new PopupService(owner);
+            using var registration = PortableWpfServiceRegistry.RegisterPopupService(service);
+            var helper = new Popup.PopupSecurityHelper();
+            try
+            {
+                helper.BuildWindow(0, 0, dialog, true, null!, null!, null!);
+                helper.PortableInputOwnerSource.Should().BeSameAs(owner);
+                using (PortableModalInputScope.Enter(dialog))
+                {
+                    PortableWindowActivationService.IsModalInputAllowed(
+                        helper.PortableInputOwnerSource.RootVisual as UIElement).Should().BeTrue();
+                    using (PortableModalInputScope.Enter(new object()))
+                        PortableWindowActivationService.IsModalInputAllowed(
+                            helper.PortableInputOwnerSource.RootVisual as UIElement).Should().BeFalse();
+                }
+                helper.DestroyWindow(null!, null!, null!);
+                helper.PortableInputOwnerSource.Should().BeNull();
+            }
+            finally
+            {
+                helper.DestroyWindow(null!, null!, null!);
+                owner.RootVisual = null;
+                dialog.Close();
+            }
+        });
+    }
+
     [Theory]
     [InlineData(1.0, 1.0, 2.0, 2.0)]
     [InlineData(2.0, 2.0, 2.0, 2.0)]

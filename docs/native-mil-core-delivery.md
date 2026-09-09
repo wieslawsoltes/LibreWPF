@@ -116,6 +116,31 @@ commit. Their next-step text is historical, may be superseded by later changes,
 and must not be treated as an additional active backlog. Use the active completion
 queue above for current priorities.
 
+Shared source modal-input connection: the MVP About dialog now enters ProGPU's
+thread-bound PortableModalInputScope before Show and restores nested scopes on
+exit. Host receipt and queued dispatch reject inactive owners before input or
+activation hooks; source input also checks focus and the actual captured-mouse
+route. Blocked drag/drop returns no effect, native close callbacks are canceled
+without preventing explicit source Close, and geometry/render/lifecycle callbacks
+continue. Entry deactivates blocked input providers and releases capture/focus.
+Popup admission uses its actual owner presentation source, including nested and
+separately surfaced roots, with allocation-free cycle detection and explicit
+missing/disposed-owner rejection. Application IsEnabled values remain untouched.
+Source/host filtering is connected, not runtime-qualified native modality: OS
+nonclient suppression, native owner configuration, other-UI-thread coordination
+where required and previous activation/focus restoration remain open. Authored
+policy/host/source fixtures cover nesting, ownership, queue entry, failure cleanup,
+enabled intent and capture release; actual popup/OS interaction is still a final
+gate. Both renderers share the policy. Continue these concrete dialog integration
+blockers, not general windowing API expansion. See the [scope contract](../external/ProGPU/docs/native-mil-dialog-lifetime.md#shared-source-input-admission).
+Compile-only: ProGPU.Tests 0 warnings/0 errors, source PresentationFramework
+fixtures 6/0 on the final resumed build (2/0 previously), final bridge fixtures 20/0 (116/0 initially) and source application
+harness 0/0. Fixed one test-only ambiguous xUnit overload after the initial ProGPU
+build failure. No fixture, verifier, application/native-input/VM/GPU workload,
+benchmark or CI qualification ran. The package-mode MVP still awaits fresh package
+production; these source builds do not repair or bypass the missing local feed.
+Latest fetched ProGPU main is included and unrelated submodule edits are preserved.
+
 Native modal-input prerequisite: source inspection of the shared ProGPU enable
 path found that Win32 EnableWindow's previous-state result was treated as success,
 and an unrelated shadow refresh could mask rejected/unsupported enabled-state

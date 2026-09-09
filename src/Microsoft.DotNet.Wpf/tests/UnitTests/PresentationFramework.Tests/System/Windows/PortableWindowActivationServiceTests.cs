@@ -462,6 +462,8 @@ public class PortableWindowActivationServiceTests
                 runDialog: (owner, continuation) =>
                 {
                     owner.Should().BeSameAs(activation);
+                    PortableModalInputScope.AllowsInput(window).Should().BeTrue();
+                    PortableModalInputScope.AllowsInput(activation).Should().BeFalse();
                     ComponentDispatcher.IsThreadModal.Should().BeTrue();
                     continuation().Should().BeTrue();
                     runs++;
@@ -482,6 +484,7 @@ public class PortableWindowActivationServiceTests
             try
             {
                 window.ShowDialog().Should().Be(false);
+                PortableModalInputScope.IsActive.Should().BeFalse();
                 window.PortableWindowActivation.Should().BeSameAs(activation);
                 ComponentDispatcher.IsThreadModal.Should().BeFalse();
                 closes.Should().Be(0); disposals.Should().Be(0);
@@ -569,6 +572,84 @@ public class PortableWindowActivationServiceTests
                 inner.Close(); outer.Close();
                 PortableWindowActivationService.Clear();
             }
+        });
+    }
+
+    [PortableInputFact]
+    public void ModalInputAdmissionPreservesEnabledStateAndRejectsOtherSourceReports()
+    {
+        RunInUiApartment(() =>
+        {
+            var owner = new Window { Width = 200, Height = 100, IsEnabled = false };
+            var dialog = new Window { Width = 200, Height = 100 };
+            using IPortablePresentationSourceHost ownerHost = PortablePresentationSourceHost.Create();
+            ownerHost.RootVisual = owner;
+            try
+            {
+                using (PortableModalInputScope.Enter(dialog))
+                {
+                    PortableWindowActivationService.IsModalInputAllowed(owner).Should().BeFalse();
+                    PortableWindowActivationService.IsModalInputAllowed(dialog).Should().BeTrue();
+                    PortableWindowActivationService.IsModalInputAllowed(new HitTestElement()).Should().BeFalse();
+                    var input = new PortableInputEventArgs(PortableInputEventKind.MouseDown,
+                        x: 10, y: 10, button: PortableMouseButton.Left);
+                    PortableWindowActivationService.ProcessInput((PresentationSource)ownerHost, input);
+                    input.Handled.Should().BeTrue();
+                    owner.IsEnabled = true; // Application intent does not remove the modal restriction.
+                    PortableWindowActivationService.IsModalInputAllowed(owner).Should().BeFalse();
+                    PortableWindowActivationService.ProcessDragDropEvent(owner, 0,
+                        Array.Empty<string>(), "blocked", 10, 10, 1, 1).Should().Be(0);
+                }
+                owner.IsEnabled.Should().BeTrue();
+                PortableWindowActivationService.IsModalInputAllowed(owner).Should().BeTrue();
+            }
+            finally { ownerHost.RootVisual = null; owner.Close(); dialog.Close(); }
+        });
+    }
+
+    [PortableInputFact]
+    public void ModalEntryReleasesCaptureFromAnUnownedSource()
+    {
+        RunInUiApartment(() =>
+        {
+            using IPortablePresentationSourceHost host = PortablePresentationSourceHost.Create();
+            var root = new HitTestElement { Focusable = true };
+            host.RootVisual = root; host.SetClientSize(200, 100);
+            Mouse.Capture(root, CaptureMode.Element).Should().BeTrue();
+            using (PortableModalInputScope.Enter(new object()))
+            {
+                PortableWindowActivationService.PrepareForModalInput();
+                Mouse.Captured.Should().BeNull();
+            }
+            Mouse.Capture(null);
+        });
+    }
+
+    [PortableInputFact]
+    public void ModalReportCannotBeRedirectedToBlockedCapture()
+    {
+        RunInUiApartment(() =>
+        {
+            using var capturedHost = PortablePresentationSourceHost.Create();
+            using var dialogHost = PortablePresentationSourceHost.Create();
+            var captured = new HitTestElement();
+            var dialog = new Window { Width = 200, Height = 100 };
+            capturedHost.RootVisual = captured; capturedHost.SetClientSize(200, 100);
+            dialogHost.RootVisual = dialog;
+            int moves = 0;
+            captured.MouseMove += (_, _) => moves++;
+            try
+            {
+                Mouse.Capture(captured, CaptureMode.Element).Should().BeTrue();
+                using (PortableModalInputScope.Enter(dialog))
+                {
+                    var input = new PortableInputEventArgs(PortableInputEventKind.MouseMove, x: 10, y: 10);
+                    PortableWindowActivationService.ProcessInput((PresentationSource)dialogHost, input);
+                    input.Handled.Should().BeTrue();
+                    moves.Should().Be(0);
+                }
+            }
+            finally { Mouse.Capture(null); dialogHost.RootVisual = null; dialog.Close(); }
         });
     }
 
