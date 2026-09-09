@@ -104,6 +104,7 @@ internal sealed class WpfPortableNativePopupHost : IWpfPortableNativePopupHost
         _popupHost = new ProGpuWpfWindowHost(new ProGpuWpfWindowOptions
         {
             RendererMode = ownerHost.RendererMode,
+            EnableNativeMilHitTesting = ownerHost.NativeMilHitTestingEnabled,
             Title = string.Empty,
             Width = 1,
             Height = 1,

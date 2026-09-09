@@ -1,4 +1,5 @@
 using System.Reflection;
+using ProGPU.Backend.Native;
 using System.Reflection.Emit;
 using System.Runtime.Loader;
 using System.Collections;
@@ -123,7 +124,8 @@ public static class Program
                     Title = "LibreWPF native MIL host smoke",
                     Width = 160,
                     Height = 96,
-                    RendererMode = ProGpuWpfRendererMode.NativeMilWgpu
+                    RendererMode = ProGpuWpfRendererMode.NativeMilWgpu,
+                    EnableNativeMilHitTesting = true
                 });
                 if (drawingVisual is not IPortableVisualStateSource)
                 {
@@ -193,7 +195,7 @@ public static class Program
                             {
                                 try
                                 {
-                                    status = ValidateNativeMilHostResult(host);
+                                    status = ValidateNativeMilHostResult(host, drawingVisual);
                                 }
                                 catch (Exception ex)
                                 {
@@ -241,7 +243,7 @@ public static class Program
     }
 
     private static string ValidateNativeMilHostResult(
-        ProGpuWpfWindowHost host)
+        ProGpuWpfWindowHost host, object drawingVisual)
     {
         if (!PortableWpfRuntime.IsMediaBackendFrozen ||
             PortableWpfRuntime.ConfiguredMediaBackend != PortableWpfMediaBackend.Portable)
@@ -280,6 +282,15 @@ public static class Program
                 $"Native MIL compositor did not submit a draw: " +
                 $"{host.LastNativeMilFrameMetrics}.");
         }
+
+        if ((host.LastNativeMilSessionFrame.Request.Flags & NativeMilSceneBuildRequestFlags.HitTestIndex) == 0 ||
+            !ProGpuWpfDiagnostics.TryHitTestOwner(host, 12, 12, out object? inputOwner) ||
+            !ReferenceEquals(inputOwner, drawingVisual) ||
+            !ProGpuWpfDiagnostics.TryQueryHitTestBoundsOwners(host, 10, 10, 14, 14, out object?[] regionOwners) ||
+            !regionOwners.Any(owner => ReferenceEquals(owner, drawingVisual)) ||
+            !ProGpuWpfDiagnostics.TryGetGpuHitTestCacheSnapshot(host, out var inputIndex) ||
+            !inputIndex.HasIndex || !inputIndex.HasDeviceIndex || inputIndex.PrimitiveCount == 0)
+            throw new InvalidOperationException("Native MIL host input did not resolve the actual presented source drawing.");
 
         return
             $"Native MIL host presented {host.PresentedFrameCount} frame(s), " +

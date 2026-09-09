@@ -45,7 +45,10 @@ internal static class ProGpuWpfSdkPortableBootstrap
                     window,
                     new global::System.Windows.Media.ProGPU.ProGpuWpfWindowOptions
                     {
-                        RendererMode = global::System.Windows.Media.ProGPU.ProGpuWpfRendererMode.NativeMilWgpu
+                        RendererMode = global::System.Windows.Media.ProGPU.ProGpuWpfRendererMode.NativeMilWgpu,
+#if PROGPU_WPF_NATIVE_MIL_HIT_TESTING
+                        EnableNativeMilHitTesting = true
+#endif
                     })));
         if (!registered)
         {

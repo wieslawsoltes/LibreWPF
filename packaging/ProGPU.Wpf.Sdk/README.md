@@ -35,9 +35,11 @@ XAML/code-behind does not need a custom host or bootstrap:
 
 ```xml
 <ProGpuWpfRendererMode>NativeMilWgpu</ProGpuWpfRendererMode>
+<ProGpuWpfNativeMilHitTesting>true</ProGpuWpfNativeMilHitTesting>
 ```
 
-For an existing SDK app, use `dotnet build -p:ProGpuWpfRendererMode=NativeMilWgpu`.
+For the current native input development lane, use
+`dotnet build -p:ProGpuWpfRendererMode=NativeMilWgpu -p:ProGpuWpfNativeMilHitTesting=true`.
 Rebuild with `ManagedPortable` to return to the established portable renderer.
 This is independent of `ProGpuWpfRenderingBackend=ProGPU`; it does not select a
 different compute/SIMD fallback policy. The executable runtime configuration
@@ -94,3 +96,15 @@ The quickcheck expects the local `0.1.0-preview.45` LibreWPF package feed and it
 ```bash
 ./eng/progpu-wpf-sdk-ci.sh
 ```
+
+## Native input qualification
+
+For the native-MIL development lane, select `ProGpuWpfRendererMode=NativeMilWgpu`
+and `ProGpuWpfNativeMilHitTesting=true`. The latter requests a complete native
+GPU input index; unsupported application coverage fails explicitly. Native host
+input without admission does not borrow the managed renderer's index.
+
+The normal SDK default remains managed portable. Native input admission is still
+opt-in while core coverage is completed; the native SDK qualification gate enables
+it mandatorily. Use freshly built, matching LibreWPF/ProGPU packages: older native
+payloads do not export the completion and metadata APIs used by this lane.

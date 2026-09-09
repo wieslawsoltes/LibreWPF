@@ -223,6 +223,15 @@ rewrite or claims of qualified codec/worker/SIMD parity follow from this routing
 
 ## Core Native MIL Delivery Priority
 
+Native host point/region callbacks select the presented native owner snapshot
+before any managed index. Preserve explicit EnableNativeMilHitTesting admission,
+complete-index compilation, popup inheritance, bounded owner-resolution retry
+and original candidate intersection details. Pending readbacks retain their map
+until completion or compositor disposal; no generic recovery or managed fallback.
+Native cache diagnostics use native index metadata/residency, never managed counts.
+The native SDK gate requires its own input index; opt-in code is not application
+qualification or permission to enable defaults before required coverage closes.
+
 Windows managed package production uses PowerShell 7 child processes to invoke
 the existing Arcade build script with explicit restore/build flags. Preserve the
 host execution policy, child exit status, all Windows RIDs and pinned tool inputs;

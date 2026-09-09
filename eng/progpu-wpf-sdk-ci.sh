@@ -43,6 +43,10 @@ case "${ProGpuWpfRendererMode}" in
 esac
 if [[ "${ProGpuWpfRendererMode}" == "NativeMilWgpu" ]]; then
   export PROGPU_WPF_SDK_CI_NATIVE_MIL_HOST=1
+  # Native application qualification must exercise its own input index.
+  export ProGpuWpfNativeMilHitTesting=true
+else
+  export ProGpuWpfNativeMilHitTesting=false
 fi
 
 if [[ "${build_packages_only}" == "0" ]]; then

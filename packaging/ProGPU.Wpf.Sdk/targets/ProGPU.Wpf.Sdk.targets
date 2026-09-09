@@ -82,8 +82,15 @@
   <PropertyGroup Condition="'$(ProGpuWpfRendererMode)' == 'NativeMilWgpu'">
     <DefineConstants>$(DefineConstants);PROGPU_WPF_NATIVE_MIL</DefineConstants>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(ProGpuWpfNativeMilHitTesting)' == 'true'">
+    <DefineConstants>$(DefineConstants);PROGPU_WPF_NATIVE_MIL_HIT_TESTING</DefineConstants>
+  </PropertyGroup>
 
   <Target Name="_ProGpuWpfSdkValidateRendererMode" BeforeTargets="PrepareForBuild">
+    <Error Condition="'$(ProGpuWpfNativeMilHitTesting)' != 'true' And '$(ProGpuWpfNativeMilHitTesting)' != 'false'"
+           Text="ProGpuWpfNativeMilHitTesting must be true or false." />
+    <Error Condition="'$(ProGpuWpfNativeMilHitTesting)' == 'true' And '$(ProGpuWpfRendererMode)' != 'NativeMilWgpu'"
+           Text="ProGpuWpfNativeMilHitTesting requires NativeMilWgpu; managed input remains independent." />
     <Error Condition="'$(ProGpuWpfRendererMode)' != 'ManagedPortable' And '$(ProGpuWpfRendererMode)' != 'NativeMilWgpu'"
            Text="ProGpuWpfRendererMode must be ManagedPortable or NativeMilWgpu." />
     <Error Condition="'$(ProGpuWpfRendererMode)' == 'NativeMilWgpu' And ('$(OutputType)' == 'Exe' Or '$(OutputType)' == 'WinExe') And ('$(ProGpuWpfUsePortableFrameworkReferences)' != 'true' Or '$(ProGpuWpfEnablePortableBootstrap)' != 'true')"

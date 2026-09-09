@@ -472,7 +472,7 @@ public sealed class ProGpuWpfWindowHostTests
             source,
             StringComparison.Ordinal);
         Assert.Contains(
-            "_options.RendererMode == ProGpuWpfRendererMode.NativeMilWgpu &&\n                !HasPresentedFrame",
+            "RendererMode == ProGpuWpfRendererMode.NativeMilWgpu &&\n                !HasPresentedFrame",
             source,
             StringComparison.Ordinal);
         Assert.Contains(

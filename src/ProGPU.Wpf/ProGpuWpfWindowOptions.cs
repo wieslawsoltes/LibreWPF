@@ -33,6 +33,14 @@ public sealed class ProGpuWpfWindowOptions
     public ProGpuWpfRendererMode RendererMode { get; set; } =
         ProGpuWpfRendererMode.ManagedPortable;
 
+    /// <summary>
+    /// Requires native MIL to emit a complete GPU input index and uses that
+    /// index for host point/region callbacks. Startup-only, explicit admission
+    /// while application coverage is being completed; unsupported content fails
+    /// compilation. Native mode never substitutes the managed input index.
+    /// </summary>
+    public bool EnableNativeMilHitTesting { get; set; }
+
     internal bool EnablePortablePopupService { get; set; } = true;
 
     // Resolve the live owner at target creation, including after device loss.

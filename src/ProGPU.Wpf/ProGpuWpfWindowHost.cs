@@ -49,6 +49,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
     private static WeakReference<ProGpuWpfWindowHost>? s_requestedNativeActivation;
 
     private readonly ProGpuWpfWindowOptions _options;
+    private readonly ProGpuWpfNativeHitTesting _nativeMilHitTests = new();
     private IWindow? _window;
     private ProGpuWpfCompositionTarget? _target;
     private NativeCompositor? _nativeMilCompositor;
@@ -152,7 +153,13 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
     public ProGpuWpfWindowHost(ProGpuWpfWindowOptions? options = null)
     {
         _options = options ?? new ProGpuWpfWindowOptions();
-        if (_options.RendererMode == ProGpuWpfRendererMode.NativeMilWgpu)
+        RendererMode = _options.RendererMode;
+        if (RendererMode is not ProGpuWpfRendererMode.ManagedPortable and not ProGpuWpfRendererMode.NativeMilWgpu)
+            throw new ArgumentException("The WPF renderer mode is unsupported.", nameof(options));
+        NativeMilHitTestingEnabled = _options.EnableNativeMilHitTesting;
+        if (NativeMilHitTestingEnabled && RendererMode != ProGpuWpfRendererMode.NativeMilWgpu)
+            throw new ArgumentException("Native MIL hit testing requires the native MIL renderer.", nameof(options));
+        if (RendererMode == ProGpuWpfRendererMode.NativeMilWgpu)
             ProGpuWpfNativeMediaServices.Initialize();
         else
         {
@@ -374,9 +381,16 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
 
     internal long SkippedNativeRenderPumpCount { get; private set; }
 
-    internal bool HasGpuHitTestCache => !_isDisposed && _target?.LastGpuHitTestIndex != null;
+    internal bool HasGpuHitTestCache => !_isDisposed &&
+        (RendererMode == ProGpuWpfRendererMode.NativeMilWgpu
+            ? NativeMilHitTestingEnabled && NativeMilHitTestOwners.IsValid && NativeMilHitTestOwners.GetIndexInfo().HasIndex
+            : _target?.LastGpuHitTestIndex != null);
 
-    internal ProGpuWpfRendererMode RendererMode => _options.RendererMode;
+    internal bool NativeMilHitTestingEnabled { get; }
+
+    internal NativeGpuHitTestResult LastNativeMilHitTestSummary => _nativeMilHitTests.LastSummary;
+
+    internal ProGpuWpfRendererMode RendererMode { get; }
 
     internal ulong NativeMilPopupVersion => _nativeMilPopupVersion;
 
@@ -1771,7 +1785,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
                 {
                     target.Compositor.ClearColor = _deviceRecoveryClearColor;
                 }
-                if (_options.RendererMode == ProGpuWpfRendererMode.NativeMilWgpu)
+                if (RendererMode == ProGpuWpfRendererMode.NativeMilWgpu)
                 {
                     nativeMilCompositor = new NativeCompositor(
                         target.Context,
@@ -2046,7 +2060,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
             var geometry = ResolveCurrentRenderSurfaceGeometry();
             SynchronizePortablePresentationSourceGeometry(geometry);
             bool skipNativeMilColdStartDispatcher =
-                _options.RendererMode == ProGpuWpfRendererMode.NativeMilWgpu &&
+                RendererMode == ProGpuWpfRendererMode.NativeMilWgpu &&
                 !HasPresentedFrame;
             if (!skipNativeMilColdStartDispatcher)
             {
@@ -2107,7 +2121,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
                 return;
             }
 
-            if (_options.RendererMode == ProGpuWpfRendererMode.NativeMilWgpu)
+            if (RendererMode == ProGpuWpfRendererMode.NativeMilWgpu)
             {
                 TraceNativeLoop("native MIL render entering: " + CreateNativeLoopTraceState());
                 if (RenderNativeMilFrame(
@@ -2279,7 +2293,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         }
         catch (NativeRendererException error) when (
             error.Status == NativeRendererStatus.DeviceLost &&
-            _options.RendererMode == ProGpuWpfRendererMode.NativeMilWgpu && _target != null)
+            RendererMode == ProGpuWpfRendererMode.NativeMilWgpu && _target != null)
         {
             _target.Context.ReportDeviceLost(DeviceLostReason.Unknown, error.Message);
             RequestPresentationRetryAndWakeNativeLoop();
@@ -2449,7 +2463,8 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
             GetMonotonicTimeNanoseconds(),
             requestSerial,
             dpiScaleX,
-            dpiScaleY);
+            dpiScaleY,
+            NativeMilHitTestingEnabled ? NativeMilSceneBuildRequestFlags.HitTestIndex : NativeMilSceneBuildRequestFlags.None);
         LastNativeMilSessionFrame = frame;
         TraceNativeLoop("native MIL compile leaving: " + CreateNativeLoopTraceState());
         BindNativeMilExternalImages(frame);
@@ -3396,6 +3411,12 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
             return false;
         }
 
+        if (RendererMode == ProGpuWpfRendererMode.NativeMilWgpu)
+        {
+            Span<object?> ownerSlot = MemoryMarshal.CreateSpan(ref owner, 1);
+            return QueryNativeMilInput(NativeGpuHitTestQuery.PointQuery(new((float)x, (float)y)),
+                ownerSlot, false, out int count) && count != 0;
+        }
         return target.TryHitTestOwner(
             new System.Numerics.Vector2((float)x, (float)y),
             out owner,
@@ -3446,11 +3467,23 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
             return false;
         }
 
+        if (RendererMode == ProGpuWpfRendererMode.NativeMilWgpu)
+            return QueryNativeMilInput(NativeGpuHitTestQuery.PointQuery(new((float)x, (float)y)),
+                owners, false, out ownerCount);
         return target.TryHitTestOwners(
             new System.Numerics.Vector2((float)x, (float)y),
             owners,
             out ownerCount,
             out _);
+    }
+
+    private bool QueryNativeMilInput(NativeGpuHitTestQuery query, Span<object?> destination,
+        bool geometryCandidates, out int count)
+    {
+        if (!NativeMilHitTestingEnabled)
+            throw new NotSupportedException(
+                "Native MIL host input requires explicit EnableNativeMilHitTesting admission; a managed index is not a native fallback.");
+        return _nativeMilHitTests.Query(NativeMilHitTestOwners, query, destination, geometryCandidates, out count);
     }
 
     private ProGpuWpfCompositionTarget? GetGpuHitTestTargetAfterRefresh()
@@ -3524,6 +3557,10 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
             return false;
         }
 
+        if (RendererMode == ProGpuWpfRendererMode.NativeMilWgpu)
+            return QueryNativeMilInput(NativeGpuHitTestQuery.BoundsQuery(
+                new((float)minX, (float)minY), new((float)maxX, (float)maxY), 0),
+                owners, false, out ownerCount);
         return target.TryQueryHitTestBoundsOwners(
             new System.Numerics.Vector2((float)minX, (float)minY),
             new System.Numerics.Vector2((float)maxX, (float)maxY),
@@ -3541,6 +3578,16 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
             return false;
         }
 
+        if (RendererMode == ProGpuWpfRendererMode.NativeMilWgpu)
+        {
+            NativeGpuHitTestIndexInfo native = NativeMilHitTestOwners.IsValid
+                ? NativeMilHitTestOwners.GetIndexInfo() : default;
+            snapshot = new ProGpuWpfDiagnostics.GpuHitTestCacheSnapshot(
+                native.HasIndex, native.IsUploaded, checked((int)native.PrimitiveCount),
+                checked((int)native.NodeCount), checked((int)native.PrimitiveIndexCount),
+                checked((int)native.PathSegmentCount), NativeMilHitTestOwners.OwnerCount);
+            return true;
+        }
         var index = target.LastGpuHitTestIndex;
         snapshot = new ProGpuWpfDiagnostics.GpuHitTestCacheSnapshot(
             index is not null,
@@ -3615,6 +3662,10 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
             return false;
         }
 
+        if (RendererMode == ProGpuWpfRendererMode.NativeMilWgpu)
+            return QueryNativeMilInput(NativeGpuHitTestQuery.BoundsQuery(
+                new((float)minX, (float)minY), new((float)maxX, (float)maxY), 0),
+                candidates, true, out candidateCount);
         return target.TryQueryHitTestBoundsCandidates(
             new System.Numerics.Vector2((float)minX, (float)minY),
             new System.Numerics.Vector2((float)maxX, (float)maxY),
@@ -3673,6 +3724,10 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
             return false;
         }
 
+        if (RendererMode == ProGpuWpfRendererMode.NativeMilWgpu)
+            return QueryNativeMilInput(NativeGpuHitTestQuery.EllipseQuery(
+                new((float)minX, (float)minY), new((float)maxX, (float)maxY), 0),
+                candidates, true, out candidateCount);
         return target.TryQueryHitTestEllipseCandidates(
             new System.Numerics.Vector2((float)minX, (float)minY),
             new System.Numerics.Vector2((float)maxX, (float)maxY),
@@ -4214,6 +4269,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         _nativeMilSession = null;
         _nativeMilCompositor?.Dispose();
         _nativeMilCompositor = null;
+        _nativeMilHitTests.ResetAfterCompositorDisposal();
         DisposeNativeMilExternalImageLeases(_nativeMilExternalImageLeases);
         _nativeMilExternalImageLeases = [];
         _nativeMilCompiledRootVisual = null;
