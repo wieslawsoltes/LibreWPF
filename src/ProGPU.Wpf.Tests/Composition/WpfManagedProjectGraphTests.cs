@@ -10740,6 +10740,8 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("LiveValidationStartupMaxAttempts = 1200", mainWindowCodeBehind, StringComparison.Ordinal);
         Assert.Contains("WriteLiveValidationStatus", mainWindowCodeBehind, StringComparison.Ordinal);
         Assert.Contains("Toolkit live transient AvalonDock auto-hide overlay close", mainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("transientAutoHideWindow.IsHitTestVisible = false;", mainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("autoHideWindow.IsHitTestVisible = true;", mainWindowCodeBehind, StringComparison.Ordinal);
         Assert.Contains("ProGPU WPF Toolkit live input validation details:", mainWindowCodeBehind, StringComparison.Ordinal);
         Assert.Contains("ProGPU WPF Toolkit live input validation succeeded:", mainWindowCodeBehind, StringComparison.Ordinal);
         Assert.DoesNotContain("TryGetPortableActivationHost", mainWindowCodeBehind, StringComparison.Ordinal);

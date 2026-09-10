@@ -3791,6 +3791,11 @@ public partial class MainWindow : Window
                 SplitActionButton.IsOpen = false;
                 DockDocumentContextMenu.IsOpen = false;
                 DockAnchorableContextMenu.IsOpen = false;
+                if (DockManager.AutoHideWindow is { } transientAutoHideWindow)
+                {
+                    transientAutoHideWindow.IsHitTestVisible = false;
+                }
+
                 Point safePointerPoint = ActivateEditorButton.TranslatePoint(
                     new Point(
                         Math.Max(1.0, ActivateEditorButton.ActualWidth) / 2.0,
@@ -4334,6 +4339,11 @@ public partial class MainWindow : Window
             liveHost,
             () =>
             {
+                if (DockManager.AutoHideWindow is { } autoHideWindow)
+                {
+                    autoHideWindow.IsHitTestVisible = true;
+                }
+
                 EnsureAutoHideOverlayAnchorables();
                 _avalonDockAutoHideOverlayIndex = -1;
                 ViewModel.LastAvalonDockAutoHideOverlayTarget = string.Empty;
