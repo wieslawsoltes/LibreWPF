@@ -15,11 +15,26 @@ do not automatically expand the release checklist.
 
 ## Active completion queue
 
+**Merge-gate recheck — 2026-09-11:** ProGPU `586e52c7` passed the native browser
+WebGPU job [103070284281](https://github.com/wieslawsoltes/ProGPU/actions/runs/34536827381/job/103070284281).
+The preceding readback timeout remains unexplained, not a confirmed synchronization
+defect; do not change its deadline or workload speculatively. Other checks are
+still pending, so this is not complete CI qualification or merge approval.
+All three delivery PRs currently report conflict-free Git merging.
+
+The immediate anchored-content acceptance application is the unchanged
+`ProGPU.Wpf.RealXamlCompilerHarness`, run through `ProGPU.Wpf.RealApplicationRunHarness`.
+Its `MainWindow.xaml` declares `DocumentFigure` and `DocumentFloater` with default
+size/placement and real child Paragraphs. These declarations are not in
+ShowcaseApp's MainWindow. First presentation still requires native anchor sizing
+and placement, then exclusion-aware formatting and original child TextPointer
+ownership. A fixed-width synthetic exclusion fixture does not close this path.
+
 **Exclusion provider connection — 2026-09-11:** the WPF adapter now retains
 native fragment tops, extents, inline placements and caret navigation through
 the explicit ProGPU capability. Local source-built native host checks pass.
 Actual Figure/Floater child placement and document-position mapping remain
-required, as do package/platform qualification and the browser readback CI fix.
+required, as do package/platform qualification and final CI qualification.
 See [provider evidence](../reports/native-mil-exclusion-provider-2026-09-11.md).
 
 **Merge producer alignment — 2026-09-10:** consume ProGPU `3fbbd1fb` and
