@@ -10705,6 +10705,8 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("double layoutDeltaX = center.X - initialCenter.X;", mainWindowCodeBehind, StringComparison.Ordinal);
         Assert.Contains("BringIntoViewDelta=({layoutDeltaX:0.###}, {layoutDeltaY:0.###})", mainWindowCodeBehind, StringComparison.Ordinal);
         Assert.Contains("hit == null || !IsInputElementWithinTarget(hit, target)", mainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("SplitActionButton.Template?.FindName(\"PART_ActionButton\", SplitActionButton)", mainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ClickLiveControlAsync(liveHost, splitActionButtonPart, \"SplitActionButton.PART_ActionButton\")", mainWindowCodeBehind, StringComparison.Ordinal);
         Assert.Contains("WakeLiveRenderHost(liveHost);\n            await Task.Delay(LiveValidationRetryDelay);", mainWindowCodeBehind, StringComparison.Ordinal);
         Assert.DoesNotContain("TryHitTestOwners(liveHost, x, y, out object?[] owners)", mainWindowCodeBehind, StringComparison.Ordinal);
         Assert.DoesNotContain("owners.Select(DescribeInputElement)", mainWindowCodeBehind, StringComparison.Ordinal);

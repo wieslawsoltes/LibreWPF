@@ -4528,9 +4528,20 @@ public partial class MainWindow : Window
             },
             DispatcherPriority.Send);
 
+        Button splitActionButtonPart = await InvokeWithLiveHostWakeAsync(
+            liveHost,
+            () =>
+            {
+                SplitActionButton.ApplyTemplate();
+                SplitActionButton.UpdateLayout();
+                return SplitActionButton.Template?.FindName("PART_ActionButton", SplitActionButton) as Button
+                    ?? throw new InvalidOperationException("Expected Toolkit SplitButton template action button.");
+            },
+            DispatcherPriority.Send);
+
         for (int attempt = 0; attempt < LiveValidationMaxAttempts; attempt++)
         {
-            await ClickLiveControlAsync(liveHost, SplitActionButton, "SplitActionButton");
+            await ClickLiveControlAsync(liveHost, splitActionButtonPart, "SplitActionButton.PART_ActionButton");
             if (await InvokeWithLiveHostWakeAsync(
                     liveHost,
                     () => string.Equals(ViewModel.Status, "Applied owner ProGPU", StringComparison.Ordinal),
