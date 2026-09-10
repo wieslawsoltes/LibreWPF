@@ -18,8 +18,8 @@ staging remain as well. No ancestor-only package substitution was retained.
 Actionlint, YAML parsing, Bash syntax, canonical cutover and documentation checks
 pass for this merge. Full SDK/package execution remains pending.
 
-The selected ProGPU commit is `b88034192307d0f12f76af1461b54441c4041cf3`.
-LibreWinForms is aligned through `01243b3bc7999ce879fc793c4ed291fe841d8219`
+The selected ProGPU commit is `cbbb2aedc807453a8c903d7495dec898cf679e09`.
+LibreWinForms is aligned through `a629bbfef93bec973b2b705423cb5b9ea08388ad`
 in [dependency PR #29](https://github.com/wieslawsoltes/LibreWinForms/pull/29).
 Its base `12b4a1be0` has the same tree as the earlier `5aa13b540` pin; only the
 ProGPU gitlink and alignment documentation change. Both consumer pins now match.
@@ -74,7 +74,13 @@ describe the source ownership and package guards retained in LibreWPF.
    front/back lighting check. That fixture reversed winding without normals;
    `c6b8821e` corrects the source normals and the exact local Metal gate now
    passes. `b8803419` adds failure-only coverage/cache diagnostics without
-   changing assertions. Fresh CI and the cached-sibling repair remain open.
+   changing assertions; `745c05f8` shares the full ten-case matrix with a focused
+   diagnostic entry. `cbbb2aed` repairs an out-of-bounds depth-initialization
+   array: cache slots follow the transient slot range but the old array covered
+   only transient slots. The old bound provably triggers ASan stack-buffer-overflow
+   in cache case 1; the restored fix passes ASan/UBSan across all ten cases.
+   All 19 local native suites pass again. Fresh hosted and VM validation remain
+   required before closing the cross-platform failure.
 2. Local managed renderer and headless suites are green at the current source
    state. Their fresh hosted jobs and the platform-specific cases skipped on
    macOS still require validation.
@@ -109,3 +115,18 @@ on the Parallels Display Adapter through D3D12. The first
 Windows PowerShell wrapper stopped after restore; the direct PowerShell 7 retry
 is recorded in `artifacts/release-build-160cb12b-win-arm64-retry.log` in the guest.
 No stale build, staged output or merely linked library is claimed as qualified.
+
+The `160cb12b` VM graphics run passed ordinary and identity/gradient cached
+Viewport3D, then lost both colored centers for scale-two cache case 3. After the
+depth-array diagnosis the same clean guest source was fast-forwarded to
+`cbbb2aed`; full production build-only compilation/staging succeeded again.
+The focused D3D12 ten-case run is now in progress with explicit runtime search
+paths. Its log is `artifacts/viewport-cbbb2aed-win-arm64-runtime.log` in the guest.
+
+Local memory-safety evidence lives under the prepared ProGPU checkout's
+`artifacts/release-hour/viewport-asan-*`: the controlled old-bound run aborts with
+`stack-buffer-overflow` on `layer_depth_initialized`; the committed bound was
+immediately restored, rebuilt, and its final run passes. Git verifies no local
+source difference from `cbbb2aed`. This is component evidence, not package parity.
+Superseded ProGPU Build runs were cancelled to free capacity for exact-head run
+`34487437908`; the current run and retained SVG review artifacts were preserved.
