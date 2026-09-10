@@ -42,6 +42,12 @@ progpu_package_snapshot_dir="${repo_root}/artifacts/progpu-wpf-sdk-smoke/exact-p
 sdk_sample_target_framework="${PROGPU_WPF_SDK_SAMPLE_TARGET_FRAMEWORK:-net10.0-windows}"
 mkdir -p "${package_output}"
 
+# Keep package metadata and SDK consumer defaults on the same ProGPU closure
+# selected by the outer workflow. Environment properties are visible to every
+# MSBuild invocation below, including the LibreWPF.ProGPU and SDK pack steps.
+export ProGpuRuntimePackageVersion="${progpu_package_version}"
+export ProGpuPackageVersion="${progpu_package_version}"
+
 clean_preview_package_output() {
   rm -f \
     "${package_output}"/*.nupkg \
@@ -65,7 +71,9 @@ pack_project() {
     -o "${package_output}" \
     -v:minimal \
     -p:Version="${package_version}" \
-    -p:PackageVersion="${package_version}"
+    -p:PackageVersion="${package_version}" \
+    -p:ProGpuRuntimePackageVersion="${progpu_package_version}" \
+    -p:ProGpuPackageVersion="${progpu_package_version}"
 }
 
 resolve_single_package_version() {

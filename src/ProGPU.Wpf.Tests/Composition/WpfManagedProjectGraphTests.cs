@@ -11981,6 +11981,7 @@ public sealed class WpfManagedProjectGraphTests
             "progpu-wpf-mvp-quickcheck.sh");
 
         var sdkProject = XDocument.Load(sdkProjectPath);
+        var sdkProjectText = File.ReadAllText(sdkProjectPath);
         var rootNuGetConfig = File.ReadAllText(rootNuGetConfigPath);
         var rootDirectoryBuildProps = File.ReadAllText(rootDirectoryBuildPropsPath);
         var shippingProjectsProps = File.ReadAllText(shippingProjectsPropsPath);
@@ -12765,6 +12766,8 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("ProGpuWpfSdkProvidesSwitchOnlyPackagingSurface", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("dev_package_version=\"${PROGPU_WPF_DEV_PACKAGE_VERSION:-0.1.0-preview.45}\"", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("progpu_package_version=\"${PROGPU_WPF_PROGPU_PACKAGE_VERSION:-0.1.0-preview.62}\"", sdkCiScript, StringComparison.Ordinal);
+        Assert.Contains("export ProGpuRuntimePackageVersion=\"${progpu_package_version}\"", sdkCiScript, StringComparison.Ordinal);
+        Assert.Contains("export ProGpuPackageVersion=\"${progpu_package_version}\"", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("clean_preview_package_output()", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("\"${package_output}\"/*.nupkg", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("\"${package_output}\"/*.snupkg", sdkCiScript, StringComparison.Ordinal);
@@ -12813,6 +12816,9 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("\"${repo_root}/eng/progpu-preview-release-verify.sh\"", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("Running preview release bundle SDK smoke", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("\"${repo_root}/eng/progpu-preview-release-sdk-smoke.sh\"", sdkCiScript, StringComparison.Ordinal);
+        Assert.Contains("<_LibreWpfSdkProGpuPackageVersionToPack", sdkProjectText, StringComparison.Ordinal);
+        Assert.Contains("&lt;ProGpuPackageVersion&gt;$(_LibreWpfSdkProGpuPackageVersionToPack)&lt;/ProGpuPackageVersion&gt;", sdkProjectText, StringComparison.Ordinal);
+        Assert.Contains("<ProGpuPackageVersion>${progpu_package_version}</ProGpuPackageVersion>", previewPackageAuditScript, StringComparison.Ordinal);
 
         Assert.Contains("NUGET_PACKAGES=\"${smoke_root}/packages\"", avaloniaPackageSmokeScript, StringComparison.Ordinal);
         Assert.Contains("PROGPU_WPF_NUGET_FALLBACK_PACKAGES", avaloniaPackageSmokeScript, StringComparison.Ordinal);
