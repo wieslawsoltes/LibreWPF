@@ -18,8 +18,8 @@ staging remain as well. No ancestor-only package substitution was retained.
 Actionlint, YAML parsing, Bash syntax, canonical cutover and documentation checks
 pass for this merge. Full SDK/package execution remains pending.
 
-The selected ProGPU commit is `cbbb2aedc807453a8c903d7495dec898cf679e09`.
-LibreWinForms is aligned through `a629bbfef93bec973b2b705423cb5b9ea08388ad`
+The selected ProGPU commit is `fc5670fc95b1c68c593131d3c786a7fbf7655950`.
+LibreWinForms is aligned through `a5f6c77721bb44a4c65f5bf878b05b5fe8579f38`
 in [dependency PR #29](https://github.com/wieslawsoltes/LibreWinForms/pull/29).
 Its base `12b4a1be0` has the same tree as the earlier `5aa13b540` pin; only the
 ProGPU gitlink and alignment documentation change. Both consumer pins now match.
@@ -79,15 +79,23 @@ describe the source ownership and package guards retained in LibreWPF.
    array: cache slots follow the transient slot range but the old array covered
    only transient slots. The old bound provably triggers ASan stack-buffer-overflow
    in cache case 1; the restored fix passes ASan/UBSan across all ten cases.
-   All 19 local native suites pass again. Fresh hosted and VM validation remain
-   required before closing the cross-platform failure.
+   All 19 local native suites pass again. All ten focused VM D3D12 cases pass;
+   GCC/MSVC, Linux ARM64/x64 and browser WebGPU hosted checks also pass. A full
+   Windows run exposed a separate cold-compilation timeout, now resolved in the
+   VM by a bounded test allowance: all 20 native suites pass at `03acd40c`.
+   Hosted Windows x64 then reached a separate masked-image differential failure:
+   maximum channel delta 1, mean 0.092973 versus the existing 0.05 limit. That
+   failure remains open; no tolerance has been relaxed.
 2. Local managed renderer and headless suites are green at the current source
    state. Their fresh hosted jobs and the platform-specific cases skipped on
    macOS still require validation.
-3. SVG W3C reports 21 resolved known differences requiring image review before
-   expected-results maintenance. The prior artifacts deleted those passing PNGs;
-   run `34479034756` now retains them in artifact `10153029058`. Complete visual
-   review remains pending. Do not relax image thresholds.
+3. SVG W3C's 21 resolved differences have now been reviewed against every current
+   main and pinned Chrome image. `fc5670fc` removes exactly those entries, leaving
+   246 threshold differences, 270 passes and nine exceptions. The 0.10 threshold,
+   all 525 fixtures and resvg inventory are unchanged. Existing SVG.NET text,
+   animation/DOM, vertical-writing and filter limitations remain documented in
+   ProGPU's `docs/svg-system-drawing-w3c-threshold-review-2026-09-10.md`; threshold
+   classification is not pixel parity. Fresh hosted confirmation is pending.
 4. The canonical LibreWinForms dependency pin is now aligned in PR #29 and selected
    here. That dependency PR and the actual canonical integration/package gates
    still require validation and ordered merge. The exact source-graph check is
@@ -122,6 +130,20 @@ depth-array diagnosis the same clean guest source was fast-forwarded to
 `cbbb2aed`; full production build-only compilation/staging succeeded again.
 The focused D3D12 ten-case run is now in progress with explicit runtime search
 paths. Its log is `artifacts/viewport-cbbb2aed-win-arm64-runtime.log` in the guest.
+
+That focused run completed successfully in 226 seconds. The full Windows native
+run hit the previous 300-second limit during initial Direct2D work, as did hosted
+ARM64 WARP. `03acd40c` increases only that integration test's Windows allowance to
+900 seconds, preserving its complete matrix and assertions. Full production
+build-only staging succeeded again, followed by all 20 native suites passing in
+319.78 seconds; the graphics test itself took 314.06 seconds. Guest log:
+`artifacts/native-03acd40c-win-arm64-tests.log`. The selected `fc5670fc` adds only
+reviewed SVG inventory/documentation; fresh exact-head qualification still applies.
+
+LibreWPF at `21fbc75dd` passes canonical WinForms source integration, Windows
+managed payload and docs CI. LibreWinForms at `a629bbfe` passes canonical source
+and visible Windows/Linux package checks, with other package/AppKit jobs pending.
+Those are historical heads, not substitutes for CI on the updated dependency pins.
 
 Local memory-safety evidence lives under the prepared ProGPU checkout's
 `artifacts/release-hour/viewport-asan-*`: the controlled old-bound run aborts with
