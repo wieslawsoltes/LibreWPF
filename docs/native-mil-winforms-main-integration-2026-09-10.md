@@ -25,3 +25,9 @@ predates our native MIL changes. That source-graph alignment is an outstanding
 cross-repository integration requirement, not a waived check or proof of source
 compatibility from ancestry alone. The ordinary SDK/package and platform tests
 remain required. This merge resolves conflicts; it does not qualify the release.
+
+Follow-up: [LibreWinForms #29](https://github.com/wieslawsoltes/LibreWinForms/pull/29)
+aligns the nested ProGPU gitlink to `ebd12fc0`. LibreWPF now selects that dependency
+commit (`26c942dc8`) without changing the physical submodule checkouts. The source
+graph mismatch is addressed; dependency CI, canonical integration, package/runtime
+qualification and ordered PR merges remain pending.

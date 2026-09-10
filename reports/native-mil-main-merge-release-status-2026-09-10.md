@@ -10,6 +10,10 @@ including canonical WinForms changes; fifteen conflicts are resolved.
 These are history-preserving merges, not destructive rebases of the shared PRs.
 
 The selected ProGPU commit is `ebd12fc0c2c706d66e6db22356b0b4cca9f35e39`.
+LibreWinForms is aligned through `26c942dc892e46dc220f797324ebd8ba9739445e`
+in [dependency PR #29](https://github.com/wieslawsoltes/LibreWinForms/pull/29).
+Its base `12b4a1be0` has the same tree as the earlier `5aa13b540` pin; only the
+ProGPU gitlink and alignment documentation change. Both consumer pins now match.
 The root gitlink is updated directly; the user's pre-existing dirty physical
 ProGPU/LibreWinForms checkouts are preserved. Neither stale local checkout is
 evidence for the selected dependency or a qualified package source.
@@ -45,8 +49,10 @@ describe the source ownership and package guards retained in LibreWPF.
 3. SVG W3C reports 21 resolved known differences requiring image review before
    expected-results maintenance. The prior artifacts deleted those passing PNGs;
    a fresh run must publish them. Do not relax image thresholds.
-4. Canonical LibreWinForms must select the same ProGPU commit as LibreWPF. Its
-   inherited nested gitlink is older. Preserve the exact source-graph check.
+4. The canonical LibreWinForms dependency pin is now aligned in PR #29 and selected
+   here. That dependency PR and the actual canonical integration/package gates
+   still require validation and ordered merge. The exact source-graph check is
+   preserved; matching gitlinks alone are not runtime qualification.
 5. Complete exact-head native payloads/packages and source/package application
    qualification on macOS, Linux and Windows, including the native oracle, remain
    outstanding. Earlier payloads and smoke passes are historical, not substitutes.
