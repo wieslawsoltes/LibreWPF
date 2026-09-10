@@ -6,6 +6,30 @@ namespace ProGPU.Wpf.Tests.Composition;
 public sealed class WpfManagedProjectGraphTests
 {
     [Fact]
+    public void SourceTablesUseNativeRowsAndCellAwareRetainedNavigation()
+    {
+        string layout = File.ReadAllText(FindRepoPath("src", "Microsoft.DotNet.Wpf", "src",
+            "PresentationFramework", "MS", "Internal", "documents", "PortableFlowDocumentLayout.cs"));
+        AssertGuardBefore(layout, "flow.ResolveWidthsWithRows", "layout.FormatParagraph(");
+        Assert.Contains("flow.ArrangeWithRows", layout, StringComparison.Ordinal);
+        Assert.Contains("case TableRowGroup group:", layout, StringComparison.Ordinal);
+        Assert.Contains("ColumnStart = checked((uint)cell.ColumnIndex)", layout, StringComparison.Ordinal);
+        Assert.Contains("cell.RowSpan != 1", layout, StringComparison.Ordinal);
+        Assert.Contains("!column.Width.IsAbsolute", layout, StringComparison.Ordinal);
+        Assert.Contains("layout.BuildNavigation()", layout, StringComparison.Ordinal);
+        string view = File.ReadAllText(FindRepoPath("src", "Microsoft.DotNet.Wpf", "src",
+            "PresentationFramework", "MS", "Internal", "documents", "PortableFlowDocumentTextView.cs"));
+        Assert.Contains("SelectNavigationLeaf(0, point, 0)", view, StringComparison.Ordinal);
+        Assert.Contains("Layout.IsHorizontalRow(parent)", view, StringComparison.Ordinal);
+        Assert.Contains("Layout.NavigationChildren(parent)", view, StringComparison.Ordinal);
+        Assert.Contains("newSuggestedX + ScrollOffset.X", view, StringComparison.Ordinal);
+        Assert.DoesNotContain("OrderBy", view, StringComparison.Ordinal);
+        string paginator = File.ReadAllText(FindRepoPath("src", "Microsoft.DotNet.Wpf", "src",
+            "PresentationFramework", "MS", "Internal", "documents", "PortableFlowDocumentPaginator.cs"));
+        AssertGuardBefore(paginator, "if (next.HasTables)", "CreateFragmentLines(next)");
+    }
+
+    [Fact]
     public void RichEditorUsesSharedNativeDocumentViewAndOriginalTextServices()
     {
         string editor = File.ReadAllText(FindRepoPath("src", "Microsoft.DotNet.Wpf", "src",

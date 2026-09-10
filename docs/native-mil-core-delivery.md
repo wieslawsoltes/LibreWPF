@@ -15,6 +15,16 @@ do not automatically expand the release checklist.
 
 ## Active completion queue
 
+**Source table connection — 2026-09-10:** actual fixed-column Table/RowGroup/Row/Cell
+nodes now use ProGPU's shared native row passes. Retained cell-aware point lookup,
+vertical navigation, selection, scrolling, column-property reflow and source
+edit/undo pass the real RichTextBox native host fixture. The unchanged full
+Application.Run document advances past table admission and now stops while
+formatting inline/anchored content (Figure/Floater and InlineUIContainer remain
+required). This is not full application or package qualification. Continue that
+source paragraph dependency, not optional table API breadth. See
+[source-table validation](../reports/native-mil-source-table-validation-2026-09-10.md).
+
 **Native table dependency — 2026-09-10:** ProGPU's shared document-flow passes now
 support fixed column tracks, horizontal rows, column spans and nested cells. The
 typed WPF adapter is connected, but source Table admission remains closed until

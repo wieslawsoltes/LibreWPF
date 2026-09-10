@@ -1,5 +1,16 @@
 # Agent Guidance
 
+Portable fixed-column Tables now export actual Table/RowGroup/Row/Cell nodes and
+cached source column indices to ProGPU's shared row layout. Retain original cell
+TextLines and native content boxes; table rows select horizontal cells, while
+ordinary ancestors select vertical content. Up/down navigation skips neighboring
+cells in the same row and enters the next row at retained X. Backward affinity
+may cross a wrapped line boundary only within its actual paragraph, not into a
+preceding cell. Scroll translation applies once to both points and caret/selection.
+Keep source edit/undo/invalidation and explicit automatic-width, row-span, empty
+cell, RTL, fragmentation and border-drag gaps. Fixed-column fixtures do not
+qualify those contracts or full native application/package startup.
+
 Source table consumers must use ProGPU's batched row/cell width and placement
 contracts over the original document tree. Keep native source line order even
 when table Y positions are nonmonotonic; implement cell-aware hit/vertical

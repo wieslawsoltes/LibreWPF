@@ -52,13 +52,18 @@ internal sealed class PortableFlowDocumentTextView(FlowDocumentView owner, FlowD
         if (!Contains(position)) throw new ArgumentException("Position belongs to another document.", nameof(position));
     }
 
-    // Ordered native line positions permit logarithmic pointer lookup. Margins
-    // are not text: only snapped queries choose the nearest adjacent line.
+    // Native positions are Y-ordered only within a vertical flow. Tables select
+    // their source cell first, then the original line range inside that cell.
     internal override ITextPointer GetTextPositionFromPoint(Point point, bool snapToText)
     {
         RequireValid();
         if (!double.IsFinite(point.X) || !double.IsFinite(point.Y)) return null;
         point += ScrollOffset;
+        if (page == null && Layout.HasTables)
+        {
+            int block = SelectNavigationLeaf(0, point, 0);
+            return GetFlowPositionFromPoint(point, snapToText, Layout.FirstItem(block), Layout.EndItem(block));
+        }
         if (page == null && Layout.Objects.Count != 0)
             return GetFlowPositionFromPoint(point, snapToText);
         if (FirstLine == EndLine) return snapToText ? TextContainer.Start.GetFrozenPointer(LogicalDirection.Forward) : null;
@@ -119,7 +124,17 @@ internal sealed class PortableFlowDocumentTextView(FlowDocumentView owner, FlowD
             if (ItemStart(middle) <= position.Offset) low = middle + 1; else high = middle;
         }
         int index = Math.Max(0, low - 1);
-        if (index > 0 && ItemStart(index) == position.Offset && position.LogicalDirection == LogicalDirection.Backward) --index;
+        if (index > 0 && ItemStart(index) == position.Offset && position.LogicalDirection == LogicalDirection.Backward)
+        {
+            var previous = Layout.Items[index - 1]; var current = Layout.Items[index];
+            // An object's ElementStart is its outside edge; preserve the
+            // preceding insertion side there. A text line's start can refer
+            // backward only to its own wrapped paragraph, not another cell.
+            if (current.ObjectIndex >= 0 ||
+                (previous.LineIndex >= 0 && current.LineIndex >= 0 &&
+                    ReferenceEquals(Layout.Lines[previous.LineIndex].Paragraph, Layout.Lines[current.LineIndex].Paragraph) &&
+                    Layout.Lines[previous.LineIndex].Start + Layout.Lines[previous.LineIndex].Line.Length == position.Offset)) --index;
+        }
         return index;
     }
 
@@ -136,20 +151,83 @@ internal sealed class PortableFlowDocumentTextView(FlowDocumentView owner, FlowD
             trailing ? LogicalDirection.Backward : LogicalDirection.Forward);
     }
 
-    private ITextPointer GetFlowPositionFromPoint(Point point, bool snapToText)
+    private ITextPointer GetFlowPositionFromPoint(Point point, bool snapToText, int first = 0, int end = -1)
     {
-        int low = 0, high = Layout.Items.Count;
+        if (end < 0) end = Layout.Items.Count;
+        if (first == end) return snapToText ? TextContainer.Start.GetFrozenPointer(LogicalDirection.Forward) : null;
+        int low = first, high = end;
         while (low < high)
         {
             int middle = low + (high - low) / 2;
             if (ItemRect(middle).Y <= point.Y) low = middle + 1; else high = middle;
         }
-        int index = Math.Max(0, low - 1);
+        int index = Math.Max(first, low - 1);
         Rect box = ItemRect(index);
-        if (point.Y > box.Bottom && index + 1 < Layout.Items.Count &&
+        if (point.Y > box.Bottom && index + 1 < end &&
             point.Y - box.Bottom > ItemRect(index + 1).Y - point.Y) box = ItemRect(++index);
         if (!snapToText && (point.Y < box.Top || point.Y >= box.Bottom || point.X < box.Left || point.X > box.Right)) return null;
         return PositionFromItemX(index, point.X);
+    }
+
+    // Only source hierarchy and native boxes participate here. Horizontal rows
+    // select a cell by X; all other ancestors select vertical source content.
+    // boundary chooses the first/last vertical child for up/down entry.
+    private int SelectNavigationLeaf(int block, Point point, int boundary)
+    {
+        while (true)
+        {
+            ReadOnlySpan<int> children = Layout.NavigationChildren(block);
+            if (children.IsEmpty) return block;
+            bool horizontal = Layout.IsHorizontalRow(block);
+            int selected;
+            if (!horizontal && boundary != 0) selected = boundary > 0 ? 0 : children.Length - 1;
+            else
+            {
+                double coordinate = horizontal ? point.X : point.Y;
+                int low = 0, high = children.Length;
+                while (low < high)
+                {
+                    int middle = low + (high - low) / 2;
+                    var box = Layout.Boxes[children[middle]];
+                    if ((horizontal ? box.X : box.Y) <= coordinate) low = middle + 1; else high = middle;
+                }
+                selected = Math.Max(0, low - 1);
+                if (selected + 1 < children.Length)
+                {
+                    var current = Layout.Boxes[children[selected]]; var next = Layout.Boxes[children[selected + 1]];
+                    double bottom = horizontal ? current.X + current.Width : current.Y + current.Height;
+                    double nextStart = horizontal ? next.X : next.Y;
+                    if (coordinate > bottom && coordinate - bottom > nextStart - coordinate) ++selected;
+                }
+            }
+            block = children[selected];
+        }
+    }
+
+    private bool TryNextNavigationItem(int current, int direction, double x, out int target)
+    {
+        int block = Layout.ItemBlock(current);
+        target = current + direction;
+        if (target >= Layout.FirstItem(block) && target < Layout.EndItem(block)) return true;
+        while (Layout.ParentBlock(block) is int parent && parent >= 0)
+        {
+            // Do not move down into the adjacent horizontal cell. Leave the
+            // whole row, then enter the next vertical subtree at retained X.
+            if (!Layout.IsHorizontalRow(parent))
+            {
+                var siblings = Layout.NavigationChildren(parent);
+                int sibling = Layout.SiblingIndex(block) + direction;
+                if (sibling >= 0 && sibling < siblings.Length)
+                {
+                    int leaf = SelectNavigationLeaf(siblings[sibling], new(x, 0), direction);
+                    target = direction > 0 ? Layout.FirstItem(leaf) : Layout.EndItem(leaf) - 1;
+                    return true;
+                }
+            }
+            block = parent;
+        }
+        target = current;
+        return false;
     }
 
     private ITextPointer AdjacentItemBoundary(ITextPointer position, LogicalDirection direction)
@@ -181,7 +259,9 @@ internal sealed class PortableFlowDocumentTextView(FlowDocumentView owner, FlowD
             if (Layout.Lines[middle].Start <= position.Offset) low = middle + 1; else high = middle;
         }
         int index = Math.Max(FirstLine, low - 1);
-        if (index > FirstLine && Layout.Lines[index].Start == position.Offset && position.LogicalDirection == LogicalDirection.Backward) --index;
+        if (index > FirstLine && Layout.Lines[index].Start == position.Offset && position.LogicalDirection == LogicalDirection.Backward &&
+            ReferenceEquals(Layout.Lines[index - 1].Paragraph, Layout.Lines[index].Paragraph) &&
+            Layout.Lines[index - 1].Start + Layout.Lines[index - 1].Line.Length == position.Offset) --index;
         else if (index + 1 < EndLine && position.Offset >= Layout.Lines[index].Start + Layout.Lines[index].Line.Length &&
             position.LogicalDirection == LogicalDirection.Forward) ++index;
         return index;
@@ -288,6 +368,20 @@ internal sealed class PortableFlowDocumentTextView(FlowDocumentView owner, FlowD
     {
         RequirePosition(position);
         newSuggestedX = suggestedX; linesMoved = 0;
+        if (page == null && Layout.HasTables)
+        {
+            if (count == 0) return position.GetFrozenPointer(position.LogicalDirection);
+            if (double.IsNaN(newSuggestedX)) newSuggestedX = GetRectangleFromTextPosition(position).X;
+            if (!double.IsFinite(newSuggestedX)) throw new ArgumentOutOfRangeException(nameof(suggestedX));
+            int current = FindItem(position), direction = Math.Sign(count);
+            long remaining = Math.Min(Math.Abs((long)count), Layout.Items.Count);
+            while (remaining-- > 0 && TryNextNavigationItem(current, direction, newSuggestedX + ScrollOffset.X, out int targetItem))
+            {
+                current = targetItem; linesMoved += direction;
+            }
+            return linesMoved == 0 ? position.GetFrozenPointer(position.LogicalDirection)
+                : PositionFromItemX(current, newSuggestedX + ScrollOffset.X);
+        }
         if (page == null && Layout.Objects.Count != 0)
         {
             int current = FindItem(position);

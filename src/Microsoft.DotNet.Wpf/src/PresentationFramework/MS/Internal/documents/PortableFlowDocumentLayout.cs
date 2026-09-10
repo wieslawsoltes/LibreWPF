@@ -25,12 +25,20 @@ internal sealed class PortableFlowDocumentLayout : IDisposable
     internal sealed record ObjectEntry(BlockUIContainer Container, UIElement Child, int BlockIndex,
         int Start, int End, int ContentStart, int ContentEnd);
     internal readonly record struct FlowItem(int LineIndex, int ObjectIndex);
+    private readonly record struct TablePolicy(int ColumnStart, int ColumnCount, double Spacing);
 
     private readonly List<BlockEntry> _entries = new();
     private readonly List<PortableDocumentBlock> _blocks = new();
     private readonly List<LineEntry> _lines = new();
     private readonly List<ObjectEntry> _objects = new();
     private List<FlowItem> _items;
+    private readonly List<PortableDocumentRow> _rows = new();
+    private readonly List<PortableDocumentCell> _cells = new();
+    private readonly List<double> _columns = new();
+    private int[] _firstItems, _childStarts, _children, _siblingSlots;
+    internal bool HasTables => _rows.Count != 0;
+    internal IReadOnlyList<PortableDocumentRow> Rows => _rows;
+    internal IReadOnlyList<PortableDocumentCell> Cells => _cells;
     internal IReadOnlyList<ObjectEntry> Objects => _objects;
     internal IReadOnlyList<FlowItem> Items => _items ?? (IReadOnlyList<FlowItem>)Array.Empty<FlowItem>();
     private readonly List<MarkerEntry> _markers = new();
@@ -74,14 +82,25 @@ internal sealed class PortableFlowDocumentLayout : IDisposable
             foreach (Block block in document.Blocks) layout.AddBlock(block, 0, 1, pixelsPerDip);
             layout.CloseSubtree(0);
             layout.Boxes = new PortableDocumentBox[layout._blocks.Count];
-            flow.ResolveWidths(CollectionsMarshal.AsSpan(layout._blocks), pageWidth, layout.Boxes);
+            if (layout.HasTables)
+            {
+                layout._items = new();
+                layout._firstItems = new int[layout._blocks.Count + 1];
+                flow.ResolveWidthsWithRows(CollectionsMarshal.AsSpan(layout._blocks), pageWidth,
+                    CollectionsMarshal.AsSpan(layout._rows), CollectionsMarshal.AsSpan(layout._columns),
+                    CollectionsMarshal.AsSpan(layout._cells), layout.Boxes);
+            }
+            else flow.ResolveWidths(CollectionsMarshal.AsSpan(layout._blocks), pageWidth, layout.Boxes);
             TextFormatter formatter = TextFormatter.FromCurrentDispatcher(formattingMode);
             var metrics = new List<PortableDocumentLine>();
             var objects = new List<PortableDocumentObject>();
             for (int i = 0; i < layout._entries.Count; ++i)
             {
                 PortableDocumentBlock descriptor = layout._blocks[i];
+                if (layout.HasTables) layout._firstItems[i] = layout._items.Count;
                 descriptor.LineStart = checked((uint)layout._lines.Count);
+                if (layout._entries[i].Element is TableCell && layout.Boxes[i].Width <= 0)
+                    throw new PlatformNotSupportedException("Exhausted table cell width requires the zero-width content contract.");
                 if (layout._entries[i].Element is Paragraph paragraph)
                 {
                     if (paragraph.TextIndent != 0)
@@ -114,9 +133,19 @@ internal sealed class PortableFlowDocumentLayout : IDisposable
                 layout._blocks[i] = descriptor;
             }
             layout.Positions = new PortableDocumentLinePosition[layout._lines.Count];
-            PortableDocumentExtent extent = flow.ArrangeWithObjects(CollectionsMarshal.AsSpan(layout._blocks), pageWidth,
-                CollectionsMarshal.AsSpan(metrics), CollectionsMarshal.AsSpan(objects), layout.Boxes, layout.Positions);
+            PortableDocumentExtent extent = layout.HasTables
+                ? flow.ArrangeWithRows(CollectionsMarshal.AsSpan(layout._blocks), pageWidth,
+                    CollectionsMarshal.AsSpan(metrics), CollectionsMarshal.AsSpan(objects),
+                    CollectionsMarshal.AsSpan(layout._rows), CollectionsMarshal.AsSpan(layout._columns),
+                    CollectionsMarshal.AsSpan(layout._cells), layout.Boxes, layout.Positions)
+                : flow.ArrangeWithObjects(CollectionsMarshal.AsSpan(layout._blocks), pageWidth,
+                    CollectionsMarshal.AsSpan(metrics), CollectionsMarshal.AsSpan(objects), layout.Boxes, layout.Positions);
             layout.Size = new(extent.Width, extent.Height);
+            if (layout.HasTables)
+            {
+                layout._firstItems[^1] = layout._items.Count;
+                layout.BuildNavigation();
+            }
             layout.FormatMarkers(document, pixelsPerDip, formatter);
             return layout;
         }
@@ -128,13 +157,12 @@ internal sealed class PortableFlowDocumentLayout : IDisposable
     }
 
     private void AddBlock(TextElement element, int parent, int depth, double pixelsPerDip,
-        DocumentList markerList = null, int markerIndex = 0)
+        DocumentList markerList = null, int markerIndex = 0, TablePolicy? tablePolicy = null, int nativeRow = -1)
     {
         if (depth >= 128 || _entries.Count >= 1 << 20)
             throw new PlatformNotSupportedException("Portable document block budget exceeded.");
-        if (element is Table)
-            throw new PlatformNotSupportedException("Portable document tables require native column, row and cell layout.");
-        if (element is not Paragraph and not Section and not DocumentList and not ListItem and not BlockUIContainer)
+        if (element is not Paragraph and not Section and not DocumentList and not ListItem and not BlockUIContainer
+            and not Table and not TableRowGroup and not TableRow and not TableCell)
             throw new PlatformNotSupportedException("This portable document block requires its native layout contract.");
         if ((FlowDirection)element.GetValue(Block.FlowDirectionProperty) != FlowDirection.LeftToRight)
             throw new PlatformNotSupportedException("Portable RTL document block ordering is not implemented.");
@@ -148,6 +176,45 @@ internal sealed class PortableFlowDocumentLayout : IDisposable
             InsetRight = box.Padding.Right + box.Border.Right, InsetBottom = box.Padding.Bottom + box.Border.Bottom });
         switch (element)
         {
+            case Table table:
+                if (table.Columns.Count == 0 || table.Columns.Count < table.ColumnCount)
+                    throw new PlatformNotSupportedException("Portable automatic table columns require native intrinsic sizing.");
+                int columnStart = _columns.Count, firstRow = _rows.Count;
+                if (table.Columns.Count > (1 << 20) - columnStart)
+                    throw new PlatformNotSupportedException("Portable table column budget exceeded.");
+                foreach (TableColumn column in table.Columns)
+                {
+                    if (!column.Width.IsAbsolute)
+                        throw new PlatformNotSupportedException("Portable automatic/star table columns require native intrinsic sizing.");
+                    _columns.Add(column.Width.Value);
+                }
+                var policy = new TablePolicy(columnStart, table.Columns.Count, table.CellSpacing);
+                foreach (TableRowGroup group in table.RowGroups)
+                    AddBlock(group, index, depth + 1, pixelsPerDip, tablePolicy: policy);
+                if (_rows.Count == firstRow)
+                    throw new PlatformNotSupportedException("Empty portable tables require a source insertion-row contract.");
+                break;
+            case TableRowGroup group:
+                foreach (TableRow row in group.Rows)
+                    AddBlock(row, index, depth + 1, pixelsPerDip, tablePolicy: tablePolicy);
+                break;
+            case TableRow row:
+                if (tablePolicy is not TablePolicy rowPolicy || row.Cells.Count == 0)
+                    throw new PlatformNotSupportedException("A portable table row requires actual source cells and column policy.");
+                int rowIndex = _rows.Count;
+                _rows.Add(new() { BlockIndex = checked((uint)index),
+                    ColumnStart = checked((uint)rowPolicy.ColumnStart), ColumnCount = checked((uint)rowPolicy.ColumnCount),
+                    CellSpacing = rowPolicy.Spacing });
+                foreach (TableCell cell in row.Cells)
+                    AddBlock(cell, index, depth + 1, pixelsPerDip, nativeRow: rowIndex);
+                break;
+            case TableCell cell:
+                if (nativeRow < 0 || cell.RowSpan != 1)
+                    throw new PlatformNotSupportedException("Portable row-spanning cells require native span-height constraints.");
+                _cells.Add(new() { BlockIndex = checked((uint)index), RowIndex = checked((uint)nativeRow),
+                    ColumnStart = checked((uint)cell.ColumnIndex), ColumnCount = checked((uint)cell.ColumnSpan) });
+                foreach (Block child in cell.Blocks) AddBlock(child, index, depth + 1, pixelsPerDip);
+                break;
             case Section section:
                 foreach (Block child in section.Blocks) AddBlock(child, index, depth + 1, pixelsPerDip);
                 break;
@@ -167,6 +234,42 @@ internal sealed class PortableFlowDocumentLayout : IDisposable
     {
         var block = _blocks[index]; block.SubtreeEnd = checked((uint)_blocks.Count); _blocks[index] = block;
     }
+
+    // Navigation annotates this same source forest; it never computes layout
+    // or sorts source text into a second document. Empty structural blocks have
+    // no caret item. Native row boxes choose X; other containers choose Y.
+    private void BuildNavigation()
+    {
+        int count = _blocks.Count;
+        _childStarts = new int[count + 1];
+        _siblingSlots = new int[count];
+        Array.Fill(_siblingSlots, -1);
+        foreach (var cell in _cells)
+            if (FirstItem((int)cell.BlockIndex) == EndItem((int)cell.BlockIndex))
+                throw new PlatformNotSupportedException("Empty portable cells require their source caret/insertion contract.");
+        for (int i = 1; i < count; ++i)
+            if (FirstItem(i) != EndItem(i)) ++_childStarts[checked((int)_blocks[i].ParentIndex) + 1];
+        for (int i = 1; i <= count; ++i) _childStarts[i] += _childStarts[i - 1];
+        _children = new int[_childStarts[^1]];
+        int[] next = (int[])_childStarts.Clone();
+        for (int i = 1; i < count; ++i)
+            if (FirstItem(i) != EndItem(i))
+            {
+                int slot = next[checked((int)_blocks[i].ParentIndex)]++;
+                _children[slot] = i; _siblingSlots[i] = slot;
+            }
+    }
+
+    internal int FirstItem(int block) => _firstItems[block];
+    internal int EndItem(int block) => _firstItems[checked((int)_blocks[block].SubtreeEnd)];
+    internal int ItemBlock(int item) => _items[item].ObjectIndex >= 0
+        ? _objects[_items[item].ObjectIndex].BlockIndex : _lines[_items[item].LineIndex].BlockIndex;
+    internal int ParentBlock(int block) => _blocks[block].ParentIndex == PortableDocumentBlock.NoParent
+        ? -1 : checked((int)_blocks[block].ParentIndex);
+    internal bool IsHorizontalRow(int block) => _entries[block].Element is TableRow;
+    internal ReadOnlySpan<int> NavigationChildren(int block)
+        => _children.AsSpan(_childStarts[block], _childStarts[block + 1] - _childStarts[block]);
+    internal int SiblingIndex(int block) => _siblingSlots[block] - _childStarts[ParentBlock(block)];
 
     private void FormatParagraph(FlowDocument document, Paragraph paragraph, int blockIndex, double pixelsPerDip,
         TextFormatter formatter, List<PortableDocumentLine> metrics)
@@ -259,5 +362,7 @@ internal sealed class PortableFlowDocumentLayout : IDisposable
         foreach (var line in _lines) line.Line.Dispose();
         _markers.Clear(); _lines.Clear(); _entries.Clear(); _blocks.Clear();
         _objects.Clear(); _items?.Clear();
+        _rows.Clear(); _cells.Clear(); _columns.Clear();
+        _firstItems = _childStarts = _children = _siblingSlots = null;
     }
 }
