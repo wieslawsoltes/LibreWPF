@@ -10,8 +10,8 @@ public sealed class WpfManagedProjectGraphTests
     [InlineData("ProGPU.Wpf.SciChartApp", "run-progpu-wpf-scichart.sh")]
     public void ShowcaseAndSciChartProjectIdentitiesAreConnected(string assemblyName, string launcher)
     {
-        string directory = FindRepoPath("samples", assemblyName);
-        string project = Path.Combine(directory, assemblyName + ".csproj");
+        string project = FindRepoPath("samples", assemblyName, assemblyName + ".csproj");
+        string directory = Path.GetDirectoryName(project)!;
         Assert.True(File.Exists(project), project);
         XDocument document = XDocument.Load(project);
         foreach (XElement item in document.Descendants().Where(element =>
