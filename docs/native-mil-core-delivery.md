@@ -15,6 +15,13 @@ do not automatically expand the release checklist.
 
 ## Active completion queue
 
+**Source fragment integration trace — 2026-09-11:** source TextFormatter does not
+yet call the excluded provider, and native block placement still prefix-sums all
+source TextLines. Same-row fragments require shared native positioned-paragraph
+placement and one source drawing/input origin, not merely anchor admission.
+Implement the [connected source plan](../reports/native-mil-source-fragment-integration-2026-09-11.md)
+before removing AnchoredBlock rejection.
+
 **Anchored subtree measurement — 2026-09-11:** original Figure/Floater child
 BlockCollections now have a shared source layout entry point, preserving real
 Paragraphs, document offsets and independent TextLine generations. Local native
