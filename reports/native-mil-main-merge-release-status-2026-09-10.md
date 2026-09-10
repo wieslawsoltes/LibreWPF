@@ -9,8 +9,8 @@ LibreWPF also merges `progpu-rendering-port` at `d877d7aeff226d121784fb0723e0507
 including canonical WinForms changes; fifteen conflicts are resolved.
 These are history-preserving merges, not destructive rebases of the shared PRs.
 
-The selected ProGPU commit is `160cb12b87bc45f736df23425d5c0a7bdd8c76ca`.
-LibreWinForms is aligned through `7d22e30b1983c908127095373bdf9a83e24f5673`
+The selected ProGPU commit is `b88034192307d0f12f76af1461b54441c4041cf3`.
+LibreWinForms is aligned through `01243b3bc7999ce879fc793c4ed291fe841d8219`
 in [dependency PR #29](https://github.com/wieslawsoltes/LibreWinForms/pull/29).
 Its base `12b4a1be0` has the same tree as the earlier `5aa13b540` pin; only the
 ProGPU gitlink and alignment documentation change. Both consumer pins now match.
@@ -58,11 +58,14 @@ describe the source ownership and package guards retained in LibreWPF.
 
 ## Merge blockers
 
-1. ProGPU local native suites now pass 19/19. Fresh compiler/platform CI still
-   must pass. Hosted MSVC compiled at `978a62eb` but its cached Viewport3D image
-   test lost left-sibling pixels; local Metal and hosted Linux Vulkan pass that
-   suite. This Windows-specific GPU failure remains open. The separate Windows
-   aliased-path size-query fixture now expects insufficient-buffer correctly.
+1. ProGPU local native suites pass 19/19 at `160cb12b`; twenty repeated local
+   Direct2D WebGPU runs also pass. Hosted MSVC still loses the left cached
+   Viewport3D sibling, while GCC/Vulkan loses a nested sibling. This is not
+   Windows-only. Linux ARM64 passed all 23 C++ suites but failed a later exact
+   front/back lighting check. That fixture reversed winding without normals;
+   `c6b8821e` corrects the source normals and the exact local Metal gate now
+   passes. `b8803419` adds failure-only coverage/cache diagnostics without
+   changing assertions. Fresh CI and the cached-sibling repair remain open.
 2. Local managed renderer and headless suites are green at the current source
    state. Their fresh hosted jobs and the platform-specific cases skipped on
    macOS still require validation.
@@ -85,3 +88,14 @@ The additional hour began at 11:58 UTC with a 12:58 UTC target. The merge target
 is not achieved. The dependent PRs remain drafts; do not force-merge red checks, activate
 auto-merge, or describe the broader DirectX/Direct2D/Win2D goal as complete.
 Feature freeze remains active: fix these release blockers before broader APIs.
+
+## Windows reproduction at 14:00 UTC
+
+The existing clean `C:\pgpu-rebase-2a998c86` VM checkout was fast-forwarded to
+`160cb12b` after verifying its source status and absence of active builds.
+PowerShell 7 runs the full `-BuildOnly -Rid win-arm64 -Compiler MSVC` production
+lane with both providers and test/sample targets. Both providers have linked;
+the remaining test compilation and runtime reproduction are pending. The first
+Windows PowerShell wrapper stopped after restore; the direct PowerShell 7 retry
+is recorded in `artifacts/release-build-160cb12b-win-arm64-retry.log` in the guest.
+No stale build, staged output or merely linked library is claimed as qualified.
