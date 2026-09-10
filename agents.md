@@ -1,5 +1,12 @@
 # Agent Guidance
 
+Source table consumers must use ProGPU's batched row/cell width and placement
+contracts over the original document tree. Keep native source line order even
+when table Y positions are nonmonotonic; implement cell-aware hit/vertical
+navigation before admitting tables. The typed adapter alone is not source
+integration. Do not infer automatic widths, flatten rows into vertical paragraphs,
+or hide row spans/fragmentation behind a passing fixed-column fixture.
+
 Portable BlockUIContainer uses the original source child, measured at ProGPU's
 resolved width and arranged in its native block box. Keep non-text metrics
 separate from TextLines, retain child visual parents during reflow, and invalidate

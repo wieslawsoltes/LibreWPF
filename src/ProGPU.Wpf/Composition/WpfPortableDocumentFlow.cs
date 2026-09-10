@@ -23,6 +23,30 @@ internal sealed class WpfPortableDocumentFlow : IPortableDocumentFlow
         => NativeDocumentFlow.ResolveWidths(MemoryMarshal.Cast<PortableDocumentBlock, NativeDocumentBlock>(blocks), width,
             MemoryMarshal.Cast<PortableDocumentBox, NativeDocumentBox>(boxes));
 
+    public void ResolveWidthsWithRows(ReadOnlySpan<PortableDocumentBlock> blocks, double width,
+        ReadOnlySpan<PortableDocumentRow> rows, ReadOnlySpan<double> columnWidths,
+        ReadOnlySpan<PortableDocumentCell> cells, Span<PortableDocumentBox> boxes)
+        => NativeDocumentFlow.ResolveWidthsWithRows(MemoryMarshal.Cast<PortableDocumentBlock, NativeDocumentBlock>(blocks), width,
+            MemoryMarshal.Cast<PortableDocumentRow, NativeDocumentRow>(rows), columnWidths,
+            MemoryMarshal.Cast<PortableDocumentCell, NativeDocumentCell>(cells),
+            MemoryMarshal.Cast<PortableDocumentBox, NativeDocumentBox>(boxes));
+
+    public PortableDocumentExtent ArrangeWithRows(ReadOnlySpan<PortableDocumentBlock> blocks, double width,
+        ReadOnlySpan<PortableDocumentLine> lines, ReadOnlySpan<PortableDocumentObject> objects,
+        ReadOnlySpan<PortableDocumentRow> rows, ReadOnlySpan<double> columnWidths,
+        ReadOnlySpan<PortableDocumentCell> cells, Span<PortableDocumentBox> boxes,
+        Span<PortableDocumentLinePosition> positions)
+    {
+        var extent = NativeDocumentFlow.ArrangeWithRows(MemoryMarshal.Cast<PortableDocumentBlock, NativeDocumentBlock>(blocks), width,
+            MemoryMarshal.Cast<PortableDocumentLine, NativeDocumentLine>(lines),
+            MemoryMarshal.Cast<PortableDocumentObject, NativeDocumentObject>(objects),
+            MemoryMarshal.Cast<PortableDocumentRow, NativeDocumentRow>(rows), columnWidths,
+            MemoryMarshal.Cast<PortableDocumentCell, NativeDocumentCell>(cells),
+            MemoryMarshal.Cast<PortableDocumentBox, NativeDocumentBox>(boxes),
+            MemoryMarshal.Cast<PortableDocumentLinePosition, NativeDocumentLinePosition>(positions));
+        return new(extent.Width, extent.Height);
+    }
+
     public PortableDocumentExtent ArrangeWithObjects(ReadOnlySpan<PortableDocumentBlock> blocks, double width,
         ReadOnlySpan<PortableDocumentLine> lines, ReadOnlySpan<PortableDocumentObject> objects,
         Span<PortableDocumentBox> boxes, Span<PortableDocumentLinePosition> positions)

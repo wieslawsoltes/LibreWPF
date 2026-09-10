@@ -15,6 +15,14 @@ do not automatically expand the release checklist.
 
 ## Active completion queue
 
+**Native table dependency — 2026-09-10:** ProGPU's shared document-flow passes now
+support fixed column tracks, horizontal rows, column spans and nested cells. The
+typed WPF adapter is connected, but source Table admission remains closed until
+actual row/cell export and cell-aware text interaction replace the global
+Y-ordered lookup. Continue the unchanged application's table path; do not count
+the adapter as application closure. See
+[document-row adapter](../reports/native-mil-document-row-adapter-2026-09-10.md).
+
 **Block-control connection — 2026-09-10:** the actual RichTextBox source child is
 now measured at the native width and arranged by ProGPU C++ alongside text.
 Selection, caret/vertical movement, size invalidation, edit, source undo and

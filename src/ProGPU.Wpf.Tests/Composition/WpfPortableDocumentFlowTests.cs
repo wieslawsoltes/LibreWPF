@@ -7,6 +7,32 @@ namespace ProGPU.Wpf.Tests.Composition;
 public class WpfPortableDocumentFlowTests
 {
     [Fact]
+    public void RowAdapterRetainsSharedColumnConstraintsAndSourceLineOrder()
+    {
+        IPortableDocumentFlow provider = new WpfPortableDocumentFlow();
+        PortableDocumentBlock[] blocks = [
+            new() { ParentIndex = uint.MaxValue, SubtreeEnd = 3 },
+            new() { ParentIndex = 0, SubtreeEnd = 2, LineCount = 2 },
+            new() { ParentIndex = 0, SubtreeEnd = 3, LineStart = 2, LineCount = 1 }];
+        PortableDocumentRow[] rows = [new() { BlockIndex = 0, ColumnCount = 2, CellSpacing = 2 }];
+        PortableDocumentCell[] cells = [
+            new() { BlockIndex = 1, ColumnCount = 1 },
+            new() { BlockIndex = 2, ColumnStart = 1, ColumnCount = 1 }];
+        double[] columns = [80, 120];
+        PortableDocumentBox[] boxes = new PortableDocumentBox[3];
+        provider.ResolveWidthsWithRows(blocks, 100, rows, columns, cells, boxes);
+        Assert.Equal(80, boxes[1].Width); Assert.Equal(120, boxes[2].Width);
+        PortableDocumentLine[] lines = [new() { Width = 40, Height = 12 },
+            new() { Width = 30, Height = 12 }, new() { Width = 60, Height = 16 }];
+        PortableDocumentLinePosition[] positions = new PortableDocumentLinePosition[3];
+        Assert.Equal(new PortableDocumentExtent(204, 26),
+            provider.ArrangeWithRows(blocks, 100, lines, [], rows, columns, cells, boxes, positions));
+        Assert.Equal(1, positions[0].X); Assert.Equal(83, positions[2].X);
+        Assert.Equal(1, positions[0].Y); Assert.Equal(13, positions[1].Y); Assert.Equal(1, positions[2].Y);
+        Assert.Equal(24, boxes[1].Height); Assert.Equal(24, boxes[2].Height);
+    }
+
+    [Fact]
     public void TypedAdapterPreservesNativeAdmissionWithoutLoadingADevice()
     {
         IPortableDocumentFlow provider = new WpfPortableDocumentFlow();
