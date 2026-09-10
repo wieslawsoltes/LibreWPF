@@ -318,6 +318,11 @@ public static class Program
         object first = Create(presentationFramework, "System.Windows.Documents.Run", "Inline ");
         object second = Create(presentationFramework, "System.Windows.Documents.Run", "document");
         object span = Create(presentationFramework, "System.Windows.Documents.Hyperlink", second);
+        // This pre-host fixture has no Application theme resource dictionary.
+        // Supply the source decoration explicitly; theme loading is exercised
+        // separately by the package MVP, not assumed by this formatting probe.
+        SetProperty(span, "TextDecorations", GetRequiredType(presentationCore, "System.Windows.TextDecorations")
+            .GetProperty("Underline", BindingFlags.Public | BindingFlags.Static)!.GetValue(null)!);
         AddToCollection(GetProperty(text, "Inlines"), first);
         AddToCollection(GetProperty(text, "Inlines"), span);
         Type size = GetRequiredType(windowsBase, "System.Windows.Size");
