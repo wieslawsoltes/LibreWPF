@@ -78,6 +78,7 @@ internal sealed class PortableFlowDocumentTextView(FlowDocumentView owner, FlowD
         int index = Math.Max(first, low - 1);
         double bottom = Position(index).Y + Layout.Lines[index].Advance;
         if (point.Y > bottom && index + 1 < limit && point.Y - bottom > Position(index + 1).Y - point.Y) ++index;
+        index = SelectRowFragment(index, first, limit, point.X, false);
         var entry = Layout.Lines[index]; var origin = Position(index);
         if (!snapToText && (point.Y < origin.Y || point.Y >= origin.Y + entry.Advance ||
             point.X < origin.X + entry.Line.Start || point.X > origin.X + entry.Line.Start + entry.Line.WidthIncludingTrailingWhitespace)) return null;
@@ -165,8 +166,42 @@ internal sealed class PortableFlowDocumentTextView(FlowDocumentView owner, FlowD
         Rect box = ItemRect(index);
         if (point.Y > box.Bottom && index + 1 < end &&
             point.Y - box.Bottom > ItemRect(index + 1).Y - point.Y) box = ItemRect(++index);
+        index = SelectRowFragment(index, first, end, point.X, true);
+        box = ItemRect(index);
         if (!snapToText && (point.Y < box.Top || point.Y >= box.Bottom || point.X < box.Left || point.X > box.Right)) return null;
         return PositionFromItemX(index, point.X);
+    }
+
+    // Source order is not physical X order (in particular for RTL fragments).
+    // Keep the selected native row, then choose its closest retained ink span.
+    // This is a query over the drawing map, not a second paragraph layout.
+    private int SelectRowFragment(int index, int first, int end, double x, bool items)
+    {
+        if (!Layout.HasPositionedParagraphs) return index;
+        Rect Bounds(int candidate)
+        {
+            if (items) return ItemRect(candidate);
+            var line = Layout.Lines[candidate]; var origin = Position(candidate);
+            return new(origin.X + line.Line.Start, origin.Y,
+                line.Line.WidthIncludingTrailingWhitespace, line.Advance);
+        }
+        double top = Bounds(index).Top;
+        int start = index;
+        while (start > first && Bounds(start - 1).Top == top) --start;
+        int selected = index;
+        double nearest = double.PositiveInfinity;
+        for (int candidate = start; candidate < end; ++candidate)
+        {
+            Rect box = Bounds(candidate);
+            if (box.Top != top) break;
+            double distance = Math.Max(box.Left - x, Math.Max(0, x - box.Right));
+            if (distance < nearest)
+            {
+                selected = candidate;
+                nearest = distance;
+            }
+        }
+        return selected;
     }
 
     // Only source hierarchy and native boxes participate here. Horizontal rows

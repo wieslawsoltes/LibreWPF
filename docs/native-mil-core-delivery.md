@@ -15,6 +15,13 @@ do not automatically expand the release checklist.
 
 ## Active completion queue
 
+**Fragment point lookup — 2026-09-11:** the source viewer now selects by retained
+horizontal span within a native row, rather than always choosing its last fragment.
+Plain and table/object paths share the selection. Source compilation passes;
+behavioral checks, native vertical navigation, hard-line origins and automatic
+anchor ownership/admission remain required. See
+[point-selection evidence](../reports/native-mil-fragment-point-selection-2026-09-11.md).
+
 **Source positioned layout — 2026-09-11:** explicit source paragraph requests now
 carry retained fragment tops/extents through the shared native document arranger.
 The local native-host fixture verifies same-row placement, vertical clearance
