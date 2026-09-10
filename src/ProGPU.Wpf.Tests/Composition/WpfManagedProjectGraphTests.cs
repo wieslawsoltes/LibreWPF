@@ -14457,6 +14457,9 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("MVP live ScrollViewer MouseWheel delta", mvpMainWindowCodeBehind, StringComparison.Ordinal);
         Assert.Contains("TryRaiseLiveThumbDrag(", mvpMainWindowCodeBehind, StringComparison.Ordinal);
         Assert.Contains("input Thumb tab activation", mvpMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("target.BringIntoView();", mvpMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("hit == null || !IsInputElementWithinTarget(hit, target)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("BringIntoViewDelta=({layoutDeltaX:0.###}, {layoutDeltaY:0.###})", mvpMainWindowCodeBehind, StringComparison.Ordinal);
         Assert.Contains("IsMouseOver={target.IsMouseOver}", mvpMainWindowCodeBehind, StringComparison.Ordinal);
         Assert.Contains("!ReferenceEquals(Mouse.Captured, target)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
         Assert.Contains("InputThumbDragStartedCount <= startedBefore", mvpMainWindowCodeBehind, StringComparison.Ordinal);
