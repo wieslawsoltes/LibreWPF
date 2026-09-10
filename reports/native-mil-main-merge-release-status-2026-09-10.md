@@ -9,8 +9,8 @@ LibreWPF also merges `progpu-rendering-port` at `d877d7aeff226d121784fb0723e0507
 including canonical WinForms changes; fifteen conflicts are resolved.
 These are history-preserving merges, not destructive rebases of the shared PRs.
 
-The selected ProGPU commit is `978a62eb06ad5435e128d540f3e25d95a7c2cf95`.
-LibreWinForms is aligned through `f0b79cf2b73ebd22f4c185d1ff3bb62828d19e0e`
+The selected ProGPU commit is `160cb12b87bc45f736df23425d5c0a7bdd8c76ca`.
+LibreWinForms is aligned through `7d22e30b1983c908127095373bdf9a83e24f5673`
 in [dependency PR #29](https://github.com/wieslawsoltes/LibreWinForms/pull/29).
 Its base `12b4a1be0` has the same tree as the earlier `5aa13b540` pin; only the
 ProGPU gitlink and alignment documentation change. Both consumer pins now match.
@@ -40,6 +40,15 @@ correcting its positive opacity-brush setup. A Windows test-buffer type mismatch
 found by MSVC is corrected, pending fresh Windows CI. See the
 [stroke preparation report](../external/ProGPU/docs/native-mil-sharp-stroke-spine-2026-09-10.md).
 
+Latest follow-up: grouped/direct source radius normalization and canonical ellipse
+strokes agree, and cached coverage tests use the correct once-composited opacity
+reference. Full local native tests pass 19/19; managed renderer tests pass 4,576
+with seven existing platform skips; headless tests pass 280/280. The focused
+cached-picture run passes 39/39. Native contract verification passes. The final
+MIL fixture repair registers PathGeometry with its actual type ID, preserving
+all gap/dash assertions. See the pinned
+[grouped stroke validation report](https://github.com/wieslawsoltes/ProGPU/blob/160cb12b87bc45f736df23425d5c0a7bdd8c76ca/docs/native-mil-group-stroke-validation-2026-09-10.md).
+
 See the pinned ProGPU documentation:
 [main integration](../external/ProGPU/docs/native-mil-main-integration-2026-09-10.md),
 [render-target fixes](../external/ProGPU/docs/native-mil-render-target-corrections-2026-09-10.md),
@@ -49,14 +58,18 @@ describe the source ownership and package guards retained in LibreWPF.
 
 ## Merge blockers
 
-1. ProGPU local native suites are now 18/19 passing. MIL reaches a later group
-   fixture using old post-widen transforms to identify children. The native suite
-   and fresh compiler/platform CI still must pass before release.
-2. The managed full run has 4,569 passes, seven platform skips and four cached
-   stroke image failures. The newly added edge regression passes separately.
+1. ProGPU local native suites now pass 19/19. Fresh compiler/platform CI still
+   must pass. Hosted MSVC compiled at `978a62eb` but its cached Viewport3D image
+   test lost left-sibling pixels; local Metal and hosted Linux Vulkan pass that
+   suite. This Windows-specific GPU failure remains open. The separate Windows
+   aliased-path size-query fixture now expects insufficient-buffer correctly.
+2. Local managed renderer and headless suites are green at the current source
+   state. Their fresh hosted jobs and the platform-specific cases skipped on
+   macOS still require validation.
 3. SVG W3C reports 21 resolved known differences requiring image review before
    expected-results maintenance. The prior artifacts deleted those passing PNGs;
-   a fresh run must publish them. Do not relax image thresholds.
+   run `34479034756` now retains them in artifact `10153029058`. Complete visual
+   review remains pending. Do not relax image thresholds.
 4. The canonical LibreWinForms dependency pin is now aligned in PR #29 and selected
    here. That dependency PR and the actual canonical integration/package gates
    still require validation and ordered merge. The exact source-graph check is
@@ -69,6 +82,6 @@ describe the source ownership and package guards retained in LibreWPF.
    correctly rejected a cancelled exact-ProGPU build. New heads require new CI.
 
 The additional hour began at 11:58 UTC with a 12:58 UTC target. The merge target
-is not achieved. Both PRs remain drafts; do not force-merge red checks, activate
+is not achieved. The dependent PRs remain drafts; do not force-merge red checks, activate
 auto-merge, or describe the broader DirectX/Direct2D/Win2D goal as complete.
 Feature freeze remains active: fix these release blockers before broader APIs.
