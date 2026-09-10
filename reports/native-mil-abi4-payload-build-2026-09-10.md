@@ -35,7 +35,7 @@ Each contains both provider dylibs and the compression, hit-testing, image,
 MIL, scene-builder and text SDK archives. These are unqualified build inputs,
 not an updated published feed or final package-consumption result.
 
-## Windows build in progress
+## Windows ARM64 input completed; x64 build in progress
 
 The Parallels CLI skill guided VM state/Tools inspection and graceful startup of
 the existing suspended Windows VM `9d6a85ae-607e-4508-bb6d-f79a2a0f0059`.
@@ -57,21 +57,33 @@ eng/build-progpu-native-windows.ps1 -Rid win-arm64 -Compiler MSVC -BuildOnly
 Dependencies restored with .NET SDK 10.0.401. Configuration selected the actual
 ARM64 compiler at `C:\BuildTools2026\VC\Tools\MSVC\14.51.36231\bin\Hostarm64\arm64\cl.exe`
 (MSVC 19.51.36257), matching ARM64 wgpu input, and the full 357-step graph.
-At this checkpoint compilation is still active; `cmake`, `ninja` and six `cl`
-processes were observed, and the live output advanced through step 89. This is
-not a successful Windows build or a staged Windows payload claim.
+All 357 steps completed and the build-only entry point exited successfully.
+Both WebGPU providers, the Direct2D COM DLL, all SDK libraries and configured
+test/sample executables compiled; no resulting executable ran.
 
-Resume the existing build rather than start a duplicate. The host execution
-session is `68235`; the guest transcript is
+The complete ARM64 RID directory was copied into the isolated host worktree at
+`artifacts/progpu-native/package/runtimes/win-arm64/native`. It contains three
+DLLs and seven SDK libraries, including the Dawn import library. Source HEAD and
+tracked cleanliness were checked before copying, and the host files were observed
+afterwards. This is unqualified package-input staging, not Windows application
+or Direct2D runtime parity evidence. The completed guest transcript is
 `C:\pgpu-rebase-2a998c86\artifacts\rebase-build-win-arm64.log`.
+
+The subsequent `-Rid win-x64 -Compiler MSVC -BuildOnly` invocation is active;
+restore has reported up to date. Resume host execution session `18036` rather
+than starting another build. Its transcript is
+`C:\pgpu-rebase-2a998c86\artifacts\rebase-build-win-x64.log`.
 The scoped local runner is
 `artifacts/native-core-build.KvxVug/windows-rebase-build.ps1`; omit `-Prepare`
-on an inspected retry or for the subsequent `-Rid win-x64` build.
+on an inspected retry. After successful x64 staging, the adjacent
+`windows-rebase-stage.ps1 -Rid win-x64` copies the complete RID directory to the
+host, rejecting an existing destination or missing successful staging record.
+Neither runner weakens the production script's payload requirements.
 
 ## Remaining delivery inputs and gates
 
-Finish Windows ARM64, then x64, and copy complete RID payload directories only
-after successful staging. The historical Linux Docker context
+Finish Windows x64 and copy its complete RID payload directory only after
+successful staging. The historical Linux Docker context
 `colima-progpu-native-build` is no longer present; fresh Linux build preparation
 must inspect current infrastructure instead of assuming the old container exists.
 Windows managed/IJW and complete SDK package inputs also need current-source
