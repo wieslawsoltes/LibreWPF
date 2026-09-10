@@ -69,9 +69,11 @@ afterwards. This is unqualified package-input staging, not Windows application
 or Direct2D runtime parity evidence. The completed guest transcript is
 `C:\pgpu-rebase-2a998c86\artifacts\rebase-build-win-arm64.log`.
 
-The subsequent `-Rid win-x64 -Compiler MSVC -BuildOnly` invocation is active;
-restore has reported up to date. Resume host execution session `18036` rather
-than starting another build. Its transcript is
+The subsequent `-Rid win-x64 -Compiler MSVC -BuildOnly` invocation is active.
+Configuration selected MSVC 19.51.36257 at
+`C:\BuildTools2026\VC\Tools\MSVC\14.51.36231\bin\Hostx64\x64\cl.exe`, and the
+live full build advanced through step 60/357. Resume host execution session
+`18036` rather than starting another build. Its transcript is
 `C:\pgpu-rebase-2a998c86\artifacts\rebase-build-win-x64.log`.
 The scoped local runner is
 `artifacts/native-core-build.KvxVug/windows-rebase-build.ps1`; omit `-Prepare`
@@ -80,12 +82,53 @@ on an inspected retry. After successful x64 staging, the adjacent
 host, rejecting an existing destination or missing successful staging record.
 Neither runner weakens the production script's payload requirements.
 
+## Linux input refresh
+
+Further read-only inventory found the preserved `progpu-native-build` Colima
+profile stopped, with the previous successful containers and toolchain images
+intact. Resuming this named profile restored its Docker context. The context's
+earlier absence was not loss of the build environment. The default Docker context
+stays `default`; the VM retains 4 CPUs/4 GiB, no home/workspace mount, no forwarded
+SSH agent and no application port forwarding. Its only host mount is Colima's
+read-only cache. No old container or image was deleted or restarted.
+
+A full Git archive of clean ProGPU `2a998c86` supplies a fresh
+`/work/progpu-2a998c86` source directory; it is not overlaid onto older source.
+Host archive: `artifacts/native-core-build.KvxVug/linux-native-source-2a998c86.tar`.
+SHA-256: `9f90222d28c6496e57a4b06baeeecde8aac311a854f6764678f6ce40eeb1ddc5`.
+The existing toolchain/dependency cache is reused separately. Actual tools are
+Clang 18.1.3, CMake 3.28.3, Ninja 1.11.1 and .NET SDK 10.0.201. Containers retain
+4 CPU/3500 MiB limits, three native build jobs, no mounts and no privileged mode.
+
+Both containers completed the full 711-step C++20 module graph and exited 0:
+
+| Container | Explicit build-only target | Elapsed container time |
+| --- | --- | --- |
+| `progpu-native-linux-arm64-2a998c86` | `--rid linux-arm64` | 2m 46s |
+| `progpu-native-linux-x64-2a998c86` | `--rid linux-x64` | 2m 26s |
+
+Each invokes `eng/build-progpu-native.sh --build-only` with the target above.
+x64 uses the real GNU cross-toolchain; no target emulator or RID relabel is used.
+Both providers, all six SDK archives and configured tests/samples compiled;
+no resulting executable ran. Complete RID directories were copied after observed
+successful staging to the clean host ProGPU worktree's
+`artifacts/progpu-native/package/runtimes`. Both providers and six archives were
+observed in each host directory. Docker retains each terminal container and log.
+After confirming no running container remained, the dedicated Colima profile
+stopped gracefully. Containers, toolchain caches and host payloads are preserved;
+the default Docker context and Parallels VM state are unchanged by that shutdown.
+
+The isolated LibreWPF `wpf-rebase` build worktree now selects committed source
+`07d7233aa` and its exact ProGPU `2a998c86` gitlink. Its earlier local adapter
+changes were first confirmed identical to committed files and preserved on local
+branch `build/native-mil-rebase-compiled-checkpoint` (`c031aee79`); they were not
+discarded. This prepares clean package source, not completed package production.
+
 ## Remaining delivery inputs and gates
 
 Finish Windows x64 and copy its complete RID payload directory only after
-successful staging. The historical Linux Docker context
-`colima-progpu-native-build` is no longer present; fresh Linux build preparation
-must inspect current infrastructure instead of assuming the old container exists.
+successful staging. All four Unix RID directories and Windows ARM64 now carry
+ABI 4 inputs from the same ProGPU source; Windows x64 is still incomplete.
 Windows managed/IJW and complete SDK package inputs also need current-source
 production through the existing explicit build-packages-only lane.
 
