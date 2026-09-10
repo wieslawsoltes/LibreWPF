@@ -14711,8 +14711,11 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("SourceFiles=\"@(_ProGpuWpfCanonicalIntegrationRuntimeAsset)\"", portableTargets, StringComparison.Ordinal);
         Assert.Contains("DestinationFolder=\"$(TargetDir)\"", portableTargets, StringComparison.Ordinal);
         Assert.Contains("LibreWPF SDK did not deploy LibreWinForms.Platform.dll from the canonical runtime closure", portableTargets, StringComparison.Ordinal);
-        Assert.Contains("$(_ProGpuWpfCanonicalWinFormsPackageRoot)librewinforms.progpu/$(ProGpuWpfLibreWinFormsBackendPackageVersion)/lib/$(_ProGpuWpfCanonicalWinFormsRuntimeTfm)/*.dll", portableTargets, StringComparison.Ordinal);
-        Assert.Contains("$(_ProGpuWpfCanonicalWinFormsPackageRoot)librewinforms.windowsformsintegration/$(ProGpuWpfLibreWinFormsPackageVersion)/lib/$(_ProGpuWpfCanonicalWinFormsRuntimeTfm)/*.dll", portableTargets, StringComparison.Ordinal);
+        Assert.Contains("<_ProGpuWpfCanonicalFormsReferenceAnchor Include=\"@(ReferencePath)\"", portableTargets, StringComparison.Ordinal);
+        Assert.Contains("<_ProGpuWpfCanonicalBackendReferenceAnchor Include=\"@(ReferencePath)\"", portableTargets, StringComparison.Ordinal);
+        Assert.Contains("<_ProGpuWpfCanonicalIntegrationReferenceAnchor Include=\"@(ReferencePath)\"", portableTargets, StringComparison.Ordinal);
+        Assert.Contains("$(_ProGpuWpfCanonicalFormsReferenceDirectory)').Replace('/ref/', '/lib/')", portableTargets, StringComparison.Ordinal);
+        Assert.Contains("<_ProGpuWpfCanonicalFormsRuntimeAsset Include=\"$(_ProGpuWpfCanonicalFormsRuntimeRoot)/*.dll\"", portableTargets, StringComparison.Ordinal);
         Assert.Contains("<NuGetPackageId>LibreWinForms.ProGPU</NuGetPackageId>", portableTargets, StringComparison.Ordinal);
         Assert.Contains("could not preserve the complete canonical LibreWinForms runtime closure", portableTargets, StringComparison.Ordinal);
         Assert.Contains("$(TargetDir)LibreWinForms.Platform.dll", portableTargets, StringComparison.Ordinal);
