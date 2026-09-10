@@ -14706,6 +14706,10 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("_ProGpuWpfSdkPreservePortableWinFormsRuntimeAssetsInDependencyFile", portableTargets, StringComparison.Ordinal);
         Assert.Contains("AfterTargets=\"Build\"", portableTargets, StringComparison.Ordinal);
         Assert.Contains("Include=\"@(_ProGpuWpfCanonicalFormsRuntimeAsset);@(_ProGpuWpfCanonicalBackendRuntimeAsset);@(_ProGpuWpfCanonicalIntegrationRuntimeAsset)\"", portableTargets, StringComparison.Ordinal);
+        Assert.Contains("SourceFiles=\"@(_ProGpuWpfCanonicalFormsRuntimeAsset)\"", portableTargets, StringComparison.Ordinal);
+        Assert.Contains("SourceFiles=\"@(_ProGpuWpfCanonicalBackendRuntimeAsset)\"", portableTargets, StringComparison.Ordinal);
+        Assert.Contains("SourceFiles=\"@(_ProGpuWpfCanonicalIntegrationRuntimeAsset)\"", portableTargets, StringComparison.Ordinal);
+        Assert.Contains("DestinationFolder=\"$(TargetDir)\"", portableTargets, StringComparison.Ordinal);
         Assert.Contains("LibreWPF SDK did not deploy LibreWinForms.Platform.dll from the canonical runtime closure", portableTargets, StringComparison.Ordinal);
         Assert.Contains("$(_ProGpuWpfCanonicalWinFormsPackageRoot)librewinforms.progpu/$(ProGpuWpfLibreWinFormsBackendPackageVersion)/lib/$(_ProGpuWpfCanonicalWinFormsRuntimeTfm)/*.dll", portableTargets, StringComparison.Ordinal);
         Assert.Contains("$(_ProGpuWpfCanonicalWinFormsPackageRoot)librewinforms.windowsformsintegration/$(ProGpuWpfLibreWinFormsPackageVersion)/lib/$(_ProGpuWpfCanonicalWinFormsRuntimeTfm)/*.dll", portableTargets, StringComparison.Ordinal);

@@ -532,6 +532,18 @@
           DestinationFiles="@(_ProGpuWpfPortableWinFormsCompatRuntimeAsset->'$(TargetDir)%(DestinationSubDirectory)%(Filename)%(Extension)')"
           SkipUnchangedFiles="false"
           Condition="'@(_ProGpuWpfPortableWinFormsCompatRuntimeAsset)' != ''" />
+    <Copy SourceFiles="@(_ProGpuWpfCanonicalFormsRuntimeAsset)"
+          DestinationFolder="$(TargetDir)"
+          SkipUnchangedFiles="false"
+          Condition="'$(ProGpuWpfUseCanonicalLibreWinForms)' == 'true'" />
+    <Copy SourceFiles="@(_ProGpuWpfCanonicalBackendRuntimeAsset)"
+          DestinationFolder="$(TargetDir)"
+          SkipUnchangedFiles="false"
+          Condition="'$(ProGpuWpfUseCanonicalLibreWinForms)' == 'true'" />
+    <Copy SourceFiles="@(_ProGpuWpfCanonicalIntegrationRuntimeAsset)"
+          DestinationFolder="$(TargetDir)"
+          SkipUnchangedFiles="false"
+          Condition="'$(ProGpuWpfUseCanonicalLibreWinForms)' == 'true'" />
     <Error Condition="'$(ProGpuWpfUseCanonicalLibreWinForms)' == 'true' And !Exists('$(TargetDir)LibreWinForms.Platform.dll')"
            Text="LibreWPF SDK did not deploy LibreWinForms.Platform.dll from the canonical runtime closure." />
   </Target>
