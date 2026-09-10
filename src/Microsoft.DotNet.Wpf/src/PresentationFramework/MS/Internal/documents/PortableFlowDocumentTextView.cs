@@ -8,6 +8,7 @@ using System.Windows.Documents;
 using System.Windows.Controls.Primitives;
 using System.Windows.Media;
 using System.Windows.Media.TextFormatting;
+using MS.Internal.TextFormatting;
 
 namespace MS.Internal.Documents;
 
@@ -403,6 +404,70 @@ internal sealed class PortableFlowDocumentTextView(FlowDocumentView owner, FlowD
     {
         RequirePosition(position);
         newSuggestedX = suggestedX; linesMoved = 0;
+        if (page == null && Layout.HasPositionedParagraphs)
+        {
+            if (count == 0) return position.GetFrozenPointer(position.LogicalDirection);
+            if (double.IsNaN(newSuggestedX)) newSuggestedX = GetRectangleFromTextPosition(position).X;
+            if (!double.IsFinite(newSuggestedX)) throw new ArgumentOutOfRangeException(nameof(suggestedX));
+            double x = newSuggestedX + ScrollOffset.X;
+            bool items = Layout.HasTables || Layout.Objects.Count != 0;
+            int limit = items ? Layout.Items.Count : EndLine;
+            int current = items ? FindItem(position) : FindLine(position);
+            int direction = Math.Sign(count);
+            long remaining = Math.Min(Math.Abs((long)count), limit);
+            while (remaining-- > 0)
+            {
+                int lineIndex = items ? Layout.Items[current].LineIndex : current;
+                if (lineIndex >= 0 && Layout.Lines[lineIndex].Line is PortableTextLine line && line.Fragment != null)
+                {
+                    CharacterHit hit = Hit(lineIndex, position);
+                    if (line.TryMoveFragmentCaret(hit.FirstCharacterIndex + hit.TrailingLength,
+                        hit.TrailingLength != 0, direction > 0, x - Position(lineIndex).X,
+                        out int offset, out bool trailing, out int delta) && delta != 0)
+                    {
+                        int targetLine = lineIndex + delta;
+                        if (targetLine < FirstLine || targetLine >= EndLine ||
+                            !ReferenceEquals(Layout.Lines[targetLine].Paragraph, Layout.Lines[lineIndex].Paragraph))
+                            throw new InvalidOperationException("Native fragment movement left its source paragraph.");
+                        current += delta; // A paragraph's retained fragments are contiguous items.
+                        position = Pointer(offset, trailing ? LogicalDirection.Backward : LogicalDirection.Forward);
+                        linesMoved += direction;
+                        continue;
+                    }
+                }
+                // At a native paragraph boundary, leave its entire physical row.
+                // Table hierarchy still owns transitions out of a source cell.
+                int next = current;
+                double top = items ? ItemRect(current).Top : Position(current).Y;
+                bool found = false;
+                while (true)
+                {
+                    int candidate;
+                    if (Layout.HasTables)
+                    {
+                        if (!TryNextNavigationItem(next, direction, x, out candidate)) break;
+                    }
+                    else
+                    {
+                        candidate = next + direction;
+                        if (candidate < 0 || candidate >= limit) break;
+                    }
+                    next = candidate;
+                    if ((items ? ItemRect(next).Top : Position(next).Y) != top) { found = true; break; }
+                }
+                if (!found) break;
+                int first = 0, end = limit;
+                if (Layout.HasTables)
+                {
+                    int block = Layout.ItemBlock(next);
+                    first = Layout.FirstItem(block); end = Layout.EndItem(block);
+                }
+                current = SelectRowFragment(next, first, end, x, items);
+                position = items ? PositionFromItemX(current, x) : PositionFromDistance(current, x - Position(current).X);
+                linesMoved += direction;
+            }
+            return position.GetFrozenPointer(position.LogicalDirection);
+        }
         if (page == null && Layout.HasTables)
         {
             if (count == 0) return position.GetFrozenPointer(position.LogicalDirection);

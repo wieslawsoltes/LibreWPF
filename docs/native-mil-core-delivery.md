@@ -15,6 +15,13 @@ do not automatically expand the release checklist.
 
 ## Active completion queue
 
+**Viewer native row movement — 2026-09-11:** scrolling text-view Up/Down now
+consumes the retained native fragment caret adapter and preserves source table
+hierarchy at paragraph boundaries. Build and existing host regressions pass;
+positioned-viewer runtime coverage, hard-line origins and automatic anchor
+ownership/admission remain open. See
+[viewer evidence](../reports/native-mil-viewer-fragment-navigation-2026-09-11.md).
+
 **Source fragment caret adapter — 2026-09-11:** source TextLines now delegate
 physical row movement to the retained native paragraph and return original source
 offsets/affinities. The source native-host Down checks pass for both same-row
