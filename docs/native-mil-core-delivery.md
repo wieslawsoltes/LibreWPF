@@ -15,6 +15,13 @@ do not automatically expand the release checklist.
 
 ## Active completion queue
 
+**Exclusion provider connection — 2026-09-11:** the WPF adapter now retains
+native fragment tops, extents, inline placements and caret navigation through
+the explicit ProGPU capability. Local source-built native host checks pass.
+Actual Figure/Floater child placement and document-position mapping remain
+required, as do package/platform qualification and the browser readback CI fix.
+See [provider evidence](../reports/native-mil-exclusion-provider-2026-09-11.md).
+
 **Merge producer alignment — 2026-09-10:** consume ProGPU `3fbbd1fb` and
 canonical LibreWinForms `daf792a3`. Native fragment/exclusion transport and the
 investigated SVG checksum correction are now in the selected source graph.
