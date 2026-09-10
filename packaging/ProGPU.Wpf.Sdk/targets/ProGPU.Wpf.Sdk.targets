@@ -497,8 +497,7 @@
 
   <Target Name="_ProGpuWpfSdkCopyPortableWinFormsCompatRuntimeAssets"
           DependsOnTargets="ResolveLockFileCopyLocalFiles;_ProGpuWpfSdkPreservePortableWinFormsRuntimeAssetsInDependencyFile"
-          AfterTargets="CopyFilesToOutputDirectory"
-          BeforeTargets="_ProGpuWpfSdkCopyPackageRuntimeAssets"
+          AfterTargets="Build"
           Condition="'$(ProGpuWpfUsePortableFrameworkReferences)' == 'true' And '$(ProGpuWpfUsePortableWinFormsCompat)' == 'true'">
     <PropertyGroup>
       <_ProGpuWpfNuGetPackagesEnvironment>$([System.Environment]::GetEnvironmentVariable('NUGET_PACKAGES'))</_ProGpuWpfNuGetPackagesEnvironment>
@@ -533,6 +532,8 @@
           DestinationFiles="@(_ProGpuWpfPortableWinFormsCompatRuntimeAsset->'$(TargetDir)%(DestinationSubDirectory)%(Filename)%(Extension)')"
           SkipUnchangedFiles="false"
           Condition="'@(_ProGpuWpfPortableWinFormsCompatRuntimeAsset)' != ''" />
+    <Error Condition="'$(ProGpuWpfUseCanonicalLibreWinForms)' == 'true' And !Exists('$(TargetDir)LibreWinForms.Platform.dll')"
+           Text="LibreWPF SDK did not deploy LibreWinForms.Platform.dll from the canonical runtime closure." />
   </Target>
 
   <Target Name="_ProGpuWpfSdkCopyNativeRuntimeAssets"
