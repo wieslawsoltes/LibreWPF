@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Media.ProGPU;
 using System.Windows.Media.ProGPU.Platform;
+using ProGPU.Backend;
 using ProGPU.Wpf.Interop;
 using Xunit;
 
@@ -69,6 +70,7 @@ public sealed class WpfPortableWindowActivationTests
         using var fileDialogRegistration = PortableWpfServiceRegistry.RegisterFileDialogService(fileDialogService);
         var launcherRegisterCountBefore = launcherService.RegisterCount;
         var messageBoxRegisterCountBefore = messageBoxService.RegisterCount;
+        var messageBoxFallbackRegisterCountBefore = messageBoxService.FallbackRegisterCount;
         var fileDialogRegisterCountBefore = fileDialogService.RegisterCount;
 
         var launcherRegistered = WpfPortableWindowActivation.TryRegisterPresentationFrameworkLauncherService();
@@ -80,7 +82,9 @@ public sealed class WpfPortableWindowActivationTests
         Assert.True(fileDialogRegistered);
         Assert.Equal(launcherRegisterCountBefore + 1, launcherService.RegisterCount);
         Assert.Equal(messageBoxRegisterCountBefore + 1, messageBoxService.RegisterCount);
-        Assert.Equal(1, messageBoxService.FallbackRegisterCount);
+        Assert.Equal(
+            messageBoxFallbackRegisterCountBefore + 1,
+            messageBoxService.FallbackRegisterCount);
         Assert.Equal(fileDialogRegisterCountBefore + 1, fileDialogService.RegisterCount);
         Assert.NotNull(launcherService.Launch);
         Assert.NotNull(messageBoxService.Show);
@@ -93,12 +97,13 @@ public sealed class WpfPortableWindowActivationTests
         var service = new TestMessageBoxServiceRegistrar(PortableWpfServiceKey.WinForms);
         using var registration = PortableWpfServiceRegistry.RegisterMessageBoxService(service);
         var registerCountBefore = service.RegisterCount;
+        var fallbackRegisterCountBefore = service.FallbackRegisterCount;
 
         var registered = WpfPortableWindowActivation.TryRegisterWinFormsCompatMessageBoxService();
 
         Assert.True(registered);
         Assert.Equal(registerCountBefore + 1, service.RegisterCount);
-        Assert.Equal(1, service.FallbackRegisterCount);
+        Assert.Equal(fallbackRegisterCountBefore + 1, service.FallbackRegisterCount);
         Assert.NotNull(service.Show);
     }
 
@@ -222,6 +227,49 @@ public sealed class WpfPortableWindowActivationTests
 
         activation.Dispose();
         Assert.False(service.Callbacks.SetWindowRegion(source.Handle, region));
+    }
+
+    [Fact]
+    public void PortablePresentationHandleRegistersTypedNativeWindowOwner()
+    {
+        using var host = new ProGpuWpfWindowHost();
+        var window = new FakeWindow();
+        var source = new FakePortablePresentationSource
+        {
+            Handle = new IntPtr(0x505701)
+        };
+
+        Assert.True(WpfPortableWindowActivation.TryAttach(host, window, source, out var activation));
+        Assert.NotNull(activation);
+        Assert.True(NativeWindowOwnerRegistry.TryResolve(source.Handle, out INativeWindowOwner? owner));
+        Assert.Same(activation, owner);
+        Assert.False(NativeWindowOwnerRegistry.TryResolveNativeHandle(source.Handle, out _));
+
+        activation.Dispose();
+
+        Assert.False(NativeWindowOwnerRegistry.TryResolve(source.Handle, out _));
+    }
+
+    [Fact]
+    public void PortablePresentationHandleIsRegisteredBeforeRootVisualAttachment()
+    {
+        using var host = new ProGpuWpfWindowHost();
+        var window = new FakeWindow();
+        var source = new FakePortablePresentationSource
+        {
+            Handle = new IntPtr(0x505702)
+        };
+        INativeWindowOwner? ownerObservedDuringAttachment = null;
+        source.RootVisualChanged = _ =>
+        {
+            Assert.True(NativeWindowOwnerRegistry.TryResolve(source.Handle, out ownerObservedDuringAttachment));
+        };
+
+        Assert.True(WpfPortableWindowActivation.TryAttach(host, window, source, out var activation));
+        Assert.NotNull(activation);
+        Assert.Same(activation, ownerObservedDuringAttachment);
+
+        activation.Dispose();
     }
 
     [Fact]
@@ -1570,6 +1618,35 @@ public sealed class WpfPortableWindowActivationTests
     }
 
     [Fact]
+    public void PostedIdleDispatcherWorkIsCoalescedAndFlushedOnNextHostUpdate()
+    {
+        var service = new TestWindowActivationServiceRegistrar();
+        using var serviceRegistration = PortableWpfServiceRegistry.RegisterWindowActivationService(service);
+        using var host = new ProGpuWpfWindowHost();
+        var window = new FakeWindow();
+        var source = new FakePortablePresentationSource();
+
+        Assert.True(WpfPortableWindowActivation.TryAttach(host, window, source, out var activation));
+        Assert.NotNull(activation);
+        Assert.Equal(1, service.DispatcherIdleWorkRegisterCount);
+
+        service.FlushedPriorities.Clear();
+        service.PostDispatcherIdleWork();
+        service.PostDispatcherIdleWork();
+        RaiseHostUpdate(host);
+
+        Assert.Equal(new[] { "Background", "ApplicationIdle" }, service.FlushedPriorities);
+
+        service.FlushedPriorities.Clear();
+        RaiseHostUpdate(host);
+
+        Assert.Equal(new[] { "Background" }, service.FlushedPriorities);
+
+        activation.Dispose();
+        Assert.True(service.LastDispatcherIdleWorkRegistration?.IsDisposed);
+    }
+
+    [Fact]
     public void RenderWakeupTreatsSuspendedTypedDispatcherFlushAsDeferred()
     {
         var service = new TestWindowActivationServiceRegistrar
@@ -1853,6 +1930,13 @@ public sealed class WpfPortableWindowActivationTests
         typeof(ProGpuWpfWindowHost)
             .GetMethod("OnPlatformDragDropReceived", BindingFlags.Instance | BindingFlags.NonPublic)!
             .Invoke(host, new object?[] { null, args });
+    }
+
+    private static void RaiseHostUpdate(ProGpuWpfWindowHost host)
+    {
+        typeof(ProGpuWpfWindowHost)
+            .GetMethod("OnUpdate", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(host, new object[] { 0d });
     }
 
     private sealed class FakeWindow : IPortableWindowStateSource
@@ -2490,6 +2574,12 @@ public sealed class WpfPortableWindowActivationTests
 
         public TestPortableServiceRegistration? LastMediaContextRenderRegistration { get; private set; }
 
+        public int DispatcherIdleWorkRegisterCount { get; private set; }
+
+        public Action? DispatcherIdleWorkPosted { get; private set; }
+
+        public TestPortableServiceRegistration? LastDispatcherIdleWorkRegistration { get; private set; }
+
         public int SetActivationStateCount { get; private set; }
 
         public object? LastActivationStateWindow { get; private set; }
@@ -2673,6 +2763,24 @@ public sealed class WpfPortableWindowActivationTests
             return true;
         }
 
+        public bool TryRegisterDispatcherIdleWorkNotification(
+            object window,
+            Action workPosted,
+            out IDisposable? registration)
+        {
+            DispatcherIdleWorkRegisterCount++;
+            DispatcherIdleWorkPosted = workPosted;
+            LastDispatcherIdleWorkRegistration = new TestPortableServiceRegistration(
+                () => DispatcherIdleWorkPosted = null);
+            registration = LastDispatcherIdleWorkRegistration;
+            return true;
+        }
+
+        public void PostDispatcherIdleWork()
+        {
+            DispatcherIdleWorkPosted?.Invoke();
+        }
+
         public bool TryProcessDragDropEvent(
             object window,
             int dragDropEventKind,
@@ -2705,6 +2813,8 @@ public sealed class WpfPortableWindowActivationTests
             LastMediaContextRenderWindow = null;
             RequestRender = null;
             LastMediaContextRenderRegistration = null;
+            DispatcherIdleWorkPosted = null;
+            LastDispatcherIdleWorkRegistration = null;
             LastActivationStateWindow = null;
             LastBeginInvokeInputWindow = null;
             LastBeginInvokeInputCallback = null;
@@ -2722,11 +2832,19 @@ public sealed class WpfPortableWindowActivationTests
 
     private sealed class TestPortableServiceRegistration : IDisposable
     {
+        private readonly Action? _dispose;
+
+        public TestPortableServiceRegistration(Action? dispose = null)
+        {
+            _dispose = dispose;
+        }
+
         public bool IsDisposed { get; private set; }
 
         public void Dispose()
         {
             IsDisposed = true;
+            _dispose?.Invoke();
         }
     }
 
@@ -2793,9 +2911,12 @@ public sealed class WpfPortableWindowActivationTests
             set
             {
                 _rootVisual = value;
+                RootVisualChanged?.Invoke(value);
                 RenderRequested?.Invoke(this, EventArgs.Empty);
             }
         }
+
+        public Action<object?>? RootVisualChanged { get; set; }
 
         public double ClientWidth { get; private set; }
 

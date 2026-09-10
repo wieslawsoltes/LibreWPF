@@ -10,7 +10,10 @@ on:
       - docs/**
       - reports/**
       - eng/progpu-preview-package-list.sh
+      - eng/ProGPU.Wpf.LibreWinFormsCompatValidation.proj
+      - eng/progpu-wpf-verify-librewinforms-compat.sh
       - eng/progpu-wpf-verify-docs.sh
+      - packaging/ProGPU.Wpf.Sdk/targets/ProGPU.Wpf.Sdk.targets
       - .github/workflows/progpu-wpf-*.yml
   push:
     branches:
@@ -20,7 +23,10 @@ on:
       - docs/**
       - reports/**
       - eng/progpu-preview-package-list.sh
+      - eng/ProGPU.Wpf.LibreWinFormsCompatValidation.proj
+      - eng/progpu-wpf-verify-librewinforms-compat.sh
       - eng/progpu-wpf-verify-docs.sh
+      - packaging/ProGPU.Wpf.Sdk/targets/ProGPU.Wpf.Sdk.targets
       - .github/workflows/progpu-wpf-*.yml
   workflow_dispatch:
 
@@ -39,8 +45,15 @@ jobs:
         with:
           submodules: true
 
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
       - name: Verify package docs
-        run: ./eng/progpu-wpf-verify-docs.sh
+        run: |
+          ./eng/progpu-wpf-verify-docs.sh
+          ./eng/progpu-wpf-verify-librewinforms-compat.sh
 
       - name: Upload docs snapshot
         uses: actions/upload-artifact@v4
