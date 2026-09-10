@@ -55,3 +55,15 @@ branch before that integration, not latest-main evidence. Upstream also changes
 files in the local submodule. Preserve that work; perform merge preparation in
 the clean native checkout before updating delivery inputs. No clean/stash/reset
 of the user's native edits or deleted performance artifacts was performed.
+
+Popup commits are pushed: ProGPU `549f1b55`, LibreWPF `7ded04a11`. Merge
+preparation is now active in
+`artifacts/native-core-build.KvxVug/progpu`, detached at `549f1b55`, with
+`73cda9a5` as MERGE_HEAD. Git reported 22 conflicted paths spanning the shared
+native header/generated contract, 3D/retained rendering and brush builders,
+shaders, tests, package verification and CI. No conflict was resolved by taking
+one implementation wholesale. Resolve the source contracts first, regenerate
+the managed contract, preserve both feature sets, then compile the combined
+tree. The current native build directories still describe the earlier unmerged
+renderer; they are not upstream-integration evidence. The active original
+submodule remains at the pushed popup commit with unrelated local work intact.
