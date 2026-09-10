@@ -15,7 +15,6 @@ permissions:
 
 env:
   PROGPU_WPF_QUALIFIED_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
-  PROGPU_WPF_PROGPU_PACKAGE_VERSION: 0.1.0-preview.62
 
 jobs:
   canonical-winforms-integration:
@@ -78,7 +77,9 @@ jobs:
 
   sdk-smoke:
     name: SDK package and no-source-change smoke
-    needs: windows-managed-runtime
+    needs:
+      - canonical-winforms-integration
+      - windows-managed-runtime
     runs-on: macos-15
     timeout-minutes: 90
 
@@ -100,41 +101,21 @@ jobs:
           name: librewpf-windows-managed-runtime-${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}
           path: artifacts/windows-managed-runtime
 
-      - name: Stage exact ProGPU release packages
+      - name: Download canonical LibreWinForms package closure
+        uses: actions/download-artifact@v4
+        with:
+          name: canonical-librewinforms-${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}
+          path: artifacts/packages/CanonicalWinForms
+
+      - name: Select exact ProGPU source package version
         shell: bash
         run: |
           set -euo pipefail
-          progpu_version="${PROGPU_WPF_PROGPU_PACKAGE_VERSION}"
-          tag="v${progpu_version}"
-          tag_ref="refs/tags/${tag}"
-          tag_commit="$(git ls-remote https://github.com/wieslawsoltes/ProGPU.git "${tag_ref}^{}" | awk 'NR == 1 { print $1 }')"
-          if [[ -z "${tag_commit}" ]]; then
-            tag_commit="$(git ls-remote https://github.com/wieslawsoltes/ProGPU.git "${tag_ref}" | awk 'NR == 1 { print $1 }')"
-          fi
-          if [[ -z "${tag_commit}" ]]; then
-            echo "Could not resolve ${tag}." >&2
-            exit 1
-          fi
           submodule_commit="$(git -C external/ProGPU rev-parse HEAD)"
-          if [[ "$(git -C external/ProGPU rev-parse --is-shallow-repository)" == "true" ]]; then
-            git -C external/ProGPU fetch --no-tags --unshallow origin
-          fi
-          git -C external/ProGPU fetch --no-tags origin "${tag_commit}"
-          if ! git -C external/ProGPU merge-base --is-ancestor "${tag_commit}" "${submodule_commit}"; then
-            echo "LibreWPF ProGPU submodule ${submodule_commit} is not based on ${tag} (${tag_commit})." >&2
-            exit 1
-          fi
-
-          package_dir="${RUNNER_TEMP}/progpu-${progpu_version}"
-          mkdir -p "${package_dir}"
-          source eng/progpu-preview-package-list.sh
-          for package_id in "${progpu_preview_runtime_package_ids[@]}"; do
-            package_file="${package_id}.${progpu_version}.nupkg"
-            curl --fail --location --retry 5 --retry-all-errors \
-              --output "${package_dir}/${package_file}" \
-              "https://github.com/wieslawsoltes/ProGPU/releases/download/${tag}/${package_file}"
-          done
-          echo "PROGPU_WPF_PREPACKAGED_PROGPU_DIR=${package_dir}" >> "${GITHUB_ENV}"
+          source_version="0.1.0-source.${submodule_commit:0:8}"
+          echo "PROGPU_WPF_PROGPU_PACKAGE_VERSION=${source_version}" >> "${GITHUB_ENV}"
+          echo "PROGPU_WPF_EXPECTED_PROGPU_PACKAGE_COMMIT=${submodule_commit}" >> "${GITHUB_ENV}"
+          echo "Building source-coherent ProGPU package closure ${source_version} from ${submodule_commit}."
 
       - name: Run LibreWPF SDK gate
         run: ./eng/progpu-wpf-sdk-ci.sh

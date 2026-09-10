@@ -11,7 +11,7 @@ on:
       - reports/**
       - eng/progpu-preview-package-list.sh
       - eng/ProGPU.Wpf.LibreWinFormsCompatValidation.proj
-      - eng/progpu-wpf-verify-librewinforms-compat.sh
+      - eng/progpu-wpf-verify-librewinforms-cutover.sh
       - eng/progpu-wpf-verify-docs.sh
       - packaging/ProGPU.Wpf.Sdk/targets/ProGPU.Wpf.Sdk.targets
       - .github/workflows/progpu-wpf-*.yml
@@ -24,7 +24,7 @@ on:
       - reports/**
       - eng/progpu-preview-package-list.sh
       - eng/ProGPU.Wpf.LibreWinFormsCompatValidation.proj
-      - eng/progpu-wpf-verify-librewinforms-compat.sh
+      - eng/progpu-wpf-verify-librewinforms-cutover.sh
       - eng/progpu-wpf-verify-docs.sh
       - packaging/ProGPU.Wpf.Sdk/targets/ProGPU.Wpf.Sdk.targets
       - .github/workflows/progpu-wpf-*.yml
@@ -53,7 +53,7 @@ jobs:
       - name: Verify package docs
         run: |
           ./eng/progpu-wpf-verify-docs.sh
-          ./eng/progpu-wpf-verify-librewinforms-compat.sh
+          ./eng/progpu-wpf-verify-librewinforms-cutover.sh
 
       - name: Upload docs snapshot
         uses: actions/upload-artifact@v4
