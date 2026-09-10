@@ -15,6 +15,12 @@ do not automatically expand the release checklist.
 
 ## Active completion queue
 
+**Merge producer alignment — 2026-09-10:** consume ProGPU `3fbbd1fb` and
+canonical LibreWinForms `daf792a3`. Native fragment/exclusion transport and the
+investigated SVG checksum correction are now in the selected source graph.
+Exact-head CI, source Figure/Floater admission and final application/package
+qualification remain open. See [alignment evidence](../reports/native-mil-merge-producer-alignment-2026-09-10.md).
+
 **Document inline-child connection — 2026-09-10:** actual InlineUIContainer
 measurement and visual ownership now connect to the shared native text placement.
 Source build and focused native-host rich-editor checks pass. Figure/Floater
