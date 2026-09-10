@@ -15,6 +15,13 @@ do not automatically expand the release checklist.
 
 ## Active completion queue
 
+**Latest-main merge status — 2026-09-10:** ProGPU #140 and the canonical WinForms
+base are integrated without unresolved conflicts. The current pin and remaining
+red tests/source-graph/package gates are recorded in the
+[additional-hour release status](../reports/native-mil-main-merge-release-status-2026-09-10.md).
+That record supersedes earlier commit-specific qualification statements below;
+the PRs are not ready to merge.
+
 **2026-09-10 release freeze:** the user requested a one-hour validation/delivery
 push. General feature expansion is frozen; only application/CI failure fixes
 are active. The source-built macOS native host gate now passes, including native
