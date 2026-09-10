@@ -104,6 +104,21 @@ pass 19/19 and native contract verification passes. The native MIL suite progres
 to a later collapsed-group brush-table count assertion; full CI is still required.
 See ProGPU `docs/native-mil-stroke-spine-bounds.md` for provenance and parity scope.
 
+## Additional release hour and main integration
+
+The user extended the delivery effort by one hour at approximately 11:58 UTC and
+requested resolution of conflicts after ProGPU #140 merged. Main advanced to
+`8842f828`; ProGPU integration commit `e9c1ce68359539a30b5226f915d7446d31913b0a`
+resolves all twelve conflicted files while preserving both histories and their
+rendering/input contracts. LibreWPF now pins that integration head. GitHub reports
+ProGPU #139 mergeable (no merge conflicts), not release-qualified.
+
+The combined C++ build passed all 306 steps; generated contracts and the complete
+80-project package manifest pass. Native tests remain 16/19 with the same three
+failing suites. Managed compilation and exact-head CI qualification are ongoing.
+See ProGPU `docs/native-mil-main-integration-2026-09-10.md` for conflict decisions.
+The additional deadline does not waive runtime/package checks or permit a red merge.
+
 1. Fix remaining ProGPU native, managed cached-stroke, Svg.Skia and CAD browser
    CI failures; rerun all required checks at the actual delivery head.
 2. Produce/stage exact-head complete native payloads and SDK packages. Do not
