@@ -14704,6 +14704,9 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("_ProGpuWpfSdkCopyPackageRuntimeAssets", portableTargets, StringComparison.Ordinal);
         Assert.Contains("_ProGpuWpfSdkCopyNativeRuntimeAssets", portableTargets, StringComparison.Ordinal);
         Assert.Contains("_ProGpuWpfSdkPreservePortableWinFormsRuntimeAssetsInDependencyFile", portableTargets, StringComparison.Ordinal);
+        Assert.Contains("AfterTargets=\"CopyFilesToOutputDirectory\"", portableTargets, StringComparison.Ordinal);
+        Assert.Contains("BeforeTargets=\"_ProGpuWpfSdkCopyPackageRuntimeAssets\"", portableTargets, StringComparison.Ordinal);
+        Assert.Contains("Include=\"@(_ProGpuWpfCanonicalFormsRuntimeAsset);@(_ProGpuWpfCanonicalBackendRuntimeAsset);@(_ProGpuWpfCanonicalIntegrationRuntimeAsset)\"", portableTargets, StringComparison.Ordinal);
         Assert.Contains("$(_ProGpuWpfCanonicalWinFormsPackageRoot)librewinforms.progpu/$(ProGpuWpfLibreWinFormsBackendPackageVersion)/lib/$(_ProGpuWpfCanonicalWinFormsRuntimeTfm)/*.dll", portableTargets, StringComparison.Ordinal);
         Assert.Contains("$(_ProGpuWpfCanonicalWinFormsPackageRoot)librewinforms.windowsformsintegration/$(ProGpuWpfLibreWinFormsPackageVersion)/lib/$(_ProGpuWpfCanonicalWinFormsRuntimeTfm)/*.dll", portableTargets, StringComparison.Ordinal);
         Assert.Contains("<NuGetPackageId>LibreWinForms.ProGPU</NuGetPackageId>", portableTargets, StringComparison.Ordinal);
