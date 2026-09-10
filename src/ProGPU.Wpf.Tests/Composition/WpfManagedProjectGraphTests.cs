@@ -5,6 +5,41 @@ namespace ProGPU.Wpf.Tests.Composition;
 
 public sealed class WpfManagedProjectGraphTests
 {
+    [Theory]
+    [InlineData("ProGPU.Wpf.ShowcaseApp", "run-progpu-wpf-showcase.sh")]
+    [InlineData("ProGPU.Wpf.SciChartApp", "run-progpu-wpf-scichart.sh")]
+    public void ShowcaseAndSciChartProjectIdentitiesAreConnected(string assemblyName, string launcher)
+    {
+        string directory = FindRepoPath("samples", assemblyName);
+        string project = Path.Combine(directory, assemblyName + ".csproj");
+        Assert.True(File.Exists(project), project);
+        XDocument document = XDocument.Load(project);
+        foreach (XElement item in document.Descendants().Where(element =>
+            element.Name.LocalName is "Resource" or "Content"))
+        {
+            string? include = (string?)item.Attribute("Include");
+            Assert.False(string.IsNullOrEmpty(include));
+            Assert.True(File.Exists(Path.Combine(directory, include!)), include);
+        }
+
+        XNamespace xaml = "http://schemas.microsoft.com/winfx/2006/xaml";
+        foreach (string path in Directory.EnumerateFiles(directory, "*.xaml", SearchOption.AllDirectories))
+        {
+            string? className = (string?)XDocument.Load(path).Root?.Attribute(xaml + "Class");
+            if (className is null) continue;
+            Assert.StartsWith(assemblyName + ".", className, StringComparison.Ordinal);
+            string source = File.ReadAllText(path + ".cs");
+            Assert.Contains("namespace " + assemblyName + ";", source, StringComparison.Ordinal);
+            Assert.Contains("partial class " + className[(className.LastIndexOf('.') + 1)..], source, StringComparison.Ordinal);
+        }
+
+        string script = File.ReadAllText(FindRepoPath("eng", launcher));
+        Assert.Contains("samples/" + assemblyName + "/" + assemblyName + ".csproj", script, StringComparison.Ordinal);
+        Assert.Contains(assemblyName, File.ReadAllText(FindRepoPath("eng", "progpu-wpf-sdk-ci.sh")), StringComparison.Ordinal);
+        Assert.Contains("artifacts/nuget/" + assemblyName,
+            File.ReadAllText(Path.Combine(directory, "Directory.Build.props")), StringComparison.Ordinal);
+    }
+
     [Fact]
     public void NativeMilOwnerSnapshotIsPublishedAfterPresentationAndClearedAtTeardown()
     {
