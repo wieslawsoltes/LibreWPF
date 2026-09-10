@@ -15,6 +15,14 @@ do not automatically expand the release checklist.
 
 ## Active completion queue
 
+**2026-09-10 release freeze:** the user requested a one-hour validation/delivery
+push. General feature expansion is frozen; only application/CI failure fixes
+are active. The source-built macOS native host gate now passes, including native
+input and device recovery, after Release dependency resolution, native paragraph
+scratch/wrapping fixes and an explicitly decorated pre-theme hyperlink fixture.
+Package-mode MVP, Windows/Linux runtime qualification and green exact-head CI
+remain blocking. See [release validation](../reports/native-mil-release-validation-2026-09-10.md).
+
 Latest-main integration: [ProGPU PR #155 rebase report](../reports/native-mil-main-rebase-2026-09-10.md).
 The branch now consumes the rebased ABI 4 source contract. Earlier payload/feed
 versions below are historical, not compatible final qualification artifacts.
