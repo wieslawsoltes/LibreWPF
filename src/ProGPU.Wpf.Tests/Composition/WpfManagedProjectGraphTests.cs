@@ -12772,6 +12772,7 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("progpu_package_version=\"${PROGPU_WPF_PROGPU_PACKAGE_VERSION:-0.1.0-preview.62}\"", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("export ProGpuRuntimePackageVersion=\"${progpu_package_version}\"", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("export ProGpuPackageVersion=\"${progpu_package_version}\"", sdkCiScript, StringComparison.Ordinal);
+        Assert.Contains("export PROGPU_WPF_DEV_PACKAGE_VERSION=\"${dev_package_version}\"", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("export PROGPU_WPF_PROGPU_PACKAGE_VERSION=\"${progpu_package_version}\"", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("clean_preview_package_output()", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("\"${package_output}\"/*.nupkg", sdkCiScript, StringComparison.Ordinal);
@@ -14876,8 +14877,9 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("ValidateRuntimeAssetMatchesLocalPackage(proGpuBackend, \"ProGPU.Backend\", \"ProGPU.Backend\", \"net10.0\")", smokeAppCodeBehind, StringComparison.Ordinal);
         Assert.Contains("private const string LibreWpfPackageVersion = \"0.1.0-preview.45\";", smokeAppCodeBehind, StringComparison.Ordinal);
         Assert.Contains("private const string ProGpuPackageVersion = \"0.1.0-preview.62\";", smokeAppCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("EffectiveLibreWpfPackageVersion = ResolvePackageVersion(", smokeAppCodeBehind, StringComparison.Ordinal);
         Assert.Contains("EffectiveProGpuPackageVersion = ResolvePackageVersion(", smokeAppCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("packageId == \"LibreWPF.ProGPU\"\n            ? LibreWpfPackageVersion\n            : EffectiveProGpuPackageVersion", smokeAppCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("packageId == \"LibreWPF.ProGPU\"\n            ? EffectiveLibreWpfPackageVersion\n            : EffectiveProGpuPackageVersion", smokeAppCodeBehind, StringComparison.Ordinal);
         Assert.Contains("RequireProperty(hostType, \"DirectXDevice\", directXDeviceType)", smokeAppCodeBehind, StringComparison.Ordinal);
         Assert.Contains("ComputeStreamSha256", smokeAppCodeBehind, StringComparison.Ordinal);
         Assert.Contains("public bool SdkOutputGuardChecked", smokeAppCodeBehind, StringComparison.Ordinal);
@@ -16502,8 +16504,9 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("private const string SmokeTargetFramework = \"net10.0-windows\";", runtimeHarnessProgram, StringComparison.Ordinal);
         Assert.Contains("private const string LibreWpfPackageVersion = \"0.1.0-preview.45\";", runtimeHarnessProgram, StringComparison.Ordinal);
         Assert.Contains("private const string ProGpuPackageVersion = \"0.1.0-preview.62\";", runtimeHarnessProgram, StringComparison.Ordinal);
+        Assert.Contains("EffectiveLibreWpfPackageVersion = ResolvePackageVersion(", runtimeHarnessProgram, StringComparison.Ordinal);
         Assert.Contains("EffectiveProGpuPackageVersion = ResolvePackageVersion(", runtimeHarnessProgram, StringComparison.Ordinal);
-        Assert.Contains("packageId is \"LibreWPF.Transport\" or \"LibreWPF.ProGPU\"\n            ? LibreWpfPackageVersion\n            : EffectiveProGpuPackageVersion", runtimeHarnessProgram, StringComparison.Ordinal);
+        Assert.Contains("packageId is \"LibreWPF.Transport\" or \"LibreWPF.ProGPU\"\n            ? EffectiveLibreWpfPackageVersion\n            : EffectiveProGpuPackageVersion", runtimeHarnessProgram, StringComparison.Ordinal);
         Assert.Contains("<CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>", runtimeHarnessProject, StringComparison.Ordinal);
         Assert.DoesNotContain("Microsoft.NET.Sdk.WindowsDesktop", runtimeHarnessProject, StringComparison.Ordinal);
         Assert.DoesNotContain("ProGPU.Wpf.Sdk", runtimeHarnessProject, StringComparison.Ordinal);
@@ -16597,8 +16600,9 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("<PackageVersion Include=\"System.Reactive\" Version=\"6.0.1\" />", externalSdkHarnessProgram, StringComparison.Ordinal);
         Assert.Contains("private const string SdkVersion = \"0.1.0-preview.45\";", externalSdkHarnessProgram, StringComparison.Ordinal);
         Assert.Contains("private const string ProGpuPackageVersion = \"0.1.0-preview.62\";", externalSdkHarnessProgram, StringComparison.Ordinal);
+        Assert.Contains("EffectiveSdkVersion = ResolvePackageVersion(", externalSdkHarnessProgram, StringComparison.Ordinal);
         Assert.Contains("EffectiveProGpuPackageVersion = ResolvePackageVersion(", externalSdkHarnessProgram, StringComparison.Ordinal);
-        Assert.Contains("packageId is \"LibreWPF.Sdk\" or \"LibreWPF.Transport\" or \"LibreWPF.ProGPU\"\n            ? SdkVersion\n            : EffectiveProGpuPackageVersion", externalSdkHarnessProgram, StringComparison.Ordinal);
+        Assert.Contains("packageId is \"LibreWPF.Sdk\" or \"LibreWPF.Transport\" or \"LibreWPF.ProGPU\"\n            ? EffectiveSdkVersion\n            : EffectiveProGpuPackageVersion", externalSdkHarnessProgram, StringComparison.Ordinal);
         Assert.Contains("<PackageReference Include=\"System.Reactive\" />", externalSdkHarnessProgram, StringComparison.Ordinal);
         Assert.Contains("restore\", centralPackageManagementProjectPath", externalSdkHarnessProgram, StringComparison.Ordinal);
         Assert.Contains("build\", centralPackageManagementProjectPath", externalSdkHarnessProgram, StringComparison.Ordinal);
@@ -16611,7 +16615,7 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("SwitchWpfSdkOnly", externalSdkHarnessProgram, StringComparison.Ordinal);
         Assert.Contains("return SwitchWpfSdkOnly(normalWpfProject, OriginalWpfSdk, description);", externalSdkHarnessProgram, StringComparison.Ordinal);
         Assert.Contains("string originalSdk = $\"<Project Sdk=\\\"{originalSdkName}\\\">\";", externalSdkHarnessProgram, StringComparison.Ordinal);
-        Assert.Contains("string proGpuSdk = $\"<Project Sdk=\\\"LibreWPF.Sdk/{SdkVersion}\\\">\";", externalSdkHarnessProgram, StringComparison.Ordinal);
+        Assert.Contains("string proGpuSdk = $\"<Project Sdk=\\\"LibreWPF.Sdk/{EffectiveSdkVersion}\\\">\";", externalSdkHarnessProgram, StringComparison.Ordinal);
         Assert.Contains("changed more than its root SDK during ProGPU SDK switching", externalSdkHarnessProgram, StringComparison.Ordinal);
         Assert.Contains("<OutputType>WinExe</OutputType>", externalSdkHarnessProgram, StringComparison.Ordinal);
         Assert.Contains("private const string ExternalAppTargetFramework = \"net10.0-windows\";", externalSdkHarnessProgram, StringComparison.Ordinal);
@@ -18303,7 +18307,7 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("ValidateOutputAssemblyMatchesLocalPackage(\n                outputRoot,\n                packageFeed,\n                \"LibreWPF.Transport\",\n                assemblyName,\n                \"net10.0\")", externalSdkHarnessProgram, StringComparison.Ordinal);
         Assert.Contains("external SDK output {assemblySimpleName}.dll matches local {packageId} package", externalSdkHarnessProgram, StringComparison.Ordinal);
         Assert.Contains("ComputeStreamSha256(packageStream)", externalSdkHarnessProgram, StringComparison.Ordinal);
-        Assert.Contains("LibreWPF.Sdk.{SdkVersion}.nupkg", externalSdkHarnessProgram, StringComparison.Ordinal);
+        Assert.Contains("LibreWPF.Sdk.{EffectiveSdkVersion}.nupkg", externalSdkHarnessProgram, StringComparison.Ordinal);
         Assert.Contains("new(\"LibreWPF.Transport\", \"PresentationCore\", \"net10.0\", \"WPF\")", externalSdkHarnessProgram, StringComparison.Ordinal);
         Assert.Contains("new(\"LibreWPF.Transport\", \"System.Windows.Controls.Ribbon\", \"net10.0\", \"Ecma\")", externalSdkHarnessProgram, StringComparison.Ordinal);
         Assert.Contains("new(\"LibreWPF.ProGPU\", \"ProGPU.Wpf\", \"net10.0\", \"ProGPU\")", externalSdkHarnessProgram, StringComparison.Ordinal);

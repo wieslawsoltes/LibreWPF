@@ -13,6 +13,9 @@ internal static class Program
 {
     private const string LibreWpfPackageVersion = "0.1.0-preview.45";
     private const string ProGpuPackageVersion = "0.1.0-preview.62";
+    private static readonly string EffectiveLibreWpfPackageVersion = ResolvePackageVersion(
+        "PROGPU_WPF_DEV_PACKAGE_VERSION",
+        LibreWpfPackageVersion);
     private static readonly string EffectiveProGpuPackageVersion = ResolvePackageVersion(
         "PROGPU_WPF_PROGPU_PACKAGE_VERSION",
         ProGpuPackageVersion);
@@ -259,7 +262,7 @@ internal static class Program
     private static string GetPackageVersion(string packageId)
     {
         return packageId is "LibreWPF.Transport" or "LibreWPF.ProGPU"
-            ? LibreWpfPackageVersion
+            ? EffectiveLibreWpfPackageVersion
             : EffectiveProGpuPackageVersion;
     }
 

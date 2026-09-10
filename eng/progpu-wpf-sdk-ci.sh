@@ -47,6 +47,7 @@ mkdir -p "${package_output}"
 # MSBuild invocation below, including the LibreWPF.ProGPU and SDK pack steps.
 export ProGpuRuntimePackageVersion="${progpu_package_version}"
 export ProGpuPackageVersion="${progpu_package_version}"
+export PROGPU_WPF_DEV_PACKAGE_VERSION="${dev_package_version}"
 export PROGPU_WPF_PROGPU_PACKAGE_VERSION="${progpu_package_version}"
 
 clean_preview_package_output() {

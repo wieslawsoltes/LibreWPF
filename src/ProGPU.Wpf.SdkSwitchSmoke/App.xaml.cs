@@ -15,6 +15,9 @@ public partial class App : Application
 {
     private const string LibreWpfPackageVersion = "0.1.0-preview.45";
     private const string ProGpuPackageVersion = "0.1.0-preview.62";
+    private static readonly string EffectiveLibreWpfPackageVersion = ResolvePackageVersion(
+        "PROGPU_WPF_DEV_PACKAGE_VERSION",
+        LibreWpfPackageVersion);
     private static readonly string EffectiveProGpuPackageVersion = ResolvePackageVersion(
         "PROGPU_WPF_PROGPU_PACKAGE_VERSION",
         ProGpuPackageVersion);
@@ -718,7 +721,7 @@ public partial class App : Application
         }
 
         string packageVersion = packageId == "LibreWPF.ProGPU"
-            ? LibreWpfPackageVersion
+            ? EffectiveLibreWpfPackageVersion
             : EffectiveProGpuPackageVersion;
         string packagePath = Path.Combine(packageFeed, $"{packageId}.{packageVersion}.nupkg");
         if (!File.Exists(packagePath))
