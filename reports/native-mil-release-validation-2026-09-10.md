@@ -38,6 +38,14 @@ User deadline: 10:21–11:21 UTC. Expansion frozen; required gates are not waive
 - LibreWPF Windows managed runtime CI passed at `f38af0f3b`, but SDK qualification
   remains pending. ProGPU latest-head CI must rerun after the final compiler/test
   corrections; earlier green jobs do not qualify the new commit.
+- Final reruns at ProGPU `219df990`: managed **4,541 passed / 4 failed / 7 skipped**
+  (4,552 total), native **16 passed / 3 failed** (19 total). The managed failures
+  are exactly the four cached-stroke cases above. The source-built macOS host
+  smoke passed again using LibreWPF `ecef7f4c1` source outputs and the rebuilt
+  native library, retaining the same window across device recovery. Its managed
+  interop dependencies remain the isolated `2a998c86` build; this is explicitly
+  not an exact-head complete package qualification. Current-head GitHub CI is
+  queued/running, with documentation/API checks green at the latest observation.
 
 ## Deadline disposition
 
