@@ -454,6 +454,36 @@ PROGPU_EXPORT uint32_t GetCurrentProcessId(void)
 #endif
 }
 
+/* 0x0409 = en-US - a fixed, non-Arabic/non-Japanese LCID is enough for callers like
+   System.Drawing.SystemFonts.DefaultFont/DialogFont, which only special-case those two locales
+   before falling through to their own portable (non-locale-dependent) font selection. */
+#define PROGPU_LCID_EN_US 0x0409u
+
+PROGPU_EXPORT uint32_t GetSystemDefaultLCID(void)
+{
+    return PROGPU_LCID_EN_US;
+}
+
+PROGPU_EXPORT uint32_t GetUserDefaultLCID(void)
+{
+    return PROGPU_LCID_EN_US;
+}
+
+PROGPU_EXPORT uint32_t GetThreadLocale(void)
+{
+    return PROGPU_LCID_EN_US;
+}
+
+PROGPU_EXPORT uint16_t GetSystemDefaultLangID(void)
+{
+    return (uint16_t)PROGPU_LCID_EN_US;
+}
+
+PROGPU_EXPORT uint16_t GetUserDefaultLangID(void)
+{
+    return (uint16_t)PROGPU_LCID_EN_US;
+}
+
 PROGPU_EXPORT void Sleep(uint32_t milliseconds)
 {
     struct timespec requested;
@@ -1351,6 +1381,36 @@ PROGPU_EXPORT progpu_intptr GetStockObject(int32_t object)
 {
     (void)object;
     return 1;
+}
+
+/* GetStockObject above returns a fake handle with no real backing GDI object to introspect - so
+   GetObject (used e.g. by System.Drawing.Font.FromHfont to read a LOGFONT back out of an HFONT)
+   can only ever fail here. Returning 0 (the real Win32 failure signal) rather than pretending to
+   fill in the output struct lets callers' OWN existing fallback paths run - e.g.
+   System.Drawing.SystemFonts.DefaultFont already catches ArgumentException from a failed
+   Font.FromHfont and falls through to its next candidate (Tahoma, then GenericSansSerif). */
+PROGPU_EXPORT int32_t GetObjectA(progpu_intptr gdi_object, int32_t buffer_size, void* buffer)
+{
+    (void)gdi_object;
+    (void)buffer_size;
+    (void)buffer;
+    return 0;
+}
+
+PROGPU_EXPORT int32_t GetObjectW(progpu_intptr gdi_object, int32_t buffer_size, void* buffer)
+{
+    (void)gdi_object;
+    (void)buffer_size;
+    (void)buffer;
+    return 0;
+}
+
+PROGPU_EXPORT int32_t GetObject(progpu_intptr gdi_object, int32_t buffer_size, void* buffer)
+{
+    (void)gdi_object;
+    (void)buffer_size;
+    (void)buffer;
+    return 0;
 }
 
 PROGPU_EXPORT int32_t DeleteObject(progpu_intptr object)
