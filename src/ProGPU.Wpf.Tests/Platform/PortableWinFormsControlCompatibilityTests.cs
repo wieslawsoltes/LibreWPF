@@ -520,13 +520,19 @@ public sealed class PortableWinFormsControlCompatibilityTests
             Forms.DrawItemState.Selected | Forms.DrawItemState.Focus);
 
         args.DrawBackground();
+        int background = System.Drawing.SystemColors.Highlight.ToArgb();
+        Assert.Equal(background, bitmap.GetPixel(4, 4).ToArgb());
         args.DrawFocusRectangle();
 
-        Assert.Equal(System.Drawing.Color.Blue.ToArgb(), bitmap.GetPixel(4, 4).ToArgb());
+        Assert.Equal(background, bitmap.GetPixel(4, 4).ToArgb());
         System.Drawing.Color focusPixel = bitmap.GetPixel(1, 1);
-        Assert.Equal(0, focusPixel.R);
-        Assert.Equal(0, focusPixel.G);
-        Assert.InRange(focusPixel.B, 0, 254);
+        System.Drawing.Color foreground = System.Drawing.SystemColors.WindowText;
+        System.Drawing.Color backgroundColor = System.Drawing.SystemColors.Highlight;
+        Assert.NotEqual(background, focusPixel.ToArgb());
+        Assert.Equal(255, focusPixel.A);
+        Assert.InRange(focusPixel.R, Math.Min(foreground.R, backgroundColor.R), Math.Max(foreground.R, backgroundColor.R));
+        Assert.InRange(focusPixel.G, Math.Min(foreground.G, backgroundColor.G), Math.Max(foreground.G, backgroundColor.G));
+        Assert.InRange(focusPixel.B, Math.Min(foreground.B, backgroundColor.B), Math.Max(foreground.B, backgroundColor.B));
     }
 
     private sealed class ListViewTextComparer : System.Collections.IComparer

@@ -39,7 +39,7 @@ public sealed class ProGpuWpfWindowHostTests
         int sourceCompletion = source.IndexOf("completed();", release, StringComparison.Ordinal);
         int hintRelease = source.IndexOf("ReleaseNativeDialogHint();", release, StringComparison.Ordinal);
         Assert.True(hintRelease > release && hintRelease < sourceCompletion);
-        Assert.Contains("ReleaseNativeDialogHint();\n        _isDisposed = true;", source);
+        Assert.Contains("ReleaseNativeDialogHint();\n        _portablePresentationSourceBridge?.ReleaseNativeCaret();\n        _isDisposed = true;", source);
         // Native input-gate admission remains distinct from the advisory hint.
         Assert.Contains("if (OperatingSystem.IsWindows() || NativeInputAllowedSetterOverride != null)", source);
     }
@@ -3572,7 +3572,9 @@ public sealed class ProGpuWpfWindowHostTests
         var scheduler = new TestRenderScheduler();
         using var host = new ProGpuWpfWindowHost
         {
-            WpfRenderScheduler = scheduler
+            WpfRenderScheduler = scheduler,
+            PlatformServices = new CrossPlatformWpfPlatformServices(
+                new ProcessWpfLauncher(), new PopupMonitorService())
         };
         var source = new FakePortablePresentationSource();
         var geometry = new ProGpuWpfWindowHost.RenderSurfaceGeometry(

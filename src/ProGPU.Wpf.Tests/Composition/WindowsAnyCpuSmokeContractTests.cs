@@ -162,7 +162,7 @@ public sealed class WindowsAnyCpuSmokeContractTests
         Assert.Contains("RemoveProperties=\"RuntimeIdentifier\"", presentationBuildTasksTargets, StringComparison.Ordinal);
         Assert.Contains("require_entry_sha256 LibreWPF.Transport", audit, StringComparison.Ordinal);
         Assert.Contains("windows-managed-runtime:", ciWorkflow, StringComparison.Ordinal);
-        Assert.Contains("needs: windows-managed-runtime", ciWorkflow, StringComparison.Ordinal);
+        Assert.Contains("needs:\n      - canonical-winforms-integration\n      - windows-managed-runtime", ciWorkflow, StringComparison.Ordinal);
         Assert.Contains("windows-managed-runtime:", releaseWorkflow, StringComparison.Ordinal);
         Assert.Contains("needs: windows-managed-runtime", releaseWorkflow, StringComparison.Ordinal);
     }

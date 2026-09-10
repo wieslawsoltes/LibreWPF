@@ -1,5 +1,9 @@
 # Native MIL main integration and release status
 
+The [full bridge validation checkpoint](native-mil-bridge-final-validation-2026-09-10.md)
+records 1,754 passing WPF tests, the bounded mask/animation repairs, and the sole
+remaining ProGPU CI failure in the exact Dawn/WebScene provider fixture.
+
 Latest follow-up: [registered source-resource validation](native-mil-resource-registry-validation-2026-09-10.md)
 records the public MIL registry correction, passing focused cache/native-input
 tests, green hosted Windows x64 native and LibreWinForms checks, and the remaining

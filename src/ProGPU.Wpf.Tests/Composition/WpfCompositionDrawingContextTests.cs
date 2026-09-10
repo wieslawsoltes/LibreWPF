@@ -1027,7 +1027,9 @@ public sealed class WpfCompositionDrawingContextTests
         var hits = capture.BuildIndex().Primitives;
         Assert.Equal(3, hits.Count);
         Assert.Equal(global::ProGPU.Vector.GpuHitTestPrimitiveKind.RectangleFill, hits[0].Kind);
-        Assert.Equal(global::ProGPU.Vector.GpuHitTestPrimitiveKind.RectangleStroke, hits[1].Kind);
+        Assert.Equal(geometryCommand
+            ? global::ProGPU.Vector.GpuHitTestPrimitiveKind.PathStroke
+            : global::ProGPU.Vector.GpuHitTestPrimitiveKind.RectangleStroke, hits[1].Kind);
         Assert.Equal(new Vector2(12, 14), hits[0].BoundsMin);
         Assert.Equal(new Vector2(32, 32), hits[0].BoundsMax);
         Assert.Equal(new Vector2(1, 2), hits[2].BoundsMin);
@@ -2209,6 +2211,32 @@ public sealed class WpfCompositionDrawingContextTests
 
         Assert.Empty(sink.Operations);
         Assert.Equal(default, context.Result);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void ManagedMaskBridgePreservesEmptyVersusZeroSizeBounds(bool empty)
+    {
+        var sink = new RecordingSink();
+        Rect bounds = empty ? Rect.Empty : new Rect(2, 3, 0, 0);
+        WpfManagedCommandSinkBridge.PushOpacityMask(sink, Brushes.Red,
+            new WpfReplayRect(bounds.X, bounds.Y, bounds.Width, bounds.Height));
+        Rect actual = Assert.Single(sink.OpacityMaskBounds);
+        Assert.Equal(empty, actual.IsEmpty);
+        Assert.Equal(bounds.X, actual.X);
+        Assert.Equal(bounds.Y, actual.Y);
+        Assert.Equal(bounds.Width, actual.Width);
+        Assert.Equal(bounds.Height, actual.Height);
+    }
+
+    [Fact]
+    public void ManagedMaskBridgeRejectsMalformedNegativeBounds()
+    {
+        var sink = new RecordingSink();
+        Assert.Throws<ArgumentException>(() => WpfManagedCommandSinkBridge.PushOpacityMask(
+            sink, Brushes.Red, new WpfReplayRect(0, 0, -1, 2)));
+        Assert.Empty(sink.OpacityMaskBounds);
     }
 
     [Fact]
@@ -3577,6 +3605,8 @@ public sealed class WpfCompositionDrawingContextTests
 
         public List<double> Opacities { get; } = new();
 
+        public List<Rect> OpacityMaskBounds { get; } = new();
+
         public List<(double LeadingCoordinate, double OffsetToDrivenCoordinate)> GuidelineY2Values { get; } = new();
 
         public List<ProGpuEffectBase> VisualEffects { get; } = new();
@@ -3669,6 +3699,7 @@ public sealed class WpfCompositionDrawingContextTests
         public void PushOpacityMask(MediaBrush? opacityMask, Rect bounds)
         {
             Operations.Add("PushOpacityMask");
+            OpacityMaskBounds.Add(bounds);
         }
 
         public void PushTransform(MediaTransform transform)

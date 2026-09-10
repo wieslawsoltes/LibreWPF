@@ -88,7 +88,9 @@ public sealed class WpfNativeMilSceneCompilerTests
         var primitive = Assert.Single(capture.BuildIndex().Primitives);
         Assert.Equal(new Vector2(80, 20), primitive.BoundsMax);
         Assert.True(primitive.Flags.HasFlag(global::ProGPU.Vector.GpuHitTestPrimitiveFlags.PointOnly));
-        Assert.False(global::ProGPU.Scene.GpuPictureBounds.TryGetBounds(picture, out _));
+        Assert.True(global::ProGPU.Scene.GpuPictureBounds.TryGetBounds(picture, out var rasterBounds));
+        Assert.Equal(0, rasterBounds.Width);
+        Assert.Equal(0, rasterBounds.Height);
     }
 
     private sealed class PointVisual(object? content) : FakeVisual(content), IPortablePointHitRegionSource

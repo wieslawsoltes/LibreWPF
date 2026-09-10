@@ -126,7 +126,10 @@ internal static class WpfManagedCommandSinkBridge
     {
         sink.PushOpacityMask(
             opacityMask,
-            new System.Windows.Rect(bounds.X, bounds.Y, bounds.Width, bounds.Height));
+            bounds.X == double.PositiveInfinity && bounds.Y == double.PositiveInfinity
+                && bounds.Width == double.NegativeInfinity && bounds.Height == double.NegativeInfinity
+                ? System.Windows.Rect.Empty
+                : new System.Windows.Rect(bounds.X, bounds.Y, bounds.Width, bounds.Height));
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]

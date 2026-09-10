@@ -170,6 +170,8 @@ public sealed class WpfCompositionDrawingContext : IWpfGeneratedRenderDataDrawin
         double radiusY,
         object? radiusYAnimations)
     {
+        ThrowIfClosed();
+        if (brush == null && pen == null) return;
         DrawRoundedRectangle(brush, pen, rectangle, radiusX, radiusY);
         CountUnsupportedStateIfAny(rectangleAnimations, radiusXAnimations, radiusYAnimations);
     }
@@ -225,6 +227,8 @@ public sealed class WpfCompositionDrawingContext : IWpfGeneratedRenderDataDrawin
         double radiusY,
         object? radiusYAnimations)
     {
+        ThrowIfClosed();
+        if (brush == null && pen == null) return;
         DrawEllipse(brush, pen, center, radiusX, radiusY);
         CountUnsupportedStateIfAny(centerAnimations, radiusXAnimations, radiusYAnimations);
     }
