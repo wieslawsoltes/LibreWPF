@@ -20,3 +20,17 @@ There are no legacy launcher aliases or configuration fallbacks.
 
 This is a naming change, not a scope reduction or completion claim. The native
 MIL delivery plan and all package, application, platform and CI gates still apply.
+
+## Validation
+
+The renamed WPF test assembly builds in Release. The two project-identity cases
+and renamed Retina viewport case pass (3/3); they check project files, resource
+assets, XAML/code-behind identity, launchers and package-cache paths. Four paired
+ProGPU showcase ellipse/join fixtures pass. Shell syntax and documentation checks
+also pass. Source scans find no retired delivery-stage application identifiers
+or filenames in the active LibreWPF-owned tree.
+
+The broader SDK source-contract test still fails at its pre-existing ProGPU
+central-package-management expectation, before its application assertions. The
+full native suite remains 16/19, with the same three rendering/input failures.
+These results do not qualify package-mode startup or rename old build artifacts.

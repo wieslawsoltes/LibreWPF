@@ -59,6 +59,20 @@ CI queue time and cross-platform execution are additional to implementation time
 
 ## Required before merge
 
+Application naming is now purpose-based throughout source and delivery assets;
+see [naming and validation](../docs/native-mil-application-naming.md). The showcase
+and SciChart projects, launchers, resource identities and paired native fixtures
+were renamed without changing release admission. ProGPU `2739c702` also fixes
+three strict-GCC structured-binding copy warnings in existing native tests.
+
+The ellipse input failure is now localized: ordinary retained EllipseGeometry
+uses the prepared geometry-spine path, which emits a width-3 path-join record
+(kind 8, flags 16). The native hit encoder rejects that record. Its isolated
+canonical full-arc fixture passing does not prove this source geometry route.
+Temporary capture diagnostics were removed; the complete rebuilt native suite
+still reports 16 passed / 3 failed. Preserve source geometry and pen semantics
+when closing this connection; do not suppress joins or skip index admission.
+
 1. Fix remaining ProGPU native, managed cached-stroke, Svg.Skia and CAD browser
    CI failures; rerun all required checks at the actual delivery head.
 2. Produce/stage exact-head complete native payloads and SDK packages. Do not
