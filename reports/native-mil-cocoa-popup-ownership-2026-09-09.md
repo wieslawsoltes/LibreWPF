@@ -2,7 +2,7 @@
 
 ## Application and bounded outcome
 
-The existing package MVP's main menu and ComboBoxes create native Cocoa popup
+The existing package Showcase's main menu and ComboBoxes create native Cocoa popup
 surfaces through `WpfPortableNativePopupHost.EnsureInitialized`. Source inspection
 found WPF-local Cocoa parent setup with no postcondition checks, and rejection
 outside Windows could still proceed to Show. This batch moves checked Cocoa
@@ -12,7 +12,7 @@ unchanged. Findings are source-backed, not runtime reproduced.
 
 The initial modal trace confirmed a separate limit: Apple's worksWhenModal
 contract requires NSPanel subclasses, while the current host uses GLFW NSWindows.
-The actual MVP About view has no popup control. This batch therefore closes the
+The actual Showcase About view has no popup control. This batch therefore closes the
 main-window popup setup branch, not genuine modal popup support or automatic
 AppKit ShowDialog admission. Those remain open and guarded.
 

@@ -2,7 +2,7 @@
 
 ## Acceptance path
 
-The existing package-mode LibreWPF MVP needs the exact ProGPU dependency set used
+The existing package-mode LibreWPF Showcase needs the exact ProGPU dependency set used
 by `eng/progpu-wpf-sdk-ci.sh`, then source-built WPF transport, themes and bridge
 packages. This batch produces those ProGPU package inputs and compiles the WPF
 build graph without running the deferred application/qualification phase.
@@ -145,5 +145,5 @@ closes their development-production blocker, not a clean exact-head release,
 package dependency/ABI audit, isolated consumer success, runtime parity or CI
 qualification. The feed contains checkpoints built during implementation; final
 qualification must regenerate and consume the delivery artifacts. No public
-NuGet upload occurred. Next work is the existing package MVP's source-media and
+NuGet upload occurred. Next work is the existing package Showcase's source-media and
 Windows activation closure, then application closure and feature freeze.

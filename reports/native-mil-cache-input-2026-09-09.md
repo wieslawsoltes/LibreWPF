@@ -8,7 +8,7 @@ frame and retain correct selection after movement. The existing retained
 fixture identify the concrete source connection: typed cached visuals retained
 owner IDs, but their source hit traversal rejected caching and compositor replay
 could index the cache texture rectangle instead. This is a source-backed finding;
-the package MVP and third-party applications have not been run for this change.
+the package Showcase and third-party applications have not been run for this change.
 
 ## Implementation
 

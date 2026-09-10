@@ -2,7 +2,7 @@
 
 ## Acceptance and bounded outcome
 
-The package MVP opacity animations and Toolkit/AvalonDock pointer/selection path
+The package Showcase opacity animations and Toolkit/AvalonDock pointer/selection path
 require source geometry to remain hittable through zero visual opacity. Source
 inspection found separate early returns in ProGPU's `CompileVisualTreeCore` and
 `AddVisualHitTestBoundsSubtree`, before the already connected command policy.

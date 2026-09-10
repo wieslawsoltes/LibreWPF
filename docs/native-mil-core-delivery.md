@@ -20,7 +20,7 @@ push. General feature expansion is frozen; only application/CI failure fixes
 are active. The source-built macOS native host gate now passes, including native
 input and device recovery, after Release dependency resolution, native paragraph
 scratch/wrapping fixes and an explicitly decorated pre-theme hyperlink fixture.
-Package-mode MVP, Windows/Linux runtime qualification and green exact-head CI
+Package-mode Showcase, Windows/Linux runtime qualification and green exact-head CI
 remain blocking. See [release validation](../reports/native-mil-release-validation-2026-09-10.md).
 
 Latest-main integration: [ProGPU PR #155 rebase report](../reports/native-mil-main-rebase-2026-09-10.md).
@@ -39,8 +39,8 @@ subsystem roadmap. None of these rows is runtime-qualified yet.
 
 | Order | Implementation batch | Exit to the next batch |
 | --- | --- | --- |
-| 1 — startup connected, qualification pending | Native package activation: source-built harness and complete package MVP, including Windows x64/ARM64. Popup ownership, pre-host services, frozen media/input selection, typed text/document/geometry/bitmap routes and native host factory registration are connected. The SDK now enters those portable paths on Windows for explicit native selection, rejecting unsupported process architectures or failed registration. Native desktop payloads use da36a718; corrected Windows transport builds and all 23 selected SDK packages are produced. Isolated package-mode MVP compilation succeeds; source/application runtime behavior remains unqualified. | Continue concrete acceptance actions below. Any newly identified startup/source-media blocker reopens this row; package compilation is not first-frame or Windows runtime proof. |
-| 2 — current | Application closure: use the same MVP, Toolkit/AvalonDock, license-controlled Xceed and existing SciChart gate. Native point/region owner and candidate callbacks now use the presented native scene under explicit complete-index admission, with native diagnostics and no managed-index fallback. The native host harness and native SDK gate require that admission; product defaults remain unqualified. Current blocker: complete application hit coverage, including required stroke/clip/cache/effect combinations. MVP selection and ordinary clipped scrolling now have source-backed connections and authored live actions, not runtime qualification. Continue Toolkit/AvalonDock's actual application dependencies, then remaining required popup/input, resize/DPI, content/effect/cache updates and close/reopen/device-loss ownership. Reuse existing implementations; fix concrete missing connections before default admission/freeze. | Each required action has an implemented path and authored regression coverage. Record any known blocking branch against that action; do not reopen already connected subsystems for optional refinements. |
+| 1 — startup connected, qualification pending | Native package activation: source-built harness and complete package Showcase, including Windows x64/ARM64. Popup ownership, pre-host services, frozen media/input selection, typed text/document/geometry/bitmap routes and native host factory registration are connected. The SDK now enters those portable paths on Windows for explicit native selection, rejecting unsupported process architectures or failed registration. Native desktop payloads use da36a718; corrected Windows transport builds and all 23 selected SDK packages are produced. Isolated package-mode Showcase compilation succeeds; source/application runtime behavior remains unqualified. | Continue concrete acceptance actions below. Any newly identified startup/source-media blocker reopens this row; package compilation is not first-frame or Windows runtime proof. |
+| 2 — current | Application closure: use the same Showcase, Toolkit/AvalonDock, license-controlled Xceed and existing SciChart gate. Native point/region owner and candidate callbacks now use the presented native scene under explicit complete-index admission, with native diagnostics and no managed-index fallback. The native host harness and native SDK gate require that admission; product defaults remain unqualified. Current blocker: complete application hit coverage, including required stroke/clip/cache/effect combinations. Showcase selection and ordinary clipped scrolling now have source-backed connections and authored live actions, not runtime qualification. Continue Toolkit/AvalonDock's actual application dependencies, then remaining required popup/input, resize/DPI, content/effect/cache updates and close/reopen/device-loss ownership. Reuse existing implementations; fix concrete missing connections before default admission/freeze. | Each required action has an implemented path and authored regression coverage. Record any known blocking branch against that action; do not reopen already connected subsystems for optional refinements. |
 | 3 | Feature freeze, final qualification and delivery: build complete platform artifacts and packages, execute the existing cross-platform/Windows comparison and application gates, fix failures, and bring both PRs' required CI to green at the delivery commits. | Record exact-head package consumption and required gate results, with explicit failures or environment/license limitations. Only then report the core release delivered. |
 
 The native hit-index producer checkpoint and its build-only artifact versions are
@@ -61,28 +61,28 @@ spatial masks or caches.
 This does not refresh the complete package feed or qualify host input. The
 following package-production paragraphs retain their earlier provenance.
 
-The [MVP line-input connection](../reports/native-mil-mvp-line-input-2026-09-09.md)
+The [Showcase line-input connection](../reports/native-mil-showcase-line-input-2026-09-09.md)
 adds ordinary geometry-line strokes to the native producer and fixes diagonal
-square-cap broad-phase bounds in both encoders. It traces the real `MvpShapeLine`,
+square-cap broad-phase bounds in both encoders. It traces the real `ShowcaseShapeLine`,
 not a reduced application. Other geometry kinds, stroke batches (including the
-MVP's closed stroked path), caches/effects and native host routing remain open.
+Showcase's closed stroked path), caches/effects and native host routing remain open.
 Authored fixtures and build-only artifacts do not qualify those interactions.
 
-The [closed-stroke input connection](../reports/native-mil-mvp-closed-stroke-input-2026-09-09.md)
-now connects the actual MVP closed path's solid stroke batch using the renderer's
+The [closed-stroke input connection](../reports/native-mil-showcase-closed-stroke-input-2026-09-09.md)
+now connects the actual Showcase closed path's solid stroke batch using the renderer's
 join construction and canonical line/triangle queries. Open/dashed/device-width
 batches remain explicit; geometry clips, caches/effects and native host query
 routing are still open. Continue the same application's remaining input path,
 not optional stroke-family expansion. This is implementation/build evidence only.
 
-The [MVP effect-input connection](../reports/native-mil-mvp-effect-input-2026-09-09.md)
+The [Showcase effect-input connection](../reports/native-mil-showcase-effect-input-2026-09-09.md)
 preserves source geometry through built-in Blur/DropShadow layers and their
 nested final-composite rectangle clips. It pairs native layer metadata with
 managed typed identity-effect input policy, without making raster padding
 hittable. Spatial masks, caches, remaining guideline/geometry-clip coverage and
 native host query routing remain open. Final execution/CI qualification is pending.
 
-The [MVP guideline-input connection](../reports/native-mil-mvp-guideline-input-2026-09-09.md)
+The [Showcase guideline-input connection](../reports/native-mil-showcase-guideline-input-2026-09-09.md)
 preserves original source geometry through native guideline state and ordinary
 managed primitive snapping, without changing raster placement or raster bounds.
 Native and managed fixtures compile but have not executed. Cached-brush/scroll
@@ -110,10 +110,10 @@ inherits native input admission for popups, and obtains actual index counts/GPU
 residency from ProGPU. Renderer/input choices are frozen at host construction.
 The native SDK gate and existing source-built host harness now require native
 input; missing coverage cannot pass through a managed index. Runtime qualification
-and default admission remain open. Continue the same MVP scrolling/selection
+and default admission remain open. Continue the same Showcase scrolling/selection
 path and concrete coverage blockers, not another independent input subsystem.
 
-The [MVP query-participation checkpoint](../reports/native-mil-query-participation-2026-09-09.md)
+The [Showcase query-participation checkpoint](../reports/native-mil-query-participation-2026-09-09.md)
 traces a concrete remaining scrolling dependency: source TextBlock point input
 covers its arranged rectangle, whereas native drawing input currently covers its
 glyphs. ProGPU now distinguishes point-only from region-only primitive coverage
@@ -122,14 +122,14 @@ does not yet publish the source rectangle. The next application connection must
 carry the authoritative source point descriptor through MIL and managed retained
 commands, preserving region-only glyph/drawing selection, descendants, clips and
 invalidation. Do not replace all visual input with layout rectangles or report
-the MVP wheel/selection action closed from query flags alone.
+the Showcase wheel/selection action closed from query flags alone.
 
 The [source point-region connection](../reports/native-mil-source-point-region-2026-09-09.md)
 now carries the actual TextBlock descriptor in a batched native MIL snapshot and
 paired managed retained scopes. Own drawing remains region-only and the scope
 ends before descendants; empty source text keeps point input without painted
 rectangles. Typed source-command visuals no longer acquire generic Size selection
-bounds. This is an implementation connection, not qualification of MVP scrolling.
+bounds. This is an implementation connection, not qualification of Showcase scrolling.
 Required cache/mask/effect input combinations and the remaining application
 actions in row 2 stay current before default admission and feature freeze.
 
@@ -159,7 +159,7 @@ input. This closes that drawing-scope branch, not visual-level mask/cache/effect
 ownership, package/runtime qualification or the application queue. Identify a
 concrete acceptance action before expanding another mask or clip family.
 
-The [MVP ellipse input connection](../reports/native-mil-mvp-ellipse-input-2026-09-09.md)
+The [Showcase ellipse input connection](../reports/native-mil-showcase-ellipse-input-2026-09-09.md)
 closes a concrete Shapes-tab branch: source Ellipse.OnRender emits EllipseGeometry,
 whose native stroke uses a full elliptical arc rather than an analytic command.
 The producer now shares its existing ellipse encoder across both representations,
@@ -167,7 +167,7 @@ with paired managed/native update and affine fixtures. General partial/skew-basi
 device-width arcs remain explicit; this does not qualify application input or
 complete row 2. Continue the existing applications, not general arc expansion.
 
-The [MVP rectangular brush-fill connection](../reports/native-mil-mvp-brush-fill-input-2026-09-09.md)
+The [Showcase rectangular brush-fill connection](../reports/native-mil-showcase-brush-fill-input-2026-09-09.md)
 now preserves source fill input for the DrawingImage-backed Border independently
 of brush mapping/content and native isolation. Native MIL and managed direct/
 retained adapters share logical source-rectangle scope semantics, ending before
@@ -175,16 +175,16 @@ the pen. This is not nonrectangular brush or arbitrary clip admission, and its
 fixtures/builds are not runtime proof. Continue concrete application closure and
 keep all final package, comparison and CI gates intact.
 
-The [MVP selection/caret connection](../reports/native-mil-mvp-selection-input-2026-09-09.md)
+The [Showcase selection/caret connection](../reports/native-mil-showcase-selection-input-2026-09-09.md)
 now carries the source caret visuals' explicit null point-hit policy through
 paired native/managed Empty point scopes. Region drawing and descendants remain
-independent. The complete MVP live gate now covers SelectAll, clicking through
+independent. The complete Showcase live gate now covers SelectAll, clicking through
 the presented highlight, source caret placement, Shift+End and selected-text
 replacement. This is implemented and compiled, not executed qualification or
 default admission. Continue required application actions rather than enumerating
 unrelated custom HitTestCore overrides.
 
-The [MVP clipped-scroll gate](../reports/native-mil-mvp-clipped-scroll-2026-09-09.md)
+The [Showcase clipped-scroll gate](../reports/native-mil-showcase-clipped-scroll-2026-09-09.md)
 now requires overflowing source content, actual wheel-driven offset/placement,
 presented updates, clipped all-owner point/region coverage and replacement while
 scrolled. The existing renderer/source paths were traced without requiring a new
@@ -281,7 +281,7 @@ Native media/provider selection precedes source startup; failed registration and
 unsupported process architectures still throw. Ordinary managed Windows startup
 is unchanged. The source-backed prerequisite trace covers frozen media/input,
 hidden-source ownership, common media, popup desktop/DPI/input units and native
-first-frame compilation. The full isolated package MVP compiles, but no app was
+first-frame compilation. The full isolated package Showcase compiles, but no app was
 launched. Its existing final gates now assert frozen portable media and an actual
 native session frame for compiled native mode. Continue application closure,
 not general compatibility expansion. See the
@@ -303,14 +303,14 @@ three authored shutdown-mode scenarios in the SDK gate. This is a source-backed
 lifetime connection, not visible multi-window or package qualification. See the
 [application lifetime checkpoint](../reports/native-mil-application-lifetime-2026-09-09.md).
 
-The MVP's no-focus F10/Alt menu-entry fallback now shares a typed active-source
+The Showcase's no-focus F10/Alt menu-entry fallback now shares a typed active-source
 resolver with default access keys. It no longer calls user32 unconditionally or
 chooses the first registered portable root. Actual source activation, visibility,
 dispatcher, disposal and modal admission select the scope; authored regressions
 are not runtime qualification. See the
 [menu-entry checkpoint](../reports/native-mil-active-menu-scope-2026-09-09.md).
 
-The MVP editor caret now selects actual portable source ownership before Win32
+The Showcase editor caret now selects actual portable source ownership before Win32
 caret calls. ProGPU owns an optional hidden native caret mirror for the real
 Windows host; source drawing and caret semantics remain authoritative. Source
 and native GUI fixtures are authored, with execution deferred. This closes the
@@ -333,7 +333,7 @@ also still an implementation requirement for external text dragging.
 
 Native Cocoa popup ownership now uses ProGPU's checked hidden-window parent
 configuration. A selected native popup is disposed when owner setup rejects or
-throws on every platform, rather than proceeding unowned. The main MVP menus and
+throws on every platform, rather than proceeding unowned. The main Showcase menus and
 ComboBoxes still require visible qualification; this is not genuine NSPanel
 modal-popup hosting or automatic AppKit session admission. See the
 [popup ownership checkpoint](../reports/native-mil-cocoa-popup-ownership-2026-09-09.md).
@@ -351,7 +351,7 @@ The `Visual` geometry-hit consumer through `PathGeometry.HitTestWithPathGeometry
 is now connected to ProGPU's shared native fill-relation query under portable
 media selection. The existing native host harness includes region selection
 inside/outside an actual clip; execution is deferred. This closes the identified
-source import route, not Windows SDK admission. Continue the package MVP's startup
+source import route, not Windows SDK admission. Continue the package Showcase's startup
 and common resource path. Path-length animation or neighboring APIs enter this
 queue only if a required application action uses them; do not exhaustively scan
 unrelated API families before feature freeze.
@@ -379,7 +379,7 @@ Do not spend consecutive batches improving a subsystem without closing an
 application-level blocker or explaining the remaining dependency.
 
 The next implementation pass is application integration: trace the native host
-harness and package-mode MVP from startup through first frame, content update,
+harness and package-mode Showcase from startup through first frame, content update,
 popup, resize and shutdown; close their known unsupported/lifetime branches.
 Then apply the same closure to Toolkit/AvalonDock and the license-controlled
 paid Xceed path. Preserve the existing SDK gate, including its SciChart coverage;
@@ -413,7 +413,7 @@ qualification phase below; only qualification failures reopen core code work.
 
 ## Acceptance application paths
 
-Use the existing source-built native host harness, package-mode MVP application,
+Use the existing source-built native host harness, package-mode Showcase application,
 Toolkit/AvalonDock application and paid Xceed application when licenses are
 available. Extend these paths to exercise the core milestones; do not create a
 special stripped-down application and treat its success as product completion.
@@ -485,7 +485,7 @@ error and returned to suspended; saved state and VM configuration were preserved
 Windows/Linux payloads, Windows managed transport and complete packages remain
 open. See the [production record](../reports/native-mil-build-only-production-2026-09-09.md).
 
-Source dialog completion (2026-09-09): the MVP About-dialog Hide/Close path now
+Source dialog completion (2026-09-09): the Showcase About-dialog Hide/Close path now
 transfers source input/focus cleanup through captured typed ReleaseDialog and
 ProGPU ReleaseAfterNative contracts. Source scopes remain blocked until native
 completion and unwind inside-out, including out-of-order native completions.
@@ -525,11 +525,11 @@ ProGPU source-contract fixture compile; no tests or renderer workloads executed.
 Artifacts remain an isolated, unqualified two-RID staging set, not a full package.
 Windows Parallels resume failed with a critical error, and its bundle listing
 stalled; saved state was preserved and user assistance requested. The Windows and
-Linux payloads remain missing, so fresh package production/MVP consumption and
+Linux payloads remain missing, so fresh package production/Showcase consumption and
 Windows SDK admission are still open. See the
 [build evidence and remaining prerequisites](../reports/native-mil-core-payload-build-2026-09-09.md).
 
-Package production/qualification separation (2026-09-09): the package-mode MVP's
+Package production/qualification separation (2026-09-09): the package-mode Showcase's
 automatic rebuild invokes the full SDK gate, including application execution,
 even when the launcher's individual validation flags are disabled. The SDK script
 now accepts an explicit command-line-only `--build-packages-only` option. It shares
@@ -574,7 +574,7 @@ VM/GPU workloads, benchmarks or CI checks ran. Automatic Cocoa modality, native
 popup admission, source deferred-End restoration and Linux modality remain open;
 these compilations do not change the package-mode or Windows admission gates.
 
-Win32 modal gate/source restoration connection: the MVP About dialog now publishes
+Win32 modal gate/source restoration connection: the Showcase About dialog now publishes
 native input admission for source-owned windows and separately surfaced popups,
 including windows created during the dialog. ProGPU retains an independent input
 gate alongside latest application-enabled intent; controller refresh cannot erase
@@ -603,7 +603,7 @@ excluded. No package feed/restore bypass was introduced. The concrete remaining
 About-dialog implementation blocker is native input suppression on Cocoa/Linux;
 the source policy and checked Win32 integration do not close that requirement.
 
-Native dialog owner connection: the MVP About dialog's Window.Owner now resolves
+Native dialog owner connection: the Showcase About dialog's Window.Owner now resolves
 its live ProGPU host and applies shared native top-level ownership before Show.
 The child initializes hidden when needed; missing/disposed owners or unsupported
 native ownership reject explicitly instead of displaying an unowned dialog.
@@ -629,7 +629,7 @@ An additional RealApplicationRunHarness no-restore build stopped at NETSDK1004
 because its project.assets.json is absent; no restore/feed bypass was used. That
 SDK-run harness remains separate from the source PresentationFramework harness.
 
-Shared source modal-input connection: the MVP About dialog now enters ProGPU's
+Shared source modal-input connection: the Showcase About dialog now enters ProGPU's
 thread-bound PortableModalInputScope before Show and restores nested scopes on
 exit. Host receipt and queued dispatch reject inactive owners before input or
 activation hooks; source input also checks focus and the actual captured-mouse
@@ -650,7 +650,7 @@ Compile-only: ProGPU.Tests 0 warnings/0 errors, source PresentationFramework
 fixtures 6/0 on the final resumed build (2/0 previously), final bridge fixtures 20/0 (116/0 initially) and source application
 harness 0/0. Fixed one test-only ambiguous xUnit overload after the initial ProGPU
 build failure. No fixture, verifier, application/native-input/VM/GPU workload,
-benchmark or CI qualification ran. The package-mode MVP still awaits fresh package
+benchmark or CI qualification ran. The package-mode Showcase still awaits fresh package
 production; these source builds do not repair or bypass the missing local feed.
 Latest fetched ProGPU main is included and unrelated submodule edits are preserved.
 
@@ -661,7 +661,7 @@ handling. The shared controller now reports enabled-state admission alone; Win32
 checks local host-thread/process ownership and the actual post-callback state.
 Source-generated integer-BOOL bindings replace the old enable import. Authored
 policy fixtures cover state changes/idempotence, rejection, destruction and
-callback failures. This corrects a prerequisite for the MVP dialog's remaining
+callback failures. This corrects a prerequisite for the Showcase dialog's remaining
 other-window input blocker, not a completed WPF modal-input coordinator. Cocoa
 currently updates native buttons only, and X11/Wayland input suppression remains
 incomplete. Keep native ownership, nested input restriction and activation
@@ -676,7 +676,7 @@ ingress, queued dispatch, popup ownership and source captured-mouse routing, whi
 preserving application-owned enabled values. Existing WinUI modal owner code
 assigns IsEnabled directly and must not be copied as the WPF product contract.
 
-Portable dialog lifetime connection: the MVP About dialog now admits a separate
+Portable dialog lifetime connection: the Showcase About dialog now admits a separate
 typed `RunDialog` capability before Show. Source ShowHelper no longer enters a WPF
 HWND dispatcher modal frame for an active portable window on Windows. The host's
 existing event/render loop borrows the source continuation and ends that invocation
@@ -685,16 +685,16 @@ Canceled DialogResult closes reset the result, allowing the same value to close
 again later. Premature host return and missing capability fail explicitly; source
 modal notifications and host pump cleanup remain finally-balanced. Both renderers
 share the same host path. Authored source/interop fixtures and the extended existing
-MVP dialog gate cover Hide/reuse, cancellation and failure cleanup; they are not
+Showcase dialog gate cover Hide/reuse, cancellation and failure cleanup; they are not
 executed runtime evidence. Native owner-window configuration, other-window input
 disabling/nested modality and activation restoration are still concrete dialog
 integration blockers, not completed by this loop fix. Windows SDK admission stays
 guarded. See the [contract and qualification scope](../external/ProGPU/docs/native-mil-dialog-lifetime.md).
 Compile-only: ProGPU.Tests 0 warnings/0 errors, final PresentationFramework source
 fixtures 2/0 (6/0 initially), bridge fixtures 116/0 and source application harness
-0/0. The package-mode MVP build did **not** compile: no-restore failed with
+0/0. The package-mode Showcase build did **not** compile: no-restore failed with
 NETSDK1004 for missing assets; ordinary restore then failed with NU1301 because
-`artifacts/packages/Release/NonShipping` does not exist. The live MVP gate extension
+`artifacts/packages/Release/NonShipping` does not exist. The live Showcase gate extension
 is authored, not package-compiled or executed. Fresh package production/consumption
 remains mandatory; no feed bypass or old-package success substitutes for it.
 ProGPU `62867381` contains the typed contract and latest fetched main; unrelated
@@ -728,7 +728,7 @@ Latest fetched ProGPU main is already included in feature head `133f8134`;
 unrelated ProGPU changes remain untouched. No source verifier, test, application,
 VM/GPU workload, benchmark or CI qualification was executed.
 
-Cocoa system-menu connection: the MVP Window / Show system menu action now
+Cocoa system-menu connection: the Showcase Window / Show system menu action now
 resolves its real NSWindow and uses the shared ProGPU AppKit native-action menu.
 Minimize/Zoom/Close retain native button policy and delegate close cancellation;
 this is a macOS adaptation, not arbitrary Win32 menu customization or Windows
@@ -754,7 +754,7 @@ ProGPU `133f8134` is pushed and includes latest fetched main. Continue the activ
 native package-startup queue; this checkpoint does not make general platform menu
 expansion a prerequisite for the Windows application path.
 
-Linux/X11 system-menu connection: the same MVP Window / Show system menu action
+Linux/X11 system-menu connection: the same Showcase Window / Show system menu action
 now resolves the actual native Display/XID in the Silk.NET host adapter and calls
 ProGPU's shared provider. The provider requires a WM-managed client and the menu
 extension advertised on its actual root, preserves signed desktop coordinates,
@@ -774,7 +774,7 @@ application, VM/GPU, benchmark or CI qualification ran. ProGPU `141621a3` is pus
 and includes latest fetched main; this does not close the package application
 acceptance batch.
 
-Windows system-menu connection: the MVP Window / Show system menu action now
+Windows system-menu connection: the Showcase Window / Show system menu action now
 uses a typed optional activation callback before source HWND/DPI handling.
 ProGPU owns the new native provider: local same-thread top-level owner admission,
 existing menu lifetime, desktop coordinates, system alignment, modal selection
@@ -792,7 +792,7 @@ with 5 warnings/0 errors. ProGPU `dab85b76` is pushed and includes latest fetche
 main. No fixture, verifier, application, VM/GPU,
 benchmark or CI workload ran. No runtime validation is implied by this connection.
 
-Portable Window menu state commands: the MVP's maximize/minimize/restore/close
+Portable Window menu state commands: the Showcase's maximize/minimize/restore/close
 path now selects an active portable Window before Win32 handle access on every
 OS. It uses the existing source WindowState/Close implementation and typed host
 callbacks, preserving source state, cancelable Closing and one close/dispose.
@@ -804,7 +804,7 @@ hook. They require independent portable/native test-process lanes and have not
 been executed. This host/source routing fix requires no new ProGPU algorithm.
 Portable ShowSystemMenu remains a distinct missing host capability: the current
 source implementation is still OS-selected and must be connected before claiming
-that MVP action or Windows SDK admission complete. Do not count the existing
+that Showcase action or Windows SDK admission complete. Do not count the existing
 non-Windows no-op as successful menu display. Compile-only: the final source
 PresentationFramework fixture graph builds with 2 warnings/0 errors (6 warnings
 on its initial source dependency rebuild). Warnings are the existing test-package
@@ -812,7 +812,7 @@ compatibility and nullable diagnostics; no fixture, verifier, application, VM/GP
 benchmark or CI workload ran. Latest fetched ProGPU main remains included in the
 unchanged ProGPU feature head. Windows native SDK activation remains guarded.
 
-Windows popup service connection (MVP/Toolkit ComboBox and menu open, nested menu
+Windows popup service connection (Showcase/Toolkit ComboBox and menu open, nested menu
 movement, two-window ownership and close): ProGPU root hosts now register with
 the existing typed popup router on Windows as well as macOS/Linux. Native popup
 child hosts retain their explicit opt-out. A supplied source identity cannot be
@@ -837,7 +837,7 @@ Windows SDK admission. The next application integration work remains startup and
 common source-media routing before removing that guard; no optional API expansion
 is added to the queue.
 
-Windows portable input ownership: the MVP/Toolkit editor-focus, modifier-key,
+Windows portable input ownership: the Showcase/Toolkit editor-focus, modifier-key,
 typing and mouse-selection path exposed OS-selected Win32 devices even after
 portable media selection. InputManager now freezes that selection before device
 construction and uses portable key/button state on Windows as well. WPF TSF does
@@ -858,7 +858,7 @@ skipped portable fixtures in the native-Windows default lane are not evidence.
 This does not bypass the package admission guard or reset product ownership. See the
 [input ownership record](../external/ProGPU/docs/native-mil-startup-selection.md#input-device-ownership-connection).
 
-Source paginated-viewer connection: the MVP's real FlowDocument paginator now
+Source paginated-viewer connection: the Showcase's real FlowDocument paginator now
 selects portable media before PTS, shares source page/column policy and passes
 actual TextLine advances and source break constraints to ProGPU C++ pagination.
 Real DocumentPages feed the existing DocumentPageView and shared ITextView with
@@ -881,7 +881,7 @@ Application/VM/GPU, benchmarks and CI remain deferred. See the
 Return to the acceptance application's startup/resource path and Windows admission
 dependencies next; optional document policy breadth is not a new prerequisite.
 
-Native pagination prerequisite (historical): the MVP page viewer was still a known PTS consumer.
+Native pagination prerequisite (historical): the Showcase page viewer was still a known PTS consumer.
 ProGPU now supplies generated native records and a typed zero-copy service for
 sequential page/column fitting over actual line advances and source-admitted
 breaks. Forced page/column boundaries, leading-space replacement and failure
@@ -897,7 +897,7 @@ are an availability/integration qualification item, not proof of a missing cmap
 implementation; Linux font availability remains unqualified. See the
 [pagination record](../external/ProGPU/docs/native-mil-document-flow.md#sequential-native-pagination-prerequisite).
 
-Source scroll-view checkpoint: the MVP's actual `FlowDocumentView` now consumes
+Source scroll-view checkpoint: the Showcase's actual `FlowDocumentView` now consumes
 the live portable formatter before PTS access on every OS. Its real source
 DrawingVisual/IContentHost draws paragraphs, markers, backgrounds and border
 rings; ITextView shares original document pointers and retained TextLines for
@@ -952,7 +952,7 @@ Compilation: ProGPU fixtures 0 warnings/errors; LibreWPF adapter fixture graph
 ProGPU commit `3dc0c223` contains the latest fetched `main`; this checkpoint does
 not assert that the required CI or installed native package exports are qualified.
 
-Standard source run underlines: the MVP FlowDocument viewer's Hyperlink exposed
+Standard source run underlines: the Showcase FlowDocument viewer's Hyperlink exposed
 a required decoration rejection in PortableTextLine. Standard underlines now
 consume native paragraph range geometry, actual font metrics and source brushes,
 including wrapped lines, interior tabs, trailing-whitespace exclusion and ink
@@ -986,12 +986,12 @@ agreement, point and selection bounds, exact viewport edges and styled source
 selection offsets. Their deterministic provider is a source-consumer fixture,
 not a native shaper or evidence of GPU rendering. Full document/page/paragraph
 layout, native decoration/inline-object contracts and application qualification
-remain open; do not substitute this editor cache for the MVP's document viewers.
+remain open; do not substitute this editor cache for the Showcase's document viewers.
 Compile-only: the source PresentationFramework fixture project builds with
 2 warnings and 0 errors. No fixture, verifier, application, VM/GPU, benchmark or
 CI workload was executed; these are authored contracts awaiting final qualification.
 
-Portable rich-editor admission: the MVP `EditorRichTextBox` now selects its
+Portable rich-editor admission: the Showcase `EditorRichTextBox` now selects its
 source-owned `TextBoxView` by frozen media ownership, including Windows portable
 mode. Windows MIL still selects PTS. The editor sends actual styled runs through
 the registered paragraph provider, preserves source element positions, and rejects
@@ -1005,7 +1005,7 @@ No application, VM/GPU, verification, benchmark or CI workload ran.
 This is an editor routing connection, not complete rich-document layout. The source
 trace also identified `TextBoxView`'s uniform-height line cache, paragraph/page
 layout limitations and the independent `FlowDocumentView` empty portable measure
-path. The MVP's document viewers include headings, a hyperlink and lists; their
+path. The Showcase's document viewers include headings, a hyperlink and lists; their
 PTS replacement remains required. Do not remove the Windows SDK admission guard
 or report this editor connection as document-viewer or package-mode qualification.
 
@@ -1111,7 +1111,7 @@ source-host harness 1/0; bridge fixtures 115/0. No tests, source verifiers,
 app/VM/GPU workloads, benchmarks or CI qualification ran. Native algorithms/ABI
 are unchanged; ProGPU main is current and unrelated worktree changes preserved.
 
-Styled editor connection: the MVP/source-host action of changing font size,
+Styled editor connection: the Showcase/source-host action of changing font size,
 physical face or brushes no longer hits the source mixed-typography rejection.
 ProGPU's existing C++ paragraph now accepts explicit face/feature/scale domains;
 source WPF carries their actual glyph face annotations, source clusters, brushes
@@ -1145,7 +1145,7 @@ accepts one typography domain; mixed styles, composite/fallback fonts, tabs,
 document objects, trimming and other enumerated gaps remain explicit in the
 native text integration record. The old simple path and Windows LineServices are
 unchanged; an active provider failure cannot become an empty line. Next work must
-close these remaining MVP/Toolkit editor connections, not expand unrelated APIs.
+close these remaining Showcase/Toolkit editor connections, not expand unrelated APIs.
 Compile-only evidence: ProGPU fixtures completed with zero warnings/errors;
 bridge fixtures with 116 warnings and zero errors; the native host harness with
 five warnings and zero errors; final source fixtures with eight warnings and zero errors.
@@ -1204,7 +1204,7 @@ The startup trace also found `SimpleTextLine.CreatePortableFallback` can constru
 an empty paragraph for unsupported text. Do not enable a Windows portable-text
 route by replacing OS checks indiscriminately: native LineServices is a separate
 dependency from MIL rendering, and the empty portable result is not text parity.
-Track required complex-text/document cases against the existing MVP editor gate;
+Track required complex-text/document cases against the existing Showcase editor gate;
 this batch neither changes text services nor claims those cases complete.
 
 Decoder-backed SDK image connection: the existing package SDK gate loads
@@ -1225,7 +1225,7 @@ and zero errors, source PresentationCore fixtures with four warnings and zero
 errors, and bridge fixtures with 115 warnings and zero errors. No fixtures, graphical
 applications, VM comparisons, source verifiers, benchmarks or CI checks ran.
 
-Memory-bitmap connection (SciChart MVP chart-to-Image display and SDK memory
+Memory-bitmap connection (SciChart Showcase chart-to-Image display and SDK memory
 images): source WriteableBitmap construction/copy and CachedBitmap memory
 construction now select portable storage by frozen media policy, not OS.
 Cached sources consume existing managed pixels directly and decode-failure
@@ -1267,7 +1267,7 @@ PresentationCore fixtures 4/0, including the existing NU1701 package warning.
 No fixture, source verifier, application, VM/GPU/image, benchmark or CI
 qualification was executed. These counts are not evidence of runtime parity.
 
-Windows native popup connection (MVP/Toolkit ComboBox/menu open and click):
+Windows native popup connection (Showcase/Toolkit ComboBox/menu open and click):
 ProGPU now owns `NativePopupWindow.TryConfigureOwner` and a Win32 implementation
 using its existing native window accessors. It validates local same-thread
 top-level windows, configures a hidden owned popup with nonactivating/tool-window
@@ -1309,7 +1309,7 @@ routing and connect required source operations through shared ProGPU algorithms;
 do not enable the SDK by assuming the new popup route also closes those calls.
 
 
-Native-popup framebuffer ownership (MVP/Toolkit menu open while its owner moves
+Native-popup framebuffer ownership (Showcase/Toolkit menu open while its owner moves
 between monitors): source inspection confirmed two owner-DPI writes into a
 separately surfaced popup, in `WpfPortablePopupBridge.TrySetOwnerGeometry` and
 `WpfPortableNativePopupHost.SetDeviceScale`. The native adapter now exposes
@@ -1336,7 +1336,7 @@ Compile-only checkpoint: bridge fixtures 116 warnings/0 errors initially and
 application execution. Latest ProGPU `origin/main` is contained in the branch.
 
 
-Host/popup desktop connection (MVP/Toolkit ComboBox/menu open, move and click):
+Host/popup desktop connection (Showcase/Toolkit ComboBox/menu open, move and click):
 the stock host now publishes desktop scale from its actual native client-size
 policy, via ProGPU's `FromWindowCoordinates` and the optional typed source seam.
 Native pointer events use the same desktop-vector inverse, independently of
@@ -1363,7 +1363,7 @@ Compile-only checkpoint: ProGPU.Tests 0 warnings/0 errors, bridge fixtures 21/0
 No test execution or CI qualification.
 
 
-Popup extent/limit connection (MVP/Toolkit menus and ComboBoxes at desktop edges):
+Popup extent/limit connection (Showcase/Toolkit menus and ComboBoxes at desktop edges):
 source `Popup.UpdatePosition` previously used framebuffer DPI for root-size
 nudging even on a logical-unit desktop. It now uses the ProGPU desktop-vector
 contract, alongside child-interest points, absolute-placement offsets and
@@ -1394,7 +1394,7 @@ source-consumer compilation gap, not application/runtime acceptance. Existing
 NU1701 and other warnings remain visible. No tests, source verifiers, graphical
 applications, VM/image workloads, benchmarks or CI qualification were executed.
 
-Client-to-desktop source prerequisite (same MVP/Toolkit popup placement action):
+Client-to-desktop source prerequisite (same Showcase/Toolkit popup placement action):
 ProGPU now owns an immutable validated desktop transform and optional typed source
 capability. Source-built WPF point-to/from-screen conversion, including portable
 HwndSource ownership, uses its shared intrinsic forward/inverse mapping. Legacy
@@ -1413,7 +1413,7 @@ That build is incomplete and must be retried after space is restored; the source
 and bridge fixtures and the full harness are not qualified at this checkpoint.
 No tests, source verifiers, VM/image workloads, benchmarks or CI qualification ran.
 
-Popup DPI publication checkpoint (MVP/Toolkit ComboBoxes and nested menus):
+Popup DPI publication checkpoint (Showcase/Toolkit ComboBoxes and nested menus):
 `UpdatePortablePresentationSourceDpiScale` previously propagated the new owner
 device origin while popups still had their old scale, then updated scales in a
 second pass. For an owner at desktop X=100 and a popup at X=140, a 1-to-2 scale
@@ -1453,7 +1453,7 @@ succeeds with 4 warnings and 0 errors. An earlier bridge rebuild reported 116
 warnings; incremental counts do not establish warning cleanup. No fixtures,
 source verifiers, graphical/VM workloads, benchmarks or CI qualification ran.
 
-Fill-query connection checkpoint (MVP/Toolkit layout clips and pointer input):
+Fill-query connection checkpoint (Showcase/Toolkit layout clips and pointer input):
 portable unstroked bounds now route by frozen media backend through the typed
 geometry provider, including generic groups, serialized paths and primitive MIL
 line/cubic transport. Curve extrema and hollow filtering replace control-hull
@@ -1521,7 +1521,7 @@ was performed; warning counts do not establish cleanup or runtime compatibility.
 
 SDK activation checkpoint: the package bootstrap previously always selected
 managed portable hosts, so the native direct-host harness did not establish a
-native path for the MVP/Toolkit applications. `ProGpuWpfRendererMode=NativeMilWgpu`
+native path for the Showcase/Toolkit applications. `ProGpuWpfRendererMode=NativeMilWgpu`
 now selects the existing typed native host factory in the SDK bootstrap; the
 managed default is unchanged. The SDK gate accepts a renderer-mode lane for the
 same package applications and requires the direct native host gate for native
@@ -1539,7 +1539,7 @@ contract and the bounded checkpoint below.
 
 Windows activation prerequisite checkpoint:
 
-- Acceptance application/action: package-mode MVP and Toolkit/AvalonDock startup,
+- Acceptance application/action: package-mode Showcase and Toolkit/AvalonDock startup,
   first window, hide/show, activation, title updates, redraw and close.
 - Source-backed blocker: `PortableWindowActivationService` rejected Windows even
   after explicit typed registration; `Window.Activate`, `DragMove` and icon updates
@@ -1583,7 +1583,7 @@ Windows MIL/HWND renderer. The direct-host harness bypasses package startup and
 therefore cannot close this dependency. Keep the explicit Windows SDK guard until
 the complete required route is connected.
 
-Media transport checkpoint: the package MVP/Toolkit startup path now has the
+Media transport checkpoint: the package Showcase/Toolkit startup path now has the
 ProGPU-owned `PortableWpfRuntime` choice before media initialization. First use
 freezes transport identity across dispatchers; a late backend switch throws.
 `MediaSystem`, composition locks and the MIL notification window consume it;
@@ -1600,7 +1600,7 @@ not proof that the whole application no longer calls legacy MIL. Preserve the
 existing ordinary managed/native renderer algorithms rather than adding reduced
 Windows-only substitutes. Required Windows package admission remains pending.
 
-Hidden-source checkpoint (core MVP/Toolkit startup, interop hooks, show/close):
+Hidden-source checkpoint (core Showcase/Toolkit startup, interop hooks, show/close):
 `WindowInteropHelper.EnsureHandle()` now reaches the same ownership decision as
 `Show` before any Windows HWND/MIL source creation. The explicit ProGPU-owned
 `CreateHidden` callback creates a hidden host/source with no WPF root attached;
@@ -1637,7 +1637,7 @@ for the synchronous source-WPF contract; its existing portable C++ Direct2D
 geometry core is an implementation candidate, not yet a connected WPF utility.
 Keep the next geometry batch bounded to these real application callers.
 
-Popup ownership checkpoint (MVP/Toolkit ComboBox, menu and tooltip open/close):
+Popup ownership checkpoint (Showcase/Toolkit ComboBox, menu and tooltip open/close):
 
 - Source-backed blocker: `Popup.BuildWindow` and its placement, resize, visibility,
   capture, automation and destroy branches used the OS instead of the owner/source.
@@ -1691,7 +1691,7 @@ or CI qualification were executed. Existing SDK gates are unchanged. ProGPU
 `origin/main` was refreshed with zero commits missing; this WPF-specific slice
 does not change the submodule commit or pending unrelated native work.
 
-Popup placement checkpoint (MVP/Toolkit menus, ComboBoxes and tooltips at an
+Popup placement checkpoint (Showcase/Toolkit menus, ComboBoxes and tooltips at an
 owner-window edge): ProGPU now owns a typed actual-surface bounds query and
 streaming monitor selection. The bridge reports owner-surface bounds only for
 popups without a native host, including before first Show. Native hosts use
@@ -1716,7 +1716,7 @@ ProGPU contract commit `52aafb89` is pushed to PR #139; the superproject tracks
 it. No tests, source verifiers, runtime/GPU/VM work, images, benchmarks or CI
 qualification were run. All existing qualification gates remain required.
 
-Geometry utility prerequisite checkpoint (MVP/Toolkit transformed layout clips
+Geometry utility prerequisite checkpoint (Showcase/Toolkit transformed layout clips
 and editing selection): ProGPU now exposes the existing C++ Direct2D boolean
 boundary algorithm through a device-independent main-backend C API and managed
 `NativeGeometryUtilities` wrapper. It accepts canonical paths, independent fill
@@ -1805,7 +1805,7 @@ compiles. These compilation-only checks do not pack the SDK, run its initializer
 validate MSBuild error cases or execute an application. Exact-package two-mode
 build/runtime behavior remains in the final qualification phase.
 
-Surface recovery: source inspection of the native host harness/MVP presentation
+Surface recovery: source inspection of the native host harness/Showcase presentation
 path found that both renderer modes discarded failed acquisition requests and
 kept stale surface configuration. The shared ProGPU recovery policy now handles
 Timeout/Outdated/Lost, and both host paths schedule a presentation-bearing retry,

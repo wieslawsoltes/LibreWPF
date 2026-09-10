@@ -47,7 +47,7 @@ The sections below preserve the earlier 2ab498be production provenance.
 
 ## Acceptance dependency
 
-The package-mode MVP needs complete platform inputs from the implementation
+The package-mode Showcase needs complete platform inputs from the implementation
 checkpoint before its native/managed startup can be qualified. The prior Linux
 payloads used older native text/scene inputs than the current macOS builds. This
 batch refreshes both Linux architectures to ProGPU

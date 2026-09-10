@@ -2,8 +2,8 @@
 
 ## Application dependency
 
-Acceptance remains the package MVP and Toolkit/AvalonDock interaction path.
-The MVP's template/animation cases change visual opacity, and source visual-state
+Acceptance remains the package Showcase and Toolkit/AvalonDock interaction path.
+The Showcase's template/animation cases change visual opacity, and source visual-state
 command replay pushes that value through the product sink. Native MIL previously
 rejected all layers when emitting its optional input index, including ordinary
 drawing opacity and unmasked visual opacity isolation. The source WPF point and

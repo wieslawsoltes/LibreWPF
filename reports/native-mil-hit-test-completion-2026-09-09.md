@@ -2,7 +2,7 @@
 
 ## Acceptance dependency and bounded outcome
 
-Acceptance applications: the existing package MVP and Toolkit/AvalonDock.
+Acceptance applications: the existing package Showcase and Toolkit/AvalonDock.
 User actions: clicking source visuals and selecting clipped content.
 Source-backed blocker: `ProGpuWpfWindowHost` exposes synchronous point/region
 callbacks, while `NativeCompositor` previously exposed only Begin/TryPoll native

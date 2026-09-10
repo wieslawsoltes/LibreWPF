@@ -2,7 +2,7 @@
 
 ## Acceptance action and source-backed blocker
 
-Acceptance: focus and type in the existing MVP TextBox/RichTextBox, preserving
+Acceptance: focus and type in the existing Showcase TextBox/RichTextBox, preserving
 source caret drawing and Windows host ownership. CaretElement.Win32CreateCaret
 did not create a caret for PortablePresentationSource, but Win32SetCaretPos still
 ran for that source on Windows and could retry/throw without owning a Win32 caret.
@@ -64,7 +64,7 @@ were preserved. This batch does not change the native MIL coverage source digest
 
 ## Remaining requirements
 
-Native Windows execution and visible MVP/Toolkit editing, actual focus changes,
+Native Windows execution and visible Showcase/Toolkit editing, actual focus changes,
 mixed-DPI client coordinates, magnifier/accessibility behavior and retained
 native/managed output remain final qualification requirements. Windows cannot
 be admitted to native SDK package mode on this checkpoint alone; its payloads,

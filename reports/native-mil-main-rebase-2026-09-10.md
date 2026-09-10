@@ -16,7 +16,7 @@ reset, forced submodule update or pull-merge over that dirty checkout.
 
 ## Integration and source migration
 
-Acceptance application: source-built LibreWPF MVP alongside managed portable
+Acceptance application: source-built LibreWPF Showcase alongside managed portable
 mode, with upstream CAD consumers preserved. Blocking source path: the shared
 mesh wire/shader ABI and `WpfNativeMilSceneCompiler` material-mode selection.
 Bounded outcome: latest-main integration without conflating CAD and WPF modes;

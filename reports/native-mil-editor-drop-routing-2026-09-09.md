@@ -2,7 +2,7 @@
 
 ## Acceptance action and source-backed blocker
 
-Acceptance: drag text into the existing MVP TextBox/RichTextBox, focus the accepted
+Acceptance: drag text into the existing Showcase TextBox/RichTextBox, focus the accepted
 drop target, and open its editor context menu within the actual client surface.
 Source tracing found that TextEditorDragDrop queried IsWindowEnabled against a
 WindowInteropHelper handle on Windows even for a portable window. Portable source

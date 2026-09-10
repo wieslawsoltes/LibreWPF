@@ -2,7 +2,7 @@
 
 ## Core acceptance dependency
 
-Application/action: LibreWPF MVP About dialog, Hide/Close from native event
+Application/action: LibreWPF Showcase About dialog, Hide/Close from native event
 dispatch, including nested dialogs. The source-backed blocker was unconditional
 managed scope disposal in ShowPortableDialog: native End may occur only after
 that managed callback returns. No application reproduction was run in this batch.

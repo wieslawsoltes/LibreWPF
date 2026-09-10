@@ -2,7 +2,7 @@
 
 ## Latest refresh: Windows compilation-fix checkpoint
 
-The package-mode MVP requires native payloads aligned with the implementation
+The package-mode Showcase requires native payloads aligned with the implementation
 checkpoint. After the Windows native MSVC fixes, the clean isolated checkout was
 advanced from `2ab498be` to `da36a7188bb887b3935ac7929b03534b333658ef` and both
 macOS targets were rebuilt using the same commands, target-specific caches and
@@ -32,7 +32,7 @@ The following sections retain the earlier `2ab498be` production provenance.
 
 ## Acceptance dependency and implementation
 
-The existing package-mode MVP must launch with an explicitly selected native
+The existing package-mode Showcase must launch with an explicitly selected native
 renderer. Complete package production still requires Windows native and managed
 payloads: ProGPU.Backend.Native checks all supported renderer RIDs and the WPF
 transport requires source-built Windows PresentationCore/DirectWriteForwarder/IJW

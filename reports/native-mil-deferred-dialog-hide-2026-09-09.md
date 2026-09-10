@@ -2,7 +2,7 @@
 
 ## Application dependency and delivered change
 
-Acceptance path: LibreWPF MVP About dialog, Hide while native event dispatch is
+Acceptance path: LibreWPF Showcase About dialog, Hide while native event dispatch is
 active. The source-backed blocker was immediate native visibility mutation in
 `ProGpuWpfWindowHost.Hide`, despite native destruction already respecting the
 ProGPU modal session lease. This was not reproduced in an application: execution
@@ -53,7 +53,7 @@ converted into NSPanels or switched to owner-surface replay. Linux native modali
 complete platform payload/package production and Windows SDK admission remain
 open. The previously reported Parallels/storage failure was not retried here.
 
-After core implementation closure, run the existing package MVP/third-party,
+After core implementation closure, run the existing package Showcase/third-party,
 cross-platform comparison, lifetime, performance and exact-head CI gates. This
 checkpoint closes only the identified native host Hide branch, not an application
 milestone or the overall native MIL/DirectX objective.

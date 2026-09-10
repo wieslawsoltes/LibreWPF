@@ -2,7 +2,7 @@
 
 ## Bounded core dependency
 
-Acceptance applications: SDK/Toolkit/AvalonDock multi-window lifetime and MVP's
+Acceptance applications: SDK/Toolkit/AvalonDock multi-window lifetime and Showcase's
 existing OnMainWindowClose behavior. Required action: close the first polling
 window while another remains, then close/reopen under explicit application
 lifetime without replacing the application. The new source lifecycle fixtures
@@ -76,7 +76,7 @@ deletions are preserved and excluded from this batch.
 
 This closes an identified application-lifetime source branch, not the entire
 application closure milestone. Native visible handoff and hidden-window behavior,
-MVP/Toolkit/third-party application execution, package production, Windows SDK
+Showcase/Toolkit/third-party application execution, package production, Windows SDK
 admission, cross-platform image/input/lifetime/performance comparisons and both
 PRs' final required CI remain open. The suspended Windows VM remains a separate
 environment blocker; no new resume/reset or configuration change was attempted.

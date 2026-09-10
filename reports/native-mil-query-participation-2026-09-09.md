@@ -1,8 +1,8 @@
-# MVP scrolling: query-specific source coverage
+# Showcase scrolling: query-specific source coverage
 
 ## Acceptance path and source evidence
 
-Application: existing `ProGPU.Wpf.MvpApp`.
+Application: existing `ProGPU.Wpf.ShowcaseApp`.
 Action: expand the selector section, wheel over `SelectorScrollViewer`, then use
 point and geometry selection in the same presented native scene.
 

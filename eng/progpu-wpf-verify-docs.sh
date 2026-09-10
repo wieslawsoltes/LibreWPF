@@ -50,10 +50,10 @@ require_text "external/ProGPU/src/ProGPU.Wpf.Interop/ProGPU.Wpf.Interop.csproj" 
 require_text "packaging/ProGPU.Wpf.Sdk/ProGPU.Wpf.Sdk.ArchNeutral.csproj" "<PackageName>LibreWPF.Sdk"
 require_text "packaging/ProGPU.Wpf.Sdk/ProGPU.Wpf.Sdk.ArchNeutral.csproj" "<PackageDescription>LibreWPF MSBuild SDK"
 require_text "samples/ProGPU.Wpf.HelloApp/README.md" "# LibreWPF Hello App"
-require_text "samples/ProGPU.Wpf.MvpApp/README.md" "# LibreWPF MVP App"
+require_text "samples/ProGPU.Wpf.ShowcaseApp/README.md" "# LibreWPF Showcase App"
 require_text "samples/ProGPU.Wpf.ToolkitApp/README.md" "# LibreWPF Toolkit App"
 require_text "samples/ProGPU.Wpf.XceedPaidApp/README.md" "# LibreWPF Paid Xceed Toolkit + DataGrid"
-require_text "samples/ProGPU.Wpf.SciChartMvpApp/README.md" "# LibreWPF SciChart MVP App"
+require_text "samples/ProGPU.Wpf.SciChartApp/README.md" "# LibreWPF SciChart App"
 
 if grep -Fq "<PackageTags>librewpf;wpf;" "${repo_root}/packaging/ProGPU.Wpf.Sdk/ProGPU.Wpf.Sdk.ArchNeutral.csproj"; then
   echo "LibreWPF.Sdk package tags should not use WPF as a public package-brand tag." >&2

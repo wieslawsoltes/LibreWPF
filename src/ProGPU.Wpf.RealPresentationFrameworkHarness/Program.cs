@@ -320,7 +320,7 @@ public static class Program
         object span = Create(presentationFramework, "System.Windows.Documents.Hyperlink", second);
         // This pre-host fixture has no Application theme resource dictionary.
         // Supply the source decoration explicitly; theme loading is exercised
-        // separately by the package MVP, not assumed by this formatting probe.
+        // separately by the package Showcase, not assumed by this formatting probe.
         SetProperty(span, "TextDecorations", GetRequiredType(presentationCore, "System.Windows.TextDecorations")
             .GetProperty("Underline", BindingFlags.Public | BindingFlags.Static)!.GetValue(null)!);
         AddToCollection(GetProperty(text, "Inlines"), first);

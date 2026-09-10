@@ -2,7 +2,7 @@
 
 ## Acceptance action
 
-Continue the existing MVP SelectorScrollViewer wheel/selection action and the
+Continue the existing Showcase SelectorScrollViewer wheel/selection action and the
 source-built native host's inline TextBlock. Source TextBlock point hit testing
 accepts its arranged rectangle, including blank space; geometry-region selection
 uses actual drawing. UIElement already retains source broad-phase bounds and real
@@ -78,8 +78,8 @@ claimed. Broader Direct2D/COM/Win2D work remains explicitly deferred.
 ## Remaining work
 
 This source connection is implemented and compiled, not runtime-qualified. Continue
-the same core application's remaining input dependencies. The MVP's actual
-`MvpDropShadowEffectBorder` and `MvpBlurEffectBorder` identify the next bounded
+the same core application's remaining input dependencies. The Showcase's actual
+`ShowcaseDropShadowEffectBorder` and `ShowcaseBlurEffectBorder` identify the next bounded
 effect-input path: source own-content/descendant coverage must survive offscreen
 composition without hittable effect padding. Root managed effect texture coverage
 remains distinct from the source descendant connection in this batch. Required

@@ -2,7 +2,7 @@
 
 ## Acceptance dependency
 
-The package-mode MVP requires Windows PresentationCore, DirectWriteForwarder and
+The package-mode Showcase requires Windows PresentationCore, DirectWriteForwarder and
 matching IJW hosts before complete package production and native SDK admission.
 The native ARM64/x64 inputs were produced in the preceding batch; those do not
 replace the source-built managed runtime inputs.
@@ -251,7 +251,7 @@ no test method executed and the warnings remain visible rather than suppressed.
 
 ### Rebuild project-reference graph correction
 
-Acceptance path: package-mode MVP startup on Windows. The bounded outcome is
+Acceptance path: package-mode Showcase startup on Windows. The bounded outcome is
 compiling the real Windows managed/IJW transport inputs required by
 LibreWPF.Transport; no renderer fallback or SDK admission change is involved.
 

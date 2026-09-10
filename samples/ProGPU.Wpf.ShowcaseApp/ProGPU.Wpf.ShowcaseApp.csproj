@@ -1,0 +1,14 @@
+<Project Sdk="LibreWPF.Sdk/0.1.0-preview.45">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>$(ProGpuWpfSdkSampleTargetFramework)</TargetFramework>
+    <UseWPF>true</UseWPF>
+  </PropertyGroup>
+  <ItemGroup>
+    <Resource Include="Assets/ShowcaseResource.txt" />
+    <Content Include="Assets/ShowcaseContent.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <TargetPath>Assets/ShowcaseContent.txt</TargetPath>
+    </Content>
+  </ItemGroup>
+</Project>

@@ -2,8 +2,8 @@
 
 ## Acceptance action and blocking path
 
-Application: the existing package MVP's `MvpBlurEffectBorder` and
-`MvpDropShadowEffectBorder`, including their TextBlock descendants.
+Application: the existing package Showcase's `ShowcaseBlurEffectBorder` and
+`ShowcaseDropShadowEffectBorder`, including their TextBlock descendants.
 Action: point/region selection before and after child/content updates.
 Source-backed blocker: managed `PrepareAndDrawEffect` indexed its padded source
 and filtered textures with the root owner's ID, then captured only descendants.

@@ -2,7 +2,7 @@
 
 ## Acceptance dependency
 
-The package-mode LibreWPF MVP cannot consume a complete fresh native package until
+The package-mode LibreWPF Showcase cannot consume a complete fresh native package until
 all required platform payloads exist. This batch addresses the Linux ARM64/x64
 build inputs without touching the suspended Parallels guests or running renderer
 qualification. It does not close Windows SDK admission or application startup.

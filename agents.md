@@ -1,5 +1,11 @@
 # Agent Guidance
 
+Use purpose-based final names for applications, APIs, tests, scripts and artifacts,
+not delivery-stage labels. The acceptance application is ProGPU.Wpf.ShowcaseApp;
+the chart integration application is ProGPU.Wpf.SciChartApp. Keep namespaces,
+resource URIs, automation names, environment variables and launchers synchronized.
+Names never imply qualification or waive outstanding release requirements.
+
 X11 popup configuration must use ProGPU NativePopupWindow just like Win32 and
 Cocoa. WPF adapts the actual native handles/display and owns disposal on failure;
 it must not retain a local XSetTransientForHint/XChangeWindowAttributes/property
@@ -135,7 +141,7 @@ content rectangles distinct from viewport selection/caret geometry. Layout edits
 suspension and document replacement invalidate interaction before disposing lines.
 Native logical caret boundaries must accept equivalent leading/trailing source
 affinities without accepting positions inside shaped clusters. Compiled fixtures
-do not qualify the actual MVP, symbol fonts or package-mode startup.
+do not qualify the actual Showcase, symbol fonts or package-mode startup.
 Paginated document consumers must use the shared native fragmentation service,
 retain source page/column policy and original page-local text positions, and
 explicitly resolve keep/widow/orphan behavior before admitting break boundaries.
@@ -363,7 +369,7 @@ not automatically a core prerequisite: trace ordinary host resize/DPI/popup need
 first. Historical checkpoint next-step suggestions do not override the delivery
 plan's finish-first rule. Preserve all existing SDK and final qualification gates.
 Before feature freeze, use the SDK script's explicit `--build-packages-only` lane
-for package production, not the MVP launcher or normal SDK gate. It must retain
+for package production, not the Showcase launcher or normal SDK gate. It must retain
 all pack-time runtime/payload requirements and stop before application/verifier
 execution. Never introduce an environment-inherited CI bypass, publish its output
 as qualified, or claim exact-head provenance from dirty/stale native payloads.
@@ -526,7 +532,7 @@ must release visual references after synchronous serialization.
 
 The ProGPU WPF port must now prioritize a reflection-free, high-performance implementation. Runtime reflection in the WPF bridge or ProGPU is temporary scaffolding only: keep it limited to compatibility probes, diagnostics, or transitional adapters that are documented with an exit path, and replace product hot-path reflection with typed/source-integrated seams as soon as the local blocker is handled.
 
-As the port approaches a workable MVP, performance and clean reflection-free code are release criteria, not polish. New WPF/progpu work should fail closed or add a typed portable seam when data is missing; do not keep samples alive by adding new duck-typed property probes, private-field scans, or reflection-based fake shapes.
+As the port approaches a workable Showcase, performance and clean reflection-free code are release criteria, not polish. New WPF/progpu work should fail closed or add a typed portable seam when data is missing; do not keep samples alive by adding new duck-typed property probes, private-field scans, or reflection-based fake shapes.
 
 The product bridge source is currently reflection-free by audit; keep that as an invariant while returning to broader SDK/sample work. New Xceed, SciChart, SDK smoke, input, clipping, hit-test, rendering, or platform fixes must use typed APIs, generated accessors, reusable ProGPU scene/vector/text primitives, or source-integrated WPF internals. Do not add managed WPF workarounds when the correct fix belongs in ProGPU rendering, shaders, layout/cache metadata, input, or DirectX/Silk.NET platform support.
 

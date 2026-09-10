@@ -1,6 +1,6 @@
 # Native X11 popup ownership connection
 
-Acceptance applications: the existing MVP and Toolkit/AvalonDock package gates.
+Acceptance applications: the existing Showcase and Toolkit/AvalonDock package gates.
 User actions: open a native menu, ComboBox dropdown or tooltip on Linux/X11,
 retain source desktop placement and actual native ownership before Show.
 

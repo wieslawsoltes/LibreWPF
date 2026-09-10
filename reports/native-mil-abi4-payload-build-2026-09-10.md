@@ -1,6 +1,6 @@
 # ABI 4 native package-input production
 
-Acceptance application: the package-mode LibreWPF MVP in native MIL mode.
+Acceptance application: the package-mode LibreWPF Showcase in native MIL mode.
 User action: start the application using the new managed/native ABI together.
 Blocking package path: old platform payloads predate the latest-main rebase and
 cannot be mixed with the ABI 4 managed contract. Bounded outcome: compile and
@@ -88,7 +88,7 @@ The required package inputs include source-built `PresentationCore`,
 `DirectWriteForwarder` and matching IJW hosts for Windows x86, x64 and ARM64.
 Earlier `aa3bc9ad8` outputs are preserved, but are not substituted for current
 source after the native/main integration. The acceptance action remains starting
-the complete package-mode MVP, not a reduced direct-host harness.
+the complete package-mode Showcase, not a reduced direct-host harness.
 
 Preparation is active in a new guest checkout, `C:\lwpf-abi4-828fff634`.
 The LibreWPF clone completed and its HEAD check accepted

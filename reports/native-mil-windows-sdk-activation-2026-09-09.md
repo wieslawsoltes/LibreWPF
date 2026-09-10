@@ -2,7 +2,7 @@
 
 ## Acceptance and boundary
 
-Acceptance application: the existing complete package-mode MVP. User action:
+Acceptance application: the existing complete package-mode Showcase. User action:
 start the application, construct its text/vector/image resources and show its
 first native-rendered window. The blocking source path was the SDK bootstrap's
 blanket Windows rejection followed by a separate unconditional Windows return.
@@ -46,13 +46,13 @@ closure and final qualification remain required before a supported release.
 
 The existing startup contract fixture now checks that the Windows early return
 is managed-only, native selection precedes registration, x64/ARM64 admission is
-explicit and failed registration still throws. The MVP's existing self-test
+explicit and failed registration still throws. The Showcase's existing self-test
 checks the requested renderer against frozen portable source media. Its live
 path checks a presented host for a native MIL session frame on the host thread;
 a managed presentation cannot satisfy that check.
 
-Before editing the bootstrap, the full MVP source at `96d6a1d63` was copied into
-`artifacts/native-core-mvp-build.Bb1vvF`. A standalone parent props/targets pair
+Before editing the bootstrap, the full Showcase source at `96d6a1d63` was copied into
+`artifacts/native-core-showcase-build.Bb1vvF`. A standalone parent props/targets pair
 replaces repository build infrastructure, not application source. The original
 sample's source/XAML/resources/project remain present. NuGet configuration maps
 ProGPU/LibreWPF IDs only to the newly produced development feed and uses a fresh
@@ -67,7 +67,7 @@ SDK production rebuilt PresentationBuildTasks net10.0/net472 and retained normal
 pack-time checks. No ProGPU implementation changes were needed for this SDK
 connection; it consumes the existing shared native/typed implementation.
 
-The updated complete MVP, including the new validation code, was compiled against
+The updated complete Showcase, including the new validation code, was compiled against
 that feed with a second fresh `packages-activation-final` cache. The sample's
 compiled native flag, rather than the mutable runtime diagnostic record, enables
 its native assertions. A missing/mismatched record then fails explicitly.

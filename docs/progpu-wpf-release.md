@@ -50,7 +50,7 @@ qualification scripts:
 
 ```bash
 PROGPU_WPF_SERIAL_BUILD=1 ./eng/progpu-wpf-sdk-ci.sh --build-packages-only
-./.dotnet/dotnet build samples/ProGPU.Wpf.MvpApp/ProGPU.Wpf.MvpApp.csproj -m:1 -p:ProGpuWpfRendererMode=NativeMilWgpu
+./.dotnet/dotnet build samples/ProGPU.Wpf.ShowcaseApp/ProGPU.Wpf.ShowcaseApp.csproj -m:1 -p:ProGpuWpfRendererMode=NativeMilWgpu
 ```
 
 This uses the same package builders, managed transport/theme graph and harness
@@ -113,7 +113,7 @@ package input production, not Windows native SDK admission or application testin
 The script rebuilds its configured local package output and transport staging
 directory just as the full gate does. Use a dedicated checkout/feed for isolated
 development; packages from a dirty checkout are not exact-commit release evidence.
-Do not run the MVP launcher to obtain build-only behavior: it launches the app and
+Do not run the Showcase launcher to obtain build-only behavior: it launches the app and
 its automatic package rebuild uses the full SDK gate. After feature freeze, run
 the normal no-argument gate on the delivery commits and record its full results.
 

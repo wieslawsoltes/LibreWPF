@@ -5,9 +5,9 @@
 Application: the existing source-built
 `src/ProGPU.Wpf.RealPresentationFrameworkHarness/Program.cs` DrawingVisual path.
 Action: preserve geometric point/region selection of content recorded inside
-PushOpacityMask, including after content replacement. The full MVP XAML/code
+PushOpacityMask, including after content replacement. The full Showcase XAML/code
 search did not identify an explicit OpacityMask; this checkpoint does not invent
-one or claim a reproduced MVP failure.
+one or claim a reproduced Showcase failure.
 
 Blocking paths: native MIL `append_render_stream` emitted an unannotated mask
 layer rejected by complete native input indexing; managed source-only command

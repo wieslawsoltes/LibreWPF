@@ -246,10 +246,10 @@ clean_sdk_smoke_outputs() {
     "ProGPU.Wpf.SdkSwitchRuntimeHarness" \
     "ProGPU.Wpf.SdkExternalSmokeHarness" \
     "ProGPU.Wpf.HelloApp" \
-    "ProGPU.Wpf.MvpApp" \
+    "ProGPU.Wpf.ShowcaseApp" \
     "ProGPU.Wpf.ToolkitApp" \
     "ProGPU.Wpf.XceedPaidApp" \
-    "ProGPU.Wpf.SciChartMvpApp"
+    "ProGPU.Wpf.SciChartApp"
   do
     rm -rf \
       "${repo_root}/artifacts/bin/${project}" \
@@ -259,10 +259,10 @@ clean_sdk_smoke_outputs() {
   rm -rf \
     "${repo_root}/artifacts/nuget/ProGPU.Wpf.SdkSwitchSmoke" \
     "${repo_root}/artifacts/nuget/ProGPU.Wpf.HelloApp" \
-    "${repo_root}/artifacts/nuget/ProGPU.Wpf.MvpApp" \
+    "${repo_root}/artifacts/nuget/ProGPU.Wpf.ShowcaseApp" \
     "${repo_root}/artifacts/nuget/ProGPU.Wpf.ToolkitApp" \
     "${repo_root}/artifacts/nuget/ProGPU.Wpf.XceedPaidApp" \
-    "${repo_root}/artifacts/nuget/ProGPU.Wpf.SciChartMvpApp"
+    "${repo_root}/artifacts/nuget/ProGPU.Wpf.SciChartApp"
 }
 
 clean_preview_package_output
@@ -462,45 +462,45 @@ PROGPU_WPF_HELLO_RUN_VALIDATE=0 \
 PROGPU_WPF_HELLO_LIVE_VALIDATE=1 \
   "${repo_root}/eng/run-progpu-wpf-hello.sh"
 
-echo "Building MVP SDK app..."
-run_dotnet build "${repo_root}/samples/ProGPU.Wpf.MvpApp/ProGPU.Wpf.MvpApp.csproj" -v:minimal
+echo "Building Showcase SDK app..."
+run_dotnet build "${repo_root}/samples/ProGPU.Wpf.ShowcaseApp/ProGPU.Wpf.ShowcaseApp.csproj" -v:minimal
 
-echo "Running MVP SDK app validation..."
-PROGPU_WPF_MVP_VALIDATE=1 \
-PROGPU_WPF_MVP_RUN_VALIDATE=0 \
-PROGPU_WPF_MVP_LIVE_VALIDATE=0 \
-  run_dotnet run --no-build --project "${repo_root}/samples/ProGPU.Wpf.MvpApp/ProGPU.Wpf.MvpApp.csproj" -v:minimal
+echo "Running Showcase SDK app validation..."
+PROGPU_WPF_SHOWCASE_VALIDATE=1 \
+PROGPU_WPF_SHOWCASE_RUN_VALIDATE=0 \
+PROGPU_WPF_SHOWCASE_LIVE_VALIDATE=0 \
+  run_dotnet run --no-build --project "${repo_root}/samples/ProGPU.Wpf.ShowcaseApp/ProGPU.Wpf.ShowcaseApp.csproj" -v:minimal
 
-echo "Running MVP SDK app Application.Run validation..."
-PROGPU_WPF_MVP_VALIDATE=0 \
-PROGPU_WPF_MVP_RUN_VALIDATE=1 \
-PROGPU_WPF_MVP_LIVE_VALIDATE=0 \
-  run_dotnet run --no-build --project "${repo_root}/samples/ProGPU.Wpf.MvpApp/ProGPU.Wpf.MvpApp.csproj" -v:minimal
+echo "Running Showcase SDK app Application.Run validation..."
+PROGPU_WPF_SHOWCASE_VALIDATE=0 \
+PROGPU_WPF_SHOWCASE_RUN_VALIDATE=1 \
+PROGPU_WPF_SHOWCASE_LIVE_VALIDATE=0 \
+  run_dotnet run --no-build --project "${repo_root}/samples/ProGPU.Wpf.ShowcaseApp/ProGPU.Wpf.ShowcaseApp.csproj" -v:minimal
 
-mvp_output="${repo_root}/artifacts/bin/ProGPU.Wpf.MvpApp/Debug/${sdk_sample_target_framework}"
-mvp_apphost_name="$(apphost_name "ProGPU.Wpf.MvpApp")"
-if [[ ! -x "${mvp_output}/${mvp_apphost_name}" ]]; then
-  echo "Expected MVP SDK apphost at ${mvp_output}/${mvp_apphost_name}" >&2
+showcase_output="${repo_root}/artifacts/bin/ProGPU.Wpf.ShowcaseApp/Debug/${sdk_sample_target_framework}"
+showcase_apphost_name="$(apphost_name "ProGPU.Wpf.ShowcaseApp")"
+if [[ ! -x "${showcase_output}/${showcase_apphost_name}" ]]; then
+  echo "Expected Showcase SDK apphost at ${showcase_output}/${showcase_apphost_name}" >&2
   exit 1
 fi
 
-echo "Running MVP SDK app apphost Application.Run validation..."
+echo "Running Showcase SDK app apphost Application.Run validation..."
 (
-  cd "${mvp_output}"
-  PROGPU_WPF_MVP_VALIDATE=0 \
-  PROGPU_WPF_MVP_RUN_VALIDATE=1 \
-  PROGPU_WPF_MVP_LIVE_VALIDATE=0 \
-    "./${mvp_apphost_name}"
+  cd "${showcase_output}"
+  PROGPU_WPF_SHOWCASE_VALIDATE=0 \
+  PROGPU_WPF_SHOWCASE_RUN_VALIDATE=1 \
+  PROGPU_WPF_SHOWCASE_LIVE_VALIDATE=0 \
+    "./${showcase_apphost_name}"
 )
 
-echo "Running MVP SDK app live geometry validation..."
-PROGPU_WPF_MVP_REBUILD_PACKAGES=0 \
-PROGPU_WPF_MVP_SKIP_BUILD=1 \
-PROGPU_WPF_MVP_VALIDATE=0 \
-PROGPU_WPF_MVP_RUN_VALIDATE=0 \
-PROGPU_WPF_MVP_LIVE_VALIDATE=1 \
-PROGPU_WPF_MVP_PERFORMANCE_VALIDATE=1 \
-  "${repo_root}/eng/run-progpu-wpf-mvp.sh"
+echo "Running Showcase SDK app live geometry validation..."
+PROGPU_WPF_SHOWCASE_REBUILD_PACKAGES=0 \
+PROGPU_WPF_SHOWCASE_SKIP_BUILD=1 \
+PROGPU_WPF_SHOWCASE_VALIDATE=0 \
+PROGPU_WPF_SHOWCASE_RUN_VALIDATE=0 \
+PROGPU_WPF_SHOWCASE_LIVE_VALIDATE=1 \
+PROGPU_WPF_SHOWCASE_PERFORMANCE_VALIDATE=1 \
+  "${repo_root}/eng/run-progpu-wpf-showcase.sh"
 
 echo "Running Toolkit SDK app live validation..."
 PROGPU_WPF_TOOLKIT_REBUILD_PACKAGES=0 \
@@ -527,18 +527,18 @@ else
   exit 1
 fi
 
-echo "Building SciChart MVP SDK app..."
-run_dotnet build "${repo_root}/samples/ProGPU.Wpf.SciChartMvpApp/ProGPU.Wpf.SciChartMvpApp.csproj" -v:minimal
+echo "Building SciChart Showcase SDK app..."
+run_dotnet build "${repo_root}/samples/ProGPU.Wpf.SciChartApp/ProGPU.Wpf.SciChartApp.csproj" -v:minimal
 
-echo "Running SciChart MVP SDK app renderer validation..."
+echo "Running SciChart Showcase SDK app renderer validation..."
 PROGPU_WPF_SCICHART_VALIDATE=1 \
 PROGPU_WPF_SCICHART_RUN_VALIDATE=0 \
-  run_dotnet run --no-build --project "${repo_root}/samples/ProGPU.Wpf.SciChartMvpApp/ProGPU.Wpf.SciChartMvpApp.csproj" -v:minimal
+  run_dotnet run --no-build --project "${repo_root}/samples/ProGPU.Wpf.SciChartApp/ProGPU.Wpf.SciChartApp.csproj" -v:minimal
 
-echo "Running SciChart MVP SDK app Application.Run validation..."
+echo "Running SciChart Showcase SDK app Application.Run validation..."
 PROGPU_WPF_SCICHART_VALIDATE=0 \
 PROGPU_WPF_SCICHART_RUN_VALIDATE=1 \
-  run_dotnet run --no-build --project "${repo_root}/samples/ProGPU.Wpf.SciChartMvpApp/ProGPU.Wpf.SciChartMvpApp.csproj" -v:minimal
+  run_dotnet run --no-build --project "${repo_root}/samples/ProGPU.Wpf.SciChartApp/ProGPU.Wpf.SciChartApp.csproj" -v:minimal
 
 echo "Building focused WPF graph tests..."
 run_dotnet build "${repo_root}/src/ProGPU.Wpf.Tests/ProGPU.Wpf.Tests.csproj" -v:minimal

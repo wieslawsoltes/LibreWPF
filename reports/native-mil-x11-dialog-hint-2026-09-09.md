@@ -2,7 +2,7 @@
 
 ## Acceptance dependency and implementation
 
-Application/action: open, Hide/Close and reopen the LibreWPF MVP About dialog.
+Application/action: open, Hide/Close and reopen the LibreWPF Showcase About dialog.
 Source inspection showed owner input/activation/native-close filtering already
 present, but X11 ownership alone did not publish modal state to the window
 manager. No application or VM reproduction ran during this build-first batch.

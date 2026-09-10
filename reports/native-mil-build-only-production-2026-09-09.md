@@ -2,7 +2,7 @@
 
 ## Acceptance dependency and implementation
 
-The package-mode LibreWPF MVP needs complete native platform payloads before its
+The package-mode LibreWPF Showcase needs complete native platform payloads before its
 startup can be qualified. The ordinary ProGPU scripts mix native compilation with
 protocol/export checks, CTest, renderer samples and managed differential runs.
 SkipExtendedIntegration still executes qualification and omits some package files;

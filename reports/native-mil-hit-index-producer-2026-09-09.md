@@ -189,6 +189,6 @@ module-enabled, package-consumer, runtime and CI qualification remains mandatory
 Complete the producer's text/image and remaining stroke/clip families, preserve
 coverage independently of cache/effect shortcuts, and connect point/all-owner/
 region queries to the presented snapshot without stale asynchronous results or
-managed replay. Keep those changes on the same Toolkit/MVP acceptance path.
+managed replay. Keep those changes on the same Toolkit/Showcase acceptance path.
 Then freeze and run final platform, package, image/input/lifetime/performance and
 exact-head CI gates. Broader Direct2D/Win2D work stays explicitly deferred.

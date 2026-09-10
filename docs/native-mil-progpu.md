@@ -4625,13 +4625,13 @@ packages were audited for that exact package version and repository commit;
 same immutable artifact then passed the complete LibreWPF package-mode gate,
 including generated MIL layout verification, native transport/host, real XAML
 and `Application.Run`, Fluent, release bundle audit, bundle consumer, runtime
-and external no-source-change harnesses, live geometry/input, the MVP renderer,
+and external no-source-change harnesses, live geometry/input, the Showcase renderer,
 Toolkit/AvalonDock, paid Xceed, SciChart, and the focused package-graph guard.
 The qualified bundle is
 `librewpf-preview-0.1.0-preview.45.tar.gz`, SHA-256
 `6b0faf9f9ba2f08f466a1a450f381cc65602cf6614f6f89fb238d43a7a8329d6`.
 
-The MVP live harness uses a bounded 180-second qualification deadline, matching
+The Showcase live harness uses a bounded 180-second qualification deadline, matching
 the Toolkit live gate. This accommodates cold hosted macOS runners that may
 need more than 60 seconds to create the native surface and reach the complete
 input/command sequence; it does not relax the semantic oracle. The application

@@ -49,7 +49,7 @@ User deadline: 10:21–11:21 UTC. Expansion frozen; required gates are not waive
 
 ## Deadline disposition
 
-The one-hour push has not produced a merge-qualified package MVP. Both PRs remain
+The one-hour push has not produced a merge-qualified package Showcase. Both PRs remain
 drafts, with required rendering failures and platform/package qualification open.
 Do not merge on the strength of the passing source-host smoke. The concrete next
 work is the four managed cached-stroke comparisons and three native failures
@@ -63,7 +63,7 @@ CI queue time and cross-platform execution are additional to implementation time
    CI failures; rerun all required checks at the actual delivery head.
 2. Produce/stage exact-head complete native payloads and SDK packages. Do not
    relabel the older six-RID outputs or use a source/CI bypass.
-3. Pass package-mode MVP and existing application acceptance gates, including
+3. Pass package-mode Showcase and existing application acceptance gates, including
    Windows native/ProGPU comparison and Linux/macOS actions. Source-host success
    is not interchangeable with package startup, VM input or platform parity.
 4. Merge ProGPU #139 only with green checks and release evidence, update the

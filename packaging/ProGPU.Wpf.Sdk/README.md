@@ -78,17 +78,17 @@ Toolkit/AvalonDock, license-controlled paid Xceed and the existing SDK coverage;
 unsupported required paths are failures, not permission to skip them. These
 commands are qualification work, not an assertion that either lane has passed.
 
-The current repo MVP validation is intentionally apphost-based, because that is how users run a built SDK-switched WPF application. From the repository root:
+The current repo Showcase validation is intentionally apphost-based, because that is how users run a built SDK-switched WPF application. From the repository root:
 
 ```bash
 ./eng/run-progpu-wpf-hello.sh
-./eng/run-progpu-wpf-mvp.sh
+./eng/run-progpu-wpf-showcase.sh
 ```
 
-For a fast validation pass that exercises the external no-source-change SDK smoke, the SDK-switch smoke apphost live geometry probe, Hello and MVP `Application.Run` apphost self-tests, and both Hello/MVP live ProGPU/Silk.NET apphost geometry probes:
+For a fast validation pass that exercises the external no-source-change SDK smoke, the SDK-switch smoke apphost live geometry probe, Hello and Showcase `Application.Run` apphost self-tests, and both Hello/Showcase live ProGPU/Silk.NET apphost geometry probes:
 
 ```bash
-./eng/progpu-wpf-mvp-quickcheck.sh
+./eng/progpu-wpf-showcase-quickcheck.sh
 ```
 
 The quickcheck expects the local `0.1.0-preview.45` LibreWPF package feed and its ProGPU `0.1.0-preview.55` runtime dependencies to be current. Use the full SDK CI gate when package contents need to be rebuilt from source:

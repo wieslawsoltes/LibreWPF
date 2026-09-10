@@ -58,7 +58,7 @@ of that contract. Then connect source `PortableTextLine.Collapse` and author the
 actual Toolkit/source regression path. See ProGPU's
 [design and primary-source record](../external/ProGPU/docs/native-mil-text-collapse.md).
 
-The preceding MVP document scan found its current simple paragraphs, hyperlinks
+The preceding Showcase document scan found its current simple paragraphs, hyperlinks
 and list policy already routed. Source MinOrphanLines/MinWidowLines defaults are
 zero, not an unimplemented nonzero constraint; no gratuitous paginator expansion
 was started. Font availability and actual document output still need final gates.

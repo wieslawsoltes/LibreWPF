@@ -4,7 +4,7 @@ Status: **compilation and partial payload production only; not qualified**.
 
 ## Acceptance dependency
 
-Application: the existing package-mode `ProGPU.Wpf.MvpApp`.
+Application: the existing package-mode `ProGPU.Wpf.ShowcaseApp`.
 Action: restore/build its explicitly selected native SDK renderer and start the
 source-built application. The package feed requires the complete native runtime
 and Windows managed payloads; the previous checkpoint found neither staged.
@@ -89,7 +89,7 @@ Build Windows x64/ARM64 native and x86/x64/ARM64 managed payloads when the guest
 is available, then Linux x64/ARM64 native payloads through the existing platform
 build contracts. Preserve the complete package requirements; do not fill missing
 RIDs with release binaries from another source commit or bypass admission.
-Then produce the fresh package feed and compile the unchanged native-selected MVP.
+Then produce the fresh package feed and compile the unchanged native-selected Showcase.
 Windows SDK activation, application integration and the final qualification phase
 remain open. No CTest, runtime/image/VM/GPU workload, export/import verifier,
 benchmark, package audit or CI polling ran in this batch.

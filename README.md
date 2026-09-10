@@ -9,7 +9,7 @@ Current focus areas:
 - Reuse WPF managed code for application model, dependency properties, layout, controls, data binding, documents, XAML, resources, themes, and the XAML compiler.
 - Replace Windows-only MIL/D3D rendering with ProGPU WebGPU composition, shaders, Direct3D-style compatibility shims, GPU hit testing, and Silk.NET windowing/input. Direct2D/Win2D use a separate [Windows-native interop and portable Canvas plan](external/ProGPU/docs/DIRECT2D_WIN2D_COMPATIBILITY.md).
 - Package the runtime as a preview SDK and NuGet set that can be consumed from a local feed or NuGet.org.
-- Keep third-party validation active through basic WPF apps, Xceed Toolkit/AvalonDock, Xceed paid Toolkit/DataGrid, SciChart MVP, ProGPU Avalonia package smoke, and no-source-change SDK smoke tests.
+- Keep third-party validation active through basic WPF apps, Xceed Toolkit/AvalonDock, Xceed paid Toolkit/DataGrid, SciChart Showcase, ProGPU Avalonia package smoke, and no-source-change SDK smoke tests.
 
 The maintained cross-platform priorities, compatibility policy, and ecosystem
 status are tracked in the [LibreWPF cross-platform roadmap](roadmap.md). The

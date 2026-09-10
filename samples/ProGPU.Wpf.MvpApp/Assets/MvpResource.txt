@@ -1,1 +1,0 @@
-MVP pack resource loaded through Application.GetResourceStream.

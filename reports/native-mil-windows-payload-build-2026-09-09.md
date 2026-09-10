@@ -2,7 +2,7 @@
 
 ## Acceptance dependency
 
-The package-mode MVP opening with explicitly selected native MIL requires Windows
+The package-mode Showcase opening with explicitly selected native MIL requires Windows
 native renderer and source-built managed/IJW payloads. This batch resumes the
 Windows build environment and closes native MSVC compilation blockers. It does
 not admit Windows package startup or claim application parity.

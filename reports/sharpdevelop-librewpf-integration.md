@@ -36,7 +36,7 @@ Date: 2026-07-10
 - The full workbench now accepts absolute Unix file paths on the command line and opens `/Users/wieslawsoltes/GitHub/SharpDevelop/src/Main/SharpDevelop/Startup/SharpDevelopMain.cs` through the real `AvalonEditDisplayBinding`.
 - Source-tree add-in assembly resolution now falls back to `AppContext.BaseDirectory` under `LIBREWPF`, so built add-in assemblies copied beside `SharpDevelop.dll` can be found without installing the historical Windows add-in layout.
 - The current LibreWPF AvalonEdit path embeds the stock AvalonEdit `.xshd`/`.xsd` highlighting resources in the SDK-style wrapper and registers the source-tree syntax definitions during editor startup.
-- The full workbench now opens a `.cs` file through the real AvalonEdit display binding, loads the CSharpBinding add-in MVP, attaches `CSharpTextEditorExtension`, resolves `CSharpBinding.CSharpLanguageBinding`, and loads legacy C# projects as `CSharpProject`.
+- The full workbench now opens a `.cs` file through the real AvalonEdit display binding, loads the CSharpBinding add-in Showcase, attaches `CSharpTextEditorExtension`, resolves `CSharpBinding.CSharpLanguageBinding`, and loads legacy C# projects as `CSharpProject`.
 - The Windows Forms designer slice is now included in the package-mode CSharpBinding wrapper through the LibreWinForms package lane. `FormsDesigner.LibreWpf` builds, the add-in descriptor is copied beside the full workbench, and `CSharpFormsDesigner` attaches a `FormsDesignerViewContent` to the LineCounter sample's `LineCounterBrowser.cs` with a replayed portable `UserControl` design surface.
 
 The current validation path includes both the controlled `SharpDevelop.LibreWpf` smoke shell and the fuller `SharpDevelop.Full.LibreWpf` wrapper. The full wrapper builds the historical SharpDevelop workbench entry point through LibreWPF package mode and now starts/renders the main IDE shell on macOS. It is not yet full IDE parity: legacy Win32 hooks, project-system services, editor IME, and several Windows-only integration points still need typed portable seams.
@@ -404,7 +404,7 @@ Results:
 
 ```text
 MenuBase portable popup regression test -> 1 passed, 0 failed
-LibreWPF SDK CI/package gate             -> succeeds, including Hello/MVP/Toolkit/paid Xceed/SciChart lanes
+LibreWPF SDK CI/package gate             -> succeeds, including Hello/Showcase/Toolkit/paid Xceed/SciChart lanes
 SharpDevelop.Full.LibreWpf fresh build   -> succeeds, 193 warnings, 0 errors
 Main menu popup                          -> opened
 Context menu popup                       -> opened, 27 items
@@ -906,7 +906,7 @@ The tools version "4.0" is unrecognized.
 The imported project ".../Microsoft.CSharp.Targets" was not found.
 ```
 
-The fallback C# project binding is an MVP bridge for project loading. Full SharpDevelop CSharpBinding parity still requires porting the language binding/add-in services, semantic editor services, build/debug commands, and project-template workflows through typed portable seams.
+The fallback C# project binding is an Showcase bridge for project loading. Full SharpDevelop CSharpBinding parity still requires porting the language binding/add-in services, semantic editor services, build/debug commands, and project-template workflows through typed portable seams.
 
 ## Build validation
 

@@ -2,8 +2,8 @@
 
 ## Bounded core dependency
 
-Acceptance sources: MVP `MvpDrawingImageControl` and
-`MvpDrawingImageBrushBorder`, and Toolkit drawing-image icons. Required action:
+Acceptance sources: Showcase `ShowcaseDrawingImageControl` and
+`ShowcaseDrawingImageBrushBorder`, and Toolkit drawing-image icons. Required action:
 clear and refill the retained drawing backing an image without replacing the
 image or visual identity. The host fixture exercises this content-update contract;
 it does not claim those applications already expose a dedicated clear button.
@@ -47,11 +47,11 @@ path; product code adds none.
 `DocumentPageView.DuplicatePageVisual` still requires Windows RenderTargetBitmap.
 The ordinary page invalidation subscription in `SinglePageViewer` is specifically
 to the legacy FlowDocumentPaginator, not the portable paginator; the other traced
-caller is printing suspension. This inspection did not establish an ordinary MVP
+caller is printing suspension. This inspection did not establish an ordinary Showcase
 resize/content-update dependency, so no offscreen renderer was opened in this
 batch. The API remains an explicit broader gap, not completed support.
 
-The MVP page paragraphs do not set MinWidowLines/MinOrphanLines, whose actual
+The Showcase page paragraphs do not set MinWidowLines/MinOrphanLines, whose actual
 source defaults are zero. Their nonzero-policy rejection is therefore not itself
 a demonstrated blocker for this application's default content. The separate
 document-policy gap remains documented.
@@ -69,7 +69,7 @@ Commands used the pinned root `./.dotnet/dotnet`, `build --no-restore -m:1
   final rebuild 5 warnings, 0 errors, 56.90 seconds.
 
 No tests, verifier workloads, apps, GPU work, VM work, benchmarks or CI polling
-ran. Native/managed scene and pixel parity, actual MVP/Toolkit execution,
+ran. Native/managed scene and pixel parity, actual Showcase/Toolkit execution,
 package production, Windows admission and final required CI remain open. All
 unrelated ProGPU native edits and performance-artifact deletions were preserved.
 

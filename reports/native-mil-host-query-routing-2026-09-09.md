@@ -2,7 +2,7 @@
 
 ## Acceptance action and implementation outcome
 
-Applications: the existing source-built native host harness, package MVP and
+Applications: the existing source-built native host harness, package Showcase and
 Toolkit/AvalonDock. Actions: point input, all-owner selection and bounds/ellipse
 region selection. The source-backed blocker was `ProGpuWpfWindowHost` forwarding
 these callbacks to `ProGpuWpfCompositionTarget`'s managed index in native mode.
@@ -92,7 +92,7 @@ vehicles; no merge-readiness or CI result is claimed.
 
 ## Next core work
 
-Continue actual MVP scrolling/selection (`SelectorScrollViewer`, its existing
+Continue actual Showcase scrolling/selection (`SelectorScrollViewer`, its existing
 wheel-input gate and clipped content), tracing required source/clip/cache frames
 into the native producer. Finish only application-blocking coverage and desktop
 interaction/lifetime branches, then freeze and execute the complete final matrix.

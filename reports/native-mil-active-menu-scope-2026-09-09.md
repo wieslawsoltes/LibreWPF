@@ -1,8 +1,8 @@
-# Core MVP menu entry: active portable source
+# Core Showcase menu entry: active portable source
 
 ## Acceptance dependency
 
-Application: existing package-mode `ProGPU.Wpf.MvpApp` with `_File` and `_About`
+Application: existing package-mode `ProGPU.Wpf.ShowcaseApp` with `_File` and `_About`
 menu items. Action: clear element focus, press F10/Alt, then navigate the active
 window's menu; do not target an inactive owner while a dialog blocks it.
 
@@ -72,7 +72,7 @@ No tests, verifiers, VM/GPU workloads, benchmarks or CI polling ran.
 
 This closes the identified no-focus source-import/default-scope branch, not
 native platform focus/modality qualification, all keyboard/menu behavior or
-Windows package admission. Final qualification must exercise actual package MVP
+Windows package admission. Final qualification must exercise actual package Showcase
 F10/Alt with cleared focus, multiple windows/dispatchers, dialog blocking, popup
 focus restoration and native Windows/portable comparisons. Existing SDK gates
 remain intact. Continue the core startup/package and application closure queue;

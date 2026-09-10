@@ -1461,7 +1461,7 @@ public sealed class ProGpuWpfWindowHostTests
     }
 
     [Fact]
-    public void ResolveRenderSurfaceGeometryUsesFullRetinaViewportForMvpWindow()
+    public void ResolveRenderSurfaceGeometryUsesFullRetinaViewportForShowcaseWindow()
     {
         var geometry = ProGpuWpfWindowHost.ResolveRenderSurfaceGeometry(
             clientWidth: 760,
