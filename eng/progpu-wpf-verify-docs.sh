@@ -18,8 +18,10 @@ require_text ".github/workflows/progpu-wpf-sdk.yml" "./eng/progpu-wpf-canonical-
 require_text ".github/workflows/progpu-wpf-sdk.yml" "submodules: recursive"
 require_text ".github/workflows/progpu-wpf-sdk.yml" "canonical-librewinforms-"
 require_text ".github/workflows/progpu-wpf-sdk.yml" "./eng/progpu-wpf-canonical-sdk-smoke.sh"
-require_text ".github/workflows/progpu-wpf-sdk.yml" "PROGPU_WPF_PROGPU_PACKAGE_VERSION: 0.1.0-preview.62"
-require_text ".github/workflows/progpu-wpf-sdk.yml" "--unshallow origin"
+require_text ".github/workflows/progpu-wpf-sdk.yml" "Select exact ProGPU source package version"
+require_text ".github/workflows/progpu-wpf-sdk.yml" 'source_version="0.1.0-source.${submodule_commit:0:8}"'
+require_text ".github/workflows/progpu-wpf-sdk.yml" 'PROGPU_WPF_EXPECTED_PROGPU_PACKAGE_COMMIT=${submodule_commit}'
+require_text "eng/progpu-preview-package-audit.sh" 'PROGPU_WPF_EXPECTED_PROGPU_PACKAGE_COMMIT:-${progpu_source_commit}'
 require_text ".github/workflows/progpu-wpf-sdk.yml" "librewpf-ci-packages-"
 require_text ".github/workflows/progpu-wpf-sdk.yml" "if-no-files-found: error"
 require_text ".github/workflows/progpu-wpf-sdk.yml" "./eng/progpu-wpf-linux-xwayland-smoke.sh"
@@ -59,6 +61,14 @@ require_text "eng/progpu-wpf-canonical-sdk-smoke.sh" 'LibreWinForms.Compatibilit
 require_text "eng/progpu-wpf-canonical-sdk-smoke.sh" 'DOTNET_ROLL_FORWARD_TO_PRERELEASE'
 require_text "docs/progpu-wpf-release.md" 'terminal-success `LibreWPF Build` run for the exact tagged commit'
 require_text ".github/workflows/progpu-wpf-release.yml" "Stage exact ProGPU release packages"
+require_text ".github/workflows/progpu-wpf-release.yml" "Build canonical LibreWinForms package closure"
+require_text ".github/workflows/progpu-wpf-release.yml" "./eng/progpu-wpf-canonical-winforms-integration.sh"
+require_text ".github/workflows/progpu-wpf-release.yml" 'PROGPU_WPF_EXPECTED_PROGPU_PACKAGE_COMMIT=${tag_commit}'
+require_text ".github/workflows/progpu-wpf-release.yml" '[[ "${tag_commit}" != "${submodule_commit}" ]]'
+if grep -Fq -- 'merge-base --is-ancestor "${tag_commit}" "${submodule_commit}"' "${repo_root}/.github/workflows/progpu-wpf-release.yml"; then
+  echo "Release workflow must require the ProGPU tag and source pin to be identical." >&2
+  exit 1
+fi
 require_text ".github/workflows/progpu-wpf-release.yml" "LibreWPF.Transport LibreWPF.ProGPU LibreWPF.Sdk"
 require_text ".github/workflows/progpu-wpf-docs.yml" "librewpf-docs"
 require_text "README.md" "# LibreWPF ProGPU Port"
@@ -66,7 +76,8 @@ require_text "roadmap.md" "# LibreWPF Cross-Platform Roadmap"
 require_text "Directory.Build.props" "<PackageTags Condition=\"'\$(PackageTags)' == ''\">librewpf;progpu;webgpu;silk.net;xaml;cross-platform;desktop</PackageTags>"
 require_text "docs/progpu-wpf-release.md" "LibreWPF.Sdk"
 require_text "docs/progpu-wpf-release.md" "gh release create --generate-notes"
-require_text "docs/progpu-wpf-release.md" "exact ProGPU release packages"
+require_text "docs/progpu-wpf-release.md" "immutable ProGPU release packages"
+require_text "docs/progpu-wpf-release.md" '0.1.0-source.<sha>'
 require_text "packaging/Microsoft.DotNet.Wpf.GitHub/Microsoft.DotNet.Wpf.GitHub.ArchNeutral.csproj" "<PackageName>LibreWPF.Transport"
 require_text "packaging/Microsoft.DotNet.Wpf.GitHub/Microsoft.DotNet.Wpf.GitHub.csproj" "<PackageName>LibreWPF.Transport"
 require_text "packaging/Microsoft.DotNet.Wpf.GitHub/Microsoft.DotNet.Wpf.GitHub.csproj" "<PackageDescription>LibreWPF transport package"
