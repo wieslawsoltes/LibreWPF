@@ -373,7 +373,7 @@ internal sealed class PortableFlowDocumentLayout : IDisposable
             new TextProperties(paragraph, paragraph.StaticElementStart, false, false, pixelsPerDip), null);
         var cache = new TextRunCache();
         TextLineBreak continuation = null;
-        bool recordedExtent = false;
+        int extentIndex = -1;
         try
         {
             int position = source.Start;
@@ -394,13 +394,20 @@ internal sealed class PortableFlowDocumentLayout : IDisposable
                     {
                         if (advance != line.Height)
                             throw new PlatformNotSupportedException("Excluded source row stacking requires matching native line-height policy.");
-                        if (!recordedExtent)
+                        var nativeLine = (PortableTextLine)line;
+                        if (extentIndex < 0)
                         {
-                            var nativeLine = (PortableTextLine)line;
+                            extentIndex = _positionedParagraphs.Count;
                             _positionedParagraphs.Add(new() { BlockIndex = checked((uint)blockIndex),
                                 Width = Math.Max(Boxes[blockIndex].Width, nativeLine.FragmentContentWidth),
                                 Height = nativeLine.FragmentContentHeight });
-                            recordedExtent = true;
+                        }
+                        else
+                        {
+                            var extent = _positionedParagraphs[extentIndex];
+                            extent.Width = Math.Max(extent.Width, nativeLine.FragmentContentWidth);
+                            extent.Height = Math.Max(extent.Height, nativeLine.FragmentContentHeight);
+                            _positionedParagraphs[extentIndex] = extent;
                         }
                     }
                     if (source.HasInlineObjects)
@@ -417,6 +424,8 @@ internal sealed class PortableFlowDocumentLayout : IDisposable
                 TextLineBreak next = line.GetTextLineBreak();
                 continuation?.Dispose(); continuation = next;
                 position += line.Length;
+                if (exclusions != null && position < source.End && line is PortableTextLine { IsLastFragment: true } segment)
+                    source.AdvanceExcludedSegment(position, segment.FragmentContentHeight);
             }
         }
         finally { continuation?.Dispose(); }

@@ -6,7 +6,7 @@ using ProGPU.Text;
 
 namespace System.Windows.Media.ProGPU.Composition;
 
-internal sealed class WpfPortableTextFormatting : IPortableExcludedTextFormatting
+internal sealed class WpfPortableTextFormatting : IPortableSegmentedTextFormatting
 {
     private static readonly WpfPortableTextFormatting Default = new();
     private sealed class FontState(PortableTextFont source)
@@ -28,6 +28,16 @@ internal sealed class WpfPortableTextFormatting : IPortableExcludedTextFormattin
     public IPortableExcludedTextParagraph FormatExcluded(in PortableTextParagraphRequest request,
         ReadOnlySpan<PortableTextStyleMetrics> styleMetrics, ReadOnlySpan<PortableTextInlineObject> inlineObjects,
         in PortableTextExclusionOptions options, ReadOnlySpan<PortableTextExclusion> exclusions)
+        => FormatExcludedCore(in request, styleMetrics, inlineObjects, in options, exclusions, null);
+
+    public IPortableExcludedTextParagraph FormatExcludedAt(in PortableTextParagraphRequest request,
+        ReadOnlySpan<PortableTextStyleMetrics> styleMetrics, ReadOnlySpan<PortableTextInlineObject> inlineObjects,
+        in PortableTextExclusionOptions options, ReadOnlySpan<PortableTextExclusion> exclusions, double originY)
+        => FormatExcludedCore(in request, styleMetrics, inlineObjects, in options, exclusions, originY);
+
+    private IPortableExcludedTextParagraph FormatExcludedCore(in PortableTextParagraphRequest request,
+        ReadOnlySpan<PortableTextStyleMetrics> styleMetrics, ReadOnlySpan<PortableTextInlineObject> inlineObjects,
+        in PortableTextExclusionOptions options, ReadOnlySpan<PortableTextExclusion> exclusions, double? originY)
     {
         var rectangles = new NativeTextExclusionRectangle[exclusions.Length];
         for (int i = 0; i < rectangles.Length; i++)
@@ -36,12 +46,12 @@ internal sealed class WpfPortableTextFormatting : IPortableExcludedTextFormattin
             rectangles[i] = new() { Left = r.Left, Top = r.Top, Right = r.Right, Bottom = r.Bottom };
         }
         return (ExcludedParagraph)FormatMeasured(in request, styleMetrics, inlineObjects,
-            new NativeTextExclusionOptions { MaximumAttempts = options.MaximumAttempts }, rectangles);
+            new NativeTextExclusionOptions { MaximumAttempts = options.MaximumAttempts }, rectangles, originY);
     }
 
     private IPortableInlineTextParagraph FormatMeasured(in PortableTextParagraphRequest request,
         ReadOnlySpan<PortableTextStyleMetrics> styleMetrics, ReadOnlySpan<PortableTextInlineObject> inlineObjects,
-        NativeTextExclusionOptions? exclusionOptions = null, ReadOnlySpan<NativeTextExclusionRectangle> exclusions = default)
+        NativeTextExclusionOptions? exclusionOptions = null, ReadOnlySpan<NativeTextExclusionRectangle> exclusions = default, double? originY = null)
     {
         if (styleMetrics.Length != request.Styles.Length || (!request.Text.IsEmpty && request.Styles.IsEmpty))
             throw new ArgumentException("Inline paragraphs require explicit styles and matching source metrics.");
@@ -54,13 +64,13 @@ internal sealed class WpfPortableTextFormatting : IPortableExcludedTextFormattin
             var item = inlineObjects[i];
             objects[i] = new(item.Position, item.Width, item.Ascent, item.Descent);
         }
-        return (InlineParagraph)FormatCore(in request, null, null, true, metrics, objects, exclusionOptions, exclusions);
+        return (InlineParagraph)FormatCore(in request, null, null, true, metrics, objects, exclusionOptions, exclusions, originY);
     }
 
     private Paragraph FormatCore(in PortableTextParagraphRequest request, Paragraph? original, PortableTextCollapseRequest? collapse,
         bool inline = false, ReadOnlySpan<NativeTextStyleMetrics> metrics = default,
         ReadOnlySpan<NativeTextParagraphInlineObject> objects = default,
-        NativeTextExclusionOptions? exclusionOptions = null, ReadOnlySpan<NativeTextExclusionRectangle> exclusions = default)
+        NativeTextExclusionOptions? exclusionOptions = null, ReadOnlySpan<NativeTextExclusionRectangle> exclusions = default, double? originY = null)
     {
         if (request.Font == null || request.Font.UnitsPerEm == 0 || !float.IsFinite(request.FontSize) || request.FontSize <= 0)
             throw new ArgumentException("A real source face and positive em size are required.");
@@ -74,16 +84,16 @@ internal sealed class WpfPortableTextFormatting : IPortableExcludedTextFormattin
                 PortableTextAlignment.Justify => NativeTextAlignment.Justify,
                 _ => throw new ArgumentOutOfRangeException(nameof(request))
             });
-        if (!request.Styles.IsEmpty) return FormatStyled(in request, in options, font, original, collapse, inline, metrics, objects, exclusionOptions, exclusions);
+        if (!request.Styles.IsEmpty) return FormatStyled(in request, in options, font, original, collapse, inline, metrics, objects, exclusionOptions, exclusions, originY);
         var features = new NativeTextFeature[request.Features.Length];
         for (int i = 0; i < features.Length; i++) features[i] = new(request.Features.Span[i].Tag, request.Features.Span[i].Value);
-        return CreateParagraph(request, CreateNative(font.Context, request, options, features, [], original, collapse, inline, metrics, objects, exclusionOptions, exclusions), [font.RenderFont]);
+        return CreateParagraph(request, CreateNative(font.Context, request, options, features, [], original, collapse, inline, metrics, objects, exclusionOptions, exclusions, originY), [font.RenderFont]);
     }
 
     private Paragraph FormatStyled(in PortableTextParagraphRequest request, in NativeTextParagraphOptions options, FontState primary,
         Paragraph? original, PortableTextCollapseRequest? collapse, bool inline,
         ReadOnlySpan<NativeTextStyleMetrics> metrics, ReadOnlySpan<NativeTextParagraphInlineObject> objects,
-        NativeTextExclusionOptions? exclusionOptions, ReadOnlySpan<NativeTextExclusionRectangle> exclusions)
+        NativeTextExclusionOptions? exclusionOptions, ReadOnlySpan<NativeTextExclusionRectangle> exclusions, double? originY)
     {
         // Size/brush/feature changes on one face reuse its retained plans. Multiple
         // explicit faces use an isolated temporary context so they cannot alter
@@ -116,7 +126,7 @@ internal sealed class WpfPortableTextFormatting : IPortableExcludedTextFormattin
                 (uint)feature, (uint)style.Features.Length, style.Language);
             foreach (var value in style.Features.Span) features[feature++] = new(value.Tag, value.Value);
         }
-        return CreateParagraph(request, CreateNative(context, request, options, features, styles, original, collapse, inline, metrics, objects, exclusionOptions, exclusions), fonts.ToArray());
+        return CreateParagraph(request, CreateNative(context, request, options, features, styles, original, collapse, inline, metrics, objects, exclusionOptions, exclusions, originY), fonts.ToArray());
     }
 
     private Paragraph CreateParagraph(PortableTextParagraphRequest request, NativeTextParagraphSnapshot native, TtfFont[] fonts)
@@ -127,8 +137,13 @@ internal sealed class WpfPortableTextFormatting : IPortableExcludedTextFormattin
         NativeTextParagraphOptions options, NativeTextFeature[] features, NativeTextParagraphStyle[] styles,
         Paragraph? original, PortableTextCollapseRequest? collapse, bool inline,
         ReadOnlySpan<NativeTextStyleMetrics> metrics, ReadOnlySpan<NativeTextParagraphInlineObject> objects,
-        NativeTextExclusionOptions? exclusionOptions, ReadOnlySpan<NativeTextExclusionRectangle> exclusions)
+        NativeTextExclusionOptions? exclusionOptions, ReadOnlySpan<NativeTextExclusionRectangle> exclusions, double? originY)
     {
+        if (exclusionOptions.HasValue && originY.HasValue)
+            return NativeTextParagraphSnapshot.CreateWithExclusionsAt(context, request.Text.Span,
+                request.RightToLeft ? NativeTextDirection.RightToLeft : NativeTextDirection.LeftToRight,
+                in options, styles, metrics, objects, exclusionOptions.Value, exclusions, originY.Value, features,
+                request.IncrementalTab, request.TabOrigin, request.MeasureIntrinsicWidths, ConvertWrapping(request.Wrapping));
         if (exclusionOptions is { } exclusion)
             return NativeTextParagraphSnapshot.CreateWithExclusions(context, request.Text.Span,
                 request.RightToLeft ? NativeTextDirection.RightToLeft : NativeTextDirection.LeftToRight,

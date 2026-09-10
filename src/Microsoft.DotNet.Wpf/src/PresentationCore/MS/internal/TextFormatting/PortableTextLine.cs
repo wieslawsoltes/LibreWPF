@@ -21,6 +21,12 @@ internal sealed class PortableTextExclusionRequest
 {
     internal PortableTextExclusionOptions Options { get; }
     internal ReadOnlyMemory<PortableTextExclusion> Exclusions { get; }
+    internal double OriginY { get; private init; }
+    internal PortableTextExclusionRequest At(double originY)
+    {
+        if (!double.IsFinite(originY) || originY < 0) throw new ArgumentOutOfRangeException(nameof(originY));
+        return new(Options, Exclusions) { OriginY = originY };
+    }
     internal PortableTextExclusionRequest(PortableTextExclusionOptions options, ReadOnlyMemory<PortableTextExclusion> exclusions)
     { Options = options; Exclusions = exclusions.ToArray(); }
 }
@@ -71,6 +77,7 @@ internal sealed class PortableTextLine : TextLine
     private PortableTextLineInfo Info => _paragraph.Lines.Span[_lineIndex];
     internal PortableTextFragment? Fragment => (_paragraph as IPortableExcludedTextParagraph)?.Fragments.Span[_lineIndex];
     internal double FragmentContentHeight => (_paragraph as IPortableExcludedTextParagraph)?.ContentHeight ?? Height;
+    internal bool IsLastFragment => _lineIndex + 1 == _paragraph.Lines.Length;
     internal double FragmentContentWidth => (_paragraph as IPortableExcludedTextParagraph)?.ContentWidth ?? Width;
     private double NativeOrigin => Start - (Fragment?.Left ?? 0);
     private int First => _paragraphStart + (_lineIndex == 0 ? 0 : _sourceMap.ToSource(Info.InputStart, true));
@@ -300,7 +307,14 @@ internal sealed class PortableTextLine : TextLine
             if (exclusions != null)
             {
                 var options = exclusions.Options;
-                paragraph = ((IPortableExcludedTextFormatting)service).FormatExcluded(in request, metrics, items,
+                if (exclusions.OriginY != 0)
+                {
+                    if (service is not IPortableSegmentedTextFormatting segmented)
+                        throw Unsupported("the text provider does not support excluded hard-segment origins");
+                    paragraph = segmented.FormatExcludedAt(in request, metrics, items, in options,
+                        exclusions.Exclusions.Span, exclusions.OriginY);
+                }
+                else paragraph = ((IPortableExcludedTextFormatting)service).FormatExcluded(in request, metrics, items,
                     in options, exclusions.Exclusions.Span);
             }
             else paragraph = ((IPortableInlineTextFormatting)service).FormatInline(in request, metrics, items);

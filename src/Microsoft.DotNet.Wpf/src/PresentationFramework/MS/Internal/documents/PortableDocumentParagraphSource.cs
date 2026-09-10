@@ -19,6 +19,8 @@ internal sealed class PortableDocumentParagraphSource : TextSource, IPortableExc
     private readonly ITextContainer _container;
     private readonly double _paragraphWidth;
     private readonly PortableTextExclusionRequest _exclusions;
+    private PortableTextExclusionRequest _segmentExclusions;
+    private int _segmentStart;
     internal bool HasInlineObjects { get; private set; }
     internal int Start { get; }
     internal int End { get; }
@@ -34,15 +36,26 @@ internal sealed class PortableDocumentParagraphSource : TextSource, IPortableExc
         _paragraphWidth = paragraphWidth;
         _exclusions = exclusions;
         Start = paragraph.ElementStart.Offset;
+        _segmentStart = Start;
+        _segmentExclusions = exclusions;
         End = paragraph.ElementEnd.Offset;
         PixelsPerDip = pixelsPerDip;
     }
 
     PortableTextExclusionRequest IPortableExcludedTextSource.GetExclusions(int firstSourceIndex)
     {
-        if (_exclusions != null && firstSourceIndex != Start)
+        if (_exclusions != null && firstSourceIndex != _segmentStart)
             throw new PlatformNotSupportedException("Excluded hard-line continuation requires a source-resolved segment origin.");
-        return _exclusions;
+        return _segmentExclusions;
+    }
+
+    internal void AdvanceExcludedSegment(int start, double nativeBottom)
+    {
+        if (_exclusions == null || start <= _segmentStart || start >= End)
+            throw new InvalidOperationException("Invalid excluded source segment transition.");
+        var next = _exclusions.At(nativeBottom);
+        _segmentStart = start;
+        _segmentExclusions = next;
     }
 
     public override TextRun GetTextRun(int dcp)

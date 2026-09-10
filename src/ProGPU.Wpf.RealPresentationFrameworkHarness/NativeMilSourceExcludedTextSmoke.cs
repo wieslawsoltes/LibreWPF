@@ -68,6 +68,8 @@ internal static class NativeMilSourceExcludedTextSmoke
             }
         }
         finally { (continuation as IDisposable)?.Dispose(); foreach (var line in retained) line.Dispose(); }
+        Add(paragraph, "Inlines", New(framework, "System.Windows.Documents.LineBreak"));
+        Add(paragraph, "Inlines", New(framework, "System.Windows.Documents.Run", "hard segment tail"));
         // Consume these real source TextLines in the shared native block layout,
         // with clearance and a following ordinary paragraph. No source Y repair.
         object following = New(framework, "System.Windows.Documents.Paragraph");
@@ -98,7 +100,14 @@ internal static class NativeMilSourceExcludedTextSmoke
                 (double)Get(Get(entries[1]!, "Line"), "Start") != 70)
                 throw new InvalidOperationException("Source document stacked fragments or duplicated their X frame.");
             object last = entries[entries.Count - 1]!;
-            double expectedTop = (double)Get(Get(entries[0]!, "Line"), "FragmentContentHeight");
+            double firstSegmentBottom = (double)Get(Get(entries[0]!, "Line"), "FragmentContentHeight");
+            double expectedTop = (double)Get(Get(entries[entries.Count - 2]!, "Line"), "FragmentContentHeight");
+            bool foundContinuation = false;
+            for (int i = 1; i < entries.Count - 1; ++i)
+                if ((double)Get(positions.GetValue(i)!, "Y") == firstSegmentBottom)
+                    foundContinuation = true;
+            if (!foundContinuation || expectedTop <= firstSegmentBottom)
+                throw new InvalidOperationException("Hard source segment did not retain its native paragraph origin.");
             if (!ReferenceEquals(Get(last, "Paragraph"), following) ||
                 (double)Get(positions.GetValue(entries.Count - 1)!, "Y") != expectedTop)
                 throw new InvalidOperationException("Following source paragraph did not use the native fragment extent.");

@@ -15,6 +15,13 @@ do not automatically expand the release checklist.
 
 ## Active completion queue
 
+**Source hard-segment connection — 2026-09-11:** source excluded paragraphs now
+continue after real LineBreak content at the previous native bottom, preserving
+wrapped-fragment ownership and cumulative document extents. Source build and the
+focused native-host fixture pass. Empty excluded segments, automatic anchor
+collection/wrap policy/child ownership, full viewer and package/platform gates
+remain open. See [source evidence](../reports/native-mil-source-hard-segments-2026-09-11.md).
+
 **Hard-segment origin dependency — 2026-09-11:** native excluded fitting starts
 at zero and source document extent records only the first hard segment. Removing
 the source continuation rejection would overlap lines. The next connected batch
