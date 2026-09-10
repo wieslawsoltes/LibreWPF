@@ -2974,6 +2974,12 @@ public partial class MainWindow : Window
         return autoHideWindow?.Model;
     }
 
+    private FrameworkElement? GetAvalonDockAutoHideArea()
+    {
+        DockManager.ApplyTemplate();
+        return DockManager.Template?.FindName("PART_AutoHideArea", DockManager) as FrameworkElement;
+    }
+
     private static bool AutoHideOverlayModelContains(object? overlayModel, LayoutAnchorable expectedContent)
     {
         if (ReferenceEquals(overlayModel, expectedContent))
@@ -3791,6 +3797,44 @@ public partial class MainWindow : Window
 
     private async Task<string> ValidateLiveInputAsync(ProGpuWpfWindowHost liveHost)
     {
+        Console.WriteLine("ProGPU WPF Toolkit live input validation step: transient surface quiescence.");
+        await InvokeWithLiveHostWakeAsync(
+            liveHost,
+            () =>
+            {
+                ActionDropDownButton.IsOpen = false;
+                SplitActionButton.IsOpen = false;
+                DockDocumentContextMenu.IsOpen = false;
+                DockAnchorableContextMenu.IsOpen = false;
+                if (DockManager.AutoHideWindow is { } transientAutoHideWindow)
+                {
+                    transientAutoHideWindow.IsHitTestVisible = false;
+                }
+
+                if (GetAvalonDockAutoHideArea() is { } transientAutoHideArea)
+                {
+                    transientAutoHideArea.IsHitTestVisible = false;
+                }
+
+                Point safePointerPoint = ActivateEditorButton.TranslatePoint(
+                    new Point(
+                        Math.Max(1.0, ActivateEditorButton.ActualWidth) / 2.0,
+                        Math.Max(1.0, ActivateEditorButton.ActualHeight) / 2.0),
+                    this);
+                RaiseHostInput(
+                    liveHost,
+                    WpfInputEventKind.MouseMove,
+                    x: safePointerPoint.X,
+                    y: safePointerPoint.Y);
+                ActivateEditorButton.Focus();
+                Keyboard.Focus(ActivateEditorButton);
+            },
+            DispatcherPriority.Send);
+        await WaitForLiveConditionAsync(
+            liveHost,
+            () => GetAvalonDockAutoHideWindowModel() == null,
+            "Toolkit live transient AvalonDock auto-hide overlay close");
+
         Console.WriteLine("ProGPU WPF Toolkit live input validation step: filter focus.");
         string lastTargetState = "not checked";
         bool focusedFilter = false;
@@ -4320,6 +4364,16 @@ public partial class MainWindow : Window
             liveHost,
             () =>
             {
+                if (GetAvalonDockAutoHideArea() is { } autoHideArea)
+                {
+                    autoHideArea.IsHitTestVisible = true;
+                }
+
+                if (DockManager.AutoHideWindow is { } autoHideWindow)
+                {
+                    autoHideWindow.IsHitTestVisible = true;
+                }
+
                 EnsureAutoHideOverlayAnchorables();
                 _avalonDockAutoHideOverlayIndex = -1;
                 ViewModel.LastAvalonDockAutoHideOverlayTarget = string.Empty;
@@ -4488,9 +4542,20 @@ public partial class MainWindow : Window
             },
             DispatcherPriority.Send);
 
+        Button splitActionButtonPart = await InvokeWithLiveHostWakeAsync(
+            liveHost,
+            () =>
+            {
+                SplitActionButton.ApplyTemplate();
+                SplitActionButton.UpdateLayout();
+                return SplitActionButton.Template?.FindName("PART_ActionButton", SplitActionButton) as Button
+                    ?? throw new InvalidOperationException("Expected Toolkit SplitButton template action button.");
+            },
+            DispatcherPriority.Send);
+
         for (int attempt = 0; attempt < LiveValidationMaxAttempts; attempt++)
         {
-            await ClickLiveControlAsync(liveHost, SplitActionButton, "SplitActionButton");
+            await ClickLiveControlAsync(liveHost, splitActionButtonPart, "SplitActionButton.PART_ActionButton");
             if (await InvokeWithLiveHostWakeAsync(
                     liveHost,
                     () => string.Equals(ViewModel.Status, "Applied owner ProGPU", StringComparison.Ordinal),
@@ -4981,6 +5046,11 @@ public partial class MainWindow : Window
 
         object? hit = inputRoot.InputHitTest(center);
         targetState += $", Input=({center.X:0.###}, {center.Y:0.###}), InputHitTest={DescribeInputElement(hit)}";
+        if (hit == null || !IsInputElementWithinTarget(hit, target))
+        {
+            return false;
+        }
+
         if (!TryLiveHostGpuHitWithinTarget(liveHost, center.X, center.Y, target, out string gpuHitState))
         {
             targetState += $", {gpuHitState}";

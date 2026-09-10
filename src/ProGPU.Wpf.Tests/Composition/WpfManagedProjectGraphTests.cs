@@ -11160,6 +11160,9 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("DescribeInputElements(owners)", mainWindowCodeBehind, StringComparison.Ordinal);
         Assert.Contains("double layoutDeltaX = center.X - initialCenter.X;", mainWindowCodeBehind, StringComparison.Ordinal);
         Assert.Contains("BringIntoViewDelta=({layoutDeltaX:0.###}, {layoutDeltaY:0.###})", mainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("hit == null || !IsInputElementWithinTarget(hit, target)", mainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("SplitActionButton.Template?.FindName(\"PART_ActionButton\", SplitActionButton)", mainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ClickLiveControlAsync(liveHost, splitActionButtonPart, \"SplitActionButton.PART_ActionButton\")", mainWindowCodeBehind, StringComparison.Ordinal);
         Assert.Contains("WakeLiveRenderHost(liveHost);\n            await Task.Delay(LiveValidationRetryDelay);", mainWindowCodeBehind, StringComparison.Ordinal);
         Assert.DoesNotContain("TryHitTestOwners(liveHost, x, y, out object?[] owners)", mainWindowCodeBehind, StringComparison.Ordinal);
         Assert.DoesNotContain("owners.Select(DescribeInputElement)", mainWindowCodeBehind, StringComparison.Ordinal);
@@ -11194,6 +11197,12 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("PROGPU_WPF_TOOLKIT_LIVE_VALIDATE_STATUS_PATH", mainWindowCodeBehind, StringComparison.Ordinal);
         Assert.Contains("LiveValidationStartupMaxAttempts = 1200", mainWindowCodeBehind, StringComparison.Ordinal);
         Assert.Contains("WriteLiveValidationStatus", mainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("Toolkit live transient AvalonDock auto-hide overlay close", mainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("transientAutoHideWindow.IsHitTestVisible = false;", mainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("transientAutoHideArea.IsHitTestVisible = false;", mainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("DockManager.Template?.FindName(\"PART_AutoHideArea\", DockManager)", mainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("autoHideArea.IsHitTestVisible = true;", mainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("autoHideWindow.IsHitTestVisible = true;", mainWindowCodeBehind, StringComparison.Ordinal);
         Assert.Contains("ProGPU WPF Toolkit live input validation details:", mainWindowCodeBehind, StringComparison.Ordinal);
         Assert.Contains("ProGPU WPF Toolkit live input validation succeeded:", mainWindowCodeBehind, StringComparison.Ordinal);
         Assert.DoesNotContain("TryGetPortableActivationHost", mainWindowCodeBehind, StringComparison.Ordinal);
@@ -14941,6 +14950,9 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("deltaY: -1.0", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
         Assert.Contains("Showcase live ScrollViewer MouseWheel delta", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
         Assert.Contains("TryRaiseLiveThumbDrag(", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("target.BringIntoView();", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("hit == null || !IsInputElementWithinTarget(hit, target)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("BringIntoViewDelta=({layoutDeltaX:0.###}, {layoutDeltaY:0.###})", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
         Assert.Contains("input Thumb tab activation", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
         Assert.Contains("IsMouseOver={target.IsMouseOver}", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
         Assert.Contains("!ReferenceEquals(Mouse.Captured, target)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);

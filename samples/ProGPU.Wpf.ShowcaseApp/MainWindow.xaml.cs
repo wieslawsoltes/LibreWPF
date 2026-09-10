@@ -2626,6 +2626,12 @@ public partial class MainWindow : Window
         double verticalDelta,
         out string targetState)
     {
+        Point initialCenter = target.TranslatePoint(
+            new Point(Math.Max(1.0, target.ActualWidth) / 2.0, Math.Max(1.0, target.ActualHeight) / 2.0),
+            this);
+        target.BringIntoView();
+        target.UpdateLayout();
+
         targetState =
             $"{description}.IsVisible={target.IsVisible}, " +
             $"{description}.ActualSize={target.ActualWidth:0.###}x{target.ActualHeight:0.###}, " +
@@ -2643,10 +2649,18 @@ public partial class MainWindow : Window
         Point center = target.TranslatePoint(
             new Point(Math.Max(1.0, target.ActualWidth) / 2.0, Math.Max(1.0, target.ActualHeight) / 2.0),
             this);
+        double layoutDeltaX = center.X - initialCenter.X;
+        double layoutDeltaY = center.Y - initialCenter.Y;
+        if (Math.Abs(layoutDeltaX) > 0.5 || Math.Abs(layoutDeltaY) > 0.5)
+        {
+            targetState += $", BringIntoViewDelta=({layoutDeltaX:0.###}, {layoutDeltaY:0.###})";
+            return false;
+        }
+
         Point moved = new(center.X + horizontalDelta, center.Y + verticalDelta);
         object? hit = InputHitTest(center);
         targetState += $", Input=({center.X:0.###}, {center.Y:0.###}), InputHitTest={DescribeInputElement(hit)}";
-        if (hit == null)
+        if (hit == null || !IsInputElementWithinTarget(hit, target))
         {
             return false;
         }
@@ -2970,6 +2984,7 @@ public partial class MainWindow : Window
                 break;
             }
 
+            WakeLiveRenderHost(liveHost);
             await Task.Delay(LiveValidationRetryDelay);
         }
 
@@ -3486,6 +3501,37 @@ public partial class MainWindow : Window
         return element is IInputElement
             ? "InputElement"
             : "Element";
+    }
+
+    private static bool IsInputElementWithinTarget(object hit, FrameworkElement target)
+    {
+        if (ReferenceEquals(hit, target))
+        {
+            return true;
+        }
+
+        var current = hit as DependencyObject;
+        while (current != null)
+        {
+            if (ReferenceEquals(current, target))
+            {
+                return true;
+            }
+
+            DependencyObject? parent = null;
+            try
+            {
+                parent = VisualTreeHelper.GetParent(current);
+            }
+            catch (InvalidOperationException)
+            {
+            }
+
+            parent ??= LogicalTreeHelper.GetParent(current);
+            current = parent;
+        }
+
+        return false;
     }
 
     private LiveLayoutSize CaptureLiveLayoutSize(ProGpuWpfWindowHost liveHost)

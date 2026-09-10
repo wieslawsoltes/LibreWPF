@@ -15,6 +15,11 @@ do not automatically expand the release checklist.
 
 ## Active completion queue
 
+**Base input-validation integration — 2026-09-11:** merge base c4df7dcb0 (PR125),
+preserving final Showcase naming and all new input-target assertions. The two
+affected source-graph tests pass; live application and exact-head CI remain
+unqualified. See [merge evidence](../reports/native-mil-base-input-validation-merge-2026-09-11.md).
+
 **Anchor source inventory — 2026-09-11:** an ordered, bounded source collector
 now retains actual Figure/Floater identities and symbol ranges through nested
 Spans without visiting child paragraph text. Source build and both anchor fixtures
