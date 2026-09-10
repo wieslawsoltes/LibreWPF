@@ -883,6 +883,20 @@ namespace System.Windows.Input
             // System.Console.WriteLine("Synchronize");
 //             VerifyAccess();
 
+            // While an element holds mouse capture (an in-progress drag), input routing is fixed to
+            // the captured element and driven by real move events. Synthesizing a re-hittest "mouse
+            // move" here is unnecessary and, on the portable backend, unreliable: GetClientPosition()
+            // derives the position from CriticalActiveSource, and showing a transient top-level window
+            // (e.g. an AvalonDock resizer-ghost overlay) mid-drag flips the active source to that new
+            // window, so the synthesized position collapses to (0,0). Delivered to the captured Thumb
+            // that reads as a teleport to the window corner and produces a huge bogus DragDelta that
+            // snaps the drag to the edge. Win32 WPF gets the true OS cursor position here (GetCursorPos)
+            // so its synchronize-during-capture is harmless; ours is not, so skip it while captured.
+            if (Captured != null)
+            {
+                return;
+            }
+
             // Simulate a mouse move
             PresentationSource activeSource = CriticalActiveSource;
             if (activeSource != null && activeSource.CompositionTarget != null && !activeSource.CompositionTarget.IsDisposed)
@@ -1040,7 +1054,6 @@ namespace System.Windows.Input
 
             if(mouseCapture != _mouseCapture)
             {
-                // Console.WriteLine("ChangeMouseCapture(" + mouseCapture + ")");
 
                 // Update the critical pieces of data.
                 IInputElement oldMouseCapture = _mouseCapture;

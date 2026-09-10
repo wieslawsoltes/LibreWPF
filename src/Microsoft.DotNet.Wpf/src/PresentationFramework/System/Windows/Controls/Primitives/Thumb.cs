@@ -255,9 +255,11 @@ namespace System.Windows.Controls.Primitives
             if (IsMouseCaptured && IsDragging)
             {
                 e.Handled = true;
+                // Portable mouse providers may no longer resolve a position relative to this
+                // Thumb after capture is released. Preserve the release position first.
+                Point pt = SafeSecurityHelper.ClientToScreen(this, e.MouseDevice.GetPosition(this));
                 ClearValue(IsDraggingPropertyKey);
                 ReleaseMouseCapture();
-                Point pt = SafeSecurityHelper.ClientToScreen(this, e.MouseDevice.GetPosition(this));
                 RaiseEvent(new DragCompletedEventArgs(pt.X - _originScreenCoordPosition.X, pt.Y - _originScreenCoordPosition.Y, false));
             }
             base.OnMouseLeftButtonUp(e);
