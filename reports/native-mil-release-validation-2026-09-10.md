@@ -25,7 +25,7 @@ User deadline: 10:21–11:21 UTC. Expansion frozen; required gates are not waive
   `73cda9a5` (rechecked during this push). They include native alpha/text repairs,
   mask-list lifetime ownership, geometry split handling, complete export lists,
   strict compiler fixes and matching ABI/test assertions. No required gate was
-  disabled. LibreWPF now pins that exact commit.
+  disabled. LibreWPF pinned that commit at that checkpoint.
 - The complete local managed run at `bd4b7313` reported 4,540 pass / 5 fail /
   7 skip (4,552 total). Four failures are cached-stroke coverage/alpha differences.
   The fifth was a stale submission-count assertion, corrected in `219df990` and
@@ -65,13 +65,34 @@ and SciChart projects, launchers, resource identities and paired native fixtures
 were renamed without changing release admission. ProGPU `2739c702` also fixes
 three strict-GCC structured-binding copy warnings in existing native tests.
 
-The ellipse input failure is now localized: ordinary retained EllipseGeometry
-uses the prepared geometry-spine path, which emits a width-3 path-join record
-(kind 8, flags 16). The native hit encoder rejects that record. Its isolated
-canonical full-arc fixture passing does not prove this source geometry route.
-Temporary capture diagnostics were removed; the complete rebuilt native suite
-still reports 16 passed / 3 failed. Preserve source geometry and pen semantics
-when closing this connection; do not suppress joins or skip index admission.
+LibreWPF now pins ProGPU `2747b9b3c1113a35fc51d18dfe79a9f9a5c1ca57`.
+At `5da6b179`, the actual retained EllipseGeometry route uses the existing
+canonical full-arc encoder for identity-local solid pens, including explicit
+empty dash styles. Sampled, transformed and nonempty dashed pens keep their
+existing preparation requirements. Source fixtures verify initial, resized and
+cleared geometry, not just the isolated arc encoder.
+
+At `2747b9b3`, cached built-in effects retain the original native input frame.
+Nine native cache/effect combinations pass, as do the paired nine managed cases;
+three native spatial-mask cases explicitly reject without a partial scene.
+The GCC border fixture now checks the renderer's exact join decomposition rather
+than a compiler-dependent hardcoded primitive count. See ProGPU's
+`docs/native-mil-ellipse-input.md` and `docs/native-mil-cached-effect-input.md`.
+
+The complete macOS run at this head reports **4,541 managed passed / 5 failed /
+7 skipped** (4,553 total) and **16 native suites passed / 3 failed** (19 total).
+The managed failures are the four cached-stroke pixel comparisons and the
+subscriber-free nonclient input allocation assertion (7,968 bytes versus zero).
+The native MIL suite now progresses past ellipse and cached-effect input to a
+curved tiled-pen fixture failure. The other native failures remain Viewport3D
+sibling/depth pixels and Direct2D Widen checkpoint 344. These results are not
+complete package/runtime qualification; no required checks were disabled.
+
+The source-built macOS native host smoke passed again against this rebuilt native
+library, including retention, source images/text/geometry, native owner input and
+device recovery in the existing window (23 commands, 20 resources, 9 draws,
+5 draw calls). Its WPF harness/source outputs and managed interop dependencies
+remain the isolated earlier builds described above, not newly qualified packages.
 
 1. Fix remaining ProGPU native, managed cached-stroke, Svg.Skia and CAD browser
    CI failures; rerun all required checks at the actual delivery head.
