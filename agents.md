@@ -323,6 +323,15 @@ decorations and mixed-font averaging remain explicit, as does the separate rich
 editor structural decoration-scope contract; do not erase those semantics.
 
 RichTextBox render-scope selection follows frozen media ownership on every OS;
+Editor decorated-inline edges publish the existing TextSpanModifier and paired
+TextEndOfSegment, preserving nested source scopes and explicit-line continuation.
+Independent editor line formatting seeds only already-open actual source ancestors
+through a managed TextLineBreak modifier chain. Keep original element offsets and
+inside-out property order; no invented leading characters or native break handles.
+PortableTextLine still validates composed decoration kinds/pens; do not discard
+unsupported decoration semantics. Figure/Floater are AnchoredBlock inlines, not
+ordinary spans: reject them until native anchored layout exists, never flatten
+their children into the linear editor. Source positions remain document symbols.
 Windows portable media must not enter the PTS-backed FlowDocumentView. The source
 TextBoxView editor retains real document symbols and per-run style ownership.
 Never hide embedded objects, block layout, directional scopes or decorations as

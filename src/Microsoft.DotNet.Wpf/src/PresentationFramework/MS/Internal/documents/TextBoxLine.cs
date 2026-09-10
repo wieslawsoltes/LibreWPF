@@ -81,18 +81,26 @@ namespace System.Windows.Controls
 
                 case TextPointerContext.ElementStart:
                     Invariant.Assert(_owner.Host is RichTextBox, "Element edges are only supported for the portable RichTextBox view.");
-                    ValidateRichElement((TextElement)position.GetAdjacentElement(LogicalDirection.Forward));
-                    run = position.GetAdjacentElement(LogicalDirection.Forward) is LineBreak
-                        ? new TextEndOfLine(2)
-                        : new TextHidden(1);
+                    TextElement opening = (TextElement)position.GetAdjacentElement(LogicalDirection.Forward);
+                    ValidateRichElement(opening);
+                    if (opening is LineBreak)
+                        run = new TextEndOfLine(2);
+                    else if (opening is Inline inline && DynamicPropertyReader.GetTextDecorations(inline) is { Count: > 0 } decorations)
+                        run = new TextSpanModifier(1, decorations, inline.Foreground);
+                    else
+                        run = new TextHidden(1);
                     break;
 
                 case TextPointerContext.ElementEnd:
                     Invariant.Assert(_owner.Host is RichTextBox, "Element edges are only supported for the portable RichTextBox view.");
-                    run = position.GetAdjacentElement(LogicalDirection.Forward) is Block &&
-                          position.CreatePointer(1).GetPointerContext(LogicalDirection.Forward) != TextPointerContext.None
-                        ? new TextEndOfLine(1)
-                        : new TextHidden(1);
+                    TextElement closing = (TextElement)position.GetAdjacentElement(LogicalDirection.Forward);
+                    if (closing is Inline closingInline && DynamicPropertyReader.GetTextDecorations(closingInline) is { Count: > 0 })
+                        run = new TextEndOfSegment(1);
+                    else
+                        run = closing is Block &&
+                              position.CreatePointer(1).GetPointerContext(LogicalDirection.Forward) != TextPointerContext.None
+                            ? new TextEndOfLine(1)
+                            : new TextHidden(1);
                     break;
 
                 case TextPointerContext.EmbeddedElement:
@@ -111,8 +119,8 @@ namespace System.Windows.Controls
         // not disappear just because the text inside can be shaped by ProGPU.
         private static void ValidateRichElement(TextElement element)
         {
-            if (element is InlineUIContainer || (element is not Inline && element is not Paragraph))
-                throw new PlatformNotSupportedException("Portable rich-text block and embedded-object layout is not implemented.");
+            if (element is InlineUIContainer or AnchoredBlock || (element is not Inline && element is not Paragraph))
+                throw new PlatformNotSupportedException($"Portable rich-text block and embedded-object layout is not implemented. Source element: {element.GetType().Name}.");
 
             if (element is Inline inline)
             {
@@ -120,8 +128,10 @@ namespace System.Windows.Controls
                     inline.FlowDirection != (FlowDirection)parent.GetValue(FrameworkElement.FlowDirectionProperty))
                     throw new PlatformNotSupportedException("Portable rich-text directional scopes require the document formatter contract.");
 
-                if (DynamicPropertyReader.GetTextDecorations(inline) is { Count: > 0 })
-                    throw new PlatformNotSupportedException("Portable rich-text decorations require the native decoration contract.");
+                // Decorated inline edges publish the same modifier/end scope as
+                // the document paragraph source. PortableTextLine validates the
+                // actual composed decoration contract; unsupported pens/kinds
+                // remain explicit rather than disappearing as hidden edges.
             }
         }
 
@@ -241,7 +251,14 @@ namespace System.Windows.Controls
                 lineProperties.TextAlignment != TextAlignment.Justify;
             try
             {
-                _line = formatter.FormatLine(this, dcp, formatWidth, lineProperties, null, textRunCache);
+                // Editor lines can be reformatted independently after scrolling,
+                // wrapping or an explicit break. Seed only the actual already-
+                // open source ancestors; do not invent leading edge characters.
+                TextModifierScope scope = _owner.Host is RichTextBox
+                    ? CreatePortableModifierScope(_owner.Host.TextContainer.CreateStaticPointerAtOffset(dcp).Parent, dcp, 0)
+                    : null;
+                using TextLineBreak previous = scope == null ? null : new TextLineBreak(scope, IntPtr.Zero);
+                _line = formatter.FormatLine(this, dcp, formatWidth, lineProperties, previous, textRunCache);
             }
             finally
             {
@@ -249,8 +266,19 @@ namespace System.Windows.Controls
             }
         }
 
+        private static TextModifierScope CreatePortableModifierScope(DependencyObject parent, int dcp, int depth)
+        {
+            if (parent is not Inline inline) return null;
+            if (depth >= 128) throw new PlatformNotSupportedException("Portable rich-text modifier nesting budget exceeded.");
+            ValidateRichElement(inline);
+            TextModifierScope outer = CreatePortableModifierScope(inline.Parent, dcp, depth + 1);
+            return inline.ElementStartOffset < dcp && DynamicPropertyReader.GetTextDecorations(inline) is { Count: > 0 } decorations
+                ? new TextModifierScope(outer, new TextSpanModifier(1, decorations, inline.Foreground), inline.ElementStartOffset)
+                : outer;
+        }
+
         /// <summary>
-        /// Create and return visual node for the line. 
+        /// Create and return visual node for the line.
         /// </summary>
         internal TextBoxLineDrawingVisual CreateVisual(Geometry selectionGeometry)
         {

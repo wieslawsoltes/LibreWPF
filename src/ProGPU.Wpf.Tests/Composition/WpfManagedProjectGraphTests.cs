@@ -6,6 +6,23 @@ namespace ProGPU.Wpf.Tests.Composition;
 public sealed class WpfManagedProjectGraphTests
 {
     [Fact]
+    public void RichEditorDecorationEdgesUsePairedSourceModifiersWithoutObjectFlattening()
+    {
+        string line = File.ReadAllText(FindRepoPath("src", "Microsoft.DotNet.Wpf", "src",
+            "PresentationFramework", "MS", "Internal", "documents", "TextBoxLine.cs"));
+        Assert.Contains("new TextSpanModifier(1, decorations, inline.Foreground)", line, StringComparison.Ordinal);
+        Assert.Contains("new TextEndOfSegment(1)", line, StringComparison.Ordinal);
+        Assert.Contains("CreatePortableModifierScope(_owner.Host.TextContainer.CreateStaticPointerAtOffset(dcp).Parent, dcp, 0)", line, StringComparison.Ordinal);
+        Assert.Contains("new TextLineBreak(scope, IntPtr.Zero)", line, StringComparison.Ordinal);
+        Assert.Contains("inline.ElementStartOffset < dcp", line, StringComparison.Ordinal);
+        Assert.Contains("element is InlineUIContainer or AnchoredBlock", line, StringComparison.Ordinal);
+        Assert.DoesNotContain("Portable rich-text decorations require the native decoration contract.", line, StringComparison.Ordinal);
+        Assert.Contains("Portable rich-text directional scopes require the document formatter contract.", line, StringComparison.Ordinal);
+        string program = File.ReadAllText(FindRepoPath("src", "ProGPU.Wpf.RealPresentationFrameworkHarness", "Program.cs"));
+        Assert.Contains("NativeMilRichTextDecorationSmoke.Run(presentationFramework)", program, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void SourceJustificationUsesNativeParagraphAndCustomHostRegistersMediaBeforeLoadingWpf()
     {
         string line = File.ReadAllText(FindRepoPath("src", "Microsoft.DotNet.Wpf", "src",

@@ -15,6 +15,11 @@ do not automatically expand the release checklist.
 
 ## Active completion queue
 
+**Rich-editor follow-up:** paired decoration scopes now reach native formatting;
+independent editor lines retain their open source ancestors. The unchanged full
+application currently rejects Figure, whose anchored/object layout remains missing.
+See [rich-editor decoration validation](../reports/native-mil-rich-editor-decoration-validation-2026-09-10.md).
+
 **2026-09-10 application qualification update:** the custom Application.Run host
 now registers its native media providers before source startup, and word-space
 justification is connected to ProGPU C++. The native host gate passes with new
