@@ -15,6 +15,21 @@ using Vector2 = System.Numerics.Vector2;
 
 namespace MS.Internal.TextFormatting;
 
+// Source-owned immutable request for one hard paragraph segment. Continuations
+// retain the provider paragraph and do not query the source again.
+internal sealed class PortableTextExclusionRequest
+{
+    internal PortableTextExclusionOptions Options { get; }
+    internal ReadOnlyMemory<PortableTextExclusion> Exclusions { get; }
+    internal PortableTextExclusionRequest(PortableTextExclusionOptions options, ReadOnlyMemory<PortableTextExclusion> exclusions)
+    { Options = options; Exclusions = exclusions.ToArray(); }
+}
+
+internal interface IPortableExcludedTextSource
+{
+    PortableTextExclusionRequest GetExclusions(int firstSourceIndex);
+}
+
 /// <summary>Source-owned WPF line semantics over the typed ProGPU paragraph service.</summary>
 internal sealed class PortableTextLine : TextLine
 {
@@ -54,6 +69,10 @@ internal sealed class PortableTextLine : TextLine
     private readonly PortableTextLine _uncollapsed;
     private readonly List<IndexedGlyphRun> _collapsedGlyphRuns;
     private PortableTextLineInfo Info => _paragraph.Lines.Span[_lineIndex];
+    internal PortableTextFragment? Fragment => (_paragraph as IPortableExcludedTextParagraph)?.Fragments.Span[_lineIndex];
+    internal double FragmentContentHeight => (_paragraph as IPortableExcludedTextParagraph)?.ContentHeight ?? Height;
+    internal double FragmentContentWidth => (_paragraph as IPortableExcludedTextParagraph)?.ContentWidth ?? Width;
+    private double NativeOrigin => Start - (Fragment?.Left ?? 0);
     private int First => _paragraphStart + (_lineIndex == 0 ? 0 : _sourceMap.ToSource(Info.InputStart, true));
     private int End => _paragraphStart + _sourceMap.ToSource(Info.InputEnd, true);
 
@@ -91,6 +110,9 @@ internal sealed class PortableTextLine : TextLine
         TextLine continuation = CreateContinuation(settings, first, idealWidth, pixelsPerDip);
         if (continuation != null) return continuation;
         var pap = settings.Pap;
+        PortableTextExclusionRequest exclusions = (settings.TextSource as IPortableExcludedTextSource)?.GetExclusions(first);
+        if (exclusions != null && (measureIntrinsicWidths || service is not IPortableExcludedTextFormatting || width <= 0))
+            throw Unsupported("excluded source formatting requires a bounded width and explicit native provider; intrinsic formatting remains separate");
         if (settings.IsSideways || settings.TextFormattingMode != TextFormattingMode.Ideal || pap.TextMarkerProperties != null ||
             (pap.TextDecorations?.Count ?? 0) != 0 ||
             pap.Tabs?.Count > 0)
@@ -268,18 +290,27 @@ internal sealed class PortableTextLine : TextLine
             hasTabs ? (float)pap.DefaultIncrementalTab : 0, (float)indent, measureIntrinsicWidths,
             pap.EmergencyWrap ? PortableTextWrapping.Emergency : PortableTextWrapping.WholeWord);
         IPortableTextParagraph paragraph;
-        if (objects != null)
+        if (objects != null || exclusions != null)
         {
             var metrics = new PortableTextStyleMetrics[styles.Count];
             for (int i = 0; i < metrics.Length; i++)
                 metrics[i] = new((float)styles[i].Baseline, (float)(styles[i].Height - styles[i].Baseline));
-            var items = new PortableTextInlineObject[objects.Count];
+            var items = new PortableTextInlineObject[objects?.Count ?? 0];
             for (int i = 0; i < items.Length; i++) items[i] = objects[i].Metrics;
-            paragraph = ((IPortableInlineTextFormatting)service).FormatInline(in request, metrics, items);
+            if (exclusions != null)
+            {
+                var options = exclusions.Options;
+                paragraph = ((IPortableExcludedTextFormatting)service).FormatExcluded(in request, metrics, items,
+                    in options, exclusions.Exclusions.Span);
+            }
+            else paragraph = ((IPortableInlineTextFormatting)service).FormatInline(in request, metrics, items);
         }
         else paragraph = service.Format(in request);
         if (paragraph == null) throw new InvalidOperationException("The text provider returned no paragraph.");
         if (paragraph.Lines.Length == 0) throw new InvalidOperationException("The text provider returned no line.");
+        if (exclusions != null && (paragraph is not IPortableExcludedTextParagraph excluded ||
+            excluded.Fragments.Length != paragraph.Lines.Length))
+            throw new InvalidOperationException("The excluded text provider did not retain one frame per source fragment.");
         if (measureIntrinsicWidths)
         {
             var widths = paragraph.IntrinsicWidths ?? throw Unsupported("the text provider does not publish intrinsic paragraph widths");
@@ -487,7 +518,7 @@ internal sealed class PortableTextLine : TextLine
                     if (!double.IsFinite(range.X) || !double.IsFinite(range.Width) || range.Width < 0)
                         throw new InvalidOperationException("The text provider returned invalid decoration geometry.");
                     if (range.Width == 0) continue;
-                    var bounds = new Rect(Start + range.X, center - thickness / 2, range.Width, thickness);
+                    var bounds = new Rect(NativeOrigin + range.X, center - thickness / 2, range.Width, thickness);
                     foreach (TextDecoration decoration in style.Properties.TextDecorations)
                         _underlines.Add((bounds, style.Properties.ForegroundBrush));
                     ink.Union(bounds);
@@ -529,8 +560,8 @@ internal sealed class PortableTextLine : TextLine
                 var placement = measured.InlineObjects.Span[lo];
                 if (placement.InputPosition != item.Cluster || placement.LineIndex != _lineIndex || placement.GlyphIndex != first)
                     throw new InvalidOperationException("Native inline placement changed source or line ownership.");
-                var origin = new Point(Start + placement.X, Baseline);
-                var objectLayoutBounds = new Rect(Start + placement.X, placement.Y - Info.Y, placement.Width, placement.Height);
+                var origin = new Point(NativeOrigin + placement.X, Baseline);
+                var objectLayoutBounds = new Rect(NativeOrigin + placement.X, placement.Y - Info.Y, placement.Width, placement.Height);
                 _drawingOrder.Add((true, _lineObjects.Count));
                 _lineObjects.Add((lo, origin));
                 int objectSourceStart = _paragraphStart + _sourceMap.ToSource(item.Cluster, true);
@@ -592,7 +623,7 @@ internal sealed class PortableTextLine : TextLine
                 }
             }
             var run = new GlyphRun(face, level, false, style.EmSize, (float)PixelsPerDip,
-                ids, new Point(Start, Baseline), advances, offsets, _text.AsSpan(cpStart, cpEnd - cpStart).ToArray(),
+                ids, new Point(NativeOrigin, Baseline), advances, offsets, _text.AsSpan(cpStart, cpEnd - cpStart).ToArray(),
                 null, clusters, carets, XmlLanguage.GetLanguage(properties.CultureInfo.IetfLanguageTag));
             run.InitializePortableGlyphPositions(positions, _paragraph.GetNativeFont(fontIndex));
             int sourceStart = _sourceMap.ToSource(cpStart, true), sourceEnd = _sourceMap.ToSource(cpEnd, false);
@@ -616,7 +647,7 @@ internal sealed class PortableTextLine : TextLine
         var rectangles = new PortableRect[Math.Max(1, Info.GlyphCount)];
         int count = _paragraph.GetSelection(_lineIndex, start, end, rectangles);
         for (int i = 0; i < count; i++)
-            _backgrounds.Add((new Rect(Start + rectangles[i].X, 0, rectangles[i].Width, Height), brush));
+            _backgrounds.Add((new Rect(NativeOrigin + rectangles[i].X, 0, rectangles[i].Width, Height), brush));
     }
 
     private int StyleIndex(int position)
@@ -747,7 +778,7 @@ internal sealed class PortableTextLine : TextLine
     }
     public override CharacterHit GetCharacterHitFromDistance(double distance)
     {
-        CheckAlive(); var hit = _paragraph.HitTest(_lineIndex, (float)(distance - Start));
+        CheckAlive(); var hit = _paragraph.HitTest(_lineIndex, (float)(distance - NativeOrigin));
         if (!hit.Trailing) return new(_paragraphStart + _sourceMap.ToSource(hit.Position, true), 0);
         int before = _paragraph.GetNextLogicalCaret(_lineIndex, hit.Position, true);
         int sourceStart = _sourceMap.ToSource(before, true), sourceEnd = _sourceMap.ToSource(hit.Position, false);
@@ -760,7 +791,7 @@ internal sealed class PortableTextLine : TextLine
         int position = _sourceMap.ToText(Math.Clamp(checked(hit.FirstCharacterIndex + hit.TrailingLength) - _paragraphStart, 0, _sourceMap.SourceLength));
         if (_paragraph.CollapsedRange is { } c && position > c.Start && position < c.End)
             position = hit.TrailingLength != 0 ? c.End : c.Start;
-        return Start + _paragraph.GetCaretDistance(_lineIndex, new(position, hit.TrailingLength != 0));
+        return NativeOrigin + _paragraph.GetCaretDistance(_lineIndex, new(position, hit.TrailingLength != 0));
     }
     public override CharacterHit GetNextCaretCharacterHit(CharacterHit hit) => Move(hit, false);
     public override CharacterHit GetPreviousCaretCharacterHit(CharacterHit hit) => Move(hit, true);
@@ -806,7 +837,7 @@ internal sealed class PortableTextLine : TextLine
                 IList<TextRunBounds> objectBounds = null;
                 if (_objectBounds != null && _objectBounds.TryGetValue(run.Start, out var objectBound))
                     objectBounds = new[] { objectBound };
-                var r = rectangles[i]; result.Add(new(new Rect(Start + r.X, 0, r.Width, Height),
+                var r = rectangles[i]; result.Add(new(new Rect(NativeOrigin + r.X, 0, r.Width, Height),
                     (run.Level & 1) != 0 ? FlowDirection.RightToLeft : FlowDirection.LeftToRight, objectBounds));
             }
         }
@@ -838,7 +869,10 @@ internal sealed class PortableTextLine : TextLine
         _lineIndex + 1 == _paragraph.Lines.Length ? _newlines : 0;
     public override int TrailingWhitespaceLength => _trailing + NewlineLength;
     public override int DependentLength => _sourceMap.SourceLength - (End - _paragraphStart);
-    public override double Start => _indent + (_paragraphWidth <= 0 ? 0 : _alignment switch
+    public override double Start => Fragment is { } fragment
+        ? _indent + fragment.Left + (_alignment switch
+            { TextAlignment.Right => fragment.Width - _width, TextAlignment.Center => (fragment.Width - _width) / 2, _ => 0 })
+        : _indent + (_paragraphWidth <= 0 ? 0 : _alignment switch
     { TextAlignment.Right => _paragraphWidth - _indent - _width, TextAlignment.Center => (_paragraphWidth - _indent - _width) / 2, _ => 0 });
     public override double Width => _width;
     public override double WidthIncludingTrailingWhitespace => Info.Width;

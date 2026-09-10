@@ -15,6 +15,13 @@ do not automatically expand the release checklist.
 
 ## Active completion queue
 
+**Source excluded TextLines — 2026-09-11:** an immutable source request now selects
+the native excluded provider; retained continuations, fragment metadata and a
+shared drawing/input origin connect through PortableTextLine. Local native-host
+checks pass for same-row source caret/selection frames. Parent document placement,
+hard-segment origins and real anchor wrapping/interaction remain required.
+See [source evidence](../reports/native-mil-source-excluded-text-2026-09-11.md).
+
 **Positioned document provider — 2026-09-11:** WPF's typed document adapter now
 forwards native paragraph extents and local fragment positions to the shared
 arranger without source-side correction. Source TextLine exclusion requests,

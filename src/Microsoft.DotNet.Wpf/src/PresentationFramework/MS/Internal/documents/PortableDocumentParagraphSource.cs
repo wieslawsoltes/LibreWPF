@@ -13,23 +13,36 @@ namespace MS.Internal.Documents;
 
 // Source adapter only: every index remains an offset in the original container.
 // TextFormatter/PortableTextLine owns modifier evaluation and native shaping.
-internal sealed class PortableDocumentParagraphSource : TextSource
+internal sealed class PortableDocumentParagraphSource : TextSource, IPortableExcludedTextSource
 {
     private readonly Paragraph _paragraph;
     private readonly ITextContainer _container;
     private readonly double _paragraphWidth;
+    private readonly PortableTextExclusionRequest _exclusions;
     internal bool HasInlineObjects { get; private set; }
     internal int Start { get; }
     internal int End { get; }
 
     internal PortableDocumentParagraphSource(Paragraph paragraph, double pixelsPerDip, double paragraphWidth = double.NaN)
+        : this(paragraph, pixelsPerDip, paragraphWidth, null) { }
+
+    internal PortableDocumentParagraphSource(Paragraph paragraph, double pixelsPerDip, double paragraphWidth,
+        PortableTextExclusionRequest exclusions)
     {
         _paragraph = paragraph;
         _container = paragraph.TextContainer;
         _paragraphWidth = paragraphWidth;
+        _exclusions = exclusions;
         Start = paragraph.ElementStart.Offset;
         End = paragraph.ElementEnd.Offset;
         PixelsPerDip = pixelsPerDip;
+    }
+
+    PortableTextExclusionRequest IPortableExcludedTextSource.GetExclusions(int firstSourceIndex)
+    {
+        if (_exclusions != null && firstSourceIndex != Start)
+            throw new PlatformNotSupportedException("Excluded hard-line continuation requires a source-resolved segment origin.");
+        return _exclusions;
     }
 
     public override TextRun GetTextRun(int dcp)
