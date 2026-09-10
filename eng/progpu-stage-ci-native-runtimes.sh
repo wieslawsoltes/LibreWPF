@@ -32,11 +32,23 @@ fi
 started_at="$(date +%s)"
 run_id=""
 run_url=""
+query_failures=0
 while true; do
-  runs="$(
+  if ! runs="$(
     gh api \
       "repos/${progpu_repository}/actions/workflows/build.yml/runs?head_sha=${progpu_commit}&per_page=100"
-  )"
+  )"; then
+    query_failures=$((query_failures + 1))
+    now="$(date +%s)"
+    if (( query_failures >= 3 || now - started_at >= timeout_seconds )); then
+      echo "Unable to query exact ProGPU Build for ${progpu_commit} after ${query_failures} consecutive request failures." >&2
+      exit 1
+    fi
+    echo "Retrying exact ProGPU Build query after request failure ${query_failures}/3..." >&2
+    sleep "${poll_seconds}"
+    continue
+  fi
+  query_failures=0
   run_id="$(
     jq -r \
       --arg sha "${progpu_commit}" \
