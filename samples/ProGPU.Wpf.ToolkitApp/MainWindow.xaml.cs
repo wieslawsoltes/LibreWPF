@@ -4920,6 +4920,11 @@ public partial class MainWindow : Window
 
         object? hit = InputHitTest(center);
         targetState += $", Input=({center.X:0.###}, {center.Y:0.###}), InputHitTest={DescribeInputElement(hit)}";
+        if (hit == null || !IsInputElementWithinTarget(hit, target))
+        {
+            return false;
+        }
+
         if (!TryLiveHostGpuHitWithinTarget(liveHost, center.X, center.Y, target, out string gpuHitState))
         {
             targetState += $", {gpuHitState}";
