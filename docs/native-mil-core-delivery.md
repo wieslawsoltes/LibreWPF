@@ -15,6 +15,13 @@ do not automatically expand the release checklist.
 
 ## Active completion queue
 
+**Anchored subtree measurement — 2026-09-11:** original Figure/Floater child
+BlockCollections now have a shared source layout entry point, preserving real
+Paragraphs, document offsets and independent TextLine generations. Local native
+host checks pass for reflow and ownership. Parent exclusion formatting, wrap policy
+and interaction are not connected; AnchoredBlock admission remains closed.
+See [source evidence](../reports/native-mil-anchor-subtree-2026-09-11.md).
+
 **Anchored provider connection — 2026-09-11:** the typed WPF document adapter now
 calls ProGPU's shared native width and source-ordered placement batches. Four
 focused document-flow tests pass, including ABI and atomicity checks. Source

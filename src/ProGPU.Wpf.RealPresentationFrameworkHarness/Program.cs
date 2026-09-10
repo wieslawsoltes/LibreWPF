@@ -149,6 +149,7 @@ public static class Program
                 NativeMilSourceInlineObjectSmoke.Run(presentationFramework, presentationCore, windowsBase);
                 NativeMilRichTextDecorationSmoke.Run(presentationFramework);
                 NativeMilRichDocumentSmoke.Run(presentationFramework, presentationCore, windowsBase);
+                NativeMilAnchoredDocumentSmoke.Run(presentationFramework, presentationCore);
                 object inlineText = CreateNativeMilInlineTextVisual(presentationFramework, presentationCore, windowsBase);
                 object root = Create(presentationCore, "System.Windows.Media.ContainerVisual");
                 AddToCollection(GetProperty(root, "Children"), drawingVisual);

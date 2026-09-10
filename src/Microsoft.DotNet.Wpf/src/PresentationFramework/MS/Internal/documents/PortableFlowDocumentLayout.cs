@@ -85,6 +85,27 @@ internal sealed class PortableFlowDocumentLayout : IDisposable
         TextFormattingMode formattingMode, Thickness? pagePadding = null)
     {
         ArgumentNullException.ThrowIfNull(document);
+        return CreateCore(document, document.Blocks, pageWidth, pixelsPerDip, formattingMode, pagePadding, false);
+    }
+
+    // Measure original anchored blocks with the same native document/paragraph
+    // services. The parent owns anchor margins/insets and placement; this local
+    // generation owns only child TextLines and their original document offsets.
+    internal static PortableFlowDocumentLayout CreateAnchored(FlowDocument document, AnchoredBlock anchor,
+        double contentWidth, double pixelsPerDip, TextFormattingMode formattingMode)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentNullException.ThrowIfNull(anchor);
+        if (!ReferenceEquals(anchor.TextContainer, document.TextContainer))
+            throw new InvalidOperationException("Anchored content must belong to the original source document.");
+        return CreateCore(document, anchor.Blocks, contentWidth, pixelsPerDip, formattingMode, new Thickness(0), true);
+    }
+
+    private static PortableFlowDocumentLayout CreateCore(FlowDocument document, BlockCollection sourceBlocks,
+        double pageWidth, double pixelsPerDip, TextFormattingMode formattingMode, Thickness? pagePadding,
+        bool requiresAnchoredFlow)
+    {
+        ArgumentNullException.ThrowIfNull(document);
         if (PortableWpfRuntime.GetMediaBackendAndFreeze() != PortableWpfMediaBackend.Portable)
             throw new InvalidOperationException("Portable document layout requires portable media ownership.");
         if (!double.IsFinite(pageWidth) || pageWidth <= 0) throw new ArgumentOutOfRangeException(nameof(pageWidth));
@@ -92,6 +113,8 @@ internal sealed class PortableFlowDocumentLayout : IDisposable
         if (!PortableWpfServiceRegistry.TryGetDocumentFlow(out var flow) ||
             !PortableWpfServiceRegistry.TryGetTextFormatting(out _))
             throw new PlatformNotSupportedException("Portable FlowDocument requires registered native document and text services before layout.");
+        if (requiresAnchoredFlow && flow is not IPortableAnchoredDocumentFlow)
+            throw new PlatformNotSupportedException("Anchored document measurement requires the explicit native anchor capability.");
         if (document.FlowDirection != FlowDirection.LeftToRight)
             throw new PlatformNotSupportedException("Portable RTL document block ordering is not implemented.");
         var layout = new PortableFlowDocumentLayout();
@@ -109,7 +132,7 @@ internal sealed class PortableFlowDocumentLayout : IDisposable
             layout._entries.Add(new(null, null, null, 0));
             layout._blocks.Add(new() { ParentIndex = PortableDocumentBlock.NoParent,
                 InsetLeft = padding.Left, InsetTop = padding.Top, InsetRight = padding.Right, InsetBottom = padding.Bottom });
-            foreach (Block block in document.Blocks) layout.AddBlock(block, 0, 1, pixelsPerDip);
+            foreach (Block block in sourceBlocks) layout.AddBlock(block, 0, 1, pixelsPerDip);
             layout.CloseSubtree(0);
             layout.Boxes = new PortableDocumentBox[layout._blocks.Count];
             if (layout.HasTables)
