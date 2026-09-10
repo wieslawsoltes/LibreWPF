@@ -185,6 +185,15 @@ closure, especially remaining required native dialog/popup admission and lifetim
 before feature freeze. Full package-mode qualification and both PRs' green CI
 remain mandatory; this checkpoint does not refresh the native/package feed.
 
+The [X11 popup ownership connection](../reports/native-mil-x11-popup-ownership-2026-09-10.md)
+removes WPF's partial-setup OR admission and routes native popup configuration
+through ProGPU. Hidden top-level/root admission and server-confirmed owner,
+override-redirect and menu type state are required before Show in both renderer
+modes. ProGPU's Linux CI now includes an explicit X-server fixture; it is authored,
+not a reported pass. Existing native popup placement/input/render gates remain.
+Cocoa's GLFW popup surfaces still lack NSPanel modal admission, and Linux native
+dialog input suppression remains open; neither is closed by X11 ownership.
+
 Package input refresh: macOS, Linux and Windows ARM64/x64 native payloads now
 share ProGPU da36a718 in the same staging root. Both Linux refresh builds completed
 all 709 compile/module/link steps. ProGPU.Backend.Native.0.1.0-preview.55.nupkg

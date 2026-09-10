@@ -279,6 +279,7 @@ internal sealed class WpfPortableNativePopupHost : IWpfPortableNativePopupHost
         catch
         {
             _isVisible = false;
+            Dispose();
             throw;
         }
     }
@@ -317,30 +318,31 @@ internal sealed class WpfPortableNativePopupHost : IWpfPortableNativePopupHost
             return;
         }
 
-        _popupHost.InitializeHidden();
-        bool ownerConfigured = false;
-        if (_ownerHost.SilkWindow is { } ownerWindow && _popupHost.SilkWindow is { } popupWindow)
+        try
         {
-            try
+            // Hidden initialization can fail after creating a native window or
+            // render target. Its partial ownership has the same cleanup rule as
+            // rejected owner configuration, before the popup can be published.
+            _popupHost.InitializeHidden();
+            bool ownerConfigured = false;
+            if (_ownerHost.SilkWindow is { } ownerWindow && _popupHost.SilkWindow is { } popupWindow)
             {
                 ownerConfigured = _ownerHost.PlatformServices.WindowDecorations.TryConfigurePopupOwner(ownerWindow, popupWindow);
             }
-            catch
+
+            if (!ownerConfigured)
             {
-                Dispose();
-                throw;
+                throw new PlatformNotSupportedException("The selected native popup owner could not be configured.");
             }
+            _isInitialized = true;
         }
-
-        if (!ownerConfigured)
+        catch
         {
-            // Never show an unowned/activating replacement after explicit native
-            // popup selection. Dispose the still-hidden surface on rejection.
+            // Never retain or show a partially initialized/unowned replacement
+            // after explicit native popup selection, on any platform.
             Dispose();
-            throw new PlatformNotSupportedException("The selected native popup owner could not be configured.");
+            throw;
         }
-
-        _isInitialized = true;
     }
 
     private void OnOwnerUpdateTick(object? sender, EventArgs e)

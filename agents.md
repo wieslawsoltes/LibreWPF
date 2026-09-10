@@ -1,5 +1,12 @@
 # Agent Guidance
 
+X11 popup configuration must use ProGPU NativePopupWindow just like Win32 and
+Cocoa. WPF adapts the actual native handles/display and owns disposal on failure;
+it must not retain a local XSetTransientForHint/XChangeWindowAttributes/property
+implementation or accept partial OR-combined setup. Both renderer modes keep
+source desktop placement and independent popup input/DPI. Confirmed hidden X11
+properties are not native modality or rendered application qualification.
+
 Portable WindowInteropHelper owner handles may resolve only through one live
 PortablePresentationSource whose root is its actual active Window on the same
 dispatcher. Route that identity through Window.Owner and ProGPU's existing native
