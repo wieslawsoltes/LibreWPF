@@ -451,9 +451,9 @@
           BeforeTargets="GenerateBuildDependencyFile"
           Condition="'$(ProGpuWpfUsePortableFrameworkReferences)' == 'true' And '$(ProGpuWpfReferenceMode)' == 'Package' And '$(ProGpuWpfUsePortableWinFormsCompat)' == 'true' And '$(ProGpuWpfUseLibreWinForms)' == 'true' And '$(ProGpuWpfUseCanonicalLibreWinForms)' == 'true'">
     <ItemGroup>
-      <_ProGpuWpfCanonicalFormsReferenceAnchor Include="@(ReferencePath)" Condition="'%(ReferencePath.Filename)' == 'System.Windows.Forms' And '%(ReferencePath.NuGetPackageId)' == '$(ProGpuWpfLibreWinFormsRuntimePackageId)'" />
-      <_ProGpuWpfCanonicalBackendReferenceAnchor Include="@(ReferencePath)" Condition="'%(ReferencePath.Filename)' == 'LibreWinForms.ProGPU' And '%(ReferencePath.NuGetPackageId)' == 'LibreWinForms.ProGPU'" />
-      <_ProGpuWpfCanonicalIntegrationReferenceAnchor Include="@(ReferencePath)" Condition="'%(ReferencePath.Filename)' == 'WindowsFormsIntegration' And '%(ReferencePath.NuGetPackageId)' == 'LibreWinForms.WindowsFormsIntegration'" />
+      <_ProGpuWpfCanonicalFormsReferenceAnchor Include="@(ReferencePath)" Condition="'%(ReferencePath.Filename)' == 'System.Windows.Forms' And ('%(ReferencePath.NuGetPackageId)' == '$(ProGpuWpfLibreWinFormsRuntimePackageId)' Or $([System.String]::Copy('%(ReferencePath.Identity)').ToLowerInvariant().Contains('librewinforms.system.windows.forms')))" />
+      <_ProGpuWpfCanonicalBackendReferenceAnchor Include="@(ReferencePath)" Condition="'%(ReferencePath.Filename)' == 'LibreWinForms.ProGPU' And ('%(ReferencePath.NuGetPackageId)' == 'LibreWinForms.ProGPU' Or $([System.String]::Copy('%(ReferencePath.Identity)').ToLowerInvariant().Contains('librewinforms.progpu')))" />
+      <_ProGpuWpfCanonicalIntegrationReferenceAnchor Include="@(ReferencePath)" Condition="'%(ReferencePath.Filename)' == 'WindowsFormsIntegration' And ('%(ReferencePath.NuGetPackageId)' == 'LibreWinForms.WindowsFormsIntegration' Or $([System.String]::Copy('%(ReferencePath.Identity)').ToLowerInvariant().Contains('librewinforms.windowsformsintegration')))" />
     </ItemGroup>
 
     <PropertyGroup>
