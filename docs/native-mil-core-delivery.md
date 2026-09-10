@@ -15,6 +15,12 @@ do not automatically expand the release checklist.
 
 ## Active completion queue
 
+**Source embedded-text connection — 2026-09-10:** PortableTextLine connects
+fixed-size source objects to the measured native provider, retains non-ink object
+identity and publishes actual child TextRunBounds for TextBlock's existing arranger.
+FlowDocument inline-child admission and anchored placement remain required.
+See [source contract](../reports/native-mil-source-inline-text-2026-09-10.md).
+
 **Retained inline provider — 2026-09-10:** consume ProGPU e574a911 and canonical
 LibreWinForms 82d595d3. WPF's typed provider now connects native measured paragraphs,
 source-ordered non-ink objects, line tops/baselines and interaction. Source

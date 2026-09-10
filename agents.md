@@ -301,6 +301,15 @@ rewrite or claims of qualified codec/worker/SIMD parity follow from this routing
 
 ## Core Native MIL Delivery Priority
 
+PortableTextLine retains admitted fixed-size, one-symbol TextEmbeddedObjects as
+actual source runs over native U+FFFC items. Native measured line baselines are
+removed once from glyph-relative positions, not added twice. Keep object drawing
+in retained visual order and publish actual object TextRunBounds separately from
+line-height selection bounds so TextBlock's existing arranger owns the real child.
+Variable-size/multi-symbol objects, custom break policies, decorated objects and
+fixed explicit line-height combinations stay rejected until their contracts exist.
+TextBlock integration does not admit the FlowDocument paragraph source or anchors.
+
 WPF inline formatting selects ProGPU's explicit IPortableInlineTextFormatting
 capability and retained measured snapshot. Keep source metrics and ordered U+FFFC
 placements separate from font glyphs; object sentinels never enter font lookup.

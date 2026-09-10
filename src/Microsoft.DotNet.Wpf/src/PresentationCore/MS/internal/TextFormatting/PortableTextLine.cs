@@ -29,6 +29,11 @@ internal sealed class PortableTextLine : TextLine
     private sealed record SourceStyle(int Start, int End, TextRunProperties Properties, GlyphTypeface Face,
         PortableTextFont Font, double EmSize, double Baseline, double Height);
     private readonly SourceStyle[] _styles;
+    private sealed record SourceObject(int Position, TextEmbeddedObject Run, PortableTextInlineObject Metrics);
+    private readonly SourceObject[] _objects;
+    private readonly List<(int ObjectIndex, Point Origin)> _lineObjects;
+    private readonly Dictionary<int, TextRunBounds> _objectBounds;
+    private readonly List<(bool IsObject, int Index)> _drawingOrder;
     private readonly bool _fixedHeight;
     private readonly int _paragraphStart, _lineIndex, _newlines;
     private readonly double _paragraphWidth, _indent, _baseline, _height;
@@ -96,6 +101,8 @@ internal sealed class PortableTextLine : TextLine
         var builder = new StringBuilder();
         var runs = new List<TextSpan<TextRun>>();
         var styles = new List<SourceStyle>();
+        List<SourceObject> objects = null;
+        double indent = settings.Formatter.IdealToReal(settings.TextIndent + pap.ParagraphIndent, pixelsPerDip);
         var mappedFonts = new List<TextSpan<ScaledShapeTypeface>>();
         var sourceRanges = new List<PortableTextSourceRange>();
         var scope = settings.PreviousLineBreak?.TextModifierScope;
@@ -135,7 +142,7 @@ internal sealed class PortableTextLine : TextLine
                 runs.Add(new(length, run)); cp = checked(cp + length); sourceLength = cp - first;
                 continue;
             }
-            if (run is not TextCharacters) throw Unsupported("embedded document objects");
+            if (run is not TextCharacters && run is not TextEmbeddedObject) throw Unsupported("embedded document objects");
             var p = scope == null ? run.Properties : scope.ModifyProperties(run.Properties);
             if (p == null || (p.TextEffects?.Count ?? 0) != 0 ||
                 p.BaselineAlignment != BaselineAlignment.Baseline)
@@ -148,6 +155,39 @@ internal sealed class PortableTextLine : TextLine
                 throw Unsupported("mixed run languages");
             properties ??= p;
             int start = builder.Length;
+            if (run is TextEmbeddedObject embedded)
+            {
+                if (service is not IPortableInlineTextFormatting || length != 1 || !embedded.HasFixedSize ||
+                    embedded.BreakBefore != LineBreakCondition.BreakDesired || embedded.BreakAfter != LineBreakCondition.BreakDesired ||
+                    pap.LineHeight > 0 || (p.TextDecorations?.Count ?? 0) != 0)
+                    throw Unsupported("variable-size, multi-symbol, decorated or fixed-line-height objects, custom object breaks or missing inline provider");
+                var metrics = embedded.Format(pap.Wrap && width > 0 ? Math.Max(0, width - indent) : double.PositiveInfinity);
+                if (metrics == null || !double.IsFinite(metrics.Width) || !double.IsFinite(metrics.Height) ||
+                    !double.IsFinite(metrics.Baseline) || metrics.Width < 0 || metrics.Height < 0 ||
+                    metrics.Baseline < 0 || metrics.Baseline > metrics.Height ||
+                    metrics.Width > float.MaxValue || metrics.Height > float.MaxValue)
+                    throw new InvalidOperationException("The source embedded object returned invalid native metrics.");
+                // The object itself never participates in font fallback. A non-ink
+                // style still needs its source physical face and text metrics.
+                mappedFonts.Clear();
+                settings.Formatter.GlyphingCache.GetPortableFontRuns(p.Typeface,
+                    new CharacterBufferRange(" ", 0, 1), p.CultureInfo, mappedFonts);
+                if (mappedFonts.Count != 1) throw new InvalidOperationException("No source physical face for an inline object style.");
+                var mapped = mappedFonts[0].Value;
+                ValidateMappedFont(mapped);
+                var objectFace = mapped.ShapeTypeface.GlyphTypeface;
+                double objectEm = p.FontRenderingEmSize * mapped.ScaleInEm;
+                if (!double.IsFinite(objectEm) || objectEm <= 0) throw Unsupported("invalid inline style em size");
+                styles.Add(new(start, start + 1, p, objectFace, GetFont(objectFace), objectEm,
+                    p.Typeface.Baseline(p.FontRenderingEmSize, 1, pixelsPerDip, settings.TextFormattingMode),
+                    p.Typeface.LineSpacing(p.FontRenderingEmSize, 1, pixelsPerDip, settings.TextFormattingMode)));
+                builder.Append('\uFFFC');
+                sourceRanges.Add(new(cp - first, start, 1));
+                (objects ??= new()).Add(new(start, embedded,
+                    new(start, (float)metrics.Width, (float)metrics.Baseline, (float)(metrics.Height - metrics.Baseline))));
+                runs.Add(new(1, run)); cp = checked(cp + 1); sourceLength = cp - first;
+                continue;
+            }
             range.CharacterBuffer.AppendToStringBuilder(builder, range.OffsetToFirstChar, length);
             int used = length;
             for (int i = start; i < builder.Length; i++)
@@ -209,7 +249,6 @@ internal sealed class PortableTextLine : TextLine
         }
         string text = builder.ToString();
         var font = styles.Count > 0 ? styles[0].Font : GetFont(face);
-        double indent = settings.Formatter.IdealToReal(settings.TextIndent + pap.ParagraphIndent, pixelsPerDip);
         double height = pap.LineHeight > 0 ? settings.Formatter.IdealToReal(pap.LineHeight, pixelsPerDip) :
             properties.Typeface.LineSpacing(properties.FontRenderingEmSize, 1, pixelsPerDip, settings.TextFormattingMode);
         double baseline = properties.Typeface.Baseline(properties.FontRenderingEmSize, 1, pixelsPerDip, settings.TextFormattingMode);
@@ -223,13 +262,23 @@ internal sealed class PortableTextLine : TextLine
             layoutHeight = Math.Max(layoutHeight, style.Height);
         }
         var request = new PortableTextParagraphRequest(text.AsMemory(), font, (float)primaryEmSize,
-            (float)layoutHeight, pap.Wrap && width > 0 ? (float)Math.Max(float.Epsilon, width - indent) : 0,
+            (float)(objects == null ? layoutHeight : height), pap.Wrap && width > 0 ? (float)Math.Max(float.Epsilon, width - indent) : 0,
             pap.RightToLeft, pap.Justify ? PortableTextAlignment.Justify : PortableTextAlignment.Left,
             Features(properties.TypographyProperties), portableStyles,
             hasTabs ? (float)pap.DefaultIncrementalTab : 0, (float)indent, measureIntrinsicWidths,
             pap.EmergencyWrap ? PortableTextWrapping.Emergency : PortableTextWrapping.WholeWord);
-        var paragraph = service.Format(in request) ??
-            throw new InvalidOperationException("The text provider returned no paragraph.");
+        IPortableTextParagraph paragraph;
+        if (objects != null)
+        {
+            var metrics = new PortableTextStyleMetrics[styles.Count];
+            for (int i = 0; i < metrics.Length; i++)
+                metrics[i] = new((float)styles[i].Baseline, (float)(styles[i].Height - styles[i].Baseline));
+            var items = new PortableTextInlineObject[objects.Count];
+            for (int i = 0; i < items.Length; i++) items[i] = objects[i].Metrics;
+            paragraph = ((IPortableInlineTextFormatting)service).FormatInline(in request, metrics, items);
+        }
+        else paragraph = service.Format(in request);
+        if (paragraph == null) throw new InvalidOperationException("The text provider returned no paragraph.");
         if (paragraph.Lines.Length == 0) throw new InvalidOperationException("The text provider returned no line.");
         if (measureIntrinsicWidths)
         {
@@ -243,7 +292,7 @@ internal sealed class PortableTextLine : TextLine
         return new PortableTextLine(paragraph, text, properties, face, first, 0, newlines,
             width, indent, baseline, height, pap.RightToLeft, runs, pixelsPerDip, pap.Align, styles.ToArray(), pap.LineHeight > 0,
             new PortableTextSourceMap(sourceLength, text.Length, CollectionsMarshal.AsSpan(sourceRanges)), scope,
-            settings.Formatter, service);
+            settings.Formatter, service, objects: objects?.ToArray());
     }
 
     internal static MinMaxParagraphWidth MeasureIntrinsicWidths(FormatSettings settings, int first,
@@ -293,7 +342,7 @@ internal sealed class PortableTextLine : TextLine
         owner._properties, owner._face, owner._paragraphStart, index, owner._newlines,
         owner._paragraphWidth, owner._indent, owner._baseline, owner._height, owner._rightToLeft,
         owner._runs, owner.PixelsPerDip, owner._alignment, owner._styles, owner._fixedHeight, owner._sourceMap, owner._endScope,
-        owner._formatter, owner._service) { }
+        owner._formatter, owner._service, objects: owner._objects) { }
 
     private static PortableTextFeature[] Features(TextRunTypographyProperties p)
     {
@@ -322,7 +371,7 @@ internal sealed class PortableTextLine : TextLine
         double baseline, double height, bool rtl, List<TextSpan<TextRun>> runs, double pixelsPerDip, TextAlignment alignment,
         SourceStyle[] styles, bool fixedHeight, PortableTextSourceMap sourceMap, TextModifierScope endScope,
         TextFormatterImp formatter, IPortableTextFormatting service, PortableTextLine symbol = null,
-        PortableTextLine uncollapsed = null, double? baselineOverride = null)
+        PortableTextLine uncollapsed = null, double? baselineOverride = null, SourceObject[] objects = null)
         : base(pixelsPerDip)
     {
         _paragraph = paragraph; _text = text; _properties = properties; _face = face;
@@ -331,6 +380,13 @@ internal sealed class PortableTextLine : TextLine
         _paragraphWidth = width; _indent = indent; _baseline = baseline; _height = height;
         _rightToLeft = rtl; _runs = runs; _alignment = alignment;
         _styles = styles; _fixedHeight = fixedHeight;
+        _objects = objects ?? [];
+        if (_objects.Length != 0)
+        {
+            _lineObjects = new();
+            _objectBounds = new();
+            _drawingOrder = new();
+        }
         _formatter = formatter; _service = service; _uncollapsed = uncollapsed;
         double ascent = 0, descent = 0;
         foreach (var style in styles)
@@ -343,6 +399,11 @@ internal sealed class PortableTextLine : TextLine
         {
             _baseline = ascent;
             if (!fixedHeight) _height = ascent + descent;
+        }
+        if (paragraph is IPortableInlineTextParagraph measured)
+        {
+            _baseline = measured.GetBaselineOffset(lineIndex);
+            _height = Info.Height;
         }
         // Collapse keeps original line metrics; a taller sign contributes ink
         // overhang, not a new advance that would move following source lines.
@@ -440,6 +501,7 @@ internal sealed class PortableTextLine : TextLine
     {
         Rect ink = Rect.Empty;
         var glyphs = _paragraph.Glyphs.Span;
+        double nativeBaseline = Info.Y + (_paragraph is IPortableInlineTextParagraph ? Baseline : 0);
         int end = Info.GlyphStart + Info.GlyphCount;
         for (int first = Info.GlyphStart; first < end;)
         {
@@ -456,6 +518,30 @@ internal sealed class PortableTextLine : TextLine
             var face = style.Face;
             var properties = style.Properties;
             uint fontIndex = glyphs[first].FontIndex;
+            if (glyphs[first].IsInlineObject)
+            {
+                var item = glyphs[first];
+                int lo = 0, hi = _objects.Length;
+                while (lo < hi) { int mid = lo + (hi - lo) / 2; if (_objects[mid].Position < item.Cluster) lo = mid + 1; else hi = mid; }
+                if (lo == _objects.Length || _objects[lo].Position != item.Cluster || item.ClusterEnd != item.Cluster + 1 ||
+                    _paragraph is not IPortableInlineTextParagraph measured || measured.InlineObjects.Length != _objects.Length)
+                    throw new InvalidOperationException("Native inline object has no retained source owner.");
+                var placement = measured.InlineObjects.Span[lo];
+                if (placement.InputPosition != item.Cluster || placement.LineIndex != _lineIndex || placement.GlyphIndex != first)
+                    throw new InvalidOperationException("Native inline placement changed source or line ownership.");
+                var origin = new Point(Start + placement.X, Baseline);
+                var objectLayoutBounds = new Rect(Start + placement.X, placement.Y - Info.Y, placement.Width, placement.Height);
+                _drawingOrder.Add((true, _lineObjects.Count));
+                _lineObjects.Add((lo, origin));
+                int objectSourceStart = _paragraphStart + _sourceMap.ToSource(item.Cluster, true);
+                _objectBounds.Add(item.Cluster, new(objectLayoutBounds, objectSourceStart, objectSourceStart + 1, _objects[lo].Run));
+                var objectInk = _objects[lo].Run.ComputeBoundingBox(_rightToLeft, false);
+                if (!objectInk.IsEmpty) { objectInk.Offset(origin.X, origin.Y); ink.Union(objectInk); }
+                _selectionRuns.Add((item.Cluster, item.ClusterEnd, level));
+                CacheBackground(properties.BackgroundBrush, item.Cluster, item.ClusterEnd);
+                first = stop;
+                continue;
+            }
             if (glyphs[first].IsTab)
             {
                 var tab = glyphs[first];
@@ -466,7 +552,7 @@ internal sealed class PortableTextLine : TextLine
                 first = stop;
                 continue;
             }
-            while (stop < end && !glyphs[stop].IsTab && !glyphs[stop].IsCollapseSymbol && glyphs[stop].BidiLevel == level && glyphs[stop].FontIndex == fontIndex &&
+            while (stop < end && !glyphs[stop].IsTab && !glyphs[stop].IsInlineObject && !glyphs[stop].IsCollapseSymbol && glyphs[stop].BidiLevel == level && glyphs[stop].FontIndex == fontIndex &&
                 StyleIndex(glyphs[stop].Cluster) == styleIndex)
             {
                 var previous = glyphs[stop - 1]; var next = glyphs[stop];
@@ -494,10 +580,10 @@ internal sealed class PortableTextLine : TextLine
                 if (g.Cluster < style.Start || g.ClusterEnd > style.End)
                     throw new InvalidOperationException("A native cluster crosses its source style domain.");
                 ids[i] = checked((ushort)g.GlyphId); advances[i] = g.Advance;
-                positions[i] = new(g.X, g.Y - Info.Y);
+                positions[i] = new(g.X, (float)(g.Y - nativeBaseline));
                 double offset = (level & 1) == 0 ? g.X - advance :
                     -advance - face.AdvanceWidths[ids[i]] * style.EmSize - g.X;
-                offsets[i] = new(offset, -(g.Y - Info.Y));
+                offsets[i] = new(offset, -(g.Y - nativeBaseline));
                 advance += g.Advance;
                 if (i == 0 || g.Cluster != glyphs[indices[i - 1]].Cluster)
                 {
@@ -512,6 +598,7 @@ internal sealed class PortableTextLine : TextLine
             int sourceStart = _sourceMap.ToSource(cpStart, true), sourceEnd = _sourceMap.ToSource(cpEnd, false);
             if (sourceEnd - sourceStart != cpEnd - cpStart)
                 throw new InvalidOperationException("A glyph run crosses hidden source content.");
+            _drawingOrder?.Add((false, _glyphRuns.Count));
             _glyphRuns.Add(new(_paragraphStart + sourceStart, sourceEnd - sourceStart, run));
             _glyphProperties.Add(properties);
             _selectionRuns.Add((cpStart, cpEnd, level));
@@ -554,7 +641,17 @@ internal sealed class PortableTextLine : TextLine
         try
         {
             foreach (var background in _backgrounds) drawingContext.DrawRectangle(background.Brush, null, background.Bounds);
-            for (int i = 0; i < _glyphRuns.Count; i++) drawingContext.DrawGlyphRun(_glyphProperties[i].ForegroundBrush, _glyphRuns[i].GlyphRun);
+            if (_drawingOrder == null)
+                for (int i = 0; i < _glyphRuns.Count; i++) drawingContext.DrawGlyphRun(_glyphProperties[i].ForegroundBrush, _glyphRuns[i].GlyphRun);
+            else foreach (var draw in _drawingOrder)
+            {
+                if (!draw.IsObject) drawingContext.DrawGlyphRun(_glyphProperties[draw.Index].ForegroundBrush, _glyphRuns[draw.Index].GlyphRun);
+                else
+                {
+                    var item = _lineObjects[draw.Index];
+                    _objects[item.ObjectIndex].Run.Draw(drawingContext, item.Origin, _rightToLeft, false);
+                }
+            }
             _symbol?.Draw(drawingContext, new Point(), InvertAxes.None);
             if (_underlines != null)
                 foreach (var underline in _underlines)
@@ -706,8 +803,11 @@ internal sealed class PortableTextLine : TextLine
             int count = _paragraph.GetSelection(_lineIndex, from, to, rectangles);
             for (int i = 0; i < count; i++)
             {
+                IList<TextRunBounds> objectBounds = null;
+                if (_objectBounds != null && _objectBounds.TryGetValue(run.Start, out var objectBound))
+                    objectBounds = new[] { objectBound };
                 var r = rectangles[i]; result.Add(new(new Rect(Start + r.X, 0, r.Width, Height),
-                    (run.Level & 1) != 0 ? FlowDirection.RightToLeft : FlowDirection.LeftToRight, null));
+                    (run.Level & 1) != 0 ? FlowDirection.RightToLeft : FlowDirection.LeftToRight, objectBounds));
             }
         }
         return result;
