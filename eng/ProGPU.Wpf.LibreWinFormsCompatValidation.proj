@@ -1,0 +1,23 @@
+<Project>
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <TargetDir>$(MSBuildThisFileDirectory).librewinforms-compat-validation-output/</TargetDir>
+    <RestorePackagesPath>$(MSBuildThisFileDirectory).librewinforms-compat-validation-packages/</RestorePackagesPath>
+    <ProGpuWpfUsePackageReferences>false</ProGpuWpfUsePackageReferences>
+    <ProGpuWpfUsePortableFrameworkReferences>true</ProGpuWpfUsePortableFrameworkReferences>
+    <ProGpuWpfUsePortableWinFormsCompat>true</ProGpuWpfUsePortableWinFormsCompat>
+    <ProGpuWpfUseLibreWinForms>true</ProGpuWpfUseLibreWinForms>
+    <ProGpuWpfLibreWinFormsPackageVersion>0.0.0-validation</ProGpuWpfLibreWinFormsPackageVersion>
+  </PropertyGroup>
+
+  <Target Name="ResolveLockFileCopyLocalFiles" />
+
+  <Import Project="../packaging/ProGPU.Wpf.Sdk/targets/ProGPU.Wpf.Sdk.targets" />
+
+  <Target Name="ValidateLibreWinFormsCompatibilityPackage"
+          DependsOnTargets="_ProGpuWpfSdkCopyPortableWinFormsCompatRuntimeAssets">
+    <Error
+      Condition="'$(ProGpuWpfLibreWinFormsRuntimePackageId)' != 'LibreWinForms.Compatibility.System.Windows.Forms'"
+      Text="LibreWPF.Sdk did not select the transitional LibreWinForms compatibility runtime package." />
+  </Target>
+</Project>

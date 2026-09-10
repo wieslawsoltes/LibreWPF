@@ -7,6 +7,7 @@ using System.Threading;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
+using System.Windows.Threading;
 using ProGPU.Wpf.Interop;
 
 namespace System.Windows;
@@ -1229,6 +1230,46 @@ public class PortableWindowActivationServiceTests
     public void SubtreeCapturePreservesReportedPresentationSourceAndCapture()
     {
         RunInUiApartment(VerifySubtreeCapturePreservesReportedPresentationSourceAndCapture);
+    }
+
+    [Fact]
+    public void DispatcherIdleWorkNotificationExcludesRegularlyPumpedPrioritiesAndUnsubscribes()
+    {
+        RunInUiApartment(VerifyDispatcherIdleWorkNotification);
+    }
+
+    private static void VerifyDispatcherIdleWorkNotification()
+    {
+        RuntimeHelpers.RunModuleConstructor(typeof(Application).Module.ModuleHandle);
+        PortableWpfServiceRegistry.TryGetWindowActivationService(
+            PortableWpfServiceKey.PresentationFramework,
+            out IPortableWindowActivationServiceRegistrar activationService).Should().BeTrue();
+        var window = new Window();
+        int notificationCount = 0;
+
+        activationService.TryRegisterDispatcherIdleWorkNotification(
+            window,
+            () => notificationCount++,
+            out IDisposable? registration).Should().BeTrue();
+        registration.Should().NotBeNull();
+
+        DispatcherOperation background = window.Dispatcher.BeginInvoke(
+            DispatcherPriority.Background,
+            static () => { });
+        DispatcherOperation idle = window.Dispatcher.BeginInvoke(
+            DispatcherPriority.ApplicationIdle,
+            static () => { });
+
+        notificationCount.Should().Be(1);
+        registration!.Dispose();
+        DispatcherOperation afterDispose = window.Dispatcher.BeginInvoke(
+            DispatcherPriority.ContextIdle,
+            static () => { });
+        notificationCount.Should().Be(1);
+
+        background.Abort();
+        idle.Abort();
+        afterDispose.Abort();
     }
 
     private static void VerifyCapturedElementReceivesMouseInputReportedByAnotherPresentationSource()

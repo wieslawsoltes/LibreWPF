@@ -33,7 +33,7 @@ projects on the ProGPU/Silk.NET platform.
 ## Local Preview Build
 
 ```bash
-PROGPU_WPF_DEV_PACKAGE_VERSION=0.1.0-preview.45 PROGPU_WPF_PROGPU_PACKAGE_VERSION=0.1.0-preview.55 ./eng/progpu-wpf-sdk-ci.sh
+PROGPU_WPF_DEV_PACKAGE_VERSION=0.1.0-preview.45 PROGPU_WPF_PROGPU_PACKAGE_VERSION=0.1.0-preview.62 ./eng/progpu-wpf-sdk-ci.sh
 ```
 
 The SDK CI script stages ProGPU runtime packages, builds the managed WPF transport assemblies,
@@ -117,9 +117,19 @@ Do not run the Showcase launcher to obtain build-only behavior: it launches the 
 its automatic package rebuild uses the full SDK gate. After feature freeze, run
 the normal no-argument gate on the delivery commits and record its full results.
 
+The independent `eng/progpu-wpf-canonical-winforms-integration.sh` gate proves
+the source-first path without replacing normal NuGet development. It checks that
+LibreWinForms and LibreWPF pin the same ProGPU source, builds canonical
+`System.Windows.Forms` with the ProGPU drawing implementation, materializes the
+clean-cache WPF reference/cycle ordering, and compiles the real
+`WindowsFormsIntegration` reference and implementation assemblies with assembly
+conflicts promoted to errors. ProGPU API, correctness, and allocation gates are
+owned by the matching ProGPU source PR and can also be enabled locally through
+the script's default `PROGPU_WPF_RUN_DRAWING_QUALITY_GATES=1` behavior.
+
 ## GitHub Actions
 
-- `LibreWPF Build` runs the SDK package/no-source-change smoke on macOS with submodules checked out.
+- `LibreWPF Build` runs the canonical WinForms source gate on Linux and the SDK package/no-source-change smoke on macOS with submodules checked out.
 - `LibreWPF Docs` verifies that this document and README stay aligned with the preview package list.
 - `LibreWPF Release` promotes the package bundle from a terminal-success `LibreWPF Build` run for the exact tagged commit, re-verifies its source/package provenance, runs the clean Windows AnyCPU package smoke, publishes to NuGet.org, and creates tag-driven GitHub Releases with generated release notes. It fails closed when the exact commit has no live qualified artifact.
 - Manual `LibreWPF Release` dispatch remains the recovery path that rebuilds the full SDK gate for an explicitly selected immutable ref.

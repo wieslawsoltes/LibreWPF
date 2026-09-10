@@ -1309,6 +1309,23 @@ namespace System.Windows
                 return true;
             }
 
+            public bool TryRegisterDispatcherIdleWorkNotification(
+                object window,
+                Action workPosted,
+                out IDisposable registration)
+            {
+                registration = null;
+                if (window is not Window typedWindow || workPosted == null)
+                {
+                    return false;
+                }
+
+                registration = new DispatcherWorkNotificationRegistration(
+                    typedWindow.Dispatcher.Hooks,
+                    workPosted);
+                return true;
+            }
+
             public bool TryPromoteDispatcherTimers(object window, int currentTimeInTicks)
             {
                 return PortableWindowActivationService.PromoteDispatcherTimers(window, currentTimeInTicks);
@@ -1351,6 +1368,41 @@ namespace System.Windows
             public void Clear()
             {
                 PortableWindowActivationService.Clear();
+            }
+
+            private sealed class DispatcherWorkNotificationRegistration : IDisposable
+            {
+                private DispatcherHooks _hooks;
+                private Action _workPosted;
+
+                internal DispatcherWorkNotificationRegistration(
+                    DispatcherHooks hooks,
+                    Action workPosted)
+                {
+                    _hooks = hooks;
+                    _workPosted = workPosted;
+                    hooks.OperationPosted += OnOperationPosted;
+                }
+
+                public void Dispose()
+                {
+                    DispatcherHooks hooks = Interlocked.Exchange(ref _hooks, null);
+                    Interlocked.Exchange(ref _workPosted, null);
+                    if (hooks != null)
+                    {
+                        hooks.OperationPosted -= OnOperationPosted;
+                    }
+                }
+
+                private void OnOperationPosted(object sender, DispatcherHookEventArgs e)
+                {
+                    DispatcherPriority priority = e.Operation.Priority;
+                    if (priority > DispatcherPriority.Inactive &&
+                        priority < DispatcherPriority.Background)
+                    {
+                        Volatile.Read(ref _workPosted)?.Invoke();
+                    }
+                }
             }
         }
     }

@@ -19,7 +19,7 @@ internal static class Program
     private const string OriginalWpfSdk = "Microsoft.NET.Sdk";
     private const string OriginalWindowsDesktopWpfSdk = "Microsoft.NET.Sdk.WindowsDesktop";
     private const string SdkVersion = "0.1.0-preview.45";
-    private const string DefaultProGpuPackageVersion = "0.1.0-preview.55";
+    private const string DefaultProGpuPackageVersion = "0.1.0-preview.62";
     private const string ProGpuPackageVersionEnvironmentVariable = "PROGPU_WPF_PROGPU_PACKAGE_VERSION";
     private const string PrepackagedProGpuDirectoryEnvironmentVariable = "PROGPU_WPF_PREPACKAGED_PROGPU_DIR";
     private const string ExternalAppTargetFramework = "net10.0-windows";

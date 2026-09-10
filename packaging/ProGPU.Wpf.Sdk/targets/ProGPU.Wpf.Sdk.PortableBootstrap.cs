@@ -21,6 +21,9 @@ internal static class ProGpuWpfSdkPortableBootstrap
         global::System.Windows.Media.ProGPU.ProGpuWpfNativeMediaServices.Initialize();
 #endif
 #if PROGPU_WPF_USE_LIBREWINFORMS
+#if PROGPU_WPF_USE_CANONICAL_LIBREWINFORMS
+        global::LibreWinForms.ProGPU.ProGpuPlatform.Register();
+#endif
         global::System.Windows.Forms.Integration.WindowsFormsHost.EnableWindowsFormsInterop();
 #endif
 

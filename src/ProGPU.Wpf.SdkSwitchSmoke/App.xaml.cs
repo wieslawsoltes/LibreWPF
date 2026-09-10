@@ -41,7 +41,7 @@ public partial class App : Application
     public double NativeStartupMinimumTextWidth { get; }
 
     private const string LibreWpfPackageVersion = "0.1.0-preview.45";
-    private const string DefaultProGpuPackageVersion = "0.1.0-preview.55";
+    private const string DefaultProGpuPackageVersion = "0.1.0-preview.62";
     private const string ProGpuPackageVersionEnvironmentVariable = "PROGPU_WPF_PROGPU_PACKAGE_VERSION";
     private static readonly string ProGpuPackageVersion =
         ResolveProGpuPackageVersion();

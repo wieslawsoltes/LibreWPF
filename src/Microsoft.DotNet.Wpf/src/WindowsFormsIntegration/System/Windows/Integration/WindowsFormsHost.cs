@@ -481,6 +481,16 @@ namespace System.Windows.Forms.Integration
             ApplicationInterop.ThreadWindowsFormsHostList.Add(this);    //Keep track of this control, so it can get forwarded windows messages
             EnableWindowsFormsInterop();        //Start the forwarding of windows messages to all WFH controls on active windows
 
+            // The Win32 host creates the adapter HWND as part of native parenting and the
+            // child controls subsequently enter their normal handle lifecycle. The portable
+            // host has no Win32 parenting side effect, so create the adapter tree explicitly.
+            // This preserves Control.Created/HandleCreated/Invalidated semantics for the real
+            // source-built WinForms child while leaving the Windows path unchanged.
+            if (!OperatingSystem.IsWindows())
+            {
+                HostContainerInternal.CreateControl();
+            }
+
             UnsafeNativeMethods.SetParent(/* child = */ HostContainerInternal.Handle, /* parent = */ _hwndParent.Handle);
             return new HandleRef(HostContainerInternal, HostContainerInternal.Handle);
         }

@@ -16,7 +16,7 @@ namespace System.Windows
     /// <summary>
     /// Presentation source for non-HWND hosts.
     /// </summary>
-    internal sealed class PortablePresentationSource : PresentationSource, IPortablePresentationSourceHost, IPortableDesktopGeometryHost, IPortableNativeCaretHost, IDisposable
+    internal sealed class PortablePresentationSource : PresentationSource, IPortablePresentationSourceHost, IPortableDesktopGeometryHost, IPortableNativeCaretHost, IWin32Window, IDisposable
     {
         private readonly PortableCompositionTarget _compositionTarget;
         private readonly PortableKeyboardInputProvider _keyboardInputProvider;
@@ -122,6 +122,11 @@ namespace System.Windows
         IntPtr IPortablePresentationSourceHost.Handle
         {
             get { return _isDisposed ? IntPtr.Zero : _handle; }
+        }
+
+        IntPtr IWin32Window.Handle
+        {
+            get { return Handle; }
         }
 
         object IPortablePresentationSourceHost.RequestedCursor
@@ -424,10 +429,12 @@ namespace System.Windows
                 }
 
                 _compositionTarget.RootVisual = rootVisual;
+                // Publish the presentation source before portable DPI and layout work can
+                // reenter user code through Loaded, layout, or DPI callbacks.
+                RootChanged(oldRootVisual, _rootVisual);
                 Matrix transformToDevice = _compositionTarget.TransformToDevice;
                 ApplyRootVisualDpi(transformToDevice.M11, transformToDevice.M22);
                 UIElement.PropagateResumeLayout(null, rootVisual);
-                ApplyRootVisualLayout();
             }
             else
             {
@@ -440,8 +447,16 @@ namespace System.Windows
                 UIElement.PropagateSuspendLayout(oldRootVisual);
             }
 
-            RootChanged(oldRootVisual, _rootVisual);
+            if (rootVisual == null)
+            {
+                RootChanged(oldRootVisual, _rootVisual);
+            }
+
             _keyboardInputProvider.OnRootChanged(oldRootVisual, _rootVisual);
+            if (rootVisual != null)
+            {
+                ApplyRootVisualLayout();
+            }
             QueueContentRendered();
             RequestRender();
         }
