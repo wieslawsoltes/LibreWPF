@@ -9,8 +9,8 @@ LibreWPF also merges `progpu-rendering-port` at `d877d7aeff226d121784fb0723e0507
 including canonical WinForms changes; fifteen conflicts are resolved.
 These are history-preserving merges, not destructive rebases of the shared PRs.
 
-The selected ProGPU commit is `ebd12fc0c2c706d66e6db22356b0b4cca9f35e39`.
-LibreWinForms is aligned through `26c942dc892e46dc220f797324ebd8ba9739445e`
+The selected ProGPU commit is `978a62eb06ad5435e128d540f3e25d95a7c2cf95`.
+LibreWinForms is aligned through `f0b79cf2b73ebd22f4c185d1ff3bb62828d19e0e`
 in [dependency PR #29](https://github.com/wieslawsoltes/LibreWinForms/pull/29).
 Its base `12b4a1be0` has the same tree as the earlier `5aa13b540` pin; only the
 ProGPU gitlink and alignment documentation change. Both consumer pins now match.
@@ -32,6 +32,14 @@ evidence for the selected dependency or a qualified package source.
 - SVG artifacts now retain passing frames for required review of resolved
   differences; no tolerance or expected-results entry was changed.
 
+Follow-up after the hour: native MIL now preserves sharp four-line rectangle
+spines when either radius is zero and accepts finite zero-height stroke contours
+before widening. Both radius axes have paired native/managed coordinate checks;
+24 focused managed tests pass. The portable Direct2D suite now passes after
+correcting its positive opacity-brush setup. A Windows test-buffer type mismatch
+found by MSVC is corrected, pending fresh Windows CI. See the
+[stroke preparation report](../external/ProGPU/docs/native-mil-sharp-stroke-spine-2026-09-10.md).
+
 See the pinned ProGPU documentation:
 [main integration](../external/ProGPU/docs/native-mil-main-integration-2026-09-10.md),
 [render-target fixes](../external/ProGPU/docs/native-mil-render-target-corrections-2026-09-10.md),
@@ -41,9 +49,9 @@ describe the source ownership and package guards retained in LibreWPF.
 
 ## Merge blockers
 
-1. ProGPU local native suites remain 17/19 passing. Later Direct2D composite-mask
-   representation and MIL transformed-primitive fixtures still fail; reaching
-   later checkpoints is not a whole-suite pass.
+1. ProGPU local native suites are now 18/19 passing. MIL reaches a later group
+   fixture using old post-widen transforms to identify children. The native suite
+   and fresh compiler/platform CI still must pass before release.
 2. The managed full run has 4,569 passes, seven platform skips and four cached
    stroke image failures. The newly added edge regression passes separately.
 3. SVG W3C reports 21 resolved known differences requiring image review before
