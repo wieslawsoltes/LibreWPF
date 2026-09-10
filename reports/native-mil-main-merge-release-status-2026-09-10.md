@@ -1,5 +1,12 @@
 # Native MIL main integration and release status
 
+Current dependency alignment: ProGPU e7a6b89e and LibreWinForms 61dd16864.
+The sole remaining ProGPU failure at 9e05651a was reproduced and corrected in
+the Dawn fixture: list-query owners are returned in records, not the counters
+summary. The complete native pinned-provider test passes; fresh exact-head CI and
+downstream package/application gates remain open. See the pinned
+[Dawn validation report](https://github.com/wieslawsoltes/ProGPU/blob/e7a6b89ecb8dca4318e5ca2e22d8b7c7cc7194d3/docs/native-mil-dawn-hit-query-validation-2026-09-10.md).
+
 The [full bridge validation checkpoint](native-mil-bridge-final-validation-2026-09-10.md)
 records 1,754 passing WPF tests, the bounded mask/animation repairs, and the sole
 remaining ProGPU CI failure in the exact Dawn/WebScene provider fixture.
@@ -27,8 +34,8 @@ staging remain as well. No ancestor-only package substitution was retained.
 Actionlint, YAML parsing, Bash syntax, canonical cutover and documentation checks
 pass for this merge. Full SDK/package execution remains pending.
 
-The selected ProGPU commit is `9e05651abbe4e6a9ed8adc4445eab9c210b09dde`.
-LibreWinForms is aligned through `c67b04a8c0d49fd9bff8f40988ea294d22025f82`
+The selected ProGPU commit is `e7a6b89ecb8dca4318e5ca2e22d8b7c7cc7194d3`.
+LibreWinForms is aligned through `61dd168644098b16f2c22938ea6295b7ab1fc6dd`
 in [dependency PR #29](https://github.com/wieslawsoltes/LibreWinForms/pull/29).
 Its base `12b4a1be0` has the same tree as the earlier `5aa13b540` pin; only the
 ProGPU gitlink and alignment documentation change. Both consumer pins now match.
