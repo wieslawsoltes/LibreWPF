@@ -42,6 +42,51 @@ public sealed class WpfPortablePresentationSourceBridge : IDisposable
 
     public IntPtr Handle => _source.Handle;
 
+    /// <summary>
+    /// Resolves the native OS window handle backing this host's window on this ProGPU/Silk.NET-
+    /// hosted platform - an NSWindow* on macOS, an HWND on Windows, or an X11 Window id on Linux
+    /// (via <see cref="Silk.NET.Core.Contexts.INativeWindow"/>). Unlike <see cref="Handle"/> -
+    /// which is a synthetic identifier WPF's portable <c>HwndSource</c> compat shim allocates for
+    /// itself and never a real OS handle - this is the genuine platform handle. Intended for
+    /// consumers that need it for OS-level integration (e.g. IME/NSTextInputClient) that WPF's
+    /// own <c>PresentationSource</c>/<c>HwndSource</c> doesn't provide on this host.
+    /// </summary>
+    public bool TryGetNativeHandle(out IntPtr handle)
+    {
+        handle = IntPtr.Zero;
+        if (_host.SilkWindow is not { } silkWindow)
+        {
+            return false;
+        }
+
+        var native = silkWindow.Native;
+        if (native is null)
+        {
+            return false;
+        }
+
+        if (native.Cocoa is { } cocoa && cocoa != IntPtr.Zero)
+        {
+            handle = cocoa;
+            return true;
+        }
+
+        // Win32 = (HWnd, HDC, HInstance); X11 = (Display, Window).
+        if (native.Win32 is { Item1: var hwnd } && hwnd != IntPtr.Zero)
+        {
+            handle = hwnd;
+            return true;
+        }
+
+        if (native.X11 is { Item2: var x11Window } && x11Window != UIntPtr.Zero)
+        {
+            handle = (IntPtr)x11Window;
+            return true;
+        }
+
+        return false;
+    }
+
     public object? RootVisual
     {
         get => _source.RootVisual;

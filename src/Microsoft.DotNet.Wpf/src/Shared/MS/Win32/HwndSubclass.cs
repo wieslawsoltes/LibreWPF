@@ -36,11 +36,21 @@ namespace MS.Win32
         {
             DetachMessage = UnsafeNativeMethods.RegisterWindowMessage("HwndSubclass.DetachMessage");
 
-            // Go find the address of DefWindowProc.
-            IntPtr hModuleUser32 = UnsafeNativeMethods.GetModuleHandle(ExternDll.User32);
-            IntPtr address = UnsafeNativeMethods.GetProcAddress(new HandleRef(null,hModuleUser32), "DefWindowProcW");
+            // Go find the address of DefWindowProc. There is no real user32.dll/kernel32.dll on
+            // non-Windows platforms, so there is no such address to resolve - DefWndProc is only
+            // ever consulted as a fallback default window procedure for a real native HWND
+            // message loop, which the portable host doesn't run.
+            if (OperatingSystem.IsWindows())
+            {
+                IntPtr hModuleUser32 = UnsafeNativeMethods.GetModuleHandle(ExternDll.User32);
+                IntPtr address = UnsafeNativeMethods.GetProcAddress(new HandleRef(null,hModuleUser32), "DefWindowProcW");
 
-            DefWndProc = address;
+                DefWndProc = address;
+            }
+            else
+            {
+                DefWndProc = IntPtr.Zero;
+            }
         }
 
         /// <summary>

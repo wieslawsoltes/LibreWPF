@@ -46,8 +46,25 @@ namespace MS.Win32
         public static extern int GetCurrentThemeName(StringBuilder pszThemeFileName, int dwMaxNameChars, StringBuilder pszColorBuff, int dwMaxColorChars, StringBuilder pszSizeBuff, int cchMaxSizeChars);
 
 #if !DRT && !UIAUTOMATIONTYPES
-        [DllImport(ExternDll.User32, CharSet = CharSet.Auto, BestFitMapping = false)]
-        public static extern WindowMessage RegisterWindowMessage(string msg);
+        // Real Win32 RegisterWindowMessage() returns a process-wide unique atom in the
+        // 0xC000-0xFFFF range. Callers here (HwndWrapper, HwndSubclass) only use the
+        // returned value as an opaque private token to tag/compare messages within their
+        // own message loop - it never needs to be a real registered Win32 atom. On
+        // non-Windows platforms there is no user32.dll to call into, so synthesize a
+        // unique token from the same reserved range instead of P/Invoking.
+        private static int s_syntheticWindowMessage = unchecked((int)0xC000);
+
+        public static WindowMessage RegisterWindowMessage(string msg)
+        {
+            if (!OperatingSystem.IsWindows())
+            {
+                return (WindowMessage)System.Threading.Interlocked.Increment(ref s_syntheticWindowMessage);
+            }
+            return Win32RegisterWindowMessage(msg);
+        }
+
+        [DllImport(ExternDll.User32, CharSet = CharSet.Auto, BestFitMapping = false, EntryPoint = "RegisterWindowMessage")]
+        private static extern WindowMessage Win32RegisterWindowMessage(string msg);
 #endif
 
         [DllImport(ExternDll.User32, EntryPoint = "SetWindowPos", ExactSpelling = true, CharSet = CharSet.Auto, SetLastError = true)]
