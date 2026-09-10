@@ -87,6 +87,14 @@ progpu_package_snapshot_dir="${repo_root}/artifacts/progpu-wpf-sdk-smoke/exact-p
 sdk_sample_target_framework="${PROGPU_WPF_SDK_SAMPLE_TARGET_FRAMEWORK:-net10.0-windows}"
 mkdir -p "${package_output}"
 
+# Keep package metadata and SDK consumer defaults on the same ProGPU closure
+# selected by the outer workflow. Environment properties are visible to every
+# MSBuild invocation below, including the LibreWPF.ProGPU and SDK pack steps.
+export ProGpuRuntimePackageVersion="${progpu_package_version}"
+export ProGpuPackageVersion="${progpu_package_version}"
+export PROGPU_WPF_DEV_PACKAGE_VERSION="${dev_package_version}"
+export PROGPU_WPF_PROGPU_PACKAGE_VERSION="${progpu_package_version}"
+
 clean_preview_package_output() {
   rm -f \
     "${package_output}"/*.nupkg \
@@ -112,6 +120,7 @@ pack_project() {
     -p:Version="${package_version}" \
     -p:PackageVersion="${package_version}" \
     -p:ProGpuRuntimePackageVersion="${progpu_package_version}" \
+    -p:ProGpuPackageVersion="${progpu_package_version}" \
     -p:RestoreAdditionalProjectSources="${package_output}"
 }
 
@@ -463,6 +472,23 @@ echo "Building and running mixed WPF/WinForms SDK smoke app..."
   export ProGpuPackageVersion="${canonical_progpu_package_version}"
   export RestoreAdditionalProjectSources="${package_output};${canonical_librewinforms_package_dir}"
   run_dotnet build "${repo_root}/src/ProGPU.Wpf.SdkSwitchSmoke/MixedDesktop/ProGPU.Wpf.SdkMixedDesktopSmoke.csproj" -v:minimal
+  mixed_desktop_output="${repo_root}/artifacts/bin/ProGPU.Wpf.SdkMixedDesktopSmoke/Debug/${sdk_sample_target_framework}"
+  mixed_desktop_deps="${mixed_desktop_output}/ProGPU.Wpf.SdkMixedDesktopSmoke.deps.json"
+  for required_runtime in \
+    System.Windows.Forms.dll \
+    LibreWinForms.Platform.dll \
+    LibreWinForms.ProGPU.dll \
+    WindowsFormsIntegration.dll
+  do
+    if [[ ! -f "${mixed_desktop_output}/${required_runtime}" ]]; then
+      echo "Mixed WPF/WinForms SDK smoke is missing canonical runtime asset ${required_runtime}." >&2
+      exit 1
+    fi
+  done
+  if [[ ! -f "${mixed_desktop_deps}" ]] || ! grep -Fq 'LibreWinForms.Platform.dll' "${mixed_desktop_deps}"; then
+    echo "Mixed WPF/WinForms SDK smoke dependency manifest is missing LibreWinForms.Platform.dll." >&2
+    exit 1
+  fi
   run_dotnet run --no-build --project "${repo_root}/src/ProGPU.Wpf.SdkSwitchSmoke/MixedDesktop/ProGPU.Wpf.SdkMixedDesktopSmoke.csproj" -v:minimal
 )
 

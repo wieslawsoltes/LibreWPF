@@ -15,6 +15,12 @@ do not automatically expand the release checklist.
 
 ## Active completion queue
 
+**Package coherence base integration — 2026-09-10:** integrate LibreWPF base
+4c4c2a8a2 (PR #124), preserving native startup and qualification gates while
+resolving coordinated package versions and canonical WinForms deployment.
+See [merge evidence](../reports/native-mil-package-coherence-merge-2026-09-10.md).
+This closes a branch integration conflict, not the application blockers below.
+
 **Producer/package alignment — 2026-09-10:** consume ProGPU 26a6030f and canonical
 LibreWinForms 17f0aaa8. Native inline paragraph transport and per-line metrics
 are implemented in the producer; WPF source controls and anchored content are

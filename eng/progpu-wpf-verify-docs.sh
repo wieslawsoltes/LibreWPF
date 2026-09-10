@@ -24,6 +24,10 @@ require_text ".github/workflows/progpu-wpf-sdk.yml" 'PROGPU_WPF_EXPECTED_PROGPU_
 require_text ".github/workflows/progpu-wpf-sdk.yml" "Stage native runtimes from the exact successful ProGPU Build"
 require_text ".github/workflows/progpu-wpf-sdk.yml" "./eng/progpu-stage-ci-native-runtimes.sh"
 require_text "eng/progpu-preview-package-audit.sh" 'PROGPU_WPF_EXPECTED_PROGPU_PACKAGE_COMMIT:-${progpu_source_commit}'
+require_text "eng/progpu-wpf-sdk-ci.sh" 'export ProGpuRuntimePackageVersion="${progpu_package_version}"'
+require_text "eng/progpu-wpf-sdk-ci.sh" 'export ProGpuPackageVersion="${progpu_package_version}"'
+require_text "packaging/ProGPU.Wpf.Sdk/ProGPU.Wpf.Sdk.ArchNeutral.csproj" '&lt;ProGpuPackageVersion&gt;$(_LibreWpfSdkProGpuPackageVersionToPack)&lt;/ProGpuPackageVersion&gt;'
+require_text "eng/progpu-preview-package-audit.sh" '<ProGpuPackageVersion>${progpu_package_version}</ProGpuPackageVersion>'
 require_text ".github/workflows/progpu-wpf-sdk.yml" "librewpf-ci-packages-"
 require_text ".github/workflows/progpu-wpf-sdk.yml" "if-no-files-found: error"
 require_text ".github/workflows/progpu-wpf-sdk.yml" "./eng/progpu-wpf-linux-xwayland-smoke.sh"
