@@ -65,7 +65,7 @@ and SciChart projects, launchers, resource identities and paired native fixtures
 were renamed without changing release admission. ProGPU `2739c702` also fixes
 three strict-GCC structured-binding copy warnings in existing native tests.
 
-LibreWPF now pins ProGPU `2747b9b3c1113a35fc51d18dfe79a9f9a5c1ca57`.
+LibreWPF pinned ProGPU `2747b9b3c1113a35fc51d18dfe79a9f9a5c1ca57` for this checkpoint.
 At `5da6b179`, the actual retained EllipseGeometry route uses the existing
 canonical full-arc encoder for identity-local solid pens, including explicit
 empty dash styles. Sampled, transformed and nonempty dashed pens keep their
@@ -93,6 +93,16 @@ library, including retention, source images/text/geometry, native owner input an
 device recovery in the existing window (23 commands, 20 resources, 9 draws,
 5 draw calls). Its WPF harness/source outputs and managed interop dependencies
 remain the isolated earlier builds described above, not newly qualified packages.
+
+The next pinned repair is ProGPU `97eef74f7a5fc191088fa3a176e24706e566a2e8`.
+It preserves finite zero-extent stroke centerlines during geometry-local mapping,
+without changing fill-area admission. The previously failing broken curve leaves
+a horizontal run before an unstroked gap; its bounds were incorrectly rejected
+before widening. All 64 tiled-pen combinations now pass, along with three explicit
+native horizontal/vertical/rank-one mapped-line cases. Managed linear-stroke tests
+pass 19/19 and native contract verification passes. The native MIL suite progresses
+to a later collapsed-group brush-table count assertion; full CI is still required.
+See ProGPU `docs/native-mil-stroke-spine-bounds.md` for provenance and parity scope.
 
 1. Fix remaining ProGPU native, managed cached-stroke, Svg.Skia and CAD browser
    CI failures; rerun all required checks at the actual delivery head.
