@@ -12974,6 +12974,13 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Equal(2, sdkCiWorkflow.Split("submodules: true", StringSplitOptions.None).Length - 1);
         Assert.Contains("submodules: recursive", sdkCiWorkflow, StringComparison.Ordinal);
         Assert.Contains("./eng/progpu-wpf-canonical-winforms-integration.sh", sdkCiWorkflow, StringComparison.Ordinal);
+        Assert.Contains("Download canonical LibreWinForms package closure", sdkCiWorkflow, StringComparison.Ordinal);
+        Assert.Contains("Select exact ProGPU source package version", sdkCiWorkflow, StringComparison.Ordinal);
+        Assert.Contains("source_version=\"0.1.0-source.${submodule_commit:0:8}\"", sdkCiWorkflow, StringComparison.Ordinal);
+        Assert.Contains("PROGPU_WPF_EXPECTED_PROGPU_PACKAGE_COMMIT=${submodule_commit}", sdkCiWorkflow, StringComparison.Ordinal);
+        Assert.Contains("Stage native runtimes from the exact successful ProGPU Build", sdkCiWorkflow, StringComparison.Ordinal);
+        Assert.Contains("./eng/progpu-stage-ci-native-runtimes.sh", sdkCiWorkflow, StringComparison.Ordinal);
+        Assert.DoesNotContain("Stage exact ProGPU release packages", sdkCiWorkflow, StringComparison.Ordinal);
         Assert.Contains("global-json-file: global.json", sdkCiWorkflow, StringComparison.Ordinal);
         Assert.Contains("./eng/progpu-wpf-sdk-ci.sh", sdkCiWorkflow, StringComparison.Ordinal);
         Assert.Contains("name: LibreWPF Docs", docsWorkflow, StringComparison.Ordinal);
@@ -13000,6 +13007,8 @@ public sealed class WpfManagedProjectGraphTests
             StringComparison.Ordinal);
         Assert.Contains("Stage exact ProGPU release packages", releaseWorkflow, StringComparison.Ordinal);
         Assert.Contains("PROGPU_WPF_PREPACKAGED_PROGPU_DIR", releaseWorkflow, StringComparison.Ordinal);
+        Assert.Contains("[[ \"${tag_commit}\" != \"${submodule_commit}\" ]]", releaseWorkflow, StringComparison.Ordinal);
+        Assert.DoesNotContain("merge-base --is-ancestor", releaseWorkflow, StringComparison.Ordinal);
         Assert.Contains("for package_id in LibreWPF.Transport LibreWPF.ProGPU LibreWPF.Sdk", releaseWorkflow, StringComparison.Ordinal);
         Assert.Contains("NUGET_API_KEY", releaseWorkflow, StringComparison.Ordinal);
         Assert.Contains("artifacts/packages/Release/NonShipping/*.nupkg", releaseWorkflow, StringComparison.Ordinal);
@@ -13078,6 +13087,9 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("packaging/Microsoft.DotNet.Wpf.GitHub/Microsoft.DotNet.Wpf.GitHub.ArchNeutral.csproj", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("src/ProGPU.Wpf/ProGPU.Wpf.csproj", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("packaging/ProGPU.Wpf.Sdk/ProGPU.Wpf.Sdk.ArchNeutral.csproj", sdkCiScript, StringComparison.Ordinal);
+        Assert.Contains("PROGPU_WPF_CANONICAL_WINFORMS_PACKAGE_DIR", sdkCiScript, StringComparison.Ordinal);
+        Assert.Contains("ProGpuWpfUseCanonicalLibreWinForms=true", sdkCiScript, StringComparison.Ordinal);
+        Assert.DoesNotContain("external/LibreWinForms/src/LibreWinForms.Portable/", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("src/ProGPU.Wpf.SdkSwitchSmoke/ProGPU.Wpf.SdkSwitchSmoke.csproj", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("Building and running mixed WPF/WinForms SDK smoke app", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("src/ProGPU.Wpf.SdkSwitchSmoke/MixedDesktop/ProGPU.Wpf.SdkMixedDesktopSmoke.csproj", sdkCiScript, StringComparison.Ordinal);

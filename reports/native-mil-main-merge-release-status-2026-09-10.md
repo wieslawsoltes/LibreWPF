@@ -9,6 +9,15 @@ LibreWPF also merges `progpu-rendering-port` at `d877d7aeff226d121784fb0723e0507
 including canonical WinForms changes; fifteen conflicts are resolved.
 These are history-preserving merges, not destructive rebases of the shared PRs.
 
+While qualification continued, upstream #123 advanced the base to `2080ea63a`.
+Its provenance fixes are integrated with two further conflicts resolved in the
+SDK workflow and entry script. Canonical WinForms package closure, source-specific
+ProGPU versions and exact package commit checks remain; native renderer/input
+selection, explicit CLI-only build mode and successful exact-head native-runtime
+staging remain as well. No ancestor-only package substitution was retained.
+Actionlint, YAML parsing, Bash syntax, canonical cutover and documentation checks
+pass for this merge. Full SDK/package execution remains pending.
+
 The selected ProGPU commit is `b88034192307d0f12f76af1461b54441c4041cf3`.
 LibreWinForms is aligned through `01243b3bc7999ce879fc793c4ed291fe841d8219`
 in [dependency PR #29](https://github.com/wieslawsoltes/LibreWinForms/pull/29).
@@ -94,8 +103,9 @@ Feature freeze remains active: fix these release blockers before broader APIs.
 The existing clean `C:\pgpu-rebase-2a998c86` VM checkout was fast-forwarded to
 `160cb12b` after verifying its source status and absence of active builds.
 PowerShell 7 runs the full `-BuildOnly -Rid win-arm64 -Compiler MSVC` production
-lane with both providers and test/sample targets. Both providers have linked;
-the remaining test compilation and runtime reproduction are pending. The first
+lane with both providers and test/sample targets. All 313 build steps completed
+and unqualified ARM64 payloads were staged. The runtime reproduction is running
+on the Parallels Display Adapter through D3D12. The first
 Windows PowerShell wrapper stopped after restore; the direct PowerShell 7 retry
 is recorded in `artifacts/release-build-160cb12b-win-arm64-retry.log` in the guest.
 No stale build, staged output or merely linked library is claimed as qualified.

@@ -33,15 +33,20 @@ projects on the ProGPU/Silk.NET platform.
 ## Local Preview Build
 
 ```bash
-PROGPU_WPF_DEV_PACKAGE_VERSION=0.1.0-preview.45 PROGPU_WPF_PROGPU_PACKAGE_VERSION=0.1.0-preview.62 ./eng/progpu-wpf-sdk-ci.sh
+PROGPU_WPF_DEV_PACKAGE_VERSION=0.1.0-preview.45 \
+PROGPU_WPF_PROGPU_PACKAGE_VERSION="0.1.0-source.$(git -C external/ProGPU rev-parse --short=8 HEAD)" \
+  ./eng/progpu-wpf-sdk-ci.sh
 ```
 
 The SDK CI script stages ProGPU runtime packages, builds the managed WPF transport assemblies,
 `LibreWPF.ProGPU`, and `LibreWPF.Sdk`, then audits the packages, writes the preview manifest,
-creates a release bundle, verifies the bundle, and runs package-mode SDK smoke tests. Development
-builds can pack ProGPU from the checked-out submodule. The release workflow instead downloads the
-exact ProGPU release packages for the matching `v<version>` tag and verifies that tag points at the
-checked-out ProGPU submodule commit.
+creates a release bundle, verifies the bundle, and runs package-mode SDK smoke tests. Pull-request
+builds assign the checked-out ProGPU submodule a commit-qualified `0.1.0-source.<sha>` version and
+pack the complete ProGPU dependency closure from that exact source. This prevents a newer LibreWPF
+assembly from loading an ABI-incompatible older ProGPU binary. The release workflow instead downloads
+immutable ProGPU release packages for the matching `v<version>` tag and requires the tag commit to
+equal the checked-out ProGPU submodule commit before packaging. Every downloaded package is audited
+against that tag commit recorded in its nuspec.
 
 ### Package production before qualification
 
@@ -126,6 +131,9 @@ clean-cache WPF reference/cycle ordering, and compiles the real
 conflicts promoted to errors. ProGPU API, correctness, and allocation gates are
 owned by the matching ProGPU source PR and can also be enabled locally through
 the script's default `PROGPU_WPF_RUN_DRAWING_QUALITY_GATES=1` behavior.
+The main SDK smoke downloads that canonical package closure and uses it for the
+mixed WPF/WinForms application. It does not rebuild or reference the retired
+`src/LibreWinForms.Portable` projects.
 
 ## GitHub Actions
 

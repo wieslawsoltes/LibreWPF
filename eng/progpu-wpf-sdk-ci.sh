@@ -59,7 +59,7 @@ if [[ "${build_packages_only}" == "0" ]]; then
     --check
 fi
 
-"${repo_root}/eng/progpu-wpf-verify-librewinforms-compat.sh"
+"${repo_root}/eng/progpu-wpf-verify-librewinforms-cutover.sh"
 
 resolve_dotnet_runtime_framework_version() {
   local runtime_version
@@ -81,8 +81,8 @@ fi
 package_output="${PROGPU_WPF_PACKAGE_OUTPUT:-${repo_root}/artifacts/packages/Release/NonShipping}"
 dev_package_version="${PROGPU_WPF_DEV_PACKAGE_VERSION:-0.1.0-preview.45}"
 progpu_package_version="${PROGPU_WPF_PROGPU_PACKAGE_VERSION:-0.1.0-preview.62}"
-librewinforms_compat_package_version="${PROGPU_WPF_LIBREWINFORMS_COMPAT_PACKAGE_VERSION:-0.1.0-preview.42}"
 prepackaged_progpu_dir="${PROGPU_WPF_PREPACKAGED_PROGPU_DIR:-}"
+canonical_librewinforms_package_dir="${PROGPU_WPF_CANONICAL_WINFORMS_PACKAGE_DIR:-${repo_root}/artifacts/packages/CanonicalWinForms}"
 progpu_package_snapshot_dir="${repo_root}/artifacts/progpu-wpf-sdk-smoke/exact-progpu-packages"
 sdk_sample_target_framework="${PROGPU_WPF_SDK_SAMPLE_TARGET_FRAMEWORK:-net10.0-windows}"
 mkdir -p "${package_output}"
@@ -122,22 +122,23 @@ pack_wpf_projects() {
   pack_project "packaging/ProGPU.Wpf.Sdk/ProGPU.Wpf.Sdk.ArchNeutral.csproj" "LibreWPF.Sdk"
 }
 
-pack_librewinforms_compat_project() {
-  local project="$1"
+resolve_single_package_version() {
+  local package_dir="$1"
   local package_id="$2"
-  rm -f \
-    "${package_output}/${package_id}.${librewinforms_compat_package_version}.nupkg" \
-    "${package_output}/${package_id}.${librewinforms_compat_package_version}.snupkg"
-  run_dotnet pack "${repo_root}/${project}" \
-    -c Release \
-    -o "${package_output}" \
-    -v:minimal \
-    -p:Version="${librewinforms_compat_package_version}" \
-    -p:PackageVersion="${librewinforms_compat_package_version}" \
-    -p:LibreWinFormsReferenceMode=Package \
-    -p:LibreWinFormsBridgePackageVersion="${dev_package_version}" \
-    -p:LibreWinFormsProGpuPackageVersion="${progpu_package_version}" \
-    -p:RestoreAdditionalProjectSources="${package_output}"
+  local package_name
+  local -a candidates=()
+
+  shopt -s nullglob
+  candidates=("${package_dir}/${package_id}."*.nupkg)
+  shopt -u nullglob
+  if [[ "${#candidates[@]}" != "1" ]]; then
+    echo "Expected one ${package_id} package in ${package_dir}, found ${#candidates[@]}." >&2
+    exit 1
+  fi
+
+  package_name="$(basename "${candidates[0]}")"
+  package_name="${package_name#${package_id}.}"
+  printf '%s\n' "${package_name%.nupkg}"
 }
 
 stage_or_pack_progpu_project() {
@@ -440,13 +441,13 @@ echo "Verifying preview release bundle..."
 echo "Running preview release bundle SDK smoke..."
 "${repo_root}/eng/progpu-preview-release-sdk-smoke.sh"
 
-echo "Staging the source-pinned LibreWinForms compatibility bridge for mixed-desktop smoke..."
-pack_librewinforms_compat_project \
-  "external/LibreWinForms/src/LibreWinForms.Portable/LibreWinForms.System.Windows.Forms/LibreWinForms.System.Windows.Forms.csproj" \
-  "LibreWinForms.Compatibility.System.Windows.Forms"
-pack_librewinforms_compat_project \
-  "external/LibreWinForms/src/LibreWinForms.Portable/LibreWinForms.WindowsFormsIntegration/LibreWinForms.WindowsFormsIntegration.csproj" \
-  "LibreWinForms.WindowsFormsIntegration"
+canonical_librewinforms_package_version="$(resolve_single_package_version \
+  "${canonical_librewinforms_package_dir}" \
+  "LibreWinForms.System.Windows.Forms")"
+canonical_progpu_package_version="$(resolve_single_package_version \
+  "${canonical_librewinforms_package_dir}" \
+  "ProGPU.Backend")"
+echo "Using canonical LibreWinForms ${canonical_librewinforms_package_version} and exact ProGPU ${canonical_progpu_package_version} for mixed-desktop smoke..."
 
 echo "Cleaning package-mode SDK smoke outputs..."
 clean_sdk_smoke_outputs
@@ -455,8 +456,15 @@ echo "Building package-mode SDK switch smoke..."
 run_dotnet build "${repo_root}/src/ProGPU.Wpf.SdkSwitchSmoke/ProGPU.Wpf.SdkSwitchSmoke.csproj" -v:minimal
 
 echo "Building and running mixed WPF/WinForms SDK smoke app..."
-run_dotnet build "${repo_root}/src/ProGPU.Wpf.SdkSwitchSmoke/MixedDesktop/ProGPU.Wpf.SdkMixedDesktopSmoke.csproj" -v:minimal
-run_dotnet run --no-build --project "${repo_root}/src/ProGPU.Wpf.SdkSwitchSmoke/MixedDesktop/ProGPU.Wpf.SdkMixedDesktopSmoke.csproj" -v:minimal
+(
+  export ProGpuWpfUseCanonicalLibreWinForms=true
+  export ProGpuWpfLibreWinFormsPackageVersion="${canonical_librewinforms_package_version}"
+  export ProGpuWpfLibreWinFormsBackendPackageVersion="${canonical_librewinforms_package_version}"
+  export ProGpuPackageVersion="${canonical_progpu_package_version}"
+  export RestoreAdditionalProjectSources="${package_output};${canonical_librewinforms_package_dir}"
+  run_dotnet build "${repo_root}/src/ProGPU.Wpf.SdkSwitchSmoke/MixedDesktop/ProGPU.Wpf.SdkMixedDesktopSmoke.csproj" -v:minimal
+  run_dotnet run --no-build --project "${repo_root}/src/ProGPU.Wpf.SdkSwitchSmoke/MixedDesktop/ProGPU.Wpf.SdkMixedDesktopSmoke.csproj" -v:minimal
+)
 
 echo "Running SDK switch runtime smoke..."
 run_dotnet build "${repo_root}/src/ProGPU.Wpf.SdkSwitchRuntimeHarness/ProGPU.Wpf.SdkSwitchRuntimeHarness.csproj" -v:minimal
