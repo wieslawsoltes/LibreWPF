@@ -2966,6 +2966,12 @@ public partial class MainWindow : Window
         return autoHideWindow?.Model;
     }
 
+    private FrameworkElement? GetAvalonDockAutoHideArea()
+    {
+        DockManager.ApplyTemplate();
+        return DockManager.Template?.FindName("PART_AutoHideArea", DockManager) as FrameworkElement;
+    }
+
     private static bool AutoHideOverlayModelContains(object? overlayModel, LayoutAnchorable expectedContent)
     {
         if (ReferenceEquals(overlayModel, expectedContent))
@@ -3796,6 +3802,11 @@ public partial class MainWindow : Window
                     transientAutoHideWindow.IsHitTestVisible = false;
                 }
 
+                if (GetAvalonDockAutoHideArea() is { } transientAutoHideArea)
+                {
+                    transientAutoHideArea.IsHitTestVisible = false;
+                }
+
                 Point safePointerPoint = ActivateEditorButton.TranslatePoint(
                     new Point(
                         Math.Max(1.0, ActivateEditorButton.ActualWidth) / 2.0,
@@ -4339,6 +4350,11 @@ public partial class MainWindow : Window
             liveHost,
             () =>
             {
+                if (GetAvalonDockAutoHideArea() is { } autoHideArea)
+                {
+                    autoHideArea.IsHitTestVisible = true;
+                }
+
                 if (DockManager.AutoHideWindow is { } autoHideWindow)
                 {
                     autoHideWindow.IsHitTestVisible = true;
