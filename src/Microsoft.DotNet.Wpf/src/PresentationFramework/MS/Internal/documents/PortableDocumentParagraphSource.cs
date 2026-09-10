@@ -17,13 +17,16 @@ internal sealed class PortableDocumentParagraphSource : TextSource
 {
     private readonly Paragraph _paragraph;
     private readonly ITextContainer _container;
+    private readonly double _paragraphWidth;
+    internal bool HasInlineObjects { get; private set; }
     internal int Start { get; }
     internal int End { get; }
 
-    internal PortableDocumentParagraphSource(Paragraph paragraph, double pixelsPerDip)
+    internal PortableDocumentParagraphSource(Paragraph paragraph, double pixelsPerDip, double paragraphWidth = double.NaN)
     {
         _paragraph = paragraph;
         _container = paragraph.TextContainer;
+        _paragraphWidth = paragraphWidth;
         Start = paragraph.ElementStart.Offset;
         End = paragraph.ElementEnd.Offset;
         PixelsPerDip = pixelsPerDip;
@@ -71,7 +74,13 @@ internal sealed class PortableDocumentParagraphSource : TextSource
                     ? new TextEndOfSegment(1) : new TextHidden(1);
                 break;
             case TextPointerContext.EmbeddedElement:
-                throw new PlatformNotSupportedException("Portable document embedded objects require the native inline-object contract.");
+                if (position.Parent is not InlineUIContainer owner ||
+                    position.GetAdjacentElement(LogicalDirection.Forward) is not UIElement child || !ReferenceEquals(owner.Child, child))
+                    throw new PlatformNotSupportedException("Portable document objects require an actual InlineUIContainer child.");
+                HasInlineObjects = true;
+                run = new PortableDocumentInlineObject(owner, child,
+                    new TextProperties(owner, position, false, true, PixelsPerDip), _paragraphWidth);
+                break;
             default:
                 throw new InvalidOperationException("The source paragraph ended before its closing edge.");
         }
@@ -81,7 +90,7 @@ internal sealed class PortableDocumentParagraphSource : TextSource
 
     private static Inline RequireInline(TextElement element)
     {
-        if (element is not Inline inline || inline is InlineUIContainer || inline is AnchoredBlock)
+        if (element is not Inline inline || inline is AnchoredBlock)
             throw new PlatformNotSupportedException("Portable paragraph content requires an explicit inline-object or anchored-block contract.");
         // Empty styled elements have no shaping text. Their separate line-metric
         // contribution cannot be manufactured with zero-width-space glyphs.

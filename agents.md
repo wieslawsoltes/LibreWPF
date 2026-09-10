@@ -1,5 +1,15 @@
 # Agent Guidance
 
+Portable FlowDocument inline controls retain their actual InlineUIContainer and
+UIElement, measured at the native paragraph width. Consume source TextRunBounds
+from the shared measured TextLine for child placement; line-height selection
+rectangles are not child layout rectangles. Keep inline symbols in the text
+navigation path, not the block-object list. The retained document visual borrows
+both kinds of child with stable parents during reflow and releases deleted
+instances; source undo owns reconstruction. Child desired-size changes invalidate
+the live generation. Pagination must reject all hosted controls until native
+fragmentation and page ownership exist. This does not admit Figure/Floater.
+
 Portable fixed-column Tables now export actual Table/RowGroup/Row/Cell nodes and
 cached source column indices to ProGPU's shared row layout. Retain original cell
 TextLines and native content boxes; table rows select horizontal cells, while

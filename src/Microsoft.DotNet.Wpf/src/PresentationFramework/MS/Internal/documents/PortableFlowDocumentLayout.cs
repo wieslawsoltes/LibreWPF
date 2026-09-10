@@ -25,6 +25,10 @@ internal sealed class PortableFlowDocumentLayout : IDisposable
     internal sealed record ObjectEntry(BlockUIContainer Container, UIElement Child, int BlockIndex,
         int Start, int End, int ContentStart, int ContentEnd);
     internal readonly record struct FlowItem(int LineIndex, int ObjectIndex);
+    internal sealed record HostedChild(TextElement Owner, UIElement Child, int BlockIndex, int LineIndex, Rect LineBounds);
+    private readonly List<HostedChild> _hostedChildren = new();
+    private readonly Dictionary<TextElement, int> _hostedOwners = new();
+    internal IReadOnlyList<HostedChild> HostedChildren => _hostedChildren;
     private readonly record struct TablePolicy(int ColumnStart, int ColumnCount, double Spacing);
 
     private readonly List<BlockEntry> _entries = new();
@@ -50,6 +54,32 @@ internal sealed class PortableFlowDocumentLayout : IDisposable
     internal PortableDocumentBox[] Boxes { get; private set; }
     internal PortableDocumentLinePosition[] Positions { get; private set; }
     internal Size Size { get; private set; }
+
+    internal Rect HostedChildBounds(int index)
+    {
+        var child = _hostedChildren[index];
+        if (child.LineIndex < 0)
+        {
+            var box = Boxes[child.BlockIndex];
+            return new(box.X, box.Y, box.Width, box.Height);
+        }
+        var position = Positions[child.LineIndex];
+        Rect bounds = child.LineBounds;
+        bounds.Offset(position.X, position.Y);
+        return bounds;
+    }
+
+    internal bool TryGetHostedChildBounds(TextElement owner, out Rect bounds)
+    {
+        if (_hostedOwners.TryGetValue(owner, out int index)) { bounds = HostedChildBounds(index); return true; }
+        bounds = Rect.Empty; return false;
+    }
+
+    private void AddHostedChild(HostedChild child)
+    {
+        _hostedOwners.Add(child.Owner, _hostedChildren.Count);
+        _hostedChildren.Add(child);
+    }
 
     internal static PortableFlowDocumentLayout Create(FlowDocument document, double pageWidth, double pixelsPerDip,
         TextFormattingMode formattingMode, Thickness? pagePadding = null)
@@ -128,6 +158,7 @@ internal sealed class PortableFlowDocumentLayout : IDisposable
                     layout._items.Add(new(-1, layout._objects.Count));
                     layout._objects.Add(new(container, child, i, container.ElementStart.Offset, container.ElementEnd.Offset,
                         container.ContentStart.Offset, container.ContentEnd.Offset));
+                    layout.AddHostedChild(new(container, child, i, -1, Rect.Empty));
                 }
                 descriptor.LineCount = checked((uint)layout._lines.Count - descriptor.LineStart);
                 layout._blocks[i] = descriptor;
@@ -274,7 +305,7 @@ internal sealed class PortableFlowDocumentLayout : IDisposable
     private void FormatParagraph(FlowDocument document, Paragraph paragraph, int blockIndex, double pixelsPerDip,
         TextFormatter formatter, List<PortableDocumentLine> metrics)
     {
-        var source = new PortableDocumentParagraphSource(paragraph, pixelsPerDip);
+        var source = new PortableDocumentParagraphSource(paragraph, pixelsPerDip, Boxes[blockIndex].Width);
         var properties = new LineProperties(paragraph, document,
             new TextProperties(paragraph, paragraph.StaticElementStart, false, false, pixelsPerDip), null);
         var cache = new TextRunCache();
@@ -292,6 +323,12 @@ internal sealed class PortableFlowDocumentLayout : IDisposable
                     if (line.Length <= 0 || line.Length > source.End - position)
                         throw new InvalidOperationException("Formatted paragraph line did not preserve its source range.");
                     double advance = properties.CalcLineAdvance(line.Height);
+                    if (source.HasInlineObjects)
+                        foreach (TextBounds bounds in line.GetTextBounds(position, line.Length))
+                            if (bounds.TextRunBounds != null)
+                                foreach (TextRunBounds run in bounds.TextRunBounds)
+                                    if (run.TextRun is PortableDocumentInlineObject embedded)
+                                        AddHostedChild(new(embedded.Container, embedded.Child, blockIndex, _lines.Count, run.Rectangle));
                     metrics.Add(new() { Width = line.Start + line.WidthIncludingTrailingWhitespace, Height = advance });
                     _items?.Add(new(_lines.Count, -1));
                     _lines.Add(new(paragraph, line, position, blockIndex, advance));
@@ -362,6 +399,7 @@ internal sealed class PortableFlowDocumentLayout : IDisposable
         foreach (var line in _lines) line.Line.Dispose();
         _markers.Clear(); _lines.Clear(); _entries.Clear(); _blocks.Clear();
         _objects.Clear(); _items?.Clear();
+        _hostedChildren.Clear(); _hostedOwners.Clear();
         _rows.Clear(); _cells.Clear(); _columns.Clear();
         _firstItems = _childStarts = _children = _siblingSlots = null;
     }

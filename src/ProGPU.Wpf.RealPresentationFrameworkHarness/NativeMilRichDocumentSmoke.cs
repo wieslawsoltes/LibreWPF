@@ -36,7 +36,16 @@ internal static class NativeMilRichDocumentSmoke
         Set(box, "Template", template);
         object document = Get(box, "Document");
         Call(Get(document, "Blocks"), "Clear");
-        Add(document, "Blocks", Paragraph("first source paragraph"));
+        object firstParagraph = Paragraph("first source paragraph ");
+        object inlineContainer = New(framework, "System.Windows.Documents.InlineUIContainer");
+        object inlineButton = New(framework, "System.Windows.Controls.Button");
+        Set(inlineButton, "Width", 70.0); Set(inlineButton, "Height", 40.0);
+        Set(inlineButton, "Content", "inline source button");
+        Set(inlineButton, "OverridesDefaultStyle", true);
+        Set(inlineContainer, "Child", inlineButton);
+        Add(firstParagraph, "Inlines", inlineContainer);
+        Add(firstParagraph, "Inlines", New(framework, "System.Windows.Documents.Run", " source suffix"));
+        Add(document, "Blocks", firstParagraph);
         object blockObject = New(framework, "System.Windows.Documents.BlockUIContainer");
         object button = New(framework, "System.Windows.Controls.Button");
         Set(button, "Width", 100.0); Set(button, "Height", 32.0);
@@ -50,6 +59,7 @@ internal static class NativeMilRichDocumentSmoke
         Call(buttonBorder, "SetValue", background, blue);
         Set(buttonTemplate, "VisualTree", buttonBorder);
         Set(button, "Template", buttonTemplate);
+        Set(inlineButton, "Template", buttonTemplate);
         Set(blockObject, "Child", button);
         Add(document, "Blocks", blockObject);
         object section = New(framework, "System.Windows.Documents.Section");
@@ -148,6 +158,31 @@ internal static class NativeMilRichDocumentSmoke
         object? Parent(object visual) => core.GetType("System.Windows.Media.VisualTreeHelper", true)!
             .GetMethod("GetParent", BindingFlags.Public | BindingFlags.Static)!.Invoke(null, [visual]);
         object objectVisual = Parent(button) ?? throw new InvalidOperationException("Source block control is not attached.");
+        object InlineRect(object generation, object owner)
+        {
+            var children = (IList)Get(generation, "HostedChildren");
+            for (int i = 0; i < children.Count; ++i)
+                if (ReferenceEquals(Get(children[i]!, "Owner"), owner))
+                    return Call(generation, "HostedChildBounds", i)!;
+            throw new InvalidOperationException("Native document lost its source inline child.");
+        }
+        object inlineRect = InlineRect(layout, inlineContainer);
+        object inlineStart = Get(inlineContainer, "ContentStart"), inlineEnd = Get(inlineContainer, "ContentEnd");
+        var inlineSelection = (IList)Call(textView, "GetDocumentRectangles", inlineStart, inlineEnd, false)!;
+        if ((int)Get(inlineEnd, "Offset") - (int)Get(inlineStart, "Offset") != 1 ||
+            inlineSelection.Count != 1 || (double)Get(inlineSelection[0]!, "Width") != 70.0 ||
+            (double)Get(inlineSelection[0]!, "Height") < 40.0 ||
+            !(bool)Call(textView, "IsAtCaretUnitBoundary", inlineStart)! ||
+            !(bool)Call(textView, "IsAtCaretUnitBoundary", inlineEnd)!)
+            throw new InvalidOperationException("Inline selection or caret boundaries lost the original object symbol.");
+        Type contentHost = objectVisual.GetType().GetInterfaces().Single(type => type.Name == "IContentHost");
+        var contentRectangles = (IList)contentHost.GetMethod("GetRectangles")!.Invoke(objectVisual, [inlineContainer])!;
+        if (contentRectangles.Count != 1 || !Equals(contentRectangles[0], inlineRect))
+            throw new InvalidOperationException("Inline content geometry substituted the full line selection height.");
+        if (((IList)Get(layout, "HostedChildren")).Count != 2 ||
+            !ReferenceEquals(Parent(inlineButton), objectVisual) ||
+            (double)Get(inlineRect, "Width") != 70.0 || (double)Get(inlineRect, "Height") != 40.0)
+            throw new InvalidOperationException("Inline control lost native placement or its original visual ownership.");
         var embeddedRecords = (IList)Get(layout, "Objects");
         if (embeddedRecords.Count != 1 || !ReferenceEquals(Get(embeddedRecords[0]!, "Child"), button) ||
             !ReferenceEquals(Get(blockObject, "Child"), button))
@@ -258,6 +293,14 @@ internal static class NativeMilRichDocumentSmoke
         if ((double)Get(resizedBox, "Height") != 48.0 || !ReferenceEquals(Parent(button), objectVisual))
             throw new InvalidOperationException("Reflow lost native control size or detached its stable visual parent.");
         var firstColumnWidth = tableColumns[0].GetType().GetProperty("Width")!;
+        Set(inlineButton, "Height", 60.0);
+        Call(inlineButton, "Measure", New(windowsBase, "System.Windows.Size", 240.0, double.PositiveInfinity));
+        if ((bool)Get(textView, "IsValid"))
+            throw new InvalidOperationException("Inline desired-size change left stale interaction valid.");
+        resized = Measure();
+        if ((double)Get(InlineRect(resized, inlineContainer), "Height") != 60.0 ||
+            !ReferenceEquals(Parent(inlineButton), objectVisual))
+            throw new InvalidOperationException("Inline reflow lost actual size or detached the retained child.");
         firstColumnWidth.SetValue(tableColumns[0], Activator.CreateInstance(firstColumnWidth.PropertyType, [90.0]));
         if ((bool)Get(textView, "IsValid"))
             throw new InvalidOperationException("Table column change left stale cell interaction valid.");
@@ -273,7 +316,8 @@ internal static class NativeMilRichDocumentSmoke
         if ((bool)Get(textView, "IsValid"))
             throw new InvalidOperationException("Document edit left stale native interaction valid.");
         object replacement = Measure();
-        if (Parent(button) != null) throw new InvalidOperationException("Deleted block control retained a drawing attachment.");
+        if (Parent(button) != null || Parent(inlineButton) != null)
+            throw new InvalidOperationException("Deleted source control retained a drawing attachment.");
         if (ReferenceEquals(layout, replacement) || !ReferenceEquals(Get(box, "Selection"), selection) ||
             !ReferenceEquals(Get(document, "TextContainer"), container))
             throw new InvalidOperationException("Editing replaced source ownership or retained a stale layout.");
@@ -290,6 +334,15 @@ internal static class NativeMilRichDocumentSmoke
         object restoredRecord = restoredObjects[0]!;
         object restoredButton = Get(restoredRecord, "Child");
         object restoredContainer = Get(restoredRecord, "Container");
+        object restoredInlineRecord = ((IList)Get(restoredLayout, "HostedChildren")).Cast<object>()
+            .Single(record => Get(record, "Owner").GetType() == inlineContainer.GetType());
+        object restoredInlineContainer = Get(restoredInlineRecord, "Owner");
+        object restoredInlineButton = Get(restoredInlineRecord, "Child");
+        if (!ReferenceEquals(Get(restoredInlineContainer, "Child"), restoredInlineButton) ||
+            !Equals(Get(restoredInlineButton, "Content"), "inline source button") ||
+            (double)Get(InlineRect(restoredLayout, restoredInlineContainer), "Height") != 60.0 ||
+            Parent(restoredInlineButton) == null || Parent(inlineButton) != null)
+            throw new InvalidOperationException("Undo lost the live source inline control or reattached its deleted instance.");
         if (restoredButton.GetType() != button.GetType() ||
             !Equals(Get(restoredButton, "Content"), "embedded source button") ||
             (double)Get(restoredButton, "Height") != 48.0 ||
@@ -315,7 +368,8 @@ internal static class NativeMilRichDocumentSmoke
         Set(box, "Document", nextDocument);
         if ((bool)Get(textView, "IsValid"))
             throw new InvalidOperationException("Detached document view retained valid source interaction.");
-        if (Parent(button) != null || Parent(restoredButton) != null)
+        if (Parent(button) != null || Parent(restoredButton) != null ||
+            Parent(inlineButton) != null || Parent(restoredInlineButton) != null)
             throw new InvalidOperationException("Detached document retained its borrowed block control visual.");
         // Bottomless object layout must not silently enter the paginator's
         // line-only fragmentation path after releasing the editor view.
@@ -333,6 +387,18 @@ internal static class NativeMilRichDocumentSmoke
         if (Parent(restoredButton) != null)
             throw new InvalidOperationException("Rejected pagination attached the source control.");
         Call(Get(document, "Blocks"), "Remove", restoredContainer);
+        try
+        {
+            Call(paginator, "GetPage", 0);
+            throw new InvalidOperationException("Pagination silently omitted the source inline control.");
+        }
+        catch (TargetInvocationException error) when (error.InnerException is PlatformNotSupportedException unsupported &&
+            unsupported.Message.Contains("native object fragmentation", StringComparison.Ordinal))
+        {
+        }
+        if (Parent(restoredInlineButton) != null)
+            throw new InvalidOperationException("Rejected pagination attached the inline control.");
+        Call(Get(Get(restoredInlineContainer, "Parent"), "Inlines"), "Remove", restoredInlineContainer);
         try
         {
             Call(paginator, "GetPage", 0);

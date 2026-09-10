@@ -35,14 +35,14 @@ internal sealed class PortableFlowDocumentVisual(FlowDocumentView owner) : Drawi
                     position.Y + target.Line.Baseline - marker.Line.Baseline), InvertAxes.None);
             }
         }
-        // Borrow actual source controls. Their logical BlockUIContainer owner is
+        // Borrow actual source controls. Their logical block/inline container owner is
         // unchanged; this visual owns only the current drawing attachment.
         try
         {
-            for (int index = 0; index < layout.Objects.Count; ++index)
+            for (int index = 0; index < layout.HostedChildren.Count; ++index)
             {
-                var embedded = layout.Objects[index];
-                var box = layout.Boxes[embedded.BlockIndex];
+                var embedded = layout.HostedChildren[index];
+                var box = layout.HostedChildBounds(index);
                 Visual current = index < Children.Count ? Children[index] : null;
                 if (!ReferenceEquals(current, embedded.Child))
                 {
@@ -56,7 +56,7 @@ internal sealed class PortableFlowDocumentVisual(FlowDocumentView owner) : Drawi
                 }
                 embedded.Child.Arrange(new Rect(box.X, box.Y, box.Width, box.Height));
             }
-            while (Children.Count > layout.Objects.Count) Children.RemoveAt(Children.Count - 1);
+            while (Children.Count > layout.HostedChildren.Count) Children.RemoveAt(Children.Count - 1);
         }
         catch { Children.Clear(); _drawn = null; throw; }
         _drawn = layout;
@@ -109,6 +109,7 @@ internal sealed class PortableFlowDocumentVisual(FlowDocumentView owner) : Drawi
         if (child is not TextElement element || !ReferenceEquals(element.TextContainer, owner.Document.TextContainer))
             throw new ArgumentException("Content does not belong to this document.", nameof(child));
         if (!owner.PortableTextView.IsValid) return ReadOnlyCollection<Rect>.Empty;
+        if (owner.PortableLayout.TryGetHostedChildBounds(element, out Rect childBounds)) return new(new[] { childBounds });
         return owner.PortableTextView.GetDocumentRectangles(element.ContentStart, element.ContentEnd, false);
     }
 

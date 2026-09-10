@@ -15,6 +15,12 @@ do not automatically expand the release checklist.
 
 ## Active completion queue
 
+**Document inline-child connection — 2026-09-10:** actual InlineUIContainer
+measurement and visual ownership now connect to the shared native text placement.
+Source build and focused native-host rich-editor checks pass. Figure/Floater
+exclusions, unchanged full application and final package/platform qualification
+remain required. See [document inline work](../reports/native-mil-document-inline-2026-09-10.md).
+
 **Source embedded-text connection — 2026-09-10:** PortableTextLine connects
 fixed-size source objects to the measured native provider, retains non-ink object
 identity and publishes actual child TextRunBounds for TextBlock's existing arranger.
