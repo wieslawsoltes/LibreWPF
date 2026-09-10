@@ -28,6 +28,33 @@ public class DispatcherTests
     }
 
     [WpfFact]
+    public void PushFrame_StopMarker_DoesNotDrainLowerPriorityOperations()
+    {
+        Dispatcher dispatcher = Dispatcher.CurrentDispatcher;
+        var frame = new DispatcherFrame();
+        bool lowerPriorityInvoked = false;
+        DispatcherOperation lowerPriorityOperation = dispatcher.BeginInvoke(
+            DispatcherPriority.ApplicationIdle,
+            new Action(() => lowerPriorityInvoked = true));
+
+        dispatcher.BeginInvoke(
+            DispatcherPriority.Send,
+            new Action(() => frame.Continue = false));
+
+        try
+        {
+            Dispatcher.PushFrame(frame);
+
+            Assert.False(lowerPriorityInvoked);
+            Assert.Equal(DispatcherOperationStatus.Pending, lowerPriorityOperation.Status);
+        }
+        finally
+        {
+            lowerPriorityOperation.Abort();
+        }
+    }
+
+    [WpfFact]
     public void FromThread_CurrentThread_ReturnsExpected()
     {
         Dispatcher dispatcher = Dispatcher.FromThread(Thread.CurrentThread);

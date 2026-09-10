@@ -21,11 +21,25 @@
     <ProjectReference Include="$(WpfSourceDir)PresentationFramework\ref\PresentationFramework-ref.csproj" />
     <ProjectReference Include="$(WpfSourceDir)UIAutomation\UIAutomationProvider\ref\UIAutomationProvider-ref.csproj" />
   </ItemGroup>
-  <ItemGroup>
+  <ItemGroup Condition="'$(ProGpuWpfCanonicalWinFormsAssemblyRoot)' == ''">
     <MicrosoftPrivateWinFormsReference Include="System.Windows.Forms" />
     <MicrosoftPrivateWinFormsReference Include="System.Windows.Forms.Primitives" />
   </ItemGroup>
-  <ItemGroup>
+  <ItemGroup Condition="'$(ProGpuWpfCanonicalWinFormsAssemblyRoot)' == ''">
     <PackageReference Include="$(SystemDrawingCommonPackage)" Version="$(SystemDrawingCommonVersion)" />
   </ItemGroup>
+  <ItemGroup Condition="'$(ProGpuWpfCanonicalWinFormsAssemblyRoot)' != ''">
+    <Reference Include="System.Windows.Forms" HintPath="$(ProGpuWpfCanonicalWinFormsAssemblyRoot)System.Windows.Forms.dll" Private="false" />
+    <Reference Include="System.Windows.Forms.Primitives" HintPath="$(ProGpuWpfCanonicalWinFormsAssemblyRoot)System.Windows.Forms.Primitives.dll" Private="false" />
+    <Reference Include="System.Drawing.Common" HintPath="$(ProGpuWpfCanonicalWinFormsAssemblyRoot)System.Drawing.Common.dll" Private="false" />
+  </ItemGroup>
+  <Target Name="_ValidateCanonicalWinFormsReferenceClosure"
+          BeforeTargets="ResolveAssemblyReferences"
+          Condition="'$(ProGpuWpfCanonicalWinFormsAssemblyRoot)' != ''">
+    <ItemGroup>
+      <_CanonicalWinFormsReferenceAssembly Include="System.Windows.Forms;System.Windows.Forms.Primitives;System.Drawing.Common" />
+    </ItemGroup>
+    <Error Condition="!Exists('$(ProGpuWpfCanonicalWinFormsAssemblyRoot)%(_CanonicalWinFormsReferenceAssembly.Identity).dll')"
+           Text="Canonical WinForms reference '%(_CanonicalWinFormsReferenceAssembly.Identity)' is missing from $(ProGpuWpfCanonicalWinFormsAssemblyRoot)." />
+  </Target>
 </Project>

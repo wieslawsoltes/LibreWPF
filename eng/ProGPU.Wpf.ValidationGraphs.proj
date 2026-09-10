@@ -4,14 +4,19 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- Build the CsWin32-bearing primitive assembly before WindowsBase consumes its internal interop surface. -->
+    <ManagedTransportProject Include="$(MSBuildThisFileDirectory)../src/Microsoft.DotNet.Wpf/src/System.Windows.Primitives/System.Windows.Primitives.csproj"
+                             Condition="'$(ProGpuWpfCanonicalWinFormsIntegration)' != 'true'" />
     <ManagedTransportProject Include="$(MSBuildThisFileDirectory)../src/Microsoft.DotNet.Wpf/src/Microsoft.Win32.SystemEvents/Microsoft.Win32.SystemEvents.csproj" />
-    <ManagedTransportProject Include="$(MSBuildThisFileDirectory)../src/Microsoft.DotNet.Wpf/src/PresentationBuildTasks/PresentationBuildTasks.csproj" />
-    <ManagedTransportProject Include="$(MSBuildThisFileDirectory)../src/Microsoft.DotNet.Wpf/src/WindowsBase/WindowsBase.csproj" />
-    <ManagedTransportProject Include="$(MSBuildThisFileDirectory)../src/Microsoft.DotNet.Wpf/src/System.Xaml/System.Xaml.csproj" />
+    <ManagedTransportProject Include="$(MSBuildThisFileDirectory)../src/Microsoft.DotNet.Wpf/src/PresentationBuildTasks/PresentationBuildTasks.csproj"
+                             Condition="'$(ProGpuWpfCanonicalWinFormsIntegration)' != 'true'" />
+    <ManagedTransportProject Include="$(MSBuildThisFileDirectory)../src/Microsoft.DotNet.Wpf/src/WindowsBase/WindowsBase.csproj"
+                             Condition="'$(ProGpuWpfCanonicalWinFormsIntegration)' != 'true'" />
+    <ManagedTransportProject Include="$(MSBuildThisFileDirectory)../src/Microsoft.DotNet.Wpf/src/System.Xaml/System.Xaml.csproj"
+                             Condition="'$(ProGpuWpfCanonicalWinFormsIntegration)' != 'true'" />
     <ManagedTransportProject Include="$(MSBuildThisFileDirectory)../src/Microsoft.DotNet.Wpf/src/UIAutomation/UIAutomationTypes/UIAutomationTypes.csproj" />
     <ManagedTransportProject Include="$(MSBuildThisFileDirectory)../src/Microsoft.DotNet.Wpf/src/UIAutomation/UIAutomationProvider/UIAutomationProvider.csproj" />
     <ManagedTransportProject Include="$(MSBuildThisFileDirectory)../src/Microsoft.DotNet.Wpf/src/System.Windows.Input.Manipulations/System.Windows.Input.Manipulations.csproj" />
-    <ManagedTransportProject Include="$(MSBuildThisFileDirectory)../src/Microsoft.DotNet.Wpf/src/System.Windows.Primitives/System.Windows.Primitives.csproj" />
     <ManagedTransportProject Include="$(MSBuildThisFileDirectory)../src/Microsoft.DotNet.Wpf/src/System.Windows.Presentation/System.Windows.Presentation.csproj" />
     <ManagedTransportProject Include="$(MSBuildThisFileDirectory)../src/Microsoft.DotNet.Wpf/src/PresentationCore/PresentationCore.csproj" />
     <ManagedTransportProject Include="$(MSBuildThisFileDirectory)../src/Microsoft.DotNet.Wpf/src/ReachFramework/ReachFramework.csproj" />

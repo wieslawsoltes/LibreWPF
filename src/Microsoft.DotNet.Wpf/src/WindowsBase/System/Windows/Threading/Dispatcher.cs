@@ -2120,7 +2120,7 @@ namespace System.Windows.Threading
 
                 try
                 {
-                    while(frame.Continue || HasPendingManagedOperation())
+                    while(frame.Continue)
                     {
                         PromoteTimers(Environment.TickCount);
 
