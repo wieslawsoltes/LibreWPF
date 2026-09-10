@@ -15,6 +15,16 @@ do not automatically expand the release checklist.
 
 ## Active completion queue
 
+**Inline/anchored producer dependency — 2026-09-10:** source admission alone is
+insufficient: native paragraph flow lacks inline metrics and its shared line
+placer still uses fixed paragraph line height. Extend the shared producer with
+measured items and per-line metrics before connecting actual inline controls.
+Figure/Floater additionally require native anchored placement and exclusion,
+not ordinary inline boxes. The
+[implementation design](../reports/native-mil-inline-anchor-design-2026-09-10.md)
+records the original ProGPU managed provenance, exact integration points and
+acceptance cases. This is a design checkpoint, not implemented object support.
+
 **Source table connection — 2026-09-10:** actual fixed-column Table/RowGroup/Row/Cell
 nodes now use ProGPU's shared native row passes. Retained cell-aware point lookup,
 vertical navigation, selection, scrolling, column-property reflow and source

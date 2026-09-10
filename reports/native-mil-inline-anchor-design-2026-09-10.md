@@ -25,7 +25,7 @@ box. Reuse these original ProGPU contracts, not third-party implementation text.
 
 The existing native integration points are
 src/ProGPU.Native/src/Text/Interop/progpu_native_text_shaping_interop.cpp
-(paragraph_core, logical run segmentation, borrowed scratch and output export)
+(paragraph_layout_core, logical run segmentation, borrowed scratch and output export)
 and src/ProGPU.Native/src/Text/progpu_native_text_layout.cpp (shared logical
 wrapping and visual placement). The latter currently places baselines using
 line_count times options.line_height. Supplying only object advances would
