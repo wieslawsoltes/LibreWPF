@@ -77,6 +77,16 @@ internal partial class FlowDocumentView
         InvalidateMeasure(); InvalidateVisual();
     }
 
+    internal void OnPortableChildDesiredSizeChanged(UIElement child)
+    {
+        if (Document == null || _portableFormatter == null || _portableVisual == null ||
+            !ReferenceEquals(VisualTreeHelper.GetParent(child), _portableVisual)) return;
+        // The in-progress format already consumes this Measure result. Changes
+        // outside that pass invalidate interaction before rebuilding any lines.
+        if (!Document.StructuralCache.IsFormattingInProgress)
+            ((IFlowDocumentFormatter)_portableFormatter).OnContentInvalidated(true);
+    }
+
     private void OnPortableFormatterSuspended(object sender, EventArgs args)
     {
         var formatter = _portableFormatter;

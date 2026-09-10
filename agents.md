@@ -1,5 +1,15 @@
 # Agent Guidance
 
+Portable BlockUIContainer uses the original source child, measured at ProGPU's
+resolved width and arranged in its native block box. Keep non-text metrics
+separate from TextLines, retain child visual parents during reflow, and invalidate
+interaction when desired size changes. Source undo reconstructs its serialized
+control: attach that live source child and release the deleted visual, never
+clone controls in the renderer or reattach the old instance. Selection/carets
+retain actual object symbol offsets. Pagination must reject objects until its
+fragmentation/visual ownership contract exists; bottomless block support does not
+admit inline/anchored controls or table layout.
+
 Use purpose-based final names for applications, APIs, tests, scripts and artifacts,
 not delivery-stage labels. The acceptance application is ProGPU.Wpf.ShowcaseApp;
 the chart integration application is ProGPU.Wpf.SciChartApp. Keep namespaces,

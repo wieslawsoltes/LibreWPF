@@ -35,6 +35,30 @@ internal sealed class PortableFlowDocumentVisual(FlowDocumentView owner) : Drawi
                     position.Y + target.Line.Baseline - marker.Line.Baseline), InvertAxes.None);
             }
         }
+        // Borrow actual source controls. Their logical BlockUIContainer owner is
+        // unchanged; this visual owns only the current drawing attachment.
+        try
+        {
+            for (int index = 0; index < layout.Objects.Count; ++index)
+            {
+                var embedded = layout.Objects[index];
+                var box = layout.Boxes[embedded.BlockIndex];
+                Visual current = index < Children.Count ? Children[index] : null;
+                if (!ReferenceEquals(current, embedded.Child))
+                {
+                    // Stable controls keep their visual parent (and focus) during
+                    // reflow. Move only when source order changes; never detach
+                    // an unchanged child merely to publish its new native box.
+                    if (ReferenceEquals(VisualTreeHelper.GetParent(embedded.Child), this))
+                        Children.Move(embedded.Child, current);
+                    else
+                        Children.Insert(index, embedded.Child);
+                }
+                embedded.Child.Arrange(new Rect(box.X, box.Y, box.Width, box.Height));
+            }
+            while (Children.Count > layout.Objects.Count) Children.RemoveAt(Children.Count - 1);
+        }
+        catch { Children.Clear(); _drawn = null; throw; }
         _drawn = layout;
     }
 
@@ -63,6 +87,7 @@ internal sealed class PortableFlowDocumentVisual(FlowDocumentView owner) : Drawi
 
     internal void Clear()
     {
+        Children.Clear();
         using (RenderOpen()) { }
         _drawn = null;
     }
@@ -97,10 +122,12 @@ internal sealed class PortableFlowDocumentVisual(FlowDocumentView owner) : Drawi
         {
             if (position.GetPointerContext(LogicalDirection.Forward) == TextPointerContext.ElementStart &&
                 position.GetAdjacentElement(LogicalDirection.Forward) is IInputElement element) yield return element;
+            else if (position.GetPointerContext(LogicalDirection.Forward) == TextPointerContext.EmbeddedElement &&
+                position.GetAdjacentElement(LogicalDirection.Forward) is IInputElement child) yield return child;
             if (!position.MoveToNextContextPosition(LogicalDirection.Forward)) yield break;
         }
     }
 
     void IContentHost.OnChildDesiredSizeChanged(UIElement child)
-        => throw new PlatformNotSupportedException("Portable document embedded UI elements require the inline/block object contract.");
+        => owner.OnPortableChildDesiredSizeChanged(child);
 }

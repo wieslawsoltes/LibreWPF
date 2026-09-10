@@ -23,6 +23,18 @@ internal sealed class WpfPortableDocumentFlow : IPortableDocumentFlow
         => NativeDocumentFlow.ResolveWidths(MemoryMarshal.Cast<PortableDocumentBlock, NativeDocumentBlock>(blocks), width,
             MemoryMarshal.Cast<PortableDocumentBox, NativeDocumentBox>(boxes));
 
+    public PortableDocumentExtent ArrangeWithObjects(ReadOnlySpan<PortableDocumentBlock> blocks, double width,
+        ReadOnlySpan<PortableDocumentLine> lines, ReadOnlySpan<PortableDocumentObject> objects,
+        Span<PortableDocumentBox> boxes, Span<PortableDocumentLinePosition> positions)
+    {
+        var extent = NativeDocumentFlow.ArrangeWithObjects(MemoryMarshal.Cast<PortableDocumentBlock, NativeDocumentBlock>(blocks), width,
+            MemoryMarshal.Cast<PortableDocumentLine, NativeDocumentLine>(lines),
+            MemoryMarshal.Cast<PortableDocumentObject, NativeDocumentObject>(objects),
+            MemoryMarshal.Cast<PortableDocumentBox, NativeDocumentBox>(boxes),
+            MemoryMarshal.Cast<PortableDocumentLinePosition, NativeDocumentLinePosition>(positions));
+        return new(extent.Width, extent.Height);
+    }
+
     public PortableDocumentExtent Arrange(ReadOnlySpan<PortableDocumentBlock> blocks, double width,
         ReadOnlySpan<PortableDocumentLine> lines, Span<PortableDocumentBox> boxes, Span<PortableDocumentLinePosition> positions)
     {

@@ -22,10 +22,17 @@ internal sealed class PortableFlowDocumentLayout : IDisposable
     internal sealed record BlockEntry(TextElement Element, MbpInfo Box, DocumentList MarkerList, int MarkerIndex);
     internal sealed record LineEntry(Paragraph Paragraph, TextLine Line, int Start, int BlockIndex, double Advance);
     internal sealed record MarkerEntry(ListItem Item, TextLine Line, int TargetLine, double Offset);
+    internal sealed record ObjectEntry(BlockUIContainer Container, UIElement Child, int BlockIndex,
+        int Start, int End, int ContentStart, int ContentEnd);
+    internal readonly record struct FlowItem(int LineIndex, int ObjectIndex);
 
     private readonly List<BlockEntry> _entries = new();
     private readonly List<PortableDocumentBlock> _blocks = new();
     private readonly List<LineEntry> _lines = new();
+    private readonly List<ObjectEntry> _objects = new();
+    private List<FlowItem> _items;
+    internal IReadOnlyList<ObjectEntry> Objects => _objects;
+    internal IReadOnlyList<FlowItem> Items => _items ?? (IReadOnlyList<FlowItem>)Array.Empty<FlowItem>();
     private readonly List<MarkerEntry> _markers = new();
     private bool _disposed;
     internal IReadOnlyList<BlockEntry> Blocks => _entries;
@@ -70,6 +77,7 @@ internal sealed class PortableFlowDocumentLayout : IDisposable
             flow.ResolveWidths(CollectionsMarshal.AsSpan(layout._blocks), pageWidth, layout.Boxes);
             TextFormatter formatter = TextFormatter.FromCurrentDispatcher(formattingMode);
             var metrics = new List<PortableDocumentLine>();
+            var objects = new List<PortableDocumentObject>();
             for (int i = 0; i < layout._entries.Count; ++i)
             {
                 PortableDocumentBlock descriptor = layout._blocks[i];
@@ -84,12 +92,30 @@ internal sealed class PortableFlowDocumentLayout : IDisposable
                         throw new PlatformNotSupportedException("Exhausted document width requires zero-width wrapping, not unbounded paragraph formatting.");
                     layout.FormatParagraph(document, paragraph, i, pixelsPerDip, formatter, metrics);
                 }
+                else if (layout._entries[i].Element is BlockUIContainer container && container.Child is UIElement child)
+                {
+                    // Measure the original control at the native constraint. Its
+                    // UI tree and source symbol are borrowed, never flattened into
+                    // a text line or cloned into a substitute document.
+                    child.Measure(new Size(layout.Boxes[i].Width, double.PositiveInfinity));
+                    Size desired = child.DesiredSize;
+                    objects.Add(new() { BlockIndex = checked((uint)i), Width = desired.Width, Height = desired.Height });
+                    if (layout._items == null)
+                    {
+                        layout._items = new(layout._lines.Count + 1);
+                        for (int lineIndex = 0; lineIndex < layout._lines.Count; ++lineIndex)
+                            layout._items.Add(new(lineIndex, -1));
+                    }
+                    layout._items.Add(new(-1, layout._objects.Count));
+                    layout._objects.Add(new(container, child, i, container.ElementStart.Offset, container.ElementEnd.Offset,
+                        container.ContentStart.Offset, container.ContentEnd.Offset));
+                }
                 descriptor.LineCount = checked((uint)layout._lines.Count - descriptor.LineStart);
                 layout._blocks[i] = descriptor;
             }
             layout.Positions = new PortableDocumentLinePosition[layout._lines.Count];
-            PortableDocumentExtent extent = flow.Arrange(CollectionsMarshal.AsSpan(layout._blocks), pageWidth,
-                CollectionsMarshal.AsSpan(metrics), layout.Boxes, layout.Positions);
+            PortableDocumentExtent extent = flow.ArrangeWithObjects(CollectionsMarshal.AsSpan(layout._blocks), pageWidth,
+                CollectionsMarshal.AsSpan(metrics), CollectionsMarshal.AsSpan(objects), layout.Boxes, layout.Positions);
             layout.Size = new(extent.Width, extent.Height);
             layout.FormatMarkers(document, pixelsPerDip, formatter);
             return layout;
@@ -106,8 +132,10 @@ internal sealed class PortableFlowDocumentLayout : IDisposable
     {
         if (depth >= 128 || _entries.Count >= 1 << 20)
             throw new PlatformNotSupportedException("Portable document block budget exceeded.");
-        if (element is not Paragraph and not Section and not DocumentList and not ListItem)
-            throw new PlatformNotSupportedException("Portable document tables and embedded blocks require their native layout contracts.");
+        if (element is Table)
+            throw new PlatformNotSupportedException("Portable document tables require native column, row and cell layout.");
+        if (element is not Paragraph and not Section and not DocumentList and not ListItem and not BlockUIContainer)
+            throw new PlatformNotSupportedException("This portable document block requires its native layout contract.");
         if ((FlowDirection)element.GetValue(Block.FlowDirectionProperty) != FlowDirection.LeftToRight)
             throw new PlatformNotSupportedException("Portable RTL document block ordering is not implemented.");
         MbpInfo box = MbpInfo.FromElement(element, pixelsPerDip);
@@ -162,6 +190,7 @@ internal sealed class PortableFlowDocumentLayout : IDisposable
                         throw new InvalidOperationException("Formatted paragraph line did not preserve its source range.");
                     double advance = properties.CalcLineAdvance(line.Height);
                     metrics.Add(new() { Width = line.Start + line.WidthIncludingTrailingWhitespace, Height = advance });
+                    _items?.Add(new(_lines.Count, -1));
                     _lines.Add(new(paragraph, line, position, blockIndex, advance));
                 }
                 catch { line.Dispose(); throw; }
@@ -184,6 +213,14 @@ internal sealed class PortableFlowDocumentLayout : IDisposable
             int end = subtreeEnd < _blocks.Count ? checked((int)_blocks[subtreeEnd].LineStart) : _lines.Count;
             if (first == end)
                 throw new PlatformNotSupportedException("An empty list item requires a native marker-only line contract.");
+            int low = 0, high = _objects.Count;
+            while (low < high)
+            {
+                int middle = low + (high - low) / 2;
+                if (_objects[middle].BlockIndex <= index) low = middle + 1; else high = middle;
+            }
+            if (low < _objects.Count && _objects[low].BlockIndex < _lines[first].BlockIndex)
+                throw new PlatformNotSupportedException("A list marker before a block object requires an explicit object baseline contract.");
             Paragraph paragraph = _lines[first].Paragraph;
             var properties = new LineProperties(paragraph, document,
                 new TextProperties(paragraph, paragraph.StaticElementStart, false, false, pixelsPerDip), null);
@@ -221,5 +258,6 @@ internal sealed class PortableFlowDocumentLayout : IDisposable
         foreach (var marker in _markers) marker.Line.Dispose();
         foreach (var line in _lines) line.Line.Dispose();
         _markers.Clear(); _lines.Clear(); _entries.Clear(); _blocks.Clear();
+        _objects.Clear(); _items?.Clear();
     }
 }

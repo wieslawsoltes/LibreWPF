@@ -15,6 +15,17 @@ do not automatically expand the release checklist.
 
 ## Active completion queue
 
+**Block-control connection — 2026-09-10:** the actual RichTextBox source child is
+now measured at the native width and arranged by ProGPU C++ alongside text.
+Selection, caret/vertical movement, size invalidation, edit, source undo and
+detachment pass the native host fixture. The unchanged full Application.Run
+document now rejects native table column/row/cell layout; anchored and inline
+objects remain blocking too. Pagination and object-leading marker contracts are
+explicitly unimplemented. See
+[block-control validation](../reports/native-mil-block-control-validation-2026-09-10.md).
+ProGPU's failed native package owner-query assertion is corrected at e1981183;
+fresh exact-head CI and downstream package staging remain required.
+
 **Rich-document connection — 2026-09-10:** RichTextBox now uses the shared native
 FlowDocument view with original source text services. Real paragraph/section/list
 layout, selection, edit, undo and native scene/input compilation pass. The unchanged

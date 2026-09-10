@@ -37,6 +37,21 @@ internal static class NativeMilRichDocumentSmoke
         object document = Get(box, "Document");
         Call(Get(document, "Blocks"), "Clear");
         Add(document, "Blocks", Paragraph("first source paragraph"));
+        object blockObject = New(framework, "System.Windows.Documents.BlockUIContainer");
+        object button = New(framework, "System.Windows.Controls.Button");
+        Set(button, "Width", 100.0); Set(button, "Height", 32.0);
+        Set(button, "Content", "embedded source button");
+        Set(button, "OverridesDefaultStyle", true);
+        object buttonTemplate = New(framework, "System.Windows.Controls.ControlTemplate", button.GetType());
+        object buttonBorder = New(framework, "System.Windows.FrameworkElementFactory",
+            framework.GetType("System.Windows.Controls.Border", true)!);
+        object background = framework.GetType("System.Windows.Controls.Border", true)!.GetField("BackgroundProperty")!.GetValue(null)!;
+        object blue = core.GetType("System.Windows.Media.Brushes", true)!.GetProperty("Blue")!.GetValue(null)!;
+        Call(buttonBorder, "SetValue", background, blue);
+        Set(buttonTemplate, "VisualTree", buttonBorder);
+        Set(button, "Template", buttonTemplate);
+        Set(blockObject, "Child", button);
+        Add(document, "Blocks", blockObject);
         object section = New(framework, "System.Windows.Documents.Section");
         Add(section, "Blocks", Paragraph("nested section source paragraph"));
         object list = New(framework, "System.Windows.Documents.List");
@@ -102,6 +117,47 @@ internal static class NativeMilRichDocumentSmoke
             session.CompileFrame(8212, 1, 0, 1,
                 flags: ProGPU.Backend.Native.NativeMilSceneBuildRequestFlags.HitTestIndex);
         }
+        object? Parent(object visual) => core.GetType("System.Windows.Media.VisualTreeHelper", true)!
+            .GetMethod("GetParent", BindingFlags.Public | BindingFlags.Static)!.Invoke(null, [visual]);
+        object objectVisual = Parent(button) ?? throw new InvalidOperationException("Source block control is not attached.");
+        var embeddedRecords = (IList)Get(layout, "Objects");
+        if (embeddedRecords.Count != 1 || !ReferenceEquals(Get(embeddedRecords[0]!, "Child"), button) ||
+            !ReferenceEquals(Get(blockObject, "Child"), button))
+            throw new InvalidOperationException("Native block layout copied or lost the source control.");
+        object embeddedRecord = embeddedRecords[0]!;
+        object nativeBox = ((IList)Get(layout, "Boxes"))[(int)Get(embeddedRecord, "BlockIndex")]!;
+        double objectX = (double)Get(nativeBox, "X"), objectY = (double)Get(nativeBox, "Y");
+        if ((double)Get(nativeBox, "Height") != 32.0)
+            throw new InvalidOperationException("Native block placement lost measured control height.");
+        object contentStart = Get(blockObject, "ContentStart"), contentEnd = Get(blockObject, "ContentEnd");
+        object objectPoint = New(windowsBase, "System.Windows.Point", objectX + 1, objectY + 1);
+        object objectHit = Call(textView, "GetTextPositionFromPoint", objectPoint, true)!;
+        if ((int)Get(objectHit, "Offset") != (int)Get(contentStart, "Offset"))
+            throw new InvalidOperationException("Object hit did not retain the actual source symbol.");
+        var caretMethod = textView.GetType().GetMethod("GetNextCaretUnitPosition", flags)!;
+        Type directionType = caretMethod.GetParameters()[1].ParameterType;
+        object forward = Enum.Parse(directionType, "Forward");
+        if (!(bool)Call(textView, "IsAtCaretUnitBoundary", contentStart)! ||
+            !(bool)Call(textView, "IsAtCaretUnitBoundary", contentEnd)! ||
+            (int)Get(Call(textView, "GetNextCaretUnitPosition", contentStart, forward)!, "Offset") != (int)Get(contentEnd, "Offset") ||
+            (int)Get(Call(textView, "GetBackspaceCaretUnitPosition", contentEnd)!, "Offset") != (int)Get(contentStart, "Offset"))
+            throw new InvalidOperationException("Block control caret movement lost its one source object symbol.");
+        var rectangles = (IList)Call(textView, "GetDocumentRectangles", contentStart, contentEnd, false)!;
+        if (rectangles.Count != 1 || (double)Get(rectangles[0]!, "Height") != 32.0)
+            throw new InvalidOperationException("Block object selection did not consume its native content box.");
+        var lineMove = textView.GetType().GetMethod("GetPositionAtNextLine", flags)!;
+        object?[] moveArgs = [contentStart, objectX, 1, null, null];
+        object nextLine = lineMove.Invoke(textView, moveArgs)!;
+        if ((int)moveArgs[4]! != 1 || (int)Get(nextLine, "Offset") <= (int)Get(contentEnd, "Offset"))
+            throw new InvalidOperationException("Vertical navigation did not leave the real block object.");
+        Set(button, "Height", 48.0);
+        Call(button, "Measure", New(windowsBase, "System.Windows.Size", (double)Get(nativeBox, "Width"), double.PositiveInfinity));
+        if ((bool)Get(textView, "IsValid"))
+            throw new InvalidOperationException("Control desired-size change left stale native interaction valid.");
+        object resized = Measure();
+        object resizedBox = ((IList)Get(resized, "Boxes"))[(int)Get(embeddedRecord, "BlockIndex")]!;
+        if ((double)Get(resizedBox, "Height") != 48.0 || !ReferenceEquals(Parent(button), objectVisual))
+            throw new InvalidOperationException("Reflow lost native control size or detached its stable visual parent.");
         Call(box, "SelectAll");
         if (!((string)Get(selection, "Text")).Contains("second numbered source item", StringComparison.Ordinal))
             throw new InvalidOperationException("SelectAll did not span the original document blocks.");
@@ -109,6 +165,7 @@ internal static class NativeMilRichDocumentSmoke
         if ((bool)Get(textView, "IsValid"))
             throw new InvalidOperationException("Document edit left stale native interaction valid.");
         object replacement = Measure();
+        if (Parent(button) != null) throw new InvalidOperationException("Deleted block control retained a drawing attachment.");
         if (ReferenceEquals(layout, replacement) || !ReferenceEquals(Get(box, "Selection"), selection) ||
             !ReferenceEquals(Get(document, "TextContainer"), container))
             throw new InvalidOperationException("Editing replaced source ownership or retained a stale layout.");
@@ -116,7 +173,28 @@ internal static class NativeMilRichDocumentSmoke
         if (!((string)Get(selection, "Text")).Contains("source replacement", StringComparison.Ordinal))
             throw new InvalidOperationException("Source replacement was not retained.");
         Call(box, "Undo");
-        Measure();
+        object restoredLayout = Measure();
+        var restoredObjects = (IList)Get(restoredLayout, "Objects");
+        if (restoredObjects.Count != 1)
+            throw new InvalidOperationException("Undo did not restore the source block object.");
+        // Source undo deserializes its saved UIElement; renderer ownership must
+        // follow that live source child, not reattach the deleted instance.
+        object restoredRecord = restoredObjects[0]!;
+        object restoredButton = Get(restoredRecord, "Child");
+        object restoredContainer = Get(restoredRecord, "Container");
+        if (restoredButton.GetType() != button.GetType() ||
+            !Equals(Get(restoredButton, "Content"), "embedded source button") ||
+            (double)Get(restoredButton, "Height") != 48.0 ||
+            !ReferenceEquals(Get(restoredContainer, "Child"), restoredButton) ||
+            !ReferenceEquals(Get(Get(restoredContainer, "ContentStart"), "TextContainer"), container) ||
+            Parent(restoredButton) == null || Parent(button) != null)
+            throw new InvalidOperationException("Undo lost the restored source control or retained a deleted drawing attachment.");
+        using (var restoredSession = new WpfNativeMilCompilationSession())
+        {
+            restoredSession.Update(box, 240, 120);
+            restoredSession.CompileFrame(8213, 1, 0, 1,
+                flags: ProGPU.Backend.Native.NativeMilSceneBuildRequestFlags.HitTestIndex);
+        }
         Call(box, "SelectAll");
         if (!((string)Get(selection, "Text")).Contains("second numbered source item", StringComparison.Ordinal))
             throw new InvalidOperationException("Native document view lost source undo.");
@@ -125,6 +203,23 @@ internal static class NativeMilRichDocumentSmoke
         Set(box, "Document", nextDocument);
         if ((bool)Get(textView, "IsValid"))
             throw new InvalidOperationException("Detached document view retained valid source interaction.");
-        Console.WriteLine("Source rich document passed: native paragraph/section/list layout, original text view, hits, MIL export, selection, edit, undo and replacement invalidation.");
+        if (Parent(button) != null || Parent(restoredButton) != null)
+            throw new InvalidOperationException("Detached document retained its borrowed block control visual.");
+        // Bottomless object layout must not silently enter the paginator's
+        // line-only fragmentation path after releasing the editor view.
+        Type paginatorSource = document.GetType().GetInterfaces().Single(type => type.Name == "IDocumentPaginatorSource");
+        object paginator = paginatorSource.GetProperty("DocumentPaginator")!.GetValue(document)!;
+        try
+        {
+            Call(paginator, "GetPage", 0);
+            throw new InvalidOperationException("Pagination silently omitted the source block control.");
+        }
+        catch (TargetInvocationException error) when (error.InnerException is PlatformNotSupportedException unsupported &&
+            unsupported.Message.Contains("native object fragmentation", StringComparison.Ordinal))
+        {
+        }
+        if (Parent(restoredButton) != null)
+            throw new InvalidOperationException("Rejected pagination attached the source control.");
+        Console.WriteLine("Source rich document passed: native paragraph/section/list/object layout, original control and text view, hits, MIL export, selection, caret, resize, edit, undo and detachment.");
     }
 }

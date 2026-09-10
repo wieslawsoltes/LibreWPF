@@ -59,6 +59,8 @@ internal sealed class PortableFlowDocumentTextView(FlowDocumentView owner, FlowD
         RequireValid();
         if (!double.IsFinite(point.X) || !double.IsFinite(point.Y)) return null;
         point += ScrollOffset;
+        if (page == null && Layout.Objects.Count != 0)
+            return GetFlowPositionFromPoint(point, snapToText);
         if (FirstLine == EndLine) return snapToText ? TextContainer.Start.GetFrozenPointer(LogicalDirection.Forward) : null;
         int first = FirstLine, limit = EndLine;
         page?.PointLineRange(point, out first, out limit);
@@ -83,6 +85,82 @@ internal sealed class PortableFlowDocumentTextView(FlowDocumentView owner, FlowD
         CharacterHit hit = entry.Line.GetCharacterHitFromDistance(distance);
         int offset = Math.Clamp(hit.FirstCharacterIndex + hit.TrailingLength, entry.Start, ContentEnd(index));
         return Pointer(offset, hit.TrailingLength > 0 ? LogicalDirection.Backward : LogicalDirection.Forward);
+    }
+
+    // Items reference either an original TextLine or an actual block control.
+    // Native placement owns both rectangles; object metrics never masquerade as
+    // shaped text or acquire glyph clusters. Source order also orders block Y.
+    private Rect ObjectRect(int index)
+    {
+        var box = Layout.Boxes[Layout.Objects[index].BlockIndex];
+        return new(box.X, box.Y, box.Width, box.Height);
+    }
+
+    private Rect ItemRect(int index)
+    {
+        var item = Layout.Items[index];
+        if (item.ObjectIndex >= 0) return ObjectRect(item.ObjectIndex);
+        var line = Layout.Lines[item.LineIndex]; var point = Layout.Positions[item.LineIndex];
+        return new(point.X + line.Line.Start, point.Y, line.Line.WidthIncludingTrailingWhitespace, line.Advance);
+    }
+
+    private int ItemStart(int index)
+    {
+        var item = Layout.Items[index];
+        return item.ObjectIndex >= 0 ? Layout.Objects[item.ObjectIndex].Start : Layout.Lines[item.LineIndex].Start;
+    }
+
+    private int FindItem(ITextPointer position)
+    {
+        int low = 0, high = Layout.Items.Count;
+        while (low < high)
+        {
+            int middle = low + (high - low) / 2;
+            if (ItemStart(middle) <= position.Offset) low = middle + 1; else high = middle;
+        }
+        int index = Math.Max(0, low - 1);
+        if (index > 0 && ItemStart(index) == position.Offset && position.LogicalDirection == LogicalDirection.Backward) --index;
+        return index;
+    }
+
+    private int ObjectAt(ITextPointer position)
+        => page == null && Layout.Objects.Count != 0 ? Layout.Items[FindItem(position)].ObjectIndex : -1;
+
+    private ITextPointer PositionFromItemX(int index, double x)
+    {
+        var item = Layout.Items[index];
+        if (item.ObjectIndex < 0) return PositionFromDistance(item.LineIndex, x - Layout.Positions[item.LineIndex].X);
+        var embedded = Layout.Objects[item.ObjectIndex]; var box = ObjectRect(item.ObjectIndex);
+        bool trailing = x > box.X + box.Width / 2;
+        return Pointer(trailing ? embedded.ContentEnd : embedded.ContentStart,
+            trailing ? LogicalDirection.Backward : LogicalDirection.Forward);
+    }
+
+    private ITextPointer GetFlowPositionFromPoint(Point point, bool snapToText)
+    {
+        int low = 0, high = Layout.Items.Count;
+        while (low < high)
+        {
+            int middle = low + (high - low) / 2;
+            if (ItemRect(middle).Y <= point.Y) low = middle + 1; else high = middle;
+        }
+        int index = Math.Max(0, low - 1);
+        Rect box = ItemRect(index);
+        if (point.Y > box.Bottom && index + 1 < Layout.Items.Count &&
+            point.Y - box.Bottom > ItemRect(index + 1).Y - point.Y) box = ItemRect(++index);
+        if (!snapToText && (point.Y < box.Top || point.Y >= box.Bottom || point.X < box.Left || point.X > box.Right)) return null;
+        return PositionFromItemX(index, point.X);
+    }
+
+    private ITextPointer AdjacentItemBoundary(ITextPointer position, LogicalDirection direction)
+    {
+        int current = FindItem(position), target = current + (direction == LogicalDirection.Forward ? 1 : -1);
+        if (target < 0 || target >= Layout.Items.Count) return position;
+        var item = Layout.Items[target];
+        int offset = item.ObjectIndex >= 0
+            ? direction == LogicalDirection.Forward ? Layout.Objects[item.ObjectIndex].ContentStart : Layout.Objects[item.ObjectIndex].ContentEnd
+            : direction == LogicalDirection.Forward ? Layout.Lines[item.LineIndex].Start : ContentEnd(item.LineIndex);
+        return Pointer(offset, direction);
     }
 
     private ITextPointer Pointer(int offset, LogicalDirection direction)
@@ -127,6 +205,12 @@ internal sealed class PortableFlowDocumentTextView(FlowDocumentView owner, FlowD
         RequirePosition(position);
         Vector offset = ScrollOffset;
         transform = offset == new Vector() ? Transform.Identity : new TranslateTransform(-offset.X, -offset.Y);
+        int objectIndex = ObjectAt(position);
+        if (objectIndex >= 0)
+        {
+            var embedded = Layout.Objects[objectIndex]; var box = ObjectRect(objectIndex);
+            return new(position.Offset <= embedded.ContentStart ? box.Left : box.Right, box.Top, 0, box.Height);
+        }
         if (FirstLine == EndLine) return Rect.Empty;
         int index = FindLine(position);
         var entry = Layout.Lines[index]; var origin = Position(index);
@@ -138,8 +222,8 @@ internal sealed class PortableFlowDocumentTextView(FlowDocumentView owner, FlowD
         RequireRange(start, end);
         if (end.Offset < start.Offset) throw new ArgumentException("A document range must be ordered.");
         var result = new List<Rect>();
-        if (FirstLine == EndLine || start.Offset == end.Offset) return result.AsReadOnly();
-        int first = FindLine(start), last = FindLine(end);
+        if (start.Offset == end.Offset) return result.AsReadOnly();
+        int first = FirstLine == EndLine ? 0 : FindLine(start), last = FirstLine == EndLine ? -1 : FindLine(end);
         for (int index = first; index <= last; ++index)
         {
             var entry = Layout.Lines[index]; var origin = Position(index);
@@ -154,6 +238,21 @@ internal sealed class PortableFlowDocumentTextView(FlowDocumentView owner, FlowD
             {
                 double x = origin.X + entry.Line.GetDistanceFromCharacterHit(new(ContentEnd(index), 0));
                 result.Add(new(x, origin.Y, entry.Paragraph.FontSize * CaretElement.c_endOfParaMagicMultiplier, entry.Advance));
+            }
+        }
+        if (page == null)
+        {
+            int low = 0, high = Layout.Objects.Count;
+            while (low < high)
+            {
+                int middle = low + (high - low) / 2;
+                if (Layout.Objects[middle].ContentEnd <= start.Offset) low = middle + 1; else high = middle;
+            }
+            for (int index = low; index < Layout.Objects.Count && Layout.Objects[index].ContentStart < end.Offset; ++index)
+            {
+                var embedded = Layout.Objects[index];
+                if (embedded.ContentStart < end.Offset && embedded.ContentEnd > start.Offset)
+                    result.Add(ObjectRect(index));
             }
         }
         return result.AsReadOnly();
@@ -189,6 +288,14 @@ internal sealed class PortableFlowDocumentTextView(FlowDocumentView owner, FlowD
     {
         RequirePosition(position);
         newSuggestedX = suggestedX; linesMoved = 0;
+        if (page == null && Layout.Objects.Count != 0)
+        {
+            int current = FindItem(position);
+            int targetItem = (int)Math.Clamp((long)current + count, 0, Layout.Items.Count - 1);
+            linesMoved = targetItem - current;
+            if (double.IsNaN(newSuggestedX)) newSuggestedX = GetRectangleFromTextPosition(position).X;
+            return PositionFromItemX(targetItem, newSuggestedX + ScrollOffset.X);
+        }
         if (FirstLine == EndLine) return position;
         int index = FindLine(position);
         int target = (int)Math.Clamp((long)index + count, FirstLine, EndLine - 1);
@@ -224,6 +331,9 @@ internal sealed class PortableFlowDocumentTextView(FlowDocumentView owner, FlowD
     internal override bool IsAtCaretUnitBoundary(ITextPointer position)
     {
         RequirePosition(position);
+        int objectIndex = ObjectAt(position);
+        if (objectIndex >= 0)
+            return position.Offset == Layout.Objects[objectIndex].ContentStart || position.Offset == Layout.Objects[objectIndex].ContentEnd;
         if (FirstLine == EndLine) return position.Offset == TextContainer.Start.Offset;
         int index = FindLine(position);
         if (position.Offset < Layout.Lines[index].Start || position.Offset > ContentEnd(index)) return false;
@@ -237,6 +347,16 @@ internal sealed class PortableFlowDocumentTextView(FlowDocumentView owner, FlowD
     {
         RequirePosition(position);
         if (direction is not LogicalDirection.Forward and not LogicalDirection.Backward) throw new ArgumentOutOfRangeException(nameof(direction));
+        int objectIndex = ObjectAt(position);
+        if (objectIndex >= 0)
+        {
+            var embedded = Layout.Objects[objectIndex];
+            if (direction == LogicalDirection.Forward && position.Offset < embedded.ContentEnd)
+                return Pointer(embedded.ContentEnd, direction);
+            if (direction == LogicalDirection.Backward && position.Offset > embedded.ContentStart)
+                return Pointer(embedded.ContentStart, direction);
+            return AdjacentItemBoundary(position, direction);
+        }
         if (FirstLine == EndLine) return position;
         int index = FindLine(position);
         var entry = Layout.Lines[index];
@@ -244,6 +364,9 @@ internal sealed class PortableFlowDocumentTextView(FlowDocumentView owner, FlowD
         CharacterHit next = backspace ? entry.Line.GetBackspaceCaretCharacterHit(hit) : direction == LogicalDirection.Forward
             ? entry.Line.GetNextCaretCharacterHit(hit) : entry.Line.GetPreviousCaretCharacterHit(hit);
         int offset = next.FirstCharacterIndex + next.TrailingLength;
+        if (page == null && Layout.Objects.Count != 0 &&
+            (direction == LogicalDirection.Forward ? offset <= position.Offset : offset >= position.Offset))
+            return AdjacentItemBoundary(position, direction);
         if (direction == LogicalDirection.Forward && offset <= position.Offset && index + 1 < EndLine)
             offset = Layout.Lines[index + 1].Start;
         else if (direction == LogicalDirection.Backward && offset >= position.Offset && index > FirstLine)
@@ -254,6 +377,13 @@ internal sealed class PortableFlowDocumentTextView(FlowDocumentView owner, FlowD
     internal override TextSegment GetLineRange(ITextPointer position)
     {
         RequirePosition(position);
+        int objectIndex = ObjectAt(position);
+        if (objectIndex >= 0)
+        {
+            var embedded = Layout.Objects[objectIndex];
+            return new(TextContainer.CreatePointerAtOffset(embedded.ContentStart, LogicalDirection.Forward),
+                TextContainer.CreatePointerAtOffset(embedded.ContentEnd, LogicalDirection.Backward), true);
+        }
         if (FirstLine == EndLine) return new(TextContainer.Start, TextContainer.End, true);
         int index = FindLine(position);
         return new(TextContainer.CreatePointerAtOffset(Layout.Lines[index].Start, LogicalDirection.Forward),

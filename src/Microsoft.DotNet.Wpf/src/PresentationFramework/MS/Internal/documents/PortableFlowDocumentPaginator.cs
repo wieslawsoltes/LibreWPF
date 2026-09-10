@@ -139,6 +139,8 @@ internal sealed class PortableFlowDocumentPaginator : DynamicDocumentPaginator,
                 ColumnGap = gap;
                 next = PortableFlowDocumentLayout.Create(document, ColumnWidth, document.PixelsPerDip,
                     TextOptions.GetTextFormattingMode(document), new Thickness());
+                if (next.Objects.Count != 0)
+                    throw new PlatformNotSupportedException("Paginated block controls require native object fragmentation and page ownership.");
                 var input = CreateFragmentLines(next);
                 placed = new PortableDocumentFragmentPosition[input.Length];
                 var result = flow.Paginate(input, height, (uint)Columns, placed);
