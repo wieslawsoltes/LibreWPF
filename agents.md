@@ -73,6 +73,12 @@ Handoff pumps existing visibility without Show/activation or dialog modal hints;
 Hide cancels deferred first Show. Keep managed/native hosts shared and Windows
 SDK admission guarded until package integration is complete.
 
+Visual bounds descriptors likewise publish authoritative Rect.Empty. Empty ordinary
+visual opacity uses ProGPU's existing uniform-alpha traversal without allocating
+isolation bounds; retain alpha, owners, point-only scopes and descendants. Missing
+or zero-sized metadata must not enter that empty-content path. Spatial masks,
+effects and caches keep their separate allocation/coverage requirements.
+
 Drawing bounds distinguish known empty content from missing metadata. A successful
 IPortableDrawingBoundsSource result may carry PortableRect.Empty; false never
 means empty. Native DrawingImage lowering and managed image/tile replay consume
@@ -322,7 +328,10 @@ reintroduce blanket rejection in TextBlock/Hyperlink. Custom/animated/paragraph
 decorations and mixed-font averaging remain explicit, as does the separate rich
 editor structural decoration-scope contract; do not erase those semantics.
 
-RichTextBox render-scope selection follows frozen media ownership on every OS;
+RichTextBox uses shared FlowDocumentView native paragraph/section/list layout and
+the original document TextContainer, selection, undo and live layout generation.
+That view selects frozen media ownership before PTS on every OS. Never flatten
+the portable rich editor into TextBoxView or rebuild a second document tree.
 Editor decorated-inline edges publish the existing TextSpanModifier and paired
 TextEndOfSegment, preserving nested source scopes and explicit-line continuation.
 Independent editor line formatting seeds only already-open actual source ancestors
@@ -332,13 +341,13 @@ PortableTextLine still validates composed decoration kinds/pens; do not discard
 unsupported decoration semantics. Figure/Floater are AnchoredBlock inlines, not
 ordinary spans: reject them until native anchored layout exists, never flatten
 their children into the linear editor. Source positions remain document symbols.
-Windows portable media must not enter the PTS-backed FlowDocumentView. The source
-TextBoxView editor retains real document symbols and per-run style ownership.
+Windows portable media must not enter the shared view's PTS formatter. The linear
+TextBoxView consumer also retains real document symbols and per-run style ownership.
 Never hide embedded objects, block layout, directional scopes or decorations as
 successful non-ink edges when their layout contracts are absent. Registered text
 providers must implement or reject justification, not receive silent left alignment.
 Bounded source run copies must not split UTF-16 scalars. This editor route is not
-full FlowDocument layout or Windows package admission evidence.
+full anchored/table/embedded-object layout or Windows package admission evidence.
 Retained editor line records own each source-formatted line advance and top.
 Drawing, caret/selection, hit testing, scrolling and incremental updates must use
 that same prefix map; do not restore a last-line-height-times-index approximation.

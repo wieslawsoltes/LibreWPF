@@ -483,12 +483,18 @@ public sealed class WpfNativeMilSceneCompiler
             }
         }
 
-        private void AddVisualBounds(object visual, uint visualHandle)
+        private void AddVisualBounds(object visual, uint visualHandle, bool allowEmptyOpacity = false)
         {
             if (_visualBoundsHandles.Contains(visualHandle)) return;
-            if (!TryGetVisualBounds(visual, out NativeMilRect bounds))
+            if (!TryGetVisualBounds(visual, out NativeMilRect bounds,
+                    allowEmpty: allowEmptyOpacity, allowZeroExtent: false))
                 throw new NotSupportedException(
                     "Native MIL visual isolation and visual-source brushes require exact typed Visual descendant bounds.");
+            // An authoritative empty drawing needs no opacity raster allocation.
+            // Keep the visual, alpha, source input scopes and descendants on the
+            // existing native uniform-opacity path. Missing bounds still fail;
+            // this does not admit empty cache/effect/spatial-mask allocations.
+            if (allowEmptyOpacity && bounds.Width == 0 && bounds.Height == 0) return;
             VisualCacheBounds.Add(new WpfNativeMilVisualCacheBounds(visualHandle, bounds));
             _visualBoundsHandles.Add(visualHandle);
         }
@@ -590,7 +596,9 @@ public sealed class WpfNativeMilSceneCompiler
                 state.HasOpacityMask;
             if (requiresVisualIsolationBounds || brushSource)
             {
-                AddVisualBounds(visual, visualHandle);
+                AddVisualBounds(visual, visualHandle, allowEmptyOpacity:
+                    !brushSource && !state.HasCacheMode && !state.HasEffect &&
+                    !state.HasBitmapEffect && !state.HasOpacityMask);
             }
             if (state.HasClip)
             {
@@ -2822,7 +2830,8 @@ public sealed class WpfNativeMilSceneCompiler
         private static bool TryGetVisualBounds(
             object visual,
             out NativeMilRect bounds,
-            bool allowEmpty = false)
+            bool allowEmpty = false,
+            bool allowZeroExtent = true)
         {
             bounds = default;
             if (visual is not IPortableVisualBoundsSource source ||
@@ -2850,7 +2859,7 @@ public sealed class WpfNativeMilSceneCompiler
                 !double.IsFinite(candidate.Y) ||
                 !double.IsFinite(candidate.Width) ||
                 !double.IsFinite(candidate.Height) ||
-                (allowEmpty ? candidate.Width < 0 || candidate.Height < 0
+                (allowEmpty && allowZeroExtent ? candidate.Width < 0 || candidate.Height < 0
                     : candidate.Width <= 0 || candidate.Height <= 0))
             {
                 return false;

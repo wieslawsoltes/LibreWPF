@@ -11,6 +11,65 @@ namespace ProGPU.Wpf.Tests.Composition.Mil;
 
 public sealed class WpfNativeMilSceneCompilerTests
 {
+    [Theory]
+    [InlineData(0.0, NativeMilBackend.WgpuNative)]
+    [InlineData(0.5, NativeMilBackend.WgpuNative)]
+    [InlineData(0.0, NativeMilBackend.Dawn)]
+    [InlineData(0.5, NativeMilBackend.Dawn)]
+    public void AuthoritativeEmptyOpacityPreservesNativeAndManagedPointScopes(double opacity, NativeMilBackend backend)
+    {
+        var child = new EmptyOpacityVisual(0.5);
+        var root = new EmptyOpacityVisual(opacity, child);
+        var compiler = new WpfNativeMilSceneCompiler();
+        var batch = compiler.BuildBatch(root, 80, 80);
+        Assert.Empty(batch.VisualCacheBounds!);
+        Assert.Equal(2, batch.VisualOwners.Count);
+        Assert.Equal(2, batch.PointHitRegions.Length);
+        using var session = new WpfNativeMilCompilationSession(backend);
+        session.Update(batch);
+        Assert.NotEmpty(session.CompileFrame(8211, 1, 0, 1,
+            flags: NativeMilSceneBuildRequestFlags.HitTestIndex).Scene.Stream);
+
+        var recorder = new global::ProGPU.Scene.GpuPictureRecorder();
+        var drawing = recorder.BeginRecording(new(0, 0, 80, 80));
+        using var sink = new global::System.Windows.Media.ProGPU.Composition.ProGpuCompositionCommandSink(drawing);
+        new WpfVisualTreeRenderer().ReplaySubtree(root, sink);
+        using var picture = recorder.EndRecording();
+        using var capture = new global::ProGPU.Scene.GpuRenderCommandHitTestCacheBuilder();
+        for (int i = 0; i < picture.CommandCount; ++i)
+            capture.AddCommand(picture.GetCommand(i), Matrix4x4.Identity);
+        Assert.Equal(2, capture.BuildIndex().Primitives.Count);
+
+        root.Bounds = new(1, 2, 30, 20);
+        var filled = compiler.BuildBatch(root, 80, 80);
+        Assert.Single(filled.VisualCacheBounds!);
+        session.Update(filled);
+        session.CompileFrame(8211, 2, 0, 2, flags: NativeMilSceneBuildRequestFlags.HitTestIndex);
+        root.Bounds = PortableRect.Empty;
+        session.Update(compiler.BuildBatch(root, 80, 80));
+        session.CompileFrame(8211, 3, 0, 3, flags: NativeMilSceneBuildRequestFlags.HitTestIndex);
+        root.HasBounds = false;
+        Assert.Throws<NotSupportedException>(() => compiler.BuildBatch(root, 80, 80));
+        root.HasBounds = true;
+        root.Bounds = new(0, 0, 0, 0);
+        Assert.Throws<NotSupportedException>(() => compiler.BuildBatch(root, 80, 80));
+    }
+
+    private sealed class EmptyOpacityVisual(double opacity, params object[] children)
+        : FakeVisual(null, new PortableVisualState { HasOpacity = true, Opacity = opacity }, children),
+          IPortableVisualBoundsSource, IPortablePointHitRegionSource
+    {
+        internal PortableRect Bounds = PortableRect.Empty;
+        internal bool HasBounds = true;
+        bool IPortableVisualBoundsSource.TryGetPortableVisualBounds(out PortableVisualBounds bounds)
+        {
+            bounds = new() { HasDescendantBounds = HasBounds, DescendantBounds = Bounds };
+            return true;
+        }
+        public bool TryGetPortablePointHitRegion(out PortableRect rectangle)
+        { rectangle = new(1, 2, 30, 20); return true; }
+    }
+
     [Fact]
     public void EmptyOwnPointCoverageKeepsNativeDrawingAndReplacesSidebandPolicy()
     {

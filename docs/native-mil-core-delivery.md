@@ -15,6 +15,13 @@ do not automatically expand the release checklist.
 
 ## Active completion queue
 
+**Rich-document connection — 2026-09-10:** RichTextBox now uses the shared native
+FlowDocument view with original source text services. Real paragraph/section/list
+layout, selection, edit, undo and native scene/input compilation pass. The unchanged
+full Application.Run document next rejects table/block-object layout; anchored and
+inline objects remain required too. See
+[rich-document validation](../reports/native-mil-rich-document-validation-2026-09-10.md).
+
 **Rich-editor follow-up:** paired decoration scopes now reach native formatting;
 independent editor lines retain their open source ancestors. The unchanged full
 application currently rejects Figure, whose anchored/object layout remains missing.

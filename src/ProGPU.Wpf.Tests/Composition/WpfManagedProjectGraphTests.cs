@@ -6,6 +6,20 @@ namespace ProGPU.Wpf.Tests.Composition;
 public sealed class WpfManagedProjectGraphTests
 {
     [Fact]
+    public void RichEditorUsesSharedNativeDocumentViewAndOriginalTextServices()
+    {
+        string editor = File.ReadAllText(FindRepoPath("src", "Microsoft.DotNet.Wpf", "src",
+            "PresentationFramework", "System", "Windows", "Controls", "RichTextBox.cs"));
+        int start = editor.IndexOf("internal override FrameworkElement CreateRenderScope()", StringComparison.Ordinal);
+        string scope = editor[start..editor.IndexOf("return renderScope;", start, StringComparison.Ordinal)];
+        AssertGuardBefore(scope, "PortableWpfRuntime.GetMediaBackendAndFreeze()", "new FlowDocumentView");
+        Assert.Contains("Document = this.Document", scope, StringComparison.Ordinal);
+        Assert.DoesNotContain("new TextBoxView", scope, StringComparison.Ordinal);
+        string program = File.ReadAllText(FindRepoPath("src", "ProGPU.Wpf.RealPresentationFrameworkHarness", "Program.cs"));
+        Assert.Contains("NativeMilRichDocumentSmoke.Run(presentationFramework, presentationCore, windowsBase)", program, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void RichEditorDecorationEdgesUsePairedSourceModifiersWithoutObjectFlattening()
     {
         string line = File.ReadAllText(FindRepoPath("src", "Microsoft.DotNet.Wpf", "src",

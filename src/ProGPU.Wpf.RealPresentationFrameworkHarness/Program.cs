@@ -146,6 +146,7 @@ public static class Program
                 Assembly presentationFramework = loadContext.LoadFromAssemblyPath(presentationFrameworkPath);
                 NativeMilTextCollapseSmoke.RunSourceHeader(presentationFramework, presentationCore, windowsBase);
                 NativeMilRichTextDecorationSmoke.Run(presentationFramework);
+                NativeMilRichDocumentSmoke.Run(presentationFramework, presentationCore, windowsBase);
                 object inlineText = CreateNativeMilInlineTextVisual(presentationFramework, presentationCore, windowsBase);
                 object root = Create(presentationCore, "System.Windows.Media.ContainerVisual");
                 AddToCollection(GetProperty(root, "Children"), drawingVisual);

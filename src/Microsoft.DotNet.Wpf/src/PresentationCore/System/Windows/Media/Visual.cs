@@ -427,13 +427,13 @@ namespace System.Windows.Media
 
         private static bool HasPortableVisualBounds(Rect bounds)
         {
-            return !bounds.IsEmpty
-                && bounds.Width > 0
+            // Empty is authoritative source content, not missing metadata.
+            return bounds.IsEmpty || (bounds.Width > 0
                 && bounds.Height > 0
                 && Double.IsFinite(bounds.X)
                 && Double.IsFinite(bounds.Y)
                 && Double.IsFinite(bounds.Width)
-                && Double.IsFinite(bounds.Height);
+                && Double.IsFinite(bounds.Height));
         }
 
         private static PortableRect ToPortableRect(Rect bounds)

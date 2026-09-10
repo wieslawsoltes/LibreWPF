@@ -314,16 +314,11 @@ namespace System.Windows.Controls
         // Allocates the initial render scope for this control.
         internal override FrameworkElement CreateRenderScope()
         {
-            // PTS belongs to Windows MIL, not to the OS of the portable host.
-            // Keep TextEditor and its source positions/selection/undo on the same
-            // TextFormatter-based view when ProGPU owns media, including Windows.
-            if (PortableWpfRuntime.GetMediaBackendAndFreeze() == PortableWpfMediaBackend.Portable)
-            {
-                return new TextBoxView(this)
-                {
-                    OverridesDefaultStyle = true
-                };
-            }
+            // The shared document view selects its native portable formatter and
+            // ITextView before PTS access. A rich editor must retain document block
+            // placement, not flatten paragraphs/sections/lists into TextBoxView.
+            // Freeze ownership before constructing either renderer's view.
+            _ = PortableWpfRuntime.GetMediaBackendAndFreeze();
 
             FlowDocumentView renderScope = new FlowDocumentView
             {
