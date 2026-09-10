@@ -9371,6 +9371,8 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("HasPendingManagedOperation()", dispatcher, StringComparison.Ordinal);
         AssertGuardBefore(dispatcher, "if (!_useWin32MessagePump)", "UnsafeNativeMethods.MsgWaitForMultipleObjectsEx");
         Assert.Contains("return !_useWin32MessagePump;", dispatcher, StringComparison.Ordinal);
+        Assert.Contains("window?.Dispose();", dispatcher, StringComparison.Ordinal);
+        Assert.DoesNotContain("window.Dispose();", dispatcher, StringComparison.Ordinal);
         AssertGuardBefore(dispatcherSynchronizationContext, "if(!OperatingSystem.IsWindows())", "UnsafeNativeMethods.WaitForMultipleObjectsEx");
         Assert.Contains("return SynchronizationContext.WaitHelper(waitHandles, waitAll, millisecondsTimeout);", dispatcherSynchronizationContext, StringComparison.Ordinal);
         AssertGuardBefore(readerWriterLockWrapper, "if(!OperatingSystem.IsWindows())", "UnsafeNativeMethods.WaitForMultipleObjectsEx");
