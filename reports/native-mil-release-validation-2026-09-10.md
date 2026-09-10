@@ -21,6 +21,33 @@ User deadline: 10:21–11:21 UTC. Expansion frozen; required gates are not waive
 - The pre-host hyperlink formatting fixture now supplies its source underline
   explicitly. It has no Application theme dictionary; this tests native decoration
   rendering, not application theme loading. Package theme qualification remains.
+- Final release fixes are pushed to ProGPU `219df990`, still based on main
+  `73cda9a5` (rechecked during this push). They include native alpha/text repairs,
+  mask-list lifetime ownership, geometry split handling, complete export lists,
+  strict compiler fixes and matching ABI/test assertions. No required gate was
+  disabled. LibreWPF now pins that exact commit.
+- The complete local managed run at `bd4b7313` reported 4,540 pass / 5 fail /
+  7 skip (4,552 total). Four failures are cached-stroke coverage/alpha differences.
+  The fifth was a stale submission-count assertion, corrected in `219df990` and
+  passing in a focused rerun. A full current-head run remains authoritative.
+- The complete local native run at `bd4b7313` reported 16 pass / 3 fail (19 total).
+  Remaining failures: Direct2D WebGPU Viewport3D sibling/depth pixels; Direct2D
+  compatibility Widen checkpoint 344; initial MIL ellipse input build, status 5.
+  Geometry utility, native internal and both native text suites passed. The final
+  explicit diagnostic table type also rebuilt and passed its native test.
+- LibreWPF Windows managed runtime CI passed at `f38af0f3b`, but SDK qualification
+  remains pending. ProGPU latest-head CI must rerun after the final compiler/test
+  corrections; earlier green jobs do not qualify the new commit.
+
+## Deadline disposition
+
+The one-hour push has not produced a merge-qualified package MVP. Both PRs remain
+drafts, with required rendering failures and platform/package qualification open.
+Do not merge on the strength of the passing source-host smoke. The concrete next
+work is the four managed cached-stroke comparisons and three native failures
+above, then exact-head complete package production and application/CI gates below.
+There is no evidence-backed completion ETA until these runtime failures are fixed;
+CI queue time and cross-platform execution are additional to implementation time.
 
 ## Required before merge
 

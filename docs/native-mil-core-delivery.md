@@ -27,9 +27,10 @@ Latest-main integration: [ProGPU PR #155 rebase report](../reports/native-mil-ma
 The branch now consumes the rebased ABI 4 source contract. Earlier payload/feed
 versions below are historical, not compatible final qualification artifacts.
 Current ABI 4 [native package-input production](../reports/native-mil-abi4-payload-build-2026-09-10.md)
-has staged both macOS/Linux RIDs and Windows ARM64; Windows x64 production is
-active, with current Windows managed/IJW inputs and complete SDK production
-still pending.
+has staged both macOS/Linux RIDs and Windows ARM64; Windows x64 compilation also
+finished, with its final staging still pending. These baseline build-only inputs
+are not payloads for the newer release fixes. Windows managed CI is green at
+`f38af0f3b`; complete exact-head SDK production and qualification remain pending.
 
 Work through these application-level batches in order. This queue, not the
 historical checkpoint suggestions below, determines the next work. Update the
