@@ -15,6 +15,13 @@ do not automatically expand the release checklist.
 
 ## Active completion queue
 
+**Anchored provider connection — 2026-09-11:** the typed WPF document adapter now
+calls ProGPU's shared native width and source-ordered placement batches. Four
+focused document-flow tests pass, including ABI and atomicity checks. Source
+Figure/Floater subtree measurement, wrapping and document-position ownership
+remain the immediate application blocker; do not admit them from provider support
+alone. See [provider evidence](../reports/native-mil-anchor-provider-2026-09-11.md).
+
 **Merge-gate recheck — 2026-09-11:** ProGPU `586e52c7` passed the native browser
 WebGPU job [103070284281](https://github.com/wieslawsoltes/ProGPU/actions/runs/34536827381/job/103070284281).
 The preceding readback timeout remains unexplained, not a confirmed synchronization

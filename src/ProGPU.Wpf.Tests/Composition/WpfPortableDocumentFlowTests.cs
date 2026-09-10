@@ -7,6 +7,39 @@ namespace ProGPU.Wpf.Tests.Composition;
 public class WpfPortableDocumentFlowTests
 {
     [Fact]
+    public void AnchorAdapterRetainsNativeLayoutsAndAtomicBatches()
+    {
+        static void SameLayout<TSource, TNative>() where TSource : struct where TNative : struct
+        {
+            Assert.Equal(System.Runtime.InteropServices.Marshal.SizeOf<TNative>(), System.Runtime.InteropServices.Marshal.SizeOf<TSource>());
+            foreach (var field in typeof(TSource).GetFields())
+                Assert.Equal(System.Runtime.InteropServices.Marshal.OffsetOf<TNative>(field.Name),
+                    System.Runtime.InteropServices.Marshal.OffsetOf<TSource>(field.Name));
+        }
+        SameLayout<PortableDocumentAnchorWidthRequest, ProGPU.Backend.Native.NativeDocumentAnchorWidthRequest>();
+        SameLayout<PortableDocumentAnchorWidthResult, ProGPU.Backend.Native.NativeDocumentAnchorWidthResult>();
+        SameLayout<PortableDocumentAnchorRequest, ProGPU.Backend.Native.NativeDocumentAnchorRequest>();
+        SameLayout<PortableDocumentAnchorRectangle, ProGPU.Backend.Native.NativeDocumentAnchorRectangle>();
+        IPortableAnchoredDocumentFlow provider = new WpfPortableDocumentFlow();
+        PortableDocumentAnchorWidthRequest[] widths = [new() { AvailableWidth = 100, HorizontalInsets = 12,
+            MeasuredWidth = 37, HasMeasurement = 1, Mode = PortableDocumentAnchorWidthMode.FitContent }];
+        PortableDocumentAnchorWidthResult[] resolved = new PortableDocumentAnchorWidthResult[1];
+        provider.ResolveAnchorWidths(widths, resolved);
+        Assert.Equal(37, resolved[0].ContentWidth); Assert.Equal(49, resolved[0].OuterWidth);
+        Assert.Equal(1U, resolved[0].RequiresRemeasure);
+        PortableDocumentAnchorRequest[] requests = [
+            new() { Right = 100, Bottom = 100, Width = 30, Height = 10, Alignment = PortableDocumentAnchorAlignment.Right, AllowDelay = 1, MaximumAttempts = 8 },
+            new() { Right = 100, Bottom = 100, Width = 30, Height = 15, Alignment = PortableDocumentAnchorAlignment.Right, AllowDelay = 1, MaximumAttempts = 8 }];
+        PortableDocumentAnchorRectangle[] placed = new PortableDocumentAnchorRectangle[2];
+        provider.PlaceAnchors(requests, [new() { Left = 70, Right = 100, Bottom = 20 }], placed);
+        Assert.Equal(70, placed[0].Left); Assert.Equal(20, placed[0].Top); Assert.Equal(30, placed[1].Top);
+        requests[0].Alignment = PortableDocumentAnchorAlignment.Left;
+        requests[1].Reserved = 1;
+        Assert.Throws<ProGPU.Backend.Native.NativeRendererException>(() => provider.PlaceAnchors(requests, [], placed));
+        Assert.Equal(70, placed[0].Left); Assert.Equal(30, placed[1].Top);
+    }
+
+    [Fact]
     public void RowAdapterRetainsSharedColumnConstraintsAndSourceLineOrder()
     {
         IPortableDocumentFlow provider = new WpfPortableDocumentFlow();

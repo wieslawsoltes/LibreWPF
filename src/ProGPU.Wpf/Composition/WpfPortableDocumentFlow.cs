@@ -5,10 +5,23 @@ using ProGPU.Wpf.Interop;
 namespace System.Windows.Media.ProGPU.Composition;
 
 /// <summary>Typed zero-copy adapter only; block layout remains in ProGPU C++.</summary>
-internal sealed class WpfPortableDocumentFlow : IPortableDocumentFlow
+internal sealed class WpfPortableDocumentFlow : IPortableAnchoredDocumentFlow
 {
     private static readonly WpfPortableDocumentFlow Default = new();
     internal static void EnsureRegistered() => PortableWpfServiceRegistry.EnsureDocumentFlow(Default);
+
+    public void ResolveAnchorWidths(ReadOnlySpan<PortableDocumentAnchorWidthRequest> requests,
+        Span<PortableDocumentAnchorWidthResult> results)
+        => NativeDocumentFlow.ResolveAnchorWidths(
+            MemoryMarshal.Cast<PortableDocumentAnchorWidthRequest, NativeDocumentAnchorWidthRequest>(requests),
+            MemoryMarshal.Cast<PortableDocumentAnchorWidthResult, NativeDocumentAnchorWidthResult>(results));
+
+    public void PlaceAnchors(ReadOnlySpan<PortableDocumentAnchorRequest> requests,
+        ReadOnlySpan<PortableDocumentAnchorRectangle> exclusions, Span<PortableDocumentAnchorRectangle> results)
+        => NativeDocumentFlow.PlaceAnchors(
+            MemoryMarshal.Cast<PortableDocumentAnchorRequest, NativeDocumentAnchorRequest>(requests),
+            MemoryMarshal.Cast<PortableDocumentAnchorRectangle, NativeDocumentAnchorRectangle>(exclusions),
+            MemoryMarshal.Cast<PortableDocumentAnchorRectangle, NativeDocumentAnchorRectangle>(results));
 
     public PortableDocumentPagination Paginate(ReadOnlySpan<PortableDocumentFragmentLine> lines,
         double contentHeight, uint columns, Span<PortableDocumentFragmentPosition> positions)
