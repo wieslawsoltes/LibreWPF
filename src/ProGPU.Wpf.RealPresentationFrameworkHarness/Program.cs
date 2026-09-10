@@ -2114,13 +2114,17 @@ public static class Program
                 return LoadFromAssemblyPath(outputAssemblyPath);
             }
 
+            // Source builds put each WPF assembly in its own project directory.
+            // Resolve siblings using PresentationCore's configuration and TFM,
+            // never a stale Debug build or the runtime's WindowsBase facade.
+            var sourceDirectory = new DirectoryInfo(_wpfAssemblyDirectory);
             string artifactAssemblyPath = Path.Combine(
                 _repoRoot,
                 "artifacts",
                 "bin",
                 assemblyName.Name ?? string.Empty,
-                "Debug",
-                "net10.0",
+                sourceDirectory.Parent?.Name ?? string.Empty,
+                sourceDirectory.Name,
                 $"{assemblyName.Name}.dll");
 
             if (File.Exists(artifactAssemblyPath))
