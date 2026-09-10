@@ -27,8 +27,19 @@ internal static class NativeMilAnchoredDocumentSmoke
             object child = New("System.Windows.Documents.Paragraph");
             Add(child, "Inlines", New("System.Windows.Documents.Run", "original anchored paragraph wraps across multiple native lines"));
             Add(anchor, "Blocks", child);
-            Add(parent, "Inlines", anchor);
+            object span = New("System.Windows.Documents.Span");
+            Add(span, "Inlines", anchor);
+            Add(parent, "Inlines", span);
             Add(document, "Blocks", parent);
+            var collect = framework.GetType("MS.Internal.Documents.PortableDocumentAnchorSource", true)!
+                .GetMethod("Collect", BindingFlags.Static | BindingFlags.NonPublic)!;
+            var anchors = (IList)collect.Invoke(null, [parent])!;
+            if (anchors.Count != 1 || !ReferenceEquals(Get(anchors[0]!, "Paragraph"), parent) ||
+                !ReferenceEquals(Get(anchors[0]!, "Anchor"), anchor) ||
+                (int)Get(anchors[0]!, "Start") != (int)Get(Get(anchor, "ElementStart"), "Offset") ||
+                (int)Get(anchors[0]!, "End") != (int)Get(Get(anchor, "ElementEnd"), "Offset") ||
+                ((IList)collect.Invoke(null, [child])!).Count != 0)
+                throw new InvalidOperationException(kind + " anchor inventory lost source identity or entered its child text.");
             object Create(double width) => method.Invoke(null, [document, anchor, width, 1.0, mode])!;
             object wide = Create(220);
             object narrow = Create(45);

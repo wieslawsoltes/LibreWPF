@@ -15,6 +15,13 @@ do not automatically expand the release checklist.
 
 ## Active completion queue
 
+**Anchor source inventory — 2026-09-11:** an ordered, bounded source collector
+now retains actual Figure/Floater identities and symbol ranges through nested
+Spans without visiting child paragraph text. Source build and both anchor fixtures
+pass. Native placement/wrap production and retained child drawing/input consumers
+must connect before parent admission; see
+[inventory evidence](../reports/native-mil-anchor-source-inventory-2026-09-11.md).
+
 **Source hard-segment connection — 2026-09-11:** source excluded paragraphs now
 continue after real LineBreak content at the previous native bottom, preserving
 wrapped-fragment ownership and cumulative document extents. Source build and the
