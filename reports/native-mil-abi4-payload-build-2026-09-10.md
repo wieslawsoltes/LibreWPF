@@ -82,6 +82,32 @@ on an inspected retry. After successful x64 staging, the adjacent
 host, rejecting an existing destination or missing successful staging record.
 Neither runner weakens the production script's payload requirements.
 
+## Current-source Windows managed preparation
+
+The required package inputs include source-built `PresentationCore`,
+`DirectWriteForwarder` and matching IJW hosts for Windows x86, x64 and ARM64.
+Earlier `aa3bc9ad8` outputs are preserved, but are not substituted for current
+source after the native/main integration. The acceptance action remains starting
+the complete package-mode MVP, not a reduced direct-host harness.
+
+Preparation is active in a new guest checkout, `C:\lwpf-abi4-828fff634`.
+The LibreWPF clone completed and its HEAD check accepted
+`828fff63436d9f16a6ac397c538affa27ce8c9cf`; the pinned ProGPU submodule is now
+being cloned. Its required HEAD is `2a998c86b669dda259a638470491440c1478a71f`.
+The prior `C:\lwpf-eb8660165` source and all of its generated outputs remain
+untouched. Only `.dotnet`, `.packages` and `.tools` build inputs are scheduled
+for copying into the new checkout; no previous product assembly or native build
+directory is reused. Copying and final clean-source checks have not completed.
+
+Resume host preparation session `11927`; do not repeat `-Prepare` against the
+partially populated directory. Its scoped runner is
+`artifacts/native-core-build.KvxVug/windows-managed-abi4.ps1`. Only after successful
+preparation and the current native x64 build completes, use its separate `-Build`
+invocation. That calls the existing `eng/progpu-wpf-windows-managed-runtime.ps1`
+with `-Rebuild`, all three RIDs, the pinned validated x64 SDK host, PowerShell 7
+child processes and unchanged execution policy. No new managed build is running
+at this checkpoint; no Windows managed payload or complete package is claimed.
+
 ## Linux input refresh
 
 Further read-only inventory found the preserved `progpu-native-build` Colima
