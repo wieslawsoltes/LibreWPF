@@ -44,11 +44,14 @@
     <PropertyGroup>
       <_LibreWpfSdkPackageVersionToPack Condition="'$(PackageVersion)' != ''">$(PackageVersion)</_LibreWpfSdkPackageVersionToPack>
       <_LibreWpfSdkPackageVersionToPack Condition="'$(_LibreWpfSdkPackageVersionToPack)' == ''">$(Version)</_LibreWpfSdkPackageVersionToPack>
+      <_LibreWpfSdkProGpuPackageVersionToPack Condition="'$(ProGpuPackageVersion)' != ''">$(ProGpuPackageVersion)</_LibreWpfSdkProGpuPackageVersionToPack>
+      <_LibreWpfSdkProGpuPackageVersionToPack Condition="'$(_LibreWpfSdkProGpuPackageVersionToPack)' == ''">0.1.0-preview.62</_LibreWpfSdkProGpuPackageVersionToPack>
     </PropertyGroup>
     <ItemGroup>
       <_LibreWpfSdkVersionPropsLine Include="&lt;Project&gt;" />
       <_LibreWpfSdkVersionPropsLine Include="  &lt;PropertyGroup&gt;" />
       <_LibreWpfSdkVersionPropsLine Include="    &lt;_LibreWpfSdkPackageVersion&gt;$(_LibreWpfSdkPackageVersionToPack)&lt;/_LibreWpfSdkPackageVersion&gt;" />
+      <_LibreWpfSdkVersionPropsLine Include="    &lt;ProGpuPackageVersion&gt;$(_LibreWpfSdkProGpuPackageVersionToPack)&lt;/ProGpuPackageVersion&gt;" />
       <_LibreWpfSdkVersionPropsLine Include="  &lt;/PropertyGroup&gt;" />
       <_LibreWpfSdkVersionPropsLine Include="&lt;/Project&gt;" />
     </ItemGroup>

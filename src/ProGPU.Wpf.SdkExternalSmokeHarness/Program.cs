@@ -20,6 +20,12 @@ internal static class Program
     private const string OriginalWindowsDesktopWpfSdk = "Microsoft.NET.Sdk.WindowsDesktop";
     private const string SdkVersion = "0.1.0-preview.45";
     private const string ProGpuPackageVersion = "0.1.0-preview.62";
+    private static readonly string EffectiveSdkVersion = ResolvePackageVersion(
+        "PROGPU_WPF_DEV_PACKAGE_VERSION",
+        SdkVersion);
+    private static readonly string EffectiveProGpuPackageVersion = ResolvePackageVersion(
+        "PROGPU_WPF_PROGPU_PACKAGE_VERSION",
+        ProGpuPackageVersion);
     private const string PrepackagedProGpuDirectoryEnvironmentVariable = "PROGPU_WPF_PREPACKAGED_PROGPU_DIR";
     private const string ExternalAppTargetFramework = "net10.0-windows";
     private const string AppAssemblyName = "ExternalSdkApp";
@@ -266,7 +272,7 @@ internal static class Program
 
     private static void ValidateSdkPackageLayout(string packageFeed)
     {
-        string packagePath = Path.Combine(packageFeed, $"LibreWPF.Sdk.{SdkVersion}.nupkg");
+        string packagePath = Path.Combine(packageFeed, $"LibreWPF.Sdk.{EffectiveSdkVersion}.nupkg");
         RequireFile(packagePath, "ProGPU WPF SDK package");
 
         using ZipArchive package = ZipFile.OpenRead(packagePath);
@@ -280,7 +286,7 @@ internal static class Program
         _ = ReadPackageEntry(package, "README.md", "SDK readme");
 
         AssertContains(nuspec, "<id>LibreWPF.Sdk</id>", "SDK nuspec package id");
-        AssertContains(nuspec, $"<version>{SdkVersion}</version>", "SDK nuspec version");
+        AssertContains(nuspec, $"<version>{EffectiveSdkVersion}</version>", "SDK nuspec version");
         AssertContains(nuspec, "<packageType name=\"MSBuildSdk\" />", "SDK nuspec package type");
         AssertContains(nuspec, "<dependencies>", "SDK nuspec dependency group");
 
@@ -503,8 +509,14 @@ internal static class Program
     private static string GetPackageVersion(string packageId)
     {
         return packageId is "LibreWPF.Sdk" or "LibreWPF.Transport" or "LibreWPF.ProGPU"
-            ? SdkVersion
-            : ProGpuPackageVersion;
+            ? EffectiveSdkVersion
+            : EffectiveProGpuPackageVersion;
+    }
+
+    private static string ResolvePackageVersion(string environmentVariable, string fallback)
+    {
+        string? value = Environment.GetEnvironmentVariable(environmentVariable);
+        return string.IsNullOrWhiteSpace(value) ? fallback : value;
     }
 
     private static void ValidateLocalWpfPackageMatchesAvailableRepositoryBuilds(string repoRoot, string packageFeed)
@@ -802,7 +814,7 @@ internal static class Program
                 <None Include="App.config" />
                 <ProjectReference Include="../{LibraryAssemblyName}/{LibraryAssemblyName}.csproj" />
                 <PackageReference Include="Extended.Wpf.Toolkit" Version="5.1.2" />
-                <PackageReference Include="ProGPU.System.Drawing.Common" Version="{ProGpuPackageVersion}" />
+                <PackageReference Include="ProGPU.System.Drawing.Common" Version="{EffectiveProGpuPackageVersion}" />
                 <Resource Include="Assets/ExternalResource.txt" />
                 <Resource Include="Assets/ExternalImage.png" />
                 <SplashScreen Include="Assets/ExternalSplash.png" />
@@ -17768,7 +17780,7 @@ internal static class Program
         string libraryProject = File.ReadAllText(Path.Combine(workRoot, LibraryAssemblyName, LibraryAssemblyName + ".csproj"));
         string localizationProject = File.ReadAllText(Path.Combine(workRoot, LocalizationAssemblyName, LocalizationAssemblyName + ".csproj"));
 
-        AssertContains(appProject, $"<Project Sdk=\"LibreWPF.Sdk/{SdkVersion}\">", "external app SDK");
+        AssertContains(appProject, $"<Project Sdk=\"LibreWPF.Sdk/{EffectiveSdkVersion}\">", "external app SDK");
         AssertDoesNotContain(appProject, $"<Project Sdk=\"{OriginalWpfSdk}\">", "external app original SDK");
         AssertDoesNotContain(appProject, $"<Project Sdk=\"{OriginalWindowsDesktopWpfSdk}\">", "external app original WindowsDesktop SDK");
         AssertContains(appProject, $"<AssemblyName>{AppOutputAssemblyName}</AssemblyName>", "external app custom assembly name");
@@ -17788,7 +17800,7 @@ internal static class Program
         AssertContains(appProject, "<Content Include=\"Assets/ExternalContent.txt\">", "external app content item");
         AssertContains(appProject, "<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>", "external app content output metadata");
         AssertContains(appProject, "<TargetPath>Assets/ExternalContent.txt</TargetPath>", "external app content target path metadata");
-        AssertContains(libraryProject, $"<Project Sdk=\"LibreWPF.Sdk/{SdkVersion}\">", "external library SDK");
+        AssertContains(libraryProject, $"<Project Sdk=\"LibreWPF.Sdk/{EffectiveSdkVersion}\">", "external library SDK");
         AssertDoesNotContain(libraryProject, $"<Project Sdk=\"{OriginalWpfSdk}\">", "external library original SDK");
         AssertContains(libraryProject, $"<AssemblyName>{LibraryOutputAssemblyName}</AssemblyName>", "external library custom assembly name");
         AssertContains(libraryProject, $"<TargetFrameworks>{ExternalAppTargetFramework}</TargetFrameworks>", "external library Windows target frameworks");
@@ -17799,7 +17811,7 @@ internal static class Program
         AssertContains(libraryProject, "<Compile Include=\"Properties/AssemblyInfo.cs\" />", "external library explicit ThemeInfo code item");
         AssertContains(libraryProject, "<Page Include=\"ExternalPanel.xaml\" />", "external library explicit user-control page item");
         AssertContains(libraryProject, "<Page Include=\"Themes/Generic.xaml\" />", "external library explicit generic theme page item");
-        AssertContains(localizationProject, $"<Project Sdk=\"LibreWPF.Sdk/{SdkVersion}\">", "external localization SDK");
+        AssertContains(localizationProject, $"<Project Sdk=\"LibreWPF.Sdk/{EffectiveSdkVersion}\">", "external localization SDK");
         AssertDoesNotContain(localizationProject, $"<Project Sdk=\"{OriginalWpfSdk}\">", "external localization original SDK");
         AssertContains(localizationProject, $"<TargetFramework>{ExternalAppTargetFramework}</TargetFramework>", "external localization Windows target framework");
         AssertContains(localizationProject, "<UseWPF>true</UseWPF>", "external localization WPF property");
@@ -17844,7 +17856,7 @@ internal static class Program
         string project = File.ReadAllText(projectPath);
         string centralPackages = File.ReadAllText(Path.Combine(workRoot, "Directory.Packages.props"));
 
-        AssertContains(project, $"<Project Sdk=\"LibreWPF.Sdk/{SdkVersion}\">", "external CPM app SDK");
+        AssertContains(project, $"<Project Sdk=\"LibreWPF.Sdk/{EffectiveSdkVersion}\">", "external CPM app SDK");
         AssertDoesNotContain(project, $"<Project Sdk=\"{OriginalWpfSdk}\">", "external CPM app original SDK");
         AssertContains(project, $"<AssemblyName>{CentralPackageManagementOutputAssemblyName}</AssemblyName>", "external CPM app custom assembly name");
         AssertContains(project, $"<TargetFramework>{ExternalAppTargetFramework}</TargetFramework>", "external CPM app Windows target framework");
@@ -17874,7 +17886,7 @@ internal static class Program
         string project = File.ReadAllText(projectPath);
         string libraryProject = File.ReadAllText(libraryProjectPath);
 
-        AssertContains(project, $"<Project Sdk=\"LibreWPF.Sdk/{SdkVersion}\">", "external default-item app SDK");
+        AssertContains(project, $"<Project Sdk=\"LibreWPF.Sdk/{EffectiveSdkVersion}\">", "external default-item app SDK");
         AssertDoesNotContain(project, $"<Project Sdk=\"{OriginalWpfSdk}\">", "external default-item app original SDK");
         AssertDoesNotContain(project, $"<Project Sdk=\"{OriginalWindowsDesktopWpfSdk}\">", "external default-item app original WindowsDesktop SDK");
         AssertDoesNotContain(project, "<AssemblyName>", "external default-item app custom assembly name");
@@ -17891,7 +17903,7 @@ internal static class Program
         AssertDoesNotContain(project, "ProGpuWpfManagedReferenceRoot", "external default-item app managed artifact root");
         AssertDoesNotContain(project, "ProGpuReferenceRoot", "external default-item app ProGPU artifact root");
 
-        AssertContains(libraryProject, $"<Project Sdk=\"LibreWPF.Sdk/{SdkVersion}\">", "external default-item library SDK");
+        AssertContains(libraryProject, $"<Project Sdk=\"LibreWPF.Sdk/{EffectiveSdkVersion}\">", "external default-item library SDK");
         AssertDoesNotContain(libraryProject, $"<Project Sdk=\"{OriginalWpfSdk}\">", "external default-item library original SDK");
         AssertDoesNotContain(libraryProject, "<AssemblyName>", "external default-item library custom assembly name");
         AssertContains(libraryProject, $"<TargetFramework>{ExternalAppTargetFramework}</TargetFramework>", "external default-item library Windows target framework");
@@ -17984,7 +17996,7 @@ internal static class Program
     private static string SwitchWpfSdkOnly(string normalWpfProject, string originalSdkName, string description)
     {
         string originalSdk = $"<Project Sdk=\"{originalSdkName}\">";
-        string proGpuSdk = $"<Project Sdk=\"LibreWPF.Sdk/{SdkVersion}\">";
+        string proGpuSdk = $"<Project Sdk=\"LibreWPF.Sdk/{EffectiveSdkVersion}\">";
 
         AssertContains(normalWpfProject, originalSdk, $"{description} original WPF SDK");
         string switchedProject = normalWpfProject.Replace(originalSdk, proGpuSdk, StringComparison.Ordinal);
