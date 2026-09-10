@@ -21,6 +21,9 @@ internal static partial class Program
     {
         try
         {
+            // The recording host still exercises real source media during
+            // construction and layout, before its first native/managed frame.
+            global::System.Windows.Media.ProGPU.ProGpuWpfNativeMediaServices.Initialize();
             string repoRoot = FindRepoRoot();
             string presentationFrameworkPath = FindArtifactAssembly(repoRoot, "PresentationFramework");
             string presentationCorePath = FindArtifactAssembly(repoRoot, "PresentationCore");

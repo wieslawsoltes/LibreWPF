@@ -87,9 +87,11 @@ internal sealed class PortableTextLine : TextLine
         if (continuation != null) return continuation;
         var pap = settings.Pap;
         if (settings.IsSideways || settings.TextFormattingMode != TextFormattingMode.Ideal || pap.TextMarkerProperties != null ||
-            (pap.TextDecorations?.Count ?? 0) != 0 || pap.Justify ||
+            (pap.TextDecorations?.Count ?? 0) != 0 ||
             pap.Tabs?.Count > 0)
-            throw Unsupported("display hinting, sideways text, markers, paragraph decorations, justification or custom tabs");
+            throw Unsupported($"display hinting, sideways text, markers, paragraph decorations or custom tabs " +
+                $"(mode={settings.TextFormattingMode}, sideways={settings.IsSideways}, marker={pap.TextMarkerProperties != null}, " +
+                $"decorations={pap.TextDecorations?.Count ?? 0}, justify={pap.Justify}, tabs={pap.Tabs?.Count ?? 0})");
 
         var builder = new StringBuilder();
         var runs = new List<TextSpan<TextRun>>();
@@ -222,7 +224,8 @@ internal sealed class PortableTextLine : TextLine
         }
         var request = new PortableTextParagraphRequest(text.AsMemory(), font, (float)primaryEmSize,
             (float)layoutHeight, pap.Wrap && width > 0 ? (float)Math.Max(float.Epsilon, width - indent) : 0,
-            pap.RightToLeft, PortableTextAlignment.Left, Features(properties.TypographyProperties), portableStyles,
+            pap.RightToLeft, pap.Justify ? PortableTextAlignment.Justify : PortableTextAlignment.Left,
+            Features(properties.TypographyProperties), portableStyles,
             hasTabs ? (float)pap.DefaultIncrementalTab : 0, (float)indent, measureIntrinsicWidths,
             pap.EmergencyWrap ? PortableTextWrapping.Emergency : PortableTextWrapping.WholeWord);
         var paragraph = service.Format(in request) ??

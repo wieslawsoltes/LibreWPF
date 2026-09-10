@@ -15,6 +15,13 @@ do not automatically expand the release checklist.
 
 ## Active completion queue
 
+**2026-09-10 application qualification update:** the custom Application.Run host
+now registers its native media providers before source startup, and word-space
+justification is connected to ProGPU C++. The native host gate passes with new
+caret/selection coverage. The full application now stops at rich-editor decoration
+scopes; package/platform/CI gates remain open. See
+[text justification validation](../reports/native-mil-text-justification-validation-2026-09-10.md).
+
 **Latest-main merge status — 2026-09-10:** ProGPU #140 and the canonical WinForms
 base are integrated without unresolved conflicts. The current pin and remaining
 red tests/source-graph/package gates are recorded in the

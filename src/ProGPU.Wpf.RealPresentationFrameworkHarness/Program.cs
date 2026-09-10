@@ -117,6 +117,7 @@ public static class Program
                 NativeMilBitmapDpiSmoke.RunFactory(presentationCore);
                 NativeMilImageBrushSmoke.RunSourceDrawingImage(presentationCore, windowsBase);
                 NativeMilTextCollapseSmoke.Run();
+                NativeMilTextJustificationSmoke.Run();
                 // Exercise source text/resource construction before any window host.
                 object drawingVisual = CreateNativeMilHostDrawingVisual(presentationCore, windowsBase);
                 using var host = new ProGpuWpfWindowHost(new ProGpuWpfWindowOptions

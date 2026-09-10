@@ -5,6 +5,24 @@ namespace ProGPU.Wpf.Tests.Composition;
 
 public sealed class WpfManagedProjectGraphTests
 {
+    [Fact]
+    public void SourceJustificationUsesNativeParagraphAndCustomHostRegistersMediaBeforeLoadingWpf()
+    {
+        string line = File.ReadAllText(FindRepoPath("src", "Microsoft.DotNet.Wpf", "src",
+            "PresentationCore", "MS", "internal", "TextFormatting", "PortableTextLine.cs"));
+        Assert.Contains("pap.Justify ? PortableTextAlignment.Justify : PortableTextAlignment.Left", line, StringComparison.Ordinal);
+        string admission = line[line.IndexOf("if (settings.IsSideways", StringComparison.Ordinal)..line.IndexOf("var builder = new StringBuilder()", StringComparison.Ordinal)];
+        Assert.DoesNotContain("|| pap.Justify", admission, StringComparison.Ordinal);
+        Assert.Contains("pap.Tabs?.Count > 0", admission, StringComparison.Ordinal);
+        string program = File.ReadAllText(FindRepoPath("src", "ProGPU.Wpf.RealApplicationRunHarness", "Program.cs"));
+        AssertGuardBefore(program, "ProGpuWpfNativeMediaServices.Initialize();", "RunHarness(repoRoot,");
+        string smoke = File.ReadAllText(FindRepoPath("src", "ProGPU.Wpf.RealPresentationFrameworkHarness", "NativeMilTextJustificationSmoke.cs"));
+        Assert.Contains("justified.GetSelection(0, 6, 7, rectangles)", smoke, StringComparison.Ordinal);
+        Assert.Contains("justified.GetCaretDistance", smoke, StringComparison.Ordinal);
+        Assert.Contains("justified.HitTest", smoke, StringComparison.Ordinal);
+        Assert.Contains("justified.GetNextLogicalCaret(0, 7, false) != 9", smoke, StringComparison.Ordinal);
+    }
+
     [Theory]
     [InlineData("ProGPU.Wpf.ShowcaseApp", "run-progpu-wpf-showcase.sh")]
     [InlineData("ProGPU.Wpf.SciChartApp", "run-progpu-wpf-scichart.sh")]
@@ -5672,9 +5690,9 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Equal("false", GetItemMetadata(presentationFrameworkReference, "ReferenceOutputAssembly"));
         Assert.Equal("all", GetItemMetadata(presentationFrameworkReference, "PrivateAssets"));
 
-        Assert.DoesNotContain(
-            harnessProject.Descendants("ProjectReference"),
-            item => IncludeEndsWith(item, "Include", @"ProGPU.Wpf\ProGPU.Wpf.csproj"));
+        var nativeMediaReference = AssertProjectReference(harnessProject, @"ProGPU.Wpf\ProGPU.Wpf.csproj");
+        Assert.Equal("all", GetItemMetadata(nativeMediaReference, "PrivateAssets"));
+        Assert.Contains("ProGpuWpfNativeMediaServices.Initialize();", harnessProgram, StringComparison.Ordinal);
         Assert.DoesNotContain(
             harnessProject.Descendants("ProjectReference"),
             item => IncludeEndsWith(item, "Include", @"external\ProGPU\src\ProGPU.Scene\ProGPU.Scene.csproj"));

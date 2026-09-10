@@ -344,6 +344,12 @@ can measure content. Keep registration lazy and preserve explicit provider prior
 ProGPU defaults survive temporary override disposal. Windows SDK admission and
 remaining source consumer routing stay independent requirements.
 TextFormatter must select from frozen media ownership, not OS or text complexity.
+Source Justify alignment must reach the typed native paragraph request. Native
+word-space expansion owns glyph advances before caret/selection construction;
+do not emulate it in source GlyphRuns or replace it with left alignment.
+Keep hard/final/collapsed lines, source clusters and tab grids unchanged.
+Script-specific insertion/inter-character policies and rich-editor decoration
+scopes remain separate contracts; passing word-space fixtures does not close them.
 Under portable media, the registered provider owns simple and complex lines; retain
 one provider reference per request and resolve immutable wrapped continuations
 before registry lookup. Do not lose a shaped paragraph when its override is removed.
