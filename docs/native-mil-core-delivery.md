@@ -15,6 +15,14 @@ do not automatically expand the release checklist.
 
 ## Active completion queue
 
+**Producer/package alignment — 2026-09-10:** consume ProGPU 26a6030f and canonical
+LibreWinForms 17f0aaa8. Native inline paragraph transport and per-line metrics
+are implemented in the producer; WPF source controls and anchored content are
+not yet connected. The producer also fixes the exported static SDK's missing
+Direct2D dependency exposed by 38b6a7a4 package CI. Fresh exact-head package
+qualification remains required; see
+[source alignment](../reports/native-mil-inline-producer-alignment-2026-09-10.md).
+
 **Inline/anchored producer dependency — 2026-09-10:** source admission alone is
 insufficient: native paragraph flow lacks inline metrics and its shared line
 placer still uses fixed paragraph line height. Extend the shared producer with
