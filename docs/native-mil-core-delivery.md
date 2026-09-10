@@ -15,6 +15,13 @@ do not automatically expand the release checklist.
 
 ## Active completion queue
 
+**Source positioned layout — 2026-09-11:** explicit source paragraph requests now
+carry retained fragment tops/extents through the shared native document arranger.
+The local native-host fixture verifies same-row placement, vertical clearance
+and following-block advancement. Viewer navigation, hard-line origins and
+automatic anchor policy/ownership remain required; source AnchoredBlock admission
+is still closed. See [source-layout evidence](../reports/native-mil-source-positioned-layout-2026-09-11.md).
+
 **Source excluded TextLines — 2026-09-11:** an immutable source request now selects
 the native excluded provider; retained continuations, fragment metadata and a
 shared drawing/input origin connect through PortableTextLine. Local native-host

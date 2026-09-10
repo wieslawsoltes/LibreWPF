@@ -9,6 +9,7 @@ using System.Windows.Media;
 using System.Windows.Media.TextFormatting;
 using MS.Internal.PtsHost;
 using MS.Internal.Text;
+using MS.Internal.TextFormatting;
 using ProGPU.Wpf.Interop;
 using DocumentList = System.Windows.Documents.List;
 using Section = System.Windows.Documents.Section;
@@ -20,7 +21,8 @@ namespace MS.Internal.Documents;
 internal sealed class PortableFlowDocumentLayout : IDisposable
 {
     internal sealed record BlockEntry(TextElement Element, MbpInfo Box, DocumentList MarkerList, int MarkerIndex);
-    internal sealed record LineEntry(Paragraph Paragraph, TextLine Line, int Start, int BlockIndex, double Advance);
+    internal sealed record LineEntry(Paragraph Paragraph, TextLine Line, int Start, int BlockIndex, double Advance,
+        PortableTextFragment? Fragment = null);
     internal sealed record MarkerEntry(ListItem Item, TextLine Line, int TargetLine, double Offset);
     internal sealed record ObjectEntry(BlockUIContainer Container, UIElement Child, int BlockIndex,
         int Start, int End, int ContentStart, int ContentEnd);
@@ -38,6 +40,8 @@ internal sealed class PortableFlowDocumentLayout : IDisposable
     private List<FlowItem> _items;
     private readonly List<PortableDocumentRow> _rows = new();
     private readonly List<PortableDocumentCell> _cells = new();
+    private readonly List<PortableDocumentPositionedParagraph> _positionedParagraphs = new();
+    internal bool HasPositionedParagraphs => _positionedParagraphs.Count != 0;
     private readonly List<double> _columns = new();
     private int[] _firstItems, _childStarts, _children, _siblingSlots;
     internal bool HasTables => _rows.Count != 0;
@@ -89,6 +93,21 @@ internal sealed class PortableFlowDocumentLayout : IDisposable
     }
 
     // Measure original anchored blocks with the same native document/paragraph
+    // services. Explicit requests are source-owned and scoped to actual paragraphs.
+    internal static PortableFlowDocumentLayout CreateWithExclusions(FlowDocument document, double pageWidth,
+        double pixelsPerDip, TextFormattingMode formattingMode,
+        IReadOnlyDictionary<Paragraph, PortableTextExclusionRequest> requests)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentNullException.ThrowIfNull(requests);
+        var snapshot = new Dictionary<Paragraph, PortableTextExclusionRequest>(requests);
+        foreach (var pair in snapshot)
+            if (pair.Value == null || !ReferenceEquals(pair.Key.TextContainer, document.TextContainer))
+                throw new InvalidOperationException("Excluded paragraphs must retain their actual source document.");
+        return CreateCore(document, document.Blocks, pageWidth, pixelsPerDip, formattingMode, null, false, snapshot);
+    }
+
+    // Measure original anchored blocks with the same native document/paragraph
     // services. The parent owns anchor margins/insets and placement; this local
     // generation owns only child TextLines and their original document offsets.
     internal static PortableFlowDocumentLayout CreateAnchored(FlowDocument document, AnchoredBlock anchor,
@@ -103,7 +122,7 @@ internal sealed class PortableFlowDocumentLayout : IDisposable
 
     private static PortableFlowDocumentLayout CreateCore(FlowDocument document, BlockCollection sourceBlocks,
         double pageWidth, double pixelsPerDip, TextFormattingMode formattingMode, Thickness? pagePadding,
-        bool requiresAnchoredFlow)
+        bool requiresAnchoredFlow, IReadOnlyDictionary<Paragraph, PortableTextExclusionRequest> exclusions = null)
     {
         ArgumentNullException.ThrowIfNull(document);
         if (PortableWpfRuntime.GetMediaBackendAndFreeze() != PortableWpfMediaBackend.Portable)
@@ -115,6 +134,8 @@ internal sealed class PortableFlowDocumentLayout : IDisposable
             throw new PlatformNotSupportedException("Portable FlowDocument requires registered native document and text services before layout.");
         if (requiresAnchoredFlow && flow is not IPortableAnchoredDocumentFlow)
             throw new PlatformNotSupportedException("Anchored document measurement requires the explicit native anchor capability.");
+        if (exclusions is { Count: > 0 } && flow is not IPortablePositionedDocumentFlow)
+            throw new PlatformNotSupportedException("Excluded source paragraphs require native positioned document arrangement.");
         if (document.FlowDirection != FlowDirection.LeftToRight)
             throw new PlatformNotSupportedException("Portable RTL document block ordering is not implemented.");
         var layout = new PortableFlowDocumentLayout();
@@ -147,6 +168,7 @@ internal sealed class PortableFlowDocumentLayout : IDisposable
             TextFormatter formatter = TextFormatter.FromCurrentDispatcher(formattingMode);
             var metrics = new List<PortableDocumentLine>();
             var objects = new List<PortableDocumentObject>();
+            int consumedExclusions = 0;
             for (int i = 0; i < layout._entries.Count; ++i)
             {
                 PortableDocumentBlock descriptor = layout._blocks[i];
@@ -162,7 +184,9 @@ internal sealed class PortableFlowDocumentLayout : IDisposable
                         throw new PlatformNotSupportedException("Portable document hyphenation requires the native discretionary-break contract.");
                     if (layout.Boxes[i].Width <= 0)
                         throw new PlatformNotSupportedException("Exhausted document width requires zero-width wrapping, not unbounded paragraph formatting.");
-                    layout.FormatParagraph(document, paragraph, i, pixelsPerDip, formatter, metrics);
+                    PortableTextExclusionRequest request = null;
+                    if (exclusions != null && exclusions.TryGetValue(paragraph, out request)) ++consumedExclusions;
+                    layout.FormatParagraph(document, paragraph, i, pixelsPerDip, formatter, metrics, request);
                 }
                 else if (layout._entries[i].Element is BlockUIContainer container && container.Child is UIElement child)
                 {
@@ -187,7 +211,23 @@ internal sealed class PortableFlowDocumentLayout : IDisposable
                 layout._blocks[i] = descriptor;
             }
             layout.Positions = new PortableDocumentLinePosition[layout._lines.Count];
-            PortableDocumentExtent extent = layout.HasTables
+            if (consumedExclusions != (exclusions?.Count ?? 0))
+                throw new InvalidOperationException("An exclusion request did not target a formatted source paragraph.");
+            PortableDocumentExtent extent;
+            if (layout.HasPositionedParagraphs)
+            {
+                var local = new PortableDocumentLinePosition[layout._lines.Count];
+                for (int i = 0; i < local.Length; ++i)
+                    if (layout._lines[i].Fragment is { } fragment)
+                        local[i].Y = fragment.Top; // X already belongs to TextLine.Start/native origin.
+                extent = ((IPortablePositionedDocumentFlow)flow).ArrangeWithPositionedParagraphs(
+                    CollectionsMarshal.AsSpan(layout._blocks), pageWidth,
+                    CollectionsMarshal.AsSpan(metrics), CollectionsMarshal.AsSpan(objects),
+                    CollectionsMarshal.AsSpan(layout._rows), CollectionsMarshal.AsSpan(layout._columns),
+                    CollectionsMarshal.AsSpan(layout._cells), CollectionsMarshal.AsSpan(layout._positionedParagraphs),
+                    local, layout.Boxes, layout.Positions);
+            }
+            else extent = layout.HasTables
                 ? flow.ArrangeWithRows(CollectionsMarshal.AsSpan(layout._blocks), pageWidth,
                     CollectionsMarshal.AsSpan(metrics), CollectionsMarshal.AsSpan(objects),
                     CollectionsMarshal.AsSpan(layout._rows), CollectionsMarshal.AsSpan(layout._columns),
@@ -326,13 +366,14 @@ internal sealed class PortableFlowDocumentLayout : IDisposable
     internal int SiblingIndex(int block) => _siblingSlots[block] - _childStarts[ParentBlock(block)];
 
     private void FormatParagraph(FlowDocument document, Paragraph paragraph, int blockIndex, double pixelsPerDip,
-        TextFormatter formatter, List<PortableDocumentLine> metrics)
+        TextFormatter formatter, List<PortableDocumentLine> metrics, PortableTextExclusionRequest exclusions = null)
     {
-        var source = new PortableDocumentParagraphSource(paragraph, pixelsPerDip, Boxes[blockIndex].Width);
+        var source = new PortableDocumentParagraphSource(paragraph, pixelsPerDip, Boxes[blockIndex].Width, exclusions);
         var properties = new LineProperties(paragraph, document,
             new TextProperties(paragraph, paragraph.StaticElementStart, false, false, pixelsPerDip), null);
         var cache = new TextRunCache();
         TextLineBreak continuation = null;
+        bool recordedExtent = false;
         try
         {
             int position = source.Start;
@@ -346,6 +387,22 @@ internal sealed class PortableFlowDocumentLayout : IDisposable
                     if (line.Length <= 0 || line.Length > source.End - position)
                         throw new InvalidOperationException("Formatted paragraph line did not preserve its source range.");
                     double advance = properties.CalcLineAdvance(line.Height);
+                    PortableTextFragment? fragment = (line as PortableTextLine)?.Fragment;
+                    if (exclusions != null && !fragment.HasValue)
+                        throw new InvalidOperationException("Excluded source formatting lost its fragment frame.");
+                    if (fragment.HasValue)
+                    {
+                        if (advance != line.Height)
+                            throw new PlatformNotSupportedException("Excluded source row stacking requires matching native line-height policy.");
+                        if (!recordedExtent)
+                        {
+                            var nativeLine = (PortableTextLine)line;
+                            _positionedParagraphs.Add(new() { BlockIndex = checked((uint)blockIndex),
+                                Width = Math.Max(Boxes[blockIndex].Width, nativeLine.FragmentContentWidth),
+                                Height = nativeLine.FragmentContentHeight });
+                            recordedExtent = true;
+                        }
+                    }
                     if (source.HasInlineObjects)
                         foreach (TextBounds bounds in line.GetTextBounds(position, line.Length))
                             if (bounds.TextRunBounds != null)
@@ -354,7 +411,7 @@ internal sealed class PortableFlowDocumentLayout : IDisposable
                                         AddHostedChild(new(embedded.Container, embedded.Child, blockIndex, _lines.Count, run.Rectangle));
                     metrics.Add(new() { Width = line.Start + line.WidthIncludingTrailingWhitespace, Height = advance });
                     _items?.Add(new(_lines.Count, -1));
-                    _lines.Add(new(paragraph, line, position, blockIndex, advance));
+                    _lines.Add(new(paragraph, line, position, blockIndex, advance, fragment));
                 }
                 catch { line.Dispose(); throw; }
                 TextLineBreak next = line.GetTextLineBreak();
