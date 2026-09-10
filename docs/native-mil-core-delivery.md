@@ -15,6 +15,10 @@ do not automatically expand the release checklist.
 
 ## Active completion queue
 
+Latest-main integration: [ProGPU PR #155 rebase report](../reports/native-mil-main-rebase-2026-09-10.md).
+The branch now consumes the rebased ABI 4 source contract. Earlier payload/feed
+versions below are historical, not compatible final qualification artifacts.
+
 Work through these application-level batches in order. This queue, not the
 historical checkpoint suggestions below, determines the next work. Update the
 current row with concrete remaining blockers rather than starting another

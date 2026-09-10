@@ -3340,7 +3340,7 @@ public sealed class WpfNativeMilSceneCompiler
                         lightDirection, lightIntensity),
                     AmbientColor = ToNativeFloat4(
                         sceneAmbient, ambientIntensity),
-                    ShadingMode = 1U,
+                    ShadingMode = (uint)NativeMesh3DShadingMode.WpfLighting,
                     LightOffset = 0U,
                     LightCount = (uint)nativeLights.Length
                 };
@@ -3392,8 +3392,9 @@ public sealed class WpfNativeMilSceneCompiler
                             materialPass.AmbientColor,
                             1.0f);
                         materialMesh.Opacity = materialPass.Opacity;
-                        materialMesh.ShadingMode =
-                            materialPass.IsUnlit ? 0U : 1U;
+                        materialMesh.ShadingMode = (uint)(materialPass.IsUnlit
+                            ? NativeMesh3DShadingMode.Flat
+                            : NativeMesh3DShadingMode.WpfLighting);
                         if (materialPass.Kind ==
                             PortableViewport3DMaterialKind.Specular &&
                             materialPass.MaterialBrush is not null)

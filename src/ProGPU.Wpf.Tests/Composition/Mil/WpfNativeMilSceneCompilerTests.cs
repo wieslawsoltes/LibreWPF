@@ -3722,7 +3722,7 @@ public sealed class WpfNativeMilSceneCompilerTests
         Assert.Equal((uint)NativeMesh3DFlags.FrontFace, mesh.Flags);
         Assert.Equal(3U, mesh.VertexCount);
         Assert.Equal(3U, mesh.IndexCount);
-        Assert.Equal(1U, mesh.ShadingMode);
+        Assert.Equal((uint)NativeMesh3DShadingMode.WpfLighting, mesh.ShadingMode);
         Assert.Equal(3, retained.Scene.Vertices.Length);
         Assert.Equal([0U, 1U, 2U], retained.Scene.Indices);
         Assert.Equal(2.0f, retained.Scene.Camera.CameraPosition.Z);
@@ -3812,7 +3812,7 @@ public sealed class WpfNativeMilSceneCompilerTests
         Assert.Equal(new Vector4(1, 0, 0, 1), diffuse.Color);
         Assert.Equal(0.5f, specular.SpecularColor.X);
         Assert.Equal(12f, specular.SpecularColor.W);
-        Assert.Equal(0U, emissive.ShadingMode);
+        Assert.Equal((uint)NativeMesh3DShadingMode.Flat, emissive.ShadingMode);
         Assert.Equal(new Vector4(0, 1, 0, 1), emissive.Color);
         Assert.Equal(128f / 255f * 0.5f, emissive.Opacity);
         Assert.Empty(retained.Materials);
@@ -3875,7 +3875,7 @@ public sealed class WpfNativeMilSceneCompilerTests
         Assert.Equal(new Vector4(0.5f, 0.75f, 1f, 1f),
             retained.Meshes[0].Color);
         Assert.Equal(0.8f, retained.Meshes[0].Opacity);
-        Assert.Equal(0U, retained.Meshes[1].ShadingMode);
+        Assert.Equal((uint)NativeMesh3DShadingMode.Flat, retained.Meshes[1].ShadingMode);
         Assert.Equal(0.5f, retained.Meshes[1].Opacity);
         Assert.Equal(2, retained.Materials.Length);
         NativeSceneBrush linear = retained.Materials[0];
