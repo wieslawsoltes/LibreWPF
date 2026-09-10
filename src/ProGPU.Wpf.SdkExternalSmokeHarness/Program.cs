@@ -20,6 +20,9 @@ internal static class Program
     private const string OriginalWindowsDesktopWpfSdk = "Microsoft.NET.Sdk.WindowsDesktop";
     private const string SdkVersion = "0.1.0-preview.45";
     private const string ProGpuPackageVersion = "0.1.0-preview.62";
+    private static readonly string EffectiveProGpuPackageVersion = ResolvePackageVersion(
+        "PROGPU_WPF_PROGPU_PACKAGE_VERSION",
+        ProGpuPackageVersion);
     private const string PrepackagedProGpuDirectoryEnvironmentVariable = "PROGPU_WPF_PREPACKAGED_PROGPU_DIR";
     private const string ExternalAppTargetFramework = "net10.0-windows";
     private const string AppAssemblyName = "ExternalSdkApp";
@@ -504,7 +507,13 @@ internal static class Program
     {
         return packageId is "LibreWPF.Sdk" or "LibreWPF.Transport" or "LibreWPF.ProGPU"
             ? SdkVersion
-            : ProGpuPackageVersion;
+            : EffectiveProGpuPackageVersion;
+    }
+
+    private static string ResolvePackageVersion(string environmentVariable, string fallback)
+    {
+        string? value = Environment.GetEnvironmentVariable(environmentVariable);
+        return string.IsNullOrWhiteSpace(value) ? fallback : value;
     }
 
     private static void ValidateLocalWpfPackageMatchesAvailableRepositoryBuilds(string repoRoot, string packageFeed)
@@ -802,7 +811,7 @@ internal static class Program
                 <None Include="App.config" />
                 <ProjectReference Include="../{LibraryAssemblyName}/{LibraryAssemblyName}.csproj" />
                 <PackageReference Include="Extended.Wpf.Toolkit" Version="5.1.2" />
-                <PackageReference Include="ProGPU.System.Drawing.Common" Version="{ProGpuPackageVersion}" />
+                <PackageReference Include="ProGPU.System.Drawing.Common" Version="{EffectiveProGpuPackageVersion}" />
                 <Resource Include="Assets/ExternalResource.txt" />
                 <Resource Include="Assets/ExternalImage.png" />
                 <SplashScreen Include="Assets/ExternalSplash.png" />

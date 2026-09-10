@@ -13,6 +13,9 @@ internal static class Program
 {
     private const string LibreWpfPackageVersion = "0.1.0-preview.45";
     private const string ProGpuPackageVersion = "0.1.0-preview.62";
+    private static readonly string EffectiveProGpuPackageVersion = ResolvePackageVersion(
+        "PROGPU_WPF_PROGPU_PACKAGE_VERSION",
+        ProGpuPackageVersion);
     private const string PrepackagedProGpuDirectoryEnvironmentVariable = "PROGPU_WPF_PREPACKAGED_PROGPU_DIR";
     private const string SmokeTargetFramework = "net10.0-windows";
     private const string SmokeAssemblyName = "ProGPU.Wpf.SdkSwitchSmoke";
@@ -257,7 +260,13 @@ internal static class Program
     {
         return packageId is "LibreWPF.Transport" or "LibreWPF.ProGPU"
             ? LibreWpfPackageVersion
-            : ProGpuPackageVersion;
+            : EffectiveProGpuPackageVersion;
+    }
+
+    private static string ResolvePackageVersion(string environmentVariable, string fallback)
+    {
+        string? value = Environment.GetEnvironmentVariable(environmentVariable);
+        return string.IsNullOrWhiteSpace(value) ? fallback : value;
     }
 
     private static void ValidateLocalPackageAssemblyMatchesFile(

@@ -15,6 +15,9 @@ public partial class App : Application
 {
     private const string LibreWpfPackageVersion = "0.1.0-preview.45";
     private const string ProGpuPackageVersion = "0.1.0-preview.62";
+    private static readonly string EffectiveProGpuPackageVersion = ResolvePackageVersion(
+        "PROGPU_WPF_PROGPU_PACKAGE_VERSION",
+        ProGpuPackageVersion);
 
     public int StartupEventCount { get; private set; }
 
@@ -716,7 +719,7 @@ public partial class App : Application
 
         string packageVersion = packageId == "LibreWPF.ProGPU"
             ? LibreWpfPackageVersion
-            : ProGpuPackageVersion;
+            : EffectiveProGpuPackageVersion;
         string packagePath = Path.Combine(packageFeed, $"{packageId}.{packageVersion}.nupkg");
         if (!File.Exists(packagePath))
         {
@@ -738,6 +741,12 @@ public partial class App : Application
             throw new InvalidOperationException(
                 $"SDK smoke loaded '{assemblySimpleName}.dll' does not match '{packageId}.{packageVersion}.nupkg'. Rebuild the package-mode SDK smoke output.");
         }
+    }
+
+    private static string ResolvePackageVersion(string environmentVariable, string fallback)
+    {
+        string? value = Environment.GetEnvironmentVariable(environmentVariable);
+        return string.IsNullOrWhiteSpace(value) ? fallback : value;
     }
 
     private static bool TryFindLocalPackageFeed(out string packageFeed)
