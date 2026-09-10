@@ -794,6 +794,39 @@ internal sealed class PortableTextLine : TextLine
         return NativeOrigin + _paragraph.GetCaretDistance(_lineIndex, new(position, hit.TrailingLength != 0));
     }
     public override CharacterHit GetNextCaretCharacterHit(CharacterHit hit) => Move(hit, false);
+    // Physical fragment movement stays in the retained native paragraph. Return
+    // source offsets (including hidden document edges), never native UTF-16 indices.
+    internal bool TryMoveFragmentCaret(int sourcePosition, bool trailing, bool down, double preferredX,
+        out int targetPosition, out bool targetTrailing, out int fragmentDelta)
+    {
+        CheckAlive();
+        targetPosition = sourcePosition; targetTrailing = trailing; fragmentDelta = 0;
+        if (_paragraph is not IPortableExcludedTextParagraph excluded) return false;
+        if (!double.IsFinite(preferredX) || !float.IsFinite((float)(preferredX - NativeOrigin)))
+            throw new ArgumentOutOfRangeException(nameof(preferredX));
+        if (sourcePosition < First || sourcePosition > First + Length)
+            throw new ArgumentOutOfRangeException(nameof(sourcePosition));
+        int position = _sourceMap.ToText(Math.Clamp(sourcePosition - _paragraphStart, 0, _sourceMap.SourceLength));
+        var carets = excluded.Carets.Span;
+        int selected = -1;
+        for (int index = 0; index < carets.Length; ++index)
+        {
+            var caret = carets[index];
+            if (caret.FragmentIndex != _lineIndex || caret.Position != position) continue;
+            if (selected < 0) selected = index;
+            if (caret.Trailing == trailing) { selected = index; break; }
+        }
+        if (selected < 0) throw new InvalidOperationException("Source position has no retained native fragment caret.");
+        int moved = excluded.MoveCaret(selected, down ? PortableTextCaretMovement.Down : PortableTextCaretMovement.Up,
+            (float)(preferredX - NativeOrigin));
+        if ((uint)moved >= (uint)carets.Length)
+            throw new InvalidOperationException("Native fragment movement returned an invalid caret.");
+        var target = carets[moved];
+        targetPosition = _paragraphStart + _sourceMap.ToSource(target.Position, !target.Trailing);
+        targetTrailing = target.Trailing;
+        fragmentDelta = target.FragmentIndex - _lineIndex;
+        return true;
+    }
     public override CharacterHit GetPreviousCaretCharacterHit(CharacterHit hit) => Move(hit, true);
     public override CharacterHit GetBackspaceCaretCharacterHit(CharacterHit hit) => Move(hit, true);
     internal override bool IsAtCaretCharacterHit(CharacterHit hit, int cpFirst)

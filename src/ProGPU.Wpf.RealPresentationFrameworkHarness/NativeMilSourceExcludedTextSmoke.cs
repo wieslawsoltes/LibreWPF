@@ -55,6 +55,10 @@ internal static class NativeMilSourceExcludedTextSmoke
                 object returned = line.GetType().GetMethod("GetCharacterHitFromDistance", flags)!.Invoke(line, [distance])!;
                 double roundtrip = (double)line.GetType().GetMethod("GetDistanceFromCharacterHit", flags)!.Invoke(line, [returned])!;
                 if (Math.Abs(roundtrip - distance) > 0.01) throw new InvalidOperationException("Source fragment caret round trip changed its frame.");
+                object?[] movement = [position, false, true, distance, 0, false, 0];
+                if (!(bool)line.GetType().GetMethod("TryMoveFragmentCaret", flags)!.Invoke(line, movement)! ||
+                    (int)movement[6]! < (index == 0 ? 2 : 1) || (int)movement[4]! <= position)
+                    throw new InvalidOperationException("Source native Down moved into a same-row fragment or lost source offsets.");
                 var bounds = (IList)line.GetType().GetMethod("GetTextBounds", flags)!.Invoke(line, [position, (int)Get(line, "Length")])!;
                 if (bounds.Count == 0 || (double)Get(Get(bounds[0]!, "Rectangle"), "X") < (index == 0 ? 0 : 70))
                     throw new InvalidOperationException("Source fragment selection lost its native X frame.");

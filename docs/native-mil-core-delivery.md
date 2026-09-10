@@ -15,6 +15,12 @@ do not automatically expand the release checklist.
 
 ## Active completion queue
 
+**Source fragment caret adapter — 2026-09-11:** source TextLines now delegate
+physical row movement to the retained native paragraph and return original source
+offsets/affinities. The source native-host Down checks pass for both same-row
+fragments. Viewer boundary integration remains required; see
+[caret evidence](../reports/native-mil-source-fragment-caret-2026-09-11.md).
+
 **Fragment point lookup — 2026-09-11:** the source viewer now selects by retained
 horizontal span within a native row, rather than always choosing its last fragment.
 Plain and table/object paths share the selection. Source compilation passes;
