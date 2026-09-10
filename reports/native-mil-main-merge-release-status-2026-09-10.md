@@ -175,3 +175,8 @@ payload and documentation CI pass; the SDK job is still pending. At ProGPU
 pass. These are useful prior-head results, not qualification of the new pins.
 Superseded Build runs `34487437908` and `34489232357` were subsequently cancelled
 to free capacity; no cancelled run may supply release-qualified native payloads.
+
+The [SDK contract validation follow-up](native-mil-sdk-contract-validation-2026-09-10.md)
+records current-head Windows 20/20, local renderer/headless/native-host passes,
+the repaired final SDK source guard and newly exposed broader bridge-test
+failures. These remain separate from native package-mode application qualification.
