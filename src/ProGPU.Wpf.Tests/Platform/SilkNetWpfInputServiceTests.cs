@@ -291,7 +291,7 @@ public sealed class SilkNetWpfInputServiceTests
     }
 
     [Fact]
-    public void AttachSuppressesMouseUpWithoutMatchingMouseDown()
+    public void AttachForwardsMouseUpWithoutMatchingMouseDown()
     {
         var mouse = new FakeMouse { Position = new Vector2(12, 34) };
         var context = new FakeInputContext();
@@ -310,13 +310,18 @@ public sealed class SilkNetWpfInputServiceTests
             received,
             first =>
             {
-                Assert.Equal(WpfInputEventKind.MouseDown, first.Kind);
+                Assert.Equal(WpfInputEventKind.MouseUp, first.Kind);
                 Assert.Equal(WpfMouseButton.Left, first.Button);
             },
             second =>
             {
-                Assert.Equal(WpfInputEventKind.MouseUp, second.Kind);
+                Assert.Equal(WpfInputEventKind.MouseDown, second.Kind);
                 Assert.Equal(WpfMouseButton.Left, second.Button);
+            },
+            third =>
+            {
+                Assert.Equal(WpfInputEventKind.MouseUp, third.Kind);
+                Assert.Equal(WpfMouseButton.Left, third.Button);
             });
     }
 
