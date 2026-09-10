@@ -15,6 +15,12 @@ do not automatically expand the release checklist.
 
 ## Active completion queue
 
+**Retained inline provider — 2026-09-10:** consume ProGPU e574a911 and canonical
+LibreWinForms 82d595d3. WPF's typed provider now connects native measured paragraphs,
+source-ordered non-ink objects, line tops/baselines and interaction. Source
+TextEmbeddedObject/InlineUIContainer visual ownership and Figure/Floater exclusion
+layout remain required. See [provider connection](../reports/native-mil-inline-provider-2026-09-10.md).
+
 **Package coherence base integration — 2026-09-10:** integrate LibreWPF base
 4c4c2a8a2 (PR #124), preserving native startup and qualification gates while
 resolving coordinated package versions and canonical WinForms deployment.

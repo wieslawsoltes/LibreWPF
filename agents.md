@@ -301,6 +301,14 @@ rewrite or claims of qualified codec/worker/SIMD parity follow from this routing
 
 ## Core Native MIL Delivery Priority
 
+WPF inline formatting selects ProGPU's explicit IPortableInlineTextFormatting
+capability and retained measured snapshot. Keep source metrics and ordered U+FFFC
+placements separate from font glyphs; object sentinels never enter font lookup.
+Measured Lines.Y is the native height-prefix top, with a separate baseline offset;
+selection remains line-local. Do not enable InlineUIContainer/anchored source
+admission from provider fixtures alone. Actual child visual/editing ownership and
+Figure/Floater exclusions remain required.
+
 TextBlock source point hits cover its arranged rectangle, but geometry-region hits
 remain drawing-based. Connect an explicit source-owned descriptor through ProGPU's
 PointOnly/RegionOnly input policy; do not infer it from type names or assign layout

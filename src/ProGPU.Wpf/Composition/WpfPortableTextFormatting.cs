@@ -6,7 +6,7 @@ using ProGPU.Text;
 
 namespace System.Windows.Media.ProGPU.Composition;
 
-internal sealed class WpfPortableTextFormatting : IPortableTextFormatting
+internal sealed class WpfPortableTextFormatting : IPortableInlineTextFormatting
 {
     private static readonly WpfPortableTextFormatting Default = new();
     private sealed class FontState(PortableTextFont source)
@@ -21,7 +21,26 @@ internal sealed class WpfPortableTextFormatting : IPortableTextFormatting
     public IPortableTextParagraph Format(in PortableTextParagraphRequest request)
         => FormatCore(in request, null, null);
 
-    private Paragraph FormatCore(in PortableTextParagraphRequest request, Paragraph? original, PortableTextCollapseRequest? collapse)
+    public IPortableInlineTextParagraph FormatInline(in PortableTextParagraphRequest request,
+        ReadOnlySpan<PortableTextStyleMetrics> styleMetrics, ReadOnlySpan<PortableTextInlineObject> inlineObjects)
+    {
+        if (styleMetrics.Length != request.Styles.Length || (!request.Text.IsEmpty && request.Styles.IsEmpty))
+            throw new ArgumentException("Inline paragraphs require explicit styles and matching source metrics.");
+        var metrics = new NativeTextStyleMetrics[styleMetrics.Length];
+        for (int i = 0; i < metrics.Length; i++)
+            metrics[i] = new() { Ascent = styleMetrics[i].Ascent, Descent = styleMetrics[i].Descent };
+        var objects = new NativeTextParagraphInlineObject[inlineObjects.Length];
+        for (int i = 0; i < objects.Length; i++)
+        {
+            var item = inlineObjects[i];
+            objects[i] = new(item.Position, item.Width, item.Ascent, item.Descent);
+        }
+        return (InlineParagraph)FormatCore(in request, null, null, true, metrics, objects);
+    }
+
+    private Paragraph FormatCore(in PortableTextParagraphRequest request, Paragraph? original, PortableTextCollapseRequest? collapse,
+        bool inline = false, ReadOnlySpan<NativeTextStyleMetrics> metrics = default,
+        ReadOnlySpan<NativeTextParagraphInlineObject> objects = default)
     {
         if (request.Font == null || request.Font.UnitsPerEm == 0 || !float.IsFinite(request.FontSize) || request.FontSize <= 0)
             throw new ArgumentException("A real source face and positive em size are required.");
@@ -35,14 +54,15 @@ internal sealed class WpfPortableTextFormatting : IPortableTextFormatting
                 PortableTextAlignment.Justify => NativeTextAlignment.Justify,
                 _ => throw new ArgumentOutOfRangeException(nameof(request))
             });
-        if (!request.Styles.IsEmpty) return FormatStyled(in request, in options, font, original, collapse);
+        if (!request.Styles.IsEmpty) return FormatStyled(in request, in options, font, original, collapse, inline, metrics, objects);
         var features = new NativeTextFeature[request.Features.Length];
         for (int i = 0; i < features.Length; i++) features[i] = new(request.Features.Span[i].Tag, request.Features.Span[i].Value);
-        return new Paragraph(this, request, CreateNative(font.Context, request, options, features, [], original, collapse), [font.RenderFont]);
+        return CreateParagraph(request, CreateNative(font.Context, request, options, features, [], original, collapse, inline, metrics, objects), [font.RenderFont]);
     }
 
     private Paragraph FormatStyled(in PortableTextParagraphRequest request, in NativeTextParagraphOptions options, FontState primary,
-        Paragraph? original, PortableTextCollapseRequest? collapse)
+        Paragraph? original, PortableTextCollapseRequest? collapse, bool inline,
+        ReadOnlySpan<NativeTextStyleMetrics> metrics, ReadOnlySpan<NativeTextParagraphInlineObject> objects)
     {
         // Size/brush/feature changes on one face reuse its retained plans. Multiple
         // explicit faces use an isolated temporary context so they cannot alter
@@ -75,13 +95,22 @@ internal sealed class WpfPortableTextFormatting : IPortableTextFormatting
                 (uint)feature, (uint)style.Features.Length, style.Language);
             foreach (var value in style.Features.Span) features[feature++] = new(value.Tag, value.Value);
         }
-        return new Paragraph(this, request, CreateNative(context, request, options, features, styles, original, collapse), fonts.ToArray());
+        return CreateParagraph(request, CreateNative(context, request, options, features, styles, original, collapse, inline, metrics, objects), fonts.ToArray());
     }
+
+    private Paragraph CreateParagraph(PortableTextParagraphRequest request, NativeTextParagraphSnapshot native, TtfFont[] fonts)
+        => native.HasMeasuredLines ? new InlineParagraph(this, request, native, fonts) : new Paragraph(this, request, native, fonts);
 
     private static NativeTextParagraphSnapshot CreateNative(NativeTextShapingContext context, PortableTextParagraphRequest request,
         NativeTextParagraphOptions options, NativeTextFeature[] features, NativeTextParagraphStyle[] styles,
-        Paragraph? original, PortableTextCollapseRequest? collapse)
+        Paragraph? original, PortableTextCollapseRequest? collapse, bool inline,
+        ReadOnlySpan<NativeTextStyleMetrics> metrics, ReadOnlySpan<NativeTextParagraphInlineObject> objects)
     {
+        if (inline)
+            return NativeTextParagraphSnapshot.CreateWithInlineObjects(context, request.Text.Span,
+                request.RightToLeft ? NativeTextDirection.RightToLeft : NativeTextDirection.LeftToRight,
+                in options, styles, metrics, objects, features, request.IncrementalTab, request.TabOrigin,
+                request.MeasureIntrinsicWidths, ConvertWrapping(request.Wrapping));
         if (collapse is { } c)
             return NativeTextParagraphSnapshot.CreateCollapsed(context, request.Text.Span,
                 request.RightToLeft ? NativeTextDirection.RightToLeft : NativeTextDirection.LeftToRight, options, original!._native,
@@ -104,7 +133,25 @@ internal sealed class WpfPortableTextFormatting : IPortableTextFormatting
         _ => throw new ArgumentOutOfRangeException(nameof(wrapping))
     };
 
-    private sealed class Paragraph : IPortableTextParagraph
+    private sealed class InlineParagraph : Paragraph, IPortableInlineTextParagraph
+    {
+        public ReadOnlyMemory<PortableTextInlineObjectPlacement> InlineObjects { get; }
+        public float GetBaselineOffset(int lineIndex) => _native.Lines.Span[lineIndex].BaselineY - Lines.Span[lineIndex].Y;
+
+        internal InlineParagraph(WpfPortableTextFormatting owner, PortableTextParagraphRequest request,
+            NativeTextParagraphSnapshot native, TtfFont[] fonts) : base(owner, request, native, fonts)
+        {
+            var placements = new PortableTextInlineObjectPlacement[native.InlineObjects.Length];
+            for (int i = 0; i < placements.Length; i++)
+            {
+                var p = native.InlineObjects.Span[i];
+                placements[i] = new(p.InputPosition, p.GlyphIndex, p.LineIndex, p.X, p.Y, p.Width, p.Height);
+            }
+            InlineObjects = placements;
+        }
+    }
+
+    private class Paragraph : IPortableTextParagraph
     {
         internal readonly NativeTextParagraphSnapshot _native;
         private readonly WpfPortableTextFormatting _owner;
@@ -115,6 +162,7 @@ internal sealed class WpfPortableTextFormatting : IPortableTextFormatting
             new(c.LineIndex, c.Start, c.End, c.SymbolGlyphIndex) : null;
         public IPortableTextParagraph Collapse(in PortableTextCollapseRequest request)
         {
+            if (_native.HasMeasuredLines) throw new NotSupportedException("Measured paragraph collapse requires an explicit sign-metric contract.");
             if (CollapsedRange != null) throw new InvalidOperationException("Collapse the original paragraph, not a collapsed view.");
             var cached = _collapseCache;
             if (cached?.Key == request) return cached.Paragraph;
@@ -142,10 +190,11 @@ internal sealed class WpfPortableTextFormatting : IPortableTextFormatting
             for (int i = 0; i < glyphs.Length; i++)
             {
                 var g = native.Glyphs.Span[i];
-                if (g.FontIndex >= fonts.Length) throw new NotSupportedException("The source font map must include native fallback faces.");
+                bool isObject = native.HasMeasuredLines && g.GlyphId == NativeTextParagraphSnapshot.InlineObjectGlyphId;
+                if (!isObject && g.FontIndex >= fonts.Length) throw new NotSupportedException("The source font map must include native fallback faces.");
                 glyphs[i] = new(g.GlyphId, g.Cluster, native.ClusterEnds.Span[i], g.X, g.Y, g.AdvanceX,
                     native.BidiLevels.Span[i], g.FontIndex, g.GlyphId == NativeTextParagraphSnapshot.TabGlyphId,
-                    native.CollapsedRange?.SymbolGlyphIndex == i);
+                    native.CollapsedRange?.SymbolGlyphIndex == i) { IsInlineObject = isObject };
             }
             Glyphs = glyphs;
             var lines = new PortableTextLineInfo[native.Lines.Length];
@@ -153,11 +202,13 @@ internal sealed class WpfPortableTextFormatting : IPortableTextFormatting
             _carets = new (int, int)[lines.Length];
             _logicalCarets = new int[lines.Length][];
             int box = 0, caret = 0;
+            double lineTop = 0;
             for (int i = 0; i < lines.Length; i++)
             {
                 var l = native.Lines.Span[i];
                 lines[i] = new(checked((int)l.GlyphStart), checked((int)l.GlyphCount),
-                    l.InputStart, l.InputEnd, l.Width, l.BaselineY, l.Height);
+                    l.InputStart, l.InputEnd, l.Width, native.HasMeasuredLines ? (float)lineTop : l.BaselineY, l.Height);
+                lineTop += l.Height;
                 int firstBox = box, firstCaret = caret;
                 while (box < native.Boxes.Length && native.Boxes.Span[box].LineIndex == i) box++;
                 while (caret < native.Carets.Length && native.Carets.Span[caret].LineIndex == i) caret++;
