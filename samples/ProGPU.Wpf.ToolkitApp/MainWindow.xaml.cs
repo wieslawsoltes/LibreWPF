@@ -3782,6 +3782,34 @@ public partial class MainWindow : Window
 
     private async Task<string> ValidateLiveInputAsync(ProGpuWpfWindowHost liveHost)
     {
+        Console.WriteLine("ProGPU WPF Toolkit live input validation step: transient surface quiescence.");
+        await InvokeWithLiveHostWakeAsync(
+            liveHost,
+            () =>
+            {
+                ActionDropDownButton.IsOpen = false;
+                SplitActionButton.IsOpen = false;
+                DockDocumentContextMenu.IsOpen = false;
+                DockAnchorableContextMenu.IsOpen = false;
+                Point safePointerPoint = ActivateEditorButton.TranslatePoint(
+                    new Point(
+                        Math.Max(1.0, ActivateEditorButton.ActualWidth) / 2.0,
+                        Math.Max(1.0, ActivateEditorButton.ActualHeight) / 2.0),
+                    this);
+                RaiseHostInput(
+                    liveHost,
+                    WpfInputEventKind.MouseMove,
+                    x: safePointerPoint.X,
+                    y: safePointerPoint.Y);
+                ActivateEditorButton.Focus();
+                Keyboard.Focus(ActivateEditorButton);
+            },
+            DispatcherPriority.Send);
+        await WaitForLiveConditionAsync(
+            liveHost,
+            () => GetAvalonDockAutoHideWindowModel() == null,
+            "Toolkit live transient AvalonDock auto-hide overlay close");
+
         Console.WriteLine("ProGPU WPF Toolkit live input validation step: filter focus.");
         string lastTargetState = "not checked";
         bool focusedFilter = false;
