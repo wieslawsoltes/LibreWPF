@@ -15,6 +15,12 @@ do not automatically expand the release checklist.
 
 ## Active completion queue
 
+**Positioned document provider — 2026-09-11:** WPF's typed document adapter now
+forwards native paragraph extents and local fragment positions to the shared
+arranger without source-side correction. Source TextLine exclusion requests,
+drawing/input origins and parent document consumption remain next; anchor
+admission stays closed. See [provider evidence](../reports/native-mil-positioned-document-provider-2026-09-11.md).
+
 **Source fragment integration trace — 2026-09-11:** source TextFormatter does not
 yet call the excluded provider, and native block placement still prefix-sums all
 source TextLines. Same-row fragments require shared native positioned-paragraph

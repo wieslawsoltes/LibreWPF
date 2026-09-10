@@ -7,6 +7,38 @@ namespace ProGPU.Wpf.Tests.Composition;
 public class WpfPortableDocumentFlowTests
 {
     [Fact]
+    public void PositionedParagraphAdapterRetainsOneSharedCoordinateMap()
+    {
+        Assert.Equal(System.Runtime.InteropServices.Marshal.SizeOf<ProGPU.Backend.Native.NativeDocumentPositionedParagraph>(),
+            System.Runtime.InteropServices.Marshal.SizeOf<PortableDocumentPositionedParagraph>());
+        foreach (var field in typeof(PortableDocumentPositionedParagraph).GetFields())
+            Assert.Equal(System.Runtime.InteropServices.Marshal.OffsetOf<ProGPU.Backend.Native.NativeDocumentPositionedParagraph>(field.Name),
+                System.Runtime.InteropServices.Marshal.OffsetOf<PortableDocumentPositionedParagraph>(field.Name));
+        IPortablePositionedDocumentFlow provider = new WpfPortableDocumentFlow();
+        PortableDocumentBlock[] blocks = [new() { ParentIndex = uint.MaxValue, SubtreeEnd = 3 },
+            new() { ParentIndex = 0, SubtreeEnd = 2, LineCount = 3, InsetLeft = 4, InsetTop = 3, InsetBottom = 5 },
+            new() { ParentIndex = 0, SubtreeEnd = 3, LineStart = 3, LineCount = 1 }];
+        PortableDocumentLine[] lines = [new() { Width = 50, Height = 10 }, new() { Width = 30, Height = 10 },
+            new() { Width = 60, Height = 12 }, new() { Width = 20, Height = 7 }];
+        PortableDocumentPositionedParagraph[] paragraphs = [new() { BlockIndex = 1, Width = 90, Height = 52 }];
+        PortableDocumentLinePosition[] local = [new() { X = 40, Y = 20 }, new() { Y = 20 }, new() { Y = 40 }, new()];
+        PortableDocumentBox[] boxes = new PortableDocumentBox[3];
+        PortableDocumentLinePosition[] positions = new PortableDocumentLinePosition[4];
+        Assert.Equal(new PortableDocumentExtent(100, 67), provider.ArrangeWithPositionedParagraphs(
+            blocks, 100, lines, [], [], [], [], paragraphs, local, boxes, positions));
+        Assert.Equal(52, boxes[1].Height);
+        Assert.Equal(44, positions[0].X); Assert.Equal(23, positions[0].Y);
+        Assert.Equal(4, positions[1].X); Assert.Equal(23, positions[1].Y);
+        Assert.Equal(43, positions[2].Y); Assert.Equal(60, positions[3].Y);
+        paragraphs[0].Height = 51;
+        Assert.Throws<ProGPU.Backend.Native.NativeRendererException>(() => provider.ArrangeWithPositionedParagraphs(
+            blocks, 100, lines, [], [], [], [], paragraphs, local, boxes, positions));
+        Assert.Equal(52, boxes[1].Height); Assert.Equal(60, positions[3].Y);
+        Assert.Throws<ArgumentException>(() => provider.ArrangeWithPositionedParagraphs(
+            blocks, 100, lines, [], [], [], [], paragraphs, local.AsSpan(0, 3), boxes, positions));
+    }
+
+    [Fact]
     public void AnchorAdapterRetainsNativeLayoutsAndAtomicBatches()
     {
         static void SameLayout<TSource, TNative>() where TSource : struct where TNative : struct
