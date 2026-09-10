@@ -15,6 +15,12 @@ do not automatically expand the release checklist.
 
 ## Active completion queue
 
+**Hard-segment origin dependency — 2026-09-11:** native excluded fitting starts
+at zero and source document extent records only the first hard segment. Removing
+the source continuation rejection would overlap lines. The next connected batch
+must add an explicit native origin contract through both providers and source
+extent consumption; see [origin design](../reports/native-mil-hard-segment-origin-design-2026-09-11.md).
+
 **Viewer native row movement — 2026-09-11:** scrolling text-view Up/Down now
 consumes the retained native fragment caret adapter and preserves source table
 hierarchy at paragraph boundaries. Build and existing host regressions pass;
