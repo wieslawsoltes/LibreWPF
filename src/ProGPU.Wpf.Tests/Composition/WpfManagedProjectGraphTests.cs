@@ -12714,6 +12714,8 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("Building and running mixed WPF/WinForms SDK smoke app", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("src/ProGPU.Wpf.SdkSwitchSmoke/MixedDesktop/ProGPU.Wpf.SdkMixedDesktopSmoke.csproj", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("ProGPU.Wpf.SdkMixedDesktopSmoke", sdkCiScript, StringComparison.Ordinal);
+        Assert.Contains("Mixed WPF/WinForms SDK smoke is missing canonical runtime asset", sdkCiScript, StringComparison.Ordinal);
+        Assert.Contains("Mixed WPF/WinForms SDK smoke dependency manifest is missing LibreWinForms.Platform.dll", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("src/ProGPU.Wpf.SdkSwitchRuntimeHarness/ProGPU.Wpf.SdkSwitchRuntimeHarness.csproj", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("src/ProGPU.Wpf.SdkExternalSmokeHarness/ProGPU.Wpf.SdkExternalSmokeHarness.csproj", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("artifacts/nuget/ProGPU.Wpf.SdkSwitchSmoke", sdkCiScript, StringComparison.Ordinal);
@@ -14701,6 +14703,12 @@ public sealed class WpfManagedProjectGraphTests
             "The managed transport copy must prefer the active isolated restore root over the global NuGet package root.");
         Assert.Contains("_ProGpuWpfSdkCopyPackageRuntimeAssets", portableTargets, StringComparison.Ordinal);
         Assert.Contains("_ProGpuWpfSdkCopyNativeRuntimeAssets", portableTargets, StringComparison.Ordinal);
+        Assert.Contains("_ProGpuWpfSdkPreservePortableWinFormsRuntimeAssetsInDependencyFile", portableTargets, StringComparison.Ordinal);
+        Assert.Contains("$(_ProGpuWpfCanonicalWinFormsPackageRoot)librewinforms.progpu/$(ProGpuWpfLibreWinFormsBackendPackageVersion)/lib/$(_ProGpuWpfCanonicalWinFormsRuntimeTfm)/*.dll", portableTargets, StringComparison.Ordinal);
+        Assert.Contains("$(_ProGpuWpfCanonicalWinFormsPackageRoot)librewinforms.windowsformsintegration/$(ProGpuWpfLibreWinFormsPackageVersion)/lib/$(_ProGpuWpfCanonicalWinFormsRuntimeTfm)/*.dll", portableTargets, StringComparison.Ordinal);
+        Assert.Contains("<NuGetPackageId>LibreWinForms.ProGPU</NuGetPackageId>", portableTargets, StringComparison.Ordinal);
+        Assert.Contains("could not preserve the complete canonical LibreWinForms runtime closure", portableTargets, StringComparison.Ordinal);
+        Assert.Contains("$(TargetDir)LibreWinForms.Platform.dll", portableTargets, StringComparison.Ordinal);
         Assert.Contains("DependsOnTargets=\"ResolveLockFileCopyLocalFiles\"", portableTargets, StringComparison.Ordinal);
         Assert.Contains("DependsOnTargets=\"ResolvePackageAssets\"", portableTargets, StringComparison.Ordinal);
         Assert.Contains("DestinationFiles=\"@(RuntimeCopyLocalItems->'$(TargetDir)%(DestinationSubDirectory)%(Filename)%(Extension)')\"", portableTargets, StringComparison.Ordinal);
