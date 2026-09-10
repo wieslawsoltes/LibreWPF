@@ -174,6 +174,17 @@ scrolled. The existing renderer/source paths were traced without requiring a new
 scroll algorithm. Both renderer-mode app builds compile; no live checks have run.
 Continue Toolkit/AvalonDock dependencies, not optional scroll-family expansion.
 
+The [Toolkit source ownership connection](../reports/native-mil-toolkit-window-ownership-2026-09-10.md)
+closes the static MessageBox IntPtr-overload failure for actual live source
+Window identities, through the existing typed ProGPU owner path. Unknown HWNDs
+and stale/detached/cross-thread identities still fail closed. The AvalonDock live
+gate now requires a distinct presented host, device-index editor input/focus and
+host removal on redocking, not only model changes. Both renderer-mode Toolkit
+builds compile; these actions have not executed. Continue concrete application
+closure, especially remaining required native dialog/popup admission and lifetime,
+before feature freeze. Full package-mode qualification and both PRs' green CI
+remain mandatory; this checkpoint does not refresh the native/package feed.
+
 Package input refresh: macOS, Linux and Windows ARM64/x64 native payloads now
 share ProGPU da36a718 in the same staging root. Both Linux refresh builds completed
 all 709 compile/module/link steps. ProGPU.Backend.Native.0.1.0-preview.55.nupkg

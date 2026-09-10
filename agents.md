@@ -1,5 +1,18 @@
 # Agent Guidance
 
+Portable WindowInteropHelper owner handles may resolve only through one live
+PortablePresentationSource whose root is its actual active Window on the same
+dispatcher. Route that identity through Window.Owner and ProGPU's existing native
+owner service; never pass the handle to user32, use the public HwndSource facade
+as native ownership, or accept arbitrary/closed/detached/mismatched sources.
+Keep host rejection atomic with source owner collections and preserve native
+Windows MIL routing. Toolkit's IntPtr MessageBox overload uses this source
+identity bridge; it does not admit external HWND ownership or qualify modality.
+AvalonDock live floating validation must require a distinct presented host, its
+own device-index input, source focus, and host removal on redocking. Model-only
+Float/Dock checks are insufficient; inject coordinates in the receiving host's
+source root, not MainWindow or independently rescaled desktop coordinates.
+
 CaretElement and its caret child must publish their explicit null point-hit
 policy through IPortablePointHitRegionSource with PortableRect.Empty. Preserve
 selection/caret drawing and geometry-region queries; end own-content point scopes

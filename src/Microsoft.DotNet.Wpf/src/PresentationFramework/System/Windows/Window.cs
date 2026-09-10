@@ -3458,6 +3458,9 @@ namespace System.Windows
             {
 
                 VerifyContextAndObjectState();
+                if (IsPortableWindowActive || PortableWindowActivationService.IsEnabled ||
+                    PortableWpfRuntime.ConfiguredMediaBackend == PortableWpfMediaBackend.Portable)
+                    return _ownerWindow != null && !_ownerWindow._disposed ? _ownerWindow.Handle : IntPtr.Zero;
                 return _ownerHandle;
             }
             set
@@ -4417,10 +4420,13 @@ namespace System.Windows
             if (IsPortableWindowActive || PortableWindowActivationService.IsEnabled ||
                 PortableWpfRuntime.ConfiguredMediaBackend == PortableWpfMediaBackend.Portable)
             {
-                // WindowInteropHelper cannot establish ownership from opaque
-                // source handles. The typed Window.Owner route owns this relation.
+                // Only a live source identity can be converted to Window.Owner.
+                // An arbitrary native HWND never establishes portable ownership.
                 if (ownerHandle != IntPtr.Zero)
-                    throw new PlatformNotSupportedException("Portable window ownership requires Window.Owner, not a native handle.");
+                {
+                    Owner = ResolvePortableOwnerHandle(ownerHandle);
+                    return;
+                }
                 if (_ownerWindow != null)
                 {
                     if (IsPortableWindowActive)
@@ -4466,6 +4472,27 @@ namespace System.Windows
                     _ownerWindow = null;
                 }
             }
+        }
+
+        private Window ResolvePortableOwnerHandle(IntPtr ownerHandle)
+        {
+            Window owner = null;
+            foreach (PresentationSource source in PresentationSource.CriticalCurrentSources)
+            {
+                // Ignore the public HwndSource facade and unrelated/native sources.
+                // Read Window state only after admitting the source's dispatcher.
+                if (source is not PortablePresentationSource portable || portable.Handle != ownerHandle)
+                    continue;
+                if (portable.Dispatcher != Dispatcher || portable.IsDisposed ||
+                    portable.RootVisual is not Window candidate || candidate._disposed ||
+                    !candidate.IsPortableWindowActive || candidate.Handle != ownerHandle ||
+                    PresentationSource.CriticalFromVisual(candidate) != portable || owner != null)
+                    throw new PlatformNotSupportedException("Portable owner handles require one live Window source on the same dispatcher.");
+                owner = candidate;
+            }
+
+            return owner ?? throw new PlatformNotSupportedException(
+                "Portable owner handles must identify a live source Window; opaque native handles are unsupported.");
         }
 
         /// <summary>

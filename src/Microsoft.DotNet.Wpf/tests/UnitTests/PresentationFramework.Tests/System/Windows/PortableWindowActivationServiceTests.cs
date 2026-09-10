@@ -354,6 +354,135 @@ public class PortableWindowActivationServiceTests
         });
     }
 
+    [PortableInputFact]
+    public void KnownPortableOwnerHandlesUseTypedOwnershipBeforeAndAfterChildCreation()
+    {
+        RunInUiApartment(() =>
+        {
+            using IPortablePresentationSourceHost firstHost = PortablePresentationSourceHost.Create();
+            using IPortablePresentationSourceHost secondHost = PortablePresentationSourceHost.Create();
+            using IPortablePresentationSourceHost childHost = PortablePresentationSourceHost.Create();
+            var first = new Window();
+            var second = new Window();
+            var child = new Window { ShowInTaskbar = false };
+            var updates = new List<Window?>();
+            bool reject = false;
+            PortableWindowActivationService.Register(activate: value => value, createHidden: value => value,
+                getHandle: value => ReferenceEquals(value, first) ? firstHost.Handle :
+                    ReferenceEquals(value, second) ? secondHost.Handle : childHost.Handle,
+                setOwner: (activation, owner) =>
+                {
+                    activation.Should().BeSameAs(child);
+                    if (reject) throw new PlatformNotSupportedException("Rejected native owner.");
+                    updates.Add((Window?)owner);
+                });
+            try
+            {
+                first.Show(); second.Show();
+                firstHost.RootVisual = first; secondHost.RootVisual = second;
+                var interop = new WindowInteropHelper(child);
+                interop.Owner = new WindowInteropHelper(first).EnsureHandle();
+                child.Owner.Should().BeSameAs(first);
+                interop.Owner.Should().Be(firstHost.Handle);
+                first.OwnedWindows.Count.Should().Be(1);
+                updates.Should().BeEmpty(); // The host applies this before its first Show.
+
+                interop.EnsureHandle(); childHost.RootVisual = child;
+                reject = true;
+                Action replace = () => interop.Owner = secondHost.Handle;
+                replace.Should().Throw<PlatformNotSupportedException>();
+                child.Owner.Should().BeSameAs(first);
+                interop.Owner.Should().Be(firstHost.Handle);
+                first.OwnedWindows.Count.Should().Be(1);
+                second.OwnedWindows.Count.Should().Be(0);
+                reject = false;
+                interop.Owner = secondHost.Handle;
+                updates.Should().ContainSingle().Which.Should().BeSameAs(second);
+                first.OwnedWindows.Count.Should().Be(0);
+                second.OwnedWindows[0].Should().BeSameAs(child);
+
+                IntPtr foreignHandle = secondHost.Handle;
+                RunInUiApartment(() =>
+                {
+                    var foreignChild = new Window();
+                    try
+                    {
+                        Action foreign = () => new WindowInteropHelper(foreignChild).Owner = foreignHandle;
+                        foreign.Should().Throw<PlatformNotSupportedException>();
+                        foreignChild.Owner.Should().BeNull();
+                    }
+                    finally { foreignChild.Close(); }
+                });
+
+                Action self = () => interop.Owner = childHost.Handle;
+                self.Should().Throw<ArgumentException>();
+                Action cycle = () => new WindowInteropHelper(second).Owner = childHost.Handle;
+                cycle.Should().Throw<ArgumentException>();
+                child.Owner.Should().BeSameAs(second);
+                interop.Owner = IntPtr.Zero;
+                child.Owner.Should().BeNull();
+                interop.Owner.Should().Be(IntPtr.Zero);
+                updates.Should().HaveCount(2);
+                updates[1].Should().BeNull();
+                second.OwnedWindows.Count.Should().Be(0);
+            }
+            finally
+            {
+                childHost.RootVisual = null; secondHost.RootVisual = null; firstHost.RootVisual = null;
+                child.Close(); second.Close(); first.Close();
+                PortableWindowActivationService.Clear();
+            }
+        });
+    }
+
+    [PortableInputFact]
+    public void PortableOwnerHandleRejectsDetachedMismatchedAndDisposedSources()
+    {
+        RunInUiApartment(() =>
+        {
+            using IPortablePresentationSourceHost host = PortablePresentationSourceHost.Create();
+            using IPortablePresentationSourceHost unrelated = PortablePresentationSourceHost.Create();
+            var owner = new Window();
+            var child = new Window();
+            PortableWindowActivationService.Register(activate: value => value, createHidden: value => value,
+                getHandle: _ => host.Handle);
+            try
+            {
+                new WindowInteropHelper(owner).EnsureHandle();
+                var interop = new WindowInteropHelper(child);
+                Action assign = () => interop.Owner = host.Handle;
+                assign.Should().Throw<PlatformNotSupportedException>(); // Hidden detached tree.
+                host.RootVisual = new HitTestElement();
+                assign.Should().Throw<PlatformNotSupportedException>(); // Not a Window.
+                host.RootVisual = null;
+                unrelated.RootVisual = owner;
+                Action mismatch = () => interop.Owner = unrelated.Handle;
+                mismatch.Should().Throw<PlatformNotSupportedException>(); // Wrong activation identity.
+                unrelated.RootVisual = null;
+                host.RootVisual = owner;
+                interop.Owner = host.Handle;
+                child.Owner.Should().BeSameAs(owner);
+                interop.Owner = IntPtr.Zero;
+                IntPtr staleHandle = host.Handle;
+                host.RootVisual = null;
+                owner.Close();
+                Action closed = () => interop.Owner = staleHandle;
+                closed.Should().Throw<PlatformNotSupportedException>();
+                host.Dispose();
+                closed.Should().Throw<PlatformNotSupportedException>();
+                child.Owner.Should().BeNull();
+            }
+            finally
+            {
+                if (!((PresentationSource)host).IsDisposed) host.RootVisual = null;
+                unrelated.RootVisual = null;
+                child.Close();
+                if (!owner.IsDisposed) owner.Close();
+                PortableWindowActivationService.Clear();
+            }
+        });
+    }
+
     private sealed class PortableInputFactAttribute : FactAttribute
     {
         public PortableInputFactAttribute([CallerFilePath] string? path = null, [CallerLineNumber] int line = 0) : base(path, line)
