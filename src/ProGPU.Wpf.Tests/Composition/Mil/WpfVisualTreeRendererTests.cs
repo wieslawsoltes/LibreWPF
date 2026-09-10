@@ -204,7 +204,11 @@ public sealed class WpfVisualTreeRendererTests
         var state = new PortableDrawingGroupState();
         var drawing = new ThrowingPortableDrawingGroup(state);
         state.Children = [drawing];
-        var root = new FakePortableVisualStateDrawingVisual(drawing, new PortableVisualState());
+        var payload = new byte[8];
+        WriteUInt32(payload, 0, 1);
+        var record = CreateRecord(WpfMilCommandId.DrawDrawing, payload);
+        var content = new FakeRenderData(record, record.Length, new FakeDependentResources(drawing));
+        var root = new FakePortableVisualStateDrawingVisual(content, new PortableVisualState());
         Assert.Throws<InvalidOperationException>(() => new WpfVisualTreeRenderer().ReplayBitmapCacheBrushSource(root, new TestSink()));
     }
 
@@ -5580,9 +5584,13 @@ public sealed class WpfVisualTreeRendererTests
                 case FakeRect rect:
                     bounds = new PortableRect(rect.X, rect.Y, rect.Width, rect.Height);
                     return true;
+                case Rect rect:
+                    bounds = rect.IsEmpty ? PortableRect.Empty :
+                        new PortableRect(rect.X, rect.Y, rect.Width, rect.Height);
+                    return true;
                 case PortableRect rect:
                     bounds = rect;
-                    return !rect.IsEmpty;
+                    return true;
                 default:
                     bounds = PortableRect.Empty;
                     return false;

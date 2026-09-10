@@ -785,7 +785,8 @@ public sealed class ProGpuWpfDrawingFrameTests
         sink.DrawRectangle(Brushes.Blue, null, new Rect(1, 2, 3, 4));
         sink.PopVisualOwner();
         using var capture = new ProGPU.Scene.GpuRenderCommandHitTestCacheBuilder();
-        capture.AddSourceVisual(retainedRoot, Matrix4x4.Identity);
+        var source = Assert.IsType<ProGpuRetainedDrawingVisual>(Assert.Single(retainedRoot.Children));
+        capture.AddSourceVisual(source, Matrix4x4.Identity);
         var hits = capture.BuildIndex().Primitives;
         Assert.Equal(2, hits.Count);
         Assert.True(hits[0].Flags.HasFlag(ProGPU.Vector.GpuHitTestPrimitiveFlags.RegionOnly));

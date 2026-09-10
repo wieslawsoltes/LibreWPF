@@ -109,7 +109,7 @@ public sealed class SmoothCachedPenReplayTests
     private sealed class SourceVisual : IPortableVisualStateSource, IPortableVisualBoundsSource,
         IPortableVisualChildrenSource, IPortableDrawingContentSource
     {
-        private readonly SourceDrawing _drawing = new();
+        private readonly SourceRenderData _renderData = new(new SourceDrawing());
         public bool TryGetPortableVisualState(out PortableVisualState state) { state = new(); return true; }
         public bool TryGetPortableVisualBounds(out PortableVisualBounds bounds)
         {
@@ -119,7 +119,28 @@ public sealed class SmoothCachedPenReplayTests
         }
         public bool TryGetPortableVisualChildCount(out int count) { count = 0; return true; }
         public bool TryGetPortableVisualChild(int index, out object? child) { child = null; return false; }
-        public bool TryGetPortableDrawingContent(out object? content) { content = _drawing; return true; }
+        public bool TryGetPortableDrawingContent(out object? content) { content = _renderData; return true; }
+    }
+    private sealed class SourceRenderData : IPortableRenderDataSource
+    {
+        private readonly PortableRenderDataSnapshot _snapshot;
+
+        public SourceRenderData(SourceDrawing drawing)
+        {
+            // Real DrawingVisual content is RenderData; the drawing is a retained
+            // dependency referenced by its canonical DrawDrawing record.
+            byte[] record = new byte[16];
+            BinaryPrimitives.WriteInt32LittleEndian(record, record.Length);
+            BinaryPrimitives.WriteInt32LittleEndian(record.AsSpan(4), (int)WpfMilCommandId.DrawDrawing);
+            BinaryPrimitives.WriteInt32LittleEndian(record.AsSpan(8), 1);
+            _snapshot = new PortableRenderDataSnapshot(record, new object?[] { drawing });
+        }
+
+        public bool TryGetPortableRenderDataSnapshot(out PortableRenderDataSnapshot snapshot)
+        {
+            snapshot = _snapshot;
+            return true;
+        }
     }
     private sealed class SourceDrawing(object? geometry = null, object? brush = null, object? pen = null) : IPortableGeometryDrawingStateSource
     {

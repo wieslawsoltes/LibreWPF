@@ -1,5 +1,10 @@
 # Native MIL main integration and release status
 
+Latest follow-up: [registered source-resource validation](native-mil-resource-registry-validation-2026-09-10.md)
+records the public MIL registry correction, passing focused cache/native-input
+tests, green hosted Windows x64 native and LibreWinForms checks, and the remaining
+broad WPF test and package/application blockers.
+
 ## Integrated branches
 
 ProGPU #140 merged at `8842f828a47442dd0d3e583f85c57432e3c448e5` on
