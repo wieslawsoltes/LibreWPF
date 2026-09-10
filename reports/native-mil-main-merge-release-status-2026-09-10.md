@@ -18,8 +18,8 @@ staging remain as well. No ancestor-only package substitution was retained.
 Actionlint, YAML parsing, Bash syntax, canonical cutover and documentation checks
 pass for this merge. Full SDK/package execution remains pending.
 
-The selected ProGPU commit is `fc5670fc95b1c68c593131d3c786a7fbf7655950`.
-LibreWinForms is aligned through `a5f6c77721bb44a4c65f5bf878b05b5fe8579f38`
+The selected ProGPU commit is `9e05651abbe4e6a9ed8adc4445eab9c210b09dde`.
+LibreWinForms is aligned through `c67b04a8c0d49fd9bff8f40988ea294d22025f82`
 in [dependency PR #29](https://github.com/wieslawsoltes/LibreWinForms/pull/29).
 Its base `12b4a1be0` has the same tree as the earlier `5aa13b540` pin; only the
 ProGPU gitlink and alignment documentation change. Both consumer pins now match.
@@ -85,7 +85,11 @@ describe the source ownership and package guards retained in LibreWPF.
    VM by a bounded test allowance: all 20 native suites pass at `03acd40c`.
    Hosted Windows x64 then reached a separate masked-image differential failure:
    maximum channel delta 1, mean 0.092973 versus the existing 0.05 limit. That
-   failure remains open; no tolerance has been relaxed.
+   `9e05651a` separates straight-alpha direct image blending from the mixed
+   retained image pipeline without changing either contract. Local Metal pixels
+   are unchanged, both native providers rebuild, all 19 native suites and all
+   121 managed native-interop tests pass. Hosted Windows WARP confirmation is
+   still required; no tolerance has been relaxed.
 2. Local managed renderer and headless suites are green at the current source
    state. Their fresh hosted jobs and the platform-specific cases skipped on
    macOS still require validation.
@@ -95,7 +99,8 @@ describe the source ownership and package guards retained in LibreWPF.
    all 525 fixtures and resvg inventory are unchanged. Existing SVG.NET text,
    animation/DOM, vertical-writing and filter limitations remain documented in
    ProGPU's `docs/svg-system-drawing-w3c-threshold-review-2026-09-10.md`; threshold
-   classification is not pixel parity. Fresh hosted confirmation is pending.
+   classification is not pixel parity. Hosted W3C and resvg quality both pass
+   at `fc5670fc`; the updated production head requires fresh CI.
 4. The canonical LibreWinForms dependency pin is now aligned in PR #29 and selected
    here. That dependency PR and the actual canonical integration/package gates
    still require validation and ordered merge. The exact source-graph check is
@@ -152,3 +157,21 @@ immediately restored, rebuilt, and its final run passes. Git verifies no local
 source difference from `cbbb2aed`. This is component evidence, not package parity.
 Superseded ProGPU Build runs were cancelled to free capacity for exact-head run
 `34487437908`; the current run and retained SVG review artifacts were preserved.
+
+## Masked-image follow-up at 14:52 UTC
+
+ProGPU `9e05651a` preserves the retained MIL mask shader and uses the existing
+straight-alpha shader/SrcAlpha blending only for direct image frames. This is
+one additional engine-owned cached pipeline, not extra per-frame work or a CPU
+fallback. The strict mean/per-pixel limits remain unchanged. See its
+`docs/native-mil-masked-image-blending-2026-09-10.md` for source-contract,
+before/after Metal pixels and hosted failure evidence. The Windows ARM64 VM
+passed the earlier pipeline with mean 0.037850, so it is not a reproduction of
+the hosted WARP rounding failure. Clean exact-head VM compilation is now running.
+
+At `b3720ebfb`, LibreWPF canonical WinForms source integration, Windows managed
+payload and documentation CI pass; the SDK job is still pending. At ProGPU
+`fc5670fc`, hosted SVG W3C/resvg and all three Avalonia Dawn platform contracts
+pass. These are useful prior-head results, not qualification of the new pins.
+Superseded Build runs `34487437908` and `34489232357` were subsequently cancelled
+to free capacity; no cancelled run may supply release-qualified native payloads.
