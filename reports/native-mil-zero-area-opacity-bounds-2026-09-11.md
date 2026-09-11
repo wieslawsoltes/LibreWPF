@@ -126,3 +126,18 @@ CI run 34561955699 failed in MSVC and both ClangCL Windows architecture jobs on
 the same enum-to-uint32 aggregate narrowing. This checkpoint adds the explicit
 wire-field conversion. New Windows CI results, exact-package startup, final
 platform/pixel validation and ordered merges remain outstanding.
+
+## Glyph guideline checkpoint
+
+ProGPU `a939a049` resolves the source bitmap-text policy as one Y-only run-origin
+translation through existing retained guideline resources. X, fractional glyph
+offsets and unsnapped source hit bounds remain intact; the original per-point
+state is restored before subsequent drawing. Both native providers compile on
+macOS ARM64; native MIL/internal tests and the full native contract verifier pass.
+
+The diagnostic external app now passes glyph command 3069 and reaches image
+command 5179 (kind 19, resource 3057), which still rejects multi-guideline state.
+This is the next first-frame blocker, not successful package qualification.
+The same commit fixes MSVC C4389 in a curve-capture assertion, found after the
+earlier fill-rule compiler correction. New-head CI and final exact-package,
+platform/VM and image comparisons remain required.
