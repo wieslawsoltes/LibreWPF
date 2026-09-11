@@ -144,6 +144,23 @@ public sealed class WpfManagedProjectGraphTests
     }
 
     [Fact]
+    public void SdkSourceHarnessRuntimePathsDoNotLeakIntoPackageQualification()
+    {
+        string script = File.ReadAllText(FindRepoPath("eng", "progpu-wpf-sdk-ci.sh"));
+        int start = script.IndexOf("(\ncase \"$(uname -s)\" in", StringComparison.Ordinal);
+        int end = script.IndexOf("ProGPU.Wpf.RealThemeRuntimeHarness.csproj\" -c Release -v:minimal\n)", start, StringComparison.Ordinal);
+        Assert.True(start >= 0 && end > start);
+        string scope = script[start..end];
+        Assert.Contains("export DYLD_LIBRARY_PATH=", scope, StringComparison.Ordinal);
+        Assert.Contains("export LD_LIBRARY_PATH=", scope, StringComparison.Ordinal);
+        Assert.Contains("export PATH=", scope, StringComparison.Ordinal);
+        Assert.Contains("RealXamlRuntimeHarness.csproj", scope, StringComparison.Ordinal);
+        Assert.Contains("RealApplicationRunHarness.csproj", scope, StringComparison.Ordinal);
+        Assert.DoesNotContain("SdkExternalSmokeHarness.csproj", scope, StringComparison.Ordinal);
+        Assert.DoesNotContain("ShowcaseApp.csproj", scope, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void SdkPackageBuildOnlyKeepsQualificationOutsideProductionPath()
     {
         string script = File.ReadAllText(FindRepoPath("eng", "progpu-wpf-sdk-ci.sh"));

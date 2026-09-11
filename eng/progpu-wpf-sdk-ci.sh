@@ -419,6 +419,26 @@ else
   echo "Skipping native MIL host validation because its native runtime or graphical session is unavailable."
 fi
 
+# Source-built harnesses use the native text/document provider in both renderer
+# modes. Scope the development loader paths to these harnesses only: subsequent
+# package consumers must resolve their own packaged runtime assets.
+(
+case "$(uname -s)" in
+  Darwin)
+    export DYLD_LIBRARY_PATH="${PROGPU_NATIVE_BUILD_DIR:-${repo_root}/external/ProGPU/artifacts/progpu-native/build}:${PROGPU_NATIVE_RUNTIME_DIR:-${repo_root}/external/ProGPU/artifacts/progpu-native/runtime}${DYLD_LIBRARY_PATH:+:${DYLD_LIBRARY_PATH}}"
+    ;;
+  Linux)
+    export LD_LIBRARY_PATH="${PROGPU_NATIVE_BUILD_DIR:-${repo_root}/external/ProGPU/artifacts/progpu-native/build}:${PROGPU_NATIVE_RUNTIME_DIR:-${repo_root}/external/ProGPU/artifacts/progpu-native/runtime}${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
+    ;;
+  MINGW*|MSYS*|CYGWIN*)
+    case "$(uname -m)" in
+      arm64|aarch64) source_native_rid=win-arm64 ;;
+      *) source_native_rid=win-x64 ;;
+    esac
+    export PATH="${PROGPU_NATIVE_BUILD_DIR:-${repo_root}/external/ProGPU/artifacts/progpu-native/build-${source_native_rid}}:${PROGPU_NATIVE_RUNTIME_DIR:-${repo_root}/external/ProGPU/artifacts/progpu-native/runtime-${source_native_rid}}:${PATH}"
+    ;;
+esac
+
 echo "Running real WPF XAML runtime harness..."
 run_dotnet run --no-build --project "${repo_root}/src/ProGPU.Wpf.RealXamlRuntimeHarness/ProGPU.Wpf.RealXamlRuntimeHarness.csproj" -c Release -v:minimal
 
@@ -432,6 +452,7 @@ done
 
 echo "Running real WPF Fluent theme runtime harness..."
 run_dotnet run --no-build --project "${repo_root}/src/ProGPU.Wpf.RealThemeRuntimeHarness/ProGPU.Wpf.RealThemeRuntimeHarness.csproj" -c Release -v:minimal
+)
 
 pack_wpf_projects
 
