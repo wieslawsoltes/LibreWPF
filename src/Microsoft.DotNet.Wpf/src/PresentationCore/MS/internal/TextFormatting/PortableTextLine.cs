@@ -922,6 +922,11 @@ internal sealed class PortableTextLine : TextLine
         if (length < 0) { first += length; length = -length; }
         int start = _sourceMap.ToText(Math.Clamp(first, First, End) - _paragraphStart);
         int end = _sourceMap.ToText(Math.Clamp(checked(first + length), First, End) - _paragraphStart);
+        // Source terminators/hidden edges have a caret boundary but no ink cluster.
+        // Keep that boundary in the existing native caret frame; do not invent a glyph.
+        if (length > 0 && start == end && first >= First && first < First + Length)
+            return new[] { new TextBounds(new Rect(GetDistanceFromCharacterHit(new CharacterHit(first, 0)),
+                0, 0, Height), _rightToLeft ? FlowDirection.RightToLeft : FlowDirection.LeftToRight, null) };
         var rectangles = new PortableRect[Math.Max(1, Info.GlyphCount)];
         var result = new List<TextBounds>();
         foreach (var run in _selectionRuns)

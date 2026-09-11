@@ -15,6 +15,13 @@ do not automatically expand the release checklist.
 
 ## Active completion queue
 
+**Source Application.Run passes — 2026-09-11:** terminal newline caret bounds now
+use the retained native caret position and line height without a synthetic glyph.
+The unchanged RealApplicationRunHarness exits 0 after the automatic anchor and
+recording-host activation connections. This is local source/recording-host evidence,
+not package/platform qualification. ProGPU browser readback CI and final gates
+remain open; see [caret fix and application evidence](../reports/native-mil-terminal-caret-bounds-2026-09-11.md).
+
 **Recording-host activation corrected — 2026-09-11:** explicit typed inactive/active
 reports make both Alt+A admission assertions pass without changing product policy.
 The application next terminates in TextBoxLine.GetBoundsFromPosition during
