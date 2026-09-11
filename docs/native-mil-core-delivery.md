@@ -15,6 +15,17 @@ do not automatically expand the release checklist.
 
 ## Active completion queue
 
+**Sampled path coverage connected — 2026-09-11:** ProGPU `748097a5` connects
+DrawingBrush and other sampled path fills under per-point guidelines through
+shared canonical coverage and paired source-input/render-only scopes. Original
+brush mapping and actual unsnapped source path ownership are retained. Both
+providers compile; native MIL regression and full native contract checks pass.
+The diagnostic external application passes its previous DrawingBrush rejection
+but has not emitted live-validation success. A process sample shows Metal
+command-buffer waits and picture-mask preparation in native rendering. Resolve
+that live completion/performance blocker next, then qualify clean exact packages
+and final platform/CI results. No new compatibility API expansion is admitted.
+
 **DrawingBrush path isolated — 2026-09-11:** target 4901 generation 2 fails in
 visual 4893/content 4900: DrawingBrush 4898 fills PathGeometry 4899 under per-point
 guidelines. The sampled-brush uniform-guideline guard is the identified blocker,
