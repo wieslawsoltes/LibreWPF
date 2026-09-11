@@ -353,20 +353,21 @@ internal sealed class PortableFlowDocumentTextView(FlowDocumentView owner, FlowD
     }
 
     private int ContentEnd(int index) => Layout.Lines[index].Start + Layout.Lines[index].Line.Length - Layout.Lines[index].Line.NewlineLength;
-    private int FindLine(ITextPointer position)
+    private int FindLine(ITextPointer position) => FindLine(position.Offset, position.LogicalDirection);
+    private int FindLine(int sourceOffset, LogicalDirection direction)
     {
         int low = FirstLine, high = EndLine;
         while (low < high)
         {
             int middle = low + (high - low) / 2;
-            if (Layout.Lines[middle].Start <= position.Offset) low = middle + 1; else high = middle;
+            if (Layout.Lines[middle].Start <= sourceOffset) low = middle + 1; else high = middle;
         }
         int index = Math.Max(FirstLine, low - 1);
-        if (index > FirstLine && Layout.Lines[index].Start == position.Offset && position.LogicalDirection == LogicalDirection.Backward &&
+        if (index > FirstLine && Layout.Lines[index].Start == sourceOffset && direction == LogicalDirection.Backward &&
             ReferenceEquals(Layout.Lines[index - 1].Paragraph, Layout.Lines[index].Paragraph) &&
-            Layout.Lines[index - 1].Start + Layout.Lines[index - 1].Line.Length == position.Offset) --index;
-        else if (index + 1 < EndLine && position.Offset >= Layout.Lines[index].Start + Layout.Lines[index].Line.Length &&
-            position.LogicalDirection == LogicalDirection.Forward) ++index;
+            Layout.Lines[index - 1].Start + Layout.Lines[index - 1].Line.Length == sourceOffset) --index;
+        else if (index + 1 < EndLine && sourceOffset >= Layout.Lines[index].Start + Layout.Lines[index].Line.Length &&
+            direction == LogicalDirection.Forward) ++index;
         return index;
     }
 
@@ -633,6 +634,20 @@ internal sealed class PortableFlowDocumentTextView(FlowDocumentView owner, FlowD
     {
         RequirePosition(position);
         if (direction is not LogicalDirection.Forward and not LogicalDirection.Backward) throw new ArgumentOutOfRangeException(nameof(direction));
+        if (ChildAt(position) is { } child)
+        {
+            var moved = child.View.Move(position, direction, backspace);
+            if (moved.Offset != position.Offset) return moved;
+            var source = child.Placement.Child.Source;
+            return Pointer(direction == LogicalDirection.Forward ? source.End : source.Start, direction);
+        }
+        // Probe only anchor topology before generic object/paragraph fallback.
+        // Never substitute source insertion steps for ordinary shaped text.
+        if (AnchorViews.Count != 0 && position.GetNextInsertionPosition(direction) is { } adjacent &&
+            ChildAt(adjacent) is { } adjacentChild)
+            return adjacentChild.View.Pointer(direction == LogicalDirection.Forward
+                ? adjacentChild.Placement.Child.Source.Anchor.ContentStart.Offset
+                : adjacentChild.Placement.Child.Source.Anchor.ContentEnd.Offset, direction);
         int objectIndex = ObjectAt(position);
         if (objectIndex >= 0)
         {
@@ -657,7 +672,19 @@ internal sealed class PortableFlowDocumentTextView(FlowDocumentView owner, FlowD
             offset = Layout.Lines[index + 1].Start;
         else if (direction == LogicalDirection.Backward && offset >= position.Offset && index > FirstLine)
             offset = ContentEnd(index - 1);
-        return Pointer(offset, direction);
+        var candidate = Pointer(offset, direction);
+        var anchors = AnchorViews;
+        for (int i = 0; i < anchors.Count; ++i)
+        {
+            var anchor = anchors[direction == LogicalDirection.Forward ? i : anchors.Count - 1 - i];
+            var source = anchor.Placement.Child.Source;
+            if (direction == LogicalDirection.Forward
+                ? source.Start >= position.Offset && source.Start < candidate.Offset
+                : source.End <= position.Offset && source.End > candidate.Offset)
+                return anchor.View.Pointer(direction == LogicalDirection.Forward
+                    ? source.Anchor.ContentStart.Offset : source.Anchor.ContentEnd.Offset, direction);
+        }
+        return candidate;
     }
 
     internal override TextSegment GetLineRange(ITextPointer position)
@@ -682,12 +709,34 @@ internal sealed class PortableFlowDocumentTextView(FlowDocumentView owner, FlowD
         RequireRange(start, end);
         if (end.Offset < start.Offset) throw new ArgumentException("A document range must be ordered.");
         var result = new List<GlyphRun>();
-        if (FirstLine != EndLine)
-            for (int index = FindLine(start); index <= FindLine(end); ++index)
-                foreach (IndexedGlyphRun run in Layout.Lines[index].Line.GetIndexedGlyphRuns())
-                    if (run.TextSourceCharacterIndex < end.Offset && run.TextSourceCharacterIndex + run.TextSourceLength > start.Offset)
-                        result.Add(run.GlyphRun);
+        CollectGlyphRuns(start.Offset, end.Offset, result, AnchorViews.Count == 0 ? null : new HashSet<GlyphRun>());
         return result.AsReadOnly();
+    }
+
+    private void CollectGlyphRuns(int start, int end, List<GlyphRun> result, HashSet<GlyphRun> seen)
+    {
+        if (end <= start) return;
+        void AddOwn(int from, int to)
+        {
+            if (to <= from || FirstLine == EndLine) return;
+            for (int index = FindLine(from, LogicalDirection.Forward); index <= FindLine(to, LogicalDirection.Backward); ++index)
+                foreach (IndexedGlyphRun run in Layout.Lines[index].Line.GetIndexedGlyphRuns())
+                    if (run.TextSourceCharacterIndex < to && run.TextSourceCharacterIndex + run.TextSourceLength > from &&
+                        (seen == null || seen.Add(run.GlyphRun)))
+                        result.Add(run.GlyphRun);
+        }
+        int cursor = start;
+        foreach (var child in AnchorViews)
+        {
+            var source = child.Placement.Child.Source;
+            if (source.End <= cursor) continue;
+            if (source.Start >= end) break;
+            AddOwn(cursor, Math.Min(end, source.Start));
+            child.View.CollectGlyphRuns(Math.Max(cursor, source.Start), Math.Min(end, source.End), result, seen);
+            cursor = Math.Max(cursor, source.End);
+            if (cursor >= end) break;
+        }
+        AddOwn(cursor, end);
     }
 
     internal override void BringPositionIntoViewAsync(ITextPointer position, object userState)

@@ -15,6 +15,12 @@ do not automatically expand the release checklist.
 
 ## Active completion queue
 
+**Anchor caret/glyph routing — 2026-09-11:** logical caret-unit movement and glyph
+collection now include retained child layouts and original source boundaries.
+Vertical boundary navigation and automatic source frames remain required, as does
+anchored-viewer runtime qualification; see
+[caret/glyph connection](../reports/native-mil-anchor-caret-glyph-routing-2026-09-11.md).
+
 **Retained child text-view routing — 2026-09-11:** child point/caret/selection
 queries now reuse the existing view over the owned child layout and original
 source ranges. Cross-boundary navigation, glyph export, automatic frames and actual
