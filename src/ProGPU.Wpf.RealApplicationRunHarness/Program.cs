@@ -6833,6 +6833,20 @@ internal static partial class Program
             Type keyboardType = GetRequiredType(_presentationCore, "System.Windows.Input.Keyboard");
             InvokeStatic(keyboardType, "ClearFocus");
 
+            // This recording host has no native focus events. Publish its explicit
+            // test state through the same typed ingress used by real native hosts.
+            if (!PortableWpfServiceRegistry.TryGetWindowActivationService(PortableWpfServiceKey.PresentationFramework,
+                out var hostState) || !hostState.TrySetActivationState(window, false))
+                throw new InvalidOperationException("The recording host cannot publish source activation state.");
+            AssertEqual(false, GetProperty(window, "IsActive"), "inactive recording source state");
+            object inactiveText = CreatePortableInputEvent("TextInput", key: null, scanCode: 0, character: 'a', modifiersName: "Alt");
+            Invoke(window, "HandlePortableInput", inactiveText);
+            AssertEqual(false, GetProperty(inactiveText, "Handled"), "inactive source rejects default access key scope");
+            AssertEqual(null, TryGetStaticProperty(keyboardType, "FocusedElement"), "inactive access key does not assign focus");
+            if (!hostState.TrySetActivationState(window, true))
+                throw new InvalidOperationException("The recording host activation report was rejected.");
+            AssertEqual(true, GetProperty(window, "IsActive"), "active recording source state");
+
             object accessText = CreatePortableInputEvent("TextInput", key: null, scanCode: 0, character: 'a', modifiersName: "Alt");
             Invoke(window, "HandlePortableInput", accessText);
 

@@ -15,6 +15,12 @@ do not automatically expand the release checklist.
 
 ## Active completion queue
 
+**Recording-host activation corrected — 2026-09-11:** explicit typed inactive/active
+reports make both Alt+A admission assertions pass without changing product policy.
+The application next terminates in TextBoxLine.GetBoundsFromPosition during
+editor focus/caret calculation. See
+[activation and next failure](../reports/native-mil-recording-host-activation-2026-09-11.md).
+
 **Automatic native floating document path — 2026-09-11:** ordinary bottomless
 layout now connects original measured anchors, source events, native placements,
 owned drawing/input and hard-line exclusion carry-over. The unchanged application
