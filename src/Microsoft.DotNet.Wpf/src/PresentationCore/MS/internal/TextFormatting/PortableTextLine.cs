@@ -36,6 +36,26 @@ internal interface IPortableExcludedTextSource
     PortableTextExclusionRequest GetExclusions(int firstSourceIndex);
 }
 
+// Original child ranges are relative to the requested hard segment, never glyph indices.
+internal sealed class PortableTextFloatingRequest
+{
+    internal uint MaximumAttempts { get; }
+    internal double OriginY { get; }
+    internal ReadOnlyMemory<PortableTextSourceFloat> Children { get; }
+    internal ReadOnlyMemory<PortableTextExclusion> Exclusions { get; }
+    internal PortableTextFloatingRequest(uint maximumAttempts, double originY,
+        ReadOnlySpan<PortableTextSourceFloat> children, ReadOnlySpan<PortableTextExclusion> exclusions)
+    {
+        MaximumAttempts = maximumAttempts; OriginY = originY;
+        Children = children.ToArray(); Exclusions = exclusions.ToArray();
+    }
+}
+
+internal interface IPortableFloatingTextSource
+{
+    PortableTextFloatingRequest GetFloats(int firstSourceIndex, int sourceLength);
+}
+
 /// <summary>Source-owned WPF line semantics over the typed ProGPU paragraph service.</summary>
 internal sealed class PortableTextLine : TextLine
 {
@@ -79,6 +99,9 @@ internal sealed class PortableTextLine : TextLine
     internal double FragmentContentHeight => (_paragraph as IPortableExcludedTextParagraph)?.ContentHeight ?? Height;
     internal bool IsLastFragment => _lineIndex + 1 == _paragraph.Lines.Length;
     internal double FragmentContentWidth => (_paragraph as IPortableExcludedTextParagraph)?.ContentWidth ?? Width;
+    internal double FloatingContentHeight => (_paragraph as IPortableFloatingTextParagraph)?.OccupiedHeight ?? FragmentContentHeight;
+    internal double FloatingContentWidth => (_paragraph as IPortableFloatingTextParagraph)?.OccupiedWidth ?? FragmentContentWidth;
+    internal ReadOnlyMemory<PortableTextFloatPlacement> SourceFloats { get; private init; }
     private double NativeOrigin => Start - (Fragment?.Left ?? 0);
     private int First => _paragraphStart + (_lineIndex == 0 ? 0 : _sourceMap.ToSource(Info.InputStart, true));
     private int End => _paragraphStart + _sourceMap.ToSource(Info.InputEnd, true);
@@ -277,6 +300,12 @@ internal sealed class PortableTextLine : TextLine
             primaryEmSize = properties.FontRenderingEmSize * mappedFonts[0].Value.ScaleInEm;
         }
         string text = builder.ToString();
+        var sourceMap = new PortableTextSourceMap(sourceLength, text.Length, CollectionsMarshal.AsSpan(sourceRanges));
+        var floating = (settings.TextSource as IPortableFloatingTextSource)?.GetFloats(first, sourceLength);
+        if (floating != null && (exclusions != null || measureIntrinsicWidths || width <= 0 ||
+            service is not IPortableFloatingTextFormatting))
+            throw Unsupported("floating source formatting requires one bounded native floating provider request");
+        var floatEvents = floating == null ? null : sourceMap.MapFloatingRanges(floating.Children.Span);
         var font = styles.Count > 0 ? styles[0].Font : GetFont(face);
         double height = pap.LineHeight > 0 ? settings.Formatter.IdealToReal(pap.LineHeight, pixelsPerDip) :
             properties.Typeface.LineSpacing(properties.FontRenderingEmSize, 1, pixelsPerDip, settings.TextFormattingMode);
@@ -297,14 +326,21 @@ internal sealed class PortableTextLine : TextLine
             hasTabs ? (float)pap.DefaultIncrementalTab : 0, (float)indent, measureIntrinsicWidths,
             pap.EmergencyWrap ? PortableTextWrapping.Emergency : PortableTextWrapping.WholeWord);
         IPortableTextParagraph paragraph;
-        if (objects != null || exclusions != null)
+        if (objects != null || exclusions != null || floating != null)
         {
             var metrics = new PortableTextStyleMetrics[styles.Count];
             for (int i = 0; i < metrics.Length; i++)
                 metrics[i] = new((float)styles[i].Baseline, (float)(styles[i].Height - styles[i].Baseline));
             var items = new PortableTextInlineObject[objects?.Count ?? 0];
             for (int i = 0; i < items.Length; i++) items[i] = objects[i].Metrics;
-            if (exclusions != null)
+            if (floating != null)
+            {
+                var options = new PortableTextFloatingOptions(floating.MaximumAttempts, floating.OriginY,
+                    (float)baseline, (float)Math.Max(0, height - baseline));
+                paragraph = ((IPortableFloatingTextFormatting)service).FormatFloating(in request, metrics, items,
+                    in options, floatEvents, floating.Exclusions.Span);
+            }
+            else if (exclusions != null)
             {
                 var options = exclusions.Options;
                 if (exclusions.OriginY != 0)
@@ -322,7 +358,7 @@ internal sealed class PortableTextLine : TextLine
         else paragraph = service.Format(in request);
         if (paragraph == null) throw new InvalidOperationException("The text provider returned no paragraph.");
         if (paragraph.Lines.Length == 0) throw new InvalidOperationException("The text provider returned no line.");
-        if (exclusions != null && (paragraph is not IPortableExcludedTextParagraph excluded ||
+        if ((exclusions != null || floating != null) && (paragraph is not IPortableExcludedTextParagraph excluded ||
             excluded.Fragments.Length != paragraph.Lines.Length))
             throw new InvalidOperationException("The excluded text provider did not retain one frame per source fragment.");
         if (measureIntrinsicWidths)
@@ -334,10 +370,25 @@ internal sealed class PortableTextLine : TextLine
             measurement = new(sourceLength, newlines, endsParagraph, scope, widths, indent);
             return null; // Measurement never constructs source GlyphRuns or a drawing TextLine.
         }
+        PortableTextFloatPlacement[] sourceFloats = [];
+        if (floating != null)
+        {
+            if (paragraph is not IPortableFloatingTextParagraph floated || floated.Floats.Length != floatEvents.Length)
+                throw new InvalidOperationException("The floating text provider lost source children.");
+            sourceFloats = new PortableTextFloatPlacement[floatEvents.Length];
+            for (int i = 0; i < sourceFloats.Length; i++)
+            {
+                var placement = floated.Floats.Span[i];
+                if (placement.Position != floatEvents[i].Position)
+                    throw new InvalidOperationException("The floating text provider changed source event order.");
+                // Equal shaping boundaries may name distinct hidden children. Never reverse-map that ambiguity.
+                sourceFloats[i] = placement with { Position = checked(first + floating.Children.Span[i].SourceStart) };
+            }
+        }
         return new PortableTextLine(paragraph, text, properties, face, first, 0, newlines,
             width, indent, baseline, height, pap.RightToLeft, runs, pixelsPerDip, pap.Align, styles.ToArray(), pap.LineHeight > 0,
-            new PortableTextSourceMap(sourceLength, text.Length, CollectionsMarshal.AsSpan(sourceRanges)), scope,
-            settings.Formatter, service, objects: objects?.ToArray());
+            sourceMap, scope,
+            settings.Formatter, service, objects: objects?.ToArray()) { SourceFloats = sourceFloats };
     }
 
     internal static MinMaxParagraphWidth MeasureIntrinsicWidths(FormatSettings settings, int first,
@@ -387,7 +438,7 @@ internal sealed class PortableTextLine : TextLine
         owner._properties, owner._face, owner._paragraphStart, index, owner._newlines,
         owner._paragraphWidth, owner._indent, owner._baseline, owner._height, owner._rightToLeft,
         owner._runs, owner.PixelsPerDip, owner._alignment, owner._styles, owner._fixedHeight, owner._sourceMap, owner._endScope,
-        owner._formatter, owner._service, objects: owner._objects) { }
+        owner._formatter, owner._service, objects: owner._objects) { SourceFloats = owner.SourceFloats; }
 
     private static PortableTextFeature[] Features(TextRunTypographyProperties p)
     {

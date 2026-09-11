@@ -15,6 +15,13 @@ do not automatically expand the release checklist.
 
 ## Active completion queue
 
+**Source TextLine floating connection — 2026-09-11:** explicit hidden child ranges
+now map through ProGPU's checked source map to the captured floating provider.
+Returned native placements retain original child starts and survive wrapped
+continuations without ambiguous boundary reverse mapping. Automatic source event
+production, child placement and hard-line carry-over remain required before
+admission; see [source connection](../reports/native-mil-source-floating-textline-2026-09-11.md).
+
 **Floating text provider connection — 2026-09-11:** the optional neutral floating
 service now selects the shared native snapshot through the actual WPF styled text
 adapter. Linked-source compilation/native checks pass for original UTF-16 events,
