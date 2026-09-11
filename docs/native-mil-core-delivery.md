@@ -15,6 +15,13 @@ do not automatically expand the release checklist.
 
 ## Active completion queue
 
+**MSVC merge blocker — 2026-09-11:** ProGPU 4c9a2fc5 makes the already validated
+double-to-float empty-paragraph origin conversion explicit, fixing the C4244 site
+reported by the strict MSVC job. Both providers rebuild locally and the new empty
+origin regression passes; new-head MSVC CI remains required. Consume it through
+LibreWinForms 09eddcaeb. Parent anchor placement and child ownership remain next;
+see [producer evidence](https://github.com/wieslawsoltes/ProGPU/blob/4c9a2fc5be13575718501caaf2a9ac2d29c4a763/docs/native-mil-msvc-origin-narrowing-2026-09-11.md).
+
 **Automatic source anchor sizing — 2026-09-11:** source auto Figure and Floater
 policy now drives native two-pass widths and original-child reformatting, with
 actual source insets. Parent placement/exclusion production and child drawing/input
