@@ -5,6 +5,7 @@ using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Interop;
+using ProGPU.Wpf.Interop;
 
 using MS.Win32;
 
@@ -173,8 +174,9 @@ namespace MS.Internal
         {
             if (TryGetPortablePresentationSource(presentationSource, out PortablePresentationSource portableSource))
             {
-                Point origin = portableSource.ClientOrigin;
-                return new Point(pointClient.X + origin.X, pointClient.Y + origin.Y);
+                PortablePoint point = portableSource.DesktopTransform.ClientToDesktop(
+                    new PortablePoint(pointClient.X, pointClient.Y));
+                return new Point(point.X, point.Y);
             }
 
             // For native sources we only know how to use HwndSource.
@@ -201,8 +203,9 @@ namespace MS.Internal
         {
             if (TryGetPortablePresentationSource(presentationSource, out PortablePresentationSource portableSource))
             {
-                Point origin = portableSource.ClientOrigin;
-                return new Point(pointScreen.X - origin.X, pointScreen.Y - origin.Y);
+                PortablePoint point = portableSource.DesktopTransform.DesktopToClient(
+                    new PortablePoint(pointScreen.X, pointScreen.Y));
+                return new Point(point.X, point.Y);
             }
 
             // For native sources we only know how to use HwndSource.
@@ -221,6 +224,19 @@ namespace MS.Internal
             ptClient = AdjustForRightToLeft(ptClient, handleRef);
 
             return ToPoint(ptClient);
+        }
+
+        internal static bool TryGetPortableDesktopTransform(
+            PresentationSource source,
+            out PortableDesktopTransform transform)
+        {
+            if (TryGetPortablePresentationSource(source, out PortablePresentationSource portableSource))
+            {
+                transform = portableSource.DesktopTransform;
+                return true;
+            }
+            transform = default;
+            return false;
         }
 
         private static bool TryGetPortablePresentationSource(

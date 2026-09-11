@@ -295,9 +295,15 @@ namespace System.Windows.Documents
 
             // Clip to the window client rect.
             PresentationSource source = PresentationSource.CriticalFromVisual(This.UiScope);
-            if (!OperatingSystem.IsWindows())
+            ClipToSourceClient(source, This.UiScope, ref horizontalOffset, ref verticalOffset);
+        }
+
+        internal static void ClipToSourceClient(PresentationSource source, Visual uiScope,
+            ref double horizontalOffset, ref double verticalOffset)
+        {
+            if (!PopupControlService.UsesNativeWindowing(source))
             {
-                ClipToPresentationSourceRoot(source, This.UiScope, ref horizontalOffset, ref verticalOffset);
+                ClipToPresentationSourceRoot(source, uiScope, ref horizontalOffset, ref verticalOffset);
             }
             else if (source is IWin32Window window)
             {
@@ -316,7 +322,7 @@ namespace System.Windows.Documents
                 maxPoint = compositionTarget.TransformFromDevice.Transform(maxPoint);
 
                 // Convert to local coordinates.
-                GeneralTransform transform = compositionTarget.RootVisual.TransformToDescendant(This.UiScope);
+                GeneralTransform transform = compositionTarget.RootVisual.TransformToDescendant(uiScope);
                 if (transform != null)
                 {
                     transform.TryTransform(minPoint, out minPoint);

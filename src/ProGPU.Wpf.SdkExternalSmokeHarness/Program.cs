@@ -66,6 +66,7 @@ internal static class Program
         "ProGPU.Wpf",
         "ProGPU.Wpf.Interop",
         "ProGPU.Backend",
+        "ProGPU.Backend.Native",
         "ProGPU.DirectX",
         "ProGPU.Scene",
         "ProGPU.Vector",
@@ -347,6 +348,25 @@ internal static class Program
         AssertContains(portableTargets, "<PackageReference Include=\"ProGPU.Transpiler\" Version=\"$(ProGpuPackageVersion)\" />", "SDK ProGPU transpiler package reference");
         AssertContains(portableTargets, "<PackageReference Include=\"ProGPU.Transpiler\" VersionOverride=\"$(ProGpuPackageVersion)\" />", "SDK CPM ProGPU transpiler package reference");
         AssertContains(portableTargets, "<Compile Include=\"$(MSBuildThisFileDirectory)ProGPU.Wpf.Sdk.PortableBootstrap.cs\"", "SDK portable bootstrap injection");
+        AssertContains(sdkProps, "<ProGpuWpfRendererMode Condition=\"'$(ProGpuWpfRendererMode)' == ''\">ManagedPortable</ProGpuWpfRendererMode>", "SDK managed renderer default");
+        AssertContains(portableTargets, "_ProGpuWpfSdkValidateRendererMode", "SDK renderer selection validation");
+        AssertContains(portableTargets, "PROGPU_WPF_NATIVE_MIL", "SDK native renderer compile-time selection");
+        AssertContains(portableTargets, "RuntimeHostConfigurationOption Include=\"LibreWPF.RequestedRendererMode\"", "SDK requested renderer diagnostic metadata");
+        AssertContains(portableBootstrap, "ProGpuWpfRendererMode.NativeMilWgpu", "SDK native host factory");
+        AssertContains(sdkProps, "<ProGpuWpfNativeMilHitTesting Condition=\"'$(ProGpuWpfNativeMilHitTesting)' == ''\">false</ProGpuWpfNativeMilHitTesting>", "SDK explicit native input admission");
+        AssertContains(portableTargets, "PROGPU_WPF_NATIVE_MIL_HIT_TESTING", "SDK native input build selection");
+        AssertContains(portableBootstrap, "EnableNativeMilHitTesting = true", "SDK native index host admission");
+        AssertContains(portableBootstrap, "if (!registered)", "SDK native activation fails closed");
+        AssertContains(portableBootstrap, "architecture != global::System.Runtime.InteropServices.Architecture.X64", "SDK native x64 architecture admission");
+        AssertContains(portableBootstrap, "architecture != global::System.Runtime.InteropServices.Architecture.Arm64", "SDK native ARM64 architecture admission");
+        AssertContains(portableBootstrap, "NativeMilWgpu requires an x64 or ARM64 desktop process", "SDK unsupported architecture rejection");
+        AssertContains(portableBootstrap, "NativeMilWgpu requires the source-built typed WPF activation service.", "SDK native activation requirement");
+        AssertContains(portableBootstrap, "ProGpuWpfNativeMediaServices.Initialize();", "SDK native media provider and transport initialization");
+        if (portableBootstrap.IndexOf("ProGpuWpfNativeMediaServices.Initialize();", StringComparison.Ordinal) >=
+            portableBootstrap.IndexOf("RuntimeHelpers.RunModuleConstructor(", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("SDK transport choice must precede WPF module initialization.");
+        }
         AssertContains(portableTargets, "_ProGpuWpfSdkCopyManagedTransportRuntimeAssets", "SDK managed transport runtime copy target");
         AssertContains(portableTargets, "_ProGpuWpfSdkPreserveManagedTransportRuntimeAssetsInDependencyFile", "SDK managed transport dependency target");
         AssertContains(portableTargets, "BeforeTargets=\"GenerateBuildDependencyFile\"", "SDK managed transport dependency ordering");
@@ -516,7 +536,7 @@ internal static class Program
     private static string ResolvePackageVersion(string environmentVariable, string fallback)
     {
         string? value = Environment.GetEnvironmentVariable(environmentVariable);
-        return string.IsNullOrWhiteSpace(value) ? fallback : value;
+        return string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
     }
 
     private static void ValidateLocalWpfPackageMatchesAvailableRepositoryBuilds(string repoRoot, string packageFeed)
@@ -808,7 +828,7 @@ internal static class Program
               </PropertyGroup>
 
               <ItemGroup>
-                <Compile Include="**/*.cs" />
+                <Compile Include="**/*.cs" Exclude="$(DefaultItemExcludes);$(DefaultExcludesInProjectFolder)" />
                 <ApplicationDefinition Include="App.xaml" />
                 <Page Include="**/*.xaml" Exclude="App.xaml" />
                 <None Include="App.config" />
@@ -3143,6 +3163,7 @@ internal static class Program
                             validationTextBox = RequireType<TextBox>(
                                 FindName("ExternalValidationTextBox"),
                                 "external SDK live validation TextBox");
+                            ExternalSdkValidation.ValidateCompositionPreferenceBoundary(validationTextBox);
                             validationTextBox.Text = string.Empty;
                             validationTextBox.CaretIndex = 0;
                             validationTextBox.GetBindingExpression(TextBox.TextProperty)?.UpdateSource();
@@ -5249,7 +5270,15 @@ internal static class Program
                         base.OnStartup(e);
                         Dispatcher.BeginInvoke(
                             DispatcherPriority.Normal,
-                            new Action(ExternalSdkValidation.ValidateApplicationRunAndShutdown));
+                            new Action(() =>
+                            {
+                                try { ExternalSdkValidation.ValidateApplicationRunAndShutdown(); }
+                                catch (Exception ex)
+                                {
+                                    Console.Error.WriteLine("External SDK Application.Run validation failed: " + ex);
+                                    Environment.Exit(1);
+                                }
+                            }));
                         return;
                     }
 
@@ -6034,6 +6063,7 @@ internal static class Program
 
                 public static void ValidateApplicationRunAndShutdown()
                 {
+                    Console.WriteLine("External SDK Application.Run validation entered.");
                     var app = RequireType<App>(
                         Application.Current,
                         "external SDK current application");
@@ -6060,6 +6090,7 @@ internal static class Program
                     window.ResizeMode = ResizeMode.CanResizeWithGrip;
                     window.WindowStyle = WindowStyle.None;
                     DrainDispatcher();
+                    Console.WriteLine("External SDK Application.Run window changes dispatched.");
                     AssertEqual(56.0, window.Left, "external SDK application main window updated left");
                     AssertEqual(72.0, window.Top, "external SDK application main window updated top");
                     AssertEqual(false, window.Topmost, "external SDK application main window updated topmost");
@@ -7458,6 +7489,7 @@ internal static class Program
 
                     WindowChrome.SetWindowChrome(window, chrome);
                     AssertEqual(chrome, WindowChrome.GetWindowChrome(window), "external SDK WindowChrome attached value");
+                    RequirePortableChromeStyle(window, WindowStyle.None);
                     AssertEqual(32.0, chrome.CaptionHeight, "external SDK WindowChrome caption height");
                     AssertEqual(NonClientFrameEdges.Top, chrome.NonClientFrameEdges, "external SDK WindowChrome non-client frame edges");
 
@@ -7469,6 +7501,18 @@ internal static class Program
                     {
                         throw new InvalidOperationException("Expected external SDK WindowChrome cleared value to be null.");
                     }
+                    RequirePortableChromeStyle(window, window.WindowStyle);
+                }
+
+                private static void RequirePortableChromeStyle(Window window, WindowStyle expected)
+                {
+                    if (global::ProGPU.Wpf.Interop.PortableWpfRuntime.ConfiguredMediaBackend !=
+                        global::ProGPU.Wpf.Interop.PortableWpfMediaBackend.Portable)
+                        return;
+                    if (window is not global::ProGPU.Wpf.Interop.IPortableWindowStateSource source ||
+                        !source.TryGetPortableWindowState(out var state) || !state.HasWindowStyle)
+                        throw new InvalidOperationException("Portable WindowChrome requires typed source window state.");
+                    AssertEqual((int)expected, state.WindowStyle, "external SDK WindowChrome portable host border");
                 }
 
                 private static void ValidateSystemCommands(MainWindow window)
@@ -13446,11 +13490,38 @@ internal static class Program
                         ?? throw new InvalidOperationException("Expected external SDK window to have a presentation source.");
 
                     AssertEqual(true, AccessKeyManager.IsKeyRegistered(presentationSource, "E"), "external SDK access-key manager registered label key");
+                    ValidateCompositionPreferenceBoundary(validationTextBox);
                     Keyboard.ClearFocus();
                     AssertEqual(false, ReferenceEquals(validationTextBox, Keyboard.FocusedElement), "external SDK access-key manager cleared focus");
                     AssertEqual(false, AccessKeyManager.ProcessKey(presentationSource, "E", false), "external SDK access-key manager process last key");
                     AssertEqual(validationTextBox, Keyboard.FocusedElement, "external SDK access-key manager focused label target");
                     Keyboard.ClearFocus();
+                }
+
+                internal static void ValidateCompositionPreferenceBoundary(TextBox validationTextBox)
+                {
+                    // XAML metadata above deliberately exercises explicit IME preferences.
+                    // Portable committed-text focus must reject those until the host
+                    // composition contract exists; it must not pretend to apply them.
+                    Keyboard.ClearFocus();
+                    bool rejectedCompositionPreferences = false;
+                    try
+                    {
+                        Keyboard.Focus(validationTextBox);
+                    }
+                    catch (PlatformNotSupportedException ex) when (
+                        ex.Message == "Portable input-method preferences require the host composition contract.")
+                    {
+                        rejectedCompositionPreferences = true;
+                    }
+                    finally
+                    {
+                        Keyboard.ClearFocus();
+                    }
+                    AssertEqual(true, rejectedCompositionPreferences, "external SDK explicit IME preferences require host composition support");
+                    InputMethod.SetPreferredImeState(validationTextBox, InputMethodState.DoNotCare);
+                    InputMethod.SetPreferredImeConversionMode(validationTextBox, ImeConversionModeValues.DoNotCare);
+                    InputMethod.SetPreferredImeSentenceMode(validationTextBox, ImeSentenceModeValues.DoNotCare);
                 }
 
                 private static void ValidateClassInputBindingAfterRun(MainWindow window)
@@ -17788,7 +17859,7 @@ internal static class Program
         AssertContains(appProject, $"<TargetFramework>{ExternalAppTargetFramework}</TargetFramework>", "external app Windows target framework");
         AssertContains(appProject, "<EnableDefaultItems>false</EnableDefaultItems>", "external app explicit item mode");
         AssertContains(appProject, "<UseWPF>true</UseWPF>", "external app WPF property");
-        AssertContains(appProject, "<Compile Include=\"**/*.cs\" />", "external app explicit compile items");
+        AssertContains(appProject, "<Compile Include=\"**/*.cs\" Exclude=\"$(DefaultItemExcludes);$(DefaultExcludesInProjectFolder)\" />", "external app explicit compile items exclude build outputs");
         AssertContains(appProject, "<ApplicationDefinition Include=\"App.xaml\" />", "external app explicit application definition item");
         AssertContains(appProject, "<Page Include=\"**/*.xaml\" Exclude=\"App.xaml\" />", "external app explicit page items");
         AssertContains(appProject, "<None Include=\"App.config\" />", "external app explicit app config item");

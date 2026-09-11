@@ -11,6 +11,7 @@ using MS.Internal;
 using MS.Internal.Interop;
 using MS.Utility;
 using MS.Win32;
+using ProGPU.Wpf.Interop;
 
 using UnsafeNativeMethods = MS.Win32.PresentationCore.UnsafeNativeMethods;
 using HRESULT = MS.Internal.HRESULT;
@@ -66,7 +67,7 @@ namespace System.Windows.Media.Composition
         /// </summary>
         internal static CompositionEngineLock Acquire()
         {
-            if (!OperatingSystem.IsWindows())
+            if (PortableWpfRuntime.GetMediaBackendAndFreeze() != PortableWpfMediaBackend.WindowsMil)
             {
                 return new CompositionEngineLock(false);
             }

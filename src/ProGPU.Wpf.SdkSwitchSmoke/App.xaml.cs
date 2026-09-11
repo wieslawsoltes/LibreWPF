@@ -13,6 +13,33 @@ namespace ProGPU.Wpf.SdkSwitchSmoke;
 
 public partial class App : Application
 {
+    public App()
+    {
+#if PROGPU_WPF_NATIVE_MIL
+        // Application construction precedes the first host. The SDK module
+        // initializer must already have selected media and registered providers.
+        if (!global::ProGPU.Wpf.Interop.PortableWpfServiceRegistry.TryGetTextFormatting(out _) ||
+            !global::ProGPU.Wpf.Interop.PortableWpfServiceRegistry.TryGetGeometryOperations(out _))
+            throw new InvalidOperationException("Native SDK source services were not ready before application construction.");
+        var text = new FormattedText("אב fi a\u0301", System.Globalization.CultureInfo.InvariantCulture,
+            FlowDirection.RightToLeft, new Typeface("#GLOBAL USER INTERFACE"), 14, Brushes.Black, 1);
+        NativeStartupTextWidth = text.Width;
+        NativeStartupMinimumTextWidth = text.MinWidth;
+        if (!double.IsFinite(NativeStartupTextWidth) || NativeStartupTextWidth <= 0)
+            throw new InvalidOperationException("Native SDK startup text did not produce real measured content.");
+        if (!double.IsFinite(NativeStartupMinimumTextWidth) || NativeStartupMinimumTextWidth <= 0 ||
+            NativeStartupMinimumTextWidth > NativeStartupTextWidth + 0.01)
+            throw new InvalidOperationException("Native SDK startup intrinsic text measurement is invalid.");
+        var combined = Geometry.Combine(new RectangleGeometry(new Rect(0, 0, 12, 12)),
+            new RectangleGeometry(new Rect(6, 0, 12, 12)), GeometryCombineMode.Union, null);
+        if (!combined.FillContains(new Point(15, 6)))
+            throw new InvalidOperationException("Native SDK startup geometry provider did not preserve the union.");
+#endif
+    }
+
+    public double NativeStartupTextWidth { get; }
+    public double NativeStartupMinimumTextWidth { get; }
+
     private const string LibreWpfPackageVersion = "0.1.0-preview.45";
     private const string ProGpuPackageVersion = "0.1.0-preview.62";
     private static readonly string EffectiveLibreWpfPackageVersion = ResolvePackageVersion(
@@ -749,7 +776,7 @@ public partial class App : Application
     private static string ResolvePackageVersion(string environmentVariable, string fallback)
     {
         string? value = Environment.GetEnvironmentVariable(environmentVariable);
-        return string.IsNullOrWhiteSpace(value) ? fallback : value;
+        return string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
     }
 
     private static bool TryFindLocalPackageFeed(out string packageFeed)

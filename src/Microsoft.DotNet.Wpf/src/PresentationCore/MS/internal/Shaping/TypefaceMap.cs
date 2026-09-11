@@ -235,6 +235,31 @@ namespace MS.Internal.Shaping
         }
         #endif
 
+        /// <summary>
+        /// Source-owned font linking only. Native paragraph consumers perform
+        /// script/bidi itemization and shaping themselves; no DWrite itemizer or
+        /// LineServices object is required to obtain these physical face ranges.
+        /// </summary>
+        internal void GetPortableFontRuns(CharacterBufferRange text, CultureInfo culture,
+            IList<TextSpan<ScaledShapeTypeface>> output)
+        {
+            if (text.Length == 0) return;
+            var indices = new SpanVector<int>(-1);
+            MapItem(text, culture, null, ref indices, 0);
+            var rider = new SpanRider<int>(indices);
+            int position = 0;
+            while (position < text.Length)
+            {
+                rider.At(position);
+                int index = rider.CurrentValue;
+                int length = Math.Min(text.Length - position, rider.Length);
+                if (index < 0 || index >= _cachedScaledTypefaces.Count || length <= 0)
+                    throw new InvalidOperationException("Source font linking did not cover the requested text.");
+                output.Add(new TextSpan<ScaledShapeTypeface>(length, _cachedScaledTypefaces[index]));
+                position += length;
+            }
+        }
+
         private void MapItem(
             CharacterBufferRange unicodeString,
             CultureInfo          culture,
@@ -244,7 +269,12 @@ namespace MS.Internal.Shaping
             )
         {
             CultureInfo digitCulture = ((MS.Internal.Text.TextInterface.ItemProps)itemSpan.element).DigitCulture;
+            MapItem(unicodeString, culture, digitCulture, ref cachedScaledTypefaceIndexSpans, ichItem);
+        }
 
+        private void MapItem(CharacterBufferRange unicodeString, CultureInfo culture,
+            CultureInfo digitCulture, ref SpanVector<int> cachedScaledTypefaceIndexSpans, int ichItem)
+        {
             bool isCached = GetCachedScaledTypefaceMap(
                 unicodeString,
                 culture,

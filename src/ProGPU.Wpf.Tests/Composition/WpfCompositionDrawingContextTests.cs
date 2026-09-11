@@ -13,6 +13,7 @@ using MediaImageSource = System.Windows.Media.ImageSource;
 using MediaPen = System.Windows.Media.Pen;
 using MediaTransform = System.Windows.Media.Transform;
 using ProGpuBlurEffect = ProGPU.Scene.BlurEffect;
+using ProGpuBlurKernelType = ProGPU.Scene.BlurKernelType;
 using ProGpuEffectBase = ProGPU.Scene.EffectBase;
 
 namespace ProGPU.Wpf.Tests.Composition;
@@ -945,6 +946,161 @@ public sealed class WpfCompositionDrawingContextTests
         Assert.Contains(image, sink.VisualDependencies);
         Assert.Contains(drawing, sink.VisualDependencies);
         Assert.Equal(new WpfCompositionDrawingContextResult(1, 1, 0), context.Result);
+    }
+
+    [Fact]
+    public void EmptyDrawingImageSkipsReplayButRetainsItsSourceDependency()
+    {
+        var sink = new NativeRecordingSink();
+        var drawing = new FakeBoundedGeometryDrawing(PortableRect.Empty, null, null, null);
+        var image = new FakeDrawingImageSource(drawing);
+        using var context = new WpfCompositionDrawingContext(sink);
+
+        context.DrawImage(image, new Rect(0, 0, 30, 20));
+
+        Assert.Empty(sink.Operations);
+        Assert.Contains(image, sink.VisualDependencies);
+        Assert.Contains(drawing, sink.VisualDependencies);
+        Assert.Equal(0, context.Result.UnsupportedCount);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    public void ProductDrawingImageReplayRetainsLogicalHitRectangle(int contentKind)
+    {
+        var nativeContext = new global::ProGPU.Scene.DrawingContext();
+        using var sink = new ProGpuCompositionCommandSink(new MediaDrawingContext(nativeContext));
+        using var context = new WpfCompositionDrawingContext(sink);
+        object? drawing = contentKind switch
+        {
+            0 => new FakeGeometryDrawing(Brushes.Blue, null,
+                new FakeRectangleGeometry(new FakeRect(2, 3, 5, 7))),
+            1 => new FakeBoundedGeometryDrawing(PortableRect.Empty, null, null, null),
+            _ => null
+        };
+        context.DrawImage(new FakeDrawingImageSource(drawing), new Rect(10, 20, 30, 40));
+        Assert.True(nativeContext.Commands[0].IsImageHitTestScope);
+        using var hits = new global::ProGPU.Scene.GpuRenderCommandHitTestCacheBuilder();
+        foreach (var command in nativeContext.Commands)
+            hits.AddCommand(command, command.Transform, id: 4321);
+        var hit = Assert.Single(hits.BuildIndex().Primitives);
+        Assert.Equal(global::ProGPU.Vector.GpuHitTestPrimitiveKind.RectangleFill, hit.Kind);
+        Assert.Equal(new Vector2(10, 20), hit.BoundsMin);
+        Assert.Equal(new Vector2(40, 60), hit.BoundsMax);
+        Assert.Equal(0, context.Result.UnsupportedCount);
+    }
+
+    [Theory]
+    [InlineData(0, false)]
+    [InlineData(1, false)]
+    [InlineData(2, false)]
+    [InlineData(0, true)]
+    [InlineData(1, true)]
+    [InlineData(2, true)]
+    public void ProductImageBrushRectangleRetainsSourceFillAndSeparatePen(int contentKind, bool geometryCommand)
+    {
+        // Same source contract as native rectangle-brush scene 9839: paint
+        // geometry, not the brush's sparse/empty internal DrawingImage.
+        object? drawing = contentKind switch
+        {
+            0 => new FakeGeometryDrawing(Brushes.Blue, null,
+                new FakeRectangleGeometry(new FakeRect(2, 3, 5, 7))),
+            1 => new FakeBoundedGeometryDrawing(PortableRect.Empty, null, null, null),
+            _ => null
+        };
+        var nativeContext = new global::ProGPU.Scene.DrawingContext();
+        using var sink = new ProGpuCompositionCommandSink(new MediaDrawingContext(nativeContext));
+        using var context = new WpfCompositionDrawingContext(sink);
+        context.PushClip(new RectangleGeometry(new Rect(12, 14, 20, 18)));
+        var brush = new FakeMediaImageBrush(new FakeDrawingImageSource(drawing));
+        var pen = new Pen(Brushes.Blue, 2);
+        if (geometryCommand) context.DrawGeometry(brush, pen, new RectangleGeometry(new Rect(10, 12, 24, 24)));
+        else context.DrawRectangle(brush, pen, new Rect(10, 12, 24, 24));
+        context.Pop();
+        context.DrawRectangle(Brushes.Red, null, new Rect(1, 2, 3, 4));
+        Assert.Contains(nativeContext.Commands, command => command.IsImageHitTestScope);
+        using var capture = new global::ProGPU.Scene.GpuRenderCommandHitTestCacheBuilder();
+        foreach (var command in nativeContext.Commands)
+            capture.AddCommand(command, command.Transform, id: 4321);
+        var hits = capture.BuildIndex().Primitives;
+        Assert.Equal(3, hits.Count);
+        Assert.Equal(global::ProGPU.Vector.GpuHitTestPrimitiveKind.RectangleFill, hits[0].Kind);
+        Assert.Equal(geometryCommand
+            ? global::ProGPU.Vector.GpuHitTestPrimitiveKind.PathStroke
+            : global::ProGPU.Vector.GpuHitTestPrimitiveKind.RectangleStroke, hits[1].Kind);
+        Assert.Equal(new Vector2(12, 14), hits[0].BoundsMin);
+        Assert.Equal(new Vector2(32, 32), hits[0].BoundsMax);
+        Assert.Equal(new Vector2(1, 2), hits[2].BoundsMin);
+        Assert.Equal(new Vector2(4, 6), hits[2].BoundsMax);
+        Assert.Equal(0, context.Result.UnsupportedCount);
+    }
+
+    [Theory]
+    [InlineData(0.0)]
+    [InlineData(0.5)]
+    public void ProductDrawingOpacityPreservesSourceGeometryInput(double opacity)
+    {
+        var nativeContext = new global::ProGPU.Scene.DrawingContext();
+        using var sink = new ProGpuCompositionCommandSink(new MediaDrawingContext(nativeContext));
+        using var context = new WpfCompositionDrawingContext(sink);
+        context.PushOpacity(opacity);
+        context.DrawRectangle(Brushes.Blue, null, new Rect(10, 20, 30, 40));
+        context.Pop();
+        Assert.True(nativeContext.Commands[0].IsSourceOpacityScope);
+        Assert.Equal((float)opacity, nativeContext.Commands[0].FontSize);
+        using var hits = new global::ProGPU.Scene.GpuRenderCommandHitTestCacheBuilder();
+        foreach (var command in nativeContext.Commands)
+            hits.AddCommand(command, command.Transform, id: 4321);
+        var hit = Assert.Single(hits.BuildIndex().Primitives);
+        Assert.Equal(4321, hit.Id);
+        Assert.Equal(new Vector2(10, 20), hit.BoundsMin);
+        Assert.Equal(new Vector2(40, 60), hit.BoundsMax);
+        Assert.Equal(0, context.Result.UnsupportedCount);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void EmptyDrawingImageAndDrawingBrushSkipTileReplay(bool imageBrush)
+    {
+        var sink = new NativeRecordingSink();
+        var drawing = new FakeBoundedGeometryDrawing(PortableRect.Empty, null, null, null);
+        object brush = imageBrush ? new FakeImageBrush(new FakeDrawingImageCarrier(drawing)) : new FakeDrawingBrush(drawing);
+        using var context = new WpfObjectRenderDataDrawingContext(sink);
+
+        context.DrawRectangle(brush, null, new Rect(0, 0, 30, 20));
+
+        Assert.Empty(sink.Operations);
+        Assert.Contains(drawing, sink.VisualDependencies);
+        Assert.Equal(0, context.Result.UnsupportedCount);
+    }
+
+    [Fact]
+    public void ZeroSizedDrawingImageIsNotAnAuthoritativeEmptyImage()
+    {
+        var sink = new NativeRecordingSink();
+        var drawing = new FakeBoundedGeometryDrawing(new PortableRect(0, 0, 0, 10), null, null, null);
+        using var context = new WpfCompositionDrawingContext(sink);
+
+        context.DrawImage(new FakeDrawingImageSource(drawing), new Rect(0, 0, 30, 20));
+
+        Assert.Empty(sink.Operations);
+        Assert.Equal(1, context.Result.UnsupportedCount);
+    }
+
+    [Fact]
+    public void UnavailableDrawingImageBrushBoundsDoNotBecomeSuccessfulEmptyReplay()
+    {
+        var sink = new NativeRecordingSink();
+        var drawing = new FakeBoundedGeometryDrawing(PortableRect.Empty, null, null, null, boundsAvailable: false);
+        using var context = new WpfObjectRenderDataDrawingContext(sink);
+
+        context.DrawRectangle(new FakeImageBrush(new FakeDrawingImageCarrier(drawing)), null, new Rect(0, 0, 30, 20));
+
+        Assert.Empty(sink.Operations);
+        Assert.Equal(1, context.Result.UnsupportedCount);
     }
 
     [Fact]
@@ -2057,6 +2213,32 @@ public sealed class WpfCompositionDrawingContextTests
         Assert.Equal(default, context.Result);
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void ManagedMaskBridgePreservesEmptyVersusZeroSizeBounds(bool empty)
+    {
+        var sink = new RecordingSink();
+        Rect bounds = empty ? Rect.Empty : new Rect(2, 3, 0, 0);
+        WpfManagedCommandSinkBridge.PushOpacityMask(sink, Brushes.Red,
+            new WpfReplayRect(bounds.X, bounds.Y, bounds.Width, bounds.Height));
+        Rect actual = Assert.Single(sink.OpacityMaskBounds);
+        Assert.Equal(empty, actual.IsEmpty);
+        Assert.Equal(bounds.X, actual.X);
+        Assert.Equal(bounds.Y, actual.Y);
+        Assert.Equal(bounds.Width, actual.Width);
+        Assert.Equal(bounds.Height, actual.Height);
+    }
+
+    [Fact]
+    public void ManagedMaskBridgeRejectsMalformedNegativeBounds()
+    {
+        var sink = new RecordingSink();
+        Assert.Throws<ArgumentException>(() => WpfManagedCommandSinkBridge.PushOpacityMask(
+            sink, Brushes.Red, new WpfReplayRect(0, 0, -1, 2)));
+        Assert.Empty(sink.OpacityMaskBounds);
+    }
+
     [Fact]
     public void DrawDrawingReplaysPortableGeometryDrawing()
     {
@@ -2490,6 +2672,30 @@ public sealed class WpfCompositionDrawingContextTests
     }
 
     [Fact]
+    public void TypedVideoUsesLiveGpuFrameAndTypedAnimationValue()
+    {
+        var nativeImage = new object();
+        var player = new FakeMediaPlayer(
+            new PortableMediaPlayerFrame(64, 32, 9, nativeImage));
+        var animation = new FakeRectAnimationValue(
+            new PortableRect(3, 4, 50, 60));
+        var sink = new RecordingSink { AcceptVideos = true };
+        using var context = new WpfCompositionDrawingContext(sink);
+
+        context.DrawVideo(player, new Rect(0, 0, 10, 20), animation);
+
+        Assert.Equal(
+            new WpfCompositionDrawingContextResult(1, 1, 0),
+            context.Result);
+        var video = Assert.Single(sink.Videos);
+        Assert.Equal(9UL, video.Frame.ContentVersion);
+        Assert.Same(nativeImage, video.Frame.NativeImage);
+        Assert.Equal(new WpfReplayRect(3, 4, 50, 60), video.Rectangle);
+        Assert.Contains(player, sink.VisualDependencies);
+        Assert.Contains(nativeImage, sink.VisualDependencies);
+    }
+
+    [Fact]
     public void PushEffectUsesNativeVisualEffectScopeWhenLegacyEffectCanBeEmulated()
     {
         var sink = new RecordingSink { AcceptVisualEffects = true };
@@ -2508,6 +2714,22 @@ public sealed class WpfCompositionDrawingContextTests
         Assert.Equal(0, context.StackDepth);
         Assert.Equal(new[] { "PushVisualEffect", "Pop" }, sink.Operations);
         Assert.Equal(new WpfCompositionDrawingContextResult(2, 2, 0), context.Result);
+    }
+
+    [Fact]
+    public void PushEffectRoutesBoxBlurToPortableGpuKernel()
+    {
+        var sink = new RecordingSink { AcceptVisualEffects = true };
+        using var context = new WpfCompositionDrawingContext(sink);
+
+        context.PushEffect(
+            new FakeBlurBitmapEffect(7, PortableBlurKernel.Box),
+            new FakeContextBitmapEffectInput());
+
+        var effect = Assert.IsType<ProGpuBlurEffect>(
+            Assert.Single(sink.VisualEffects));
+        Assert.Equal(7f, effect.BlurRadius);
+        Assert.Equal(ProGpuBlurKernelType.Box, effect.KernelType);
     }
 
     [Fact]
@@ -2761,12 +2983,13 @@ public sealed class WpfCompositionDrawingContextTests
         PortableRect bounds,
         object? brush,
         object? pen,
-        object? geometry) : IPortableDrawingBoundsSource, IPortableGeometryDrawingStateSource
+        object? geometry,
+        bool boundsAvailable = true) : IPortableDrawingBoundsSource, IPortableGeometryDrawingStateSource
     {
         public bool TryGetPortableDrawingBounds(out PortableRect drawingBounds)
         {
             drawingBounds = bounds;
-            return true;
+            return boundsAvailable;
         }
 
         public bool TryGetPortableGeometryDrawingState(out PortableGeometryDrawingState state)
@@ -3164,16 +3387,21 @@ public sealed class WpfCompositionDrawingContextTests
 
     private sealed class FakeBlurBitmapEffect : IPortableEffectSource
     {
-        public FakeBlurBitmapEffect(double radius)
+        public FakeBlurBitmapEffect(
+            double radius,
+            PortableBlurKernel kernel = PortableBlurKernel.Gaussian)
         {
             Radius = radius;
+            Kernel = kernel;
         }
 
         public double Radius { get; }
 
+        public PortableBlurKernel Kernel { get; }
+
         public bool TryGetPortableEffect(out PortableEffect effect)
         {
-            effect = PortableEffect.Blur(Radius);
+            effect = PortableEffect.Blur(Radius, Kernel);
             return true;
         }
     }
@@ -3327,11 +3555,33 @@ public sealed class WpfCompositionDrawingContextTests
         public void Dispose() { }
     }
 
+    private sealed class FakeMediaPlayer(PortableMediaPlayerFrame frame) :
+        IPortableMediaPlayerSource
+    {
+        public bool TryGetPortableMediaPlayerFrame(
+            out PortableMediaPlayerFrame value)
+        {
+            value = frame;
+            return true;
+        }
+    }
+
+    private sealed class FakeRectAnimationValue(PortableRect value) :
+        IPortableRectAnimationValueSource
+    {
+        public bool TryGetPortableRectAnimationValue(out PortableRect result)
+        {
+            result = value;
+            return true;
+        }
+    }
+
     private class RecordingSink :
         IWpfCompositionCommandSink,
         IWpfVisualEffectCommandSink,
         IWpfRetainedVisualBranchSink,
-        IWpfNativeTransformCommandSink
+        IWpfNativeTransformCommandSink,
+        IWpfNativeVideoCommandSink
     {
         public List<string> Operations { get; } = new();
 
@@ -3355,15 +3605,22 @@ public sealed class WpfCompositionDrawingContextTests
 
         public List<double> Opacities { get; } = new();
 
+        public List<Rect> OpacityMaskBounds { get; } = new();
+
         public List<(double LeadingCoordinate, double OffsetToDrivenCoordinate)> GuidelineY2Values { get; } = new();
 
         public List<ProGpuEffectBase> VisualEffects { get; } = new();
+
+        public List<(PortableMediaPlayerFrame Frame, WpfReplayRect Rectangle)>
+            Videos { get; } = new();
 
         public List<object> VisualOwners { get; } = new();
 
         public List<object> VisualDependencies { get; } = new();
 
         public bool AcceptVisualEffects { get; init; }
+
+        public bool AcceptVideos { get; init; }
 
         public MediaDrawingContext DrawingContext => null!;
 
@@ -3397,6 +3654,20 @@ public sealed class WpfCompositionDrawingContextTests
             Geometries.Add((brush, pen, geometry));
         }
 
+        public bool DrawNativeVideo(
+            PortableMediaPlayerFrame frame,
+            WpfReplayRect rectangle)
+        {
+            if (!AcceptVideos)
+            {
+                return false;
+            }
+
+            Operations.Add("DrawVideo");
+            Videos.Add((frame, rectangle));
+            return true;
+        }
+
         public void DrawImage(MediaImageSource imageSource, Rect rectangle)
         {
             Operations.Add("DrawImage");
@@ -3428,6 +3699,7 @@ public sealed class WpfCompositionDrawingContextTests
         public void PushOpacityMask(MediaBrush? opacityMask, Rect bounds)
         {
             Operations.Add("PushOpacityMask");
+            OpacityMaskBounds.Add(bounds);
         }
 
         public void PushTransform(MediaTransform transform)

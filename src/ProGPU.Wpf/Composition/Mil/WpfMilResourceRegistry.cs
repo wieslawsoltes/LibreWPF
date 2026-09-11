@@ -9,7 +9,8 @@ using MediaTransform = System.Windows.Media.Transform;
 
 namespace System.Windows.Media.ProGPU.Composition.Mil;
 
-public sealed class WpfMilResourceRegistry : IWpfMilResourceResolver, IWpfGuidelineSetResourceResolver
+public sealed class WpfMilResourceRegistry : IWpfMilResourceResolver, IWpfGuidelineSetResourceResolver,
+    IWpfRawMilResourceResolver
 {
     private readonly IReadOnlyList<object?>? _dependentResources;
     private Dictionary<uint, object>? _resources;
@@ -74,6 +75,18 @@ public sealed class WpfMilResourceRegistry : IWpfMilResourceResolver, IWpfGuidel
     public object? ResolveGuidelineSet(uint resourceToken)
     {
         return TryResolveResource(resourceToken, out var resource) ? resource : null;
+    }
+
+    bool IWpfRawMilResourceResolver.TryResolveRawResource(uint resourceToken, out object resource)
+    {
+        if (TryResolveResource(resourceToken, out var resolved) && resolved != null)
+        {
+            resource = resolved;
+            return true;
+        }
+
+        resource = null!;
+        return false;
     }
 
     private T? Resolve<T>(uint resourceToken) where T : class

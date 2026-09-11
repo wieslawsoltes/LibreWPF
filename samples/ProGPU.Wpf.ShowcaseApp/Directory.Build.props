@@ -1,0 +1,36 @@
+<Project>
+  <Import Project="$(MSBuildThisFileDirectory)..\..\Directory.Build.props" />
+
+  <PropertyGroup>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <EnableNETAnalyzers>false</EnableNETAnalyzers>
+    <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
+    <NoWarn>$(NoWarn);IDE0073</NoWarn>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <ProGpuWpfShowcasePackageVersion>0.1.0-preview.45</ProGpuWpfShowcasePackageVersion>
+    <RestorePackagesPath>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../../artifacts/nuget/ProGPU.Wpf.ShowcaseApp'))</RestorePackagesPath>
+    <RestoreForce>true</RestoreForce>
+    <RestoreForceEvaluate>true</RestoreForceEvaluate>
+  </PropertyGroup>
+
+  <Target Name="_ProGpuWpfShowcaseClearMutablePackageCache" BeforeTargets="Restore">
+    <ItemGroup>
+      <_ProGpuWpfShowcaseMutablePackageCache Include="$(RestorePackagesPath)/microsoft.dotnet.wpf.github/$(ProGpuWpfShowcasePackageVersion)" />
+      <_ProGpuWpfShowcaseMutablePackageCache Include="$(RestorePackagesPath)/microsoft.dotnet.wpf.github.debug/$(ProGpuWpfShowcasePackageVersion)" />
+      <_ProGpuWpfShowcaseMutablePackageCache Include="$(RestorePackagesPath)/progpu.wpf.sdk/$(ProGpuWpfShowcasePackageVersion)" />
+      <_ProGpuWpfShowcaseMutablePackageCache Include="$(RestorePackagesPath)/progpu.wpf/$(ProGpuWpfShowcasePackageVersion)" />
+      <_ProGpuWpfShowcaseMutablePackageCache Include="$(RestorePackagesPath)/progpu.backend/$(ProGpuWpfShowcasePackageVersion)" />
+      <_ProGpuWpfShowcaseMutablePackageCache Include="$(RestorePackagesPath)/progpu.scene/$(ProGpuWpfShowcasePackageVersion)" />
+      <_ProGpuWpfShowcaseMutablePackageCache Include="$(RestorePackagesPath)/progpu.vector/$(ProGpuWpfShowcasePackageVersion)" />
+      <_ProGpuWpfShowcaseMutablePackageCache Include="$(RestorePackagesPath)/progpu.text/$(ProGpuWpfShowcasePackageVersion)" />
+      <_ProGpuWpfShowcaseMutablePackageCache Include="$(RestorePackagesPath)/progpu.compute/$(ProGpuWpfShowcasePackageVersion)" />
+      <_ProGpuWpfShowcaseMutablePackageCache Include="$(RestorePackagesPath)/progpu.transpiler/$(ProGpuWpfShowcasePackageVersion)" />
+      <_ProGpuWpfShowcaseExistingMutablePackageCache Include="@(_ProGpuWpfShowcaseMutablePackageCache)" Condition="Exists('%(_ProGpuWpfShowcaseMutablePackageCache.Identity)')" />
+    </ItemGroup>
+
+    <RemoveDir Directories="@(_ProGpuWpfShowcaseExistingMutablePackageCache)" />
+  </Target>
+</Project>

@@ -1,5 +1,9 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
+  <ItemGroup>
+    <Compile Include="..\Shared\PortableMediaTestStartup.cs" Link="PortableMediaTestStartup.cs" />
+  </ItemGroup>
+
   <PropertyGroup>
     <AssemblyName>PresentationCore.Tests</AssemblyName>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -35,6 +39,9 @@
     <None Include="$(WpfSourceDir)PresentationCore\Fonts\LibreWPF.FluentSymbols\LibreWPF.FluentSymbols.ttf"
           Link="LibreWPF\Fonts\LibreWPF.FluentSymbols.ttf"
           CopyToOutputDirectory="PreserveNewest" />
+    <None Include="$(WpfSourceDir)..\..\..\external\ProGPU\src\ProGPU.Fonts.Inter\Fonts\Inter-Medium.ttf"
+          Link="LibreWPF\Fonts\Inter-Medium.ttf"
+          CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>
@@ -42,7 +49,7 @@
     <PackageReference Include="Moq" Version="$(MoqPackageVersion)" />
     <PackageReference Include="xunit.stafact" Version="$(XUnitStaFactPackageVersion)" />
     <PackageReference Include="System.Configuration.ConfigurationManager" Version="$(SystemConfigurationConfigurationManagerPackageVersion)" />
-    <PackageReference Include="System.Formats.Nrbf" Version="$(SystemFormatsNrbfVersion)" />
+    <PackageReference Include="System.Formats.Nrbf" Version="$(ProGpuWpfTestFormatsNrbfVersion)" />
     <PackageReference Include="$(SystemIOPackagingPackage)" Version="$(SystemIOPackagingVersion)" />
     <PackageReference Include="System.Runtime.Serialization.Formatters" Version="$(SystemRuntimeSerializationFormattersPackageVersion)" />
     <PackageReference Include="System.Private.Windows.Core.TestUtilities" Version="$(SystemPrivateWindowsCoreTestUtilitiesVersion)" />

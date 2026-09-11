@@ -19,6 +19,8 @@ public sealed class WpfPortableNativeImageSourceTests
             "src", "ProGPU.Wpf", "Composition", "Mil", "WpfBitmapSourceImageAdapter.cs"));
         string commandSink = File.ReadAllText(FindRepoPath(
             "src", "ProGPU.Wpf", "Composition", "ProGpuCompositionCommandSink.cs"));
+        string invalidationTracker = File.ReadAllText(FindRepoPath(
+            "src", "ProGPU.Wpf", "Composition", "Mil", "WpfVisualInvalidationTracker.cs"));
         string host = File.ReadAllText(FindRepoPath(
             "external", "LibreWinForms", "src", "LibreWinForms.Portable",
             "LibreWinForms.WindowsFormsIntegration", "src", "WindowsFormsHost.cs"));
@@ -30,10 +32,15 @@ public sealed class WpfPortableNativeImageSourceTests
         Assert.Contains("return _nativeImageSource.TryGetPortableNativeImage(out nativeImage);", factory, StringComparison.Ordinal);
 
         Assert.Contains("imageSource is IPortableNativeImageSource", adapter, StringComparison.Ordinal);
-        Assert.Contains("nativeImage is GpuTexture resolvedTexture", adapter, StringComparison.Ordinal);
+        Assert.Contains("TryGetNativeGpuTexture(nativeImage, out var resolvedTexture)", adapter, StringComparison.Ordinal);
+        Assert.Contains("nativeImage is IProGpuTextureLeaseSource nativeTextureSource", adapter, StringComparison.Ordinal);
+        Assert.Contains("drawingContext.TryRetainTexture(", adapter, StringComparison.Ordinal);
         Assert.DoesNotContain("System.Reflection", adapter, StringComparison.Ordinal);
-        Assert.Contains("TryGetGpuTexture(imageSource, out var texture)", commandSink, StringComparison.Ordinal);
+        Assert.Contains("TryRetainGpuTexture(", commandSink, StringComparison.Ordinal);
         Assert.DoesNotContain("imageSource is MediaBitmapSource bitmapSource", commandSink, StringComparison.Ordinal);
+        Assert.Contains("source is PortableNativeImageSource nativeImageSource", invalidationTracker, StringComparison.Ordinal);
+        Assert.Contains("source is IProGpuInvalidatingTextureSource textureSource", invalidationTracker, StringComparison.Ordinal);
+        Assert.DoesNotContain("System.Reflection", invalidationTracker, StringComparison.Ordinal);
 
         int typedPath = host.IndexOf("if (image is IProGpuTextureSource textureSource)", StringComparison.Ordinal);
         int pixelFallback = host.IndexOf("return CreatePixelImageSource(image);", StringComparison.Ordinal);

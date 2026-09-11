@@ -9,6 +9,7 @@
 //
 
 using System.Windows.Media.Composition;
+using ProGPU.Wpf.Interop;
 
 namespace System.Windows.Media.Animation
 {
@@ -21,7 +22,7 @@ namespace System.Windows.Media.Animation
     /// They subscribe to the Changed event on the AnimationClock and ensure
     /// that the resource's current value is up to date.
     /// </summary>
-    internal class DoubleAnimationClockResource: AnimationClockResource, DUCE.IResource
+    internal class DoubleAnimationClockResource: AnimationClockResource, DUCE.IResource, IPortableDoubleAnimationValueSource
     {
         /// <summary>
         /// Constructor for public DoubleAnimationClockResource.
@@ -79,6 +80,13 @@ namespace System.Windows.Media.Animation
                     return _baseValue;
                 }
             }
+        }
+
+        bool IPortableDoubleAnimationValueSource.TryGetPortableDoubleAnimationValue(
+            out double value)
+        {
+            value = CurrentValue;
+            return true;
         }
 
         #endregion Public Properties

@@ -11,6 +11,7 @@ on:
   workflow_dispatch:
 
 permissions:
+  actions: read
   contents: read
 
 env:
@@ -116,6 +117,17 @@ jobs:
           echo "PROGPU_WPF_PROGPU_PACKAGE_VERSION=${source_version}" >> "${GITHUB_ENV}"
           echo "PROGPU_WPF_EXPECTED_PROGPU_PACKAGE_COMMIT=${submodule_commit}" >> "${GITHUB_ENV}"
           echo "Building source-coherent ProGPU package closure ${source_version} from ${submodule_commit}."
+
+      - name: Stage native runtimes from the exact successful ProGPU Build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          submodule_commit="$(git -C external/ProGPU rev-parse HEAD)"
+          ./eng/progpu-stage-ci-native-runtimes.sh \
+            "${submodule_commit}" \
+            "${GITHUB_WORKSPACE}/external/ProGPU/artifacts/progpu-native/package"
 
       - name: Run LibreWPF SDK gate
         run: ./eng/progpu-wpf-sdk-ci.sh

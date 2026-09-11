@@ -1,0 +1,191 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="clr-namespace:ProGPU.Wpf.ShowcaseApp">
+    <SolidColorBrush x:Key="ShowcaseAccentBrush" Color="#246BFE" />
+    <SolidColorBrush x:Key="ShowcasePanelBrush" Color="#F4F7FB" />
+    <SolidColorBrush
+        x:Key="{ComponentResourceKey TypeInTargetAssembly={x:Type local:MainWindow}, ResourceId=ShowcaseComponentAccentBrush}"
+        Color="#236B46" />
+
+    <DataTemplate
+        x:Key="SelectedItemTemplate"
+        DataType="{x:Type local:ShowcaseItem}">
+        <Border
+            Padding="12"
+            Background="{DynamicResource ShowcasePanelBrush}">
+            <StackPanel>
+                <TextBlock
+                    FontSize="16"
+                    FontWeight="SemiBold"
+                    Text="Selected item template" />
+                <TextBlock
+                    x:Name="TemplateNameText"
+                    Margin="0,8,0,0"
+                    Text="{Binding Name, StringFormat=Name: {0}}" />
+                <TextBlock
+                    x:Name="TemplateCategoryText"
+                    Margin="0,4,0,0"
+                    Text="{Binding Category, StringFormat=Category: {0}}" />
+                <TextBlock
+                    x:Name="TemplateActiveText"
+                    Margin="0,4,0,0"
+                    Text="{Binding IsActive, StringFormat=Active: {0}}" />
+            </StackPanel>
+        </Border>
+    </DataTemplate>
+
+    <DataTemplate DataType="{x:Type local:ShowcaseItem}">
+        <Border
+            Padding="10"
+            Background="#E7F5EE">
+            <StackPanel>
+                <TextBlock
+                    FontWeight="SemiBold"
+                    Text="Implicit item template" />
+                <TextBlock
+                    x:Name="ImplicitTemplateNameText"
+                    Margin="0,6,0,0"
+                    Text="{Binding Name, StringFormat=Implicit name: {0}}" />
+                <TextBlock
+                    x:Name="ImplicitTemplateCategoryText"
+                    Margin="0,3,0,0"
+                    Text="{Binding Category, StringFormat=Implicit category: {0}}" />
+            </StackPanel>
+        </Border>
+    </DataTemplate>
+
+    <Style TargetType="{x:Type Button}">
+        <Setter Property="MinWidth" Value="104" />
+        <Setter Property="Padding" Value="10,5" />
+        <Setter Property="Margin" Value="0,0,8,0" />
+    </Style>
+
+    <Style
+        x:Key="ShowcaseBasedOnButtonStyle"
+        BasedOn="{StaticResource {x:Type Button}}"
+        TargetType="{x:Type Button}">
+        <Setter Property="Tag" Value="BasedOnStyle" />
+        <Setter Property="Background" Value="{StaticResource ShowcaseAccentBrush}" />
+        <Setter Property="Foreground" Value="White" />
+    </Style>
+
+    <Style
+        x:Key="ShowcaseTemplateButtonStyle"
+        TargetType="{x:Type Button}">
+        <Setter Property="MinWidth" Value="150" />
+        <Setter Property="Padding" Value="12,6" />
+        <Setter Property="Margin" Value="0,0,8,0" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Background" Value="{StaticResource ShowcaseAccentBrush}" />
+        <Setter Property="Foreground" Value="White" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type Button}">
+                    <Border
+                        x:Name="TemplateBorder"
+                        Padding="{TemplateBinding Padding}"
+                        Background="{TemplateBinding Background}"
+                        BorderBrush="#1749AB"
+                        BorderThickness="1"
+                        CornerRadius="3">
+                        <VisualStateManager.VisualStateGroups>
+                            <VisualStateGroup x:Name="CommonStates">
+                                <VisualState x:Name="Normal">
+                                    <Storyboard>
+                                        <DoubleAnimation
+                                            Storyboard.TargetName="TemplateContentPresenter"
+                                            Storyboard.TargetProperty="Opacity"
+                                            To="1.0"
+                                            Duration="0:0:0" />
+                                    </Storyboard>
+                                </VisualState>
+                                <VisualState x:Name="Pressed">
+                                    <Storyboard>
+                                        <DoubleAnimation
+                                            Storyboard.TargetName="TemplateContentPresenter"
+                                            Storyboard.TargetProperty="Opacity"
+                                            To="0.72"
+                                            Duration="0:0:0" />
+                                    </Storyboard>
+                                </VisualState>
+                            </VisualStateGroup>
+                        </VisualStateManager.VisualStateGroups>
+                        <ContentPresenter
+                            x:Name="TemplateContentPresenter"
+                            HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                            VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                            RecognizesAccessKey="True" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter
+                                TargetName="TemplateBorder"
+                                Property="Opacity"
+                                Value="0.45" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style TargetType="{x:Type TextBlock}">
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <Style
+        x:Key="ShowcaseTriggerTextBlockStyle"
+        BasedOn="{StaticResource {x:Type TextBlock}}"
+        TargetType="{x:Type TextBlock}">
+        <Setter Property="Foreground" Value="#5B6472" />
+        <Setter Property="Text" Value="style trigger inactive" />
+        <Style.Triggers>
+            <Trigger Property="Tag" Value="Active">
+                <Setter Property="Foreground" Value="{StaticResource ShowcaseAccentBrush}" />
+                <Setter Property="Text" Value="property trigger active" />
+            </Trigger>
+            <DataTrigger Binding="{Binding ActionsEnabled}" Value="False">
+                <Setter Property="Foreground" Value="#B42318" />
+                <Setter Property="Text" Value="data trigger disabled" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style
+        x:Key="ShowcaseMultiTriggerTextBlockStyle"
+        BasedOn="{StaticResource {x:Type TextBlock}}"
+        TargetType="{x:Type TextBlock}">
+        <Setter Property="Foreground" Value="#5B6472" />
+        <Setter Property="Text" Value="multi trigger inactive" />
+        <Style.Triggers>
+            <MultiTrigger>
+                <MultiTrigger.Conditions>
+                    <Condition Property="Tag" Value="Ready" />
+                    <Condition Property="IsEnabled" Value="True" />
+                </MultiTrigger.Conditions>
+                <Setter Property="Foreground" Value="#236B46" />
+                <Setter Property="Text" Value="multi trigger active" />
+            </MultiTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style
+        x:Key="ShowcaseMultiDataTriggerTextBlockStyle"
+        BasedOn="{StaticResource {x:Type TextBlock}}"
+        TargetType="{x:Type TextBlock}">
+        <Setter Property="Foreground" Value="#5B6472" />
+        <Setter Property="Text" Value="multi data trigger inactive" />
+        <Style.Triggers>
+            <MultiDataTrigger>
+                <MultiDataTrigger.Conditions>
+                    <Condition Binding="{Binding ActionsEnabled}" Value="False" />
+                    <Condition Binding="{Binding SelectedCategory}" Value="Input" />
+                </MultiDataTrigger.Conditions>
+                <Setter Property="Foreground" Value="#B42318" />
+                <Setter Property="Text" Value="multi data trigger active" />
+            </MultiDataTrigger>
+        </Style.Triggers>
+    </Style>
+</ResourceDictionary>

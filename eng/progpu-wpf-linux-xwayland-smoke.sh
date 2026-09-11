@@ -39,13 +39,13 @@ xvfb-run -a --server-args="-screen 0 1280x1024x24" bash -c '
   export WAYLAND_DISPLAY=wayland-ci
   unset PROGPU_WPF_LINUX_WINDOWING
 
-  PROGPU_WPF_MVP_REBUILD_PACKAGES=0 \
-  PROGPU_WPF_MVP_VALIDATE=0 \
-  PROGPU_WPF_MVP_RUN_VALIDATE=0 \
-  PROGPU_WPF_MVP_LIVE_VALIDATE=1 \
-  PROGPU_WPF_MVP_LIVE_VALIDATE_TIMEOUT_SECONDS=90 \
-  PROGPU_WPF_MVP_NATIVE_DRAG_STATUS_PATH="$3" \
-    "$1/eng/run-progpu-wpf-mvp.sh" >"$2" 2>&1 &
+  PROGPU_WPF_SHOWCASE_REBUILD_PACKAGES=0 \
+  PROGPU_WPF_SHOWCASE_VALIDATE=0 \
+  PROGPU_WPF_SHOWCASE_RUN_VALIDATE=0 \
+  PROGPU_WPF_SHOWCASE_LIVE_VALIDATE=1 \
+  PROGPU_WPF_SHOWCASE_LIVE_VALIDATE_TIMEOUT_SECONDS=90 \
+  PROGPU_WPF_SHOWCASE_NATIVE_DRAG_STATUS_PATH="$3" \
+    "$1/eng/run-progpu-wpf-showcase.sh" >"$2" 2>&1 &
   probe_pid=$!
 
   cleanup_probe() {
@@ -60,11 +60,11 @@ xvfb-run -a --server-args="-screen 0 1280x1024x24" bash -c '
   for _ in $(seq 1 600); do
     if ! kill -0 "${probe_pid}" 2>/dev/null; then
       wait "${probe_pid}"
-      echo "LibreWPF MVP probe exited before its X11 window became visible." >&2
+      echo "LibreWPF Showcase probe exited before its X11 window became visible." >&2
       exit 1
     fi
 
-    window_id="$(xdotool search --onlyvisible --name "ProGPU WPF MVP" 2>/dev/null | head -n 1 || true)"
+    window_id="$(xdotool search --onlyvisible --name "ProGPU WPF Showcase" 2>/dev/null | head -n 1 || true)"
     if [[ -n "${window_id}" ]]; then
       break
     fi
@@ -73,7 +73,7 @@ xvfb-run -a --server-args="-screen 0 1280x1024x24" bash -c '
   done
 
   if [[ -z "${window_id}" ]]; then
-    echo "Could not locate the live LibreWPF MVP X11 window before timeout." >&2
+    echo "Could not locate the live LibreWPF Showcase X11 window before timeout." >&2
     exit 1
   fi
 
@@ -81,7 +81,7 @@ xvfb-run -a --server-args="-screen 0 1280x1024x24" bash -c '
   for _ in $(seq 1 600); do
     if ! kill -0 "${probe_pid}" 2>/dev/null; then
       wait "${probe_pid}"
-      echo "LibreWPF MVP probe exited before requesting the external native drag." >&2
+      echo "LibreWPF Showcase probe exited before requesting the external native drag." >&2
       exit 1
     fi
 
@@ -94,7 +94,7 @@ xvfb-run -a --server-args="-screen 0 1280x1024x24" bash -c '
   done
 
   if ((native_drag_ready == 0)); then
-    echo "LibreWPF MVP probe did not request the external native drag before timeout." >&2
+    echo "LibreWPF Showcase probe did not request the external native drag before timeout." >&2
     exit 1
   fi
 
@@ -110,7 +110,7 @@ xvfb-run -a --server-args="-screen 0 1280x1024x24" bash -c '
   trap - EXIT
 ' bash "${repo_root}" "${smoke_log}" "${native_drag_status}"
 
-grep -F "ProGPU WPF MVP live input validation succeeded:" "${smoke_log}"
+grep -F "ProGPU WPF Showcase live input validation succeeded:" "${smoke_log}"
 grep -F "external 36-step native drag returned to dispatcher processing" "${smoke_log}"
 grep -F "windowing backend X11, wayland session True, global position True, interactive move True, native popups True, owner-composited popups False" "${smoke_log}"
 grep -F "Menu, ComboBox dropdown, and direct Popup opened through ProGPU popup surfaces" "${smoke_log}"

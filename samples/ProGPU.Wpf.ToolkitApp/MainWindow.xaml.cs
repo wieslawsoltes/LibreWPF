@@ -1357,6 +1357,14 @@ public partial class MainWindow : Window
 
         AssertEqual(expectedText, messageBox.Text, "Toolkit static MessageBox text");
         AssertEqual(expectedCaption, Convert.ToString(messageBox.Caption, CultureInfo.InvariantCulture), "Toolkit static MessageBox caption");
+        Window dialog = Window.GetWindow(messageBox)
+            ?? throw new InvalidOperationException("Expected Toolkit static MessageBox to have a source Window.");
+        if (!ReferenceEquals(dialog.Owner, this) ||
+            new WindowInteropHelper(dialog).Owner != new WindowInteropHelper(this).Handle ||
+            !OwnedWindows.Cast<Window>().Any(window => ReferenceEquals(window, dialog)))
+        {
+            throw new InvalidOperationException("Both Toolkit owner overloads must retain the actual source Window ownership.");
+        }
         PresentationSource? source = PresentationSource.FromVisual(messageBox);
         if (source is not HwndSource ||
             source.CompositionTarget == null)
@@ -3744,6 +3752,7 @@ public partial class MainWindow : Window
             }
 
             Console.WriteLine("ProGPU WPF Toolkit live input validation frame ready.");
+            RequireSelectedNativeFrame(liveHost);
             string geometryStatus = await InvokeWithLiveHostWakeAsync(
                 liveHost,
                 () => ValidateLiveRenderSurfaceGeometryCore(liveHost),
@@ -3992,6 +4001,7 @@ public partial class MainWindow : Window
             liveHost,
             () => ValidateEditorFloatingState(expectedFloating: true),
             DispatcherPriority.Send);
+        Window floatingWindow = await ValidateLiveFloatingEditorAsync(liveHost);
 
         await ClickLiveControlAsync(liveHost, ToggleEditorFloatButton, "ToggleEditorFloatButton");
         await WaitForLiveConditionAsync(
@@ -4002,6 +4012,10 @@ public partial class MainWindow : Window
             liveHost,
             () => ValidateEditorFloatingState(expectedFloating: false),
             DispatcherPriority.Send);
+        await WaitForLiveConditionAsync(liveHost,
+            () => ReferenceEquals(Window.GetWindow(EditorTextBox), this) &&
+                !floatingWindow.IsVisible && !ProGpuWpfDiagnostics.TryGetWindowHost(floatingWindow, out _),
+            "Toolkit floating host removal and editor source restoration after docking");
 
         int propertyPaneHidingCountBefore = ViewModel.AvalonDockAnchorableHidingCount;
         int propertyPaneVisibleChangedCountBefore = ViewModel.AvalonDockAnchorableIsVisibleChangedCount;
@@ -4908,6 +4922,49 @@ public partial class MainWindow : Window
             DispatcherPriority.Send);
     }
 
+    private async Task<Window> ValidateLiveFloatingEditorAsync(ProGpuWpfWindowHost ownerHost)
+    {
+        Window? floatingWindow = null;
+        ProGpuWpfWindowHost? floatingHost = null;
+        await WaitForLiveConditionAsync(ownerHost, () =>
+        {
+            floatingWindow = Window.GetWindow(EditorTextBox);
+            if (floatingWindow == null || ReferenceEquals(floatingWindow, this) || !floatingWindow.IsVisible ||
+                !ProGpuWpfDiagnostics.TryGetWindowHost(floatingWindow, out floatingHost) || floatingHost == null)
+                return false;
+            if (ReferenceEquals(floatingHost, ownerHost) || !ReferenceEquals(floatingWindow.Owner, this))
+                throw new InvalidOperationException("AvalonDock floating editor requires its own host and actual source owner.");
+            if (!floatingHost.HasPresentedFrame)
+            {
+                WakeLiveRenderHost(floatingHost);
+                return false;
+            }
+            RequireSelectedNativeFrame(floatingHost);
+            return true;
+        }, "Toolkit floating editor's separate presented host");
+
+        ProGpuWpfWindowHost editorHost = floatingHost!;
+        await ClickLiveControlAsync(editorHost, EditorTextBox, "FloatingEditorTextBox");
+        await WaitForLiveConditionAsync(editorHost, () => EditorTextBox.IsKeyboardFocusWithin,
+            "Toolkit floating editor focus from its own host input");
+        await InvokeWithLiveHostWakeAsync(editorHost, () =>
+        {
+            if (!ProGpuWpfDiagnostics.TryGetGpuHitTestCacheSnapshot(editorHost, out var snapshot) ||
+                !snapshot.HasIndex || !snapshot.HasDeviceIndex)
+                throw new InvalidOperationException("AvalonDock floating editor input must use its presented device index.");
+        }, DispatcherPriority.Send);
+        return floatingWindow!;
+    }
+
+    private static void RequireSelectedNativeFrame(ProGpuWpfWindowHost host)
+    {
+#if PROGPU_WPF_NATIVE_MIL
+        if (!string.Equals(AppContext.GetData("LibreWPF.RequestedRendererMode") as string,
+                "NativeMilWgpu", StringComparison.Ordinal) || host.LastNativeMilSessionFrame == null)
+            throw new InvalidOperationException("The Toolkit native SDK host must present a native MIL session frame.");
+#endif
+    }
+
     private async Task WaitForLiveConditionAsync(ProGpuWpfWindowHost liveHost, Func<bool> condition, string description)
     {
         for (int attempt = 0; attempt < LiveValidationMaxAttempts; attempt++)
@@ -4951,9 +5008,13 @@ public partial class MainWindow : Window
 
     private bool TryRaiseLiveMouseClick(ProGpuWpfWindowHost liveHost, FrameworkElement target, string targetName, out string targetState)
     {
+        // A floated document is no longer in MainWindow's visual tree. Use the
+        // same source root as the host receiving this input, without screen/DPI remapping.
+        var inputRoot = liveHost.WpfRootVisual as UIElement
+            ?? throw new InvalidOperationException("Toolkit live input requires its host's source UIElement root.");
         Point initialCenter = target.TranslatePoint(
             new Point(Math.Max(1.0, target.ActualWidth) / 2.0, Math.Max(1.0, target.ActualHeight) / 2.0),
-            this);
+            inputRoot);
         target.BringIntoView();
         target.UpdateLayout();
 
@@ -4974,7 +5035,7 @@ public partial class MainWindow : Window
 
         Point center = target.TranslatePoint(
             new Point(Math.Max(1.0, target.ActualWidth) / 2.0, Math.Max(1.0, target.ActualHeight) / 2.0),
-            this);
+            inputRoot);
         double layoutDeltaX = center.X - initialCenter.X;
         double layoutDeltaY = center.Y - initialCenter.Y;
         if (Math.Abs(layoutDeltaX) > 0.5 || Math.Abs(layoutDeltaY) > 0.5)
@@ -4983,7 +5044,7 @@ public partial class MainWindow : Window
             return false;
         }
 
-        object? hit = InputHitTest(center);
+        object? hit = inputRoot.InputHitTest(center);
         targetState += $", Input=({center.X:0.###}, {center.Y:0.###}), InputHitTest={DescribeInputElement(hit)}";
         if (hit == null || !IsInputElementWithinTarget(hit, target))
         {

@@ -339,6 +339,7 @@
     <Compile Include="MS\internal\TextFormatting\LineServicesRun.cs" />
     <Compile Include="MS\internal\TextFormatting\NumberSubstitution.cs" />
     <Compile Include="MS\internal\TextFormatting\SimpleTextLine.cs" />
+    <Compile Include="MS\internal\TextFormatting\PortableTextLine.cs" />
     <Compile Include="MS\internal\TextFormatting\TextFormatterImp.cs" />
     <Compile Include="MS\internal\TextFormatting\TextMarkerSource.cs" />
     <Compile Include="MS\internal\TextFormatting\TextMetrics.cs" />
@@ -720,6 +721,7 @@
     <Compile Include="System\Windows\Input\Stylus\Wisp\WispTabletDeviceCollection.cs" />
     <Compile Include="System\Windows\InterOp\CursorInteropHelper.cs" />
     <Compile Include="System\Windows\InterOp\D3DImage.cs" />
+    <Compile Include="System\Windows\InterOp\PortableD3DImageSourceFactory.cs" />
     <Compile Include="System\Windows\InterOp\HwndAppCommandInputProvider.cs" />
     <Compile Include="System\Windows\InterOp\HwndKeyboardInputProvider.cs" />
     <Compile Include="System\Windows\InterOp\HwndMouseInputProvider.cs" />
@@ -845,6 +847,7 @@
     <Compile Include="System\Windows\Media\mediaeventargs.cs" />
     <Compile Include="System\Windows\Media\mediaeventshelper.cs" />
     <Compile Include="System\Windows\Media\MediaPlayer.cs" />
+    <Compile Include="System\Windows\Media\PortableMediaPlayerSourceFactory.cs" />
     <Compile Include="System\Windows\Media\MediaPlayerState.cs" />
     <Compile Include="System\Windows\Media\MediaSystem.cs" />
     <Compile Include="System\Windows\Media\MediaTimeline.cs" />
@@ -863,6 +866,7 @@
     <Compile Include="System\Windows\Media\PixelFormatConverter.cs" />
     <Compile Include="System\Windows\Media\PixelFormats.cs" />
     <Compile Include="System\Windows\Media\PortableGeometryPathExporter.cs" />
+    <Compile Include="System\Windows\Media\PortableGeometryOperationsBridge.cs" />
     <Compile Include="System\Windows\Media\PointCollection.cs" />
     <Compile Include="System\Windows\Media\PointHitTestParameters.cs" />
     <Compile Include="System\Windows\Media\PointHitTestResult.cs" />

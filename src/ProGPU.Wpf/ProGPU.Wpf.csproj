@@ -17,6 +17,7 @@
 
   <ItemGroup>
     <PackageReference Include="ProGPU.Backend" Version="$(ProGpuRuntimePackageVersion)" />
+    <PackageReference Include="ProGPU.Backend.Native" Version="$(ProGpuRuntimePackageVersion)" />
     <PackageReference Include="ProGPU.DirectX" Version="$(ProGpuRuntimePackageVersion)" />
     <PackageReference Include="ProGPU.Scene" Version="$(ProGpuRuntimePackageVersion)" />
     <PackageReference Include="LibreWPF.Interop" Version="$(ProGpuRuntimePackageVersion)" />
@@ -34,6 +35,7 @@
 
   <ItemGroup Condition="'$(IsPacking)' != 'true'">
     <ProjectReference Include="..\..\external\ProGPU\src\ProGPU.Backend\ProGPU.Backend.csproj" />
+    <ProjectReference Include="..\..\external\ProGPU\src\ProGPU.Backend.Native\ProGPU.Backend.Native.csproj" />
     <ProjectReference Include="..\..\external\ProGPU\src\ProGPU.DirectX\ProGPU.DirectX.csproj" />
     <ProjectReference Include="..\..\external\ProGPU\src\ProGPU.Scene\ProGPU.Scene.csproj" />
     <ProjectReference Include="..\..\external\ProGPU\src\ProGPU.Text\ProGPU.Text.csproj" />
@@ -61,6 +63,7 @@
       <_ProjectReferencesWithVersions
         Update="@(_ProjectReferencesWithVersions)"
         Condition="'%(_ProjectReferencesWithVersions.Filename)' == 'ProGPU.Backend'
+          Or '%(_ProjectReferencesWithVersions.Filename)' == 'ProGPU.Backend.Native'
           Or '%(_ProjectReferencesWithVersions.Filename)' == 'ProGPU.DirectX'
           Or '%(_ProjectReferencesWithVersions.Filename)' == 'ProGPU.Scene'
           Or '%(_ProjectReferencesWithVersions.Filename)' == 'ProGPU.Text'

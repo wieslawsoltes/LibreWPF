@@ -5,6 +5,15 @@ namespace System.Windows.Media.ProGPU.Composition;
 
 internal static class WpfPortableGeometryBoundsReader
 {
+    public static bool TryGetLocalGeometryBounds(
+        PortableGeometryPath geometry,
+        out WpfReplayRect bounds)
+    {
+        return WpfPortablePathBoundsReader.TryGetLocalPathBounds(
+            geometry,
+            out bounds);
+    }
+
     public static bool TryGetGeometryBounds(PortableGeometryPath geometry, out WpfReplayRect bounds)
     {
         if (WpfPortableRectangleClipReader.TryGetRectangleClipBounds(geometry, out bounds))

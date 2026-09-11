@@ -2170,6 +2170,36 @@ public sealed class WpfReplayToProGpuCommandTests
     }
 
     [Fact]
+    public void DrawPortableNativeImageRetainsTypedTextureLeaseUntilContextClear()
+    {
+        var texture = (GpuTexture)RuntimeHelpers.GetUninitializedObject(
+            typeof(GpuTexture));
+        var textureSource = new FakeTextureLeaseSource(texture);
+        var imageSource = new FakePortableNativeMediaImageSource(
+            textureSource);
+        var nativeContext = new ProGpuDrawingContext();
+
+        using (var sink = new ProGpuCompositionCommandSink(
+                   new MediaDrawingContext(nativeContext)))
+        {
+            sink.DrawImage(
+                imageSource,
+                new System.Windows.Rect(2, 3, 40, 50));
+        }
+
+        var command = Assert.Single(nativeContext.Commands);
+        Assert.Equal(RenderCommandType.DrawTexture, command.Type);
+        Assert.Same(texture, command.Texture);
+        Assert.Equal(1, nativeContext.RetainedResourceCount);
+        Assert.Equal(1, textureSource.AcquireCount);
+        Assert.Equal(0, textureSource.LeaseDisposeCount);
+
+        nativeContext.Clear();
+
+        Assert.Equal(1, textureSource.LeaseDisposeCount);
+    }
+
+    [Fact]
     public void DrawImageWithNearestBitmapScalingThroughProGpuSinkStoresTextureSamplingMode()
     {
         var nativeContext = new ProGpuDrawingContext();
@@ -2520,6 +2550,75 @@ public sealed class WpfReplayToProGpuCommandTests
 
         Assert.Equal(new WpfMilDecodeResult(2, 2, 0, 0), result);
         Assert.Empty(nativeContext.Commands);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void DirectGuidelineRectangleRetainsSourceInputAfterPictureSnapshot(bool rounded)
+    {
+        var context = new ProGpuDrawingContext();
+        using var sink = new ProGpuCompositionCommandSink(new MediaDrawingContext(context));
+        sink.PushGuidelineY2(20.25, 40);
+        if (rounded) sink.DrawRoundedRectangle(Brushes.Red, null, new System.Windows.Rect(10.25, 20.25, 30, 40), 3, 4);
+        else sink.DrawRectangle(Brushes.Red, null, new System.Windows.Rect(10.25, 20.25, 30, 40));
+        sink.Pop();
+        var raster = Assert.Single(context.Commands);
+        Assert.Equal(20f, raster.Rect.Y);
+        Assert.Equal(40f, raster.Rect.Height);
+        using var picture = new GpuPicture([raster], [], [], [], []);
+        using var capture = new GpuRenderCommandHitTestCacheBuilder();
+        capture.AddCommand(picture.GetCommand(0), Matrix4x4.CreateTranslation(5, 6, 0));
+        var hit = Assert.Single(capture.BuildIndex().Primitives);
+        Assert.Equal(new Vector2(15.25f, 26.25f), hit.BoundsMin);
+        Assert.Equal(new Vector2(45.25f, 66.25f), hit.BoundsMax);
+        Assert.Equal(rounded ? SourceHitTestGeometryKind.RoundedRectangle : SourceHitTestGeometryKind.Rectangle,
+            picture.GetCommand(0).SourceHitGeometry.Kind);
+    }
+
+    [Fact]
+    public void DirectGuidelineEllipseRetainsOriginalCenterAndRadii()
+    {
+        var context = new ProGpuDrawingContext();
+        using var sink = new ProGpuCompositionCommandSink(new MediaDrawingContext(context));
+        sink.PushGuidelineY2(20.25, 40);
+        sink.DrawEllipse(Brushes.Red, null, new Point(25.25, 40.25), 15, 20);
+        sink.Pop();
+        var raster = Assert.Single(context.Commands);
+        Assert.Equal(40f, raster.Position2.Y);
+        using var capture = new GpuRenderCommandHitTestCacheBuilder();
+        capture.AddCommand(raster, Matrix4x4.Identity);
+        var hit = Assert.Single(capture.BuildIndex().Primitives);
+        Assert.Equal(new Vector2(10.25f, 20.25f), hit.BoundsMin);
+        Assert.Equal(new Vector2(40.25f, 60.25f), hit.BoundsMax);
+    }
+
+    [Theory]
+    [InlineData(PenLineCap.Flat)]
+    [InlineData(PenLineCap.Square)]
+    [InlineData(PenLineCap.Round)]
+    [InlineData(PenLineCap.Triangle)]
+    public void DirectGuidelineLineIndexesOriginalSpineAndNotAuxiliaryRasterCaps(PenLineCap cap)
+    {
+        var context = new ProGpuDrawingContext();
+        using var sink = new ProGpuCompositionCommandSink(new MediaDrawingContext(context));
+        sink.PushGuidelineY1(12.25);
+        sink.DrawLine(new Pen(Brushes.Black, 2) { StartLineCap = cap, EndLineCap = cap },
+            new Point(1, 12.25), new Point(30, 12.25));
+        sink.Pop();
+        var raster = context.Commands[0];
+        Assert.Equal(12f, raster.Position.Y);
+        Assert.Equal(new Vector4(1, 12.25f, 30, 12.25f), raster.SourceHitGeometry.Coordinates);
+        using var picture = new GpuPicture(context.Commands.ToArray(), [], [], [], []);
+        using var capture = new GpuRenderCommandHitTestCacheBuilder();
+        for (int i = 0; i < picture.CommandCount; i++) capture.AddCommand(picture.GetCommand(i), Matrix4x4.Identity);
+        var hit = Assert.Single(capture.BuildIndex().Primitives);
+        Assert.Equal(new Vector4(1, 12.25f, 30, 12.25f), hit.Data0);
+        var padding = cap == PenLineCap.Square ? MathF.Sqrt(2) : 1f;
+        Assert.Equal(12.25f - padding, hit.BoundsMin.Y);
+        Assert.Equal(12.25f + padding, hit.BoundsMax.Y);
+        for (int i = 1; i < picture.CommandCount; i++)
+            Assert.Equal(SourceHitTestGeometryKind.Excluded, picture.GetCommand(i).SourceHitGeometry.Kind);
     }
 
     [Fact]
@@ -3080,6 +3179,75 @@ public sealed class WpfReplayToProGpuCommandTests
         public override int PixelHeight => 1;
 
         public override GpuTexture GpuTexture => s_texture;
+    }
+
+    private sealed class FakePortableNativeMediaImageSource :
+        System.Windows.Media.ImageSource,
+        IPortableNativeImageSource
+    {
+        private readonly object _nativeImage;
+
+        public FakePortableNativeMediaImageSource(object nativeImage)
+        {
+            _nativeImage = nativeImage;
+        }
+
+        public int PixelWidth => 1;
+
+        public int PixelHeight => 1;
+
+        public bool TryGetPortableNativeImage(out object? nativeImage)
+        {
+            nativeImage = _nativeImage;
+            return true;
+        }
+    }
+
+    private sealed class FakeTextureLeaseSource : IProGpuTextureLeaseSource
+    {
+        private readonly GpuTexture _texture;
+
+        public FakeTextureLeaseSource(GpuTexture texture)
+        {
+            _texture = texture;
+        }
+
+        public int AcquireCount { get; private set; }
+
+        public int LeaseDisposeCount { get; private set; }
+
+        public bool TryGetGpuTexture(out GpuTexture texture)
+        {
+            texture = _texture;
+            return true;
+        }
+
+        public bool TryAcquireGpuTextureLease(out IProGpuTextureLease lease)
+        {
+            AcquireCount++;
+            lease = new FakeTextureLease(
+                _texture,
+                () => LeaseDisposeCount++);
+            return true;
+        }
+    }
+
+    private sealed class FakeTextureLease : IProGpuTextureLease
+    {
+        private Action? _onDispose;
+
+        public FakeTextureLease(GpuTexture texture, Action onDispose)
+        {
+            Texture = texture;
+            _onDispose = onDispose;
+        }
+
+        public GpuTexture Texture { get; }
+
+        public void Dispose()
+        {
+            Interlocked.Exchange(ref _onDispose, null)?.Invoke();
+        }
     }
 
     private sealed class FakeGeometryDrawing : IPortableGeometryDrawingStateSource

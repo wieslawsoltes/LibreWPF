@@ -1,10 +1,13 @@
 using System.Reflection;
+using ProGPU.Backend.Native;
 using System.Reflection.Emit;
 using System.Runtime.Loader;
 using System.Collections;
+using System.Diagnostics;
 using System.Globalization;
 using System.Windows.Media.ProGPU;
 using System.Windows.Media.ProGPU.Composition.Mil;
+using ProGPU.Wpf.Interop;
 using ProGpuContainerVisual = global::ProGPU.Scene.ContainerVisual;
 using ProGpuDrawingContext = global::ProGPU.Scene.DrawingContext;
 using ProGpuGradientSpreadMethod = global::ProGPU.Vector.GradientSpreadMethod;
@@ -16,15 +19,25 @@ using ProGpuVisual = global::ProGPU.Scene.Visual;
 
 public static class Program
 {
+    private static readonly TimeSpan NativeMilHostTimeout =
+        TimeSpan.FromSeconds(15);
     private const string PortableWindowActivationServiceTypeName = "System.Windows.PortableWindowActivationService";
     private const string PortableRenderDataProviderTypeName = "System.Windows.Media.PortableRenderDataDrawingContextSinkProvider";
     private const string PortableRenderDataSinkInterfaceTypeName = "System.Windows.Media.IPortableRenderDataDrawingContextSink";
+    private const string RealWpfAssemblyDirectoryVariable = "PROGPU_WPF_REAL_ASSEMBLY_DIR";
 
     [STAThread]
     private static int Main(string[] args)
     {
         try
         {
+            if (args.Contains("--native-mil-retention", StringComparer.Ordinal))
+            {
+                NativeMilViewportRetentionSmoke.Run();
+                NativeMilBitmapDpiSmoke.RunChannel();
+                NativeMilImageBrushSmoke.Run();
+                return 0;
+            }
             string repoRoot = FindRepoRoot();
             string presentationFrameworkPath = FindRealAssembly(repoRoot, "PresentationFramework");
             string presentationCorePath = FindRealAssembly(repoRoot, "PresentationCore");
@@ -33,6 +46,18 @@ public static class Program
             {
                 RunTextWrappingHarness(repoRoot, presentationFrameworkPath, presentationCorePath);
                 Console.WriteLine("Real PresentationFramework portable text wrapping smoke succeeded.");
+                return 0;
+            }
+
+            if (args.Contains("--native-mil-host", StringComparer.Ordinal))
+            {
+                RunNativeMilHostHarness(
+                    repoRoot,
+                    presentationFrameworkPath,
+                    presentationCorePath,
+                    args.Contains("--native-mil-device-recovery", StringComparer.Ordinal));
+                Console.WriteLine(
+                    "Real PresentationFramework native MIL host smoke succeeded.");
                 return 0;
             }
 
@@ -45,6 +70,345 @@ public static class Program
             Console.Error.WriteLine(ex);
             return 1;
         }
+    }
+
+    private static void RunNativeMilHostHarness(
+        string repoRoot,
+        string presentationFrameworkPath,
+        string presentationCorePath,
+        bool exerciseDeviceRecovery)
+    {
+        ProGpuWpfNativeMediaServices.Initialize();
+        var loadContext = new WpfAssemblyLoadContext(
+            repoRoot,
+            presentationFrameworkPath,
+            presentationCorePath,
+            isCollectible: false);
+        try
+        {
+            Assembly presentationCore =
+                loadContext.LoadFromAssemblyPath(presentationCorePath);
+            Assembly windowsBase =
+                loadContext.LoadFromAssemblyName(new AssemblyName("WindowsBase"));
+            Assembly? ResolveDefaultWpfAssembly(
+                AssemblyLoadContext _,
+                AssemblyName assemblyName)
+            {
+                if (string.Equals(
+                        assemblyName.Name,
+                        presentationCore.GetName().Name,
+                        StringComparison.Ordinal))
+                {
+                    return presentationCore;
+                }
+                if (string.Equals(
+                        assemblyName.Name,
+                        windowsBase.GetName().Name,
+                        StringComparison.Ordinal))
+                {
+                    return windowsBase;
+                }
+                return null;
+            }
+
+            AssemblyLoadContext.Default.Resolving += ResolveDefaultWpfAssembly;
+            try
+            {
+                NativeMilBitmapDpiSmoke.RunFactory(presentationCore);
+                NativeMilImageBrushSmoke.RunSourceDrawingImage(presentationCore, windowsBase);
+                NativeMilTextCollapseSmoke.Run();
+                NativeMilTextJustificationSmoke.Run();
+                NativeMilInlineTextSmoke.Run();
+                // Exercise source text/resource construction before any window host.
+                object drawingVisual = CreateNativeMilHostDrawingVisual(presentationCore, windowsBase);
+                using var host = new ProGpuWpfWindowHost(new ProGpuWpfWindowOptions
+                {
+                    Title = "LibreWPF native MIL host smoke",
+                    Width = 160,
+                    Height = 96,
+                    RendererMode = ProGpuWpfRendererMode.NativeMilWgpu,
+                    EnableNativeMilHitTesting = true
+                });
+                if (drawingVisual is not IPortableVisualStateSource)
+                {
+                    string interfaces = string.Join(
+                        ", ",
+                        drawingVisual.GetType().GetInterfaces().Select(
+                            type =>
+                                $"{type.AssemblyQualifiedName} " +
+                                $"[{AssemblyLoadContext.GetLoadContext(type.Assembly)?.Name ?? "default"}]"));
+                    throw new InvalidOperationException(
+                        $"Native MIL smoke DrawingVisual does not share the typed " +
+                        $"{typeof(IPortableVisualStateSource).AssemblyQualifiedName} contract " +
+                        $"[{AssemblyLoadContext.GetLoadContext(typeof(IPortableVisualStateSource).Assembly)?.Name ?? "default"}]. " +
+                        $"Published interfaces: {interfaces}.");
+                }
+
+                Assembly presentationFramework = loadContext.LoadFromAssemblyPath(presentationFrameworkPath);
+                NativeMilTextCollapseSmoke.RunSourceHeader(presentationFramework, presentationCore, windowsBase);
+                NativeMilSourceInlineObjectSmoke.Run(presentationFramework, presentationCore, windowsBase);
+                NativeMilRichTextDecorationSmoke.Run(presentationFramework);
+                NativeMilRichDocumentSmoke.Run(presentationFramework, presentationCore, windowsBase);
+                NativeMilAnchoredDocumentSmoke.Run(presentationFramework, presentationCore);
+                NativeMilSourceExcludedTextSmoke.Run(presentationFramework, presentationCore);
+                object inlineText = CreateNativeMilInlineTextVisual(presentationFramework, presentationCore, windowsBase);
+                object root = Create(presentationCore, "System.Windows.Media.ContainerVisual");
+                AddToCollection(GetProperty(root, "Children"), drawingVisual);
+                AddToCollection(GetProperty(root, "Children"), inlineText);
+                host.WpfRootVisual = root;
+
+                NativeMilGeometryRelationSmoke.Run(presentationCore, drawingVisual);
+                NativeMilBitmapDpiSmoke.RequireSourceBitmapBinding(drawingVisual);
+                if (new WpfNativeMilSceneCompiler().BuildBatch(drawingVisual, 160, 96).GlyphRunFonts is not { Count: > 0 })
+                    throw new InvalidOperationException("Native host text did not publish source font bindings.");
+                if (new WpfNativeMilSceneCompiler().BuildBatch(inlineText, 160, 96).GlyphRunFonts is not { Count: > 0 })
+                    throw new InvalidOperationException("Native inline document text did not publish source font bindings.");
+
+                string? status = null;
+                Exception? validationFailure = null;
+                using var monitorCancellation = new CancellationTokenSource();
+                Task monitor = Task.Run(
+                    async () =>
+                    {
+                        var timeout = Stopwatch.StartNew();
+                        while (!monitorCancellation.IsCancellationRequested &&
+                               !host.HasPresentedFrame &&
+                               timeout.Elapsed < NativeMilHostTimeout)
+                        {
+                            await Task.Delay(1, monitorCancellation.Token)
+                                .ConfigureAwait(false);
+                        }
+
+                        if (monitorCancellation.IsCancellationRequested)
+                        {
+                            return;
+                        }
+
+                        if (exerciseDeviceRecovery)
+                        {
+                            try
+                            {
+                                await NativeMilHostDeviceRecoverySmoke.RunAsync(
+                                    host, NativeMilHostTimeout, monitorCancellation.Token).ConfigureAwait(false);
+                            }
+                            catch (Exception ex)
+                            {
+                                validationFailure = ex;
+                            }
+                        }
+
+                        host.PlatformServices.Dispatcher.Post(
+                            () =>
+                            {
+                                try
+                                {
+                                    status = ValidateNativeMilHostResult(host, drawingVisual, inlineText);
+                                }
+                                catch (Exception ex)
+                                {
+                                    validationFailure = ex;
+                                }
+                                finally
+                                {
+                                    host.Close();
+                                }
+                            });
+                    },
+                    monitorCancellation.Token);
+
+                try
+                {
+                    host.Run();
+                    monitor.GetAwaiter().GetResult();
+                }
+                finally
+                {
+                    monitorCancellation.Cancel();
+                }
+
+                if (validationFailure != null)
+                {
+                    throw validationFailure;
+                }
+                Console.WriteLine(status ?? throw new TimeoutException(
+                    $"Native MIL host did not present within " +
+                    $"{NativeMilHostTimeout.TotalSeconds:0} seconds."));
+            }
+            finally
+            {
+                AssemblyLoadContext.Default.Resolving -=
+                    ResolveDefaultWpfAssembly;
+            }
+        }
+        finally
+        {
+            if (loadContext.IsCollectible)
+            {
+                loadContext.Unload();
+            }
+        }
+    }
+
+    private static string ValidateNativeMilHostResult(
+        ProGpuWpfWindowHost host, object drawingVisual, object inlineText)
+    {
+        if (!PortableWpfRuntime.IsMediaBackendFrozen ||
+            PortableWpfRuntime.ConfiguredMediaBackend != PortableWpfMediaBackend.Portable)
+        {
+            throw new InvalidOperationException(
+                "Source-built WPF did not acquire the selected portable media backend.");
+        }
+        if (!host.HasPresentedFrame)
+        {
+            throw new TimeoutException(
+                $"Native MIL host did not present within " +
+                $"{NativeMilHostTimeout.TotalSeconds:0} seconds.");
+        }
+        if (host.LastNativeMilSessionFrame == null)
+        {
+            throw new InvalidOperationException(
+                "Native MIL host did not publish a stateful session frame.");
+        }
+        if (!host.LastNativeMilSessionUpdate.RecreatedChannel ||
+            host.LastNativeMilSessionUpdate.TargetHandle == 0)
+        {
+            throw new InvalidOperationException(
+                "Native MIL host did not publish its initial retained channel update.");
+        }
+        if (host.LastNativeMilSceneUpdateMetrics.ValidationError != default ||
+            host.LastNativeMilSceneUpdateMetrics.DrawCount == 0)
+        {
+            throw new InvalidOperationException(
+                $"Native MIL scene update was not valid and drawable: " +
+                $"{host.LastNativeMilSceneUpdateMetrics}.");
+        }
+        if (host.LastNativeMilFrameMetrics.DrawCallCount == 0 ||
+            host.LastNativeMilFrameMetrics.SubmissionCount == 0)
+        {
+            throw new InvalidOperationException(
+                $"Native MIL compositor did not submit a draw: " +
+                $"{host.LastNativeMilFrameMetrics}.");
+        }
+
+        if ((host.LastNativeMilSessionFrame.Request.Flags & NativeMilSceneBuildRequestFlags.HitTestIndex) == 0 ||
+            !ProGpuWpfDiagnostics.TryHitTestOwner(host, 12, 12, out object? inputOwner) ||
+            !ReferenceEquals(inputOwner, drawingVisual) ||
+            !ProGpuWpfDiagnostics.TryQueryHitTestBoundsOwners(host, 10, 10, 14, 14, out object?[] regionOwners) ||
+            !regionOwners.Any(owner => ReferenceEquals(owner, drawingVisual)) ||
+            !ProGpuWpfDiagnostics.TryGetGpuHitTestCacheSnapshot(host, out var inputIndex) ||
+            !inputIndex.HasIndex || !inputIndex.HasDeviceIndex || inputIndex.PrimitiveCount == 0)
+            throw new InvalidOperationException("Native MIL host input did not resolve the actual presented source drawing.");
+
+        if (inlineText is not IPortablePointHitRegionSource sourcePoint ||
+            !sourcePoint.TryGetPortablePointHitRegion(out var pointBounds) || pointBounds.Width != 160 ||
+            !ProGpuWpfDiagnostics.TryHitTestOwner(host, 150, 90, out var blankOwner) ||
+            !ReferenceEquals(blankOwner, inlineText))
+            throw new InvalidOperationException("Native source TextBlock lost pointer coverage in its arranged blank space.");
+        if (ProGpuWpfDiagnostics.TryQueryHitTestBoundsOwners(host, 148, 90, 154, 94, out var blankRegions) &&
+            blankRegions.Any(owner => ReferenceEquals(owner, inlineText)))
+            throw new InvalidOperationException("Source TextBlock pointer coverage incorrectly enlarged geometry selection.");
+
+        return
+            $"Native MIL host presented {host.PresentedFrameCount} frame(s), " +
+            $"compiled {host.LastNativeMilSceneUpdateMetrics.CommandCount} commands/" +
+            $"{host.LastNativeMilSceneUpdateMetrics.ResourceCount} resources/" +
+            $"{host.LastNativeMilSceneUpdateMetrics.DrawCount} draws, and submitted " +
+            $"{host.LastNativeMilFrameMetrics.DrawCallCount} draw call(s).";
+    }
+
+    private static object CreateNativeMilInlineTextVisual(Assembly presentationFramework, Assembly presentationCore, Assembly windowsBase)
+    {
+        // Existing dual-assembly diagnostic public API access; not product reflection.
+        object text = Create(presentationFramework, "System.Windows.Controls.TextBlock");
+        SetProperty(text, "FontFamily", Create(presentationCore, "System.Windows.Media.FontFamily", "#GLOBAL USER INTERFACE"));
+        SetProperty(text, "FontSize", 12.0);
+        object first = Create(presentationFramework, "System.Windows.Documents.Run", "Inline ");
+        object second = Create(presentationFramework, "System.Windows.Documents.Run", "document");
+        object span = Create(presentationFramework, "System.Windows.Documents.Hyperlink", second);
+        // This pre-host fixture has no Application theme resource dictionary.
+        // Supply the source decoration explicitly; theme loading is exercised
+        // separately by the package Showcase, not assumed by this formatting probe.
+        SetProperty(span, "TextDecorations", GetRequiredType(presentationCore, "System.Windows.TextDecorations")
+            .GetProperty("Underline", BindingFlags.Public | BindingFlags.Static)!.GetValue(null)!);
+        AddToCollection(GetProperty(text, "Inlines"), first);
+        AddToCollection(GetProperty(text, "Inlines"), span);
+        Type size = GetRequiredType(windowsBase, "System.Windows.Size");
+        Type rect = GetRequiredType(windowsBase, "System.Windows.Rect");
+        text.GetType().GetMethod("Measure", new[] { size })!.Invoke(text, new[] { Activator.CreateInstance(size, 160.0, 20.0) });
+        text.GetType().GetMethod("Arrange", new[] { rect })!.Invoke(text, new[] { Activator.CreateInstance(rect, 0.0, 76.0, 160.0, 20.0) });
+        Invoke(text, "UpdateLayout");
+        if (Convert.ToDouble(GetProperty(GetProperty(text, "DesiredSize"), "Width"), CultureInfo.InvariantCulture) <= 0)
+            throw new InvalidOperationException("Source inline document produced no measured width.");
+        NativeMilTextDecorationSmoke.RequireUnderline(text);
+        return text;
+    }
+
+    private static object CreateNativeMilHostDrawingVisual(
+        Assembly presentationCore,
+        Assembly windowsBase)
+    {
+        object drawingVisual = Create(
+            presentationCore,
+            "System.Windows.Media.DrawingVisual");
+        object drawingContext = Invoke(drawingVisual, "RenderOpen");
+        Type brushType = GetRequiredType(
+            presentationCore,
+            "System.Windows.Media.Brush");
+        Type penType = GetRequiredType(
+            presentationCore,
+            "System.Windows.Media.Pen");
+        Type rectType = GetRequiredType(windowsBase, "System.Windows.Rect");
+        Type colorsType = GetRequiredType(
+            presentationCore,
+            "System.Windows.Media.Colors");
+        object brush = Create(
+            presentationCore,
+            "System.Windows.Media.SolidColorBrush",
+            GetStaticProperty(colorsType, "CornflowerBlue"));
+        object rect = Activator.CreateInstance(
+            rectType,
+            8.0,
+            8.0,
+            144.0,
+            80.0)
+            ?? throw new InvalidOperationException(
+                "Failed to create the native MIL smoke rectangle.");
+        InvokeDrawing(
+            drawingContext,
+            "DrawRectangle",
+            new[] { brushType, penType, rectType },
+            brush,
+            null,
+            rect);
+        object bitmap = NativeMilBitmapDpiSmoke.CreateWriteableBitmap(presentationCore, windowsBase);
+        object imageRect = Activator.CreateInstance(rectType, 16.0, 16.0, 32.0, 32.0)!;
+        InvokeDrawing(drawingContext, "DrawImage",
+            new[] { GetRequiredType(presentationCore, "System.Windows.Media.ImageSource"), rectType }, bitmap, imageRect);
+        object decodedBitmap = NativeMilBitmapDpiSmoke.CreateDecodedBitmap(presentationCore);
+        object decodedRect = Activator.CreateInstance(rectType, 64.0, 16.0, 32.0, 32.0)!;
+        InvokeDrawing(drawingContext, "DrawImage",
+            new[] { GetRequiredType(presentationCore, "System.Windows.Media.ImageSource"), rectType }, decodedBitmap, decodedRect);
+        // Existing dual-assembly diagnostic harness only. These known public API
+        // lookups disappear when the harness can bind the source assembly directly.
+        object textBrush = Create(presentationCore, "System.Windows.Media.SolidColorBrush", GetStaticProperty(colorsType, "Black"));
+        object text = CreateRealFormattedText(presentationCore, textBrush, "\u05d0\u05d1\tfi a\u0301", rightToLeft: true,
+            fontFamilyName: "#GLOBAL USER INTERFACE");
+        text.GetType().GetMethod("SetFontSize", new[] { typeof(double), typeof(int), typeof(int) })!
+            .Invoke(text, new object[] { 28.0, 3, 2 });
+        object styledBrush = Create(presentationCore, "System.Windows.Media.SolidColorBrush", GetStaticProperty(colorsType, "Blue"));
+        text.GetType().GetMethod("SetForegroundBrush", new[] { brushType, typeof(int), typeof(int) })!
+            .Invoke(text, new object[] { styledBrush, 3, 2 });
+        if (Convert.ToDouble(GetProperty(text, "Width"), CultureInfo.InvariantCulture) <= 0)
+            throw new InvalidOperationException("Native host shaped text unexpectedly has zero width.");
+        double minimumWidth = Convert.ToDouble(GetProperty(text, "MinWidth"), CultureInfo.InvariantCulture);
+        double maximumWidth = Convert.ToDouble(GetProperty(text, "Width"), CultureInfo.InvariantCulture);
+        if (!double.IsFinite(minimumWidth) || minimumWidth <= 0 || minimumWidth > maximumWidth + 0.01)
+            throw new InvalidOperationException("Native host intrinsic text width is not a valid shaped paragraph measurement.");
+        Type pointType = GetRequiredType(windowsBase, "System.Windows.Point");
+        InvokeDrawing(drawingContext, "DrawText", new[] { GetRequiredType(presentationCore, "System.Windows.Media.FormattedText"), pointType },
+            text, Activator.CreateInstance(pointType, 16.0, 60.0));
+        Invoke(drawingContext, "Close");
+        return drawingVisual;
     }
 
     private static void RunTextWrappingHarness(
@@ -937,7 +1301,8 @@ public static class Program
         });
     }
 
-    private static object CreateRealFormattedText(Assembly presentationCore, object foregroundBrush)
+    private static object CreateRealFormattedText(Assembly presentationCore, object foregroundBrush, string text = "Text", bool rightToLeft = false,
+        string fontFamilyName = "Arial")
     {
         Type brushType = GetRequiredType(presentationCore, "System.Windows.Media.Brush");
         Type fontFamilyType = GetRequiredType(presentationCore, "System.Windows.Media.FontFamily");
@@ -950,7 +1315,7 @@ public static class Program
         Type fontWeightType = GetRequiredType(presentationCore, "System.Windows.FontWeight");
         Type fontWeightsType = GetRequiredType(presentationCore, "System.Windows.FontWeights");
         Type typefaceType = GetRequiredType(presentationCore, "System.Windows.Media.Typeface");
-        object fontFamily = Activator.CreateInstance(fontFamilyType, "Arial")
+        object fontFamily = Activator.CreateInstance(fontFamilyType, fontFamilyName)
             ?? throw new InvalidOperationException("Failed to create System.Windows.Media.FontFamily.");
         object typeface = typefaceType.GetConstructor(
             BindingFlags.Instance | BindingFlags.Public,
@@ -964,7 +1329,7 @@ public static class Program
                 GetStaticProperty(fontStretchesType, "Normal")
             })
             ?? throw new InvalidOperationException("Failed to create System.Windows.Media.Typeface.");
-        object flowDirection = Enum.Parse(flowDirectionType, "LeftToRight");
+        object flowDirection = Enum.Parse(flowDirectionType, rightToLeft ? "RightToLeft" : "LeftToRight");
 
         ConstructorInfo constructor = formattedTextType.GetConstructor(
             BindingFlags.Instance | BindingFlags.Public,
@@ -984,7 +1349,7 @@ public static class Program
 
         return constructor.Invoke(new object[]
         {
-            "Text",
+            text,
             System.Globalization.CultureInfo.InvariantCulture,
             flowDirection,
             typeface,
@@ -1430,6 +1795,19 @@ public static class Program
 
     private static string FindRealAssembly(string repoRoot, string assemblyName)
     {
+        string? configuredDirectory = GetConfiguredRealWpfAssemblyDirectory();
+        if (configuredDirectory != null)
+        {
+            string configuredAssembly = Path.Combine(
+                configuredDirectory,
+                $"{assemblyName}.dll");
+            return File.Exists(configuredAssembly)
+                ? configuredAssembly
+                : throw new FileNotFoundException(
+                    $"Configured real WPF assembly was not found: {configuredAssembly}",
+                    configuredAssembly);
+        }
+
         string artifactsRoot = Path.Combine(repoRoot, "artifacts", "bin", assemblyName);
         if (!Directory.Exists(artifactsRoot))
         {
@@ -1452,6 +1830,12 @@ public static class Program
 
     private static string FindRepoRoot()
     {
+        string? configuredDirectory = GetConfiguredRealWpfAssemblyDirectory();
+        if (configuredDirectory != null)
+        {
+            return configuredDirectory;
+        }
+
         DirectoryInfo? directory = new(AppContext.BaseDirectory);
         while (directory != null)
         {
@@ -1472,6 +1856,23 @@ public static class Program
         }
 
         throw new DirectoryNotFoundException("Could not locate the WPF repository root.");
+    }
+
+    private static string? GetConfiguredRealWpfAssemblyDirectory()
+    {
+        string? configured = Environment.GetEnvironmentVariable(
+            RealWpfAssemblyDirectoryVariable);
+        if (string.IsNullOrWhiteSpace(configured))
+        {
+            return null;
+        }
+
+        string fullPath = Path.GetFullPath(
+            Environment.ExpandEnvironmentVariables(configured));
+        return Directory.Exists(fullPath)
+            ? fullPath
+            : throw new DirectoryNotFoundException(
+                $"{RealWpfAssemblyDirectoryVariable} does not exist: {fullPath}");
     }
 
     private static IDisposable RegisterRealPortableObjectSinkProvider(
@@ -1664,6 +2065,7 @@ public static class Program
     private sealed class WpfAssemblyLoadContext : AssemblyLoadContext
     {
         private readonly string _repoRoot;
+        private readonly string _wpfAssemblyDirectory;
         private readonly string _presentationFrameworkPath;
         private readonly string _presentationCorePath;
         private readonly AssemblyDependencyResolver _resolver;
@@ -1671,10 +2073,14 @@ public static class Program
         public WpfAssemblyLoadContext(
             string repoRoot,
             string presentationFrameworkPath,
-            string presentationCorePath)
-            : base(isCollectible: true)
+            string presentationCorePath,
+            bool isCollectible = true)
+            : base(isCollectible)
         {
             _repoRoot = repoRoot;
+            _wpfAssemblyDirectory = Path.GetDirectoryName(presentationCorePath)
+                ?? throw new InvalidOperationException(
+                    "Real PresentationCore path has no assembly directory.");
             _presentationFrameworkPath = presentationFrameworkPath;
             _presentationCorePath = presentationCorePath;
             _resolver = new AssemblyDependencyResolver(presentationFrameworkPath);
@@ -1682,6 +2088,16 @@ public static class Program
 
         protected override Assembly? Load(AssemblyName assemblyName)
         {
+            Assembly sharedInteropAssembly =
+                typeof(IPortableVisualStateSource).Assembly;
+            if (string.Equals(
+                    assemblyName.Name,
+                    sharedInteropAssembly.GetName().Name,
+                    StringComparison.Ordinal))
+            {
+                return sharedInteropAssembly;
+            }
+
             if (string.Equals(assemblyName.Name, "PresentationFramework", StringComparison.Ordinal))
             {
                 return LoadFromAssemblyPath(_presentationFrameworkPath);
@@ -1690,6 +2106,15 @@ public static class Program
             if (string.Equals(assemblyName.Name, "PresentationCore", StringComparison.Ordinal))
             {
                 return LoadFromAssemblyPath(_presentationCorePath);
+            }
+
+            string realWpfAssemblyPath = Path.Combine(
+                _wpfAssemblyDirectory,
+                $"{assemblyName.Name}.dll");
+
+            if (File.Exists(realWpfAssemblyPath))
+            {
+                return LoadFromAssemblyPath(realWpfAssemblyPath);
             }
 
             string outputAssemblyPath = Path.Combine(
@@ -1701,13 +2126,17 @@ public static class Program
                 return LoadFromAssemblyPath(outputAssemblyPath);
             }
 
+            // Source builds put each WPF assembly in its own project directory.
+            // Resolve siblings using PresentationCore's configuration and TFM,
+            // never a stale Debug build or the runtime's WindowsBase facade.
+            var sourceDirectory = new DirectoryInfo(_wpfAssemblyDirectory);
             string artifactAssemblyPath = Path.Combine(
                 _repoRoot,
                 "artifacts",
                 "bin",
                 assemblyName.Name ?? string.Empty,
-                "Debug",
-                "net10.0",
+                sourceDirectory.Parent?.Name ?? string.Empty,
+                sourceDirectory.Name,
                 $"{assemblyName.Name}.dll");
 
             if (File.Exists(artifactAssemblyPath))

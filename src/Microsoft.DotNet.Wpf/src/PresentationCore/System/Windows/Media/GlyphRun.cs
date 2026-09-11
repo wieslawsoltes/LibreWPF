@@ -2475,12 +2475,18 @@ namespace System.Windows.Media
                 return false;
             }
 
+            bool hasInkBounds = TryGetPortableInkBounds(out PortableRect inkBounds);
             StyleSimulations styleSimulations = _glyphTypeface?.StyleSimulations ?? StyleSimulations.None;
             glyphRun = new PortableGlyphRun
             {
+                HasInkBounds = hasInkBounds,
+                InkBounds = inkBounds,
                 GlyphIndices = CopyUShorts(_glyphIndices),
                 AdvanceWidths = CopyDoubles(_advanceWidths),
                 GlyphOffsets = CopyPoints(_glyphOffsets),
+                GlyphPositions = _portablePositionedGlyphs == null ? Array.Empty<PortablePoint>() :
+                    Array.ConvertAll(_portablePositionedGlyphs, static p => new PortablePoint(p.X, p.Y)),
+                NativeFont = _portablePositionedFont,
                 BaselineOrigin = ToPortablePoint(_baselineOrigin),
                 FontRenderingEmSize = _renderingEmSize,
                 FontUri = _glyphTypeface?.FontUri?.OriginalString,
@@ -2513,11 +2519,15 @@ namespace System.Windows.Media
                 return false;
             }
 
+            bool hasInkBounds = TryGetPortableInkBounds(out PortableRect inkBounds);
             StyleSimulations styleSimulations = _glyphTypeface?.StyleSimulations ?? StyleSimulations.None;
             glyphRun = new PortableNativeGlyphRun
             {
+                HasInkBounds = hasInkBounds,
+                InkBounds = inkBounds,
                 GlyphIndices = CopyUShorts(_glyphIndices),
-                GlyphPositions = CreateNativeGlyphPositions(_glyphIndices.Count, _advanceWidths, _glyphOffsets),
+                GlyphPositions = _portablePositionedGlyphs ?? CreateNativeGlyphPositions(_glyphIndices.Count, _advanceWidths, _glyphOffsets),
+                NativeFont = _portablePositionedFont,
                 BaselineOrigin = new Vector2((float)_baselineOrigin.X, (float)_baselineOrigin.Y),
                 FontRenderingEmSize = _renderingEmSize,
                 FontUri = _glyphTypeface?.FontUri?.OriginalString,
@@ -2531,6 +2541,25 @@ namespace System.Windows.Media
                 _portableNativeGlyphRunCache = glyphRun;
             }
 
+            return true;
+        }
+
+        private bool TryGetPortableInkBounds(out PortableRect bounds)
+        {
+            bounds = PortableRect.Empty;
+            if (!IsInitialized) return false;
+            if (_portableInkBoundsCache is PortableRect cached)
+            {
+                bounds = cached;
+                return true;
+            }
+            Rect ink = ComputeInkBoundingBox();
+            if (!ink.IsEmpty)
+            {
+                ink.Offset(_baselineOrigin.X, _baselineOrigin.Y);
+                bounds = new PortableRect(ink.X, ink.Y, ink.Width, ink.Height);
+            }
+            _portableInkBoundsCache = bounds;
             return true;
         }
 
@@ -2580,6 +2609,20 @@ namespace System.Windows.Media
             }
 
             return result;
+        }
+
+        private Vector2[] _portablePositionedGlyphs;
+        private object _portablePositionedFont;
+
+        // Source text formatting transfers these immutable native Y-down positions
+        // before publishing the GlyphRun. WPF metrics retain real bidi/offset state.
+        internal void InitializePortableGlyphPositions(Vector2[] positions, object nativeFont = null)
+        {
+            if (!IsInitialized || _portablePositionedGlyphs != null || _portableNativeGlyphRunCache != null || _portableGlyphRunCache != null ||
+                positions == null || positions.Length != _glyphIndices.Count)
+                throw new InvalidOperationException("Portable glyph positions must be initialized once before replay.");
+            _portablePositionedGlyphs = positions;
+            _portablePositionedFont = nativeFont;
         }
 
         private static Vector2[] CreateNativeGlyphPositions(
@@ -2659,6 +2702,7 @@ namespace System.Windows.Media
         private object              _inkBoundingBox;    // Used when CacheInkBounds is on
         private PortableGlyphRun    _portableGlyphRunCache;
         private PortableNativeGlyphRun _portableNativeGlyphRunCache;
+        private PortableRect? _portableInkBoundsCache;
         private TextFormattingMode      _textFormattingMode;
         private float               _pixelsPerDip = MS.Internal.FontCache.Util.PixelsPerDip;
 

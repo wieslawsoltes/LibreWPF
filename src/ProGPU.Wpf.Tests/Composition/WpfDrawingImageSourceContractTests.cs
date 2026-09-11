@@ -28,7 +28,7 @@ public sealed class WpfDrawingImageSourceContractTests
         Assert.Contains("TryGetPortableDrawingBounds(out PortableRect bounds)", drawingBoundsContract, StringComparison.Ordinal);
         Assert.Contains("imageSource is not PortableDrawingImageSource drawingImageSource", drawingReplay, StringComparison.Ordinal);
         Assert.Contains("drawing is PortableDrawingBoundsSource drawingBoundsSource", drawingReplay, StringComparison.Ordinal);
-        Assert.Contains("TryGetDrawingBounds(drawing, imageSourceAdapter, out var sourceBounds)", drawingReplay, StringComparison.Ordinal);
+        Assert.Contains("TryGetDrawingBounds(drawing, imageSourceAdapter, out var sourceBounds, out bool isEmpty)", drawingReplay, StringComparison.Ordinal);
         Assert.Contains("PushRectangleClip(sink, destinationBounds)", drawingReplay, StringComparison.Ordinal);
         Assert.Contains("portableBrush.Content is PortableDrawingImageSource drawingImageSource", drawingReplay, StringComparison.Ordinal);
         Assert.Contains("TryReplayPortableDrawingBrushFill(", drawingReplay, StringComparison.Ordinal);

@@ -1,21 +1,145 @@
+#Requires -Version 7.0
+
 param(
-    [string] $Configuration = "Release"
+    [string] $Configuration = "Release",
+    [ValidateSet("vs", "dotnet")]
+    [string] $MSBuildEngine = "vs",
+    [switch] $Rebuild,
+    [switch] $NativeToolsOnMachine
 )
 
 $ErrorActionPreference = "Stop"
+if (-not $IsWindows) {
+    throw "Windows managed runtime production requires a Windows PowerShell 7 host."
+}
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
-$buildCommand = Join-Path $repoRoot "build.cmd"
+$buildCommand = Join-Path $repoRoot "eng/common/build.ps1"
+$buildPowerShell = Join-Path $PSHOME "pwsh.exe"
+if (!(Test-Path $buildPowerShell -PathType Leaf)) {
+    throw "The current PowerShell host has no child executable at $buildPowerShell."
+}
 $buildTasksProject = Join-Path $repoRoot "src/Microsoft.DotNet.Wpf/src/PresentationBuildTasks/PresentationBuildTasks.csproj"
 $project = Join-Path $repoRoot "src/Microsoft.DotNet.Wpf/src/PresentationCore/PresentationCore.csproj"
 $outputDirectory = Join-Path $repoRoot "artifacts/windows-managed-runtime"
 $versionDetailsPath = Join-Path $repoRoot "eng/Version.Details.props"
+$globalJsonPath = Join-Path $repoRoot "global.json"
 $packagesDirectory = Join-Path $repoRoot ".packages"
+$globalJson = Get-Content -Path $globalJsonPath -Raw | ConvertFrom-Json
+
+function Test-X64DotNetHost([string] $path) {
+    if (!(Test-Path $path -PathType Leaf)) { return $false }
+    $stream = [System.IO.File]::OpenRead($path)
+    try {
+        $reader = [System.IO.BinaryReader]::new($stream)
+        if ($stream.Length -lt 64 -or $reader.ReadUInt16() -ne 0x5a4d) { return $false }
+        $stream.Position = 0x3c
+        $peOffset = $reader.ReadUInt32()
+        if ($peOffset -gt $stream.Length - 6) { return $false }
+        $stream.Position = $peOffset
+        return $reader.ReadUInt32() -eq 0x00004550 -and $reader.ReadUInt16() -eq 0x8664
+    }
+    finally {
+        $stream.Dispose()
+    }
+}
+
+function Initialize-BuildSdk {
+    $sdkVersion = [string]$globalJson.sdk.version
+    if ([string]::IsNullOrWhiteSpace($sdkVersion)) {
+        throw "sdk.version is missing from $globalJsonPath."
+    }
+
+    # Arcade restores tools.runtimes dotnet/x64 into the SDK root. Keep the
+    # build host x64 even on ARM64 Windows; target RIDs remain independent.
+    $localDotnetHost = Join-Path $repoRoot ".dotnet/dotnet.exe"
+    if ((Test-Path $localDotnetHost) -and !(Test-X64DotNetHost $localDotnetHost)) {
+        throw "The repository .dotnet host is not x64. Use a clean build checkout or preserve and move the incompatible SDK directory before building."
+    }
+    $sdkDirectory = Join-Path $repoRoot ".dotnet/sdk/$sdkVersion"
+    if (!(Test-Path (Join-Path $sdkDirectory "Sdks/Microsoft.NET.Sdk/Sdk"))) {
+        $sdkDirectory = $null
+    }
+
+    $dotnetCommand = Get-Command dotnet.exe -ErrorAction SilentlyContinue
+    if ([string]::IsNullOrWhiteSpace($sdkDirectory) -and $null -ne $dotnetCommand -and
+        (Test-X64DotNetHost $dotnetCommand.Source)) {
+        Push-Location $repoRoot
+        try {
+            $effectiveSdkVersion = (& $dotnetCommand.Source --version 2>$null | Select-Object -Last 1)
+            $sdkResolutionExitCode = $LASTEXITCODE
+        }
+        finally {
+            Pop-Location
+        }
+
+        if ($sdkResolutionExitCode -eq 0 -and ![string]::IsNullOrWhiteSpace($effectiveSdkVersion)) {
+            $sdkLine = & $dotnetCommand.Source --list-sdks |
+                Where-Object { $_ -like "$effectiveSdkVersion *" } |
+                Select-Object -Last 1
+            if ($sdkLine -match '^\S+\s+\[(.+)\]$') {
+                $candidate = Join-Path $Matches[1] $effectiveSdkVersion
+                if (Test-Path (Join-Path $candidate "Sdks/Microsoft.NET.Sdk/Sdk")) {
+                    $sdkDirectory = $candidate
+                }
+            }
+        }
+    }
+
+    if ([string]::IsNullOrWhiteSpace($sdkDirectory)) {
+        $dotnetInstall = Join-Path $repoRoot "eng/common/dotnet-install.ps1"
+        # Arcade's wrapper defaults to a runtime-only install. An empty runtime
+        # selects the SDK and omits -Runtime from the upstream installer call.
+        & $dotnetInstall -version $sdkVersion -architecture x64 -runtime ''
+        if ($LASTEXITCODE -ne 0) {
+            throw "Installing the pinned .NET SDK $sdkVersion failed."
+        }
+
+        $sdkDirectory = Join-Path $repoRoot ".dotnet/sdk/$sdkVersion"
+    }
+
+    $sdkResolverPath = Join-Path $sdkDirectory "Sdks"
+    if (!(Test-Path (Join-Path $sdkResolverPath "Microsoft.NET.Sdk/Sdk"))) {
+        throw "The pinned .NET SDK resolver is missing from $sdkResolverPath."
+    }
+
+    $dotnetRoot = Split-Path -Parent (Split-Path -Parent $sdkDirectory)
+    if (!(Test-X64DotNetHost (Join-Path $dotnetRoot "dotnet.exe"))) {
+        throw "The selected SDK does not have the required x64 build host at $dotnetRoot."
+    }
+    $env:DOTNET_ROOT = $dotnetRoot
+    # MSBuild.exe does not populate the CLI's DOTNET_HOST_PATH. SDK tasks
+    # hosted out-of-process on .NET require the executable, not just DOTNET_ROOT
+    # or MSBuildSDKsPath. Keep task hosting on the same validated x64 SDK host.
+    $env:DOTNET_HOST_PATH = Join-Path $dotnetRoot "dotnet.exe"
+    $env:PATH = "$dotnetRoot;$env:PATH"
+    $env:MSBuildSDKsPath = $sdkResolverPath
+    # PresentationCore does not consume SDK workloads. Visual Studio MSBuild
+    # otherwise asks its own resolver for workload locator SDKs that are not
+    # part of the standalone pinned SDK layout used by clean Build Tools VMs.
+    $env:MSBuildEnableWorkloadResolver = "false"
+}
+
+Initialize-BuildSdk
 
 Remove-Item -Path $outputDirectory -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Path $outputDirectory -Force | Out-Null
 
-$perlCommand = (Get-Command perl.exe -ErrorAction Stop).Source
+$perlCommandInfo = Get-Command perl.exe -ErrorAction SilentlyContinue
+if ($null -ne $perlCommandInfo) {
+    $perlCommand = $perlCommandInfo.Source
+}
+else {
+    # Arcade restores this pinned native tool before invoking MSBuild. Resolve
+    # the future path now so a clean Windows build agent or integration VM does
+    # not also need a machine-wide Strawberry Perl installation.
+    $strawberryPerlVersion = [string]$globalJson.'native-tools'.'strawberry-perl'
+    if ([string]::IsNullOrWhiteSpace($strawberryPerlVersion)) {
+        throw "native-tools.strawberry-perl is missing from $globalJsonPath."
+    }
+
+    $perlCommand = Join-Path $repoRoot ".tools/native/bin/strawberry-perl/$strawberryPerlVersion/portableshell.bat"
+}
 
 $versionDetails = [xml](Get-Content -Path $versionDetailsPath -Raw)
 $netCoreAppVersion = [string]($versionDetails.Project.PropertyGroup.MicrosoftNETCoreAppRefPackageVersion | Select-Object -First 1)
@@ -54,6 +178,14 @@ finally {
 }
 
 function Invoke-WpfProjectBuild([string] $projectPath, [string] $platform, [string] $runtimeIdentifier, [string] $ijwHostSourcePath = "") {
+    # Compiler/SDK changes require real compilation, not reuse of assemblies
+    # previously produced with missing analyzers. Use Arcade's scoped Rebuild
+    # action without deleting unrelated checkout outputs or running tests.
+    $buildAction = @("-restore", "-build")
+    if ($Rebuild) {
+        $buildAction = @("-restore", "-rebuild")
+    }
+
     $runtimeIdentifierArgument = @()
     if (![string]::IsNullOrWhiteSpace($runtimeIdentifier)) {
         $runtimeIdentifierArgument = "/p:RuntimeIdentifier=$runtimeIdentifier"
@@ -64,18 +196,33 @@ function Invoke-WpfProjectBuild([string] $projectPath, [string] $platform, [stri
         $ijwHostArgument = "/p:IjwHostSourcePath=$ijwHostSourcePath"
     }
 
-    & $buildCommand `
+    $nativeToolsArgument = @()
+    if ($NativeToolsOnMachine) {
+        # This is an optimization for prepared build images only. Clean agents
+        # and integration VMs must let Arcade restore the versions pinned by
+        # global.json instead of depending on mutable machine-wide tools.
+        $nativeToolsArgument = @("-nativeToolsOnMachine")
+    }
+
+    # Arcade exits its process; keep each build isolated and preserve the
+    # current host's execution policy rather than requesting an override.
+    # The repository's inherited Framework-hosted compiler cannot load the
+    # pinned SDK's native-image analyzers on this cross-architecture lane.
+    # Use its .NET compiler through DOTNET_HOST_PATH; VS still owns C++/CLI.
+    & $buildPowerShell -NoProfile -NonInteractive -File $buildCommand `
+        $buildAction `
         -ci `
         -configuration $Configuration `
         -platform $platform `
         -projects $projectPath `
-        -msbuildEngine vs `
-        -nativeToolsOnMachine `
+        -msbuildEngine $MSBuildEngine `
+        $nativeToolsArgument `
         -excludeCIBinarylog `
-        -warnAsError 0 `
+        '-warnAsError:$false' `
         "/p:PerlCommand=$perlCommand" `
         $runtimeIdentifierArgument `
         $ijwHostArgument `
+        /p:BuildWithNetFrameworkHostedCompiler=false `
         /p:RunNetFrameworkApiCompat=false `
         /p:RunRefApiCompat=false
     if ($LASTEXITCODE -ne 0) {

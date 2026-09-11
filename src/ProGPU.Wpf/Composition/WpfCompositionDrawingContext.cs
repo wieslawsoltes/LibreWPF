@@ -13,6 +13,8 @@ using MediaRectangleGeometry = System.Windows.Media.RectangleGeometry;
 using MediaTransform = System.Windows.Media.Transform;
 using PortableGeometryPath = ProGPU.Wpf.Interop.PortableGeometryPath;
 using PortableGeometryPathSource = ProGPU.Wpf.Interop.IPortableGeometryPathSource;
+using PortableMediaPlayerSource = ProGPU.Wpf.Interop.IPortableMediaPlayerSource;
+using PortableRectAnimationValueSource = ProGPU.Wpf.Interop.IPortableRectAnimationValueSource;
 
 namespace System.Windows.Media.ProGPU.Composition;
 
@@ -52,8 +54,11 @@ public sealed class WpfCompositionDrawingContext : IWpfGeneratedRenderDataDrawin
         }
 
         RegisterRetainedDependencies(pen);
-        _sink.DrawLine(pen, point0, point1);
-        CountApplied();
+        if (!TryReplayCachedLine(pen, point0, point1))
+        {
+            _sink.DrawLine(pen, point0, point1);
+            CountApplied();
+        }
     }
 
     public void DrawLine(
@@ -70,14 +75,34 @@ public sealed class WpfCompositionDrawingContext : IWpfGeneratedRenderDataDrawin
         }
 
         RegisterRetainedDependencies(pen);
-        _sink.DrawLine(pen, point0, point1);
-        CountApplied();
+        if (!TryReplayCachedLine(pen, point0, point1))
+        {
+            _sink.DrawLine(pen, point0, point1);
+            CountApplied();
+        }
         CountUnsupportedStateIfAny(point0Animations, point1Animations);
+    }
+
+    private bool TryReplayCachedLine(MediaPen pen, Point first, Point last)
+    {
+        if (!WpfResourceResolver.TryGetBitmapCachePen(pen, out var state, out var source)) return false;
+        if (_sink is IWpfBitmapCacheBrushCommandSink cached
+            && cached.DrawBitmapCacheBrushLine(source, state, new WpfReplayPoint(first.X, first.Y),
+                new WpfReplayPoint(last.X, last.Y), _imageSourceAdapter)) CountApplied();
+        else CountUnsupported();
+        return true;
     }
 
     public void DrawRectangle(MediaBrush? brush, MediaPen? pen, Rect rectangle)
     {
         ThrowIfClosed();
+        if (WpfDrawingReplay.TryReplayBitmapCachePenRectangle(brush, pen, ToReplayRect(rectangle), _sink,
+            _imageSourceAdapter, out var cachedStatus))
+        {
+            RegisterRetainedDependencies(brush, pen);
+            CountDrawingReplayStatus(cachedStatus);
+            return;
+        }
         if (brush == null && pen == null)
         {
             return;
@@ -96,26 +121,41 @@ public sealed class WpfCompositionDrawingContext : IWpfGeneratedRenderDataDrawin
     public void DrawRectangle(MediaBrush? brush, MediaPen? pen, Rect rectangle, object? rectangleAnimations)
     {
         ThrowIfClosed();
-        if (brush == null && pen == null)
-        {
-            return;
-        }
-
-        RegisterRetainedDependencies(brush, pen);
-        _sink.DrawRectangle(brush, pen, rectangle);
-        CountApplied();
+        if (brush == null && pen == null) return;
+        DrawRectangle(brush, pen, rectangle);
         CountUnsupportedStateIfAny(rectangleAnimations);
     }
 
     public void DrawRoundedRectangle(MediaBrush? brush, MediaPen? pen, Rect rectangle, double radiusX, double radiusY)
     {
         ThrowIfClosed();
+        if (WpfDrawingReplay.TryReplayBitmapCachePenRoundedRectangle(brush, pen, ToReplayRect(rectangle), radiusX, radiusY,
+            _sink, _imageSourceAdapter, out var cachedStatus))
+        {
+            RegisterRetainedDependencies(brush, pen);
+            CountDrawingReplayStatus(cachedStatus);
+            return;
+        }
         if (brush == null && pen == null)
         {
             return;
         }
 
         RegisterRetainedDependencies(brush, pen);
+        if (brush is global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource cacheSource)
+        {
+            var status = WpfDrawingReplay.ReplayBitmapCacheBrushRoundedRectangleFill(cacheSource, rectangle, radiusX, radiusY,
+                _sink, _imageSourceAdapter);
+            if (pen != null)
+            {
+                if (_sink is IWpfNativePrimitiveCommandSink primitive)
+                    primitive.DrawNativeRoundedRectangle(null, pen, new WpfReplayRect(rectangle.X, rectangle.Y, rectangle.Width, rectangle.Height), radiusX, radiusY);
+                else _sink.DrawRoundedRectangle(null, pen, rectangle, radiusX, radiusY);
+                if (status != WpfDrawingReplayStatus.Applied) status = WpfDrawingReplayStatus.PartiallyApplied;
+            }
+            CountDrawingReplayStatus(status);
+            return;
+        }
         _sink.DrawRoundedRectangle(brush, pen, rectangle, radiusX, radiusY);
         CountApplied();
     }
@@ -131,28 +171,29 @@ public sealed class WpfCompositionDrawingContext : IWpfGeneratedRenderDataDrawin
         object? radiusYAnimations)
     {
         ThrowIfClosed();
-        if (brush == null && pen == null)
-        {
-            return;
-        }
-
-        RegisterRetainedDependencies(brush, pen);
-        _sink.DrawRoundedRectangle(brush, pen, rectangle, radiusX, radiusY);
-        CountApplied();
+        if (brush == null && pen == null) return;
+        DrawRoundedRectangle(brush, pen, rectangle, radiusX, radiusY);
         CountUnsupportedStateIfAny(rectangleAnimations, radiusXAnimations, radiusYAnimations);
     }
 
     public void DrawEllipse(MediaBrush? brush, MediaPen? pen, Point center, double radiusX, double radiusY)
     {
         ThrowIfClosed();
+        if (WpfDrawingReplay.TryReplayBitmapCachePenEllipse(brush, pen, new(center.X, center.Y), radiusX, radiusY,
+            _sink, _imageSourceAdapter, out var cachedStatus))
+        {
+            RegisterRetainedDependencies(brush, pen);
+            CountDrawingReplayStatus(cachedStatus);
+            return;
+        }
         if (brush == null && pen == null)
         {
             return;
         }
 
         if (brush != null
-            && WpfDrawingReplay.IsTileBrush(brush)
-            && WpfDrawingReplay.TryReplayTileBrushEllipseFill(
+            && WpfDrawingReplay.IsSourceBrush(brush)
+            && WpfDrawingReplay.TryReplaySourceBrushEllipseFill(
                 brush,
                 center,
                 radiusX,
@@ -187,14 +228,8 @@ public sealed class WpfCompositionDrawingContext : IWpfGeneratedRenderDataDrawin
         object? radiusYAnimations)
     {
         ThrowIfClosed();
-        if (brush == null && pen == null)
-        {
-            return;
-        }
-
-        RegisterRetainedDependencies(brush, pen);
-        _sink.DrawEllipse(brush, pen, center, radiusX, radiusY);
-        CountApplied();
+        if (brush == null && pen == null) return;
+        DrawEllipse(brush, pen, center, radiusX, radiusY);
         CountUnsupportedStateIfAny(centerAnimations, radiusXAnimations, radiusYAnimations);
     }
 
@@ -203,6 +238,14 @@ public sealed class WpfCompositionDrawingContext : IWpfGeneratedRenderDataDrawin
         ThrowIfClosed();
         if ((brush == null && pen == null) || geometry == null)
         {
+            return;
+        }
+
+        if (WpfDrawingReplay.TryReplayBitmapCachePenGeometry(brush, pen, geometry, _sink,
+                _imageSourceAdapter, out var cachedLineStatus))
+        {
+            RegisterRetainedDependencies(brush, pen, geometry);
+            CountDrawingReplayStatus(cachedLineStatus);
             return;
         }
 
@@ -311,6 +354,13 @@ public sealed class WpfCompositionDrawingContext : IWpfGeneratedRenderDataDrawin
         }
 
         RegisterRetainedDependencies(foregroundBrush, glyphRun);
+        if (foregroundBrush is global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource cacheSource)
+        {
+            if (_sink is IWpfBitmapCacheBrushCommandSink cachedSink
+                && cachedSink.DrawBitmapCacheBrushGlyphRun(cacheSource, glyphRun, _imageSourceAdapter)) CountApplied();
+            else CountUnsupported();
+            return;
+        }
         _sink.DrawGlyphRun(foregroundBrush, glyphRun);
         CountApplied();
     }
@@ -353,7 +403,11 @@ public sealed class WpfCompositionDrawingContext : IWpfGeneratedRenderDataDrawin
             return;
         }
 
-        CountUnsupported();
+        DrawPortableVideo(player, new WpfReplayRect(
+            rectangle.X,
+            rectangle.Y,
+            rectangle.Width,
+            rectangle.Height));
     }
 
     public void DrawVideo(object? player, Rect rectangle, object? rectangleAnimations)
@@ -364,7 +418,49 @@ public sealed class WpfCompositionDrawingContext : IWpfGeneratedRenderDataDrawin
             return;
         }
 
-        CountUnsupported();
+        WpfReplayRect replayRectangle = new(
+            rectangle.X,
+            rectangle.Y,
+            rectangle.Width,
+            rectangle.Height);
+        bool animationResolved = false;
+        if (rectangleAnimations is PortableRectAnimationValueSource animation &&
+            animation.TryGetPortableRectAnimationValue(out var animatedRectangle))
+        {
+            animationResolved = true;
+            replayRectangle = new WpfReplayRect(
+                animatedRectangle.X,
+                animatedRectangle.Y,
+                animatedRectangle.Width,
+                animatedRectangle.Height);
+        }
+        bool unsupportedAnimation = rectangleAnimations != null &&
+            !animationResolved;
+        bool hasTypedFrame = DrawPortableVideo(player, replayRectangle);
+        if (hasTypedFrame && unsupportedAnimation)
+        {
+            CountUnsupportedStateIfAny(rectangleAnimations);
+        }
+    }
+
+    private bool DrawPortableVideo(object player, WpfReplayRect rectangle)
+    {
+        if (player is not PortableMediaPlayerSource source ||
+            !source.TryGetPortableMediaPlayerFrame(out var frame))
+        {
+            CountUnsupported();
+            return false;
+        }
+        if (_sink is not IWpfNativeVideoCommandSink videoSink ||
+            !videoSink.DrawNativeVideo(frame, rectangle))
+        {
+            CountUnsupported();
+            return true;
+        }
+
+        RegisterRetainedDependencies(player, frame.NativeImage);
+        CountApplied();
+        return true;
     }
 
     public void PushClip(MediaGeometry? clipGeometry)
@@ -442,7 +538,12 @@ public sealed class WpfCompositionDrawingContext : IWpfGeneratedRenderDataDrawin
         else
         {
             RegisterRetainedDependencies(opacityMask);
-            _sink.PushOpacityMask(opacityMask, bounds);
+            if (!WpfPortableCommandSinkBridge.TryPushOpacityMask(_sink, opacityMask,
+                    new WpfReplayRect(bounds.X, bounds.Y, bounds.Width, bounds.Height), _imageSourceAdapter))
+            {
+                _sink.PushNoOpScope();
+                CountUnsupported();
+            }
         }
 
         _stackDepth++;
@@ -614,12 +715,12 @@ public sealed class WpfCompositionDrawingContext : IWpfGeneratedRenderDataDrawin
 
     private bool TryReplayTileBrushRectangle(MediaBrush brush, MediaPen? pen, Rect rectangle)
     {
-        if (!WpfDrawingReplay.IsTileBrush(brush))
+        if (!WpfDrawingReplay.IsSourceBrush(brush))
         {
             return false;
         }
 
-        if (WpfDrawingReplay.TryReplayTileBrushFill(
+        if (WpfDrawingReplay.TryReplaySourceBrushFill(
                 brush,
                 rectangle,
                 _sink,
@@ -641,12 +742,12 @@ public sealed class WpfCompositionDrawingContext : IWpfGeneratedRenderDataDrawin
 
     private bool TryReplayTileBrushGeometry(MediaBrush brush, MediaPen? pen, MediaGeometry geometry)
     {
-        if (!WpfDrawingReplay.IsTileBrush(brush))
+        if (!WpfDrawingReplay.IsSourceBrush(brush))
         {
             return false;
         }
 
-        if (WpfDrawingReplay.TryReplayTileBrushFill(
+        if (WpfDrawingReplay.TryReplaySourceBrushFill(
                 brush,
                 geometry,
                 _sink,

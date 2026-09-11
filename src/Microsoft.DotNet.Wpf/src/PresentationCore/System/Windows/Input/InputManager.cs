@@ -6,6 +6,7 @@ using System.Windows.Threading;
 using System.Threading;
 using MS.Internal;
 using System.Windows.Automation;
+using ProGPU.Wpf.Interop;
 
 namespace System.Windows.Input
 {
@@ -146,7 +147,11 @@ namespace System.Windows.Input
 
             _stagingArea = new Stack();
 
-            if (OperatingSystem.IsWindows())
+            // Freeze host ownership before constructing devices. Portable raw
+            // reports update these devices, not Win32's asynchronous key/button
+            // state, even when the ProGPU native window lives on Windows.
+            UsesPortableInput = PortableWpfRuntime.GetMediaBackendAndFreeze() == PortableWpfMediaBackend.Portable;
+            if (!UsesPortableInput)
             {
                 _primaryKeyboardDevice = new Win32KeyboardDevice(this);
                 _primaryMouseDevice = new Win32MouseDevice(this);
@@ -278,6 +283,8 @@ namespace System.Windows.Input
             // 
             get {return _primaryKeyboardDevice;}
         }
+
+        internal bool UsesPortableInput { get; }
 
         /// <summary>
         ///     Read-only access to the primary mouse device.

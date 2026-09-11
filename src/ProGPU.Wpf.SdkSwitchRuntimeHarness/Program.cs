@@ -57,6 +57,7 @@ internal static class Program
         "ProGPU.Wpf",
         "ProGPU.Wpf.Interop",
         "ProGPU.Backend",
+        "ProGPU.Backend.Native",
         "ProGPU.DirectX",
         "ProGPU.Scene",
         "ProGPU.Vector",
@@ -269,7 +270,7 @@ internal static class Program
     private static string ResolvePackageVersion(string environmentVariable, string fallback)
     {
         string? value = Environment.GetEnvironmentVariable(environmentVariable);
-        return string.IsNullOrWhiteSpace(value) ? fallback : value;
+        return string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
     }
 
     private static void ValidateLocalPackageAssemblyMatchesFile(
@@ -3513,7 +3514,12 @@ internal static class Program
                 new Func<object, IntPtr>(recorder.GetHandle),
                 null, // setWindowRegion
                 null, // requestActivation
-                null  // setIcon
+                null, // setIcon
+                null, // createHidden
+                null, // showSystemMenu
+                null, // runDialog
+                null, // setOwner
+                null  // releaseDialog
             });
 
         AssertEqual(true, GetStaticProperty(activationServiceType, "IsEnabled"), "portable activation enabled");
@@ -4598,6 +4604,9 @@ internal static class Program
         private readonly Type _activationServiceType;
         private IDisposable? _mediaContextRenderRegistration;
         private RecordingActivation? _activation;
+        private IDisposable? _popupHost;
+        private PropertyInfo? _popupFactoryProperty;
+        private object? _previousPopupFactory;
 
         public SdkApplicationRunRecorder(
             Assembly presentationFramework,
@@ -4669,6 +4678,7 @@ internal static class Program
                 ResizeMode = GetProperty(window, "ResizeMode"),
                 WindowStyle = GetProperty(window, "WindowStyle")
             };
+            BindPopupHost(window, presentationSource);
             return _activation;
         }
 
@@ -4788,12 +4798,16 @@ internal static class Program
             ValidateSdkFocusAndAccessKeyAfterRun(_presentationCore, typedActivation.Window);
             ValidatePortableMessageBox(_presentationFramework, typedActivation.Window);
             ValidatePortableFileDialogs(_presentationFramework, typedActivation.Window);
+            InvokeVoid(typedActivation.Window, "Close");
+            FlushDispatcherOperations(typedActivation.Window, "ApplicationIdle");
         }
 
         public void Dispose(object activation)
         {
             var typedActivation = AssertSameActivation(activation);
             DisposeCount++;
+            _popupHost?.Dispose();
+            _popupHost = null;
             typedActivation.DisposePresentationSource();
         }
 
@@ -4842,7 +4856,44 @@ internal static class Program
         {
             _mediaContextRenderRegistration?.Dispose();
             _mediaContextRenderRegistration = null;
+            _popupHost?.Dispose();
+            _popupHost = null;
             _activation?.DisposePresentationSource();
+            if (_popupFactoryProperty is not null)
+            {
+                _popupFactoryProperty.SetValue(null, _previousPopupFactory);
+                _popupFactoryProperty = null;
+                _previousPopupFactory = null;
+            }
+        }
+
+        private void BindPopupHost(object window, object presentationSource)
+        {
+            Assembly bridge = AssemblyLoadContext.GetLoadContext(_presentationFramework)!
+                .LoadFromAssemblyName(new AssemblyName("ProGPU.Wpf"));
+            // This recorder has no native window. Exercise the real owner-surface
+            // popup path explicitly, independently of native-popup qualification.
+            Type popupType = GetRequiredType(bridge, "System.Windows.Media.ProGPU.WpfPortablePopupBridge");
+            _popupFactoryProperty = popupType.GetProperty("NativePopupHostFactory", BindingFlags.Static | BindingFlags.NonPublic)
+                ?? throw new MissingMemberException(popupType.FullName, "NativePopupHostFactory");
+            _previousPopupFactory = _popupFactoryProperty.GetValue(null);
+            Type factoryType = _popupFactoryProperty.PropertyType;
+            MethodInfo invoke = factoryType.GetMethod("Invoke")!;
+            var parameters = invoke.GetParameters().Select(parameter =>
+                System.Linq.Expressions.Expression.Parameter(parameter.ParameterType, parameter.Name)).ToArray();
+            Delegate ownerSurfaceFactory = System.Linq.Expressions.Expression.Lambda(factoryType,
+                System.Linq.Expressions.Expression.Constant(null, invoke.ReturnType), parameters).Compile();
+            _popupFactoryProperty.SetValue(null, ownerSurfaceFactory);
+            Type optionsType = GetRequiredType(bridge, "System.Windows.Media.ProGPU.ProGpuWpfWindowOptions");
+            object options = Create(optionsType);
+            SetProperty(options, "Width", Convert.ToInt32(GetProperty(window, "Width")));
+            SetProperty(options, "Height", Convert.ToInt32(GetProperty(window, "Height")));
+            Type hostType = GetRequiredType(bridge, "System.Windows.Media.ProGPU.ProGpuWpfWindowHost");
+            object host = Create(hostType, options);
+            _popupHost = (IDisposable)host;
+            SetProperty(host, "WpfRootVisual", window);
+            AssertEqual(true, Invoke(host, "TryBindPortablePresentationSource", presentationSource),
+                "SDK recording host binds its actual popup owner source");
         }
 
         private void RequestRender(TimeSpan delay)

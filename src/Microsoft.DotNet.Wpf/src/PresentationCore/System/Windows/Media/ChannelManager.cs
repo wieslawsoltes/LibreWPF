@@ -11,6 +11,7 @@
 using System.Windows.Media.Composition;
 
 using MS.Internal;
+using ProGPU.Wpf.Interop;
 
 using UnsafeNativeMethods = MS.Win32.PresentationCore.UnsafeNativeMethods.MilCoreApi;
 
@@ -35,11 +36,21 @@ namespace System.Windows.Media
         /// </remarks>
         private struct ChannelManager
         {
+            private static void RequireWindowsMilTransport()
+            {
+                if (PortableWpfRuntime.GetMediaBackendAndFreeze() != PortableWpfMediaBackend.WindowsMil)
+                {
+                    throw new PlatformNotSupportedException(
+                        "The portable media backend cannot allocate a Windows MIL channel. Use the portable render-data/native MIL host path.");
+                }
+            }
+
             /// <summary>
             /// Opens an asynchronous channel.
             /// </summary>
             internal void CreateChannels()
             {
+                RequireWindowsMilTransport();
                 Invariant.Assert(_asyncChannel == null);
                 Invariant.Assert(_asyncOutOfBandChannel == null);
 
@@ -108,6 +119,7 @@ namespace System.Windows.Media
             /// </summary>
             internal DUCE.Channel AllocateSyncChannel()
             {
+                RequireWindowsMilTransport();
                 DUCE.Channel syncChannel;
 
                 if (_pSyncConnection == IntPtr.Zero)

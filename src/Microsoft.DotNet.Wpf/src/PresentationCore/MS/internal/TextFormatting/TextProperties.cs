@@ -124,6 +124,8 @@ namespace MS.Internal.TextFormatting
             get { return _paragraphProperties.DefaultTextRunProperties.Typeface; }
         }
 
+        internal TextRunProperties DefaultTextRunProperties => _paragraphProperties.DefaultTextRunProperties;
+
         internal int EmSize
         {
             get { return _emSize; }
@@ -420,4 +422,3 @@ namespace MS.Internal.TextFormatting
         }
     }
 }
-

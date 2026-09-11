@@ -10,6 +10,7 @@ using MediaPen = System.Windows.Media.Pen;
 using MediaTransform = System.Windows.Media.Transform;
 using MediaFormattedText = System.Windows.Media.FormattedText;
 using PortableGeometryPath = ProGPU.Wpf.Interop.PortableGeometryPath;
+using PortableMediaPlayerFrame = ProGPU.Wpf.Interop.PortableMediaPlayerFrame;
 
 namespace System.Windows.Media.ProGPU.Composition;
 
@@ -116,6 +117,13 @@ internal interface IWpfNativePrimitiveCommandSink
     void PushNativeOpacityMask(MediaBrush? opacityMask, WpfReplayRect bounds);
 }
 
+internal interface IWpfNativeVideoCommandSink
+{
+    bool DrawNativeVideo(
+        PortableMediaPlayerFrame frame,
+        WpfReplayRect rectangle);
+}
+
 internal interface IWpfNativeClipCommandSink
 {
     void PushNativeClip(WpfReplayRect bounds);
@@ -130,6 +138,12 @@ internal interface IWpfNativeGeometryCommandSink
     bool PushNativeGeometryClip(PortableGeometryPath clipGeometry);
 
     bool PushNativeGeometryClip(MediaGeometry clipGeometry) => false;
+
+    bool PushNativeGeometryClip(global::ProGPU.Vector.PathGeometry clipGeometry) => false;
+
+    bool PushNativeEllipseClip(WpfReplayPoint center, double radiusX, double radiusY) => false;
+
+    bool PushNativeRoundedRectangleClip(WpfReplayRect bounds, double radiusX, double radiusY) => false;
 }
 
 internal interface IWpfHitTestOwnerScopeCommandSink
@@ -139,6 +153,20 @@ internal interface IWpfHitTestOwnerScopeCommandSink
     void PopHitTestOwner();
 }
 
+internal interface IWpfImageHitTestScopeCommandSink
+{
+    // One real destination clip, paired with the ordinary sink Pop. Source image
+    // coverage is metadata on that scope, never a fake rendering command.
+    void PushImageHitTestScope(WpfReplayRect destination);
+}
+
+internal interface IWpfSourceRectangleHitTestScopeCommandSink
+{
+    // Actual rectangular source fill, not an arbitrary geometry's envelope.
+    // Excludes brush internals from input; balanced by the ordinary sink Pop.
+    void PushSourceRectangleHitTestScope(WpfReplayRect rectangle);
+}
+
 internal interface IWpfProGpuSceneDrawingContextSource
 {
     bool TryGetProGpuSceneDrawingContext(out global::ProGPU.Scene.DrawingContext? drawingContext);
@@ -146,4 +174,40 @@ internal interface IWpfProGpuSceneDrawingContextSource
     bool TryGetProGpuSceneDrawingContextState(
         out global::ProGPU.Scene.DrawingContext? drawingContext,
         out Matrix4x4 transform);
+}
+
+internal interface IWpfBitmapCacheBrushCommandSink
+{
+    Mil.WpfDrawingReplayStatus DrawBitmapCacheBrushPathGeometry(object? fill,
+        global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource source,
+        in global::ProGPU.Wpf.Interop.PortablePenState pen, global::ProGPU.Vector.PathGeometry geometry,
+        Func<object?, MediaImageSource?>? imageSourceAdapter) => Mil.WpfDrawingReplayStatus.Unsupported;
+
+    Mil.WpfDrawingReplayStatus DrawBitmapCacheBrushPathGeometry(object? fill,
+        global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource source,
+        in global::ProGPU.Wpf.Interop.PortablePenState pen, MediaGeometry geometry,
+        Func<object?, MediaImageSource?>? imageSourceAdapter) => Mil.WpfDrawingReplayStatus.Unsupported;
+
+    Mil.WpfDrawingReplayStatus DrawBitmapCacheBrushPrimitiveGeometry(object? fill,
+        global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource source,
+        in global::ProGPU.Wpf.Interop.PortablePenState pen,
+        in global::ProGPU.Wpf.Interop.PortablePrimitiveGeometry geometry,
+        Func<object?, MediaImageSource?>? imageSourceAdapter, bool snapShape = false) => Mil.WpfDrawingReplayStatus.Unsupported;
+
+    bool DrawBitmapCacheBrushRectangleStroke(global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource source,
+        in global::ProGPU.Wpf.Interop.PortablePenState pen, WpfReplayRect rectangle,
+        Func<object?, MediaImageSource?>? imageSourceAdapter) => false;
+
+    bool DrawBitmapCacheBrushLine(global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource source,
+        in global::ProGPU.Wpf.Interop.PortablePenState pen, WpfReplayPoint start, WpfReplayPoint end,
+        Func<object?, MediaImageSource?>? imageSourceAdapter) => false;
+
+    bool DrawBitmapCacheBrushGlyphRun(global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource source,
+        object glyphRun, Func<object?, MediaImageSource?>? imageSourceAdapter) => false;
+
+    bool PushBitmapCacheBrushOpacityMask(global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource source,
+        WpfReplayRect bounds, Func<object?, MediaImageSource?>? imageSourceAdapter) => false;
+
+    void DrawBitmapCacheBrushSource(global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource source,
+        Func<object?, MediaImageSource?>? imageSourceAdapter);
 }

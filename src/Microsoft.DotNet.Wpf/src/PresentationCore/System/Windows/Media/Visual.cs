@@ -427,13 +427,13 @@ namespace System.Windows.Media
 
         private static bool HasPortableVisualBounds(Rect bounds)
         {
-            return !bounds.IsEmpty
-                && bounds.Width > 0
-                && bounds.Height > 0
+            // Empty is authoritative source content, not missing metadata.
+            return bounds.IsEmpty || (bounds.Width >= 0
+                && bounds.Height >= 0
                 && Double.IsFinite(bounds.X)
                 && Double.IsFinite(bounds.Y)
                 && Double.IsFinite(bounds.Width)
-                && Double.IsFinite(bounds.Height);
+                && Double.IsFinite(bounds.Height));
         }
 
         private static PortableRect ToPortableRect(Rect bounds)
@@ -2630,14 +2630,45 @@ namespace System.Windows.Media
                 CacheMode = cacheMode,
                 HasBitmapScalingMode = bitmapScalingMode != BitmapScalingMode.Unspecified,
                 BitmapScalingMode = bitmapScalingMode,
+                HasPortableBitmapScalingMode = bitmapScalingMode != BitmapScalingMode.Unspecified,
+                PortableBitmapScalingMode = bitmapScalingMode switch
+                {
+                    BitmapScalingMode.LowQuality => PortableBitmapScalingMode.Linear,
+                    BitmapScalingMode.HighQuality => PortableBitmapScalingMode.Fant,
+                    BitmapScalingMode.NearestNeighbor => PortableBitmapScalingMode.NearestNeighbor,
+                    _ => PortableBitmapScalingMode.Unspecified
+                },
                 HasEdgeMode = edgeMode != EdgeMode.Unspecified,
                 EdgeMode = edgeMode,
+                HasPortableEdgeMode = edgeMode != EdgeMode.Unspecified,
+                PortableEdgeMode = edgeMode == EdgeMode.Aliased
+                    ? PortableEdgeMode.Aliased
+                    : PortableEdgeMode.Unspecified,
                 HasClearTypeHint = clearTypeHint != ClearTypeHint.Auto,
                 ClearTypeHint = clearTypeHint,
+                HasPortableClearTypeHint = clearTypeHint != ClearTypeHint.Auto,
+                PortableClearTypeHint = clearTypeHint == ClearTypeHint.Enabled
+                    ? PortableClearTypeHint.Enabled
+                    : PortableClearTypeHint.Auto,
                 HasTextRenderingMode = textRenderingMode != TextRenderingMode.Auto,
                 TextRenderingMode = textRenderingMode,
+                HasPortableTextRenderingMode = textRenderingMode != TextRenderingMode.Auto,
+                PortableTextRenderingMode = textRenderingMode switch
+                {
+                    TextRenderingMode.Aliased => PortableTextRenderingMode.Aliased,
+                    TextRenderingMode.Grayscale => PortableTextRenderingMode.Grayscale,
+                    TextRenderingMode.ClearType => PortableTextRenderingMode.ClearType,
+                    _ => PortableTextRenderingMode.Auto
+                },
                 HasTextHintingMode = textHintingMode != TextHintingMode.Auto,
                 TextHintingMode = textHintingMode,
+                HasPortableTextHintingMode = textHintingMode != TextHintingMode.Auto,
+                PortableTextHintingMode = textHintingMode switch
+                {
+                    TextHintingMode.Fixed => PortableTextHintingMode.Fixed,
+                    TextHintingMode.Animated => PortableTextHintingMode.Animated,
+                    _ => PortableTextHintingMode.Auto
+                },
                 HasSnappingGuidelinesX = guidelinesX != null,
                 SnappingGuidelinesX = GetPortableVisualGuidelines(guidelinesX, isXAxis: true),
                 HasSnappingGuidelinesY = guidelinesY != null,

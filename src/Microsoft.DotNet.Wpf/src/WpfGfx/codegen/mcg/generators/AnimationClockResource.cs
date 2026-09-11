@@ -65,12 +65,50 @@ namespace MS.Internal.MilCodeGen.Generators
                 using (FileCodeSink fileCodeSink = new FileCodeSink(fullPath, fileName, true /* Create dir if necessary */))
                 {
                     string nameAsUpper = resource.Name.ToUpper(System.Globalization.CultureInfo.InvariantCulture);
+                    string portableInterface = "IPortable" + resource.Name + "AnimationValueSource";
+                    string portableMethod = "TryGetPortable" + resource.Name + "AnimationValue";
+                    string portableValueType;
+                    string portableValueAssignment;
+                    switch (resource.Name)
+                    {
+                        case "Double":
+                            portableValueType = "double";
+                            portableValueAssignment = "value = CurrentValue;";
+                            break;
+                        case "Point":
+                            portableValueType = "PortablePoint";
+                            portableValueAssignment =
+                                "Point current = CurrentValue;\n" +
+                                "            value = new PortablePoint(current.X, current.Y);";
+                            break;
+                        case "Size":
+                            portableValueType = "PortableSize";
+                            portableValueAssignment =
+                                "Size current = CurrentValue;\n" +
+                                "            value = new PortableSize(current.Width, current.Height);";
+                            break;
+                        case "Rect":
+                            portableValueType = "PortableRect";
+                            portableValueAssignment =
+                                "Rect current = CurrentValue;\n" +
+                                "            value = new PortableRect(\n" +
+                                "                current.X,\n" +
+                                "                current.Y,\n" +
+                                "                current.Width,\n" +
+                                "                current.Height);";
+                            break;
+                        default:
+                            throw new InvalidOperationException(
+                                "No portable animation value mapping exists for " +
+                                resource.Name + ".");
+                    }
 
                     fileCodeSink.WriteBlock(
                         [[inline]]
                             [[Helpers.ManagedStyle.WriteFileHeader(fileName)]]
 
                             using System.Windows.Media.Composition;
+                            using ProGPU.Wpf.Interop;
 
                             namespace System.Windows.Media.Animation
                             {
@@ -83,7 +121,7 @@ namespace MS.Internal.MilCodeGen.Generators
                                 /// They subscribe to the Changed event on the AnimationClock and ensure
                                 /// that the resource's current value is up to date.
                                 /// </summary>
-                                internal class [[resource.Name]]AnimationClockResource: AnimationClockResource, DUCE.IResource
+                                internal class [[resource.Name]]AnimationClockResource: AnimationClockResource, DUCE.IResource, [[portableInterface]]
                                 {
                                     /// <summary>
                                     /// Constructor for public [[resource.Name]]AnimationClockResource.
@@ -141,6 +179,13 @@ namespace MS.Internal.MilCodeGen.Generators
                                                 return _baseValue;
                                             }
                                         }
+                                    }
+
+                                    bool [[portableInterface]].[[portableMethod]](
+                                        out [[portableValueType]] value)
+                                    {
+                                        [[portableValueAssignment]]
+                                        return true;
                                     }
 
                                     #endregion Public Properties
@@ -202,6 +247,5 @@ namespace MS.Internal.MilCodeGen.Generators
         #endregion Public Methods
     }
 }
-
 
 

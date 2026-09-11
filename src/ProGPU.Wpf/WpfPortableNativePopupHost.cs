@@ -27,7 +27,8 @@ internal interface IWpfPortableNativePopupHost : IDisposable
 
     void RaiseInputForDiagnostics(WpfInputEventArgs input);
 
-    void SetDeviceScale(double dpiScaleX, double dpiScaleY);
+    // Scale of the owner's legacy position transport, never the popup framebuffer.
+    void SetOwnerTransportScale(double dpiScaleX, double dpiScaleY);
 
     void SetPosition(int x, int y);
 
@@ -43,8 +44,8 @@ internal sealed class WpfPortableNativePopupHost : IWpfPortableNativePopupHost
     private readonly ProGpuWpfWindowHost _ownerHost;
     private readonly ProGpuWpfWindowHost _popupHost;
     private Func<WpfInputEventArgs, bool>? _inputHandler;
-    private double _dpiScaleX;
-    private double _dpiScaleY;
+    private double _ownerTransportScaleX;
+    private double _ownerTransportScaleY;
     private int _nativeLogicalX;
     private int _nativeLogicalY;
     private bool _isInitialized;
@@ -88,7 +89,7 @@ internal sealed class WpfPortableNativePopupHost : IWpfPortableNativePopupHost
             out ownerCount);
     }
 
-    private WpfPortableNativePopupHost(
+    internal WpfPortableNativePopupHost(
         ProGpuWpfWindowHost ownerHost,
         IPortablePresentationSourceHost source,
         PortablePopupCreateRequest request,
@@ -96,12 +97,14 @@ internal sealed class WpfPortableNativePopupHost : IWpfPortableNativePopupHost
         double dpiScaleY)
     {
         _ownerHost = ownerHost;
-        _dpiScaleX = NormalizeDeviceScale(dpiScaleX);
-        _dpiScaleY = NormalizeDeviceScale(dpiScaleY);
-        _nativeLogicalX = ToNativeLogicalScreenCoordinate(request.PopupScreenDeviceX, _dpiScaleX);
-        _nativeLogicalY = ToNativeLogicalScreenCoordinate(request.PopupScreenDeviceY, _dpiScaleY);
+        _ownerTransportScaleX = NormalizeDeviceScale(dpiScaleX);
+        _ownerTransportScaleY = NormalizeDeviceScale(dpiScaleY);
+        _nativeLogicalX = ToNativeLogicalScreenCoordinate(request.PopupScreenDeviceX, _ownerTransportScaleX);
+        _nativeLogicalY = ToNativeLogicalScreenCoordinate(request.PopupScreenDeviceY, _ownerTransportScaleY);
         _popupHost = new ProGpuWpfWindowHost(new ProGpuWpfWindowOptions
         {
+            RendererMode = ownerHost.RendererMode,
+            EnableNativeMilHitTesting = ownerHost.NativeMilHitTestingEnabled,
             Title = string.Empty,
             Width = 1,
             Height = 1,
@@ -120,7 +123,7 @@ internal sealed class WpfPortableNativePopupHost : IWpfPortableNativePopupHost
             EnablePortablePopupService = false,
             IncludePortablePopupRootsInWpfReplay = true,
             NativePointerCoordinatesAreOwnerRelative = OperatingSystem.IsMacOS(),
-            SharedRenderDeviceContext = ownerHost.CompositionTarget?.Context,
+            SharedRenderDeviceOwner = ownerHost,
             CompositorOptions = new CompositorOptions
             {
                 GlyphAtlasSize = 1024,
@@ -140,6 +143,8 @@ internal sealed class WpfPortableNativePopupHost : IWpfPortableNativePopupHost
             WpfImageSourceAdapter = ownerHost.WpfImageSourceAdapter
         };
         _popupHost.UseExternalNativeLoopPump();
+        try { _popupHost.InheritModalInputOwner(ownerHost); }
+        catch { _popupHost.Dispose(); throw; }
 
         if (!_popupHost.TryBindPortablePresentationSource(source))
         {
@@ -147,6 +152,8 @@ internal sealed class WpfPortableNativePopupHost : IWpfPortableNativePopupHost
             throw new PlatformNotSupportedException("The popup presentation source cannot be bound to a native ProGPU host.");
         }
 
+        // Seed the not-yet-created surface once. After initialization its own
+        // native framebuffer/content callbacks are authoritative for source DPI.
         _popupHost.UpdatePortablePresentationSourceDpiScale(dpiScaleX, dpiScaleY);
         _popupHost.InputReceived += OnPopupInputReceived;
         _ownerHost.UpdateTick += OnOwnerUpdateTick;
@@ -189,10 +196,11 @@ internal sealed class WpfPortableNativePopupHost : IWpfPortableNativePopupHost
         // GLFW exposes Wayland popup surfaces as ordinary xdg_toplevel windows and
         // cannot position them. Cocoa transient child windows are positionable and
         // their owner-relative pointer coordinates are normalized by the popup bridge.
-        // Windows continues to use WPF's native HWND popup path. X11 and Cocoa use
-        // native transient popup windows.
+        // This factory is reached only for a portable owner. Windows, X11 and
+        // Cocoa use owned native surfaces; native WPF HWND routing is separate.
+        _ = isWindows;
         _ = isMacOS;
-        return !isWindows && !explicitlyDisabled && !isWayland;
+        return !explicitlyDisabled && !isWayland;
     }
 
     public void SetInputHandler(Func<WpfInputEventArgs, bool> inputHandler)
@@ -212,19 +220,18 @@ internal sealed class WpfPortableNativePopupHost : IWpfPortableNativePopupHost
         _popupHost.RaiseInputForDiagnostics(input);
     }
 
-    public void SetDeviceScale(double dpiScaleX, double dpiScaleY)
+    public void SetOwnerTransportScale(double dpiScaleX, double dpiScaleY)
     {
         ObjectDisposedException.ThrowIf(_isDisposed, this);
-        _dpiScaleX = NormalizeDeviceScale(dpiScaleX);
-        _dpiScaleY = NormalizeDeviceScale(dpiScaleY);
-        _popupHost.UpdatePortablePresentationSourceDpiScale(dpiScaleX, dpiScaleY);
+        _ownerTransportScaleX = NormalizeDeviceScale(dpiScaleX);
+        _ownerTransportScaleY = NormalizeDeviceScale(dpiScaleY);
     }
 
     public void SetPosition(int x, int y)
     {
         ObjectDisposedException.ThrowIf(_isDisposed, this);
-        _nativeLogicalX = ToNativeLogicalScreenCoordinate(x, _dpiScaleX);
-        _nativeLogicalY = ToNativeLogicalScreenCoordinate(y, _dpiScaleY);
+        _nativeLogicalX = ToNativeLogicalScreenCoordinate(x, _ownerTransportScaleX);
+        _nativeLogicalY = ToNativeLogicalScreenCoordinate(y, _ownerTransportScaleY);
         _popupHost.SetPosition(_nativeLogicalX, _nativeLogicalY);
     }
 
@@ -272,6 +279,7 @@ internal sealed class WpfPortableNativePopupHost : IWpfPortableNativePopupHost
         catch
         {
             _isVisible = false;
+            Dispose();
             throw;
         }
     }
@@ -310,13 +318,31 @@ internal sealed class WpfPortableNativePopupHost : IWpfPortableNativePopupHost
             return;
         }
 
-        _popupHost.InitializeHidden();
-        if (_ownerHost.SilkWindow is { } ownerWindow && _popupHost.SilkWindow is { } popupWindow)
+        try
         {
-            _ownerHost.PlatformServices.WindowDecorations.TryConfigurePopupOwner(ownerWindow, popupWindow);
-        }
+            // Hidden initialization can fail after creating a native window or
+            // render target. Its partial ownership has the same cleanup rule as
+            // rejected owner configuration, before the popup can be published.
+            _popupHost.InitializeHidden();
+            bool ownerConfigured = false;
+            if (_ownerHost.SilkWindow is { } ownerWindow && _popupHost.SilkWindow is { } popupWindow)
+            {
+                ownerConfigured = _ownerHost.PlatformServices.WindowDecorations.TryConfigurePopupOwner(ownerWindow, popupWindow);
+            }
 
-        _isInitialized = true;
+            if (!ownerConfigured)
+            {
+                throw new PlatformNotSupportedException("The selected native popup owner could not be configured.");
+            }
+            _isInitialized = true;
+        }
+        catch
+        {
+            // Never retain or show a partially initialized/unowned replacement
+            // after explicit native popup selection, on any platform.
+            Dispose();
+            throw;
+        }
     }
 
     private void OnOwnerUpdateTick(object? sender, EventArgs e)

@@ -29,7 +29,7 @@ using Win32Error = MS.Internal.Interop.Win32Error;
 namespace System.Windows
 {
     [Localizability(LocalizationCategory.Ignore)]
-    public class Window : ContentControl, IWindowService, IPortableVisualOwnerHost, IPortableWindowStateSource
+    public class Window : ContentControl, IWindowService, IPortableVisualOwnerHost, IPortableWindowStateSource, IPortableAccessKeyScopeSource
     {
         //---------------------------------------------------
         //
@@ -99,6 +99,10 @@ namespace System.Windows
         {
             get { return PortableVisualOwnerKind.Window; }
         }
+
+        bool IPortableAccessKeyScopeSource.IsPortableAccessKeyScopeActive =>
+            IsPortableWindowActive && !_disposed && _isVisible && IsActive &&
+            PortableModalInputScope.AllowsInput(this);
 
         bool IPortableWindowStateSource.TryGetPortableWindowState(out PortableWindowState state)
         {
@@ -299,7 +303,7 @@ namespace System.Windows
             {
                 if (WindowState == WindowState.Normal)
                 {
-                    if (!OperatingSystem.IsWindows())
+                    if (IsPortableWindowActive || !OperatingSystem.IsWindows())
                     {
                         if (IsPortableWindowActive)
                         {
@@ -541,38 +545,71 @@ namespace System.Windows
 
         private Nullable<bool> ShowPortableDialog()
         {
-            EnsureDialogCommand();
+            // Capture admission before showing a window. A normal application
+            // loop cannot represent Hide ending a synchronous dialog lifetime.
+            Action<object, Func<bool>> runDialog = PortableWindowActivationService.GetDialogRunCallback();
+            Action<object, Action> releaseDialog = PortableWindowActivationService.GetDialogReleaseCallback();
+            if (_portableDialogInputScope is { IsReleased: false })
+                throw new InvalidOperationException("The previous portable dialog is still completing native release.");
+            IDisposable restoreInput = PortableWindowActivationService.CaptureModalInputRestoreState();
+            PortableModalInputScope modalInput;
+            try { modalInput = PortableModalInputScope.Enter(this); }
+            catch { restoreInput.Dispose(); throw; }
             bool pushedModal = false;
 
             try
             {
+                restoreInput = new PortableDialogInputRestore(this, modalInput, restoreInput);
+                _portableDialogInputScope = modalInput;
+                _portableDialogInputRestore = restoreInput;
+                _portableDialogReleaseCallback = releaseDialog;
+                EnsureDialogCommand();
                 _showingAsDialog = true;
+                PortableWindowActivationService.PrepareForModalInput();
                 Show();
 
-                // The portable dispatcher uses short frames because the platform host owns
-                // the native event loop. Run the dialog host itself to preserve synchronous
-                // ShowDialog semantics without blocking ProGPU/Silk.NET event processing.
+                // The platform host owns the event/render loop on every OS.
+                // Borrow a source-controlled dialog lifetime, not the application's
+                // close-only loop or a WPF HWND dispatcher frame.
                 if (_showingAsDialog && _isVisible)
                 {
                     ComponentDispatcher.PushModal();
                     pushedModal = true;
-                    PortableWindowActivationService.TryRun(this);
+                    runDialog(_portableWindowActivation, () => _showingAsDialog && _isVisible && !_disposed);
+                    if (_showingAsDialog && _isVisible && !_disposed)
+                    {
+                        throw new InvalidOperationException("The portable dialog loop returned while the dialog was still open.");
+                    }
                 }
             }
-            catch
+            catch (Exception failure)
             {
                 ClearShowKeyboardCueState();
                 _showingAsDialog = false;
+                // Native admission/pump failure must not leave a visible source
+                // window running modelessly after ShowDialog throws. Hide through
+                // the real source path, preserving its identity for a later retry.
+                try
+                {
+                    if (_isVisible && !_disposed) Hide();
+                }
+                catch (Exception cleanup)
+                {
+                    throw new AggregateException("Portable dialog failure and hide cleanup failed.", failure, cleanup);
+                }
                 throw;
             }
             finally
             {
-                if (pushedModal)
+                try
                 {
-                    ComponentDispatcher.PopModal();
+                    if (pushedModal) ComponentDispatcher.PopModal();
                 }
-
-                _showingAsDialog = false;
+                finally
+                {
+                    _showingAsDialog = false;
+                    ReleasePortableDialogInput(modalInput, restoreInput, releaseDialog);
+                }
             }
 
             return _dialogResult;
@@ -596,15 +633,11 @@ namespace System.Windows
             VerifyContextAndObjectState();
             VerifyHwndCreateShowState();
 
-            if (!OperatingSystem.IsWindows() && _portableWindowActivation != null)
+            if (_portableWindowActivation != null)
             {
-                if (PortableWindowActivationService.TryRequestActivation(_portableWindowActivation))
-                {
-                    return true;
-                }
-
-                PortableWindowActivationService.SetActivationState(this, true);
-                return IsActive;
+                // Activation state comes from the host's actual window event.
+                // A rejected or unavailable request must not fabricate activation.
+                return PortableWindowActivationService.TryRequestActivation(_portableWindowActivation);
             }
 
             // Adding check for IsCompositionTargetInvalid
@@ -1367,6 +1400,22 @@ namespace System.Windows
                     return;
                 }
 
+                bool portableOwnership = IsPortableWindowActive || PortableWindowActivationService.IsEnabled ||
+                    PortableWpfRuntime.ConfiguredMediaBackend == PortableWpfMediaBackend.Portable;
+                if (!_disposed && portableOwnership)
+                {
+                    value?.VerifyContextAndObjectState();
+                    if (value != null && !value.IsPortableWindowActive)
+                        throw new InvalidOperationException("A portable Window requires a portable owner source.");
+                    for (Window ancestor = value; ancestor != null; ancestor = ancestor._ownerWindow)
+                        if (ancestor == this)
+                            throw new ArgumentException(SR.Format(SR.CircularOwnerChild, value, this));
+                    // Admit native ownership before changing source collections.
+                    // Pre-source ownership is applied by the host before Show.
+                    if (IsPortableWindowActive)
+                        PortableWindowActivationService.SetOwner(_portableWindowActivation, value);
+                }
+
                 if (!_disposed)
                 {
                     // Check to see if value is already a child of this window.
@@ -1402,7 +1451,8 @@ namespace System.Windows
                     return;
                 }
 
-                SetOwnerHandle(_ownerWindow != null ? _ownerWindow.Handle: IntPtr.Zero);
+                if (!portableOwnership)
+                    SetOwnerHandle(_ownerWindow != null ? _ownerWindow.Handle: IntPtr.Zero);
 
                 // Update OwnerWindows of the new owner
                 // using OwnedWindowsInternl b/c we want to modifying the
@@ -1474,8 +1524,8 @@ namespace System.Windows
                 {
                     // This value should be set only after the window is created and shown as dialog.
 
-                    // When _showingAsDialog is set, _sourceWindow must be set too.
-                    Debug.Assert(!IsSourceWindowNull, "IsSourceWindowNull cannot be true when _showingAsDialog is true");
+                    // Both portable and native dialogs require their own source identity.
+                    Debug.Assert(IsPortableWindowActive || !IsSourceWindowNull, "A dialog requires an active presentation source.");
 
 
                     // According to the new design, setting DialogResult to its current value will not have any effect.
@@ -2355,16 +2405,18 @@ namespace System.Windows
 
                 if (ShouldCloseWindow(e.Cancel))
                 {
-                    if (_showingAsDialog)
+                    try
                     {
-                        DoDialogHide();
+                        if (_showingAsDialog) DoDialogHide();
                     }
-
-                    CloseWindowBeforeShow();
+                    finally { CloseWindowBeforeShow(); }
                 }
                 else
                 {
                     _isClosing = false;
+                    // A canceled portable dialog remains open. Allow a later
+                    // assignment of the same result to request closing again.
+                    _dialogResult = null;
                 }
 
                 return;
@@ -2389,12 +2441,11 @@ namespace System.Windows
 
                 if (ShouldCloseWindow(e.Cancel))
                 {
-                    if (_showingAsDialog)
+                    try
                     {
-                        DoDialogHide();
+                        if (_showingAsDialog) DoDialogHide();
                     }
-
-                    CloseWindowBeforeShow();
+                    finally { CloseWindowBeforeShow(); }
                 }
                 else
                 {
@@ -2534,19 +2585,25 @@ namespace System.Windows
 
             try
             {
-                ClosePortableWindowActivation();
-                ClearSourceWindow();
-
-                Utilities.SafeDispose(ref _hiddenWindow);
-                Utilities.SafeDispose(ref _defaultLargeIconHandle);
-                Utilities.SafeDispose(ref _defaultSmallIconHandle);
-                Utilities.SafeDispose(ref _currentLargeIconHandle);
-                Utilities.SafeDispose(ref _currentSmallIconHandle);
-                Utilities.SafeRelease(ref _taskbarList);
-
-                if(ThemeMode != ThemeMode.None)
+                // Owned nested dialogs have now unwound. Even a failed native
+                // gate release must not strand an already-disposed source host.
+                try { ReleasePortableDialogInput(); }
+                finally
                 {
-                    ThemeManager.FluentEnabledWindows.Remove(this);
+                    ClosePortableWindowActivation();
+                    ClearSourceWindow();
+
+                    Utilities.SafeDispose(ref _hiddenWindow);
+                    Utilities.SafeDispose(ref _defaultLargeIconHandle);
+                    Utilities.SafeDispose(ref _defaultSmallIconHandle);
+                    Utilities.SafeDispose(ref _currentLargeIconHandle);
+                    Utilities.SafeDispose(ref _currentSmallIconHandle);
+                    Utilities.SafeRelease(ref _taskbarList);
+
+                    if(ThemeMode != ThemeMode.None)
+                    {
+                        ThemeManager.FluentEnabledWindows.Remove(this);
+                    }
                 }
             }
             finally
@@ -2606,11 +2663,6 @@ namespace System.Windows
         /// </summary>
         internal virtual void CreateSourceWindowDuringShow()
         {
-            if (TryCreatePortableWindowDuringShow())
-            {
-                return;
-            }
-
             CreateSourceWindow(true);
         }
 
@@ -2653,6 +2705,19 @@ namespace System.Windows
             if (!duringShow)
             {
                 VerifyApiSupported();
+            }
+
+            // Both Show and WindowInteropHelper.EnsureHandle must honor source
+            // ownership before any Windows HWND/MIL renderer is created.
+            if (TryCreatePortableWindow(duringShow))
+            {
+                return;
+            }
+
+            if (PortableWpfRuntime.GetMediaBackendAndFreeze() == PortableWpfMediaBackend.Portable)
+            {
+                throw new PlatformNotSupportedException(
+                    "Portable media requires a registered portable window host; Windows MIL window creation is not permitted.");
             }
 
             // we need to cache initial requested top and left as the very first thing
@@ -3393,6 +3458,9 @@ namespace System.Windows
             {
 
                 VerifyContextAndObjectState();
+                if (IsPortableWindowActive || PortableWindowActivationService.IsEnabled ||
+                    PortableWpfRuntime.ConfiguredMediaBackend == PortableWpfMediaBackend.Portable)
+                    return _ownerWindow != null && !_ownerWindow._disposed ? _ownerWindow.Handle : IntPtr.Zero;
                 return _ownerHandle;
             }
             set
@@ -4349,6 +4417,26 @@ namespace System.Windows
         /// <param name="ownerHandle">IntPtr of the parent window</param>
         private void SetOwnerHandle(IntPtr ownerHandle)
         {
+            if (IsPortableWindowActive || PortableWindowActivationService.IsEnabled ||
+                PortableWpfRuntime.ConfiguredMediaBackend == PortableWpfMediaBackend.Portable)
+            {
+                // Only a live source identity can be converted to Window.Owner.
+                // An arbitrary native HWND never establishes portable ownership.
+                if (ownerHandle != IntPtr.Zero)
+                {
+                    Owner = ResolvePortableOwnerHandle(ownerHandle);
+                    return;
+                }
+                if (_ownerWindow != null)
+                {
+                    if (IsPortableWindowActive)
+                        PortableWindowActivationService.SetOwner(_portableWindowActivation, null);
+                    _ownerWindow.OwnedWindowsInternal.Remove(this);
+                    _ownerWindow = null;
+                }
+                _ownerHandle = IntPtr.Zero;
+                return;
+            }
             // Note:
             // "SetWindowLong failed.  Error = 1400" appears in console when setting
             // Window.Owner to a Window hasn't been shown (chk build)
@@ -4384,6 +4472,27 @@ namespace System.Windows
                     _ownerWindow = null;
                 }
             }
+        }
+
+        private Window ResolvePortableOwnerHandle(IntPtr ownerHandle)
+        {
+            Window owner = null;
+            foreach (PresentationSource source in PresentationSource.CriticalCurrentSources)
+            {
+                // Ignore the public HwndSource facade and unrelated/native sources.
+                // Read Window state only after admitting the source's dispatcher.
+                if (source is not PortablePresentationSource portable || portable.Handle != ownerHandle)
+                    continue;
+                if (portable.Dispatcher != Dispatcher || portable.IsDisposed ||
+                    portable.RootVisual is not Window candidate || candidate._disposed ||
+                    !candidate.IsPortableWindowActive || candidate.Handle != ownerHandle ||
+                    PresentationSource.CriticalFromVisual(candidate) != portable || owner != null)
+                    throw new PlatformNotSupportedException("Portable owner handles require one live Window source on the same dispatcher.");
+                owner = candidate;
+            }
+
+            return owner ?? throw new PlatformNotSupportedException(
+                "Portable owner handles must identify a live source Window; opaque native handles are unsupported.");
         }
 
         /// <summary>
@@ -4642,8 +4751,9 @@ namespace System.Windows
             // clears _showingAsDialog
             _showingAsDialog = false;
 
-            if (IsPortableWindowActive)
+            if (IsPortableWindowActive || _portableDialogInputScope != null)
             {
+                ReleasePortableDialogInput();
                 return;
             }
 
@@ -4680,6 +4790,56 @@ namespace System.Windows
 
                 // rare situation, figure this out later
                 // talk to user team as to what we need to do here
+            }
+        }
+
+        private void ReleasePortableDialogInput()
+        {
+            if (_portableDialogInputScope == null) return;
+            ReleasePortableDialogInput(_portableDialogInputScope, _portableDialogInputRestore,
+                _portableDialogReleaseCallback);
+        }
+
+        private void ReleasePortableDialogInput(PortableModalInputScope scope, IDisposable restore,
+            Action<object, Action> releaseDialog)
+        {
+            // Capture before accepted Close clears the activation. ProGPU owns
+            // native completion and deferred source LIFO order, not a using that
+            // would reopen input as soon as this managed callback returns.
+            object activation = _portableWindowActivation;
+            scope.ReleaseAfterNative(completed =>
+            {
+                if (activation == null) completed(); // Show failed before host admission.
+                else releaseDialog(activation, completed);
+            }, restore);
+        }
+
+        private sealed class PortableDialogInputRestore : IDisposable
+        {
+            private Window _owner;
+            private PortableModalInputScope _scope;
+            private IDisposable _restore;
+
+            internal PortableDialogInputRestore(Window owner, PortableModalInputScope scope, IDisposable restore)
+            {
+                _owner = owner; _scope = scope; _restore = restore;
+            }
+
+            public void Dispose()
+            {
+                Window owner = _owner;
+                IDisposable restore = _restore;
+                if (owner == null) return;
+                if (ReferenceEquals(owner._portableDialogInputScope, _scope))
+                {
+                    owner._portableDialogInputScope = null;
+                    owner._portableDialogInputRestore = null;
+                    owner._portableDialogReleaseCallback = null;
+                }
+                _owner = null; _scope = null; _restore = null;
+                // This source-owned snapshot rechecks gate synchronization,
+                // activation, visibility and the actual focused-element source.
+                restore.Dispose();
             }
         }
 
@@ -5273,7 +5433,7 @@ namespace System.Windows
             // dispose it.
             _icon = newIcon;
 
-            if (!OperatingSystem.IsWindows() && _portableWindowActivation != null)
+            if (_portableWindowActivation != null)
             {
                 PortableWindowActivationService.SetIcon(
                     _portableWindowActivation,
@@ -5805,7 +5965,7 @@ namespace System.Windows
 
 
             // dialog functionality; start dispatcher loop to block the call
-            if ((_showingAsDialog) && (_isVisible))
+            if (!IsPortableWindowActive && (_showingAsDialog) && (_isVisible))
             {
                 //
                 // Since we exited the Context, we need to make sure
@@ -7411,16 +7571,39 @@ namespace System.Windows
             }
         }
 
-        private bool TryCreatePortableWindowDuringShow()
+        private bool TryCreatePortableWindow(bool duringShow)
         {
             if (_portableWindowActivation != null)
             {
                 return true;
             }
 
-            if (!PortableWindowActivationService.TryActivate(this, out object activation))
+            if (!PortableWindowActivationService.TryActivate(this, out object activation, duringShow))
             {
                 return false;
+            }
+
+            if (!duringShow)
+            {
+                try
+                {
+                    if (PortableWindowActivationService.GetHandle(activation) == IntPtr.Zero)
+                    {
+                        throw new InvalidOperationException("The portable hidden source did not publish a window handle.");
+                    }
+                }
+                catch
+                {
+                    try
+                    {
+                        PortableWindowActivationService.Close(activation);
+                    }
+                    finally
+                    {
+                        PortableWindowActivationService.Dispose(activation);
+                    }
+                    throw;
+                }
             }
 
             _portableWindowActivation = activation;
@@ -7438,8 +7621,14 @@ namespace System.Windows
             }
 
             _portableWindowActivation = null;
-            PortableWindowActivationService.Close(activation);
-            PortableWindowActivationService.Dispose(activation);
+            try
+            {
+                PortableWindowActivationService.Close(activation);
+            }
+            finally
+            {
+                PortableWindowActivationService.Dispose(activation);
+            }
         }
 
         internal object PortableWindowActivation
@@ -7759,6 +7948,9 @@ namespace System.Windows
 
         private SourceWindowHelper  _swh;                               // object that will hold the window
         private object              _portableWindowActivation;          // object that will hold the non-Windows window
+        private PortableModalInputScope _portableDialogInputScope;
+        private IDisposable _portableDialogInputRestore;
+        private Action<object, Action> _portableDialogReleaseCallback;
         private bool                _hasPortableCustomChrome;
         private Window              _ownerWindow;                       // owner window
         private bool                _refreshingPortableRootVisualState;

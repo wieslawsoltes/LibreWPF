@@ -602,7 +602,7 @@ namespace System.Windows.Controls
 
             if (!rect.IsEmpty) // Empty rects can't be modified.
             {
-                rect.Y += lineIndex * _lineHeight;
+                rect.Y += _lineMetrics[lineIndex].Top;
 
                 // Return only TopLeft and Height.
                 // Adjust rect.Left by taking into account flow direction of the
@@ -694,7 +694,7 @@ namespace System.Windows.Controls
             for (; lineIndex < lastLineIndex; lineIndex++)
             {
                 double contentOffset = GetContentOffset(_lineMetrics[lineIndex].Width, alignment);
-                Rect rect = new Rect(contentOffset, lineIndex * _lineHeight, _lineMetrics[lineIndex].Width, _lineHeight);
+                Rect rect = new Rect(contentOffset, _lineMetrics[lineIndex].Top, _lineMetrics[lineIndex].Width, _lineMetrics[lineIndex].Height);
 
                 // Add extra padding at the end of lines with linebreaks.
                 ITextPointer endOfLinePosition = _host.TextContainer.CreatePointerAtOffset(_lineMetrics[lineIndex].EndOffset, LogicalDirection.Backward);
@@ -1607,7 +1607,7 @@ namespace System.Windows.Controls
             {
                 return snapToText ? 0 : -1;
             }
-            if (point.Y >= _lineHeight * _lineMetrics.Count)
+            if (point.Y >= _lineMetrics[_lineMetrics.Count - 1].Bottom)
             {
                 return snapToText ? _lineMetrics.Count - 1 : -1;
             }
@@ -1622,13 +1622,13 @@ namespace System.Windows.Controls
             {
                 index = min + (max - min) / 2;
                 LineRecord record = _lineMetrics[index];
-                double lineY = _lineHeight * index;
+                double lineY = record.Top;
 
                 if (point.Y < lineY)
                 {
                     max = index;
                 }
-                else if (point.Y >= lineY + _lineHeight)
+                else if (point.Y >= record.Bottom)
                 {
                     min = index + 1;
                 }
@@ -1861,7 +1861,9 @@ namespace System.Windows.Controls
 
                             if (!selection.IsEmpty)
                             {
-                                GetTightBoundingGeometryFromLineIndexForSelection(line, lineIndex, selection.Start.CharOffset, selection.End.CharOffset, CalculatedTextAlignment, endOfParaGlyphWidth, ref selectionGeometry);
+                                // Line records retain document symbols, including
+                                // hidden rich-text edges, not flattened character offsets.
+                                GetTightBoundingGeometryFromLineIndexForSelection(line, lineIndex, selection.Start.Offset, selection.End.Offset, CalculatedTextAlignment, endOfParaGlyphWidth, ref selectionGeometry);
                             }
                         }
 
@@ -1872,7 +1874,7 @@ namespace System.Windows.Controls
                     AttachVisualChild(lineVisual);
                 }
 
-                lineVisual.Offset = new Vector(horizontalOffset, verticalOffset + lineIndex * _lineHeight);
+                lineVisual.Offset = new Vector(horizontalOffset, verticalOffset + _lineMetrics[lineIndex].Top);
             }
         }
 
@@ -2016,7 +2018,7 @@ namespace System.Windows.Controls
                     ITextPointer position = _host.TextContainer.CreatePointerAtOffset(unclippedStartOffset, LogicalDirection.Backward);
                     if (TextPointerBase.IsNextToPlainLineBreak(position, LogicalDirection.Backward))
                     {
-                        Rect rect = new Rect(0, lineIndex * _lineHeight, endOfParaGlyphWidth, _lineHeight);
+                        Rect rect = new Rect(0, _lineMetrics[lineIndex].Top, endOfParaGlyphWidth, _lineMetrics[lineIndex].Height);
                         CaretElement.AddGeometry(ref geometry, new RectangleGeometry(rect));
                     }
                 }
@@ -2045,7 +2047,7 @@ namespace System.Windows.Controls
             {
                 using (TextBoxLine line = GetFormattedLine(lineIndex))
                 {
-                    bounds = line.GetRangeBounds(startOffset, endOffset - startOffset, 0, lineIndex * _lineHeight);
+                    bounds = line.GetRangeBounds(startOffset, endOffset - startOffset, 0, _lineMetrics[lineIndex].Top);
                 }
 
                 for (int i = 0; i < bounds.Count; i++)
@@ -2063,7 +2065,7 @@ namespace System.Windows.Controls
                     if (TextPointerBase.IsNextToPlainLineBreak(endOfLinePosition, LogicalDirection.Backward))
                     {
                         double contentOffset = GetContentOffset(_lineMetrics[lineIndex].Width, alignment);
-                        Rect rect = new Rect(contentOffset + _lineMetrics[lineIndex].Width, lineIndex * _lineHeight, endOfParaGlyphWidth, _lineHeight);
+                        Rect rect = new Rect(contentOffset + _lineMetrics[lineIndex].Width, _lineMetrics[lineIndex].Top, endOfParaGlyphWidth, _lineMetrics[lineIndex].Height);
                         rect = TransformToVisualSpace(rect);
                         CaretElement.AddGeometry(ref geometry, new RectangleGeometry(rect));
                     }
@@ -2112,7 +2114,7 @@ namespace System.Windows.Controls
                     ITextPointer position = _host.TextContainer.CreatePointerAtOffset(unclippedStartOffset, LogicalDirection.Backward);
                     if (TextPointerBase.IsNextToPlainLineBreak(position, LogicalDirection.Backward))
                     {
-                        Rect rect = new Rect(0, 0, endOfParaGlyphWidth, _lineHeight);
+                        Rect rect = new Rect(0, 0, endOfParaGlyphWidth, _lineMetrics[lineIndex].Height);
                         CaretElement.AddGeometry(ref geometry, new RectangleGeometry(rect));
                     }
                 }
@@ -2142,7 +2144,7 @@ namespace System.Windows.Controls
                     if (TextPointerBase.IsNextToPlainLineBreak(endOfLinePosition, LogicalDirection.Backward))
                     {
                         double contentOffset = GetContentOffset(_lineMetrics[lineIndex].Width, alignment);
-                        Rect rect = new Rect(contentOffset + _lineMetrics[lineIndex].Width, 0, endOfParaGlyphWidth, _lineHeight);
+                        Rect rect = new Rect(contentOffset + _lineMetrics[lineIndex].Width, 0, endOfParaGlyphWidth, _lineMetrics[lineIndex].Height);
 
                         CaretElement.AddGeometry(ref geometry, new RectangleGeometry(rect));
                     }
@@ -2154,16 +2156,21 @@ namespace System.Windows.Controls
         // with the current viewport.
         private void GetVisibleLines(out int firstLineIndex, out int lastLineIndex)
         {
+            if (_lineMetrics.Count == 0)
+            {
+                firstLineIndex = 0;
+                lastLineIndex = -1;
+                return;
+            }
+
             Rect viewport = this.Viewport;
 
             if (!viewport.IsEmpty)
             {
-                firstLineIndex = (int)(viewport.Y / _lineHeight);
-                lastLineIndex = (int)Math.Ceiling((viewport.Y + viewport.Height) / _lineHeight) - 1;
-
-                // There may not be enough lines to fill the viewport, clip appropriately.
-                firstLineIndex = Math.Max(0, Math.Min(firstLineIndex, _lineMetrics.Count - 1));
-                lastLineIndex = Math.Max(0, Math.Min(lastLineIndex, _lineMetrics.Count - 1));
+                // Both viewport edges use the same per-line prefix map as input.
+                // The bottom edge is exclusive, including an exact line boundary.
+                firstLineIndex = GetLineIndexFromPoint(new Point(0, viewport.Y), true);
+                lastLineIndex = GetLineIndexFromPoint(new Point(0, Math.BitDecrement(viewport.Bottom)), true);
             }
             else
             {
@@ -2227,16 +2234,13 @@ namespace System.Windows.Controls
                 {
                     line.Format(lineOffset, constraintWidth, constraintWidth, lineProperties, _cache.TextRunCache, _cache.TextFormatter);
 
-                    // This is a loop invariant, but has negligable cost.
-                    // REVIEW: do we even need the CalcLineAdvance call?
-                    _lineHeight = lineProperties.CalcLineAdvance(line.Height);
-
-                    _lineMetrics.Add(new LineRecord(lineOffset, line));
+                    var record = new LineRecord(lineOffset, line) { Top = desiredSize.Height };
+                    _lineMetrics.Add(record);
 
                     // Desired width is always max of calculated line widths.
                     // Desired height is sum of all line heights.
                     desiredSize.Width = Math.Max(desiredSize.Width, line.Width);
-                    desiredSize.Height += _lineHeight;
+                    desiredSize.Height += record.Height;
 
                     lineOffset += line.Length;
                     endOfParagraph = line.EndOfParagraph;
@@ -2567,6 +2571,7 @@ namespace System.Windows.Controls
                                && curLine.EndOffset == record.EndOffset
                                && curLine.Length == record.Length
                                && curLine.Offset == record.Offset
+                               && Standard.DoubleUtilities.AreClose(curLine.Height, record.Height)
                                && Standard.DoubleUtilities.AreClose(curLine.Width, record.Width))
                             {
                                 break;
@@ -2602,12 +2607,15 @@ namespace System.Windows.Controls
         {
             Size desiredSize = new Size();
 
-            // this doesn't scale.
+            // Rebuild the existing retained line prefix after incremental edits.
+            // Top depends on the previous line's exact accumulated height; this
+            // ordered prefix traversal has no independent SIMD lanes.
             for (int i = 0; i < _lineMetrics.Count; i++)
             {
                 desiredSize.Width = Math.Max(desiredSize.Width, _lineMetrics[i].Width);
+                _lineMetrics[i].Top = desiredSize.Height;
+                desiredSize.Height += _lineMetrics[i].Height;
             }
-            desiredSize.Height = _lineMetrics.Count * _lineHeight;
 
             return desiredSize;
         }
@@ -3151,6 +3159,7 @@ namespace System.Windows.Controls
                 _length = line.Length;
                 _contentLength = line.ContentLength;
                 _width = line.Width;
+                Height = line.Advance;
             }
 
             internal int Offset
@@ -3164,6 +3173,12 @@ namespace System.Windows.Controls
             internal int ContentLength { get { return _contentLength; } }
 
             internal double Width { get { return _width; } }
+
+            internal double Top { get; set; }
+
+            internal double Height { get; }
+
+            internal double Bottom { get { return Top + Height; } }
 
             internal int EndOffset { get { return _offset + _length; } }
 
@@ -3198,9 +3213,6 @@ namespace System.Windows.Controls
         // In addition to performance benefits, this ensures a consistent
         // view of property values across measure/arrange.
         private TextCache _cache;
-
-        // Height of any line, in pixels.
-        private double _lineHeight;
 
         // Visuals tracked by GetVisualChild/VisualChilrenCount overrides.
         private List<TextBoxLineDrawingVisual> _visualChildren;

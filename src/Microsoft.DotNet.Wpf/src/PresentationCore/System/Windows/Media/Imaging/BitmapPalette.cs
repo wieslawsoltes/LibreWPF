@@ -46,7 +46,7 @@ namespace System.Windows.Media.Imaging
 
             _colors = new ReadOnlyCollection<Color>(colorArray);
 
-            if (!OperatingSystem.IsWindows())
+            if (BitmapSource.UsesPortablePixelStorage)
             {
                 return;
             }
@@ -71,7 +71,7 @@ namespace System.Windows.Media.Imaging
 
             ArgumentNullException.ThrowIfNull(bitmapSource);
 
-            if (!OperatingSystem.IsWindows())
+            if (bitmapSource._managedPixelBuffer != null || BitmapSource.UsesPortablePixelStorage)
             {
                 InitializeManagedFromBitmapSource(bitmapSource, maxColorCount);
                 return;
@@ -126,7 +126,7 @@ namespace System.Windows.Media.Imaging
                     throw new System.ArgumentException(SR.Format(SR.Image_PaletteFixedType, paletteType));
             }
 
-            if (!OperatingSystem.IsWindows())
+            if (BitmapSource.UsesPortablePixelStorage)
             {
                 _colors = CreateManagedPredefinedColors(paletteType, addtransparentColor);
                 return;
@@ -164,7 +164,7 @@ namespace System.Windows.Media.Imaging
         {
             Debug.Assert(source != null);
 
-            if (!OperatingSystem.IsWindows())
+            if (source._managedPixelBuffer != null || BitmapSource.UsesPortablePixelStorage)
             {
                 return source._palette;
             }
@@ -233,13 +233,13 @@ namespace System.Windows.Media.Imaging
         {
             get
             {
+                if (BitmapSource.UsesPortablePixelStorage)
+                {
+                    throw new PlatformNotSupportedException("Portable bitmap palettes do not expose WIC handles.");
+                }
+
                 if (_palette == null || _palette.IsInvalid)
                 {
-                    if (!OperatingSystem.IsWindows())
-                    {
-                        throw new PlatformNotSupportedException("WIC palettes are not available outside Windows.");
-                    }
-
                     _palette = CreateInternalPalette();
                     UpdateUnmanaged();
                 }
@@ -271,9 +271,9 @@ namespace System.Windows.Media.Imaging
 
         internal static SafeMILHandle CreateInternalPalette()
         {
-            if (!OperatingSystem.IsWindows())
+            if (BitmapSource.UsesPortablePixelStorage)
             {
-                throw new PlatformNotSupportedException("WIC palettes are not available outside Windows.");
+                throw new PlatformNotSupportedException("Portable bitmap palettes do not expose WIC handles.");
             }
 
             SafeMILHandle palette = null;
@@ -385,6 +385,11 @@ namespace System.Windows.Media.Imaging
             if (maxColorCount < 1 || maxColorCount > 256)
             {
                 throw new InvalidOperationException(SR.Format(SR.Image_PaletteZeroColors, null));
+            }
+
+            if (bitmapSource._managedPixelBuffer == null)
+            {
+                throw new PlatformNotSupportedException("Portable palette analysis requires source-owned pixels.");
             }
 
             BitmapPalette sourcePalette = bitmapSource.Palette;

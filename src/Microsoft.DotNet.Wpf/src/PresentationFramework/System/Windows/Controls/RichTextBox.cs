@@ -12,6 +12,7 @@ using System.Windows.Markup; // IAddChild
 using System.Collections; // IEnumerator
 using MS.Internal.Controls; // EmptyEnumerator
 using MS.Internal.Telemetry.PresentationFramework;
+using ProGPU.Wpf.Interop;
 
 //
 // Description: The stock rich text editing control.
@@ -313,17 +314,11 @@ namespace System.Windows.Controls
         // Allocates the initial render scope for this control.
         internal override FrameworkElement CreateRenderScope()
         {
-            // PTS is provided by PresentationNative_cor3.dll and is unavailable on
-            // non-Windows platforms. Reuse the managed TextFormatter-based editor
-            // view there so the existing TextEditor keeps its caret, selection,
-            // input, and undo behavior while ProGPU renders the resulting visuals.
-            if (!OperatingSystem.IsWindows())
-            {
-                return new TextBoxView(this)
-                {
-                    OverridesDefaultStyle = true
-                };
-            }
+            // The shared document view selects its native portable formatter and
+            // ITextView before PTS access. A rich editor must retain document block
+            // placement, not flatten paragraphs/sections/lists into TextBoxView.
+            // Freeze ownership before constructing either renderer's view.
+            _ = PortableWpfRuntime.GetMediaBackendAndFreeze();
 
             FlowDocumentView renderScope = new FlowDocumentView
             {

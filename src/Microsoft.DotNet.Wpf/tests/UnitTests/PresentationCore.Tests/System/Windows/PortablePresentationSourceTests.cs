@@ -3,12 +3,74 @@
 
 using System.Windows.Input;
 using System.Windows.Media;
+using ProGPU.Wpf.Interop;
 
 namespace System.Windows;
 
 [Collection("Sequential")]
 public class PortablePresentationSourceTests
 {
+    [PortableScopeFact]
+    public void DefaultAccessKeyScopeRequiresActualActivePortableRoot()
+    {
+        using IPortablePresentationSourceHost first = PortablePresentationSourceHost.Create();
+        using IPortablePresentationSourceHost second = PortablePresentationSourceHost.Create();
+        var firstRoot = new AccessKeyRoot();
+        var secondRoot = new AccessKeyRoot();
+        first.RootVisual = firstRoot;
+        second.RootVisual = secondRoot;
+        first.SetClientSize(200, 100);
+        second.SetClientSize(200, 100);
+        AccessKeyManager.Register("Q", firstRoot);
+        AccessKeyManager.Register("Q", secondRoot);
+        try
+        {
+            Assert.Null(AccessKeyManager.GetActivePresentationSource());
+            secondRoot.Active = true;
+            Assert.Same(second, AccessKeyManager.GetActivePresentationSource());
+            AccessKeyManager.ProcessKey(null, "Q", false);
+            Assert.Equal(0, firstRoot.Invocations);
+            Assert.Equal(1, secondRoot.Invocations);
+            firstRoot.Active = true;
+            Assert.Null(AccessKeyManager.GetActivePresentationSource()); // Ambiguous publication.
+            secondRoot.Active = false;
+            Assert.Same(first, AccessKeyManager.GetActivePresentationSource());
+            first.RootVisual = null;
+            Assert.Null(AccessKeyManager.GetActivePresentationSource());
+            first.RootVisual = firstRoot;
+            first.Dispose();
+            Assert.Null(AccessKeyManager.GetActivePresentationSource());
+            second.RootVisual = new HitTestElement(); // No typed active-scope capability.
+            Assert.Null(AccessKeyManager.GetActivePresentationSource());
+        }
+        finally
+        {
+            AccessKeyManager.Unregister("Q", firstRoot);
+            AccessKeyManager.Unregister("Q", secondRoot);
+        }
+    }
+
+    private sealed class PortableScopeFactAttribute : StaFactAttribute
+    {
+        public PortableScopeFactAttribute()
+        {
+            if (PortableWpfRuntime.ConfiguredMediaBackend != PortableWpfMediaBackend.Portable)
+                Skip = "Requires portable media selected before input initialization, including on Windows.";
+        }
+    }
+
+    private sealed class AccessKeyRoot : UIElement, IPortableAccessKeyScopeSource
+    {
+        internal bool Active { get; set; }
+        internal int Invocations { get; private set; }
+        public bool IsPortableAccessKeyScopeActive => Active;
+        internal AccessKeyRoot()
+        {
+            AccessKeyManager.AddAccessKeyPressedHandler(this, (_, e) => e.Target = this);
+        }
+        protected override void OnAccessKey(AccessKeyEventArgs e) => Invocations++;
+    }
+
     [Fact]
     public void FromVisualExposesPortableHandleThroughWin32WindowContract()
     {
@@ -102,6 +164,46 @@ public class PortablePresentationSourceTests
         CompositionTarget compositionTarget = ((PresentationSource)source).CompositionTarget;
         compositionTarget.TransformToDevice.M11.Should().BeApproximately(dpiScaleX, 0.000001);
         compositionTarget.TransformToDevice.M22.Should().BeApproximately(dpiScaleY, 0.000001);
+    }
+
+    [Theory]
+    [InlineData(1.0, 1.0, 2.0, 2.0)]
+    [InlineData(2.0, 2.0, 2.0, 2.0)]
+    [InlineData(1.5, 2.0, 2.0, 1.5)]
+    public void DesktopMappingIsIndependentOfFramebufferDpi(double sx, double sy, double dpiX, double dpiY)
+    {
+        using IPortablePresentationSourceHost source = PortablePresentationSourceHost.Create(dpiX, dpiY);
+        var geometry = (IPortableDesktopGeometryHost)source;
+        var root = new DrawingVisual();
+        source.RootVisual = root;
+        geometry.SetDesktopTransform(new PortableDesktopTransform(-1920, 24, sx, sy));
+        var client = new Point(8, 12);
+        var expected = new Point(-1920 + 8 * sx, 24 + 12 * sy);
+        root.PointToScreen(client).Should().Be(expected);
+        root.PointFromScreen(expected).Should().Be(client);
+        var portable = (PortablePresentationSource)source;
+        MS.Internal.PointUtil.ClientToScreen(client, portable.HwndSource).Should().Be(expected);
+        MS.Internal.PointUtil.ScreenToClient(expected, portable.HwndSource).Should().Be(client);
+
+        source.SetDeviceScale(3, 3);
+        root.PointToScreen(client).Should().Be(expected);
+        source.SetClientOrigin(-1600, -100);
+        geometry.DesktopTransform.ScaleX.Should().Be(sx);
+        geometry.DesktopTransform.ScaleY.Should().Be(sy);
+        root.PointToScreen(client).Should().Be(new Point(-1600 + 8 * sx, -100 + 12 * sy));
+    }
+
+    [Fact]
+    public void InvalidDesktopGeometryDoesNotReplaceSourceState()
+    {
+        using IPortablePresentationSourceHost source = PortablePresentationSourceHost.Create();
+        var geometry = (IPortableDesktopGeometryHost)source;
+        var expected = new PortableDesktopTransform(-800, 100, 2, 2);
+        geometry.SetDesktopTransform(expected);
+        Assert.Throws<ArgumentException>(() => geometry.SetDesktopTransform(default));
+        geometry.DesktopTransform.Should().Be(expected);
+        source.Dispose();
+        Assert.Throws<ObjectDisposedException>(() => geometry.SetDesktopTransform(expected));
     }
 
     [Fact]

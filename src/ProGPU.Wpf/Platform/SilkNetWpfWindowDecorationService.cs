@@ -5,6 +5,7 @@ using Silk.NET.Core.Contexts;
 using Silk.NET.GLFW;
 using Silk.NET.Maths;
 using Silk.NET.Windowing;
+using ProGPU.Backend;
 
 namespace System.Windows.Media.ProGPU.Platform;
 
@@ -19,11 +20,8 @@ public sealed unsafe class SilkNetWpfWindowDecorationService : IWpfWindowDecorat
     private const int NetWmMoveresizeMove = 8;
     private const int NormalApplicationSource = 1;
     private const uint Button1Mask = 1u << 8;
-    private const int PropModeReplace = 0;
-    private const nuint XaAtom = 4;
     private const long SubstructureNotifyMask = 1L << 19;
     private const long SubstructureRedirectMask = 1L << 20;
-    private const nuint CWOverrideRedirect = 1u << 9;
 
     private IWindow? _x11DragWindow;
     private IntPtr _x11DragDisplay;
@@ -66,6 +64,29 @@ public sealed unsafe class SilkNetWpfWindowDecorationService : IWpfWindowDecorat
         }
 
         return false;
+    }
+
+    public bool TryShowSystemMenu(object window, double desktopX, double desktopY)
+    {
+        if (window is not IView view ||
+            !double.IsFinite(desktopX) || !double.IsFinite(desktopY) ||
+            desktopX < int.MinValue || desktopX > int.MaxValue ||
+            desktopY < int.MinValue || desktopY > int.MaxValue)
+            return false;
+        NativeWindowHandle owner;
+        if (OperatingSystem.IsWindows())
+            owner = new(NativeWindowKind.Win32, GetWin32Hwnd(view), 0, "HWND");
+        else if (OperatingSystem.IsMacOS())
+            owner = new(NativeWindowKind.Cocoa, GetCocoaWindow(view), 0, "NSWindow");
+        else if (OperatingSystem.IsLinux())
+        {
+            var x11 = GetX11Window(view);
+            owner = new(NativeWindowKind.X11, unchecked((nint)x11.Window), x11.Display, "XID");
+        }
+        else return false;
+        return NativeWindowSystemMenu.TryShow(owner,
+            new NativeWindowPoint((int)Math.Round(desktopX, MidpointRounding.AwayFromZero),
+                (int)Math.Round(desktopY, MidpointRounding.AwayFromZero)));
     }
 
     public void TrackDragMoveInput(object window, WpfInputEventArgs input)
@@ -159,16 +180,27 @@ public sealed unsafe class SilkNetWpfWindowDecorationService : IWpfWindowDecorat
             return false;
         }
 
+        if (OperatingSystem.IsWindows())
+        {
+            return NativePopupWindow.TryConfigureOwner(
+                new NativeWindowHandle(NativeWindowKind.Win32, GetWin32Hwnd(ownerView), 0, "HWND"),
+                new NativeWindowHandle(NativeWindowKind.Win32, GetWin32Hwnd(popupView), 0, "HWND"));
+        }
+
         if (OperatingSystem.IsMacOS())
         {
-            return TryConfigureCocoaPopupOwner(GetCocoaWindow(ownerView), GetCocoaWindow(popupView));
+            return NativePopupWindow.TryConfigureOwner(
+                new(NativeWindowKind.Cocoa, GetCocoaWindow(ownerView), 0, "NSWindow"),
+                new(NativeWindowKind.Cocoa, GetCocoaWindow(popupView), 0, "NSWindow"));
         }
 
         if (OperatingSystem.IsLinux())
         {
             var owner = GetX11Window(ownerView);
             var popup = GetX11Window(popupView);
-            return TryConfigureX11PopupOwner(owner, popup);
+            return NativePopupWindow.TryConfigureOwner(
+                new(NativeWindowKind.X11, unchecked((nint)owner.Window), owner.Display, "XID"),
+                new(NativeWindowKind.X11, unchecked((nint)popup.Window), popup.Display, "XID"));
         }
 
         return false;
@@ -427,107 +459,6 @@ public sealed unsafe class SilkNetWpfWindowDecorationService : IWpfWindowDecorat
 
             ObjCMsgSend(nsWindow, performDragSelector, currentEvent);
             return true;
-        }
-        catch (DllNotFoundException)
-        {
-            return false;
-        }
-        catch (EntryPointNotFoundException)
-        {
-            return false;
-        }
-    }
-
-    [SupportedOSPlatform("macos")]
-    private static bool TryConfigureCocoaPopupOwner(IntPtr ownerWindow, IntPtr popupWindow)
-    {
-        if (ownerWindow == IntPtr.Zero || popupWindow == IntPtr.Zero)
-        {
-            return false;
-        }
-
-        try
-        {
-            IntPtr addChildWindow = SelRegisterName("addChildWindow:ordered:");
-            IntPtr setHidesOnDeactivate = SelRegisterName("setHidesOnDeactivate:");
-            if (addChildWindow == IntPtr.Zero || setHidesOnDeactivate == IntPtr.Zero)
-            {
-                return false;
-            }
-
-            ObjCMsgSend(popupWindow, setHidesOnDeactivate, false);
-            ObjCMsgSend(ownerWindow, addChildWindow, popupWindow, 1);
-            return true;
-        }
-        catch (DllNotFoundException)
-        {
-            return false;
-        }
-        catch (EntryPointNotFoundException)
-        {
-            return false;
-        }
-    }
-
-    [SupportedOSPlatform("linux")]
-    private static bool TryConfigureX11PopupOwner(X11WindowHandle owner, X11WindowHandle popup)
-    {
-        if (owner.Display == IntPtr.Zero || owner.Window == UIntPtr.Zero ||
-            popup.Display == IntPtr.Zero || popup.Window == UIntPtr.Zero ||
-            owner.Display != popup.Display)
-        {
-            return false;
-        }
-
-        try
-        {
-            bool configured = XSetTransientForHint(owner.Display, popup.Window, owner.Window) != 0;
-            // WPF computes popup placement in device-screen coordinates. A managed
-            // X11 toplevel lets Mutter/KWin/WSLg reposition a menu after mapping,
-            // which makes its visual and input bounds diverge. Native X11 menus use
-            // override-redirect for the same reason: the owner controls placement,
-            // while the transient/type hints still describe lifetime and semantics.
-            var attributes = new XSetWindowAttributes
-            {
-                OverrideRedirect = 1
-            };
-            configured |= XChangeWindowAttributes(
-                owner.Display,
-                popup.Window,
-                CWOverrideRedirect,
-                ref attributes) != 0;
-            var windowType = XInternAtom(
-                owner.Display,
-                "_NET_WM_WINDOW_TYPE",
-                onlyIfExists: false);
-            var dropdownMenuType = XInternAtom(
-                owner.Display,
-                "_NET_WM_WINDOW_TYPE_DROPDOWN_MENU",
-                onlyIfExists: false);
-            var popupMenuType = XInternAtom(
-                owner.Display,
-                "_NET_WM_WINDOW_TYPE_POPUP_MENU",
-                onlyIfExists: false);
-            if (windowType != UIntPtr.Zero &&
-                dropdownMenuType != UIntPtr.Zero &&
-                popupMenuType != UIntPtr.Zero)
-            {
-                UIntPtr* popupTypes = stackalloc UIntPtr[2];
-                popupTypes[0] = dropdownMenuType;
-                popupTypes[1] = popupMenuType;
-                _ = XChangeProperty(
-                    owner.Display,
-                    popup.Window,
-                    windowType,
-                    (UIntPtr)XaAtom,
-                    format: 32,
-                    PropModeReplace,
-                    (byte*)popupTypes,
-                    elementCount: 2);
-            }
-
-            XFlush(owner.Display);
-            return configured;
         }
         catch (DllNotFoundException)
         {
@@ -816,12 +747,6 @@ public sealed unsafe class SilkNetWpfWindowDecorationService : IWpfWindowDecorat
     [DllImport(ObjCLibrary, EntryPoint = "objc_msgSend")]
     private static extern void ObjCMsgSend(IntPtr receiver, IntPtr selector, IntPtr argument);
 
-    [DllImport(ObjCLibrary, EntryPoint = "objc_msgSend")]
-    private static extern void ObjCMsgSend(IntPtr receiver, IntPtr selector, [MarshalAs(UnmanagedType.Bool)] bool argument);
-
-    [DllImport(ObjCLibrary, EntryPoint = "objc_msgSend")]
-    private static extern void ObjCMsgSend(IntPtr receiver, IntPtr selector, IntPtr argument, long orderingMode);
-
     [DllImport(X11Library)]
     private static extern UIntPtr XDefaultRootWindow(IntPtr display);
 
@@ -857,48 +782,7 @@ public sealed unsafe class SilkNetWpfWindowDecorationService : IWpfWindowDecorat
     [DllImport(X11Library)]
     private static extern int XFlush(IntPtr display);
 
-    [DllImport(X11Library)]
-    private static extern int XSetTransientForHint(IntPtr display, UIntPtr window, UIntPtr ownerWindow);
-
-    [DllImport(X11Library)]
-    private static extern int XChangeWindowAttributes(
-        IntPtr display,
-        UIntPtr window,
-        nuint valueMask,
-        ref XSetWindowAttributes attributes);
-
-    [DllImport(X11Library)]
-    private static extern int XChangeProperty(
-        IntPtr display,
-        UIntPtr window,
-        UIntPtr property,
-        UIntPtr type,
-        int format,
-        int mode,
-        byte* data,
-        int elementCount);
-
     private readonly record struct X11WindowHandle(IntPtr Display, UIntPtr Window);
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct XSetWindowAttributes
-    {
-        public UIntPtr BackgroundPixmap;
-        public UIntPtr BackgroundPixel;
-        public UIntPtr BorderPixmap;
-        public UIntPtr BorderPixel;
-        public int BitGravity;
-        public int WinGravity;
-        public int BackingStore;
-        public UIntPtr BackingPlanes;
-        public UIntPtr BackingPixel;
-        public int SaveUnder;
-        public nint EventMask;
-        public nint DoNotPropagateMask;
-        public int OverrideRedirect;
-        public UIntPtr Colormap;
-        public UIntPtr Cursor;
-    }
 
     [StructLayout(LayoutKind.Sequential)]
     private struct XClientMessageEvent

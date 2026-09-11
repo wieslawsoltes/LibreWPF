@@ -5,6 +5,7 @@ using System.Collections;
 using System.Globalization;
 using System.Windows.Interop;
 using MS.Internal;
+using ProGPU.Wpf.Interop;
 
 namespace System.Windows.Input
 {
@@ -471,26 +472,16 @@ namespace System.Windows.Input
             return source;
         }
 
-        private PresentationSource GetActiveSource()
+        private PresentationSource CriticalGetActiveSource() => GetActivePresentationSource();
+
+        // Shared with keyboard menu entry when no element currently owns focus.
+        // Native HWNDs and portable source identities must never be interchanged.
+        internal static PresentationSource GetActivePresentationSource()
         {
-            if (!global::System.OperatingSystem.IsWindows())
-            {
-                return GetPortableActiveSource();
-            }
-
-            IntPtr hwnd = MS.Win32.UnsafeNativeMethods.GetActiveWindow();
-            if (hwnd != IntPtr.Zero)
-                return HwndSource.FromHwnd(hwnd);
-
-            return null;
-        }
-
-        private PresentationSource CriticalGetActiveSource()
-        {
-            if (!global::System.OperatingSystem.IsWindows())
-            {
-                return GetPortableActiveSource();
-            }
+            PresentationSource portable = GetPortableActiveSource();
+            if (portable != null) return portable;
+            if (PortableWpfRuntime.GetMediaBackendAndFreeze() == PortableWpfMediaBackend.Portable)
+                return null;
 
             IntPtr hwnd = MS.Win32.UnsafeNativeMethods.GetActiveWindow();
             if (hwnd != IntPtr.Zero)
@@ -501,15 +492,21 @@ namespace System.Windows.Input
 
         private static PresentationSource GetPortableActiveSource()
         {
+            PresentationSource active = null;
             foreach (PresentationSource source in PresentationSource.CriticalCurrentSources)
             {
-                if (source?.RootVisual != null)
+                if (source != null && source.Dispatcher.CheckAccess() && !source.IsDisposed &&
+                    source is PortablePresentationSource &&
+                    source.RootVisual is IPortableAccessKeyScopeSource { IsPortableAccessKeyScopeActive: true })
                 {
-                    return source;
+                    // Conflicting host state cannot select a winner by creation
+                    // order. Wait for an unambiguous activation publication.
+                    if (active != null) return null;
+                    active = source;
                 }
             }
 
-            return null;
+            return active;
         }
 
         

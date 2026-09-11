@@ -47,8 +47,15 @@
           Project="Sdk.props"
           Condition="!Exists('$(WpfArcadeSdkProps)') Or !Exists('$(WpfArcadeSdkTargets)')"/>
 
+  <PropertyGroup>
+    <!-- Source test utilities follow the upstream dependency snapshot. Preserve
+         their NRBF requirement before applying the portable product's .NET 10
+         support-package pins; otherwise a clean test restore reports NU1605. -->
+    <ProGpuWpfTestFormatsNrbfVersion Condition="'$(ProGpuWpfTestFormatsNrbfVersion)' == ''">$(SystemFormatsNrbfVersion)</ProGpuWpfTestFormatsNrbfVersion>
+  </PropertyGroup>
+
   <PropertyGroup Condition="'$(ProGpuWpfTargetFramework)' == 'net10.0'">
-    <ProGpuWpfNet10SupportPackageVersion>10.0.10</ProGpuWpfNet10SupportPackageVersion>
+    <ProGpuWpfNet10SupportPackageVersion>10.0.11</ProGpuWpfNet10SupportPackageVersion>
     <SystemCodeDomPackageVersion>$(ProGpuWpfNet10SupportPackageVersion)</SystemCodeDomPackageVersion>
     <SystemCodeDomVersion>$(ProGpuWpfNet10SupportPackageVersion)</SystemCodeDomVersion>
     <SystemConfigurationConfigurationManagerPackageVersion>$(ProGpuWpfNet10SupportPackageVersion)</SystemConfigurationConfigurationManagerPackageVersion>

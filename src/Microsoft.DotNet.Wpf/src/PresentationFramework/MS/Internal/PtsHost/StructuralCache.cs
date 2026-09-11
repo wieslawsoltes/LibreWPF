@@ -119,9 +119,40 @@ namespace MS.Internal.PtsHost
         /// </summary>
         internal void OnInvalidOperationDetected()
         {
-            if (_currentPage != null)
+            if (_currentPage != null || _portableFormatActive)
             {
                 _illegalTreeChangeDetected = true;
+            }
+        }
+
+        // Source lifecycle without constructing a PTS page/context. This keeps
+        // change notifications and caught-illegal-mutation detection shared.
+        internal IDisposable BeginPortableFormat()
+        {
+            if (IsFormattingInProgress) throw new InvalidOperationException(SR.FlowDocumentFormattingReentrancy);
+            if (IsContentChangeInProgress) throw new InvalidOperationException(SR.TextContainerChangingReentrancyInvalid);
+            if (!IsFormattedOnce)
+            {
+                IsFormattedOnce = true;
+                _owner.InitializeForFirstFormatting();
+            }
+            var scope = new PortableFormatScope(this);
+            _illegalTreeChangeDetected = false;
+            _portableFormatActive = true;
+            IsFormattingInProgress = true;
+            return scope;
+        }
+
+        private bool _portableFormatActive;
+        private sealed class PortableFormatScope(StructuralCache owner) : IDisposable
+        {
+            private StructuralCache _owner = owner;
+            public void Dispose()
+            {
+                if (_owner == null) return;
+                _owner._portableFormatActive = false;
+                _owner.IsFormattingInProgress = false;
+                _owner = null;
             }
         }
 

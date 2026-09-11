@@ -4,6 +4,7 @@
     <ProjectGuid>{3D5C6752-3B11-4A83-A1F9-238C67B3E6ED}</ProjectGuid>
     <Platforms>x86;x64;arm64</Platforms>
     <PlatformIndependentPackage>true</PlatformIndependentPackage>
+    <ProGpuRuntimePackageVersion Condition="'$(ProGpuRuntimePackageVersion)' == ''">0.1.0-preview.62</ProGpuRuntimePackageVersion>
   </PropertyGroup>
 
   <PropertyGroup>
@@ -45,12 +46,14 @@
       <_LibreWpfSdkPackageVersionToPack Condition="'$(PackageVersion)' != ''">$(PackageVersion)</_LibreWpfSdkPackageVersionToPack>
       <_LibreWpfSdkPackageVersionToPack Condition="'$(_LibreWpfSdkPackageVersionToPack)' == ''">$(Version)</_LibreWpfSdkPackageVersionToPack>
       <_LibreWpfSdkProGpuPackageVersionToPack Condition="'$(ProGpuPackageVersion)' != ''">$(ProGpuPackageVersion)</_LibreWpfSdkProGpuPackageVersionToPack>
+      <_LibreWpfSdkProGpuPackageVersionToPack Condition="'$(_LibreWpfSdkProGpuPackageVersionToPack)' == ''">$(ProGpuRuntimePackageVersion)</_LibreWpfSdkProGpuPackageVersionToPack>
       <_LibreWpfSdkProGpuPackageVersionToPack Condition="'$(_LibreWpfSdkProGpuPackageVersionToPack)' == ''">0.1.0-preview.62</_LibreWpfSdkProGpuPackageVersionToPack>
     </PropertyGroup>
     <ItemGroup>
       <_LibreWpfSdkVersionPropsLine Include="&lt;Project&gt;" />
       <_LibreWpfSdkVersionPropsLine Include="  &lt;PropertyGroup&gt;" />
       <_LibreWpfSdkVersionPropsLine Include="    &lt;_LibreWpfSdkPackageVersion&gt;$(_LibreWpfSdkPackageVersionToPack)&lt;/_LibreWpfSdkPackageVersion&gt;" />
+      <_LibreWpfSdkVersionPropsLine Include="    &lt;_LibreWpfSdkProGpuPackageVersion&gt;$(_LibreWpfSdkProGpuPackageVersionToPack)&lt;/_LibreWpfSdkProGpuPackageVersion&gt;" />
       <_LibreWpfSdkVersionPropsLine Include="    &lt;ProGpuPackageVersion&gt;$(_LibreWpfSdkProGpuPackageVersionToPack)&lt;/ProGpuPackageVersion&gt;" />
       <_LibreWpfSdkVersionPropsLine Include="  &lt;/PropertyGroup&gt;" />
       <_LibreWpfSdkVersionPropsLine Include="&lt;/Project&gt;" />

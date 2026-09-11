@@ -1116,6 +1116,12 @@ namespace System.Windows.Media.Imaging
             }
         }
 
+        // Resource ownership follows the frozen media backend, not the OS.
+        // Portable source pixels are consumed through the typed snapshot seam;
+        // selecting them does not change the native/managed ProGPU renderer.
+        internal static bool UsesPortablePixelStorage =>
+            PortableWpfRuntime.GetMediaBackendAndFreeze() == PortableWpfMediaBackend.Portable;
+
         internal unsafe void InitializeManagedPixelBuffer(
             int pixelWidth,
             int pixelHeight,
@@ -1301,7 +1307,7 @@ namespace System.Windows.Media.Imaging
         {
             // Set the source to an empty image in case the user doesn't respond to the failed event
             byte[] pixels = new byte[4];
-            if (!OperatingSystem.IsWindows())
+            if (UsesPortablePixelStorage)
             {
                 InitializeManagedPixelBuffer(1, 1, 96, 96, PixelFormats.Pbgra32, null, pixels, 4);
             }

@@ -1,6 +1,23 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Package production is also needed during implementation, before application
+# qualification. Keep this opt-in on the command line: CI's no-argument contract
+# must never inherit a validation bypass from environment/deployment state.
+build_packages_only=0
+if (( $# > 1 )); then
+  echo "Usage: $0 [--build-packages-only]" >&2
+  exit 2
+fi
+case "${1:-}" in
+  "") ;;
+  --build-packages-only) build_packages_only=1 ;;
+  *)
+    echo "Usage: $0 [--build-packages-only]" >&2
+    exit 2
+    ;;
+esac
+
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 dotnet="${repo_root}/.dotnet/dotnet"
 if [[ ! -x "${dotnet}" ]]; then
@@ -13,6 +30,42 @@ fi
 
 export DOTNET_ROLL_FORWARD="${DOTNET_ROLL_FORWARD:-Major}"
 export DOTNET_ROLL_FORWARD_TO_PRERELEASE="${DOTNET_ROLL_FORWARD_TO_PRERELEASE:-1}"
+
+# Packing and byte-for-byte auditing must consume the same Windows payload.
+if [[ -n "${LibreWpfWindowsManagedPayloadDir:-}" && -n "${LIBREWPF_WINDOWS_MANAGED_PAYLOAD_DIR:-}" && "${LibreWpfWindowsManagedPayloadDir}" != "${LIBREWPF_WINDOWS_MANAGED_PAYLOAD_DIR}" ]]; then
+  echo "Conflicting Windows managed payload directories were supplied." >&2
+  exit 2
+fi
+export LibreWpfWindowsManagedPayloadDir="${LibreWpfWindowsManagedPayloadDir:-${LIBREWPF_WINDOWS_MANAGED_PAYLOAD_DIR:-${repo_root}/artifacts/windows-managed-runtime}}"
+export LIBREWPF_WINDOWS_MANAGED_PAYLOAD_DIR="${LibreWpfWindowsManagedPayloadDir}"
+
+# Keep the normal SDK lane unchanged, and allow the same package-mode applications
+# to qualify the native renderer without modifying their project/source files.
+export ProGpuWpfRendererMode="${PROGPU_WPF_SDK_CI_RENDERER_MODE:-ManagedPortable}"
+case "${ProGpuWpfRendererMode}" in
+  ManagedPortable|NativeMilWgpu) ;;
+  *)
+    echo "PROGPU_WPF_SDK_CI_RENDERER_MODE must be ManagedPortable or NativeMilWgpu." >&2
+    exit 1
+    ;;
+esac
+if [[ "${ProGpuWpfRendererMode}" == "NativeMilWgpu" ]]; then
+  export PROGPU_WPF_SDK_CI_NATIVE_MIL_HOST=1
+  # Native application qualification must exercise its own input index.
+  export ProGpuWpfNativeMilHitTesting=true
+else
+  export ProGpuWpfNativeMilHitTesting=false
+fi
+
+if [[ "${build_packages_only}" == "0" ]]; then
+  command -v python3 >/dev/null 2>&1 || {
+    echo "python3 is required to verify the generated MIL protocol contract." >&2
+    exit 1
+  }
+  python3 "${repo_root}/external/ProGPU/eng/progpu-generate-mil-protocol.py" \
+    --wpf-root "${repo_root}" \
+    --check
+fi
 
 "${repo_root}/eng/progpu-wpf-verify-librewinforms-cutover.sh"
 
@@ -75,7 +128,15 @@ pack_project() {
     -p:Version="${package_version}" \
     -p:PackageVersion="${package_version}" \
     -p:ProGpuRuntimePackageVersion="${progpu_package_version}" \
-    -p:ProGpuPackageVersion="${progpu_package_version}"
+    -p:ProGpuPackageVersion="${progpu_package_version}" \
+    -p:RestoreAdditionalProjectSources="${package_output}"
+}
+
+pack_wpf_projects() {
+  echo "Packing LibreWPF transport, ProGPU bridge, and custom SDK..."
+  pack_project "packaging/Microsoft.DotNet.Wpf.GitHub/Microsoft.DotNet.Wpf.GitHub.ArchNeutral.csproj" "LibreWPF.Transport"
+  pack_project "src/ProGPU.Wpf/ProGPU.Wpf.csproj" "LibreWPF.ProGPU"
+  pack_project "packaging/ProGPU.Wpf.Sdk/ProGPU.Wpf.Sdk.ArchNeutral.csproj" "LibreWPF.Sdk"
 }
 
 resolve_single_package_version() {
@@ -128,6 +189,7 @@ snapshot_staged_progpu_packages() {
   for package_id in \
     ProGPU.Backend \
     ProGPU.Backend.Dawn \
+    ProGPU.Backend.Native \
     ProGPU.Text.Shaping \
     ProGPU.DirectX \
     ProGPU.Transpiler \
@@ -163,13 +225,25 @@ snapshot_staged_progpu_packages() {
 run_dotnet() {
   local command="$1"
   shift
+  if [[ "${build_packages_only}" == "1" ]]; then
+    case "${command}" in
+      msbuild|build|pack) ;;
+      *)
+        echo "The package-production lane cannot execute dotnet ${command}." >&2
+        return 2
+        ;;
+    esac
+  fi
   case "${command}" in
-    msbuild|build|pack|run)
+    msbuild|build|pack)
       if [[ "${PROGPU_WPF_SERIAL_BUILD:-0}" == "1" ]]; then
         "${dotnet}" "${command}" -m:1 -p:UseSharedCompilation=false "$@"
       else
         "${dotnet}" "${command}" "$@"
       fi
+      ;;
+    run)
+      "${dotnet}" "${command}" "$@"
       ;;
     *)
       "${dotnet}" "${command}" "$@"
@@ -211,10 +285,10 @@ clean_sdk_smoke_outputs() {
     "ProGPU.Wpf.SdkSwitchRuntimeHarness" \
     "ProGPU.Wpf.SdkExternalSmokeHarness" \
     "ProGPU.Wpf.HelloApp" \
-    "ProGPU.Wpf.MvpApp" \
+    "ProGPU.Wpf.ShowcaseApp" \
     "ProGPU.Wpf.ToolkitApp" \
     "ProGPU.Wpf.XceedPaidApp" \
-    "ProGPU.Wpf.SciChartMvpApp"
+    "ProGPU.Wpf.SciChartApp"
   do
     rm -rf \
       "${repo_root}/artifacts/bin/${project}" \
@@ -224,10 +298,10 @@ clean_sdk_smoke_outputs() {
   rm -rf \
     "${repo_root}/artifacts/nuget/ProGPU.Wpf.SdkSwitchSmoke" \
     "${repo_root}/artifacts/nuget/ProGPU.Wpf.HelloApp" \
-    "${repo_root}/artifacts/nuget/ProGPU.Wpf.MvpApp" \
+    "${repo_root}/artifacts/nuget/ProGPU.Wpf.ShowcaseApp" \
     "${repo_root}/artifacts/nuget/ProGPU.Wpf.ToolkitApp" \
     "${repo_root}/artifacts/nuget/ProGPU.Wpf.XceedPaidApp" \
-    "${repo_root}/artifacts/nuget/ProGPU.Wpf.SciChartMvpApp"
+    "${repo_root}/artifacts/nuget/ProGPU.Wpf.SciChartApp"
 }
 
 clean_preview_package_output
@@ -240,6 +314,7 @@ rm -rf "${repo_root}/artifacts/packaging/Release/LibreWPF.Transport"
 echo "Staging exact ProGPU packages for the LibreWPF.Sdk feed..."
 stage_or_pack_progpu_project "external/ProGPU/src/ProGPU.Backend/ProGPU.Backend.csproj" "ProGPU.Backend"
 stage_or_pack_progpu_project "external/ProGPU/src/ProGPU.Backend.Dawn/ProGPU.Backend.Dawn.csproj" "ProGPU.Backend.Dawn"
+stage_or_pack_progpu_project "external/ProGPU/src/ProGPU.Backend.Native/ProGPU.Backend.Native.csproj" "ProGPU.Backend.Native"
 stage_or_pack_progpu_project "external/ProGPU/src/ProGPU.Text.Shaping/ProGPU.Text.Shaping.csproj" "ProGPU.Text.Shaping"
 stage_or_pack_progpu_project "external/ProGPU/src/ProGPU.DirectX/ProGPU.DirectX.csproj" "ProGPU.DirectX"
 stage_or_pack_progpu_project "external/ProGPU/src/ProGPU.Transpiler/ProGPU.Transpiler.csproj" "ProGPU.Transpiler"
@@ -259,8 +334,10 @@ stage_or_pack_progpu_project "external/ProGPU/src/System.Drawing.Common/System.D
 stage_or_pack_progpu_project "external/ProGPU/src/ProGPU.Wpf.Interop/ProGPU.Wpf.Interop.csproj" "LibreWPF.Interop"
 snapshot_staged_progpu_packages
 
-echo "Running ProGPU Avalonia package consumer smoke..."
-"${repo_root}/eng/progpu-avalonia-package-smoke.sh"
+if [[ "${build_packages_only}" == "0" ]]; then
+  echo "Running ProGPU Avalonia package consumer smoke..."
+  "${repo_root}/eng/progpu-avalonia-package-smoke.sh"
+fi
 
 echo "Building managed WPF transport payload..."
 run_dotnet msbuild \
@@ -296,19 +373,101 @@ run_dotnet msbuild \
   -property:Configuration=Release \
   -verbosity:minimal
 
+if [[ "${build_packages_only}" == "1" ]]; then
+  pack_wpf_projects
+  echo "LibreWPF package production completed; application, protocol, artifact, GPU, test and CI qualification did not run."
+  echo "These are unqualified development packages, not a release bundle. Run the normal SDK gate after feature freeze."
+  exit 0
+fi
+
+native_mil_host_gate="${PROGPU_WPF_SDK_CI_NATIVE_MIL_HOST:-auto}"
+run_native_mil_host_gate=0
+case "${native_mil_host_gate}" in
+  1)
+    run_native_mil_host_gate=1
+    ;;
+  0)
+    ;;
+  auto)
+    native_platform="$(uname -s 2>/dev/null || echo unknown)"
+    native_architecture="$(uname -m 2>/dev/null || echo unknown)"
+    case "${native_platform}" in
+      Darwin)
+        native_mil_library="${PROGPU_NATIVE_BUILD_DIR:-${repo_root}/external/ProGPU/artifacts/progpu-native/build}/libprogpu_native.dylib"
+        [[ -f "${native_mil_library}" ]] && run_native_mil_host_gate=1
+        ;;
+      Linux)
+        native_mil_library="${PROGPU_NATIVE_BUILD_DIR:-${repo_root}/external/ProGPU/artifacts/progpu-native/build}/libprogpu_native.so"
+        if [[ -f "${native_mil_library}" && ( -n "${DISPLAY:-}" || -n "${WAYLAND_DISPLAY:-}" ) ]]; then
+          run_native_mil_host_gate=1
+        fi
+        ;;
+      MINGW*|MSYS*|CYGWIN*)
+        case "${native_architecture}" in
+          arm64|aarch64) native_mil_rid="win-arm64" ;;
+          *) native_mil_rid="win-x64" ;;
+        esac
+        native_mil_library="${PROGPU_NATIVE_BUILD_DIR:-${repo_root}/external/ProGPU/artifacts/progpu-native/build-${native_mil_rid}}/progpu_native.dll"
+        [[ -f "${native_mil_library}" ]] && run_native_mil_host_gate=1
+        ;;
+    esac
+    ;;
+  *)
+    echo "Invalid PROGPU_WPF_SDK_CI_NATIVE_MIL_HOST value '${native_mil_host_gate}'. Expected 0, 1, or auto." >&2
+    exit 1
+    ;;
+esac
+
+if [[ "${run_native_mil_host_gate}" == "1" ]]; then
+  echo "Running real WPF native MIL host validation..."
+  PROGPU_WPF_NATIVE_MIL_HOST_CONFIGURATION=Release \
+  PROGPU_WPF_NATIVE_MIL_HOST_SKIP_BUILD=1 \
+    "${repo_root}/eng/progpu-wpf-native-mil-host-smoke.sh"
+else
+  echo "Skipping native MIL host validation because its native runtime or graphical session is unavailable."
+fi
+
+# Source-built harnesses use the native text/document provider in both renderer
+# modes. Scope the development loader paths to these harnesses only: subsequent
+# package consumers must resolve their own packaged runtime assets.
+(
+case "$(uname -m)" in
+  arm64|aarch64) source_native_arch=arm64 ;;
+  *) source_native_arch=x64 ;;
+esac
+source_native_root="${ProGpuNativeRuntimeRoot:-${repo_root}/external/ProGPU/artifacts/progpu-native/package}"
+case "$(uname -s)" in
+  Darwin)
+    export DYLD_LIBRARY_PATH="${PROGPU_NATIVE_BUILD_DIR:-${repo_root}/external/ProGPU/artifacts/progpu-native/build}:${PROGPU_NATIVE_RUNTIME_DIR:-${repo_root}/external/ProGPU/artifacts/progpu-native/runtime}:${source_native_root}/runtimes/osx-${source_native_arch}/native${DYLD_LIBRARY_PATH:+:${DYLD_LIBRARY_PATH}}"
+    ;;
+  Linux)
+    export LD_LIBRARY_PATH="${PROGPU_NATIVE_BUILD_DIR:-${repo_root}/external/ProGPU/artifacts/progpu-native/build}:${PROGPU_NATIVE_RUNTIME_DIR:-${repo_root}/external/ProGPU/artifacts/progpu-native/runtime}:${source_native_root}/runtimes/linux-${source_native_arch}/native${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
+    ;;
+  MINGW*|MSYS*|CYGWIN*)
+    case "$(uname -m)" in
+      arm64|aarch64) source_native_rid=win-arm64 ;;
+      *) source_native_rid=win-x64 ;;
+    esac
+    export PATH="${PROGPU_NATIVE_BUILD_DIR:-${repo_root}/external/ProGPU/artifacts/progpu-native/build-${source_native_rid}}:${PROGPU_NATIVE_RUNTIME_DIR:-${repo_root}/external/ProGPU/artifacts/progpu-native/runtime-${source_native_rid}}:${source_native_root}/runtimes/${source_native_rid}/native:${PATH}"
+    ;;
+esac
+
 echo "Running real WPF XAML runtime harness..."
 run_dotnet run --no-build --project "${repo_root}/src/ProGPU.Wpf.RealXamlRuntimeHarness/ProGPU.Wpf.RealXamlRuntimeHarness.csproj" -c Release -v:minimal
 
 echo "Running real WPF Application.Run harness..."
 run_dotnet run --no-build --project "${repo_root}/src/ProGPU.Wpf.RealApplicationRunHarness/ProGPU.Wpf.RealApplicationRunHarness.csproj" -c Release -v:minimal
 
+for lifetime_scenario in last-window main-window explicit; do
+  echo "Running real WPF application lifetime scenario: ${lifetime_scenario}..."
+  run_dotnet run --no-build --project "${repo_root}/src/ProGPU.Wpf.RealApplicationRunHarness/ProGPU.Wpf.RealApplicationRunHarness.csproj" -c Release -v:minimal -- --portable-application-lifetime-only "${lifetime_scenario}"
+done
+
 echo "Running real WPF Fluent theme runtime harness..."
 run_dotnet run --no-build --project "${repo_root}/src/ProGPU.Wpf.RealThemeRuntimeHarness/ProGPU.Wpf.RealThemeRuntimeHarness.csproj" -c Release -v:minimal
+)
 
-echo "Packing LibreWPF transport, ProGPU bridge, and custom SDK..."
-pack_project "packaging/Microsoft.DotNet.Wpf.GitHub/Microsoft.DotNet.Wpf.GitHub.ArchNeutral.csproj" "LibreWPF.Transport"
-pack_project "src/ProGPU.Wpf/ProGPU.Wpf.csproj" "LibreWPF.ProGPU"
-pack_project "packaging/ProGPU.Wpf.Sdk/ProGPU.Wpf.Sdk.ArchNeutral.csproj" "LibreWPF.Sdk"
+pack_wpf_projects
 
 echo "Auditing preview package artifacts..."
 "${repo_root}/eng/progpu-preview-package-audit.sh"
@@ -368,10 +527,12 @@ echo "Building and running mixed WPF/WinForms SDK smoke app..."
 )
 
 echo "Running SDK switch runtime smoke..."
-run_dotnet run --project "${repo_root}/src/ProGPU.Wpf.SdkSwitchRuntimeHarness/ProGPU.Wpf.SdkSwitchRuntimeHarness.csproj" -v:minimal
+run_dotnet build "${repo_root}/src/ProGPU.Wpf.SdkSwitchRuntimeHarness/ProGPU.Wpf.SdkSwitchRuntimeHarness.csproj" -v:minimal
+run_dotnet run --no-build --project "${repo_root}/src/ProGPU.Wpf.SdkSwitchRuntimeHarness/ProGPU.Wpf.SdkSwitchRuntimeHarness.csproj" -v:minimal
 
 echo "Running external no-source-change SDK smoke..."
-run_dotnet run --project "${repo_root}/src/ProGPU.Wpf.SdkExternalSmokeHarness/ProGPU.Wpf.SdkExternalSmokeHarness.csproj" -v:minimal
+run_dotnet build "${repo_root}/src/ProGPU.Wpf.SdkExternalSmokeHarness/ProGPU.Wpf.SdkExternalSmokeHarness.csproj" -v:minimal
+run_dotnet run --no-build --project "${repo_root}/src/ProGPU.Wpf.SdkExternalSmokeHarness/ProGPU.Wpf.SdkExternalSmokeHarness.csproj" -v:minimal
 
 echo "Building Hello SDK app..."
 run_dotnet build "${repo_root}/samples/ProGPU.Wpf.HelloApp/ProGPU.Wpf.HelloApp.csproj" -v:minimal
@@ -398,45 +559,45 @@ PROGPU_WPF_HELLO_RUN_VALIDATE=0 \
 PROGPU_WPF_HELLO_LIVE_VALIDATE=1 \
   "${repo_root}/eng/run-progpu-wpf-hello.sh"
 
-echo "Building MVP SDK app..."
-run_dotnet build "${repo_root}/samples/ProGPU.Wpf.MvpApp/ProGPU.Wpf.MvpApp.csproj" -v:minimal
+echo "Building Showcase SDK app..."
+run_dotnet build "${repo_root}/samples/ProGPU.Wpf.ShowcaseApp/ProGPU.Wpf.ShowcaseApp.csproj" -v:minimal
 
-echo "Running MVP SDK app validation..."
-PROGPU_WPF_MVP_VALIDATE=1 \
-PROGPU_WPF_MVP_RUN_VALIDATE=0 \
-PROGPU_WPF_MVP_LIVE_VALIDATE=0 \
-  run_dotnet run --no-build --project "${repo_root}/samples/ProGPU.Wpf.MvpApp/ProGPU.Wpf.MvpApp.csproj" -v:minimal
+echo "Running Showcase SDK app validation..."
+PROGPU_WPF_SHOWCASE_VALIDATE=1 \
+PROGPU_WPF_SHOWCASE_RUN_VALIDATE=0 \
+PROGPU_WPF_SHOWCASE_LIVE_VALIDATE=0 \
+  run_dotnet run --no-build --project "${repo_root}/samples/ProGPU.Wpf.ShowcaseApp/ProGPU.Wpf.ShowcaseApp.csproj" -v:minimal
 
-echo "Running MVP SDK app Application.Run validation..."
-PROGPU_WPF_MVP_VALIDATE=0 \
-PROGPU_WPF_MVP_RUN_VALIDATE=1 \
-PROGPU_WPF_MVP_LIVE_VALIDATE=0 \
-  run_dotnet run --no-build --project "${repo_root}/samples/ProGPU.Wpf.MvpApp/ProGPU.Wpf.MvpApp.csproj" -v:minimal
+echo "Running Showcase SDK app Application.Run validation..."
+PROGPU_WPF_SHOWCASE_VALIDATE=0 \
+PROGPU_WPF_SHOWCASE_RUN_VALIDATE=1 \
+PROGPU_WPF_SHOWCASE_LIVE_VALIDATE=0 \
+  run_dotnet run --no-build --project "${repo_root}/samples/ProGPU.Wpf.ShowcaseApp/ProGPU.Wpf.ShowcaseApp.csproj" -v:minimal
 
-mvp_output="${repo_root}/artifacts/bin/ProGPU.Wpf.MvpApp/Debug/${sdk_sample_target_framework}"
-mvp_apphost_name="$(apphost_name "ProGPU.Wpf.MvpApp")"
-if [[ ! -x "${mvp_output}/${mvp_apphost_name}" ]]; then
-  echo "Expected MVP SDK apphost at ${mvp_output}/${mvp_apphost_name}" >&2
+showcase_output="${repo_root}/artifacts/bin/ProGPU.Wpf.ShowcaseApp/Debug/${sdk_sample_target_framework}"
+showcase_apphost_name="$(apphost_name "ProGPU.Wpf.ShowcaseApp")"
+if [[ ! -x "${showcase_output}/${showcase_apphost_name}" ]]; then
+  echo "Expected Showcase SDK apphost at ${showcase_output}/${showcase_apphost_name}" >&2
   exit 1
 fi
 
-echo "Running MVP SDK app apphost Application.Run validation..."
+echo "Running Showcase SDK app apphost Application.Run validation..."
 (
-  cd "${mvp_output}"
-  PROGPU_WPF_MVP_VALIDATE=0 \
-  PROGPU_WPF_MVP_RUN_VALIDATE=1 \
-  PROGPU_WPF_MVP_LIVE_VALIDATE=0 \
-    "./${mvp_apphost_name}"
+  cd "${showcase_output}"
+  PROGPU_WPF_SHOWCASE_VALIDATE=0 \
+  PROGPU_WPF_SHOWCASE_RUN_VALIDATE=1 \
+  PROGPU_WPF_SHOWCASE_LIVE_VALIDATE=0 \
+    "./${showcase_apphost_name}"
 )
 
-echo "Running MVP SDK app live geometry validation..."
-PROGPU_WPF_MVP_REBUILD_PACKAGES=0 \
-PROGPU_WPF_MVP_SKIP_BUILD=1 \
-PROGPU_WPF_MVP_VALIDATE=0 \
-PROGPU_WPF_MVP_RUN_VALIDATE=0 \
-PROGPU_WPF_MVP_LIVE_VALIDATE=1 \
-PROGPU_WPF_MVP_PERFORMANCE_VALIDATE=1 \
-  "${repo_root}/eng/run-progpu-wpf-mvp.sh"
+echo "Running Showcase SDK app live geometry validation..."
+PROGPU_WPF_SHOWCASE_REBUILD_PACKAGES=0 \
+PROGPU_WPF_SHOWCASE_SKIP_BUILD=1 \
+PROGPU_WPF_SHOWCASE_VALIDATE=0 \
+PROGPU_WPF_SHOWCASE_RUN_VALIDATE=0 \
+PROGPU_WPF_SHOWCASE_LIVE_VALIDATE=1 \
+PROGPU_WPF_SHOWCASE_PERFORMANCE_VALIDATE=1 \
+  "${repo_root}/eng/run-progpu-wpf-showcase.sh"
 
 echo "Running Toolkit SDK app live validation..."
 PROGPU_WPF_TOOLKIT_REBUILD_PACKAGES=0 \
@@ -463,18 +624,18 @@ else
   exit 1
 fi
 
-echo "Building SciChart MVP SDK app..."
-run_dotnet build "${repo_root}/samples/ProGPU.Wpf.SciChartMvpApp/ProGPU.Wpf.SciChartMvpApp.csproj" -v:minimal
+echo "Building SciChart Showcase SDK app..."
+run_dotnet build "${repo_root}/samples/ProGPU.Wpf.SciChartApp/ProGPU.Wpf.SciChartApp.csproj" -v:minimal
 
-echo "Running SciChart MVP SDK app renderer validation..."
+echo "Running SciChart Showcase SDK app renderer validation..."
 PROGPU_WPF_SCICHART_VALIDATE=1 \
 PROGPU_WPF_SCICHART_RUN_VALIDATE=0 \
-  run_dotnet run --no-build --project "${repo_root}/samples/ProGPU.Wpf.SciChartMvpApp/ProGPU.Wpf.SciChartMvpApp.csproj" -v:minimal
+  run_dotnet run --no-build --project "${repo_root}/samples/ProGPU.Wpf.SciChartApp/ProGPU.Wpf.SciChartApp.csproj" -v:minimal
 
-echo "Running SciChart MVP SDK app Application.Run validation..."
+echo "Running SciChart Showcase SDK app Application.Run validation..."
 PROGPU_WPF_SCICHART_VALIDATE=0 \
 PROGPU_WPF_SCICHART_RUN_VALIDATE=1 \
-  run_dotnet run --no-build --project "${repo_root}/samples/ProGPU.Wpf.SciChartMvpApp/ProGPU.Wpf.SciChartMvpApp.csproj" -v:minimal
+  run_dotnet run --no-build --project "${repo_root}/samples/ProGPU.Wpf.SciChartApp/ProGPU.Wpf.SciChartApp.csproj" -v:minimal
 
 echo "Building focused WPF graph tests..."
 run_dotnet build "${repo_root}/src/ProGPU.Wpf.Tests/ProGPU.Wpf.Tests.csproj" -v:minimal

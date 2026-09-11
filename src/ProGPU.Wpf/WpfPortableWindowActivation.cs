@@ -56,17 +56,24 @@ public sealed class WpfPortableWindowActivation : IDisposable, INativeWindowOwne
     private bool _isFlushingWpfDispatcher;
     private int _dispatcherIdleWorkPosted;
     private bool _isNativeRunStarted;
+    private bool _showDeferredUntilRun;
     private IDisposable? _mediaContextRenderRegistration;
     private IDisposable? _dispatcherIdleWorkRegistration;
     private IDisposable? _nativeWindowOwnerRegistration;
     private IWpfTimer? _dispatcherTimerPump;
     private bool _showActivated = true;
+    private bool _attachRootOnShow;
     private bool _isRegisteredNonActivatingOwnedWindow;
     private object? _ownerWindow;
+    private object? _nativeOwnerWindow;
+    private bool _isSettingNativeOwner;
     private readonly HashSet<WpfMouseButton> _pressedMouseButtons = new();
 
     static WpfPortableWindowActivation()
     {
+        Composition.WpfPortableGeometryOperations.EnsureRegistered();
+        Composition.WpfPortableDocumentFlow.EnsureRegistered();
+        Composition.WpfPortableTextFormatting.EnsureRegistered();
         PortableWpfServiceRegistry.ClipboardServiceRegistered += OnClipboardServiceRegistered;
         PortableWpfServiceRegistry.MessageBoxServiceRegistered += OnMessageBoxServiceRegistered;
         PortableWpfServiceRegistry.FileDialogServiceRegistered += OnFileDialogServiceRegistered;
@@ -176,7 +183,16 @@ public sealed class WpfPortableWindowActivation : IDisposable, INativeWindowOwne
             requestActivation: activation =>
                 ((WpfPortableWindowActivation)activation).TryActivate(),
             setIcon: (activation, icon) =>
-                ((WpfPortableWindowActivation)activation).SetIcon(icon));
+                ((WpfPortableWindowActivation)activation).SetIcon(icon))
+        {
+            CreateHidden = window => TryCreateActivation(window, hostFactory, out var activation, hidden: true)
+                ? activation
+                : null,
+            ShowSystemMenu = (activation, x, y) => ((WpfPortableWindowActivation)activation).TryShowSystemMenu(x, y),
+            RunDialog = (activation, continueRunning) => ((WpfPortableWindowActivation)activation).RunCore(continueRunning),
+            ReleaseDialog = (activation, completed) => ((WpfPortableWindowActivation)activation).Host.ReleaseNativeDialog(completed),
+            SetOwner = (activation, owner) => ((WpfPortableWindowActivation)activation).SetOwner(owner)
+        };
     }
 
     public static bool TryRegisterPresentationCoreClipboardService()
@@ -356,13 +372,18 @@ public sealed class WpfPortableWindowActivation : IDisposable, INativeWindowOwne
     public void Show()
     {
         ThrowIfDisposed();
+        AttachRootForShow();
         SynchronizeInitialWindowState(updatePortablePresentationSource: true);
+        SetOwner(_ownerWindow);
         if (ShouldDeferNativeShowUntilRun())
         {
+            _showDeferredUntilRun = true;
             Host.DeferShowUntilRun();
             DispatchPortableShowWindowHook(isShown: true);
             return;
         }
+
+        _showDeferredUntilRun = false;
 
         if (_showActivated)
         {
@@ -382,15 +403,54 @@ public sealed class WpfPortableWindowActivation : IDisposable, INativeWindowOwne
         FlushWpfDispatcherOperations("Loaded", "Render");
     }
 
+    private void AttachRootForShow()
+    {
+        if (!_attachRootOnShow)
+        {
+            return;
+        }
+
+        var bridge = Host.PortablePresentationSourceBridge ?? throw new InvalidOperationException(
+            "The hidden portable window has lost its presentation source.");
+        bridge.RootVisual = RootVisual;
+        _attachRootOnShow = false;
+    }
+
+    internal void SetOwner(object? owner)
+    {
+        ThrowIfDisposed();
+        ProGpuWpfWindowHost? ownerHost = null;
+        if (owner != null && (ReferenceEquals(owner, Window) || !TryGetActiveHost(owner, out ownerHost)))
+            throw new InvalidOperationException("A portable window owner must have a live ProGPU host.");
+        if (_isSettingNativeOwner)
+            throw new InvalidOperationException("Native window ownership cannot be changed recursively.");
+        if (owner == null && _nativeOwnerWindow == null) return;
+        _isSettingNativeOwner = true;
+        try
+        {
+            if (!Host.TrySetNativeOwner(ownerHost))
+                throw new PlatformNotSupportedException("The native host rejected top-level window ownership.");
+            _nativeOwnerWindow = owner;
+            _ownerWindow = owner;
+            UpdateNonActivatingOwnedWindowRegistration();
+        }
+        finally
+        {
+            _isSettingNativeOwner = false;
+        }
+    }
+
     internal bool TryActivate()
     {
         ThrowIfDisposed();
+        if (!PortableModalInputScope.AllowsInput(Window)) return false;
         return Host.TryActivate();
     }
 
     public void Hide()
     {
         ThrowIfDisposed();
+        _showDeferredUntilRun = false;
         Host.Hide();
         DispatchPortableShowWindowHook(isShown: false);
     }
@@ -493,6 +553,11 @@ public sealed class WpfPortableWindowActivation : IDisposable, INativeWindowOwne
 
     public void Run()
     {
+        RunCore(continueRunning: null);
+    }
+
+    private void RunCore(Func<bool>? continueRunning)
+    {
         ThrowIfDisposed();
         _isNativeRunStarted = true;
         SynchronizeInitialWindowState(updatePortablePresentationSource: true);
@@ -504,7 +569,19 @@ public sealed class WpfPortableWindowActivation : IDisposable, INativeWindowOwne
         StartDispatcherTimerPump();
         try
         {
-            Host.Run(_showActivated);
+            if (continueRunning != null)
+            {
+                Host.RunDialog(continueRunning);
+            }
+            else if (_showDeferredUntilRun)
+            {
+                _showDeferredUntilRun = false;
+                Host.Run(_showActivated);
+            }
+            else
+            {
+                Host.RunExisting();
+            }
         }
         finally
         {
@@ -521,6 +598,12 @@ public sealed class WpfPortableWindowActivation : IDisposable, INativeWindowOwne
     {
         ThrowIfDisposed();
         return Host.TryBeginDragMove();
+    }
+
+    public bool TryShowSystemMenu(double desktopX, double desktopY)
+    {
+        ThrowIfDisposed();
+        return Host.TryShowSystemMenu(desktopX, desktopY);
     }
 
     public void Dispose()
@@ -545,6 +628,8 @@ public sealed class WpfPortableWindowActivation : IDisposable, INativeWindowOwne
         RemoveNonActivatingOwnedWindowRegistration();
         s_activeActivations.Remove(Window);
         UnregisterActiveActivationHandle(this);
+        _nativeOwnerWindow = null;
+        _ownerWindow = null;
         Host.Dispose();
         _isDisposed = true;
     }
@@ -728,6 +813,7 @@ public sealed class WpfPortableWindowActivation : IDisposable, INativeWindowOwne
         activation = new WpfPortableWindowActivation(host, window, rootVisual, portablePresentationSource);
         try
         {
+            activation.RegisterNativeInputPolicy();
             bridge.RootVisual = rootVisual;
             activation.TryRegisterMediaContextRenderService();
         }
@@ -737,7 +823,6 @@ public sealed class WpfPortableWindowActivation : IDisposable, INativeWindowOwne
             activation = null;
             throw;
         }
-
         return true;
     }
 
@@ -762,6 +847,7 @@ public sealed class WpfPortableWindowActivation : IDisposable, INativeWindowOwne
         activation = new WpfPortableWindowActivation(host, window, rootVisual, portablePresentationSource);
         try
         {
+            activation.RegisterNativeInputPolicy();
             bridge.RootVisual = rootVisual;
             activation.TryRegisterMediaContextRenderService();
         }
@@ -771,8 +857,13 @@ public sealed class WpfPortableWindowActivation : IDisposable, INativeWindowOwne
             activation = null;
             throw;
         }
-
         return true;
+    }
+
+    private void RegisterNativeInputPolicy()
+    {
+        try { Host.BindModalInputOwner(Window); }
+        catch { Dispose(); throw; }
     }
 
     public static ProGpuWpfWindowOptions CreateHostOptions(
@@ -794,6 +885,8 @@ public sealed class WpfPortableWindowActivation : IDisposable, INativeWindowOwne
             Topmost = fallback.Topmost,
             ShowActivated = fallback.ShowActivated,
             TransparentFramebuffer = fallback.TransparentFramebuffer,
+            RendererMode = fallback.RendererMode,
+            EnableNativeMilHitTesting = fallback.EnableNativeMilHitTesting,
             WindowBorder = fallback.WindowBorder,
             WindowState = fallback.WindowState
         };
@@ -1008,6 +1101,12 @@ public sealed class WpfPortableWindowActivation : IDisposable, INativeWindowOwne
             return;
         }
 
+        if (!PortableModalInputScope.AllowsInput(Window))
+        {
+            e.Cancel = true;
+            return;
+        }
+
         _isClosingFromNative = true;
         try
         {
@@ -1035,6 +1134,7 @@ public sealed class WpfPortableWindowActivation : IDisposable, INativeWindowOwne
         switch (e.Kind)
         {
             case WpfWindowEventKind.Activated:
+                if (!PortableModalInputScope.AllowsInput(Window)) break;
                 DispatchPortableActivationHooks(isActive: true);
                 TrySetWindowActivationStateForHostEvent(isActive: true);
                 break;
@@ -1063,6 +1163,7 @@ public sealed class WpfPortableWindowActivation : IDisposable, INativeWindowOwne
             case WpfWindowEventKind.NonClientMouseDown:
             case WpfWindowEventKind.NonClientMouseUp:
             case WpfWindowEventKind.NonClientMouseDoubleClick:
+                if (!PortableModalInputScope.AllowsInput(Window)) break;
                 DispatchPortableNonClientMouseHook(e);
                 break;
         }
@@ -1364,6 +1465,13 @@ public sealed class WpfPortableWindowActivation : IDisposable, INativeWindowOwne
             return;
         }
 
+        if (!PortableModalInputScope.AllowsInput(Window))
+        {
+            _pressedMouseButtons.Clear();
+            e.Handled = true;
+            return;
+        }
+
         bool releaseButtonAfterDispatch = e.Kind == WpfInputEventKind.MouseUp &&
             e.Button != WpfMouseButton.None;
         if (e.Kind == WpfInputEventKind.MouseDown && e.Button != WpfMouseButton.None)
@@ -1391,6 +1499,13 @@ public sealed class WpfPortableWindowActivation : IDisposable, INativeWindowOwne
 
     private void ProcessHostInputAndRequestRender(WpfInputEventArgs e)
     {
+        // Recheck after queueing and do not schedule a frame for rejected input.
+        if (!PortableModalInputScope.AllowsInput(Window))
+        {
+            _pressedMouseButtons.Clear();
+            e.Handled = true;
+            return;
+        }
         ProcessHostInput(e);
         RequestRenderFromMediaContext(RootVisual, TimeSpan.Zero);
     }
@@ -1543,6 +1658,12 @@ public sealed class WpfPortableWindowActivation : IDisposable, INativeWindowOwne
     {
         if (_isDisposed)
         {
+            return;
+        }
+
+        if (!PortableModalInputScope.AllowsInput(Window))
+        {
+            e.AcceptedEffect = WpfDragDropEffects.None;
             return;
         }
 
@@ -2212,18 +2333,57 @@ public sealed class WpfPortableWindowActivation : IDisposable, INativeWindowOwne
     private static bool TryCreateActivation(
         object window,
         Func<object, ProGpuWpfWindowHost>? hostFactory,
-        out WpfPortableWindowActivation? activation)
+        out WpfPortableWindowActivation? activation,
+        bool hidden = false)
     {
         activation = null;
-        ProGpuWpfWindowHost host = hostFactory?.Invoke(window) ??
-            new ProGpuWpfWindowHost(CreateHostOptions(window));
-        if (TryAttach(host, window, out activation))
+        ProGpuWpfWindowHost host = hostFactory == null
+            ? new ProGpuWpfWindowHost(CreateHostOptions(window))
+            : hostFactory(window) ?? throw new InvalidOperationException("The configured portable host factory returned no host.");
+        bool transferred = false;
+        try
         {
+            if (hidden)
+            {
+                // EnsureHandle publishes a source, not a visible/renderable WPF
+                // root. Use the existing hidden platform window initializer;
+                // the first Show attaches the tree to this same source.
+                if (!host.TryCreatePortablePresentationSource() ||
+                    host.PortablePresentationSource is not { } source)
+                {
+                    return false;
+                }
+                activation = new WpfPortableWindowActivation(host, window, ResolveRootVisual(window), source)
+                {
+                    _attachRootOnShow = true
+                };
+                activation.RegisterNativeInputPolicy();
+                host.InitializeHidden();
+                activation.TryRegisterMediaContextRenderService();
+            }
+            else if (!TryAttach(host, window, out activation))
+            {
+                return false;
+            }
+
+            transferred = true;
             return true;
         }
-
-        host.Dispose();
-        return false;
+        finally
+        {
+            if (!transferred)
+            {
+                if (activation != null)
+                {
+                    activation.Dispose();
+                    activation = null;
+                }
+                else
+                {
+                    host.Dispose();
+                }
+            }
+        }
     }
 
     private static bool TryMapPositiveDimension(object? value, out double mappedValue)

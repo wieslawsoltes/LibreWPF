@@ -12,6 +12,7 @@ using MediaImageSource = System.Windows.Media.ImageSource;
 using MediaPen = System.Windows.Media.Pen;
 using MediaTransform = System.Windows.Media.Transform;
 using PortableGeometryPath = ProGPU.Wpf.Interop.PortableGeometryPath;
+using PortableMediaPlayerFrame = ProGPU.Wpf.Interop.PortableMediaPlayerFrame;
 using ProGpuContainerVisual = global::ProGPU.Scene.ContainerVisual;
 using ProGpuDrawingContext = global::ProGPU.Scene.DrawingContext;
 using ProGpuEffectBase = global::ProGPU.Scene.EffectBase;
@@ -37,9 +38,14 @@ internal sealed class ProGpuRetainedCompositionCommandSink :
     IWpfRetainedVisualStateSink,
     IWpfNativeTransformCommandSink,
     IWpfNativePrimitiveCommandSink,
+    IWpfNativeVideoCommandSink,
     IWpfNativeClipCommandSink,
     IWpfNativeGeometryCommandSink,
     IWpfHitTestOwnerScopeCommandSink,
+    IWpfImageHitTestScopeCommandSink,
+    IWpfSourceRectangleHitTestScopeCommandSink,
+    IWpfPointHitRegionCommandSink,
+    IWpfBitmapCacheBrushCommandSink,
     IWpfProGpuSceneDrawingContextSource
 {
     private enum ScopeKind
@@ -139,6 +145,95 @@ internal sealed class ProGpuRetainedCompositionCommandSink :
     }
 
     internal ProGpuRetainedDrawingVisual RootVisual { get; }
+
+    public bool PushNativeEllipseClip(WpfReplayPoint center, double radiusX, double radiusY)
+    {
+        ThrowIfClosed();
+        if (!((IWpfNativeGeometryCommandSink)Current.Sink).PushNativeEllipseClip(center, radiusX, radiusY)) return false;
+        _scopeStack.Push(ScopeKind.Delegate);
+        return true;
+    }
+
+    public bool PushNativeRoundedRectangleClip(WpfReplayRect bounds, double radiusX, double radiusY)
+    {
+        ThrowIfClosed();
+        if (!((IWpfNativeGeometryCommandSink)Current.Sink).PushNativeRoundedRectangleClip(bounds, radiusX, radiusY)) return false;
+        _scopeStack.Push(ScopeKind.Delegate);
+        return true;
+    }
+
+    void IWpfBitmapCacheBrushCommandSink.DrawBitmapCacheBrushSource(
+        global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource source,
+        Func<object?, MediaImageSource?>? imageSourceAdapter)
+    {
+        ThrowIfClosed();
+        ((IWpfBitmapCacheBrushCommandSink)Current.Sink).DrawBitmapCacheBrushSource(source, imageSourceAdapter);
+    }
+
+    bool IWpfBitmapCacheBrushCommandSink.PushBitmapCacheBrushOpacityMask(
+        global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource source, WpfReplayRect bounds,
+        Func<object?, MediaImageSource?>? imageSourceAdapter)
+    {
+        ThrowIfClosed();
+        if (!((IWpfBitmapCacheBrushCommandSink)Current.Sink).PushBitmapCacheBrushOpacityMask(source, bounds, imageSourceAdapter)) return false;
+        _scopeStack.Push(ScopeKind.Delegate);
+        return true;
+    }
+
+    bool IWpfBitmapCacheBrushCommandSink.DrawBitmapCacheBrushGlyphRun(
+        global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource source, object glyphRun,
+        Func<object?, MediaImageSource?>? imageSourceAdapter)
+    {
+        ThrowIfClosed();
+        return ((IWpfBitmapCacheBrushCommandSink)Current.Sink).DrawBitmapCacheBrushGlyphRun(source, glyphRun, imageSourceAdapter);
+    }
+
+    bool IWpfBitmapCacheBrushCommandSink.DrawBitmapCacheBrushLine(
+        global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource source,
+        in global::ProGPU.Wpf.Interop.PortablePenState pen, WpfReplayPoint start, WpfReplayPoint end,
+        Func<object?, MediaImageSource?>? imageSourceAdapter)
+    {
+        ThrowIfClosed();
+        return ((IWpfBitmapCacheBrushCommandSink)Current.Sink).DrawBitmapCacheBrushLine(source, pen, start, end, imageSourceAdapter);
+    }
+
+    bool IWpfBitmapCacheBrushCommandSink.DrawBitmapCacheBrushRectangleStroke(
+        global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource source,
+        in global::ProGPU.Wpf.Interop.PortablePenState pen, WpfReplayRect rectangle,
+        Func<object?, MediaImageSource?>? imageSourceAdapter)
+    {
+        ThrowIfClosed();
+        return ((IWpfBitmapCacheBrushCommandSink)Current.Sink).DrawBitmapCacheBrushRectangleStroke(source, pen, rectangle, imageSourceAdapter);
+    }
+
+    WpfDrawingReplayStatus IWpfBitmapCacheBrushCommandSink.DrawBitmapCacheBrushPathGeometry(object? fill,
+        global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource source,
+        in global::ProGPU.Wpf.Interop.PortablePenState pen, global::ProGPU.Vector.PathGeometry geometry,
+        Func<object?, MediaImageSource?>? imageSourceAdapter)
+    {
+        ThrowIfClosed();
+        return ((IWpfBitmapCacheBrushCommandSink)Current.Sink).DrawBitmapCacheBrushPathGeometry(fill, source, pen, geometry, imageSourceAdapter);
+    }
+
+    WpfDrawingReplayStatus IWpfBitmapCacheBrushCommandSink.DrawBitmapCacheBrushPathGeometry(object? fill,
+        global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource source,
+        in global::ProGPU.Wpf.Interop.PortablePenState pen, MediaGeometry geometry,
+        Func<object?, MediaImageSource?>? imageSourceAdapter)
+    {
+        ThrowIfClosed();
+        return ((IWpfBitmapCacheBrushCommandSink)Current.Sink).DrawBitmapCacheBrushPathGeometry(fill, source, pen, geometry, imageSourceAdapter);
+    }
+
+    WpfDrawingReplayStatus IWpfBitmapCacheBrushCommandSink.DrawBitmapCacheBrushPrimitiveGeometry(object? fill,
+        global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource source,
+        in global::ProGPU.Wpf.Interop.PortablePenState pen,
+        in global::ProGPU.Wpf.Interop.PortablePrimitiveGeometry geometry,
+        Func<object?, MediaImageSource?>? imageSourceAdapter, bool snapShape)
+    {
+        ThrowIfClosed();
+        return ((IWpfBitmapCacheBrushCommandSink)Current.Sink).DrawBitmapCacheBrushPrimitiveGeometry(
+            fill, source, pen, geometry, imageSourceAdapter, snapShape);
+    }
 
     public void RegisterVisualOwner(object sourceVisual)
     {
@@ -350,6 +445,14 @@ internal sealed class ProGpuRetainedCompositionCommandSink :
         ((IWpfNativePrimitiveCommandSink)Current.Sink).DrawNativeImage(imageSource, rectangle, sourceRectangle);
     }
 
+    public bool DrawNativeVideo(
+        PortableMediaPlayerFrame frame,
+        WpfReplayRect rectangle)
+    {
+        return Current.Sink is IWpfNativeVideoCommandSink videoSink &&
+            videoSink.DrawNativeVideo(frame, rectangle);
+    }
+
     public void DrawText(MediaFormattedText formattedText, Point origin)
     {
         Current.Sink.DrawText(formattedText, origin);
@@ -400,6 +503,14 @@ internal sealed class ProGpuRetainedCompositionCommandSink :
         return true;
     }
 
+    public bool PushNativeGeometryClip(global::ProGPU.Vector.PathGeometry clipGeometry)
+    {
+        if (Current.Sink is not IWpfNativeGeometryCommandSink nativeSink
+            || !nativeSink.PushNativeGeometryClip(clipGeometry)) return false;
+        _scopeStack.Push(ScopeKind.Delegate);
+        return true;
+    }
+
     public void PushOpacity(double opacity)
     {
         Current.Sink.PushOpacity(opacity);
@@ -423,6 +534,24 @@ internal sealed class ProGpuRetainedCompositionCommandSink :
         ((IWpfNativeClipCommandSink)Current.Sink).PushNativeClip(bounds);
         _scopeStack.Push(ScopeKind.Delegate);
     }
+
+    public void PushImageHitTestScope(WpfReplayRect destination)
+    {
+        ((IWpfImageHitTestScopeCommandSink)Current.Sink).PushImageHitTestScope(destination);
+        _scopeStack.Push(ScopeKind.Delegate);
+    }
+
+    public void PushSourceRectangleHitTestScope(WpfReplayRect rectangle)
+    {
+        ((IWpfSourceRectangleHitTestScopeCommandSink)Current.Sink).PushSourceRectangleHitTestScope(rectangle);
+        _scopeStack.Push(ScopeKind.Delegate);
+    }
+
+    public void PushPointHitRegion(WpfReplayRect rectangle, bool isEmpty = false) =>
+        ((IWpfPointHitRegionCommandSink)Current.Sink).PushPointHitRegion(rectangle, isEmpty);
+
+    public void PopPointHitRegion() =>
+        ((IWpfPointHitRegionCommandSink)Current.Sink).PopPointHitRegion();
 
     public void PushTransform(MediaTransform transform)
     {
@@ -724,9 +853,12 @@ internal sealed class ProGpuRetainedCompositionCommandSink :
     }
 }
 
-internal sealed class ProGpuRetainedDrawingVisual : ProGpuContainerVisual
+internal sealed class ProGpuRetainedDrawingVisual : ProGpuContainerVisual,
+    global::ProGPU.Scene.ISourceGeometryHitTestCommands
 {
     public ProGpuDrawingContext Context { get; } = new();
+
+    public ProGpuDrawingContext SourceHitTestCommands => Context;
 
     public override void OnRender(ProGpuDrawingContext context)
     {

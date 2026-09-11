@@ -1,12 +1,675 @@
 # Agent Guidance
 
+Portable FlowDocument inline controls retain their actual InlineUIContainer and
+UIElement, measured at the native paragraph width. Consume source TextRunBounds
+from the shared measured TextLine for child placement; line-height selection
+rectangles are not child layout rectangles. Keep inline symbols in the text
+navigation path, not the block-object list. The retained document visual borrows
+both kinds of child with stable parents during reflow and releases deleted
+instances; source undo owns reconstruction. Child desired-size changes invalidate
+the live generation. Pagination must reject all hosted controls until native
+fragmentation and page ownership exist. This does not admit Figure/Floater.
+
+Portable fixed-column Tables now export actual Table/RowGroup/Row/Cell nodes and
+cached source column indices to ProGPU's shared row layout. Retain original cell
+TextLines and native content boxes; table rows select horizontal cells, while
+ordinary ancestors select vertical content. Up/down navigation skips neighboring
+cells in the same row and enters the next row at retained X. Backward affinity
+may cross a wrapped line boundary only within its actual paragraph, not into a
+preceding cell. Scroll translation applies once to both points and caret/selection.
+Keep source edit/undo/invalidation and explicit automatic-width, row-span, empty
+cell, RTL, fragmentation and border-drag gaps. Fixed-column fixtures do not
+qualify those contracts or full native application/package startup.
+
+Source table consumers must use ProGPU's batched row/cell width and placement
+contracts over the original document tree. Keep native source line order even
+when table Y positions are nonmonotonic; implement cell-aware hit/vertical
+navigation before admitting tables. The typed adapter alone is not source
+integration. Do not infer automatic widths, flatten rows into vertical paragraphs,
+or hide row spans/fragmentation behind a passing fixed-column fixture.
+
+Portable BlockUIContainer uses the original source child, measured at ProGPU's
+resolved width and arranged in its native block box. Keep non-text metrics
+separate from TextLines, retain child visual parents during reflow, and invalidate
+interaction when desired size changes. Source undo reconstructs its serialized
+control: attach that live source child and release the deleted visual, never
+clone controls in the renderer or reattach the old instance. Selection/carets
+retain actual object symbol offsets. Pagination must reject objects until its
+fragmentation/visual ownership contract exists; bottomless block support does not
+admit inline/anchored controls or table layout.
+
+Use purpose-based final names for applications, APIs, tests, scripts and artifacts,
+not delivery-stage labels. The acceptance application is ProGPU.Wpf.ShowcaseApp;
+the chart integration application is ProGPU.Wpf.SciChartApp. Keep namespaces,
+resource URIs, automation names, environment variables and launchers synchronized.
+Names never imply qualification or waive outstanding release requirements.
+
+X11 popup configuration must use ProGPU NativePopupWindow just like Win32 and
+Cocoa. WPF adapts the actual native handles/display and owns disposal on failure;
+it must not retain a local XSetTransientForHint/XChangeWindowAttributes/property
+implementation or accept partial OR-combined setup. Both renderer modes keep
+source desktop placement and independent popup input/DPI. Confirmed hidden X11
+properties are not native modality or rendered application qualification.
+
+Portable WindowInteropHelper owner handles may resolve only through one live
+PortablePresentationSource whose root is its actual active Window on the same
+dispatcher. Route that identity through Window.Owner and ProGPU's existing native
+owner service; never pass the handle to user32, use the public HwndSource facade
+as native ownership, or accept arbitrary/closed/detached/mismatched sources.
+Keep host rejection atomic with source owner collections and preserve native
+Windows MIL routing. Toolkit's IntPtr MessageBox overload uses this source
+identity bridge; it does not admit external HWND ownership or qualify modality.
+AvalonDock live floating validation must require a distinct presented host, its
+own device-index input, source focus, and host removal on redocking. Model-only
+Float/Dock checks are insufficient; inject coordinates in the receiving host's
+source root, not MainWindow or independently rescaled desktop coordinates.
+
+CaretElement and its caret child must publish their explicit null point-hit
+policy through IPortablePointHitRegionSource with PortableRect.Empty. Preserve
+selection/caret drawing and geometry-region queries; end own-content point scopes
+before descendants. Empty is not a zero-size source rectangle, missing metadata,
+IsHitTestVisible=false or permission to filter owners by their type names.
+
+Rectangular image/drawing/visual-brush fills must publish their actual source
+rectangle through the typed source scope before brush mapping/isolation. Keep
+pen replay outside, retain inherited clips and source owner identity, and exclude
+brush-internal drawings from input. Exact rectangle readers may admit geometry;
+arbitrary geometry envelopes may not. Reuse ProGPU's retained logical scopes.
+
+Source drawing opacity masks change pixels, not point/region selection. Preserve
+the typed PushOpacityMask scope through ProGPU's source input policy and retain
+actual geometry clips independently. Do not invent mask-bounds hits, sample mask
+pixels for source selection, or classify geometric clips as alpha-only layers.
+Drawing-scope support does not imply visual mask/cache/effect boundary admission.
+
+Editor drop admission and context-menu client clipping select by the shared
+source-owned windowing policy before HWND access on every OS. Portable drops
+require a live enabled source/editor and actual-owner modal admission; rejected
+moves publish DragDropEffects.None. Post-drop activation follows the existing
+popup input-owner chain and typed live Window activation callback, never a
+placement target or fake HWND. Missing/rejected activation does not fabricate
+IsActive or fall through to user32. Source client clipping stays in root/local
+DIPs independently of framebuffer scale; Popup retains desktop placement.
+
+CaretElement selects its actual portable presentation source before legacy Win32
+caret synchronization on every OS. Use the optional typed native-caret service
+with source insertion geometry and the device transform exactly once; never pass
+a portable source identity to user32 or call SetCaretPos without an owned caret.
+Source drawing remains authoritative. Release the opaque caret owner on hide,
+inactive selection, adorner migration/detach, service change and rejected update.
+The ProGPU host owns the real Win32 mirror and releases it before native-window
+disposal. Missing optional mirrors remain explicit unqualified accessibility,
+not fallback to Windows MIL or permission to open Windows SDK admission.
+
+Portable Application.Run uses ProGPU's typed application-lifetime coordinator.
+Window close policy, not return from the first native host, owns shutdown. Select
+existing live source windows on the application dispatcher without reassigning
+MainWindow. With no host, block on actual source dispatcher work and remove the
+completion hook in finally. Reject reentrant Run and prematurely returning live
+hosts; do not turn those failures into implicit Shutdown or renderer fallback.
+Handoff pumps existing visibility without Show/activation or dialog modal hints;
+Hide cancels deferred first Show. Keep managed/native hosts shared and Windows
+SDK admission guarded until package integration is complete.
+
+Visual bounds descriptors likewise publish authoritative Rect.Empty. Empty ordinary
+visual opacity uses ProGPU's existing uniform-alpha traversal without allocating
+isolation bounds; retain alpha, owners, point-only scopes and descendants. Missing
+or zero-sized metadata must not enter that empty-content path. Spatial masks,
+effects and caches keep their separate allocation/coverage requirements.
+
+Drawing bounds distinguish known empty content from missing metadata. A successful
+IPortableDrawingBoundsSource result may carry PortableRect.Empty; false never
+means empty. Native DrawingImage lowering and managed image/tile replay consume
+that distinction before mapping, retain source invalidation for clear/refill,
+and never turn zero-sized or unavailable mapping bounds into successful no-ops.
+
+DrawingImage DrawImage input retains its destination rectangle, including an
+authoritative empty drawing, through ProGPU logical hit-scope metadata. Product
+managed sinks use IWpfImageHitTestScopeCommandSink on the existing clip scope;
+native MIL uses the shared builder save/restore annotation. Do not index sparse
+flattened contents as the image hit geometry or replace an unavailable descriptor
+with an empty drawing. Outer source clipping/ownership stays authoritative.
+The drawing getter returns false for absent Drawing; unlike the bounds getter,
+that is a valid empty source, not unavailable bounds.
+
+Source DrawingContext opacity changes pixels, not geometry input. Use ProGPU's
+typed source opacity policy, retain real render alpha and balanced scopes, and
+preserve it through retained command snapshots. Retained product visuals publish
+ISourceGeometryHitTestCommands over their existing context, letting ProGPU retain
+input while culling zero-alpha rendering. Do not call OnRender or invent Size
+rectangles for that traversal. Effects/masks/caches and native host-query coverage
+remain separate blockers; this connection is not runtime qualification.
+
+Every selected native popup must complete owner configuration before Show, on
+Cocoa/X11 as well as Windows. Rejection or exception disposes the hidden popup;
+do not continue unowned or silently switch surface kind. Cocoa owner setup belongs
+in ProGPU's checked NativePopupWindow provider, not WPF-local Objective-C calls.
+Native child ownership is not AppKit modal-session admission for GLFW NSWindows.
+
+Default access keys and no-focus F10/Alt menu entry share source-aware active
+scope lookup. Portable roots require the typed active-scope capability, current
+dispatcher, live source and actual visible/active/modal-allowed Window state.
+Never pick the first registered root or interpret a ProGPU handle as a WPF HWND.
+Missing/ambiguous portable scope fails closed; native Windows MIL retains its
+HWND lookup. Do not infer activation from retained keyboard focus or Show intent.
+
+Portable TextLine collapse uses the captured typed provider and ProGPU's explicit
+collapsed native view, preserving the original source map, metrics, newlines and
+continuation. Format the real TextCharacters sign through source physical-font
+mapping; never draw the native placeholder or assign hidden text to the last
+visible glyph cluster. Preserve symbol brushes/decorations, hidden-range carets
+and selection, baseline-positioned indexed exports and independent wrapper life.
+Ordinary glyph export stays on retained list storage. Non-text/multiline symbols
+and remaining text contracts stay explicit; compiled header fixtures are not
+Toolkit package/runtime/performance qualification.
+
+Portable FlowDocument layout must consume the typed `IPortableDocumentFlow`
+service backed by ProGPU C++, using source-resolved block policy and actual
+formatted paragraph lines. Keep original TextContainer/TextPointer ownership,
+lists/markers, selection and content hit testing; do not clone the document into
+fake TextBlocks or treat the empty portable FlowDocumentView as completion.
+Width constraints precede formatting, placement follows it; an exhausted zero
+width is not unbounded. Lazy pre-host document registration is only a prerequisite.
+The scroll-view and source paginator consumers are connected but not runtime-qualified;
+Windows SDK admission remains open.
+`PortableFlowDocumentFormatter` owns source invalidation and retained layout
+generations without a PTS context. Consume that live generation from the viewer;
+do not rebuild a second tree or serve interaction from disposed/stale TextLines.
+Keep caught formatting-time mutations invalid, source page/block policies shared,
+and marker text separate from document indices. Symbol markers require the actual
+symbol face, not ordinary-font fallback. `FlowDocumentView` selects its portable
+visual/IContentHost/ITextView through frozen media ownership before PTS access on
+every OS. Drawing and interaction borrow the same live layout; scrolling moves
+retained content and translates viewport queries exactly once. Keep document-local
+content rectangles distinct from viewport selection/caret geometry. Layout edits,
+suspension and document replacement invalidate interaction before disposing lines.
+Native logical caret boundaries must accept equivalent leading/trailing source
+affinities without accepting positions inside shaped clusters. Compiled fixtures
+do not qualify the actual Showcase, symbol fonts or package-mode startup.
+Paginated document consumers must use the shared native fragmentation service,
+retain source page/column policy and original page-local text positions, and
+explicitly resolve keep/widow/orphan behavior before admitting break boundaries.
+Do not treat static paragraph-edge break flags as complete fragment-relative
+widow/orphan policy. Impossible native fits must not silently clip a line or
+switch the viewer to scrolling. `PortableFlowDocumentPaginator` selects before PTS
+through frozen media ownership; its real DocumentPages and existing DocumentPageView
+share original TextLines and page-local ITextView. Reserve native block insets at
+fragment edges and preserve one translation for both drawing and interaction.
+Continuation pages host their already-open source content ancestors. Disposed pages
+release drawing, not the paginator-owned lines; edits/suspension invalidate the
+whole generation. Nonzero widow/orphan constraints, decorated blocks crossing
+fragments and empty decorated blocks remain explicit missing contracts, not parity.
+
+Portable source text must preserve actual shaped content, clusters, styled runs
+and caret/selection semantics. `SimpleTextLine.CreatePortableFallback` currently
+manufactures an empty paragraph for unsupported cases; this is an outstanding
+contract gap, never evidence of native/managed text parity or a permitted new
+fallback. Reuse ProGPU's existing retained C++ paragraph pipeline for the typed
+adapter, with leased context ownership; do not duplicate that composer in WPF
+or indiscriminately replace Windows text-service OS guards.
+`PortableTextLine` connects explicit styled physical faces, sizes, boolean features
+and brushes through the registered typed text provider and the shared native
+paragraph. Styles partition actual UTF-16 input; never split a scalar or infer the
+render face from family names. Keep per-glyph font annotations, per-line source
+ascent/descent and run-specific drawing brushes. Source composite/fallback fonts
+must use `GlyphingCache.GetPortableFontRuns` and the existing `TypefaceMap` family
+linking rules without invoking the DirectWrite itemizer. Preserve mapped em-scale
+in native styles and actual GlyphRun size; source Typeface owns line metrics.
+Do not substitute a first-family face for the mapped text ranges, bypass required
+digit-substitution checks, or guess a render font by family name. Null-shape,
+device-font and synthetic-font cases remain explicit unsupported contracts.
+Keep remaining language, document and trimming behavior explicit;
+do not convert its provider failure into the legacy empty paragraph. Preserve
+source clusters, logical versus visual caret semantics and cloned continuation
+ownership. Source GlyphRun native positions may be initialized only once before
+publication and must feed both native and neutral exports. Its existing public
+bidi/offset state must remain real WPF glyph state, not a nominal fake run.
+Default incremental tabs must pass the source interval and text-start grid origin
+through the typed paragraph request to ProGPU. Consume `PortableTextGlyph.IsTab`
+as a non-ink item: retain source ranges, caret/selection and background bounds,
+but never construct a GlyphRun containing its reserved native glyph id. Do not
+replace tabs with spaces or a source-local width guess. Custom stop collections,
+leaders and disabled-grid behavior remain explicit gaps until implemented.
+Hidden document edges must retain source positions through `PortableTextSourceMap`
+without entering shaping text. Preserve source run spans, glyph indices, logical
+caret/selection affinities and wrapped-line lengths. Property modifiers use the
+source-owned TextModifierScope inside-out evaluation, retain scope across explicit
+line breaks, and end at EndOfParagraph. Do not silently discard directional scopes,
+decorations or embedded objects while their native contracts are still missing.
+
+`WindowChromeWorker` must select source ownership before HWND access: an active
+portable window, a registered portable activation service, or frozen portable
+media selection uses the typed portable chrome path even on Windows and before
+source creation. A ProGPU HWND is not a WPF `HwndSource`; do not install WPF
+chrome hooks, query WPF client areas or restore DWM frames on that assumption.
+Preserve typed border updates and restoration when attached chrome is removed.
+SystemCommands close/maximize/minimize/restore must select an active portable
+Window before querying a handle, including on Windows. Use its existing source
+Close/WindowState path so cancellation and typed host notifications are retained;
+native WPF windows keep posted HWND system commands. System-menu display uses
+the typed optional activation callback and shared ProGPU NativeWindowSystemMenu
+provider, never a portable source handle passed to WPF Win32 helpers. Preserve
+absolute desktop coordinates without framebuffer-DPI scaling. Win32 tracking,
+advertised X11 requests and Cocoa native-action menus share that provider;
+Wayland and rejected platform capabilities remain explicit, not successful no-ops.
+Windows SDK package admission remains separate.
+Portable ShowDialog must use source-controlled dialog pumping, not application
+Run or the WPF HWND dispatcher frame inside ShowHelper. Admit the typed RunDialog
+capability before Show, preserve modal notification cleanup, return on Hide without
+disposing the source, and reset a canceled DialogResult so the same result can
+request closing again. Host callbacks borrow the continuation on the host thread;
+premature return while the dialog is still open is a failure. Native owner setup,
+other-window input disabling and activation restoration remain separate blockers.
+Source dialog input uses ProGPU PortableModalInputScope before Show. Check both
+host ingress and queued callbacks, source reports and capture/focus redirection;
+never alter application IsEnabled to implement modal restriction. Popup permission
+follows its actual retained owner presentation source, not PlacementTarget or a
+handle guess. Missing/disposed/cyclic ownership is rejected without per-event
+allocation. Modal entry clears blocked capture/focus through source input devices.
+Nested scopes restore their parent and release window references. This is source
+input admission, not native nonclient suppression or previous activation recovery.
+Portable Window.Owner changes use the typed host callback and actual ProGPU native
+owner before Show. Admit live owner changes before updating source collections;
+reject opaque WindowInteropHelper owner handles before WPF HWND/hidden-window code.
+Top-level ownership is distinct from nonactivating popup configuration and modal
+input suppression. Keep native owners local, thread-bound and cycle-free, with
+unsupported platforms explicit. Do not report this as completed dialog modality.
+Native modal gates register source Window identities and inherit that identity
+for separately surfaced popups. New surfaces receive admission before native Show;
+preserve independent controller enabled intent and weak registration ownership.
+Win32 gate release precedes accepted native Hide/Close, after owned nested dialogs
+unwind when necessary. Canceled closes retain the gate. Restore actual prior
+activation/focus only after successful gate publication; reject moved/disposed
+focus sources and never assign IsActive to simulate host activation. Cocoa/Linux
+native suppression and cross-thread application coordination remain explicit.
+Cocoa host polls consult ProGPU NativeWindowModalSession before ordinary GLFW
+dispatch and defer native destruction while its session retains the host. This
+polling seam is not automatic ShowDialog admission. Connect real native popup
+admission and source gate-release/focus ordering after native End before enabling
+it; do not hide popup failures with default polling or owner-surface substitution.
+Portable host Hide must request ProGPU native modal release before changing native
+visibility. Deferred completion checks latest Show/Hide and disposed state and
+rechecks native leases; do not apply an old Hide after a newer Show. This callback
+does not replace source modal-gate/focus restoration ordering or admit GLFW popups
+to AppKit modality. Keep automatic session activation guarded until both connect.
+Source ShowDialog now captures both typed RunDialog and ReleaseDialog capabilities
+before Show. Transfer its input scope and source-owned focus snapshot through
+ProGPU ReleaseAfterNative instead of using/finally disposal before native End.
+Keep cleanup generation-bound, native completion on the source thread, source
+scopes LIFO even when native completions arrive out of order, and prior-focus
+checks after gate publication. Reopening that Window as a dialog while its earlier
+release is pending must fail explicitly. This connection does not qualify Cocoa
+popup admission, Linux modality, native interaction or Windows package startup.
+
+Decoder-backed core application images follow `BitmapSource.UsesPortablePixelStorage`
+for backend selection on every OS. Existing portable format dispatch must not fall
+through to WIC when a format is rejected. `BitmapImage` adopts cached/decoded owned
+pixels by their actual storage, and rejects missing portable pixels before reading
+a WIC handle. Preserve native Windows decoding when Windows MIL is selected;
+actual Windows network cache services remain OS-specific. No source-local codec
+rewrite or claims of qualified codec/worker/SIMD parity follow from this routing fix.
+
+## Core Native MIL Delivery Priority
+
+PortableTextLine retains admitted fixed-size, one-symbol TextEmbeddedObjects as
+actual source runs over native U+FFFC items. Native measured line baselines are
+removed once from glyph-relative positions, not added twice. Keep object drawing
+in retained visual order and publish actual object TextRunBounds separately from
+line-height selection bounds so TextBlock's existing arranger owns the real child.
+Variable-size/multi-symbol objects, custom break policies, decorated objects and
+fixed explicit line-height combinations stay rejected until their contracts exist.
+TextBlock integration does not admit the FlowDocument paragraph source or anchors.
+
+WPF inline formatting selects ProGPU's explicit IPortableInlineTextFormatting
+capability and retained measured snapshot. Keep source metrics and ordered U+FFFC
+placements separate from font glyphs; object sentinels never enter font lookup.
+Measured Lines.Y is the native height-prefix top, with a separate baseline offset;
+selection remains line-local. Do not enable InlineUIContainer/anchored source
+admission from provider fixtures alone. Actual child visual/editing ownership and
+Figure/Floater exclusions remain required.
+
+TextBlock source point hits cover its arranged rectangle, but geometry-region hits
+remain drawing-based. Connect an explicit source-owned descriptor through ProGPU's
+PointOnly/RegionOnly input policy; do not infer it from type names or assign layout
+rectangles to ordinary visuals. Replacing point coverage also excludes that
+visual's drawing overhang from point queries, without excluding descendants or
+changing rendering. Query flags alone do not close the source/application path.
+Consume IPortablePointHitRegionSource through the batched native MIL point-region
+snapshot and the paired retained own-content scope. End that scope before children,
+preserve empty text and region-only drawing overhang, and replace metadata on layout
+changes without painting a rectangle. Typed source-command visuals must not acquire
+generic Size hit bounds through compositor replay or layer descendant traversal.
+Source retained Blur/DropShadow visuals share ProGPU's complete pre-effect input
+capture, including own drawing and point-only children. Keep output texture padding
+out of point/region input and preserve source coordinate normalization exactly
+once. No bridge-local hit geometry or WPF-specific compositor fork is permitted.
+Retained optional bitmap-cache input follows ProGPU's original source coordinates,
+not cache allocation bounds, resolution or pixel snapping. Native positive-scale
+caches now carry an unsnapped input frame through ProGPU builder scopes. Preserve
+clip-frame identity. Native zero-scale input now uses ProGPU's balanced input-only
+scope, never a tiny cache or a WPF-local replay. Keep boundary masks and unsupported
+clip topology explicit. A compiled fixture is not full cache parity or application
+closure; never bypass native input with the managed compositor index.
+
+Native host point/region callbacks select the presented native owner snapshot
+before any managed index. Preserve explicit EnableNativeMilHitTesting admission,
+complete-index compilation, popup inheritance, bounded owner-resolution retry
+and original candidate intersection details. Pending readbacks retain their map
+until completion or compositor disposal; no generic recovery or managed fallback.
+Native cache diagnostics use native index metadata/residency, never managed counts.
+The native SDK gate requires its own input index; opt-in code is not application
+qualification or permission to enable defaults before required coverage closes.
+
+Windows managed package production uses PowerShell 7 child processes to invoke
+the existing Arcade build script with explicit restore/build flags. Preserve the
+host execution policy, child exit status, all Windows RIDs and pinned tool inputs;
+do not reintroduce a wrapper-imposed policy override or edit Arcade-owned files.
+The managed build SDK host must be x64 because Arcade restores its pinned x64
+runtime into that root. Keep ARM64 as an output target, reject mixed existing
+SDK roots before installation, and never relabel or overwrite an ARM64 host.
+
+Native X11 dialog hints use ProGPU's typed controller lease, not a WPF-local Xlib
+adapter. Release before source focus completion, native hide and destruction;
+advisory WM submission is not native input-gate qualification. A rejected or failed
+portable dialog loop must hide through the source Window path before returning an
+error, preserving source identity for retry rather than leaving a visible modeless
+window. Keep native/managed modes on the same host and all final platform gates.
+
+Standard portable run underlines use native paragraph range geometry and actual
+source physical font metrics, with retained fill rectangles and baseline/top-edge
+guidelines. Preserve brush identity, wrapped ownership, interior tabs, trailing
+whitespace exclusion and ink bounds. Do not infer widths from codepoint counts or
+reintroduce blanket rejection in TextBlock/Hyperlink. Custom/animated/paragraph
+decorations and mixed-font averaging remain explicit, as does the separate rich
+editor structural decoration-scope contract; do not erase those semantics.
+
+RichTextBox uses shared FlowDocumentView native paragraph/section/list layout and
+the original document TextContainer, selection, undo and live layout generation.
+That view selects frozen media ownership before PTS on every OS. Never flatten
+the portable rich editor into TextBoxView or rebuild a second document tree.
+Editor decorated-inline edges publish the existing TextSpanModifier and paired
+TextEndOfSegment, preserving nested source scopes and explicit-line continuation.
+Independent editor line formatting seeds only already-open actual source ancestors
+through a managed TextLineBreak modifier chain. Keep original element offsets and
+inside-out property order; no invented leading characters or native break handles.
+PortableTextLine still validates composed decoration kinds/pens; do not discard
+unsupported decoration semantics. Figure/Floater are AnchoredBlock inlines, not
+ordinary spans: reject them until native anchored layout exists, never flatten
+their children into the linear editor. Source positions remain document symbols.
+Windows portable media must not enter the shared view's PTS formatter. The linear
+TextBoxView consumer also retains real document symbols and per-run style ownership.
+Never hide embedded objects, block layout, directional scopes or decorations as
+successful non-ink edges when their layout contracts are absent. Registered text
+providers must implement or reject justification, not receive silent left alignment.
+Bounded source run copies must not split UTF-16 scalars. This editor route is not
+full anchored/table/embedded-object layout or Windows package admission evidence.
+Retained editor line records own each source-formatted line advance and top.
+Drawing, caret/selection, hit testing, scrolling and incremental updates must use
+that same prefix map; do not restore a last-line-height-times-index approximation.
+Rich editor selection uses document symbol offsets, including hidden source edges,
+not flattened character offsets. The cache is not a replacement paragraph composer
+or evidence of implemented block/page/decoration/inline-object layout.
+
+Explicit native SDK/custom-host startup must call `ProGpuWpfNativeMediaServices.Initialize`
+before source module initialization or construction of WPF media objects. Do not
+wait for the first host to register the text provider: application constructors
+can measure content. Keep registration lazy and preserve explicit provider priority;
+ProGPU defaults survive temporary override disposal. Windows SDK admission and
+remaining source consumer routing stay independent requirements.
+TextFormatter must select from frozen media ownership, not OS or text complexity.
+Source Justify alignment must reach the typed native paragraph request. Native
+word-space expansion owns glyph advances before caret/selection construction;
+do not emulate it in source GlyphRuns or replace it with left alignment.
+Keep hard/final/collapsed lines, source clusters and tab grids unchanged.
+Script-specific insertion/inter-character policies and rich-editor decoration
+scopes remain separate contracts; passing word-space fixtures does not close them.
+Under portable media, the registered provider owns simple and complex lines; retain
+one provider reference per request and resolve immutable wrapped continuations
+before registry lookup. Do not lose a shaped paragraph when its override is removed.
+Classification and source control-string initialization follow the same frozen
+selection before legacy MIL imports. Intrinsic min/max widths use ProGPU's native
+logical scan through the optional typed measurement contract, never formatted-line
+envelopes. Preserve hard-line modifier scope and source indentation. WrapWithOverflow
+selects native whole-word wrapping; Wrap keeps emergency cluster breaking. Optimal
+paragraph caches and forced-break reconstruction still fail explicitly until their
+real native contracts exist.
+Windows-MIL text keeps its native services; this routing is not SDK admission.
+
+The current delivery sequence is defined in `docs/native-mil-core-delivery.md`.
+Prioritize the usable end-to-end native MIL LibreWPF application path and its
+major integration blockers, then feature-freeze and qualify it. Do not continue
+general Direct2D/Win2D API expansion or isolated geometry refinements unless a
+concrete core application dependency makes them blocking. Keep those broader
+requests explicitly deferred, not silently removed or reported complete. Keep
+implementation/compilation before the final validation phase as requested.
+Before each new implementation batch, name the acceptance application, user action,
+blocking source path and bounded outcome. Presentation/3D consumer completion is
+not automatically a core prerequisite: trace ordinary host resize/DPI/popup needs
+first. Historical checkpoint next-step suggestions do not override the delivery
+plan's finish-first rule. Preserve all existing SDK and final qualification gates.
+Before feature freeze, use the SDK script's explicit `--build-packages-only` lane
+for package production, not the Showcase launcher or normal SDK gate. It must retain
+all pack-time runtime/payload requirements and stop before application/verifier
+execution. Never introduce an environment-inherited CI bypass, publish its output
+as qualified, or claim exact-head provenance from dirty/stale native payloads.
+ProGPU native payloads have separate CLI-only --build-only / -BuildOnly modes.
+Use these for compilation/staging before qualification; retain both providers,
+all required SDK/Windows Direct2D files and test/sample compilation. No reduced
+compiler profile or environment-inherited bypass may stand in for this mode.
+Staged files remain unqualified and never satisfy missing Windows managed payloads.
+Device-loss callbacks must only schedule host-thread recovery. Rebuild targets
+outside active frames, retain source-built WPF roots/native windows, renew external
+image leases, and resolve popup sharing from the live owner rather than a captured
+context. Catch typed device-loss failures only; do not hide unrelated application,
+allocation or validation errors in a generic recovery loop.
+An explicit native SDK renderer selection must not fall through to Windows MIL
+or managed portable rendering. Keep package activation limits explicit until
+the source-built Application/Window services support that platform; direct-host
+smoke success is not package-mode application evidence.
+Typed portable host registration selects window-service routing on every OS;
+existing portable window identity, not an OS test, owns its operations. Rejected
+registered activation and missing active-host run callbacks must fail closed.
+Window callbacks/render-wakeup registration do not by themselves select the
+source-built MIL transport: establish that choice before media-system startup
+and route popup/interop handles by ownership before enabling Windows native SDK
+activation. Do not mechanically remove Windows platform-service checks.
+Source-built MIL transport guards use the shared `PortableWpfRuntime` choice,
+frozen before any composition lock, channel or media-system ownership. Preserve
+that choice across shutdown/device recovery and reject late backend switches.
+Extend this typed policy to remaining MIL resource consumers; do not equate a
+portable transport selection with completed Windows package support.
+InputManager must freeze this same choice before creating keyboard/mouse devices.
+Portable raw reports require host-owned device state on Windows too; do not use
+Win32 asynchronous state for those reports or promote their keys through WPF TSF
+a second time. Portable focus does not enable WPF's TSF pump/IMM association, and
+source editors must not queue or attach WPF TSF text stores for portable input.
+Keep native Windows input and actual OS language/system services separate. Host
+composition/candidate bounds and input-method preferences are explicit unfinished
+contracts; committed character delivery is not full IME support or Windows SDK
+admission. Do not replace unrelated text-service OS guards indiscriminately.
+Hidden interop-source creation must use the explicit typed `CreateHidden` host
+capability, preserve a detached visual tree until Show, and publish one stable
+source identity before SourceInitialized. Missing capability or invalid handles
+must not fall through to another renderer. Portable source handles are not native
+HWNDs; keep third-party native-handle calls behind their platform adapters.
+Popup creation selects by the owning presentation source and frozen media policy;
+existing popup operations select by source identity, including disposed-source
+cleanup. Never create an unhosted portable source after host rejection. Popup,
+ComboBox, menu and tooltip capture/focus checks must share the source-aware
+`PopupControlService` policy instead of treating portable identities as HWNDs.
+ProGPU root hosts register their typed popup service on every OS; native popup
+child hosts explicitly opt out. A supplied owner source is authoritative over
+opaque handles when the shared router probes multiple windows. The popup bridge
+owns its factory-created source and releases it on failed creation and teardown;
+main-window source bindings remain borrowed. A native-popup factory returning
+null selects owner-surface composition, but thrown native setup failures must
+release partial ownership and propagate, never silently switch surface kind.
+Popup placement must query its registered owner for actual surface kind before
+Show: native surfaces use monitor/work-area bounds, owner-surface popups use the
+real owner client rectangle. Missing monitor capability is an explicit failure,
+not permission to silently constrain native popups to the owner. Preserve host
+desktop coordinates; do not independently rescale monitor origins by content DPI.
+Owner DPI changes must publish popup owner origin and device scale together,
+parent before child. Never move a native popup with a new device origin and its
+old scale, then correct it in a second pass. Retain scale-only handling for
+unpositioned/legacy owners without moving already updated surfaces again.
+Client-to-desktop conversion uses the ProGPU-owned `PortableDesktopTransform`
+snapshot and optional `IPortableDesktopGeometryHost` source capability. Preserve
+its scale on legacy origin-only updates; framebuffer DPI is independent. Complete
+popup child/limit/offset/input conversion with host publication before selecting
+nonidentity desktop scale automatically; changing only screen anchors mixes units.
+Popup child extents, screen-edge nudging, size restrictions and absolute-placement
+offsets use the shared desktop vector mapping, not framebuffer DPI. Keep monitor
+bounds in desktop units and convert restricted sizes back to client DIPs; native
+HWND placement retains its existing device-transform route.
+Host desktop-scale publication and native pointer normalization must share the
+actual native client-size/content-scale policy. Legacy popup device coordinates
+remain desktop times transport DPI; decode that frame before mapping offsets to
+owner DIPs. Owner-surface overlays and input share those DIPs. Preserve independent
+native-popup client scale and parent-before-child geometry updates; framebuffer
+changes alone must not alter desktop scale. Do not remove Windows SDK admission
+guards before closing the remaining cross-monitor/native-source ownership path.
+Native popup owner-DPI updates must use `SetOwnerTransportScale` solely to decode
+legacy placement coordinates. Never forward them to the separately surfaced
+popup's presentation-source DPI; its native host owns framebuffer geometry after
+the initial seed. Owner-surface popups still inherit owner DPI. Keep single-move
+ordering fixtures and independent native-source DPI fixtures paired.
+Portable Windows popup hosts use ProGPU `NativePopupWindow` for owned,
+nonactivating top-level configuration. Native WPF HWND routing remains separate.
+Configure the real hidden native window before Show; reject and dispose it on
+configuration failure, never silently show it unowned or fall back to owner-surface
+placement after native selection. Keep native/managed renderers on the same host
+path and the Windows SDK guard until package startup integration is complete.
+Source-WPF geometry Combine must use the typed geometry operations provider and
+bounds-free operand export. Do not restore bounds-only boolean results or request
+CombinedGeometry.Bounds while exporting a combination. Groups preserve figure
+fill semantics, not child union semantics. Both renderer modes share the native
+topology utility; register before layout, fail explicitly when unavailable, and
+keep remaining Windows bounds/hit-test utility gaps separate from this route.
+Relative geometry-operation tolerance must use actual transformed curve extrema
+through the shared bounds reader, not Bezier control-hull bounds. Preserve the
+allocation-free materialized-path traversal rather than creating a second DTO
+snapshot just to infer tolerance bounds.
+Portable fill bounds and point queries must use the same typed geometry provider,
+preserve hollow figures and empty-versus-zero-size bounds, and select by frozen
+media backend rather than OS. Primitive MIL point/type arrays are source-owned
+transport to decode, not permission to compute bounds from their control hulls.
+Do not route contributing pens through these fill-only operations or broaden
+unsupported stroke hit tests into rectangle containment.
+Contributing-pen bounds and point hits route through the typed geometry provider
+using complete ProGPU query figures, source gaps, incoming joins and pen snapshots.
+Geometry-local transforms precede widening; the drawing/world transform follows
+it. Bounds union actual fill and emitted stroke, not an inflated fill rectangle.
+Primitive overrides must not bypass this route under portable media selection.
+Keep dash conversion intrinsic and default provider registration shared by both
+renderer modes; source-owned WPF transport remains decoding, not a second stroker.
+Geometry-region hit traversal must use the typed CompareFill provider before
+legacy MIL imports under portable media selection. Preserve first/second relation
+direction, first-operand relative tolerance and exact fill/clip topology; do not
+replace selection with envelope containment or swallow unsupported finite inputs.
+Memory-bitmap constructors and decode-failure replacement use the frozen media
+choice through `BitmapSource.UsesPortablePixelStorage`, not OS-based MIL storage.
+Cached sources consume managed pixel ownership directly. Every portable
+WriteableBitmap initialization/copy path must own pinned-heap storage before a
+lock exposes it; do not reintroduce a per-lock GCHandle that can leak when a
+locked bitmap is abandoned. Preserve typed pixel snapshots, source DPI/stride,
+clone independence, outermost-unlock publication and frozen write rejection.
+Palette analysis and BitmapFrame encoding consume actual source-owned pixels on
+every OS; portable media must reject missing storage before WIC access. Palette
+construction and encoder admission follow the same frozen media choice. Keep
+native Windows-MIL encoding separate, and reject unsupported portable containers
+and WIC codec-info/handle requests explicitly before activating a native codec.
+Existing portable palette enumeration and BMP serialization are not qualified
+WIC quantization/codec parity or evidence of complete SIMD implementation.
+
 ## Reflection-Free Port Priority
+
+Ordinary primitive guideline snapping must retain original input coordinates
+through ProGPU SourceHitTestGeometry. Keep typed native primitive ingress unsnapped,
+raster fields unchanged, real pen caps and source owner identity. Auxiliary cap
+draws must not create duplicate source coverage. Do not generalize this annotation
+to cached brush/mask/scroll geometry or introduce a WPF-local hit algorithm.
+
+System-menu host adapters resolve real native window/display ownership before
+calling ProGPU's shared provider. X11 uses the owner's advertised WM capability
+and native desktop coordinates, not an opaque WPF source handle or framebuffer
+DPI conversion. Temporary XI2 negotiation must not alter the host input display.
+Request submission is not menu-display evidence; keep Wayland and rejected X11
+environments explicit until their required capabilities are implemented. Cocoa
+selection must record an action without calling WPF during native tracking, then
+revalidate retained window/view/delegate identity and current native capabilities
+before invoking AppKit button-equivalent actions. Close must preserve delegate
+cancellation. Map the top-left desktop through the actual primary screen and
+AppKit view conversion, never the focus-dependent main screen or Retina pixels.
+
+Native MIL popup composition must use canonical visual placement and local
+geometry clips, never fake WPF roots or ScrollableAreaClip as a placement clip.
+Separately surfaced popups inherit the owner renderer and are excluded from
+owner-surface replay. Popup movement/content/visibility/removal must invalidate
+the native source snapshot independently of the main root, and frame scratch
+must release visual references after synchronous serialization.
 
 The ProGPU WPF port must now prioritize a reflection-free, high-performance implementation. Runtime reflection in the WPF bridge or ProGPU is temporary scaffolding only: keep it limited to compatibility probes, diagnostics, or transitional adapters that are documented with an exit path, and replace product hot-path reflection with typed/source-integrated seams as soon as the local blocker is handled.
 
-As the port approaches a workable MVP, performance and clean reflection-free code are release criteria, not polish. New WPF/progpu work should fail closed or add a typed portable seam when data is missing; do not keep samples alive by adding new duck-typed property probes, private-field scans, or reflection-based fake shapes.
+As the port approaches a workable Showcase, performance and clean reflection-free code are release criteria, not polish. New WPF/progpu work should fail closed or add a typed portable seam when data is missing; do not keep samples alive by adding new duck-typed property probes, private-field scans, or reflection-based fake shapes.
 
 The product bridge source is currently reflection-free by audit; keep that as an invariant while returning to broader SDK/sample work. New Xceed, SciChart, SDK smoke, input, clipping, hit-test, rendering, or platform fixes must use typed APIs, generated accessors, reusable ProGPU scene/vector/text primitives, or source-integrated WPF internals. Do not add managed WPF workarounds when the correct fix belongs in ProGPU rendering, shaders, layout/cache metadata, input, or DirectX/Silk.NET platform support.
+
+## GPU-First Compute and SIMD Fallback Priority
+
+Cached dashed linear path pens must use ProGPU's owned normalized dash spines and
+emitted-outline material bounds, keeping source fill geometry independent. Do
+not substitute ideal solid bounds, inflate fill bounds, silently discard terminal
+point caps, or introduce a WPF-local dash stroker. Preserve partial/unsupported
+reporting for representations that ProGPU cannot yet prepare exactly.
+When ProGPU returns a complete filled-coverage outline, consume it instead of
+stroking the spine again. Preserve one retained nonzero-fill mask, edge alias
+state, outer transforms and source leases; do not blend terminal caps as separate
+coverage draws or omit the optional payload through a legacy overload.
+
+General cached linear paths must delegate contour preparation and stroke bounds
+to ProGPU, preserve the original fill path independently from gap-split stroke
+coverage, and retain typed pen/source identity. Primitive and strict single-line
+shortcuts stay first; broader typed/local/native path consumers must not reduce
+closed, multi-segment or gapped contours to an endpoint pair.
+
+Cached ellipse and rounded-rectangle pens must use shared ProGPU smooth stroke
+preparation, retain one analytic path for fill and stroke, and report rejected
+pens even when fill succeeds. Direct commands preserve guideline snapping;
+geometry-local transforms precede widening without direct-shape snapping.
+Raw MIL must preserve typed pen brush identity and animation diagnostics.
+
+Cached RectangleGeometry replay should consume each typed primitive descriptor
+once, use ProGPU double corner mapping and shared closed-stroke preparation, and
+reuse the resulting immutable native path for fill and stroke. Source brush fills
+may use typed native-path clips directly; do not repack paths, create shim shapes,
+drop perspective components, or broaden affine geometry clips to their bounds.
+
+Cached rectangle pen consumers must preserve typed brush identity before material
+adaptation, record fill before stroke, and use the shared ProGPU closed-rectangle
+preparer for coverage and stroke-relative mapping. Preserve source dependencies,
+outer transforms and alias state. Unsupported dashed/degenerate or other shape
+pens must remain explicit partial/unsupported results, never successful fill-only
+draws or bridge-local fill-bound inflation.
+
+Cached line-geometry pens should consume `IPortablePrimitiveGeometrySource` before
+requesting packed paths. Apply geometry-local transforms to endpoints before
+shared stroke preparation, preserve outer transforms on completed coverage, and
+do not capture a fill brush for zero-area open lines. Single-line lowering must
+reject closed, curved, multi-segment and combined topology rather than treat it
+as a single line; unavailable typed descriptors must not trigger shape probing.
+
+Cached-brush pen replay must consume `IPortablePenStateSource` before color/gradient
+pen adaptation can erase raw brush identity. Retained dependency traversal must
+visit `PortablePenState.Brush`, including target and cache-policy resources. Keep
+line/dash coverage and cap-derived bounds in ProGPU; do not add a WPF-local stroker,
+silent epsilon dash replacement, reflected pen probes, or fill-bound inflation.
+
+Compute-heavy ProGPU and LibreWPF work must use a typed, configurable execution policy whose default selects the fastest qualified path. Prefer native compute shaders first. When a kernel is data-parallel and expressible without compute-only workgroup memory, barriers, atomics, indirect-dispatch semantics, or storage-write requirements, the next fallback must stay on the GPU through an equivalent render/fragment (or other compatible shader-stage) implementation. Do not jump directly from a rejected compute profile to CPU work when a same-device GPU shader path can preserve semantics and avoid readback/upload.
+
+GPU-stage fallbacks must share typed resources, algorithms, quality constants, and differential tests with the compute path, remain reusable across WPF, WinUI, and Avalonia, and expose the selected execution path through diagnostics. Configuration must support fastest/automatic, forced native-compute, forced compatible GPU-shader, forced intrinsic-SIMD CPU, and explicit scalar-reference modes. An incompatible forced path must fail closed; it must not silently select a slower or behaviorally reduced implementation. A GPU fallback must not introduce CPU pixel readback, CPU repacking, or per-item submissions merely to reuse a shader stage.
+
+Every CPU fallback and other compute-heavy CPU hot path must use hardware intrinsics or runtime-intrinsic SIMD whenever the algorithm has independent lanes. Managed code should prefer `Vector128<T>`/`Vector256<T>`/`Vector512<T>`, `Vector<T>`, and platform intrinsics with a bounded scalar tail. Native code should use a shared SIMD abstraction or explicit architecture intrinsics with compile-time/runtime feature selection and a bounded scalar tail. Whole-buffer scalar loops are permitted only where data dependencies make SIMD inapplicable or in an explicitly forced scalar reference/diagnostic path; document that reason and test SIMD output against the scalar oracle. Keep vector paths allocation-free, alignment-safe, span-based, and bit/quality compatible, and benchmark representative sizes before making speed claims.
 
 ProGPU PR #17 is merged to ProGPU `main`; continue ProGPU-side work from `main` instead of the old `fix/render-invalidation-and-leaks` branch. The WPF superproject submodule should track ProGPU `main`, and preview-release preparation should treat package production, package-mode SDK smoke, Xceed Toolkit/paid app fidelity, and ProGPU compositor quality/performance as current goals. ProGPU compositor APIs should remain reusable across WPF, WinUI, and Avalonia: host-specific layers may adapt input/windowing/surface ownership, but retained scene composition, clipping, effects, hit testing, text, and render-target lifetime should stay in ProGPU.
 
@@ -115,3 +778,5 @@ Render-data dependent-resource snapshots and MIL resource token setup should sta
 MIL render-data decode should avoid tiny per-record helper arrays and segment enumerators. Keep unsupported-animation-handle counting on fixed-arity overloads instead of `params int[]`, and replay primitive polyline segments through indexed `IReadOnlyList<WpfReplayLineSegment>` loops instead of `foreach`.
 
 Glyph-run bounds inference is a text-heavy Xceed/DataGrid replay hot path. Cache glyph origin, font size, and `GlyphPositions` arrays, prefer exact-sized cached `PortableNativeGlyphRun.GlyphPositions` arrays without copying, then use indexed loops in ProGPU command sinks, retained visual bounds accumulation, and drawing replay bounds inference. Do not reintroduce `foreach (var position in glyphRun.GlyphPositions)` in these paths.
+
+Cached-brush glyph coverage and relative material mapping must use `PortableGlyphRun.HasInkBounds`/`InkBounds` or `PortableNativeGlyphRun.HasInkBounds`/`InkBounds`. These bounds include baseline origin and precede the glyph transform. Source-built GlyphRun owns computing and caching them; adapters must include bounds availability/value in their cache key. Do not clip cached glyph coverage with font-size/advance boxes or silently invent bounds when the typed descriptor lacks ink metadata. Keep coverage as a retained glyph-run command and preserve caller-owned glyph arrays; ProGPU owns coverage masks, source leases and GPU composition.

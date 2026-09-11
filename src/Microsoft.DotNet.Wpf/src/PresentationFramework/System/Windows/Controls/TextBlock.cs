@@ -41,7 +41,8 @@ namespace System.Windows.Controls
     /// </summary>
     [ContentProperty("Inlines")]
     [Localizability(LocalizationCategory.Text)]
-    public class TextBlock : FrameworkElement, IContentHost, IAddChildInternal, IServiceProvider
+    public class TextBlock : FrameworkElement, IContentHost, IAddChildInternal, IServiceProvider,
+        global::ProGPU.Wpf.Interop.IPortablePointHitRegionSource
     {
         //-------------------------------------------------------------------
         //
@@ -1633,6 +1634,15 @@ Debug.Assert(lineCount == LineCount);
                 return new PointHitTestResult(this, hitTestParameters.HitPoint);
             }
             return null;
+        }
+
+        bool global::ProGPU.Wpf.Interop.IPortablePointHitRegionSource.TryGetPortablePointHitRegion(
+            out global::ProGPU.Wpf.Interop.PortableRect rectangle)
+        {
+            VerifyReentrancy();
+            Size size = RenderSize;
+            rectangle = new global::ProGPU.Wpf.Interop.PortableRect(0, 0, size.Width, size.Height);
+            return true;
         }
 
         /// <summary>

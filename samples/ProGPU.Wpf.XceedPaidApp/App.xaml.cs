@@ -178,7 +178,7 @@ public partial class App : Application
                 Padding = new Thickness(24),
                 Child = new TextBlock
                 {
-                    Text = "Set XCEED_TOOLKIT_LICENSE_KEY and XCEED_DATAGRID_LICENSE_KEY to run the paid Toolkit/DataGrid MVP sample.\n\n" +
+                    Text = "Set XCEED_TOOLKIT_LICENSE_KEY and XCEED_DATAGRID_LICENSE_KEY to run the paid Toolkit/DataGrid Showcase sample.\n\n" +
                            licenseStatus.DescribePublic(),
                     TextWrapping = TextWrapping.Wrap,
                     FontSize = 16

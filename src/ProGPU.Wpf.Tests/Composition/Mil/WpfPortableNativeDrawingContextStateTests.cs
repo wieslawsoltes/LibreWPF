@@ -26,7 +26,8 @@ public sealed class WpfPortableNativeDrawingContextStateTests
         Assert.DoesNotContain("System.Reflection", interop, StringComparison.Ordinal);
 
         Assert.Contains("private readonly Matrix3x2 _baseTransform;", graphics, StringComparison.Ordinal);
-        Assert.Contains("private Matrix3x2 CombinedTransform => _transform.Value * GetPageTransform() * _baseTransform;", graphics, StringComparison.Ordinal);
+        Assert.Contains("private Matrix3x2 CombinedTransform =>", graphics, StringComparison.Ordinal);
+        Assert.Contains("_transform.Value * GetPageTransform() * _containerTransform * _baseTransform;", graphics, StringComparison.Ordinal);
         Assert.Contains("public void ResetTransform()", graphics, StringComparison.Ordinal);
         Assert.Contains("_transform.Reset();", graphics, StringComparison.Ordinal);
         Assert.DoesNotContain("_baseTransform = Matrix3x2.Identity;", graphics, StringComparison.Ordinal);

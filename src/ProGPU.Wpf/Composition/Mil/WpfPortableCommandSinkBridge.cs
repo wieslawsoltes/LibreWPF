@@ -9,6 +9,19 @@ namespace System.Windows.Media.ProGPU.Composition.Mil;
 
 internal static class WpfPortableCommandSinkBridge
 {
+    public static bool TryPushOpacityMask(IWpfCompositionCommandSink sink, object? opacityMask,
+        WpfReplayRect bounds, Func<object?, System.Windows.Media.ImageSource?>? imageSourceAdapter = null)
+    {
+        if (opacityMask is global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource source)
+            return sink is IWpfBitmapCacheBrushCommandSink cachedSink
+                && cachedSink.PushBitmapCacheBrushOpacityMask(source, bounds, imageSourceAdapter);
+        if (opacityMask == null) { sink.PushNoOpScope(); return true; }
+        var brush = WpfResourceResolver.AdaptBrush(opacityMask);
+        if (brush == null) return false;
+        PushOpacityMask(sink, brush, bounds);
+        return true;
+    }
+
     public static void PushOpacityMask(
         IWpfCompositionCommandSink sink,
         MediaBrush? opacityMask,
@@ -113,7 +126,10 @@ internal static class WpfManagedCommandSinkBridge
     {
         sink.PushOpacityMask(
             opacityMask,
-            new System.Windows.Rect(bounds.X, bounds.Y, bounds.Width, bounds.Height));
+            bounds.X == double.PositiveInfinity && bounds.Y == double.PositiveInfinity
+                && bounds.Width == double.NegativeInfinity && bounds.Height == double.NegativeInfinity
+                ? System.Windows.Rect.Empty
+                : new System.Windows.Rect(bounds.X, bounds.Y, bounds.Width, bounds.Height));
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]

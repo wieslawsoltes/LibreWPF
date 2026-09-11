@@ -569,7 +569,9 @@ public sealed class WpfRenderDataSinkProviderBridgeTests
         Assert.Contains("using System.Runtime.InteropServices;", source, StringComparison.Ordinal);
         Assert.Contains("CollectionsMarshal.GetValueRefOrAddDefault(", source, StringComparison.Ordinal);
         Assert.Contains("private struct ReferenceOwnerSet", source, StringComparison.Ordinal);
-        Assert.Contains("!sourceOwners.TryGetSingle(out replaySource)", source, StringComparison.Ordinal);
+        Assert.Contains("private bool TryResolveReplayTargetForVisual(", source, StringComparison.Ordinal);
+        Assert.Contains("current = current.Parent)", source, StringComparison.Ordinal);
+        Assert.Contains("sourceOwners.TryGetSingle(out replaySource)", source, StringComparison.Ordinal);
         Assert.Contains("public void ClassifyAgainst(\n            object dirtySource,", source, StringComparison.Ordinal);
         Assert.Contains("public void ClassifyAgainst(\n            HashSet<object> dirtySources,", source, StringComparison.Ordinal);
         Assert.Contains("SelectTopLevelReplayTargets(_scratchReplayTargets)", source, StringComparison.Ordinal);
@@ -645,7 +647,7 @@ public sealed class WpfRenderDataSinkProviderBridgeTests
         Assert.Contains("var invalidatedVisualEnumerator = _scratchInvalidatedVisuals.GetEnumerator();", source, StringComparison.Ordinal);
         Assert.Contains("while (invalidatedVisualEnumerator.MoveNext())", source, StringComparison.Ordinal);
         Assert.Contains("ReferenceEquals(candidate.Comparer, ReferenceEqualityComparer.Instance)", source, StringComparison.Ordinal);
-        Assert.Contains("if (sourceOwners.Count == 1)\n            {\n                continue;\n            }\n\n            replayTargetConflictCount++;", source, StringComparison.Ordinal);
+        Assert.Contains("if (sourceOwners.Count == 1)\n            {\n                continue;\n            }\n\n            if (!TryResolveReplayTargetForVisual(visual, out _, out _))\n            {\n                replayTargetConflictCount++;\n            }", source, StringComparison.Ordinal);
         Assert.Contains("sourceOwners.ClassifyAgainst(\n                source,", source, StringComparison.Ordinal);
         Assert.Contains("sourceOwners.ClassifyAgainst(\n                    visitedSources,", source, StringComparison.Ordinal);
         Assert.Contains("hasDirtySourceOwner = _many.Contains(dirtySource);", source, StringComparison.Ordinal);

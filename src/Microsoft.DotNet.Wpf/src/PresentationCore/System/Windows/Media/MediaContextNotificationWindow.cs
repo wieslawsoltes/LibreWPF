@@ -11,6 +11,7 @@
 using System.Runtime.InteropServices;
 using MS.Internal.Interop;
 using MS.Win32;
+using ProGPU.Wpf.Interop;
 
 namespace System.Windows.Media
 {
@@ -26,7 +27,7 @@ namespace System.Windows.Media
         /// </summary>
         static MediaContextNotificationWindow()
         {
-            if (!s_isWindows)
+            if (!UsesWindowsMil)
             {
                 return;
             }
@@ -51,7 +52,7 @@ namespace System.Windows.Media
             // Remember the pointer to the owner MediaContext that we'll forward the broadcasts to.
             _ownerMediaContext = ownerMediaContext;
 
-            if (!s_isWindows)
+            if (!UsesWindowsMil)
             {
                 _isDisposed = false;
                 return;
@@ -90,7 +91,7 @@ namespace System.Windows.Media
         {
             if (!_isDisposed)
             {
-                if (!s_isWindows)
+                if (!UsesWindowsMil)
                 {
                     _ownerMediaContext = null;
                     _isDisposed = true;
@@ -137,7 +138,7 @@ namespace System.Windows.Media
         {
             ObjectDisposedException.ThrowIf(_isDisposed, typeof(MediaContextNotificationWindow));
 
-            if (!s_isWindows)
+            if (!UsesWindowsMil)
             {
                 return;
             }
@@ -235,7 +236,8 @@ namespace System.Windows.Media
 
         private bool _isDisposed;
 
-        private static readonly bool s_isWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
+        private static bool UsesWindowsMil =>
+            PortableWpfRuntime.GetMediaBackendAndFreeze() == PortableWpfMediaBackend.WindowsMil;
 
         // The owner MediaContext
         private MediaContext _ownerMediaContext;

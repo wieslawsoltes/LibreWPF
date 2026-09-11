@@ -11,6 +11,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Media3D;
 using System.Windows.Threading;
+using ProGPU.Wpf.Interop;
 
 namespace System.Windows.Controls
 {
@@ -19,6 +20,21 @@ namespace System.Windows.Controls
     /// </summary>
     internal sealed class PopupControlService
     {
+        // A portable HwndSource exposes a registry identity, not a user32 HWND.
+        // Source ownership takes precedence over the OS for popup input/focus.
+        internal static bool UsesNativeWindowing(PresentationSource source)
+        {
+            return OperatingSystem.IsWindows() &&
+                (source != null
+                    ? !PointUtil.IsPortablePresentationSource(source)
+                    : PortableWpfRuntime.GetMediaBackendAndFreeze() == PortableWpfMediaBackend.WindowsMil);
+        }
+
+        internal static bool HasNativeMouseCapture(PresentationSource source)
+        {
+            return UsesNativeWindowing(source) && MS.Win32.SafeNativeMethods.GetCapture() != IntPtr.Zero;
+        }
+
         #region Creation
 
         internal PopupControlService()
@@ -94,7 +110,7 @@ namespace System.Windows.Controls
                             // the mouse to the same item, the tooltip will reappear.  If
                             // the deactivation is coming from a window grabbing capture
                             // (such as Drag and Drop) do not clear the property.
-                            if (!OperatingSystem.IsWindows() || MS.Win32.SafeNativeMethods.GetCapture() == IntPtr.Zero)
+                            if (!HasNativeMouseCapture(mouseReport.InputSource))
                             {
                                 LastMouseToolTipOwner = null;
                             }
@@ -1750,4 +1766,3 @@ namespace System.Windows.Controls
         #endregion
     }
 }
-

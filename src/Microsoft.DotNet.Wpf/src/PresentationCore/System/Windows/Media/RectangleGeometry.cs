@@ -60,6 +60,17 @@ namespace System.Windows.Media
         }
 
         #endregion
+
+        internal override bool TryGetPortablePrimitiveGeometryCore(out ProGPU.Wpf.Interop.PortablePrimitiveGeometry geometry)
+        {
+            Rect rect = Rect;
+            geometry = ProGPU.Wpf.Interop.PortablePrimitiveGeometry.Rectangle(
+                PortableGeometryPathExporter.ToPortableRect(rect),
+                RadiusX,
+                RadiusY,
+                PortableGeometryPathExporter.ToPortableMatrix(Transform));
+            return !rect.IsEmpty;
+        }
         
         /// <summary>
         /// Gets the bounds of this Geometry as an axis-aligned bounding box
@@ -155,6 +166,8 @@ namespace System.Windows.Media
         /// </summary>
         internal override Rect GetBoundsInternal(Pen pen, Matrix worldMatrix, double tolerance, ToleranceType type)
         {
+            if (PortableGeometryOperationsBridge.IsPortable)
+                return base.GetBoundsInternal(pen, worldMatrix, tolerance, type);
             Matrix geometryMatrix;
             
             Transform.GetTransformValue(Transform, out geometryMatrix);
@@ -231,6 +244,9 @@ namespace System.Windows.Media
 
         internal override bool ContainsInternal(Pen pen, Point hitPoint, double tolerance, ToleranceType type)
         {
+            if (PortableGeometryOperationsBridge.IsPortable)
+                return base.ContainsInternal(pen, hitPoint, tolerance, type);
+
             if (IsEmpty())
             {
                 return false;

@@ -9,6 +9,7 @@
 //
 
 using System.Windows.Media.Composition;
+using ProGPU.Wpf.Interop;
 
 namespace System.Windows.Media.Animation
 {
@@ -21,7 +22,7 @@ namespace System.Windows.Media.Animation
     /// They subscribe to the Changed event on the AnimationClock and ensure
     /// that the resource's current value is up to date.
     /// </summary>
-    internal class SizeAnimationClockResource: AnimationClockResource, DUCE.IResource
+    internal class SizeAnimationClockResource: AnimationClockResource, DUCE.IResource, IPortableSizeAnimationValueSource
     {
         /// <summary>
         /// Constructor for public SizeAnimationClockResource.
@@ -79,6 +80,14 @@ namespace System.Windows.Media.Animation
                     return _baseValue;
                 }
             }
+        }
+
+        bool IPortableSizeAnimationValueSource.TryGetPortableSizeAnimationValue(
+            out PortableSize value)
+        {
+            Size current = CurrentValue;
+            value = new PortableSize(current.Width, current.Height);
+            return true;
         }
 
         #endregion Public Properties

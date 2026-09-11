@@ -128,6 +128,997 @@ public sealed class WpfVisualTreeRendererTests
     }
 
     [Fact]
+    public void CacheSourceSuppressesOuterRootStateButPreservesRasterStateAndDescendants()
+    {
+        var root = new FakePortableVisualStateDrawingVisual(CreateRenderData(Brushes.Red), new PortableVisualState
+        {
+            HasOffset = true, Offset = new PortablePoint(500, 400),
+            HasTransform = true, Transform = new object(),
+            HasClip = true, Clip = new object(),
+            HasOpacity = true, Opacity = 0.01,
+            HasOpacityMask = true, OpacityMask = new object(),
+            HasEffect = true, Effect = new object(),
+            HasBitmapEffect = true, BitmapEffect = new object(),
+            HasBitmapEffectInput = true, BitmapEffectInput = new object(),
+            HasCacheMode = true, CacheMode = new object(),
+            HasBitmapScalingMode = true, BitmapScalingMode = new FakeRenderingHint("NearestNeighbor"),
+            HasEdgeMode = true, EdgeMode = new FakeRenderingHint("Aliased"),
+            HasTextRenderingMode = true, TextRenderingMode = new FakeRenderingHint("ClearType"),
+            HasTextHintingMode = true, TextHintingMode = new FakeRenderingHint("Fixed"),
+            HasSnappingGuidelinesX = true, SnappingGuidelinesX = [1, 2],
+            HasSnappingGuidelinesY = true, SnappingGuidelinesY = [3]
+        });
+        root.Children.Add(new FakePortableVisualStateDrawingVisual(CreateRenderData(Brushes.Blue), new PortableVisualState
+        {
+            HasOffset = true, Offset = new PortablePoint(2, 3),
+            HasOpacity = true, Opacity = 0.5
+        }));
+        var sink = new TestSink();
+        var result = new WpfVisualTreeRenderer().ReplayBitmapCacheBrushSource(root, sink);
+        Assert.Equal(2, result.VisualCount);
+        Assert.Equal(2, sink.DrawRectangles.Count);
+        Assert.Equal(0, result.UnsupportedVisualStateCount);
+        Assert.Equal(0.5, Assert.Single(sink.Opacities));
+        Assert.Equal(2, Assert.Single(sink.NativeTransforms).M41);
+        Assert.Empty(sink.Clips);
+        Assert.Empty(sink.NativeClips);
+        Assert.Empty(sink.OpacityMasks);
+        Assert.Empty(sink.VisualEffects);
+        Assert.Empty(sink.VisualCacheBounds);
+        Assert.Single(sink.GuidelineSets);
+        Assert.Single(sink.BitmapScalingModes);
+        Assert.Single(sink.EdgeModes);
+        Assert.Single(sink.TextRenderingModes);
+        Assert.Single(sink.TextHintingModes);
+    }
+
+    [Fact]
+    public void CacheSourceRejectsCyclesAndRecoversRendererAfterFailure()
+    {
+        var root = new FakePortableVisualStateDrawingVisual(null, new PortableVisualState());
+        root.Children.Add(root);
+        var renderer = new WpfVisualTreeRenderer();
+        Assert.Throws<InvalidOperationException>(() => renderer.ReplayBitmapCacheBrushSource(root, new TestSink()));
+        var leaf = new FakePortableVisualStateDrawingVisual(CreateRenderData(Brushes.Red), new PortableVisualState());
+        Assert.Equal(1, renderer.ReplayBitmapCacheBrushSource(leaf, new TestSink()).VisualCount);
+        var shared = new FakePortableVisualStateDrawingVisual(null, new PortableVisualState());
+        shared.Children.Add(leaf);
+        shared.Children.Add(leaf);
+        Assert.Throws<InvalidOperationException>(() => renderer.ReplayBitmapCacheBrushSource(shared, new TestSink()));
+    }
+
+    [Fact]
+    public void CacheSourceRejectsRootScrollClipAndMissingTypedState()
+    {
+        var root = new FakePortableVisualStateDrawingVisual(null, new PortableVisualState
+        {
+            HasScrollableAreaClip = true, ScrollableAreaClip = new PortableRect(0, 0, 10, 10)
+        });
+        Assert.Throws<NotSupportedException>(() => new WpfVisualTreeRenderer().ReplayBitmapCacheBrushSource(root, new TestSink()));
+        Assert.Throws<NotSupportedException>(() => new WpfVisualTreeRenderer().ReplayBitmapCacheBrushSource(new object(), new TestSink()));
+    }
+
+    [Fact]
+    public void CacheSourceRejectsDrawingCyclesAcrossReplayLayers()
+    {
+        var state = new PortableDrawingGroupState();
+        var drawing = new ThrowingPortableDrawingGroup(state);
+        state.Children = [drawing];
+        var payload = new byte[8];
+        WriteUInt32(payload, 0, 1);
+        var record = CreateRecord(WpfMilCommandId.DrawDrawing, payload);
+        var content = new FakeRenderData(record, record.Length, new FakeDependentResources(drawing));
+        var root = new FakePortableVisualStateDrawingVisual(content, new PortableVisualState());
+        Assert.Throws<InvalidOperationException>(() => new WpfVisualTreeRenderer().ReplayBitmapCacheBrushSource(root, new TestSink()));
+    }
+
+    [Fact]
+    public void CacheSourceBoundsTraversalRejectsCyclesAndRecovers()
+    {
+        var state = new PortableDrawingGroupState();
+        var drawing = new ThrowingPortableDrawingGroup(state);
+        state.Children = [drawing];
+        using (WpfCaptureReplayGuard.Begin())
+        {
+            using var replayScope = WpfCaptureReplayGuard.Enter(drawing);
+            Assert.Throws<InvalidOperationException>(() => WpfDrawingReplay.TryGetDrawingBounds(drawing, null, out _));
+            state.Children = [];
+            // A legal bounds query for the drawing currently being replayed
+            // must not conflict with replay ancestry after the failed query.
+            Assert.False(WpfDrawingReplay.TryGetDrawingBounds(drawing, null, out _));
+        }
+        Assert.False(WpfCaptureReplayGuard.IsActive);
+        using (WpfCaptureReplayGuard.Begin())
+        {
+            using var replayScope = WpfCaptureReplayGuard.Enter(drawing);
+            using var nestedCapture = WpfCaptureReplayGuard.Begin();
+            Assert.Throws<InvalidOperationException>(() => WpfCaptureReplayGuard.Enter(drawing));
+            Assert.False(WpfDrawingReplay.TryGetDrawingBounds(drawing, null, out _));
+        }
+        Assert.False(WpfCaptureReplayGuard.IsActive);
+    }
+
+    [Fact]
+    public void BitmapCacheBrushCaptureProducesOwnedPictureAndSeparatePolicy()
+    {
+        var targetCache = new CaptureCache(new(3, true, false));
+        var root = new FakePortableVisualStateDrawingVisual(CreateRenderData(Brushes.Red), new PortableVisualState
+        {
+            HasOpacity = true, Opacity = 0.25,
+            HasCacheMode = true, CacheMode = targetCache
+        }) { Bounds = new Rect(1, 2, 30, 40) };
+        var descriptor = new ProGPU.Wpf.Interop.PortableBitmapCacheBrush(root, Opacity: 0.5);
+        using var capture = WpfBitmapCacheBrushCapture.Create(new CaptureBrush(descriptor));
+        Assert.Equal(1, capture.Picture.CommandCount);
+        Assert.Equal(1, capture.Bounds.X);
+        Assert.Equal(30, capture.Bounds.Width);
+        Assert.Equal(3, capture.CachePolicy.RenderAtScale);
+        Assert.False(capture.CachePolicy.SnapsToDevicePixels);
+        Assert.Equal(0.5, capture.Brush.Opacity);
+        Assert.Same(root, capture.Brush.InternalTarget);
+        using var cached = capture.CreateCachedPicture();
+        Assert.Equal(3, cached.RenderScale);
+        Assert.False(cached.EnableClearType);
+        capture.UpdateCachedPicture(cached);
+        using var clone = capture.Picture.Clone();
+        capture.Dispose();
+        Assert.Equal(1, clone.CommandCount);
+        using var empty = WpfBitmapCacheBrushCapture.Create(new CaptureBrush(new(null)));
+        Assert.Equal(0, empty.Picture.CommandCount);
+        using var zero = WpfBitmapCacheBrushCapture.Create(new CaptureBrush(new(root, new CaptureCache(new(0, true, true)))));
+        Assert.Equal(0, zero.Picture.CommandCount);
+        Assert.True(zero.CachePolicy.EnableClearType);
+    }
+
+    private sealed class CaptureBrush(ProGPU.Wpf.Interop.PortableBitmapCacheBrush value)
+        : ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource
+    {
+        public bool TryGetPortableBitmapCacheBrush(out ProGPU.Wpf.Interop.PortableBitmapCacheBrush brush)
+        { brush = value; return true; }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void GeometryCacheBrushFillSharesSourceAndCommandOwnedSubscriptions(bool objectRenderData)
+    {
+        var target = new FakePortableVisualStateDrawingVisual(CreateRenderData(Brushes.Red), new PortableVisualState())
+        { Bounds = new Rect(1, 2, 30, 40) };
+        var policy = new EventCaptureCache { Value = new(1, false, false) };
+        var brush = new EventCaptureBrush { Value = new(target, policy, Opacity: 0.5) };
+        var otherBrush = new EventCaptureBrush { Value = new(target, policy, Opacity: 0.25) };
+        var geometry = new RectangleGeometry(new Rect(0, 0, 20, 20));
+        var commands = new global::ProGPU.Scene.DrawingContext();
+        try
+        {
+            using var sink = new ProGpuCompositionCommandSink(commands);
+            if (objectRenderData)
+            {
+                using var replay = new WpfObjectRenderDataDrawingContext(sink);
+                replay.DrawGeometry(brush, null, geometry);
+                replay.DrawGeometry(otherBrush, null, geometry);
+                Assert.Equal(0, replay.Result.UnsupportedCount);
+            }
+            else
+            {
+                var drawing = new ThrowingPortableGeometryDrawing(new PortableGeometryDrawingState
+                { HasGeometry = true, Geometry = geometry, HasBrush = true, Brush = brush });
+                Assert.Equal(WpfDrawingReplayStatus.Applied, WpfDrawingReplay.Replay(drawing, sink));
+                var otherDrawing = new ThrowingPortableGeometryDrawing(new PortableGeometryDrawingState
+                { HasGeometry = true, Geometry = geometry, HasBrush = true, Brush = otherBrush });
+                Assert.Equal(WpfDrawingReplayStatus.Applied, WpfDrawingReplay.Replay(otherDrawing, sink));
+                Assert.Equal(0, drawing.ReflectedStateProbeCount);
+            }
+            Assert.Equal(1, commands.RetainedResourceCount);
+            var sources = commands.Commands.Where(command => command.Type == global::ProGPU.Scene.RenderCommandType.DrawVisual).ToArray();
+            Assert.Equal(2, sources.Length);
+            Assert.Same(sources[0].Visual, sources[1].Visual);
+            Assert.Equal(0, brush.SubscriptionCount);
+            Assert.Equal(1, policy.SubscriptionCount);
+            Assert.Contains(commands.Commands, command => command.Type == global::ProGPU.Scene.RenderCommandType.PushClip);
+            Assert.Contains(commands.Commands, command => command.Type == global::ProGPU.Scene.RenderCommandType.PushOpacity);
+        }
+        finally { commands.Clear(); }
+        Assert.Equal(0, brush.SubscriptionCount);
+        Assert.Equal(0, policy.SubscriptionCount);
+    }
+
+    [Fact]
+    public void SharedCacheBrushCaptureDoesNotFollowTheFirstBrushToAnotherTarget()
+    {
+        var firstTarget = new FakePortableVisualStateDrawingVisual(CreateRenderData(Brushes.Red), new PortableVisualState())
+        { Bounds = new Rect(0, 0, 20, 20) };
+        var secondTarget = new FakePortableVisualStateDrawingVisual(CreateRenderData(Brushes.Green), new PortableVisualState())
+        { Bounds = new Rect(0, 0, 40, 40) };
+        var brush = new EventCaptureBrush { Value = new(firstTarget) };
+        var otherBrush = new EventCaptureBrush { Value = new(firstTarget, Opacity: 0.25) };
+        using var first = WpfBitmapCacheBrushSourceLookup.Acquire(brush, null, null, null);
+        using var other = WpfBitmapCacheBrushSourceLookup.Acquire(otherBrush, null, null, null);
+        Assert.Same(first.Picture, other.Picture);
+        brush.Value = new(secondTarget);
+        brush.Change();
+        Assert.False(other.Picture.IsSourceDirty);
+        using var changed = WpfBitmapCacheBrushSourceLookup.Acquire(brush, null, null, null);
+        Assert.NotSame(other.Picture, changed.Picture);
+        Assert.Equal(20, other.Picture.Bounds.Width);
+        Assert.Equal(40, changed.Picture.Bounds.Width);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    public void CachedOpacityMasksRetainTypedSourceAcrossAllBoundedScopes(int scope)
+    {
+        var target = new FakePortableVisualStateDrawingVisual(CreateRenderData(Brushes.Red), new PortableVisualState())
+        { Bounds = new Rect(0, 0, 30, 30) };
+        var policy = new EventCaptureCache { Value = new(1, false, false) };
+        var brush = new CaptureBrush(new(target, policy, Opacity: 0.5,
+            HasTransform: true, Transform: new PortableMatrix3x2(1, 0, 0, 1, 2, 3)));
+        var commands = new global::ProGPU.Scene.DrawingContext();
+        try
+        {
+            using var sink = new ProGpuCompositionCommandSink(commands);
+            if (scope == 0)
+            {
+                using var replay = new WpfObjectRenderDataDrawingContext(sink);
+                replay.PushOpacityMask(brush, new PortableRect(0, 0, 30, 30));
+                replay.DrawRectangle(Brushes.Blue, null, new Rect(0, 0, 30, 30));
+                replay.Pop();
+                Assert.Equal(0, replay.Result.UnsupportedCount);
+            }
+            else if (scope == 1)
+            {
+                var child = new ThrowingPortableGeometryDrawing(new PortableGeometryDrawingState
+                { HasGeometry = true, Geometry = new PortableRect(0, 0, 30, 30), HasBrush = true, Brush = Brushes.Blue });
+                var group = new ThrowingPortableDrawingGroup(new PortableDrawingGroupState
+                { HasOpacityMask = true, OpacityMask = brush, Children = [child] });
+                Assert.Equal(WpfDrawingReplayStatus.Applied, WpfDrawingReplay.Replay(group, sink));
+                Assert.Equal(0, group.ReflectedStateProbeCount);
+            }
+            else if (scope == 2)
+            {
+                var visual = new FakePortableVisualStateDrawingVisual(CreateRenderData(Brushes.Blue),
+                    new PortableVisualState { HasOpacityMask = true, OpacityMask = brush })
+                { Bounds = new Rect(0, 0, 30, 30) };
+                var result = new WpfVisualTreeRenderer().ReplaySubtree(visual, sink);
+                Assert.Equal(0, result.UnsupportedVisualStateCount);
+            }
+            else
+            {
+                var registry = new WpfMilResourceRegistry();
+                registry.Register(1, brush);
+                registry.Register(2, Brushes.Blue);
+                byte[] mask = new byte[24], fill = new byte[40];
+                WriteInt32(mask, 8, BitConverter.SingleToInt32Bits(30));
+                WriteInt32(mask, 12, BitConverter.SingleToInt32Bits(30));
+                WriteInt32(mask, 16, 1);
+                WriteDouble(fill, 16, 30); WriteDouble(fill, 24, 30); WriteInt32(fill, 32, 2);
+                byte[] stream = [.. CreateRecord(WpfMilCommandId.PushOpacityMask, mask),
+                    .. CreateRecord(WpfMilCommandId.DrawRectangle, fill), .. CreateRecord(WpfMilCommandId.Pop, [])];
+                Assert.Equal(new WpfMilDecodeResult(3, 3, 0, 0), new WpfMilRenderDataDecoder().Decode(stream, sink, registry));
+            }
+            var maskCommand = Assert.Single(commands.Commands.Where(value => value.Type == global::ProGPU.Scene.RenderCommandType.PushOpacityMask));
+            Assert.NotNull(maskCommand.Picture);
+            Assert.Equal(3, maskCommand.Picture!.CommandCount);
+            Assert.Equal(0.5f, maskCommand.Picture.GetCommand(0).FontSize);
+            var sourceDraw = maskCommand.Picture.GetCommand(1);
+            Assert.Equal(global::ProGPU.Scene.RenderCommandType.DrawVisual, sourceDraw.Type);
+            Assert.Equal(Matrix4x4.CreateTranslation(2, 3, 0), sourceDraw.Transform);
+            Assert.Single(commands.Commands.Where(value => value.Type == global::ProGPU.Scene.RenderCommandType.PopOpacityMask));
+            Assert.Equal(1, policy.SubscriptionCount);
+        }
+        finally { commands.Clear(); }
+        Assert.Equal(0, policy.SubscriptionCount);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void CachedGlyphBrushUsesAuthoritativeInkBoundsAndRetainedGlyphCoverage(bool mil)
+    {
+        var target = new FakePortableVisualStateDrawingVisual(CreateRenderData(Brushes.Red), new PortableVisualState())
+        { Bounds = new Rect(0, 0, 30, 30) };
+        var brush = new CaptureBrush(new(target, Opacity: 0.5));
+        var glyph = new global::ProGPU.Wpf.Interop.PortableNativeGlyphRun
+        {
+            GlyphIndices = [3, 4], GlyphPositions = [Vector2.Zero, new Vector2(8, 0)],
+            BaselineOrigin = new Vector2(10, 20), FontRenderingEmSize = 12,
+            FontFamilyNames = ["Arial"], HasInkBounds = true,
+            InkBounds = new PortableRect(8, 8, 22, 18),
+            HasTransform = true, Transform = Matrix4x4.CreateTranslation(2, 3, 0)
+        };
+        var commands = new global::ProGPU.Scene.DrawingContext();
+        try
+        {
+            using var sink = new ProGpuCompositionCommandSink(commands);
+            if (mil)
+            {
+                var resources = new WpfMilResourceRegistry();
+                resources.Register(1, brush); resources.Register(2, glyph);
+                byte[] payload = new byte[8]; WriteInt32(payload, 0, 1); WriteInt32(payload, 4, 2);
+                Assert.Equal(new WpfMilDecodeResult(1, 1, 0, 0),
+                    new WpfMilRenderDataDecoder().Decode(CreateRecord(WpfMilCommandId.DrawGlyphRun, payload), sink, resources));
+            }
+            else
+            {
+                using var replay = new WpfObjectRenderDataDrawingContext(sink);
+                replay.DrawGlyphRun(brush, glyph);
+                Assert.Equal(0, replay.Result.UnsupportedCount);
+            }
+            var mask = commands.Commands[0];
+            Assert.Equal(global::ProGPU.Scene.RenderCommandType.PushOpacityMask, mask.Type);
+            Assert.Equal(new global::ProGPU.Scene.Rect(8, 8, 22, 18), mask.Rect);
+            Assert.Equal(glyph.Transform, mask.Transform);
+            Assert.Equal(1, mask.Picture!.CommandCount);
+            var coverage = mask.Picture.GetCommand(0);
+            Assert.Equal(global::ProGPU.Scene.RenderCommandType.DrawGlyphRun, coverage.Type);
+            Assert.Same(glyph.GlyphIndices, coverage.GlyphIndices);
+            Assert.Same(glyph.GlyphPositions, coverage.GlyphPositions);
+            Assert.Equal(global::ProGPU.Scene.TextRenderingMode.Grayscale, coverage.TextRenderingMode);
+            Assert.Single(commands.Commands.Where(value => value.Type == global::ProGPU.Scene.RenderCommandType.DrawVisual));
+            Assert.Equal(global::ProGPU.Scene.RenderCommandType.PopOpacityMask, commands.Commands[^1].Type);
+        }
+        finally { commands.Clear(); }
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void CachedLinePenUsesTypedStateAndStrokeBounds(bool mil, bool dashed)
+    {
+        var target = new FakePortableVisualStateDrawingVisual(CreateRenderData(Brushes.Red), new PortableVisualState())
+        { Bounds = new Rect(0, 0, 30, 30) };
+        var brush = new CaptureBrush(new(target, Opacity: 0.5));
+        var pen = new CapturePen(new(brush, 4,
+            global::ProGPU.Wpf.Interop.PortablePenLineCap.Round,
+            global::ProGPU.Wpf.Interop.PortablePenLineCap.Flat,
+            global::ProGPU.Wpf.Interop.PortablePenLineCap.Square,
+            global::ProGPU.Wpf.Interop.PortablePenLineJoin.Miter, 10,
+            dashed ? new double[] { 2, 1 } : System.Array.Empty<double>(), 0.25));
+        var commands = new global::ProGPU.Scene.DrawingContext();
+        try
+        {
+            using var sink = new ProGpuCompositionCommandSink(commands);
+            if (mil)
+            {
+                var resources = new WpfMilResourceRegistry();
+                resources.Register(1, pen);
+                byte[] payload = new byte[40];
+                WriteDouble(payload, 0, 10); WriteDouble(payload, 8, 20);
+                WriteDouble(payload, 16, 30); WriteDouble(payload, 24, 20);
+                WriteInt32(payload, 32, 1);
+                Assert.Equal(new WpfMilDecodeResult(1, 1, 0, 0),
+                    new WpfMilRenderDataDecoder().Decode(CreateRecord(WpfMilCommandId.DrawLine, payload), sink, resources));
+            }
+            else
+            {
+                using var replay = new WpfObjectRenderDataDrawingContext(sink);
+                replay.DrawLine(pen, new PortablePoint(10, 20), new PortablePoint(30, 20));
+                Assert.Equal(0, replay.Result.UnsupportedCount);
+            }
+            var mask = commands.Commands[0];
+            Assert.Equal(global::ProGPU.Scene.RenderCommandType.PushOpacityMask, mask.Type);
+            Assert.Null(mask.Picture);
+            Assert.NotNull(mask.Path);
+            Assert.False(mask.Pen!.HasDashPattern);
+            if (!dashed) Assert.Equal(new global::ProGPU.Scene.Rect(8, 18, 22, 4), mask.Rect);
+            Assert.Single(commands.Commands.Where(value => value.Type == global::ProGPU.Scene.RenderCommandType.DrawVisual));
+            Assert.Equal(global::ProGPU.Scene.RenderCommandType.PopOpacityMask, commands.Commands[^1].Type);
+        }
+        finally { commands.Clear(); }
+    }
+
+    [Theory]
+    [InlineData(0, 0)]
+    [InlineData(0, 1)]
+    [InlineData(0, 2)]
+    [InlineData(1, 0)]
+    [InlineData(1, 1)]
+    [InlineData(1, 2)]
+    [InlineData(2, 2)]
+    public void CachedRectanglePenPreservesFillAndClosedStroke(int route, int fillKind)
+    {
+        var target = new FakePortableVisualStateDrawingVisual(CreateRenderData(Brushes.Red), new PortableVisualState())
+        { Bounds = new Rect(0, 0, 30, 30) };
+        var brush = new CaptureBrush(new(target, Opacity: 0.5, HasRelativeTransform: true,
+            RelativeTransform: new(0.5, 0, 0, 0.5, 0.25, 0.25)));
+        var pen = new CapturePen(new(brush, 4, default, default, default,
+            global::ProGPU.Wpf.Interop.PortablePenLineJoin.Miter, 10, default, 0));
+        object? fill = fillKind == 0 ? null : fillKind == 1 ? Brushes.Blue : brush;
+        var commands = new global::ProGPU.Scene.DrawingContext();
+        try
+        {
+            using var sink = new ProGpuCompositionCommandSink(commands);
+            if (route != 0)
+            {
+                var resources = new WpfMilResourceRegistry();
+                resources.Register(1, pen);
+                if (fill != null) resources.Register(2, fill);
+                byte[] payload = new byte[route == 2 ? 48 : 40];
+                WriteDouble(payload, 0, 8); WriteDouble(payload, 8, 8);
+                WriteDouble(payload, 16, 48); WriteDouble(payload, 24, 48);
+                WriteInt32(payload, 32, fill == null ? 0 : 2); WriteInt32(payload, 36, 1);
+                Assert.Equal(new WpfMilDecodeResult(1, 1, 0, 0), new WpfMilRenderDataDecoder().Decode(
+                    CreateRecord(route == 2 ? WpfMilCommandId.DrawRectangleAnimate : WpfMilCommandId.DrawRectangle, payload),
+                    sink, resources));
+            }
+            else
+            {
+                using var replay = new WpfObjectRenderDataDrawingContext(sink);
+                replay.DrawRectangle(fill, pen, new PortableRect(8, 8, 48, 48));
+                Assert.Equal(0, replay.Result.UnsupportedCount);
+            }
+            var mask = Assert.Single(commands.Commands.Where(value =>
+                value.Type == global::ProGPU.Scene.RenderCommandType.PushOpacityMask && value.Pen != null));
+            Assert.Equal(new global::ProGPU.Scene.Rect(6, 6, 52, 52), mask.Rect);
+            Assert.True(Assert.Single(mask.Path!.Figures).IsClosed);
+            Assert.Equal(global::ProGPU.Vector.PenLineJoin.Miter, mask.Pen!.LineJoin);
+            Assert.Equal(fillKind == 2 ? 2 : 1, commands.Commands.Count(value =>
+                value.Type == global::ProGPU.Scene.RenderCommandType.DrawVisual));
+            var strokeSource = commands.Commands.Last(value => value.Type == global::ProGPU.Scene.RenderCommandType.DrawVisual);
+            Assert.Equal(16, strokeSource.Transform.M41);
+            Assert.Equal(16, strokeSource.Transform.M42);
+            Assert.Equal(global::ProGPU.Scene.RenderCommandType.PopOpacityMask, commands.Commands[^1].Type);
+        }
+        finally { commands.Clear(); }
+    }
+
+    [Fact]
+    public void DashedCachedRectangleReportsUnsupportedStrokeWithoutDroppingFill()
+    {
+        var target = new FakePortableVisualStateDrawingVisual(CreateRenderData(Brushes.Red), new PortableVisualState());
+        var brush = new CaptureBrush(new(target));
+        var pen = new CapturePen(new(brush, 4, default, default, default, default, 10, new double[] { 2, 1 }, 0));
+        var commands = new global::ProGPU.Scene.DrawingContext();
+        try
+        {
+            using var sink = new ProGpuCompositionCommandSink(commands);
+            using var replay = new WpfObjectRenderDataDrawingContext(sink);
+            replay.DrawRectangle(Brushes.Blue, pen, new PortableRect(8, 8, 48, 48));
+            Assert.True(replay.Result.UnsupportedCount > 0);
+            Assert.Single(commands.Commands.Where(value => value.Type == global::ProGPU.Scene.RenderCommandType.DrawRect));
+            Assert.DoesNotContain(commands.Commands, value => value.Type == global::ProGPU.Scene.RenderCommandType.DrawVisual);
+        }
+        finally { commands.Clear(); }
+    }
+
+    private sealed class CapturePen(global::ProGPU.Wpf.Interop.PortablePenState state)
+        : global::ProGPU.Wpf.Interop.IPortablePenStateSource
+    {
+        public bool TryGetPortablePenState(out global::ProGPU.Wpf.Interop.PortablePenState value)
+        { value = state; return true; }
+    }
+
+    [Theory]
+    [InlineData(0, true, false)]
+    [InlineData(1, true, false)]
+    [InlineData(2, true, false)]
+    [InlineData(0, false, false)]
+    [InlineData(1, false, false)]
+    [InlineData(2, false, false)]
+    [InlineData(0, true, true)]
+    [InlineData(1, false, true)]
+    [InlineData(2, true, true)]
+    public void CachedLineGeometryPenKeepsTransformBeforeWidening(int route, bool primitive, bool dashed)
+    {
+        var target = new FakePortableVisualStateDrawingVisual(CreateRenderData(Brushes.Red), new PortableVisualState())
+        { Bounds = new Rect(0, 0, 30, 30) };
+        var brush = new CaptureBrush(new(target, HasRelativeTransform: true,
+            RelativeTransform: new(0.5, 0, 0, 0.5, 0.25, 0.25)));
+        // A line's unused fill must never trigger capture of this unavailable source.
+        var fill = new CaptureBrush(new(new object()));
+        var pen = new CapturePen(new(brush, 4,
+            global::ProGPU.Wpf.Interop.PortablePenLineCap.Round,
+            global::ProGPU.Wpf.Interop.PortablePenLineCap.Flat,
+            global::ProGPU.Wpf.Interop.PortablePenLineCap.Square,
+            global::ProGPU.Wpf.Interop.PortablePenLineJoin.Miter, 10,
+            dashed ? new double[] { 2, 1 } : System.Array.Empty<double>(), 0.25));
+        var geometry = new CaptureLineGeometry(primitive);
+        var commands = new global::ProGPU.Scene.DrawingContext();
+        try
+        {
+            using var sink = new ProGpuCompositionCommandSink(commands);
+            if (route == 0)
+            {
+                using var replay = new WpfObjectRenderDataDrawingContext(sink);
+                replay.DrawGeometry(fill, pen, geometry);
+                Assert.Equal(0, replay.Result.UnsupportedCount);
+            }
+            else if (route == 1)
+            {
+                var drawing = new ThrowingPortableGeometryDrawing(new PortableGeometryDrawingState
+                { HasGeometry = true, Geometry = geometry, HasPen = true, Pen = pen, HasBrush = true, Brush = fill });
+                Assert.Equal(WpfDrawingReplayStatus.Applied, WpfDrawingReplay.Replay(drawing, sink));
+            }
+            else
+            {
+                var resources = new WpfMilResourceRegistry();
+                resources.Register(1, fill); resources.Register(2, pen); resources.Register(3, geometry);
+                byte[] payload = new byte[16];
+                WriteInt32(payload, 0, 1); WriteInt32(payload, 4, 2); WriteInt32(payload, 8, 3);
+                Assert.Equal(new WpfMilDecodeResult(1, 1, 0, 0), new WpfMilRenderDataDecoder().Decode(
+                    CreateRecord(WpfMilCommandId.DrawGeometry, payload), sink, resources));
+            }
+            var mask = commands.Commands[0];
+            Assert.Equal(global::ProGPU.Scene.RenderCommandType.PushOpacityMask, mask.Type);
+            Assert.Equal(4f, mask.Pen!.Thickness);
+            var sourceDraw = Assert.Single(commands.Commands.Where(command => command.Type == global::ProGPU.Scene.RenderCommandType.DrawVisual));
+            if (!dashed)
+            {
+                Assert.Equal(new global::ProGPU.Scene.Rect(21, 12, 42, 4), mask.Rect);
+                Assert.Equal(21f, sourceDraw.Transform.M41);
+                Assert.Equal(7f, sourceDraw.Transform.M42);
+            }
+        }
+        finally { commands.Clear(); }
+    }
+
+    private sealed class CaptureLineGeometry(bool primitive)
+        : global::ProGPU.Wpf.Interop.IPortablePrimitiveGeometrySource,
+          global::ProGPU.Wpf.Interop.IPortableGeometryPathSource
+    {
+        public bool TryGetPortablePrimitiveGeometry(out global::ProGPU.Wpf.Interop.PortablePrimitiveGeometry value)
+        {
+            value = global::ProGPU.Wpf.Interop.PortablePrimitiveGeometry.Line(new(10, 20), new(30, 20), new(2, 0, 0, 0.5, 3, 4));
+            return primitive;
+        }
+        public bool TryGetPortableGeometryPath(out global::ProGPU.Wpf.Interop.PortableGeometryPath path)
+        {
+            if (primitive) throw new System.InvalidOperationException("Primitive line replay must not request a packed path.");
+            path = new()
+            {
+                Transform = new(2, 0, 0, 0.5, 3, 4),
+                Figures = [new() { StartPoint = new(10, 20),
+                    Segments = [global::ProGPU.Wpf.Interop.PortablePathSegment.Line(new(30, 20), false, true)] }]
+            };
+            return true;
+        }
+    }
+
+    [Fact]
+    public void LocalCachedRectangleGeometrySharesFillAndStrokePath()
+    {
+        var target = new FakePortableVisualStateDrawingVisual(CreateRenderData(Brushes.Red), new PortableVisualState())
+        { Bounds = new Rect(0, 0, 30, 30) };
+        var brush = new CaptureBrush(new(target));
+        var pen = new CapturePen(new(brush, 4, default, default, default, default, 10, default, 0));
+        var commands = new global::ProGPU.Scene.DrawingContext();
+        try
+        {
+            using var sink = new ProGpuCompositionCommandSink(commands);
+            using var replay = new WpfObjectRenderDataDrawingContext(sink);
+            replay.DrawGeometry(brush, pen, new RectangleGeometry(new Rect(8, 8, 20, 20)));
+            Assert.Equal(0, replay.Result.UnsupportedCount);
+            Assert.Equal(2, commands.Commands.Count(command => command.Type == global::ProGPU.Scene.RenderCommandType.DrawVisual));
+            var clip = Assert.Single(commands.Commands.Where(command => command.Type == global::ProGPU.Scene.RenderCommandType.PushGeometryClip));
+            var mask = Assert.Single(commands.Commands.Where(command => command.Type == global::ProGPU.Scene.RenderCommandType.PushOpacityMask));
+            Assert.Same(clip.Path, mask.Path);
+        }
+        finally { commands.Clear(); }
+    }
+
+    [Theory]
+    [InlineData(0, false)]
+    [InlineData(0, true)]
+    [InlineData(1, false)]
+    [InlineData(1, true)]
+    [InlineData(2, false)]
+    [InlineData(2, true)]
+    public void PrimitiveRectangleGeometryMapsBeforeWideningWithoutPackedPaths(int route, bool cachedFill)
+    {
+        var target = new FakePortableVisualStateDrawingVisual(CreateRenderData(Brushes.Red), new PortableVisualState())
+        { Bounds = new Rect(0, 0, 30, 30) };
+        var brush = new CaptureBrush(new(target, HasRelativeTransform: true,
+            RelativeTransform: new(0.5, 0, 0, 0.5, 0.25, 0.25)));
+        object fill = cachedFill ? brush : Brushes.Blue;
+        var pen = new CapturePen(new(brush, 4, default, default, default,
+            global::ProGPU.Wpf.Interop.PortablePenLineJoin.Miter, 10, default, 0));
+        var geometry = new CaptureRectangleGeometry();
+        var commands = new global::ProGPU.Scene.DrawingContext();
+        try
+        {
+            using var sink = new ProGpuCompositionCommandSink(commands);
+            if (route == 0)
+            {
+                using var replay = new WpfObjectRenderDataDrawingContext(sink);
+                replay.DrawGeometry(fill, pen, geometry);
+                Assert.Equal(0, replay.Result.UnsupportedCount);
+            }
+            else if (route == 1)
+            {
+                var drawing = new ThrowingPortableGeometryDrawing(new PortableGeometryDrawingState
+                { HasGeometry = true, Geometry = geometry, HasPen = true, Pen = pen, HasBrush = true, Brush = fill });
+                Assert.Equal(WpfDrawingReplayStatus.Applied, WpfDrawingReplay.Replay(drawing, sink));
+            }
+            else
+            {
+                var resources = new WpfMilResourceRegistry();
+                resources.Register(1, fill); resources.Register(2, pen); resources.Register(3, geometry);
+                byte[] payload = new byte[16];
+                WriteInt32(payload, 0, 1); WriteInt32(payload, 4, 2); WriteInt32(payload, 8, 3);
+                Assert.Equal(new WpfMilDecodeResult(1, 1, 0, 0), new WpfMilRenderDataDecoder().Decode(
+                    CreateRecord(WpfMilCommandId.DrawGeometry, payload), sink, resources));
+            }
+            var mask = Assert.Single(commands.Commands.Where(command => command.Type == global::ProGPU.Scene.RenderCommandType.PushOpacityMask));
+            Assert.Equal(4f, mask.Pen!.Thickness);
+            // Scalar rotated offset rectangle: [6,6..34,22], then its affine map.
+            Assert.InRange(System.Math.Abs(mask.Rect.X - (-5.4f)), 0, 0.0001f);
+            Assert.InRange(System.Math.Abs(mask.Rect.Y - 6.4f), 0, 0.0001f);
+            Assert.InRange(System.Math.Abs(mask.Rect.Right - 26.6f), 0, 0.0001f);
+            Assert.InRange(System.Math.Abs(mask.Rect.Bottom - 36f), 0, 0.0001f);
+            Assert.True(Assert.Single(mask.Path!.Figures).IsClosed);
+            var fillCommand = commands.Commands[0];
+            Assert.Equal(cachedFill ? global::ProGPU.Scene.RenderCommandType.PushGeometryClip : global::ProGPU.Scene.RenderCommandType.DrawPath, fillCommand.Type);
+            Assert.Same(fillCommand.Path, mask.Path);
+            var sourceDraw = commands.Commands.Last(command => command.Type == global::ProGPU.Scene.RenderCommandType.DrawVisual);
+            Assert.InRange(System.Math.Abs(sourceDraw.Transform.M41 - 5.3f), 0, 0.0001f);
+            Assert.InRange(System.Math.Abs(sourceDraw.Transform.M42 - 10.6f), 0, 0.0001f);
+        }
+        finally { commands.Clear(); }
+    }
+
+    private sealed class CaptureRectangleGeometry : global::ProGPU.Wpf.Interop.IPortablePrimitiveGeometrySource,
+        global::ProGPU.Wpf.Interop.IPortableGeometryPathSource
+    {
+        public bool TryGetPortablePrimitiveGeometry(out global::ProGPU.Wpf.Interop.PortablePrimitiveGeometry value)
+        {
+            value = global::ProGPU.Wpf.Interop.PortablePrimitiveGeometry.Rectangle(new(8, 8, 24, 12), 0, 0,
+                new(0.8, 0.6, -0.6, 0.8, 3, -2));
+            return true;
+        }
+        public bool TryGetPortableGeometryPath(out global::ProGPU.Wpf.Interop.PortableGeometryPath value) =>
+            throw new System.InvalidOperationException("Primitive rectangle replay must not request packed geometry.");
+    }
+
+    [Theory]
+    [InlineData(false, false, 0, false)]
+    [InlineData(false, true, 0, false)]
+    [InlineData(true, false, 0, false)]
+    [InlineData(true, true, 0, false)]
+    [InlineData(false, true, 1, false)]
+    [InlineData(true, true, 1, false)]
+    [InlineData(false, true, 2, false)]
+    [InlineData(true, true, 2, false)]
+    [InlineData(false, false, 0, true)]
+    [InlineData(false, true, 0, true)]
+    [InlineData(true, false, 0, true)]
+    [InlineData(true, true, 0, true)]
+    [InlineData(false, true, 1, true)]
+    [InlineData(true, true, 1, true)]
+    [InlineData(false, true, 2, true)]
+    [InlineData(true, true, 2, true)]
+    public void CachedLinearPathsKeepFillAndGapSplitStrokeSeparate(bool closed, bool gap, int route, bool dashed)
+    {
+        var target = new FakePortableVisualStateDrawingVisual(CreateRenderData(Brushes.Red), new PortableVisualState())
+        { Bounds = new Rect(0, 0, 30, 30) };
+        var brush = new CaptureBrush(new(target, HasRelativeTransform: true,
+            RelativeTransform: new(0.5, 0, 0, 0.5, 0.25, 0.25)));
+        var pen = new CapturePen(new(brush, 4,
+            global::ProGPU.Wpf.Interop.PortablePenLineCap.Round,
+            global::ProGPU.Wpf.Interop.PortablePenLineCap.Triangle, default, default, 10,
+            dashed ? new double[] { 2.0, 1.0 } : Array.Empty<double>(), dashed ? 0.25 : 0));
+        var geometry = new CaptureLinearPath(closed, gap);
+        var commands = new global::ProGPU.Scene.DrawingContext();
+        try
+        {
+            using var sink = new ProGpuCompositionCommandSink(commands);
+            if (route == 0)
+            {
+                using var replay = new WpfObjectRenderDataDrawingContext(sink);
+                replay.DrawGeometry(brush, pen, geometry);
+                Assert.Equal(0, replay.Result.UnsupportedCount);
+            }
+            else if (route == 1)
+            {
+                var drawing = new ThrowingPortableGeometryDrawing(new PortableGeometryDrawingState
+                { HasGeometry = true, Geometry = geometry, HasPen = true, Pen = pen, HasBrush = true, Brush = brush });
+                Assert.Equal(WpfDrawingReplayStatus.Applied, WpfDrawingReplay.Replay(drawing, sink));
+            }
+            else
+            {
+                var resources = new WpfMilResourceRegistry();
+                resources.Register(1, brush); resources.Register(2, pen); resources.Register(3, geometry);
+                byte[] payload = new byte[16];
+                WriteInt32(payload, 0, 1); WriteInt32(payload, 4, 2); WriteInt32(payload, 8, 3);
+                Assert.Equal(new WpfMilDecodeResult(1, 1, 0, 0), new WpfMilRenderDataDecoder().Decode(
+                    CreateRecord(WpfMilCommandId.DrawGeometry, payload), sink, resources));
+            }
+            var mask = Assert.Single(commands.Commands.Where(command => command.Type == global::ProGPU.Scene.RenderCommandType.PushOpacityMask));
+            Assert.Equal(new global::ProGPU.Scene.Rect(8, 18, gap ? 22 : 24, 24), mask.Rect);
+            var fill = commands.Commands[0];
+            Assert.Equal(global::ProGPU.Scene.RenderCommandType.PushGeometryClip, fill.Type);
+            Assert.NotSame(fill.Path, mask.Path);
+            Assert.True(Assert.Single(fill.Path!.Figures).IsFilled);
+            Assert.All(mask.Path!.Figures, figure => Assert.False(figure.IsFilled));
+            if (gap) Assert.All(mask.Path.Figures, figure => Assert.False(figure.IsClosed));
+            var sourceDraw = commands.Commands.Last(command => command.Type == global::ProGPU.Scene.RenderCommandType.DrawVisual);
+            Assert.Equal(gap ? 9.5f : 10f, sourceDraw.Transform.M41);
+            Assert.Equal(15f, sourceDraw.Transform.M42);
+        }
+        finally { commands.Clear(); }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void TerminalCachedDashCapsUseOneFilledCoverageMask(bool geometryRoute)
+    {
+        var target = new FakePortableVisualStateDrawingVisual(CreateRenderData(Brushes.Red), new PortableVisualState())
+        { Bounds = new Rect(0, 0, 30, 30) };
+        var brush = new CaptureBrush(new(target));
+        var pen = new CapturePen(new(brush, 1, default,
+            global::ProGPU.Wpf.Interop.PortablePenLineCap.Triangle,
+            global::ProGPU.Wpf.Interop.PortablePenLineCap.Round, default, 10, new double[] { 2, 2 }, 0));
+        var commands = new global::ProGPU.Scene.DrawingContext();
+        try
+        {
+            using var sink = new ProGpuCompositionCommandSink(commands);
+            using var replay = new WpfObjectRenderDataDrawingContext(sink);
+            if (geometryRoute) replay.DrawGeometry(null, pen, new CaptureTerminalPath());
+            else replay.DrawLine(pen, new PortablePoint(0, 0), new PortablePoint(4, 0));
+            Assert.Equal(0, replay.Result.UnsupportedCount);
+            var mask = Assert.Single(commands.Commands.Where(command => command.Type == global::ProGPU.Scene.RenderCommandType.PushOpacityMask));
+            Assert.Equal(new global::ProGPU.Scene.Rect(0, -0.5f, 4.5f, 1), mask.Rect);
+            Assert.NotNull(mask.Picture);
+            Assert.Equal(1, mask.Picture.CommandCount);
+            var coverage = mask.Picture.GetCommand(0);
+            Assert.Equal(global::ProGPU.Scene.RenderCommandType.DrawPath, coverage.Type);
+            Assert.Null(coverage.Pen);
+            Assert.NotNull(coverage.Brush);
+            Assert.Equal(global::ProGPU.Vector.FillRule.Nonzero, coverage.Path!.FillRule);
+            Assert.All(coverage.Path.Figures, figure => Assert.True(figure.IsFilled && figure.IsClosed));
+            Assert.Single(commands.Commands.Where(command => command.Type == global::ProGPU.Scene.RenderCommandType.DrawVisual));
+        }
+        finally { commands.Clear(); }
+    }
+
+    private sealed class CaptureTerminalPath : global::ProGPU.Wpf.Interop.IPortableGeometryPathSource
+    {
+        public bool TryGetPortableGeometryPath(out global::ProGPU.Wpf.Interop.PortableGeometryPath path)
+        {
+            path = new()
+            {
+                Figures = [new() { StartPoint = new(0, 0),
+                    Segments = [
+                        global::ProGPU.Wpf.Interop.PortablePathSegment.Line(new(2, 0), false, true),
+                        global::ProGPU.Wpf.Interop.PortablePathSegment.Line(new(4, 0), false, true)] }]
+            };
+            return true;
+        }
+    }
+
+    private sealed class CaptureLinearPath(bool closed, bool gap) : global::ProGPU.Wpf.Interop.IPortableGeometryPathSource
+    {
+        public bool TryGetPortableGeometryPath(out global::ProGPU.Wpf.Interop.PortableGeometryPath path)
+        {
+            path = new()
+            {
+                Figures = [new() { StartPoint = new(10, 20), IsClosed = closed, IsFilled = true,
+                    Segments = [
+                        global::ProGPU.Wpf.Interop.PortablePathSegment.Line(new(30, 20), false, true),
+                        global::ProGPU.Wpf.Interop.PortablePathSegment.Line(new(30, 40), false, !gap),
+                        global::ProGPU.Wpf.Interop.PortablePathSegment.Line(new(10, 40), false, true)] }]
+            };
+            return true;
+        }
+    }
+
+    [Fact]
+    public void EmptyCacheBrushMaskIsTransparentNotAnAbsentMask()
+    {
+        var commands = new global::ProGPU.Scene.DrawingContext();
+        using var sink = new ProGpuCompositionCommandSink(commands);
+        Assert.True(WpfPortableCommandSinkBridge.TryPushOpacityMask(sink,
+            new CaptureBrush(new(null)), new WpfReplayRect(0, 0, 10, 10)));
+        sink.Pop();
+        Assert.Equal(2, commands.Commands.Count);
+        Assert.Equal(global::ProGPU.Scene.RenderCommandType.PushOpacity, commands.Commands[0].Type);
+        Assert.Equal(0, commands.Commands[0].FontSize);
+        Assert.Equal(global::ProGPU.Scene.RenderCommandType.PopOpacity, commands.Commands[1].Type);
+        Assert.Equal(0, commands.RetainedResourceCount);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void DirectEllipseCacheBrushUsesNativeArcClip(bool objectRenderData)
+    {
+        var target = new FakePortableVisualStateDrawingVisual(CreateRenderData(Brushes.Red), new PortableVisualState())
+        { Bounds = new Rect(0, 0, 30, 30) };
+        var brush = new CaptureBrush(new(target));
+        var commands = new global::ProGPU.Scene.DrawingContext();
+        try
+        {
+            using var sink = new ProGpuCompositionCommandSink(commands);
+            if (objectRenderData)
+            {
+                using var replay = new WpfObjectRenderDataDrawingContext(sink);
+                replay.DrawEllipse(brush, null, new Point(10, 12), 4.0, 6.0);
+                Assert.Equal(0, replay.Result.UnsupportedCount);
+            }
+            else
+            {
+                Assert.True(WpfDrawingReplay.TryReplaySourceBrushEllipseFill(brush, new Point(10, 12), 4, 6,
+                    sink, null, out var status));
+                Assert.Equal(WpfDrawingReplayStatus.Applied, status);
+            }
+            var clip = Assert.Single(commands.Commands.Where(command => command.Type == global::ProGPU.Scene.RenderCommandType.PushGeometryClip));
+            var figure = Assert.Single(clip.Path!.Figures);
+            Assert.Equal(4, figure.Segments.Count);
+            Assert.All(figure.Segments, segment => Assert.IsType<global::ProGPU.Vector.ArcSegment>(segment));
+            Assert.DoesNotContain(commands.Commands, command => command.Type == global::ProGPU.Scene.RenderCommandType.PushClip);
+            Assert.Single(commands.Commands.Where(command => command.Type == global::ProGPU.Scene.RenderCommandType.DrawVisual));
+        }
+        finally { commands.Clear(); }
+    }
+
+    [Theory]
+    [InlineData(false, 2.0, 3.0)]
+    [InlineData(true, 2.0, 3.0)]
+    [InlineData(false, double.MaxValue, double.MaxValue)]
+    [InlineData(true, 0.00001, 0.00002)]
+    [InlineData(true, -1.0, 3.0)]
+    public void RoundedCacheBrushClampsRadiiAndKeepsExactClip(bool objectRenderData, double radiusX, double radiusY)
+    {
+        var target = new FakePortableVisualStateDrawingVisual(CreateRenderData(Brushes.Red), new PortableVisualState())
+        { Bounds = new Rect(0, 0, 30, 30) };
+        var brush = new CaptureBrush(new(target));
+        var commands = new global::ProGPU.Scene.DrawingContext();
+        try
+        {
+            using var sink = new ProGpuCompositionCommandSink(commands);
+            if (objectRenderData)
+            {
+                using var replay = new WpfObjectRenderDataDrawingContext(sink);
+                replay.DrawRoundedRectangle(brush, null, new Rect(1, 2, 20, 10), radiusX, radiusY);
+                Assert.Equal(0, replay.Result.UnsupportedCount);
+            }
+            else
+                Assert.Equal(WpfDrawingReplayStatus.Applied,
+                    WpfDrawingReplay.ReplayBitmapCacheBrushRoundedRectangleFill(brush, new Rect(1, 2, 20, 10),
+                        radiusX, radiusY, sink, null));
+            var clip = Assert.Single(commands.Commands.Where(command => command.Type == global::ProGPU.Scene.RenderCommandType.PushGeometryClip));
+            var figure = Assert.Single(clip.Path!.Figures);
+            if (radiusX <= 0 || radiusY <= 0)
+                Assert.All(figure.Segments, segment => Assert.IsType<global::ProGPU.Vector.LineSegment>(segment));
+            else
+            {
+                Assert.Equal(8, figure.Segments.Count);
+                var arcs = figure.Segments.OfType<global::ProGPU.Vector.ArcSegment>().ToArray();
+                Assert.Equal(4, arcs.Length);
+                Assert.All(arcs, arc => Assert.Equal(new Vector2((float)Math.Min(10, radiusX), (float)Math.Min(5, radiusY)), arc.Size));
+                Assert.False(global::ProGPU.Vector.PrimitivePathGeometry.TryGetAxisAlignedRectangleBounds(clip.Path, out _, out _));
+            }
+            Assert.Single(commands.Commands.Where(command => command.Type == global::ProGPU.Scene.RenderCommandType.PopGeometryClip));
+            Assert.Single(commands.Commands.Where(command => command.Type == global::ProGPU.Scene.RenderCommandType.DrawVisual));
+        }
+        finally { commands.Clear(); }
+    }
+
+    [Theory]
+    [InlineData(WpfMilCommandId.DrawRectangle)]
+    [InlineData(WpfMilCommandId.DrawEllipse)]
+    [InlineData(WpfMilCommandId.DrawGeometry)]
+    [InlineData(WpfMilCommandId.DrawRoundedRectangle)]
+    [InlineData(WpfMilCommandId.DrawRoundedRectangleAnimate)]
+    public void MilDecoderDispatchesRawTypedCacheBrushBeforeMediaAdaptation(WpfMilCommandId command)
+    {
+        var target = new FakePortableVisualStateDrawingVisual(CreateRenderData(Brushes.Red), new PortableVisualState())
+        { Bounds = new Rect(0, 0, 30, 30) };
+        var registry = new WpfMilResourceRegistry();
+        registry.Register(1, new CaptureBrush(new(target)));
+        registry.Register(2, new RectangleGeometry(new Rect(0, 0, 20, 20)));
+        bool rounded = command is WpfMilCommandId.DrawRoundedRectangle or WpfMilCommandId.DrawRoundedRectangleAnimate;
+        bool animated = command == WpfMilCommandId.DrawRoundedRectangleAnimate;
+        byte[] payload = new byte[command == WpfMilCommandId.DrawGeometry ? 16 : animated ? 72 : rounded ? 56 : 40];
+        if (command == WpfMilCommandId.DrawGeometry)
+        {
+            WriteInt32(payload, 0, 1);
+            WriteInt32(payload, 8, 2);
+        }
+        else
+        {
+            WriteDouble(payload, 0, 10);
+            WriteDouble(payload, 8, 10);
+            WriteDouble(payload, 16, 5);
+            WriteDouble(payload, 24, 6);
+            if (rounded)
+            {
+                WriteDouble(payload, 32, 2);
+                WriteDouble(payload, 40, 3);
+                WriteInt32(payload, 48, 1);
+                if (animated) WriteInt32(payload, 56, 99);
+            }
+            else WriteInt32(payload, 32, 1);
+        }
+        var commands = new global::ProGPU.Scene.DrawingContext();
+        try
+        {
+            using var sink = new ProGpuCompositionCommandSink(commands);
+            Assert.Equal(new WpfMilDecodeResult(1, 1, 0, animated ? 1 : 0),
+                new WpfMilRenderDataDecoder().Decode(CreateRecord(command, payload), sink, registry));
+            Assert.Single(commands.Commands.Where(value => value.Type == global::ProGPU.Scene.RenderCommandType.DrawVisual));
+        }
+        finally { commands.Clear(); }
+    }
+
+    [Fact]
+    public void LiveBitmapCachePictureTracksTypedDependenciesAndReleasesSubscriptions()
+    {
+        var target = new FakePortableVisualStateDrawingVisual(CreateRenderData(Brushes.Red), new PortableVisualState())
+        { Bounds = new Rect(1, 2, 30, 40) };
+        var policy = new EventCaptureCache { Value = new(1, false, false) };
+        var brush = new EventCaptureBrush { Value = new(target, policy) };
+        using var picture = WpfBitmapCacheBrushCapture.CreateLiveCachedPicture(brush);
+        Assert.Equal(1, brush.SubscriptionCount);
+        Assert.Equal(1, policy.SubscriptionCount);
+        Assert.False(picture.IsSourceDirty);
+        policy.Value = new(3, true, true);
+        policy.Change();
+        Assert.True(picture.IsSourceDirty);
+        Assert.Equal(1, picture.RenderScale);
+        picture.Refresh();
+        Assert.Equal(3, picture.RenderScale);
+        Assert.True(picture.EnableClearType);
+        Assert.False(picture.IsSourceDirty);
+        brush.Value = new(new object(), policy);
+        brush.Change();
+        Assert.Throws<NotSupportedException>(() => picture.Refresh());
+        Assert.True(picture.IsSourceDirty);
+        Assert.Equal(30, picture.Bounds.Width);
+        brush.Value = new(null, policy);
+        brush.Change();
+        picture.Refresh();
+        Assert.Equal(0, picture.Bounds.Width);
+        picture.Dispose();
+        Assert.Equal(0, brush.SubscriptionCount);
+        Assert.Equal(0, policy.SubscriptionCount);
+    }
+
+    private abstract class CaptureInvalidationSource : ProGPU.Wpf.Interop.IPortableInvalidationSource
+    {
+        private event EventHandler? Invalidated;
+        public int SubscriptionCount { get; private set; }
+        public void Change() => Invalidated?.Invoke(this, EventArgs.Empty);
+        public bool TrySubscribeInvalidated(EventHandler handler, out IDisposable subscription)
+        {
+            Invalidated += handler;
+            SubscriptionCount++;
+            subscription = new ProGPU.Wpf.Interop.PortableInvalidationSubscription(() =>
+            {
+                Invalidated -= handler;
+                SubscriptionCount--;
+            });
+            return true;
+        }
+    }
+
+    private sealed class EventCaptureBrush : CaptureInvalidationSource, ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource
+    {
+        public ProGPU.Wpf.Interop.PortableBitmapCacheBrush Value { get; set; }
+        public bool TryGetPortableBitmapCacheBrush(out ProGPU.Wpf.Interop.PortableBitmapCacheBrush brush)
+        { brush = Value; return true; }
+    }
+
+    private sealed class EventCaptureCache : CaptureInvalidationSource, ProGPU.Wpf.Interop.IPortableBitmapCacheSource
+    {
+        public ProGPU.Wpf.Interop.PortableBitmapCache Value { get; set; }
+        public bool TryGetPortableBitmapCache(out ProGPU.Wpf.Interop.PortableBitmapCache cache)
+        { cache = Value; return true; }
+    }
+
+    private sealed class CaptureCache(ProGPU.Wpf.Interop.PortableBitmapCache value)
+        : ProGPU.Wpf.Interop.IPortableBitmapCacheSource
+    {
+        public bool TryGetPortableBitmapCache(out ProGPU.Wpf.Interop.PortableBitmapCache cache)
+        { cache = value; return true; }
+    }
+
+    [Fact]
     public void ReplaySubtreeRecursesThroughChildren()
     {
         var parentBrush = Brushes.Red;
@@ -4593,9 +5584,13 @@ public sealed class WpfVisualTreeRendererTests
                 case FakeRect rect:
                     bounds = new PortableRect(rect.X, rect.Y, rect.Width, rect.Height);
                     return true;
+                case Rect rect:
+                    bounds = rect.IsEmpty ? PortableRect.Empty :
+                        new PortableRect(rect.X, rect.Y, rect.Width, rect.Height);
+                    return true;
                 case PortableRect rect:
                     bounds = rect;
-                    return !rect.IsEmpty;
+                    return true;
                 default:
                     bounds = PortableRect.Empty;
                     return false;

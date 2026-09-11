@@ -53,13 +53,18 @@ namespace System.Windows.Media
         bool IPortableDrawingBoundsSource.TryGetPortableDrawingBounds(out PortableRect bounds)
         {
             Rect drawingBounds = Bounds;
-            if (!drawingBounds.IsEmpty
-                && double.IsFinite(drawingBounds.X)
+            if (drawingBounds.IsEmpty)
+            {
+                bounds = PortableRect.Empty;
+                return true;
+            }
+
+            if (double.IsFinite(drawingBounds.X)
                 && double.IsFinite(drawingBounds.Y)
                 && double.IsFinite(drawingBounds.Width)
                 && double.IsFinite(drawingBounds.Height)
-                && drawingBounds.Width > 0
-                && drawingBounds.Height > 0)
+                && drawingBounds.Width >= 0
+                && drawingBounds.Height >= 0)
             {
                 bounds = new PortableRect(
                     drawingBounds.X,

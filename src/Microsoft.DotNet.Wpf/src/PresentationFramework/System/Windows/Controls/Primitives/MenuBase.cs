@@ -549,7 +549,7 @@ namespace System.Windows.Controls.Primitives
                         // Take capture if one of our children gave up capture
                         if (menu.IsMenuMode &&
                             Mouse.Captured == null &&
-                            (!OperatingSystem.IsWindows() || MS.Win32.SafeNativeMethods.GetCapture() == IntPtr.Zero))
+                            !PopupControlService.HasNativeMouseCapture(PresentationSource.CriticalFromVisual(menu)))
                         {
                             Mouse.Capture(menu, CaptureMode.SubTree);
                             e.Handled = true;
@@ -610,13 +610,14 @@ namespace System.Windows.Controls.Primitives
                 // non-WPF HWNDs, or even child HWNDs of other WPF top-level
                 // windows to retain focus when menus are dismissed.
                 HwndSource hwndSourceWithFocus = null;
-                if (OperatingSystem.IsWindows())
+                bool usesNativeWindowing = PopupControlService.UsesNativeWindowing(PresentationSource.CriticalFromVisual(this));
+                if (usesNativeWindowing)
                 {
                     IntPtr hwndWithFocus = MS.Win32.UnsafeNativeMethods.GetFocus();
                     hwndSourceWithFocus = hwndWithFocus != IntPtr.Zero ? HwndSource.CriticalFromHwnd(hwndWithFocus) : null;
                 }
 
-                if(!OperatingSystem.IsWindows() || hwndSourceWithFocus != null)
+                if(!usesNativeWindowing || hwndSourceWithFocus != null)
                 {
                     // We restore focus by setting focus to the parent's focus
                     // scope.  This may not seem correct, because it presumes

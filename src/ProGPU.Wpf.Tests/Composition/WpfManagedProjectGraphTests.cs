@@ -6,6 +6,336 @@ namespace ProGPU.Wpf.Tests.Composition;
 public sealed class WpfManagedProjectGraphTests
 {
     [Fact]
+    public void SourceTablesUseNativeRowsAndCellAwareRetainedNavigation()
+    {
+        string layout = File.ReadAllText(FindRepoPath("src", "Microsoft.DotNet.Wpf", "src",
+            "PresentationFramework", "MS", "Internal", "documents", "PortableFlowDocumentLayout.cs"));
+        AssertGuardBefore(layout, "flow.ResolveWidthsWithRows", "layout.FormatParagraph(");
+        Assert.Contains("flow.ArrangeWithRows", layout, StringComparison.Ordinal);
+        Assert.Contains("case TableRowGroup group:", layout, StringComparison.Ordinal);
+        Assert.Contains("ColumnStart = checked((uint)cell.ColumnIndex)", layout, StringComparison.Ordinal);
+        Assert.Contains("cell.RowSpan != 1", layout, StringComparison.Ordinal);
+        Assert.Contains("!column.Width.IsAbsolute", layout, StringComparison.Ordinal);
+        Assert.Contains("layout.BuildNavigation()", layout, StringComparison.Ordinal);
+        string view = File.ReadAllText(FindRepoPath("src", "Microsoft.DotNet.Wpf", "src",
+            "PresentationFramework", "MS", "Internal", "documents", "PortableFlowDocumentTextView.cs"));
+        Assert.Contains("SelectNavigationLeaf(0, point, 0)", view, StringComparison.Ordinal);
+        Assert.Contains("Layout.IsHorizontalRow(parent)", view, StringComparison.Ordinal);
+        Assert.Contains("Layout.NavigationChildren(parent)", view, StringComparison.Ordinal);
+        Assert.Contains("newSuggestedX + ScrollOffset.X", view, StringComparison.Ordinal);
+        Assert.DoesNotContain("OrderBy", view, StringComparison.Ordinal);
+        string paginator = File.ReadAllText(FindRepoPath("src", "Microsoft.DotNet.Wpf", "src",
+            "PresentationFramework", "MS", "Internal", "documents", "PortableFlowDocumentPaginator.cs"));
+        AssertGuardBefore(paginator, "if (next.HasTables)", "CreateFragmentLines(next)");
+    }
+
+    [Fact]
+    public void RichEditorUsesSharedNativeDocumentViewAndOriginalTextServices()
+    {
+        string editor = File.ReadAllText(FindRepoPath("src", "Microsoft.DotNet.Wpf", "src",
+            "PresentationFramework", "System", "Windows", "Controls", "RichTextBox.cs"));
+        int start = editor.IndexOf("internal override FrameworkElement CreateRenderScope()", StringComparison.Ordinal);
+        string scope = editor[start..editor.IndexOf("return renderScope;", start, StringComparison.Ordinal)];
+        AssertGuardBefore(scope, "PortableWpfRuntime.GetMediaBackendAndFreeze()", "new FlowDocumentView");
+        Assert.Contains("Document = this.Document", scope, StringComparison.Ordinal);
+        Assert.DoesNotContain("new TextBoxView", scope, StringComparison.Ordinal);
+        string program = File.ReadAllText(FindRepoPath("src", "ProGPU.Wpf.RealPresentationFrameworkHarness", "Program.cs"));
+        Assert.Contains("NativeMilRichDocumentSmoke.Run(presentationFramework, presentationCore, windowsBase)", program, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void RichEditorDecorationEdgesUsePairedSourceModifiersWithoutObjectFlattening()
+    {
+        string line = File.ReadAllText(FindRepoPath("src", "Microsoft.DotNet.Wpf", "src",
+            "PresentationFramework", "MS", "Internal", "documents", "TextBoxLine.cs"));
+        Assert.Contains("new TextSpanModifier(1, decorations, inline.Foreground)", line, StringComparison.Ordinal);
+        Assert.Contains("new TextEndOfSegment(1)", line, StringComparison.Ordinal);
+        Assert.Contains("CreatePortableModifierScope(_owner.Host.TextContainer.CreateStaticPointerAtOffset(dcp).Parent, dcp, 0)", line, StringComparison.Ordinal);
+        Assert.Contains("new TextLineBreak(scope, IntPtr.Zero)", line, StringComparison.Ordinal);
+        Assert.Contains("inline.ElementStartOffset < dcp", line, StringComparison.Ordinal);
+        Assert.Contains("element is InlineUIContainer or AnchoredBlock", line, StringComparison.Ordinal);
+        Assert.DoesNotContain("Portable rich-text decorations require the native decoration contract.", line, StringComparison.Ordinal);
+        Assert.Contains("Portable rich-text directional scopes require the document formatter contract.", line, StringComparison.Ordinal);
+        string program = File.ReadAllText(FindRepoPath("src", "ProGPU.Wpf.RealPresentationFrameworkHarness", "Program.cs"));
+        Assert.Contains("NativeMilRichTextDecorationSmoke.Run(presentationFramework)", program, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SourceJustificationUsesNativeParagraphAndCustomHostRegistersMediaBeforeLoadingWpf()
+    {
+        string line = File.ReadAllText(FindRepoPath("src", "Microsoft.DotNet.Wpf", "src",
+            "PresentationCore", "MS", "internal", "TextFormatting", "PortableTextLine.cs"));
+        Assert.Contains("pap.Justify ? PortableTextAlignment.Justify : PortableTextAlignment.Left", line, StringComparison.Ordinal);
+        string admission = line[line.IndexOf("if (settings.IsSideways", StringComparison.Ordinal)..line.IndexOf("var builder = new StringBuilder()", StringComparison.Ordinal)];
+        Assert.DoesNotContain("|| pap.Justify", admission, StringComparison.Ordinal);
+        Assert.Contains("pap.Tabs?.Count > 0", admission, StringComparison.Ordinal);
+        string program = File.ReadAllText(FindRepoPath("src", "ProGPU.Wpf.RealApplicationRunHarness", "Program.cs"));
+        AssertGuardBefore(program, "ProGpuWpfNativeMediaServices.Initialize();", "RunHarness(repoRoot,");
+        string smoke = File.ReadAllText(FindRepoPath("src", "ProGPU.Wpf.RealPresentationFrameworkHarness", "NativeMilTextJustificationSmoke.cs"));
+        Assert.Contains("justified.GetSelection(0, 6, 7, rectangles)", smoke, StringComparison.Ordinal);
+        Assert.Contains("justified.GetCaretDistance", smoke, StringComparison.Ordinal);
+        Assert.Contains("justified.HitTest", smoke, StringComparison.Ordinal);
+        Assert.Contains("justified.GetNextLogicalCaret(0, 7, false) != 9", smoke, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("ProGPU.Wpf.ShowcaseApp", "run-progpu-wpf-showcase.sh")]
+    [InlineData("ProGPU.Wpf.SciChartApp", "run-progpu-wpf-scichart.sh")]
+    public void ShowcaseAndSciChartProjectIdentitiesAreConnected(string assemblyName, string launcher)
+    {
+        string project = FindRepoPath("samples", assemblyName, assemblyName + ".csproj");
+        string directory = Path.GetDirectoryName(project)!;
+        Assert.True(File.Exists(project), project);
+        XDocument document = XDocument.Load(project);
+        foreach (XElement item in document.Descendants().Where(element =>
+            element.Name.LocalName is "Resource" or "Content"))
+        {
+            string? include = (string?)item.Attribute("Include");
+            Assert.False(string.IsNullOrEmpty(include));
+            Assert.True(File.Exists(Path.Combine(directory, include!)), include);
+        }
+
+        XNamespace xaml = "http://schemas.microsoft.com/winfx/2006/xaml";
+        foreach (string path in Directory.EnumerateFiles(directory, "*.xaml", SearchOption.AllDirectories))
+        {
+            string? className = (string?)XDocument.Load(path).Root?.Attribute(xaml + "Class");
+            if (className is null) continue;
+            Assert.StartsWith(assemblyName + ".", className, StringComparison.Ordinal);
+            string source = File.ReadAllText(path + ".cs");
+            Assert.Contains("namespace " + assemblyName + ";", source, StringComparison.Ordinal);
+            Assert.Contains("partial class " + className[(className.LastIndexOf('.') + 1)..], source, StringComparison.Ordinal);
+        }
+
+        string script = File.ReadAllText(FindRepoPath("eng", launcher));
+        Assert.Contains("samples/" + assemblyName + "/" + assemblyName + ".csproj", script, StringComparison.Ordinal);
+        Assert.Contains(assemblyName, File.ReadAllText(FindRepoPath("eng", "progpu-wpf-sdk-ci.sh")), StringComparison.Ordinal);
+        Assert.Contains("artifacts/nuget/" + assemblyName,
+            File.ReadAllText(Path.Combine(directory, "Directory.Build.props")), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void NativeMilOwnerSnapshotIsPublishedAfterPresentationAndClearedAtTeardown()
+    {
+        string host = File.ReadAllText(FindRepoPath("src", "ProGPU.Wpf", "ProGpuWpfWindowHost.cs"));
+        int start = host.IndexOf("private bool RenderNativeMilFrame(", StringComparison.Ordinal);
+        int end = host.IndexOf("return presented;", start, StringComparison.Ordinal);
+        string frame = host[start..end];
+        Assert.True(frame.IndexOf("NativeMilHitTestOwners = default;", StringComparison.Ordinal) <
+            frame.IndexOf("_nativeMilCompositor.UpdateScene(", StringComparison.Ordinal));
+        Assert.True(frame.IndexOf("if (presented)", StringComparison.Ordinal) <
+            frame.IndexOf("NativeMilHitTestOwners = _nativeMilCompositor.BindGpuHitTestOwners(", StringComparison.Ordinal));
+        Assert.Contains("frame.VisualOwners, frame.Request.SceneId, frame.Request.Generation", frame, StringComparison.Ordinal);
+        Assert.Contains("LastNativeMilSessionFrame = null;\n        NativeMilHitTestOwners = default;", host, StringComparison.Ordinal);
+        string session = File.ReadAllText(FindRepoPath("src", "ProGPU.Wpf", "Composition", "Mil", "WpfNativeMilCompilationSession.cs"));
+        Assert.Contains("VisualOwners = _lastBatch.VisualOwners", session, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void NoFocusMenuEntrySharesSourceOwnedAccessKeyAdmission()
+    {
+        string framework = FindRepoPath("src", "Microsoft.DotNet.Wpf", "src", "PresentationFramework", "System", "Windows");
+        string navigation = File.ReadAllText(Path.Combine(framework, "Input", "KeyboardNavigation.cs"));
+        string window = File.ReadAllText(Path.Combine(framework, "Window.cs"));
+        Assert.Contains("source = AccessKeyManager.GetActivePresentationSource();", navigation, StringComparison.Ordinal);
+        Assert.DoesNotContain("UnsafeNativeMethods.GetActiveWindow()", navigation, StringComparison.Ordinal);
+        Assert.Contains("IPortableAccessKeyScopeSource.IsPortableAccessKeyScopeActive", window, StringComparison.Ordinal);
+        Assert.Contains("IsPortableWindowActive && !_disposed && _isVisible && IsActive &&", window, StringComparison.Ordinal);
+        Assert.Contains("PortableModalInputScope.AllowsInput(this)", window, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SdkPackingAndAuditShareWindowsPayloadSelection()
+    {
+        string script = File.ReadAllText(FindRepoPath("eng", "progpu-wpf-sdk-ci.sh"));
+        Assert.Contains("Conflicting Windows managed payload directories were supplied.", script, StringComparison.Ordinal);
+        Assert.Contains("export LIBREWPF_WINDOWS_MANAGED_PAYLOAD_DIR=\"${LibreWpfWindowsManagedPayloadDir}\"", script, StringComparison.Ordinal);
+        AssertGuardBefore(script, "export LIBREWPF_WINDOWS_MANAGED_PAYLOAD_DIR=", "pack_wpf_projects");
+    }
+
+    [Fact]
+    public void SdkSourceHarnessRuntimePathsDoNotLeakIntoPackageQualification()
+    {
+        string script = File.ReadAllText(FindRepoPath("eng", "progpu-wpf-sdk-ci.sh"));
+        int start = script.IndexOf("(\ncase \"$(uname -m)\" in", StringComparison.Ordinal);
+        int end = script.IndexOf("ProGPU.Wpf.RealThemeRuntimeHarness.csproj\" -c Release -v:minimal\n)", start, StringComparison.Ordinal);
+        Assert.True(start >= 0 && end > start);
+        string scope = script[start..end];
+        Assert.Contains("export DYLD_LIBRARY_PATH=", scope, StringComparison.Ordinal);
+        Assert.Contains("export LD_LIBRARY_PATH=", scope, StringComparison.Ordinal);
+        Assert.Contains("export PATH=", scope, StringComparison.Ordinal);
+        Assert.Contains("${source_native_root}/runtimes/osx-${source_native_arch}/native", scope, StringComparison.Ordinal);
+        Assert.Contains("${source_native_root}/runtimes/linux-${source_native_arch}/native", scope, StringComparison.Ordinal);
+        Assert.Contains("${source_native_root}/runtimes/${source_native_rid}/native", scope, StringComparison.Ordinal);
+        Assert.Contains("RealXamlRuntimeHarness.csproj", scope, StringComparison.Ordinal);
+        Assert.Contains("RealApplicationRunHarness.csproj", scope, StringComparison.Ordinal);
+        Assert.DoesNotContain("SdkExternalSmokeHarness.csproj", scope, StringComparison.Ordinal);
+        Assert.DoesNotContain("ShowcaseApp.csproj", scope, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SdkPackageBuildOnlyKeepsQualificationOutsideProductionPath()
+    {
+        string script = File.ReadAllText(FindRepoPath("eng", "progpu-wpf-sdk-ci.sh"));
+        Assert.Contains("build_packages_only=0", script, StringComparison.Ordinal);
+        Assert.Contains("case \"${1:-}\" in", script, StringComparison.Ordinal);
+        Assert.Contains("--build-packages-only) build_packages_only=1 ;;", script, StringComparison.Ordinal);
+        Assert.Contains("if (( $# > 1 )); then", script, StringComparison.Ordinal);
+        Assert.DoesNotContain("build_packages_only=\"${", script, StringComparison.Ordinal);
+        Assert.Contains("if [[ \"${build_packages_only}\" == \"0\" ]]; then\n  command -v python3", script, StringComparison.Ordinal);
+        Assert.Contains("if [[ \"${build_packages_only}\" == \"0\" ]]; then\n  echo \"Running ProGPU Avalonia package consumer smoke", script, StringComparison.Ordinal);
+        Assert.Contains("The package-production lane cannot execute dotnet ${command}.", script, StringComparison.Ordinal);
+
+        string productionEnd = script[script.IndexOf("if [[ \"${build_packages_only}\" == \"1\" ]]; then\n  pack_wpf_projects", StringComparison.Ordinal)..];
+        AssertGuardBefore(productionEnd, "pack_wpf_projects", "  exit 0\nfi");
+        AssertGuardBefore(productionEnd, "  exit 0\nfi", "native_mil_host_gate=");
+        AssertGuardBefore(productionEnd, "  exit 0\nfi", "run_dotnet run --no-build");
+        AssertGuardBefore(productionEnd, "  exit 0\nfi", "eng/progpu-preview-package-audit.sh");
+        AssertGuardBefore(productionEnd, "  exit 0\nfi", "eng/progpu-preview-package-manifest.sh");
+        AssertGuardBefore(productionEnd, "  exit 0\nfi", "eng/progpu-preview-release-bundle.sh");
+        Assert.Contains("unqualified development packages, not a release bundle", productionEnd, StringComparison.Ordinal);
+        Assert.Equal(2, script.Split("\n  pack_wpf_projects\n", StringSplitOptions.None).Length);
+        Assert.Contains("\npack_wpf_projects\n", script, StringComparison.Ordinal);
+        Assert.DoesNotContain("ProGpuNativeSkipRuntimeValidation", script, StringComparison.Ordinal);
+
+        foreach (string name in new[] { "progpu-wpf-sdk.yml", "progpu-wpf-release.yml" })
+        {
+            string workflow = File.ReadAllText(FindRepoPath(".github", "workflows", name));
+            Assert.Contains("./eng/progpu-wpf-sdk-ci.sh", workflow, StringComparison.Ordinal);
+            Assert.DoesNotContain("--build-packages-only", workflow, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public void PortableTextSelectionPrecedesSimpleLinesAndProtectsLineServicesContexts()
+    {
+        string ReadText(string name) => File.ReadAllText(FindRepoPath("src", "Microsoft.DotNet.Wpf", "src",
+            "PresentationCore", "MS", "internal", "TextFormatting", name));
+        string formatter = ReadText("TextFormatterImp.cs");
+        Assert.Contains("PortableWpfRuntime.GetMediaBackendAndFreeze() == PortableWpfMediaBackend.WindowsMil", formatter, StringComparison.Ordinal);
+        AssertGuardBefore(formatter, "textLine = PortableTextLine.Create(", "textLine = SimpleTextLine.Create(");
+        AssertGuardBefore(formatter[formatter.IndexOf("internal TextFormatterContext AcquireContext(", StringComparison.Ordinal)..],
+            "if (!IsNativeLineServicesAvailable)", "new TextFormatterContext()");
+        AssertGuardBefore(formatter[formatter.IndexOf("TextParagraphCache CreateParagraphCache(", StringComparison.Ordinal)..],
+            "if (!IsNativeLineServicesAvailable)", "return new TextParagraphCache(");
+        Assert.DoesNotContain("OperatingSystem.IsWindows()", ReadText("SimpleTextLine.cs"), StringComparison.Ordinal);
+        Assert.Contains("return PortableTextLine.MeasureIntrinsicWidths(", formatter, StringComparison.Ordinal);
+        string portable = ReadText("PortableTextLine.cs");
+        AssertGuardBefore(portable, "TextLine continuation = CreateContinuation(", "PortableWpfServiceRegistry.TryGetTextFormatting(");
+        Assert.Contains("IPortableTextFormatting service)", portable, StringComparison.Ordinal);
+        Assert.Contains("The text provider returned no paragraph.", portable, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void NativeSdkInitializesSourceServicesBeforeModulesAndHostCreation()
+    {
+        string bootstrap = File.ReadAllText(FindRepoPath("packaging", "ProGPU.Wpf.Sdk", "targets", "ProGPU.Wpf.Sdk.PortableBootstrap.cs"));
+        string services = File.ReadAllText(FindRepoPath("src", "ProGPU.Wpf", "ProGpuWpfNativeMediaServices.cs"));
+        string host = File.ReadAllText(FindRepoPath("src", "ProGPU.Wpf", "ProGpuWpfWindowHost.cs"));
+        string harness = File.ReadAllText(FindRepoPath("src", "ProGPU.Wpf.RealPresentationFrameworkHarness", "Program.cs"));
+        AssertGuardBefore(bootstrap, "ProGpuWpfNativeMediaServices.Initialize();", "RuntimeHelpers.RunModuleConstructor(");
+        AssertGuardBefore(bootstrap, "ProGpuWpfNativeMediaServices.Initialize();", "WindowsFormsHost.EnableWindowsFormsInterop();");
+        AssertGuardBefore(bootstrap, "throw new global::System.PlatformNotSupportedException(", "ProGpuWpfNativeMediaServices.Initialize();");
+        Assert.Contains("architecture != global::System.Runtime.InteropServices.Architecture.X64 &&", bootstrap, StringComparison.Ordinal);
+        Assert.Contains("architecture != global::System.Runtime.InteropServices.Architecture.Arm64", bootstrap, StringComparison.Ordinal);
+        int managedStart = bootstrap.IndexOf("#if !PROGPU_WPF_NATIVE_MIL", StringComparison.Ordinal);
+        Assert.True(managedStart >= 0);
+        int managedEnd = bootstrap.IndexOf("#endif", managedStart, StringComparison.Ordinal);
+        string managedOnly = bootstrap[managedStart..managedEnd];
+        Assert.Contains("if (global::System.OperatingSystem.IsWindows())", managedOnly, StringComparison.Ordinal);
+        Assert.Contains("return;", managedOnly, StringComparison.Ordinal);
+        string nativeStartup = bootstrap.Remove(managedStart, managedEnd - managedStart);
+        Assert.DoesNotContain("OperatingSystem.IsWindows()", nativeStartup, StringComparison.Ordinal);
+        AssertGuardBefore(nativeStartup, "ProGpuWpfNativeMediaServices.Initialize();", "TryRegisterPresentationFrameworkActivation(");
+        Assert.Contains("if (!registered)", nativeStartup, StringComparison.Ordinal);
+        Assert.Contains("RendererMode = global::System.Windows.Media.ProGPU.ProGpuWpfRendererMode.NativeMilWgpu", nativeStartup, StringComparison.Ordinal);
+        AssertGuardBefore(services, "PortableWpfRuntime.SelectMediaBackend", "WpfPortableTextFormatting.EnsureRegistered();");
+        Assert.Contains("WpfPortableGeometryOperations.EnsureRegistered();", services, StringComparison.Ordinal);
+        Assert.Contains("ProGpuWpfNativeMediaServices.Initialize();", host, StringComparison.Ordinal);
+        Assert.DoesNotContain("new ProGpuWpfWindowHost", services, StringComparison.Ordinal);
+        Assert.DoesNotContain("WgpuContext", services, StringComparison.Ordinal);
+        Assert.DoesNotContain("System.Reflection", services, StringComparison.Ordinal);
+        AssertGuardBefore(harness, "CreateNativeMilHostDrawingVisual(presentationCore, windowsBase);", "using var host = new ProGpuWpfWindowHost");
+        string text = File.ReadAllText(FindRepoPath("src", "ProGPU.Wpf", "Composition", "WpfPortableTextFormatting.cs"));
+        Assert.Contains("Lazy<NativeTextShapingContext>", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void DecoderStorageUsesMediaPolicyAndFailsBeforeWicActivation()
+    {
+        string ReadImaging(string name) => File.ReadAllText(FindRepoPath("src", "Microsoft.DotNet.Wpf", "src",
+            "PresentationCore", "System", "Windows", "Media", "Imaging", name));
+        string decoder = ReadImaging("BitmapDecoder.cs");
+        string image = ReadImaging("BitmapImage.cs");
+        Assert.DoesNotContain("!OperatingSystem.IsWindows()", decoder, StringComparison.Ordinal);
+        Assert.Contains("if (BitmapSource.UsesPortablePixelStorage &&", decoder, StringComparison.Ordinal);
+        int setupStart = decoder.IndexOf("internal static SafeMILHandle SetupDecoderFromUriOrStream(", StringComparison.Ordinal);
+        Assert.True(setupStart >= 0);
+        string setup = decoder[setupStart..];
+        AssertGuardBefore(setup, "if (BitmapSource.UsesPortablePixelStorage)", "IntPtr decoder = IntPtr.Zero;");
+        Assert.Contains("throw new NotSupportedException(\"Portable bitmap decoding", setup, StringComparison.Ordinal);
+        Assert.DoesNotContain("OperatingSystem.IsWindows()", image, StringComparison.Ordinal);
+        Assert.Contains("byte[] cachedManagedPixels = bitmapImage.CloneManagedPixelBuffer();", image, StringComparison.Ordinal);
+        Assert.Contains("if (managedPixels != null)", image, StringComparison.Ordinal);
+        AssertGuardBefore(image, "throw new NotSupportedException(\"The decoded bitmap", "WicSourceHandle = source.WicSourceHandle;");
+    }
+
+    [Fact]
+    public void PackagePaletteFrameAndEncoderPathsDoNotSelectWicByOperatingSystem()
+    {
+        string ReadImaging(string name) => File.ReadAllText(FindRepoPath("src", "Microsoft.DotNet.Wpf", "src",
+            "PresentationCore", "System", "Windows", "Media", "Imaging", name));
+        string palette = ReadImaging("BitmapPalette.cs");
+        string frame = ReadImaging("BitmapFrameEncode.cs");
+        string encoder = ReadImaging("BitmapEncoder.cs");
+        Assert.DoesNotContain("OperatingSystem.IsWindows()", palette, StringComparison.Ordinal);
+        Assert.DoesNotContain("OperatingSystem.IsWindows()", frame, StringComparison.Ordinal);
+        Assert.DoesNotContain("OperatingSystem.IsWindows()", encoder, StringComparison.Ordinal);
+        Assert.Contains("bitmapSource._managedPixelBuffer != null || BitmapSource.UsesPortablePixelStorage", palette, StringComparison.Ordinal);
+        Assert.Contains("source._managedPixelBuffer != null || BitmapSource.UsesPortablePixelStorage", palette, StringComparison.Ordinal);
+        AssertGuardBefore(frame, "if (managedPixels != null)", "WicSourceHandle = _source.WicSourceHandle;");
+        AssertGuardBefore(frame, "Portable bitmap frames require source-owned pixels.", "WicSourceHandle = _source.WicSourceHandle;");
+        string save = encoder[encoder.IndexOf("public virtual void Save(", StringComparison.Ordinal)..];
+        AssertGuardBefore(save, "if (BitmapSource.UsesPortablePixelStorage)", "EnsureUnmanagedEncoder();");
+        Assert.Contains("Portable bitmap encoding currently supports BMP only.", save, StringComparison.Ordinal);
+        string nativeCodec = encoder[encoder.IndexOf("private void EnsureUnmanagedEncoder()", StringComparison.Ordinal)..];
+        AssertGuardBefore(nativeCodec, "Portable bitmap encoders do not expose WIC codec services.", "new FactoryMaker()");
+    }
+
+    [Fact]
+    public void MemoryBitmapOwnershipUsesFrozenMediaSelectionAndGcOwnedPins()
+    {
+        string ReadImaging(string name) => File.ReadAllText(FindRepoPath("src", "Microsoft.DotNet.Wpf", "src",
+            "PresentationCore", "System", "Windows", "Media", "Imaging", name));
+        string source = ReadImaging("BitmapSource.cs");
+        string writeable = ReadImaging("WriteableBitmap.cs");
+        string cached = ReadImaging("CachedBitmap.cs");
+        Assert.Contains("PortableWpfRuntime.GetMediaBackendAndFreeze() == PortableWpfMediaBackend.Portable", source, StringComparison.Ordinal);
+        AssertGuardBefore(writeable, "if (UsesPortablePixelStorage)", "MILSwDoubleBufferedBitmap.Create(");
+        AssertGuardBefore(cached, "if (UsesPortablePixelStorage)", "UnsafeNativeMethods.WICImagingFactory.CreateBitmapFromMemory(");
+        Assert.DoesNotContain("OperatingSystem.IsWindows()", writeable, StringComparison.Ordinal);
+        Assert.DoesNotContain("OperatingSystem.IsWindows()", cached, StringComparison.Ordinal);
+        Assert.Contains("GC.AllocateArray<byte>(checked(stride * pixelHeight), pinned: true)", writeable, StringComparison.Ordinal);
+        Assert.Contains("GC.AllocateArray<byte>(checked(stride * source.PixelHeight), pinned: true)", writeable, StringComparison.Ordinal);
+        Assert.DoesNotContain("_managedBackBufferHandle", writeable, StringComparison.Ordinal);
+        Assert.DoesNotContain("GCHandle.Alloc(_managedPixelBuffer", writeable, StringComparison.Ordinal);
+        string harness = File.ReadAllText(FindRepoPath("src", "ProGPU.Wpf.RealPresentationFrameworkHarness", "Program.cs"));
+        Assert.Contains("NativeMilBitmapDpiSmoke.CreateWriteableBitmap(presentationCore, windowsBase)", harness, StringComparison.Ordinal);
+        Assert.Contains("NativeMilBitmapDpiSmoke.RequireSourceBitmapBinding(drawingVisual)", harness, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SourceTestNrbfVersionDoesNotReplaceThePortableProductPin()
+    {
+        string props = File.ReadAllText(FindRepoPath("Directory.Build.props"));
+        string tests = File.ReadAllText(FindRepoPath("src", "Microsoft.DotNet.Wpf", "tests", "UnitTests",
+            "PresentationCore.Tests", "PresentationCore.Tests.csproj"));
+        AssertGuardBefore(props, "<ProGpuWpfTestFormatsNrbfVersion", "<SystemFormatsNrbfVersion>");
+        Assert.Contains(">$(SystemFormatsNrbfVersion)</ProGpuWpfTestFormatsNrbfVersion>", props, StringComparison.Ordinal);
+        Assert.Contains("<SystemFormatsNrbfVersion>$(ProGpuWpfNet10SupportPackageVersion)</SystemFormatsNrbfVersion>", props, StringComparison.Ordinal);
+        Assert.Contains("Include=\"System.Formats.Nrbf\" Version=\"$(ProGpuWpfTestFormatsNrbfVersion)\"", tests, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void PortableCanonicalWindowsFormsHostCreatesTheRealChildControlTree()
     {
         string source = File.ReadAllText(FindRepoPath(
@@ -231,7 +561,7 @@ public sealed class WpfManagedProjectGraphTests
     }
 
     [Fact]
-    public void MediaContextNotificationWindowSkipsWin32WindowCreationOnNonWindows()
+    public void PortableMediaBackendSkipsMilNotificationWindowCreation()
     {
         var sourcePath = FindRepoPath(
             "src",
@@ -244,13 +574,13 @@ public sealed class WpfManagedProjectGraphTests
             "MediaContextNotificationWindow.cs");
         var source = File.ReadAllText(sourcePath);
 
-        Assert.Contains("RuntimeInformation.IsOSPlatform(OSPlatform.Windows)", source, StringComparison.Ordinal);
-        Assert.Contains("if (!s_isWindows)", source, StringComparison.Ordinal);
+        Assert.Contains("PortableWpfRuntime.GetMediaBackendAndFreeze()", source, StringComparison.Ordinal);
+        Assert.Contains("if (!UsesWindowsMil)", source, StringComparison.Ordinal);
         Assert.Contains("new HwndWrapper", source, StringComparison.Ordinal);
         Assert.True(
-            source.IndexOf("if (!s_isWindows)", StringComparison.Ordinal)
+            source.IndexOf("if (!UsesWindowsMil)", StringComparison.Ordinal)
                 < source.IndexOf("new HwndWrapper", StringComparison.Ordinal),
-            "The non-Windows guard must run before creating the hidden HWND notification window.");
+            "The backend guard must run before creating the hidden MIL notification window.");
         Assert.Contains("_ownerMediaContext.Channel.SetNotificationWindow", source, StringComparison.Ordinal);
     }
 
@@ -518,10 +848,13 @@ public sealed class WpfManagedProjectGraphTests
             "SilkNetWpfWindowDecorationService.cs"));
 
         Assert.Contains("Topmost = false", popupHost, StringComparison.Ordinal);
-        Assert.Contains("ToNativeLogicalScreenCoordinate(request.PopupScreenDeviceX, _dpiScaleX)", popupHost, StringComparison.Ordinal);
+        Assert.Contains("ToNativeLogicalScreenCoordinate(request.PopupScreenDeviceX, _ownerTransportScaleX)", popupHost, StringComparison.Ordinal);
+        int transportSetter = popupHost.IndexOf("public void SetOwnerTransportScale(", StringComparison.Ordinal);
+        int positionSetter = popupHost.IndexOf("public void SetPosition(", transportSetter, StringComparison.Ordinal);
+        Assert.DoesNotContain("UpdatePortablePresentationSourceDpiScale", popupHost[transportSetter..positionSetter], StringComparison.Ordinal);
         Assert.Contains("_popupHost.ShowWithoutActivation();", popupHost, StringComparison.Ordinal);
         Assert.Contains("internal static int ToDeviceScreenCoordinate", windowHost, StringComparison.Ordinal);
-        Assert.Contains("UpdatePortablePopupOwnerOrigins(bridge.Source, deviceX, deviceY)", windowHost, StringComparison.Ordinal);
+        Assert.Contains("UpdatePortablePopupOwnerOrigins(bridge.Source, deviceX, deviceY, popupDeviceScale)", windowHost, StringComparison.Ordinal);
         Assert.Contains("internal void ShowWithoutActivation()", windowHost, StringComparison.Ordinal);
         Assert.Contains("PlatformServices.WindowDecorations.TryShowWithoutActivation(_window!)", windowHost, StringComparison.Ordinal);
         Assert.Contains("internal void DeferShowUntilRun()", windowHost, StringComparison.Ordinal);
@@ -536,14 +869,27 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("TryShowCocoaWithoutActivation(GetCocoaWindow(view))", silkDecorations, StringComparison.Ordinal);
         Assert.Contains("TryShowGlfwWithoutActivation(view)", silkDecorations, StringComparison.Ordinal);
         Assert.Contains("WindowAttributeSetter.FocusOnShow", silkDecorations, StringComparison.Ordinal);
-        Assert.Contains("\"_NET_WM_WINDOW_TYPE_DROPDOWN_MENU\"", silkDecorations, StringComparison.Ordinal);
-        Assert.Contains("\"_NET_WM_WINDOW_TYPE_POPUP_MENU\"", silkDecorations, StringComparison.Ordinal);
-        Assert.Contains("CWOverrideRedirect", silkDecorations, StringComparison.Ordinal);
-        Assert.Contains("XChangeWindowAttributes(", silkDecorations, StringComparison.Ordinal);
-        Assert.Contains("XChangeProperty(", silkDecorations, StringComparison.Ordinal);
+        Assert.Contains("NativePopupWindow.TryConfigureOwner(", silkDecorations, StringComparison.Ordinal);
+        Assert.Contains("if (!ownerConfigured)", popupHost, StringComparison.Ordinal);
+        int initializePopup = popupHost.IndexOf("private void EnsureInitialized()", StringComparison.Ordinal);
+        string popupInitialization = popupHost[initializePopup..popupHost.IndexOf("private void OnOwnerUpdateTick", initializePopup, StringComparison.Ordinal)];
+        AssertGuardBefore(popupInitialization, "try", "_popupHost.InitializeHidden();");
+        AssertGuardBefore(popupInitialization, "_popupHost.InitializeHidden();", "TryConfigurePopupOwner(");
+        Assert.Contains("catch", popupInitialization, StringComparison.Ordinal);
+        Assert.Contains("Dispose();", popupInitialization, StringComparison.Ordinal);
+        Assert.Contains("_isVisible = false;\n            Dispose();\n            throw;", popupHost, StringComparison.Ordinal);
+        Assert.DoesNotContain("catch when (OperatingSystem.IsWindows())", popupHost, StringComparison.Ordinal);
+        Assert.DoesNotContain("return !isWindows && !explicitlyDisabled", popupHost, StringComparison.Ordinal);
+        Assert.Contains("new(NativeWindowKind.X11, unchecked((nint)owner.Window), owner.Display", silkDecorations, StringComparison.Ordinal);
+        Assert.DoesNotContain("TryConfigureX11PopupOwner", silkDecorations, StringComparison.Ordinal);
+        Assert.DoesNotContain("XSetTransientForHint", silkDecorations, StringComparison.Ordinal);
+        Assert.DoesNotContain("XChangeWindowAttributes(", silkDecorations, StringComparison.Ordinal);
+        Assert.DoesNotContain("XChangeProperty(", silkDecorations, StringComparison.Ordinal);
         Assert.Contains("SelRegisterName(\"orderFront:\")", silkDecorations, StringComparison.Ordinal);
-        Assert.Contains("SelRegisterName(\"addChildWindow:ordered:\")", silkDecorations, StringComparison.Ordinal);
-        Assert.Contains("SelRegisterName(\"setHidesOnDeactivate:\")", silkDecorations, StringComparison.Ordinal);
+        Assert.Contains("new(NativeWindowKind.Cocoa, GetCocoaWindow(ownerView)", silkDecorations, StringComparison.Ordinal);
+        Assert.DoesNotContain("TryConfigureCocoaPopupOwner", silkDecorations, StringComparison.Ordinal);
+        Assert.DoesNotContain("SelRegisterName(\"addChildWindow:ordered:\")", silkDecorations, StringComparison.Ordinal);
+        Assert.DoesNotContain("SelRegisterName(\"setHidesOnDeactivate:\")", silkDecorations, StringComparison.Ordinal);
         Assert.Contains("_popupHost.SetPosition(_nativeLogicalX, _nativeLogicalY);", popupHost, StringComparison.Ordinal);
         Assert.Contains("ShouldPumpEvents(_isDisposed, _isInitialized, _isVisible, _isPumping)", popupHost, StringComparison.Ordinal);
         Assert.Contains(
@@ -920,7 +1266,8 @@ public sealed class WpfManagedProjectGraphTests
 
         Assert.Contains(@"<Compile Include=""System\Windows\Media\PortableMediaContextRenderService.cs"" />", presentationCoreProject, StringComparison.Ordinal);
         Assert.Contains("internal static class PortableMediaContextRenderService", renderService, StringComparison.Ordinal);
-        Assert.Contains("RuntimeInformation.IsOSPlatform(OSPlatform.Windows)", renderService, StringComparison.Ordinal);
+        Assert.DoesNotContain("OSPlatform.Windows", renderService, StringComparison.Ordinal);
+        Assert.DoesNotContain("EmptyRegistration", renderService, StringComparison.Ordinal);
         Assert.DoesNotContain("using ProGPU.Wpf.Interop;", renderService, StringComparison.Ordinal);
         Assert.DoesNotContain("internal static void RegisterPortableInteropService()", renderService, StringComparison.Ordinal);
         Assert.DoesNotContain("PortableWpfServiceRegistry.RegisterMediaContextRenderService", renderService, StringComparison.Ordinal);
@@ -1031,6 +1378,16 @@ public sealed class WpfManagedProjectGraphTests
         Assert.DoesNotContain("currentType.Assembly", proGpuActivation, StringComparison.Ordinal);
         Assert.Contains("exception.GetBaseException()", proGpuActivation, StringComparison.Ordinal);
         Assert.Contains("CreateWindowActivationCallbacks(hostFactory)", proGpuActivation, StringComparison.Ordinal);
+        Assert.Contains("CreateHidden = window => TryCreateActivation(window, hostFactory, out var activation, hidden: true)", proGpuActivation, StringComparison.Ordinal);
+        Assert.Contains("host.TryCreatePortablePresentationSource()", proGpuActivation, StringComparison.Ordinal);
+        Assert.Contains("host.InitializeHidden();", proGpuActivation, StringComparison.Ordinal);
+        Assert.Contains("AttachRootForShow();", proGpuActivation, StringComparison.Ordinal);
+        Assert.Contains("bridge.RootVisual = RootVisual;", proGpuActivation, StringComparison.Ordinal);
+        Assert.Contains("Host.RunExisting();", proGpuActivation, StringComparison.Ordinal);
+        Assert.Contains("_showDeferredUntilRun = false;", proGpuActivation, StringComparison.Ordinal);
+        Assert.Contains("preserveWindowVisibility: true", proGpuHost, StringComparison.Ordinal);
+        Assert.Contains("RunCore(showActivated: false, showWindow: false);", proGpuHost, StringComparison.Ordinal);
+        Assert.Contains("The configured portable host factory returned no host.", proGpuActivation, StringComparison.Ordinal);
         Assert.Contains("requestActivation: activation =>", proGpuActivation, StringComparison.Ordinal);
         Assert.Contains("((WpfPortableWindowActivation)activation).TryActivate()", proGpuActivation, StringComparison.Ordinal);
         Assert.Contains("activationService.TryIsCurrentApplicationMainWindow(window, out bool isMainWindow)", proGpuActivation, StringComparison.Ordinal);
@@ -1044,7 +1401,8 @@ public sealed class WpfManagedProjectGraphTests
             proGpuActivation,
             StringComparison.Ordinal);
         Assert.Contains("internal void Run(bool showActivated)", proGpuHost, StringComparison.Ordinal);
-        Assert.Contains("_isHostVisible = showActivated;\n        EnsureWindow();", proGpuHost, StringComparison.Ordinal);
+        Assert.Contains("if (continueRunning == null && !preserveWindowVisibility)", proGpuHost, StringComparison.Ordinal);
+        AssertGuardBefore(proGpuHost, "_isHostVisible = showWindow && showActivated;", "EnsureWindow();");
         Assert.Contains("_isHostVisible = false;\n        EnsureWindow();", proGpuHost, StringComparison.Ordinal);
         Assert.DoesNotContain("ProcessDispatcherQueueCore();\n        EnsureWindow();\n        _window!.IsVisible = _isHostVisible;", proGpuHost, StringComparison.Ordinal);
         Assert.Contains("!IsPlatformEventForCurrentWindow(sender)", proGpuHost, StringComparison.Ordinal);
@@ -1098,11 +1456,20 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("private void SetSourceClientOrigin()", proGpuPortablePopupBridge, StringComparison.Ordinal);
         Assert.Contains("ToLogicalScreenCoordinate(X, _dpiScaleX)", proGpuPortablePopupBridge, StringComparison.Ordinal);
         Assert.Contains("(_ownerPopup?.LogicalX ?? 0.0)", proGpuPortablePopupBridge, StringComparison.Ordinal);
-        Assert.Contains("_localLogicalX = ((double)popupScreenDeviceX - ownerClientScreenDeviceX) / dpiScaleX;", proGpuPortablePopupBridge, StringComparison.Ordinal);
-        Assert.Contains("_localLogicalY = ((double)popupScreenDeviceY - ownerClientScreenDeviceY) / dpiScaleY;", proGpuPortablePopupBridge, StringComparison.Ordinal);
+        Assert.Contains("_ownerDesktopTransform.DesktopVectorToClient(new PortablePoint(", proGpuPortablePopupBridge, StringComparison.Ordinal);
+        Assert.Contains("desktopTransform.ClientVectorToDesktop(new PortablePoint(_localLogicalX, _localLogicalY))", proGpuPortablePopupBridge, StringComparison.Ordinal);
+        Assert.Contains("ScreenDeviceToPopupClient(screenDeviceX, screenDeviceY)", proGpuPortablePopupBridge, StringComparison.Ordinal);
+        Assert.Contains("_localLogicalY = local.Y;", proGpuPortablePopupBridge, StringComparison.Ordinal);
+        Assert.Contains("NormalizeNativeDesktopInput(input, desktop,", proGpuHost, StringComparison.Ordinal);
+        Assert.Contains("PortableDesktopTransform.FromWindowCoordinates(0, 0,", proGpuHost, StringComparison.Ordinal);
         Assert.Contains("public bool TrySetDeviceScale(double dpiScaleX, double dpiScaleY)", proGpuPortablePopupBridge, StringComparison.Ordinal);
+        Assert.Contains("public bool TrySetOwnerClientGeometry(", proGpuPortablePopupBridge, StringComparison.Ordinal);
         Assert.Contains("_source.SetDeviceScale(dpiScaleX, dpiScaleY);", proGpuPortablePopupBridge, StringComparison.Ordinal);
+        Assert.Contains("if (_nativeHost is { } nativeHost)", proGpuPortablePopupBridge, StringComparison.Ordinal);
+        Assert.Contains("nativeHost.SetOwnerTransportScale(dpiScaleX, dpiScaleY);", proGpuPortablePopupBridge, StringComparison.Ordinal);
         Assert.Contains("_portablePopupBridges[i].TrySetDeviceScale(dpiScaleX, dpiScaleY);", proGpuHost, StringComparison.Ordinal);
+        Assert.Contains("nativeLogicalLeft, nativeLogicalTop, new WpfDeviceScale(dpiScaleX, dpiScaleY)", proGpuHost, StringComparison.Ordinal);
+        Assert.Contains("UpdatePortablePopupOwnerOrigins(popup.Source, popup.X, popup.Y, deviceScale)", proGpuHost, StringComparison.Ordinal);
         Assert.Contains("TryProcessPresentationSourceInputEvent(Source, portableInput)", proGpuPortablePopupBridge, StringComparison.Ordinal);
         Assert.Contains("rootVisual.Offset = new Vector2((float)LogicalX, (float)LogicalY);", proGpuPortablePopupBridge, StringComparison.Ordinal);
         Assert.Contains("rootVisual.Transform = Matrix4x4.Identity;", proGpuPortablePopupBridge, StringComparison.Ordinal);
@@ -1137,11 +1504,13 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("public static bool TryHitTestOwners(object? window, double x, double y, Span<object?> owners, out int ownerCount)", proGpuDiagnostics, StringComparison.Ordinal);
         Assert.Contains("public static bool TryQueryHitTestBoundsOwners(", proGpuDiagnostics, StringComparison.Ordinal);
         Assert.Contains("Span<object?> owners,\n        out int ownerCount)", proGpuDiagnostics, StringComparison.Ordinal);
-        Assert.Contains("IWpfDelayedRenderScheduler delayedScheduler", proGpuActivation, StringComparison.Ordinal);
+        Assert.Contains("Host.RequestMediaContextRenderAndWakeNativeLoop(invalidatedSource, delay);", proGpuActivation, StringComparison.Ordinal);
+        Assert.Contains("IWpfDelayedRenderScheduler delayedScheduler", proGpuHost, StringComparison.Ordinal);
         Assert.Contains("ProcessHostInputAndRequestRender", proGpuActivation, StringComparison.Ordinal);
         Assert.Contains("Host.TryRequestNativeLoopWakeup();", proGpuActivation, StringComparison.Ordinal);
         Assert.Contains("RequestRenderFromMediaContext(RootVisual, TimeSpan.Zero);", proGpuActivation, StringComparison.Ordinal);
-        Assert.Contains("Host.InvalidateWpfSourceForPortableRender(invalidatedSource ?? RootVisual);", proGpuActivation, StringComparison.Ordinal);
+        Assert.Contains("InvalidateWpfSourceForPortableRender(invalidatedSource);", proGpuHost, StringComparison.Ordinal);
+        Assert.Contains("if (invalidatedSource != null)", proGpuHost, StringComparison.Ordinal);
         Assert.Contains("Host.RenderWakeupRequested += OnHostRenderWakeupRequested", proGpuActivation, StringComparison.Ordinal);
         Assert.Contains("Host.UpdateTick += OnHostUpdateTick", proGpuActivation, StringComparison.Ordinal);
         Assert.Contains("SynchronizeInitialWindowState(updatePortablePresentationSource: false);", proGpuActivation, StringComparison.Ordinal);
@@ -1339,7 +1708,9 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("internal bool TryQueryHitTestBoundsCandidates(double minX, double minY, double maxX, double maxY, Span<object?> candidates, out int candidateCount)", proGpuHost, StringComparison.Ordinal);
         Assert.Contains("internal bool TryQueryHitTestEllipseCandidates(double minX, double minY, double maxX, double maxY, out object?[] candidates)", proGpuHost, StringComparison.Ordinal);
         Assert.Contains("internal bool TryQueryHitTestEllipseCandidates(double minX, double minY, double maxX, double maxY, Span<object?> candidates, out int candidateCount)", proGpuHost, StringComparison.Ordinal);
-        Assert.Contains("internal bool HasGpuHitTestCache => !_isDisposed && _target?.LastGpuHitTestIndex != null;", proGpuHost, StringComparison.Ordinal);
+        Assert.Contains("internal bool HasGpuHitTestCache => !_isDisposed &&", proGpuHost, StringComparison.Ordinal);
+        Assert.Contains("? NativeMilHitTestingEnabled && NativeMilHitTestOwners.IsValid && NativeMilHitTestOwners.GetIndexInfo().HasIndex", proGpuHost, StringComparison.Ordinal);
+        Assert.Contains(": _target?.LastGpuHitTestIndex != null);", proGpuHost, StringComparison.Ordinal);
         Assert.Contains("internal bool TryGetGpuHitTestCacheSnapshot(out ProGpuWpfDiagnostics.GpuHitTestCacheSnapshot snapshot)", proGpuHost, StringComparison.Ordinal);
         Assert.Contains("ArrayPool<object?>.Shared.Rent(HitTestOwnerBufferCapacity)", proGpuHost, StringComparison.Ordinal);
         Assert.Contains("owners = CopyHitTestResults(ownerBuffer.AsSpan(0, ownerCount));", proGpuHost, StringComparison.Ordinal);
@@ -1622,7 +1993,7 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("public GpuHitTestDeviceIndex? LastHitTestDeviceIndex => _lastHitTestDeviceIndex;", proGpuCompositor, StringComparison.Ordinal);
         Assert.Contains("private bool _suspendHitTestCacheWrites;", proGpuCompositor, StringComparison.Ordinal);
         Assert.Contains("private void AddHitTestCommand(RenderCommand command, Matrix4x4 transform)", proGpuCompositor, StringComparison.Ordinal);
-        Assert.Contains("AddHitTestStateCommand(cmd, activeTransform);", proGpuCompositor, StringComparison.Ordinal);
+        Assert.Contains("AddHitTestStateCommand(cmd, hitTestTransform);", proGpuCompositor, StringComparison.Ordinal);
         Assert.Contains("private void AddHitTestDrawCommand(RenderCommand command, Matrix4x4 transform)", proGpuCompositor, StringComparison.Ordinal);
         Assert.Contains("_suspendHitTestCacheWrites = true;", proGpuCompositor, StringComparison.Ordinal);
         Assert.Contains("internal static bool TryCreateDashedStrokePath(PathGeometry source, Pen pen, out PathGeometry dashedPath)", proGpuCompositor, StringComparison.Ordinal);
@@ -1696,11 +2067,14 @@ public sealed class WpfManagedProjectGraphTests
         Assert.DoesNotContain("new (Vector2 Min, Vector2 Max, List<int> Primitives, int NodeIndex)[childCount]", proGpuHitTesting, StringComparison.Ordinal);
         Assert.DoesNotContain("childSlots[slot++]", proGpuHitTesting, StringComparison.Ordinal);
         Assert.Contains("if (pen?.HasDashPattern != true)", proGpuHitTestCache, StringComparison.Ordinal);
-        Assert.Contains("TryGetDashedStrokePath(command, commandPath, pen, out var strokePath, out var strokePen)", proGpuHitTestCache, StringComparison.Ordinal);
-        Assert.Contains("TryAddPathStrokePrimitive(strokePath, transform, id, zIndex, strokePen);", proGpuHitTestCache, StringComparison.Ordinal);
-        Assert.Contains("AddPathStrokePrimitive(path, transform, id, zIndex, pen);", proGpuHitTestCache, StringComparison.Ordinal);
+        Assert.Contains("TryGetDashedStrokePath(command, commandPath, pen, localThickness, out var strokePath, out var strokePen)", proGpuHitTestCache, StringComparison.Ordinal);
+        Assert.Contains("TryAddPathStrokePrimitive(strokePath, transform, id, zIndex, strokePen, localThickness);", proGpuHitTestCache, StringComparison.Ordinal);
+        Assert.Contains("TryAddDevicePathStrokePrimitive(path, transform, id, zIndex, pen);", proGpuHitTestCache, StringComparison.Ordinal);
+        Assert.Contains("TryAddPathStrokePrimitive(path, transform, id, zIndex, pen, localThickness);", proGpuHitTestCache, StringComparison.Ordinal);
         Assert.Contains("if (!command.Rect.IsEmpty)", proGpuHitTestCache, StringComparison.Ordinal);
-        Assert.Contains("AddBounds(command.Rect, transform, id, zIndex);", proGpuHitTestCache, StringComparison.Ordinal);
+        Assert.Contains("AddRectangleCoverage(command.Rect, transform, id, zIndex);", proGpuHitTestCache, StringComparison.Ordinal);
+        Assert.Contains("AddImageCoverage(command, activeTransform, primitiveId, zIndex);", proGpuHitTestCache, StringComparison.Ordinal);
+        Assert.Contains("ref readonly TexturePatch patch = ref patches[i];", proGpuHitTestCache, StringComparison.Ordinal);
         Assert.Contains("RenderCommandCacheUsesDashedPathSegmentsForStrokeHitTesting", proGpuHitTestingTests, StringComparison.Ordinal);
         Assert.Contains("RenderCommandCacheUsesGlyphRunCommandBoundsWhenAvailable", proGpuHitTestingTests, StringComparison.Ordinal);
         Assert.Contains("RenderCommandCacheFeedsGpuCombinedPathFillHitTesting", proGpuHitTestingTests, StringComparison.Ordinal);
@@ -2072,7 +2446,7 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("ResolveRenderSurfaceGeometryUsesMonitorScaleOnlyWhenFramebufferIsMissing", proGpuWindowHostTests, StringComparison.Ordinal);
         Assert.Contains("ResolveRenderSurfaceGeometryUsesFullPhysicalViewportWhenFramebufferHasExtraPixels", proGpuWindowHostTests, StringComparison.Ordinal);
         Assert.Contains("ResolveRenderSurfaceGeometryKeepsFullViewportWhenOnlyFramebufferHeightGrows", proGpuWindowHostTests, StringComparison.Ordinal);
-        Assert.Contains("ResolveRenderSurfaceGeometryUsesFullRetinaViewportForMvpWindow", proGpuWindowHostTests, StringComparison.Ordinal);
+        Assert.Contains("ResolveRenderSurfaceGeometryUsesFullRetinaViewportForShowcaseWindow", proGpuWindowHostTests, StringComparison.Ordinal);
         Assert.Contains("NormalizeInputEventForRenderSurfaceGeometryMapsPhysicalPointerCoordinatesToLogicalDips", proGpuWindowHostTests, StringComparison.Ordinal);
         Assert.Contains("SetClientSizeSynchronizesBoundPortablePresentationSourceImmediately", proGpuWindowHostTests, StringComparison.Ordinal);
         Assert.Contains("SetInitialClientSizeCachesLogicalSizeWithoutPortableSourceRelayout", proGpuWindowHostTests, StringComparison.Ordinal);
@@ -2207,7 +2581,8 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("protected override KeyStates GetKeyStatesFromSystem(Key key)", portableKeyboard, StringComparison.Ordinal);
         Assert.Contains("internal sealed class PortableMouseDevice : MouseDevice", portableMouse, StringComparison.Ordinal);
         Assert.Contains("internal override MouseButtonState GetButtonStateFromSystem(MouseButton mouseButton)", portableMouse, StringComparison.Ordinal);
-        Assert.Contains("if (OperatingSystem.IsWindows())", inputManager, StringComparison.Ordinal);
+        Assert.Contains("UsesPortableInput = PortableWpfRuntime.GetMediaBackendAndFreeze() == PortableWpfMediaBackend.Portable;", inputManager, StringComparison.Ordinal);
+        AssertGuardBefore(inputManager, "if (!UsesPortableInput)", "new Win32KeyboardDevice(this)");
         Assert.Contains("new Win32KeyboardDevice(this)", inputManager, StringComparison.Ordinal);
         Assert.Contains("new Win32MouseDevice(this)", inputManager, StringComparison.Ordinal);
         Assert.Contains("new PortableKeyboardDevice(this)", inputManager, StringComparison.Ordinal);
@@ -2279,7 +2654,7 @@ public sealed class WpfManagedProjectGraphTests
     }
 
     [Fact]
-    public void MediaSystemSkipsMilCoreStartupOnNonWindows()
+    public void PortableMediaBackendSkipsWindowsMilStartupAndChannels()
     {
         var sourcePath = FindRepoPath(
             "src",
@@ -2292,8 +2667,9 @@ public sealed class WpfManagedProjectGraphTests
             "MediaSystem.cs");
         var source = File.ReadAllText(sourcePath);
 
-        Assert.Contains("RuntimeInformation.IsOSPlatform(OSPlatform.Windows)", source, StringComparison.Ordinal);
-        Assert.Contains("if (!s_isWindows)", source, StringComparison.Ordinal);
+        Assert.Contains("PortableWpfRuntime.GetMediaBackendAndFreeze()", source, StringComparison.Ordinal);
+        Assert.Contains("lock (s_portableContextLock)", source, StringComparison.Ordinal);
+        Assert.Contains("if (!UsesWindowsMil)", source, StringComparison.Ordinal);
         Assert.Contains("return false;", source, StringComparison.Ordinal);
         Assert.Contains("UnsafeNativeMethods.MilVersionCheck", source, StringComparison.Ordinal);
         Assert.Contains("SafeNativeMethods.MilCompositionEngine_InitializePartitionManager", source, StringComparison.Ordinal);
@@ -2302,21 +2678,28 @@ public sealed class WpfManagedProjectGraphTests
         Assert.True(
             source.IndexOf("return false;", StringComparison.Ordinal)
                 < source.IndexOf("UnsafeNativeMethods.MilVersionCheck", StringComparison.Ordinal),
-            "The non-Windows startup path must return disconnected before any MILCore version check or partition startup.");
+            "The portable startup path must return disconnected before any Windows MIL version check or partition startup.");
 
         var connectChannelsIndex = source.IndexOf("internal static bool ConnectChannels", StringComparison.Ordinal);
-        var connectGuardIndex = source.IndexOf("if (!s_isWindows)", connectChannelsIndex, StringComparison.Ordinal);
+        var connectGuardIndex = source.IndexOf("if (!UsesWindowsMil)", connectChannelsIndex, StringComparison.Ordinal);
         var createChannelsIndex = source.IndexOf("mc.CreateChannels()", StringComparison.Ordinal);
         Assert.True(
             connectGuardIndex > connectChannelsIndex && connectGuardIndex < createChannelsIndex,
-            "The non-Windows channel path must return before creating DUCE channels.");
+            "The portable channel path must return before creating Windows DUCE channels.");
 
         var shutdownIndex = source.IndexOf("internal static void Shutdown", StringComparison.Ordinal);
-        var shutdownGuardIndex = source.IndexOf("if (!s_isWindows)", shutdownIndex, StringComparison.Ordinal);
+        var shutdownGuardIndex = source.IndexOf("if (!UsesWindowsMil)", shutdownIndex, StringComparison.Ordinal);
         var deinitializeIndex = source.IndexOf("SafeNativeMethods.MilCompositionEngine_DeinitializePartitionManager", StringComparison.Ordinal);
         Assert.True(
             shutdownGuardIndex > shutdownIndex && shutdownGuardIndex < deinitializeIndex,
-            "The non-Windows shutdown path must return before MILCore partition deinitialization.");
+            "The portable shutdown path must return before Windows MIL partition deinitialization.");
+
+        var channelManager = File.ReadAllText(FindRepoPath(
+            "src", "Microsoft.DotNet.Wpf", "src", "PresentationCore", "System", "Windows", "Media", "ChannelManager.cs"));
+        Assert.Contains("PortableWpfRuntime.GetMediaBackendAndFreeze() != PortableWpfMediaBackend.WindowsMil", channelManager, StringComparison.Ordinal);
+        AssertGuardBefore(channelManager, "RequireWindowsMilTransport();", "new DUCE.Channel(");
+        var syncSource = channelManager[channelManager.IndexOf("internal DUCE.Channel AllocateSyncChannel()", StringComparison.Ordinal)..];
+        AssertGuardBefore(syncSource, "RequireWindowsMilTransport();", "UnsafeNativeMethods.WgxConnection_Create(");
     }
 
     [Fact]
@@ -2433,8 +2816,10 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("internal static class PortableWindowActivationService", activationService, StringComparison.Ordinal);
         Assert.Contains("internal static void Register", activationService, StringComparison.Ordinal);
         Assert.Contains("Func<object, object> activate", activationService, StringComparison.Ordinal);
-        Assert.Contains("!OperatingSystem.IsWindows()", activationService, StringComparison.Ordinal);
-        Assert.Contains("internal static bool TryActivate(Window window, out object activation)", activationService, StringComparison.Ordinal);
+        Assert.DoesNotContain("OperatingSystem.IsWindows()", activationService, StringComparison.Ordinal);
+        Assert.Contains("Falling back to Windows MIL is not permitted", activationService, StringComparison.Ordinal);
+        Assert.Contains("Falling back to the Windows application loop is not permitted", activationService, StringComparison.Ordinal);
+        Assert.Contains("internal static bool TryActivate(Window window, out object activation, bool duringShow = true)", activationService, StringComparison.Ordinal);
         Assert.Contains("Action<object, object> setWindowState", activationService, StringComparison.Ordinal);
         Assert.Contains("internal static void SetWindowState(object activation, WindowState windowState)", activationService, StringComparison.Ordinal);
         Assert.Contains("Action<object, string> setTitle", activationService, StringComparison.Ordinal);
@@ -2506,9 +2891,11 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("internal object PortableWindowActivation", window, StringComparison.Ordinal);
         Assert.Contains("internal void HandlePortableInput(PortableInputEventArgs input)", window, StringComparison.Ordinal);
         Assert.Contains("PortableWindowActivationService.ProcessInput(this, input)", window, StringComparison.Ordinal);
-        Assert.Contains("TryCreatePortableWindowDuringShow()", window, StringComparison.Ordinal);
-        Assert.Contains("PortableWindowActivationService.TryActivate(this, out object activation)", window, StringComparison.Ordinal);
-        Assert.Contains("PortableWindowActivationService.SetActivationState(this, true)", window, StringComparison.Ordinal);
+        Assert.Contains("TryCreatePortableWindow(duringShow)", window, StringComparison.Ordinal);
+        Assert.Contains("PortableWindowActivationService.TryActivate(this, out object activation, duringShow)", window, StringComparison.Ordinal);
+        Assert.Contains("callbacks.CreateHidden", activationService, StringComparison.Ordinal);
+        Assert.Contains("does not support hidden window sources", activationService, StringComparison.Ordinal);
+        Assert.DoesNotContain("PortableWindowActivationService.SetActivationState(this, true)", window, StringComparison.Ordinal);
         Assert.Contains("PortableWindowActivationService.TryRequestActivation(_portableWindowActivation)", window, StringComparison.Ordinal);
         Assert.Contains("PortableWindowActivationService.Show(_portableWindowActivation)", window, StringComparison.Ordinal);
         Assert.Contains("PortableWindowActivationService.Hide(_portableWindowActivation)", window, StringComparison.Ordinal);
@@ -2544,17 +2931,23 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("if (PortableWindowActivationService.IsEnabled)", window, StringComparison.Ordinal);
         Assert.Contains("return ShowPortableDialog();", window, StringComparison.Ordinal);
         Assert.Contains("private Nullable<bool> ShowPortableDialog()", window, StringComparison.Ordinal);
-        Assert.Contains("PortableWindowActivationService.TryRun(this);", window, StringComparison.Ordinal);
+        Assert.Contains("PortableWindowActivationService.GetDialogRunCallback();", window, StringComparison.Ordinal);
+        Assert.Contains("PortableWindowActivationService.GetDialogReleaseCallback();", window, StringComparison.Ordinal);
+        Assert.Contains("scope.ReleaseAfterNative(completed =>", window, StringComparison.Ordinal);
+        Assert.DoesNotContain("using PortableModalInputScope modalInput", window, StringComparison.Ordinal);
+        Assert.DoesNotContain("using IDisposable restoreInput", window, StringComparison.Ordinal);
+        Assert.Contains("if (!IsPortableWindowActive && (_showingAsDialog) && (_isVisible))", window, StringComparison.Ordinal);
+        Assert.Contains("runDialog(_portableWindowActivation, () => _showingAsDialog && _isVisible && !_disposed);", window, StringComparison.Ordinal);
         Assert.Contains("ComponentDispatcher.PushModal();", window, StringComparison.Ordinal);
         Assert.Contains("ComponentDispatcher.PopModal();", window, StringComparison.Ordinal);
         Assert.True(
             window.IndexOf("ComponentDispatcher.PushModal();", StringComparison.Ordinal)
-                < window.IndexOf("PortableWindowActivationService.TryRun(this);", StringComparison.Ordinal),
+                < window.IndexOf("runDialog(_portableWindowActivation,", StringComparison.Ordinal),
             "Portable Window.ShowDialog must enter modal state before running the dialog native host.");
         Assert.Contains("if (_showingAsDialog)", window, StringComparison.Ordinal);
         Assert.Contains("DoDialogHide();", window, StringComparison.Ordinal);
         Assert.Contains("if (IsPortableWindowActive)", window, StringComparison.Ordinal);
-        AssertGuardBefore(window, "if (!OperatingSystem.IsWindows())", "UnsafeNativeMethods.SendMessage( Handle, WindowMessage.WM_SYSCOMMAND");
+        AssertGuardBefore(window, "if (IsPortableWindowActive || !OperatingSystem.IsWindows())", "UnsafeNativeMethods.SendMessage( Handle, WindowMessage.WM_SYSCOMMAND");
         Assert.Contains("ClosePortableWindowActivation();", window, StringComparison.Ordinal);
         Assert.Contains("private bool IsPortableWindowActive", window, StringComparison.Ordinal);
         Assert.Contains("if (value != null && value.IsSourceWindowNull && !value.IsPortableWindowActive)", window, StringComparison.Ordinal);
@@ -2599,11 +2992,11 @@ public sealed class WpfManagedProjectGraphTests
                 < window.IndexOf("PortableWindowActivationService.Show(_portableWindowActivation)", StringComparison.Ordinal),
             "Portable Window.Show must refresh the WPF root template, inherited visibility, and layout before showing the native host.");
         Assert.True(
-            window.IndexOf("if (TryCreatePortableWindowDuringShow())", StringComparison.Ordinal)
-                < window.IndexOf("CreateSourceWindow(true);", StringComparison.Ordinal),
-            "Window.Show must try the portable activation service before falling back to HWND creation.");
+            window.IndexOf("if (TryCreatePortableWindow(duringShow))", StringComparison.Ordinal)
+                < window.IndexOf("HwndSourceParameters param = CreateHwndSourceParameters();", StringComparison.Ordinal),
+            "Show and EnsureHandle must select portable ownership before HWND/MIL source creation.");
 
-        Assert.Contains("if (!OperatingSystem.IsWindows())", application, StringComparison.Ordinal);
+        Assert.Contains("if (PortableWindowActivationService.IsEnabled || !OperatingSystem.IsWindows())", application, StringComparison.Ordinal);
         Assert.Contains("PortableWindowActivationService.IsEnabled", application, StringComparison.Ordinal);
         Assert.Contains("FlushPortableDispatcherOperations(DispatcherPriority.Send)", application, StringComparison.Ordinal);
         Assert.Contains("FlushPortableDispatcherOperations(DispatcherPriority.ApplicationIdle)", application, StringComparison.Ordinal);
@@ -2612,22 +3005,27 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("wnd.Show();", application, StringComparison.Ordinal);
         Assert.Contains("wnd.Visibility = Visibility.Visible;", application, StringComparison.Ordinal);
         Assert.Contains("Dispatcher.PushFrame(frame)", application, StringComparison.Ordinal);
-        Assert.Contains("PortableWindowActivationService.TryRun(MainWindow)", application, StringComparison.Ordinal);
+        Assert.Contains("PortableApplicationRunLoop.Run(ref source)", application, StringComparison.Ordinal);
+        Assert.Contains("if (_portableRunEntered)", application, StringComparison.Ordinal);
+        Assert.Contains("PortableWindowActivationService.TryRun((Window)host)", application, StringComparison.Ordinal);
+        Assert.Contains("Dispatcher.Hooks.OperationCompleted += OnCompleted", application, StringComparison.Ordinal);
+        Assert.Contains("Dispatcher.Hooks.OperationCompleted -= OnCompleted", application, StringComparison.Ordinal);
+        Assert.Contains("window.PortableWindowActivation != null", application, StringComparison.Ordinal);
         Assert.Contains("if (!_appIsShutdown)", application, StringComparison.Ordinal);
         Assert.True(
-            application.IndexOf("if (!OperatingSystem.IsWindows())", StringComparison.Ordinal)
+            application.IndexOf("if (PortableWindowActivationService.IsEnabled || !OperatingSystem.IsWindows())", StringComparison.Ordinal)
                 < application.IndexOf("new HwndWrapper", StringComparison.Ordinal),
-            "Application.Run must skip the parking HWND before any HwndWrapper is created on non-Windows.");
+            "Application.Run must skip the parking HWND before any HwndWrapper is created for registered portable hosting on every OS.");
         Assert.True(
             application.IndexOf("FlushPortableDispatcherOperations(DispatcherPriority.Send)", StringComparison.Ordinal)
                 < application.IndexOf("window.Show();", StringComparison.Ordinal),
             "Application.Run must service queued startup work before synchronously showing the portable startup window.");
         Assert.True(
             application.IndexOf("window.Show();", StringComparison.Ordinal)
-                < application.IndexOf("PortableWindowActivationService.TryRun(MainWindow)", StringComparison.Ordinal),
+                < application.IndexOf("PortableApplicationRunLoop.Run(ref source)", StringComparison.Ordinal),
             "Application.Run must synchronously show the startup window before handing ownership to the portable native run loop.");
         int portableTryRun = application.IndexOf(
-            "PortableWindowActivationService.TryRun(MainWindow)",
+            "PortableApplicationRunLoop.Run(ref source)",
             StringComparison.Ordinal);
         int applicationIdleFlush = application.IndexOf(
             "FlushPortableDispatcherOperations(DispatcherPriority.ApplicationIdle)",
@@ -2636,7 +3034,7 @@ public sealed class WpfManagedProjectGraphTests
             portableTryRun < applicationIdleFlush,
             "Application.Run must leave normal and idle app work for the portable native run loop, then service queued shutdown work after it exits.");
         Assert.True(
-            application.IndexOf("PortableWindowActivationService.TryRun(MainWindow)", StringComparison.Ordinal)
+            application.IndexOf("PortableApplicationRunLoop.Run(ref source)", StringComparison.Ordinal)
                 < application.IndexOf("RunDispatcher(null);", StringComparison.Ordinal),
             "Application.Run must use the portable native run loop before falling back to WPF Dispatcher.Run.");
     }
@@ -3426,8 +3824,10 @@ public sealed class WpfManagedProjectGraphTests
 
         AssertProjectReference(harnessProject, @"ProGPU.Wpf\ProGPU.Wpf.csproj");
         AssertProjectReference(harnessProject, @"external\ProGPU\src\ProGPU.Backend\ProGPU.Backend.csproj");
+        AssertProjectReference(harnessProject, @"external\ProGPU\src\ProGPU.Backend.Native\ProGPU.Backend.Native.csproj");
         AssertProjectReference(harnessProject, @"external\ProGPU\src\ProGPU.Scene\ProGPU.Scene.csproj");
         AssertProjectReference(harnessProject, @"external\ProGPU\src\ProGPU.Vector\ProGPU.Vector.csproj");
+        AssertProjectReference(harnessProject, @"external\ProGPU\src\ProGPU.Wpf.Interop\ProGPU.Wpf.Interop.csproj");
 
         var presentationCoreReference = AssertProjectReference(
             harnessProject,
@@ -3442,6 +3842,13 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Equal("all", GetItemMetadata(presentationFrameworkReference, "PrivateAssets"));
 
         Assert.Contains("WpfPortableWindowActivation.TryRegisterPresentationFrameworkActivation", harnessProgram, StringComparison.Ordinal);
+        Assert.Contains("--native-mil-host", harnessProgram, StringComparison.Ordinal);
+        Assert.Contains("PROGPU_WPF_REAL_ASSEMBLY_DIR", harnessProgram, StringComparison.Ordinal);
+        Assert.Contains("GetConfiguredRealWpfAssemblyDirectory()", harnessProgram, StringComparison.Ordinal);
+        Assert.Contains("realWpfAssemblyPath", harnessProgram, StringComparison.Ordinal);
+        Assert.Contains("ProGpuWpfRendererMode.NativeMilWgpu", harnessProgram, StringComparison.Ordinal);
+        Assert.Contains("ValidateNativeMilHostResult(host, drawingVisual, inlineText)", harnessProgram, StringComparison.Ordinal);
+        Assert.Contains("LastNativeMilFrameMetrics.SubmissionCount", harnessProgram, StringComparison.Ordinal);
         Assert.Contains("PortableRenderDataDrawingContextSinkProvider", harnessProgram, StringComparison.Ordinal);
         Assert.Contains("RegisterRealPortableObjectSinkProvider(", harnessProgram, StringComparison.Ordinal);
         Assert.Contains("PushObjectSinkFactory", harnessProgram, StringComparison.Ordinal);
@@ -5305,6 +5712,26 @@ public sealed class WpfManagedProjectGraphTests
     }
 
     [Fact]
+    public void PortableApplicationLifetimeScenariosRemainInTheFullSdkGate()
+    {
+        string program = File.ReadAllText(FindRepoPath("src", "ProGPU.Wpf.RealApplicationRunHarness", "Program.cs"));
+        string lifetime = File.ReadAllText(FindRepoPath("src", "ProGPU.Wpf.RealApplicationRunHarness", "ApplicationLifetimeHarness.cs"));
+        string gate = File.ReadAllText(FindRepoPath("eng", "progpu-wpf-sdk-ci.sh"));
+        Assert.Contains("registrar.Register(new PortableWindowActivationCallbacks(", program, StringComparison.Ordinal);
+        Assert.Contains("return typeof(PortableWpfServiceRegistry).Assembly;", program, StringComparison.Ordinal);
+        Assert.Contains("Invoke(_application, \"Shutdown\");", program, StringComparison.Ordinal);
+        Assert.Contains("--portable-application-lifetime-only", program, StringComparison.Ordinal);
+        Assert.Contains("for lifetime_scenario in last-window main-window explicit; do", gate, StringComparison.Ordinal);
+        Assert.Contains("--portable-application-lifetime-only \"${lifetime_scenario}\"", gate, StringComparison.Ordinal);
+        Assert.Contains("PortableWpfRuntime.SelectMediaBackend(PortableWpfMediaBackend.Portable)", lifetime, StringComparison.Ordinal);
+        Assert.Contains("single application Exit event", lifetime, StringComparison.Ordinal);
+        Assert.Contains("explicit lifetime survives no windows", lifetime, StringComparison.Ordinal);
+        Assert.Contains("hostless dispatcher delivered reopen once", lifetime, StringComparison.Ordinal);
+        Assert.Contains("Nested Application.Run was accepted.", lifetime, StringComparison.Ordinal);
+        Assert.Contains("sourceHostType.GetProperty(\"RootVisual\")", lifetime, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void RealApplicationRunHarnessExercisesStartupUriThroughPortableActivation()
     {
         var harnessProjectPath = FindRepoPath(
@@ -5347,9 +5774,9 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Equal("false", GetItemMetadata(presentationFrameworkReference, "ReferenceOutputAssembly"));
         Assert.Equal("all", GetItemMetadata(presentationFrameworkReference, "PrivateAssets"));
 
-        Assert.DoesNotContain(
-            harnessProject.Descendants("ProjectReference"),
-            item => IncludeEndsWith(item, "Include", @"ProGPU.Wpf\ProGPU.Wpf.csproj"));
+        var nativeMediaReference = AssertProjectReference(harnessProject, @"ProGPU.Wpf\ProGPU.Wpf.csproj");
+        Assert.Equal("all", GetItemMetadata(nativeMediaReference, "PrivateAssets"));
+        Assert.Contains("ProGpuWpfNativeMediaServices.Initialize();", harnessProgram, StringComparison.Ordinal);
         Assert.DoesNotContain(
             harnessProject.Descendants("ProjectReference"),
             item => IncludeEndsWith(item, "Include", @"external\ProGPU\src\ProGPU.Scene\ProGPU.Scene.csproj"));
@@ -5428,14 +5855,15 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("loose XamlWriter round-trip FlowDocument TextRange second list item", harnessProgram, StringComparison.Ordinal);
         Assert.Contains("Invoke(application, \"Run\")", harnessProgram, StringComparison.Ordinal);
         Assert.Contains("PortableWindowActivationServiceTypeName = \"System.Windows.PortableWindowActivationService\"", harnessProgram, StringComparison.Ordinal);
-        Assert.Contains("new Func<object, object>(recorder.Activate)", harnessProgram, StringComparison.Ordinal);
-        Assert.Contains("new Action<object, object, object>(recorder.SetWindowBorder)", harnessProgram, StringComparison.Ordinal);
+        Assert.Contains("registrar.Register(new PortableWindowActivationCallbacks(", harnessProgram, StringComparison.Ordinal);
+        Assert.Contains("activate: recorder.Activate,", harnessProgram, StringComparison.Ordinal);
+        Assert.Contains("setWindowBorder: recorder.SetWindowBorder,", harnessProgram, StringComparison.Ordinal);
         Assert.Contains("public void SetWindowBorder(object activation, object resizeMode, object windowStyle)", harnessProgram, StringComparison.Ordinal);
-        Assert.Contains("new Func<object, IntPtr>(recorder.GetHandle)", harnessProgram, StringComparison.Ordinal);
+        Assert.Contains("getHandle: recorder.GetHandle,", harnessProgram, StringComparison.Ordinal);
         Assert.Contains("public IntPtr GetHandle(object activation)", harnessProgram, StringComparison.Ordinal);
         Assert.Contains("GetProperty(typedActivation.PresentationSource, \"Handle\")", harnessProgram, StringComparison.Ordinal);
         Assert.Contains("method.GetParameters().Length == 2", harnessProgram, StringComparison.Ordinal);
-        Assert.Contains("new Action<object>(recorder.Run)", harnessProgram, StringComparison.Ordinal);
+        Assert.Contains("run: recorder.Run,", harnessProgram, StringComparison.Ordinal);
         Assert.Contains("ValidateMainWindow(_presentationCore, window, _application)", harnessProgram, StringComparison.Ordinal);
         Assert.Contains("ValidateFreezableBrushResource(resources)", harnessProgram, StringComparison.Ordinal);
         Assert.Contains("ValidateFreezableGradientBrushResource(resources)", harnessProgram, StringComparison.Ordinal);
@@ -6949,7 +7377,7 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("new PortableIntersectedClipGeometry(firstPath, secondPath)", rendererSource, StringComparison.Ordinal);
         Assert.Contains("TryReadPortableGeometryBounds(first, out var firstBounds)", rendererSource, StringComparison.Ordinal);
         Assert.Contains("TryReadPortableGeometryBounds(second, out var secondBounds)", rendererSource, StringComparison.Ordinal);
-        Assert.Contains("BoundsAccumulatingSink :\n        IWpfCompositionCommandSink,\n        IWpfNativePrimitiveCommandSink,\n        IWpfNativeTransformCommandSink,\n        IWpfNativeClipCommandSink,\n        IWpfNativeGeometryCommandSink", rendererSource, StringComparison.Ordinal);
+        Assert.Contains("BoundsAccumulatingSink :\n        IWpfCompositionCommandSink,\n        IWpfNativePrimitiveCommandSink,\n        IWpfNativeVideoCommandSink,\n        IWpfNativeTransformCommandSink,\n        IWpfNativeClipCommandSink,\n        IWpfNativeGeometryCommandSink", rendererSource, StringComparison.Ordinal);
         Assert.Contains("bool TryGetVisualStateBounds(out WpfReplayRect bounds)", rendererSource, StringComparison.Ordinal);
         Assert.Contains("visualStateBoundsAvailable = TryReadOpacityMaskBounds(visual, out visualStateBounds);", rendererSource, StringComparison.Ordinal);
         Assert.Contains("TryGetVisualStateBounds(out var opacityMaskBounds)", rendererSource, StringComparison.Ordinal);
@@ -7113,6 +7541,10 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("VisualCacheMode", visualSource, StringComparison.Ordinal);
         Assert.Contains("VisualBitmapScalingMode", visualSource, StringComparison.Ordinal);
         Assert.Contains("VisualTextRenderingMode", visualSource, StringComparison.Ordinal);
+        Assert.Contains("HasPortableTextRenderingMode = textRenderingMode != TextRenderingMode.Auto", visualSource, StringComparison.Ordinal);
+        Assert.Contains("PortableTextRenderingMode.ClearType", visualSource, StringComparison.Ordinal);
+        Assert.Contains("HasPortableTextHintingMode = textHintingMode != TextHintingMode.Auto", visualSource, StringComparison.Ordinal);
+        Assert.Contains("PortableTextHintingMode.Animated", visualSource, StringComparison.Ordinal);
         Assert.Contains("VisualXSnappingGuidelines", visualSource, StringComparison.Ordinal);
         Assert.Contains("SnappingGuidelinesX = GetPortableVisualGuidelines(guidelinesX, isXAxis: true)", visualSource, StringComparison.Ordinal);
         Assert.Contains("SnappingGuidelinesY = GetPortableVisualGuidelines(guidelinesY, isXAxis: false)", visualSource, StringComparison.Ordinal);
@@ -7129,6 +7561,8 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("public bool HasCacheMode", interopSource, StringComparison.Ordinal);
         Assert.Contains("public bool HasBitmapScalingMode", interopSource, StringComparison.Ordinal);
         Assert.Contains("public bool HasTextRenderingMode", interopSource, StringComparison.Ordinal);
+        Assert.Contains("public bool HasPortableTextRenderingMode", interopSource, StringComparison.Ordinal);
+        Assert.Contains("public bool HasPortableTextHintingMode", interopSource, StringComparison.Ordinal);
         Assert.Contains("public bool HasSnappingGuidelinesX", interopSource, StringComparison.Ordinal);
         Assert.Contains("CanReplaySubtreeTreatsAbsentPortableVisualStateValuesAsAuthoritative", rendererTests, StringComparison.Ordinal);
         Assert.Contains("ReplaySubtreeDoesNotReflectAbsentPortableVisualStateDependencies", rendererTests, StringComparison.Ordinal);
@@ -7211,6 +7645,11 @@ public sealed class WpfManagedProjectGraphTests
         Assert.DoesNotContain("TryReadFiniteRectProperty(drawingGroup", replaySource, StringComparison.Ordinal);
         Assert.Contains("DrawingGroup : Drawing, IPortableDrawingGroupStateSource, IPortableDrawingGroupChildrenSource", drawingGroupSource, StringComparison.Ordinal);
         Assert.Contains("IPortableDrawingGroupStateSource.TryGetPortableDrawingGroupState(out PortableDrawingGroupState state)", drawingGroupSource, StringComparison.Ordinal);
+        Assert.Contains("Rect localBounds = GetPortableLocalBounds();", drawingGroupSource, StringComparison.Ordinal);
+        Assert.Contains("TryTransformPortableLocalBounds(", drawingGroupSource, StringComparison.Ordinal);
+        Assert.Contains("matrix.M12 != 0 || matrix.M21 != 0", drawingGroupSource, StringComparison.Ordinal);
+        Assert.Contains("var context = new BoundsDrawingContextWalker();", drawingGroupSource, StringComparison.Ordinal);
+        Assert.Contains("HasLocalBounds = hasLocalBounds", drawingGroupSource, StringComparison.Ordinal);
         Assert.Contains("IPortableDrawingGroupChildrenSource.TryGetPortableDrawingGroupChildCount(out int count)", drawingGroupSource, StringComparison.Ordinal);
         Assert.Contains("IPortableDrawingGroupChildrenSource.TryGetPortableDrawingGroupChild(int index, out object child)", drawingGroupSource, StringComparison.Ordinal);
         Assert.DoesNotContain("CopyPortableDrawingGroupChildren", drawingGroupSource, StringComparison.Ordinal);
@@ -7218,6 +7657,8 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("interface IPortableDrawingGroupStateSource", interopSource, StringComparison.Ordinal);
         Assert.Contains("interface IPortableDrawingGroupChildrenSource", interopSource, StringComparison.Ordinal);
         Assert.Contains("public bool HasClipGeometry", interopSource, StringComparison.Ordinal);
+        Assert.Contains("public bool HasLocalBounds", interopSource, StringComparison.Ordinal);
+        Assert.Contains("public PortableRect LocalBounds", interopSource, StringComparison.Ordinal);
         Assert.Contains("public bool HasBitmapScalingMode", interopSource, StringComparison.Ordinal);
         Assert.Contains("public object[] Children", interopSource, StringComparison.Ordinal);
         Assert.Contains("ReplaySubtreeAppliesPortableDrawingGroupStateWithoutReflection", rendererTests, StringComparison.Ordinal);
@@ -7726,7 +8167,9 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("PortableEffectKind.Blur", portableEffect, StringComparison.Ordinal);
         Assert.Contains("PortableEffectKind.DropShadow", portableEffect, StringComparison.Ordinal);
         Assert.Contains("public partial class BlurEffect : IPortableEffectSource", blurEffect, StringComparison.Ordinal);
-        Assert.Contains("PortableEffect.Blur(Radius)", blurEffect, StringComparison.Ordinal);
+        Assert.Contains("PortableEffect.Blur(", blurEffect, StringComparison.Ordinal);
+        Assert.Contains("PortableBlurKernel.Gaussian", blurEffect, StringComparison.Ordinal);
+        Assert.Contains("PortableEffectRenderingBias.Quality", blurEffect, StringComparison.Ordinal);
         Assert.Contains("public partial class DropShadowEffect : IPortableEffectSource", dropShadowEffect, StringComparison.Ordinal);
         Assert.Contains("PortableEffect.DropShadow(", dropShadowEffect, StringComparison.Ordinal);
         Assert.Contains("public abstract partial class BitmapEffect : IPortableEffectSource", bitmapEffect, StringComparison.Ordinal);
@@ -8845,12 +9288,12 @@ public sealed class WpfManagedProjectGraphTests
             "Imaging",
             "BitmapPalette.cs"));
 
-        AssertGuardBefore(compositionExports, "if (!OperatingSystem.IsWindows())", "UnsafeNativeMethods.MilCoreApi.EnterCompositionEngineLock()");
+        AssertGuardBefore(compositionExports, "PortableWpfRuntime.GetMediaBackendAndFreeze() != PortableWpfMediaBackend.WindowsMil", "UnsafeNativeMethods.MilCoreApi.EnterCompositionEngineLock()");
         Assert.Contains("CreateManagedPredefinedColors", bitmapPalette, StringComparison.Ordinal);
         Assert.Contains("InitializeManagedFromBitmapSource", bitmapPalette, StringComparison.Ordinal);
         Assert.Contains("ExtractManagedColors", bitmapPalette, StringComparison.Ordinal);
         Assert.Contains("AddRgbCube", bitmapPalette, StringComparison.Ordinal);
-        AssertGuardBefore(bitmapPalette, "if (!OperatingSystem.IsWindows())", "_palette = CreateInternalPalette();");
+        AssertGuardBefore(bitmapPalette, "if (BitmapSource.UsesPortablePixelStorage)", "_palette = CreateInternalPalette();");
         Assert.Contains("IReadOnlyDictionary<string, object> portableQueries", bitmapMetadata, StringComparison.Ordinal);
         Assert.Contains("_portableQueries = new Dictionary<string, object>(portableQueries, StringComparer.Ordinal);", bitmapMetadata, StringComparison.Ordinal);
         Assert.Contains("return _portableQueries.TryGetValue(query, out object value) ? value : null;", bitmapMetadata, StringComparison.Ordinal);
@@ -8945,8 +9388,15 @@ public sealed class WpfManagedProjectGraphTests
         AssertGuardBefore(bitmapDecoder, "IconBitmapDecoder.TryCreatePortableFrame", "SetupDecoderFromUriOrStream");
         AssertGuardBefore(uiElement, "if (!OperatingSystem.IsWindows())", "UnsafeNativeMethods.GetDC(desktopWnd)");
         AssertGuardBefore(pathGeometry, "if (!OperatingSystem.IsWindows())", "UnsafeNativeMethods.MilCoreApi.MilUtility_PathGeometryBounds");
-        AssertGuardBefore(pathGeometry, "if (!OperatingSystem.IsWindows())\n            {\n                return InternalCombineManaged", "UnsafeNativeMethods.MilCoreApi.MilUtility_PathGeometryCombine");
-        Assert.Contains("private static PathGeometry InternalCombineManaged(", pathGeometry, StringComparison.Ordinal);
+        AssertGuardBefore(pathGeometry, "if (PortableGeometryOperationsBridge.IsPortable)", "UnsafeNativeMethods.MilCoreApi.MilUtility_PathGeometryBounds");
+        Assert.Contains("PortableGeometryOperationsBridge.ExportPathData(pathData), pen, worldMatrix, tolerance, type, skipHollows)", pathGeometry, StringComparison.Ordinal);
+        AssertGuardBefore(geometry, "if (PortableGeometryOperationsBridge.IsPortable)", "MilCoreApi.MilUtility_PolygonBounds");
+        Assert.Contains("pen, pWorldMatrix == null ? Matrix.Identity : *pWorldMatrix, tolerance, type, fSkipHollows)", geometry, StringComparison.Ordinal);
+        AssertGuardBefore(geometry, "return PortableGeometryOperationsBridge.Contains(this, pen, hitPoint, tolerance, type);", "MilCoreApi.MilUtility_PathGeometryHitTest");
+        AssertGuardBefore(pathGeometry, "return PortableGeometryOperationsBridge.Combine(geometry1, geometry2, mode, transform, tolerance, type);", "UnsafeNativeMethods.MilCoreApi.MilUtility_PathGeometryCombine");
+        AssertGuardBefore(pathGeometry, "return PortableGeometryOperationsBridge.CompareFill(geometry1, geometry2, tolerance, type);", "MilCoreApi.MilUtility_PathGeometryHitTestPathGeometry");
+        Assert.Contains("PortableWpfRuntime.GetMediaBackendAndFreeze() == PortableWpfMediaBackend.Portable", pathGeometry, StringComparison.Ordinal);
+        Assert.DoesNotContain("InternalCombineManaged", pathGeometry, StringComparison.Ordinal);
         AssertGuardBefore(geometry, "if (!OperatingSystem.IsWindows())\n            {\n                if (pen == null &&\n                    PathGeometry.TryContainsFillProGpu", "MilCoreApi.MilUtility_PathGeometryHitTest");
         AssertGuardBefore(geometry, "if (!OperatingSystem.IsWindows())\n            {\n                return ContainsPolygonProGpuBounds", "MilCoreApi.MilUtility_PolygonHitTest");
         Assert.Contains(@"external\ProGPU\src\ProGPU.Vector\BoundsHitTesting.cs", presentationCoreProject, StringComparison.Ordinal);
@@ -8972,7 +9422,7 @@ public sealed class WpfManagedProjectGraphTests
         Assert.DoesNotContain("TransformManagedPoint", geometry, StringComparison.Ordinal);
         Assert.Contains("PROGPU_VECTOR_INTERNAL", presentationCoreProject, StringComparison.Ordinal);
         Assert.Contains(@"external\ProGPU\src\ProGPU.Vector\DashPattern.cs", presentationCoreProject, StringComparison.Ordinal);
-        Assert.Contains(@"MS\Internal\Media\ProGPU\ProGpuVectorStrokeContracts.cs", presentationCoreProject, StringComparison.Ordinal);
+        Assert.Contains(@"MS\internal\Media\ProGPU\ProGpuVectorStrokeContracts.cs", presentationCoreProject, StringComparison.Ordinal);
         Assert.Contains("internal enum PenLineCap", proGpuVectorStrokeContracts, StringComparison.Ordinal);
         Assert.Contains("Flat = 0", proGpuVectorStrokeContracts, StringComparison.Ordinal);
         Assert.Contains("Square = 1", proGpuVectorStrokeContracts, StringComparison.Ordinal);
@@ -9013,7 +9463,10 @@ public sealed class WpfManagedProjectGraphTests
         AssertGuardBefore(ellipseGeometry, "if (!OperatingSystem.IsWindows())", "return ContainsInternal(\n                        pen");
         Assert.Contains("return OperatingSystem.IsWindows() && !CoreAppContextSwitches.DisableStylusAndTouchSupport", stylusLogic, StringComparison.Ordinal);
         AssertGuardBefore(stylusLogic, "if (!OperatingSystem.IsWindows())", "Registry.CurrentUser.OpenSubKey");
-        AssertGuardBefore(accessKeyManager, "if (!global::System.OperatingSystem.IsWindows())", "UnsafeNativeMethods.GetActiveWindow()");
+        AssertGuardBefore(accessKeyManager, "PortableWpfRuntime.GetMediaBackendAndFreeze() == PortableWpfMediaBackend.Portable", "UnsafeNativeMethods.GetActiveWindow()");
+        Assert.Contains("source.Dispatcher.CheckAccess() && !source.IsDisposed", accessKeyManager, StringComparison.Ordinal);
+        Assert.Contains("IPortableAccessKeyScopeSource { IsPortableAccessKeyScopeActive: true }", accessKeyManager, StringComparison.Ordinal);
+        Assert.Contains("if (active != null) return null;", accessKeyManager, StringComparison.Ordinal);
         Assert.Contains("PresentationSource.CriticalCurrentSources", accessKeyManager, StringComparison.Ordinal);
         Assert.Contains("GetPortableActiveSource()", accessKeyManager, StringComparison.Ordinal);
         Assert.Contains("scope = NormalizePortableScope(scope);", accessKeyManager, StringComparison.Ordinal);
@@ -9042,16 +9495,19 @@ public sealed class WpfManagedProjectGraphTests
         AssertGuardBefore(systemResources, "if (!OperatingSystem.IsWindows())", "new HwndWrapper(");
         AssertGuardBefore(systemResources, "if (OperatingSystem.IsWindows())", "XamlAccessLevel.AssemblyAccessTo(assembly)");
         AssertGuardBefore(xamlReader, "if (internalTypeHelper != null && OperatingSystem.IsWindows())", "XamlAccessLevel.AssemblyAccessTo(streamInfo.Assembly)");
-        AssertGuardBefore(popupControlService, "if (!OperatingSystem.IsWindows()", "MS.Win32.SafeNativeMethods.GetCapture()");
-        AssertGuardBefore(comboBox, "(!OperatingSystem.IsWindows()", "MS.Win32.SafeNativeMethods.GetCapture()");
+        Assert.Contains("UsesNativeWindowing(source) && MS.Win32.SafeNativeMethods.GetCapture()", popupControlService, StringComparison.Ordinal);
+        Assert.Contains("!PointUtil.IsPortablePresentationSource(source)", popupControlService, StringComparison.Ordinal);
+        Assert.Contains("!HasNativeMouseCapture(mouseReport.InputSource)", popupControlService, StringComparison.Ordinal);
+        Assert.Contains("!PopupControlService.HasNativeMouseCapture(PresentationSource.CriticalFromVisual(comboBox))", comboBox, StringComparison.Ordinal);
         Assert.Contains("PresentationSource source = PresentationSource.CriticalFromVisual(itemsHost);", comboBox, StringComparison.Ordinal);
         Assert.Contains("CompositionTarget compositionTarget = source?.CompositionTarget;", comboBox, StringComparison.Ordinal);
         Assert.DoesNotContain("HwndSource source = PresentationSource.CriticalFromVisual(itemsHost) as HwndSource;", comboBox, StringComparison.Ordinal);
-        AssertGuardBefore(popup, "(!OperatingSystem.IsWindows()", "MS.Win32.SafeNativeMethods.GetCapture()");
+        Assert.Contains("!PopupControlService.HasNativeMouseCapture(PresentationSource.CriticalFromVisual(root))", popup, StringComparison.Ordinal);
+        Assert.DoesNotContain("MS.Win32.SafeNativeMethods.GetCapture()", popup, StringComparison.Ordinal);
         Assert.Contains("return GetPresentationSourceRootRect(_portableOwnerPresentationSource);", popup, StringComparison.Ordinal);
         Assert.Contains("return GetPresentationSourceRootRect(_window);", popup, StringComparison.Ordinal);
         Assert.Contains("private static Rect GetPresentationSourceRootRect(PresentationSource source)", popup, StringComparison.Ordinal);
-        Assert.Contains("_window = new PortablePresentationSource();", popup, StringComparison.Ordinal);
+        Assert.Contains("_window = portableWindow;", popup, StringComparison.Ordinal);
         Assert.Contains("private PresentationSource _window;", popup, StringComparison.Ordinal);
         Assert.Contains("private PresentationSource _portableOwnerPresentationSource;", popup, StringComparison.Ordinal);
         Assert.Contains("private IPortablePopupServiceRegistrar _portablePopupService;", popup, StringComparison.Ordinal);
@@ -9072,11 +9528,12 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("TryDestroyPortablePopup(source);", popup, StringComparison.Ordinal);
         Assert.Contains("internal bool HasWindowReference() => _window is not null;", popup, StringComparison.Ordinal);
         Assert.Contains("internal bool CanDestroyWindow() =>", popup, StringComparison.Ordinal);
-        Assert.Contains("(!visible && !OperatingSystem.IsWindows() && popup._secHelper.HasWindowReference())", popup, StringComparison.Ordinal);
+        Assert.Contains("(!visible && popup._secHelper.IsPortable && popup._secHelper.HasWindowReference())", popup, StringComparison.Ordinal);
         Assert.Contains("popup.CancelAsyncDestroy();\n                popup.HideWindow();", popup, StringComparison.Ordinal);
         Assert.Contains("Treat every portable IsOpen=false transition as authoritative", popup, StringComparison.Ordinal);
         Assert.Contains("// Remove the host bridge even if the portable PresentationSource was already", popup, StringComparison.Ordinal);
-        Assert.Contains("TryDestroyPortablePopup(source);\n                    if (!source.IsDisposed)", popup, StringComparison.Ordinal);
+        Assert.Contains("if (PointUtil.IsPortablePresentationSource(source))", popup, StringComparison.Ordinal);
+        Assert.Contains("_portablePopupService = null;\n                        if (!source.IsDisposed)", popup, StringComparison.Ordinal);
         Assert.Contains("AttachPortablePopupRootLayoutUpdates();", popup, StringComparison.Ordinal);
         Assert.Contains("DetachPortablePopupRootLayoutUpdates();", popup, StringComparison.Ordinal);
         Assert.Contains("_popupRoot.LayoutUpdated += OnPortablePopupRootLayoutUpdated;", popup, StringComparison.Ordinal);
@@ -9086,46 +9543,56 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("OnWindowResize(_popupRoot, new AutoResizedEventArgs(clientSize));", popup, StringComparison.Ordinal);
         Assert.Contains("internal bool TryUpdatePortablePopupRootClientSize(Visual rootVisual, out Size clientSize)", popup, StringComparison.Ordinal);
         Assert.Contains("private static IntPtr GetHandle(PresentationSource source)", popup, StringComparison.Ordinal);
-        Assert.Contains("return (source is HwndSource hwnd ? hwnd.Handle : IntPtr.Zero);", popup, StringComparison.Ordinal);
-        Assert.Contains("_window is not PortablePresentationSource portableSource", popup, StringComparison.Ordinal);
+        Assert.Contains("PortablePresentationSource portable => portable.Handle", popup, StringComparison.Ordinal);
+        Assert.Contains("HwndSource hwnd => hwnd.Handle", popup, StringComparison.Ordinal);
+        Assert.Contains("(_window as HwndSource)?.PortableOwner as PortablePresentationSource", popup, StringComparison.Ordinal);
         Assert.Contains("portableSource.SetClientSize(clientSize.Width, clientSize.Height);", popup, StringComparison.Ordinal);
         Assert.Contains("private static Size GetPortableRootClientSize(Visual rootVisual)", popup, StringComparison.Ordinal);
         Assert.Contains("private static NativeMethods.POINT GetPortableMouseCursorFallbackPos(Visual targetVisual)", popup, StringComparison.Ordinal);
         Assert.Contains("private static Point GetPortableVisualAnchor(Visual targetVisual)", popup, StringComparison.Ordinal);
         Assert.Contains("return PointUtil.ClientToScreen(clientPoint, targetWindow);", popup, StringComparison.Ordinal);
         Assert.DoesNotContain("TransformToDevice.Transform(clientPoint)", popup, StringComparison.Ordinal);
-        AssertGuardBefore(popup, "if (!OperatingSystem.IsWindows())\n                {\n                    return GetPortableMouseCursorFallbackPos(targetVisual);", "UnsafeNativeMethods.TryGetCursorPos");
+        AssertGuardBefore(popup, "if (RequiresPortableWindow(targetVisual))\n                {\n                    return GetPortableMouseCursorFallbackPos(targetVisual);", "UnsafeNativeMethods.TryGetCursorPos");
         Assert.Contains("ForceMsaaToUiaBridgeWindows(popupRoot);", popup, StringComparison.Ordinal);
         Assert.Contains("private void ForceMsaaToUiaBridgeWindows(PopupRoot popupRoot)", popup, StringComparison.Ordinal);
-        AssertGuardBefore(popup, "if (!OperatingSystem.IsWindows())\n                {\n                    return;\n                }\n\n                ForceMsaaToUiaBridgeWindows(popupRoot);", "IAccessible acc");
-        AssertGuardBefore(popup, "if (!OperatingSystem.IsWindows())\n                {\n                    if (TryCreatePortablePopupSource", "HwndSource newWindow = new HwndSource(param)");
-        AssertGuardBefore(popup, "if (!OperatingSystem.IsWindows())\n            {\n                // Portable popups share the owner's compositor surface", "SafeNativeMethods.MonitorFromRect");
-        Assert.Contains("Rect sourceBounds = _secHelper.GetParentWindowRect();", popup, StringComparison.Ordinal);
+        AssertGuardBefore(popup, "if (IsPortable || !OperatingSystem.IsWindows())\n                {\n                    return;\n                }\n\n                ForceMsaaToUiaBridgeWindows(popupRoot);", "IAccessible acc");
+        AssertGuardBefore(popup, "if (RequiresPortableWindow(placementTarget))", "HwndSource newWindow = new HwndSource(param)");
+        AssertGuardBefore(popup, "return _secHelper.GetPortablePlacementBounds(boundingBox, p, preferWorkArea);", "SafeNativeMethods.MonitorFromRect");
+        Assert.Contains("internal bool IsPortable => PointUtil.IsPortablePresentationSource(_window);", popup, StringComparison.Ordinal);
+        Assert.Contains("PortableWpfRuntime.GetMediaBackendAndFreeze() == PortableWpfMediaBackend.Portable", popup, StringComparison.Ordinal);
+        Assert.Contains("No portable popup host accepted this owner.", popup, StringComparison.Ordinal);
+        Assert.DoesNotContain("_window = new PortablePresentationSource();", popup, StringComparison.Ordinal);
+        Assert.Contains("typedPresentationSource.IsDisposed", popup, StringComparison.Ordinal);
+        Assert.Contains("service.TryDestroyPopup(presentationSource);", popup, StringComparison.Ordinal);
+        Assert.Contains("bounds.Kind == PortablePopupPlacementBoundsKind.OwnerSurface", popup, StringComparison.Ordinal);
+        Assert.Contains("PortablePopupMonitorSelection.IsValidMonitorBounds(bounds.Screen, bounds.WorkArea)", popup, StringComparison.Ordinal);
+        Assert.Contains("The portable popup host did not provide placement bounds.", popup, StringComparison.Ordinal);
         Assert.DoesNotContain("GetPortablePrimaryScreenBounds", popup, StringComparison.Ordinal);
-        Assert.Contains("bool usesPortableLogicalScreenCoordinates = UsesPortableLogicalScreenCoordinates(_popupRoot);", popup, StringComparison.Ordinal);
-        Assert.Contains("if (!usesPortableLogicalScreenCoordinates)", popup, StringComparison.Ordinal);
-        AssertGuardBefore(popup, "if (!usesPortableLogicalScreenCoordinates)", "desiredSize = (Size)_secHelper.GetTransformToDevice().Transform((Point)desiredSize);");
-        Assert.Contains(
-            "if (!usesPortableLogicalScreenCoordinates)\n            {\n                // Convert back from screen space to popup's space\n                desiredSize = (Size)_secHelper.GetTransformFromDevice().Transform((Point)desiredSize);",
-            popup,
-            StringComparison.Ordinal);
-        AssertGuardBefore(popup, "if (IsPerMonitorDpiScalingActive && OperatingSystem.IsWindows())", "SafeNativeMethods.MonitorFromPoint");
-        Assert.Contains("if (!OperatingSystem.IsWindows())\n                {\n                    if (position)", popup, StringComparison.Ordinal);
-        Assert.Contains("if (!OperatingSystem.IsWindows())\n                {\n                    TryShowPortablePopup();", popup, StringComparison.Ordinal);
+        Assert.Contains("childBounds = new Rect(_secHelper.ClientSizeToScreen(_popupRoot.RenderSize));", popup, StringComparison.Ordinal);
+        Assert.Contains("desiredSize = _secHelper.ClientSizeToScreen(desiredSize);", popup, StringComparison.Ordinal);
+        Assert.Contains("desiredSize = _secHelper.ScreenSizeToClient(desiredSize);", popup, StringComparison.Ordinal);
+        Assert.Contains("interestPoints[i] = _secHelper.ClientOffsetToScreen(interestPoints[i]);", popup, StringComparison.Ordinal);
+        Assert.Contains("offset = (Vector)_secHelper.ClientOffsetToScreen((Point)offset);", popup, StringComparison.Ordinal);
+        Assert.Contains("PointUtil.TryGetPortableDesktopTransform(source, out transform)", popup, StringComparison.Ordinal);
+        Assert.DoesNotContain("new Rect((Size)_secHelper.GetTransformToDevice().Transform((Point)_popupRoot.RenderSize))", popup, StringComparison.Ordinal);
+        AssertGuardBefore(popup, "if (!PopupSecurityHelper.RequiresPortableWindow(popup?.GetTarget())", "SafeNativeMethods.MonitorFromPoint");
+        Assert.Contains("if (IsPortable)\n                {\n                    if (position)", popup, StringComparison.Ordinal);
+        Assert.Contains("if (IsPortable)\n                {\n                    TryShowPortablePopup();", popup, StringComparison.Ordinal);
         AssertGuardBefore(
             popup,
             "_popupRoot.StopAnimations();\n\n            // Portable popups are independent transient native surfaces.",
             "if (animation != PopupAnimation.None && IsTransparent)");
         Assert.Contains(
-            "if (!OperatingSystem.IsWindows())\n            {\n                return false;\n            }\n\n            // Only animate if popup is transparent",
+            "if (_secHelper.IsPortable)\n            {\n                return false;\n            }\n\n            // Only animate if popup is transparent",
             popup,
             StringComparison.Ordinal);
         Assert.Contains("return false;\n                }\n\n                IntPtr foregroundWindow", popup, StringComparison.Ordinal);
         Assert.Contains("return IntPtr.Zero;\n                }\n\n                if (source is HwndSource hwnd)", popup, StringComparison.Ordinal);
-        AssertGuardBefore(menuBase, "(!OperatingSystem.IsWindows()", "MS.Win32.SafeNativeMethods.GetCapture()");
-        AssertGuardBefore(menu, "if (OperatingSystem.IsWindows())", "PresentationSource.CriticalFromVisual(this) as System.Windows.Interop.HwndSource");
+        Assert.Contains("!PopupControlService.HasNativeMouseCapture(PresentationSource.CriticalFromVisual(menu))", menuBase, StringComparison.Ordinal);
+        AssertGuardBefore(menu, "if (PopupControlService.UsesNativeWindowing(PresentationSource.CriticalFromVisual(this)))", "PresentationSource.CriticalFromVisual(this) as System.Windows.Interop.HwndSource");
         Assert.Contains("else\n                {\n                    e.Handled = true;\n                }", menu, StringComparison.Ordinal);
-        AssertGuardBefore(menuBase, "if (OperatingSystem.IsWindows())", "MS.Win32.UnsafeNativeMethods.GetFocus()");
+        AssertGuardBefore(menuBase, "if (usesNativeWindowing)", "MS.Win32.UnsafeNativeMethods.GetFocus()");
+        Assert.Contains("if(!usesNativeWindowing || hwndSourceWithFocus != null)", menuBase, StringComparison.Ordinal);
         Assert.Contains("AreComponentResourceUrisEquivalent(loadBamlSyncInfo.BamlUri, curComponentUri)", application, StringComparison.Ordinal);
         Assert.Contains("BaseUriHelper.GetAssemblyNameAndPart(", application, StringComparison.Ordinal);
         Assert.Contains("AreComponentPartNamesEquivalent(firstPartName, secondPartName)", application, StringComparison.Ordinal);
@@ -9210,16 +9677,23 @@ public sealed class WpfManagedProjectGraphTests
         AssertGuardBefore(winEventHandler, "if (!OperatingSystem.IsWindows())", "UnsafeNativeMethods.SetWinEventHook");
         AssertGuardBefore(winEventHandler, "if (OperatingSystem.IsWindows())", "UnsafeNativeMethods.UnhookWinEvent");
         AssertGuardBefore(moveSizeWinEventHandler, "if (!OperatingSystem.IsWindows())", "UnsafeNativeMethods.GetParent");
-        Assert.Contains("return window.IsEnabled", textEditorDragDrop, StringComparison.Ordinal);
+        Assert.Contains("root.IsEnabled && _textEditor.UiScope.IsEnabled", textEditorDragDrop, StringComparison.Ordinal);
+        Assert.Contains("PortableWindowActivationService.IsModalInputAllowed(root)", textEditorDragDrop, StringComparison.Ordinal);
         Assert.Contains("DragDrop.IsPortableDragSource(_textEditor.UiScope)", textEditorDragDrop, StringComparison.Ordinal);
-        AssertGuardBefore(textEditorDragDrop, "if (!OperatingSystem.IsWindows())", "SafeNativeMethods.IsWindowEnabled");
-        AssertGuardBefore(textEditorDragDrop, "if (!OperatingSystem.IsWindows())", "UnsafeNativeMethods.SetForegroundWindow");
-        Assert.Contains("ClipToPresentationSourceRoot(source, This.UiScope", textEditorContextMenu, StringComparison.Ordinal);
-        AssertGuardBefore(textEditorContextMenu, "if (!OperatingSystem.IsWindows())", "SafeNativeMethods.GetClientRect");
+        AssertGuardBefore(textEditorDragDrop, "if (!PopupControlService.UsesNativeWindowing(source))", "SafeNativeMethods.IsWindowEnabled");
+        AssertGuardBefore(textEditorDragDrop, "PortableWindowActivationService.TryActivateInputOwner(source)", "UnsafeNativeMethods.SetForegroundWindow");
+        Assert.Contains("ClipToSourceClient(source, This.UiScope", textEditorContextMenu, StringComparison.Ordinal);
+        Assert.Contains("ClipToPresentationSourceRoot(source, uiScope", textEditorContextMenu, StringComparison.Ordinal);
+        AssertGuardBefore(textEditorContextMenu, "if (!PopupControlService.UsesNativeWindowing(source))", "SafeNativeMethods.GetClientRect");
         AssertGuardBefore(caretElement, "if (!OperatingSystem.IsWindows())", "UnsafeNativeMethods.CreateBitmap");
         AssertGuardBefore(caretElement, "if (!OperatingSystem.IsWindows())", "SafeNativeMethods.DestroyCaret()");
         AssertGuardBefore(caretElement, "if (!OperatingSystem.IsWindows())", "SafeNativeMethods.SetCaretPos");
         Assert.Contains("source is IWin32Window win32Window", caretElement, StringComparison.Ordinal);
+        AssertGuardBefore(caretElement, "if (TrySynchronizePortableNativeCaret()) return;", "SafeNativeMethods.SetCaretPos");
+        Assert.Contains("PresentationSource.CriticalFromVisual(this) is PortablePresentationSource", caretElement, StringComparison.Ordinal);
+        Assert.Contains("IsPortableNativeCaretSynchronized = service.TryUpdate(this", caretElement, StringComparison.Ordinal);
+        Assert.Contains("if (!IsPortableNativeCaretSynchronized) ReleasePortableNativeCaret();", caretElement, StringComparison.Ordinal);
+        Assert.Contains("if (!value) ReleasePortableNativeCaret();", caretElement, StringComparison.Ordinal);
         AssertGuardBefore(safeNativeMethodsOther, "if (!OperatingSystem.IsWindows())", "SafeNativeMethodsPrivate.GetCaretBlinkTime()");
         AssertGuardBefore(safeNativeMethodsClr, "if (!OperatingSystem.IsWindows())", "SafeNativeMethodsPrivate.GetTickCount()");
         Assert.Contains("return Environment.TickCount;", safeNativeMethodsClr, StringComparison.Ordinal);
@@ -9269,25 +9743,26 @@ public sealed class WpfManagedProjectGraphTests
         AssertGuardBefore(cursor, "if (!OperatingSystem.IsWindows())", "UnsafeNativeMethods.LoadImageCursor");
         Assert.Contains("LoadPortableCursorFallback()", cursor, StringComparison.Ordinal);
         Assert.Contains("_cursorType = CursorType.Arrow", cursor, StringComparison.Ordinal);
-        AssertGuardBefore(classification, "if (OperatingSystem.IsWindows())", "MILGetClassificationTables(out ct)");
+        AssertGuardBefore(classification, "if (PortableWpfRuntime.GetMediaBackendAndFreeze() == PortableWpfMediaBackend.WindowsMil)", "MILGetClassificationTables(out ct)");
         Assert.Contains("GetManagedUnicodeClass", classification, StringComparison.Ordinal);
         Assert.Contains("ManagedCharAttributeOf", classification, StringComparison.Ordinal);
         Assert.Contains("case UnicodeCategory.PrivateUse:", classification, StringComparison.Ordinal);
         Assert.Contains("return ManagedPrivateUseClass;", classification, StringComparison.Ordinal);
         Assert.Contains("ManagedPrivateUseClass => CreateManagedAttribute", classification, StringComparison.Ordinal);
-        AssertGuardBefore(lineServices, "if (OperatingSystem.IsWindows())", "LoGetEscStringImpl(ref escStringInfo)");
+        AssertGuardBefore(lineServices, "if (TextFormatterImp.IsNativeLineServicesAvailable)", "LoGetEscStringImpl(ref escStringInfo)");
         Assert.Contains("s_managedObjectReplacement", lineServices, StringComparison.Ordinal);
-        Assert.Contains("private static bool IsNativeLineServicesAvailable", textFormatterImp, StringComparison.Ordinal);
-        Assert.Contains("return OperatingSystem.IsWindows();", textFormatterImp, StringComparison.Ordinal);
+        Assert.Contains("internal static bool IsNativeLineServicesAvailable", textFormatterImp, StringComparison.Ordinal);
+        Assert.Contains("PortableWpfRuntime.GetMediaBackendAndFreeze() == PortableWpfMediaBackend.WindowsMil", textFormatterImp, StringComparison.Ordinal);
         Assert.Contains("if (!IsNativeLineServicesAvailable)", textFormatterImp, StringComparison.Ordinal);
-        AssertGuardBefore(textFormatterImp, "if (!IsNativeLineServicesAvailable)", "new TextMetrics.FullTextLine");
+        AssertGuardBefore(textFormatterImp, "if (!nativeLineServices)", "new TextMetrics.FullTextLine");
         Assert.Contains("new MinMaxParagraphWidth(simpleLine.Width, simpleLine.WidthIncludingTrailingWhitespace)", textFormatterImp, StringComparison.Ordinal);
         Assert.Contains("SimpleTextLine.CreatePortableFallback", textFormatterImp, StringComparison.Ordinal);
         Assert.Contains("public static TextLine CreatePortableFallback", simpleTextLine, StringComparison.Ordinal);
         Assert.Contains("internal static SimpleRun CreatePortableEndOfParagraph", simpleTextLine, StringComparison.Ordinal);
         Assert.Contains("new TextEndOfParagraph(1)", simpleTextLine, StringComparison.Ordinal);
-        Assert.Contains("native LineServices fallback is unavailable in the portable bring-up", textBoxLine, StringComparison.Ordinal);
-        Assert.Contains("!global::System.OperatingSystem.IsWindows() ||", textBoxLine, StringComparison.Ordinal);
+        Assert.Contains("Portable rich-text block and embedded-object layout is not implemented.", textBoxLine, StringComparison.Ordinal);
+        Assert.Contains("!global::System.OperatingSystem.IsWindows() &&", textBoxLine, StringComparison.Ordinal);
+        Assert.Contains("!PortableWpfServiceRegistry.TryGetTextFormatting(out _)", textBoxLine, StringComparison.Ordinal);
         Assert.Contains("lineProperties.TextAlignment != TextAlignment.Justify", textBoxLine, StringComparison.Ordinal);
         Assert.Contains("The full WPF LineServices path is still native.", typeface, StringComparison.Ordinal);
         Assert.Contains("ContainsOnlyPrivateUseCharacters", typeface, StringComparison.Ordinal);
@@ -9302,10 +9777,15 @@ public sealed class WpfManagedProjectGraphTests
         AssertGuardBefore(windowBackdropManager, "if (!OperatingSystem.IsWindows())", "new WindowInteropHelper(window).Handle");
         AssertGuardBefore(windowBackdropManager, "if (!OperatingSystem.IsWindows())", "NativeMethods.DwmSetWindowAttributeSystemBackdropType");
         Assert.Contains("OperatingSystem.IsWindows() &&\n                                                                        Utility.IsWindows11_22H2OrNewer", windowBackdropManager, StringComparison.Ordinal);
-        AssertGuardBefore(windowChromeWorker, "if (!OperatingSystem.IsWindows())", "new WindowInteropHelper(_window).Handle");
-        AssertGuardBefore(windowChromeWorker, "if (!OperatingSystem.IsWindows())", "HwndSource.FromHwnd(_hwnd)");
-        AssertGuardBefore(windowChromeWorker, "if (!OperatingSystem.IsWindows() || IntPtr.Zero == _hwnd || _hwndSource == null || _hwndSource.IsDisposed)", "NativeMethods.DwmIsCompositionEnabled()");
-        AssertGuardBefore(windowChromeWorker, "if (!OperatingSystem.IsWindows() || _hwnd == IntPtr.Zero || _hwndSource == null)", "_hwndSource.RemoveHook(_WndProc)");
+        Assert.Contains("_window?.PortableWindowActivation != null", windowChromeWorker, StringComparison.Ordinal);
+        Assert.Contains("_window == null || _window.IsSourceWindowNull", windowChromeWorker, StringComparison.Ordinal);
+        Assert.Contains("System.Windows.PortableWindowActivationService.IsEnabled", windowChromeWorker, StringComparison.Ordinal);
+        Assert.Contains("PortableWpfRuntime.GetMediaBackendAndFreeze() == PortableWpfMediaBackend.Portable", windowChromeWorker, StringComparison.Ordinal);
+        Assert.DoesNotContain("OperatingSystem.IsWindows()", windowChromeWorker, StringComparison.Ordinal);
+        AssertGuardBefore(windowChromeWorker, "if (UsesPortableChrome)", "new WindowInteropHelper(_window).Handle");
+        AssertGuardBefore(windowChromeWorker, "if (UsesPortableChrome)", "HwndSource.FromHwnd(_hwnd)");
+        AssertGuardBefore(windowChromeWorker, "if (UsesPortableChrome || IntPtr.Zero == _hwnd || _hwndSource == null || _hwndSource.IsDisposed)", "NativeMethods.DwmIsCompositionEnabled()");
+        AssertGuardBefore(windowChromeWorker, "if (UsesPortableChrome || _hwnd == IntPtr.Zero || _hwndSource == null)", "_hwndSource.RemoveHook(_WndProc)");
         Assert.Contains("private void _ApplyPortableCustomChrome()", windowChromeWorker, StringComparison.Ordinal);
         Assert.Contains("_window.SetPortableCustomChrome(_chromeInfo != null)", windowChromeWorker, StringComparison.Ordinal);
         Assert.Contains("if (_chromeInfo == null || _window == null)", windowChromeWorker, StringComparison.Ordinal);
@@ -9313,7 +9793,7 @@ public sealed class WpfManagedProjectGraphTests
         AssertGuardBefore(jumpList, "if (!OperatingSystem.IsWindows())", "NativeMethods2.SHAddToRecentDocs(itemPath)");
         AssertGuardBefore(jumpList, "if (!OperatingSystem.IsWindows())", "IShellLinkW shellLink = CreateLinkFromJumpTask(jumpTask, false)");
         AssertGuardBefore(jumpList, "if (!OperatingSystem.IsWindows() || !Utilities.IsOSWindows7OrNewer)", "var destinationList = (ICustomDestinationList)Activator.CreateInstance");
-        AssertGuardBefore(systemCommands, "if (!OperatingSystem.IsWindows())", "new WindowInteropHelper(window).Handle");
+        AssertGuardBefore(systemCommands, "if (window.PortableWindowActivation != null || !OperatingSystem.IsWindows())", "new WindowInteropHelper(window).Handle");
         AssertGuardBefore(systemCommands, "if (!OperatingSystem.IsWindows())", "NativeMethods.GetSystemMenu(hwnd, false)");
         Assert.Contains("window.WindowState = WindowState.Maximized", systemCommands, StringComparison.Ordinal);
         Assert.Contains("window.WindowState = WindowState.Minimized", systemCommands, StringComparison.Ordinal);
@@ -9336,8 +9816,8 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("Point corner1 = ClientToScreen(rectClient.TopLeft, presentationSource);", pointUtil, StringComparison.Ordinal);
         Assert.DoesNotContain("ClientToScreen(Rect rectClient, HwndSource hwndSource)", pointUtil, StringComparison.Ordinal);
         Assert.Contains("TryGetPortablePresentationSource(presentationSource, out PortablePresentationSource portableSource)", pointUtil, StringComparison.Ordinal);
-        Assert.Contains("pointClient.X + origin.X", pointUtil, StringComparison.Ordinal);
-        Assert.Contains("pointScreen.X - origin.X", pointUtil, StringComparison.Ordinal);
+        Assert.Contains("portableSource.DesktopTransform.ClientToDesktop(", pointUtil, StringComparison.Ordinal);
+        Assert.Contains("portableSource.DesktopTransform.DesktopToClient(", pointUtil, StringComparison.Ordinal);
         Assert.Contains("inputSource == null || inputSource.IsPortable", pointUtil, StringComparison.Ordinal);
         Assert.Contains("PresentationSource sourceFrom = PresentationSource.CriticalFromVisual(rootFrom);", inputElement, StringComparison.Ordinal);
         Assert.Contains("PresentationSource sourceTo = PresentationSource.CriticalFromVisual(rootTo);", inputElement, StringComparison.Ordinal);
@@ -9367,7 +9847,9 @@ public sealed class WpfManagedProjectGraphTests
         AssertGuardBefore(dispatcher, "if (_useWin32MessagePump)", "new MessageOnlyHwndWrapper()");
         AssertGuardBefore(dispatcher, "if (!_useWin32MessagePump)", "MSG msg = new MSG()");
         Assert.Contains("PushManagedFrameImpl(frame)", dispatcher, StringComparison.Ordinal);
-        Assert.Contains("while(frame.Continue || HasPendingManagedOperation())", dispatcher, StringComparison.Ordinal);
+        string managedFrame = dispatcher[dispatcher.IndexOf("private void PushManagedFrameImpl(", StringComparison.Ordinal)..];
+        Assert.Contains("while(frame.Continue)", managedFrame, StringComparison.Ordinal);
+        Assert.DoesNotContain("while(frame.Continue || HasPendingManagedOperation())", managedFrame, StringComparison.Ordinal);
         Assert.Contains("HasPendingManagedOperation()", dispatcher, StringComparison.Ordinal);
         AssertGuardBefore(dispatcher, "if (!_useWin32MessagePump)", "UnsafeNativeMethods.MsgWaitForMultipleObjectsEx");
         Assert.Contains("return !_useWin32MessagePump;", dispatcher, StringComparison.Ordinal);
@@ -9546,7 +10028,7 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("new TextCollapsedRange(_cpFirst + keptCharacters, collapsedLength, collapsedWidth)", simpleTextLine, StringComparison.Ordinal);
         Assert.Contains("private IList<TextCollapsedRange> _collapsedRanges", simpleTextLine, StringComparison.Ordinal);
         Assert.Contains("get { return (_statusFlags & StatusFlags.HasCollapsed) != 0; }", simpleTextLine, StringComparison.Ordinal);
-        AssertGuardBefore(simpleTextLine, "if (!OperatingSystem.IsWindows())", "new TextMetrics.FullTextLine");
+        AssertGuardBefore(simpleTextLine, "if (!TextFormatterImp.IsNativeLineServicesAvailable)", "new TextMetrics.FullTextLine");
     }
 
     [Fact]
@@ -10156,8 +10638,11 @@ public sealed class WpfManagedProjectGraphTests
         Assert.DoesNotContain("foreach (var segment in figure.Segments)", pathOps, StringComparison.Ordinal);
         Assert.DoesNotContain("foreach (var seg in figure.Segments)", pathOps, StringComparison.Ordinal);
         Assert.DoesNotContain("return (records, segments.ToArray());", pathOps, StringComparison.Ordinal);
-        Assert.Contains("_blurHorizontalParams!.WriteSingle(new GaussianBlurParams(sigmaX));", computeAccelerator, StringComparison.Ordinal);
-        Assert.Contains("_blurVerticalParams!.WriteSingle(new GaussianBlurParams(sigmaY));", computeAccelerator, StringComparison.Ordinal);
+        Assert.Contains("new GaussianBlurParams(sigmaX),", computeAccelerator, StringComparison.Ordinal);
+        Assert.Contains("new GaussianBlurParams(sigmaY));", computeAccelerator, StringComparison.Ordinal);
+        Assert.Contains("private void ApplySeparableBlur(", computeAccelerator, StringComparison.Ordinal);
+        Assert.Contains("_blurHorizontalParams!.WriteSingle(horizontalParams);", computeAccelerator, StringComparison.Ordinal);
+        Assert.Contains("_blurVerticalParams!.WriteSingle(verticalParams);", computeAccelerator, StringComparison.Ordinal);
         Assert.Contains("private CachedPassBinding _blurHorizontalBinding;", computeAccelerator, StringComparison.Ordinal);
         Assert.Contains("private CachedPassBinding _shadowVerticalBinding;", computeAccelerator, StringComparison.Ordinal);
         Assert.Contains("private BindGroup* GetOrCreatePassBinding(", computeAccelerator, StringComparison.Ordinal);
@@ -11633,6 +12118,9 @@ public sealed class WpfManagedProjectGraphTests
         var sdkCiScriptPath = FindRepoPath(
             "eng",
             "progpu-wpf-sdk-ci.sh");
+        var nativeMilHostSmokeScriptPath = FindRepoPath(
+            "eng",
+            "progpu-wpf-native-mil-host-smoke.sh");
         var validationGraphsPath = FindRepoPath(
             "eng",
             "ProGPU.Wpf.ValidationGraphs.proj");
@@ -11680,89 +12168,89 @@ public sealed class WpfManagedProjectGraphTests
         var docsVerifierScriptPath = FindRepoPath(
             "eng",
             "progpu-wpf-verify-docs.sh");
-        var mvpProjectPath = FindRepoPath(
+        var showcaseProjectPath = FindRepoPath(
             "samples",
-            "ProGPU.Wpf.MvpApp",
-            "ProGPU.Wpf.MvpApp.csproj");
-        var mvpAppConfigPath = FindRepoPath(
+            "ProGPU.Wpf.ShowcaseApp",
+            "ProGPU.Wpf.ShowcaseApp.csproj");
+        var showcaseAppConfigPath = FindRepoPath(
             "samples",
-            "ProGPU.Wpf.MvpApp",
+            "ProGPU.Wpf.ShowcaseApp",
             "App.config");
-        var mvpAppXamlPath = FindRepoPath(
+        var showcaseAppXamlPath = FindRepoPath(
             "samples",
-            "ProGPU.Wpf.MvpApp",
+            "ProGPU.Wpf.ShowcaseApp",
             "App.xaml");
-        var mvpAppCodeBehindPath = FindRepoPath(
+        var showcaseAppCodeBehindPath = FindRepoPath(
             "samples",
-            "ProGPU.Wpf.MvpApp",
+            "ProGPU.Wpf.ShowcaseApp",
             "App.xaml.cs");
-        var mvpMainWindowXamlPath = FindRepoPath(
+        var showcaseMainWindowXamlPath = FindRepoPath(
             "samples",
-            "ProGPU.Wpf.MvpApp",
+            "ProGPU.Wpf.ShowcaseApp",
             "MainWindow.xaml");
-        var mvpMainWindowCodeBehindPath = FindRepoPath(
+        var showcaseMainWindowCodeBehindPath = FindRepoPath(
             "samples",
-            "ProGPU.Wpf.MvpApp",
+            "ProGPU.Wpf.ShowcaseApp",
             "MainWindow.xaml.cs");
-        var mvpAboutWindowXamlPath = FindRepoPath(
+        var showcaseAboutWindowXamlPath = FindRepoPath(
             "samples",
-            "ProGPU.Wpf.MvpApp",
+            "ProGPU.Wpf.ShowcaseApp",
             "AboutWindow.xaml");
-        var mvpAboutWindowCodeBehindPath = FindRepoPath(
+        var showcaseAboutWindowCodeBehindPath = FindRepoPath(
             "samples",
-            "ProGPU.Wpf.MvpApp",
+            "ProGPU.Wpf.ShowcaseApp",
             "AboutWindow.xaml.cs");
-        var mvpSummaryPanelXamlPath = FindRepoPath(
+        var showcaseSummaryPanelXamlPath = FindRepoPath(
             "samples",
-            "ProGPU.Wpf.MvpApp",
+            "ProGPU.Wpf.ShowcaseApp",
             "SummaryPanel.xaml");
-        var mvpSummaryPanelCodeBehindPath = FindRepoPath(
+        var showcaseSummaryPanelCodeBehindPath = FindRepoPath(
             "samples",
-            "ProGPU.Wpf.MvpApp",
+            "ProGPU.Wpf.ShowcaseApp",
             "SummaryPanel.xaml.cs");
-        var mvpDependencyPropertySamplesPath = FindRepoPath(
+        var showcaseDependencyPropertySamplesPath = FindRepoPath(
             "samples",
-            "ProGPU.Wpf.MvpApp",
-            "MvpDependencyPropertySamples.cs");
-        var mvpThemedControlPath = FindRepoPath(
+            "ProGPU.Wpf.ShowcaseApp",
+            "ShowcaseDependencyPropertySamples.cs");
+        var showcaseThemedControlPath = FindRepoPath(
             "samples",
-            "ProGPU.Wpf.MvpApp",
-            "MvpThemedControl.cs");
-        var mvpGenericThemeXamlPath = FindRepoPath(
+            "ProGPU.Wpf.ShowcaseApp",
+            "ShowcaseThemedControl.cs");
+        var showcaseGenericThemeXamlPath = FindRepoPath(
             "samples",
-            "ProGPU.Wpf.MvpApp",
+            "ProGPU.Wpf.ShowcaseApp",
             "Themes",
             "Generic.xaml");
-        var mvpAssemblyInfoPath = FindRepoPath(
+        var showcaseAssemblyInfoPath = FindRepoPath(
             "samples",
-            "ProGPU.Wpf.MvpApp",
+            "ProGPU.Wpf.ShowcaseApp",
             "Properties",
             "AssemblyInfo.cs");
-        var mvpThemeXamlPath = FindRepoPath(
+        var showcaseThemeXamlPath = FindRepoPath(
             "samples",
-            "ProGPU.Wpf.MvpApp",
+            "ProGPU.Wpf.ShowcaseApp",
             "Resources",
             "Theme.xaml");
-        var mvpComponentThemeXamlPath = FindRepoPath(
+        var showcaseComponentThemeXamlPath = FindRepoPath(
             "samples",
-            "ProGPU.Wpf.MvpApp",
+            "ProGPU.Wpf.ShowcaseApp",
             "Resources",
             "ComponentTheme.xaml");
-        var mvpOverviewPageXamlPath = FindRepoPath(
+        var showcaseOverviewPageXamlPath = FindRepoPath(
             "samples",
-            "ProGPU.Wpf.MvpApp",
+            "ProGPU.Wpf.ShowcaseApp",
             "OverviewPage.xaml");
-        var mvpOverviewPageCodeBehindPath = FindRepoPath(
+        var showcaseOverviewPageCodeBehindPath = FindRepoPath(
             "samples",
-            "ProGPU.Wpf.MvpApp",
+            "ProGPU.Wpf.ShowcaseApp",
             "OverviewPage.xaml.cs");
-        var mvpDetailsPageXamlPath = FindRepoPath(
+        var showcaseDetailsPageXamlPath = FindRepoPath(
             "samples",
-            "ProGPU.Wpf.MvpApp",
+            "ProGPU.Wpf.ShowcaseApp",
             "DetailsPage.xaml");
-        var mvpDetailsPageCodeBehindPath = FindRepoPath(
+        var showcaseDetailsPageCodeBehindPath = FindRepoPath(
             "samples",
-            "ProGPU.Wpf.MvpApp",
+            "ProGPU.Wpf.ShowcaseApp",
             "DetailsPage.xaml.cs");
         var helloMainWindowCodeBehindPath = FindRepoPath(
             "samples",
@@ -11771,47 +12259,47 @@ public sealed class WpfManagedProjectGraphTests
         var helloRunScriptPath = FindRepoPath(
             "eng",
             "run-progpu-wpf-hello.sh");
-        var mvpRunScriptPath = FindRepoPath(
+        var showcaseRunScriptPath = FindRepoPath(
             "eng",
-            "run-progpu-wpf-mvp.sh");
+            "run-progpu-wpf-showcase.sh");
         var linuxXWaylandSmokeScriptPath = FindRepoPath(
             "eng",
             "progpu-wpf-linux-xwayland-smoke.sh");
         var scichartProjectPath = FindRepoPath(
             "samples",
-            "ProGPU.Wpf.SciChartMvpApp",
-            "ProGPU.Wpf.SciChartMvpApp.csproj");
+            "ProGPU.Wpf.SciChartApp",
+            "ProGPU.Wpf.SciChartApp.csproj");
         var scichartAppXamlPath = FindRepoPath(
             "samples",
-            "ProGPU.Wpf.SciChartMvpApp",
+            "ProGPU.Wpf.SciChartApp",
             "App.xaml");
         var scichartAppCodeBehindPath = FindRepoPath(
             "samples",
-            "ProGPU.Wpf.SciChartMvpApp",
+            "ProGPU.Wpf.SciChartApp",
             "App.xaml.cs");
         var scichartMainWindowXamlPath = FindRepoPath(
             "samples",
-            "ProGPU.Wpf.SciChartMvpApp",
+            "ProGPU.Wpf.SciChartApp",
             "MainWindow.xaml");
         var scichartMainWindowCodeBehindPath = FindRepoPath(
             "samples",
-            "ProGPU.Wpf.SciChartMvpApp",
+            "ProGPU.Wpf.SciChartApp",
             "MainWindow.xaml.cs");
         var scichartRendererPath = FindRepoPath(
             "samples",
-            "ProGPU.Wpf.SciChartMvpApp",
-            "SciChartMvpRenderer.cs");
+            "ProGPU.Wpf.SciChartApp",
+            "SciChartRenderer.cs");
         var scichart3DBridgeSnapshotRendererPath = FindRepoPath(
             "samples",
-            "ProGPU.Wpf.SciChartMvpApp",
+            "ProGPU.Wpf.SciChartApp",
             "SciChart3DBridgeSnapshotRenderer.cs");
-        var scichartRealMvpPath = FindRepoPath(
+        var scichartRealShowcasePath = FindRepoPath(
             "samples",
-            "ProGPU.Wpf.SciChartMvpApp",
-            "RealSciChartMvp.cs");
+            "ProGPU.Wpf.SciChartApp",
+            "SciChartApplication.cs");
         var scichartReadmePath = FindRepoPath(
             "samples",
-            "ProGPU.Wpf.SciChartMvpApp",
+            "ProGPU.Wpf.SciChartApp",
             "README.md");
         var scichartRunScriptPath = FindRepoPath(
             "eng",
@@ -11987,9 +12475,9 @@ public sealed class WpfManagedProjectGraphTests
             "src",
             "ProGPU.DirectX",
             "ProGpuDirectXShaderBytecode.cs");
-        var mvpQuickCheckScriptPath = FindRepoPath(
+        var showcaseQuickCheckScriptPath = FindRepoPath(
             "eng",
-            "progpu-wpf-mvp-quickcheck.sh");
+            "progpu-wpf-showcase-quickcheck.sh");
 
         var sdkProject = XDocument.Load(sdkProjectPath);
         var sdkProjectText = File.ReadAllText(sdkProjectPath);
@@ -12085,6 +12573,8 @@ public sealed class WpfManagedProjectGraphTests
         var spellerInteropBase = File.ReadAllText(spellerInteropBasePath);
         var textEditorCopyPaste = File.ReadAllText(textEditorCopyPastePath);
         var sdkCiScript = File.ReadAllText(sdkCiScriptPath);
+        var nativeMilHostSmokeScript = File.ReadAllText(
+            nativeMilHostSmokeScriptPath);
         var validationGraphs = File.ReadAllText(validationGraphsPath);
         var avaloniaPackageSmokeScript = File.ReadAllText(avaloniaPackageSmokeScriptPath);
         var previewPackageAuditScript = File.ReadAllText(previewPackageAuditScriptPath);
@@ -12095,29 +12585,29 @@ public sealed class WpfManagedProjectGraphTests
         var previewReleaseVerifyScript = File.ReadAllText(previewReleaseVerifyScriptPath);
         var previewReleaseSdkSmokeScript = File.ReadAllText(previewReleaseSdkSmokeScriptPath);
         var sdkCiWorkflow = File.ReadAllText(sdkCiWorkflowPath);
-        var mvpProject = File.ReadAllText(mvpProjectPath);
-        var mvpAppConfig = File.ReadAllText(mvpAppConfigPath);
-        var mvpAppXaml = File.ReadAllText(mvpAppXamlPath);
-        var mvpAppCodeBehind = File.ReadAllText(mvpAppCodeBehindPath);
-        var mvpMainWindowXaml = File.ReadAllText(mvpMainWindowXamlPath);
-        var mvpMainWindowCodeBehind = File.ReadAllText(mvpMainWindowCodeBehindPath);
-        var mvpAboutWindowXaml = File.ReadAllText(mvpAboutWindowXamlPath);
-        var mvpAboutWindowCodeBehind = File.ReadAllText(mvpAboutWindowCodeBehindPath);
-        var mvpSummaryPanelXaml = File.ReadAllText(mvpSummaryPanelXamlPath);
-        var mvpSummaryPanelCodeBehind = File.ReadAllText(mvpSummaryPanelCodeBehindPath);
-        var mvpDependencyPropertySamples = File.ReadAllText(mvpDependencyPropertySamplesPath);
-        var mvpThemedControl = File.ReadAllText(mvpThemedControlPath);
-        var mvpGenericThemeXaml = File.ReadAllText(mvpGenericThemeXamlPath);
-        var mvpAssemblyInfo = File.ReadAllText(mvpAssemblyInfoPath);
-        var mvpThemeXaml = File.ReadAllText(mvpThemeXamlPath);
-        var mvpComponentThemeXaml = File.ReadAllText(mvpComponentThemeXamlPath);
-        var mvpOverviewPageXaml = File.ReadAllText(mvpOverviewPageXamlPath);
-        var mvpOverviewPageCodeBehind = File.ReadAllText(mvpOverviewPageCodeBehindPath);
-        var mvpDetailsPageXaml = File.ReadAllText(mvpDetailsPageXamlPath);
-        var mvpDetailsPageCodeBehind = File.ReadAllText(mvpDetailsPageCodeBehindPath);
+        var showcaseProject = File.ReadAllText(showcaseProjectPath);
+        var showcaseAppConfig = File.ReadAllText(showcaseAppConfigPath);
+        var showcaseAppXaml = File.ReadAllText(showcaseAppXamlPath);
+        var showcaseAppCodeBehind = File.ReadAllText(showcaseAppCodeBehindPath);
+        var showcaseMainWindowXaml = File.ReadAllText(showcaseMainWindowXamlPath);
+        var showcaseMainWindowCodeBehind = File.ReadAllText(showcaseMainWindowCodeBehindPath);
+        var showcaseAboutWindowXaml = File.ReadAllText(showcaseAboutWindowXamlPath);
+        var showcaseAboutWindowCodeBehind = File.ReadAllText(showcaseAboutWindowCodeBehindPath);
+        var showcaseSummaryPanelXaml = File.ReadAllText(showcaseSummaryPanelXamlPath);
+        var showcaseSummaryPanelCodeBehind = File.ReadAllText(showcaseSummaryPanelCodeBehindPath);
+        var showcaseDependencyPropertySamples = File.ReadAllText(showcaseDependencyPropertySamplesPath);
+        var showcaseThemedControl = File.ReadAllText(showcaseThemedControlPath);
+        var showcaseGenericThemeXaml = File.ReadAllText(showcaseGenericThemeXamlPath);
+        var showcaseAssemblyInfo = File.ReadAllText(showcaseAssemblyInfoPath);
+        var showcaseThemeXaml = File.ReadAllText(showcaseThemeXamlPath);
+        var showcaseComponentThemeXaml = File.ReadAllText(showcaseComponentThemeXamlPath);
+        var showcaseOverviewPageXaml = File.ReadAllText(showcaseOverviewPageXamlPath);
+        var showcaseOverviewPageCodeBehind = File.ReadAllText(showcaseOverviewPageCodeBehindPath);
+        var showcaseDetailsPageXaml = File.ReadAllText(showcaseDetailsPageXamlPath);
+        var showcaseDetailsPageCodeBehind = File.ReadAllText(showcaseDetailsPageCodeBehindPath);
         var helloMainWindowCodeBehind = File.ReadAllText(helloMainWindowCodeBehindPath);
         var helloRunScript = File.ReadAllText(helloRunScriptPath);
-        var mvpRunScript = File.ReadAllText(mvpRunScriptPath);
+        var showcaseRunScript = File.ReadAllText(showcaseRunScriptPath);
         var linuxXWaylandSmokeScript = File.ReadAllText(linuxXWaylandSmokeScriptPath);
         var scichartProject = File.ReadAllText(scichartProjectPath);
         var scichartAppXaml = File.ReadAllText(scichartAppXamlPath);
@@ -12126,7 +12616,7 @@ public sealed class WpfManagedProjectGraphTests
         var scichartMainWindowCodeBehind = File.ReadAllText(scichartMainWindowCodeBehindPath);
         var scichartRenderer = File.ReadAllText(scichartRendererPath);
         var scichart3DBridgeSnapshotRenderer = File.ReadAllText(scichart3DBridgeSnapshotRendererPath);
-        var scichartRealMvp = File.ReadAllText(scichartRealMvpPath);
+        var scichartRealShowcase = File.ReadAllText(scichartRealShowcasePath);
         var scichartReadme = File.ReadAllText(scichartReadmePath);
         var scichartRunScript = File.ReadAllText(scichartRunScriptPath);
         var docsWorkflow = File.ReadAllText(docsWorkflowPath);
@@ -12164,7 +12654,7 @@ public sealed class WpfManagedProjectGraphTests
         var proGpuDirectXNativeResolver = File.ReadAllText(proGpuDirectXNativeResolverPath);
         var proGpuDirectXDeviceContext = File.ReadAllText(proGpuDirectXDeviceContextPath);
         var proGpuDirectXShaderBytecode = File.ReadAllText(proGpuDirectXShaderBytecodePath);
-        var mvpQuickCheckScript = File.ReadAllText(mvpQuickCheckScriptPath);
+        var showcaseQuickCheckScript = File.ReadAllText(showcaseQuickCheckScriptPath);
         string[] wpfThemeAssemblies =
         [
             "PresentationFramework.Aero",
@@ -12179,7 +12669,7 @@ public sealed class WpfManagedProjectGraphTests
 
         Assert.Contains("<add key=\"nuget.org\" value=\"https://api.nuget.org/v3/index.json\" />", rootNuGetConfig, StringComparison.Ordinal);
         Assert.Contains("<PropertyGroup Condition=\"'$(ProGpuWpfTargetFramework)' == 'net10.0'\">", rootDirectoryBuildProps, StringComparison.Ordinal);
-        Assert.Contains("<ProGpuWpfNet10SupportPackageVersion>10.0.10</ProGpuWpfNet10SupportPackageVersion>", rootDirectoryBuildProps, StringComparison.Ordinal);
+        Assert.Contains("<ProGpuWpfNet10SupportPackageVersion>10.0.11</ProGpuWpfNet10SupportPackageVersion>", rootDirectoryBuildProps, StringComparison.Ordinal);
         Assert.Contains("<SystemConfigurationConfigurationManagerPackageVersion>$(ProGpuWpfNet10SupportPackageVersion)</SystemConfigurationConfigurationManagerPackageVersion>", rootDirectoryBuildProps, StringComparison.Ordinal);
         Assert.Contains("<SystemDiagnosticsEventLogPackageVersion>$(ProGpuWpfNet10SupportPackageVersion)</SystemDiagnosticsEventLogPackageVersion>", rootDirectoryBuildProps, StringComparison.Ordinal);
         Assert.Contains("<SystemDrawingCommonPackageVersion>$(ProGpuWpfNet10SupportPackageVersion)</SystemDrawingCommonPackageVersion>", rootDirectoryBuildProps, StringComparison.Ordinal);
@@ -12204,6 +12694,7 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("<None Include=\"$(IntermediateOutputPath)LibreWPF.Sdk.Version.props\"", sdkProject.ToString(), StringComparison.Ordinal);
         Assert.Contains("BeforeTargets=\"_GetPackageFiles\"", sdkProject.ToString(), StringComparison.Ordinal);
         Assert.Contains("&lt;_LibreWpfSdkPackageVersion&gt;$(_LibreWpfSdkPackageVersionToPack)&lt;/_LibreWpfSdkPackageVersion&gt;", sdkProject.ToString(), StringComparison.Ordinal);
+        Assert.Contains("&lt;_LibreWpfSdkProGpuPackageVersion&gt;$(_LibreWpfSdkProGpuPackageVersionToPack)&lt;/_LibreWpfSdkProGpuPackageVersion&gt;", sdkProject.ToString(), StringComparison.Ordinal);
         Assert.Contains("<WriteLinesToFile File=\"$(IntermediateOutputPath)LibreWPF.Sdk.Version.props\"", sdkProject.ToString(), StringComparison.Ordinal);
         Assert.Contains("<None Include=\"targets\\**\\*\" Pack=\"true\" PackagePath=\"targets\\%(RecursiveDir)\" />", sdkProject.ToString(), StringComparison.Ordinal);
         Assert.Contains("PackagePath=\"tools\\net10.0\"", sdkProject.ToString(), StringComparison.Ordinal);
@@ -12235,6 +12726,7 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("<Import Project=\"$(MSBuildThisFileDirectory)LibreWPF.Sdk.Version.props\"", sdkProps, StringComparison.Ordinal);
         Assert.Contains("<ProGpuWpfSdkVersion Condition=\"'$(ProGpuWpfSdkVersion)' == '' And '$(_LibreWpfSdkPackageVersion)' != ''\">$(_LibreWpfSdkPackageVersion)</ProGpuWpfSdkVersion>", sdkProps, StringComparison.Ordinal);
         Assert.Contains("<ProGpuWpfSdkVersion Condition=\"'$(ProGpuWpfSdkVersion)' == ''\">0.1.0-preview.45</ProGpuWpfSdkVersion>", sdkProps, StringComparison.Ordinal);
+        Assert.Contains("<ProGpuPackageVersion Condition=\"'$(ProGpuPackageVersion)' == '' And '$(_LibreWpfSdkProGpuPackageVersion)' != ''\">$(_LibreWpfSdkProGpuPackageVersion)</ProGpuPackageVersion>", sdkProps, StringComparison.Ordinal);
         Assert.Contains("<ProGpuWpfRuntimeFrameworkVersion Condition=\"'$(ProGpuWpfRuntimeFrameworkVersion)' == ''\"></ProGpuWpfRuntimeFrameworkVersion>", sdkProps, StringComparison.Ordinal);
         Assert.Contains("<RuntimeFrameworkVersion Condition=\"'$(ProGpuWpfUsePortableFrameworkReferences)' == 'true' And '$(RuntimeFrameworkVersion)' == '' And '$(ProGpuWpfRuntimeFrameworkVersion)' != ''\">$(ProGpuWpfRuntimeFrameworkVersion)</RuntimeFrameworkVersion>", sdkProps, StringComparison.Ordinal);
         Assert.DoesNotContain("11.0.0-preview.4.26210.111", sdkProps, StringComparison.Ordinal);
@@ -12244,6 +12736,7 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("<ProGpuPackageVersion Condition=\"'$(ProGpuPackageVersion)' == ''\">0.1.0-preview.62</ProGpuPackageVersion>", portableTargets, StringComparison.Ordinal);
         Assert.Contains("<ProGpuRuntimePackageVersion Condition=\"'$(ProGpuRuntimePackageVersion)' == ''\">0.1.0-preview.62</ProGpuRuntimePackageVersion>", proGpuWpfProject, StringComparison.Ordinal);
         Assert.Contains("<PackageReference Include=\"ProGPU.Backend\" Version=\"$(ProGpuRuntimePackageVersion)\" />", proGpuWpfProject, StringComparison.Ordinal);
+        Assert.Contains("<PackageReference Include=\"ProGPU.Backend.Native\" Version=\"$(ProGpuRuntimePackageVersion)\" />", proGpuWpfProject, StringComparison.Ordinal);
         Assert.Contains("<PackageReference Include=\"ProGPU.DirectX\" Version=\"$(ProGpuRuntimePackageVersion)\" />", proGpuWpfProject, StringComparison.Ordinal);
         Assert.Contains("<PackageReference Include=\"ProGPU.Scene\" Version=\"$(ProGpuRuntimePackageVersion)\" />", proGpuWpfProject, StringComparison.Ordinal);
         Assert.Contains("<PackageReference Include=\"LibreWPF.Interop\" Version=\"$(ProGpuRuntimePackageVersion)\" />", proGpuWpfProject, StringComparison.Ordinal);
@@ -12278,6 +12771,7 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("<AssemblyOriginatorKeyFile Condition=\"'$(AssemblyOriginatorKeyFile)' == ''\">$(ProGPUStrongNameKeyFile)</AssemblyOriginatorKeyFile>", proGpuDirectoryBuildProps, StringComparison.Ordinal);
         Assert.Contains("<None Include=\"$(MSBuildThisFileDirectory)README.md\" Pack=\"true\" PackagePath=\"\\\" Visible=\"false\" />", proGpuDirectoryBuildProps, StringComparison.Ordinal);
         Assert.Contains("<ManagePackageVersionsCentrally Condition=\"'$(MSBuildProjectName)' != 'ACadSharp'\">true</ManagePackageVersionsCentrally>", proGpuDirectoryPackagesProps, StringComparison.Ordinal);
+        Assert.Contains("<ManagePackageVersionsCentrally Condition=\"'$(MSBuildProjectName)' == 'ACadSharp'\">false</ManagePackageVersionsCentrally>", proGpuDirectoryPackagesProps, StringComparison.Ordinal);
         Assert.Contains("<PackageVersion Include=\"Silk.NET.WebGPU\" Version=\"2.23.0\" />", proGpuDirectoryPackagesProps, StringComparison.Ordinal);
         Assert.Contains("<PackageVersion Include=\"Avalonia\" Version=\"", proGpuDirectoryPackagesProps, StringComparison.Ordinal);
         Assert.Contains("<PackageVersion Include=\"Microsoft.NET.Test.Sdk\" Version=\"17.11.1\" />", proGpuDirectoryPackagesProps, StringComparison.Ordinal);
@@ -12609,6 +13103,8 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("Select exact ProGPU source package version", sdkCiWorkflow, StringComparison.Ordinal);
         Assert.Contains("source_version=\"0.1.0-source.${submodule_commit:0:8}\"", sdkCiWorkflow, StringComparison.Ordinal);
         Assert.Contains("PROGPU_WPF_EXPECTED_PROGPU_PACKAGE_COMMIT=${submodule_commit}", sdkCiWorkflow, StringComparison.Ordinal);
+        Assert.Contains("Stage native runtimes from the exact successful ProGPU Build", sdkCiWorkflow, StringComparison.Ordinal);
+        Assert.Contains("./eng/progpu-stage-ci-native-runtimes.sh", sdkCiWorkflow, StringComparison.Ordinal);
         Assert.DoesNotContain("Stage exact ProGPU release packages", sdkCiWorkflow, StringComparison.Ordinal);
         Assert.Contains("global-json-file: global.json", sdkCiWorkflow, StringComparison.Ordinal);
         Assert.Contains("./eng/progpu-wpf-sdk-ci.sh", sdkCiWorkflow, StringComparison.Ordinal);
@@ -12712,7 +13208,7 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("Running real WPF Fluent theme runtime harness", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("src/ProGPU.Wpf.RealThemeRuntimeHarness/ProGPU.Wpf.RealThemeRuntimeHarness.csproj", validationGraphs, StringComparison.Ordinal);
         Assert.Contains("src/ProGPU.Wpf.RealThemeRuntimeHarness/ProGPU.Wpf.RealThemeRuntimeHarness.csproj\" -c Release -v:minimal", sdkCiScript, StringComparison.Ordinal);
-        Assert.Equal(8, sdkCiScript.Split("run --no-build --project", StringSplitOptions.None).Length - 1);
+        Assert.Equal(11, sdkCiScript.Split("run --no-build --project", StringSplitOptions.None).Length - 1);
         Assert.Contains("packaging/Microsoft.DotNet.Wpf.GitHub/Microsoft.DotNet.Wpf.GitHub.ArchNeutral.csproj", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("src/ProGPU.Wpf/ProGPU.Wpf.csproj", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("packaging/ProGPU.Wpf.Sdk/ProGPU.Wpf.Sdk.ArchNeutral.csproj", sdkCiScript, StringComparison.Ordinal);
@@ -12729,8 +13225,8 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("src/ProGPU.Wpf.SdkExternalSmokeHarness/ProGPU.Wpf.SdkExternalSmokeHarness.csproj", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("artifacts/nuget/ProGPU.Wpf.SdkSwitchSmoke", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("artifacts/nuget/ProGPU.Wpf.HelloApp", sdkCiScript, StringComparison.Ordinal);
-        Assert.Contains("samples/ProGPU.Wpf.MvpApp/ProGPU.Wpf.MvpApp.csproj", sdkCiScript, StringComparison.Ordinal);
-        Assert.Contains("artifacts/nuget/ProGPU.Wpf.MvpApp", sdkCiScript, StringComparison.Ordinal);
+        Assert.Contains("samples/ProGPU.Wpf.ShowcaseApp/ProGPU.Wpf.ShowcaseApp.csproj", sdkCiScript, StringComparison.Ordinal);
+        Assert.Contains("artifacts/nuget/ProGPU.Wpf.ShowcaseApp", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("ProGPU.Wpf.ToolkitApp", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("artifacts/nuget/ProGPU.Wpf.ToolkitApp", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("ProGPU.Wpf.XceedPaidApp", sdkCiScript, StringComparison.Ordinal);
@@ -12741,23 +13237,23 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("export ProGpuWpfRuntimeFrameworkVersion=\"${validation_runtime_version}\"", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("Using ProGpuWpfRuntimeFrameworkVersion=${ProGpuWpfRuntimeFrameworkVersion} for SDK validation apphosts.", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("has_env_or_launchctl()", sdkCiScript, StringComparison.Ordinal);
-        Assert.Contains("PROGPU_WPF_MVP_VALIDATE=1", sdkCiScript, StringComparison.Ordinal);
-        Assert.Contains("PROGPU_WPF_MVP_RUN_VALIDATE=1", sdkCiScript, StringComparison.Ordinal);
-        Assert.Contains("Running MVP SDK app apphost Application.Run validation", sdkCiScript, StringComparison.Ordinal);
-        Assert.Contains("mvp_apphost_name=\"$(apphost_name \"ProGPU.Wpf.MvpApp\")\"", sdkCiScript, StringComparison.Ordinal);
-        Assert.Contains("\"./${mvp_apphost_name}\"", sdkCiScript, StringComparison.Ordinal);
-        Assert.Contains("Running MVP SDK app live geometry validation", sdkCiScript, StringComparison.Ordinal);
-        Assert.Contains("PROGPU_WPF_MVP_REBUILD_PACKAGES=0", sdkCiScript, StringComparison.Ordinal);
-        Assert.Contains("PROGPU_WPF_MVP_SKIP_BUILD=1", sdkCiScript, StringComparison.Ordinal);
-        Assert.Contains("PROGPU_WPF_MVP_VALIDATE=0", sdkCiScript, StringComparison.Ordinal);
-        Assert.Contains("PROGPU_WPF_MVP_RUN_VALIDATE=0", sdkCiScript, StringComparison.Ordinal);
-        Assert.Contains("PROGPU_WPF_MVP_LIVE_VALIDATE=1", sdkCiScript, StringComparison.Ordinal);
-        Assert.Contains("PROGPU_WPF_MVP_PERFORMANCE_VALIDATE=1", sdkCiScript, StringComparison.Ordinal);
-        Assert.Contains("PROGPU_WPF_MVP_LIVE_VALIDATE=0", sdkCiScript, StringComparison.Ordinal);
+        Assert.Contains("PROGPU_WPF_SHOWCASE_VALIDATE=1", sdkCiScript, StringComparison.Ordinal);
+        Assert.Contains("PROGPU_WPF_SHOWCASE_RUN_VALIDATE=1", sdkCiScript, StringComparison.Ordinal);
+        Assert.Contains("Running Showcase SDK app apphost Application.Run validation", sdkCiScript, StringComparison.Ordinal);
+        Assert.Contains("showcase_apphost_name=\"$(apphost_name \"ProGPU.Wpf.ShowcaseApp\")\"", sdkCiScript, StringComparison.Ordinal);
+        Assert.Contains("\"./${showcase_apphost_name}\"", sdkCiScript, StringComparison.Ordinal);
+        Assert.Contains("Running Showcase SDK app live geometry validation", sdkCiScript, StringComparison.Ordinal);
+        Assert.Contains("PROGPU_WPF_SHOWCASE_REBUILD_PACKAGES=0", sdkCiScript, StringComparison.Ordinal);
+        Assert.Contains("PROGPU_WPF_SHOWCASE_SKIP_BUILD=1", sdkCiScript, StringComparison.Ordinal);
+        Assert.Contains("PROGPU_WPF_SHOWCASE_VALIDATE=0", sdkCiScript, StringComparison.Ordinal);
+        Assert.Contains("PROGPU_WPF_SHOWCASE_RUN_VALIDATE=0", sdkCiScript, StringComparison.Ordinal);
+        Assert.Contains("PROGPU_WPF_SHOWCASE_LIVE_VALIDATE=1", sdkCiScript, StringComparison.Ordinal);
+        Assert.Contains("PROGPU_WPF_SHOWCASE_PERFORMANCE_VALIDATE=1", sdkCiScript, StringComparison.Ordinal);
+        Assert.Contains("PROGPU_WPF_SHOWCASE_LIVE_VALIDATE=0", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("PROGPU_WPF_HELLO_RUN_VALIDATE=0", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("PROGPU_WPF_HELLO_LIVE_VALIDATE=0", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("PROGPU_WPF_HELLO_SKIP_BUILD=1", sdkCiScript, StringComparison.Ordinal);
-        Assert.Contains("\"${repo_root}/eng/run-progpu-wpf-mvp.sh\"", sdkCiScript, StringComparison.Ordinal);
+        Assert.Contains("\"${repo_root}/eng/run-progpu-wpf-showcase.sh\"", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("Running Toolkit SDK app live validation", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("PROGPU_WPF_TOOLKIT_REBUILD_PACKAGES=0", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("PROGPU_WPF_TOOLKIT_LIVE_VALIDATE=1", sdkCiScript, StringComparison.Ordinal);
@@ -12770,15 +13266,21 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("PROGPU_WPF_XCEED_PAID_RUN_VALIDATE=0", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("PROGPU_WPF_XCEED_PAID_LIVE_VALIDATE=1", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("\"${repo_root}/eng/run-progpu-wpf-xceed-paid.sh\"", sdkCiScript, StringComparison.Ordinal);
-        Assert.Contains("samples/ProGPU.Wpf.SciChartMvpApp/ProGPU.Wpf.SciChartMvpApp.csproj", sdkCiScript, StringComparison.Ordinal);
-        Assert.Contains("artifacts/nuget/ProGPU.Wpf.SciChartMvpApp", sdkCiScript, StringComparison.Ordinal);
+        Assert.Contains("samples/ProGPU.Wpf.SciChartApp/ProGPU.Wpf.SciChartApp.csproj", sdkCiScript, StringComparison.Ordinal);
+        Assert.Contains("artifacts/nuget/ProGPU.Wpf.SciChartApp", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("PROGPU_WPF_SCICHART_VALIDATE=1", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("PROGPU_WPF_SCICHART_RUN_VALIDATE=1", sdkCiScript, StringComparison.Ordinal);
-        Assert.Contains("Running SciChart MVP SDK app renderer validation", sdkCiScript, StringComparison.Ordinal);
-        Assert.Contains("Running SciChart MVP SDK app Application.Run validation", sdkCiScript, StringComparison.Ordinal);
+        Assert.Contains("Running SciChart Showcase SDK app renderer validation", sdkCiScript, StringComparison.Ordinal);
+        Assert.Contains("Running SciChart Showcase SDK app Application.Run validation", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("ProGpuWpfSdkProvidesSwitchOnlyPackagingSurface", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("dev_package_version=\"${PROGPU_WPF_DEV_PACKAGE_VERSION:-0.1.0-preview.45}\"", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("progpu_package_version=\"${PROGPU_WPF_PROGPU_PACKAGE_VERSION:-0.1.0-preview.62}\"", sdkCiScript, StringComparison.Ordinal);
+        Assert.Contains("msbuild|build|pack)", sdkCiScript, StringComparison.Ordinal);
+        Assert.DoesNotContain("msbuild|build|pack|run)", sdkCiScript, StringComparison.Ordinal);
+        Assert.Contains("run_dotnet build \"${repo_root}/src/ProGPU.Wpf.SdkSwitchRuntimeHarness/ProGPU.Wpf.SdkSwitchRuntimeHarness.csproj\" -v:minimal", sdkCiScript, StringComparison.Ordinal);
+        Assert.Contains("run_dotnet run --no-build --project \"${repo_root}/src/ProGPU.Wpf.SdkSwitchRuntimeHarness/ProGPU.Wpf.SdkSwitchRuntimeHarness.csproj\" -v:minimal", sdkCiScript, StringComparison.Ordinal);
+        Assert.Contains("run_dotnet build \"${repo_root}/src/ProGPU.Wpf.SdkExternalSmokeHarness/ProGPU.Wpf.SdkExternalSmokeHarness.csproj\" -v:minimal", sdkCiScript, StringComparison.Ordinal);
+        Assert.Contains("run_dotnet run --no-build --project \"${repo_root}/src/ProGPU.Wpf.SdkExternalSmokeHarness/ProGPU.Wpf.SdkExternalSmokeHarness.csproj\" -v:minimal", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("export ProGpuRuntimePackageVersion=\"${progpu_package_version}\"", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("export ProGpuPackageVersion=\"${progpu_package_version}\"", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("export PROGPU_WPF_DEV_PACKAGE_VERSION=\"${dev_package_version}\"", sdkCiScript, StringComparison.Ordinal);
@@ -12800,8 +13302,11 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("cmp \"${source_package}\" \"${destination_package}\"", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("cmp \"${source_package}\" \"${snapshot_package}\"", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("\"${package_output}/${package_id}.${progpu_package_version}.nupkg\"", sdkCiScript, StringComparison.Ordinal);
+        Assert.Contains("-p:ProGpuRuntimePackageVersion=\"${progpu_package_version}\"", sdkCiScript, StringComparison.Ordinal);
+        Assert.Contains("-p:RestoreAdditionalProjectSources=\"${package_output}\"", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("stage_or_pack_progpu_project \"external/ProGPU/src/ProGPU.DirectX/ProGPU.DirectX.csproj\" \"ProGPU.DirectX\"", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("stage_or_pack_progpu_project \"external/ProGPU/src/ProGPU.Backend.Dawn/ProGPU.Backend.Dawn.csproj\" \"ProGPU.Backend.Dawn\"", sdkCiScript, StringComparison.Ordinal);
+        Assert.Contains("stage_or_pack_progpu_project \"external/ProGPU/src/ProGPU.Backend.Native/ProGPU.Backend.Native.csproj\" \"ProGPU.Backend.Native\"", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("stage_or_pack_progpu_project \"external/ProGPU/src/ProGPU.Scene/ProGPU.Scene.csproj\" \"ProGPU.Scene\"", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("stage_or_pack_progpu_project \"external/ProGPU/src/ProGPU.Layout/ProGPU.Layout.csproj\" \"ProGPU.Layout\"", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("stage_or_pack_progpu_project \"external/ProGPU/src/ProGPU.Virtualization/ProGPU.Virtualization.csproj\" \"ProGPU.Virtualization\"", sdkCiScript, StringComparison.Ordinal);
@@ -12819,6 +13324,11 @@ public sealed class WpfManagedProjectGraphTests
             "SDK CI must freeze exact ProGPU package inputs before later repository builds can replace Release outputs.");
         Assert.Contains("Running ProGPU Avalonia package consumer smoke", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("\"${repo_root}/eng/progpu-avalonia-package-smoke.sh\"", sdkCiScript, StringComparison.Ordinal);
+        Assert.Contains("PROGPU_WPF_SDK_CI_NATIVE_MIL_HOST", sdkCiScript, StringComparison.Ordinal);
+        Assert.Contains("\"${repo_root}/eng/progpu-wpf-native-mil-host-smoke.sh\"", sdkCiScript, StringComparison.Ordinal);
+        Assert.Contains("--native-mil-host", nativeMilHostSmokeScript, StringComparison.Ordinal);
+        Assert.Contains("PROGPU_NATIVE_BUILD_DIR", nativeMilHostSmokeScript, StringComparison.Ordinal);
+        Assert.Contains("PROGPU_NATIVE_RUNTIME_DIR", nativeMilHostSmokeScript, StringComparison.Ordinal);
         Assert.Contains("pack_project \"src/ProGPU.Wpf/ProGPU.Wpf.csproj\" \"LibreWPF.ProGPU\"", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("pack_project \"packaging/ProGPU.Wpf.Sdk/ProGPU.Wpf.Sdk.ArchNeutral.csproj\" \"LibreWPF.Sdk\"", sdkCiScript, StringComparison.Ordinal);
         Assert.Contains("Auditing preview package artifacts", sdkCiScript, StringComparison.Ordinal);
@@ -12860,6 +13370,7 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("LibreWPF.Transport", previewPackageListScript, StringComparison.Ordinal);
         Assert.Contains("ProGPU.Text.Shaping", previewPackageListScript, StringComparison.Ordinal);
         Assert.Contains("ProGPU.Backend.Dawn", previewPackageListScript, StringComparison.Ordinal);
+        Assert.Contains("ProGPU.Backend.Native", previewPackageListScript, StringComparison.Ordinal);
         Assert.Contains("ProGPU.WinRT", previewPackageListScript, StringComparison.Ordinal);
         Assert.Contains("ProGPU.Media", previewPackageListScript, StringComparison.Ordinal);
         Assert.Contains("ProGPU.Media.Scene", previewPackageListScript, StringComparison.Ordinal);
@@ -12889,10 +13400,14 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("require_entry LibreWPF.Sdk \"Sdk/Sdk.props\"", previewPackageAuditScript, StringComparison.Ordinal);
         Assert.Contains("require_entry LibreWPF.Sdk \"Sdk/LibreWPF.Sdk.Version.props\"", previewPackageAuditScript, StringComparison.Ordinal);
         Assert.Contains("<_LibreWpfSdkPackageVersion>${dev_package_version}</_LibreWpfSdkPackageVersion>", previewPackageAuditScript, StringComparison.Ordinal);
+        Assert.Contains("<_LibreWpfSdkProGpuPackageVersion>${progpu_package_version}</_LibreWpfSdkProGpuPackageVersion>", previewPackageAuditScript, StringComparison.Ordinal);
         Assert.Contains("require_entry LibreWPF.Sdk \"targets/ProGPU.Wpf.Sdk.targets\"", previewPackageAuditScript, StringComparison.Ordinal);
         Assert.Contains("require_nuspec_contains LibreWPF.Sdk \"<packageType name=\\\"MSBuildSdk\\\" />\"", previewPackageAuditScript, StringComparison.Ordinal);
         Assert.Contains("require_entry LibreWPF.ProGPU \"lib/net10.0/ProGPU.Wpf.dll\"", previewPackageAuditScript, StringComparison.Ordinal);
         Assert.Contains("dependency id=\\\"ProGPU.DirectX\\\" version=\\\"${progpu_package_version}\\\"", previewPackageAuditScript, StringComparison.Ordinal);
+        Assert.Contains("dependency id=\\\"ProGPU.Backend.Native\\\" version=\\\"${progpu_package_version}\\\"", previewPackageAuditScript, StringComparison.Ordinal);
+        Assert.Contains("require_entry ProGPU.Backend.Native \"lib/net10.0/ProGPU.Backend.Native.dll\"", previewPackageAuditScript, StringComparison.Ordinal);
+        Assert.Contains("for native_rid in linux-x64 linux-arm64 osx-x64 osx-arm64 win-x64 win-arm64", previewPackageAuditScript, StringComparison.Ordinal);
         Assert.Contains("dependency id=\\\"Silk.NET.WebGPU\\\" version=\\\"2.23.0\\\"", previewPackageAuditScript, StringComparison.Ordinal);
         Assert.Contains("dependency id=\\\"ProGPU.WinUI\\\" version=\\\"${progpu_package_version}\\\"", previewPackageAuditScript, StringComparison.Ordinal);
         Assert.Contains("dependency id=\\\"ProGPU.Text.Shaping\\\" version=\\\"${progpu_package_version}\\\"", previewPackageAuditScript, StringComparison.Ordinal);
@@ -13048,6 +13563,7 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("require_package_cache_entry \"LibreWPF.Transport\"", previewReleaseSdkSmokeScript, StringComparison.Ordinal);
         Assert.Contains("require_package_cache_entry \"LibreWPF.ProGPU\"", previewReleaseSdkSmokeScript, StringComparison.Ordinal);
         Assert.Contains("require_package_cache_entry \"LibreWPF.Sdk\"", previewReleaseSdkSmokeScript, StringComparison.Ordinal);
+        Assert.Contains("require_package_cache_entry \"ProGPU.Backend.Native\"", previewReleaseSdkSmokeScript, StringComparison.Ordinal);
         Assert.Contains("LibreWPF preview release bundle SDK smoke succeeded.", previewReleaseSdkSmokeScript, StringComparison.Ordinal);
         Assert.Contains("avalonia_project_dir=\"${feed_dir}/BundleAvaloniaSmoke\"", previewReleaseSdkSmokeScript, StringComparison.Ordinal);
         Assert.Contains("<Import Project=\"${repo_root}/external/ProGPU/Directory.Packages.props\" />", previewReleaseSdkSmokeScript, StringComparison.Ordinal);
@@ -13062,1010 +13578,1010 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("require_package_cache_entry \"ProGPU.WinUI\"", previewReleaseSdkSmokeScript, StringComparison.Ordinal);
         Assert.Contains("ProGPU Avalonia preview release bundle package smoke succeeded.", previewReleaseSdkSmokeScript, StringComparison.Ordinal);
 
-        Assert.Contains("<Project Sdk=\"LibreWPF.Sdk/0.1.0-preview.45\">", mvpProject, StringComparison.Ordinal);
-        Assert.Contains("<TargetFramework>$(ProGpuWpfSdkSampleTargetFramework)</TargetFramework>", mvpProject, StringComparison.Ordinal);
-        Assert.Contains("<UseWPF>true</UseWPF>", mvpProject, StringComparison.Ordinal);
-        Assert.Contains("<Resource Include=\"Assets/MvpResource.txt\" />", mvpProject, StringComparison.Ordinal);
-        Assert.Contains("<Content Include=\"Assets/MvpContent.txt\">", mvpProject, StringComparison.Ordinal);
-        Assert.Contains("<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>", mvpProject, StringComparison.Ordinal);
-        Assert.Contains("<TargetPath>Assets/MvpContent.txt</TargetPath>", mvpProject, StringComparison.Ordinal);
-        Assert.Contains("<add key=\"MvpAppSetting\" value=\"MVP app config value\" />", mvpAppConfig, StringComparison.Ordinal);
-        Assert.Contains("<add key=\"MvpNumericSetting\" value=\"73\" />", mvpAppConfig, StringComparison.Ordinal);
-        Assert.Contains("<ResourceDictionary Source=\"Resources/Theme.xaml\" />", mvpAppXaml, StringComparison.Ordinal);
-        Assert.Contains("<ResourceDictionary Source=\"/PresentationFramework.Fluent;component/Themes/Fluent.xaml\" />", mvpAppXaml, StringComparison.Ordinal);
-        Assert.Contains("<ResourceDictionary Source=\"/ProGPU.Wpf.MvpApp;component/Resources/ComponentTheme.xaml\" />", mvpAppXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Key=\"MvpComponentPackText\"", mvpComponentThemeXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Key=\"MvpComponentPackBrush\"", mvpComponentThemeXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Key=\"MvpComponentPackTextStyle\"", mvpComponentThemeXaml, StringComparison.Ordinal);
-        Assert.Contains("Startup=\"OnAppStartup\"", mvpAppXaml, StringComparison.Ordinal);
-        Assert.Contains("Exit=\"OnAppExit\"", mvpAppXaml, StringComparison.Ordinal);
-        Assert.Contains("ShutdownMode=\"OnMainWindowClose\"", mvpAppXaml, StringComparison.Ordinal);
-        Assert.Contains("PROGPU_WPF_MVP_VALIDATE", mvpAppCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("PROGPU_WPF_MVP_RUN_VALIDATE", mvpAppCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("DispatcherPriority.ApplicationIdle", mvpAppCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ValidateRunningApplication", mvpAppCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("Expected MVP StartupUri MainWindow", mvpAppCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("expectLoadedStoryboardApplied: true", mvpAppCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("MvpSelfTest.Validate", mvpAppCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("internal static int StartupEventCount", mvpAppCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("internal static int ExitEventCount", mvpAppCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("Properties[\"MvpStartupProperty\"]", mvpAppCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("Properties[\"MvpStartupArgumentCount\"]", mvpAppCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("Resources[\"MvpStartupText\"]", mvpAppCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("Resources[\"MvpStartupBrush\"]", mvpAppCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("private void OnAppStartup", mvpAppCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("private void OnAppExit", mvpAppCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"MainMenu\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("xmlns:local=\"clr-namespace:ProGPU.Wpf.MvpApp\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("xmlns:componentModel=\"clr-namespace:System.ComponentModel;assembly=WindowsBase\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("xmlns:sys=\"clr-namespace:System;assembly=mscorlib\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("xmlns:wpf=\"clr-namespace:System.Windows;assembly=PresentationFramework\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("<Window.CommandBindings>", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("<Window.InputBindings>", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("MvpActiveTextConverter", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("MvpItemSummaryConverter", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Key=\"MvpActiveItemTemplate\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Key=\"MvpInactiveItemTemplate\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("MvpItemTemplateSelector", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Key=\"MvpObjectDataProvider\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("ObjectDataProvider.MethodParameters", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("<sys:String>mvp-provider</sys:String>", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("<sys:Int32>9</sys:Int32>", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Key=\"MvpXmlDataProvider\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("XPath=\"/mvp/item\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("<x:Array", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Key=\"MvpStringArray\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("Type=\"{x:Type sys:String}\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Key=\"MvpSelectorItemContainerStyle\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Key=\"MvpActiveItemContainerStyle\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Key=\"MvpInactiveItemContainerStyle\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("MvpItemContainerStyleSelector", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("ActiveStyle=\"{StaticResource MvpActiveItemContainerStyle}\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("InactiveStyle=\"{StaticResource MvpInactiveItemContainerStyle}\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Key=\"ItemsViewSource\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("Filter=\"OnItemsViewSourceFilter\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("<CollectionViewSource.SortDescriptions>", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("<PropertyGroupDescription PropertyName=\"Category\" />", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"MvpThemedControl\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("Text=\"Generic theme default style\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("[assembly: ThemeInfo(ResourceDictionaryLocation.None, ResourceDictionaryLocation.SourceAssembly)]", mvpAssemblyInfo, StringComparison.Ordinal);
-        Assert.Contains("public sealed class MvpThemedControl : Control", mvpThemedControl, StringComparison.Ordinal);
-        Assert.Contains("DependencyProperty TextProperty", mvpThemedControl, StringComparison.Ordinal);
-        Assert.Contains("DefaultStyleKeyProperty.OverrideMetadata", mvpThemedControl, StringComparison.Ordinal);
-        Assert.Contains("new FrameworkPropertyMetadata(typeof(MvpThemedControl))", mvpThemedControl, StringComparison.Ordinal);
-        Assert.Contains("TargetType=\"{x:Type local:MvpThemedControl}\"", mvpGenericThemeXaml, StringComparison.Ordinal);
-        Assert.Contains("ComponentResourceKey TypeInTargetAssembly={x:Type local:MvpThemedControl}, ResourceId=MvpThemeBorderBrush", mvpGenericThemeXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"ThemeRoot\"", mvpGenericThemeXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"ThemeText\"", mvpGenericThemeXaml, StringComparison.Ordinal);
-        Assert.Contains("Text=\"{TemplateBinding Text}\"", mvpGenericThemeXaml, StringComparison.Ordinal);
-        Assert.Contains("Command=\"{x:Static local:MainWindow.RefreshStatusCommand}\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("Key=\"R\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("Modifiers=\"Control\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("<MouseBinding", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("MouseAction=\"LeftDoubleClick\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("CommandParameter=\"mvp mouse binding payload\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("CommandTarget=\"{Binding ElementName=RootWindow}\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("Command=\"{Binding AddItemCommand}\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"RequeryCommandButton\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("Command=\"{Binding RequeryCommand}\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("CommandParameter=\"mvp requery command payload\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"MvpMessageBoxButton\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("Click=\"OnMessageBoxButtonClick\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"MessageBoxStatusText\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"MvpFileDialogButton\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("Click=\"OnFileDialogButtonClick\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"FileDialogStatusText\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("InputGestureText=\"Ctrl+N\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"MvpTabControl\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("SelectedIndex=\"{Binding SelectedTabIndex, Mode=TwoWay}\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("SelectionChanged=\"OnMvpTabSelectionChanged\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"AboutMenuItem\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("Click=\"OnAboutMenuItemClick\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("IsCheckable=\"True\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"RefreshMenuItem\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"ThemeMenuItem\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"AeroThemeMenuItem\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"Aero2ThemeMenuItem\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"AeroLiteThemeMenuItem\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"ClassicThemeMenuItem\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"FluentThemeMenuItem\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"LunaThemeMenuItem\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"RoyaleThemeMenuItem\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("Click=\"OnFrameworkThemeMenuItemClick\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("new(\"Aero\", \"/PresentationFramework.Aero;component/themes/Aero.NormalColor.xaml\")", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("new(\"Aero2\", \"/PresentationFramework.Aero2;component/Themes/Aero2.NormalColor.xaml\")", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("new(\"AeroLite\", \"/PresentationFramework.AeroLite;component/Themes/AeroLite.NormalColor.xaml\")", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("new(\"Classic\", \"/PresentationFramework.Classic;component/Themes/Classic.xaml\")", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("new(\"Fluent\", \"/PresentationFramework.Fluent;component/Themes/Fluent.xaml\")", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("new(\"Luna\", \"/PresentationFramework.Luna;component/Themes/Luna.NormalColor.xaml\")", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("new(\"Royale\", \"/PresentationFramework.Royale;component/Themes/Royale.NormalColor.xaml\")", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("internal void ApplyFrameworkTheme(string themeName)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ValidateFrameworkThemeSwitching(window, application, themeMenuItem)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ValidateLiveFrameworkThemesAsync(liveHost)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("\"native menu popups\"", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("\"owner-surface menu popups\"", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("OperatingSystem.IsMacOS()", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("GetLivePopupInputCenter(", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("RaiseLivePopupInput(", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"WindowMenuItem\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"WindowMaximizeMenuItem\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("Command=\"{x:Static wpf:SystemCommands.MaximizeWindowCommand}\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("CommandParameter=\"mvp maximize\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"WindowMinimizeMenuItem\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("Command=\"{x:Static wpf:SystemCommands.MinimizeWindowCommand}\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("CommandParameter=\"mvp minimize\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"WindowRestoreMenuItem\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("Command=\"{x:Static wpf:SystemCommands.RestoreWindowCommand}\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("CommandParameter=\"mvp restore\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"WindowSystemMenuItem\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("Command=\"{x:Static wpf:SystemCommands.ShowSystemMenuCommand}\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("CommandParameter=\"mvp system menu\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("<ListBox.ContextMenu>", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"ItemsContextMenu\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("DataContext=\"{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"ContextAddMenuItem\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("Command=\"{Binding AddItemCommand}\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"ContextRefreshMenuItem\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("CommandTarget=\"{Binding PlacementTarget, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"ContextActionsEnabledMenuItem\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("IsChecked=\"{Binding ActionsEnabled}\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"CommandStatusText\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"SelectedItemSummaryText\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("<MultiBinding Converter=\"{StaticResource MvpItemSummaryConverter}\">", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("<Binding Path=\"SelectedItem.Name\" />", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"ActiveOnlyCheckBox\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("Checked=\"OnActiveOnlyFilterChanged\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("Unchecked=\"OnActiveOnlyFilterChanged\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"GroupedItemsList\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("ItemsSource=\"{Binding Source={StaticResource ItemsViewSource}}\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("<ListBox.GroupStyle>", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("<GroupStyle.HeaderTemplate>", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"GroupedItemActiveText\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("Converter={StaticResource MvpActiveTextConverter}", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"FormattedItemsList\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("AlternationCount=\"3\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("ItemStringFormat=\"formatted {0}\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("ItemsSource=\"{Binding FormattedItems}\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("<TabItem Header=\"Bindings\">", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"PriorityBindingText\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("<PriorityBinding FallbackValue=\"Priority fallback\">", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("<Binding Path=\"MissingPriorityText\" />", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("<Binding Path=\"SelectedItem.Name\" />", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"FallbackBindingText\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("FallbackValue=Fallback binding text", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"TargetNullBindingText\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("TargetNullValue=Target null text", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"BindingTargetUpdatedText\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("Binding.TargetUpdated=\"OnMvpBindingTargetUpdated\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("BindingTransferText, NotifyOnTargetUpdated=True", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"BindingSourceUpdatedTextBox\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("Binding.SourceUpdated=\"OnMvpBindingSourceUpdated\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("BindingTransferText, Mode=TwoWay, UpdateSourceTrigger=Explicit, NotifyOnSourceUpdated=True", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"RelativeSelfBindingText\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("RelativeSource={RelativeSource Self}, Path=Tag", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"RelativeAncestorBindingText\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("RelativeSource={RelativeSource AncestorType={x:Type Border}}, Path=Tag", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("<TabItem Header=\"Selectors\">", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"SelectorGroupBox\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"SelectedValueComboBox\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("DisplayMemberPath=\"Name\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("SelectedValuePath=\"Category\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("SelectedValue=\"{Binding SelectedCategory, Mode=TwoWay}\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("SelectionChanged=\"OnSelectorSelectionChanged\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"MultiSelectItemsList\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("SelectionMode=\"Multiple\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("ScrollViewer.CanContentScroll=\"True\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("VirtualizingPanel.IsVirtualizing=\"True\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("VirtualizingPanel.VirtualizationMode=\"Recycling\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("<VirtualizingStackPanel Orientation=\"Vertical\" />", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("SelectionChanged=\"OnMultiSelectorSelectionChanged\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"SelectorExpander\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("Expanded=\"OnSelectorExpanderExpanded\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("Collapsed=\"OnSelectorExpanderCollapsed\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"SelectorScrollViewer\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("VerticalScrollBarVisibility=\"Auto\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("<TabItem Header=\"Input\">", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"MvpToolBarTray\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"MvpToolBar\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"ToolBarRefreshButton\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"ToolBarRefreshToolTip\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("Placement=\"Bottom\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"ToolBarToggleButton\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("xmlns:primitives=\"clr-namespace:System.Windows.Controls.Primitives;assembly=PresentationFramework\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"PopupOwnerButton\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("primitives:Popup", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"InputPopup\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("PlacementTarget=\"{Binding ElementName=PopupOwnerButton}\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("StaysOpen=\"False\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"InputPopupText\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"InputToggleButton\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"FrameworkRadioButton\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("GroupName=\"MvpCategory\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"RenderingRadioButton\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"InputRepeatButton\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("Delay=\"180\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("Interval=\"70\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"InputCalendar\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("SelectedDatesChanged=\"OnInputDateSelectionChanged\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("SelectionMode=\"SingleDate\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"InputDatePicker\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("SelectedDateChanged=\"OnInputDateSelectionChanged\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"KeyboardNavigationPanel\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("FocusManager.FocusedElement=\"{Binding ElementName=KeyboardNavigationFirstBox}\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("FocusManager.IsFocusScope=\"True\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("KeyboardNavigation.TabNavigation=\"Cycle\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("KeyboardNavigation.ControlTabNavigation=\"Cycle\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("KeyboardNavigation.DirectionalNavigation=\"Contained\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"KeyboardNavigationAccessLabel\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("Content=\"_First focus target\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("Target=\"{Binding ElementName=KeyboardNavigationFirstBox}\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"KeyboardNavigationFirstBox\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"KeyboardNavigationSecondButton\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"KeyboardNavigationThirdBox\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("<TabItem Header=\"Layout\">", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"MvpDockPanel\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("LastChildFill=\"True\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"DockTopBand\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("DockPanel.Dock=\"Top\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("DockPanel.Dock=\"Left\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("DockPanel.Dock=\"Right\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"MvpWrapPanel\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("ItemWidth=\"90\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"MvpUniformGrid\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("FirstColumn=\"1\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"MvpShapeCanvas\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"MvpShapeRectangle\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("RadiusX=\"6\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"MvpShapeEllipse\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"MvpShapeLine\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("StrokeStartLineCap=\"Round\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"MvpShapePath\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("Data=\"M 0,40 L 24,0 L 48,40 Z\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"MvpGridSplitterGrid\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"MvpGridSplitter\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("ResizeBehavior=\"PreviousAndNext\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("KeyboardIncrement=\"12\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"MvpViewbox\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("Stretch=\"Uniform\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("<TabItem Header=\"Resources\">", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"ComponentResourceText\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("ResourceId=MvpComponentAccentBrush", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"LocalizedResourceText\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Uid=\"MvpLocalizedResourceText\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("Localization.Attributes=\"$Text (Readable Modifiable Text)\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("Localization.Comments=\"$Text (MVP localization comment)\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"ResourceAccessText\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"ObjectProviderText\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("Text=\"{Binding Source={StaticResource MvpObjectDataProvider}}\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"XmlProviderText\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("Text=\"{Binding Source={StaticResource MvpXmlDataProvider}, XPath=@name}\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"ResourceArrayItemsControl\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("ItemsSource=\"{StaticResource MvpStringArray}\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Key=\"MvpCompositeCollection\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("CollectionContainer Collection=\"{x:Static local:MvpCompositeItemsProvider.Items}\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"ResourceCompositeItemsControl\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("ItemsSource=\"{StaticResource MvpCompositeCollection}\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"NullIntrinsicText\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("Tag=\"{x:Null}\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"MarkupExtensionText\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("Text=\"{local:MvpText Prefix=Markup, Value=Extension}\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"PackResourceText\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"ComponentPackResourceText\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("Style=\"{StaticResource MvpComponentPackTextStyle}\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("Text=\"{StaticResource MvpComponentPackText}\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"StartupResourceText\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("Text=\"{DynamicResource MvpStartupText}\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("Foreground=\"{DynamicResource MvpStartupBrush}\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"SystemParameterText\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("SystemParameters.PrimaryScreenWidth", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"SystemFontText\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("SystemFonts.MessageFontFamily", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("SystemFonts.MessageFontSize", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"SystemColorBorder\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("SystemColors.WindowBrushKey", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("SystemColors.ControlDarkBrushKey", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"SystemColorText\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("SystemColors.WindowTextBrushKey", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("<DrawingImage x:Key=\"MvpDrawingImage\">", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("<GeometryDrawing Brush=\"#2F80ED\">", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("<RectangleGeometry Rect=\"0,0,32,32\" />", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("<PathGeometry Figures=\"M 8,18 L 14,24 L 25,9 L 28,12 L 14,28 L 5,20 Z\" />", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Key=\"MvpDrawingImageBrush\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("ImageSource=\"{StaticResource MvpDrawingImage}\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Key=\"MvpSharedFalseBrush\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Shared=\"False\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Key=\"MvpFreezableBrush\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"MvpDrawingImageControl\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("Source=\"{StaticResource MvpDrawingImage}\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"MvpDrawingImageBrushBorder\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("Background=\"{StaticResource MvpDrawingImageBrush}\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"ResourceDynamicBorder\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("DynamicResource invalidation", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"SelectedItemContent\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("ContentTemplate=\"{StaticResource SelectedItemTemplate}\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"ImplicitTemplateContent\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("Content=\"{Binding SelectedItem}\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"SelectorItemsList\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("ItemTemplateSelector=\"{StaticResource MvpItemTemplateSelector}\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("ItemContainerStyle=\"{StaticResource MvpSelectorItemContainerStyle}\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"StyleSelectorItemsList\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("ItemContainerStyleSelector=\"{StaticResource MvpItemContainerStyleSelector}\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("<ItemsPanelTemplate>", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("<WrapPanel />", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"TemplateButton\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("Style=\"{StaticResource MvpTemplateButtonStyle}\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"BasedOnStyleButton\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("Style=\"{StaticResource MvpBasedOnButtonStyle}\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"StyleTriggerText\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("Style=\"{StaticResource MvpTriggerTextBlockStyle}\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"MultiTriggerText\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("Style=\"{StaticResource MvpMultiTriggerTextBlockStyle}\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"MultiDataTriggerText\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("Style=\"{StaticResource MvpMultiDataTriggerTextBlockStyle}\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Key=\"MvpEventSetterButtonStyle\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("<EventSetter Event=\"Click\" Handler=\"OnMvpStyleEventSetterClick\" />", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"EventSetterStyleButton\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("Style=\"{StaticResource MvpEventSetterButtonStyle}\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"EventSetterStatusText\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"LocalThemeScope\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Key=\"LocalThemeBrush\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("<Setter Property=\"Foreground\" Value=\"{DynamicResource LocalThemeBrush}\" />", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"LocalThemeText\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("VisualStateManager states", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Key=\"MvpValidationErrorTemplate\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("AdornedElementPlaceholder", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"ValidationTextBox\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("Validation.ErrorTemplate=\"{StaticResource MvpValidationErrorTemplate}\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("NotifyOnValidationError=\"True\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("UpdateSourceTrigger=\"Explicit\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("<Binding.ValidationRules>", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("<local:MvpNonEmptyValidationRule />", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"ValidationEchoText\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"DataErrorTextBox\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("Path=\"DataErrorText\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("ValidatesOnDataErrors=\"True\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"DataErrorEchoText\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"NotifyDataErrorTextBox\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("Path=\"NotifyDataErrorText\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("ValidatesOnNotifyDataErrors=\"True\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"NotifyDataErrorEchoText\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"BindingGroupPanel\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("<StackPanel.BindingGroup>", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("<BindingGroup Name=\"MvpBindingGroup\">", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("<BindingGroup.ValidationRules>", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("MvpBindingGroupValidationRule", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("FirstProperty=\"BindingGroupFirstName\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("SecondProperty=\"BindingGroupLastName\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("RequiredPrefix=\"group:\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"BindingGroupFirstBox\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("Text=\"{Binding BindingGroupFirstName, UpdateSourceTrigger=Explicit}\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"BindingGroupLastBox\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("Text=\"{Binding BindingGroupLastName, UpdateSourceTrigger=Explicit}\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"BindingGroupCommitButton\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("Click=\"OnBindingGroupCommitClick\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"BindingGroupStatusText\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"LoadedStoryboardText\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("<TextBlock.Triggers>", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("EventTrigger RoutedEvent=\"FrameworkElement.Loaded\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("BeginStoryboard", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("Storyboard.TargetName=\"LoadedStoryboardText\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("Storyboard.TargetProperty=\"Opacity\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("To=\"0.42\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"ClickStoryboardButton\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("<Button.Triggers>", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("EventTrigger RoutedEvent=\"Button.Click\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("Storyboard.TargetName=\"ClickStoryboardButton\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("To=\"0.58\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"MvpDropShadowEffectBorder\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("<DropShadowEffect", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("BlurRadius=\"9\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("ShadowDepth=\"4\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"MvpBlurEffectBorder\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("<BlurEffect", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("Radius=\"2.5\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("local:SummaryPanel", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"ExplicitExplorerTreeView\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"ExplicitExplorerAlpha\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("Expanded=\"OnExplicitExplorerTreeExpanded\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("Collapsed=\"OnExplicitExplorerTreeCollapsed\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("Selected=\"OnExplicitExplorerTreeSelected\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("Unselected=\"OnExplicitExplorerTreeUnselected\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"ExplicitExplorerBeta\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"NavigationFrame\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("Source=\"OverviewPage.xaml\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("Click=\"OnDetailsNavigationClick\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"BackNavigationButton\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("Command=\"NavigationCommands.BrowseBack\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("CommandTarget=\"{Binding ElementName=NavigationFrame}\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"ForwardNavigationButton\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("Command=\"NavigationCommands.BrowseForward\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("<TabItem Header=\"Editing\">", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"EditorPasswordBox\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("MaxLength=\"16\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("PasswordChanged=\"OnEditorPasswordChanged\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("PasswordChar=\"*\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"EditorRichTextBox\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("<FlowDocument PagePadding=\"6\">", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("<Run Text=\"Editable plain text\" />", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("<Bold>", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("<Run Text=\"bold text\" />", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"DataObjectPayloadTextBox\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"DataObjectRoundTripButton\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("Click=\"OnDataObjectRoundTripClick\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"SelectAllPayloadButton\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("Command=\"ApplicationCommands.SelectAll\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("CommandTarget=\"{Binding ElementName=DataObjectPayloadTextBox}\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"DataObjectStatusText\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("TextBox", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("ListBox", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("DataGrid", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("DataGridTextColumn", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("DataGridCheckBoxColumn", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("HierarchicalDataTemplate", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("TreeView", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"ExplorerListView\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("<ListView.View>", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("GridView AllowsColumnReorder=\"False\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("GridViewColumn", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("DisplayMemberBinding=\"{Binding Name}\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("DisplayMemberBinding=\"{Binding Category}\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("DisplayMemberBinding=\"{Binding IsActive}\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"DocumentViewer\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("VerticalScrollBarVisibility=\"Auto\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"DocumentPageViewer\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("Zoom=\"125\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("ColumnWidth=\"360\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("MarkerStyle=\"Square\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"DocumentReader\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("ViewingMode=\"Scroll\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("Hyperlink", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("NavigateUri=\"https://github.com/wieslawsoltes/ProGPU\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("RequestNavigate=\"OnDocumentLinkRequestNavigate\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("FlowDocumentScrollViewer", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("StatusBar", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("INotifyPropertyChanged", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ICommand", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("RoutedUICommand RefreshStatusCommand", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("OnSystemCommandExecuted", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("SystemCommands.MaximizeWindow(this)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("SystemCommands.MinimizeWindow(this)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("SystemCommands.RestoreWindow(this)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("SystemCommands.ShowSystemMenu(this, new Point(12.0, 24.0))", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ValidateMvpSystemCommands(", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("public MvpRequeryCommand RequeryCommand", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("public sealed class MvpRequeryCommand : ICommand", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("CommandManager.RequerySuggested += value", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("CommandManager.InvalidateRequerySuggested()", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("internal int MvpTabSelectionChangedCount", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("private void OnMvpTabSelectionChanged", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("public int SelectedTabIndex", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ValidateMvpTabControl(", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("OnItemsViewSourceFilter", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("OnActiveOnlyFilterChanged", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("RefreshItemsView", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ShowActiveOnly", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("internal int BindingTargetUpdatedCount", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("private void OnMvpBindingTargetUpdated", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("internal int BindingSourceUpdatedCount", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("private void OnMvpBindingSourceUpdated", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("public string BindingTransferText", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("SourceUpdated binding source value", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("MvpActiveTextConverter : IValueConverter", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("MvpItemSummaryConverter : IMultiValueConverter", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("MvpItemTemplateSelector : DataTemplateSelector", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("MvpItemContainerStyleSelector : StyleSelector", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ValidateItemContainerStyleSelector(", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("styleSelectorItemsList.ItemContainerStyleSelector", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("Application Startup event count", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ExplicitExplorerTreeExpandedCount", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("private void OnExplicitExplorerTreeExpanded", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("private void OnExplicitExplorerTreeCollapsed", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("private void OnExplicitExplorerTreeSelected", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("private void OnExplicitExplorerTreeUnselected", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ValidateExplicitExplorerTree(", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("Application ShutdownMode", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("Application Windows contains StartupUri MainWindow", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("StartupUri MainWindow visible", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ValidateRuntimeNameScope(window)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("window.RegisterName(runtimeName, registeredButton)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("window.UnregisterName(runtimeName)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("runtime namescope replacement object", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ValidateApplicationLoadComponent()", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("Application.LoadComponent", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("\"/ProGPU.Wpf.MvpApp;component/OverviewPage.xaml\"", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("Application.LoadComponent overview title text", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ValidateLooseXamlReaderWriter()", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("XamlReader.Parse(looseXaml)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("XamlWriter.Save(root)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("loose XamlWriter round-trip Button content", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ValidateDispatcherOperations(window)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("window.Dispatcher.Invoke", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("window.Dispatcher.BeginInvoke", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("DispatcherOperationStatus.Completed", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("component pack TextBlock text", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("component pack TextBlock foreground color", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("startup DynamicResource text", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("startup DynamicResource foreground color", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("using System.Windows.Navigation;", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("using Microsoft.Win32;", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("using ProGPU.Wpf.Interop;", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("internal int DocumentLinkRequestNavigateCount", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("private void OnDocumentLinkRequestNavigate(object sender, RequestNavigateEventArgs e)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ValidateDocument(window, documentViewer, documentPageViewer, documentReader)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("document Hyperlink RequestNavigate count", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("internal int FileDialogShownCount", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("private void OnFileDialogButtonClick(object sender, RoutedEventArgs e)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("new OpenFileDialog", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("new SaveFileDialog", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("new OpenFolderDialog", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ValidateFileDialogs(window, fileDialogButton, fileDialogStatusText)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("PortableWpfServiceRegistry.TryGetMessageBoxService(", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("messageBoxService.Register(", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("requestOwner = request.Owner;", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("PortableWpfServiceRegistry.TryGetFileDialogService(", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("fileDialogService.Register(", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("string kind = request.Kind;", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("DragDrop.ProcessPortableDragDrop(", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.DoesNotContain("CreateDragEventArgs", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.DoesNotContain("typeof(DragEventArgs).GetConstructor", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.DoesNotContain("typeof(MessageBox).Assembly.GetType", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.DoesNotContain("typeof(OpenFileDialog).Assembly.GetType", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.DoesNotContain("Microsoft.Win32.PortableFileDialogService", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.DoesNotContain("RegisterDeterministicMessageBox", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.DoesNotContain("RegisterDeterministicFileDialog", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.DoesNotContain("ReadPortableRequestString", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.DoesNotContain("ReadPortableRequestValue", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.DoesNotContain("GetType()", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("MVP OpenFileDialog FileName", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("MVP file dialog request count", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("using System.Windows.Controls.Primitives;", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("internal int SelectorSelectionChangedCount", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("internal int MultiSelectorSelectionChangedCount", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("internal int SelectorExpanderExpandedCount", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("internal int SelectorExpanderCollapsedCount", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("OnSelectorSelectionChanged", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("OnMultiSelectorSelectionChanged", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ScrollViewer.GetCanContentScroll(multiSelectItemsList)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("VirtualizingPanel.GetIsVirtualizing(multiSelectItemsList)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("VirtualizingPanel.GetVirtualizationMode(multiSelectItemsList)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("multi-select ListBox virtualizing items panel", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("OnSelectorExpanderExpanded", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("OnSelectorExpanderCollapsed", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ValidateSelectorControls", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("BindingOperations.GetBinding(selectedValueComboBox, Selector.SelectedValueProperty)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("SelectionMode.Multiple", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("SelectorExpanderExpandedCount", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("using WpfCalendar = System.Windows.Controls.Calendar;", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("internal int InputToggleCheckedCount", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("internal int InputRepeatButtonClickCount", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("internal int InputDateSelectionChangedCount", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("private DateTime? _selectedDate = new(2026, 6, 23);", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("public DateTime? SelectedDate", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("OnInputToggleChecked", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("OnCategoryRadioChecked", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("OnInputRepeatButtonClick", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("OnInputDateSelectionChanged", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ValidateInputControls", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ValidateToggleBinding", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("PlacementMode.Bottom", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("CalendarSelectionMode.SingleDate", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ButtonBase.ClickEvent", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("GetSelectedDateBindingPath", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ValidateKeyboardNavigation", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("FocusManager.GetIsFocusScope(panel)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("KeyboardNavigation.GetTabNavigation(panel)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("KeyboardNavigation.GetControlTabNavigation(panel)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("KeyboardNavigation.GetDirectionalNavigation(panel)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("keyboard navigation access Label target", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("FocusManager.SetFocusedElement(panel, secondButton)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("restored keyboard navigation logical focus", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("PresentationSource.FromVisual(window)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("AccessKeyManager.IsKeyRegistered(presentationSource, \"F\")", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("AccessKeyManager.ProcessKey(presentationSource, \"F\", false)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("Keyboard.Focus(firstBox)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("MoveFocus(new TraversalRequest(FocusNavigationDirection.Next))", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("MoveFocus(new TraversalRequest(FocusNavigationDirection.Previous))", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ValidateLayoutControls", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("DockPanel.GetDock(dockTop)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("WrapPanel item width", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("UniformGrid first column", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("GridResizeBehavior.PreviousAndNext", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("splitterLeftColumn.Width = new GridLength(150.0)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("Stretch.Uniform", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("Require<System.Windows.Shapes.Rectangle>", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("Canvas.GetLeft(shapeRectangle)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("PenLineCap.Round", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("shapePath.Data.Bounds", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("\"shape Path data bounds\"", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("using System.IO;", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("using System.Windows.Markup;", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("using System.Windows.Media.Effects;", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ValidateNativeEffects(dropShadowEffectBorder, blurEffectBorder)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("Require<DropShadowEffect>", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("Require<BlurEffect>", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ValidateResourceControls", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("using System.Configuration;", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ValidateAppConfiguration()", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ConfigurationManager.AppSettings[\"MvpAppSetting\"]", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ConfigurationManager.AppSettings[\"MvpNumericSetting\"]", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("new ComponentResourceKey(typeof(MainWindow), \"MvpComponentAccentBrush\")", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("applicationResources[\"MvpPanelBrush\"]", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("dynamic resource Border updated background color", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("dynamic resource Border restored background color", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("Application.GetResourceStream(resourceUri)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("Application.GetContentStream(uri)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("Application.GetRemoteStream(uri)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("pack://application:,,,/Assets/MvpContent.txt", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("pack://siteoforigin:,,,/Assets/MvpContent.txt", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("Localization.GetAttributes(localizedResourceText)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("SystemParameters.PrimaryScreenWidth", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("SystemParameters.PrimaryScreenWidthKey", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("SystemFonts.MessageFontFamily.Source", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("SystemFonts.MessageFontSize", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("SystemColors.WindowBrushKey", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("SystemColors.WindowTextBrushKey", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("SystemColors ControlDarkBrush resource", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("MvpThemedControl themedControl", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("themedControl.ApplyTemplate()", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("MVP themed control template binding", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("MVP themed control component resource color", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("MvpResourceFactory", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("CreateSummary", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("window.FindResource(\"MvpObjectDataProvider\")", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ObjectDataProvider method parameter count", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ObjectDataProvider bound text", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("window.FindResource(\"MvpXmlDataProvider\")", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("XmlDataProvider binding XPath", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("window.FindResource(\"MvpStringArray\")", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("x:Array ItemsControl source", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("x:Null TextBlock tag", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("public sealed class MvpTextExtension : MarkupExtension", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("public override object ProvideValue(IServiceProvider serviceProvider)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("MarkupExtension TextBlock text", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("MVP pack resource loaded through Application.GetResourceStream.", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("MVP copied content loaded through Application.GetContentStream and GetRemoteStream.", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("using System.Windows.Documents;", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("FlowDocumentPageViewer documentPageViewer", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("FlowDocumentReader documentReader", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("document FlowDocumentPageViewer list marker style", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("document FlowDocumentReader viewing mode", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("internal int EditorPasswordChangedCount", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("OnEditorPasswordChanged", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("OnRefreshStatusCommandCanExecute", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("OnRefreshStatusCommandExecuted", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("CommandStatusText", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ValidateCollectionView", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("CollectionViewSource source", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("items PropertyGroupDescription", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ValidateGroupedItemsGroupStyle", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("grouped ListBox GroupStyle HeaderTemplate", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("public ObservableCollection<string> FormattedItems", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ValidateFormattedItemsList", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("formatted ListBox ItemStringFormat", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("active-only checked view model state", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ValidateSelectedSummaryBinding", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("selected summary MultiBinding", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("updated selected summary text", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ValidateSelectedItemTemplate", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ValidateTemplateSelector", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("selector ListBox ItemsPanel root", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("selector item container DataTrigger", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ValidateTemplateButton", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("MainViewModel : INotifyPropertyChanged, IDataErrorInfo, INotifyDataErrorInfo", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("MvpNonEmptyValidationRule : ValidationRule", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ValidationText", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("public string DataErrorText", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("public string NotifyDataErrorText", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("Data value must start with data:", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("Notify value must start with notify:", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ValidateValidation", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ValidateDataErrorValidation", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ValidateNotifyDataErrorValidation", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("validation TextBox binding expression", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("IDataErrorInfo TextBox binding expression", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("INotifyDataErrorInfo TextBox binding expression", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("bindingExpression.UpdateSource();", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("Validation.GetHasError(textBox)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("Value must start with valid:", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("OnBindingGroupCommitClick", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("BindingGroupPanel.BindingGroup?.CommitEdit() == true", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("BindingGroupFirstName", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("BindingGroupLastName", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("BindingGroupStatus", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("public string? NullDisplayText", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("MvpBindingGroupValidationRule : ValidationRule", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("value is not BindingGroup bindingGroup", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("bindingGroup.GetValue(item, propertyName)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ValidateBindingGroup", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("bindingGroup.ValidateWithoutUpdate()", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("Grouped values must start with", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("using System.Windows.Media.Animation;", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ValidateStoryboards", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("expectLoadedStoryboardApplied", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("loaded storyboard applied opacity", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("AssertClose(", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ValidateStoryboardAction", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("Storyboard.GetTargetName(animation)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("Storyboard.GetTargetProperty(animation).Path", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("animation.Duration.TimeSpan", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ValidateItemsContextMenu", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("MVP DrawingImage resource", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("MVP DrawingImage background color", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("MVP DrawingImageBrush Border background", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ValidateFreezableResources(window)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("x:Shared=false brush instance identity", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("freezableBrush.Freeze()", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("Freezable brush current-value clone opacity", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("context menu DataContext path", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("context refresh command target ancestor", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("context add command item count", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("UpdateBinding(contextMenu, FrameworkElement.DataContextProperty)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ValidateBindingFallbacks", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("BindingOperations.GetPriorityBinding(priorityText, TextBlock.TextProperty)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("BindingOperations.GetPriorityBindingExpression(priorityText, TextBlock.TextProperty)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("target-null binding value", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("relative ancestor binding type", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("updated priority binding selected item text", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("GetTextBindingPath", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("GetTextBoxBindingPath", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ObservableCollection<MvpNode>", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("addMenuItem.Command.Execute(addMenuItem.CommandParameter)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("MainWindow.RefreshStatusCommand.Execute(null, window)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("Require<MouseBinding>(window.InputBindings[1], \"refresh MouseBinding\")", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("MouseAction.LeftDoubleClick", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("\"refresh mouse binding parameter\"", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("MainWindow.RefreshStatusCommand.Execute(refreshMouseBinding.CommandParameter, refreshMouseBinding.CommandTarget)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("\"refresh mouse binding command execution count\"", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ValidateRequeryCommand(window, viewModel, requeryCommandButton)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("requery command second CanExecuteChanged count", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("refresh command disabled CanExecute state", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("actions menu unchecked view model state", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("app merged theme ResourceDictionary", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("app Button implicit style target type", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("app theme BasedOn Button style key", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("BasedOn Button style base style", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("new DataTemplateKey(typeof(MvpItem))", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ValidateImplicitItemTemplate(viewModel, implicitTemplateContent, implicitItemTemplate)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("implicit item DataTemplate key type", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("implicit item content updated selected item", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ValidateBasedOnButton(basedOnStyleButton, basedOnButtonStyle)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("BasedOn Button inherited MinWidth setter", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("BasedOn Button derived background color", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("MvpStyleEventSetterClickCount", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("OnMvpStyleEventSetterClick", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ValidateStyleTriggersAndEventSetter", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ValidateLocalThemeResources(window, localThemeScope, localThemeText)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("scope.TryFindResource(typeof(TextBlock))", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("scope.Resources[\"LocalThemeBrush\"] = new SolidColorBrush", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("style trigger BasedOn TextBlock style", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("property style Trigger active text", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("data style Trigger disabled text", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("MultiTrigger style trigger", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("MultiDataTrigger style trigger", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("MultiTrigger active text", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("MultiDataTrigger active text", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("Button Click EventSetter", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("EventSetter handled flag", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("NavigationFrame.Navigate(new Uri(\"DetailsPage.xaml\", UriKind.Relative))", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("NavigationCommands.BrowseBack.Execute(null, frame)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("NavigationCommands.BrowseForward.Execute(null, frame)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("OnAboutMenuItemClick", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("var dialog = new AboutWindow();", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("dialog.Owner = this;", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("var backNavigationButton = Require<Button>", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("var forwardNavigationButton = Require<Button>", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ValidateNavigation(\n            window,\n            navigationFrame,\n            detailsNavigationButton,\n            backNavigationButton,\n            forwardNavigationButton)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("frame.CanGoForward", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("journal overview page", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("journal details page", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ValidateSecondaryWindow(window, aboutMenuItem)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("secondary window initial owner", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("input Popup placement target", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("input Popup initial open state", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("PlacementMode.Bottom", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("OnDataObjectRoundTripClick", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("OnClipboardRoundTripClick", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("public static class MvpCompositeItemsProvider", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("window.FindResource(\"MvpCompositeCollection\")", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("CompositeCollection collection-change item count", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("new DataObject()", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("dataObject.SetText(payload)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("DataFormats.UnicodeText", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("DataObjectRoundTripCount", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("Clipboard.SetText(payload)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("Clipboard.ContainsText()", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("Clipboard.GetText()", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("Clipboard.GetDataObject()", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("Clipboard.IsCurrent(currentDataObject)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("Clipboard.Flush()", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ClipboardRoundTripButton", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("ApplicationCommands.SelectAll.Execute(null, dataObjectPayloadTextBox)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("DataObject payload SelectAll selection length", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("CopyRichTextButton", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("PasteRichTextButton", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("ApplicationCommands.Copy.CanExecute(null, richTextBox)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ApplicationCommands.Copy.Execute(null, richTextBox)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ApplicationCommands.Paste.CanExecute(null, richTextBox)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ApplicationCommands.Paste.Execute(null, richTextBox)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("editor RichTextBox pasted clipboard text", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("CopyPayloadButton", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("CutPayloadButton", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("PastePayloadButton", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("UndoPayloadButton", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("RedoPayloadButton", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("dataObjectPayloadTextBox.ApplyTemplate()", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("PART_ContentHost", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ApplicationCommands.Cut.Execute(null, dataObjectPayloadTextBox)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("dataObjectPayloadTextBox.BeginChange()", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ApplicationCommands.Undo.Execute(null, dataObjectPayloadTextBox)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ApplicationCommands.Redo.Execute(null, dataObjectPayloadTextBox)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("TextBox payload paste result", mvpMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("<Project Sdk=\"LibreWPF.Sdk/0.1.0-preview.45\">", showcaseProject, StringComparison.Ordinal);
+        Assert.Contains("<TargetFramework>$(ProGpuWpfSdkSampleTargetFramework)</TargetFramework>", showcaseProject, StringComparison.Ordinal);
+        Assert.Contains("<UseWPF>true</UseWPF>", showcaseProject, StringComparison.Ordinal);
+        Assert.Contains("<Resource Include=\"Assets/ShowcaseResource.txt\" />", showcaseProject, StringComparison.Ordinal);
+        Assert.Contains("<Content Include=\"Assets/ShowcaseContent.txt\">", showcaseProject, StringComparison.Ordinal);
+        Assert.Contains("<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>", showcaseProject, StringComparison.Ordinal);
+        Assert.Contains("<TargetPath>Assets/ShowcaseContent.txt</TargetPath>", showcaseProject, StringComparison.Ordinal);
+        Assert.Contains("<add key=\"ShowcaseAppSetting\" value=\"Showcase app config value\" />", showcaseAppConfig, StringComparison.Ordinal);
+        Assert.Contains("<add key=\"ShowcaseNumericSetting\" value=\"73\" />", showcaseAppConfig, StringComparison.Ordinal);
+        Assert.Contains("<ResourceDictionary Source=\"Resources/Theme.xaml\" />", showcaseAppXaml, StringComparison.Ordinal);
+        Assert.Contains("<ResourceDictionary Source=\"/PresentationFramework.Fluent;component/Themes/Fluent.xaml\" />", showcaseAppXaml, StringComparison.Ordinal);
+        Assert.Contains("<ResourceDictionary Source=\"/ProGPU.Wpf.ShowcaseApp;component/Resources/ComponentTheme.xaml\" />", showcaseAppXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Key=\"ShowcaseComponentPackText\"", showcaseComponentThemeXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Key=\"ShowcaseComponentPackBrush\"", showcaseComponentThemeXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Key=\"ShowcaseComponentPackTextStyle\"", showcaseComponentThemeXaml, StringComparison.Ordinal);
+        Assert.Contains("Startup=\"OnAppStartup\"", showcaseAppXaml, StringComparison.Ordinal);
+        Assert.Contains("Exit=\"OnAppExit\"", showcaseAppXaml, StringComparison.Ordinal);
+        Assert.Contains("ShutdownMode=\"OnMainWindowClose\"", showcaseAppXaml, StringComparison.Ordinal);
+        Assert.Contains("PROGPU_WPF_SHOWCASE_VALIDATE", showcaseAppCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("PROGPU_WPF_SHOWCASE_RUN_VALIDATE", showcaseAppCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("DispatcherPriority.ApplicationIdle", showcaseAppCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ValidateRunningApplication", showcaseAppCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("Expected Showcase StartupUri MainWindow", showcaseAppCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("expectLoadedStoryboardApplied: true", showcaseAppCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ShowcaseSelfTest.Validate", showcaseAppCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("internal static int StartupEventCount", showcaseAppCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("internal static int ExitEventCount", showcaseAppCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("Properties[\"ShowcaseStartupProperty\"]", showcaseAppCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("Properties[\"ShowcaseStartupArgumentCount\"]", showcaseAppCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("Resources[\"ShowcaseStartupText\"]", showcaseAppCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("Resources[\"ShowcaseStartupBrush\"]", showcaseAppCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("private void OnAppStartup", showcaseAppCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("private void OnAppExit", showcaseAppCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"MainMenu\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("xmlns:local=\"clr-namespace:ProGPU.Wpf.ShowcaseApp\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("xmlns:componentModel=\"clr-namespace:System.ComponentModel;assembly=WindowsBase\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("xmlns:sys=\"clr-namespace:System;assembly=mscorlib\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("xmlns:wpf=\"clr-namespace:System.Windows;assembly=PresentationFramework\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("<Window.CommandBindings>", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("<Window.InputBindings>", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("ShowcaseActiveTextConverter", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("ShowcaseItemSummaryConverter", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Key=\"ShowcaseActiveItemTemplate\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Key=\"ShowcaseInactiveItemTemplate\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("ShowcaseItemTemplateSelector", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Key=\"ShowcaseObjectDataProvider\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("ObjectDataProvider.MethodParameters", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("<sys:String>showcase-provider</sys:String>", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("<sys:Int32>9</sys:Int32>", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Key=\"ShowcaseXmlDataProvider\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("XPath=\"/showcase/item\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("<x:Array", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Key=\"ShowcaseStringArray\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("Type=\"{x:Type sys:String}\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Key=\"ShowcaseSelectorItemContainerStyle\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Key=\"ShowcaseActiveItemContainerStyle\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Key=\"ShowcaseInactiveItemContainerStyle\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("ShowcaseItemContainerStyleSelector", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("ActiveStyle=\"{StaticResource ShowcaseActiveItemContainerStyle}\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("InactiveStyle=\"{StaticResource ShowcaseInactiveItemContainerStyle}\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Key=\"ItemsViewSource\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("Filter=\"OnItemsViewSourceFilter\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("<CollectionViewSource.SortDescriptions>", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("<PropertyGroupDescription PropertyName=\"Category\" />", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ShowcaseThemedControl\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"Generic theme default style\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("[assembly: ThemeInfo(ResourceDictionaryLocation.None, ResourceDictionaryLocation.SourceAssembly)]", showcaseAssemblyInfo, StringComparison.Ordinal);
+        Assert.Contains("public sealed class ShowcaseThemedControl : Control", showcaseThemedControl, StringComparison.Ordinal);
+        Assert.Contains("DependencyProperty TextProperty", showcaseThemedControl, StringComparison.Ordinal);
+        Assert.Contains("DefaultStyleKeyProperty.OverrideMetadata", showcaseThemedControl, StringComparison.Ordinal);
+        Assert.Contains("new FrameworkPropertyMetadata(typeof(ShowcaseThemedControl))", showcaseThemedControl, StringComparison.Ordinal);
+        Assert.Contains("TargetType=\"{x:Type local:ShowcaseThemedControl}\"", showcaseGenericThemeXaml, StringComparison.Ordinal);
+        Assert.Contains("ComponentResourceKey TypeInTargetAssembly={x:Type local:ShowcaseThemedControl}, ResourceId=ShowcaseThemeBorderBrush", showcaseGenericThemeXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ThemeRoot\"", showcaseGenericThemeXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ThemeText\"", showcaseGenericThemeXaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"{TemplateBinding Text}\"", showcaseGenericThemeXaml, StringComparison.Ordinal);
+        Assert.Contains("Command=\"{x:Static local:MainWindow.RefreshStatusCommand}\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("Key=\"R\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("Modifiers=\"Control\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("<MouseBinding", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("MouseAction=\"LeftDoubleClick\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("CommandParameter=\"showcase mouse binding payload\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("CommandTarget=\"{Binding ElementName=RootWindow}\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("Command=\"{Binding AddItemCommand}\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"RequeryCommandButton\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("Command=\"{Binding RequeryCommand}\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("CommandParameter=\"showcase requery command payload\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ShowcaseMessageBoxButton\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("Click=\"OnMessageBoxButtonClick\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"MessageBoxStatusText\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ShowcaseFileDialogButton\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("Click=\"OnFileDialogButtonClick\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"FileDialogStatusText\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("InputGestureText=\"Ctrl+N\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ShowcaseTabControl\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("SelectedIndex=\"{Binding SelectedTabIndex, Mode=TwoWay}\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("SelectionChanged=\"OnShowcaseTabSelectionChanged\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"AboutMenuItem\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("Click=\"OnAboutMenuItemClick\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("IsCheckable=\"True\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"RefreshMenuItem\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ThemeMenuItem\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"AeroThemeMenuItem\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"Aero2ThemeMenuItem\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"AeroLiteThemeMenuItem\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ClassicThemeMenuItem\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"FluentThemeMenuItem\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"LunaThemeMenuItem\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"RoyaleThemeMenuItem\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("Click=\"OnFrameworkThemeMenuItemClick\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("new(\"Aero\", \"/PresentationFramework.Aero;component/themes/Aero.NormalColor.xaml\")", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("new(\"Aero2\", \"/PresentationFramework.Aero2;component/Themes/Aero2.NormalColor.xaml\")", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("new(\"AeroLite\", \"/PresentationFramework.AeroLite;component/Themes/AeroLite.NormalColor.xaml\")", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("new(\"Classic\", \"/PresentationFramework.Classic;component/Themes/Classic.xaml\")", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("new(\"Fluent\", \"/PresentationFramework.Fluent;component/Themes/Fluent.xaml\")", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("new(\"Luna\", \"/PresentationFramework.Luna;component/Themes/Luna.NormalColor.xaml\")", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("new(\"Royale\", \"/PresentationFramework.Royale;component/Themes/Royale.NormalColor.xaml\")", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("internal void ApplyFrameworkTheme(string themeName)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ValidateFrameworkThemeSwitching(window, application, themeMenuItem)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ValidateLiveFrameworkThemesAsync(liveHost)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("\"native menu popups\"", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("\"owner-surface menu popups\"", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("OperatingSystem.IsMacOS()", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("GetLivePopupInputCenter(", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("RaiseLivePopupInput(", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"WindowMenuItem\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"WindowMaximizeMenuItem\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("Command=\"{x:Static wpf:SystemCommands.MaximizeWindowCommand}\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("CommandParameter=\"showcase maximize\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"WindowMinimizeMenuItem\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("Command=\"{x:Static wpf:SystemCommands.MinimizeWindowCommand}\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("CommandParameter=\"showcase minimize\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"WindowRestoreMenuItem\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("Command=\"{x:Static wpf:SystemCommands.RestoreWindowCommand}\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("CommandParameter=\"showcase restore\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"WindowSystemMenuItem\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("Command=\"{x:Static wpf:SystemCommands.ShowSystemMenuCommand}\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("CommandParameter=\"showcase system menu\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("<ListBox.ContextMenu>", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ItemsContextMenu\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("DataContext=\"{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ContextAddMenuItem\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("Command=\"{Binding AddItemCommand}\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ContextRefreshMenuItem\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("CommandTarget=\"{Binding PlacementTarget, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ContextActionsEnabledMenuItem\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("IsChecked=\"{Binding ActionsEnabled}\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"CommandStatusText\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"SelectedItemSummaryText\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("<MultiBinding Converter=\"{StaticResource ShowcaseItemSummaryConverter}\">", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("<Binding Path=\"SelectedItem.Name\" />", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ActiveOnlyCheckBox\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("Checked=\"OnActiveOnlyFilterChanged\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("Unchecked=\"OnActiveOnlyFilterChanged\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"GroupedItemsList\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("ItemsSource=\"{Binding Source={StaticResource ItemsViewSource}}\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("<ListBox.GroupStyle>", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("<GroupStyle.HeaderTemplate>", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"GroupedItemActiveText\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("Converter={StaticResource ShowcaseActiveTextConverter}", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"FormattedItemsList\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("AlternationCount=\"3\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("ItemStringFormat=\"formatted {0}\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("ItemsSource=\"{Binding FormattedItems}\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("<TabItem Header=\"Bindings\">", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"PriorityBindingText\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("<PriorityBinding FallbackValue=\"Priority fallback\">", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("<Binding Path=\"MissingPriorityText\" />", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("<Binding Path=\"SelectedItem.Name\" />", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"FallbackBindingText\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("FallbackValue=Fallback binding text", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"TargetNullBindingText\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("TargetNullValue=Target null text", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"BindingTargetUpdatedText\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("Binding.TargetUpdated=\"OnShowcaseBindingTargetUpdated\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("BindingTransferText, NotifyOnTargetUpdated=True", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"BindingSourceUpdatedTextBox\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("Binding.SourceUpdated=\"OnShowcaseBindingSourceUpdated\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("BindingTransferText, Mode=TwoWay, UpdateSourceTrigger=Explicit, NotifyOnSourceUpdated=True", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"RelativeSelfBindingText\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("RelativeSource={RelativeSource Self}, Path=Tag", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"RelativeAncestorBindingText\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("RelativeSource={RelativeSource AncestorType={x:Type Border}}, Path=Tag", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("<TabItem Header=\"Selectors\">", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"SelectorGroupBox\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"SelectedValueComboBox\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("DisplayMemberPath=\"Name\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("SelectedValuePath=\"Category\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("SelectedValue=\"{Binding SelectedCategory, Mode=TwoWay}\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("SelectionChanged=\"OnSelectorSelectionChanged\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"MultiSelectItemsList\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("SelectionMode=\"Multiple\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("ScrollViewer.CanContentScroll=\"True\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("VirtualizingPanel.IsVirtualizing=\"True\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("VirtualizingPanel.VirtualizationMode=\"Recycling\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("<VirtualizingStackPanel Orientation=\"Vertical\" />", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("SelectionChanged=\"OnMultiSelectorSelectionChanged\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"SelectorExpander\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("Expanded=\"OnSelectorExpanderExpanded\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("Collapsed=\"OnSelectorExpanderCollapsed\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"SelectorScrollViewer\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("VerticalScrollBarVisibility=\"Auto\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("<TabItem Header=\"Input\">", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ShowcaseToolBarTray\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ShowcaseToolBar\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ToolBarRefreshButton\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ToolBarRefreshToolTip\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("Placement=\"Bottom\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ToolBarToggleButton\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("xmlns:primitives=\"clr-namespace:System.Windows.Controls.Primitives;assembly=PresentationFramework\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"PopupOwnerButton\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("primitives:Popup", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"InputPopup\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("PlacementTarget=\"{Binding ElementName=PopupOwnerButton}\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("StaysOpen=\"False\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"InputPopupText\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"InputToggleButton\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"FrameworkRadioButton\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("GroupName=\"ShowcaseCategory\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"RenderingRadioButton\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"InputRepeatButton\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("Delay=\"180\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("Interval=\"70\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"InputCalendar\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("SelectedDatesChanged=\"OnInputDateSelectionChanged\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("SelectionMode=\"SingleDate\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"InputDatePicker\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("SelectedDateChanged=\"OnInputDateSelectionChanged\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"KeyboardNavigationPanel\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("FocusManager.FocusedElement=\"{Binding ElementName=KeyboardNavigationFirstBox}\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("FocusManager.IsFocusScope=\"True\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("KeyboardNavigation.TabNavigation=\"Cycle\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("KeyboardNavigation.ControlTabNavigation=\"Cycle\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("KeyboardNavigation.DirectionalNavigation=\"Contained\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"KeyboardNavigationAccessLabel\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("Content=\"_First focus target\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("Target=\"{Binding ElementName=KeyboardNavigationFirstBox}\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"KeyboardNavigationFirstBox\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"KeyboardNavigationSecondButton\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"KeyboardNavigationThirdBox\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("<TabItem Header=\"Layout\">", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ShowcaseDockPanel\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("LastChildFill=\"True\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"DockTopBand\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("DockPanel.Dock=\"Top\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("DockPanel.Dock=\"Left\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("DockPanel.Dock=\"Right\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ShowcaseWrapPanel\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("ItemWidth=\"90\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ShowcaseUniformGrid\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("FirstColumn=\"1\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ShowcaseShapeCanvas\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ShowcaseShapeRectangle\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("RadiusX=\"6\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ShowcaseShapeEllipse\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ShowcaseShapeLine\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("StrokeStartLineCap=\"Round\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ShowcaseShapePath\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("Data=\"M 0,40 L 24,0 L 48,40 Z\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ShowcaseGridSplitterGrid\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ShowcaseGridSplitter\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("ResizeBehavior=\"PreviousAndNext\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("KeyboardIncrement=\"12\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ShowcaseViewbox\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("Stretch=\"Uniform\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("<TabItem Header=\"Resources\">", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ComponentResourceText\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("ResourceId=ShowcaseComponentAccentBrush", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"LocalizedResourceText\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Uid=\"ShowcaseLocalizedResourceText\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("Localization.Attributes=\"$Text (Readable Modifiable Text)\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("Localization.Comments=\"$Text (Showcase localization comment)\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ResourceAccessText\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ObjectProviderText\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"{Binding Source={StaticResource ShowcaseObjectDataProvider}}\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"XmlProviderText\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"{Binding Source={StaticResource ShowcaseXmlDataProvider}, XPath=@name}\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ResourceArrayItemsControl\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("ItemsSource=\"{StaticResource ShowcaseStringArray}\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Key=\"ShowcaseCompositeCollection\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("CollectionContainer Collection=\"{x:Static local:ShowcaseCompositeItemsProvider.Items}\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ResourceCompositeItemsControl\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("ItemsSource=\"{StaticResource ShowcaseCompositeCollection}\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"NullIntrinsicText\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("Tag=\"{x:Null}\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"MarkupExtensionText\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"{local:ShowcaseText Prefix=Markup, Value=Extension}\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"PackResourceText\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ComponentPackResourceText\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("Style=\"{StaticResource ShowcaseComponentPackTextStyle}\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"{StaticResource ShowcaseComponentPackText}\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"StartupResourceText\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"{DynamicResource ShowcaseStartupText}\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("Foreground=\"{DynamicResource ShowcaseStartupBrush}\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"SystemParameterText\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("SystemParameters.PrimaryScreenWidth", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"SystemFontText\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("SystemFonts.MessageFontFamily", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("SystemFonts.MessageFontSize", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"SystemColorBorder\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("SystemColors.WindowBrushKey", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("SystemColors.ControlDarkBrushKey", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"SystemColorText\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("SystemColors.WindowTextBrushKey", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("<DrawingImage x:Key=\"ShowcaseDrawingImage\">", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("<GeometryDrawing Brush=\"#2F80ED\">", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("<RectangleGeometry Rect=\"0,0,32,32\" />", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("<PathGeometry Figures=\"M 8,18 L 14,24 L 25,9 L 28,12 L 14,28 L 5,20 Z\" />", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Key=\"ShowcaseDrawingImageBrush\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("ImageSource=\"{StaticResource ShowcaseDrawingImage}\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Key=\"ShowcaseSharedFalseBrush\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Shared=\"False\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Key=\"ShowcaseFreezableBrush\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ShowcaseDrawingImageControl\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("Source=\"{StaticResource ShowcaseDrawingImage}\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ShowcaseDrawingImageBrushBorder\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("Background=\"{StaticResource ShowcaseDrawingImageBrush}\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ResourceDynamicBorder\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("DynamicResource invalidation", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"SelectedItemContent\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("ContentTemplate=\"{StaticResource SelectedItemTemplate}\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ImplicitTemplateContent\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("Content=\"{Binding SelectedItem}\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"SelectorItemsList\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("ItemTemplateSelector=\"{StaticResource ShowcaseItemTemplateSelector}\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("ItemContainerStyle=\"{StaticResource ShowcaseSelectorItemContainerStyle}\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"StyleSelectorItemsList\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("ItemContainerStyleSelector=\"{StaticResource ShowcaseItemContainerStyleSelector}\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("<ItemsPanelTemplate>", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("<WrapPanel />", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"TemplateButton\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("Style=\"{StaticResource ShowcaseTemplateButtonStyle}\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"BasedOnStyleButton\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("Style=\"{StaticResource ShowcaseBasedOnButtonStyle}\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"StyleTriggerText\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("Style=\"{StaticResource ShowcaseTriggerTextBlockStyle}\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"MultiTriggerText\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("Style=\"{StaticResource ShowcaseMultiTriggerTextBlockStyle}\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"MultiDataTriggerText\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("Style=\"{StaticResource ShowcaseMultiDataTriggerTextBlockStyle}\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Key=\"ShowcaseEventSetterButtonStyle\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("<EventSetter Event=\"Click\" Handler=\"OnShowcaseStyleEventSetterClick\" />", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"EventSetterStyleButton\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("Style=\"{StaticResource ShowcaseEventSetterButtonStyle}\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"EventSetterStatusText\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"LocalThemeScope\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Key=\"LocalThemeBrush\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("<Setter Property=\"Foreground\" Value=\"{DynamicResource LocalThemeBrush}\" />", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"LocalThemeText\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("VisualStateManager states", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Key=\"ShowcaseValidationErrorTemplate\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("AdornedElementPlaceholder", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ValidationTextBox\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("Validation.ErrorTemplate=\"{StaticResource ShowcaseValidationErrorTemplate}\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("NotifyOnValidationError=\"True\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("UpdateSourceTrigger=\"Explicit\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("<Binding.ValidationRules>", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("<local:ShowcaseNonEmptyValidationRule />", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ValidationEchoText\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"DataErrorTextBox\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("Path=\"DataErrorText\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("ValidatesOnDataErrors=\"True\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"DataErrorEchoText\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"NotifyDataErrorTextBox\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("Path=\"NotifyDataErrorText\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("ValidatesOnNotifyDataErrors=\"True\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"NotifyDataErrorEchoText\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"BindingGroupPanel\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("<StackPanel.BindingGroup>", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("<BindingGroup Name=\"ShowcaseBindingGroup\">", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("<BindingGroup.ValidationRules>", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("ShowcaseBindingGroupValidationRule", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("FirstProperty=\"BindingGroupFirstName\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("SecondProperty=\"BindingGroupLastName\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("RequiredPrefix=\"group:\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"BindingGroupFirstBox\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"{Binding BindingGroupFirstName, UpdateSourceTrigger=Explicit}\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"BindingGroupLastBox\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"{Binding BindingGroupLastName, UpdateSourceTrigger=Explicit}\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"BindingGroupCommitButton\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("Click=\"OnBindingGroupCommitClick\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"BindingGroupStatusText\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"LoadedStoryboardText\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("<TextBlock.Triggers>", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("EventTrigger RoutedEvent=\"FrameworkElement.Loaded\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("BeginStoryboard", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("Storyboard.TargetName=\"LoadedStoryboardText\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("Storyboard.TargetProperty=\"Opacity\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("To=\"0.42\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ClickStoryboardButton\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("<Button.Triggers>", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("EventTrigger RoutedEvent=\"Button.Click\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("Storyboard.TargetName=\"ClickStoryboardButton\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("To=\"0.58\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ShowcaseDropShadowEffectBorder\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("<DropShadowEffect", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("BlurRadius=\"9\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("ShadowDepth=\"4\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ShowcaseBlurEffectBorder\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("<BlurEffect", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("Radius=\"2.5\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("local:SummaryPanel", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ExplicitExplorerTreeView\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ExplicitExplorerAlpha\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("Expanded=\"OnExplicitExplorerTreeExpanded\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("Collapsed=\"OnExplicitExplorerTreeCollapsed\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("Selected=\"OnExplicitExplorerTreeSelected\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("Unselected=\"OnExplicitExplorerTreeUnselected\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ExplicitExplorerBeta\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"NavigationFrame\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("Source=\"OverviewPage.xaml\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("Click=\"OnDetailsNavigationClick\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"BackNavigationButton\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("Command=\"NavigationCommands.BrowseBack\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("CommandTarget=\"{Binding ElementName=NavigationFrame}\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ForwardNavigationButton\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("Command=\"NavigationCommands.BrowseForward\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("<TabItem Header=\"Editing\">", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"EditorPasswordBox\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("MaxLength=\"16\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("PasswordChanged=\"OnEditorPasswordChanged\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("PasswordChar=\"*\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"EditorRichTextBox\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("<FlowDocument PagePadding=\"6\">", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("<Run Text=\"Editable plain text\" />", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("<Bold>", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("<Run Text=\"bold text\" />", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"DataObjectPayloadTextBox\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"DataObjectRoundTripButton\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("Click=\"OnDataObjectRoundTripClick\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"SelectAllPayloadButton\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("Command=\"ApplicationCommands.SelectAll\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("CommandTarget=\"{Binding ElementName=DataObjectPayloadTextBox}\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"DataObjectStatusText\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("TextBox", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("ListBox", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("DataGrid", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("DataGridTextColumn", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("DataGridCheckBoxColumn", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("HierarchicalDataTemplate", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("TreeView", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ExplorerListView\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("<ListView.View>", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("GridView AllowsColumnReorder=\"False\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("GridViewColumn", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("DisplayMemberBinding=\"{Binding Name}\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("DisplayMemberBinding=\"{Binding Category}\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("DisplayMemberBinding=\"{Binding IsActive}\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"DocumentViewer\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("VerticalScrollBarVisibility=\"Auto\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"DocumentPageViewer\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("Zoom=\"125\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("ColumnWidth=\"360\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("MarkerStyle=\"Square\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"DocumentReader\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("ViewingMode=\"Scroll\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("Hyperlink", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("NavigateUri=\"https://github.com/wieslawsoltes/ProGPU\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("RequestNavigate=\"OnDocumentLinkRequestNavigate\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("FlowDocumentScrollViewer", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("StatusBar", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("INotifyPropertyChanged", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ICommand", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("RoutedUICommand RefreshStatusCommand", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("OnSystemCommandExecuted", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("SystemCommands.MaximizeWindow(this)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("SystemCommands.MinimizeWindow(this)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("SystemCommands.RestoreWindow(this)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("SystemCommands.ShowSystemMenu(this, new Point(12.0, 24.0))", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ValidateShowcaseSystemCommands(", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("public ShowcaseRequeryCommand RequeryCommand", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("public sealed class ShowcaseRequeryCommand : ICommand", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("CommandManager.RequerySuggested += value", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("CommandManager.InvalidateRequerySuggested()", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("internal int ShowcaseTabSelectionChangedCount", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("private void OnShowcaseTabSelectionChanged", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("public int SelectedTabIndex", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ValidateShowcaseTabControl(", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("OnItemsViewSourceFilter", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("OnActiveOnlyFilterChanged", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("RefreshItemsView", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ShowActiveOnly", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("internal int BindingTargetUpdatedCount", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("private void OnShowcaseBindingTargetUpdated", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("internal int BindingSourceUpdatedCount", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("private void OnShowcaseBindingSourceUpdated", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("public string BindingTransferText", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("SourceUpdated binding source value", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ShowcaseActiveTextConverter : IValueConverter", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ShowcaseItemSummaryConverter : IMultiValueConverter", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ShowcaseItemTemplateSelector : DataTemplateSelector", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ShowcaseItemContainerStyleSelector : StyleSelector", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ValidateItemContainerStyleSelector(", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("styleSelectorItemsList.ItemContainerStyleSelector", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("Application Startup event count", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ExplicitExplorerTreeExpandedCount", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("private void OnExplicitExplorerTreeExpanded", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("private void OnExplicitExplorerTreeCollapsed", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("private void OnExplicitExplorerTreeSelected", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("private void OnExplicitExplorerTreeUnselected", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ValidateExplicitExplorerTree(", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("Application ShutdownMode", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("Application Windows contains StartupUri MainWindow", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("StartupUri MainWindow visible", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ValidateRuntimeNameScope(window)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("window.RegisterName(runtimeName, registeredButton)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("window.UnregisterName(runtimeName)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("runtime namescope replacement object", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ValidateApplicationLoadComponent()", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("Application.LoadComponent", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("\"/ProGPU.Wpf.ShowcaseApp;component/OverviewPage.xaml\"", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("Application.LoadComponent overview title text", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ValidateLooseXamlReaderWriter()", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("XamlReader.Parse(looseXaml)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("XamlWriter.Save(root)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("loose XamlWriter round-trip Button content", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ValidateDispatcherOperations(window)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("window.Dispatcher.Invoke", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("window.Dispatcher.BeginInvoke", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("DispatcherOperationStatus.Completed", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("component pack TextBlock text", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("component pack TextBlock foreground color", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("startup DynamicResource text", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("startup DynamicResource foreground color", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("using System.Windows.Navigation;", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("using Microsoft.Win32;", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("using ProGPU.Wpf.Interop;", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("internal int DocumentLinkRequestNavigateCount", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("private void OnDocumentLinkRequestNavigate(object sender, RequestNavigateEventArgs e)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ValidateDocument(window, documentViewer, documentPageViewer, documentReader)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("document Hyperlink RequestNavigate count", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("internal int FileDialogShownCount", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("private void OnFileDialogButtonClick(object sender, RoutedEventArgs e)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("new OpenFileDialog", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("new SaveFileDialog", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("new OpenFolderDialog", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ValidateFileDialogs(window, fileDialogButton, fileDialogStatusText)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("PortableWpfServiceRegistry.TryGetMessageBoxService(", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("messageBoxService.Register(", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("requestOwner = request.Owner;", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("PortableWpfServiceRegistry.TryGetFileDialogService(", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("fileDialogService.Register(", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("string kind = request.Kind;", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("DragDrop.ProcessPortableDragDrop(", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.DoesNotContain("CreateDragEventArgs", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.DoesNotContain("typeof(DragEventArgs).GetConstructor", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.DoesNotContain("typeof(MessageBox).Assembly.GetType", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.DoesNotContain("typeof(OpenFileDialog).Assembly.GetType", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.DoesNotContain("Microsoft.Win32.PortableFileDialogService", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.DoesNotContain("RegisterDeterministicMessageBox", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.DoesNotContain("RegisterDeterministicFileDialog", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.DoesNotContain("ReadPortableRequestString", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.DoesNotContain("ReadPortableRequestValue", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.DoesNotContain("GetType()", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("Showcase OpenFileDialog FileName", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("Showcase file dialog request count", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("using System.Windows.Controls.Primitives;", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("internal int SelectorSelectionChangedCount", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("internal int MultiSelectorSelectionChangedCount", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("internal int SelectorExpanderExpandedCount", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("internal int SelectorExpanderCollapsedCount", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("OnSelectorSelectionChanged", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("OnMultiSelectorSelectionChanged", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ScrollViewer.GetCanContentScroll(multiSelectItemsList)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("VirtualizingPanel.GetIsVirtualizing(multiSelectItemsList)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("VirtualizingPanel.GetVirtualizationMode(multiSelectItemsList)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("multi-select ListBox virtualizing items panel", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("OnSelectorExpanderExpanded", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("OnSelectorExpanderCollapsed", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ValidateSelectorControls", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("BindingOperations.GetBinding(selectedValueComboBox, Selector.SelectedValueProperty)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("SelectionMode.Multiple", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("SelectorExpanderExpandedCount", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("using WpfCalendar = System.Windows.Controls.Calendar;", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("internal int InputToggleCheckedCount", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("internal int InputRepeatButtonClickCount", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("internal int InputDateSelectionChangedCount", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("private DateTime? _selectedDate = new(2026, 6, 23);", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("public DateTime? SelectedDate", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("OnInputToggleChecked", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("OnCategoryRadioChecked", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("OnInputRepeatButtonClick", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("OnInputDateSelectionChanged", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ValidateInputControls", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ValidateToggleBinding", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("PlacementMode.Bottom", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("CalendarSelectionMode.SingleDate", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ButtonBase.ClickEvent", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("GetSelectedDateBindingPath", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ValidateKeyboardNavigation", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("FocusManager.GetIsFocusScope(panel)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("KeyboardNavigation.GetTabNavigation(panel)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("KeyboardNavigation.GetControlTabNavigation(panel)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("KeyboardNavigation.GetDirectionalNavigation(panel)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("keyboard navigation access Label target", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("FocusManager.SetFocusedElement(panel, secondButton)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("restored keyboard navigation logical focus", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("PresentationSource.FromVisual(window)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("AccessKeyManager.IsKeyRegistered(presentationSource, \"F\")", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("AccessKeyManager.ProcessKey(presentationSource, \"F\", false)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("Keyboard.Focus(firstBox)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("MoveFocus(new TraversalRequest(FocusNavigationDirection.Next))", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("MoveFocus(new TraversalRequest(FocusNavigationDirection.Previous))", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ValidateLayoutControls", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("DockPanel.GetDock(dockTop)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("WrapPanel item width", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("UniformGrid first column", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("GridResizeBehavior.PreviousAndNext", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("splitterLeftColumn.Width = new GridLength(150.0)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("Stretch.Uniform", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("Require<System.Windows.Shapes.Rectangle>", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("Canvas.GetLeft(shapeRectangle)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("PenLineCap.Round", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("shapePath.Data.Bounds", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("\"shape Path data bounds\"", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("using System.IO;", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("using System.Windows.Markup;", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("using System.Windows.Media.Effects;", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ValidateNativeEffects(dropShadowEffectBorder, blurEffectBorder)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("Require<DropShadowEffect>", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("Require<BlurEffect>", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ValidateResourceControls", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("using System.Configuration;", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ValidateAppConfiguration()", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ConfigurationManager.AppSettings[\"ShowcaseAppSetting\"]", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ConfigurationManager.AppSettings[\"ShowcaseNumericSetting\"]", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("new ComponentResourceKey(typeof(MainWindow), \"ShowcaseComponentAccentBrush\")", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("applicationResources[\"ShowcasePanelBrush\"]", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("dynamic resource Border updated background color", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("dynamic resource Border restored background color", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("Application.GetResourceStream(resourceUri)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("Application.GetContentStream(uri)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("Application.GetRemoteStream(uri)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("pack://application:,,,/Assets/ShowcaseContent.txt", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("pack://siteoforigin:,,,/Assets/ShowcaseContent.txt", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("Localization.GetAttributes(localizedResourceText)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("SystemParameters.PrimaryScreenWidth", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("SystemParameters.PrimaryScreenWidthKey", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("SystemFonts.MessageFontFamily.Source", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("SystemFonts.MessageFontSize", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("SystemColors.WindowBrushKey", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("SystemColors.WindowTextBrushKey", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("SystemColors ControlDarkBrush resource", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ShowcaseThemedControl themedControl", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("themedControl.ApplyTemplate()", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("Showcase themed control template binding", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("Showcase themed control component resource color", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ShowcaseResourceFactory", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("CreateSummary", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("window.FindResource(\"ShowcaseObjectDataProvider\")", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ObjectDataProvider method parameter count", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ObjectDataProvider bound text", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("window.FindResource(\"ShowcaseXmlDataProvider\")", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("XmlDataProvider binding XPath", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("window.FindResource(\"ShowcaseStringArray\")", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("x:Array ItemsControl source", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("x:Null TextBlock tag", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("public sealed class ShowcaseTextExtension : MarkupExtension", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("public override object ProvideValue(IServiceProvider serviceProvider)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("MarkupExtension TextBlock text", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("Showcase pack resource loaded through Application.GetResourceStream.", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("Showcase copied content loaded through Application.GetContentStream and GetRemoteStream.", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("using System.Windows.Documents;", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("FlowDocumentPageViewer documentPageViewer", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("FlowDocumentReader documentReader", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("document FlowDocumentPageViewer list marker style", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("document FlowDocumentReader viewing mode", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("internal int EditorPasswordChangedCount", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("OnEditorPasswordChanged", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("OnRefreshStatusCommandCanExecute", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("OnRefreshStatusCommandExecuted", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("CommandStatusText", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ValidateCollectionView", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("CollectionViewSource source", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("items PropertyGroupDescription", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ValidateGroupedItemsGroupStyle", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("grouped ListBox GroupStyle HeaderTemplate", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("public ObservableCollection<string> FormattedItems", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ValidateFormattedItemsList", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("formatted ListBox ItemStringFormat", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("active-only checked view model state", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ValidateSelectedSummaryBinding", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("selected summary MultiBinding", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("updated selected summary text", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ValidateSelectedItemTemplate", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ValidateTemplateSelector", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("selector ListBox ItemsPanel root", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("selector item container DataTrigger", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ValidateTemplateButton", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("MainViewModel : INotifyPropertyChanged, IDataErrorInfo, INotifyDataErrorInfo", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ShowcaseNonEmptyValidationRule : ValidationRule", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ValidationText", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("public string DataErrorText", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("public string NotifyDataErrorText", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("Data value must start with data:", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("Notify value must start with notify:", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ValidateValidation", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ValidateDataErrorValidation", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ValidateNotifyDataErrorValidation", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("validation TextBox binding expression", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("IDataErrorInfo TextBox binding expression", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("INotifyDataErrorInfo TextBox binding expression", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("bindingExpression.UpdateSource();", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("Validation.GetHasError(textBox)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("Value must start with valid:", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("OnBindingGroupCommitClick", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("BindingGroupPanel.BindingGroup?.CommitEdit() == true", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("BindingGroupFirstName", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("BindingGroupLastName", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("BindingGroupStatus", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("public string? NullDisplayText", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ShowcaseBindingGroupValidationRule : ValidationRule", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("value is not BindingGroup bindingGroup", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("bindingGroup.GetValue(item, propertyName)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ValidateBindingGroup", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("bindingGroup.ValidateWithoutUpdate()", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("Grouped values must start with", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("using System.Windows.Media.Animation;", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ValidateStoryboards", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("expectLoadedStoryboardApplied", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("loaded storyboard applied opacity", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("AssertClose(", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ValidateStoryboardAction", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("Storyboard.GetTargetName(animation)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("Storyboard.GetTargetProperty(animation).Path", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("animation.Duration.TimeSpan", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ValidateItemsContextMenu", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("Showcase DrawingImage resource", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("Showcase DrawingImage background color", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("Showcase DrawingImageBrush Border background", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ValidateFreezableResources(window)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("x:Shared=false brush instance identity", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("freezableBrush.Freeze()", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("Freezable brush current-value clone opacity", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("context menu DataContext path", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("context refresh command target ancestor", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("context add command item count", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("UpdateBinding(contextMenu, FrameworkElement.DataContextProperty)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ValidateBindingFallbacks", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("BindingOperations.GetPriorityBinding(priorityText, TextBlock.TextProperty)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("BindingOperations.GetPriorityBindingExpression(priorityText, TextBlock.TextProperty)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("target-null binding value", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("relative ancestor binding type", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("updated priority binding selected item text", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("GetTextBindingPath", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("GetTextBoxBindingPath", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ObservableCollection<ShowcaseNode>", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("addMenuItem.Command.Execute(addMenuItem.CommandParameter)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("MainWindow.RefreshStatusCommand.Execute(null, window)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("Require<MouseBinding>(window.InputBindings[1], \"refresh MouseBinding\")", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("MouseAction.LeftDoubleClick", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("\"refresh mouse binding parameter\"", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("MainWindow.RefreshStatusCommand.Execute(refreshMouseBinding.CommandParameter, refreshMouseBinding.CommandTarget)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("\"refresh mouse binding command execution count\"", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ValidateRequeryCommand(window, viewModel, requeryCommandButton)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("requery command second CanExecuteChanged count", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("refresh command disabled CanExecute state", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("actions menu unchecked view model state", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("app merged theme ResourceDictionary", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("app Button implicit style target type", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("app theme BasedOn Button style key", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("BasedOn Button style base style", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("new DataTemplateKey(typeof(ShowcaseItem))", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ValidateImplicitItemTemplate(viewModel, implicitTemplateContent, implicitItemTemplate)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("implicit item DataTemplate key type", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("implicit item content updated selected item", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ValidateBasedOnButton(basedOnStyleButton, basedOnButtonStyle)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("BasedOn Button inherited MinWidth setter", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("BasedOn Button derived background color", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ShowcaseStyleEventSetterClickCount", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("OnShowcaseStyleEventSetterClick", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ValidateStyleTriggersAndEventSetter", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ValidateLocalThemeResources(window, localThemeScope, localThemeText)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("scope.TryFindResource(typeof(TextBlock))", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("scope.Resources[\"LocalThemeBrush\"] = new SolidColorBrush", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("style trigger BasedOn TextBlock style", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("property style Trigger active text", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("data style Trigger disabled text", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("MultiTrigger style trigger", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("MultiDataTrigger style trigger", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("MultiTrigger active text", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("MultiDataTrigger active text", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("Button Click EventSetter", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("EventSetter handled flag", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("NavigationFrame.Navigate(new Uri(\"DetailsPage.xaml\", UriKind.Relative))", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("NavigationCommands.BrowseBack.Execute(null, frame)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("NavigationCommands.BrowseForward.Execute(null, frame)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("OnAboutMenuItemClick", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("var dialog = new AboutWindow();", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("dialog.Owner = this;", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("var backNavigationButton = Require<Button>", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("var forwardNavigationButton = Require<Button>", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ValidateNavigation(\n            window,\n            navigationFrame,\n            detailsNavigationButton,\n            backNavigationButton,\n            forwardNavigationButton)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("frame.CanGoForward", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("journal overview page", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("journal details page", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ValidateSecondaryWindow(window, aboutMenuItem)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("secondary window initial owner", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("input Popup placement target", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("input Popup initial open state", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("PlacementMode.Bottom", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("OnDataObjectRoundTripClick", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("OnClipboardRoundTripClick", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("public static class ShowcaseCompositeItemsProvider", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("window.FindResource(\"ShowcaseCompositeCollection\")", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("CompositeCollection collection-change item count", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("new DataObject()", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("dataObject.SetText(payload)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("DataFormats.UnicodeText", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("DataObjectRoundTripCount", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("Clipboard.SetText(payload)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("Clipboard.ContainsText()", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("Clipboard.GetText()", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("Clipboard.GetDataObject()", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("Clipboard.IsCurrent(currentDataObject)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("Clipboard.Flush()", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ClipboardRoundTripButton", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("ApplicationCommands.SelectAll.Execute(null, dataObjectPayloadTextBox)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("DataObject payload SelectAll selection length", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("CopyRichTextButton", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("PasteRichTextButton", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("ApplicationCommands.Copy.CanExecute(null, richTextBox)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ApplicationCommands.Copy.Execute(null, richTextBox)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ApplicationCommands.Paste.CanExecute(null, richTextBox)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ApplicationCommands.Paste.Execute(null, richTextBox)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("editor RichTextBox pasted clipboard text", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("CopyPayloadButton", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("CutPayloadButton", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("PastePayloadButton", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("UndoPayloadButton", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("RedoPayloadButton", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("dataObjectPayloadTextBox.ApplyTemplate()", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("PART_ContentHost", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ApplicationCommands.Cut.Execute(null, dataObjectPayloadTextBox)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("dataObjectPayloadTextBox.BeginChange()", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ApplicationCommands.Undo.Execute(null, dataObjectPayloadTextBox)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ApplicationCommands.Redo.Execute(null, dataObjectPayloadTextBox)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("TextBox payload paste result", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
         Assert.Contains("if (dataObject == null)", textEditorCopyPaste, StringComparison.Ordinal);
         Assert.Contains("return string.Empty;", textEditorCopyPaste, StringComparison.Ordinal);
-        Assert.Contains("dataObjectPayloadTextBox", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("editor PasswordBox secure password length", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("new TextRange(document.ContentStart, document.ContentEnd).Text", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("EditingCommands.ToggleBold.Execute(null, richTextBox)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("editor RichTextBox ToggleBold applied weight", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("DataObject unicode text", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("DataObject custom text", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("summary updated progress text", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("GetColumnBindingPath", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("GetGridViewColumnBindingPath", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("explorer ListView ItemsSource", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("explorer GridView name binding", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("explorer ListView updated selected item", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("GetTemplateItemsSourcePath", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("\"IsActive\"", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("VisualStateManager.GetVisualStateGroups(border)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("Storyboard.GetTargetName(pressedAnimation)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("template Button Pressed animation target opacity", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("template Button Pressed animation duration", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("x:Class=\"ProGPU.Wpf.MvpApp.AboutWindow\"", mvpAboutWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("WindowStartupLocation=\"CenterOwner\"", mvpAboutWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("SizeToContent=\"Height\"", mvpAboutWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("ResizeMode=\"NoResize\"", mvpAboutWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"AboutTitleText\"", mvpAboutWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"AboutCloseButton\"", mvpAboutWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("IsCancel=\"True\"", mvpAboutWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("IsDefault=\"True\"", mvpAboutWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("partial class AboutWindow : Window", mvpAboutWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("x:Class=\"ProGPU.Wpf.MvpApp.SummaryPanel\"", mvpSummaryPanelXaml, StringComparison.Ordinal);
-        Assert.Contains("xmlns:local=\"clr-namespace:ProGPU.Wpf.MvpApp\"", mvpSummaryPanelXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"SummaryHeaderText\"", mvpSummaryPanelXaml, StringComparison.Ordinal);
-        Assert.Contains("HeaderText, RelativeSource={RelativeSource AncestorType={x:Type local:SummaryPanel}}", mvpSummaryPanelXaml, StringComparison.Ordinal);
-        Assert.Contains("SummaryNameText", mvpSummaryPanelXaml, StringComparison.Ordinal);
-        Assert.Contains("SelectedItem.Name", mvpSummaryPanelXaml, StringComparison.Ordinal);
-        Assert.Contains("Progress, StringFormat=Progress: {0:0}%", mvpSummaryPanelXaml, StringComparison.Ordinal);
-        Assert.Contains("public static readonly DependencyProperty HeaderTextProperty", mvpSummaryPanelCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("DependencyProperty.Register", mvpSummaryPanelCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("FrameworkPropertyMetadataOptions.AffectsMeasure | FrameworkPropertyMetadataOptions.AffectsRender", mvpSummaryPanelCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("public string HeaderText", mvpSummaryPanelCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("partial class SummaryPanel : UserControl", mvpSummaryPanelCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("local:MvpStateProperties.SectionName=\"Overview tools\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"DependencyPropertyManagerText\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("local:MvpStateProperties.Importance=\"128\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("HeaderText=\"{Binding StatusText}\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("TypedOffset=\"12.5,24.25\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("Path=(local:MvpStateProperties.SectionName)", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"MvpRoutedEventScope\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("local:MvpRoutedEventButton.MvpActivated=\"OnMvpRoutedEventScope\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("local:MvpRoutedEventButton", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"MvpRoutedEventButton\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("MvpActivated=\"OnMvpRoutedEventSource\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"MvpRoutedEventStatusText\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("RegisterAttached", mvpDependencyPropertySamples, StringComparison.Ordinal);
-        Assert.Contains("FrameworkPropertyMetadataOptions.Inherits", mvpDependencyPropertySamples, StringComparison.Ordinal);
-        Assert.Contains("CoerceImportance", mvpDependencyPropertySamples, StringComparison.Ordinal);
-        Assert.Contains("Math.Clamp((double)baseValue, 0d, 100d)", mvpDependencyPropertySamples, StringComparison.Ordinal);
-        Assert.Contains("SummaryPanel.HeaderTextProperty.AddOwner", mvpDependencyPropertySamples, StringComparison.Ordinal);
-        Assert.Contains("using System.ComponentModel;", mvpDependencyPropertySamples, StringComparison.Ordinal);
-        Assert.Contains("public static readonly DependencyProperty TypedOffsetProperty", mvpDependencyPropertySamples, StringComparison.Ordinal);
-        Assert.Contains("[TypeConverter(typeof(MvpTypedOffsetConverter))]", mvpDependencyPropertySamples, StringComparison.Ordinal);
-        Assert.Contains("public readonly record struct MvpTypedOffset(double X, double Y)", mvpDependencyPropertySamples, StringComparison.Ordinal);
-        Assert.Contains("public sealed class MvpTypedOffsetConverter : TypeConverter", mvpDependencyPropertySamples, StringComparison.Ordinal);
-        Assert.Contains("public override object ConvertFrom(", mvpDependencyPropertySamples, StringComparison.Ordinal);
-        Assert.Contains("FontWeightProperty.OverrideMetadata", mvpDependencyPropertySamples, StringComparison.Ordinal);
-        Assert.Contains("ForegroundProperty.OverrideMetadata", mvpDependencyPropertySamples, StringComparison.Ordinal);
-        Assert.Contains("public delegate void MvpRoutedEventHandler(object sender, MvpRoutedEventArgs e)", mvpDependencyPropertySamples, StringComparison.Ordinal);
-        Assert.Contains("public sealed class MvpRoutedEventArgs : RoutedEventArgs", mvpDependencyPropertySamples, StringComparison.Ordinal);
-        Assert.Contains("EventManager.RegisterRoutedEvent", mvpDependencyPropertySamples, StringComparison.Ordinal);
-        Assert.Contains("RoutingStrategy.Bubble", mvpDependencyPropertySamples, StringComparison.Ordinal);
-        Assert.Contains("public event MvpRoutedEventHandler MvpActivated", mvpDependencyPropertySamples, StringComparison.Ordinal);
-        Assert.Contains("AddHandler(MvpActivatedEvent, value)", mvpDependencyPropertySamples, StringComparison.Ordinal);
-        Assert.Contains("RemoveHandler(MvpActivatedEvent, value)", mvpDependencyPropertySamples, StringComparison.Ordinal);
-        Assert.Contains("EventManager.RegisterClassHandler", mvpDependencyPropertySamples, StringComparison.Ordinal);
-        Assert.Contains("handledEventsToo: true", mvpDependencyPropertySamples, StringComparison.Ordinal);
-        Assert.Contains("RaiseEvent(args)", mvpDependencyPropertySamples, StringComparison.Ordinal);
-        Assert.Contains("MvpStateProperties.GetSectionName(dependencyPropertyManagerText)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("DependencyPropertyHelper.GetValueSource", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("BaseValueSource.Inherited", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("MvpStateProperties.GetImportance(dependencyPropertyManagerText)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("MvpHeaderTextBlock.HeaderTextProperty", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("new MvpTypedOffset(12.5, 24.25)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("MvpHeaderTextBlock.TypedOffsetProperty", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("TypeConverter dependency property value source", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("AddOwner updated header property", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("MvpRoutedEventScope.AddHandler(", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("OnMvpRoutedEventSource", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("OnMvpRoutedEventScope", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("OnMvpRoutedEventScopeHandledToo", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ValidateMvpRoutedEvent(window, mvpRoutedEventScope, mvpRoutedEventButton, mvpRoutedEventStatusText)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("button.RaiseMvpActivated(\"mvp routed payload\")", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("MVP routed event handled-too handler count", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("SolidColorBrush x:Key=\"MvpPanelBrush\"", mvpThemeXaml, StringComparison.Ordinal);
-        Assert.Contains("xmlns:local=\"clr-namespace:ProGPU.Wpf.MvpApp\"", mvpThemeXaml, StringComparison.Ordinal);
-        Assert.Contains("ComponentResourceKey TypeInTargetAssembly={x:Type local:MainWindow}, ResourceId=MvpComponentAccentBrush", mvpThemeXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Key=\"SelectedItemTemplate\"", mvpThemeXaml, StringComparison.Ordinal);
-        Assert.Contains("DataType=\"{x:Type local:MvpItem}\"", mvpThemeXaml, StringComparison.Ordinal);
-        Assert.Contains("TemplateNameText", mvpThemeXaml, StringComparison.Ordinal);
-        Assert.Contains("<DataTemplate DataType=\"{x:Type local:MvpItem}\">", mvpThemeXaml, StringComparison.Ordinal);
-        Assert.Contains("ImplicitTemplateNameText", mvpThemeXaml, StringComparison.Ordinal);
-        Assert.Contains("ImplicitTemplateCategoryText", mvpThemeXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Key=\"MvpBasedOnButtonStyle\"", mvpThemeXaml, StringComparison.Ordinal);
-        Assert.Contains("BasedOn=\"{StaticResource {x:Type Button}}\"", mvpThemeXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Key=\"MvpTriggerTextBlockStyle\"", mvpThemeXaml, StringComparison.Ordinal);
-        Assert.Contains("BasedOn=\"{StaticResource {x:Type TextBlock}}\"", mvpThemeXaml, StringComparison.Ordinal);
-        Assert.Contains("<Trigger Property=\"Tag\" Value=\"Active\">", mvpThemeXaml, StringComparison.Ordinal);
-        Assert.Contains("<DataTrigger Binding=\"{Binding ActionsEnabled}\" Value=\"False\">", mvpThemeXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Key=\"MvpMultiTriggerTextBlockStyle\"", mvpThemeXaml, StringComparison.Ordinal);
-        Assert.Contains("<MultiTrigger>", mvpThemeXaml, StringComparison.Ordinal);
-        Assert.Contains("<Condition Property=\"Tag\" Value=\"Ready\" />", mvpThemeXaml, StringComparison.Ordinal);
-        Assert.Contains("<Condition Property=\"IsEnabled\" Value=\"True\" />", mvpThemeXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Key=\"MvpMultiDataTriggerTextBlockStyle\"", mvpThemeXaml, StringComparison.Ordinal);
-        Assert.Contains("<MultiDataTrigger>", mvpThemeXaml, StringComparison.Ordinal);
-        Assert.Contains("<Condition Binding=\"{Binding ActionsEnabled}\" Value=\"False\" />", mvpThemeXaml, StringComparison.Ordinal);
-        Assert.Contains("<Condition Binding=\"{Binding SelectedCategory}\" Value=\"Input\" />", mvpThemeXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Key=\"MvpTemplateButtonStyle\"", mvpThemeXaml, StringComparison.Ordinal);
-        Assert.Contains("<ControlTemplate TargetType=\"{x:Type Button}\">", mvpThemeXaml, StringComparison.Ordinal);
-        Assert.Contains("TemplateBorder", mvpThemeXaml, StringComparison.Ordinal);
-        Assert.Contains("<VisualStateManager.VisualStateGroups>", mvpThemeXaml, StringComparison.Ordinal);
-        Assert.Contains("<VisualStateGroup x:Name=\"CommonStates\">", mvpThemeXaml, StringComparison.Ordinal);
-        Assert.Contains("<VisualState x:Name=\"Pressed\">", mvpThemeXaml, StringComparison.Ordinal);
-        Assert.Contains("Storyboard.TargetName=\"TemplateContentPresenter\"", mvpThemeXaml, StringComparison.Ordinal);
-        Assert.Contains("To=\"0.72\"", mvpThemeXaml, StringComparison.Ordinal);
-        Assert.Contains("<ControlTemplate.Triggers>", mvpThemeXaml, StringComparison.Ordinal);
-        Assert.Contains("<Style TargetType=\"{x:Type Button}\">", mvpThemeXaml, StringComparison.Ordinal);
-        Assert.Contains("<Style TargetType=\"{x:Type TextBlock}\">", mvpThemeXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Class=\"ProGPU.Wpf.MvpApp.OverviewPage\"", mvpOverviewPageXaml, StringComparison.Ordinal);
-        Assert.Contains("OverviewTitle", mvpOverviewPageXaml, StringComparison.Ordinal);
-        Assert.Contains("partial class OverviewPage : Page", mvpOverviewPageCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("x:Class=\"ProGPU.Wpf.MvpApp.DetailsPage\"", mvpDetailsPageXaml, StringComparison.Ordinal);
-        Assert.Contains("DetailsList", mvpDetailsPageXaml, StringComparison.Ordinal);
-        Assert.Contains("partial class DetailsPage : Page", mvpDetailsPageCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("internal static class MvpSelfTest", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("dotnet", mvpRunScript, StringComparison.Ordinal);
-        Assert.Contains("sdk_sample_target_framework=\"${PROGPU_WPF_SDK_SAMPLE_TARGET_FRAMEWORK:-net10.0-windows}\"", mvpRunScript, StringComparison.Ordinal);
-        Assert.Contains("mvp_output=\"${repo_root}/artifacts/bin/ProGPU.Wpf.MvpApp/Debug/${sdk_sample_target_framework}\"", mvpRunScript, StringComparison.Ordinal);
-        Assert.Contains("apphost_name=\"ProGPU.Wpf.MvpApp\"", mvpRunScript, StringComparison.Ordinal);
-        Assert.Contains("\"${repo_root}/artifacts/nuget/ProGPU.Wpf.MvpApp\"", mvpRunScript, StringComparison.Ordinal);
-        Assert.Contains("\"${dotnet}\" build \"${mvp_project}\" -v:minimal", mvpRunScript, StringComparison.Ordinal);
-        Assert.Contains("Launching ProGPU WPF MVP apphost", mvpRunScript, StringComparison.Ordinal);
-        Assert.Contains("PROGPU_WPF_MVP_LIVE_VALIDATE", mvpRunScript, StringComparison.Ordinal);
-        Assert.Contains("PROGPU_WPF_MVP_LIVE_VALIDATE_STATUS_PATH", mvpRunScript, StringComparison.Ordinal);
-        Assert.Contains("PROGPU_WPF_MVP_LIVE_VALIDATE_TIMEOUT_SECONDS", mvpRunScript, StringComparison.Ordinal);
-        Assert.Contains("live_validation_timeout_seconds=\"${PROGPU_WPF_MVP_LIVE_VALIDATE_TIMEOUT_SECONDS:-180}\"", mvpRunScript, StringComparison.Ordinal);
-        Assert.Contains("live_validation_deadline=$((SECONDS + live_validation_timeout_seconds))", mvpRunScript, StringComparison.Ordinal);
-        Assert.Contains("while (( SECONDS < live_validation_deadline )); do", mvpRunScript, StringComparison.Ordinal);
-        Assert.DoesNotContain("for _ in {1..600}; do", mvpRunScript, StringComparison.Ordinal);
+        Assert.Contains("dataObjectPayloadTextBox", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("editor PasswordBox secure password length", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("new TextRange(document.ContentStart, document.ContentEnd).Text", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("EditingCommands.ToggleBold.Execute(null, richTextBox)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("editor RichTextBox ToggleBold applied weight", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("DataObject unicode text", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("DataObject custom text", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("summary updated progress text", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("GetColumnBindingPath", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("GetGridViewColumnBindingPath", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("explorer ListView ItemsSource", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("explorer GridView name binding", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("explorer ListView updated selected item", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("GetTemplateItemsSourcePath", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("\"IsActive\"", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("VisualStateManager.GetVisualStateGroups(border)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("Storyboard.GetTargetName(pressedAnimation)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("template Button Pressed animation target opacity", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("template Button Pressed animation duration", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("x:Class=\"ProGPU.Wpf.ShowcaseApp.AboutWindow\"", showcaseAboutWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("WindowStartupLocation=\"CenterOwner\"", showcaseAboutWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("SizeToContent=\"Height\"", showcaseAboutWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("ResizeMode=\"NoResize\"", showcaseAboutWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"AboutTitleText\"", showcaseAboutWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"AboutCloseButton\"", showcaseAboutWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("IsCancel=\"True\"", showcaseAboutWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("IsDefault=\"True\"", showcaseAboutWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("partial class AboutWindow : Window", showcaseAboutWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("x:Class=\"ProGPU.Wpf.ShowcaseApp.SummaryPanel\"", showcaseSummaryPanelXaml, StringComparison.Ordinal);
+        Assert.Contains("xmlns:local=\"clr-namespace:ProGPU.Wpf.ShowcaseApp\"", showcaseSummaryPanelXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"SummaryHeaderText\"", showcaseSummaryPanelXaml, StringComparison.Ordinal);
+        Assert.Contains("HeaderText, RelativeSource={RelativeSource AncestorType={x:Type local:SummaryPanel}}", showcaseSummaryPanelXaml, StringComparison.Ordinal);
+        Assert.Contains("SummaryNameText", showcaseSummaryPanelXaml, StringComparison.Ordinal);
+        Assert.Contains("SelectedItem.Name", showcaseSummaryPanelXaml, StringComparison.Ordinal);
+        Assert.Contains("Progress, StringFormat=Progress: {0:0}%", showcaseSummaryPanelXaml, StringComparison.Ordinal);
+        Assert.Contains("public static readonly DependencyProperty HeaderTextProperty", showcaseSummaryPanelCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("DependencyProperty.Register", showcaseSummaryPanelCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("FrameworkPropertyMetadataOptions.AffectsMeasure | FrameworkPropertyMetadataOptions.AffectsRender", showcaseSummaryPanelCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("public string HeaderText", showcaseSummaryPanelCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("partial class SummaryPanel : UserControl", showcaseSummaryPanelCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("local:ShowcaseStateProperties.SectionName=\"Overview tools\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"DependencyPropertyManagerText\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("local:ShowcaseStateProperties.Importance=\"128\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("HeaderText=\"{Binding StatusText}\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("TypedOffset=\"12.5,24.25\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("Path=(local:ShowcaseStateProperties.SectionName)", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ShowcaseRoutedEventScope\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("local:ShowcaseRoutedEventButton.ShowcaseActivated=\"OnShowcaseRoutedEventScope\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("local:ShowcaseRoutedEventButton", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ShowcaseRoutedEventButton\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("ShowcaseActivated=\"OnShowcaseRoutedEventSource\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ShowcaseRoutedEventStatusText\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("RegisterAttached", showcaseDependencyPropertySamples, StringComparison.Ordinal);
+        Assert.Contains("FrameworkPropertyMetadataOptions.Inherits", showcaseDependencyPropertySamples, StringComparison.Ordinal);
+        Assert.Contains("CoerceImportance", showcaseDependencyPropertySamples, StringComparison.Ordinal);
+        Assert.Contains("Math.Clamp((double)baseValue, 0d, 100d)", showcaseDependencyPropertySamples, StringComparison.Ordinal);
+        Assert.Contains("SummaryPanel.HeaderTextProperty.AddOwner", showcaseDependencyPropertySamples, StringComparison.Ordinal);
+        Assert.Contains("using System.ComponentModel;", showcaseDependencyPropertySamples, StringComparison.Ordinal);
+        Assert.Contains("public static readonly DependencyProperty TypedOffsetProperty", showcaseDependencyPropertySamples, StringComparison.Ordinal);
+        Assert.Contains("[TypeConverter(typeof(ShowcaseTypedOffsetConverter))]", showcaseDependencyPropertySamples, StringComparison.Ordinal);
+        Assert.Contains("public readonly record struct ShowcaseTypedOffset(double X, double Y)", showcaseDependencyPropertySamples, StringComparison.Ordinal);
+        Assert.Contains("public sealed class ShowcaseTypedOffsetConverter : TypeConverter", showcaseDependencyPropertySamples, StringComparison.Ordinal);
+        Assert.Contains("public override object ConvertFrom(", showcaseDependencyPropertySamples, StringComparison.Ordinal);
+        Assert.Contains("FontWeightProperty.OverrideMetadata", showcaseDependencyPropertySamples, StringComparison.Ordinal);
+        Assert.Contains("ForegroundProperty.OverrideMetadata", showcaseDependencyPropertySamples, StringComparison.Ordinal);
+        Assert.Contains("public delegate void ShowcaseRoutedEventHandler(object sender, ShowcaseRoutedEventArgs e)", showcaseDependencyPropertySamples, StringComparison.Ordinal);
+        Assert.Contains("public sealed class ShowcaseRoutedEventArgs : RoutedEventArgs", showcaseDependencyPropertySamples, StringComparison.Ordinal);
+        Assert.Contains("EventManager.RegisterRoutedEvent", showcaseDependencyPropertySamples, StringComparison.Ordinal);
+        Assert.Contains("RoutingStrategy.Bubble", showcaseDependencyPropertySamples, StringComparison.Ordinal);
+        Assert.Contains("public event ShowcaseRoutedEventHandler ShowcaseActivated", showcaseDependencyPropertySamples, StringComparison.Ordinal);
+        Assert.Contains("AddHandler(ShowcaseActivatedEvent, value)", showcaseDependencyPropertySamples, StringComparison.Ordinal);
+        Assert.Contains("RemoveHandler(ShowcaseActivatedEvent, value)", showcaseDependencyPropertySamples, StringComparison.Ordinal);
+        Assert.Contains("EventManager.RegisterClassHandler", showcaseDependencyPropertySamples, StringComparison.Ordinal);
+        Assert.Contains("handledEventsToo: true", showcaseDependencyPropertySamples, StringComparison.Ordinal);
+        Assert.Contains("RaiseEvent(args)", showcaseDependencyPropertySamples, StringComparison.Ordinal);
+        Assert.Contains("ShowcaseStateProperties.GetSectionName(dependencyPropertyManagerText)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("DependencyPropertyHelper.GetValueSource", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("BaseValueSource.Inherited", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ShowcaseStateProperties.GetImportance(dependencyPropertyManagerText)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ShowcaseHeaderTextBlock.HeaderTextProperty", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("new ShowcaseTypedOffset(12.5, 24.25)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ShowcaseHeaderTextBlock.TypedOffsetProperty", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("TypeConverter dependency property value source", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("AddOwner updated header property", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ShowcaseRoutedEventScope.AddHandler(", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("OnShowcaseRoutedEventSource", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("OnShowcaseRoutedEventScope", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("OnShowcaseRoutedEventScopeHandledToo", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ValidateShowcaseRoutedEvent(window, showcaseRoutedEventScope, showcaseRoutedEventButton, showcaseRoutedEventStatusText)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("button.RaiseShowcaseActivated(\"showcase routed payload\")", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("Showcase routed event handled-too handler count", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("SolidColorBrush x:Key=\"ShowcasePanelBrush\"", showcaseThemeXaml, StringComparison.Ordinal);
+        Assert.Contains("xmlns:local=\"clr-namespace:ProGPU.Wpf.ShowcaseApp\"", showcaseThemeXaml, StringComparison.Ordinal);
+        Assert.Contains("ComponentResourceKey TypeInTargetAssembly={x:Type local:MainWindow}, ResourceId=ShowcaseComponentAccentBrush", showcaseThemeXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Key=\"SelectedItemTemplate\"", showcaseThemeXaml, StringComparison.Ordinal);
+        Assert.Contains("DataType=\"{x:Type local:ShowcaseItem}\"", showcaseThemeXaml, StringComparison.Ordinal);
+        Assert.Contains("TemplateNameText", showcaseThemeXaml, StringComparison.Ordinal);
+        Assert.Contains("<DataTemplate DataType=\"{x:Type local:ShowcaseItem}\">", showcaseThemeXaml, StringComparison.Ordinal);
+        Assert.Contains("ImplicitTemplateNameText", showcaseThemeXaml, StringComparison.Ordinal);
+        Assert.Contains("ImplicitTemplateCategoryText", showcaseThemeXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Key=\"ShowcaseBasedOnButtonStyle\"", showcaseThemeXaml, StringComparison.Ordinal);
+        Assert.Contains("BasedOn=\"{StaticResource {x:Type Button}}\"", showcaseThemeXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Key=\"ShowcaseTriggerTextBlockStyle\"", showcaseThemeXaml, StringComparison.Ordinal);
+        Assert.Contains("BasedOn=\"{StaticResource {x:Type TextBlock}}\"", showcaseThemeXaml, StringComparison.Ordinal);
+        Assert.Contains("<Trigger Property=\"Tag\" Value=\"Active\">", showcaseThemeXaml, StringComparison.Ordinal);
+        Assert.Contains("<DataTrigger Binding=\"{Binding ActionsEnabled}\" Value=\"False\">", showcaseThemeXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Key=\"ShowcaseMultiTriggerTextBlockStyle\"", showcaseThemeXaml, StringComparison.Ordinal);
+        Assert.Contains("<MultiTrigger>", showcaseThemeXaml, StringComparison.Ordinal);
+        Assert.Contains("<Condition Property=\"Tag\" Value=\"Ready\" />", showcaseThemeXaml, StringComparison.Ordinal);
+        Assert.Contains("<Condition Property=\"IsEnabled\" Value=\"True\" />", showcaseThemeXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Key=\"ShowcaseMultiDataTriggerTextBlockStyle\"", showcaseThemeXaml, StringComparison.Ordinal);
+        Assert.Contains("<MultiDataTrigger>", showcaseThemeXaml, StringComparison.Ordinal);
+        Assert.Contains("<Condition Binding=\"{Binding ActionsEnabled}\" Value=\"False\" />", showcaseThemeXaml, StringComparison.Ordinal);
+        Assert.Contains("<Condition Binding=\"{Binding SelectedCategory}\" Value=\"Input\" />", showcaseThemeXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Key=\"ShowcaseTemplateButtonStyle\"", showcaseThemeXaml, StringComparison.Ordinal);
+        Assert.Contains("<ControlTemplate TargetType=\"{x:Type Button}\">", showcaseThemeXaml, StringComparison.Ordinal);
+        Assert.Contains("TemplateBorder", showcaseThemeXaml, StringComparison.Ordinal);
+        Assert.Contains("<VisualStateManager.VisualStateGroups>", showcaseThemeXaml, StringComparison.Ordinal);
+        Assert.Contains("<VisualStateGroup x:Name=\"CommonStates\">", showcaseThemeXaml, StringComparison.Ordinal);
+        Assert.Contains("<VisualState x:Name=\"Pressed\">", showcaseThemeXaml, StringComparison.Ordinal);
+        Assert.Contains("Storyboard.TargetName=\"TemplateContentPresenter\"", showcaseThemeXaml, StringComparison.Ordinal);
+        Assert.Contains("To=\"0.72\"", showcaseThemeXaml, StringComparison.Ordinal);
+        Assert.Contains("<ControlTemplate.Triggers>", showcaseThemeXaml, StringComparison.Ordinal);
+        Assert.Contains("<Style TargetType=\"{x:Type Button}\">", showcaseThemeXaml, StringComparison.Ordinal);
+        Assert.Contains("<Style TargetType=\"{x:Type TextBlock}\">", showcaseThemeXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Class=\"ProGPU.Wpf.ShowcaseApp.OverviewPage\"", showcaseOverviewPageXaml, StringComparison.Ordinal);
+        Assert.Contains("OverviewTitle", showcaseOverviewPageXaml, StringComparison.Ordinal);
+        Assert.Contains("partial class OverviewPage : Page", showcaseOverviewPageCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("x:Class=\"ProGPU.Wpf.ShowcaseApp.DetailsPage\"", showcaseDetailsPageXaml, StringComparison.Ordinal);
+        Assert.Contains("DetailsList", showcaseDetailsPageXaml, StringComparison.Ordinal);
+        Assert.Contains("partial class DetailsPage : Page", showcaseDetailsPageCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("internal static class ShowcaseSelfTest", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("dotnet", showcaseRunScript, StringComparison.Ordinal);
+        Assert.Contains("sdk_sample_target_framework=\"${PROGPU_WPF_SDK_SAMPLE_TARGET_FRAMEWORK:-net10.0-windows}\"", showcaseRunScript, StringComparison.Ordinal);
+        Assert.Contains("showcase_output=\"${repo_root}/artifacts/bin/ProGPU.Wpf.ShowcaseApp/Debug/${sdk_sample_target_framework}\"", showcaseRunScript, StringComparison.Ordinal);
+        Assert.Contains("apphost_name=\"ProGPU.Wpf.ShowcaseApp\"", showcaseRunScript, StringComparison.Ordinal);
+        Assert.Contains("\"${repo_root}/artifacts/nuget/ProGPU.Wpf.ShowcaseApp\"", showcaseRunScript, StringComparison.Ordinal);
+        Assert.Contains("\"${dotnet}\" build \"${showcase_project}\" -v:minimal", showcaseRunScript, StringComparison.Ordinal);
+        Assert.Contains("Launching ProGPU WPF Showcase apphost", showcaseRunScript, StringComparison.Ordinal);
+        Assert.Contains("PROGPU_WPF_SHOWCASE_LIVE_VALIDATE", showcaseRunScript, StringComparison.Ordinal);
+        Assert.Contains("PROGPU_WPF_SHOWCASE_LIVE_VALIDATE_STATUS_PATH", showcaseRunScript, StringComparison.Ordinal);
+        Assert.Contains("PROGPU_WPF_SHOWCASE_LIVE_VALIDATE_TIMEOUT_SECONDS", showcaseRunScript, StringComparison.Ordinal);
+        Assert.Contains("live_validation_timeout_seconds=\"${PROGPU_WPF_SHOWCASE_LIVE_VALIDATE_TIMEOUT_SECONDS:-180}\"", showcaseRunScript, StringComparison.Ordinal);
+        Assert.Contains("live_validation_deadline=$((SECONDS + live_validation_timeout_seconds))", showcaseRunScript, StringComparison.Ordinal);
+        Assert.Contains("while (( SECONDS < live_validation_deadline )); do", showcaseRunScript, StringComparison.Ordinal);
+        Assert.DoesNotContain("for _ in {1..600}; do", showcaseRunScript, StringComparison.Ordinal);
         Assert.Contains(
-            "PROGPU_WPF_MVP_LIVE_VALIDATE_TIMEOUT_SECONDS=90",
+            "PROGPU_WPF_SHOWCASE_LIVE_VALIDATE_TIMEOUT_SECONDS=90",
             linuxXWaylandSmokeScript,
             StringComparison.Ordinal);
-        Assert.Contains("PROGPU_WPF_MVP_TRACE_RENDER_SURFACE", mvpRunScript, StringComparison.Ordinal);
-        Assert.Contains("export PROGPU_WPF_TRACE_RENDER_SURFACE=1", mvpRunScript, StringComparison.Ordinal);
-        Assert.Contains("ProGPU WPF render surface:", mvpRunScript, StringComparison.Ordinal);
-        Assert.Contains("live_status=\"$(mktemp", mvpRunScript, StringComparison.Ordinal);
-        Assert.Contains("has_viewport_geometry=0", mvpRunScript, StringComparison.Ordinal);
-        Assert.Contains("live_validation_line", mvpRunScript, StringComparison.Ordinal);
-        Assert.Contains("grep -h -E \"ProGPU WPF MVP live input validation succeeded:\"", mvpRunScript, StringComparison.Ordinal);
-        Assert.Contains("has_viewport_geometry=1", mvpRunScript, StringComparison.Ordinal);
-        Assert.Contains("viewport_width != pixel_width", mvpRunScript, StringComparison.Ordinal);
-        Assert.Contains("Launching ProGPU WPF MVP apphost live geometry probe", mvpRunScript, StringComparison.Ordinal);
-        Assert.Contains("ProGPU WPF MVP live input validation succeeded:", mvpRunScript, StringComparison.Ordinal);
-        Assert.Contains("logical_width=760", mvpRunScript, StringComparison.Ordinal);
-        Assert.Contains("logical_height=560", mvpRunScript, StringComparison.Ordinal);
-        Assert.Contains("ProGPU WPF MVP live geometry validation succeeded", mvpRunScript, StringComparison.Ordinal);
+        Assert.Contains("PROGPU_WPF_SHOWCASE_TRACE_RENDER_SURFACE", showcaseRunScript, StringComparison.Ordinal);
+        Assert.Contains("export PROGPU_WPF_TRACE_RENDER_SURFACE=1", showcaseRunScript, StringComparison.Ordinal);
+        Assert.Contains("ProGPU WPF render surface:", showcaseRunScript, StringComparison.Ordinal);
+        Assert.Contains("live_status=\"$(mktemp", showcaseRunScript, StringComparison.Ordinal);
+        Assert.Contains("has_viewport_geometry=0", showcaseRunScript, StringComparison.Ordinal);
+        Assert.Contains("live_validation_line", showcaseRunScript, StringComparison.Ordinal);
+        Assert.Contains("grep -h -E \"ProGPU WPF Showcase live input validation succeeded:\"", showcaseRunScript, StringComparison.Ordinal);
+        Assert.Contains("has_viewport_geometry=1", showcaseRunScript, StringComparison.Ordinal);
+        Assert.Contains("viewport_width != pixel_width", showcaseRunScript, StringComparison.Ordinal);
+        Assert.Contains("Launching ProGPU WPF Showcase apphost live geometry probe", showcaseRunScript, StringComparison.Ordinal);
+        Assert.Contains("ProGPU WPF Showcase live input validation succeeded:", showcaseRunScript, StringComparison.Ordinal);
+        Assert.Contains("logical_width=760", showcaseRunScript, StringComparison.Ordinal);
+        Assert.Contains("logical_height=560", showcaseRunScript, StringComparison.Ordinal);
+        Assert.Contains("ProGPU WPF Showcase live geometry validation succeeded", showcaseRunScript, StringComparison.Ordinal);
         Assert.Contains("<Project Sdk=\"LibreWPF.Sdk/0.1.0-preview.45\">", scichartProject, StringComparison.Ordinal);
         Assert.Contains("<TargetFramework>$(ProGpuWpfSdkSampleTargetFramework)</TargetFramework>", scichartProject, StringComparison.Ordinal);
         Assert.Contains("<UseWPF>true</UseWPF>", scichartProject, StringComparison.Ordinal);
@@ -14074,8 +14590,8 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("<PackageReference Include=\"SciChart3D\" Version=\"$(RealSciChartPackageVersion)\" />", scichartProject, StringComparison.Ordinal);
         Assert.Contains("StartupUri=\"MainWindow.xaml\"", scichartAppXaml, StringComparison.Ordinal);
         Assert.Contains("PROGPU_WPF_SCICHART_VALIDATE", scichartAppCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("RealSciChartMvp.ConfigureRuntimeLicenseFromEnvironment()", scichartAppCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("var realSciChartResult = RealSciChartMvp.Create()", scichartAppCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("SciChartApplication.ConfigureRuntimeLicenseFromEnvironment()", scichartAppCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("var realSciChartResult = SciChartApplication.Create()", scichartAppCodeBehind, StringComparison.Ordinal);
         Assert.Contains("native runtime unavailable", scichartAppCodeBehind, StringComparison.Ordinal);
         Assert.Contains("NativeDependenciesPath", scichartAppCodeBehind, StringComparison.Ordinal);
         Assert.Contains("NativeExportSummary", scichartAppCodeBehind, StringComparison.Ordinal);
@@ -14085,7 +14601,7 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("ValidateRunningApplication", scichartAppCodeBehind, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"ChartImage\"", scichartMainWindowXaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"RealSciChartHost\"", scichartMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("ProGPU WPF SciChart MVP", scichartMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("ProGPU WPF SciChart Showcase", scichartMainWindowXaml, StringComparison.Ordinal);
         Assert.Contains("ValidateRenderedChart", scichartMainWindowCodeBehind, StringComparison.Ordinal);
         Assert.Contains("AttachRealSciChartPackageSurface", scichartMainWindowCodeBehind, StringComparison.Ordinal);
         Assert.Contains("NativeDependenciesPath", scichartMainWindowCodeBehind, StringComparison.Ordinal);
@@ -14093,53 +14609,53 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("NativeExportSummary", scichartMainWindowCodeBehind, StringComparison.Ordinal);
         Assert.Contains("NativeFacadeSummary", scichartMainWindowCodeBehind, StringComparison.Ordinal);
         Assert.Contains("NativeResolverSummary", scichartMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("XyDataSeries<double, double>", scichartRealMvp, StringComparison.Ordinal);
-        Assert.Contains("XyzDataSeries3D<double>", scichartRealMvp, StringComparison.Ordinal);
-        Assert.Contains("SCICHART_RUNTIME_LICENSE_KEY", scichartRealMvp, StringComparison.Ordinal);
-        Assert.Contains("PROGPU_WPF_SCICHART_NATIVE_DEPENDENCIES_ROOT", scichartRealMvp, StringComparison.Ordinal);
-        Assert.Contains("NativeDllLoader.DependenciesPathRoot", scichartRealMvp, StringComparison.Ordinal);
-        Assert.Contains("SciChartSurface.SetRuntimeLicenseKey(key)", scichartRealMvp, StringComparison.Ordinal);
-        Assert.Contains("RealSciChartLicenseStatus", scichartRealMvp, StringComparison.Ordinal);
-        Assert.Contains("NativeDependenciesPath", scichartRealMvp, StringComparison.Ordinal);
-        Assert.Contains("NativeDependenciesFailure", scichartRealMvp, StringComparison.Ordinal);
-        Assert.Contains("NativeDependencySummary", scichartRealMvp, StringComparison.Ordinal);
-        Assert.Contains("NativeCompatibilitySummary", scichartRealMvp, StringComparison.Ordinal);
-        Assert.Contains("NativeExportSummary", scichartRealMvp, StringComparison.Ordinal);
-        Assert.Contains("NativeFacadeSummary", scichartRealMvp, StringComparison.Ordinal);
-        Assert.Contains("NativeResolverSummary", scichartRealMvp, StringComparison.Ordinal);
-        Assert.Contains("ProGpuDirectXNativeDependencyInspector.Inspect", scichartRealMvp, StringComparison.Ordinal);
-        Assert.Contains("ProGpuDirectXNativeCompatibilityPlanner.Create", scichartRealMvp, StringComparison.Ordinal);
-        Assert.Contains("ProGpuDirectXNativeAbiPlanner.Create", scichartRealMvp, StringComparison.Ordinal);
-        Assert.Contains("ProGpuDirectXNativeFacadeSourceEmitter.Emit", scichartRealMvp, StringComparison.Ordinal);
-        Assert.Contains("abiPlan.DescribeActionableExports(maxExportsPerModule: 8)", scichartRealMvp, StringComparison.Ordinal);
-        Assert.Contains("facadeSource.DescribeSupport()", scichartRealMvp, StringComparison.Ordinal);
-        Assert.Contains("ProGpuDirectXNativeResolverOptions.FromEnvironment()", scichartRealMvp, StringComparison.Ordinal);
-        Assert.Contains("ProGpuDirectXNativeResolver.RegisterAnchorTypes", scichartRealMvp, StringComparison.Ordinal);
-        Assert.Contains("plan.DescribeRequiredActions()", scichartRealMvp, StringComparison.Ordinal);
-        Assert.Contains("typeof(NativeDllLoader)", scichartRealMvp, StringComparison.Ordinal);
-        Assert.Contains("typeof(SciChart.Data.Model.DoubleRange)", scichartRealMvp, StringComparison.Ordinal);
-        Assert.Contains("typeof(SciChart.Drawing.Common.IRenderSurface)", scichartRealMvp, StringComparison.Ordinal);
-        Assert.Contains("typeof(SciChartSurface)", scichartRealMvp, StringComparison.Ordinal);
-        Assert.Contains("typeof(SciChart3DSurface)", scichartRealMvp, StringComparison.Ordinal);
-        Assert.Contains("SciChartAssemblyAnchorTypes", scichartRealMvp, StringComparison.Ordinal);
-        Assert.Contains("CreateNativeModuleHints()", scichartRealMvp, StringComparison.Ordinal);
-        Assert.Contains("ProGpuDirectXNativeDependencyInspector.CreateModuleHintsFromAssemblyImages", scichartRealMvp, StringComparison.Ordinal);
-        Assert.Contains("ProGpuDirectXNativeResolver.RegisterAnchorTypes", scichartRealMvp, StringComparison.Ordinal);
-        Assert.Contains("KnownSciChartNativeModules", scichartRealMvp, StringComparison.Ordinal);
-        Assert.Contains("NativeDllLoader.DependenciesPathRoot = path", scichartRealMvp, StringComparison.Ordinal);
-        Assert.DoesNotContain("using System.Reflection", scichartRealMvp, StringComparison.Ordinal);
-        Assert.DoesNotContain("System.Reflection.Assembly", scichartRealMvp, StringComparison.Ordinal);
-        Assert.DoesNotContain("Assembly.Load", scichartRealMvp, StringComparison.Ordinal);
-        Assert.DoesNotContain("BindingFlags", scichartRealMvp, StringComparison.Ordinal);
-        Assert.DoesNotContain("Type.GetType", scichartRealMvp, StringComparison.Ordinal);
-        Assert.DoesNotContain("GetType()", scichartRealMvp, StringComparison.Ordinal);
-        Assert.DoesNotContain("GetProperty(", scichartRealMvp, StringComparison.Ordinal);
-        Assert.Contains("SciChart3DBridgeSnapshotRenderer.CreateSamplePoints(SampleCount)", scichartRealMvp, StringComparison.Ordinal);
-        Assert.Contains("SciChart3DBridgeSnapshotRenderer.Render(bridgePoints3D)", scichartRealMvp, StringComparison.Ordinal);
-        Assert.Contains("Expected real SciChart 3D package data to render through the ProGPU DirectX/WebGPU bridge.", scichartRealMvp, StringComparison.Ordinal);
-        Assert.Contains("FastLineRenderableSeries", scichartRealMvp, StringComparison.Ordinal);
-        Assert.Contains("PointLineRenderableSeries3D", scichartRealMvp, StringComparison.Ordinal);
-        Assert.Contains("AbtLicensingNative", scichartRealMvp, StringComparison.Ordinal);
+        Assert.Contains("XyDataSeries<double, double>", scichartRealShowcase, StringComparison.Ordinal);
+        Assert.Contains("XyzDataSeries3D<double>", scichartRealShowcase, StringComparison.Ordinal);
+        Assert.Contains("SCICHART_RUNTIME_LICENSE_KEY", scichartRealShowcase, StringComparison.Ordinal);
+        Assert.Contains("PROGPU_WPF_SCICHART_NATIVE_DEPENDENCIES_ROOT", scichartRealShowcase, StringComparison.Ordinal);
+        Assert.Contains("NativeDllLoader.DependenciesPathRoot", scichartRealShowcase, StringComparison.Ordinal);
+        Assert.Contains("SciChartSurface.SetRuntimeLicenseKey(key)", scichartRealShowcase, StringComparison.Ordinal);
+        Assert.Contains("RealSciChartLicenseStatus", scichartRealShowcase, StringComparison.Ordinal);
+        Assert.Contains("NativeDependenciesPath", scichartRealShowcase, StringComparison.Ordinal);
+        Assert.Contains("NativeDependenciesFailure", scichartRealShowcase, StringComparison.Ordinal);
+        Assert.Contains("NativeDependencySummary", scichartRealShowcase, StringComparison.Ordinal);
+        Assert.Contains("NativeCompatibilitySummary", scichartRealShowcase, StringComparison.Ordinal);
+        Assert.Contains("NativeExportSummary", scichartRealShowcase, StringComparison.Ordinal);
+        Assert.Contains("NativeFacadeSummary", scichartRealShowcase, StringComparison.Ordinal);
+        Assert.Contains("NativeResolverSummary", scichartRealShowcase, StringComparison.Ordinal);
+        Assert.Contains("ProGpuDirectXNativeDependencyInspector.Inspect", scichartRealShowcase, StringComparison.Ordinal);
+        Assert.Contains("ProGpuDirectXNativeCompatibilityPlanner.Create", scichartRealShowcase, StringComparison.Ordinal);
+        Assert.Contains("ProGpuDirectXNativeAbiPlanner.Create", scichartRealShowcase, StringComparison.Ordinal);
+        Assert.Contains("ProGpuDirectXNativeFacadeSourceEmitter.Emit", scichartRealShowcase, StringComparison.Ordinal);
+        Assert.Contains("abiPlan.DescribeActionableExports(maxExportsPerModule: 8)", scichartRealShowcase, StringComparison.Ordinal);
+        Assert.Contains("facadeSource.DescribeSupport()", scichartRealShowcase, StringComparison.Ordinal);
+        Assert.Contains("ProGpuDirectXNativeResolverOptions.FromEnvironment()", scichartRealShowcase, StringComparison.Ordinal);
+        Assert.Contains("ProGpuDirectXNativeResolver.RegisterAnchorTypes", scichartRealShowcase, StringComparison.Ordinal);
+        Assert.Contains("plan.DescribeRequiredActions()", scichartRealShowcase, StringComparison.Ordinal);
+        Assert.Contains("typeof(NativeDllLoader)", scichartRealShowcase, StringComparison.Ordinal);
+        Assert.Contains("typeof(SciChart.Data.Model.DoubleRange)", scichartRealShowcase, StringComparison.Ordinal);
+        Assert.Contains("typeof(SciChart.Drawing.Common.IRenderSurface)", scichartRealShowcase, StringComparison.Ordinal);
+        Assert.Contains("typeof(SciChartSurface)", scichartRealShowcase, StringComparison.Ordinal);
+        Assert.Contains("typeof(SciChart3DSurface)", scichartRealShowcase, StringComparison.Ordinal);
+        Assert.Contains("SciChartAssemblyAnchorTypes", scichartRealShowcase, StringComparison.Ordinal);
+        Assert.Contains("CreateNativeModuleHints()", scichartRealShowcase, StringComparison.Ordinal);
+        Assert.Contains("ProGpuDirectXNativeDependencyInspector.CreateModuleHintsFromAssemblyImages", scichartRealShowcase, StringComparison.Ordinal);
+        Assert.Contains("ProGpuDirectXNativeResolver.RegisterAnchorTypes", scichartRealShowcase, StringComparison.Ordinal);
+        Assert.Contains("KnownSciChartNativeModules", scichartRealShowcase, StringComparison.Ordinal);
+        Assert.Contains("NativeDllLoader.DependenciesPathRoot = path", scichartRealShowcase, StringComparison.Ordinal);
+        Assert.DoesNotContain("using System.Reflection", scichartRealShowcase, StringComparison.Ordinal);
+        Assert.DoesNotContain("System.Reflection.Assembly", scichartRealShowcase, StringComparison.Ordinal);
+        Assert.DoesNotContain("Assembly.Load", scichartRealShowcase, StringComparison.Ordinal);
+        Assert.DoesNotContain("BindingFlags", scichartRealShowcase, StringComparison.Ordinal);
+        Assert.DoesNotContain("Type.GetType", scichartRealShowcase, StringComparison.Ordinal);
+        Assert.DoesNotContain("GetType()", scichartRealShowcase, StringComparison.Ordinal);
+        Assert.DoesNotContain("GetProperty(", scichartRealShowcase, StringComparison.Ordinal);
+        Assert.Contains("SciChart3DBridgeSnapshotRenderer.CreateSamplePoints(SampleCount)", scichartRealShowcase, StringComparison.Ordinal);
+        Assert.Contains("SciChart3DBridgeSnapshotRenderer.Render(bridgePoints3D)", scichartRealShowcase, StringComparison.Ordinal);
+        Assert.Contains("Expected real SciChart 3D package data to render through the ProGPU DirectX/WebGPU bridge.", scichartRealShowcase, StringComparison.Ordinal);
+        Assert.Contains("FastLineRenderableSeries", scichartRealShowcase, StringComparison.Ordinal);
+        Assert.Contains("PointLineRenderableSeries3D", scichartRealShowcase, StringComparison.Ordinal);
+        Assert.Contains("AbtLicensingNative", scichartRealShowcase, StringComparison.Ordinal);
         Assert.Contains("ProGpuDirectXSciChartRenderContext2D", scichartRenderer, StringComparison.Ordinal);
         Assert.Contains("ProGpuDirectXSciChartRenderContext3D", scichartRenderer, StringComparison.Ordinal);
         Assert.Contains("DrawShapedHeatmap", scichartRenderer, StringComparison.Ordinal);
@@ -14176,13 +14692,13 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("PROGPU_WPF_SCICHART_VALIDATE=1", scichartReadme, StringComparison.Ordinal);
         Assert.Contains("PROGPU_WPF_SCICHART_REAL_PACKAGES=1", scichartReadme, StringComparison.Ordinal);
         Assert.Contains("sdk_sample_target_framework=\"${PROGPU_WPF_SDK_SAMPLE_TARGET_FRAMEWORK:-net10.0-windows}\"", scichartRunScript, StringComparison.Ordinal);
-        Assert.Contains("scichart_output=\"${repo_root}/artifacts/bin/ProGPU.Wpf.SciChartMvpApp/Debug/${sdk_sample_target_framework}\"", scichartRunScript, StringComparison.Ordinal);
-        Assert.Contains("apphost_name=\"ProGPU.Wpf.SciChartMvpApp\"", scichartRunScript, StringComparison.Ordinal);
+        Assert.Contains("scichart_output=\"${repo_root}/artifacts/bin/ProGPU.Wpf.SciChartApp/Debug/${sdk_sample_target_framework}\"", scichartRunScript, StringComparison.Ordinal);
+        Assert.Contains("apphost_name=\"ProGPU.Wpf.SciChartApp\"", scichartRunScript, StringComparison.Ordinal);
         Assert.Contains("PROGPU_WPF_SCICHART_REAL_PACKAGES", scichartRunScript, StringComparison.Ordinal);
         Assert.Contains("-p:ProGpuWpfUseRealSciChartPackages=true", scichartRunScript, StringComparison.Ordinal);
         Assert.Contains("directx_package=\"${package_output}/ProGPU.DirectX.0.1.0-preview.62.nupkg\"", scichartRunScript, StringComparison.Ordinal);
         Assert.Contains("! -f \"${directx_package}\"", scichartRunScript, StringComparison.Ordinal);
-        Assert.Contains("\"${repo_root}/artifacts/nuget/ProGPU.Wpf.SciChartMvpApp\"", scichartRunScript, StringComparison.Ordinal);
+        Assert.Contains("\"${repo_root}/artifacts/nuget/ProGPU.Wpf.SciChartApp\"", scichartRunScript, StringComparison.Ordinal);
         Assert.Contains("public static class ProGpuDirectXNativeDependencyInspector", proGpuDirectXNativeDependencyInspector, StringComparison.Ordinal);
         Assert.Contains("CreateReport(", proGpuDirectXNativeDependencyInspector, StringComparison.Ordinal);
         Assert.Contains("CreateModuleHintsFromText", proGpuDirectXNativeDependencyInspector, StringComparison.Ordinal);
@@ -14372,36 +14888,36 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("texture_storage_2d", proGpuDirectXHlslTranslator, StringComparison.Ordinal);
         Assert.Contains("MapStorageTextureFormat", proGpuDirectXHlslTranslator, StringComparison.Ordinal);
         Assert.Contains("could not create a pipeline-compatible bind group. Bindings:", proGpuDirectXDeviceContext, StringComparison.Ordinal);
-        Assert.Contains("ValidateRequiredLiveMvpAsync", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ValidateLiveNativeResizeAsync", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("LiveValidationStatusPathEnvironmentVariable", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("WriteLiveValidationStatus", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ProGPU WPF MVP live input validation details:", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("Console.Out.Flush();", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("SetLiveNativeWindowSize(liveHost, 900, 640)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("NativeResizeGeometryIsReady(", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ComputeExpectedPixelSize(requestedWidth, geometry.DpiScale)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ComputeExpectedLogicalSize(requestedWidth, geometry.DpiScale)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("matchesLogicalRequest || matchesFramebufferRequest", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("Expected MVP live native resize to reach requested client size", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("AssertLiveClose(18.0, LastInputThumbDragDeltaHorizontalChange", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("AssertLiveContains(\"Dragged \", Require<TextBlock>(inputDragStatusText", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("AssertEqual(false, LastInputThumbDragCompletedCanceled", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.DoesNotContain("AssertEqual(\"Dragged 18, 12\"", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.DoesNotContain("LastInputThumbDragCompletedHorizontalChange, 1.25", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("liveHost.SetClientSize(width, height)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("native resize relaid out WPF content", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("WaitForLiveInputPresentedFrameAsync", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("LivePresentedFrameContentChanged(previousFrame, currentFrame)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("presented ProGPU frame scene", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"AddItemButton\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("ProGpuWpfDiagnostics.TryGetWindowHost(this, out var liveHost)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ProGpuWpfDiagnostics.TryRequestRender(liveHost)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ProGpuWpfDiagnostics.TryWakeNativeLoop(liveHost)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ProGpuWpfDiagnostics.TryGetRenderSchedulerWakeupCount(liveHost, out var wakeupCount)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ProGpuWpfDiagnostics.TryGetRenderSurfaceGeometry(liveHost, out var geometry)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ProGpuWpfDiagnostics.TryRaiseInput(liveHost, input)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("new WpfInputEventArgs(", mvpMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ValidateRequiredLiveShowcaseAsync", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ValidateLiveNativeResizeAsync", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("LiveValidationStatusPathEnvironmentVariable", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("WriteLiveValidationStatus", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ProGPU WPF Showcase live input validation details:", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("Console.Out.Flush();", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("SetLiveNativeWindowSize(liveHost, 900, 640)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("NativeResizeGeometryIsReady(", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ComputeExpectedPixelSize(requestedWidth, geometry.DpiScale)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ComputeExpectedLogicalSize(requestedWidth, geometry.DpiScale)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("matchesLogicalRequest || matchesFramebufferRequest", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("Expected Showcase live native resize to reach requested client size", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("AssertLiveClose(18.0, LastInputThumbDragDeltaHorizontalChange", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("AssertLiveContains(\"Dragged \", Require<TextBlock>(inputDragStatusText", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("AssertEqual(false, LastInputThumbDragCompletedCanceled", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.DoesNotContain("AssertEqual(\"Dragged 18, 12\"", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.DoesNotContain("LastInputThumbDragCompletedHorizontalChange, 1.25", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("liveHost.SetClientSize(width, height)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("native resize relaid out WPF content", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("WaitForLiveInputPresentedFrameAsync", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("LivePresentedFrameContentChanged(previousFrame, currentFrame)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("presented ProGPU frame scene", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"AddItemButton\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("ProGpuWpfDiagnostics.TryGetWindowHost(this, out var liveHost)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ProGpuWpfDiagnostics.TryRequestRender(liveHost)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ProGpuWpfDiagnostics.TryWakeNativeLoop(liveHost)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ProGpuWpfDiagnostics.TryGetRenderSchedulerWakeupCount(liveHost, out var wakeupCount)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ProGpuWpfDiagnostics.TryGetRenderSurfaceGeometry(liveHost, out var geometry)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ProGpuWpfDiagnostics.TryRaiseInput(liveHost, input)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("new WpfInputEventArgs(", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
         Assert.Contains("ISilkNetWpfInputContextProvider", proGpuWpfInputService, StringComparison.Ordinal);
         Assert.Contains("TryGetInputContext(object window", proGpuWpfInputService, StringComparison.Ordinal);
         Assert.Contains("var mouseSubscriptions = new Dictionary<SilkInput.IMouse, Action>();", proGpuWpfInputService, StringComparison.Ordinal);
@@ -14424,83 +14940,83 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("for (var i = 0; i < mice.Count; i++)", proGpuWpfCursorService, StringComparison.Ordinal);
         Assert.DoesNotContain("foreach (var mouse in inputContext.Mice)", proGpuWpfCursorService, StringComparison.Ordinal);
         Assert.Contains("inputContextProvider.TryGetInputContext(_window", proGpuWpfWindowHost, StringComparison.Ordinal);
-        Assert.Contains("RaiseHostInput(liveHost, WpfInputEventKind.MouseDown", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("RaiseHostInput(liveHost, WpfInputEventKind.TextInput", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("RaiseHostInput(liveHost, WpfInputEventKind.KeyDown, key: \"LeftCtrl\", modifiers: WpfInputModifiers.Control)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("RaiseHostInput(liveHost, WpfInputEventKind.KeyDown, key: \"R\", modifiers: WpfInputModifiers.Control)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("RaiseHostInput(liveHost, WpfInputEventKind.KeyUp, key: \"R\", modifiers: WpfInputModifiers.Control)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("RaiseHostInput(liveHost, WpfInputEventKind.KeyUp, key: \"LeftCtrl\")", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ValidateLiveControlMouseInputAsync", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("TryRaiseLiveMouseClick(", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("\"AddItemButton\"", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("MVP live Add item Button command item count", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("MVP live Actions CheckBox disabled view-model state", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("Add item Button and Actions CheckBox mouse clicks updated WPF command/binding state", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"MvpTitleText\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("ValidateLiveMouseBindingAsync", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("MVP live routed MouseBinding command refresh count", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("DescribeLiveMouseBindingEvent", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("LeftDoubleClick MouseBinding routed command through host mouse input", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ValidateLiveDiscreteInputControlsAsync", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("discrete input controls tab activation", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("\"RenderingRadioButton\"", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("\"InputRepeatButton\"", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("RadioButton group selection and RepeatButton click updated through host mouse input", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ValidateLiveToolBarInputAsync", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("\"ToolBarRefreshButton\"", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("\"ToolBarToggleButton\"", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("MVP live ToolBar refresh command count", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ToolBar refresh command and toggle binding updated through host mouse input", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ValidateLivePopupSurfacesAsync", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ProGpuWpfDiagnostics.TryGetCompositionLayerSnapshot(liveHost, out var composition)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ProGpuWpfDiagnostics.TryGetPortablePopupSnapshot(", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("IsLivePopupSurfaceSnapshotReady(", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("Menu, ComboBox dropdown, and direct Popup opened through ProGPU popup surfaces", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("MouseWheel=\"OnSelectorScrollViewerMouseWheel\"", mvpMainWindowXaml, StringComparison.Ordinal);
-        Assert.Contains("SelectorScrollViewer.AddHandler(MouseWheelEvent", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ValidateLiveWheelAndCaptureInputAsync", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("RaiseHostInput(liveHost, WpfInputEventKind.MouseWheel", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("deltaY: -1.0", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("MVP live ScrollViewer MouseWheel delta", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("TryRaiseLiveThumbDrag(", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("input Thumb tab activation", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("target.BringIntoView();", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("hit == null || !IsInputElementWithinTarget(hit, target)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("BringIntoViewDelta=({layoutDeltaX:0.###}, {layoutDeltaY:0.###})", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("IsMouseOver={target.IsMouseOver}", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("!ReferenceEquals(Mouse.Captured, target)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("InputThumbDragStartedCount <= startedBefore", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("InputThumbDragDeltaCount <= deltaBefore", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("InputBubbledThumbDragDeltaCount <= bubbledDeltaBefore", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("InputThumbDragCompletedCount > completedBefore", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("MouseUp cleanup after incomplete drag start", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("MouseUp cleanup after incomplete drag move", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("MVP live input Thumb mouse capture released", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("MouseWheel routed through SelectorScrollViewer and Thumb drag captured, moved, and released through host mouse input", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ValidateLiveKeyboardNavigationAsync", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("ValidateLivePerformanceAsync", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("PresentLivePerformanceFrameAsync", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("TryGetPerformanceSnapshot", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("TryGetMemorySnapshot", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("maximumSteadyStateGpuGrowthBytes", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("RaiseHostInput(liveHost, WpfInputEventKind.KeyDown, key: \"Tab\")", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("MVP live Tab focus moved to second target", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("Tab keyboard navigation cycled focus through live host input", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("AssertEqual(\"Live\", Require<TextBox>(textBox, \"MVP live input TextBox\").Text", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("AssertEqual(\"Live\", model.NewItemName", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("MVP live routed KeyBinding command refresh count", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("MVP live routed KeyBinding command status", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.DoesNotContain("TryGetPortableActivationHost", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.DoesNotContain("CreateWpfInputEventArgs", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.DoesNotContain("GetRequiredProperty(liveHost", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.DoesNotContain("GetRequiredProperty(frameState", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.DoesNotContain("InvokeRequired(liveHost", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.DoesNotContain("\"SilkWindow\"", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.DoesNotContain("Enum.Parse(modifiersType, modifiers)", mvpMainWindowCodeBehind, StringComparison.Ordinal);
-        Assert.Contains("\"./${apphost_name}\"", mvpRunScript, StringComparison.Ordinal);
-        Assert.DoesNotContain("run --project \"${mvp_project}\"", mvpRunScript, StringComparison.Ordinal);
-        Assert.Contains("if [[ \"${PROGPU_WPF_MVP_SKIP_BUILD:-0}\" != \"1\" ]]", mvpRunScript, StringComparison.Ordinal);
-        Assert.Contains("Expected prebuilt MVP apphost", mvpRunScript, StringComparison.Ordinal);
+        Assert.Contains("RaiseHostInput(liveHost, WpfInputEventKind.MouseDown", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("RaiseHostInput(liveHost, WpfInputEventKind.TextInput", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("RaiseHostInput(liveHost, WpfInputEventKind.KeyDown, key: \"LeftCtrl\", modifiers: WpfInputModifiers.Control)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("RaiseHostInput(liveHost, WpfInputEventKind.KeyDown, key: \"R\", modifiers: WpfInputModifiers.Control)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("RaiseHostInput(liveHost, WpfInputEventKind.KeyUp, key: \"R\", modifiers: WpfInputModifiers.Control)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("RaiseHostInput(liveHost, WpfInputEventKind.KeyUp, key: \"LeftCtrl\")", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ValidateLiveControlMouseInputAsync", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("TryRaiseLiveMouseClick(", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("\"AddItemButton\"", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("Showcase live Add item Button command item count", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("Showcase live Actions CheckBox disabled view-model state", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("Add item Button and Actions CheckBox mouse clicks updated WPF command/binding state", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ShowcaseTitleText\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("ValidateLiveMouseBindingAsync", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("Showcase live routed MouseBinding command refresh count", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("DescribeLiveMouseBindingEvent", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("LeftDoubleClick MouseBinding routed command through host mouse input", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ValidateLiveDiscreteInputControlsAsync", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("discrete input controls tab activation", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("\"RenderingRadioButton\"", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("\"InputRepeatButton\"", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("RadioButton group selection and RepeatButton click updated through host mouse input", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ValidateLiveToolBarInputAsync", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("\"ToolBarRefreshButton\"", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("\"ToolBarToggleButton\"", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("Showcase live ToolBar refresh command count", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ToolBar refresh command and toggle binding updated through host mouse input", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ValidateLivePopupSurfacesAsync", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ProGpuWpfDiagnostics.TryGetCompositionLayerSnapshot(liveHost, out var composition)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ProGpuWpfDiagnostics.TryGetPortablePopupSnapshot(", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("IsLivePopupSurfaceSnapshotReady(", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("Menu, ComboBox dropdown, and direct Popup opened through ProGPU popup surfaces", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("MouseWheel=\"OnSelectorScrollViewerMouseWheel\"", showcaseMainWindowXaml, StringComparison.Ordinal);
+        Assert.Contains("SelectorScrollViewer.AddHandler(MouseWheelEvent", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ValidateLiveWheelAndCaptureInputAsync", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("RaiseHostInput(liveHost, WpfInputEventKind.MouseWheel", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("deltaY: -1.0", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("Showcase live ScrollViewer MouseWheel delta", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("TryRaiseLiveThumbDrag(", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("target.BringIntoView();", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("hit == null || !IsInputElementWithinTarget(hit, target)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("BringIntoViewDelta=({layoutDeltaX:0.###}, {layoutDeltaY:0.###})", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("input Thumb tab activation", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("IsMouseOver={target.IsMouseOver}", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("!ReferenceEquals(Mouse.Captured, target)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("InputThumbDragStartedCount <= startedBefore", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("InputThumbDragDeltaCount <= deltaBefore", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("InputBubbledThumbDragDeltaCount <= bubbledDeltaBefore", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("InputThumbDragCompletedCount > completedBefore", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("MouseUp cleanup after incomplete drag start", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("MouseUp cleanup after incomplete drag move", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("Showcase live input Thumb mouse capture released", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("MouseWheel routed through SelectorScrollViewer and Thumb drag captured, moved, and released through host mouse input", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ValidateLiveKeyboardNavigationAsync", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ValidateLivePerformanceAsync", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("PresentLivePerformanceFrameAsync", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("TryGetPerformanceSnapshot", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("TryGetMemorySnapshot", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("maximumSteadyStateGpuGrowthBytes", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("RaiseHostInput(liveHost, WpfInputEventKind.KeyDown, key: \"Tab\")", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("Showcase live Tab focus moved to second target", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("Tab keyboard navigation cycled focus through live host input", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("AssertEqual(\"Live\", Require<TextBox>(textBox, \"Showcase live input TextBox\").Text", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("AssertEqual(\"Live\", model.NewItemName", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("Showcase live routed KeyBinding command refresh count", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("Showcase live routed KeyBinding command status", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.DoesNotContain("TryGetPortableActivationHost", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.DoesNotContain("CreateWpfInputEventArgs", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.DoesNotContain("GetRequiredProperty(liveHost", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.DoesNotContain("GetRequiredProperty(frameState", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.DoesNotContain("InvokeRequired(liveHost", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"SilkWindow\"", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.DoesNotContain("Enum.Parse(modifiersType, modifiers)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("\"./${apphost_name}\"", showcaseRunScript, StringComparison.Ordinal);
+        Assert.DoesNotContain("run --project \"${showcase_project}\"", showcaseRunScript, StringComparison.Ordinal);
+        Assert.Contains("if [[ \"${PROGPU_WPF_SHOWCASE_SKIP_BUILD:-0}\" != \"1\" ]]", showcaseRunScript, StringComparison.Ordinal);
+        Assert.Contains("Expected prebuilt Showcase apphost", showcaseRunScript, StringComparison.Ordinal);
         Assert.Contains("if [[ \"${PROGPU_WPF_HELLO_SKIP_BUILD:-0}\" != \"1\" ]]", helloRunScript, StringComparison.Ordinal);
         Assert.Contains("Expected prebuilt Hello apphost", helloRunScript, StringComparison.Ordinal);
         Assert.Contains("ValidateRequiredLiveHelloAsync", helloMainWindowCodeBehind, StringComparison.Ordinal);
@@ -14521,29 +15037,29 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("ProGPU WPF HelloApp live input validation succeeded:", helloRunScript, StringComparison.Ordinal);
         Assert.Contains("live_validation_line", helloRunScript, StringComparison.Ordinal);
         Assert.Contains("viewport_width != pixel_width", helloRunScript, StringComparison.Ordinal);
-        Assert.Contains("Building ProGPU WPF SDK packages before quickcheck", mvpQuickCheckScript, StringComparison.Ordinal);
-        Assert.Contains("PROGPU_WPF_MVP_REBUILD_PACKAGES=0", mvpQuickCheckScript, StringComparison.Ordinal);
-        Assert.Contains("PROGPU_WPF_MVP_VALIDATE=0", mvpQuickCheckScript, StringComparison.Ordinal);
-        Assert.Contains("PROGPU_WPF_MVP_RUN_VALIDATE=0", mvpQuickCheckScript, StringComparison.Ordinal);
-        Assert.Contains("PROGPU_WPF_MVP_LIVE_VALIDATE=0", mvpQuickCheckScript, StringComparison.Ordinal);
-        Assert.Contains("PROGPU_WPF_HELLO_RUN_VALIDATE=0", mvpQuickCheckScript, StringComparison.Ordinal);
-        Assert.Contains("PROGPU_WPF_HELLO_LIVE_VALIDATE=0", mvpQuickCheckScript, StringComparison.Ordinal);
-        Assert.Contains("\"${repo_root}/eng/progpu-wpf-sdk-ci.sh\"", mvpQuickCheckScript, StringComparison.Ordinal);
-        Assert.Contains("ProGPU.Wpf.SdkExternalSmokeHarness.csproj", mvpQuickCheckScript, StringComparison.Ordinal);
-        Assert.Contains("apphost_name()", mvpQuickCheckScript, StringComparison.Ordinal);
-        Assert.Contains("Building SDK-switch smoke app", mvpQuickCheckScript, StringComparison.Ordinal);
-        Assert.Contains("ProGPU.Wpf.SdkSwitchSmoke.csproj", mvpQuickCheckScript, StringComparison.Ordinal);
-        Assert.Contains("sdk_sample_target_framework=\"${PROGPU_WPF_SDK_SAMPLE_TARGET_FRAMEWORK:-net10.0-windows}\"", mvpQuickCheckScript, StringComparison.Ordinal);
-        Assert.Contains("sdk_switch_output=\"${repo_root}/artifacts/bin/ProGPU.Wpf.SdkSwitchSmoke/Debug/${sdk_sample_target_framework}\"", mvpQuickCheckScript, StringComparison.Ordinal);
-        Assert.Contains("PROGPU_WPF_SDK_SWITCH_LIVE_VALIDATE=1", mvpQuickCheckScript, StringComparison.Ordinal);
-        Assert.Contains("Running SDK-switch smoke apphost live input probe", mvpQuickCheckScript, StringComparison.Ordinal);
-        Assert.Contains("Running Hello SDK apphost Application.Run self-test", mvpQuickCheckScript, StringComparison.Ordinal);
-        Assert.Contains("PROGPU_WPF_HELLO_RUN_VALIDATE=1", mvpQuickCheckScript, StringComparison.Ordinal);
-        Assert.Contains("PROGPU_WPF_HELLO_LIVE_VALIDATE=1", mvpQuickCheckScript, StringComparison.Ordinal);
-        Assert.Contains("Running MVP SDK apphost Application.Run self-test", mvpQuickCheckScript, StringComparison.Ordinal);
-        Assert.Contains("PROGPU_WPF_MVP_RUN_VALIDATE=1", mvpQuickCheckScript, StringComparison.Ordinal);
-        Assert.Contains("PROGPU_WPF_MVP_LIVE_VALIDATE=1", mvpQuickCheckScript, StringComparison.Ordinal);
-        Assert.Contains("ProGPU WPF MVP quickcheck succeeded.", mvpQuickCheckScript, StringComparison.Ordinal);
+        Assert.Contains("Building ProGPU WPF SDK packages before quickcheck", showcaseQuickCheckScript, StringComparison.Ordinal);
+        Assert.Contains("PROGPU_WPF_SHOWCASE_REBUILD_PACKAGES=0", showcaseQuickCheckScript, StringComparison.Ordinal);
+        Assert.Contains("PROGPU_WPF_SHOWCASE_VALIDATE=0", showcaseQuickCheckScript, StringComparison.Ordinal);
+        Assert.Contains("PROGPU_WPF_SHOWCASE_RUN_VALIDATE=0", showcaseQuickCheckScript, StringComparison.Ordinal);
+        Assert.Contains("PROGPU_WPF_SHOWCASE_LIVE_VALIDATE=0", showcaseQuickCheckScript, StringComparison.Ordinal);
+        Assert.Contains("PROGPU_WPF_HELLO_RUN_VALIDATE=0", showcaseQuickCheckScript, StringComparison.Ordinal);
+        Assert.Contains("PROGPU_WPF_HELLO_LIVE_VALIDATE=0", showcaseQuickCheckScript, StringComparison.Ordinal);
+        Assert.Contains("\"${repo_root}/eng/progpu-wpf-sdk-ci.sh\"", showcaseQuickCheckScript, StringComparison.Ordinal);
+        Assert.Contains("ProGPU.Wpf.SdkExternalSmokeHarness.csproj", showcaseQuickCheckScript, StringComparison.Ordinal);
+        Assert.Contains("apphost_name()", showcaseQuickCheckScript, StringComparison.Ordinal);
+        Assert.Contains("Building SDK-switch smoke app", showcaseQuickCheckScript, StringComparison.Ordinal);
+        Assert.Contains("ProGPU.Wpf.SdkSwitchSmoke.csproj", showcaseQuickCheckScript, StringComparison.Ordinal);
+        Assert.Contains("sdk_sample_target_framework=\"${PROGPU_WPF_SDK_SAMPLE_TARGET_FRAMEWORK:-net10.0-windows}\"", showcaseQuickCheckScript, StringComparison.Ordinal);
+        Assert.Contains("sdk_switch_output=\"${repo_root}/artifacts/bin/ProGPU.Wpf.SdkSwitchSmoke/Debug/${sdk_sample_target_framework}\"", showcaseQuickCheckScript, StringComparison.Ordinal);
+        Assert.Contains("PROGPU_WPF_SDK_SWITCH_LIVE_VALIDATE=1", showcaseQuickCheckScript, StringComparison.Ordinal);
+        Assert.Contains("Running SDK-switch smoke apphost live input probe", showcaseQuickCheckScript, StringComparison.Ordinal);
+        Assert.Contains("Running Hello SDK apphost Application.Run self-test", showcaseQuickCheckScript, StringComparison.Ordinal);
+        Assert.Contains("PROGPU_WPF_HELLO_RUN_VALIDATE=1", showcaseQuickCheckScript, StringComparison.Ordinal);
+        Assert.Contains("PROGPU_WPF_HELLO_LIVE_VALIDATE=1", showcaseQuickCheckScript, StringComparison.Ordinal);
+        Assert.Contains("Running Showcase SDK apphost Application.Run self-test", showcaseQuickCheckScript, StringComparison.Ordinal);
+        Assert.Contains("PROGPU_WPF_SHOWCASE_RUN_VALIDATE=1", showcaseQuickCheckScript, StringComparison.Ordinal);
+        Assert.Contains("PROGPU_WPF_SHOWCASE_LIVE_VALIDATE=1", showcaseQuickCheckScript, StringComparison.Ordinal);
+        Assert.Contains("ProGPU WPF Showcase quickcheck succeeded.", showcaseQuickCheckScript, StringComparison.Ordinal);
 
         Assert.Contains("<_ProGpuWpfProjectUseWPF>$(UseWPF)</_ProGpuWpfProjectUseWPF>", sdkTargets, StringComparison.Ordinal);
         Assert.Contains("<_ProGpuWpfProjectUseWindowsForms>$(UseWindowsForms)</_ProGpuWpfProjectUseWindowsForms>", sdkTargets, StringComparison.Ordinal);
@@ -14570,7 +15086,7 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("<None Remove=\"**/*.xaml\"", portableProps, StringComparison.Ordinal);
         Assert.DoesNotContain("<PackageReference", portableProps, StringComparison.Ordinal);
 
-        Assert.Contains("<ProGpuWpfNet10SupportPackageVersion Condition=\"'$(ProGpuWpfNet10SupportPackageVersion)' == ''\">10.0.10</ProGpuWpfNet10SupportPackageVersion>", portableTargets, StringComparison.Ordinal);
+        Assert.Contains("<ProGpuWpfNet10SupportPackageVersion Condition=\"'$(ProGpuWpfNet10SupportPackageVersion)' == ''\">10.0.11</ProGpuWpfNet10SupportPackageVersion>", portableTargets, StringComparison.Ordinal);
         Assert.Contains("<ProGpuWpfSystemConfigurationConfigurationManagerVersion Condition=\"'$(ProGpuWpfSystemConfigurationConfigurationManagerVersion)' == '' And $(TargetFramework.StartsWith('net10.'))\">$(ProGpuWpfNet10SupportPackageVersion)</ProGpuWpfSystemConfigurationConfigurationManagerVersion>", portableTargets, StringComparison.Ordinal);
         Assert.Contains("<ProGpuWpfSystemFormatsNrbfVersion Condition=\"'$(ProGpuWpfSystemFormatsNrbfVersion)' == '' And $(TargetFramework.StartsWith('net10.'))\">$(ProGpuWpfNet10SupportPackageVersion)</ProGpuWpfSystemFormatsNrbfVersion>", portableTargets, StringComparison.Ordinal);
         Assert.Contains("<ProGpuWpfSystemIOPackagingVersion Condition=\"'$(ProGpuWpfSystemIOPackagingVersion)' == '' And $(TargetFramework.StartsWith('net10.'))\">$(ProGpuWpfNet10SupportPackageVersion)</ProGpuWpfSystemIOPackagingVersion>", portableTargets, StringComparison.Ordinal);
@@ -14639,6 +15155,7 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("<PackageReference Include=\"LibreWPF.ProGPU\" Version=\"$(ProGpuWpfPackageVersion)\" />", portableTargets, StringComparison.Ordinal);
         Assert.Contains("<PackageReference Include=\"LibreWPF.Interop\" Version=\"$(ProGpuPackageVersion)\" />", portableTargets, StringComparison.Ordinal);
         Assert.Contains("<PackageReference Include=\"ProGPU.Backend\" Version=\"$(ProGpuPackageVersion)\" />", portableTargets, StringComparison.Ordinal);
+        Assert.Contains("<PackageReference Include=\"ProGPU.Backend.Native\" Version=\"$(ProGpuPackageVersion)\" />", portableTargets, StringComparison.Ordinal);
         Assert.Contains("<PackageReference Include=\"ProGPU.DirectX\" Version=\"$(ProGpuPackageVersion)\" />", portableTargets, StringComparison.Ordinal);
         Assert.Contains("<PackageReference Include=\"ProGPU.Scene\" Version=\"$(ProGpuPackageVersion)\" />", portableTargets, StringComparison.Ordinal);
         Assert.Contains("<PackageReference Include=\"ProGPU.Vector\" Version=\"$(ProGpuPackageVersion)\" />", portableTargets, StringComparison.Ordinal);
@@ -14655,6 +15172,7 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("<Reference Include=\"PresentationFramework\" HintPath=\"$(_ProGpuWpfManagedReferenceRoot)PresentationFramework.dll\"", portableTargets, StringComparison.Ordinal);
         Assert.Contains("<Reference Include=\"ProGPU.Wpf\" HintPath=\"$(_ProGpuReferenceRoot)ProGPU.Wpf.dll\"", portableTargets, StringComparison.Ordinal);
         Assert.Contains("<Reference Include=\"ProGPU.Wpf.Interop\" HintPath=\"$(_ProGpuReferenceRoot)ProGPU.Wpf.Interop.dll\"", portableTargets, StringComparison.Ordinal);
+        Assert.Contains("<Reference Include=\"ProGPU.Backend.Native\" HintPath=\"$(_ProGpuReferenceRoot)ProGPU.Backend.Native.dll\"", portableTargets, StringComparison.Ordinal);
         Assert.Contains("<Reference Include=\"ProGPU.DirectX\" HintPath=\"$(_ProGpuReferenceRoot)ProGPU.DirectX.dll\"", portableTargets, StringComparison.Ordinal);
         Assert.Contains("<Reference Include=\"ProGPU.Compute\" HintPath=\"$(_ProGpuReferenceRoot)ProGPU.Compute.dll\"", portableTargets, StringComparison.Ordinal);
         Assert.Contains("<Reference Include=\"ProGPU.Transpiler\" HintPath=\"$(_ProGpuReferenceRoot)ProGPU.Transpiler.dll\"", portableTargets, StringComparison.Ordinal);
@@ -14678,6 +15196,7 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("$(ProGpuWpfClearMutablePackageOutputs)", portableTargets, StringComparison.Ordinal);
         Assert.Contains("<_ProGpuWpfSdkMutablePackageOutput Include=\"$(TargetDir)ProGPU.Wpf.dll\" />", portableTargets, StringComparison.Ordinal);
         Assert.Contains("<_ProGpuWpfSdkMutablePackageOutput Include=\"$(TargetDir)ProGPU.Wpf.Interop.dll\" />", portableTargets, StringComparison.Ordinal);
+        Assert.Contains("<_ProGpuWpfSdkMutablePackageOutput Include=\"$(TargetDir)ProGPU.Backend.Native.dll\" />", portableTargets, StringComparison.Ordinal);
         Assert.Contains("<_ProGpuWpfSdkMutablePackageOutput Include=\"$(TargetDir)ProGPU.DirectX.dll\" />", portableTargets, StringComparison.Ordinal);
         Assert.Contains("<_ProGpuWpfSdkMutablePackageOutput Include=\"$(TargetDir)ProGPU.Scene.dll\" />", portableTargets, StringComparison.Ordinal);
         Assert.Contains("<Delete Files=\"@(_ProGpuWpfSdkExistingMutablePackageOutput)\" />", portableTargets, StringComparison.Ordinal);
@@ -14754,7 +15273,7 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("if (global::System.OperatingSystem.IsWindows())", portableBootstrap, StringComparison.Ordinal);
         Assert.True(
             portableBootstrap.IndexOf("global::System.Windows.Forms.Integration.WindowsFormsHost.EnableWindowsFormsInterop();", StringComparison.Ordinal)
-                < portableBootstrap.IndexOf("if (global::System.OperatingSystem.IsWindows())", StringComparison.Ordinal),
+                < portableBootstrap.LastIndexOf("if (global::System.OperatingSystem.IsWindows())", StringComparison.Ordinal),
             "LibreWinForms interop must initialize before the Windows early return.");
         Assert.Contains("typeof(global::System.Windows.Application).Module.ModuleHandle", portableBootstrap, StringComparison.Ordinal);
         Assert.Contains("typeof(global::System.Windows.Clipboard).Module.ModuleHandle", portableBootstrap, StringComparison.Ordinal);
@@ -14809,7 +15328,8 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("_ProGpuWpfSdkSwitchClearMutablePackageCache", smokeDirectoryBuildProps, StringComparison.Ordinal);
         Assert.DoesNotContain("Condition=\"'$(MSBuildProjectName)' == 'ProGPU.Wpf.SdkSwitchSmoke'\"", smokeDirectoryBuildProps, StringComparison.Ordinal);
         Assert.Contains("<LibreWpfSdkSwitchPackageVersion>0.1.0-preview.45</LibreWpfSdkSwitchPackageVersion>", smokeDirectoryBuildProps, StringComparison.Ordinal);
-        Assert.Contains("<ProGpuWpfSdkSwitchPackageVersion>0.1.0-preview.62</ProGpuWpfSdkSwitchPackageVersion>", smokeDirectoryBuildProps, StringComparison.Ordinal);
+        Assert.Contains("<ProGpuWpfSdkSwitchPackageVersion Condition=\"'$(PROGPU_WPF_PROGPU_PACKAGE_VERSION)' != ''\">$(PROGPU_WPF_PROGPU_PACKAGE_VERSION)</ProGpuWpfSdkSwitchPackageVersion>", smokeDirectoryBuildProps, StringComparison.Ordinal);
+        Assert.Contains("<ProGpuWpfSdkSwitchPackageVersion Condition=\"'$(ProGpuWpfSdkSwitchPackageVersion)' == ''\">0.1.0-preview.62</ProGpuWpfSdkSwitchPackageVersion>", smokeDirectoryBuildProps, StringComparison.Ordinal);
         Assert.Contains("<ProGpuWpfLibreWinFormsPackageVersion Condition=\"'$(ProGpuWpfLibreWinFormsPackageVersion)' == ''\">0.1.0-preview.42</ProGpuWpfLibreWinFormsPackageVersion>", smokeDirectoryBuildProps, StringComparison.Ordinal);
         Assert.Contains("librewpf.progpu/$(LibreWpfSdkSwitchPackageVersion)", smokeDirectoryBuildProps, StringComparison.Ordinal);
         Assert.Contains("librewpf.interop/$(ProGpuWpfSdkSwitchPackageVersion)", smokeDirectoryBuildProps, StringComparison.Ordinal);
@@ -14835,7 +15355,8 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("_ProGpuWpfSdkSwitchClearMutablePackageCache", libraryDirectoryBuildProps, StringComparison.Ordinal);
         Assert.Contains("Condition=\"'$(MSBuildProjectName)' == 'ProGPU.Wpf.SdkSwitchSmoke'\"", libraryDirectoryBuildProps, StringComparison.Ordinal);
         Assert.Contains("<LibreWpfSdkSwitchPackageVersion>0.1.0-preview.45</LibreWpfSdkSwitchPackageVersion>", libraryDirectoryBuildProps, StringComparison.Ordinal);
-        Assert.Contains("<ProGpuWpfSdkSwitchPackageVersion>0.1.0-preview.62</ProGpuWpfSdkSwitchPackageVersion>", libraryDirectoryBuildProps, StringComparison.Ordinal);
+        Assert.Contains("<ProGpuWpfSdkSwitchPackageVersion Condition=\"'$(PROGPU_WPF_PROGPU_PACKAGE_VERSION)' != ''\">$(PROGPU_WPF_PROGPU_PACKAGE_VERSION)</ProGpuWpfSdkSwitchPackageVersion>", libraryDirectoryBuildProps, StringComparison.Ordinal);
+        Assert.Contains("<ProGpuWpfSdkSwitchPackageVersion Condition=\"'$(ProGpuWpfSdkSwitchPackageVersion)' == ''\">0.1.0-preview.62</ProGpuWpfSdkSwitchPackageVersion>", libraryDirectoryBuildProps, StringComparison.Ordinal);
         Assert.Contains("librewpf.progpu/$(LibreWpfSdkSwitchPackageVersion)", libraryDirectoryBuildProps, StringComparison.Ordinal);
         Assert.Contains("librewpf.interop/$(ProGpuWpfSdkSwitchPackageVersion)", libraryDirectoryBuildProps, StringComparison.Ordinal);
         Assert.Contains("progpu.scene/$(ProGpuWpfSdkSwitchPackageVersion)", libraryDirectoryBuildProps, StringComparison.Ordinal);
@@ -15976,7 +16497,7 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("for (var i = 0; i < values.Length; i++)", wpfResourceResolver, StringComparison.Ordinal);
         Assert.Contains("var value = values[i];", wpfResourceResolver, StringComparison.Ordinal);
         Assert.DoesNotContain("foreach (var value in values)", wpfResourceResolver, StringComparison.Ordinal);
-        Assert.Contains("TryGetGpuTexture(imageSource", proGpuWpfCommandSink, StringComparison.Ordinal);
+        Assert.Contains("TryRetainGpuTexture(", proGpuWpfCommandSink, StringComparison.Ordinal);
         Assert.DoesNotContain("bitmapSource.GpuTexture", proGpuWpfCommandSink, StringComparison.Ordinal);
         Assert.Contains("CanProvideGpuTexture(imageSource)", wpfResourceResolver, StringComparison.Ordinal);
         var wpfPooledRemovalBuffer = File.ReadAllText(FindRepoPath(
@@ -15990,6 +16511,8 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("RuntimeHelpers.IsReferenceOrContainsReferences<T>()", wpfPooledRemovalBuffer, StringComparison.Ordinal);
         Assert.Contains("&& CanProvideGpuTexture(mediaImageSource)", wpfBitmapSourceImageAdapter, StringComparison.Ordinal);
         Assert.Contains("imageSource is IProGpuTextureSource", wpfBitmapSourceImageAdapter, StringComparison.Ordinal);
+        Assert.Contains("imageSource is IProGpuTextureLeaseSource directSource", wpfBitmapSourceImageAdapter, StringComparison.Ordinal);
+        Assert.Contains("drawingContext.TryRetainTexture(", wpfBitmapSourceImageAdapter, StringComparison.Ordinal);
         Assert.Contains("BitmapSourceTextureCacheKey", wpfBitmapSourceImageAdapter, StringComparison.Ordinal);
         Assert.Contains("adapted.TryGet(context, cacheKey, out _)", wpfBitmapSourceImageAdapter, StringComparison.Ordinal);
         Assert.Contains(".Set(context, cacheKey, adaptedTexture)", wpfBitmapSourceImageAdapter, StringComparison.Ordinal);
@@ -16637,7 +17160,7 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("<TargetFrameworks>{ExternalAppTargetFramework}</TargetFrameworks>", externalSdkHarnessProgram, StringComparison.Ordinal);
         Assert.Contains("external library Windows target frameworks", externalSdkHarnessProgram, StringComparison.Ordinal);
         Assert.Contains("<EnableDefaultItems>false</EnableDefaultItems>", externalSdkHarnessProgram, StringComparison.Ordinal);
-        Assert.Contains("<Compile Include=\"**/*.cs\" />", externalSdkHarnessProgram, StringComparison.Ordinal);
+        Assert.Contains("<Compile Include=\"**/*.cs\" Exclude=\"$(DefaultItemExcludes);$(DefaultExcludesInProjectFolder)\" />", externalSdkHarnessProgram, StringComparison.Ordinal);
         Assert.Contains("<ApplicationDefinition Include=\"App.xaml\" />", externalSdkHarnessProgram, StringComparison.Ordinal);
         Assert.Contains("<Page Include=\"**/*.xaml\" Exclude=\"App.xaml\" />", externalSdkHarnessProgram, StringComparison.Ordinal);
         Assert.Contains("<None Include=\"App.config\" />", externalSdkHarnessProgram, StringComparison.Ordinal);
@@ -19117,7 +19640,7 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("System.Windows.PortableGeometryHitTestBufferOverride HitTestEllipseBoundsBufferOverride", presentationCoreRef, StringComparison.Ordinal);
         Assert.Contains("event System.EventHandler RenderRequested", presentationCoreRef, StringComparison.Ordinal);
         Assert.Contains("void SetClientOrigin(double x, double y) { }", presentationCoreRef, StringComparison.Ordinal);
-        Assert.Contains("internal sealed class PortablePresentationSource : PresentationSource, IPortablePresentationSourceHost, IDisposable", portableSource, StringComparison.Ordinal);
+        Assert.Contains("internal sealed class PortablePresentationSource : PresentationSource, IPortablePresentationSourceHost, IPortableDesktopGeometryHost, IPortableNativeCaretHost, IWin32Window, IDisposable", portableSource, StringComparison.Ordinal);
         Assert.Contains("private readonly PortableCompositionTarget _compositionTarget", portableSource, StringComparison.Ordinal);
         Assert.Contains("private readonly PortableKeyboardInputProvider _keyboardInputProvider", portableSource, StringComparison.Ordinal);
         Assert.Contains("private readonly PortableMouseInputProvider _mouseInputProvider", portableSource, StringComparison.Ordinal);
@@ -19417,7 +19940,8 @@ public sealed class WpfManagedProjectGraphTests
         {
             var candidate = Path.Combine(new[] { directory.FullName }.Concat(pathSegments).ToArray());
 
-            if (File.Exists(candidate))
+            if (File.Exists(Path.Combine(directory.FullName, "eng", "progpu-wpf-sdk-ci.sh"))
+                && (File.Exists(candidate) || Directory.Exists(candidate)))
             {
                 return candidate;
             }

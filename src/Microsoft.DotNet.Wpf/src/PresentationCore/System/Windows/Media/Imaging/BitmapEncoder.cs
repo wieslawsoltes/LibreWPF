@@ -318,8 +318,13 @@ namespace System.Windows.Media.Imaging
             VerifyAccess();
             EnsureBuiltIn();
 
-            if (!OperatingSystem.IsWindows() && ContainerFormat == MILGuidData.GUID_ContainerFormatBmp)
+            if (BitmapSource.UsesPortablePixelStorage)
             {
+                if (ContainerFormat != MILGuidData.GUID_ContainerFormatBmp)
+                {
+                    throw new PlatformNotSupportedException("Portable bitmap encoding currently supports BMP only.");
+                }
+
                 SavePortableBmp(stream);
                 return;
             }
@@ -555,6 +560,11 @@ namespace System.Windows.Media.Imaging
         /// </summary>
         private void EnsureUnmanagedEncoder()
         {
+            if (BitmapSource.UsesPortablePixelStorage)
+            {
+                throw new PlatformNotSupportedException("Portable bitmap encoders do not expose WIC codec services.");
+            }
+
             if (_encoderHandle == null)
             {
                 using (FactoryMaker myFactory = new FactoryMaker())
@@ -609,6 +619,11 @@ namespace System.Windows.Media.Imaging
         private static void WritePortableBmpFrame(System.IO.Stream stream, BitmapFrame frame)
         {
             ArgumentNullException.ThrowIfNull(frame);
+
+            if (frame._managedPixelBuffer == null)
+            {
+                throw new PlatformNotSupportedException("Portable BMP encoding requires frame-owned pixels.");
+            }
 
             int width = frame.PixelWidth;
             int height = frame.PixelHeight;

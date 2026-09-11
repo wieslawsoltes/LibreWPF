@@ -5,7 +5,9 @@ using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.ProGPU;
 using System.Windows.Media.ProGPU.Composition;
+using System.Windows.Media.ProGPU.Composition.Mil;
 using System.Windows.Media.ProGPU.Platform;
+using ProGPU.Backend.Native;
 using ProGPU.Vector;
 using ProGPU.Wpf.Interop;
 using Silk.NET.Maths;
@@ -16,12 +18,169 @@ using PortableVisualLayoutState = ProGPU.Wpf.Interop.PortableVisualLayoutState;
 using PortableVisualLayoutStateSource = ProGPU.Wpf.Interop.IPortableVisualLayoutStateSource;
 using ProGpuDrawingContext = ProGPU.Scene.DrawingContext;
 using ProGpuRenderCommandType = ProGPU.Scene.RenderCommandType;
+using WgpuContext = ProGPU.Backend.WgpuContext;
+using SurfaceGetCurrentTextureStatus = Silk.NET.WebGPU.SurfaceGetCurrentTextureStatus;
 
 namespace ProGPU.Wpf.Tests;
 
 [Collection(PortableRenderDataSinkProviderCollection.Name)]
 public sealed class ProGpuWpfWindowHostTests
 {
+    [Fact]
+    public void X11DialogHintLifetimePrecedesSourceCompletionHideAndDisposal()
+    {
+        string source = File.ReadAllText(FindRepoPath("src", "ProGPU.Wpf", "ProGpuWpfWindowHost.cs"));
+        Assert.Contains("_windowController?.Handle.Kind == NativeWindowKind.X11", source);
+        Assert.Contains("TryBeginModalHint(out _nativeDialogHint)", source);
+        Assert.Contains("finally { ReleaseNativeDialogHint(); }", source);
+        Assert.Contains("if (continueRunning != null) ReleaseNativeDialogHint();\n            DisposeDeferredNativeWindowIfNeeded();", source);
+        Assert.Contains("private void HideNativeWindowAfterModalRelease()\n    {\n        ReleaseNativeDialogHint();", source);
+        int release = source.IndexOf("internal void ReleaseNativeDialog(Action completed)", StringComparison.Ordinal);
+        int sourceCompletion = source.IndexOf("completed();", release, StringComparison.Ordinal);
+        int hintRelease = source.IndexOf("ReleaseNativeDialogHint();", release, StringComparison.Ordinal);
+        Assert.True(hintRelease > release && hintRelease < sourceCompletion);
+        Assert.Contains("ReleaseNativeDialogHint();\n        _portablePresentationSourceBridge?.ReleaseNativeCaret();\n        _isDisposed = true;", source);
+        // Native input-gate admission remains distinct from the advisory hint.
+        Assert.Contains("if (OperatingSystem.IsWindows() || NativeInputAllowedSetterOverride != null)", source);
+    }
+
+    [Fact]
+    public void NativeHideWaitsForModalReleaseAndRechecksCurrentVisibilityIntent()
+    {
+        string source = File.ReadAllText(FindRepoPath("src", "ProGPU.Wpf", "ProGpuWpfWindowHost.cs"));
+        int hideStart = source.IndexOf("public void Hide()", StringComparison.Ordinal);
+        int hideEnd = source.IndexOf("public void SetWindowState", hideStart, StringComparison.Ordinal);
+        string hide = source[hideStart..hideEnd];
+        Assert.Contains("HideNativeWindowAfterModalRelease();", hide);
+        Assert.Contains("if (_nativeHidePending) return;", hide);
+        Assert.Contains("NativeWindowModalSession.TryReleaseWindow(", hide);
+        Assert.Contains("CompleteDeferredNativeHide)) return;", hide);
+        Assert.Contains("if (!_isDisposed && !_isHostVisible) HideNativeWindowAfterModalRelease();", hide);
+        Assert.True(hide.IndexOf("TryReleaseWindow(", StringComparison.Ordinal) <
+            hide.IndexOf("_window.IsVisible = false;", StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData(ProGpuWpfRendererMode.ManagedPortable, SurfaceGetCurrentTextureStatus.Timeout)]
+    [InlineData(ProGpuWpfRendererMode.ManagedPortable, SurfaceGetCurrentTextureStatus.Outdated)]
+    [InlineData(ProGpuWpfRendererMode.ManagedPortable, SurfaceGetCurrentTextureStatus.Lost)]
+    [InlineData(ProGpuWpfRendererMode.NativeMilWgpu, SurfaceGetCurrentTextureStatus.Timeout)]
+    [InlineData(ProGpuWpfRendererMode.NativeMilWgpu, SurfaceGetCurrentTextureStatus.Outdated)]
+    [InlineData(ProGpuWpfRendererMode.NativeMilWgpu, SurfaceGetCurrentTextureStatus.Lost)]
+    public void SurfaceRetryPreservesUnpresentedWorkInBothRendererModes(
+        ProGpuWpfRendererMode rendererMode,
+        SurfaceGetCurrentTextureStatus status)
+    {
+        using var context = new WgpuContext();
+        var scheduler = new TestRenderScheduler();
+        using var host = new ProGpuWpfWindowHost(new ProGpuWpfWindowOptions { RendererMode = rendererMode })
+            { WpfRenderScheduler = scheduler };
+        var state = new ProGpuWpfFrameState(100, 50, 1, 2, 3);
+        host.RecordPresentedFrame(state);
+        host.RequestRenderAndWakeNativeLoop();
+        Assert.True(host.ConsumeScheduledRenderRequest());
+        // WPF may enqueue an otherwise wake-only tick while a frame is assembled.
+        host.RequestMediaContextRenderAndWakeNativeLoop(null, TimeSpan.Zero);
+        Assert.False(host.ShouldRenderFrame(state));
+
+        host.HandleSurfaceAcquisitionFailure(context, status);
+
+        Assert.Equal(TimeSpan.FromMilliseconds(16), scheduler.LastDelay);
+        Assert.True(host.ShouldRenderFrame(state));
+        Assert.Equal(1, host.PresentedFrameCount);
+        Assert.Equal(state, host.LastPresentedFrameState);
+        Assert.True(host.ConsumeScheduledRenderRequest());
+        Assert.False(host.ConsumeScheduledRenderRequest());
+    }
+
+    [Theory]
+    [InlineData(ProGpuWpfRendererMode.ManagedPortable)]
+    [InlineData(ProGpuWpfRendererMode.NativeMilWgpu)]
+    public void DeviceLossSchedulesRecoveryButOutOfMemoryRemainsTerminal(ProGpuWpfRendererMode rendererMode)
+    {
+        using var context = new WgpuContext();
+        var scheduler = new TestRenderScheduler();
+        using var host = new ProGpuWpfWindowHost(new ProGpuWpfWindowOptions { RendererMode = rendererMode })
+            { WpfRenderScheduler = scheduler };
+        Assert.Throws<OutOfMemoryException>(() =>
+            host.HandleSurfaceAcquisitionFailure(context, SurfaceGetCurrentTextureStatus.OutOfMemory));
+        Assert.Equal(0, scheduler.RequestCount);
+        host.HandleSurfaceAcquisitionFailure(context, SurfaceGetCurrentTextureStatus.DeviceLost);
+        Assert.True(context.IsDeviceLost);
+        Assert.Equal(1, scheduler.RequestCount);
+        Assert.True(host.ConsumeScheduledRenderRequest());
+        Assert.Equal(0, host.RenderDeviceRecoveryCount);
+        Assert.Equal(0, host.PresentedFrameCount);
+    }
+
+    [Fact]
+    public void DisposedHostDoesNotQueuePresentationRetries()
+    {
+        var scheduler = new TestRenderScheduler();
+        var host = new ProGpuWpfWindowHost { WpfRenderScheduler = scheduler };
+        host.Dispose();
+        Assert.False(host.RequestPresentationRetryAndWakeNativeLoop());
+        Assert.Equal(0, scheduler.RequestCount);
+    }
+
+    [Fact]
+    public void NativePopupHostInheritsRendererAndOwnerSurfaceAcceptsPopupRoots()
+    {
+        string popupSource = File.ReadAllText(FindRepoPath("src", "ProGPU.Wpf", "WpfPortableNativePopupHost.cs"));
+        Assert.Contains("RendererMode = ownerHost.RendererMode", popupSource);
+        Assert.Contains("SharedRenderDeviceOwner = ownerHost", popupSource);
+        Assert.DoesNotContain("SharedRenderDeviceContext = ownerHost.CompositionTarget?.Context", popupSource);
+        string ownerSource = File.ReadAllText(FindRepoPath("src", "ProGPU.Wpf", "ProGpuWpfWindowHost.cs"));
+        Assert.DoesNotContain("Native MIL mode does not yet compose portable popup roots.", ownerSource);
+        Assert.Contains("CaptureNativeMilPopupOverlays(_nativeMilPopupScratch)", ownerSource);
+        Assert.Contains("CollectionsMarshal.AsSpan(_nativeMilPopupScratch)", ownerSource);
+    }
+
+    [Fact]
+    public void NativeMilOwnerPopupSnapshotsTrackVisibilityPlacementAndRemoval()
+    {
+        var popup = new FakePortablePresentationSource { RootVisual = new object() };
+        using var factory = UsePortablePopupSourceFactory(() => popup);
+        using var host = new ProGpuWpfWindowHost(new ProGpuWpfWindowOptions
+            { RendererMode = ProGpuWpfRendererMode.NativeMilWgpu });
+        var owner = new FakePortablePresentationSource { RootVisual = new object() };
+        Assert.True(host.TryBindPortablePresentationSource(owner));
+        Assert.Equal(ProGpuWpfRendererMode.NativeMilWgpu, host.RendererMode);
+        var request = new PortablePopupCreateRequest(null, owner, owner.Handle,
+            popupScreenDeviceX: 24, popupScreenDeviceY: 32,
+            ownerClientScreenDeviceX: 4, ownerClientScreenDeviceY: 8,
+            isTransparent: true, isChildPopup: false);
+        Assert.True(host.TryCreatePortablePopup(request, out object? source));
+        var overlays = new List<WpfNativeMilVisualOverlay>();
+        host.CaptureNativeMilPopupOverlays(overlays);
+        Assert.Empty(overlays);
+        Assert.True(host.TrySetPortablePopupSize(source!, 100, 60));
+        Assert.True(host.TryShowPortablePopup(source!));
+        host.CaptureNativeMilPopupOverlays(overlays);
+        WpfNativeMilVisualOverlay overlay = Assert.Single(overlays);
+        Assert.Same(popup.RootVisual, overlay.Visual);
+        Assert.Equal((20.0, 24.0, 100.0, 60.0), (overlay.X, overlay.Y, overlay.Width, overlay.Height));
+        ulong version = host.NativeMilPopupVersion;
+        Assert.True(host.TrySetPortablePopupPosition(source!, 44, 58));
+        Assert.NotEqual(version, host.NativeMilPopupVersion);
+        host.CaptureNativeMilPopupOverlays(overlays);
+        Assert.Equal((40.0, 50.0), (overlays[0].X, overlays[0].Y));
+        version = host.NativeMilPopupVersion;
+        popup.RootVisual = new object();
+        Assert.NotEqual(version, host.NativeMilPopupVersion);
+        host.CaptureNativeMilPopupOverlays(overlays);
+        Assert.Same(popup.RootVisual, overlays[0].Visual);
+        Assert.True(host.TryHidePortablePopup(source!));
+        host.CaptureNativeMilPopupOverlays(overlays);
+        Assert.Empty(overlays);
+        Assert.True(host.TryShowPortablePopup(source!));
+        version = host.NativeMilPopupVersion;
+        Assert.True(host.TryDestroyPortablePopup(source!));
+        Assert.NotEqual(version, host.NativeMilPopupVersion);
+        host.CaptureNativeMilPopupOverlays(overlays);
+        Assert.Empty(overlays);
+    }
+
     [Fact]
     public void MemoryDiagnosticsSeparateManagedProcessAndTrackedGpuOwnership()
     {
@@ -261,6 +420,9 @@ public sealed class ProGpuWpfWindowHostTests
         var options = new ProGpuWpfWindowOptions();
 
         Assert.True(options.IsEventDriven);
+        Assert.Equal(
+            ProGpuWpfRendererMode.ManagedPortable,
+            options.RendererMode);
     }
 
     [Fact]
@@ -284,21 +446,37 @@ public sealed class ProGpuWpfWindowHostTests
             StringComparison.Ordinal);
 
         Assert.DoesNotContain("_window!.Run();", source, StringComparison.Ordinal);
-        Assert.Contains("RunPortableNativeLoop();", source, StringComparison.Ordinal);
-        Assert.Contains("private void RunPortableNativeLoop()", source, StringComparison.Ordinal);
+        Assert.Contains("RunPortableNativeLoop(continueRunning);", source, StringComparison.Ordinal);
+        Assert.Contains("private void RunPortableNativeLoop(Func<bool>? continueRunning = null)", source, StringComparison.Ordinal);
+        Assert.Contains("if (continueRunning != null && !continueRunning())", source, StringComparison.Ordinal);
+        Assert.Contains("RunCore(showActivated: false, showWindow: false, continueRunning);", source, StringComparison.Ordinal);
         Assert.Contains("while (ShouldKeepPortableNativeRunLoopAlive())", source, StringComparison.Ordinal);
         Assert.Contains("DoEvents();", source, StringComparison.Ordinal);
         Assert.Contains("if (!EnsureCompositionTargetLoaded() || !ShouldKeepPortableNativeRunLoopAlive())", source, StringComparison.Ordinal);
-        Assert.Contains("window.DoEvents();\n        }\n        finally\n        {\n            ProcessDeferredNativeWindowDisposals();", source, StringComparison.Ordinal);
+        Assert.Contains("window.IsEventDriven = false;", source, StringComparison.Ordinal);
+        Assert.Contains("window.DoEvents();\n            TraceNativeLoop(\"native event poll leaving:", source, StringComparison.Ordinal);
+        Assert.Contains("finally\n        {\n            if (useNonBlockingNativePoll)", source, StringComparison.Ordinal);
         Assert.True(doEventsMethodStart >= 0);
         Assert.True(nativeEventPoll > doEventsMethodStart);
         Assert.True(ownerDispatcherDrain > nativeEventPoll);
         Assert.Contains(
-            "if (!_usesExternalNativeLoopPump && PresentedFrameCount == 0)",
+            "if (pumpRenderBeforeEvents)\n        {\n            // Externally pumped popup windows",
             source,
             StringComparison.Ordinal);
         Assert.Contains(
-            "if (pumpExternalRenderBeforeEvents)\n        {\n            // Externally pumped popup windows",
+            "if (_usesExternalNativeLoopPump)\n            {\n                ProcessDispatcherQueueCore();",
+            source,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "owner loop must not drain WPF's self-rescheduling dispatcher",
+            source,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "RendererMode == ProGpuWpfRendererMode.NativeMilWgpu &&\n                !HasPresentedFrame",
+            source,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "native MIL cold-start dispatcher deferred",
             source,
             StringComparison.Ordinal);
         Assert.Contains("if (ShouldPumpNativeRender())", source, StringComparison.Ordinal);
@@ -358,6 +536,18 @@ public sealed class ProGpuWpfWindowHostTests
         using var host = new ProGpuWpfWindowHost();
 
         Assert.False(host.TryBeginDragMove());
+    }
+
+    [Fact]
+    public void SystemMenuDoesNotCreateAWindowAndRejectsDisposedHosts()
+    {
+        using var host = new ProGpuWpfWindowHost();
+        Assert.False(host.TryShowSystemMenu(-200, 40));
+        Assert.Null(host.SilkWindow);
+        host.Dispose();
+        Assert.Throws<ObjectDisposedException>(() => host.TryShowSystemMenu(-200, 40));
+        var platform = new SilkNetWpfWindowDecorationService();
+        Assert.False(platform.TryShowSystemMenu(new object(), -200, 40));
     }
 
     [Fact]
@@ -445,20 +635,43 @@ public sealed class ProGpuWpfWindowHostTests
     }
 
     [Theory]
-    [InlineData(true, true, true)]
-    [InlineData(true, false, false)]
-    [InlineData(false, true, false)]
-    [InlineData(false, false, false)]
-    public void ExternallyPumpedHostRendersPendingFrameBeforeNativeEvents(
+    [InlineData(true, true, true, true)]
+    [InlineData(true, true, false, false)]
+    [InlineData(true, false, false, true)]
+    [InlineData(false, false, true, true)]
+    [InlineData(false, false, false, true)]
+    [InlineData(false, true, true, false)]
+    public void ExternalOrColdStartHostRendersPendingFrameBeforeNativeEvents(
         bool usesExternalNativeLoopPump,
+        bool hasPresentedFrame,
         bool shouldPumpNativeRender,
         bool expected)
     {
         Assert.Equal(
             expected,
-            ProGpuWpfWindowHost.ShouldPumpExternalNativeRenderBeforeEvents(
+            ProGpuWpfWindowHost.ShouldPumpNativeRenderBeforeEvents(
                 usesExternalNativeLoopPump,
+                hasPresentedFrame,
                 shouldPumpNativeRender));
+    }
+
+    [Theory]
+    [InlineData(true, false, true, true)]
+    [InlineData(true, false, false, false)]
+    [InlineData(true, true, true, false)]
+    [InlineData(false, false, true, false)]
+    public void OwnerLoopUsesBoundedNonBlockingNativeEventPoll(
+        bool isNativeLoopRunning,
+        bool usesExternalNativeLoopPump,
+        bool isEventDriven,
+        bool expected)
+    {
+        Assert.Equal(
+            expected,
+            ProGpuWpfWindowHost.ShouldUseNonBlockingNativeEventPoll(
+                isNativeLoopRunning,
+                usesExternalNativeLoopPump,
+                isEventDriven));
     }
 
     [Theory]
@@ -677,6 +890,114 @@ public sealed class ProGpuWpfWindowHostTests
 
         Assert.True(host.ShouldRenderFrame(frameState));
         Assert.True(host.ConsumeScheduledRenderRequest());
+    }
+
+    [Fact]
+    public void NativeMilContinuationSchedulesDelayedPresentation()
+    {
+        var scheduler = new TestRenderScheduler();
+        using var host = new ProGpuWpfWindowHost
+        {
+            WpfRenderScheduler = scheduler
+        };
+        var frameState = new ProGpuWpfFrameState(100, 50, 1, 2, 3);
+        host.RecordPresentedFrame(frameState);
+        var request = new NativeMilSceneBuildRequest(
+            TargetHandle: 1,
+            SceneId: 2,
+            Generation: 3,
+            MonotonicTimeNanoseconds: 1_000_000_000,
+            RequestSerial: 4);
+        var result = new NativeMilSceneBuildResult(
+            NativeMilSceneBuildResultFlags.NeedsMoreCycles,
+            RequestSerial: 4,
+            NextDueTimeNanoseconds: 1_050_000_000,
+            StreamBytes: 5);
+
+        Assert.True(host.RequestNativeMilContinuationAndWakeNativeLoop(
+            request, result));
+
+        Assert.Equal(1, scheduler.RequestCount);
+        Assert.Equal(TimeSpan.FromMilliseconds(50), scheduler.LastDelay);
+        Assert.True(host.ShouldRenderFrame(frameState));
+        Assert.True(host.ConsumeScheduledRenderRequest());
+    }
+
+    [Fact]
+    public void CompletedNativeMilSceneDoesNotSchedulePresentation()
+    {
+        var scheduler = new TestRenderScheduler();
+        using var host = new ProGpuWpfWindowHost
+        {
+            WpfRenderScheduler = scheduler
+        };
+        var request = new NativeMilSceneBuildRequest(
+            TargetHandle: 1,
+            SceneId: 2,
+            Generation: 3,
+            MonotonicTimeNanoseconds: 1_000,
+            RequestSerial: 4);
+        var result = new NativeMilSceneBuildResult(
+            NativeMilSceneBuildResultFlags.None,
+            RequestSerial: 4,
+            NextDueTimeNanoseconds: 0,
+            StreamBytes: 5);
+
+        Assert.False(host.RequestNativeMilContinuationAndWakeNativeLoop(
+            request, result));
+        Assert.Equal(0, scheduler.RequestCount);
+    }
+
+    [Fact]
+    public void NativeMilContinuationRejectsMismatchedRequestSerial()
+    {
+        var scheduler = new TestRenderScheduler();
+        using var host = new ProGpuWpfWindowHost
+        {
+            WpfRenderScheduler = scheduler
+        };
+        var request = new NativeMilSceneBuildRequest(
+            TargetHandle: 1,
+            SceneId: 2,
+            Generation: 3,
+            MonotonicTimeNanoseconds: 1_000,
+            RequestSerial: 4);
+        var result = new NativeMilSceneBuildResult(
+            NativeMilSceneBuildResultFlags.NeedsMoreCycles,
+            RequestSerial: 5,
+            NextDueTimeNanoseconds: 2_000,
+            StreamBytes: 6);
+
+        Assert.Throws<ArgumentException>(() =>
+            host.RequestNativeMilContinuationAndWakeNativeLoop(
+                request, result));
+        Assert.Equal(0, scheduler.RequestCount);
+    }
+
+    [Fact]
+    public void NativeMilContinuationRejectsUnknownResultFlags()
+    {
+        var scheduler = new TestRenderScheduler();
+        using var host = new ProGpuWpfWindowHost
+        {
+            WpfRenderScheduler = scheduler
+        };
+        var request = new NativeMilSceneBuildRequest(
+            TargetHandle: 1,
+            SceneId: 2,
+            Generation: 3,
+            MonotonicTimeNanoseconds: 1_000,
+            RequestSerial: 4);
+        var result = new NativeMilSceneBuildResult(
+            (NativeMilSceneBuildResultFlags)(1U << 31),
+            RequestSerial: 4,
+            NextDueTimeNanoseconds: 2_000,
+            StreamBytes: 6);
+
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            host.RequestNativeMilContinuationAndWakeNativeLoop(
+                request, result));
+        Assert.Equal(0, scheduler.RequestCount);
     }
 
     [Fact]
@@ -1140,7 +1461,7 @@ public sealed class ProGpuWpfWindowHostTests
     }
 
     [Fact]
-    public void ResolveRenderSurfaceGeometryUsesFullRetinaViewportForMvpWindow()
+    public void ResolveRenderSurfaceGeometryUsesFullRetinaViewportForShowcaseWindow()
     {
         var geometry = ProGpuWpfWindowHost.ResolveRenderSurfaceGeometry(
             clientWidth: 760,
@@ -2080,6 +2401,154 @@ public sealed class ProGpuWpfWindowHostTests
         Assert.Equal(requestCountAfterReplacement, scheduler.RequestCount);
     }
 
+    [Theory]
+    [InlineData(ProGpuWpfRendererMode.ManagedPortable)]
+    [InlineData(ProGpuWpfRendererMode.NativeMilWgpu)]
+    public void RegisteredPopupServiceTracksHostLifetimeAndChildHostOptOut(ProGpuWpfRendererMode rendererMode)
+    {
+        using var factory = UsePortablePopupSourceFactory(() => new FakePortablePresentationSource());
+        using var host = new ProGpuWpfWindowHost(new ProGpuWpfWindowOptions { RendererMode = rendererMode });
+        var owner = new FakePortablePresentationSource { RootVisual = new object(), Handle = new IntPtr(101) };
+        Assert.True(host.TryBindPortablePresentationSource(owner));
+        Assert.True(PortableWpfServiceRegistry.TryGetPopupService(
+            PortableWpfServiceKey.PresentationFramework, out var service));
+        var request = new PortablePopupCreateRequest(null, owner, owner.Handle, 24, 32, false, false);
+        Assert.True(service!.TryCreatePopup(request, out var popup));
+        Assert.NotNull(popup);
+        Assert.True(service.TrySetPopupSize(popup!, 100, 60));
+        Assert.True(service.TryShowPopup(popup!));
+
+        // A separately surfaced popup host must not register another creator.
+        using var childHost = new ProGpuWpfWindowHost(new ProGpuWpfWindowOptions
+            { RendererMode = rendererMode, EnablePortablePopupService = false });
+        var childOwner = new FakePortablePresentationSource { RootVisual = new object(), Handle = new IntPtr(102) };
+        Assert.True(childHost.TryBindPortablePresentationSource(childOwner));
+        Assert.False(service.TryCreatePopup(
+            new PortablePopupCreateRequest(null, childOwner, childOwner.Handle, 0, 0, false, false), out var rejected));
+        Assert.Null(rejected);
+
+        host.Dispose();
+        Assert.True(Assert.IsType<FakePortablePresentationSource>(popup).IsDisposed);
+        Assert.Equal(1, Assert.IsType<FakePortablePresentationSource>(popup).DisposeCount);
+        Assert.False(owner.IsDisposed); // The main-window source is borrowed.
+        Assert.False(service.TryShowPopup(popup!));
+        Assert.False(service.TryCreatePopup(request, out rejected));
+        Assert.Null(rejected);
+    }
+
+    [Theory]
+    [InlineData(ProGpuWpfRendererMode.ManagedPortable)]
+    [InlineData(ProGpuWpfRendererMode.NativeMilWgpu)]
+    public void RegisteredPopupServiceUsesSourceIdentityAcrossWindowsAndNestedPopups(ProGpuWpfRendererMode rendererMode)
+    {
+        // Colliding opaque handles must not override the authoritative source.
+        // Register the other window last: the router tries it first.
+        using var factory = UsePortablePopupSourceFactory(() => new FakePortablePresentationSource
+            { RootVisual = new object(), Handle = new IntPtr(201) });
+        using var firstHost = new ProGpuWpfWindowHost(new ProGpuWpfWindowOptions { RendererMode = rendererMode });
+        using var secondHost = new ProGpuWpfWindowHost(new ProGpuWpfWindowOptions { RendererMode = rendererMode });
+        var firstOwner = new FakePortablePresentationSource { RootVisual = new object(), Handle = new IntPtr(201) };
+        var secondOwner = new FakePortablePresentationSource { RootVisual = new object(), Handle = new IntPtr(201) };
+        Assert.True(firstHost.TryBindPortablePresentationSource(firstOwner));
+        Assert.True(secondHost.TryBindPortablePresentationSource(secondOwner));
+        Assert.True(PortableWpfServiceRegistry.TryGetPopupService(
+            PortableWpfServiceKey.PresentationFramework, out var service));
+        Assert.True(service!.TryCreatePopup(
+            new PortablePopupCreateRequest(null, firstOwner, firstOwner.Handle, 20, 30, false, false), out var parent));
+        Assert.NotNull(parent);
+        Assert.True(firstHost.TrySetPortablePopupSize(parent!, 100, 60));
+        Assert.False(secondHost.TrySetPortablePopupSize(parent!, 100, 60));
+        Assert.True(service.TryCreatePopup(
+            new PortablePopupCreateRequest(null, parent, new IntPtr(201),
+                popupScreenDeviceX: 35, popupScreenDeviceY: 45,
+                ownerClientScreenDeviceX: 20, ownerClientScreenDeviceY: 30,
+                isTransparent: false, isChildPopup: false), out var child));
+        Assert.NotNull(child);
+        Assert.True(firstHost.TrySetPortablePopupSize(child!, 40, 30));
+        Assert.False(secondHost.TrySetPortablePopupSize(child!, 40, 30));
+        Assert.True(service.TrySetPopupPosition(parent!, 50, 60));
+        var childSource = Assert.IsType<FakePortablePresentationSource>(child);
+        Assert.Equal((65.0, 75.0), (childSource.ClientOriginX, childSource.ClientOriginY));
+
+        Assert.True(service.TryCreatePopup(
+            new PortablePopupCreateRequest(null, secondOwner, secondOwner.Handle, 0, 0, false, false), out var secondPopup));
+        Assert.True(secondHost.TrySetPortablePopupSize(secondPopup!, 80, 50));
+        Assert.False(firstHost.TrySetPortablePopupSize(secondPopup!, 80, 50));
+        firstHost.Dispose();
+        Assert.True(childSource.IsDisposed);
+        Assert.False(service.TrySetPopupPosition(child!, 0, 0));
+        Assert.True(service.TryShowPopup(secondPopup!));
+        Assert.True(service.TryDestroyPopup(secondPopup!));
+        Assert.False(service.TryShowPopup(secondPopup!));
+    }
+
+    [Fact]
+    public void PopupCreationRejectsUnknownSourceEvenWhenItsHandleMatchesAnOwnedSource()
+    {
+        int creations = 0;
+        using var factory = UsePortablePopupSourceFactory(() =>
+        {
+            creations++;
+            return new FakePortablePresentationSource { Handle = new IntPtr(302) };
+        });
+        using var host = new ProGpuWpfWindowHost();
+        var owner = new FakePortablePresentationSource { RootVisual = new object(), Handle = new IntPtr(301) };
+        Assert.True(host.TryBindPortablePresentationSource(owner));
+        Assert.True(PortableWpfServiceRegistry.TryGetPopupService(
+            PortableWpfServiceKey.PresentationFramework, out var service));
+        // Preserve legacy root handle-only lookup when no source was supplied.
+        Assert.True(service!.TryCreatePopup(
+            new PortablePopupCreateRequest(null, null, owner.Handle, 0, 0, false, false), out var popup));
+        Assert.NotNull(popup);
+        var unknownSource = new FakePortablePresentationSource { Handle = owner.Handle };
+        foreach (IntPtr handle in new[] { owner.Handle, new IntPtr(302), IntPtr.Zero })
+        {
+            Assert.False(service.TryCreatePopup(
+                new PortablePopupCreateRequest(null, unknownSource, handle, 0, 0, false, false), out var rejected));
+            Assert.Null(rejected);
+        }
+        Assert.Equal(1, creations);
+    }
+
+    [Theory]
+    [InlineData(true, true)]
+    [InlineData(true, false)]
+    [InlineData(false, false)]
+    public void SelectedNativePopupFailureReleasesUnpublishedSourceWithoutSurfaceFallback(
+        bool failInFactory, bool unsupported)
+    {
+        var source = new FakePortablePresentationSource { RootVisual = new object() };
+        using var factory = UsePortablePopupSourceFactory(() => source);
+        Exception failure = unsupported
+            ? new PlatformNotSupportedException("Native popup source binding rejected.")
+            : new InvalidOperationException("Native popup setup rejected.");
+        var nativeHost = new FakePortableNativePopupHost { InputHandlerFailure = failure };
+        WpfPortablePopupBridge.NativePopupHostFactory = (_, _, _, _, _) =>
+            failInFactory ? throw failure : nativeHost;
+        var scheduler = new TestRenderScheduler();
+        using var host = new ProGpuWpfWindowHost(new ProGpuWpfWindowOptions
+            { RendererMode = ProGpuWpfRendererMode.NativeMilWgpu }) { WpfRenderScheduler = scheduler };
+        var owner = new FakePortablePresentationSource { RootVisual = new object() };
+        Assert.True(host.TryBindPortablePresentationSource(owner));
+        Assert.True(PortableWpfServiceRegistry.TryGetPopupService(
+            PortableWpfServiceKey.PresentationFramework, out var service));
+        Assert.Same(failure, Record.Exception(() => service!.TryCreatePopup(
+            new PortablePopupCreateRequest(null, owner, owner.Handle, 0, 0, false, false), out _)));
+        Assert.True(source.IsDisposed);
+        Assert.Equal(1, source.DisposeCount);
+        Assert.Equal(!failInFactory, nativeHost.IsDisposed);
+        Assert.Null(source.HitTestOverride);
+        Assert.Null(source.HitTestAllBufferOverride);
+        Assert.Null(source.HitTestBoundsBufferOverride);
+        Assert.Null(source.HitTestEllipseBoundsBufferOverride);
+        Assert.False(service!.TryShowPopup(source));
+        int requests = scheduler.RequestCount;
+        source.RootVisual = new object();
+        Assert.Equal(requests, scheduler.RequestCount);
+        host.Dispose();
+        Assert.Equal(1, source.DisposeCount);
+    }
+
     [Fact]
     public void PortablePopupHostCreatesAndControlsPopupForBoundOwner()
     {
@@ -2121,6 +2590,65 @@ public sealed class ProGpuWpfWindowHostTests
         Assert.True(scheduler.RequestCount > 1);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void PopupPlacementBoundsFollowActualHostKindBeforeShow(bool nativeWindow)
+    {
+        var previousSourceFactory = WpfPortablePopupBridge.PortablePresentationSourceFactory;
+        var previousNativeHostFactory = WpfPortablePopupBridge.NativePopupHostFactory;
+        WpfPortablePopupBridge.PortablePresentationSourceFactory = (_, _) => new FakePortablePresentationSource();
+        WpfPortablePopupBridge.NativePopupHostFactory = (_, _, _, _, _) => nativeWindow ? new FakePortableNativePopupHost() : null;
+        try
+        {
+            var monitorService = new PopupMonitorService();
+            using var host = new ProGpuWpfWindowHost
+            {
+                PlatformServices = new CrossPlatformWpfPlatformServices(new ProcessWpfLauncher(), monitorService)
+            };
+            var owner = new FakePortablePresentationSource { RootVisual = new object() };
+            Assert.True(host.TryBindPortablePresentationSource(owner));
+            var request = new PortablePopupCreateRequest(null, owner, owner.Handle, 0, 0, 0, 0, false, false);
+            Assert.True(host.TryCreatePortablePopup(request, out var popup));
+            var target = new PortableRect(-100, 30, 20, 20);
+            Assert.True(host.TryGetPortablePopupPlacementBounds(popup!, target, out var bounds));
+            Assert.Equal(nativeWindow ? PortablePopupPlacementBoundsKind.NativeScreen : PortablePopupPlacementBoundsKind.OwnerSurface, bounds.Kind);
+            Assert.Equal(nativeWindow ? 1 : 0, monitorService.Queries);
+            if (nativeWindow)
+            {
+                // Content scale is metadata, not permission to divide desktop origins.
+                Assert.Equal(new PortableRect(-1920, 0, 1920, 1080), bounds.Screen);
+                Assert.Equal(new PortableRect(-1920, 24, 1920, 1056), bounds.WorkArea);
+                monitorService.Empty = true;
+                Assert.False(host.TryGetPortablePopupPlacementBounds(popup!, target, out _));
+            }
+            Assert.False(host.TryGetPortablePopupPlacementBounds(new object(), target, out _));
+            Assert.True(host.TryDestroyPortablePopup(popup!));
+            Assert.False(host.TryGetPortablePopupPlacementBounds(popup!, target, out _));
+        }
+        finally
+        {
+            WpfPortablePopupBridge.PortablePresentationSourceFactory = previousSourceFactory;
+            WpfPortablePopupBridge.NativePopupHostFactory = previousNativeHostFactory;
+        }
+    }
+
+    private sealed class PopupMonitorService : IWpfMonitorService
+    {
+        public int Queries;
+        public bool Empty;
+        public IReadOnlyList<WpfMonitorInfo> GetMonitors()
+        {
+            Queries++;
+            return Empty ? Array.Empty<WpfMonitorInfo>() : new[]
+            {
+                new WpfMonitorInfo("Primary", 0, 0, 1920, 1080, 1, true),
+                new WpfMonitorInfo("Left", -1920, 0, 1920, 1080, 2, false)
+                { WorkAreaY = 24, WorkAreaHeight = 1056 }
+            };
+        }
+    }
+
     [Fact]
     public void PortablePopupUsesNativeHostLifecycleAndLocalInputWhenAvailable()
     {
@@ -2154,6 +2682,9 @@ public sealed class ProGpuWpfWindowHostTests
             Assert.True(host.TrySetPortablePopupPosition(popupSource!, 40, 50));
             Assert.True(host.TryShowPortablePopup(popupSource!));
             Assert.True(host.HasVisibleNativePortablePopup);
+            var nativeOverlays = new List<WpfNativeMilVisualOverlay>();
+            host.CaptureNativeMilPopupOverlays(nativeOverlays);
+            Assert.Empty(nativeOverlays);
             host.GetPortablePopupDiagnostics(
                 out int openCount,
                 out int visibleCount,
@@ -2464,6 +2995,178 @@ public sealed class ProGpuWpfWindowHostTests
         Assert.Equal(5, activationService.LastPresentationSourceInput.Y);
     }
 
+    [Theory]
+    [InlineData(ProGpuWpfRendererMode.ManagedPortable)]
+    [InlineData(ProGpuWpfRendererMode.NativeMilWgpu)]
+    public void PopupDesktopScaleKeepsOverlayAndInputInOwnerDips(ProGpuWpfRendererMode rendererMode)
+    {
+        var activation = new TestWindowActivationServiceRegistrar();
+        using var registration = PortableWpfServiceRegistry.RegisterWindowActivationService(activation);
+        var popup = new FakePortablePresentationSource();
+        using var factory = UsePortablePopupSourceFactory(() => popup);
+        using var host = new ProGpuWpfWindowHost(new ProGpuWpfWindowOptions { RendererMode = rendererMode });
+        var owner = new FakePortablePresentationSource { RootVisual = new object() };
+        host.SetPosition(-800, 150);
+        Assert.True(host.TryBindPortablePresentationSource(owner));
+        Assert.True(host.UpdatePortablePresentationSourceDpiScale(2, 2));
+        Assert.True(host.UpdatePortablePresentationSourceDesktopScale(1.5, 2));
+        // Owner DIP offset (20,30) -> desktop delta (30,60), then legacy transport * 2.
+        Assert.True(host.TryCreatePortablePopup(new PortablePopupCreateRequest(
+            null, owner, owner.Handle, -1540, 420, -1600, 300, false, false), out var source));
+        Assert.True(host.TrySetPortablePopupSize(source!, 100, 80));
+        Assert.True(host.TryShowPortablePopup(source!));
+        Assert.Equal(new PortableDesktopTransform(-770, 210, 1.5, 2), popup.DesktopTransform);
+        AssertLocalInput();
+
+        Assert.True(host.UpdatePortablePresentationSourceDesktopScale(2, 1));
+        Assert.Equal(new PortableDesktopTransform(-760, 180, 2, 1), popup.DesktopTransform);
+        AssertLocalInput();
+        Assert.True(host.UpdatePortablePresentationSourceDpiScale(1.5, 1.5));
+        Assert.Equal(new PortableDesktopTransform(-760, 180, 2, 1), popup.DesktopTransform);
+        AssertLocalInput();
+        // Move in the same legacy frame: new owner DIP offset (40,50).
+        Assert.True(host.TrySetPortablePopupPosition(source!, -1080, 300));
+        Assert.Equal(new PortableDesktopTransform(-720, 200, 2, 1), popup.DesktopTransform);
+        var moved = new WpfInputEventArgs(WpfInputEventKind.MouseDown, x: 45, y: 55, button: WpfMouseButton.Left);
+        Assert.True(host.TryProcessPortablePopupInput(moved));
+        Assert.Equal(5, activation.LastPresentationSourceInput!.X);
+        Assert.Equal(5, activation.LastPresentationSourceInput.Y);
+
+        void AssertLocalInput()
+        {
+            var input = new WpfInputEventArgs(WpfInputEventKind.MouseDown, x: 25, y: 35, button: WpfMouseButton.Left);
+            Assert.True(host.TryProcessPortablePopupInput(input));
+            Assert.Same(source, activation.LastPresentationSourceInputSource);
+            Assert.Equal(5, activation.LastPresentationSourceInput!.X);
+            Assert.Equal(5, activation.LastPresentationSourceInput.Y);
+        }
+    }
+
+    [Theory]
+    [InlineData(1, 1)]
+    [InlineData(1.5, 2)]
+    [InlineData(0.75, 1.25)]
+    public void NativePointerUsesDesktopVectorsNotFramebufferOrDesktopOrigin(double sx, double sy)
+    {
+        var input = new WpfInputEventArgs(WpfInputEventKind.MouseMove, x: 12 * sx, y: 20 * sy) { Handled = true };
+        var desktop = new PortableDesktopTransform(-1920, 24, sx, sy);
+        var mapped = ProGpuWpfWindowHost.NormalizeNativeDesktopInput(input, desktop);
+        Assert.Equal(12, mapped.X);
+        Assert.Equal(20, mapped.Y);
+        Assert.True(mapped.Handled);
+        Assert.Same(input, ProGpuWpfWindowHost.NormalizeNativeDesktopInput(input, desktop, preserveOwnerCoordinates: true));
+    }
+
+    [Theory]
+    [InlineData(100, 200, true, false, ProGpuWpfRendererMode.NativeMilWgpu)]
+    [InlineData(-800, 150, true, false, ProGpuWpfRendererMode.NativeMilWgpu)]
+    [InlineData(0, 0, true, false, ProGpuWpfRendererMode.ManagedPortable)]
+    [InlineData(-800, 150, false, false, ProGpuWpfRendererMode.ManagedPortable)]
+    [InlineData(100, 200, true, true, ProGpuWpfRendererMode.ManagedPortable)]
+    public void PopupDpiTransitionPublishesOnlyFinalNativePositionForEachNestedSurface(
+        int ownerX, int ownerY, bool positionedOwner, bool legacyHandleOwner, ProGpuWpfRendererMode rendererMode)
+    {
+        var parent = new FakePortablePresentationSource();
+        var child = new FakePortablePresentationSource();
+        var parentNative = new FakePortableNativePopupHost();
+        var childNative = new FakePortableNativePopupHost();
+        var previousSourceFactory = WpfPortablePopupBridge.PortablePresentationSourceFactory;
+        var previousNativeHostFactory = WpfPortablePopupBridge.NativePopupHostFactory;
+        int sourceIndex = 0;
+        WpfPortablePopupBridge.PortablePresentationSourceFactory = (_, _) => sourceIndex++ == 0 ? parent : child;
+        WpfPortablePopupBridge.NativePopupHostFactory = (_, source, _, _, _) =>
+            ReferenceEquals(source, parent) ? parentNative : childNative;
+        try
+        {
+            using var host = new ProGpuWpfWindowHost(new ProGpuWpfWindowOptions { RendererMode = rendererMode });
+            var owner = new FakePortablePresentationSource { RootVisual = new object(), Handle = new IntPtr(11) };
+            if (positionedOwner)
+                host.SetPosition(ownerX, ownerY);
+            Assert.True(host.TryBindPortablePresentationSource(owner));
+            Assert.True(host.TryCreatePortablePopup(new PortablePopupCreateRequest(
+                null, legacyHandleOwner ? null : owner, owner.Handle,
+                ownerX + 40, ownerY + 30, ownerX, ownerY, false, false), out var parentSource));
+            Assert.True(host.TryCreatePortablePopup(new PortablePopupCreateRequest(
+                null, parentSource, IntPtr.Zero, ownerX + 130, ownerY + 70,
+                ownerX + 40, ownerY + 30, false, false), out _));
+
+            // Model independently resolved native framebuffer scales. Owner
+            // transport changes must preserve both, even when unequal.
+            parent.SetDeviceScale(1.25, 1.5);
+            child.SetDeviceScale(2.5, 3);
+            int parentScaleChanges = parent.DeviceScaleChangeCount;
+            int childScaleChanges = child.DeviceScaleChangeCount;
+
+            foreach (double scale in new[] { 2.0, 1.5, 1.0 })
+            {
+                parent.ClientOrigins.Clear();
+                child.ClientOrigins.Clear();
+                parentNative.NativePositions.Clear();
+                childNative.NativePositions.Clear();
+                parentNative.CallLog.Clear();
+                childNative.CallLog.Clear();
+
+                Assert.True(host.UpdatePortablePresentationSourceDpiScale(scale, scale));
+                Assert.Equal(new[] { (ownerX + 40.0, ownerY + 30.0) }, parent.ClientOrigins);
+                Assert.Equal(new[] { (ownerX + 130.0, ownerY + 70.0) }, child.ClientOrigins);
+                Assert.Equal(new[] { (ownerX + 40, ownerY + 30) }, parentNative.NativePositions);
+                Assert.Equal(new[] { (ownerX + 130, ownerY + 70) }, childNative.NativePositions);
+                Assert.Equal(new[] { "Scale", "Position" }, parentNative.CallLog);
+                Assert.Equal(new[] { "Scale", "Position" }, childNative.CallLog);
+                Assert.Equal((1.25, 1.5), (parent.DpiScaleX, parent.DpiScaleY));
+                Assert.Equal((2.5, 3.0), (child.DpiScaleX, child.DpiScaleY));
+                Assert.Equal(parentScaleChanges, parent.DeviceScaleChangeCount);
+                Assert.Equal(childScaleChanges, child.DeviceScaleChangeCount);
+                Assert.False(host.UpdatePortablePresentationSourceDpiScale(scale, scale));
+                Assert.Single(parentNative.NativePositions);
+                Assert.Single(childNative.NativePositions);
+            }
+
+            if (positionedOwner && !legacyHandleOwner)
+            {
+                parentNative.NativePositions.Clear();
+                childNative.NativePositions.Clear();
+                parentNative.CallLog.Clear();
+                childNative.CallLog.Clear();
+                host.SetPosition(ownerX + 20, ownerY - 10);
+                Assert.Equal(new[] { (ownerX + 60, ownerY + 20) }, parentNative.NativePositions);
+                Assert.Equal(new[] { (ownerX + 150, ownerY + 60) }, childNative.NativePositions);
+                Assert.Equal(new[] { "Position" }, parentNative.CallLog);
+                Assert.Equal(new[] { "Position" }, childNative.CallLog);
+            }
+        }
+        finally
+        {
+            WpfPortablePopupBridge.PortablePresentationSourceFactory = previousSourceFactory;
+            WpfPortablePopupBridge.NativePopupHostFactory = previousNativeHostFactory;
+        }
+    }
+
+    [Fact]
+    public void NativePopupAdapterUpdatesOnlyOwnerPositionTransportScale()
+    {
+        // Adapter construction is hidden and does not initialize a native window.
+        // Unlike the bridge fake above, this exercises the actual adapter setter.
+        using var owner = new ProGpuWpfWindowHost();
+        var source = new FakePortablePresentationSource();
+        using var popup = new WpfPortableNativePopupHost(
+            owner, source, new PortablePopupCreateRequest(null, null, IntPtr.Zero,
+                -1500, 300, -1600, 200, false, false), 2, 2);
+        source.SetDeviceScale(1.25, 1.5);
+        source.SetDesktopTransform(new PortableDesktopTransform(-750, 150, 1.25, 1.5));
+        int changes = source.DeviceScaleChangeCount;
+
+        popup.SetOwnerTransportScale(3, 3);
+        popup.SetPosition(-2190, 480);
+        Assert.Equal((1.25, 1.5), (source.DpiScaleX, source.DpiScaleY));
+        Assert.Equal(changes, source.DeviceScaleChangeCount);
+        Assert.Equal(new PortableDesktopTransform(-730, 160, 1.25, 1.5), source.DesktopTransform);
+        popup.SetOwnerTransportScale(1, 1);
+        popup.SetPosition(-750, 150);
+        Assert.Equal(changes, source.DeviceScaleChangeCount);
+        Assert.Equal(new PortableDesktopTransform(-750, 150, 1.25, 1.5), source.DesktopTransform);
+    }
+
     [Fact]
     public void NestedPortablePopupTracksOwnerDeviceOriginAndKeepsLocalInputCoordinates()
     {
@@ -2628,7 +3331,7 @@ public sealed class ProGpuWpfWindowHostTests
 
     [Theory]
     [InlineData(false, false, false, false, true)]
-    [InlineData(true, false, false, false, false)]
+    [InlineData(true, false, false, false, true)]
     [InlineData(false, true, false, false, true)]
     [InlineData(false, false, true, false, false)]
     [InlineData(false, false, false, true, false)]
@@ -2869,7 +3572,9 @@ public sealed class ProGpuWpfWindowHostTests
         var scheduler = new TestRenderScheduler();
         using var host = new ProGpuWpfWindowHost
         {
-            WpfRenderScheduler = scheduler
+            WpfRenderScheduler = scheduler,
+            PlatformServices = new CrossPlatformWpfPlatformServices(
+                new ProcessWpfLauncher(), new PopupMonitorService())
         };
         var source = new FakePortablePresentationSource();
         var geometry = new ProGpuWpfWindowHost.RenderSurfaceGeometry(
@@ -3052,7 +3757,7 @@ public sealed class ProGpuWpfWindowHostTests
         }
     }
 
-    private sealed class TestRenderScheduler : IWpfRenderScheduler
+    private sealed class TestRenderScheduler : IWpfDelayedRenderScheduler
     {
         public event EventHandler? RenderRequested;
 
@@ -3060,9 +3765,20 @@ public sealed class ProGpuWpfWindowHostTests
 
         public int RequestCount { get; private set; }
 
+        public TimeSpan? LastDelay { get; private set; }
+
         public void RequestRender()
         {
             RequestCount++;
+            LastDelay = null;
+            HasPendingRenderRequest = true;
+            RenderRequested?.Invoke(this, EventArgs.Empty);
+        }
+
+        public void RequestRender(TimeSpan delay)
+        {
+            RequestCount++;
+            LastDelay = delay;
             HasPendingRenderRequest = true;
             RenderRequested?.Invoke(this, EventArgs.Empty);
         }
@@ -3206,6 +3922,12 @@ public sealed class ProGpuWpfWindowHostTests
 
         public (int X, int Y) Position { get; private set; }
 
+        public (double X, double Y) OwnerTransportScale { get; private set; } = (1, 1);
+
+        public List<(int X, int Y)> NativePositions { get; } = new();
+
+        public List<string> CallLog { get; } = new();
+
         public (int Width, int Height) Size { get; private set; }
 
         public int ShowCount { get; private set; }
@@ -3214,15 +3936,30 @@ public sealed class ProGpuWpfWindowHostTests
 
         public bool IsDisposed { get; private set; }
 
-        public void SetInputHandler(Func<WpfInputEventArgs, bool> inputHandler) => InputHandler = inputHandler;
+        public Exception? InputHandlerFailure { get; init; }
+
+        public void SetInputHandler(Func<WpfInputEventArgs, bool> inputHandler)
+        {
+            if (InputHandlerFailure != null) throw InputHandlerFailure;
+            InputHandler = inputHandler;
+        }
 
         public void RaiseInputForDiagnostics(WpfInputEventArgs input) => InputHandler?.Invoke(input);
 
-        public void SetDeviceScale(double dpiScaleX, double dpiScaleY)
+        public void SetOwnerTransportScale(double dpiScaleX, double dpiScaleY)
         {
+            OwnerTransportScale = (dpiScaleX, dpiScaleY);
+            CallLog.Add("Scale");
         }
 
-        public void SetPosition(int x, int y) => Position = (x, y);
+        public void SetPosition(int x, int y)
+        {
+            Position = (x, y);
+            NativePositions.Add((
+                WpfPortableNativePopupHost.ToNativeLogicalScreenCoordinate(x, OwnerTransportScale.X),
+                WpfPortableNativePopupHost.ToNativeLogicalScreenCoordinate(y, OwnerTransportScale.Y)));
+            CallLog.Add("Position");
+        }
 
         public void SetSize(int width, int height) => Size = (width, height);
 
@@ -3308,7 +4045,7 @@ public sealed class ProGpuWpfWindowHostTests
         }
     }
 
-    private sealed class FakePortablePresentationSource : IPortablePresentationSourceHost
+    private sealed class FakePortablePresentationSource : IPortablePresentationSourceHost, IPortableDesktopGeometryHost
     {
         private object? _rootVisual;
 
@@ -3322,7 +4059,7 @@ public sealed class ProGpuWpfWindowHostTests
 
         public object CompositionTarget { get; } = new();
 
-        public IntPtr Handle => IntPtr.Zero;
+        public IntPtr Handle { get; init; }
 
         public object? RequestedCursor => null;
 
@@ -3370,7 +4107,20 @@ public sealed class ProGpuWpfWindowHostTests
 
         public System.Collections.Generic.List<string> CallLog { get; } = new();
 
+        public List<(double X, double Y)> ClientOrigins { get; } = new();
+
+        public PortableDesktopTransform DesktopTransform { get; private set; } = PortableDesktopTransform.Identity;
+
+        public void SetDesktopTransform(in PortableDesktopTransform transform)
+        {
+            if (!transform.IsValid) throw new ArgumentException(nameof(transform));
+            DesktopTransform = transform;
+            SetClientOrigin(transform.OriginX, transform.OriginY);
+        }
+
         public bool IsDisposed { get; private set; }
+
+        public int DisposeCount { get; private set; }
 
         public void SetDeviceScale(double dpiScaleX, double dpiScaleY)
         {
@@ -3392,8 +4142,10 @@ public sealed class ProGpuWpfWindowHostTests
 
         public void SetClientOrigin(double x, double y)
         {
+            DesktopTransform = new PortableDesktopTransform(x, y, DesktopTransform.ScaleX, DesktopTransform.ScaleY);
             ClientOriginX = x;
             ClientOriginY = y;
+            ClientOrigins.Add((x, y));
             CallLog.Add("ClientOrigin");
             RenderRequested?.Invoke(this, EventArgs.Empty);
         }
@@ -3415,6 +4167,7 @@ public sealed class ProGpuWpfWindowHostTests
         public void Dispose()
         {
             IsDisposed = true;
+            DisposeCount++;
         }
     }
 

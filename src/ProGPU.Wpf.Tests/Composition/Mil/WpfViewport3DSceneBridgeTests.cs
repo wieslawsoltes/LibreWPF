@@ -42,8 +42,297 @@ public sealed class WpfViewport3DSceneBridgeTests
         Assert.Same(viewport.GeometryKey, mesh.Geometry);
         Assert.Equal(13, mesh.GeometryVersion);
         Assert.Equal(new[] { 0, 1, 2 }, mesh.Indices);
+        Assert.Equal(Vector3.UnitZ, mesh.Normals[0]);
+        Assert.Equal(Vector3.Zero, mesh.Normals[1]);
+        Assert.Equal(new Vector2(0.25f, 0.75f),
+            Assert.Single(mesh.TextureCoordinates));
         Assert.Equal(10, mesh.ModelTransform.M41);
         Assert.Equal(0.25f, replayData.Payload.AmbientIntensity);
+    }
+
+    [Fact]
+    public void TryCreateReplayDataPreservesPointAndSpotLightsForManagedGpuBuffer()
+    {
+        var viewport = new PortableViewport3DVisual
+        {
+            Lights =
+            [
+                new PortableViewport3DLight
+                {
+                    Kind = PortableViewport3DLightKind.Ambient,
+                    Color = new PortableColor4(0.1, 0.2, 0.3, 1)
+                },
+                new PortableViewport3DLight
+                {
+                    Kind = PortableViewport3DLightKind.Point,
+                    Position = new PortableVector3(0, 0, 2),
+                    Range = 25,
+                    LinearAttenuation = 0.25
+                },
+                new PortableViewport3DLight
+                {
+                    Kind = PortableViewport3DLightKind.Spot,
+                    Position = new PortableVector3(1, 2, 3),
+                    Direction = new PortableVector3(0, 0, -2),
+                    Range = 40,
+                    InnerConeAngle = 180,
+                    OuterConeAngle = 90
+                }
+            ]
+        };
+
+        Assert.True(WpfViewport3DSceneBridge.TryCreateReplayData(
+            viewport,
+            out var replayData));
+        Assert.Equal(3, replayData.Payload.Lights.Count);
+        Assert.Equal(
+            global::ProGPU.Scene.Extensions.LightKind3D.Ambient,
+            replayData.Payload.Lights[0].Kind);
+        Assert.Equal(
+            global::ProGPU.Scene.Extensions.LightKind3D.Point,
+            replayData.Payload.Lights[1].Kind);
+        Assert.Equal(25f, replayData.Payload.Lights[1].Range);
+        Assert.Equal(0.25f,
+            replayData.Payload.Lights[1].LinearAttenuation);
+        var spot = replayData.Payload.Lights[2];
+        Assert.Equal(
+            global::ProGPU.Scene.Extensions.LightKind3D.Spot,
+            spot.Kind);
+        Assert.Equal(-1f, spot.Direction.Z);
+        Assert.Equal(spot.OuterConeCosine, spot.InnerConeCosine);
+    }
+
+    [Fact]
+    public void TryCreateReplayDataRejectsNonFiniteMeshNormal()
+    {
+        var viewport = new PortableViewport3DVisual
+        {
+            Normals =
+            [
+                new PortableVector3(double.PositiveInfinity, 0, 1),
+                new PortableVector3(0, 0, 1),
+                new PortableVector3(0, 0, 1)
+            ]
+        };
+
+        Assert.False(WpfViewport3DSceneBridge.TryCreateReplayData(
+            viewport,
+            out _));
+    }
+
+    [Fact]
+    public void TryCreateReplayDataExpandsOrderedSolidMaterialPasses()
+    {
+        var viewport = new PortableViewport3DVisual
+        {
+            Materials =
+            [
+                new PortableViewport3DMaterial
+                {
+                    Kind = PortableViewport3DMaterialKind.Diffuse,
+                    Brush = PortableBrush.SolidColor(
+                        new PortableColor(255, 255, 0, 0)),
+                    Color = new PortableColor4(1, 1, 1, 1),
+                    AmbientColor = new PortableVector3(0.1, 0.2, 0.3)
+                },
+                new PortableViewport3DMaterial
+                {
+                    Kind = PortableViewport3DMaterialKind.Specular,
+                    Brush = PortableBrush.SolidColor(
+                        new PortableColor(255, 255, 255, 255)),
+                    Color = new PortableColor4(0.5, 0.25, 0.125, 1),
+                    SpecularPower = 12
+                },
+                new PortableViewport3DMaterial
+                {
+                    Kind = PortableViewport3DMaterialKind.Emissive,
+                    Brush = PortableBrush.SolidColor(
+                        new PortableColor(128, 0, 255, 0)),
+                    Color = new PortableColor4(1, 1, 1, 0.5)
+                }
+            ]
+        };
+
+        Assert.True(WpfViewport3DSceneBridge.TryCreateReplayData(
+            viewport,
+            out var replayData));
+        Assert.Equal(3, replayData.Payload.Meshes.Count);
+        var diffuse = replayData.Payload.Meshes[0];
+        var specular = replayData.Payload.Meshes[1];
+        var emissive = replayData.Payload.Meshes[2];
+        Assert.Equal(new Vector4(1, 0, 0, 1), diffuse.Color);
+        Assert.Equal(new Vector3(0.1f, 0.2f, 0.3f),
+            diffuse.AmbientColor);
+        Assert.Equal(Vector4.UnitW, specular.Color);
+        Assert.Equal(new Vector3(0.5f, 0.25f, 0.125f),
+            specular.SpecularColor);
+        Assert.Equal(12, specular.Shininess);
+        Assert.Equal(new Vector4(0, 1, 0, 1), emissive.Color);
+        Assert.Equal(128f / 255f * 0.5f, emissive.Opacity);
+        Assert.Equal(
+            global::ProGPU.Scene.Extensions.ShadingMode3D.Flat,
+            emissive.ShadingModeOverride);
+    }
+
+    [Fact]
+    public void TryCreateReplayDataMapsTypedGradientMaterialsToGpuBrushes()
+    {
+        var viewport = new PortableViewport3DVisual
+        {
+            Materials =
+            [
+                new PortableViewport3DMaterial
+                {
+                    Kind = PortableViewport3DMaterialKind.Diffuse,
+                    Brush = PortableBrush.LinearGradient(
+                        new PortablePoint(0, 0.5),
+                        new PortablePoint(1, 0.5),
+                        [
+                            new PortableGradientStop(
+                                new PortableColor(255, 255, 0, 0),
+                                0),
+                            new PortableGradientStop(
+                                new PortableColor(255, 0, 0, 255),
+                                1)
+                        ],
+                        opacity: 0.75,
+                        spreadMethod:
+                            PortableGradientSpreadMethod.Reflect),
+                    Color = new PortableColor4(0.5, 1, 0.25, 0.8),
+                    AmbientColor = new PortableVector3(0.1, 0.2, 0.3)
+                },
+                new PortableViewport3DMaterial
+                {
+                    Kind = PortableViewport3DMaterialKind.Emissive,
+                    Brush = PortableBrush.RadialGradient(
+                        new PortablePoint(0.5, 0.5),
+                        new PortablePoint(0.25, 0.5),
+                        0.5,
+                        0.25,
+                        [
+                            new PortableGradientStop(
+                                new PortableColor(255, 255, 255, 255),
+                                0),
+                            new PortableGradientStop(
+                                new PortableColor(0, 0, 0, 0),
+                                1)
+                        ]),
+                    Color = new PortableColor4(1, 0.5, 0.25, 0.6)
+                }
+            ]
+        };
+
+        Assert.True(WpfViewport3DSceneBridge.TryCreateReplayData(
+            viewport,
+            out var replayData));
+        Assert.Equal(2, replayData.Payload.Meshes.Count);
+        var diffuse = replayData.Payload.Meshes[0];
+        var emissive = replayData.Payload.Meshes[1];
+        var linear = Assert.IsType<
+            global::ProGPU.Vector.LinearGradientBrush>(
+                diffuse.MaterialBrush);
+        Assert.Equal(new Vector2(0, 0.5f), linear.StartPoint);
+        Assert.Equal(0.75f, linear.Opacity);
+        Assert.Equal(new Vector4(0.5f, 1, 0.25f, 1),
+            diffuse.Color);
+        Assert.Equal(0.8f, diffuse.Opacity);
+        var radial = Assert.IsType<
+            global::ProGPU.Vector.RadialGradientBrush>(
+                emissive.MaterialBrush);
+        Assert.Equal(new Vector2(0.25f, 0.5f),
+            radial.GradientOrigin);
+        Assert.Equal(0.5f, radial.RadiusX);
+        Assert.Equal(0.25f, radial.RadiusY);
+        Assert.Equal(0.6f, emissive.Opacity);
+        Assert.Equal(
+            global::ProGPU.Scene.Extensions.ShadingMode3D.Flat,
+            emissive.ShadingModeOverride);
+    }
+
+    [Fact]
+    public void TryCreateReplayDataPreservesSpecularGradientMaterial()
+    {
+        var viewport = new PortableViewport3DVisual
+        {
+            Materials =
+            [
+                new PortableViewport3DMaterial
+                {
+                    Kind = PortableViewport3DMaterialKind.Specular,
+                    Brush = PortableBrush.LinearGradient(
+                        new PortablePoint(0, 0),
+                        new PortablePoint(1, 0),
+                        [
+                            new PortableGradientStop(
+                                new PortableColor(255, 255, 0, 0),
+                                0),
+                            new PortableGradientStop(
+                                new PortableColor(255, 0, 0, 255),
+                                1)
+                        ]),
+                    Color = new PortableColor4(1, 1, 1, 1),
+                    SpecularPower = 16
+                }
+            ]
+        };
+
+        Assert.True(WpfViewport3DSceneBridge.TryCreateReplayData(
+            viewport,
+            out var replayData));
+        var mesh = Assert.Single(replayData.Payload.Meshes);
+        Assert.Equal(
+            global::ProGPU.Scene.Extensions
+                .MaterialBrushTarget3D.Specular,
+            mesh.MaterialBrushTarget);
+        Assert.Equal(Vector4.UnitW, mesh.Color);
+        Assert.Equal(Vector3.One, mesh.SpecularColor);
+        Assert.Equal(16f, mesh.Shininess);
+        Assert.IsType<global::ProGPU.Vector.LinearGradientBrush>(
+            mesh.MaterialBrush);
+    }
+
+    [Fact]
+    public void TryCreateReplayDataPreservesTypedMatrixCameraForManagedGpuPath()
+    {
+        Matrix4x4 view = Matrix4x4.CreateTranslation(-2, -3, -4);
+        Matrix4x4 projection = new(
+            2, 0, 0, 0,
+            0, 3, 0, 0,
+            0, 0, 4, 1,
+            0, 0, -2, 0);
+        var viewport = new PortableViewport3DVisual
+        {
+            PortableCamera = new PortableViewport3DCamera
+            {
+                Kind = PortableViewport3DCameraKind.Matrix,
+                ViewMatrix = ToPortableMatrix(view),
+                ProjectionMatrix = ToPortableMatrix(projection)
+            }
+        };
+
+        Assert.True(WpfViewport3DSceneBridge.TryCreateReplayData(
+            viewport,
+            out var replayData));
+        Assert.Equal(view, replayData.View);
+        Assert.Equal(projection, replayData.Projection);
+    }
+
+    [Fact]
+    public void TryCreateReplayDataRejectsSingularTypedMatrixCamera()
+    {
+        var viewport = new PortableViewport3DVisual
+        {
+            PortableCamera = new PortableViewport3DCamera
+            {
+                Kind = PortableViewport3DCameraKind.Matrix,
+                ViewMatrix = new PortableMatrix4x4(),
+                ProjectionMatrix = PortableMatrix4x4.Identity
+            }
+        };
+
+        Assert.False(WpfViewport3DSceneBridge.TryCreateReplayData(
+            viewport,
+            out _));
     }
 
     [Fact]
@@ -256,6 +545,19 @@ public sealed class WpfViewport3DSceneBridgeTests
     {
         public object GeometryKey { get; } = new();
 
+        public PortableViewport3DLight[] Lights { get; init; } = [];
+
+        public PortableViewport3DCamera? PortableCamera { get; init; }
+
+        public PortableVector3[] Normals { get; init; } =
+        [
+            new PortableVector3(0, 0, 4),
+            new PortableVector3(0, 0, 0),
+            new PortableVector3(0, 0, 1)
+        ];
+
+        public PortableViewport3DMaterial[] Materials { get; init; } = [];
+
         public object Viewport => throw new InvalidOperationException("Portable scene should not probe Viewport.");
 
         public object Camera => throw new InvalidOperationException("Portable scene should not probe Camera.");
@@ -267,7 +569,7 @@ public sealed class WpfViewport3DSceneBridgeTests
             scene = new PortableViewport3DScene
             {
                 Viewport = new PortableRect(4, 8, 320, 180),
-                Camera = new PortableViewport3DCamera
+                Camera = PortableCamera ?? new PortableViewport3DCamera
                 {
                     Kind = PortableViewport3DCameraKind.Perspective,
                     Position = new PortableVector3(0, 0, 4),
@@ -278,6 +580,7 @@ public sealed class WpfViewport3DSceneBridgeTests
                     FieldOfView = 60
                 },
                 AmbientIntensity = 0.25,
+                Lights = Lights,
                 Meshes = new[]
                 {
                     new PortableViewport3DMesh
@@ -290,25 +593,32 @@ public sealed class WpfViewport3DSceneBridgeTests
                             new PortableVector3(1, 0, 0),
                             new PortableVector3(0, 1, 0)
                         },
-                        Normals = new[]
-                        {
-                            new PortableVector3(0, 0, 1),
-                            new PortableVector3(0, 0, 1),
-                            new PortableVector3(0, 0, 1)
-                        },
+                        Normals = Normals,
+                        TextureCoordinates =
+                        [
+                            new PortablePoint(0.25, 0.75)
+                        ],
                         Indices = new[] { 0, 1, 2 },
                         ModelTransform = new PortableMatrix4x4(
                             1, 0, 0, 0,
                             0, 1, 0, 0,
                             0, 0, 1, 0,
                             10, 0, 0, 1),
-                        DiffuseColor = new PortableColor4(1, 0, 0, 1)
+                        DiffuseColor = new PortableColor4(1, 0, 0, 1),
+                        Materials = Materials
                     }
                 }
             };
             return true;
         }
     }
+
+    private static PortableMatrix4x4 ToPortableMatrix(Matrix4x4 matrix) =>
+        new(
+            matrix.M11, matrix.M12, matrix.M13, matrix.M14,
+            matrix.M21, matrix.M22, matrix.M23, matrix.M24,
+            matrix.M31, matrix.M32, matrix.M33, matrix.M34,
+            matrix.M41, matrix.M42, matrix.M43, matrix.M44);
 
     private sealed class PortableSceneHost : IPortableViewport3DSceneSource
     {

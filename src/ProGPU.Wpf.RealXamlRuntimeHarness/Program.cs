@@ -1768,6 +1768,21 @@ internal static class Program
         Type keyboardType = GetRequiredType(presentationCore, "System.Windows.Input.Keyboard");
         InvokeStatic(keyboardType, "ClearFocus");
 
+        // Injected input does not pump native focus. Report state through the
+        // existing host bridge; Show intent must never imply source activation.
+        Type activationType = activation.GetType();
+        AssertEqual(true, InvokeStatic(activationType, "TrySetWindowActivationState", window, false),
+            "portable inactive host report");
+        AssertEqual(false, GetProperty(window, "IsActive"), "portable inactive source");
+        object inactiveText = CreateWpfInputEventArgs(
+            activation, "TextInput", character: 'a', modifiers: "Alt");
+        RaiseHostInput(host, inactiveText);
+        AssertEqual(false, GetProperty(inactiveText, "Handled"), "inactive access key rejected");
+        AssertEqual(null, TryGetStaticProperty(keyboardType, "FocusedElement"), "inactive access key retains no focus");
+        AssertEqual(true, InvokeStatic(activationType, "TrySetWindowActivationState", window, true),
+            "portable active host report");
+        AssertEqual(true, GetProperty(window, "IsActive"), "portable active source");
+
         object accessText = CreateWpfInputEventArgs(
             activation,
             "TextInput",

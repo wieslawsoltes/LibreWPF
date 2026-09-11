@@ -5,6 +5,7 @@ using System;
 using System.Collections.Specialized;
 using System.Threading;
 using System.Windows.Input;
+using System.Windows.Controls.Primitives;
 using System.Windows.Threading;
 using MS.Internal;
 using ProGPU.Wpf.Interop;
@@ -16,6 +17,7 @@ namespace System.Windows
         private static readonly WindowActivationServiceRegistrar s_registrar = new WindowActivationServiceRegistrar();
         private static IDisposable s_registrarRegistration;
         private static Func<object, object> _activate;
+        private static Func<object, object> _createHidden;
         private static Action<object> _show;
         private static Action<object> _hide;
         private static Action<object, object> _setWindowState;
@@ -27,17 +29,23 @@ namespace System.Windows
         private static Action<object, object, object> _setWindowBorder;
         private static Action<object> _close;
         private static Action<object> _run;
+        private static Action<object, Func<bool>> _runDialog;
+        private static Action<object, Action> _releaseDialog;
+        private static Action<object, object> _setOwner;
         private static Action<object> _dispose;
         private static Func<object, bool> _dragMove;
         private static Func<object, IntPtr> _getHandle;
         private static Func<IntPtr, PortableWindowRegion, bool> _setWindowRegion;
         private static Func<object, bool> _requestActivation;
+        private static Func<object, double, double, bool> _showSystemMenu;
 
         internal static bool IsEnabled
         {
             get
             {
-                return !OperatingSystem.IsWindows() && Volatile.Read(ref _activate) != null;
+                // Registering a host is the explicit selection of portable windowing.
+                // Ordinary Windows WPF has no registration and retains its native path.
+                return Volatile.Read(ref _activate) != null;
             }
         }
 
@@ -63,11 +71,15 @@ namespace System.Windows
             Func<object, IntPtr> getHandle = null,
             Func<IntPtr, PortableWindowRegion, bool> setWindowRegion = null,
             Func<object, bool> requestActivation = null,
-            Action<object, object> setIcon = null)
+            Action<object, object> setIcon = null,
+            Func<object, object> createHidden = null,
+            Func<object, double, double, bool> showSystemMenu = null,
+            Action<object, Func<bool>> runDialog = null,
+            Action<object, object> setOwner = null,
+            Action<object, Action> releaseDialog = null)
         {
             ArgumentNullException.ThrowIfNull(activate);
 
-            Volatile.Write(ref _activate, activate);
             Volatile.Write(ref _show, show);
             Volatile.Write(ref _hide, hide);
             Volatile.Write(ref _setWindowState, setWindowState);
@@ -78,17 +90,25 @@ namespace System.Windows
             Volatile.Write(ref _setWindowBorder, setWindowBorder);
             Volatile.Write(ref _close, close);
             Volatile.Write(ref _run, run);
+            Volatile.Write(ref _runDialog, runDialog);
+            Volatile.Write(ref _releaseDialog, releaseDialog);
+            Volatile.Write(ref _setOwner, setOwner);
             Volatile.Write(ref _dispose, dispose);
             Volatile.Write(ref _dragMove, dragMove);
             Volatile.Write(ref _getHandle, getHandle);
             Volatile.Write(ref _setWindowRegion, setWindowRegion);
             Volatile.Write(ref _requestActivation, requestActivation);
             Volatile.Write(ref _setIcon, setIcon);
+            Volatile.Write(ref _createHidden, createHidden);
+            Volatile.Write(ref _showSystemMenu, showSystemMenu);
+            Volatile.Write(ref _activate, activate);
         }
 
         internal static void Clear()
         {
             Volatile.Write(ref _activate, null);
+            Volatile.Write(ref _createHidden, null);
+            Volatile.Write(ref _showSystemMenu, null);
             Volatile.Write(ref _show, null);
             Volatile.Write(ref _hide, null);
             Volatile.Write(ref _setWindowState, null);
@@ -99,6 +119,9 @@ namespace System.Windows
             Volatile.Write(ref _setWindowBorder, null);
             Volatile.Write(ref _close, null);
             Volatile.Write(ref _run, null);
+            Volatile.Write(ref _runDialog, null);
+            Volatile.Write(ref _releaseDialog, null);
+            Volatile.Write(ref _setOwner, null);
             Volatile.Write(ref _dispose, null);
             Volatile.Write(ref _dragMove, null);
             Volatile.Write(ref _getHandle, null);
@@ -107,14 +130,9 @@ namespace System.Windows
             Volatile.Write(ref _setIcon, null);
         }
 
-        internal static bool TryActivate(Window window, out object activation)
+        internal static bool TryActivate(Window window, out object activation, bool duringShow = true)
         {
             activation = null;
-
-            if (OperatingSystem.IsWindows())
-            {
-                return false;
-            }
 
             Func<object, object> activate = Volatile.Read(ref _activate);
             if (activate == null)
@@ -122,8 +140,15 @@ namespace System.Windows
                 return false;
             }
 
-            activation = activate(window);
-            return activation != null;
+            if (!duringShow)
+            {
+                activate = Volatile.Read(ref _createHidden) ?? throw new PlatformNotSupportedException(
+                    "The registered portable host does not support hidden window sources. Falling back to Windows MIL is not permitted.");
+            }
+
+            activation = activate(window) ?? throw new InvalidOperationException(
+                "The registered portable window host could not activate this Window. Falling back to Windows MIL is not permitted.");
+            return true;
         }
 
         internal static void Show(object activation)
@@ -133,7 +158,7 @@ namespace System.Windows
 
         internal static bool TryRequestActivation(object activation)
         {
-            if (OperatingSystem.IsWindows() || activation == null)
+            if (activation == null)
             {
                 return false;
             }
@@ -162,6 +187,13 @@ namespace System.Windows
             Volatile.Read(ref _setIcon)?.Invoke(activation, icon);
         }
 
+        internal static void SetOwner(object activation, Window owner)
+        {
+            Action<object, object> callback = Volatile.Read(ref _setOwner) ?? throw new PlatformNotSupportedException(
+                "The registered portable host does not support window ownership.");
+            callback(activation, owner);
+        }
+
         internal static void SetClientSize(object activation, double width, double height)
         {
             Volatile.Read(ref _setClientSize)?.Invoke(activation, width, height);
@@ -184,7 +216,7 @@ namespace System.Windows
 
         internal static bool TryDragMove(object activation)
         {
-            if (OperatingSystem.IsWindows() || activation == null)
+            if (activation == null)
             {
                 return false;
             }
@@ -193,9 +225,15 @@ namespace System.Windows
             return dragMove != null && dragMove(activation);
         }
 
+        internal static bool TryShowSystemMenu(object activation, double desktopX, double desktopY)
+        {
+            return activation != null && double.IsFinite(desktopX) && double.IsFinite(desktopY) &&
+                Volatile.Read(ref _showSystemMenu)?.Invoke(activation, desktopX, desktopY) == true;
+        }
+
         internal static IntPtr GetHandle(object activation)
         {
-            if (OperatingSystem.IsWindows() || activation == null)
+            if (activation == null)
             {
                 return IntPtr.Zero;
             }
@@ -206,7 +244,7 @@ namespace System.Windows
 
         internal static bool TrySetWindowRegion(IntPtr handle, PortableWindowRegion region)
         {
-            if (OperatingSystem.IsWindows() || handle == IntPtr.Zero || region == null)
+            if (handle == IntPtr.Zero || region == null)
             {
                 return false;
             }
@@ -217,10 +255,13 @@ namespace System.Windows
 
         internal static void SetActivationState(Window window, bool isActive)
         {
-            if (OperatingSystem.IsWindows() || window == null)
+            if (window == null)
             {
                 return;
             }
+
+            if (isActive && !PortableModalInputScope.AllowsInput(window))
+                return;
 
             if (!isActive)
             {
@@ -244,7 +285,7 @@ namespace System.Windows
 
         internal static void ProcessInput(Window window, PortableInputEventArgs input)
         {
-            if (OperatingSystem.IsWindows() || window == null || input == null)
+            if (window == null || input == null)
             {
                 return;
             }
@@ -260,7 +301,7 @@ namespace System.Windows
 
         internal static void ProcessInput(PresentationSource source, PortableInputEventArgs input)
         {
-            if (OperatingSystem.IsWindows() || source == null || input == null)
+            if (source == null || input == null)
             {
                 return;
             }
@@ -298,7 +339,7 @@ namespace System.Windows
             int allowedEffects,
             int acceptedEffect)
         {
-            if (OperatingSystem.IsWindows() || window == null)
+            if (window == null || !PortableModalInputScope.AllowsInput(window))
             {
                 return (int)DragDropEffects.None;
             }
@@ -324,7 +365,16 @@ namespace System.Windows
 
         private static bool ProcessInput(PresentationSource source, UIElement rootHitTestElement, PortableInputEventArgs input)
         {
+            if (source.IsDisposed || !IsModalInputAllowed(rootHitTestElement))
+                return true;
+
             InputManager inputManager = InputManager.UnsecureCurrent;
+            if (IsMouseInputKind(input.Kind) && Mouse.Captured != null &&
+                !IsModalInputElementAllowed(Mouse.Captured))
+                return true;
+            if (!IsMouseInputKind(input.Kind) && Keyboard.FocusedElement != null &&
+                !IsModalInputElementAllowed(Keyboard.FocusedElement))
+                return true;
             int timestamp = Environment.TickCount;
             PresentationSource mouseInputSource = source;
             UIElement mouseRootHitTestElement = rootHitTestElement;
@@ -341,6 +391,10 @@ namespace System.Windows
                     out mouseRootPoint);
             }
             RawMouseActions mouseActivation = GetMouseActivationAction(inputManager, mouseInputSource);
+
+            // Capture can redirect an otherwise admitted event to another source.
+            if (!IsModalInputAllowed(mouseRootHitTestElement))
+                return true;
 
             switch (input.Kind)
             {
@@ -371,6 +425,140 @@ namespace System.Windows
                         && ProcessMouseInput(inputManager, mouseInputSource, mouseRootHitTestElement, mouseRootPoint, input, timestamp, mouseActivation | RawMouseActions.AbsoluteMove | RawMouseActions.VerticalWheelRotate, wheel);
                 default:
                     return false;
+            }
+        }
+
+        internal static bool IsModalInputAllowed(UIElement root)
+        {
+            if (!PortableModalInputScope.IsActive) return true;
+            UIElement fast = root;
+            while (root != null)
+            {
+                if (root is Window window) return !window.IsDisposed && PortableModalInputScope.AllowsInput(window);
+                root = GetPopupInputOwnerRoot(root);
+                fast = GetPopupInputOwnerRoot(GetPopupInputOwnerRoot(fast));
+                // Reject malformed owner cycles without per-pointer scratch allocations.
+                if (root != null && ReferenceEquals(root, fast)) return false;
+            }
+            return false;
+        }
+
+        private static UIElement GetPopupInputOwnerRoot(UIElement root)
+        {
+            PresentationSource owner = root is PopupRoot popupRoot && popupRoot.Parent is Popup popup
+                ? popup.PortableInputOwnerSource : null;
+            return owner != null && !owner.IsDisposed ? owner.RootVisual as UIElement : null;
+        }
+
+        private static bool IsModalInputElementAllowed(IInputElement element)
+        {
+            if (!PortableModalInputScope.IsActive) return true;
+            DependencyObject visual = element is DependencyObject dependencyObject
+                ? InputElement.GetContainingVisual(dependencyObject) : null;
+            return visual != null && IsModalInputAllowed(
+                PresentationSource.CriticalFromVisual(visual)?.RootVisual as UIElement);
+        }
+
+        internal static void PrepareForModalInput()
+        {
+            InputManager manager = InputManager.UnsecureCurrent;
+            PresentationSource keyboardSource = manager.PrimaryKeyboardDevice.ActiveSource;
+            if (keyboardSource != null && !IsModalInputAllowed(keyboardSource.RootVisual as UIElement))
+                keyboardSource.GetInputProvider(typeof(KeyboardDevice))?.NotifyDeactivate();
+            PresentationSource mouseSource = manager.PrimaryMouseDevice.ActiveSource;
+            if (mouseSource != null && !IsModalInputAllowed(mouseSource.RootVisual as UIElement))
+                mouseSource.GetInputProvider(typeof(MouseDevice))?.NotifyDeactivate();
+            if (Mouse.Captured != null && !IsModalInputElementAllowed(Mouse.Captured))
+                Mouse.Capture(null);
+            if (Keyboard.FocusedElement != null && !IsModalInputElementAllowed(Keyboard.FocusedElement))
+                Keyboard.ClearFocus();
+        }
+
+        internal static IDisposable CaptureModalInputRestoreState()
+        {
+            IInputElement focus = Keyboard.FocusedElement;
+            DependencyObject visual = focus is DependencyObject element
+                ? InputElement.GetContainingVisual(element) : null;
+            PresentationSource source = visual != null ? PresentationSource.CriticalFromVisual(visual) : null;
+            Window window = GetModalInputOwnerWindow(source?.RootVisual as UIElement);
+            if (window != null && (window.IsDisposed || !window.IsActive)) window = null;
+            if (window == null && Application.Current is Application application && application.Dispatcher.CheckAccess())
+            {
+                WindowCollection windows = application.Windows;
+                for (int i = 0; i < windows.Count; i++)
+                {
+                    Window candidate = windows[i];
+                    if (candidate.Dispatcher.CheckAccess() && !candidate.IsDisposed && candidate.IsActive)
+                    {
+                        window = candidate;
+                        break;
+                    }
+                }
+            }
+            return new ModalInputRestoreState(window, source, focus);
+        }
+
+        // Drop targets in separately surfaced popups activate their real owner, not a
+        // placement target or an HWND inferred from the portable presentation identity.
+        internal static bool TryActivateInputOwner(PresentationSource source)
+        {
+            if (source == null || !source.CheckAccess() || source.IsDisposed ||
+                !PointUtil.IsPortablePresentationSource(source)) return false;
+            Window window = GetModalInputOwnerWindow(source.RootVisual as UIElement);
+            return window != null && window.Dispatcher.CheckAccess() && !window.IsDisposed &&
+                window.PortableWindowActivation != null && window.IsVisible && window.IsEnabled &&
+                PortableModalInputScope.AllowsInput(window) && window.Activate();
+        }
+
+        private static Window GetModalInputOwnerWindow(UIElement root)
+        {
+            UIElement fast = root;
+            while (root != null && root is not Window)
+            {
+                root = GetPopupInputOwnerRoot(root);
+                fast = GetPopupInputOwnerRoot(GetPopupInputOwnerRoot(fast));
+                if (root != null && ReferenceEquals(root, fast)) { root = null; break; }
+            }
+            return root as Window;
+        }
+
+        private sealed class ModalInputRestoreState : IDisposable
+        {
+            private readonly int _threadId = Environment.CurrentManagedThreadId;
+            private Window _window;
+            private PresentationSource _source;
+            private IInputElement _focus;
+
+            internal ModalInputRestoreState(Window window, PresentationSource source, IInputElement focus)
+            {
+                _window = window;
+                _source = source;
+                _focus = focus;
+            }
+
+            public void Dispose()
+            {
+                if (_threadId != Environment.CurrentManagedThreadId)
+                    throw new InvalidOperationException("Dialog focus restoration requires its source thread.");
+                Window window = _window;
+                PresentationSource source = _source;
+                IInputElement focus = _focus;
+                _window = null;
+                _source = null;
+                _focus = null;
+                if (window == null || window.IsDisposed || !window.IsVisible || !window.IsEnabled ||
+                    window.PortableWindowActivation == null || !PortableModalInputScope.AllowsInput(window) ||
+                    !PortableModalInputScope.IsNativeInputPolicySynchronized) return;
+                // Native admission is required; never manufacture IsActive or
+                // restore a detached/moved element into another source.
+                if (!TryRequestActivation(window.PortableWindowActivation) || window.IsDisposed ||
+                    !window.IsVisible || !PortableModalInputScope.AllowsInput(window)) return;
+                if (source == null || source.IsDisposed || focus is not DependencyObject element ||
+                    !ReferenceEquals(GetModalInputOwnerWindow(source.RootVisual as UIElement), window) ||
+                    !IsModalInputElementAllowed(focus)) return;
+                DependencyObject visual = InputElement.GetContainingVisual(element);
+                if (visual != null && ReferenceEquals(PresentationSource.CriticalFromVisual(visual), source))
+                    Keyboard.Focus(focus);
             }
         }
 
@@ -817,7 +1005,7 @@ namespace System.Windows
 
         internal static bool TryRun(Window window)
         {
-            if (OperatingSystem.IsWindows() || window == null)
+            if (window == null)
             {
                 return false;
             }
@@ -831,11 +1019,24 @@ namespace System.Windows
             Action<object> run = Volatile.Read(ref _run);
             if (run == null)
             {
-                return false;
+                throw new InvalidOperationException(
+                    "The active portable window host has no run-loop callback. Falling back to the Windows application loop is not permitted.");
             }
 
             run(activation);
             return true;
+        }
+
+        internal static Action<object, Func<bool>> GetDialogRunCallback()
+        {
+            return Volatile.Read(ref _runDialog) ?? throw new PlatformNotSupportedException(
+                "The portable window host does not support a source-controlled dialog run loop.");
+        }
+
+        internal static Action<object, Action> GetDialogReleaseCallback()
+        {
+            return Volatile.Read(ref _releaseDialog) ?? throw new PlatformNotSupportedException(
+                "The portable window host does not support native dialog release completion.");
         }
 
         internal static void FlushDispatcherOperations(object window, DispatcherPriority markerPriority)
@@ -845,8 +1046,7 @@ namespace System.Windows
 
         internal static bool FlushDispatcherOperations(object window, DispatcherPriority markerPriority, TimeSpan timeout)
         {
-            if (OperatingSystem.IsWindows() ||
-                window is not Window typedWindow ||
+            if (window is not Window typedWindow ||
                 typedWindow.Dispatcher == null ||
                 typedWindow.Dispatcher.HasShutdownStarted ||
                 typedWindow.Dispatcher.HasShutdownFinished)
@@ -893,8 +1093,7 @@ namespace System.Windows
 
         internal static bool PromoteDispatcherTimers(object window, int currentTimeInTicks)
         {
-            if (OperatingSystem.IsWindows() ||
-                window is not Window typedWindow ||
+            if (window is not Window typedWindow ||
                 typedWindow.Dispatcher == null ||
                 typedWindow.Dispatcher.HasShutdownStarted ||
                 typedWindow.Dispatcher.HasShutdownFinished)
@@ -950,7 +1149,12 @@ namespace System.Windows
                     callbacks.GetHandle,
                     callbacks.SetWindowRegion,
                     callbacks.RequestActivation,
-                    callbacks.SetIcon);
+                    callbacks.SetIcon,
+                    callbacks.CreateHidden,
+                    callbacks.ShowSystemMenu,
+                    callbacks.RunDialog,
+                    callbacks.SetOwner,
+                    callbacks.ReleaseDialog);
             }
 
             public bool TryRegisterMediaContextRenderService(

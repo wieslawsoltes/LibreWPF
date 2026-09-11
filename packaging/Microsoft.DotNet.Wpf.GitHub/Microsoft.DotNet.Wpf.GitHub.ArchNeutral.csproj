@@ -19,7 +19,7 @@
     <IncludeAssembliesInArchNeutralPackage>true</IncludeAssembliesInArchNeutralPackage>
     <PlatformIndependentPackage>true</PlatformIndependentPackage>
     <LibreWpfWindowsDesktopRuntimeVersion Condition="'$(LibreWpfWindowsDesktopRuntimeVersion)' == ''">$(ProGpuWpfNet10SupportPackageVersion)</LibreWpfWindowsDesktopRuntimeVersion>
-    <LibreWpfWindowsDesktopRuntimeVersion Condition="'$(LibreWpfWindowsDesktopRuntimeVersion)' == ''">10.0.10</LibreWpfWindowsDesktopRuntimeVersion>
+    <LibreWpfWindowsDesktopRuntimeVersion Condition="'$(LibreWpfWindowsDesktopRuntimeVersion)' == ''">10.0.11</LibreWpfWindowsDesktopRuntimeVersion>
     <LibreWpfWindowsManagedPayloadDir Condition="'$(LibreWpfWindowsManagedPayloadDir)' == ''">$(MSBuildThisFileDirectory)..\..\artifacts\windows-managed-runtime</LibreWpfWindowsManagedPayloadDir>
     <_LibreWpfNuGetPackageRoot>$([MSBuild]::EnsureTrailingSlash('$(NuGetPackageRoot)'))</_LibreWpfNuGetPackageRoot>
   </PropertyGroup>

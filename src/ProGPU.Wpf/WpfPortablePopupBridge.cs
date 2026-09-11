@@ -25,6 +25,7 @@ internal sealed class WpfPortablePopupBridge : IDisposable
     private int _ownerClientScreenDeviceY;
     private double _localLogicalX;
     private double _localLogicalY;
+    private PortableDesktopTransform _ownerDesktopTransform;
     private Func<double, double, object?>? _hitTestOverrideHandler;
     private Func<double, double, object?[]?>? _hitTestAllOverrideHandler;
     private PortableHitTestAllBufferOverride? _hitTestAllBufferOverrideHandler;
@@ -56,8 +57,8 @@ internal sealed class WpfPortablePopupBridge : IDisposable
         _ownerClientScreenDeviceY = ownerClientScreenDeviceY;
         X = popupScreenDeviceX;
         Y = popupScreenDeviceY;
-        _localLogicalX = ((double)popupScreenDeviceX - ownerClientScreenDeviceX) / dpiScaleX;
-        _localLogicalY = ((double)popupScreenDeviceY - ownerClientScreenDeviceY) / dpiScaleY;
+        _ownerDesktopTransform = ReadOwnerDesktopTransform();
+        SetLocalPosition(popupScreenDeviceX, popupScreenDeviceY);
         Width = 1;
         Height = 1;
         IsHitTestable = true;
@@ -84,6 +85,45 @@ internal sealed class WpfPortablePopupBridge : IDisposable
 
     internal bool IsVisibleNativeWindow => IsVisible && _nativeHost != null;
 
+    internal bool TryGetPlacementBounds(PortableRect targetBounds, out PortablePopupPlacementBounds bounds)
+    {
+        bounds = default;
+        if (_isDisposed || !PortablePopupMonitorSelection.IsFiniteRectangle(targetBounds, allowZeroSize: true))
+            return false;
+        if (_nativeHost == null)
+        {
+            bounds = new(PortablePopupPlacementBoundsKind.OwnerSurface, PortableRect.Empty, PortableRect.Empty);
+            return true;
+        }
+
+        // Placement and native window positions share platform screen coordinates.
+        // Per-monitor framebuffer/content scales must not rescale desktop origins.
+        var selection = new PortablePopupMonitorSelection(targetBounds);
+        var monitors = _host.PlatformServices.Monitors.GetMonitors();
+        for (int i = 0; i < monitors.Count; i++)
+        {
+            WpfMonitorInfo monitor = monitors[i];
+            selection.Consider(
+                new PortableRect(monitor.X, monitor.Y, monitor.Width, monitor.Height),
+                new PortableRect(monitor.WorkAreaX, monitor.WorkAreaY, monitor.WorkAreaWidth, monitor.WorkAreaHeight),
+                monitor.IsPrimary);
+        }
+        return selection.TryGetBounds(out bounds);
+    }
+
+    internal bool TryGetNativeMilOverlay(out WpfNativeMilVisualOverlay overlay)
+    {
+        overlay = default;
+        if (_isDisposed || _nativeHost != null || !IsVisible || RootVisual is not { } root)
+            return false;
+        EnsureRootLayout(root);
+        // Layout can synchronously close the popup or replace its source root.
+        if (_isDisposed || !IsVisible || RootVisual is not { } currentRoot)
+            return false;
+        overlay = new(currentRoot, LogicalX, LogicalY, Width, Height);
+        return true;
+    }
+
     internal bool HasPresentedNativeFrame => IsVisibleNativeWindow && _nativeHost!.HasPresentedFrame;
 
     internal bool HasNativeGpuHitTestCache => IsVisibleNativeWindow && _nativeHost!.HasGpuHitTestCache;
@@ -101,17 +141,13 @@ internal sealed class WpfPortablePopupBridge : IDisposable
         out int ownerCount)
     {
         ownerCount = 0;
-        if (!IsVisibleNativeWindow ||
-            screenDeviceX < X || screenDeviceY < Y ||
-            screenDeviceX > X + Width * _dpiScaleX ||
-            screenDeviceY > Y + Height * _dpiScaleY)
+        if (!IsVisibleNativeWindow)
         {
             return false;
         }
-
-        double localX = (screenDeviceX - X) / _dpiScaleX;
-        double localY = (screenDeviceY - Y) / _dpiScaleY;
-        return _nativeHost!.TryHitTestOwners(localX, localY, owners, out ownerCount);
+        var local = ScreenDeviceToPopupClient(screenDeviceX, screenDeviceY);
+        if (local.X < 0 || local.Y < 0 || local.X > Width || local.Y > Height) return false;
+        return _nativeHost!.TryHitTestOwners(local.X, local.Y, owners, out ownerCount);
     }
 
     internal bool TryQueryNativeHitTestBoundsOwners(
@@ -123,25 +159,28 @@ internal sealed class WpfPortablePopupBridge : IDisposable
         out int ownerCount)
     {
         ownerCount = 0;
-        if (!IsVisibleNativeWindow ||
-            screenDeviceMaxX < X || screenDeviceMaxY < Y ||
-            screenDeviceMinX > X + Width * _dpiScaleX ||
-            screenDeviceMinY > Y + Height * _dpiScaleY)
+        if (!IsVisibleNativeWindow)
         {
             return false;
         }
 
-        double localMinX = (screenDeviceMinX - X) / _dpiScaleX;
-        double localMinY = (screenDeviceMinY - Y) / _dpiScaleY;
-        double localMaxX = (screenDeviceMaxX - X) / _dpiScaleX;
-        double localMaxY = (screenDeviceMaxY - Y) / _dpiScaleY;
+        var min = ScreenDeviceToPopupClient(screenDeviceMinX, screenDeviceMinY);
+        var max = ScreenDeviceToPopupClient(screenDeviceMaxX, screenDeviceMaxY);
+        if (max.X < 0 || max.Y < 0 || min.X > Width || min.Y > Height) return false;
         return _nativeHost!.TryQueryHitTestBoundsOwners(
-            localMinX,
-            localMinY,
-            localMaxX,
-            localMaxY,
+            min.X,
+            min.Y,
+            max.X,
+            max.Y,
             owners,
             out ownerCount);
+    }
+
+    private PortablePoint ScreenDeviceToPopupClient(double x, double y)
+    {
+        var desktop = _source is IPortableDesktopGeometryHost geometry ? geometry.DesktopTransform :
+            new PortableDesktopTransform(X / _dpiScaleX, Y / _dpiScaleY, 1, 1);
+        return desktop.DesktopToClient(new PortablePoint(x / _dpiScaleX, y / _dpiScaleY));
     }
 
     internal bool TryQueryAllNativeHitTestOwners(Span<object?> owners, out int ownerCount)
@@ -255,27 +294,40 @@ internal sealed class WpfPortablePopupBridge : IDisposable
             return false;
         }
 
-        bridge = new WpfPortablePopupBridge(
-            host,
-            source,
-            request.OwnerPresentationSource,
-            ownerPopup,
-            request.PopupScreenDeviceX,
-            request.PopupScreenDeviceY,
-            request.OwnerClientScreenDeviceX,
-            request.OwnerClientScreenDeviceY,
-            dpiScaleX,
-            dpiScaleY);
-        bridge.SubscribeToSource();
-        bridge.InstallHitTestOverrides();
         try
         {
+            bridge = new WpfPortablePopupBridge(
+                host,
+                source,
+                request.OwnerPresentationSource,
+                ownerPopup,
+                request.PopupScreenDeviceX,
+                request.PopupScreenDeviceY,
+                request.OwnerClientScreenDeviceX,
+                request.OwnerClientScreenDeviceY,
+                dpiScaleX,
+                dpiScaleY);
+        }
+        catch
+        {
+            // Construction has not transferred ownership or installed callbacks.
+            source.Dispose();
+            throw;
+        }
+        try
+        {
+            bridge.SubscribeToSource();
+            bridge.InstallHitTestOverrides();
+            // Null is the factory's explicit owner-surface selection. Once it
+            // selects a native host, a failure must not change surface kind.
             bridge._nativeHost = NativePopupHostFactory(host, source, request, dpiScaleX, dpiScaleY);
             bridge._nativeHost?.SetInputHandler(bridge.TryProcessNativeInput);
         }
-        catch (PlatformNotSupportedException)
+        catch
         {
-            // A composited owner-surface popup remains the supported fallback.
+            bridge.Dispose();
+            bridge = null;
+            throw;
         }
         Trace(
             "create " +
@@ -294,49 +346,70 @@ internal sealed class WpfPortablePopupBridge : IDisposable
             return false;
         }
 
-        if (Math.Abs(_dpiScaleX - dpiScaleX) < double.Epsilon &&
-            Math.Abs(_dpiScaleY - dpiScaleY) < double.Epsilon)
+        if (_dpiScaleX == dpiScaleX && _dpiScaleY == dpiScaleY)
         {
             return false;
         }
 
-        _ownerClientScreenDeviceX = _ownerPopup?.X ?? _ownerClientScreenDeviceX;
-        _ownerClientScreenDeviceY = _ownerPopup?.Y ?? _ownerClientScreenDeviceY;
-        X = ToScreenDeviceCoordinate(
-            _ownerClientScreenDeviceX,
-            _localLogicalX,
-            dpiScaleX);
-        Y = ToScreenDeviceCoordinate(
-            _ownerClientScreenDeviceY,
-            _localLogicalY,
+        // Unpositioned owners have no native origin to republish. Preserve the
+        // origin carried by the create request in the new device-coordinate
+        // frame; nested owners have already published their new device origin.
+        return TrySetOwnerGeometry(
+            _ownerPopup?.X ?? ToScreenDeviceCoordinate(0, _ownerClientScreenDeviceX / _dpiScaleX, dpiScaleX),
+            _ownerPopup?.Y ?? ToScreenDeviceCoordinate(0, _ownerClientScreenDeviceY / _dpiScaleY, dpiScaleY),
+            dpiScaleX,
             dpiScaleY);
-        _dpiScaleX = dpiScaleX;
-        _dpiScaleY = dpiScaleY;
-        _source.SetDeviceScale(dpiScaleX, dpiScaleY);
-        SetSourceClientOrigin();
-        _nativeHost?.SetDeviceScale(dpiScaleX, dpiScaleY);
-        _nativeHost?.SetPosition(X, Y);
-        Trace($"dpi scale=({dpiScaleX:0.###},{dpiScaleY:0.###}) origin=({X},{Y})");
-        RequestRender();
-        return true;
     }
 
-    public bool TrySetOwnerClientScreenOrigin(object? ownerPresentationSource, int x, int y)
+    public bool TrySetOwnerClientGeometry(
+        object? ownerPresentationSource,
+        int x,
+        int y,
+        WpfDeviceScale? deviceScale = null)
     {
         ThrowIfDisposed();
-        if (!ReferenceEquals(_ownerPresentationSource, ownerPresentationSource) ||
-            (_ownerClientScreenDeviceX == x && _ownerClientScreenDeviceY == y))
+        return ReferenceEquals(_ownerPresentationSource, ownerPresentationSource) &&
+            TrySetOwnerGeometry(x, y, deviceScale?.X ?? _dpiScaleX, deviceScale?.Y ?? _dpiScaleY);
+    }
+
+    private bool TrySetOwnerGeometry(int x, int y, double dpiScaleX, double dpiScaleY)
+    {
+        if (!double.IsFinite(dpiScaleX) || dpiScaleX <= 0.0 ||
+            !double.IsFinite(dpiScaleY) || dpiScaleY <= 0.0)
         {
             return false;
         }
 
+        var desktopTransform = ReadOwnerDesktopTransform();
+        bool desktopScaleChanged = _ownerDesktopTransform.ScaleX != desktopTransform.ScaleX ||
+            _ownerDesktopTransform.ScaleY != desktopTransform.ScaleY;
+        bool scaleChanged = _dpiScaleX != dpiScaleX || _dpiScaleY != dpiScaleY;
+        if (!desktopScaleChanged && !scaleChanged && _ownerClientScreenDeviceX == x && _ownerClientScreenDeviceY == y)
+        {
+            return false;
+        }
+
+        // Publish one coherent device frame before notifying either source or
+        // native host. Moving with the new origin and old scale first produces
+        // a real, incorrect native-window move during an owner DPI transition.
         _ownerClientScreenDeviceX = x;
         _ownerClientScreenDeviceY = y;
-        X = ToScreenDeviceCoordinate(x, _localLogicalX, _dpiScaleX);
-        Y = ToScreenDeviceCoordinate(y, _localLogicalY, _dpiScaleY);
+        _ownerDesktopTransform = desktopTransform;
+        var desktopOffset = desktopTransform.ClientVectorToDesktop(new PortablePoint(_localLogicalX, _localLogicalY));
+        X = ToScreenDeviceCoordinate(x, desktopOffset.X, dpiScaleX);
+        Y = ToScreenDeviceCoordinate(y, desktopOffset.Y, dpiScaleY);
+        _dpiScaleX = dpiScaleX;
+        _dpiScaleY = dpiScaleY;
         SetSourceClientOrigin();
+        if (scaleChanged)
+        {
+            if (_nativeHost is { } nativeHost)
+                nativeHost.SetOwnerTransportScale(dpiScaleX, dpiScaleY);
+            else
+                _source.SetDeviceScale(dpiScaleX, dpiScaleY);
+        }
         _nativeHost?.SetPosition(X, Y);
-        Trace($"owner origin x={x} y={y} popup=({X},{Y})");
+        Trace($"owner origin=({x},{y}) scale=({dpiScaleX:0.###},{dpiScaleY:0.###}) popup=({X},{Y})");
         RequestRender();
         return true;
     }
@@ -351,8 +424,7 @@ internal sealed class WpfPortablePopupBridge : IDisposable
 
         X = x;
         Y = y;
-        _localLogicalX = ((double)x - _ownerClientScreenDeviceX) / _dpiScaleX;
-        _localLogicalY = ((double)y - _ownerClientScreenDeviceY) / _dpiScaleY;
+        SetLocalPosition(x, y);
         SetSourceClientOrigin();
         _nativeHost?.SetPosition(x, y);
         Trace($"position x={x} y={y}");
@@ -362,10 +434,36 @@ internal sealed class WpfPortablePopupBridge : IDisposable
 
     private void SetSourceClientOrigin()
     {
-        _source.SetClientOrigin(
-            ToLogicalScreenCoordinate(X, _dpiScaleX),
-            ToLogicalScreenCoordinate(Y, _dpiScaleY));
+        double x = ToLogicalScreenCoordinate(X, _dpiScaleX);
+        double y = ToLogicalScreenCoordinate(Y, _dpiScaleY);
+        // An independently surfaced popup owns its client scale after native
+        // initialization. Owner-surface popups share the owner's DIP frame.
+        var scale = _nativeHost != null && _source is IPortableDesktopGeometryHost nativeGeometry
+            ? nativeGeometry.DesktopTransform : _ownerDesktopTransform;
+        if (_source is IPortableDesktopGeometryHost geometry)
+            geometry.SetDesktopTransform(new PortableDesktopTransform(x, y, scale.ScaleX, scale.ScaleY));
+        else if (scale.ScaleX == 1 && scale.ScaleY == 1)
+            _source.SetClientOrigin(x, y);
+        else
+            throw new PlatformNotSupportedException("Scaled popup coordinates require the typed portable desktop geometry capability.");
     }
+
+    private PortableDesktopTransform ReadOwnerDesktopTransform() =>
+        _ownerPresentationSource is IPortableDesktopGeometryHost geometry
+            ? geometry.DesktopTransform : PortableDesktopTransform.Identity;
+
+    private void SetLocalPosition(int x, int y)
+    {
+        // Legacy transport is desktop * framebuffer DPI, not owner-client DIPs.
+        var local = _ownerDesktopTransform.DesktopVectorToClient(new PortablePoint(
+            ((double)x - _ownerClientScreenDeviceX) / _dpiScaleX,
+            ((double)y - _ownerClientScreenDeviceY) / _dpiScaleY));
+        _localLogicalX = local.X;
+        _localLogicalY = local.Y;
+    }
+
+    internal bool RefreshOwnerDesktopGeometry() => TrySetOwnerGeometry(
+        _ownerClientScreenDeviceX, _ownerClientScreenDeviceY, _dpiScaleX, _dpiScaleY);
 
     private static double ToLogicalScreenCoordinate(int deviceCoordinate, double deviceScale)
     {
@@ -591,7 +689,30 @@ internal sealed class WpfPortablePopupBridge : IDisposable
             return;
         }
 
-        _nativeHost?.Dispose();
+        _isDisposed = true;
+        try
+        {
+            _nativeHost?.Dispose();
+        }
+        finally
+        {
+            try
+            {
+                DetachSourceCallbacks();
+            }
+            finally
+            {
+                // Unlike a borrowed main-window binding, this source was
+                // created by our factory. Release it even if WPF never accepted
+                // the popup or the owning window closes before Popup cleanup.
+                _source.Dispose();
+            }
+        }
+        GC.SuppressFinalize(this);
+    }
+
+    private void DetachSourceCallbacks()
+    {
         _source.RenderRequested -= OnSourceRenderRequested;
         _source.CursorRequested -= OnSourceCursorRequested;
 
@@ -636,9 +757,6 @@ internal sealed class WpfPortablePopupBridge : IDisposable
         {
             _source.HitTestEllipseBoundsBufferOverride = null;
         }
-
-        _isDisposed = true;
-        GC.SuppressFinalize(this);
     }
 
     private void SubscribeToSource()
@@ -876,6 +994,8 @@ internal sealed class WpfPortablePopupBridge : IDisposable
 
     private void RequestRender()
     {
+        if (_nativeHost == null)
+            _host.InvalidateNativeMilPopups();
         _host.RequestRenderAndWakeNativeLoop();
     }
 

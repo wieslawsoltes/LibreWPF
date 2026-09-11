@@ -10,6 +10,7 @@ public sealed class QueuedWpfDispatcherService : IWpfDispatcherService
     private readonly int _dispatcherThreadId;
     private readonly List<QueuedOperation> _queue = new();
     private long _nextSequence;
+    private bool _isProcessing;
 
     public QueuedWpfDispatcherService()
         : this(Environment.CurrentManagedThreadId)
@@ -60,57 +61,87 @@ public sealed class QueuedWpfDispatcherService : IWpfDispatcherService
             throw new InvalidOperationException("The queued WPF dispatcher must be processed on its owning thread.");
         }
 
-        var processed = false;
-
-        while (true)
+        if (_isProcessing)
         {
-            QueuedOperation? operation;
+            return false;
+        }
+
+        _isProcessing = true;
+        try
+        {
+            long lastSequenceAtEntry;
             lock (_gate)
             {
-                operation = DequeueNextOperation();
+                lastSequenceAtEntry = _nextSequence - 1;
             }
 
-            if (operation == null)
-            {
-                return processed;
-            }
+            var processed = false;
 
-            if (!operation.TryStart())
+            while (true)
             {
-                continue;
-            }
+                QueuedOperation? operation;
+                lock (_gate)
+                {
+                    operation = DequeueNextOperation(lastSequenceAtEntry);
+                }
 
-            try
-            {
-                operation.Invoke();
-                processed = true;
+                if (operation == null)
+                {
+                    return processed;
+                }
+
+                if (!operation.TryStart())
+                {
+                    continue;
+                }
+
+                try
+                {
+                    operation.Invoke();
+                    processed = true;
+                }
+                finally
+                {
+                    operation.MarkCompleted();
+                }
             }
-            finally
-            {
-                operation.MarkCompleted();
-            }
+        }
+        finally
+        {
+            _isProcessing = false;
         }
     }
 
-    private QueuedOperation? DequeueNextOperation()
+    private QueuedOperation? DequeueNextOperation(long lastSequenceAtEntry)
     {
         if (_queue.Count == 0)
         {
             return null;
         }
 
-        var selectedIndex = 0;
-        var selected = _queue[0];
+        var selectedIndex = -1;
+        QueuedOperation? selected = null;
 
-        for (var i = 1; i < _queue.Count; i++)
+        for (var i = 0; i < _queue.Count; i++)
         {
             var candidate = _queue[i];
-            if (candidate.Priority > selected.Priority ||
+            if (candidate.Sequence > lastSequenceAtEntry)
+            {
+                continue;
+            }
+
+            if (selected == null ||
+                candidate.Priority > selected.Priority ||
                 candidate.Priority == selected.Priority && candidate.Sequence < selected.Sequence)
             {
                 selectedIndex = i;
                 selected = candidate;
             }
+        }
+
+        if (selectedIndex < 0)
+        {
+            return null;
         }
 
         _queue.RemoveAt(selectedIndex);

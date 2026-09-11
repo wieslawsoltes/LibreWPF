@@ -27,6 +27,27 @@ namespace ProGPU.Wpf.Tests.Composition.Mil;
 public sealed class WpfResourceResolverTests
 {
     [Fact]
+    public void NativeGlyphInkBoundsRemainAuthoritativeAndInvalidateAdapterCache()
+    {
+        var value = new PortableNativeGlyphRun
+        {
+            GlyphIndices = [3], GlyphPositions = [Vector2.Zero], FontRenderingEmSize = 12,
+            FontFamilyNames = ["Arial"], HasInkBounds = true, InkBounds = new PortableRect(-2, -10, 16, 14)
+        };
+        Assert.True(WpfResourceResolver.TryAdaptNativeGlyphRun(value, out var first));
+        Assert.True(first.HasInkBounds);
+        Assert.Equal(-2, first.InkBounds.X);
+        Assert.Equal(14, first.InkBounds.Height);
+        value.InkBounds = PortableRect.Empty;
+        Assert.True(WpfResourceResolver.TryAdaptNativeGlyphRun(value, out var empty));
+        Assert.True(empty.HasInkBounds);
+        Assert.True(empty.InkBounds.IsEmpty);
+        value.HasInkBounds = false;
+        Assert.True(WpfResourceResolver.TryAdaptNativeGlyphRun(value, out var missing));
+        Assert.False(missing.HasInkBounds);
+    }
+
+    [Fact]
     public void FromDependentResourcesIndexesReadOnlyListWithoutEnumerating()
     {
         var brush = Brushes.Green;

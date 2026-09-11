@@ -5,11 +5,23 @@ using System.Windows.Threading;
 using System.Windows.Media.Media3D;
 using System.Windows.Media.Composition;
 using System.Windows.Media.Animation;
+using ProGPU.Wpf.Interop;
 
 namespace System.Windows.Media
 {
-    public partial class BitmapCacheBrush : Brush, ICyclicBrush
+    public partial class BitmapCacheBrush : Brush, ICyclicBrush, IPortableBitmapCacheBrushSource
     {
+        bool IPortableBitmapCacheBrushSource.TryGetPortableBitmapCacheBrush(
+            out PortableBitmapCacheBrush brush)
+        {
+            ReadPreamble();
+            // This class's coercion contract fixes opacity at one and both
+            // transforms at null. Publish the resolved target, not Target:
+            // AutoWrapTarget may have inserted a source-owned container.
+            brush = new PortableBitmapCacheBrush(InternalTarget, BitmapCache);
+            return true;
+        }
+
         #region Constructors        
         public BitmapCacheBrush()
         {

@@ -27,7 +27,7 @@ namespace System.Windows.Media
     /// can be used to clip, fill or stroke.
     /// </summary>
     [Localizability(LocalizationCategory.None, Readability = Readability.Unreadable)]
-    public abstract partial class Geometry : Animatable, DUCE.IResource, IPortableGeometryPathSource
+    public abstract partial class Geometry : Animatable, DUCE.IResource, IPortableGeometryPathSource, IPortablePrimitiveGeometrySource
     {
         #region Constructors
 
@@ -56,6 +56,10 @@ namespace System.Windows.Media
         { 
             get
             {
+                if (PortableGeometryOperationsBridge.IsPortable)
+                    return PortableGeometryOperationsBridge.GetBounds(
+                        PortableGeometryOperationsBridge.Export(this, 0), Matrix.Identity, false);
+
                 return PathGeometry.GetPathBounds(
                     GetPathGeometryData(),
                     null,   // pen
@@ -133,6 +137,18 @@ namespace System.Windows.Media
             return true;
         }
 
+        bool IPortablePrimitiveGeometrySource.TryGetPortablePrimitiveGeometry(out PortablePrimitiveGeometry geometry)
+        {
+            ReadPreamble();
+            return TryGetPortablePrimitiveGeometryCore(out geometry);
+        }
+
+        internal virtual bool TryGetPortablePrimitiveGeometryCore(out PortablePrimitiveGeometry geometry)
+        {
+            geometry = default;
+            return false;
+        }
+
         /// <summary>
         /// Returns the axis-aligned bounding rectangle when stroked with a pen, after applying
         /// the supplied transform (if non-null).
@@ -143,6 +159,10 @@ namespace System.Windows.Media
             {
                 return Rect.Empty;
             }
+
+            if (PortableGeometryOperationsBridge.IsPortable)
+                return PortableGeometryOperationsBridge.GetRenderBounds(
+                    PortableGeometryOperationsBridge.Export(this, 0), pen, matrix, tolerance, type, true);
 
             PathGeometryData pathData = GetPathGeometryData();
 
@@ -179,6 +199,14 @@ namespace System.Windows.Media
         {
             // If the pen contributes to the bounds, populate the CMD struct
             bool fPenContributesToBounds = Pen.ContributesToBounds(pen);
+
+            if (PortableGeometryOperationsBridge.IsPortable)
+            {
+                return PortableGeometryOperationsBridge.GetRenderBounds(
+                    PortableGeometryOperationsBridge.ExportPolygon(pPoints, pointCount, pTypes, segmentCount,
+                        pGeometryMatrix == null ? Matrix.Identity : *pGeometryMatrix),
+                    pen, pWorldMatrix == null ? Matrix.Identity : *pWorldMatrix, tolerance, type, fSkipHollows);
+            }
 
             if (!OperatingSystem.IsWindows())
             {
@@ -471,6 +499,9 @@ namespace System.Windows.Media
                 return false;
             }
 
+            if (PortableGeometryOperationsBridge.IsPortable)
+                return PortableGeometryOperationsBridge.Contains(this, pen, hitPoint, tolerance, type);
+
             PathGeometryData pathData = GetPathGeometryData();
 
             if (pathData.IsEmpty())
@@ -540,6 +571,8 @@ namespace System.Windows.Media
         internal unsafe bool ContainsInternal(Pen pen, Point hitPoint, double tolerance, ToleranceType type, 
                                                 Point *pPoints, uint pointCount, byte *pTypes, uint typeCount)
         {
+            if (PortableGeometryOperationsBridge.IsPortable)
+                return PortableGeometryOperationsBridge.Contains(this, pen, hitPoint, tolerance, type);
             if (!OperatingSystem.IsWindows())
             {
                 return ContainsPolygonProGpuBounds(

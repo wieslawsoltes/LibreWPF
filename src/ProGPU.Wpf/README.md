@@ -2,7 +2,11 @@
 
 This package is the LibreWPF cross-platform rendering port lane for WPF. The assembly and source project remain `ProGPU.Wpf`; the public NuGet package ID is `LibreWPF.ProGPU`.
 
-It intentionally does not modify the existing `PresentationCore` DUCE/MIL path yet. Instead, it provides:
+It does not replace the existing managed portable renderer by default. It now
+also contains the first opt-in, reflection-free native MIL producer/compiler
+slice described in the repository's
+[`docs/native-mil-progpu.md`](https://github.com/wieslawsoltes/LibreWPF/blob/progpu-rendering-port/docs/native-mil-progpu.md),
+while continuing to provide:
 
 - `ProGpuWpfCompositionTarget`, a ProGPU-backed composition target that renders a retained `ProGPU.Scene.DrawingVisual`.
 - `ProGpuWpfDrawingFrame`, a per-frame drawing scope that clears and sizes the retained root once, then creates multiple WPF-shaped `DrawingContext` wrappers over the same ProGPU command buffer for provider-style render-open integration, with owner/count diagnostics for redirected render-open activity.

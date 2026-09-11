@@ -3,7 +3,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Runtime.InteropServices;
 
 namespace System.Windows.Media
 {
@@ -11,17 +10,11 @@ namespace System.Windows.Media
     {
         private static readonly object s_lock = new object();
         private static readonly List<Action<object, TimeSpan>> s_renderRequests = new List<Action<object, TimeSpan>>();
-        private static readonly bool s_isWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
 
         internal static bool IsEnabled
         {
             get
             {
-                if (s_isWindows)
-                {
-                    return false;
-                }
-
                 lock (s_lock)
                 {
                     return s_renderRequests.Count != 0;
@@ -44,11 +37,6 @@ namespace System.Windows.Media
         internal static IDisposable Register(Action<object, TimeSpan> requestRender)
         {
             ArgumentNullException.ThrowIfNull(requestRender);
-
-            if (s_isWindows)
-            {
-                return EmptyRegistration.Instance;
-            }
 
             lock (s_lock)
             {
@@ -75,11 +63,6 @@ namespace System.Windows.Media
 
         internal static void RequestRender(object invalidatedSource, TimeSpan delay)
         {
-            if (s_isWindows)
-            {
-                return;
-            }
-
             if (delay < TimeSpan.Zero)
             {
                 delay = TimeSpan.Zero;
@@ -124,15 +107,6 @@ namespace System.Windows.Media
                 {
                     s_renderRequests.Remove(requestRender);
                 }
-            }
-        }
-
-        private sealed class EmptyRegistration : IDisposable
-        {
-            internal static readonly EmptyRegistration Instance = new EmptyRegistration();
-
-            public void Dispose()
-            {
             }
         }
     }

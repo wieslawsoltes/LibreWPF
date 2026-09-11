@@ -880,19 +880,22 @@ namespace MS.Internal.Documents
         /// <summary>
         /// Compute size for the page.
         /// </summary>
-        private Size ComputePageSize()
+        private Size ComputePageSize() => ComputePageSize(_document, _pageSize);
+
+        // Shared source page-size policy; the portable paginator must not enter PTS.
+        internal static Size ComputePageSize(FlowDocument document, Size suggestedSize)
         {
             double max, min;
-            Size pageSize = new Size(_document.PageWidth, _document.PageHeight);
+            Size pageSize = new Size(document.PageWidth, document.PageHeight);
             if (double.IsNaN(pageSize.Width))
             {
-                pageSize.Width = _pageSize.Width;
-                max = _document.MaxPageWidth;
+                pageSize.Width = suggestedSize.Width;
+                max = document.MaxPageWidth;
                 if (pageSize.Width > max)
                 {
                     pageSize.Width = max;
                 }
-                min = _document.MinPageWidth;
+                min = document.MinPageWidth;
                 if (pageSize.Width < min)
                 {
                     pageSize.Width = min;
@@ -900,13 +903,13 @@ namespace MS.Internal.Documents
             }
             if (double.IsNaN(pageSize.Height))
             {
-                pageSize.Height = _pageSize.Height;
-                max = _document.MaxPageHeight;
+                pageSize.Height = suggestedSize.Height;
+                max = document.MaxPageHeight;
                 if (pageSize.Height > max)
                 {
                     pageSize.Height = max;
                 }
-                min = _document.MinPageHeight;
+                min = document.MinPageHeight;
                 if (pageSize.Height < min)
                 {
                     pageSize.Height = min;

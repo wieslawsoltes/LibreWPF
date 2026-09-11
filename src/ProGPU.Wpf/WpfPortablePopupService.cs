@@ -44,6 +44,10 @@ internal sealed class WpfPortablePopupService : IPortablePopupServiceRegistrar
         return _host.TrySetPortablePopupHitTestable(presentationSource, hitTestable);
     }
 
+    public bool TryGetPopupPlacementBounds(object presentationSource, PortableRect targetBounds,
+        out PortablePopupPlacementBounds bounds) =>
+        _host.TryGetPortablePopupPlacementBounds(presentationSource, targetBounds, out bounds);
+
     public bool TryDestroyPopup(object presentationSource)
     {
         return _host.TryDestroyPortablePopup(presentationSource);
