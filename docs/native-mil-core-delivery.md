@@ -15,6 +15,13 @@ do not automatically expand the release checklist.
 
 ## Active completion queue
 
+**Automatic native floating document path — 2026-09-11:** ordinary bottomless
+layout now connects original measured anchors, source events, native placements,
+owned drawing/input and hard-line exclusion carry-over. The unchanged application
+passes the prior anchor measurement failure and next fails Alt+A handled-state
+validation. Finite-page anchors remain explicitly rejected; see
+[application and integration evidence](../reports/native-mil-automatic-floating-document-2026-09-11.md).
+
 **Source TextLine floating connection — 2026-09-11:** explicit hidden child ranges
 now map through ProGPU's checked source map to the captured floating provider.
 Returned native placements retain original child starts and survive wrapped

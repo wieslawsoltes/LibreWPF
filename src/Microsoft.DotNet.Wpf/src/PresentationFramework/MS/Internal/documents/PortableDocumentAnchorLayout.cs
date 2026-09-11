@@ -27,6 +27,66 @@ internal sealed class PortableDocumentAnchorLayout : IDisposable
     { _paragraph = paragraph; _generation = generation; _entries = Array.AsReadOnly(entries); _flow = flow; }
     internal IReadOnlyList<Entry> Entries => _entries ?? throw new ObjectDisposedException(nameof(PortableDocumentAnchorLayout));
 
+    internal PortableTextSourceFloat[] GetFloatingChildren(int start, int length)
+    {
+        ValidateFor(_paragraph);
+        int end = checked(start + length);
+        var children = new List<PortableTextSourceFloat>();
+        foreach (var child in _entries)
+        {
+            if (child.Source.End <= start) continue;
+            if (child.Source.Start >= end) break;
+            if (child.Source.Start < start || child.Source.End > end)
+                throw new InvalidOperationException("A floating child crossed its source hard segment.");
+            PortableTextFloatAlignment alignment;
+            if (child.Source.Anchor is Figure figure)
+            {
+                if (figure.WrapDirection != WrapDirection.Both || !figure.Height.IsAuto ||
+                    figure.HorizontalOffset != 0 || figure.VerticalOffset != 0)
+                    throw new PlatformNotSupportedException("Figure wrap sides, fixed height and offsets require their source placement policy.");
+                alignment = figure.HorizontalAnchor switch
+                {
+                    FigureHorizontalAnchor.ColumnLeft or FigureHorizontalAnchor.ContentLeft or FigureHorizontalAnchor.PageLeft => PortableTextFloatAlignment.Left,
+                    FigureHorizontalAnchor.ColumnCenter or FigureHorizontalAnchor.ContentCenter or FigureHorizontalAnchor.PageCenter => PortableTextFloatAlignment.Center,
+                    FigureHorizontalAnchor.ColumnRight or FigureHorizontalAnchor.ContentRight or FigureHorizontalAnchor.PageRight => PortableTextFloatAlignment.Right,
+                    _ => throw new PlatformNotSupportedException("Unknown Figure horizontal reference.")
+                };
+            }
+            else if (child.Source.Anchor is Floater floater)
+                alignment = floater.HorizontalAlignment switch
+                {
+                    HorizontalAlignment.Left or HorizontalAlignment.Stretch => PortableTextFloatAlignment.Left,
+                    HorizontalAlignment.Center => PortableTextFloatAlignment.Center,
+                    HorizontalAlignment.Right => PortableTextFloatAlignment.Right,
+                    _ => throw new PlatformNotSupportedException("Unknown Floater horizontal alignment.")
+                };
+            else throw new PlatformNotSupportedException("Unknown floating source child.");
+            children.Add(new(child.Source.Start - start, child.Source.End - child.Source.Start,
+                (float)child.OuterSize.Width, (float)child.OuterSize.Height, alignment));
+        }
+        return children.ToArray();
+    }
+
+    internal PlacedBatch RetainFloatingPlacements(IReadOnlyList<PortableTextFloatPlacement> native)
+    {
+        ValidateFor(_paragraph);
+        if (native.Count != _entries.Count) throw new InvalidOperationException("Native floating placement lost source children.");
+        var children = new Placement[native.Count];
+        var exclusions = new PortableTextExclusion[native.Count];
+        for (int i = 0; i < native.Count; i++)
+        {
+            var p = native[i]; var child = _entries[i]; var box = child.Box;
+            if (p.Position != child.Source.Start || !float.IsFinite(p.Left) || !float.IsFinite(p.Top) ||
+                !float.IsFinite(p.Right) || !float.IsFinite(p.Bottom) || p.Right <= p.Left || p.Bottom <= p.Top)
+                throw new InvalidOperationException("Native floating placement changed source identity or returned invalid bounds.");
+            children[i] = new(child, new(p.Left, p.Top, p.Right - p.Left, p.Bottom - p.Top),
+                new(p.Left + box.Margin.Left + box.Border.Left + box.Padding.Left,
+                    p.Top + box.Margin.Top + box.Border.Top + box.Padding.Top));
+            exclusions[i] = new(p.Left, p.Top, p.Right, p.Bottom);
+        }
+        return new(Array.AsReadOnly(children), new(new PortableTextExclusionOptions(256), exclusions));
+    }
+
     internal void ValidateFor(Paragraph paragraph)
     {
         paragraph.Dispatcher.VerifyAccess();

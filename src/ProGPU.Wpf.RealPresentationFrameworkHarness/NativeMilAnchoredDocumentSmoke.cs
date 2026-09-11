@@ -9,7 +9,9 @@ internal static class NativeMilAnchoredDocumentSmoke
         const BindingFlags instance = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
         object New(string name, params object[] args) => Activator.CreateInstance(
             framework.GetType(name, true)!, instance, null, args, null)!;
-        object Get(object value, string name) => value.GetType().GetProperty(name, instance)!.GetValue(value)!;
+        object Get(object value, string name) => value.GetType().GetProperty(name, instance)?.GetValue(value) ??
+            value.GetType().GetField(name, instance)?.GetValue(value) ??
+            throw new InvalidOperationException("Missing source member: " + name);
         void Add(object owner, string collection, object item)
         {
             object list = Get(owner, collection);
@@ -180,6 +182,34 @@ internal static class NativeMilAnchoredDocumentSmoke
             }
             var padding = document.GetType().GetProperty("PagePadding")!;
             padding.SetValue(document, Activator.CreateInstance(padding.PropertyType, [0.0]));
+            void CheckAutomatic()
+            {
+                using var automatic = (IDisposable)method.DeclaringType!.GetMethod("Create",
+                    BindingFlags.Static | BindingFlags.NonPublic)!.Invoke(null, [document, 4096.0, 1.0, mode, null])!;
+                var groups = (IList)Get(automatic, "Anchors");
+                if (groups.Count != 1) throw new InvalidOperationException("Automatic floating document lost its owned generation.");
+                var actual = (IList)Get(Get(groups[0]!, "Placement"), "Children");
+                if (actual.Count != 2 || (double)Get(Get(actual[0]!, "OuterBounds"), "Top") <= 0 ||
+                    !ReferenceEquals(Get(Get(Get(actual[0]!, "Child"), "Source"), "Anchor"), anchor) ||
+                    !ReferenceEquals(Get(Get(Get(actual[1]!, "Child"), "Source"), "Anchor"), sibling))
+                    throw new InvalidOperationException("Automatic native floats lost source-row delay or actual sibling identity.");
+                var lines = (IList)Get(automatic, "Lines");
+                double parentBottom = 0;
+                foreach (object entry in lines)
+                    if (ReferenceEquals(Get(entry, "Paragraph"), parent))
+                        parentBottom = Math.Max(parentBottom, (double)Get(Get(entry, "Line"), "FragmentContentHeight"));
+                double occupied = parentBottom;
+                foreach (object placement in actual)
+                    occupied = Math.Max(occupied, (double)Get(Get(placement, "OuterBounds"), "Bottom"));
+                var positions = (Array)Get(automatic, "Positions");
+                if ((double)Get(positions.GetValue(lines.Count - 1)!, "Y") != occupied ||
+                    ((IList)Get(automatic, "HostedChildren")).Count == 0)
+                    throw new InvalidOperationException("Automatic floats lost following-block extent or original hosted control.");
+            }
+            CheckAutomatic();
+            Add(parent, "Inlines", New("System.Windows.Documents.LineBreak"));
+            Add(parent, "Inlines", New("System.Windows.Documents.Run", "hard segment after floating children"));
+            CheckAutomatic();
             var references = (IDictionary)Activator.CreateInstance(typeof(Dictionary<,>).MakeGenericType(
                 parent.GetType(), typeof(PortableDocumentAnchorRectangle[])))!;
             references.Add(parent, new PortableDocumentAnchorRectangle[] {

@@ -230,7 +230,26 @@ internal sealed class PortableFlowDocumentLayout : IDisposable
                         request = placed.Exclusions;
                         ++consumedAnchors;
                     }
-                    int positionedIndex = layout.FormatParagraph(document, paragraph, i, pixelsPerDip, formatter, metrics, request, anchors);
+                    List<PortableTextFloatPlacement> floating = null;
+                    if (anchors == null && PortableDocumentAnchorSource.Collect(paragraph).Count != 0)
+                    {
+                        if (request != null || flow is not IPortablePositionedDocumentFlow ||
+                            !PortableWpfServiceRegistry.TryGetTextFormatting(out var textService) || textService is not IPortableFloatingTextFormatting)
+                            throw new PlatformNotSupportedException("Automatic source anchors require native floating text and positioned document services.");
+                        anchors = PortableDocumentAnchorLayout.Create(document, paragraph, layout.Boxes[i].Width, pixelsPerDip, formattingMode);
+                        floating = new();
+                    }
+                    int positionedIndex;
+                    try
+                    {
+                        positionedIndex = layout.FormatParagraph(document, paragraph, i, pixelsPerDip, formatter, metrics, request, anchors, floating);
+                        if (floating != null)
+                        {
+                            placed = anchors.RetainFloatingPlacements(floating);
+                            layout._anchors.Add(new(i, anchors, placed));
+                        }
+                    }
+                    catch { if (floating != null) anchors.Dispose(); throw; }
                     if (placed != null)
                     {
                         if (positionedIndex < 0) throw new InvalidOperationException("Anchored parent lost its native paragraph extent.");
@@ -450,9 +469,9 @@ internal sealed class PortableFlowDocumentLayout : IDisposable
 
     private int FormatParagraph(FlowDocument document, Paragraph paragraph, int blockIndex, double pixelsPerDip,
         TextFormatter formatter, List<PortableDocumentLine> metrics, PortableTextExclusionRequest exclusions = null,
-        PortableDocumentAnchorLayout anchors = null)
+        PortableDocumentAnchorLayout anchors = null, List<PortableTextFloatPlacement> floating = null)
     {
-        var source = new PortableDocumentParagraphSource(paragraph, pixelsPerDip, Boxes[blockIndex].Width, exclusions, anchors);
+        var source = new PortableDocumentParagraphSource(paragraph, pixelsPerDip, Boxes[blockIndex].Width, exclusions, anchors, floating != null);
         var properties = new LineProperties(paragraph, document,
             new TextProperties(paragraph, paragraph.StaticElementStart, false, false, pixelsPerDip), null);
         var cache = new TextRunCache();
@@ -472,7 +491,7 @@ internal sealed class PortableFlowDocumentLayout : IDisposable
                         throw new InvalidOperationException("Formatted paragraph line did not preserve its source range.");
                     double advance = properties.CalcLineAdvance(line.Height);
                     PortableTextFragment? fragment = (line as PortableTextLine)?.Fragment;
-                    if (exclusions != null && !fragment.HasValue)
+                    if ((exclusions != null || floating != null) && !fragment.HasValue)
                         throw new InvalidOperationException("Excluded source formatting lost its fragment frame.");
                     if (fragment.HasValue)
                     {
@@ -508,6 +527,11 @@ internal sealed class PortableFlowDocumentLayout : IDisposable
                 TextLineBreak next = line.GetTextLineBreak();
                 continuation?.Dispose(); continuation = next;
                 position += line.Length;
+                if (floating != null && line is PortableTextLine { IsLastFragment: true } floated)
+                {
+                    foreach (var placement in floated.SourceFloats.Span) floating.Add(placement);
+                    source.AdvanceFloatingSegment(position, floated.FragmentContentHeight, floated.SourceFloats.Span);
+                }
                 if (exclusions != null && position < source.End && line is PortableTextLine { IsLastFragment: true } segment)
                     source.AdvanceExcludedSegment(position, segment.FragmentContentHeight);
             }

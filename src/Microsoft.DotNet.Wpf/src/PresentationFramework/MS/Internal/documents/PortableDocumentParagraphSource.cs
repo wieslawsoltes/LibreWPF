@@ -2,18 +2,20 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Globalization;
+using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Documents;
 using System.Windows.Media;
 using System.Windows.Media.TextFormatting;
 using MS.Internal.Text;
 using MS.Internal.TextFormatting;
+using ProGPU.Wpf.Interop;
 
 namespace MS.Internal.Documents;
 
 // Source adapter only: every index remains an offset in the original container.
 // TextFormatter/PortableTextLine owns modifier evaluation and native shaping.
-internal sealed class PortableDocumentParagraphSource : TextSource, IPortableExcludedTextSource
+internal sealed class PortableDocumentParagraphSource : TextSource, IPortableExcludedTextSource, IPortableFloatingTextSource
 {
     private readonly Paragraph _paragraph;
     private readonly ITextContainer _container;
@@ -22,6 +24,9 @@ internal sealed class PortableDocumentParagraphSource : TextSource, IPortableExc
     private readonly PortableDocumentAnchorLayout _anchors;
     private PortableTextExclusionRequest _segmentExclusions;
     private int _segmentStart;
+    private readonly bool _floating;
+    private double _floatingOrigin;
+    private readonly List<PortableTextExclusion> _floatExclusions;
     internal bool HasInlineObjects { get; private set; }
     internal int Start { get; }
     internal int End { get; }
@@ -35,6 +40,10 @@ internal sealed class PortableDocumentParagraphSource : TextSource, IPortableExc
 
     internal PortableDocumentParagraphSource(Paragraph paragraph, double pixelsPerDip, double paragraphWidth,
         PortableTextExclusionRequest exclusions, PortableDocumentAnchorLayout anchors)
+        : this(paragraph, pixelsPerDip, paragraphWidth, exclusions, anchors, false) { }
+
+    internal PortableDocumentParagraphSource(Paragraph paragraph, double pixelsPerDip, double paragraphWidth,
+        PortableTextExclusionRequest exclusions, PortableDocumentAnchorLayout anchors, bool floating)
     {
         anchors?.ValidateFor(paragraph);
         _paragraph = paragraph;
@@ -42,6 +51,10 @@ internal sealed class PortableDocumentParagraphSource : TextSource, IPortableExc
         _paragraphWidth = paragraphWidth;
         _exclusions = exclusions;
         _anchors = anchors;
+        if (floating && (anchors == null || exclusions != null))
+            throw new ArgumentException("Floating source requires owned anchors and no fixed exclusions.");
+        _floating = floating;
+        if (floating) _floatExclusions = new();
         Start = paragraph.ElementStart.Offset;
         _segmentStart = Start;
         _segmentExclusions = exclusions;
@@ -64,6 +77,23 @@ internal sealed class PortableDocumentParagraphSource : TextSource, IPortableExc
         var next = _exclusions.At(nativeBottom);
         _segmentStart = start;
         _segmentExclusions = next;
+    }
+
+    PortableTextFloatingRequest IPortableFloatingTextSource.GetFloats(int firstSourceIndex, int sourceLength)
+    {
+        if (!_floating) return null;
+        _anchors.ValidateFor(_paragraph);
+        if (firstSourceIndex != _segmentStart) throw new InvalidOperationException("Floating source segment origin was not advanced.");
+        return new(256, _floatingOrigin, _anchors.GetFloatingChildren(firstSourceIndex, sourceLength), _floatExclusions.ToArray());
+    }
+
+    internal void AdvanceFloatingSegment(int start, double nativeBottom, ReadOnlySpan<PortableTextFloatPlacement> placements)
+    {
+        if (!_floating || start <= _segmentStart || start > End || !double.IsFinite(nativeBottom) || nativeBottom < _floatingOrigin)
+            throw new InvalidOperationException("Invalid floating hard-segment transition.");
+        foreach (var p in placements) _floatExclusions.Add(new(p.Left, p.Top, p.Right, p.Bottom));
+        _segmentStart = start;
+        _floatingOrigin = nativeBottom;
     }
 
     public override TextRun GetTextRun(int dcp)

@@ -143,6 +143,8 @@ internal sealed class PortableFlowDocumentPaginator : DynamicDocumentPaginator,
                     throw new PlatformNotSupportedException("Paginated controls require native object fragmentation and page ownership.");
                 if (next.HasTables)
                     throw new PlatformNotSupportedException("Paginated tables require native row/cell fragmentation and page ownership.");
+                if (next.Anchors.Count != 0)
+                    throw new PlatformNotSupportedException("Paginated anchors require finite-page placement and child ownership; bottomless floating layout is not page admission.");
                 var input = CreateFragmentLines(next);
                 placed = new PortableDocumentFragmentPosition[input.Length];
                 var result = flow.Paginate(input, height, (uint)Columns, placed);
