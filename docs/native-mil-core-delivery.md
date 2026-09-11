@@ -15,6 +15,15 @@ do not automatically expand the release checklist.
 
 ## Active completion queue
 
+**Image first-frame blocker — 2026-09-11:** ProGPU `a939a049` closes the diagnosed
+glyph guideline rejection; the diagnostic external SDK application now reaches
+image command 5179. Preserve original bitmap sampling while snapping coverage,
+not corner-UV stretching. The source-backed next implementation constraints are
+in [image guideline contract](../reports/native-mil-image-guideline-contract-2026-09-11.md).
+Local native checks pass for the preceding glyph fix; new-head CI, exact-package
+startup and final platform/pixel qualification remain open. This supersedes the
+older first-frame blocker descriptions below, not the deferred broader scope.
+
 **Merge preparation — 2026-09-11:** the ProGPU browser job in run 34553087997
 passes; the previous readback timeout is not a diagnosed renderer defect.
 ProGPU now retains timeout/readback diagnostics without relaxing assertions or
