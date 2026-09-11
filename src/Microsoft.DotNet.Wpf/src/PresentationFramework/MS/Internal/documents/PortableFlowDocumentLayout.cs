@@ -56,6 +56,7 @@ internal sealed class PortableFlowDocumentLayout : IDisposable
     internal IReadOnlyList<FlowItem> Items => _items ?? (IReadOnlyList<FlowItem>)Array.Empty<FlowItem>();
     private readonly List<MarkerEntry> _markers = new();
     private bool _disposed;
+    internal bool IsDisposed => _disposed;
     internal IReadOnlyList<BlockEntry> Blocks => _entries;
     internal IReadOnlyList<LineEntry> Lines => _lines;
     internal IReadOnlyList<MarkerEntry> Markers => _markers;

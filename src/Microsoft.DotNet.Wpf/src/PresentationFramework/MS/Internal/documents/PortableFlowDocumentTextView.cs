@@ -17,18 +17,39 @@ namespace MS.Internal.Documents;
 internal sealed class PortableFlowDocumentTextView(FlowDocumentView owner, FlowDocument document,
     PortableFlowDocumentPage page = null) : TextViewBase
 {
-    private PortableFlowDocumentLayout Layout => page == null ? owner.PortableLayout : page.Layout;
+    private readonly PortableFlowDocumentTextView _parentView;
+    private readonly PortableFlowDocumentLayout _parentLayout, _childLayout;
+    private readonly PortableDocumentAnchorSource _childSource;
+    private readonly Vector _childOrigin;
+    private sealed record AnchorView(PortableDocumentAnchorLayout.Placement Placement, Vector Origin,
+        PortableFlowDocumentTextView View);
+    private PortableFlowDocumentLayout _anchorViewLayout;
+    private IReadOnlyList<AnchorView> _anchorViews = Array.Empty<AnchorView>();
+
+    private PortableFlowDocumentTextView(FlowDocumentView owner, FlowDocument document,
+        PortableFlowDocumentTextView parent, PortableFlowDocumentLayout parentLayout,
+        PortableDocumentAnchorLayout.Placement placement, Vector origin) : this(owner, document)
+    {
+        _parentView = parent; _parentLayout = parentLayout; _childLayout = placement.Child.Layout;
+        _childSource = placement.Child.Source; _childOrigin = origin;
+    }
+
+    private PortableFlowDocumentLayout Layout => _childLayout ?? (page == null ? owner.PortableLayout : page.Layout);
     private int FirstLine => page?.FirstLine ?? 0;
     private int EndLine => page?.EndLine ?? Layout.Lines.Count;
-    private Vector ScrollOffset => page == null ? owner.PortableScrollOffset : new Vector();
+    private Vector ScrollOffset => _parentView != null ? _parentView.ScrollOffset - _childOrigin :
+        page == null ? owner.PortableScrollOffset : new Vector();
     private Size ViewportSize => page == null ? owner.RenderSize : page.Size;
     private ProGPU.Wpf.Interop.PortableDocumentLinePosition Position(int index) => page == null ? Layout.Positions[index] : page.Position(index);
     internal override UIElement RenderScope => page == null ? owner : page.RenderScope;
     internal override ITextContainer TextContainer => document.TextContainer;
-    internal override bool IsValid => page == null ? ReferenceEquals(owner.Document, document) && owner.PortableLayoutValid &&
+    internal override bool IsValid => _parentView != null ? _parentView.IsValid &&
+        ReferenceEquals(_parentLayout, _parentView.Layout) && !_childLayout.IsDisposed :
+        page == null ? ReferenceEquals(owner.Document, document) && owner.PortableLayoutValid &&
         owner.IsMeasureValid && owner.IsArrangeValid : page.IsValid;
     internal override ReadOnlyCollection<TextSegment> TextSegments => IsValid
-        ? new(new[] { page == null ? new TextSegment(TextContainer.Start, TextContainer.End, true) : page.TextSegment })
+        ? new(new[] { _childSource != null ? new TextSegment(_childSource.Anchor.ContentStart, _childSource.Anchor.ContentEnd, true) :
+            page == null ? new TextSegment(TextContainer.Start, TextContainer.End, true) : page.TextSegment })
         : ReadOnlyCollection<TextSegment>.Empty;
 
     internal void PublishUpdate() => OnUpdated(EventArgs.Empty);
@@ -41,7 +62,43 @@ internal sealed class PortableFlowDocumentTextView(FlowDocumentView owner, FlowD
 
     internal override bool Contains(ITextPointer position) => IsValid && position != null &&
         ReferenceEquals(position.TextContainer, TextContainer) && position.Offset >= TextContainer.Start.Offset &&
-        position.Offset <= TextContainer.End.Offset && (page == null || page.Contains(position));
+        position.Offset <= TextContainer.End.Offset && (page == null || page.Contains(position)) &&
+        (_childSource == null || position.Offset >= _childSource.Anchor.ContentStart.Offset && position.Offset <= _childSource.Anchor.ContentEnd.Offset);
+
+    private IReadOnlyList<AnchorView> AnchorViews
+    {
+        get
+        {
+            var layout = Layout;
+            if (page != null) return Array.Empty<AnchorView>();
+            if (ReferenceEquals(layout, _anchorViewLayout)) return _anchorViews;
+            var views = new List<AnchorView>();
+            foreach (var paragraph in layout.Anchors)
+            {
+                var box = layout.Boxes[paragraph.BlockIndex];
+                foreach (var placement in paragraph.Placement.Children)
+                {
+                    Vector origin = new(box.X + placement.ContentOrigin.X, box.Y + placement.ContentOrigin.Y);
+                    views.Add(new(placement, origin, new(owner, document, this, layout, placement, origin)));
+                }
+            }
+            _anchorViews = views; _anchorViewLayout = layout;
+            return views;
+        }
+    }
+
+    private AnchorView ChildAt(ITextPointer position)
+    {
+        var children = AnchorViews;
+        int low = 0, high = children.Count;
+        while (low < high)
+        {
+            int middle = low + (high - low) / 2;
+            if (children[middle].Placement.Child.Source.Start < position.Offset) low = middle + 1;
+            else high = middle;
+        }
+        return low > 0 && position.Offset < children[low - 1].Placement.Child.Source.End ? children[low - 1] : null;
+    }
 
     private void RequireValid()
     {
@@ -59,6 +116,14 @@ internal sealed class PortableFlowDocumentTextView(FlowDocumentView owner, FlowD
     {
         RequireValid();
         if (!double.IsFinite(point.X) || !double.IsFinite(point.Y)) return null;
+        var children = AnchorViews;
+        Point local = point + ScrollOffset;
+        for (int i = children.Count - 1; i >= 0; --i)
+        {
+            var child = children[i];
+            if (new Rect((Point)child.Origin, child.Placement.Child.Layout.Size).Contains(local))
+                return child.View.GetTextPositionFromPoint(point, snapToText);
+        }
         point += ScrollOffset;
         if (page == null && Layout.HasTables)
         {
@@ -279,7 +344,9 @@ internal sealed class PortableFlowDocumentTextView(FlowDocumentView owner, FlowD
 
     private ITextPointer Pointer(int offset, LogicalDirection direction)
     {
-        var pointer = TextContainer.CreatePointerAtOffset(Math.Clamp(offset, TextContainer.Start.Offset, TextContainer.End.Offset), direction);
+        var pointer = TextContainer.CreatePointerAtOffset(Math.Clamp(offset,
+            _childSource?.Anchor.ContentStart.Offset ?? TextContainer.Start.Offset,
+            _childSource?.Anchor.ContentEnd.Offset ?? TextContainer.End.Offset), direction);
         pointer = pointer.GetInsertionPosition(direction);
         pointer.Freeze();
         return pointer;
@@ -319,6 +386,7 @@ internal sealed class PortableFlowDocumentTextView(FlowDocumentView owner, FlowD
     internal override Rect GetRawRectangleFromTextPosition(ITextPointer position, out Transform transform)
     {
         RequirePosition(position);
+        if (ChildAt(position) is { } child) return child.View.GetRawRectangleFromTextPosition(position, out transform);
         Vector offset = ScrollOffset;
         transform = offset == new Vector() ? Transform.Identity : new TranslateTransform(-offset.X, -offset.Y);
         int objectIndex = ObjectAt(position);
@@ -344,11 +412,25 @@ internal sealed class PortableFlowDocumentTextView(FlowDocumentView owner, FlowD
         {
             var entry = Layout.Lines[index]; var origin = Position(index);
             int from = Math.Max(start.Offset, entry.Start), to = Math.Min(end.Offset, ContentEnd(index));
-            if (to > from)
-                foreach (TextBounds bounds in entry.Line.GetTextBounds(from, to - from))
+            void AddOwnRange(int rangeStart, int rangeEnd)
+            {
+                if (rangeEnd <= rangeStart) return;
+                foreach (TextBounds bounds in entry.Line.GetTextBounds(rangeStart, rangeEnd - rangeStart))
                 {
                     Rect rectangle = bounds.Rectangle; rectangle.Offset(origin.X, origin.Y); result.Add(rectangle);
                 }
+            }
+            int cursor = from;
+            foreach (var child in AnchorViews)
+            {
+                var source = child.Placement.Child.Source;
+                if (source.End <= cursor) continue;
+                if (source.Start >= to) break;
+                AddOwnRange(cursor, Math.Min(to, source.Start));
+                cursor = Math.Max(cursor, source.End);
+                if (cursor >= to) break;
+            }
+            AddOwnRange(cursor, to);
             if (paragraphBreaks && entry.Line.NewlineLength > 0 && end.Offset > ContentEnd(index) &&
                 start.Offset < entry.Start + entry.Line.Length)
             {
@@ -369,6 +451,15 @@ internal sealed class PortableFlowDocumentTextView(FlowDocumentView owner, FlowD
                 var embedded = Layout.Objects[index];
                 if (embedded.ContentStart < end.Offset && embedded.ContentEnd > start.Offset)
                     result.Add(ObjectRect(index));
+            }
+        }
+        foreach (var child in AnchorViews)
+        {
+            var source = child.Placement.Child.Source;
+            if (source.Start >= end.Offset || source.End <= start.Offset) continue;
+            foreach (Rect rectangle in child.View.GetDocumentRectangles(start, end, paragraphBreaks))
+            {
+                Rect translated = rectangle; translated.Offset(child.Origin); result.Add(translated);
             }
         }
         return result.AsReadOnly();
@@ -525,6 +616,7 @@ internal sealed class PortableFlowDocumentTextView(FlowDocumentView owner, FlowD
     internal override bool IsAtCaretUnitBoundary(ITextPointer position)
     {
         RequirePosition(position);
+        if (ChildAt(position) is { } child) return child.View.IsAtCaretUnitBoundary(position);
         int objectIndex = ObjectAt(position);
         if (objectIndex >= 0)
             return position.Offset == Layout.Objects[objectIndex].ContentStart || position.Offset == Layout.Objects[objectIndex].ContentEnd;
@@ -571,6 +663,7 @@ internal sealed class PortableFlowDocumentTextView(FlowDocumentView owner, FlowD
     internal override TextSegment GetLineRange(ITextPointer position)
     {
         RequirePosition(position);
+        if (ChildAt(position) is { } child) return child.View.GetLineRange(position);
         int objectIndex = ObjectAt(position);
         if (objectIndex >= 0)
         {

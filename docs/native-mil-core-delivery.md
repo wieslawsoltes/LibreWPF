@@ -15,6 +15,12 @@ do not automatically expand the release checklist.
 
 ## Active completion queue
 
+**Retained child text-view routing — 2026-09-11:** child point/caret/selection
+queries now reuse the existing view over the owned child layout and original
+source ranges. Cross-boundary navigation, glyph export, automatic frames and actual
+anchored-viewer runtime qualification remain required; see
+[query connection](../reports/native-mil-anchor-text-view-routing-2026-09-11.md).
+
 **Retained anchor drawing/controls — 2026-09-11:** document drawing now traverses
 owned child TextLines/boxes under their native content origins; real child controls
 join the existing host list with document-local bounds. Child text queries and
