@@ -15,6 +15,14 @@ do not automatically expand the release checklist.
 
 ## Active completion queue
 
+**Image coverage connected — 2026-09-11:** ProGPU `69be6ec2` separates snapped
+path coverage from original bitmap sampling, preserving typed source input.
+The diagnostic app passes the image rejection and zero-target mask preparation;
+the next observed failure is MIL target 4901 compilation, UnsupportedCommand (5).
+Isolate that source path next. Both providers compile and native MIL/contract
+checks pass locally; final package/application/platform/CI gates remain open.
+See [image checkpoint](../reports/native-mil-image-guideline-contract-2026-09-11.md).
+
 **Image first-frame blocker — 2026-09-11:** ProGPU `a939a049` closes the diagnosed
 glyph guideline rejection; the diagnostic external SDK application now reaches
 image command 5179. Preserve original bitmap sampling while snapping coverage,

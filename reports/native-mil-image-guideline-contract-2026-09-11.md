@@ -1,5 +1,21 @@
 # Native image guideline first-frame blocker
 
+## Implementation checkpoint
+
+ProGPU `69be6ec2` now connects canonical path coverage, typed copied guidelines,
+original affine bitmap sampling and the source-owned image input rectangle for
+bitmap/D3DImage/media draws. Both providers compile on macOS ARM64; native MIL
+tests and the full native contract verifier pass. The tests include owned and
+external images at DPI 1, 1.5 and 2 and unchanged source input bounds.
+
+The diagnostic app advances past image command 5179. It then exposed unused
+picture-mask preparation on a zero-sized parent target; preparation now follows
+the existing non-drawable composite decision without changing input or resource
+validation. The next observed failure is MIL compilation for target 4901 with
+UnsupportedCommand (5), not a successful full application run. Exact-package,
+visible pixel, platform/VM and final-head CI qualification remain open.
+The following source trace remains the basis of the implementation.
+
 Acceptance: the external SDK application opens and presents its first frame with
 NativeMilWgpu and the native owner index enabled. With ProGPU `a939a049`, local
 diagnostic payload substitution reaches image command 5179, kind 19, resource
