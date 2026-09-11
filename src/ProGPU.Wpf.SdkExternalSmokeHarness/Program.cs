@@ -357,10 +357,12 @@ internal static class Program
         AssertContains(portableTargets, "PROGPU_WPF_NATIVE_MIL_HIT_TESTING", "SDK native input build selection");
         AssertContains(portableBootstrap, "EnableNativeMilHitTesting = true", "SDK native index host admission");
         AssertContains(portableBootstrap, "if (!registered)", "SDK native activation fails closed");
-        AssertContains(portableBootstrap, "NativeMilWgpu SDK activation on Windows", "SDK Windows activation limitation is explicit");
-        AssertContains(portableBootstrap, "PortableWpfRuntime.SelectMediaBackend(", "SDK typed media transport selection");
-        AssertContains(portableBootstrap, "PortableWpfMediaBackend.Portable", "SDK native mode requires portable media transport");
-        if (portableBootstrap.IndexOf("PortableWpfRuntime.SelectMediaBackend(", StringComparison.Ordinal) >=
+        AssertContains(portableBootstrap, "architecture != global::System.Runtime.InteropServices.Architecture.X64", "SDK native x64 architecture admission");
+        AssertContains(portableBootstrap, "architecture != global::System.Runtime.InteropServices.Architecture.Arm64", "SDK native ARM64 architecture admission");
+        AssertContains(portableBootstrap, "NativeMilWgpu requires an x64 or ARM64 desktop process", "SDK unsupported architecture rejection");
+        AssertContains(portableBootstrap, "NativeMilWgpu requires the source-built typed WPF activation service.", "SDK native activation requirement");
+        AssertContains(portableBootstrap, "ProGpuWpfNativeMediaServices.Initialize();", "SDK native media provider and transport initialization");
+        if (portableBootstrap.IndexOf("ProGpuWpfNativeMediaServices.Initialize();", StringComparison.Ordinal) >=
             portableBootstrap.IndexOf("RuntimeHelpers.RunModuleConstructor(", StringComparison.Ordinal))
         {
             throw new InvalidOperationException("SDK transport choice must precede WPF module initialization.");
