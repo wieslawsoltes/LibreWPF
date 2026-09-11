@@ -15,6 +15,15 @@ do not automatically expand the release checklist.
 
 ## Active completion queue
 
+**CI fixture correction — 2026-09-11:** ProGPU `280485fb` fixes missing test
+namespace qualifications found by GCC/Linux ARM64. The earlier sampled-path
+CTest result used a stale executable and did not qualify the new regression.
+A successful rebuild followed by CTest now passes (0.64 s), covering a real
+intersecting source rectangle and retained clip segments for all four sampled
+sources. The attempted ellipse clip renders without an index but is rejected
+by native input-index compilation; keep that curved-clip gap explicit. Final
+application completion and new-head CI remain required.
+
 **Sampled path coverage connected — 2026-09-11:** ProGPU `748097a5` connects
 DrawingBrush and other sampled path fills under per-point guidelines through
 shared canonical coverage and paired source-input/render-only scopes. Original
