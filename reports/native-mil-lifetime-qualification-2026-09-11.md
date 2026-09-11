@@ -30,3 +30,17 @@ Exact-head CI runs observed active after dependency alignment:
 No failures were reported at this observation. Queued/running jobs are not passes.
 Remaining delivery work includes final CI, exact package production/consumption,
 and required platform/native comparison gates. Broader parity remains open.
+
+## Package-production prerequisite check
+
+The prepared checkout's explicit `eng/progpu-wpf-sdk-ci.sh --build-packages-only`
+lane was executed serially with the existing prepared native runtime staging
+directory. It exited 1 at the native package runtime guard: the `win-x64`
+`progpu_native.dll` has not been staged. No validation bypass was used. The
+partial packages emitted before the error are unqualified and must not be
+consumed as release artifacts. This run did not reach WPF transport packaging.
+
+The exact-head ProGPU workflow provides `progpu-native-runtime-${rid}` artifacts
+from the complete native jobs. Wait for those jobs and consume their matching
+revision artifacts for final package production; do not relabel the older local
+payloads as current-head evidence.
