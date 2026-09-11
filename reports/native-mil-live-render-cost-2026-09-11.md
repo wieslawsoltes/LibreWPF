@@ -1,5 +1,17 @@
 # Native external application render-cost investigation
 
+## Validation-mode correction
+
+The original diagnostic launch enabled `PROGPU_WPF_EXTERNAL_RUN_VALIDATE=1`,
+not `PROGPU_WPF_EXTERNAL_LIVE_VALIDATE=1`. Its required terminal marker was
+`External SDK Application.Run validation succeeded.`, emitted after the queued
+normal-priority application-run checks and shutdown. Earlier references below
+to that process awaiting live-input success were incorrect: the live-input task
+is enabled only by the separate LIVE switch. Neither marker was observed, so
+application-run completion remains unqualified, but absence of the live marker
+does not itself diagnose that run. Preserve these modes separately in subsequent
+reproductions and invoke the actual live-input gate when qualifying input.
+
 Acceptance remains the unchanged external SDK application's stable presentation,
 geometry and live input validation. The sampled DrawingBrush fix is ProGPU
 `748097a5`; this diagnostic process uses locally substituted binaries, not final
@@ -85,3 +97,13 @@ byte-for-byte with the root checkout and match. Reconstruction output is in
 `external-reconstruction.log`. Once rebuilt, use the existing native-loop trace
 switch to distinguish incomplete frames from repeated presentation. Final clean
 dependency-head packages and the full release gates remain separate work.
+
+Package reconstruction completed successfully through the build-only lane. The
+normal external harness subsequently passed package provenance checks, recreated
+the temporary application, and launched its RUN validation child. That harness
+captures output until child termination; an empty parent log is not evidence
+that the child emitted nothing. Its current diagnostic native library is the
+older dependency snapshot, not the updated standalone ARM64 build (SHA-256 values
+`c4c5f193a30bfaae49bc40107498fd9093a5baa16313a81968f5ad4dd4fa00cd` and
+`bac2f45a12e3d85ef91c01eac06c50403bb690cd1a0d31e7e8c325c7e6201717`, respectively).
+Do not qualify the latest native implementation from this reconstruction run.
