@@ -423,19 +423,24 @@ fi
 # modes. Scope the development loader paths to these harnesses only: subsequent
 # package consumers must resolve their own packaged runtime assets.
 (
+case "$(uname -m)" in
+  arm64|aarch64) source_native_arch=arm64 ;;
+  *) source_native_arch=x64 ;;
+esac
+source_native_root="${ProGpuNativeRuntimeRoot:-${repo_root}/external/ProGPU/artifacts/progpu-native/package}"
 case "$(uname -s)" in
   Darwin)
-    export DYLD_LIBRARY_PATH="${PROGPU_NATIVE_BUILD_DIR:-${repo_root}/external/ProGPU/artifacts/progpu-native/build}:${PROGPU_NATIVE_RUNTIME_DIR:-${repo_root}/external/ProGPU/artifacts/progpu-native/runtime}${DYLD_LIBRARY_PATH:+:${DYLD_LIBRARY_PATH}}"
+    export DYLD_LIBRARY_PATH="${PROGPU_NATIVE_BUILD_DIR:-${repo_root}/external/ProGPU/artifacts/progpu-native/build}:${PROGPU_NATIVE_RUNTIME_DIR:-${repo_root}/external/ProGPU/artifacts/progpu-native/runtime}:${source_native_root}/runtimes/osx-${source_native_arch}/native${DYLD_LIBRARY_PATH:+:${DYLD_LIBRARY_PATH}}"
     ;;
   Linux)
-    export LD_LIBRARY_PATH="${PROGPU_NATIVE_BUILD_DIR:-${repo_root}/external/ProGPU/artifacts/progpu-native/build}:${PROGPU_NATIVE_RUNTIME_DIR:-${repo_root}/external/ProGPU/artifacts/progpu-native/runtime}${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
+    export LD_LIBRARY_PATH="${PROGPU_NATIVE_BUILD_DIR:-${repo_root}/external/ProGPU/artifacts/progpu-native/build}:${PROGPU_NATIVE_RUNTIME_DIR:-${repo_root}/external/ProGPU/artifacts/progpu-native/runtime}:${source_native_root}/runtimes/linux-${source_native_arch}/native${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
     ;;
   MINGW*|MSYS*|CYGWIN*)
     case "$(uname -m)" in
       arm64|aarch64) source_native_rid=win-arm64 ;;
       *) source_native_rid=win-x64 ;;
     esac
-    export PATH="${PROGPU_NATIVE_BUILD_DIR:-${repo_root}/external/ProGPU/artifacts/progpu-native/build-${source_native_rid}}:${PROGPU_NATIVE_RUNTIME_DIR:-${repo_root}/external/ProGPU/artifacts/progpu-native/runtime-${source_native_rid}}:${PATH}"
+    export PATH="${PROGPU_NATIVE_BUILD_DIR:-${repo_root}/external/ProGPU/artifacts/progpu-native/build-${source_native_rid}}:${PROGPU_NATIVE_RUNTIME_DIR:-${repo_root}/external/ProGPU/artifacts/progpu-native/runtime-${source_native_rid}}:${source_native_root}/runtimes/${source_native_rid}/native:${PATH}"
     ;;
 esac
 
