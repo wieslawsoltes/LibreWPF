@@ -22,3 +22,21 @@ Exact-head Linux ARM64 runtime artifact 10181954651 from ProGPU run 34553573493
 is downloaded with provenance into `artifacts/native-exact-b54db165.dBPf7B`.
 Both native providers and SDK archives are present. Other RID payloads are still
 required before the package-production guard can be satisfied.
+
+## Native-host gate on the same revision
+
+The real PresentationFramework harness rebuilt with zero warnings/errors in
+8.71 seconds. The existing `eng/progpu-wpf-native-mil-host-smoke.sh` then exited
+zero using that newly built harness and the checked local native providers.
+Only its redundant build was skipped; neither executable gate was skipped.
+
+The retention run passed viewport mutation/resize/disposal, image/DPI and
+DrawingImage clear/refill, text collapse/justification/exclusions/inline content,
+WriteableBitmap, Toolkit header collapse, rich-document source ownership and
+Figure/Floater/excluded-line connections. The host run passed geometry selection,
+presented a frame, and rebuilt its target after device loss while retaining the
+existing native window. It reported 23 commands, 20 resources, 9 draws and five
+submitted draw calls.
+
+These are the assertions of this gate, not full input, platform or DirectX parity.
+The package/runtime payload prerequisite remains open.
