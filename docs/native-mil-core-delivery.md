@@ -15,6 +15,12 @@ do not automatically expand the release checklist.
 
 ## Active completion queue
 
+**Parent anchor source ranges — 2026-09-11:** an explicit live anchor batch can
+now supply the parent's non-ink source ranges and preceding-text context while
+retaining actual children separately. Ordinary anchor admission stays closed;
+placement/exclusions and child drawing/text-view routing must connect. See
+[parent source contract](../reports/native-mil-parent-anchor-source-ranges-2026-09-11.md).
+
 **Paragraph anchor ownership — 2026-09-11:** original sibling anchors now share
 one generation-owned measurement batch and two native width-policy crossings.
 The isolated single-anchor auto helper is replaced. Parent reference/placement,

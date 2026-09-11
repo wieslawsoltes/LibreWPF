@@ -23,6 +23,7 @@ internal static class NativeMilAnchoredDocumentSmoke
         {
             object document = New("System.Windows.Documents.FlowDocument");
             object parent = New("System.Windows.Documents.Paragraph");
+            Add(parent, "Inlines", New("System.Windows.Documents.Run", "parent prefix"));
             object anchor = New("System.Windows.Documents." + kind);
             object child = New("System.Windows.Documents.Paragraph");
             Add(child, "Inlines", New("System.Windows.Documents.Run", "original anchored paragraph wraps across multiple native lines"));
@@ -68,6 +69,34 @@ internal static class NativeMilAnchoredDocumentSmoke
                 foreach (object entry in (IList)Get(Get(entries[1]!, "Layout"), "Lines"))
                     if (!ReferenceEquals(Get(entry, "Paragraph"), siblingParagraph))
                         throw new InvalidOperationException("Batched sizing mixed child source paragraphs.");
+                object source = New("MS.Internal.Documents.PortableDocumentParagraphSource", parent, 1.0, 4096.0, null!, batch);
+                int anchorStart = (int)Get(Get(anchor, "ElementStart"), "Offset");
+                int anchorEnd = (int)Get(Get(anchor, "ElementEnd"), "Offset");
+                object unowned = New("MS.Internal.Documents.PortableDocumentParagraphSource", parent, 1.0, 4096.0);
+                bool unownedRejected = false;
+                try { unowned.GetType().GetMethod("GetTextRun")!.Invoke(unowned, [anchorStart]); }
+                catch (TargetInvocationException error) when (error.InnerException is PlatformNotSupportedException)
+                { unownedRejected = true; }
+                if (!unownedRejected) throw new InvalidOperationException("Parent accepted an anchor without child ownership.");
+                object hidden = source.GetType().GetMethod("GetTextRun")!.Invoke(source, [anchorStart])!;
+                if (hidden.GetType().Name != "TextHidden" || (int)Get(hidden, "Length") != anchorEnd - anchorStart)
+                    throw new InvalidOperationException("Parent shaping did not preserve the owned anchor symbol range.");
+                object preceding = source.GetType().GetMethod("GetPrecedingText")!.Invoke(source,
+                    [(int)Get(Get(sibling, "ElementEnd"), "Offset")])!;
+                if ((int)Get(Get(Get(preceding, "Value"), "CharacterBufferRange"), "Length") != "parent prefix".Length)
+                    throw new InvalidOperationException("Parent preceding text entered an anchored child paragraph.");
+                object properties = New("MS.Internal.Text.TextProperties", parent, Get(parent, "StaticElementStart"), false, false, 1.0);
+                object lineProperties = New("MS.Internal.Text.LineProperties", parent, document, properties, null!);
+                object formatter = core.GetType("System.Windows.Media.TextFormatting.TextFormatter", true)!
+                    .GetMethods(BindingFlags.Static | BindingFlags.NonPublic).Single(m => m.Name == "FromCurrentDispatcher" &&
+                        m.GetParameters().Length == 1).Invoke(null, [mode])!;
+                object cache = Activator.CreateInstance(core.GetType("System.Windows.Media.TextFormatting.TextRunCache", true)!)!;
+                var format = formatter.GetType().GetMethods(instance).Single(m => m.Name == "FormatLine" && m.GetParameters().Length == 6);
+                using var parentLine = (IDisposable)format.Invoke(formatter,
+                    [source, (int)Get(source, "Start"), 4096.0, lineProperties, null, cache])!;
+                if ((string)parentLine.GetType().GetField("_text", instance)!.GetValue(parentLine)! != "parent prefix" ||
+                    (int)Get(parentLine, "Length") != (int)Get(source, "End") - (int)Get(source, "Start"))
+                    throw new InvalidOperationException("Native parent shaping duplicated child text or lost source symbols.");
             }
             CheckAuto(kind == "Floater" && Get(anchor, "HorizontalAlignment").ToString() == "Stretch");
             if (kind == "Floater")

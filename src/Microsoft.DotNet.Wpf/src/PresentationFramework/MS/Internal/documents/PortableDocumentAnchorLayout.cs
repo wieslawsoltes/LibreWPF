@@ -17,8 +17,39 @@ internal sealed class PortableDocumentAnchorLayout : IDisposable
     internal sealed record Entry(PortableDocumentAnchorSource Source, MbpInfo Box,
         PortableFlowDocumentLayout Layout, Size OuterSize);
     private IReadOnlyList<Entry> _entries;
-    private PortableDocumentAnchorLayout(Entry[] entries) => _entries = Array.AsReadOnly(entries);
+    private readonly Paragraph _paragraph;
+    private readonly uint _generation;
+    private PortableDocumentAnchorLayout(Paragraph paragraph, uint generation, Entry[] entries)
+    { _paragraph = paragraph; _generation = generation; _entries = Array.AsReadOnly(entries); }
     internal IReadOnlyList<Entry> Entries => _entries ?? throw new ObjectDisposedException(nameof(PortableDocumentAnchorLayout));
+
+    internal void ValidateFor(Paragraph paragraph)
+    {
+        paragraph.Dispatcher.VerifyAccess();
+        _ = Entries;
+        if (!ReferenceEquals(paragraph, _paragraph) || paragraph.TextContainer.Generation != _generation)
+            throw new InvalidOperationException("Anchored content does not belong to the current paragraph generation.");
+    }
+
+    // Only the parent's text stream skips these ranges. Their real content stays
+    // in the owned child layouts and must be routed there for drawing/input.
+    internal bool TryGetSourceRange(int position, out int start, out int end)
+    {
+        ValidateFor(_paragraph);
+        int low = 0, high = _entries.Count;
+        while (low < high)
+        {
+            int middle = low + (high - low) / 2;
+            if (_entries[middle].Source.Start <= position) low = middle + 1;
+            else high = middle;
+        }
+        if (low > 0 && position < _entries[low - 1].Source.End)
+        {
+            var source = _entries[low - 1].Source;
+            start = source.Start; end = source.End; return true;
+        }
+        start = end = 0; return false;
+    }
 
     internal static PortableDocumentAnchorLayout Create(FlowDocument document, Paragraph paragraph,
         double availableWidth, double pixelsPerDip, TextFormattingMode formattingMode)
@@ -37,7 +68,7 @@ internal sealed class PortableDocumentAnchorLayout : IDisposable
             throw new PlatformNotSupportedException("Automatic anchors require the native document sizing service.");
         uint generation = document.TextContainer.Generation;
         var sources = PortableDocumentAnchorSource.Collect(paragraph);
-        if (sources.Count == 0) return new(Array.Empty<Entry>());
+        if (sources.Count == 0) return new(paragraph, generation, Array.Empty<Entry>());
         var requests = new PortableDocumentAnchorWidthRequest[sources.Count];
         var widths = new PortableDocumentAnchorWidthResult[sources.Count];
         var boxes = new MbpInfo[sources.Count];
@@ -86,7 +117,7 @@ internal sealed class PortableDocumentAnchorLayout : IDisposable
                     box.Margin.Bottom + box.Border.Bottom + box.Padding.Bottom;
                 entries[i] = new(sources[i], box, layouts[i], new(widths[i].OuterWidth, layouts[i].Size.Height + vertical));
             }
-            return new(entries);
+            return new(paragraph, generation, entries);
         }
         catch
         {

@@ -19,6 +19,7 @@ internal sealed class PortableDocumentParagraphSource : TextSource, IPortableExc
     private readonly ITextContainer _container;
     private readonly double _paragraphWidth;
     private readonly PortableTextExclusionRequest _exclusions;
+    private readonly PortableDocumentAnchorLayout _anchors;
     private PortableTextExclusionRequest _segmentExclusions;
     private int _segmentStart;
     internal bool HasInlineObjects { get; private set; }
@@ -30,11 +31,17 @@ internal sealed class PortableDocumentParagraphSource : TextSource, IPortableExc
 
     internal PortableDocumentParagraphSource(Paragraph paragraph, double pixelsPerDip, double paragraphWidth,
         PortableTextExclusionRequest exclusions)
+        : this(paragraph, pixelsPerDip, paragraphWidth, exclusions, null) { }
+
+    internal PortableDocumentParagraphSource(Paragraph paragraph, double pixelsPerDip, double paragraphWidth,
+        PortableTextExclusionRequest exclusions, PortableDocumentAnchorLayout anchors)
     {
+        anchors?.ValidateFor(paragraph);
         _paragraph = paragraph;
         _container = paragraph.TextContainer;
         _paragraphWidth = paragraphWidth;
         _exclusions = exclusions;
+        _anchors = anchors;
         Start = paragraph.ElementStart.Offset;
         _segmentStart = Start;
         _segmentExclusions = exclusions;
@@ -44,6 +51,7 @@ internal sealed class PortableDocumentParagraphSource : TextSource, IPortableExc
 
     PortableTextExclusionRequest IPortableExcludedTextSource.GetExclusions(int firstSourceIndex)
     {
+        _anchors?.ValidateFor(_paragraph);
         if (_exclusions != null && firstSourceIndex != _segmentStart)
             throw new PlatformNotSupportedException("Excluded hard-line continuation requires a source-resolved segment origin.");
         return _segmentExclusions;
@@ -61,6 +69,8 @@ internal sealed class PortableDocumentParagraphSource : TextSource, IPortableExc
     public override TextRun GetTextRun(int dcp)
     {
         if (dcp < Start || dcp >= End) throw new ArgumentOutOfRangeException(nameof(dcp));
+        if (_anchors != null && _anchors.TryGetSourceRange(dcp, out _, out int anchorEnd))
+            return new TextHidden(anchorEnd - dcp);
         // The paragraph closing edge is a real source symbol, not an extra
         // synthetic position after its document range.
         if (dcp == End - 1) return new TextEndOfParagraph(1);
@@ -133,11 +143,20 @@ internal sealed class PortableDocumentParagraphSource : TextSource, IPortableExc
 
     public override TextSpan<CultureSpecificCharacterBufferRange> GetPrecedingText(int dcp)
     {
+        _anchors?.ValidateFor(_paragraph);
         if (dcp < Start || dcp > End) throw new ArgumentOutOfRangeException(nameof(dcp));
         ITextPointer position = _container.CreatePointerAtOffset(dcp, LogicalDirection.Backward);
         int hidden = 0;
-        while (position.Offset > Start && position.GetPointerContext(LogicalDirection.Backward) != TextPointerContext.Text)
+        while (position.Offset > Start)
         {
+            if (_anchors != null && _anchors.TryGetSourceRange(position.Offset - 1, out int anchorStart, out _))
+            {
+                int skipped = position.Offset - anchorStart;
+                position.MoveByOffset(-skipped);
+                hidden += skipped;
+                continue;
+            }
+            if (position.GetPointerContext(LogicalDirection.Backward) == TextPointerContext.Text) break;
             position.MoveByOffset(-1);
             ++hidden;
         }
