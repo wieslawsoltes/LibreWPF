@@ -121,6 +121,55 @@ internal sealed class PortableFlowDocumentLayout : IDisposable
         return CreateCore(document, anchor.Blocks, contentWidth, pixelsPerDip, formattingMode, new Thickness(0), true);
     }
 
+    // Automatic width only: reference-frame resolution for non-auto FigureLength
+    // belongs to the parent placement policy, not a guessed local page width.
+    internal static PortableFlowDocumentLayout CreateAutoSizedAnchored(FlowDocument document, AnchoredBlock anchor,
+        double availableWidth, double pixelsPerDip, TextFormattingMode formattingMode, out Size outerSize)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentNullException.ThrowIfNull(anchor);
+        outerSize = default;
+        if (!ReferenceEquals(anchor.TextContainer, document.TextContainer))
+            throw new InvalidOperationException("Anchored content must belong to the original source document.");
+        if (anchor is Figure figure && !figure.Width.IsAuto ||
+            anchor is Floater floater && !double.IsNaN(floater.Width))
+            throw new InvalidOperationException("Automatic anchor sizing requires an automatic source width.");
+        if (!double.IsFinite(availableWidth) || availableWidth <= 0 || availableWidth > float.MaxValue)
+            throw new ArgumentOutOfRangeException(nameof(availableWidth));
+        if (!double.IsFinite(pixelsPerDip) || pixelsPerDip <= 0)
+            throw new ArgumentOutOfRangeException(nameof(pixelsPerDip));
+        if (PortableWpfRuntime.GetMediaBackendAndFreeze() != PortableWpfMediaBackend.Portable ||
+            !PortableWpfServiceRegistry.TryGetDocumentFlow(out var flow) || flow is not IPortableAnchoredDocumentFlow sizing)
+            throw new PlatformNotSupportedException("Automatic anchors require the native document sizing service.");
+        MbpInfo box = MbpInfo.FromElement(anchor, pixelsPerDip);
+        double horizontal = box.Margin.Left + box.Border.Left + box.Padding.Left +
+            box.Margin.Right + box.Border.Right + box.Padding.Right;
+        double vertical = box.Margin.Top + box.Border.Top + box.Padding.Top +
+            box.Margin.Bottom + box.Border.Bottom + box.Padding.Bottom;
+        Span<PortableDocumentAnchorWidthRequest> request = stackalloc PortableDocumentAnchorWidthRequest[1];
+        request[0] = new() { AvailableWidth = (float)availableWidth, HorizontalInsets = (float)horizontal,
+            Mode = anchor is Floater { HorizontalAlignment: HorizontalAlignment.Stretch }
+                ? PortableDocumentAnchorWidthMode.Fill : PortableDocumentAnchorWidthMode.FitContent };
+        Span<PortableDocumentAnchorWidthResult> result = stackalloc PortableDocumentAnchorWidthResult[1];
+        sizing.ResolveAnchorWidths(request, result);
+        PortableFlowDocumentLayout layout = CreateAnchored(document, anchor, result[0].ContentWidth, pixelsPerDip, formattingMode);
+        try
+        {
+            request[0].MeasuredWidth = (float)layout.MeasuredContentWidth.Value;
+            request[0].HasMeasurement = 1;
+            sizing.ResolveAnchorWidths(request, result);
+            if (result[0].RequiresRemeasure != 0)
+            {
+                var replacement = CreateAnchored(document, anchor, result[0].ContentWidth, pixelsPerDip, formattingMode);
+                layout.Dispose();
+                layout = replacement;
+            }
+            outerSize = new Size(result[0].OuterWidth, layout.Size.Height + vertical);
+            return layout;
+        }
+        catch { layout.Dispose(); throw; }
+    }
+
     private static PortableFlowDocumentLayout CreateCore(FlowDocument document, BlockCollection sourceBlocks,
         double pageWidth, double pixelsPerDip, TextFormattingMode formattingMode, Thickness? pagePadding,
         bool requiresAnchoredFlow, IReadOnlyDictionary<Paragraph, PortableTextExclusionRequest> exclusions = null)

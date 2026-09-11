@@ -41,6 +41,30 @@ internal static class NativeMilAnchoredDocumentSmoke
                 ((IList)collect.Invoke(null, [child])!).Count != 0)
                 throw new InvalidOperationException(kind + " anchor inventory lost source identity or entered its child text.");
             object Create(double width) => method.Invoke(null, [document, anchor, width, 1.0, mode])!;
+            var auto = method.DeclaringType!.GetMethod("CreateAutoSizedAnchored", BindingFlags.Static | BindingFlags.NonPublic)!;
+            void CheckAuto(bool fill)
+            {
+                object[] arguments = [document, anchor, 4096.0, 1.0, mode, null!];
+                using var sized = (IDisposable)auto.Invoke(null, arguments)!;
+                double outerWidth = (double)Get(arguments[5], "Width");
+                double contentWidth = (double)Get(Get(sized, "Size"), "Width");
+                if (!(contentWidth > 0 && outerWidth > contentWidth) ||
+                    (fill ? outerWidth != 4096 : outerWidth >= 4096) ||
+                    (double)Get(arguments[5], "Height") <= (double)Get(Get(sized, "Size"), "Height"))
+                    throw new InvalidOperationException($"{kind} lost automatic source sizing or anchor insets: fill={fill}, outer={outerWidth}, content={contentWidth}, outerHeight={Get(arguments[5], "Height")}, contentHeight={Get(Get(sized, "Size"), "Height")}.");
+                foreach (object entry in (IList)Get(sized, "Lines"))
+                    if (!ReferenceEquals(Get(entry, "Paragraph"), child))
+                        throw new InvalidOperationException(kind + " automatic remeasurement replaced the source paragraph.");
+            }
+            CheckAuto(kind == "Floater" && Get(anchor, "HorizontalAlignment").ToString() == "Stretch");
+            if (kind == "Floater")
+            {
+                var alignment = anchor.GetType().GetProperty("HorizontalAlignment")!;
+                alignment.SetValue(anchor, Enum.Parse(alignment.PropertyType, "Stretch"));
+                CheckAuto(true);
+                alignment.SetValue(anchor, Enum.Parse(alignment.PropertyType, "Left"));
+                CheckAuto(false);
+            }
             using (var measured = (IDisposable)Create(4096))
             {
                 double contentWidth = (double)Get(measured, "MeasuredContentWidth");

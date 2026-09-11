@@ -15,6 +15,12 @@ do not automatically expand the release checklist.
 
 ## Active completion queue
 
+**Automatic source anchor sizing — 2026-09-11:** source auto Figure and Floater
+policy now drives native two-pass widths and original-child reformatting, with
+actual source insets. Parent placement/exclusion production and child drawing/input
+ownership must still connect before admission. See
+[automatic sizing](../reports/native-mil-source-anchor-auto-sizing-2026-09-11.md).
+
 **Source anchor content measurement — 2026-09-11:** anchored layouts now consume
 the native actual content width separately from allocated extent through an
 optional typed provider. Automatic sizing, placement/wrapping and child ownership
