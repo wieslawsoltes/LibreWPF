@@ -16,3 +16,10 @@ The updated harness compiles and proceeds beyond package layout validation into
 the external-consumer run. Full results and final integrated qualification remain
 pending. It consumes the existing d669c28c0 package feed and exact b54db165 ProGPU
 packages; it is not evidence of a newly rebuilt release bundle.
+
+The run subsequently built its external consumers and reached real native-MIL
+Application.Run rendering. It failed in WpfNativeMilSceneCompiler.AddVisualBounds:
+visual isolation/visual-source brushes require exact typed descendant bounds.
+This is the next product integration blocker, not another package text mismatch.
+Identify the affected source visual and repair its authoritative bounds export;
+do not substitute layout rectangles, suppress the isolation or switch renderers.
