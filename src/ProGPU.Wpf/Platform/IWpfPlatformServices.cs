@@ -185,6 +185,22 @@ public interface IWpfWindowDecorationService
     {
         return false;
     }
+
+    // Applied after the popup is ordered on screen: AppKit recomputes a window's
+    // shadow when it is shown, so clearing it at creation time does not stick.
+    bool TryDisablePopupShadow(object popupWindow)
+    {
+        return false;
+    }
+
+    // A transparent framebuffer only gives the drawing surface an alpha channel; the native
+    // window still composites its own opaque backdrop underneath, so fully transparent pixels
+    // reveal that backdrop instead of what is behind the window. Call this for windows created
+    // with TransparentFramebuffer to clear the native backdrop as well.
+    bool TryEnableTransparentBackground(object window)
+    {
+        return false;
+    }
 }
 
 public interface IWpfWindowEventService
