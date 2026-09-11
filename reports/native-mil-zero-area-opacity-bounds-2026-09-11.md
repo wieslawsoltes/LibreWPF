@@ -42,3 +42,12 @@ warnings/errors, 4.74s). It is not a device-loss or allocation result. The exact
 rejected command/input-index contract remains to be localized. No native hit-test
 flag, rendering command or unsupported guard was disabled. The diagnostic bridge
 change remains in the prepared ProGPU worktree pending the related investigation.
+
+Failure-only C++ probes now localize the rejection to recorded native hit-index
+capture, not visual translation. Geometry command 2719, owner 1559 is a cubic
+Bézier stroke (kind 4, flags 0, thickness 1). The current geometry capture branch
+admits lines and canonical full ellipses, rejecting this rendered cubic. Required
+next work is the paired managed/native curve-stroke input contract, not disabling
+native hit testing. Temporary probes remain uncommitted in the prepared native
+MIL and hit-capture sources; remove them before the final coverage-ledger update
+and native-contract verification. Both providers compiled with the probes.
