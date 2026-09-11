@@ -57,3 +57,31 @@ The same external application process was confirmed live after 15 minutes,
 without validation output. No restarted process or timeout extension replaces
 that observation. Application completion and acceptable render latency remain
 unproven despite the passing compilation/contract checks.
+
+## Interrupted capture and diagnostic reconstruction
+
+The managed stack collected with installed `dotnet-stack` 9.0.661903 connects
+the main thread to `ProGpuWpfWindowHost.PresentNativeMil`, `RenderNativeMilFrame`,
+`OnRender`, `DoEvents` and `RunPortableNativeLoop`; sampled worker threads are
+idle. Raw output is `external-drawing-brush-managed-stack.txt` beside the native
+samples. These are diagnostic Debug-application observations, not optimized
+before/after performance measurements.
+
+On Xcode 26.4.1/macOS 26.6, a 15-second attached Metal System Trace started but
+did not produce an exportable document: table-of-contents export later failed
+with `Document Missing Template Error`. Both recorder PID 8545 and application
+PID 5806 subsequently disappeared, with no live handles or app success marker.
+The trace must not be used as GPU execution evidence. The temporary application
+directory also no longer exists; its disappearance has not been attributed.
+
+The normal external harness refused reconstruction because the local
+LibreWPF.ProGPU package differed from the repository Release assembly. Preserve
+that check. The explicit SDK `--build-packages-only` lane is rebuilding the
+diagnostic WPF packages using the existing b54db165 ProGPU/canonical dependency
+snapshot. Its output is unqualified and must not be presented as final-head
+package provenance. The four mirrored WPF source modifications were compared
+byte-for-byte with the root checkout and match. Reconstruction output is in
+`package-reconstruction.log`; the rejected attempt is in
+`external-reconstruction.log`. Once rebuilt, use the existing native-loop trace
+switch to distinguish incomplete frames from repeated presentation. Final clean
+dependency-head packages and the full release gates remain separate work.
