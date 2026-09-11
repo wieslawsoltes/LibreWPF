@@ -40,3 +40,18 @@ submitted draw calls.
 
 These are the assertions of this gate, not full input, platform or DirectX parity.
 The package/runtime payload prerequisite remains open.
+
+## Windows VM prerequisite inspection
+
+The existing Windows 11 VM is running and Tools-backed guest commands succeed.
+Parallels Desktop is 27.0.1; guest Tools report outdated 26.4.1. No installation,
+VM configuration, lifecycle or policy change was made. No dotnet/MSBuild process
+was found at inspection. Installed SDKs include 10.0.201, 10.0.400 and 10.0.401.
+
+PowerShell 7 is absent from PATH but the existing task-local executable
+`C:\src\artifacts\librewpf-native-core-2ab498be\pwsh\pwsh.exe` runs and reports
+7.6.6. Its effective policy is RemoteSigned; Windows PowerShell independently
+reports Restricted. Neither was modified or overridden. Use the verified full
+PowerShell 7 path for the existing Windows managed payload script, subject to
+its required clean x64 SDK-host checks. This is environment readiness only,
+not Windows native MIL or DirectX parity evidence.
