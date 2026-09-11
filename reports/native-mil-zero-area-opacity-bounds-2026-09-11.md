@@ -93,3 +93,20 @@ per-point guidelines for paths today. The next fix must preserve stroke width,
 caps/joins, brush mapping, DPI/localization and unsnapped source input, not remove
 the guard. Temporary diagnostic probes were removed. These local diagnostic
 runs remain distinct from clean exact-package and final CI qualification.
+
+## Stroke guideline lowering checkpoint
+
+ProGPU `d6e2ea62` exports widened native stroke outlines through its existing
+Direct2D recording/path services, then lowers guideline-bearing MIL polylines
+to the existing path executor. Source call-order analysis confirmed widening
+must precede snapping; snapping only the centerline would be incorrect.
+Normal strokes retain their original fast path. The new outline preserves
+curves, caps, joins and source input before device snapping.
+
+Both providers compile on macOS ARM64. Native regressions pass for cubic-cap
+export, bounds, transactional failure and guideline-bearing rectangle lowering
+with unsnapped input. The complete native contract verifier passes. The app now
+gets past stroke command 222 and rejects the following analytic command 223
+(kind 16, resource 133) with the same per-point guideline guard. Analytic shape
+lowering is the next blocker. Pixel comparisons and final package/platform/CI
+qualification remain required; these checks do not establish rendering parity.
