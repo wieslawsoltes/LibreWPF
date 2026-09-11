@@ -51,7 +51,20 @@ public sealed class WpfNativeMilSceneCompilerTests
         root.HasBounds = false;
         Assert.Throws<NotSupportedException>(() => compiler.BuildBatch(root, 80, 80));
         root.HasBounds = true;
-        root.Bounds = new(0, 0, 0, 0);
+        foreach (var zeroArea in new[] { new PortableRect(0, 0, 0, 0), new(0, 0, 0, 4), new(0, 0, 4, 0) })
+        {
+            root.Bounds = zeroArea;
+            var degenerate = compiler.BuildBatch(root, 80, 80);
+            Assert.Empty(degenerate.VisualCacheBounds!);
+            Assert.Equal(2, degenerate.VisualOwners.Count);
+            Assert.Equal(2, degenerate.PointHitRegions.Length);
+            session.Update(degenerate);
+            Assert.NotEmpty(session.CompileFrame(8211, 4, 0, 4,
+                flags: NativeMilSceneBuildRequestFlags.HitTestIndex).Scene.Stream);
+        }
+        root.Bounds = new(0, 0, -1, 4);
+        Assert.Throws<NotSupportedException>(() => compiler.BuildBatch(root, 80, 80));
+        root.Bounds = new(0, 0, double.NaN, 4);
         Assert.Throws<NotSupportedException>(() => compiler.BuildBatch(root, 80, 80));
     }
 

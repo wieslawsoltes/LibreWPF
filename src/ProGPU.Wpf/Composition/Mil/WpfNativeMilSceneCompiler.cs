@@ -487,14 +487,20 @@ public sealed class WpfNativeMilSceneCompiler
         {
             if (_visualBoundsHandles.Contains(visualHandle)) return;
             if (!TryGetVisualBounds(visual, out NativeMilRect bounds,
-                    allowEmpty: allowEmptyOpacity, allowZeroExtent: false))
+                    allowEmpty: allowEmptyOpacity, allowZeroExtent: allowEmptyOpacity))
+            {
+                string detail = visual is IPortableVisualBoundsSource source &&
+                    source.TryGetPortableVisualBounds(out PortableVisualBounds descriptor)
+                    ? $"contentKnown={descriptor.HasContentBounds}, contentEmpty={descriptor.ContentBounds.IsEmpty}, descendantsKnown={descriptor.HasDescendantBounds}, descendantsEmpty={descriptor.DescendantBounds.IsEmpty}, descendants=({descriptor.DescendantBounds.X},{descriptor.DescendantBounds.Y},{descriptor.DescendantBounds.Width},{descriptor.DescendantBounds.Height})"
+                    : "source bounds unavailable";
                 throw new NotSupportedException(
-                    "Native MIL visual isolation and visual-source brushes require exact typed Visual descendant bounds.");
+                    $"Native MIL visual isolation and visual-source brushes require exact typed Visual descendant bounds. Visual={visual.GetType().FullName}; {detail}; allowEmptyOpacity={allowEmptyOpacity}.");
+            }
             // An authoritative empty drawing needs no opacity raster allocation.
             // Keep the visual, alpha, source input scopes and descendants on the
             // existing native uniform-opacity path. Missing bounds still fail;
             // this does not admit empty cache/effect/spatial-mask allocations.
-            if (allowEmptyOpacity && bounds.Width == 0 && bounds.Height == 0) return;
+            if (allowEmptyOpacity && (bounds.Width == 0 || bounds.Height == 0)) return;
             VisualCacheBounds.Add(new WpfNativeMilVisualCacheBounds(visualHandle, bounds));
             _visualBoundsHandles.Add(visualHandle);
         }
