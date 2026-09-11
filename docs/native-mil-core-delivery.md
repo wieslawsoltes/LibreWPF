@@ -15,6 +15,14 @@ do not automatically expand the release checklist.
 
 ## Active completion queue
 
+**Merge preparation — 2026-09-11:** the ProGPU browser job in run 34553087997
+passes; the previous readback timeout is not a diagnosed renderer defect.
+ProGPU now retains timeout/readback diagnostics without relaxing assertions or
+the deadline, and fixes the MSVC test-local shadow warning. LibreWinForms and
+LibreWPF pins are aligned to ProGPU `b54db165`. Final-head CI, package production
+and platform qualification remain required; conflict-free draft PRs alone do not
+authorize merge. Keep general API expansion deferred during this completion lane.
+
 **Source Application.Run passes — 2026-09-11:** terminal newline caret bounds now
 use the retained native caret position and line height without a synthetic glyph.
 The unchanged RealApplicationRunHarness exits 0 after the automatic anchor and
