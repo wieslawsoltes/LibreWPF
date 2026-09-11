@@ -43,3 +43,17 @@ views or relax native source input. Do not substitute a full-frame rectangle,
 disable masks, or switch to CPU rendering to make validation finish.
 
 Final package, platform/VM, pixel/performance and latest-head CI gates remain open.
+
+## Corrected-head compilation checkpoint
+
+ProGPU `280485fb` compiles both native providers for macOS x64 using the existing
+x86_64 CMake configuration. The build completed successfully before CTest was
+started; the rebuilt native MIL test passed under translation in 2.43 seconds.
+Build output: `artifacts/native-exact-b54db165.dBPf7B/build-x64-280485fb.log`.
+This is compilation and a MIL contract test, not x64 GPU/pixel qualification.
+GCC and Linux ARM64 CI remained in progress at the subsequent check.
+
+The same external application process was confirmed live after 15 minutes,
+without validation output. No restarted process or timeout extension replaces
+that observation. Application completion and acceptable render latency remain
+unproven despite the passing compilation/contract checks.
