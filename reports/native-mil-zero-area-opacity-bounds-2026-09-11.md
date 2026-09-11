@@ -51,3 +51,24 @@ next work is the paired managed/native curve-stroke input contract, not disablin
 native hit testing. Temporary probes remain uncommitted in the prepared native
 MIL and hit-capture sources; remove them before the final coverage-ledger update
 and native-contract verification. Both providers compiled with the probes.
+
+## Stroke-capture checkpoint
+
+ProGPU `312e1a2feff44e41f6fc9db2c0b600a721d37b43` now retains quadratic/cubic
+PathStroke controls, renderer-generated connected joins, and open undashed
+polyline endpoint caps/interior joins. Application probes identified these in
+sequence: cubic command 2719; PATH_JOIN; then an open 18-point, width-1 polyline
+with flags 1025. Temporary native probes were removed before committing.
+
+Both providers compile on macOS ARM64. Native MIL regressions pass (0.74s), paired
+managed curve encoding tests pass (2 cases, zero skips), and generated MIL
+protocol/coverage checks pass. Managed test compilation reports 65 warnings and
+zero errors. These are focused checkpoint results, not final package evidence.
+
+The external application still returns UnsupportedCommand with locally replaced
+binaries. Localizing the next rejection remains the immediate blocker; neither
+native input nor renderer admission has been relaxed. The next exact-head package
+build, full application validation, platform gates and all required CI must pass
+before ordered merges. ProGPU and LibreWPF had queued checks, not failed checks,
+at the pre-push inspection; LibreWinForms was fully green. New pin commits require
+their own CI results. Root user-modified physical submodules remain untouched.
