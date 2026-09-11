@@ -72,3 +72,24 @@ build, full application validation, platform gates and all required CI must pass
 before ordered merges. ProGPU and LibreWPF had queued checks, not failed checks,
 at the pre-push inspection; LibreWinForms was fully green. New pin commits require
 their own CI results. Root user-modified physical submodules remain untouched.
+
+## Uncached visual opacity-mask checkpoint
+
+ProGPU implementation `ce8fc414` (documented head `992218ff`) connects uncached
+visual opacity masks to the shared typed source-mask input policy. The rejected
+layer contained owned descendants, so it was not safe to skip it as unowned
+rendering. Source geometry and clips now survive that boundary while its actual
+raster mask remains intact. Effect/cache mask combinations remain separate.
+
+Native scene 9842 covers fully transparent gradient masks, own/child owners,
+actual clipping, an unaffected sibling and mask removal. The native MIL tests
+pass, both providers compile on macOS ARM64, and the complete native contract
+verifier passes. The regenerated coverage ledger changes only its decoder digest.
+
+The diagnostic external application now passes native scene/index compilation
+and enters rendering. Its next failure is static multi-guideline deformation in
+DRAW_STROKE_BATCH (command 222, resource 132). The shared renderer only admits
+per-point guidelines for paths today. The next fix must preserve stroke width,
+caps/joins, brush mapping, DPI/localization and unsnapped source input, not remove
+the guard. Temporary diagnostic probes were removed. These local diagnostic
+runs remain distinct from clean exact-package and final CI qualification.
