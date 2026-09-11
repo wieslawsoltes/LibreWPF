@@ -15,6 +15,14 @@ do not automatically expand the release checklist.
 
 ## Active completion queue
 
+**Native Windows floating-row evidence — 2026-09-11:** the unchanged application
+now reproduces the anchored-block rejection during first Window measurement.
+The independent WindowsDesktop 10.0.12 reference resolves the placement policy:
+floats start below their source row and siblings pack horizontally in remaining
+intervals. An anchor-only paragraph retains a parent row. Implement native ordered
+row events, not fixed-point source Y repair; fixed-anchor placement is a different
+contract. See [reference and blocker evidence](../reports/native-mil-anchor-native-reference-2026-09-11.md).
+
 **Source vertical anchor policy — 2026-09-11:** Up/Down now delegates to the
 selected retained child and stays inside its floating-element boundary, matching
 TextDocumentView. Earlier proposed cross-anchor traversal is not the source policy.
