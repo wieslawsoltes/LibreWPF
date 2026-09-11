@@ -828,7 +828,7 @@ internal static class Program
               </PropertyGroup>
 
               <ItemGroup>
-                <Compile Include="**/*.cs" />
+                <Compile Include="**/*.cs" Exclude="$(DefaultItemExcludes);$(DefaultExcludesInProjectFolder)" />
                 <ApplicationDefinition Include="App.xaml" />
                 <Page Include="**/*.xaml" Exclude="App.xaml" />
                 <None Include="App.config" />
@@ -17859,7 +17859,7 @@ internal static class Program
         AssertContains(appProject, $"<TargetFramework>{ExternalAppTargetFramework}</TargetFramework>", "external app Windows target framework");
         AssertContains(appProject, "<EnableDefaultItems>false</EnableDefaultItems>", "external app explicit item mode");
         AssertContains(appProject, "<UseWPF>true</UseWPF>", "external app WPF property");
-        AssertContains(appProject, "<Compile Include=\"**/*.cs\" />", "external app explicit compile items");
+        AssertContains(appProject, "<Compile Include=\"**/*.cs\" Exclude=\"$(DefaultItemExcludes);$(DefaultExcludesInProjectFolder)\" />", "external app explicit compile items exclude build outputs");
         AssertContains(appProject, "<ApplicationDefinition Include=\"App.xaml\" />", "external app explicit application definition item");
         AssertContains(appProject, "<Page Include=\"**/*.xaml\" Exclude=\"App.xaml\" />", "external app explicit page items");
         AssertContains(appProject, "<None Include=\"App.config\" />", "external app explicit app config item");

@@ -1,5 +1,23 @@
 # Native external application render-cost investigation
 
+## Repeatable external application compilation
+
+The external application's explicit `**/*.cs` item now honors MSBuild's
+`DefaultItemExcludes` and `DefaultExcludesInProjectFolder`. Previously a second
+build picked up generated `obj` assembly attributes and failed with CS0579,
+requiring diagnostic intermediate directories to be moved aside. The project
+shape assertions now require these exclusions; application/source assertions
+and SDK selection remain unchanged.
+
+Two consecutive native-selected builds completed with zero errors without
+removing or moving either project's intermediate directory. Logs:
+`external-incremental-first.log` (156 warnings, 2.53 s) and
+`external-incremental-second.log` (312 warnings, 3.14 s), under the diagnostic
+artifact directory below. Existing nullable-context warnings remain. The second
+build also compiles the shared IME-boundary helper and both RUN/LIVE call sites.
+These are diagnostic dependency-snapshot builds, not final-head package or
+application runtime qualification. Cocoa popup admission remains the next blocker.
+
 ## Next blocker: Cocoa native popup ownership
 
 The diagnostic application now explicitly expects the unsupported-composition

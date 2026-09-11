@@ -17160,7 +17160,7 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("<TargetFrameworks>{ExternalAppTargetFramework}</TargetFrameworks>", externalSdkHarnessProgram, StringComparison.Ordinal);
         Assert.Contains("external library Windows target frameworks", externalSdkHarnessProgram, StringComparison.Ordinal);
         Assert.Contains("<EnableDefaultItems>false</EnableDefaultItems>", externalSdkHarnessProgram, StringComparison.Ordinal);
-        Assert.Contains("<Compile Include=\"**/*.cs\" />", externalSdkHarnessProgram, StringComparison.Ordinal);
+        Assert.Contains("<Compile Include=\"**/*.cs\" Exclude=\"$(DefaultItemExcludes);$(DefaultExcludesInProjectFolder)\" />", externalSdkHarnessProgram, StringComparison.Ordinal);
         Assert.Contains("<ApplicationDefinition Include=\"App.xaml\" />", externalSdkHarnessProgram, StringComparison.Ordinal);
         Assert.Contains("<Page Include=\"**/*.xaml\" Exclude=\"App.xaml\" />", externalSdkHarnessProgram, StringComparison.Ordinal);
         Assert.Contains("<None Include=\"App.config\" />", externalSdkHarnessProgram, StringComparison.Ordinal);
