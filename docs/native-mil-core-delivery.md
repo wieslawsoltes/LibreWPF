@@ -15,6 +15,13 @@ do not automatically expand the release checklist.
 
 ## Active completion queue
 
+**Source vertical anchor policy — 2026-09-11:** Up/Down now delegates to the
+selected retained child and stays inside its floating-element boundary, matching
+TextDocumentView. Earlier proposed cross-anchor traversal is not the source policy.
+Bottomless Figure uses the Floater path; automatic scrolling frames must not enable
+finite-page anchors implicitly. See
+[source policy trace](../reports/native-mil-anchor-vertical-policy-2026-09-11.md).
+
 **Anchor caret/glyph routing — 2026-09-11:** logical caret-unit movement and glyph
 collection now include retained child layouts and original source boundaries.
 Vertical boundary navigation and automatic source frames remain required, as does

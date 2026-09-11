@@ -495,6 +495,11 @@ internal sealed class PortableFlowDocumentTextView(FlowDocumentView owner, FlowD
         out double newSuggestedX, out int linesMoved)
     {
         RequirePosition(position);
+        // Source TextDocumentView keeps vertical moves within the selected
+        // floating element, including an exhausted move at its first/last row.
+        // Child ScrollOffset already accounts for the content-origin X once.
+        if (ChildAt(position) is { } child)
+            return child.View.GetPositionAtNextLine(position, suggestedX, count, out newSuggestedX, out linesMoved);
         newSuggestedX = suggestedX; linesMoved = 0;
         if (page == null && Layout.HasPositionedParagraphs)
         {
