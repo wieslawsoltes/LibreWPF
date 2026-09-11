@@ -15,6 +15,16 @@ do not automatically expand the release checklist.
 
 ## Active completion queue
 
+**DrawingBrush path isolated — 2026-09-11:** target 4901 generation 2 fails in
+visual 4893/content 4900: DrawingBrush 4898 fills PathGeometry 4899 under per-point
+guidelines. The sampled-brush uniform-guideline guard is the identified blocker,
+not native input compilation. ProGPU `a804f123` adds the paired render-only scope
+prerequisite to retain actual input geometry independently of brush internals.
+Both providers compile and native MIL/contract checks pass. Connect canonical
+path coverage and unchanged brush mapping next; the application remains blocked
+until that consumer is implemented and qualified. Broader API expansion stays
+deferred and all package/platform/CI gates remain required.
+
 **Image coverage connected — 2026-09-11:** ProGPU `69be6ec2` separates snapped
 path coverage from original bitmap sampling, preserving typed source input.
 The diagnostic app passes the image rejection and zero-target mask preparation;
