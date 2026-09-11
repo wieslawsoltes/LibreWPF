@@ -1,5 +1,36 @@
 # Native external application render-cost investigation
 
+## Next blocker: Cocoa native popup ownership
+
+The diagnostic application now explicitly expects the unsupported-composition
+exception before switching the compiled metadata specimen to DoNotCare for the
+separate ordinary-focus contract. The harness applies this boundary in RUN and
+LIVE validation independently. This is an acceptance-scope correction consistent
+with the delivery plan's existing IME deferral, not an implementation of IME
+preferences or removal of the product rejection guard.
+
+The native diagnostic build succeeds and RUN exits 1 at
+`ValidatePopupOpeningAfterRun` with `The selected native popup owner could not be
+configured.` Access-key, class-command and keyboard-navigation checks preceding
+that call returned successfully. Evidence is `external-ime-build.log` and
+`external-ime-run.log` under `artifacts/native-exact-b54db165.dBPf7B`.
+
+A standalone AppKit probe creates a visible owner and hidden child:
+`before: visible=false registered=true`; after `addChildWindow(..., .above)`:
+`after: visible=true parent=true`. This contradicts the shared Cocoa provider's
+assumption that adding a child preserves its hidden state. The `.out` ordering
+alternative was also tested and throws NSInvalidArgumentException; it is not an
+admitted ordering mode. No product native-owner check has been relaxed.
+
+Apple's [child ordering contract](https://developer.apple.com/documentation/appkit/nswindow/addchildwindow(_:ordered:))
+admits above/below. Its [parent contract](https://developer.apple.com/documentation/appkit/nswindow/parent)
+forbids assigning the parent directly outside subclass implementation and explains
+that ordering a child out detaches it. A correct repair therefore needs an explicit
+prepare/show ownership design; blindly hiding after attachment or directly assigning
+the parent is not acceptable. The existing hidden-before-show rule must be reconciled
+with native attachment before implementation. Broader modal popup support remains
+separate. This evidence is macOS diagnostic input, not final package qualification.
+
 ## Resolved immediate failure
 
 The explicitly selected native diagnostic run completed 40 presentations before

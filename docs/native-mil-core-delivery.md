@@ -15,6 +15,19 @@ do not automatically expand the release checklist.
 
 ## Active completion queue
 
+**Cocoa popup admission blocker — 2026-09-11:** the fail-fast external native
+application now verifies rejection of nondefault IME preferences before selecting
+DoNotCare for ordinary focus; the existing delivery scope already excludes host
+composition preferences. Access-key and keyboard-navigation checks then complete.
+The next failure is opening a native menu popup. A direct AppKit probe confirms
+that `addChildWindow:ordered:` makes a hidden child visible; the shared provider's
+hidden-after-attachment requirement rejects that native behavior. Apple documents
+that `orderOut:` removes the child from its parent, so attach-then-hide is not a
+valid repair. Resolve the prepare/show ownership contract before merge, retaining
+checked real parent identity, rejection cleanup and no unowned surface fallback.
+No full application, exact-package, platform or final CI qualification is claimed.
+See [diagnosis](../reports/native-mil-live-render-cost-2026-09-11.md).
+
 **CI fixture correction — 2026-09-11:** ProGPU `280485fb` fixes missing test
 namespace qualifications found by GCC/Linux ARM64. The earlier sampled-path
 CTest result used a stale executable and did not qualify the new regression.

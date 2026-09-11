@@ -3163,6 +3163,7 @@ internal static class Program
                             validationTextBox = RequireType<TextBox>(
                                 FindName("ExternalValidationTextBox"),
                                 "external SDK live validation TextBox");
+                            ExternalSdkValidation.ValidateCompositionPreferenceBoundary(validationTextBox);
                             validationTextBox.Text = string.Empty;
                             validationTextBox.CaretIndex = 0;
                             validationTextBox.GetBindingExpression(TextBox.TextProperty)?.UpdateSource();
@@ -13489,11 +13490,38 @@ internal static class Program
                         ?? throw new InvalidOperationException("Expected external SDK window to have a presentation source.");
 
                     AssertEqual(true, AccessKeyManager.IsKeyRegistered(presentationSource, "E"), "external SDK access-key manager registered label key");
+                    ValidateCompositionPreferenceBoundary(validationTextBox);
                     Keyboard.ClearFocus();
                     AssertEqual(false, ReferenceEquals(validationTextBox, Keyboard.FocusedElement), "external SDK access-key manager cleared focus");
                     AssertEqual(false, AccessKeyManager.ProcessKey(presentationSource, "E", false), "external SDK access-key manager process last key");
                     AssertEqual(validationTextBox, Keyboard.FocusedElement, "external SDK access-key manager focused label target");
                     Keyboard.ClearFocus();
+                }
+
+                internal static void ValidateCompositionPreferenceBoundary(TextBox validationTextBox)
+                {
+                    // XAML metadata above deliberately exercises explicit IME preferences.
+                    // Portable committed-text focus must reject those until the host
+                    // composition contract exists; it must not pretend to apply them.
+                    Keyboard.ClearFocus();
+                    bool rejectedCompositionPreferences = false;
+                    try
+                    {
+                        Keyboard.Focus(validationTextBox);
+                    }
+                    catch (PlatformNotSupportedException ex) when (
+                        ex.Message == "Portable input-method preferences require the host composition contract.")
+                    {
+                        rejectedCompositionPreferences = true;
+                    }
+                    finally
+                    {
+                        Keyboard.ClearFocus();
+                    }
+                    AssertEqual(true, rejectedCompositionPreferences, "external SDK explicit IME preferences require host composition support");
+                    InputMethod.SetPreferredImeState(validationTextBox, InputMethodState.DoNotCare);
+                    InputMethod.SetPreferredImeConversionMode(validationTextBox, ImeConversionModeValues.DoNotCare);
+                    InputMethod.SetPreferredImeSentenceMode(validationTextBox, ImeSentenceModeValues.DoNotCare);
                 }
 
                 private static void ValidateClassInputBindingAfterRun(MainWindow window)
