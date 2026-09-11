@@ -15,6 +15,12 @@ do not automatically expand the release checklist.
 
 ## Active completion queue
 
+**Document anchor extent/lifetime — 2026-09-11:** explicit original source frames
+now connect child measurement/placement and parent exclusions inside the existing
+document layout. Native arrangement consumes occupied paragraph extent and the
+parent owns child cleanup. Automatic frames and drawing/text-view routing remain
+required; see [document connection](../reports/native-mil-document-anchor-extents-2026-09-11.md).
+
 **Owned source anchor placement — 2026-09-11:** retained child sizes now feed one
 native placement batch from explicit source reference frames. Returned child
 origins and parent exclusions share the native boxes. Automatic frame discovery,

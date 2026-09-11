@@ -164,6 +164,39 @@ internal static class NativeMilAnchoredDocumentSmoke
                 if (!rejected) throw new InvalidOperationException("Anchored layout accepted another source document.");
             }
             finally { ((IDisposable)wide).Dispose(); ((IDisposable)narrow).Dispose(); }
+            object following = New("System.Windows.Documents.Paragraph");
+            Add(following, "Inlines", New("System.Windows.Documents.Run", "following source block"));
+            Add(document, "Blocks", following);
+            foreach (var block in new[] { parent, following })
+            {
+                var margin = block.GetType().GetProperty("Margin")!;
+                margin.SetValue(block, Activator.CreateInstance(margin.PropertyType, [0.0]));
+            }
+            var padding = document.GetType().GetProperty("PagePadding")!;
+            padding.SetValue(document, Activator.CreateInstance(padding.PropertyType, [0.0]));
+            var references = (IDictionary)Activator.CreateInstance(typeof(Dictionary<,>).MakeGenericType(
+                parent.GetType(), typeof(PortableDocumentAnchorRectangle[])))!;
+            references.Add(parent, new PortableDocumentAnchorRectangle[] {
+                new() { Right = 4096, Bottom = 1000 }, new() { Top = 20, Right = 4096, Bottom = 1000 } });
+            using var documentLayout = (IDisposable)method.DeclaringType!.GetMethod("CreateWithAnchorFrames",
+                BindingFlags.Static | BindingFlags.NonPublic)!.Invoke(null, [document, 4096.0, 1.0, mode, references])!;
+            var owned = (IList)Get(documentLayout, "Anchors");
+            if (owned.Count != 1) throw new InvalidOperationException("Document layout lost its anchor generation.");
+            object ownedBatch = Get(owned[0]!, "Owner");
+            var placedChildren = (IList)Get(Get(owned[0]!, "Placement"), "Children");
+            double occupiedBottom = 0;
+            foreach (object placement in placedChildren)
+                occupiedBottom = Math.Max(occupiedBottom, (double)Get(Get(placement, "OuterBounds"), "Bottom"));
+            var documentLines = (IList)Get(documentLayout, "Lines");
+            var documentPositions = (PortableDocumentLinePosition[])Get(documentLayout, "Positions");
+            if (!ReferenceEquals(Get(documentLines[documentLines.Count - 1]!, "Paragraph"), following) ||
+                documentPositions[^1].Y < occupiedBottom)
+                throw new InvalidOperationException("Native document arrangement advanced through an occupied anchor.");
+            documentLayout.Dispose();
+            bool ownershipReleased = false;
+            try { Get(ownedBatch, "Entries"); }
+            catch (TargetInvocationException error) when (error.InnerException is ObjectDisposedException) { ownershipReleased = true; }
+            if (!ownershipReleased) throw new InvalidOperationException("Document disposal retained its child anchor layouts.");
         }
         Console.WriteLine("native-mil: original Figure/Floater subtree measurement and source ownership passed");
     }
