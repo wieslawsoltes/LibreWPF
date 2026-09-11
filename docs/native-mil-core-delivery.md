@@ -15,6 +15,12 @@ do not automatically expand the release checklist.
 
 ## Active completion queue
 
+**Retained anchor drawing/controls — 2026-09-11:** document drawing now traverses
+owned child TextLines/boxes under their native content origins; real child controls
+join the existing host list with document-local bounds. Child text queries and
+automatic frames remain required; see
+[drawing connection](../reports/native-mil-anchor-drawing-controls-2026-09-11.md).
+
 **Document anchor extent/lifetime — 2026-09-11:** explicit original source frames
 now connect child measurement/placement and parent exclusions inside the existing
 document layout. Native arrangement consumes occupied paragraph extent and the

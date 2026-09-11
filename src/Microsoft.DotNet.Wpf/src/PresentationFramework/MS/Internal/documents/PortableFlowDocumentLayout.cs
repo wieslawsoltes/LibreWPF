@@ -27,7 +27,8 @@ internal sealed class PortableFlowDocumentLayout : IDisposable
     internal sealed record ObjectEntry(BlockUIContainer Container, UIElement Child, int BlockIndex,
         int Start, int End, int ContentStart, int ContentEnd);
     internal readonly record struct FlowItem(int LineIndex, int ObjectIndex);
-    internal sealed record HostedChild(TextElement Owner, UIElement Child, int BlockIndex, int LineIndex, Rect LineBounds);
+    internal sealed record HostedChild(TextElement Owner, UIElement Child, int BlockIndex, int LineIndex, Rect LineBounds,
+        Rect? DocumentBounds = null);
     private readonly List<HostedChild> _hostedChildren = new();
     private readonly Dictionary<TextElement, int> _hostedOwners = new();
     internal IReadOnlyList<HostedChild> HostedChildren => _hostedChildren;
@@ -67,6 +68,7 @@ internal sealed class PortableFlowDocumentLayout : IDisposable
     internal Rect HostedChildBounds(int index)
     {
         var child = _hostedChildren[index];
+        if (child.DocumentBounds is { } documentBounds) return documentBounds;
         if (child.LineIndex < 0)
         {
             var box = Boxes[child.BlockIndex];
@@ -301,6 +303,20 @@ internal sealed class PortableFlowDocumentLayout : IDisposable
                 : flow.ArrangeWithObjects(CollectionsMarshal.AsSpan(layout._blocks), pageWidth,
                     CollectionsMarshal.AsSpan(metrics), CollectionsMarshal.AsSpan(objects), layout.Boxes, layout.Positions);
             layout.Size = new(extent.Width, extent.Height);
+            foreach (var anchor in layout._anchors)
+            {
+                var parentBox = layout.Boxes[anchor.BlockIndex];
+                foreach (var placement in anchor.Placement.Children)
+                {
+                    var childLayout = placement.Child.Layout;
+                    for (int childIndex = 0; childIndex < childLayout.HostedChildren.Count; ++childIndex)
+                    {
+                        Rect bounds = childLayout.HostedChildBounds(childIndex);
+                        bounds.Offset(parentBox.X + placement.ContentOrigin.X, parentBox.Y + placement.ContentOrigin.Y);
+                        layout.AddHostedChild(childLayout.HostedChildren[childIndex] with { DocumentBounds = bounds });
+                    }
+                }
+            }
             if (layout.HasTables)
             {
                 layout._firstItems[^1] = layout._items.Count;

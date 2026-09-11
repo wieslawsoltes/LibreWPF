@@ -164,6 +164,12 @@ internal static class NativeMilAnchoredDocumentSmoke
                 if (!rejected) throw new InvalidOperationException("Anchored layout accepted another source document.");
             }
             finally { ((IDisposable)wide).Dispose(); ((IDisposable)narrow).Dispose(); }
+            object embedded = New("System.Windows.Controls.Button");
+            embedded.GetType().GetProperty("Content")!.SetValue(embedded, "anchor child");
+            embedded.GetType().GetProperty("Width")!.SetValue(embedded, 80.0);
+            embedded.GetType().GetProperty("Height")!.SetValue(embedded, 25.0);
+            object container = New("System.Windows.Documents.InlineUIContainer", embedded);
+            Add(child, "Inlines", container);
             object following = New("System.Windows.Documents.Paragraph");
             Add(following, "Inlines", New("System.Windows.Documents.Run", "following source block"));
             Add(document, "Blocks", following);
@@ -192,6 +198,50 @@ internal static class NativeMilAnchoredDocumentSmoke
             if (!ReferenceEquals(Get(documentLines[documentLines.Count - 1]!, "Paragraph"), following) ||
                 documentPositions[^1].Y < occupiedBottom)
                 throw new InvalidOperationException("Native document arrangement advanced through an occupied anchor.");
+            var hosted = (IList)Get(documentLayout, "HostedChildren");
+            if (hosted.Count != 1 || !ReferenceEquals(Get(hosted[0]!, "Child"), embedded) ||
+                !ReferenceEquals(Get(hosted[0]!, "Owner"), container))
+                throw new InvalidOperationException("Anchored embedded control lost its actual source owner.");
+            object rootBounds = documentLayout.GetType().GetMethod("HostedChildBounds", instance)!.Invoke(documentLayout, [0])!;
+            object childLayout = Get(Get(placedChildren[0]!, "Child"), "Layout");
+            object localBounds = childLayout.GetType().GetMethod("HostedChildBounds", instance)!.Invoke(childLayout, [0])!;
+            object origin = Get(placedChildren[0]!, "ContentOrigin");
+            var boxes = (PortableDocumentBox[])Get(documentLayout, "Boxes");
+            var parentBox = boxes[(int)Get(owned[0]!, "BlockIndex")];
+            if ((double)Get(rootBounds, "X") != parentBox.X + (double)Get(origin, "X") + (double)Get(localBounds, "X") ||
+                (double)Get(rootBounds, "Y") != parentBox.Y + (double)Get(origin, "Y") + (double)Get(localBounds, "Y"))
+                throw new InvalidOperationException("Anchored control bounds applied its content origin more than once.");
+            object visual = Activator.CreateInstance(core.GetType("System.Windows.Media.DrawingVisual", true)!)!;
+            using (var drawing = (IDisposable)visual.GetType().GetMethod("RenderOpen")!.Invoke(visual, null)!)
+                framework.GetType("MS.Internal.Documents.PortableFlowDocumentVisual", true)!
+                    .GetMethod("DrawLayout", BindingFlags.Static | BindingFlags.NonPublic)!.Invoke(null, [drawing, documentLayout, 0]);
+            var drawingTypes = new List<string>();
+            int CountGlyphs(object drawing)
+            {
+                drawingTypes.Add(drawing.GetType().Name);
+                if (drawing.GetType().Name == "GlyphRunDrawing") return 1;
+                int count = 0;
+                if (drawing.GetType().GetProperty("Children")?.GetValue(drawing) is IEnumerable contents)
+                    foreach (object item in contents) count += CountGlyphs(item);
+                return count;
+            }
+            int CountLineGlyphs(IList lines)
+            {
+                int count = 0;
+                foreach (object entry in lines)
+                {
+                    object line = Get(entry, "Line");
+                    if (line.GetType().GetMethod("GetIndexedGlyphRuns", instance)!.Invoke(line, null) is IEnumerable runs)
+                        foreach (object run in runs) ++count;
+                }
+                return count;
+            }
+            int expectedGlyphs = CountLineGlyphs(documentLines);
+            foreach (object placement in placedChildren)
+                expectedGlyphs += CountLineGlyphs((IList)Get(Get(Get(placement, "Child"), "Layout"), "Lines"));
+            int actualGlyphs = CountGlyphs(Get(visual, "Drawing"));
+            if (expectedGlyphs == 0 || actualGlyphs != expectedGlyphs)
+                throw new InvalidOperationException($"Document drawing omitted retained anchored child glyphs: actual={actualGlyphs}, expected={expectedGlyphs}, types={string.Join(",", drawingTypes)}, foreground={child.GetType().GetProperty("Foreground")!.GetValue(child)}.");
             documentLayout.Dispose();
             bool ownershipReleased = false;
             try { Get(ownedBatch, "Entries"); }

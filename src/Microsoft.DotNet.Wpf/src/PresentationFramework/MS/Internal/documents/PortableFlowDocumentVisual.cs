@@ -21,19 +21,7 @@ internal sealed class PortableFlowDocumentVisual(FlowDocumentView owner) : Drawi
         using (DrawingContext drawing = RenderOpen())
         {
             drawing.DrawRectangle(owner.Document.Background ?? Brushes.Transparent, null, new Rect(layout.Size));
-            for (int index = 1; index < layout.Blocks.Count; ++index)
-                DrawBlock(drawing, layout.Blocks[index], layout.Boxes[index]);
-            for (int index = 0; index < layout.Lines.Count; ++index)
-            {
-                var position = layout.Positions[index];
-                layout.Lines[index].Line.Draw(drawing, new Point(position.X, position.Y), InvertAxes.None);
-            }
-            foreach (var marker in layout.Markers)
-            {
-                var target = layout.Lines[marker.TargetLine]; var position = layout.Positions[marker.TargetLine];
-                marker.Line.Draw(drawing, new Point(position.X + target.Line.Start + marker.Offset - marker.Line.Width,
-                    position.Y + target.Line.Baseline - marker.Line.Baseline), InvertAxes.None);
-            }
+            DrawLayout(drawing, layout, 0);
         }
         // Borrow actual source controls. Their logical block/inline container owner is
         // unchanged; this visual owns only the current drawing attachment.
@@ -60,6 +48,43 @@ internal sealed class PortableFlowDocumentVisual(FlowDocumentView owner) : Drawi
         }
         catch { Children.Clear(); _drawn = null; throw; }
         _drawn = layout;
+    }
+
+    internal static void DrawLayout(DrawingContext drawing, PortableFlowDocumentLayout layout, int depth)
+    {
+        if (depth >= 128) throw new PlatformNotSupportedException("Anchored document drawing depth exceeded.");
+        for (int index = 1; index < layout.Blocks.Count; ++index)
+            DrawBlock(drawing, layout.Blocks[index], layout.Boxes[index]);
+        for (int index = 0; index < layout.Lines.Count; ++index)
+        {
+            var position = layout.Positions[index];
+            layout.Lines[index].Line.Draw(drawing, new Point(position.X, position.Y), InvertAxes.None);
+        }
+        foreach (var marker in layout.Markers)
+        {
+            var target = layout.Lines[marker.TargetLine]; var position = layout.Positions[marker.TargetLine];
+            marker.Line.Draw(drawing, new Point(position.X + target.Line.Start + marker.Offset - marker.Line.Width,
+                position.Y + target.Line.Baseline - marker.Line.Baseline), InvertAxes.None);
+        }
+        foreach (var anchor in layout.Anchors)
+        {
+            var parentBox = layout.Boxes[anchor.BlockIndex];
+            foreach (var placement in anchor.Placement.Children)
+            {
+                var child = placement.Child;
+                var transform = new TranslateTransform(parentBox.X + placement.ContentOrigin.X,
+                    parentBox.Y + placement.ContentOrigin.Y);
+                transform.Freeze();
+                drawing.PushTransform(transform);
+                try
+                {
+                    DrawBlock(drawing, new(child.Source.Anchor, child.Box, null, 0),
+                        new() { Width = child.Layout.Size.Width, Height = child.Layout.Size.Height });
+                    DrawLayout(drawing, child.Layout, depth + 1);
+                }
+                finally { drawing.Pop(); }
+            }
+        }
     }
 
     internal static void DrawBlock(DrawingContext drawing, PortableFlowDocumentLayout.BlockEntry entry,
