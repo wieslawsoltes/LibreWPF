@@ -144,6 +144,15 @@ public sealed class WpfManagedProjectGraphTests
     }
 
     [Fact]
+    public void SdkPackingAndAuditShareWindowsPayloadSelection()
+    {
+        string script = File.ReadAllText(FindRepoPath("eng", "progpu-wpf-sdk-ci.sh"));
+        Assert.Contains("Conflicting Windows managed payload directories were supplied.", script, StringComparison.Ordinal);
+        Assert.Contains("export LIBREWPF_WINDOWS_MANAGED_PAYLOAD_DIR=\"${LibreWpfWindowsManagedPayloadDir}\"", script, StringComparison.Ordinal);
+        AssertGuardBefore(script, "export LIBREWPF_WINDOWS_MANAGED_PAYLOAD_DIR=", "pack_wpf_projects");
+    }
+
+    [Fact]
     public void SdkSourceHarnessRuntimePathsDoNotLeakIntoPackageQualification()
     {
         string script = File.ReadAllText(FindRepoPath("eng", "progpu-wpf-sdk-ci.sh"));

@@ -31,6 +31,14 @@ fi
 export DOTNET_ROLL_FORWARD="${DOTNET_ROLL_FORWARD:-Major}"
 export DOTNET_ROLL_FORWARD_TO_PRERELEASE="${DOTNET_ROLL_FORWARD_TO_PRERELEASE:-1}"
 
+# Packing and byte-for-byte auditing must consume the same Windows payload.
+if [[ -n "${LibreWpfWindowsManagedPayloadDir:-}" && -n "${LIBREWPF_WINDOWS_MANAGED_PAYLOAD_DIR:-}" && "${LibreWpfWindowsManagedPayloadDir}" != "${LIBREWPF_WINDOWS_MANAGED_PAYLOAD_DIR}" ]]; then
+  echo "Conflicting Windows managed payload directories were supplied." >&2
+  exit 2
+fi
+export LibreWpfWindowsManagedPayloadDir="${LibreWpfWindowsManagedPayloadDir:-${LIBREWPF_WINDOWS_MANAGED_PAYLOAD_DIR:-${repo_root}/artifacts/windows-managed-runtime}}"
+export LIBREWPF_WINDOWS_MANAGED_PAYLOAD_DIR="${LibreWpfWindowsManagedPayloadDir}"
+
 # Keep the normal SDK lane unchanged, and allow the same package-mode applications
 # to qualify the native renderer without modifying their project/source files.
 export ProGpuWpfRendererMode="${PROGPU_WPF_SDK_CI_RENDERER_MODE:-ManagedPortable}"
