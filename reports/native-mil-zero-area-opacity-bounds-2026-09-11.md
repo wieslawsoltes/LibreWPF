@@ -110,3 +110,19 @@ gets past stroke command 222 and rejects the following analytic command 223
 (kind 16, resource 133) with the same per-point guideline guard. Analytic shape
 lowering is the next blocker. Pixel comparisons and final package/platform/CI
 qualification remain required; these checks do not establish rendering parity.
+
+## Fixed-shape, contour and Windows compiler checkpoint
+
+ProGPU `f8bcd710` extends the shared path lowering to guideline-bearing rectangle,
+rounded-rectangle and ellipse fills/strokes, lines and nondegenerate source
+contours. Both providers compile, native MIL regressions pass, and the full native
+contract verifier passes. Ordinary analytic fast paths remain unchanged.
+
+The external diagnostic application reaches glyph command 3069 after passing
+the preceding shape/contour blockers. Glyph guideline placement remains the
+first-frame blocker; this is not a completed application qualification.
+
+CI run 34561955699 failed in MSVC and both ClangCL Windows architecture jobs on
+the same enum-to-uint32 aggregate narrowing. This checkpoint adds the explicit
+wire-field conversion. New Windows CI results, exact-package startup, final
+platform/pixel validation and ordered merges remain outstanding.
