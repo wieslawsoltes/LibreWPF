@@ -15,6 +15,14 @@ do not automatically expand the release checklist.
 
 ## Active completion queue
 
+**Floating text provider connection — 2026-09-11:** the optional neutral floating
+service now selects the shared native snapshot through the actual WPF styled text
+adapter. Linked-source compilation/native checks pass for original UTF-16 events,
+inline interaction, independent occupied extents and anchor-only rows. Automatic
+document event mapping, child placement and hard-segment continuation remain next;
+source admission and final application/package gates stay closed. See
+[provider evidence](../reports/native-mil-floating-text-provider-2026-09-11.md).
+
 **Native Windows floating-row evidence — 2026-09-11:** the unchanged application
 now reproduces the anchored-block rejection during first Window measurement.
 The independent WindowsDesktop 10.0.12 reference resolves the placement policy:
