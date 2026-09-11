@@ -35,3 +35,10 @@ compilation for retained target 4509. That later failure remains undiagnosed and
 must be resolved before claiming application closure. The original generated
 PresentationCore is preserved at
 `artifacts/native-exact-b54db165.dBPf7B/external-PresentationCore-before-zero-bounds.dll`.
+
+The later native failure is now identified as `UnsupportedCommand (5)` by a
+failure-message-only ProGPU.Backend.Native diagnostic change (build: zero
+warnings/errors, 4.74s). It is not a device-loss or allocation result. The exact
+rejected command/input-index contract remains to be localized. No native hit-test
+flag, rendering command or unsupported guard was disabled. The diagnostic bridge
+change remains in the prepared ProGPU worktree pending the related investigation.
