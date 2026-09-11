@@ -3514,7 +3514,12 @@ internal static class Program
                 new Func<object, IntPtr>(recorder.GetHandle),
                 null, // setWindowRegion
                 null, // requestActivation
-                null  // setIcon
+                null, // setIcon
+                null, // createHidden
+                null, // showSystemMenu
+                null, // runDialog
+                null, // setOwner
+                null  // releaseDialog
             });
 
         AssertEqual(true, GetStaticProperty(activationServiceType, "IsEnabled"), "portable activation enabled");
