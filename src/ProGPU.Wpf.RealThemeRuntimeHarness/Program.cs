@@ -62,8 +62,11 @@ internal static class Program
             proGpuWpfPath,
             proGpuWpfInteropPath);
         loadContext.LoadFromAssemblyPath(proGpuWpfInteropPath);
-        Assembly presentationFramework = loadContext.LoadFromAssemblyPath(presentationFrameworkPath);
         Assembly proGpuWpf = loadContext.LoadFromAssemblyPath(proGpuWpfPath);
+        InvokeStatic(
+            GetRequiredType(proGpuWpf, "System.Windows.Media.ProGPU.ProGpuWpfNativeMediaServices"),
+            "Initialize");
+        Assembly presentationFramework = loadContext.LoadFromAssemblyPath(presentationFrameworkPath);
         Assembly windowsBase = loadContext.LoadFromAssemblyName(new AssemblyName("WindowsBase"));
         loadContext.LoadFromAssemblyPath(fluentThemePath);
         Assembly compilerHarness = loadContext.LoadFromAssemblyPath(compilerHarnessPath);
@@ -1207,7 +1210,7 @@ internal static class Program
             "TryActivate",
             BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)
             ?? throw new MissingMethodException(activationServiceType.FullName, "TryActivate");
-        object?[] parameters = { window, null };
+        object?[] parameters = { window, null, true };
         if (!Equals(true, tryActivate.Invoke(null, parameters)) || parameters[1] == null)
         {
             throw new InvalidOperationException("Real themed WPF window did not create a portable ProGPU activation.");
