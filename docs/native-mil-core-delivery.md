@@ -15,6 +15,12 @@ do not automatically expand the release checklist.
 
 ## Active completion queue
 
+**Paragraph anchor ownership — 2026-09-11:** original sibling anchors now share
+one generation-owned measurement batch and two native width-policy crossings.
+The isolated single-anchor auto helper is replaced. Parent reference/placement,
+exclusion production and drawing/text-view consumers remain unconnected; see
+[ownership evidence](../reports/native-mil-paragraph-anchor-ownership-2026-09-11.md).
+
 **MSVC merge blocker — 2026-09-11:** ProGPU 4c9a2fc5 makes the already validated
 double-to-float empty-paragraph origin conversion explicit, fixing the C4244 site
 reported by the strict MSVC job. Both providers rebuild locally and the new empty

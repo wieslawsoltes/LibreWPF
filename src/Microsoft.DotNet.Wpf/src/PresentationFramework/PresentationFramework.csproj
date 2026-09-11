@@ -216,6 +216,7 @@
     <Compile Include="MS\Internal\documents\FlowDocumentView.Portable.cs" />
     <Compile Include="MS\Internal\documents\PortableDocumentParagraphSource.cs" />
     <Compile Include="MS\Internal\documents\PortableDocumentAnchorSource.cs" />
+    <Compile Include="MS\Internal\documents\PortableDocumentAnchorLayout.cs" />
     <Compile Include="MS\Internal\documents\PortableDocumentInlineObject.cs" />
     <Compile Include="MS\Internal\documents\PortableFlowDocumentLayout.cs" />
     <Compile Include="MS\Internal\documents\PortableFlowDocumentFormatter.cs" />

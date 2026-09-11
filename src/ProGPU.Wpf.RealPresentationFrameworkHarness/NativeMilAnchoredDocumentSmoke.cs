@@ -41,20 +41,33 @@ internal static class NativeMilAnchoredDocumentSmoke
                 ((IList)collect.Invoke(null, [child])!).Count != 0)
                 throw new InvalidOperationException(kind + " anchor inventory lost source identity or entered its child text.");
             object Create(double width) => method.Invoke(null, [document, anchor, width, 1.0, mode])!;
-            var auto = method.DeclaringType!.GetMethod("CreateAutoSizedAnchored", BindingFlags.Static | BindingFlags.NonPublic)!;
+            var auto = framework.GetType("MS.Internal.Documents.PortableDocumentAnchorLayout", true)!
+                .GetMethod("Create", BindingFlags.Static | BindingFlags.NonPublic)!;
+            object sibling = New("System.Windows.Documents." + (kind == "Figure" ? "Floater" : "Figure"));
+            object siblingParagraph = New("System.Windows.Documents.Paragraph");
+            Add(siblingParagraph, "Inlines", New("System.Windows.Documents.Run", "second original anchor"));
+            Add(sibling, "Blocks", siblingParagraph);
+            Add(span, "Inlines", sibling);
             void CheckAuto(bool fill)
             {
-                object[] arguments = [document, anchor, 4096.0, 1.0, mode, null!];
-                using var sized = (IDisposable)auto.Invoke(null, arguments)!;
-                double outerWidth = (double)Get(arguments[5], "Width");
+                using var batch = (IDisposable)auto.Invoke(null, [document, parent, 4096.0, 1.0, mode])!;
+                var entries = (IList)Get(batch, "Entries");
+                if (entries.Count != 2 || !ReferenceEquals(Get(Get(entries[0]!, "Source"), "Anchor"), anchor) ||
+                    !ReferenceEquals(Get(Get(entries[1]!, "Source"), "Anchor"), sibling))
+                    throw new InvalidOperationException("Batched anchor sizing lost source order or ownership.");
+                object sized = Get(entries[0]!, "Layout"), outer = Get(entries[0]!, "OuterSize");
+                double outerWidth = (double)Get(outer, "Width");
                 double contentWidth = (double)Get(Get(sized, "Size"), "Width");
                 if (!(contentWidth > 0 && outerWidth > contentWidth) ||
                     (fill ? outerWidth != 4096 : outerWidth >= 4096) ||
-                    (double)Get(arguments[5], "Height") <= (double)Get(Get(sized, "Size"), "Height"))
-                    throw new InvalidOperationException($"{kind} lost automatic source sizing or anchor insets: fill={fill}, outer={outerWidth}, content={contentWidth}, outerHeight={Get(arguments[5], "Height")}, contentHeight={Get(Get(sized, "Size"), "Height")}.");
+                    (double)Get(outer, "Height") <= (double)Get(Get(sized, "Size"), "Height"))
+                    throw new InvalidOperationException($"{kind} lost automatic source sizing or anchor insets: fill={fill}, outer={outerWidth}, content={contentWidth}.");
                 foreach (object entry in (IList)Get(sized, "Lines"))
                     if (!ReferenceEquals(Get(entry, "Paragraph"), child))
                         throw new InvalidOperationException(kind + " automatic remeasurement replaced the source paragraph.");
+                foreach (object entry in (IList)Get(Get(entries[1]!, "Layout"), "Lines"))
+                    if (!ReferenceEquals(Get(entry, "Paragraph"), siblingParagraph))
+                        throw new InvalidOperationException("Batched sizing mixed child source paragraphs.");
             }
             CheckAuto(kind == "Floater" && Get(anchor, "HorizontalAlignment").ToString() == "Stretch");
             if (kind == "Floater")
