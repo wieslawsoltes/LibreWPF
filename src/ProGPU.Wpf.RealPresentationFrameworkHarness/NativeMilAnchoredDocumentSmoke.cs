@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Reflection;
+using ProGPU.Wpf.Interop;
 
 internal static class NativeMilAnchoredDocumentSmoke
 {
@@ -56,6 +57,28 @@ internal static class NativeMilAnchoredDocumentSmoke
                 if (entries.Count != 2 || !ReferenceEquals(Get(Get(entries[0]!, "Source"), "Anchor"), anchor) ||
                     !ReferenceEquals(Get(Get(entries[1]!, "Source"), "Anchor"), sibling))
                     throw new InvalidOperationException("Batched anchor sizing lost source order or ownership.");
+                PortableDocumentAnchorRectangle[] frames = [new() { Right = 4096, Bottom = 1000 },
+                    new() { Top = 20, Right = 4096, Bottom = 1000 }];
+                var place = batch.GetType().GetMethod("Place", instance)!;
+                object placed = place.Invoke(batch, [frames, 256U])!;
+                var children = (IList)Get(placed, "Children");
+                if (children.Count != 2 || !ReferenceEquals(Get(children[0]!, "Child"), entries[0]) ||
+                    !ReferenceEquals(Get(children[1]!, "Child"), entries[1]))
+                    throw new InvalidOperationException("Native anchor placement lost its measured child generation.");
+                object firstBounds = Get(children[0]!, "OuterBounds"), secondBounds = Get(children[1]!, "OuterBounds");
+                if ((double)Get(secondBounds, "Top") < 20 ||
+                    ((double)Get(firstBounds, "Left") < (double)Get(secondBounds, "Right") &&
+                     (double)Get(secondBounds, "Left") < (double)Get(firstBounds, "Right") &&
+                     (double)Get(firstBounds, "Top") < (double)Get(secondBounds, "Bottom") &&
+                     (double)Get(secondBounds, "Top") < (double)Get(firstBounds, "Bottom")))
+                    throw new InvalidOperationException("Native source anchor placement lost reference tops or collision clearance.");
+                foreach (object item in children)
+                {
+                    object bounds = Get(item, "OuterBounds"), origin = Get(item, "ContentOrigin");
+                    if ((double)Get(origin, "X") <= (double)Get(bounds, "Left") ||
+                        (double)Get(origin, "Y") <= (double)Get(bounds, "Top"))
+                        throw new InvalidOperationException("Anchor content origin lost source margin/border/padding.");
+                }
                 object sized = Get(entries[0]!, "Layout"), outer = Get(entries[0]!, "OuterSize");
                 double outerWidth = (double)Get(outer, "Width");
                 double contentWidth = (double)Get(Get(sized, "Size"), "Width");
@@ -69,7 +92,7 @@ internal static class NativeMilAnchoredDocumentSmoke
                 foreach (object entry in (IList)Get(Get(entries[1]!, "Layout"), "Lines"))
                     if (!ReferenceEquals(Get(entry, "Paragraph"), siblingParagraph))
                         throw new InvalidOperationException("Batched sizing mixed child source paragraphs.");
-                object source = New("MS.Internal.Documents.PortableDocumentParagraphSource", parent, 1.0, 4096.0, null!, batch);
+                object source = New("MS.Internal.Documents.PortableDocumentParagraphSource", parent, 1.0, 4096.0, Get(placed, "Exclusions"), batch);
                 int anchorStart = (int)Get(Get(anchor, "ElementStart"), "Offset");
                 int anchorEnd = (int)Get(Get(anchor, "ElementEnd"), "Offset");
                 object unowned = New("MS.Internal.Documents.PortableDocumentParagraphSource", parent, 1.0, 4096.0);

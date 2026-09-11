@@ -6,6 +6,7 @@ using System.Windows;
 using System.Windows.Documents;
 using System.Windows.Media;
 using MS.Internal.PtsHost;
+using MS.Internal.TextFormatting;
 using ProGPU.Wpf.Interop;
 
 namespace MS.Internal.Documents;
@@ -16,11 +17,14 @@ internal sealed class PortableDocumentAnchorLayout : IDisposable
 {
     internal sealed record Entry(PortableDocumentAnchorSource Source, MbpInfo Box,
         PortableFlowDocumentLayout Layout, Size OuterSize);
+    internal sealed record Placement(Entry Child, Rect OuterBounds, Point ContentOrigin);
+    internal sealed record PlacedBatch(IReadOnlyList<Placement> Children, PortableTextExclusionRequest Exclusions);
     private IReadOnlyList<Entry> _entries;
     private readonly Paragraph _paragraph;
     private readonly uint _generation;
-    private PortableDocumentAnchorLayout(Paragraph paragraph, uint generation, Entry[] entries)
-    { _paragraph = paragraph; _generation = generation; _entries = Array.AsReadOnly(entries); }
+    private readonly IPortableAnchoredDocumentFlow _flow;
+    private PortableDocumentAnchorLayout(Paragraph paragraph, uint generation, Entry[] entries, IPortableAnchoredDocumentFlow flow)
+    { _paragraph = paragraph; _generation = generation; _entries = Array.AsReadOnly(entries); _flow = flow; }
     internal IReadOnlyList<Entry> Entries => _entries ?? throw new ObjectDisposedException(nameof(PortableDocumentAnchorLayout));
 
     internal void ValidateFor(Paragraph paragraph)
@@ -51,6 +55,65 @@ internal sealed class PortableDocumentAnchorLayout : IDisposable
         start = end = 0; return false;
     }
 
+    // Reference frames are paragraph-local and source-resolved in anchor order.
+    // In particular, the caller supplies a Floater's actual line top; this method
+    // must not substitute the Figure ParagraphTop default or a viewport guess.
+    internal PlacedBatch Place(IReadOnlyList<PortableDocumentAnchorRectangle> frames, uint maximumAttempts)
+    {
+        ArgumentNullException.ThrowIfNull(frames);
+        ValidateFor(_paragraph);
+        if (frames.Count != _entries.Count) throw new ArgumentException("Each source anchor requires one reference frame.", nameof(frames));
+        if (maximumAttempts == 0 || maximumAttempts > 1U << 20)
+            throw new ArgumentOutOfRangeException(nameof(maximumAttempts));
+        var requests = new PortableDocumentAnchorRequest[_entries.Count];
+        var results = new PortableDocumentAnchorRectangle[_entries.Count];
+        for (int i = 0; i < requests.Length; ++i)
+        {
+            var child = _entries[i]; var frame = frames[i];
+            PortableDocumentAnchorAlignment alignment;
+            bool delay = true;
+            if (child.Source.Anchor is Figure figure)
+            {
+                if (figure.WrapDirection != WrapDirection.Both || !figure.Height.IsAuto ||
+                    figure.HorizontalOffset != 0 || figure.VerticalOffset != 0)
+                    throw new PlatformNotSupportedException("Figure wrap sides, fixed height and offsets require their source placement policy.");
+                alignment = figure.HorizontalAnchor switch
+                {
+                    FigureHorizontalAnchor.ColumnLeft or FigureHorizontalAnchor.ContentLeft or FigureHorizontalAnchor.PageLeft => PortableDocumentAnchorAlignment.Left,
+                    FigureHorizontalAnchor.ColumnCenter or FigureHorizontalAnchor.ContentCenter or FigureHorizontalAnchor.PageCenter => PortableDocumentAnchorAlignment.Center,
+                    FigureHorizontalAnchor.ColumnRight or FigureHorizontalAnchor.ContentRight or FigureHorizontalAnchor.PageRight => PortableDocumentAnchorAlignment.Right,
+                    _ => throw new PlatformNotSupportedException("Unknown Figure horizontal reference.")
+                };
+                delay = figure.CanDelayPlacement;
+            }
+            else if (child.Source.Anchor is Floater floater)
+                alignment = floater.HorizontalAlignment switch
+                {
+                    HorizontalAlignment.Left or HorizontalAlignment.Stretch => PortableDocumentAnchorAlignment.Left,
+                    HorizontalAlignment.Center => PortableDocumentAnchorAlignment.Center,
+                    HorizontalAlignment.Right => PortableDocumentAnchorAlignment.Right,
+                    _ => throw new PlatformNotSupportedException("Unknown Floater horizontal alignment.")
+                };
+            else throw new PlatformNotSupportedException("Unknown source anchor.");
+            requests[i] = new() { Left = frame.Left, Top = frame.Top, Right = frame.Right, Bottom = frame.Bottom,
+                Width = (float)child.OuterSize.Width, Height = (float)child.OuterSize.Height,
+                Alignment = alignment, AllowDelay = delay ? 1U : 0U, MaximumAttempts = maximumAttempts };
+        }
+        _flow.PlaceAnchors(requests, ReadOnlySpan<PortableDocumentAnchorRectangle>.Empty, results);
+        ValidateFor(_paragraph);
+        var placements = new Placement[results.Length];
+        var exclusions = new PortableTextExclusion[results.Length];
+        for (int i = 0; i < results.Length; ++i)
+        {
+            var rectangle = results[i]; var child = _entries[i]; var box = child.Box;
+            placements[i] = new(child, new(rectangle.Left, rectangle.Top, rectangle.Right - rectangle.Left, rectangle.Bottom - rectangle.Top),
+                new(rectangle.Left + box.Margin.Left + box.Border.Left + box.Padding.Left,
+                    rectangle.Top + box.Margin.Top + box.Border.Top + box.Padding.Top));
+            exclusions[i] = new(rectangle.Left, rectangle.Top, rectangle.Right, rectangle.Bottom);
+        }
+        return new(Array.AsReadOnly(placements), new(new PortableTextExclusionOptions(maximumAttempts), exclusions));
+    }
+
     internal static PortableDocumentAnchorLayout Create(FlowDocument document, Paragraph paragraph,
         double availableWidth, double pixelsPerDip, TextFormattingMode formattingMode)
     {
@@ -68,7 +131,7 @@ internal sealed class PortableDocumentAnchorLayout : IDisposable
             throw new PlatformNotSupportedException("Automatic anchors require the native document sizing service.");
         uint generation = document.TextContainer.Generation;
         var sources = PortableDocumentAnchorSource.Collect(paragraph);
-        if (sources.Count == 0) return new(paragraph, generation, Array.Empty<Entry>());
+        if (sources.Count == 0) return new(paragraph, generation, Array.Empty<Entry>(), sizing);
         var requests = new PortableDocumentAnchorWidthRequest[sources.Count];
         var widths = new PortableDocumentAnchorWidthResult[sources.Count];
         var boxes = new MbpInfo[sources.Count];
@@ -117,7 +180,7 @@ internal sealed class PortableDocumentAnchorLayout : IDisposable
                     box.Margin.Bottom + box.Border.Bottom + box.Padding.Bottom;
                 entries[i] = new(sources[i], box, layouts[i], new(widths[i].OuterWidth, layouts[i].Size.Height + vertical));
             }
-            return new(paragraph, generation, entries);
+            return new(paragraph, generation, entries, sizing);
         }
         catch
         {

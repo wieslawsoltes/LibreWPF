@@ -15,6 +15,12 @@ do not automatically expand the release checklist.
 
 ## Active completion queue
 
+**Owned source anchor placement — 2026-09-11:** retained child sizes now feed one
+native placement batch from explicit source reference frames. Returned child
+origins and parent exclusions share the native boxes. Automatic frame discovery,
+document extent and drawing/text-view consumers still need integration; see
+[placement connection](../reports/native-mil-source-anchor-placement-2026-09-11.md).
+
 **Parent anchor source ranges — 2026-09-11:** an explicit live anchor batch can
 now supply the parent's non-ink source ranges and preceding-text context while
 retaining actual children separately. Ordinary anchor admission stays closed;
