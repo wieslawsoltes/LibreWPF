@@ -41,6 +41,13 @@ internal static class NativeMilAnchoredDocumentSmoke
                 ((IList)collect.Invoke(null, [child])!).Count != 0)
                 throw new InvalidOperationException(kind + " anchor inventory lost source identity or entered its child text.");
             object Create(double width) => method.Invoke(null, [document, anchor, width, 1.0, mode])!;
+            using (var measured = (IDisposable)Create(4096))
+            {
+                double contentWidth = (double)Get(measured, "MeasuredContentWidth");
+                if (!(contentWidth > 0 && contentWidth < 4096) ||
+                    (double)Get(Get(measured, "Size"), "Width") != 4096)
+                    throw new InvalidOperationException(kind + " confused measured content with the allocated constraint.");
+            }
             object wide = Create(220);
             object narrow = Create(45);
             try

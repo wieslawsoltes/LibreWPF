@@ -15,6 +15,12 @@ do not automatically expand the release checklist.
 
 ## Active completion queue
 
+**Source anchor content measurement — 2026-09-11:** anchored layouts now consume
+the native actual content width separately from allocated extent through an
+optional typed provider. Automatic sizing, placement/wrapping and child ownership
+remain required before parent admission. See
+[source measurement](../reports/native-mil-source-anchor-content-measurement-2026-09-11.md).
+
 **Base input-validation integration — 2026-09-11:** merge base c4df7dcb0 (PR125),
 preserving final Showcase naming and all new input-target assertions. The two
 affected source-graph tests pass; live application and exact-head CI remain

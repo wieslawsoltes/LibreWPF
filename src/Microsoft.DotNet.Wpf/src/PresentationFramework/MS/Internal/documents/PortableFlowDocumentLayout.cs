@@ -58,6 +58,7 @@ internal sealed class PortableFlowDocumentLayout : IDisposable
     internal PortableDocumentBox[] Boxes { get; private set; }
     internal PortableDocumentLinePosition[] Positions { get; private set; }
     internal Size Size { get; private set; }
+    internal double? MeasuredContentWidth { get; private set; }
 
     internal Rect HostedChildBounds(int index)
     {
@@ -134,6 +135,8 @@ internal sealed class PortableFlowDocumentLayout : IDisposable
             throw new PlatformNotSupportedException("Portable FlowDocument requires registered native document and text services before layout.");
         if (requiresAnchoredFlow && flow is not IPortableAnchoredDocumentFlow)
             throw new PlatformNotSupportedException("Anchored document measurement requires the explicit native anchor capability.");
+        if (requiresAnchoredFlow && flow is not IPortableMeasuredDocumentFlow)
+            throw new PlatformNotSupportedException("Anchored document measurement requires native content extent measurement.");
         if (exclusions is { Count: > 0 } && flow is not IPortablePositionedDocumentFlow)
             throw new PlatformNotSupportedException("Excluded source paragraphs require native positioned document arrangement.");
         if (document.FlowDirection != FlowDirection.LeftToRight)
@@ -214,13 +217,25 @@ internal sealed class PortableFlowDocumentLayout : IDisposable
             if (consumedExclusions != (exclusions?.Count ?? 0))
                 throw new InvalidOperationException("An exclusion request did not target a formatted source paragraph.");
             PortableDocumentExtent extent;
-            if (layout.HasPositionedParagraphs)
+            if (layout.HasPositionedParagraphs || requiresAnchoredFlow)
             {
-                var local = new PortableDocumentLinePosition[layout._lines.Count];
+                var local = layout.HasPositionedParagraphs
+                    ? new PortableDocumentLinePosition[layout._lines.Count]
+                    : Array.Empty<PortableDocumentLinePosition>();
                 for (int i = 0; i < local.Length; ++i)
                     if (layout._lines[i].Fragment is { } fragment)
                         local[i].Y = fragment.Top; // X already belongs to TextLine.Start/native origin.
-                extent = ((IPortablePositionedDocumentFlow)flow).ArrangeWithPositionedParagraphs(
+                if (requiresAnchoredFlow)
+                {
+                    extent = ((IPortableMeasuredDocumentFlow)flow).ArrangeWithContentMeasurement(
+                        CollectionsMarshal.AsSpan(layout._blocks), pageWidth,
+                        CollectionsMarshal.AsSpan(metrics), CollectionsMarshal.AsSpan(objects),
+                        CollectionsMarshal.AsSpan(layout._rows), CollectionsMarshal.AsSpan(layout._columns),
+                        CollectionsMarshal.AsSpan(layout._cells), CollectionsMarshal.AsSpan(layout._positionedParagraphs),
+                        local, layout.Boxes, layout.Positions, out double contentWidth);
+                    layout.MeasuredContentWidth = contentWidth;
+                }
+                else extent = ((IPortablePositionedDocumentFlow)flow).ArrangeWithPositionedParagraphs(
                     CollectionsMarshal.AsSpan(layout._blocks), pageWidth,
                     CollectionsMarshal.AsSpan(metrics), CollectionsMarshal.AsSpan(objects),
                     CollectionsMarshal.AsSpan(layout._rows), CollectionsMarshal.AsSpan(layout._columns),

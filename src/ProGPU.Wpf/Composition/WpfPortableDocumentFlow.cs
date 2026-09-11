@@ -5,10 +5,30 @@ using ProGPU.Wpf.Interop;
 namespace System.Windows.Media.ProGPU.Composition;
 
 /// <summary>Typed zero-copy adapter only; block layout remains in ProGPU C++.</summary>
-internal sealed class WpfPortableDocumentFlow : IPortableAnchoredDocumentFlow, IPortablePositionedDocumentFlow
+internal sealed class WpfPortableDocumentFlow : IPortableAnchoredDocumentFlow, IPortableMeasuredDocumentFlow
 {
     private static readonly WpfPortableDocumentFlow Default = new();
     internal static void EnsureRegistered() => PortableWpfServiceRegistry.EnsureDocumentFlow(Default);
+
+    public PortableDocumentExtent ArrangeWithContentMeasurement(ReadOnlySpan<PortableDocumentBlock> blocks, double width,
+        ReadOnlySpan<PortableDocumentLine> lines, ReadOnlySpan<PortableDocumentObject> objects,
+        ReadOnlySpan<PortableDocumentRow> rows, ReadOnlySpan<double> columnWidths,
+        ReadOnlySpan<PortableDocumentCell> cells, ReadOnlySpan<PortableDocumentPositionedParagraph> paragraphs,
+        ReadOnlySpan<PortableDocumentLinePosition> localPositions, Span<PortableDocumentBox> boxes,
+        Span<PortableDocumentLinePosition> positions, out double contentWidth)
+    {
+        var extent = NativeDocumentFlow.ArrangeWithContentMeasurement(
+            MemoryMarshal.Cast<PortableDocumentBlock, NativeDocumentBlock>(blocks), width,
+            MemoryMarshal.Cast<PortableDocumentLine, NativeDocumentLine>(lines),
+            MemoryMarshal.Cast<PortableDocumentObject, NativeDocumentObject>(objects),
+            MemoryMarshal.Cast<PortableDocumentRow, NativeDocumentRow>(rows), columnWidths,
+            MemoryMarshal.Cast<PortableDocumentCell, NativeDocumentCell>(cells),
+            MemoryMarshal.Cast<PortableDocumentPositionedParagraph, NativeDocumentPositionedParagraph>(paragraphs),
+            MemoryMarshal.Cast<PortableDocumentLinePosition, NativeDocumentLinePosition>(localPositions),
+            MemoryMarshal.Cast<PortableDocumentBox, NativeDocumentBox>(boxes),
+            MemoryMarshal.Cast<PortableDocumentLinePosition, NativeDocumentLinePosition>(positions), out contentWidth);
+        return new(extent.Width, extent.Height);
+    }
 
     public PortableDocumentExtent ArrangeWithPositionedParagraphs(ReadOnlySpan<PortableDocumentBlock> blocks, double width,
         ReadOnlySpan<PortableDocumentLine> lines, ReadOnlySpan<PortableDocumentObject> objects,
