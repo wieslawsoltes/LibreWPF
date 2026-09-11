@@ -5269,7 +5269,15 @@ internal static class Program
                         base.OnStartup(e);
                         Dispatcher.BeginInvoke(
                             DispatcherPriority.Normal,
-                            new Action(ExternalSdkValidation.ValidateApplicationRunAndShutdown));
+                            new Action(() =>
+                            {
+                                try { ExternalSdkValidation.ValidateApplicationRunAndShutdown(); }
+                                catch (Exception ex)
+                                {
+                                    Console.Error.WriteLine("External SDK Application.Run validation failed: " + ex);
+                                    Environment.Exit(1);
+                                }
+                            }));
                         return;
                     }
 
@@ -6054,6 +6062,7 @@ internal static class Program
 
                 public static void ValidateApplicationRunAndShutdown()
                 {
+                    Console.WriteLine("External SDK Application.Run validation entered.");
                     var app = RequireType<App>(
                         Application.Current,
                         "external SDK current application");
@@ -6080,6 +6089,7 @@ internal static class Program
                     window.ResizeMode = ResizeMode.CanResizeWithGrip;
                     window.WindowStyle = WindowStyle.None;
                     DrainDispatcher();
+                    Console.WriteLine("External SDK Application.Run window changes dispatched.");
                     AssertEqual(56.0, window.Left, "external SDK application main window updated left");
                     AssertEqual(72.0, window.Top, "external SDK application main window updated top");
                     AssertEqual(false, window.Topmost, "external SDK application main window updated topmost");

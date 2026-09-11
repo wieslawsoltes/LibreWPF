@@ -1,5 +1,30 @@
 # Native external application render-cost investigation
 
+## Resolved immediate failure
+
+The explicitly selected native diagnostic run completed 40 presentations before
+exiting with the secondary `run validated before exit` assertion. Progress
+markers in the queued RUN callback then proved it entered validation and completed
+the initial window-property dispatcher drain. A fail-fast wrapper around that
+test callback exposed the original exception and exited with code 1:
+`PlatformNotSupportedException: Portable input-method preferences require the
+host composition contract.` The stack is `ValidateAccessKeyRoutingAfterRun` →
+access-key processing → keyboard focus → `InputMethod.GotKeyboardFocus`.
+
+The access label targets `ExternalValidationTextBox`, whose XAML explicitly
+requests IME On, Native/FullShape conversion and Automatic sentence mode. These
+are not default no-preference focus settings. The source guard deliberately
+rejects them under portable input until a typed host composition contract exists.
+Do not remove that guard or report ordinary committed-character delivery as IME
+parity. The application is not stuck permanently in first-frame rendering.
+
+The harness now logs RUN entry and the first dispatcher checkpoint and reports
+the original queued validation exception before exiting nonzero. No assertion
+or success marker is relaxed. The marked and fail-fast diagnostic logs are
+`external-marked-run.log` and `external-failfast-run.log`. The generated external
+application rebuilt successfully with native selection and native hit testing.
+Final-head package, live-input, platform and CI qualification remain open.
+
 ## Validation-mode correction
 
 The original diagnostic launch enabled `PROGPU_WPF_EXTERNAL_RUN_VALIDATE=1`,
