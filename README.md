@@ -207,6 +207,7 @@ GitHub workflows:
 
 See [docs/progpu-wpf-release.md](docs/progpu-wpf-release.md), the
 [canonical WinForms source integration report](reports/canonical-winforms-source-integration.md),
+[docs/progpu-wpf-multi-window-render-device.md](docs/progpu-wpf-multi-window-render-device.md),
 and the ongoing porting reports in [reports/](reports/).
 
 ## Original Upstream README
