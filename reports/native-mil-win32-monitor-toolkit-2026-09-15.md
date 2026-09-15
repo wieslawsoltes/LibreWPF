@@ -103,9 +103,12 @@ the mixed source graph: LibreWinForms still pinned ProGPU
 `7e6dd6a724240c6ec4f95ff1e3e7885cbe66035c`. The companion
 [LibreWinForms #36](https://github.com/wieslawsoltes/LibreWinForms/pull/36)
 advances its nested ProGPU gitlink to the same merged main commit without a
-WinForms-local renderer change. This branch pins that exact LibreWinForms
-PR head for parallel CI; after #36 passes and merges, it must repin the
-LibreWinForms merge commit and rerun its own exact-head canonical gate.
+WinForms-local renderer change. All seven exact-head CI checks passed, and
+#36 merged at `3fdc72bee10bb350a6f6ddfc0bfed637727d844d`. This branch
+now pins that merge commit, rather than its former PR head; both the direct
+and nested ProGPU gitlinks resolve to merged main
+`7e6dd6a724240c6ec4f95ff1e3e7885cbe66035c`. WPF's own exact-head
+canonical/package gate must rerun after this final source-graph repin.
 
 ### macOS native-MIL source-overlay probe
 
@@ -215,10 +218,21 @@ prove that all spans can be safely reused across changed source generations.
 The next source change must target that path without bypassing native input,
 dropping scene identity, or switching to the managed compositor.
 
-The second-scene checkpoint stderr was copied while a third scene was still
-running to task-owned host cache
-`toolkit-encode-checkpoints-ci1dfda315-stderr.log` (SHA-256
-`8cda4cc8809a0f49d93279646da09f8eacc89deb84732112f82a13eae22f248b`);
-stdout is beside it. The full third-scene and Toolkit validation outcomes
-must be recorded separately after the live probe completes. No passing
-floating-window, package or performance gate follows from this checkpoint.
+The third `6,862`-command scene spent `12.736 ms` in resources,
+`30.869 ms` in preparation, **`267,411.853 ms` building `340` spans**,
+`8.776 ms` in replay and `1.345 ms` in flush. The source scene again missed
+the whole-scene bundle cache. The private Toolkit process then exited with
+code `1` during popup validation: `WpfPortableNativePopupHost.EnsureInitialized`
+rejected the selected Win32 native popup owner with
+`PlatformNotSupportedException`. It had already passed frame/display geometry,
+filter focus and filter text. The popup failure is a separate live native-owner
+admission blocker; it must not be hidden by changing surface kind or accepting
+an unowned popup. This run did not reach floating-window/redock success.
+
+Final guest logs were copied to task-owned host cache as
+`toolkit-encode-checkpoints-ci1dfda315-final-stderr.log` (SHA-256
+`b7b27fff866b1f00cf92923f0de746b42ec1c93e928cfc5d301c023c246f8af5`)
+and `toolkit-encode-checkpoints-ci1dfda315-final-stdout.log` (SHA-256
+`b6fa650f960bd86306d38631732d4111a4dcb759f78948efa2f276ce47db5c3e`).
+These paired logs preserve the source scene/generation evidence and the exact
+failure stack. No passing floating-window, package or performance gate follows.
