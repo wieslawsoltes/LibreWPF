@@ -25,6 +25,13 @@ frame exactly once when laying out the actual Window root; non-Window roots
 and popups keep their previous client-sized layout. Reverse conversion during
 SizeToContent measurement subtracts the frame exactly once.
 
+The canonical `WindowsFormsIntegration` source gate requires LibreWPF and
+LibreWinForms to consume an identical ProGPU commit. The first PR #141 CI run
+rejected the new ProGPU pin before build because LibreWinForms still pinned
+the preceding main commit. LibreWinForms PR #35 aligns its ProGPU submodule to
+the same frame-contract commit; this LibreWPF branch pins that alignment. This
+is a dependency fix, not a relaxation of the canonical gate.
+
 Focused ProGPU backend contract tests passed (8/8) and the ProGPU.Wpf
 portable host build completed with zero errors on macOS. Full Windows source
 compilation, Windows x64/ARM64 stock-vs-native rectangle validation, live
