@@ -6,6 +6,7 @@ using System.ComponentModel;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
@@ -5217,7 +5218,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private static string ValidateLiveRenderSurfaceGeometryCore(ProGpuWpfWindowHost liveHost)
+    private string ValidateLiveRenderSurfaceGeometryCore(ProGpuWpfWindowHost liveHost)
     {
         if (!ProGpuWpfDiagnostics.TryGetRenderSurfaceGeometry(liveHost, out var geometry))
         {
@@ -5234,8 +5235,32 @@ public partial class MainWindow : Window
         uint viewportWidth = geometry.ViewportWidth;
         uint viewportHeight = geometry.ViewportHeight;
 
-        AssertEqual(980u, logicalWidth, "Toolkit live ProGPU WPF logical width");
-        AssertEqual(640u, logicalHeight, "Toolkit live ProGPU WPF logical height");
+        var frameMethod = liveHost.GetType().GetMethod(
+            "GetLogicalNativeFrameInsets",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+        object frame = frameMethod?.Invoke(liveHost, null)
+            ?? throw new InvalidOperationException("Expected Toolkit live native frame insets.");
+        Type frameType = frame.GetType();
+        if (!Convert.ToBoolean(frameType.GetProperty("IsValid")?.GetValue(frame), CultureInfo.InvariantCulture))
+        {
+            throw new InvalidOperationException("Expected valid Toolkit live native frame insets.");
+        }
+
+        double frameWidth = Convert.ToDouble(
+            frameType.GetProperty("Horizontal")?.GetValue(frame)
+                ?? throw new InvalidOperationException("Expected Toolkit native frame horizontal inset."),
+            CultureInfo.InvariantCulture);
+        double frameHeight = Convert.ToDouble(
+            frameType.GetProperty("Vertical")?.GetValue(frame)
+                ?? throw new InvalidOperationException("Expected Toolkit native frame vertical inset."),
+            CultureInfo.InvariantCulture);
+        if (Math.Abs(ActualWidth - 980.0) > 1.0 || Math.Abs(ActualHeight - 640.0) > 1.0 ||
+            Math.Abs(logicalWidth + frameWidth - ActualWidth) > 1.0 ||
+            Math.Abs(logicalHeight + frameHeight - ActualHeight) > 1.0)
+        {
+            throw new InvalidOperationException(
+                $"Expected Toolkit live client {logicalWidth}x{logicalHeight} plus native frame {frameWidth:0.###}x{frameHeight:0.###} to match outer {ActualWidth:0.###}x{ActualHeight:0.###} (declared 980x640).");
+        }
         if (pixelWidth < logicalWidth || pixelHeight < logicalHeight)
         {
             throw new InvalidOperationException(

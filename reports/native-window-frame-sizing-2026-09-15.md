@@ -229,3 +229,35 @@ SDK 11 RC1 external harness built with zero errors and its complete local
 runtime smoke reported `ProGPU WPF external SDK smoke succeeded.` This is a
 macOS arm64 generated-app result, not hosted exact-head CI or the corrected
 bundle's final Windows VM rerun; those gates remain required.
+
+The superseded hosted SDK 11 RC1 run for `35abacf6f` confirmed the same
+DefaultItemsApp failure after its earlier gates passed: the old 140-DIP
+logical-height assertion stopped the external live app. The new exact head
+`232792e83` is running CI. A local full SDK sequence against the exact
+merged ProGPU package closure initially stopped during real XAML native
+library loading because the test's `DYLD_LIBRARY_PATH` referenced the
+SDK-switch NuGet output directory that the full script deliberately cleans.
+Binding `PROGPU_NATIVE_RUNTIME_DIR` to the stable Silk WebGPU 2.23.0 package
+cache made that development-only path pass; package consumers still resolve
+their own native assets. The full sequence then passed the generated external
+SDK app and reached Hello's live geometry check. Hello still compared its
+360-DIP declared outer height with the 332-DIP Cocoa client height. Its
+source-owned live check now requires the declared 520 × 360 outer size and
+the actual typed frame relation for both client dimensions, retaining
+physical-pixel/viewport and interactive input checks. The corrected Hello
+apphost passed at 2× DPI: 520 × 332 client, 1040 × 664 pixels, full viewport,
+TextBox focus/edit/backspace/binding and button click.
+
+The same outer/client assumption was present in the Showcase and Toolkit
+initial live source checks and their launchers. Those checks now validate
+the declared outer size against the live client plus typed native frame,
+with positive client dimensions and unchanged pixel/viewport checks in the
+launchers. Showcase and Toolkit both built under SDK 11 RC1 with zero errors.
+The corrected Showcase apphost passed its full macOS 2× live path at an
+initial 760 × 532 client: native resize, editor input, commands, themes,
+popups, scrolling and pointer/caret interaction. Toolkit progressed through
+its 980 × 612 initial client geometry and extensive AvalonDock interaction
+steps, then crashed during a floated editor's native position callback in
+`WindowChromeWorker._HandleWindowPosChanged`. That is a separate source
+ownership/HWND-path blocker, not frame-geometry validation. Full local SDK,
+hosted exact-head CI and final VM package rerun remain open.

@@ -7,6 +7,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -3604,7 +3605,7 @@ public partial class MainWindow : Window
         WakeLiveRenderHost(liveHost);
     }
 
-    private static string ValidateLiveRenderSurfaceGeometryCore(
+    private string ValidateLiveRenderSurfaceGeometryCore(
         ProGpuWpfWindowHost liveHost,
         uint expectedLogicalWidth,
         uint expectedLogicalHeight)
@@ -3620,8 +3621,33 @@ public partial class MainWindow : Window
         var viewportWidth = geometry.ViewportWidth;
         var viewportHeight = geometry.ViewportHeight;
 
-        AssertEqual(expectedLogicalWidth, logicalWidth, "Showcase live ProGPU WPF logical width");
-        AssertEqual(expectedLogicalHeight, logicalHeight, "Showcase live ProGPU WPF logical height");
+        var frameMethod = liveHost.GetType().GetMethod(
+            "GetLogicalNativeFrameInsets",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+        object frame = frameMethod?.Invoke(liveHost, null)
+            ?? throw new InvalidOperationException("Expected Showcase live native frame insets.");
+        Type frameType = frame.GetType();
+        if (!Convert.ToBoolean(frameType.GetProperty("IsValid")?.GetValue(frame), CultureInfo.InvariantCulture))
+        {
+            throw new InvalidOperationException("Expected valid Showcase live native frame insets.");
+        }
+
+        double frameWidth = Convert.ToDouble(
+            frameType.GetProperty("Horizontal")?.GetValue(frame)
+                ?? throw new InvalidOperationException("Expected Showcase native frame horizontal inset."),
+            CultureInfo.InvariantCulture);
+        double frameHeight = Convert.ToDouble(
+            frameType.GetProperty("Vertical")?.GetValue(frame)
+                ?? throw new InvalidOperationException("Expected Showcase native frame vertical inset."),
+            CultureInfo.InvariantCulture);
+        if (Math.Abs(ActualWidth - expectedLogicalWidth) > 1.0 ||
+            Math.Abs(ActualHeight - expectedLogicalHeight) > 1.0 ||
+            Math.Abs(logicalWidth + frameWidth - ActualWidth) > 1.0 ||
+            Math.Abs(logicalHeight + frameHeight - ActualHeight) > 1.0)
+        {
+            throw new InvalidOperationException(
+                $"Expected Showcase live client {logicalWidth}x{logicalHeight} plus native frame {frameWidth:0.###}x{frameHeight:0.###} to match outer {ActualWidth:0.###}x{ActualHeight:0.###} (declared {expectedLogicalWidth}x{expectedLogicalHeight}).");
+        }
         if (pixelWidth < logicalWidth || pixelHeight < logicalHeight)
         {
             throw new InvalidOperationException(
