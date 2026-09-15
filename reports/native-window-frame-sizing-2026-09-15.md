@@ -204,3 +204,17 @@ on macOS arm64. A proposed pre-forward managed-cache refresh was tested,
 did not repair the mismatch, and was removed without committing it. This
 fixture correction does not waive actual pointer/DPI application validation
 or hosted exact-head CI.
+
+The following hosted SDK 11 RC1 run passed canonical WinForms integration,
+Windows managed payload, Linux smoke, SDK package production, real XAML,
+Fluent theme, mixed desktop, and SDK-switch validation, then stopped in the
+external unchanged-SDK app. Its SizeToContent fixture expected a 74-DIP
+`Window.ActualHeight` for 74-DIP content while the newly correct outer Window
+measured 102 DIPs with a 28-DIP native frame. The fixture now checks the
+host's content/client width and height and the Window's outer size as host
+client plus the actual logical native frame, both on first show and live
+content resize. The generated external harness source compiles under the
+pinned SDK 11 RC1 with zero errors; standalone runtime staging was stopped
+by its strict local package-vs-rebuilt-DLL hash guard, not by that assertion.
+Hosted exact-head external-app execution and all dependent package platform
+gates remain required.
