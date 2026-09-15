@@ -143,3 +143,14 @@ callback render; subsequent frames still require the typed source root and
 native input index. The corrected package must be rebuilt and rerun on the
 VM; this source fix alone does not qualify the displayed case or the Windows
 geometry comparison.
+
+The first local repack of the changed same-version SDK package exposed a
+second package-layout issue: `LibreWPF.Sdk` contained two byte-identical
+`README.md` ZIP entries, so the VM's exact isolated SDK extraction failed
+before Showcase startup. Cleaning generated outputs did not remove the
+duplication. The SDK packaging project advertised that readme both through
+its retained `PackagingContent` item and an explicit `None` pack item. The
+redundant `None` declaration is removed; the pack still has its one readme
+and `targets/ProGPU.Wpf.Sdk.targets`, and its ZIP now has no duplicate names.
+No Arcade packaging content or source sample configuration was removed.
+The VM application check remains pending on the repacked bundle.
