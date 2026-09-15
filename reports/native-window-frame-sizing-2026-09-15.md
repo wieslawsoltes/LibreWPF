@@ -148,11 +148,19 @@ The first local repack of the changed same-version SDK package exposed a
 second package-layout issue: `LibreWPF.Sdk` contained two byte-identical
 `README.md` ZIP entries, so the VM's exact isolated SDK extraction failed
 before Showcase startup. Cleaning generated outputs did not remove the
-duplication. The SDK packaging project advertised that readme both through
-its retained `PackagingContent` item and an explicit `None` pack item. The
-redundant `None` declaration is removed; the pack still has its one readme
-and `targets/ProGPU.Wpf.Sdk.targets`, and its ZIP now has no duplicate names.
-No Arcade packaging content or source sample configuration was removed.
+duplication. SDK 11 preview pack included the readme through both its
+`PackagingContent` and explicit `None` items. The first local correction
+removed `None`, and the pack had one readme and no duplicate names. Hosted
+SDK 11 RC1 then stopped at `NU5039`: on that toolset, `PackagingContent`
+alone did not supply the NuGet readme named by `PackageReadmeFile`. The final
+source uses one updated default `None` NuGet pack item and removes only this
+SDK project's duplicate `PackagingContent` readme item; its Sdk/targets
+content items and the source sample configuration remain unchanged. The
+corrected package must pass both local ZIP membership and exact-head CI.
+The older local SDK 11 preview pack still emits two readme entries from the
+NuGet-only declaration, so its newly repacked package is not the final VM
+bundle. The pinned hosted RC1 package must be inspected and rerun through the
+independent VM gate once available.
 The repacked bundle completed the independent Windows 11 ARM64 package-only
 gate. The SDK Showcase built with a native ARM64 apphost, exact package hashes
 matched its WPF, ProGPU bridge, and `progpu_native.dll` outputs, and both
@@ -165,6 +173,8 @@ line heights were 93.100 and 93.105 DIPs. The gate's stock/native geometry
 and text-layout tolerances passed. This is exact merged-ProGPU-source local
 package evidence on ARM64, not hosted CI, x64, general live interaction,
 resize/DPI transitions, or all-WPF text parity qualification.
+It preceded the RC1 readme-pack correction; the corrected exact-head bundle
+and hosted downstream package gates remain outstanding.
 
 The local `ProGpuWpfWindowHostTests` regression group found one old source
 assertion that required unconditional rendering immediately after every
