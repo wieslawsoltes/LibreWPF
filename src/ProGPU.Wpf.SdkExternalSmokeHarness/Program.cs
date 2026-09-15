@@ -15827,8 +15827,38 @@ internal static class Program
                         throw new InvalidOperationException("Expected default-item live ProGPU WPF host geometry.");
                     }
 
-                    Require(geometry.LogicalWidth == 260u, "Expected default-item live ProGPU WPF logical width.");
-                    Require(geometry.LogicalHeight == 140u, "Expected default-item live ProGPU WPF logical height.");
+                    if (!ProGpuWpfDiagnostics.TryGetWindowHost(this, out var liveHost) || liveHost == null)
+                    {
+                        throw new InvalidOperationException("Expected default-item live ProGPU WPF window host.");
+                    }
+
+                    var frameMethod = liveHost.GetType().GetMethod(
+                        "GetLogicalNativeFrameInsets",
+                        BindingFlags.Instance | BindingFlags.NonPublic);
+                    object frame = frameMethod?.Invoke(liveHost, null)
+                        ?? throw new InvalidOperationException("Expected default-item live native frame insets.");
+                    var frameType = frame.GetType();
+                    if (!Convert.ToBoolean(frameType.GetProperty("IsValid")?.GetValue(frame), CultureInfo.InvariantCulture))
+                    {
+                        throw new InvalidOperationException("Expected valid default-item live native frame insets.");
+                    }
+
+                    double frameWidth = Convert.ToDouble(
+                        frameType.GetProperty("Horizontal")?.GetValue(frame)
+                            ?? throw new InvalidOperationException("Expected default-item native frame horizontal inset."),
+                        CultureInfo.InvariantCulture);
+                    double frameHeight = Convert.ToDouble(
+                        frameType.GetProperty("Vertical")?.GetValue(frame)
+                            ?? throw new InvalidOperationException("Expected default-item native frame vertical inset."),
+                        CultureInfo.InvariantCulture);
+                    Require(Math.Abs(ActualWidth - 260.0) <= 1.0, "Expected default-item live ProGPU WPF outer width.");
+                    Require(Math.Abs(ActualHeight - 140.0) <= 1.0, "Expected default-item live ProGPU WPF outer height.");
+                    Require(
+                        Math.Abs(geometry.LogicalWidth + frameWidth - ActualWidth) <= 1.0,
+                        $"Expected default-item live ProGPU WPF client width plus native frame {frameWidth:0.###} to match outer width {ActualWidth:0.###}, but got client width {geometry.LogicalWidth}.");
+                    Require(
+                        Math.Abs(geometry.LogicalHeight + frameHeight - ActualHeight) <= 1.0,
+                        $"Expected default-item live ProGPU WPF client height plus native frame {frameHeight:0.###} to match outer height {ActualHeight:0.###}, but got client height {geometry.LogicalHeight}.");
                     if (geometry.PixelWidth < geometry.LogicalWidth || geometry.PixelHeight < geometry.LogicalHeight)
                     {
                         throw new InvalidOperationException(

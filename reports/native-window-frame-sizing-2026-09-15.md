@@ -214,7 +214,18 @@ measured 102 DIPs with a 28-DIP native frame. The fixture now checks the
 host's content/client width and height and the Window's outer size as host
 client plus the actual logical native frame, both on first show and live
 content resize. The generated external harness source compiles under the
-pinned SDK 11 RC1 with zero errors; standalone runtime staging was stopped
-by its strict local package-vs-rebuilt-DLL hash guard, not by that assertion.
-Hosted exact-head external-app execution and all dependent package platform
-gates remain required.
+pinned SDK 11 RC1 with zero errors. The exact local ProGPU source packages
+and freshly repacked LibreWPF bridge/transport/SDK were then staged in an
+isolated default feed so its strict package-vs-rebuilt-DLL hash guard passed.
+That local external-app run exposed one more stale fixture in the generated
+DefaultItemsApp: its XAML declares a 260 × 140 DIP outer Window, but the
+render-surface geometry reports the native client, which is shorter by the
+actual Cocoa frame inset. The live probe now requires the declared outer
+size and checks each client dimension plus the typed native frame insets
+against `Window.ActualWidth`/`ActualHeight`; its physical-pixel coverage and
+full-viewport checks are unchanged. After adding the exact ProGPU and WebGPU
+native dylib directories to the test-owned library search path, the pinned
+SDK 11 RC1 external harness built with zero errors and its complete local
+runtime smoke reported `ProGPU WPF external SDK smoke succeeded.` This is a
+macOS arm64 generated-app result, not hosted exact-head CI or the corrected
+bundle's final Windows VM rerun; those gates remain required.
