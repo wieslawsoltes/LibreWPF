@@ -80,8 +80,9 @@ ProGPU [#167](https://github.com/wieslawsoltes/ProGPU/pull/167), from latest
 main `3755428f3ad9c269a5e4a9bc91e0a4175f68f695`, adds size-checked,
 opt-in native semantic-scene CPU phase metrics. Its local macOS ARM64 C++20
 wgpu-native/Dawn build, native MIL/ABI tests, generated-contract verification,
-and hardware-backed package-consumer capture run passed. Hosted CI and the
-Windows ARM64 stage capture are still pending.
+and hardware-backed package-consumer capture run passed. The corrected-head
+hosted Windows ARM64 native job and its runtime artifact passed; downstream
+package CI and the complete Windows Toolkit application gate remain pending.
 
 The WPF host follow-up requests that capture only when
 `PROGPU_WPF_TRACE_NATIVE_LOOP` is enabled. It logs scene/generation,
@@ -119,3 +120,39 @@ had roughly 1.3-second flush outliers. Initial resource work was roughly
 1 ms. These host-specific measurements do not explain the Windows ARM64
 29/262-second stalls; the exact Windows native runtime and paired stage trace
 are still required.
+
+### Windows ARM64 exact native runtime phase trace
+
+The corrected-head ProGPU #167 Build run `34984086884` produced the
+`progpu-native-runtime-win-arm64` artifact for head
+`26b2cdac871c6c013698784c529f536ef3a66919`. Its `progpu_native.dll`
+SHA-256 was `d1126650383037470a48f7b3e3bfb835e2b1a4e26f32bba8f556a3776ee41523`.
+The Windows 11 ARM64 Parallels guest retained a backup of its original native
+DLL before installing this exact CI DLL. The stage-enabled managed assemblies
+were local source overlays, so this is an exact-native-runtime diagnostic,
+not a final assembled package or native Windows application qualification.
+
+Direct `cmd.exe` file redirection kept the trace readable while the process
+was running. A preceding PowerShell-redirection probe buffered all output;
+after more than ten minutes of CPU-hot execution, a normal close request
+could not be processed and only that private probe process was force-stopped.
+Its empty log cannot support stage conclusions. The direct trace was copied
+to the task-owned host cache as
+`toolkit-cpu-stages-ci26b2cdac-stdout.log` while the subsequent scene was
+still rendering.
+
+The first presented scene (`287` commands, `32` draws, one submission) spent
+`4,552.975 ms` in resource setup and `23,814.856 ms` in native encoding,
+for `28,369.764 ms` native total. The second (`6,842` commands, `417` draws,
+11 submissions) spent `7,753.788 ms` in resources and `255,426.716 ms`
+in encoding, for `263,183.571 ms` total. Preflight and flush were near
+1–2 ms. The earlier 29/262-second host observations are therefore explained
+primarily by a CPU-side ProGPU semantic-scene encode cost, not by WPF scene
+update/compile, surface acquire, GPU submission or presentation. The source
+invalidates retained render bundles on a whole-scene replay hash change;
+that is a candidate cause, not yet a measured substage or completed fix.
+
+The trace reached filter focus, filter text and popup validation after its
+second scene, but the next native render was outstanding at capture. No full
+Toolkit/AvalonDock result, subsequent-frame performance gate or Windows
+DirectX/MIL parity claim follows from these two measured frames.
