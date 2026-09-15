@@ -92,3 +92,30 @@ ProGPU overload. A local WPF product build against #167 source succeeds; the bra
 must not publish or qualify that dependency until #167 passes and its exact
 native package is available. The next VM run must preserve native selection
 and the same Toolkit live assertions while recording these new phases.
+
+### macOS native-MIL source-overlay probe
+
+The Toolkit sample was rebuilt with both `ProGpuWpfRendererMode=NativeMilWgpu`
+and explicit `ProGpuWpfNativeMilHitTesting=true` admission. An isolated macOS
+ARM64 application copy used the current WPF and ProGPU #167 managed assemblies
+and locally built #167 `libprogpu_native.dylib`, with
+`PROGPU_WPF_TOOLKIT_LIVE_VALIDATE=1` and
+`PROGPU_WPF_TRACE_NATIVE_LOOP=1`. This is a source-overlay diagnostic, not an
+exact hosted package or Windows/DirectX qualification.
+
+The first run returned failure at the WindowControl text-entry assertion:
+the input received focus but the expected `Pane` text remained empty. The
+second run, additionally enabling `PROGPU_WPF_TRACE_INPUT=1`, delivered all
+four text-input events and passed the complete live Toolkit/AvalonDock
+sequence, including the floating editor. That disagreement is an intermittent
+input/validation signal and remains open; one passing rerun does not erase the
+first failure.
+
+The stage trace proved that the native render path executed. A typical main
+window frame with roughly 6,800 commands took about 125–140 ms in native
+encoding, while several frames had 1.3–1.8-second encode outliers and some
+had roughly 1.3-second flush outliers. Initial resource work was roughly
+370 ms for the main host and subsequent resource stages were usually near
+1 ms. These host-specific measurements do not explain the Windows ARM64
+29/262-second stalls; the exact Windows native runtime and paired stage trace
+are still required.
