@@ -313,3 +313,17 @@ dynamic-load harnesses and the external SizeToContent helper now admit
 the public method as well. The corrected real-XAML harness built with zero
 errors and passed its standalone runtime smoke under SDK 11 RC1; the full
 package/application sequence must be rerun after this harness alignment.
+
+The complete local SDK 11 RC1 run for source head `7a5880b35` then exited
+successfully. It used the current ProGPU `main` commit `3755428f`, exact
+source packages and native Cocoa/WebGPU payload, and ran the source-built
+native MIL host, XAML/lifetime/Fluent, package audit/bundle, SDK switch,
+external generated app, Hello, Showcase live/performance, Toolkit live
+floating, paid Xceed and SciChart checks before its final focused graph
+guard. The frame-sensitive live clients measured 520 × 332 (Hello),
+760 × 532 (Showcase), 980 × 612 (Toolkit) and 1180 × 732 (paid Xceed)
+at 2× DPI; each sample checked its declared outer size against the typed
+native frame. This is complete local macOS arm64 SDK application evidence,
+not the hosted exact-head package bundle or its Windows ARM64/x64, Linux
+session and SDK consumer jobs. The independent final VM bundle gate is
+still required before merging #141.
