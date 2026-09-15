@@ -28,9 +28,13 @@ SizeToContent measurement subtracts the frame exactly once.
 The canonical `WindowsFormsIntegration` source gate requires LibreWPF and
 LibreWinForms to consume an identical ProGPU commit. The first PR #141 CI run
 rejected the new ProGPU pin before build because LibreWinForms still pinned
-the preceding main commit. LibreWinForms PR #35 aligns its ProGPU submodule to
-the same frame-contract commit; this LibreWPF branch pins that alignment. This
-is a dependency fix, not a relaxation of the canonical gate.
+the preceding main commit. ProGPU PR #166 merged as
+`3755428f3ad9c269a5e4a9bc91e0a4175f68f695`; LibreWinForms PR #35
+passed its exact-head package/source gates and merged as
+`4a1b17e819245a50adc92470c1096377e029b2f1`. This LibreWPF branch now
+pins both merge commits, and the merged LibreWinForms source pins that same
+ProGPU main commit. This is a dependency fix, not a relaxation of the
+canonical gate.
 
 The same-source Windows package-only text fixture now reports its actual
 native outer/client rectangles, DPI, and declared Window size for both stock
@@ -53,8 +57,8 @@ source and native frame hidden, but defers the root visual attachment until
 source-identity ordering as the existing hidden-window first-Show route.
 The first Show applies the authoritative client size to that source before
 attaching the root, so no placeholder outer size is measured. Local
-ProGPU.Wpf compilation and all 81 focused activation tests pass; the
-corrected runtime gate still needs its own exact-head CI result. The failed
+ProGPU.Wpf compilation and all 81 focused activation tests pass; the final
+merged-source head still needs its own exact-head CI result. The failed
 smoke is not sizing qualification.
 
 ProGPU backend contract tests passed (12/12) and the ProGPU.Wpf
