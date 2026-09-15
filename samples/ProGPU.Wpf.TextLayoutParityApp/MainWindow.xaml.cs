@@ -28,6 +28,16 @@ public partial class MainWindow : Window
     {
         try
         {
+#if PROGPU_WPF_NATIVE_MIL
+            if (!string.Equals(AppContext.GetData("LibreWPF.RequestedRendererMode") as string,
+                    "NativeMilWgpu", StringComparison.Ordinal) ||
+                !global::System.Windows.Media.ProGPU.ProGpuWpfDiagnostics.TryGetWindowHost(this, out var nativeHost) ||
+                nativeHost == null)
+            {
+                throw new InvalidOperationException("The text-layout fixture did not select a live native MIL host.");
+            }
+            Console.WriteLine("TEXT_RENDERER NativeMilWgpu");
+#endif
             var lineTops = new List<double>();
             var lineStarts = new List<int>();
             TextPointer end = WrappingText.ContentEnd;
