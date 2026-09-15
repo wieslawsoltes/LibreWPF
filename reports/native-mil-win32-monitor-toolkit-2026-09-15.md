@@ -184,6 +184,41 @@ build and focused native MIL/internal/scene tests passed, as did the full
 macOS native-MIL Toolkit/AvalonDock input sequence with checkpoints enabled.
 On that host, a `6,842`-command scene built `330` spans in `166.157 ms` and
 replayed them in `40.580 ms`. Those macOS values support investigating
-bundle construction, but do not prove the Windows subphase. Hosted Windows
-artifact and exact guest checkpoint capture remain required before choosing
-an optimization.
+bundle construction, but do not prove the Windows subphase. The exact guest
+checkpoint below resolves the coarse Windows phase; individual operations
+inside it and a completed application gate still require qualification.
+
+### Windows ARM64 retained-bundle checkpoint
+
+The corrected-head [ProGPU #168](https://github.com/wieslawsoltes/ProGPU/pull/168)
+Build run `34991253884` uploaded `progpu-native-runtime-win-arm64` for head
+`1dfda315e4b82c889de1b0a14eee90a2001204fa`. The downloaded
+`progpu_native.dll` SHA-256 is
+`f9d913ea13cf6f81d5b9382b23fc75066a398359533d9087754b4326432e41ca`.
+The private Windows 11 ARM64 Parallels guest retained the previous installed
+#167 DLL as `TestOutput\progpu_native-stages-ci26b2cdac.dll` before overlaying
+the exact #168 native artifact. Managed WPF/ProGPU assemblies remain local
+stage-enabled source overlays, so this is not assembled-package qualification.
+
+The live Toolkit probe kept native MIL and its live input validation enabled,
+with `PROGPU_NATIVE_TRACE_SCENE_ENCODE=1`,
+`PROGPU_WPF_TRACE_NATIVE_LOOP=1`, and direct `cmd.exe` log redirection.
+The cold `287`-command, one-span scene spent `6,033.006 ms` in resources and
+`29,225.049 ms` in preparation, but only `0.536 ms` in bundle construction,
+`0.644 ms` in replay, and `1.468 ms` in flush. The subsequent `6,842`-command
+scene spent `5,642.654 ms` in resources, `80.817 ms` in preparation,
+**`257,745.961 ms` building `327` retained spans**, `5.711 ms` in replay,
+and `0.573 ms` in flush. This directly locates the recurring CPU delay inside
+ProGPU's bundle-build path. It does not yet distinguish individual bundle
+encoders, draw calls, mask/layer operations, or Dawn/D3D12 costs, and does not
+prove that all spans can be safely reused across changed source generations.
+The next source change must target that path without bypassing native input,
+dropping scene identity, or switching to the managed compositor.
+
+The second-scene checkpoint stderr was copied while a third scene was still
+running to task-owned host cache
+`toolkit-encode-checkpoints-ci1dfda315-stderr.log` (SHA-256
+`8cda4cc8809a0f49d93279646da09f8eacc89deb84732112f82a13eae22f248b`);
+stdout is beside it. The full third-scene and Toolkit validation outcomes
+must be recorded separately after the live probe completes. No passing
+floating-window, package or performance gate follows from this checkpoint.
