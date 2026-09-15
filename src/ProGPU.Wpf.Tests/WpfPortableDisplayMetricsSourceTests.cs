@@ -41,6 +41,23 @@ public sealed class WpfPortableDisplayMetricsSourceTests
     }
 
     [Fact]
+    public void Win32FullScreenAndWorkAreaUseSeparatePhysicalRectangles()
+    {
+        var monitor = new WpfMonitorInfo("Primary", 0, 0, 3592, 2016, 2.0, true)
+        {
+            WorkAreaWidth = 3592,
+            WorkAreaHeight = 1920,
+            UsesLogicalCoordinates = false,
+        };
+        var source = CreateSource(monitor);
+
+        Assert.True(source.TryGetDisplayMetrics(out PortableDisplayMetrics metrics));
+
+        AssertRect(metrics.PrimaryScreen, 0, 0, 1796, 1008);
+        AssertRect(metrics.PrimaryWorkArea, 0, 0, 1796, 960);
+    }
+
+    [Fact]
     public void VirtualScreenUnionsLogicalMonitorBounds()
     {
         var primary = new WpfMonitorInfo("Primary", 0, 0, 3840, 2160, 2.0, true);

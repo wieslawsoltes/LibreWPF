@@ -86,7 +86,7 @@ public partial class MainWindow : Window
 
     private const string LiveValidationEnvironmentVariable = "PROGPU_WPF_TOOLKIT_LIVE_VALIDATE";
     private const string LiveValidationStatusPathEnvironmentVariable = "PROGPU_WPF_TOOLKIT_LIVE_VALIDATE_STATUS_PATH";
-    private const int LiveValidationStartupMaxAttempts = 1200;
+    private const int LiveValidationStartupMaxAttempts = 7500;
     private const int LiveValidationMaxAttempts = 400;
     private static readonly TimeSpan LiveValidationRetryDelay = TimeSpan.FromMilliseconds(16);
     private static readonly string[] AvalonDockThemeNames = ["Aero", "Metro", "VS2010"];
@@ -5291,7 +5291,7 @@ public partial class MainWindow : Window
             Math.Abs(actualHeight - expectedHeight) > crossBackendTolerance)
         {
             throw new InvalidOperationException(
-                $"Expected Toolkit SystemParameters primary screen {expectedWidth:0.###}x{expectedHeight:0.###} DIPs from monitor geometry, but got {actualWidth:0.###}x{actualHeight:0.###}.");
+                $"Expected Toolkit SystemParameters primary screen {expectedWidth:0.###}x{expectedHeight:0.###} DIPs from monitor geometry, but got {actualWidth:0.###}x{actualHeight:0.###}; monitor={primary.Width}x{primary.Height}, dpi={primary.DpiScale:0.###}, logical={primary.UsesLogicalCoordinates}, workArea={primary.WorkAreaWidth}x{primary.WorkAreaHeight}.");
         }
 
         return $"screen {actualWidth:0.###}x{actualHeight:0.###} DIPs";

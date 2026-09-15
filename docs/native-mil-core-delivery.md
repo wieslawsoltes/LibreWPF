@@ -15,6 +15,17 @@ do not automatically expand the release checklist.
 
 ## Active completion queue
 
+**Windows ARM64 Toolkit monitor/runtime follow-up — 2026-09-15:** all #141
+post-merge CI jobs passed, including native-MIL package Showcase on Windows
+x64 and ARM64. A separate live Windows ARM64 Toolkit run exposed a Win32
+physical work-area/full-screen mapping error. A private source overlay clears
+that assertion, and focused monitor/display-metrics tests pass 16/16, but the
+same run measured a later synchronous ProGPU C++ render submission at roughly
+262 seconds and did not complete AvalonDock floating/redock qualification.
+Commit and package-gate the monitor repair, isolate that native renderer cost
+without a managed fallback, then rerun live Toolkit validation. See the
+[monitor and Toolkit record](../reports/native-mil-win32-monitor-toolkit-2026-09-15.md).
+
 **Windows native text runtime admission follow-up — 2026-09-15:** the merged
 ARM64 package gate's same-source text differential was not sufficient evidence
 of native text parity. The guest text executable lacked the explicit

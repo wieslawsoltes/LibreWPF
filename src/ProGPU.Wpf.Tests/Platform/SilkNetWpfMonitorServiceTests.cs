@@ -159,6 +159,54 @@ public sealed class SilkNetWpfMonitorServiceTests
         Assert.False(mapped.UsesLogicalCoordinates);
     }
 
+    [Fact]
+    public void Win32FullVideoModeDoesNotMisclassifyPhysicalWorkAreaAsLogical()
+    {
+        var monitor = new FakeMonitor(
+            "Primary",
+            0,
+            new Rectangle<int>(0, 0, 3592, 1920),
+            new VideoMode(new Vector2D<int>(3592, 2016), 60));
+        var service = new SilkNetWpfMonitorService(
+            () => new IMonitor[] { monitor },
+            () => monitor,
+            _ => 2.0,
+            _ => monitor.Bounds,
+            configureBeforeMonitorQuery: static () => { },
+            getScreenBounds: _ => new Rectangle<int>(0, 0, 3592, 2016));
+
+        WpfMonitorInfo mapped = Assert.Single(service.GetMonitors());
+
+        Assert.Equal(3592, mapped.Width);
+        Assert.Equal(2016, mapped.Height);
+        Assert.Equal(1920, mapped.WorkAreaHeight);
+        Assert.Equal(2.0, mapped.DpiScale);
+        Assert.False(mapped.UsesLogicalCoordinates);
+    }
+
+    [Fact]
+    public void Win32FullVideoModeRetainsFullOriginWhenWorkAreaStartsInsideIt()
+    {
+        var monitor = new FakeMonitor(
+            "LeftTaskbar",
+            0,
+            new Rectangle<int>(48, 0, 1872, 1080),
+            new VideoMode(new Vector2D<int>(1920, 1080), 60));
+
+        WpfMonitorInfo mapped = SilkNetWpfMonitorService.ToMonitorInfo(
+            monitor,
+            monitor,
+            _ => 1.0,
+            _ => monitor.Bounds,
+            _ => new Rectangle<int>(0, 0, 1920, 1080));
+
+        Assert.Equal(0, mapped.X);
+        Assert.Equal(1920, mapped.Width);
+        Assert.Equal(48, mapped.WorkAreaX);
+        Assert.Equal(1872, mapped.WorkAreaWidth);
+        Assert.False(mapped.UsesLogicalCoordinates);
+    }
+
     private sealed class FakeMonitor : IMonitor
     {
         public FakeMonitor(string name, int index, Rectangle<int> bounds, VideoMode videoMode)
