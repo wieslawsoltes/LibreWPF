@@ -51,8 +51,11 @@ non-client helper was null. The registered normal-window path now creates the
 source and native frame hidden, but defers the root visual attachment until
 `Show`, after Window holds its portable activation. This uses the same
 source-identity ordering as the existing hidden-window first-Show route.
-Local ProGPU.Wpf compilation passes; the corrected runtime gate still needs
-its own exact-head CI result. The failed smoke is not sizing qualification.
+The first Show applies the authoritative client size to that source before
+attaching the root, so no placeholder outer size is measured. Local
+ProGPU.Wpf compilation and all 81 focused activation tests pass; the
+corrected runtime gate still needs its own exact-head CI result. The failed
+smoke is not sizing qualification.
 
 ProGPU backend contract tests passed (12/12) and the ProGPU.Wpf
 portable host build completed with zero errors on macOS. Windows source
