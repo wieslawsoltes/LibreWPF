@@ -39,6 +39,7 @@ namespace System.Windows
         private static Func<IntPtr, PortableWindowRegion, bool> _setWindowRegion;
         private static Func<object, bool> _requestActivation;
         private static Func<object, double, double, bool> _showSystemMenu;
+        private static Func<object, PortableWindowFrameInsets?> _getFrameInsets;
 
         internal static bool IsEnabled
         {
@@ -108,7 +109,8 @@ namespace System.Windows
             Func<object, double, double, bool> showSystemMenu = null,
             Action<object, Func<bool>> runDialog = null,
             Action<object, object> setOwner = null,
-            Action<object, Action> releaseDialog = null)
+            Action<object, Action> releaseDialog = null,
+            Func<object, PortableWindowFrameInsets?> getFrameInsets = null)
         {
             ArgumentNullException.ThrowIfNull(activate);
 
@@ -133,6 +135,7 @@ namespace System.Windows
             Volatile.Write(ref _setIcon, setIcon);
             Volatile.Write(ref _createHidden, createHidden);
             Volatile.Write(ref _showSystemMenu, showSystemMenu);
+            Volatile.Write(ref _getFrameInsets, getFrameInsets);
             Volatile.Write(ref _activate, activate);
         }
 
@@ -141,6 +144,7 @@ namespace System.Windows
             Volatile.Write(ref _activate, null);
             Volatile.Write(ref _createHidden, null);
             Volatile.Write(ref _showSystemMenu, null);
+            Volatile.Write(ref _getFrameInsets, null);
             Volatile.Write(ref _show, null);
             Volatile.Write(ref _hide, null);
             Volatile.Write(ref _setWindowState, null);
@@ -229,6 +233,20 @@ namespace System.Windows
         internal static void SetClientSize(object activation, double width, double height)
         {
             Volatile.Read(ref _setClientSize)?.Invoke(activation, width, height);
+        }
+
+        internal static bool TryGetFrameInsets(object activation, out PortableWindowFrameInsets frame)
+        {
+            frame = default;
+            if (activation == null ||
+                Volatile.Read(ref _getFrameInsets)?.Invoke(activation) is not { } reported ||
+                !reported.IsValid)
+            {
+                return false;
+            }
+
+            frame = reported;
+            return true;
         }
 
         internal static void SetPosition(object activation, double left, double top)
@@ -1186,7 +1204,8 @@ namespace System.Windows
                     callbacks.ShowSystemMenu,
                     callbacks.RunDialog,
                     callbacks.SetOwner,
-                    callbacks.ReleaseDialog);
+                    callbacks.ReleaseDialog,
+                    callbacks.GetFrameInsets);
             }
 
             public bool TryRegisterMediaContextRenderService(

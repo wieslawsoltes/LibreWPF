@@ -1858,7 +1858,7 @@ internal static class Program
         object mouseBindingSurface = GetField(window, "MouseBindingSurface");
         Invoke(window, "UpdateLayout");
         Invoke(mouseBindingSurface, "UpdateLayout");
-        (double x, double y) = GetElementCenterInWindow(presentationCore, mouseBindingSurface, window);
+        (double x, double y) = GetElementCenterInWindow(mouseBindingSurface, window);
         object? directHit = InvokeNullable(window, "InputHitTest", GetElementCenterPointInWindow(mouseBindingSurface, window));
 
         int initialExecutionCount = Convert.ToInt32(GetProperty(window, "RoutedCommandExecutionCount"));
@@ -5957,8 +5957,23 @@ internal static class Program
         AssertEqual(true, GetProperty(window, "IsVisible"), "portable window visible state");
         AssertEqual(true, GetProperty(host, "IsVisible"), "host visible state");
         AssertEqual("ProGPU WPF XAML smoke", GetProperty(host, "Title"), "host title");
-        AssertEqual(420, GetProperty(host, "Width"), "host width");
-        AssertEqual(340, GetProperty(host, "Height"), "host height");
+        MethodInfo getFrameInsets = host.GetType().GetMethod(
+                "GetLogicalNativeFrameInsets",
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("Portable host has no native frame contract.");
+        object frame = getFrameInsets.Invoke(host, null)
+            ?? throw new InvalidOperationException("Presented portable host has no native frame insets.");
+        AssertEqual(true, GetProperty(frame, "IsValid"), "host native frame validity");
+        AssertClose(
+            Convert.ToDouble(GetProperty(window, "Width")),
+            Convert.ToDouble(GetProperty(host, "Width")) + Convert.ToDouble(GetProperty(frame, "Horizontal")),
+            0.01,
+            "host client plus frame width equals Window outer width");
+        AssertClose(
+            Convert.ToDouble(GetProperty(window, "Height")),
+            Convert.ToDouble(GetProperty(host, "Height")) + Convert.ToDouble(GetProperty(frame, "Vertical")),
+            0.01,
+            "host client plus frame height equals Window outer height");
     }
 
     private static void ValidatePortableMessageBox(Assembly presentationFramework, object window)
@@ -6223,13 +6238,15 @@ internal static class Program
         inputMethod.Invoke(host, new object?[] { null, input });
     }
 
-    private static (double X, double Y) GetElementCenterInWindow(Assembly presentationCore, object element, object window)
+    private static (double X, double Y) GetElementCenterInWindow(object element, object window)
     {
         object windowPoint = GetElementCenterPointInWindow(element, window);
-        object transformToDevice = GetTransformToDevice(presentationCore, window);
-        (double x, double y) = TransformPoint(transformToDevice, windowPoint);
-
-        return (x, y);
+        // Sender-null diagnostic input is already in the receiving source root's
+        // DIPs. Only actual native platform events use the host's device/desktop
+        // normalization path.
+        return (
+            Convert.ToDouble(GetProperty(windowPoint, "X")),
+            Convert.ToDouble(GetProperty(windowPoint, "Y")));
     }
 
     private static object GetElementCenterPointInWindow(object element, object window)

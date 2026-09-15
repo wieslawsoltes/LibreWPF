@@ -14,8 +14,6 @@ public sealed class WpfPortableWindowActivation : IDisposable, INativeWindowOwne
     private const int WM_SHOWWINDOW = 0x0018;
     private const int WM_MOVE = 0x0003;
     private const int WM_SIZE = 0x0005;
-    private const int WM_WINDOWPOSCHANGING = 0x0046;
-    private const int WM_WINDOWPOSCHANGED = 0x0047;
     private const int WM_MOUSEACTIVATE = 0x0021;
     private const int WM_NCMOUSEMOVE = 0x00A0;
     private const int WM_NCLBUTTONDOWN = 0x00A1;
@@ -193,7 +191,8 @@ public sealed class WpfPortableWindowActivation : IDisposable, INativeWindowOwne
             ShowSystemMenu = (activation, x, y) => ((WpfPortableWindowActivation)activation).TryShowSystemMenu(x, y),
             RunDialog = (activation, continueRunning) => ((WpfPortableWindowActivation)activation).RunCore(continueRunning),
             ReleaseDialog = (activation, completed) => ((WpfPortableWindowActivation)activation).Host.ReleaseNativeDialog(completed),
-            SetOwner = (activation, owner) => ((WpfPortableWindowActivation)activation).SetOwner(owner)
+            SetOwner = (activation, owner) => ((WpfPortableWindowActivation)activation).SetOwner(owner),
+            GetFrameInsets = activation => ((WpfPortableWindowActivation)activation).Host.GetLogicalNativeFrameInsets()
         };
     }
 
@@ -430,8 +429,8 @@ public sealed class WpfPortableWindowActivation : IDisposable, INativeWindowOwne
     public void Show()
     {
         ThrowIfDisposed();
-        AttachRootForShow();
         SynchronizeInitialWindowState(updatePortablePresentationSource: true);
+        AttachRootForShow();
         SetOwner(_ownerWindow);
         ApplyStartupLocationBeforeFirstShow();
         if (ShouldDeferNativeShowUntilRun())
@@ -545,10 +544,10 @@ public sealed class WpfPortableWindowActivation : IDisposable, INativeWindowOwne
         ThrowIfDisposed();
 
         var clientWidth = TryMapPositiveDimension(width, out double mappedWidth)
-            ? ToLogicalClientDimension(mappedWidth)
+            ? ToHostClientDimension(mappedWidth, horizontal: true)
             : Host.Width;
         var clientHeight = TryMapPositiveDimension(height, out double mappedHeight)
-            ? ToLogicalClientDimension(mappedHeight)
+            ? ToHostClientDimension(mappedHeight, horizontal: false)
             : Host.Height;
 
         Host.SetClientSize(clientWidth, clientHeight);
@@ -1172,8 +1171,8 @@ public sealed class WpfPortableWindowActivation : IDisposable, INativeWindowOwne
         if (hasWidth || hasHeight)
         {
             SetHostClientSize(
-                hasWidth ? ToLogicalClientDimension(width) : Host.Width,
-                hasHeight ? ToLogicalClientDimension(height) : Host.Height,
+                hasWidth ? ToHostClientDimension(width, horizontal: true) : Host.Width,
+                hasHeight ? ToHostClientDimension(height, horizontal: false) : Host.Height,
                 updatePortablePresentationSource);
         }
         else
@@ -1208,6 +1207,20 @@ public sealed class WpfPortableWindowActivation : IDisposable, INativeWindowOwne
         {
             Host.SetInitialClientSize(width, height);
         }
+    }
+
+    private int ToHostClientDimension(double outerDimension, bool horizontal)
+    {
+        PortableWindowFrameInsets? frame = Host.GetLogicalNativeFrameInsets();
+        if (frame is not { } knownFrame)
+        {
+            // Initial host options are an unqualified placeholder until the
+            // hidden native window has published its actual non-client frame.
+            return ToLogicalClientDimension(outerDimension);
+        }
+
+        double frameDimension = horizontal ? knownFrame.Horizontal : knownFrame.Vertical;
+        return ToLogicalClientDimension(Math.Max(1, outerDimension - frameDimension));
     }
 
     private static object ResolveRootVisual(object window)
@@ -1308,9 +1321,6 @@ public sealed class WpfPortableWindowActivation : IDisposable, INativeWindowOwne
                 _pressedMouseButtons.Clear();
                 DispatchPortableShowWindowHook(isShown: false);
                 break;
-            case WpfWindowEventKind.WindowPositionChanging:
-                DispatchPortableWindowPositionChangingHook();
-                break;
             case WpfWindowEventKind.WindowPositionChanged:
                 DispatchPortableWindowPositionChangedHooks(e.Left, e.Top);
                 break;
@@ -1351,17 +1361,6 @@ public sealed class WpfPortableWindowActivation : IDisposable, INativeWindowOwne
         bridge.TryDispatchHwndSourceHook(WM_SHOWWINDOW, isShown ? new IntPtr(1) : IntPtr.Zero, IntPtr.Zero, out _, out _);
     }
 
-    private void DispatchPortableWindowPositionChangingHook()
-    {
-        WpfPortablePresentationSourceBridge? bridge = Host.PortablePresentationSourceBridge;
-        if (bridge == null)
-        {
-            return;
-        }
-
-        bridge.TryDispatchHwndSourceHook(WM_WINDOWPOSCHANGING, IntPtr.Zero, IntPtr.Zero, out _, out _);
-    }
-
     private void DispatchPortableWindowPositionChangedHooks(int? left, int? top)
     {
         WpfPortablePresentationSourceBridge? bridge = Host.PortablePresentationSourceBridge;
@@ -1377,7 +1376,9 @@ public sealed class WpfPortableWindowActivation : IDisposable, INativeWindowOwne
                 locationSink.OnPortableWindowLocationChanged(left.Value, top.Value);
         }
 
-        bridge.TryDispatchHwndSourceHook(WM_WINDOWPOSCHANGED, IntPtr.Zero, IntPtr.Zero, out _, out _);
+        // WINDOWPOS messages require a real Win32 WINDOWPOS pointer. A
+        // portable source has none: its typed origin is updated above and
+        // the pointer-free MOVE notification follows for facade listeners.
         if (left.HasValue && top.HasValue)
         {
             bridge.TryDispatchHwndSourceHook(WM_MOVE, IntPtr.Zero, PackSignedLowHigh(left.Value, top.Value), out _, out _);
@@ -1392,8 +1393,9 @@ public sealed class WpfPortableWindowActivation : IDisposable, INativeWindowOwne
             return;
         }
 
-        bridge.TryDispatchHwndSourceHook(WM_WINDOWPOSCHANGING, IntPtr.Zero, IntPtr.Zero, out _, out _);
-        bridge.TryDispatchHwndSourceHook(WM_WINDOWPOSCHANGED, IntPtr.Zero, IntPtr.Zero, out _, out _);
+        // Keep the same source policy on resize. Native Windows WPF receives
+        // real WINDOWPOS messages from its HWND; portable sources publish
+        // typed client geometry and the pointer-free SIZE notification.
         if (width.HasValue && height.HasValue)
         {
             bridge.TryDispatchHwndSourceHook(WM_SIZE, IntPtr.Zero, PackUnsignedLowHigh(width.Value, height.Value), out _, out _);
@@ -2521,9 +2523,28 @@ public sealed class WpfPortableWindowActivation : IDisposable, INativeWindowOwne
                 host.InitializeHidden();
                 activation.TryRegisterMediaContextRenderService();
             }
-            else if (!TryAttach(host, window, out activation))
+            else
             {
-                return false;
+                // The source root must measure against the real native client,
+                // so create its source first, publish the hidden native frame,
+                // and only then attach the visual tree to that same source.
+                if (!host.TryCreatePortablePresentationSource() ||
+                    host.PortablePresentationSource is not { } source ||
+                    host.PortablePresentationSourceBridge == null)
+                {
+                    return false;
+                }
+                activation = new WpfPortableWindowActivation(host, window, ResolveRootVisual(window), source)
+                {
+                    // Window has not received its portable activation until
+                    // TryActivate returns. Root layout must wait for Show,
+                    // when source ownership and the native frame both exist.
+                    _attachRootOnShow = true
+                };
+                activation.RegisterNativeInputPolicy();
+                host.InitializeHidden();
+                activation.SynchronizeInitialWindowState(updatePortablePresentationSource: false);
+                activation.TryRegisterMediaContextRenderService();
             }
 
             transferred = true;

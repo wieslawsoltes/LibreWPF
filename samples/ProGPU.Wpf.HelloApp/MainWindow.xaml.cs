@@ -271,7 +271,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private static string ValidateLiveRenderSurfaceGeometryCore(ProGpuWpfWindowHost liveHost)
+    private string ValidateLiveRenderSurfaceGeometryCore(ProGpuWpfWindowHost liveHost)
     {
         if (!ProGpuWpfDiagnostics.TryGetRenderSurfaceGeometry(liveHost, out var geometry))
         {
@@ -288,8 +288,27 @@ public partial class MainWindow : Window
         var viewportWidth = geometry.ViewportWidth;
         var viewportHeight = geometry.ViewportHeight;
 
-        AssertEqual(520u, logicalWidth, "Hello live ProGPU WPF logical width");
-        AssertEqual(360u, logicalHeight, "Hello live ProGPU WPF logical height");
+        var frame = liveHost.GetLogicalNativeFrameInsets()
+            ?? throw new InvalidOperationException("Expected Hello live native frame insets.");
+        if (!frame.IsValid)
+        {
+            throw new InvalidOperationException("Expected valid Hello live native frame insets.");
+        }
+
+        double frameWidth = frame.Horizontal;
+        double frameHeight = frame.Vertical;
+        if (Math.Abs(ActualWidth - 520.0) > 1.0 || Math.Abs(ActualHeight - 360.0) > 1.0)
+        {
+            throw new InvalidOperationException(
+                $"Expected Hello live outer size 520x360, but got {ActualWidth:0.###}x{ActualHeight:0.###}.");
+        }
+
+        if (Math.Abs(logicalWidth + frameWidth - ActualWidth) > 1.0 ||
+            Math.Abs(logicalHeight + frameHeight - ActualHeight) > 1.0)
+        {
+            throw new InvalidOperationException(
+                $"Expected Hello live client {logicalWidth}x{logicalHeight} plus native frame {frameWidth:0.###}x{frameHeight:0.###} to match outer {ActualWidth:0.###}x{ActualHeight:0.###}.");
+        }
         if (pixelWidth < logicalWidth || pixelHeight < logicalHeight)
         {
             throw new InvalidOperationException(

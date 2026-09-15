@@ -102,6 +102,21 @@ public class PortablePresentationSourceTests
     }
 
     [Fact]
+    public void WindowFrameRootUsesOuterLayoutWithoutChangingSourceClientSize()
+    {
+        using IPortablePresentationSourceHost source = PortablePresentationSourceHost.Create();
+        var root = new FramedWindowRoot();
+        source.RootVisual = root;
+        source.SetClientSize(417.0, 264.0);
+
+        root.LastMeasureConstraint.Should().Be(new Size(430.0, 300.0));
+        root.RenderSize.Should().Be(new Size(430.0, 300.0));
+        source.TryUpdateRootVisualClientSize(out double width, out double height).Should().BeTrue();
+        width.Should().BeApproximately(417.0, 0.000001);
+        height.Should().BeApproximately(264.0, 0.000001);
+    }
+
+    [Fact]
     public void InitialDpiCallbackCanResolvePortablePresentationSource()
     {
         using IPortablePresentationSourceHost source = PortablePresentationSourceHost.Create(2.0, 1.5);
@@ -448,5 +463,22 @@ public class PortablePresentationSourceTests
             MeasureCount++;
             return new Size(100.0, 50.0);
         }
+    }
+
+    private sealed class FramedWindowRoot : UIElement, IPortableWindowFrameLayout
+    {
+        internal Size LastMeasureConstraint { get; private set; }
+
+        protected override Size MeasureCore(Size availableSize)
+        {
+            LastMeasureConstraint = availableSize;
+            return new Size(430.0, 300.0);
+        }
+
+        Size IPortableWindowFrameLayout.GetOuterSizeForClient(Size clientSize) =>
+            new Size(clientSize.Width + 13.0, clientSize.Height + 36.0);
+
+        Size IPortableWindowFrameLayout.GetClientSizeForOuter(Size outerSize) =>
+            new Size(outerSize.Width - 13.0, outerSize.Height - 36.0);
     }
 }

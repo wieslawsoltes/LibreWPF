@@ -257,6 +257,11 @@ function Invoke-TextLayoutCheck {
     if (!$match.Success) {
         throw "Windows $Name text-layout check did not report the expected metrics."
     }
+    $geometry = [regex]::Match($stdout,
+        '(?m)^WINDOW_GEOMETRY outer=(?<outerWidth>[0-9]+)x(?<outerHeight>[0-9]+) client=(?<clientWidth>[0-9]+)x(?<clientHeight>[0-9]+) dpi=(?<dpi>[0-9]+) source=(?<sourceWidth>[0-9.]+)x(?<sourceHeight>[0-9.]+)\r?$')
+    if (!$geometry.Success) {
+        throw "Windows $Name text-layout check did not report its actual native window geometry."
+    }
     $culture = [System.Globalization.CultureInfo]::InvariantCulture
     return [pscustomobject]@{
         Width = [double]::Parse($match.Groups['width'].Value, $culture)
@@ -265,6 +270,13 @@ function Invoke-TextLayoutCheck {
         Lines = [int]::Parse($match.Groups['lines'].Value, $culture)
         Tops = @($match.Groups['tops'].Value.Split(',') | ForEach-Object { [double]::Parse($_, $culture) })
         Starts = @($match.Groups['starts'].Value.Split(',') | ForEach-Object { [int]::Parse($_, $culture) })
+        OuterWidth = [int]::Parse($geometry.Groups['outerWidth'].Value, $culture)
+        OuterHeight = [int]::Parse($geometry.Groups['outerHeight'].Value, $culture)
+        ClientWidth = [int]::Parse($geometry.Groups['clientWidth'].Value, $culture)
+        ClientHeight = [int]::Parse($geometry.Groups['clientHeight'].Value, $culture)
+        Dpi = [int]::Parse($geometry.Groups['dpi'].Value, $culture)
+        SourceWidth = [double]::Parse($geometry.Groups['sourceWidth'].Value, $culture)
+        SourceHeight = [double]::Parse($geometry.Groups['sourceHeight'].Value, $culture)
     }
 }
 
@@ -283,6 +295,18 @@ $previousNugetPackages = $env:NUGET_PACKAGES
 Install-ExactSdkPackage $sdkPackage $Version $packagesRoot
 $env:NUGET_PACKAGES = $packagesRoot
 try {
+$showcaseNugetConfig = Join-Path $repoRoot "samples/ProGPU.Wpf.ShowcaseApp/NuGet.config"
+$privateNugetConfig = Join-Path $smokeRoot "NuGet.config"
+[xml] $privateConfig = Get-Content -LiteralPath $showcaseNugetConfig -Raw
+$localFeedNode = $privateConfig.SelectSingleNode("/configuration/packageSources/add[@key='ProGPUWpfLocalArtifacts']")
+$globalPackagesNode = $privateConfig.SelectSingleNode("/configuration/config/add[@key='globalPackagesFolder']")
+if ($null -eq $localFeedNode -or $null -eq $globalPackagesNode) {
+    throw "The Showcase NuGet config no longer provides its local feed and package-cache entries."
+}
+$localFeedNode.SetAttribute("value", $PackageDirectory)
+$globalPackagesNode.SetAttribute("value", $packagesRoot)
+$privateConfig.Save($privateNugetConfig)
+
 $artifactsProperty = $artifactsRoot.Replace('\', '/') + '/'
 $packagesProperty = $packagesRoot.Replace('\', '/')
 $feedProperty = $PackageDirectory.Replace('\', '/')
@@ -300,6 +324,7 @@ Invoke-DotNet -Arguments @(
 )
 Invoke-DotNet -Arguments @(
     "build", $showcaseProject, "-c", "Release", "-r", $targetRid,
+    "-p:RestoreConfigFile=$privateNugetConfig",
     "-p:PlatformTarget=$TargetArchitecture",
     "-p:ArtifactsDir=$artifactsProperty",
     "-p:RestorePackagesPath=$packagesProperty",
@@ -381,6 +406,18 @@ if ($nativeLayout.Lines -lt 2 -or $portableLayout.Lines -ne $nativeLayout.Lines 
 Assert-TextMetricNear "content width" $nativeLayout.Width $portableLayout.Width 0.01
 Assert-TextMetricNear "content height" $nativeLayout.Height $portableLayout.Height 0.05
 Assert-TextMetricNear "font size" $nativeLayout.Font $portableLayout.Font 0.001
+if ($nativeLayout.Dpi -lt 96 -or $portableLayout.Dpi -lt 96 -or
+    $nativeLayout.Dpi -ne $portableLayout.Dpi) {
+    throw "Windows native-WPF and ProGPU window DPI differ: native=$($nativeLayout.Dpi) portable=$($portableLayout.Dpi)."
+}
+Assert-TextMetricNear "declared Window width" 430 $nativeLayout.SourceWidth 0.001
+Assert-TextMetricNear "declared Window height" 300 $nativeLayout.SourceHeight 0.001
+Assert-TextMetricNear "outer window width" $nativeLayout.OuterWidth $portableLayout.OuterWidth 1
+Assert-TextMetricNear "outer window height" $nativeLayout.OuterHeight $portableLayout.OuterHeight 1
+Assert-TextMetricNear "client window width" $nativeLayout.ClientWidth $portableLayout.ClientWidth 1
+Assert-TextMetricNear "client window height" $nativeLayout.ClientHeight $portableLayout.ClientHeight 1
+Assert-TextMetricNear "source Window width" $nativeLayout.SourceWidth $portableLayout.SourceWidth 0.001
+Assert-TextMetricNear "source Window height" $nativeLayout.SourceHeight $portableLayout.SourceHeight 0.001
 for ($i = 0; $i -lt $nativeLayout.Tops.Count; $i++) {
     Assert-TextMetricNear "line $i top" $nativeLayout.Tops[$i] $portableLayout.Tops[$i] 0.05
 }

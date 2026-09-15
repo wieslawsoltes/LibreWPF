@@ -25,9 +25,8 @@ namespace Microsoft.Windows.Shell
         // Windows HWND is not a source-built WPF HwndSource.
         private bool UsesPortableChrome =>
             _window?.PortableWindowActivation != null ||
-            ((_window == null || _window.IsSourceWindowNull) &&
-             (System.Windows.PortableWindowActivationService.IsEnabled ||
-              PortableWpfRuntime.GetMediaBackendAndFreeze() == PortableWpfMediaBackend.Portable));
+            System.Windows.PortableWindowActivationService.IsEnabled ||
+            PortableWpfRuntime.GetMediaBackendAndFreeze() == PortableWpfMediaBackend.Portable;
 
         // Delegate signature used for Dispatcher.BeginInvoke.
         private delegate void _Action();
@@ -406,6 +405,16 @@ namespace Microsoft.Windows.Shell
 
         private IntPtr _WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
         {
+            // A separately surfaced portable Window can acquire its public
+            // HwndSource facade before its activation is published. If a chrome
+            // worker was attached during that handoff, never interpret source
+            // hook notifications as native Win32 frame messages.
+            if (UsesPortableChrome)
+            {
+                handled = false;
+                return IntPtr.Zero;
+            }
+
             // Only expecting messages for our cached HWND.
             Assert.AreEqual(hwnd, _hwnd);
 

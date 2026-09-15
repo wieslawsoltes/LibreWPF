@@ -436,6 +436,34 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         LastResolvedRenderSurfaceGeometry.DpiScaleY,
         _portablePresentationSourceDpiScaleY);
 
+    /// <summary>
+    /// Returns the live native non-client frame in desktop logical units.
+    /// Null means the native window or its frame measurement is unavailable;
+    /// a valid zero frame is retained for borderless windows.
+    /// </summary>
+    public PortableWindowFrameInsets? GetLogicalNativeFrameInsets()
+    {
+        if (_window?.IsInitialized != true ||
+            _windowController == null ||
+            _windowController.Handle == NativeWindowHandle.Empty)
+        {
+            return null;
+        }
+
+        NativeWindowFrameInsets native = _windowController.FrameInsets;
+        // Win32 reports physical frame pixels. GLFW's Cocoa/X11 frame sizes
+        // are already desktop-window coordinates, not framebuffer pixels.
+        WpfDeviceScale scale = OperatingSystem.IsWindows()
+            ? ResolveCurrentWindowContentScale()
+            : new WpfDeviceScale(1, 1);
+        var logical = new PortableWindowFrameInsets(
+            native.Left / scale.X,
+            native.Top / scale.Y,
+            native.Right / scale.X,
+            native.Bottom / scale.Y);
+        return logical.IsValid ? logical : null;
+    }
+
     public long SkippedFrameCount { get; private set; }
 
     public long RetainedWpfReplaySkipCount { get; private set; }
@@ -2166,6 +2194,14 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
             // DoEvents until the drag completes. Render synchronously from the
             // framebuffer callback so layout and the swap chain follow every step.
             OnResize(_window.Size);
+            if (RendererMode == ProGpuWpfRendererMode.NativeMilWgpu && _wpfRootVisual == null)
+            {
+                // First Show can deliver a Win32 framebuffer callback while the
+                // presentation source is still attaching its root. OnResize has
+                // retained the new geometry and queued a frame; the bridge will
+                // publish the typed root before that frame is rendered.
+                return;
+            }
             OnRender(0d);
         }
         finally

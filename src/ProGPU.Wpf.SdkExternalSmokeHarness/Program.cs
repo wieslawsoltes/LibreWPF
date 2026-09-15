@@ -6444,10 +6444,16 @@ internal static class Program
 
                     AssertEqual(true, sizeToContentWindow.IsVisible, "external SDK size-to-content window visibility after show");
                     AssertEqual(true, ApplicationContainsWindow(app, sizeToContentWindow), "external SDK application windows contains size-to-content window");
-                    AssertClose(132.0, sizeToContentWindow.ActualWidth, "external SDK size-to-content window ActualWidth");
-                    AssertClose(74.0, sizeToContentWindow.ActualHeight, "external SDK size-to-content window ActualHeight");
                     AssertClose(132.0, GetPortableHostDouble(sizeToContentWindow, "Width"), "external SDK size-to-content portable host width");
                     AssertClose(74.0, GetPortableHostDouble(sizeToContentWindow, "Height"), "external SDK size-to-content portable host height");
+                    AssertClose(
+                        GetPortableHostDouble(sizeToContentWindow, "Width") + GetPortableHostFrameDouble(sizeToContentWindow, "Horizontal"),
+                        sizeToContentWindow.ActualWidth,
+                        "external SDK size-to-content window outer width");
+                    AssertClose(
+                        GetPortableHostDouble(sizeToContentWindow, "Height") + GetPortableHostFrameDouble(sizeToContentWindow, "Vertical"),
+                        sizeToContentWindow.ActualHeight,
+                        "external SDK size-to-content window outer height");
 
                     sizeToContentContent.Width = 156.0;
                     sizeToContentContent.Height = 82.0;
@@ -6455,10 +6461,18 @@ internal static class Program
                     DrainDispatcher();
                     sizeToContentWindow.UpdateLayout();
 
-                    AssertClose(156.0, sizeToContentWindow.ActualWidth, "external SDK live size-to-content window ActualWidth");
-                    AssertClose(82.0, sizeToContentWindow.ActualHeight, "external SDK live size-to-content window ActualHeight");
-                    AssertClose(sizeToContentWindow.ActualWidth, GetPortableHostDouble(sizeToContentWindow, "Width"), 12.0, "external SDK live size-to-content portable host width");
-                    AssertClose(sizeToContentWindow.ActualHeight, GetPortableHostDouble(sizeToContentWindow, "Height"), 8.0, "external SDK live size-to-content portable host height");
+                    AssertClose(156.0, sizeToContentContent.ActualWidth, "external SDK live size-to-content content width");
+                    AssertClose(82.0, sizeToContentContent.ActualHeight, "external SDK live size-to-content content height");
+                    AssertClose(
+                        GetPortableHostDouble(sizeToContentWindow, "Width") + GetPortableHostFrameDouble(sizeToContentWindow, "Horizontal"),
+                        sizeToContentWindow.ActualWidth,
+                        12.0,
+                        "external SDK live size-to-content window outer width");
+                    AssertClose(
+                        GetPortableHostDouble(sizeToContentWindow, "Height") + GetPortableHostFrameDouble(sizeToContentWindow, "Vertical"),
+                        sizeToContentWindow.ActualHeight,
+                        8.0,
+                        "external SDK live size-to-content window outer height");
                     AssertBetween(144.0, 168.0, GetPortableHostDouble(sizeToContentWindow, "Width"), "external SDK live size-to-content portable host width bounds");
                     AssertBetween(74.0, 90.0, GetPortableHostDouble(sizeToContentWindow, "Height"), "external SDK live size-to-content portable host height bounds");
 
@@ -6677,6 +6691,36 @@ internal static class Program
 
                 private static double GetPortableHostDouble(Window window, string propertyName)
                 {
+                    object host = GetPortableHost(window);
+                    var valueProperty = host.GetType().GetProperty(
+                        propertyName,
+                        BindingFlags.Instance | BindingFlags.Public);
+                    object value = valueProperty?.GetValue(host)
+                        ?? throw new InvalidOperationException($"Expected {window.Title} portable host to expose {propertyName}.");
+                    return Convert.ToDouble(value, CultureInfo.InvariantCulture);
+                }
+
+                private static double GetPortableHostFrameDouble(Window window, string propertyName)
+                {
+                    object host = GetPortableHost(window);
+                    var frameMethod = host.GetType().GetMethod(
+                        "GetLogicalNativeFrameInsets",
+                        BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                    object frame = frameMethod?.Invoke(host, null)
+                        ?? throw new InvalidOperationException($"Expected {window.Title} portable host to expose native frame insets.");
+                    var validProperty = frame.GetType().GetProperty("IsValid", BindingFlags.Instance | BindingFlags.Public);
+                    if (!Convert.ToBoolean(validProperty?.GetValue(frame), CultureInfo.InvariantCulture))
+                    {
+                        throw new InvalidOperationException($"Expected {window.Title} portable host to have valid native frame insets.");
+                    }
+                    var valueProperty = frame.GetType().GetProperty(propertyName, BindingFlags.Instance | BindingFlags.Public);
+                    object value = valueProperty?.GetValue(frame)
+                        ?? throw new InvalidOperationException($"Expected {window.Title} native frame to expose {propertyName}.");
+                    return Convert.ToDouble(value, CultureInfo.InvariantCulture);
+                }
+
+                private static object GetPortableHost(Window window)
+                {
                     var activationProperty = typeof(Window).GetProperty(
                         "PortableWindowActivation",
                         BindingFlags.Instance | BindingFlags.NonPublic);
@@ -6687,12 +6731,7 @@ internal static class Program
                         BindingFlags.Instance | BindingFlags.Public);
                     object host = hostProperty?.GetValue(activation)
                         ?? throw new InvalidOperationException($"Expected {window.Title} portable activation to expose a host.");
-                    var valueProperty = host.GetType().GetProperty(
-                        propertyName,
-                        BindingFlags.Instance | BindingFlags.Public);
-                    object value = valueProperty?.GetValue(host)
-                        ?? throw new InvalidOperationException($"Expected {window.Title} portable host to expose {propertyName}.");
-                    return Convert.ToDouble(value, CultureInfo.InvariantCulture);
+                    return host;
                 }
 
                 private static bool ApplicationContainsWindow(App app, Window window)
@@ -15788,8 +15827,28 @@ internal static class Program
                         throw new InvalidOperationException("Expected default-item live ProGPU WPF host geometry.");
                     }
 
-                    Require(geometry.LogicalWidth == 260u, "Expected default-item live ProGPU WPF logical width.");
-                    Require(geometry.LogicalHeight == 140u, "Expected default-item live ProGPU WPF logical height.");
+                    if (!ProGpuWpfDiagnostics.TryGetWindowHost(this, out var liveHost) || liveHost == null)
+                    {
+                        throw new InvalidOperationException("Expected default-item live ProGPU WPF window host.");
+                    }
+
+                    var frame = liveHost.GetLogicalNativeFrameInsets()
+                        ?? throw new InvalidOperationException("Expected default-item live native frame insets.");
+                    if (!frame.IsValid)
+                    {
+                        throw new InvalidOperationException("Expected valid default-item live native frame insets.");
+                    }
+
+                    double frameWidth = frame.Horizontal;
+                    double frameHeight = frame.Vertical;
+                    Require(Math.Abs(ActualWidth - 260.0) <= 1.0, "Expected default-item live ProGPU WPF outer width.");
+                    Require(Math.Abs(ActualHeight - 140.0) <= 1.0, "Expected default-item live ProGPU WPF outer height.");
+                    Require(
+                        Math.Abs(geometry.LogicalWidth + frameWidth - ActualWidth) <= 1.0,
+                        $"Expected default-item live ProGPU WPF client width plus native frame {frameWidth:0.###} to match outer width {ActualWidth:0.###}, but got client width {geometry.LogicalWidth}.");
+                    Require(
+                        Math.Abs(geometry.LogicalHeight + frameHeight - ActualHeight) <= 1.0,
+                        $"Expected default-item live ProGPU WPF client height plus native frame {frameHeight:0.###} to match outer height {ActualHeight:0.###}, but got client height {geometry.LogicalHeight}.");
                     if (geometry.PixelWidth < geometry.LogicalWidth || geometry.PixelHeight < geometry.LogicalHeight)
                     {
                         throw new InvalidOperationException(

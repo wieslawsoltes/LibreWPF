@@ -9895,9 +9895,15 @@ public sealed class WpfManagedProjectGraphTests
         AssertGuardBefore(windowBackdropManager, "if (!OperatingSystem.IsWindows())", "NativeMethods.DwmSetWindowAttributeSystemBackdropType");
         Assert.Contains("OperatingSystem.IsWindows() &&\n                                                                        Utility.IsWindows11_22H2OrNewer", windowBackdropManager, StringComparison.Ordinal);
         Assert.Contains("_window?.PortableWindowActivation != null", windowChromeWorker, StringComparison.Ordinal);
-        Assert.Contains("_window == null || _window.IsSourceWindowNull", windowChromeWorker, StringComparison.Ordinal);
         Assert.Contains("System.Windows.PortableWindowActivationService.IsEnabled", windowChromeWorker, StringComparison.Ordinal);
         Assert.Contains("PortableWpfRuntime.GetMediaBackendAndFreeze() == PortableWpfMediaBackend.Portable", windowChromeWorker, StringComparison.Ordinal);
+        Assert.DoesNotContain("_window == null || _window.IsSourceWindowNull", windowChromeWorker, StringComparison.Ordinal);
+        var chromeWndProc = windowChromeWorker.IndexOf("private IntPtr _WndProc(", StringComparison.Ordinal);
+        var portableChromeHookGuard = windowChromeWorker.IndexOf("if (UsesPortableChrome)", chromeWndProc, StringComparison.Ordinal);
+        var nativeChromeHookDispatch = windowChromeWorker.IndexOf("Assert.AreEqual(hwnd, _hwnd)", chromeWndProc, StringComparison.Ordinal);
+        Assert.True(chromeWndProc >= 0 && portableChromeHookGuard > chromeWndProc &&
+            nativeChromeHookDispatch > portableChromeHookGuard,
+            "Portable chrome hook notifications must be rejected before native HWND frame dispatch.");
         Assert.DoesNotContain("OperatingSystem.IsWindows()", windowChromeWorker, StringComparison.Ordinal);
         AssertGuardBefore(windowChromeWorker, "if (UsesPortableChrome)", "new WindowInteropHelper(_window).Handle");
         AssertGuardBefore(windowChromeWorker, "if (UsesPortableChrome)", "HwndSource.FromHwnd(_hwnd)");
@@ -9910,7 +9916,7 @@ public sealed class WpfManagedProjectGraphTests
         AssertGuardBefore(jumpList, "if (!OperatingSystem.IsWindows())", "NativeMethods2.SHAddToRecentDocs(itemPath)");
         AssertGuardBefore(jumpList, "if (!OperatingSystem.IsWindows())", "IShellLinkW shellLink = CreateLinkFromJumpTask(jumpTask, false)");
         AssertGuardBefore(jumpList, "if (!OperatingSystem.IsWindows() || !Utilities.IsOSWindows7OrNewer)", "var destinationList = (ICustomDestinationList)Activator.CreateInstance");
-        AssertGuardBefore(systemCommands, "if (window.PortableWindowActivation != null || !OperatingSystem.IsWindows())", "new WindowInteropHelper(window).Handle");
+        AssertGuardBefore(systemCommands, "if (window.PortableWindowActivation != null || !OperatingSystem.IsWindows() ||", "new WindowInteropHelper(window).Handle");
         AssertGuardBefore(systemCommands, "if (!OperatingSystem.IsWindows())", "NativeMethods.GetSystemMenu(hwnd, false)");
         Assert.Contains("window.WindowState = WindowState.Maximized", systemCommands, StringComparison.Ordinal);
         Assert.Contains("window.WindowState = WindowState.Minimized", systemCommands, StringComparison.Ordinal);
@@ -12807,7 +12813,8 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("Sdk\\*", sdkProject.ToString(), StringComparison.Ordinal);
         Assert.Contains("targets\\*", sdkProject.ToString(), StringComparison.Ordinal);
         Assert.Contains("README.md", sdkProject.ToString(), StringComparison.Ordinal);
-        Assert.Contains("<None Include=\"README.md\" Pack=\"true\" PackagePath=\"\\\" />", sdkProject.ToString(), StringComparison.Ordinal);
+        Assert.Contains("<None Update=\"README.md\" Pack=\"true\" PackagePath=\"\\\" />", sdkProject.ToString(), StringComparison.Ordinal);
+        Assert.DoesNotContain("<PackagingContent Include=\"README.md\"", sdkProject.ToString(), StringComparison.Ordinal);
         Assert.Contains("<None Include=\"Sdk\\**\\*\" Pack=\"true\" PackagePath=\"Sdk\\%(RecursiveDir)\" />", sdkProject.ToString(), StringComparison.Ordinal);
         Assert.Contains("<None Include=\"$(IntermediateOutputPath)LibreWPF.Sdk.Version.props\"", sdkProject.ToString(), StringComparison.Ordinal);
         Assert.Contains("BeforeTargets=\"_GetPackageFiles\"", sdkProject.ToString(), StringComparison.Ordinal);

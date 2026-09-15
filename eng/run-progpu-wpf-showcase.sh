@@ -162,8 +162,11 @@ if [[ "${PROGPU_WPF_SHOWCASE_LIVE_VALIDATE:-0}" == "1" ]]; then
     exit 1
   fi
 
-  if (( logical_width != 760 || logical_height != 560 )); then
-    echo "Expected Showcase apphost logical size to be 760x560, but got ${logical_width}x${logical_height}." >&2
+  # The Showcase window declares an outer 760x560 size; its source-owned live
+  # validation checks the client plus the actual native frame against that
+  # outer size. The render surface itself is the client, not the outer frame.
+  if (( logical_width == 0 || logical_height == 0 )); then
+    echo "Expected Showcase apphost to publish positive logical client size, but got ${logical_width}x${logical_height}." >&2
     cat "${live_log}" >&2
     exit 1
   fi

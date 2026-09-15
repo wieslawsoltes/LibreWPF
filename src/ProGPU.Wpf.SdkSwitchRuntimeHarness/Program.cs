@@ -3519,7 +3519,8 @@ internal static class Program
                 null, // showSystemMenu
                 null, // runDialog
                 null, // setOwner
-                null  // releaseDialog
+                null, // releaseDialog
+                null  // getFrameInsets
             });
 
         AssertEqual(true, GetStaticProperty(activationServiceType, "IsEnabled"), "portable activation enabled");

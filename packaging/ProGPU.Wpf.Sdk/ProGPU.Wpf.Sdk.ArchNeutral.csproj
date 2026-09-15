@@ -23,8 +23,7 @@
   <ItemGroup>
     <PackagingContent Include="Sdk\*" SubFolder="root\Sdk" />
     <PackagingContent Include="targets\*" SubFolder="root\targets" />
-    <PackagingContent Include="README.md" SubFolder="root" />
-    <None Include="README.md" Pack="true" PackagePath="\" />
+    <None Update="README.md" Pack="true" PackagePath="\" />
     <None Include="Sdk\**\*" Pack="true" PackagePath="Sdk\%(RecursiveDir)" />
     <None Include="$(IntermediateOutputPath)LibreWPF.Sdk.Version.props"
           Pack="true"
