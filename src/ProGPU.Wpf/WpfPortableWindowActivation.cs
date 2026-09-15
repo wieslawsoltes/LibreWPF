@@ -2539,12 +2539,20 @@ public sealed class WpfPortableWindowActivation : IDisposable, INativeWindowOwne
             else
             {
                 // The source root must measure against the real native client,
-                // so publish the hidden frame before attaching its visual tree.
-                host.InitializeHidden();
-                if (!TryAttach(host, window, out activation))
+                // so create its source first, publish the hidden native frame,
+                // and only then attach the visual tree to that same source.
+                if (!host.TryCreatePortablePresentationSource() ||
+                    host.PortablePresentationSource is not { } source ||
+                    host.PortablePresentationSourceBridge is not { } bridge)
                 {
                     return false;
                 }
+                activation = new WpfPortableWindowActivation(host, window, ResolveRootVisual(window), source);
+                activation.RegisterNativeInputPolicy();
+                host.InitializeHidden();
+                activation.SynchronizeInitialWindowState(updatePortablePresentationSource: false);
+                bridge.RootVisual = activation.RootVisual;
+                activation.TryRegisterMediaContextRenderService();
             }
 
             transferred = true;
