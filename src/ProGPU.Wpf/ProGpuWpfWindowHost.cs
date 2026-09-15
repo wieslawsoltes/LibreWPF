@@ -2189,6 +2189,14 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
             // DoEvents until the drag completes. Render synchronously from the
             // framebuffer callback so layout and the swap chain follow every step.
             OnResize(_window.Size);
+            if (RendererMode == ProGpuWpfRendererMode.NativeMilWgpu && _wpfRootVisual == null)
+            {
+                // First Show can deliver a Win32 framebuffer callback while the
+                // presentation source is still attaching its root. OnResize has
+                // retained the new geometry and queued a frame; the bridge will
+                // publish the typed root before that frame is rendered.
+                return;
+            }
             OnRender(0d);
         }
         finally

@@ -130,3 +130,16 @@ and keeps its package cache private. It does not rewrite the sample or restore
 from an undeclared source. The first rerun restored the unchanged Showcase
 successfully; native application and stock-Windows geometry results are still
 pending.
+
+That VM rerun built the ARM64 SDK Showcase, confirmed the package hashes for
+`PresentationCore.dll`, `PresentationFramework.dll`, `ProGPU.Wpf.dll`, and
+`progpu_native.dll`, and passed its pre-display validation. Its displayed
+Application.Run case then reached a genuine native MIL first-show race:
+Win32 delivered a synchronous framebuffer-resize callback while the source
+was attaching the WPF root, before the bridge could mirror that root into the
+native host. Native MIL correctly rejected a null typed root. The host now
+updates resize geometry and queues the frame but defers only that premature
+callback render; subsequent frames still require the typed source root and
+native input index. The corrected package must be rebuilt and rerun on the
+VM; this source fix alone does not qualify the displayed case or the Windows
+geometry comparison.
