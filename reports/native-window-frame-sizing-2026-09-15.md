@@ -61,6 +61,14 @@ ProGPU.Wpf compilation and all 81 focused activation tests pass; the final
 merged-source head still needs its own exact-head CI result. The failed
 smoke is not sizing qualification.
 
+The next source-built XAML runtime smoke reached the real portable Window and
+reported a 312-high macOS native *client* for its 340-high declared outer
+Window. Its legacy harness still required a 340-high client and failed. The
+harness now compares declared outer dimensions with the native client plus
+the actual typed logical frame insets, instead of freezing pre-frame client
+dimensions. This retains an exact window-sizing assertion across Cocoa,
+Win32, and X11 without hard-coded title-bar heights.
+
 ProGPU backend contract tests passed (12/12) and the ProGPU.Wpf
 portable host build completed with zero errors on macOS. Windows source
 compilation passed on the prior PR head, but Windows x64/ARM64 stock-vs-native

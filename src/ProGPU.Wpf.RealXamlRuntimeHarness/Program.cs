@@ -5957,8 +5957,23 @@ internal static class Program
         AssertEqual(true, GetProperty(window, "IsVisible"), "portable window visible state");
         AssertEqual(true, GetProperty(host, "IsVisible"), "host visible state");
         AssertEqual("ProGPU WPF XAML smoke", GetProperty(host, "Title"), "host title");
-        AssertEqual(420, GetProperty(host, "Width"), "host width");
-        AssertEqual(340, GetProperty(host, "Height"), "host height");
+        MethodInfo getFrameInsets = host.GetType().GetMethod(
+                "GetLogicalNativeFrameInsets",
+                BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("Portable host has no native frame contract.");
+        object frame = getFrameInsets.Invoke(host, null)
+            ?? throw new InvalidOperationException("Presented portable host has no native frame insets.");
+        AssertEqual(true, GetProperty(frame, "IsValid"), "host native frame validity");
+        AssertClose(
+            Convert.ToDouble(GetProperty(window, "Width")),
+            Convert.ToDouble(GetProperty(host, "Width")) + Convert.ToDouble(GetProperty(frame, "Horizontal")),
+            0.01,
+            "host client plus frame width equals Window outer width");
+        AssertClose(
+            Convert.ToDouble(GetProperty(window, "Height")),
+            Convert.ToDouble(GetProperty(host, "Height")) + Convert.ToDouble(GetProperty(frame, "Vertical")),
+            0.01,
+            "host client plus frame height equals Window outer height");
     }
 
     private static void ValidatePortableMessageBox(Assembly presentationFramework, object window)
