@@ -2543,15 +2543,20 @@ public sealed class WpfPortableWindowActivation : IDisposable, INativeWindowOwne
                 // and only then attach the visual tree to that same source.
                 if (!host.TryCreatePortablePresentationSource() ||
                     host.PortablePresentationSource is not { } source ||
-                    host.PortablePresentationSourceBridge is not { } bridge)
+                    host.PortablePresentationSourceBridge == null)
                 {
                     return false;
                 }
-                activation = new WpfPortableWindowActivation(host, window, ResolveRootVisual(window), source);
+                activation = new WpfPortableWindowActivation(host, window, ResolveRootVisual(window), source)
+                {
+                    // Window has not received its portable activation until
+                    // TryActivate returns. Root layout must wait for Show,
+                    // when source ownership and the native frame both exist.
+                    _attachRootOnShow = true
+                };
                 activation.RegisterNativeInputPolicy();
                 host.InitializeHidden();
                 activation.SynchronizeInitialWindowState(updatePortablePresentationSource: false);
-                bridge.RootVisual = activation.RootVisual;
                 activation.TryRegisterMediaContextRenderService();
             }
 

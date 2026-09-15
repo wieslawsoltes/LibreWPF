@@ -41,9 +41,23 @@ presentation-source identity; stock WPF uses its ordinary HWND. The earlier
 443 × 336 oversized native window would fail this gate even though its text
 line metrics passed.
 
-Focused ProGPU backend contract tests passed (8/8) and the ProGPU.Wpf
-portable host build completed with zero errors on macOS. Full Windows source
-compilation, Windows x64/ARM64 stock-vs-native rectangle validation, live
+The first exact-head SDK smoke with this source change compiled the real
+PresentationCore/PresentationFramework and passed the source-built native MIL
+host smoke, then failed in the real WPF XAML runtime harness before display.
+Its trace showed `PortablePresentationSource.ApplyRootVisualLayout` invoking
+Window's frame conversion while `TryCreateActivation` still had not returned
+its activation to Window; `IsPortableWindowActive` was false and the old HWND
+non-client helper was null. The registered normal-window path now creates the
+source and native frame hidden, but defers the root visual attachment until
+`Show`, after Window holds its portable activation. This uses the same
+source-identity ordering as the existing hidden-window first-Show route.
+Local ProGPU.Wpf compilation passes; the corrected runtime gate still needs
+its own exact-head CI result. The failed smoke is not sizing qualification.
+
+ProGPU backend contract tests passed (12/12) and the ProGPU.Wpf
+portable host build completed with zero errors on macOS. Windows source
+compilation passed on the prior PR head, but Windows x64/ARM64 stock-vs-native
+rectangle validation, live
 Showcase interaction, resize/DPI/chrome/SizeToContent transitions, and CI are
 still required before this branch qualifies or merges. Existing native SDK
 admission remains separate.
