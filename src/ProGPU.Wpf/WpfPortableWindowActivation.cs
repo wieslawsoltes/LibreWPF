@@ -431,8 +431,8 @@ public sealed class WpfPortableWindowActivation : IDisposable, INativeWindowOwne
     public void Show()
     {
         ThrowIfDisposed();
-        AttachRootForShow();
         SynchronizeInitialWindowState(updatePortablePresentationSource: true);
+        AttachRootForShow();
         SetOwner(_ownerWindow);
         ApplyStartupLocationBeforeFirstShow();
         if (ShouldDeferNativeShowUntilRun())
