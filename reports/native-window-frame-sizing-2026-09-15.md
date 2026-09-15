@@ -305,4 +305,11 @@ frames. Hello, Showcase, Toolkit and the generated external DefaultItemsApp
 consume that typed result directly, with their outer/client parity checks
 unchanged. The focused graph guard passed after this correction. These
 final API/sample edits still require an exact local repack/full-gate rerun
-and hosted exact-head CI before qualification.
+and hosted exact-head CI before qualification. The first full rerun reached
+native MIL host success but stopped in the real-XAML harness: its dynamic
+assembly lookup still requested the frame method with only non-public
+reflection flags after the method became public. The real-XAML and theme
+dynamic-load harnesses and the external SizeToContent helper now admit
+the public method as well. The corrected real-XAML harness built with zero
+errors and passed its standalone runtime smoke under SDK 11 RC1; the full
+package/application sequence must be rerun after this harness alignment.

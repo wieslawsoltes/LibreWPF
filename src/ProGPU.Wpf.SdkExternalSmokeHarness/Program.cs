@@ -6705,7 +6705,7 @@ internal static class Program
                     object host = GetPortableHost(window);
                     var frameMethod = host.GetType().GetMethod(
                         "GetLogicalNativeFrameInsets",
-                        BindingFlags.Instance | BindingFlags.NonPublic);
+                        BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
                     object frame = frameMethod?.Invoke(host, null)
                         ?? throw new InvalidOperationException($"Expected {window.Title} portable host to expose native frame insets.");
                     var validProperty = frame.GetType().GetProperty("IsValid", BindingFlags.Instance | BindingFlags.Public);

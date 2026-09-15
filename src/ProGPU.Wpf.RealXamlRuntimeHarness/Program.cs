@@ -5959,7 +5959,7 @@ internal static class Program
         AssertEqual("ProGPU WPF XAML smoke", GetProperty(host, "Title"), "host title");
         MethodInfo getFrameInsets = host.GetType().GetMethod(
                 "GetLogicalNativeFrameInsets",
-                BindingFlags.Instance | BindingFlags.NonPublic)
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
             ?? throw new InvalidOperationException("Portable host has no native frame contract.");
         object frame = getFrameInsets.Invoke(host, null)
             ?? throw new InvalidOperationException("Presented portable host has no native frame insets.");
