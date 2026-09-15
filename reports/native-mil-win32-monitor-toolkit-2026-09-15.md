@@ -80,19 +80,22 @@ ProGPU [#167](https://github.com/wieslawsoltes/ProGPU/pull/167), from latest
 main `3755428f3ad9c269a5e4a9bc91e0a4175f68f695`, adds size-checked,
 opt-in native semantic-scene CPU phase metrics. Its local macOS ARM64 C++20
 wgpu-native/Dawn build, native MIL/ABI tests, generated-contract verification,
-and hardware-backed package-consumer capture run passed. The corrected-head
-hosted Windows ARM64 native job and its runtime artifact passed; downstream
-package CI and the complete Windows Toolkit application gate remain pending.
+and hardware-backed package-consumer capture run passed. All corrected-head
+hosted PR checks, including Windows ARM64 native and package jobs, passed;
+#167 merged to ProGPU main at
+`7e6dd6a724240c6ec4f95ff1e3e7885cbe66035c`. The complete Windows
+Toolkit application gate remains pending.
 
 The WPF host follow-up requests that capture only when
 `PROGPU_WPF_TRACE_NATIVE_LOOP` is enabled. It logs scene/generation,
 command/draw/submission counts, payload hash and native CPU preflight,
 resource, encode, flush, finalize and total durations after the host
 `SurfacePresent` call returns. Ordinary frames keep the existing unmeasured
-ProGPU overload. A local WPF product build against #167 source succeeds; the branch
-must not publish or qualify that dependency until #167 passes and its exact
-native package is available. The next VM run must preserve native selection
-and the same Toolkit live assertions while recording these new phases.
+ProGPU overload. A local WPF product build against #167 source succeeds;
+the follow-up branch now pins its merged main commit. Its own PR/CI and an
+exact assembled-package Windows run are still required. The next VM run must
+preserve native selection and the same Toolkit live assertions while recording
+these new phases.
 
 ### macOS native-MIL source-overlay probe
 
@@ -156,3 +159,16 @@ The trace reached filter focus, filter text and popup validation after its
 second scene, but the next native render was outstanding at capture. No full
 Toolkit/AvalonDock result, subsequent-frame performance gate or Windows
 DirectX/MIL parity claim follows from these two measured frames.
+
+The ProGPU `feature/native-semantic-encode-checkpoints` follow-up, rebased on
+the merged #167 main commit, adds a second explicit
+`PROGPU_NATIVE_TRACE_SCENE_ENCODE=1` admission and live standard-error
+checkpoints for resource, preparation, retained bundle, replay and flush
+subphases. Its default render path is unchanged. A local macOS ARM64 C++20
+build and focused native MIL/internal/scene tests passed, as did the full
+macOS native-MIL Toolkit/AvalonDock input sequence with checkpoints enabled.
+On that host, a `6,842`-command scene built `330` spans in `166.157 ms` and
+replayed them in `40.580 ms`. Those macOS values support investigating
+bundle construction, but do not prove the Windows subphase. Hosted Windows
+artifact and exact guest checkpoint capture remain required before choosing
+an optimization.
