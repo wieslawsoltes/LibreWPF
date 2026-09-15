@@ -2954,15 +2954,15 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         {
             TraceNativeLoop("native MIL submission entering: " + CreateNativeLoopTraceState());
             long submissionStarted = Stopwatch.GetTimestamp();
-            LastNativeMilFrameMetrics = compositor.RenderScene(
-                new NativeSceneExternalTarget(
-                    (nuint)targetView,
-                    pixelWidth,
-                    pixelHeight),
-                dpiScale,
-                sceneId,
-                generation,
-                clearColor);
+            var nativeTarget = new NativeSceneExternalTarget(
+                (nuint)targetView,
+                pixelWidth,
+                pixelHeight);
+            LastNativeMilFrameMetrics = s_traceNativeLoop
+                ? compositor.RenderSceneWithCpuStages(
+                    nativeTarget, dpiScale, sceneId, generation, clearColor)
+                : compositor.RenderScene(
+                    nativeTarget, dpiScale, sceneId, generation, clearColor);
             double submissionMs = Stopwatch.GetElapsedTime(submissionStarted).TotalMilliseconds;
             TraceNativeLoop("native MIL submission leaving: " + CreateNativeLoopTraceState());
             long presentStarted = Stopwatch.GetTimestamp();
@@ -2970,6 +2970,15 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
             timings = (acquireMs, submissionMs,
                 Stopwatch.GetElapsedTime(presentStarted).TotalMilliseconds);
             TraceNativeLoop("native MIL present complete: " + CreateNativeLoopTraceState());
+            if (s_traceNativeLoop)
+            {
+                NativeSceneFrameMetrics cpuStages = LastNativeMilFrameMetrics;
+                string stageTimings = FormattableString.Invariant(
+                    $"preflightMs={cpuStages.CpuPreflightNanoseconds / 1_000_000.0:0.###}, resourceMs={cpuStages.CpuResourceNanoseconds / 1_000_000.0:0.###}, encodeMs={cpuStages.CpuEncodeNanoseconds / 1_000_000.0:0.###}, flushMs={cpuStages.CpuFlushNanoseconds / 1_000_000.0:0.###}, finalizeMs={cpuStages.CpuFinalizeNanoseconds / 1_000_000.0:0.###}, totalMs={cpuStages.CpuTotalNanoseconds / 1_000_000.0:0.###}");
+                string stageIdentity = FormattableString.Invariant(
+                    $"scene={sceneId}, generation={generation}, commands={cpuStages.CommandCount}, draws={cpuStages.DrawCallCount}, submissions={cpuStages.SubmissionCount}, payloadHash={cpuStages.PayloadHash:x16}");
+                TraceNativeLoop("native MIL CPU stages: " + stageIdentity + ", " + stageTimings);
+            }
             return true;
         }
         finally
