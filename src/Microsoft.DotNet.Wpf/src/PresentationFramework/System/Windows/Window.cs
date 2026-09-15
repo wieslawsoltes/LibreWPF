@@ -29,7 +29,7 @@ using Win32Error = MS.Internal.Interop.Win32Error;
 namespace System.Windows
 {
     [Localizability(LocalizationCategory.Ignore)]
-    public class Window : ContentControl, IWindowService, IPortableVisualOwnerHost, IPortableWindowStateSource, IPortableWindowLocationSink, IPortableAccessKeyScopeSource
+    public class Window : ContentControl, IWindowService, IPortableVisualOwnerHost, IPortableWindowStateSource, IPortableWindowLocationSink, IPortableAccessKeyScopeSource, IPortableWindowFrameLayout
     {
         //---------------------------------------------------
         //
@@ -7444,7 +7444,33 @@ namespace System.Windows
 
         private Size GetWindowFrameSizeInMeasureUnits()
         {
-            return IsPortableWindowActive ? new Size(0, 0) : GetHwndNonClientAreaSizeInMeasureUnits();
+            if (!IsPortableWindowActive)
+            {
+                return GetHwndNonClientAreaSizeInMeasureUnits();
+            }
+
+            if (!PortableWindowActivationService.TryGetFrameInsets(_portableWindowActivation, out var frame))
+            {
+                // Pre-host layout has no native frame. Presented portable
+                // windows must publish one before qualification against WPF.
+                return new Size(0, 0);
+            }
+
+            return new Size(frame.Horizontal, frame.Vertical);
+        }
+
+        Size IPortableWindowFrameLayout.GetOuterSizeForClient(Size clientSize)
+        {
+            Size frameSize = GetWindowFrameSizeInMeasureUnits();
+            return new Size(clientSize.Width + frameSize.Width, clientSize.Height + frameSize.Height);
+        }
+
+        Size IPortableWindowFrameLayout.GetClientSizeForOuter(Size outerSize)
+        {
+            Size frameSize = GetWindowFrameSizeInMeasureUnits();
+            return new Size(
+                Math.Max(0, outerSize.Width - frameSize.Width),
+                Math.Max(0, outerSize.Height - frameSize.Height));
         }
 
         private Size GetWindowSizeInMeasureUnits()

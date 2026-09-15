@@ -1,0 +1,33 @@
+# Native window frame sizing: source-to-host integration
+
+The acceptance action is opening `ProGPU.Wpf.ShowcaseApp` and the shared native
+text fixture as an ordinary, decorated top-level Window at 200% Windows DPI.
+The fixture declares `Width="430" Height="300"`. In the Windows ARM64 VM,
+stock WPF opened a 430 × 300 outer rectangle and a 417 × 264 client rectangle;
+the prior ProGPU native MIL host opened 443 × 336 outer and 430 × 300 client.
+That 13 × 36 surplus is a window frame applied *outside* an already
+client-sized WPF outer request. The text line metrics alone could not reveal
+this layout error.
+
+The shared ProGPU frame contract reports native left/top/right/bottom as
+desktop logical units. Win32 physical frame pixels are divided by the current
+native content scale once; Cocoa/X11 GLFW frame metrics are already desktop
+coordinates. `null` is unavailable; a known zero frame is valid for borderless
+windows. No source path uses the portable presentation-source identity as an
+HWND or invents title-bar dimensions.
+
+LibreWPF now initializes its registered native host hidden before attaching
+the Window root. It converts the Window's *outer* Width/Height to the host
+*client* size after the native frame exists. The source Window measures and
+arranges its child against the outer size minus the same frame. The portable
+presentation source retains client size for surfaces and input, but adds the
+frame exactly once when laying out the actual Window root; non-Window roots
+and popups keep their previous client-sized layout. Reverse conversion during
+SizeToContent measurement subtracts the frame exactly once.
+
+Focused ProGPU backend contract tests passed (8/8) and the ProGPU.Wpf
+portable host build completed with zero errors on macOS. Full Windows source
+compilation, Windows x64/ARM64 stock-vs-native rectangle validation, live
+Showcase interaction, resize/DPI/chrome/SizeToContent transitions, and CI are
+still required before this branch qualifies or merges. Existing native SDK
+admission remains separate.

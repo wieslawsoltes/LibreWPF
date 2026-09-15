@@ -475,8 +475,11 @@ namespace System.Windows
             }
 
             rootUIElement.InvalidateMeasure();
-            rootUIElement.Measure(_clientSize);
-            rootUIElement.Arrange(new Rect(new Point(), _clientSize));
+            Size rootSize = rootUIElement is IPortableWindowFrameLayout windowFrameLayout
+                ? windowFrameLayout.GetOuterSizeForClient(_clientSize)
+                : _clientSize;
+            rootUIElement.Measure(rootSize);
+            rootUIElement.Arrange(new Rect(new Point(), rootSize));
             rootUIElement.UpdateLayout();
         }
 
@@ -530,6 +533,11 @@ namespace System.Windows
             if (IsClientSizeEmpty(desiredSize))
             {
                 desiredSize = MeasureRootVisual(rootUIElement, new Size(4096.0, 4096.0));
+            }
+
+            if (rootUIElement is IPortableWindowFrameLayout windowFrameLayout)
+            {
+                desiredSize = windowFrameLayout.GetClientSizeForOuter(desiredSize);
             }
 
             width = ToPositiveFiniteClientSize(desiredSize.Width);

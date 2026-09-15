@@ -193,7 +193,8 @@ public sealed class WpfPortableWindowActivation : IDisposable, INativeWindowOwne
             ShowSystemMenu = (activation, x, y) => ((WpfPortableWindowActivation)activation).TryShowSystemMenu(x, y),
             RunDialog = (activation, continueRunning) => ((WpfPortableWindowActivation)activation).RunCore(continueRunning),
             ReleaseDialog = (activation, completed) => ((WpfPortableWindowActivation)activation).Host.ReleaseNativeDialog(completed),
-            SetOwner = (activation, owner) => ((WpfPortableWindowActivation)activation).SetOwner(owner)
+            SetOwner = (activation, owner) => ((WpfPortableWindowActivation)activation).SetOwner(owner),
+            GetFrameInsets = activation => ((WpfPortableWindowActivation)activation).Host.GetLogicalNativeFrameInsets()
         };
     }
 
@@ -545,10 +546,10 @@ public sealed class WpfPortableWindowActivation : IDisposable, INativeWindowOwne
         ThrowIfDisposed();
 
         var clientWidth = TryMapPositiveDimension(width, out double mappedWidth)
-            ? ToLogicalClientDimension(mappedWidth)
+            ? ToHostClientDimension(mappedWidth, horizontal: true)
             : Host.Width;
         var clientHeight = TryMapPositiveDimension(height, out double mappedHeight)
-            ? ToLogicalClientDimension(mappedHeight)
+            ? ToHostClientDimension(mappedHeight, horizontal: false)
             : Host.Height;
 
         Host.SetClientSize(clientWidth, clientHeight);
@@ -1172,8 +1173,8 @@ public sealed class WpfPortableWindowActivation : IDisposable, INativeWindowOwne
         if (hasWidth || hasHeight)
         {
             SetHostClientSize(
-                hasWidth ? ToLogicalClientDimension(width) : Host.Width,
-                hasHeight ? ToLogicalClientDimension(height) : Host.Height,
+                hasWidth ? ToHostClientDimension(width, horizontal: true) : Host.Width,
+                hasHeight ? ToHostClientDimension(height, horizontal: false) : Host.Height,
                 updatePortablePresentationSource);
         }
         else
@@ -1208,6 +1209,20 @@ public sealed class WpfPortableWindowActivation : IDisposable, INativeWindowOwne
         {
             Host.SetInitialClientSize(width, height);
         }
+    }
+
+    private int ToHostClientDimension(double outerDimension, bool horizontal)
+    {
+        PortableWindowFrameInsets? frame = Host.GetLogicalNativeFrameInsets();
+        if (frame is not { } knownFrame)
+        {
+            // Initial host options are an unqualified placeholder until the
+            // hidden native window has published its actual non-client frame.
+            return ToLogicalClientDimension(outerDimension);
+        }
+
+        double frameDimension = horizontal ? knownFrame.Horizontal : knownFrame.Vertical;
+        return ToLogicalClientDimension(Math.Max(1, outerDimension - frameDimension));
     }
 
     private static object ResolveRootVisual(object window)
@@ -2521,9 +2536,15 @@ public sealed class WpfPortableWindowActivation : IDisposable, INativeWindowOwne
                 host.InitializeHidden();
                 activation.TryRegisterMediaContextRenderService();
             }
-            else if (!TryAttach(host, window, out activation))
+            else
             {
-                return false;
+                // The source root must measure against the real native client,
+                // so publish the hidden frame before attaching its visual tree.
+                host.InitializeHidden();
+                if (!TryAttach(host, window, out activation))
+                {
+                    return false;
+                }
             }
 
             transferred = true;

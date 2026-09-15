@@ -433,6 +433,7 @@
     <Compile Include="System\Windows\Ole\WpfOleServices.cs" />
     <Compile Include="System\Windows\PortableClipboardService.cs" />
     <Compile Include="System\Windows\IPortablePresentationSourceHost.cs" />
+    <Compile Include="System\Windows\IPortableWindowFrameLayout.cs" />
     <Compile Include="System\Windows\IPortableVisualOwnerHost.cs" />
     <Compile Include="System\Windows\PortableManagedDataObject.cs" />
     <Compile Include="System\Windows\PortablePresentationSourceHost.cs" />

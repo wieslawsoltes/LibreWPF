@@ -436,6 +436,29 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         LastResolvedRenderSurfaceGeometry.DpiScaleY,
         _portablePresentationSourceDpiScaleY);
 
+    internal PortableWindowFrameInsets? GetLogicalNativeFrameInsets()
+    {
+        if (_window?.IsInitialized != true ||
+            _windowController == null ||
+            _windowController.Handle == NativeWindowHandle.Empty)
+        {
+            return null;
+        }
+
+        NativeWindowFrameInsets native = _windowController.FrameInsets;
+        // Win32 reports physical frame pixels. GLFW's Cocoa/X11 frame sizes
+        // are already desktop-window coordinates, not framebuffer pixels.
+        WpfDeviceScale scale = OperatingSystem.IsWindows()
+            ? ResolveCurrentWindowContentScale()
+            : new WpfDeviceScale(1, 1);
+        var logical = new PortableWindowFrameInsets(
+            native.Left / scale.X,
+            native.Top / scale.Y,
+            native.Right / scale.X,
+            native.Bottom / scale.Y);
+        return logical.IsValid ? logical : null;
+    }
+
     public long SkippedFrameCount { get; private set; }
 
     public long RetainedWpfReplaySkipCount { get; private set; }
