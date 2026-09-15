@@ -3730,7 +3730,8 @@ public partial class MainWindow : Window
                 catch (Exception ex)
                 {
                     Console.Error.WriteLine(ex);
-                    Environment.Exit(1);
+                    Console.Error.Flush();
+                    RequestLiveValidationShutdown(1);
                 }
             });
     }
@@ -3769,13 +3770,22 @@ public partial class MainWindow : Window
             Console.WriteLine(detailStatus);
             WriteLiveValidationStatus($"{successStatus}{Environment.NewLine}{detailStatus}{Environment.NewLine}");
             Console.Out.Flush();
-            Environment.Exit(0);
+            RequestLiveValidationShutdown(0);
             return;
         }
 
-        Console.Error.WriteLine("Expected the Toolkit app to present a stable ProGPU frame before live input validation.");
-        Console.Error.Flush();
-        Environment.Exit(1);
+        throw new InvalidOperationException(
+            "Expected the Toolkit app to present a stable ProGPU frame before live input validation.");
+    }
+
+    private void RequestLiveValidationShutdown(int exitCode)
+    {
+        // Environment.Exit from the validation worker can tear down the
+        // binding engine while the portable host is still pumping layout.
+        // Let the application dispatcher close its owned native windows.
+        Dispatcher.BeginInvoke(
+            DispatcherPriority.Send,
+            new Action(() => Application.Current.Shutdown(exitCode)));
     }
 
     private static void WriteLiveValidationStatus(string status)

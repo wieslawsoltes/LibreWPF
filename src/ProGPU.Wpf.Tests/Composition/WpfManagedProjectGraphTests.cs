@@ -6,6 +6,18 @@ namespace ProGPU.Wpf.Tests.Composition;
 public sealed class WpfManagedProjectGraphTests
 {
     [Fact]
+    public void ToolkitLiveValidationShutsDownOnItsSourceDispatcher()
+    {
+        string source = File.ReadAllText(FindRepoPath("samples", "ProGPU.Wpf.ToolkitApp", "MainWindow.xaml.cs"));
+        Assert.Contains("RequestLiveValidationShutdown(0);", source, StringComparison.Ordinal);
+        Assert.Contains("RequestLiveValidationShutdown(1);", source, StringComparison.Ordinal);
+        Assert.Contains("Dispatcher.BeginInvoke(", source, StringComparison.Ordinal);
+        Assert.Contains("Application.Current.Shutdown(exitCode)", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Environment.Exit(", source, StringComparison.Ordinal);
+        AssertGuardBefore(source, "WriteLiveValidationStatus", "RequestLiveValidationShutdown(0)");
+    }
+
+    [Fact]
     public void ToolkitFloatingInputUsesActualPresentationSource()
     {
         string source = File.ReadAllText(FindRepoPath("samples", "ProGPU.Wpf.ToolkitApp", "MainWindow.xaml.cs"));
