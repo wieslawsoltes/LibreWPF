@@ -149,16 +149,21 @@ The first presented scene (`287` commands, `32` draws, one submission) spent
 for `28,369.764 ms` native total. The second (`6,842` commands, `417` draws,
 11 submissions) spent `7,753.788 ms` in resources and `255,426.716 ms`
 in encoding, for `263,183.571 ms` total. Preflight and flush were near
-1–2 ms. The earlier 29/262-second host observations are therefore explained
+1–2 ms. A third `6,860`-command scene measured `241,604.117 ms` encoding
+with only `16.959 ms` resources and `0.545 ms` flush. The earlier
+29/262-second host observations are therefore explained
 primarily by a CPU-side ProGPU semantic-scene encode cost, not by WPF scene
 update/compile, surface acquire, GPU submission or presentation. The source
 invalidates retained render bundles on a whole-scene replay hash change;
 that is a candidate cause, not yet a measured substage or completed fix.
 
 The trace reached filter focus, filter text and popup validation after its
-second scene, but the next native render was outstanding at capture. No full
+second scene. A normal window-close request was made during the third CPU-hot
+render, and the diagnostic process returned after that scene without a full
+validation result. The final guest trace was copied to the task-owned host
+cache as `toolkit-cpu-stages-ci26b2cdac-final-stdout.log`. No full
 Toolkit/AvalonDock result, subsequent-frame performance gate or Windows
-DirectX/MIL parity claim follows from these two measured frames.
+DirectX/MIL parity claim follows from these measured frames.
 
 The ProGPU `feature/native-semantic-encode-checkpoints` follow-up, rebased on
 the merged #167 main commit, adds a second explicit
