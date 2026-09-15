@@ -393,9 +393,12 @@ if ($nativeLayout.Lines -lt 2 -or $portableLayout.Lines -ne $nativeLayout.Lines 
 Assert-TextMetricNear "content width" $nativeLayout.Width $portableLayout.Width 0.01
 Assert-TextMetricNear "content height" $nativeLayout.Height $portableLayout.Height 0.05
 Assert-TextMetricNear "font size" $nativeLayout.Font $portableLayout.Font 0.001
-if ($nativeLayout.Dpi -ne $portableLayout.Dpi) {
+if ($nativeLayout.Dpi -lt 96 -or $portableLayout.Dpi -lt 96 -or
+    $nativeLayout.Dpi -ne $portableLayout.Dpi) {
     throw "Windows native-WPF and ProGPU window DPI differ: native=$($nativeLayout.Dpi) portable=$($portableLayout.Dpi)."
 }
+Assert-TextMetricNear "declared Window width" 430 $nativeLayout.SourceWidth 0.001
+Assert-TextMetricNear "declared Window height" 300 $nativeLayout.SourceHeight 0.001
 Assert-TextMetricNear "outer window width" $nativeLayout.OuterWidth $portableLayout.OuterWidth 1
 Assert-TextMetricNear "outer window height" $nativeLayout.OuterHeight $portableLayout.OuterHeight 1
 Assert-TextMetricNear "client window width" $nativeLayout.ClientWidth $portableLayout.ClientWidth 1
