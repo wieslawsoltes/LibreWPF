@@ -14,8 +14,6 @@ public sealed class WpfPortableWindowActivation : IDisposable, INativeWindowOwne
     private const int WM_SHOWWINDOW = 0x0018;
     private const int WM_MOVE = 0x0003;
     private const int WM_SIZE = 0x0005;
-    private const int WM_WINDOWPOSCHANGING = 0x0046;
-    private const int WM_WINDOWPOSCHANGED = 0x0047;
     private const int WM_MOUSEACTIVATE = 0x0021;
     private const int WM_NCMOUSEMOVE = 0x00A0;
     private const int WM_NCLBUTTONDOWN = 0x00A1;
@@ -1323,9 +1321,6 @@ public sealed class WpfPortableWindowActivation : IDisposable, INativeWindowOwne
                 _pressedMouseButtons.Clear();
                 DispatchPortableShowWindowHook(isShown: false);
                 break;
-            case WpfWindowEventKind.WindowPositionChanging:
-                DispatchPortableWindowPositionChangingHook();
-                break;
             case WpfWindowEventKind.WindowPositionChanged:
                 DispatchPortableWindowPositionChangedHooks(e.Left, e.Top);
                 break;
@@ -1366,17 +1361,6 @@ public sealed class WpfPortableWindowActivation : IDisposable, INativeWindowOwne
         bridge.TryDispatchHwndSourceHook(WM_SHOWWINDOW, isShown ? new IntPtr(1) : IntPtr.Zero, IntPtr.Zero, out _, out _);
     }
 
-    private void DispatchPortableWindowPositionChangingHook()
-    {
-        WpfPortablePresentationSourceBridge? bridge = Host.PortablePresentationSourceBridge;
-        if (bridge == null)
-        {
-            return;
-        }
-
-        bridge.TryDispatchHwndSourceHook(WM_WINDOWPOSCHANGING, IntPtr.Zero, IntPtr.Zero, out _, out _);
-    }
-
     private void DispatchPortableWindowPositionChangedHooks(int? left, int? top)
     {
         WpfPortablePresentationSourceBridge? bridge = Host.PortablePresentationSourceBridge;
@@ -1392,7 +1376,9 @@ public sealed class WpfPortableWindowActivation : IDisposable, INativeWindowOwne
                 locationSink.OnPortableWindowLocationChanged(left.Value, top.Value);
         }
 
-        bridge.TryDispatchHwndSourceHook(WM_WINDOWPOSCHANGED, IntPtr.Zero, IntPtr.Zero, out _, out _);
+        // WINDOWPOS messages require a real Win32 WINDOWPOS pointer. A
+        // portable source has none: its typed origin is updated above and
+        // the pointer-free MOVE notification follows for facade listeners.
         if (left.HasValue && top.HasValue)
         {
             bridge.TryDispatchHwndSourceHook(WM_MOVE, IntPtr.Zero, PackSignedLowHigh(left.Value, top.Value), out _, out _);
@@ -1407,8 +1393,9 @@ public sealed class WpfPortableWindowActivation : IDisposable, INativeWindowOwne
             return;
         }
 
-        bridge.TryDispatchHwndSourceHook(WM_WINDOWPOSCHANGING, IntPtr.Zero, IntPtr.Zero, out _, out _);
-        bridge.TryDispatchHwndSourceHook(WM_WINDOWPOSCHANGED, IntPtr.Zero, IntPtr.Zero, out _, out _);
+        // Keep the same source policy on resize. Native Windows WPF receives
+        // real WINDOWPOS messages from its HWND; portable sources publish
+        // typed client geometry and the pointer-free SIZE notification.
         if (width.HasValue && height.HasValue)
         {
             bridge.TryDispatchHwndSourceHook(WM_SIZE, IntPtr.Zero, PackUnsignedLowHigh(width.Value, height.Value), out _, out _);

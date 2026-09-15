@@ -1101,7 +1101,7 @@ public sealed class WpfPortableWindowActivationTests
     }
 
     [Fact]
-    public void HostWindowGeometryEventsDispatchLegacyHwndSourceHooks()
+    public void HostWindowGeometryEventsDispatchMoveAndSizeWithoutPointerWindowPosHooks()
     {
         using var host = new ProGpuWpfWindowHost();
         var window = new FakeWindow();
@@ -1117,12 +1117,12 @@ public sealed class WpfPortableWindowActivationTests
         RaiseHostWindowEvent(host, new WpfWindowEventArgs(WpfWindowEventKind.WindowSizeChanged, width: 800, height: 600));
 
         Assert.Equal(
-            new[] { 0x0046, 0x0047, 0x0003, 0x0046, 0x0047, 0x0005 },
+            new[] { 0x0003, 0x0005 },
             source.DispatchedHwndSourceHooks.Select(hook => hook.Message).ToArray());
         Assert.Equal(-12, source.ClientOriginX);
         Assert.Equal(34, source.ClientOriginY);
-        Assert.Equal(PackSignedLowHigh(-12, 34), source.DispatchedHwndSourceHooks[2].LParam);
-        Assert.Equal(PackUnsignedLowHigh(800, 600), source.DispatchedHwndSourceHooks[5].LParam);
+        Assert.Equal(PackSignedLowHigh(-12, 34), source.DispatchedHwndSourceHooks[0].LParam);
+        Assert.Equal(PackUnsignedLowHigh(800, 600), source.DispatchedHwndSourceHooks[1].LParam);
     }
 
     [Fact]

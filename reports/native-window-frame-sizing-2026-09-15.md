@@ -261,3 +261,27 @@ steps, then crashed during a floated editor's native position callback in
 `WindowChromeWorker._HandleWindowPosChanged`. That is a separate source
 ownership/HWND-path blocker, not frame-geometry validation. Full local SDK,
 hosted exact-head CI and final VM package rerun remain open.
+
+The floated-editor crash was traced to Xceed AvalonDock's separately
+compiled `Microsoft.Windows.Shell.WindowChromeWorker` in
+`Xceed.Wpf.AvalonDock.dll`; LibreWPF's source worker is
+`System.Windows.Shell.WindowChromeWorker` in PresentationFramework. The
+vendor handler always consumes `WM_WINDOWPOSCHANGED` as a real Win32
+`WINDOWPOS` pointer, then updates a Win32 system menu/rounding region.
+The portable HwndSource facade had delivered synthetic WINDOWPOSCHANGING
+and WINDOWPOSCHANGED hooks with `lParam=0`, which is not that protocol.
+The portable activation bridge now publishes its typed source client
+origin/location and only packed pointer-free `WM_MOVE`/`WM_SIZE` facade
+notifications; actual native Windows WPF continues receiving real HWND
+WINDOWPOS messages. This is a source-policy correction, not a vendor-type
+filter or emulated user32 call. LibreWPF's own chrome worker also selects
+registered portable windowing or frozen portable media even after a source
+facade appears and guards native hook dispatch during a handoff.
+After repacking the exact local closure, Toolkit's full macOS 2× live
+application path passed, including floating/redocking steps, with initial
+980 × 612 client geometry. `WpfPortableWindowActivationTests` passed 81/81;
+the focused native-platform source guard and pointer-free geometry ingress
+tests passed 2/2. The test project built with zero errors and existing
+analyzer warnings. Hosted exact-head CI and Windows package/runtime gates
+remain outstanding; this local vendor ingress success does not qualify all
+AvalonDock layout or native chrome parity.
