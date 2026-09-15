@@ -641,7 +641,7 @@ public sealed class ProGpuWpfWindowHostTests
     }
 
     [Fact]
-    public void NativeFramebufferResizeRendersInsideTheResizeCallback()
+    public void NativeFramebufferResizeDefersUnattachedRootAndOtherwiseRendersSynchronously()
     {
         var source = File.ReadAllText(FindRepoPath(
             "src",
@@ -651,7 +651,12 @@ public sealed class ProGpuWpfWindowHostTests
         Assert.Contains("_window.FramebufferResize += OnFramebufferResize;", source, StringComparison.Ordinal);
         Assert.Contains("window.FramebufferResize -= OnFramebufferResize;", source, StringComparison.Ordinal);
         Assert.Contains("private void OnFramebufferResize(Vector2D<int> size)", source, StringComparison.Ordinal);
-        Assert.Contains("OnResize(_window.Size);\n            OnRender(0d);", source, StringComparison.Ordinal);
+        Assert.Contains("OnResize(_window.Size);", source, StringComparison.Ordinal);
+        Assert.Contains(
+            "if (RendererMode == ProGpuWpfRendererMode.NativeMilWgpu && _wpfRootVisual == null)",
+            source,
+            StringComparison.Ordinal);
+        Assert.Contains("return;\n            }\n            OnRender(0d);", source, StringComparison.Ordinal);
     }
 
     [Fact]

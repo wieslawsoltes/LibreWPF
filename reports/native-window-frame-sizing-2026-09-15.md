@@ -165,3 +165,12 @@ line heights were 93.100 and 93.105 DIPs. The gate's stock/native geometry
 and text-layout tolerances passed. This is exact merged-ProGPU-source local
 package evidence on ARM64, not hosted CI, x64, general live interaction,
 resize/DPI transitions, or all-WPF text parity qualification.
+
+The local `ProGpuWpfWindowHostTests` regression group found one old source
+assertion that required unconditional rendering immediately after every
+framebuffer resize. It is aligned with the first-show pre-root guard while
+still requiring synchronous resize rendering once a root is published.
+Using the project's VSTest runner directly, all 229 window-host cases then
+passed on macOS arm64. The build had existing compatibility/analyzer warnings
+and zero errors. Source-shape coverage supplements, but does not replace, the
+independent VM application result or hosted SDK/Windows gates.
