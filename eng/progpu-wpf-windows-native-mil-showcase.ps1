@@ -90,12 +90,114 @@ function Assert-ExactPackageAsset {
     Write-Host "Exact package asset: $OutputPath ($actual)"
 }
 
+function Install-ExactSdkPackage {
+    param([string] $PackagePath, [string] $PackageVersion, [string] $PackagesRoot)
+
+    # The NuGet MSBuild SDK resolver uses NUGET_PACKAGES before normal restore.
+    # RestorePackagesPath alone does not isolate a mutable same-version SDK cache.
+    $sdkDirectory = Join-Path $PackagesRoot "librewpf.sdk/$PackageVersion"
+    New-Item -ItemType Directory -Path $sdkDirectory -Force | Out-Null
+    [System.IO.Compression.ZipFile]::ExtractToDirectory($PackagePath, $sdkDirectory)
+
+    $sdkTargets = Join-Path $sdkDirectory "targets/ProGPU.Wpf.Sdk.targets"
+    $expected = Get-PackageEntryHash $PackagePath "targets/ProGPU.Wpf.Sdk.targets"
+    $actual = (Get-FileHash -LiteralPath $sdkTargets -Algorithm SHA256).Hash
+    if (![string]::Equals($expected, $actual, [System.StringComparison]::OrdinalIgnoreCase)) {
+        throw "The isolated LibreWPF SDK targets do not match the exact package $PackagePath."
+    }
+
+    $cachedPackageName = "librewpf.sdk.$PackageVersion.nupkg"
+    Copy-Item -LiteralPath $PackagePath -Destination (Join-Path $sdkDirectory $cachedPackageName)
+    $sha = [System.Security.Cryptography.SHA512]::Create()
+    try {
+        $contentHash = [Convert]::ToBase64String(
+            $sha.ComputeHash([System.IO.File]::ReadAllBytes($PackagePath)))
+    }
+    finally {
+        $sha.Dispose()
+    }
+    [System.IO.File]::WriteAllText((Join-Path $sdkDirectory "$cachedPackageName.sha512"), $contentHash)
+    $metadata = [pscustomobject]@{
+        version = 2
+        contentHash = $contentHash
+        source = (Split-Path -Parent $PackagePath)
+    } | ConvertTo-Json
+    [System.IO.File]::WriteAllText((Join-Path $sdkDirectory ".nupkg.metadata"), $metadata)
+    Write-Host "Isolated exact LibreWPF SDK: $sdkTargets ($actual)"
+}
+
+function Assert-RequestedRendererMode {
+    param([string] $AppHost)
+
+    $configurationPath = [System.IO.Path]::ChangeExtension($AppHost, ".runtimeconfig.json")
+    if (!(Test-Path -LiteralPath $configurationPath -PathType Leaf)) {
+        throw "Native MIL executable is missing $configurationPath."
+    }
+    $configuration = Get-Content -LiteralPath $configurationPath -Raw | ConvertFrom-Json
+    $mode = $configuration.runtimeOptions.configProperties.'LibreWPF.RequestedRendererMode'
+    if ($mode -ne "NativeMilWgpu") {
+        throw "Native MIL executable $AppHost requested '$mode', not NativeMilWgpu."
+    }
+}
+
 function Invoke-DotNet {
     param([string[]] $Arguments)
 
     & dotnet @Arguments
     if ($LASTEXITCODE -ne 0) {
         throw "dotnet $($Arguments -join ' ') failed with exit code $LASTEXITCODE."
+    }
+}
+
+function Invoke-CapturedApplication {
+    param(
+        [string] $AppHost,
+        [string] $StdoutPath,
+        [string] $StderrPath,
+        [int] $TimeoutMilliseconds
+    )
+
+    # Windows PowerShell 5 does not retain ExitCode from Start-Process -PassThru
+    # after a manually timed WaitForExit. Own the .NET process handle directly.
+    $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
+    $startInfo.FileName = $AppHost
+    $startInfo.WorkingDirectory = Split-Path -Parent $AppHost
+    $startInfo.UseShellExecute = $false
+    $startInfo.RedirectStandardOutput = $true
+    $startInfo.RedirectStandardError = $true
+    $process = [System.Diagnostics.Process]::new()
+    $process.StartInfo = $startInfo
+    $started = $false
+    try {
+        $started = $process.Start()
+        if (!$started) {
+            throw "Windows test executable did not start: $AppHost."
+        }
+        $stdoutTask = $process.StandardOutput.ReadToEndAsync()
+        $stderrTask = $process.StandardError.ReadToEndAsync()
+        $timedOut = !$process.WaitForExit($TimeoutMilliseconds)
+        if ($timedOut) {
+            try { $process.Kill() } catch [System.InvalidOperationException] { }
+        }
+        $process.WaitForExit()
+        $stdout = $stdoutTask.GetAwaiter().GetResult()
+        $stderr = $stderrTask.GetAwaiter().GetResult()
+        [System.IO.File]::WriteAllText($StdoutPath, $stdout)
+        [System.IO.File]::WriteAllText($StderrPath, $stderr)
+        if ($timedOut) {
+            throw "Windows test executable $AppHost timed out after $TimeoutMilliseconds milliseconds."
+        }
+        return [pscustomobject]@{
+            ExitCode = $process.ExitCode
+            Stdout = $stdout
+            Stderr = $stderr
+        }
+    }
+    finally {
+        if ($started -and !$process.HasExited) {
+            try { $process.Kill() } catch [System.InvalidOperationException] { }
+        }
+        $process.Dispose()
     }
 }
 
@@ -113,30 +215,16 @@ function Invoke-ShowcaseCheck {
     $stdoutPath = Join-Path $OutputDirectory "$Name-stdout.log"
     $stderrPath = Join-Path $OutputDirectory "$Name-stderr.log"
 
-    $process = Start-Process -FilePath $AppHost -WorkingDirectory (Split-Path -Parent $AppHost) `
-        -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath -PassThru
-    try {
-        if (!$process.WaitForExit(180000)) {
-            throw "Windows native MIL Showcase $Name check timed out after 180 seconds."
-        }
-        $process.Refresh()
-        $stdout = Get-Content -LiteralPath $stdoutPath -Raw
-        $stderr = Get-Content -LiteralPath $stderrPath -Raw
-        Write-Host $stdout
-        if (![string]::IsNullOrWhiteSpace($stderr)) {
-            Write-Warning $stderr
-        }
-        if ($process.ExitCode -ne 0) {
-            throw "Windows native MIL Showcase $Name check exited $($process.ExitCode)."
-        }
-        if ($stdout.IndexOf($ExpectedMarker, [System.StringComparison]::Ordinal) -lt 0) {
-            throw "Windows native MIL Showcase $Name check did not print its success marker."
-        }
+    $result = Invoke-CapturedApplication $AppHost $stdoutPath $stderrPath 180000
+    Write-Host $result.Stdout
+    if (![string]::IsNullOrWhiteSpace($result.Stderr)) {
+        Write-Warning $result.Stderr
     }
-    finally {
-        if (!$process.HasExited) {
-            Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
-        }
+    if ($result.ExitCode -ne 0) {
+        throw "Windows native MIL Showcase $Name check exited $($result.ExitCode)."
+    }
+    if ($result.Stdout.IndexOf($ExpectedMarker, [System.StringComparison]::Ordinal) -lt 0) {
+        throw "Windows native MIL Showcase $Name check did not print its success marker."
     }
 }
 
@@ -151,41 +239,32 @@ function Invoke-TextLayoutCheck {
     $env:PROGPU_WPF_TEXT_LAYOUT_EXIT_AFTER_REPORT = "1"
     $stdoutPath = Join-Path $OutputDirectory "$Name-text-layout-stdout.log"
     $stderrPath = Join-Path $OutputDirectory "$Name-text-layout-stderr.log"
-    $process = Start-Process -FilePath $AppHost -WorkingDirectory (Split-Path -Parent $AppHost) `
-        -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath -PassThru
-    try {
-        if (!$process.WaitForExit(120000)) {
-            throw "Windows $Name text-layout check timed out after 120 seconds."
-        }
-        $process.Refresh()
-        $stdout = Get-Content -LiteralPath $stdoutPath -Raw
-        $stderr = Get-Content -LiteralPath $stderrPath -Raw
-        Write-Host "$Name text layout: $stdout"
-        if (![string]::IsNullOrWhiteSpace($stderr)) {
-            Write-Warning $stderr
-        }
-        if ($process.ExitCode -ne 0) {
-            throw "Windows $Name text-layout check exited $($process.ExitCode)."
-        }
-        $match = [regex]::Match($stdout,
-            '(?m)^TEXT_LAYOUT width=(?<width>[0-9.]+) height=(?<height>[0-9.]+) font=(?<font>[0-9.]+) lines=(?<lines>[0-9]+) tops=(?<tops>[0-9.,]+) starts=(?<starts>[0-9,]+)\r?$')
-        if (!$match.Success) {
-            throw "Windows $Name text-layout check did not report the expected metrics."
-        }
-        $culture = [System.Globalization.CultureInfo]::InvariantCulture
-        return [pscustomobject]@{
-            Width = [double]::Parse($match.Groups['width'].Value, $culture)
-            Height = [double]::Parse($match.Groups['height'].Value, $culture)
-            Font = [double]::Parse($match.Groups['font'].Value, $culture)
-            Lines = [int]::Parse($match.Groups['lines'].Value, $culture)
-            Tops = @($match.Groups['tops'].Value.Split(',') | ForEach-Object { [double]::Parse($_, $culture) })
-            Starts = @($match.Groups['starts'].Value.Split(',') | ForEach-Object { [int]::Parse($_, $culture) })
-        }
+    $result = Invoke-CapturedApplication $AppHost $stdoutPath $stderrPath 120000
+    $stdout = $result.Stdout
+    Write-Host "$Name text layout: $stdout"
+    if (![string]::IsNullOrWhiteSpace($result.Stderr)) {
+        Write-Warning $result.Stderr
     }
-    finally {
-        if (!$process.HasExited) {
-            Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
-        }
+    if ($result.ExitCode -ne 0) {
+        throw "Windows $Name text-layout check exited $($result.ExitCode)."
+    }
+    if ($Name -eq "ProGPU-native-MIL" -and
+        $stdout.IndexOf("TEXT_RENDERER NativeMilWgpu", [System.StringComparison]::Ordinal) -lt 0) {
+        throw "Windows $Name text-layout check did not prove its live native MIL host."
+    }
+    $match = [regex]::Match($stdout,
+        '(?m)^TEXT_LAYOUT width=(?<width>[0-9.]+) height=(?<height>[0-9.]+) font=(?<font>[0-9.]+) lines=(?<lines>[0-9]+) tops=(?<tops>[0-9.,]+) starts=(?<starts>[0-9,]+)\r?$')
+    if (!$match.Success) {
+        throw "Windows $Name text-layout check did not report the expected metrics."
+    }
+    $culture = [System.Globalization.CultureInfo]::InvariantCulture
+    return [pscustomobject]@{
+        Width = [double]::Parse($match.Groups['width'].Value, $culture)
+        Height = [double]::Parse($match.Groups['height'].Value, $culture)
+        Font = [double]::Parse($match.Groups['font'].Value, $culture)
+        Lines = [int]::Parse($match.Groups['lines'].Value, $culture)
+        Tops = @($match.Groups['tops'].Value.Split(',') | ForEach-Object { [double]::Parse($_, $culture) })
+        Starts = @($match.Groups['starts'].Value.Split(',') | ForEach-Object { [int]::Parse($_, $culture) })
     }
 }
 
@@ -200,6 +279,10 @@ $smokeRoot = Join-Path ([System.IO.Path]::GetTempPath()) "librewpf-native-mil-$t
 $artifactsRoot = Join-Path $smokeRoot "artifacts"
 $packagesRoot = Join-Path $smokeRoot "nuget"
 New-Item -ItemType Directory -Path $artifactsRoot, $packagesRoot -Force | Out-Null
+$previousNugetPackages = $env:NUGET_PACKAGES
+Install-ExactSdkPackage $sdkPackage $Version $packagesRoot
+$env:NUGET_PACKAGES = $packagesRoot
+try {
 $artifactsProperty = $artifactsRoot.Replace('\', '/') + '/'
 $packagesProperty = $packagesRoot.Replace('\', '/')
 $feedProperty = $PackageDirectory.Replace('\', '/')
@@ -244,6 +327,7 @@ Assert-ExactPackageAsset (Join-Path $appDirectory "PresentationCore.dll") $trans
 Assert-ExactPackageAsset (Join-Path $appDirectory "PresentationFramework.dll") $transportPackage "lib/net10.0/PresentationFramework.dll"
 Assert-ExactPackageAsset (Join-Path $appDirectory "ProGPU.Wpf.dll") $bridgePackage "lib/net10.0/ProGPU.Wpf.dll"
 Assert-ExactPackageAsset (Join-Path $appDirectory "progpu_native.dll") $nativePackages[0].FullName "runtimes/$targetRid/native/progpu_native.dll"
+Assert-RequestedRendererMode $appHost
 
 Invoke-ShowcaseCheck "pre-display" "ProGPU WPF Showcase validation succeeded." $appHost $smokeRoot
 Invoke-ShowcaseCheck "displayed" "ProGPU WPF Showcase Application.Run validation succeeded." $appHost $smokeRoot
@@ -273,6 +357,7 @@ $textAppHost = Join-Path $textDirectory "ProGPU.Wpf.TextLayoutParityApp.exe"
 Assert-ExactPackageAsset (Join-Path $textDirectory "PresentationCore.dll") $transportPackage "runtimes/$targetRid/lib/net10.0/PresentationCore.dll"
 Assert-ExactPackageAsset (Join-Path $textDirectory "PresentationFramework.dll") $transportPackage "lib/net10.0/PresentationFramework.dll"
 Assert-ExactPackageAsset (Join-Path $textDirectory "progpu_native.dll") $nativePackages[0].FullName "runtimes/$targetRid/native/progpu_native.dll"
+Assert-RequestedRendererMode $textAppHost
 Invoke-DotNet -Arguments @(
     "build", $windowsTextProject, "-c", "Release", "-r", $targetRid,
     "-p:PlatformTarget=$TargetArchitecture",
@@ -300,3 +385,11 @@ for ($i = 0; $i -lt $nativeLayout.Tops.Count; $i++) {
     Assert-TextMetricNear "line $i top" $nativeLayout.Tops[$i] $portableLayout.Tops[$i] 0.05
 }
 Write-Host "Windows $TargetArchitecture package-only native MIL Showcase and same-source text-layout checks succeeded."
+}
+finally {
+    if ([string]::IsNullOrEmpty($previousNugetPackages)) {
+        Remove-Item Env:NUGET_PACKAGES -ErrorAction SilentlyContinue
+    } else {
+        $env:NUGET_PACKAGES = $previousNugetPackages
+    }
+}

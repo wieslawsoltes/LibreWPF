@@ -1,5 +1,13 @@
 # Windows ARM64 native MIL package parity — 2026-09-15
 
+> Correction: the originally reported same-source text equality did not prove
+> native-MIL text execution. A later live-process audit found no explicit
+> native runtime selection and no loaded `progpu_native.dll` in the text app.
+> The exact-SDK, live-host gated rerun and its non-identical native line-top
+> measurements are documented in
+> [Windows text runtime admission](native-mil-text-runtime-admission-2026-09-15.md).
+> Keep the original numbers below as historical, unqualified output.
+
 ## Acceptance and exact provenance
 
 The acceptance application is `ProGPU.Wpf.ShowcaseApp`. The action is a native

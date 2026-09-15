@@ -15,6 +15,21 @@ do not automatically expand the release checklist.
 
 ## Active completion queue
 
+**Windows native text runtime admission follow-up — 2026-09-15:** the merged
+ARM64 package gate's same-source text differential was not sufficient evidence
+of native text parity. The guest text executable lacked the explicit
+`NativeMilWgpu` runtime record and did not load `progpu_native.dll`; its window
+pixels exactly matched stock WPF. An old mutable SDK package in the global
+NuGet MSBuild SDK cache explains the missing native bootstrap, despite the exact
+managed/native output payload hashes. The follow-up branch isolates the exact
+SDK package before the early SDK resolver, requires runtime selection in both
+outputs, and requires the text fixture's live native host marker. The exact
+post-merge ARM64 package gate passed both Showcase checks and a newly admitted
+same-source native text differential (height 93.105 vs 93.100 DIP, five equal
+line starts); native Windows x64 PR-head CI remains. Full visual text
+parity stays in final qualification. See the
+[runtime-admission record](../reports/native-mil-text-runtime-admission-2026-09-15.md).
+
 **Merged Windows ARM64 package application gate; CI admission next — 2026-09-15:**
 The merge-commit LibreWPF/ProGPU/LibreWinForms package closure built the
 unchanged Showcase as a native Windows ARM64 apphost in Parallels. Exact
