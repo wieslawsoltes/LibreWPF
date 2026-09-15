@@ -247,7 +247,10 @@ public sealed unsafe class SilkNetWpfWindowDecorationService : IWpfWindowDecorat
         }
 
         var win32 = nativeWindow.Win32;
-        return win32.HasValue ? win32.Value.Item2 : IntPtr.Zero;
+        // Silk.NET exposes (Hwnd, Hdc, HInstance). The second tuple slot is
+        // the device context, not a window identity for ProGPU native owner,
+        // popup, activation, system-menu or drag APIs.
+        return win32.HasValue ? win32.Value.Hwnd : IntPtr.Zero;
     }
 
     private static IntPtr GetCocoaWindow(IView view)

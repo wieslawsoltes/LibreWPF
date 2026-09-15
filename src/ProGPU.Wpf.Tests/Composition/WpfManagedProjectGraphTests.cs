@@ -19934,7 +19934,8 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("return nativeWindowSource.Native", source, StringComparison.Ordinal);
         Assert.Contains("GetNativeWindow(view)", source, StringComparison.Ordinal);
         Assert.Contains("var win32 = nativeWindow.Win32", source, StringComparison.Ordinal);
-        Assert.Contains("return win32.HasValue ? win32.Value.Item2 : IntPtr.Zero", source, StringComparison.Ordinal);
+        Assert.Contains("return win32.HasValue ? win32.Value.Hwnd : IntPtr.Zero", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("win32.Value.Item2", source, StringComparison.Ordinal);
         Assert.Contains("var cocoa = nativeWindow.Cocoa", source, StringComparison.Ordinal);
         Assert.Contains("return cocoa.GetValueOrDefault()", source, StringComparison.Ordinal);
         Assert.Contains("var x11 = nativeWindow.X11", source, StringComparison.Ordinal);

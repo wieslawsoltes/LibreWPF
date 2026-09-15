@@ -236,3 +236,59 @@ and `toolkit-encode-checkpoints-ci1dfda315-final-stdout.log` (SHA-256
 `b6fa650f960bd86306d38631732d4111a4dcb759f78948efa2f276ce47db5c3e`).
 These paired logs preserve the source scene/generation evidence and the exact
 failure stack. No passing floating-window, package or performance gate follows.
+
+### Windows ARM64 mask-operation and popup-owner diagnosis
+
+LibreWPF [#143](https://github.com/wieslawsoltes/LibreWPF/pull/143) passed all
+ten exact-head checks and merged at
+`a96ecf480209f37456378164744a83d56b7980e0` into the
+`progpu-rendering-port` integration branch. That branch is not LibreWPF
+`main`; this does not assert a final main-branch release.
+
+The corrected ProGPU [#169](https://github.com/wieslawsoltes/ProGPU/pull/169)
+Windows ARM64 CI run `34997024109` produced the bundle-operation profile DLL
+for profile head `ac3ba5a21f728e401653004d6d44214ad7014f0c`; its SHA-256
+is `f5556ef660dfa119751b0b448445e6adc4a840099212718f1e3851ea8e97e796`.
+The rebased PR head is range-diff equivalent but its own CI is still pending.
+The guest kept its previous #168 native DLL under the unique backup name
+`TestOutput\progpu_native-checkpoints-ci1dfda315.dll` before this overlay.
+The opt-in ProGPU popup diagnostic `ProGPU.Backend.dll` was also a local source
+overlay, SHA-256 `3ee853b69938ca49ae09fa906a85628f8a6dff19578e6cd1bd5c16e61b9257b5`;
+its previous guest DLL is retained as
+`TestOutput\ProGPU.Backend-pre-popup-diagnostics.dll`. Native and managed
+diagnostic overlays are not final assembled-package qualification.
+
+With native MIL, native input, `PROGPU_NATIVE_TRACE_SCENE_ENCODE=1`,
+`PROGPU_NATIVE_TRACE_POPUP_OWNER=1` and full Toolkit live validation enabled,
+the changed `6,842`-command generation spent `261,171.423 ms` building
+`327` retained spans. Eleven mask bindings accounted for `261,167.772 ms`.
+Encoder creation, draw encoding, finish, release and other traversal together
+were under `4 ms`; replay was `4.022 ms` and flush `0.408 ms`. The next three
+changed generations each rebuilt eleven masks for about `253–271 s`, with
+nonmask bundle operations still in milliseconds. This is direct Windows evidence
+that the recurring CPU encode bottleneck is mask binding, not bundle encoder
+creation or presentation. A separate macOS source-overlay kind profile of the
+same Toolkit scene measured two vector-clip and nine picture masks, with
+picture-mask child-engine creation dominant there. The Windows mask-kind and
+child-engine subphase are not yet separately measured; do not infer their exact
+split solely from macOS.
+
+The Toolkit process exited `1` during the live popup step. The opt-in Win32
+owner trace reported `NonlocalWindows`, but both passed nonzero values resolved
+to `ownerThread=0`, `popupThread=0`, `ownerProcess=0`, `popupProcess=0` through
+`GetWindowThreadProcessId`. Source inspection then found the bridge used
+`nativeWindow.Win32.Value.Item2`. Silk.NET names that tuple
+`(Hwnd, Hdc, HInstance)` in ProGPU's compiled backend source; `Item2` is an
+HDC, not an HWND. The bridge now passes the named `Hwnd` for popup ownership,
+activation, system menus and native drag. It does not weaken ProGPU's
+same-thread/hidden Win32 admission or accept an unowned popup. A new exact
+Windows live rerun and final package gate must prove the correction before
+popup/floating-window qualification can be reported.
+
+The final guest logs were copied into the task-owned host cache as
+`toolkit-bundle-profile-ciac3ba5a2-final-stdout.log` (SHA-256
+`96733195995027ea371d46e5235d70b087b7aec2c29e1bd9f278523a7accb834`)
+and `toolkit-bundle-profile-ciac3ba5a2-final-stderr.log` (SHA-256
+`746c2fe5b3b7311e08191d5489b3bd33049e2ae165805709ee065bb86e99c4d4`).
+They retain scene/generation, measured operations and the exact rejected
+native-handle pairing without publishing the private guest application tree.
