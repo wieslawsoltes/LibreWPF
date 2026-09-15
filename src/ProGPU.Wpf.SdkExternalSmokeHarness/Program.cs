@@ -15832,25 +15832,15 @@ internal static class Program
                         throw new InvalidOperationException("Expected default-item live ProGPU WPF window host.");
                     }
 
-                    var frameMethod = liveHost.GetType().GetMethod(
-                        "GetLogicalNativeFrameInsets",
-                        BindingFlags.Instance | BindingFlags.NonPublic);
-                    object frame = frameMethod?.Invoke(liveHost, null)
+                    var frame = liveHost.GetLogicalNativeFrameInsets()
                         ?? throw new InvalidOperationException("Expected default-item live native frame insets.");
-                    var frameType = frame.GetType();
-                    if (!Convert.ToBoolean(frameType.GetProperty("IsValid")?.GetValue(frame), CultureInfo.InvariantCulture))
+                    if (!frame.IsValid)
                     {
                         throw new InvalidOperationException("Expected valid default-item live native frame insets.");
                     }
 
-                    double frameWidth = Convert.ToDouble(
-                        frameType.GetProperty("Horizontal")?.GetValue(frame)
-                            ?? throw new InvalidOperationException("Expected default-item native frame horizontal inset."),
-                        CultureInfo.InvariantCulture);
-                    double frameHeight = Convert.ToDouble(
-                        frameType.GetProperty("Vertical")?.GetValue(frame)
-                            ?? throw new InvalidOperationException("Expected default-item native frame vertical inset."),
-                        CultureInfo.InvariantCulture);
+                    double frameWidth = frame.Horizontal;
+                    double frameHeight = frame.Vertical;
                     Require(Math.Abs(ActualWidth - 260.0) <= 1.0, "Expected default-item live ProGPU WPF outer width.");
                     Require(Math.Abs(ActualHeight - 140.0) <= 1.0, "Expected default-item live ProGPU WPF outer height.");
                     Require(

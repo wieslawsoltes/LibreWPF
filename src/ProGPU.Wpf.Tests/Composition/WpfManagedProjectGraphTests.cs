@@ -12813,7 +12813,8 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("Sdk\\*", sdkProject.ToString(), StringComparison.Ordinal);
         Assert.Contains("targets\\*", sdkProject.ToString(), StringComparison.Ordinal);
         Assert.Contains("README.md", sdkProject.ToString(), StringComparison.Ordinal);
-        Assert.Contains("<None Include=\"README.md\" Pack=\"true\" PackagePath=\"\\\" />", sdkProject.ToString(), StringComparison.Ordinal);
+        Assert.Contains("<None Update=\"README.md\" Pack=\"true\" PackagePath=\"\\\" />", sdkProject.ToString(), StringComparison.Ordinal);
+        Assert.DoesNotContain("<PackagingContent Include=\"README.md\"", sdkProject.ToString(), StringComparison.Ordinal);
         Assert.Contains("<None Include=\"Sdk\\**\\*\" Pack=\"true\" PackagePath=\"Sdk\\%(RecursiveDir)\" />", sdkProject.ToString(), StringComparison.Ordinal);
         Assert.Contains("<None Include=\"$(IntermediateOutputPath)LibreWPF.Sdk.Version.props\"", sdkProject.ToString(), StringComparison.Ordinal);
         Assert.Contains("BeforeTargets=\"_GetPackageFiles\"", sdkProject.ToString(), StringComparison.Ordinal);

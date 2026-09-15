@@ -233,7 +233,7 @@ bundle's final Windows VM rerun; those gates remain required.
 The superseded hosted SDK 11 RC1 run for `35abacf6f` confirmed the same
 DefaultItemsApp failure after its earlier gates passed: the old 140-DIP
 logical-height assertion stopped the external live app. The new exact head
-`232792e83` is running CI. A local full SDK sequence against the exact
+`232792e83` subsequently entered CI. A local full SDK sequence against the exact
 merged ProGPU package closure initially stopped during real XAML native
 library loading because the test's `DYLD_LIBRARY_PATH` referenced the
 SDK-switch NuGet output directory that the full script deliberately cleans.
@@ -285,3 +285,24 @@ tests passed 2/2. The test project built with zero errors and existing
 analyzer warnings. Hosted exact-head CI and Windows package/runtime gates
 remain outstanding; this local vendor ingress success does not qualify all
 AvalonDock layout or native chrome parity.
+
+The next full local SDK run enabled its source-built native MIL host check
+against the exact merged ProGPU dylib. Native host, real XAML, application
+lifetime, Fluent runtime, package audit/bundle, SDK switch, mixed desktop,
+external generated app, Hello, Showcase (including its 120-frame gate),
+Toolkit, paid Xceed and SciChart application runs all passed. Its final
+focused graph guard stopped on an outdated SDK readme source assertion:
+RC1's successful one-readme package uses `<None Update="README.md">`,
+not the old explicit `Include` item. The guard now requires the actual
+default-item pack metadata and rejects a duplicate Arcade
+`PackagingContent` readme. Its next assertion exposed that the Showcase
+source intentionally prohibits reflection-based `GetType()` probes; the
+new live frame test had introduced one. ProGPU's interop layer already
+publishes the typed `PortableWindowFrameInsets` contract in desktop logical
+units. `ProGpuWpfWindowHost.GetLogicalNativeFrameInsets()` is now public,
+preserving null for unavailable measurement and valid zero for borderless
+frames. Hello, Showcase, Toolkit and the generated external DefaultItemsApp
+consume that typed result directly, with their outer/client parity checks
+unchanged. The focused graph guard passed after this correction. These
+final API/sample edits still require an exact local repack/full-gate rerun
+and hosted exact-head CI before qualification.

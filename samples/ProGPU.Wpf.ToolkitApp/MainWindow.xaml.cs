@@ -6,7 +6,6 @@ using System.ComponentModel;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
@@ -5235,25 +5234,15 @@ public partial class MainWindow : Window
         uint viewportWidth = geometry.ViewportWidth;
         uint viewportHeight = geometry.ViewportHeight;
 
-        var frameMethod = liveHost.GetType().GetMethod(
-            "GetLogicalNativeFrameInsets",
-            BindingFlags.Instance | BindingFlags.NonPublic);
-        object frame = frameMethod?.Invoke(liveHost, null)
+        var frame = liveHost.GetLogicalNativeFrameInsets()
             ?? throw new InvalidOperationException("Expected Toolkit live native frame insets.");
-        Type frameType = frame.GetType();
-        if (!Convert.ToBoolean(frameType.GetProperty("IsValid")?.GetValue(frame), CultureInfo.InvariantCulture))
+        if (!frame.IsValid)
         {
             throw new InvalidOperationException("Expected valid Toolkit live native frame insets.");
         }
 
-        double frameWidth = Convert.ToDouble(
-            frameType.GetProperty("Horizontal")?.GetValue(frame)
-                ?? throw new InvalidOperationException("Expected Toolkit native frame horizontal inset."),
-            CultureInfo.InvariantCulture);
-        double frameHeight = Convert.ToDouble(
-            frameType.GetProperty("Vertical")?.GetValue(frame)
-                ?? throw new InvalidOperationException("Expected Toolkit native frame vertical inset."),
-            CultureInfo.InvariantCulture);
+        double frameWidth = frame.Horizontal;
+        double frameHeight = frame.Vertical;
         if (Math.Abs(ActualWidth - 980.0) > 1.0 || Math.Abs(ActualHeight - 640.0) > 1.0 ||
             Math.Abs(logicalWidth + frameWidth - ActualWidth) > 1.0 ||
             Math.Abs(logicalHeight + frameHeight - ActualHeight) > 1.0)

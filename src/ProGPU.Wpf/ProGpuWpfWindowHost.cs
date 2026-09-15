@@ -436,7 +436,12 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         LastResolvedRenderSurfaceGeometry.DpiScaleY,
         _portablePresentationSourceDpiScaleY);
 
-    internal PortableWindowFrameInsets? GetLogicalNativeFrameInsets()
+    /// <summary>
+    /// Returns the live native non-client frame in desktop logical units.
+    /// Null means the native window or its frame measurement is unavailable;
+    /// a valid zero frame is retained for borderless windows.
+    /// </summary>
+    public PortableWindowFrameInsets? GetLogicalNativeFrameInsets()
     {
         if (_window?.IsInitialized != true ||
             _windowController == null ||
