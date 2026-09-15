@@ -107,3 +107,26 @@ The pinned local .NET 11 restore reproduced `MSB4181` with the bare
 properties.
 The changed head still requires its own canonical and SDK result; this is not
 license to skip package closure or release validation.
+
+The subsequent exact-head CI build passed canonical WinForms integration,
+Windows managed-payload packaging, the real XAML and Fluent theme runtimes,
+three application-lifetime scenarios, and the package audit. The SDK switch
+runtime harness then stopped at `TargetParameterCountException` before its
+window checks: its reflective test registrar still supplied 22 arguments to
+`PortableWindowActivationService.Register` after the typed frame-insets
+capability became argument 23. The harness now supplies an explicit absent
+frame-insets callback in its fake host. The product's typed registration and
+all preceding live-host gates remain unchanged; the corrected SDK switch
+and downstream CI lanes still require an exact-head run.
+
+The independent Windows ARM64 package-only gate initially stopped at NuGet
+`NU1301` because the unchanged Showcase sample's checked-in `NuGet.config`
+requires a repo-local `artifacts/packages/Release/NonShipping` directory,
+which is absent in this clean checkout. Passing an external exact package
+directory via `RestoreAdditionalProjectSources` does not remove that invalid
+source. The VM gate now clones the sample's configuration to its private test
+directory, points only that local-feed entry at the supplied package bundle,
+and keeps its package cache private. It does not rewrite the sample or restore
+from an undeclared source. The first rerun restored the unchanged Showcase
+successfully; native application and stock-Windows geometry results are still
+pending.

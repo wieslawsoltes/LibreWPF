@@ -295,6 +295,18 @@ $previousNugetPackages = $env:NUGET_PACKAGES
 Install-ExactSdkPackage $sdkPackage $Version $packagesRoot
 $env:NUGET_PACKAGES = $packagesRoot
 try {
+$showcaseNugetConfig = Join-Path $repoRoot "samples/ProGPU.Wpf.ShowcaseApp/NuGet.config"
+$privateNugetConfig = Join-Path $smokeRoot "NuGet.config"
+[xml] $privateConfig = Get-Content -LiteralPath $showcaseNugetConfig -Raw
+$localFeedNode = $privateConfig.SelectSingleNode("/configuration/packageSources/add[@key='ProGPUWpfLocalArtifacts']")
+$globalPackagesNode = $privateConfig.SelectSingleNode("/configuration/config/add[@key='globalPackagesFolder']")
+if ($null -eq $localFeedNode -or $null -eq $globalPackagesNode) {
+    throw "The Showcase NuGet config no longer provides its local feed and package-cache entries."
+}
+$localFeedNode.SetAttribute("value", $PackageDirectory)
+$globalPackagesNode.SetAttribute("value", $packagesRoot)
+$privateConfig.Save($privateNugetConfig)
+
 $artifactsProperty = $artifactsRoot.Replace('\', '/') + '/'
 $packagesProperty = $packagesRoot.Replace('\', '/')
 $feedProperty = $PackageDirectory.Replace('\', '/')
@@ -312,6 +324,7 @@ Invoke-DotNet -Arguments @(
 )
 Invoke-DotNet -Arguments @(
     "build", $showcaseProject, "-c", "Release", "-r", $targetRid,
+    "-p:RestoreConfigFile=$privateNugetConfig",
     "-p:PlatformTarget=$TargetArchitecture",
     "-p:ArtifactsDir=$artifactsProperty",
     "-p:RestorePackagesPath=$packagesProperty",
