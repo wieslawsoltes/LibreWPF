@@ -157,10 +157,14 @@ source uses one updated default `None` NuGet pack item and removes only this
 SDK project's duplicate `PackagingContent` readme item; its Sdk/targets
 content items and the source sample configuration remain unchanged. The
 corrected package must pass both local ZIP membership and exact-head CI.
-The older local SDK 11 preview pack still emits two readme entries from the
-NuGet-only declaration, so its newly repacked package is not the final VM
-bundle. The pinned hosted RC1 package must be inspected and rerun through the
-independent VM gate once available.
+The local pack still briefly duplicated the readme after this source change:
+its generated nuspec exposed a stale
+`artifacts/packaging/Release/LibreWPF.Sdk/README.md` left by earlier
+Arcade-content runs alongside the new project `None` item. That one generated
+file was moved recoverably out of the staging directory. A fresh pack using
+the exact hosted SDK 11 RC1 version then succeeded, with exactly one
+`README.md`, required SDK targets, and no duplicate ZIP names. This local
+toolset result does not waive the hosted exact-head bundle and VM rerun.
 The repacked bundle completed the independent Windows 11 ARM64 package-only
 gate. The SDK Showcase built with a native ARM64 apphost, exact package hashes
 matched its WPF, ProGPU bridge, and `progpu_native.dll` outputs, and both
@@ -184,3 +188,19 @@ Using the project's VSTest runner directly, all 229 window-host cases then
 passed on macOS arm64. The build had existing compatibility/analyzer warnings
 and zero errors. Source-shape coverage supplements, but does not replace, the
 independent VM application result or hosted SDK/Windows gates.
+
+Local full-SDK validation on a Retina macOS host stopped at the real XAML
+mouse-binding case: the live source `Window.InputHitTest` selected its
+`MouseBindingSurface` TextBlock, but the synthetic host event selected a
+pointer-infrastructure Border and missed the routed command. The harness
+created that event with `sender=null`, which ProGPU treats as already in
+receiving source-root DIPs, yet its test helper had multiplied the point by
+`TransformToDevice` first. At 2× it sent approximately `(420,53)` instead
+of `(210,26)`. The fixture now sends the original root-local point; real
+platform events retain their typed native desktop/device normalization.
+A fresh real-XAML harness build under the same SDK 11 RC1 and runtime
+version used by hosted CI had zero errors and its full runtime smoke passed
+on macOS arm64. A proposed pre-forward managed-cache refresh was tested,
+did not repair the mismatch, and was removed without committing it. This
+fixture correction does not waive actual pointer/DPI application validation
+or hosted exact-head CI.

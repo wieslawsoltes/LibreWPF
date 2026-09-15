@@ -1858,7 +1858,7 @@ internal static class Program
         object mouseBindingSurface = GetField(window, "MouseBindingSurface");
         Invoke(window, "UpdateLayout");
         Invoke(mouseBindingSurface, "UpdateLayout");
-        (double x, double y) = GetElementCenterInWindow(presentationCore, mouseBindingSurface, window);
+        (double x, double y) = GetElementCenterInWindow(mouseBindingSurface, window);
         object? directHit = InvokeNullable(window, "InputHitTest", GetElementCenterPointInWindow(mouseBindingSurface, window));
 
         int initialExecutionCount = Convert.ToInt32(GetProperty(window, "RoutedCommandExecutionCount"));
@@ -6238,13 +6238,15 @@ internal static class Program
         inputMethod.Invoke(host, new object?[] { null, input });
     }
 
-    private static (double X, double Y) GetElementCenterInWindow(Assembly presentationCore, object element, object window)
+    private static (double X, double Y) GetElementCenterInWindow(object element, object window)
     {
         object windowPoint = GetElementCenterPointInWindow(element, window);
-        object transformToDevice = GetTransformToDevice(presentationCore, window);
-        (double x, double y) = TransformPoint(transformToDevice, windowPoint);
-
-        return (x, y);
+        // Sender-null diagnostic input is already in the receiving source root's
+        // DIPs. Only actual native platform events use the host's device/desktop
+        // normalization path.
+        return (
+            Convert.ToDouble(GetProperty(windowPoint, "X")),
+            Convert.ToDouble(GetProperty(windowPoint, "Y")));
     }
 
     private static object GetElementCenterPointInWindow(object element, object window)
