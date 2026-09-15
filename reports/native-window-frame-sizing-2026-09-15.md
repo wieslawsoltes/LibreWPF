@@ -153,4 +153,15 @@ its retained `PackagingContent` item and an explicit `None` pack item. The
 redundant `None` declaration is removed; the pack still has its one readme
 and `targets/ProGPU.Wpf.Sdk.targets`, and its ZIP now has no duplicate names.
 No Arcade packaging content or source sample configuration was removed.
-The VM application check remains pending on the repacked bundle.
+The repacked bundle completed the independent Windows 11 ARM64 package-only
+gate. The SDK Showcase built with a native ARM64 apphost, exact package hashes
+matched its WPF, ProGPU bridge, and `progpu_native.dll` outputs, and both
+pre-display and visible `Application.Run` Showcase checks passed. The same
+source-only text fixture compiled under stock Windows WPF and ProGPU native
+MIL; both reported source size 430 × 300 DIPs, text width 211.333, five lines,
+and starts `0,32,58,88,121`. At 192 DPI, stock WPF reported outer/client
+860 × 600 / 834 × 529 pixels and ProGPU reported 860 × 601 / 834 × 530;
+line heights were 93.100 and 93.105 DIPs. The gate's stock/native geometry
+and text-layout tolerances passed. This is exact merged-ProGPU-source local
+package evidence on ARM64, not hosted CI, x64, general live interaction,
+resize/DPI transitions, or all-WPF text parity qualification.
