@@ -25,6 +25,8 @@ same run measured a later synchronous ProGPU C++ render submission at roughly
 Commit and package-gate the monitor repair, isolate that native renderer cost
 without a managed fallback, then rerun live Toolkit validation. See the
 [monitor and Toolkit record](../reports/native-mil-win32-monitor-toolkit-2026-09-15.md).
+ProGPU #167 has the opt-in CPU stage measurement contract; Windows package/VM
+evidence and a renderer repair remain pending.
 
 **Windows native text runtime admission follow-up — 2026-09-15:** the merged
 ARM64 package gate's same-source text differential was not sufficient evidence

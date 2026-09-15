@@ -73,3 +73,22 @@ assertions, or treat a source overlay as release qualification.
 
 The Windows native-MIL SDK default, full visual/DirectX/Direct2D parity,
 commercial consumers, and the original broad goal remain open.
+
+## Opt-in native stage capture follow-up
+
+ProGPU [#167](https://github.com/wieslawsoltes/ProGPU/pull/167), from latest
+main `3755428f3ad9c269a5e4a9bc91e0a4175f68f695`, adds size-checked,
+opt-in native semantic-scene CPU phase metrics. Its local macOS ARM64 C++20
+wgpu-native/Dawn build, native MIL/ABI tests, generated-contract verification,
+and hardware-backed package-consumer capture run passed. Hosted CI and the
+Windows ARM64 stage capture are still pending.
+
+The WPF host follow-up requests that capture only when
+`PROGPU_WPF_TRACE_NATIVE_LOOP` is enabled. It logs scene/generation,
+command/draw/submission counts, payload hash and native CPU preflight,
+resource, encode, flush, finalize and total durations after the host
+`SurfacePresent` call returns. Ordinary frames keep the existing unmeasured
+ProGPU overload. A local WPF product build against #167 source succeeds; the branch
+must not publish or qualify that dependency until #167 passes and its exact
+native package is available. The next VM run must preserve native selection
+and the same Toolkit live assertions while recording these new phases.
