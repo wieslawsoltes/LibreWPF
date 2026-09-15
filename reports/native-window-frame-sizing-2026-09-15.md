@@ -76,3 +76,11 @@ rectangle validation, live
 Showcase interaction, resize/DPI/chrome/SizeToContent transitions, and CI are
 still required before this branch qualifies or merges. Existing native SDK
 admission remains separate.
+
+On the independent Parallels Windows 11 ARM64 guest (build 26200.9457,
+Parallels Tools 27.0.1), the merged-source branch built and ran the focused
+`WpfPortableWindowActivationTests` under installed .NET SDK 10.0.401:
+81 passed, 0 failed, 0 skipped. This checks source activation and frame
+callbacks on Windows; it does not substitute for package-only outer/client
+rectangle comparison or native MIL application interaction. The guest uses its
+existing shared drive for source access, with no VM configuration change.
