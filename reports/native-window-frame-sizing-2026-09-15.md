@@ -69,6 +69,14 @@ the actual typed logical frame insets, instead of freezing pre-frame client
 dimensions. This retains an exact window-sizing assertion across Cocoa,
 Win32, and X11 without hard-coded title-bar heights.
 
+On the final merged-source CI head, the corrected XAML harness and three real
+portable application-lifetime scenarios passed. The subsequent Fluent theme
+runtime harness independently retained the same old 340-client-height
+expectation and stopped the SDK gate. Its presented-host assertion now uses
+the identical actual client-plus-frame relation. This is a harness update for
+the implemented outer-size contract, not a skipped runtime or a change in
+theme rendering behavior.
+
 ProGPU backend contract tests passed (12/12) and the ProGPU.Wpf
 portable host build completed with zero errors on macOS. Windows source
 compilation passed on the prior PR head, but Windows x64/ARM64 stock-vs-native
