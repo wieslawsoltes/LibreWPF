@@ -97,6 +97,16 @@ exact assembled-package Windows run are still required. The next VM run must
 preserve native selection and the same Toolkit live assertions while recording
 these new phases.
 
+The first #143 canonical WinFormsIntegration CI attempt correctly rejected
+the mixed source graph: LibreWinForms still pinned ProGPU
+`3755428f3ad9c269a5e4a9bc91e0a4175f68f695`, while this branch pinned
+`7e6dd6a724240c6ec4f95ff1e3e7885cbe66035c`. The companion
+[LibreWinForms #36](https://github.com/wieslawsoltes/LibreWinForms/pull/36)
+advances its nested ProGPU gitlink to the same merged main commit without a
+WinForms-local renderer change. This branch pins that exact LibreWinForms
+PR head for parallel CI; after #36 passes and merges, it must repin the
+LibreWinForms merge commit and rerun its own exact-head canonical gate.
+
 ### macOS native-MIL source-overlay probe
 
 The Toolkit sample was rebuilt with both `ProGpuWpfRendererMode=NativeMilWgpu`
