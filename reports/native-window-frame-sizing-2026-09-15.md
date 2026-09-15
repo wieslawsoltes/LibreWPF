@@ -32,6 +32,15 @@ the preceding main commit. LibreWinForms PR #35 aligns its ProGPU submodule to
 the same frame-contract commit; this LibreWPF branch pins that alignment. This
 is a dependency fix, not a relaxation of the canonical gate.
 
+The same-source Windows package-only text fixture now reports its actual
+native outer/client rectangles, DPI, and declared Window size for both stock
+WPF and native MIL. The gate compares the two rectangles (within one native
+pixel), DPI, and source dimensions alongside text line metrics. In native
+mode it reads the actual ProGPU Win32 host handle, never the portable
+presentation-source identity; stock WPF uses its ordinary HWND. The earlier
+443 × 336 oversized native window would fail this gate even though its text
+line metrics passed.
+
 Focused ProGPU backend contract tests passed (8/8) and the ProGPU.Wpf
 portable host build completed with zero errors on macOS. Full Windows source
 compilation, Windows x64/ARM64 stock-vs-native rectangle validation, live

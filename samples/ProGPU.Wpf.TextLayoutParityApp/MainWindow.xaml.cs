@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Documents;
 using System.Windows.Threading;
@@ -9,6 +10,27 @@ namespace ProGPU.Wpf.TextLayoutParityApp;
 
 public partial class MainWindow : Window
 {
+    [StructLayout(LayoutKind.Sequential)]
+    private struct NativeRect
+    {
+        public int Left;
+        public int Top;
+        public int Right;
+        public int Bottom;
+
+        public int Width => Right - Left;
+        public int Height => Bottom - Top;
+    }
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool GetWindowRect(IntPtr window, out NativeRect rectangle);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool GetClientRect(IntPtr window, out NativeRect rectangle);
+
+    [DllImport("user32.dll")]
+    private static extern uint GetDpiForWindow(IntPtr window);
+
     public MainWindow()
     {
         InitializeComponent();
@@ -37,7 +59,27 @@ public partial class MainWindow : Window
                 throw new InvalidOperationException("The text-layout fixture did not select a live native MIL host.");
             }
             Console.WriteLine("TEXT_RENDERER NativeMilWgpu");
+            var nativeWindow = nativeHost.NativeWindowHandle;
+            if (nativeWindow.Kind != global::ProGPU.Backend.NativeWindowKind.Win32 ||
+                !nativeWindow.IsValid)
+            {
+                throw new InvalidOperationException("The native MIL fixture has no actual Win32 host window.");
+            }
+            IntPtr realWindow = nativeWindow.Handle;
+#else
+            IntPtr realWindow = new System.Windows.Interop.WindowInteropHelper(this).Handle;
 #endif
+            if (realWindow == IntPtr.Zero ||
+                !GetWindowRect(realWindow, out var outer) ||
+                !GetClientRect(realWindow, out var client))
+            {
+                throw new InvalidOperationException("The fixture could not read its actual native window rectangles.");
+            }
+            Console.WriteLine(string.Format(
+                CultureInfo.InvariantCulture,
+                "WINDOW_GEOMETRY outer={0}x{1} client={2}x{3} dpi={4} source={5:F3}x{6:F3}",
+                outer.Width, outer.Height, client.Width, client.Height,
+                GetDpiForWindow(realWindow), Width, Height));
             var lineTops = new List<double>();
             var lineStarts = new List<int>();
             TextPointer end = WrappingText.ContentEnd;
