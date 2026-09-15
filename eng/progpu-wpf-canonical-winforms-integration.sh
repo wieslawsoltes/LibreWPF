@@ -233,7 +233,11 @@ fi
 librewinforms_short_commit="$(git -C "${librewinforms_root}" rev-parse --short=8 HEAD)"
 librewpf_short_commit="$(git -C "${repo_root}" rev-parse --short=8 HEAD)"
 progpu_short_commit="$(git -C "${progpu_root}" rev-parse --short=8 HEAD)"
-canonical_package_version="${PROGPU_WPF_CANONICAL_WINFORMS_PACKAGE_VERSION:-0.1.0-canonical.${librewinforms_short_commit}.${librewpf_short_commit}}"
+# Commit prefixes can consist solely of digits and start with zero. Bare
+# numeric prerelease identifiers with leading zeroes are invalid SemVer and
+# cause NuGet restore to fail before canonical packaging can report a package
+# dependency error. Label both source identities as alphanumeric identifiers.
+canonical_package_version="${PROGPU_WPF_CANONICAL_WINFORMS_PACKAGE_VERSION:-0.1.0-canonical.winforms${librewinforms_short_commit}.wpf${librewpf_short_commit}}"
 progpu_source_package_version="${PROGPU_WPF_CANONICAL_PROGPU_PACKAGE_VERSION:-0.1.0-source.${progpu_short_commit}}"
 canonical_forms_package="${canonical_package_output}/LibreWinForms.System.Windows.Forms.${canonical_package_version}.nupkg"
 canonical_backend_package="${canonical_package_output}/LibreWinForms.ProGPU.${canonical_package_version}.nupkg"

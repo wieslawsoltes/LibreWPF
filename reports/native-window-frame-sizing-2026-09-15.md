@@ -92,3 +92,18 @@ Parallels Tools 27.0.1), the merged-source branch built and ran the focused
 callbacks on Windows; it does not substitute for package-only outer/client
 rectangle comparison or native MIL application interaction. The guest uses its
 existing shared drive for source access, with no VM configuration change.
+
+The later exact-head canonical WinForms CI lane failed twice at the same
+package restore with NuGet `MSB4181`, after all ProGPU drawing dependencies
+were packed. Its generated version ended in bare WPF commit token `04060464`:
+an all-numeric prerelease identifier with a leading zero, invalid under
+SemVer. Earlier otherwise-identical heads with alphanumeric commit tokens
+passed the lane. Canonical CI package versions now label both source identities
+as alphanumeric `winforms<commit>` and `wpf<commit>` tokens, preserving exact
+source provenance while avoiding numeric-leading-zero restore rejection.
+The pinned local .NET 11 restore reproduced `MSB4181` with the bare
+`0.1.0-canonical.4a1b17e8.04060464` version and completed successfully with
+`0.1.0-canonical.winforms4a1b17e8.wpf04060464` under the same project and
+properties.
+The changed head still requires its own canonical and SDK result; this is not
+license to skip package closure or release validation.
