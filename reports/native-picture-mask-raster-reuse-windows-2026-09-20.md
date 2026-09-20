@@ -62,7 +62,7 @@ captures remain ineligible. Sampling transforms, opacity, guidelines, and span
 uniforms remain parent-scene state rather than part of the retained raster.
 
 The current implementation branch head recorded for this comparison is
-`2eaf23bf170d27fcafc79c00f250f95300b6cb24`. The exact-head Windows ARM64
+`3239b4555e4ed3e47eadfb65aef61aebe82aab4a`. The exact-head Windows ARM64
 renderer job must finish successfully and supply the runtime used for the
 post-change run. The final LibreWPF package graph must then pin the merged
 ProGPU commit rather than this pull-request branch.
@@ -123,6 +123,33 @@ working set. New Direct2D/WebGPU regressions cover an image insertion between a
 mask seed and revisit plus two different nested scenes sharing one descriptor.
 The focused test and all 19 native CTests pass locally.
 
+## Third replacement artifact result
+
+ProGPU Build `35519234209` produced the exact Windows ARM64 runtime for
+`2eaf23bf170d27fcafc79c00f250f95300b6cb24`. The ARM64
+`progpu_native.dll` SHA-256 was
+`E52CFB308E60E592EF355F46E60189DCAC697CEBA38CB5F3D35B980E6DDC4C57`.
+Both previous replacements and the original baseline remained preserved before
+installation.
+
+Generation 2 again populated all nine masks, including separate same-size
+1934 by 1210 streams. Generation 3 nevertheless rerasterized the first full
+surface for 32,526.979 ms and the unique 961 by 238 surface for 30,701.513 ms.
+The separated caches were therefore working as designed but were never
+eligible for lookup in the live application: the parent engine carried
+external-image bindings for unrelated Toolkit content, and the blanket
+nonempty-table check disabled every mask lookup and retention even though the
+816-byte nested mask streams did not reference those images. This run was
+stopped after the two repeat misses and is not an application pass.
+
+ProGPU head `3239b455` now captures the complete ordered external-image
+resource, generation, role, view and extent identity with each retained raster.
+Stable unrelated parent bindings permit reuse; any identity change forces a
+miss, while direct nested external-image scenes remain rejected by the existing
+append-only identity contract. The same-descriptor regression now runs with a
+stable unrelated external binding and still requires a one-submission revisit.
+The focused regression and all 19 native CTests pass locally.
+
 ## Acceptance criteria
 
 The post-change run must provide all of the following evidence:
@@ -145,5 +172,5 @@ and defines the comparison but does not qualify the fix.
 
 ## Final replacement result
 
-Pending the exact successful `2eaf23bf` Windows ARM64 artifact and Parallels
+Pending the exact successful `3239b455` Windows ARM64 artifact and Parallels
 rerun.
