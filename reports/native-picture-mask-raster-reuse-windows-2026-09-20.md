@@ -64,7 +64,7 @@ and span uniforms remain parent-scene state rather than part of the retained
 raster.
 
 The current implementation branch head recorded for this comparison is
-`cfe9a7fece613ce07e29f75f8d19f03441627b32`. The exact-head Windows ARM64
+`7056a710219cc4f3c826ccf15642eb9379622e1f`. The exact-head Windows ARM64
 renderer job must finish successfully and supply the runtime used for the
 post-change run. The final LibreWPF package graph must then pin the merged
 ProGPU commit rather than this pull-request branch.
@@ -184,6 +184,28 @@ seed and one-submission revisit. A separate nested external-image case requires
 two child submissions and remains fail-closed. The focused Metal regression
 and all 19 locally configured native CTests pass. A new exact Windows ARM64
 artifact and completed Toolkit/AvalonDock run remain required.
+
+## Current-source MSVC preflight result
+
+To avoid waiting for another full CI cycle before checking the preceding root
+cause, the Windows guest built ProGPU `cfe9a7fe` directly with MSVC 19.44 for
+ARM64. The resulting `progpu_native.dll` SHA-256 was
+`FE8FA85966E78C9D290C8702AD7C3342B7BDC827B221E59C4CEE2BC1B585DCCF`.
+This is a source-build preflight, not the final exact CI artifact.
+
+The run populated all nine generation-2 descriptors. Its first 1934 by 1210
+generation-3 revisit still reported `cacheHit=0` and rerasterized for
+34,874.159 ms. Because external binding identity was no longer in the mask key,
+this isolated the remaining mismatch to the nested stream itself: the scene and
+resource generation stamps advanced from 2 to 3 even though the complete render
+payload remained unchanged. The run was stopped at that decisive miss.
+
+ProGPU `7056a710` compares the complete serialized header, resource records,
+commands and arena while normalizing only scene and resource generation fields.
+Every payload, descriptor, command, layout, scene id and other header change
+still misses. The focused regression now rebuilds the equivalent nested stream
+at a new generation, changes an unrelated binding, and requires a one-submission
+hit. The focused test and all 19 native CTests pass locally.
 
 ## Acceptance criteria
 
