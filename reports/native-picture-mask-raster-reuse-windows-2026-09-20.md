@@ -62,7 +62,7 @@ ineligible. Sampling transforms, opacity, guidelines, and span uniforms remain
 parent-scene state rather than part of the retained raster.
 
 The implementation branch head recorded for this comparison is
-`0f2016eef479e49636928fd6b0d2315a88347c28`. The exact-head Windows ARM64
+`beca3d86cae9ed13e399ecce83ceb4b4f02de1b0`. The exact-head Windows ARM64
 renderer job must finish successfully and supply the runtime used for the
 post-change run. The final LibreWPF package graph must then pin the merged
 ProGPU commit rather than this pull-request branch.
