@@ -58,11 +58,13 @@ an exact final-package qualification.
 eligible picture-mask raster textures in a bounded cache independent of
 incremental picture images. Reuse is keyed by the complete nested scene, raster
 descriptor, engine flags, device, and format. External image bindings and seeded
-captures remain ineligible. Sampling transforms, opacity, guidelines, and span
-uniforms remain parent-scene state rather than part of the retained raster.
+captures used by the nested stream remain ineligible; unrelated parent
+bindings are outside its identity. Sampling transforms, opacity, guidelines,
+and span uniforms remain parent-scene state rather than part of the retained
+raster.
 
 The current implementation branch head recorded for this comparison is
-`3239b4555e4ed3e47eadfb65aef61aebe82aab4a`. The exact-head Windows ARM64
+`cfe9a7fece613ce07e29f75f8d19f03441627b32`. The exact-head Windows ARM64
 renderer job must finish successfully and supply the runtime used for the
 post-change run. The final LibreWPF package graph must then pin the merged
 ProGPU commit rather than this pull-request branch.
@@ -150,6 +152,39 @@ append-only identity contract. The same-descriptor regression now runs with a
 stable unrelated external binding and still requires a one-submission revisit.
 The focused regression and all 19 native CTests pass locally.
 
+## Fourth replacement artifact result
+
+ProGPU Build `35521446303` produced the exact Windows ARM64 runtime for
+`3239b4555e4ed3e47eadfb65aef61aebe82aab4a`. The downloaded artifact supplied
+three ARM64 PE32+ DLLs. Their SHA-256 values were:
+
+- `progpu_native.dll`:
+  `09E1C39EE92C55CAADE625EA2A32A12D3C2E8078B55CCDF3C7894A6BE9396E58`;
+- `progpu_native_dawn.dll`:
+  `2FA4AEB68DAE55006DA4F633000456767F86D2391A04DF5324B92EF828C67FAF`;
+- `progpu_native_direct2d.dll`:
+  `77E3F99E7F3CCE41A8061A96E8CF4C1312A7F2FA903A235319588E7E28B9B62B`.
+
+All three were installed together after preserving the rejected runtime set.
+Generation 2 populated the nine expected descriptors. The first 1934 by 1210
+generation-3 revisit nevertheless reported `cacheHit=0` and rerasterized for
+28,080.133 ms. This run was stopped at that decisive miss and is not an
+application pass.
+
+The complete parent external-image identity was still too broad: Toolkit
+advanced an unrelated sideband binding between generations even though the
+retained 816-byte mask stream did not consume it. The corrected admission now
+walks picture images and picture/composite masks recursively and rejects any
+nested external-image dependency. Once admitted, unrelated parent binding
+changes cannot affect the raster and are excluded from its key. Incremental
+picture-image history retains its complete sideband identity comparison.
+
+The Direct2D/WebGPU regression now changes an unrelated binding between the
+seed and one-submission revisit. A separate nested external-image case requires
+two child submissions and remains fail-closed. The focused Metal regression
+and all 19 locally configured native CTests pass. A new exact Windows ARM64
+artifact and completed Toolkit/AvalonDock run remain required.
+
 ## Acceptance criteria
 
 The post-change run must provide all of the following evidence:
@@ -172,5 +207,4 @@ and defines the comparison but does not qualify the fix.
 
 ## Final replacement result
 
-Pending the exact successful `3239b455` Windows ARM64 artifact and Parallels
-rerun.
+Pending the next exact successful Windows ARM64 artifact and Parallels rerun.
