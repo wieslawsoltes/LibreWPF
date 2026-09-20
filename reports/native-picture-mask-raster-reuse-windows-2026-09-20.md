@@ -14,6 +14,10 @@ The observed application used the native ProGPU runtime produced from merged
 ProGPU commit `9f9ee4b3` and the LibreWPF Toolkit source overlay used by the
 integration gate. The test ran in the signed-in guest desktop with
 `PROGPU_NATIVE_TRACE_PICTURE_MASK=1`; it was not launched as `SYSTEM`.
+The loaded `progpu_native.dll` SHA-256 was
+`83AD5972E41404537EF4D0EE2CEF85FF94F9E409F8D7A477094E321901ADD74D`.
+The companion `ProGPU.Backend.Native.dll` SHA-256 was
+`B34C2B949AC85CF65405B0E4A2859A8BAD43BE0018991AB7B775EE9E3C34A3EB`.
 
 The application reached these live validation stages:
 
@@ -86,4 +90,3 @@ and defines the comparison but does not qualify the fix.
 ## Post-change result
 
 Pending the exact successful ProGPU Windows ARM64 artifact and Parallels run.
-
