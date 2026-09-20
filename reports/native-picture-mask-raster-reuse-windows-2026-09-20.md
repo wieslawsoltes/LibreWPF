@@ -55,14 +55,14 @@ an exact final-package qualification.
 ## Replacement under test
 
 [ProGPU PR #173](https://github.com/wieslawsoltes/ProGPU/pull/173) retains
-eligible picture-mask raster textures in the existing bounded semantic-picture
-cache. Reuse is keyed by the complete nested scene, raster descriptor, engine
-flags, device, and format. External image bindings and seeded captures remain
-ineligible. Sampling transforms, opacity, guidelines, and span uniforms remain
-parent-scene state rather than part of the retained raster.
+eligible picture-mask raster textures in a bounded cache independent of
+incremental picture images. Reuse is keyed by the complete nested scene, raster
+descriptor, engine flags, device, and format. External image bindings and seeded
+captures remain ineligible. Sampling transforms, opacity, guidelines, and span
+uniforms remain parent-scene state rather than part of the retained raster.
 
 The current implementation branch head recorded for this comparison is
-`8dc588f8523253b373abe5c17db4cb028de5aa08`. The exact-head Windows ARM64
+`2eaf23bf170d27fcafc79c00f250f95300b6cb24`. The exact-head Windows ARM64
 renderer job must finish successfully and supply the runtime used for the
 post-change run. The final LibreWPF package graph must then pin the merged
 ProGPU commit rather than this pull-request branch.
@@ -91,6 +91,38 @@ budget, and adds a Direct2D/WebGPU regression that fills nine descriptors and
 requires a one-submission hit when the first is revisited after an outer-scene
 generation change. Local AppleClang validation passes all 19 native CTests.
 
+## Second replacement artifact result
+
+ProGPU Build `35517055892` produced the exact Windows ARM64 runtime for
+`8dc588f8523253b373abe5c17db4cb028de5aa08`. The downloaded artifact was
+`progpu-native-runtime-win-arm64`; `progpu_native.dll` was an ARM64 PE32+
+binary with SHA-256
+`D45C3207D396D1252503849FF60E547DD7309A3E2C78AADC54D3B32ADBFB65A3`.
+The rejected first replacement remained preserved separately before this
+binary was installed.
+
+Generation 2 populated all nine Toolkit picture masks. Representative first
+renders included 28,560.857 ms at 1934 by 1210, 28,635.887 ms at 961 by 238,
+and 40,000.068 ms at 1648 by 503. Generation 3 still reported `cacheHit=0`
+for the first 1934 by 1210 stream (27,813.841 ms) and the otherwise unique
+961 by 238 stream (30,644.548 ms). The unique descriptor miss disproved a
+remaining entry-count or same-descriptor-only explanation.
+
+The retained mask rasters shared `semantic_picture_cache` with incremental
+picture images. Image insertion removed every cached entry with the same nested
+scene id, including mask-only entries, so later parent generations found no
+mask working set. Mask retention also replaced a different nested stream when
+it shared one scene id and raster descriptor. That run was stopped after the
+two generation-3 misses proved failure; it is not an application pass.
+
+ProGPU head `2eaf23bf` separates bounded mask and incremental-image caches,
+deduplicates masks only when their complete nested scene is equivalent, keeps
+both caches in native memory inventory and teardown, and restores the original
+eight-entry image-history bound independently of the 64-entry/64 MiB mask
+working set. New Direct2D/WebGPU regressions cover an image insertion between a
+mask seed and revisit plus two different nested scenes sharing one descriptor.
+The focused test and all 19 native CTests pass locally.
+
 ## Acceptance criteria
 
 The post-change run must provide all of the following evidence:
@@ -113,5 +145,5 @@ and defines the comparison but does not qualify the fix.
 
 ## Final replacement result
 
-Pending the exact successful `8dc588f8` Windows ARM64 artifact and Parallels
+Pending the exact successful `2eaf23bf` Windows ARM64 artifact and Parallels
 rerun.
