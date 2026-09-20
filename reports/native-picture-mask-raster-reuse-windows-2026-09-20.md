@@ -61,11 +61,35 @@ flags, device, and format. External image bindings and seeded captures remain
 ineligible. Sampling transforms, opacity, guidelines, and span uniforms remain
 parent-scene state rather than part of the retained raster.
 
-The implementation branch head recorded for this comparison is
-`beca3d86cae9ed13e399ecce83ceb4b4f02de1b0`. The exact-head Windows ARM64
+The current implementation branch head recorded for this comparison is
+`8dc588f8523253b373abe5c17db4cb028de5aa08`. The exact-head Windows ARM64
 renderer job must finish successfully and supply the runtime used for the
 post-change run. The final LibreWPF package graph must then pin the merged
 ProGPU commit rather than this pull-request branch.
+
+## First replacement artifact result
+
+ProGPU Build `35514942684` successfully produced the Windows ARM64 runtime for
+the earlier branch head `beca3d86cae9ed13e399ecce83ceb4b4f02de1b0`. The
+downloaded and guest-installed `progpu_native.dll` SHA-256 was
+`9BEAB1E689921F187F0CE47767F1BDEB9B52CF1C10F80B5FA6B7EA7E031A4015`.
+The original baseline DLL was retained separately before replacement.
+
+The replacement run reached the live frame, geometry, transient-surface, and
+filter-focus stages. Generation 2 correctly populated nine distinct retained
+picture-mask raster descriptors for the same 816-byte nested scene. The first
+two descriptors revisited in generation 3 nevertheless reported `cacheHit=0`
+and rerendered for 29,261.383 ms and 29,020.112 ms. The nine-entry working set
+fit below the 64 MiB byte budget, but the implementation still had an
+independent eight-entry FIFO ceiling. Sequential traversal therefore evicted
+the next descriptor before reuse and thrashed the complete working set.
+
+That run was stopped after the repeat misses proved the artifact did not meet
+the cache-reuse gate; it is not an application pass. ProGPU head `8dc588f8`
+raises the still-bounded entry ceiling to 64 while preserving the 64 MiB byte
+budget, and adds a Direct2D/WebGPU regression that fills nine descriptors and
+requires a one-submission hit when the first is revisited after an outer-scene
+generation change. Local AppleClang validation passes all 19 native CTests.
 
 ## Acceptance criteria
 
@@ -87,6 +111,7 @@ The post-change run must provide all of the following evidence:
 Until those conditions are recorded below, this report proves the regression
 and defines the comparison but does not qualify the fix.
 
-## Post-change result
+## Final replacement result
 
-Pending the exact successful ProGPU Windows ARM64 artifact and Parallels run.
+Pending the exact successful `8dc588f8` Windows ARM64 artifact and Parallels
+rerun.
