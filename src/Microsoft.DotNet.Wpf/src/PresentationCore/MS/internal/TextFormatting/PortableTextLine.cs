@@ -1003,11 +1003,18 @@ internal sealed class PortableTextLine : TextLine
         int start = _sourceMap.ToText(Math.Clamp(sourcePosition, First, End) - _paragraphStart);
         int end = _sourceMap.ToText(Math.Clamp(checked(sourcePosition + 1), First, End) - _paragraphStart);
         if (start != end) return false;
-        // The terminal hidden paragraph edge follows the paragraph's physical
-        // trailing side. Native shaping has no glyph for that source position;
-        // asking it for a caret affinity in an RTL line selects the preceding
-        // LTR run's right edge instead of WPF's left paragraph edge.
-        double x = _rightToLeft && sourcePosition == First + Length
+        // Terminal paragraph positions follow the paragraph's physical trailing
+        // side. Native shaping has no glyph for these positions; asking it for
+        // a caret affinity in an RTL line selects the preceding LTR run's right
+        // edge instead of WPF's left paragraph edge.
+        // TextBlock resolves a backward-oriented final insertion by subtracting
+        // one source unit before asking the line for bounds.  On the final line
+        // that names the real paragraph terminator at End, not only the hidden
+        // document edge at First + Length.  Both belong on the paragraph's
+        // physical trailing side for an RTL paragraph.
+        bool isTerminalParagraphPosition = _lineIndex + 1 == _paragraph.Lines.Length &&
+            NewlineLength > 0 && sourcePosition >= End;
+        double x = _rightToLeft && isTerminalParagraphPosition
             ? Start
             : GetDistanceFromCharacterHit(new CharacterHit(sourcePosition, 0));
         rectangle = new Rect(x, 0, 0, Height);

@@ -102,12 +102,25 @@ included these are the stock line starts `0, 41, 88, 130`.
 
 LibreWPF now retains each source `TextRun` with its physical native style,
 uses that run's real baseline and height for `TextRunBounds`, preserves the
-default-face baseline ratio for explicit line heights, and maps a hidden final
-RTL source edge to the paragraph's physical trailing side. The focused
+default-face baseline ratio for explicit line heights, and maps terminal RTL
+source positions to the paragraph's physical trailing side. The focused
 `PortableTextLineTests` suite passes 26/26. The new native trailing-whitespace
 regression passes on macOS ARM64 and in the Windows 11 ARM64 VM after a strict
 MSVC native build; the exact Segoe UI shaping probe also reports the corrected
 ranges above.
+
+The first exact corrective package run, LibreWPF CI `35629763302`, proved that
+the wrapping, source ranges, run metrics, line-height metrics, line starts, and
+ordinary insertion geometry now agree on both Windows x64 and ARM64. Both
+architectures then failed on the same remaining endpoint: native WPF placed the
+final backward-oriented bidirectional caret at `X=-0.003`, while the portable
+path placed it at `X=122.896`. `TextBlock` subtracts one source unit for a
+backward-oriented insertion before querying its `TextLine`, so the earlier fix
+covered the hidden edge after the terminator but not the actual newline/EOP
+position it receives. `PortableTextLine.TryGetNonInkCaretBounds` now recognizes
+both forms on the last RTL line while leaving ordinary bidi-run and wrapped-line
+carets unchanged. Regression coverage invokes both the real terminator position
+and the hidden terminal edge; all 26 focused tests pass after the correction.
 
 These focused results verify the causes and their implementations. They do not
 replace the package-only application gate: a new immutable package bundle
@@ -128,7 +141,7 @@ The recorded package result remains diagnostic rather than passing
 qualification evidence. It proves that the package-only path reached
 NativeMilWgpu and identifies the source-layout and caret defects without
 allowing a Windows-MIL fallback to pass. The corrective implementation is now
-focused-test complete, with the new package run pending. Glyph raster-pixel
+focused-test complete, with a post-`35629763302` package rerun pending. Glyph raster-pixel
 identity, additional composite fallback faces, trimming/collapse, rich
 document/editor behavior, and macOS/Linux parity remain separate qualification
 boundaries after this matrix passes.

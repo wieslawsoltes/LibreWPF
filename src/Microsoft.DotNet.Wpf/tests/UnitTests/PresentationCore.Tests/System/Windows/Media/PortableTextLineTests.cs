@@ -310,6 +310,10 @@ public class PortableTextLineTests
         Assert.Equal(0, hiddenEdge.Width);
         Assert.Equal(second.Height, hiddenEdge.Height);
         Assert.Equal(second.GetDistanceFromCharacterHit(new(8, 0)), hiddenEdge.X);
+        Assert.True(portableSecond.TryGetNonInkCaretBounds(9, out var paragraphTerminator, out _));
+        Assert.Equal(0, paragraphTerminator.Width);
+        Assert.Equal(second.Height, paragraphTerminator.Height);
+        Assert.Equal(second.Start, paragraphTerminator.X);
         Assert.Empty(second.GetTextBounds(10, 1));
         Assert.True(portableSecond.TryGetNonInkCaretBounds(10, out var finalInsertion, out _));
         Assert.Equal(0, finalInsertion.Width);
@@ -527,6 +531,10 @@ public class PortableTextLineTests
         Assert.Equal(0, terminator.Width);
         Assert.Equal(next.Height, terminator.Height);
         Assert.Equal(next.GetDistanceFromCharacterHit(new(3, 0)), terminator.X);
+        Assert.True(Assert.IsType<PortableTextLine>(next).TryGetNonInkCaretBounds(3, out var paragraphTerminator, out _));
+        Assert.Equal(0, paragraphTerminator.Width);
+        Assert.Equal(next.Height, paragraphTerminator.Height);
+        Assert.Equal(next.Start, paragraphTerminator.X);
         Assert.Empty(next.GetTextBounds(4, 1));
         Assert.True(Assert.IsType<PortableTextLine>(next).TryGetNonInkCaretBounds(4, out var finalInsertion, out _));
         Assert.Equal(0, finalInsertion.Width);
