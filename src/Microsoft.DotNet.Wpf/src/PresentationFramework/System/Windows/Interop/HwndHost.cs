@@ -65,7 +65,7 @@ namespace System.Windows.Interop
         {
             get
             {
-                if (_hwnd.Handle != IntPtr.Zero)
+                if (UsesNativeHwnd && _hwnd.Handle != IntPtr.Zero)
                 {
                     if (!UnsafeNativeMethods.IsWindow(_hwnd))
                     {
@@ -76,6 +76,8 @@ namespace System.Windows.Interop
                 return _hwnd.Handle;
             }
         }
+
+        private bool UsesNativeHwnd => global::System.OperatingSystem.IsWindows() && !_isPortableWindow;
 
         /// <summary>
         ///     An event that is notified of all unhandled messages received
@@ -297,6 +299,11 @@ namespace System.Windows.Interop
         /// </summary>
         protected virtual bool HasFocusWithinCore()
         {
+            if (!UsesNativeHwnd)
+            {
+                return IsKeyboardFocusWithin;
+            }
+
             HandleRef hwndFocus = new HandleRef(this, UnsafeNativeMethods.GetFocus());
             if (Handle != IntPtr.Zero && (hwndFocus.Handle == _hwnd.Handle || UnsafeNativeMethods.IsChild(_hwnd, hwndFocus)))
             {
@@ -368,7 +375,7 @@ namespace System.Windows.Interop
                 // will be left behind. Developer can workaround by hide the hwnd first using pinvoke. 
                 // After the RenderTransform is applied to the HwndHost, call UpdateWindowPos to sync up
                 // the hwnd's location, size and visibility with WPF.
-                if (global::System.OperatingSystem.IsWindows())
+                if (UsesNativeHwnd)
                 {
                     UnsafeNativeMethods.ShowWindowAsync(_hwnd, NativeMethods.SW_SHOW);
                 }
@@ -380,7 +387,7 @@ namespace System.Windows.Interop
                 // or we are marked as not being visible.
                 //
                 // Just hide the window to get it out of the way.
-                if (global::System.OperatingSystem.IsWindows())
+                if (UsesNativeHwnd)
                 {
                     UnsafeNativeMethods.ShowWindowAsync(_hwnd, NativeMethods.SW_HIDE);
                 }
@@ -397,7 +404,7 @@ namespace System.Windows.Interop
             Rect rectClient = PointUtil.RootToClient(rectRoot, source);
             NativeMethods.RECT rcClient = PointUtil.FromRect(rectClient);
 
-            if (!global::System.OperatingSystem.IsWindows())
+            if (!UsesNativeHwnd)
             {
                 return rcClient;
             }
@@ -423,7 +430,7 @@ namespace System.Windows.Interop
         {
             get
             {
-                if (!_hasDpiAwarenessContextTransition || !global::System.OperatingSystem.IsWindows()) return 1;
+                if (!_hasDpiAwarenessContextTransition || !UsesNativeHwnd) return 1;
                 DpiScale2 dpi = DpiUtil.GetWindowDpi(Handle, fallbackToNearestMonitorHeuristic: false);
                 DpiScale2 dpiParent = DpiUtil.GetWindowDpi(UnsafeNativeMethods.GetParent(_hwnd), fallbackToNearestMonitorHeuristic: false);
 
@@ -507,6 +514,7 @@ namespace System.Windows.Interop
 
                 // We no longer need to know about the source changing.
                 PresentationSource.RemoveSourceChangedHandler(this, new SourceChangedEventHandler(OnSourceChanged));
+                Loaded -= OnLoaded;
             }
 
             // Can be null if the static ctor failed ... see WebBrowser.
@@ -661,7 +669,7 @@ namespace System.Windows.Interop
                 return;
             }
 
-            if (!global::System.OperatingSystem.IsWindows())
+            if (!UsesNativeHwnd)
             {
                 return;
             }
@@ -714,6 +722,18 @@ namespace System.Windows.Interop
             return desiredSize;
         }
 
+        protected override int VisualChildrenCount => _portableChildVisual == null ? 0 : 1;
+
+        protected override Visual GetVisualChild(int index)
+        {
+            if (index != 0 || _portableChildVisual == null)
+            {
+                throw new ArgumentOutOfRangeException(nameof(index));
+            }
+
+            return _portableChildVisual;
+        }
+
         /// <summary>
         ///     GetDrawing - Returns the drawing content of this Visual.
         /// </summary>
@@ -736,6 +756,11 @@ namespace System.Windows.Interop
         private DrawingGroup GetDrawingHelper()
         {
             DrawingGroup drawingGroup = null;
+
+            if (!UsesNativeHwnd)
+            {
+                return drawingGroup;
+            }
 
             if(Handle != IntPtr.Zero)
             {
@@ -839,8 +864,19 @@ namespace System.Windows.Interop
             _handlerEnabledChanged = new DependencyPropertyChangedEventHandler(OnEnabledChanged);
             _handlerVisibleChanged = new DependencyPropertyChangedEventHandler(OnVisibleChanged);
             PresentationSource.AddSourceChangedHandler(this, new SourceChangedEventHandler(OnSourceChanged));
+            Loaded += OnLoaded;
 
             _weakEventDispatcherShutdown = new WeakEventDispatcherShutdown(this, this.Dispatcher);
+        }
+
+        private void OnLoaded(object sender, RoutedEventArgs e)
+        {
+            // A portable control template can create an HwndHost after its tree is
+            // already connected to a source, in which case no SourceChanged event is
+            // delivered to the new host. Loaded is the first source-owned lifecycle
+            // checkpoint that is guaranteed for that path. BuildOrReparentWindow is
+            // idempotent when SourceChanged already built the child.
+            BuildOrReparentWindow();
         }
 
         ///<summary>
@@ -889,7 +925,7 @@ namespace System.Windows.Interop
             }
 
             bool boolNewValue = (bool)e.NewValue;
-            if (global::System.OperatingSystem.IsWindows())
+            if (UsesNativeHwnd)
             {
                 UnsafeNativeMethods.EnableWindow(_hwnd, boolNewValue);
             }
@@ -910,7 +946,7 @@ namespace System.Windows.Interop
             // There was recollection from Dwayne that ShowWindow sync might cause rereentrancy issues.
             // So change here to show async to be consistent with everywhere else (instead of changing everywhere else
             // to show window sync).            
-            if (!global::System.OperatingSystem.IsWindows())
+            if (!UsesNativeHwnd)
             {
                 return;
             }
@@ -944,18 +980,18 @@ namespace System.Windows.Interop
             // Find the source window, this must be the parent window of
             // the child window.
             IntPtr hwndParent = IntPtr.Zero;
+            PortablePresentationSource portableParent = null;
             PresentationSource source = PresentationSource.CriticalFromVisual(this, false /* enable2DTo3DTransition */);
             if(source != null)
             {
-                HwndSource hwndSource = source as HwndSource ;
-                if(hwndSource != null)
+                if (source is PortablePresentationSource portableSource)
+                {
+                    portableParent = portableSource;
+                    hwndParent = portableSource.Handle;
+                }
+                else if(source is HwndSource hwndSource)
                 {
                     hwndParent = hwndSource.Handle;
-                }
-                else if (!global::System.OperatingSystem.IsWindows() &&
-                    source is PortablePresentationSource portableSource)
-                {
-                    hwndParent = portableSource.Handle;
                 }
             }
             else
@@ -976,23 +1012,36 @@ namespace System.Windows.Interop
             {
                 if(hwndParent != IntPtr.Zero)
                 {
+                    if (_hwnd.Handle != IntPtr.Zero &&
+                        (_isPortableWindow != (portableParent != null) ||
+                         (portableParent != null && !ReferenceEquals(_portableParentSource, portableParent))))
+                    {
+                        DestroyWindow();
+                    }
+
                     if(_hwnd.Handle == IntPtr.Zero)
                     {
                         // We now have a parent window, so we can create the child
                         // window.
-                        BuildWindow(new HandleRef(null, hwndParent));
+                        BuildWindow(new HandleRef(null, hwndParent), portableParent);
                         this.LayoutUpdated += _handlerLayoutUpdated;
                         this.IsEnabledChanged += _handlerEnabledChanged;
                         this.IsVisibleChanged += _handlerVisibleChanged;
                     }
-                    else if(hwndParent != UnsafeNativeMethods.GetParent(_hwnd))
+                    else if(UsesNativeHwnd && hwndParent != UnsafeNativeMethods.GetParent(_hwnd))
                     {
                         // We have a different parent window.  Just reparent the
                         // child window under the new parent window.
                         UnsafeNativeMethods.SetParent(_hwnd, new HandleRef(null,hwndParent));
                     }
                 }
-                else if (Handle != IntPtr.Zero && global::System.OperatingSystem.IsWindows())
+                else if (_isPortableWindow && _hwnd.Handle != IntPtr.Zero)
+                {
+                    // A portable child is source-owned and cannot remain
+                    // registered against a detached or replaced source.
+                    DestroyWindow();
+                }
+                else if (Handle != IntPtr.Zero && UsesNativeHwnd)
                 {
                     // Reparent the window to notification-only window provided by SystemResources
                     // This keeps the child window around, but it is not visible.  We can reparent the 
@@ -1027,20 +1076,61 @@ namespace System.Windows.Interop
         }
 
 
-        private void BuildWindow(HandleRef hwndParent)
+        private void BuildWindow(HandleRef hwndParent, PortablePresentationSource portableParent)
         {
             // Demand unmanaged code to the caller. IT'S RISKY TO REMOVE THIS
             DemandIfUntrusted();
 
-            // Allow the derived class to build our HWND.
-            _hwnd = BuildWindowCore(hwndParent);
+            _isPortableWindow = portableParent != null;
+            _portableParentSource = portableParent;
+
+            // Allow the derived class to build either its real HWND or its source-owned
+            // portable child. The construction scope prevents a portable source token
+            // from ever being interpreted as an HWND on Windows.
+            if (_isPortableWindow)
+            {
+                try
+                {
+                    using (HwndSource.BeginPortableChildConstruction(portableParent))
+                    {
+                        _hwnd = BuildWindowCore(hwndParent);
+                    }
+                }
+                catch
+                {
+                    ResetFailedPortableWindow();
+                    throw;
+                }
+            }
+            else
+            {
+                _hwnd = BuildWindowCore(hwndParent);
+            }
 
             if(_hwnd.Handle == IntPtr.Zero)
             {
+                if (_isPortableWindow)
+                {
+                    ResetFailedPortableWindow();
+                }
+
                 throw new InvalidOperationException(SR.ChildWindowNotCreated);
             }
 
-            if (global::System.OperatingSystem.IsWindows())
+            if (_isPortableWindow)
+            {
+                try
+                {
+                    AttachPortableChildVisual();
+                }
+                catch
+                {
+                    ResetFailedPortableWindow();
+                    throw;
+                }
+            }
+
+            if (UsesNativeHwnd)
             {
                 if(!UnsafeNativeMethods.IsWindow(_hwnd))
                 {
@@ -1090,17 +1180,24 @@ namespace System.Windows.Interop
             // Assume the desired size is the initial size.  If the window was
             // created with a 0-length dimension, we assume this means we
             // should fill all available space.
-            NativeMethods.RECT rc = new NativeMethods.RECT();
-            SafeNativeMethods.GetWindowRect(_hwnd, ref rc);
+            if (UsesNativeHwnd)
+            {
+                NativeMethods.RECT rc = new NativeMethods.RECT();
+                SafeNativeMethods.GetWindowRect(_hwnd, ref rc);
 
-            // Convert from pixels to measure units.
-            // PresentationSource can't be null if we get here.
-            PresentationSource source = PresentationSource.CriticalFromVisual(this, false /* enable2DTo3DTransition */);
-            Point ptUpperLeft = new Point(rc.left, rc.top);
-            Point ptLowerRight = new Point(rc.right, rc.bottom);
-            ptUpperLeft = source.CompositionTarget.TransformFromDevice.Transform(ptUpperLeft);
-            ptLowerRight = source.CompositionTarget.TransformFromDevice.Transform(ptLowerRight);
-            _desiredSize = new Size(ptLowerRight.X - ptUpperLeft.X, ptLowerRight.Y - ptUpperLeft.Y);
+                // Convert from pixels to measure units.
+                // PresentationSource can't be null if we get here.
+                PresentationSource source = PresentationSource.CriticalFromVisual(this, false /* enable2DTo3DTransition */);
+                Point ptUpperLeft = new Point(rc.left, rc.top);
+                Point ptLowerRight = new Point(rc.right, rc.bottom);
+                ptUpperLeft = source.CompositionTarget.TransformFromDevice.Transform(ptUpperLeft);
+                ptLowerRight = source.CompositionTarget.TransformFromDevice.Transform(ptLowerRight);
+                _desiredSize = new Size(ptLowerRight.X - ptUpperLeft.X, ptLowerRight.Y - ptUpperLeft.Y);
+            }
+            else
+            {
+                _desiredSize = new Size(0, 0);
+            }
 
             // We have a new desired size, so invalidate measure.
             InvalidateMeasure();
@@ -1127,7 +1224,63 @@ namespace System.Windows.Interop
             HandleRef hwnd = _hwnd;
             _hwnd = new HandleRef(null, IntPtr.Zero);
 
+            DetachPortableChildVisual();
             DestroyWindowCore(hwnd);
+            _portableParentSource = null;
+            _isPortableWindow = false;
+        }
+
+        private void AttachPortableChildVisual()
+        {
+            HwndSource childSource = HwndSource.CriticalFromHwnd(_hwnd.Handle);
+            if (childSource == null ||
+                !childSource.IsPortable ||
+                !ReferenceEquals(childSource.PortableOwner, _portableParentSource))
+            {
+                throw new InvalidOperationException(SR.ChildWindowNotCreated);
+            }
+
+            Visual childVisual = childSource.RootVisual;
+            if (childVisual == null)
+            {
+                throw new InvalidOperationException(SR.ChildWindowNotCreated);
+            }
+
+            childSource.RootVisual = null;
+            AddVisualChild(childVisual);
+            _portableChildSource = childSource;
+            _portableChildVisual = childVisual;
+        }
+
+        private void ResetFailedPortableWindow()
+        {
+            HandleRef hwnd = _hwnd;
+            _hwnd = new HandleRef(null, IntPtr.Zero);
+
+            try
+            {
+                DetachPortableChildVisual();
+                if (hwnd.Handle != IntPtr.Zero)
+                {
+                    DestroyWindowCore(hwnd);
+                }
+            }
+            finally
+            {
+                _portableParentSource = null;
+                _isPortableWindow = false;
+            }
+        }
+
+        private void DetachPortableChildVisual()
+        {
+            if (_portableChildVisual != null)
+            {
+                RemoveVisualChild(_portableChildVisual);
+                _portableChildVisual = null;
+            }
+
+            _portableChildSource = null;
         }
 
         private object AsyncDestroyWindow(object arg)
@@ -1168,6 +1321,10 @@ namespace System.Windows.Interop
         private HwndWrapperHook _hwndSubclassHook;
 
         private HandleRef _hwnd;
+        private PortablePresentationSource _portableParentSource;
+        private HwndSource _portableChildSource;
+        private Visual _portableChildVisual;
+        private bool _isPortableWindow;
 
         private ArrayList _hooks;
         private Size _desiredSize;

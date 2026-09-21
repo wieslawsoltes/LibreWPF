@@ -203,6 +203,12 @@ namespace System.Windows.Interop
             Initialize(parameters);
         }
 
+        internal static IDisposable BeginPortableChildConstruction(PortablePresentationSource owner)
+        {
+            ArgumentNullException.ThrowIfNull(owner);
+            return new PortableChildConstructionScope(owner);
+        }
+
         internal static HwndSource CreatePortable(PortablePresentationSource owner, IntPtr handle, double dpiScaleX, double dpiScaleY)
         {
             return new HwndSource(owner, handle, dpiScaleX, dpiScaleY);
@@ -229,6 +235,11 @@ namespace System.Windows.Interop
         /// <param name="parameters"> parameter block </param>
         private void Initialize(HwndSourceParameters parameters)
         {
+            if (TryInitializePortableChild(parameters))
+            {
+                return;
+            }
+
             _mouse = new HwndMouseInputProvider(this);
             _keyboard = new HwndKeyboardInputProvider(this);
 
@@ -361,6 +372,55 @@ namespace System.Windows.Interop
             }
         }
 
+        private bool TryInitializePortableChild(HwndSourceParameters parameters)
+        {
+            PortablePresentationSource owner = s_portableChildConstructionOwner;
+            if (owner == null)
+            {
+                return false;
+            }
+
+            if (owner.IsDisposed)
+            {
+                throw new ObjectDisposedException(null, SR.HwndSourceDisposed);
+            }
+
+            if (parameters.ParentWindow != owner.Handle)
+            {
+                throw new InvalidOperationException(SR.HwndTarget_InvalidWindowHandle);
+            }
+
+            _portableChildOwner = owner;
+            _portableHandle = new IntPtr(Interlocked.Decrement(ref s_nextPortableChildHandle));
+            // A source-owned HwndHost child is not an independent native window or
+            // render surface. Its RootVisual is transferred into the HwndHost visual
+            // tree immediately after BuildWindowCore returns. Giving this facade an
+            // HwndTarget would publish the synthetic identity as another top-level
+            // surface and let the portable renderer configure an invalid window.
+            _portableChildSize = new Size(
+                Math.Max(0, parameters.Width),
+                Math.Max(0, parameters.Height));
+            _adjustSizingForNonClientArea = parameters.AdjustSizingForNonClientArea;
+            _treatAncestorsAsNonClientArea = parameters.TreatAncestorsAsNonClientArea;
+            if (!parameters.HasAssignedSize)
+            {
+                _sizeToContent = SizeToContent.WidthAndHeight;
+            }
+
+            if (parameters.HwndSourceHook != null)
+            {
+                Delegate[] handlers = parameters.HwndSourceHook.GetInvocationList();
+                for (int i = handlers.Length - 1; i >= 0; --i)
+                {
+                    EventHelper.AddHandler(ref _hooks, (HwndSourceHook)handlers[i]);
+                }
+            }
+
+            _weakShutdownHandler = new WeakEventDispatcherShutdown(this, Dispatcher);
+            AddSource();
+            return true;
+        }
+
         /// <summary>
         ///     Disposes the object
         /// </summary>
@@ -429,6 +489,11 @@ namespace System.Windows.Interop
             if (_portableOwner != null)
             {
                 return _portableOwner.GetInputProvider(inputDevice);
+            }
+
+            if (_portableChildOwner != null)
+            {
+                return _portableChildOwner.GetInputProvider(inputDevice);
             }
 
             if (inputDevice == typeof(MouseDevice))
@@ -752,12 +817,12 @@ namespace System.Windows.Interop
 
         internal bool IsPortable
         {
-            get { return _portableOwner != null; }
+            get { return _portableOwner != null || _portableChildOwner != null; }
         }
 
         internal PresentationSource PortableOwner
         {
-            get { return _portableOwner; }
+            get { return _portableOwner ?? _portableChildOwner; }
         }
 
         internal bool DispatchPortableHwndSourceHook(
@@ -770,7 +835,9 @@ namespace System.Windows.Interop
             result = IntPtr.Zero;
             handled = false;
 
-            if (_portableOwner == null || _isDisposed || _portableHandle == IntPtr.Zero)
+            if ((_portableOwner == null && _portableChildOwner == null) ||
+                _isDisposed ||
+                _portableHandle == IntPtr.Zero)
             {
                 return false;
             }
@@ -913,6 +980,13 @@ namespace System.Windows.Interop
             try
             {
                 _myOwnUpdate = true;
+
+                if (_portableChildOwner != null && !_isDisposed)
+                {
+                    _portableChildSize = newSize;
+                    AutoResized?.Invoke(this, new AutoResizedEventArgs(newSize));
+                    return;
+                }
 
                 if (IsUsable)
                 {
@@ -1146,7 +1220,7 @@ namespace System.Windows.Interop
 
                 if (etwEnabled)
                 {
-                    ctxHashCode = _hwndWrapper.Handle.ToInt64();
+                    ctxHashCode = Handle.ToInt64();
                     EventTrace.EventProvider.TraceEvent(EventTrace.Event.WClientLayoutBegin, etwKeywords, EventTrace.Level.Info, ctxHashCode, EventTrace.LayoutSource.HwndSource_SetLayoutSize);
                     EventTrace.EventProvider.TraceEvent(EventTrace.Event.WClientMeasureBegin, etwKeywords, EventTrace.Level.Info, ctxHashCode);
                 }
@@ -1178,7 +1252,7 @@ namespace System.Windows.Interop
 
                 if (etwEnabled)
                 {
-                    ctxHashCode = _hwndWrapper.Handle.ToInt64();
+                    ctxHashCode = Handle.ToInt64();
                     EventTrace.EventProvider.TraceEvent(EventTrace.Event.WClientLayoutBegin, etwKeywords, EventTrace.Level.Info, ctxHashCode, EventTrace.LayoutSource.HwndSource_SetLayoutSize);
                     EventTrace.EventProvider.TraceEvent(EventTrace.Event.WClientMeasureBegin, etwKeywords, EventTrace.Level.Info, ctxHashCode);
                 }
@@ -1233,6 +1307,11 @@ namespace System.Windows.Interop
 
         private Size GetSizeFromHwnd()
         {
+            if (_portableChildOwner != null)
+            {
+                return _portableChildSize;
+            }
+
             // Compute View's size and set
             NativeMethods.RECT rc = new NativeMethods.RECT(0, 0, 0, 0);
 
@@ -1555,7 +1634,7 @@ namespace System.Windows.Interop
 
                 if (etwEnabled)
                 {
-                    ctxHashCode = _hwndWrapper.Handle.ToInt64();
+                    ctxHashCode = Handle.ToInt64();
                     EventTrace.EventProvider.TraceEvent(EventTrace.Event.WClientLayoutBegin, etwKeywords, EventTrace.Level.Info, ctxHashCode, EventTrace.LayoutSource.HwndSource_WMSIZE);
                     EventTrace.EventProvider.TraceEvent(EventTrace.Event.WClientMeasureBegin, etwKeywords, EventTrace.Level.Info, ctxHashCode);;
                 }
@@ -2711,6 +2790,13 @@ namespace System.Windows.Interop
                     //
                     // Note: as the HwndWrapper shuts down, the final few messages
                     // will continue to pass through our WndProc hook.
+                    if (_portableChildOwner != null)
+                    {
+                        _portableChildOwner = null;
+                        _portableHandle = IntPtr.Zero;
+                        _portableChildSize = default;
+                    }
+
                     _isDisposed = true;
                 }
             }
@@ -2859,6 +2945,29 @@ namespace System.Windows.Interop
 
 #endregion WeakEventHandlers
 
+        private sealed class PortableChildConstructionScope : IDisposable
+        {
+            private readonly PortablePresentationSource _previousOwner;
+            private bool _isDisposed;
+
+            internal PortableChildConstructionScope(PortablePresentationSource owner)
+            {
+                _previousOwner = s_portableChildConstructionOwner;
+                s_portableChildConstructionOwner = owner;
+            }
+
+            public void Dispose()
+            {
+                if (_isDisposed)
+                {
+                    return;
+                }
+
+                s_portableChildConstructionOwner = _previousOwner;
+                _isDisposed = true;
+            }
+        }
+
         private object                      _constructionParameters; // boxed HwndSourceParameters
 
         private bool                        _isDisposed = false;
@@ -2878,7 +2987,16 @@ namespace System.Windows.Interop
 
         private HwndWrapper                 _hwndWrapper;
         private PortablePresentationSource  _portableOwner;
+        private PortablePresentationSource  _portableChildOwner;
         private IntPtr                      _portableHandle;
+        private Size                        _portableChildSize;
+
+        [ThreadStatic]
+        private static PortablePresentationSource s_portableChildConstructionOwner;
+
+        // Keep source-only child identities negative and within the 32-bit range.
+        // They are registry keys, not HWNDs, and must never be sent to user32.
+        private static long s_nextPortableChildHandle = -0x50570000;
 
         private HwndTarget                  _hwndTarget;
 
