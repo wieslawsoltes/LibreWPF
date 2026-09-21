@@ -156,6 +156,32 @@ also upgrades that gate to compare the X, Y, and height of every real insertion
 position by source offset, so interior caret/run geometry can no longer hide
 behind matching line starts and final endpoints.
 
+## Advance-owned native interaction geometry
+
+LibreWPF CI run `35647660184` retained one exact failure on both Windows x64
+and ARM64 after the logical RTL adapter correction: bidirectional insertion 23
+reported native WPF `X=147.793` and portable `X=148.142`, outside the `0.1` DIP
+tolerance. The difference came from a negative Segoe UI Hebrew GPOS X placement
+being applied to logical source interaction as well as glyph drawing.
+
+ProGPU PR [#175](https://github.com/wieslawsoltes/ProGPU/pull/175), merged as
+`c00d1a3d`, adds explicit advance-geometry interaction builders. They retain
+positioned glyph X/Y for rendering but derive cluster, caret, hit-test and
+selection boundaries from one physical pen origin per line plus the original
+visual-order advances. Ordinary, measured, fragmented and collapsed paragraph
+snapshots share the new path; the additive C, C++, C++ module and managed APIs
+preserve the legacy entry points and use caller-owned native output with bounded
+stack or pooled managed origin storage.
+
+The native CPU/ABI, C ABI differential, Clang 22 named-module consumer,
+generated-contract/export/Dawn gates, 16 focused managed paragraph tests and
+the project-reference MIL-only package consumer pass on macOS ARM64. Strict
+MSVC Windows ARM64 builds and both native text executables pass in the Windows
+11 Parallels VM. The direct interaction benchmark reports median `0.084 us`,
+p95 `0.125 us`, p99 `0.167 us` and `0 B` managed allocation per call. LibreWPF
+now pins the exact ProGPU merge; a fresh immutable x64/ARM64 package run remains
+the authority for closing this matrix.
+
 ## Gate and qualification boundary
 
 `eng/progpu-wpf-windows-native-mil-showcase.ps1` now parses every named case,
