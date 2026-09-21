@@ -179,8 +179,13 @@ the project-reference MIL-only package consumer pass on macOS ARM64. Strict
 MSVC Windows ARM64 builds and both native text executables pass in the Windows
 11 Parallels VM. The direct interaction benchmark reports median `0.084 us`,
 p95 `0.125 us`, p99 `0.167 us` and `0 B` managed allocation per call. LibreWPF
-now pins the exact ProGPU merge; a fresh immutable x64/ARM64 package run remains
-the authority for closing this matrix.
+now pins the exact ProGPU merge. LibreWinForms PR
+[#39](https://github.com/wieslawsoltes/LibreWinForms/pull/39) merged as
+`58ed2bd5` with the same nested ProGPU `c00d1a3d` pin after its canonical source,
+package, AppKit and visible installed-package lanes passed on macOS, Ubuntu and
+Windows. The LibreWPF canonical source/package integration also passes locally
+against that exact three-repository graph. A fresh immutable LibreWPF x64/ARM64
+package run remains the authority for closing this matrix.
 
 ## Gate and qualification boundary
 
