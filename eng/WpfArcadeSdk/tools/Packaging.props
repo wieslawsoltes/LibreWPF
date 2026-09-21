@@ -29,7 +29,7 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <GitHubTransportPackageName>Microsoft.DotNet.Wpf.GitHub$(TransportPackageNameSuffix)</GitHubTransportPackageName>
+    <GitHubTransportPackageName>LibreWPF.Transport$(TransportPackageNameSuffix)</GitHubTransportPackageName>
     <DncEngTransportPackageName>Microsoft.DotNet.Wpf.DncEng$(TransportPackageNameSuffix)</DncEngTransportPackageName>
 
     <!-- When ready to go live, remove .private suffix -->

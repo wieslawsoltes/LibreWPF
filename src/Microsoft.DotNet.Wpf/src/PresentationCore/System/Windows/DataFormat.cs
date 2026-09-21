@@ -1,7 +1,12 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+#if PROGPU_WPF_ALIAS_WINCORE
+extern alias WinCore;
+using WinCore::System.Private.Windows.Ole;
+#else
 using System.Private.Windows.Ole;
+#endif
 
 namespace System.Windows;
 

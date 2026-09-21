@@ -493,6 +493,8 @@ namespace MS.Internal.MilCodeGen.Generators
                             MediaTrace.DrawingContextOp.Trace("[[renderdataInstruction.Name]](const)");
                         #endif
 
+                            [[WriteRenderDataSinkRedirect(renderdataInstruction, true /* skip advanced params */)]]
+
                             unsafe
                             {
                                 EnsureRenderData();
@@ -574,6 +576,8 @@ namespace MS.Internal.MilCodeGen.Generators
                             MediaTrace.DrawingContextOp.Trace("[[renderdataInstruction.Name]](const)");
                         #endif
 
+                            [[WriteRenderDataSinkRedirect(renderdataInstruction, true /* skip advanced params */)]]
+
                             unsafe
                             {
                                 EnsureRenderData();
@@ -653,6 +657,8 @@ namespace MS.Internal.MilCodeGen.Generators
                             MediaTrace.DrawingContextOp.Trace("[[renderdataInstruction.Name]](animate)");
                         #endif
 
+                            [[WriteRenderDataSinkRedirect(renderdataInstruction, false /* don't skip advanced params */)]]
+
                             unsafe
                             {
                                 EnsureRenderData();
@@ -683,6 +689,40 @@ namespace MS.Internal.MilCodeGen.Generators
                     [[/inline]]
                     );
             }
+            return cs.ToString();
+        }
+
+        private static string WriteRenderDataSinkRedirect(McgRenderDataInstruction renderdataInstruction, bool skipAdvancedParameters)
+        {
+            StringCodeSink cs = new StringCodeSink();
+
+            ParameterList callingList = new ParameterList();
+            Helpers.CodeGenHelpers.ParameterType paramType = Helpers.CodeGenHelpers.ParameterType.ManagedCallParamList;
+
+            if (skipAdvancedParameters)
+            {
+                paramType |= Helpers.CodeGenHelpers.ParameterType.SkipAnimations;
+            }
+
+            Helpers.CodeGenHelpers.AppendParameters(
+                callingList,
+                skipAdvancedParameters ? renderdataInstruction.BasicPublicFields : renderdataInstruction.AllPublicFields,
+                paramType);
+
+            cs.Write(
+                [[inline]]
+                    if (_renderDataSink != null)
+                    {
+                        _renderDataSink.[[renderdataInstruction.Name]](
+                            [[callingList]]
+                            );
+
+                        [[WriteStackOperation(renderdataInstruction, true)]]
+                        return;
+                    }
+                [[/inline]]
+                );
+
             return cs.ToString();
         }
 
@@ -910,15 +950,37 @@ namespace MS.Internal.MilCodeGen.Generators
                         {
                             string handleName = "data.h" + field.PropertyName;
 
-                            cs.Write(
-                                [[inline]]
+                            if (instruction.Name == "DrawGlyphRun" && field.PropertyName == "GlyphRun")
+                            {
+                                cs.Write(
+                                    [[inline]]
+
+                                        if ( [[handleName]] != 0 )
+                                        {
+                                            GlyphRun glyphRun = (GlyphRun)_dependentResources[(int)([[handleName]] - 1)];
+
+                                            // ProGPU replays portable glyph runs directly from the managed
+                                            // RenderData stream. Stock MIL requires a live IDWriteFont, so
+                                            // leave its glyph handle null and use its existing null draw path.
+                                            [[handleName]] = glyphRun.HasDWriteFont
+                                                ? (uint)((DUCE.IResource)glyphRun).GetHandle(channel)
+                                                : 0;
+                                        }
+                                    [[/inline]]
+                                    );
+                            }
+                            else
+                            {
+                                cs.Write(
+                                    [[inline]]
 
                                         if ( [[handleName]] != 0 )
                                         {
                                             [[handleName]] = (uint)(((DUCE.IResource)_dependentResources[ (int)( [[handleName]] - 1)]).GetHandle(channel));
                                         }
-                                [[/inline]]
-                                );
+                                    [[/inline]]
+                                    );
+                            }
                         }
                     }
 
@@ -2415,7 +2477,5 @@ namespace MS.Internal.MilCodeGen.Generators
         #endregion Public Methods
     }
 }
-
-
 
 

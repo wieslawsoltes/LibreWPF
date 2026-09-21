@@ -1,0 +1,38 @@
+<Window
+    x:Class="ProGPU.Wpf.TextLayoutParityApp.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="WPF text layout comparison"
+    Width="430"
+    Height="300"
+    Background="White"
+    FontFamily="Segoe UI"
+    FontSize="14"
+    Loaded="OnWindowLoaded"
+    WindowStartupLocation="CenterScreen">
+    <StackPanel Margin="20">
+        <TextBlock
+            Margin="0,0,0,12"
+            FontSize="18"
+            FontWeight="SemiBold"
+            Text="Shared WPF text fixture" />
+        <Border
+            Width="235.333"
+            HorizontalAlignment="Left"
+            Padding="12"
+            Background="#EFF5FD">
+            <StackPanel>
+                <TextBlock
+                    FontSize="16"
+                    FontWeight="SemiBold"
+                    Text="Theme template" />
+                <TextBlock
+                    x:Name="WrappingText"
+                    Margin="0,8,0,0"
+                    TextWrapping="Wrap">
+                    <Run Text="The button is styled through a compiled ControlTemplate, TemplateBinding, named parts, VisualStateManager states, and a property trigger." />
+                </TextBlock>
+            </StackPanel>
+        </Border>
+    </StackPanel>
+</Window>

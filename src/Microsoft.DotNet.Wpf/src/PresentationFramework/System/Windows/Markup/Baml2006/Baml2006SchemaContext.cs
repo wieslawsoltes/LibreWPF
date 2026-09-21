@@ -55,6 +55,7 @@ namespace System.Windows.Baml2006
 
         protected override XamlType GetXamlType(string xamlNamespace, string name, params XamlType[] typeArguments)
         {
+            xamlNamespace = NormalizeLocalClrNamespace(xamlNamespace);
             EnsureXmlnsAssembliesLoaded(xamlNamespace);
             XamlTypeName fullTypeName = new XamlTypeName { Namespace = xamlNamespace, Name = name };
             if (typeArguments != null)
@@ -452,6 +453,36 @@ namespace System.Windows.Baml2006
             }
         }
 
+        private string NormalizeLocalClrNamespace(string xamlNamespace)
+        {
+            if (_localAssembly == null)
+            {
+                return xamlNamespace;
+            }
+
+            const string clrNamespacePrefix = "clr-namespace:";
+            const string assemblyPart = ";assembly=";
+
+            if (!xamlNamespace.StartsWith(clrNamespacePrefix, StringComparison.Ordinal))
+            {
+                return xamlNamespace;
+            }
+
+            int assemblyPartIndex = xamlNamespace.IndexOf(assemblyPart, StringComparison.Ordinal);
+            if (assemblyPartIndex < 0)
+            {
+                return xamlNamespace + assemblyPart + _localAssembly.FullName;
+            }
+
+            int assemblyNameIndex = assemblyPartIndex + assemblyPart.Length;
+            if (assemblyNameIndex == xamlNamespace.Length)
+            {
+                return string.Concat(xamlNamespace.AsSpan(0, assemblyNameIndex), _localAssembly.FullName.AsSpan());
+            }
+
+            return xamlNamespace;
+        }
+
         private Assembly ResolveAssembly(BamlAssembly bamlAssembly)
         {
             if (bamlAssembly.Assembly != null)
@@ -461,6 +492,10 @@ namespace System.Windows.Baml2006
 
             AssemblyName assemblyName = new AssemblyName(bamlAssembly.Name);
             bamlAssembly.Assembly = MS.Internal.WindowsBase.SafeSecurityHelper.GetLoadedAssembly(assemblyName);
+            if (bamlAssembly.Assembly == null && IsPortableCompatibilityAssembly(assemblyName))
+            {
+                bamlAssembly.Assembly = MS.Internal.WindowsBase.SafeSecurityHelper.GetLoadedAssemblyBySimpleName(assemblyName.Name);
+            }
             if (bamlAssembly.Assembly == null)
             {
                 byte[] publicKeyToken = assemblyName.GetPublicKeyToken();
@@ -502,6 +537,12 @@ namespace System.Windows.Baml2006
                 }
             }
             return bamlAssembly.Assembly;
+        }
+
+        private static bool IsPortableCompatibilityAssembly(AssemblyName assemblyName)
+        {
+            return !OperatingSystem.IsWindows()
+                && string.Equals(assemblyName.Name, "WindowsFormsIntegration", StringComparison.OrdinalIgnoreCase);
         }
 
         private bool MatchesLocalAssembly(string shortName, byte[] publicKeyToken)
@@ -552,10 +593,16 @@ namespace System.Windows.Baml2006
                 return xType;
             }
 
-            // NOTE: If XamlSchemaContext to can provide an UnknownType of name bamlType.Name
-            // return a new UnknownType instead of throwing NotImplemented. 
-            // return bamlType.XamlType = new UnknownType(new XamlTypeName(bamlType.Name), this, null);
-            throw new NotImplementedException();
+            string assemblyName = null;
+            if (TryGetBamlAssembly(bamlType.AssemblyId, out BamlAssembly unresolvedAssembly))
+            {
+                assemblyName = unresolvedAssembly.Assembly?.FullName ?? unresolvedAssembly.Name;
+            }
+
+            // NOTE: If XamlSchemaContext can provide an UnknownType of name bamlType.Name
+            // return a new UnknownType instead of throwing.
+            throw new XamlParseException(
+                $"Could not resolve BAML type '{bamlType.Name}' from assembly id '{bamlType.AssemblyId}' ('{assemblyName ?? "<unknown>"}').");
         }
 
         private bool TryGetBamlAssembly(Int16 assemblyId, out BamlAssembly bamlAssembly)

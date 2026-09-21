@@ -124,6 +124,28 @@ namespace System.Xaml
             return null;
         }
 
+        /// <summary>
+        ///     Finds a loaded assembly by simple name without enforcing version, culture,
+        ///     or public-key-token identity.  This is intended only for explicit portable
+        ///     compatibility substitutions whose assembly identity cannot match the
+        ///     Windows framework assembly they replace.
+        /// </summary>
+        internal static Assembly GetLoadedAssemblyBySimpleName(string assemblyName)
+        {
+            Assembly[] assemblies = AppDomain.CurrentDomain.GetAssemblies();
+
+            for (int i = assemblies.Length - 1; i >= 0; i--)
+            {
+                AssemblyName currentAssemblyName = GetAssemblyName(assemblies[i]);
+                if (string.Equals(currentAssemblyName.Name, assemblyName, StringComparison.InvariantCultureIgnoreCase))
+                {
+                    return assemblies[i];
+                }
+            }
+
+            return null;
+        }
+
         private static AssemblyName GetAssemblyName(Assembly assembly)
         {
             object key = assembly.IsDynamic ? (object)new WeakRefKey(assembly) : assembly;

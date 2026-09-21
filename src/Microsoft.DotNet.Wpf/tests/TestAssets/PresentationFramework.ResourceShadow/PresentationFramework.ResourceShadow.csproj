@@ -1,0 +1,10 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <AssemblyName>PresentationFramework.Tests</AssemblyName>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <TargetFramework>$(ProGpuWpfTargetFramework)</TargetFramework>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>

@@ -17,6 +17,7 @@ namespace System.Windows.Media.TextFormatting
     {
         private TextModifierScope  _currentScope;
         private IntPtr             _breakRecord;
+        internal PortableTextLine.Continuation PortableContinuation { get; set; }
 
         #region Constructors
 
@@ -78,7 +79,7 @@ namespace System.Windows.Media.TextFormatting
                 }
             }
 
-            return new TextLineBreak(_currentScope, pbreakrec);
+            return new TextLineBreak(_currentScope, pbreakrec) { PortableContinuation = PortableContinuation };
         }
 
 
@@ -89,6 +90,7 @@ namespace System.Windows.Media.TextFormatting
         /// </summary>
         private void DisposeInternal(bool finalizing)
         {
+            PortableContinuation = null;
             if (_breakRecord != IntPtr.Zero)
             {
                 UnsafeNativeMethods.LoDisposeBreakRecord(_breakRecord, finalizing);

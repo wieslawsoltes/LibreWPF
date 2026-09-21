@@ -10,6 +10,7 @@
   -->
   <Target Name="IncludeNativeDependencies"
           BeforeTargets="AssignTargetPaths"
+          Condition="'$(OS)' == 'Windows_NT'"
           Returns="@(None)">
     <ItemGroup>
       <!--
@@ -34,7 +35,7 @@
   <!--
     Include native dependencies as project reference to make sure that they are built before the test projects and before the task IncludeNativeDependencies is executed.
   -->
-  <ItemGroup>
+  <ItemGroup Condition="'$(OS)' == 'Windows_NT'">
     <ProjectReference Include="$(WpfRedistDir)D3DCompiler\D3DCompiler.vcxproj"
                       ReferenceOutputAssembly="False"
                       Visible="False" />

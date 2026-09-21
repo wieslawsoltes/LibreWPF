@@ -3,13 +3,14 @@
 
 using System.IO;
 using MS.Internal;
+using ProGPU.Wpf.Interop;
 using System.Windows.Media.Animation;
 using System.Windows.Media.Composition;
 using System.Windows.Navigation;
 
 namespace System.Windows.Media.Effects
 {
-    public sealed partial class PixelShader : Animatable, DUCE.IResource
+    public sealed partial class PixelShader : Animatable, DUCE.IResource, IPortablePixelShaderSource
     {
         // Method and not property so we don't need to hang onto the stream.
         public void SetStreamSource(Stream source)
@@ -17,6 +18,20 @@ namespace System.Windows.Media.Effects
             WritePreamble();
             LoadPixelShaderFromStreamIntoMemory(source);
             WritePostscript();
+        }
+
+        bool IPortablePixelShaderSource.TryGetPortablePixelShader(out PortablePixelShader pixelShader)
+        {
+            ReadPreamble();
+
+            Uri uriSource = UriSource;
+            pixelShader = new PortablePixelShader(
+                uriSource?.ToString(),
+                uriSource != null && uriSource.IsAbsoluteUri ? uriSource.AbsoluteUri : null,
+                _shaderBytecode,
+                ShaderMajorVersion,
+                ShaderMinorVersion);
+            return true;
         }
 
         /// <summary>
@@ -279,4 +294,3 @@ namespace System.Windows.Media.Effects
         internal event EventHandler _shaderBytecodeChanged;
     }
 }
-

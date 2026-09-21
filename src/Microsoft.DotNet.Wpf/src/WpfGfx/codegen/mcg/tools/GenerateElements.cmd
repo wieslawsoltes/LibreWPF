@@ -30,13 +30,6 @@ pushd %~dp0\..
 call %~dp0\SetClrPath.cmd
 set OutputDir=%RepoRoot%\src\Microsoft.DotNet.Wpf
 
-:: Build resource model
-"%clrpath%\xsd.exe" /classes /namespace:MS.Internal.MilCodeGen.ResourceModel /out:ResourceModel\Generated xml\Elements.xsd
-if %ERRORLEVEL% NEQ 0 (
-    echo mcg : error : Updating the resource model with XSD.exe failed.
-    exit /b 1
-)
-
 :: Execute the MilCodeGen project
 call %~dp0\InvokeCSP.cmd %Options% -rsp:main\Elements.rsp -enableCsPrime -r:"System.Xml.dll" -- %_SdFlag% -xmlFile:xml\Elements.xml -dataType:MS.Internal.MilCodeGen.ResourceModel.CG -o:"%OutputDir%"
 

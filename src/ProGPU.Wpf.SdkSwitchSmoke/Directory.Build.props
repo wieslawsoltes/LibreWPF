@@ -1,0 +1,48 @@
+<Project>
+  <Import Project="$(MSBuildThisFileDirectory)..\..\Directory.Build.props" />
+
+  <PropertyGroup>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <EnableNETAnalyzers>false</EnableNETAnalyzers>
+    <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
+    <NoWarn>$(NoWarn);IDE0073</NoWarn>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <LibreWpfSdkSwitchPackageVersion>0.1.0-preview.45</LibreWpfSdkSwitchPackageVersion>
+    <ProGpuWpfSdkSwitchPackageVersion Condition="'$(PROGPU_WPF_PROGPU_PACKAGE_VERSION)' != ''">$(PROGPU_WPF_PROGPU_PACKAGE_VERSION)</ProGpuWpfSdkSwitchPackageVersion>
+    <ProGpuWpfSdkSwitchPackageVersion Condition="'$(ProGpuWpfSdkSwitchPackageVersion)' == ''">0.1.0-preview.62</ProGpuWpfSdkSwitchPackageVersion>
+    <!-- LibreWinForms preview.45 is released after its matching LibreWPF bridge. -->
+    <ProGpuWpfLibreWinFormsPackageVersion Condition="'$(ProGpuWpfLibreWinFormsPackageVersion)' == ''">0.1.0-preview.42</ProGpuWpfLibreWinFormsPackageVersion>
+    <RestorePackagesPath>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../../artifacts/nuget/ProGPU.Wpf.SdkSwitchSmoke'))</RestorePackagesPath>
+    <RestoreForce>true</RestoreForce>
+    <RestoreForceEvaluate>true</RestoreForceEvaluate>
+  </PropertyGroup>
+
+  <Target Name="_ProGpuWpfSdkSwitchClearMutablePackageCache" BeforeTargets="Restore">
+    <ItemGroup>
+      <_ProGpuWpfSdkSwitchMutablePackageCache Include="$(RestorePackagesPath)/librewpf.sdk/$(LibreWpfSdkSwitchPackageVersion)" />
+      <_ProGpuWpfSdkSwitchMutablePackageCache Include="$(RestorePackagesPath)/librewpf.transport/$(LibreWpfSdkSwitchPackageVersion)" />
+      <_ProGpuWpfSdkSwitchMutablePackageCache Include="$(RestorePackagesPath)/librewpf.progpu/$(LibreWpfSdkSwitchPackageVersion)" />
+      <_ProGpuWpfSdkSwitchMutablePackageCache Include="$(RestorePackagesPath)/librewpf.interop/$(ProGpuWpfSdkSwitchPackageVersion)" />
+      <_ProGpuWpfSdkSwitchMutablePackageCache Include="$(RestorePackagesPath)/progpu.backend/$(ProGpuWpfSdkSwitchPackageVersion)" />
+      <_ProGpuWpfSdkSwitchMutablePackageCache Include="$(RestorePackagesPath)/progpu.text.shaping/$(ProGpuWpfSdkSwitchPackageVersion)" />
+      <_ProGpuWpfSdkSwitchMutablePackageCache Include="$(RestorePackagesPath)/progpu.directx/$(ProGpuWpfSdkSwitchPackageVersion)" />
+      <_ProGpuWpfSdkSwitchMutablePackageCache Include="$(RestorePackagesPath)/progpu.scene/$(ProGpuWpfSdkSwitchPackageVersion)" />
+      <_ProGpuWpfSdkSwitchMutablePackageCache Include="$(RestorePackagesPath)/progpu.vector/$(ProGpuWpfSdkSwitchPackageVersion)" />
+      <_ProGpuWpfSdkSwitchMutablePackageCache Include="$(RestorePackagesPath)/progpu.text/$(ProGpuWpfSdkSwitchPackageVersion)" />
+      <_ProGpuWpfSdkSwitchMutablePackageCache Include="$(RestorePackagesPath)/progpu.compute/$(ProGpuWpfSdkSwitchPackageVersion)" />
+      <_ProGpuWpfSdkSwitchMutablePackageCache Include="$(RestorePackagesPath)/progpu.transpiler/$(ProGpuWpfSdkSwitchPackageVersion)" />
+      <_ProGpuWpfSdkSwitchMutablePackageCache Include="$(RestorePackagesPath)/progpu.layout/$(ProGpuWpfSdkSwitchPackageVersion)" />
+      <_ProGpuWpfSdkSwitchMutablePackageCache Include="$(RestorePackagesPath)/progpu.virtualization/$(ProGpuWpfSdkSwitchPackageVersion)" />
+      <_ProGpuWpfSdkSwitchMutablePackageCache Include="$(RestorePackagesPath)/progpu.winui/$(ProGpuWpfSdkSwitchPackageVersion)" />
+      <_ProGpuWpfSdkSwitchMutablePackageCache Include="$(RestorePackagesPath)/progpu.avalonia/$(ProGpuWpfSdkSwitchPackageVersion)" />
+      <_ProGpuWpfSdkSwitchMutablePackageCache Include="$(RestorePackagesPath)/progpu.skiasharp/$(ProGpuWpfSdkSwitchPackageVersion)" />
+      <_ProGpuWpfSdkSwitchMutablePackageCache Include="$(RestorePackagesPath)/progpu.system.drawing.common/$(ProGpuWpfSdkSwitchPackageVersion)" />
+      <_ProGpuWpfSdkSwitchExistingMutablePackageCache Include="@(_ProGpuWpfSdkSwitchMutablePackageCache)" Condition="Exists('%(_ProGpuWpfSdkSwitchMutablePackageCache.Identity)')" />
+    </ItemGroup>
+
+    <RemoveDir Directories="@(_ProGpuWpfSdkSwitchExistingMutablePackageCache)" />
+  </Target>
+</Project>

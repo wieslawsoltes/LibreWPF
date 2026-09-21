@@ -3,7 +3,12 @@
 
 #nullable enable
 
+#if PROGPU_WPF_ALIAS_WINCORE
+extern alias WinCore;
+using WinCore::System.Private.Windows.Ole;
+#else
 using System.Private.Windows.Ole;
+#endif
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection.Metadata;
 

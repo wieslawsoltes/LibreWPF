@@ -1,0 +1,31 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="clr-namespace:ProGPU.Wpf.ShowcaseApp">
+    <SolidColorBrush
+        x:Key="{ComponentResourceKey TypeInTargetAssembly={x:Type local:ShowcaseThemedControl}, ResourceId=ShowcaseThemeBorderBrush}"
+        Color="#4F46E5" />
+
+    <Style TargetType="{x:Type local:ShowcaseThemedControl}">
+        <Setter Property="Background" Value="#EEF2FF" />
+        <Setter Property="Foreground" Value="#312E81" />
+        <Setter Property="Padding" Value="8,5" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type local:ShowcaseThemedControl}">
+                    <Border
+                        x:Name="ThemeRoot"
+                        Background="{TemplateBinding Background}"
+                        BorderBrush="{DynamicResource {ComponentResourceKey TypeInTargetAssembly={x:Type local:ShowcaseThemedControl}, ResourceId=ShowcaseThemeBorderBrush}}"
+                        BorderThickness="1"
+                        Padding="{TemplateBinding Padding}">
+                        <TextBlock
+                            x:Name="ThemeText"
+                            Foreground="{TemplateBinding Foreground}"
+                            Text="{TemplateBinding Text}" />
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+</ResourceDictionary>

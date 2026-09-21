@@ -1,0 +1,18 @@
+<Project Sdk="LibreWPF.Sdk/0.1.0-preview.45">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>$(ProGpuWpfSdkSampleTargetFramework)</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <ProGpuWpfUseRealSciChartPackages Condition="'$(ProGpuWpfUseRealSciChartPackages)' == ''">false</ProGpuWpfUseRealSciChartPackages>
+    <RealSciChartPackageVersion>9.0.0.29196</RealSciChartPackageVersion>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(ProGpuWpfUseRealSciChartPackages)' == 'true'">
+    <DefineConstants>$(DefineConstants);PROGPU_WPF_REAL_SCICHART</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(ProGpuWpfUseRealSciChartPackages)' == 'true'">
+    <PackageReference Include="SciChart" Version="$(RealSciChartPackageVersion)" />
+    <PackageReference Include="SciChart3D" Version="$(RealSciChartPackageVersion)" />
+  </ItemGroup>
+</Project>

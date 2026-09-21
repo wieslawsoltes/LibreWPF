@@ -1,6 +1,65 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+#if PROGPU_WPF_ALIAS_WINCORE
+#nullable enable
+extern alias WinCore;
+using System.Diagnostics.CodeAnalysis;
+using WinCore::System.Private.Windows.Ole;
+using WinCore::Windows.Win32;
+using Com = WinCore::Windows.Win32.System.Com;
+using FORMATETC = WinCore::Windows.Win32.System.Com.FORMATETC;
+using HRESULT = WinCore::Windows.Win32.Foundation.HRESULT;
+using STGMEDIUM = WinCore::Windows.Win32.System.Com.STGMEDIUM;
+
+namespace System.Windows.Ole;
+
+internal sealed unsafe class WpfOleServices : IOleServices
+{
+    private static HRESULT NotImplemented => (HRESULT)unchecked((int)0x80004001);
+
+    private WpfOleServices()
+    {
+    }
+
+    public static void EnsureThreadState()
+    {
+        OleServicesContext.EnsureThreadState();
+    }
+
+    public static HRESULT GetDataHere(string format, object data, FORMATETC* pformatetc, STGMEDIUM* pmedium) =>
+        NotImplemented;
+
+    public static bool TryGetObjectFromDataObject<T>(
+        Com.IDataObject* dataObject,
+        string format,
+        [NotNullWhen(true)] out T data)
+    {
+        data = default!;
+        return false;
+    }
+
+    public static bool AllowTypeWithoutResolver<T>() => false;
+
+    public static bool IsValidTypeForFormat(Type type, string format) =>
+        type != typeof(object) && !string.IsNullOrEmpty(format);
+
+    public static void ValidateDataStoreData(ref string format, bool autoConvert, object? data)
+    {
+    }
+
+    public static IComVisibleDataObject CreateDataObject() => new DataObject();
+
+    static HRESULT IOleServices.OleGetClipboard(Com.IDataObject** dataObject) =>
+        PInvokeCore.OleGetClipboard(dataObject);
+
+    static HRESULT IOleServices.OleSetClipboard(Com.IDataObject* dataObject) =>
+        PInvokeCore.OleSetClipboard(dataObject);
+
+    static HRESULT IOleServices.OleFlushClipboard() =>
+        PInvokeCore.OleFlushClipboard();
+}
+#else
 using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
@@ -189,3 +248,4 @@ internal sealed unsafe class WpfOleServices : IOleServices
     static HRESULT IOleServices.OleFlushClipboard() =>
         PInvokeCore.OleFlushClipboard();
 }
+#endif

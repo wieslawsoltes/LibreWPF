@@ -1,7 +1,10 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+using System.IO;
 using System.Linq;
+using System.Reflection;
+using System.Reflection.Emit;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Threading;
@@ -23,6 +26,56 @@ public class ResourceDictionaryTests
     {
         _dictionary.Contains("StaticBrush").Should().BeTrue();
         _dictionary["StaticBrush"].Should().BeOfType<SolidColorBrush>();
+    }
+
+    [WpfFact]
+    public void ComponentResource_ShouldRemainAvailable_WhenSameNameDynamicAssemblyLoads()
+    {
+        var resourceUri = new Uri(
+            "pack://application:,,,/PresentationFramework.Tests;component/System/Windows/Resources/SampleResourceDictionary.xaml");
+
+        using (var stream = Application.GetResourceStream(resourceUri)?.Stream)
+        {
+            stream.Should().NotBeNull();
+            stream!.Length.Should().BeGreaterThan(0);
+        }
+
+        AssemblyName currentName = typeof(ResourceDictionaryTests).Assembly.GetName();
+        AssemblyBuilder.DefineDynamicAssembly(
+            new AssemblyName(currentName.Name) { Version = currentName.Version },
+            AssemblyBuilderAccess.Run);
+
+        using var reloadedStream = Application.GetResourceStream(resourceUri)?.Stream;
+        reloadedStream.Should().NotBeNull();
+        reloadedStream!.Length.Should().BeGreaterThan(0);
+    }
+
+    [WpfFact]
+    public void ComponentResource_ShouldRemainAvailable_WhenResourceLessSameIdentityAssemblyLoads()
+    {
+        var resourceUri = new Uri(
+            "pack://application:,,,/PresentationFramework.Tests;component/System/Windows/Resources/SampleResourceDictionary.xaml");
+
+        using (var stream = Application.GetResourceStream(resourceUri)?.Stream)
+        {
+            stream.Should().NotBeNull();
+            stream!.Length.Should().BeGreaterThan(0);
+        }
+
+        string shadowAssemblyPath = Path.Combine(AppContext.BaseDirectory, "PresentationFramework.Tests.Shadow.dll");
+        Assembly shadowAssembly = Assembly.Load(File.ReadAllBytes(shadowAssemblyPath));
+        AssemblyName currentName = typeof(ResourceDictionaryTests).Assembly.GetName();
+        AssemblyName shadowName = shadowAssembly.GetName();
+        shadowAssembly.IsDynamic.Should().BeFalse();
+        shadowName.Name.Should().Be(currentName.Name);
+        shadowName.Version.Should().Be(currentName.Version);
+        shadowName.CultureName.Should().Be(currentName.CultureName);
+        shadowName.GetPublicKeyToken().Should().Equal(currentName.GetPublicKeyToken());
+        shadowAssembly.GetManifestResourceNames().Should().BeEmpty();
+
+        using var reloadedStream = Application.GetResourceStream(resourceUri)?.Stream;
+        reloadedStream.Should().NotBeNull();
+        reloadedStream!.Length.Should().BeGreaterThan(0);
     }
 
     [Fact]

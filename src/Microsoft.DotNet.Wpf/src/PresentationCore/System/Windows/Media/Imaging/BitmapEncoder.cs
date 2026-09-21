@@ -1,10 +1,12 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+using System.Buffers.Binary;
 using System.Collections.ObjectModel;
 using MS.Internal;
 using System.Windows.Threading;
 using System.Runtime.InteropServices;
+using System.Windows.Media;
 using MS.Win32.PresentationCore;
 
 namespace System.Windows.Media.Imaging
@@ -315,6 +317,18 @@ namespace System.Windows.Media.Imaging
         {
             VerifyAccess();
             EnsureBuiltIn();
+
+            if (BitmapSource.UsesPortablePixelStorage)
+            {
+                if (ContainerFormat != MILGuidData.GUID_ContainerFormatBmp)
+                {
+                    throw new PlatformNotSupportedException("Portable bitmap encoding currently supports BMP only.");
+                }
+
+                SavePortableBmp(stream);
+                return;
+            }
+
             EnsureUnmanagedEncoder();
 
             // No-op to get rid of build error
@@ -546,6 +560,11 @@ namespace System.Windows.Media.Imaging
         /// </summary>
         private void EnsureUnmanagedEncoder()
         {
+            if (BitmapSource.UsesPortablePixelStorage)
+            {
+                throw new PlatformNotSupportedException("Portable bitmap encoders do not expose WIC codec services.");
+            }
+
             if (_encoderHandle == null)
             {
                 using (FactoryMaker myFactory = new FactoryMaker())
@@ -565,6 +584,250 @@ namespace System.Windows.Media.Imaging
                     _encoderHandle = encoderHandle;
                 }
             }
+        }
+
+        private void SavePortableBmp(System.IO.Stream stream)
+        {
+            ArgumentNullException.ThrowIfNull(stream);
+
+            // No-op to get rid of build error
+            if (_encodeState == EncodeState.None)
+            {
+            }
+
+            if (_hasSaved)
+            {
+                throw new InvalidOperationException(SR.Image_OnlyOneSave);
+            }
+
+            if (_frames == null)
+            {
+                throw new System.NotSupportedException(SR.Format(SR.Image_NoFrames, null));
+            }
+
+            int count = _frames.Count;
+            if (count <= 0)
+            {
+                throw new System.NotSupportedException(SR.Format(SR.Image_NoFrames, null));
+            }
+
+            WritePortableBmpFrame(stream, _frames[0]);
+            _hasSaved = true;
+            _encodeState = EncodeState.EncoderCommitted;
+        }
+
+        private static void WritePortableBmpFrame(System.IO.Stream stream, BitmapFrame frame)
+        {
+            ArgumentNullException.ThrowIfNull(frame);
+
+            if (frame._managedPixelBuffer == null)
+            {
+                throw new PlatformNotSupportedException("Portable BMP encoding requires frame-owned pixels.");
+            }
+
+            int width = frame.PixelWidth;
+            int height = frame.PixelHeight;
+            PixelFormat sourceFormat = frame.Format;
+            int sourceBitsPerPixel = sourceFormat.BitsPerPixel;
+            int sourceStride = checked(((width * sourceBitsPerPixel) + 7) / 8);
+            byte[] sourcePixels = new byte[checked(sourceStride * height)];
+            frame.CopyPixels(sourcePixels, sourceStride, 0);
+
+            BmpEncodingInfo encodingInfo = GetPortableBmpEncodingInfo(sourceFormat, frame.Palette);
+            int imageStride = checked(((width * encodingInfo.BitsPerPixel) + 31) / 32 * 4);
+            int imageSize = checked(imageStride * height);
+            int colorTableSize = checked(encodingInfo.ColorTableEntryCount * 4);
+            int pixelOffset = 14 + 40 + colorTableSize;
+            int fileSize = checked(pixelOffset + imageSize);
+
+            WriteUInt16(stream, 0x4D42);
+            WriteUInt32(stream, (uint)fileSize);
+            WriteUInt16(stream, 0);
+            WriteUInt16(stream, 0);
+            WriteUInt32(stream, (uint)pixelOffset);
+
+            WriteUInt32(stream, 40);
+            WriteInt32(stream, width);
+            WriteInt32(stream, height);
+            WriteUInt16(stream, 1);
+            WriteUInt16(stream, (ushort)encodingInfo.BitsPerPixel);
+            WriteUInt32(stream, 0);
+            WriteUInt32(stream, (uint)imageSize);
+            WriteInt32(stream, DpiToPixelsPerMeter(frame.DpiX));
+            WriteInt32(stream, DpiToPixelsPerMeter(frame.DpiY));
+            WriteUInt32(stream, (uint)encodingInfo.ColorTableEntryCount);
+            WriteUInt32(stream, 0);
+
+            WriteColorTable(stream, encodingInfo, frame.Palette);
+            WriteBmpPixelRows(stream, sourcePixels, sourceStride, encodingInfo, width, height, imageStride);
+        }
+
+        private static BmpEncodingInfo GetPortableBmpEncodingInfo(PixelFormat sourceFormat, BitmapPalette palette)
+        {
+            switch (sourceFormat.Format)
+            {
+                case PixelFormatEnum.BlackWhite:
+                    return new BmpEncodingInfo(1, 2, false, false);
+                case PixelFormatEnum.Gray4:
+                    return new BmpEncodingInfo(4, 16, false, false);
+                case PixelFormatEnum.Gray8:
+                    return new BmpEncodingInfo(8, 256, false, false);
+                case PixelFormatEnum.Indexed1:
+                    ValidatePalette(sourceFormat, palette, 2);
+                    return new BmpEncodingInfo(1, palette.Colors.Count, false, false);
+                case PixelFormatEnum.Indexed4:
+                    ValidatePalette(sourceFormat, palette, 16);
+                    return new BmpEncodingInfo(4, palette.Colors.Count, false, false);
+                case PixelFormatEnum.Indexed8:
+                    ValidatePalette(sourceFormat, palette, 256);
+                    return new BmpEncodingInfo(8, palette.Colors.Count, false, false);
+                case PixelFormatEnum.Bgr24:
+                    return new BmpEncodingInfo(24, 0, false, false);
+                case PixelFormatEnum.Rgb24:
+                    return new BmpEncodingInfo(24, 0, true, false);
+                case PixelFormatEnum.Bgr32:
+                case PixelFormatEnum.Bgra32:
+                    return new BmpEncodingInfo(32, 0, false, false);
+                case PixelFormatEnum.Pbgra32:
+                    return new BmpEncodingInfo(32, 0, false, true);
+                default:
+                    throw new NotSupportedException($"Portable BMP encoding does not support pixel format '{sourceFormat}'.");
+            }
+        }
+
+        private static void ValidatePalette(PixelFormat sourceFormat, BitmapPalette palette, int maximumColorCount)
+        {
+            if (palette == null || palette.Colors.Count == 0)
+            {
+                throw new InvalidOperationException(SR.Image_IndexedPixelFormatRequiresPalette);
+            }
+
+            if (palette.Colors.Count > maximumColorCount)
+            {
+                throw new NotSupportedException($"Portable BMP encoding does not support {palette.Colors.Count} colors for pixel format '{sourceFormat}'.");
+            }
+        }
+
+        private static void WriteColorTable(System.IO.Stream stream, BmpEncodingInfo encodingInfo, BitmapPalette palette)
+        {
+            if (encodingInfo.ColorTableEntryCount == 0)
+            {
+                return;
+            }
+
+            if (palette != null)
+            {
+                for (int i = 0; i < encodingInfo.ColorTableEntryCount; i++)
+                {
+                    Color color = palette.Colors[i];
+                    stream.WriteByte(color.B);
+                    stream.WriteByte(color.G);
+                    stream.WriteByte(color.R);
+                    stream.WriteByte(0);
+                }
+
+                return;
+            }
+
+            int divisor = encodingInfo.ColorTableEntryCount - 1;
+            for (int i = 0; i < encodingInfo.ColorTableEntryCount; i++)
+            {
+                byte value = divisor == 0 ? (byte)0 : (byte)((i * 255) / divisor);
+                stream.WriteByte(value);
+                stream.WriteByte(value);
+                stream.WriteByte(value);
+                stream.WriteByte(0);
+            }
+        }
+
+        private static void WriteBmpPixelRows(
+            System.IO.Stream stream,
+            byte[] sourcePixels,
+            int sourceStride,
+            BmpEncodingInfo encodingInfo,
+            int width,
+            int height,
+            int imageStride)
+        {
+            int rowByteCount = checked(((width * encodingInfo.BitsPerPixel) + 7) / 8);
+            byte[] outputRow = new byte[imageStride];
+
+            for (int y = height - 1; y >= 0; y--)
+            {
+                Array.Clear(outputRow);
+                int sourceOffset = checked(y * sourceStride);
+
+                if (encodingInfo.SwapRgb24)
+                {
+                    for (int x = 0; x < width; x++)
+                    {
+                        int sourcePixelOffset = sourceOffset + (x * 3);
+                        int destinationPixelOffset = x * 3;
+                        outputRow[destinationPixelOffset] = sourcePixels[sourcePixelOffset + 2];
+                        outputRow[destinationPixelOffset + 1] = sourcePixels[sourcePixelOffset + 1];
+                        outputRow[destinationPixelOffset + 2] = sourcePixels[sourcePixelOffset];
+                    }
+                }
+                else if (encodingInfo.UnpremultiplyPbgra32)
+                {
+                    for (int x = 0; x < width; x++)
+                    {
+                        int sourcePixelOffset = sourceOffset + (x * 4);
+                        int alpha = sourcePixels[sourcePixelOffset + 3];
+                        outputRow[x * 4] = Unpremultiply(sourcePixels[sourcePixelOffset], alpha);
+                        outputRow[(x * 4) + 1] = Unpremultiply(sourcePixels[sourcePixelOffset + 1], alpha);
+                        outputRow[(x * 4) + 2] = Unpremultiply(sourcePixels[sourcePixelOffset + 2], alpha);
+                        outputRow[(x * 4) + 3] = sourcePixels[sourcePixelOffset + 3];
+                    }
+                }
+                else
+                {
+                    Buffer.BlockCopy(sourcePixels, sourceOffset, outputRow, 0, rowByteCount);
+                }
+
+                stream.Write(outputRow, 0, outputRow.Length);
+            }
+        }
+
+        private static byte Unpremultiply(byte channel, int alpha)
+        {
+            if (alpha == 0 || alpha == 255)
+            {
+                return channel;
+            }
+
+            return (byte)Math.Min(255, ((channel * 255) + (alpha / 2)) / alpha);
+        }
+
+        private static int DpiToPixelsPerMeter(double dpi)
+        {
+            if (dpi <= 0 || double.IsNaN(dpi) || double.IsInfinity(dpi))
+            {
+                dpi = 96;
+            }
+
+            return checked((int)Math.Round(dpi * 39.37007874015748));
+        }
+
+        private static void WriteUInt16(System.IO.Stream stream, ushort value)
+        {
+            Span<byte> buffer = stackalloc byte[sizeof(ushort)];
+            BinaryPrimitives.WriteUInt16LittleEndian(buffer, value);
+            stream.Write(buffer);
+        }
+
+        private static void WriteUInt32(System.IO.Stream stream, uint value)
+        {
+            Span<byte> buffer = stackalloc byte[sizeof(uint)];
+            BinaryPrimitives.WriteUInt32LittleEndian(buffer, value);
+            stream.Write(buffer);
+        }
+
+        private static void WriteInt32(System.IO.Stream stream, int value)
+        {
+            Span<byte> buffer = stackalloc byte[sizeof(int)];
+            BinaryPrimitives.WriteInt32LittleEndian(buffer, value);
+            stream.Write(buffer);
         }
 
         /// <summary>
@@ -853,9 +1116,27 @@ namespace System.Windows.Media.Imaging
         };
         private EncodeState _encodeState;
 
+        private readonly struct BmpEncodingInfo
+        {
+            internal BmpEncodingInfo(int bitsPerPixel, int colorTableEntryCount, bool swapRgb24, bool unpremultiplyPbgra32)
+            {
+                BitsPerPixel = bitsPerPixel;
+                ColorTableEntryCount = colorTableEntryCount;
+                SwapRgb24 = swapRgb24;
+                UnpremultiplyPbgra32 = unpremultiplyPbgra32;
+            }
+
+            internal int BitsPerPixel { get; }
+
+            internal int ColorTableEntryCount { get; }
+
+            internal bool SwapRgb24 { get; }
+
+            internal bool UnpremultiplyPbgra32 { get; }
+        }
+
         #endregion
     }
 
     #endregion // BitmapEncoder
 }
-

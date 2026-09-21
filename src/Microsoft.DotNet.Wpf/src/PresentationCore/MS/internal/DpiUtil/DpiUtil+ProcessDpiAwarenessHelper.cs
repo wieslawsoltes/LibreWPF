@@ -42,6 +42,11 @@ namespace MS.Internal
             /// </remarks>
             internal static PROCESS_DPI_AWARENESS GetLegacyProcessDpiAwareness()
             {
+                if (!OperatingSystem.IsWindows())
+                {
+                    return PROCESS_DPI_AWARENESS.PROCESS_DPI_UNAWARE;
+                }
+
                 return
                     UnsafeNativeMethods.IsProcessDPIAware()
                     ? PROCESS_DPI_AWARENESS.PROCESS_SYSTEM_DPI_AWARE
@@ -61,6 +66,11 @@ namespace MS.Internal
             /// </remarks>
             internal static PROCESS_DPI_AWARENESS GetProcessDpiAwareness(IntPtr hWnd)
             {
+                if (!OperatingSystem.IsWindows())
+                {
+                    return PROCESS_DPI_AWARENESS.PROCESS_DPI_UNAWARE;
+                }
+
                 if (IsGetProcessDpiAwarenessFunctionSupported)
                 {
                     try
@@ -86,6 +96,11 @@ namespace MS.Internal
             /// <returns>PROCESS_DPI_AWARENESS value</returns>
             private static PROCESS_DPI_AWARENESS GetProcessDpiAwarenessFromWindow(IntPtr hWnd)
             {
+                if (!OperatingSystem.IsWindows())
+                {
+                    return PROCESS_DPI_AWARENESS.PROCESS_DPI_UNAWARE;
+                }
+
                 int windowThreadProcessId = 0;
                 if (hWnd != IntPtr.Zero)
                 {

@@ -92,6 +92,11 @@ namespace MS.Internal.Interop
         /// </summary>
         internal static void Show(DependencyObject focusedObject)
         {
+            if (!OperatingSystem.IsWindows())
+            {
+                return;
+            }
+
             // We need to only show if applicable to this focused object
             // so guard the calls to TryShow here.           
             // If the touch stack is disabled or the WM_POINTER touch stack 
@@ -126,6 +131,11 @@ namespace MS.Internal.Interop
         /// </summary>
         internal static void Hide(DependencyObject focusedObject)
         {
+            if (!OperatingSystem.IsWindows())
+            {
+                return;
+            }
+
             // If the touch stack is disabled or the WM_POINTER touch stack 
             // is enabled, we get touch KB support for free.  So don't 
             // attempt any calls into InputPane for these scenarios. 

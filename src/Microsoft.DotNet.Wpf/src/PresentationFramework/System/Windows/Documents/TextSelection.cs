@@ -1666,6 +1666,19 @@ namespace System.Windows.Documents
 
             bidiInputLanguageInstalled = false;
 
+            if (!OperatingSystem.IsWindows())
+            {
+                foreach (CultureInfo cultureInfo in InputLanguageManager.Current.AvailableInputLanguages)
+                {
+                    if (IsBidiInputLanguage(cultureInfo))
+                    {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+
             int keyboardListCount = (int)SafeNativeMethods.GetKeyboardLayoutList(0, null);
             if (keyboardListCount > 0)
             {
@@ -2469,6 +2482,11 @@ namespace System.Windows.Documents
         /// </returns>
         private static bool IsBidiInputLanguage(CultureInfo cultureInfo)
         {
+            if (!OperatingSystem.IsWindows())
+            {
+                return cultureInfo.TextInfo.IsRightToLeft;
+            }
+
             bool bidiInput;
             string fontSignature;
 
@@ -2782,4 +2800,3 @@ namespace System.Windows.Documents
         #endregion Private Fields
     }
 }
-

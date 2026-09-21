@@ -256,6 +256,11 @@ namespace System.Windows
         /// </summary>
         private static void SetMatchPackageSignatureMethodToPackagePartDigestMethodFromRegistry()
         {
+            if (!OperatingSystem.IsWindows())
+            {
+                return;
+            }
+
             try
             {
                 // Query registry for system override

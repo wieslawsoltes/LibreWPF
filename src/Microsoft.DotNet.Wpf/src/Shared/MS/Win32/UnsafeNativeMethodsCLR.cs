@@ -475,6 +475,11 @@ namespace MS.Win32
 
         internal static IntPtr GetParent(HandleRef hWnd)
         {
+            if (!OperatingSystem.IsWindows())
+            {
+                return IntGetParent(hWnd);
+            }
+
             IntPtr retVal = NativeMethodsSetLastError.GetParent(hWnd);
             int errorCode = Marshal.GetLastWin32Error();
 
@@ -485,6 +490,9 @@ namespace MS.Win32
 
             return retVal;
         }
+
+        [DllImport(ExternDll.User32, EntryPoint = "GetParent", ExactSpelling = true, CharSet = CharSet.Auto)]
+        private static extern IntPtr IntGetParent(HandleRef hWnd);
 
         [DllImport(ExternDll.User32, ExactSpelling = true, CharSet = CharSet.Auto)]
         public static extern IntPtr GetAncestor(HandleRef hWnd, int flags);

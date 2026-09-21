@@ -5,6 +5,7 @@ using System.Collections;
 using System.Windows.Threading;
 using System.Windows.Media;
 using System.Windows.Input;
+using System.Windows.Interop;
 using MS.Utility;
 using MS.Internal;
 
@@ -79,7 +80,7 @@ namespace System.Windows
         public static PresentationSource FromVisual(Visual visual)
         {
 
-            return CriticalFromVisual(visual);
+            return ToPublicPresentationSource(CriticalFromVisual(visual));
         }
 
         /// <summary>
@@ -93,7 +94,7 @@ namespace System.Windows
         public static PresentationSource FromDependencyObject(DependencyObject dependencyObject)
         {
 
-            return CriticalFromVisual(dependencyObject);
+            return ToPublicPresentationSource(CriticalFromVisual(dependencyObject));
         }
 
         /// <summary>
@@ -666,6 +667,16 @@ namespace System.Windows
             return source;
         }
 
+        private static PresentationSource ToPublicPresentationSource(PresentationSource source)
+        {
+            if (source is PortablePresentationSource portableSource)
+            {
+                return portableSource.HwndSource;
+            }
+
+            return source;
+        }
+
         private static bool UpdateSourceOfElement(DependencyObject doTarget,
                                                   DependencyObject doAncestor,
                                                   DependencyObject doOldParent)
@@ -750,4 +761,3 @@ namespace System.Windows
         #endregion
     }
 }
-

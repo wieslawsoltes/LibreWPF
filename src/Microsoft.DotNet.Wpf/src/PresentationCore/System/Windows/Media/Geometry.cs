@@ -10,9 +10,14 @@
 using MS.Internal;
 using MS.Win32.PresentationCore;
 using System.ComponentModel;
+using System.Numerics;
 using System.Windows.Media.Composition;
 using System.Windows.Media.Animation;
 using System.Runtime.InteropServices;
+using ProGPU.Wpf.Interop;
+
+using ProGpuBoundsHitTesting = ProGPU.Vector.BoundsHitTesting;
+using ProGpuPolygonGeometryBounds = ProGPU.Vector.PolygonGeometryBounds;
 
 namespace System.Windows.Media
 {
@@ -22,7 +27,7 @@ namespace System.Windows.Media
     /// can be used to clip, fill or stroke.
     /// </summary>
     [Localizability(LocalizationCategory.None, Readability = Readability.Unreadable)]
-    public abstract partial class Geometry : Animatable, DUCE.IResource
+    public abstract partial class Geometry : Animatable, DUCE.IResource, IPortableGeometryPathSource, IPortablePrimitiveGeometrySource
     {
         #region Constructors
 
@@ -51,6 +56,10 @@ namespace System.Windows.Media
         { 
             get
             {
+                if (PortableGeometryOperationsBridge.IsPortable)
+                    return PortableGeometryOperationsBridge.GetBounds(
+                        PortableGeometryOperationsBridge.Export(this, 0), Matrix.Identity, false);
+
                 return PathGeometry.GetPathBounds(
                     GetPathGeometryData(),
                     null,   // pen
@@ -116,6 +125,30 @@ namespace System.Windows.Media
            return false;
         }
 
+        bool IPortableGeometryPathSource.TryGetPortableGeometryPath(out PortableGeometryPath path)
+        {
+            ReadPreamble();
+            return TryGetPortableGeometryPathCore(out path);
+        }
+
+        internal virtual bool TryGetPortableGeometryPathCore(out PortableGeometryPath path)
+        {
+            path = PortableGeometryPathExporter.FromGeometry(this);
+            return true;
+        }
+
+        bool IPortablePrimitiveGeometrySource.TryGetPortablePrimitiveGeometry(out PortablePrimitiveGeometry geometry)
+        {
+            ReadPreamble();
+            return TryGetPortablePrimitiveGeometryCore(out geometry);
+        }
+
+        internal virtual bool TryGetPortablePrimitiveGeometryCore(out PortablePrimitiveGeometry geometry)
+        {
+            geometry = default;
+            return false;
+        }
+
         /// <summary>
         /// Returns the axis-aligned bounding rectangle when stroked with a pen, after applying
         /// the supplied transform (if non-null).
@@ -126,6 +159,10 @@ namespace System.Windows.Media
             {
                 return Rect.Empty;
             }
+
+            if (PortableGeometryOperationsBridge.IsPortable)
+                return PortableGeometryOperationsBridge.GetRenderBounds(
+                    PortableGeometryOperationsBridge.Export(this, 0), pen, matrix, tolerance, type, true);
 
             PathGeometryData pathData = GetPathGeometryData();
 
@@ -160,11 +197,30 @@ namespace System.Windows.Media
             ToleranceType type,
             bool fSkipHollows)
         {
-            MIL_PEN_DATA penData;
-            double[] dashArray = null;
-
             // If the pen contributes to the bounds, populate the CMD struct
             bool fPenContributesToBounds = Pen.ContributesToBounds(pen);
+
+            if (PortableGeometryOperationsBridge.IsPortable)
+            {
+                return PortableGeometryOperationsBridge.GetRenderBounds(
+                    PortableGeometryOperationsBridge.ExportPolygon(pPoints, pointCount, pTypes, segmentCount,
+                        pGeometryMatrix == null ? Matrix.Identity : *pGeometryMatrix),
+                    pen, pWorldMatrix == null ? Matrix.Identity : *pWorldMatrix, tolerance, type, fSkipHollows);
+            }
+
+            if (!OperatingSystem.IsWindows())
+            {
+                return GetProGpuPolygonBounds(
+                    pen,
+                    fPenContributesToBounds,
+                    pWorldMatrix,
+                    pPoints,
+                    pointCount,
+                    pGeometryMatrix);
+            }
+
+            MIL_PEN_DATA penData;
+            double[] dashArray = null;
 
             if (fPenContributesToBounds)
             {
@@ -213,6 +269,67 @@ namespace System.Windows.Media
             }
 
             return bounds;
+        }
+
+        private static unsafe Rect GetProGpuPolygonBounds(
+            Pen pen,
+            bool penContributesToBounds,
+            Matrix* pWorldMatrix,
+            Point* pPoints,
+            uint pointCount,
+            Matrix* pGeometryMatrix)
+        {
+            if (pointCount == 0)
+            {
+                return Rect.Empty;
+            }
+
+            if (pointCount > int.MaxValue)
+            {
+                return Rect.Empty;
+            }
+
+            Span<Vector2> points = pointCount <= 256
+                ? stackalloc Vector2[(int)pointCount]
+                : new Vector2[(int)pointCount];
+            for (int i = 0; i < points.Length; i++)
+            {
+                points[i] = new Vector2((float)pPoints[i].X, (float)pPoints[i].Y);
+            }
+
+            Matrix4x4 geometryMatrix = pGeometryMatrix == null ? Matrix4x4.Identity : ToProGpuMatrix(*pGeometryMatrix);
+            Matrix4x4 worldMatrix = pWorldMatrix == null ? Matrix4x4.Identity : ToProGpuMatrix(*pWorldMatrix);
+            float strokeThickness = 0.0f;
+            if (penContributesToBounds)
+            {
+                strokeThickness = (float)Math.Abs(pen.Thickness);
+                if (!float.IsFinite(strokeThickness))
+                {
+                    return Rect.Empty;
+                }
+            }
+
+            if (!ProGpuPolygonGeometryBounds.TryGetBounds(
+                    points,
+                    geometryMatrix,
+                    worldMatrix,
+                    strokeThickness,
+                    out Vector2 min,
+                    out Vector2 max))
+            {
+                return Rect.Empty;
+            }
+
+            return new Rect(new Point(min.X, min.Y), new Point(max.X, max.Y));
+        }
+
+        private static Matrix4x4 ToProGpuMatrix(Matrix matrix)
+        {
+            return new Matrix4x4(
+                (float)matrix.M11, (float)matrix.M12, 0.0f, 0.0f,
+                (float)matrix.M21, (float)matrix.M22, 0.0f, 0.0f,
+                0.0f, 0.0f, 1.0f, 0.0f,
+                (float)matrix.OffsetX, (float)matrix.OffsetY, 0.0f, 1.0f);
         }
 
         internal virtual void TransformPropertyChangedHook(DependencyPropertyChangedEventArgs e)
@@ -382,11 +499,25 @@ namespace System.Windows.Media
                 return false;
             }
 
+            if (PortableGeometryOperationsBridge.IsPortable)
+                return PortableGeometryOperationsBridge.Contains(this, pen, hitPoint, tolerance, type);
+
             PathGeometryData pathData = GetPathGeometryData();
 
             if (pathData.IsEmpty())
             {
                 return false;
+            }
+
+            if (!OperatingSystem.IsWindows())
+            {
+                if (pen == null &&
+                    PathGeometry.TryContainsFillProGpu(pathData, hitPoint, tolerance, type, out bool proGpuContains))
+                {
+                    return proGpuContains;
+                }
+
+                return ContainsProGpuBounds(pen, hitPoint, tolerance, type);
             }
 
             bool contains = false;
@@ -440,6 +571,21 @@ namespace System.Windows.Media
         internal unsafe bool ContainsInternal(Pen pen, Point hitPoint, double tolerance, ToleranceType type, 
                                                 Point *pPoints, uint pointCount, byte *pTypes, uint typeCount)
         {
+            if (PortableGeometryOperationsBridge.IsPortable)
+                return PortableGeometryOperationsBridge.Contains(this, pen, hitPoint, tolerance, type);
+            if (!OperatingSystem.IsWindows())
+            {
+                return ContainsPolygonProGpuBounds(
+                    pen,
+                    hitPoint,
+                    tolerance,
+                    type,
+                    pPoints,
+                    pointCount,
+                    pTypes,
+                    typeCount);
+            }
+
             bool contains = false;
 
             MilMatrix3x2D matrix = CompositionResourceManager.TransformToMilMatrix3x2D(Transform);
@@ -477,6 +623,55 @@ namespace System.Windows.Media
             }
 
             return contains;
+        }
+
+        private bool ContainsProGpuBounds(Pen pen, Point hitPoint, double tolerance, ToleranceType type)
+        {
+            Rect bounds = GetBoundsInternal(pen, Matrix.Identity, tolerance, type);
+            return ContainsProGpuBounds(bounds, hitPoint, tolerance, type);
+        }
+
+        private unsafe bool ContainsPolygonProGpuBounds(
+            Pen pen,
+            Point hitPoint,
+            double tolerance,
+            ToleranceType type,
+            Point* pPoints,
+            uint pointCount,
+            byte* pTypes,
+            uint typeCount)
+        {
+            Matrix worldMatrix = Matrix.Identity;
+            Matrix geometryMatrix;
+            Transform.GetTransformValue(Transform, out geometryMatrix);
+
+            Rect bounds = GetBoundsHelper(
+                pen,
+                &worldMatrix,
+                pPoints,
+                pTypes,
+                pointCount,
+                typeCount,
+                &geometryMatrix,
+                tolerance,
+                type,
+                fSkipHollows: false);
+            return ContainsProGpuBounds(bounds, hitPoint, tolerance, type);
+        }
+
+        private static bool ContainsProGpuBounds(Rect bounds, Point hitPoint, double tolerance, ToleranceType type)
+        {
+            if (bounds.IsEmpty)
+            {
+                return false;
+            }
+
+            return ProGpuBoundsHitTesting.ContainsPoint(
+                new Vector2((float)hitPoint.X, (float)hitPoint.Y),
+                new Vector2((float)bounds.Left, (float)bounds.Top),
+                new Vector2((float)bounds.Right, (float)bounds.Bottom),
+                (float)tolerance,
+                type == ToleranceType.Relative);
         }
 
         /// <summary>

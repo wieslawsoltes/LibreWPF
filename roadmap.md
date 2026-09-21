@@ -1,4 +1,76 @@
-# WPF Roadmap
+# LibreWPF Cross-Platform Roadmap
+
+LibreWPF keeps the managed WPF application, XAML, control, layout, binding,
+document, resource, and theme model while replacing the Windows-only
+presentation stack with ProGPU and typed portable platform services.
+
+## Current compatibility milestone
+
+The current preview line prioritizes unchanged application and library sources:
+
+- `LibreWPF.Sdk` redirects normal SDK-style WPF projects to the portable
+  transport, ProGPU renderer, and Silk.NET platform host.
+- Aero, Aero2, AeroLite, Classic, Fluent, Luna, and Royale themes are built,
+  packaged, and switched at runtime by the release sample.
+- Menus, context menus, ComboBox dropdowns, tooltips, dialogs, clipboard,
+  drag/drop, text editing, keyboard commands, native title bars, resizing, and
+  retained rendering are release-gated.
+- LibreWinForms supplies source-built WinForms APIs, designers, resources, and
+  `WindowsFormsIntegration` rather than growing a WPF-local compatibility shim.
+- SharpDevelop, AvalonEdit, WpfDesigner, AvalonDock, Xceed Toolkit/DataGrid,
+  SciChart, WPFGallery, ResourceToolkit, HexEditor, and reporting workbenches
+  provide unchanged or package-only acceptance workloads.
+
+## Platform policy
+
+| Platform | Supported windowing path | Release contract |
+| --- | --- | --- |
+| Windows | Win32 window through Silk.NET | Native positioning, move, title bar, popups, input, and portable ProGPU rendering |
+| macOS | Cocoa window through Silk.NET | Native positioning, move, title bar, transient popups, input, and portable ProGPU rendering |
+| Linux X11/XWayland | X11 window through Silk.NET | Native positioning, `_NET_WM_MOVERESIZE`, transient popups, global coordinates, and docking semantics |
+| Linux native Wayland | Explicit opt-in | Owner-composited popups; no false absolute positioning or interactive-move claim while GLFW lacks `xdg_toplevel`, seat, and input-serial access |
+
+On a Wayland desktop with XWayland available, LibreWPF selects X11 before the
+first GLFW window. This is the supported compatibility path for unchanged WPF
+docking applications. The package-built Linux gate advertises a Wayland session,
+injects a real native drag into the XWayland window, and requires dispatcher,
+menu, ComboBox, direct Popup, theme, rendering, and shutdown validation to
+complete.
+
+`ProGpuWpfDiagnostics.TryGetWindowingCapabilities(...)` exposes the actual
+backend and capabilities through a typed, reflection-free snapshot so docking
+libraries can fail closed or select a preview strategy on explicit native
+Wayland.
+
+## Engineering priorities
+
+1. Preserve source and XAML compatibility while removing reflection from
+   rendering, input, windowing, resource, and invalidation hot paths.
+2. Keep retained scene composition, GPU hit testing, clipping, effects, text,
+   and render-target lifetime reusable across LibreWPF, LibreWinForms,
+   Avalonia, WinUI-shaped ProGPU controls, and browser/mobile hosts.
+3. Maintain bounded memory, stable glyph/path atlases, event-driven idle
+   rendering, and measurable large-control scrolling performance.
+4. Expand designers and tooling through SharpDevelop/OpenDevelop, AvalonEdit,
+   WpfDesigner, XAML language services, Hot Reload, inspection, profiling, and
+   package-mode templates.
+5. Pursue trimming and NativeAOT only through generated or typed metadata—not
+   by preserving runtime reflection scaffolding.
+
+## Ecosystem status
+
+- DevFlow, AvalonEdit, WpfDesigner, SharpDevelop, and VS Code/OpenDevelop
+  integration have working LibreWPF paths.
+- AvalonDock and third-party control suites are continuously validated; Linux
+  X11/XWayland is the compatibility path for floating docking windows.
+- LibreWinForms and `WindowsFormsIntegration` are released in coordinated
+  previews and exercised by the SharpDevelop Forms designer.
+- Remaining work is tracked as focused issues with reproduction and acceptance
+  criteria rather than as unchecked items in this roadmap.
+
+---
+
+# Historical Upstream WPF Roadmap
 
 Last year, we have made efforts in improving the testing infrastructure, merging community PRs to address long-standing issues, adding new control (OpenFolderDialog) and enabling new capability (hardware acceleration for RDP connections). The efforts to open-source our tests and automate the testing process through CI/CD pipelines, adding unit tests, tackle persistent issues, and addition of newer controls, all came together in bringing WPF on .NET 8.  
 

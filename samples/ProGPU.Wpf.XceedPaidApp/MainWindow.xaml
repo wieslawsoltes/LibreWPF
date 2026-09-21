@@ -1,0 +1,597 @@
+<Window x:Class="ProGPU.Wpf.XceedPaidApp.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:ProGPU.Wpf.XceedPaidApp"
+        xmlns:xctk="http://schemas.xceed.com/wpf/xaml/toolkit"
+        xmlns:xcdg="http://schemas.xceed.com/wpf/xaml/datagrid"
+        xmlns:xcdgtheme="clr-namespace:Xceed.Wpf.DataGrid.ThemePack;assembly=Xceed.Wpf.DataGrid.ThemePack.1"
+        xmlns:xcad="http://schemas.xceed.com/wpf/xaml/avalondock"
+        xmlns:xcadthemes="clr-namespace:Xceed.Wpf.AvalonDock.Themes;assembly=Xceed.Wpf.AvalonDock.Themes.Windows10"
+        xmlns:scm="clr-namespace:System.ComponentModel;assembly=WindowsBase"
+        xmlns:sys="clr-namespace:System;assembly=mscorlib"
+        Title="ProGPU WPF Paid Xceed Toolkit + DataGrid"
+        Width="1180"
+        Height="760"
+        MinWidth="920"
+        MinHeight="560"
+        Background="#F7FAFB">
+  <Window.Resources>
+    <xcdg:DataGridCollectionViewSource x:Key="PaidRowsView"
+                                       Source="{Binding Rows}"
+                                       AutoCreateDetailDescriptions="True"
+                                       AutoCreateItemProperties="False"
+                                       AutoFilterMode="And"
+                                       DefaultCalculateDistinctValues="False"
+                                       FilterCriteriaMode="And"
+                                       Filter="PaidRowsView_Filter">
+      <xcdg:DataGridCollectionViewSource.ItemProperties>
+        <xcdg:DataGridItemProperty Name="Id"
+                                   Title="Id"
+                                   CalculateDistinctValues="False" />
+        <xcdg:DataGridItemProperty Name="Title"
+                                   Title="Title"
+                                   CalculateDistinctValues="False" />
+        <xcdg:DataGridItemProperty Name="Owner"
+                                   Title="Owner"
+                                   CalculateDistinctValues="True" />
+        <xcdg:DataGridItemProperty Name="Category"
+                                   Title="Category"
+                                   CalculateDistinctValues="True" />
+        <xcdg:DataGridItemProperty Name="Status"
+                                   Title="Status"
+                                   CalculateDistinctValues="True" />
+        <xcdg:DataGridItemProperty Name="Score"
+                                   Title="Score"
+                                   CalculateDistinctValues="False" />
+        <xcdg:DataGridItemProperty Name="Updated"
+                                   Title="Updated"
+                                   CalculateDistinctValues="False" />
+        <xcdg:DataGridItemProperty Name="Active"
+                                   Title="Active"
+                                   CalculateDistinctValues="True" />
+        <xcdg:DataGridUnboundItemProperty Name="PriorityBand"
+                                          DataType="{x:Type sys:String}"
+                                          IsReadOnly="True"
+                                          QueryValue="PriorityBand_QueryValue" />
+      </xcdg:DataGridCollectionViewSource.ItemProperties>
+      <xcdg:DataGridCollectionViewSource.GroupDescriptions>
+        <xcdg:DataGridGroupDescription PropertyName="Category" />
+      </xcdg:DataGridCollectionViewSource.GroupDescriptions>
+      <xcdg:DataGridCollectionViewSource.SortDescriptions>
+        <scm:SortDescription PropertyName="Updated"
+                             Direction="Descending" />
+      </xcdg:DataGridCollectionViewSource.SortDescriptions>
+      <xcdg:DataGridCollectionViewSource.StatFunctions>
+        <xcdg:CountFunction ResultPropertyName="paid_row_count"
+                            SourcePropertyName="Id" />
+        <xcdg:AverageFunction ResultPropertyName="paid_score_average"
+                              SourcePropertyName="Score" />
+      </xcdg:DataGridCollectionViewSource.StatFunctions>
+    </xcdg:DataGridCollectionViewSource>
+    <xcdg:DataGridVirtualizingQueryableCollectionViewSource x:Key="VirtualPaidRowsView"
+                                                            QueryableSource="{Binding VirtualRows}"
+                                                            PageSize="256"
+                                                            MaxRealizedItemCount="1024"
+                                                            CommitMode="EditCommitted" />
+    <xcdg:DataGridCollectionViewSource x:Key="EditableRowsView"
+                                       Source="{Binding EditableRows}"
+                                       AutoCreateItemProperties="False"
+                                       DefaultCalculateDistinctValues="False">
+      <xcdg:DataGridCollectionViewSource.ItemProperties>
+        <xcdg:DataGridItemProperty Name="Id"
+                                   Title="Id" />
+        <xcdg:DataGridItemProperty Name="Title"
+                                   Title="Title" />
+        <xcdg:DataGridItemProperty Name="Status"
+                                   Title="Status" />
+        <xcdg:DataGridItemProperty Name="Score"
+                                   Title="Score" />
+        <xcdg:DataGridItemProperty Name="Active"
+                                   Title="Active" />
+      </xcdg:DataGridCollectionViewSource.ItemProperties>
+    </xcdg:DataGridCollectionViewSource>
+    <Style x:Key="PanelHeaderText" TargetType="{x:Type TextBlock}">
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="#12333D" />
+      <Setter Property="Margin" Value="0,0,0,8" />
+    </Style>
+  </Window.Resources>
+
+  <DockPanel LastChildFill="True">
+    <Border DockPanel.Dock="Top"
+            Padding="12,8"
+            Background="{StaticResource PaidAccentBrush}">
+      <Grid>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <StackPanel>
+          <TextBlock Foreground="White"
+                     FontSize="16"
+                     FontWeight="SemiBold"
+                     Text="Paid Xceed Toolkit Plus and DataGrid through ProGPU.Wpf.Sdk" />
+          <TextBlock Foreground="#D8EEF2"
+                     FontSize="12"
+                     Text="{Binding LicenseStatusText}" />
+        </StackPanel>
+        <WrapPanel Grid.Column="1"
+                   HorizontalAlignment="Right">
+          <Button MinWidth="96"
+                  Margin="0,0,6,0"
+                  Padding="10,4"
+                  Content="CSV"
+                  Click="ExportCsvButton_Click" />
+          <Button MinWidth="96"
+                  Margin="0,0,6,0"
+                  Padding="10,4"
+                  Content="Excel"
+                  Click="ExportExcelButton_Click" />
+          <Button MinWidth="112"
+                  Margin="0,0,6,0"
+                  Padding="10,4"
+                  Content="Save view"
+                  Click="SaveSettingsButton_Click" />
+          <Button MinWidth="112"
+                  Margin="0,0,6,0"
+                  Padding="10,4"
+                  Content="Load view"
+                  Click="LoadSettingsButton_Click" />
+          <Button MinWidth="128"
+                  Margin="0,0,6,0"
+                  Padding="10,4"
+                  Content="Toggle status"
+                  Click="ToggleStatusColumnButton_Click" />
+          <Button MinWidth="96"
+                  Margin="0,0,6,0"
+                  Padding="10,4"
+                  Content="Table"
+                  Click="TableViewButton_Click" />
+          <Button MinWidth="96"
+                  Margin="0,0,6,0"
+                  Padding="10,4"
+                  Content="Flow"
+                  Click="TableflowViewButton_Click" />
+          <Button MinWidth="96"
+                  Margin="0,0,6,0"
+                  Padding="10,4"
+                  Content="3D"
+                  Click="CardflowViewButton_Click" />
+          <Button MinWidth="104"
+                  Margin="0,0,6,0"
+                  Padding="10,4"
+                  Content="Add row"
+                  Click="AddRowButton_Click" />
+          <Button MinWidth="112"
+                  Margin="0,0,6,0"
+                  Padding="10,4"
+                  Content="Validate edit"
+                  Click="ValidateEditButton_Click" />
+          <Button MinWidth="120"
+                  Margin="0,0,6,0"
+                  Padding="10,4"
+                  Content="Select middle"
+                  Click="SelectMiddleButton_Click" />
+          <Button MinWidth="120"
+                  Padding="10,4"
+                  Content="Select last"
+                  Click="SelectLastButton_Click" />
+        </WrapPanel>
+      </Grid>
+    </Border>
+
+    <StatusBar DockPanel.Dock="Bottom">
+      <StatusBarItem>
+        <TextBlock Text="{Binding Status}" />
+      </StatusBarItem>
+      <Separator />
+      <StatusBarItem>
+        <TextBlock Text="{Binding RowCount, StringFormat=Rows: {0:N0}}" />
+      </StatusBarItem>
+      <Separator />
+      <StatusBarItem>
+        <TextBlock Text="{Binding ActiveRowCount, StringFormat=Filtered active rows: {0:N0}}" />
+      </StatusBarItem>
+      <Separator />
+      <StatusBarItem>
+        <TextBlock Text="{Binding SelectedRow.Title, StringFormat=Selected: {0}, TargetNullValue=Selected: none}" />
+      </StatusBarItem>
+    </StatusBar>
+
+    <xcad:DockingManager x:Name="DockManager"
+                         BorderBrush="#B4C7CE"
+                         BorderThickness="1"
+                         GridSplitterWidth="6"
+                         GridSplitterHeight="6">
+      <xcad:DockingManager.Theme>
+        <xcadthemes:Windows10Theme />
+      </xcad:DockingManager.Theme>
+      <xcad:LayoutRoot>
+        <xcad:LayoutPanel Orientation="Horizontal">
+          <xcad:LayoutAnchorablePane DockWidth="300">
+            <xcad:LayoutAnchorable x:Name="ToolkitPlusPane"
+                                   Title="Toolkit Plus"
+                                   CanClose="False"
+                                   CanHide="False">
+              <ScrollViewer x:Name="ToolkitPaneScrollViewer"
+                            VerticalScrollBarVisibility="Auto"
+                            Padding="12"
+                            Background="{StaticResource PaidPanelBrush}">
+                <StackPanel>
+                  <TextBlock Style="{StaticResource PanelHeaderText}"
+                             Text="Material controls" />
+                  <xctk:MaterialTextField x:Name="MaterialFilterTextField"
+                                          MinWidth="220"
+                                          Margin="0,0,0,10"
+                                          Watermark="Filter text"
+                                          Text="{Binding FilterText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                  <xctk:MaterialButton x:Name="MaterialAddButton"
+                                       MinWidth="160"
+                                       Margin="0,0,0,10"
+                                       Content="Add paid row"
+                                       Click="AddRowButton_Click" />
+                  <xctk:MaterialSwitch x:Name="MaterialActionsSwitch"
+                                       Margin="0,0,0,12"
+                                       IsChecked="{Binding ActionsEnabled, Mode=TwoWay}" />
+                  <xctk:MaterialSlider x:Name="MaterialScoreSlider"
+                                       Minimum="0"
+                                       Maximum="100"
+                                       Value="{Binding ScoreBias, Mode=TwoWay}" />
+                  <TextBlock Margin="0,10,0,4"
+                             Text="{Binding ScoreBias, StringFormat=Score bias: {0:F0}}" />
+                  <xctk:MaterialProgressBar x:Name="MaterialProgressBar"
+                                            Minimum="0"
+                                            Maximum="100"
+                                            Value="{Binding Progress}" />
+
+                  <Separator Margin="0,16,0,12" />
+                  <TextBlock Style="{StaticResource PanelHeaderText}"
+                             Text="Toolkit editors" />
+                  <xctk:IntegerUpDown x:Name="BatchSizeEditor"
+                                      Minimum="1"
+                                      Maximum="1000"
+                                      Value="{Binding BatchSize, Mode=TwoWay}" />
+                  <xctk:BusyIndicator x:Name="PaidBusyIndicator"
+                                      Margin="0,10,0,0"
+                                      IsBusy="{Binding IsRefreshing}"
+                                      BusyContent="Refreshing paid DataGrid state">
+                    <Border Height="80"
+                            Background="#E7F0F3">
+                      <TextBlock HorizontalAlignment="Center"
+                                 VerticalAlignment="Center"
+                                 Text="Toolkit Plus content" />
+                    </Border>
+                  </xctk:BusyIndicator>
+                </StackPanel>
+              </ScrollViewer>
+            </xcad:LayoutAnchorable>
+          </xcad:LayoutAnchorablePane>
+
+          <xcad:LayoutDocumentPane>
+            <xcad:LayoutDocument x:Name="PaidDataGridDocument"
+                                 Title="Paid DataGrid 100k">
+              <Grid Margin="12">
+                <Grid.RowDefinitions>
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+                <DockPanel Margin="0,0,0,8">
+                  <StackPanel DockPanel.Dock="Left">
+                    <TextBlock FontSize="18"
+                               FontWeight="SemiBold"
+                               Text="Xceed DataGrid 100k" />
+                    <TextBlock Foreground="#60727C"
+                               Text="Commercial Xceed DataGridControl with explicit columns, active-row filtering, category grouping, stats, details, row selection, search, merged headers, export, settings persistence, scrolling, and package themes restored through the custom SDK." />
+                  </StackPanel>
+                  <StackPanel DockPanel.Dock="Right"
+                              Orientation="Horizontal"
+                              VerticalAlignment="Center">
+                    <TextBlock Margin="0,0,10,0"
+                               VerticalAlignment="Center"
+                               Foreground="#60727C"
+                               Text="{Binding RowCount, StringFormat=Items: {0:N0}}" />
+                    <TextBox Width="160"
+                             Margin="0,0,8,0"
+                             VerticalAlignment="Center"
+                             Text="{Binding SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                    <xcdg:SearchControl x:Name="PaidSearchControl"
+                                        Width="220"
+                                        VerticalAlignment="Center" />
+                  </StackPanel>
+                </DockPanel>
+                <xcdg:DataGridControl x:Name="PaidDataGrid"
+                                      Grid.Row="1"
+                                      AutomationProperties.AutomationId="PaidXceedDataGridAutomation"
+                                      AutoCreateColumns="False"
+                                      SearchText="{Binding DataContext.SearchText, RelativeSource={RelativeSource AncestorType={x:Type Window}}, Mode=OneWay}"
+                                      ReadOnly="True"
+                                      ItemScrollingBehavior="Immediate"
+                                      NavigationBehavior="RowOnly"
+                                      SelectionMode="Single"
+                                      AutoCreateDetailConfigurations="True"
+                                      ItemsSource="{Binding Source={StaticResource PaidRowsView}}"
+                                      SelectedItem="{Binding SelectedRow, Mode=TwoWay}">
+                  <xcdg:DataGridControl.DefaultGroupConfiguration>
+                    <xcdg:GroupConfiguration>
+                      <xcdg:GroupConfiguration.Footers>
+                        <DataTemplate>
+                          <xcdg:StatRow>
+                            <xcdg:StatCell FieldName="Id"
+                                           ResultPropertyName="paid_row_count" />
+                            <xcdg:StatCell FieldName="Score"
+                                           ResultPropertyName="paid_score_average"
+                                           ResultConverterParameter="F1" />
+                          </xcdg:StatRow>
+                        </DataTemplate>
+                      </xcdg:GroupConfiguration.Footers>
+                    </xcdg:GroupConfiguration>
+                  </xcdg:DataGridControl.DefaultGroupConfiguration>
+                  <xcdg:DataGridControl.DetailConfigurations>
+                    <xcdg:DetailConfiguration RelationName="Details"
+                                              Title="Row details"
+                                              AutoCreateDetailConfigurations="False"
+                                              UseDefaultHeadersFooters="False">
+                      <xcdg:DetailConfiguration.Columns>
+                        <xcdg:Column FieldName="Step" />
+                        <xcdg:Column FieldName="Note" />
+                        <xcdg:Column FieldName="Owner" />
+                        <xcdg:Column FieldName="Score" />
+                      </xcdg:DetailConfiguration.Columns>
+                    </xcdg:DetailConfiguration>
+                  </xcdg:DataGridControl.DetailConfigurations>
+                  <xcdg:DataGridControl.MergedHeaders>
+                    <xcdg:MergedHeader>
+                      <xcdg:MergedHeader.MergedColumns>
+                        <xcdg:MergedColumn FieldName="Identity"
+                                           Title="Identity"
+                                           ChildColumnNames="Id,Title,Owner" />
+                        <xcdg:MergedColumn FieldName="Execution"
+                                           Title="Execution"
+                                           ChildColumnNames="Category,Status,Score,PriorityBand,Updated,Active" />
+                      </xcdg:MergedHeader.MergedColumns>
+                    </xcdg:MergedHeader>
+                  </xcdg:DataGridControl.MergedHeaders>
+                  <xcdg:DataGridControl.View>
+                    <xcdg:TableView x:Name="PaidTableView"
+                                    ColumnStretchMode="All"
+                                    FixedColumnCount="1"
+                                    AllowColumnChooser="True"
+                                    ColumnChooserSortOrder="TitleAscending"
+                                    UseDefaultHeadersFooters="False">
+                      <xcdg:TableView.Theme>
+                        <xcdgtheme:Office2007BlueTheme />
+                      </xcdg:TableView.Theme>
+                      <xcdg:TableView.FixedHeaders>
+                        <DataTemplate>
+                          <xcdg:GroupByControl />
+                        </DataTemplate>
+                        <DataTemplate>
+                          <xcdg:MergedColumnManagerRow AllowColumnReorder="True"
+                                                       AllowColumnResize="True" />
+                        </DataTemplate>
+                        <DataTemplate>
+                          <xcdg:ColumnManagerRow AllowColumnReorder="True"
+                                                 AllowColumnResize="True"
+                                                 AllowSort="True"
+                                                 AllowAutoFilter="True" />
+                        </DataTemplate>
+                        <DataTemplate>
+                          <xcdg:FilterRow x:Name="PaidFilterRow" />
+                        </DataTemplate>
+                      </xcdg:TableView.FixedHeaders>
+                      <xcdg:TableView.FixedFooters>
+                        <DataTemplate>
+                          <xcdg:StatRow>
+                            <xcdg:StatCell FieldName="Id"
+                                           ResultPropertyName="paid_row_count" />
+                            <xcdg:StatCell FieldName="Score"
+                                           ResultPropertyName="paid_score_average"
+                                           ResultConverterParameter="F1" />
+                          </xcdg:StatRow>
+                        </DataTemplate>
+                      </xcdg:TableView.FixedFooters>
+                    </xcdg:TableView>
+                  </xcdg:DataGridControl.View>
+                  <xcdg:DataGridControl.Columns>
+                    <xcdg:Column FieldName="Id"
+                                 Title="Id"
+                                 ShowInColumnChooser="False" />
+                    <xcdg:Column FieldName="Title"
+                                 Title="Title" />
+                    <xcdg:Column FieldName="Owner"
+                                 Title="Owner" />
+                    <xcdg:Column FieldName="Category"
+                                 Title="Category" />
+                    <xcdg:Column FieldName="Status"
+                                 Title="Status" />
+                    <xcdg:Column FieldName="Score"
+                                 Title="Score" />
+                    <xcdg:UnboundColumn FieldName="PriorityBand"
+                                        Title="Priority" />
+                    <xcdg:Column FieldName="Updated"
+                                 Title="Updated" />
+                    <xcdg:Column FieldName="Active"
+                                 Title="Active" />
+                  </xcdg:DataGridControl.Columns>
+                </xcdg:DataGridControl>
+              </Grid>
+            </xcad:LayoutDocument>
+            <xcad:LayoutDocument x:Name="EditableDataGridDocument"
+                                 Title="Editing + validation">
+              <Grid Margin="12">
+                <Grid.RowDefinitions>
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+                <DockPanel Margin="0,0,0,8">
+                  <StackPanel DockPanel.Dock="Left">
+                    <TextBlock FontSize="18"
+                               FontWeight="SemiBold"
+                               Text="Xceed editable DataGrid" />
+                    <TextBlock Foreground="#60727C"
+                               Text="Commercial Xceed edit triggers, cell-ending validation, mutable rows, IDataErrorInfo validation, current-cell editing, selection, and column read-only policy." />
+                  </StackPanel>
+                  <TextBlock DockPanel.Dock="Right"
+                             VerticalAlignment="Center"
+                             Foreground="#60727C"
+                             Text="{Binding EditableRows.Count, StringFormat=Editable rows: {0:N0}}" />
+                </DockPanel>
+                <xcdg:DataGridControl x:Name="EditablePaidDataGrid"
+                                      Grid.Row="1"
+                                      AutomationProperties.AutomationId="EditablePaidXceedDataGridAutomation"
+                                      AutoCreateColumns="False"
+                                      ReadOnly="False"
+                                      EditTriggers="CellIsCurrent"
+                                      ItemScrollingBehavior="Immediate"
+                                      NavigationBehavior="CellOnly"
+                                      SelectionMode="Single"
+                                      ItemsSource="{Binding Source={StaticResource EditableRowsView}}"
+                                      SelectedItem="{Binding SelectedEditableRow, Mode=TwoWay}">
+                  <xcdg:DataGridControl.View>
+                    <xcdg:TableView ColumnStretchMode="All"
+                                    FixedColumnCount="1"
+                                    UseDefaultHeadersFooters="False">
+                      <xcdg:TableView.Theme>
+                        <xcdgtheme:Office2007BlueTheme />
+                      </xcdg:TableView.Theme>
+                      <xcdg:TableView.FixedHeaders>
+                        <DataTemplate>
+                          <xcdg:ColumnManagerRow AllowColumnReorder="True"
+                                                 AllowColumnResize="True"
+                                                 AllowSort="True" />
+                        </DataTemplate>
+                      </xcdg:TableView.FixedHeaders>
+                    </xcdg:TableView>
+                  </xcdg:DataGridControl.View>
+                  <xcdg:DataGridControl.Columns>
+                    <xcdg:Column FieldName="Id"
+                                 Title="Id"
+                                 ReadOnly="True" />
+                    <xcdg:Column FieldName="Title"
+                                 Title="Title"
+                                 CellEditorDisplayConditions="CellIsCurrent" />
+                    <xcdg:Column FieldName="Status"
+                                 Title="Status"
+                                 CellEditorDisplayConditions="CellIsCurrent" />
+                    <xcdg:Column FieldName="Score"
+                                 Title="Score"
+                                 CellEditorDisplayConditions="CellIsCurrent" />
+                    <xcdg:Column FieldName="Active"
+                                 Title="Active"
+                                 CellEditorDisplayConditions="CellIsCurrent" />
+                  </xcdg:DataGridControl.Columns>
+                </xcdg:DataGridControl>
+              </Grid>
+            </xcad:LayoutDocument>
+            <xcad:LayoutDocument x:Name="VirtualDataGridDocument"
+                                 Title="Virtual DataGrid">
+              <Grid Margin="12">
+                <Grid.RowDefinitions>
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+                <DockPanel Margin="0,0,0,8">
+                  <StackPanel DockPanel.Dock="Left">
+                    <TextBlock FontSize="18"
+                               FontWeight="SemiBold"
+                               Text="Xceed virtualizing DataGrid" />
+                    <TextBlock Foreground="#60727C"
+                               Text="Commercial DataGridVirtualizingQueryableCollectionViewSource over the same 100k-row model, with bounded pages and realized-item cache for performance evaluation." />
+                  </StackPanel>
+                  <TextBlock DockPanel.Dock="Right"
+                             VerticalAlignment="Center"
+                             Foreground="#60727C"
+                             Text="{Binding RowCount, StringFormat=Virtual source items: {0:N0}}" />
+                </DockPanel>
+                <xcdg:DataGridControl x:Name="VirtualPaidDataGrid"
+                                      Grid.Row="1"
+                                      AutomationProperties.AutomationId="VirtualPaidXceedDataGridAutomation"
+                                      AutoCreateColumns="False"
+                                      ReadOnly="True"
+                                      ItemScrollingBehavior="Deferred"
+                                      NavigationBehavior="RowOnly"
+                                      SelectionMode="Single"
+                                      ItemsSource="{Binding Source={StaticResource VirtualPaidRowsView}}">
+                  <xcdg:DataGridControl.View>
+                    <xcdg:TableView ColumnStretchMode="All"
+                                    FixedColumnCount="1"
+                                    AllowColumnChooser="True"
+                                    ColumnChooserSortOrder="TitleAscending"
+                                    UseDefaultHeadersFooters="False">
+                      <xcdg:TableView.Theme>
+                        <xcdgtheme:Office2007BlueTheme />
+                      </xcdg:TableView.Theme>
+                      <xcdg:TableView.FixedHeaders>
+                        <DataTemplate>
+                          <xcdg:ColumnManagerRow AllowColumnReorder="True"
+                                                 AllowColumnResize="True"
+                                                 AllowSort="True" />
+                        </DataTemplate>
+                      </xcdg:TableView.FixedHeaders>
+                    </xcdg:TableView>
+                  </xcdg:DataGridControl.View>
+                  <xcdg:DataGridControl.Columns>
+                    <xcdg:Column FieldName="Id" />
+                    <xcdg:Column FieldName="Title" />
+                    <xcdg:Column FieldName="Owner" />
+                    <xcdg:Column FieldName="Category" />
+                    <xcdg:Column FieldName="Status" />
+                    <xcdg:Column FieldName="Score" />
+                    <xcdg:Column FieldName="Updated" />
+                  </xcdg:DataGridControl.Columns>
+                </xcdg:DataGridControl>
+              </Grid>
+            </xcad:LayoutDocument>
+          </xcad:LayoutDocumentPane>
+
+          <xcad:LayoutAnchorablePane DockWidth="260">
+            <xcad:LayoutAnchorable x:Name="MetricsPane"
+                                   Title="Metrics + Columns"
+                                   CanClose="False"
+                                   CanHide="False">
+              <Grid Margin="12">
+                <Grid.RowDefinitions>
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+                <StackPanel>
+                  <TextBlock Style="{StaticResource PanelHeaderText}"
+                             Text="Compatibility status" />
+                  <TextBlock Text="{Binding PackageStatus}" />
+                  <TextBlock Margin="0,8,0,0"
+                             Text="{Binding LastAction}" />
+                </StackPanel>
+                <Border Grid.Row="1"
+                        Margin="0,12,0,0"
+                        Padding="6"
+                        BorderBrush="#B4C7CE"
+                        BorderThickness="1"
+                        Background="White">
+                  <StackPanel>
+                    <TextBlock Style="{StaticResource PanelHeaderText}"
+                               Text="Column chooser" />
+                    <xcdg:ColumnChooserControl x:Name="PaidColumnChooser"
+                                              Height="220"
+                                              Columns="{Binding ElementName=PaidDataGrid, Path=Columns}"
+                                              VisibleColumnsSectionTitle="Visible"
+                                              HiddenColumnsSectionTitle="Hidden"
+                                              NameColumnTitle="Column"
+                                              OrderColumnTitle="Order"
+                                              OkButtonContent="Apply"
+                                              CancelButtonContent="Reset"
+                                              ShowColumnButtonToolTip="Show paid DataGrid column"
+                                              HideColumnButtonToolTip="Hide paid DataGrid column" />
+                  </StackPanel>
+                </Border>
+                <ListBox Grid.Row="2"
+                         Margin="0,12,0,0"
+                         ItemsSource="{Binding Activity}" />
+              </Grid>
+            </xcad:LayoutAnchorable>
+          </xcad:LayoutAnchorablePane>
+        </xcad:LayoutPanel>
+      </xcad:LayoutRoot>
+    </xcad:DockingManager>
+  </DockPanel>
+</Window>

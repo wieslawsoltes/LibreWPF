@@ -9,6 +9,7 @@
 //
 
 using System.Collections.ObjectModel;       // ReadOnlyCollection<T>
+using System.Runtime.CompilerServices;      // MethodImplAttribute
 using System.Windows.Automation.Peers;      // AutomationPeer
 using System.Windows.Documents;             // IDocumentPaginatorSouce, ...
 using System.Windows.Documents.Serialization;  // WritingCompletedEventArgs
@@ -630,6 +631,17 @@ namespace System.Windows.Controls
         /// </summary>
         protected override void OnPrintCommand()
         {
+            if (!OperatingSystem.IsWindows())
+            {
+                return;
+            }
+
+            OnPrintCommandWindows();
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private void OnPrintCommandWindows()
+        {
 #if !DONOTREFPRINTINGASMMETA
             System.Windows.Xps.XpsDocumentWriter docWriter;
             System.Printing.PrintDocumentImageableArea ia = null;
@@ -707,6 +719,17 @@ namespace System.Windows.Controls
         /// Handler for the CancelPrint command.
         /// </summary>
         protected override void OnCancelPrintCommand()
+        {
+            if (!OperatingSystem.IsWindows())
+            {
+                return;
+            }
+
+            OnCancelPrintCommandWindows();
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private void OnCancelPrintCommandWindows()
         {
 #if !DONOTREFPRINTINGASMMETA
             if (_printingState != null)
@@ -1334,6 +1357,14 @@ namespace System.Windows.Controls
             Invariant.Assert(args != null, "args cannot be null.");
 
             // Disable UI commands, if printing is in progress.
+            if (!OperatingSystem.IsWindows() &&
+                (args.Command == ApplicationCommands.Print || args.Command == ApplicationCommands.CancelPrint))
+            {
+                args.CanExecute = false;
+                args.Handled = true;
+                return;
+            }
+
             if (fdpv._printingState != null)
             {
                 if (args.Command != ApplicationCommands.CancelPrint)
@@ -1579,4 +1610,3 @@ namespace System.Windows.Controls
         #endregion DTypeThemeStyleKey
     }
 }
-

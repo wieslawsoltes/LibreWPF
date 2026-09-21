@@ -11,6 +11,7 @@
 
 using MS.Internal;
 using System.Windows.Media.Composition;
+using ProGPU.Wpf.Interop;
 
 namespace System.Windows.Media
 {
@@ -19,7 +20,7 @@ namespace System.Windows.Media
     /// Transform provides a base for all types of transformations, including matrix and list type.
     ///</summary>
     [Localizability(LocalizationCategory.None, Readability=Readability.Unreadable)]
-    public abstract partial class Transform : GeneralTransform
+    public abstract partial class Transform : GeneralTransform, IPortableTransformMatrixSource
     {
         internal Transform()
         {
@@ -168,8 +169,31 @@ namespace System.Windows.Media
                 return this;
             }
         }
+
+        bool IPortableTransformMatrixSource.TryGetPortableTransformMatrix(out PortableMatrix3x2 matrix)
+        {
+            Matrix value = Value;
+            if (!double.IsFinite(value.M11)
+                || !double.IsFinite(value.M12)
+                || !double.IsFinite(value.M21)
+                || !double.IsFinite(value.M22)
+                || !double.IsFinite(value.OffsetX)
+                || !double.IsFinite(value.OffsetY))
+            {
+                matrix = default;
+                return false;
+            }
+
+            matrix = new PortableMatrix3x2(
+                value.M11,
+                value.M12,
+                value.M21,
+                value.M22,
+                value.OffsetX,
+                value.OffsetY);
+            return true;
+        }
     }
     #endregion
 }
-
 

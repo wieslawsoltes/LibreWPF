@@ -1,0 +1,252 @@
+<Application
+    x:Class="ProGPU.Wpf.RealXamlCompilerHarness.App"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="clr-namespace:ProGPU.Wpf.RealXamlCompilerHarness"
+    StartupUri="MainWindow.xaml">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="SmokeResources.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+            <SolidColorBrush x:Key="AccentBrush" Color="#356D9E" />
+            <SolidColorBrush
+                x:Key="{ComponentResourceKey TypeInTargetAssembly={x:Type local:MainWindow}, ResourceId=SmokeComponentAccentBrush}"
+                Color="#2F6B54" />
+            <SolidColorBrush x:Key="ReplacementAccentBrush" Color="#9C4A2F" />
+            <SolidColorBrush x:Key="UnsharedAccentBrush" x:Shared="False" Color="#4D6F8E" />
+            <SolidColorBrush x:Key="FreezableAccentBrush" Color="#B15E3B" />
+            <LinearGradientBrush
+                x:Key="FreezableGradientBrush"
+                StartPoint="0,0"
+                EndPoint="1,1"
+                SpreadMethod="Reflect">
+                <GradientStop Color="#FF2F6B54" Offset="0" />
+                <GradientStop Color="#FFB15E3B" Offset="0.5" />
+                <GradientStop Color="#FF356D9E" Offset="1" />
+            </LinearGradientBrush>
+            <ControlTemplate x:Key="SmokeButtonTemplate" TargetType="{x:Type Button}">
+                <ControlTemplate.Resources>
+                    <SolidColorBrush x:Key="TemplateBorderBrush" Color="#6B4E9B" />
+                </ControlTemplate.Resources>
+                <Border
+                    x:Name="TemplateBorder"
+                    Background="{DynamicResource AccentBrush}"
+                    BorderBrush="{StaticResource TemplateBorderBrush}"
+                    BorderThickness="2"
+                    Padding="4">
+                    <VisualStateManager.VisualStateGroups>
+                        <VisualStateGroup x:Name="CommonStates">
+                            <VisualState x:Name="Normal" />
+                            <VisualState x:Name="Pressed">
+                                <Storyboard>
+                                    <DoubleAnimation
+                                        Storyboard.TargetName="TemplateBorder"
+                                        Storyboard.TargetProperty="Opacity"
+                                        To="0.73"
+                                        Duration="0:0:0"
+                                        FillBehavior="HoldEnd" />
+                                </Storyboard>
+                            </VisualState>
+                        </VisualStateGroup>
+                    </VisualStateManager.VisualStateGroups>
+                    <ContentPresenter
+                        Content="{TemplateBinding Content}"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center" />
+                </Border>
+                <ControlTemplate.Triggers>
+                    <Trigger Property="IsEnabled" Value="False">
+                        <Setter TargetName="TemplateBorder" Property="Opacity" Value="0.42" />
+                    </Trigger>
+                </ControlTemplate.Triggers>
+            </ControlTemplate>
+            <Style x:Key="SmokeTextBoxStyle" TargetType="{x:Type TextBox}">
+                <Setter Property="MinWidth" Value="180" />
+                <Setter Property="Margin" Value="0,8,0,0" />
+            </Style>
+            <Style
+                x:Key="BasedOnTextBoxStyle"
+                BasedOn="{StaticResource SmokeTextBoxStyle}"
+                TargetType="{x:Type TextBox}">
+                <Setter Property="Tag" Value="based on text box style" />
+            </Style>
+            <Style x:Key="TriggeredButtonStyle" TargetType="{x:Type Button}">
+                <Setter Property="Margin" Value="0,8,0,0" />
+                <Setter Property="Tag" Value="trigger inactive" />
+                <Setter Property="Background" Value="{StaticResource AccentBrush}" />
+                <Style.Triggers>
+                    <DataTrigger Binding="{Binding IsWarning}" Value="True">
+                        <Setter Property="Tag" Value="trigger active" />
+                        <Setter Property="Background" Value="{StaticResource ReplacementAccentBrush}" />
+                    </DataTrigger>
+                </Style.Triggers>
+            </Style>
+            <Style x:Key="PropertyTriggeredButtonStyle" TargetType="{x:Type Button}">
+                <Setter Property="Margin" Value="0,8,0,0" />
+                <Setter Property="Tag" Value="property trigger inactive" />
+                <Setter Property="Background" Value="{StaticResource AccentBrush}" />
+                <Style.Triggers>
+                    <Trigger Property="IsEnabled" Value="False">
+                        <Setter Property="Tag" Value="property trigger active" />
+                        <Setter Property="Background" Value="{StaticResource ReplacementAccentBrush}" />
+                    </Trigger>
+                </Style.Triggers>
+            </Style>
+            <Style x:Key="MultiPropertyTriggeredButtonStyle" TargetType="{x:Type Button}">
+                <Setter Property="Margin" Value="0,8,0,0" />
+                <Setter Property="Tag" Value="multi property trigger inactive" />
+                <Setter Property="Background" Value="{StaticResource AccentBrush}" />
+                <Style.Triggers>
+                    <MultiTrigger>
+                        <MultiTrigger.Conditions>
+                            <Condition Property="IsEnabled" Value="True" />
+                            <Condition Property="IsDefault" Value="True" />
+                        </MultiTrigger.Conditions>
+                        <Setter Property="Tag" Value="multi property trigger active" />
+                        <Setter Property="Background" Value="{StaticResource ReplacementAccentBrush}" />
+                    </MultiTrigger>
+                </Style.Triggers>
+            </Style>
+            <Style x:Key="TriggerActionButtonStyle" TargetType="{x:Type Button}">
+                <Setter Property="Margin" Value="0,8,0,0" />
+                <Style.Triggers>
+                    <Trigger Property="IsEnabled" Value="False">
+                        <Trigger.EnterActions>
+                            <BeginStoryboard>
+                                <Storyboard>
+                                    <DoubleAnimation
+                                        Storyboard.TargetProperty="Opacity"
+                                        To="0.41"
+                                        Duration="0:0:0"
+                                        FillBehavior="HoldEnd" />
+                                </Storyboard>
+                            </BeginStoryboard>
+                        </Trigger.EnterActions>
+                        <Trigger.ExitActions>
+                            <BeginStoryboard>
+                                <Storyboard>
+                                    <DoubleAnimation
+                                        Storyboard.TargetProperty="Opacity"
+                                        To="1"
+                                        Duration="0:0:0"
+                                        FillBehavior="HoldEnd" />
+                                </Storyboard>
+                            </BeginStoryboard>
+                        </Trigger.ExitActions>
+                    </Trigger>
+                </Style.Triggers>
+            </Style>
+            <Style x:Key="DataTriggerActionButtonStyle" TargetType="{x:Type Button}">
+                <Setter Property="Margin" Value="0,8,0,0" />
+                <Style.Triggers>
+                    <DataTrigger Binding="{Binding IsTriggerActionActive}" Value="True">
+                        <DataTrigger.EnterActions>
+                            <BeginStoryboard>
+                                <Storyboard>
+                                    <DoubleAnimation
+                                        Storyboard.TargetProperty="Opacity"
+                                        To="0.52"
+                                        Duration="0:0:0"
+                                        FillBehavior="HoldEnd" />
+                                </Storyboard>
+                            </BeginStoryboard>
+                        </DataTrigger.EnterActions>
+                        <DataTrigger.ExitActions>
+                            <BeginStoryboard>
+                                <Storyboard>
+                                    <DoubleAnimation
+                                        Storyboard.TargetProperty="Opacity"
+                                        To="1"
+                                        Duration="0:0:0"
+                                        FillBehavior="HoldEnd" />
+                                </Storyboard>
+                            </BeginStoryboard>
+                        </DataTrigger.ExitActions>
+                    </DataTrigger>
+                </Style.Triggers>
+            </Style>
+            <Style x:Key="MultiDataTriggerActionButtonStyle" TargetType="{x:Type Button}">
+                <Setter Property="Margin" Value="0,8,0,0" />
+                <Style.Triggers>
+                    <MultiDataTrigger>
+                        <MultiDataTrigger.Conditions>
+                            <Condition Binding="{Binding IsMultiTriggerActionReady}" Value="True" />
+                            <Condition Binding="{Binding IsMultiTriggerActionArmed}" Value="True" />
+                        </MultiDataTrigger.Conditions>
+                        <MultiDataTrigger.EnterActions>
+                            <BeginStoryboard>
+                                <Storyboard>
+                                    <DoubleAnimation
+                                        Storyboard.TargetProperty="Opacity"
+                                        To="0.63"
+                                        Duration="0:0:0"
+                                        FillBehavior="HoldEnd" />
+                                </Storyboard>
+                            </BeginStoryboard>
+                        </MultiDataTrigger.EnterActions>
+                        <MultiDataTrigger.ExitActions>
+                            <BeginStoryboard>
+                                <Storyboard>
+                                    <DoubleAnimation
+                                        Storyboard.TargetProperty="Opacity"
+                                        To="1"
+                                        Duration="0:0:0"
+                                        FillBehavior="HoldEnd" />
+                                </Storyboard>
+                            </BeginStoryboard>
+                        </MultiDataTrigger.ExitActions>
+                    </MultiDataTrigger>
+                </Style.Triggers>
+            </Style>
+            <Style x:Key="MultiTriggerActionButtonStyle" TargetType="{x:Type Button}">
+                <Setter Property="Margin" Value="0,8,0,0" />
+                <Style.Triggers>
+                    <MultiTrigger>
+                        <MultiTrigger.Conditions>
+                            <Condition Property="IsEnabled" Value="True" />
+                            <Condition Property="IsDefault" Value="True" />
+                        </MultiTrigger.Conditions>
+                        <MultiTrigger.EnterActions>
+                            <BeginStoryboard>
+                                <Storyboard>
+                                    <DoubleAnimation
+                                        Storyboard.TargetProperty="Opacity"
+                                        To="0.74"
+                                        Duration="0:0:0"
+                                        FillBehavior="HoldEnd" />
+                                </Storyboard>
+                            </BeginStoryboard>
+                        </MultiTrigger.EnterActions>
+                        <MultiTrigger.ExitActions>
+                            <BeginStoryboard>
+                                <Storyboard>
+                                    <DoubleAnimation
+                                        Storyboard.TargetProperty="Opacity"
+                                        To="1"
+                                        Duration="0:0:0"
+                                        FillBehavior="HoldEnd" />
+                                </Storyboard>
+                            </BeginStoryboard>
+                        </MultiTrigger.ExitActions>
+                    </MultiTrigger>
+                </Style.Triggers>
+            </Style>
+            <Style x:Key="MultiTriggeredButtonStyle" TargetType="{x:Type Button}">
+                <Setter Property="Margin" Value="0,8,0,0" />
+                <Setter Property="Tag" Value="multi trigger inactive" />
+                <Setter Property="Background" Value="{StaticResource AccentBrush}" />
+                <Style.Triggers>
+                    <MultiDataTrigger>
+                        <MultiDataTrigger.Conditions>
+                            <Condition Binding="{Binding IsWarning}" Value="True" />
+                            <Condition Binding="{Binding IsCritical}" Value="True" />
+                        </MultiDataTrigger.Conditions>
+                        <Setter Property="Tag" Value="multi trigger active" />
+                        <Setter Property="Background" Value="{StaticResource ReplacementAccentBrush}" />
+                    </MultiDataTrigger>
+                </Style.Triggers>
+            </Style>
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

@@ -20,7 +20,7 @@
 
   <!-- Compile Targets -->
   <ItemGroup>
-    <Page Include="Themes\Aero.NormalColor.xaml">
+    <Page Include="themes\Aero.NormalColor.xaml">
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Compile Include="$(WpfSharedDir)\RefAssemblyAttrs.cs" />
@@ -44,6 +44,7 @@
     <ProjectReference Include="$(WpfSourceDir)WindowsBase\WindowsBase.csproj" />
     <ProjectReference Include="$(WpfSourceDir)PresentationCore\PresentationCore.csproj" />
     <ProjectReference Include="$(WpfSourceDir)PresentationFramework\PresentationFramework.csproj" />
+    <ProjectReference Include="$(WpfSourceDir)..\..\..\external\ProGPU\src\ProGPU.Wpf.Interop\ProGPU.Wpf.Interop.csproj" />
 
     <ProjectReference Include="$(WpfSourceDir)Themes\PresentationFramework.Aero\ref\PresentationFramework.Aero-ref.csproj">
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>

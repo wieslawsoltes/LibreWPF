@@ -1,0 +1,1118 @@
+<Window x:Class="ProGPU.Wpf.ToolkitApp.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:sys="clr-namespace:System;assembly=System.Private.CoreLib"
+        xmlns:local="clr-namespace:ProGPU.Wpf.ToolkitApp"
+        xmlns:xctk="http://schemas.xceed.com/wpf/xaml/toolkit"
+        xmlns:xctkz="clr-namespace:Xceed.Wpf.Toolkit.Zoombox;assembly=Xceed.Wpf.Toolkit"
+        xmlns:xcad="http://schemas.xceed.com/wpf/xaml/avalondock"
+        xmlns:xcadc="clr-namespace:Xceed.Wpf.AvalonDock.Controls;assembly=Xceed.Wpf.AvalonDock"
+        Title="ProGPU WPF Toolkit + AvalonDock"
+        Width="980"
+        Height="640"
+        MinWidth="720"
+        MinHeight="460"
+        Background="#F6F8FA">
+  <Window.Resources>
+    <xctk:Magnifier x:Key="ToolkitMagnifierResource"
+                    Radius="36"
+                    ZoomFactor="1.6"
+                    FrameType="Circle"
+                    IsUsingZoomOnMouseWheel="True"
+                    ZoomFactorOnMouseWheel="0.15" />
+    <DrawingImage x:Key="DocumentIcon">
+      <DrawingImage.Drawing>
+        <DrawingGroup>
+          <GeometryDrawing Brush="#FFFFFF"
+                           Geometry="M2,1 L10,1 L14,5 L14,15 L2,15 Z" />
+          <GeometryDrawing Brush="#5B8DEF"
+                           Geometry="M10,1 L14,5 L10,5 Z M4,7 L12,7 L12,8 L4,8 Z M4,10 L12,10 L12,11 L4,11 Z" />
+          <GeometryDrawing Brush="#2F5DA8"
+                           Geometry="M2,1 L10,1 L14,5 L14,15 L2,15 Z M3,2 L3,14 L13,14 L13,6 L9,6 L9,2 Z" />
+        </DrawingGroup>
+      </DrawingImage.Drawing>
+    </DrawingImage>
+    <DrawingImage x:Key="ToolIcon">
+      <DrawingImage.Drawing>
+        <DrawingGroup>
+          <GeometryDrawing Brush="#20A67A"
+                           Geometry="M2,3 L14,3 L14,13 L2,13 Z" />
+          <GeometryDrawing Brush="#E7FFF7"
+                           Geometry="M4,5 L12,5 L12,6 L4,6 Z M4,8 L10,8 L10,9 L4,9 Z M4,11 L8,11 L8,12 L4,12 Z" />
+        </DrawingGroup>
+      </DrawingImage.Drawing>
+    </DrawingImage>
+    <Style TargetType="{x:Type TextBlock}">
+      <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+    <Style x:Key="PanelHeaderText" TargetType="{x:Type TextBlock}">
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="#243746" />
+      <Setter Property="Margin" Value="0,0,0,8" />
+    </Style>
+    <DataTemplate x:Key="SourceDocumentTitleTemplate">
+      <TextBlock FontWeight="SemiBold"
+                 Text="{Binding Title, StringFormat=Doc: {0}}" />
+    </DataTemplate>
+    <DataTemplate x:Key="SourceAnchorableTitleTemplate">
+      <TextBlock FontStyle="Italic"
+                 Text="{Binding Title, StringFormat=Tool: {0}}" />
+    </DataTemplate>
+    <local:ToolkitDockTitleTemplateSelector x:Key="SourceDockTitleTemplateSelector"
+                                            DocumentTemplate="{StaticResource SourceDocumentTitleTemplate}"
+                                            AnchorableTemplate="{StaticResource SourceAnchorableTitleTemplate}" />
+  </Window.Resources>
+
+  <Window.CommandBindings>
+    <CommandBinding Command="{x:Static local:ToolkitDockCommands.ActivateEditor}"
+                    CanExecute="ActivateEditorCommand_CanExecute"
+                    Executed="ActivateEditorCommand_Executed" />
+    <CommandBinding Command="{x:Static local:ToolkitDockCommands.CloseOverview}"
+                    CanExecute="CloseOverviewCommand_CanExecute"
+                    Executed="CloseOverviewCommand_Executed" />
+    <CommandBinding Command="{x:Static local:ToolkitDockCommands.ActivateToolkitPane}"
+                    CanExecute="ActivateToolkitPaneCommand_CanExecute"
+                    Executed="ActivateToolkitPaneCommand_Executed" />
+    <CommandBinding Command="{x:Static local:ToolkitDockCommands.TogglePropertyPane}"
+                    CanExecute="TogglePropertyPaneCommand_CanExecute"
+                    Executed="TogglePropertyPaneCommand_Executed" />
+    <CommandBinding Command="{x:Static local:ToolkitDockCommands.CycleDockContent}"
+                    CanExecute="CycleDockContentCommand_CanExecute"
+                    Executed="CycleDockContentCommand_Executed" />
+    <CommandBinding Command="{x:Static local:ToolkitDockCommands.CycleDockAnchorable}"
+                    CanExecute="CycleDockAnchorableCommand_CanExecute"
+                    Executed="CycleDockAnchorableCommand_Executed" />
+    <CommandBinding Command="{x:Static local:ToolkitDockCommands.CycleAutoHideOverlay}"
+                    CanExecute="CycleAutoHideOverlayCommand_CanExecute"
+                    Executed="CycleAutoHideOverlayCommand_Executed" />
+  </Window.CommandBindings>
+  <Window.InputBindings>
+    <KeyBinding Key="F9"
+                Command="{x:Static local:ToolkitDockCommands.CycleDockContent}" />
+    <KeyBinding Key="F10"
+                Command="{x:Static local:ToolkitDockCommands.CycleDockAnchorable}" />
+    <KeyBinding Key="F11"
+                Command="{x:Static local:ToolkitDockCommands.CycleAutoHideOverlay}" />
+  </Window.InputBindings>
+
+  <DockPanel LastChildFill="True">
+    <Border DockPanel.Dock="Top"
+            Background="{StaticResource ToolkitAccentBrush}"
+            Padding="12,8">
+      <Grid>
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <TextBlock Foreground="White"
+                   FontSize="16"
+                   FontWeight="SemiBold"
+                   Text="Extended WPF Toolkit and AvalonDock through ProGPU.Wpf.Sdk"
+                   TextTrimming="CharacterEllipsis" />
+        <WrapPanel Grid.Row="1"
+                   HorizontalAlignment="Right"
+                   Margin="0,6,0,0">
+          <Button x:Name="AddDocumentButton"
+                  MinWidth="104"
+                  Margin="0,0,6,0"
+                  Padding="10,4"
+                  Content="Add document"
+                  Click="AddDocumentButton_Click" />
+          <Button x:Name="ActivateEditorButton"
+                  AutomationProperties.AutomationId="ToolkitActivateEditorButtonAutomation"
+                  MinWidth="104"
+                  Margin="0,0,6,0"
+                  Padding="10,4"
+                  Content="Activate editor"
+                  Click="ActivateEditorButton_Click" />
+          <Button x:Name="CloseOverviewDocumentButton"
+                  MinWidth="104"
+                  Margin="0,0,6,0"
+                  Padding="10,4"
+                  Content="Close overview"
+                  Click="CloseOverviewDocumentButton_Click" />
+          <Button x:Name="ReopenOverviewDocumentButton"
+                  MinWidth="112"
+                  Margin="0,0,6,0"
+                  Padding="10,4"
+                  Content="Reopen overview"
+                  Click="ReopenOverviewDocumentButton_Click" />
+          <Button x:Name="ToggleEditorFloatButton"
+                  MinWidth="104"
+                  Margin="0,0,6,0"
+                  Padding="10,4"
+                  Content="Float editor"
+                  Click="ToggleEditorFloatButton_Click" />
+          <Button x:Name="TogglePropertyPaneButton"
+                  MinWidth="112"
+                  Margin="0,0,6,0"
+                  Padding="10,4"
+                  Content="Toggle properties"
+                  Click="TogglePropertyPaneButton_Click" />
+          <Button x:Name="CloseActivityPaneButton"
+                  MinWidth="104"
+                  Margin="0,0,6,0"
+                  Padding="10,4"
+                  Content="Close activity"
+                  Click="CloseActivityPaneButton_Click" />
+          <Button x:Name="ReopenActivityPaneButton"
+                  MinWidth="112"
+                  Margin="0,0,6,0"
+                  Padding="10,4"
+                  Content="Reopen activity"
+                  Click="ReopenActivityPaneButton_Click" />
+          <Button x:Name="ToggleActivityAutoHideButton"
+                  MinWidth="120"
+                  Margin="0,0,6,0"
+                  Padding="10,4"
+                  Content="Auto-hide activity"
+                  Click="ToggleActivityAutoHideButton_Click" />
+          <Button x:Name="ToggleAgendaAutoHideButton"
+                  MinWidth="104"
+                  Margin="0,0,6,0"
+                  Padding="10,4"
+                  Content="Dock agenda"
+                  Click="ToggleAgendaAutoHideButton_Click" />
+          <Button x:Name="CycleDockThemeButton"
+                  MinWidth="104"
+                  Margin="0,0,6,0"
+                  Padding="10,4"
+                  Content="{Binding ActiveDockThemeName, StringFormat=Theme: {0}}"
+                  Click="CycleDockThemeButton_Click" />
+          <Button x:Name="SerializeLayoutButton"
+                  MinWidth="96"
+                  Padding="10,4"
+                  Content="Save layout"
+                  Click="SerializeLayoutButton_Click" />
+        </WrapPanel>
+      </Grid>
+    </Border>
+
+    <StatusBar DockPanel.Dock="Bottom">
+      <StatusBarItem>
+        <TextBlock x:Name="StatusText"
+                   Text="{Binding Status}" />
+      </StatusBarItem>
+      <Separator />
+      <StatusBarItem>
+        <TextBlock Text="{Binding DocumentCount, StringFormat=Documents: {0}}" />
+      </StatusBarItem>
+      <Separator />
+      <StatusBarItem>
+        <TextBlock x:Name="LastFocusedDocumentText"
+                   Text="{Binding ElementName=DockLayoutRoot, Path=LastFocusedDocument.Title, StringFormat=Focused: {0}, TargetNullValue=Focused: none}" />
+      </StatusBarItem>
+    </StatusBar>
+
+    <xcad:DockingManager x:Name="DockManager"
+                         AutomationProperties.AutomationId="ToolkitDockManagerAutomation"
+                         AutomationProperties.Name="Toolkit AvalonDock manager"
+                         AllowMixedOrientation="True"
+                         AutoHideWindowClosingTimer="750"
+                         BorderBrush="#708090"
+                         BorderThickness="1"
+                         GridSplitterHeight="6"
+                         GridSplitterWidth="7"
+                         ShowSystemMenu="False">
+      <xcad:DockingManager.DocumentContextMenu>
+        <ContextMenu x:Name="DockDocumentContextMenu"
+                     AutomationProperties.AutomationId="ToolkitDockDocumentContextMenuAutomation">
+          <MenuItem x:Name="DockContextActivateEditorMenuItem"
+                    Header="Activate editor"
+                    Command="{x:Static local:ToolkitDockCommands.ActivateEditor}"
+                    CommandTarget="{Binding PlacementTarget, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}" />
+          <MenuItem x:Name="DockContextCloseOverviewMenuItem"
+                    Header="Close overview"
+                    Command="{x:Static local:ToolkitDockCommands.CloseOverview}"
+                    CommandTarget="{Binding PlacementTarget, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}" />
+          <Separator />
+          <MenuItem x:Name="DockContextCancelNextCloseMenuItem"
+                    Header="Cancel next overview close"
+                    IsCheckable="True"
+                    IsChecked="{Binding CancelNextOverviewClose, Mode=TwoWay}" />
+        </ContextMenu>
+      </xcad:DockingManager.DocumentContextMenu>
+      <xcad:DockingManager.AnchorableContextMenu>
+        <ContextMenu x:Name="DockAnchorableContextMenu"
+                     AutomationProperties.AutomationId="ToolkitDockAnchorableContextMenuAutomation">
+          <MenuItem x:Name="DockAnchorContextActivateToolkitMenuItem"
+                    Header="Activate Toolkit pane"
+                    Command="{x:Static local:ToolkitDockCommands.ActivateToolkitPane}"
+                    CommandTarget="{Binding PlacementTarget, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}" />
+          <MenuItem x:Name="DockAnchorContextTogglePropertyMenuItem"
+                    Header="Toggle property pane"
+                    Command="{x:Static local:ToolkitDockCommands.TogglePropertyPane}"
+                    CommandTarget="{Binding PlacementTarget, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}" />
+        </ContextMenu>
+      </xcad:DockingManager.AnchorableContextMenu>
+      <xcad:DockingManager.DocumentHeaderTemplate>
+        <DataTemplate>
+          <StackPanel Orientation="Horizontal">
+            <Image Source="{Binding IconSource}"
+                   Width="14"
+                   Height="14"
+                   Margin="0,0,4,0" />
+            <TextBlock Text="{Binding Title}" />
+          </StackPanel>
+        </DataTemplate>
+      </xcad:DockingManager.DocumentHeaderTemplate>
+      <xcad:DockingManager.Theme>
+        <xcad:AeroTheme />
+      </xcad:DockingManager.Theme>
+
+      <xcad:LayoutRoot x:Name="DockLayoutRoot">
+        <xcad:LayoutPanel Orientation="Horizontal">
+          <xcad:LayoutAnchorablePane DockWidth="260">
+            <xcad:LayoutAnchorable x:Name="ToolkitPane"
+                                   ContentId="toolkit-controls"
+                                   Title="Toolkit"
+                                   IconSource="{StaticResource ToolIcon}"
+                                   CanClose="False"
+                                   CanHide="False">
+              <ScrollViewer x:Name="ToolkitPaneScrollViewer"
+                            VerticalScrollBarVisibility="Auto">
+                <StackPanel x:Name="ToolkitPaneContentPanel"
+                            Margin="12">
+                  <TextBlock Style="{StaticResource PanelHeaderText}"
+                             Text="Toolkit controls" />
+
+                  <TextBlock Text="IntegerUpDown" />
+                  <xctk:IntegerUpDown x:Name="PriorityEditor"
+                                      Minimum="0"
+                                      Maximum="10"
+                                      Increment="1"
+                                      Value="{Binding Priority}"
+                                      Margin="0,4,0,12" />
+
+                  <TextBlock Text="WatermarkTextBox" />
+                  <xctk:WatermarkTextBox x:Name="FilterTextBox"
+                                         Watermark="{DynamicResource ToolkitFilterWatermark}"
+                                         Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"
+                                         Margin="0,4,0,12" />
+
+                  <TextBlock Text="AutoSelectTextBox" />
+                  <xctk:AutoSelectTextBox x:Name="QuickSearchTextBox"
+                                          Text="{Binding QuickSearchText, UpdateSourceTrigger=PropertyChanged}"
+                                          AutoSelectBehavior="OnFocus"
+                                          Margin="0,4,0,12" />
+
+                  <TextBlock Text="WatermarkPasswordBox" />
+                  <xctk:WatermarkPasswordBox x:Name="AccessCodeBox"
+                                             Watermark="Access code"
+                                             Password="sdk"
+                                             Margin="0,4,0,12" />
+
+                  <TextBlock Text="WatermarkComboBox" />
+                  <xctk:WatermarkComboBox x:Name="OwnerComboBox"
+                                          Watermark="Owner"
+                                          ItemsSource="{Binding Owners}"
+                                          SelectedItem="{Binding SelectedOwner}"
+                                          Margin="0,4,0,12" />
+
+                  <TextBlock Text="RangeSlider" />
+                  <xctk:RangeSlider x:Name="PriorityRangeSlider"
+                                    Minimum="0"
+                                    Maximum="10"
+                                    RangeBackground="{DynamicResource ToolkitSubtleBrush}"
+                                    LowerRangeBackground="{DynamicResource ToolkitRangeLowerBrush}"
+                                    HigherRangeBackground="{DynamicResource ToolkitRangeHigherBrush}"
+                                    LowerValue="{Binding PriorityRangeStart}"
+                                    HigherValue="{Binding PriorityRangeEnd}"
+                                    Margin="0,4,0,12" />
+
+                  <TextBlock Text="DateTimePicker" />
+                  <xctk:DateTimePicker x:Name="DueDatePicker"
+                                       Value="{Binding DueDate}"
+                                       Format="Custom"
+                                       FormatString="yyyy-MM-dd HH:mm"
+                                       Margin="0,4,0,12" />
+
+                  <TextBlock Text="TimePicker" />
+                  <xctk:TimePicker x:Name="ReminderTimePicker"
+                                   Value="{Binding ReminderTime}"
+                                   Format="Custom"
+                                   FormatString="HH:mm"
+                                   Margin="0,4,0,12" />
+
+                  <TextBlock Text="DateTimeUpDown" />
+                  <xctk:DateTimeUpDown x:Name="ReviewedAtEditor"
+                                       Value="{Binding ReviewedAt}"
+                                       Margin="0,4,0,12" />
+
+                  <TextBlock Text="TimeSpanUpDown" />
+                  <xctk:TimeSpanUpDown x:Name="EffortEditor"
+                                       Value="{Binding Effort}"
+                                       Margin="0,4,0,12" />
+
+                  <TextBlock Text="MaskedTextBox" />
+                  <xctk:MaskedTextBox x:Name="ReferenceMaskTextBox"
+                                      Mask="LL-0000"
+                                      Text="{Binding ReferenceCode, UpdateSourceTrigger=PropertyChanged}"
+                                      IncludeLiteralsInValue="True"
+                                      IncludePromptInValue="False"
+                                      Margin="0,4,0,12" />
+
+                  <TextBlock Text="CheckComboBox" />
+                  <xctk:CheckComboBox x:Name="CategoryPicker"
+                                      ItemsSource="{Binding Categories}"
+                                      SelectedItemsOverride="{Binding SelectedCategories}"
+                                      Margin="0,4,0,12" />
+
+                  <TextBlock Text="CheckListBox" />
+                  <xctk:CheckListBox x:Name="FlagListBox"
+                                     ItemsSource="{Binding Flags}"
+                                     SelectedItemsOverride="{Binding SelectedFlags}"
+                                     Height="88"
+                                     Margin="0,4,0,12" />
+
+                  <TextBlock Text="ColorPicker" />
+                  <xctk:ColorPicker x:Name="AccentColorPicker"
+                                    SelectedColor="{Binding AccentColor}"
+                                    DisplayColorAndName="True"
+                                    ShowStandardColors="True"
+                                    ShowAvailableColors="True"
+                                    ShowRecentColors="True"
+                                    Margin="0,4,0,12" />
+
+                  <TextBlock Text="CalculatorUpDown" />
+                  <xctk:CalculatorUpDown x:Name="EstimateEditor"
+                                         Minimum="0"
+                                         Maximum="100"
+                                         Increment="0.25"
+                                         FormatString="F2"
+                                         Value="{Binding Estimate}"
+                                         Margin="0,4,0,12" />
+
+                  <TextBlock Text="NumericUpDown variants" />
+                  <UniformGrid Columns="2"
+                               Margin="0,4,0,12">
+                    <xctk:ByteUpDown x:Name="ByteScoreEditor"
+                                     Minimum="0"
+                                     Maximum="100"
+                                     Value="{Binding ByteScore}"
+                                     Margin="0,0,6,6" />
+                    <xctk:DoubleUpDown x:Name="DoubleScaleEditor"
+                                       Minimum="0"
+                                       Maximum="10"
+                                       Increment="0.5"
+                                       FormatString="F1"
+                                       Value="{Binding DoubleScale}"
+                                       Margin="0,0,0,6" />
+                    <xctk:LongUpDown x:Name="WorkItemIdEditor"
+                                     Minimum="0"
+                                     Maximum="999999"
+                                     Value="{Binding WorkItemId}"
+                                     Margin="0,0,6,0" />
+                    <xctk:DecimalUpDown x:Name="BudgetEditor"
+                                        Minimum="0"
+                                        Maximum="1000"
+                                        Increment="1"
+                                        FormatString="F2"
+                                        Value="{Binding Budget}" />
+                  </UniformGrid>
+
+                  <TextBlock Text="ColorCanvas" />
+                  <xctk:ColorCanvas x:Name="AccentColorCanvas"
+                                    SelectedColor="{Binding AccentColor}"
+                                    UsingAlphaChannel="False"
+                                    Height="148"
+                                    Margin="0,4,0,12" />
+
+                  <TextBlock Text="DropDownButton" />
+                  <xctk:DropDownButton x:Name="ActionDropDownButton"
+                                       Content="Document actions"
+                                       Margin="0,4,0,12">
+                    <xctk:DropDownButton.DropDownContent>
+                      <StackPanel x:Name="ActionDropDownContentRoot"
+                                  MinWidth="180"
+                                  Margin="8">
+                        <Button x:Name="MarkReviewedButton"
+                                Content="Mark reviewed"
+                                Padding="8,4"
+                                Click="MarkReviewedButton_Click" />
+                        <TextBlock Margin="0,8,0,0"
+                                   Foreground="#5E6A73"
+                                   Text="{Binding SelectedDocument.Title, StringFormat=Selected: {0}}" />
+                      </StackPanel>
+                    </xctk:DropDownButton.DropDownContent>
+                  </xctk:DropDownButton>
+
+                  <TextBlock Text="SplitButton" />
+                  <xctk:SplitButton x:Name="SplitActionButton"
+                                    Content="Apply owner"
+                                    Click="SplitActionButton_Click"
+                                    Margin="0,4,0,12">
+                    <xctk:SplitButton.DropDownContent>
+                      <StackPanel x:Name="SplitActionDropDownContentRoot"
+                                  MinWidth="180"
+                                  Margin="8">
+                        <ListBox x:Name="OwnerPickerList"
+                                 ItemsSource="{Binding Owners}"
+                                 SelectedItem="{Binding SelectedOwner}"
+                                 Height="72" />
+                        <Button x:Name="AssignSdkOwnerButton"
+                                Content="Assign SDK owner"
+                                Margin="0,8,0,0"
+                                Padding="8,4"
+                                Click="AssignSdkOwnerButton_Click" />
+                      </StackPanel>
+                    </xctk:SplitButton.DropDownContent>
+                  </xctk:SplitButton>
+
+                  <TextBlock Text="Wizard" />
+                  <xctk:Wizard x:Name="ToolkitWizard"
+                               Height="220"
+                               Margin="0,4,0,12"
+                               BackButtonContent="Back"
+                               NextButtonContent="Next"
+                               FinishButtonContent="Finish"
+                               CancelButtonContent="Cancel"
+                               FinishButtonClosesWindow="False"
+                               CancelButtonClosesWindow="False"
+                               PageChanged="ToolkitWizard_PageChanged"
+                               Finish="ToolkitWizard_Finish"
+                               Cancel="ToolkitWizard_Cancel">
+                    <xctk:WizardPage x:Name="WizardScopePage"
+                                     Title="Scope"
+                                     Description="Choose owner and priority range"
+                                     PageType="Interior"
+                                     CanFinish="False">
+                      <StackPanel Margin="8">
+                        <TextBlock FontWeight="SemiBold"
+                                   Text="Selection" />
+                        <TextBlock Text="{Binding SelectedOwner, StringFormat=Owner: {0}}" />
+                        <TextBlock Text="{Binding PriorityRangeStart, StringFormat=Priority from: {0:F1}}" />
+                        <TextBlock Text="{Binding PriorityRangeEnd, StringFormat=Priority to: {0:F1}}" />
+                      </StackPanel>
+                    </xctk:WizardPage>
+                    <xctk:WizardPage x:Name="WizardReviewPage"
+                                     Title="Review"
+                                     Description="Confirm Toolkit state"
+                                     PageType="Interior"
+                                     CanFinish="True">
+                      <StackPanel Margin="8">
+                        <TextBlock FontWeight="SemiBold"
+                                   Text="Ready" />
+                        <TextBlock Text="Wizard page state is handled by Xceed and WPF." />
+                        <TextBlock Text="{Binding WizardStatus}" />
+                      </StackPanel>
+                    </xctk:WizardPage>
+                  </xctk:Wizard>
+
+                  <TextBlock Text="RichTextBox" />
+                  <xctk:RichTextBox x:Name="ToolkitRichTextBox"
+                                    Height="96"
+                                    Text="{Binding RichNotes, UpdateSourceTrigger=PropertyChanged}"
+                                    Margin="0,4,0,12">
+                    <xctk:RichTextBox.TextFormatter>
+                      <xctk:PlainTextFormatter />
+                    </xctk:RichTextBox.TextFormatter>
+                  </xctk:RichTextBox>
+
+                  <TextBlock Text="MultiLineTextEditor" />
+                  <xctk:MultiLineTextEditor x:Name="MultiLineNotesEditor"
+                                            Text="{Binding MultiLineNotes, UpdateSourceTrigger=PropertyChanged}"
+                                            Height="84"
+                                            Margin="0,4,0,12" />
+
+                  <TextBlock Text="ButtonSpinner" />
+                  <xctk:ButtonSpinner x:Name="DocumentCountSpinner"
+                                      ShowSpinner="True"
+                                      SpinnerLocation="Right"
+                                      Spin="DocumentCountSpinner_Spin"
+                                      Margin="0,4,0,12">
+                    <Border Padding="8"
+                            Background="{StaticResource ToolkitSubtleBrush}">
+                      <TextBlock Text="{Binding SpinnerCount, StringFormat=Spinner count: {0}}" />
+                    </Border>
+                  </xctk:ButtonSpinner>
+
+                  <xctk:BusyIndicator x:Name="BusyIndicator"
+                                      IsBusy="{Binding IsBusy}"
+                                      BusyContent="Refreshing toolkit state"
+                                      MinHeight="72">
+                    <Border Background="{StaticResource ToolkitSubtleBrush}"
+                            Padding="10">
+                      <TextBlock Text="BusyIndicator content remains interactive when IsBusy is false." />
+                    </Border>
+                  </xctk:BusyIndicator>
+
+                  <TextBlock Text="ChildWindow"
+                             Margin="0,12,0,0" />
+                  <Grid Margin="0,4,0,12">
+                    <Grid.RowDefinitions>
+                      <RowDefinition Height="Auto" />
+                      <RowDefinition Height="Auto" />
+                      <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <WrapPanel Margin="0,0,0,6">
+                      <Button x:Name="ShowChildWindowButton"
+                              Content="Show child"
+                              MinWidth="96"
+                              Margin="0,0,6,0"
+                              Padding="8,4"
+                              Click="ShowChildWindowButton_Click" />
+                      <Button x:Name="ShowToolkitMessageBoxButton"
+                              Content="Show message"
+                              MinWidth="104"
+                              Margin="0,0,6,0"
+                              Padding="8,4"
+                              Click="ShowToolkitMessageBoxButton_Click" />
+                      <Button x:Name="ShowStaticToolkitMessageBoxButton"
+                              Content="Static message"
+                              MinWidth="112"
+                              Margin="0,0,6,0"
+                              Padding="8,4"
+                              Click="ShowStaticToolkitMessageBoxButton_Click" />
+                      <Button x:Name="ToggleWindowControlButton"
+                              Content="Toggle window"
+                              MinWidth="112"
+                              Margin="0,0,6,0"
+                              Padding="8,4"
+                              Click="ToggleWindowControlButton_Click" />
+                      <TextBlock x:Name="ChildWindowStatusText"
+                                 VerticalAlignment="Center"
+                                 Foreground="#5E6A73"
+                                 Text="{Binding WindowContainerStatus}" />
+                      <TextBlock x:Name="WindowControlStatusText"
+                                 VerticalAlignment="Center"
+                                 Margin="10,0,0,0"
+                                 Foreground="#5E6A73"
+                                 Text="{Binding WindowControlStatus}" />
+                      <TextBlock x:Name="StaticToolkitMessageBoxStatusText"
+                                 VerticalAlignment="Center"
+                                 Margin="10,0,0,0"
+                                 Foreground="#5E6A73"
+                                 Text="{Binding StaticToolkitMessageBoxStatus}" />
+                    </WrapPanel>
+                    <xctk:WindowContainer x:Name="ToolkitChildWindowContainer"
+                                          Grid.Row="1"
+                                          Height="200"
+                                          Background="{StaticResource ToolkitSubtleBrush}"
+                                          ModalBackgroundBrush="#33000000">
+                      <xctk:ChildWindow x:Name="ToolkitChildWindow"
+                                        Caption="Toolkit child window"
+                                        Width="220"
+                                        Height="152"
+                                        Left="18"
+                                        Top="24"
+                                        IsModal="True"
+                                        WindowStartupLocation="Center"
+                                        WindowState="Closed"
+                                        Closing="ToolkitChildWindow_Closing"
+                                        Closed="ToolkitChildWindow_Closed">
+                        <StackPanel Margin="10">
+                          <TextBlock Text="Hosted inside Xceed WindowContainer." />
+                          <TextBox x:Name="ChildWindowInputTextBox"
+                                   Margin="0,8,0,8"
+                                   Text="Child input" />
+                          <Button x:Name="AcceptChildWindowButton"
+                                  Content="Accept"
+                                  HorizontalAlignment="Right"
+                                  MinWidth="72"
+                                  Padding="8,3"
+                                  Click="AcceptChildWindowButton_Click" />
+                        </StackPanel>
+                      </xctk:ChildWindow>
+                      <xctk:MessageBox x:Name="ToolkitMessageBox"
+                                       Caption="Toolkit message"
+                                       Text="MessageBox inside Xceed WindowContainer"
+                                       Width="230"
+                                       Left="12"
+                                       Top="36"
+                                       OkButtonContent="OK"
+                                       Closed="ToolkitMessageBox_Closed" />
+                    </xctk:WindowContainer>
+                    <xctk:WindowContainer x:Name="ToolkitPrimitiveWindowContainer"
+                                          Grid.Row="2"
+                                          Height="200"
+                                          Margin="0,8,0,0"
+                                          Background="{StaticResource ToolkitSubtleBrush}">
+                      <xctk:WindowControl x:Name="ToolkitWindowControl"
+                                          Caption="Toolkit window control"
+                                          CaptionIcon="{StaticResource ToolIcon}"
+                                          Width="228"
+                                          Height="160"
+                                          Left="18"
+                                          Top="24"
+                                          CloseButtonVisibility="Visible"
+                                          WindowStyle="SingleBorderWindow"
+                                          WindowBackground="#FFFFFFFF"
+                                          WindowInactiveBackground="#FFEFF4F8"
+                                          WindowBorderBrush="#5B8DEF"
+                                          WindowBorderThickness="1"
+                                          Visibility="{Binding ToolkitWindowControlVisibility, Mode=TwoWay}"
+                                          Activated="ToolkitWindowControl_Activated"
+                                          HeaderMouseLeftButtonClicked="ToolkitWindowControl_HeaderMouseLeftButtonClicked"
+                                          HeaderDragDelta="ToolkitWindowControl_HeaderDragDelta"
+                                          CloseButtonClicked="ToolkitWindowControl_CloseButtonClicked">
+                        <StackPanel Margin="10">
+                          <TextBlock Text="Primitive WindowControl hosted directly in Xceed WindowContainer." />
+                          <TextBox x:Name="WindowControlInputTextBox"
+                                   Margin="0,8,0,8"
+                                   Text="{Binding WindowControlText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                          <Button x:Name="ActivateWindowControlButton"
+                                  Content="Activate"
+                                  HorizontalAlignment="Right"
+                                  MinWidth="72"
+                                  Padding="8,3"
+                                  Click="ActivateWindowControlButton_Click" />
+                        </StackPanel>
+                      </xctk:WindowControl>
+                    </xctk:WindowContainer>
+                  </Grid>
+
+                  <TextBlock Text="Zoombox and Magnifier"
+                             Margin="0,12,0,0" />
+                  <Grid Margin="0,4,0,12">
+                    <Grid.RowDefinitions>
+                      <RowDefinition Height="Auto" />
+                      <RowDefinition Height="Auto" />
+                      <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <WrapPanel Margin="0,0,0,6">
+                      <Button x:Name="ZoomInButton"
+                              Content="Zoom in"
+                              MinWidth="80"
+                              Margin="0,0,6,0"
+                              Padding="8,4"
+                              Click="ZoomInButton_Click" />
+                      <Button x:Name="FitZoomboxButton"
+                              Content="Fit"
+                              MinWidth="64"
+                              Margin="0,0,6,0"
+                              Padding="8,4"
+                              Click="FitZoomboxButton_Click" />
+                      <Button x:Name="BackZoomboxButton"
+                              Content="Back"
+                              MinWidth="64"
+                              Margin="0,0,6,0"
+                              Padding="8,4"
+                              Click="BackZoomboxButton_Click" />
+                      <TextBlock x:Name="ZoomboxStatusText"
+                                 VerticalAlignment="Center"
+                                 Foreground="#5E6A73"
+                                 Text="{Binding ZoomboxStatus}" />
+                    </WrapPanel>
+                    <xctkz:Zoombox x:Name="ToolkitZoombox"
+                                   Grid.Row="1"
+                                   Height="180"
+                                   Background="{StaticResource ToolkitSubtleBrush}"
+                                   IsAnimated="False"
+                                   IsUsingScrollBars="True"
+                                   AutoWrapContentWithViewbox="False"
+                                   KeepContentInBounds="True"
+                                   MinScale="0.25"
+                                   MaxScale="4"
+                                   PanDistance="32"
+                                   ZoomPercentage="25"
+                                   CurrentViewChanged="ToolkitZoombox_CurrentViewChanged"
+                                   ViewStackIndexChanged="ToolkitZoombox_ViewStackIndexChanged">
+                      <Grid x:Name="ZoomboxContentRoot"
+                            Width="320"
+                            Height="190"
+                            Background="#FFFFFF">
+                        <Grid.ColumnDefinitions>
+                          <ColumnDefinition />
+                          <ColumnDefinition />
+                          <ColumnDefinition />
+                          <ColumnDefinition />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                          <RowDefinition />
+                          <RowDefinition />
+                          <RowDefinition />
+                        </Grid.RowDefinitions>
+                        <Border Grid.RowSpan="3"
+                                Grid.ColumnSpan="4"
+                                BorderBrush="#B8C2CC"
+                                BorderThickness="1" />
+                        <Rectangle Grid.ColumnSpan="4"
+                                   Fill="#EDF2F7" />
+                        <TextBlock Grid.ColumnSpan="4"
+                                   Margin="12,8"
+                                   FontWeight="SemiBold"
+                                   Text="Toolkit viewport" />
+                        <Ellipse Grid.Row="1"
+                                 Grid.Column="0"
+                                 Margin="16"
+                                 Fill="#5B8DEF" />
+                        <Rectangle Grid.Row="1"
+                                   Grid.Column="1"
+                                   Margin="16"
+                                   Fill="#20A67A" />
+                        <Polygon Grid.Row="1"
+                                 Grid.Column="2"
+                                 Margin="16"
+                                 Fill="#F5B849"
+                                 Points="28,4 52,52 4,52" />
+                        <Path Grid.Row="1"
+                              Grid.Column="3"
+                              Margin="16"
+                              Fill="#D94C4C"
+                              Data="M4,4 L52,4 L52,52 L4,52 Z M16,16 L40,40 M40,16 L16,40" />
+                        <TextBlock Grid.Row="2"
+                                   Grid.ColumnSpan="4"
+                                   Margin="12,8"
+                                   Text="Zoombox drives scale, viewport, and view-stack history through managed Xceed code." />
+                      </Grid>
+                    </xctkz:Zoombox>
+                    <Border Grid.Row="2"
+                            Margin="0,6,0,0"
+                            Padding="8"
+                            Background="{StaticResource ToolkitSubtleBrush}"
+                            BorderBrush="#D7DEE7"
+                            BorderThickness="1">
+                      <TextBlock Text="Magnifier is attached to the Zoombox content through Xceed MagnifierManager." />
+                    </Border>
+                  </Grid>
+
+                  <TextBlock Text="Toolkit panels"
+                             Margin="0,12,0,0" />
+                  <Grid Margin="0,4,0,12">
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition />
+                      <ColumnDefinition />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                      <RowDefinition Height="Auto" />
+                      <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <xctk:WrapPanel x:Name="ToolkitWrapPanel"
+                                     Grid.ColumnSpan="2"
+                                     Margin="0,0,0,6"
+                                     Background="{StaticResource ToolkitSubtleBrush}"
+                                     ItemWidth="64"
+                                     ItemHeight="34"
+                                     Orientation="Horizontal"
+                                     IsChildOrderReversed="False">
+                      <Border Background="#5B8DEF"
+                              Margin="4">
+                        <TextBlock Foreground="White"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   Text="Wrap" />
+                      </Border>
+                      <Border Background="#20A67A"
+                              Margin="4">
+                        <TextBlock Foreground="White"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   Text="Panel" />
+                      </Border>
+                      <Border Background="#F5B849"
+                              Margin="4">
+                        <TextBlock HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   Text="Item" />
+                      </Border>
+                    </xctk:WrapPanel>
+                  </Grid>
+
+                  <TextBlock Text="CollectionControl"
+                             Margin="0,12,0,0" />
+                  <Grid Margin="0,4,0,12">
+                    <Grid.RowDefinitions>
+                      <RowDefinition Height="Auto" />
+                      <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <WrapPanel Margin="0,0,0,6">
+                      <Button x:Name="AddCollectionEntryButton"
+                              Content="Add entry"
+                              MinWidth="88"
+                              Margin="0,0,6,0"
+                              Padding="8,4"
+                              Click="AddCollectionEntryButton_Click" />
+                      <Button x:Name="SelectCollectionEntryButton"
+                              Content="Select second"
+                              MinWidth="104"
+                              Margin="0,0,6,0"
+                              Padding="8,4"
+                              Click="SelectCollectionEntryButton_Click" />
+                      <xctk:CollectionControlButton x:Name="OpenCollectionDialogButton"
+                                                    Content="Open dialog"
+                                                    MinWidth="96"
+                                                    Margin="0,0,6,0"
+                                                    Padding="8,4"
+                                                    ItemsSource="{Binding CollectionEntries}"
+                                                    ItemsSourceType="{x:Type local:ToolkitCollectionEntry}"
+                                                    NewItemTypes="{Binding CollectionEntryTypes}"
+                                                    IsReadOnly="False"
+                                                    CollectionUpdated="OpenCollectionDialogButton_CollectionUpdated" />
+                      <TextBlock x:Name="CollectionControlStatusText"
+                                 VerticalAlignment="Center"
+                                 Foreground="#5E6A73"
+                                 Text="{Binding CollectionControlStatus}" />
+                    </WrapPanel>
+                    <xctk:CollectionControl x:Name="ToolkitCollectionControl"
+                                            Grid.Row="1"
+                                            Height="220"
+                                            Background="{StaticResource ToolkitSubtleBrush}"
+                                            ItemsSource="{Binding CollectionEntries}"
+                                            ItemsSourceType="{x:Type local:ToolkitCollectionEntry}"
+                                            NewItemTypes="{Binding CollectionEntryTypes}"
+                                            SelectedItem="{Binding SelectedCollectionEntry, Mode=TwoWay}"
+                                            PropertiesLabel="Entry properties"
+                                            TypeSelectionLabel="Entry type"
+                                            IsReadOnly="False" />
+                  </Grid>
+
+                  <TextBlock Text="AvalonDock MVVM sources"
+                             Margin="0,12,0,0" />
+                  <WrapPanel Margin="0,4,0,4">
+                    <Button x:Name="AddSourceDocumentButton"
+                            Content="Add source doc"
+                            MinWidth="104"
+                            Margin="0,0,6,0"
+                            Padding="8,4"
+                            Click="AddSourceDocumentButton_Click" />
+                    <Button x:Name="ActivateSourceToolButton"
+                            Content="Activate source tool"
+                            MinWidth="120"
+                            Margin="0,0,6,0"
+                            Padding="8,4"
+                            Click="ActivateSourceToolButton_Click" />
+                    <Button x:Name="ExerciseSourceTabGroupsButton"
+                            Content="Tab group commands"
+                            MinWidth="132"
+                            Padding="8,4"
+                            Click="ExerciseSourceTabGroupsButton_Click" />
+                  </WrapPanel>
+                  <xcad:DockingManager x:Name="SourceDockManager"
+                                       Height="220"
+                                       BorderBrush="#B8C2CC"
+                                       BorderThickness="1"
+                                       ActiveContent="{Binding SourceActiveContent, Mode=TwoWay}"
+                                       DocumentsSource="{Binding SourceDocuments}"
+                                       AnchorablesSource="{Binding SourceAnchorables}"
+                                       AllowMixedOrientation="True"
+                                       GridSplitterHeight="5"
+                                       GridSplitterWidth="5"
+                                       LayoutUpdateStrategy="{Binding SourceLayoutStrategy}"
+                                       DocumentTitleTemplateSelector="{StaticResource SourceDockTitleTemplateSelector}"
+                                       AnchorableTitleTemplateSelector="{StaticResource SourceDockTitleTemplateSelector}">
+                    <xcad:DockingManager.LayoutItemContainerStyle>
+                      <Style TargetType="{x:Type xcadc:LayoutItem}">
+                        <Setter Property="Title" Value="{Binding Model.Title}" />
+                        <Setter Property="ContentId" Value="{Binding Model.ContentId}" />
+                        <Setter Property="IconSource" Value="{StaticResource ToolIcon}" />
+                        <Setter Property="CanClose" Value="{Binding Model.CanClose}" />
+                      </Style>
+                    </xcad:DockingManager.LayoutItemContainerStyle>
+                    <xcad:DockingManager.LayoutItemTemplate>
+                      <DataTemplate>
+                        <StackPanel Margin="8">
+                          <TextBlock FontWeight="SemiBold"
+                                     Text="{Binding Title}" />
+                          <TextBlock Margin="0,4,0,0"
+                                     Text="{Binding Body}" />
+                          <TextBlock Margin="0,8,0,0"
+                                     Foreground="#5E6A73"
+                                     Text="{Binding ContentId, StringFormat=ContentId: {0}}" />
+                        </StackPanel>
+                      </DataTemplate>
+                    </xcad:DockingManager.LayoutItemTemplate>
+                    <xcad:LayoutRoot x:Name="SourceDockLayoutRoot">
+                      <xcad:LayoutPanel Orientation="Horizontal">
+                        <xcad:LayoutAnchorablePane x:Name="SourceAnchorablePane"
+                                                   DockWidth="105" />
+                        <xcad:LayoutDocumentPane x:Name="SourceDocumentPane" />
+                      </xcad:LayoutPanel>
+                    </xcad:LayoutRoot>
+                  </xcad:DockingManager>
+                </StackPanel>
+              </ScrollViewer>
+            </xcad:LayoutAnchorable>
+          </xcad:LayoutAnchorablePane>
+
+          <xcad:LayoutDocumentPaneGroup>
+            <xcad:LayoutDocumentPane x:Name="DocumentPane">
+              <xcad:LayoutDocument ContentId="overview"
+                                   Title="Overview"
+                                   x:Name="OverviewDocument"
+                                   IconSource="{StaticResource DocumentIcon}"
+                                   IsSelected="True">
+                <Grid Margin="16">
+                  <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                  </Grid.RowDefinitions>
+                  <TextBlock FontSize="18"
+                             FontWeight="SemiBold"
+                             Text="AvalonDock document surface" />
+                  <ListView x:Name="DocumentList"
+                            AutomationProperties.AutomationId="ToolkitDocumentListAutomation"
+                            AutomationProperties.Name="Toolkit documents"
+                            Grid.Row="1"
+                            Margin="0,12,0,0"
+                            ItemsSource="{Binding Documents}"
+                            SelectedItem="{Binding SelectedDocument}">
+                    <ListView.View>
+                      <GridView>
+                        <GridViewColumn Header="Title"
+                                        DisplayMemberBinding="{Binding Title}"
+                                        Width="160" />
+                        <GridViewColumn Header="Owner"
+                                        DisplayMemberBinding="{Binding Owner}"
+                                        Width="120" />
+                        <GridViewColumn Header="Modified"
+                                        DisplayMemberBinding="{Binding Modified}"
+                                        Width="150" />
+                      </GridView>
+                    </ListView.View>
+                  </ListView>
+                </Grid>
+              </xcad:LayoutDocument>
+
+              <xcad:LayoutDocument x:Name="EditorDocument"
+                                   ContentId="editor"
+                                   Title="Editor"
+                                   IconSource="{StaticResource DocumentIcon}">
+                <Grid Margin="16">
+                  <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                  </Grid.RowDefinitions>
+                  <TextBlock FontSize="18"
+                             FontWeight="SemiBold"
+                             Text="{Binding SelectedDocument.Title}" />
+                  <TextBox x:Name="EditorTextBox"
+                           AutomationProperties.AutomationId="ToolkitEditorTextBoxAutomation"
+                           AutomationProperties.Name="Toolkit editor body"
+                           Grid.Row="1"
+                           Margin="0,12,0,0"
+                           AcceptsReturn="True"
+                           TextWrapping="Wrap"
+                           VerticalScrollBarVisibility="Auto"
+                           Text="{Binding SelectedDocument.Body, UpdateSourceTrigger=PropertyChanged}" />
+                </Grid>
+              </xcad:LayoutDocument>
+
+              <xcad:LayoutDocument x:Name="DataGridDocument"
+                                   ContentId="datagrid-100k"
+                                   Title="DataGrid 100k"
+                                   IconSource="{StaticResource DocumentIcon}">
+                <Grid Margin="16">
+                  <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                  </Grid.RowDefinitions>
+                  <DockPanel>
+                    <TextBlock FontSize="18"
+                               FontWeight="SemiBold"
+                               Text="DataGrid 100k" />
+                    <TextBlock Margin="12,4,0,0"
+                               Foreground="#5E6A73"
+                               Text="{Binding DataGridItemCount, StringFormat=Items: {0:N0}}" />
+                  </DockPanel>
+                  <DataGrid x:Name="ToolkitDataGrid"
+                            AutomationProperties.AutomationId="ToolkitDataGridAutomation"
+                            AutomationProperties.Name="Toolkit DataGrid 100k"
+                            Grid.Row="1"
+                            Margin="0,12,0,0"
+                            ItemsSource="{Binding DataGridItems}"
+                            SelectedItem="{Binding SelectedDataGridItem}"
+                            AutoGenerateColumns="False"
+                            IsReadOnly="True"
+                            EnableRowVirtualization="True"
+                            EnableColumnVirtualization="True"
+                            VirtualizingPanel.IsVirtualizing="True"
+                            VirtualizingPanel.VirtualizationMode="Recycling"
+                            VirtualizingPanel.ScrollUnit="Pixel"
+                            ScrollViewer.CanContentScroll="True"
+                            ScrollViewer.VerticalScrollBarVisibility="Auto"
+                            ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                            HeadersVisibility="Column"
+                            RowHeight="24"
+                            SelectionMode="Single"
+                            SelectionUnit="FullRow">
+                    <DataGrid.Columns>
+                      <DataGridTextColumn Header="Id"
+                                          Binding="{Binding Id}"
+                                          Width="64" />
+                      <DataGridTextColumn Header="Title"
+                                          Binding="{Binding Title}"
+                                          Width="*" />
+                      <DataGridTextColumn Header="Owner"
+                                          Binding="{Binding Owner}"
+                                          Width="120" />
+                      <DataGridTextColumn Header="Category"
+                                          Binding="{Binding Category}"
+                                          Width="130" />
+                      <DataGridTextColumn Header="Score"
+                                          Binding="{Binding Score}"
+                                          Width="80" />
+                      <DataGridTextColumn Header="Updated"
+                                          Binding="{Binding Updated, StringFormat={}{0:yyyy-MM-dd}}"
+                                          Width="120" />
+                    </DataGrid.Columns>
+                  </DataGrid>
+                </Grid>
+              </xcad:LayoutDocument>
+            </xcad:LayoutDocumentPane>
+          </xcad:LayoutDocumentPaneGroup>
+
+          <xcad:LayoutAnchorablePaneGroup DockWidth="260">
+            <xcad:LayoutAnchorablePane x:Name="RightAnchorablePane">
+              <xcad:LayoutAnchorable x:Name="PropertyPane"
+                                     ContentId="property-grid"
+                                     Title="PropertyGrid"
+                                     IconSource="{StaticResource ToolIcon}"
+                                     CanClose="False">
+                <xctk:PropertyGrid x:Name="DocumentPropertyGrid"
+                                   Margin="8"
+                                   SelectedObject="{Binding SelectedDocument}"
+                                   AutoGenerateProperties="True" />
+              </xcad:LayoutAnchorable>
+
+              <xcad:LayoutAnchorable x:Name="ActivityPane"
+                                     ContentId="activity"
+                                     Title="Activity"
+                                     IconSource="{StaticResource ToolIcon}"
+                                     CanClose="True"
+                                     AutoHideWidth="260">
+                <ListBox x:Name="ActivityList"
+                         ItemsSource="{Binding Activity}"
+                         Margin="8">
+                  <ListBox.ItemTemplate>
+                    <DataTemplate DataType="{x:Type sys:String}">
+                      <TextBlock Text="{Binding}" />
+                    </DataTemplate>
+                  </ListBox.ItemTemplate>
+                </ListBox>
+              </xcad:LayoutAnchorable>
+            </xcad:LayoutAnchorablePane>
+          </xcad:LayoutAnchorablePaneGroup>
+        </xcad:LayoutPanel>
+        <xcad:LayoutRoot.LeftSide>
+          <xcad:LayoutAnchorSide>
+            <xcad:LayoutAnchorGroup x:Name="LeftAutoHideGroup">
+              <xcad:LayoutAnchorable x:Name="AgendaPane"
+                                     ContentId="agenda"
+                                     Title="Agenda"
+                                     IconSource="{StaticResource ToolIcon}"
+                                     AutoHideWidth="240">
+                <StackPanel Margin="12">
+                  <TextBlock Style="{StaticResource PanelHeaderText}"
+                             Text="Agenda" />
+                  <TextBlock Text="Auto-hidden side content validates AvalonDock anchor sides and restore paths." />
+                </StackPanel>
+              </xcad:LayoutAnchorable>
+              <xcad:LayoutAnchorable x:Name="ContactsPane"
+                                     ContentId="contacts"
+                                     Title="Contacts"
+                                     IconSource="{StaticResource ToolIcon}"
+                                     AutoHideWidth="240">
+                <ListBox Margin="8">
+                  <sys:String>Toolkit team</sys:String>
+                  <sys:String>Rendering team</sys:String>
+                  <sys:String>SDK team</sys:String>
+                </ListBox>
+              </xcad:LayoutAnchorable>
+            </xcad:LayoutAnchorGroup>
+          </xcad:LayoutAnchorSide>
+        </xcad:LayoutRoot.LeftSide>
+      </xcad:LayoutRoot>
+    </xcad:DockingManager>
+  </DockPanel>
+</Window>

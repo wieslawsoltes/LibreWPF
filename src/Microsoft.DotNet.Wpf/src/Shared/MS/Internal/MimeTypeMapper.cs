@@ -49,13 +49,20 @@ namespace MS.Internal
 
                     if (!_fileExtensionToMimeType.TryGetValue(completeExt, out mimeType))
                     {
-                        //
-                        // If the hashtable doesn't contain the MimeType for this extension, 
-                        // Call UrlMon API to get it, once UrlMon API returns a vallid MimeType,
-                        // update it into the hashtable, so that the next time query for a Uri 
-                        // with the same extension will be faster.
-                        //
-                        mimeType = GetMimeTypeFromUrlMon(uriSource);
+                        if (OperatingSystem.IsWindows())
+                        {
+                            //
+                            // If the hashtable doesn't contain the MimeType for this extension,
+                            // Call UrlMon API to get it, once UrlMon API returns a vallid MimeType,
+                            // update it into the hashtable, so that the next time query for a Uri
+                            // with the same extension will be faster.
+                            //
+                            mimeType = GetMimeTypeFromUrlMon(uriSource);
+                        }
+                        else
+                        {
+                            mimeType = GetPortableMimeTypeFromExtension(completeExt);
+                        }
 
                         if (mimeType != ContentType.Empty)
                         {
@@ -67,6 +74,28 @@ namespace MS.Internal
             }
 
             return mimeType;
+        }
+
+        private static ContentType GetPortableMimeTypeFromExtension(string extension)
+        {
+            return extension switch
+            {
+                BamlExtension => BamlMime,
+                "bmp" => BmpMime,
+                "gif" => GifMime,
+                "htm" => HtmMime,
+                "html" => HtmlMime,
+                "ico" => IconMime,
+                "jpeg" => JpgMime,
+                JpgExtension => JpgMime,
+                "png" => PngMime,
+                "tif" => TiffMime,
+                "tiff" => TiffMime,
+                "txt" => TextPlainMime,
+                XamlExtension => XamlMime,
+                XbapExtension => XbapMime,
+                _ => OctetMime,
+            };
         }
 
         //
@@ -168,7 +197,11 @@ namespace MS.Internal
         internal static readonly ContentType XamlMime = new ContentType("application/xaml+xml");
         internal static readonly ContentType BamlMime = new ContentType("application/baml+xml");
         internal static readonly ContentType JpgMime = new ContentType("image/jpg");
+        internal static readonly ContentType BmpMime = new ContentType("image/bmp");
+        internal static readonly ContentType GifMime = new ContentType("image/gif");
         internal static readonly ContentType IconMime = new ContentType("image/x-icon");
+        internal static readonly ContentType PngMime = new ContentType("image/png");
+        internal static readonly ContentType TiffMime = new ContentType("image/tiff");
 
         internal static readonly ContentType FixedDocumentSequenceMime = new ContentType("application/vnd.ms-package.xps-fixeddocumentsequence+xml");
         internal static readonly ContentType FixedDocumentMime = new ContentType("application/vnd.ms-package.xps-fixeddocument+xml");

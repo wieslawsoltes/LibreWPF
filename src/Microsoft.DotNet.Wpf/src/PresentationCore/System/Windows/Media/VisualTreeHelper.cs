@@ -437,6 +437,12 @@ namespace System.Windows.Media
         {
             CheckVisualReferenceArgument(reference);
 
+            if (PresentationSource.CriticalFromVisual(reference) is PortablePresentationSource portableSource &&
+                portableSource.TryPointHitTestOverride(reference, point, include2DOn3D, out HitTestResult hitTestResult))
+            {
+                return hitTestResult;
+            }
+
             return reference.HitTest(point, include2DOn3D);
         }
 
@@ -491,6 +497,5 @@ namespace System.Windows.Media
 #endif // WCP_MF_ENABLED
     }
 }
-
 
 

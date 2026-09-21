@@ -3,12 +3,22 @@
 
 #nullable enable
 
+#if PROGPU_WPF_ALIAS_WINCORE
+extern alias WinCore;
+#endif
+
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
+#if PROGPU_WPF_ALIAS_WINCORE
+using WinCore::System.Private.Windows.Ole;
+using static WinCore::System.ArgumentValidation;
+#else
 using System.Private.Windows.Ole;
+#endif
 using System.Reflection.Metadata;
+using System.Runtime.CompilerServices;
 using System.Windows.Media.Imaging;
 
 namespace System.Windows;
@@ -21,7 +31,15 @@ public static class Clipboard
     /// <summary>
     ///  Clear the system clipboard.
     /// </summary>
-    public static void Clear() => ClipboardCore.Clear().ThrowOnFailure();
+    public static void Clear()
+    {
+        if (PortableClipboardService.TryClear())
+        {
+            return;
+        }
+
+        ClearOleClipboard();
+    }
 
     /// <summary>
     ///  Return <see langword="true"/> if Clipboard contains the audio data. Otherwise, return <see langword="false"/>.
@@ -64,7 +82,15 @@ public static class Clipboard
     /// <summary>
     ///  Permanently renders the contents of the last IDataObject that was set onto the clipboard.
     /// </summary>
-    public static void Flush() => ClipboardCore.Flush().ThrowOnFailure();
+    public static void Flush()
+    {
+        if (PortableClipboardService.TryFlush())
+        {
+            return;
+        }
+
+        FlushOleClipboard();
+    }
 
     /// <summary>
     ///  Get audio data as Stream from Clipboard.
@@ -167,7 +193,17 @@ public static class Clipboard
     /// <summary>
     ///  Set the file drop list to Clipboard.
     /// </summary>
-    public static void SetFileDropList(StringCollection fileDropList) => ClipboardCore.SetFileDropList(fileDropList);
+    public static void SetFileDropList(StringCollection fileDropList)
+    {
+        ArgumentNullException.ThrowIfNull(fileDropList);
+
+        if (PortableClipboardService.TrySetFileDropList(fileDropList))
+        {
+            return;
+        }
+
+        SetOleFileDropList(fileDropList);
+    }
 
     /// <summary>
     ///  Set the image data to Clipboard.
@@ -207,8 +243,12 @@ public static class Clipboard
     /// </summary>
     public static IDataObject? GetDataObject()
     {
-        ClipboardCore.GetDataObject<DataObject, IDataObject>(out IDataObject? dataObject).ThrowOnFailure();
-        return dataObject;
+        if (PortableClipboardService.TryGetDataObject(out IDataObject? portableDataObject))
+        {
+            return portableDataObject;
+        }
+
+        return GetOleDataObject();
     }
 
     /// <summary>
@@ -222,7 +262,12 @@ public static class Clipboard
     public static bool IsCurrent(IDataObject data)
     {
         ArgumentNullException.ThrowIfNull(data);
-        return ClipboardCore.IsObjectOnClipboard(data);
+        if (PortableClipboardService.TryIsCurrent(data, out bool isCurrent))
+        {
+            return isCurrent;
+        }
+
+        return IsOleObjectOnClipboard(data);
     }
 
     /// <summary>
@@ -251,9 +296,12 @@ public static class Clipboard
     {
         ArgumentNullException.ThrowIfNull(data);
 
-        // Wrap if we're not already a DataObject
-        DataObject dataObject = data as DataObject ?? DataObject.CreateFromClipboard(data);
-        ClipboardCore.SetData(dataObject, copy).ThrowOnFailure();
+        if (PortableClipboardService.TrySetObject(data, copy))
+        {
+            return;
+        }
+
+        SetOleDataObject(data, copy);
     }
 
     /// <summary>
@@ -274,9 +322,13 @@ public static class Clipboard
     /// </summary>
     private static void SetDataInternal(string format, object data)
     {
-        DataObject dataObject = new();
-        dataObject.SetData(format, data, IsDataFormatAutoConvert(format));
-        SetDataObject(dataObject, copy: true);
+        bool autoConvert = IsDataFormatAutoConvert(format);
+        if (PortableClipboardService.TrySetData(format, data, autoConvert, copy: true))
+        {
+            return;
+        }
+
+        SetOleDataInternal(format, data, autoConvert);
     }
 
     /// <summary>
@@ -445,7 +497,7 @@ public static class Clipboard
     {
         data = default;
         resolver.OrThrowIfNull();
-        if (!ClipboardCore.IsValidTypeForFormat(typeof(T), format)
+        if (!IsValidClipboardTypeForFormat(typeof(T), format)
             || GetDataObject() is not { } dataObject)
         {
             // Invalid format or no object on the clipboard at all.
@@ -478,7 +530,7 @@ public static class Clipboard
         [NotNullWhen(true), MaybeNullWhen(false)] out T data)
     {
         data = default;
-        if (!ClipboardCore.IsValidTypeForFormat(typeof(T), format)
+        if (!IsValidClipboardTypeForFormat(typeof(T), format)
             || GetDataObject() is not { } dataObject)
         {
             // Invalid format or no object on the clipboard at all.
@@ -497,5 +549,74 @@ public static class Clipboard
         DataObject dataObject = new();
         dataObject.SetDataAsJson(format, data);
         SetDataObject(dataObject, copy: true);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static void ClearOleClipboard()
+    {
+        ClipboardCore.Clear().ThrowOnFailure();
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static void FlushOleClipboard()
+    {
+        ClipboardCore.Flush().ThrowOnFailure();
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static void SetOleFileDropList(StringCollection fileDropList)
+    {
+        ClipboardCore.SetFileDropList(fileDropList);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static IDataObject? GetOleDataObject()
+    {
+        ClipboardCore.GetDataObject<DataObject, IDataObject>(out IDataObject? dataObject).ThrowOnFailure();
+        return dataObject;
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static bool IsOleObjectOnClipboard(IDataObject data)
+    {
+        return ClipboardCore.IsObjectOnClipboard(data);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static void SetOleDataObject(object data, bool copy)
+    {
+        // Wrap if we're not already a DataObject
+        DataObject dataObject = data as DataObject ?? DataObject.CreateFromClipboard(data);
+        SetOleDataObjectCore(dataObject, copy);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static void SetOleDataInternal(string format, object data, bool autoConvert)
+    {
+        DataObject dataObject = new();
+        dataObject.SetData(format, data, autoConvert);
+        SetOleDataObjectCore(dataObject, copy: true);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static void SetOleDataObjectCore(DataObject dataObject, bool copy)
+    {
+        ClipboardCore.SetData(dataObject, copy).ThrowOnFailure();
+    }
+
+    private static bool IsValidClipboardTypeForFormat(Type type, string format)
+    {
+        if (PortableClipboardService.IsEnabled)
+        {
+            return type != typeof(object) && !string.IsNullOrEmpty(format);
+        }
+
+        return IsValidOleClipboardTypeForFormat(type, format);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static bool IsValidOleClipboardTypeForFormat(Type type, string format)
+    {
+        return ClipboardCore.IsValidTypeForFormat(type, format);
     }
 }

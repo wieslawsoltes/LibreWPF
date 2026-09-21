@@ -39,12 +39,20 @@ namespace System.Windows.Input
         {
             _inputlanguagemanager = inputlanguagemanager;
 
-            // initialize the current input language.
-            _langid = (short)NativeMethods.IntPtrToInt32(SafeNativeMethods.GetKeyboardLayout(0));
+            if (!OperatingSystem.IsWindows())
+            {
+                _portableCurrentInputLanguage = CultureInfo.CurrentCulture;
+                _langid = (short)_portableCurrentInputLanguage.LCID;
+            }
+            else
+            {
+                // initialize the current input language.
+                _langid = (short)NativeMethods.IntPtrToInt32(SafeNativeMethods.GetKeyboardLayout(0));
 
-            // store the dispatcher thread id. This will be used to call GetKeyboardLayout() from
-            // other thread.
-            _dispatcherThreadId = SafeNativeMethods.GetCurrentThreadId();
+                // store the dispatcher thread id. This will be used to call GetKeyboardLayout() from
+                // other thread.
+                _dispatcherThreadId = SafeNativeMethods.GetCurrentThreadId();
+            }
 
             // Register source
             _inputlanguagemanager.RegisterInputLanguageSource(this);
@@ -101,10 +109,21 @@ namespace System.Windows.Input
         {
             get
             {
+                if (!OperatingSystem.IsWindows())
+                {
+                    return _portableCurrentInputLanguage;
+                }
+
                 return new CultureInfo(_CurrentInputLanguage);
             }
             set
             {
+                if (!OperatingSystem.IsWindows())
+                {
+                    _portableCurrentInputLanguage = value;
+                    return;
+                }
+
                 _CurrentInputLanguage = (short)value.LCID;
             }
         }
@@ -116,6 +135,11 @@ namespace System.Windows.Input
         {
              get
              {
+                if (!OperatingSystem.IsWindows())
+                {
+                    return new CultureInfo[1] { CurrentInputLanguage };
+                }
+
                 EnsureInputProcessorProfile();
 
                 if (_ipp == null)
@@ -178,6 +202,9 @@ namespace System.Windows.Input
         /// </summary>
         private void EnsureInputProcessorProfile()
         {
+            if (!OperatingSystem.IsWindows())
+                return;
+
             // _ipp has been initialzied. Don't do this again.
             if (_ipp != null)
                 return;
@@ -212,11 +239,22 @@ namespace System.Windows.Input
         {
             get
             {
+                if (!OperatingSystem.IsWindows())
+                {
+                    return (short)_portableCurrentInputLanguage.LCID;
+                }
+
                 // Return input language of the dispatcher thread.
                 return (short)NativeMethods.IntPtrToInt32(SafeNativeMethods.GetKeyboardLayout(_dispatcherThreadId));
             }
             set
             {
+                if (!OperatingSystem.IsWindows())
+                {
+                    _portableCurrentInputLanguage = new CultureInfo(value);
+                    return;
+                }
+
                 EnsureInputProcessorProfile();
                 _ipp?.CurrentInputLanguage = value;
             }
@@ -233,6 +271,9 @@ namespace System.Windows.Input
         // the current input language in LANGID.
         private short _langid;
 
+        // the current input language when native keyboard layouts are unavailable.
+        private CultureInfo _portableCurrentInputLanguage;
+
         // The dispatcher thread id.
         private int _dispatcherThreadId;
 
@@ -245,4 +286,3 @@ namespace System.Windows.Input
         #endregion Private Fields
     }
 }
-

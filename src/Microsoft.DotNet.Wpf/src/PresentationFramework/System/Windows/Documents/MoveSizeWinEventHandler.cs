@@ -58,6 +58,11 @@ namespace System.Windows.Documents
         // The callback from WinEvent.
         internal override void WinEventProc(int eventId, IntPtr hwnd)
         {
+            if (!OperatingSystem.IsWindows())
+            {
+                return;
+            }
+
             Invariant.Assert(eventId == NativeMethods.EVENT_SYSTEM_MOVESIZEEND);
              
             if (_arTextStore != null)
@@ -121,4 +126,3 @@ namespace System.Windows.Documents
         #endregion Private Fields
     }
 }
-

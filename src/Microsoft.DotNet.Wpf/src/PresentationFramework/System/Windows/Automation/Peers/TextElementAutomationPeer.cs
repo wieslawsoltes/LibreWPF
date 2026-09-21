@@ -7,7 +7,6 @@
 
 using System.Windows.Documents;             // ITextContainer
 using System.Windows.Media;                 // Geometry
-using System.Windows.Interop;               // HwndSource
 using MS.Internal;
 using MS.Internal.Documents;                // TextContainerHelper
 
@@ -63,18 +62,10 @@ namespace System.Windows.Automation.Peers
                     return Rect.Empty;
                 }
 
-                HwndSource hwndSource = presentationSource as HwndSource;
-
-                // If the source isn't an HwnSource, there's not much we can do, return empty rect
-                if (hwndSource == null)
-                {
-                    return Rect.Empty;
-                }
-
                 Rect rectElement = geometry.Bounds;
                 Rect rectRoot = PointUtil.ElementToRoot(rectElement, textView.RenderScope, presentationSource);
                 Rect rectClient = PointUtil.RootToClient(rectRoot, presentationSource);
-                Rect rectScreen = PointUtil.ClientToScreen(rectClient, hwndSource);
+                Rect rectScreen = PointUtil.ClientToScreen(rectClient, presentationSource);
 
                 return rectScreen;
             }
@@ -105,14 +96,6 @@ namespace System.Windows.Automation.Peers
                 return pt;
             }
 
-            HwndSource hwndSource = presentationSource as HwndSource;
-
-            // If the source isn't an HwnSource, there's not much we can do, return empty rect
-            if (hwndSource == null)
-            {
-                return pt;
-            }
-
             TextPointer endPosition = textElement.ContentStart.GetNextInsertionPosition(LogicalDirection.Forward);
             if (endPosition == null || endPosition.CompareTo(textElement.ContentEnd) > 0)
                 endPosition = textElement.ContentEnd;
@@ -120,7 +103,7 @@ namespace System.Windows.Automation.Peers
             Rect rectElement = CalculateVisibleRect(textView, textElement, textElement.ContentStart, endPosition);
             Rect rectRoot = PointUtil.ElementToRoot(rectElement, textView.RenderScope, presentationSource);
             Rect rectClient = PointUtil.RootToClient(rectRoot, presentationSource);
-            Rect rectScreen = PointUtil.ClientToScreen(rectClient, hwndSource);
+            Rect rectScreen = PointUtil.ClientToScreen(rectClient, presentationSource);
 
             pt = new Point(rectScreen.Left + rectScreen.Width * 0.5, rectScreen.Top + rectScreen.Height * 0.5);
 

@@ -34,12 +34,12 @@ namespace MS.Internal
 
             public void Add(KeyType item)
             {
-                throw new NotImplementedException();
+                throw new NotSupportedException();
             }
 
             public void Clear()
             {
-                throw new NotImplementedException();
+                throw new NotSupportedException();
             }
 
             public bool Contains(KeyType item)
@@ -49,7 +49,21 @@ namespace MS.Internal
 
             public void CopyTo(KeyType[] array, int arrayIndex)
             {
-                throw new NotImplementedException();
+                ArgumentNullException.ThrowIfNull(array);
+                ArgumentOutOfRangeException.ThrowIfNegative(arrayIndex);
+
+                int count = 0;
+                foreach (KeyType key in this)
+                {
+                    count++;
+                }
+
+                ArgumentOutOfRangeException.ThrowIfGreaterThan(arrayIndex, array.Length - count);
+
+                foreach (KeyType key in this)
+                {
+                    array[arrayIndex++] = key;
+                }
             }
 
             public int Count
@@ -64,7 +78,7 @@ namespace MS.Internal
 
             public bool Remove(KeyType item)
             {
-                throw new NotImplementedException();
+                throw new NotSupportedException();
             }
 
             #endregion
@@ -121,22 +135,45 @@ namespace MS.Internal
 
             public void Add(ValueType item)
             {
-                throw new NotImplementedException();
+                throw new NotSupportedException();
             }
 
             public void Clear()
             {
-                throw new NotImplementedException();
+                throw new NotSupportedException();
             }
 
             public bool Contains(ValueType item)
             {
-                throw new NotImplementedException();
+                EqualityComparer<ValueType> comparer = EqualityComparer<ValueType>.Default;
+                foreach (ValueType value in this)
+                {
+                    if (comparer.Equals(value, item))
+                    {
+                        return true;
+                    }
+                }
+
+                return false;
             }
 
             public void CopyTo(ValueType[] array, int arrayIndex)
             {
-                throw new NotImplementedException();
+                ArgumentNullException.ThrowIfNull(array);
+                ArgumentOutOfRangeException.ThrowIfNegative(arrayIndex);
+
+                int count = 0;
+                foreach (ValueType value in this)
+                {
+                    count++;
+                }
+
+                ArgumentOutOfRangeException.ThrowIfGreaterThan(arrayIndex, array.Length - count);
+
+                foreach (ValueType value in this)
+                {
+                    array[arrayIndex++] = value;
+                }
             }
 
             public int Count
@@ -151,7 +188,7 @@ namespace MS.Internal
 
             public bool Remove(ValueType item)
             {
-                throw new NotImplementedException();
+                throw new NotSupportedException();
             }
 
             #endregion

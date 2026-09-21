@@ -1,0 +1,12 @@
+<Page
+    x:Class="ProGPU.Wpf.RealXamlCompilerHarness.SmokeSecondPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="compiled second page">
+    <StackPanel x:Name="SourceNavigationSecondPagePanel">
+        <TextBlock
+            x:Name="SourceNavigationSecondPageText"
+            Tag="second page content"
+            Text="compiled second page content" />
+    </StackPanel>
+</Page>

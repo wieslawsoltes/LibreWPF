@@ -14,6 +14,14 @@
                     Condition="'$(MSBuildProjectExtension)'!='.vcxproj' And '$(TargetFrameworkIdentifier)' == '.NETCoreApp'" />
   </ItemGroup>
 
+  <ItemGroup Condition="'$(ProGpuWpfSkipMissingPrivateWinFormsReferences)' == 'true'
+                    And '$(MSBuildProjectExtension)' != '.vcxproj'
+                    And '$(TargetFrameworkIdentifier)' == '.NETCoreApp'">
+    <PackageReference Include="Accessibility"
+                      Version="$(AccessibilityPackageVersion)"
+                      GeneratePathProperty="true" />
+  </ItemGroup>
+
   <Target Name="GeneratePathPropertyforMicrosoftWindowsDesktopApp"
           AfterTargets="ResolveFrameworkReferences">
     <ItemGroup>
@@ -134,7 +142,7 @@
         <NuGetPackageId>Microsoft.Private.Winforms</NuGetPackageId>
       </Reference>
     </ItemGroup>
-    <Error Condition="!Exists('$(PkgMicrosoft_Private_Winforms)\lib\$(_WinFormsTargetFrameworkVersion)\%(MicrosoftPrivateWinFormsReference.Identity).dll')"
+    <Error Condition="'$(ProGpuWpfSkipMissingPrivateWinFormsReferences)' != 'true' And !Exists('$(PkgMicrosoft_Private_Winforms)\lib\$(_WinFormsTargetFrameworkVersion)\%(MicrosoftPrivateWinFormsReference.Identity).dll')"
            Text="$(PkgMicrosoft_Private_Winforms)\lib\$(_WinFormsTargetFrameworkVersion)\%(MicrosoftPrivateWinFormsReference.Identity).dll could not be found."/>
   </Target>
 

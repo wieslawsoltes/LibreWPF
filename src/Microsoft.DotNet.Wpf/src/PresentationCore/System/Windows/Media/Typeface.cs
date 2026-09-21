@@ -369,7 +369,11 @@ namespace System.Windows.Media
         {
             stringLengthFit = 0;
 
-            if (CachedTypeface.NullFont) return false;
+            bool allowMissingPrivateUseGlyphs = !OperatingSystem.IsWindows();
+            if (CachedTypeface.NullFont && (!allowMissingPrivateUseGlyphs || !ContainsOnlyPrivateUseCharacters(charBufferRange)))
+            {
+                return false;
+            }
 
             GlyphTypeface glyphTypeface = TryGetGlyphTypeface();
             
@@ -386,6 +390,7 @@ namespace System.Windows.Media
                 (ushort)CharacterAttributeFlags.CharacterComplex;
             ushort charFlags = 0;
             ushort charFastTextCheck = (ushort)(CharacterAttributeFlags.CharacterFastText | CharacterAttributeFlags.CharacterIdeo);
+            bool lastMissingGlyphWasPrivateUse = false;
 
             bool symbolTypeface = glyphTypeface.Symbol;
             if (symbolTypeface)
@@ -437,6 +442,7 @@ namespace System.Windows.Media
                         charFastTextCheck &= charFlags;
 
                         glyph = glyphIndices[i-1];
+                        lastMissingGlyphWasPrivateUse = glyph == 0 && IsPrivateUseCharacter(ch);
                         if (!ignoreWidths)
                         {
                             totalWidth += TextFormatterImp.RoundDip(glyphMetrics[i - 1].AdvanceWidth * designToEm, pixelsPerDip, textFormattingMode) * scalingFactor;
@@ -480,6 +486,7 @@ namespace System.Windows.Media
                     charFastTextCheck &= charFlags;
 
                     glyph = glyphIndices[i-1];
+                    lastMissingGlyphWasPrivateUse = glyph == 0 && IsPrivateUseCharacter(ch);
                     if (!ignoreWidths)
                     {
                         totalWidth += TextFormatterImp.RoundDip(glyphMetrics[i - 1].AdvanceWidth * designToEm, pixelsPerDip, textFormattingMode) * scalingFactor;
@@ -502,8 +509,15 @@ namespace System.Windows.Media
 
             if (glyph == 0)
             {
-                // character is not supported by the font
-                return false;
+                // The full WPF font fallback path still lives behind native LineServices.
+                // Keep Fluent/MDL2 private-use icon text measurable on non-Windows when
+                // the Windows icon font is unavailable; drawing will use glyph 0 through
+                // the existing null-glyph unshaped GlyphRun path.
+                if (!allowMissingPrivateUseGlyphs || !lastMissingGlyphWasPrivateUse)
+                {
+                    // character is not supported by the font
+                    return false;
+                }
             }
 
             if ((charFlags & charFlagsMask) != 0)
@@ -519,6 +533,15 @@ namespace System.Windows.Media
             }
 
             stringLengthFit = i;
+
+            if (!OperatingSystem.IsWindows())
+            {
+                // The full WPF LineServices path is still native. Keep the simple
+                // managed nominal-glyph path alive for non-Windows basic text after
+                // excluding complex characters above.
+                return true;
+            }
+
             TypographyAvailabilities typography = glyphTypeface.FontFaceLayoutInfo.TypographyAvailabilities;
 
             if ((charFastTextCheck & (byte) CharacterAttributeFlags.CharacterFastText) != 0)
@@ -560,6 +583,29 @@ namespace System.Windows.Media
                 // it will be non-major languages.
                 return ((typography & TypographyAvailabilities.Available) == 0);
             }            
+        }
+
+        private static bool ContainsOnlyPrivateUseCharacters(CharacterBufferRange charBufferRange)
+        {
+            if (charBufferRange.Length <= 0)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < charBufferRange.Length; i++)
+            {
+                if (!IsPrivateUseCharacter(charBufferRange[i]))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private static bool IsPrivateUseCharacter(char ch)
+        {
+            return ch >= '\uE000' && ch <= '\uF8FF';
         }
 
         /// <summary>

@@ -203,6 +203,26 @@ namespace System.Windows.Interop
             Initialize(parameters);
         }
 
+        internal static HwndSource CreatePortable(PortablePresentationSource owner, IntPtr handle, double dpiScaleX, double dpiScaleY)
+        {
+            return new HwndSource(owner, handle, dpiScaleX, dpiScaleY);
+        }
+
+        private HwndSource(PortablePresentationSource portableOwner, IntPtr portableHandle, double dpiScaleX, double dpiScaleY)
+        {
+            ArgumentNullException.ThrowIfNull(portableOwner);
+
+            if (portableHandle == IntPtr.Zero)
+            {
+                throw new ArgumentException(SR.NullHwnd, nameof(portableHandle));
+            }
+
+            _portableOwner = portableOwner;
+            _portableHandle = portableHandle;
+            _hwndTarget = HwndTarget.CreatePortable(portableHandle, dpiScaleX, dpiScaleY);
+            AddSource();
+        }
+
         /// <summary>
         ///    HwndSource Ctor
         /// </summary>
@@ -264,16 +284,21 @@ namespace System.Windows.Interop
                                        parameters.ParentWindow,
                                        wrapperHooks);
 
-            _hwndTarget = new HwndTarget(_hwndWrapper.Handle)
-            {
-                UsesPerPixelOpacity = parameters.EffectivePerPixelOpacity
-            };
+            _hwndTarget = OperatingSystem.IsWindows()
+                ? new HwndTarget(_hwndWrapper.Handle)
+                {
+                    UsesPerPixelOpacity = parameters.EffectivePerPixelOpacity
+                }
+                : HwndTarget.CreatePortable(_hwndWrapper.Handle, 1.0, 1.0);
             if (_hwndTarget.UsesPerPixelOpacity)
             {
                 _hwndTarget.BackgroundColor = Colors.Transparent;
 
                 // Prevent this window from being themed.
-                UnsafeNativeMethods.CriticalSetWindowTheme(new HandleRef(this, _hwndWrapper.Handle), "", "");
+                if (OperatingSystem.IsWindows())
+                {
+                    UnsafeNativeMethods.CriticalSetWindowTheme(new HandleRef(this, _hwndWrapper.Handle), "", "");
+                }
             }
             _constructionParameters = null;
 
@@ -327,7 +352,7 @@ namespace System.Windows.Interop
             AddSource();
 
             // Register dropable window.
-            if (_hwndWrapper.Handle != IntPtr.Zero)
+            if (_hwndWrapper.Handle != IntPtr.Zero && OperatingSystem.IsWindows())
             {
                 // This call is safe since DragDrop.RegisterDropTarget is checking the unmanged
                 // code permission.
@@ -363,7 +388,7 @@ namespace System.Windows.Interop
 
             CheckDisposed(true);
 
-            if(_hooks == null)
+            if(_hooks == null && _hwndWrapper != null)
             {
                 _hwndWrapper.AddHook(_publicHook);
             }
@@ -385,7 +410,7 @@ namespace System.Windows.Interop
             //this.VerifyAccess();
 
             EventHelper.RemoveHandler(ref _hooks, hook);
-            if(_hooks == null)
+            if(_hooks == null && _hwndWrapper != null)
             {
                 _hwndWrapper.RemoveHook(_publicHook);
             }
@@ -401,6 +426,11 @@ namespace System.Windows.Interop
         ///</remarks>
         internal override IInputProvider GetInputProvider(Type inputDevice)
         {
+            if (_portableOwner != null)
+            {
+                return _portableOwner.GetInputProvider(inputDevice);
+            }
+
             if (inputDevice == typeof(MouseDevice))
                 return _mouse;
 
@@ -427,6 +457,31 @@ namespace System.Windows.Interop
         internal void ChangeDpi(HwndDpiChangedAfterParentEventArgs e)
         {
             OnDpiChangedAfterParent(e);
+        }
+
+        internal bool SetPortableDeviceScale(double dpiScaleX, double dpiScaleY)
+        {
+            if (_portableOwner == null || _hwndTarget == null)
+            {
+                throw new InvalidOperationException("Portable device scale can only be set on a portable HwndSource.");
+            }
+
+            DpiScale oldDpi = _hwndTarget.CurrentDpiScale;
+            DpiScale newDpi = new DpiScale(dpiScaleX, dpiScaleY);
+            if (oldDpi.Equals(newDpi))
+            {
+                return true;
+            }
+
+            var args = new HwndDpiChangedEventArgs(oldDpi, newDpi, Rect.Empty);
+            DpiChanged?.Invoke(this, args);
+            if (args.Handled)
+            {
+                return false;
+            }
+
+            _hwndTarget.SetPortableDeviceScale(dpiScaleX, dpiScaleY);
+            return true;
         }
 
         /// <summary>
@@ -549,11 +604,19 @@ namespace System.Windows.Interop
             {
                 if (_isDisposed)
                     return null;
+                if (_portableOwner != null)
+                    return _portableOwner.RootVisual;
                 return (_rootVisual);
             }
             set
             {
                 CheckDisposed(true);
+
+                if (_portableOwner != null)
+                {
+                    _portableOwner.RootVisual = value;
+                    return;
+                }
 
                 RootVisualInternal = value;
             }
@@ -685,6 +748,35 @@ namespace System.Windows.Interop
                 }
             }
             return hwndSource;
+        }
+
+        internal bool IsPortable
+        {
+            get { return _portableOwner != null; }
+        }
+
+        internal PresentationSource PortableOwner
+        {
+            get { return _portableOwner; }
+        }
+
+        internal bool DispatchPortableHwndSourceHook(
+            int message,
+            IntPtr wParam,
+            IntPtr lParam,
+            out IntPtr result,
+            out bool handled)
+        {
+            result = IntPtr.Zero;
+            handled = false;
+
+            if (_portableOwner == null || _isDisposed || _portableHandle == IntPtr.Zero)
+            {
+                return false;
+            }
+
+            result = PublicHooksFilterMessage(_portableHandle, message, wParam, lParam, ref handled);
+            return true;
         }
 
 
@@ -920,7 +1012,7 @@ namespace System.Windows.Interop
             {
                 if (null != _hwndWrapper)
                     return _hwndWrapper.Handle;
-                return IntPtr.Zero;
+                return _portableHandle;
             }
         }
 
@@ -934,6 +1026,11 @@ namespace System.Windows.Interop
         {
             get
             {
+                if (!OperatingSystem.IsWindows())
+                {
+                    return false;
+                }
+
                 IntPtr capture = SafeNativeMethods.GetCapture();
 
                 return ( capture == Handle );
@@ -944,7 +1041,7 @@ namespace System.Windows.Interop
         {
             get
             {
-                return _hwndWrapper.Handle == IntPtr.Zero ;
+                return Handle == IntPtr.Zero ;
             }
         }
 
@@ -2569,7 +2666,7 @@ namespace System.Windows.Interop
                         if (_hwndWrapper != null)
                         {
                             // Revoke the drop target.
-                            if (_hwndWrapper.Handle != IntPtr.Zero && _registeredDropTargetCount > 0)
+                            if (_hwndWrapper.Handle != IntPtr.Zero && _registeredDropTargetCount > 0 && OperatingSystem.IsWindows())
                             {
                                 // This call is safe since DragDrop.RevokeDropTarget is checking the unmanged
                                 // code permission.
@@ -2780,6 +2877,8 @@ namespace System.Windows.Interop
         private Size?                       _previousSize;
 
         private HwndWrapper                 _hwndWrapper;
+        private PortablePresentationSource  _portableOwner;
+        private IntPtr                      _portableHandle;
 
         private HwndTarget                  _hwndTarget;
 

@@ -465,7 +465,7 @@ namespace System.Windows.Input
             {
                 if (relativeTo != null)
                 {
-                    PresentationSource inputSource = PresentationSource.FromDependencyObject(InputElement.GetContainingVisual(relativeTo as DependencyObject));
+                    PresentationSource inputSource = PresentationSource.CriticalFromVisual(InputElement.GetContainingVisual(relativeTo as DependencyObject));
                     if (inputSource != null)
                     {
                         IMouseInputProvider mouseInputProvider = inputSource.GetInputProvider(typeof(MouseDevice)) as IMouseInputProvider;

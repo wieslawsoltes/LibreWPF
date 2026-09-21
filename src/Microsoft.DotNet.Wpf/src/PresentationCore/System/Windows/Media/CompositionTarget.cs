@@ -182,6 +182,25 @@ namespace System.Windows.Media
 
         //----------------------------------------------------------------------
         //
+        //  Internal Properties
+        //
+        //----------------------------------------------------------------------
+
+        #region Internal Properties
+
+        /// <summary>
+        /// Returns true when this target is backed by the original DUCE/MIL channel.
+        /// Portable targets override this and keep root visual ownership in managed code.
+        /// </summary>
+        internal virtual bool UsesDuceComposition
+        {
+            get { return true; }
+        }
+
+        #endregion Internal Properties
+
+        //----------------------------------------------------------------------
+        //
         //  Internal Methods
         //
         //----------------------------------------------------------------------
@@ -235,6 +254,10 @@ namespace System.Windows.Media
             }
 
             return null;
+        }
+
+        internal virtual void OnRootVisualChanged(Visual oldRootVisual, Visual newRootVisual)
+        {
         }
 
         void ICompositionTarget.AddRefOnChannel(DUCE.Channel channel, DUCE.Channel outOfBandChannel)
@@ -461,15 +484,26 @@ namespace System.Windows.Media
                 throw new System.ArgumentException(SR.CompositionTarget_RootVisual_HasParent);
             }
 
-            DUCE.ChannelSet channelSet = MediaContext.From(Dispatcher).GetChannels();
-            DUCE.Channel channel = channelSet.Channel;
-            if (_rootVisual != null && _contentRoot.IsOnChannel(channel))
+            Visual oldRootVisual = null;
+            oldRootVisual = _rootVisual;
+            MediaContext mediaContext = MediaContext.From(Dispatcher);
+
+            if (UsesDuceComposition)
             {
-                ClearRootNode(channel);
+                DUCE.Channel channel = mediaContext.Channel;
+                if (oldRootVisual != null && channel != null && _contentRoot.IsOnChannel(channel))
+                {
+                    ClearRootNode(channel);
 
-                ((DUCE.IResource)_rootVisual).ReleaseOnChannel(channel);
+                    ((DUCE.IResource)oldRootVisual).ReleaseOnChannel(channel);
+                }
+            }
 
-                _rootVisual.IsRootElement = false;
+#pragma warning disable IDE0031 // Visual is a legacy null-backed field in this file.
+            if (oldRootVisual != null)
+#pragma warning restore IDE0031
+            {
+                oldRootVisual.IsRootElement = false;
             }
 
             _rootVisual = visual;
@@ -482,6 +516,8 @@ namespace System.Windows.Media
                     true,
                     VisualProxyFlags.IsSubtreeDirtyForRender);
             }
+
+            OnRootVisualChanged(oldRootVisual, _rootVisual);
         }
 
         /// <summary>
@@ -595,4 +631,3 @@ namespace System.Windows.Media
         #endregion
     }
 }
-

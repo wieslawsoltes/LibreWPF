@@ -103,13 +103,54 @@ namespace MS.Internal.Resources
             {
                 return _assembly;
             }
-            set
+        }
+
+        /// <summary>
+        /// Updates the resource assembly after a designer rebuild, provided the newly loaded
+        /// assembly can still serve the resource manifests owned by this wrapper.
+        /// </summary>
+        internal bool TryUpdateAssembly(Assembly assembly)
+        {
+            ArgumentNullException.ThrowIfNull(assembly);
+
+            if (assembly.IsDynamic || !HasCompatibleIdentity(assembly) || !HasCompatibleResourceManifests(assembly))
             {
-                _assembly = value;                
-                _resourceManager = null;
-                _resourceSet = null;      
-                _resourceList = null;
+                return false;
             }
+
+            _assembly = assembly;
+            _resourceManager = null;
+            _resourceSet = null;
+            _resourceList = null;
+            return true;
+        }
+
+        private bool HasCompatibleIdentity(Assembly assembly)
+        {
+            AssemblyName currentName = _assembly.GetName();
+            AssemblyName candidateName = assembly.GetName();
+
+            // Component URIs may intentionally omit the version so a designer rebuild can replace
+            // the loaded assembly even when its version changes. Culture and public-key identity
+            // still have to match before this wrapper can be retargeted.
+            return string.Equals(currentName.Name, candidateName.Name, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(currentName.CultureName, candidateName.CultureName, StringComparison.OrdinalIgnoreCase)
+                && currentName.GetPublicKeyToken().AsSpan().SequenceEqual(candidateName.GetPublicKeyToken());
+        }
+
+        private bool HasCompatibleResourceManifests(Assembly assembly)
+        {
+            string baseResourceName = ReflectionUtils.GetAssemblyPartialName(_assembly).ToString();
+            string localizableResourceName = $"{baseResourceName}{LocalizableResourceNameSuffix}.resources";
+            string unlocalizableResourceName = $"{baseResourceName}{UnLocalizableResourceNameSuffix}.resources";
+
+            return (!HasManifestResource(_assembly, localizableResourceName) || HasManifestResource(assembly, localizableResourceName))
+                && (!HasManifestResource(_assembly, unlocalizableResourceName) || HasManifestResource(assembly, unlocalizableResourceName));
+        }
+
+        private static bool HasManifestResource(Assembly assembly, string resourceName)
+        {
+            return assembly.GetManifestResourceInfo(resourceName) is not null;
         }
 
         //

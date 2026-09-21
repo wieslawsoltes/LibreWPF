@@ -1,0 +1,54 @@
+name: LibreWPF Windows Artifact Smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: Successful LibreWPF Build run containing the CI package bundle.
+        required: true
+      version:
+        description: Package version contained in the bundle.
+        required: true
+        default: 0.1.0-preview.32
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  windows-anycpu-smoke:
+    name: Windows AnyCPU package launch
+    runs-on: windows-2025
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Download package bundle from source run
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN_ID: ${{ inputs.run_id }}
+        run: |
+          $headSha = gh api "repos/${env:GITHUB_REPOSITORY}/actions/runs/${env:SOURCE_RUN_ID}" --jq .head_sha
+          if ([string]::IsNullOrWhiteSpace($headSha)) {
+              throw "Could not resolve the source run head SHA."
+          }
+          gh run download $env:SOURCE_RUN_ID `
+            --repo $env:GITHUB_REPOSITORY `
+            --name "librewpf-ci-packages-$headSha" `
+            --dir artifacts/packages/Release/NonShipping
+
+      - name: Run clean Windows AnyCPU package smoke
+        shell: pwsh
+        env:
+          PROGPU_WPF_DEV_PACKAGE_VERSION: ${{ inputs.version }}
+        run: |
+          ./eng/progpu-wpf-windows-anycpu-smoke.ps1 -Configuration Release
+          ./eng/progpu-wpf-windows-anycpu-smoke.ps1 -Configuration Debug

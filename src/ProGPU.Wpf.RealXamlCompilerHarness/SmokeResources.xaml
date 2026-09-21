@@ -1,0 +1,14 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="clr-namespace:ProGPU.Wpf.RealXamlCompilerHarness"
+    xmlns:localExplicit="clr-namespace:ProGPU.Wpf.RealXamlCompilerHarness;assembly=ProGPU.Wpf.RealXamlCompilerHarness">
+    <SolidColorBrush x:Key="MergedAccentBrush" Color="#547A48" />
+    <Thickness x:Key="MergedBlockMargin">0,8,0,0</Thickness>
+    <local:SameAssemblyResourceMarker x:Key="SameAssemblyImplicitMarker" Name="implicit local assembly" />
+    <localExplicit:SameAssemblyResourceMarker x:Key="SameAssemblyExplicitMarker" Name="explicit local assembly" />
+    <Style TargetType="{x:Type CheckBox}">
+        <Setter Property="Margin" Value="{StaticResource MergedBlockMargin}" />
+        <Setter Property="Tag" Value="implicit merged style" />
+    </Style>
+</ResourceDictionary>

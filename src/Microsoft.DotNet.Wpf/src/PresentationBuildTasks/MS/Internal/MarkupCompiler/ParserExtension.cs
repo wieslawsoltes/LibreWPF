@@ -182,14 +182,9 @@ namespace MS.Internal
             string localElementFullName = string.Empty;
             NamespaceMapEntry[] namespaceMaps = XamlTypeMapper.GetNamespaceMapEntries(xamlUnknownTagStartNode.XmlNamespace);
 
-            if (namespaceMaps != null && namespaceMaps.Length == 1 && namespaceMaps[0].LocalAssembly)
+            if (TryGetLocalClrNamespace(xamlUnknownTagStartNode.XmlNamespace, namespaceMaps, out string clrNamespace))
             {
-                string ns = namespaceMaps[0].ClrNamespace;
-                if (!string.IsNullOrEmpty(ns))
-                {
-                    ns += MarkupCompiler.DOT;
-                }
-                localElementFullName =  ns + xamlUnknownTagStartNode.Value;
+                localElementFullName = CombineClrTypeName(clrNamespace, xamlUnknownTagStartNode.Value);
             }
 
             if (localElementFullName.Length > 0 && !_pass2)
@@ -214,7 +209,7 @@ namespace MS.Internal
         public override void WriteUnknownTagEnd(XamlUnknownTagEndNode xamlUnknownTagEndNode)
         {
             NamespaceMapEntry[] namespaceMaps = XamlTypeMapper.GetNamespaceMapEntries(xamlUnknownTagEndNode.XmlNamespace);
-            bool localTag = namespaceMaps != null && namespaceMaps.Length == 1 && namespaceMaps[0].LocalAssembly;
+            bool localTag = TryGetLocalClrNamespace(xamlUnknownTagEndNode.XmlNamespace, namespaceMaps, out _);
 
             if (localTag && !_pass2)
             {
@@ -249,7 +244,7 @@ namespace MS.Internal
             {
                 //  These are attributes on a non-local tag ...
                 namespaceMaps = XamlTypeMapper.GetNamespaceMapEntries(xamlUnknownAttributeNode.XmlNamespace);
-                localAttrib = namespaceMaps != null && namespaceMaps.Length == 1 && namespaceMaps[0].LocalAssembly;
+                localAttrib = TryGetLocalClrNamespace(xamlUnknownAttributeNode.XmlNamespace, namespaceMaps, out _);
             }
 
             if (localAttrib && !_pass2)
@@ -267,10 +262,10 @@ namespace MS.Internal
 
                     if (namespaceMaps != null)
                     {
-                        if (namespaceMaps.Length == 1 && namespaceMaps[0].LocalAssembly)
+                        if (TryGetLocalClrNamespace(xamlUnknownAttributeNode.XmlNamespace, namespaceMaps, out string clrNamespace))
                         {
                             // local prop on a known tag
-                            localTagFullName = namespaceMaps[0].ClrNamespace + MarkupCompiler.DOT + ownerTagName;
+                            localTagFullName = CombineClrTypeName(clrNamespace, ownerTagName);
                         }
                     }
                     else
@@ -314,10 +309,10 @@ namespace MS.Internal
                         else
                         {
                             namespaceMaps = XamlTypeMapper.GetNamespaceMapEntries(xamlUnknownAttributeNode.XmlNamespace);
-                            if (namespaceMaps != null && namespaceMaps.Length == 1 && namespaceMaps[0].LocalAssembly)
+                            if (TryGetLocalClrNamespace(xamlUnknownAttributeNode.XmlNamespace, namespaceMaps, out string clrNamespace))
                             {
                                 // local prop on local tag
-                                localTagFullName = namespaceMaps[0].ClrNamespace + MarkupCompiler.DOT + ownerTagName;
+                                localTagFullName = CombineClrTypeName(clrNamespace, ownerTagName);
                             }
                             else
                             {
@@ -456,7 +451,7 @@ namespace MS.Internal
                             if (!foundElement)
                             {
                                 NamespaceMapEntry[] namespaceMaps = XamlTypeMapper.GetNamespaceMapEntries(namespaceUri);
-                                bool isLocal = namespaceMaps != null && namespaceMaps.Length == 1 && namespaceMaps[0].LocalAssembly;
+                                bool isLocal = TryGetLocalClrNamespace(namespaceUri, namespaceMaps, out _);
                                 if (!isLocal)
                                 {
                                     MarkupCompiler.ThrowCompilerException(nameof(SR.UnknownGenericType),
@@ -748,12 +743,17 @@ namespace MS.Internal
             }
 
             // Local assembly!
-            if ((xamlPIMappingNode.AssemblyName == null) || (xamlPIMappingNode.AssemblyName.Length == 0))
+            if (IsLocalAssemblyReference(xamlPIMappingNode.AssemblyName))
             {
                 xamlPIMappingNode.AssemblyName = _compiler.AssemblyName;
-                bool addMapping = !XamlTypeMapper.PITable.Contains(xamlPIMappingNode.XmlNamespace)
-                  || ((ClrNamespaceAssemblyPair)XamlTypeMapper.PITable[xamlPIMappingNode.XmlNamespace]).LocalAssembly
-                  || string.IsNullOrEmpty(((ClrNamespaceAssemblyPair)XamlTypeMapper.PITable[xamlPIMappingNode.XmlNamespace]).AssemblyName);
+                bool addMapping = !XamlTypeMapper.PITable.Contains(xamlPIMappingNode.XmlNamespace);
+                if (!addMapping)
+                {
+                    ClrNamespaceAssemblyPair currentMapping = (ClrNamespaceAssemblyPair)XamlTypeMapper.PITable[xamlPIMappingNode.XmlNamespace];
+                    addMapping = currentMapping.LocalAssembly
+                        || IsLocalAssemblyReference(currentMapping.AssemblyName);
+                }
+
                 if (addMapping)
                 {
                     ClrNamespaceAssemblyPair namespaceMapping = new ClrNamespaceAssemblyPair(xamlPIMappingNode.ClrNamespace,
@@ -771,6 +771,84 @@ namespace MS.Internal
             }
 
             base.WritePIMapping(xamlPIMappingNode);
+        }
+
+        private bool IsLocalAssemblyReference(string assemblyName)
+        {
+            if (string.IsNullOrEmpty(assemblyName))
+            {
+                return true;
+            }
+
+            string localAssemblyName = _compiler.AssemblyName;
+            if (string.IsNullOrEmpty(localAssemblyName))
+            {
+                return false;
+            }
+
+            return string.Equals(GetAssemblySimpleName(assemblyName), GetAssemblySimpleName(localAssemblyName), StringComparison.OrdinalIgnoreCase);
+        }
+
+        private bool TryGetLocalClrNamespace(string xmlNamespace, NamespaceMapEntry[] namespaceMaps, out string clrNamespace)
+        {
+            if (namespaceMaps != null && namespaceMaps.Length == 1 && namespaceMaps[0].LocalAssembly)
+            {
+                clrNamespace = namespaceMaps[0].ClrNamespace;
+                return true;
+            }
+
+            return TryGetLocalClrNamespace(xmlNamespace, out clrNamespace);
+        }
+
+        private bool TryGetLocalClrNamespace(string xmlNamespace, out string clrNamespace)
+        {
+            clrNamespace = string.Empty;
+
+            if (string.IsNullOrEmpty(xmlNamespace) ||
+                !xmlNamespace.StartsWith(XamlReaderHelper.MappingProtocol, StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            const string assemblyPart = ";assembly=";
+            int clrNamespaceStart = XamlReaderHelper.MappingProtocol.Length;
+            int assemblyPartIndex = xmlNamespace.IndexOf(assemblyPart, clrNamespaceStart, StringComparison.Ordinal);
+            if (assemblyPartIndex < 0)
+            {
+                clrNamespace = xmlNamespace.Substring(clrNamespaceStart);
+                return true;
+            }
+
+            string assemblyName = xmlNamespace.Substring(assemblyPartIndex + assemblyPart.Length);
+            if (!IsLocalAssemblyReference(assemblyName))
+            {
+                return false;
+            }
+
+            clrNamespace = xmlNamespace.Substring(clrNamespaceStart, assemblyPartIndex - clrNamespaceStart);
+            return true;
+        }
+
+        private static string CombineClrTypeName(string clrNamespace, string typeName)
+        {
+            if (string.IsNullOrEmpty(clrNamespace))
+            {
+                return typeName;
+            }
+
+            return clrNamespace + MarkupCompiler.DOT + typeName;
+        }
+
+        private static string GetAssemblySimpleName(string assemblyName)
+        {
+            try
+            {
+                return new AssemblyName(assemblyName).Name ?? assemblyName;
+            }
+            catch (Exception)
+            {
+                return assemblyName;
+            }
         }
 
         /// <summary>

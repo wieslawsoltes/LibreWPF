@@ -11,7 +11,9 @@ using System.Windows.Documents;
 using System.Windows.Media;
 using System.Windows.Media.TextFormatting;
 using MS.Internal;
+using MS.Internal.Documents;
 using MS.Internal.Text;
+using ProGPU.Wpf.Interop;
 
 namespace System.Windows.Controls
 {
@@ -78,11 +80,32 @@ namespace System.Windows.Controls
                     break;
 
                 case TextPointerContext.ElementStart:
-                case TextPointerContext.ElementEnd:
-                case TextPointerContext.EmbeddedElement:
-                default:
-                    Invariant.Assert(false, "Unsupported position type.");
+                    Invariant.Assert(_owner.Host is RichTextBox, "Element edges are only supported for the portable RichTextBox view.");
+                    TextElement opening = (TextElement)position.GetAdjacentElement(LogicalDirection.Forward);
+                    ValidateRichElement(opening);
+                    if (opening is LineBreak)
+                        run = new TextEndOfLine(2);
+                    else if (opening is Inline inline && DynamicPropertyReader.GetTextDecorations(inline) is { Count: > 0 } decorations)
+                        run = new TextSpanModifier(1, decorations, inline.Foreground);
+                    else
+                        run = new TextHidden(1);
                     break;
+
+                case TextPointerContext.ElementEnd:
+                    Invariant.Assert(_owner.Host is RichTextBox, "Element edges are only supported for the portable RichTextBox view.");
+                    TextElement closing = (TextElement)position.GetAdjacentElement(LogicalDirection.Forward);
+                    if (closing is Inline closingInline && DynamicPropertyReader.GetTextDecorations(closingInline) is { Count: > 0 })
+                        run = new TextEndOfSegment(1);
+                    else
+                        run = closing is Block &&
+                              position.CreatePointer(1).GetPointerContext(LogicalDirection.Forward) != TextPointerContext.None
+                            ? new TextEndOfLine(1)
+                            : new TextHidden(1);
+                    break;
+
+                case TextPointerContext.EmbeddedElement:
+                    Invariant.Assert(_owner.Host is RichTextBox, "Embedded elements are only supported for the portable RichTextBox view.");
+                    throw new PlatformNotSupportedException("Portable rich-text embedded objects require an inline-object layout contract.");
             }
             Invariant.Assert(run != null, "TextRun has not been created.");
             Invariant.Assert(run.Length > 0, "TextRun has to have positive length.");
@@ -91,11 +114,58 @@ namespace System.Windows.Controls
             return run;
         }
 
+        // TextBoxView owns a linear editor, not a PTS block/object formatter.
+        // Structural source edges are non-ink positions, but their semantics may
+        // not disappear just because the text inside can be shaped by ProGPU.
+        private static void ValidateRichElement(TextElement element)
+        {
+            if (element is InlineUIContainer or AnchoredBlock || (element is not Inline && element is not Paragraph))
+                throw new PlatformNotSupportedException($"Portable rich-text block and embedded-object layout is not implemented. Source element: {element.GetType().Name}.");
+
+            if (element is Inline inline)
+            {
+                if (inline.Parent is DependencyObject parent &&
+                    inline.FlowDirection != (FlowDirection)parent.GetValue(FrameworkElement.FlowDirectionProperty))
+                    throw new PlatformNotSupportedException("Portable rich-text directional scopes require the document formatter contract.");
+
+                // Decorated inline edges publish the same modifier/end scope as
+                // the document paragraph source. PortableTextLine validates the
+                // actual composed decoration contract; unsupported pens/kinds
+                // remain explicit rather than disappearing as hidden edges.
+            }
+        }
+
         /// <summary>
         /// Get text immediately before specified text source position.
         /// </summary>
         public override TextSpan<CultureSpecificCharacterBufferRange> GetPrecedingText(int dcp)
         {
+            if (_owner.Host is RichTextBox)
+            {
+                int nonTextLength = 0;
+                CharacterBufferRange richPrecedingText = CharacterBufferRange.Empty;
+                CultureInfo richCulture = null;
+
+                if (dcp > 0)
+                {
+                    ITextPointer position = _owner.Host.TextContainer.CreatePointerAtOffset(dcp, LogicalDirection.Backward);
+                    while (position.GetPointerContext(LogicalDirection.Backward) != TextPointerContext.Text &&
+                           position.CompareTo(_owner.Host.TextContainer.Start) != 0)
+                    {
+                        position.MoveByOffset(-1);
+                        nonTextLength++;
+                    }
+
+                    string precedingTextString = position.GetTextInRun(LogicalDirection.Backward);
+                    richPrecedingText = new CharacterBufferRange(precedingTextString, 0, precedingTextString.Length);
+                    richCulture = DynamicPropertyReader.GetCultureInfo(position.CreateStaticPointer().Parent ?? (Control)_owner.Host);
+                }
+
+                return new TextSpan<CultureSpecificCharacterBufferRange>(
+                    nonTextLength + richPrecedingText.Length,
+                    new CultureSpecificCharacterBufferRange(richCulture, richPrecedingText));
+            }
+
             CharacterBufferRange precedingText = CharacterBufferRange.Empty;
             CultureInfo culture = null;
 
@@ -172,10 +242,23 @@ namespace System.Windows.Controls
 
             // We must ignore TextAlignment here since formatWidth does not
             // necessarilly equal paragraphWidth.  We'll adjust on later calls.
-            lineProperties.IgnoreTextAlignment = (lineProperties.TextAlignment != TextAlignment.Justify);
+            // Only the old provider-less, non-Windows compatibility formatter
+            // suppresses justification. A registered provider must implement or
+            // explicitly reject it, never silently draw left-aligned text.
+            lineProperties.IgnoreTextAlignment =
+                (!global::System.OperatingSystem.IsWindows() &&
+                 !PortableWpfServiceRegistry.TryGetTextFormatting(out _)) ||
+                lineProperties.TextAlignment != TextAlignment.Justify;
             try
             {
-                _line = formatter.FormatLine(this, dcp, formatWidth, lineProperties, null, textRunCache);
+                // Editor lines can be reformatted independently after scrolling,
+                // wrapping or an explicit break. Seed only the actual already-
+                // open source ancestors; do not invent leading edge characters.
+                TextModifierScope scope = _owner.Host is RichTextBox
+                    ? CreatePortableModifierScope(_owner.Host.TextContainer.CreateStaticPointerAtOffset(dcp).Parent, dcp, 0)
+                    : null;
+                using TextLineBreak previous = scope == null ? null : new TextLineBreak(scope, IntPtr.Zero);
+                _line = formatter.FormatLine(this, dcp, formatWidth, lineProperties, previous, textRunCache);
             }
             finally
             {
@@ -183,8 +266,19 @@ namespace System.Windows.Controls
             }
         }
 
+        private static TextModifierScope CreatePortableModifierScope(DependencyObject parent, int dcp, int depth)
+        {
+            if (parent is not Inline inline) return null;
+            if (depth >= 128) throw new PlatformNotSupportedException("Portable rich-text modifier nesting budget exceeded.");
+            ValidateRichElement(inline);
+            TextModifierScope outer = CreatePortableModifierScope(inline.Parent, dcp, depth + 1);
+            return inline.ElementStartOffset < dcp && DynamicPropertyReader.GetTextDecorations(inline) is { Count: > 0 } decorations
+                ? new TextModifierScope(outer, new TextSpanModifier(1, decorations, inline.Foreground), inline.ElementStartOffset)
+                : outer;
+        }
+
         /// <summary>
-        /// Create and return visual node for the line. 
+        /// Create and return visual node for the line.
         /// </summary>
         internal TextBoxLineDrawingVisual CreateVisual(Geometry selectionGeometry)
         {
@@ -356,6 +450,8 @@ namespace System.Windows.Controls
         /// </summary>
         internal double Height { get { return _line.Height; } }
 
+        internal double Advance { get { return _lineProperties.CalcLineAdvance(_line.Height); } }
+
         /// <summary>
         /// Is this the last line of the paragraph?
         /// </summary>
@@ -416,11 +512,12 @@ namespace System.Windows.Controls
             //      b) the natural end of this textrun
             StaticTextPointer endOfRunPosition = _owner.Host.TextContainer.Highlights.GetNextPropertyChangePosition(position, LogicalDirection.Forward);
 
-            // Clamp the text run at an arbitrary limit, so we don't make
-            // an unbounded allocation.
-            if (position.GetOffsetToPosition(endOfRunPosition) > 4096)
+            // Copy one lookahead code unit at the allocation bound so that a
+            // valid UTF-16 scalar is never partitioned into separate source runs.
+            const int maximumRunLength = 4096;
+            if (position.GetOffsetToPosition(endOfRunPosition) > maximumRunLength + 1)
             {
-                endOfRunPosition = position.CreatePointer(4096);
+                endOfRunPosition = position.CreatePointer(maximumRunLength + 1);
             }
 
             var highlights = position.TextContainer.Highlights;
@@ -428,11 +525,15 @@ namespace System.Windows.Controls
             // Factor in any speller error squiggles on the run.
             TextDecorationCollection highlightDecorations = highlights.GetHighlightValue(position, LogicalDirection.Forward, typeof(SpellerHighlightLayer)) as TextDecorationCollection;
 
-            TextRunProperties properties = _lineProperties.DefaultTextRunProperties;
+            TextRunProperties properties = _owner.Host is RichTextBox
+                ? new TextProperties(position.Parent ?? (Control)_owner.Host, position, false, true, PixelsPerDip)
+                : _lineProperties.DefaultTextRunProperties;
 
             if (highlightDecorations != null)
             {
-                if (_spellerErrorProperties == null)
+                // Rich runs may have different physical faces, sizes and brushes.
+                // A cached plain-TextBox spelling style cannot be reused across them.
+                if (_spellerErrorProperties == null || _owner.Host is RichTextBox)
                 {
                     _spellerErrorProperties = new TextProperties((TextProperties)properties, highlightDecorations);
                 }
@@ -475,6 +576,14 @@ namespace System.Windows.Controls
             // we expect to get all the characters from position to endOfRunPosition.
             int charactersCopied = position.GetTextInRun(LogicalDirection.Forward, textBuffer, 0, textBuffer.Length);
             Invariant.Assert(charactersCopied == textBuffer.Length);
+
+            if (charactersCopied > maximumRunLength)
+            {
+                charactersCopied = maximumRunLength;
+                if (char.IsHighSurrogate(textBuffer[charactersCopied - 1]) &&
+                    char.IsLowSurrogate(textBuffer[charactersCopied]))
+                    charactersCopied--;
+            }
 
             // Create text run, using characters copied as length
             return new TextCharacters(textBuffer, 0, charactersCopied, properties);

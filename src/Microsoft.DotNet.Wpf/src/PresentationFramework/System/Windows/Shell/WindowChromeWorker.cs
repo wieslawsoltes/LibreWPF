@@ -9,6 +9,7 @@ using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Threading;
 using Standard;
+using ProGPU.Wpf.Interop;
 
 using HANDLE_MESSAGE = System.Collections.Generic.KeyValuePair<Standard.WM, Standard.MessageHandler>;
 
@@ -20,6 +21,13 @@ namespace Microsoft.Windows.Shell
 {
     internal class WindowChromeWorker : DependencyObject
     {
+        // Select before HWND creation as well as after activation. A ProGPU
+        // Windows HWND is not a source-built WPF HwndSource.
+        private bool UsesPortableChrome =>
+            _window?.PortableWindowActivation != null ||
+            System.Windows.PortableWindowActivationService.IsEnabled ||
+            PortableWpfRuntime.GetMediaBackendAndFreeze() == PortableWpfMediaBackend.Portable;
+
         // Delegate signature used for Dispatcher.BeginInvoke.
         private delegate void _Action();
 
@@ -122,18 +130,21 @@ namespace Microsoft.Windows.Shell
 
             _window = window;
 
+            Utility.AddDependencyPropertyChangeListener(_window, Window.TemplateProperty, _OnWindowPropertyChangedThatRequiresTemplateFixup);
+            Utility.AddDependencyPropertyChangeListener(_window, Window.FlowDirectionProperty, _OnWindowPropertyChangedThatRequiresTemplateFixup);
+
+            _window.Closed += _UnsetWindow;
+
+            if (UsesPortableChrome)
+            {
+                return;
+            }
+
             // There are potentially a couple funny states here.
             // The window may have been shown and closed, in which case it's no longer usable.
             // We shouldn't add any hooks in that case, just exit early.
             // If the window hasn't yet been shown, then we need to make sure to remove hooks after it's closed.
             _hwnd = new WindowInteropHelper(_window).Handle;
-
-            // On older versions of the framework the client size of the window is incorrectly calculated.
-            // We need to modify the template to fix this on behalf of the user.
-            Utility.AddDependencyPropertyChangeListener(_window, Window.TemplateProperty, _OnWindowPropertyChangedThatRequiresTemplateFixup);
-            Utility.AddDependencyPropertyChangeListener(_window, Window.FlowDirectionProperty, _OnWindowPropertyChangedThatRequiresTemplateFixup);
-
-            _window.Closed += _UnsetWindow;
 
             // Use whether we can get an HWND to determine if the Window has been loaded.
             if (IntPtr.Zero != _hwnd)
@@ -157,6 +168,12 @@ namespace Microsoft.Windows.Shell
 
         private void _WindowSourceInitialized(object sender, EventArgs e)
         {
+            if (UsesPortableChrome)
+            {
+                _ApplyNewCustomChrome();
+                return;
+            }
+
             _hwnd = new WindowInteropHelper(_window).Handle;
             Assert.IsNotDefault(_hwnd);
             _hwndSource = HwndSource.FromHwnd(_hwnd);
@@ -201,9 +218,34 @@ namespace Microsoft.Windows.Shell
             window.SetValue(WindowChromeWorkerProperty, chrome);
         }
 
+        internal bool IsPortableCaptionHit(Point mousePosition)
+        {
+            if (_window == null || _chromeInfo == null ||
+                !double.IsFinite(mousePosition.X) || !double.IsFinite(mousePosition.Y))
+            {
+                return false;
+            }
+
+            double captionBottom = _chromeInfo.ResizeBorderThickness.Top + _chromeInfo.CaptionHeight;
+            if (mousePosition.X < 0.0 || mousePosition.X >= _window.ActualWidth ||
+                mousePosition.Y < 0.0 || mousePosition.Y >= captionBottom)
+            {
+                return false;
+            }
+
+            if (_window.InputHitTest(mousePosition) is IInputElement inputElement &&
+                (WindowChrome.GetIsHitTestVisibleInChrome(inputElement) ||
+                    WindowChrome.GetResizeGripDirection(inputElement) != ResizeGripDirection.None))
+            {
+                return false;
+            }
+
+            return true;
+        }
+
         private void _OnWindowPropertyChangedThatRequiresTemplateFixup(object sender, EventArgs e)
         {
-            if (_chromeInfo != null && _hwnd != IntPtr.Zero)
+            if (_chromeInfo != null && (UsesPortableChrome || _hwnd != IntPtr.Zero))
             {
                 // Assume that when the template changes it's going to be applied.
                 // We don't have a good way to externally hook into the template
@@ -219,6 +261,12 @@ namespace Microsoft.Windows.Shell
 
         private void _ApplyNewCustomChrome()
         {
+            if (UsesPortableChrome)
+            {
+                _ApplyPortableCustomChrome();
+                return;
+            }
+
             if (_hwnd == IntPtr.Zero || _hwndSource.IsDisposed)
             {
                 // Not yet hooked.
@@ -246,6 +294,28 @@ namespace Microsoft.Windows.Shell
             NativeMethods.SetWindowPos(_hwnd, IntPtr.Zero, 0, 0, 0, 0, _SwpFlags);
         }
 
+        private void _ApplyPortableCustomChrome()
+        {
+            if (_window == null)
+            {
+                return;
+            }
+
+            _window.SetPortableCustomChrome(_chromeInfo != null);
+
+            if (_chromeInfo == null)
+            {
+                _RestoreFrameworkIssueFixups();
+            }
+            else
+            {
+                _window.ApplyTemplate();
+                _FixupTemplateIssues();
+            }
+
+            _window.InvalidateMeasure();
+        }
+
         /// <summary>
         /// If visual children have been added to <see cref="_window"/>, then repost <see cref="_FixupTemplateIssues"/>
         /// </summary>
@@ -268,8 +338,10 @@ namespace Microsoft.Windows.Shell
 
         private void _FixupTemplateIssues()
         {
-            Assert.IsNotNull(_chromeInfo);
-            Assert.IsNotNull(_window);
+            if (_chromeInfo == null || _window == null)
+            {
+                return;
+            }
 
             if (_window.Template == null)
             {
@@ -333,6 +405,16 @@ namespace Microsoft.Windows.Shell
 
         private IntPtr _WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
         {
+            // A separately surfaced portable Window can acquire its public
+            // HwndSource facade before its activation is published. If a chrome
+            // worker was attached during that handoff, never interpret source
+            // hook notifications as native Win32 frame messages.
+            if (UsesPortableChrome)
+            {
+                handled = false;
+                return IntPtr.Zero;
+            }
+
             // Only expecting messages for our cached HWND.
             Assert.AreEqual(hwnd, _hwnd);
 
@@ -700,7 +782,7 @@ namespace Microsoft.Windows.Shell
 
         private void _UpdateFrameState(bool force)
         {
-            if (IntPtr.Zero == _hwnd || _hwndSource.IsDisposed)
+            if (UsesPortableChrome || IntPtr.Zero == _hwnd || _hwndSource == null || _hwndSource.IsDisposed)
             {
                 return;
             }
@@ -1063,7 +1145,7 @@ namespace Microsoft.Windows.Shell
         // agree on the signature.
         private bool GetEffectiveClientArea(ref MS.Win32.NativeMethods.RECT rcClient)
         {
-            if (_window == null || _chromeInfo == null)
+            if (_window == null || _chromeInfo == null || UsesPortableChrome || _hwnd == IntPtr.Zero)
                 return false;
 
             DpiScale dpi = _window.GetDpi();
@@ -1095,9 +1177,20 @@ namespace Microsoft.Windows.Shell
         {
             VerifyAccess();
 
+            if (UsesPortableChrome)
+            {
+                if (!isClosing)
+                {
+                    _RestoreFrameworkIssueFixups();
+                    _window?.InvalidateMeasure();
+                }
+
+                return;
+            }
+
             _UnhookCustomChrome();
 
-            if (!isClosing && !_hwndSource.IsDisposed)
+            if (!isClosing && _hwndSource != null && !_hwndSource.IsDisposed)
             {
                 _RestoreFrameworkIssueFixups();
                 _RestoreGlassFrame();
@@ -1109,10 +1202,16 @@ namespace Microsoft.Windows.Shell
 
         private void _UnhookCustomChrome()
         {
+            if (UsesPortableChrome || _hwnd == IntPtr.Zero || _hwndSource == null)
+            {
+                _isHooked = false;
+                return;
+            }
+
             Assert.IsNotDefault(_hwnd);
             Assert.IsNotNull(_window);
 
-            if (_isHooked)
+            if (_isHooked && !_hwndSource.IsDisposed)
             {
                 _hwndSource.RemoveHook(_WndProc);
                 _isHooked = false;
@@ -1121,6 +1220,11 @@ namespace Microsoft.Windows.Shell
 
         private void _RestoreFrameworkIssueFixups()
         {
+            if (_window == null || VisualTreeHelper.GetChildrenCount(_window) == 0)
+            {
+                return;
+            }
+
             FrameworkElement rootElement = (FrameworkElement)VisualTreeHelper.GetChild(_window, 0);
 
             // Undo anything that was done before.

@@ -32,7 +32,7 @@ namespace System.Windows.Automation.Peers
         {
             string name = base.GetNameCore();
 
-            if(name == string.Empty)
+            if(name == string.Empty && OperatingSystem.IsWindows())
             {
                 IntPtr hwnd = this.Hwnd;
                 if(hwnd != IntPtr.Zero)
@@ -59,6 +59,11 @@ namespace System.Windows.Automation.Peers
         ///
         protected override Rect GetBoundingRectangleCore()
         {
+            if (!OperatingSystem.IsWindows())
+            {
+                return base.GetBoundingRectangleCore();
+            }
+
             Rect bounds = new Rect(0,0,0,0);
             
             IntPtr hwnd = this.Hwnd;
@@ -79,6 +84,5 @@ namespace System.Windows.Automation.Peers
         }
 }
 }
-
 
 

@@ -212,7 +212,7 @@ namespace MS.Internal.Csp
                     // response file - a file which contains more arguments for us to parse.
                     case "-rsp:":
                     {
-                        string responseFile = arg.Substring(5);
+                        string responseFile = NormalizePathArgument(arg.Substring(5));
 
                         if (!File.Exists(responseFile))
                         {
@@ -236,7 +236,7 @@ namespace MS.Internal.Csp
                     // compile.
                     case "-s:":
                     {
-                        string sourceFile = arg.Substring(3);
+                        string sourceFile = NormalizePathArgument(arg.Substring(3));
                         if (!File.Exists(sourceFile))
                         {
                             WriteErrorLine(String.Format(
@@ -249,13 +249,13 @@ namespace MS.Internal.Csp
 
                     case "-r:":
                     {
-                        alReferencedAssemblies.Add(arg.Substring(3));
+                        alReferencedAssemblies.Add(NormalizePathArgument(arg.Substring(3)));
                         break;
                     }
 
                     case "-clrdir:":
                     {
-                        projParamsOut.ClrDir = arg.Substring(8);
+                        projParamsOut.ClrDir = NormalizePathArgument(arg.Substring(8));
                         break;
                     }
 
@@ -387,6 +387,18 @@ namespace MS.Internal.Csp
             return ret;
         }
 
+        private static string NormalizePathArgument(string path)
+        {
+            if (String.IsNullOrEmpty(path))
+            {
+                return path;
+            }
+
+            return Path.DirectorySeparatorChar == '/'
+                ? path.Replace('\\', '/')
+                : path.Replace('/', '\\');
+        }
+
 
         //+---------------------------------------------------------------------
         //
@@ -498,6 +510,5 @@ Optional arg for -debugMode:
         #endregion
     }
 }
-
 
 

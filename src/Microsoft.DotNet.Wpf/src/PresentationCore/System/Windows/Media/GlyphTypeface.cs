@@ -1507,6 +1507,14 @@ namespace System.Windows.Media
             {
                 _fontFace.CharacterMap.TryGetValues(pCodepoints, checked((uint)characterCount), pGlyphIndices);
 
+                if (!OperatingSystem.IsWindows())
+                {
+                    // Portable text formatting cannot fall back through native LineServices.
+                    // Preserve the non-breaking layout semantics while using the ordinary
+                    // hyphen outline when the selected face lacks U+2011.
+                    ResolvePortableMissingGlyphAliases(pCodepoints, characterCount, pGlyphIndices);
+                }
+
                 if (glyphMetrics != null)
                 {
                     fixed (MS.Internal.Text.TextInterface.GlyphMetrics* pGlyphMetrics = &glyphMetrics[0])
@@ -1521,6 +1529,37 @@ namespace System.Windows.Media
                 BufferCache.ReleaseUShorts(glyphIndices);
             }
         }            
+
+        private unsafe void ResolvePortableMissingGlyphAliases(
+            uint* codepoints,
+            int characterCount,
+            ushort* glyphIndices)
+        {
+            const uint nonBreakingHyphen = 0x2011;
+            const uint asciiHyphen = 0x002D;
+
+            ushort hyphenGlyph = 0;
+            bool hyphenGlyphResolved = false;
+            for (int i = 0; i < characterCount; i++)
+            {
+                if (glyphIndices[i] != 0 || codepoints[i] != nonBreakingHyphen)
+                {
+                    continue;
+                }
+
+                if (!hyphenGlyphResolved)
+                {
+                    uint fallbackCodepoint = asciiHyphen;
+                    _fontFace.CharacterMap.TryGetValues(&fallbackCodepoint, 1, &hyphenGlyph);
+                    hyphenGlyphResolved = true;
+                }
+
+                if (hyphenGlyph != 0)
+                {
+                    glyphIndices[i] = hyphenGlyph;
+                }
+            }
+        }
 
         #endregion Internal Methods
 
@@ -1612,6 +1651,15 @@ namespace System.Windows.Media
             {
                 CheckInitialized();
                 return _font.DWriteFontAddRef;
+            }
+        }
+
+        internal bool HasDWriteFont
+        {
+            get
+            {
+                CheckInitialized();
+                return _font.HasDWriteFont;
             }
         }
         

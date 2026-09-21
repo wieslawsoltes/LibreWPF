@@ -64,6 +64,60 @@ namespace System.Windows.Media.Imaging
                 ImagingCache.RemoveFromDecoderCache(bitmapUri);
             }
 
+            if (BitmapSource.UsesPortablePixelStorage &&
+                expectedClsId == MILGuidData.GUID_ContainerFormatBmp &&
+                BmpBitmapDecoder.TryCreatePortableFrameFromUri(bitmapUri, createOptions, cacheOption, out BitmapFrame portableFrame))
+            {
+                _uri = bitmapUri;
+                InitializePortableFrames(null, bitmapUri, null, createOptions, cacheOption, portableFrame);
+                return;
+            }
+
+            if (BitmapSource.UsesPortablePixelStorage &&
+                expectedClsId == MILGuidData.GUID_ContainerFormatPng &&
+                PngBitmapDecoder.TryCreatePortableFrameFromUri(bitmapUri, createOptions, cacheOption, out BitmapFrame portablePngFrame))
+            {
+                _uri = bitmapUri;
+                InitializePortableFrames(null, bitmapUri, null, createOptions, cacheOption, portablePngFrame);
+                return;
+            }
+
+            if (BitmapSource.UsesPortablePixelStorage &&
+                expectedClsId == MILGuidData.GUID_ContainerFormatJpeg &&
+                JpegBitmapDecoder.TryCreatePortableFrameFromUri(bitmapUri, createOptions, cacheOption, out BitmapFrame portableJpegFrame))
+            {
+                _uri = bitmapUri;
+                InitializePortableFrames(null, bitmapUri, null, createOptions, cacheOption, portableJpegFrame);
+                return;
+            }
+
+            if (BitmapSource.UsesPortablePixelStorage &&
+                expectedClsId == MILGuidData.GUID_ContainerFormatGif &&
+                GifBitmapDecoder.TryCreatePortableFramesFromUri(bitmapUri, createOptions, cacheOption, out ReadOnlyCollection<BitmapFrame> portableGifFrames))
+            {
+                _uri = bitmapUri;
+                InitializePortableFrames(null, bitmapUri, null, createOptions, cacheOption, portableGifFrames);
+                return;
+            }
+
+            if (BitmapSource.UsesPortablePixelStorage &&
+                expectedClsId == MILGuidData.GUID_ContainerFormatTiff &&
+                TiffBitmapDecoder.TryCreatePortableFramesFromUri(bitmapUri, createOptions, cacheOption, out ReadOnlyCollection<BitmapFrame> portableTiffFrames))
+            {
+                _uri = bitmapUri;
+                InitializePortableFrames(null, bitmapUri, null, createOptions, cacheOption, portableTiffFrames);
+                return;
+            }
+
+            if (BitmapSource.UsesPortablePixelStorage &&
+                expectedClsId == MILGuidData.GUID_ContainerFormatIco &&
+                IconBitmapDecoder.TryCreatePortableFrameFromUri(bitmapUri, createOptions, cacheOption, out BitmapFrame portableIconFrame))
+            {
+                _uri = bitmapUri;
+                InitializePortableFrames(null, bitmapUri, null, createOptions, cacheOption, portableIconFrame);
+                return;
+            }
+
             BitmapDecoder decoder = CheckCache(bitmapUri, out clsId);
             if (decoder != null)
             {
@@ -115,6 +169,54 @@ namespace System.Windows.Media.Imaging
             bool isOriginalWritable = false;
 
             ArgumentNullException.ThrowIfNull(bitmapStream);
+
+            if (BitmapSource.UsesPortablePixelStorage &&
+                expectedClsId == MILGuidData.GUID_ContainerFormatBmp &&
+                BmpBitmapDecoder.TryCreatePortableFrame(bitmapStream, createOptions, cacheOption, out BitmapFrame portableFrame))
+            {
+                InitializePortableFrames(null, null, bitmapStream, createOptions, cacheOption, portableFrame);
+                return;
+            }
+
+            if (BitmapSource.UsesPortablePixelStorage &&
+                expectedClsId == MILGuidData.GUID_ContainerFormatPng &&
+                PngBitmapDecoder.TryCreatePortableFrame(bitmapStream, createOptions, cacheOption, out BitmapFrame portablePngFrame))
+            {
+                InitializePortableFrames(null, null, bitmapStream, createOptions, cacheOption, portablePngFrame);
+                return;
+            }
+
+            if (BitmapSource.UsesPortablePixelStorage &&
+                expectedClsId == MILGuidData.GUID_ContainerFormatJpeg &&
+                JpegBitmapDecoder.TryCreatePortableFrame(bitmapStream, createOptions, cacheOption, out BitmapFrame portableJpegFrame))
+            {
+                InitializePortableFrames(null, null, bitmapStream, createOptions, cacheOption, portableJpegFrame);
+                return;
+            }
+
+            if (BitmapSource.UsesPortablePixelStorage &&
+                expectedClsId == MILGuidData.GUID_ContainerFormatGif &&
+                GifBitmapDecoder.TryCreatePortableFrames(bitmapStream, createOptions, cacheOption, out ReadOnlyCollection<BitmapFrame> portableGifFrames))
+            {
+                InitializePortableFrames(null, null, bitmapStream, createOptions, cacheOption, portableGifFrames);
+                return;
+            }
+
+            if (BitmapSource.UsesPortablePixelStorage &&
+                expectedClsId == MILGuidData.GUID_ContainerFormatTiff &&
+                TiffBitmapDecoder.TryCreatePortableFrames(bitmapStream, createOptions, cacheOption, out ReadOnlyCollection<BitmapFrame> portableTiffFrames))
+            {
+                InitializePortableFrames(null, null, bitmapStream, createOptions, cacheOption, portableTiffFrames);
+                return;
+            }
+
+            if (BitmapSource.UsesPortablePixelStorage &&
+                expectedClsId == MILGuidData.GUID_ContainerFormatIco &&
+                IconBitmapDecoder.TryCreatePortableFrame(bitmapStream, createOptions, cacheOption, out BitmapFrame portableIconFrame))
+            {
+                InitializePortableFrames(null, null, bitmapStream, createOptions, cacheOption, portableIconFrame);
+                return;
+            }
 
             _decoderHandle = SetupDecoderFromUriOrStream(
                 null,
@@ -259,15 +361,98 @@ namespace System.Windows.Media.Imaging
             {
                 decoderHandle = cachedDecoder.InternalDecoder;
             }
+            else if ((stream != null) && (!stream.CanSeek))
+            {
+                return new LateBoundBitmapDecoder(baseUri, uri, stream, createOptions, cacheOption, uriCachePolicy);
+            }
+            else if (BitmapSource.UsesPortablePixelStorage &&
+                     finalUri != null &&
+                     stream == null &&
+                     BmpBitmapDecoder.TryCreatePortableFrameFromUri(finalUri, createOptions, cacheOption, uriCachePolicy, out BitmapFrame portableUriFrame))
+            {
+                return new BmpBitmapDecoder(portableUriFrame, baseUri, uri, null, createOptions, cacheOption);
+            }
+            else if (BitmapSource.UsesPortablePixelStorage &&
+                     finalUri != null &&
+                     stream == null &&
+                     PngBitmapDecoder.TryCreatePortableFrameFromUri(finalUri, createOptions, cacheOption, uriCachePolicy, out BitmapFrame portablePngUriFrame))
+            {
+                return new PngBitmapDecoder(portablePngUriFrame, baseUri, uri, null, createOptions, cacheOption);
+            }
+            else if (BitmapSource.UsesPortablePixelStorage &&
+                     finalUri != null &&
+                     stream == null &&
+                     JpegBitmapDecoder.TryCreatePortableFrameFromUri(finalUri, createOptions, cacheOption, uriCachePolicy, out BitmapFrame portableJpegUriFrame))
+            {
+                return new JpegBitmapDecoder(portableJpegUriFrame, baseUri, uri, null, createOptions, cacheOption);
+            }
+            else if (BitmapSource.UsesPortablePixelStorage &&
+                     finalUri != null &&
+                     stream == null &&
+                     GifBitmapDecoder.TryCreatePortableFramesFromUri(finalUri, createOptions, cacheOption, uriCachePolicy, out ReadOnlyCollection<BitmapFrame> portableGifUriFrames))
+            {
+                return new GifBitmapDecoder(portableGifUriFrames, baseUri, uri, null, createOptions, cacheOption);
+            }
+            else if (BitmapSource.UsesPortablePixelStorage &&
+                     finalUri != null &&
+                     stream == null &&
+                     TiffBitmapDecoder.TryCreatePortableFramesFromUri(finalUri, createOptions, cacheOption, uriCachePolicy, out ReadOnlyCollection<BitmapFrame> portableTiffUriFrames))
+            {
+                return new TiffBitmapDecoder(portableTiffUriFrames, baseUri, uri, null, createOptions, cacheOption);
+            }
+            else if (BitmapSource.UsesPortablePixelStorage &&
+                     finalUri != null &&
+                     stream == null &&
+                     IconBitmapDecoder.TryCreatePortableFrameFromUri(finalUri, createOptions, cacheOption, uriCachePolicy, out BitmapFrame portableIconUriFrame))
+            {
+                return new IconBitmapDecoder(portableIconUriFrame, baseUri, uri, null, createOptions, cacheOption);
+            }
             else if ((finalUri != null) && (finalUri.IsAbsoluteUri) && (stream == null) &&
                      ((finalUri.Scheme == Uri.UriSchemeHttp) ||
                       (finalUri.Scheme == Uri.UriSchemeHttps)))
             {
+                if (BitmapSource.UsesPortablePixelStorage)
+                {
+                    throw new NotSupportedException("Portable HTTP bitmap decoding could not identify a supported image format.");
+                }
+
                 return new LateBoundBitmapDecoder(baseUri, uri, stream, createOptions, cacheOption, uriCachePolicy);
             }
-            else if ((stream != null) && (!stream.CanSeek))
+            else if (BitmapSource.UsesPortablePixelStorage &&
+                     stream != null &&
+                     BmpBitmapDecoder.TryCreatePortableFrame(stream, createOptions, cacheOption, out BitmapFrame portableStreamFrame))
             {
-                return new LateBoundBitmapDecoder(baseUri, uri, stream, createOptions, cacheOption, uriCachePolicy);
+                return new BmpBitmapDecoder(portableStreamFrame, baseUri, uri, stream, createOptions, cacheOption);
+            }
+            else if (BitmapSource.UsesPortablePixelStorage &&
+                     stream != null &&
+                     PngBitmapDecoder.TryCreatePortableFrame(stream, createOptions, cacheOption, out BitmapFrame portablePngStreamFrame))
+            {
+                return new PngBitmapDecoder(portablePngStreamFrame, baseUri, uri, stream, createOptions, cacheOption);
+            }
+            else if (BitmapSource.UsesPortablePixelStorage &&
+                     stream != null &&
+                     JpegBitmapDecoder.TryCreatePortableFrame(stream, createOptions, cacheOption, out BitmapFrame portableJpegStreamFrame))
+            {
+                return new JpegBitmapDecoder(portableJpegStreamFrame, baseUri, uri, stream, createOptions, cacheOption);
+            }
+            else if (BitmapSource.UsesPortablePixelStorage &&
+                     stream != null &&
+                     GifBitmapDecoder.TryCreatePortableFrames(stream, createOptions, cacheOption, out ReadOnlyCollection<BitmapFrame> portableGifStreamFrames))
+            {
+                return new GifBitmapDecoder(portableGifStreamFrames, baseUri, uri, stream, createOptions, cacheOption);
+            }
+            else if (BitmapSource.UsesPortablePixelStorage &&
+                     stream != null &&
+                     TiffBitmapDecoder.TryCreatePortableFrames(stream, createOptions, cacheOption, out ReadOnlyCollection<BitmapFrame> portableTiffStreamFrames))
+            {
+                return new TiffBitmapDecoder(portableTiffStreamFrames, baseUri, uri, stream, createOptions, cacheOption);
+            }
+            else if (BitmapSource.UsesPortablePixelStorage &&
+                     stream != null &&
+                     IconBitmapDecoder.TryCreatePortableFrame(stream, createOptions, cacheOption, out BitmapFrame portableIconStreamFrame))
+            {
+                return new IconBitmapDecoder(portableIconStreamFrame, baseUri, uri, stream, createOptions, cacheOption);
             }
             else
             {
@@ -534,6 +719,57 @@ namespace System.Windows.Media.Imaging
 
                 return _palette;
             }
+        }
+
+        internal void InitializePortableFrames(
+            Uri baseUri,
+            Uri uri,
+            Stream stream,
+            BitmapCreateOptions createOptions,
+            BitmapCacheOption cacheOption,
+            BitmapFrame frame)
+        {
+            Debug.Assert(frame != null);
+            InitializePortableFrames(
+                baseUri,
+                uri,
+                stream,
+                createOptions,
+                cacheOption,
+                new ReadOnlyCollection<BitmapFrame>(new List<BitmapFrame>(1) { frame }));
+        }
+
+        internal void InitializePortableFrames(
+            Uri baseUri,
+            Uri uri,
+            Stream stream,
+            BitmapCreateOptions createOptions,
+            BitmapCacheOption cacheOption,
+            ReadOnlyCollection<BitmapFrame> frames)
+        {
+            Debug.Assert(frames != null && frames.Count > 0);
+
+            _isBuiltInDecoder = true;
+            _baseUri = baseUri;
+            _uri = uri;
+            _stream = stream;
+            _createOptions = createOptions;
+            _cacheOption = cacheOption;
+
+            _frames = new List<BitmapFrame>(frames.Count);
+            for (int i = 0; i < frames.Count; i++)
+            {
+                BitmapFrame frame = frames[i];
+                Debug.Assert(frame != null);
+                if (!frame.IsFrozen && frame.CanFreeze)
+                {
+                    frame.Freeze();
+                }
+
+                _frames.Add(frame);
+            }
+
+            _readOnlyFrames = new ReadOnlyCollection<BitmapFrame>(_frames);
         }
 
         /// <summary>
@@ -996,6 +1232,11 @@ namespace System.Windows.Media.Imaging
             )
         {
             SafeMILHandle decoderHandle;
+            // A rejected portable format must never fall through to Windows
+            // WIC activation, including format-specific decoder constructors.
+            if (BitmapSource.UsesPortablePixelStorage)
+                throw new NotSupportedException("Portable bitmap decoding could not identify a supported image format.");
+
             IntPtr decoder = IntPtr.Zero;
             System.IO.Stream bitmapStream = null;
             unmanagedMemoryStream = null;
@@ -1178,6 +1419,81 @@ namespace System.Windows.Media.Imaging
             clsId = GetCLSIDFromDecoder(decoderHandle, out decoderMimeTypes);
 
             return decoderHandle;
+        }
+
+        internal static bool TryOpenPortableUriStream(Uri uri, out Stream stream)
+        {
+            return TryOpenPortableUriStream(uri, null, out stream);
+        }
+
+        internal static bool TryOpenPortableUriStream(Uri uri, RequestCachePolicy uriCachePolicy, out Stream stream)
+        {
+            stream = null;
+
+            if (uri == null)
+            {
+                return false;
+            }
+
+            Stream uriStream = null;
+            try
+            {
+                if (uri.IsAbsoluteUri)
+                {
+                    if (uri.IsFile)
+                    {
+                        uriStream = new FileStream(uri.LocalPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+                    }
+                    else if (string.Equals(uri.Scheme, PackUriHelper.UriSchemePack, StringComparison.OrdinalIgnoreCase) ||
+                             string.Equals(uri.Scheme, Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase) ||
+                             string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
+                    {
+                        WebRequest request = WpfWebRequestHelper.CreateRequest(uri);
+                        if (uriCachePolicy != null && OperatingSystem.IsWindows())
+                        {
+                            request.CachePolicy = uriCachePolicy;
+                        }
+
+                        uriStream = WpfWebRequestHelper.GetResponseStream(request);
+                    }
+                    else
+                    {
+                        return false;
+                    }
+                }
+                else
+                {
+                    uriStream = new FileStream(uri.OriginalString, FileMode.Open, FileAccess.Read, FileShare.Read);
+                }
+
+                if (uriStream == null || uriStream == Stream.Null)
+                {
+                    uriStream?.Dispose();
+                    return false;
+                }
+
+                if (uriStream.CanSeek)
+                {
+                    uriStream.Position = 0;
+                    stream = uriStream;
+                    return true;
+                }
+
+                using (uriStream)
+                {
+                    MemoryStream memory = new MemoryStream();
+                    uriStream.CopyTo(memory);
+                    memory.Position = 0;
+                    stream = memory;
+                    return true;
+                }
+            }
+            catch
+            {
+                uriStream?.Dispose();
+                stream = null;
+                return false;
+            }
         }
 
         private static Stream ProcessHttpsFiles(Uri uri, Stream stream)
@@ -1669,4 +1985,3 @@ namespace System.Windows.Media.Imaging
 
     #endregion // BitmapDecoder
 }
-

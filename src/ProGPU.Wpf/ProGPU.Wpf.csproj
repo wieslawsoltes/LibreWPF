@@ -1,0 +1,76 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>ProGPU.Wpf</AssemblyName>
+    <RootNamespace>System.Windows.Media.ProGPU</RootNamespace>
+    <PackageId>LibreWPF.ProGPU</PackageId>
+    <Description>LibreWPF cross-platform ProGPU rendering host and adapter lane for managed presentation rendering.</Description>
+    <PackageTags>librewpf;progpu;webgpu;silk.net;rendering</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <ProGpuRuntimePackageVersion Condition="'$(ProGpuRuntimePackageVersion)' == ''">0.1.0-preview.62</ProGpuRuntimePackageVersion>
+    <SignAssembly>true</SignAssembly>
+    <AssemblyOriginatorKeyFile>..\..\external\ProGPU\eng\ProGPU.snk</AssemblyOriginatorKeyFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="ProGPU.Backend" Version="$(ProGpuRuntimePackageVersion)" />
+    <PackageReference Include="ProGPU.Backend.Native" Version="$(ProGpuRuntimePackageVersion)" />
+    <PackageReference Include="ProGPU.DirectX" Version="$(ProGpuRuntimePackageVersion)" />
+    <PackageReference Include="ProGPU.Scene" Version="$(ProGpuRuntimePackageVersion)" />
+    <PackageReference Include="LibreWPF.Interop" Version="$(ProGpuRuntimePackageVersion)" />
+    <PackageReference Include="Silk.NET.GLFW" Version="2.23.0" />
+    <PackageReference Include="Silk.NET.Input" Version="2.23.0" />
+    <PackageReference Include="Silk.NET.Windowing" Version="2.23.0" />
+    <PackageReference Include="Silk.NET.WebGPU" Version="2.23.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Microsoft.DotNet.Wpf\src\Microsoft.Win32.SystemEvents\Microsoft.Win32.SystemEvents.csproj" PrivateAssets="all" Private="false" />
+    <ProjectReference Include="..\..\external\ProGPU\src\WindowsBase\WindowsBase.csproj" PrivateAssets="all" Private="false" />
+    <ProjectReference Include="..\..\external\ProGPU\src\PresentationCore\PresentationCore.csproj" PrivateAssets="all" Private="false" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(IsPacking)' != 'true'">
+    <ProjectReference Include="..\..\external\ProGPU\src\ProGPU.Backend\ProGPU.Backend.csproj" />
+    <ProjectReference Include="..\..\external\ProGPU\src\ProGPU.Backend.Native\ProGPU.Backend.Native.csproj" />
+    <ProjectReference Include="..\..\external\ProGPU\src\ProGPU.DirectX\ProGPU.DirectX.csproj" />
+    <ProjectReference Include="..\..\external\ProGPU\src\ProGPU.Scene\ProGPU.Scene.csproj" />
+    <ProjectReference Include="..\..\external\ProGPU\src\ProGPU.Text\ProGPU.Text.csproj" />
+    <ProjectReference Include="..\..\external\ProGPU\src\ProGPU.Vector\ProGPU.Vector.csproj" />
+    <ProjectReference Include="..\..\external\ProGPU\src\ProGPU.Wpf.Interop\ProGPU.Wpf.Interop.csproj" />
+  </ItemGroup>
+
+  <Target Name="_ProGpuWpfRemoveNetCoreWindowsBaseFacade"
+          BeforeTargets="ResolveAssemblyReferences"
+          DependsOnTargets="ResolveTargetingPackAssets;ResolveLockFileReferences">
+    <ItemGroup>
+      <Reference Remove="@(Reference)"
+                 Condition="'%(Reference.Filename)' == 'WindowsBase' And $([System.String]::Copy('%(Reference.RootDir)%(Reference.Directory)').Contains('microsoft.netcore.app.ref'))" />
+      <ReferencePath Remove="@(ReferencePath)"
+                     Condition="'%(ReferencePath.Filename)' == 'WindowsBase' And $([System.String]::Copy('%(ReferencePath.RootDir)%(Reference.Directory)').Contains('microsoft.netcore.app.ref'))" />
+      <ReferencePathWithRefAssemblies Remove="@(ReferencePathWithRefAssemblies)"
+                                      Condition="'%(ReferencePathWithRefAssemblies.Filename)' == 'WindowsBase' And $([System.String]::Copy('%(ReferencePath.RootDir)%(Reference.Directory)').Contains('microsoft.netcore.app.ref'))" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="_LibreWpfPinProGpuPackDependencyVersions"
+          AfterTargets="_GetProjectReferenceVersions"
+          Condition="'$(IsPackable)' == 'true'">
+    <ItemGroup>
+      <_ProjectReferencesWithVersions
+        Update="@(_ProjectReferencesWithVersions)"
+        Condition="'%(_ProjectReferencesWithVersions.Filename)' == 'ProGPU.Backend'
+          Or '%(_ProjectReferencesWithVersions.Filename)' == 'ProGPU.Backend.Native'
+          Or '%(_ProjectReferencesWithVersions.Filename)' == 'ProGPU.DirectX'
+          Or '%(_ProjectReferencesWithVersions.Filename)' == 'ProGPU.Scene'
+          Or '%(_ProjectReferencesWithVersions.Filename)' == 'ProGPU.Text'
+          Or '%(_ProjectReferencesWithVersions.Filename)' == 'ProGPU.Vector'
+          Or '%(_ProjectReferencesWithVersions.Filename)' == 'ProGPU.Wpf.Interop'">
+        <ProjectVersion>$(ProGpuRuntimePackageVersion)</ProjectVersion>
+      </_ProjectReferencesWithVersions>
+    </ItemGroup>
+  </Target>
+</Project>

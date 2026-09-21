@@ -175,6 +175,7 @@ namespace MS.Internal.Documents
         /// Exposes XPSViewer's RootBrowserWindow as an IWin32Window for use in parenting Winforms
         /// dialogs.
         /// </summary>
+#if !PROGPU_WPF_PORTABLE_NO_WINFORMS
         public System.Windows.Forms.IWin32Window RootBrowserWindow
         {
             get
@@ -192,6 +193,7 @@ namespace MS.Internal.Documents
                 return _rootBrowserWindow;
             }
         }
+#endif
 
         /// <summary>
         /// Exposes the singleton instance of DocumentApplicationDocumentViewer.
@@ -2252,7 +2254,9 @@ namespace MS.Internal.Documents
         /// <summary>
         /// An IWin32Window reference to the RootBrowserWindow hosting XPSViewer.
         /// </summary>
+#if !PROGPU_WPF_PORTABLE_NO_WINFORMS
         private System.Windows.Forms.IWin32Window _rootBrowserWindow;
+#endif
 
         #endregion Private Fields
 
@@ -2267,6 +2271,7 @@ namespace MS.Internal.Documents
         /// This class exists for the sole purpose of wrapping an IntPtr Window handle into
         /// an IWin32Window object that our WinForms dialogs can use.
         /// </summary>
+#if !PROGPU_WPF_PORTABLE_NO_WINFORMS
         private class WrapperIWin32Window : System.Windows.Forms.IWin32Window
         {
             /// <summary>
@@ -2292,6 +2297,7 @@ namespace MS.Internal.Documents
             /// </summary>
             private IntPtr _handle;
         }
+#endif
         #endregion WrapperIWin32Window
 
         #region ZoomComboBoxItem

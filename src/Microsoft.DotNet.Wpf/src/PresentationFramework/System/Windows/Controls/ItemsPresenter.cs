@@ -17,8 +17,13 @@ namespace System.Windows.Controls
     ///     layout of groups or items.
     /// </summary>
     [Localizability(LocalizationCategory.NeverLocalize)]
-    public class ItemsPresenter : FrameworkElement
+    public class ItemsPresenter : FrameworkElement, IPortableVisualOwnerHost
     {
+        PortableVisualOwnerKind IPortableVisualOwnerHost.PortableVisualOwnerKind
+        {
+            get { return PortableVisualOwnerKind.PointerInfrastructure; }
+        }
+
         //------------------------------------------------------
         //
         // Public Methods
@@ -331,6 +336,5 @@ namespace System.Windows.Controls
         private ItemsPanelTemplate _templateCache;
     }
 }
-
 
 

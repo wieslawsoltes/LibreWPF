@@ -7,6 +7,7 @@ using System.Runtime.InteropServices;
 using System.IO;
 using MS.Internal;
 using MS.Win32;
+using ProGPU.Wpf.Interop;
 
 using UnsafeNativeMethods = MS.Win32.PresentationCore.UnsafeNativeMethods;
 
@@ -18,7 +19,7 @@ namespace System.Windows.Media.Imaging
     /// Interface for Bitmap Sources, included decoders and effects
     /// </summary>
     [Localizability(LocalizationCategory.None, Readability = Readability.Unreadable)]
-    public abstract class BitmapSource : ImageSource, DUCE.IResource
+    public abstract class BitmapSource : ImageSource, DUCE.IResource, IPortableBitmapSourcePixelsSource
     {
         #region Constructor
 
@@ -392,6 +393,166 @@ namespace System.Windows.Media.Imaging
             CriticalCopyPixels(sourceRect, buffer, (uint)bufferSize, stride);
         }
 
+        bool IPortableBitmapSourcePixelsSource.TryGetPortableBitmapSourcePixels(out PortableBitmapSourcePixels pixels)
+        {
+            pixels = null;
+
+            try
+            {
+                int width = PixelWidth;
+                int height = PixelHeight;
+                PixelFormat pixelFormat = Format;
+
+                if (width <= 0 ||
+                    height <= 0 ||
+                    !TryMapPortablePixelDataFormat(pixelFormat.Format, out PortablePixelDataFormat portableFormat))
+                {
+                    return false;
+                }
+
+                int stride = checked(((width * pixelFormat.BitsPerPixel) + 7) / 8);
+                byte[] sourcePixels = new byte[checked(stride * height)];
+                CopyPixels(sourcePixels, stride, 0);
+
+                pixels = new PortableBitmapSourcePixels(
+                    width,
+                    height,
+                    DpiX,
+                    DpiY,
+                    stride,
+                    portableFormat,
+                    sourcePixels,
+                    CreatePortablePalette(Palette));
+                return true;
+            }
+            catch (ArgumentException)
+            {
+                return false;
+            }
+            catch (InvalidOperationException)
+            {
+                return false;
+            }
+            catch (OverflowException)
+            {
+                return false;
+            }
+        }
+
+        private static bool TryMapPortablePixelDataFormat(
+            PixelFormatEnum format,
+            out PortablePixelDataFormat portableFormat)
+        {
+            switch (format)
+            {
+                case PixelFormatEnum.Pbgra32:
+                    portableFormat = PortablePixelDataFormat.Pbgra32;
+                    return true;
+                case PixelFormatEnum.Bgra32:
+                    portableFormat = PortablePixelDataFormat.Bgra32;
+                    return true;
+                case PixelFormatEnum.Bgr32:
+                    portableFormat = PortablePixelDataFormat.Bgr32;
+                    return true;
+                case PixelFormatEnum.Bgr101010:
+                    portableFormat = PortablePixelDataFormat.Bgr101010;
+                    return true;
+                case PixelFormatEnum.Bgr24:
+                    portableFormat = PortablePixelDataFormat.Bgr24;
+                    return true;
+                case PixelFormatEnum.Rgb24:
+                    portableFormat = PortablePixelDataFormat.Rgb24;
+                    return true;
+                case PixelFormatEnum.BlackWhite:
+                    portableFormat = PortablePixelDataFormat.BlackWhite;
+                    return true;
+                case PixelFormatEnum.Gray2:
+                    portableFormat = PortablePixelDataFormat.Gray2;
+                    return true;
+                case PixelFormatEnum.Gray4:
+                    portableFormat = PortablePixelDataFormat.Gray4;
+                    return true;
+                case PixelFormatEnum.Gray8:
+                    portableFormat = PortablePixelDataFormat.Gray8;
+                    return true;
+                case PixelFormatEnum.Gray16:
+                    portableFormat = PortablePixelDataFormat.Gray16;
+                    return true;
+                case PixelFormatEnum.Bgr555:
+                    portableFormat = PortablePixelDataFormat.Bgr555;
+                    return true;
+                case PixelFormatEnum.Bgr565:
+                    portableFormat = PortablePixelDataFormat.Bgr565;
+                    return true;
+                case PixelFormatEnum.Rgb48:
+                    portableFormat = PortablePixelDataFormat.Rgb48;
+                    return true;
+                case PixelFormatEnum.Rgba64:
+                    portableFormat = PortablePixelDataFormat.Rgba64;
+                    return true;
+                case PixelFormatEnum.Prgba64:
+                    portableFormat = PortablePixelDataFormat.Prgba64;
+                    return true;
+                case PixelFormatEnum.Cmyk32:
+                    portableFormat = PortablePixelDataFormat.Cmyk32;
+                    return true;
+                case PixelFormatEnum.Gray32Float:
+                    portableFormat = PortablePixelDataFormat.Gray32Float;
+                    return true;
+                case PixelFormatEnum.Rgb128Float:
+                    portableFormat = PortablePixelDataFormat.Rgb128Float;
+                    return true;
+                case PixelFormatEnum.Rgba128Float:
+                    portableFormat = PortablePixelDataFormat.Rgba128Float;
+                    return true;
+                case PixelFormatEnum.Prgba128Float:
+                    portableFormat = PortablePixelDataFormat.Prgba128Float;
+                    return true;
+                case PixelFormatEnum.Indexed1:
+                    portableFormat = PortablePixelDataFormat.Indexed1;
+                    return true;
+                case PixelFormatEnum.Indexed2:
+                    portableFormat = PortablePixelDataFormat.Indexed2;
+                    return true;
+                case PixelFormatEnum.Indexed4:
+                    portableFormat = PortablePixelDataFormat.Indexed4;
+                    return true;
+                case PixelFormatEnum.Indexed8:
+                    portableFormat = PortablePixelDataFormat.Indexed8;
+                    return true;
+                default:
+                    portableFormat = default;
+                    return false;
+            }
+        }
+
+        private static PortablePbgra32Color[] CreatePortablePalette(Imaging.BitmapPalette palette)
+        {
+            if (palette == null || palette.Colors.Count == 0)
+            {
+                return Array.Empty<PortablePbgra32Color>();
+            }
+
+            int count = Math.Min(256, palette.Colors.Count);
+            var colors = new PortablePbgra32Color[count];
+            for (int i = 0; i < count; i++)
+            {
+                Color color = palette.Colors[i];
+                colors[i] = new PortablePbgra32Color(
+                    Premultiply(color.B, color.A),
+                    Premultiply(color.G, color.A),
+                    Premultiply(color.R, color.A),
+                    color.A);
+            }
+
+            return colors;
+        }
+
+        private static byte Premultiply(byte channel, byte alpha)
+        {
+            return (byte)((channel * alpha + 127) / 255);
+        }
+
         /// <summary>
         /// Get the width of the bitmap in measure units (96ths of an inch).
         /// </summary>
@@ -603,6 +764,11 @@ namespace System.Windows.Media.Imaging
         {
             EnsureShouldUseVirtuals();
 
+            if (_managedPixelBuffer != null)
+            {
+                return;
+            }
+
             uint pw, ph;
 
             lock (_syncObject)
@@ -699,6 +865,12 @@ namespace System.Windows.Media.Imaging
 
             uint minRequiredDestSize = checked(((uint)stride * (uint)(sourceRect.Height - 1)) + (uint)minStride);
             ArgumentOutOfRangeException.ThrowIfLessThan(bufferSize, minRequiredDestSize);
+
+            if (_managedPixelBuffer != null)
+            {
+                CopyManagedPixels(sourceRect, buffer, bufferSize, stride);
+                return;
+            }
 
             lock (_syncObject)
             {
@@ -944,6 +1116,190 @@ namespace System.Windows.Media.Imaging
             }
         }
 
+        // Resource ownership follows the frozen media backend, not the OS.
+        // Portable source pixels are consumed through the typed snapshot seam;
+        // selecting them does not change the native/managed ProGPU renderer.
+        internal static bool UsesPortablePixelStorage =>
+            PortableWpfRuntime.GetMediaBackendAndFreeze() == PortableWpfMediaBackend.Portable;
+
+        internal unsafe void InitializeManagedPixelBuffer(
+            int pixelWidth,
+            int pixelHeight,
+            double dpiX,
+            double dpiY,
+            PixelFormat pixelFormat,
+            BitmapPalette palette,
+            byte[] pixelBuffer,
+            int stride)
+        {
+            ArgumentNullException.ThrowIfNull(pixelBuffer);
+            ValidateManagedBitmapParameters(pixelWidth, pixelHeight, pixelFormat, palette, stride, pixelBuffer.Length);
+
+            _managedPixelBuffer = pixelBuffer;
+            _managedPixelStride = stride;
+            _format = pixelFormat;
+            _pixelWidth = pixelWidth;
+            _pixelHeight = pixelHeight;
+            _dpiX = dpiX;
+            _dpiY = dpiY;
+            _palette = palette;
+            _syncObject = _managedPixelBuffer;
+            _isSourceCached = true;
+            _creationComplete = true;
+        }
+
+        internal byte[] CloneManagedPixelBuffer()
+        {
+            return _managedPixelBuffer == null ? null : (byte[])_managedPixelBuffer.Clone();
+        }
+
+        internal static int GetPixelArrayElementSize(Array pixels)
+        {
+            ArgumentNullException.ThrowIfNull(pixels);
+
+            if (pixels.Rank != 1)
+                throw new ArgumentException(SR.Collection_BadRank, nameof(pixels));
+
+            if (pixels is byte[])
+                return 1;
+            if (pixels is short[] || pixels is ushort[])
+                return 2;
+            if (pixels is int[] || pixels is uint[] || pixels is float[])
+                return 4;
+            if (pixels is double[])
+                return 8;
+
+            throw new ArgumentException(SR.Image_InvalidArrayForPixel);
+        }
+
+        internal static int ValidateManagedBitmapParameters(
+            int pixelWidth,
+            int pixelHeight,
+            PixelFormat pixelFormat,
+            BitmapPalette palette,
+            int stride,
+            int bufferSize)
+        {
+            if (pixelFormat.Palettized && palette == null)
+                throw new InvalidOperationException(SR.Image_IndexedPixelFormatRequiresPalette);
+
+            if (pixelFormat.Format == PixelFormatEnum.Default && pixelFormat.Guid == WICPixelFormatGUIDs.WICPixelFormatDontCare)
+            {
+                throw new ArgumentException(
+                    SR.Format(SR.Effect_PixelFormat, pixelFormat),
+                    nameof(pixelFormat));
+            }
+
+            if (pixelWidth < 0 || pixelHeight < 0)
+                HRESULT.Check((int)WinCodecErrors.WINCODEC_ERR_VALUEOVERFLOW);
+
+            if (pixelWidth == 0 || pixelHeight == 0)
+                HRESULT.Check(MS.Win32.NativeMethods.E_INVALIDARG);
+
+            int minStride = checked(((pixelWidth * pixelFormat.BitsPerPixel) + 7) / 8);
+            ArgumentOutOfRangeException.ThrowIfLessThan(stride, minStride);
+
+            int requiredSize = checked((stride * (pixelHeight - 1)) + minStride);
+            ArgumentOutOfRangeException.ThrowIfLessThan(bufferSize, requiredSize);
+
+            return requiredSize;
+        }
+
+        internal static unsafe byte[] CopyManagedPixelBufferFromMemory(
+            int pixelWidth,
+            int pixelHeight,
+            PixelFormat pixelFormat,
+            BitmapPalette palette,
+            IntPtr buffer,
+            int bufferSize,
+            int stride)
+        {
+            if (buffer == IntPtr.Zero)
+                throw new ArgumentNullException(nameof(buffer));
+
+            int requiredSize = ValidateManagedBitmapParameters(pixelWidth, pixelHeight, pixelFormat, palette, stride, bufferSize);
+            byte[] pixels = new byte[requiredSize];
+            Marshal.Copy(buffer, pixels, 0, requiredSize);
+            return pixels;
+        }
+
+        internal static unsafe void CopyPixelBits(
+            byte* destination,
+            uint destinationBufferSize,
+            int destinationStride,
+            uint destinationBitOffset,
+            byte* source,
+            uint sourceBufferSize,
+            int sourceStride,
+            uint sourceBitOffset,
+            int rowCount,
+            uint copyWidthInBits)
+        {
+            if ((copyWidthInBits % 8) == 0 && sourceBitOffset == 0 && destinationBitOffset == 0)
+            {
+                uint copyWidthInBytes = copyWidthInBits / 8;
+                for (int y = 0; y < rowCount; y++)
+                {
+                    byte* destinationRow = destination + ((uint)y * (uint)destinationStride);
+                    byte* sourceRow = source + ((uint)y * (uint)sourceStride);
+                    System.Buffer.MemoryCopy(sourceRow, destinationRow, destinationBufferSize - ((uint)y * (uint)destinationStride), copyWidthInBytes);
+                }
+
+                return;
+            }
+
+            for (int y = 0; y < rowCount; y++)
+            {
+                byte* destinationRow = destination + ((uint)y * (uint)destinationStride);
+                byte* sourceRow = source + ((uint)y * (uint)sourceStride);
+
+                for (uint bit = 0; bit < copyWidthInBits; bit++)
+                {
+                    uint sourceBit = sourceBitOffset + bit;
+                    uint destinationBit = destinationBitOffset + bit;
+                    byte sourceMask = (byte)(0x80 >> (int)(sourceBit & 7));
+                    byte destinationMask = (byte)(0x80 >> (int)(destinationBit & 7));
+
+                    if ((sourceRow[sourceBit >> 3] & sourceMask) != 0)
+                    {
+                        destinationRow[destinationBit >> 3] |= destinationMask;
+                    }
+                    else
+                    {
+                        destinationRow[destinationBit >> 3] &= (byte)~destinationMask;
+                    }
+                }
+            }
+        }
+
+        private unsafe void CopyManagedPixels(Int32Rect sourceRect, IntPtr buffer, uint bufferSize, int stride)
+        {
+            ArgumentOutOfRangeException.ThrowIfNegative(sourceRect.X, nameof(sourceRect));
+            ArgumentOutOfRangeException.ThrowIfNegative(sourceRect.Y, nameof(sourceRect));
+            ArgumentOutOfRangeException.ThrowIfGreaterThan(sourceRect.X, PixelWidth - sourceRect.Width, nameof(sourceRect));
+            ArgumentOutOfRangeException.ThrowIfGreaterThan(sourceRect.Y, PixelHeight - sourceRect.Height, nameof(sourceRect));
+
+            uint sourceXbyteOffset = (uint)((sourceRect.X * Format.BitsPerPixel) / 8);
+            uint sourceBitOffset = (uint)((sourceRect.X * Format.BitsPerPixel) % 8);
+            uint sourceOffset = ((uint)sourceRect.Y * (uint)_managedPixelStride) + sourceXbyteOffset;
+            uint copyWidthInBits = (uint)(sourceRect.Width * Format.BitsPerPixel);
+
+            fixed (byte* sourceBase = _managedPixelBuffer)
+            {
+                CopyPixelBits(
+                    (byte*)buffer.ToPointer(),
+                    bufferSize,
+                    stride,
+                    0,
+                    sourceBase + sourceOffset,
+                    (uint)_managedPixelBuffer.Length - sourceOffset,
+                    _managedPixelStride,
+                    sourceBitOffset,
+                    sourceRect.Height,
+                    copyWidthInBits);
+            }
+        }
+
         /// <summary>
         /// Called when a failure to decode is detected.
         /// </summary>
@@ -951,7 +1307,15 @@ namespace System.Windows.Media.Imaging
         {
             // Set the source to an empty image in case the user doesn't respond to the failed event
             byte[] pixels = new byte[4];
-            WicSourceHandle = Create(1, 1, 96, 96, PixelFormats.Pbgra32, null, pixels, 4).WicSourceHandle;
+            if (UsesPortablePixelStorage)
+            {
+                InitializeManagedPixelBuffer(1, 1, 96, 96, PixelFormats.Pbgra32, null, pixels, 4);
+            }
+            else
+            {
+                WicSourceHandle = Create(1, 1, 96, 96, PixelFormats.Pbgra32, null, pixels, 4).WicSourceHandle;
+            }
+
             IsSourceCached = true;
 
             // Let the user know that we've failed to decode so they can gracefully handle the failure.
@@ -1411,8 +1775,18 @@ namespace System.Windows.Media.Imaging
             _useVirtuals = sourceBitmap._useVirtuals;
             _delayCreation = sourceBitmap.DelayCreation;
             _creationComplete = sourceBitmap.CreationCompleted;
-            WicSourceHandle = sourceBitmap.WicSourceHandle; // always do this near the top
-            _syncObject = sourceBitmap.SyncObject;
+            if (sourceBitmap._managedPixelBuffer != null)
+            {
+                _wicSource = null;
+                _convertedDUCEPtr = null;
+                _managedPixelBuffer = sourceBitmap.CloneManagedPixelBuffer();
+                _managedPixelStride = sourceBitmap._managedPixelStride;
+            }
+            else
+            {
+                WicSourceHandle = sourceBitmap.WicSourceHandle; // always do this near the top
+            }
+            _syncObject = _managedPixelBuffer ?? sourceBitmap.SyncObject;
             IsSourceCached = sourceBitmap.IsSourceCached;
 
             //
@@ -1552,6 +1926,8 @@ namespace System.Windows.Media.Imaging
         internal double _dpiX = 96.0;
         internal double _dpiY = 96.0;
         internal BitmapPalette _palette = null;
+        internal byte[] _managedPixelBuffer;
+        internal int _managedPixelStride;
 
         /// Duce resource
         internal DUCE.MultiChannelResource _duceResource = new DUCE.MultiChannelResource();
@@ -1958,4 +2334,3 @@ namespace System.Windows.Media.Imaging
 
     #endregion // BitmapSource
 }
-

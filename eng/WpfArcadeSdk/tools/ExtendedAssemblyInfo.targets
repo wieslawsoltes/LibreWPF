@@ -336,7 +336,9 @@ using System.Runtime.Versioning;
       </ExtendedAssemblyInfoFileContent>
     </ItemGroup>
 
-    <Delete Condition="Exists('$(GeneratedExtendedAssemblyInfoFile)')" Files="$(GeneratedExtendedAssemblyInfoFile)" />
+    <!-- Preserve the generated file timestamp when its contents are unchanged.
+         Deleting it here defeats WriteOnlyWhenDifferent and forces every
+         dependent C# project to run CoreCompile on an otherwise no-op build. -->
     <WriteLinesToFile Lines="@(ExtendedAssemblyInfoFileContent->'%(Text)')"
                       File="$(GeneratedExtendedAssemblyInfoFile)"
                       Overwrite="true" WriteOnlyWhenDifferent="true" />

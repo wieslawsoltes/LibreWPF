@@ -10,10 +10,18 @@
 //              a set of "C# prime" files, then executes the project.
 //
 
+#if NETFRAMEWORK
 using System.CodeDom.Compiler;
+#endif
 using System.Collections;
+using System.Collections.Generic;
 using System.Reflection;
 using System.Text;
+#if NETCOREAPP
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.Emit;
+#endif
 
 namespace MS.Internal.Csp
 {
@@ -98,10 +106,18 @@ namespace MS.Internal.Csp
             {
                 // Needed so that the project can access MS.Internal.Csp.CsPrimeRuntime.
                 // (The parser generates references to it.)
-                referencedAssemblies.Add(System.Windows.Forms.Application.ExecutablePath);
+                referencedAssemblies.Add(Assembly.GetExecutingAssembly().Location);
             }
             referencedAssemblies.AddRange(parameters.ReferencedAssemblies);
 
+#if NETCOREAPP
+            return BuildWithRoslyn(
+                parameters,
+                tempDirectory,
+                intermediateSource,
+                (string[])referencedAssemblies.ToArray(typeof(string))
+                );
+#else
             CompilerParameters cp = new CompilerParameters(
                 (string[])referencedAssemblies.ToArray(typeof(string))
                 )
@@ -171,6 +187,7 @@ namespace MS.Internal.Csp
                 tempDirectory, 
                 parameters.BreakBeforeInvoke
                 );
+#endif
         }
 
         /// <summary>
@@ -326,6 +343,179 @@ namespace MS.Internal.Csp
             throw new ApplicationException(e.Message);
         }
 
+#if NETCOREAPP
+        private static Project BuildWithRoslyn(
+            Parameters parameters,
+            TempDirectory tempDirectory,
+            string[] intermediateSource,
+            string[] referencedAssemblies
+            )
+        {
+            List<SyntaxTree> syntaxTrees = new List<SyntaxTree>();
+
+            if (parameters.EnableCsPrime)
+            {
+                for (int i = 0; i < intermediateSource.Length; i++)
+                {
+                    syntaxTrees.Add(CreateSyntaxTree(intermediateSource[i], parameters.SourceFiles[i]));
+                }
+            }
+            else
+            {
+                foreach (string sourceFile in parameters.SourceFiles)
+                {
+                    syntaxTrees.Add(CreateSyntaxTree(File.ReadAllText(sourceFile), sourceFile));
+                }
+            }
+
+            CSharpCompilationOptions compilationOptions = new CSharpCompilationOptions(
+                OutputKind.ConsoleApplication,
+                mainTypeName: parameters.MainClass,
+                optimizationLevel: OptimizationLevel.Debug
+                );
+
+            CSharpCompilation compilation = CSharpCompilation.Create(
+                Path.GetFileNameWithoutExtension(Path.GetRandomFileName()),
+                syntaxTrees,
+                ResolveMetadataReferences(referencedAssemblies),
+                compilationOptions
+                );
+
+            string outputAssembly = Path.Combine(tempDirectory.PathName, "csp.project.dll");
+
+            if (parameters.DebugModeHack)
+            {
+                tempDirectory.SetToLeak();
+            }
+
+            using MemoryStream peStream = parameters.DebugModeHack ? null : new MemoryStream();
+            using FileStream peFileStream = parameters.DebugModeHack ? File.Create(outputAssembly) : null;
+            Stream outputStream = parameters.DebugModeHack ? peFileStream : peStream;
+
+            EmitResult results = compilation.Emit(outputStream);
+
+            ReportDiagnostics(results.Diagnostics);
+
+            if (!results.Success)
+            {
+                Console.WriteLine("Aborting.");
+                return null;
+            }
+
+            Assembly compiledAssembly;
+
+            if (parameters.DebugModeHack)
+            {
+                outputStream.Dispose();
+                compiledAssembly = Assembly.LoadFile(outputAssembly);
+            }
+            else
+            {
+                peStream.Position = 0;
+                compiledAssembly = Assembly.Load(peStream.ToArray());
+            }
+
+            return new Project(
+                compiledAssembly,
+                tempDirectory,
+                parameters.BreakBeforeInvoke
+                );
+        }
+
+        private static SyntaxTree CreateSyntaxTree(string source, string path)
+        {
+            return CSharpSyntaxTree.ParseText(
+                source,
+                new CSharpParseOptions(LanguageVersion.Preview),
+                path,
+                Encoding.UTF8
+                );
+        }
+
+        private static IEnumerable<MetadataReference> ResolveMetadataReferences(string[] referencedAssemblies)
+        {
+            Dictionary<string, string> trustedPlatformAssemblies = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            string trustedPlatformAssemblyPaths = (string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES");
+
+            foreach (string assemblyPath in trustedPlatformAssemblyPaths.Split(Path.PathSeparator))
+            {
+                string fileName = Path.GetFileName(assemblyPath);
+
+                if (!trustedPlatformAssemblies.ContainsKey(fileName))
+                {
+                    trustedPlatformAssemblies.Add(fileName, assemblyPath);
+                }
+            }
+
+            HashSet<string> metadataPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (string assemblyPath in trustedPlatformAssemblies.Values)
+            {
+                metadataPaths.Add(assemblyPath);
+            }
+
+            foreach (string reference in referencedAssemblies)
+            {
+                string resolvedReference = ResolveMetadataReference(reference, trustedPlatformAssemblies);
+
+                if (resolvedReference != null)
+                {
+                    metadataPaths.Add(resolvedReference);
+                }
+            }
+
+            List<MetadataReference> references = new List<MetadataReference>();
+
+            foreach (string path in metadataPaths)
+            {
+                references.Add(MetadataReference.CreateFromFile(path));
+            }
+
+            return references;
+        }
+
+        private static string ResolveMetadataReference(
+            string reference,
+            Dictionary<string, string> trustedPlatformAssemblies
+            )
+        {
+            if (File.Exists(reference))
+            {
+                return Path.GetFullPath(reference);
+            }
+
+            string fileName = Path.GetFileName(reference);
+
+            if (trustedPlatformAssemblies.TryGetValue(fileName, out string trustedPlatformAssembly))
+            {
+                return trustedPlatformAssembly;
+            }
+
+            return null;
+        }
+
+        private static void ReportDiagnostics(IEnumerable<Diagnostic> diagnostics)
+        {
+            bool wroteHeader = false;
+
+            foreach (Diagnostic diagnostic in diagnostics)
+            {
+                if (diagnostic.Severity == DiagnosticSeverity.Hidden)
+                {
+                    continue;
+                }
+
+                if (!wroteHeader)
+                {
+                    Console.WriteLine("Output from compiler:");
+                    wroteHeader = true;
+                }
+
+                Console.WriteLine(diagnostic.ToString());
+            }
+        }
+#endif
+
 
         #endregion Private Methods
 
@@ -343,7 +533,3 @@ namespace MS.Internal.Csp
         #endregion Private Fields
     }
 }
-
-
-
-

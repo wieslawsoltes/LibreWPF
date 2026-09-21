@@ -62,6 +62,12 @@ namespace System.Windows.Automation.Peers
         protected override Rect GetBoundingRectangleCore()
         {
             Window window = (Window)Owner;
+
+            if (!OperatingSystem.IsWindows())
+            {
+                return GetPortableBoundingRectangle(window);
+            }
+
             Rect bounds = new Rect(0,0,0,0);
             
             if(!window.IsSourceWindowNull)
@@ -79,6 +85,62 @@ namespace System.Windows.Automation.Peers
             return bounds;
         }
 
+        private static Rect GetPortableBoundingRectangle(Window window)
+        {
+            if (PresentationSource.CriticalFromVisual(window) == null)
+            {
+                return Rect.Empty;
+            }
+
+            Size size = window.RenderSize;
+            if (size.Width <= 0)
+            {
+                size.Width = GetNonNegativeFiniteSize(window.ActualWidth);
+            }
+            if (size.Height <= 0)
+            {
+                size.Height = GetNonNegativeFiniteSize(window.ActualHeight);
+            }
+            if (size.Width <= 0)
+            {
+                size.Width = GetNonNegativeFiniteSize(window.Width);
+            }
+            if (size.Height <= 0)
+            {
+                size.Height = GetNonNegativeFiniteSize(window.Height);
+            }
+
+            if (size.Width <= 0 && size.Height <= 0)
+            {
+                return Rect.Empty;
+            }
+
+            Point topLeft = new Point(GetFiniteCoordinate(window.Left), GetFiniteCoordinate(window.Top));
+            try
+            {
+                topLeft = window.PointToScreen(new Point(0, 0));
+            }
+            catch (InvalidOperationException)
+            {
+            }
+
+            return new Rect(topLeft, size);
+        }
+
+        private static double GetNonNegativeFiniteSize(double value)
+        {
+            return double.IsNaN(value) || double.IsInfinity(value)
+                ? 0
+                : Math.Max(0, value);
+        }
+
+        private static double GetFiniteCoordinate(double value)
+        {
+            return double.IsNaN(value) || double.IsInfinity(value)
+                ? 0
+                : value;
+        }
+
         protected override bool IsDialogCore()
         {
             Window window = (Window)Owner;
@@ -93,4 +155,3 @@ namespace System.Windows.Automation.Peers
         }
     }
 }
-

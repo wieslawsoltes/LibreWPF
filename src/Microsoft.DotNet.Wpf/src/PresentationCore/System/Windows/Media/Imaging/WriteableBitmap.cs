@@ -101,6 +101,13 @@ namespace System.Windows.Media.Imaging
                 HRESULT.Check(MS.Win32.NativeMethods.E_INVALIDARG);
             }
 
+            if (UsesPortablePixelStorage)
+            {
+                InitManagedBackBuffer(pixelWidth, pixelHeight, dpiX, dpiY, pixelFormat, palette);
+                EndInit();
+                return;
+            }
+
             //
             // Create and initialize a new unmanaged double buffered bitmap.
             //
@@ -166,6 +173,12 @@ namespace System.Windows.Media.Imaging
             dirtyRect.ValidateForDirtyRect(nameof(dirtyRect), _pixelWidth, _pixelHeight);
             if (dirtyRect.HasArea)
             {
+                if (_managedPixelBuffer != null)
+                {
+                    _hasDirtyRects = true;
+                    return;
+                }
+
                 MILSwDoubleBufferedBitmap.AddDirtyRect(
                     _pDoubleBufferedBitmap,
                     ref dirtyRect);
@@ -243,6 +256,26 @@ namespace System.Windows.Media.Imaging
                 throw new InvalidOperationException(SR.Image_LockCountLimit);
             }
 
+            if (_managedPixelBuffer != null)
+            {
+                if (_lockCount == 0)
+                {
+                    // This bitmap owns pinned-heap storage from construction.
+                    // No GCHandle can outlive an abandoned locked bitmap, and
+                    // nested/repeated locks do not allocate another pin.
+                    unsafe
+                    {
+                        fixed (byte* pixels = _managedPixelBuffer)
+                            BackBuffer = (IntPtr)pixels;
+                    }
+                    _backBufferStride = _managedPixelStride;
+                    _backBufferSize = (uint)_managedPixelBuffer.Length;
+                }
+
+                _lockCount++;
+                return true;
+            }
+
             if (_lockCount == 0)
             {
                 // Try to acquire the back buffer by the supplied timeout, if the acquire call times out, return false.
@@ -311,6 +344,20 @@ namespace System.Windows.Media.Imaging
             _lockCount--;
             if (_lockCount == 0)
             {
+                if (_managedPixelBuffer != null)
+                {
+                    BackBuffer = IntPtr.Zero;
+
+                    if (_hasDirtyRects)
+                    {
+                        _needsUpdate = true;
+                        WritePostscript();
+                        _hasDirtyRects = false;
+                    }
+
+                    return;
+                }
+
                 // This makes the back buffer read-only.
                 _pBackBufferLock.Dispose();
                 _pBackBufferLock = null;
@@ -572,6 +619,11 @@ namespace System.Windows.Media.Imaging
         {
             bool canFreeze = (_lockCount == 0) && base.FreezeCore(isChecking);
 
+            if (_managedPixelBuffer != null)
+            {
+                return canFreeze;
+            }
+
             if (canFreeze && !isChecking)
             {
                 Debug.Assert(_pBackBufferLock == null);
@@ -679,6 +731,22 @@ namespace System.Windows.Media.Imaging
 
         #region Private/Internal Methods
 
+        private void InitManagedBackBuffer(
+            int pixelWidth,
+            int pixelHeight,
+            double dpiX,
+            double dpiY,
+            PixelFormat pixelFormat,
+            BitmapPalette palette)
+        {
+            int stride = checked(((pixelWidth * pixelFormat.BitsPerPixel) + 7) / 8);
+            byte[] pixels = GC.AllocateArray<byte>(checked(stride * pixelHeight), pinned: true);
+            InitializeManagedPixelBuffer(pixelWidth, pixelHeight, dpiX, dpiY, pixelFormat, palette, pixels, stride);
+            _backBufferStride = stride;
+            _backBufferSize = (uint)pixels.Length;
+            _hasDirtyRects = false;
+        }
+
         /// <summary>
         ///     Gets the estimated memory pressure in bytes
         /// </summary>
@@ -715,6 +783,18 @@ namespace System.Windows.Media.Imaging
             }
 
             BeginInit();
+
+            if (UsesPortablePixelStorage)
+            {
+                int stride = checked(((source.PixelWidth * source.Format.BitsPerPixel) + 7) / 8);
+                byte[] pixels = GC.AllocateArray<byte>(checked(stride * source.PixelHeight), pinned: true);
+                source.CopyPixels(pixels, stride, 0);
+                InitializeManagedPixelBuffer(source.PixelWidth, source.PixelHeight, source.DpiX, source.DpiY, source.Format, source.Palette, pixels, stride);
+                _backBufferStride = stride;
+                _backBufferSize = (uint)pixels.Length;
+                EndInit();
+                return;
+            }
 
             _syncObject = source.SyncObject;
             lock (_syncObject)
@@ -874,6 +954,45 @@ namespace System.Windows.Media.Imaging
                 destinationRect.X = destinationX;
                 destinationRect.Y = destinationY;
 
+                if (_managedPixelBuffer != null)
+                {
+                    unsafe
+                    {
+                        fixed (byte* managedBuffer = _managedPixelBuffer)
+                        {
+                            uint destOffset = ((uint)destinationY * (uint)_managedPixelStride) + destXbyteOffset;
+                            byte* pDest = managedBuffer + destOffset;
+                            uint outputBufferSize = (uint)_managedPixelBuffer.Length - destOffset;
+
+                            byte* pSource = (byte*)sourceBuffer.ToPointer();
+                            pSource += firstPixelByteOffet;
+                            uint inputBufferSize = sourceBufferSize - firstPixelByteOffet;
+
+                            CopyPixelBits(
+                                pDest,
+                                outputBufferSize,
+                                _managedPixelStride,
+                                destBufferBitOffset,
+                                pSource,
+                                inputBufferSize,
+                                sourceBufferStride,
+                                sourceBufferBitOffset,
+                                sourceRect.Height,
+                                copyWidthInBits);
+                        }
+                    }
+
+                    _hasDirtyRects = true;
+                    _needsUpdate = true;
+                    if (_lockCount == 0)
+                    {
+                        WritePostscript();
+                        _hasDirtyRects = false;
+                    }
+
+                    return;
+                }
+
                 //
                 // Copy pixel information from the user supplied buffer to the back buffer.
                 //
@@ -1019,7 +1138,11 @@ namespace System.Windows.Media.Imaging
         {
             IsSourceCached = true;
             CreationCompleted = true;
-            UpdateCachedSettings();
+
+            if (_managedPixelBuffer == null)
+            {
+                UpdateCachedSettings();
+            }
         }
 
         /// <summary>

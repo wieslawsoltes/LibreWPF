@@ -1,0 +1,43 @@
+<Project>
+  <Import Project="$(MSBuildThisFileDirectory)..\..\Directory.Build.props" />
+
+  <PropertyGroup>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <EnableNETAnalyzers>false</EnableNETAnalyzers>
+    <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
+    <NoWarn>$(NoWarn);IDE0073</NoWarn>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <ProGpuWpfXceedPaidPackageVersion>0.1.0-preview.45</ProGpuWpfXceedPaidPackageVersion>
+    <RestorePackagesPath>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../../artifacts/nuget/ProGPU.Wpf.XceedPaidApp'))</RestorePackagesPath>
+    <RestoreForce>true</RestoreForce>
+    <RestoreForceEvaluate>true</RestoreForceEvaluate>
+  </PropertyGroup>
+
+  <Target Name="_ProGpuWpfXceedPaidClearMutablePackageCache" BeforeTargets="Restore">
+    <ItemGroup>
+      <_ProGpuWpfXceedPaidMutablePackageCache Include="$(RestorePackagesPath)/microsoft.dotnet.wpf.github/$(ProGpuWpfXceedPaidPackageVersion)" />
+      <_ProGpuWpfXceedPaidMutablePackageCache Include="$(RestorePackagesPath)/microsoft.dotnet.wpf.github.debug/$(ProGpuWpfXceedPaidPackageVersion)" />
+      <_ProGpuWpfXceedPaidMutablePackageCache Include="$(RestorePackagesPath)/progpu.wpf.sdk/$(ProGpuWpfXceedPaidPackageVersion)" />
+      <_ProGpuWpfXceedPaidMutablePackageCache Include="$(RestorePackagesPath)/progpu.wpf/$(ProGpuWpfXceedPaidPackageVersion)" />
+      <_ProGpuWpfXceedPaidMutablePackageCache Include="$(RestorePackagesPath)/progpu.backend/$(ProGpuWpfXceedPaidPackageVersion)" />
+      <_ProGpuWpfXceedPaidMutablePackageCache Include="$(RestorePackagesPath)/progpu.directx/$(ProGpuWpfXceedPaidPackageVersion)" />
+      <_ProGpuWpfXceedPaidMutablePackageCache Include="$(RestorePackagesPath)/progpu.scene/$(ProGpuWpfXceedPaidPackageVersion)" />
+      <_ProGpuWpfXceedPaidMutablePackageCache Include="$(RestorePackagesPath)/progpu.vector/$(ProGpuWpfXceedPaidPackageVersion)" />
+      <_ProGpuWpfXceedPaidMutablePackageCache Include="$(RestorePackagesPath)/progpu.text/$(ProGpuWpfXceedPaidPackageVersion)" />
+      <_ProGpuWpfXceedPaidMutablePackageCache Include="$(RestorePackagesPath)/progpu.compute/$(ProGpuWpfXceedPaidPackageVersion)" />
+      <_ProGpuWpfXceedPaidMutablePackageCache Include="$(RestorePackagesPath)/progpu.transpiler/$(ProGpuWpfXceedPaidPackageVersion)" />
+      <_ProGpuWpfXceedPaidMutablePackageCache Include="$(RestorePackagesPath)/xceed.products.wpf.datagrid.full/$(XceedPaidDataGridPackageVersion)" />
+      <_ProGpuWpfXceedPaidMutablePackageCache Include="$(RestorePackagesPath)/xceed.wpf.toolkit/$(XceedPaidToolkitPackageVersion)" />
+      <_ProGpuWpfXceedPaidMutablePackageCache Include="$(RestorePackagesPath)/xceed.wpf.avalondock/$(XceedPaidToolkitPackageVersion)" />
+      <_ProGpuWpfXceedPaidMutablePackageCache Include="$(RestorePackagesPath)/xceed.wpf.avalondock.themes.windows10/$(XceedPaidToolkitPackageVersion)" />
+      <_ProGpuWpfXceedPaidMutablePackageCache Include="$(RestorePackagesPath)/xceed.wpf.toolkit.themes.materialdesign/$(XceedPaidToolkitPackageVersion)" />
+      <_ProGpuWpfXceedPaidMutablePackageCache Include="$(RestorePackagesPath)/xceed.wpf.datagrid/$(XceedPaidDataGridPackageVersion)" />
+      <_ProGpuWpfXceedPaidExistingMutablePackageCache Include="@(_ProGpuWpfXceedPaidMutablePackageCache)" Condition="Exists('%(_ProGpuWpfXceedPaidMutablePackageCache.Identity)')" />
+    </ItemGroup>
+
+    <RemoveDir Directories="@(_ProGpuWpfXceedPaidExistingMutablePackageCache)" />
+  </Target>
+</Project>

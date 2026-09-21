@@ -8,13 +8,14 @@ using System.Windows.Threading;
 using MS.Internal;
 
 using MS.Utility;
+using ProGPU.Wpf.Interop;
 
 namespace System.Windows.Media
 {
     /// <summary>
     /// Drawing context.
     /// </summary>
-    public abstract partial class DrawingContext : DispatcherObject, IDisposable
+    public abstract partial class DrawingContext : DispatcherObject, IDisposable, IPortableNativeDrawingContextSource, IPortableNativeDrawingContextStateSource
     {
         #region Constructors
         /// <summary>
@@ -92,6 +93,17 @@ namespace System.Windows.Media
             GC.SuppressFinalize(this);
         }
 
+        bool IPortableNativeDrawingContextSource.TryGetPortableNativeDrawingContext(out object nativeDrawingContext)
+        {
+            return TryGetPortableNativeDrawingContextCore(out nativeDrawingContext);
+        }
+
+        bool IPortableNativeDrawingContextStateSource.TryGetPortableNativeDrawingContextState(
+            out PortableNativeDrawingContextState state)
+        {
+            return TryGetPortableNativeDrawingContextStateCore(out state);
+        }
+
         #endregion Public Methods
 
         #region Protected Methods
@@ -104,6 +116,35 @@ namespace System.Windows.Media
         /// This call is illegal if this object has already been closed or disposed.
         /// </exception>
         protected abstract void DisposeCore();
+
+        /// <summary>
+        /// Returns the active backend-owned drawing context when this drawing
+        /// context records directly into a portable native render-data sink.
+        /// </summary>
+        protected virtual bool TryGetPortableNativeDrawingContextCore(out object nativeDrawingContext)
+        {
+            nativeDrawingContext = null;
+            return false;
+        }
+
+        /// <summary>
+        /// Returns the active backend-owned drawing context together with the
+        /// outer transform that direct native writers must apply exactly once.
+        /// </summary>
+        protected virtual bool TryGetPortableNativeDrawingContextStateCore(
+            out PortableNativeDrawingContextState state)
+        {
+            if (TryGetPortableNativeDrawingContextCore(out object nativeDrawingContext))
+            {
+                state = new PortableNativeDrawingContextState(
+                    nativeDrawingContext,
+                    System.Numerics.Matrix4x4.Identity);
+                return true;
+            }
+
+            state = default;
+            return false;
+        }
 
         /// <summary>
         /// This verifies that the API can be called for read only access.

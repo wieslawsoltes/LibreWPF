@@ -6,7 +6,6 @@
 //
 
 using System.Windows.Documents;             // ITextContainer
-using System.Windows.Interop;               // HwndSource
 using System.Windows.Media;                 // Visual
 using MS.Internal;                          // PointUtil
 using MS.Internal.Automation;               // TextAdaptor
@@ -135,12 +134,12 @@ namespace System.Windows.Automation.Peers
             Rect boundingRect = CalculateBoundingRect(false, out uiScope);
             if (boundingRect != Rect.Empty && uiScope != null)
             {
-                HwndSource hwndSource = PresentationSource.CriticalFromVisual(uiScope) as HwndSource;
-                if (hwndSource != null)
+                PresentationSource presentationSource = PresentationSource.CriticalFromVisual(uiScope);
+                if (presentationSource != null)
                 {
-                    boundingRect = PointUtil.ElementToRoot(boundingRect, uiScope, hwndSource);
-                    boundingRect = PointUtil.RootToClient(boundingRect, hwndSource);
-                    boundingRect = PointUtil.ClientToScreen(boundingRect, hwndSource);
+                    boundingRect = PointUtil.ElementToRoot(boundingRect, uiScope, presentationSource);
+                    boundingRect = PointUtil.RootToClient(boundingRect, presentationSource);
+                    boundingRect = PointUtil.ClientToScreen(boundingRect, presentationSource);
                 }
             }
             return boundingRect;
@@ -156,12 +155,12 @@ namespace System.Windows.Automation.Peers
             Rect boundingRect = CalculateBoundingRect(true, out uiScope);
             if (boundingRect != Rect.Empty && uiScope != null)
             {
-                HwndSource hwndSource = PresentationSource.CriticalFromVisual(uiScope) as HwndSource;
-                if (hwndSource != null)
+                PresentationSource presentationSource = PresentationSource.CriticalFromVisual(uiScope);
+                if (presentationSource != null)
                 {
-                    boundingRect = PointUtil.ElementToRoot(boundingRect, uiScope, hwndSource);
-                    boundingRect = PointUtil.RootToClient(boundingRect, hwndSource);
-                    boundingRect = PointUtil.ClientToScreen(boundingRect, hwndSource);
+                    boundingRect = PointUtil.ElementToRoot(boundingRect, uiScope, presentationSource);
+                    boundingRect = PointUtil.RootToClient(boundingRect, presentationSource);
+                    boundingRect = PointUtil.ClientToScreen(boundingRect, presentationSource);
                     point = new Point(boundingRect.Left + boundingRect.Width * 0.1, boundingRect.Top + boundingRect.Height * 0.1);
                 }
             }

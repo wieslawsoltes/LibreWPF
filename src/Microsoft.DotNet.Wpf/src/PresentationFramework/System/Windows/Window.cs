@@ -18,6 +18,7 @@ using MS.Internal.AppModel;
 using MS.Internal.Interop;
 using MS.Internal.KnownBoxes;
 using MS.Win32;
+using ProGPU.Wpf.Interop;
 using System.Diagnostics.CodeAnalysis;
 
 using BuildInfo = MS.Internal.PresentationFramework.BuildInfo;
@@ -28,7 +29,7 @@ using Win32Error = MS.Internal.Interop.Win32Error;
 namespace System.Windows
 {
     [Localizability(LocalizationCategory.Ignore)]
-    public class Window : ContentControl, IWindowService
+    public class Window : ContentControl, IWindowService, IPortableVisualOwnerHost, IPortableWindowStateSource, IPortableWindowLocationSink, IPortableAccessKeyScopeSource, IPortableWindowFrameLayout
     {
         //---------------------------------------------------
         //
@@ -73,9 +74,13 @@ namespace System.Windows
             ClipToBoundsProperty.OverrideMetadata(typeof(Window), new FrameworkPropertyMetadata(BooleanBoxes.FalseBox, new PropertyChangedCallback(_OnClipToBoundsChanged), new CoerceValueCallback(CoerceClipToBounds)));
 
             // Note that this event only gets raised in Windows 7 and later.
-            WM_TASKBARBUTTONCREATED = UnsafeNativeMethods.RegisterWindowMessage("TaskbarButtonCreated");
+            WM_TASKBARBUTTONCREATED = OperatingSystem.IsWindows()
+                ? UnsafeNativeMethods.RegisterWindowMessage("TaskbarButtonCreated")
+                : default;
 
-            WM_APPLYTASKBARITEMINFO = UnsafeNativeMethods.RegisterWindowMessage("WPF_ApplyTaskbarItemInfo");
+            WM_APPLYTASKBARITEMINFO = OperatingSystem.IsWindows()
+                ? UnsafeNativeMethods.RegisterWindowMessage("WPF_ApplyTaskbarItemInfo")
+                : default;
 
             EventManager.RegisterClassHandler(typeof(Window),
                 UIElement.ManipulationCompletedEvent,
@@ -88,6 +93,89 @@ namespace System.Windows
 
             Window.DpiChangedEvent = EventManager.RegisterRoutedEvent("DpiChanged", RoutingStrategy.Bubble,
                 typeof (System.Windows.DpiChangedEventHandler), typeof (Window));
+        }
+
+        PortableVisualOwnerKind IPortableVisualOwnerHost.PortableVisualOwnerKind
+        {
+            get { return PortableVisualOwnerKind.Window; }
+        }
+
+        bool IPortableAccessKeyScopeSource.IsPortableAccessKeyScopeActive =>
+            IsPortableWindowActive && !_disposed && _isVisible && IsActive &&
+            PortableModalInputScope.AllowsInput(this);
+
+        bool IPortableWindowStateSource.TryGetPortableWindowState(out PortableWindowState state)
+        {
+            ImageSource portableIcon = GetPortableWindowIconImageSource();
+            state = new PortableWindowState
+            {
+                HasTitle = true,
+                Title = Title,
+                HasIcon = portableIcon != null,
+                Icon = portableIcon,
+                HasWidth = true,
+                Width = Width,
+                HasHeight = true,
+                Height = Height,
+                HasActualWidth = true,
+                ActualWidth = ActualWidth,
+                HasActualHeight = true,
+                ActualHeight = ActualHeight,
+                HasLeft = true,
+                Left = Left,
+                HasTop = true,
+                Top = Top,
+                HasStartupLocation = true,
+                StartupLocation = (int)WindowStartupLocation,
+                HasWindowState = true,
+                WindowState = (int)WindowState,
+                HasTopmost = true,
+                Topmost = Topmost,
+                HasResizeMode = true,
+                ResizeMode = (int)ResizeMode,
+                HasWindowStyle = true,
+                WindowStyle = (int)GetPortableWindowStyle(),
+                HasShowActivated = true,
+                ShowActivated = ShowActivated,
+                HasAllowsTransparency = true,
+                AllowsTransparency = AllowsTransparency,
+                HasOwner = Owner != null,
+                Owner = Owner
+            };
+            return true;
+        }
+
+        void IPortableWindowLocationSink.OnPortableWindowLocationChanged(double left, double top)
+        {
+            VerifyAccess();
+            if (_disposed || !IsPortableWindowActive ||
+                !double.IsFinite(left) || !double.IsFinite(top) ||
+                (DoubleUtil.AreClose(_actualLeft, left) && DoubleUtil.AreClose(_actualTop, top)))
+                return;
+
+            _actualLeft = left;
+            _actualTop = top;
+            if (WindowState != WindowState.Normal)
+                return;
+
+            try
+            {
+                _updateHwndLocation = false;
+                SetValue(LeftProperty, left);
+                SetValue(TopProperty, top);
+            }
+            finally
+            {
+                _updateHwndLocation = true;
+            }
+
+            if (_isVisible)
+                OnLocationChanged(EventArgs.Empty);
+        }
+
+        private ImageSource GetPortableWindowIconImageSource()
+        {
+            return _icon ?? IconHelper.GetPortableDefaultIconImageSource();
         }
 
         /// <summary>
@@ -234,7 +322,7 @@ namespace System.Windows
             VerifyHwndCreateShowState();
 
             // Adding check for IsCompositionTargetInvalid
-            if (IsSourceWindowNull || IsCompositionTargetInvalid)
+            if (IsLayoutSourceUnavailable)
             {
                 return;
             }
@@ -245,6 +333,16 @@ namespace System.Windows
             {
                 if (WindowState == WindowState.Normal)
                 {
+                    if (IsPortableWindowActive || !OperatingSystem.IsWindows())
+                    {
+                        if (IsPortableWindowActive)
+                        {
+                            PortableWindowActivationService.TryDragMove(_portableWindowActivation);
+                        }
+
+                        return;
+                    }
+
                     // SendMessage's return value is dependent on the message send.  WM_SYSCOMMAND
                     // and WM_LBUTTONUP return value just signify whether the WndProc handled the
                     // message or not, so they are not interesting
@@ -282,6 +380,11 @@ namespace System.Windows
             else if (_showingAsDialog)
             {
                 throw new InvalidOperationException(SR.ShowDialogOnModal);
+            }
+
+            if (PortableWindowActivationService.IsEnabled)
+            {
+                return ShowPortableDialog();
             }
 
             _dialogOwnerHandle = _ownerHandle;
@@ -470,6 +573,78 @@ namespace System.Windows
             return _dialogResult;
         }
 
+        private Nullable<bool> ShowPortableDialog()
+        {
+            // Capture admission before showing a window. A normal application
+            // loop cannot represent Hide ending a synchronous dialog lifetime.
+            Action<object, Func<bool>> runDialog = PortableWindowActivationService.GetDialogRunCallback();
+            Action<object, Action> releaseDialog = PortableWindowActivationService.GetDialogReleaseCallback();
+            if (_portableDialogInputScope is { IsReleased: false })
+                throw new InvalidOperationException("The previous portable dialog is still completing native release.");
+            IDisposable restoreInput = PortableWindowActivationService.CaptureModalInputRestoreState();
+            PortableModalInputScope modalInput;
+            try { modalInput = PortableModalInputScope.Enter(this); }
+            catch { restoreInput.Dispose(); throw; }
+            bool pushedModal = false;
+
+            try
+            {
+                restoreInput = new PortableDialogInputRestore(this, modalInput, restoreInput);
+                _portableDialogInputScope = modalInput;
+                _portableDialogInputRestore = restoreInput;
+                _portableDialogReleaseCallback = releaseDialog;
+                EnsureDialogCommand();
+                _showingAsDialog = true;
+                PortableWindowActivationService.PrepareForModalInput();
+                Show();
+
+                // The platform host owns the event/render loop on every OS.
+                // Borrow a source-controlled dialog lifetime, not the application's
+                // close-only loop or a WPF HWND dispatcher frame.
+                if (_showingAsDialog && _isVisible)
+                {
+                    ComponentDispatcher.PushModal();
+                    pushedModal = true;
+                    runDialog(_portableWindowActivation, () => _showingAsDialog && _isVisible && !_disposed);
+                    if (_showingAsDialog && _isVisible && !_disposed)
+                    {
+                        throw new InvalidOperationException("The portable dialog loop returned while the dialog was still open.");
+                    }
+                }
+            }
+            catch (Exception failure)
+            {
+                ClearShowKeyboardCueState();
+                _showingAsDialog = false;
+                // Native admission/pump failure must not leave a visible source
+                // window running modelessly after ShowDialog throws. Hide through
+                // the real source path, preserving its identity for a later retry.
+                try
+                {
+                    if (_isVisible && !_disposed) Hide();
+                }
+                catch (Exception cleanup)
+                {
+                    throw new AggregateException("Portable dialog failure and hide cleanup failed.", failure, cleanup);
+                }
+                throw;
+            }
+            finally
+            {
+                try
+                {
+                    if (pushedModal) ComponentDispatcher.PopModal();
+                }
+                finally
+                {
+                    _showingAsDialog = false;
+                    ReleasePortableDialogInput(modalInput, restoreInput, releaseDialog);
+                }
+            }
+
+            return _dialogResult;
+        }
+
 
         /// <summary>
         ///     This method tries to activate the Window.
@@ -487,6 +662,13 @@ namespace System.Windows
             VerifyApiSupported();
             VerifyContextAndObjectState();
             VerifyHwndCreateShowState();
+
+            if (_portableWindowActivation != null)
+            {
+                // Activation state comes from the host's actual window event.
+                // A rejected or unavailable request must not fabricate activation.
+                return PortableWindowActivationService.TryRequestActivation(_portableWindowActivation);
+            }
 
             // Adding check for IsCompositionTargetInvalid
             if (IsSourceWindowNull || IsCompositionTargetInvalid)
@@ -1233,7 +1415,7 @@ namespace System.Windows
                     throw new InvalidOperationException(SR.CantSetOwnerAfterDialogIsShown);
                 }
 
-                if (value != null && value.IsSourceWindowNull)
+                if (value != null && value.IsSourceWindowNull && !value.IsPortableWindowActive)
                 {
                     // Try to be specific in the error message.
                     if (value._disposed)
@@ -1246,6 +1428,22 @@ namespace System.Windows
                 if ( _ownerWindow == value )
                 {
                     return;
+                }
+
+                bool portableOwnership = IsPortableWindowActive || PortableWindowActivationService.IsEnabled ||
+                    PortableWpfRuntime.ConfiguredMediaBackend == PortableWpfMediaBackend.Portable;
+                if (!_disposed && portableOwnership)
+                {
+                    value?.VerifyContextAndObjectState();
+                    if (value != null && !value.IsPortableWindowActive)
+                        throw new InvalidOperationException("A portable Window requires a portable owner source.");
+                    for (Window ancestor = value; ancestor != null; ancestor = ancestor._ownerWindow)
+                        if (ancestor == this)
+                            throw new ArgumentException(SR.Format(SR.CircularOwnerChild, value, this));
+                    // Admit native ownership before changing source collections.
+                    // Pre-source ownership is applied by the host before Show.
+                    if (IsPortableWindowActive)
+                        PortableWindowActivationService.SetOwner(_portableWindowActivation, value);
                 }
 
                 if (!_disposed)
@@ -1283,7 +1481,8 @@ namespace System.Windows
                     return;
                 }
 
-                SetOwnerHandle(_ownerWindow != null ? _ownerWindow.Handle: IntPtr.Zero);
+                if (!portableOwnership)
+                    SetOwnerHandle(_ownerWindow != null ? _ownerWindow.Handle: IntPtr.Zero);
 
                 // Update OwnerWindows of the new owner
                 // using OwnedWindowsInternl b/c we want to modifying the
@@ -1355,8 +1554,8 @@ namespace System.Windows
                 {
                     // This value should be set only after the window is created and shown as dialog.
 
-                    // When _showingAsDialog is set, _sourceWindow must be set too.
-                    Debug.Assert(!IsSourceWindowNull, "IsSourceWindowNull cannot be true when _showingAsDialog is true");
+                    // Both portable and native dialogs require their own source identity.
+                    Debug.Assert(IsPortableWindowActive || !IsSourceWindowNull, "A dialog requires an active presentation source.");
 
 
                     // According to the new design, setting DialogResult to its current value will not have any effect.
@@ -1801,6 +2000,10 @@ namespace System.Windows
             // to be the available hwnd size which should be atleast as big as the desired size.
 
             Size frameworkAvailableSize = new Size(availableSize.Width, availableSize.Height);
+            if (IsPortableWindowActive)
+            {
+                frameworkAvailableSize = GetPortableMeasureSizeInMeasureUnits(frameworkAvailableSize);
+            }
 
             WindowMinMax mm = GetWindowMinMax();
 
@@ -1836,6 +2039,10 @@ namespace System.Windows
 
             arrangeBounds.Width  = Math.Max(mm.minWidth,  Math.Min(arrangeBounds.Width, mm.maxWidth));
             arrangeBounds.Height = Math.Max(mm.minHeight, Math.Min(arrangeBounds.Height, mm.maxHeight));
+            if (IsPortableWindowActive)
+            {
+                arrangeBounds = GetPortableArrangeSizeInMeasureUnits(DesiredSize, arrangeBounds);
+            }
 
             // Three primary cases
             //      1) hwnd does not exist  -- don't do anything
@@ -1844,7 +2051,7 @@ namespace System.Windows
             //      3) No Child visual      -- don't do anything
 
             // Adding check for IsCompositionTargetInvalid
-            if (IsSourceWindowNull || IsCompositionTargetInvalid)
+            if (IsLayoutSourceUnavailable)
             {
                 return arrangeBounds;
             }
@@ -1857,7 +2064,7 @@ namespace System.Windows
                     // Find out the size of the window frame x.
                     // (constraint - x) is the size we pass onto
                     // our child
-                    Size frameSize = GetHwndNonClientAreaSizeInMeasureUnits();
+                    Size frameSize = GetWindowFrameSizeInMeasureUnits();
 
                     // In some instances (constraint size - frame size) can be negative. One instance
                     // is when window is set to minimized before layout has happened.  Apparently, Win32
@@ -1886,8 +2093,9 @@ namespace System.Windows
                     {
                         InternalSetLayoutTransform(child, new MatrixTransform(-1.0, 0.0, 0.0, 1.0, childArrangeBounds.Width, 0.0));
                     }
-}
+                }
             }
+            UpdatePortableSizeToContentFromLayout(arrangeBounds);
             return arrangeBounds;
         }
 
@@ -2111,6 +2319,11 @@ namespace System.Windows
         #region Internal Methods
         internal Point DeviceToLogicalUnits(Point ptDeviceUnits)
         {
+            if (IsPortableWindowActive)
+            {
+                return ptDeviceUnits;
+            }
+
             Invariant.Assert(!IsCompositionTargetInvalid, "IsCompositionTargetInvalid is supposed to be false here");
             Point ptLogicalUnits = _swh.CompositionTarget.TransformFromDevice.Transform(ptDeviceUnits);
             return ptLogicalUnits;
@@ -2118,6 +2331,11 @@ namespace System.Windows
 
         internal Point LogicalToDeviceUnits(Point ptLogicalUnits)
         {
+            if (IsPortableWindowActive)
+            {
+                return ptLogicalUnits;
+            }
+
             Invariant.Assert(!IsCompositionTargetInvalid, "IsCompositionTargetInvalid is supposed to be false here");
             Point ptDeviceUnits = _swh.CompositionTarget.TransformToDevice.Transform(ptLogicalUnits);
             return ptDeviceUnits;
@@ -2200,6 +2418,40 @@ namespace System.Windows
             _appShuttingDown = shutdown;
             _ignoreCancel = ignoreCancel;
 
+            if (IsPortableWindowActive)
+            {
+                _isClosing = true;
+
+                CancelEventArgs e = new CancelEventArgs(false);
+                try
+                {
+                    OnClosing(e);
+                }
+                catch
+                {
+                    CloseWindowBeforeShow();
+                    throw;
+                }
+
+                if (ShouldCloseWindow(e.Cancel))
+                {
+                    try
+                    {
+                        if (_showingAsDialog) DoDialogHide();
+                    }
+                    finally { CloseWindowBeforeShow(); }
+                }
+                else
+                {
+                    _isClosing = false;
+                    // A canceled portable dialog remains open. Allow a later
+                    // assignment of the same result to request closing again.
+                    _dialogResult = null;
+                }
+
+                return;
+            }
+
             if ( IsSourceWindowNull )
             {
                 _isClosing = true;
@@ -2219,7 +2471,11 @@ namespace System.Windows
 
                 if (ShouldCloseWindow(e.Cancel))
                 {
-                    CloseWindowBeforeShow();
+                    try
+                    {
+                        if (_showingAsDialog) DoDialogHide();
+                    }
+                    finally { CloseWindowBeforeShow(); }
                 }
                 else
                 {
@@ -2359,18 +2615,25 @@ namespace System.Windows
 
             try
             {
-                ClearSourceWindow();
-
-                Utilities.SafeDispose(ref _hiddenWindow);
-                Utilities.SafeDispose(ref _defaultLargeIconHandle);
-                Utilities.SafeDispose(ref _defaultSmallIconHandle);
-                Utilities.SafeDispose(ref _currentLargeIconHandle);
-                Utilities.SafeDispose(ref _currentSmallIconHandle);
-                Utilities.SafeRelease(ref _taskbarList);
-
-                if(ThemeMode != ThemeMode.None)
+                // Owned nested dialogs have now unwound. Even a failed native
+                // gate release must not strand an already-disposed source host.
+                try { ReleasePortableDialogInput(); }
+                finally
                 {
-                    ThemeManager.FluentEnabledWindows.Remove(this);
+                    ClosePortableWindowActivation();
+                    ClearSourceWindow();
+
+                    Utilities.SafeDispose(ref _hiddenWindow);
+                    Utilities.SafeDispose(ref _defaultLargeIconHandle);
+                    Utilities.SafeDispose(ref _defaultSmallIconHandle);
+                    Utilities.SafeDispose(ref _currentLargeIconHandle);
+                    Utilities.SafeDispose(ref _currentSmallIconHandle);
+                    Utilities.SafeRelease(ref _taskbarList);
+
+                    if(ThemeMode != ThemeMode.None)
+                    {
+                        ThemeManager.FluentEnabledWindows.Remove(this);
+                    }
                 }
             }
             finally
@@ -2472,6 +2735,19 @@ namespace System.Windows
             if (!duringShow)
             {
                 VerifyApiSupported();
+            }
+
+            // Both Show and WindowInteropHelper.EnsureHandle must honor source
+            // ownership before any Windows HWND/MIL renderer is created.
+            if (TryCreatePortableWindow(duringShow))
+            {
+                return;
+            }
+
+            if (PortableWpfRuntime.GetMediaBackendAndFreeze() == PortableWpfMediaBackend.Portable)
+            {
+                throw new PlatformNotSupportedException(
+                    "Portable media requires a registered portable window host; Windows MIL window creation is not permitted.");
             }
 
             // we need to cache initial requested top and left as the very first thing
@@ -3050,6 +3326,11 @@ namespace System.Windows
             }
         }
 
+        internal void HandlePortableInput(PortableInputEventArgs input)
+        {
+            PortableWindowActivationService.ProcessInput(this, input);
+        }
+
         internal virtual void UpdateHeight(double newHeight)
         {
             if (WindowState == WindowState.Normal)
@@ -3184,7 +3465,12 @@ namespace System.Windows
                 {
                     return _swh.Handle;
                 }
-                else
+
+                if (_portableWindowActivation != null)
+                {
+                    return PortableWindowActivationService.GetHandle(_portableWindowActivation);
+                }
+
                 return IntPtr.Zero;
             }
         }
@@ -3202,6 +3488,9 @@ namespace System.Windows
             {
 
                 VerifyContextAndObjectState();
+                if (IsPortableWindowActive || PortableWindowActivationService.IsEnabled ||
+                    PortableWpfRuntime.ConfiguredMediaBackend == PortableWpfMediaBackend.Portable)
+                    return _ownerWindow != null && !_ownerWindow._disposed ? _ownerWindow.Handle : IntPtr.Zero;
                 return _ownerHandle;
             }
             set
@@ -3375,7 +3664,7 @@ namespace System.Windows
             //                                  as the one passed into MeasureOverride for our framework)
 
             // Adding check for IsCompositionTargetInvalid
-            if (IsSourceWindowNull || IsCompositionTargetInvalid)
+            if (IsLayoutSourceUnavailable)
             {
                 // No need to use CompositionTarget.TransformFromDevice
                 // since size is 0,0
@@ -3391,7 +3680,7 @@ namespace System.Windows
                     // (constraint - x) is the size we pass onto
                     // our child
 
-                    Size frameSize = GetHwndNonClientAreaSizeInMeasureUnits();
+                    Size frameSize = GetWindowFrameSizeInMeasureUnits();
 
                     // In some instances (constraint size - frame size) can be negative. One instance
                     // is when window is set to minimized before layout has happened.  Apparently, Win32
@@ -3414,7 +3703,7 @@ namespace System.Windows
             }
 
             // if we reach here, we return the input size
-            return _swh.GetSizeFromHwndInMeasureUnits();
+            return GetWindowSizeInMeasureUnits();
         }
 
         // Similar logic as in FE.MinMax and takes care of max/min size allowed by win32 for the hwnd.  However, we
@@ -3439,6 +3728,15 @@ namespace System.Windows
         internal virtual WindowMinMax GetWindowMinMax()
         {
             WindowMinMax mm = new WindowMinMax( );
+
+            if (IsPortableWindowActive)
+            {
+                mm.minWidth = MinWidth;
+                mm.maxWidth = MinWidth > MaxWidth ? MinWidth : MaxWidth;
+                mm.minHeight = MinHeight;
+                mm.maxHeight = MinHeight > MaxHeight ? MinHeight : MaxHeight;
+                return mm;
+            }
 
             Invariant.Assert(!IsCompositionTargetInvalid, "IsCompositionTargetInvalid is supposed to be false here");
 
@@ -4149,6 +4447,26 @@ namespace System.Windows
         /// <param name="ownerHandle">IntPtr of the parent window</param>
         private void SetOwnerHandle(IntPtr ownerHandle)
         {
+            if (IsPortableWindowActive || PortableWindowActivationService.IsEnabled ||
+                PortableWpfRuntime.ConfiguredMediaBackend == PortableWpfMediaBackend.Portable)
+            {
+                // Only a live source identity can be converted to Window.Owner.
+                // An arbitrary native HWND never establishes portable ownership.
+                if (ownerHandle != IntPtr.Zero)
+                {
+                    Owner = ResolvePortableOwnerHandle(ownerHandle);
+                    return;
+                }
+                if (_ownerWindow != null)
+                {
+                    if (IsPortableWindowActive)
+                        PortableWindowActivationService.SetOwner(_portableWindowActivation, null);
+                    _ownerWindow.OwnedWindowsInternal.Remove(this);
+                    _ownerWindow = null;
+                }
+                _ownerHandle = IntPtr.Zero;
+                return;
+            }
             // Note:
             // "SetWindowLong failed.  Error = 1400" appears in console when setting
             // Window.Owner to a Window hasn't been shown (chk build)
@@ -4184,6 +4502,27 @@ namespace System.Windows
                     _ownerWindow = null;
                 }
             }
+        }
+
+        private Window ResolvePortableOwnerHandle(IntPtr ownerHandle)
+        {
+            Window owner = null;
+            foreach (PresentationSource source in PresentationSource.CriticalCurrentSources)
+            {
+                // Ignore the public HwndSource facade and unrelated/native sources.
+                // Read Window state only after admitting the source's dispatcher.
+                if (source is not PortablePresentationSource portable || portable.Handle != ownerHandle)
+                    continue;
+                if (portable.Dispatcher != Dispatcher || portable.IsDisposed ||
+                    portable.RootVisual is not Window candidate || candidate._disposed ||
+                    !candidate.IsPortableWindowActive || candidate.Handle != ownerHandle ||
+                    PresentationSource.CriticalFromVisual(candidate) != portable || owner != null)
+                    throw new PlatformNotSupportedException("Portable owner handles require one live Window source on the same dispatcher.");
+                owner = candidate;
+            }
+
+            return owner ?? throw new PlatformNotSupportedException(
+                "Portable owner handles must identify a live source Window; opaque native handles are unsupported.");
         }
 
         /// <summary>
@@ -4442,6 +4781,12 @@ namespace System.Windows
             // clears _showingAsDialog
             _showingAsDialog = false;
 
+            if (IsPortableWindowActive || _portableDialogInputScope != null)
+            {
+                ReleasePortableDialogInput();
+                return;
+            }
+
             // enable previous window stuff goes here...
             wasActive = _swh.IsActiveWindow;
 
@@ -4475,6 +4820,56 @@ namespace System.Windows
 
                 // rare situation, figure this out later
                 // talk to user team as to what we need to do here
+            }
+        }
+
+        private void ReleasePortableDialogInput()
+        {
+            if (_portableDialogInputScope == null) return;
+            ReleasePortableDialogInput(_portableDialogInputScope, _portableDialogInputRestore,
+                _portableDialogReleaseCallback);
+        }
+
+        private void ReleasePortableDialogInput(PortableModalInputScope scope, IDisposable restore,
+            Action<object, Action> releaseDialog)
+        {
+            // Capture before accepted Close clears the activation. ProGPU owns
+            // native completion and deferred source LIFO order, not a using that
+            // would reopen input as soon as this managed callback returns.
+            object activation = _portableWindowActivation;
+            scope.ReleaseAfterNative(completed =>
+            {
+                if (activation == null) completed(); // Show failed before host admission.
+                else releaseDialog(activation, completed);
+            }, restore);
+        }
+
+        private sealed class PortableDialogInputRestore : IDisposable
+        {
+            private Window _owner;
+            private PortableModalInputScope _scope;
+            private IDisposable _restore;
+
+            internal PortableDialogInputRestore(Window owner, PortableModalInputScope scope, IDisposable restore)
+            {
+                _owner = owner; _scope = scope; _restore = restore;
+            }
+
+            public void Dispose()
+            {
+                Window owner = _owner;
+                IDisposable restore = _restore;
+                if (owner == null) return;
+                if (ReferenceEquals(owner._portableDialogInputScope, _scope))
+                {
+                    owner._portableDialogInputScope = null;
+                    owner._portableDialogInputRestore = null;
+                    owner._portableDialogReleaseCallback = null;
+                }
+                _owner = null; _scope = null; _restore = null;
+                // This source-owned snapshot rechecks gate synchronization,
+                // activation, visibility and the actual focused-element source.
+                restore.Dispose();
             }
         }
 
@@ -5068,6 +5463,14 @@ namespace System.Windows
             // dispose it.
             _icon = newIcon;
 
+            if (_portableWindowActivation != null)
+            {
+                PortableWindowActivationService.SetIcon(
+                    _portableWindowActivation,
+                    GetPortableWindowIconImageSource());
+                return;
+            }
+
             // Adding check for IsCompositionTargetInvalid
             if (!IsSourceWindowNull && !IsCompositionTargetInvalid)
             {
@@ -5091,6 +5494,10 @@ namespace System.Windows
         private void OnTitleChanged()
         {
             UpdateTitle(Title);
+            if (_portableWindowActivation != null)
+            {
+                PortableWindowActivationService.SetTitle(_portableWindowActivation, Title);
+            }
         }
 
         private static void _OnShowInTaskbarChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
@@ -5273,6 +5680,11 @@ namespace System.Windows
             {
                 _updateHwndLocation = true;
             }
+
+            if (_portableWindowActivation != null)
+            {
+                PortableWindowActivationService.SetWindowState(_portableWindowActivation, windowState);
+            }
         }
 
         private static bool _ValidateWindowStyleCallback(object value)
@@ -5290,6 +5702,12 @@ namespace System.Windows
 
         private void OnWindowStyleChanged(WindowStyle windowStyle)
         {
+            if (IsPortableWindowActive)
+            {
+                PortableWindowActivationService.SetWindowBorder(_portableWindowActivation, ResizeMode, GetPortableWindowStyle());
+                return;
+            }
+
             // Adding check for IsCompositionTargetInvalid
             if (!IsSourceWindowNull && !IsCompositionTargetInvalid)
             {
@@ -5314,6 +5732,12 @@ namespace System.Windows
             // this call ends up throwing an exception if accessing
             // Topmost is not allowed
             VerifyApiSupported();
+
+            if (IsPortableWindowActive)
+            {
+                PortableWindowActivationService.SetTopmost(_portableWindowActivation, topmost);
+                return;
+            }
 
             // Adding check for IsCompositionTargetInvalid
             if (!IsSourceWindowNull && !IsCompositionTargetInvalid)
@@ -5555,10 +5979,23 @@ namespace System.Windows
                 //set the style
                 SafeStyleSetter();
             }
+            else if (_portableWindowActivation != null)
+            {
+                if (value)
+                {
+                    RefreshPortableRootVisualState();
+                    PortableWindowActivationService.Show(_portableWindowActivation);
+                }
+                else
+                {
+                    PortableWindowActivationService.Hide(_portableWindowActivation);
+                    RefreshPortableRootVisualState();
+                }
+            }
 
 
             // dialog functionality; start dispatcher loop to block the call
-            if ((_showingAsDialog) && (_isVisible))
+            if (!IsPortableWindowActive && (_showingAsDialog) && (_isVisible))
             {
                 //
                 // Since we exited the Context, we need to make sure
@@ -5645,6 +6082,12 @@ namespace System.Windows
             // SizeToContent is not allowed
             VerifyApiSupported();
 
+            if (IsPortableWindowActive)
+            {
+                RefreshPortableRootVisualState();
+                return;
+            }
+
             // Update HwndSource's SizeToContent.
             // HwndSource will only update layout if the value has changed.
             //
@@ -5712,6 +6155,11 @@ namespace System.Windows
             if (!IsSourceWindowNull && !IsCompositionTargetInvalid && !double.IsNaN(height))
             {
                 UpdateHeight(height);
+            }
+
+            if (_portableWindowActivation != null && !double.IsNaN(height))
+            {
+                PortableWindowActivationService.SetClientSize(_portableWindowActivation, Width, height);
             }
         }
 
@@ -5810,6 +6258,11 @@ namespace System.Windows
             if (!IsSourceWindowNull && !IsCompositionTargetInvalid && !double.IsNaN(width))
             {
                 UpdateWidth(width);
+            }
+
+            if (_portableWindowActivation != null && !double.IsNaN(width))
+            {
+                PortableWindowActivationService.SetClientSize(_portableWindowActivation, width, Height);
             }
         }
 
@@ -6061,7 +6514,7 @@ namespace System.Windows
             // invalidation callback to PropertyMetadata
             ValidateTopLeft(top);
 
-            if (w.IsSourceWindowNull || w.IsCompositionTargetInvalid)
+            if ((w.IsSourceWindowNull || w.IsCompositionTargetInvalid) && !w.IsPortableWindowActive)
             {
                 return value;
             }
@@ -6097,6 +6550,20 @@ namespace System.Windows
 
         private void OnTopChanged(double newTop)
         {
+            if (IsPortableWindowActive)
+            {
+                if (!double.IsNaN(newTop) && WindowState == WindowState.Normal)
+                {
+                    UpdatePortablePositionOnTopLeftChange(Double.IsNaN(Left) ? _actualLeft : Left, newTop);
+                }
+                else
+                {
+                    _actualTop = newTop;
+                }
+
+                return;
+            }
+
             // Adding check for IsCompositionTargetInvalid
             if (!IsSourceWindowNull && !IsCompositionTargetInvalid)
             {
@@ -6136,7 +6603,7 @@ namespace System.Windows
             // invalidation callback to PropertyMetadata
             ValidateTopLeft(left);
 
-            if (w.IsSourceWindowNull || w.IsCompositionTargetInvalid)
+            if ((w.IsSourceWindowNull || w.IsCompositionTargetInvalid) && !w.IsPortableWindowActive)
             {
                 return value;
             }
@@ -6192,6 +6659,20 @@ namespace System.Windows
         // 3) SetupInitialState
         private void OnLeftChanged(double newLeft)
         {
+            if (IsPortableWindowActive)
+            {
+                if (!double.IsNaN(newLeft) && WindowState == WindowState.Normal)
+                {
+                    UpdatePortablePositionOnTopLeftChange(newLeft, Double.IsNaN(Top) ? _actualTop : Top);
+                }
+                else
+                {
+                    _actualLeft = newLeft;
+                }
+
+                return;
+            }
+
             // Adding check for IsCompositionTargetInvalid
             if (!IsSourceWindowNull && !IsCompositionTargetInvalid)
             {
@@ -6215,6 +6696,20 @@ namespace System.Windows
                 // here the value is stored as measure units as newLeft is in measure/logical units
                 _actualLeft = newLeft;
             }
+        }
+
+        private void UpdatePortablePositionOnTopLeftChange(double leftLogicalUnits, double topLogicalUnits)
+        {
+            if (double.IsNaN(leftLogicalUnits) || double.IsNaN(topLogicalUnits))
+            {
+                return;
+            }
+
+            _actualLeft = leftLogicalUnits;
+            _actualTop = topLogicalUnits;
+
+            PortableWindowActivationService.SetPosition(_portableWindowActivation, leftLogicalUnits, topLogicalUnits);
+            WmMoveChangedHelper();
         }
 
         private void UpdateHwndPositionOnTopLeftChange(double leftLogicalUnits, double topLogicalUnits)
@@ -6251,6 +6746,12 @@ namespace System.Windows
             // this call ends up throwing an exception if accessing
             // ResizeMode is not allowed
             VerifyApiSupported();
+
+            if (IsPortableWindowActive)
+            {
+                PortableWindowActivationService.SetWindowBorder(_portableWindowActivation, ResizeMode, GetPortableWindowStyle());
+                return;
+            }
 
             // Adding check for IsCompositionTargetInvalid
             if (!IsSourceWindowNull && !IsCompositionTargetInvalid)
@@ -6879,9 +7380,233 @@ namespace System.Windows
         //     you may get inconsistent results.
         private Size GetHwndNonClientAreaSizeInMeasureUnits()
         {
+            if (IsPortableWindowActive)
+            {
+                return new Size(0, 0);
+            }
+
             // HwndSource expands the client area to cover the entire window when it is in UsesPerPixelOpacity mode,
             // So non client area is (0,0)
             return AllowsTransparency ? new Size(0, 0) : _swh.GetHwndNonClientAreaSizeInMeasureUnits();
+        }
+
+        private bool IsPortableWindowActive
+        {
+            get
+            {
+                return _portableWindowActivation != null;
+            }
+        }
+
+        internal void SetPortableCustomChrome(bool enabled)
+        {
+            if (_hasPortableCustomChrome == enabled)
+            {
+                return;
+            }
+
+            _hasPortableCustomChrome = enabled;
+            if (_portableWindowActivation != null)
+            {
+                PortableWindowActivationService.SetWindowBorder(
+                    _portableWindowActivation,
+                    ResizeMode,
+                    GetPortableWindowStyle());
+            }
+        }
+
+        internal bool TryBeginPortableChromeDrag(Point mousePosition)
+        {
+            if (!IsPortableWindowActive || !_hasPortableCustomChrome ||
+                WindowState != WindowState.Normal)
+            {
+                return false;
+            }
+
+            Shell.WindowChromeWorker chromeWorker = Shell.WindowChromeWorker.GetWindowChromeWorker(this);
+            return chromeWorker != null &&
+                chromeWorker.IsPortableCaptionHit(mousePosition) &&
+                PortableWindowActivationService.TryDragMove(_portableWindowActivation);
+        }
+
+        private WindowStyle GetPortableWindowStyle()
+        {
+            return _hasPortableCustomChrome ? WindowStyle.None : WindowStyle;
+        }
+
+        private bool IsLayoutSourceUnavailable
+        {
+            get
+            {
+                return !IsPortableWindowActive && (IsSourceWindowNull || IsCompositionTargetInvalid);
+            }
+        }
+
+        private Size GetWindowFrameSizeInMeasureUnits()
+        {
+            if (!IsPortableWindowActive)
+            {
+                return GetHwndNonClientAreaSizeInMeasureUnits();
+            }
+
+            if (!PortableWindowActivationService.TryGetFrameInsets(_portableWindowActivation, out var frame))
+            {
+                // Pre-host layout has no native frame. Presented portable
+                // windows must publish one before qualification against WPF.
+                return new Size(0, 0);
+            }
+
+            return new Size(frame.Horizontal, frame.Vertical);
+        }
+
+        Size IPortableWindowFrameLayout.GetOuterSizeForClient(Size clientSize)
+        {
+            Size frameSize = GetWindowFrameSizeInMeasureUnits();
+            return new Size(clientSize.Width + frameSize.Width, clientSize.Height + frameSize.Height);
+        }
+
+        Size IPortableWindowFrameLayout.GetClientSizeForOuter(Size outerSize)
+        {
+            Size frameSize = GetWindowFrameSizeInMeasureUnits();
+            return new Size(
+                Math.Max(0, outerSize.Width - frameSize.Width),
+                Math.Max(0, outerSize.Height - frameSize.Height));
+        }
+
+        private Size GetWindowSizeInMeasureUnits()
+        {
+            if (!IsPortableWindowActive)
+            {
+                return _swh.GetSizeFromHwndInMeasureUnits();
+            }
+
+            double width = Width;
+            if (double.IsNaN(width))
+            {
+                width = ActualWidth;
+            }
+
+            double height = Height;
+            if (double.IsNaN(height))
+            {
+                height = ActualHeight;
+            }
+
+            return new Size(ToNonNegativeFiniteSize(width), ToNonNegativeFiniteSize(height));
+        }
+
+        private Size GetPortableMeasureSizeInMeasureUnits(Size windowSize)
+        {
+            SizeToContent sizeToContent = SizeToContent;
+            double width = ((sizeToContent == SizeToContent.Width) || (sizeToContent == SizeToContent.WidthAndHeight))
+                ? Double.PositiveInfinity
+                : windowSize.Width;
+            double height = ((sizeToContent == SizeToContent.Height) || (sizeToContent == SizeToContent.WidthAndHeight))
+                ? Double.PositiveInfinity
+                : windowSize.Height;
+
+            return new Size(width, height);
+        }
+
+        private Size GetPortableArrangeSizeInMeasureUnits(Size measuredSize, Size fallbackSize)
+        {
+            SizeToContent sizeToContent = SizeToContent;
+            double width = ((sizeToContent == SizeToContent.Width) || (sizeToContent == SizeToContent.WidthAndHeight))
+                ? measuredSize.Width
+                : fallbackSize.Width;
+            double height = ((sizeToContent == SizeToContent.Height) || (sizeToContent == SizeToContent.WidthAndHeight))
+                ? measuredSize.Height
+                : fallbackSize.Height;
+
+            WindowMinMax minMax = GetWindowMinMax();
+            width = Math.Max(minMax.minWidth, Math.Min(ToNonNegativeFiniteSize(width), minMax.maxWidth));
+            height = Math.Max(minMax.minHeight, Math.Min(ToNonNegativeFiniteSize(height), minMax.maxHeight));
+
+            return new Size(width, height);
+        }
+
+        private void UpdatePortableSizeToContentFromLayout(Size fallbackSize)
+        {
+            if (!IsPortableWindowActive ||
+                SizeToContent == SizeToContent.Manual ||
+                _updatingPortableSizeToContent ||
+                _refreshingPortableRootVisualState)
+            {
+                return;
+            }
+
+            Size currentSize = GetWindowSizeInMeasureUnits();
+            Size arrangeSize = GetPortableArrangeSizeInMeasureUnits(DesiredSize, fallbackSize);
+            if (DoubleUtil.AreClose(currentSize.Width, arrangeSize.Width) &&
+                DoubleUtil.AreClose(currentSize.Height, arrangeSize.Height))
+            {
+                return;
+            }
+
+            _updatingPortableSizeToContent = true;
+            try
+            {
+                PortableWindowActivationService.SetClientSize(_portableWindowActivation, arrangeSize.Width, arrangeSize.Height);
+            }
+            finally
+            {
+                _updatingPortableSizeToContent = false;
+            }
+        }
+
+        private static double ToNonNegativeFiniteSize(double value)
+        {
+            return double.IsNaN(value) || double.IsInfinity(value)
+                ? 0
+                : Math.Max(0, value);
+        }
+
+        private void RefreshPortableRootVisualState()
+        {
+            if (!IsPortableWindowActive)
+            {
+                return;
+            }
+
+            ApplyTemplate();
+            RefreshPortableInheritedVisibility();
+            InvalidateMeasure();
+            InvalidateArrange();
+            _refreshingPortableRootVisualState = true;
+            try
+            {
+                Size windowSize = GetWindowSizeInMeasureUnits();
+                Size measureSize = GetPortableMeasureSizeInMeasureUnits(windowSize);
+                if (!DoubleUtil.IsZero(measureSize.Width) || !DoubleUtil.IsZero(measureSize.Height))
+                {
+                    Measure(measureSize);
+                    Size arrangeSize = GetPortableArrangeSizeInMeasureUnits(DesiredSize, windowSize);
+                    Arrange(new Rect(arrangeSize));
+                    if (SizeToContent != SizeToContent.Manual)
+                    {
+                        PortableWindowActivationService.SetClientSize(_portableWindowActivation, arrangeSize.Width, arrangeSize.Height);
+                    }
+                }
+            }
+            finally
+            {
+                _refreshingPortableRootVisualState = false;
+            }
+
+            UpdateLayout();
+            RefreshPortableInheritedVisibility();
+        }
+
+        private void RefreshPortableInheritedVisibility()
+        {
+            UpdateIsVisibleCache();
+            InvalidateForceInheritPropertyOnChildren(IsVisibleProperty);
+
+            if (Content is UIElement contentElement)
+            {
+                UIElement.SynchronizeForceInheritProperties(contentElement, null, null, this);
+                contentElement.InvalidateForceInheritPropertyOnChildren(IsVisibleProperty);
+            }
         }
 
         private void ClearSourceWindow()
@@ -6899,6 +7624,92 @@ namespace System.Windows
 
                     source?.SizeToContentChanged -= new EventHandler(OnSourceSizeToContentChanged);
                 }
+            }
+        }
+
+        private bool TryCreatePortableWindow(bool duringShow)
+        {
+            if (_portableWindowActivation != null)
+            {
+                return true;
+            }
+
+            if (!PortableWindowActivationService.TryActivate(this, out object activation, duringShow))
+            {
+                return false;
+            }
+
+            if (!duringShow)
+            {
+                try
+                {
+                    if (PortableWindowActivationService.GetHandle(activation) == IntPtr.Zero)
+                    {
+                        throw new InvalidOperationException("The portable hidden source did not publish a window handle.");
+                    }
+                }
+                catch
+                {
+                    try
+                    {
+                        PortableWindowActivationService.Close(activation);
+                    }
+                    finally
+                    {
+                        PortableWindowActivationService.Dispose(activation);
+                    }
+                    throw;
+                }
+            }
+
+            _portableWindowActivation = activation;
+            SetIWindowService();
+
+            // WindowChrome (via the WindowChromeWorker attached property, applied through a Style
+            // Setter) can call SetPortableCustomChrome before this window's portable activation
+            // exists yet - template/Style application on first layout can race ahead of Show()'s own
+            // TryActivate call above. SetPortableCustomChrome's null-activation guard silently skips
+            // the SetWindowBorder call in that case, and because the method also short-circuits on an
+            // unchanged _hasPortableCustomChrome value, that skipped call is never retried later - the
+            // window is left with its native chrome/title bar showing even though custom chrome (e.g.
+            // AvalonDock's floating window caption) was requested. Now that activation exists, sync
+            // the border state for real if custom chrome was already requested.
+            if (_hasPortableCustomChrome)
+            {
+                PortableWindowActivationService.SetWindowBorder(
+                    _portableWindowActivation,
+                    ResizeMode,
+                    GetPortableWindowStyle());
+            }
+
+            OnSourceInitialized(EventArgs.Empty);
+            return true;
+        }
+
+        private void ClosePortableWindowActivation()
+        {
+            object activation = _portableWindowActivation;
+            if (activation == null)
+            {
+                return;
+            }
+
+            _portableWindowActivation = null;
+            try
+            {
+                PortableWindowActivationService.Close(activation);
+            }
+            finally
+            {
+                PortableWindowActivationService.Dispose(activation);
+            }
+        }
+
+        internal object PortableWindowActivation
+        {
+            get
+            {
+                return _portableWindowActivation;
             }
         }
 
@@ -7210,7 +8021,14 @@ namespace System.Windows
         #region Private Fields
 
         private SourceWindowHelper  _swh;                               // object that will hold the window
+        private object              _portableWindowActivation;          // object that will hold the non-Windows window
+        private PortableModalInputScope _portableDialogInputScope;
+        private IDisposable _portableDialogInputRestore;
+        private Action<object, Action> _portableDialogReleaseCallback;
+        private bool                _hasPortableCustomChrome;
         private Window              _ownerWindow;                       // owner window
+        private bool                _refreshingPortableRootVisualState;
+        private bool                _updatingPortableSizeToContent;
         private bool _reloadFluentDictionary = false;
         private bool _resourcesInitialized = false;
 
@@ -8074,6 +8892,3 @@ namespace System.Windows
         private object _child;
     }
 }
-
-
-

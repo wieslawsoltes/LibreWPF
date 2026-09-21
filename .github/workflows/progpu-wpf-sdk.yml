@@ -1,0 +1,363 @@
+name: LibreWPF Build
+
+on:
+  pull_request:
+    branches:
+      - progpu-rendering-port
+      - main
+  push:
+    branches:
+      - progpu-rendering-port
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+env:
+  PROGPU_WPF_QUALIFIED_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  canonical-winforms-integration:
+    name: Canonical System.Windows.Forms source integration
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout aligned source graph
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}
+          submodules: recursive
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Build canonical WinForms and WindowsFormsIntegration
+        env:
+          # ProGPU PR CI owns the API/allocation suite for this exact source pin.
+          PROGPU_WPF_RUN_DRAWING_QUALITY_GATES: 0
+        run: ./eng/progpu-wpf-canonical-winforms-integration.sh
+
+      - name: Upload canonical WinForms package closure
+        uses: actions/upload-artifact@v4
+        with:
+          name: canonical-librewinforms-${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}
+          path: artifacts/packages/CanonicalWinForms/*.nupkg
+          if-no-files-found: error
+
+  windows-managed-runtime:
+    name: Windows managed runtime payload
+    runs-on: windows-2025
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}
+          submodules: true
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Build Windows PresentationCore
+        shell: pwsh
+        run: ./eng/progpu-wpf-windows-managed-runtime.ps1
+
+      - name: Upload Windows managed runtime
+        uses: actions/upload-artifact@v4
+        with:
+          name: librewpf-windows-managed-runtime-${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}
+          path: artifacts/windows-managed-runtime/**/*
+          if-no-files-found: error
+
+  sdk-smoke:
+    name: SDK package and no-source-change smoke
+    needs:
+      - canonical-winforms-integration
+      - windows-managed-runtime
+    # The exact ProGPU native Build currently targets macOS 26. Run its
+    # source/native application gate on the same supported host release.
+    runs-on: macos-26
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}
+          submodules: true
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Download Windows managed runtime
+        uses: actions/download-artifact@v4
+        with:
+          name: librewpf-windows-managed-runtime-${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}
+          path: artifacts/windows-managed-runtime
+
+      - name: Download canonical LibreWinForms package closure
+        uses: actions/download-artifact@v4
+        with:
+          name: canonical-librewinforms-${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}
+          path: artifacts/packages/CanonicalWinForms
+
+      - name: Select exact ProGPU source package version
+        shell: bash
+        run: |
+          set -euo pipefail
+          submodule_commit="$(git -C external/ProGPU rev-parse HEAD)"
+          source_version="0.1.0-source.${submodule_commit:0:8}"
+          echo "PROGPU_WPF_PROGPU_PACKAGE_VERSION=${source_version}" >> "${GITHUB_ENV}"
+          echo "PROGPU_WPF_EXPECTED_PROGPU_PACKAGE_COMMIT=${submodule_commit}" >> "${GITHUB_ENV}"
+          echo "Building source-coherent ProGPU package closure ${source_version} from ${submodule_commit}."
+
+      - name: Stage native runtimes from the exact successful ProGPU Build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          submodule_commit="$(git -C external/ProGPU rev-parse HEAD)"
+          ./eng/progpu-stage-ci-native-runtimes.sh \
+            "${submodule_commit}" \
+            "${GITHUB_WORKSPACE}/external/ProGPU/artifacts/progpu-native/package"
+
+      - name: Stage exact source-closure WebGPU runtime for native harnesses
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet restore external/ProGPU/src/ProGPU.Backend/ProGPU.Backend.csproj
+          package_version="$(sed -n 's/.*PackageVersion Include="Silk.NET.WebGPU.Native.WGPU" Version="\([^"]*\)".*/\1/p' external/ProGPU/Directory.Packages.props)"
+          test -n "${package_version}"
+          package_root="$(dotnet nuget locals global-packages --list | sed -E 's/^[^:]+:[[:space:]]*//')"
+          stock_runtime="${package_root%/}/silk.net.webgpu.native.wgpu/${package_version}/runtimes/osx-arm64/native/libwgpu_native.dylib"
+          test -s "${stock_runtime}"
+          runtime_dir="${GITHUB_WORKSPACE}/external/ProGPU/artifacts/progpu-native/runtime"
+          native_dir="${GITHUB_WORKSPACE}/external/ProGPU/artifacts/progpu-native/package/runtimes/osx-arm64/native"
+          mkdir -p "${runtime_dir}"
+          cp "${stock_runtime}" "${runtime_dir}/libwgpu_native.dylib"
+          echo "PROGPU_NATIVE_BUILD_DIR=${native_dir}" >> "${GITHUB_ENV}"
+          echo "PROGPU_NATIVE_RUNTIME_DIR=${runtime_dir}" >> "${GITHUB_ENV}"
+
+      - name: Run LibreWPF SDK gate
+        run: ./eng/progpu-wpf-sdk-ci.sh
+
+      - name: Upload CI package bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: librewpf-ci-packages-${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}
+          path: |
+            artifacts/packages/Release/NonShipping/*.nupkg
+            artifacts/packages/Release/NonShipping/*.json
+            artifacts/packages/Release/NonShipping/*.tar.gz
+            artifacts/packages/Release/NonShipping/*.sha256
+            artifacts/packages/Release/NonShipping/README.md
+            artifacts/packages/Release/NonShipping/NuGet.config
+          if-no-files-found: error
+
+  canonical-sdk-consumer:
+    name: Canonical LibreWPF SDK package consumer
+    needs:
+      - canonical-winforms-integration
+      - sdk-smoke
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Download canonical LibreWinForms closure
+        uses: actions/download-artifact@v4
+        with:
+          name: canonical-librewinforms-${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}
+          path: artifacts/packages/CanonicalWinForms
+
+      - name: Download LibreWPF SDK package bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: librewpf-ci-packages-${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}
+          path: artifacts/packages/Release/NonShipping
+
+      - name: Consume canonical Forms, backend, and WFI through LibreWPF.Sdk
+        run: ./eng/progpu-wpf-canonical-sdk-smoke.sh
+
+  windows-anycpu-smoke:
+    name: Windows AnyCPU package launch
+    needs: sdk-smoke
+    runs-on: windows-2025
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Download CI package bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: librewpf-ci-packages-${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}
+          path: artifacts/packages/Release/NonShipping
+
+      - name: Run clean Windows AnyCPU package smoke
+        shell: pwsh
+        run: |
+          ./eng/progpu-wpf-windows-anycpu-smoke.ps1 -Configuration Release
+          ./eng/progpu-wpf-windows-anycpu-smoke.ps1 -Configuration Debug
+
+  windows-native-mil-showcase:
+    name: Windows x64 native MIL package Showcase
+    needs: sdk-smoke
+    runs-on: windows-2025
+    timeout-minutes: 40
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Download exact CI package bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: librewpf-ci-packages-${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}
+          path: artifacts/packages/Release/NonShipping
+
+      - name: Run package-only x64 native MIL Showcase
+        shell: pwsh
+        run: ./eng/progpu-wpf-windows-native-mil-showcase.ps1
+
+  windows-arm64-native-mil-showcase:
+    name: Windows ARM64 native MIL package Showcase
+    needs: sdk-smoke
+    runs-on: windows-11-arm
+    timeout-minutes: 40
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Download exact CI package bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: librewpf-ci-packages-${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}
+          path: artifacts/packages/Release/NonShipping
+
+      - name: Run package-only ARM64 native MIL Showcase
+        shell: pwsh
+        run: ./eng/progpu-wpf-windows-native-mil-showcase.ps1 -TargetArchitecture arm64
+
+  linux-xwayland-smoke:
+    name: Linux Wayland-session XWayland input and popup smoke
+    needs: sdk-smoke
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Install native windowing dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgl1-mesa-dri \
+            libglx-mesa0 \
+            libx11-6 \
+            libxcursor1 \
+            libxi6 \
+            libxinerama1 \
+            libxrandr2 \
+            mesa-vulkan-drivers \
+            xauth \
+            xdotool \
+            xvfb
+
+      - name: Download CI package bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: librewpf-ci-packages-${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}
+          path: artifacts/packages/Release/NonShipping
+
+      - name: Run Wayland-session XWayland native input and popup smoke
+        run: ./eng/progpu-wpf-linux-xwayland-smoke.sh
+
+  linux-multi-window-smoke:
+    name: Linux headless multi-window render device smoke
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}
+          submodules: true
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Install headless rendering dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libegl-mesa0 \
+            libegl1 \
+            libgl1 \
+            libgl1-mesa-dri \
+            libgles2 \
+            libglx-mesa0 \
+            libx11-6 \
+            libxcursor1 \
+            libxi6 \
+            libxinerama1 \
+            libxrandr2 \
+            mesa-vulkan-drivers \
+            xauth \
+            xvfb
+
+      - name: Run headless multi-window smoke
+        run: ./eng/progpu-wpf-linux-multi-window-smoke.sh

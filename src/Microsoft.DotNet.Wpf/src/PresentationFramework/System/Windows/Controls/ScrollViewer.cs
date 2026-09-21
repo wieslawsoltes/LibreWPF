@@ -59,7 +59,8 @@ namespace System.Windows.Controls
     [TemplatePart(Name = "PART_HorizontalScrollBar", Type = typeof(ScrollBar))]
     [TemplatePart(Name = "PART_VerticalScrollBar", Type = typeof(ScrollBar))]
     [TemplatePart(Name = "PART_ScrollContentPresenter", Type = typeof(ScrollContentPresenter))]
-    public class ScrollViewer : ContentControl
+    public class ScrollViewer : ContentControl,
+        global::ProGPU.Wpf.Interop.IPortablePointHitRegionSource
     {
         //-------------------------------------------------------------------
         //
@@ -896,6 +897,16 @@ namespace System.Windows.Controls
             {
                 return null;
             }
+        }
+
+        bool global::ProGPU.Wpf.Interop.IPortablePointHitRegionSource.TryGetPortablePointHitRegion(
+            out global::ProGPU.Wpf.Interop.PortableRect rectangle)
+        {
+            // Match the source point policy above, including transparent content.
+            // The presenter's viewport clip still governs descendants; region
+            // selection remains drawing-based through the shared point-only scope.
+            rectangle = new global::ProGPU.Wpf.Interop.PortableRect(0, 0, ActualWidth, ActualHeight);
+            return true;
         }
 
         /// <summary>
@@ -2953,4 +2964,3 @@ namespace System.Windows.Controls
         #endregion DTypeThemeStyleKey
     }
 }
-

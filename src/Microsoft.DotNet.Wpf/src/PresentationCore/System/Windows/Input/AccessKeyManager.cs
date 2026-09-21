@@ -5,6 +5,7 @@ using System.Collections;
 using System.Globalization;
 using System.Windows.Interop;
 using MS.Internal;
+using ProGPU.Wpf.Interop;
 
 namespace System.Windows.Input
 {
@@ -352,6 +353,8 @@ namespace System.Windows.Input
                 }
             }
 
+            scope = NormalizePortableScope(scope);
+
             if (CoreCompatibilityPreferences.GetIsAltKeyRequiredInAccessKeyDefaultScope() && 
                 (scope is PresentationSource) && (Keyboard.Modifiers & ModifierKeys.Alt) != ModifierKeys.Alt)
             {
@@ -388,7 +391,7 @@ namespace System.Windows.Input
 
                         if (elementInfo.target == null) continue;
 
-                        if (scope == elementInfo.Scope)
+                        if (scope == NormalizePortableScope(elementInfo.Scope))
                         {
                             finalTargets.Add(elementInfo.target);
                         }
@@ -406,6 +409,16 @@ namespace System.Windows.Input
             }
 
             return finalTargets;
+        }
+
+        private static object NormalizePortableScope(object scope)
+        {
+            if (scope is HwndSource { IsPortable: true } hwndSource)
+            {
+                return hwndSource.PortableOwner;
+            }
+
+            return scope;
         }
         
         /// <summary>
@@ -459,22 +472,41 @@ namespace System.Windows.Input
             return source;
         }
 
-        private PresentationSource GetActiveSource()
-        {
-            IntPtr hwnd = MS.Win32.UnsafeNativeMethods.GetActiveWindow();
-            if (hwnd != IntPtr.Zero)
-                return HwndSource.FromHwnd(hwnd);
+        private PresentationSource CriticalGetActiveSource() => GetActivePresentationSource();
 
-            return null;
-        }
-
-        private PresentationSource CriticalGetActiveSource()
+        // Shared with keyboard menu entry when no element currently owns focus.
+        // Native HWNDs and portable source identities must never be interchanged.
+        internal static PresentationSource GetActivePresentationSource()
         {
+            PresentationSource portable = GetPortableActiveSource();
+            if (portable != null) return portable;
+            if (PortableWpfRuntime.GetMediaBackendAndFreeze() == PortableWpfMediaBackend.Portable)
+                return null;
+
             IntPtr hwnd = MS.Win32.UnsafeNativeMethods.GetActiveWindow();
             if (hwnd != IntPtr.Zero)
                 return HwndSource.CriticalFromHwnd(hwnd);
 
             return null;
+        }
+
+        private static PresentationSource GetPortableActiveSource()
+        {
+            PresentationSource active = null;
+            foreach (PresentationSource source in PresentationSource.CriticalCurrentSources)
+            {
+                if (source != null && source.Dispatcher.CheckAccess() && !source.IsDisposed &&
+                    source is PortablePresentationSource &&
+                    source.RootVisual is IPortableAccessKeyScopeSource { IsPortableAccessKeyScopeActive: true })
+                {
+                    // Conflicting host state cannot select a winner by creation
+                    // order. Wait for an unambiguous activation publication.
+                    if (active != null) return null;
+                    active = source;
+                }
+            }
+
+            return active;
         }
 
         

@@ -9,6 +9,8 @@
 //          Created it
 //
 
+using ProGPU.Wpf.Interop;
+
 namespace System.Windows.Media
 {
     /// <summary>
@@ -219,6 +221,54 @@ namespace System.Windows.Media
         internal override PathFigureCollection GetTransformedFigureCollection(Transform transform)
         {
             return GetAsPathGeometry().GetTransformedFigureCollection(transform);
+        }
+
+        internal override bool TryGetPortableGeometryPathCore(out PortableGeometryPath path)
+        {
+            if (!TryGetChildPortablePath(Geometry1, out PortableGeometryPath pathA)
+                || !TryGetChildPortablePath(Geometry2, out PortableGeometryPath pathB))
+            {
+                path = new PortableGeometryPath();
+                return false;
+            }
+
+            path = new PortableGeometryPath
+            {
+                Kind = PortableGeometryPathKind.Combined,
+                PathA = pathA,
+                PathB = pathB,
+                CombineOperation = ToPortableCombineOperation(GeometryCombineMode),
+                Transform = PortableGeometryPathExporter.ToPortableMatrix(Transform),
+                Bounds = PortableGeometryPathExporter.ToPortableRect(Bounds)
+            };
+
+            return true;
+        }
+
+        private static bool TryGetChildPortablePath(Geometry geometry, out PortableGeometryPath path)
+        {
+            if (geometry == null)
+            {
+                path = new PortableGeometryPath();
+                return true;
+            }
+
+            return geometry.TryGetPortableGeometryPathCore(out path);
+        }
+
+        private static int ToPortableCombineOperation(GeometryCombineMode mode)
+        {
+            switch (mode)
+            {
+                case GeometryCombineMode.Intersect:
+                    return 1;
+                case GeometryCombineMode.Xor:
+                    return 3;
+                case GeometryCombineMode.Exclude:
+                    return 0;
+                default:
+                    return 2;
+            }
         }
 
         /// <summary>

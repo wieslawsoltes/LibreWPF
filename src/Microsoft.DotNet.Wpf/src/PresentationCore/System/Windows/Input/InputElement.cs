@@ -3,7 +3,6 @@
 
 using System.Windows.Media;
 using MS.Internal;
-using System.Windows.Interop;
 using System.Windows.Media.Media3D;
 
 namespace System.Windows.Input
@@ -263,16 +262,21 @@ namespace System.Windows.Input
                         // between them by translating up to the root, and then back down.
                         //
                         // However, if both are under different roots, we can only translate
-                        // between them if we know how to relate the two root visuals.  Currently
-                        // we only know how to do that if both roots are sourced in HwndSources.
+                        // between them if both roots are connected to live presentation sources.
+                        // HwndSource keeps its native screen conversion inside PointUtil, while
+                        // portable sources use PointUtil's non-HWND fallback.
                         if(rootFrom != rootTo)
                         {
-                            HwndSource sourceFrom = PresentationSource.CriticalFromVisual(rootFrom) as HwndSource;
-                            HwndSource sourceTo = PresentationSource.CriticalFromVisual(rootTo) as HwndSource;
+                            PresentationSource sourceFrom = PresentationSource.CriticalFromVisual(rootFrom);
+                            PresentationSource sourceTo = PresentationSource.CriticalFromVisual(rootTo);
+                            CompositionTarget targetFrom = sourceFrom?.CompositionTarget;
+                            CompositionTarget targetTo = sourceTo?.CompositionTarget;
 
 
-                            if(sourceFrom != null && sourceFrom.Handle != IntPtr.Zero && sourceFrom.CompositionTarget != null &&
-                               sourceTo != null && sourceTo.Handle != IntPtr.Zero && sourceTo.CompositionTarget != null)
+                            if(sourceFrom != null && !sourceFrom.IsDisposed &&
+                               targetFrom != null && !targetFrom.IsDisposed &&
+                               sourceTo != null && !sourceTo.IsDisposed &&
+                               targetTo != null && !targetTo.IsDisposed)
                             {
                                 // Translate the point into client coordinates.
                                 ptTranslated = PointUtil.RootToClient(ptTranslated, sourceFrom);
@@ -354,4 +358,3 @@ namespace System.Windows.Input
         private static DependencyObjectType UIElement3DType = DependencyObjectType.FromSystemTypeInternal(typeof(UIElement3D));    
     }
 }
-

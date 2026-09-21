@@ -79,6 +79,11 @@ namespace System.Windows.Documents
         // install WinEvent hook and start getting the callback.
         internal void Start()
         {
+            if (!OperatingSystem.IsWindows())
+            {
+                return;
+            }
+
             if (_gchThis.IsAllocated)
             {
                 _hHook = UnsafeNativeMethods.SetWinEventHook(_eventMin, _eventMax, IntPtr.Zero, _winEventProc,
@@ -95,7 +100,11 @@ namespace System.Windows.Documents
         {
             if (_hHook != IntPtr.Zero )
             {
-                UnsafeNativeMethods.UnhookWinEvent(_hHook);
+                if (OperatingSystem.IsWindows())
+                {
+                    UnsafeNativeMethods.UnhookWinEvent(_hHook);
+                }
+
                 _hHook = IntPtr.Zero ;
             }
 

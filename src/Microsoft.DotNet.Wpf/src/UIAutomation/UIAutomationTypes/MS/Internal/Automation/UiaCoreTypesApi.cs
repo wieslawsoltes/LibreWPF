@@ -49,12 +49,22 @@ namespace MS.Internal.Automation
         //
 
         internal static int UiaLookupId(AutomationIdType type, ref Guid guid)
-        {   
+        {
+            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                return 0;
+            }
+
             return RawUiaLookupId( type, ref guid );
         }
 
         internal static object UiaGetReservedNotSupportedValue()
         {
+            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                return s_reservedNotSupportedValue;
+            }
+
             object notSupportedValue;
             CheckError(RawUiaGetReservedNotSupportedValue(out notSupportedValue));
             return notSupportedValue;
@@ -62,6 +72,11 @@ namespace MS.Internal.Automation
 
         internal static object UiaGetReservedMixedAttributeValue()
         {
+            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                return s_reservedMixedAttributeValue;
+            }
+
             object mixedAttributeValue;
             CheckError(RawUiaGetReservedMixedAttributeValue(out mixedAttributeValue));
             return mixedAttributeValue;
@@ -69,6 +84,11 @@ namespace MS.Internal.Automation
 
         internal static bool SupportsWin7Identifiers()
         {
+            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                return false;
+            }
+
             IntPtr automationCoreHandle = LoadLibraryHelper.SecureLoadLibraryEx(DllImport.UIAutomationCore, IntPtr.Zero, UnsafeNativeMethods.LoadLibraryFlags.LOAD_LIBRARY_SEARCH_SYSTEM32);
             if (automationCoreHandle != IntPtr.Zero)
             {
@@ -116,6 +136,8 @@ namespace MS.Internal.Automation
         #region Private Constants
 
         private const string StartListeningExportName = "SynchronizedInputPattern_StartListening";
+        private static readonly object s_reservedNotSupportedValue = new object();
+        private static readonly object s_reservedMixedAttributeValue = new object();
 
         #endregion Private Constants
     }

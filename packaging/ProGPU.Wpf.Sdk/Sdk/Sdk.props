@@ -1,0 +1,50 @@
+<Project>
+
+  <Import Project="$(MSBuildThisFileDirectory)LibreWPF.Sdk.Version.props"
+          Condition="Exists('$(MSBuildThisFileDirectory)LibreWPF.Sdk.Version.props')" />
+
+  <PropertyGroup>
+    <_ProGpuWpfSdkImported>true</_ProGpuWpfSdkImported>
+    <ProGpuWpfUseWpfMarkup Condition="'$(ProGpuWpfUseWpfMarkup)' == ''">true</ProGpuWpfUseWpfMarkup>
+    <ProGpuWpfUsePortableFrameworkReferences Condition="'$(ProGpuWpfUsePortableFrameworkReferences)' == ''">true</ProGpuWpfUsePortableFrameworkReferences>
+    <UseWPF Condition="'$(ProGpuWpfUsePortableFrameworkReferences)' == 'true'">false</UseWPF>
+    <EnableWindowsTargeting Condition="'$(EnableWindowsTargeting)' == ''">true</EnableWindowsTargeting>
+    <ImportFrameworkWinFXTargets Condition="'$(ImportFrameworkWinFXTargets)' == ''">false</ImportFrameworkWinFXTargets>
+    <DisableTransitiveFrameworkReferenceDownloads Condition="'$(ProGpuWpfUsePortableFrameworkReferences)' == 'true' And '$(DisableTransitiveFrameworkReferenceDownloads)' == ''">true</DisableTransitiveFrameworkReferenceDownloads>
+    <CopyLocalLockFileAssemblies Condition="'$(ProGpuWpfUsePortableFrameworkReferences)' == 'true' And '$(CopyLocalLockFileAssemblies)' == ''">true</CopyLocalLockFileAssemblies>
+    <NoWarn>$(NoWarn);NETSDK1137</NoWarn>
+    <MSBuildWarningsAsMessages Condition="'$(ProGpuWpfUsePortableFrameworkReferences)' == 'true'">$(MSBuildWarningsAsMessages);NETSDK1106</MSBuildWarningsAsMessages>
+    <ProGpuWpfUsePortablePlatform Condition="'$(ProGpuWpfUsePortablePlatform)' == ''">true</ProGpuWpfUsePortablePlatform>
+    <ProGpuWpfEnablePortableBootstrap Condition="'$(ProGpuWpfEnablePortableBootstrap)' == ''">true</ProGpuWpfEnablePortableBootstrap>
+    <ProGpuWpfUseCurrentRuntimeIdentifier Condition="'$(ProGpuWpfUseCurrentRuntimeIdentifier)' == ''">true</ProGpuWpfUseCurrentRuntimeIdentifier>
+    <ProGpuWpfPlatform Condition="'$(ProGpuWpfPlatform)' == ''">SilkNet</ProGpuWpfPlatform>
+    <ProGpuWpfRenderingBackend Condition="'$(ProGpuWpfRenderingBackend)' == ''">ProGPU</ProGpuWpfRenderingBackend>
+    <ProGpuWpfRendererMode Condition="'$(ProGpuWpfRendererMode)' == ''">ManagedPortable</ProGpuWpfRendererMode>
+    <ProGpuWpfNativeMilHitTesting Condition="'$(ProGpuWpfNativeMilHitTesting)' == ''">false</ProGpuWpfNativeMilHitTesting>
+    <ProGpuWpfSdkVersion Condition="'$(ProGpuWpfSdkVersion)' == '' And '$(_LibreWpfSdkPackageVersion)' != ''">$(_LibreWpfSdkPackageVersion)</ProGpuWpfSdkVersion>
+    <ProGpuWpfSdkVersion Condition="'$(ProGpuWpfSdkVersion)' == ''">0.1.0-preview.45</ProGpuWpfSdkVersion>
+    <ProGpuPackageVersion Condition="'$(ProGpuPackageVersion)' == '' And '$(_LibreWpfSdkProGpuPackageVersion)' != ''">$(_LibreWpfSdkProGpuPackageVersion)</ProGpuPackageVersion>
+    <ProGpuWpfRuntimeFrameworkVersion Condition="'$(ProGpuWpfRuntimeFrameworkVersion)' == ''"></ProGpuWpfRuntimeFrameworkVersion>
+    <RuntimeFrameworkVersion Condition="'$(ProGpuWpfUsePortableFrameworkReferences)' == 'true' And '$(RuntimeFrameworkVersion)' == '' And '$(ProGpuWpfRuntimeFrameworkVersion)' != ''">$(ProGpuWpfRuntimeFrameworkVersion)</RuntimeFrameworkVersion>
+    <ProGpuWpfReferenceMode Condition="'$(ProGpuWpfReferenceMode)' == '' And ('$(ProGpuWpfManagedReferenceRoot)' != '' Or '$(ProGpuReferenceRoot)' != '')">LocalArtifacts</ProGpuWpfReferenceMode>
+    <ProGpuWpfReferenceMode Condition="'$(ProGpuWpfReferenceMode)' == ''">Package</ProGpuWpfReferenceMode>
+    <ProGpuWpfManagedPackageId Condition="'$(ProGpuWpfManagedPackageId)' == ''">LibreWPF.Transport</ProGpuWpfManagedPackageId>
+    <ProGpuWpfSilkNetVersion Condition="'$(ProGpuWpfSilkNetVersion)' == ''">2.23.0</ProGpuWpfSilkNetVersion>
+    <ProGpuWpfOpenFontSharpVersion Condition="'$(ProGpuWpfOpenFontSharpVersion)' == ''">1.0.0</ProGpuWpfOpenFontSharpVersion>
+    <ProGpuWpfStbImageSharpVersion Condition="'$(ProGpuWpfStbImageSharpVersion)' == ''">2.30.15</ProGpuWpfStbImageSharpVersion>
+  </PropertyGroup>
+
+  <Import Sdk="Microsoft.NET.Sdk.WindowsDesktop" Project="Sdk.props" />
+
+  <PropertyGroup>
+    <!-- NuGet's generated buildTransitive imports use NuGetPackageRoot. Keep
+         them on the same cache as RestorePackagesPath so portable font and
+         notice assets are not silently omitted by package-mode consumers. -->
+    <NuGetPackageRoot Condition="'$(RestorePackagesPath)' != ''">$([MSBuild]::EnsureTrailingSlash('$(RestorePackagesPath)'))</NuGetPackageRoot>
+    <RuntimeIdentifier Condition="'$(ProGpuWpfUseCurrentRuntimeIdentifier)' == 'true' And '$(RuntimeIdentifier)' == '' And '$(NETCoreSdkRuntimeIdentifier)' != ''">$(NETCoreSdkRuntimeIdentifier)</RuntimeIdentifier>
+    <AppendRuntimeIdentifierToOutputPath Condition="'$(ProGpuWpfUseCurrentRuntimeIdentifier)' == 'true' And '$(AppendRuntimeIdentifierToOutputPath)' == ''">false</AppendRuntimeIdentifierToOutputPath>
+  </PropertyGroup>
+
+  <Import Project="$(MSBuildThisFileDirectory)..\targets\ProGPU.Wpf.Sdk.props" />
+
+</Project>

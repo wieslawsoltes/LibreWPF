@@ -3269,12 +3269,7 @@ namespace System.Windows.Input
                 else
                 {
                     // If Keyboard.FocusedElement is null we'll have to fall back here.
-                    IntPtr activeWindow = MS.Win32.UnsafeNativeMethods.GetActiveWindow();
-
-                    if (activeWindow != IntPtr.Zero)
-                    {
-                        source = HwndSource.CriticalFromHwnd(activeWindow);
-                    }
+                    source = AccessKeyManager.GetActivePresentationSource();
                 }
 
                 // Can't fire the event if the event didn't happen in any source
@@ -3596,7 +3591,6 @@ namespace System.Windows.Input
         #endregion WeakReferenceList
     }
 }
-
 
 
 

@@ -114,7 +114,9 @@ namespace System.Windows.Shell
         static JumpList()
         {
             // Passing NULL for the HMODULE returns the running executable path.
-            _FullName = UnsafeNativeMethods.GetModuleFileName(new HandleRef());
+            _FullName = OperatingSystem.IsWindows()
+                ? UnsafeNativeMethods.GetModuleFileName(new HandleRef())
+                : (Environment.ProcessPath ?? string.Empty);
         }
 
         /// <summary>
@@ -126,6 +128,9 @@ namespace System.Windows.Shell
         public static void AddToRecentCategory(string itemPath)
         {
             Verify.FileExists(itemPath, "itemPath");
+            if (!OperatingSystem.IsWindows())
+                return;
+
             itemPath = Path.GetFullPath(itemPath);
             NativeMethods2.SHAddToRecentDocs(itemPath);
         }
@@ -151,6 +156,8 @@ namespace System.Windows.Shell
         public static void AddToRecentCategory(JumpTask jumpTask)
         {
             Verify.IsNotNull(jumpTask, "jumpTask");
+            if (!OperatingSystem.IsWindows())
+                return;
 
             // SHAddToRecentDocs only allows IShellLinks in Windows 7 and later.
             // Silently fail this if that's not the case.
@@ -447,7 +454,7 @@ namespace System.Windows.Shell
 
             // We don't want to force applications to conditionally check this before constructing a JumpList,
             // but if we're not on 7 then this isn't going to work.  Fail fast.
-            if (!Utilities.IsOSWindows7OrNewer)
+            if (!OperatingSystem.IsWindows() || !Utilities.IsOSWindows7OrNewer)
             {
                 RejectEverything();
                 return;

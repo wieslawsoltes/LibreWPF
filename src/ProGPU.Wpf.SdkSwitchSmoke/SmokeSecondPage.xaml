@@ -1,0 +1,14 @@
+<Page
+    x:Class="ProGPU.Wpf.SdkSwitchSmoke.SmokeSecondPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="Compiled Second Page">
+    <StackPanel Margin="6">
+        <TextBlock
+            x:Name="SecondPageTitle"
+            Text="Compiled second page content" />
+        <TextBlock
+            x:Name="SecondPageSubtitle"
+            Text="Frame navigated to SDK-built BAML" />
+    </StackPanel>
+</Page>

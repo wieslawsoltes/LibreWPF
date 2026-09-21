@@ -3,6 +3,7 @@
 
 using System.Threading;
 using System.Runtime.InteropServices;
+using ProGPU.Wpf.Interop;
 using System.Windows.Media.Imaging;
 
 namespace System.Windows.Media.Effects
@@ -10,7 +11,7 @@ namespace System.Windows.Media.Effects
     /// <summary>
     /// BitmapEffect
     /// </summary>
-    public abstract partial class BitmapEffect
+    public abstract partial class BitmapEffect : IPortableEffectSource
     {
         #region Constructors
         /// <summary>
@@ -23,7 +24,8 @@ namespace System.Windows.Media.Effects
             // Avalon doesn't necessarily require STA, but many components do.  Examples
             // include Cicero, OLE, COM, etc.  So we throw an exception here if the
             // thread is not STA.
-            if (Thread.CurrentThread.GetApartmentState() != ApartmentState.STA)
+            if (global::System.OperatingSystem.IsWindows() &&
+                Thread.CurrentThread.GetApartmentState() != ApartmentState.STA)
             {
                 throw new InvalidOperationException(SR.RequiresSTA);
             }
@@ -127,7 +129,21 @@ namespace System.Windows.Media.Effects
             throw new NotImplementedException();
         }
 
+        bool IPortableEffectSource.TryGetPortableEffect(out PortableEffect effect)
+        {
+            ReadPreamble();
+
+            if (CanBeEmulatedUsingEffectPipeline()
+                && GetEmulatingEffect() is IPortableEffectSource effectSource
+                && effectSource.TryGetPortableEffect(out effect))
+            {
+                return true;
+            }
+
+            effect = null;
+            return false;
+        }
+
         #endregion
     }
 }
-

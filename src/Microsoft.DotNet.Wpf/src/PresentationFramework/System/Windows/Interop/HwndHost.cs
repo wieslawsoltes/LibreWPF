@@ -368,7 +368,10 @@ namespace System.Windows.Interop
                 // will be left behind. Developer can workaround by hide the hwnd first using pinvoke. 
                 // After the RenderTransform is applied to the HwndHost, call UpdateWindowPos to sync up
                 // the hwnd's location, size and visibility with WPF.
-                UnsafeNativeMethods.ShowWindowAsync(_hwnd, NativeMethods.SW_SHOW);
+                if (global::System.OperatingSystem.IsWindows())
+                {
+                    UnsafeNativeMethods.ShowWindowAsync(_hwnd, NativeMethods.SW_SHOW);
+                }
             }
             else
             {
@@ -377,7 +380,10 @@ namespace System.Windows.Interop
                 // or we are marked as not being visible.
                 //
                 // Just hide the window to get it out of the way.
-                UnsafeNativeMethods.ShowWindowAsync(_hwnd, NativeMethods.SW_HIDE);
+                if (global::System.OperatingSystem.IsWindows())
+                {
+                    UnsafeNativeMethods.ShowWindowAsync(_hwnd, NativeMethods.SW_HIDE);
+                }
             }
         }
 
@@ -389,10 +395,15 @@ namespace System.Windows.Interop
             Rect rectElement = new Rect(RenderSize);
             Rect rectRoot = PointUtil.ElementToRoot(rectElement, this, source);
             Rect rectClient = PointUtil.RootToClient(rectRoot, source);
+            NativeMethods.RECT rcClient = PointUtil.FromRect(rectClient);
+
+            if (!global::System.OperatingSystem.IsWindows())
+            {
+                return rcClient;
+            }
 
             // Adjust for Right-To-Left oriented windows
             IntPtr hwndParent = UnsafeNativeMethods.GetParent(_hwnd);
-            NativeMethods.RECT rcClient = PointUtil.FromRect(rectClient);
             NativeMethods.RECT rcClientRTLAdjusted = PointUtil.AdjustForRightToLeft(rcClient, new HandleRef(null, hwndParent));
 
             if (!CoreAppContextSwitches.DoNotUsePresentationDpiCapabilityTier2OrGreater)
@@ -412,7 +423,7 @@ namespace System.Windows.Interop
         {
             get
             {
-                if (!_hasDpiAwarenessContextTransition) return 1;
+                if (!_hasDpiAwarenessContextTransition || !global::System.OperatingSystem.IsWindows()) return 1;
                 DpiScale2 dpi = DpiUtil.GetWindowDpi(Handle, fallbackToNearestMonitorHeuristic: false);
                 DpiScale2 dpiParent = DpiUtil.GetWindowDpi(UnsafeNativeMethods.GetParent(_hwnd), fallbackToNearestMonitorHeuristic: false);
 
@@ -650,6 +661,11 @@ namespace System.Windows.Interop
                 return;
             }
 
+            if (!global::System.OperatingSystem.IsWindows())
+            {
+                return;
+            }
+
             UnsafeNativeMethods.SetWindowPos(_hwnd,
                                            new HandleRef(null, IntPtr.Zero),
                                            (int)rcBoundingBox.X,
@@ -873,7 +889,10 @@ namespace System.Windows.Interop
             }
 
             bool boolNewValue = (bool)e.NewValue;
-            UnsafeNativeMethods.EnableWindow(_hwnd, boolNewValue);
+            if (global::System.OperatingSystem.IsWindows())
+            {
+                UnsafeNativeMethods.EnableWindow(_hwnd, boolNewValue);
+            }
         }
 
         private void OnVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
@@ -891,6 +910,11 @@ namespace System.Windows.Interop
             // There was recollection from Dwayne that ShowWindow sync might cause rereentrancy issues.
             // So change here to show async to be consistent with everywhere else (instead of changing everywhere else
             // to show window sync).            
+            if (!global::System.OperatingSystem.IsWindows())
+            {
+                return;
+            }
+
             if(vis)
                 UnsafeNativeMethods.ShowWindowAsync(_hwnd, NativeMethods.SW_SHOWNA);
             else
@@ -928,6 +952,11 @@ namespace System.Windows.Interop
                 {
                     hwndParent = hwndSource.Handle;
                 }
+                else if (!global::System.OperatingSystem.IsWindows() &&
+                    source is PortablePresentationSource portableSource)
+                {
+                    hwndParent = portableSource.Handle;
+                }
             }
             else
             {
@@ -963,7 +992,7 @@ namespace System.Windows.Interop
                         UnsafeNativeMethods.SetParent(_hwnd, new HandleRef(null,hwndParent));
                     }
                 }
-                else if (Handle != IntPtr.Zero)
+                else if (Handle != IntPtr.Zero && global::System.OperatingSystem.IsWindows())
                 {
                     // Reparent the window to notification-only window provided by SystemResources
                     // This keeps the child window around, but it is not visible.  We can reparent the 
@@ -1006,49 +1035,57 @@ namespace System.Windows.Interop
             // Allow the derived class to build our HWND.
             _hwnd = BuildWindowCore(hwndParent);
 
-            if(_hwnd.Handle == IntPtr.Zero || !UnsafeNativeMethods.IsWindow(_hwnd))
+            if(_hwnd.Handle == IntPtr.Zero)
             {
                 throw new InvalidOperationException(SR.ChildWindowNotCreated);
             }
 
-            // Make sure that the window that was created is indeed a child window.
-            int windowStyle = UnsafeNativeMethods.GetWindowLong(new HandleRef(this,_hwnd.Handle), NativeMethods.GWL_STYLE);
-            if((windowStyle & NativeMethods.WS_CHILD) == 0)
+            if (global::System.OperatingSystem.IsWindows())
             {
-                throw new InvalidOperationException(SR.HostedWindowMustBeAChildWindow);
-            }
+                if(!UnsafeNativeMethods.IsWindow(_hwnd))
+                {
+                    throw new InvalidOperationException(SR.ChildWindowNotCreated);
+                }
 
-            // Make sure the child window is the child of the expected parent window.
-            if(hwndParent.Handle != UnsafeNativeMethods.GetParent(_hwnd))
-            {
-                throw new InvalidOperationException(SR.ChildWindowMustHaveCorrectParent);
-            }
+                // Make sure that the window that was created is indeed a child window.
+                int windowStyle = UnsafeNativeMethods.GetWindowLong(new HandleRef(this,_hwnd.Handle), NativeMethods.GWL_STYLE);
+                if((windowStyle & NativeMethods.WS_CHILD) == 0)
+                {
+                    throw new InvalidOperationException(SR.HostedWindowMustBeAChildWindow);
+                }
 
-            // Test to see if hwndParent and _hwnd have different DPI_AWARENESS_CONTEXT's
-            if (DpiUtil.GetDpiAwarenessContext(_hwnd.Handle) != DpiUtil.GetDpiAwarenessContext(hwndParent.Handle))
-            {
-                _hasDpiAwarenessContextTransition = true;
-            }
+                // Make sure the child window is the child of the expected parent window.
+                if(hwndParent.Handle != UnsafeNativeMethods.GetParent(_hwnd))
+                {
+                    throw new InvalidOperationException(SR.ChildWindowMustHaveCorrectParent);
+                }
 
-            // Only subclass the child HWND if it is owned by our thread.
-            int idWindowProcess;
-            int idWindowThread = UnsafeNativeMethods.GetWindowThreadProcessId(_hwnd, out idWindowProcess);
+                // Test to see if hwndParent and _hwnd have different DPI_AWARENESS_CONTEXT's
+                if (DpiUtil.GetDpiAwarenessContext(_hwnd.Handle) != DpiUtil.GetDpiAwarenessContext(hwndParent.Handle))
+                {
+                    _hasDpiAwarenessContextTransition = true;
+                }
+
+                // Only subclass the child HWND if it is owned by our thread.
+                int idWindowProcess;
+                int idWindowThread = UnsafeNativeMethods.GetWindowThreadProcessId(_hwnd, out idWindowProcess);
 
 #if WCP_SERVER2003_OR_LATER_ENABLED
-            IntPtr hCurrentThread = UnsafeNativeMethods.GetCurrentThread();
-            if ((idWindowThread == SafeNativeMethods.GetThreadId(hCurrentThread)) &&
-                (idWindowProcess == UnsafeNativeMethods.GetProcessIdOfThread(hCurrentThread)))
+                IntPtr hCurrentThread = UnsafeNativeMethods.GetCurrentThread();
+                if ((idWindowThread == SafeNativeMethods.GetThreadId(hCurrentThread)) &&
+                    (idWindowProcess == UnsafeNativeMethods.GetProcessIdOfThread(hCurrentThread)))
 #else
-            if ((idWindowThread == SafeNativeMethods.GetCurrentThreadId()) &&
-                (idWindowProcess == Environment.ProcessId))
+                if ((idWindowThread == SafeNativeMethods.GetCurrentThreadId()) &&
+                    (idWindowProcess == Environment.ProcessId))
 #endif
-            {
-                _hwndSubclass = new HwndSubclass(_hwndSubclassHook);
-                _hwndSubclass.CriticalAttach(_hwnd.Handle);
-            }
+                {
+                    _hwndSubclass = new HwndSubclass(_hwndSubclassHook);
+                    _hwndSubclass.CriticalAttach(_hwnd.Handle);
+                }
 
-            // Initially make sure the window is hidden.  We will show it later during rendering.
-            UnsafeNativeMethods.ShowWindowAsync(_hwnd, NativeMethods.SW_HIDE);
+                // Initially make sure the window is hidden.  We will show it later during rendering.
+                UnsafeNativeMethods.ShowWindowAsync(_hwnd, NativeMethods.SW_HIDE);
+            }
 
             // Assume the desired size is the initial size.  If the window was
             // created with a 0-length dimension, we assume this means we

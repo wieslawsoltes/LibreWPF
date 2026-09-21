@@ -30,15 +30,18 @@ namespace MS.Internal
             //
             // Let the user override the inital value of the Strict property from the registry.
             //
-            RegistryKey key = Registry.LocalMachine.OpenSubKey(RegistryKeys.WPF);
-
-            if (key != null)
+            if (OperatingSystem.IsWindows())
             {
-                object obj = key.GetValue("InvariantStrict");
+                using RegistryKey key = Registry.LocalMachine.OpenSubKey(RegistryKeys.WPF);
 
-                if (obj is int)
+                if (key != null)
                 {
-                    _strict = (int)obj != 0;
+                    object obj = key.GetValue("InvariantStrict");
+
+                    if (obj is int)
+                    {
+                        _strict = (int)obj != 0;
+                    }
                 }
             }
 #endif // PRERELEASE
@@ -223,29 +226,36 @@ namespace MS.Internal
         {
             get
             {
-                RegistryKey key;
+                if (!OperatingSystem.IsWindows())
+                {
+                    return false;
+                }
+
                 bool enabled;
 
                 enabled = false;
 
                 //extracting all the data under an elevation.
-                key = Registry.LocalMachine.OpenSubKey("Software\\Microsoft\\.NETFramework");
-                //
-                // Check for the enable.
-                //
-                if (key != null)
+                using (RegistryKey key = Registry.LocalMachine.OpenSubKey("Software\\Microsoft\\.NETFramework"))
                 {
-                    object dbgJITDebugLaunchSettingValue = key.GetValue("DbgJITDebugLaunchSetting");
-
                     //
-                    // Only count the enable if there's a JIT debugger to launch.
+                    // Check for the enable.
                     //
-                    enabled = (dbgJITDebugLaunchSettingValue is int && ((int)dbgJITDebugLaunchSettingValue & 2) != 0);
-                    if (enabled)
+                    if (key != null)
                     {
-                        enabled = key.GetValue("DbgManagedDebugger") is string dbgManagedDebuggerValue && dbgManagedDebuggerValue.Length > 0;
+                        object dbgJITDebugLaunchSettingValue = key.GetValue("DbgJITDebugLaunchSetting");
+
+                        //
+                        // Only count the enable if there's a JIT debugger to launch.
+                        //
+                        enabled = (dbgJITDebugLaunchSettingValue is int && ((int)dbgJITDebugLaunchSettingValue & 2) != 0);
+                        if (enabled)
+                        {
+                            enabled = key.GetValue("DbgManagedDebugger") is string dbgManagedDebuggerValue && dbgManagedDebuggerValue.Length > 0;
+                        }
                     }
                 }
+
                 return enabled;
             }
         }
@@ -275,4 +285,3 @@ namespace MS.Internal
         #endregion Private Fields
     }
 }
-

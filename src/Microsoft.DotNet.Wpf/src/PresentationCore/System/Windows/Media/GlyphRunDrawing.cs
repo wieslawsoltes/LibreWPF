@@ -7,12 +7,14 @@
 //              a GlyphRun.
 //
 
+using ProGPU.Wpf.Interop;
+
 namespace System.Windows.Media
 {
     /// <summary>
     /// GlyphRunDrawing represents a drawing operation that renders a GlyphRun.
     /// </summary>
-    public sealed partial class GlyphRunDrawing : Drawing
+    public sealed partial class GlyphRunDrawing : Drawing, IPortableGlyphRunDrawingStateSource
     {
         #region Constructors
 
@@ -33,7 +35,22 @@ namespace System.Windows.Media
         {            
             GlyphRun = glyphRun;
             ForegroundBrush = foregroundBrush;
-        }               
+        }
+
+        bool IPortableGlyphRunDrawingStateSource.TryGetPortableGlyphRunDrawingState(out PortableGlyphRunDrawingState state)
+        {
+            GlyphRun glyphRun = GlyphRun;
+            Brush foregroundBrush = ForegroundBrush;
+
+            state = new PortableGlyphRunDrawingState
+            {
+                HasGlyphRun = glyphRun != null,
+                GlyphRun = glyphRun,
+                HasForegroundBrush = foregroundBrush != null,
+                ForegroundBrush = foregroundBrush
+            };
+            return true;
+        }
 
         #endregion       
 
@@ -59,4 +76,3 @@ namespace System.Windows.Media
         #endregion Internal methods
     }
 }
-

@@ -688,6 +688,11 @@ namespace System.Windows.Controls
         /// </summary>
         protected virtual void OnPrintCommand()
         {
+            if (!OperatingSystem.IsWindows())
+            {
+                return;
+            }
+
             CurrentViewer?.Print();
         }
 
@@ -696,6 +701,11 @@ namespace System.Windows.Controls
         /// </summary>
         protected virtual void OnCancelPrintCommand()
         {
+            if (!OperatingSystem.IsWindows())
+            {
+                return;
+            }
+
             CurrentViewer?.CancelPrint();
         }
 
@@ -1397,7 +1407,7 @@ namespace System.Windows.Controls
                 }
                 else if (args.Command == ApplicationCommands.Print)
                 {
-                    args.CanExecute = (viewer.Document != null) && viewer.IsPrintEnabled;
+                    args.CanExecute = OperatingSystem.IsWindows() && (viewer.Document != null) && viewer.IsPrintEnabled;
                 }
                 else if (args.Command == ApplicationCommands.CancelPrint)
                 {
@@ -1583,8 +1593,8 @@ namespace System.Windows.Controls
             }
             else if (args.Command == ApplicationCommands.Print)
             {
-                args.CanExecute = IsPrintEnabled;
-                args.Handled = !IsPrintEnabled;
+                args.CanExecute = OperatingSystem.IsWindows() && IsPrintEnabled;
+                args.Handled = !args.CanExecute;
             }
         }
 

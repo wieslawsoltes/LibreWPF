@@ -859,7 +859,14 @@ namespace System.Windows.Media
 
                                     if ( data.hGlyphRun != 0 )
                                     {
-                                        data.hGlyphRun = (uint)(((DUCE.IResource)_dependentResources[ (int)( data.hGlyphRun - 1)]).GetHandle(channel));
+                                        GlyphRun glyphRun = (GlyphRun)_dependentResources[(int)(data.hGlyphRun - 1)];
+
+                                        // ProGPU replays portable glyph runs directly from the managed
+                                        // RenderData stream. Stock MIL requires a live IDWriteFont, so
+                                        // leave its glyph handle null and use its existing null draw path.
+                                        data.hGlyphRun = glyphRun.HasDWriteFont
+                                            ? (uint)((DUCE.IResource)glyphRun).GetHandle(channel)
+                                            : 0;
                                     }
 
                                     channel.AppendCommandData(

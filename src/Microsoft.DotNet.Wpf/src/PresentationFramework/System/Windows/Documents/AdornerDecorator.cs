@@ -53,7 +53,7 @@ namespace System.Windows.Documents
     /// 
     /// AdornerDecorator is intended to be used as part of an object's Style.
     /// </summary>
-    public class AdornerDecorator : Decorator
+    public class AdornerDecorator : Decorator, IPortableVisualOwnerHost
     {
         //------------------------------------------------------
         //
@@ -69,6 +69,11 @@ namespace System.Windows.Documents
         public AdornerDecorator() : base()
         {
             _adornerLayer = new AdornerLayer();
+        }
+
+        PortableVisualOwnerKind IPortableVisualOwnerHost.PortableVisualOwnerKind
+        {
+            get { return PortableVisualOwnerKind.TransparentPointerOverlay; }
         }
 
         #endregion Constructors
@@ -247,7 +252,6 @@ namespace System.Windows.Documents
         #endregion Private Members
     }
 }
-
 
 
 

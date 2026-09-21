@@ -1763,6 +1763,7 @@ namespace System.Windows.Threading
         public TResult Invoke<TResult>(System.Func<TResult> callback, System.Windows.Threading.DispatcherPriority priority) { throw null; }
         public TResult Invoke<TResult>(System.Func<TResult> callback, System.Windows.Threading.DispatcherPriority priority, System.Threading.CancellationToken cancellationToken) { throw null; }
         public TResult Invoke<TResult>(System.Func<TResult> callback, System.Windows.Threading.DispatcherPriority priority, System.Threading.CancellationToken cancellationToken, System.TimeSpan timeout) { throw null; }
+        public static System.Action NativeInputPump { get { throw null; } set { } }
         public static void PushFrame(System.Windows.Threading.DispatcherFrame frame) { }
         public static void Run() { }
         public static void ValidatePriority(System.Windows.Threading.DispatcherPriority priority, string parameterName) { }

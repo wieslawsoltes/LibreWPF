@@ -139,7 +139,21 @@ namespace System.Windows.Input
         ///</param>
         public void AddChild(object value) 
         {
-            throw new System.NotImplementedException();
+            ArgumentNullException.ThrowIfNull(value);
+
+            if (value is InputScopeNameValue nameValue)
+            {
+                NameValue = nameValue;
+                return;
+            }
+
+            if (value is string name)
+            {
+                AddText(name);
+                return;
+            }
+
+            throw new ArgumentException(SR.Format(SR.InputScope_InvalidInputScopeName, "value"));
         }
 
         /// <summary>
@@ -150,7 +164,27 @@ namespace System.Windows.Input
         ///</param>
         public void AddText(string name)
         {
-            // throw new System.NotImplementedException();
+            ArgumentNullException.ThrowIfNull(name);
+
+            var trimmedName = name.Trim();
+            if (trimmedName.Length == 0)
+            {
+                return;
+            }
+
+            var periodPosition = trimmedName.LastIndexOf('.');
+            if (periodPosition != -1)
+            {
+                trimmedName = trimmedName.Substring(periodPosition + 1);
+            }
+
+            if (!Enum.TryParse(trimmedName, out InputScopeNameValue nameValue)
+                || !IsValidInputScopeNameValue(nameValue))
+            {
+                throw new ArgumentException(SR.Format(SR.InputScope_InvalidInputScopeName, "name"));
+            }
+
+            _nameValue = nameValue;
         }
 
 #endregion IAddChild
@@ -289,7 +323,15 @@ namespace System.Windows.Input
         ///</param>
         public void AddChild(object value) 
         {
-            throw new System.NotImplementedException();
+            ArgumentNullException.ThrowIfNull(value);
+
+            if (value is string name)
+            {
+                AddText(name);
+                return;
+            }
+
+            throw new ArgumentException(SR.Format(SR.UnexpectedParameterType, value.GetType(), typeof(string)));
         }
 
         /// <summary>
@@ -322,4 +364,3 @@ namespace System.Windows.Input
         private String _phraseName;
     }
 }
-

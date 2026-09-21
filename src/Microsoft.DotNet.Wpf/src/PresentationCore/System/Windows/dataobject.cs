@@ -3,18 +3,30 @@
 
 #nullable enable
 
+#if PROGPU_WPF_ALIAS_WINCORE
+extern alias WinCore;
+#endif
+
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
+#if PROGPU_WPF_ALIAS_WINCORE
+using WinCore::System.Private.Windows.Ole;
+using HRESULT = WinCore::Windows.Win32.Foundation.HRESULT;
+using BOOL = WinCore::Windows.Win32.Foundation.BOOL;
+using Com = WinCore::Windows.Win32.System.Com;
+using static WinCore::System.ArgumentValidation;
+#else
 using System.Private.Windows.Ole;
+using HRESULT = Windows.Win32.Foundation.HRESULT;
+using BOOL = Windows.Win32.Foundation.BOOL;
+using Com = Windows.Win32.System.Com;
+#endif
 using System.Reflection.Metadata;
 using System.Runtime.InteropServices.ComTypes;
 using System.Windows.Media.Imaging;
 using System.Windows.Ole;
-using HRESULT = Windows.Win32.Foundation.HRESULT;
-using BOOL = Windows.Win32.Foundation.BOOL;
-using Com = Windows.Win32.System.Com;
 using ComTypes = System.Runtime.InteropServices.ComTypes;
 
 namespace System.Windows;
@@ -30,7 +42,8 @@ public sealed unsafe partial class DataObject :
     Com.IManagedWrapper<Com.IDataObject>,
     IComVisibleDataObject
 {
-    private readonly Composition _innerData;
+    private readonly Composition? _innerData;
+    private readonly ITypedDataObject? _portableData;
     private readonly bool _doNotUnwrap;
 
     static DataObject IDataObjectInternal<DataObject, IDataObject>.Create() => new();
@@ -40,15 +53,49 @@ public sealed unsafe partial class DataObject :
     static IDataObjectInternal IDataObjectInternal<DataObject, IDataObject>.Wrap(IDataObject data) =>
         new DataObjectAdapter(data);
 
+    private static bool UsePortableDataObject => !OperatingSystem.IsWindows();
+
+    private Composition InnerData =>
+        _innerData ?? throw new PlatformNotSupportedException("OLE data objects are not available on this platform.");
+
     /// <summary>
     ///  Initializes a new instance of the <see cref="DataObject"/> class, which can store arbitrary data.
     /// </summary>
-    public DataObject() => _innerData = Composition.Create();
+    public DataObject()
+    {
+        if (UsePortableDataObject)
+        {
+            _portableData = new PortableManagedDataObject();
+        }
+        else
+        {
+            _innerData = Composition.Create();
+        }
+    }
 
     /// <summary>
     ///  Initializes a new instance of the <see cref="DataObject"/> class, containing the specified data.
     /// </summary>
-    public DataObject(object data) => _innerData = Composition.Create<DataObject, IDataObject>(data);
+    public DataObject(object data)
+    {
+        if (UsePortableDataObject)
+        {
+            if (data is ITypedDataObject typedDataObject)
+            {
+                _portableData = typedDataObject;
+            }
+            else
+            {
+                var portableData = new PortableManagedDataObject();
+                portableData.SetData(data);
+                _portableData = portableData;
+            }
+        }
+        else
+        {
+            _innerData = Composition.Create<DataObject, IDataObject>(data);
+        }
+    }
 
     /// <summary>
     ///  Initializes a new instance of the class, containing the specified data and its
@@ -79,7 +126,15 @@ public sealed unsafe partial class DataObject :
     ///  </para>
     /// </remarks>
     /// <inheritdoc cref="DataObject(object)"/>
-    internal DataObject(Com.IDataObject* data) => _innerData = Composition.Create(data);
+    internal DataObject(Com.IDataObject* data)
+    {
+        if (UsePortableDataObject)
+        {
+            throw new PlatformNotSupportedException("OLE data objects are not available on this platform.");
+        }
+
+        _innerData = Composition.Create(data);
+    }
 
     /// <summary>
     ///  Special factory for the <see cref="Clipboard"/> to use.
@@ -112,7 +167,13 @@ public sealed unsafe partial class DataObject :
             return false;
         }
 
-        dataObject = _innerData.ManagedDataObject switch
+        if (_portableData is not null)
+        {
+            dataObject = _portableData;
+            return true;
+        }
+
+        dataObject = InnerData.ManagedDataObject switch
         {
             DataObject data => data,
             DataObjectAdapter adapter => adapter.DataObject,
@@ -127,7 +188,8 @@ public sealed unsafe partial class DataObject :
     ///  Retrieves the data associated with the specified data format, using an automated conversion parameter to
     ///  determine whether to convert the data to the format.
     /// </summary>
-    public object? GetData(string format, bool autoConvert) => _innerData.GetData(format, autoConvert);
+    public object? GetData(string format, bool autoConvert) =>
+        _portableData?.GetData(format, autoConvert) ?? InnerData.GetData(format, autoConvert);
 
     /// <summary>
     ///  Retrieves the data associated with the specified data format.
@@ -183,10 +245,17 @@ public sealed unsafe partial class DataObject :
             return false;
         }
 
+        if (_portableData is not null)
+        {
+            return resolver is null
+                ? _portableData.TryGetData(format, autoConvert, out data)
+                : _portableData.TryGetData(format, resolver, autoConvert, out data);
+        }
+
         // Invoke the appropriate overload so we don't fail a null check on a nested object if the resolver is null.
         return resolver is null
-            ? _innerData.TryGetData(format, autoConvert, out data)
-            : _innerData.TryGetData(format, resolver, autoConvert, out data);
+            ? InnerData.TryGetData(format, autoConvert, out data)
+            : InnerData.TryGetData(format, resolver, autoConvert, out data);
     }
 
     /// <summary>
@@ -198,7 +267,8 @@ public sealed unsafe partial class DataObject :
     ///  Determines whether data stored in this instance is associated with the specified format, using an automatic
     ///  conversion parameter to determine whether to convert the data to the format.
     /// </summary>
-    public bool GetDataPresent(string format, bool autoConvert) => _innerData.GetDataPresent(format, autoConvert);
+    public bool GetDataPresent(string format, bool autoConvert) =>
+        _portableData?.GetDataPresent(format, autoConvert) ?? InnerData.GetDataPresent(format, autoConvert);
 
     /// <summary>
     ///  Determines whether data stored in this instance is associated with, or can be converted to, the specified format.
@@ -210,7 +280,8 @@ public sealed unsafe partial class DataObject :
     ///  an automatic conversion parameter <paramref name="autoConvert"/> to determine whether to retrieve all formats
     ///  that the data can be converted to or only native data formats.
     /// </summary>
-    public string[] GetFormats(bool autoConvert) => _innerData.GetFormats(autoConvert);
+    public string[] GetFormats(bool autoConvert) =>
+        _portableData?.GetFormats(autoConvert) ?? InnerData.GetFormats(autoConvert);
 
     /// <summary>
     ///  Gets a list of all formats that data stored in this instance is associated with or can be converted to.
@@ -220,7 +291,16 @@ public sealed unsafe partial class DataObject :
     /// <summary>
     ///  Stores the specified data in this instance, using the class of the data for the format.
     /// </summary>
-    public void SetData(object? data) => _innerData.SetData(data);
+    public void SetData(object? data)
+    {
+        if (_portableData is not null)
+        {
+            _portableData.SetData(data);
+            return;
+        }
+
+        InnerData.SetData(data);
+    }
 
     /// <summary>
     ///  Stores the specified data and its associated format in this instance.
@@ -229,7 +309,13 @@ public sealed unsafe partial class DataObject :
     {
         ArgumentNullException.ThrowIfNull(data);
 
-        _innerData.SetData(format, data);
+        if (_portableData is not null)
+        {
+            _portableData.SetData(format, data);
+            return;
+        }
+
+        InnerData.SetData(format, data);
     }
 
     /// <summary>
@@ -239,7 +325,13 @@ public sealed unsafe partial class DataObject :
     {
         ArgumentNullException.ThrowIfNull(data);
 
-        _innerData.SetData(format, data);
+        if (_portableData is not null)
+        {
+            _portableData.SetData(format, data);
+            return;
+        }
+
+        InnerData.SetData(format, data);
     }
 
     /// <summary>
@@ -250,7 +342,13 @@ public sealed unsafe partial class DataObject :
     {
         ArgumentNullException.ThrowIfNull(data);
         
-        _innerData.SetData(format, autoConvert, data);
+        if (_portableData is not null)
+        {
+            _portableData.SetData(format, data, autoConvert);
+            return;
+        }
+
+        InnerData.SetData(format, autoConvert, data);
     }
 
     // WinForms and WPF have these defined in a different order.
@@ -562,66 +660,84 @@ public sealed unsafe partial class DataObject :
 
     #region ComTypes.IDataObject
     int ComTypes.IDataObject.DAdvise(ref FORMATETC pFormatetc, ADVF advf, IAdviseSink pAdvSink, out int pdwConnection) =>
-        _innerData.DAdvise(ref pFormatetc, advf, pAdvSink, out pdwConnection);
+        InnerData.DAdvise(ref pFormatetc, advf, pAdvSink, out pdwConnection);
 
-    void ComTypes.IDataObject.DUnadvise(int dwConnection) => _innerData.DUnadvise(dwConnection);
+    void ComTypes.IDataObject.DUnadvise(int dwConnection) => InnerData.DUnadvise(dwConnection);
 
     int ComTypes.IDataObject.EnumDAdvise(out IEnumSTATDATA? enumAdvise) =>
-        _innerData.EnumDAdvise(out enumAdvise);
+        InnerData.EnumDAdvise(out enumAdvise);
 
     IEnumFORMATETC ComTypes.IDataObject.EnumFormatEtc(DATADIR dwDirection) =>
-        _innerData.EnumFormatEtc(dwDirection);
+        InnerData.EnumFormatEtc(dwDirection);
 
     int ComTypes.IDataObject.GetCanonicalFormatEtc(ref FORMATETC pformatetcIn, out FORMATETC pformatetcOut) =>
-        _innerData.GetCanonicalFormatEtc(ref pformatetcIn, out pformatetcOut);
+        InnerData.GetCanonicalFormatEtc(ref pformatetcIn, out pformatetcOut);
 
     void ComTypes.IDataObject.GetData(ref FORMATETC formatetc, out STGMEDIUM medium) =>
-        _innerData.GetData(ref formatetc, out medium);
+        InnerData.GetData(ref formatetc, out medium);
 
     void ComTypes.IDataObject.GetDataHere(ref FORMATETC formatetc, ref STGMEDIUM medium) =>
-        _innerData.GetDataHere(ref formatetc, ref medium);
+        InnerData.GetDataHere(ref formatetc, ref medium);
 
     int ComTypes.IDataObject.QueryGetData(ref FORMATETC formatetc) =>
-        _innerData.QueryGetData(ref formatetc);
+        InnerData.QueryGetData(ref formatetc);
 
     void ComTypes.IDataObject.SetData(ref FORMATETC pFormatetcIn, ref STGMEDIUM pmedium, bool fRelease) =>
-        _innerData.SetData(ref pFormatetcIn, ref pmedium, fRelease);
+        InnerData.SetData(ref pFormatetcIn, ref pmedium, fRelease);
 
     #endregion
 
     #region Com.IDataObject.Interface
 
     HRESULT Com.IDataObject.Interface.DAdvise(Com.FORMATETC* pformatetc, uint advf, Com.IAdviseSink* pAdvSink, uint* pdwConnection) =>
-        _innerData.DAdvise(pformatetc, advf, pAdvSink, pdwConnection);
+        InnerData.DAdvise(pformatetc, advf, pAdvSink, pdwConnection);
 
     HRESULT Com.IDataObject.Interface.DUnadvise(uint dwConnection) =>
-        _innerData.DUnadvise(dwConnection);
+        InnerData.DUnadvise(dwConnection);
 
     HRESULT Com.IDataObject.Interface.EnumDAdvise(Com.IEnumSTATDATA** ppenumAdvise) =>
-        _innerData.EnumDAdvise(ppenumAdvise);
+        InnerData.EnumDAdvise(ppenumAdvise);
 
     HRESULT Com.IDataObject.Interface.EnumFormatEtc(uint dwDirection, Com.IEnumFORMATETC** ppenumFormatEtc) =>
-        _innerData.EnumFormatEtc(dwDirection, ppenumFormatEtc);
+        InnerData.EnumFormatEtc(dwDirection, ppenumFormatEtc);
 
     HRESULT Com.IDataObject.Interface.GetData(Com.FORMATETC* pformatetcIn, Com.STGMEDIUM* pmedium) =>
-        _innerData.GetData(pformatetcIn, pmedium);
+        InnerData.GetData(pformatetcIn, pmedium);
 
     HRESULT Com.IDataObject.Interface.GetDataHere(Com.FORMATETC* pformatetc, Com.STGMEDIUM* pmedium) =>
-        _innerData.GetDataHere(pformatetc, pmedium);
+        InnerData.GetDataHere(pformatetc, pmedium);
 
     HRESULT Com.IDataObject.Interface.QueryGetData(Com.FORMATETC* pformatetc) =>
-        _innerData.QueryGetData(pformatetc);
+        InnerData.QueryGetData(pformatetc);
 
     HRESULT Com.IDataObject.Interface.GetCanonicalFormatEtc(Com.FORMATETC* pformatectIn, Com.FORMATETC* pformatetcOut) =>
-        _innerData.GetCanonicalFormatEtc(pformatectIn, pformatetcOut);
+        InnerData.GetCanonicalFormatEtc(pformatectIn, pformatetcOut);
 
     HRESULT Com.IDataObject.Interface.SetData(Com.FORMATETC* pformatetc, Com.STGMEDIUM* pmedium, BOOL fRelease) =>
-        _innerData.SetData(pformatetc, pmedium, fRelease);
+        InnerData.SetData(pformatetc, pmedium, fRelease);
     #endregion
 
     /// <inheritdoc cref="SetDataAsJson{T}(string, T)"/>
-    public void SetDataAsJson<T>(T data) =>
-        _innerData.SetDataAsJson<T, DataObject>(data);
+    public void SetDataAsJson<T>(T data)
+    {
+        if (_portableData is not null)
+        {
+            ArgumentNullException.ThrowIfNull(data);
+            string format = typeof(T).FullName ?? typeof(T).Name;
+            if (_portableData is PortableManagedDataObject portableManagedData)
+            {
+                portableManagedData.SetDataAsJson(format, data);
+            }
+            else
+            {
+                _portableData.SetData(format, data, autoConvert: false);
+            }
+
+            return;
+        }
+
+        InnerData.SetDataAsJson<T, DataObject>(data);
+    }
 
     /// <summary>
     ///  Stores the data in the specified format using the <see cref="JsonSerializer"/>.
@@ -650,6 +766,24 @@ public sealed unsafe partial class DataObject :
     /// <exception cref="ArgumentException">
     ///  <paramref name="format"/> is empty, whitespace, or a predefined format -or- <paramref name="data"/> isa a DataObject.
     /// </exception>
-    public void SetDataAsJson<T>(string format, T data) =>
-        _innerData.SetDataAsJson<T, DataObject>(data, format);
+    public void SetDataAsJson<T>(string format, T data)
+    {
+        if (_portableData is not null)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(format);
+            ArgumentNullException.ThrowIfNull(data);
+            if (_portableData is PortableManagedDataObject portableManagedData)
+            {
+                portableManagedData.SetDataAsJson(format, data);
+            }
+            else
+            {
+                _portableData.SetData(format, data, autoConvert: false);
+            }
+
+            return;
+        }
+
+        InnerData.SetDataAsJson<T, DataObject>(data, format);
+    }
 }

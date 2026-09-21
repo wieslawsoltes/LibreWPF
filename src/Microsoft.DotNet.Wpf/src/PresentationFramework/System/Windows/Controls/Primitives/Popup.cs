@@ -22,6 +22,7 @@ using MS.Internal.Controls;
 using MS.Internal.KnownBoxes;
 using MS.Internal.Interop;
 using MS.Win32;
+using ProGPU.Wpf.Interop;
 
 using CommonDependencyProperty = MS.Internal.PresentationFramework.CommonDependencyPropertyAttribute;
 
@@ -337,9 +338,35 @@ namespace System.Windows.Controls.Primitives
         {
             Popup popup = (Popup)d;
 
-            // This is actually the current state and not necessary the desired state (i.e. old value)
-            bool currentVisible = (popup._secHelper.IsWindowAlive() && (popup._asyncDestroy == null)) || (popup._asyncCreate != null);
             bool visible = (bool) e.NewValue;
+            // This is actually the current state and not necessary the desired state (i.e. old value).
+            // A portable PresentationSource can become disposed before WPF has removed its native popup
+            // bridge.  Treat that retained source reference as closable when IsOpen transitions to false,
+            // otherwise the bridge remains visible and hit-testable indefinitely.
+            bool hasClosableWindow = popup._secHelper.IsWindowAlive() ||
+                (!visible && popup._secHelper.IsPortable && popup._secHelper.HasWindowReference());
+            bool currentVisible = (hasClosableWindow && (popup._asyncDestroy == null)) || (popup._asyncCreate != null);
+            PopupSecurityHelper.TracePortablePopup("is-open changed old=" + e.OldValue + " new=" + e.NewValue + " currentVisible=" + currentVisible + " child=" + (popup.Child != null));
+
+            // Portable popup destruction is deferred so menu click routing can finish.  A popup can
+            // be reopened while that deferred destroy is pending and subsequently close again before
+            // the old timer has observed its cancellation.  In that state currentVisible is false only
+            // because _asyncDestroy is non-null, even though the native popup bridge is still visible.
+            // Treat every portable IsOpen=false transition as authoritative: replace any stale timer,
+            // synchronously hide the native surface, and arm one fresh deferred destroy.
+            if (!visible && popup._secHelper.IsPortable && popup._secHelper.HasWindowReference())
+            {
+                popup.CancelAsyncCreate();
+                popup.CancelAsyncDestroy();
+                popup.HideWindow();
+
+                if (CloseOnUnloadedHandler != null)
+                {
+                    popup.Unloaded -= CloseOnUnloadedHandler;
+                }
+
+                return;
+            }
 
             if (visible != currentVisible)
             {
@@ -373,7 +400,9 @@ namespace System.Windows.Controls.Primitives
                     // The popup wants to hide
                     popup.CancelAsyncCreate();
 
-                    if (popup._secHelper.IsWindowAlive() && (popup._asyncDestroy == null))
+                    if ((popup._secHelper.IsWindowAlive() ||
+                         (popup._secHelper.IsPortable && popup._secHelper.HasWindowReference())) &&
+                        (popup._asyncDestroy == null))
                     {
                         // The popup window still exists, get rid of it
                         // There are also no other async destroy requests
@@ -1225,7 +1254,9 @@ namespace System.Windows.Controls.Primitives
                 //
                 // Note we do not reestablish capture if we are losing capture
                 // ourselves.
-                bool reestablishCapture = e.OriginalSource != root && Mouse.Captured == null && MS.Win32.SafeNativeMethods.GetCapture() == IntPtr.Zero;
+                bool reestablishCapture = e.OriginalSource != root &&
+                    Mouse.Captured == null &&
+                    !PopupControlService.HasNativeMouseCapture(PresentationSource.CriticalFromVisual(root));
 
                 if(reestablishCapture)
                 {
@@ -1479,14 +1510,17 @@ namespace System.Windows.Controls.Primitives
 
         private void CreateWindow(bool asyncCall)
         {
+            PopupSecurityHelper.TracePortablePopup("create-window async=" + asyncCall + " placementTarget=" + (PlacementTarget != null) + " child=" + (Child != null));
             // Clear any previously cached value and let the current setup make a new determination
             ClearDropOpposite();
 
             // get target's visual
             Visual targetVisual = GetTarget();
+            PopupSecurityHelper.TracePortablePopup("create-window targetVisual=" + (targetVisual != null));
             // defer creation?
             if ((targetVisual != null) && PopupSecurityHelper.IsVisualPresentationSourceNull(targetVisual))
             {
+                PopupSecurityHelper.TracePortablePopup("create-window target presentation source null async=" + asyncCall);
                 // This is a case where the Popup is in a tree and its target is not hooked up to a window.
                 if (!asyncCall)
                 {
@@ -1517,7 +1551,8 @@ namespace System.Windows.Controls.Primitives
             // This ensures that a recycled HWND that is moving from one display
             // to another does not undergo a WM_DPICHANGED event and thus cause a
             // cascading failure.
-            if (PopupInitialPlacementHelper.IsPerMonitorDpiScalingActive)
+            if (!PopupSecurityHelper.RequiresPortableWindow(targetVisual) &&
+                PopupInitialPlacementHelper.IsPerMonitorDpiScalingActive)
             {
                 DestroyWindowImpl();
                 _positionInfo = null;
@@ -1527,6 +1562,7 @@ namespace System.Windows.Controls.Primitives
             if (makeNewWindow)
             {
                 // create the window
+                PopupSecurityHelper.TracePortablePopup("create-window build new targetVisual=" + (targetVisual != null));
                 BuildWindow(targetVisual);
                 CreateNewPopupRoot();
             }
@@ -1552,6 +1588,17 @@ namespace System.Windows.Controls.Primitives
                 isWindowAlive = _secHelper.IsWindowAlive();
                 if (isWindowAlive)
                 {
+                    if (_secHelper.IsPortable)
+                    {
+                        // The HWND path gets here through HwndSource auto-resize, which
+                        // updates _positionInfo.ChildSize and calls Reposition. Portable
+                        // popup sources are composed into the owner surface, so no native
+                        // auto-resize message is raised; run the equivalent position pass
+                        // after the popup root has been measured and sized.
+                        UpdatePosition();
+                        AttachPortablePopupRootLayoutUpdates();
+                    }
+
                     _secHelper.ForceMsaaToUiaBridge(_popupRoot);
                 }
             }
@@ -1559,13 +1606,19 @@ namespace System.Windows.Controls.Primitives
             {
                 // Update position manually
                 UpdatePosition();
+                AttachPortablePopupRootLayoutUpdates();
                 isWindowAlive = _secHelper.IsWindowAlive();
             }
 
             if (isWindowAlive)
             {
+                PopupSecurityHelper.TracePortablePopup("create-window show");
                 ShowWindow();
                 OnOpened(EventArgs.Empty);
+            }
+            else
+            {
+                PopupSecurityHelper.TracePortablePopup("create-window not alive after root");
             }
         }
 
@@ -1616,8 +1669,10 @@ namespace System.Windows.Controls.Primitives
         /// <returns>true if the window was destroyed, otherwise false</returns>
         private bool DestroyWindowImpl()
         {
-            if (_secHelper.IsWindowAlive())
+            if (_secHelper.CanDestroyWindow())
             {
+                CancelPortableSettledPosition();
+                DetachPortablePopupRootLayoutUpdates();
                 _secHelper.DestroyWindow(PopupFilterMessage, OnWindowResize, OnDpiChanged);
                 return true;
             }
@@ -1632,7 +1687,7 @@ namespace System.Windows.Controls.Primitives
         /// </summary>
         private void DestroyWindow()
         {
-            if (_secHelper.IsWindowAlive())
+            if (_secHelper.CanDestroyWindow())
             {
                 if (DestroyWindowImpl())
                 {
@@ -1655,6 +1710,7 @@ namespace System.Windows.Controls.Primitives
                 _popupRoot.Opacity = 1.0;
 
                 SetupAnimations(true);
+                SchedulePortableSettledPosition();
 
                 // Always set hittestable for non layered windows
                 SetHitTestable(HitTestable || !IsTransparent);
@@ -1667,6 +1723,7 @@ namespace System.Windows.Controls.Primitives
         // Close the window
         private void HideWindow()
         {
+            CancelPortableSettledPosition();
             bool animating = SetupAnimations(false);
 
             SetHitTestable(false);
@@ -1701,6 +1758,16 @@ namespace System.Windows.Controls.Primitives
 
             _popupRoot.StopAnimations();
 
+            // Portable popups are independent transient native surfaces.  Keeping
+            // that surface visible while a WPF opacity animation waits for its
+            // dispatcher timer makes menus flash, remain hit-testable after close,
+            // and briefly float above their owner.  Hide the portable surface
+            // synchronously; Win32 keeps the established popup animation behavior.
+            if (_secHelper.IsPortable)
+            {
+                return false;
+            }
+
             // Only animate if popup is transparent
             if (animation != PopupAnimation.None && IsTransparent)
             {
@@ -1729,6 +1796,50 @@ namespace System.Windows.Controls.Primitives
         {
             _asyncDestroy?.Stop();
             _asyncDestroy = null;
+        }
+
+        private void SchedulePortableSettledPosition()
+        {
+            if (!_secHelper.IsPortable)
+            {
+                return;
+            }
+
+            CancelPortableSettledPosition();
+            _portablePlacementTrackingDeadline =
+                Environment.TickCount64 + (long)PortablePlacementSettleDelay.TotalMilliseconds;
+            // Menu and ComboBox Opened handlers can invalidate popup content after the
+            // initial position has already been applied.  A Render-priority tracking tick
+            // can then observe the new target state with the old PopupRoot size and expose
+            // a one-frame placement above or beside the target.  Loaded priority runs after
+            // that layout/render pass, so each native move uses one coherent layout snapshot.
+            _portableSettledPosition = new DispatcherTimer(DispatcherPriority.Loaded)
+            {
+                Interval = PortablePlacementTrackingInterval
+            };
+            _portableSettledPosition.Tick += OnPortableSettledPosition;
+            _portableSettledPosition.Start();
+        }
+
+        private void CancelPortableSettledPosition()
+        {
+            if (_portableSettledPosition == null)
+            {
+                return;
+            }
+
+            _portableSettledPosition.Stop();
+            _portableSettledPosition.Tick -= OnPortableSettledPosition;
+            _portableSettledPosition = null;
+        }
+
+        private void OnPortableSettledPosition(object sender, EventArgs e)
+        {
+            Reposition();
+            if (Environment.TickCount64 >= _portablePlacementTrackingDeadline)
+            {
+                CancelPortableSettledPosition();
+            }
         }
 
         internal void ForceClose()
@@ -1874,6 +1985,68 @@ namespace System.Windows.Controls.Primitives
 
                 // Reposition the popup
                 Reposition();
+            }
+        }
+
+        private void AttachPortablePopupRootLayoutUpdates()
+        {
+            if (!_secHelper.IsPortable ||
+                _popupRoot == null ||
+                _isPortablePopupRootLayoutUpdateAttached)
+            {
+                return;
+            }
+
+            _popupRoot.LayoutUpdated += OnPortablePopupRootLayoutUpdated;
+            _isPortablePopupRootLayoutUpdateAttached = true;
+        }
+
+        private void DetachPortablePopupRootLayoutUpdates()
+        {
+            if (!_isPortablePopupRootLayoutUpdateAttached)
+            {
+                return;
+            }
+
+            _popupRoot?.LayoutUpdated -= OnPortablePopupRootLayoutUpdated;
+
+            _isPortablePopupRootLayoutUpdateAttached = false;
+        }
+
+        private void OnPortablePopupRootLayoutUpdated(object sender, EventArgs e)
+        {
+            if (_isUpdatingPortablePopupRootLayout ||
+                !IsOpen ||
+                _popupRoot == null ||
+                !_secHelper.IsWindowAlive())
+            {
+                return;
+            }
+
+            _isUpdatingPortablePopupRootLayout = true;
+            try
+            {
+                if (_secHelper.TryUpdatePortablePopupRootClientSize(_popupRoot, out Size clientSize))
+                {
+                    OnWindowResize(_popupRoot, new AutoResizedEventArgs(clientSize));
+                    // Size can remain constant while a theme entrance animation changes
+                    // the child's transform. Native popup windows receive position updates
+                    // throughout that animation; the portable compositor has no HWND move
+                    // notifications, so keep its layer compensation synchronized here too.
+                    UpdatePosition();
+                }
+                else
+                {
+                    // A portable popup shares the owner compositor instead of receiving native
+                    // window-position updates.  Render transforms (for example Fluent's drop-down
+                    // entrance animation) and placement-target movement can change the correct
+                    // owner-relative origin without changing the popup's measured size.
+                    UpdatePosition();
+                }
+            }
+            finally
+            {
+                _isUpdatingPortablePopupRootLayout = false;
             }
         }
 
@@ -2124,7 +2297,7 @@ namespace System.Windows.Controls.Primitives
             // Popups are not nudged if their axes do not align with the screen axes
 
             // Use the size of the popupRoot in case it is clipping the popup content
-            childBounds = new Rect((Size)_secHelper.GetTransformToDevice().Transform((Point)_popupRoot.RenderSize));
+            childBounds = new Rect(_secHelper.ClientSizeToScreen(_popupRoot.RenderSize));
 
             childBounds.Offset(bestTranslation);
             screenBounds = GetScreenBounds(targetBounds, placementTargetInterestPoints[(int)InterestPoint.TopLeft]);
@@ -2319,7 +2492,7 @@ namespace System.Windows.Controls.Primitives
                     placementRect = new Rect();
                 }
 
-                offset = _secHelper.GetTransformToDevice().Transform(offset);
+                offset = (Vector)_secHelper.ClientOffsetToScreen((Point)offset);
 
                 // Offset the rect
                 placementRect.Offset(offset);
@@ -2401,11 +2574,18 @@ namespace System.Windows.Controls.Primitives
 
             // Transform InterestPoints to popup's space
             GeneralTransform childToPopupTransform = TransformToClient(child, _popupRoot);
+            bool portableClient = _secHelper.IsPortable;
 
             for (int i = 0; i < 5; i++)
             {
                 // subtract Animation offset and transform point to the screen coordinate space
                 childToPopupTransform.TryTransform(interestPoints[i] - offset, out interestPoints[i]);
+                if (portableClient)
+                {
+                    // TransformToClient deliberately leaves portable points in
+                    // DIPs. Scoring and nudging compare desktop-sized extents.
+                    interestPoints[i] = _secHelper.ClientOffsetToScreen(interestPoints[i]);
+                }
             }
 
             return interestPoints;
@@ -2435,12 +2615,23 @@ namespace System.Windows.Controls.Primitives
             visualToClientTransform.Children.Add(visual.TransformToAncestor(rootVisual));
 
             // Add root and composition target's transfrom
-            visualToClientTransform.Children.Add(new MatrixTransform(
-                PointUtil.GetVisualTransform(rootVisual) *
-                PopupSecurityHelper.GetTransformToDevice(rootVisual)
-                ));
+            Matrix rootToClient = PointUtil.GetVisualTransform(rootVisual);
+            if (!UsesPortableLogicalScreenCoordinates(rootVisual))
+            {
+                rootToClient *= PopupSecurityHelper.GetTransformToDevice(rootVisual);
+            }
+
+            visualToClientTransform.Children.Add(new MatrixTransform(rootToClient));
 
             return visualToClientTransform;
+        }
+
+        private static bool UsesPortableLogicalScreenCoordinates(Visual visual)
+        {
+            PresentationSource source = visual != null
+                ? PresentationSource.CriticalFromVisual(visual)
+                : null;
+            return source != null && PointUtil.IsPortablePresentationSource(source);
         }
 
         // Gets the smallest rectangle that contains all points in the list
@@ -2622,8 +2813,9 @@ namespace System.Windows.Controls.Primitives
             Size limitSize;
             GetPopupRootLimits(out targetBounds, out screenBounds, out limitSize);
 
-            // Convert from popup's space to screen space
-            desiredSize = (Size)_secHelper.GetTransformToDevice().Transform((Point)desiredSize);
+            // Restrict in the same desktop units as the monitor/work-area bounds.
+            // Portable desktop scale is independent of framebuffer DPI.
+            desiredSize = _secHelper.ClientSizeToScreen(desiredSize);
 
             desiredSize.Width = Math.Min(desiredSize.Width, screenBounds.Width);
             desiredSize.Width = Math.Min(desiredSize.Width, limitSize.Width);
@@ -2634,8 +2826,7 @@ namespace System.Windows.Controls.Primitives
             desiredSize.Height = Math.Min(desiredSize.Height, maxHeight);
             desiredSize.Height = Math.Min(desiredSize.Height, limitSize.Height);
 
-            // Convert back from screen space to popup's space
-            desiredSize = (Size)_secHelper.GetTransformFromDevice().Transform((Point)desiredSize);
+            desiredSize = _secHelper.ScreenSizeToClient(desiredSize);
 
             return desiredSize;
         }
@@ -2654,6 +2845,12 @@ namespace System.Windows.Controls.Primitives
         // Else this is the BoundingRect of either the placement target's window or the parent of the popup's window.
         private Rect GetScreenBounds(Rect boundingBox, Point p)
         {
+            if (_secHelper.IsPortable)
+            {
+                bool preferWorkArea = Child is MenuBase || Child is ToolTip || TemplatedParent is MenuItem;
+                return _secHelper.GetPortablePlacementBounds(boundingBox, p, preferWorkArea);
+            }
+
             if (_secHelper.IsChildPopup)
             {
                 // The "monitor" is the main window for child windows.
@@ -2849,6 +3046,10 @@ namespace System.Windows.Controls.Primitives
             return _secHelper.GetParentWindowRect();
         }
 
+        // The actual source selected when this popup was created, not a mutable
+        // placement target or a native handle inferred from the current OS.
+        internal PresentationSource PortableInputOwnerSource => _secHelper.PortableInputOwnerSource;
+
         internal Rect GetWindowRect()
         {
             return _secHelper.GetWindowRect();
@@ -2900,6 +3101,8 @@ namespace System.Windows.Controls.Primitives
 
         private const int AnimationDelay = 150;
         internal static TimeSpan AnimationDelayTime = new TimeSpan(0, 0, 0, 0, AnimationDelay);
+        private static readonly TimeSpan PortablePlacementTrackingInterval = TimeSpan.FromMilliseconds(16);
+        private static readonly TimeSpan PortablePlacementSettleDelay = TimeSpan.FromMilliseconds(250);
         internal static RoutedEventHandler CloseOnUnloadedHandler;
         private static readonly UncommonField<PopupRoot> ParentPopupRootField = new UncommonField<PopupRoot>();
 
@@ -2908,6 +3111,10 @@ namespace System.Windows.Controls.Primitives
         private PopupRoot _popupRoot;
         private DispatcherOperation _asyncCreate;
         private DispatcherTimer _asyncDestroy;
+        private DispatcherTimer _portableSettledPosition;
+        private long _portablePlacementTrackingDeadline;
+        private bool _isPortablePopupRootLayoutUpdateAttached;
+        private bool _isUpdatingPortablePopupRootLayout;
 
         // holder of the popup's security helper
         private PopupSecurityHelper _secHelper;
@@ -2947,7 +3154,7 @@ namespace System.Windows.Controls.Primitives
         /// <summary>
         /// Helper for popup's security data
         /// </summary>
-        private class PopupSecurityHelper
+        internal class PopupSecurityHelper
         {
             /// <summary>
             /// Helper constructor
@@ -2978,14 +3185,35 @@ namespace System.Windows.Controls.Primitives
 
             internal bool IsWindowAlive() => _window is not null && !_window.IsDisposed;
 
+            internal bool HasWindowReference() => _window is not null;
+
+            internal bool IsPortable => PointUtil.IsPortablePresentationSource(_window);
+
+            internal static bool RequiresPortableWindow(Visual placementTarget)
+            {
+                Visual owner = FindMainTreeVisual(placementTarget) ?? placementTarget;
+                return PointUtil.IsPortablePresentationSource(GetPresentationSource(owner)) ||
+                    PortableWpfRuntime.GetMediaBackendAndFreeze() == PortableWpfMediaBackend.Portable;
+            }
+
+            internal bool CanDestroyWindow() =>
+                IsWindowAlive() || (IsPortable && HasWindowReference());
+
             internal Point ClientToScreen(Visual rootVisual, Point clientPoint)
             {
                 // Get the HwndSource of the target element.
-                HwndSource targetWindow = PopupSecurityHelper.GetPresentationSource(rootVisual) as HwndSource;
+                PresentationSource targetWindow = PopupSecurityHelper.GetPresentationSource(rootVisual);
 
-                if (targetWindow != null)
+                if (targetWindow is HwndSource hwndSource)
                 {
-                    return PointUtil.ToPoint(ClientToScreen(targetWindow, clientPoint));
+                    return PointUtil.ToPoint(ClientToScreen(hwndSource, clientPoint));
+                }
+
+                // Portable clients and screens use the platform's logical coordinate space.
+                // PointUtil owns the remaining logical client-to-screen translation.
+                if (targetWindow != null && !targetWindow.IsDisposed)
+                {
+                    return PointUtil.ClientToScreen(clientPoint, targetWindow);
                 }
 
                 return clientPoint;
@@ -3022,10 +3250,10 @@ namespace System.Windows.Controls.Primitives
                 if (Mouse.DirectlyOver != null)
                 {
                     // get target window info
-                    HwndSource hwndSource = null;
+                    PresentationSource presentationSource = null;
                     if (targetVisual != null)
                     {
-                        hwndSource = PopupSecurityHelper.GetPresentationSource(targetVisual) as HwndSource;
+                        presentationSource = PopupSecurityHelper.GetPresentationSource(targetVisual);
                     }
 
                     IInputElement relativeTarget = targetVisual as IInputElement;
@@ -3034,21 +3262,31 @@ namespace System.Windows.Controls.Primitives
                     {
                         Point pt = Mouse.GetPosition(relativeTarget);
 
-                        if ((hwndSource != null) && !hwndSource.IsDisposed)
+                        if ((presentationSource != null) && !presentationSource.IsDisposed)
                         {
-                            Visual rootVisual = hwndSource.RootVisual;
-                            CompositionTarget ct = hwndSource.CompositionTarget;
+                            Visual rootVisual = presentationSource.RootVisual;
+                            CompositionTarget ct = presentationSource.CompositionTarget;
 
                             if ((rootVisual != null) && (ct != null))
                             {
                                 // Transform the point from the targetVisual to client device units
                                 GeneralTransform transformTo = targetVisual.TransformToAncestor(rootVisual);
-                                Matrix transform = PointUtil.GetVisualTransform(rootVisual) * ct.TransformToDevice;
+                                Matrix transform = PointUtil.GetVisualTransform(rootVisual);
+                                if (!PointUtil.IsPortablePresentationSource(presentationSource))
+                                {
+                                    transform *= ct.TransformToDevice;
+                                }
                                 transformTo.TryTransform(pt, out pt);
                                 pt = transform.Transform(pt);
 
                                 // Convert from device client units to screen units
-                                return ClientToScreen(hwndSource, pt);
+                                if (presentationSource is HwndSource hwndSource)
+                                {
+                                    return ClientToScreen(hwndSource, pt);
+                                }
+
+                                pt = PointUtil.ClientToScreen(pt, presentationSource);
+                                return new NativeMethods.POINT((int)pt.X, (int)pt.Y);
                             }
                         }
                     }
@@ -3057,13 +3295,80 @@ namespace System.Windows.Controls.Primitives
                 // This is a fallback if we couldn't convert Mouse.GetPosition
                 NativeMethods.POINT mousePoint = new NativeMethods.POINT(0, 0);
 
+                if (RequiresPortableWindow(targetVisual))
+                {
+                    return GetPortableMouseCursorFallbackPos(targetVisual);
+                }
+
                 UnsafeNativeMethods.TryGetCursorPos(ref mousePoint);
 
                 return mousePoint;
             }
 
+            private static NativeMethods.POINT GetPortableMouseCursorFallbackPos(Visual targetVisual)
+            {
+                Point pt = GetPortableVisualAnchor(targetVisual);
+                PresentationSource presentationSource = targetVisual != null
+                    ? PopupSecurityHelper.GetPresentationSource(targetVisual)
+                    : null;
+
+                if (targetVisual != null && presentationSource != null && !presentationSource.IsDisposed)
+                {
+                    Visual rootVisual = presentationSource.RootVisual;
+                    CompositionTarget ct = presentationSource.CompositionTarget;
+
+                    if (rootVisual != null && ct != null)
+                    {
+                        if (!ReferenceEquals(targetVisual, rootVisual))
+                        {
+                            GeneralTransform transformTo = targetVisual.TransformToAncestor(rootVisual);
+                            transformTo.TryTransform(pt, out pt);
+                        }
+
+                        Matrix transform = PointUtil.GetVisualTransform(rootVisual);
+                        pt = transform.Transform(pt);
+                        pt = PointUtil.ClientToScreen(pt, presentationSource);
+                    }
+                }
+
+                return new NativeMethods.POINT((int)pt.X, (int)pt.Y);
+            }
+
+            private static Point GetPortableVisualAnchor(Visual targetVisual)
+            {
+                if (targetVisual is UIElement targetElement)
+                {
+                    Size renderSize = targetElement.RenderSize;
+                    return new Point(
+                        ToPortableAnchorCoordinate(renderSize.Width),
+                        ToPortableAnchorCoordinate(renderSize.Height));
+                }
+
+                return new Point(0.0, 0.0);
+            }
+
+            private static double ToPortableAnchorCoordinate(double value)
+            {
+                return double.IsFinite(value) && value > 0.0 ? value / 2.0 : 0.0;
+            }
+
             internal void SetPopupPos(bool position, int x, int y, bool size, int width, int height)
             {
+                if (IsPortable)
+                {
+                    if (position)
+                    {
+                        TrySetPortablePopupPosition(x, y);
+                    }
+
+                    if (size)
+                    {
+                        TrySetPortablePopupSize(width, height);
+                    }
+
+                    return;
+                }
+
                 int flags = NativeMethods.SWP_NOZORDER | NativeMethods.SWP_NOACTIVATE;
                 if (!position)
                 {
@@ -3080,6 +3385,11 @@ namespace System.Windows.Controls.Primitives
 
             internal Rect GetParentWindowRect()
             {
+                if (IsPortable)
+                {
+                    return GetPresentationSourceRootRect(_portableOwnerPresentationSource);
+                }
+
                 NativeMethods.RECT rect = new NativeMethods.RECT(0, 0, 0, 0);
 
                 IntPtr parent = ParentHandle;
@@ -3091,8 +3401,63 @@ namespace System.Windows.Controls.Primitives
                 return PointUtil.ToRect(rect);
             }
 
+            internal Rect GetPortablePlacementBounds(Rect target, Point anchor, bool preferWorkArea)
+            {
+                if (_window == null || !TryGetPortablePopupService(out var service) ||
+                    !service.TryGetPopupPlacementBounds(_window,
+                        new PortableRect(target.X, target.Y, target.Width, target.Height), out var bounds))
+                {
+                    throw new PlatformNotSupportedException("The portable popup host did not provide placement bounds.");
+                }
+
+                if (bounds.Kind == PortablePopupPlacementBoundsKind.OwnerSurface)
+                {
+                    Rect owner = GetParentWindowRect();
+                    if (owner.IsEmpty) throw new InvalidOperationException("The owner-surface popup has no client bounds.");
+                    return owner;
+                }
+
+                if (bounds.Kind != PortablePopupPlacementBoundsKind.NativeScreen ||
+                    !PortablePopupMonitorSelection.IsValidMonitorBounds(bounds.Screen, bounds.WorkArea))
+                {
+                    throw new InvalidOperationException("The portable popup host returned invalid monitor bounds.");
+                }
+
+                PortableRect work = bounds.WorkArea;
+                PortableRect selected = preferWorkArea && anchor.X >= work.X && anchor.X <= work.X + work.Width &&
+                    anchor.Y >= work.Y && anchor.Y <= work.Y + work.Height ? work : bounds.Screen;
+                return new Rect(selected.X, selected.Y, selected.Width, selected.Height);
+            }
+
+            private static Rect GetPresentationSourceRootRect(PresentationSource source)
+            {
+                CompositionTarget compositionTarget = source?.CompositionTarget;
+                FrameworkElement rootElement = compositionTarget?.RootVisual as FrameworkElement;
+                if (rootElement == null)
+                {
+                    return Rect.Empty;
+                }
+
+                Size renderSize = rootElement.RenderSize;
+                if (renderSize.Width == 0 && renderSize.Height == 0)
+                {
+                    return Rect.Empty;
+                }
+
+                Point minPoint = PointUtil.RootToClient(new Point(0, 0), source);
+                Point maxPoint = PointUtil.RootToClient(new Point(renderSize.Width, renderSize.Height), source);
+                minPoint = PointUtil.ClientToScreen(minPoint, source);
+                maxPoint = PointUtil.ClientToScreen(maxPoint, source);
+                return new Rect(minPoint, maxPoint);
+            }
+
             internal Rect GetWindowRect()
             {
+                if (IsPortable)
+                {
+                    return GetPresentationSourceRootRect(_window);
+                }
+
                 NativeMethods.RECT rect = new NativeMethods.RECT(0, 0, 0, 0);
 
                 IntPtr hwnd = Handle;
@@ -3104,9 +3469,48 @@ namespace System.Windows.Controls.Primitives
                 return PointUtil.ToRect(rect);
             }
 
+            private bool TryGetDesktopTransform(out PortableDesktopTransform transform)
+            {
+                PresentationSource source = _window ?? _portableOwnerPresentationSource;
+                if (PointUtil.TryGetPortableDesktopTransform(source, out transform))
+                {
+                    return true;
+                }
+                if (source != null && PointUtil.IsPortablePresentationSource(source))
+                {
+                    throw new PlatformNotSupportedException("Portable popup desktop geometry is unavailable.");
+                }
+                return false;
+            }
+
+            internal Point ClientOffsetToScreen(Point offset)
+            {
+                if (TryGetDesktopTransform(out PortableDesktopTransform transform))
+                {
+                    PortablePoint point = transform.ClientVectorToDesktop(new PortablePoint(offset.X, offset.Y));
+                    return new Point(point.X, point.Y);
+                }
+                return GetTransformToDevice().Transform(offset);
+            }
+
+            internal Size ClientSizeToScreen(Size size)
+            {
+                return (Size)ClientOffsetToScreen((Point)size);
+            }
+
+            internal Size ScreenSizeToClient(Size size)
+            {
+                if (TryGetDesktopTransform(out PortableDesktopTransform transform))
+                {
+                    PortablePoint point = transform.DesktopVectorToClient(new PortablePoint(size.Width, size.Height));
+                    return new Size(point.X, point.Y);
+                }
+                return (Size)GetTransformFromDevice().Transform((Point)size);
+            }
+
             internal Matrix GetTransformToDevice()
             {
-                CompositionTarget ct = _window.CompositionTarget;
+                CompositionTarget ct = _window?.CompositionTarget;
                 if (ct != null && !ct.IsDisposed)
                 {
                     return ct.TransformToDevice;
@@ -3117,15 +3521,15 @@ namespace System.Windows.Controls.Primitives
 
             internal static Matrix GetTransformToDevice(Visual targetVisual)
             {
-                HwndSource hwndSource = null;
+                PresentationSource presentationSource = null;
                 if (targetVisual != null)
                 {
-                    hwndSource = PopupSecurityHelper.GetPresentationSource(targetVisual) as HwndSource;
+                    presentationSource = PopupSecurityHelper.GetPresentationSource(targetVisual);
                 }
 
-                if (hwndSource != null)
+                if (presentationSource != null)
                 {
-                    CompositionTarget ct = hwndSource.CompositionTarget;
+                    CompositionTarget ct = presentationSource.CompositionTarget;
                     if (ct != null && !ct.IsDisposed)
                     {
                         return ct.TransformToDevice;
@@ -3137,7 +3541,7 @@ namespace System.Windows.Controls.Primitives
 
             internal Matrix GetTransformFromDevice()
             {
-                CompositionTarget ct = _window.CompositionTarget;
+                CompositionTarget ct = _window?.CompositionTarget;
                 if (ct != null && !ct.IsDisposed)
                 {
                     return ct.TransformFromDevice;
@@ -3148,7 +3552,35 @@ namespace System.Windows.Controls.Primitives
 
             internal void SetWindowRootVisual(Visual v)
             {
+                TracePortablePopup("set-root " + (v?.GetType().FullName ?? "<null>"));
                 _window.RootVisual = v;
+                TryUpdatePortablePopupRootClientSize(v, out _);
+            }
+
+            internal bool TryUpdatePortablePopupRootClientSize(Visual rootVisual, out Size clientSize)
+            {
+                clientSize = default;
+                if (rootVisual == null)
+                {
+                    TracePortablePopup("size-skip root-null");
+                    return false;
+                }
+
+                PortablePresentationSource portableSource = _window as PortablePresentationSource ??
+                    (_window as HwndSource)?.PortableOwner as PortablePresentationSource;
+                if (portableSource == null)
+                {
+                    TracePortablePopup("size-skip source=" + (_window?.GetType().FullName ?? "<null>"));
+                    return false;
+                }
+
+                clientSize = GetPortableRootClientSize(rootVisual);
+                TracePortablePopup("size-root " + clientSize.Width.ToString("0.###") + "x" + clientSize.Height.ToString("0.###"));
+                portableSource.SetClientSize(clientSize.Width, clientSize.Height);
+                TrySetPortablePopupSize(
+                    ToPortableClientDimension(clientSize.Width),
+                    ToPortableClientDimension(clientSize.Height));
+                return true;
             }
 
             internal static bool IsVisualPresentationSourceNull(Visual visual)
@@ -3158,6 +3590,12 @@ namespace System.Windows.Controls.Primitives
 
             internal void ShowWindow()
             {
+                if (IsPortable)
+                {
+                    TryShowPortablePopup();
+                    return;
+                }
+
                 if (IsChildPopup)
                 {
                     IntPtr lastWebOCHwnd = GetLastWebOCHwnd();
@@ -3187,6 +3625,12 @@ namespace System.Windows.Controls.Primitives
 
             internal void HideWindow()
             {
+                if (IsPortable)
+                {
+                    TryHidePortablePopup();
+                    return;
+                }
+
                 UnsafeNativeMethods.ShowWindow(new HandleRef(null, Handle), NativeMethods.SW_HIDE);
             }
 
@@ -3226,6 +3670,11 @@ namespace System.Windows.Controls.Primitives
 
             internal void SetHitTestable(bool hitTestable)
             {
+                if (IsPortable)
+                {
+                    TrySetPortablePopupHitTestable(hitTestable);
+                    return;
+                }
 
                 // get the window handle
                 IntPtr handle = Handle;
@@ -3289,6 +3738,30 @@ namespace System.Windows.Controls.Primitives
             {
                 Debug.Assert(!IsChildPopup || (IsChildPopup && !transparent), "Child popups cannot be transparent");
                 transparent = transparent && !IsChildPopup;
+
+                if (RequiresPortableWindow(placementTarget))
+                {
+                    try
+                    {
+                        if (!TryCreatePortablePopupSource(x, y, placementTarget, transparent, out PresentationSource portableWindow))
+                        {
+                            throw new PlatformNotSupportedException(
+                                "No portable popup host accepted this owner. Falling back to an unhosted source or Windows MIL is not permitted.");
+                        }
+                        TracePortablePopup("build-window portable source created");
+                        _window = portableWindow;
+                    }
+                    finally
+                    {
+                        if (_window == null)
+                        {
+                            _portableOwnerPresentationSource = null;
+                            _portablePopupService = null;
+                        }
+                    }
+
+                    return;
+                }
 
                 Visual mainTreeVisual = placementTarget;
                 if (IsChildPopup)
@@ -3370,6 +3843,11 @@ namespace System.Windows.Controls.Primitives
 
             private static bool ConnectedToForegroundWindow(IntPtr window)
             {
+                if (!OperatingSystem.IsWindows())
+                {
+                    return false;
+                }
+
                 IntPtr foregroundWindow = UnsafeNativeMethods.GetForegroundWindow();
 
                 while (window != IntPtr.Zero)
@@ -3388,15 +3866,25 @@ namespace System.Windows.Controls.Primitives
             // Helper's Critical Methods - NOT safe to expose
             /////////////////////////////////////////////////////////////////////////////////////
 
-            private static IntPtr GetHandle(HwndSource hwnd)
+            private static IntPtr GetHandle(PresentationSource source)
             {
-                // add hook to the popup's window
-                return (hwnd!=null ? hwnd.Handle : IntPtr.Zero);
+                // Portable identities are routed only through the typed host service.
+                return source switch
+                {
+                    PortablePresentationSource portable => portable.Handle,
+                    HwndSource hwnd => hwnd.Handle,
+                    _ => IntPtr.Zero
+                };
             }
 
-            private static IntPtr GetParentHandle(HwndSource hwnd)
+            private static IntPtr GetParentHandle(PresentationSource source)
             {
-                if (hwnd != null)
+                if (PointUtil.IsPortablePresentationSource(source) || !OperatingSystem.IsWindows())
+                {
+                    return IntPtr.Zero;
+                }
+
+                if (source is HwndSource hwnd)
                 {
                     IntPtr child = GetHandle(hwnd);
                     if (child != IntPtr.Zero)
@@ -3423,6 +3911,16 @@ namespace System.Windows.Controls.Primitives
             ///
             /// </summary>
             internal void ForceMsaaToUiaBridge(PopupRoot popupRoot)
+            {
+                if (IsPortable || !OperatingSystem.IsWindows())
+                {
+                    return;
+                }
+
+                ForceMsaaToUiaBridgeWindows(popupRoot);
+            }
+
+            private void ForceMsaaToUiaBridgeWindows(PopupRoot popupRoot)
             {
                 if (Handle != IntPtr.Zero && (UnsafeNativeMethods.IsWinEventHookInstalled(NativeMethods.EVENT_OBJECT_FOCUS) || UnsafeNativeMethods.IsWinEventHookInstalled(NativeMethods.EVENT_OBJECT_STATECHANGE)))
                 {
@@ -3452,10 +3950,48 @@ namespace System.Windows.Controls.Primitives
             internal void DestroyWindow(HwndSourceHook hook, AutoResizedEventHandler onAutoResizedEventHandler, HwndDpiChangedEventHandler onDpiChagnedEventHandler)
             {
                 // Do this first to prevent infinite loops in dispose
-                HwndSource hwnd = _window;
+                PresentationSource source = _window;
                 _window = null;
+                _portableOwnerPresentationSource = null;
 
-                if (!hwnd.IsDisposed)
+                if (source == null)
+                {
+                    return;
+                }
+
+                if (PointUtil.IsPortablePresentationSource(source))
+                {
+                    // Remove the host bridge even if the portable PresentationSource was already
+                    // disposed.  Its native transient window and GPU hit-test cache are owned by
+                    // that bridge, not by PresentationSource.IsDisposed.
+                    try
+                    {
+                        TryDestroyPortablePopup(source);
+                    }
+                    finally
+                    {
+                        _portablePopupService = null;
+                        if (!source.IsDisposed)
+                        {
+                            try
+                            {
+                                source.RootVisual = null;
+                            }
+                            finally
+                            {
+                                (source as IDisposable)?.Dispose();
+                            }
+                        }
+                    }
+                    return;
+                }
+
+                if (source.IsDisposed)
+                {
+                    return;
+                }
+
+                if (source is HwndSource hwnd)
                 {
                     hwnd.AutoResized -=  onAutoResizedEventHandler ;
                     hwnd.DpiChanged -= onDpiChagnedEventHandler;
@@ -3463,6 +3999,220 @@ namespace System.Windows.Controls.Primitives
                     hwnd.RootVisual = null;
                     hwnd.Dispose();
                 }
+                else
+                {
+                    source.RootVisual = null;
+                    (source as IDisposable)?.Dispose();
+                }
+            }
+
+            private bool TryCreatePortablePopupSource(
+                int x,
+                int y,
+                Visual placementTarget,
+                bool transparent,
+                out PresentationSource portableWindow)
+            {
+                portableWindow = null;
+                if (!TryGetPortablePopupService(out IPortablePopupServiceRegistrar service))
+                {
+                    return false;
+                }
+
+                // Portable popups are composited into one native owner surface.  Resolve through
+                // any PopupRoot ancestors even though the Win32 child-popup flag is not active, so
+                // nested menus use the main tree's presentation source and client bounds.
+                Visual mainTreeVisual = FindMainTreeVisual(placementTarget) ?? placementTarget;
+
+                PresentationSource ownerPresentationSource = GetPresentationSource(mainTreeVisual);
+                if (ownerPresentationSource == null || ownerPresentationSource.IsDisposed ||
+                    !PointUtil.IsPortablePresentationSource(ownerPresentationSource))
+                {
+                    return false;
+                }
+                _portableOwnerPresentationSource = ownerPresentationSource;
+                Point ownerClientScreenOrigin = PointUtil.ClientToScreen(new Point(0, 0), ownerPresentationSource);
+                Point popupScreenDevice = ToPortableScreenDevicePoint(new Point(x, y), ownerPresentationSource);
+                Point ownerClientScreenDevice = ToPortableScreenDevicePoint(ownerClientScreenOrigin, ownerPresentationSource);
+                var request = new PortablePopupCreateRequest(
+                    placementTarget,
+                    ownerPresentationSource,
+                    GetHandle(ownerPresentationSource),
+                    popupScreenDeviceX: DoubleUtil.DoubleToInt(popupScreenDevice.X),
+                    popupScreenDeviceY: DoubleUtil.DoubleToInt(popupScreenDevice.Y),
+                    ownerClientScreenDeviceX: DoubleUtil.DoubleToInt(ownerClientScreenDevice.X),
+                    ownerClientScreenDeviceY: DoubleUtil.DoubleToInt(ownerClientScreenDevice.Y),
+                    isTransparent: transparent,
+                    isChildPopup: IsChildPopup);
+
+                if (!service.TryCreatePopup(request, out object presentationSource))
+                {
+                    return false;
+                }
+
+                if (presentationSource is not PresentationSource typedPresentationSource ||
+                    typedPresentationSource.IsDisposed ||
+                    !PointUtil.IsPortablePresentationSource(typedPresentationSource) ||
+                    GetHandle(typedPresentationSource) == IntPtr.Zero)
+                {
+                    // The factory owns an accepted result even when its source contract
+                    // is invalid. Return it to that host; never publish partial ownership.
+                    if (presentationSource != null)
+                    {
+                        service.TryDestroyPopup(presentationSource);
+                    }
+                    return false;
+                }
+
+                portableWindow = typedPresentationSource;
+                return true;
+            }
+
+            private bool TrySetPortablePopupPosition(int x, int y)
+            {
+                Point popupScreenDevice = ToPortableScreenDevicePoint(
+                    new Point(x, y),
+                    _portableOwnerPresentationSource);
+                return TryGetPortablePopupService(out IPortablePopupServiceRegistrar service) &&
+                    _window != null &&
+                    service.TrySetPopupPosition(
+                        _window,
+                        DoubleUtil.DoubleToInt(popupScreenDevice.X),
+                        DoubleUtil.DoubleToInt(popupScreenDevice.Y));
+            }
+
+            private static Point ToPortableScreenDevicePoint(
+                Point logicalScreenPoint,
+                PresentationSource presentationSource)
+            {
+                CompositionTarget target = presentationSource?.CompositionTarget;
+                return target != null && !target.IsDisposed
+                    ? target.TransformToDevice.Transform(logicalScreenPoint)
+                    : logicalScreenPoint;
+            }
+
+            private bool TrySetPortablePopupSize(int width, int height)
+            {
+                return TryGetPortablePopupService(out IPortablePopupServiceRegistrar service) &&
+                    _window != null &&
+                    service.TrySetPopupSize(_window, width, height);
+            }
+
+            private bool TryShowPortablePopup()
+            {
+                return TryGetPortablePopupService(out IPortablePopupServiceRegistrar service) &&
+                    _window != null &&
+                    service.TryShowPopup(_window);
+            }
+
+            private bool TryHidePortablePopup()
+            {
+                return TryGetPortablePopupService(out IPortablePopupServiceRegistrar service) &&
+                    _window != null &&
+                    service.TryHidePopup(_window);
+            }
+
+            private bool TrySetPortablePopupHitTestable(bool hitTestable)
+            {
+                return TryGetPortablePopupService(out IPortablePopupServiceRegistrar service) &&
+                    _window != null &&
+                    service.TrySetPopupHitTestable(_window, hitTestable);
+            }
+
+            private bool TryDestroyPortablePopup(PresentationSource source)
+            {
+                return TryGetPortablePopupService(out IPortablePopupServiceRegistrar service) &&
+                    source != null &&
+                    service.TryDestroyPopup(source);
+            }
+
+            private bool TryGetPortablePopupService(out IPortablePopupServiceRegistrar service)
+            {
+                if (_portablePopupService != null)
+                {
+                    service = _portablePopupService;
+                    return true;
+                }
+
+                if (PortableWpfServiceRegistry.TryGetPopupService(
+                        PortableWpfServiceKey.PresentationFramework,
+                        out service))
+                {
+                    _portablePopupService = service;
+                    return true;
+                }
+
+                service = null;
+                return false;
+            }
+
+            private static Size GetPortableRootClientSize(Visual rootVisual)
+            {
+                if (rootVisual is UIElement rootElement)
+                {
+                    Size desiredSize = MeasurePortableRoot(rootElement, new Size(double.PositiveInfinity, double.PositiveInfinity));
+                    if (IsPortableClientSizeEmpty(desiredSize))
+                    {
+                        desiredSize = MeasurePortableRoot(rootElement, new Size(4096.0, 4096.0));
+                    }
+
+                    desiredSize = new Size(
+                        ToPortableClientSize(desiredSize.Width),
+                        ToPortableClientSize(desiredSize.Height));
+
+                    rootElement.Arrange(new Rect(new Point(), desiredSize));
+                    rootElement.UpdateLayout();
+
+                    Size renderSize = rootElement.RenderSize;
+                    return new Size(
+                        Math.Max(desiredSize.Width, ToPortableClientSize(renderSize.Width)),
+                        Math.Max(desiredSize.Height, ToPortableClientSize(renderSize.Height)));
+                }
+
+                return new Size(1.0, 1.0);
+            }
+
+            private static Size MeasurePortableRoot(UIElement rootElement, Size constraint)
+            {
+                if (!rootElement.IsMeasureValid)
+                {
+                    rootElement.Measure(constraint);
+                }
+
+                return rootElement.DesiredSize;
+            }
+
+            private static bool IsPortableClientSizeEmpty(Size size)
+            {
+                return !double.IsFinite(size.Width) ||
+                    !double.IsFinite(size.Height) ||
+                    size.Width <= 1.0 ||
+                    size.Height <= 1.0;
+            }
+
+            private static double ToPortableClientSize(double value)
+            {
+                return double.IsFinite(value) && value > 0.0 ? value : 1.0;
+            }
+
+            private static int ToPortableClientDimension(double value)
+            {
+                return DoubleUtil.DoubleToInt(ToPortableClientSize(value));
+            }
+
+            internal static void TracePortablePopup(string message)
+            {
+                string value = Environment.GetEnvironmentVariable("PROGPU_WPF_TRACE_POPUP");
+                if (value == null ||
+                    (value.Length != 0 &&
+                     !string.Equals(value, "1", StringComparison.OrdinalIgnoreCase) &&
+                     !string.Equals(value, "true", StringComparison.OrdinalIgnoreCase) &&
+                     !string.Equals(value, "yes", StringComparison.OrdinalIgnoreCase)))
+                {
+                    return;
+                }
+
+                Console.WriteLine("WPF popup: " + message);
             }
 
             private bool _isChildPopup;
@@ -3472,7 +4222,10 @@ namespace System.Windows.Controls.Primitives
             /// </summary>
             private bool _isChildPopupInitialized;
 
-            private HwndSource _window;
+            private PresentationSource _window;
+            private IPortablePopupServiceRegistrar _portablePopupService;
+            private PresentationSource _portableOwnerPresentationSource;
+            internal PresentationSource PortableInputOwnerSource => _portableOwnerPresentationSource;
 
             private const string WebOCWindowClassName = "Shell Embedding";
         }
@@ -3551,7 +4304,8 @@ namespace System.Windows.Controls.Primitives
             {
                 NativeMethods.POINT placementOrigin = default;
 
-                if (IsPerMonitorDpiScalingActive)
+                if (!PopupSecurityHelper.RequiresPortableWindow(popup?.GetTarget()) &&
+                    OperatingSystem.IsWindows() && IsPerMonitorDpiScalingActive)
                 {
                     NativeMethods.POINT? screenOrigin = GetPlacementTargetOriginInScreenCoordinates(popup);
                     if (screenOrigin.HasValue)

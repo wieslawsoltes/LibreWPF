@@ -3,16 +3,25 @@
   <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.targets', '$(MSBuildThisFileDirectory)../'))" />
 
   <PropertyGroup>
-    <_PowerShellExe Condition="'$(_PowerShellExe)' == ''">%WINDIR%\System32\WindowsPowerShell\v1.0\powershell.exe</_PowerShellExe>
+    <_PowerShellExe Condition="'$(_PowerShellExe)' == '' And $([MSBuild]::IsOSPlatform('Windows'))">%WINDIR%\System32\WindowsPowerShell\v1.0\powershell.exe</_PowerShellExe>
+    <_PowerShellExe Condition="'$(_PowerShellExe)' == ''">pwsh</_PowerShellExe>
     <_ScriptLocation Condition="'$(_ScriptLocation)' == ''">$(MSBuildProjectDirectory)\Check-AssemblyVersions.ps1</_ScriptLocation>
     <_IsServicingRelease>false</_IsServicingRelease>
     <_IsServicingRelease Condition="'$(PreReleaseVersionLabel)' == 'servicing'">true</_IsServicingRelease>
   </PropertyGroup>
 
+  <ItemGroup Condition="'$(ProGpuWpfSkipMissingPrivateWinFormsReferences)' == 'true' And $(PackageName.Contains('LibreWPF.Transport'))">
+    <PackageReference Include="$(SystemDrawingCommonPackage)"
+                      Version="$(SystemDrawingCommonVersion)"
+                      GeneratePathProperty="true"
+                      ExcludeAssets="all"
+                      PrivateAssets="all" />
+  </ItemGroup>
+
   <!-- 
     Inspect the following NuSpecs and validate the assembly versions
-        * .\artifacts\packages\Release\NonShipping\Microsoft.DotNet.Wpf.GitHub.<version>.nuspec produced by Microsoft.DotNet.Wpf.GitHub.ArchNeutral.csproj
-        * .\artifacts\packages\Release\NonShipping\runtime.<arch>.Microsoft.DotNet.Wpf.GitHub.<version>.nuspec produced by Microsoft.DotNet.Wpf.GitHub.csproj
+        * .\artifacts\packages\Release\NonShipping\LibreWPF.Transport.<version>.nuspec produced by LibreWPF.Transport.ArchNeutral.csproj
+        * .\artifacts\packages\Release\NonShipping\runtime.<arch>.LibreWPF.Transport.<version>.nuspec produced by LibreWPF.Transport.csproj
     -->
   <Target Name="ValidateTransportPackage"
           AfterTargets="GenerateNuspec"
@@ -25,7 +34,7 @@
     <PropertyGroup>
       <_NuspecFilePath>@(_NuspecFile)</_NuspecFilePath>
       <!--
-          When we build Microsoft.DotNet.Wpf.GitHub.csproj GenerateNuspec task creates an arch-specific NuSpec, and
+          When we build LibreWPF.Transport.csproj GenerateNuspec task creates an arch-specific NuSpec, and
           NuSpec declared in NuGetPackOutput does not exist.
           Look for the arch-specific NuSpec
        -->
@@ -39,6 +48,211 @@
         Command="$(_PowerShellExe) -NonInteractive -ExecutionPolicy Unrestricted -Command &quot;&amp; { &amp;&apos;$(_ScriptLocation)&apos; &apos;$(_NuspecFilePath)&apos; &apos;$(AssemblyVersion)&apos; $(_IsServicingRelease) } &quot;"
         ContinueOnError="False" />
 
+  </Target>
+
+  <Target Name="ExcludeManagedWpfTransportWindowsFormsIntegrationPayload"
+          AfterTargets="CreateContentFolder"
+          BeforeTargets="ValidateManagedWpfTransportPayload;GenerateNuspec"
+          Condition="'$(IsPackable)' == 'true' And '$(CreateArchNeutralPackage)' == 'true' And '$(IncludeAssembliesInArchNeutralPackage)' == 'true' And $(PackageName.Contains('LibreWPF.Transport'))">
+    <PropertyGroup>
+      <_ManagedWpfTransportRoot>$(ArtifactsPackagingDir)$(NormalizedPackageName)</_ManagedWpfTransportRoot>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <_ManagedWpfTransportWindowsFormsIntegrationPayload Include="$(_ManagedWpfTransportRoot)\lib\**\WindowsFormsIntegration.*" />
+      <_ManagedWpfTransportWindowsFormsIntegrationPayload Include="$(_ManagedWpfTransportRoot)\ref\**\WindowsFormsIntegration.*" />
+      <_ExistingManagedWpfTransportWindowsFormsIntegrationPayload
+        Include="@(_ManagedWpfTransportWindowsFormsIntegrationPayload)"
+        Condition="Exists('%(_ManagedWpfTransportWindowsFormsIntegrationPayload.Identity)')" />
+      <Content Remove="@(_ManagedWpfTransportWindowsFormsIntegrationPayload)" />
+    </ItemGroup>
+
+    <Delete Files="@(_ExistingManagedWpfTransportWindowsFormsIntegrationPayload)" />
+  </Target>
+
+  <Target Name="ValidateManagedWpfTransportPayload"
+          BeforeTargets="GenerateNuspec"
+          DependsOnTargets="CreateContentFolder"
+          Condition="'$(IsPackable)' == 'true' And '$(CreateArchNeutralPackage)' == 'true' And '$(IncludeAssembliesInArchNeutralPackage)' == 'true' And $(PackageName.Contains('LibreWPF.Transport'))">
+    <PropertyGroup>
+      <_ManagedWpfTransportRoot>$(ArtifactsPackagingDir)$(NormalizedPackageName)</_ManagedWpfTransportRoot>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <_RequiredManagedWpfTransportPayload Include="$(_ManagedWpfTransportRoot)\lib\$(TargetFramework)\WindowsBase.dll" />
+      <_RequiredManagedWpfTransportPayload Include="$(_ManagedWpfTransportRoot)\lib\$(TargetFramework)\Microsoft.Win32.SystemEvents.dll" />
+      <_RequiredManagedWpfTransportPayload Include="$(_ManagedWpfTransportRoot)\lib\$(TargetFramework)\System.Xaml.dll" />
+      <_RequiredManagedWpfTransportPayload Include="$(_ManagedWpfTransportRoot)\lib\$(TargetFramework)\PresentationCore.dll" />
+      <_RequiredManagedWpfTransportPayload Include="$(_ManagedWpfTransportRoot)\lib\$(TargetFramework)\PresentationFramework.dll" />
+      <_RequiredManagedWpfTransportPayload Include="$(_ManagedWpfTransportRoot)\lib\$(TargetFramework)\PresentationUI.dll" />
+      <_RequiredManagedWpfTransportPayload Include="$(_ManagedWpfTransportRoot)\lib\$(TargetFramework)\ReachFramework.dll" />
+      <_RequiredManagedWpfTransportPayload Include="$(_ManagedWpfTransportRoot)\lib\$(TargetFramework)\System.Printing.dll" />
+      <_RequiredManagedWpfTransportPayload Include="$(_ManagedWpfTransportRoot)\lib\$(TargetFramework)\UIAutomationTypes.dll" />
+      <_RequiredManagedWpfTransportPayload Include="$(_ManagedWpfTransportRoot)\lib\$(TargetFramework)\UIAutomationProvider.dll" />
+      <_RequiredManagedWpfTransportPayload Include="$(_ManagedWpfTransportRoot)\lib\$(TargetFramework)\System.Windows.Input.Manipulations.dll" />
+      <_RequiredManagedWpfTransportPayload Include="$(_ManagedWpfTransportRoot)\lib\$(TargetFramework)\System.Windows.Primitives.dll" />
+      <_RequiredManagedWpfTransportPayload Include="$(_ManagedWpfTransportRoot)\lib\$(TargetFramework)\System.Windows.Presentation.dll" />
+      <_RequiredManagedWpfTransportPayload Include="$(_ManagedWpfTransportRoot)\lib\$(TargetFramework)\Accessibility.dll" />
+      <_RequiredManagedWpfTransportPayload Include="$(_ManagedWpfTransportRoot)\lib\$(TargetFramework)\PresentationFramework.Aero.dll" />
+      <_RequiredManagedWpfTransportPayload Include="$(_ManagedWpfTransportRoot)\lib\$(TargetFramework)\PresentationFramework.Aero2.dll" />
+      <_RequiredManagedWpfTransportPayload Include="$(_ManagedWpfTransportRoot)\lib\$(TargetFramework)\PresentationFramework.AeroLite.dll" />
+      <_RequiredManagedWpfTransportPayload Include="$(_ManagedWpfTransportRoot)\lib\$(TargetFramework)\PresentationFramework.Classic.dll" />
+      <_RequiredManagedWpfTransportPayload Include="$(_ManagedWpfTransportRoot)\lib\$(TargetFramework)\PresentationFramework.Fluent.dll" />
+      <_RequiredManagedWpfTransportPayload Include="$(_ManagedWpfTransportRoot)\lib\$(TargetFramework)\PresentationFramework.Luna.dll" />
+      <_RequiredManagedWpfTransportPayload Include="$(_ManagedWpfTransportRoot)\lib\$(TargetFramework)\PresentationFramework.Royale.dll" />
+      <_RequiredManagedWpfTransportPayload Include="$(_ManagedWpfTransportRoot)\lib\$(TargetFramework)\System.Windows.Controls.Ribbon.dll" />
+      <_RequiredManagedWpfTransportPayload Include="$(_ManagedWpfTransportRoot)\lib\$(TargetFramework)\System.Private.Windows.Core.dll" />
+      <_RequiredManagedWpfTransportPayload Include="$(_ManagedWpfTransportRoot)\ref\$(TargetFramework)\WindowsBase.dll" />
+      <_RequiredManagedWpfTransportPayload Include="$(_ManagedWpfTransportRoot)\ref\$(TargetFramework)\Microsoft.Win32.SystemEvents.dll" />
+      <_RequiredManagedWpfTransportPayload Include="$(_ManagedWpfTransportRoot)\ref\$(TargetFramework)\System.Xaml.dll" />
+      <_RequiredManagedWpfTransportPayload Include="$(_ManagedWpfTransportRoot)\ref\$(TargetFramework)\PresentationCore.dll" />
+      <_RequiredManagedWpfTransportPayload Include="$(_ManagedWpfTransportRoot)\ref\$(TargetFramework)\PresentationFramework.dll" />
+      <_RequiredManagedWpfTransportPayload Include="$(_ManagedWpfTransportRoot)\ref\$(TargetFramework)\PresentationUI.dll" />
+      <_RequiredManagedWpfTransportPayload Include="$(_ManagedWpfTransportRoot)\ref\$(TargetFramework)\ReachFramework.dll" />
+      <_RequiredManagedWpfTransportPayload Include="$(_ManagedWpfTransportRoot)\ref\$(TargetFramework)\System.Printing.dll" />
+      <_RequiredManagedWpfTransportPayload Include="$(_ManagedWpfTransportRoot)\ref\$(TargetFramework)\UIAutomationTypes.dll" />
+      <_RequiredManagedWpfTransportPayload Include="$(_ManagedWpfTransportRoot)\ref\$(TargetFramework)\UIAutomationProvider.dll" />
+      <_RequiredManagedWpfTransportPayload Include="$(_ManagedWpfTransportRoot)\ref\$(TargetFramework)\System.Windows.Input.Manipulations.dll" />
+      <_RequiredManagedWpfTransportPayload Include="$(_ManagedWpfTransportRoot)\ref\$(TargetFramework)\System.Windows.Primitives.dll" />
+      <_RequiredManagedWpfTransportPayload Include="$(_ManagedWpfTransportRoot)\ref\$(TargetFramework)\System.Windows.Presentation.dll" />
+      <_RequiredManagedWpfTransportPayload Include="$(_ManagedWpfTransportRoot)\ref\$(TargetFramework)\PresentationFramework.Aero.dll" />
+      <_RequiredManagedWpfTransportPayload Include="$(_ManagedWpfTransportRoot)\ref\$(TargetFramework)\PresentationFramework.Aero2.dll" />
+      <_RequiredManagedWpfTransportPayload Include="$(_ManagedWpfTransportRoot)\ref\$(TargetFramework)\PresentationFramework.AeroLite.dll" />
+      <_RequiredManagedWpfTransportPayload Include="$(_ManagedWpfTransportRoot)\ref\$(TargetFramework)\PresentationFramework.Classic.dll" />
+      <_RequiredManagedWpfTransportPayload Include="$(_ManagedWpfTransportRoot)\ref\$(TargetFramework)\PresentationFramework.Fluent.dll" />
+      <_RequiredManagedWpfTransportPayload Include="$(_ManagedWpfTransportRoot)\ref\$(TargetFramework)\PresentationFramework.Luna.dll" />
+      <_RequiredManagedWpfTransportPayload Include="$(_ManagedWpfTransportRoot)\ref\$(TargetFramework)\PresentationFramework.Royale.dll" />
+      <_RequiredManagedWpfTransportPayload Include="$(_ManagedWpfTransportRoot)\ref\$(TargetFramework)\System.Windows.Controls.Ribbon.dll" />
+    </ItemGroup>
+
+    <Error
+        Condition="!Exists('%(_RequiredManagedWpfTransportPayload.Identity)')"
+        Text="The WPF transport package is missing required payload '%(_RequiredManagedWpfTransportPayload.Identity)'. Build the managed WPF assemblies for $(Configuration)|$(TargetFramework) before packing $(PackageName)." />
+  </Target>
+
+  <Target Name="AddManagedWpfTransportAccessibilityPayload"
+          BeforeTargets="CreateContentFolder"
+          Condition="'$(IsPackable)' == 'true' And '$(CreateArchNeutralPackage)' == 'true' And '$(IncludeAssembliesInArchNeutralPackage)' == 'true' And $(PackageName.Contains('LibreWPF.Transport')) And '$(ProGpuWpfSkipMissingPrivateWinFormsReferences)' == 'true'">
+    <PropertyGroup>
+      <_ManagedWpfTransportRoot>$(ArtifactsPackagingDir)$(NormalizedPackageName)</_ManagedWpfTransportRoot>
+      <_ManagedWpfTransportLibRoot>$(ArtifactsPackagingDir)$(NormalizedPackageName)\lib\$(TargetFramework)</_ManagedWpfTransportLibRoot>
+      <_ManagedWpfTransportAccessibilityRef>$(_ManagedWpfTransportRoot)\ref\$(TargetFramework)\Accessibility.dll</_ManagedWpfTransportAccessibilityRef>
+      <_AccessibilityPackageRoot Condition="'$(PkgAccessibility)' != ''">$(PkgAccessibility)</_AccessibilityPackageRoot>
+      <_AccessibilityPackageRoot Condition="'$(_AccessibilityPackageRoot)' == ''">$(NuGetPackageRoot)accessibility\$(AccessibilityPackageVersion)</_AccessibilityPackageRoot>
+      <_AccessibilityAssembly>$(_AccessibilityPackageRoot)\lib\netcoreapp3.0\Accessibility.dll</_AccessibilityAssembly>
+    </PropertyGroup>
+
+    <Error
+        Condition="!Exists('$(_AccessibilityAssembly)')"
+        Text="Accessibility is missing '$(_AccessibilityAssembly)', which is required by PresentationFramework popup accessibility support." />
+
+    <!--
+      PresentationFramework loads Accessibility.dll for popup UI Automation at runtime,
+      but it is not part of the WPF compile-time contract. Exporting it under ref/ makes
+      the global Accessibility namespace shadow consumer types such as
+      ICSharpCode.NRefactory.TypeSystem.Accessibility.
+    -->
+    <Delete Files="$(_ManagedWpfTransportAccessibilityRef)"
+            Condition="Exists('$(_ManagedWpfTransportAccessibilityRef)')" />
+    <MakeDir Directories="$(_ManagedWpfTransportLibRoot)" />
+    <Copy
+        SourceFiles="$(_AccessibilityAssembly)"
+        DestinationFolder="$(_ManagedWpfTransportLibRoot)"
+        SkipUnchangedFiles="true" />
+  </Target>
+
+  <Target Name="AddManagedWpfTransportSystemPrintingPayload"
+          BeforeTargets="CreateContentFolder"
+          Condition="'$(IsPackable)' == 'true' And '$(CreateArchNeutralPackage)' == 'true' And '$(IncludeAssembliesInArchNeutralPackage)' == 'true' And $(PackageName.Contains('LibreWPF.Transport'))">
+    <PropertyGroup>
+      <_ManagedWpfTransportLibRoot>$(ArtifactsPackagingDir)$(NormalizedPackageName)\lib\$(TargetFramework)</_ManagedWpfTransportLibRoot>
+      <_ManagedWpfTransportRefRoot>$(ArtifactsPackagingDir)$(NormalizedPackageName)\ref\$(TargetFramework)</_ManagedWpfTransportRefRoot>
+      <_SystemPrintingRuntimeRoot>$(ArtifactsDir)bin\System.Printing-PresentationFramework-api-cycle\$(Configuration)\$(TargetFramework)</_SystemPrintingRuntimeRoot>
+      <_SystemPrintingRefRoot>$(ArtifactsReferenceAssemblyDir)System.Printing\$(Configuration)\$(TargetFramework)</_SystemPrintingRefRoot>
+    </PropertyGroup>
+
+    <Error
+        Condition="!Exists('$(_SystemPrintingRuntimeRoot)\System.Printing.dll')"
+        Text="The portable WPF transport package requires '$(_SystemPrintingRuntimeRoot)\System.Printing.dll'. Build System.Printing-PresentationFramework-api-cycle before packing $(PackageName)." />
+    <Error
+        Condition="!Exists('$(_SystemPrintingRefRoot)\System.Printing.dll')"
+        Text="The portable WPF transport package requires '$(_SystemPrintingRefRoot)\System.Printing.dll'. Build System.Printing-ref before packing $(PackageName)." />
+
+    <ItemGroup>
+      <_ManagedWpfTransportSystemPrintingRuntimePayload Include="$(_SystemPrintingRuntimeRoot)\System.Printing.dll" />
+      <_ManagedWpfTransportSystemPrintingRuntimePayload Include="$(_SystemPrintingRuntimeRoot)\System.Printing.pdb"
+                                                        Condition="Exists('$(_SystemPrintingRuntimeRoot)\System.Printing.pdb')" />
+      <_ManagedWpfTransportSystemPrintingRefPayload Include="$(_SystemPrintingRefRoot)\System.Printing.dll" />
+      <_ManagedWpfTransportSystemPrintingRefPayload Include="$(_SystemPrintingRefRoot)\System.Printing.xml"
+                                                    Condition="Exists('$(_SystemPrintingRefRoot)\System.Printing.xml')" />
+    </ItemGroup>
+
+    <MakeDir Directories="$(_ManagedWpfTransportLibRoot);$(_ManagedWpfTransportRefRoot)" />
+    <Copy
+        SourceFiles="@(_ManagedWpfTransportSystemPrintingRuntimePayload)"
+        DestinationFolder="$(_ManagedWpfTransportLibRoot)"
+        SkipUnchangedFiles="true" />
+    <Copy
+        SourceFiles="@(_ManagedWpfTransportSystemPrintingRefPayload)"
+        DestinationFolder="$(_ManagedWpfTransportRefRoot)"
+        SkipUnchangedFiles="true" />
+  </Target>
+
+  <Target Name="AddManagedWpfTransportPrivateWinFormsPayload"
+          BeforeTargets="CreateContentFolder"
+          Condition="'$(IsPackable)' == 'true' And '$(CreateArchNeutralPackage)' == 'true' And '$(IncludeAssembliesInArchNeutralPackage)' == 'true' And $(PackageName.Contains('LibreWPF.Transport')) And '$(ProGpuWpfSkipMissingPrivateWinFormsReferences)' != 'true'">
+    <PropertyGroup>
+      <_ManagedWpfTransportLibRoot>$(ArtifactsPackagingDir)$(NormalizedPackageName)\lib\$(TargetFramework)</_ManagedWpfTransportLibRoot>
+      <_PrivateWinFormsLibRoot>$(PkgMicrosoft_Private_Winforms)\lib\$(TargetFramework)</_PrivateWinFormsLibRoot>
+    </PropertyGroup>
+
+    <Error
+        Condition="'$(PkgMicrosoft_Private_Winforms)' == ''"
+        Text="Microsoft.Private.WinForms package path is unavailable while packing $(PackageName). Restore the package before creating the WPF transport package." />
+    <Error
+        Condition="!Exists('$(_PrivateWinFormsLibRoot)\System.Private.Windows.Core.dll')"
+        Text="Microsoft.Private.WinForms is missing '$(_PrivateWinFormsLibRoot)\System.Private.Windows.Core.dll', which is required by the WPF transport package." />
+
+    <ItemGroup>
+      <_ManagedWpfTransportPrivateWinFormsPayload Include="$(_PrivateWinFormsLibRoot)\System.Private.Windows.Core.dll" />
+      <_ManagedWpfTransportPrivateWinFormsPayload Include="$(_PrivateWinFormsLibRoot)\System.Private.Windows.Core.pdb"
+                                                  Condition="Exists('$(_PrivateWinFormsLibRoot)\System.Private.Windows.Core.pdb')" />
+    </ItemGroup>
+
+    <MakeDir Directories="$(_ManagedWpfTransportLibRoot)" />
+    <Copy
+        SourceFiles="@(_ManagedWpfTransportPrivateWinFormsPayload)"
+        DestinationFolder="$(_ManagedWpfTransportLibRoot)"
+        SkipUnchangedFiles="true" />
+  </Target>
+
+  <Target Name="AddManagedWpfTransportSystemDrawingCorePayload"
+          BeforeTargets="CreateContentFolder"
+          Condition="'$(IsPackable)' == 'true' And '$(CreateArchNeutralPackage)' == 'true' And '$(IncludeAssembliesInArchNeutralPackage)' == 'true' And $(PackageName.Contains('LibreWPF.Transport')) And '$(ProGpuWpfSkipMissingPrivateWinFormsReferences)' == 'true'">
+    <PropertyGroup>
+      <_ManagedWpfTransportLibRoot>$(ArtifactsPackagingDir)$(NormalizedPackageName)\lib\$(TargetFramework)</_ManagedWpfTransportLibRoot>
+      <_SystemDrawingCommonPackageRoot Condition="'$(PkgSystem_Drawing_Common)' != ''">$(PkgSystem_Drawing_Common)</_SystemDrawingCommonPackageRoot>
+      <_SystemDrawingCommonPackageRoot Condition="'$(_SystemDrawingCommonPackageRoot)' == ''">$(NuGetPackageRoot)system.drawing.common\$(SystemDrawingCommonVersion)</_SystemDrawingCommonPackageRoot>
+      <_SystemDrawingCommonLibRoot>$(_SystemDrawingCommonPackageRoot)\lib\$(TargetFramework)</_SystemDrawingCommonLibRoot>
+    </PropertyGroup>
+
+    <Error
+        Condition="!Exists('$(_SystemDrawingCommonLibRoot)\System.Private.Windows.Core.dll')"
+        Text="System.Drawing.Common is missing '$(_SystemDrawingCommonLibRoot)\System.Private.Windows.Core.dll', which is required by the .NET 10 LibreWPF transport package." />
+
+    <ItemGroup>
+      <_ManagedWpfTransportSystemDrawingCorePayload Include="$(_SystemDrawingCommonLibRoot)\System.Private.Windows.Core.dll" />
+      <_ManagedWpfTransportSystemDrawingCorePayload Include="$(_SystemDrawingCommonLibRoot)\System.Private.Windows.Core.pdb"
+                                                    Condition="Exists('$(_SystemDrawingCommonLibRoot)\System.Private.Windows.Core.pdb')" />
+      <_ManagedWpfTransportSystemDrawingCorePayload Include="$(_SystemDrawingCommonLibRoot)\System.Private.Windows.Core.xml"
+                                                    Condition="Exists('$(_SystemDrawingCommonLibRoot)\System.Private.Windows.Core.xml')" />
+    </ItemGroup>
+
+    <MakeDir Directories="$(_ManagedWpfTransportLibRoot)" />
+    <Copy
+        SourceFiles="@(_ManagedWpfTransportSystemDrawingCorePayload)"
+        DestinationFolder="$(_ManagedWpfTransportLibRoot)"
+        SkipUnchangedFiles="true" />
   </Target>
 
 </Project>

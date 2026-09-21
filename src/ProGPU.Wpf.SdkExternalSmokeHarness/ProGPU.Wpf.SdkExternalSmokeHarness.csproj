@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>$(ProGpuWpfRuntimeHarnessTargetFramework)</TargetFramework>
+    <RuntimeFrameworkVersion Condition="&apos;$(ProGpuWpfRuntimeFrameworkVersion)&apos; != &apos;&apos;">$(ProGpuWpfRuntimeFrameworkVersion)</RuntimeFrameworkVersion>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <EnableNETAnalyzers>false</EnableNETAnalyzers>
+    <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
+    <NoWarn>$(NoWarn);IDE0073</NoWarn>
+  </PropertyGroup>
+</Project>

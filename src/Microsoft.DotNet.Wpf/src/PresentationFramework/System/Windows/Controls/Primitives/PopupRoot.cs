@@ -7,13 +7,14 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using MS.Internal.KnownBoxes;
+using ProGPU.Wpf.Interop;
 
 namespace System.Windows.Controls.Primitives
 {
     /// <summary>
     ///     The root element inside a popup.
     /// </summary>
-    internal sealed class PopupRoot : FrameworkElement
+    internal sealed class PopupRoot : FrameworkElement, IPortablePopupRootSource
     {
         #region Constructors
 
@@ -29,6 +30,8 @@ namespace System.Windows.Controls.Primitives
         {
             Initialize();
         }
+
+        bool IPortablePopupRootSource.IsPortablePopupRoot => true;
 
         private void Initialize()
         {

@@ -1,0 +1,12 @@
+<Application
+    x:Class="ProGPU.Wpf.HelloApp.App"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Startup="OnAppStartup"
+    Exit="OnAppExit"
+    StartupUri="MainWindow.xaml">
+    <Application.Resources>
+        <SolidColorBrush x:Key="HelloAccentBrush" Color="#276EF1" />
+        <SolidColorBrush x:Key="HelloSurfaceBrush" Color="#F5F7FA" />
+    </Application.Resources>
+</Application>

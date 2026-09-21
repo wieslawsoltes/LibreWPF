@@ -1,0 +1,1265 @@
+<Window
+    x:Class="ProGPU.Wpf.RealXamlCompilerHarness.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:componentModel="clr-namespace:System.ComponentModel;assembly=WindowsBase"
+    xmlns:local="clr-namespace:ProGPU.Wpf.RealXamlCompilerHarness"
+    xmlns:primitives="clr-namespace:System.Windows.Controls.Primitives;assembly=PresentationFramework"
+    xmlns:sys="clr-namespace:System;assembly=mscorlib"
+    Title="ProGPU WPF XAML smoke"
+    Width="420"
+    Height="340">
+    <Window.Resources>
+        <CollectionViewSource
+            x:Key="SortedItemsView"
+            Source="{Binding Items}">
+            <CollectionViewSource.SortDescriptions>
+                <componentModel:SortDescription
+                    Direction="Descending"
+                    PropertyName="Name" />
+            </CollectionViewSource.SortDescriptions>
+        </CollectionViewSource>
+        <CollectionViewSource
+            x:Key="LiveSortedItemsView"
+            IsLiveSortingRequested="True"
+            Source="{Binding Items}">
+            <CollectionViewSource.SortDescriptions>
+                <componentModel:SortDescription
+                    Direction="Descending"
+                    PropertyName="Name" />
+            </CollectionViewSource.SortDescriptions>
+            <CollectionViewSource.LiveSortingProperties>
+                <sys:String>Name</sys:String>
+            </CollectionViewSource.LiveSortingProperties>
+        </CollectionViewSource>
+        <CollectionViewSource
+            x:Key="FilteredItemsView"
+            Filter="OnFilteredItemsViewFilter"
+            Source="{Binding Items}" />
+        <CollectionViewSource
+            x:Key="LiveFilteredItemsView"
+            Filter="OnFilteredItemsViewFilter"
+            IsLiveFilteringRequested="True"
+            Source="{Binding Items}">
+            <CollectionViewSource.LiveFilteringProperties>
+                <sys:String>Name</sys:String>
+            </CollectionViewSource.LiveFilteringProperties>
+        </CollectionViewSource>
+        <CollectionViewSource
+            x:Key="GroupedItemsView"
+            Source="{Binding Items}">
+            <CollectionViewSource.GroupDescriptions>
+                <PropertyGroupDescription PropertyName="Category" />
+            </CollectionViewSource.GroupDescriptions>
+        </CollectionViewSource>
+        <CollectionViewSource
+            x:Key="LiveGroupedItemsView"
+            IsLiveGroupingRequested="True"
+            Source="{Binding Items}">
+            <CollectionViewSource.GroupDescriptions>
+                <PropertyGroupDescription PropertyName="Category" />
+            </CollectionViewSource.GroupDescriptions>
+            <CollectionViewSource.LiveGroupingProperties>
+                <sys:String>Category</sys:String>
+            </CollectionViewSource.LiveGroupingProperties>
+        </CollectionViewSource>
+        <CollectionViewSource
+            x:Key="CurrencyItemsView"
+            Source="{Binding Items}" />
+        <DataTemplate DataType="{x:Type local:SmokeDetail}">
+            <TextBlock
+                x:Name="ImplicitDetailTextBlock"
+                Tag="implicit data template"
+                Text="{Binding Title}" />
+        </DataTemplate>
+        <DataTemplate x:Key="SelectedDetailTemplate" DataType="{x:Type local:SmokeDetail}">
+            <TextBlock
+                x:Name="SelectedDetailTextBlock"
+                Tag="content template selector selected"
+                Text="{Binding Title}" />
+        </DataTemplate>
+        <DataTemplate x:Key="FallbackDetailTemplate" DataType="{x:Type local:SmokeDetail}">
+            <TextBlock
+                x:Name="SelectedDetailTextBlock"
+                Tag="content template selector fallback"
+                Text="{Binding Title}" />
+        </DataTemplate>
+        <local:SmokeDetailTemplateSelector
+            x:Key="SmokeDetailTemplateSelector"
+            FallbackTemplate="{StaticResource FallbackDetailTemplate}"
+            SelectedTemplate="{StaticResource SelectedDetailTemplate}" />
+        <DataTemplate x:Key="ExpanderHeaderTemplate" DataType="{x:Type local:SmokeDetail}">
+            <TextBlock
+                x:Name="ExpanderHeaderTextBlock"
+                Tag="expander header template"
+                Text="{Binding Title}" />
+        </DataTemplate>
+        <DataTemplate x:Key="GroupBoxHeaderTemplate" DataType="{x:Type local:SmokeDetail}">
+            <TextBlock
+                x:Name="GroupBoxHeaderTextBlock"
+                Tag="group box header template"
+                Text="{Binding Title}" />
+        </DataTemplate>
+        <HierarchicalDataTemplate
+            x:Key="SmokeNodeTemplate"
+            DataType="{x:Type local:SmokeNode}"
+            ItemsSource="{Binding Children}">
+            <TextBlock
+                x:Name="NodeTextBlock"
+                Tag="hierarchical template"
+                Text="{Binding Name}" />
+        </HierarchicalDataTemplate>
+        <DataTemplate x:Key="AlphaItemTemplate" DataType="{x:Type local:SmokeItem}">
+            <TextBlock
+                x:Name="SelectorTemplateTextBlock"
+                Tag="selector alpha template"
+                Text="{Binding Name}" />
+        </DataTemplate>
+        <DataTemplate x:Key="DefaultItemTemplate" DataType="{x:Type local:SmokeItem}">
+            <TextBlock
+                x:Name="SelectorTemplateTextBlock"
+                Tag="selector default template"
+                Text="{Binding Name}" />
+        </DataTemplate>
+        <local:SmokeItemTemplateSelector
+            x:Key="SmokeItemTemplateSelector"
+            AlphaTemplate="{StaticResource AlphaItemTemplate}"
+            DefaultTemplate="{StaticResource DefaultItemTemplate}" />
+        <Style
+            x:Key="AlphaItemContainerSelectorStyle"
+            TargetType="{x:Type ListBoxItem}">
+            <Setter Property="Tag" Value="style selector alpha container" />
+        </Style>
+        <Style
+            x:Key="DefaultItemContainerSelectorStyle"
+            TargetType="{x:Type ListBoxItem}">
+            <Setter Property="Tag" Value="style selector default container" />
+        </Style>
+        <local:SmokeItemContainerStyleSelector
+            x:Key="SmokeItemContainerStyleSelector"
+            AlphaStyle="{StaticResource AlphaItemContainerSelectorStyle}"
+            DefaultStyle="{StaticResource DefaultItemContainerSelectorStyle}" />
+        <local:SmokeUpperConverter x:Key="SmokeUpperConverter" />
+        <local:SmokeJoinConverter x:Key="SmokeJoinConverter" />
+        <ObjectDataProvider
+            x:Key="ProviderGreeting"
+            IsAsynchronous="False"
+            MethodName="CreateProviderGreeting"
+            ObjectType="{x:Type local:ProviderDataFactory}">
+            <ObjectDataProvider.MethodParameters>
+                <sys:String>provider</sys:String>
+                <sys:String>7</sys:String>
+            </ObjectDataProvider.MethodParameters>
+        </ObjectDataProvider>
+        <XmlDataProvider
+            x:Key="ProviderXml"
+            IsAsynchronous="False"
+            XPath="/Smoke/Message">
+            <x:XData>
+                <Smoke xmlns="">
+                    <Message Text="xml provider text" />
+                </Smoke>
+            </x:XData>
+        </XmlDataProvider>
+        <Style x:Key="EventSetterButtonStyle" TargetType="{x:Type Button}">
+            <Setter Property="Tag" Value="event setter style" />
+            <EventSetter Event="Click" Handler="OnStyledButtonClick" />
+        </Style>
+    </Window.Resources>
+    <Window.CommandBindings>
+        <CommandBinding
+            CanExecute="OnSmokeCommandCanExecute"
+            Command="{x:Static local:MainWindow.SmokeRoutedCommand}"
+            Executed="OnSmokeCommandExecuted" />
+    </Window.CommandBindings>
+    <Window.InputBindings>
+        <KeyBinding
+            Command="{x:Static local:MainWindow.SmokeRoutedCommand}"
+            CommandParameter="input binding payload"
+            Key="F6"
+            Modifiers="Control" />
+    </Window.InputBindings>
+    <StackPanel
+        x:Name="SmokeRootPanel"
+        Margin="16"
+        primitives:Thumb.DragDelta="OnBubbledThumbDragDelta">
+        <StackPanel.Resources>
+            <SolidColorBrush x:Key="ScopedAccentBrush" Color="#6B4E9B" />
+            <Thickness x:Key="ScopedBlockMargin">0,6,0,0</Thickness>
+        </StackPanel.Resources>
+        <TextBlock
+            x:Name="MouseBindingSurface"
+            FontSize="18"
+            Foreground="{StaticResource AccentBrush}"
+            Tag="mouse binding surface"
+            Text="Real WPF XAML compiler smoke">
+            <TextBlock.InputBindings>
+                <MouseBinding
+                    Command="{x:Static local:MainWindow.SmokeRoutedCommand}"
+                    CommandParameter="mouse binding payload"
+                    MouseAction="RightClick" />
+            </TextBlock.InputBindings>
+        </TextBlock>
+        <TextBlock
+            x:Name="GridShorthandDescription"
+            MaxWidth="320"
+            TextWrapping="Wrap">
+            <Run>The WPF Grid supports shorthand row and column definitions. Values are comma‑separated and retain visible portable glyph runs.</Run>
+        </TextBlock>
+        <Menu x:Name="SmokeMenu" Margin="0,8,0,0">
+            <MenuItem
+                x:Name="FileMenuItem"
+                Header="_File">
+                <MenuItem
+                    x:Name="MenuCommandItem"
+                    Command="{x:Static local:MainWindow.SmokeRoutedCommand}"
+                    CommandParameter="menu command payload"
+                    CommandTarget="{Binding ElementName=SmokeMenu}"
+                    Header="Run _Command" />
+                <Separator />
+                <MenuItem
+                    x:Name="MenuClickItem"
+                    Click="OnMenuClick"
+                    Header="_Click" />
+                <MenuItem
+                    x:Name="MenuCheckableItem"
+                    Checked="OnMenuCheckableChecked"
+                    Header="_Checkable"
+                    IsCheckable="True"
+                    Unchecked="OnMenuCheckableUnchecked" />
+            </MenuItem>
+        </Menu>
+        <ToolBarTray
+            x:Name="SmokeToolBarTray"
+            Margin="0,8,0,0">
+            <ToolBar x:Name="SmokeToolBar" Header="Smoke tools">
+                <Button
+                    x:Name="ToolBarCommandButton"
+                    Command="{x:Static local:MainWindow.SmokeRoutedCommand}"
+                    CommandParameter="toolbar command payload"
+                    Content="Run toolbar" />
+                <Separator x:Name="ToolBarSeparator" />
+                <ToggleButton
+                    x:Name="ToolBarToggle"
+                    Content="Toggle toolbar"
+                    IsChecked="True" />
+            </ToolBar>
+        </ToolBarTray>
+        <StatusBar
+            x:Name="SmokeStatusBar"
+            Margin="0,8,0,0">
+            <StatusBarItem
+                x:Name="StatusReadyItem"
+                Content="Ready" />
+            <Separator />
+            <TextBlock
+                x:Name="StatusTextBlock"
+                Tag="status text"
+                Text="{Binding Detail.Title}" />
+        </StatusBar>
+        <Slider
+            x:Name="RangeValueSlider"
+            Margin="0,8,0,0"
+            IsSnapToTickEnabled="False"
+            Maximum="100"
+            Minimum="0"
+            TickFrequency="25"
+            Value="{Binding RangeValue, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+        <ProgressBar
+            x:Name="RangeValueProgress"
+            Margin="0,8,0,0"
+            Height="12"
+            Maximum="100"
+            Minimum="0"
+            Value="{Binding RangeValue}" />
+        <TextBox
+            x:Name="InputBox"
+            Style="{StaticResource SmokeTextBoxStyle}"
+            Text="compiled TextBox" />
+        <TextBox
+            x:Name="BasedOnTextBox"
+            Style="{StaticResource BasedOnTextBoxStyle}"
+            Text="compiled BasedOn TextBox" />
+        <Button
+            x:Name="EventButton"
+            Margin="0,8,0,0"
+            Click="OnXamlClick"
+            GotMouseCapture="OnXamlGotMouseCapture"
+            LostMouseCapture="OnXamlLostMouseCapture"
+            MouseWheel="OnXamlMouseWheel"
+            Content="run xaml event" />
+        <RepeatButton
+            x:Name="RepeatActionButton"
+            Margin="0,8,0,0"
+            Click="OnRepeatButtonClick"
+            Content="repeat action"
+            Delay="250"
+            Interval="75" />
+        <primitives:Thumb
+            x:Name="DragManagerThumb"
+            Margin="0,8,0,0"
+            Width="24"
+            Height="18"
+            DragCompleted="OnDragManagerThumbDragCompleted"
+            DragDelta="OnDragManagerThumbDragDelta"
+            DragStarted="OnDragManagerThumbDragStarted"
+            Tag="drag manager thumb" />
+        <PasswordBox
+            x:Name="CredentialBox"
+            MaxLength="12"
+            PasswordChanged="OnPasswordChanged"
+            PasswordChar="#" />
+        <StackPanel
+            x:Name="LayoutPanelSmoke"
+            Margin="0,8,0,0">
+            <DockPanel
+                x:Name="DockPanelSmoke"
+                LastChildFill="False">
+                <TextBlock
+                    x:Name="DockPanelLeftChild"
+                    DockPanel.Dock="Left"
+                    Text="dock left" />
+                <TextBlock
+                    x:Name="DockPanelRightChild"
+                    DockPanel.Dock="Right"
+                    Text="dock right" />
+            </DockPanel>
+            <Canvas
+                x:Name="CanvasSmoke"
+                Width="120"
+                Height="32">
+                <TextBlock
+                    x:Name="CanvasChild"
+                    Canvas.Left="12"
+                    Canvas.Top="6"
+                    Text="canvas child" />
+            </Canvas>
+            <WrapPanel
+                x:Name="WrapPanelSmoke"
+                ItemHeight="20"
+                ItemWidth="64"
+                Orientation="Horizontal">
+                <TextBlock
+                    x:Name="WrapFirstChild"
+                    Text="wrap one" />
+                <TextBlock
+                    x:Name="WrapSecondChild"
+                    Text="wrap two" />
+            </WrapPanel>
+            <UniformGrid
+                x:Name="UniformGridSmoke"
+                Columns="2"
+                FirstColumn="1"
+                Rows="2">
+                <TextBlock
+                    x:Name="UniformFirstChild"
+                    Text="uniform one" />
+                <TextBlock
+                    x:Name="UniformSecondChild"
+                    Text="uniform two" />
+                <TextBlock
+                    x:Name="UniformThirdChild"
+                    Text="uniform three" />
+            </UniformGrid>
+            <StackPanel
+                x:Name="SharedSizeScopePanel"
+                Grid.IsSharedSizeScope="True">
+                <Grid
+                    x:Name="SharedSizeGridA"
+                    Width="220">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition
+                            x:Name="SharedSizeGridANameColumn"
+                            SharedSizeGroup="SharedLabelColumn"
+                            Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock
+                        x:Name="SharedSizeAHeader"
+                        Text="A" />
+                    <TextBlock
+                        x:Name="SharedSizeAValue"
+                        Grid.Column="1"
+                        Text="short value" />
+                </Grid>
+                <Grid
+                    x:Name="SharedSizeGridB"
+                    Width="220">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition
+                            x:Name="SharedSizeGridBNameColumn"
+                            SharedSizeGroup="SharedLabelColumn"
+                            Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock
+                        x:Name="SharedSizeBHeader"
+                        Text="shared size label wider" />
+                    <TextBlock
+                        x:Name="SharedSizeBValue"
+                        Grid.Column="1"
+                        Text="shared value" />
+                </Grid>
+            </StackPanel>
+            <Grid
+                x:Name="GridSplitterGrid"
+                Width="180"
+                Height="32">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition
+                        Width="60"
+                        MinWidth="24" />
+                    <ColumnDefinition Width="5" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <TextBlock
+                    x:Name="GridSplitterLeftPane"
+                    Grid.Column="0"
+                    Text="split left" />
+                <GridSplitter
+                    x:Name="GridSplitterSmoke"
+                    Grid.Column="1"
+                    Width="5"
+                    DragIncrement="3"
+                    HorizontalAlignment="Stretch"
+                    KeyboardIncrement="7"
+                    ResizeBehavior="PreviousAndNext"
+                    ResizeDirection="Columns"
+                    ShowsPreview="True"
+                    VerticalAlignment="Stretch" />
+                <TextBlock
+                    x:Name="GridSplitterRightPane"
+                    Grid.Column="2"
+                    Text="split right" />
+            </Grid>
+        </StackPanel>
+        <StackPanel
+            x:Name="ScrollingSmokePanel"
+            Margin="0,8,0,0">
+            <ScrollViewer
+                x:Name="ScrollViewerSmoke"
+                Width="160"
+                Height="48"
+                CanContentScroll="False"
+                HorizontalScrollBarVisibility="Disabled"
+                VerticalScrollBarVisibility="Visible">
+                <StackPanel x:Name="ScrollViewerContent">
+                    <TextBlock
+                        x:Name="ScrollViewerFirstItem"
+                        Text="scroll first" />
+                    <TextBlock
+                        x:Name="ScrollViewerSecondItem"
+                        Text="scroll second" />
+                    <TextBlock
+                        x:Name="ScrollViewerThirdItem"
+                        Text="scroll third" />
+                    <TextBlock
+                        x:Name="ScrollViewerFourthItem"
+                        Text="scroll fourth" />
+                    <TextBlock
+                        x:Name="ScrollViewerFifthItem"
+                        Text="scroll fifth" />
+                    <TextBlock
+                        x:Name="ScrollViewerSixthItem"
+                        Text="scroll sixth" />
+                </StackPanel>
+            </ScrollViewer>
+            <ScrollBar
+                x:Name="VerticalScrollBarSmoke"
+                LargeChange="3"
+                Maximum="10"
+                Minimum="0"
+                Orientation="Vertical"
+                SmallChange="1"
+                Value="4"
+                ViewportSize="2" />
+        </StackPanel>
+        <StackPanel
+            x:Name="DateSelectionSmokePanel"
+            Margin="0,8,0,0">
+            <Calendar
+                x:Name="CalendarSmoke"
+                DisplayDate="2026-06-01"
+                DisplayDateEnd="2026-12-31"
+                DisplayDateStart="2026-01-01"
+                DisplayMode="Month"
+                FirstDayOfWeek="Monday"
+                IsTodayHighlighted="False"
+                SelectedDate="2026-06-17"
+                SelectionMode="SingleDate" />
+            <DatePicker
+                x:Name="DatePickerSmoke"
+                Width="160"
+                DisplayDateEnd="2026-12-31"
+                DisplayDateStart="2026-01-01"
+                FirstDayOfWeek="Monday"
+                IsTodayHighlighted="False"
+                SelectedDate="2026-06-18"
+                SelectedDateFormat="Short" />
+        </StackPanel>
+        <Button
+            x:Name="StyledEventButton"
+            Margin="0,8,0,0"
+            Content="run style event"
+            Style="{StaticResource EventSetterButtonStyle}" />
+        <Button
+            x:Name="ContextMenuButton"
+            Margin="0,8,0,0"
+            Content="context menu target">
+            <Button.ContextMenu>
+                <ContextMenu x:Name="ContextButtonMenu">
+                    <MenuItem
+                        x:Name="ContextCommandItem"
+                        Command="{x:Static local:MainWindow.SmokeRoutedCommand}"
+                        CommandParameter="context menu command payload"
+                        Header="Run Context _Command" />
+                    <Separator />
+                    <MenuItem
+                        x:Name="ContextClickItem"
+                        Click="OnContextMenuClick"
+                        Header="Context _Click" />
+                </ContextMenu>
+            </Button.ContextMenu>
+            <Button.ToolTip>
+                <ToolTip
+                    x:Name="ContextButtonToolTip"
+                    Placement="Right">
+                    <TextBlock
+                        x:Name="ContextButtonToolTipText"
+                        Tag="compiled tooltip text"
+                        Text="compiled ToolTip content" />
+                </ToolTip>
+            </Button.ToolTip>
+        </Button>
+        <RichTextBox
+            x:Name="DocumentBox"
+            Margin="0,8,0,0">
+            <FlowDocument x:Name="CompiledDocument">
+                <Paragraph x:Name="IntroParagraph">
+                    <Run Text="compiled " />
+                    <Bold>
+                        <Run Text="rich" />
+                    </Bold>
+                    <Italic>
+                        <Run Text=" italic" />
+                    </Italic>
+                    <Underline>
+                        <Run Text=" underline" />
+                    </Underline>
+                    <Span x:Name="DocumentSpan">
+                        <Run Text=" span" />
+                    </Span>
+                    <LineBreak />
+                    <Run Text="after line break" />
+                    <Run Text=" FlowDocument " />
+                    <Hyperlink
+                        x:Name="DocumentLink"
+                        NavigateUri="https://example.test/progpu-wpf"
+                        RequestNavigate="OnDocumentLinkRequestNavigate">
+                        <Run Text="link" />
+                    </Hyperlink>
+                    <Figure x:Name="DocumentFigure">
+                        <Paragraph>
+                            <Run Text="figure anchored text" />
+                        </Paragraph>
+                    </Figure>
+                    <Floater x:Name="DocumentFloater">
+                        <Paragraph>
+                            <Run Text="floater anchored text" />
+                        </Paragraph>
+                    </Floater>
+                    <InlineUIContainer x:Name="InlineActionContainer">
+                        <Button
+                            x:Name="DocumentInlineButton"
+                            Content="inline document button" />
+                    </InlineUIContainer>
+                </Paragraph>
+                <Section x:Name="DocumentSection">
+                    <Paragraph>
+                        <Run Text="section block text" />
+                    </Paragraph>
+                </Section>
+                <BlockUIContainer x:Name="DocumentBlockContainer">
+                    <Button
+                        x:Name="DocumentBlockButton"
+                        Content="block document button" />
+                </BlockUIContainer>
+                <Table
+                    x:Name="DocumentTable"
+                    CellSpacing="2">
+                    <Table.Columns>
+                        <TableColumn Width="80" />
+                        <TableColumn Width="120" />
+                    </Table.Columns>
+                    <TableRowGroup>
+                        <TableRow>
+                            <TableCell>
+                                <Paragraph>
+                                    <Run Text="table alpha" />
+                                </Paragraph>
+                            </TableCell>
+                            <TableCell>
+                                <Paragraph>
+                                    <Run Text="table beta" />
+                                </Paragraph>
+                            </TableCell>
+                        </TableRow>
+                    </TableRowGroup>
+                </Table>
+                <List MarkerStyle="Decimal">
+                    <ListItem>
+                        <Paragraph>
+                            <Run Text="first document item" />
+                        </Paragraph>
+                    </ListItem>
+                    <ListItem>
+                        <Paragraph>
+                            <Run Text="second document item" />
+                        </Paragraph>
+                    </ListItem>
+                </List>
+            </FlowDocument>
+        </RichTextBox>
+        <TextBlock
+            x:Name="BindingBlock"
+            Margin="0,8,0,0"
+            Text="{Binding Greeting}" />
+        <TextBlock
+            x:Name="PriorityBindingBlock"
+            Margin="0,8,0,0">
+            <TextBlock.Text>
+                <PriorityBinding>
+                    <Binding Path="MissingPriorityText" />
+                    <Binding Path="Greeting" />
+                </PriorityBinding>
+            </TextBlock.Text>
+        </TextBlock>
+        <TextBlock
+            x:Name="MultiBindingBlock"
+            Margin="0,8,0,0">
+            <TextBlock.Text>
+                <MultiBinding StringFormat="{}{0} / {1}">
+                    <Binding Path="Greeting" />
+                    <Binding Path="ButtonText" />
+                </MultiBinding>
+            </TextBlock.Text>
+        </TextBlock>
+        <TextBlock
+            x:Name="ConvertedBindingBlock"
+            Margin="0,8,0,0"
+            Text="{Binding Greeting, Converter={StaticResource SmokeUpperConverter}, ConverterParameter=converted}" />
+        <TextBlock
+            x:Name="ConvertedMultiBindingBlock"
+            Margin="0,8,0,0">
+            <TextBlock.Text>
+                <MultiBinding
+                    Converter="{StaticResource SmokeJoinConverter}"
+                    ConverterParameter="converted-multi">
+                    <Binding Path="Greeting" />
+                    <Binding Path="ButtonText" />
+                </MultiBinding>
+            </TextBlock.Text>
+        </TextBlock>
+        <Border
+            x:Name="AncestorBindingBorder"
+            Margin="0,8,0,0"
+            Tag="ancestor binding source">
+            <TextBlock
+                x:Name="RelativeSourceBlock"
+                Text="{Binding RelativeSource={RelativeSource AncestorType={x:Type Border}}, Path=Tag}" />
+        </Border>
+        <TextBox
+            x:Name="BindingTransferBox"
+            Margin="0,8,0,0"
+            SourceUpdated="OnBindingTransferSourceUpdated"
+            TargetUpdated="OnBindingTransferTargetUpdated"
+            Text="{Binding BindingTransferText, Mode=TwoWay, UpdateSourceTrigger=Explicit, NotifyOnSourceUpdated=True, NotifyOnTargetUpdated=True}" />
+        <TextBox
+            x:Name="ValidatedBox"
+            Margin="0,8,0,0"
+            Validation.Error="OnValidatedBoxValidationError"
+            Text="{Binding ValidatedText, UpdateSourceTrigger=Explicit, ValidatesOnDataErrors=True, NotifyOnValidationError=True}" />
+        <TextBox
+            x:Name="RuleValidatedBox"
+            Margin="0,8,0,0"
+            Validation.Error="OnRuleValidatedBoxValidationError">
+            <TextBox.Text>
+                <Binding
+                    NotifyOnValidationError="True"
+                    Path="RuleValidatedText"
+                    UpdateSourceTrigger="Explicit">
+                    <Binding.ValidationRules>
+                        <local:SmokePrefixValidationRule RequiredPrefix="rule:" />
+                    </Binding.ValidationRules>
+                </Binding>
+            </TextBox.Text>
+        </TextBox>
+        <StackPanel
+            x:Name="BindingGroupPanel"
+            Margin="0,8,0,0">
+            <StackPanel.BindingGroup>
+                <BindingGroup Name="SmokeBindingGroup">
+                    <BindingGroup.ValidationRules>
+                        <local:SmokeBindingGroupValidationRule
+                            FirstProperty="BindingGroupFirstName"
+                            RequiredPrefix="group:"
+                            SecondProperty="BindingGroupLastName" />
+                    </BindingGroup.ValidationRules>
+                </BindingGroup>
+            </StackPanel.BindingGroup>
+            <TextBox
+                x:Name="BindingGroupFirstBox"
+                Text="{Binding BindingGroupFirstName, UpdateSourceTrigger=Explicit}" />
+            <TextBox
+                x:Name="BindingGroupLastBox"
+                Text="{Binding BindingGroupLastName, UpdateSourceTrigger=Explicit}" />
+        </StackPanel>
+        <TextBlock
+            x:Name="ProviderGreetingBlock"
+            Margin="0,8,0,0"
+            Text="{Binding Source={StaticResource ProviderGreeting}}" />
+        <TextBlock
+            x:Name="XmlProviderBlock"
+            Margin="0,8,0,0"
+            Text="{Binding Source={StaticResource ProviderXml}, XPath=@Text}" />
+        <TextBlock
+            x:Name="StoryboardTargetBlock"
+            Loaded="OnStoryboardTargetLoaded"
+            Margin="0,8,0,0"
+            Opacity="1"
+            Text="compiled storyboard target">
+            <TextBlock.Triggers>
+                <EventTrigger RoutedEvent="FrameworkElement.Loaded">
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <DoubleAnimation
+                                Storyboard.TargetName="StoryboardTargetBlock"
+                                Storyboard.TargetProperty="Opacity"
+                                To="0.37"
+                                Duration="0:0:0"
+                                FillBehavior="HoldEnd" />
+                        </Storyboard>
+                    </BeginStoryboard>
+                </EventTrigger>
+            </TextBlock.Triggers>
+        </TextBlock>
+        <Button
+            x:Name="StoryboardTriggerButton"
+            Margin="0,8,0,0"
+            Content="run storyboard trigger"
+            Opacity="1">
+            <Button.Triggers>
+                <EventTrigger RoutedEvent="Button.Click">
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <DoubleAnimation
+                                Storyboard.TargetProperty="Opacity"
+                                To="0.64"
+                                Duration="0:0:0"
+                                FillBehavior="HoldEnd" />
+                        </Storyboard>
+                    </BeginStoryboard>
+                </EventTrigger>
+            </Button.Triggers>
+        </Button>
+        <TextBlock
+            x:Name="MarkupExtensionBlock"
+            Margin="0,8,0,0"
+            Text="{local:SmokeText Prefix=compiled, Value=markup}" />
+        <TextBlock
+            x:Name="MergedResourceBlock"
+            Foreground="{StaticResource MergedAccentBrush}"
+            Margin="{StaticResource MergedBlockMargin}"
+            Text="compiled merged resource" />
+        <TextBlock
+            x:Name="ScopedResourceBlock"
+            Foreground="{StaticResource ScopedAccentBrush}"
+            Margin="{StaticResource ScopedBlockMargin}"
+            Text="compiled scoped resource" />
+        <TextBlock
+            x:Name="ComponentResourceBlock"
+            Foreground="{StaticResource {ComponentResourceKey TypeInTargetAssembly={x:Type local:MainWindow}, ResourceId=SmokeComponentAccentBrush}}"
+            Margin="0,8,0,0"
+            Text="compiled component resource" />
+        <Border
+            x:Name="UnsharedResourceBorderA"
+            Background="{StaticResource UnsharedAccentBrush}"
+            Margin="0,8,0,0">
+            <TextBlock Text="compiled unshared resource A" />
+        </Border>
+        <Border
+            x:Name="UnsharedResourceBorderB"
+            Background="{StaticResource UnsharedAccentBrush}"
+            Margin="0,8,0,0">
+            <TextBlock Text="compiled unshared resource B" />
+        </Border>
+        <local:SmokeUserControl
+            x:Name="NestedControl"
+            Margin="0,8,0,0" />
+        <Grid
+            x:Name="AttachedLayoutGrid"
+            RowDefinitions="Auto,Auto"
+            ColumnDefinitions="Auto 80 *"
+            Margin="0,8,0,0">
+            <TextBlock
+                x:Name="GridFirstCell"
+                Grid.Row="0"
+                Grid.Column="0"
+                Text="grid alpha" />
+            <TextBlock
+                x:Name="GridSecondCell"
+                Grid.Row="1"
+                Grid.Column="1"
+                Margin="4,0,0,0"
+                Text="grid beta" />
+        </Grid>
+        <CheckBox
+            x:Name="ImplicitStyleCheckBox"
+            IsChecked="True" />
+        <StackPanel
+            x:Name="ToggleChoicePanel"
+            Margin="0,8,0,0">
+            <CheckBox
+                x:Name="ToggleChoiceCheckBox"
+                Checked="OnToggleChoiceChecked"
+                Content="toggle choice"
+                Unchecked="OnToggleChoiceUnchecked" />
+            <RadioButton
+                x:Name="RadioChoiceAlpha"
+                Checked="OnChoiceRadioChecked"
+                Content="choice alpha"
+                GroupName="SmokeChoiceGroup"
+                Unchecked="OnChoiceRadioUnchecked" />
+            <RadioButton
+                x:Name="RadioChoiceBeta"
+                Checked="OnChoiceRadioChecked"
+                Content="choice beta"
+                GroupName="SmokeChoiceGroup"
+                Unchecked="OnChoiceRadioUnchecked" />
+        </StackPanel>
+        <Button
+            x:Name="CommandButton"
+            Margin="0,8,0,0"
+            Command="{Binding SmokeCommand}"
+            Content="{Binding ButtonText}" />
+        <Button
+            x:Name="CanExecuteCommandButton"
+            Margin="0,8,0,0"
+            Command="{Binding ToggleCommand}"
+            CommandParameter="can execute payload"
+            Content="can execute command" />
+        <Button
+            x:Name="RequeryCommandButton"
+            Margin="0,8,0,0"
+            Command="{Binding RequeryCommand}"
+            CommandParameter="requery payload"
+            Content="requery command" />
+        <Button
+            x:Name="RoutedCommandButton"
+            Margin="0,8,0,0"
+            Command="{x:Static local:MainWindow.SmokeRoutedCommand}"
+            CommandParameter="routed command payload"
+            CommandTarget="{Binding ElementName=InputBox}"
+            Content="run routed command" />
+        <local:SmokeClassCommandTextBox
+            x:Name="ClassCommandTargetBox"
+            Margin="0,8,0,0"
+            Text="class command target" />
+        <Button
+            x:Name="ClassCommandButton"
+            Margin="0,8,0,0"
+            Command="{x:Static local:MainWindow.SmokeClassRoutedCommand}"
+            CommandParameter="class command payload"
+            CommandTarget="{Binding ElementName=ClassCommandTargetBox}"
+            Content="run class command" />
+        <Button
+            x:Name="TemplatedButton"
+            Margin="0,8,0,0"
+            Content="templated button"
+            Template="{StaticResource SmokeButtonTemplate}" />
+        <Button
+            x:Name="TriggeredButton"
+            Content="{Binding TriggerButtonText}"
+            Style="{StaticResource TriggeredButtonStyle}" />
+        <Button
+            x:Name="PropertyTriggeredButton"
+            Content="property trigger target"
+            Style="{StaticResource PropertyTriggeredButtonStyle}" />
+        <Button
+            x:Name="MultiPropertyTriggeredButton"
+            Content="multi property trigger target"
+            IsDefault="True"
+            Style="{StaticResource MultiPropertyTriggeredButtonStyle}" />
+        <Button
+            x:Name="TriggerActionButton"
+            Content="trigger action target"
+            Style="{StaticResource TriggerActionButtonStyle}" />
+        <Button
+            x:Name="DataTriggerActionButton"
+            Content="data trigger action target"
+            Style="{StaticResource DataTriggerActionButtonStyle}" />
+        <Button
+            x:Name="MultiDataTriggerActionButton"
+            Content="multi data trigger action target"
+            Style="{StaticResource MultiDataTriggerActionButtonStyle}" />
+        <Button
+            x:Name="MultiTriggerActionButton"
+            Content="multi trigger action target"
+            IsDefault="False"
+            Style="{StaticResource MultiTriggerActionButtonStyle}" />
+        <Button
+            x:Name="MultiTriggeredButton"
+            Content="{Binding TriggerButtonText}"
+            Style="{StaticResource MultiTriggeredButtonStyle}" />
+        <ListBox
+            x:Name="ItemsList"
+            Margin="0,8,0,0"
+            ItemsSource="{Binding Items}"
+            SelectedItem="{Binding SelectedItem, Mode=TwoWay}">
+            <ListBox.ItemContainerStyle>
+                <Style TargetType="{x:Type ListBoxItem}">
+                    <Setter Property="Tag" Value="container trigger inactive" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding Name}" Value="item beta">
+                            <Setter Property="Tag" Value="container trigger active" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </ListBox.ItemContainerStyle>
+            <ListBox.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <StackPanel />
+                </ItemsPanelTemplate>
+            </ListBox.ItemsPanel>
+            <ListBox.ItemTemplate>
+                <DataTemplate DataType="{x:Type local:SmokeItem}">
+                    <TextBlock
+                        x:Name="ItemTextBlock"
+                        Tag="template trigger inactive"
+                        Text="{Binding Name}" />
+                    <DataTemplate.Triggers>
+                        <DataTrigger Binding="{Binding Name}" Value="item beta">
+                            <Setter TargetName="ItemTextBlock" Property="Tag" Value="template trigger active" />
+                        </DataTrigger>
+                    </DataTemplate.Triggers>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+        <ListBox
+            x:Name="SortedItemsList"
+            Margin="0,8,0,0"
+            ItemsSource="{Binding Source={StaticResource SortedItemsView}}" />
+        <ListBox
+            x:Name="LiveSortedItemsList"
+            Margin="0,8,0,0"
+            ItemsSource="{Binding Source={StaticResource LiveSortedItemsView}}" />
+        <ListBox
+            x:Name="FilteredItemsList"
+            Margin="0,8,0,0"
+            ItemsSource="{Binding Source={StaticResource FilteredItemsView}}" />
+        <ListBox
+            x:Name="LiveFilteredItemsList"
+            Margin="0,8,0,0"
+            ItemsSource="{Binding Source={StaticResource LiveFilteredItemsView}}" />
+        <ListBox
+            x:Name="GroupedItemsList"
+            Margin="0,8,0,0"
+            ItemsSource="{Binding Source={StaticResource GroupedItemsView}}">
+            <ListBox.GroupStyle>
+                <GroupStyle>
+                    <GroupStyle.HeaderTemplate>
+                        <DataTemplate>
+                            <TextBlock
+                                x:Name="GroupHeaderTextBlock"
+                                Tag="group header template"
+                                Text="{Binding Name}" />
+                        </DataTemplate>
+                    </GroupStyle.HeaderTemplate>
+                </GroupStyle>
+            </ListBox.GroupStyle>
+        </ListBox>
+        <ListBox
+            x:Name="LiveGroupedItemsList"
+            Margin="0,8,0,0"
+            ItemsSource="{Binding Source={StaticResource LiveGroupedItemsView}}">
+            <ListBox.GroupStyle>
+                <GroupStyle>
+                    <GroupStyle.HeaderTemplate>
+                        <DataTemplate>
+                            <TextBlock
+                                x:Name="LiveGroupHeaderTextBlock"
+                                Tag="live group header template"
+                                Text="{Binding Name}" />
+                        </DataTemplate>
+                    </GroupStyle.HeaderTemplate>
+                </GroupStyle>
+            </ListBox.GroupStyle>
+        </ListBox>
+        <ListBox
+            x:Name="CurrencyItemsList"
+            IsSynchronizedWithCurrentItem="True"
+            Margin="0,8,0,0"
+            ItemsSource="{Binding Source={StaticResource CurrencyItemsView}}" />
+        <ListBox
+            x:Name="CompositeItemsList"
+            Margin="0,8,0,0">
+            <ListBox.ItemsSource>
+                <CompositeCollection>
+                    <sys:String>composite header</sys:String>
+                    <CollectionContainer Collection="{x:Static local:SmokeCompositeItemsProvider.Items}" />
+                    <sys:String>composite footer</sys:String>
+                </CompositeCollection>
+            </ListBox.ItemsSource>
+        </ListBox>
+        <ListBox
+            x:Name="AlternationItemsList"
+            AlternationCount="2"
+            Margin="0,8,0,0"
+            ItemsSource="{Binding Items}" />
+        <ListBox
+            x:Name="StringFormatItemsList"
+            ItemStringFormat="formatted {0}"
+            Margin="0,8,0,0"
+            ItemsSource="{Binding Labels}" />
+        <ListBox
+            x:Name="DisplayMemberItemsList"
+            Margin="0,8,0,0"
+            DisplayMemberPath="Name"
+            ItemsSource="{Binding Items}"
+            SelectedValue="{Binding SelectedCategory, Mode=TwoWay}"
+            SelectedValuePath="Category" />
+        <ComboBox
+            x:Name="ItemsComboBox"
+            Margin="0,8,0,0"
+            DisplayMemberPath="Name"
+            ItemsSource="{Binding Items}"
+            SelectedValue="{Binding ComboSelectedCategory, Mode=TwoWay}"
+            SelectedValuePath="Category" />
+        <StackPanel
+            x:Name="SelectorEventPanel"
+            Margin="0,8,0,0">
+            <ListBox
+                x:Name="SelectionEventListBox"
+                SelectionChanged="OnSelectionEventListBoxChanged">
+                <ListBoxItem Content="selection alpha" />
+                <ListBoxItem Content="selection beta" />
+            </ListBox>
+            <ComboBox
+                x:Name="SelectionEventComboBox"
+                SelectionChanged="OnSelectionEventComboBoxChanged">
+                <ComboBoxItem Content="combo alpha" />
+                <ComboBoxItem Content="combo beta" />
+            </ComboBox>
+            <ListBox
+                x:Name="MultiSelectionEventListBox"
+                SelectionChanged="OnMultiSelectionEventListBoxChanged"
+                SelectionMode="Multiple">
+                <ListBoxItem Content="multi alpha" />
+                <ListBoxItem Content="multi beta" />
+                <ListBoxItem Content="multi gamma" />
+            </ListBox>
+        </StackPanel>
+        <ListView
+            x:Name="GridItemsListView"
+            Margin="0,8,0,0"
+            ItemsSource="{Binding Items}"
+            SelectedIndex="1">
+            <ListView.View>
+                <GridView AllowsColumnReorder="False">
+                    <GridViewColumn
+                        Header="Name"
+                        Width="120"
+                        DisplayMemberBinding="{Binding Name}" />
+                    <GridViewColumn
+                        Header="Category"
+                        Width="140"
+                        DisplayMemberBinding="{Binding Category}" />
+                </GridView>
+            </ListView.View>
+        </ListView>
+        <DataGrid
+            x:Name="ItemsDataGrid"
+            Margin="0,8,0,0"
+            AutoGenerateColumns="False"
+            CanUserAddRows="False"
+            ClipboardCopyMode="IncludeHeader"
+            CopyingRowClipboardContent="OnItemsDataGridCopyingRowClipboardContent"
+            EnableColumnVirtualization="False"
+            EnableRowVirtualization="False"
+            GridLinesVisibility="Horizontal"
+            HeadersVisibility="Column"
+            IsReadOnly="True"
+            ItemsSource="{Binding Items}"
+            SelectedItem="{Binding SelectedItem, Mode=TwoWay}">
+            <DataGrid.Columns>
+                <DataGridTextColumn
+                    Binding="{Binding Name}"
+                    ClipboardContentBinding="{Binding Name}"
+                    Header="Name" />
+                <DataGridTextColumn
+                    Binding="{Binding Category}"
+                    ClipboardContentBinding="{Binding Category}"
+                    Header="Category" />
+                <DataGridCheckBoxColumn
+                    Binding="{Binding IsActive}"
+                    ClipboardContentBinding="{Binding IsActive}"
+                    Header="Active" />
+            </DataGrid.Columns>
+        </DataGrid>
+        <TreeView
+            x:Name="NodeTree"
+            Margin="0,8,0,0"
+            ItemTemplate="{StaticResource SmokeNodeTemplate}"
+            ItemsSource="{Binding Nodes}" />
+        <TreeView
+            x:Name="ExplicitTree"
+            Margin="0,8,0,0">
+            <TreeViewItem
+                x:Name="ExplicitTreeAlpha"
+                Collapsed="OnExplicitTreeCollapsed"
+                Expanded="OnExplicitTreeExpanded"
+                Header="explicit alpha"
+                Selected="OnExplicitTreeSelected"
+                Unselected="OnExplicitTreeUnselected">
+                <TreeViewItem
+                    x:Name="ExplicitTreeAlphaChild"
+                    Header="explicit alpha child" />
+            </TreeViewItem>
+            <TreeViewItem
+                x:Name="ExplicitTreeBeta"
+                Header="explicit beta"
+                Selected="OnExplicitTreeSelected"
+                Unselected="OnExplicitTreeUnselected" />
+        </TreeView>
+        <ListBox
+            x:Name="SelectorItemsList"
+            Margin="0,8,0,0"
+            ItemTemplateSelector="{StaticResource SmokeItemTemplateSelector}"
+            ItemsSource="{Binding Items}" />
+        <ListBox
+            x:Name="StyleSelectorItemsList"
+            Margin="0,8,0,0"
+            ItemContainerStyleSelector="{StaticResource SmokeItemContainerStyleSelector}"
+            ItemsSource="{Binding Items}">
+            <ListBox.ItemTemplate>
+                <DataTemplate DataType="{x:Type local:SmokeItem}">
+                    <TextBlock
+                        x:Name="StyleSelectorItemTextBlock"
+                        Tag="style selector item template"
+                        Text="{Binding Name}" />
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+        <ContentControl
+            x:Name="ImplicitTemplateHost"
+            Margin="0,8,0,0"
+            Content="{Binding Detail}" />
+        <ContentControl
+            x:Name="SelectorTemplateHost"
+            Margin="0,8,0,0"
+            Content="{Binding Detail}"
+            ContentTemplateSelector="{StaticResource SmokeDetailTemplateSelector}" />
+        <TabControl
+            x:Name="SmokeTabControl"
+            Margin="0,8,0,0"
+            SelectedIndex="1">
+            <TabItem Header="alpha tab">
+                <TextBlock
+                    x:Name="AlphaTabContent"
+                    Tag="tab alpha content"
+                    Text="alpha tab content" />
+            </TabItem>
+            <TabItem Header="beta tab">
+                <TextBlock
+                    x:Name="BetaTabContent"
+                    Tag="tab beta content"
+                    Text="beta tab content" />
+            </TabItem>
+        </TabControl>
+        <Expander
+            x:Name="SmokeExpander"
+            Header="{Binding Detail}"
+            HeaderTemplate="{StaticResource ExpanderHeaderTemplate}"
+            IsExpanded="True"
+            Margin="0,8,0,0">
+            <TextBlock
+                x:Name="ExpanderContentText"
+                Tag="expander content"
+                Text="{Binding Greeting}" />
+        </Expander>
+        <GroupBox
+            x:Name="SmokeGroupBox"
+            Header="{Binding Detail}"
+            HeaderTemplate="{StaticResource GroupBoxHeaderTemplate}"
+            Margin="0,8,0,0">
+            <TextBlock
+                x:Name="GroupBoxContentText"
+                Tag="group box content"
+                Text="{Binding ButtonText}" />
+        </GroupBox>
+        <AdornerDecorator
+            x:Name="SmokeAdornerDecorator"
+            Margin="0,8,0,0">
+            <Button
+                x:Name="AdornedButton"
+                Content="adorned button"
+                Tag="adorned button" />
+        </AdornerDecorator>
+        <StackPanel
+            x:Name="DependencyPropertyScopePanel"
+            local:SmokeDependencyProperties.InheritedLabel="inherited smoke"
+            Margin="0,8,0,0">
+            <local:SmokeDependencyPropertyControl
+                x:Name="DependencyPropertyTarget"
+                CoercedLevel="15" />
+            <local:SmokeDependencyPropertyOwnerControl
+                x:Name="DependencyPropertyOwnerTarget"
+                OwnerLevel="35" />
+            <local:SmokeOverrideMetadataControl
+                x:Name="DependencyPropertyMetadataTarget" />
+        </StackPanel>
+        <StackPanel
+            x:Name="CustomRoutedEventScopePanel"
+            local:SmokeRoutedEventSource.SmokeBubbled="OnCustomRoutedEventScope"
+            Margin="0,8,0,0">
+            <local:SmokeRoutedEventSource
+                x:Name="CustomRoutedEventSource"
+                SmokeBubbled="OnCustomRoutedEventSource" />
+        </StackPanel>
+        <StackPanel
+            x:Name="ClassRoutedEventScopePanel"
+            local:SmokeClassRoutedEventSource.SmokeClassBubbled="OnClassRoutedEventScope"
+            Margin="0,8,0,0">
+            <local:SmokeClassRoutedEventSource
+                x:Name="ClassRoutedEventSource"
+                SmokeClassBubbled="OnClassRoutedEventSource" />
+        </StackPanel>
+        <StackPanel
+            x:Name="AccessKeyFocusScope"
+            FocusManager.FocusedElement="{Binding ElementName=AccessTargetBox}"
+            FocusManager.IsFocusScope="True"
+            Margin="0,8,0,0">
+            <Label
+                x:Name="AccessTargetLabel"
+                Content="_Access target"
+                Target="{Binding ElementName=AccessTargetBox}" />
+            <TextBox
+                x:Name="AccessTargetBox"
+                Text="access target" />
+            <TextBox
+                x:Name="AlternateAccessTargetBox"
+                Text="alternate access target" />
+            <AccessText
+                x:Name="StandaloneAccessText"
+                Text="_Standalone access text" />
+        </StackPanel>
+        <Frame
+            x:Name="SourceNavigationFrame"
+            Margin="0,8,0,0"
+            LoadCompleted="OnSourceNavigationFrameLoadCompleted"
+            Navigated="OnSourceNavigationFrameNavigated"
+            Navigating="OnSourceNavigationFrameNavigating"
+            NavigationUIVisibility="Hidden"
+            Source="SmokePage.xaml" />
+    </StackPanel>
+</Window>

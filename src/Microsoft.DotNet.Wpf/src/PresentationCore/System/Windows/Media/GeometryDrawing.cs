@@ -8,6 +8,8 @@
 //              content.
 //
 
+using ProGPU.Wpf.Interop;
+
 namespace System.Windows.Media
 {
     /// <summary>
@@ -15,7 +17,7 @@ namespace System.Windows.Media
     /// a geometry with and brush and/or pen to produce rendered
     /// content.
     /// </summary>    
-    public sealed partial class GeometryDrawing : Drawing
+    public sealed partial class GeometryDrawing : Drawing, IPortableGeometryDrawingStateSource
     {
         #region Constructors
 
@@ -37,7 +39,25 @@ namespace System.Windows.Media
             Brush = brush;
             Pen = pen;
             Geometry = geometry;
-        }               
+        }
+
+        bool IPortableGeometryDrawingStateSource.TryGetPortableGeometryDrawingState(out PortableGeometryDrawingState state)
+        {
+            Geometry geometry = Geometry;
+            Brush brush = Brush;
+            Pen pen = Pen;
+
+            state = new PortableGeometryDrawingState
+            {
+                HasGeometry = geometry != null,
+                Geometry = geometry,
+                HasBrush = brush != null,
+                Brush = brush,
+                HasPen = pen != null,
+                Pen = pen
+            };
+            return true;
+        }
 
         #endregion        
 
@@ -64,4 +84,3 @@ namespace System.Windows.Media
         #endregion Internal methods
     }
 }
-

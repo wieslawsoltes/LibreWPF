@@ -189,7 +189,7 @@ namespace System.Windows.Input
         {
             get
             {
-                return !CoreAppContextSwitches.DisableStylusAndTouchSupport;
+                return OperatingSystem.IsWindows() && !CoreAppContextSwitches.DisableStylusAndTouchSupport;
             }
         }
 
@@ -278,6 +278,11 @@ namespace System.Windows.Input
         {
             get
             {
+                if (!OperatingSystem.IsWindows())
+                {
+                    return false;
+                }
+
                 bool result = false;
 
                 try

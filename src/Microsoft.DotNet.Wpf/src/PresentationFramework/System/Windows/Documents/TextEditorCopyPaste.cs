@@ -226,6 +226,11 @@ namespace System.Windows.Documents
         {
             string formatToApply;
 
+            if (dataObject == null)
+            {
+                return string.Empty;
+            }
+
             // GetDataPresent(DataFormats.Xaml)have a chance to register Xaml format
             // by calling the unmanaged code which is RegisterClipboardFormat.
 

@@ -1,0 +1,1 @@
+Showcase pack resource loaded through Application.GetResourceStream.

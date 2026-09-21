@@ -1,12 +1,21 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net48</TargetFramework>
+    <TargetFrameworks>net48;net10.0</TargetFrameworks>
     <AssemblyName>csp</AssemblyName>
     <OutputType>exe</OutputType>
-    <PlatformTarget>x86</PlatformTarget>
+    <PlatformTarget Condition="'$(TargetFrameworkIdentifier)' == '.NETFramework'">x86</PlatformTarget>
     <EnableDefaultItems>false</EnableDefaultItems>
     <StartupObject>MS.Internal.Csp.MainClass</StartupObject>
+    <NoWarn>$(NoWarn);CA1051;CA1311;CA1845;SYSLIB1045</NoWarn>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net10.0'">
+    <RuntimeFrameworkVersion>10.0.5</RuntimeFrameworkVersion>
+    <UseOOBNETCoreAppTargetingPack>false</UseOOBNETCoreAppTargetingPack>
+    <UseOOBNETCoreAppRuntimePack>false</UseOOBNETCoreAppRuntimePack>
+    <UseOOBNETCoreAppAppHostPack>false</UseOOBNETCoreAppAppHostPack>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
   </PropertyGroup>
 
   <ItemGroup>
@@ -19,8 +28,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Reference Include="System"/>
-    <Reference Include="System.Windows.Forms"/>
+    <Reference Include="System" Condition="'$(TargetFrameworkIdentifier)' == '.NETFramework'" />
+    <Reference Include="System.Windows.Forms" Condition="'$(TargetFrameworkIdentifier)' == '.NETFramework'" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="$(MicrosoftCodeAnalysisCSharpPackageVersion)" Condition="'$(TargetFrameworkIdentifier)' == '.NETCoreApp'" PrivateAssets="all" />
   </ItemGroup>
 
 </Project>

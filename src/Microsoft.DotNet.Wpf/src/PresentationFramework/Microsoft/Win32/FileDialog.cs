@@ -501,6 +501,12 @@ namespace Microsoft.Win32
             return ProcessFileNames();
         }
 
+        private protected override bool TryHandlePortableItemOk(out object restoreState)
+        {
+            restoreState = _filterIndex;
+            return ProcessFileNames();
+        }
+
         private protected override void RevertItemOk(object state)
         {
             _filterIndex = (int)state;

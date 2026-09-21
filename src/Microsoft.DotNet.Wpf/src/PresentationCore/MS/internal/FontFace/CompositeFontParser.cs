@@ -331,7 +331,7 @@ namespace MS.Internal.FontFace
             {
                 // Once we find a FontFamilyElement with the proper OS attribute, parse it
                 if (Enum.TryParse(_reader.GetAttribute("OS"), out fontFamilyOsVersion)
-                    && OSVersionHelper.IsOsVersionOrGreater(fontFamilyOsVersion))
+                    && IsFontFamilyOsSectionSupported(fontFamilyOsVersion))
                 {
                     foundOsSection = true;
                     ParseFontFamilyElement();
@@ -343,6 +343,15 @@ namespace MS.Internal.FontFace
             {
                 Fail(string.Format("No FontFamily element found in FontFamilyCollection that matches current OS or greater: {0}", OSVersionHelper.GetOsVersion().ToString()));
             }
+        }
+
+        private static bool IsFontFamilyOsSectionSupported(OperatingSystemVersion fontFamilyOsVersion)
+        {
+            // Composite font collections are ordered newest-to-oldest Windows section.
+            // Portable hosts should use the newest WPF fallback data instead of rejecting
+            // Windows-versioned resources because there is no matching native Windows OS.
+            return !global::System.OperatingSystem.IsWindows()
+                || OSVersionHelper.IsOsVersionOrGreater(fontFamilyOsVersion);
         }
 
         /// <summary>

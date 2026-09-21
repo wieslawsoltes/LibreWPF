@@ -204,6 +204,11 @@ namespace System.Windows.Markup.Primitives
             object invokeInstance = instance;
 
             DependencyPropertyDescriptor dpd = DependencyPropertyDescriptor.FromProperty(pd);
+            if (IsEmptyRuntimeNameProperty(pd, dpd, instance))
+            {
+                return false;
+            }
+
             if (dpd != null && dpd.IsAttached) 
             {
                 Type ownerType = dpd.DependencyProperty.OwnerType;
@@ -278,6 +283,21 @@ namespace System.Windows.Markup.Primitives
                 }
             }
             return pd.ShouldSerializeValue(instance);
+        }
+
+        private static bool IsEmptyRuntimeNameProperty(PropertyDescriptor pd, DependencyPropertyDescriptor dpd, object instance)
+        {
+            if (pd.Name != "Name")
+            {
+                return false;
+            }
+
+            if (instance is not FrameworkElement && instance is not FrameworkContentElement)
+            {
+                return false;
+            }
+
+            return String.IsNullOrEmpty(pd.GetValue(instance) as string);
         }
 
         private struct ShouldSerializeKey
@@ -896,6 +916,15 @@ namespace System.Windows.Markup.Primitives
             // See if the type has a type converter that can create a MarkupExtension
             // (Have to do this after the null check so that GetConverter doesn't get
             // an invalid argument.)
+
+            if (value is SystemResourceKey || value is SystemThemeKey)
+            {
+                var systemKeyConverter = new SystemKeyConverter();
+                if (systemKeyConverter.CanConvertTo(context, typeof(MarkupExtension)))
+                {
+                    return systemKeyConverter.ConvertTo(context, TypeConverterHelper.InvariantEnglishUS, value, typeof(MarkupExtension));
+                }
+            }
 
             TypeConverter converter = TypeDescriptor.GetConverter(value);
             if (converter.CanConvertTo(context, typeof(MarkupExtension)))

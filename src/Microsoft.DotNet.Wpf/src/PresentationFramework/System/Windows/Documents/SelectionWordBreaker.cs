@@ -3,6 +3,7 @@
 
 using MS.Win32;
 using MS.Internal; // Invariant
+using System.Globalization;
 
 //
 // Description: Word breaker used for TextSelection's auto-word selection and
@@ -75,7 +76,7 @@ namespace System.Windows.Documents
             Span<UInt16> charType3 = stackalloc UInt16[2];
             ReadOnlySpan<char> sourceChars = [text[position - 1], text[position]];
 
-            SafeNativeMethods.GetStringTypeEx(0 /* ignored */, SafeNativeMethods.CT_CTYPE3, sourceChars, charType3);
+            GetCharType3(sourceChars, charType3);
 
             // Otherwise we're at a word boundary if the classes of the surrounding text differ.
             return IsWordBoundary(text[position - 1], text[position]) ||
@@ -227,7 +228,7 @@ namespace System.Windows.Documents
                 }
                 else
                 {
-                    SafeNativeMethods.GetStringTypeEx(0 /* ignored */, SafeNativeMethods.CT_CTYPE1, [ch], new Span<UInt16>(ref charType1));
+                    charType1 = GetCharType1(ch);
 
                     if ((charType1 & SafeNativeMethods.C1_SPACE) != 0)
                     {
@@ -259,11 +260,126 @@ namespace System.Windows.Documents
         // Returns true if a char is a non-spacing diacritic or kashida.
         private static bool IsDiacriticOrKashida(char ch)
         {
-            UInt16 charType3 = UInt16.MinValue;
-
-            SafeNativeMethods.GetStringTypeEx(0 /* ignored */, SafeNativeMethods.CT_CTYPE3, [ch], new Span<UInt16>(ref charType3));
+            UInt16 charType3 = GetCharType3(ch);
 
             return (charType3 & (SafeNativeMethods.C3_DIACRITIC | SafeNativeMethods.C3_NONSPACING | SafeNativeMethods.C3_VOWELMARK | SafeNativeMethods.C3_KASHIDA)) != 0;
+        }
+
+        internal static bool IsBlankOrWhiteSpaceCharacter(char ch)
+        {
+            UInt16 charType1 = GetCharType1(ch);
+            return (charType1 & (SafeNativeMethods.C1_SPACE | SafeNativeMethods.C1_BLANK)) != 0;
+        }
+
+        private static UInt16 GetCharType1(char ch)
+        {
+            UInt16 charType1 = UInt16.MinValue;
+
+            if (OperatingSystem.IsWindows())
+            {
+                SafeNativeMethods.GetStringTypeEx(0 /* ignored */, SafeNativeMethods.CT_CTYPE1, [ch], new Span<UInt16>(ref charType1));
+                return charType1;
+            }
+
+            return GetPortableCharType1(ch);
+        }
+
+        private static UInt16 GetCharType3(char ch)
+        {
+            UInt16 charType3 = UInt16.MinValue;
+            GetCharType3([ch], new Span<UInt16>(ref charType3));
+            return charType3;
+        }
+
+        private static void GetCharType3(ReadOnlySpan<char> sourceChars, Span<UInt16> charTypes)
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                SafeNativeMethods.GetStringTypeEx(0 /* ignored */, SafeNativeMethods.CT_CTYPE3, sourceChars, charTypes);
+                return;
+            }
+
+            for (int i = 0; i < sourceChars.Length; i++)
+            {
+                charTypes[i] = GetPortableCharType3(sourceChars[i]);
+            }
+        }
+
+        private static UInt16 GetPortableCharType1(char ch)
+        {
+            if (char.IsWhiteSpace(ch))
+            {
+                UInt16 charType = SafeNativeMethods.C1_SPACE;
+                if (ch == ' ' || ch == '\t')
+                {
+                    charType |= SafeNativeMethods.C1_BLANK;
+                }
+
+                return charType;
+            }
+
+            UnicodeCategory category = CharUnicodeInfo.GetUnicodeCategory(ch);
+            return IsPunctuationCategory(category) ? SafeNativeMethods.C1_PUNCT : UInt16.MinValue;
+        }
+
+        private static UInt16 GetPortableCharType3(char ch)
+        {
+            UInt16 charType = UInt16.MinValue;
+
+            if (IsInRange(0x3040, ch, 0x309f))
+            {
+                charType |= SafeNativeMethods.C3_HIRAGANA;
+            }
+            else if (IsInRange(0x30a0, ch, 0x30ff) || IsInRange(0x31f0, ch, 0x31ff))
+            {
+                charType |= SafeNativeMethods.C3_KATAKANA;
+            }
+            else if (IsInRange(0x4e00, ch, 0x9fff) || IsInRange(0x3400, ch, 0x4dbf) || IsInRange(0xf900, ch, 0xfaff))
+            {
+                charType |= SafeNativeMethods.C3_IDEOGRAPH;
+            }
+
+            if (IsInRange(0xff61, ch, 0xff9f))
+            {
+                charType |= SafeNativeMethods.C3_HALFWIDTH;
+            }
+            else if (IsInRange(0xff01, ch, 0xff60) || IsInRange(0xffe0, ch, 0xffe6))
+            {
+                charType |= SafeNativeMethods.C3_FULLWIDTH;
+            }
+
+            UnicodeCategory category = CharUnicodeInfo.GetUnicodeCategory(ch);
+            if (category == UnicodeCategory.NonSpacingMark || category == UnicodeCategory.EnclosingMark)
+            {
+                charType |= SafeNativeMethods.C3_NONSPACING;
+            }
+            else if (category == UnicodeCategory.SpacingCombiningMark)
+            {
+                charType |= SafeNativeMethods.C3_VOWELMARK;
+            }
+
+            if (category == UnicodeCategory.ModifierSymbol || category == UnicodeCategory.ModifierLetter)
+            {
+                charType |= SafeNativeMethods.C3_DIACRITIC;
+            }
+
+            if (ch == ArabicTatweelChar)
+            {
+                charType |= SafeNativeMethods.C3_KASHIDA;
+            }
+
+            return charType;
+        }
+
+        private static bool IsPunctuationCategory(UnicodeCategory category)
+        {
+            return category == UnicodeCategory.ConnectorPunctuation ||
+                   category == UnicodeCategory.DashPunctuation ||
+                   category == UnicodeCategory.OpenPunctuation ||
+                   category == UnicodeCategory.ClosePunctuation ||
+                   category == UnicodeCategory.InitialQuotePunctuation ||
+                   category == UnicodeCategory.FinalQuotePunctuation ||
+                   category == UnicodeCategory.OtherPunctuation;
         }
 
         // Returns true if a character falls within a specified code point range.
@@ -317,6 +433,10 @@ namespace System.Windows.Documents
 
         // Unicode right single quotation char.
         private const char RightSingleQuotationChar = (char)0x2019;
+
+        // Unicode Arabic tatweel char.
+        private const char ArabicTatweelChar = (char)0x0640;
+
         // Unicode object replacement char.
         private const char ObjectReplacementChar = (char)0xfffc;
 

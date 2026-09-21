@@ -43,6 +43,11 @@ namespace MS.Internal
             /// </remarks>
             internal static DpiScale2 GetSystemDpi()
             {
+                if (!OperatingSystem.IsWindows())
+                {
+                    return DpiScale2.FromPixelsPerInch(DefaultPixelsPerInch, DefaultPixelsPerInch);
+                }
+
                 if (IsGetDpiForSystemFunctionAvailable)
                 {
                     try
@@ -66,6 +71,11 @@ namespace MS.Internal
             {
                 lock (UIElement.DpiLock)
                 {
+                    if (UIElement.DpiScaleXValues.Count == 0 || UIElement.DpiScaleYValues.Count == 0)
+                    {
+                        return DpiScale2.FromPixelsPerInch(DefaultPixelsPerInch, DefaultPixelsPerInch);
+                    }
+
                     return new DpiScale2(UIElement.DpiScaleXValues[0], UIElement.DpiScaleYValues[0]);
                 }
             }
@@ -89,6 +99,11 @@ namespace MS.Internal
             /// <returns>The system DPI</returns>
             private static DpiScale2 GetDpiForSystem()
             {
+                if (!OperatingSystem.IsWindows())
+                {
+                    return DpiScale2.FromPixelsPerInch(DefaultPixelsPerInch, DefaultPixelsPerInch);
+                }
+
                 uint dpi = SafeNativeMethods.GetDpiForSystem();
                 return DpiScale2.FromPixelsPerInch(dpi, dpi);
             }
@@ -100,6 +115,11 @@ namespace MS.Internal
             /// <returns>The system DPI</returns>
             private static DpiScale2 GetSystemDpiFromDeviceCaps()
             {
+                if (!OperatingSystem.IsWindows())
+                {
+                    return DpiScale2.FromPixelsPerInch(DefaultPixelsPerInch, DefaultPixelsPerInch);
+                }
+
                 HandleRef hWndDesktop = new HandleRef(IntPtr.Zero, IntPtr.Zero);
                 HandleRef hDC = new HandleRef(IntPtr.Zero, UnsafeNativeMethods.GetDC(hWndDesktop));
                 if (hDC.Handle == IntPtr.Zero)

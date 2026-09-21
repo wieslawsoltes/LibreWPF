@@ -6,6 +6,7 @@
 //     domain and the underlying transport system.
 
 using System.Collections;
+using ProGPU.Wpf.Interop;
 using System.Windows.Media.Composition;
 using System.Windows.Threading;
 using System.Threading;
@@ -25,6 +26,10 @@ namespace System.Windows.Media
     /// </remarks>
     internal static class MediaSystem
     {
+        private static readonly object s_portableContextLock = new object();
+        private static bool UsesWindowsMil =>
+            PortableWpfRuntime.GetMediaBackendAndFreeze() == PortableWpfMediaBackend.WindowsMil;
+
         /// <summary>
         /// This function initializes the MediaSystem. It must be called before any functions in the Media namespace
         /// can be used.
@@ -32,6 +37,17 @@ namespace System.Windows.Media
         /// <seealso cref="Shutdown"/>
         public static bool Startup(MediaContext mc)
         {
+            if (!UsesWindowsMil)
+            {
+                lock (s_portableContextLock)
+                {
+                    _mediaContexts.Add(mc);
+                    s_refCount++;
+                }
+
+                return false;
+            }
+
             //
             // Note to stress triagers:
             //
@@ -81,6 +97,11 @@ namespace System.Windows.Media
 
         internal static bool ConnectChannels(MediaContext mc)
         {
+            if (!UsesWindowsMil)
+            {
+                return false;
+            }
+
             bool fCreated = false;
 
             using (CompositionEngineLock.Acquire())
@@ -121,6 +142,18 @@ namespace System.Windows.Media
         /// </summary>
         internal static void Shutdown(MediaContext mc)
         {
+            if (!UsesWindowsMil)
+            {
+                lock (s_portableContextLock)
+                {
+                    Debug.Assert(s_refCount > 0);
+                    _mediaContexts.Remove(mc);
+                    s_refCount--;
+                }
+
+                return;
+            }
+
             using (CompositionEngineLock.Acquire())
             {
                 Debug.Assert(s_refCount > 0);
@@ -169,6 +202,11 @@ namespace System.Windows.Media
         /// </summary>
         internal static void NotifyRedirectionEnvironmentChanged()
         {
+            if (!UsesWindowsMil)
+            {
+                return;
+            }
+
             using (CompositionEngineLock.Acquire())
             {
                 // Check to see if we need to force software for the Vista Magnifier
@@ -301,6 +339,11 @@ namespace System.Windows.Media
         {
             get
             {
+                if (!UsesWindowsMil)
+                {
+                    return false;
+                }
+
                 using (CompositionEngineLock.Acquire())
                 {
                     return s_forceSoftareForGraphicsStreamMagnifier;
@@ -364,4 +407,3 @@ namespace System.Windows.Media
         private static bool s_disableDirtyRectangles = false;
      }
 }
-

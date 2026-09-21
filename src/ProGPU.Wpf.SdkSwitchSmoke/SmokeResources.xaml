@@ -1,0 +1,44 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="clr-namespace:ProGPU.Wpf.SdkSwitchSmoke"
+    xmlns:sys="clr-namespace:System;assembly=mscorlib">
+    <SolidColorBrush x:Key="MergedAccentBrush" Color="#6B8F3A" />
+    <SolidColorBrush x:Key="UnsharedAccentBrush" x:Shared="False" Color="#C45A2B" />
+    <SolidColorBrush
+        x:Key="FreezableAccentBrush"
+        Color="#24507A"
+        Opacity="0.75" />
+    <LinearGradientBrush
+        x:Key="FreezableGradientBrush"
+        StartPoint="0,0"
+        EndPoint="1,0"
+        Opacity="0.8"
+        SpreadMethod="Reflect">
+        <GradientStop Color="#2F6B54" Offset="0" />
+        <GradientStop Color="#B15E3B" Offset="0.5" />
+        <GradientStop Color="#356D9E" Offset="1" />
+    </LinearGradientBrush>
+    <Thickness x:Key="SmokePanelMargin">0,12,0,0</Thickness>
+
+    <Style x:Key="SmokeListTextStyle" TargetType="{x:Type TextBlock}">
+        <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+
+    <Style
+        x:Key="BasedOnSmokeTextStyle"
+        BasedOn="{StaticResource SmokeListTextStyle}"
+        TargetType="{x:Type TextBlock}">
+        <Setter Property="Foreground" Value="{DynamicResource SmokeAccentBrush}" />
+    </Style>
+
+    <ObjectDataProvider
+        x:Key="ProviderGreeting"
+        MethodName="CreateGreeting"
+        ObjectType="{x:Type local:SmokeResourceFactory}">
+        <ObjectDataProvider.MethodParameters>
+            <sys:String>provider</sys:String>
+            <sys:Int32>7</sys:Int32>
+        </ObjectDataProvider.MethodParameters>
+    </ObjectDataProvider>
+</ResourceDictionary>

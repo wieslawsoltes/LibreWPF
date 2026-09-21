@@ -575,7 +575,7 @@ namespace System.Windows
     [System.Windows.Markup.UsableDuringInitializationAttribute(true)]
     [System.Windows.Markup.XmlLangPropertyAttribute("Language")]
     [System.Windows.StyleTypedPropertyAttribute(Property="FocusVisualStyle", StyleTargetType=typeof(System.Windows.Controls.Control))]
-    public partial class FrameworkElement : System.Windows.UIElement, System.ComponentModel.ISupportInitialize, System.Windows.IFrameworkInputElement, System.Windows.IInputElement, System.Windows.Markup.IQueryAmbient
+    public partial class FrameworkElement : System.Windows.UIElement, System.ComponentModel.ISupportInitialize, System.Windows.IFrameworkInputElement, System.Windows.IInputElement, System.Windows.Markup.IQueryAmbient, ProGPU.Wpf.Interop.IPortableVisualLayoutStateSource
     {
         public static readonly System.Windows.DependencyProperty ActualHeightProperty;
         public static readonly System.Windows.DependencyProperty ActualWidthProperty;
@@ -742,6 +742,7 @@ namespace System.Windows
         public object TryFindResource(object resourceKey) { throw null; }
         public void UnregisterName(string name) { }
         public void UpdateDefaultStyle() { }
+        bool ProGPU.Wpf.Interop.IPortableVisualLayoutStateSource.TryGetPortableVisualLayoutState(out ProGPU.Wpf.Interop.PortableVisualLayoutState state) { throw null; }
     }
     [System.Windows.LocalizabilityAttribute(System.Windows.LocalizationCategory.NeverLocalize)]
     public partial class FrameworkElementFactory
@@ -2048,7 +2049,7 @@ namespace System.Windows
         public string To { get { throw null; } set { } }
     }
     [System.Windows.LocalizabilityAttribute(System.Windows.LocalizationCategory.Ignore)]
-    public partial class Window : System.Windows.Controls.ContentControl
+    public partial class Window : System.Windows.Controls.ContentControl, System.Windows.IPortableVisualOwnerHost, ProGPU.Wpf.Interop.IPortableWindowStateSource
     {
         public static readonly System.Windows.DependencyProperty AllowsTransparencyProperty;
         public static readonly System.Windows.RoutedEvent DpiChangedEvent;
@@ -2096,6 +2097,7 @@ namespace System.Windows
         public System.Windows.WindowStartupLocation WindowStartupLocation { get { throw null; } set { } }
         public System.Windows.WindowState WindowState { get { throw null; } set { } }
         public System.Windows.WindowStyle WindowStyle { get { throw null; } set { } }
+        bool ProGPU.Wpf.Interop.IPortableWindowStateSource.TryGetPortableWindowState(out ProGPU.Wpf.Interop.PortableWindowState state) { throw null; }
         public event System.EventHandler Activated { add { } remove { } }
         public event System.EventHandler Closed { add { } remove { } }
         public event System.ComponentModel.CancelEventHandler Closing { add { } remove { } }
@@ -3755,7 +3757,7 @@ namespace System.Windows.Controls
         void System.Windows.Markup.IAddChild.AddText(string text) { }
     }
     [System.Windows.LocalizabilityAttribute(System.Windows.LocalizationCategory.None, Readability=System.Windows.Readability.Unreadable)]
-    public partial class ContentPresenter : System.Windows.FrameworkElement
+    public partial class ContentPresenter : System.Windows.FrameworkElement, System.Windows.IPortableVisualOwnerHost
     {
         public static readonly System.Windows.DependencyProperty ContentProperty;
         public static readonly System.Windows.DependencyProperty ContentSourceProperty;
@@ -4712,7 +4714,7 @@ namespace System.Windows.Controls
     }
     [System.Windows.LocalizabilityAttribute(System.Windows.LocalizationCategory.Ignore, Readability=System.Windows.Readability.Unreadable)]
     [System.Windows.Markup.ContentPropertyAttribute("Child")]
-    public partial class Decorator : System.Windows.FrameworkElement, System.Windows.Markup.IAddChild
+    public partial class Decorator : System.Windows.FrameworkElement, System.Windows.IPortableVisualOwnerHost, System.Windows.Markup.IAddChild
     {
         public Decorator() { }
         [System.ComponentModel.DefaultValueAttribute(null)]
@@ -5976,7 +5978,7 @@ namespace System.Windows.Controls
         protected override void ValidateTemplatedParent(System.Windows.FrameworkElement templatedParent) { }
     }
     [System.Windows.LocalizabilityAttribute(System.Windows.LocalizationCategory.NeverLocalize)]
-    public partial class ItemsPresenter : System.Windows.FrameworkElement
+    public partial class ItemsPresenter : System.Windows.FrameworkElement, System.Windows.IPortableVisualOwnerHost
     {
         public ItemsPresenter() { }
         protected override System.Windows.Size ArrangeOverride(System.Windows.Size arrangeSize) { throw null; }
@@ -6352,7 +6354,7 @@ namespace System.Windows.Controls
     }
     [System.Windows.LocalizabilityAttribute(System.Windows.LocalizationCategory.Ignore)]
     [System.Windows.Markup.ContentPropertyAttribute("Children")]
-    public abstract partial class Panel : System.Windows.FrameworkElement, System.Windows.Markup.IAddChild
+    public abstract partial class Panel : System.Windows.FrameworkElement, System.Windows.IPortableVisualOwnerHost, System.Windows.Markup.IAddChild
     {
         public static readonly System.Windows.DependencyProperty BackgroundProperty;
         public static readonly System.Windows.DependencyProperty IsItemsHostProperty;
@@ -9706,7 +9708,7 @@ namespace System.Windows.Documents
         protected override System.Windows.Media.Geometry GetLayoutClip(System.Windows.Size layoutSlotSize) { throw null; }
         protected override System.Windows.Size MeasureOverride(System.Windows.Size constraint) { throw null; }
     }
-    public partial class AdornerDecorator : System.Windows.Controls.Decorator
+    public partial class AdornerDecorator : System.Windows.Controls.Decorator, System.Windows.IPortableVisualOwnerHost
     {
         public AdornerDecorator() { }
         public System.Windows.Documents.AdornerLayer AdornerLayer { get { throw null; } }
@@ -9716,7 +9718,7 @@ namespace System.Windows.Documents
         protected override System.Windows.Media.Visual GetVisualChild(int index) { throw null; }
         protected override System.Windows.Size MeasureOverride(System.Windows.Size constraint) { throw null; }
     }
-    public partial class AdornerLayer : System.Windows.FrameworkElement
+    public partial class AdornerLayer : System.Windows.FrameworkElement, System.Windows.IPortableVisualOwnerHost
     {
         internal AdornerLayer() { }
         protected internal override System.Collections.IEnumerator LogicalChildren { get { throw null; } }

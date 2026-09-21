@@ -1,0 +1,7881 @@
+{
+  "schemaVersion": 1,
+  "legacyGlyphs": [
+    {
+      "codepoint": "E620",
+      "legacyName": "StopSlideShow"
+    },
+    {
+      "codepoint": "E700",
+      "legacyName": "GlobalNavButton"
+    },
+    {
+      "codepoint": "E701",
+      "legacyName": "Wifi"
+    },
+    {
+      "codepoint": "E702",
+      "legacyName": "Bluetooth"
+    },
+    {
+      "codepoint": "E703",
+      "legacyName": "Connect"
+    },
+    {
+      "codepoint": "E704",
+      "legacyName": "InternetSharing"
+    },
+    {
+      "codepoint": "E705",
+      "legacyName": "VPN"
+    },
+    {
+      "codepoint": "E706",
+      "legacyName": "Brightness"
+    },
+    {
+      "codepoint": "E707",
+      "legacyName": "MapPin"
+    },
+    {
+      "codepoint": "E708",
+      "legacyName": "QuietHours"
+    },
+    {
+      "codepoint": "E709",
+      "legacyName": "Airplane"
+    },
+    {
+      "codepoint": "E70A",
+      "legacyName": "Tablet"
+    },
+    {
+      "codepoint": "E70B",
+      "legacyName": "QuickNote"
+    },
+    {
+      "codepoint": "E70C",
+      "legacyName": "RememberedDevice"
+    },
+    {
+      "codepoint": "E70D",
+      "legacyName": "ChevronDown"
+    },
+    {
+      "codepoint": "E70E",
+      "legacyName": "ChevronUp"
+    },
+    {
+      "codepoint": "E70F",
+      "legacyName": "Edit"
+    },
+    {
+      "codepoint": "E710",
+      "legacyName": "Add"
+    },
+    {
+      "codepoint": "E711",
+      "legacyName": "Cancel"
+    },
+    {
+      "codepoint": "E712",
+      "legacyName": "More"
+    },
+    {
+      "codepoint": "E713",
+      "legacyName": "Settings"
+    },
+    {
+      "codepoint": "E714",
+      "legacyName": "Video"
+    },
+    {
+      "codepoint": "E715",
+      "legacyName": "Mail"
+    },
+    {
+      "codepoint": "E716",
+      "legacyName": "People"
+    },
+    {
+      "codepoint": "E717",
+      "legacyName": "Phone"
+    },
+    {
+      "codepoint": "E718",
+      "legacyName": "Pin"
+    },
+    {
+      "codepoint": "E719",
+      "legacyName": "Shop"
+    },
+    {
+      "codepoint": "E71A",
+      "legacyName": "Stop"
+    },
+    {
+      "codepoint": "E71B",
+      "legacyName": "Link"
+    },
+    {
+      "codepoint": "E71C",
+      "legacyName": "Filter"
+    },
+    {
+      "codepoint": "E71D",
+      "legacyName": "AllApps"
+    },
+    {
+      "codepoint": "E71E",
+      "legacyName": "Zoom"
+    },
+    {
+      "codepoint": "E71F",
+      "legacyName": "ZoomOut"
+    },
+    {
+      "codepoint": "E720",
+      "legacyName": "Microphone"
+    },
+    {
+      "codepoint": "E721",
+      "legacyName": "Search"
+    },
+    {
+      "codepoint": "E722",
+      "legacyName": "Camera"
+    },
+    {
+      "codepoint": "E723",
+      "legacyName": "Attach"
+    },
+    {
+      "codepoint": "E724",
+      "legacyName": "Send"
+    },
+    {
+      "codepoint": "E725",
+      "legacyName": "SendFill"
+    },
+    {
+      "codepoint": "E726",
+      "legacyName": "WalkSolid"
+    },
+    {
+      "codepoint": "E727",
+      "legacyName": "InPrivate"
+    },
+    {
+      "codepoint": "E728",
+      "legacyName": "FavoriteList"
+    },
+    {
+      "codepoint": "E729",
+      "legacyName": "PageSolid"
+    },
+    {
+      "codepoint": "E72A",
+      "legacyName": "Forward"
+    },
+    {
+      "codepoint": "E72B",
+      "legacyName": "Back"
+    },
+    {
+      "codepoint": "E72C",
+      "legacyName": "Refresh"
+    },
+    {
+      "codepoint": "E72D",
+      "legacyName": "Share"
+    },
+    {
+      "codepoint": "E72E",
+      "legacyName": "Lock"
+    },
+    {
+      "codepoint": "E72F",
+      "legacyName": "BlockedSite"
+    },
+    {
+      "codepoint": "E730",
+      "legacyName": "ReportHacked"
+    },
+    {
+      "codepoint": "E731",
+      "legacyName": "EMI"
+    },
+    {
+      "codepoint": "E733",
+      "legacyName": "Blocked"
+    },
+    {
+      "codepoint": "E734",
+      "legacyName": "FavoriteStar"
+    },
+    {
+      "codepoint": "E735",
+      "legacyName": "FavoriteStarFill"
+    },
+    {
+      "codepoint": "E736",
+      "legacyName": "ReadingMode"
+    },
+    {
+      "codepoint": "E737",
+      "legacyName": "Favicon"
+    },
+    {
+      "codepoint": "E738",
+      "legacyName": "Remove"
+    },
+    {
+      "codepoint": "E739",
+      "legacyName": "Checkbox"
+    },
+    {
+      "codepoint": "E73A",
+      "legacyName": "CheckboxComposite"
+    },
+    {
+      "codepoint": "E73B",
+      "legacyName": "CheckboxFill"
+    },
+    {
+      "codepoint": "E73C",
+      "legacyName": "CheckboxIndeterminate"
+    },
+    {
+      "codepoint": "E73D",
+      "legacyName": "CheckboxCompositeReversed"
+    },
+    {
+      "codepoint": "E73E",
+      "legacyName": "CheckMark"
+    },
+    {
+      "codepoint": "E73F",
+      "legacyName": "BackToWindow"
+    },
+    {
+      "codepoint": "E740",
+      "legacyName": "FullScreen"
+    },
+    {
+      "codepoint": "E741",
+      "legacyName": "ResizeTouchLarger"
+    },
+    {
+      "codepoint": "E742",
+      "legacyName": "ResizeTouchSmaller"
+    },
+    {
+      "codepoint": "E743",
+      "legacyName": "ResizeMouseSmall"
+    },
+    {
+      "codepoint": "E744",
+      "legacyName": "ResizeMouseMedium"
+    },
+    {
+      "codepoint": "E745",
+      "legacyName": "ResizeMouseWide"
+    },
+    {
+      "codepoint": "E746",
+      "legacyName": "ResizeMouseTall"
+    },
+    {
+      "codepoint": "E747",
+      "legacyName": "ResizeMouseLarge"
+    },
+    {
+      "codepoint": "E748",
+      "legacyName": "SwitchUser"
+    },
+    {
+      "codepoint": "E749",
+      "legacyName": "Print"
+    },
+    {
+      "codepoint": "E74A",
+      "legacyName": "Up"
+    },
+    {
+      "codepoint": "E74B",
+      "legacyName": "Down"
+    },
+    {
+      "codepoint": "E74C",
+      "legacyName": "OEM"
+    },
+    {
+      "codepoint": "E74D",
+      "legacyName": "Delete"
+    },
+    {
+      "codepoint": "E74E",
+      "legacyName": "Save"
+    },
+    {
+      "codepoint": "E74F",
+      "legacyName": "Mute"
+    },
+    {
+      "codepoint": "E750",
+      "legacyName": "BackSpaceQWERTY"
+    },
+    {
+      "codepoint": "E751",
+      "legacyName": "ReturnKey"
+    },
+    {
+      "codepoint": "E752",
+      "legacyName": "UpArrowShiftKey"
+    },
+    {
+      "codepoint": "E753",
+      "legacyName": "Cloud"
+    },
+    {
+      "codepoint": "E754",
+      "legacyName": "Flashlight"
+    },
+    {
+      "codepoint": "E755",
+      "legacyName": "RotationLock"
+    },
+    {
+      "codepoint": "E756",
+      "legacyName": "CommandPrompt"
+    },
+    {
+      "codepoint": "E759",
+      "legacyName": "SIPMove"
+    },
+    {
+      "codepoint": "E75A",
+      "legacyName": "SIPUndock"
+    },
+    {
+      "codepoint": "E75B",
+      "legacyName": "SIPRedock"
+    },
+    {
+      "codepoint": "E75C",
+      "legacyName": "EraseTool"
+    },
+    {
+      "codepoint": "E75D",
+      "legacyName": "UnderscoreSpace"
+    },
+    {
+      "codepoint": "E75E",
+      "legacyName": "GripperTool"
+    },
+    {
+      "codepoint": "E75F",
+      "legacyName": "Dialpad"
+    },
+    {
+      "codepoint": "E760",
+      "legacyName": "PageLeft"
+    },
+    {
+      "codepoint": "E761",
+      "legacyName": "PageRight"
+    },
+    {
+      "codepoint": "E762",
+      "legacyName": "MultiSelect"
+    },
+    {
+      "codepoint": "E763",
+      "legacyName": "KeyboardLeftHanded"
+    },
+    {
+      "codepoint": "E764",
+      "legacyName": "KeyboardRightHanded"
+    },
+    {
+      "codepoint": "E765",
+      "legacyName": "KeyboardClassic"
+    },
+    {
+      "codepoint": "E766",
+      "legacyName": "KeyboardSplit"
+    },
+    {
+      "codepoint": "E767",
+      "legacyName": "Volume"
+    },
+    {
+      "codepoint": "E768",
+      "legacyName": "Play"
+    },
+    {
+      "codepoint": "E769",
+      "legacyName": "Pause"
+    },
+    {
+      "codepoint": "E76B",
+      "legacyName": "ChevronLeft"
+    },
+    {
+      "codepoint": "E76C",
+      "legacyName": "ChevronRight"
+    },
+    {
+      "codepoint": "E76D",
+      "legacyName": "InkingTool"
+    },
+    {
+      "codepoint": "E76E",
+      "legacyName": "Emoji2"
+    },
+    {
+      "codepoint": "E76F",
+      "legacyName": "GripperBarHorizontal"
+    },
+    {
+      "codepoint": "E770",
+      "legacyName": "System"
+    },
+    {
+      "codepoint": "E771",
+      "legacyName": "Personalize"
+    },
+    {
+      "codepoint": "E772",
+      "legacyName": "Devices"
+    },
+    {
+      "codepoint": "E773",
+      "legacyName": "SearchAndApps"
+    },
+    {
+      "codepoint": "E774",
+      "legacyName": "Globe"
+    },
+    {
+      "codepoint": "E775",
+      "legacyName": "TimeLanguage"
+    },
+    {
+      "codepoint": "E776",
+      "legacyName": "EaseOfAccess"
+    },
+    {
+      "codepoint": "E777",
+      "legacyName": "UpdateRestore"
+    },
+    {
+      "codepoint": "E778",
+      "legacyName": "HangUp"
+    },
+    {
+      "codepoint": "E779",
+      "legacyName": "ContactInfo"
+    },
+    {
+      "codepoint": "E77A",
+      "legacyName": "Unpin"
+    },
+    {
+      "codepoint": "E77B",
+      "legacyName": "Contact"
+    },
+    {
+      "codepoint": "E77C",
+      "legacyName": "Memo"
+    },
+    {
+      "codepoint": "E77E",
+      "legacyName": "IncomingCall"
+    },
+    {
+      "codepoint": "E77F",
+      "legacyName": "Paste"
+    },
+    {
+      "codepoint": "E780",
+      "legacyName": "PhoneBook"
+    },
+    {
+      "codepoint": "E781",
+      "legacyName": "LEDLight"
+    },
+    {
+      "codepoint": "E783",
+      "legacyName": "Error"
+    },
+    {
+      "codepoint": "E784",
+      "legacyName": "GripperBarVertical"
+    },
+    {
+      "codepoint": "E785",
+      "legacyName": "Unlock"
+    },
+    {
+      "codepoint": "E786",
+      "legacyName": "Slideshow"
+    },
+    {
+      "codepoint": "E787",
+      "legacyName": "Calendar"
+    },
+    {
+      "codepoint": "E788",
+      "legacyName": "GripperResize"
+    },
+    {
+      "codepoint": "E789",
+      "legacyName": "Megaphone"
+    },
+    {
+      "codepoint": "E78A",
+      "legacyName": "Trim"
+    },
+    {
+      "codepoint": "E78B",
+      "legacyName": "NewWindow"
+    },
+    {
+      "codepoint": "E78C",
+      "legacyName": "SaveLocal"
+    },
+    {
+      "codepoint": "E790",
+      "legacyName": "Color"
+    },
+    {
+      "codepoint": "E791",
+      "legacyName": "DataSense"
+    },
+    {
+      "codepoint": "E792",
+      "legacyName": "SaveAs"
+    },
+    {
+      "codepoint": "E793",
+      "legacyName": "Light"
+    },
+    {
+      "codepoint": "E794",
+      "legacyName": "Effects"
+    },
+    {
+      "codepoint": "E799",
+      "legacyName": "AspectRatio"
+    },
+    {
+      "codepoint": "E7A1",
+      "legacyName": "Contrast"
+    },
+    {
+      "codepoint": "E7A5",
+      "legacyName": "DataSenseBar"
+    },
+    {
+      "codepoint": "E7A6",
+      "legacyName": "Redo"
+    },
+    {
+      "codepoint": "E7A7",
+      "legacyName": "Undo"
+    },
+    {
+      "codepoint": "E7A8",
+      "legacyName": "Crop"
+    },
+    {
+      "codepoint": "E7AA",
+      "legacyName": "PhotoCollection"
+    },
+    {
+      "codepoint": "E7AC",
+      "legacyName": "OpenWith"
+    },
+    {
+      "codepoint": "E7AD",
+      "legacyName": "Rotate"
+    },
+    {
+      "codepoint": "E7B3",
+      "legacyName": "RedEye"
+    },
+    {
+      "codepoint": "E7B5",
+      "legacyName": "SetlockScreen"
+    },
+    {
+      "codepoint": "E7B7",
+      "legacyName": "MapPin2"
+    },
+    {
+      "codepoint": "E7B8",
+      "legacyName": "Package"
+    },
+    {
+      "codepoint": "E7BA",
+      "legacyName": "Warning"
+    },
+    {
+      "codepoint": "E7BC",
+      "legacyName": "ReadingList"
+    },
+    {
+      "codepoint": "E7BE",
+      "legacyName": "Education"
+    },
+    {
+      "codepoint": "E7BF",
+      "legacyName": "ShoppingCart"
+    },
+    {
+      "codepoint": "E7C0",
+      "legacyName": "Train"
+    },
+    {
+      "codepoint": "E7C1",
+      "legacyName": "Flag"
+    },
+    {
+      "codepoint": "E7C2",
+      "legacyName": "Move"
+    },
+    {
+      "codepoint": "E7C3",
+      "legacyName": "Page"
+    },
+    {
+      "codepoint": "E7C4",
+      "legacyName": "TaskView"
+    },
+    {
+      "codepoint": "E7C5",
+      "legacyName": "BrowsePhotos"
+    },
+    {
+      "codepoint": "E7C6",
+      "legacyName": "HalfStarLeft"
+    },
+    {
+      "codepoint": "E7C7",
+      "legacyName": "HalfStarRight"
+    },
+    {
+      "codepoint": "E7C8",
+      "legacyName": "Record"
+    },
+    {
+      "codepoint": "E7C9",
+      "legacyName": "TouchPointer"
+    },
+    {
+      "codepoint": "E7DE",
+      "legacyName": "LangJPN"
+    },
+    {
+      "codepoint": "E7E3",
+      "legacyName": "Ferry"
+    },
+    {
+      "codepoint": "E7E6",
+      "legacyName": "Highlight"
+    },
+    {
+      "codepoint": "E7E7",
+      "legacyName": "ActionCenterNotification"
+    },
+    {
+      "codepoint": "E7E8",
+      "legacyName": "PowerButton"
+    },
+    {
+      "codepoint": "E7EA",
+      "legacyName": "ResizeTouchNarrower"
+    },
+    {
+      "codepoint": "E7EB",
+      "legacyName": "ResizeTouchShorter"
+    },
+    {
+      "codepoint": "E7EC",
+      "legacyName": "DrivingMode"
+    },
+    {
+      "codepoint": "E7ED",
+      "legacyName": "RingerSilent"
+    },
+    {
+      "codepoint": "E7EE",
+      "legacyName": "OtherUser"
+    },
+    {
+      "codepoint": "E7EF",
+      "legacyName": "Admin"
+    },
+    {
+      "codepoint": "E7F0",
+      "legacyName": "CC"
+    },
+    {
+      "codepoint": "E7F1",
+      "legacyName": "SDCard"
+    },
+    {
+      "codepoint": "E7F2",
+      "legacyName": "CallForwarding"
+    },
+    {
+      "codepoint": "E7F3",
+      "legacyName": "SettingsDisplaySound"
+    },
+    {
+      "codepoint": "E7F4",
+      "legacyName": "TVMonitor"
+    },
+    {
+      "codepoint": "E7F5",
+      "legacyName": "Speakers"
+    },
+    {
+      "codepoint": "E7F6",
+      "legacyName": "Headphone"
+    },
+    {
+      "codepoint": "E7F7",
+      "legacyName": "DeviceLaptopPic"
+    },
+    {
+      "codepoint": "E7F8",
+      "legacyName": "DeviceLaptopNoPic"
+    },
+    {
+      "codepoint": "E7F9",
+      "legacyName": "DeviceMonitorRightPic"
+    },
+    {
+      "codepoint": "E7FA",
+      "legacyName": "DeviceMonitorLeftPic"
+    },
+    {
+      "codepoint": "E7FB",
+      "legacyName": "DeviceMonitorNoPic"
+    },
+    {
+      "codepoint": "E7FC",
+      "legacyName": "Game"
+    },
+    {
+      "codepoint": "E7FD",
+      "legacyName": "HorizontalTabKey"
+    },
+    {
+      "codepoint": "E802",
+      "legacyName": "StreetsideSplitMinimize"
+    },
+    {
+      "codepoint": "E803",
+      "legacyName": "StreetsideSplitExpand"
+    },
+    {
+      "codepoint": "E804",
+      "legacyName": "Car"
+    },
+    {
+      "codepoint": "E805",
+      "legacyName": "Walk"
+    },
+    {
+      "codepoint": "E806",
+      "legacyName": "Bus"
+    },
+    {
+      "codepoint": "E809",
+      "legacyName": "TiltUp"
+    },
+    {
+      "codepoint": "E80A",
+      "legacyName": "TiltDown"
+    },
+    {
+      "codepoint": "E80B",
+      "legacyName": "CallControl"
+    },
+    {
+      "codepoint": "E80C",
+      "legacyName": "RotateMapRight"
+    },
+    {
+      "codepoint": "E80D",
+      "legacyName": "RotateMapLeft"
+    },
+    {
+      "codepoint": "E80F",
+      "legacyName": "Home"
+    },
+    {
+      "codepoint": "E811",
+      "legacyName": "ParkingLocation"
+    },
+    {
+      "codepoint": "E812",
+      "legacyName": "MapCompassTop"
+    },
+    {
+      "codepoint": "E813",
+      "legacyName": "MapCompassBottom"
+    },
+    {
+      "codepoint": "E814",
+      "legacyName": "IncidentTriangle"
+    },
+    {
+      "codepoint": "E815",
+      "legacyName": "Touch"
+    },
+    {
+      "codepoint": "E816",
+      "legacyName": "MapDirections"
+    },
+    {
+      "codepoint": "E819",
+      "legacyName": "StartPoint"
+    },
+    {
+      "codepoint": "E81A",
+      "legacyName": "StopPoint"
+    },
+    {
+      "codepoint": "E81B",
+      "legacyName": "EndPoint"
+    },
+    {
+      "codepoint": "E81C",
+      "legacyName": "History"
+    },
+    {
+      "codepoint": "E81D",
+      "legacyName": "Location"
+    },
+    {
+      "codepoint": "E81E",
+      "legacyName": "MapLayers"
+    },
+    {
+      "codepoint": "E81F",
+      "legacyName": "Accident"
+    },
+    {
+      "codepoint": "E821",
+      "legacyName": "Work"
+    },
+    {
+      "codepoint": "E822",
+      "legacyName": "Construction"
+    },
+    {
+      "codepoint": "E823",
+      "legacyName": "Recent"
+    },
+    {
+      "codepoint": "E825",
+      "legacyName": "Bank"
+    },
+    {
+      "codepoint": "E826",
+      "legacyName": "DownloadMap"
+    },
+    {
+      "codepoint": "E829",
+      "legacyName": "InkingToolFill2"
+    },
+    {
+      "codepoint": "E82A",
+      "legacyName": "HighlightFill2"
+    },
+    {
+      "codepoint": "E82B",
+      "legacyName": "EraseToolFill"
+    },
+    {
+      "codepoint": "E82C",
+      "legacyName": "EraseToolFill2"
+    },
+    {
+      "codepoint": "E82D",
+      "legacyName": "Dictionary"
+    },
+    {
+      "codepoint": "E82E",
+      "legacyName": "DictionaryAdd"
+    },
+    {
+      "codepoint": "E82F",
+      "legacyName": "ToolTip"
+    },
+    {
+      "codepoint": "E830",
+      "legacyName": "ChromeBack"
+    },
+    {
+      "codepoint": "E835",
+      "legacyName": "ProvisioningPackage"
+    },
+    {
+      "codepoint": "E836",
+      "legacyName": "AddRemoteDevice"
+    },
+    {
+      "codepoint": "E838",
+      "legacyName": "FolderOpen"
+    },
+    {
+      "codepoint": "E839",
+      "legacyName": "Ethernet"
+    },
+    {
+      "codepoint": "E83A",
+      "legacyName": "ShareBroadband"
+    },
+    {
+      "codepoint": "E83B",
+      "legacyName": "DirectAccess"
+    },
+    {
+      "codepoint": "E83C",
+      "legacyName": "DialUp"
+    },
+    {
+      "codepoint": "E83D",
+      "legacyName": "DefenderApp"
+    },
+    {
+      "codepoint": "E83E",
+      "legacyName": "BatteryCharging9"
+    },
+    {
+      "codepoint": "E83F",
+      "legacyName": "Battery10"
+    },
+    {
+      "codepoint": "E840",
+      "legacyName": "Pinned"
+    },
+    {
+      "codepoint": "E841",
+      "legacyName": "PinFill"
+    },
+    {
+      "codepoint": "E842",
+      "legacyName": "PinnedFill"
+    },
+    {
+      "codepoint": "E843",
+      "legacyName": "PeriodKey"
+    },
+    {
+      "codepoint": "E844",
+      "legacyName": "PuncKey"
+    },
+    {
+      "codepoint": "E845",
+      "legacyName": "RevToggleKey"
+    },
+    {
+      "codepoint": "E846",
+      "legacyName": "RightArrowKeyTime1"
+    },
+    {
+      "codepoint": "E847",
+      "legacyName": "RightArrowKeyTime2"
+    },
+    {
+      "codepoint": "E848",
+      "legacyName": "LeftQuote"
+    },
+    {
+      "codepoint": "E849",
+      "legacyName": "RightQuote"
+    },
+    {
+      "codepoint": "E84A",
+      "legacyName": "DownShiftKey"
+    },
+    {
+      "codepoint": "E84B",
+      "legacyName": "UpShiftKey"
+    },
+    {
+      "codepoint": "E84C",
+      "legacyName": "PuncKey0"
+    },
+    {
+      "codepoint": "E84D",
+      "legacyName": "PuncKeyLeftBottom"
+    },
+    {
+      "codepoint": "E84E",
+      "legacyName": "RightArrowKeyTime3"
+    },
+    {
+      "codepoint": "E84F",
+      "legacyName": "RightArrowKeyTime4"
+    },
+    {
+      "codepoint": "E850",
+      "legacyName": "Battery0"
+    },
+    {
+      "codepoint": "E851",
+      "legacyName": "Battery1"
+    },
+    {
+      "codepoint": "E852",
+      "legacyName": "Battery2"
+    },
+    {
+      "codepoint": "E853",
+      "legacyName": "Battery3"
+    },
+    {
+      "codepoint": "E854",
+      "legacyName": "Battery4"
+    },
+    {
+      "codepoint": "E855",
+      "legacyName": "Battery5"
+    },
+    {
+      "codepoint": "E856",
+      "legacyName": "Battery6"
+    },
+    {
+      "codepoint": "E857",
+      "legacyName": "Battery7"
+    },
+    {
+      "codepoint": "E858",
+      "legacyName": "Battery8"
+    },
+    {
+      "codepoint": "E859",
+      "legacyName": "Battery9"
+    },
+    {
+      "codepoint": "E85A",
+      "legacyName": "BatteryCharging0"
+    },
+    {
+      "codepoint": "E85B",
+      "legacyName": "BatteryCharging1"
+    },
+    {
+      "codepoint": "E85C",
+      "legacyName": "BatteryCharging2"
+    },
+    {
+      "codepoint": "E85D",
+      "legacyName": "BatteryCharging3"
+    },
+    {
+      "codepoint": "E85E",
+      "legacyName": "BatteryCharging4"
+    },
+    {
+      "codepoint": "E85F",
+      "legacyName": "BatteryCharging5"
+    },
+    {
+      "codepoint": "E860",
+      "legacyName": "BatteryCharging6"
+    },
+    {
+      "codepoint": "E861",
+      "legacyName": "BatteryCharging7"
+    },
+    {
+      "codepoint": "E862",
+      "legacyName": "BatteryCharging8"
+    },
+    {
+      "codepoint": "E863",
+      "legacyName": "BatterySaver0"
+    },
+    {
+      "codepoint": "E864",
+      "legacyName": "BatterySaver1"
+    },
+    {
+      "codepoint": "E865",
+      "legacyName": "BatterySaver2"
+    },
+    {
+      "codepoint": "E866",
+      "legacyName": "BatterySaver3"
+    },
+    {
+      "codepoint": "E867",
+      "legacyName": "BatterySaver4"
+    },
+    {
+      "codepoint": "E868",
+      "legacyName": "BatterySaver5"
+    },
+    {
+      "codepoint": "E869",
+      "legacyName": "BatterySaver6"
+    },
+    {
+      "codepoint": "E86A",
+      "legacyName": "BatterySaver7"
+    },
+    {
+      "codepoint": "E86B",
+      "legacyName": "BatterySaver8"
+    },
+    {
+      "codepoint": "E86C",
+      "legacyName": "SignalBars1"
+    },
+    {
+      "codepoint": "E86D",
+      "legacyName": "SignalBars2"
+    },
+    {
+      "codepoint": "E86E",
+      "legacyName": "SignalBars3"
+    },
+    {
+      "codepoint": "E86F",
+      "legacyName": "SignalBars4"
+    },
+    {
+      "codepoint": "E870",
+      "legacyName": "SignalBars5"
+    },
+    {
+      "codepoint": "E871",
+      "legacyName": "SignalNotConnected"
+    },
+    {
+      "codepoint": "E872",
+      "legacyName": "Wifi1"
+    },
+    {
+      "codepoint": "E873",
+      "legacyName": "Wifi2"
+    },
+    {
+      "codepoint": "E874",
+      "legacyName": "Wifi3"
+    },
+    {
+      "codepoint": "E875",
+      "legacyName": "MobSIMLock"
+    },
+    {
+      "codepoint": "E876",
+      "legacyName": "MobSIMMissing"
+    },
+    {
+      "codepoint": "E877",
+      "legacyName": "Vibrate"
+    },
+    {
+      "codepoint": "E878",
+      "legacyName": "RoamingInternational"
+    },
+    {
+      "codepoint": "E879",
+      "legacyName": "RoamingDomestic"
+    },
+    {
+      "codepoint": "E87A",
+      "legacyName": "CallForwardInternational"
+    },
+    {
+      "codepoint": "E87B",
+      "legacyName": "CallForwardRoaming"
+    },
+    {
+      "codepoint": "E87C",
+      "legacyName": "JpnRomanji"
+    },
+    {
+      "codepoint": "E87D",
+      "legacyName": "JpnRomanjiLock"
+    },
+    {
+      "codepoint": "E87E",
+      "legacyName": "JpnRomanjiShift"
+    },
+    {
+      "codepoint": "E87F",
+      "legacyName": "JpnRomanjiShiftLock"
+    },
+    {
+      "codepoint": "E880",
+      "legacyName": "StatusDataTransfer"
+    },
+    {
+      "codepoint": "E881",
+      "legacyName": "StatusDataTransferVPN"
+    },
+    {
+      "codepoint": "E882",
+      "legacyName": "StatusDualSIM2"
+    },
+    {
+      "codepoint": "E883",
+      "legacyName": "StatusDualSIM2VPN"
+    },
+    {
+      "codepoint": "E884",
+      "legacyName": "StatusDualSIM1"
+    },
+    {
+      "codepoint": "E885",
+      "legacyName": "StatusDualSIM1VPN"
+    },
+    {
+      "codepoint": "E886",
+      "legacyName": "StatusSGLTE"
+    },
+    {
+      "codepoint": "E887",
+      "legacyName": "StatusSGLTECell"
+    },
+    {
+      "codepoint": "E888",
+      "legacyName": "StatusSGLTEDataVPN"
+    },
+    {
+      "codepoint": "E889",
+      "legacyName": "StatusVPN"
+    },
+    {
+      "codepoint": "E88A",
+      "legacyName": "WifiHotspot"
+    },
+    {
+      "codepoint": "E88B",
+      "legacyName": "LanguageKor"
+    },
+    {
+      "codepoint": "E88C",
+      "legacyName": "LanguageCht"
+    },
+    {
+      "codepoint": "E88D",
+      "legacyName": "LanguageChs"
+    },
+    {
+      "codepoint": "E88E",
+      "legacyName": "USB"
+    },
+    {
+      "codepoint": "E88F",
+      "legacyName": "InkingToolFill"
+    },
+    {
+      "codepoint": "E890",
+      "legacyName": "View"
+    },
+    {
+      "codepoint": "E891",
+      "legacyName": "HighlightFill"
+    },
+    {
+      "codepoint": "E892",
+      "legacyName": "Previous"
+    },
+    {
+      "codepoint": "E893",
+      "legacyName": "Next"
+    },
+    {
+      "codepoint": "E894",
+      "legacyName": "Clear"
+    },
+    {
+      "codepoint": "E895",
+      "legacyName": "Sync"
+    },
+    {
+      "codepoint": "E896",
+      "legacyName": "Download"
+    },
+    {
+      "codepoint": "E897",
+      "legacyName": "Help"
+    },
+    {
+      "codepoint": "E898",
+      "legacyName": "Upload"
+    },
+    {
+      "codepoint": "E899",
+      "legacyName": "Emoji"
+    },
+    {
+      "codepoint": "E89A",
+      "legacyName": "TwoPage"
+    },
+    {
+      "codepoint": "E89B",
+      "legacyName": "LeaveChat"
+    },
+    {
+      "codepoint": "E89C",
+      "legacyName": "MailForward"
+    },
+    {
+      "codepoint": "E89E",
+      "legacyName": "RotateCamera"
+    },
+    {
+      "codepoint": "E89F",
+      "legacyName": "ClosePane"
+    },
+    {
+      "codepoint": "E8A0",
+      "legacyName": "OpenPane"
+    },
+    {
+      "codepoint": "E8A1",
+      "legacyName": "PreviewLink"
+    },
+    {
+      "codepoint": "E8A2",
+      "legacyName": "AttachCamera"
+    },
+    {
+      "codepoint": "E8A3",
+      "legacyName": "ZoomIn"
+    },
+    {
+      "codepoint": "E8A4",
+      "legacyName": "Bookmarks"
+    },
+    {
+      "codepoint": "E8A5",
+      "legacyName": "Document"
+    },
+    {
+      "codepoint": "E8A6",
+      "legacyName": "ProtectedDocument"
+    },
+    {
+      "codepoint": "E8A7",
+      "legacyName": "OpenInNewWindow"
+    },
+    {
+      "codepoint": "E8A8",
+      "legacyName": "MailFill"
+    },
+    {
+      "codepoint": "E8A9",
+      "legacyName": "ViewAll"
+    },
+    {
+      "codepoint": "E8AA",
+      "legacyName": "VideoChat"
+    },
+    {
+      "codepoint": "E8AB",
+      "legacyName": "Switch"
+    },
+    {
+      "codepoint": "E8AC",
+      "legacyName": "Rename"
+    },
+    {
+      "codepoint": "E8AD",
+      "legacyName": "Go"
+    },
+    {
+      "codepoint": "E8AE",
+      "legacyName": "SurfaceHub"
+    },
+    {
+      "codepoint": "E8AF",
+      "legacyName": "Remote"
+    },
+    {
+      "codepoint": "E8B0",
+      "legacyName": "Click"
+    },
+    {
+      "codepoint": "E8B1",
+      "legacyName": "Shuffle"
+    },
+    {
+      "codepoint": "E8B2",
+      "legacyName": "Movies"
+    },
+    {
+      "codepoint": "E8B3",
+      "legacyName": "SelectAll"
+    },
+    {
+      "codepoint": "E8B4",
+      "legacyName": "Orientation"
+    },
+    {
+      "codepoint": "E8B5",
+      "legacyName": "Import"
+    },
+    {
+      "codepoint": "E8B6",
+      "legacyName": "ImportAll"
+    },
+    {
+      "codepoint": "E8B7",
+      "legacyName": "Folder"
+    },
+    {
+      "codepoint": "E8B8",
+      "legacyName": "Webcam"
+    },
+    {
+      "codepoint": "E8B9",
+      "legacyName": "Picture"
+    },
+    {
+      "codepoint": "E8BA",
+      "legacyName": "Caption"
+    },
+    {
+      "codepoint": "E8BB",
+      "legacyName": "ChromeClose"
+    },
+    {
+      "codepoint": "E8BC",
+      "legacyName": "ShowResults"
+    },
+    {
+      "codepoint": "E8BD",
+      "legacyName": "Message"
+    },
+    {
+      "codepoint": "E8BE",
+      "legacyName": "Leaf"
+    },
+    {
+      "codepoint": "E8BF",
+      "legacyName": "CalendarDay"
+    },
+    {
+      "codepoint": "E8C0",
+      "legacyName": "CalendarWeek"
+    },
+    {
+      "codepoint": "E8C1",
+      "legacyName": "Characters"
+    },
+    {
+      "codepoint": "E8C2",
+      "legacyName": "MailReplyAll"
+    },
+    {
+      "codepoint": "E8C3",
+      "legacyName": "Read"
+    },
+    {
+      "codepoint": "E8C4",
+      "legacyName": "ShowBcc"
+    },
+    {
+      "codepoint": "E8C5",
+      "legacyName": "HideBcc"
+    },
+    {
+      "codepoint": "E8C6",
+      "legacyName": "Cut"
+    },
+    {
+      "codepoint": "E8C7",
+      "legacyName": "PaymentCard"
+    },
+    {
+      "codepoint": "E8C8",
+      "legacyName": "Copy"
+    },
+    {
+      "codepoint": "E8C9",
+      "legacyName": "Important"
+    },
+    {
+      "codepoint": "E8CA",
+      "legacyName": "MailReply"
+    },
+    {
+      "codepoint": "E8CB",
+      "legacyName": "Sort"
+    },
+    {
+      "codepoint": "E8CC",
+      "legacyName": "MobileTablet"
+    },
+    {
+      "codepoint": "E8CD",
+      "legacyName": "DisconnectDrive"
+    },
+    {
+      "codepoint": "E8CE",
+      "legacyName": "MapDrive"
+    },
+    {
+      "codepoint": "E8CF",
+      "legacyName": "ContactPresence"
+    },
+    {
+      "codepoint": "E8D0",
+      "legacyName": "Priority"
+    },
+    {
+      "codepoint": "E8D1",
+      "legacyName": "GotoToday"
+    },
+    {
+      "codepoint": "E8D2",
+      "legacyName": "Font"
+    },
+    {
+      "codepoint": "E8D3",
+      "legacyName": "FontColor"
+    },
+    {
+      "codepoint": "E8D4",
+      "legacyName": "Contact2"
+    },
+    {
+      "codepoint": "E8D5",
+      "legacyName": "FolderFill"
+    },
+    {
+      "codepoint": "E8D6",
+      "legacyName": "Audio"
+    },
+    {
+      "codepoint": "E8D7",
+      "legacyName": "Permissions"
+    },
+    {
+      "codepoint": "E8D8",
+      "legacyName": "DisableUpdates"
+    },
+    {
+      "codepoint": "E8D9",
+      "legacyName": "Unfavorite"
+    },
+    {
+      "codepoint": "E8DA",
+      "legacyName": "OpenLocal"
+    },
+    {
+      "codepoint": "E8DB",
+      "legacyName": "Italic"
+    },
+    {
+      "codepoint": "E8DC",
+      "legacyName": "Underline"
+    },
+    {
+      "codepoint": "E8DD",
+      "legacyName": "Bold"
+    },
+    {
+      "codepoint": "E8DE",
+      "legacyName": "MoveToFolder"
+    },
+    {
+      "codepoint": "E8DF",
+      "legacyName": "LikeDislike"
+    },
+    {
+      "codepoint": "E8E0",
+      "legacyName": "Dislike"
+    },
+    {
+      "codepoint": "E8E1",
+      "legacyName": "Like"
+    },
+    {
+      "codepoint": "E8E2",
+      "legacyName": "AlignRight"
+    },
+    {
+      "codepoint": "E8E3",
+      "legacyName": "AlignCenter"
+    },
+    {
+      "codepoint": "E8E4",
+      "legacyName": "AlignLeft"
+    },
+    {
+      "codepoint": "E8E5",
+      "legacyName": "OpenFile"
+    },
+    {
+      "codepoint": "E8E6",
+      "legacyName": "ClearSelection"
+    },
+    {
+      "codepoint": "E8E7",
+      "legacyName": "FontDecrease"
+    },
+    {
+      "codepoint": "E8E8",
+      "legacyName": "FontIncrease"
+    },
+    {
+      "codepoint": "E8E9",
+      "legacyName": "FontSize"
+    },
+    {
+      "codepoint": "E8EA",
+      "legacyName": "CellPhone"
+    },
+    {
+      "codepoint": "E8EB",
+      "legacyName": "Reshare"
+    },
+    {
+      "codepoint": "E8EC",
+      "legacyName": "Tag"
+    },
+    {
+      "codepoint": "E8ED",
+      "legacyName": "RepeatOne"
+    },
+    {
+      "codepoint": "E8EE",
+      "legacyName": "RepeatAll"
+    },
+    {
+      "codepoint": "E8EF",
+      "legacyName": "Calculator"
+    },
+    {
+      "codepoint": "E8F0",
+      "legacyName": "Directions"
+    },
+    {
+      "codepoint": "E8F1",
+      "legacyName": "Library"
+    },
+    {
+      "codepoint": "E8F2",
+      "legacyName": "ChatBubbles"
+    },
+    {
+      "codepoint": "E8F3",
+      "legacyName": "PostUpdate"
+    },
+    {
+      "codepoint": "E8F4",
+      "legacyName": "NewFolder"
+    },
+    {
+      "codepoint": "E8F5",
+      "legacyName": "CalendarReply"
+    },
+    {
+      "codepoint": "E8F6",
+      "legacyName": "UnsyncFolder"
+    },
+    {
+      "codepoint": "E8F7",
+      "legacyName": "SyncFolder"
+    },
+    {
+      "codepoint": "E8F8",
+      "legacyName": "BlockContact"
+    },
+    {
+      "codepoint": "E8F9",
+      "legacyName": "SwitchApps"
+    },
+    {
+      "codepoint": "E8FA",
+      "legacyName": "AddFriend"
+    },
+    {
+      "codepoint": "E8FB",
+      "legacyName": "Accept"
+    },
+    {
+      "codepoint": "E8FC",
+      "legacyName": "GoToStart"
+    },
+    {
+      "codepoint": "E8FD",
+      "legacyName": "BulletedList"
+    },
+    {
+      "codepoint": "E8FE",
+      "legacyName": "Scan"
+    },
+    {
+      "codepoint": "E8FF",
+      "legacyName": "Preview"
+    },
+    {
+      "codepoint": "E902",
+      "legacyName": "Group"
+    },
+    {
+      "codepoint": "E904",
+      "legacyName": "ZeroBars"
+    },
+    {
+      "codepoint": "E905",
+      "legacyName": "OneBar"
+    },
+    {
+      "codepoint": "E906",
+      "legacyName": "TwoBars"
+    },
+    {
+      "codepoint": "E907",
+      "legacyName": "ThreeBars"
+    },
+    {
+      "codepoint": "E908",
+      "legacyName": "FourBars"
+    },
+    {
+      "codepoint": "E909",
+      "legacyName": "World"
+    },
+    {
+      "codepoint": "E90A",
+      "legacyName": "Comment"
+    },
+    {
+      "codepoint": "E90B",
+      "legacyName": "MusicInfo"
+    },
+    {
+      "codepoint": "E90C",
+      "legacyName": "DockLeft"
+    },
+    {
+      "codepoint": "E90D",
+      "legacyName": "DockRight"
+    },
+    {
+      "codepoint": "E90E",
+      "legacyName": "DockBottom"
+    },
+    {
+      "codepoint": "E90F",
+      "legacyName": "Repair"
+    },
+    {
+      "codepoint": "E910",
+      "legacyName": "Accounts"
+    },
+    {
+      "codepoint": "E911",
+      "legacyName": "DullSound"
+    },
+    {
+      "codepoint": "E912",
+      "legacyName": "Manage"
+    },
+    {
+      "codepoint": "E913",
+      "legacyName": "Street"
+    },
+    {
+      "codepoint": "E914",
+      "legacyName": "Printer3D"
+    },
+    {
+      "codepoint": "E915",
+      "legacyName": "RadioBullet"
+    },
+    {
+      "codepoint": "E916",
+      "legacyName": "Stopwatch"
+    },
+    {
+      "codepoint": "E91B",
+      "legacyName": "Photo"
+    },
+    {
+      "codepoint": "E91C",
+      "legacyName": "ActionCenter"
+    },
+    {
+      "codepoint": "E91F",
+      "legacyName": "FullCircleMask"
+    },
+    {
+      "codepoint": "E921",
+      "legacyName": "ChromeMinimize"
+    },
+    {
+      "codepoint": "E922",
+      "legacyName": "ChromeMaximize"
+    },
+    {
+      "codepoint": "E923",
+      "legacyName": "ChromeRestore"
+    },
+    {
+      "codepoint": "E924",
+      "legacyName": "Annotation"
+    },
+    {
+      "codepoint": "E925",
+      "legacyName": "BackSpaceQWERTYSm"
+    },
+    {
+      "codepoint": "E926",
+      "legacyName": "BackSpaceQWERTYMd"
+    },
+    {
+      "codepoint": "E927",
+      "legacyName": "Swipe"
+    },
+    {
+      "codepoint": "E928",
+      "legacyName": "Fingerprint"
+    },
+    {
+      "codepoint": "E929",
+      "legacyName": "Handwriting"
+    },
+    {
+      "codepoint": "E92C",
+      "legacyName": "ChromeBackToWindow"
+    },
+    {
+      "codepoint": "E92D",
+      "legacyName": "ChromeFullScreen"
+    },
+    {
+      "codepoint": "E92E",
+      "legacyName": "KeyboardStandard"
+    },
+    {
+      "codepoint": "E92F",
+      "legacyName": "KeyboardDismiss"
+    },
+    {
+      "codepoint": "E930",
+      "legacyName": "Completed"
+    },
+    {
+      "codepoint": "E931",
+      "legacyName": "ChromeAnnotate"
+    },
+    {
+      "codepoint": "E932",
+      "legacyName": "Label"
+    },
+    {
+      "codepoint": "E933",
+      "legacyName": "IBeam"
+    },
+    {
+      "codepoint": "E934",
+      "legacyName": "IBeamOutline"
+    },
+    {
+      "codepoint": "E935",
+      "legacyName": "FlickDown"
+    },
+    {
+      "codepoint": "E936",
+      "legacyName": "FlickUp"
+    },
+    {
+      "codepoint": "E937",
+      "legacyName": "FlickLeft"
+    },
+    {
+      "codepoint": "E938",
+      "legacyName": "FlickRight"
+    },
+    {
+      "codepoint": "E939",
+      "legacyName": "FeedbackApp"
+    },
+    {
+      "codepoint": "E93C",
+      "legacyName": "MusicAlbum"
+    },
+    {
+      "codepoint": "E93E",
+      "legacyName": "Streaming"
+    },
+    {
+      "codepoint": "E943",
+      "legacyName": "Code"
+    },
+    {
+      "codepoint": "E944",
+      "legacyName": "ReturnToWindow"
+    },
+    {
+      "codepoint": "E945",
+      "legacyName": "LightningBolt"
+    },
+    {
+      "codepoint": "E946",
+      "legacyName": "Info"
+    },
+    {
+      "codepoint": "E947",
+      "legacyName": "CalculatorMultiply"
+    },
+    {
+      "codepoint": "E948",
+      "legacyName": "CalculatorAddition"
+    },
+    {
+      "codepoint": "E949",
+      "legacyName": "CalculatorSubtract"
+    },
+    {
+      "codepoint": "E94A",
+      "legacyName": "CalculatorDivide"
+    },
+    {
+      "codepoint": "E94B",
+      "legacyName": "CalculatorSquareroot"
+    },
+    {
+      "codepoint": "E94C",
+      "legacyName": "CalculatorPercentage"
+    },
+    {
+      "codepoint": "E94D",
+      "legacyName": "CalculatorNegate"
+    },
+    {
+      "codepoint": "E94E",
+      "legacyName": "CalculatorEqualTo"
+    },
+    {
+      "codepoint": "E94F",
+      "legacyName": "CalculatorBackspace"
+    },
+    {
+      "codepoint": "E950",
+      "legacyName": "Component"
+    },
+    {
+      "codepoint": "E951",
+      "legacyName": "DMC"
+    },
+    {
+      "codepoint": "E952",
+      "legacyName": "Dock"
+    },
+    {
+      "codepoint": "E953",
+      "legacyName": "MultimediaDMS"
+    },
+    {
+      "codepoint": "E954",
+      "legacyName": "MultimediaDVR"
+    },
+    {
+      "codepoint": "E955",
+      "legacyName": "MultimediaPMP"
+    },
+    {
+      "codepoint": "E956",
+      "legacyName": "PrintfaxPrinterFile"
+    },
+    {
+      "codepoint": "E957",
+      "legacyName": "Sensor"
+    },
+    {
+      "codepoint": "E958",
+      "legacyName": "StorageOptical"
+    },
+    {
+      "codepoint": "E95A",
+      "legacyName": "Communications"
+    },
+    {
+      "codepoint": "E95B",
+      "legacyName": "Headset"
+    },
+    {
+      "codepoint": "E95D",
+      "legacyName": "Projector"
+    },
+    {
+      "codepoint": "E95E",
+      "legacyName": "Health"
+    },
+    {
+      "codepoint": "E95F",
+      "legacyName": "Wire"
+    },
+    {
+      "codepoint": "E960",
+      "legacyName": "Webcam2"
+    },
+    {
+      "codepoint": "E961",
+      "legacyName": "Input"
+    },
+    {
+      "codepoint": "E962",
+      "legacyName": "Mouse"
+    },
+    {
+      "codepoint": "E963",
+      "legacyName": "Smartcard"
+    },
+    {
+      "codepoint": "E964",
+      "legacyName": "SmartcardVirtual"
+    },
+    {
+      "codepoint": "E965",
+      "legacyName": "MediaStorageTower"
+    },
+    {
+      "codepoint": "E966",
+      "legacyName": "ReturnKeySm"
+    },
+    {
+      "codepoint": "E967",
+      "legacyName": "GameConsole"
+    },
+    {
+      "codepoint": "E968",
+      "legacyName": "Network"
+    },
+    {
+      "codepoint": "E969",
+      "legacyName": "StorageNetworkWireless"
+    },
+    {
+      "codepoint": "E96A",
+      "legacyName": "StorageTape"
+    },
+    {
+      "codepoint": "E96D",
+      "legacyName": "ChevronUpSmall"
+    },
+    {
+      "codepoint": "E96E",
+      "legacyName": "ChevronDownSmall"
+    },
+    {
+      "codepoint": "E96F",
+      "legacyName": "ChevronLeftSmall"
+    },
+    {
+      "codepoint": "E970",
+      "legacyName": "ChevronRightSmall"
+    },
+    {
+      "codepoint": "E971",
+      "legacyName": "ChevronUpMed"
+    },
+    {
+      "codepoint": "E972",
+      "legacyName": "ChevronDownMed"
+    },
+    {
+      "codepoint": "E973",
+      "legacyName": "ChevronLeftMed"
+    },
+    {
+      "codepoint": "E974",
+      "legacyName": "ChevronRightMed"
+    },
+    {
+      "codepoint": "E975",
+      "legacyName": "Devices2"
+    },
+    {
+      "codepoint": "E976",
+      "legacyName": "ExpandTile"
+    },
+    {
+      "codepoint": "E977",
+      "legacyName": "PC1"
+    },
+    {
+      "codepoint": "E978",
+      "legacyName": "PresenceChicklet"
+    },
+    {
+      "codepoint": "E979",
+      "legacyName": "PresenceChickletVideo"
+    },
+    {
+      "codepoint": "E97A",
+      "legacyName": "Reply"
+    },
+    {
+      "codepoint": "E97B",
+      "legacyName": "SetTile"
+    },
+    {
+      "codepoint": "E97C",
+      "legacyName": "Type"
+    },
+    {
+      "codepoint": "E97D",
+      "legacyName": "Korean"
+    },
+    {
+      "codepoint": "E97E",
+      "legacyName": "HalfAlpha"
+    },
+    {
+      "codepoint": "E97F",
+      "legacyName": "FullAlpha"
+    },
+    {
+      "codepoint": "E980",
+      "legacyName": "Key12On"
+    },
+    {
+      "codepoint": "E981",
+      "legacyName": "ChineseChangjie"
+    },
+    {
+      "codepoint": "E982",
+      "legacyName": "QWERTYOn"
+    },
+    {
+      "codepoint": "E983",
+      "legacyName": "QWERTYOff"
+    },
+    {
+      "codepoint": "E984",
+      "legacyName": "ChineseQuick"
+    },
+    {
+      "codepoint": "E985",
+      "legacyName": "Japanese"
+    },
+    {
+      "codepoint": "E986",
+      "legacyName": "FullHiragana"
+    },
+    {
+      "codepoint": "E987",
+      "legacyName": "FullKatakana"
+    },
+    {
+      "codepoint": "E988",
+      "legacyName": "HalfKatakana"
+    },
+    {
+      "codepoint": "E989",
+      "legacyName": "ChineseBoPoMoFo"
+    },
+    {
+      "codepoint": "E98A",
+      "legacyName": "ChinesePinyin"
+    },
+    {
+      "codepoint": "E98F",
+      "legacyName": "ConstructionCone"
+    },
+    {
+      "codepoint": "E990",
+      "legacyName": "XboxOneConsole"
+    },
+    {
+      "codepoint": "E992",
+      "legacyName": "Volume0"
+    },
+    {
+      "codepoint": "E993",
+      "legacyName": "Volume1"
+    },
+    {
+      "codepoint": "E994",
+      "legacyName": "Volume2"
+    },
+    {
+      "codepoint": "E995",
+      "legacyName": "Volume3"
+    },
+    {
+      "codepoint": "E996",
+      "legacyName": "BatteryUnknown"
+    },
+    {
+      "codepoint": "E998",
+      "legacyName": "WifiAttentionOverlay"
+    },
+    {
+      "codepoint": "E99A",
+      "legacyName": "Robot"
+    },
+    {
+      "codepoint": "E9A1",
+      "legacyName": "TapAndSend"
+    },
+    {
+      "codepoint": "E9A4",
+      "legacyName": "TextBulletListSquare"
+    },
+    {
+      "codepoint": "E9A6",
+      "legacyName": "FitPage"
+    },
+    {
+      "codepoint": "E9A8",
+      "legacyName": "PasswordKeyShow"
+    },
+    {
+      "codepoint": "E9A9",
+      "legacyName": "PasswordKeyHide"
+    },
+    {
+      "codepoint": "E9AA",
+      "legacyName": "BidiLtr"
+    },
+    {
+      "codepoint": "E9AB",
+      "legacyName": "BidiRtl"
+    },
+    {
+      "codepoint": "E9AC",
+      "legacyName": "ForwardSm"
+    },
+    {
+      "codepoint": "E9AD",
+      "legacyName": "CommaKey"
+    },
+    {
+      "codepoint": "E9AE",
+      "legacyName": "DashKey"
+    },
+    {
+      "codepoint": "E9AF",
+      "legacyName": "DullSoundKey"
+    },
+    {
+      "codepoint": "E9B0",
+      "legacyName": "HalfDullSound"
+    },
+    {
+      "codepoint": "E9B1",
+      "legacyName": "RightDoubleQuote"
+    },
+    {
+      "codepoint": "E9B2",
+      "legacyName": "LeftDoubleQuote"
+    },
+    {
+      "codepoint": "E9B3",
+      "legacyName": "PuncKeyRightBottom"
+    },
+    {
+      "codepoint": "E9B4",
+      "legacyName": "PuncKey1"
+    },
+    {
+      "codepoint": "E9B5",
+      "legacyName": "PuncKey2"
+    },
+    {
+      "codepoint": "E9B6",
+      "legacyName": "PuncKey3"
+    },
+    {
+      "codepoint": "E9B7",
+      "legacyName": "PuncKey4"
+    },
+    {
+      "codepoint": "E9B8",
+      "legacyName": "PuncKey5"
+    },
+    {
+      "codepoint": "E9B9",
+      "legacyName": "PuncKey6"
+    },
+    {
+      "codepoint": "E9BA",
+      "legacyName": "PuncKey9"
+    },
+    {
+      "codepoint": "E9BB",
+      "legacyName": "PuncKey7"
+    },
+    {
+      "codepoint": "E9BC",
+      "legacyName": "PuncKey8"
+    },
+    {
+      "codepoint": "E9CA",
+      "legacyName": "Frigid"
+    },
+    {
+      "codepoint": "E9CE",
+      "legacyName": "Unknown"
+    },
+    {
+      "codepoint": "E9D2",
+      "legacyName": "AreaChart"
+    },
+    {
+      "codepoint": "E9D5",
+      "legacyName": "CheckList"
+    },
+    {
+      "codepoint": "E9D9",
+      "legacyName": "Diagnostic"
+    },
+    {
+      "codepoint": "E9E9",
+      "legacyName": "Equalizer"
+    },
+    {
+      "codepoint": "E9F3",
+      "legacyName": "Process"
+    },
+    {
+      "codepoint": "E9F5",
+      "legacyName": "Processing"
+    },
+    {
+      "codepoint": "E9F9",
+      "legacyName": "ReportDocument"
+    },
+    {
+      "codepoint": "EA0C",
+      "legacyName": "VideoSolid"
+    },
+    {
+      "codepoint": "EA0D",
+      "legacyName": "MixedMediaBadge"
+    },
+    {
+      "codepoint": "EA14",
+      "legacyName": "DisconnectDisplay"
+    },
+    {
+      "codepoint": "EA18",
+      "legacyName": "Shield"
+    },
+    {
+      "codepoint": "EA1F",
+      "legacyName": "Info2"
+    },
+    {
+      "codepoint": "EA21",
+      "legacyName": "ActionCenterAsterisk"
+    },
+    {
+      "codepoint": "EA24",
+      "legacyName": "Beta"
+    },
+    {
+      "codepoint": "EA35",
+      "legacyName": "SaveCopy"
+    },
+    {
+      "codepoint": "EA37",
+      "legacyName": "List"
+    },
+    {
+      "codepoint": "EA38",
+      "legacyName": "Asterisk"
+    },
+    {
+      "codepoint": "EA39",
+      "legacyName": "ErrorBadge"
+    },
+    {
+      "codepoint": "EA3A",
+      "legacyName": "CircleRing"
+    },
+    {
+      "codepoint": "EA3B",
+      "legacyName": "CircleFill"
+    },
+    {
+      "codepoint": "EA3C",
+      "legacyName": "MergeCall"
+    },
+    {
+      "codepoint": "EA3D",
+      "legacyName": "PrivateCall"
+    },
+    {
+      "codepoint": "EA3F",
+      "legacyName": "Record2"
+    },
+    {
+      "codepoint": "EA40",
+      "legacyName": "AllAppsMirrored"
+    },
+    {
+      "codepoint": "EA41",
+      "legacyName": "BookmarksMirrored"
+    },
+    {
+      "codepoint": "EA42",
+      "legacyName": "BulletedListMirrored"
+    },
+    {
+      "codepoint": "EA43",
+      "legacyName": "CallForwardInternationalMirrored"
+    },
+    {
+      "codepoint": "EA44",
+      "legacyName": "CallForwardRoamingMirrored"
+    },
+    {
+      "codepoint": "EA47",
+      "legacyName": "ChromeBackMirrored"
+    },
+    {
+      "codepoint": "EA48",
+      "legacyName": "ClearSelectionMirrored"
+    },
+    {
+      "codepoint": "EA49",
+      "legacyName": "ClosePaneMirrored"
+    },
+    {
+      "codepoint": "EA4A",
+      "legacyName": "ContactInfoMirrored"
+    },
+    {
+      "codepoint": "EA4B",
+      "legacyName": "DockRightMirrored"
+    },
+    {
+      "codepoint": "EA4C",
+      "legacyName": "DockLeftMirrored"
+    },
+    {
+      "codepoint": "EA4E",
+      "legacyName": "ExpandTileMirrored"
+    },
+    {
+      "codepoint": "EA4F",
+      "legacyName": "GoMirrored"
+    },
+    {
+      "codepoint": "EA50",
+      "legacyName": "GripperResizeMirrored"
+    },
+    {
+      "codepoint": "EA51",
+      "legacyName": "HelpMirrored"
+    },
+    {
+      "codepoint": "EA52",
+      "legacyName": "ImportMirrored"
+    },
+    {
+      "codepoint": "EA53",
+      "legacyName": "ImportAllMirrored"
+    },
+    {
+      "codepoint": "EA54",
+      "legacyName": "LeaveChatMirrored"
+    },
+    {
+      "codepoint": "EA55",
+      "legacyName": "ListMirrored"
+    },
+    {
+      "codepoint": "EA56",
+      "legacyName": "MailForwardMirrored"
+    },
+    {
+      "codepoint": "EA57",
+      "legacyName": "MailReplyMirrored"
+    },
+    {
+      "codepoint": "EA58",
+      "legacyName": "MailReplyAllMirrored"
+    },
+    {
+      "codepoint": "EA5B",
+      "legacyName": "OpenPaneMirrored"
+    },
+    {
+      "codepoint": "EA5C",
+      "legacyName": "OpenWithMirrored"
+    },
+    {
+      "codepoint": "EA5E",
+      "legacyName": "ParkingLocationMirrored"
+    },
+    {
+      "codepoint": "EA5F",
+      "legacyName": "ResizeMouseMediumMirrored"
+    },
+    {
+      "codepoint": "EA60",
+      "legacyName": "ResizeMouseSmallMirrored"
+    },
+    {
+      "codepoint": "EA61",
+      "legacyName": "ResizeMouseTallMirrored"
+    },
+    {
+      "codepoint": "EA62",
+      "legacyName": "ResizeTouchNarrowerMirrored"
+    },
+    {
+      "codepoint": "EA63",
+      "legacyName": "SendMirrored"
+    },
+    {
+      "codepoint": "EA64",
+      "legacyName": "SendFillMirrored"
+    },
+    {
+      "codepoint": "EA65",
+      "legacyName": "ShowResultsMirrored"
+    },
+    {
+      "codepoint": "EA69",
+      "legacyName": "Media"
+    },
+    {
+      "codepoint": "EA6A",
+      "legacyName": "SyncError"
+    },
+    {
+      "codepoint": "EA6C",
+      "legacyName": "Devices3"
+    },
+    {
+      "codepoint": "EA79",
+      "legacyName": "SlowMotionOn"
+    },
+    {
+      "codepoint": "EA80",
+      "legacyName": "Lightbulb"
+    },
+    {
+      "codepoint": "EA81",
+      "legacyName": "StatusCircle"
+    },
+    {
+      "codepoint": "EA82",
+      "legacyName": "StatusTriangle"
+    },
+    {
+      "codepoint": "EA83",
+      "legacyName": "StatusError"
+    },
+    {
+      "codepoint": "EA84",
+      "legacyName": "StatusWarning"
+    },
+    {
+      "codepoint": "EA85",
+      "legacyName": "VolumeDisabled"
+    },
+    {
+      "codepoint": "EA86",
+      "legacyName": "Puzzle"
+    },
+    {
+      "codepoint": "EA89",
+      "legacyName": "CalendarSolid"
+    },
+    {
+      "codepoint": "EA8A",
+      "legacyName": "HomeSolid"
+    },
+    {
+      "codepoint": "EA8B",
+      "legacyName": "ParkingLocationSolid"
+    },
+    {
+      "codepoint": "EA8C",
+      "legacyName": "ContactSolid"
+    },
+    {
+      "codepoint": "EA8D",
+      "legacyName": "ConstructionSolid"
+    },
+    {
+      "codepoint": "EA8E",
+      "legacyName": "AccidentSolid"
+    },
+    {
+      "codepoint": "EA8F",
+      "legacyName": "Ringer"
+    },
+    {
+      "codepoint": "EA90",
+      "legacyName": "PDF"
+    },
+    {
+      "codepoint": "EA91",
+      "legacyName": "ThoughtBubble"
+    },
+    {
+      "codepoint": "EA92",
+      "legacyName": "HeartBroken"
+    },
+    {
+      "codepoint": "EA93",
+      "legacyName": "BatteryCharging10"
+    },
+    {
+      "codepoint": "EA94",
+      "legacyName": "BatterySaver9"
+    },
+    {
+      "codepoint": "EA95",
+      "legacyName": "BatterySaver10"
+    },
+    {
+      "codepoint": "EA97",
+      "legacyName": "CallForwardingMirrored"
+    },
+    {
+      "codepoint": "EA98",
+      "legacyName": "MultiSelectMirrored"
+    },
+    {
+      "codepoint": "EA99",
+      "legacyName": "Broom"
+    },
+    {
+      "codepoint": "EAC2",
+      "legacyName": "ForwardCall"
+    },
+    {
+      "codepoint": "EAC7",
+      "legacyName": "DesktopLeafTwo"
+    },
+    {
+      "codepoint": "EAD4",
+      "legacyName": "Emojiplay"
+    },
+    {
+      "codepoint": "EAD5",
+      "legacyName": "EmojiBrush"
+    },
+    {
+      "codepoint": "EAD6",
+      "legacyName": "EyeTracking"
+    },
+    {
+      "codepoint": "EAD7",
+      "legacyName": "EyeTrackingText"
+    },
+    {
+      "codepoint": "EADF",
+      "legacyName": "Trackers"
+    },
+    {
+      "codepoint": "EAFC",
+      "legacyName": "Market"
+    },
+    {
+      "codepoint": "EB05",
+      "legacyName": "PieSingle"
+    },
+    {
+      "codepoint": "EB0F",
+      "legacyName": "StockUp"
+    },
+    {
+      "codepoint": "EB11",
+      "legacyName": "StockDown"
+    },
+    {
+      "codepoint": "EB19",
+      "legacyName": "ClicktoDoOff"
+    },
+    {
+      "codepoint": "EB1D",
+      "legacyName": "ClicktoDo"
+    },
+    {
+      "codepoint": "EB3B",
+      "legacyName": "GenericApp"
+    },
+    {
+      "codepoint": "EB3C",
+      "legacyName": "Design"
+    },
+    {
+      "codepoint": "EB41",
+      "legacyName": "Website"
+    },
+    {
+      "codepoint": "EB42",
+      "legacyName": "Drop"
+    },
+    {
+      "codepoint": "EB44",
+      "legacyName": "Radar"
+    },
+    {
+      "codepoint": "EB47",
+      "legacyName": "BusSolid"
+    },
+    {
+      "codepoint": "EB48",
+      "legacyName": "FerrySolid"
+    },
+    {
+      "codepoint": "EB49",
+      "legacyName": "StartPointSolid"
+    },
+    {
+      "codepoint": "EB4A",
+      "legacyName": "StopPointSolid"
+    },
+    {
+      "codepoint": "EB4B",
+      "legacyName": "EndPointSolid"
+    },
+    {
+      "codepoint": "EB4C",
+      "legacyName": "AirplaneSolid"
+    },
+    {
+      "codepoint": "EB4D",
+      "legacyName": "TrainSolid"
+    },
+    {
+      "codepoint": "EB4E",
+      "legacyName": "WorkSolid"
+    },
+    {
+      "codepoint": "EB4F",
+      "legacyName": "ReminderFill"
+    },
+    {
+      "codepoint": "EB50",
+      "legacyName": "Reminder"
+    },
+    {
+      "codepoint": "EB51",
+      "legacyName": "Heart"
+    },
+    {
+      "codepoint": "EB52",
+      "legacyName": "HeartFill"
+    },
+    {
+      "codepoint": "EB55",
+      "legacyName": "EthernetError"
+    },
+    {
+      "codepoint": "EB56",
+      "legacyName": "EthernetWarning"
+    },
+    {
+      "codepoint": "EB57",
+      "legacyName": "StatusConnecting1"
+    },
+    {
+      "codepoint": "EB58",
+      "legacyName": "StatusConnecting2"
+    },
+    {
+      "codepoint": "EB59",
+      "legacyName": "StatusUnsecure"
+    },
+    {
+      "codepoint": "EB5A",
+      "legacyName": "WifiError0"
+    },
+    {
+      "codepoint": "EB5B",
+      "legacyName": "WifiError1"
+    },
+    {
+      "codepoint": "EB5C",
+      "legacyName": "WifiError2"
+    },
+    {
+      "codepoint": "EB5D",
+      "legacyName": "WifiError3"
+    },
+    {
+      "codepoint": "EB5E",
+      "legacyName": "WifiError4"
+    },
+    {
+      "codepoint": "EB5F",
+      "legacyName": "WifiWarning0"
+    },
+    {
+      "codepoint": "EB60",
+      "legacyName": "WifiWarning1"
+    },
+    {
+      "codepoint": "EB61",
+      "legacyName": "WifiWarning2"
+    },
+    {
+      "codepoint": "EB62",
+      "legacyName": "WifiWarning3"
+    },
+    {
+      "codepoint": "EB63",
+      "legacyName": "WifiWarning4"
+    },
+    {
+      "codepoint": "EB66",
+      "legacyName": "Devices4"
+    },
+    {
+      "codepoint": "EB67",
+      "legacyName": "NUIIris"
+    },
+    {
+      "codepoint": "EB68",
+      "legacyName": "NUIFace"
+    },
+    {
+      "codepoint": "EB77",
+      "legacyName": "GatewayRouter"
+    },
+    {
+      "codepoint": "EB7E",
+      "legacyName": "EditMirrored"
+    },
+    {
+      "codepoint": "EB82",
+      "legacyName": "NUIFPStartSlideHand"
+    },
+    {
+      "codepoint": "EB83",
+      "legacyName": "NUIFPStartSlideAction"
+    },
+    {
+      "codepoint": "EB84",
+      "legacyName": "NUIFPContinueSlideHand"
+    },
+    {
+      "codepoint": "EB85",
+      "legacyName": "NUIFPContinueSlideAction"
+    },
+    {
+      "codepoint": "EB86",
+      "legacyName": "NUIFPRollRightHand"
+    },
+    {
+      "codepoint": "EB87",
+      "legacyName": "NUIFPRollRightHandAction"
+    },
+    {
+      "codepoint": "EB88",
+      "legacyName": "NUIFPRollLeftHand"
+    },
+    {
+      "codepoint": "EB89",
+      "legacyName": "NUIFPRollLeftAction"
+    },
+    {
+      "codepoint": "EB8A",
+      "legacyName": "NUIFPPressHand"
+    },
+    {
+      "codepoint": "EB8B",
+      "legacyName": "NUIFPPressAction"
+    },
+    {
+      "codepoint": "EB8C",
+      "legacyName": "NUIFPPressRepeatHand"
+    },
+    {
+      "codepoint": "EB8D",
+      "legacyName": "NUIFPPressRepeatAction"
+    },
+    {
+      "codepoint": "EB90",
+      "legacyName": "StatusErrorFull"
+    },
+    {
+      "codepoint": "EB91",
+      "legacyName": "TaskViewExpanded"
+    },
+    {
+      "codepoint": "EB95",
+      "legacyName": "Certificate"
+    },
+    {
+      "codepoint": "EB96",
+      "legacyName": "BackSpaceQWERTYLg"
+    },
+    {
+      "codepoint": "EB97",
+      "legacyName": "ReturnKeyLg"
+    },
+    {
+      "codepoint": "EB9D",
+      "legacyName": "FastForward"
+    },
+    {
+      "codepoint": "EB9E",
+      "legacyName": "Rewind"
+    },
+    {
+      "codepoint": "EB9F",
+      "legacyName": "Photo2"
+    },
+    {
+      "codepoint": "EBA0",
+      "legacyName": "MobBattery0"
+    },
+    {
+      "codepoint": "EBA1",
+      "legacyName": "MobBattery1"
+    },
+    {
+      "codepoint": "EBA2",
+      "legacyName": "MobBattery2"
+    },
+    {
+      "codepoint": "EBA3",
+      "legacyName": "MobBattery3"
+    },
+    {
+      "codepoint": "EBA4",
+      "legacyName": "MobBattery4"
+    },
+    {
+      "codepoint": "EBA5",
+      "legacyName": "MobBattery5"
+    },
+    {
+      "codepoint": "EBA6",
+      "legacyName": "MobBattery6"
+    },
+    {
+      "codepoint": "EBA7",
+      "legacyName": "MobBattery7"
+    },
+    {
+      "codepoint": "EBA8",
+      "legacyName": "MobBattery8"
+    },
+    {
+      "codepoint": "EBA9",
+      "legacyName": "MobBattery9"
+    },
+    {
+      "codepoint": "EBAA",
+      "legacyName": "MobBattery10"
+    },
+    {
+      "codepoint": "EBAB",
+      "legacyName": "MobBatteryCharging0"
+    },
+    {
+      "codepoint": "EBAC",
+      "legacyName": "MobBatteryCharging1"
+    },
+    {
+      "codepoint": "EBAD",
+      "legacyName": "MobBatteryCharging2"
+    },
+    {
+      "codepoint": "EBAE",
+      "legacyName": "MobBatteryCharging3"
+    },
+    {
+      "codepoint": "EBAF",
+      "legacyName": "MobBatteryCharging4"
+    },
+    {
+      "codepoint": "EBB0",
+      "legacyName": "MobBatteryCharging5"
+    },
+    {
+      "codepoint": "EBB1",
+      "legacyName": "MobBatteryCharging6"
+    },
+    {
+      "codepoint": "EBB2",
+      "legacyName": "MobBatteryCharging7"
+    },
+    {
+      "codepoint": "EBB3",
+      "legacyName": "MobBatteryCharging8"
+    },
+    {
+      "codepoint": "EBB4",
+      "legacyName": "MobBatteryCharging9"
+    },
+    {
+      "codepoint": "EBB5",
+      "legacyName": "MobBatteryCharging10"
+    },
+    {
+      "codepoint": "EBB6",
+      "legacyName": "MobBatterySaver0"
+    },
+    {
+      "codepoint": "EBB7",
+      "legacyName": "MobBatterySaver1"
+    },
+    {
+      "codepoint": "EBB8",
+      "legacyName": "MobBatterySaver2"
+    },
+    {
+      "codepoint": "EBB9",
+      "legacyName": "MobBatterySaver3"
+    },
+    {
+      "codepoint": "EBBA",
+      "legacyName": "MobBatterySaver4"
+    },
+    {
+      "codepoint": "EBBB",
+      "legacyName": "MobBatterySaver5"
+    },
+    {
+      "codepoint": "EBBC",
+      "legacyName": "MobBatterySaver6"
+    },
+    {
+      "codepoint": "EBBD",
+      "legacyName": "MobBatterySaver7"
+    },
+    {
+      "codepoint": "EBBE",
+      "legacyName": "MobBatterySaver8"
+    },
+    {
+      "codepoint": "EBBF",
+      "legacyName": "MobBatterySaver9"
+    },
+    {
+      "codepoint": "EBC0",
+      "legacyName": "MobBatterySaver10"
+    },
+    {
+      "codepoint": "EBC3",
+      "legacyName": "DictionaryCloud"
+    },
+    {
+      "codepoint": "EBC4",
+      "legacyName": "ResetDrive"
+    },
+    {
+      "codepoint": "EBC5",
+      "legacyName": "VolumeBars"
+    },
+    {
+      "codepoint": "EBC6",
+      "legacyName": "Project"
+    },
+    {
+      "codepoint": "EBD2",
+      "legacyName": "AdjustHologram"
+    },
+    {
+      "codepoint": "EBD3",
+      "legacyName": "CloudDownload"
+    },
+    {
+      "codepoint": "EBD4",
+      "legacyName": "MobWifiCallBars"
+    },
+    {
+      "codepoint": "EBD5",
+      "legacyName": "MobWifiCall0"
+    },
+    {
+      "codepoint": "EBD6",
+      "legacyName": "MobWifiCall1"
+    },
+    {
+      "codepoint": "EBD7",
+      "legacyName": "MobWifiCall2"
+    },
+    {
+      "codepoint": "EBD8",
+      "legacyName": "MobWifiCall3"
+    },
+    {
+      "codepoint": "EBD9",
+      "legacyName": "MobWifiCall4"
+    },
+    {
+      "codepoint": "EBDA",
+      "legacyName": "Family"
+    },
+    {
+      "codepoint": "EBDB",
+      "legacyName": "LockFeedback"
+    },
+    {
+      "codepoint": "EBDE",
+      "legacyName": "DeviceDiscovery"
+    },
+    {
+      "codepoint": "EBE6",
+      "legacyName": "WindDirection"
+    },
+    {
+      "codepoint": "EBE7",
+      "legacyName": "RightArrowKeyTime0"
+    },
+    {
+      "codepoint": "EBE8",
+      "legacyName": "Bug"
+    },
+    {
+      "codepoint": "EBFC",
+      "legacyName": "TabletMode"
+    },
+    {
+      "codepoint": "EBFD",
+      "legacyName": "StatusCircleLeft"
+    },
+    {
+      "codepoint": "EBFE",
+      "legacyName": "StatusTriangleLeft"
+    },
+    {
+      "codepoint": "EBFF",
+      "legacyName": "StatusErrorLeft"
+    },
+    {
+      "codepoint": "EC00",
+      "legacyName": "StatusWarningLeft"
+    },
+    {
+      "codepoint": "EC02",
+      "legacyName": "MobBatteryUnknown"
+    },
+    {
+      "codepoint": "EC05",
+      "legacyName": "NetworkTower"
+    },
+    {
+      "codepoint": "EC06",
+      "legacyName": "CityNext"
+    },
+    {
+      "codepoint": "EC07",
+      "legacyName": "CityNext2"
+    },
+    {
+      "codepoint": "EC08",
+      "legacyName": "Courthouse"
+    },
+    {
+      "codepoint": "EC09",
+      "legacyName": "Groceries"
+    },
+    {
+      "codepoint": "EC0A",
+      "legacyName": "Sustainable"
+    },
+    {
+      "codepoint": "EC0B",
+      "legacyName": "BuildingEnergy"
+    },
+    {
+      "codepoint": "EC11",
+      "legacyName": "ToggleFilled"
+    },
+    {
+      "codepoint": "EC12",
+      "legacyName": "ToggleBorder"
+    },
+    {
+      "codepoint": "EC13",
+      "legacyName": "SliderThumb"
+    },
+    {
+      "codepoint": "EC14",
+      "legacyName": "ToggleThumb"
+    },
+    {
+      "codepoint": "EC15",
+      "legacyName": "MiracastLogoSmall"
+    },
+    {
+      "codepoint": "EC16",
+      "legacyName": "MiracastLogoLarge"
+    },
+    {
+      "codepoint": "EC19",
+      "legacyName": "PLAP"
+    },
+    {
+      "codepoint": "EC1B",
+      "legacyName": "Badge"
+    },
+    {
+      "codepoint": "EC1E",
+      "legacyName": "SignalRoaming"
+    },
+    {
+      "codepoint": "EC20",
+      "legacyName": "MobileLocked"
+    },
+    {
+      "codepoint": "EC24",
+      "legacyName": "InsiderHubApp"
+    },
+    {
+      "codepoint": "EC25",
+      "legacyName": "PersonalFolder"
+    },
+    {
+      "codepoint": "EC26",
+      "legacyName": "HomeGroup"
+    },
+    {
+      "codepoint": "EC27",
+      "legacyName": "MyNetwork"
+    },
+    {
+      "codepoint": "EC31",
+      "legacyName": "KeyboardFull"
+    },
+    {
+      "codepoint": "EC32",
+      "legacyName": "Cafe"
+    },
+    {
+      "codepoint": "EC34",
+      "legacyName": "FormatText"
+    },
+    {
+      "codepoint": "EC37",
+      "legacyName": "MobSignal1"
+    },
+    {
+      "codepoint": "EC38",
+      "legacyName": "MobSignal2"
+    },
+    {
+      "codepoint": "EC39",
+      "legacyName": "MobSignal3"
+    },
+    {
+      "codepoint": "EC3A",
+      "legacyName": "MobSignal4"
+    },
+    {
+      "codepoint": "EC3B",
+      "legacyName": "MobSignal5"
+    },
+    {
+      "codepoint": "EC3C",
+      "legacyName": "MobWifi1"
+    },
+    {
+      "codepoint": "EC3D",
+      "legacyName": "MobWifi2"
+    },
+    {
+      "codepoint": "EC3E",
+      "legacyName": "MobWifi3"
+    },
+    {
+      "codepoint": "EC3F",
+      "legacyName": "MobWifi4"
+    },
+    {
+      "codepoint": "EC40",
+      "legacyName": "MobAirplane"
+    },
+    {
+      "codepoint": "EC41",
+      "legacyName": "MobBluetooth"
+    },
+    {
+      "codepoint": "EC42",
+      "legacyName": "MobActionCenter"
+    },
+    {
+      "codepoint": "EC43",
+      "legacyName": "MobLocation"
+    },
+    {
+      "codepoint": "EC44",
+      "legacyName": "MobWifiHotspot"
+    },
+    {
+      "codepoint": "EC45",
+      "legacyName": "LanguageJpn"
+    },
+    {
+      "codepoint": "EC46",
+      "legacyName": "MobQuietHours"
+    },
+    {
+      "codepoint": "EC47",
+      "legacyName": "MobDrivingMode"
+    },
+    {
+      "codepoint": "EC48",
+      "legacyName": "SpeedOff"
+    },
+    {
+      "codepoint": "EC49",
+      "legacyName": "SpeedMedium"
+    },
+    {
+      "codepoint": "EC4A",
+      "legacyName": "SpeedHigh"
+    },
+    {
+      "codepoint": "EC4E",
+      "legacyName": "ThisPC"
+    },
+    {
+      "codepoint": "EC4F",
+      "legacyName": "MusicNote"
+    },
+    {
+      "codepoint": "EC50",
+      "legacyName": "FileExplorer"
+    },
+    {
+      "codepoint": "EC51",
+      "legacyName": "FileExplorerApp"
+    },
+    {
+      "codepoint": "EC52",
+      "legacyName": "LeftArrowKeyTime0"
+    },
+    {
+      "codepoint": "EC54",
+      "legacyName": "MicOff"
+    },
+    {
+      "codepoint": "EC55",
+      "legacyName": "MicSleep"
+    },
+    {
+      "codepoint": "EC56",
+      "legacyName": "MicError"
+    },
+    {
+      "codepoint": "EC57",
+      "legacyName": "PlaybackRate1x"
+    },
+    {
+      "codepoint": "EC58",
+      "legacyName": "PlaybackRateOther"
+    },
+    {
+      "codepoint": "EC59",
+      "legacyName": "CashDrawer"
+    },
+    {
+      "codepoint": "EC5A",
+      "legacyName": "BarcodeScanner"
+    },
+    {
+      "codepoint": "EC5B",
+      "legacyName": "ReceiptPrinter"
+    },
+    {
+      "codepoint": "EC5C",
+      "legacyName": "MagStripeReader"
+    },
+    {
+      "codepoint": "EC61",
+      "legacyName": "CompletedSolid"
+    },
+    {
+      "codepoint": "EC64",
+      "legacyName": "CompanionApp"
+    },
+    {
+      "codepoint": "EC6C",
+      "legacyName": "Favicon2"
+    },
+    {
+      "codepoint": "EC6D",
+      "legacyName": "SwipeRevealArt"
+    },
+    {
+      "codepoint": "EC71",
+      "legacyName": "MicOn"
+    },
+    {
+      "codepoint": "EC72",
+      "legacyName": "MicClipping"
+    },
+    {
+      "codepoint": "EC74",
+      "legacyName": "TabletSelected"
+    },
+    {
+      "codepoint": "EC75",
+      "legacyName": "MobileSelected"
+    },
+    {
+      "codepoint": "EC76",
+      "legacyName": "LaptopSelected"
+    },
+    {
+      "codepoint": "EC77",
+      "legacyName": "TVMonitorSelected"
+    },
+    {
+      "codepoint": "EC7A",
+      "legacyName": "DeveloperTools"
+    },
+    {
+      "codepoint": "EC7E",
+      "legacyName": "MobCallForwarding"
+    },
+    {
+      "codepoint": "EC7F",
+      "legacyName": "MobCallForwardingMirrored"
+    },
+    {
+      "codepoint": "EC80",
+      "legacyName": "BodyCam"
+    },
+    {
+      "codepoint": "EC81",
+      "legacyName": "PoliceCar"
+    },
+    {
+      "codepoint": "EC83",
+      "legacyName": "UpdateStatusDot2"
+    },
+    {
+      "codepoint": "EC87",
+      "legacyName": "Draw"
+    },
+    {
+      "codepoint": "EC88",
+      "legacyName": "DrawSolid"
+    },
+    {
+      "codepoint": "EC8A",
+      "legacyName": "LowerBrightness"
+    },
+    {
+      "codepoint": "EC8F",
+      "legacyName": "ScrollUpDown"
+    },
+    {
+      "codepoint": "EC91",
+      "legacyName": "Uninstall"
+    },
+    {
+      "codepoint": "EC92",
+      "legacyName": "DateTime"
+    },
+    {
+      "codepoint": "EC94",
+      "legacyName": "HoloLens"
+    },
+    {
+      "codepoint": "EC9C",
+      "legacyName": "CloudNotSynced"
+    },
+    {
+      "codepoint": "ECA5",
+      "legacyName": "Tiles"
+    },
+    {
+      "codepoint": "ECA7",
+      "legacyName": "PartyLeader"
+    },
+    {
+      "codepoint": "ECAA",
+      "legacyName": "AppIconDefault"
+    },
+    {
+      "codepoint": "ECAD",
+      "legacyName": "Calories"
+    },
+    {
+      "codepoint": "ECAF",
+      "legacyName": "POI"
+    },
+    {
+      "codepoint": "ECB9",
+      "legacyName": "BandBattery0"
+    },
+    {
+      "codepoint": "ECBA",
+      "legacyName": "BandBattery1"
+    },
+    {
+      "codepoint": "ECBB",
+      "legacyName": "BandBattery2"
+    },
+    {
+      "codepoint": "ECBC",
+      "legacyName": "BandBattery3"
+    },
+    {
+      "codepoint": "ECBD",
+      "legacyName": "BandBattery4"
+    },
+    {
+      "codepoint": "ECBE",
+      "legacyName": "BandBattery5"
+    },
+    {
+      "codepoint": "ECBF",
+      "legacyName": "BandBattery6"
+    },
+    {
+      "codepoint": "ECC4",
+      "legacyName": "AddSurfaceHub"
+    },
+    {
+      "codepoint": "ECC5",
+      "legacyName": "DevUpdate"
+    },
+    {
+      "codepoint": "ECC6",
+      "legacyName": "Unit"
+    },
+    {
+      "codepoint": "ECC8",
+      "legacyName": "AddTo"
+    },
+    {
+      "codepoint": "ECC9",
+      "legacyName": "RemoveFrom"
+    },
+    {
+      "codepoint": "ECCA",
+      "legacyName": "RadioBtnOff"
+    },
+    {
+      "codepoint": "ECCB",
+      "legacyName": "RadioBtnOn"
+    },
+    {
+      "codepoint": "ECCC",
+      "legacyName": "RadioBullet2"
+    },
+    {
+      "codepoint": "ECCD",
+      "legacyName": "ExploreContent"
+    },
+    {
+      "codepoint": "ECE4",
+      "legacyName": "Blocked2"
+    },
+    {
+      "codepoint": "ECE7",
+      "legacyName": "ScrollMode"
+    },
+    {
+      "codepoint": "ECE8",
+      "legacyName": "ZoomMode"
+    },
+    {
+      "codepoint": "ECE9",
+      "legacyName": "PanMode"
+    },
+    {
+      "codepoint": "ECF0",
+      "legacyName": "WiredUSB"
+    },
+    {
+      "codepoint": "ECF1",
+      "legacyName": "WirelessUSB"
+    },
+    {
+      "codepoint": "ECF3",
+      "legacyName": "USBSafeConnect"
+    },
+    {
+      "codepoint": "ED0C",
+      "legacyName": "ActionCenterNotificationMirrored"
+    },
+    {
+      "codepoint": "ED0D",
+      "legacyName": "ActionCenterMirrored"
+    },
+    {
+      "codepoint": "ED0E",
+      "legacyName": "SubscriptionAdd"
+    },
+    {
+      "codepoint": "ED10",
+      "legacyName": "ResetDevice"
+    },
+    {
+      "codepoint": "ED11",
+      "legacyName": "SubscriptionAddMirrored"
+    },
+    {
+      "codepoint": "ED14",
+      "legacyName": "QRCode"
+    },
+    {
+      "codepoint": "ED15",
+      "legacyName": "Feedback"
+    },
+    {
+      "codepoint": "ED1A",
+      "legacyName": "Hide"
+    },
+    {
+      "codepoint": "ED1E",
+      "legacyName": "Subtitles"
+    },
+    {
+      "codepoint": "ED1F",
+      "legacyName": "SubtitlesAudio"
+    },
+    {
+      "codepoint": "ED21",
+      "legacyName": "RestartUpdate2"
+    },
+    {
+      "codepoint": "ED25",
+      "legacyName": "OpenFolderHorizontal"
+    },
+    {
+      "codepoint": "ED28",
+      "legacyName": "CalendarMirrored"
+    },
+    {
+      "codepoint": "ED2A",
+      "legacyName": "MobeSIM"
+    },
+    {
+      "codepoint": "ED2B",
+      "legacyName": "MobeSIMNoProfile"
+    },
+    {
+      "codepoint": "ED2C",
+      "legacyName": "MobeSIMLocked"
+    },
+    {
+      "codepoint": "ED2D",
+      "legacyName": "MobeSIMBusy"
+    },
+    {
+      "codepoint": "ED2E",
+      "legacyName": "SignalError"
+    },
+    {
+      "codepoint": "ED2F",
+      "legacyName": "StreamingEnterprise"
+    },
+    {
+      "codepoint": "ED30",
+      "legacyName": "Headphone0"
+    },
+    {
+      "codepoint": "ED31",
+      "legacyName": "Headphone1"
+    },
+    {
+      "codepoint": "ED32",
+      "legacyName": "Headphone2"
+    },
+    {
+      "codepoint": "ED33",
+      "legacyName": "Headphone3"
+    },
+    {
+      "codepoint": "ED35",
+      "legacyName": "Apps"
+    },
+    {
+      "codepoint": "ED39",
+      "legacyName": "KeyboardBrightness"
+    },
+    {
+      "codepoint": "ED3A",
+      "legacyName": "KeyboardLowerBrightness"
+    },
+    {
+      "codepoint": "ED3C",
+      "legacyName": "SkipBack10"
+    },
+    {
+      "codepoint": "ED3D",
+      "legacyName": "SkipForward30"
+    },
+    {
+      "codepoint": "ED41",
+      "legacyName": "TreeFolderFolder"
+    },
+    {
+      "codepoint": "ED42",
+      "legacyName": "TreeFolderFolderFill"
+    },
+    {
+      "codepoint": "ED43",
+      "legacyName": "TreeFolderFolderOpen"
+    },
+    {
+      "codepoint": "ED44",
+      "legacyName": "TreeFolderFolderOpenFill"
+    },
+    {
+      "codepoint": "ED47",
+      "legacyName": "MultimediaDMP"
+    },
+    {
+      "codepoint": "ED4C",
+      "legacyName": "KeyboardOneHanded"
+    },
+    {
+      "codepoint": "ED4D",
+      "legacyName": "Narrator"
+    },
+    {
+      "codepoint": "ED53",
+      "legacyName": "EmojiTabPeople"
+    },
+    {
+      "codepoint": "ED54",
+      "legacyName": "EmojiTabSmilesAnimals"
+    },
+    {
+      "codepoint": "ED55",
+      "legacyName": "EmojiTabCelebrationObjects"
+    },
+    {
+      "codepoint": "ED56",
+      "legacyName": "EmojiTabFoodPlants"
+    },
+    {
+      "codepoint": "ED57",
+      "legacyName": "EmojiTabTransitPlaces"
+    },
+    {
+      "codepoint": "ED58",
+      "legacyName": "EmojiTabSymbols"
+    },
+    {
+      "codepoint": "ED59",
+      "legacyName": "EmojiTabTextSmiles"
+    },
+    {
+      "codepoint": "ED5A",
+      "legacyName": "EmojiTabFavorites"
+    },
+    {
+      "codepoint": "ED5B",
+      "legacyName": "EmojiSwatch"
+    },
+    {
+      "codepoint": "ED5C",
+      "legacyName": "ConnectApp"
+    },
+    {
+      "codepoint": "ED5D",
+      "legacyName": "CompanionDeviceFramework"
+    },
+    {
+      "codepoint": "ED5E",
+      "legacyName": "Ruler"
+    },
+    {
+      "codepoint": "ED5F",
+      "legacyName": "FingerInking"
+    },
+    {
+      "codepoint": "ED60",
+      "legacyName": "StrokeErase"
+    },
+    {
+      "codepoint": "ED61",
+      "legacyName": "PointErase"
+    },
+    {
+      "codepoint": "ED62",
+      "legacyName": "ClearAllInk"
+    },
+    {
+      "codepoint": "ED63",
+      "legacyName": "Pencil"
+    },
+    {
+      "codepoint": "ED64",
+      "legacyName": "Marker"
+    },
+    {
+      "codepoint": "ED65",
+      "legacyName": "InkingCaret"
+    },
+    {
+      "codepoint": "ED66",
+      "legacyName": "InkingColorOutline"
+    },
+    {
+      "codepoint": "ED67",
+      "legacyName": "InkingColorFill"
+    },
+    {
+      "codepoint": "EDA2",
+      "legacyName": "HardDrive"
+    },
+    {
+      "codepoint": "EDA3",
+      "legacyName": "NetworkAdapter"
+    },
+    {
+      "codepoint": "EDA4",
+      "legacyName": "Touchscreen"
+    },
+    {
+      "codepoint": "EDA5",
+      "legacyName": "NetworkPrinter"
+    },
+    {
+      "codepoint": "EDA6",
+      "legacyName": "CloudPrinter"
+    },
+    {
+      "codepoint": "EDA7",
+      "legacyName": "KeyboardShortcut"
+    },
+    {
+      "codepoint": "EDA8",
+      "legacyName": "BrushSize"
+    },
+    {
+      "codepoint": "EDA9",
+      "legacyName": "NarratorForward"
+    },
+    {
+      "codepoint": "EDAA",
+      "legacyName": "NarratorForwardMirrored"
+    },
+    {
+      "codepoint": "EDAB",
+      "legacyName": "SyncBadge12"
+    },
+    {
+      "codepoint": "EDAC",
+      "legacyName": "RingerBadge12"
+    },
+    {
+      "codepoint": "EDAD",
+      "legacyName": "AsteriskBadge12"
+    },
+    {
+      "codepoint": "EDAE",
+      "legacyName": "ErrorBadge12"
+    },
+    {
+      "codepoint": "EDAF",
+      "legacyName": "CircleRingBadge12"
+    },
+    {
+      "codepoint": "EDB0",
+      "legacyName": "CircleFillBadge12"
+    },
+    {
+      "codepoint": "EDB1",
+      "legacyName": "ImportantBadge12"
+    },
+    {
+      "codepoint": "EDB3",
+      "legacyName": "MailBadge12"
+    },
+    {
+      "codepoint": "EDB4",
+      "legacyName": "PauseBadge12"
+    },
+    {
+      "codepoint": "EDB5",
+      "legacyName": "PlayBadge12"
+    },
+    {
+      "codepoint": "EDC6",
+      "legacyName": "PenWorkspace"
+    },
+    {
+      "codepoint": "EDD5",
+      "legacyName": "CaretLeft8"
+    },
+    {
+      "codepoint": "EDD6",
+      "legacyName": "CaretRight8"
+    },
+    {
+      "codepoint": "EDD7",
+      "legacyName": "CaretUp8"
+    },
+    {
+      "codepoint": "EDD8",
+      "legacyName": "CaretDown8"
+    },
+    {
+      "codepoint": "EDD9",
+      "legacyName": "CaretLeftSolid8"
+    },
+    {
+      "codepoint": "EDDA",
+      "legacyName": "CaretRightSolid8"
+    },
+    {
+      "codepoint": "EDDB",
+      "legacyName": "CaretUpSolid8"
+    },
+    {
+      "codepoint": "EDDC",
+      "legacyName": "CaretDownSolid8"
+    },
+    {
+      "codepoint": "EDE0",
+      "legacyName": "Strikethrough"
+    },
+    {
+      "codepoint": "EDE1",
+      "legacyName": "Export"
+    },
+    {
+      "codepoint": "EDE2",
+      "legacyName": "ExportMirrored"
+    },
+    {
+      "codepoint": "EDE3",
+      "legacyName": "ButtonMenu"
+    },
+    {
+      "codepoint": "EDE4",
+      "legacyName": "CloudSearch"
+    },
+    {
+      "codepoint": "EDE5",
+      "legacyName": "PinyinIMELogo"
+    },
+    {
+      "codepoint": "EDFB",
+      "legacyName": "CalligraphyPen"
+    },
+    {
+      "codepoint": "EE35",
+      "legacyName": "ReplyMirrored"
+    },
+    {
+      "codepoint": "EE3F",
+      "legacyName": "LockscreenDesktop"
+    },
+    {
+      "codepoint": "EE40",
+      "legacyName": "TaskViewSettings"
+    },
+    {
+      "codepoint": "EE41",
+      "legacyName": "FullHiraganaPrivateMode"
+    },
+    {
+      "codepoint": "EE42",
+      "legacyName": "FullKatakanaPrivateMode"
+    },
+    {
+      "codepoint": "EE43",
+      "legacyName": "HalfAlphaPrivateMode"
+    },
+    {
+      "codepoint": "EE44",
+      "legacyName": "HalfKatakanaPrivateMode"
+    },
+    {
+      "codepoint": "EE45",
+      "legacyName": "FullAlphaPrivateMode"
+    },
+    {
+      "codepoint": "EE47",
+      "legacyName": "MiniExpand2Mirrored"
+    },
+    {
+      "codepoint": "EE49",
+      "legacyName": "MiniContract2Mirrored"
+    },
+    {
+      "codepoint": "EE4A",
+      "legacyName": "Play36"
+    },
+    {
+      "codepoint": "EE56",
+      "legacyName": "PenPalette"
+    },
+    {
+      "codepoint": "EE57",
+      "legacyName": "GuestUser"
+    },
+    {
+      "codepoint": "EE63",
+      "legacyName": "SettingsBattery"
+    },
+    {
+      "codepoint": "EE64",
+      "legacyName": "TaskbarPhone"
+    },
+    {
+      "codepoint": "EE65",
+      "legacyName": "LockScreenGlance"
+    },
+    {
+      "codepoint": "EE6F",
+      "legacyName": "GenericScan"
+    },
+    {
+      "codepoint": "EE71",
+      "legacyName": "ImageExport"
+    },
+    {
+      "codepoint": "EE77",
+      "legacyName": "WifiEthernet"
+    },
+    {
+      "codepoint": "EE79",
+      "legacyName": "ActionCenterQuiet"
+    },
+    {
+      "codepoint": "EE7A",
+      "legacyName": "ActionCenterQuietNotification"
+    },
+    {
+      "codepoint": "EE7E",
+      "legacyName": "FIDOPasskey"
+    },
+    {
+      "codepoint": "EE92",
+      "legacyName": "TrackersMirrored"
+    },
+    {
+      "codepoint": "EE93",
+      "legacyName": "DateTimeMirrored"
+    },
+    {
+      "codepoint": "EE94",
+      "legacyName": "Wheel"
+    },
+    {
+      "codepoint": "EE95",
+      "legacyName": "StopSolid"
+    },
+    {
+      "codepoint": "EEA0",
+      "legacyName": "RAM"
+    },
+    {
+      "codepoint": "EEA1",
+      "legacyName": "CPU"
+    },
+    {
+      "codepoint": "EEA3",
+      "legacyName": "VirtualMachineGroup"
+    },
+    {
+      "codepoint": "EECA",
+      "legacyName": "ButtonView2"
+    },
+    {
+      "codepoint": "EF15",
+      "legacyName": "PenWorkspaceMirrored"
+    },
+    {
+      "codepoint": "EF16",
+      "legacyName": "PenPaletteMirrored"
+    },
+    {
+      "codepoint": "EF17",
+      "legacyName": "StrokeEraseMirrored"
+    },
+    {
+      "codepoint": "EF18",
+      "legacyName": "PointEraseMirrored"
+    },
+    {
+      "codepoint": "EF19",
+      "legacyName": "ClearAllInkMirrored"
+    },
+    {
+      "codepoint": "EF1F",
+      "legacyName": "BackgroundToggle"
+    },
+    {
+      "codepoint": "EF20",
+      "legacyName": "Marquee"
+    },
+    {
+      "codepoint": "EF2C",
+      "legacyName": "ChromeCloseContrast"
+    },
+    {
+      "codepoint": "EF2D",
+      "legacyName": "ChromeMinimizeContrast"
+    },
+    {
+      "codepoint": "EF2E",
+      "legacyName": "ChromeMaximizeContrast"
+    },
+    {
+      "codepoint": "EF2F",
+      "legacyName": "ChromeRestoreContrast"
+    },
+    {
+      "codepoint": "EF31",
+      "legacyName": "TrafficLight"
+    },
+    {
+      "codepoint": "EF3B",
+      "legacyName": "Replay"
+    },
+    {
+      "codepoint": "EF3C",
+      "legacyName": "Eyedropper"
+    },
+    {
+      "codepoint": "EF3D",
+      "legacyName": "LineDisplay"
+    },
+    {
+      "codepoint": "EF3E",
+      "legacyName": "PINPad"
+    },
+    {
+      "codepoint": "EF3F",
+      "legacyName": "SignatureCapture"
+    },
+    {
+      "codepoint": "EF40",
+      "legacyName": "ChipCardCreditCardReader"
+    },
+    {
+      "codepoint": "EF42",
+      "legacyName": "MarketDown"
+    },
+    {
+      "codepoint": "EF58",
+      "legacyName": "PlayerSettings"
+    },
+    {
+      "codepoint": "EF60",
+      "legacyName": "TextEdit"
+    },
+    {
+      "codepoint": "EF6B",
+      "legacyName": "LandscapeOrientation"
+    },
+    {
+      "codepoint": "EF90",
+      "legacyName": "Flow"
+    },
+    {
+      "codepoint": "EFA5",
+      "legacyName": "Touchpad"
+    },
+    {
+      "codepoint": "EFA9",
+      "legacyName": "Speech"
+    },
+    {
+      "codepoint": "EFDA",
+      "legacyName": "AppIconDefaultAdd"
+    },
+    {
+      "codepoint": "EFFF",
+      "legacyName": "CRMScheduleReports"
+    },
+    {
+      "codepoint": "F000",
+      "legacyName": "KnowledgeArticle"
+    },
+    {
+      "codepoint": "F003",
+      "legacyName": "Relationship"
+    },
+    {
+      "codepoint": "F012",
+      "legacyName": "ZipFolder"
+    },
+    {
+      "codepoint": "F080",
+      "legacyName": "DefaultAPN"
+    },
+    {
+      "codepoint": "F081",
+      "legacyName": "UserAPN"
+    },
+    {
+      "codepoint": "F085",
+      "legacyName": "DoublePinyin"
+    },
+    {
+      "codepoint": "F08C",
+      "legacyName": "BlueLight"
+    },
+    {
+      "codepoint": "F08D",
+      "legacyName": "CaretSolidLeft"
+    },
+    {
+      "codepoint": "F08E",
+      "legacyName": "CaretSolidDown"
+    },
+    {
+      "codepoint": "F08F",
+      "legacyName": "CaretSolidRight"
+    },
+    {
+      "codepoint": "F090",
+      "legacyName": "CaretSolidUp"
+    },
+    {
+      "codepoint": "F093",
+      "legacyName": "ButtonA"
+    },
+    {
+      "codepoint": "F094",
+      "legacyName": "ButtonB"
+    },
+    {
+      "codepoint": "F095",
+      "legacyName": "ButtonY"
+    },
+    {
+      "codepoint": "F096",
+      "legacyName": "ButtonX"
+    },
+    {
+      "codepoint": "F0AD",
+      "legacyName": "ArrowUp8"
+    },
+    {
+      "codepoint": "F0AE",
+      "legacyName": "ArrowDown8"
+    },
+    {
+      "codepoint": "F0AF",
+      "legacyName": "ArrowRight8"
+    },
+    {
+      "codepoint": "F0B0",
+      "legacyName": "ArrowLeft8"
+    },
+    {
+      "codepoint": "F0B2",
+      "legacyName": "QuarentinedItems"
+    },
+    {
+      "codepoint": "F0B3",
+      "legacyName": "QuarentinedItemsMirrored"
+    },
+    {
+      "codepoint": "F0B4",
+      "legacyName": "Protractor"
+    },
+    {
+      "codepoint": "F0B5",
+      "legacyName": "ChecklistMirrored"
+    },
+    {
+      "codepoint": "F0B6",
+      "legacyName": "StatusCircle7"
+    },
+    {
+      "codepoint": "F0B7",
+      "legacyName": "StatusCheckmark7"
+    },
+    {
+      "codepoint": "F0B8",
+      "legacyName": "StatusErrorCircle7"
+    },
+    {
+      "codepoint": "F0B9",
+      "legacyName": "Connected"
+    },
+    {
+      "codepoint": "F0C6",
+      "legacyName": "PencilFill"
+    },
+    {
+      "codepoint": "F0C7",
+      "legacyName": "CalligraphyFill"
+    },
+    {
+      "codepoint": "F0CA",
+      "legacyName": "QuarterStarLeft"
+    },
+    {
+      "codepoint": "F0CB",
+      "legacyName": "QuarterStarRight"
+    },
+    {
+      "codepoint": "F0CC",
+      "legacyName": "ThreeQuarterStarLeft"
+    },
+    {
+      "codepoint": "F0CD",
+      "legacyName": "ThreeQuarterStarRight"
+    },
+    {
+      "codepoint": "F0CE",
+      "legacyName": "QuietHoursBadge12"
+    },
+    {
+      "codepoint": "F0D2",
+      "legacyName": "BackMirrored"
+    },
+    {
+      "codepoint": "F0D3",
+      "legacyName": "ForwardMirrored"
+    },
+    {
+      "codepoint": "F0D5",
+      "legacyName": "ChromeBackContrast"
+    },
+    {
+      "codepoint": "F0D6",
+      "legacyName": "ChromeBackContrastMirrored"
+    },
+    {
+      "codepoint": "F0D7",
+      "legacyName": "ChromeBackToWindowContrast"
+    },
+    {
+      "codepoint": "F0D8",
+      "legacyName": "ChromeFullScreenContrast"
+    },
+    {
+      "codepoint": "F0E2",
+      "legacyName": "GridView"
+    },
+    {
+      "codepoint": "F0E3",
+      "legacyName": "ClipboardList"
+    },
+    {
+      "codepoint": "F0E4",
+      "legacyName": "ClipboardListMirrored"
+    },
+    {
+      "codepoint": "F0E5",
+      "legacyName": "OutlineQuarterStarLeft"
+    },
+    {
+      "codepoint": "F0E6",
+      "legacyName": "OutlineQuarterStarRight"
+    },
+    {
+      "codepoint": "F0E7",
+      "legacyName": "OutlineHalfStarLeft"
+    },
+    {
+      "codepoint": "F0E8",
+      "legacyName": "OutlineHalfStarRight"
+    },
+    {
+      "codepoint": "F0E9",
+      "legacyName": "OutlineThreeQuarterStarLeft"
+    },
+    {
+      "codepoint": "F0EA",
+      "legacyName": "OutlineThreeQuarterStarRight"
+    },
+    {
+      "codepoint": "F0EB",
+      "legacyName": "SpatialVolume0"
+    },
+    {
+      "codepoint": "F0EC",
+      "legacyName": "SpatialVolume1"
+    },
+    {
+      "codepoint": "F0ED",
+      "legacyName": "SpatialVolume2"
+    },
+    {
+      "codepoint": "F0EE",
+      "legacyName": "SpatialVolume3"
+    },
+    {
+      "codepoint": "F0EF",
+      "legacyName": "ApplicationGuard"
+    },
+    {
+      "codepoint": "F0F7",
+      "legacyName": "OutlineStarLeftHalf"
+    },
+    {
+      "codepoint": "F0F8",
+      "legacyName": "OutlineStarRightHalf"
+    },
+    {
+      "codepoint": "F0F9",
+      "legacyName": "ChromeAnnotateContrast"
+    },
+    {
+      "codepoint": "F0FB",
+      "legacyName": "DefenderBadge12"
+    },
+    {
+      "codepoint": "F103",
+      "legacyName": "DetachablePC"
+    },
+    {
+      "codepoint": "F108",
+      "legacyName": "LeftStick"
+    },
+    {
+      "codepoint": "F109",
+      "legacyName": "RightStick"
+    },
+    {
+      "codepoint": "F10A",
+      "legacyName": "TriggerLeft"
+    },
+    {
+      "codepoint": "F10B",
+      "legacyName": "TriggerRight"
+    },
+    {
+      "codepoint": "F10C",
+      "legacyName": "BumperLeft"
+    },
+    {
+      "codepoint": "F10D",
+      "legacyName": "BumperRight"
+    },
+    {
+      "codepoint": "F10E",
+      "legacyName": "Dpad"
+    },
+    {
+      "codepoint": "F110",
+      "legacyName": "EnglishPunctuation"
+    },
+    {
+      "codepoint": "F111",
+      "legacyName": "ChinesePunctuation"
+    },
+    {
+      "codepoint": "F119",
+      "legacyName": "HMD"
+    },
+    {
+      "codepoint": "F11B",
+      "legacyName": "CtrlSpatialRight"
+    },
+    {
+      "codepoint": "F126",
+      "legacyName": "PaginationDotOutline10"
+    },
+    {
+      "codepoint": "F127",
+      "legacyName": "PaginationDotSolid10"
+    },
+    {
+      "codepoint": "F128",
+      "legacyName": "StrokeErase2"
+    },
+    {
+      "codepoint": "F129",
+      "legacyName": "SmallErase"
+    },
+    {
+      "codepoint": "F12A",
+      "legacyName": "LargeErase"
+    },
+    {
+      "codepoint": "F12B",
+      "legacyName": "FolderHorizontal"
+    },
+    {
+      "codepoint": "F12E",
+      "legacyName": "MicrophoneListening"
+    },
+    {
+      "codepoint": "F12F",
+      "legacyName": "StatusExclamationCircle7"
+    },
+    {
+      "codepoint": "F131",
+      "legacyName": "Video360"
+    },
+    {
+      "codepoint": "F133",
+      "legacyName": "GiftboxOpen"
+    },
+    {
+      "codepoint": "F136",
+      "legacyName": "StatusCircleOuter"
+    },
+    {
+      "codepoint": "F137",
+      "legacyName": "StatusCircleInner"
+    },
+    {
+      "codepoint": "F138",
+      "legacyName": "StatusCircleRing"
+    },
+    {
+      "codepoint": "F139",
+      "legacyName": "StatusTriangleOuter"
+    },
+    {
+      "codepoint": "F13A",
+      "legacyName": "StatusTriangleInner"
+    },
+    {
+      "codepoint": "F13B",
+      "legacyName": "StatusTriangleExclamation"
+    },
+    {
+      "codepoint": "F13C",
+      "legacyName": "StatusCircleExclamation"
+    },
+    {
+      "codepoint": "F13D",
+      "legacyName": "StatusCircleErrorX"
+    },
+    {
+      "codepoint": "F13E",
+      "legacyName": "StatusCircleCheckmark"
+    },
+    {
+      "codepoint": "F13F",
+      "legacyName": "StatusCircleInfo"
+    },
+    {
+      "codepoint": "F140",
+      "legacyName": "StatusCircleBlock"
+    },
+    {
+      "codepoint": "F141",
+      "legacyName": "StatusCircleBlock2"
+    },
+    {
+      "codepoint": "F142",
+      "legacyName": "StatusCircleQuestionMark"
+    },
+    {
+      "codepoint": "F143",
+      "legacyName": "StatusCircleSync"
+    },
+    {
+      "codepoint": "F146",
+      "legacyName": "Dial1"
+    },
+    {
+      "codepoint": "F147",
+      "legacyName": "Dial2"
+    },
+    {
+      "codepoint": "F148",
+      "legacyName": "Dial3"
+    },
+    {
+      "codepoint": "F149",
+      "legacyName": "Dial4"
+    },
+    {
+      "codepoint": "F14A",
+      "legacyName": "Dial5"
+    },
+    {
+      "codepoint": "F14B",
+      "legacyName": "Dial6"
+    },
+    {
+      "codepoint": "F14C",
+      "legacyName": "Dial7"
+    },
+    {
+      "codepoint": "F14D",
+      "legacyName": "Dial8"
+    },
+    {
+      "codepoint": "F14E",
+      "legacyName": "Dial9"
+    },
+    {
+      "codepoint": "F14F",
+      "legacyName": "Dial10"
+    },
+    {
+      "codepoint": "F150",
+      "legacyName": "Dial11"
+    },
+    {
+      "codepoint": "F151",
+      "legacyName": "Dial12"
+    },
+    {
+      "codepoint": "F152",
+      "legacyName": "Dial13"
+    },
+    {
+      "codepoint": "F153",
+      "legacyName": "Dial14"
+    },
+    {
+      "codepoint": "F154",
+      "legacyName": "Dial15"
+    },
+    {
+      "codepoint": "F155",
+      "legacyName": "Dial16"
+    },
+    {
+      "codepoint": "F156",
+      "legacyName": "DialShape1"
+    },
+    {
+      "codepoint": "F157",
+      "legacyName": "DialShape2"
+    },
+    {
+      "codepoint": "F158",
+      "legacyName": "DialShape3"
+    },
+    {
+      "codepoint": "F159",
+      "legacyName": "DialShape4"
+    },
+    {
+      "codepoint": "F15F",
+      "legacyName": "ClosedCaptionsInternational"
+    },
+    {
+      "codepoint": "F161",
+      "legacyName": "TollSolid"
+    },
+    {
+      "codepoint": "F163",
+      "legacyName": "TrafficCongestionSolid"
+    },
+    {
+      "codepoint": "F164",
+      "legacyName": "ExploreContentSingle"
+    },
+    {
+      "codepoint": "F165",
+      "legacyName": "CollapseContent"
+    },
+    {
+      "codepoint": "F166",
+      "legacyName": "CollapseContentSingle"
+    },
+    {
+      "codepoint": "F167",
+      "legacyName": "InfoSolid"
+    },
+    {
+      "codepoint": "F168",
+      "legacyName": "GroupList"
+    },
+    {
+      "codepoint": "F169",
+      "legacyName": "CaretBottomRightSolidCenter8"
+    },
+    {
+      "codepoint": "F16A",
+      "legacyName": "ProgressRingDots"
+    },
+    {
+      "codepoint": "F16B",
+      "legacyName": "Checkbox14"
+    },
+    {
+      "codepoint": "F16C",
+      "legacyName": "CheckboxComposite14"
+    },
+    {
+      "codepoint": "F16D",
+      "legacyName": "CheckboxIndeterminateCombo14"
+    },
+    {
+      "codepoint": "F16E",
+      "legacyName": "CheckboxIndeterminateCombo"
+    },
+    {
+      "codepoint": "F175",
+      "legacyName": "StatusPause7"
+    },
+    {
+      "codepoint": "F17F",
+      "legacyName": "CharacterAppearance"
+    },
+    {
+      "codepoint": "F180",
+      "legacyName": "Lexicon"
+    },
+    {
+      "codepoint": "F182",
+      "legacyName": "ScreenTime"
+    },
+    {
+      "codepoint": "F191",
+      "legacyName": "HeadlessDevice"
+    },
+    {
+      "codepoint": "F193",
+      "legacyName": "NetworkSharing"
+    },
+    {
+      "codepoint": "F19D",
+      "legacyName": "EyeGaze"
+    },
+    {
+      "codepoint": "F19E",
+      "legacyName": "ToggleLeft"
+    },
+    {
+      "codepoint": "F19F",
+      "legacyName": "ToggleRight"
+    },
+    {
+      "codepoint": "F1AD",
+      "legacyName": "WindowsInsider"
+    },
+    {
+      "codepoint": "F1CB",
+      "legacyName": "ChromeSwitch"
+    },
+    {
+      "codepoint": "F1CC",
+      "legacyName": "ChromeSwitchContast"
+    },
+    {
+      "codepoint": "F1D8",
+      "legacyName": "StatusCheckmark"
+    },
+    {
+      "codepoint": "F1D9",
+      "legacyName": "StatusCheckmarkLeft"
+    },
+    {
+      "codepoint": "F20C",
+      "legacyName": "KeyboardLeftAligned"
+    },
+    {
+      "codepoint": "F20D",
+      "legacyName": "KeyboardRightAligned"
+    },
+    {
+      "codepoint": "F210",
+      "legacyName": "KeyboardSettings"
+    },
+    {
+      "codepoint": "F211",
+      "legacyName": "NetworkPhysical"
+    },
+    {
+      "codepoint": "F22C",
+      "legacyName": "IOT"
+    },
+    {
+      "codepoint": "F22E",
+      "legacyName": "UnknownMirrored"
+    },
+    {
+      "codepoint": "F246",
+      "legacyName": "ViewDashboard"
+    },
+    {
+      "codepoint": "F259",
+      "legacyName": "ExploitProtectionSettings"
+    },
+    {
+      "codepoint": "F260",
+      "legacyName": "KeyboardNarrow"
+    },
+    {
+      "codepoint": "F261",
+      "legacyName": "Keyboard12Key"
+    },
+    {
+      "codepoint": "F26B",
+      "legacyName": "KeyboardDock"
+    },
+    {
+      "codepoint": "F26C",
+      "legacyName": "KeyboardUndock"
+    },
+    {
+      "codepoint": "F26D",
+      "legacyName": "KeyboardLeftDock"
+    },
+    {
+      "codepoint": "F26E",
+      "legacyName": "KeyboardRightDock"
+    },
+    {
+      "codepoint": "F270",
+      "legacyName": "Ear"
+    },
+    {
+      "codepoint": "F271",
+      "legacyName": "PointerHand"
+    },
+    {
+      "codepoint": "F272",
+      "legacyName": "Bullseye"
+    },
+    {
+      "codepoint": "F28B",
+      "legacyName": "DocumentApproval"
+    },
+    {
+      "codepoint": "F2B7",
+      "legacyName": "LocaleLanguage"
+    },
+    {
+      "codepoint": "F112",
+      "legacyName": "ReadOutLoud"
+    },
+    {
+      "codepoint": "F117",
+      "legacyName": "ProjectToDevice"
+    },
+    {
+      "codepoint": "F120",
+      "legacyName": "TaskManagerApp"
+    },
+    {
+      "codepoint": "F196",
+      "legacyName": "Beaker"
+    },
+    {
+      "codepoint": "F1B1",
+      "legacyName": "PowerButtonUpdate2"
+    },
+    {
+      "codepoint": "F1E8",
+      "legacyName": "LeafTwo"
+    },
+    {
+      "codepoint": "F232",
+      "legacyName": "GridViewSmall"
+    },
+    {
+      "codepoint": "F27C",
+      "legacyName": "Earbudsingle"
+    },
+    {
+      "codepoint": "F27F",
+      "legacyName": "HearingAid"
+    },
+    {
+      "codepoint": "F285",
+      "legacyName": "MobSnooze"
+    },
+    {
+      "codepoint": "F2A3",
+      "legacyName": "MobNotificationBell"
+    },
+    {
+      "codepoint": "F2A5",
+      "legacyName": "MobNotificationBellFilled"
+    },
+    {
+      "codepoint": "F2A8",
+      "legacyName": "MobSnoozeFilled"
+    },
+    {
+      "codepoint": "F2C7",
+      "legacyName": "BulletedList2"
+    },
+    {
+      "codepoint": "F2C8",
+      "legacyName": "BulletedList2Mirrored"
+    },
+    {
+      "codepoint": "F2D9",
+      "legacyName": "CirclePause"
+    },
+    {
+      "codepoint": "F32A",
+      "legacyName": "PassiveAuthentication"
+    },
+    {
+      "codepoint": "F354",
+      "legacyName": "ColorSolid"
+    },
+    {
+      "codepoint": "F384",
+      "legacyName": "NetworkOffline"
+    },
+    {
+      "codepoint": "F385",
+      "legacyName": "NetworkConnected"
+    },
+    {
+      "codepoint": "F386",
+      "legacyName": "NetworkConnectedCheckmark"
+    },
+    {
+      "codepoint": "F3B1",
+      "legacyName": "SignOut"
+    },
+    {
+      "codepoint": "F3CC",
+      "legacyName": "StatusInfo"
+    },
+    {
+      "codepoint": "F3CD",
+      "legacyName": "StatusInfoLeft"
+    },
+    {
+      "codepoint": "F3E2",
+      "legacyName": "NearbySharing"
+    },
+    {
+      "codepoint": "F3E7",
+      "legacyName": "CtrlSpatialLeft"
+    },
+    {
+      "codepoint": "F404",
+      "legacyName": "InteractiveDashboard"
+    },
+    {
+      "codepoint": "F405",
+      "legacyName": "DeclineCall"
+    },
+    {
+      "codepoint": "F406",
+      "legacyName": "ClippingTool"
+    },
+    {
+      "codepoint": "F407",
+      "legacyName": "RectangularClipping"
+    },
+    {
+      "codepoint": "F408",
+      "legacyName": "FreeFormClipping"
+    },
+    {
+      "codepoint": "F413",
+      "legacyName": "CopyTo"
+    },
+    {
+      "codepoint": "F427",
+      "legacyName": "IDBadge"
+    },
+    {
+      "codepoint": "F432",
+      "legacyName": "BatterySaver"
+    },
+    {
+      "codepoint": "F439",
+      "legacyName": "DynamicLock"
+    },
+    {
+      "codepoint": "F45E",
+      "legacyName": "PenTips"
+    },
+    {
+      "codepoint": "F45F",
+      "legacyName": "PenTipsMirrored"
+    },
+    {
+      "codepoint": "F460",
+      "legacyName": "HWPJoin"
+    },
+    {
+      "codepoint": "F461",
+      "legacyName": "HWPInsert"
+    },
+    {
+      "codepoint": "F462",
+      "legacyName": "HWPStrikeThrough"
+    },
+    {
+      "codepoint": "F463",
+      "legacyName": "HWPScratchOut"
+    },
+    {
+      "codepoint": "F464",
+      "legacyName": "HWPSplit"
+    },
+    {
+      "codepoint": "F465",
+      "legacyName": "HWPNewLine"
+    },
+    {
+      "codepoint": "F466",
+      "legacyName": "HWPOverwrite"
+    },
+    {
+      "codepoint": "F473",
+      "legacyName": "MobWifiWarning1"
+    },
+    {
+      "codepoint": "F474",
+      "legacyName": "MobWifiWarning2"
+    },
+    {
+      "codepoint": "F475",
+      "legacyName": "MobWifiWarning3"
+    },
+    {
+      "codepoint": "F476",
+      "legacyName": "MobWifiWarning4"
+    },
+    {
+      "codepoint": "F47F",
+      "legacyName": "MicLocationCombo"
+    },
+    {
+      "codepoint": "F49A",
+      "legacyName": "Globe2"
+    },
+    {
+      "codepoint": "F4A5",
+      "legacyName": "SpecialEffectSize"
+    },
+    {
+      "codepoint": "F4A9",
+      "legacyName": "GIF"
+    },
+    {
+      "codepoint": "F4AA",
+      "legacyName": "Sticker2"
+    },
+    {
+      "codepoint": "F4BD",
+      "legacyName": "Snooze"
+    },
+    {
+      "codepoint": "F4BE",
+      "legacyName": "SurfaceHubSelected"
+    },
+    {
+      "codepoint": "F4BF",
+      "legacyName": "HoloLensSelected"
+    },
+    {
+      "codepoint": "F4C0",
+      "legacyName": "Earbud"
+    },
+    {
+      "codepoint": "F4C3",
+      "legacyName": "MixVolumes"
+    },
+    {
+      "codepoint": "F540",
+      "legacyName": "Safe"
+    },
+    {
+      "codepoint": "F552",
+      "legacyName": "LaptopSecure"
+    },
+    {
+      "codepoint": "F56D",
+      "legacyName": "PrintDefault"
+    },
+    {
+      "codepoint": "F56E",
+      "legacyName": "PageMirrored"
+    },
+    {
+      "codepoint": "F56F",
+      "legacyName": "LandscapeOrientationMirrored"
+    },
+    {
+      "codepoint": "F570",
+      "legacyName": "ColorOff"
+    },
+    {
+      "codepoint": "F571",
+      "legacyName": "PrintAllPages"
+    },
+    {
+      "codepoint": "F572",
+      "legacyName": "PrintCustomRange"
+    },
+    {
+      "codepoint": "F573",
+      "legacyName": "PageMarginPortraitNarrow"
+    },
+    {
+      "codepoint": "F574",
+      "legacyName": "PageMarginPortraitNormal"
+    },
+    {
+      "codepoint": "F575",
+      "legacyName": "PageMarginPortraitModerate"
+    },
+    {
+      "codepoint": "F576",
+      "legacyName": "PageMarginPortraitWide"
+    },
+    {
+      "codepoint": "F577",
+      "legacyName": "PageMarginLandscapeNarrow"
+    },
+    {
+      "codepoint": "F578",
+      "legacyName": "PageMarginLandscapeNormal"
+    },
+    {
+      "codepoint": "F579",
+      "legacyName": "PageMarginLandscapeModerate"
+    },
+    {
+      "codepoint": "F57A",
+      "legacyName": "PageMarginLandscapeWide"
+    },
+    {
+      "codepoint": "F57B",
+      "legacyName": "CollateLandscape"
+    },
+    {
+      "codepoint": "F57C",
+      "legacyName": "CollatePortrait"
+    },
+    {
+      "codepoint": "F57D",
+      "legacyName": "CollatePortraitSeparated"
+    },
+    {
+      "codepoint": "F57E",
+      "legacyName": "DuplexLandscapeOneSided"
+    },
+    {
+      "codepoint": "F57F",
+      "legacyName": "DuplexLandscapeOneSidedMirrored"
+    },
+    {
+      "codepoint": "F580",
+      "legacyName": "DuplexLandscapeTwoSidedLongEdge"
+    },
+    {
+      "codepoint": "F581",
+      "legacyName": "DuplexLandscapeTwoSidedLongEdgeMirrored"
+    },
+    {
+      "codepoint": "F582",
+      "legacyName": "DuplexLandscapeTwoSidedShortEdge"
+    },
+    {
+      "codepoint": "F583",
+      "legacyName": "DuplexLandscapeTwoSidedShortEdgeMirrored"
+    },
+    {
+      "codepoint": "F584",
+      "legacyName": "DuplexPortraitOneSided"
+    },
+    {
+      "codepoint": "F585",
+      "legacyName": "DuplexPortraitOneSidedMirrored"
+    },
+    {
+      "codepoint": "F586",
+      "legacyName": "DuplexPortraitTwoSidedLongEdge"
+    },
+    {
+      "codepoint": "F587",
+      "legacyName": "DuplexPortraitTwoSidedLongEdgeMirrored"
+    },
+    {
+      "codepoint": "F588",
+      "legacyName": "DuplexPortraitTwoSidedShortEdge"
+    },
+    {
+      "codepoint": "F589",
+      "legacyName": "DuplexPortraitTwoSidedShortEdgeMirrored"
+    },
+    {
+      "codepoint": "F58A",
+      "legacyName": "PPSOneLandscape"
+    },
+    {
+      "codepoint": "F58B",
+      "legacyName": "PPSTwoLandscape"
+    },
+    {
+      "codepoint": "F58C",
+      "legacyName": "PPSTwoPortrait"
+    },
+    {
+      "codepoint": "F58D",
+      "legacyName": "PPSFourLandscape"
+    },
+    {
+      "codepoint": "F58E",
+      "legacyName": "PPSFourPortrait"
+    },
+    {
+      "codepoint": "F58F",
+      "legacyName": "HolePunchOff"
+    },
+    {
+      "codepoint": "F590",
+      "legacyName": "HolePunchPortraitLeft"
+    },
+    {
+      "codepoint": "F591",
+      "legacyName": "HolePunchPortraitRight"
+    },
+    {
+      "codepoint": "F592",
+      "legacyName": "HolePunchPortraitTop"
+    },
+    {
+      "codepoint": "F593",
+      "legacyName": "HolePunchPortraitBottom"
+    },
+    {
+      "codepoint": "F594",
+      "legacyName": "HolePunchLandscapeLeft"
+    },
+    {
+      "codepoint": "F595",
+      "legacyName": "HolePunchLandscapeRight"
+    },
+    {
+      "codepoint": "F596",
+      "legacyName": "HolePunchLandscapeTop"
+    },
+    {
+      "codepoint": "F597",
+      "legacyName": "HolePunchLandscapeBottom"
+    },
+    {
+      "codepoint": "F598",
+      "legacyName": "StaplingOff"
+    },
+    {
+      "codepoint": "F599",
+      "legacyName": "StaplingPortraitTopLeft"
+    },
+    {
+      "codepoint": "F59A",
+      "legacyName": "StaplingPortraitTopRight"
+    },
+    {
+      "codepoint": "F59B",
+      "legacyName": "StaplingPortraitBottomRight"
+    },
+    {
+      "codepoint": "F59C",
+      "legacyName": "StaplingPortraitTwoLeft"
+    },
+    {
+      "codepoint": "F59D",
+      "legacyName": "StaplingPortraitTwoRight"
+    },
+    {
+      "codepoint": "F59E",
+      "legacyName": "StaplingPortraitTwoTop"
+    },
+    {
+      "codepoint": "F59F",
+      "legacyName": "StaplingPortraitTwoBottom"
+    },
+    {
+      "codepoint": "F5A0",
+      "legacyName": "StaplingPortraitBookBinding"
+    },
+    {
+      "codepoint": "F5A1",
+      "legacyName": "StaplingLandscapeTopLeft"
+    },
+    {
+      "codepoint": "F5A2",
+      "legacyName": "StaplingLandscapeTopRight"
+    },
+    {
+      "codepoint": "F5A3",
+      "legacyName": "StaplingLandscapeBottomLeft"
+    },
+    {
+      "codepoint": "F5A4",
+      "legacyName": "StaplingLandscapeBottomRight"
+    },
+    {
+      "codepoint": "F5A5",
+      "legacyName": "StaplingLandscapeTwoLeft"
+    },
+    {
+      "codepoint": "F5A6",
+      "legacyName": "StaplingLandscapeTwoRight"
+    },
+    {
+      "codepoint": "F5A7",
+      "legacyName": "StaplingLandscapeTwoTop"
+    },
+    {
+      "codepoint": "F5A8",
+      "legacyName": "StaplingLandscapeTwoBottom"
+    },
+    {
+      "codepoint": "F5A9",
+      "legacyName": "StaplingLandscapeBookBinding"
+    },
+    {
+      "codepoint": "F5AA",
+      "legacyName": "StatusDataTransferRoaming"
+    },
+    {
+      "codepoint": "F5AB",
+      "legacyName": "MobSIMError"
+    },
+    {
+      "codepoint": "F5AC",
+      "legacyName": "CollateLandscapeSeparated"
+    },
+    {
+      "codepoint": "F5AD",
+      "legacyName": "PPSOnePortrait"
+    },
+    {
+      "codepoint": "F5AE",
+      "legacyName": "StaplingPortraitBottomLeft"
+    },
+    {
+      "codepoint": "F5B0",
+      "legacyName": "PlaySolid"
+    },
+    {
+      "codepoint": "F5E7",
+      "legacyName": "RepeatOff"
+    },
+    {
+      "codepoint": "F5ED",
+      "legacyName": "Set"
+    },
+    {
+      "codepoint": "F5EE",
+      "legacyName": "SetSolid"
+    },
+    {
+      "codepoint": "F5EF",
+      "legacyName": "FuzzyReading"
+    },
+    {
+      "codepoint": "F5F2",
+      "legacyName": "VerticalBattery0"
+    },
+    {
+      "codepoint": "F5F3",
+      "legacyName": "VerticalBattery1"
+    },
+    {
+      "codepoint": "F5F4",
+      "legacyName": "VerticalBattery2"
+    },
+    {
+      "codepoint": "F5F5",
+      "legacyName": "VerticalBattery3"
+    },
+    {
+      "codepoint": "F5F6",
+      "legacyName": "VerticalBattery4"
+    },
+    {
+      "codepoint": "F5F7",
+      "legacyName": "VerticalBattery5"
+    },
+    {
+      "codepoint": "F5F8",
+      "legacyName": "VerticalBattery6"
+    },
+    {
+      "codepoint": "F5F9",
+      "legacyName": "VerticalBattery7"
+    },
+    {
+      "codepoint": "F5FA",
+      "legacyName": "VerticalBattery8"
+    },
+    {
+      "codepoint": "F5FB",
+      "legacyName": "VerticalBattery9"
+    },
+    {
+      "codepoint": "F5FC",
+      "legacyName": "VerticalBattery10"
+    },
+    {
+      "codepoint": "F5FD",
+      "legacyName": "VerticalBatteryCharging0"
+    },
+    {
+      "codepoint": "F5FE",
+      "legacyName": "VerticalBatteryCharging1"
+    },
+    {
+      "codepoint": "F5FF",
+      "legacyName": "VerticalBatteryCharging2"
+    },
+    {
+      "codepoint": "F600",
+      "legacyName": "VerticalBatteryCharging3"
+    },
+    {
+      "codepoint": "F601",
+      "legacyName": "VerticalBatteryCharging4"
+    },
+    {
+      "codepoint": "F602",
+      "legacyName": "VerticalBatteryCharging5"
+    },
+    {
+      "codepoint": "F603",
+      "legacyName": "VerticalBatteryCharging6"
+    },
+    {
+      "codepoint": "F604",
+      "legacyName": "VerticalBatteryCharging7"
+    },
+    {
+      "codepoint": "F605",
+      "legacyName": "VerticalBatteryCharging8"
+    },
+    {
+      "codepoint": "F606",
+      "legacyName": "VerticalBatteryCharging9"
+    },
+    {
+      "codepoint": "F607",
+      "legacyName": "VerticalBatteryCharging10"
+    },
+    {
+      "codepoint": "F608",
+      "legacyName": "VerticalBatteryUnknown"
+    },
+    {
+      "codepoint": "F618",
+      "legacyName": "SIMError"
+    },
+    {
+      "codepoint": "F619",
+      "legacyName": "SIMMissing"
+    },
+    {
+      "codepoint": "F61A",
+      "legacyName": "SIMLock"
+    },
+    {
+      "codepoint": "F61B",
+      "legacyName": "eSIM"
+    },
+    {
+      "codepoint": "F61C",
+      "legacyName": "eSIMNoProfile"
+    },
+    {
+      "codepoint": "F61D",
+      "legacyName": "eSIMLocked"
+    },
+    {
+      "codepoint": "F61E",
+      "legacyName": "eSIMBusy"
+    },
+    {
+      "codepoint": "F61F",
+      "legacyName": "NoiseCancelation"
+    },
+    {
+      "codepoint": "F620",
+      "legacyName": "NoiseCancelationOff"
+    },
+    {
+      "codepoint": "F623",
+      "legacyName": "MusicSharing"
+    },
+    {
+      "codepoint": "F624",
+      "legacyName": "MusicSharingOff"
+    },
+    {
+      "codepoint": "F63C",
+      "legacyName": "CircleShapeSolid"
+    },
+    {
+      "codepoint": "F657",
+      "legacyName": "WifiCallBars"
+    },
+    {
+      "codepoint": "F658",
+      "legacyName": "WifiCall0"
+    },
+    {
+      "codepoint": "F659",
+      "legacyName": "WifiCall1"
+    },
+    {
+      "codepoint": "F65A",
+      "legacyName": "WifiCall2"
+    },
+    {
+      "codepoint": "F65B",
+      "legacyName": "WifiCall3"
+    },
+    {
+      "codepoint": "F65C",
+      "legacyName": "WifiCall4"
+    },
+    {
+      "codepoint": "F67B",
+      "legacyName": "Pen"
+    },
+    {
+      "codepoint": "F683",
+      "legacyName": "TextSelect"
+    },
+    {
+      "codepoint": "F684",
+      "legacyName": "TextNavigate"
+    },
+    {
+      "codepoint": "F698",
+      "legacyName": "PinyinIMELogo2"
+    },
+    {
+      "codepoint": "F69B",
+      "legacyName": "UserRemove"
+    },
+    {
+      "codepoint": "F69E",
+      "legacyName": "CHTLanguageBar"
+    },
+    {
+      "codepoint": "F6A9",
+      "legacyName": "ComposeMode"
+    },
+    {
+      "codepoint": "F6B8",
+      "legacyName": "ExpressiveInputEntry"
+    },
+    {
+      "codepoint": "F6BA",
+      "legacyName": "EmojiTabMoreSymbols"
+    },
+    {
+      "codepoint": "F6C4",
+      "legacyName": "PhoneScreen"
+    },
+    {
+      "codepoint": "F6C5",
+      "legacyName": "AlertUrgent"
+    },
+    {
+      "codepoint": "F6C6",
+      "legacyName": "PhoneDesktop"
+    },
+    {
+      "codepoint": "F6FA",
+      "legacyName": "WebSearch"
+    },
+    {
+      "codepoint": "F712",
+      "legacyName": "Kiosk"
+    },
+    {
+      "codepoint": "F714",
+      "legacyName": "RTTLogo"
+    },
+    {
+      "codepoint": "F715",
+      "legacyName": "VoiceCall"
+    },
+    {
+      "codepoint": "F716",
+      "legacyName": "GoToMessage"
+    },
+    {
+      "codepoint": "F71A",
+      "legacyName": "ReturnToCall"
+    },
+    {
+      "codepoint": "F71C",
+      "legacyName": "StartPresenting"
+    },
+    {
+      "codepoint": "F71D",
+      "legacyName": "StopPresenting"
+    },
+    {
+      "codepoint": "F71E",
+      "legacyName": "ProductivityMode"
+    },
+    {
+      "codepoint": "F738",
+      "legacyName": "SetHistoryStatus"
+    },
+    {
+      "codepoint": "F739",
+      "legacyName": "SetHistoryStatus2"
+    },
+    {
+      "codepoint": "F73D",
+      "legacyName": "Keyboardsettings20"
+    },
+    {
+      "codepoint": "F73E",
+      "legacyName": "OneHandedRight20"
+    },
+    {
+      "codepoint": "F73F",
+      "legacyName": "OneHandedLeft20"
+    },
+    {
+      "codepoint": "F740",
+      "legacyName": "Split20"
+    },
+    {
+      "codepoint": "F741",
+      "legacyName": "Full20"
+    },
+    {
+      "codepoint": "F742",
+      "legacyName": "Handwriting20"
+    },
+    {
+      "codepoint": "F743",
+      "legacyName": "ChevronLeft20"
+    },
+    {
+      "codepoint": "F744",
+      "legacyName": "ChevronLeft32"
+    },
+    {
+      "codepoint": "F745",
+      "legacyName": "ChevronRight20"
+    },
+    {
+      "codepoint": "F746",
+      "legacyName": "ChevronRight32"
+    },
+    {
+      "codepoint": "F763",
+      "legacyName": "Event12"
+    },
+    {
+      "codepoint": "F781",
+      "legacyName": "MicOff2"
+    },
+    {
+      "codepoint": "F785",
+      "legacyName": "DeliveryOptimization"
+    },
+    {
+      "codepoint": "F78A",
+      "legacyName": "CancelMedium"
+    },
+    {
+      "codepoint": "F78B",
+      "legacyName": "SearchMedium"
+    },
+    {
+      "codepoint": "F78C",
+      "legacyName": "AcceptMedium"
+    },
+    {
+      "codepoint": "F78D",
+      "legacyName": "RevealPasswordMedium"
+    },
+    {
+      "codepoint": "F7AD",
+      "legacyName": "DeleteWord"
+    },
+    {
+      "codepoint": "F7AE",
+      "legacyName": "DeleteWordFill"
+    },
+    {
+      "codepoint": "F7AF",
+      "legacyName": "DeleteLines"
+    },
+    {
+      "codepoint": "F7B0",
+      "legacyName": "DeleteLinesFill"
+    },
+    {
+      "codepoint": "F7B1",
+      "legacyName": "InstertWords"
+    },
+    {
+      "codepoint": "F7B2",
+      "legacyName": "InstertWordsFill"
+    },
+    {
+      "codepoint": "F7B3",
+      "legacyName": "JoinWords"
+    },
+    {
+      "codepoint": "F7B4",
+      "legacyName": "JoinWordsFill"
+    },
+    {
+      "codepoint": "F7B5",
+      "legacyName": "OverwriteWords"
+    },
+    {
+      "codepoint": "F7B6",
+      "legacyName": "OverwriteWordsFill"
+    },
+    {
+      "codepoint": "F7B7",
+      "legacyName": "AddNewLine"
+    },
+    {
+      "codepoint": "F7B8",
+      "legacyName": "AddNewLineFill"
+    },
+    {
+      "codepoint": "F7B9",
+      "legacyName": "OverwriteWordsKorean"
+    },
+    {
+      "codepoint": "F7BA",
+      "legacyName": "OverwriteWordsFillKorean"
+    },
+    {
+      "codepoint": "F7BB",
+      "legacyName": "EducationIcon"
+    },
+    {
+      "codepoint": "F7ED",
+      "legacyName": "WindowSnipping"
+    },
+    {
+      "codepoint": "F7EE",
+      "legacyName": "VideoCapture"
+    },
+    {
+      "codepoint": "F809",
+      "legacyName": "StatusSecured"
+    },
+    {
+      "codepoint": "F83B",
+      "legacyName": "NarratorApp"
+    },
+    {
+      "codepoint": "F83D",
+      "legacyName": "PowerButtonUpdate"
+    },
+    {
+      "codepoint": "F83E",
+      "legacyName": "RestartUpdate"
+    },
+    {
+      "codepoint": "F83F",
+      "legacyName": "UpdateStatusDot"
+    },
+    {
+      "codepoint": "F847",
+      "legacyName": "Eject"
+    },
+    {
+      "codepoint": "F87B",
+      "legacyName": "Spelling"
+    },
+    {
+      "codepoint": "F87C",
+      "legacyName": "SpellingKorean"
+    },
+    {
+      "codepoint": "F87D",
+      "legacyName": "SpellingSerbian"
+    },
+    {
+      "codepoint": "F87E",
+      "legacyName": "SpellingChinese"
+    },
+    {
+      "codepoint": "F89A",
+      "legacyName": "FolderSelect"
+    },
+    {
+      "codepoint": "F8A5",
+      "legacyName": "SmartScreen"
+    },
+    {
+      "codepoint": "F8A6",
+      "legacyName": "ExploitProtection"
+    },
+    {
+      "codepoint": "F8AA",
+      "legacyName": "AddBold"
+    },
+    {
+      "codepoint": "F8AB",
+      "legacyName": "SubtractBold"
+    },
+    {
+      "codepoint": "F8AC",
+      "legacyName": "BackSolidBold"
+    },
+    {
+      "codepoint": "F8AD",
+      "legacyName": "ForwardSolidBold"
+    },
+    {
+      "codepoint": "F8AE",
+      "legacyName": "PauseBold"
+    },
+    {
+      "codepoint": "F8AF",
+      "legacyName": "ClickSolid"
+    },
+    {
+      "codepoint": "F8B0",
+      "legacyName": "SettingsSolid"
+    },
+    {
+      "codepoint": "F8B1",
+      "legacyName": "MicrophoneSolidBold"
+    },
+    {
+      "codepoint": "F8B2",
+      "legacyName": "SpeechSolidBold"
+    },
+    {
+      "codepoint": "F8B3",
+      "legacyName": "ClickedOutLoudSolidBold"
+    },
+    {
+      "codepoint": "F8C0",
+      "legacyName": "VPNOverlay"
+    },
+    {
+      "codepoint": "F8C1",
+      "legacyName": "VPNRoamingOverly"
+    },
+    {
+      "codepoint": "F8C2",
+      "legacyName": "WifiVPN3"
+    },
+    {
+      "codepoint": "F8C3",
+      "legacyName": "WifiVPN4"
+    },
+    {
+      "codepoint": "F8C4",
+      "legacyName": "WifiVPN5"
+    },
+    {
+      "codepoint": "F8C5",
+      "legacyName": "SignalBarsVPN2"
+    },
+    {
+      "codepoint": "F8C6",
+      "legacyName": "SignalBarsVPN3"
+    },
+    {
+      "codepoint": "F8C7",
+      "legacyName": "SignalBarsVPN4"
+    },
+    {
+      "codepoint": "F8C8",
+      "legacyName": "SignalBarsVPN5"
+    },
+    {
+      "codepoint": "F8C9",
+      "legacyName": "SignalBarsVPNRoaming3"
+    },
+    {
+      "codepoint": "F8CA",
+      "legacyName": "SignalBarsVPNRoaming4"
+    },
+    {
+      "codepoint": "F8CB",
+      "legacyName": "SignalBarsVPNRoaming5"
+    },
+    {
+      "codepoint": "F8CC",
+      "legacyName": "EthernetVPN"
+    }
+  ],
+  "entries": [
+    {
+      "codepoint": "E72F",
+      "legacyName": "BlockedSite",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_globe_prohibited_20_regular",
+      "sourceCodepoint": "E6B9"
+    },
+    {
+      "codepoint": "E733",
+      "legacyName": "Blocked",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_prohibited_20_regular",
+      "sourceCodepoint": "F62D"
+    },
+    {
+      "codepoint": "E7A1",
+      "legacyName": "Contrast",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_circle_half_fill_20_regular",
+      "sourceCodepoint": "F2BD"
+    },
+    {
+      "codepoint": "E7AA",
+      "legacyName": "PhotoCollection",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_collections_20_regular",
+      "sourceCodepoint": "F2F1"
+    },
+    {
+      "codepoint": "E9A4",
+      "legacyName": "TextBulletListSquare",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_text_bullet_list_square_20_regular",
+      "sourceCodepoint": "ECE2"
+    },
+    {
+      "codepoint": "EA85",
+      "legacyName": "VolumeDisabled",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_speaker_off_20_regular",
+      "sourceCodepoint": "EB4F"
+    },
+    {
+      "codepoint": "EAC7",
+      "legacyName": "DesktopLeafTwo",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_leaf_two_20_regular",
+      "sourceCodepoint": "F4D1"
+    },
+    {
+      "codepoint": "EAD4",
+      "legacyName": "Emojiplay",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_emoji_20_regular",
+      "sourceCodepoint": "F3E0"
+    },
+    {
+      "codepoint": "EAD5",
+      "legacyName": "EmojiBrush",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_emoji_20_regular",
+      "sourceCodepoint": "F3E0"
+    },
+    {
+      "codepoint": "EAD6",
+      "legacyName": "EyeTracking",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_eye_tracking_20_regular",
+      "sourceCodepoint": "E5F8"
+    },
+    {
+      "codepoint": "EAD7",
+      "legacyName": "EyeTrackingText",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_eye_tracking_20_regular",
+      "sourceCodepoint": "E5F8"
+    },
+    {
+      "codepoint": "EB19",
+      "legacyName": "ClicktoDoOff",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_cursor_prohibited_20_regular",
+      "sourceCodepoint": "F0173"
+    },
+    {
+      "codepoint": "EB1D",
+      "legacyName": "ClicktoDo",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_cursor_click_20_regular",
+      "sourceCodepoint": "E445"
+    },
+    {
+      "codepoint": "EB3B",
+      "legacyName": "GenericApp",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_app_generic_20_regular",
+      "sourceCodepoint": "E05C"
+    },
+    {
+      "codepoint": "EB47",
+      "legacyName": "BusSolid",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_vehicle_bus_20_regular",
+      "sourceCodepoint": "EDD4"
+    },
+    {
+      "codepoint": "EB48",
+      "legacyName": "FerrySolid",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_vehicle_ship_20_regular",
+      "sourceCodepoint": "EDE3"
+    },
+    {
+      "codepoint": "EB4C",
+      "legacyName": "AirplaneSolid",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_airplane_20_regular",
+      "sourceCodepoint": "F10F"
+    },
+    {
+      "codepoint": "EB4D",
+      "legacyName": "TrainSolid",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_drive_train_20_regular",
+      "sourceCodepoint": "E58C"
+    },
+    {
+      "codepoint": "EC34",
+      "legacyName": "FormatText",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_text_font_20_regular",
+      "sourceCodepoint": "F7E4"
+    },
+    {
+      "codepoint": "EC4F",
+      "legacyName": "MusicNote",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_music_note_1_20_regular",
+      "sourceCodepoint": "E851"
+    },
+    {
+      "codepoint": "EC83",
+      "legacyName": "UpdateStatusDot2",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_status_20_regular",
+      "sourceCodepoint": "F722"
+    },
+    {
+      "codepoint": "EC91",
+      "legacyName": "Uninstall",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_uninstall_app_20_regular",
+      "sourceCodepoint": "EDCE"
+    },
+    {
+      "codepoint": "EC9C",
+      "legacyName": "CloudNotSynced",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_cloud_sync_20_regular",
+      "sourceCodepoint": "E3AE"
+    },
+    {
+      "codepoint": "ED21",
+      "legacyName": "RestartUpdate2",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_arrow_sync_20_regular",
+      "sourceCodepoint": "F190"
+    },
+    {
+      "codepoint": "EE41",
+      "legacyName": "FullHiraganaPrivateMode",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_local_language_20_regular",
+      "sourceCodepoint": "F4F3"
+    },
+    {
+      "codepoint": "EE42",
+      "legacyName": "FullKatakanaPrivateMode",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_local_language_20_regular",
+      "sourceCodepoint": "F4F3"
+    },
+    {
+      "codepoint": "EE43",
+      "legacyName": "HalfAlphaPrivateMode",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_text_font_20_regular",
+      "sourceCodepoint": "F7E4"
+    },
+    {
+      "codepoint": "EE44",
+      "legacyName": "HalfKatakanaPrivateMode",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_local_language_20_regular",
+      "sourceCodepoint": "F4F3"
+    },
+    {
+      "codepoint": "EE45",
+      "legacyName": "FullAlphaPrivateMode",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_text_font_20_regular",
+      "sourceCodepoint": "F7E4"
+    },
+    {
+      "codepoint": "EE7E",
+      "legacyName": "FIDOPasskey",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_person_passkey_20_regular",
+      "sourceCodepoint": "F053B"
+    },
+    {
+      "codepoint": "EE95",
+      "legacyName": "StopSolid",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_stop_20_regular",
+      "sourceCodepoint": "F72A"
+    },
+    {
+      "codepoint": "EEA0",
+      "legacyName": "RAM",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_ram_20_regular",
+      "sourceCodepoint": "E9F3"
+    },
+    {
+      "codepoint": "EEA1",
+      "legacyName": "CPU",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_ram_20_regular",
+      "sourceCodepoint": "E9F3"
+    },
+    {
+      "codepoint": "EF60",
+      "legacyName": "TextEdit",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_text_edit_style_20_regular",
+      "sourceCodepoint": "F7D9"
+    },
+    {
+      "codepoint": "EFDA",
+      "legacyName": "AppIconDefaultAdd",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_app_folder_20_regular",
+      "sourceCodepoint": "F122"
+    },
+    {
+      "codepoint": "EFFF",
+      "legacyName": "CRMScheduleReports",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_calendar_data_bar_20_regular",
+      "sourceCodepoint": "EE96"
+    },
+    {
+      "codepoint": "F012",
+      "legacyName": "ZipFolder",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_folder_zip_20_regular",
+      "sourceCodepoint": "F435"
+    },
+    {
+      "codepoint": "F08D",
+      "legacyName": "CaretSolidLeft",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_chevron_left_20_regular",
+      "sourceCodepoint": "F2AA"
+    },
+    {
+      "codepoint": "F08E",
+      "legacyName": "CaretSolidDown",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_chevron_down_20_regular",
+      "sourceCodepoint": "F2A3"
+    },
+    {
+      "codepoint": "F08F",
+      "legacyName": "CaretSolidRight",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_chevron_right_20_regular",
+      "sourceCodepoint": "F2B0"
+    },
+    {
+      "codepoint": "F090",
+      "legacyName": "CaretSolidUp",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_chevron_up_20_regular",
+      "sourceCodepoint": "F2B6"
+    },
+    {
+      "codepoint": "F13B",
+      "legacyName": "StatusTriangleExclamation",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_warning_20_regular",
+      "sourceCodepoint": "F869"
+    },
+    {
+      "codepoint": "F15F",
+      "legacyName": "ClosedCaptionsInternational",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_closed_caption_20_regular",
+      "sourceCodepoint": "E379"
+    },
+    {
+      "codepoint": "F28B",
+      "legacyName": "DocumentApproval",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_document_checkmark_20_regular",
+      "sourceCodepoint": "E4F1"
+    },
+    {
+      "codepoint": "F112",
+      "legacyName": "ReadOutLoud",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_read_aloud_20_regular",
+      "sourceCodepoint": "F64D"
+    },
+    {
+      "codepoint": "F117",
+      "legacyName": "ProjectToDevice",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_share_screen_start_20_regular",
+      "sourceCodepoint": "EABA"
+    },
+    {
+      "codepoint": "F120",
+      "legacyName": "TaskManagerApp",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_tasks_app_20_regular",
+      "sourceCodepoint": "EC9F"
+    },
+    {
+      "codepoint": "F196",
+      "legacyName": "Beaker",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_beaker_20_regular",
+      "sourceCodepoint": "F1D7"
+    },
+    {
+      "codepoint": "F1B1",
+      "legacyName": "PowerButtonUpdate2",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_power_20_regular",
+      "sourceCodepoint": "F60E"
+    },
+    {
+      "codepoint": "F1E8",
+      "legacyName": "LeafTwo",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_leaf_two_20_regular",
+      "sourceCodepoint": "F4D1"
+    },
+    {
+      "codepoint": "F232",
+      "legacyName": "GridViewSmall",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_grid_20_regular",
+      "sourceCodepoint": "F462"
+    },
+    {
+      "codepoint": "F27C",
+      "legacyName": "Earbudsingle",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_headphones_20_regular",
+      "sourceCodepoint": "E6EE"
+    },
+    {
+      "codepoint": "F27F",
+      "legacyName": "HearingAid",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_accessibility_20_regular",
+      "sourceCodepoint": "F103"
+    },
+    {
+      "codepoint": "F285",
+      "legacyName": "MobSnooze",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_alert_snooze_20_regular",
+      "sourceCodepoint": "F11C"
+    },
+    {
+      "codepoint": "F2A3",
+      "legacyName": "MobNotificationBell",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_alert_20_regular",
+      "sourceCodepoint": "F114"
+    },
+    {
+      "codepoint": "F2A5",
+      "legacyName": "MobNotificationBellFilled",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_alert_on_20_regular",
+      "sourceCodepoint": "E01A"
+    },
+    {
+      "codepoint": "F2A8",
+      "legacyName": "MobSnoozeFilled",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_alert_snooze_20_regular",
+      "sourceCodepoint": "F11C"
+    },
+    {
+      "codepoint": "F2C7",
+      "legacyName": "BulletedList2",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_text_bullet_list_ltr_20_regular",
+      "sourceCodepoint": "ECD9"
+    },
+    {
+      "codepoint": "F2C8",
+      "legacyName": "BulletedList2Mirrored",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_text_bullet_list_rtl_20_regular",
+      "sourceCodepoint": "ECE0"
+    },
+    {
+      "codepoint": "F2D9",
+      "legacyName": "CirclePause",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_pause_circle_20_regular",
+      "sourceCodepoint": "F6BC"
+    },
+    {
+      "codepoint": "F432",
+      "legacyName": "BatterySaver",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_battery_saver_20_regular",
+      "sourceCodepoint": "F1D3"
+    },
+    {
+      "codepoint": "F439",
+      "legacyName": "DynamicLock",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_shield_lock_20_regular",
+      "sourceCodepoint": "EAD0"
+    },
+    {
+      "codepoint": "F45E",
+      "legacyName": "PenTips",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_pen_20_regular",
+      "sourceCodepoint": "E8D7"
+    },
+    {
+      "codepoint": "F45F",
+      "legacyName": "PenTipsMirrored",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_pen_20_regular",
+      "sourceCodepoint": "E8D7"
+    },
+    {
+      "codepoint": "F460",
+      "legacyName": "HWPJoin",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_arrow_join_20_regular",
+      "sourceCodepoint": "E0D6"
+    },
+    {
+      "codepoint": "F461",
+      "legacyName": "HWPInsert",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_insert_20_regular",
+      "sourceCodepoint": "F4AD"
+    },
+    {
+      "codepoint": "F462",
+      "legacyName": "HWPStrikeThrough",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_text_strikethrough_20_regular",
+      "sourceCodepoint": "ED5F"
+    },
+    {
+      "codepoint": "F463",
+      "legacyName": "HWPScratchOut",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_scratchpad_20_regular",
+      "sourceCodepoint": "EA76"
+    },
+    {
+      "codepoint": "F464",
+      "legacyName": "HWPSplit",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_arrow_split_20_regular",
+      "sourceCodepoint": "E0F4"
+    },
+    {
+      "codepoint": "F465",
+      "legacyName": "HWPNewLine",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_text_wrap_20_regular",
+      "sourceCodepoint": "ED69"
+    },
+    {
+      "codepoint": "F466",
+      "legacyName": "HWPOverwrite",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_text_edit_style_20_regular",
+      "sourceCodepoint": "F7D9"
+    },
+    {
+      "codepoint": "F473",
+      "legacyName": "MobWifiWarning1",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_wifi_warning_20_regular",
+      "sourceCodepoint": "EE5C"
+    },
+    {
+      "codepoint": "F474",
+      "legacyName": "MobWifiWarning2",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_wifi_warning_20_regular",
+      "sourceCodepoint": "EE5C"
+    },
+    {
+      "codepoint": "F475",
+      "legacyName": "MobWifiWarning3",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_wifi_warning_20_regular",
+      "sourceCodepoint": "EE5C"
+    },
+    {
+      "codepoint": "F476",
+      "legacyName": "MobWifiWarning4",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_wifi_warning_20_regular",
+      "sourceCodepoint": "EE5C"
+    },
+    {
+      "codepoint": "F47F",
+      "legacyName": "MicLocationCombo",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_location_20_regular",
+      "sourceCodepoint": "F4F8"
+    },
+    {
+      "codepoint": "F49A",
+      "legacyName": "Globe2",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_globe_20_regular",
+      "sourceCodepoint": "F45A"
+    },
+    {
+      "codepoint": "F4A5",
+      "legacyName": "SpecialEffectSize",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_sparkle_20_regular",
+      "sourceCodepoint": "EB33"
+    },
+    {
+      "codepoint": "F4A9",
+      "legacyName": "GIF",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_gif_20_regular",
+      "sourceCodepoint": "F453"
+    },
+    {
+      "codepoint": "F4AA",
+      "legacyName": "Sticker2",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_sticker_20_regular",
+      "sourceCodepoint": "F726"
+    },
+    {
+      "codepoint": "F4BD",
+      "legacyName": "Snooze",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_alert_snooze_20_regular",
+      "sourceCodepoint": "F11C"
+    },
+    {
+      "codepoint": "F4BE",
+      "legacyName": "SurfaceHubSelected",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_surface_hub_20_regular",
+      "sourceCodepoint": "F73A"
+    },
+    {
+      "codepoint": "F4BF",
+      "legacyName": "HoloLensSelected",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_headset_vr_20_regular",
+      "sourceCodepoint": "F476"
+    },
+    {
+      "codepoint": "F4C0",
+      "legacyName": "Earbud",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_surface_earbuds_20_regular",
+      "sourceCodepoint": "F738"
+    },
+    {
+      "codepoint": "F4C3",
+      "legacyName": "MixVolumes",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_speaker_settings_20_regular",
+      "sourceCodepoint": "EB51"
+    },
+    {
+      "codepoint": "F552",
+      "legacyName": "LaptopSecure",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_laptop_shield_20_regular",
+      "sourceCodepoint": "F0190"
+    },
+    {
+      "codepoint": "F56D",
+      "legacyName": "PrintDefault",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_print_20_regular",
+      "sourceCodepoint": "F62A"
+    },
+    {
+      "codepoint": "F56E",
+      "legacyName": "PageMirrored",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_document_20_regular",
+      "sourceCodepoint": "F378"
+    },
+    {
+      "codepoint": "F56F",
+      "legacyName": "LandscapeOrientationMirrored",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_document_landscape_20_regular",
+      "sourceCodepoint": "F393"
+    },
+    {
+      "codepoint": "F570",
+      "legacyName": "ColorOff",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_color_background_accent_20_regular",
+      "sourceCodepoint": "E3BD"
+    },
+    {
+      "codepoint": "F571",
+      "legacyName": "PrintAllPages",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_print_20_regular",
+      "sourceCodepoint": "F62A"
+    },
+    {
+      "codepoint": "F572",
+      "legacyName": "PrintCustomRange",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_print_20_regular",
+      "sourceCodepoint": "F62A"
+    },
+    {
+      "codepoint": "F573",
+      "legacyName": "PageMarginPortraitNarrow",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_document_margins_20_regular",
+      "sourceCodepoint": "F395"
+    },
+    {
+      "codepoint": "F574",
+      "legacyName": "PageMarginPortraitNormal",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_document_margins_20_regular",
+      "sourceCodepoint": "F395"
+    },
+    {
+      "codepoint": "F575",
+      "legacyName": "PageMarginPortraitModerate",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_document_margins_20_regular",
+      "sourceCodepoint": "F395"
+    },
+    {
+      "codepoint": "F576",
+      "legacyName": "PageMarginPortraitWide",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_document_margins_20_regular",
+      "sourceCodepoint": "F395"
+    },
+    {
+      "codepoint": "F577",
+      "legacyName": "PageMarginLandscapeNarrow",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_document_margins_20_regular",
+      "sourceCodepoint": "F395"
+    },
+    {
+      "codepoint": "F578",
+      "legacyName": "PageMarginLandscapeNormal",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_document_margins_20_regular",
+      "sourceCodepoint": "F395"
+    },
+    {
+      "codepoint": "F579",
+      "legacyName": "PageMarginLandscapeModerate",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_document_margins_20_regular",
+      "sourceCodepoint": "F395"
+    },
+    {
+      "codepoint": "F57A",
+      "legacyName": "PageMarginLandscapeWide",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_document_margins_20_regular",
+      "sourceCodepoint": "F395"
+    },
+    {
+      "codepoint": "F57B",
+      "legacyName": "CollateLandscape",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_document_multiple_20_regular",
+      "sourceCodepoint": "E520"
+    },
+    {
+      "codepoint": "F57C",
+      "legacyName": "CollatePortrait",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_document_multiple_20_regular",
+      "sourceCodepoint": "E520"
+    },
+    {
+      "codepoint": "F57D",
+      "legacyName": "CollatePortraitSeparated",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_document_multiple_20_regular",
+      "sourceCodepoint": "E520"
+    },
+    {
+      "codepoint": "F57E",
+      "legacyName": "DuplexLandscapeOneSided",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_document_multiple_20_regular",
+      "sourceCodepoint": "E520"
+    },
+    {
+      "codepoint": "F57F",
+      "legacyName": "DuplexLandscapeOneSidedMirrored",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_document_multiple_20_regular",
+      "sourceCodepoint": "E520"
+    },
+    {
+      "codepoint": "F580",
+      "legacyName": "DuplexLandscapeTwoSidedLongEdge",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_document_multiple_20_regular",
+      "sourceCodepoint": "E520"
+    },
+    {
+      "codepoint": "F581",
+      "legacyName": "DuplexLandscapeTwoSidedLongEdgeMirrored",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_document_multiple_20_regular",
+      "sourceCodepoint": "E520"
+    },
+    {
+      "codepoint": "F582",
+      "legacyName": "DuplexLandscapeTwoSidedShortEdge",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_document_multiple_20_regular",
+      "sourceCodepoint": "E520"
+    },
+    {
+      "codepoint": "F583",
+      "legacyName": "DuplexLandscapeTwoSidedShortEdgeMirrored",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_document_multiple_20_regular",
+      "sourceCodepoint": "E520"
+    },
+    {
+      "codepoint": "F584",
+      "legacyName": "DuplexPortraitOneSided",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_document_multiple_20_regular",
+      "sourceCodepoint": "E520"
+    },
+    {
+      "codepoint": "F585",
+      "legacyName": "DuplexPortraitOneSidedMirrored",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_document_multiple_20_regular",
+      "sourceCodepoint": "E520"
+    },
+    {
+      "codepoint": "F586",
+      "legacyName": "DuplexPortraitTwoSidedLongEdge",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_document_multiple_20_regular",
+      "sourceCodepoint": "E520"
+    },
+    {
+      "codepoint": "F587",
+      "legacyName": "DuplexPortraitTwoSidedLongEdgeMirrored",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_document_multiple_20_regular",
+      "sourceCodepoint": "E520"
+    },
+    {
+      "codepoint": "F588",
+      "legacyName": "DuplexPortraitTwoSidedShortEdge",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_document_multiple_20_regular",
+      "sourceCodepoint": "E520"
+    },
+    {
+      "codepoint": "F589",
+      "legacyName": "DuplexPortraitTwoSidedShortEdgeMirrored",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_document_multiple_20_regular",
+      "sourceCodepoint": "E520"
+    },
+    {
+      "codepoint": "F58A",
+      "legacyName": "PPSOneLandscape",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_document_one_page_multiple_20_regular",
+      "sourceCodepoint": "F017B"
+    },
+    {
+      "codepoint": "F58B",
+      "legacyName": "PPSTwoLandscape",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_document_one_page_multiple_20_regular",
+      "sourceCodepoint": "F017B"
+    },
+    {
+      "codepoint": "F58C",
+      "legacyName": "PPSTwoPortrait",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_document_one_page_multiple_20_regular",
+      "sourceCodepoint": "F017B"
+    },
+    {
+      "codepoint": "F58D",
+      "legacyName": "PPSFourLandscape",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_document_one_page_multiple_20_regular",
+      "sourceCodepoint": "F017B"
+    },
+    {
+      "codepoint": "F58E",
+      "legacyName": "PPSFourPortrait",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_document_one_page_multiple_20_regular",
+      "sourceCodepoint": "F017B"
+    },
+    {
+      "codepoint": "F58F",
+      "legacyName": "HolePunchOff",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_circle_20_regular",
+      "sourceCodepoint": "F2BB"
+    },
+    {
+      "codepoint": "F590",
+      "legacyName": "HolePunchPortraitLeft",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_circle_20_regular",
+      "sourceCodepoint": "F2BB"
+    },
+    {
+      "codepoint": "F591",
+      "legacyName": "HolePunchPortraitRight",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_circle_20_regular",
+      "sourceCodepoint": "F2BB"
+    },
+    {
+      "codepoint": "F592",
+      "legacyName": "HolePunchPortraitTop",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_circle_20_regular",
+      "sourceCodepoint": "F2BB"
+    },
+    {
+      "codepoint": "F593",
+      "legacyName": "HolePunchPortraitBottom",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_circle_20_regular",
+      "sourceCodepoint": "F2BB"
+    },
+    {
+      "codepoint": "F594",
+      "legacyName": "HolePunchLandscapeLeft",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_circle_20_regular",
+      "sourceCodepoint": "F2BB"
+    },
+    {
+      "codepoint": "F595",
+      "legacyName": "HolePunchLandscapeRight",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_circle_20_regular",
+      "sourceCodepoint": "F2BB"
+    },
+    {
+      "codepoint": "F596",
+      "legacyName": "HolePunchLandscapeTop",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_circle_20_regular",
+      "sourceCodepoint": "F2BB"
+    },
+    {
+      "codepoint": "F597",
+      "legacyName": "HolePunchLandscapeBottom",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_circle_20_regular",
+      "sourceCodepoint": "F2BB"
+    },
+    {
+      "codepoint": "F598",
+      "legacyName": "StaplingOff",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_attach_20_regular",
+      "sourceCodepoint": "F1A9"
+    },
+    {
+      "codepoint": "F599",
+      "legacyName": "StaplingPortraitTopLeft",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_attach_20_regular",
+      "sourceCodepoint": "F1A9"
+    },
+    {
+      "codepoint": "F59A",
+      "legacyName": "StaplingPortraitTopRight",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_attach_20_regular",
+      "sourceCodepoint": "F1A9"
+    },
+    {
+      "codepoint": "F59B",
+      "legacyName": "StaplingPortraitBottomRight",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_attach_20_regular",
+      "sourceCodepoint": "F1A9"
+    },
+    {
+      "codepoint": "F59C",
+      "legacyName": "StaplingPortraitTwoLeft",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_attach_20_regular",
+      "sourceCodepoint": "F1A9"
+    },
+    {
+      "codepoint": "F59D",
+      "legacyName": "StaplingPortraitTwoRight",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_attach_20_regular",
+      "sourceCodepoint": "F1A9"
+    },
+    {
+      "codepoint": "F59E",
+      "legacyName": "StaplingPortraitTwoTop",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_attach_20_regular",
+      "sourceCodepoint": "F1A9"
+    },
+    {
+      "codepoint": "F59F",
+      "legacyName": "StaplingPortraitTwoBottom",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_attach_20_regular",
+      "sourceCodepoint": "F1A9"
+    },
+    {
+      "codepoint": "F5A0",
+      "legacyName": "StaplingPortraitBookBinding",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_attach_20_regular",
+      "sourceCodepoint": "F1A9"
+    },
+    {
+      "codepoint": "F5A1",
+      "legacyName": "StaplingLandscapeTopLeft",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_attach_20_regular",
+      "sourceCodepoint": "F1A9"
+    },
+    {
+      "codepoint": "F5A2",
+      "legacyName": "StaplingLandscapeTopRight",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_attach_20_regular",
+      "sourceCodepoint": "F1A9"
+    },
+    {
+      "codepoint": "F5A3",
+      "legacyName": "StaplingLandscapeBottomLeft",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_attach_20_regular",
+      "sourceCodepoint": "F1A9"
+    },
+    {
+      "codepoint": "F5A4",
+      "legacyName": "StaplingLandscapeBottomRight",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_attach_20_regular",
+      "sourceCodepoint": "F1A9"
+    },
+    {
+      "codepoint": "F5A5",
+      "legacyName": "StaplingLandscapeTwoLeft",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_attach_20_regular",
+      "sourceCodepoint": "F1A9"
+    },
+    {
+      "codepoint": "F5A6",
+      "legacyName": "StaplingLandscapeTwoRight",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_attach_20_regular",
+      "sourceCodepoint": "F1A9"
+    },
+    {
+      "codepoint": "F5A7",
+      "legacyName": "StaplingLandscapeTwoTop",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_attach_20_regular",
+      "sourceCodepoint": "F1A9"
+    },
+    {
+      "codepoint": "F5A8",
+      "legacyName": "StaplingLandscapeTwoBottom",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_attach_20_regular",
+      "sourceCodepoint": "F1A9"
+    },
+    {
+      "codepoint": "F5A9",
+      "legacyName": "StaplingLandscapeBookBinding",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_attach_20_regular",
+      "sourceCodepoint": "F1A9"
+    },
+    {
+      "codepoint": "F5AA",
+      "legacyName": "StatusDataTransferRoaming",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_arrow_swap_20_regular",
+      "sourceCodepoint": "F18D"
+    },
+    {
+      "codepoint": "F5AB",
+      "legacyName": "MobSIMError",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_sim_20_regular",
+      "sourceCodepoint": "F6E3"
+    },
+    {
+      "codepoint": "F5AC",
+      "legacyName": "CollateLandscapeSeparated",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_document_multiple_20_regular",
+      "sourceCodepoint": "E520"
+    },
+    {
+      "codepoint": "F5AD",
+      "legacyName": "PPSOnePortrait",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_document_one_page_multiple_20_regular",
+      "sourceCodepoint": "F017B"
+    },
+    {
+      "codepoint": "F5AE",
+      "legacyName": "StaplingPortraitBottomLeft",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_attach_20_regular",
+      "sourceCodepoint": "F1A9"
+    },
+    {
+      "codepoint": "F5E7",
+      "legacyName": "RepeatOff",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_arrow_repeat_all_off_20_regular",
+      "sourceCodepoint": "F174"
+    },
+    {
+      "codepoint": "F5ED",
+      "legacyName": "Set",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_settings_20_regular",
+      "sourceCodepoint": "F6A9"
+    },
+    {
+      "codepoint": "F5EE",
+      "legacyName": "SetSolid",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_settings_20_regular",
+      "sourceCodepoint": "F6A9"
+    },
+    {
+      "codepoint": "F5EF",
+      "legacyName": "FuzzyReading",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_eye_lines_20_regular",
+      "sourceCodepoint": "EFCB"
+    },
+    {
+      "codepoint": "F5F2",
+      "legacyName": "VerticalBattery0",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_battery_0_20_regular",
+      "sourceCodepoint": "F1BB"
+    },
+    {
+      "codepoint": "F5F3",
+      "legacyName": "VerticalBattery1",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_battery_1_20_regular",
+      "sourceCodepoint": "F1BD"
+    },
+    {
+      "codepoint": "F5F4",
+      "legacyName": "VerticalBattery2",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_battery_2_20_regular",
+      "sourceCodepoint": "F1BF"
+    },
+    {
+      "codepoint": "F5F5",
+      "legacyName": "VerticalBattery3",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_battery_3_20_regular",
+      "sourceCodepoint": "F1C1"
+    },
+    {
+      "codepoint": "F5F6",
+      "legacyName": "VerticalBattery4",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_battery_4_20_regular",
+      "sourceCodepoint": "F1C3"
+    },
+    {
+      "codepoint": "F5F7",
+      "legacyName": "VerticalBattery5",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_battery_5_20_regular",
+      "sourceCodepoint": "F1C5"
+    },
+    {
+      "codepoint": "F5F8",
+      "legacyName": "VerticalBattery6",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_battery_6_20_regular",
+      "sourceCodepoint": "F1C7"
+    },
+    {
+      "codepoint": "F5F9",
+      "legacyName": "VerticalBattery7",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_battery_7_20_regular",
+      "sourceCodepoint": "F1C9"
+    },
+    {
+      "codepoint": "F5FA",
+      "legacyName": "VerticalBattery8",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_battery_8_20_regular",
+      "sourceCodepoint": "F1CB"
+    },
+    {
+      "codepoint": "F5FB",
+      "legacyName": "VerticalBattery9",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_battery_9_20_regular",
+      "sourceCodepoint": "F1CD"
+    },
+    {
+      "codepoint": "F5FC",
+      "legacyName": "VerticalBattery10",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_battery_10_20_regular",
+      "sourceCodepoint": "E143"
+    },
+    {
+      "codepoint": "F5FD",
+      "legacyName": "VerticalBatteryCharging0",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_battery_charge_0_20_regular",
+      "sourceCodepoint": "F0AAB"
+    },
+    {
+      "codepoint": "F5FE",
+      "legacyName": "VerticalBatteryCharging1",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_battery_charge_1_20_regular",
+      "sourceCodepoint": "F0AAC"
+    },
+    {
+      "codepoint": "F5FF",
+      "legacyName": "VerticalBatteryCharging2",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_battery_charge_2_20_regular",
+      "sourceCodepoint": "F0AAE"
+    },
+    {
+      "codepoint": "F600",
+      "legacyName": "VerticalBatteryCharging3",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_battery_charge_3_20_regular",
+      "sourceCodepoint": "F0AAF"
+    },
+    {
+      "codepoint": "F601",
+      "legacyName": "VerticalBatteryCharging4",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_battery_charge_4_20_regular",
+      "sourceCodepoint": "F0AB0"
+    },
+    {
+      "codepoint": "F602",
+      "legacyName": "VerticalBatteryCharging5",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_battery_charge_5_20_regular",
+      "sourceCodepoint": "F0AB1"
+    },
+    {
+      "codepoint": "F603",
+      "legacyName": "VerticalBatteryCharging6",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_battery_charge_6_20_regular",
+      "sourceCodepoint": "F0AB2"
+    },
+    {
+      "codepoint": "F604",
+      "legacyName": "VerticalBatteryCharging7",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_battery_charge_7_20_regular",
+      "sourceCodepoint": "F0AB3"
+    },
+    {
+      "codepoint": "F605",
+      "legacyName": "VerticalBatteryCharging8",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_battery_charge_8_20_regular",
+      "sourceCodepoint": "F0AB4"
+    },
+    {
+      "codepoint": "F606",
+      "legacyName": "VerticalBatteryCharging9",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_battery_charge_9_20_regular",
+      "sourceCodepoint": "F0AB5"
+    },
+    {
+      "codepoint": "F607",
+      "legacyName": "VerticalBatteryCharging10",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_battery_charge_10_20_regular",
+      "sourceCodepoint": "F0AAD"
+    },
+    {
+      "codepoint": "F608",
+      "legacyName": "VerticalBatteryUnknown",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_battery_warning_20_regular",
+      "sourceCodepoint": "E147"
+    },
+    {
+      "codepoint": "F618",
+      "legacyName": "SIMError",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_sim_20_regular",
+      "sourceCodepoint": "F6E3"
+    },
+    {
+      "codepoint": "F619",
+      "legacyName": "SIMMissing",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_sim_20_regular",
+      "sourceCodepoint": "F6E3"
+    },
+    {
+      "codepoint": "F61A",
+      "legacyName": "SIMLock",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_shield_lock_20_regular",
+      "sourceCodepoint": "EAD0"
+    },
+    {
+      "codepoint": "F61B",
+      "legacyName": "eSIM",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_sim_20_regular",
+      "sourceCodepoint": "F6E3"
+    },
+    {
+      "codepoint": "F61C",
+      "legacyName": "eSIMNoProfile",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_sim_20_regular",
+      "sourceCodepoint": "F6E3"
+    },
+    {
+      "codepoint": "F61D",
+      "legacyName": "eSIMLocked",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_shield_lock_20_regular",
+      "sourceCodepoint": "EAD0"
+    },
+    {
+      "codepoint": "F61E",
+      "legacyName": "eSIMBusy",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_sim_20_regular",
+      "sourceCodepoint": "F6E3"
+    },
+    {
+      "codepoint": "F61F",
+      "legacyName": "NoiseCancelation",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_headphones_sound_wave_20_regular",
+      "sourceCodepoint": "E6F1"
+    },
+    {
+      "codepoint": "F620",
+      "legacyName": "NoiseCancelationOff",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_headphones_20_regular",
+      "sourceCodepoint": "E6EE"
+    },
+    {
+      "codepoint": "F623",
+      "legacyName": "MusicSharing",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_music_note_2_play_20_regular",
+      "sourceCodepoint": "E856"
+    },
+    {
+      "codepoint": "F624",
+      "legacyName": "MusicSharingOff",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_music_note_off_1_20_regular",
+      "sourceCodepoint": "E857"
+    },
+    {
+      "codepoint": "F63C",
+      "legacyName": "CircleShapeSolid",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_circle_20_regular",
+      "sourceCodepoint": "F2BB"
+    },
+    {
+      "codepoint": "F657",
+      "legacyName": "WifiCallBars",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_call_20_regular",
+      "sourceCodepoint": "E270"
+    },
+    {
+      "codepoint": "F658",
+      "legacyName": "WifiCall0",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_call_20_regular",
+      "sourceCodepoint": "E270"
+    },
+    {
+      "codepoint": "F659",
+      "legacyName": "WifiCall1",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_call_20_regular",
+      "sourceCodepoint": "E270"
+    },
+    {
+      "codepoint": "F65A",
+      "legacyName": "WifiCall2",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_call_20_regular",
+      "sourceCodepoint": "E270"
+    },
+    {
+      "codepoint": "F65B",
+      "legacyName": "WifiCall3",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_call_20_regular",
+      "sourceCodepoint": "E270"
+    },
+    {
+      "codepoint": "F65C",
+      "legacyName": "WifiCall4",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_call_20_regular",
+      "sourceCodepoint": "E270"
+    },
+    {
+      "codepoint": "F67B",
+      "legacyName": "Pen",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_pen_20_regular",
+      "sourceCodepoint": "E8D7"
+    },
+    {
+      "codepoint": "F683",
+      "legacyName": "TextSelect",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_text_t_20_regular",
+      "sourceCodepoint": "ED63"
+    },
+    {
+      "codepoint": "F684",
+      "legacyName": "TextNavigate",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_slide_text_cursor_20_regular",
+      "sourceCodepoint": "F0640"
+    },
+    {
+      "codepoint": "F698",
+      "legacyName": "PinyinIMELogo2",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_local_language_20_regular",
+      "sourceCodepoint": "F4F3"
+    },
+    {
+      "codepoint": "F69B",
+      "legacyName": "UserRemove",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_person_delete_20_regular",
+      "sourceCodepoint": "E92D"
+    },
+    {
+      "codepoint": "F69E",
+      "legacyName": "CHTLanguageBar",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_local_language_20_regular",
+      "sourceCodepoint": "F4F3"
+    },
+    {
+      "codepoint": "F6A9",
+      "legacyName": "ComposeMode",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_compose_20_regular",
+      "sourceCodepoint": "F314"
+    },
+    {
+      "codepoint": "F6B8",
+      "legacyName": "ExpressiveInputEntry",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_emoji_20_regular",
+      "sourceCodepoint": "F3E0"
+    },
+    {
+      "codepoint": "F6BA",
+      "legacyName": "EmojiTabMoreSymbols",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_symbols_20_regular",
+      "sourceCodepoint": "EBE1"
+    },
+    {
+      "codepoint": "F6C4",
+      "legacyName": "PhoneScreen",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_phone_screen_time_20_regular",
+      "sourceCodepoint": "E967"
+    },
+    {
+      "codepoint": "F6C5",
+      "legacyName": "AlertUrgent",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_alert_urgent_20_regular",
+      "sourceCodepoint": "F11E"
+    },
+    {
+      "codepoint": "F6C6",
+      "legacyName": "PhoneDesktop",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_phone_desktop_20_regular",
+      "sourceCodepoint": "F5E5"
+    },
+    {
+      "codepoint": "F6FA",
+      "legacyName": "WebSearch",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_globe_search_20_regular",
+      "sourceCodepoint": "E6BA"
+    },
+    {
+      "codepoint": "F712",
+      "legacyName": "Kiosk",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_kiosk_24_regular",
+      "sourceCodepoint": "F021B"
+    },
+    {
+      "codepoint": "F714",
+      "legacyName": "RTTLogo",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_text_t_20_regular",
+      "sourceCodepoint": "ED63"
+    },
+    {
+      "codepoint": "F715",
+      "legacyName": "VoiceCall",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_call_20_regular",
+      "sourceCodepoint": "E270"
+    },
+    {
+      "codepoint": "F716",
+      "legacyName": "GoToMessage",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_chat_arrow_back_20_regular",
+      "sourceCodepoint": "E2E8"
+    },
+    {
+      "codepoint": "F71A",
+      "legacyName": "ReturnToCall",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_call_20_regular",
+      "sourceCodepoint": "E270"
+    },
+    {
+      "codepoint": "F71D",
+      "legacyName": "StopPresenting",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_share_screen_stop_20_regular",
+      "sourceCodepoint": "EABF"
+    },
+    {
+      "codepoint": "F71E",
+      "legacyName": "ProductivityMode",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_briefcase_20_regular",
+      "sourceCodepoint": "F1FC"
+    },
+    {
+      "codepoint": "F738",
+      "legacyName": "SetHistoryStatus",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_history_20_regular",
+      "sourceCodepoint": "F47E"
+    },
+    {
+      "codepoint": "F739",
+      "legacyName": "SetHistoryStatus2",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_history_20_regular",
+      "sourceCodepoint": "F47E"
+    },
+    {
+      "codepoint": "F73D",
+      "legacyName": "Keyboardsettings20",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_settings_20_regular",
+      "sourceCodepoint": "F6A9"
+    },
+    {
+      "codepoint": "F73E",
+      "legacyName": "OneHandedRight20",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_keyboard_layout_one_handed_left_20_regular",
+      "sourceCodepoint": "E74D"
+    },
+    {
+      "codepoint": "F73F",
+      "legacyName": "OneHandedLeft20",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_keyboard_layout_one_handed_left_20_regular",
+      "sourceCodepoint": "E74D"
+    },
+    {
+      "codepoint": "F740",
+      "legacyName": "Split20",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_keyboard_layout_split_20_regular",
+      "sourceCodepoint": "E74F"
+    },
+    {
+      "codepoint": "F741",
+      "legacyName": "Full20",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_keyboard_20_regular",
+      "sourceCodepoint": "F4B8"
+    },
+    {
+      "codepoint": "F742",
+      "legacyName": "Handwriting20",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_inking_tool_20_regular",
+      "sourceCodepoint": "F4A7"
+    },
+    {
+      "codepoint": "F743",
+      "legacyName": "ChevronLeft20",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_chevron_left_20_regular",
+      "sourceCodepoint": "F2AA"
+    },
+    {
+      "codepoint": "F744",
+      "legacyName": "ChevronLeft32",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_chevron_left_20_regular",
+      "sourceCodepoint": "F2AA"
+    },
+    {
+      "codepoint": "F745",
+      "legacyName": "ChevronRight20",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_chevron_right_20_regular",
+      "sourceCodepoint": "F2B0"
+    },
+    {
+      "codepoint": "F746",
+      "legacyName": "ChevronRight32",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_chevron_right_20_regular",
+      "sourceCodepoint": "F2B0"
+    },
+    {
+      "codepoint": "F763",
+      "legacyName": "Event12",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_calendar_20_regular",
+      "sourceCodepoint": "F0284"
+    },
+    {
+      "codepoint": "F781",
+      "legacyName": "MicOff2",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_mic_off_20_regular",
+      "sourceCodepoint": "E7FE"
+    },
+    {
+      "codepoint": "F785",
+      "legacyName": "DeliveryOptimization",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_arrow_download_20_regular",
+      "sourceCodepoint": "F150"
+    },
+    {
+      "codepoint": "F7AD",
+      "legacyName": "DeleteWord",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_text_clear_formatting_20_regular",
+      "sourceCodepoint": "F7BC"
+    },
+    {
+      "codepoint": "F7AE",
+      "legacyName": "DeleteWordFill",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_text_clear_formatting_20_regular",
+      "sourceCodepoint": "F7BC"
+    },
+    {
+      "codepoint": "F7AF",
+      "legacyName": "DeleteLines",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_delete_lines_20_regular",
+      "sourceCodepoint": "E481"
+    },
+    {
+      "codepoint": "F7B0",
+      "legacyName": "DeleteLinesFill",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_delete_lines_20_regular",
+      "sourceCodepoint": "E481"
+    },
+    {
+      "codepoint": "F7B1",
+      "legacyName": "InstertWords",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_text_add_20_regular",
+      "sourceCodepoint": "ECB0"
+    },
+    {
+      "codepoint": "F7B2",
+      "legacyName": "InstertWordsFill",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_text_add_20_regular",
+      "sourceCodepoint": "ECB0"
+    },
+    {
+      "codepoint": "F7B3",
+      "legacyName": "JoinWords",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_arrow_join_20_regular",
+      "sourceCodepoint": "E0D6"
+    },
+    {
+      "codepoint": "F7B4",
+      "legacyName": "JoinWordsFill",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_arrow_join_20_regular",
+      "sourceCodepoint": "E0D6"
+    },
+    {
+      "codepoint": "F7B5",
+      "legacyName": "OverwriteWords",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_text_edit_style_20_regular",
+      "sourceCodepoint": "F7D9"
+    },
+    {
+      "codepoint": "F7B6",
+      "legacyName": "OverwriteWordsFill",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_text_edit_style_20_regular",
+      "sourceCodepoint": "F7D9"
+    },
+    {
+      "codepoint": "F7B7",
+      "legacyName": "AddNewLine",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_text_wrap_20_regular",
+      "sourceCodepoint": "ED69"
+    },
+    {
+      "codepoint": "F7B8",
+      "legacyName": "AddNewLineFill",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_text_wrap_20_regular",
+      "sourceCodepoint": "ED69"
+    },
+    {
+      "codepoint": "F7B9",
+      "legacyName": "OverwriteWordsKorean",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_text_edit_style_20_regular",
+      "sourceCodepoint": "F7D9"
+    },
+    {
+      "codepoint": "F7BA",
+      "legacyName": "OverwriteWordsFillKorean",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_text_edit_style_20_regular",
+      "sourceCodepoint": "F7D9"
+    },
+    {
+      "codepoint": "F7BB",
+      "legacyName": "EducationIcon",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_hat_graduation_20_regular",
+      "sourceCodepoint": "E6E6"
+    },
+    {
+      "codepoint": "F7ED",
+      "legacyName": "WindowSnipping",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_screenshot_20_regular",
+      "sourceCodepoint": "F68D"
+    },
+    {
+      "codepoint": "F7EE",
+      "legacyName": "VideoCapture",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_video_recording_20_regular",
+      "sourceCodepoint": "EE1F"
+    },
+    {
+      "codepoint": "F809",
+      "legacyName": "StatusSecured",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_shield_checkmark_20_regular",
+      "sourceCodepoint": "EAC8"
+    },
+    {
+      "codepoint": "F83B",
+      "legacyName": "NarratorApp",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_accessibility_20_regular",
+      "sourceCodepoint": "F103"
+    },
+    {
+      "codepoint": "F83D",
+      "legacyName": "PowerButtonUpdate",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_power_20_regular",
+      "sourceCodepoint": "F60E"
+    },
+    {
+      "codepoint": "F83E",
+      "legacyName": "RestartUpdate",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_arrow_sync_20_regular",
+      "sourceCodepoint": "F190"
+    },
+    {
+      "codepoint": "F83F",
+      "legacyName": "UpdateStatusDot",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_status_20_regular",
+      "sourceCodepoint": "F722"
+    },
+    {
+      "codepoint": "F847",
+      "legacyName": "Eject",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_arrow_eject_20_regular",
+      "sourceCodepoint": "E0BE"
+    },
+    {
+      "codepoint": "F87B",
+      "legacyName": "Spelling",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_text_proofing_tools_20_regular",
+      "sourceCodepoint": "F7FE"
+    },
+    {
+      "codepoint": "F87C",
+      "legacyName": "SpellingKorean",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_text_proofing_tools_20_regular",
+      "sourceCodepoint": "F7FE"
+    },
+    {
+      "codepoint": "F87D",
+      "legacyName": "SpellingSerbian",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_text_proofing_tools_20_regular",
+      "sourceCodepoint": "F7FE"
+    },
+    {
+      "codepoint": "F87E",
+      "legacyName": "SpellingChinese",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_text_proofing_tools_20_regular",
+      "sourceCodepoint": "F7FE"
+    },
+    {
+      "codepoint": "F89A",
+      "legacyName": "FolderSelect",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_folder_search_20_regular",
+      "sourceCodepoint": "F038E"
+    },
+    {
+      "codepoint": "F8A5",
+      "legacyName": "SmartScreen",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_shield_checkmark_20_regular",
+      "sourceCodepoint": "EAC8"
+    },
+    {
+      "codepoint": "F8A6",
+      "legacyName": "ExploitProtection",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_shield_error_20_regular",
+      "sourceCodepoint": "F6C2"
+    },
+    {
+      "codepoint": "F8AA",
+      "legacyName": "AddBold",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_add_20_regular",
+      "sourceCodepoint": "F109"
+    },
+    {
+      "codepoint": "F8AB",
+      "legacyName": "SubtractBold",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_subtract_20_regular",
+      "sourceCodepoint": "EBD0"
+    },
+    {
+      "codepoint": "F8AF",
+      "legacyName": "ClickSolid",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_cursor_click_20_regular",
+      "sourceCodepoint": "E445"
+    },
+    {
+      "codepoint": "F8B0",
+      "legacyName": "SettingsSolid",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_settings_20_regular",
+      "sourceCodepoint": "F6A9"
+    },
+    {
+      "codepoint": "F8B1",
+      "legacyName": "MicrophoneSolidBold",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_mic_20_regular",
+      "sourceCodepoint": "E7F9"
+    },
+    {
+      "codepoint": "F8B2",
+      "legacyName": "SpeechSolidBold",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_person_voice_20_regular",
+      "sourceCodepoint": "F5DE"
+    },
+    {
+      "codepoint": "F8B3",
+      "legacyName": "ClickedOutLoudSolidBold",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_read_aloud_20_regular",
+      "sourceCodepoint": "F64D"
+    },
+    {
+      "codepoint": "F8C0",
+      "legacyName": "VPNOverlay",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_shield_lock_20_regular",
+      "sourceCodepoint": "EAD0"
+    },
+    {
+      "codepoint": "F8C1",
+      "legacyName": "VPNRoamingOverly",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_shield_lock_20_regular",
+      "sourceCodepoint": "EAD0"
+    },
+    {
+      "codepoint": "F8C2",
+      "legacyName": "WifiVPN3",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_wifi_lock_20_regular",
+      "sourceCodepoint": "EE57"
+    },
+    {
+      "codepoint": "F8C3",
+      "legacyName": "WifiVPN4",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_wifi_lock_20_regular",
+      "sourceCodepoint": "EE57"
+    },
+    {
+      "codepoint": "F8C4",
+      "legacyName": "WifiVPN5",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_wifi_lock_20_regular",
+      "sourceCodepoint": "EE57"
+    },
+    {
+      "codepoint": "F8C5",
+      "legacyName": "SignalBarsVPN2",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_desktop_signal_20_regular",
+      "sourceCodepoint": "E4A2"
+    },
+    {
+      "codepoint": "F8C6",
+      "legacyName": "SignalBarsVPN3",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_desktop_signal_20_regular",
+      "sourceCodepoint": "E4A2"
+    },
+    {
+      "codepoint": "F8C7",
+      "legacyName": "SignalBarsVPN4",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_desktop_signal_20_regular",
+      "sourceCodepoint": "E4A2"
+    },
+    {
+      "codepoint": "F8C8",
+      "legacyName": "SignalBarsVPN5",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_desktop_signal_20_regular",
+      "sourceCodepoint": "E4A2"
+    },
+    {
+      "codepoint": "F8C9",
+      "legacyName": "SignalBarsVPNRoaming3",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_desktop_signal_20_regular",
+      "sourceCodepoint": "E4A2"
+    },
+    {
+      "codepoint": "F8CA",
+      "legacyName": "SignalBarsVPNRoaming4",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_desktop_signal_20_regular",
+      "sourceCodepoint": "E4A2"
+    },
+    {
+      "codepoint": "F8CB",
+      "legacyName": "SignalBarsVPNRoaming5",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_desktop_signal_20_regular",
+      "sourceCodepoint": "E4A2"
+    },
+    {
+      "codepoint": "F8CC",
+      "legacyName": "EthernetVPN",
+      "source": "FluentSystemIcons-Regular",
+      "sourceGlyph": "ic_fluent_network_check_20_regular",
+      "sourceCodepoint": "E864"
+    }
+  ]
+}

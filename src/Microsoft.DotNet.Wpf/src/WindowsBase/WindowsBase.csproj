@@ -244,7 +244,8 @@
     <Compile Include="System\Windows\PropertyMetadata.cs" />
     <Compile Include="System\Windows\Rect.cs " />
     <Compile Include="System\Windows\Size.cs " />
-    <Compile Include="System\Windows\SplashScreen.cs" />
+    <Compile Include="System\Windows\SplashScreen.cs" Condition="'$(ProGpuWpfSkipMissingPrivateWinFormsReferences)' != 'true'" />
+    <Compile Include="System\Windows\SplashScreen.Portable.cs" Condition="'$(ProGpuWpfSkipMissingPrivateWinFormsReferences)' == 'true'" />
     <Compile Include="System\Windows\UncommonField.cs" />
     <Compile Include="System\Windows\ValidateValueCallback.cs" />
     <Compile Include="System\Windows\Vector.cs " />

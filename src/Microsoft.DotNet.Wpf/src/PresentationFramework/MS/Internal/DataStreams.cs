@@ -10,7 +10,6 @@ using System.Collections;
 using System.Collections.Specialized;
 using System.Formats.Nrbf;
 using System.IO;
-using System.Private.Windows.BinaryFormat;
 using System.Runtime.Serialization.Formatters.Binary;
 using System.Windows;
 using System.Windows.Controls;
@@ -120,23 +119,9 @@ namespace MS.Internal.AppModel
                             // Convert the value of the DP into a byte array
                             MemoryStream byteStream = new MemoryStream();
 
-                            bool success = false;
-                            try
-                            {
-                                success = BinaryFormatWriter.TryWriteFrameworkObject(byteStream, currentValue);
-                            }
-                            catch (Exception ex) when (!ex.IsCriticalException())
-                            {
-                                // Being extra cautious here, but the Try method above should never throw in normal circumstances.
-                                Debug.Fail($"Unexpected exception writing binary formatted data. {ex.Message}");
-                            }
-
-                            if(!success)
-                            {
-                                #pragma warning disable SYSLIB0011 // BinaryFormatter is obsolete 
-                                this.Formatter.Serialize(byteStream, currentValue);
-                                #pragma warning restore SYSLIB0011 // BinaryFormatter is obsolete 
-                            }
+                            #pragma warning disable SYSLIB0011 // BinaryFormatter is obsolete
+                            this.Formatter.Serialize(byteStream, currentValue);
+                            #pragma warning restore SYSLIB0011 // BinaryFormatter is obsolete
                             
                             
                             bytes = byteStream.ToArray();
@@ -254,7 +239,7 @@ namespace MS.Internal.AppModel
                             NrbfDecoder.Decode(dataStream, leaveOpen: true).TryGetFrameworkObject(out object val);
                             newValue = val;
                         }
-                        catch (Exception ex) when (!ex.IsCriticalException())
+                        catch (Exception ex) when (!MS.Internal.CriticalExceptions.IsCriticalException(ex))
                         {
                             // Being extra cautious here, but the Try method above should never throw in normal circumstances.
                             Debug.Fail($"Unexpected exception reading binary formatted data. {ex.Message}");

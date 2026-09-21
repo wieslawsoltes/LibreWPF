@@ -34,6 +34,11 @@ namespace MS.Utility
             /// </remarks>
             internal static bool AreDpiAwarenessContextsEqual(IntPtr dpiContextA, IntPtr dpiContextB)
             {
+                if (!OperatingSystem.IsWindows())
+                {
+                    return AreDpiAwarenessContextsTriviallyEqual(dpiContextA, dpiContextB);
+                }
+
                 if (IsAreDpiAwarenessContextsEqualMethodSupported)
                 {
                     try

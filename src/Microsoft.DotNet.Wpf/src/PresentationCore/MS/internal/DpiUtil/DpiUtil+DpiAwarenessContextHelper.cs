@@ -41,6 +41,11 @@ namespace MS.Internal
             /// <returns>DPI Awareness Context handle of <paramref name="hWnd"/></returns>
             internal static DpiAwarenessContextHandle GetDpiAwarenessContext(IntPtr hWnd)
             {
+                if (!OperatingSystem.IsWindows())
+                {
+                    return NativeMethods.DPI_AWARENESS_CONTEXT_UNAWARE;
+                }
+
                 if (IsGetWindowDpiAwarenessContextMethodSupported)
                 {
                     try
@@ -98,6 +103,11 @@ namespace MS.Internal
             /// <returns>The DPI awareness context</returns>
             private static DpiAwarenessContextHandle GetWindowDpiAwarenessContext(IntPtr hWnd)
             {
+                if (!OperatingSystem.IsWindows())
+                {
+                    return NativeMethods.DPI_AWARENESS_CONTEXT_UNAWARE;
+                }
+
                 return SafeNativeMethods.GetWindowDpiAwarenessContext(hWnd);
             }
         }

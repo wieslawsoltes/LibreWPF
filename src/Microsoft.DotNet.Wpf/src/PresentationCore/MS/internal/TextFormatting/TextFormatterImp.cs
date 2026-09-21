@@ -7,6 +7,7 @@ using MS.Utility;
 using MS.Internal.Shaping;
 using MS.Internal.Text.TextInterface;
 using MS.Internal.FontCache;
+using ProGPU.Wpf.Interop;
 
 namespace MS.Internal.TextFormatting
 {
@@ -221,7 +222,24 @@ namespace MS.Internal.TextFormatting
 
             TextLine textLine = null;
 
-            if (    !settings.Pap.AlwaysCollapsible
+            // A registered portable provider owns the complete line, including simple
+            // text and continuations. Never select an OS text engine from its contents.
+            bool nativeLineServices = IsNativeLineServicesAvailable;
+            if (!nativeLineServices)
+            {
+                if (lineLength != 0)
+                    throw new PlatformNotSupportedException("Portable text does not support recreating optimal-break lines.");
+
+                textLine = PortableTextLine.Create(settings, firstCharIndex,
+                    RealToIdealFloor(paragraphWidth), textSource.PixelsPerDip);
+                if (textLine == null && OperatingSystem.IsWindows())
+                {
+                    throw new PlatformNotSupportedException("Portable Windows text requires a registered text formatting provider before source construction.");
+                }
+            }
+
+            if (    textLine == null
+                &&  !settings.Pap.AlwaysCollapsible
                 &&  previousLineBreak == null
                 &&  lineLength <= 0
                 )
@@ -233,6 +251,27 @@ namespace MS.Internal.TextFormatting
                     RealToIdealFloor(paragraphWidth),
                     textSource.PixelsPerDip
                     ) as TextLine;
+            }
+
+            if (textLine == null)
+            {
+                if (!nativeLineServices)
+                {
+                    // Compatibility-only, provider-less non-Windows bring-up.
+                    textLine = SimpleTextLine.Create(
+                        settings,
+                        firstCharIndex,
+                        0,
+                        textSource.PixelsPerDip
+                    ) as TextLine;
+
+                    textLine ??= SimpleTextLine.CreatePortableFallback(
+                        settings,
+                        firstCharIndex,
+                        RealToIdealFloor(paragraphWidth),
+                        textSource.PixelsPerDip
+                        ) as TextLine;
+                }
             }
 
             if (textLine == null)
@@ -305,6 +344,38 @@ namespace MS.Internal.TextFormatting
                 _textFormattingMode
                 );
 
+            if (!IsNativeLineServicesAvailable)
+            {
+                if (PortableWpfServiceRegistry.TryGetTextFormatting(out var service))
+                    return PortableTextLine.MeasureIntrinsicWidths(settings, firstCharIndex, textSource.PixelsPerDip, service);
+                if (OperatingSystem.IsWindows())
+                    throw new PlatformNotSupportedException("Portable Windows text requires a registered text formatting provider for intrinsic measurement.");
+
+                TextLine simpleLine = SimpleTextLine.Create(
+                    settings,
+                    firstCharIndex,
+                    0,
+                    textSource.PixelsPerDip
+                    ) as TextLine;
+
+                if (simpleLine != null)
+                {
+                    MinMaxParagraphWidth simpleMinMax = new MinMaxParagraphWidth(simpleLine.Width, simpleLine.WidthIncludingTrailingWhitespace);
+                    simpleLine.Dispose();
+                    return simpleMinMax;
+                }
+
+                TextLine fallbackLine = SimpleTextLine.CreatePortableFallback(
+                    settings,
+                    firstCharIndex,
+                    0,
+                    textSource.PixelsPerDip
+                    ) as TextLine;
+                MinMaxParagraphWidth fallbackMinMax = new MinMaxParagraphWidth(fallbackLine.Width, fallbackLine.WidthIncludingTrailingWhitespace);
+                fallbackLine.Dispose();
+                return fallbackMinMax;
+            }
+
             // create specialized line specifically for min/max calculation
             TextMetrics.FullTextLine line = new TextMetrics.FullTextLine(
                 settings,
@@ -327,6 +398,11 @@ namespace MS.Internal.TextFormatting
             {
                 return _textFormattingMode;
             }
+        }
+
+        internal static bool IsNativeLineServicesAvailable
+        {
+            get { return PortableWpfRuntime.GetMediaBackendAndFreeze() == PortableWpfMediaBackend.WindowsMil; }
         }
 
         /// <summary>
@@ -366,6 +442,9 @@ namespace MS.Internal.TextFormatting
                 false,  // !isSingleLineFormatting
                 _textFormattingMode
                 );
+
+            if (!IsNativeLineServicesAvailable)
+                throw new PlatformNotSupportedException("Portable text does not support optimal paragraph caches.");
 
             //
             // Optimal paragraph formatting session specific check
@@ -502,6 +581,9 @@ namespace MS.Internal.TextFormatting
             )
         {
             Invariant.Assert(owner != null);
+
+            if (!IsNativeLineServicesAvailable)
+                throw new PlatformNotSupportedException("Windows LineServices contexts cannot be acquired for portable media.");
 
             TextFormatterContext context = null;
 
@@ -773,4 +855,3 @@ namespace MS.Internal.TextFormatting
         }
     }
 }
-

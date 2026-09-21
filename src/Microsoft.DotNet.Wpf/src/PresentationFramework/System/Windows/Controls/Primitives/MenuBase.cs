@@ -547,7 +547,9 @@ namespace System.Windows.Controls.Primitives
                     if (MenuBase.IsDescendant(menu, e.OriginalSource as DependencyObject))
                     {
                         // Take capture if one of our children gave up capture
-                        if (menu.IsMenuMode && Mouse.Captured == null && MS.Win32.SafeNativeMethods.GetCapture() == IntPtr.Zero)
+                        if (menu.IsMenuMode &&
+                            Mouse.Captured == null &&
+                            !PopupControlService.HasNativeMouseCapture(PresentationSource.CriticalFromVisual(menu)))
                         {
                             Mouse.Capture(menu, CaptureMode.SubTree);
                             e.Handled = true;
@@ -607,9 +609,15 @@ namespace System.Windows.Controls.Primitives
                 // HwndSource.  This enables child HWNDs, other top-level
                 // non-WPF HWNDs, or even child HWNDs of other WPF top-level
                 // windows to retain focus when menus are dismissed.
-                IntPtr hwndWithFocus = MS.Win32.UnsafeNativeMethods.GetFocus();
-                HwndSource hwndSourceWithFocus = hwndWithFocus != IntPtr.Zero ? HwndSource.CriticalFromHwnd(hwndWithFocus) : null;
-                if(hwndSourceWithFocus != null)
+                HwndSource hwndSourceWithFocus = null;
+                bool usesNativeWindowing = PopupControlService.UsesNativeWindowing(PresentationSource.CriticalFromVisual(this));
+                if (usesNativeWindowing)
+                {
+                    IntPtr hwndWithFocus = MS.Win32.UnsafeNativeMethods.GetFocus();
+                    hwndSourceWithFocus = hwndWithFocus != IntPtr.Zero ? HwndSource.CriticalFromHwnd(hwndWithFocus) : null;
+                }
+
+                if(!usesNativeWindowing || hwndSourceWithFocus != null)
                 {
                     // We restore focus by setting focus to the parent's focus
                     // scope.  This may not seem correct, because it presumes
@@ -887,7 +895,12 @@ namespace System.Windows.Controls.Primitives
         {
             Debug.Assert(_pushedMenuMode == null);
             _pushedMenuMode = PresentationSource.CriticalFromVisual(this);
-            Debug.Assert(_pushedMenuMode != null);
+            if (_pushedMenuMode == null)
+            {
+                // Portable popup sources can be attached after Opened is raised.
+                IsAcquireFocusMenuMode = false;
+                return;
+            }
             IsAcquireFocusMenuMode = isAcquireFocusMenuMode;
             InputManager.UnsecureCurrent.PushMenuMode(_pushedMenuMode);
         }

@@ -24,8 +24,13 @@ namespace System.Windows.Documents
     /// 
     /// AdornerLayer expects to be parented by an AdornerDecorator.
     /// </summary>
-    public class AdornerLayer : FrameworkElement
+    public class AdornerLayer : FrameworkElement, IPortableVisualOwnerHost
     {
+        PortableVisualOwnerKind IPortableVisualOwnerHost.PortableVisualOwnerKind
+        {
+            get { return PortableVisualOwnerKind.TransparentPointerOverlay; }
+        }
+
         /// <summary>
         /// Adorner information
         /// </summary>
@@ -1012,6 +1017,5 @@ namespace System.Windows.Documents
         #endregion Private Fields
     }
 }
-
 
 

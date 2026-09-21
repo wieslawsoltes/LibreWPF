@@ -4,6 +4,7 @@
 //
 
 using System.Windows.Media.Composition;
+using ProGPU.Wpf.Interop;
 
 namespace System.Windows.Media
 {
@@ -11,11 +12,17 @@ namespace System.Windows.Media
     /// A DrawingVisual is a Visual that can be used to render Vector graphics on the screen.
     /// The content is persistet by the System.
     /// </summary>
-    public class DrawingVisual : ContainerVisual
+    public class DrawingVisual : ContainerVisual, IPortableDrawingContentSource
     {
         // bbox in inner coordinate space. Note that this bbox does not
         // contain the childrens extent.
         private IDrawingContent _content;
+
+        bool IPortableDrawingContentSource.TryGetPortableDrawingContent(out object content)
+        {
+            content = _content;
+            return true;
+        }
 
         /// <summary>
         /// HitTestCore implements precise hit testing against render contents
@@ -67,7 +74,7 @@ namespace System.Windows.Media
         {
             VerifyAPIReadWrite();
 
-            return new VisualDrawingContext(this);
+            return VisualDrawingContext.Create(this);
         }
 
         /// <summary>
@@ -270,4 +277,3 @@ namespace System.Windows.Media
         }  
     }
 }
-

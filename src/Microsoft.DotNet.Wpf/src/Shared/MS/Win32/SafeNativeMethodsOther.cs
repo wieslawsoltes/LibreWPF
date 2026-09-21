@@ -8,6 +8,8 @@ namespace MS.Win32
 {
     internal partial class SafeNativeMethods
     {
+        private const int DefaultCaretBlinkTimeMilliseconds = 500;
+
         [Flags]
         internal enum PlaySoundFlags
         {
@@ -55,6 +57,14 @@ namespace MS.Win32
             // But we don't want to introduce new "throws" w/o 
             // time to follow up on any new problems that causes.
 
+            if (!OperatingSystem.IsWindows())
+            {
+                // GetCaretBlinkTime reports zero only when the Win32 call fails.
+                // Returning that value for a platform without user32 causes WPF's
+                // caret animation to interpret the missing API as "do not blink".
+                return DefaultCaretBlinkTimeMilliseconds;
+            }
+
             return SafeNativeMethodsPrivate.GetCaretBlinkTime();
         }
 
@@ -92,11 +102,59 @@ namespace MS.Win32
 
         public static int GetSysColor(int nIndex)
         {
-            return SafeNativeMethodsPrivate.GetSysColor(nIndex);
+            return OperatingSystem.IsWindows()
+                ? SafeNativeMethodsPrivate.GetSysColor(nIndex)
+                : GetDefaultSysColor(nIndex);
+        }
+
+        private static int GetDefaultSysColor(int nIndex)
+        {
+            return nIndex switch
+            {
+                0 => ColorRef(200, 200, 200),
+                1 => ColorRef(0, 0, 0),
+                2 => ColorRef(153, 180, 209),
+                3 => ColorRef(191, 205, 219),
+                4 => ColorRef(240, 240, 240),
+                5 => ColorRef(255, 255, 255),
+                6 => ColorRef(100, 100, 100),
+                7 => ColorRef(0, 0, 0),
+                8 => ColorRef(0, 0, 0),
+                9 => ColorRef(0, 0, 0),
+                10 => ColorRef(180, 180, 180),
+                11 => ColorRef(244, 247, 252),
+                12 => ColorRef(171, 171, 171),
+                13 => ColorRef(0, 120, 215),
+                14 => ColorRef(255, 255, 255),
+                15 => ColorRef(240, 240, 240),
+                16 => ColorRef(160, 160, 160),
+                17 => ColorRef(109, 109, 109),
+                18 => ColorRef(0, 0, 0),
+                19 => ColorRef(0, 0, 0),
+                20 => ColorRef(255, 255, 255),
+                21 => ColorRef(105, 105, 105),
+                22 => ColorRef(227, 227, 227),
+                23 => ColorRef(0, 0, 0),
+                24 => ColorRef(255, 255, 225),
+                26 => ColorRef(0, 102, 204),
+                27 => ColorRef(185, 209, 234),
+                28 => ColorRef(215, 228, 242),
+                29 => ColorRef(51, 153, 255),
+                30 => ColorRef(240, 240, 240),
+                _ => ColorRef(255, 255, 255),
+            };
+        }
+
+        private static int ColorRef(int red, int green, int blue)
+        {
+            return red | (green << 8) | (blue << 16);
         }
 
 #if FRAMEWORK_NATIVEMETHODS || BASE_NATIVEMETHODS 
-        public static bool IsDebuggerPresent() { return SafeNativeMethodsPrivate.IsDebuggerPresent(); }
+        public static bool IsDebuggerPresent()
+        {
+            return OperatingSystem.IsWindows() && SafeNativeMethodsPrivate.IsDebuggerPresent();
+        }
 #endif
 
 #if BASE_NATIVEMETHODS
@@ -168,4 +226,3 @@ namespace MS.Win32
         }
     }
 }
-

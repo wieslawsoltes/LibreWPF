@@ -152,6 +152,11 @@ namespace MS { namespace Internal { namespace Text { namespace TextInterface
         return (System::IntPtr)_font->Value;
     }
 
+    bool Font::HasDWriteFont::get()
+    {
+        return _font != nullptr && _font->Value != nullptr;
+    }
+
     __declspec(noinline) FontFamily^ Font::Family::get()
     {
         IDWriteFontFamily* dwriteFontFamily;

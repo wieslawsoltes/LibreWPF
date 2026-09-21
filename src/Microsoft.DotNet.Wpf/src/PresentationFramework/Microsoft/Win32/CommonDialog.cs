@@ -2,6 +2,7 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Runtime.InteropServices;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Windows;
 using System.Windows.Interop;
@@ -58,6 +59,19 @@ namespace Microsoft.Win32
             {
                 throw new InvalidOperationException(SR.CantShowModalOnNonInteractive);
             }
+
+            if (this is CommonItemDialog itemDialog &&
+                itemDialog.TryRunPortableDialog(out bool? portableResult))
+            {
+                return portableResult;
+            }
+
+            return ShowWin32Dialog();
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private bool? ShowWin32Dialog()
+        {
 
             // Call GetActiveWindow to retrieve the window handle to the active window
             // attached to the calling thread's message queue.  We'll set the owner of
@@ -129,6 +143,19 @@ namespace Microsoft.Win32
             {
                 throw new InvalidOperationException(SR.CantShowModalOnNonInteractive);
             }
+
+            if (this is CommonItemDialog itemDialog &&
+                itemDialog.TryRunPortableDialog(out bool? portableResult))
+            {
+                return portableResult;
+            }
+
+            return ShowWin32Dialog(owner);
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private bool? ShowWin32Dialog(Window owner)
+        {
 
             // Get the handle of the owner window using WindowInteropHelper.
             IntPtr hwndOwner = (new WindowInteropHelper(owner)).Handle;

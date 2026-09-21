@@ -1,15 +1,23 @@
 <Project Sdk="Microsoft.Build.NoTargets">
 
+  <PropertyGroup>
+    <CspTargetFramework Condition="'$(CspTargetFramework)' == '' and '$(OS)' == 'Windows_NT'">net48</CspTargetFramework>
+    <CspTargetFramework Condition="'$(CspTargetFramework)' == ''">net10.0</CspTargetFramework>
+    <McgOutputDirectory>$([System.IO.Path]::Combine('$(RepoRoot)', 'src', 'Microsoft.DotNet.Wpf'))</McgOutputDirectory>
+  </PropertyGroup>
+
   <Target Name="RunTool" BeforeTargets="AfterBuild">
-    <MSBuild Projects="..\..\tools\csp\csp.csproj" Targets="Restore;Build">
+    <MSBuild Projects="..\..\tools\csp\csp.csproj" Targets="Restore;Build" Properties="TargetFramework=$(CspTargetFramework)">
       <Output TaskParameter="TargetOutputs" ItemName="CspBuildOutput" />
     </MSBuild>
     <PropertyGroup>
       <CspExe>@(CspBuildOutput)</CspExe>
       <CspExeDirectory>$([System.IO.Directory]::GetParent('$(CspExe)'))</CspExeDirectory>
     </PropertyGroup>
-    <Exec Command="tools\GenerateFiles.cmd" EnvironmentVariables="RepoRoot=$(RepoRoot);CspExePath=$(CspExeDirectory);WindowsSdkPath=$(TargetFrameworkSDKToolsDirectory)" />
-    <Exec Command="tools\GenerateElements.cmd" EnvironmentVariables="RepoRoot=$(RepoRoot);CspExePath=$(CspExeDirectory);WindowsSdkPath=$(TargetFrameworkSDKToolsDirectory)" />
+    <Exec Condition="'$(OS)' == 'Windows_NT'" Command="tools\GenerateFiles.cmd" EnvironmentVariables="RepoRoot=$(RepoRoot);CspExePath=$(CspExeDirectory);WindowsSdkPath=$(TargetFrameworkSDKToolsDirectory)" />
+    <Exec Condition="'$(OS)' == 'Windows_NT'" Command="tools\GenerateElements.cmd" EnvironmentVariables="RepoRoot=$(RepoRoot);CspExePath=$(CspExeDirectory);WindowsSdkPath=$(TargetFrameworkSDKToolsDirectory)" />
+    <Exec Condition="'$(OS)' != 'Windows_NT'" WorkingDirectory="$(MSBuildThisFileDirectory)" Command="dotnet &quot;$(CspExe)&quot; -rsp:main/Resources.rsp -enableCsPrime -r:System.Xml.dll -- -xmlFile:xml/Resource.xml -xsdFile:xml/Resource.xsd -o:&quot;$(McgOutputDirectory)&quot;" />
+    <Exec Condition="'$(OS)' != 'Windows_NT'" WorkingDirectory="$(MSBuildThisFileDirectory)" Command="dotnet &quot;$(CspExe)&quot; -rsp:main/Elements.rsp -enableCsPrime -r:System.Xml.dll -- -xmlFile:xml/Elements.xml -dataType:MS.Internal.MilCodeGen.ResourceModel.CG -o:&quot;$(McgOutputDirectory)&quot;" />
   </Target>
 
 </Project>

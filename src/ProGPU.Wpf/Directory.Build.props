@@ -1,0 +1,25 @@
+<Project>
+  <PropertyGroup>
+    <PackageProjectUrl Condition="'$(PackageProjectUrl)' == ''">https://github.com/wieslawsoltes/wpf</PackageProjectUrl>
+    <RepositoryUrl Condition="'$(RepositoryUrl)' == ''">https://github.com/wieslawsoltes/wpf</RepositoryUrl>
+    <RepositoryType Condition="'$(RepositoryType)' == ''">git</RepositoryType>
+    <TargetFramework>net10.0</TargetFramework>
+    <TargetFrameworkVersion>10.0</TargetFrameworkVersion>
+    <VersionPrefix Condition="'$(VersionPrefix)' == ''">0.1.0</VersionPrefix>
+    <VersionSuffix Condition="'$(VersionSuffix)' == ''">preview.45</VersionSuffix>
+    <Version Condition="'$(Version)' == ''">$(VersionPrefix)-$(VersionSuffix)</Version>
+    <PackageVersion Condition="'$(PackageVersion)' == ''">$(Version)</PackageVersion>
+    <AssemblyVersion Condition="'$(AssemblyVersion)' == ''">0.1.0.0</AssemblyVersion>
+    <FileVersion Condition="'$(FileVersion)' == ''">0.1.0.0</FileVersion>
+    <InformationalVersion Condition="'$(InformationalVersion)' == ''">$(Version)</InformationalVersion>
+    <PackageReleaseNotes Condition="'$(PackageReleaseNotes)' == ''">Aligns LibreWPF preview.45 with immutable ProGPU preview.55, fixes GeometryGroup child ABI compatibility, and consumes the latest native text, retained semantic rendering, damage replay, font fallback, and performance improvements; retains typed reflection-free replay, per-monitor DPI, native activation and input, bounded resource ownership, and package-mode application gates.</PackageReleaseNotes>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <LangVersion>latest</LangVersion>
+    <EnableNETAnalyzers>false</EnableNETAnalyzers>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <CodeAnalysisTreatWarningsAsErrors>false</CodeAnalysisTreatWarningsAsErrors>
+    <WarningsAsErrors></WarningsAsErrors>
+  </PropertyGroup>
+</Project>

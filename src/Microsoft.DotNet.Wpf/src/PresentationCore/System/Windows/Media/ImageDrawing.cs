@@ -7,13 +7,15 @@
 //              an image into a destination rectangle.
 //
 
+using ProGPU.Wpf.Interop;
+
 namespace System.Windows.Media
 {
     /// <summary>
     /// ImageDrawing represents a drawing operation that renders an image into 
     /// a destination rectangle
     /// </summary>
-    public sealed partial class ImageDrawing : Drawing
+    public sealed partial class ImageDrawing : Drawing, IPortableImageDrawingStateSource
     {
         #region Constructors
 
@@ -34,7 +36,35 @@ namespace System.Windows.Media
         {
             ImageSource = imageSource;
             Rect = rect;
-        }               
+        }
+
+        bool IPortableImageDrawingStateSource.TryGetPortableImageDrawingState(out PortableImageDrawingState state)
+        {
+            Rect rect = Rect;
+            ImageSource imageSource = ImageSource;
+
+            state = new PortableImageDrawingState
+            {
+                HasImageSource = imageSource != null,
+                ImageSource = imageSource,
+                HasRect = IsPortableUsableRect(rect),
+                Rect = IsPortableUsableRect(rect)
+                    ? new PortableRect(rect.X, rect.Y, rect.Width, rect.Height)
+                    : PortableRect.Empty
+            };
+            return true;
+        }
+
+        private static bool IsPortableUsableRect(Rect rect)
+        {
+            return !rect.IsEmpty
+                && double.IsFinite(rect.X)
+                && double.IsFinite(rect.Y)
+                && double.IsFinite(rect.Width)
+                && double.IsFinite(rect.Height)
+                && rect.Width > 0
+                && rect.Height > 0;
+        }
 
         #endregion        
 
@@ -59,4 +89,3 @@ namespace System.Windows.Media
         #endregion Internal methods 
     }
 }
-

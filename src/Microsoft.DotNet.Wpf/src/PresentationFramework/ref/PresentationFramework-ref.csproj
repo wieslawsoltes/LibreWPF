@@ -7,7 +7,7 @@
     <DefineConstants Condition="'$(WeakEventTelemetry)'=='true'">$(DefineConstants);WeakEventTelemetry</DefineConstants>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <EnablePInvokeAnalyzer>false</EnablePInvokeAnalyzer>
-    <NoWarn>$(NoWarn);0618;1058,3003</NoWarn>
+    <NoWarn>$(NoWarn);0618;1058,3003;WPF0001</NoWarn>
     <ResolveAssemblyWarnOrErrorOnTargetArchitectureMismatch>None</ResolveAssemblyWarnOrErrorOnTargetArchitectureMismatch>
     <Platforms>AnyCPU</Platforms>
     <GenerateDependencyFile>false</GenerateDependencyFile>
@@ -27,6 +27,7 @@
     <ProjectReference Include="$(WpfSourceDir)System.Printing\ref\System.Printing-ref.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="$(WpfSourceDir)..\..\..\external\ProGPU\src\ProGPU.Wpf.Interop\ProGPU.Wpf.Interop.csproj" />
     <ProjectReference Include="$(WpfSourceDir)PresentationCore\ref\PresentationCore-ref.csproj" />
     <ProjectReference Include="$(WpfSourceDir)System.Xaml\ref\System.Xaml-ref.csproj" />
     <ProjectReference Include="$(WpfSourceDir)WindowsBase\ref\WindowsBase-ref.csproj" />

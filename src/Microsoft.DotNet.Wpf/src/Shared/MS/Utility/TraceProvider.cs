@@ -403,6 +403,18 @@ namespace MS.Utility
         }
     }
 
+    internal sealed class NullTraceProvider : TraceProvider
+    {
+        internal override void Register(Guid providerGuid)
+        {
+        }
+
+        internal override unsafe uint EventWrite(EventTrace.Event eventID, EventTrace.Keyword keywords, EventTrace.Level level, int argc, EventData* argv)
+        {
+            return 0;
+        }
+    }
+
     // XP
     internal sealed class ClassicTraceProvider : TraceProvider
     {

@@ -105,6 +105,11 @@ namespace System.Windows.Documents
 
         public static SpellerInteropBase CreateInstance()
         {
+            if (!System.OperatingSystem.IsWindows())
+            {
+                return new NullSpellerInterop();
+            }
+
             SpellerInteropBase spellerInterop = null;
 
             bool winRTSupport = false;
@@ -225,5 +230,176 @@ namespace System.Windows.Documents
         internal abstract bool CanSpellCheck(CultureInfo culture);
 
         #endregion Abstract Methods
+
+        private sealed class NullSpellerInterop : SpellerInteropBase
+        {
+            private static readonly IReadOnlyList<ISpellerSegment> EmptySegments = Array.Empty<ISpellerSegment>();
+            private static readonly IReadOnlyList<string> EmptySuggestions = Array.Empty<string>();
+
+            public override void Dispose()
+            {
+                Dispose(true);
+                GC.SuppressFinalize(this);
+            }
+
+            protected override void Dispose(bool disposing)
+            {
+            }
+
+            internal override void SetLocale(CultureInfo culture)
+            {
+            }
+
+            internal override int EnumTextSegments(
+                char[] text,
+                int count,
+                EnumSentencesCallback sentenceCallback,
+                EnumTextSegmentsCallback segmentCallback,
+                object data)
+            {
+                ArgumentNullException.ThrowIfNull(text);
+
+                if (count <= 0)
+                {
+                    return 0;
+                }
+
+                count = Math.Min(count, text.Length);
+                string sourceString = new string(text, 0, count);
+                List<ISpellerSegment> segments = BreakIntoSegments(sourceString, count);
+                bool continueIteration = true;
+
+                if (segmentCallback != null)
+                {
+                    for (int i = 0; continueIteration && i < segments.Count; i++)
+                    {
+                        continueIteration = segmentCallback(segments[i], data);
+                    }
+                }
+
+                if (continueIteration && sentenceCallback != null)
+                {
+                    continueIteration = sentenceCallback(new Sentence(segments, count), data);
+                }
+
+                return segments.Count;
+            }
+
+            private static List<ISpellerSegment> BreakIntoSegments(string sourceString, int count)
+            {
+                var segments = new List<ISpellerSegment>();
+
+                for (int index = 0; index < count;)
+                {
+                    while (index < count && IsWordBreakCharacter(sourceString[index]))
+                    {
+                        index++;
+                    }
+
+                    int start = index;
+                    while (index < count && !IsWordBreakCharacter(sourceString[index]))
+                    {
+                        index++;
+                    }
+
+                    int length = index - start;
+                    if (length > 0)
+                    {
+                        segments.Add(new Segment(sourceString, start, length));
+                    }
+                }
+
+                return segments;
+            }
+
+            private static bool IsWordBreakCharacter(char value)
+            {
+                return char.IsWhiteSpace(value) || char.IsPunctuation(value) || char.IsSymbol(value);
+            }
+
+            private sealed class Sentence : ISpellerSentence
+            {
+                public Sentence(IReadOnlyList<ISpellerSegment> segments, int endOffset)
+                {
+                    Segments = segments;
+                    EndOffset = endOffset;
+                }
+
+                public IReadOnlyList<ISpellerSegment> Segments { get; }
+
+                public int EndOffset { get; }
+            }
+
+            internal override void UnloadDictionary(object dictionary)
+            {
+            }
+
+            internal override object LoadDictionary(string lexiconFilePath)
+            {
+                return null;
+            }
+
+            internal override object LoadDictionary(Uri item, string trustedFolder)
+            {
+                return null;
+            }
+
+            internal override void ReleaseAllLexicons()
+            {
+            }
+
+            internal override SpellerMode Mode
+            {
+                set
+                {
+                }
+            }
+
+            internal override bool MultiWordMode
+            {
+                set
+                {
+                }
+            }
+
+            internal override void SetReformMode(CultureInfo culture, SpellingReform spellingReform)
+            {
+            }
+
+            internal override bool CanSpellCheck(CultureInfo culture)
+            {
+                return false;
+            }
+
+            private sealed class Segment : ISpellerSegment, ITextRange
+            {
+                public Segment(string sourceString, int start, int length)
+                {
+                    SourceString = sourceString;
+                    Start = start;
+                    Length = length;
+                }
+
+                public string SourceString { get; }
+
+                public IReadOnlyList<ISpellerSegment> SubSegments => EmptySegments;
+
+                public ITextRange TextRange => this;
+
+                public string Text => SourceString.Substring(Start, Length);
+
+                public IReadOnlyList<string> Suggestions => EmptySuggestions;
+
+                public bool IsClean => true;
+
+                public int Start { get; }
+
+                public int Length { get; }
+
+                public void EnumSubSegments(EnumTextSegmentsCallback segmentCallback, object data)
+                {
+                }
+            }
+        }
     }
 }

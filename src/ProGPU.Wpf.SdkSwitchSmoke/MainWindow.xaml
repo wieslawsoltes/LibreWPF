@@ -1,0 +1,890 @@
+<Window
+    x:Class="ProGPU.Wpf.SdkSwitchSmoke.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:componentModel="clr-namespace:System.ComponentModel;assembly=WindowsBase"
+    xmlns:library="clr-namespace:ProGPU.Wpf.SdkSwitchLibrary;assembly=ProGPU.Wpf.SdkSwitchLibrary"
+    xmlns:local="clr-namespace:ProGPU.Wpf.SdkSwitchSmoke"
+    x:Name="RootWindow"
+    Title="ProGPU WPF SDK Smoke"
+    Width="420"
+    Height="840"
+    Loaded="OnSdkSwitchSmokeWindowLoaded">
+    <Window.CommandBindings>
+        <CommandBinding
+            CanExecute="OnSmokeCommandCanExecute"
+            Command="{x:Static local:MainWindow.SmokeCommand}"
+            Executed="OnSmokeCommandExecuted" />
+    </Window.CommandBindings>
+
+    <Window.InputBindings>
+        <KeyBinding
+            Key="F6"
+            Modifiers="Control"
+            Command="{x:Static local:MainWindow.SmokeCommand}"
+            CommandParameter="input binding payload" />
+        <MouseBinding
+            Gesture="LeftDoubleClick"
+            Command="{x:Static local:MainWindow.SmokeCommand}"
+            CommandParameter="mouse binding payload" />
+    </Window.InputBindings>
+
+    <Window.Resources>
+        <Style x:Key="ActionButtonStyle" TargetType="{x:Type Button}">
+            <Setter Property="Width" Value="180" />
+            <Setter Property="Padding" Value="8,4" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="Background" Value="{DynamicResource SmokeAccentBrush}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type Button}">
+                        <Border
+                            x:Name="ButtonChrome"
+                            Background="{TemplateBinding Background}"
+                            Padding="{TemplateBinding Padding}">
+                            <VisualStateManager.VisualStateGroups>
+                                <VisualStateGroup x:Name="CommonStates">
+                                    <VisualState x:Name="Normal" />
+                                    <VisualState x:Name="Disabled" />
+                                </VisualStateGroup>
+                            </VisualStateManager.VisualStateGroups>
+                            <ContentPresenter
+                                x:Name="ButtonContent"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="ButtonChrome" Property="Opacity" Value="0.5" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="EventSetterButtonStyle" TargetType="{x:Type Button}">
+            <Setter Property="Tag" Value="event setter styled" />
+            <EventSetter Event="Click" Handler="OnEventSetterButtonClick" />
+        </Style>
+
+        <Style x:Key="PropertyTriggeredTextStyle" TargetType="{x:Type TextBlock}">
+            <Setter Property="Text" Value="property trigger inactive" />
+            <Style.Triggers>
+                <Trigger Property="Tag" Value="Active">
+                    <Setter Property="Text" Value="property trigger active" />
+                    <Setter Property="Foreground" Value="{DynamicResource SmokeAccentBrush}" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="DataTriggeredTextStyle" TargetType="{x:Type TextBlock}">
+            <Setter Property="Text" Value="data trigger inactive" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsHighlighted}" Value="True">
+                    <Setter Property="Text" Value="data trigger active" />
+                    <Setter Property="Foreground" Value="{DynamicResource MergedAccentBrush}" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="MultiTriggeredTextStyle" TargetType="{x:Type TextBlock}">
+            <Setter Property="Text" Value="multi trigger inactive" />
+            <Style.Triggers>
+                <MultiTrigger>
+                    <MultiTrigger.Conditions>
+                        <Condition Property="Tag" Value="Active" />
+                        <Condition Property="IsEnabled" Value="True" />
+                    </MultiTrigger.Conditions>
+                    <Setter Property="Text" Value="multi trigger active" />
+                    <Setter Property="Foreground" Value="{DynamicResource SmokeAccentBrush}" />
+                </MultiTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="MultiDataTriggeredTextStyle" TargetType="{x:Type TextBlock}">
+            <Setter Property="Text" Value="multi data trigger inactive" />
+            <Style.Triggers>
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding IsHighlighted}" Value="True" />
+                        <Condition Binding="{Binding IsCritical}" Value="True" />
+                    </MultiDataTrigger.Conditions>
+                    <Setter Property="Text" Value="multi data trigger active" />
+                    <Setter Property="Foreground" Value="{DynamicResource MergedAccentBrush}" />
+                </MultiDataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <DataTemplate x:Key="SmokeItemTemplate">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock
+                    MinWidth="72"
+                    Style="{StaticResource SmokeListTextStyle}"
+                    Text="{Binding Name}" />
+                <TextBlock Text="{Binding Value}" />
+            </StackPanel>
+        </DataTemplate>
+
+        <DataTemplate DataType="{x:Type local:SmokeItem}">
+            <TextBlock
+                x:Name="ImplicitSmokeItemText"
+                Text="{Binding Name, StringFormat=implicit: {0}}" />
+        </DataTemplate>
+
+        <HierarchicalDataTemplate
+            x:Key="SmokeHierarchyTemplate"
+            ItemsSource="{Binding Children}">
+            <TextBlock Text="{Binding Name}" />
+        </HierarchicalDataTemplate>
+
+        <ItemsPanelTemplate x:Key="SmokeWrapPanelTemplate">
+            <WrapPanel Orientation="Horizontal" />
+        </ItemsPanelTemplate>
+
+        <Style x:Key="SmokeItemContainerStyle" TargetType="{x:Type ContentPresenter}">
+            <Setter Property="Tag" Value="container style active" />
+        </Style>
+
+        <DataTemplate x:Key="SmokeGroupHeaderTemplate">
+            <TextBlock
+                FontWeight="Bold"
+                Text="{Binding Name}" />
+        </DataTemplate>
+
+        <DataTemplate x:Key="SmokeFrameworkItemTemplate">
+            <TextBlock Text="{Binding Name, StringFormat=framework: {0}}" />
+        </DataTemplate>
+
+        <DataTemplate x:Key="SmokeRenderingItemTemplate">
+            <TextBlock
+                FontWeight="Bold"
+                Text="{Binding Name, StringFormat=rendering: {0}}" />
+        </DataTemplate>
+
+        <local:SmokeItemTemplateSelector
+            x:Key="SmokeItemTemplateSelector"
+            FrameworkTemplate="{StaticResource SmokeFrameworkItemTemplate}"
+            RenderingTemplate="{StaticResource SmokeRenderingItemTemplate}" />
+
+        <local:SmokeItemDisplayConverter x:Key="SmokeItemDisplayConverter" />
+        <local:SmokeItemSummaryConverter x:Key="SmokeItemSummaryConverter" />
+
+        <XmlDataProvider
+            x:Key="XmlSmokeData"
+            IsAsynchronous="False"
+            XPath="/smoke/item">
+            <x:XData>
+                <smoke xmlns="">
+                    <item name="xml" value="provider" />
+                </smoke>
+            </x:XData>
+        </XmlDataProvider>
+
+        <CollectionViewSource x:Key="GroupedItems" Source="{Binding Items}">
+            <CollectionViewSource.SortDescriptions>
+                <componentModel:SortDescription PropertyName="Name" Direction="Ascending" />
+            </CollectionViewSource.SortDescriptions>
+            <CollectionViewSource.GroupDescriptions>
+                <PropertyGroupDescription PropertyName="Category" />
+            </CollectionViewSource.GroupDescriptions>
+        </CollectionViewSource>
+    </Window.Resources>
+
+    <StackPanel
+        x:Name="RootPanel"
+        Margin="16"
+        local:SmokeRoutedEventSource.SmokeBubbled="OnSmokeBubbled">
+        <TextBlock
+            x:Name="Message"
+            Foreground="{DynamicResource MergedAccentBrush}"
+            Text="{Binding Title}" />
+        <TextBlock
+            x:Name="StartupResourceText"
+            Foreground="{DynamicResource StartupInjectedBrush}"
+            Text="{DynamicResource StartupInjectedText}" />
+        <Button
+            x:Name="ActionButton"
+            Margin="{StaticResource SmokePanelMargin}"
+            Click="OnActionButtonClick"
+            Content="{Binding ElementName=Message, Path=Text}"
+            Style="{StaticResource ActionButtonStyle}">
+            <Button.ToolTip>
+                <ToolTip
+                    x:Name="ActionToolTip"
+                    Content="Action tooltip content"
+                    Placement="Right" />
+            </Button.ToolTip>
+            <Button.ContextMenu>
+                <ContextMenu x:Name="ActionContextMenu">
+                    <MenuItem
+                        x:Name="ContextCommandMenuItem"
+                        Command="{x:Static local:MainWindow.SmokeCommand}"
+                        CommandParameter="context menu command payload"
+                        Header="_Context command" />
+                    <Separator />
+                    <MenuItem
+                        x:Name="ContextCheckableMenuItem"
+                        Header="_Context checked"
+                        IsCheckable="True"
+                        IsChecked="True" />
+                </ContextMenu>
+            </Button.ContextMenu>
+        </Button>
+        <TextBlock
+            x:Name="ClickStatus"
+            Margin="0,6,0,0"
+            Text="not clicked" />
+        <Button
+            x:Name="CommandButton"
+            Margin="0,8,0,0"
+            Command="{x:Static local:MainWindow.SmokeCommand}"
+            CommandParameter="routed command payload"
+            CommandTarget="{Binding ElementName=RootWindow}"
+            Content="Run routed command"
+            Style="{StaticResource ActionButtonStyle}" />
+        <TextBlock
+            x:Name="CommandStatus"
+            Margin="0,6,0,0"
+            Text="command not executed" />
+        <Button
+            x:Name="RequeryCommandButton"
+            Margin="0,8,0,0"
+            Command="{Binding RequeryCommand}"
+            CommandParameter="requery command payload"
+            Content="Run requery command"
+            Style="{StaticResource ActionButtonStyle}" />
+        <Button
+            x:Name="EventSetterButton"
+            Margin="0,8,0,0"
+            Content="Run event setter"
+            Style="{StaticResource EventSetterButtonStyle}" />
+        <TextBlock
+            x:Name="EventSetterStatus"
+            Margin="0,6,0,0"
+            Text="event setter idle" />
+        <Menu
+            x:Name="SmokeMenu"
+            Margin="0,8,0,0">
+            <MenuItem Header="_Smoke">
+                <MenuItem
+                    x:Name="CommandMenuItem"
+                    Command="{x:Static local:MainWindow.SmokeCommand}"
+                    CommandParameter="menu command payload"
+                    CommandTarget="{Binding ElementName=RootWindow}"
+                    Header="_Run command" />
+                <MenuItem
+                    x:Name="ClickMenuItem"
+                    Click="OnMenuItemClick"
+                    Header="_Click item" />
+                <Separator />
+                <MenuItem
+                    x:Name="CheckableMenuItem"
+                    Checked="OnCheckableMenuItemChecked"
+                    Header="_Checked item"
+                    IsCheckable="True"
+                    IsChecked="True"
+                    Unchecked="OnCheckableMenuItemUnchecked" />
+            </MenuItem>
+        </Menu>
+        <TextBlock
+            x:Name="MenuStatus"
+            Margin="0,6,0,0"
+            Text="menu idle" />
+        <StackPanel
+            x:Name="CheckChoicePanel"
+            Margin="{StaticResource SmokePanelMargin}">
+            <CheckBox
+                x:Name="ManagedCheckBox"
+                Checked="OnManagedCheckBoxChecked"
+                Content="Managed check"
+                IsChecked="True"
+                Unchecked="OnManagedCheckBoxUnchecked" />
+            <StackPanel Orientation="Horizontal">
+                <RadioButton
+                    x:Name="ManagedRadioAlpha"
+                    Checked="OnManagedRadioChecked"
+                    Content="Alpha"
+                    GroupName="ManagedRadioGroup"
+                    IsChecked="True"
+                    Unchecked="OnManagedRadioUnchecked" />
+                <RadioButton
+                    x:Name="ManagedRadioBeta"
+                    Margin="12,0,0,0"
+                    Checked="OnManagedRadioChecked"
+                    Content="Beta"
+                    GroupName="ManagedRadioGroup"
+                    Unchecked="OnManagedRadioUnchecked" />
+            </StackPanel>
+        </StackPanel>
+        <TextBlock
+            x:Name="CheckChoiceStatus"
+            Margin="0,6,0,0"
+            Text="check choice idle" />
+        <TextBlock
+            x:Name="PropertyTriggerStatus"
+            Margin="0,8,0,0"
+            Style="{StaticResource PropertyTriggeredTextStyle}"
+            Tag="Active" />
+        <TextBlock
+            x:Name="DataTriggerStatus"
+            Margin="0,6,0,0"
+            Style="{StaticResource DataTriggeredTextStyle}" />
+        <TextBlock
+            x:Name="MultiTriggerStatus"
+            Margin="0,6,0,0"
+            Style="{StaticResource MultiTriggeredTextStyle}"
+            Tag="Active" />
+        <TextBlock
+            x:Name="MultiDataTriggerStatus"
+            Margin="0,6,0,0"
+            Style="{StaticResource MultiDataTriggeredTextStyle}" />
+        <TextBlock
+            x:Name="LoadedStoryboardText"
+            Margin="0,6,0,0"
+            Loaded="OnLoadedStoryboardTextLoaded"
+            Opacity="1"
+            Text="loaded storyboard target">
+            <TextBlock.Triggers>
+                <EventTrigger RoutedEvent="FrameworkElement.Loaded">
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <DoubleAnimation
+                                Storyboard.TargetName="LoadedStoryboardText"
+                                Storyboard.TargetProperty="Opacity"
+                                Duration="0:0:0"
+                                FillBehavior="HoldEnd"
+                                To="0.42" />
+                        </Storyboard>
+                    </BeginStoryboard>
+                </EventTrigger>
+            </TextBlock.Triggers>
+        </TextBlock>
+        <TextBlock
+            x:Name="BasedOnResourceText"
+            Margin="0,6,0,0"
+            Style="{StaticResource BasedOnSmokeTextStyle}"
+            Text="based-on resource style" />
+        <TextBlock
+            x:Name="ProviderGreetingText"
+            Margin="0,6,0,0"
+            Text="{Binding Source={StaticResource ProviderGreeting}}" />
+        <TextBlock
+            x:Name="XmlProviderText"
+            Margin="0,6,0,0"
+            Text="{Binding Source={StaticResource XmlSmokeData}, XPath=@name}" />
+        <Border
+            x:Name="UnsharedBrushBorder"
+            Height="4"
+            Margin="0,6,0,0"
+            Background="{StaticResource UnsharedAccentBrush}" />
+        <TextBox
+            x:Name="InputBox"
+            Margin="{StaticResource SmokePanelMargin}"
+            Text="{Binding InputText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
+            <InputMethod.InputScope>
+                <InputScope
+                    RegularExpression="[0-9a-z]+"
+                    SrgsMarkup="sdk-input-scope">
+                    <InputScope.Names>
+                        <InputScopeName>EmailSmtpAddress</InputScopeName>
+                    </InputScope.Names>
+                    <InputScope.PhraseList>
+                        <InputScopePhrase>package phrase</InputScopePhrase>
+                    </InputScope.PhraseList>
+                </InputScope>
+            </InputMethod.InputScope>
+        </TextBox>
+        <StackPanel
+            x:Name="AccessKeyFocusPanel"
+            Margin="0,6,0,0"
+            FocusManager.FocusedElement="{Binding ElementName=InputBox}"
+            FocusManager.IsFocusScope="True"
+            KeyboardNavigation.ControlTabNavigation="Cycle"
+            KeyboardNavigation.DirectionalNavigation="Contained"
+            KeyboardNavigation.TabNavigation="Cycle">
+            <Label
+                x:Name="InputAccessLabel"
+                Content="_Input access"
+                Target="{Binding ElementName=InputBox}" />
+            <AccessText
+                x:Name="StandaloneAccessText"
+                Text="_Standalone access" />
+        </StackPanel>
+        <Border
+            x:Name="AncestorBindingBorder"
+            Margin="0,6,0,0"
+            Tag="ancestor binding value">
+            <StackPanel>
+                <TextBlock
+                    x:Name="AncestorBindingText"
+                    Text="{Binding Tag, RelativeSource={RelativeSource AncestorType={x:Type Border}}}" />
+            </StackPanel>
+        </Border>
+        <TextBlock
+            x:Name="MutableStatusText"
+            Margin="0,6,0,0"
+            Text="{Binding MutableStatus}" />
+        <TextBox
+            x:Name="ValidatedInputBox"
+            Margin="0,6,0,0">
+            <TextBox.Text>
+                <Binding
+                    NotifyOnValidationError="True"
+                    Path="ValidationText"
+                    UpdateSourceTrigger="PropertyChanged">
+                    <Binding.ValidationRules>
+                        <local:SmokeNonEmptyValidationRule />
+                    </Binding.ValidationRules>
+                </Binding>
+            </TextBox.Text>
+        </TextBox>
+        <TextBlock
+            x:Name="ValidationStatus"
+            Margin="0,6,0,0"
+            Text="{Binding ElementName=ValidatedInputBox, Path=(Validation.HasError), StringFormat=validation has error: {0}}" />
+        <PasswordBox
+            x:Name="CredentialBox"
+            Margin="0,6,0,0"
+            MaxLength="12"
+            PasswordChanged="OnPasswordChanged"
+            PasswordChar="#" />
+        <TextBlock
+            x:Name="PasswordStatus"
+            Margin="0,6,0,0"
+            Text="password unchanged" />
+        <Calendar
+            x:Name="CalendarSmoke"
+            Height="142"
+            Margin="{StaticResource SmokePanelMargin}"
+            DisplayDate="2026-06-01"
+            DisplayDateEnd="2026-12-31"
+            DisplayDateStart="2026-01-01"
+            FirstDayOfWeek="Monday"
+            IsTodayHighlighted="False"
+            SelectedDate="2026-06-17"
+            SelectedDatesChanged="OnDateSelectionChanged"
+            SelectionMode="SingleDate" />
+        <DatePicker
+            x:Name="DatePickerSmoke"
+            Margin="0,6,0,0"
+            FirstDayOfWeek="Monday"
+            IsTodayHighlighted="False"
+            SelectedDate="2026-06-18"
+            SelectedDateChanged="OnDateSelectionChanged"
+            SelectedDateFormat="Short" />
+        <TextBlock
+            x:Name="DateStatus"
+            Margin="0,6,0,0"
+            Text="date unchanged" />
+        <local:SmokeRoutedEventSource
+            x:Name="RoutedEventSource"
+            Width="1"
+            Height="1" />
+        <TextBlock
+            x:Name="RoutedEventStatus"
+            Margin="0,6,0,0"
+            Text="routed event not raised" />
+        <ListBox
+            x:Name="ItemsList"
+            Height="82"
+            Margin="{StaticResource SmokePanelMargin}"
+            ItemTemplate="{StaticResource SmokeItemTemplate}"
+            ItemsSource="{Binding Items}"
+            SelectedIndex="1" />
+        <TextBlock
+            x:Name="ItemsCountText"
+            Margin="0,6,0,0"
+            Text="{Binding Items.Count, StringFormat=items: {0}}" />
+        <ItemsControl
+            x:Name="PanelItemsControl"
+            Height="48"
+            Margin="{StaticResource SmokePanelMargin}"
+            AlternationCount="3"
+            ItemContainerStyle="{StaticResource SmokeItemContainerStyle}"
+            ItemStringFormat="panel item: {0}"
+            ItemsPanel="{StaticResource SmokeWrapPanelTemplate}"
+            ItemsSource="{Binding Items}" />
+        <ListView
+            x:Name="SmokeListView"
+            Height="82"
+            Margin="{StaticResource SmokePanelMargin}"
+            ItemsSource="{Binding Items}"
+            SelectedIndex="2">
+            <ListView.View>
+                <GridView>
+                    <GridViewColumn
+                        Width="120"
+                        DisplayMemberBinding="{Binding Name}"
+                        Header="Name" />
+                    <GridViewColumn
+                        Width="120"
+                        DisplayMemberBinding="{Binding Value}"
+                        Header="Value" />
+                </GridView>
+            </ListView.View>
+        </ListView>
+        <TextBlock
+            x:Name="ListViewStatus"
+            Margin="0,6,0,0"
+            Text="{Binding SelectedItem.Value, ElementName=SmokeListView, StringFormat=list view: {0}}" />
+        <TextBlock
+            x:Name="MultiBindingSummaryText"
+            Margin="0,6,0,0">
+            <TextBlock.Text>
+                <MultiBinding Converter="{StaticResource SmokeItemSummaryConverter}">
+                    <Binding ElementName="ItemsList" Path="SelectedItem.Name" />
+                    <Binding ElementName="ItemsList" Path="SelectedItem.Value" />
+                </MultiBinding>
+            </TextBlock.Text>
+        </TextBlock>
+        <TextBlock
+            x:Name="PriorityBindingText"
+            Margin="0,6,0,0">
+            <TextBlock.Text>
+                <PriorityBinding>
+                    <Binding Path="MissingPriorityTitle" />
+                    <Binding Path="Title" />
+                </PriorityBinding>
+            </TextBlock.Text>
+        </TextBlock>
+        <ContentControl
+            x:Name="SelectedItemPresenter"
+            Margin="0,8,0,0"
+            Content="{Binding SelectedItem, ElementName=ItemsList}"
+            ContentTemplate="{StaticResource SmokeItemTemplate}" />
+        <ContentPresenter
+            x:Name="ImplicitItemPresenter"
+            Margin="0,6,0,0"
+            Content="{Binding SelectedItem, ElementName=ItemsList}" />
+        <StackPanel
+            x:Name="ImplicitStylePanel"
+            Margin="0,6,0,0">
+            <StackPanel.Resources>
+                <Style TargetType="{x:Type TextBlock}">
+                    <Setter Property="Tag" Value="implicit style active" />
+                    <Setter Property="Foreground" Value="{DynamicResource SmokeAccentBrush}" />
+                </Style>
+            </StackPanel.Resources>
+            <TextBlock
+                x:Name="ImplicitStyledText"
+                Text="implicit style text" />
+        </StackPanel>
+        <Grid
+            x:Name="LayoutGrid"
+            Height="54"
+            Margin="{StaticResource SmokePanelMargin}">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <TextBlock
+                x:Name="LayoutLabel"
+                Grid.Row="0"
+                Grid.Column="0"
+                Margin="0,0,8,0"
+                Text="Selected:" />
+            <TextBlock
+                x:Name="ConvertedSelectedItemText"
+                Grid.Row="0"
+                Grid.Column="1"
+                Text="{Binding SelectedItem, ElementName=ItemsList, Converter={StaticResource SmokeItemDisplayConverter}}" />
+            <TextBlock
+                x:Name="FormattedInputText"
+                Grid.Row="1"
+                Grid.Column="0"
+                Grid.ColumnSpan="2"
+                Text="{Binding InputText, StringFormat=Input: {0}}" />
+        </Grid>
+        <DockPanel
+            x:Name="DockLayoutPanel"
+            Height="58"
+            Margin="{StaticResource SmokePanelMargin}"
+            LastChildFill="True">
+            <TextBlock
+                x:Name="DockTopText"
+                DockPanel.Dock="Top"
+                Text="dock top" />
+            <TextBlock
+                x:Name="DockLeftText"
+                Width="72"
+                DockPanel.Dock="Left"
+                Text="dock left" />
+            <TextBlock
+                x:Name="DockFillText"
+                Text="{Binding SelectedItem.Name, ElementName=ItemsList, StringFormat=dock fill: {0}}" />
+        </DockPanel>
+        <Canvas
+            x:Name="CanvasLayoutPanel"
+            Height="44"
+            Margin="{StaticResource SmokePanelMargin}">
+            <TextBlock
+                x:Name="CanvasPositionedText"
+                Canvas.Left="12"
+                Canvas.Top="8"
+                Text="canvas positioned" />
+        </Canvas>
+        <UniformGrid
+            x:Name="UniformLayoutPanel"
+            Margin="{StaticResource SmokePanelMargin}"
+            Columns="3"
+            Rows="1">
+            <TextBlock
+                x:Name="UniformCellOne"
+                Text="one" />
+            <TextBlock
+                x:Name="UniformCellTwo"
+                Text="two" />
+            <TextBlock
+                x:Name="UniformCellThree"
+                Text="three" />
+        </UniformGrid>
+        <ItemsControl
+            x:Name="GroupedItemsControl"
+            Height="78"
+            Margin="{StaticResource SmokePanelMargin}"
+            ItemTemplate="{StaticResource SmokeItemTemplate}"
+            ItemsSource="{Binding Source={StaticResource GroupedItems}}">
+            <ItemsControl.GroupStyle>
+                <GroupStyle HeaderTemplate="{StaticResource SmokeGroupHeaderTemplate}" />
+            </ItemsControl.GroupStyle>
+        </ItemsControl>
+        <ItemsControl
+            x:Name="SelectorItemsControl"
+            Height="48"
+            Margin="{StaticResource SmokePanelMargin}"
+            ItemTemplateSelector="{StaticResource SmokeItemTemplateSelector}"
+            ItemsSource="{Binding Items}" />
+        <ComboBox
+            x:Name="SmokeComboBox"
+            Margin="{StaticResource SmokePanelMargin}"
+            DisplayMemberPath="Name"
+            ItemsSource="{Binding Items}"
+            SelectedIndex="1"
+            SelectedValuePath="Value"
+            SelectionChanged="OnSelectorSelectionChanged" />
+        <TextBlock
+            x:Name="SelectorStatus"
+            Margin="0,6,0,0"
+            Text="selector idle" />
+        <TabControl
+            x:Name="SmokeTabs"
+            Height="82"
+            Margin="{StaticResource SmokePanelMargin}"
+            SelectedIndex="1"
+            SelectionChanged="OnTabsSelectionChanged">
+            <TabItem
+                x:Name="FrameworkTab"
+                Header="Framework">
+                <TextBlock Text="{Binding Title}" />
+            </TabItem>
+            <TabItem
+                x:Name="RenderingTab"
+                Header="Rendering">
+                <TextBlock Text="{Binding SelectedItem.Name, ElementName=ItemsList}" />
+            </TabItem>
+        </TabControl>
+        <TextBlock
+            x:Name="TabStatus"
+            Margin="0,6,0,0"
+            Text="tab idle" />
+        <ToolBarTray
+            x:Name="SmokeToolBarTray"
+            Margin="{StaticResource SmokePanelMargin}">
+            <ToolBar
+                x:Name="SmokeToolBar"
+                Header="Smoke tools">
+                <Button
+                    x:Name="ToolBarCommandButton"
+                    Command="{x:Static local:MainWindow.SmokeCommand}"
+                    CommandParameter="toolbar command payload"
+                    CommandTarget="{Binding ElementName=RootWindow}"
+                    Content="Run toolbar" />
+                <Separator x:Name="ToolBarSeparator" />
+                <ToggleButton
+                    x:Name="ToolBarToggle"
+                    Content="Toggle toolbar"
+                    IsChecked="True" />
+            </ToolBar>
+        </ToolBarTray>
+        <StatusBar
+            x:Name="SmokeStatusBar"
+            Margin="0,6,0,0">
+            <StatusBarItem
+                x:Name="StatusReadyItem"
+                Content="Ready" />
+            <Separator />
+            <StatusBarItem>
+                <TextBlock
+                    x:Name="StatusTextBlock"
+                    Tag="status text"
+                    Text="{Binding SelectedItem.Name, ElementName=ItemsList}" />
+            </StatusBarItem>
+        </StatusBar>
+        <GroupBox
+            x:Name="SmokeGroupBox"
+            Header="Managed range"
+            Margin="{StaticResource SmokePanelMargin}">
+            <StackPanel>
+                <Expander
+                    x:Name="SmokeExpander"
+                    Collapsed="OnSmokeExpanderCollapsed"
+                    Expanded="OnSmokeExpanderExpanded"
+                    Header="Range details"
+                    IsExpanded="True">
+                    <ScrollViewer
+                        x:Name="SmokeScrollViewer"
+                        Height="48"
+                        HorizontalScrollBarVisibility="Disabled"
+                        VerticalScrollBarVisibility="Auto">
+                        <StackPanel x:Name="ScrollContentPanel">
+                            <TextBlock Text="Scroll row 1" />
+                            <TextBlock Text="Scroll row 2" />
+                            <TextBlock Text="Scroll row 3" />
+                        </StackPanel>
+                    </ScrollViewer>
+                </Expander>
+                <Slider
+                    x:Name="SmokeSlider"
+                    Maximum="10"
+                    Minimum="0"
+                    Value="4"
+                    ValueChanged="OnRangeValueChanged" />
+                <ProgressBar
+                    x:Name="SmokeProgressBar"
+                    Height="12"
+                    Maximum="10"
+                    Minimum="0"
+                    Value="{Binding Value, ElementName=SmokeSlider}" />
+                <TextBlock
+                    x:Name="RangeStatus"
+                    Margin="0,6,0,0"
+                    Text="range idle" />
+            </StackPanel>
+        </GroupBox>
+        <DataGrid
+            x:Name="SmokeDataGrid"
+            Height="96"
+            Margin="{StaticResource SmokePanelMargin}"
+            AutoGenerateColumns="False"
+            CanUserAddRows="False"
+            ItemsSource="{Binding Items}"
+            SelectedIndex="1">
+            <DataGrid.Columns>
+                <DataGridTextColumn
+                    Binding="{Binding Name}"
+                    Header="Name" />
+                <DataGridTextColumn
+                    Binding="{Binding Category}"
+                    Header="Category" />
+                <DataGridCheckBoxColumn
+                    Binding="{Binding IsActive}"
+                    Header="Active" />
+            </DataGrid.Columns>
+        </DataGrid>
+        <TextBlock
+            x:Name="DataGridStatus"
+            Margin="0,6,0,0"
+            Text="{Binding SelectedItem.Name, ElementName=SmokeDataGrid, StringFormat=data grid: {0}}" />
+        <TreeView
+            x:Name="HierarchyTree"
+            Height="72"
+            Margin="{StaticResource SmokePanelMargin}"
+            ItemTemplate="{StaticResource SmokeHierarchyTemplate}"
+            ItemsSource="{Binding Items}" />
+        <local:SmokePanel
+            x:Name="CompiledSmokePanel"
+            Margin="{StaticResource SmokePanelMargin}"
+            Caption="Compiled user control"
+            PanelContent="{Binding SelectedItem.Value, ElementName=ItemsList}" />
+        <library:LibraryPanel
+            x:Name="CompiledLibraryPanel"
+            Margin="{StaticResource SmokePanelMargin}"
+            LibraryTag="library tag value"
+            Title="SDK library panel" />
+        <TextBlock
+            x:Name="LibraryMergedResourceText"
+            Margin="0,6,0,0"
+            Foreground="{DynamicResource LibraryMergedAccentBrush}"
+            Padding="{StaticResource LibraryMergedPadding}"
+            Text="{StaticResource LibraryMergedMessage}" />
+        <library:LibraryThemedControl
+            x:Name="CompiledLibraryThemedControl"
+            Margin="{StaticResource SmokePanelMargin}"
+            Text="SDK library themed control" />
+        <Frame
+            x:Name="LibraryFrame"
+            Height="64"
+            Margin="{StaticResource SmokePanelMargin}"
+            NavigationUIVisibility="Hidden"
+            Source="/ProGPU.Wpf.SdkSwitchLibrary;component/LibraryPage.xaml" />
+        <local:SmokeThemedControl
+            x:Name="ThemedSmokeControl"
+            Margin="{StaticResource SmokePanelMargin}"
+            Text="Generic theme default style" />
+        <Frame
+            x:Name="SmokeFrame"
+            Height="64"
+            LoadCompleted="OnSmokeFrameLoadCompleted"
+            Margin="{StaticResource SmokePanelMargin}"
+            Navigated="OnSmokeFrameNavigated"
+            Navigating="OnSmokeFrameNavigating"
+            NavigationUIVisibility="Hidden"
+            Source="SmokePage.xaml" />
+        <RichTextBox
+            x:Name="DocumentBox"
+            Height="76"
+            Margin="{StaticResource SmokePanelMargin}">
+            <FlowDocument>
+                <Paragraph>
+                    <Bold>Managed</Bold>
+                    <Run Text=" rich text" />
+                    <LineBreak />
+                    <Italic>loaded from SDK-built BAML</Italic>
+                    <Hyperlink
+                        NavigateUri="https://example.com/progpu-wpf"
+                        RequestNavigate="OnDocumentLinkRequestNavigate">
+                        <Run Text=" linked document content" />
+                    </Hyperlink>
+                    <InlineUIContainer>
+                        <Button Content="Inline document button" />
+                    </InlineUIContainer>
+                </Paragraph>
+                <Section>
+                    <Paragraph>FlowDocument subsystem smoke.</Paragraph>
+                </Section>
+                <List MarkerStyle="Square">
+                    <ListItem>
+                        <Paragraph>Document list item one</Paragraph>
+                    </ListItem>
+                    <ListItem>
+                        <Paragraph>Document list item two</Paragraph>
+                    </ListItem>
+                </List>
+                <Table CellSpacing="2">
+                    <Table.Columns>
+                        <TableColumn Width="120" />
+                        <TableColumn Width="140" />
+                    </Table.Columns>
+                    <TableRowGroup>
+                        <TableRow>
+                            <TableCell>
+                                <Paragraph>Column A</Paragraph>
+                            </TableCell>
+                            <TableCell>
+                                <Paragraph>Column B</Paragraph>
+                            </TableCell>
+                        </TableRow>
+                    </TableRowGroup>
+                </Table>
+                <BlockUIContainer>
+                    <TextBlock Text="Block UI document content" />
+                </BlockUIContainer>
+            </FlowDocument>
+        </RichTextBox>
+    </StackPanel>
+</Window>

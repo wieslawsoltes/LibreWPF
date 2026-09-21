@@ -47,6 +47,17 @@ namespace System.Windows.Media
             MediaTrace.DrawingContextOp.Trace("DrawLine(const)");
         #endif
 
+            if (_renderDataSink != null)
+            {
+                _renderDataSink.DrawLine(
+                    pen,
+                    point0,
+                    point1
+                    );
+
+                return;
+            }
+
             unsafe
             {
                 EnsureRenderData();
@@ -100,6 +111,19 @@ namespace System.Windows.Media
         #if DEBUG
             MediaTrace.DrawingContextOp.Trace("DrawLine(animate)");
         #endif
+
+            if (_renderDataSink != null)
+            {
+                _renderDataSink.DrawLine(
+                    pen,
+                    point0,
+                    point0Animations,
+                    point1,
+                    point1Animations
+                    );
+
+                return;
+            }
 
             unsafe
             {
@@ -163,6 +187,17 @@ namespace System.Windows.Media
             MediaTrace.DrawingContextOp.Trace("DrawRectangle(const)");
         #endif
 
+            if (_renderDataSink != null)
+            {
+                _renderDataSink.DrawRectangle(
+                    brush,
+                    pen,
+                    rectangle
+                    );
+
+                return;
+            }
+
             unsafe
             {
                 EnsureRenderData();
@@ -220,6 +255,18 @@ namespace System.Windows.Media
         #if DEBUG
             MediaTrace.DrawingContextOp.Trace("DrawRectangle(animate)");
         #endif
+
+            if (_renderDataSink != null)
+            {
+                _renderDataSink.DrawRectangle(
+                    brush,
+                    pen,
+                    rectangle,
+                    rectangleAnimations
+                    );
+
+                return;
+            }
 
             unsafe
             {
@@ -289,6 +336,19 @@ namespace System.Windows.Media
         #if DEBUG
             MediaTrace.DrawingContextOp.Trace("DrawRoundedRectangle(const)");
         #endif
+
+            if (_renderDataSink != null)
+            {
+                _renderDataSink.DrawRoundedRectangle(
+                    brush,
+                    pen,
+                    rectangle,
+                    radiusX,
+                    radiusY
+                    );
+
+                return;
+            }
 
             unsafe
             {
@@ -363,6 +423,22 @@ namespace System.Windows.Media
         #if DEBUG
             MediaTrace.DrawingContextOp.Trace("DrawRoundedRectangle(animate)");
         #endif
+
+            if (_renderDataSink != null)
+            {
+                _renderDataSink.DrawRoundedRectangle(
+                    brush,
+                    pen,
+                    rectangle,
+                    rectangleAnimations,
+                    radiusX,
+                    radiusXAnimations,
+                    radiusY,
+                    radiusYAnimations
+                    );
+
+                return;
+            }
 
             unsafe
             {
@@ -443,6 +519,19 @@ namespace System.Windows.Media
             MediaTrace.DrawingContextOp.Trace("DrawEllipse(const)");
         #endif
 
+            if (_renderDataSink != null)
+            {
+                _renderDataSink.DrawEllipse(
+                    brush,
+                    pen,
+                    center,
+                    radiusX,
+                    radiusY
+                    );
+
+                return;
+            }
+
             unsafe
             {
                 EnsureRenderData();
@@ -519,6 +608,22 @@ namespace System.Windows.Media
             MediaTrace.DrawingContextOp.Trace("DrawEllipse(animate)");
         #endif
 
+            if (_renderDataSink != null)
+            {
+                _renderDataSink.DrawEllipse(
+                    brush,
+                    pen,
+                    center,
+                    centerAnimations,
+                    radiusX,
+                    radiusXAnimations,
+                    radiusY,
+                    radiusYAnimations
+                    );
+
+                return;
+            }
+
             unsafe
             {
                 EnsureRenderData();
@@ -586,6 +691,17 @@ namespace System.Windows.Media
             MediaTrace.DrawingContextOp.Trace("DrawGeometry(const)");
         #endif
 
+            if (_renderDataSink != null)
+            {
+                _renderDataSink.DrawGeometry(
+                    brush,
+                    pen,
+                    geometry
+                    );
+
+                return;
+            }
+
             unsafe
             {
                 EnsureRenderData();
@@ -637,6 +753,16 @@ namespace System.Windows.Media
         #if DEBUG
             MediaTrace.DrawingContextOp.Trace("DrawImage(const)");
         #endif
+
+            if (_renderDataSink != null)
+            {
+                _renderDataSink.DrawImage(
+                    imageSource,
+                    rectangle
+                    );
+
+                return;
+            }
 
             unsafe
             {
@@ -691,6 +817,17 @@ namespace System.Windows.Media
             MediaTrace.DrawingContextOp.Trace("DrawImage(animate)");
         #endif
 
+            if (_renderDataSink != null)
+            {
+                _renderDataSink.DrawImage(
+                    imageSource,
+                    rectangle,
+                    rectangleAnimations
+                    );
+
+                return;
+            }
+
             unsafe
             {
                 EnsureRenderData();
@@ -742,6 +879,16 @@ namespace System.Windows.Media
             MediaTrace.DrawingContextOp.Trace("DrawGlyphRun(const)");
         #endif
 
+            if (_renderDataSink != null)
+            {
+                _renderDataSink.DrawGlyphRun(
+                    foregroundBrush,
+                    glyphRun
+                    );
+
+                return;
+            }
+
             unsafe
             {
                 EnsureRenderData();
@@ -785,6 +932,15 @@ namespace System.Windows.Media
         #if DEBUG
             MediaTrace.DrawingContextOp.Trace("DrawDrawing(const)");
         #endif
+
+            if (_renderDataSink != null)
+            {
+                _renderDataSink.DrawDrawing(
+                    drawing
+                    );
+
+                return;
+            }
 
             unsafe
             {
@@ -833,6 +989,16 @@ namespace System.Windows.Media
         #if DEBUG
             MediaTrace.DrawingContextOp.Trace("DrawVideo(const)");
         #endif
+
+            if (_renderDataSink != null)
+            {
+                _renderDataSink.DrawVideo(
+                    player,
+                    rectangle
+                    );
+
+                return;
+            }
 
             unsafe
             {
@@ -885,6 +1051,17 @@ namespace System.Windows.Media
             MediaTrace.DrawingContextOp.Trace("DrawVideo(animate)");
         #endif
 
+            if (_renderDataSink != null)
+            {
+                _renderDataSink.DrawVideo(
+                    player,
+                    rectangle,
+                    rectangleAnimations
+                    );
+
+                return;
+            }
+
             unsafe
             {
                 EnsureRenderData();
@@ -929,6 +1106,16 @@ namespace System.Windows.Media
             MediaTrace.DrawingContextOp.Trace("PushClip(const)");
         #endif
 
+            if (_renderDataSink != null)
+            {
+                _renderDataSink.PushClip(
+                    clipGeometry
+                    );
+
+                _stackDepth++;
+                return;
+            }
+
             unsafe
             {
                 EnsureRenderData();
@@ -968,6 +1155,16 @@ namespace System.Windows.Media
         #if DEBUG
             MediaTrace.DrawingContextOp.Trace("PushOpacityMask(const)");
         #endif
+
+            if (_renderDataSink != null)
+            {
+                _renderDataSink.PushOpacityMask(
+                    opacityMask
+                    );
+
+                _stackDepth++;
+                return;
+            }
 
             unsafe
             {
@@ -1010,6 +1207,16 @@ namespace System.Windows.Media
         #if DEBUG
             MediaTrace.DrawingContextOp.Trace("PushOpacity(const)");
         #endif
+
+            if (_renderDataSink != null)
+            {
+                _renderDataSink.PushOpacity(
+                    opacity
+                    );
+
+                _stackDepth++;
+                return;
+            }
 
             unsafe
             {
@@ -1055,6 +1262,17 @@ namespace System.Windows.Media
             MediaTrace.DrawingContextOp.Trace("PushOpacity(animate)");
         #endif
 
+            if (_renderDataSink != null)
+            {
+                _renderDataSink.PushOpacity(
+                    opacity,
+                    opacityAnimations
+                    );
+
+                _stackDepth++;
+                return;
+            }
+
             unsafe
             {
                 EnsureRenderData();
@@ -1098,6 +1316,16 @@ namespace System.Windows.Media
             MediaTrace.DrawingContextOp.Trace("PushTransform(const)");
         #endif
 
+            if (_renderDataSink != null)
+            {
+                _renderDataSink.PushTransform(
+                    transform
+                    );
+
+                _stackDepth++;
+                return;
+            }
+
             unsafe
             {
                 EnsureRenderData();
@@ -1137,6 +1365,16 @@ namespace System.Windows.Media
         #if DEBUG
             MediaTrace.DrawingContextOp.Trace("PushGuidelineSet(const)");
         #endif
+
+            if (_renderDataSink != null)
+            {
+                _renderDataSink.PushGuidelineSet(
+                    guidelines
+                    );
+
+                _stackDepth++;
+                return;
+            }
 
             unsafe
             {
@@ -1218,6 +1456,16 @@ namespace System.Windows.Media
             MediaTrace.DrawingContextOp.Trace("PushGuidelineY1(const)");
         #endif
 
+            if (_renderDataSink != null)
+            {
+                _renderDataSink.PushGuidelineY1(
+                    coordinate
+                    );
+
+                _stackDepth++;
+                return;
+            }
+
             unsafe
             {
                 EnsureRenderData();
@@ -1263,6 +1511,17 @@ namespace System.Windows.Media
             MediaTrace.DrawingContextOp.Trace("PushGuidelineY2(const)");
         #endif
 
+            if (_renderDataSink != null)
+            {
+                _renderDataSink.PushGuidelineY2(
+                    leadingCoordinate,
+                    offsetToDrivenCoordinate
+                    );
+
+                _stackDepth++;
+                return;
+            }
+
             unsafe
             {
                 EnsureRenderData();
@@ -1307,6 +1566,17 @@ namespace System.Windows.Media
             MediaTrace.DrawingContextOp.Trace("PushEffect(const)");
         #endif
 
+            if (_renderDataSink != null)
+            {
+                _renderDataSink.PushEffect(
+                    effect,
+                    effectInput
+                    );
+
+                _stackDepth++;
+                return;
+            }
+
             unsafe
             {
                 EnsureRenderData();
@@ -1350,6 +1620,14 @@ namespace System.Windows.Media
         #if DEBUG
             MediaTrace.DrawingContextOp.Trace("Pop(const)");
         #endif
+
+            if (_renderDataSink != null)
+            {
+                _renderDataSink.Pop();
+
+                _stackDepth--;
+                return;
+            }
 
             unsafe
             {

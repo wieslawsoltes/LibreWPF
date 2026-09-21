@@ -3,6 +3,7 @@
 
 using MS.Internal;
 using MS.Utility;
+using ProGPU.Wpf.Interop;
 using System.Windows.Media.Composition;
 
 namespace System.Windows.Media.Animation
@@ -10,7 +11,7 @@ namespace System.Windows.Media.Animation
     /// <summary>
     /// This class derives from Freezable and adds the ability to animate properties.
     /// </summary>
-    public abstract partial class Animatable : Freezable, IAnimatable, DUCE.IResource
+    public abstract partial class Animatable : Freezable, IAnimatable, DUCE.IResource, IPortableInvalidationSource
     {
         #region Constructors
 
@@ -22,6 +23,28 @@ namespace System.Windows.Media.Animation
         }
 
         #endregion
+
+        bool IPortableInvalidationSource.TrySubscribeInvalidated(EventHandler handler, out IDisposable subscription)
+        {
+            if (IsFrozen)
+            {
+                subscription = null;
+                return false;
+            }
+
+            try
+            {
+                Changed += handler;
+            }
+            catch (InvalidOperationException)
+            {
+                subscription = null;
+                return false;
+            }
+
+            subscription = new PortableInvalidationSubscription(() => Changed -= handler);
+            return true;
+        }
 
         #region Public
 

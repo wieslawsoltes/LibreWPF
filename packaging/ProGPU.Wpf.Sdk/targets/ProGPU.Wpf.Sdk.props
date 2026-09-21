@@ -1,0 +1,41 @@
+<Project>
+
+  <PropertyGroup>
+    <DefaultXamlRuntime Condition="'$(DefaultXamlRuntime)' == ''">Wpf</DefaultXamlRuntime>
+    <EnableDefaultResourceItems Condition="'$(EnableDefaultResourceItems)' == ''">true</EnableDefaultResourceItems>
+    <InternalMarkupCompilation Condition="'$(ProGpuWpfUseWpfMarkup)' == 'true' And '$(InternalMarkupCompilation)' == ''">true</InternalMarkupCompilation>
+    <AlwaysCompileMarkupFilesInSeparateDomain Condition="'$(ProGpuWpfUseWpfMarkup)' == 'true' And '$(AlwaysCompileMarkupFilesInSeparateDomain)' == ''">false</AlwaysCompileMarkupFilesInSeparateDomain>
+    <ProGpuWpfEnableSdkDiagnostics Condition="'$(ProGpuWpfEnableSdkDiagnostics)' == ''">false</ProGpuWpfEnableSdkDiagnostics>
+    <_ProGpuWpfManagedReferenceRoot Condition="'$(ProGpuWpfManagedReferenceRoot)' != ''">$([MSBuild]::EnsureTrailingSlash('$(ProGpuWpfManagedReferenceRoot)'))</_ProGpuWpfManagedReferenceRoot>
+    <_ProGpuReferenceRoot Condition="'$(ProGpuReferenceRoot)' != ''">$([MSBuild]::EnsureTrailingSlash('$(ProGpuReferenceRoot)'))</_ProGpuReferenceRoot>
+  </PropertyGroup>
+
+  <ItemDefinitionGroup Condition="'$(ProGpuWpfUseWpfMarkup)' == 'true'">
+    <ApplicationDefinition>
+      <Generator>MSBuild:Compile</Generator>
+      <XamlRuntime>$(DefaultXamlRuntime)</XamlRuntime>
+      <SubType>Designer</SubType>
+    </ApplicationDefinition>
+
+    <Page>
+      <Generator>MSBuild:Compile</Generator>
+      <XamlRuntime>$(DefaultXamlRuntime)</XamlRuntime>
+      <SubType>Designer</SubType>
+    </Page>
+  </ItemDefinitionGroup>
+
+  <ItemGroup Condition="'$(EnableDefaultItems)' == 'true' And '$(ProGpuWpfUseWpfMarkup)' == 'true'">
+    <ApplicationDefinition Include="App.xaml"
+                           Condition="'$(EnableDefaultApplicationDefinition)' != 'false' And Exists('$(MSBuildProjectDirectory)/App.xaml') And '$(MSBuildProjectExtension)' == '.csproj'" />
+    <ApplicationDefinition Include="Application.xaml"
+                           Condition="'$(EnableDefaultApplicationDefinition)' != 'false' And Exists('$(MSBuildProjectDirectory)/Application.xaml') And '$(MSBuildProjectExtension)' == '.vbproj'" />
+
+    <Page Include="**/*.xaml"
+          Exclude="$(DefaultItemExcludes);$(DefaultExcludesInProjectFolder);@(ApplicationDefinition)"
+          Condition="'$(EnableDefaultPageItems)' != 'false'" />
+
+    <None Remove="**/*.xaml"
+          Condition="'$(EnableDefaultApplicationDefinition)' != 'false' And '$(EnableDefaultPageItems)' != 'false'" />
+  </ItemGroup>
+
+</Project>

@@ -15,6 +15,18 @@ using MS.Utility;
 
 namespace MS.Internal
 {
+    internal struct Span
+    {
+        internal object element;
+        internal int length;
+
+        internal Span(object element, int length)
+        {
+            this.element = element;
+            this.length = length;
+        }
+    }
+
     /// <summary>
     /// VECTOR: A series of spans
     /// </summary>
@@ -230,7 +242,9 @@ namespace MS.Internal
                     && equals(_spans[Count-1].element, element))
                 {
                     // New Element matches end Element, just extend end Element
-                    _spans[Count - 1].length += length;
+                    Span span = _spans[Count - 1];
+                    span.length += length;
+                    _spans[Count - 1] = span;
 
                     // Make sure fs and fc still agree
                     if (fs == Count)
@@ -314,7 +328,9 @@ namespace MS.Internal
                             if (!Resize(fs + 2))
                                 throw new OutOfMemoryException();
                         }
-                        _spans[fs].length = first - fc;
+                        Span span = _spans[fs];
+                        span.length = first - fc;
+                        _spans[fs] = span;
                         _spans[fs + 1] = new Span(element, length);
                     }
                     else
@@ -370,7 +386,9 @@ namespace MS.Internal
 
                     if (fc < first)
                     {
-                        _spans[fs].length = first - fc;
+                        Span span = _spans[fs];
+                        span.length = first - fc;
+                        _spans[fs] = span;
                         fs++;
                         fc = first;
                     }

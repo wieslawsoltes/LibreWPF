@@ -240,7 +240,7 @@ namespace MS.Internal.AppModel
                 // Note Package caches Part and Part holds on to ResourceManagerWrapper. Package does not provide a way for 
                 // us to update their cache, so we update the assembly that the ResourceManagerWrapper holds on to. This way the 
                 // Part cached in the Package class can reference the new dll too. 
-                value.Assembly = assembly;
+                value.TryUpdateAssembly(assembly);
             }
         }
 

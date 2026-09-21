@@ -19,9 +19,29 @@ namespace System.Windows.Threading
     /// </summary>
     public sealed class Dispatcher
     {
+        /// <summary>
+        /// Set once by the portable windowing layer (ProGPU.Wpf's WpfPortableWindowActivation,
+        /// which owns the ProGpuWpfWindowHost instances Dispatcher/WindowsBase can't reference
+        /// directly) to pump every active window's native event queue - Silk.NET IMouse/IKeyboard
+        /// callbacks, which drive WPF's own input pipeline, only fire as a direct result of a
+        /// pump call like this, never asynchronously from another thread.
+        ///
+        /// A NESTED PushFrame (Window.ShowDialog, DragDrop's portable drag-source loop, or any
+        /// other caller that needs to genuinely block until frame.Continue becomes false) used to
+        /// exit almost immediately whenever the managed dispatcher queue was momentarily empty -
+        /// correct for the TOP-level frame (which isn't driven through PushFrame at all; the
+        /// native window's own run loop keeps calling ProcessDispatcherQueueCore() on every tick
+        /// regardless), but wrong for a nested one genuinely waiting on new input that can only
+        /// arrive via this pump. See PushManagedFrameImpl's wait loop.
+        /// </summary>
+        public static Action NativeInputPump { get; set; }
+
         static Dispatcher()
         {
-            _msgProcessQueue = UnsafeNativeMethods.RegisterWindowMessage("DispatcherProcessQueue");
+            _useWin32MessagePump = OperatingSystem.IsWindows();
+            _msgProcessQueue = _useWin32MessagePump
+                ? UnsafeNativeMethods.RegisterWindowMessage("DispatcherProcessQueue")
+                : default;
             _globalLock = new object();
             _dispatchers = new List<WeakReference>();
             _possibleDispatcher = new WeakReference(null);
@@ -1732,12 +1752,15 @@ namespace System.Windows.Threading
 
             _defaultDispatcherSynchronizationContext = new DispatcherSynchronizationContext(this);
 
-            // Create the message-only window we use to receive messages
-            // that tell us to process the queue.
-            _window = new MessageOnlyHwndWrapper();
+            if (_useWin32MessagePump)
+            {
+                // Create the message-only window we use to receive messages
+                // that tell us to process the queue.
+                _window = new MessageOnlyHwndWrapper();
 
-            _hook = new HwndWrapperHook(WndProcHook);
-            _window.AddHook(_hook);
+                _hook = new HwndWrapperHook(WndProcHook);
+                _window.AddHook(_hook);
+            }
 
             // Verify that the accessibility switches are set prior to any major UI code running.
             AccessibilitySwitches.VerifySwitches(this);
@@ -1847,7 +1870,9 @@ namespace System.Windows.Threading
                 window = _window;
                 _window = null;
             }
-            window.Dispose();
+            // Portable dispatchers do not create the Win32 message-only window.
+            // Shutdown must still complete after the managed frame unwinds.
+            window?.Dispose();
 
             // Mark this dispatcher as shut down.  Attempts to BeginInvoke
             // or Invoke will result in an exception.
@@ -2045,6 +2070,12 @@ namespace System.Windows.Threading
 
         private void PushFrameImpl(DispatcherFrame frame)
         {
+            if (!_useWin32MessagePump)
+            {
+                PushManagedFrameImpl(frame);
+                return;
+            }
+
             SynchronizationContext oldSyncContext = null;
             SynchronizationContext newSyncContext = null;
             MSG msg = new MSG();
@@ -2094,6 +2125,75 @@ namespace System.Windows.Threading
             }
         }
 
+        private void PushManagedFrameImpl(DispatcherFrame frame)
+        {
+            SynchronizationContext oldSyncContext = null;
+            SynchronizationContext newSyncContext = null;
+
+            _frameDepth++;
+            try
+            {
+                oldSyncContext = SynchronizationContext.Current;
+                newSyncContext = new DispatcherSynchronizationContext(this);
+                SynchronizationContext.SetSynchronizationContext(newSyncContext);
+
+                try
+                {
+                    while(frame.Continue)
+                    {
+                        PromoteTimers(Environment.TickCount);
+
+                        if (HasPendingManagedOperation())
+                        {
+                            ProcessQueue();
+                        }
+                        else if (frame.Continue && NativeInputPump != null)
+                        {
+                            // See NativeInputPump's doc comment: only take this path when a
+                            // pump is actually registered, so a caller that never opted in keeps
+                            // the exact original (non-blocking) behavior.
+                            NativeInputPump();
+                            if (!HasPendingManagedOperation())
+                                Thread.Sleep(1);
+                        }
+                        else
+                        {
+                            break;
+                        }
+                    }
+
+                    if(_frameDepth == 1)
+                    {
+                        if(_hasShutdownStarted)
+                        {
+                            ShutdownImpl();
+                        }
+                    }
+                }
+                finally
+                {
+                    SynchronizationContext.SetSynchronizationContext(oldSyncContext);
+                }
+            }
+            finally
+            {
+                _frameDepth--;
+                if(_frameDepth == 0)
+                {
+                    _exitAllFrames = false;
+                }
+            }
+        }
+
+        private bool HasPendingManagedOperation()
+        {
+            lock(_instanceLock)
+            {
+                DispatcherPriority priority = _queue.MaxPriority;
+                return priority != DispatcherPriority.Invalid &&
+                    priority != DispatcherPriority.Inactive;
+            }
+        }
 
         private bool GetMessage(ref MSG msg, IntPtr hwnd, int minMessage, int maxMessage)
         {
@@ -2270,6 +2370,11 @@ namespace System.Windows.Threading
 
         private bool IsInputPending()
         {
+            if (!_useWin32MessagePump)
+            {
+                return false;
+            }
+
             int retVal = 0;
 
             // We need to know if there is any pending input in the Win32
@@ -2328,7 +2433,7 @@ namespace System.Windows.Threading
             // can reliably check the _window field without worrying about
             // it being changed out from underneath us during shutdown.
             if (IsWindowNull())
-                return false;
+                return !_useWin32MessagePump;
 
             DispatcherPriority priority = _queue.MaxPriority;
 
@@ -2826,6 +2931,7 @@ namespace System.Windows.Threading
 
         private int _postedProcessingType;
         private static WindowMessage _msgProcessQueue;
+        private static bool _useWin32MessagePump;
 
         private static ExceptionWrapper _exceptionWrapper;
         private static readonly object ExceptionDataKey = new object();
@@ -2873,4 +2979,3 @@ namespace System.Windows.Threading
         private DispatcherHooks _hooks;
     }
 }
-

@@ -1,0 +1,12 @@
+<Project>
+  <PropertyGroup>
+    <ImportWpfArcadeSdk>false</ImportWpfArcadeSdk>
+    <EnableNETAnalyzers>false</EnableNETAnalyzers>
+    <AnalysisMode>None</AnalysisMode>
+    <AnalysisLevel>none</AnalysisLevel>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <CodeAnalysisTreatWarningsAsErrors>false</CodeAnalysisTreatWarningsAsErrors>
+    <WarningsAsErrors></WarningsAsErrors>
+    <NoWarn>$(NoWarn);CA1051;CA1310;CA1513;CA1847;CA1852;CA1859;CA2201;SYSLIB1045</NoWarn>
+  </PropertyGroup>
+</Project>

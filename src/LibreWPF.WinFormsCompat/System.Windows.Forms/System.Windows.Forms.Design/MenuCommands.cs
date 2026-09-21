@@ -1,0 +1,83 @@
+using System.ComponentModel.Design;
+
+namespace System.Windows.Forms.Design;
+
+public sealed class MenuCommands : StandardCommands
+{
+    private const int MnuidSelection = 0x0500;
+    private const int MnuidContainer = 0x0501;
+    private const int MnuidTraySelection = 0x0503;
+    private const int MnuidComponentTray = 0x0506;
+    private const int CmdidDesignerProperties = 0x1001;
+    private const int CmdidReverseCancel = 0x4001;
+    private const int CmdidSetStatusText = 0x4003;
+    private const int CmdidSetStatusRectangle = 0x4004;
+    private const int CmdidSpace = 0x4015;
+    private const int EcmdCancel = 103;
+    private const int EcmdReturn = 3;
+    private const int EcmdUp = 11;
+    private const int EcmdDown = 13;
+    private const int EcmdLeft = 7;
+    private const int EcmdRight = 9;
+    private const int EcmdRightExt = 10;
+    private const int EcmdUpExt = 12;
+    private const int EcmdLeftExt = 8;
+    private const int EcmdDownExt = 14;
+    private const int EcmdTab = 4;
+    private const int EcmdBackTab = 5;
+    private const int EcmdInvokeSmartTag = 147;
+    private const int EcmdCtlMoveLeft = 1224;
+    private const int EcmdCtlMoveDown = 1225;
+    private const int EcmdCtlMoveRight = 1226;
+    private const int EcmdCtlMoveUp = 1227;
+    private const int EcmdCtlSizeDown = 1228;
+    private const int EcmdCtlSizeUp = 1229;
+    private const int EcmdCtlSizeLeft = 1230;
+    private const int EcmdCtlSizeRight = 1231;
+    private const int CmdidEditLabel = 338;
+    private const int EcmdHome = 15;
+    private const int EcmdHomeExt = 16;
+    private const int EcmdEnd = 17;
+    private const int EcmdEndExt = 18;
+
+    private static readonly Guid VsStandardCommandSet97 = new("5efc7975-14bc-11cf-9b2b-00aa00573819");
+    private static readonly Guid WfMenuGroup = new("74D21312-2AEE-11d1-8BFB-00A0C90F26F7");
+    private static readonly Guid WfCommandSet = new("74D21313-2AEE-11d1-8BFB-00A0C90F26F7");
+    private static readonly Guid GuidVSStd2K = new("1496A755-94DE-11D0-8C3F-00C04FC2AAE2");
+
+    public static readonly CommandID SelectionMenu = new(WfMenuGroup, MnuidSelection);
+    public static readonly CommandID ContainerMenu = new(WfMenuGroup, MnuidContainer);
+    public static readonly CommandID TraySelectionMenu = new(WfMenuGroup, MnuidTraySelection);
+    public static readonly CommandID ComponentTrayMenu = new(WfMenuGroup, MnuidComponentTray);
+    public static readonly CommandID DesignerProperties = new(WfCommandSet, CmdidDesignerProperties);
+    public static readonly CommandID KeyCancel = new(GuidVSStd2K, EcmdCancel);
+    public static readonly CommandID KeyReverseCancel = new(WfCommandSet, CmdidReverseCancel);
+    public static readonly CommandID KeyInvokeSmartTag = new(GuidVSStd2K, EcmdInvokeSmartTag);
+    public static readonly CommandID KeyDefaultAction = new(GuidVSStd2K, EcmdReturn);
+    public static readonly CommandID KeyMoveUp = new(GuidVSStd2K, EcmdUp);
+    public static readonly CommandID KeyMoveDown = new(GuidVSStd2K, EcmdDown);
+    public static readonly CommandID KeyMoveLeft = new(GuidVSStd2K, EcmdLeft);
+    public static readonly CommandID KeyMoveRight = new(GuidVSStd2K, EcmdRight);
+    public static readonly CommandID KeyNudgeUp = new(GuidVSStd2K, EcmdCtlMoveUp);
+    public static readonly CommandID KeyNudgeDown = new(GuidVSStd2K, EcmdCtlMoveDown);
+    public static readonly CommandID KeyNudgeLeft = new(GuidVSStd2K, EcmdCtlMoveLeft);
+    public static readonly CommandID KeyNudgeRight = new(GuidVSStd2K, EcmdCtlMoveRight);
+    public static readonly CommandID KeySizeWidthIncrease = new(GuidVSStd2K, EcmdRightExt);
+    public static readonly CommandID KeySizeHeightIncrease = new(GuidVSStd2K, EcmdUpExt);
+    public static readonly CommandID KeySizeWidthDecrease = new(GuidVSStd2K, EcmdLeftExt);
+    public static readonly CommandID KeySizeHeightDecrease = new(GuidVSStd2K, EcmdDownExt);
+    public static readonly CommandID KeyNudgeWidthIncrease = new(GuidVSStd2K, EcmdCtlSizeRight);
+    public static readonly CommandID KeyNudgeHeightIncrease = new(GuidVSStd2K, EcmdCtlSizeDown);
+    public static readonly CommandID KeyNudgeWidthDecrease = new(GuidVSStd2K, EcmdCtlSizeLeft);
+    public static readonly CommandID KeyNudgeHeightDecrease = new(GuidVSStd2K, EcmdCtlSizeUp);
+    public static readonly CommandID KeySelectNext = new(GuidVSStd2K, EcmdTab);
+    public static readonly CommandID KeySelectPrevious = new(GuidVSStd2K, EcmdBackTab);
+    public static readonly CommandID KeyTabOrderSelect = new(WfCommandSet, CmdidSpace);
+    public static readonly CommandID EditLabel = new(VsStandardCommandSet97, CmdidEditLabel);
+    public static readonly CommandID KeyHome = new(GuidVSStd2K, EcmdHome);
+    public static readonly CommandID KeyEnd = new(GuidVSStd2K, EcmdEnd);
+    public static readonly CommandID KeyShiftHome = new(GuidVSStd2K, EcmdHomeExt);
+    public static readonly CommandID KeyShiftEnd = new(GuidVSStd2K, EcmdEndExt);
+    public static readonly CommandID SetStatusText = new(WfCommandSet, CmdidSetStatusText);
+    public static readonly CommandID SetStatusRectangle = new(WfCommandSet, CmdidSetStatusRectangle);
+}

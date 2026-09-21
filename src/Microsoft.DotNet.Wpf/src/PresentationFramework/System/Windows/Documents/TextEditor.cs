@@ -96,7 +96,7 @@ namespace System.Windows.Documents
 
             // If no IME/TextServices are installed, we have no native reasources
             // to clean up at Finalizer.
-            if (!TextServicesLoader.ServicesInstalled)
+            if (InputManager.UnsecureCurrent.UsesPortableInput || !TextServicesLoader.ServicesInstalled)
             {
                 GC.SuppressFinalize(this);
             }
@@ -1521,6 +1521,14 @@ namespace System.Windows.Documents
                 return null;
             }
 
+            // The host delivers portable committed text. A WPF TSF store cannot
+            // describe that host's native window or composition/candidate bounds.
+            if (InputManager.UnsecureCurrent.UsesPortableInput)
+            {
+                _pendingTextStoreInit = false;
+                return null;
+            }
+
             // Init a TSF TextStore if any TIPs/IMEs are installed.
             if (_textContainer is TextContainer && TextServicesHost.Current != null)
             {
@@ -1576,7 +1584,7 @@ namespace System.Windows.Documents
             // pass, so defer the remaining work until the TextView is valid.
             this.UiScope.Dispatcher.BeginInvoke(DispatcherPriority.Normal, new DispatcherOperationCallback(OnTextViewUpdatedWorker), EventArgs.Empty);
 
-            if (!_textStoreInitStarted)
+            if (!_textStoreInitStarted && !InputManager.UnsecureCurrent.UsesPortableInput)
             {
                 Dispatcher.CurrentDispatcher.BeginInvoke(DispatcherPriority.Background, new DispatcherOperationCallback(InitTextStore), null);
                 _pendingTextStoreInit = true;

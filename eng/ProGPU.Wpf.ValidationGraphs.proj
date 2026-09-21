@@ -1,0 +1,116 @@
+<Project>
+  <PropertyGroup>
+    <Configuration Condition="'$(Configuration)' == ''">Release</Configuration>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Build the CsWin32-bearing primitive assembly before WindowsBase consumes its internal interop surface. -->
+    <ManagedTransportProject Include="$(MSBuildThisFileDirectory)../src/Microsoft.DotNet.Wpf/src/System.Windows.Primitives/System.Windows.Primitives.csproj"
+                             Condition="'$(ProGpuWpfCanonicalWinFormsIntegration)' != 'true'" />
+    <ManagedTransportProject Include="$(MSBuildThisFileDirectory)../src/Microsoft.DotNet.Wpf/src/Microsoft.Win32.SystemEvents/Microsoft.Win32.SystemEvents.csproj" />
+    <ManagedTransportProject Include="$(MSBuildThisFileDirectory)../src/Microsoft.DotNet.Wpf/src/PresentationBuildTasks/PresentationBuildTasks.csproj"
+                             Condition="'$(ProGpuWpfCanonicalWinFormsIntegration)' != 'true'" />
+    <ManagedTransportProject Include="$(MSBuildThisFileDirectory)../src/Microsoft.DotNet.Wpf/src/WindowsBase/WindowsBase.csproj"
+                             Condition="'$(ProGpuWpfCanonicalWinFormsIntegration)' != 'true'" />
+    <ManagedTransportProject Include="$(MSBuildThisFileDirectory)../src/Microsoft.DotNet.Wpf/src/System.Xaml/System.Xaml.csproj"
+                             Condition="'$(ProGpuWpfCanonicalWinFormsIntegration)' != 'true'" />
+    <ManagedTransportProject Include="$(MSBuildThisFileDirectory)../src/Microsoft.DotNet.Wpf/src/UIAutomation/UIAutomationTypes/UIAutomationTypes.csproj" />
+    <ManagedTransportProject Include="$(MSBuildThisFileDirectory)../src/Microsoft.DotNet.Wpf/src/UIAutomation/UIAutomationProvider/UIAutomationProvider.csproj" />
+    <ManagedTransportProject Include="$(MSBuildThisFileDirectory)../src/Microsoft.DotNet.Wpf/src/System.Windows.Input.Manipulations/System.Windows.Input.Manipulations.csproj" />
+    <ManagedTransportProject Include="$(MSBuildThisFileDirectory)../src/Microsoft.DotNet.Wpf/src/System.Windows.Presentation/System.Windows.Presentation.csproj" />
+    <ManagedTransportProject Include="$(MSBuildThisFileDirectory)../src/Microsoft.DotNet.Wpf/src/PresentationCore/PresentationCore.csproj" />
+    <ManagedTransportProject Include="$(MSBuildThisFileDirectory)../src/Microsoft.DotNet.Wpf/src/ReachFramework/ReachFramework.csproj" />
+    <!-- The implementation-cycle PresentationUI assembly lets PresentationFramework build first. -->
+    <ManagedTransportProject Include="$(MSBuildThisFileDirectory)../src/Microsoft.DotNet.Wpf/src/PresentationFramework/PresentationFramework.csproj" />
+    <ManagedTransportProject Include="$(MSBuildThisFileDirectory)../src/Microsoft.DotNet.Wpf/src/PresentationUI/PresentationUI.csproj" />
+
+    <ThemeProject Include="../src/Microsoft.DotNet.Wpf/src/Themes/PresentationFramework.Aero/PresentationFramework.Aero.csproj" />
+    <ThemeProject Include="../src/Microsoft.DotNet.Wpf/src/Themes/PresentationFramework.Aero2/PresentationFramework.Aero2.csproj" />
+    <ThemeProject Include="../src/Microsoft.DotNet.Wpf/src/Themes/PresentationFramework.AeroLite/PresentationFramework.AeroLite.csproj" />
+    <ThemeProject Include="../src/Microsoft.DotNet.Wpf/src/Themes/PresentationFramework.Classic/PresentationFramework.Classic.csproj" />
+    <ThemeProject Include="../src/Microsoft.DotNet.Wpf/src/Themes/PresentationFramework.Fluent/PresentationFramework.Fluent.csproj" />
+    <ThemeProject Include="../src/Microsoft.DotNet.Wpf/src/Themes/PresentationFramework.Luna/PresentationFramework.Luna.csproj" />
+    <ThemeProject Include="../src/Microsoft.DotNet.Wpf/src/Themes/PresentationFramework.Royale/PresentationFramework.Royale.csproj" />
+    <ThemeProject Include="../src/Microsoft.DotNet.Wpf/src/System.Windows.Controls.Ribbon/System.Windows.Controls.Ribbon.csproj" />
+
+    <HarnessProject Include="../src/ProGPU.Wpf.RealXamlCompilerHarness/ProGPU.Wpf.RealXamlCompilerHarness.csproj" />
+    <HarnessProject Include="../src/ProGPU.Wpf.RealXamlRuntimeHarness/ProGPU.Wpf.RealXamlRuntimeHarness.csproj" />
+    <HarnessProject Include="../src/ProGPU.Wpf.RealApplicationRunHarness/ProGPU.Wpf.RealApplicationRunHarness.csproj" />
+    <HarnessProject Include="../src/ProGPU.Wpf.RealThemeRuntimeHarness/ProGPU.Wpf.RealThemeRuntimeHarness.csproj" />
+  </ItemGroup>
+
+  <Target Name="RestoreManagedTransport">
+    <!--
+      Keep restore serialized because the source-built transport projects share
+      dependency obj files. One build manager still avoids thirteen separate
+      command-line project graph evaluations.
+    -->
+    <MSBuild
+      Projects="@(ManagedTransportProject)"
+      Targets="Restore"
+      BuildInParallel="false"
+      UnloadProjectsOnCompletion="true"
+      Properties="Configuration=$(Configuration)" />
+  </Target>
+
+  <Target Name="BuildManagedTransport">
+    <!--
+      Preserve the deliberate project order and shared packaging-output safety
+      while reusing one MSBuild process and its completed-project cache. Restore
+      runs in a separate process so package-generated properties are reevaluated.
+    -->
+    <MSBuild
+      Projects="@(ManagedTransportProject)"
+      Targets="Build"
+      BuildInParallel="false"
+      Properties="Configuration=$(Configuration)" />
+  </Target>
+
+  <Target Name="RestoreThemes">
+    <!--
+      Restore is intentionally serialized. Concurrent top-level restores can
+      race while writing shared dependency obj files in this source tree.
+    -->
+    <MSBuild
+      Projects="@(ThemeProject)"
+      Targets="Restore"
+      BuildInParallel="false"
+      UnloadProjectsOnCompletion="true"
+      Properties="Configuration=$(Configuration)" />
+  </Target>
+
+  <Target Name="BuildThemes">
+    <!--
+      The theme leaves are independent once the managed WPF foundation is built.
+      Restore runs in a separate process so package-generated properties are
+      reevaluated before compilation.
+    -->
+    <MSBuild
+      Projects="@(ThemeProject)"
+      Targets="Build"
+      BuildInParallel="true"
+      Properties="Configuration=$(Configuration)" />
+  </Target>
+
+  <Target Name="RestoreHarnesses">
+    <!-- Preserve the same shared-obj safety contract as theme restore. -->
+    <MSBuild
+      Projects="@(HarnessProject)"
+      Targets="Restore"
+      BuildInParallel="false"
+      UnloadProjectsOnCompletion="true"
+      Properties="Configuration=$(Configuration)" />
+  </Target>
+
+  <Target Name="BuildHarnesses">
+    <!--
+      Harnesses share the qualified foundation but not build outputs. Restore
+      runs in a separate process so package-generated properties are reevaluated.
+    -->
+    <MSBuild
+      Projects="@(HarnessProject)"
+      Targets="Build"
+      BuildInParallel="true"
+      Properties="Configuration=$(Configuration)" />
+  </Target>
+</Project>

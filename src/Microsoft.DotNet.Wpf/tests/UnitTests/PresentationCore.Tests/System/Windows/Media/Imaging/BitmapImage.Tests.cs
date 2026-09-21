@@ -5,6 +5,64 @@ namespace System.Windows.Media.Imaging;
 
 public sealed class BitmapImageTests
 {
+    [WpfFact]
+    public void PngDecoderFamiliesFollowFrozenPixelStorageSelection()
+    {
+        using MemoryStream factoryStream = new(s_png120DPI1x1);
+        using MemoryStream specificStream = new(s_png120DPI1x1);
+        BitmapDecoder factory = BitmapDecoder.Create(factoryStream, BitmapCreateOptions.None, BitmapCacheOption.OnLoad);
+        BitmapDecoder specific = new PngBitmapDecoder(specificStream, BitmapCreateOptions.None, BitmapCacheOption.OnLoad);
+        foreach (BitmapDecoder decoder in new[] { factory, specific })
+        {
+            Assert.Equal(BitmapSource.UsesPortablePixelStorage, decoder.InternalDecoder == null);
+            Assert.Single(decoder.Frames);
+            Assert.Equal(1, decoder.Frames[0].PixelWidth);
+            Assert.Equal(1, decoder.Frames[0].PixelHeight);
+        }
+        if (BitmapSource.UsesPortablePixelStorage)
+        {
+            using MemoryStream unsupported = new("unsupported image"u8.ToArray());
+            Assert.Throws<NotSupportedException>(() => new PngBitmapDecoder(
+                unsupported, BitmapCreateOptions.None, BitmapCacheOption.OnLoad));
+        }
+    }
+
+    [WpfFact]
+    public void CachedPngUriPreservesOwnedPortablePixels()
+    {
+        string path = Path.GetTempFileName();
+        try
+        {
+            File.WriteAllBytes(path, s_png120DPI1x1);
+            BitmapImage first = Load();
+            BitmapImage cached = Load();
+            foreach (BitmapImage image in new[] { first, cached })
+            {
+                Assert.Equal(BitmapSource.UsesPortablePixelStorage, image._managedPixelBuffer != null);
+                Assert.Equal(1, image.PixelWidth);
+                Assert.Equal(first.DpiX, image.DpiX);
+                Assert.Equal(first.DpiY, image.DpiY);
+                byte[] pixels = new byte[4];
+                image.CopyPixels(pixels, 4, 0);
+                Assert.Equal(new byte[3], pixels[..3]);
+                image.Freeze();
+            }
+            if (BitmapSource.UsesPortablePixelStorage)
+                Assert.NotSame(first._managedPixelBuffer, cached._managedPixelBuffer);
+
+            BitmapImage Load()
+            {
+                var image = new BitmapImage();
+                image.BeginInit();
+                image.CacheOption = BitmapCacheOption.OnLoad;
+                image.UriSource = new Uri(path);
+                image.EndInit();
+                return image;
+            }
+        }
+        finally { File.Delete(path); }
+    }
+
     private static readonly byte[] s_png120DPI1x1 = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52,
                                                      0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x02, 0x00, 0x00, 0x00, 0x90, 0x77, 0x53,
                                                      0xDE, 0x00, 0x00, 0x00, 0x01, 0x73, 0x52, 0x47, 0x42, 0x00, 0xAE, 0xCE, 0x1C, 0xE9, 0x00, 0x00,

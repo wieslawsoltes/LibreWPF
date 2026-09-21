@@ -138,5 +138,3 @@ public:
     CRectF<CoordinateSpace::LocalRendering> m_boundingRect;  // Precomputed from managed side
 };
 
-
-

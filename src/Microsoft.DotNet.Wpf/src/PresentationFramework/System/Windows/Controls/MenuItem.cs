@@ -594,6 +594,11 @@ namespace System.Windows.Controls
             menuItem.StopTimer(ref menuItem._openHierarchyTimer);
             menuItem.StopTimer(ref menuItem._closeHierarchyTimer);
 
+            if (!newValue)
+            {
+                menuItem.ClosePortableTemplatePopup();
+            }
+
             MenuItemAutomationPeer peer = UIElementAutomationPeer.FromElement(menuItem) as MenuItemAutomationPeer;
             if (peer != null)
             {
@@ -709,6 +714,24 @@ namespace System.Windows.Controls
             }
 
             menuItem.CoerceValue(ToolTipService.IsEnabledProperty);
+        }
+
+        private void ClosePortableTemplatePopup()
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                return;
+            }
+
+            // TemplateBinding normally propagates IsSubmenuOpen synchronously.  Portable menu
+            // closure also crosses the native transient-window dispatcher, so an already queued
+            // template invalidation can otherwise leave PART_Popup open after the owner MenuItem
+            // has closed.  Make the owner state authoritative without replacing the template
+            // binding; Popup owns the synchronous native hide and deferred teardown.
+            if (_submenuPopup is { IsOpen: true } popup)
+            {
+                popup.SetCurrentValueInternal(Popup.IsOpenProperty, BooleanBoxes.FalseBox);
+            }
         }
 
         private void OnPopupClosed(object source, EventArgs e)
@@ -2717,4 +2740,3 @@ namespace System.Windows.Controls
         #endregion ItemsStyleKey
     }
 }
-

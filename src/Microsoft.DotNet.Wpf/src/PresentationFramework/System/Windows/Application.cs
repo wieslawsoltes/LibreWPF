@@ -41,6 +41,7 @@ using MS.Win32;
 using Microsoft.Win32;
 using MS.Internal.Telemetry.PresentationFramework;
 using System.Diagnostics.CodeAnalysis;
+using ProGPU.Wpf.Interop;
 
 using PackUriHelper = System.IO.Packaging.PackUriHelper;
 
@@ -1680,6 +1681,10 @@ namespace System.Windows
                 throw new InvalidOperationException(SR.Format(SR.CannotCallRunMultipleTimes, this.GetType().FullName));
             }
 
+            if (_portableRunEntered)
+                throw new InvalidOperationException(SR.ApplicationAlreadyRunning);
+            bool usePortableRunLoop = PortableWindowActivationService.IsEnabled;
+
             if (window != null)
             {
                 if (!window.CheckAccess())
@@ -1696,7 +1701,31 @@ namespace System.Windows
                 {
                     MainWindow = window;
                 }
+            }
 
+            if (usePortableRunLoop)
+            {
+                _portableRunEntered = true;
+                try
+                {
+                    FlushPortableDispatcherOperations(DispatcherPriority.Send);
+                    if (!IsShuttingDown && window != null && !window.IsDisposed && window.Visibility != Visibility.Visible)
+                        window.Show();
+
+                    var source = new PortableApplicationLoopSource(this);
+                    PortableApplicationRunLoop.Run(ref source);
+                    // Only actual application/dispatcher shutdown ends this loop;
+                    // return from an individual native window never requests it.
+                    if (!IsShuttingDown) CriticalShutdown(0);
+                    FlushPortableDispatcherOperations(DispatcherPriority.ApplicationIdle);
+                    if (!_appIsShutdown) ShutdownImpl();
+                    return _exitCode;
+                }
+                finally { _portableRunEntered = false; }
+            }
+
+            if (window != null)
+            {
                 if (window.Visibility != Visibility.Visible)
                 {
                     Dispatcher.BeginInvoke(
@@ -2050,6 +2079,11 @@ namespace System.Windows
         /// </summary>
         private void EnsureHwndSource()
         {
+            if (PortableWindowActivationService.IsEnabled || !OperatingSystem.IsWindows())
+            {
+                return;
+            }
+
             if (_parkingHwnd == null)
             {
                 // _appFilterHook needs to be member variable otherwise
@@ -2195,6 +2229,76 @@ namespace System.Windows
             ShutdownImpl();
             return null;
         }
+
+        private void FlushPortableDispatcherOperations(DispatcherPriority markerPriority)
+        {
+            if (Dispatcher.HasShutdownStarted || Dispatcher.HasShutdownFinished)
+            {
+                return;
+            }
+
+            DispatcherFrame frame = new DispatcherFrame();
+            Dispatcher.BeginInvoke(
+                markerPriority,
+                (DispatcherOperationCallback) delegate(object state)
+                {
+                    ((DispatcherFrame)state).Continue = false;
+                    return null;
+                },
+                frame);
+
+            Dispatcher.PushFrame(frame);
+        }
+
+        private Window FindPortableRunWindow()
+        {
+            VerifyAccess();
+            if (MainWindow is Window main && IsPortableRunWindow(main)) return main;
+            WindowCollection windows = WindowsInternal;
+            for (int i = 0; i < windows.Count; i++)
+                if (IsPortableRunWindow(windows[i])) return windows[i];
+            return null;
+        }
+
+        private bool IsPortableRunWindow(Window window) =>
+            ReferenceEquals(window.Dispatcher, Dispatcher) && !window.IsDisposed && window.PortableWindowActivation != null;
+
+        private void WaitForPortableRunWindow()
+        {
+            // There may be no native windows under OnExplicitShutdown, or before
+            // a deferred Startup handler shows the first one. Service actual source
+            // dispatcher work without manufacturing a window, spinning, or entering
+            // another renderer. Observe completion, not posting (which can be remote).
+            var frame = new DispatcherFrame();
+            void OnCompleted(object sender, DispatcherHookEventArgs args)
+            {
+                if (IsShuttingDown || _appIsShutdown || FindPortableRunWindow() != null)
+                    frame.Continue = false;
+            }
+            Dispatcher.Hooks.OperationCompleted += OnCompleted;
+            try
+            {
+                if (!IsShuttingDown && !_appIsShutdown && FindPortableRunWindow() == null &&
+                    !Dispatcher.HasShutdownStarted && !Dispatcher.HasShutdownFinished)
+                    Dispatcher.PushFrame(frame);
+            }
+            finally { Dispatcher.Hooks.OperationCompleted -= OnCompleted; }
+        }
+
+        private readonly struct PortableApplicationLoopSource(Application application) : IPortableApplicationRunLoopSource
+        {
+            public bool IsShutdownRequested => IsShuttingDown || application._appIsShutdown ||
+                application.Dispatcher.HasShutdownStarted || application.Dispatcher.HasShutdownFinished;
+            public object FindRunHost() => application.FindPortableRunWindow();
+            public bool IsHostAlive(object host) => host is Window window && application.IsPortableRunWindow(window);
+            public void RunHost(object host)
+            {
+                if (!PortableWindowActivationService.TryRun((Window)host))
+                    throw new InvalidOperationException("The selected portable application window has no active host.");
+            }
+            public void WaitForHost() => application.WaitForPortableRunWindow();
+        }
+
         /// <summary>
         /// This method gets called on dispatch of the Shutdown DispatcherOperationCallback
         /// </summary>
@@ -2258,12 +2362,29 @@ namespace System.Windows
             }
             else
             {
+                if (!WindowsInternal.HasItem(wnd))
+                {
+                    WindowsInternal.Add(wnd);
+                }
+
+                if (MainWindow == null)
+                {
+                    MainWindow = wnd;
+                }
+
                 // if Visibility has not been set, we set it to true
                 // Also check whether the window is already closed when we get here - applications could close the window
                 // in its constructor.
                 if (!wnd.IsVisibilitySet && !wnd.IsDisposed)
                 {
-                    wnd.Visibility = Visibility.Visible;
+                    if (PortableWindowActivationService.IsEnabled)
+                    {
+                        wnd.Show();
+                    }
+                    else
+                    {
+                        wnd.Visibility = Visibility.Visible;
+                    }
                 }
             }
         }
@@ -2277,6 +2398,11 @@ namespace System.Windows
         /// <returns>true if a sound was successfully played</returns>
         private void PlaySound(string soundName)
         {
+            if (!global::System.OperatingSystem.IsWindows())
+            {
+                return;
+            }
+
             string soundFile = GetSystemSound(soundName);
 
             if (!string.IsNullOrEmpty(soundFile))
@@ -2348,7 +2474,7 @@ namespace System.Windows
                     Invariant.Assert(fileInBamlConvert != null, "fileInBamlConvert should not be null");
                     Invariant.Assert(fileCurrent != null, "fileCurrent should not be null");
 
-                    if (string.Equals(fileInBamlConvert, fileCurrent, StringComparison.OrdinalIgnoreCase))
+                    if (AreComponentResourceUrisEquivalent(loadBamlSyncInfo.BamlUri, curComponentUri))
                     {
                         //
                         // This is the root element of the xaml page which is being loaded to creat a tree
@@ -2387,6 +2513,109 @@ namespace System.Windows
             }
 
             return isRootElement;
+        }
+
+        private static bool AreComponentResourceUrisEquivalent(Uri firstUri, Uri secondUri)
+        {
+            string firstPath = firstUri.LocalPath;
+            string secondPath = secondUri.LocalPath;
+
+            Invariant.Assert(firstPath != null, "firstPath should not be null");
+            Invariant.Assert(secondPath != null, "secondPath should not be null");
+
+            if (AreComponentPartNamesEquivalent(firstPath, secondPath))
+            {
+                return true;
+            }
+
+            try
+            {
+                Uri firstRelativeUri = new Uri(firstPath, UriKind.Relative);
+                Uri secondRelativeUri = new Uri(secondPath, UriKind.Relative);
+
+                BaseUriHelper.GetAssemblyNameAndPart(
+                    firstRelativeUri,
+                    out string firstPartName,
+                    out string firstAssemblyName,
+                    out string firstAssemblyVersion,
+                    out string firstAssemblyKey);
+                BaseUriHelper.GetAssemblyNameAndPart(
+                    secondRelativeUri,
+                    out string secondPartName,
+                    out string secondAssemblyName,
+                    out string secondAssemblyVersion,
+                    out string secondAssemblyKey);
+
+                return AreComponentPartNamesEquivalent(firstPartName, secondPartName)
+                    && AreComponentAssemblyNamesEquivalent(firstAssemblyName, secondAssemblyName)
+                    && AreOptionalComponentAssemblyPartsCompatible(firstAssemblyVersion, secondAssemblyVersion)
+                    && AreOptionalComponentAssemblyPartsCompatible(firstAssemblyKey, secondAssemblyKey);
+            }
+            catch (UriFormatException)
+            {
+                return false;
+            }
+        }
+
+        private static bool AreComponentAssemblyNamesEquivalent(string firstAssemblyName, string secondAssemblyName)
+        {
+            if (string.Equals(firstAssemblyName, secondAssemblyName, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            if (string.IsNullOrEmpty(firstAssemblyName))
+            {
+                return IsResourceAssemblyName(secondAssemblyName);
+            }
+
+            if (string.IsNullOrEmpty(secondAssemblyName))
+            {
+                return IsResourceAssemblyName(firstAssemblyName);
+            }
+
+            return false;
+        }
+
+        private static bool AreComponentPartNamesEquivalent(string firstPartName, string secondPartName)
+        {
+            if (string.Equals(firstPartName, secondPartName, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            string firstExtension = Path.GetExtension(firstPartName);
+            string secondExtension = Path.GetExtension(secondPartName);
+            if (!IsXamlBamlExtensionPair(firstExtension, secondExtension))
+            {
+                return false;
+            }
+
+            string firstWithoutExtension = Path.ChangeExtension(firstPartName, null);
+            string secondWithoutExtension = Path.ChangeExtension(secondPartName, null);
+            return string.Equals(firstWithoutExtension, secondWithoutExtension, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsXamlBamlExtensionPair(string firstExtension, string secondExtension)
+        {
+            return (string.Equals(firstExtension, ".xaml", StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(secondExtension, ".baml", StringComparison.OrdinalIgnoreCase))
+                || (string.Equals(firstExtension, ".baml", StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(secondExtension, ".xaml", StringComparison.OrdinalIgnoreCase));
+        }
+
+        private static bool AreOptionalComponentAssemblyPartsCompatible(string firstValue, string secondValue)
+        {
+            return string.IsNullOrEmpty(firstValue)
+                || string.IsNullOrEmpty(secondValue)
+                || string.Equals(firstValue, secondValue, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsResourceAssemblyName(string assemblyName)
+        {
+            Assembly resourceAssembly = ResourceAssembly;
+            return resourceAssembly != null
+                && string.Equals(resourceAssembly.GetName().Name, assemblyName, StringComparison.OrdinalIgnoreCase);
         }
 
 
@@ -2430,6 +2659,7 @@ namespace System.Windows
         private ResourceDictionary          _resources;
 
         private bool                        _ownDispatcherStarted;
+        private bool                        _portableRunEntered;
         private NavigationService           _navService;
 
         private ThemeMode                   _themeMode = ThemeMode.None;
@@ -2595,4 +2825,3 @@ namespace System.Windows
     }
     #endregion enum ReasonSessionEnding
 }
-

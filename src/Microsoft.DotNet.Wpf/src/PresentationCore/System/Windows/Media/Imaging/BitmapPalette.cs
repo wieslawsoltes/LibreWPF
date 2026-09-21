@@ -46,6 +46,11 @@ namespace System.Windows.Media.Imaging
 
             _colors = new ReadOnlyCollection<Color>(colorArray);
 
+            if (BitmapSource.UsesPortablePixelStorage)
+            {
+                return;
+            }
+
             _palette = CreateInternalPalette();
 
             UpdateUnmanaged();
@@ -65,6 +70,12 @@ namespace System.Windows.Media.Imaging
             // Note: we will never return a palette from BitmapPalettes.
 
             ArgumentNullException.ThrowIfNull(bitmapSource);
+
+            if (bitmapSource._managedPixelBuffer != null || BitmapSource.UsesPortablePixelStorage)
+            {
+                InitializeManagedFromBitmapSource(bitmapSource, maxColorCount);
+                return;
+            }
 
             SafeMILHandle unmanagedBitmap = bitmapSource.WicSourceHandle;
 
@@ -115,6 +126,12 @@ namespace System.Windows.Media.Imaging
                     throw new System.ArgumentException(SR.Format(SR.Image_PaletteFixedType, paletteType));
             }
 
+            if (BitmapSource.UsesPortablePixelStorage)
+            {
+                _colors = CreateManagedPredefinedColors(paletteType, addtransparentColor);
+                return;
+            }
+
             _palette = CreateInternalPalette();
 
             HRESULT.Check(UnsafeNativeMethods.WICPalette.InitializePredefined(
@@ -146,6 +163,11 @@ namespace System.Windows.Media.Imaging
         internal static BitmapPalette CreateFromBitmapSource(BitmapSource source)
         {
             Debug.Assert(source != null);
+
+            if (source._managedPixelBuffer != null || BitmapSource.UsesPortablePixelStorage)
+            {
+                return source._palette;
+            }
 
             SafeMILHandle bitmapSource = source.WicSourceHandle;
             Debug.Assert(bitmapSource != null && !bitmapSource.IsInvalid);
@@ -211,9 +233,15 @@ namespace System.Windows.Media.Imaging
         {
             get
             {
+                if (BitmapSource.UsesPortablePixelStorage)
+                {
+                    throw new PlatformNotSupportedException("Portable bitmap palettes do not expose WIC handles.");
+                }
+
                 if (_palette == null || _palette.IsInvalid)
                 {
                     _palette = CreateInternalPalette();
+                    UpdateUnmanaged();
                 }
 
                 return _palette;
@@ -243,6 +271,11 @@ namespace System.Windows.Media.Imaging
 
         internal static SafeMILHandle CreateInternalPalette()
         {
+            if (BitmapSource.UsesPortablePixelStorage)
+            {
+                throw new PlatformNotSupportedException("Portable bitmap palettes do not expose WIC handles.");
+            }
+
             SafeMILHandle palette = null;
 
             using (FactoryMaker myFactory = new FactoryMaker())
@@ -254,6 +287,218 @@ namespace System.Windows.Media.Imaging
             }
 
             return palette;
+        }
+
+        private static ReadOnlyCollection<Color> CreateManagedPredefinedColors(
+            WICPaletteType paletteType,
+            bool addtransparentColor)
+        {
+            List<Color> colors = new List<Color>(256);
+
+            if (addtransparentColor)
+            {
+                colors.Add(Color.FromArgb(0, 0, 0, 0));
+            }
+
+            switch (paletteType)
+            {
+                case WICPaletteType.WICPaletteTypeFixedBW:
+                    AddGrayRamp(colors, 2);
+                    break;
+                case WICPaletteType.WICPaletteTypeFixedHalftone8:
+                    AddRgbCube(colors, 2);
+                    break;
+                case WICPaletteType.WICPaletteTypeFixedHalftone27:
+                    AddRgbCube(colors, 3);
+                    break;
+                case WICPaletteType.WICPaletteTypeFixedHalftone64:
+                    AddRgbCube(colors, 4);
+                    break;
+                case WICPaletteType.WICPaletteTypeFixedHalftone125:
+                    AddRgbCube(colors, 5);
+                    break;
+                case WICPaletteType.WICPaletteTypeFixedHalftone216:
+                    AddRgbCube(colors, 6);
+                    break;
+                case WICPaletteType.WICPaletteTypeFixedHalftone252:
+                    AddRgbCube(colors, 6);
+                    AddGrayRamp(colors, 36);
+                    break;
+                case WICPaletteType.WICPaletteTypeFixedHalftone256:
+                    AddRgbCube(colors, 6);
+                    AddGrayRamp(colors, 40);
+                    break;
+                case WICPaletteType.WICPaletteTypeFixedGray4:
+                    AddGrayRamp(colors, 4);
+                    break;
+                case WICPaletteType.WICPaletteTypeFixedGray16:
+                    AddGrayRamp(colors, 16);
+                    break;
+                case WICPaletteType.WICPaletteTypeFixedGray256:
+                    AddGrayRamp(colors, 256);
+                    break;
+                default:
+                    throw new System.ArgumentException(SR.Format(SR.Image_PaletteFixedType, paletteType));
+            }
+
+            if (colors.Count > 256)
+            {
+                colors.RemoveRange(256, colors.Count - 256);
+            }
+
+            return new ReadOnlyCollection<Color>(colors);
+        }
+
+        private static void AddRgbCube(List<Color> colors, int levels)
+        {
+            for (int red = 0; red < levels && colors.Count < 256; red++)
+            {
+                byte r = ScalePaletteChannel(red, levels);
+                for (int green = 0; green < levels && colors.Count < 256; green++)
+                {
+                    byte g = ScalePaletteChannel(green, levels);
+                    for (int blue = 0; blue < levels && colors.Count < 256; blue++)
+                    {
+                        byte b = ScalePaletteChannel(blue, levels);
+                        colors.Add(Color.FromRgb(r, g, b));
+                    }
+                }
+            }
+        }
+
+        private static void AddGrayRamp(List<Color> colors, int count)
+        {
+            for (int i = 0; i < count && colors.Count < 256; i++)
+            {
+                byte value = ScalePaletteChannel(i, count);
+                colors.Add(Color.FromRgb(value, value, value));
+            }
+        }
+
+        private static byte ScalePaletteChannel(int value, int count)
+        {
+            return count <= 1 ? (byte)0 : (byte)((value * 255) / (count - 1));
+        }
+
+        private void InitializeManagedFromBitmapSource(BitmapSource bitmapSource, int maxColorCount)
+        {
+            if (maxColorCount < 1 || maxColorCount > 256)
+            {
+                throw new InvalidOperationException(SR.Format(SR.Image_PaletteZeroColors, null));
+            }
+
+            if (bitmapSource._managedPixelBuffer == null)
+            {
+                throw new PlatformNotSupportedException("Portable palette analysis requires source-owned pixels.");
+            }
+
+            BitmapPalette sourcePalette = bitmapSource.Palette;
+            if (sourcePalette != null && sourcePalette.Colors.Count > 0)
+            {
+                int count = Math.Min(maxColorCount, sourcePalette.Colors.Count);
+                Color[] colors = new Color[count];
+                for (int i = 0; i < count; i++)
+                {
+                    colors[i] = sourcePalette.Colors[i];
+                }
+
+                _colors = new ReadOnlyCollection<Color>(colors);
+                return;
+            }
+
+            List<Color> extractedColors = ExtractManagedColors(bitmapSource, maxColorCount);
+            if (extractedColors.Count == 0)
+            {
+                throw new InvalidOperationException(SR.Format(SR.Image_PaletteZeroColors, null));
+            }
+
+            _colors = new ReadOnlyCollection<Color>(extractedColors);
+        }
+
+        private static List<Color> ExtractManagedColors(BitmapSource bitmapSource, int maxColorCount)
+        {
+            PixelFormat format = bitmapSource.Format;
+            int bytesPerPixel;
+            bool alpha;
+            bool premultiplied;
+            bool redFirst;
+
+            switch (format.Format)
+            {
+                case PixelFormatEnum.Bgr24:
+                    bytesPerPixel = 3;
+                    alpha = false;
+                    premultiplied = false;
+                    redFirst = false;
+                    break;
+                case PixelFormatEnum.Rgb24:
+                    bytesPerPixel = 3;
+                    alpha = false;
+                    premultiplied = false;
+                    redFirst = true;
+                    break;
+                case PixelFormatEnum.Bgr32:
+                    bytesPerPixel = 4;
+                    alpha = false;
+                    premultiplied = false;
+                    redFirst = false;
+                    break;
+                case PixelFormatEnum.Bgra32:
+                    bytesPerPixel = 4;
+                    alpha = true;
+                    premultiplied = false;
+                    redFirst = false;
+                    break;
+                case PixelFormatEnum.Pbgra32:
+                    bytesPerPixel = 4;
+                    alpha = true;
+                    premultiplied = true;
+                    redFirst = false;
+                    break;
+                default:
+                    return new List<Color>();
+            }
+
+            int width = bitmapSource.PixelWidth;
+            int height = bitmapSource.PixelHeight;
+            int stride = checked(width * bytesPerPixel);
+            byte[] pixels = new byte[checked(stride * height)];
+            bitmapSource.CopyPixels(pixels, stride, 0);
+
+            List<Color> colors = new List<Color>(Math.Min(maxColorCount, 256));
+            HashSet<uint> seen = new HashSet<uint>();
+            for (int y = 0; y < height && colors.Count < maxColorCount; y++)
+            {
+                int rowOffset = y * stride;
+                for (int x = 0; x < width && colors.Count < maxColorCount; x++)
+                {
+                    int offset = rowOffset + (x * bytesPerPixel);
+                    byte a = alpha ? pixels[offset + 3] : (byte)255;
+                    byte r = redFirst ? pixels[offset] : pixels[offset + 2];
+                    byte g = pixels[offset + 1];
+                    byte b = redFirst ? pixels[offset + 2] : pixels[offset];
+
+                    if (premultiplied && a > 0 && a < 255)
+                    {
+                        r = Unpremultiply(r, a);
+                        g = Unpremultiply(g, a);
+                        b = Unpremultiply(b, a);
+                    }
+
+                    uint key = ((uint)a << 24) | ((uint)r << 16) | ((uint)g << 8) | b;
+                    if (seen.Add(key))
+                    {
+                        colors.Add(Color.FromArgb(a, r, g, b));
+                    }
+                }
+            }
+
+            return colors;
+        }
+
+        private static byte Unpremultiply(byte component, byte alpha)
+        {
+            return (byte)Math.Min(255, ((component * 255) + (alpha / 2)) / alpha);
         }
 
         /// <summary>
@@ -368,5 +613,3 @@ namespace System.Windows.Media.Imaging
         private IList<Color> _colors = ReadOnlyCollection<Color>.Empty;
     }
 }
-
-

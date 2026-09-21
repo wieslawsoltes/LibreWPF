@@ -67,6 +67,7 @@
   <!-- XUnit-related (not extensions) -->
   <PropertyGroup>
     <XUnitStaFactPackageVersion>4.0.5-beta</XUnitStaFactPackageVersion>
+    <AccessibilityPackageVersion>4.6.0-preview3-27504-2</AccessibilityPackageVersion>
   </PropertyGroup>
 
   <!-- Test related -->

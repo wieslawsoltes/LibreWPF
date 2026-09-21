@@ -143,6 +143,15 @@ namespace System.Windows.Documents
                     return false; // false means that drag is not involved at all - selection extension should continue
                 }
 
+                // Portable hosts have no synchronous OLE source-drag loop.  Treat a drag
+                // that begins inside the current selection as ordinary selection extension
+                // instead of entering the Windows-only OLE path.
+                if (DragDrop.IsPortableDragSource(_textEditor.UiScope))
+                {
+                    _dragStarted = false;
+                    return false;
+                }
+
                 // Check the mouse drag to start DragDrop operation.
                 if (!InitialThresholdCrossed(mouseMovePoint))
                 {
@@ -583,7 +592,7 @@ namespace System.Windows.Documents
                     if (e.Handled)
                     {
                         // Set the drop target as the foreground window.
-                        Win32SetForegroundWindow();
+                        ActivateDropTargetWindow();
 
                         // Set the focus into the drop target.
                         _textEditor.UiScope.Focus();
@@ -626,16 +635,31 @@ namespace System.Windows.Documents
             {
                 if (!_textEditor.IsReadOnly && _textEditor.TextView != null && _textEditor.TextView.RenderScope != null)
                 {
-                    Window window = Window.GetWindow(_textEditor.TextView.RenderScope);
-                    if (window == null)
+                    PresentationSource source = PresentationSource.CriticalFromVisual(_textEditor.TextView.RenderScope);
+                    if (!PopupControlService.UsesNativeWindowing(source))
                     {
-                        return true;
+                        // Portable identities are not HWNDs, including on Windows. A stale or
+                        // unhosted view cannot admit a drop, nor can a modal-blocked popup owner.
+                        if (source != null && !source.IsDisposed && source.RootVisual is UIElement root &&
+                            root.IsEnabled && _textEditor.UiScope.IsEnabled &&
+                            PortableWindowActivationService.IsModalInputAllowed(root))
+                        {
+                            return true;
+                        }
                     }
-
-                    WindowInteropHelper helper = new WindowInteropHelper(window);
-                    if (SafeNativeMethods.IsWindowEnabled(new HandleRef(null, helper.Handle)))
+                    else
                     {
-                        return true;
+                        Window window = Window.GetWindow(_textEditor.TextView.RenderScope);
+                        if (window == null)
+                        {
+                            return true;
+                        }
+
+                        WindowInteropHelper helper = new WindowInteropHelper(window);
+                        if (SafeNativeMethods.IsWindowEnabled(new HandleRef(null, helper.Handle)))
+                        {
+                            return true;
+                        }
                     }
                 }
 
@@ -644,16 +668,21 @@ namespace System.Windows.Documents
             }
 
             /// <summary>
-            /// Call Win32 SetForegroundWindow to set the drop target as the foreground window.
+            /// Request foreground activation through the drop target's actual source owner.
             /// </summary>
-            private void Win32SetForegroundWindow()
+            private void ActivateDropTargetWindow()
             {
-                PresentationSource source = null;
+                PresentationSource source = PresentationSource.CriticalFromVisual(_textEditor.UiScope);
+                if (!PopupControlService.UsesNativeWindowing(source))
+                {
+                    PortableWindowActivationService.TryActivateInputOwner(source);
+                    return;
+                }
+
                 IntPtr hwnd = IntPtr.Zero;
-                source = PresentationSource.CriticalFromVisual(_textEditor.UiScope);
                 if (source != null)
                 {
-                    hwnd = (source as IWin32Window).Handle;
+                    hwnd = (source as IWin32Window)?.Handle ?? IntPtr.Zero;
                 }
 
                 if (hwnd != IntPtr.Zero)

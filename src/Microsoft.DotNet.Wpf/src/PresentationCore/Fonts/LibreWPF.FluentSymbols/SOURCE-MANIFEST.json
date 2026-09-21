@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "familyName": "LibreWPF Fluent Symbols",
+  "generatedFont": {
+    "path": "LibreWPF.FluentSymbols.ttf",
+    "sha256": "2b1cef154adcd63aa3538b76e46d41f4d284277a8722b938bfe8996fd4874bd4",
+    "generator": "tools/generate.py",
+    "fontToolsVersion": "4.59.1",
+    "legacyCodepointCount": 1475,
+    "addedCodepointCount": 282
+  },
+  "mapping": {
+    "path": "LegacyFluentGlyphMap.json",
+    "sha256": "329cba019d35d0ae8bcebec872a78b21658f6d60ac20555ea4bb21a8cdd90126"
+  },
+  "notice": {
+    "path": "NOTICE.md",
+    "sha256": "630c120a3864672fc61b3f1e445cfb5a06de26eae69a6d3bd727986c782eaf22"
+  },
+  "sources": [
+    {
+      "name": "Uno Fluent Icons",
+      "repository": "https://github.com/unoplatform/uno.fonts",
+      "commit": "ae06dc8d52ec90c4e050fd2f161711512deb0ba1",
+      "path": "webfonts/Uno Fluent Icons/uno-fluentui-assets.ttf",
+      "sha256": "2573f53b71ebee599dfc94c60e1ea848d6d20e7e777d2c65d063822850e738b6",
+      "license": "Apache-2.0",
+      "licenseFile": "licenses/Uno.Fonts-APACHE-2.0.txt",
+      "licenseSha256": "665e79a2ed599d72c00bef828f852a9bbafadd676a10f9ceffbdfdc87e6bb496"
+    },
+    {
+      "name": "Microsoft Fluent System Icons",
+      "repository": "https://github.com/microsoft/fluentui-system-icons",
+      "commit": "32374ae9ccf107e026db0d9aa9c0d631328b8003",
+      "path": "fonts/FluentSystemIcons-Regular.ttf",
+      "sha256": "d72f64599dfe4bb44be1686ba879a018da7471e72372b6a545c24a10648293e0",
+      "metadataPath": "fonts/FluentSystemIcons-Regular.json",
+      "metadataSha256": "e3c7f72f1a0d1cb58ba2224dd825a9996ecaab5828ba16e1a9192b44e4f8100e",
+      "license": "MIT",
+      "licenseFile": "licenses/FluentSystemIcons-MIT.txt",
+      "licenseSha256": "69bc45dc42b9acb96a69823adbc6ae538374e3c0bde169b855b32c48eaaef52f"
+    },
+    {
+      "name": "Microsoft WPF Gallery icon catalog",
+      "repository": "https://github.com/microsoft/WPF-Samples",
+      "commit": "ecd9529fb6941272eff1ee1e7e2554e3ecb2f1e4",
+      "path": "Sample Applications/WPFGallery/Models/IconsData.json",
+      "sha256": "daea276f8e27748dd52ba0e140f078fa8716c6b6d7b11d53ccedd542352075dc",
+      "license": "MIT",
+      "licenseFile": "licenses/WPF-Samples-MIT.txt",
+      "licenseSha256": "9b45236978bb5cd5de992021769e1eeaa79f0116d3b02cf8ba065a1ed603d5fa"
+    }
+  ]
+}

@@ -89,6 +89,11 @@ namespace MS.Internal
                 bool updateIfWindowIsSystemAwareOrUnaware,
                 IntPtr hWnd)
             {
+                if (!OperatingSystem.IsWindows())
+                {
+                    return;
+                }
+
                 if (dpiAwarenessContextValue == DpiAwarenessContextValue.Invalid)
                 {
                     return;

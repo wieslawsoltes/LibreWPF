@@ -1,0 +1,13 @@
+<Application x:Class="ProGPU.Wpf.ToolkitApp.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:sys="clr-namespace:System;assembly=System.Private.CoreLib"
+             StartupUri="MainWindow.xaml">
+  <Application.Resources>
+    <SolidColorBrush x:Key="ToolkitAccentBrush" Color="#2F6F8F" />
+    <SolidColorBrush x:Key="ToolkitSubtleBrush" Color="#EEF3F7" />
+    <sys:String x:Key="ToolkitFilterWatermark">Filter documents</sys:String>
+    <SolidColorBrush x:Key="ToolkitRangeLowerBrush" Color="#D9EAF7" />
+    <SolidColorBrush x:Key="ToolkitRangeHigherBrush" Color="#D7F0E4" />
+  </Application.Resources>
+</Application>

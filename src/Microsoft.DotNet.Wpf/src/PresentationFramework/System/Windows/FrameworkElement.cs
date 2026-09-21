@@ -21,6 +21,7 @@ using MS.Internal;
 using MS.Internal.KnownBoxes;
 using MS.Internal.PresentationFramework;    // SafeSecurityHelper
 using MS.Utility;
+using ProGPU.Wpf.Interop;
 
 namespace System.Windows
 {
@@ -90,7 +91,7 @@ namespace System.Windows
     [StyleTypedProperty(Property = "FocusVisualStyle", StyleTargetType = typeof(Control))]
     [XmlLangProperty("Language")]
     [UsableDuringInitialization(true)]
-    public partial class FrameworkElement : UIElement, IFrameworkInputElement, ISupportInitialize, IHaveResources, IQueryAmbient
+    public partial class FrameworkElement : UIElement, IFrameworkInputElement, ISupportInitialize, IHaveResources, IQueryAmbient, IPortableVisualLayoutStateSource
     {
         private static readonly Type _typeofThis = typeof(FrameworkElement);
 
@@ -5032,6 +5033,22 @@ namespace System.Windows
                 return null;
         }
 
+        bool IPortableVisualLayoutStateSource.TryGetPortableVisualLayoutState(out PortableVisualLayoutState state)
+        {
+            Size renderSize = RenderSize;
+            Geometry layoutClip = GetLayoutClipInternal();
+            state = new PortableVisualLayoutState
+            {
+                HasRenderSize = true,
+                RenderSize = new PortableSize(renderSize.Width, renderSize.Height),
+                HasClipToBounds = true,
+                ClipToBounds = ClipToBounds,
+                HasLayoutClip = layoutClip != null,
+                LayoutClip = layoutClip
+            };
+            return true;
+        }
+
         /// <summary>
         /// Measurement override. Implement your size-to-content logic here.
         /// </summary>
@@ -6545,7 +6562,6 @@ namespace System.Windows
 
     }
 }
-
 
 
 

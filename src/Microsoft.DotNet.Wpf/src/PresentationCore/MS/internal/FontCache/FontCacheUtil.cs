@@ -299,9 +299,11 @@ namespace MS.Internal.FontCache
 
         static Util()
         {
-            string s = Environment.GetEnvironmentVariable(WinDir) + @"\Fonts\";
+            string fontsLocalPath = GetSystemFontsLocalPath();
 
-            _windowsFontsLocalPath = s.ToUpperInvariant();
+            _windowsFontsLocalPath = OperatingSystem.IsWindows()
+                ? fontsLocalPath.ToUpperInvariant()
+                : fontsLocalPath;
 
             _windowsFontsUriObject = new Uri(_windowsFontsLocalPath, UriKind.Absolute);
 
@@ -346,6 +348,13 @@ namespace MS.Internal.FontCache
                     {
                         if (!_dpiInitialized)
                         {
+                            if (!OperatingSystem.IsWindows())
+                            {
+                                _dpi = 96;
+                                _dpiInitialized = true;
+                                return _dpi;
+                            }
+
                             HandleRef desktopWnd = new HandleRef(null, IntPtr.Zero);
 
                             // Win32Exception will get the Win32 error code so we don't have to
@@ -371,6 +380,33 @@ namespace MS.Internal.FontCache
                 }
                 return _dpi;
             }
+        }
+
+        private static string GetSystemFontsLocalPath()
+        {
+            string path;
+            if (OperatingSystem.IsWindows())
+            {
+                string windowsDirectory = Environment.GetEnvironmentVariable(WinDir);
+                path = Path.Combine(
+                    string.IsNullOrEmpty(windowsDirectory) ? @"C:\Windows" : windowsDirectory,
+                    "Fonts");
+            }
+            else if (OperatingSystem.IsMacOS())
+            {
+                path = Directory.Exists("/System/Library/Fonts")
+                    ? "/System/Library/Fonts"
+                    : "/Library/Fonts";
+            }
+            else
+            {
+                path = Directory.Exists("/usr/share/fonts")
+                    ? "/usr/share/fonts"
+                    : AppContext.BaseDirectory;
+            }
+
+            return Path.GetFullPath(path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))
+                + Path.DirectorySeparatorChar;
         }
 
         /// <summary>
@@ -798,6 +834,12 @@ namespace MS.Internal.FontCache
                     _mappingHandle?.Dispose();
                 }
 
+                if (_managedBufferHandle.IsAllocated)
+                {
+                    _managedBufferHandle.Free();
+                    _managedBuffer = null;
+                }
+
                 // We only handle flat disk files read only, should never be writeable.
                 Invariant.Assert(!CanWrite);
             }
@@ -806,6 +848,12 @@ namespace MS.Internal.FontCache
 
         internal void OpenFile(string fileName)
         {
+            if (!OperatingSystem.IsWindows())
+            {
+                OpenManagedFile(fileName);
+                return;
+            }
+
             NativeMethods.SECURITY_ATTRIBUTES sa = new NativeMethods.SECURITY_ATTRIBUTES();
             try
             {
@@ -862,8 +910,26 @@ namespace MS.Internal.FontCache
             }
         }
 
+        private void OpenManagedFile(string fileName)
+        {
+            byte[] buffer = File.ReadAllBytes(fileName);
+            if (buffer.Length == 0)
+            {
+                throw new FileFormatException(new Uri(fileName));
+            }
+
+            _managedBuffer = buffer;
+            _managedBufferHandle = GCHandle.Alloc(buffer, GCHandleType.Pinned);
+            unsafe
+            {
+                Initialize((byte*)_managedBufferHandle.AddrOfPinnedObject(), buffer.Length, buffer.Length, FileAccess.Read);
+            }
+        }
+
         private UnsafeNativeMethods.SafeViewOfFileHandle _viewHandle;
         private UnsafeNativeMethods.SafeFileMappingHandle _mappingHandle;
+        private byte[] _managedBuffer;
+        private GCHandle _managedBufferHandle;
 
         private bool _disposed = false;
     }
@@ -952,4 +1018,3 @@ namespace MS.Internal.FontCache
         private static LanguageComparerClass _languageComparer = new LanguageComparerClass();
     }
 }
-

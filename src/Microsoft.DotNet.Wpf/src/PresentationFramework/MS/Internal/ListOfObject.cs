@@ -27,12 +27,12 @@ namespace MS.Internal
 
         void IList<object>.Insert(int index, object item)
         {
-            throw new NotImplementedException();
+            _list.Insert(index, item);
         }
 
         void IList<object>.RemoveAt(int index)
         {
-            throw new NotImplementedException();
+            _list.RemoveAt(index);
         }
 
         object IList<object>.this[int index]
@@ -43,7 +43,7 @@ namespace MS.Internal
             }
             set
             {
-                throw new NotImplementedException();
+                _list[index] = value;
             }
         }
 
@@ -53,12 +53,12 @@ namespace MS.Internal
 
         void ICollection<object>.Add(object item)
         {
-            throw new NotImplementedException();
+            _list.Add(item);
         }
 
         void ICollection<object>.Clear()
         {
-            throw new NotImplementedException();
+            _list.Clear();
         }
 
         bool ICollection<object>.Contains(object item)
@@ -78,12 +78,18 @@ namespace MS.Internal
 
         bool ICollection<object>.IsReadOnly
         {
-            get { return true; }
+            get { return _list.IsReadOnly; }
         }
 
         bool ICollection<object>.Remove(object item)
         {
-            throw new NotImplementedException();
+            if (_list.Contains(item))
+            {
+                _list.Remove(item);
+                return true;
+            }
+
+            return false;
         }
 
         #endregion
@@ -153,4 +159,3 @@ namespace MS.Internal
         }
     }
 }
-

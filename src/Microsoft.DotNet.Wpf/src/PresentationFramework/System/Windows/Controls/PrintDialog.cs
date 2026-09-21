@@ -9,6 +9,7 @@
 */
 
 using System.Printing;
+using System.Runtime.CompilerServices;
 using System.Windows.Media;
 using System.Windows.Xps;
 using MS.Internal.Printing;
@@ -286,6 +287,10 @@ namespace System.Windows.Controls
         Nullable<bool>
         ShowDialog()
         {
+            if (!OperatingSystem.IsWindows())
+            {
+                return false;
+            }
 
             Win32PrintDialog dlg = new Win32PrintDialog
             {
@@ -341,6 +346,11 @@ namespace System.Windows.Controls
         {
             ArgumentNullException.ThrowIfNull(visual);
 
+            if (!OperatingSystem.IsWindows())
+            {
+                throw new PlatformNotSupportedException(SR.PrintDialogInstallPrintSupportMessageBox);
+            }
+
             XpsDocumentWriter writer = CreateWriter(description);
 
             writer.Write(visual, _printTicket);
@@ -370,6 +380,11 @@ namespace System.Windows.Controls
         {
             ArgumentNullException.ThrowIfNull(documentPaginator);
 
+            if (!OperatingSystem.IsWindows())
+            {
+                throw new PlatformNotSupportedException(SR.PrintDialogInstallPrintSupportMessageBox);
+            }
+
             XpsDocumentWriter writer = CreateWriter(description);
 
             writer.Write(documentPaginator, _printTicket);
@@ -387,6 +402,19 @@ namespace System.Windows.Controls
         private
         PrintQueue
         AcquireDefaultPrintQueue()
+        {
+            if (!OperatingSystem.IsWindows())
+            {
+                return null;
+            }
+
+            return AcquireDefaultPrintQueueWindows();
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private
+        PrintQueue
+        AcquireDefaultPrintQueueWindows()
         {
             PrintQueue printQueue = null;
 
@@ -416,25 +444,9 @@ namespace System.Windows.Controls
         {
             PrintTicket printTicket = null;
 
-            try
+            if ((printQueue != null) && OperatingSystem.IsWindows())
             {
-                if (printQueue != null)
-                {
-                    printTicket = printQueue.UserPrintTicket;
-                    if (printTicket == null)
-                    {
-                        printTicket = printQueue.DefaultPrintTicket;
-                    }
-                }
-            }
-            catch (PrintSystemException)
-            {
-                //
-                // The printing subsystem can throw an exception in certain cases when
-                // the print ticket is unavailable.  If it does we will handle this
-                // below.  There is no real need to bubble this up to the application.
-                //
-                printTicket = null;
+                printTicket = AcquireDefaultPrintTicketWindows(printQueue);
             }
 
             //
@@ -450,9 +462,59 @@ namespace System.Windows.Controls
             return printTicket;
         }
 
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private
+        PrintTicket
+        AcquireDefaultPrintTicketWindows(
+            PrintQueue printQueue
+            )
+        {
+            PrintTicket printTicket = null;
+
+            try
+            {
+                printTicket = printQueue.UserPrintTicket;
+                if (printTicket == null)
+                {
+                    printTicket = printQueue.DefaultPrintTicket;
+                }
+            }
+            catch (PrintSystemException)
+            {
+                //
+                // The printing subsystem can throw an exception in certain cases when
+                // the print ticket is unavailable.  If it does we will handle this
+                // below.  There is no real need to bubble this up to the application.
+                //
+                printTicket = null;
+            }
+
+            return printTicket;
+        }
+
         private
         void
         UpdatePrintableAreaSize(
+            )
+        {
+            if (!OperatingSystem.IsWindows())
+            {
+                if (_printTicket == null)
+                {
+                    _printTicket = AcquireDefaultPrintTicket(_printQueue);
+                }
+
+                UpdatePrintableAreaSizeFromPrintTicket(_printTicket);
+                return;
+            }
+
+            UpdatePrintableAreaSizeWindows();
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private
+        void
+        UpdatePrintableAreaSizeWindows(
             )
         {
             PrintQueue  printQueue  = null;
@@ -476,35 +538,44 @@ namespace System.Windows.Controls
             }
             else
             {
-                // Initialize page size to portrait Letter size.
-                // This is our fallback if PrintTicket doesn't specify the page size.
-                _printableAreaWidth = 816;
-                _printableAreaHeight = 1056;
+                UpdatePrintableAreaSizeFromPrintTicket(printTicket);
+            }
+        }
 
-                // PrintTicket's PageMediaSize could be null and PageMediaSize Width/Height are Nullable
+        private
+        void
+        UpdatePrintableAreaSizeFromPrintTicket(
+            PrintTicket printTicket
+            )
+        {
+            // Initialize page size to portrait Letter size.
+            // This is our fallback if PrintTicket doesn't specify the page size.
+            _printableAreaWidth = 816;
+            _printableAreaHeight = 1056;
 
-                if ((printTicket.PageMediaSize != null) &&
-                    (printTicket.PageMediaSize.Width != null) &&
-                    (printTicket.PageMediaSize.Height != null))
+            // PrintTicket's PageMediaSize could be null and PageMediaSize Width/Height are Nullable
+
+            if ((printTicket.PageMediaSize != null) &&
+                (printTicket.PageMediaSize.Width != null) &&
+                (printTicket.PageMediaSize.Height != null))
+            {
+                _printableAreaWidth  = (double)printTicket.PageMediaSize.Width;
+                _printableAreaHeight = (double)printTicket.PageMediaSize.Height;
+            }
+
+            // If we are using PrintTicket's PageMediaSize dimensions to populate the widht/height values,
+            // we need to adjust them based on current orientation. PrintTicket's PageOrientation is Nullable.
+            if (printTicket.PageOrientation != null)
+            {
+                PageOrientation orientation = (PageOrientation)printTicket.PageOrientation;
+
+                // need to swap width/height in landscape orientation
+                if ((orientation == PageOrientation.Landscape) ||
+                    (orientation == PageOrientation.ReverseLandscape))
                 {
-                    _printableAreaWidth  = (double)printTicket.PageMediaSize.Width;
-                    _printableAreaHeight = (double)printTicket.PageMediaSize.Height;
-                }
-
-                // If we are using PrintTicket's PageMediaSize dimensions to populate the widht/height values,
-                // we need to adjust them based on current orientation. PrintTicket's PageOrientation is Nullable.
-                if (printTicket.PageOrientation != null)
-                {
-                    PageOrientation orientation = (PageOrientation)printTicket.PageOrientation;
-
-                    // need to swap width/height in landscape orientation
-                    if ((orientation == PageOrientation.Landscape) ||
-                        (orientation == PageOrientation.ReverseLandscape))
-                    {
-                        double t = _printableAreaWidth;
-                        _printableAreaWidth  = _printableAreaHeight;
-                        _printableAreaHeight = t;
-                    }
+                    double t = _printableAreaWidth;
+                    _printableAreaWidth  = _printableAreaHeight;
+                    _printableAreaHeight = t;
                 }
             }
         }

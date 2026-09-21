@@ -29,6 +29,10 @@ namespace System.Windows.Input
         {
             _inputManager = inputManager;
 
+            // Apply ownership before the first focus event or dispatcher pump.
+            if (_inputManager.UsesPortableInput)
+                Dispatcher.IsTSFMessagePumpEnabled = false;
+
             _inputManager.PreProcessInput += new PreProcessInputEventHandler(PreProcessInput);
             _inputManager.PostProcessInput += new ProcessInputEventHandler(PostProcessInput);
         }
@@ -68,9 +72,10 @@ namespace System.Windows.Input
         // Track the focus of KeyboardDevice. KeyboardDevice.ChangeFocus() this.
         internal void Focus(DependencyObject focus)
         {
-            if (focus == null)
+            if (focus == null || _inputManager.UsesPortableInput)
             {
-                // Don't grab keyboard events from Text Services Framework without keyboard focus.
+                // Leave native messages to their host when no WPF element has
+                // focus or a portable host owns key-to-text promotion.
                 this.Dispatcher.IsTSFMessagePumpEnabled = false;
 
                 return;
@@ -114,6 +119,11 @@ namespace System.Windows.Input
         {
             TextServicesContext context;
             KeyEventArgs keyArgs;
+
+            // The native portable host owns key-to-text promotion. Re-entering
+            // WPF TSF here can consume a key already delivered by that host.
+            if (_inputManager.UsesPortableInput)
+                return;
 
             if (!TextServicesLoader.ServicesInstalled)
                 return;
@@ -160,6 +170,9 @@ namespace System.Windows.Input
         {
             TextServicesContext context;
             KeyEventArgs keyArgs;
+
+            if (_inputManager.UsesPortableInput)
+                return;
 
             if (!TextServicesLoader.ServicesInstalled)
                 return;
@@ -283,4 +296,3 @@ namespace System.Windows.Input
         #endregion Private Fields
     }
 }
-

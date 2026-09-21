@@ -1,0 +1,18 @@
+<Application
+    x:Class="ProGPU.Wpf.SdkSwitchSmoke.App"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    StartupUri="MainWindow.xaml"
+    Startup="OnAppStartup"
+    Exit="OnAppExit">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/ProGPU.Wpf.SdkSwitchLibrary;component/Resources/LibraryResources.xaml" />
+                <ResourceDictionary Source="SmokeResources.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <SolidColorBrush x:Key="SmokeAccentBrush" Color="#356D9E" />
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

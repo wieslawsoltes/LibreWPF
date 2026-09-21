@@ -9,6 +9,7 @@
 
 using System.Windows.Media.Composition;
 using System.Windows.Media.Animation;
+using ProGPU.Wpf.Interop;
 
 namespace System.Windows.Media
 {
@@ -17,7 +18,7 @@ namespace System.Windows.Media
     /// This class captures the array of dashe and gap lengths and the dash offset.
     /// </summary>
     [Localizability(LocalizationCategory.None, Readability = Readability.Unreadable)]
-    public partial class DashStyle : Animatable, DUCE.IResource
+    public partial class DashStyle : Animatable, DUCE.IResource, IPortableDashStyleSource
     {
         #region Constructors
 
@@ -50,6 +51,22 @@ namespace System.Windows.Media
 
 
         #endregion Constructors
+
+        int IPortableDashStyleSource.PortableDashCount
+        {
+            get
+            {
+                DoubleCollection dashes = Dashes;
+                return dashes?.Count ?? 0;
+            }
+        }
+
+        double IPortableDashStyleSource.PortableDashOffset => Offset;
+
+        double IPortableDashStyleSource.GetPortableDash(int index)
+        {
+            return Dashes[index];
+        }
 
  
         #region Internal Methods

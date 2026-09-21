@@ -74,6 +74,15 @@ namespace MS.Internal.AppModel
                                    destinationUri.IsFile;
 
             bool fIsMailTo = string.Equals(destinationUri.Scheme, Uri.UriSchemeMailto, StringComparison.OrdinalIgnoreCase);
+            bool isSafeLaunch = (fIsTopLevel && isKnownScheme) || fIsMailTo;
+
+            if (!OperatingSystem.IsWindows() && isSafeLaunch)
+            {
+                if (PortableLauncherService.TryLaunch(destinationUri, targetName, fIsTopLevel, out bool portableLaunched))
+                {
+                    return portableLaunched ? LaunchResult.Launched : LaunchResult.NotLaunchedDueToPrompt;
+                }
+            }
 
             // We elevate to navigate the browser iff: 
             //  We are user initiated AND
@@ -82,7 +91,7 @@ namespace MS.Internal.AppModel
             // For all other cases ( evil protocols etc). 
             // We will demand. 
             //
-            if ((fIsTopLevel && isKnownScheme) || fIsMailTo)
+            if (isSafeLaunch)
             {
                 if (!isKnownScheme && fIsMailTo) // unnecessary if - but being paranoid. 
                 {
@@ -115,6 +124,16 @@ namespace MS.Internal.AppModel
         /// </summary>
         internal static void ShellExecuteDefaultBrowser(Uri uri)
         {
+            if (!OperatingSystem.IsWindows())
+            {
+                if (PortableLauncherService.TryLaunch(uri, null, true, out bool launched) && launched)
+                {
+                    return;
+                }
+
+                throw new InvalidOperationException(SR.FailToLaunchDefaultBrowser);
+            }
+
             UnsafeNativeMethods.ShellExecuteInfo sei = new UnsafeNativeMethods.ShellExecuteInfo();
             sei.cbSize = Marshal.SizeOf(sei);
             sei.fMask = UnsafeNativeMethods.ShellExecuteFlags.SEE_MASK_FLAG_DDEWAIT;

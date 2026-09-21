@@ -6,6 +6,7 @@ using System.Windows.Threading;
 using System.Threading;
 using MS.Internal;
 using System.Windows.Automation;
+using ProGPU.Wpf.Interop;
 
 namespace System.Windows.Input
 {
@@ -139,15 +140,28 @@ namespace System.Windows.Input
             // Avalon doesn't necessarily require STA, but many components do.  Examples
             // include Cicero, OLE, COM, etc.  So we throw an exception here if the
             // thread is not STA.
-            if(Thread.CurrentThread.GetApartmentState() != ApartmentState.STA)
+            if(OperatingSystem.IsWindows() && Thread.CurrentThread.GetApartmentState() != ApartmentState.STA)
             {
                 throw new InvalidOperationException(SR.RequiresSTA);
             }
 
             _stagingArea = new Stack();
 
-            _primaryKeyboardDevice = new Win32KeyboardDevice(this);
-            _primaryMouseDevice = new Win32MouseDevice(this);
+            // Freeze host ownership before constructing devices. Portable raw
+            // reports update these devices, not Win32's asynchronous key/button
+            // state, even when the ProGPU native window lives on Windows.
+            UsesPortableInput = PortableWpfRuntime.GetMediaBackendAndFreeze() == PortableWpfMediaBackend.Portable;
+            if (!UsesPortableInput)
+            {
+                _primaryKeyboardDevice = new Win32KeyboardDevice(this);
+                _primaryMouseDevice = new Win32MouseDevice(this);
+            }
+            else
+            {
+                _primaryKeyboardDevice = new PortableKeyboardDevice(this);
+                _primaryMouseDevice = new PortableMouseDevice(this);
+            }
+
             _primaryCommandDevice = new CommandDevice(this);
 
             _continueProcessingStagingAreaCallback = new DispatcherOperationCallback(ContinueProcessingStagingArea);
@@ -269,6 +283,8 @@ namespace System.Windows.Input
             // 
             get {return _primaryKeyboardDevice;}
         }
+
+        internal bool UsesPortableInput { get; }
 
         /// <summary>
         ///     Read-only access to the primary mouse device.
@@ -973,4 +989,3 @@ namespace System.Windows.Input
         private static readonly object _synchronizedInputLock = new object();
 }
 }
-

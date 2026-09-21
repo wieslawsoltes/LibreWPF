@@ -19,7 +19,7 @@ namespace System.Windows.Controls
     /// </summary>
     [Localizability(LocalizationCategory.Ignore, Readability = Readability.Unreadable)]
     [ContentProperty("Child")]
-    public class Decorator : FrameworkElement, IAddChild
+    public class Decorator : FrameworkElement, IAddChild, IPortableVisualOwnerHost
     {
         //-------------------------------------------------------------------
         //
@@ -38,6 +38,11 @@ namespace System.Windows.Controls
         /// </remarks>
         public Decorator() : base()
         {
+        }
+
+        PortableVisualOwnerKind IPortableVisualOwnerHost.PortableVisualOwnerKind
+        {
+            get { return PortableVisualOwnerKind.PointerInfrastructure; }
         }
 
         #endregion
@@ -223,6 +228,5 @@ namespace System.Windows.Controls
         #endregion Private Members
     }
 }
-
 
 

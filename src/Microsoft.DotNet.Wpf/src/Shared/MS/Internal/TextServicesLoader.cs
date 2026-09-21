@@ -92,6 +92,11 @@ namespace MS.Internal
         internal static UnsafeNativeMethods.ITfThreadMgr Load()
         {
             UnsafeNativeMethods.ITfThreadMgr threadManager;
+
+            if (!OperatingSystem.IsWindows())
+            {
+                return null;
+            }
             
             Invariant.Assert(Thread.CurrentThread.GetApartmentState() == ApartmentState.STA, "Load called on MTA thread!");
 
@@ -185,6 +190,11 @@ namespace MS.Internal
 
         private static bool TIPsWantToRun()
         {
+            if (!OperatingSystem.IsWindows())
+            {
+                return false;
+            }
+
             object obj;
             RegistryKey key;
             bool tipsWantToRun = false;
@@ -279,6 +289,9 @@ namespace MS.Internal
             RegistryKey key;
             string[] subKeyNames;
             EnableState state;
+
+            if (keyBase == null)
+                return EnableState.Error;
 
             key = keyBase.OpenSubKey(subKey, false);
 

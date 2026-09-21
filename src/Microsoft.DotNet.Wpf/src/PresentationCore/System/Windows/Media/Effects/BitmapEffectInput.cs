@@ -4,6 +4,7 @@
 //
 
 using System.ComponentModel;
+using ProGPU.Wpf.Interop;
 using System.Windows.Media.Imaging;
 
 namespace System.Windows.Media.Effects
@@ -11,7 +12,7 @@ namespace System.Windows.Media.Effects
     /// <summary>
     /// BitmapEffect class
     /// </summary>
-    public sealed partial class BitmapEffectInput
+    public sealed partial class BitmapEffectInput : IPortableBitmapEffectInputSource
     {
         private static BitmapSource s_defaultInputSource;
         /// <summary>
@@ -57,6 +58,16 @@ namespace System.Windows.Media.Effects
                 return s_defaultInputSource;
             }
         }
-}
-}
 
+        bool IPortableBitmapEffectInputSource.TryGetPortableBitmapEffectInput(out PortableBitmapEffectInput input)
+        {
+            ReadPreamble();
+
+            BitmapSource currentInput = Input;
+            input = new PortableBitmapEffectInput(
+                currentInput == null || ReferenceEquals(currentInput, ContextInputSource),
+                AreaToApplyEffect.IsEmpty);
+            return true;
+        }
+}
+}

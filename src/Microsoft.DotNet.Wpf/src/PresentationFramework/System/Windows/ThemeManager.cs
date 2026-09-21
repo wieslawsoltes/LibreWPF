@@ -2,13 +2,20 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using Microsoft.Win32;
+using ProGPU.Wpf.Interop;
 using System.Windows.Appearance;
 using System.Windows.Navigation;
+using System.Windows.Threading;
 
 namespace System.Windows;
 
 internal static class ThemeManager
 {
+    static ThemeManager()
+    {
+        PortableWpfServiceRegistry.SystemThemeChanged += OnPortableSystemThemeChanged;
+    }
+
     #region Internal Methods
 
     internal static void OnSystemThemeChanged()
@@ -418,13 +425,9 @@ internal static class ThemeManager
 
         for (int i = rd.MergedDictionaries.Count - 1; i >= 0; i--)
         {
-            if (rd.MergedDictionaries[i].Source != null)
+            if (IsFluentThemeResourceDictionary(rd.MergedDictionaries[i].Source))
             {
-                if (rd.MergedDictionaries[i].Source.ToString().StartsWith(FluentThemeResourceDictionaryUri,
-                                                                            StringComparison.OrdinalIgnoreCase))
-                {
-                    return i;
-                }
+                return i;
             }
         }
         return -1;
@@ -438,21 +441,50 @@ internal static class ThemeManager
 
         for (int i = rd.MergedDictionaries.Count - 1; i >= 0; i--)
         {
-            if (rd.MergedDictionaries[i].Source != null)
+            if (IsFluentThemeResourceDictionary(rd.MergedDictionaries[i].Source))
             {
-                if (rd.MergedDictionaries[i].Source.ToString().StartsWith(FluentThemeResourceDictionaryUri,
-                                                                            StringComparison.OrdinalIgnoreCase))
-                {
-                    indices.Add(i);
-                }
+                indices.Add(i);
             }
         }
 
         return indices;
     }
 
+    internal static bool IsFluentThemeResourceDictionary(Uri source)
+    {
+        if (source == null)
+            return false;
+
+        string sourceString = source.ToString();
+        return sourceString.StartsWith(FluentThemeResourceDictionaryUri, StringComparison.OrdinalIgnoreCase)
+            || sourceString.StartsWith(FluentThemeResourceDictionaryPath, StringComparison.OrdinalIgnoreCase);
+    }
+
     private static bool IsSystemThemeLight()
     {
+        if (PortableWpfServiceRegistry.TryGetSystemThemeSource(
+                PortableWpfServiceKey.PresentationFramework,
+                out IPortableSystemThemeSource source) &&
+            source.TryGetSystemTheme(out PortableSystemTheme theme))
+        {
+            if (theme == PortableSystemTheme.Light)
+            {
+                return true;
+            }
+
+            if (theme == PortableSystemTheme.Dark)
+            {
+                return false;
+            }
+        }
+
+        // The registry-backed setting remains the native Windows fallback. A
+        // portable host that cannot report appearance uses deterministic light.
+        if (!OperatingSystem.IsWindows())
+        {
+            return true;
+        }
+
         var useLightTheme = Registry.GetValue(RegPersonalizeKeyPath,
             "AppsUseLightTheme", null) as int?;
 
@@ -465,12 +497,42 @@ internal static class ThemeManager
         return useLightTheme != null && useLightTheme != 0;
     }
 
+    private static void OnPortableSystemThemeChanged(object sender, EventArgs e)
+    {
+        if (sender is IPortableSystemThemeSource source &&
+            source.ServiceKey != PortableWpfServiceKey.PresentationFramework)
+        {
+            return;
+        }
+
+        Application application = Application.Current;
+        if (application == null)
+        {
+            return;
+        }
+
+        Dispatcher dispatcher = application.Dispatcher;
+        if (dispatcher.HasShutdownStarted || dispatcher.HasShutdownFinished)
+        {
+            return;
+        }
+
+        if (dispatcher.CheckAccess())
+        {
+            OnSystemThemeChanged();
+            return;
+        }
+
+        dispatcher.BeginInvoke(DispatcherPriority.Normal, (Action)OnSystemThemeChanged);
+    }
+
     #endregion
 
 
     #region Private Fields
     private const string FluentColorDictionaryUri = "pack://application:,,,/PresentationFramework.Fluent;component/Resources/Theme/";
     private const string FluentThemeResourceDictionaryUri = "pack://application:,,,/PresentationFramework.Fluent;component/Themes/";
+    private const string FluentThemeResourceDictionaryPath = "/PresentationFramework.Fluent;component/Themes/";
     private const string RegPersonalizeKeyPath = "HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize";
     private const string FluentLightDictionary = "Fluent.Light.xaml";
     private const string FluentDarkDictionary = "Fluent.Dark.xaml";

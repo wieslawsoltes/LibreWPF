@@ -1,0 +1,8 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:sys="clr-namespace:System;assembly=mscorlib">
+    <SolidColorBrush x:Key="LibraryMergedAccentBrush" Color="#4F6F9D" />
+    <sys:String x:Key="LibraryMergedMessage">referenced library resource</sys:String>
+    <Thickness x:Key="LibraryMergedPadding">2,3,4,5</Thickness>
+</ResourceDictionary>

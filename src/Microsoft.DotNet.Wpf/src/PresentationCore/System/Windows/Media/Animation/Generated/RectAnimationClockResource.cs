@@ -9,6 +9,7 @@
 //
 
 using System.Windows.Media.Composition;
+using ProGPU.Wpf.Interop;
 
 namespace System.Windows.Media.Animation
 {
@@ -21,7 +22,7 @@ namespace System.Windows.Media.Animation
     /// They subscribe to the Changed event on the AnimationClock and ensure
     /// that the resource's current value is up to date.
     /// </summary>
-    internal class RectAnimationClockResource: AnimationClockResource, DUCE.IResource
+    internal class RectAnimationClockResource: AnimationClockResource, DUCE.IResource, IPortableRectAnimationValueSource
     {
         /// <summary>
         /// Constructor for public RectAnimationClockResource.
@@ -79,6 +80,18 @@ namespace System.Windows.Media.Animation
                     return _baseValue;
                 }
             }
+        }
+
+        bool IPortableRectAnimationValueSource.TryGetPortableRectAnimationValue(
+            out PortableRect value)
+        {
+            Rect current = CurrentValue;
+            value = new PortableRect(
+                current.X,
+                current.Y,
+                current.Width,
+                current.Height);
+            return true;
         }
 
         #endregion Public Properties

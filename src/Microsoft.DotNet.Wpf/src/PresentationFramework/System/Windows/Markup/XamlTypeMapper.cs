@@ -3267,6 +3267,10 @@ namespace System.Windows.Markup
                     for (int j = 0; j < namespaceAssemblyPair.Count; j++)
                     {
                         ClrNamespaceAssemblyPair mapping = namespaceAssemblyPair[j];
+#if PBTCOMPILER
+                        mapping = NormalizeLocalAssemblyMapping(mapping);
+                        namespaceAssemblyPair[j] = mapping;
+#endif
                         string          usingAssemblyName = null;
                         string          path =  AssemblyPathFor(mapping.AssemblyName);
 
@@ -3345,6 +3349,49 @@ namespace System.Windows.Markup
 
 
 #if PBTCOMPILER
+
+        private static ClrNamespaceAssemblyPair NormalizeLocalAssemblyMapping(ClrNamespaceAssemblyPair mapping)
+        {
+            if (!mapping.LocalAssembly &&
+                !string.IsNullOrEmpty(mapping.AssemblyName) &&
+                IsLocalAssemblyReference(mapping.AssemblyName))
+            {
+                mapping = new ClrNamespaceAssemblyPair(mapping.ClrNamespace, ReflectionHelper.LocalAssemblyName)
+                {
+                    LocalAssembly = true
+                };
+            }
+
+            return mapping;
+        }
+
+        internal static bool IsLocalAssemblyReference(string assemblyName)
+        {
+            if (string.IsNullOrEmpty(assemblyName))
+            {
+                return true;
+            }
+
+            string localAssemblyName = ReflectionHelper.LocalAssemblyName;
+            if (string.IsNullOrEmpty(localAssemblyName))
+            {
+                return false;
+            }
+
+            return string.Equals(GetAssemblySimpleName(assemblyName), GetAssemblySimpleName(localAssemblyName), StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string GetAssemblySimpleName(string assemblyName)
+        {
+            try
+            {
+                return new AssemblyName(assemblyName).Name ?? assemblyName;
+            }
+            catch (Exception)
+            {
+                return assemblyName;
+            }
+        }
 
         /// <summary>
         /// Invalide the namespace mapping cache associated with a namespace. This should be done

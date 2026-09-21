@@ -286,6 +286,11 @@ namespace MS.Internal
 
             public override int Wait(IntPtr[] waitHandles, bool waitAll, int millisecondsTimeout)
             {
+                if(!OperatingSystem.IsWindows())
+                {
+                    return SynchronizationContext.WaitHelper(waitHandles, waitAll, millisecondsTimeout);
+                }
+
                 return MS.Win32.UnsafeNativeMethods.WaitForMultipleObjectsEx(waitHandles.Length, waitHandles, waitAll, millisecondsTimeout, false);
             }
 
@@ -317,7 +322,6 @@ namespace MS.Internal
         #endregion Private Classes
     }
 }
-
 
 
 

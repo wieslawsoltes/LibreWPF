@@ -244,6 +244,11 @@ namespace System.Windows.Input
                     return _source.CurrentInputLanguage;
                 }
 
+                if (!OperatingSystem.IsWindows())
+                {
+                    return CultureInfo.CurrentCulture;
+                }
+
                 IntPtr hkl = SafeNativeMethods.GetKeyboardLayout(0);
                 if (hkl == IntPtr.Zero)
                 {
@@ -438,6 +443,11 @@ namespace System.Windows.Input
         {
             get
             {
+                if (!OperatingSystem.IsWindows())
+                {
+                    return false;
+                }
+
                 int count = SafeNativeMethods.GetKeyboardLayoutList(0, null);
 
                 return (count > 1);

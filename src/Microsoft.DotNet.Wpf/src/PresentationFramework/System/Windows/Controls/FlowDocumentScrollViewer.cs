@@ -4,6 +4,7 @@
 
 using System.Collections;               // IEnumerator
 using System.Collections.ObjectModel;   // ReadOnlyCollection<T>
+using System.Runtime.CompilerServices;  // MethodImplAttribute
 using System.Windows.Annotations;       // AnnotationService
 using System.Windows.Automation.Peers;  // AutomationPeer
 using System.Windows.Data;              // BindingOperations
@@ -525,6 +526,17 @@ namespace System.Windows.Controls
         /// </summary>
         protected virtual void OnPrintCommand()
         {
+            if (!OperatingSystem.IsWindows())
+            {
+                return;
+            }
+
+            OnPrintCommandWindows();
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private void OnPrintCommandWindows()
+        {
 #if !DONOTREFPRINTINGASMMETA
             System.Windows.Xps.XpsDocumentWriter docWriter;
             System.Printing.PrintDocumentImageableArea ia = null;
@@ -606,6 +618,17 @@ namespace System.Windows.Controls
         /// Handler for the CancelPrint command.
         /// </summary>
         protected virtual void OnCancelPrintCommand()
+        {
+            if (!OperatingSystem.IsWindows())
+            {
+                return;
+            }
+
+            OnCancelPrintCommandWindows();
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private void OnCancelPrintCommandWindows()
         {
 #if !DONOTREFPRINTINGASMMETA
             _printingState?.XpsDocumentWriter.CancelAsync();
@@ -1391,7 +1414,7 @@ namespace System.Windows.Controls
                 }
                 else if (args.Command == ApplicationCommands.Print)
                 {
-                    args.CanExecute = (viewer.Document != null);
+                    args.CanExecute = OperatingSystem.IsWindows() && (viewer.Document != null);
                 }
                 else if (args.Command == ApplicationCommands.CancelPrint)
                 {
@@ -1521,6 +1544,14 @@ namespace System.Windows.Controls
             Invariant.Assert(args != null, "args cannot be null.");
 
             // Disable UI commands, if printing is in progress.
+            if (!OperatingSystem.IsWindows() &&
+                (args.Command == ApplicationCommands.Print || args.Command == ApplicationCommands.CancelPrint))
+            {
+                args.CanExecute = false;
+                args.Handled = true;
+                return;
+            }
+
             if (_printingState != null)
             {
                 args.CanExecute = false;

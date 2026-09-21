@@ -1,0 +1,11 @@
+<Project Sdk="LibreWPF.Sdk/0.1.0-preview.45">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>$(ProGpuWpfSdkSampleTargetFramework)</TargetFramework>
+    <UseWPF>true</UseWPF>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Extended.Wpf.Toolkit" Version="5.1.2" />
+  </ItemGroup>
+</Project>

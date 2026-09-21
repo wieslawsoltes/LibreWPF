@@ -26,6 +26,13 @@ namespace MS.Internal
         /// </exception>
         public static void IsApartmentState(ApartmentState requiredState)
         {
+            // COM apartment state is a Windows runtime concept.  Portable LibreWPF
+            // hosts still enforce UI-thread affinity through DispatcherObject.
+            if (requiredState == ApartmentState.STA && !OperatingSystem.IsWindows())
+            {
+                return;
+            }
+
             if (Thread.CurrentThread.GetApartmentState() != requiredState)
             {
                 throw new InvalidOperationException(SR.Format(SR.Verify_ApartmentState, requiredState));
@@ -119,4 +126,3 @@ namespace MS.Internal
         }
     }
 }
-

@@ -1,0 +1,73 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <ProjectGuid>{3D5C6752-3B11-4A83-A1F9-238C67B3E6ED}</ProjectGuid>
+    <Platforms>x86;x64;arm64</Platforms>
+    <PlatformIndependentPackage>true</PlatformIndependentPackage>
+    <ProGpuRuntimePackageVersion Condition="'$(ProGpuRuntimePackageVersion)' == ''">0.1.0-preview.62</ProGpuRuntimePackageVersion>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <PackageName>LibreWPF.Sdk$(TransportPackageNameSuffix)</PackageName>
+    <AssemblyName>$(PackageName)</AssemblyName>
+    <VersionPrefix>0.1.0</VersionPrefix>
+    <VersionSuffix>preview.45</VersionSuffix>
+    <Version>$(VersionPrefix)-$(VersionSuffix)</Version>
+    <PackageVersion>$(Version)</PackageVersion>
+    <PackageDescription>LibreWPF MSBuild SDK for running existing desktop XAML applications on ProGPU/Silk.NET.</PackageDescription>
+    <PackageReleaseNotes>Aligns LibreWPF preview.45 with immutable ProGPU preview.55, fixes GeometryGroup child ABI compatibility, and consumes the latest native text, retained semantic rendering, damage replay, font fallback, and performance improvements; retains typed reflection-free replay, per-monitor DPI, native activation and input, bounded resource ownership, and package-mode application gates.</PackageReleaseNotes>
+    <PackageTags>librewpf;progpu;silk.net;msbuild-sdk</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackagingContent Include="Sdk\*" SubFolder="root\Sdk" />
+    <PackagingContent Include="targets\*" SubFolder="root\targets" />
+    <None Update="README.md" Pack="true" PackagePath="\" />
+    <None Include="Sdk\**\*" Pack="true" PackagePath="Sdk\%(RecursiveDir)" />
+    <None Include="$(IntermediateOutputPath)LibreWPF.Sdk.Version.props"
+          Pack="true"
+          PackagePath="Sdk\"
+          Visible="false" />
+    <None Include="targets\**\*" Pack="true" PackagePath="targets\%(RecursiveDir)" />
+    <None Include="$(ArtifactsBinDir)PresentationBuildTasks\$(Configuration)\net10.0\**\*"
+          Pack="true"
+          PackagePath="tools\net10.0"
+          Visible="false" />
+    <None Include="$(ArtifactsBinDir)PresentationBuildTasks\$(Configuration)\net472\**\*"
+          Pack="true"
+          PackagePath="tools\net472"
+          Visible="false" />
+  </ItemGroup>
+
+  <Target Name="_GenerateLibreWpfSdkVersionProps" BeforeTargets="_GetPackageFiles">
+    <PropertyGroup>
+      <_LibreWpfSdkPackageVersionToPack Condition="'$(PackageVersion)' != ''">$(PackageVersion)</_LibreWpfSdkPackageVersionToPack>
+      <_LibreWpfSdkPackageVersionToPack Condition="'$(_LibreWpfSdkPackageVersionToPack)' == ''">$(Version)</_LibreWpfSdkPackageVersionToPack>
+      <_LibreWpfSdkProGpuPackageVersionToPack Condition="'$(ProGpuPackageVersion)' != ''">$(ProGpuPackageVersion)</_LibreWpfSdkProGpuPackageVersionToPack>
+      <_LibreWpfSdkProGpuPackageVersionToPack Condition="'$(_LibreWpfSdkProGpuPackageVersionToPack)' == ''">$(ProGpuRuntimePackageVersion)</_LibreWpfSdkProGpuPackageVersionToPack>
+      <_LibreWpfSdkProGpuPackageVersionToPack Condition="'$(_LibreWpfSdkProGpuPackageVersionToPack)' == ''">0.1.0-preview.62</_LibreWpfSdkProGpuPackageVersionToPack>
+    </PropertyGroup>
+    <ItemGroup>
+      <_LibreWpfSdkVersionPropsLine Include="&lt;Project&gt;" />
+      <_LibreWpfSdkVersionPropsLine Include="  &lt;PropertyGroup&gt;" />
+      <_LibreWpfSdkVersionPropsLine Include="    &lt;_LibreWpfSdkPackageVersion&gt;$(_LibreWpfSdkPackageVersionToPack)&lt;/_LibreWpfSdkPackageVersion&gt;" />
+      <_LibreWpfSdkVersionPropsLine Include="    &lt;_LibreWpfSdkProGpuPackageVersion&gt;$(_LibreWpfSdkProGpuPackageVersionToPack)&lt;/_LibreWpfSdkProGpuPackageVersion&gt;" />
+      <_LibreWpfSdkVersionPropsLine Include="    &lt;ProGpuPackageVersion&gt;$(_LibreWpfSdkProGpuPackageVersionToPack)&lt;/ProGpuPackageVersion&gt;" />
+      <_LibreWpfSdkVersionPropsLine Include="  &lt;/PropertyGroup&gt;" />
+      <_LibreWpfSdkVersionPropsLine Include="&lt;/Project&gt;" />
+    </ItemGroup>
+    <MakeDir Directories="$(IntermediateOutputPath)" />
+    <WriteLinesToFile File="$(IntermediateOutputPath)LibreWPF.Sdk.Version.props"
+                      Lines="@(_LibreWpfSdkVersionPropsLine)"
+                      Overwrite="true"
+                      Encoding="UTF-8" />
+  </Target>
+
+  <ItemGroup>
+    <ProjectReference Include="$(RepoRoot)src/Microsoft.DotNet.Wpf/src/PresentationBuildTasks/PresentationBuildTasks.csproj"
+                      ReferenceOutputAssembly="false"
+                      SkipGetTargetFrameworkProperties="true" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,8 @@
+[submodule "external/ProGPU"]
+	path = external/ProGPU
+	url = ../ProGPU
+	branch = main
+[submodule "external/LibreWinForms"]
+	path = external/LibreWinForms
+	url = ../librewinforms
+	branch = librewinforms-progpu-port

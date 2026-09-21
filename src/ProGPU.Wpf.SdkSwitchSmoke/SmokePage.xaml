@@ -1,0 +1,15 @@
+<Page
+    x:Class="ProGPU.Wpf.SdkSwitchSmoke.SmokePage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="Compiled Smoke Page">
+    <StackPanel Margin="6">
+        <TextBlock
+            x:Name="PageTitle"
+            Foreground="{DynamicResource SmokeAccentBrush}"
+            Text="Compiled page content" />
+        <TextBlock
+            x:Name="PageSubtitle"
+            Text="Frame loaded SDK-built BAML" />
+    </StackPanel>
+</Page>

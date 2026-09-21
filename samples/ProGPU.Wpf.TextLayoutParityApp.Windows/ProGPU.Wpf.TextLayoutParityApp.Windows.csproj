@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <EnableDefaultItems>false</EnableDefaultItems>
+    <AssemblyName>ProGPU.Wpf.TextLayoutParityApp.Windows</AssemblyName>
+    <RootNamespace>ProGPU.Wpf.TextLayoutParityApp</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ApplicationDefinition Include="../ProGPU.Wpf.TextLayoutParityApp/App.xaml" Link="App.xaml" />
+    <Page Include="../ProGPU.Wpf.TextLayoutParityApp/MainWindow.xaml" Link="MainWindow.xaml" />
+    <Compile Include="../ProGPU.Wpf.TextLayoutParityApp/MainWindow.xaml.cs" Link="MainWindow.xaml.cs" />
+  </ItemGroup>
+</Project>

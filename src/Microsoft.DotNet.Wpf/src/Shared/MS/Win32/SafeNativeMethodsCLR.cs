@@ -3,6 +3,7 @@
 
 using System.ComponentModel;
 using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 using MS.Utility;
 
 namespace MS.Win32
@@ -11,22 +12,38 @@ namespace MS.Win32
     {
         public static int GetMessagePos()
         {
-            return SafeNativeMethodsPrivate.GetMessagePos();
+            return System.OperatingSystem.IsWindows()
+                ? SafeNativeMethodsPrivate.GetMessagePos()
+                : 0;
         }
 
         public static IntPtr GetKeyboardLayout(int dwLayout)
         {
-            return SafeNativeMethodsPrivate.GetKeyboardLayout(dwLayout);
+            return System.OperatingSystem.IsWindows()
+                ? SafeNativeMethodsPrivate.GetKeyboardLayout(dwLayout)
+                : new IntPtr(System.Globalization.CultureInfo.CurrentCulture.KeyboardLayoutId);
         }
 
         public static IntPtr ActivateKeyboardLayout(HandleRef hkl, int uFlags)
         {
-            return SafeNativeMethodsPrivate.ActivateKeyboardLayout(hkl, uFlags);
+            return System.OperatingSystem.IsWindows()
+                ? SafeNativeMethodsPrivate.ActivateKeyboardLayout(hkl, uFlags)
+                : hkl.Handle;
         }
 
 #if BASE_NATIVEMETHODS
         public static int GetKeyboardLayoutList(int size, [Out, MarshalAs(UnmanagedType.LPArray)] IntPtr[] hkls)
         {
+            if (!System.OperatingSystem.IsWindows())
+            {
+                if (size > 0 && hkls != null && hkls.Length > 0)
+                {
+                    hkls[0] = new IntPtr(System.Globalization.CultureInfo.CurrentCulture.KeyboardLayoutId);
+                }
+
+                return 1;
+            }
+
             int result = NativeMethodsSetLastError.GetKeyboardLayoutList(size, hkls);
             if (result == 0)
             {
@@ -132,7 +149,69 @@ namespace MS.Win32
 
         public static int GetDoubleClickTime()
         {
-            return SafeNativeMethodsPrivate.GetDoubleClickTime();
+            if (System.OperatingSystem.IsWindows())
+            {
+                return SafeNativeMethodsPrivate.GetDoubleClickTime();
+            }
+
+            if (System.OperatingSystem.IsMacOS())
+            {
+                return SafeNativeMethodsMac.GetDoubleClickTimeMilliseconds();
+            }
+
+            return 500;
+        }
+
+        [SupportedOSPlatform("macos")]
+        private static class SafeNativeMethodsMac
+        {
+            private const string ObjCLibrary = "/usr/lib/libobjc.A.dylib";
+            private const string AppKitLibrary = "/System/Library/Frameworks/AppKit.framework/AppKit";
+            private const int DefaultDoubleClickMilliseconds = 500;
+            private static readonly Lazy<IntPtr> AppKitHandle = new(() => NativeLibrary.Load(AppKitLibrary));
+
+            public static int GetDoubleClickTimeMilliseconds()
+            {
+                try
+                {
+                    // MouseDevice can initialize before the native window host loads AppKit.
+                    // objc_getClass does not load frameworks on demand, so retain AppKit
+                    // before looking up NSEvent.
+                    _ = AppKitHandle.Value;
+                    IntPtr nsEventClass = ObjCGetClass("NSEvent");
+                    IntPtr doubleClickIntervalSelector = SelRegisterName("doubleClickInterval");
+                    if (nsEventClass == IntPtr.Zero || doubleClickIntervalSelector == IntPtr.Zero)
+                    {
+                        return DefaultDoubleClickMilliseconds;
+                    }
+
+                    // NSEvent returns a double. Both macOS x86-64 and arm64 use objc_msgSend
+                    // for that return type; objc_msgSend_fpret is for long double on x86-64.
+                    double seconds = ObjCMsgSendReturningDouble(nsEventClass, doubleClickIntervalSelector);
+                    double milliseconds = Math.Round(seconds * 1000);
+                    return double.IsFinite(milliseconds) && milliseconds >= 1 && milliseconds <= int.MaxValue
+                        ? (int)milliseconds
+                        : DefaultDoubleClickMilliseconds;
+                }
+                catch (DllNotFoundException)
+                {
+                    return DefaultDoubleClickMilliseconds;
+                }
+                catch (EntryPointNotFoundException)
+                {
+                    return DefaultDoubleClickMilliseconds;
+                }
+            }
+
+            [DllImport(ObjCLibrary, EntryPoint = "objc_getClass")]
+            private static extern IntPtr ObjCGetClass([MarshalAs(UnmanagedType.LPStr)] string name);
+
+            [DllImport(ObjCLibrary, EntryPoint = "sel_registerName")]
+            private static extern IntPtr SelRegisterName([MarshalAs(UnmanagedType.LPStr)] string name);
+
+            [DllImport(ObjCLibrary, EntryPoint = "objc_msgSend")]
+            private static extern double ObjCMsgSendReturningDouble(IntPtr receiver, IntPtr selector);
+
         }
 
         public static bool IsWindowEnabled(HandleRef hWnd)
@@ -202,6 +281,11 @@ namespace MS.Win32
 #if FRAMEWORK_NATIVEMETHODS || CORE_NATIVEMETHODS || BASE_NATIVEMETHODS
         public static int GetTickCount()
         {
+            if (!OperatingSystem.IsWindows())
+            {
+                return Environment.TickCount;
+            }
+
             return SafeNativeMethodsPrivate.GetTickCount();
         }
 #endif
@@ -238,7 +322,9 @@ namespace MS.Win32
 
         public static int GetCurrentThreadId()
         {
-            return SafeNativeMethodsPrivate.GetCurrentThreadId();
+            return System.OperatingSystem.IsWindows()
+                ? SafeNativeMethodsPrivate.GetCurrentThreadId()
+                : Environment.CurrentManagedThreadId;
         }
 
         /// <summary>
@@ -722,4 +808,3 @@ namespace MS.Win32
         }
     }
 }
-

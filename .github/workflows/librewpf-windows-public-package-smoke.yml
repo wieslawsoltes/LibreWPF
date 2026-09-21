@@ -1,0 +1,110 @@
+name: LibreWPF Windows Public Package Smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Published LibreWPF package version to validate.
+        required: true
+        default: 0.1.0-preview.32
+
+permissions:
+  contents: read
+
+jobs:
+  windows-public-smoke:
+    name: Windows public-package text launch
+    runs-on: windows-2025
+    timeout-minutes: 20
+    env:
+      PROGPU_WPF_DEV_PACKAGE_VERSION: ${{ inputs.version }}
+
+    steps:
+      - name: Checkout smoke harness
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Download published LibreWPF packages
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $packageDirectory = Join-Path $env:GITHUB_WORKSPACE "artifacts/packages/Release/NonShipping"
+          New-Item -ItemType Directory -Path $packageDirectory -Force | Out-Null
+
+          foreach ($packageId in @("LibreWPF.Transport", "LibreWPF.ProGPU", "LibreWPF.Sdk")) {
+              $lowerPackageId = $packageId.ToLowerInvariant()
+              $packageName = "$packageId.$env:PROGPU_WPF_DEV_PACKAGE_VERSION.nupkg"
+              $packageUrl = "https://api.nuget.org/v3-flatcontainer/$lowerPackageId/$env:PROGPU_WPF_DEV_PACKAGE_VERSION/$lowerPackageId.$env:PROGPU_WPF_DEV_PACKAGE_VERSION.nupkg"
+              Invoke-WebRequest -Uri $packageUrl -OutFile (Join-Path $packageDirectory $packageName)
+          }
+
+      - name: Configure Windows crash dumps
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $dumpDirectory = Join-Path $env:GITHUB_WORKSPACE "artifacts/crash-dumps"
+          New-Item -ItemType Directory -Path $dumpDirectory -Force | Out-Null
+
+          $dumpKey = "HKLM:\SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps\AnyCpuSmoke.exe"
+          New-Item -Path $dumpKey -Force | Out-Null
+          New-ItemProperty -Path $dumpKey -Name DumpFolder -PropertyType ExpandString -Value $dumpDirectory -Force | Out-Null
+          New-ItemProperty -Path $dumpKey -Name DumpType -PropertyType DWord -Value 2 -Force | Out-Null
+
+      - name: Run published Windows AnyCPU text smoke
+        shell: pwsh
+        run: |
+          ./eng/progpu-wpf-windows-anycpu-smoke.ps1 -Configuration Release
+          ./eng/progpu-wpf-windows-anycpu-smoke.ps1 -Configuration Debug
+
+      - name: Analyze Windows crash dump
+        if: ${{ failure() }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $dumpDirectory = Join-Path $env:GITHUB_WORKSPACE "artifacts/crash-dumps"
+          $dump = Get-ChildItem -Path $dumpDirectory -Filter "*.dmp" | Select-Object -First 1
+          if ($null -eq $dump) {
+              throw "The failed Windows public-package smoke did not produce a crash dump."
+          }
+
+          $toolDirectory = Join-Path $env:RUNNER_TEMP "librewpf-dump-tools"
+          dotnet tool install dotnet-dump --tool-path $toolDirectory
+          if ($LASTEXITCODE -ne 0) {
+              throw "Installing dotnet-dump failed."
+          }
+
+          $managedAnalysis = Join-Path $dumpDirectory "dotnet-dump-analysis.txt"
+          & (Join-Path $toolDirectory "dotnet-dump.exe") analyze $dump.FullName -c "pe" -c "threads" -c "clrstack -all" -c "dumpstack" -c "exit" 2>&1 |
+              Tee-Object -FilePath $managedAnalysis
+
+          $cdbCandidates = @(
+              "C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\cdb.exe",
+              "C:\Program Files\Windows Kits\10\Debuggers\x64\cdb.exe"
+          )
+          $cdb = $cdbCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if ($null -ne $cdb) {
+              $nativeAnalysis = Join-Path $dumpDirectory "cdb-analysis.txt"
+              & $cdb -z $dump.FullName -c ".ecxr; !analyze -v; kp; lm; q" 2>&1 |
+                  Tee-Object -FilePath $nativeAnalysis
+          }
+          else {
+              "CDB was not installed on the Windows runner." | Set-Content -Path (Join-Path $dumpDirectory "cdb-analysis.txt")
+          }
+
+      - name: Upload Windows crash dumps
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: librewpf-windows-crash-dumps-${{ inputs.version }}
+          path: artifacts/crash-dumps/*
+          if-no-files-found: warn
+
+      - name: Remove Windows crash-dump registration
+        if: ${{ always() }}
+        shell: pwsh
+        run: |
+          Remove-Item "HKLM:\SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps\AnyCpuSmoke.exe" -Recurse -Force -ErrorAction SilentlyContinue

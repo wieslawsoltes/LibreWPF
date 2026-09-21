@@ -4,7 +4,9 @@
 //                                             
 
 using MS.Internal;
+using System.Numerics;
 using System.Windows.Media.Composition;
+using ProGpuRectangleGeometryHitTesting = ProGPU.Vector.RectangleGeometryHitTesting;
 
 namespace System.Windows.Media
 {
@@ -58,6 +60,17 @@ namespace System.Windows.Media
         }
 
         #endregion
+
+        internal override bool TryGetPortablePrimitiveGeometryCore(out ProGPU.Wpf.Interop.PortablePrimitiveGeometry geometry)
+        {
+            Rect rect = Rect;
+            geometry = ProGPU.Wpf.Interop.PortablePrimitiveGeometry.Rectangle(
+                PortableGeometryPathExporter.ToPortableRect(rect),
+                RadiusX,
+                RadiusY,
+                PortableGeometryPathExporter.ToPortableMatrix(Transform));
+            return !rect.IsEmpty;
+        }
         
         /// <summary>
         /// Gets the bounds of this Geometry as an axis-aligned bounding box
@@ -153,6 +166,8 @@ namespace System.Windows.Media
         /// </summary>
         internal override Rect GetBoundsInternal(Pen pen, Matrix worldMatrix, double tolerance, ToleranceType type)
         {
+            if (PortableGeometryOperationsBridge.IsPortable)
+                return base.GetBoundsInternal(pen, worldMatrix, tolerance, type);
             Matrix geometryMatrix;
             
             Transform.GetTransformValue(Transform, out geometryMatrix);
@@ -229,6 +244,9 @@ namespace System.Windows.Media
 
         internal override bool ContainsInternal(Pen pen, Point hitPoint, double tolerance, ToleranceType type)
         {
+            if (PortableGeometryOperationsBridge.IsPortable)
+                return base.ContainsInternal(pen, hitPoint, tolerance, type);
+
             if (IsEmpty())
             {
                 return false;
@@ -237,6 +255,13 @@ namespace System.Windows.Media
             double radiusX = RadiusX;
             double radiusY = RadiusY;
             Rect rect = Rect;
+
+            if (!OperatingSystem.IsWindows())
+            {
+                return pen == null
+                    ? FillContainsProGpu(rect, radiusX, radiusY, hitPoint)
+                    : StrokeContainsProGpu(rect, radiusX, radiusY, pen, hitPoint, tolerance, type);
+            }
 
             uint pointCount = GetPointCount(rect, radiusX, radiusY);
             uint segmentCount = GetSegmentCount(rect, radiusX, radiusY);
@@ -259,6 +284,72 @@ namespace System.Windows.Media
                         segmentCount);
                 }
             }
+        }
+
+        private bool FillContainsProGpu(Rect rect, double radiusX, double radiusY, Point hitPoint)
+        {
+            if (!TryTransformHitPointToLocal(ref hitPoint))
+            {
+                return false;
+            }
+
+            return ProGpuRectangleGeometryHitTesting.ContainsFill(
+                ToProGpuPoint(hitPoint),
+                ToProGpuMin(rect),
+                ToProGpuMax(rect),
+                new Vector2((float)radiusX, (float)radiusY));
+        }
+
+        private bool StrokeContainsProGpu(Rect rect, double radiusX, double radiusY, Pen pen, Point hitPoint, double tolerance, ToleranceType type)
+        {
+            if (pen.Brush == null || pen.Thickness <= 0.0)
+            {
+                return false;
+            }
+
+            if (!TryTransformHitPointToLocal(ref hitPoint))
+            {
+                return false;
+            }
+
+            return ProGpuRectangleGeometryHitTesting.ContainsStroke(
+                ToProGpuPoint(hitPoint),
+                ToProGpuMin(rect),
+                ToProGpuMax(rect),
+                new Vector2((float)radiusX, (float)radiusY),
+                (float)pen.Thickness,
+                (float)tolerance,
+                type == ToleranceType.Relative);
+        }
+
+        private bool TryTransformHitPointToLocal(ref Point hitPoint)
+        {
+            Transform transform = Transform;
+            if (transform != null && transform != Transform.Identity)
+            {
+                GeneralTransform inverse = transform.Inverse;
+                if (inverse == null || !inverse.TryTransform(hitPoint, out hitPoint))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private static Vector2 ToProGpuPoint(Point point)
+        {
+            return new Vector2((float)point.X, (float)point.Y);
+        }
+
+        private static Vector2 ToProGpuMin(Rect rect)
+        {
+            return new Vector2((float)rect.Left, (float)rect.Top);
+        }
+
+        private static Vector2 ToProGpuMax(Rect rect)
+        {
+            return new Vector2((float)rect.Right, (float)rect.Bottom);
         }
 
         /// <summary>
@@ -622,4 +713,3 @@ namespace System.Windows.Media
         #endregion
     }
 }
-

@@ -2,9 +2,21 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using MS.Internal;
+using System.Numerics;
 using System.Windows.Media.Composition;
 using System.Windows.Markup;
+using ProGPU.Wpf.Interop;
 
+using ProGpuArcSegment = ProGPU.Vector.ArcSegment;
+using ProGpuCubicBezierSegment = ProGPU.Vector.CubicBezierSegment;
+using ProGpuFillRule = ProGPU.Vector.FillRule;
+using ProGpuLineSegment = ProGPU.Vector.LineSegment;
+using ProGpuPathFigure = ProGPU.Vector.PathFigure;
+using ProGpuPathGeometry = ProGPU.Vector.PathGeometry;
+using ProGpuPathGeometryHitTesting = ProGPU.Vector.PathGeometryHitTesting;
+using ProGpuQuadraticBezierSegment = ProGPU.Vector.QuadraticBezierSegment;
+using ProGpuSweepDirection = ProGPU.Vector.SweepDirection;
+using ProGpuTransformMetrics = ProGPU.Vector.TransformMetrics;
 using UnsafeNativeMethods = MS.Win32.PresentationCore.UnsafeNativeMethods;
 
 namespace System.Windows.Media
@@ -599,6 +611,11 @@ namespace System.Windows.Media
             double tolerance,
             ToleranceType type)
         {
+            if (PortableWpfRuntime.GetMediaBackendAndFreeze() == PortableWpfMediaBackend.Portable)
+            {
+                return PortableGeometryOperationsBridge.Combine(geometry1, geometry2, mode, transform, tolerance, type);
+            }
+
             PathGeometry resultGeometry = null;
 
             unsafe
@@ -653,6 +670,7 @@ namespace System.Windows.Media
 
             return resultGeometry;
         }
+
         #endregion Combine
 
         /// <summary>
@@ -749,6 +767,18 @@ namespace System.Windows.Media
             // return Rect.Empty. Callers should do their own check.
             Debug.Assert(!pathData.IsEmpty());
 
+            if (PortableGeometryOperationsBridge.IsPortable)
+            {
+                Rect bounds = PortableGeometryOperationsBridge.GetRenderBounds(
+                    PortableGeometryOperationsBridge.ExportPathData(pathData), pen, worldMatrix, tolerance, type, skipHollows);
+                return bounds.IsEmpty ? MilRectD.Empty : new MilRectD(bounds.Left, bounds.Top, bounds.Right, bounds.Bottom);
+            }
+
+            if (!OperatingSystem.IsWindows())
+            {
+                return GetProGpuPathBoundsAsRB(pathData, pen, worldMatrix);
+            }
+
             unsafe
             {
                 MIL_PEN_DATA penData;
@@ -800,6 +830,225 @@ namespace System.Windows.Media
             }
         }
 
+        private static MilRectD GetProGpuPathBoundsAsRB(
+            PathGeometryData pathData,
+            Pen pen,
+            Matrix worldMatrix)
+        {
+            PathStreamGeometryContext context = new PathStreamGeometryContext();
+            ParsePathGeometryData(pathData, context);
+
+            ProGpuPathGeometry pathGeometry = ToProGpuPathGeometry(context.GetPathGeometry());
+            Matrix geometryMatrix = CompositionResourceManager.MilMatrix3x2DToMatrix(ref pathData.Matrix);
+            geometryMatrix.Append(worldMatrix);
+
+            Matrix4x4 proGpuMatrix = ToProGpuMatrix(geometryMatrix);
+            pathGeometry = pathGeometry.CreateTransformed(proGpuMatrix);
+
+            if (!pathGeometry.TryGetBounds(out Vector2 min, out Vector2 max))
+            {
+                return MilRectD.Empty;
+            }
+
+            if (!float.IsFinite(min.X) ||
+                !float.IsFinite(min.Y) ||
+                !float.IsFinite(max.X) ||
+                !float.IsFinite(max.Y))
+            {
+                return MilRectD.NaN;
+            }
+
+            Rect bounds = new Rect(new Point(min.X, min.Y), new Point(max.X, max.Y));
+            if (bounds.IsEmpty)
+            {
+                return MilRectD.Empty;
+            }
+
+            if (Pen.ContributesToBounds(pen))
+            {
+                double strokeScale = ProGpuTransformMetrics.GetStrokeScale(proGpuMatrix);
+                double strokeInflation = Math.Abs(pen.Thickness) * strokeScale * 0.5;
+                if (!double.IsFinite(strokeInflation))
+                {
+                    return MilRectD.NaN;
+                }
+
+                bounds.Inflate(strokeInflation, strokeInflation);
+            }
+
+            return new MilRectD(bounds.Left, bounds.Top, bounds.Right, bounds.Bottom);
+        }
+
+        internal static bool TryContainsFillProGpu(
+            PathGeometryData pathData,
+            Point hitPoint,
+            double tolerance,
+            ToleranceType type,
+            out bool contains)
+        {
+            contains = false;
+            if (pathData.IsEmpty())
+            {
+                return true;
+            }
+
+            PathStreamGeometryContext context = new PathStreamGeometryContext();
+            ParsePathGeometryData(pathData, context);
+
+            ProGpuPathGeometry pathGeometry = ToProGpuPathGeometry(context.GetPathGeometry());
+            Matrix geometryMatrix = CompositionResourceManager.MilMatrix3x2DToMatrix(ref pathData.Matrix);
+            pathGeometry = pathGeometry.CreateTransformed(ToProGpuMatrix(geometryMatrix));
+
+            return ProGpuPathGeometryHitTesting.TryContainsFill(
+                pathGeometry,
+                ToProGpuPoint(hitPoint),
+                (float)tolerance,
+                type == ToleranceType.Relative,
+                out contains);
+        }
+
+        private static ProGpuPathGeometry ToProGpuPathGeometry(PathGeometry pathGeometry)
+        {
+            ProGpuPathGeometry proGpuPath = new ProGpuPathGeometry
+            {
+                FillRule = pathGeometry.FillRule == FillRule.EvenOdd
+                    ? ProGpuFillRule.EvenOdd
+                    : ProGpuFillRule.Nonzero
+            };
+
+            foreach (PathFigure figure in pathGeometry.Figures)
+            {
+                ProGpuPathFigure proGpuFigure = new ProGpuPathFigure(ToProGpuPoint(figure.StartPoint), figure.IsClosed)
+                {
+                    IsFilled = figure.IsFilled
+                };
+
+                foreach (PathSegment segment in figure.Segments)
+                {
+                    AddProGpuSegment(proGpuFigure, segment);
+                }
+
+                proGpuPath.Figures.Add(proGpuFigure);
+            }
+
+            return proGpuPath;
+        }
+
+        private static void AddProGpuSegment(ProGpuPathFigure figure, PathSegment segment)
+        {
+            switch (segment)
+            {
+                case LineSegment line:
+                    figure.Segments.Add(new ProGpuLineSegment(
+                        ToProGpuPoint(line.Point),
+                        line.IsSmoothJoin,
+                        line.IsStroked));
+                    break;
+                case PolyLineSegment polyLine:
+                    foreach (Point point in polyLine.Points)
+                    {
+                        figure.Segments.Add(new ProGpuLineSegment(
+                            ToProGpuPoint(point),
+                            polyLine.IsSmoothJoin,
+                            polyLine.IsStroked));
+                    }
+                    break;
+                case BezierSegment bezier:
+                    figure.Segments.Add(new ProGpuCubicBezierSegment(
+                        ToProGpuPoint(bezier.Point1),
+                        ToProGpuPoint(bezier.Point2),
+                        ToProGpuPoint(bezier.Point3),
+                        bezier.IsSmoothJoin,
+                        bezier.IsStroked));
+                    break;
+                case PolyBezierSegment polyBezier:
+                    AddProGpuCubicBezierSegments(
+                        figure,
+                        polyBezier.Points,
+                        polyBezier.IsSmoothJoin,
+                        polyBezier.IsStroked);
+                    break;
+                case QuadraticBezierSegment quadratic:
+                    figure.Segments.Add(new ProGpuQuadraticBezierSegment(
+                        ToProGpuPoint(quadratic.Point1),
+                        ToProGpuPoint(quadratic.Point2),
+                        quadratic.IsSmoothJoin,
+                        quadratic.IsStroked));
+                    break;
+                case PolyQuadraticBezierSegment polyQuadratic:
+                    AddProGpuQuadraticBezierSegments(
+                        figure,
+                        polyQuadratic.Points,
+                        polyQuadratic.IsSmoothJoin,
+                        polyQuadratic.IsStroked);
+                    break;
+                case ArcSegment arc:
+                    figure.Segments.Add(new ProGpuArcSegment(
+                        ToProGpuPoint(arc.Point),
+                        new Vector2((float)Math.Abs(arc.Size.Width), (float)Math.Abs(arc.Size.Height)),
+                        (float)arc.RotationAngle,
+                        arc.IsLargeArc,
+                        ToProGpuSweepDirection(arc.SweepDirection),
+                        arc.IsSmoothJoin,
+                        arc.IsStroked));
+                    break;
+            }
+        }
+
+        private static void AddProGpuCubicBezierSegments(
+            ProGpuPathFigure figure,
+            PointCollection points,
+            bool isSmoothJoin,
+            bool isStroked)
+        {
+            for (int i = 0; i + 2 < points.Count; i += 3)
+            {
+                figure.Segments.Add(new ProGpuCubicBezierSegment(
+                    ToProGpuPoint(points[i]),
+                    ToProGpuPoint(points[i + 1]),
+                    ToProGpuPoint(points[i + 2]),
+                    isSmoothJoin,
+                    isStroked));
+            }
+        }
+
+        private static void AddProGpuQuadraticBezierSegments(
+            ProGpuPathFigure figure,
+            PointCollection points,
+            bool isSmoothJoin,
+            bool isStroked)
+        {
+            for (int i = 0; i + 1 < points.Count; i += 2)
+            {
+                figure.Segments.Add(new ProGpuQuadraticBezierSegment(
+                    ToProGpuPoint(points[i]),
+                    ToProGpuPoint(points[i + 1]),
+                    isSmoothJoin,
+                    isStroked));
+            }
+        }
+
+        private static Vector2 ToProGpuPoint(Point point)
+        {
+            return new Vector2((float)point.X, (float)point.Y);
+        }
+
+        private static Matrix4x4 ToProGpuMatrix(Matrix matrix)
+        {
+            return new Matrix4x4(
+                (float)matrix.M11, (float)matrix.M12, 0.0f, 0.0f,
+                (float)matrix.M21, (float)matrix.M22, 0.0f, 0.0f,
+                0.0f, 0.0f, 1.0f, 0.0f,
+                (float)matrix.OffsetX, (float)matrix.OffsetY, 0.0f, 1.0f);
+        }
+
+        private static ProGpuSweepDirection ToProGpuSweepDirection(SweepDirection sweepDirection)
+        {
+            return sweepDirection == SweepDirection.Clockwise
+                ? ProGpuSweepDirection.Clockwise
+                : ProGpuSweepDirection.Counterclockwise;
+        }
+
         #endregion
 
         
@@ -810,6 +1059,9 @@ namespace System.Windows.Media
             double tolerance,
             ToleranceType type)
         {
+            if (PortableGeometryOperationsBridge.IsPortable)
+                return PortableGeometryOperationsBridge.CompareFill(geometry1, geometry2, tolerance, type);
+
             IntersectionDetail detail = IntersectionDetail.NotCalculated;
 
             unsafe
@@ -1055,4 +1307,3 @@ namespace System.Windows.Media
     }
     #endregion
 }
-

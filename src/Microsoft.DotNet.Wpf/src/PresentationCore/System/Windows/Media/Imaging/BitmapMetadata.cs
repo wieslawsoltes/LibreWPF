@@ -2,6 +2,7 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Collections;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using MS.Internal;
 using MS.Win32.PresentationCore;
@@ -619,6 +620,25 @@ namespace System.Windows.Media.Imaging
             _syncObject = syncObject;
         }
 
+        internal BitmapMetadata(
+            string portableFormat,
+            Guid portableGuidFormat,
+            IReadOnlyDictionary<string, object> portableQueries,
+            bool readOnly = true
+        )
+        {
+            ArgumentNullException.ThrowIfNull(portableFormat);
+            ArgumentNullException.ThrowIfNull(portableQueries);
+
+            _metadataHandle = null;
+            _readOnly = readOnly;
+            _fixedSize = false;
+            _blockWriter = null;
+            _portableFormat = portableFormat;
+            _portableGuidFormat = portableGuidFormat;
+            _portableQueries = new Dictionary<string, object>(portableQueries, StringComparer.Ordinal);
+        }
+
         /// <summary>
         ///
         /// </summary>
@@ -891,6 +911,12 @@ namespace System.Windows.Media.Imaging
         {
             get
             {
+                if (_portableQueries != null)
+                {
+                    ReadPreamble();
+                    return _portableFormat;
+                }
+
                 EnsureBitmapMetadata();
                 StringBuilder format = null;
                 UInt32 length = 0;
@@ -935,6 +961,12 @@ namespace System.Windows.Media.Imaging
         {
             get
             {
+                if (_portableQueries != null)
+                {
+                    ReadPreamble();
+                    return string.Empty;
+                }
+
                 StringBuilder location = null;
                 UInt32 length = 0;
 
@@ -979,6 +1011,12 @@ namespace System.Windows.Media.Imaging
         {
             get
             {
+                if (_portableQueries != null)
+                {
+                    ReadPreamble();
+                    return _readOnly;
+                }
+
                 EnsureBitmapMetadata();
 
                 return _readOnly;
@@ -992,6 +1030,12 @@ namespace System.Windows.Media.Imaging
         {
             get
             {
+                if (_portableQueries != null)
+                {
+                    ReadPreamble();
+                    return _fixedSize;
+                }
+
                 EnsureBitmapMetadata();
 
                 return _fixedSize;
@@ -1016,6 +1060,13 @@ namespace System.Windows.Media.Imaging
             if (_readOnly)
             {
                 throw new System.InvalidOperationException(SR.Image_MetadataReadOnly);
+            }
+
+            if (_portableQueries != null)
+            {
+                _portableQueries[query] = value;
+                WritePostscript();
+                return;
             }
 
             // Store these for debugging stress failures.
@@ -1078,6 +1129,12 @@ namespace System.Windows.Media.Imaging
 
             ArgumentNullException.ThrowIfNull(query);
 
+            if (_portableQueries != null)
+            {
+                ReadPreamble();
+                return _portableQueries.TryGetValue(query, out object value) ? value : null;
+            }
+
             EnsureBitmapMetadata();
 
             PROPVARIANT propVar = new PROPVARIANT();
@@ -1135,6 +1192,13 @@ namespace System.Windows.Media.Imaging
                 throw new System.InvalidOperationException(SR.Image_MetadataReadOnly);
             }
 
+            if (_portableQueries != null)
+            {
+                _portableQueries.Remove(query);
+                WritePostscript();
+                return;
+            }
+
             EnsureBitmapMetadata();
 
             lock (_syncObject)
@@ -1156,6 +1220,12 @@ namespace System.Windows.Media.Imaging
         /// </summary>
         IEnumerator IEnumerable.GetEnumerator()
         {
+            if (_portableQueries != null)
+            {
+                ReadPreamble();
+                return _portableQueries.Keys.GetEnumerator();
+            }
+
             EnsureBitmapMetadata();
 
             return new BitmapMetadataEnumerator(_metadataHandle);
@@ -1166,6 +1236,12 @@ namespace System.Windows.Media.Imaging
         /// </summary>
         IEnumerator<String> IEnumerable<String>.GetEnumerator()
         {
+            if (_portableQueries != null)
+            {
+                ReadPreamble();
+                return _portableQueries.Keys.GetEnumerator();
+            }
+
             EnsureBitmapMetadata();
 
             return new BitmapMetadataEnumerator(_metadataHandle);
@@ -1179,6 +1255,12 @@ namespace System.Windows.Media.Imaging
             int hr;
 
             ArgumentNullException.ThrowIfNull(query);
+
+            if (_portableQueries != null)
+            {
+                ReadPreamble();
+                return _portableQueries.ContainsKey(query);
+            }
 
             EnsureBitmapMetadata();
 
@@ -1430,6 +1512,18 @@ namespace System.Windows.Media.Imaging
         /// <param name="sourceBitmapMetadata"></param>
         private void CopyCommon(BitmapMetadata sourceBitmapMetadata)
         {
+            if (sourceBitmapMetadata._portableQueries != null)
+            {
+                _metadataHandle = null;
+                _blockWriter = null;
+                _readOnly = sourceBitmapMetadata._readOnly;
+                _fixedSize = sourceBitmapMetadata._fixedSize;
+                _portableFormat = sourceBitmapMetadata._portableFormat;
+                _portableGuidFormat = sourceBitmapMetadata._portableGuidFormat;
+                _portableQueries = new Dictionary<string, object>(sourceBitmapMetadata._portableQueries, StringComparer.Ordinal);
+                return;
+            }
+
             BitmapMetadataBlockWriter blockWriter = sourceBitmapMetadata.BlockWriter;
 
             if (blockWriter == null)
@@ -1459,6 +1553,12 @@ namespace System.Windows.Media.Imaging
         {
             get
             {
+                if (_portableQueries != null)
+                {
+                    ReadPreamble();
+                    return _portableGuidFormat;
+                }
+
                 Guid guid = new Guid();
 
                 EnsureBitmapMetadata();
@@ -1502,6 +1602,11 @@ namespace System.Windows.Media.Imaging
 
             if (_metadataHandle == null)
             {
+                if (_portableQueries != null)
+                {
+                    return;
+                }
+
                 throw new System.InvalidOperationException(SR.Image_MetadataInitializationIncomplete);
             }
         }
@@ -1526,6 +1631,10 @@ namespace System.Windows.Media.Imaging
 
         private bool _readOnly;
         private bool _fixedSize;
+
+        private string _portableFormat;
+        private Guid _portableGuidFormat;
+        private Dictionary<string, object> _portableQueries;
 
         // Stores the last query -- this is for debugging stress failures
         private object _setQueryValue;

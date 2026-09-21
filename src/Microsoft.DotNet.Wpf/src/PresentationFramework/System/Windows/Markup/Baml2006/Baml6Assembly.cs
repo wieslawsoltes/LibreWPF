@@ -42,6 +42,12 @@ namespace System.Windows.Baml2006
 
                 AssemblyName assemblyName = new AssemblyName(Name);
                 _assembly = SafeSecurityHelper.GetLoadedAssembly(assemblyName);
+                if (_assembly == null
+                    && !OperatingSystem.IsWindows()
+                    && string.Equals(assemblyName.Name, "WindowsFormsIntegration", StringComparison.OrdinalIgnoreCase))
+                {
+                    _assembly = SafeSecurityHelper.GetLoadedAssemblyBySimpleName(assemblyName.Name);
+                }
                 if (_assembly == null)
                 {
                     byte[] publicKeyToken = assemblyName.GetPublicKeyToken();

@@ -1,0 +1,11 @@
+<Application x:Class="ProGPU.Wpf.XceedPaidApp.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Startup="OnAppStartup"
+             Exit="OnAppExit">
+  <Application.Resources>
+    <SolidColorBrush x:Key="PaidAccentBrush" Color="#0E6F83" />
+    <SolidColorBrush x:Key="PaidAccentDarkBrush" Color="#12333D" />
+    <SolidColorBrush x:Key="PaidPanelBrush" Color="#F3F7F8" />
+  </Application.Resources>
+</Application>

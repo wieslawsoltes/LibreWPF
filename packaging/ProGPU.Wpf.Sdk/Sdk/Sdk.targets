@@ -1,0 +1,31 @@
+<Project>
+
+  <PropertyGroup>
+    <ProGpuWpfUseWpfMarkup Condition="'$(ProGpuWpfUseWpfMarkup)' == '' And '$(UseWPF)' != ''">$(UseWPF)</ProGpuWpfUseWpfMarkup>
+    <ProGpuWpfUseWpfMarkup Condition="'$(ProGpuWpfUseWpfMarkup)' == ''">true</ProGpuWpfUseWpfMarkup>
+    <_ProGpuWpfProjectUseWPF>$(UseWPF)</_ProGpuWpfProjectUseWPF>
+    <_ProGpuWpfProjectUseWindowsForms>$(UseWindowsForms)</_ProGpuWpfProjectUseWindowsForms>
+    <ProGpuWpfUsePortableWinFormsCompat Condition="'$(ProGpuWpfUsePortableWinFormsCompat)' == '' And '$(_ProGpuWpfProjectUseWindowsForms)' == 'true'">true</ProGpuWpfUsePortableWinFormsCompat>
+    <ProGpuWpfUsePortableWinFormsCompat Condition="'$(ProGpuWpfUsePortableWinFormsCompat)' == ''">false</ProGpuWpfUsePortableWinFormsCompat>
+    <ProGpuWpfUseLibreWinForms Condition="'$(ProGpuWpfUseLibreWinForms)' == '' And '$(_ProGpuWpfProjectUseWindowsForms)' == 'true'">true</ProGpuWpfUseLibreWinForms>
+    <ProGpuWpfUseLibreWinForms Condition="'$(ProGpuWpfUseLibreWinForms)' == ''">false</ProGpuWpfUseLibreWinForms>
+    <UseWPF Condition="'$(ProGpuWpfUsePortableFrameworkReferences)' == 'true'">false</UseWPF>
+    <UseWindowsForms Condition="'$(ProGpuWpfUsePortableFrameworkReferences)' == 'true'">false</UseWindowsForms>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(_ProGpuWpfProjectUseWindowsForms)' == 'true' And ('$(ImplicitUsings)' == 'true' Or '$(ImplicitUsings)' == 'enable')">
+    <Using Include="System.Drawing" />
+    <Using Include="System.Windows.Forms" />
+  </ItemGroup>
+
+  <PropertyGroup Condition="'$(ProGpuWpfUseWpfMarkup)' == 'true'">
+    <_LibreWpfPresentationBuildTasksTfm Condition="'$(MSBuildRuntimeType)' == 'Core'">net10.0</_LibreWpfPresentationBuildTasksTfm>
+    <_LibreWpfPresentationBuildTasksTfm Condition="'$(MSBuildRuntimeType)' != 'Core'">net472</_LibreWpfPresentationBuildTasksTfm>
+    <_LibreWpfPresentationBuildTasksAssembly>$(MSBuildThisFileDirectory)..\tools\$(_LibreWpfPresentationBuildTasksTfm)\PresentationBuildTasks.dll</_LibreWpfPresentationBuildTasksAssembly>
+    <_PresentationBuildTasksAssembly Condition="'$(_PresentationBuildTasksAssembly)' == '' And Exists('$(_LibreWpfPresentationBuildTasksAssembly)')">$([MSBuild]::Unescape($([System.IO.Path]::GetFullPath('$(_LibreWpfPresentationBuildTasksAssembly)'))))</_PresentationBuildTasksAssembly>
+  </PropertyGroup>
+
+  <Import Sdk="Microsoft.NET.Sdk.WindowsDesktop" Project="Sdk.targets" />
+  <Import Project="$(MSBuildThisFileDirectory)..\targets\ProGPU.Wpf.Sdk.targets" />
+
+</Project>

@@ -2,6 +2,7 @@
   <PropertyGroup>
     <ExternalShippingProjects>
       System.Xaml;
+      Microsoft.Win32.SystemEvents;
       PresentationBuildTasks;
       PresentationCore;
       DirectWriteForwarder;

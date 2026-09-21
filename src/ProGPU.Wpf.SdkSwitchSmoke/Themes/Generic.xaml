@@ -1,0 +1,31 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="clr-namespace:ProGPU.Wpf.SdkSwitchSmoke">
+    <SolidColorBrush
+        x:Key="{ComponentResourceKey TypeInTargetAssembly={x:Type local:SmokeThemedControl}, ResourceId=ThemeBadgeBrush}"
+        Color="#7A4EB2" />
+
+    <Style TargetType="{x:Type local:SmokeThemedControl}">
+        <Setter Property="Background" Value="{DynamicResource MergedAccentBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource SmokeAccentBrush}" />
+        <Setter Property="Padding" Value="6" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type local:SmokeThemedControl}">
+                    <Border
+                        x:Name="ThemeRoot"
+                        Background="{TemplateBinding Background}"
+                        BorderBrush="{DynamicResource {ComponentResourceKey TypeInTargetAssembly={x:Type local:SmokeThemedControl}, ResourceId=ThemeBadgeBrush}}"
+                        BorderThickness="1"
+                        Padding="{TemplateBinding Padding}">
+                        <TextBlock
+                            x:Name="ThemeText"
+                            Foreground="{TemplateBinding Foreground}"
+                            Text="{TemplateBinding Text}" />
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+</ResourceDictionary>

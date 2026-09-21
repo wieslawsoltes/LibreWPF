@@ -79,6 +79,11 @@ namespace MS.Internal.Automation
 
         internal static bool UiaClientsAreListening()
         {
+            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                return false;
+            }
+
             return RawUiaClientsAreListening();
         }
 

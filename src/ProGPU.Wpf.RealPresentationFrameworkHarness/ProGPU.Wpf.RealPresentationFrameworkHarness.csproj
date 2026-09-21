@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>$(ProGpuWpfRuntimeHarnessTargetFramework)</TargetFramework>
+    <RuntimeFrameworkVersion Condition="&apos;$(ProGpuWpfRuntimeFrameworkVersion)&apos; != &apos;&apos;">$(ProGpuWpfRuntimeFrameworkVersion)</RuntimeFrameworkVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <EnableNETAnalyzers>false</EnableNETAnalyzers>
+    <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
+    <NoWarn>$(NoWarn);IDE0073;IDE0300</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="../../external/ProGPU/src/ProGPU.Fonts.Inter/Fonts/Inter-Medium.ttf" Link="CollapseFonts/Inter-Medium.ttf" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="../../external/ProGPU/src/ProGPU.Fonts.Inter/Fonts/Inter-Bold.ttf" Link="CollapseFonts/Inter-Bold.ttf" CopyToOutputDirectory="PreserveNewest" />
+    <PackageReference Include="System.Configuration.ConfigurationManager" Version="$(SystemConfigurationConfigurationManagerPackageVersion)" />
+    <PackageReference Include="System.Formats.Nrbf" Version="$(SystemFormatsNrbfVersion)" />
+    <PackageReference Include="$(SystemIOPackagingPackage)" Version="$(SystemIOPackagingVersion)" />
+    <PackageReference Include="System.Windows.Extensions" Version="$(SystemWindowsExtensionsPackageVersion)" />
+    <ProjectReference Include="..\ProGPU.Wpf\ProGPU.Wpf.csproj" />
+    <ProjectReference Include="..\..\external\ProGPU\src\ProGPU.Backend\ProGPU.Backend.csproj" />
+    <ProjectReference Include="..\..\external\ProGPU\src\ProGPU.Backend.Native\ProGPU.Backend.Native.csproj" />
+    <ProjectReference Include="..\..\external\ProGPU\src\ProGPU.Scene\ProGPU.Scene.csproj" />
+    <ProjectReference Include="..\..\external\ProGPU\src\ProGPU.Vector\ProGPU.Vector.csproj" />
+    <ProjectReference Include="..\..\external\ProGPU\src\ProGPU.Text\ProGPU.Text.csproj" />
+    <ProjectReference Include="..\..\external\ProGPU\src\ProGPU.Wpf.Interop\ProGPU.Wpf.Interop.csproj" />
+    <ProjectReference Include="..\Microsoft.DotNet.Wpf\src\PresentationCore\PresentationCore.csproj" ReferenceOutputAssembly="false" PrivateAssets="all" />
+    <ProjectReference Include="..\Microsoft.DotNet.Wpf\src\PresentationFramework\PresentationFramework.csproj" ReferenceOutputAssembly="false" PrivateAssets="all" />
+    <!-- The portable source theme supplies real inline/control styles (including
+         Underline). Build it for the isolated WPF load context; do not depend on
+         a previous SDK/package run or copy source theme types into the facade. -->
+    <ProjectReference Include="..\Microsoft.DotNet.Wpf\src\Themes\PresentationFramework.Aero2\PresentationFramework.Aero2.csproj" ReferenceOutputAssembly="false" PrivateAssets="all" />
+  </ItemGroup>
+</Project>

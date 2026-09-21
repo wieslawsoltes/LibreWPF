@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>$(ProGpuWpfTargetFramework)</TargetFramework>
+    <AssemblyName>WindowsFormsIntegration</AssemblyName>
+    <RootNamespace>System.Windows.Forms.Integration</RootNamespace>
+    <PackageId>LibreWPF.WinFormsCompat.WindowsFormsIntegration</PackageId>
+    <PackageName></PackageName>
+    <Description>LibreWPF portable WindowsFormsIntegration compatibility surface.</Description>
+    <PackageTags>librewpf;progpu;windowsformsintegration;winforms;compatibility</PackageTags>
+    <Version Condition="'$(Version)' == ''">$(ProGpuWpfSdkVersion)</Version>
+    <PackageVersion Condition="'$(PackageVersion)' == ''">$(Version)</PackageVersion>
+    <IsPackable>true</IsPackable>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <SignAssembly>true</SignAssembly>
+    <AssemblyOriginatorKeyFile>..\..\..\external\ProGPU\eng\ProGPU.snk</AssemblyOriginatorKeyFile>
+    <Nullable>enable</Nullable>
+    <NoWarn>$(NoWarn);CS0067;CS1591;IDE0005;IDE0073;IDE1006</NoWarn>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <_LibreWpfManagedAssemblyRoot>$(MSBuildThisFileDirectory)..\..\..\artifacts\bin\</_LibreWpfManagedAssemblyRoot>
+    <_LibreWpfManagedAssemblyRoot Condition="'$(LibreWpfManagedAssemblyRoot)' != ''">$(LibreWpfManagedAssemblyRoot)</_LibreWpfManagedAssemblyRoot>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\external\ProGPU\src\ProGPU.Backend\ProGPU.Backend.csproj" />
+    <ProjectReference Include="..\..\..\external\ProGPU\src\ProGPU.Scene\ProGPU.Scene.csproj" />
+    <ProjectReference Include="..\..\..\external\ProGPU\src\ProGPU.Wpf.Interop\ProGPU.Wpf.Interop.csproj" />
+    <ProjectReference Include="..\..\..\external\ProGPU\src\System.Drawing.Common\System.Drawing.Common.csproj" />
+    <ProjectReference Include="..\System.Windows.Forms\System.Windows.Forms.csproj" />
+    <Reference Include="WindowsBase" HintPath="$(_LibreWpfManagedAssemblyRoot)WindowsBase\$(Configuration)\$(TargetFramework)\WindowsBase.dll" Private="false" />
+    <Reference Include="System.Xaml" HintPath="$(_LibreWpfManagedAssemblyRoot)System.Xaml\$(Configuration)\$(TargetFramework)\System.Xaml.dll" Private="false" />
+    <Reference Include="PresentationCore" HintPath="$(_LibreWpfManagedAssemblyRoot)PresentationCore\$(Configuration)\$(TargetFramework)\PresentationCore.dll" Private="false" />
+    <Reference Include="PresentationFramework" HintPath="$(_LibreWpfManagedAssemblyRoot)PresentationFramework\$(Configuration)\$(TargetFramework)\PresentationFramework.dll" Private="false" />
+  </ItemGroup>
+</Project>

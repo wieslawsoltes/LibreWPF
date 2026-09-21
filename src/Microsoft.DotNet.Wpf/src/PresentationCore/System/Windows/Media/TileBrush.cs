@@ -11,6 +11,7 @@
 //
 //
 
+using ProGPU.Wpf.Interop;
 using System.Windows.Media.Composition;
 
 namespace System.Windows.Media
@@ -21,7 +22,7 @@ namespace System.Windows.Media
     /// a way to fill a region by tiling.  The contents of the tiles
     /// are described by classes derived from TileBrush.
     /// </summary>
-    public abstract partial class TileBrush : Brush
+    public abstract partial class TileBrush : Brush, IPortableTileBrushSource
     {
         #region Constructors
     
@@ -35,6 +36,169 @@ namespace System.Windows.Media
         }
    
         #endregion Constructors
+
+        bool IPortableTileBrushSource.TryGetPortableTileBrush(out PortableTileBrush brush)
+        {
+            ReadPreamble();
+
+            if (!TryGetPortableTileBrushContent(this, out PortableTileBrushKind kind, out object content)
+                || content == null
+                || !TryGetPortableTileBrushTransform(Transform, out bool hasTransform, out PortableMatrix3x2 transform)
+                || !TryGetPortableTileBrushTransform(RelativeTransform, out bool hasRelativeTransform, out PortableMatrix3x2 relativeTransform))
+            {
+                brush = null;
+                return false;
+            }
+
+            Rect viewport = Viewport;
+            Rect viewbox = Viewbox;
+            brush = new PortableTileBrush(
+                kind,
+                content,
+                Opacity,
+                ToPortableRect(viewport),
+                ToPortableRect(viewbox),
+                ToPortableBrushMappingMode(ViewportUnits),
+                ToPortableBrushMappingMode(ViewboxUnits),
+                ToPortableTileMode(TileMode),
+                ToPortableStretch(Stretch),
+                ToPortableAlignmentX(AlignmentX),
+                ToPortableAlignmentY(AlignmentY),
+                hasTransform,
+                transform,
+                hasRelativeTransform,
+                relativeTransform);
+            return true;
+        }
+
+        private static bool TryGetPortableTileBrushContent(
+            TileBrush brush,
+            out PortableTileBrushKind kind,
+            out object content)
+        {
+            switch (brush)
+            {
+                case ImageBrush imageBrush:
+                    kind = PortableTileBrushKind.Image;
+                    content = imageBrush.ImageSource;
+                    return content != null;
+
+                case DrawingBrush drawingBrush:
+                    kind = PortableTileBrushKind.Drawing;
+                    content = drawingBrush.Drawing;
+                    return content != null;
+
+                case VisualBrush visualBrush:
+                    kind = PortableTileBrushKind.Visual;
+                    content = visualBrush.Visual;
+                    return content != null;
+
+                default:
+                    kind = default;
+                    content = null;
+                    return false;
+            }
+        }
+
+        private static bool TryGetPortableTileBrushTransform(
+            Transform transform,
+            out bool hasTransform,
+            out PortableMatrix3x2 matrix)
+        {
+            hasTransform = false;
+            matrix = PortableMatrix3x2.Identity;
+
+            if (transform == null || ReferenceEquals(transform, Transform.Identity))
+            {
+                return true;
+            }
+
+            if (transform is not IPortableTransformMatrixSource transformSource
+                || !transformSource.TryGetPortableTransformMatrix(out matrix))
+            {
+                return false;
+            }
+
+            hasTransform = !matrix.IsIdentity;
+            if (!hasTransform)
+            {
+                matrix = PortableMatrix3x2.Identity;
+            }
+
+            return true;
+        }
+
+        private static PortableRect ToPortableRect(Rect rect)
+        {
+            return rect.IsEmpty
+                ? PortableRect.Empty
+                : new PortableRect(rect.X, rect.Y, rect.Width, rect.Height);
+        }
+
+        private static PortableBrushMappingMode ToPortableBrushMappingMode(BrushMappingMode mappingMode)
+        {
+            return mappingMode == BrushMappingMode.Absolute
+                ? PortableBrushMappingMode.Absolute
+                : PortableBrushMappingMode.RelativeToBoundingBox;
+        }
+
+        private static PortableTileMode ToPortableTileMode(TileMode tileMode)
+        {
+            switch (tileMode)
+            {
+                case TileMode.Tile:
+                    return PortableTileMode.Tile;
+                case TileMode.FlipX:
+                    return PortableTileMode.FlipX;
+                case TileMode.FlipY:
+                    return PortableTileMode.FlipY;
+                case TileMode.FlipXY:
+                    return PortableTileMode.FlipXY;
+                default:
+                    return PortableTileMode.None;
+            }
+        }
+
+        private static PortableStretch ToPortableStretch(Stretch stretch)
+        {
+            switch (stretch)
+            {
+                case Stretch.None:
+                    return PortableStretch.None;
+                case Stretch.Uniform:
+                    return PortableStretch.Uniform;
+                case Stretch.UniformToFill:
+                    return PortableStretch.UniformToFill;
+                default:
+                    return PortableStretch.Fill;
+            }
+        }
+
+        private static PortableAlignmentX ToPortableAlignmentX(AlignmentX alignment)
+        {
+            switch (alignment)
+            {
+                case AlignmentX.Left:
+                    return PortableAlignmentX.Left;
+                case AlignmentX.Right:
+                    return PortableAlignmentX.Right;
+                default:
+                    return PortableAlignmentX.Center;
+            }
+        }
+
+        private static PortableAlignmentY ToPortableAlignmentY(AlignmentY alignment)
+        {
+            switch (alignment)
+            {
+                case AlignmentY.Top:
+                    return PortableAlignmentY.Top;
+                case AlignmentY.Bottom:
+                    return PortableAlignmentY.Bottom;
+                default:
+                    return PortableAlignmentY.Center;
+            }
+        }
 
         /// <summary>
         /// Obtains the current bounds of the brush's content

@@ -237,10 +237,17 @@ namespace System.Windows.Controls
                 // We need to exit menu mode because it holds capture and prevents
                 // the system menu from showing.
                 IsMenuMode = false;
-                System.Windows.Interop.HwndSource source = PresentationSource.CriticalFromVisual(this) as System.Windows.Interop.HwndSource;
-                if (source != null)
+                if (PopupControlService.UsesNativeWindowing(PresentationSource.CriticalFromVisual(this)))
                 {
-                    source.ShowSystemMenu();
+                    System.Windows.Interop.HwndSource source = PresentationSource.CriticalFromVisual(this) as System.Windows.Interop.HwndSource;
+                    if (source != null)
+                    {
+                        source.ShowSystemMenu();
+                        e.Handled = true;
+                    }
+                }
+                else
+                {
                     e.Handled = true;
                 }
             }

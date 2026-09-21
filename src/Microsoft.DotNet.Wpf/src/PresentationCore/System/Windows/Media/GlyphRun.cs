@@ -15,6 +15,7 @@
 
 using System.Collections;
 using System.ComponentModel;
+using System.Numerics;
 using System.Windows.Media.Converters;
 using System.Windows.Media.Composition;
 using System.Windows.Media.TextFormatting;
@@ -23,6 +24,7 @@ using MS.Internal;
 using MS.Internal.FontCache;
 using MS.Internal.TextFormatting;
 using MS.Internal.Text.TextInterface;
+using ProGPU.Wpf.Interop;
 
 namespace System.Windows.Media
 {
@@ -33,7 +35,7 @@ namespace System.Windows.Media
     /// <remarks>
     ///  Consider adding [XmlLangProperty("Language")] 
     /// </remarks>
-    public class GlyphRun : DUCE.IResource, ISupportInitialize
+    public class GlyphRun : DUCE.IResource, ISupportInitialize, IPortableGlyphRunSource, IPortableNativeGlyphRunSource
     {
         //------------------------------------------------------
         //
@@ -1773,6 +1775,15 @@ namespace System.Windows.Media
 
         private DUCE.MultiChannelResource _mcr = new DUCE.MultiChannelResource();
 
+        internal bool HasDWriteFont
+        {
+            get
+            {
+                CheckInitialized();
+                return _glyphTypeface.HasDWriteFont;
+            }
+        }
+
         /// <summary>
         /// Generate a series of requests to create or update
         /// slave glyph run resource and all depending data.
@@ -2441,6 +2452,252 @@ namespace System.Windows.Media
 
         #endregion Private Enumerations
 
+        //------------------------------------------------------
+        //
+        //  Portable ProGPU interop
+        //
+        //------------------------------------------------------
+        #region Portable ProGPU interop
+
+        bool IPortableGlyphRunSource.TryGetPortableGlyphRun(out PortableGlyphRun glyphRun)
+        {
+            if (IsInitialized && _portableGlyphRunCache != null)
+            {
+                glyphRun = _portableGlyphRunCache;
+                return true;
+            }
+
+            glyphRun = new PortableGlyphRun();
+            if (_glyphIndices == null
+                || _glyphIndices.Count == 0
+                || _renderingEmSize <= 0)
+            {
+                return false;
+            }
+
+            bool hasInkBounds = TryGetPortableInkBounds(out PortableRect inkBounds);
+            StyleSimulations styleSimulations = _glyphTypeface?.StyleSimulations ?? StyleSimulations.None;
+            glyphRun = new PortableGlyphRun
+            {
+                HasInkBounds = hasInkBounds,
+                InkBounds = inkBounds,
+                GlyphIndices = CopyUShorts(_glyphIndices),
+                AdvanceWidths = CopyDoubles(_advanceWidths),
+                GlyphOffsets = CopyPoints(_glyphOffsets),
+                GlyphPositions = _portablePositionedGlyphs == null ? Array.Empty<PortablePoint>() :
+                    Array.ConvertAll(_portablePositionedGlyphs, static p => new PortablePoint(p.X, p.Y)),
+                NativeFont = _portablePositionedFont,
+                BaselineOrigin = ToPortablePoint(_baselineOrigin),
+                FontRenderingEmSize = _renderingEmSize,
+                FontUri = _glyphTypeface?.FontUri?.OriginalString,
+                FontFamilyNames = CopyFamilyNames(_glyphTypeface?.FamilyNames),
+                IsBold = (styleSimulations & StyleSimulations.BoldSimulation) != 0,
+                IsItalic = (styleSimulations & StyleSimulations.ItalicSimulation) != 0
+            };
+
+            if (IsInitialized)
+            {
+                _portableGlyphRunCache = glyphRun;
+            }
+
+            return true;
+        }
+
+        bool IPortableNativeGlyphRunSource.TryGetPortableNativeGlyphRun(out PortableNativeGlyphRun glyphRun)
+        {
+            if (IsInitialized && _portableNativeGlyphRunCache != null)
+            {
+                glyphRun = _portableNativeGlyphRunCache;
+                return true;
+            }
+
+            glyphRun = new PortableNativeGlyphRun();
+            if (_glyphIndices == null
+                || _glyphIndices.Count == 0
+                || _renderingEmSize <= 0)
+            {
+                return false;
+            }
+
+            bool hasInkBounds = TryGetPortableInkBounds(out PortableRect inkBounds);
+            StyleSimulations styleSimulations = _glyphTypeface?.StyleSimulations ?? StyleSimulations.None;
+            glyphRun = new PortableNativeGlyphRun
+            {
+                HasInkBounds = hasInkBounds,
+                InkBounds = inkBounds,
+                GlyphIndices = CopyUShorts(_glyphIndices),
+                GlyphPositions = _portablePositionedGlyphs ?? CreateNativeGlyphPositions(_glyphIndices.Count, _advanceWidths, _glyphOffsets),
+                NativeFont = _portablePositionedFont,
+                BaselineOrigin = new Vector2((float)_baselineOrigin.X, (float)_baselineOrigin.Y),
+                FontRenderingEmSize = _renderingEmSize,
+                FontUri = _glyphTypeface?.FontUri?.OriginalString,
+                FontFamilyNames = CopyFamilyNames(_glyphTypeface?.FamilyNames),
+                IsBold = (styleSimulations & StyleSimulations.BoldSimulation) != 0,
+                IsItalic = (styleSimulations & StyleSimulations.ItalicSimulation) != 0
+            };
+
+            if (IsInitialized)
+            {
+                _portableNativeGlyphRunCache = glyphRun;
+            }
+
+            return true;
+        }
+
+        private bool TryGetPortableInkBounds(out PortableRect bounds)
+        {
+            bounds = PortableRect.Empty;
+            if (!IsInitialized) return false;
+            if (_portableInkBoundsCache is PortableRect cached)
+            {
+                bounds = cached;
+                return true;
+            }
+            Rect ink = ComputePortableInkBoundingBox();
+            if (!ink.IsEmpty)
+            {
+                ink.Offset(_baselineOrigin.X, _baselineOrigin.Y);
+                bounds = new PortableRect(ink.X, ink.Y, ink.Width, ink.Height);
+            }
+            _portableInkBoundsCache = bounds;
+            return true;
+        }
+
+        // ProGPU's retained glyph renderers add one 0.035-em stroke pass for
+        // simulated bold and shear glyph ink by 0.22 for simulated italic.
+        // These are ink-only adjustments: source advances and caret positions
+        // remain those of the mapped physical face.
+        internal Rect ComputePortableInkBoundingBox()
+        {
+            Rect bounds = ComputeInkBoundingBox();
+            if (bounds.IsEmpty) return bounds;
+            StyleSimulations simulations = _glyphTypeface?.StyleSimulations ?? StyleSimulations.None;
+            if ((simulations & StyleSimulations.ItalicSimulation) != 0)
+            {
+                double overhang = 0.22 * Math.Max(Math.Abs(bounds.Top), Math.Abs(bounds.Bottom));
+                bounds = new Rect(bounds.Left - overhang, bounds.Top,
+                    bounds.Width + 2 * overhang, bounds.Height);
+            }
+            if ((simulations & StyleSimulations.BoldSimulation) != 0)
+                bounds = new Rect(bounds.Left, bounds.Top,
+                    bounds.Width + _renderingEmSize * 0.035, bounds.Height);
+            return bounds;
+        }
+
+        private static ushort[] CopyUShorts(IList<ushort> source)
+        {
+            if (source == null || source.Count == 0)
+            {
+                return Array.Empty<ushort>();
+            }
+
+            ushort[] result = new ushort[source.Count];
+            for (int i = 0; i < result.Length; i++)
+            {
+                result[i] = source[i];
+            }
+
+            return result;
+        }
+
+        private static double[] CopyDoubles(IList<double> source)
+        {
+            if (source == null || source.Count == 0)
+            {
+                return Array.Empty<double>();
+            }
+
+            double[] result = new double[source.Count];
+            for (int i = 0; i < result.Length; i++)
+            {
+                result[i] = source[i];
+            }
+
+            return result;
+        }
+
+        private static PortablePoint[] CopyPoints(IList<Point> source)
+        {
+            if (source == null || source.Count == 0)
+            {
+                return Array.Empty<PortablePoint>();
+            }
+
+            PortablePoint[] result = new PortablePoint[source.Count];
+            for (int i = 0; i < result.Length; i++)
+            {
+                result[i] = ToPortablePoint(source[i]);
+            }
+
+            return result;
+        }
+
+        private Vector2[] _portablePositionedGlyphs;
+        private object _portablePositionedFont;
+
+        // Source text formatting transfers these immutable native Y-down positions
+        // before publishing the GlyphRun. WPF metrics retain real bidi/offset state.
+        internal void InitializePortableGlyphPositions(Vector2[] positions, object nativeFont = null)
+        {
+            if (!IsInitialized || _portablePositionedGlyphs != null || _portableNativeGlyphRunCache != null || _portableGlyphRunCache != null ||
+                positions == null || positions.Length != _glyphIndices.Count)
+                throw new InvalidOperationException("Portable glyph positions must be initialized once before replay.");
+            _portablePositionedGlyphs = positions;
+            _portablePositionedFont = nativeFont;
+        }
+
+        private static Vector2[] CreateNativeGlyphPositions(
+            int glyphCount,
+            IList<double> advanceWidths,
+            IList<Point> glyphOffsets)
+        {
+            if (glyphCount == 0)
+            {
+                return Array.Empty<Vector2>();
+            }
+
+            Vector2[] result = new Vector2[glyphCount];
+            double x = 0;
+            int advanceWidthCount = advanceWidths?.Count ?? 0;
+            int glyphOffsetCount = glyphOffsets?.Count ?? 0;
+            for (int i = 0; i < result.Length; i++)
+            {
+                Point offset = i < glyphOffsetCount ? glyphOffsets[i] : default;
+                result[i] = new Vector2((float)(x + offset.X), (float)offset.Y);
+
+                if (i < advanceWidthCount)
+                {
+                    x += advanceWidths[i];
+                }
+            }
+
+            return result;
+        }
+
+        private static PortablePoint ToPortablePoint(Point point)
+        {
+            return new PortablePoint(point.X, point.Y);
+        }
+
+        private static string[] CopyFamilyNames(System.Collections.Generic.IDictionary<System.Globalization.CultureInfo, string> names)
+        {
+            if (names == null || names.Count == 0)
+            {
+                return Array.Empty<string>();
+            }
+
+            var result = new string[names.Count];
+            int index = 0;
+            foreach (string value in names.Values)
+            {
+                result[index++] = value;
+            }
+
+            return result;
+        }
+
+        #endregion Portable ProGPU interop
+
 
         //------------------------------------------------------
         //
@@ -2464,6 +2721,9 @@ namespace System.Windows.Media
         private XmlLanguage         _language;
         private string              _deviceFontName;
         private object              _inkBoundingBox;    // Used when CacheInkBounds is on
+        private PortableGlyphRun    _portableGlyphRunCache;
+        private PortableNativeGlyphRun _portableNativeGlyphRunCache;
+        private PortableRect? _portableInkBoundsCache;
         private TextFormattingMode      _textFormattingMode;
         private float               _pixelsPerDip = MS.Internal.FontCache.Util.PixelsPerDip;
 
@@ -2489,4 +2749,3 @@ namespace System.Windows.Media
         #endregion Private Fields
     }
 }
-

@@ -295,8 +295,17 @@ namespace System.Windows.Documents
 
             // Clip to the window client rect.
             PresentationSource source = PresentationSource.CriticalFromVisual(This.UiScope);
-            IWin32Window window = source as IWin32Window;
-            if (window != null)
+            ClipToSourceClient(source, This.UiScope, ref horizontalOffset, ref verticalOffset);
+        }
+
+        internal static void ClipToSourceClient(PresentationSource source, Visual uiScope,
+            ref double horizontalOffset, ref double verticalOffset)
+        {
+            if (!PopupControlService.UsesNativeWindowing(source))
+            {
+                ClipToPresentationSourceRoot(source, uiScope, ref horizontalOffset, ref verticalOffset);
+            }
+            else if (source is IWin32Window window)
             {
                 IntPtr hwnd = IntPtr.Zero;
                 hwnd = window.Handle;
@@ -313,7 +322,7 @@ namespace System.Windows.Documents
                 maxPoint = compositionTarget.TransformFromDevice.Transform(maxPoint);
 
                 // Convert to local coordinates.
-                GeneralTransform transform = compositionTarget.RootVisual.TransformToDescendant(This.UiScope);
+                GeneralTransform transform = compositionTarget.RootVisual.TransformToDescendant(uiScope);
                 if (transform != null)
                 {
                     transform.TryTransform(minPoint, out minPoint);
@@ -326,6 +335,38 @@ namespace System.Windows.Documents
 
                 // ContextMenu code takes care of clipping to desktop.
             }
+        }
+
+        private static void ClipToPresentationSourceRoot(PresentationSource source, Visual uiScope,
+            ref double horizontalOffset, ref double verticalOffset)
+        {
+            CompositionTarget compositionTarget = source?.CompositionTarget;
+            FrameworkElement rootElement = compositionTarget?.RootVisual as FrameworkElement;
+            if (rootElement == null)
+            {
+                return;
+            }
+
+            Size renderSize = rootElement.RenderSize;
+            if (renderSize.Width == 0 && renderSize.Height == 0)
+            {
+                return;
+            }
+
+            GeneralTransform transform = rootElement.TransformToDescendant(uiScope);
+            if (transform == null)
+            {
+                return;
+            }
+
+            Point minPoint = new Point(0, 0);
+            Point maxPoint = new Point(renderSize.Width, renderSize.Height);
+
+            transform.TryTransform(minPoint, out minPoint);
+            transform.TryTransform(maxPoint, out maxPoint);
+
+            horizontalOffset = ClipToBounds(minPoint.X, horizontalOffset, maxPoint.X);
+            verticalOffset = ClipToBounds(minPoint.Y, verticalOffset, maxPoint.Y);
         }
 
         // Clips a Point to the ActualWidth/Height of a containing FrameworkElement.

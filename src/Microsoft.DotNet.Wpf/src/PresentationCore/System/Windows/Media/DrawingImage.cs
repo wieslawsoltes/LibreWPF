@@ -10,12 +10,14 @@
 //
 //
 
+using ProGPU.Wpf.Interop;
+
 namespace System.Windows.Media
 {
     /// <summary>
     /// The class definition for DrawingImage
     /// </summary>
-    public sealed partial class DrawingImage : ImageSource
+    public sealed partial class DrawingImage : ImageSource, IPortableDrawingImageSource
     {
         /// <summary>
         /// Default DrawingImage ctor
@@ -101,5 +103,18 @@ namespace System.Windows.Media
                 }
             }
         }
-}
+
+        bool IPortableDrawingImageSource.TryGetPortableDrawingImage(out object drawing)
+        {
+            Drawing content = Drawing;
+            if (content != null)
+            {
+                drawing = content;
+                return true;
+            }
+
+            drawing = null;
+            return false;
+        }
+    }
 }

@@ -2363,11 +2363,17 @@ namespace System.Windows.Markup
 
             // Always set up the mapping for this in the XamlTypeMapper immediately upon seeing the
             // mapping URI, since it can be needed in the very next read operation and must be in place.
-            if (!XamlTypeMapper.PITable.Contains(mappingUri))
+            bool mappingExists = XamlTypeMapper.PITable.Contains(mappingUri);
+            bool shouldUpdateMapping = !mappingExists;
+#if PBTCOMPILER
+            shouldUpdateMapping = shouldUpdateMapping || IsLocalAssemblyReference(parser.Assembly);
+#endif
+            if (shouldUpdateMapping)
             {
                 string assemblyName = parser.Assembly;
                 bool isLocalAssembly = assemblyName == null || assemblyName.Length < 1;
 #if PBTCOMPILER
+                isLocalAssembly = IsLocalAssemblyReference(assemblyName);
                 if (isLocalAssembly)
                     assemblyName = ReflectionHelper.LocalAssemblyName;
 #endif
@@ -2377,12 +2383,50 @@ namespace System.Windows.Markup
                 usingData.LocalAssembly = isLocalAssembly;
 #endif
 
-                XamlTypeMapper.PITable.Add(mappingUri, usingData);
+                if (mappingExists)
+                {
+                    XamlTypeMapper.PITable[mappingUri] = usingData;
+                    XamlTypeMapper.InvalidateMappingCache(mappingUri);
+                }
+                else
+                {
+                    XamlTypeMapper.PITable.Add(mappingUri, usingData);
+                }
             }
 
             // Generate a pseudo mapping instruction in the BAML from the URI
             WritePI(mappingUri, parser.Namespace, parser.Assembly);
         }
+
+#if PBTCOMPILER
+        private static bool IsLocalAssemblyReference(string assemblyName)
+        {
+            if (string.IsNullOrEmpty(assemblyName))
+            {
+                return true;
+            }
+
+            string localAssemblyName = ReflectionHelper.LocalAssemblyName;
+            if (string.IsNullOrEmpty(localAssemblyName))
+            {
+                return false;
+            }
+
+            return string.Equals(GetAssemblySimpleName(assemblyName), GetAssemblySimpleName(localAssemblyName), StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string GetAssemblySimpleName(string assemblyName)
+        {
+            try
+            {
+                return new AssemblyName(assemblyName).Name ?? assemblyName;
+            }
+            catch (Exception)
+            {
+                return assemblyName;
+            }
+        }
+#endif
 
         #region Mapping Protocol helper classes
 

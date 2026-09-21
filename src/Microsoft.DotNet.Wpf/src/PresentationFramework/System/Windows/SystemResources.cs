@@ -935,7 +935,10 @@ namespace System.Windows
                     System.Xaml.XamlObjectWriterSettings owSettings = XamlReader.CreateObjectWriterSettingsForBaml();
                     if (assembly != null)
                     {
-                        owSettings.AccessLevel = XamlAccessLevel.AssemblyAccessTo(assembly);
+                        if (OperatingSystem.IsWindows())
+                        {
+                            owSettings.AccessLevel = XamlAccessLevel.AssemblyAccessTo(assembly);
+                        }
 
                         AssemblyName asemblyName = new AssemblyName(assembly.FullName);
                         Uri streamUri = null;
@@ -1018,6 +1021,14 @@ namespace System.Windows
         /// </summary>
         private static void EnsureResourceChangeListener()
         {
+            if (!OperatingSystem.IsWindows())
+            {
+                _hwndNotify ??= new Dictionary<DpiUtil.HwndDpiInfo, HwndWrapper>();
+                _hwndNotifyHook ??= new Dictionary<DpiUtil.HwndDpiInfo, HwndWrapperHook>();
+                _dpiAwarenessContextAndDpis ??= new List<DpiUtil.HwndDpiInfo>();
+                return;
+            }
+
             // Create a new notify window if we haven't already created any corresponding to ProcessDpiAwarenessContextValue for this thread.
             if (_hwndNotify == null ||
                 _hwndNotifyHook == null ||
@@ -1045,6 +1056,11 @@ namespace System.Windows
         /// </remarks>
         private static bool EnsureResourceChangeListener(DpiUtil.HwndDpiInfo hwndDpiInfo)
         {
+            if (!OperatingSystem.IsWindows())
+            {
+                return false;
+            }
+
             EnsureResourceChangeListener();
 
             // It's meaningless to ensure RCL for Invalid DACV
@@ -1617,6 +1633,11 @@ namespace System.Windows
         /// </remarks>
         internal static HwndWrapper GetDpiAwarenessCompatibleNotificationWindow(HandleRef hwnd)
         {
+            if (!OperatingSystem.IsWindows())
+            {
+                return null;
+            }
+
             var processDpiAwarenessContextValue = ProcessDpiAwarenessContextValue;
 
             // Do not call into DpiUtil.GetExtendedDpiInfoForWindow(), DpiUtil.GetWindowDpi etc.

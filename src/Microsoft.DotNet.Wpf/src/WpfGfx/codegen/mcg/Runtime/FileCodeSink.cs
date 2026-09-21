@@ -41,11 +41,16 @@ namespace MS.Internal.MilCodeGen.Runtime
 
         public FileCodeSink(string dir, string filename, bool createDirIfNecessary)
         {
-            _filePath = Path.Combine(dir, filename);
+            _filePath = NormalizePath(Path.Combine(dir, filename));
 
             if (createDirIfNecessary)
             {
-                Directory.CreateDirectory(dir);
+                string directory = Path.GetDirectoryName(_filePath);
+
+                if (!String.IsNullOrEmpty(directory))
+                {
+                    Directory.CreateDirectory(directory);
+                }
             }
 
             _streamWriter = new StreamWriter(_filePath, false, Encoding.ASCII);
@@ -173,6 +178,13 @@ namespace MS.Internal.MilCodeGen.Runtime
             // Log the creation of this file
             Console.WriteLine("\tCreated: {0}", _filePath);
         }
+
+        private static string NormalizePath(string path)
+        {
+            return Path.DirectorySeparatorChar == '/'
+                ? path.Replace('\\', '/')
+                : path.Replace('/', '\\');
+        }
         #endregion Private Methods
 
         //------------------------------------------------------
@@ -189,7 +201,5 @@ namespace MS.Internal.MilCodeGen.Runtime
         #endregion Private Fields
     }
 }
-
-
 
 

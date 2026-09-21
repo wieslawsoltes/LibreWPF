@@ -2,7 +2,6 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Windows.Input;
-using System.Windows.Interop;
 using System.Windows.Media;
 using MS.Internal.Automation;
 using MS.Internal;
@@ -177,16 +176,10 @@ namespace System.Windows.Automation.Peers
             if(presentationSource == null)
                 return Rect.Empty;
 
-            HwndSource hwndSource = presentationSource as HwndSource;
-
-            // If the source isn't an HwnSource, there's not much we can do, return empty rect
-            if(hwndSource == null)
-                return Rect.Empty;
-
             Rect rectElement    = new Rect(new Point(0, 0), _owner.RenderSize);
             Rect rectRoot       = PointUtil.ElementToRoot(rectElement, _owner, presentationSource);
             Rect rectClient     = PointUtil.RootToClient(rectRoot, presentationSource);
-            Rect rectScreen     = PointUtil.ClientToScreen(rectClient, hwndSource);
+            Rect rectScreen     = PointUtil.ClientToScreen(rectClient, presentationSource);
             
             return rectScreen;
         }
@@ -200,16 +193,10 @@ namespace System.Windows.Automation.Peers
             if (presentationSource == null)
                 return Rect.Empty;
 
-            HwndSource hwndSource = presentationSource as HwndSource;
-
-            // If the source isn't an HwnSource, there's not much we can do, return empty rect
-            if (hwndSource == null)
-                return Rect.Empty;
-
             Rect rectElement = CalculateVisibleBoundingRect(_owner);
             Rect rectRoot = PointUtil.ElementToRoot(rectElement, _owner, presentationSource);
             Rect rectClient = PointUtil.RootToClient(rectRoot, presentationSource);
-            Rect rectScreen = PointUtil.ClientToScreen(rectClient, hwndSource);
+            Rect rectScreen = PointUtil.ClientToScreen(rectClient, presentationSource);
 
             return rectScreen;
         }
@@ -494,16 +481,10 @@ namespace System.Windows.Automation.Peers
             if(presentationSource == null)
                 return pt;
 
-            HwndSource hwndSource = presentationSource as HwndSource;
-
-            // If the source isn't an HwnSource, there's not much we can do, return (double.NaN, double.NaN) point
-            if(hwndSource == null)
-                return pt;
-
             Rect rectElement    = new Rect(new Point(0, 0), _owner.RenderSize);
             Rect rectRoot       = PointUtil.ElementToRoot(rectElement, _owner, presentationSource);
             Rect rectClient     = PointUtil.RootToClient(rectRoot, presentationSource);
-            Rect rectScreen     = PointUtil.ClientToScreen(rectClient, hwndSource);
+            Rect rectScreen     = PointUtil.ClientToScreen(rectClient, presentationSource);
             
             pt = new Point(rectScreen.Left + rectScreen.Width * 0.5, rectScreen.Top + rectScreen.Height * 0.5);
 
@@ -521,4 +502,3 @@ namespace System.Windows.Automation.Peers
         private SynchronizedInputAdaptor _synchronizedInputPattern;
     }
 }
-

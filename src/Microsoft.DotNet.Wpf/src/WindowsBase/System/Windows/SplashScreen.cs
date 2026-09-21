@@ -36,6 +36,7 @@ namespace System.Windows
         private BLENDFUNCTION _blendFunction;
         private readonly ResourceManager _resourceManager;
         private Dispatcher _dispatcher;
+        private bool _isPortableShown;
 
         private const string ClassName = "SplashScreen";
 
@@ -52,7 +53,9 @@ namespace System.Windows
             }
 
             _resourceName = resourceName.ToLowerInvariant();
-            _hInstance = (HINSTANCE)Marshal.GetHINSTANCE(resourceAssembly.ManifestModule);
+            _hInstance = OperatingSystem.IsWindows()
+                ? (HINSTANCE)Marshal.GetHINSTANCE(resourceAssembly.ManifestModule)
+                : HINSTANCE.Null;
             _resourceManager = new ResourceManager($"{ReflectionUtils.GetAssemblyPartialName(resourceAssembly)}.g", resourceAssembly);
         }
 
@@ -63,7 +66,7 @@ namespace System.Windows
 
         public unsafe void Show(bool autoClose, bool topMost)
         {
-            if (!_hwnd.IsNull)
+            if (!_hwnd.IsNull || _isPortableShown)
             {
                 return;
             }
@@ -73,6 +76,25 @@ namespace System.Windows
 
             using UnmanagedMemoryStream resourceStream = GetResourceStream()
                 ?? throw new IOException(SR.Format(SR.UnableToLocateResource, _resourceName));
+
+            if (!OperatingSystem.IsWindows())
+            {
+                _isPortableShown = true;
+                _dispatcher = Dispatcher.CurrentDispatcher;
+                if (autoClose)
+                {
+                    _dispatcher.BeginInvoke(
+                        DispatcherPriority.Loaded,
+                        (DispatcherOperationCallback)(static arg =>
+                        {
+                            ((SplashScreen)arg).Close(TimeSpan.Zero);
+                            return null;
+                        }),
+                        this);
+                }
+
+                return;
+            }
 
             resourceStream.Seek(0, SeekOrigin.Begin); // ensure stream position
 
@@ -230,6 +252,12 @@ namespace System.Windows
                 return BooleanBoxes.TrueBox;
             }
 
+            if (_isPortableShown)
+            {
+                DestroyResources();
+                return BooleanBoxes.TrueBox;
+            }
+
             // In the case where the developer has specified AutoClose=True and then calls
             // Close(non_zero_timespan) before the auto close operation is dispatched we begin
             // the fadeout immidiately and ignore the later call to close.
@@ -290,6 +318,8 @@ namespace System.Windows
 
         private unsafe void DestroyResources(bool finalizer = false)
         {
+            _isPortableShown = false;
+
             if (!finalizer)
             {
                 _timer?.Stop();

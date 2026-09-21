@@ -3,6 +3,7 @@
 
 using System.Windows.Markup;
 using System.Windows.Media.Animation;
+using ProGPU.Wpf.Interop;
 
 namespace System.Windows.Media
 {
@@ -12,7 +13,7 @@ namespace System.Windows.Media
     /// collections.
     /// </summary>
     [ContentProperty("Children")]
-    public sealed partial class DrawingGroup : Drawing
+    public sealed partial class DrawingGroup : Drawing, IPortableDrawingGroupStateSource, IPortableDrawingGroupChildrenSource
     {
         #region Constructors
 
@@ -58,6 +59,167 @@ namespace System.Windows.Media
             _openedForAppend = true;
 
             return new DrawingGroupDrawingContext(this);
+        }
+
+        bool IPortableDrawingGroupStateSource.TryGetPortableDrawingGroupState(out PortableDrawingGroupState state)
+        {
+            Transform transform = Transform;
+            Rect localBounds = GetPortableLocalBounds();
+            Rect bounds = TryTransformPortableLocalBounds(
+                localBounds, transform, out Rect transformedBounds)
+                ? transformedBounds
+                : Bounds;
+            bool hasBounds = IsPortableUsableRect(bounds);
+            bool hasLocalBounds = IsPortableUsableRect(localBounds);
+            Geometry clipGeometry = ClipGeometry;
+            Brush opacityMask = OpacityMask;
+            GuidelineSet guidelineSet = GuidelineSet;
+            #pragma warning disable 0618
+            var bitmapEffect = BitmapEffect;
+            var bitmapEffectInput = BitmapEffectInput;
+            #pragma warning restore 0618
+            BitmapScalingMode bitmapScalingMode = RenderOptions.GetBitmapScalingMode(this);
+            EdgeMode edgeMode = RenderOptions.GetEdgeMode(this);
+            ClearTypeHint clearTypeHint = RenderOptions.GetClearTypeHint(this);
+
+            state = new PortableDrawingGroupState
+            {
+                HasBounds = hasBounds,
+                Bounds = hasBounds
+                    ? new PortableRect(bounds.X, bounds.Y, bounds.Width, bounds.Height)
+                    : PortableRect.Empty,
+                HasLocalBounds = hasLocalBounds,
+                LocalBounds = hasLocalBounds
+                    ? new PortableRect(
+                        localBounds.X,
+                        localBounds.Y,
+                        localBounds.Width,
+                        localBounds.Height)
+                    : PortableRect.Empty,
+                HasTransform = transform != null,
+                Transform = transform,
+                HasClipGeometry = clipGeometry != null,
+                ClipGeometry = clipGeometry,
+                HasOpacity = true,
+                Opacity = Opacity,
+                HasOpacityMask = opacityMask != null,
+                OpacityMask = opacityMask,
+                HasGuidelineSet = guidelineSet != null,
+                GuidelineSet = guidelineSet,
+                HasBitmapEffect = bitmapEffect != null,
+                BitmapEffect = bitmapEffect,
+                HasBitmapEffectInput = bitmapEffectInput != null,
+                BitmapEffectInput = bitmapEffectInput,
+                HasBitmapScalingMode = bitmapScalingMode != BitmapScalingMode.Unspecified,
+                BitmapScalingMode = bitmapScalingMode,
+                HasPortableBitmapScalingMode = bitmapScalingMode != BitmapScalingMode.Unspecified,
+                PortableBitmapScalingMode = bitmapScalingMode switch
+                {
+                    BitmapScalingMode.LowQuality => PortableBitmapScalingMode.Linear,
+                    BitmapScalingMode.HighQuality => PortableBitmapScalingMode.Fant,
+                    BitmapScalingMode.NearestNeighbor => PortableBitmapScalingMode.NearestNeighbor,
+                    _ => PortableBitmapScalingMode.Unspecified
+                },
+                HasEdgeMode = edgeMode != EdgeMode.Unspecified,
+                EdgeMode = edgeMode,
+                HasPortableEdgeMode = edgeMode != EdgeMode.Unspecified,
+                PortableEdgeMode = edgeMode == EdgeMode.Aliased
+                    ? PortableEdgeMode.Aliased
+                    : PortableEdgeMode.Unspecified,
+                HasClearTypeHint = clearTypeHint != ClearTypeHint.Auto,
+                ClearTypeHint = clearTypeHint,
+                HasPortableClearTypeHint = clearTypeHint != ClearTypeHint.Auto,
+                PortableClearTypeHint = clearTypeHint == ClearTypeHint.Enabled
+                    ? PortableClearTypeHint.Enabled
+                    : PortableClearTypeHint.Auto
+            };
+            return true;
+        }
+
+        private static bool TryTransformPortableLocalBounds(
+            Rect localBounds,
+            Transform transform,
+            out Rect bounds)
+        {
+            if (transform == null)
+            {
+                bounds = localBounds;
+                return true;
+            }
+
+            Matrix matrix = transform.Value;
+            if (!double.IsFinite(matrix.M11) ||
+                !double.IsFinite(matrix.M12) ||
+                !double.IsFinite(matrix.M21) ||
+                !double.IsFinite(matrix.M22) ||
+                !double.IsFinite(matrix.OffsetX) ||
+                !double.IsFinite(matrix.OffsetY) ||
+                matrix.M12 != 0 || matrix.M21 != 0)
+            {
+                bounds = default;
+                return false;
+            }
+
+            bounds = transform.TransformBounds(localBounds);
+            return true;
+        }
+
+        private Rect GetPortableLocalBounds()
+        {
+            var context = new BoundsDrawingContextWalker();
+            Geometry clipGeometry = ClipGeometry;
+            bool hasClip = clipGeometry != null;
+            if (hasClip)
+            {
+                context.PushClip(clipGeometry);
+            }
+
+            DrawingCollection children = Children;
+            if (children != null)
+            {
+                for (int index = 0; index < children.Count; index++)
+                {
+                    Drawing child = children.Internal_GetItem(index);
+                    child?.WalkCurrentValue(context);
+                }
+            }
+
+            if (hasClip)
+            {
+                context.Pop();
+            }
+            return context.Bounds;
+        }
+
+        bool IPortableDrawingGroupChildrenSource.TryGetPortableDrawingGroupChildCount(out int count)
+        {
+            DrawingCollection children = Children;
+            count = children?.Count ?? 0;
+            return count > 0;
+        }
+
+        bool IPortableDrawingGroupChildrenSource.TryGetPortableDrawingGroupChild(int index, out object child)
+        {
+            DrawingCollection children = Children;
+            if (children != null && index >= 0 && index < children.Count)
+            {
+                child = children.Internal_GetItem(index);
+                return child != null;
+            }
+
+            child = null;
+            return false;
+        }
+
+        private static bool IsPortableUsableRect(Rect rect)
+        {
+            return !rect.IsEmpty
+                && double.IsFinite(rect.X)
+                && double.IsFinite(rect.Y)
+                && double.IsFinite(rect.Width)
+                && double.IsFinite(rect.Height)
+                && rect.Width > 0
+                && rect.Height > 0;
         }
 
         #endregion Public methods        
@@ -299,4 +461,3 @@ namespace System.Windows.Media
         #endregion Private fields        
     }
 }
-

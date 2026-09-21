@@ -3884,6 +3884,7 @@ Cleanup:
 
 
 
+
 //+-----------------------------------------------------------------------------
 //
 //  Member:    DrawLayer
@@ -6110,8 +6111,5 @@ HRESULT CDrawingContext::DrawRectangleOverlay(
 Cleanup:
     RRETURN(hr);
 }
-
-
-
 
 

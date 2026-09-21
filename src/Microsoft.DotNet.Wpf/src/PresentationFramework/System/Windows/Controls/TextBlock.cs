@@ -41,7 +41,8 @@ namespace System.Windows.Controls
     /// </summary>
     [ContentProperty("Inlines")]
     [Localizability(LocalizationCategory.Text)]
-    public class TextBlock : FrameworkElement, IContentHost, IAddChildInternal, IServiceProvider
+    public class TextBlock : FrameworkElement, IContentHost, IAddChildInternal, IServiceProvider,
+        global::ProGPU.Wpf.Interop.IPortablePointHitRegionSource
     {
         //-------------------------------------------------------------------
         //
@@ -1635,6 +1636,15 @@ Debug.Assert(lineCount == LineCount);
             return null;
         }
 
+        bool global::ProGPU.Wpf.Interop.IPortablePointHitRegionSource.TryGetPortablePointHitRegion(
+            out global::ProGPU.Wpf.Interop.PortableRect rectangle)
+        {
+            VerifyReentrancy();
+            Size size = RenderSize;
+            rectangle = new global::ProGPU.Wpf.Interop.PortableRect(0, 0, size.Width, size.Height);
+            return true;
+        }
+
         /// <summary>
         /// Hit tests to the correct ContentElement within the ContentHost
         /// that the mouse is over.
@@ -1771,14 +1781,24 @@ Debug.Assert(lineCount == LineCount);
             int lineOffset = 0;
             double lineHeightOffset = 0;
             int lineCount = LineCount;
-            while (startOffset >= (lineOffset + GetLine(lineIndex).Length) && lineIndex < lineCount)
+            while (lineIndex < lineCount)
             {
-Debug.Assert(lineCount == LineCount);
-                lineOffset += GetLine(lineIndex).Length;
+                Debug.Assert(lineCount == LineCount);
+                LineMetrics lineMetrics = GetLine(lineIndex);
+                if (startOffset < lineOffset + lineMetrics.Length)
+                {
+                    break;
+                }
+
+                lineOffset += lineMetrics.Length;
+                lineHeightOffset += lineMetrics.Height;
                 lineIndex++;
-                lineHeightOffset += GetLine(lineIndex).Height;
             }
-            Debug.Assert(lineIndex < lineCount);
+
+            if (lineIndex >= lineCount)
+            {
+                return new ReadOnlyCollection<Rect>(new List<Rect>(0));
+            }
 
             int lineStart = lineOffset;
             List<Rect> rectangles = new List<Rect>();

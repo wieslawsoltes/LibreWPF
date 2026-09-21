@@ -8,8 +8,10 @@
 //  used in rendering for better adjusting rendered figures to device pixel grid. 
 //
 
+using System;
 using System.Windows.Media.Animation;
 using System.Windows.Media.Composition;
+using ProGPU.Wpf.Interop;
 
 namespace System.Windows.Media
 {
@@ -18,7 +20,7 @@ namespace System.Windows.Media
     /// used in rendering for better adjusting rendered figures to device pixel grid. 
     /// 
     /// </summary>
-    public partial class GuidelineSet : Animatable, DUCE.IResource
+    public partial class GuidelineSet : Animatable, DUCE.IResource, IPortableGuidelineSetSource
     {
         #region Constructors
 
@@ -81,6 +83,32 @@ namespace System.Windows.Media
         }
 
         #endregion Constructors
+
+        bool IPortableGuidelineSetSource.TryGetPortableGuidelineSet(out PortableGuidelineSet guidelineSet)
+        {
+            guidelineSet = new PortableGuidelineSet(
+                IsFrozen,
+                IsDynamic,
+                CopyGuidelines(GuidelinesX),
+                CopyGuidelines(GuidelinesY));
+
+            return true;
+        }
+
+        private static double[] CopyGuidelines(DoubleCollection guidelines)
+        {
+            if (guidelines == null || guidelines.Count == 0)
+            {
+                return Array.Empty<double>();
+            }
+
+            var values = new double[guidelines.Count];
+            for (var i = 0; i < values.Length; i++)
+            {
+                values[i] = guidelines[i];
+            }
+
+            return values;
+        }
     }
 }
-

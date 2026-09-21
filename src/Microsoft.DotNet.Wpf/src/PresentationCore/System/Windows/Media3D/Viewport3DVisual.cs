@@ -8,6 +8,7 @@ using System.Windows.Diagnostics;
 using System.Windows.Media.Composition;
 using System.Windows.Markup;
 using System.Windows.Media.Effects;
+using ProGPU.Wpf.Interop;
 
 namespace System.Windows.Media.Media3D
 {
@@ -17,7 +18,7 @@ namespace System.Windows.Media.Media3D
     ///     is the bridge between 2D visuals and 3D.
     /// </summary>
     [ContentProperty("Children")]
-    public sealed class Viewport3DVisual : Visual, DUCE.IResource, IVisual3DContainer
+    public sealed partial class Viewport3DVisual : Visual, DUCE.IResource, IVisual3DContainer, IPortableViewport3DSceneSource
     {
         //------------------------------------------------------
         //

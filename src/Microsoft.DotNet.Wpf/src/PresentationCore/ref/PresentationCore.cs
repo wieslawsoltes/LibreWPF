@@ -640,6 +640,7 @@ namespace System.Windows
         public static void AddPreviewQueryContinueDragHandler(System.Windows.DependencyObject element, System.Windows.QueryContinueDragEventHandler handler) { }
         public static void AddQueryContinueDragHandler(System.Windows.DependencyObject element, System.Windows.QueryContinueDragEventHandler handler) { }
         public static System.Windows.DragDropEffects DoDragDrop(System.Windows.DependencyObject dragSource, object data, System.Windows.DragDropEffects allowedEffects) { throw null; }
+        public static System.Windows.DragDropEffects ProcessPortableDragDrop(System.Windows.DependencyObject target, System.Windows.RoutedEvent dragEvent, System.Windows.IDataObject dataObject, System.Windows.DragDropKeyStates dragDropKeyStates, System.Windows.DragDropEffects allowedEffects, System.Windows.DragDropEffects acceptedEffect, System.Windows.Point targetPoint) { throw null; }
         public static void RemoveDragEnterHandler(System.Windows.DependencyObject element, System.Windows.DragEventHandler handler) { }
         public static void RemoveDragLeaveHandler(System.Windows.DependencyObject element, System.Windows.DragEventHandler handler) { }
         public static void RemoveDragOverHandler(System.Windows.DependencyObject element, System.Windows.DragEventHandler handler) { }
@@ -1144,6 +1145,36 @@ namespace System.Windows
         Modifiable = 1,
         Inherit = 2,
     }
+    public delegate bool PortableHitTestAllBufferOverride(double x, double y, System.Span<object> results, out int resultCount);
+    public delegate bool PortableGeometryHitTestBufferOverride(double minX, double minY, double maxX, double maxY, System.Span<object> results, out int resultCount);
+    public partial interface IPortablePresentationSourceHost : System.IDisposable
+    {
+        object CompositionTarget { get; }
+        System.Func<double, double, object[]> HitTestAllOverride { get; set; }
+        System.Windows.PortableHitTestAllBufferOverride HitTestAllBufferOverride { get; set; }
+        System.Func<double, double, double, double, object[]> HitTestBoundsOverride { get; set; }
+        System.Windows.PortableGeometryHitTestBufferOverride HitTestBoundsBufferOverride { get; set; }
+        System.Func<double, double, double, double, object[]> HitTestEllipseBoundsOverride { get; set; }
+        System.Windows.PortableGeometryHitTestBufferOverride HitTestEllipseBoundsBufferOverride { get; set; }
+        System.Func<double, double, object> HitTestOverride { get; set; }
+        System.IntPtr Handle { get; }
+        object RequestedCursor { get; }
+        string RequestedCursorName { get; }
+        object RootVisual { get; set; }
+        event System.EventHandler CursorRequested;
+        event System.EventHandler RenderRequested;
+        bool DispatchHwndSourceHook(int message, System.IntPtr wParam, System.IntPtr lParam, out System.IntPtr result, out bool handled);
+        void SetClientOrigin(double x, double y) { }
+        void SetClientSize(double width, double height);
+        void SetDeviceScale(double dpiScaleX, double dpiScaleY);
+        bool TryUpdateRootVisualClientSize(out double width, out double height);
+    }
+    public partial interface IPortableVisualOwnerHost
+    {
+        bool IsPortableInputEnabled { get; }
+        object PortableVisualParent { get; }
+        System.Windows.PortableVisualOwnerKind PortableVisualOwnerKind { get; }
+    }
     public abstract partial class PresentationSource : System.Windows.Threading.DispatcherObject
     {
         protected PresentationSource() { }
@@ -1161,6 +1192,17 @@ namespace System.Windows
         protected void RemoveSource() { }
         public static void RemoveSourceChangedHandler(System.Windows.IInputElement e, System.Windows.SourceChangedEventHandler handler) { }
         protected void RootChanged(System.Windows.Media.Visual oldRoot, System.Windows.Media.Visual newRoot) { }
+    }
+    public static partial class PortablePresentationSourceHost
+    {
+        public static System.Windows.IPortablePresentationSourceHost Create(double dpiScaleX = 1, double dpiScaleY = 1) { throw null; }
+    }
+    public enum PortableVisualOwnerKind
+    {
+        Content = 0,
+        PointerInfrastructure = 1,
+        TransparentPointerOverlay = 2,
+        Window = 3,
     }
     public sealed partial class QueryContinueDragEventArgs : System.Windows.RoutedEventArgs
     {
@@ -1399,8 +1441,13 @@ namespace System.Windows
         Wrap = 2,
     }
     [System.Windows.Markup.UidPropertyAttribute("Uid")]
-    public partial class UIElement : System.Windows.Media.Visual, System.Windows.IInputElement, System.Windows.Media.Animation.IAnimatable
+    public partial class UIElement : System.Windows.Media.Visual, System.Windows.IInputElement, System.Windows.IPortableVisualOwnerHost, System.Windows.Media.Animation.IAnimatable, ProGPU.Wpf.Interop.IPortableDrawingContentSource, ProGPU.Wpf.Interop.IPortableVisualLayoutStateSource
     {
+        bool ProGPU.Wpf.Interop.IPortableDrawingContentSource.TryGetPortableDrawingContent(out object content) { throw null; }
+        bool ProGPU.Wpf.Interop.IPortableVisualLayoutStateSource.TryGetPortableVisualLayoutState(out ProGPU.Wpf.Interop.PortableVisualLayoutState state) { throw null; }
+        bool System.Windows.IPortableVisualOwnerHost.IsPortableInputEnabled { get { throw null; } }
+        object System.Windows.IPortableVisualOwnerHost.PortableVisualParent { get { throw null; } }
+        System.Windows.PortableVisualOwnerKind System.Windows.IPortableVisualOwnerHost.PortableVisualOwnerKind { get { throw null; } }
         public static readonly System.Windows.DependencyProperty AllowDropProperty;
         public static readonly System.Windows.DependencyProperty AreAnyTouchesCapturedProperty;
         public static readonly System.Windows.DependencyProperty AreAnyTouchesCapturedWithinProperty;
@@ -4778,7 +4825,7 @@ namespace System.Windows.Interop
     {
         public static System.Windows.Input.Cursor Create(System.Runtime.InteropServices.SafeHandle cursorHandle) { throw null; }
     }
-    public partial class D3DImage : System.Windows.Media.ImageSource
+    public partial class D3DImage : System.Windows.Media.ImageSource, ProGPU.Wpf.Interop.IPortableD3DImageSource, ProGPU.Wpf.Interop.IPortableInvalidationSource
     {
         public static readonly System.Windows.DependencyProperty IsFrontBufferAvailableProperty;
         public D3DImage() { }
@@ -4806,6 +4853,13 @@ namespace System.Windows.Interop
         public void SetBackBuffer(System.Windows.Interop.D3DResourceType backBufferType, System.IntPtr backBuffer, bool enableSoftwareFallback) { }
         public bool TryLock(System.Windows.Duration timeout) { throw null; }
         public void Unlock() { }
+        bool ProGPU.Wpf.Interop.IPortableD3DImageSource.TryGetPortableD3DImageFrame(out ProGPU.Wpf.Interop.PortableD3DImageFrame frame) { throw null; }
+        bool ProGPU.Wpf.Interop.IPortableInvalidationSource.TrySubscribeInvalidated(System.EventHandler handler, out System.IDisposable subscription) { throw null; }
+    }
+    public static partial class PortableD3DImageSourceFactory
+    {
+        public static void Attach(System.Windows.Interop.D3DImage image, ProGPU.Wpf.Interop.IPortableD3DImageSource source) { }
+        public static void Detach(System.Windows.Interop.D3DImage image) { }
     }
     public enum D3DResourceType
     {
@@ -4998,7 +5052,7 @@ namespace System.Windows.Media
         public new System.Windows.Media.BezierSegment CloneCurrentValue() { throw null; }
         protected override System.Windows.Freezable CreateInstanceCore() { throw null; }
     }
-    public sealed partial class BitmapCache : System.Windows.Media.CacheMode
+    public sealed partial class BitmapCache : System.Windows.Media.CacheMode, ProGPU.Wpf.Interop.IPortableBitmapCacheSource
     {
         public static readonly System.Windows.DependencyProperty EnableClearTypeProperty;
         public static readonly System.Windows.DependencyProperty RenderAtScaleProperty;
@@ -5010,9 +5064,10 @@ namespace System.Windows.Media
         public bool SnapsToDevicePixels { get { throw null; } set { } }
         public new System.Windows.Media.BitmapCache Clone() { throw null; }
         public new System.Windows.Media.BitmapCache CloneCurrentValue() { throw null; }
+        bool ProGPU.Wpf.Interop.IPortableBitmapCacheSource.TryGetPortableBitmapCache(out ProGPU.Wpf.Interop.PortableBitmapCache cache) { throw null; }
         protected override System.Windows.Freezable CreateInstanceCore() { throw null; }
     }
-    public sealed partial class BitmapCacheBrush : System.Windows.Media.Brush
+    public sealed partial class BitmapCacheBrush : System.Windows.Media.Brush, ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource
     {
         public static readonly System.Windows.DependencyProperty AutoLayoutContentProperty;
         public static readonly System.Windows.DependencyProperty BitmapCacheProperty;
@@ -5024,6 +5079,7 @@ namespace System.Windows.Media
         public System.Windows.Media.Visual Target { get { throw null; } set { } }
         public new System.Windows.Media.BitmapCacheBrush Clone() { throw null; }
         public new System.Windows.Media.BitmapCacheBrush CloneCurrentValue() { throw null; }
+        bool ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource.TryGetPortableBitmapCacheBrush(out ProGPU.Wpf.Interop.PortableBitmapCacheBrush brush) { throw null; }
         protected override System.Windows.Freezable CreateInstanceCore() { throw null; }
         protected override void OnPropertyChanged(System.Windows.DependencyPropertyChangedEventArgs e) { }
     }
@@ -5636,12 +5692,13 @@ namespace System.Windows.Media
         public override object ConvertTo(System.ComponentModel.ITypeDescriptorContext context, System.Globalization.CultureInfo culture, object value, System.Type destinationType) { throw null; }
     }
     [System.Windows.LocalizabilityAttribute(System.Windows.LocalizationCategory.None, Readability = System.Windows.Readability.Unreadable)]
-    public abstract partial class Drawing : System.Windows.Media.Animation.Animatable
+    public abstract partial class Drawing : System.Windows.Media.Animation.Animatable, ProGPU.Wpf.Interop.IPortableDrawingBoundsSource
     {
         internal Drawing() { }
         public System.Windows.Rect Bounds { get { throw null; } }
         public new System.Windows.Media.Drawing Clone() { throw null; }
         public new System.Windows.Media.Drawing CloneCurrentValue() { throw null; }
+        bool ProGPU.Wpf.Interop.IPortableDrawingBoundsSource.TryGetPortableDrawingBounds(out ProGPU.Wpf.Interop.PortableRect bounds) { throw null; }
     }
     public sealed partial class DrawingBrush : System.Windows.Media.TileBrush
     {
@@ -5701,7 +5758,7 @@ namespace System.Windows.Media
             void System.IDisposable.Dispose() { }
         }
     }
-    public abstract partial class DrawingContext : System.Windows.Threading.DispatcherObject, System.IDisposable
+    public abstract partial class DrawingContext : System.Windows.Threading.DispatcherObject, System.IDisposable, ProGPU.Wpf.Interop.IPortableNativeDrawingContextSource, ProGPU.Wpf.Interop.IPortableNativeDrawingContextStateSource
     {
         internal DrawingContext() { }
         public abstract void Close();
@@ -5731,11 +5788,49 @@ namespace System.Windows.Media
         public abstract void PushOpacity(double opacity, System.Windows.Media.Animation.AnimationClock opacityAnimations);
         public abstract void PushOpacityMask(System.Windows.Media.Brush opacityMask);
         public abstract void PushTransform(System.Windows.Media.Transform transform);
+        bool ProGPU.Wpf.Interop.IPortableNativeDrawingContextSource.TryGetPortableNativeDrawingContext(out object nativeDrawingContext) { throw null; }
+        bool ProGPU.Wpf.Interop.IPortableNativeDrawingContextStateSource.TryGetPortableNativeDrawingContextState(out ProGPU.Wpf.Interop.PortableNativeDrawingContextState state) { throw null; }
         void System.IDisposable.Dispose() { }
+        protected virtual bool TryGetPortableNativeDrawingContextCore(out object nativeDrawingContext) { throw null; }
+        protected virtual bool TryGetPortableNativeDrawingContextStateCore(out ProGPU.Wpf.Interop.PortableNativeDrawingContextState state) { throw null; }
         protected virtual void VerifyApiNonstructuralChange() { }
     }
+    public partial interface IPortableRenderDataDrawingContextSink
+    {
+        void Close();
+        void DrawDrawing(object drawing);
+        void DrawEllipse(object brush, object pen, object center, object radiusX, object radiusY);
+        void DrawEllipse(object brush, object pen, object center, object centerAnimations, object radiusX, object radiusXAnimations, object radiusY, object radiusYAnimations);
+        void DrawGeometry(object brush, object pen, object geometry);
+        void DrawGlyphRun(object foregroundBrush, object glyphRun);
+        void DrawImage(object imageSource, object rectangle);
+        void DrawImage(object imageSource, object rectangle, object rectangleAnimations);
+        void DrawLine(object pen, object point0, object point1);
+        void DrawLine(object pen, object point0, object point0Animations, object point1, object point1Animations);
+        void DrawRectangle(object brush, object pen, object rectangle);
+        void DrawRectangle(object brush, object pen, object rectangle, object rectangleAnimations);
+        void DrawRoundedRectangle(object brush, object pen, object rectangle, object radiusX, object radiusY);
+        void DrawRoundedRectangle(object brush, object pen, object rectangle, object rectangleAnimations, object radiusX, object radiusXAnimations, object radiusY, object radiusYAnimations);
+        void DrawVideo(object player, object rectangle);
+        void DrawVideo(object player, object rectangle, object rectangleAnimations);
+        void Pop();
+        void PushClip(object clipGeometry);
+        void PushEffect(object effect, object effectInput);
+        void PushGuidelineSet(object guidelines);
+        void PushGuidelineY1(object coordinate);
+        void PushGuidelineY2(object leadingCoordinate, object offsetToDrivenCoordinate);
+        void PushOpacity(object opacity);
+        void PushOpacity(object opacity, object opacityAnimations);
+        void PushOpacityMask(object opacityMask);
+        void PushTransform(object transform);
+    }
+    public static partial class PortableRenderDataDrawingContextSinkProvider
+    {
+        public static System.IDisposable PushDrawingContextFactory(System.Func<object, System.Windows.Media.DrawingContext> drawingContextFactory) { throw null; }
+        public static System.IDisposable PushObjectSinkFactory(System.Func<object, System.Windows.Media.IPortableRenderDataDrawingContextSink> sinkFactory) { throw null; }
+    }
     [System.Windows.Markup.ContentPropertyAttribute("Children")]
-    public sealed partial class DrawingGroup : System.Windows.Media.Drawing
+    public sealed partial class DrawingGroup : System.Windows.Media.Drawing, ProGPU.Wpf.Interop.IPortableDrawingGroupStateSource, ProGPU.Wpf.Interop.IPortableDrawingGroupChildrenSource
     {
         public static readonly System.Windows.DependencyProperty BitmapEffectInputProperty;
         public static readonly System.Windows.DependencyProperty BitmapEffectProperty;
@@ -5754,13 +5849,16 @@ namespace System.Windows.Media
         public double Opacity { get { throw null; } set { } }
         public System.Windows.Media.Brush OpacityMask { get { throw null; } set { } }
         public System.Windows.Media.Transform Transform { get { throw null; } set { } }
+        bool ProGPU.Wpf.Interop.IPortableDrawingGroupChildrenSource.TryGetPortableDrawingGroupChild(int index, out object child) { throw null; }
+        bool ProGPU.Wpf.Interop.IPortableDrawingGroupChildrenSource.TryGetPortableDrawingGroupChildCount(out int count) { throw null; }
+        bool ProGPU.Wpf.Interop.IPortableDrawingGroupStateSource.TryGetPortableDrawingGroupState(out ProGPU.Wpf.Interop.PortableDrawingGroupState state) { throw null; }
         public System.Windows.Media.DrawingContext Append() { throw null; }
         public new System.Windows.Media.DrawingGroup Clone() { throw null; }
         public new System.Windows.Media.DrawingGroup CloneCurrentValue() { throw null; }
         protected override System.Windows.Freezable CreateInstanceCore() { throw null; }
         public System.Windows.Media.DrawingContext Open() { throw null; }
     }
-    public sealed partial class DrawingImage : System.Windows.Media.ImageSource
+    public sealed partial class DrawingImage : System.Windows.Media.ImageSource, ProGPU.Wpf.Interop.IPortableDrawingImageSource
     {
         public static readonly System.Windows.DependencyProperty DrawingProperty;
         public DrawingImage() { }
@@ -5771,12 +5869,14 @@ namespace System.Windows.Media
         public override double Width { get { throw null; } }
         public new System.Windows.Media.DrawingImage Clone() { throw null; }
         public new System.Windows.Media.DrawingImage CloneCurrentValue() { throw null; }
+        bool ProGPU.Wpf.Interop.IPortableDrawingImageSource.TryGetPortableDrawingImage(out object drawing) { throw null; }
         protected override System.Windows.Freezable CreateInstanceCore() { throw null; }
     }
-    public partial class DrawingVisual : System.Windows.Media.ContainerVisual
+    public partial class DrawingVisual : System.Windows.Media.ContainerVisual, ProGPU.Wpf.Interop.IPortableDrawingContentSource
     {
         public DrawingVisual() { }
         public System.Windows.Media.DrawingGroup Drawing { get { throw null; } }
+        bool ProGPU.Wpf.Interop.IPortableDrawingContentSource.TryGetPortableDrawingContent(out object content) { throw null; }
         protected override System.Windows.Media.GeometryHitTestResult HitTestCore(System.Windows.Media.GeometryHitTestParameters hitTestParameters) { throw null; }
         protected override System.Windows.Media.HitTestResult HitTestCore(System.Windows.Media.PointHitTestParameters hitTestParameters) { throw null; }
         public System.Windows.Media.DrawingContext RenderOpen() { throw null; }
@@ -6111,7 +6211,7 @@ namespace System.Windows.Media
     [System.ComponentModel.TypeConverterAttribute(typeof(System.Windows.Media.GeometryConverter))]
     [System.Windows.LocalizabilityAttribute(System.Windows.LocalizationCategory.None, Readability = System.Windows.Readability.Unreadable)]
     [System.Windows.Markup.ValueSerializerAttribute(typeof(System.Windows.Media.Converters.GeometryValueSerializer))]
-    public abstract partial class Geometry : System.Windows.Media.Animation.Animatable, System.IFormattable
+    public abstract partial class Geometry : System.Windows.Media.Animation.Animatable, System.IFormattable, ProGPU.Wpf.Interop.IPortableGeometryPathSource, ProGPU.Wpf.Interop.IPortablePrimitiveGeometrySource
     {
         internal Geometry() { }
         public static readonly System.Windows.DependencyProperty TransformProperty;
@@ -6144,6 +6244,8 @@ namespace System.Windows.Media
         public static System.Windows.Media.Geometry Parse(string source) { throw null; }
         [System.ComponentModel.EditorBrowsableAttribute(System.ComponentModel.EditorBrowsableState.Never)]
         public bool ShouldSerializeTransform() { throw null; }
+        bool ProGPU.Wpf.Interop.IPortableGeometryPathSource.TryGetPortableGeometryPath(out ProGPU.Wpf.Interop.PortableGeometryPath path) { throw null; }
+        bool ProGPU.Wpf.Interop.IPortablePrimitiveGeometrySource.TryGetPortablePrimitiveGeometry(out ProGPU.Wpf.Interop.PortablePrimitiveGeometry geometry) { throw null; }
         public bool StrokeContains(System.Windows.Media.Pen pen, System.Windows.Point hitPoint) { throw null; }
         public bool StrokeContains(System.Windows.Media.Pen pen, System.Windows.Point hitPoint, double tolerance, System.Windows.Media.ToleranceType type) { throw null; }
         public System.Windows.Media.IntersectionDetail StrokeContainsWithDetail(System.Windows.Media.Pen pen, System.Windows.Media.Geometry geometry) { throw null; }
@@ -6214,7 +6316,7 @@ namespace System.Windows.Media
         public override object ConvertFrom(System.ComponentModel.ITypeDescriptorContext context, System.Globalization.CultureInfo culture, object value) { throw null; }
         public override object ConvertTo(System.ComponentModel.ITypeDescriptorContext context, System.Globalization.CultureInfo culture, object value, System.Type destinationType) { throw null; }
     }
-    public sealed partial class GeometryDrawing : System.Windows.Media.Drawing
+    public sealed partial class GeometryDrawing : System.Windows.Media.Drawing, ProGPU.Wpf.Interop.IPortableGeometryDrawingStateSource
     {
         public static readonly System.Windows.DependencyProperty BrushProperty;
         public static readonly System.Windows.DependencyProperty GeometryProperty;
@@ -6224,6 +6326,7 @@ namespace System.Windows.Media
         public System.Windows.Media.Brush Brush { get { throw null; } set { } }
         public System.Windows.Media.Geometry Geometry { get { throw null; } set { } }
         public System.Windows.Media.Pen Pen { get { throw null; } set { } }
+        bool ProGPU.Wpf.Interop.IPortableGeometryDrawingStateSource.TryGetPortableGeometryDrawingState(out ProGPU.Wpf.Interop.PortableGeometryDrawingState state) { throw null; }
         public new System.Windows.Media.GeometryDrawing Clone() { throw null; }
         public new System.Windows.Media.GeometryDrawing CloneCurrentValue() { throw null; }
         protected override System.Windows.Freezable CreateInstanceCore() { throw null; }
@@ -6253,7 +6356,7 @@ namespace System.Windows.Media
         public System.Windows.Media.IntersectionDetail IntersectionDetail { get { throw null; } }
         public new System.Windows.Media.Visual VisualHit { get { throw null; } }
     }
-    public partial class GlyphRun : System.ComponentModel.ISupportInitialize
+    public partial class GlyphRun : System.ComponentModel.ISupportInitialize, ProGPU.Wpf.Interop.IPortableGlyphRunSource, ProGPU.Wpf.Interop.IPortableNativeGlyphRunSource
     {
         [System.ObsoleteAttribute("Use the PixelsPerDip override", false)]
         public GlyphRun() { }
@@ -6290,6 +6393,8 @@ namespace System.Windows.Media
         public bool IsSideways { get { throw null; } set { } }
         public System.Windows.Markup.XmlLanguage Language { get { throw null; } set { } }
         public float PixelsPerDip { get { throw null; } set { } }
+        bool ProGPU.Wpf.Interop.IPortableNativeGlyphRunSource.TryGetPortableNativeGlyphRun(out ProGPU.Wpf.Interop.PortableNativeGlyphRun glyphRun) { throw null; }
+        bool ProGPU.Wpf.Interop.IPortableGlyphRunSource.TryGetPortableGlyphRun(out ProGPU.Wpf.Interop.PortableGlyphRun glyphRun) { throw null; }
         public System.Windows.Media.Geometry BuildGeometry() { throw null; }
         public System.Windows.Rect ComputeAlignmentBox() { throw null; }
         public System.Windows.Rect ComputeInkBoundingBox() { throw null; }
@@ -6300,7 +6405,7 @@ namespace System.Windows.Media
         void System.ComponentModel.ISupportInitialize.BeginInit() { }
         void System.ComponentModel.ISupportInitialize.EndInit() { }
     }
-    public sealed partial class GlyphRunDrawing : System.Windows.Media.Drawing
+    public sealed partial class GlyphRunDrawing : System.Windows.Media.Drawing, ProGPU.Wpf.Interop.IPortableGlyphRunDrawingStateSource
     {
         public static readonly System.Windows.DependencyProperty ForegroundBrushProperty;
         public static readonly System.Windows.DependencyProperty GlyphRunProperty;
@@ -6308,6 +6413,7 @@ namespace System.Windows.Media
         public GlyphRunDrawing(System.Windows.Media.Brush foregroundBrush, System.Windows.Media.GlyphRun glyphRun) { }
         public System.Windows.Media.Brush ForegroundBrush { get { throw null; } set { } }
         public System.Windows.Media.GlyphRun GlyphRun { get { throw null; } set { } }
+        bool ProGPU.Wpf.Interop.IPortableGlyphRunDrawingStateSource.TryGetPortableGlyphRunDrawingState(out ProGPU.Wpf.Interop.PortableGlyphRunDrawingState state) { throw null; }
         public new System.Windows.Media.GlyphRunDrawing Clone() { throw null; }
         public new System.Windows.Media.GlyphRunDrawing CloneCurrentValue() { throw null; }
         protected override System.Windows.Freezable CreateInstanceCore() { throw null; }
@@ -6455,7 +6561,7 @@ namespace System.Windows.Media
             void System.IDisposable.Dispose() { }
         }
     }
-    public sealed partial class GuidelineSet : System.Windows.Media.Animation.Animatable
+    public sealed partial class GuidelineSet : System.Windows.Media.Animation.Animatable, ProGPU.Wpf.Interop.IPortableGuidelineSetSource
     {
         public static readonly System.Windows.DependencyProperty GuidelinesXProperty;
         public static readonly System.Windows.DependencyProperty GuidelinesYProperty;
@@ -6465,6 +6571,7 @@ namespace System.Windows.Media
         public System.Windows.Media.DoubleCollection GuidelinesY { get { throw null; } set { } }
         public new System.Windows.Media.GuidelineSet Clone() { throw null; }
         public new System.Windows.Media.GuidelineSet CloneCurrentValue() { throw null; }
+        bool ProGPU.Wpf.Interop.IPortableGuidelineSetSource.TryGetPortableGuidelineSet(out ProGPU.Wpf.Interop.PortableGuidelineSet guidelineSet) { throw null; }
         protected override System.Windows.Freezable CreateInstanceCore() { throw null; }
     }
     public enum HitTestFilterBehavior
@@ -6508,7 +6615,7 @@ namespace System.Windows.Media
         protected override System.Windows.Freezable CreateInstanceCore() { throw null; }
         protected override void GetContentBounds(out System.Windows.Rect contentBounds) { throw null; }
     }
-    public sealed partial class ImageDrawing : System.Windows.Media.Drawing
+    public sealed partial class ImageDrawing : System.Windows.Media.Drawing, ProGPU.Wpf.Interop.IPortableImageDrawingStateSource
     {
         public static readonly System.Windows.DependencyProperty ImageSourceProperty;
         public static readonly System.Windows.DependencyProperty RectProperty;
@@ -6516,6 +6623,7 @@ namespace System.Windows.Media
         public ImageDrawing(System.Windows.Media.ImageSource imageSource, System.Windows.Rect rect) { }
         public System.Windows.Media.ImageSource ImageSource { get { throw null; } set { } }
         public System.Windows.Rect Rect { get { throw null; } set { } }
+        bool ProGPU.Wpf.Interop.IPortableImageDrawingStateSource.TryGetPortableImageDrawingState(out ProGPU.Wpf.Interop.PortableImageDrawingState state) { throw null; }
         public new System.Windows.Media.ImageDrawing Clone() { throw null; }
         public new System.Windows.Media.ImageDrawing CloneCurrentValue() { throw null; }
         protected override System.Windows.Freezable CreateInstanceCore() { throw null; }
@@ -6670,7 +6778,7 @@ namespace System.Windows.Media
         System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() { throw null; }
         public bool TryGetValue(System.Windows.Markup.XmlLanguage key, out string value) { throw null; }
     }
-    public sealed partial class LinearGradientBrush : System.Windows.Media.GradientBrush
+    public sealed partial class LinearGradientBrush : System.Windows.Media.GradientBrush, ProGPU.Wpf.Interop.IPortableBrushSource
     {
         public static readonly System.Windows.DependencyProperty EndPointProperty;
         public static readonly System.Windows.DependencyProperty StartPointProperty;
@@ -6684,6 +6792,7 @@ namespace System.Windows.Media
         public System.Windows.Point StartPoint { get { throw null; } set { } }
         public new System.Windows.Media.LinearGradientBrush Clone() { throw null; }
         public new System.Windows.Media.LinearGradientBrush CloneCurrentValue() { throw null; }
+        bool ProGPU.Wpf.Interop.IPortableBrushSource.TryGetPortableBrush(out ProGPU.Wpf.Interop.PortableBrush brush) { throw null; }
         protected override System.Windows.Freezable CreateInstanceCore() { throw null; }
     }
     public sealed partial class LineGeometry : System.Windows.Media.Geometry
@@ -6735,7 +6844,7 @@ namespace System.Windows.Media
         protected override void SpeedChanged() { }
         protected override void Stopped() { }
     }
-    public partial class MediaPlayer : System.Windows.Media.Animation.Animatable
+    public partial class MediaPlayer : System.Windows.Media.Animation.Animatable, ProGPU.Wpf.Interop.IPortableInvalidationSource, ProGPU.Wpf.Interop.IPortableMediaPlayerSource
     {
         public MediaPlayer() { }
         public double Balance { get { throw null; } set { } }
@@ -6772,6 +6881,13 @@ namespace System.Windows.Media
         protected new void ReadPreamble() { }
         public void Stop() { }
         protected new void WritePreamble() { }
+        bool ProGPU.Wpf.Interop.IPortableInvalidationSource.TrySubscribeInvalidated(System.EventHandler handler, out System.IDisposable subscription) { throw null; }
+        bool ProGPU.Wpf.Interop.IPortableMediaPlayerSource.TryGetPortableMediaPlayerFrame(out ProGPU.Wpf.Interop.PortableMediaPlayerFrame frame) { throw null; }
+    }
+    public static partial class PortableMediaPlayerSourceFactory
+    {
+        public static void Attach(System.Windows.Media.MediaPlayer player, ProGPU.Wpf.Interop.IPortableMediaPlayerSource source) { }
+        public static void Detach(System.Windows.Media.MediaPlayer player) { }
     }
     public sealed partial class MediaScriptCommandEventArgs : System.EventArgs
     {
@@ -7007,7 +7123,7 @@ namespace System.Windows.Media
         }
     }
     [System.Windows.LocalizabilityAttribute(System.Windows.LocalizationCategory.None, Readability = System.Windows.Readability.Unreadable)]
-    public sealed partial class Pen : System.Windows.Media.Animation.Animatable
+    public sealed partial class Pen : System.Windows.Media.Animation.Animatable, ProGPU.Wpf.Interop.IPortablePenSource
     {
         public static readonly System.Windows.DependencyProperty BrushProperty;
         public static readonly System.Windows.DependencyProperty DashCapProperty;
@@ -7029,6 +7145,7 @@ namespace System.Windows.Media
         public double Thickness { get { throw null; } set { } }
         public new System.Windows.Media.Pen Clone() { throw null; }
         public new System.Windows.Media.Pen CloneCurrentValue() { throw null; }
+        bool ProGPU.Wpf.Interop.IPortablePenSource.TryGetPortablePen(out ProGPU.Wpf.Interop.PortablePen pen) { throw null; }
         protected override System.Windows.Freezable CreateInstanceCore() { throw null; }
     }
     public enum PenDashCap
@@ -7224,7 +7341,7 @@ namespace System.Windows.Media
         public new System.Windows.Media.QuadraticBezierSegment CloneCurrentValue() { throw null; }
         protected override System.Windows.Freezable CreateInstanceCore() { throw null; }
     }
-    public sealed partial class RadialGradientBrush : System.Windows.Media.GradientBrush
+    public sealed partial class RadialGradientBrush : System.Windows.Media.GradientBrush, ProGPU.Wpf.Interop.IPortableBrushSource
     {
         public static readonly System.Windows.DependencyProperty CenterProperty;
         public static readonly System.Windows.DependencyProperty GradientOriginProperty;
@@ -7239,6 +7356,7 @@ namespace System.Windows.Media
         public double RadiusY { get { throw null; } set { } }
         public new System.Windows.Media.RadialGradientBrush Clone() { throw null; }
         public new System.Windows.Media.RadialGradientBrush CloneCurrentValue() { throw null; }
+        bool ProGPU.Wpf.Interop.IPortableBrushSource.TryGetPortableBrush(out ProGPU.Wpf.Interop.PortableBrush brush) { throw null; }
         protected override System.Windows.Freezable CreateInstanceCore() { throw null; }
     }
     public sealed partial class RectangleGeometry : System.Windows.Media.Geometry
@@ -7365,7 +7483,7 @@ namespace System.Windows.Media
         public new System.Windows.Media.SkewTransform CloneCurrentValue() { throw null; }
         protected override System.Windows.Freezable CreateInstanceCore() { throw null; }
     }
-    public sealed partial class SolidColorBrush : System.Windows.Media.Brush
+    public sealed partial class SolidColorBrush : System.Windows.Media.Brush, ProGPU.Wpf.Interop.IPortableBrushSource
     {
         public static readonly System.Windows.DependencyProperty ColorProperty;
         public SolidColorBrush() { }
@@ -7373,6 +7491,7 @@ namespace System.Windows.Media
         public System.Windows.Media.Color Color { get { throw null; } set { } }
         public new System.Windows.Media.SolidColorBrush Clone() { throw null; }
         public new System.Windows.Media.SolidColorBrush CloneCurrentValue() { throw null; }
+        bool ProGPU.Wpf.Interop.IPortableBrushSource.TryGetPortableBrush(out ProGPU.Wpf.Interop.PortableBrush brush) { throw null; }
         protected override System.Windows.Freezable CreateInstanceCore() { throw null; }
         public static object DeserializeFrom(System.IO.BinaryReader reader) { throw null; }
     }
@@ -7510,7 +7629,7 @@ namespace System.Windows.Media
         Grayscale = 2,
         ClearType = 3,
     }
-    public abstract partial class TileBrush : System.Windows.Media.Brush
+    public abstract partial class TileBrush : System.Windows.Media.Brush, ProGPU.Wpf.Interop.IPortableTileBrushSource
     {
         public static readonly System.Windows.DependencyProperty AlignmentXProperty;
         public static readonly System.Windows.DependencyProperty AlignmentYProperty;
@@ -7529,6 +7648,7 @@ namespace System.Windows.Media
         public System.Windows.Media.BrushMappingMode ViewboxUnits { get { throw null; } set { } }
         public System.Windows.Rect Viewport { get { throw null; } set { } }
         public System.Windows.Media.BrushMappingMode ViewportUnits { get { throw null; } set { } }
+        bool ProGPU.Wpf.Interop.IPortableTileBrushSource.TryGetPortableTileBrush(out ProGPU.Wpf.Interop.PortableTileBrush brush) { throw null; }
         public new System.Windows.Media.TileBrush Clone() { throw null; }
         public new System.Windows.Media.TileBrush CloneCurrentValue() { throw null; }
         protected abstract void GetContentBounds(out System.Windows.Rect contentBounds);
@@ -7549,7 +7669,7 @@ namespace System.Windows.Media
     [System.ComponentModel.TypeConverterAttribute(typeof(System.Windows.Media.TransformConverter))]
     [System.Windows.LocalizabilityAttribute(System.Windows.LocalizationCategory.None, Readability = System.Windows.Readability.Unreadable)]
     [System.Windows.Markup.ValueSerializerAttribute(typeof(System.Windows.Media.Converters.TransformValueSerializer))]
-    public abstract partial class Transform : System.Windows.Media.GeneralTransform
+    public abstract partial class Transform : System.Windows.Media.GeneralTransform, ProGPU.Wpf.Interop.IPortableTransformMatrixSource
     {
         internal Transform() { }
         public static System.Windows.Media.Transform Identity { get { throw null; } }
@@ -7557,6 +7677,7 @@ namespace System.Windows.Media
         public abstract System.Windows.Media.Matrix Value { get; }
         public new System.Windows.Media.Transform Clone() { throw null; }
         public new System.Windows.Media.Transform CloneCurrentValue() { throw null; }
+        bool ProGPU.Wpf.Interop.IPortableTransformMatrixSource.TryGetPortableTransformMatrix(out ProGPU.Wpf.Interop.PortableMatrix3x2 matrix) { throw null; }
         public static System.Windows.Media.Transform Parse(string source) { throw null; }
         public override System.Windows.Rect TransformBounds(System.Windows.Rect rect) { throw null; }
         public override bool TryTransform(System.Windows.Point inPoint, out System.Windows.Point result) { throw null; }
@@ -7733,8 +7854,12 @@ namespace System.Windows.Media
         public new System.Windows.Media.VideoDrawing CloneCurrentValue() { throw null; }
         protected override System.Windows.Freezable CreateInstanceCore() { throw null; }
     }
-    public abstract partial class Visual : System.Windows.DependencyObject
+    public abstract partial class Visual : System.Windows.DependencyObject, ProGPU.Wpf.Interop.IPortableVisualChildrenSource, ProGPU.Wpf.Interop.IPortableVisualStateSource, ProGPU.Wpf.Interop.IPortableVisualBoundsSource
     {
+        bool ProGPU.Wpf.Interop.IPortableVisualBoundsSource.TryGetPortableVisualBounds(out ProGPU.Wpf.Interop.PortableVisualBounds bounds) { throw null; }
+        bool ProGPU.Wpf.Interop.IPortableVisualChildrenSource.TryGetPortableVisualChild(int index, out object child) { throw null; }
+        bool ProGPU.Wpf.Interop.IPortableVisualChildrenSource.TryGetPortableVisualChildCount(out int count) { throw null; }
+        bool ProGPU.Wpf.Interop.IPortableVisualStateSource.TryGetPortableVisualState(out ProGPU.Wpf.Interop.PortableVisualState state) { throw null; }
         protected Visual() { }
         [System.ObsoleteAttribute("BitmapEffects are deprecated and no longer function.  Consider using Effects where appropriate instead.")]
         protected internal System.Windows.Media.Effects.BitmapEffect VisualBitmapEffect { get { throw null; } protected set { } }
@@ -7854,9 +7979,16 @@ namespace System.Windows.Media
         public static void SetRootDpi(System.Windows.Media.Visual visual, System.Windows.DpiScale dpiInfo) { }
     }
 }
+namespace System.Windows.Media
+{
+    public static partial class PortableNativeImageSourceFactory
+    {
+        public static System.Windows.Media.ImageSource Create(ProGPU.Wpf.Interop.IPortableNativeImageSource nativeImageSource) { throw null; }
+    }
+}
 namespace System.Windows.Media.Animation
 {
-    public abstract partial class Animatable : System.Windows.Freezable, System.Windows.Media.Animation.IAnimatable
+    public abstract partial class Animatable : System.Windows.Freezable, System.Windows.Media.Animation.IAnimatable, ProGPU.Wpf.Interop.IPortableInvalidationSource
     {
         protected Animatable() { }
         public bool HasAnimatedProperties { get { throw null; } }
@@ -7867,6 +7999,7 @@ namespace System.Windows.Media.Animation
         public new System.Windows.Media.Animation.Animatable Clone() { throw null; }
         protected override bool FreezeCore(bool isChecking) { throw null; }
         public object GetAnimationBaseValue(System.Windows.DependencyProperty dp) { throw null; }
+        bool ProGPU.Wpf.Interop.IPortableInvalidationSource.TrySubscribeInvalidated(System.EventHandler handler, out System.IDisposable subscription) { throw null; }
         [System.ComponentModel.EditorBrowsableAttribute(System.ComponentModel.EditorBrowsableState.Never)]
         public static bool ShouldSerializeStoredWeakReference(System.Windows.DependencyObject target) { throw null; }
     }
@@ -11232,7 +11365,7 @@ namespace System.Windows.Media.Effects
         [System.ObsoleteAttribute("BitmapEffects are deprecated and no longer function.  Consider using Effects where appropriate instead.")]
         protected override void UpdateUnmanagedPropertyState(System.Runtime.InteropServices.SafeHandle unmanagedEffect) { }
     }
-    public abstract partial class BitmapEffect : System.Windows.Media.Animation.Animatable
+    public abstract partial class BitmapEffect : System.Windows.Media.Animation.Animatable, ProGPU.Wpf.Interop.IPortableEffectSource
     {
         protected BitmapEffect() { }
         public new System.Windows.Media.Effects.BitmapEffect Clone() { throw null; }
@@ -11249,6 +11382,7 @@ namespace System.Windows.Media.Effects
         protected static void SetValue(System.Runtime.InteropServices.SafeHandle effect, string propertyName, object value) { }
         [System.ObsoleteAttribute("BitmapEffects are deprecated and no longer function.  Consider using Effects where appropriate instead.")]
         protected abstract void UpdateUnmanagedPropertyState(System.Runtime.InteropServices.SafeHandle unmanagedEffect);
+        bool ProGPU.Wpf.Interop.IPortableEffectSource.TryGetPortableEffect(out ProGPU.Wpf.Interop.PortableEffect effect) { throw null; }
     }
     public sealed partial class BitmapEffectCollection : System.Windows.Media.Animation.Animatable, System.Collections.Generic.ICollection<System.Windows.Media.Effects.BitmapEffect>, System.Collections.Generic.IEnumerable<System.Windows.Media.Effects.BitmapEffect>, System.Collections.Generic.IList<System.Windows.Media.Effects.BitmapEffect>, System.Collections.ICollection, System.Collections.IEnumerable, System.Collections.IList
     {
@@ -11311,7 +11445,7 @@ namespace System.Windows.Media.Effects
         [System.ObsoleteAttribute("BitmapEffects are deprecated and no longer function.  Consider using Effects where appropriate instead.")]
         protected override void UpdateUnmanagedPropertyState(System.Runtime.InteropServices.SafeHandle unmanagedEffect) { }
     }
-    public sealed partial class BitmapEffectInput : System.Windows.Media.Animation.Animatable
+    public sealed partial class BitmapEffectInput : System.Windows.Media.Animation.Animatable, ProGPU.Wpf.Interop.IPortableBitmapEffectInputSource
     {
         public static readonly System.Windows.DependencyProperty AreaToApplyEffectProperty;
         public static readonly System.Windows.DependencyProperty AreaToApplyEffectUnitsProperty;
@@ -11327,6 +11461,7 @@ namespace System.Windows.Media.Effects
         protected override System.Windows.Freezable CreateInstanceCore() { throw null; }
         [System.ComponentModel.EditorBrowsableAttribute(System.ComponentModel.EditorBrowsableState.Never)]
         public bool ShouldSerializeInput() { throw null; }
+        bool ProGPU.Wpf.Interop.IPortableBitmapEffectInputSource.TryGetPortableBitmapEffectInput(out ProGPU.Wpf.Interop.PortableBitmapEffectInput input) { throw null; }
     }
     public sealed partial class BlurBitmapEffect : System.Windows.Media.Effects.BitmapEffect
     {
@@ -11343,7 +11478,7 @@ namespace System.Windows.Media.Effects
         [System.ObsoleteAttribute("BitmapEffects are deprecated and no longer function.  Consider using Effects where appropriate instead.")]
         protected override void UpdateUnmanagedPropertyState(System.Runtime.InteropServices.SafeHandle unmanagedEffect) { }
     }
-    public sealed partial class BlurEffect : System.Windows.Media.Effects.Effect
+    public sealed partial class BlurEffect : System.Windows.Media.Effects.Effect, ProGPU.Wpf.Interop.IPortableEffectSource
     {
         public static readonly System.Windows.DependencyProperty KernelTypeProperty;
         public static readonly System.Windows.DependencyProperty RadiusProperty;
@@ -11354,6 +11489,7 @@ namespace System.Windows.Media.Effects
         public System.Windows.Media.Effects.RenderingBias RenderingBias { get { throw null; } set { } }
         public new System.Windows.Media.Effects.BlurEffect Clone() { throw null; }
         public new System.Windows.Media.Effects.BlurEffect CloneCurrentValue() { throw null; }
+        bool ProGPU.Wpf.Interop.IPortableEffectSource.TryGetPortableEffect(out ProGPU.Wpf.Interop.PortableEffect effect) { throw null; }
         protected override System.Windows.Freezable CreateInstanceCore() { throw null; }
     }
     public sealed partial class DropShadowBitmapEffect : System.Windows.Media.Effects.BitmapEffect
@@ -11379,7 +11515,7 @@ namespace System.Windows.Media.Effects
         [System.ObsoleteAttribute("BitmapEffects are deprecated and no longer function.  Consider using Effects where appropriate instead.")]
         protected override void UpdateUnmanagedPropertyState(System.Runtime.InteropServices.SafeHandle unmanagedEffect) { }
     }
-    public sealed partial class DropShadowEffect : System.Windows.Media.Effects.Effect
+    public sealed partial class DropShadowEffect : System.Windows.Media.Effects.Effect, ProGPU.Wpf.Interop.IPortableEffectSource
     {
         public static readonly System.Windows.DependencyProperty BlurRadiusProperty;
         public static readonly System.Windows.DependencyProperty ColorProperty;
@@ -11396,6 +11532,7 @@ namespace System.Windows.Media.Effects
         public double ShadowDepth { get { throw null; } set { } }
         public new System.Windows.Media.Effects.DropShadowEffect Clone() { throw null; }
         public new System.Windows.Media.Effects.DropShadowEffect CloneCurrentValue() { throw null; }
+        bool ProGPU.Wpf.Interop.IPortableEffectSource.TryGetPortableEffect(out ProGPU.Wpf.Interop.PortableEffect effect) { throw null; }
         protected override System.Windows.Freezable CreateInstanceCore() { throw null; }
     }
     public enum EdgeProfile
@@ -11453,13 +11590,14 @@ namespace System.Windows.Media.Effects
         [System.ObsoleteAttribute("BitmapEffects are deprecated and no longer function.  Consider using Effects where appropriate instead.")]
         protected override void UpdateUnmanagedPropertyState(System.Runtime.InteropServices.SafeHandle unmanagedEffect) { }
     }
-    public sealed partial class PixelShader : System.Windows.Media.Animation.Animatable
+    public sealed partial class PixelShader : System.Windows.Media.Animation.Animatable, ProGPU.Wpf.Interop.IPortablePixelShaderSource
     {
         public static readonly System.Windows.DependencyProperty ShaderRenderModeProperty;
         public static readonly System.Windows.DependencyProperty UriSourceProperty;
         public PixelShader() { }
         public System.Windows.Media.Effects.ShaderRenderMode ShaderRenderMode { get { throw null; } set { } }
         public System.Uri UriSource { get { throw null; } set { } }
+        bool ProGPU.Wpf.Interop.IPortablePixelShaderSource.TryGetPortablePixelShader(out ProGPU.Wpf.Interop.PortablePixelShader pixelShader) { throw null; }
         public static event System.EventHandler InvalidPixelShaderEncountered { add { } remove { } }
         public new System.Windows.Media.Effects.PixelShader Clone() { throw null; }
         protected override void CloneCore(System.Windows.Freezable sourceFreezable) { }
@@ -11481,7 +11619,7 @@ namespace System.Windows.Media.Effects
         Bilinear = 1,
         Auto = 2,
     }
-    public abstract partial class ShaderEffect : System.Windows.Media.Effects.Effect
+    public abstract partial class ShaderEffect : System.Windows.Media.Effects.Effect, ProGPU.Wpf.Interop.IPortableShaderEffectSource
     {
         protected static readonly System.Windows.DependencyProperty PixelShaderProperty;
         protected ShaderEffect() { }
@@ -11491,6 +11629,7 @@ namespace System.Windows.Media.Effects
         protected double PaddingRight { get { throw null; } set { } }
         protected double PaddingTop { get { throw null; } set { } }
         protected System.Windows.Media.Effects.PixelShader PixelShader { get { throw null; } set { } }
+        bool ProGPU.Wpf.Interop.IPortableShaderEffectSource.TryGetPortableShaderEffect(out ProGPU.Wpf.Interop.PortableShaderEffect effect) { throw null; }
         public new System.Windows.Media.Effects.ShaderEffect Clone() { throw null; }
         protected override void CloneCore(System.Windows.Freezable sourceFreezable) { }
         public new System.Windows.Media.Effects.ShaderEffect CloneCurrentValue() { throw null; }
@@ -11719,9 +11858,10 @@ namespace System.Windows.Media.Imaging
         public static System.Windows.Media.Imaging.BitmapSizeOptions FromWidthAndHeight(int pixelWidth, int pixelHeight) { throw null; }
     }
     [System.Windows.LocalizabilityAttribute(System.Windows.LocalizationCategory.None, Readability = System.Windows.Readability.Unreadable)]
-    public abstract partial class BitmapSource : System.Windows.Media.ImageSource
+    public abstract partial class BitmapSource : System.Windows.Media.ImageSource, ProGPU.Wpf.Interop.IPortableBitmapSourcePixelsSource
     {
         protected BitmapSource() { }
+        bool ProGPU.Wpf.Interop.IPortableBitmapSourcePixelsSource.TryGetPortableBitmapSourcePixels(out ProGPU.Wpf.Interop.PortableBitmapSourcePixels pixels) { throw null; }
         public virtual double DpiX { get { throw null; } }
         public virtual double DpiY { get { throw null; } }
         public virtual System.Windows.Media.PixelFormat Format { get { throw null; } }
@@ -13158,7 +13298,7 @@ namespace System.Windows.Media.Media3D
         public static void SetIsVisualHostMaterial(System.Windows.Media.Media3D.Material element, bool value) { }
     }
     [System.Windows.Markup.ContentPropertyAttribute("Children")]
-    public sealed partial class Viewport3DVisual : System.Windows.Media.Visual
+    public sealed partial class Viewport3DVisual : System.Windows.Media.Visual, ProGPU.Wpf.Interop.IPortableViewport3DSceneSource
     {
         public static readonly System.Windows.DependencyProperty CameraProperty;
         public static readonly System.Windows.DependencyProperty ViewportProperty;
@@ -13179,6 +13319,7 @@ namespace System.Windows.Media.Media3D
         public System.Windows.DependencyObject Parent { get { throw null; } }
         public System.Windows.Media.Transform Transform { get { throw null; } set { } }
         public System.Windows.Rect Viewport { get { throw null; } set { } }
+        bool ProGPU.Wpf.Interop.IPortableViewport3DSceneSource.TryGetPortableViewport3DScene(out ProGPU.Wpf.Interop.PortableViewport3DScene scene) { throw null; }
         public void HitTest(System.Windows.Media.HitTestFilterCallback filterCallback, System.Windows.Media.HitTestResultCallback resultCallback, System.Windows.Media.HitTestParameters hitTestParameters) { }
         public System.Windows.Media.HitTestResult HitTest(System.Windows.Point point) { throw null; }
         protected override System.Windows.Media.GeometryHitTestResult HitTestCore(System.Windows.Media.GeometryHitTestParameters hitTestParameters) { throw null; }

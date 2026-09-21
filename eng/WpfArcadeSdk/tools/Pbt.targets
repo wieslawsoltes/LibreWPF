@@ -54,9 +54,10 @@
              Directories="$(PbtDir)" />
 
     <MSBuild Projects="$(WpfSourceDir)PresentationBuildTasks\PresentationBuildTasks.csproj"
-             Condition="!Exists('$(_PresentationBuildTasksAssembly)') And Exists('$(LocalMicrosoftWinFXTargets)')"
+             Condition="Exists('$(LocalMicrosoftWinFXTargets)')"
              Properties="CopyTransitiveReferences=true;PublishDir=$(PbtDir);TargetFramework=$(PbtTfm);Platform=AnyCPU"
-             Targets="Clean;Build;Publish" />
+             RemoveProperties="RuntimeIdentifier"
+             Targets="Build;Publish" />
   </Target>
 
   <Target Name="PreventResourcesSourceGenerationForPbtGeneratedResource"

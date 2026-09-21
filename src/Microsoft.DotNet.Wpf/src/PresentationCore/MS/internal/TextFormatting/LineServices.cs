@@ -1558,13 +1558,38 @@ namespace MS.Internal.TextFormatting
         internal static void LoGetEscString(
             ref EscStringInfo escStringInfo)
         {
-            LoGetEscStringImpl(ref escStringInfo);
+            if (TextFormatterImp.IsNativeLineServicesAvailable)
+            {
+                LoGetEscStringImpl(ref escStringInfo);
+                return;
+            }
+
+            escStringInfo.szParaSeparator = s_managedParaSeparator;
+            escStringInfo.szLineSeparator = s_managedLineSeparator;
+            escStringInfo.szHidden = s_managedHidden;
+            escStringInfo.szNbsp = s_managedNbsp;
+            escStringInfo.szObjectTerminator = s_managedObjectTerminator;
+            escStringInfo.szObjectReplacement = s_managedObjectReplacement;
         }
 
         [DllImport(DllImport.PresentationNative, EntryPoint = "LoGetEscString")]
         private static extern void LoGetEscStringImpl(
             ref EscStringInfo escStringInfo
             );
+
+        private static IntPtr AllocateManagedEscChar(char value)
+        {
+            IntPtr memory = Marshal.AllocHGlobal(sizeof(char));
+            Marshal.WriteInt16(memory, (short)value);
+            return memory;
+        }
+
+        private static readonly IntPtr s_managedParaSeparator = AllocateManagedEscChar('\u2029');
+        private static readonly IntPtr s_managedLineSeparator = AllocateManagedEscChar('\u2028');
+        private static readonly IntPtr s_managedHidden = AllocateManagedEscChar('\u200B');
+        private static readonly IntPtr s_managedNbsp = AllocateManagedEscChar('\u00A0');
+        private static readonly IntPtr s_managedObjectTerminator = AllocateManagedEscChar('\uFFFF');
+        private static readonly IntPtr s_managedObjectReplacement = AllocateManagedEscChar('\uFFFC');
 
         [DllImport(DllImport.PresentationNative, EntryPoint = "LoAcquirePenaltyModule")]
         internal static extern LsErr LoAcquirePenaltyModule(

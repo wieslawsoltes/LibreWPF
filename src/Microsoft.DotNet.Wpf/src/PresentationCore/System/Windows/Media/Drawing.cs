@@ -8,6 +8,7 @@
 
 using System.Windows.Media.Animation;
 using System.Windows.Media.Composition;
+using ProGPU.Wpf.Interop;
 
 namespace System.Windows.Media
 {
@@ -15,7 +16,7 @@ namespace System.Windows.Media
     /// Base class for the enumerable and modifiable Drawing subclasses.
     /// </summary>
     [Localizability(LocalizationCategory.None, Readability = Readability.Unreadable)]
-    public abstract partial class Drawing : Animatable, IDrawingContent, DUCE.IResource
+    public abstract partial class Drawing : Animatable, IDrawingContent, DUCE.IResource, IPortableDrawingBoundsSource
     {
         #region Constructors
         
@@ -48,6 +49,34 @@ namespace System.Windows.Media
                 return GetBounds();
             }
         }        
+
+        bool IPortableDrawingBoundsSource.TryGetPortableDrawingBounds(out PortableRect bounds)
+        {
+            Rect drawingBounds = Bounds;
+            if (drawingBounds.IsEmpty)
+            {
+                bounds = PortableRect.Empty;
+                return true;
+            }
+
+            if (double.IsFinite(drawingBounds.X)
+                && double.IsFinite(drawingBounds.Y)
+                && double.IsFinite(drawingBounds.Width)
+                && double.IsFinite(drawingBounds.Height)
+                && drawingBounds.Width >= 0
+                && drawingBounds.Height >= 0)
+            {
+                bounds = new PortableRect(
+                    drawingBounds.X,
+                    drawingBounds.Y,
+                    drawingBounds.Width,
+                    drawingBounds.Height);
+                return true;
+            }
+
+            bounds = PortableRect.Empty;
+            return false;
+        }
 
         #endregion Public Properties
         

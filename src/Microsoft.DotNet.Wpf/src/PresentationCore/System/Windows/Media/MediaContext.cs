@@ -1,6 +1,8 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows.Threading;
 using System.Windows.Input;
@@ -30,11 +32,11 @@ namespace System.Windows.Media
         {
             long qpcCurrentTime;
 
-            SafeNativeMethods.QueryPerformanceFrequency(out _perfCounterFreq);
+            GetPerformanceFrequency(out _perfCounterFreq);
 
             if (IsClockSupported)
             {
-                SafeNativeMethods.QueryPerformanceCounter(out qpcCurrentTime);
+                GetPerformanceCounter(out qpcCurrentTime);
             }
             else
             {
@@ -78,6 +80,30 @@ namespace System.Windows.Media
         private static long TicksToCounts(long ticks)
         {
             return (long)(_perfCounterFreq * (ticks / TimeSpan.TicksPerSecond) + (_perfCounterFreq * (ticks % TimeSpan.TicksPerSecond)) / TimeSpan.TicksPerSecond);
+        }
+
+        private static void GetPerformanceFrequency(out long frequency)
+        {
+            if (s_isWindows)
+            {
+                SafeNativeMethods.QueryPerformanceFrequency(out frequency);
+            }
+            else
+            {
+                frequency = Stopwatch.Frequency;
+            }
+        }
+
+        private static void GetPerformanceCounter(out long performanceCount)
+        {
+            if (s_isWindows)
+            {
+                SafeNativeMethods.QueryPerformanceCounter(out performanceCount);
+            }
+            else
+            {
+                performanceCount = Stopwatch.GetTimestamp();
+            }
         }
 
         /// <summary>
@@ -190,7 +216,7 @@ namespace System.Windows.Media
             // Initialize frame time information
             if (IsClockSupported)
             {
-                SafeNativeMethods.QueryPerformanceCounter(out _lastPresentationTime);
+                GetPerformanceCounter(out _lastPresentationTime);
                 _estimatedNextPresentationTime = TimeSpan.FromTicks(CountsToTicks(_lastPresentationTime));
             }
 
@@ -564,12 +590,17 @@ namespace System.Windows.Media
                 if (nextTickNeeded >= TimeSpan.Zero)
                 {
                     nextTickNeeded = TimeSpan.FromTicks(Math.Max(nextTickNeeded.Ticks, minimumDelay.Ticks));
-                    EnterInterlockedPresentation();
+                    if (Channel != null)
+                    {
+                        EnterInterlockedPresentation();
+                    }
                 }
                 else
                 {
                     LeaveInterlockedPresentation();
                 }
+
+                bool scheduledPortableRenderWakeup = false;
 
                 // We need to tick in the distant future, schedule a far way message
                 if (nextTickNeeded > TimeSpan.FromSeconds(1))
@@ -580,6 +611,7 @@ namespace System.Windows.Media
 
                         _promoteRenderOpToRender.Interval = nextTickNeeded;
                         _promoteRenderOpToRender.Start();
+                        scheduledPortableRenderWakeup = true;
                     }
                 }
                 // We need to tick soon (< 1 second)
@@ -596,6 +628,7 @@ namespace System.Windows.Media
 
                         _promoteRenderOpToRender.Interval = TimeSpan.FromSeconds(1);
                         _promoteRenderOpToRender.Start();
+                        scheduledPortableRenderWakeup = true;
                     }
                 }
                 else if (nextTickNeeded == TimeSpan.Zero)
@@ -626,10 +659,12 @@ namespace System.Windows.Media
                     if (_currentRenderOp == null)
                     {
                         _currentRenderOp = Dispatcher.BeginInvoke(priority, _animRenderMessage, null);
+                        scheduledPortableRenderWakeup = true;
                     }
                     else
                     {
                         _currentRenderOp.Priority = priority;
+                        scheduledPortableRenderWakeup = true;
                     }
 
                     _promoteRenderOpToInput.Stop();
@@ -640,6 +675,10 @@ namespace System.Windows.Media
                 // Trace the scheduling of the render
                 //
                 EventTrace.EasyTraceEvent(EventTrace.Keyword.KeywordGraphics, EventTrace.Event.WClientScheduleRender, nextTickNeeded.TotalMilliseconds);
+                if (scheduledPortableRenderWakeup)
+                {
+                    PortableMediaContextRenderService.RequestRender(nextTickNeeded);
+                }
             }
         }
 
@@ -883,7 +922,7 @@ namespace System.Windows.Media
             get
             {
                 long counts;
-                SafeNativeMethods.QueryPerformanceCounter(out counts);
+                GetPerformanceCounter(out counts);
                 return CountsToTicks(counts);
             }
         }
@@ -1077,7 +1116,7 @@ namespace System.Windows.Media
                 Debug.Assert(IsClockSupported, "MediaContext.CurrentTime called when QueryPerformaceCounter is not supported");
 
                 long counts;
-                SafeNativeMethods.QueryPerformanceCounter(out counts);
+                GetPerformanceCounter(out counts);
 
                 long countsTicks = CountsToTicks(counts);
 
@@ -1639,6 +1678,11 @@ namespace System.Windows.Media
         /// </remarks>
         internal void PostRender()
         {
+            PostRender(null);
+        }
+
+        internal void PostRender(object invalidatedSource)
+        {
             // this is now needed because we no longer set Dispatcher.Reserved0 to null
             // in the Dispose method. See comment in the Dispose method.
             if (_isDisposed)
@@ -1668,6 +1712,7 @@ namespace System.Windows.Media
                 // We don't need to keep our promotion timers around.
                 _promoteRenderOpToInput.Stop();
                 _promoteRenderOpToRender.Stop();
+                PortableMediaContextRenderService.RequestRender(invalidatedSource);
             }
         }
 
@@ -1763,6 +1808,11 @@ namespace System.Windows.Media
             // if the media system is disconnected bail.
             if (Channel == null)
             {
+                if (PortableMediaContextRenderService.IsEnabled)
+                {
+                    RenderDisconnectedMessageHandlerCore(resizedCompositionTarget);
+                }
+
                 return;
             }
 
@@ -1890,6 +1940,69 @@ namespace System.Windows.Media
                 // PostRender won't queue new render operation and the window gets stuck.
                 if (gotException
                     && _currentRenderOp != null)
+                {
+                    _currentRenderOp.Abort();
+                    _currentRenderOp = null;
+                }
+
+                _isRendering = false;
+            }
+        }
+
+        private void RenderDisconnectedMessageHandlerCore(
+            object resizedCompositionTarget /* can be null if we are not resizing*/
+            )
+        {
+            Debug.Assert(CheckAccess());
+            Debug.Assert(
+                (resizedCompositionTarget == null) ||
+                (resizedCompositionTarget is ICompositionTarget));
+
+            _isRendering = true;
+
+            _promoteRenderOpToInput.Stop();
+            _promoteRenderOpToRender.Stop();
+
+            bool gotException = true;
+
+            try
+            {
+                int tickLoopCount = 0;
+
+                do
+                {
+                    tickLoopCount++;
+                    if (tickLoopCount > 153)
+                    {
+                        throw new InvalidOperationException(SR.MediaContext_InfiniteTickLoop);
+                    }
+
+                    _timeManager.Tick();
+                    _timeManager.LockTickTime();
+                    FireInvokeOnRenderCallbacks();
+
+                    if (Rendering != null && tickLoopCount == 1)
+                    {
+                        Rendering?.Invoke(this.Dispatcher, new RenderingEventArgs(_timeManager.LastTickTime));
+                        FireInvokeOnRenderCallbacks();
+                    }
+                }
+                while (_timeManager.IsDirty);
+
+                _timeManager.UnlockTickTime();
+
+                InputManager.UnsecureCurrent.InvalidateInputDevices();
+
+                _currentRenderOp?.Abort();
+                _currentRenderOp = null;
+
+                ScheduleNextRenderOp(_timeDelay);
+
+                gotException = false;
+            }
+            finally
+            {
+                if (gotException && _currentRenderOp != null)
                 {
                     _currentRenderOp.Abort();
                     _currentRenderOp = null;
@@ -2884,6 +2997,7 @@ namespace System.Windows.Media
         /// </summary>
         private MIL_PRESENTATION_RESULTS _lastPresentationResults = MIL_PRESENTATION_RESULTS.MIL_PRESENTATION_VSYNC_UNSUPPORTED;
 
+        private static readonly bool s_isWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
         private static long _perfCounterFreq;
 
         private const long MaxTicksWithoutInput = TimeSpan.TicksPerSecond / 2;

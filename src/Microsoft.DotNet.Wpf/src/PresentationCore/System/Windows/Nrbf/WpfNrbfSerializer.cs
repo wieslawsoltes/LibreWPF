@@ -3,10 +3,18 @@
 
 #nullable enable
 
+#if PROGPU_WPF_ALIAS_WINCORE
+extern alias WinCore;
+#endif
+
 using System.Diagnostics.CodeAnalysis;
 using System.Formats.Nrbf;
 using System.IO;
+#if PROGPU_WPF_ALIAS_WINCORE
+using WinCore::System.Private.Windows.Nrbf;
+#else
 using System.Private.Windows.Nrbf;
+#endif
 using System.Reflection.Metadata;
 
 namespace System.Windows.Nrbf;

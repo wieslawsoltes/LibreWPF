@@ -86,13 +86,16 @@ namespace MS.Internal
                 httpRequest.UserAgent = DefaultUserAgent;
             }
 
-            CookieHandler.HandleWebRequest(httpRequest);
+            if (OperatingSystem.IsWindows())
+            {
+                CookieHandler.HandleWebRequest(httpRequest);
 
-            CustomCredentialPolicy.EnsureCustomCredentialPolicy();
+                CustomCredentialPolicy.EnsureCustomCredentialPolicy();
 
-            // Enable NTLM authentication.
-            // This is safe to do thanks to the CustomCredentialPolicy.
-            httpRequest.UseDefaultCredentials = true;
+                // Enable NTLM authentication.
+                // This is safe to do thanks to the CustomCredentialPolicy.
+                httpRequest.UseDefaultCredentials = true;
+            }
         }
 
         return request;
@@ -107,7 +110,7 @@ namespace MS.Internal
     internal static void ConfigCachePolicy(WebRequest request, bool isRefresh)
     {
         HttpWebRequest httpRequest = request as HttpWebRequest;
-        if (httpRequest != null)
+        if (httpRequest != null && OperatingSystem.IsWindows())
         {
             // Setting CachePolicy to the default level if it is null.
             if (request.CachePolicy == null || request.CachePolicy.Level != RequestCacheLevel.Default)
@@ -140,7 +143,9 @@ namespace MS.Internal
         {
             if (_defaultUserAgent == null)
             {
-                _defaultUserAgent = MS.Win32.UnsafeNativeMethods.ObtainUserAgentString();
+                _defaultUserAgent = OperatingSystem.IsWindows()
+                    ? MS.Win32.UnsafeNativeMethods.ObtainUserAgentString()
+                    : "ProGPU-WPF";
             }
             return _defaultUserAgent;
         }
@@ -153,7 +158,10 @@ namespace MS.Internal
 
     internal static void HandleWebResponse(WebResponse response)
     {
-        CookieHandler.HandleWebResponse(response);
+        if (OperatingSystem.IsWindows())
+        {
+            CookieHandler.HandleWebResponse(response);
+        }
     }
 
     internal static Stream CreateRequestAndGetResponseStream(Uri uri)

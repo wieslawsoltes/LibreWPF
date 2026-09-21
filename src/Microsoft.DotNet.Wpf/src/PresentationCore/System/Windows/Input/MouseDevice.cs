@@ -35,9 +35,18 @@ namespace System.Windows.Input
             //
             // The call here goes into the safe helper calls, more of a consistency in approach
             //
-            _doubleClickDeltaX = SafeSystemMetrics.DoubleClickDeltaX;
-            _doubleClickDeltaY = SafeSystemMetrics.DoubleClickDeltaY;
-            _doubleClickDeltaTime = SafeNativeMethods.GetDoubleClickTime();
+            if (OperatingSystem.IsWindows())
+            {
+                _doubleClickDeltaX = SafeSystemMetrics.DoubleClickDeltaX;
+                _doubleClickDeltaY = SafeSystemMetrics.DoubleClickDeltaY;
+                _doubleClickDeltaTime = SafeNativeMethods.GetDoubleClickTime();
+            }
+            else
+            {
+                _doubleClickDeltaX = 4;
+                _doubleClickDeltaY = 4;
+                _doubleClickDeltaTime = 500;
+            }
 
             _overIsEnabledChangedEventHandler = new DependencyPropertyChangedEventHandler(OnOverIsEnabledChanged);
             _overIsVisibleChangedEventHandler = new DependencyPropertyChangedEventHandler(OnOverIsVisibleChanged);
@@ -876,6 +885,21 @@ namespace System.Windows.Input
 
             // Simulate a mouse move
             PresentationSource activeSource = CriticalActiveSource;
+            // A portable element-captured drag has no trustworthy OS cursor position when
+            // a transient window switches the active source. Do not synthesize a move in
+            // that narrow case. Subtree capture (used by menus and popups) still needs the
+            // normal re-hit-test when the pointer enters its separate native surface.
+            // Win32 also retains its original synchronization path.
+            if (Captured != null &&
+                _captureMode == CaptureMode.Element &&
+                activeSource is PortablePresentationSource &&
+                (LeftButton == MouseButtonState.Pressed ||
+                 MiddleButton == MouseButtonState.Pressed ||
+                 RightButton == MouseButtonState.Pressed))
+            {
+                return;
+            }
+
             if (activeSource != null && activeSource.CompositionTarget != null && !activeSource.CompositionTarget.IsDisposed)
             {
                 int timeStamp = Environment.TickCount;
@@ -1145,6 +1169,24 @@ namespace System.Windows.Input
             }
         }
 
+        private bool IsActiveSourceOrCapturedProviderCancel(RawMouseInputReport rawMouseInputReport)
+        {
+            if ((_inputSource is not null) && (rawMouseInputReport.InputSource == _inputSource))
+            {
+                return true;
+            }
+
+            if (rawMouseInputReport.Actions != RawMouseActions.CancelCapture ||
+                _providerCapture == null ||
+                rawMouseInputReport.InputSource == null)
+            {
+                return false;
+            }
+
+            IMouseInputProvider inputProvider = rawMouseInputReport.InputSource.GetInputProvider(typeof(MouseDevice)) as IMouseInputProvider;
+            return ReferenceEquals(inputProvider, _providerCapture);
+        }
+
         private void PreProcessInput(object sender, PreProcessInputEventArgs e)
         {
             if (e.StagingItem.Input.RoutedEvent == InputManager.PreviewInputReportEvent)
@@ -1157,9 +1199,9 @@ namespace System.Windows.Input
 
 
                     // Normally we only process mouse input that is from our
-                    // active visual manager.  The only exception to this is
-                    // the activate report, which is how we change the visual
-                    // manager that is active.
+                    // active visual manager.  Activate reports change the visual
+                    // manager that is active, and an exact-provider capture
+                    // cancellation can arrive while that source is being replaced.
                     if ((rawMouseInputReport.Actions & RawMouseActions.Activate) == RawMouseActions.Activate)
                     {
                         // Console.WriteLine("RawMouseActions.Activate");
@@ -1189,8 +1231,9 @@ namespace System.Windows.Input
                             PushActivateInputReport(e, inputReportEventArgs, rawMouseInputReport, clearExtraInformation:false);
                         }
                     }
-                    // Only process mouse input that is from our active PresentationSource.
-                    else if ((_inputSource is not null) && (rawMouseInputReport.InputSource == _inputSource))
+                    // Process mouse input from our active PresentationSource, plus a pure
+                    // capture cancellation from the provider that currently owns capture.
+                    else if (IsActiveSourceOrCapturedProviderCancel(rawMouseInputReport))
                     {
                         // We need to remember the StylusDevice that generated this input.  Use the _tagStylusDevice
                         // to store this in before we take over the inputReport Device and loose it.  Any
@@ -1406,9 +1449,9 @@ namespace System.Windows.Input
                     _stylusDevice = GetStylusDevice(e.StagingItem);
 
                     // Normally we only process mouse input that is from our
-                    // active presentation source.  The only exception to this is
-                    // the activate report, which is how we change the visual
-                    // manager that is active.
+                    // active presentation source.  Activate reports change the visual
+                    // manager that is active, and an exact-provider capture
+                    // cancellation can arrive while that source is being replaced.
                     if ((rawMouseInputReport.Actions & RawMouseActions.Activate) == RawMouseActions.Activate)
                     {
                         // System.Console.WriteLine("Initializing the mouse state.");
@@ -1441,8 +1484,9 @@ namespace System.Windows.Input
                         }
                     }
 
-                    // Only process mouse input that is from our active presentation source.
-                    if ((_inputSource is not null) && (rawMouseInputReport.InputSource == _inputSource))
+                    // Process mouse input from our active presentation source, plus a pure
+                    // capture cancellation from the provider that currently owns capture.
+                    if (IsActiveSourceOrCapturedProviderCancel(rawMouseInputReport))
                     {
                         // If the input is reporting mouse deactivation, we need
                         // to break any capture we may have.  Note that we only do
@@ -2098,7 +2142,7 @@ namespace System.Windows.Input
 
             // Note: this only works for HWNDs for now.
             HwndSource source = inputSource as HwndSource;
-            if (source != null && source.CompositionTarget != null && !source.IsHandleNull)
+            if (OperatingSystem.IsWindows() && source != null && source.CompositionTarget != null && !source.IsHandleNull)
             {
                 Point ptScreen = PointUtil.ClientToScreen(ptClient, source);
                 IntPtr hwndHit = IntPtr.Zero ;
@@ -2125,6 +2169,10 @@ namespace System.Windows.Input
                     // Perform a local hit-test within this visual manager.
                     LocalHitTest(true, ptClientHit, sourceHit, out enabledHit, out originalHit);
                 }
+            }
+            else if (inputSource?.CompositionTarget != null && !inputSource.CompositionTarget.IsDisposed)
+            {
+                LocalHitTest(clientUnits, pt, inputSource, out enabledHit, out originalHit);
             }
         }
 
@@ -2156,6 +2204,12 @@ namespace System.Windows.Input
                 if(root != null)
                 {
                     Point rootPt = clientUnits ? PointUtil.ClientToRoot(pt, inputSource) : pt;
+                    if (inputSource is PortablePresentationSource portableSource &&
+                        portableSource.TryHitTestOverride(rootPt, out enabledHit, out originalHit))
+                    {
+                        return;
+                    }
+
                     root.InputHitTest(rootPt, out enabledHit, out originalHit);
                 }
             }

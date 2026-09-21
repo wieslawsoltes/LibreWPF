@@ -1,13 +1,134 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+using ProGPU.Wpf.Interop;
 using System.Windows.Media.Composition;
 using System.Windows.Media.Media3D;
 
 namespace System.Windows.Media.Effects
 {
-    public abstract partial class ShaderEffect : Effect
+    public abstract partial class ShaderEffect : Effect, IPortableShaderEffectSource
     {
+        bool IPortableShaderEffectSource.TryGetPortableShaderEffect(out PortableShaderEffect effect)
+        {
+            ReadPreamble();
+
+            PixelShader pixelShader = PixelShader;
+            if (pixelShader == null
+                || pixelShader is not IPortablePixelShaderSource pixelShaderSource
+                || !pixelShaderSource.TryGetPortablePixelShader(out PortablePixelShader portablePixelShader))
+            {
+                effect = null;
+                return false;
+            }
+
+            Type effectType = GetType();
+            effect = new PortableShaderEffect(
+                effectType.FullName,
+                effectType.Name,
+                portablePixelShader,
+                CreatePortableShaderFloatConstants(),
+                CreatePortableShaderSamplers(),
+                _intCount,
+                _boolCount,
+                _topPadding,
+                _bottomPadding,
+                _leftPadding,
+                _rightPadding,
+                _ddxUvDdyUvRegisterIndex);
+            return true;
+        }
+
+        private float[] CreatePortableShaderFloatConstants()
+        {
+            if (_floatCount == 0 || _floatRegisters == null)
+            {
+                return Array.Empty<float>();
+            }
+
+            float[] constants = new float[_floatRegisters.Count * 4];
+            int highestRegister = -1;
+
+            for (int i = 0; i < _floatRegisters.Count; i++)
+            {
+                MilColorF? register = _floatRegisters[i];
+                if (!register.HasValue)
+                {
+                    continue;
+                }
+
+                int offset = i * 4;
+                MilColorF value = register.Value;
+                constants[offset] = value.r;
+                constants[offset + 1] = value.g;
+                constants[offset + 2] = value.b;
+                constants[offset + 3] = value.a;
+                highestRegister = i;
+            }
+
+            if (highestRegister < 0)
+            {
+                return Array.Empty<float>();
+            }
+
+            Array.Resize(ref constants, (highestRegister + 1) * 4);
+            return constants;
+        }
+
+        private PortableShaderSampler[] CreatePortableShaderSamplers()
+        {
+            if (_samplerCount == 0 || _samplerData == null)
+            {
+                return Array.Empty<PortableShaderSampler>();
+            }
+
+            List<PortableShaderSampler> samplers = new List<PortableShaderSampler>((int)_samplerCount);
+            for (int i = 0; i < _samplerData.Count; i++)
+            {
+                SamplerData? samplerData = _samplerData[i];
+                if (!samplerData.HasValue)
+                {
+                    continue;
+                }
+
+                SamplerData sampler = samplerData.Value;
+                if (sampler._brush != null)
+                {
+                    PortableShaderSamplingMode samplingMode = ConvertPortableSamplingMode(sampler._samplingMode);
+                    if (sampler._brush is ImplicitInputBrush)
+                    {
+                        samplers.Add(PortableShaderSampler.ImplicitInput(i, samplingMode));
+                    }
+                    else if (sampler._brush is ImageBrush imageBrush)
+                    {
+                        samplers.Add(PortableShaderSampler.Image(i, imageBrush.ImageSource, samplingMode));
+                    }
+                    else
+                    {
+                        samplers.Add(new PortableShaderSampler(
+                            i,
+                            sampler._brush,
+                            samplingMode));
+                    }
+                }
+            }
+
+            return samplers.Count == 0 ? Array.Empty<PortableShaderSampler>() : samplers.ToArray();
+        }
+
+        private static PortableShaderSamplingMode ConvertPortableSamplingMode(SamplingMode samplingMode)
+        {
+            switch (samplingMode)
+            {
+                case SamplingMode.NearestNeighbor:
+                    return PortableShaderSamplingMode.NearestNeighbor;
+                case SamplingMode.Auto:
+                    return PortableShaderSamplingMode.Auto;
+                default:
+                    return PortableShaderSamplingMode.Bilinear;
+            }
+        }
+
         /// <summary>
         /// Takes in content bounds, and returns the bounds of the rendered
         /// output of that content after the Effect is applied.

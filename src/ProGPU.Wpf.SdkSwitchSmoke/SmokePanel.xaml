@@ -1,0 +1,26 @@
+<UserControl
+    x:Class="ProGPU.Wpf.SdkSwitchSmoke.SmokePanel"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    x:Name="Root">
+    <Border
+        x:Name="PanelRoot"
+        Padding="6"
+        BorderBrush="{DynamicResource SmokeAccentBrush}"
+        BorderThickness="1"
+        Tag="{Binding Caption, ElementName=Root}">
+        <StackPanel>
+            <TextBlock
+                x:Name="PanelCaption"
+                FontWeight="SemiBold"
+                Text="{Binding Caption, ElementName=Root}" />
+            <TextBlock
+                x:Name="PanelRelativeCaption"
+                Tag="{Binding Caption, ElementName=Root}"
+                Text="{Binding Tag, RelativeSource={RelativeSource Self}}" />
+            <ContentPresenter
+                x:Name="PanelContentPresenter"
+                Content="{Binding PanelContent, ElementName=Root}" />
+        </StackPanel>
+    </Border>
+</UserControl>

@@ -11,8 +11,10 @@
 //
 
 using MS.Internal;
+using System;
 using System.Windows.Media.Animation;
 using System.Windows.Media.Composition;
+using ProGPU.Wpf.Interop;
 
 namespace System.Windows.Media
 {
@@ -20,7 +22,7 @@ namespace System.Windows.Media
     /// Pen - The pen class is used to describe how a shape is stroked.
     /// </summary>
     [Localizability(LocalizationCategory.None, Readability = Readability.Unreadable)]
-    public sealed partial class Pen : Animatable, DUCE.IResource
+    public sealed partial class Pen : Animatable, DUCE.IResource, IPortablePenSource, IPortablePenStateSource
     {
         #region Constructors
 
@@ -77,6 +79,62 @@ namespace System.Windows.Media
         }
 
         #endregion Constructors
+
+        bool IPortablePenStateSource.TryGetPortablePenState(out PortablePenState state)
+        {
+            ReadPreamble();
+            // Algorithm: retain the source brush and snapshot stroke settings once per export.
+            // Time: O(D) for D dash entries. Space: O(D) owned dash snapshot.
+            DashStyle dashStyle = DashStyle;
+            state = new PortablePenState(Brush, Thickness,
+                (PortablePenLineCap)StartLineCap, (PortablePenLineCap)EndLineCap,
+                (PortablePenLineCap)DashCap, (PortablePenLineJoin)LineJoin, MiterLimit,
+                dashStyle == null ? Array.Empty<double>() : CopyDashes(dashStyle.Dashes),
+                dashStyle?.Offset ?? 0.0);
+            return true;
+        }
+
+        bool IPortablePenSource.TryGetPortablePen(out PortablePen pen)
+        {
+            pen = null;
+            if (Brush is not IPortableBrushSource brushSource
+                || !brushSource.TryGetPortableBrush(out var portableBrush))
+            {
+                return false;
+            }
+
+            DashStyle dashStyle = DashStyle;
+            var dashArray = dashStyle == null ? Array.Empty<double>() : CopyDashes(dashStyle.Dashes);
+            var dashOffset = dashStyle?.Offset ?? 0.0;
+
+            pen = new PortablePen(
+                portableBrush,
+                Thickness,
+                (PortablePenLineCap)StartLineCap,
+                (PortablePenLineCap)EndLineCap,
+                (PortablePenLineCap)DashCap,
+                (PortablePenLineJoin)LineJoin,
+                MiterLimit,
+                dashArray,
+                dashOffset);
+            return true;
+        }
+
+        private static double[] CopyDashes(DoubleCollection dashes)
+        {
+            if (dashes == null || dashes.Count == 0)
+            {
+                return Array.Empty<double>();
+            }
+
+            var values = new double[dashes.Count];
+            for (var i = 0; i < values.Length; i++)
+            {
+                values[i] = dashes[i];
+            }
+
+            return values;
+        }
 
         private MIL_PEN_CAP GetInternalCapType(PenLineCap cap)
         {

@@ -401,8 +401,14 @@ namespace System.Windows
                 dataObject = new DataObject(data);
             }
 
-            // Call OleDoDragDrop with DataObject.
-            DragDropEffects ret = OleDoDragDrop(dragSource, dataObject, allowedEffects);
+            // Portable presentation sources do not own an HWND/OLE message pump, so they can't
+            // drive OleDoDragDrop's native modal loop. PortableDragDropOperation replays the same
+            // source-side protocol (QueryContinueDrag/GiveFeedback, DragEnter/Over/Leave/Drop)
+            // without OLE, driven by a captured mouse and a nested DispatcherFrame instead - see
+            // that class for the full rationale.
+            DragDropEffects ret = IsPortableDragSource(dragSource)
+                ? PortableDragDropOperation.Run(dragSource, dataObject, allowedEffects)
+                : OleDoDragDrop(dragSource, dataObject, allowedEffects);
 
             args = new RoutedEventArgs(DragDropCompletedEvent, dragSource);
             
@@ -533,6 +539,79 @@ namespace System.Windows
             }
 
             return true;
+        }
+
+        internal static bool IsPortableDragSource(DependencyObject dragSource)
+        {
+            return dragSource != null &&
+                PresentationSource.CriticalFromVisual(dragSource) is PortablePresentationSource;
+        }
+
+        internal static DragDropEffects ProcessPortableDrop(
+            DependencyObject target,
+            IDataObject dataObject,
+            DragDropKeyStates dragDropKeyStates,
+            DragDropEffects allowedEffects,
+            DragDropEffects acceptedEffect,
+            Point targetPoint)
+        {
+            return ProcessPortableDragDrop(
+                target,
+                DropEvent,
+                dataObject,
+                dragDropKeyStates,
+                allowedEffects,
+                acceptedEffect,
+                targetPoint);
+        }
+
+        /// <summary>
+        /// Raises a portable drag/drop event on the specified drop target.
+        /// </summary>
+        /// <param name="target">The UIElement, ContentElement, or UIElement3D drop target.</param>
+        /// <param name="dragEvent">One of the DragEnter, DragOver, DragLeave, or Drop routed events.</param>
+        /// <param name="dataObject">The drag/drop payload.</param>
+        /// <param name="dragDropKeyStates">Current mouse button and modifier key state.</param>
+        /// <param name="allowedEffects">The effects allowed by the drag source.</param>
+        /// <param name="acceptedEffect">The preferred accepted effect when handlers leave the effect unchanged.</param>
+        /// <param name="targetPoint">The pointer position relative to the drop target.</param>
+        /// <returns>The accepted drag/drop effect.</returns>
+        public static DragDropEffects ProcessPortableDragDrop(
+            DependencyObject target,
+            RoutedEvent dragEvent,
+            IDataObject dataObject,
+            DragDropKeyStates dragDropKeyStates,
+            DragDropEffects allowedEffects,
+            DragDropEffects acceptedEffect,
+            Point targetPoint)
+        {
+            if (target == null ||
+                dragEvent == null ||
+                dataObject == null ||
+                !OleDropTarget.IsPortableDropTarget(target) ||
+                !OleDropTarget.IsDataAvailable(dataObject))
+            {
+                return DragDropEffects.None;
+            }
+
+            int effects = (int)allowedEffects;
+            OleDropTarget.RaiseDragEvent(
+                dragEvent,
+                dataObject,
+                (int)dragDropKeyStates,
+                ref effects,
+                target,
+                targetPoint);
+
+            DragDropEffects result = (DragDropEffects)effects;
+            if (result == allowedEffects &&
+                acceptedEffect != DragDropEffects.None &&
+                (acceptedEffect & allowedEffects) == acceptedEffect)
+            {
+                result = acceptedEffect;
+            }
+
+            return result;
         }
 
         #endregion Internal Methods
@@ -1119,14 +1198,26 @@ namespace System.Windows
         /// </summary>
         private void RaiseDragEvent(RoutedEvent dragEvent, int dragDropKeyStates, ref int effects, DependencyObject target, Point targetPoint)
         {
+            Invariant.Assert(_dataObject != null);
+            RaiseDragEvent(dragEvent, _dataObject, dragDropKeyStates, ref effects, target, targetPoint);
+        }
+
+        internal static void RaiseDragEvent(
+            RoutedEvent dragEvent,
+            IDataObject dataObject,
+            int dragDropKeyStates,
+            ref int effects,
+            DependencyObject target,
+            Point targetPoint)
+        {
             DragEventArgs dragEventArgs;
 
-            Invariant.Assert(_dataObject != null);
+            Invariant.Assert(dataObject != null);
             Invariant.Assert(target != null);
 
             // Create DragEvent argument to raise DragEnter events to the target.
             dragEventArgs = new DragEventArgs(
-                _dataObject,
+                dataObject,
                 (DragDropKeyStates)dragDropKeyStates,
                 (DragDropEffects)effects,
                 target,
@@ -1213,7 +1304,7 @@ namespace System.Windows
         /// <summary>
         /// Default drag enter during drag-and-drop operation.
         /// </summary>
-        private void OnDefaultDragEnter(DragEventArgs e)
+        private static void OnDefaultDragEnter(DragEventArgs e)
         {
             bool ctrlKeyDown;
 
@@ -1241,7 +1332,7 @@ namespace System.Windows
         /// <summary>
         /// Default drag over during drag-and-drop operation.
         /// </summary>
-        private void OnDefaultDragOver(DragEventArgs e)
+        private static void OnDefaultDragOver(DragEventArgs e)
         {
             bool ctrlKeyDown;
 
@@ -1396,7 +1487,7 @@ namespace System.Windows
         /// <summary>
         /// Check the available data.
         /// </summary>
-        private bool IsDataAvailable(IDataObject dataObject)
+        internal static bool IsDataAvailable(IDataObject dataObject)
         {
             bool dataAvailable;
 
@@ -1421,6 +1512,17 @@ namespace System.Windows
             return dataAvailable;
         }
 
+        internal static bool IsPortableDropTarget(DependencyObject target)
+        {
+            return target switch
+            {
+                UIElement uiElement => uiElement.AllowDrop,
+                ContentElement contentElement => contentElement.AllowDrop,
+                UIElement3D uiElement3D => uiElement3D.AllowDrop,
+                _ => false
+            };
+        }
+
         #endregion Private Methods
 
         //------------------------------------------------------
@@ -1442,4 +1544,3 @@ namespace System.Windows
 
     #endregion OleDropTarget
 }
-

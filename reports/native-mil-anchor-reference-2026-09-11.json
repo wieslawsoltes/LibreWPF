@@ -1,0 +1,597 @@
+{
+  "schemaVersion": 1,
+  "runtime": "10.0.12",
+  "presentationFramework": "PresentationFramework, Version=10.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35",
+  "presentationFrameworkLocation": "C:\\Program Files\\dotnet\\shared\\Microsoft.WindowsDesktop.App\\10.0.12\\PresentationFramework.dll",
+  "os": "Microsoft Windows NT 10.0.26200.0",
+  "cases": [
+    {
+      "name": "left-at-start",
+      "prefix": "",
+      "requestedWidth": 100,
+      "viewerWidth": 320,
+      "alignment": "Left",
+      "figure": false,
+      "prefixFirst": null,
+      "prefixLast": null,
+      "anchorFirst": {
+        "x": 0,
+        "y": 14.05,
+        "width": 0,
+        "height": 14.05
+      },
+      "siblingFirst": null,
+      "suffixFirst": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 14.05
+      },
+      "suffixRows": [
+        {
+          "offset": 0,
+          "x": 0,
+          "y": 0,
+          "height": 14.05
+        }
+      ]
+    },
+    {
+      "name": "left-after-short-prefix",
+      "prefix": "prefix ",
+      "requestedWidth": 100,
+      "viewerWidth": 320,
+      "alignment": "Left",
+      "figure": false,
+      "prefixFirst": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 14.05
+      },
+      "prefixLast": {
+        "x": 39.580000000000005,
+        "y": 0,
+        "width": 0,
+        "height": 14.05
+      },
+      "anchorFirst": {
+        "x": 0,
+        "y": 14.05,
+        "width": 0,
+        "height": 14.05
+      },
+      "siblingFirst": null,
+      "suffixFirst": {
+        "x": 46.73666666666667,
+        "y": 0,
+        "width": 0,
+        "height": 14.05
+      },
+      "suffixRows": [
+        {
+          "offset": 0,
+          "x": 46.73666666666667,
+          "y": 0,
+          "height": 14.05
+        },
+        {
+          "offset": 42,
+          "x": 100,
+          "y": 14.05,
+          "height": 14.05
+        }
+      ]
+    },
+    {
+      "name": "right-after-short-prefix",
+      "prefix": "prefix ",
+      "requestedWidth": 100,
+      "viewerWidth": 320,
+      "alignment": "Right",
+      "figure": false,
+      "prefixFirst": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 14.05
+      },
+      "prefixLast": {
+        "x": 39.580000000000005,
+        "y": 0,
+        "width": 0,
+        "height": 14.05
+      },
+      "anchorFirst": {
+        "x": 220,
+        "y": 14.05,
+        "width": 0,
+        "height": 14.05
+      },
+      "siblingFirst": null,
+      "suffixFirst": {
+        "x": 46.73666666666667,
+        "y": 0,
+        "width": 0,
+        "height": 14.05
+      },
+      "suffixRows": [
+        {
+          "offset": 0,
+          "x": 46.73666666666667,
+          "y": 0,
+          "height": 14.05
+        },
+        {
+          "offset": 42,
+          "x": 0,
+          "y": 14.05,
+          "height": 14.05
+        }
+      ]
+    },
+    {
+      "name": "left-after-wrapped-prefix",
+      "prefix": "prefix prefix prefix prefix prefix prefix prefix prefix prefix prefix prefix prefix ",
+      "requestedWidth": 100,
+      "viewerWidth": 320,
+      "alignment": "Left",
+      "figure": false,
+      "prefixFirst": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 14.05
+      },
+      "prefixLast": {
+        "x": 226.52666666666667,
+        "y": 14.05,
+        "width": 0,
+        "height": 14.05
+      },
+      "anchorFirst": {
+        "x": 0,
+        "y": 28.1,
+        "width": 0,
+        "height": 14.05
+      },
+      "siblingFirst": null,
+      "suffixFirst": {
+        "x": 233.68333333333334,
+        "y": 14.05,
+        "width": 0,
+        "height": 14.05
+      },
+      "suffixRows": [
+        {
+          "offset": 0,
+          "x": 233.68333333333334,
+          "y": 14.05,
+          "height": 14.05
+        },
+        {
+          "offset": 14,
+          "x": 100,
+          "y": 28.1,
+          "height": 14.05
+        },
+        {
+          "offset": 42,
+          "x": 0,
+          "y": 42.15,
+          "height": 14.05
+        }
+      ]
+    },
+    {
+      "name": "full-width-after-short-prefix",
+      "prefix": "prefix ",
+      "requestedWidth": 320,
+      "viewerWidth": 320,
+      "alignment": "Left",
+      "figure": false,
+      "prefixFirst": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 14.05
+      },
+      "prefixLast": {
+        "x": 39.580000000000005,
+        "y": 0,
+        "width": 0,
+        "height": 14.05
+      },
+      "anchorFirst": {
+        "x": 0,
+        "y": 14.05,
+        "width": 0,
+        "height": 14.05
+      },
+      "siblingFirst": null,
+      "suffixFirst": {
+        "x": 46.73666666666667,
+        "y": 0,
+        "width": 0,
+        "height": 14.05
+      },
+      "suffixRows": [
+        {
+          "offset": 0,
+          "x": 46.73666666666667,
+          "y": 0,
+          "height": 14.05
+        },
+        {
+          "offset": 42,
+          "x": 0,
+          "y": 28.1,
+          "height": 14.05
+        }
+      ]
+    },
+    {
+      "name": "figure-after-short-prefix",
+      "prefix": "prefix ",
+      "requestedWidth": 100,
+      "viewerWidth": 320,
+      "alignment": "Left",
+      "figure": true,
+      "prefixFirst": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 14.05
+      },
+      "prefixLast": {
+        "x": 39.580000000000005,
+        "y": 0,
+        "width": 0,
+        "height": 14.05
+      },
+      "anchorFirst": {
+        "x": 0,
+        "y": 14.05,
+        "width": 0,
+        "height": 14.05
+      },
+      "siblingFirst": null,
+      "suffixFirst": {
+        "x": 46.73666666666667,
+        "y": 0,
+        "width": 0,
+        "height": 14.05
+      },
+      "suffixRows": [
+        {
+          "offset": 0,
+          "x": 46.73666666666667,
+          "y": 0,
+          "height": 14.05
+        },
+        {
+          "offset": 42,
+          "x": 100,
+          "y": 14.05,
+          "height": 14.05
+        }
+      ]
+    },
+    {
+      "name": "auto-left-after-short-prefix",
+      "prefix": "prefix ",
+      "requestedWidth": null,
+      "viewerWidth": 320,
+      "alignment": "Left",
+      "figure": false,
+      "prefixFirst": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 14.05
+      },
+      "prefixLast": {
+        "x": 39.580000000000005,
+        "y": 0,
+        "width": 0,
+        "height": 14.05
+      },
+      "anchorFirst": {
+        "x": 0,
+        "y": 14.05,
+        "width": 0,
+        "height": 14.05
+      },
+      "siblingFirst": null,
+      "suffixFirst": {
+        "x": 46.73666666666667,
+        "y": 0,
+        "width": 0,
+        "height": 14.05
+      },
+      "suffixRows": [
+        {
+          "offset": 0,
+          "x": 46.73666666666667,
+          "y": 0,
+          "height": 14.05
+        },
+        {
+          "offset": 42,
+          "x": 72.56666666666666,
+          "y": 14.05,
+          "height": 14.05
+        }
+      ]
+    },
+    {
+      "name": "auto-stretch-after-short-prefix",
+      "prefix": "prefix ",
+      "requestedWidth": null,
+      "viewerWidth": 320,
+      "alignment": "Stretch",
+      "figure": false,
+      "prefixFirst": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 14.05
+      },
+      "prefixLast": {
+        "x": 39.580000000000005,
+        "y": 0,
+        "width": 0,
+        "height": 14.05
+      },
+      "anchorFirst": {
+        "x": 0,
+        "y": 14.05,
+        "width": 0,
+        "height": 14.05
+      },
+      "siblingFirst": null,
+      "suffixFirst": {
+        "x": 46.73666666666667,
+        "y": 0,
+        "width": 0,
+        "height": 14.05
+      },
+      "suffixRows": [
+        {
+          "offset": 0,
+          "x": 46.73666666666667,
+          "y": 0,
+          "height": 14.05
+        },
+        {
+          "offset": 42,
+          "x": 0,
+          "y": 28.1,
+          "height": 14.05
+        }
+      ]
+    },
+    {
+      "name": "auto-figure-after-short-prefix",
+      "prefix": "prefix ",
+      "requestedWidth": null,
+      "viewerWidth": 320,
+      "alignment": "Left",
+      "figure": true,
+      "prefixFirst": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 14.05
+      },
+      "prefixLast": {
+        "x": 39.580000000000005,
+        "y": 0,
+        "width": 0,
+        "height": 14.05
+      },
+      "anchorFirst": {
+        "x": 0,
+        "y": 14.05,
+        "width": 0,
+        "height": 14.05
+      },
+      "siblingFirst": null,
+      "suffixFirst": {
+        "x": 46.73666666666667,
+        "y": 0,
+        "width": 0,
+        "height": 14.05
+      },
+      "suffixRows": [
+        {
+          "offset": 0,
+          "x": 46.73666666666667,
+          "y": 0,
+          "height": 14.05
+        },
+        {
+          "offset": 42,
+          "x": 72.56666666666666,
+          "y": 14.05,
+          "height": 14.05
+        }
+      ]
+    },
+    {
+      "name": "sibling-anchors",
+      "prefix": "prefix ",
+      "requestedWidth": 100,
+      "viewerWidth": 320,
+      "alignment": "Left",
+      "figure": false,
+      "prefixFirst": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 14.05
+      },
+      "prefixLast": {
+        "x": 39.580000000000005,
+        "y": 0,
+        "width": 0,
+        "height": 14.05
+      },
+      "anchorFirst": {
+        "x": 0,
+        "y": 14.05,
+        "width": 0,
+        "height": 14.05
+      },
+      "siblingFirst": {
+        "x": 100,
+        "y": 14.05,
+        "width": 0,
+        "height": 14.05
+      },
+      "suffixFirst": {
+        "x": 46.73666666666667,
+        "y": 0,
+        "width": 0,
+        "height": 14.05
+      },
+      "suffixRows": [
+        {
+          "offset": 0,
+          "x": 46.73666666666667,
+          "y": 0,
+          "height": 14.05
+        },
+        {
+          "offset": 42,
+          "x": 200,
+          "y": 14.05,
+          "height": 14.05
+        }
+      ]
+    },
+    {
+      "name": "right-sibling-anchors",
+      "prefix": "prefix ",
+      "requestedWidth": 100,
+      "viewerWidth": 320,
+      "alignment": "Right",
+      "figure": false,
+      "prefixFirst": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 14.05
+      },
+      "prefixLast": {
+        "x": 39.580000000000005,
+        "y": 0,
+        "width": 0,
+        "height": 14.05
+      },
+      "anchorFirst": {
+        "x": 220,
+        "y": 14.05,
+        "width": 0,
+        "height": 14.05
+      },
+      "siblingFirst": {
+        "x": 120,
+        "y": 14.05,
+        "width": 0,
+        "height": 14.05
+      },
+      "suffixFirst": {
+        "x": 46.73666666666667,
+        "y": 0,
+        "width": 0,
+        "height": 14.05
+      },
+      "suffixRows": [
+        {
+          "offset": 0,
+          "x": 46.73666666666667,
+          "y": 0,
+          "height": 14.05
+        },
+        {
+          "offset": 42,
+          "x": 0,
+          "y": 14.05,
+          "height": 14.05
+        }
+      ]
+    },
+    {
+      "name": "center-sibling-anchors",
+      "prefix": "prefix ",
+      "requestedWidth": 100,
+      "viewerWidth": 320,
+      "alignment": "Center",
+      "figure": false,
+      "prefixFirst": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 14.05
+      },
+      "prefixLast": {
+        "x": 39.580000000000005,
+        "y": 0,
+        "width": 0,
+        "height": 14.05
+      },
+      "anchorFirst": {
+        "x": 110,
+        "y": 14.05,
+        "width": 0,
+        "height": 14.05
+      },
+      "siblingFirst": {
+        "x": 5,
+        "y": 14.05,
+        "width": 0,
+        "height": 14.05
+      },
+      "suffixFirst": {
+        "x": 46.73666666666667,
+        "y": 0,
+        "width": 0,
+        "height": 14.05
+      },
+      "suffixRows": [
+        {
+          "offset": 0,
+          "x": 46.73666666666667,
+          "y": 0,
+          "height": 14.05
+        },
+        {
+          "offset": 42,
+          "x": 210,
+          "y": 14.05,
+          "height": 14.05
+        }
+      ]
+    },
+    {
+      "name": "anchor-only",
+      "prefix": "",
+      "requestedWidth": 100,
+      "viewerWidth": 320,
+      "alignment": "Left",
+      "figure": false,
+      "prefixFirst": null,
+      "prefixLast": null,
+      "anchorFirst": {
+        "x": 0,
+        "y": 14.05,
+        "width": 0,
+        "height": 14.05
+      },
+      "siblingFirst": null,
+      "suffixFirst": null,
+      "suffixRows": []
+    }
+  ]
+}

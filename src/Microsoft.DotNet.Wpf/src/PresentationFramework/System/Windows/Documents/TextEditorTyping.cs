@@ -184,6 +184,11 @@ namespace System.Windows.Documents
             if (TextEditor._ThreadLocalStore.HideCursor)
             {
                 TextEditor._ThreadLocalStore.HideCursor = false;
+                if (!OperatingSystem.IsWindows())
+                {
+                    return;
+                }
+
                 SafeNativeMethods.ShowCursor(true);
             }
         }
@@ -1596,6 +1601,11 @@ namespace System.Windows.Documents
         // it interleaves work items with the win32 input queue.
         private static bool IsMouseInputPending(TextEditor This)
         {
+            if (!OperatingSystem.IsWindows())
+            {
+                return false;
+            }
+
             bool mouseInputPending = false;
             IWin32Window win32Window = PresentationSource.CriticalFromVisual(This.UiScope) as IWin32Window;
             if (win32Window != null)
@@ -1857,6 +1867,11 @@ namespace System.Windows.Documents
         // Hides the mouse cursor when the user starts typing.
         private static void HideCursor(TextEditor This)
         {
+            if (!OperatingSystem.IsWindows())
+            {
+                return;
+            }
+
             if (!TextEditor._ThreadLocalStore.HideCursor &&
                 SystemParameters.MouseVanish &&
                 This.UiScope.IsMouseOver)

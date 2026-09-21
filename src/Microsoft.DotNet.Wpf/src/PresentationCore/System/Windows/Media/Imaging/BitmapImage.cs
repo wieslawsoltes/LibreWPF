@@ -301,12 +301,32 @@ namespace System.Windows.Media.Imaging
                 (CreateOptions & BitmapCreateOptions.IgnoreColorProfile)
                )
             {
-                _syncObject = bitmapImage.SyncObject;
-                lock (_syncObject)
+                object cachedSyncObject = bitmapImage.SyncObject;
+                lock (cachedSyncObject)
                 {
-                    WicSourceHandle = bitmapImage.WicSourceHandle;
-                    IsSourceCached = bitmapImage.IsSourceCached;
-                    _convertedDUCEPtr = bitmapImage._convertedDUCEPtr;
+                    byte[] cachedManagedPixels = bitmapImage.CloneManagedPixelBuffer();
+
+                    if (cachedManagedPixels != null)
+                    {
+                        InitializeManagedPixelBuffer(
+                            bitmapImage.PixelWidth,
+                            bitmapImage.PixelHeight,
+                            bitmapImage.DpiX,
+                            bitmapImage.DpiY,
+                            bitmapImage.Format,
+                            bitmapImage.Palette,
+                            cachedManagedPixels,
+                            bitmapImage._managedPixelStride);
+                    }
+                    else if (!UsesPortablePixelStorage)
+                    {
+                        _syncObject = cachedSyncObject;
+                        WicSourceHandle = bitmapImage.WicSourceHandle;
+                    }
+                    else
+                    {
+                        bitmapImage = null;
+                    }
 
                     //
                     // We nee d to keep the strong reference to the cached image for a few reasons:
@@ -321,10 +341,19 @@ namespace System.Windows.Media.Imaging
                     //       collected can cause bad behavior if the entire image is not loaded into
                     //       memory.
                     //
-                    _cachedBitmapImage = bitmapImage;
+                    if (bitmapImage != null)
+                    {
+                        IsSourceCached = bitmapImage.IsSourceCached;
+                        _convertedDUCEPtr = bitmapImage._convertedDUCEPtr;
+                        _cachedBitmapImage = bitmapImage;
+                    }
                 }
-                UpdateCachedSettings();
-                return;
+
+                if (bitmapImage != null)
+                {
+                    UpdateCachedSettings();
+                    return;
+                }
             }
 
             BitmapDecoder decoder = null;
@@ -611,7 +640,26 @@ namespace System.Windows.Media.Imaging
                 _finalSource = source;
             }
 
-            WicSourceHandle = source.WicSourceHandle;
+            byte[] managedPixels = source.CloneManagedPixelBuffer();
+            if (managedPixels != null)
+            {
+                InitializeManagedPixelBuffer(
+                    source.PixelWidth,
+                    source.PixelHeight,
+                    source.DpiX,
+                    source.DpiY,
+                    source.Format,
+                    source.Palette,
+                    managedPixels,
+                    source._managedPixelStride);
+            }
+            else
+            {
+                if (UsesPortablePixelStorage)
+                    throw new NotSupportedException("The decoded bitmap does not expose portable pixel storage.");
+                WicSourceHandle = source.WicSourceHandle;
+            }
+
             IsSourceCached = source.IsSourceCached;
 
             CreationCompleted = true;

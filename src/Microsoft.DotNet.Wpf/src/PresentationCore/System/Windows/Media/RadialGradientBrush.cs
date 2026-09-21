@@ -10,6 +10,7 @@
 //
 
 using System.Windows.Media.Composition;
+using ProGPU.Wpf.Interop;
 
 namespace System.Windows.Media
 {
@@ -17,7 +18,7 @@ namespace System.Windows.Media
     /// RadialGradientBrush - This GradientBrush defines its Gradient as an interpolation
     /// within an Ellipse.
     /// </summary>
-    public sealed partial class RadialGradientBrush : GradientBrush
+    public sealed partial class RadialGradientBrush : GradientBrush, IPortableBrushSource
     {
         #region Constructors
 
@@ -55,6 +56,30 @@ namespace System.Windows.Media
             
 
         #endregion Constructors
+
+        bool IPortableBrushSource.TryGetPortableBrush(out PortableBrush brush)
+        {
+            Point center = Center;
+            Point gradientOrigin = GradientOrigin;
+            bool hasTransform = TryGetPortableBrushTransform(Transform, out PortableMatrix3x2 transform);
+            bool hasRelativeTransform = TryGetPortableBrushTransform(RelativeTransform, out PortableMatrix3x2 relativeTransform);
+
+            brush = PortableBrush.RadialGradient(
+                new PortablePoint(center.X, center.Y),
+                new PortablePoint(gradientOrigin.X, gradientOrigin.Y),
+                RadiusX,
+                RadiusY,
+                GetPortableGradientStops(),
+                Opacity,
+                GetPortableBrushMappingMode(),
+                GetPortableGradientSpreadMethod(),
+                GetPortableGradientColorInterpolationMode(),
+                hasTransform,
+                transform,
+                hasRelativeTransform,
+                relativeTransform);
+            return true;
+        }
 
         private void ManualUpdateResource(DUCE.Channel channel, bool skipOnChannelCheck)
         {
@@ -154,4 +179,3 @@ namespace System.Windows.Media
         }
     }
 }
-

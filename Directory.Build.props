@@ -2,10 +2,22 @@
 
   <PropertyGroup>
     <RepositoryName>wpf</RepositoryName>
-    <PackageProjectUrl>https://github.com/dotnet/wpf</PackageProjectUrl>
+    <PackageProjectUrl>https://github.com/wieslawsoltes/wpf</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/wieslawsoltes/wpf</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags Condition="'$(PackageTags)' == ''">librewpf;progpu;webgpu;silk.net;xaml;cross-platform;desktop</PackageTags>
     <WindowsDesktopARM64Support>true</WindowsDesktopARM64Support>
-    <TargetFramework>net11.0</TargetFramework>
-    <TargetFrameworkVersion>11.0</TargetFrameworkVersion>
+    <ProGpuWpfTargetFramework Condition="'$(ProGpuWpfTargetFramework)' == ''">net10.0</ProGpuWpfTargetFramework>
+    <ProGpuWpfTargetFrameworkVersion Condition="'$(ProGpuWpfTargetFrameworkVersion)' == ''">10.0</ProGpuWpfTargetFrameworkVersion>
+    <ProGpuWpfSdkSampleTargetFramework Condition="'$(ProGpuWpfSdkSampleTargetFramework)' == ''">net10.0-windows</ProGpuWpfSdkSampleTargetFramework>
+    <ProGpuWpfRuntimeHarnessTargetFramework Condition="'$(ProGpuWpfRuntimeHarnessTargetFramework)' == ''">net10.0</ProGpuWpfRuntimeHarnessTargetFramework>
+    <ProGpuWpfPortableNetCoreAppRefVersion Condition="'$(ProGpuWpfPortableNetCoreAppRefVersion)' == '' And '$(ProGpuWpfTargetFramework)' == 'net10.0'">10.0.5</ProGpuWpfPortableNetCoreAppRefVersion>
+    <ProGpuWpfSkipMissingPrivateWinFormsReferences Condition="'$(ProGpuWpfSkipMissingPrivateWinFormsReferences)' == '' And '$(ProGpuWpfTargetFramework)' == 'net10.0'">true</ProGpuWpfSkipMissingPrivateWinFormsReferences>
+    <RunRefApiCompat Condition="'$(RunRefApiCompat)' == '' And '$(ProGpuWpfTargetFramework)' == 'net10.0'">false</RunRefApiCompat>
+    <DefineConstants Condition="'$(ProGpuWpfSkipMissingPrivateWinFormsReferences)' == 'true'">$(DefineConstants);PROGPU_WPF_ALIAS_WINCORE;PROGPU_WPF_PORTABLE_NO_WINFORMS</DefineConstants>
+    <BundledNETCoreAppTargetFramework Condition="'$(BundledNETCoreAppTargetFramework)' == ''">$(ProGpuWpfTargetFramework)</BundledNETCoreAppTargetFramework>
+    <TargetFramework>$(ProGpuWpfTargetFramework)</TargetFramework>
+    <TargetFrameworkVersion>$(ProGpuWpfTargetFrameworkVersion)</TargetFrameworkVersion>
     <BuildWithNetFrameworkHostedCompiler>true</BuildWithNetFrameworkHostedCompiler>
     <PublishWindowsPdb>false</PublishWindowsPdb>
     <TestRunnerName>XUnitV3</TestRunnerName>
@@ -34,5 +46,46 @@
   <Import Sdk="Microsoft.DotNet.Arcade.Wpf.Sdk"
           Project="Sdk.props"
           Condition="!Exists('$(WpfArcadeSdkProps)') Or !Exists('$(WpfArcadeSdkTargets)')"/>
+
+  <PropertyGroup>
+    <!-- Source test utilities follow the upstream dependency snapshot. Preserve
+         their NRBF requirement before applying the portable product's .NET 10
+         support-package pins; otherwise a clean test restore reports NU1605. -->
+    <ProGpuWpfTestFormatsNrbfVersion Condition="'$(ProGpuWpfTestFormatsNrbfVersion)' == ''">$(SystemFormatsNrbfVersion)</ProGpuWpfTestFormatsNrbfVersion>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(ProGpuWpfTargetFramework)' == 'net10.0'">
+    <ProGpuWpfNet10SupportPackageVersion>10.0.11</ProGpuWpfNet10SupportPackageVersion>
+    <SystemCodeDomPackageVersion>$(ProGpuWpfNet10SupportPackageVersion)</SystemCodeDomPackageVersion>
+    <SystemCodeDomVersion>$(ProGpuWpfNet10SupportPackageVersion)</SystemCodeDomVersion>
+    <SystemConfigurationConfigurationManagerPackageVersion>$(ProGpuWpfNet10SupportPackageVersion)</SystemConfigurationConfigurationManagerPackageVersion>
+    <SystemConfigurationConfigurationManagerVersion>$(ProGpuWpfNet10SupportPackageVersion)</SystemConfigurationConfigurationManagerVersion>
+    <SystemDiagnosticsEventLogPackageVersion>$(ProGpuWpfNet10SupportPackageVersion)</SystemDiagnosticsEventLogPackageVersion>
+    <SystemDiagnosticsEventLogVersion>$(ProGpuWpfNet10SupportPackageVersion)</SystemDiagnosticsEventLogVersion>
+    <SystemDirectoryServicesPackageVersion>$(ProGpuWpfNet10SupportPackageVersion)</SystemDirectoryServicesPackageVersion>
+    <SystemDirectoryServicesVersion>$(ProGpuWpfNet10SupportPackageVersion)</SystemDirectoryServicesVersion>
+    <SystemDrawingCommonPackageVersion>$(ProGpuWpfNet10SupportPackageVersion)</SystemDrawingCommonPackageVersion>
+    <SystemDrawingCommonVersion>$(ProGpuWpfNet10SupportPackageVersion)</SystemDrawingCommonVersion>
+    <SystemFormatsNrbfPackageVersion>$(ProGpuWpfNet10SupportPackageVersion)</SystemFormatsNrbfPackageVersion>
+    <SystemFormatsNrbfVersion>$(ProGpuWpfNet10SupportPackageVersion)</SystemFormatsNrbfVersion>
+    <SystemIOPackagingPackageVersion>$(ProGpuWpfNet10SupportPackageVersion)</SystemIOPackagingPackageVersion>
+    <SystemIOPackagingVersion>$(ProGpuWpfNet10SupportPackageVersion)</SystemIOPackagingVersion>
+    <SystemReflectionMetadataLoadContextPackageVersion>$(ProGpuWpfNet10SupportPackageVersion)</SystemReflectionMetadataLoadContextPackageVersion>
+    <SystemReflectionMetadataLoadContextVersion>$(ProGpuWpfNet10SupportPackageVersion)</SystemReflectionMetadataLoadContextVersion>
+    <SystemResourcesExtensionsPackageVersion>$(ProGpuWpfNet10SupportPackageVersion)</SystemResourcesExtensionsPackageVersion>
+    <SystemResourcesExtensionsVersion>$(ProGpuWpfNet10SupportPackageVersion)</SystemResourcesExtensionsVersion>
+    <SystemSecurityPermissionsPackageVersion>$(ProGpuWpfNet10SupportPackageVersion)</SystemSecurityPermissionsPackageVersion>
+    <SystemSecurityPermissionsVersion>$(ProGpuWpfNet10SupportPackageVersion)</SystemSecurityPermissionsVersion>
+    <SystemSecurityCryptographyXmlPackageVersion>$(ProGpuWpfNet10SupportPackageVersion)</SystemSecurityCryptographyXmlPackageVersion>
+    <SystemSecurityCryptographyXmlVersion>$(ProGpuWpfNet10SupportPackageVersion)</SystemSecurityCryptographyXmlVersion>
+    <SystemWindowsExtensionsPackageVersion>$(ProGpuWpfNet10SupportPackageVersion)</SystemWindowsExtensionsPackageVersion>
+    <SystemWindowsExtensionsVersion>$(ProGpuWpfNet10SupportPackageVersion)</SystemWindowsExtensionsVersion>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <BundledNETCoreAppTargetFramework>$(ProGpuWpfTargetFramework)</BundledNETCoreAppTargetFramework>
+    <PbtTfm Condition="'$(MSBuildRuntimeType)' == 'Core'">$(BundledNETCoreAppTargetFramework)</PbtTfm>
+    <PbtDir Condition="'$(ArtifactsTmpDir)' != '' And '$(PbtTfm)' != ''">$(ArtifactsTmpDir)PresentationBuildTasks\$(PbtTfm)\</PbtDir>
+  </PropertyGroup>
 
 </Project>

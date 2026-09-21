@@ -9,6 +9,14 @@ namespace System.Windows.Media
     internal class VisualDrawingContext : RenderDataDrawingContext
     {
         #region Constructors
+
+        internal static VisualDrawingContext Create(Visual ownerVisual)
+        {
+            IRenderDataDrawingContextSink renderDataSink = RenderDataDrawingContextSinkProvider.CreateSink(ownerVisual);
+            return renderDataSink != null
+                ? new VisualDrawingContext(ownerVisual, renderDataSink)
+                : new VisualDrawingContext(ownerVisual);
+        }
         
         /// <summary>
         /// Creates a drawing context for a DrawingVisual.
@@ -18,6 +26,16 @@ namespace System.Windows.Media
         internal VisualDrawingContext(
             Visual ownerVisual
             )
+        {
+            Debug.Assert(null != ownerVisual);
+
+            _ownerVisual = ownerVisual;
+        }
+
+        private VisualDrawingContext(
+            Visual ownerVisual,
+            IRenderDataDrawingContextSink renderDataSink
+            ) : base(renderDataSink)
         {
             Debug.Assert(null != ownerVisual);
 

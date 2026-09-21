@@ -284,6 +284,9 @@ namespace MS.Internal.Documents.Application
         /// </summary>
         internal void ShowDialog()
         {
+#if PROGPU_WPF_PORTABLE_NO_WINFORMS
+            return;
+#else
             // Setup the dialog data once and cache it for future calls.
             if (!_isDataAcquired)
             {
@@ -315,6 +318,7 @@ namespace MS.Internal.Documents.Application
             dialog = new DocumentPropertiesDialog();
             dialog.ShowDialog();
             dialog?.Dispose();
+#endif
         }
         #endregion Internal Methods
 
@@ -407,7 +411,9 @@ namespace MS.Internal.Documents.Application
         /// </summary>
         private PackageProperties _rmProperties = null;
 
+#if !PROGPU_WPF_PORTABLE_NO_WINFORMS
         private bool _isDataAcquired;
+#endif
         private Image _image = null;
         private string _filename = null;
 

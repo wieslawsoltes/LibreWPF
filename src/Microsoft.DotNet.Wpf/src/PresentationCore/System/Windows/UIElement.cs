@@ -25,6 +25,7 @@ using System.Windows.Media.Media3D;
 using System.Windows.Threading;
 using System.Runtime.InteropServices;
 using MS.Win32;
+using ProGPU.Wpf.Interop;
 
 namespace System.Windows
 {
@@ -64,7 +65,7 @@ namespace System.Windows
     /// </remarks>
 
     [UidProperty("Uid")]
-    public partial class UIElement : Visual, IInputElement, IAnimatable
+    public partial class UIElement : Visual, IInputElement, IAnimatable, IPortableVisualOwnerHost, IPortableDrawingContentSource, IPortableVisualLayoutStateSource
     {
         static UIElement()
         {
@@ -120,6 +121,40 @@ namespace System.Windows
             {
                 PerfService.GetPerfElementID(this);
             }
+        }
+
+        object IPortableVisualOwnerHost.PortableVisualParent
+        {
+            get { return VisualTreeHelper.GetParentInternal(this); }
+        }
+
+        bool IPortableVisualOwnerHost.IsPortableInputEnabled
+        {
+            get { return IsEnabled && IsVisible && IsHitTestVisible; }
+        }
+
+        PortableVisualOwnerKind IPortableVisualOwnerHost.PortableVisualOwnerKind
+        {
+            get { return PortableVisualOwnerKind.Content; }
+        }
+
+        bool IPortableDrawingContentSource.TryGetPortableDrawingContent(out object content)
+        {
+            content = _drawingContent;
+            return true;
+        }
+
+        bool IPortableVisualLayoutStateSource.TryGetPortableVisualLayoutState(out PortableVisualLayoutState state)
+        {
+            Size renderSize = RenderSize;
+            state = new PortableVisualLayoutState
+            {
+                HasRenderSize = true,
+                RenderSize = new PortableSize(renderSize.Width, renderSize.Height),
+                HasClipToBounds = true,
+                ClipToBounds = ClipToBounds
+            };
+            return true;
         }
 
         #region AllowDrop
@@ -1130,6 +1165,23 @@ namespace System.Windows
             if (_setDpi)
             {
                 _setDpi = false;
+
+                if (!OperatingSystem.IsWindows())
+                {
+                    _dpiScaleX = 1.0;
+                    _dpiScaleY = 1.0;
+                    lock (DpiLock)
+                    {
+                        if (DpiScaleXValues.Count == 0)
+                        {
+                            DpiScaleXValues.Add(_dpiScaleX);
+                            DpiScaleYValues.Add(_dpiScaleY);
+                        }
+                    }
+
+                    return new DpiScale(_dpiScaleX, _dpiScaleY);
+                }
+
                 int dpiX, dpiY;
                 HandleRef desktopWnd = new HandleRef(null, IntPtr.Zero);
 
@@ -2023,6 +2075,13 @@ namespace System.Windows
         /// </param>
         internal void InputHitTest(Point pt, out IInputElement enabledHit, out IInputElement rawHit, out HitTestResult rawHitResult)
         {
+            if (PresentationSource.CriticalFromVisual(this) is PortablePresentationSource portableSource &&
+                portableSource.TryInputHitTestOverride(this, pt, out DependencyObject portableCandidate, out rawHitResult))
+            {
+                PromoteInputHit(pt, portableCandidate, out enabledHit, out rawHit, ref rawHitResult);
+                return;
+            }
+
             PointHitTestParameters hitTestParameters = new PointHitTestParameters(pt);
 
             // We store the result of the hit testing here.  Note that the
@@ -2035,8 +2094,13 @@ namespace System.Windows
                                      hitTestParameters);
 
             DependencyObject candidate = result.Result;
-            rawHit = candidate as IInputElement;
             rawHitResult = result.HitTestResult;
+            PromoteInputHit(pt, candidate, out enabledHit, out rawHit, ref rawHitResult);
+        }
+
+        private void PromoteInputHit(Point pt, DependencyObject candidate, out IInputElement enabledHit, out IInputElement rawHit, ref HitTestResult rawHitResult)
+        {
+            rawHit = candidate as IInputElement;
             enabledHit = null;
             while (candidate != null)
             {
@@ -3118,7 +3182,7 @@ namespace System.Windows
         /// </summary>
         internal DrawingContext RenderOpen()
         {
-            return new VisualDrawingContext(this);
+            return VisualDrawingContext.Create(this);
         }
 
         /// <summary>
@@ -4816,6 +4880,3 @@ namespace System.Windows
         TouchEnterCache                 = 0x80000000,
     }
 }
-
-
-

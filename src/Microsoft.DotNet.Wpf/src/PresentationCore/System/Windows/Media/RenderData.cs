@@ -13,6 +13,7 @@
 
 using MS.Internal;
 using MS.Utility;
+using ProGPU.Wpf.Interop;
 using System.Buffers;
 using System.Runtime.InteropServices;
 using System.Windows.Media.Animation;
@@ -28,7 +29,7 @@ namespace System.Windows.Media
     ///
     /// NOTE: RenderData is a not a fully functional Freezable
     /// </summary>
-    internal partial class RenderData : Freezable, DUCE.IResource, IDrawingContent
+    internal partial class RenderData : Freezable, DUCE.IResource, IDrawingContent, IPortableRenderDataSource
     {
         /// <summary>
         /// Default constructor.
@@ -109,6 +110,7 @@ namespace System.Windows.Media
             Marshal.Copy((IntPtr)pbRecord, this._buffer, _curOffset + sizeof(RecordHeader), cbRecordSize);
 
             _curOffset += totalSize;
+            InvalidatePortableRenderDataSnapshot();
         }
 
 
@@ -340,6 +342,11 @@ namespace System.Windows.Media
                     {
                         DUCE.IResource resource = _dependentResources[i] as DUCE.IResource;
 
+                        if (resource is GlyphRun glyphRun && !glyphRun.HasDWriteFont)
+                        {
+                            continue;
+                        }
+
                         resource?.AddRefOnChannel(channel);
                     }
 
@@ -364,6 +371,11 @@ namespace System.Windows.Media
                     for (int i = 0; i < _dependentResources.Count; i++)
                     {
                         DUCE.IResource resource = _dependentResources[i] as DUCE.IResource;
+
+                        if (resource is GlyphRun glyphRun && !glyphRun.HasDWriteFont)
+                        {
+                            continue;
+                        }
 
                         resource?.ReleaseOnChannel(channel);
                     }
@@ -425,7 +437,9 @@ namespace System.Windows.Media
             }
             else
             {
-                return (uint)(_dependentResources.Add(o) + 1);
+                uint index = (uint)(_dependentResources.Add(o) + 1);
+                InvalidatePortableRenderDataSnapshot();
+                return index;
             }
         }
 
@@ -508,6 +522,66 @@ namespace System.Windows.Media
 
         #endregion Private Methods
 
+        bool IPortableRenderDataSource.TryGetPortableRenderDataSnapshot(out PortableRenderDataSnapshot snapshot)
+        {
+            if (_curOffset < 0 || _buffer == null && _curOffset != 0 || _buffer != null && _curOffset > _buffer.Length)
+            {
+                snapshot = null;
+                return false;
+            }
+
+            if (_portableRenderDataSnapshot != null)
+            {
+                snapshot = _portableRenderDataSnapshot;
+                return true;
+            }
+
+            byte[] renderData;
+            if (_curOffset == 0)
+            {
+                renderData = Array.Empty<byte>();
+            }
+            else
+            {
+                renderData = new byte[_curOffset];
+                Buffer.BlockCopy(_buffer, 0, renderData, 0, _curOffset);
+            }
+
+            object[] dependentResources = new object[_dependentResources.Count];
+            for (int i = 0; i < dependentResources.Length; i++)
+            {
+                dependentResources[i] = ExportPortableDependentResource(_dependentResources[i]);
+            }
+
+            snapshot = new PortableRenderDataSnapshot(renderData, dependentResources);
+            _portableRenderDataSnapshot = snapshot;
+            return true;
+        }
+
+        private void InvalidatePortableRenderDataSnapshot()
+        {
+            _portableRenderDataSnapshot = null;
+        }
+
+        private static object ExportPortableDependentResource(object resource)
+        {
+            if (resource is IPortableNativeGlyphRunSource nativeGlyphRunSource)
+            {
+                return nativeGlyphRunSource.TryGetPortableNativeGlyphRun(out PortableNativeGlyphRun glyphRun)
+                    ? glyphRun
+                    : null;
+            }
+
+            if (resource is IPortableGlyphRunSource glyphRunSource)
+            {
+                return glyphRunSource.TryGetPortableGlyphRun(out PortableGlyphRun glyphRun)
+                    ? glyphRun
+                    : null;
+            }
+
+            return resource;
+        }
+
         #region Private Fields
 
         // The buffer into which the renderdata is written
@@ -523,6 +597,8 @@ namespace System.Windows.Media
         private int _bitmapEffectStackDepth;
         
         private FrugalStructList<Object> _dependentResources = new FrugalStructList<Object>();
+
+        private PortableRenderDataSnapshot _portableRenderDataSnapshot;
 
         // DUCE resource
         private DUCE.MultiChannelResource _duceResource = new DUCE.MultiChannelResource();

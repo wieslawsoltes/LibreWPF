@@ -3,6 +3,7 @@
 
 using System.Windows.Media.Animation;
 using System.Windows.Media.Composition;
+using ProGPU.Wpf.Interop;
 
 namespace System.Windows.Media
 {
@@ -12,7 +13,8 @@ namespace System.Windows.Media
     /// MediaPlayer
     /// Provides helper methods for media related tasks
     /// </summary>
-    public class MediaPlayer : Animatable, DUCE.IResource
+    public class MediaPlayer : Animatable, DUCE.IResource,
+        IPortableMediaPlayerSource, IPortableInvalidationSource
     {
         #region Constructors and Finalizers
 
@@ -700,11 +702,67 @@ namespace System.Windows.Media
 
             _mediaPlayerState = player._mediaPlayerState;
             _duceResource = player._duceResource;
+            _portableMediaPlayerSource = player._portableMediaPlayerSource;
         }
 
         #endregion
 
         #region Private Methods
+
+        internal void SetPortableMediaPlayerSource(
+            IPortableMediaPlayerSource source)
+        {
+            ArgumentNullException.ThrowIfNull(source);
+            if (ReferenceEquals(source, this))
+            {
+                throw new ArgumentException(
+                    "A MediaPlayer cannot use itself as its portable frame provider.",
+                    nameof(source));
+            }
+            base.WritePreamble();
+            _portableMediaPlayerSource = source;
+            FireChanged();
+        }
+
+        internal void ClearPortableMediaPlayerSource()
+        {
+            base.WritePreamble();
+            if (_portableMediaPlayerSource is null)
+            {
+                return;
+            }
+            _portableMediaPlayerSource = null;
+            FireChanged();
+        }
+
+        bool IPortableMediaPlayerSource.TryGetPortableMediaPlayerFrame(
+            out PortableMediaPlayerFrame frame)
+        {
+            IPortableMediaPlayerSource source =
+                _portableMediaPlayerSource;
+            if (source is null)
+            {
+                frame = default;
+                return false;
+            }
+            return source.TryGetPortableMediaPlayerFrame(out frame);
+        }
+
+        bool IPortableInvalidationSource.TrySubscribeInvalidated(
+            EventHandler handler,
+            out IDisposable subscription)
+        {
+            ArgumentNullException.ThrowIfNull(handler);
+            if (_portableMediaPlayerSource is
+                IPortableInvalidationSource invalidationSource)
+            {
+                return invalidationSource.TrySubscribeInvalidated(
+                    handler,
+                    out subscription);
+            }
+            subscription = null;
+            return false;
+        }
 
         /// <summary>
         /// Freezable forces us to have a new instance without parameters. However
@@ -880,6 +938,8 @@ namespace System.Windows.Media
 
         private MediaPlayerState      _mediaPlayerState = null;
 
+        private IPortableMediaPlayerSource _portableMediaPlayerSource = null;
+
         /// <summary>
         /// DUCE resource handle - we need to use ShareableDUCEMultiChannelResource, because clones
         /// of a MediaPlayer all share the same underlying DUCE.MultiChannelResource.
@@ -895,4 +955,3 @@ namespace System.Windows.Media
 
     #endregion
 };
-

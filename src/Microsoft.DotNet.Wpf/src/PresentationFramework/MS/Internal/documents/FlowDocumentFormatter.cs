@@ -187,18 +187,21 @@ namespace MS.Internal.Documents
         /// Compute size for the page.
         /// </summary>
         private Size ComputePageSize(Size constraint)
+            => ComputePageSize(_document, constraint);
+
+        internal static Size ComputePageSize(FlowDocument document, Size constraint)
         {
             double max, min;
-            Size pageSize = new Size(_document.PageWidth, double.PositiveInfinity);
+            Size pageSize = new Size(document.PageWidth, double.PositiveInfinity);
             if (double.IsNaN(pageSize.Width))
             {
                 pageSize.Width = constraint.Width;
-                max = _document.MaxPageWidth;
+                max = document.MaxPageWidth;
                 if (pageSize.Width > max)
                 {
                     pageSize.Width = max;
                 }
-                min = _document.MinPageWidth;
+                min = document.MinPageWidth;
                 if (pageSize.Width < min)
                 {
                     pageSize.Width = min;

@@ -1,0 +1,15 @@
+<Page
+    x:Class="ProGPU.Wpf.SdkSwitchLibrary.LibraryPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="SDK Library Page">
+    <StackPanel Margin="6">
+        <TextBlock
+            x:Name="LibraryPageTitle"
+            Text="SDK library page content" />
+        <TextBlock
+            x:Name="LibraryPageResourceText"
+            Foreground="{DynamicResource LibraryMergedAccentBrush}"
+            Text="{DynamicResource LibraryMergedMessage}" />
+    </StackPanel>
+</Page>

@@ -49,8 +49,11 @@ namespace System.Xaml
 
             if (_underlyingNameScope is not null)
             {
-                _names.Add(name);
                 _underlyingNameScope.RegisterName(name, scopedElement);
+                if (!_names.Contains(name))
+                {
+                    _names.Add(name);
+                }
             }
             else
             {
@@ -245,7 +248,9 @@ namespace System.Xaml
         {
             get
             {
-                throw new NotImplementedException();
+                return _underlyingNameScope is not null
+                    ? _names.Count
+                    : _nameMap?.Count ?? 0;
             }
         }
 
@@ -253,33 +258,82 @@ namespace System.Xaml
         {
             get
             {
-                throw new NotImplementedException();
+                return false;
             }
         }
 
         void ICollection<KeyValuePair<string, object>>.Clear()
         {
-            throw new NotImplementedException();
+            if (_underlyingNameScope is not null)
+            {
+                while (_names.Count > 0)
+                {
+                    string name = _names[_names.Count - 1];
+                    _underlyingNameScope.UnregisterName(name);
+                    _names.Remove(name);
+                }
+            }
+            else
+            {
+                _nameMap = null;
+            }
         }
 
         void ICollection<KeyValuePair<string, object>>.CopyTo(KeyValuePair<string, object>[] array, int arrayIndex)
         {
-            throw new NotImplementedException();
+            ArgumentNullException.ThrowIfNull(array);
+
+            if (arrayIndex < 0 || arrayIndex > array.Length)
+            {
+                throw new ArgumentOutOfRangeException(nameof(arrayIndex));
+            }
+
+            int count = ((ICollection<KeyValuePair<string, object>>)this).Count;
+            if (array.Length - arrayIndex < count)
+            {
+                throw new ArgumentException(SR.Collection_CopyTo_NumberOfElementsExceedsArrayLength, nameof(array));
+            }
+
+            foreach (KeyValuePair<string, object> entry in (IEnumerable<KeyValuePair<string, object>>)this)
+            {
+                array[arrayIndex++] = entry;
+            }
         }
 
         bool ICollection<KeyValuePair<string, object>>.Remove(KeyValuePair<string, object> item)
         {
-            throw new NotImplementedException();
+            if (!((ICollection<KeyValuePair<string, object>>)this).Contains(item))
+            {
+                return false;
+            }
+
+            return ((IDictionary<string, object>)this).Remove(item.Key);
         }
 
         void ICollection<KeyValuePair<string, object>>.Add(KeyValuePair<string, object> item)
         {
-            throw new NotImplementedException();
+            if (item.Key is null)
+            {
+                throw new ArgumentException(SR.Format(SR.ReferenceIsNull, "item.Key"), nameof(item));
+            }
+
+            if (item.Value is null)
+            {
+                throw new ArgumentException(SR.Format(SR.ReferenceIsNull, "item.Value"), nameof(item));
+            }
+
+            ((IDictionary<string, object>)this).Add(item.Key, item.Value);
         }
 
         bool ICollection<KeyValuePair<string, object>>.Contains(KeyValuePair<string, object> item)
         {
-            throw new NotImplementedException();
+            if (item.Key is null)
+            {
+                throw new ArgumentException(SR.Format(SR.ReferenceIsNull, "item.Key"), nameof(item));
+            }
+
+            return ((IDictionary<string, object>)this).TryGetValue(item.Key, out object value)
+                && ReferenceEquals(value, item.Value);
         }
 
         #endregion
@@ -289,39 +343,89 @@ namespace System.Xaml
         {
             get
             {
-                throw new NotImplementedException();
+                ArgumentNullException.ThrowIfNull(key);
+                return ((IDictionary<string, object>)this).TryGetValue(key, out object value)
+                    ? value
+                    : null;
             }
             set
             {
-                throw new NotImplementedException();
+                ArgumentNullException.ThrowIfNull(key);
+                ArgumentNullException.ThrowIfNull(value);
+
+                RegisterName(key, value);
             }
         }
 
         void IDictionary<string, object>.Add(string key, object value)
         {
-            throw new NotImplementedException();
+            ArgumentNullException.ThrowIfNull(key);
+
+            RegisterName(key, value);
         }
 
         bool IDictionary<string, object>.ContainsKey(string key)
-        {
-            throw new NotImplementedException();
-        }
+            {
+                ArgumentNullException.ThrowIfNull(key);
+
+                if (_underlyingNameScope is not null)
+                {
+                    return _names.Contains(key) && _underlyingNameScope.FindName(key) is not null;
+                }
+
+                return FindName(key) is not null;
+            }
 
         bool IDictionary<string, object>.Remove(string key)
         {
-            throw new NotImplementedException();
+            if (!((IDictionary<string, object>)this).ContainsKey(key))
+            {
+                return false;
+            }
+
+            UnregisterName(key);
+            return true;
         }
 
         bool IDictionary<string, object>.TryGetValue(string key, out object value)
         {
-            throw new NotImplementedException();
+            if (!((IDictionary<string, object>)this).ContainsKey(key))
+            {
+                value = null;
+                return false;
+            }
+
+            value = FindName(key);
+            return true;
         }
 
         ICollection<string> IDictionary<string, object>.Keys
         {
             get
             {
-                throw new NotImplementedException();
+                if (_underlyingNameScope is not null)
+                {
+                    var list = new List<string>(_names.Count);
+                    for (int i = 0; i < _names.Count; i++)
+                    {
+                        list.Add(_names[i]);
+                    }
+
+                    return list;
+                }
+
+                if (_nameMap is null)
+                {
+                    return null;
+                }
+
+                var keys = new List<string>(_nameMap.Keys.Count);
+                foreach (string key in _nameMap.Keys)
+                {
+                    keys.Add(key);
+                }
+
+                return keys;
             }
         }
 
@@ -329,7 +433,29 @@ namespace System.Xaml
         {
             get
             {
-                throw new NotImplementedException();
+                if (_underlyingNameScope is not null)
+                {
+                    var list = new List<object>(_names.Count);
+                    for (int i = 0; i < _names.Count; i++)
+                    {
+                        list.Add(_underlyingNameScope.FindName(_names[i]));
+                    }
+
+                    return list;
+                }
+
+                if (_nameMap is null)
+                {
+                    return null;
+                }
+
+                var values = new List<object>(_nameMap.Values.Count);
+                foreach (object value in _nameMap.Values)
+                {
+                    values.Add(value);
+                }
+
+                return values;
             }
         }
         #endregion

@@ -31,5 +31,6 @@
     <ProjectReference Include="$(WpfSourceDir)System.Windows.Input.Manipulations\ref\System.Windows.Input.Manipulations-ref.csproj" />
     <ProjectReference Include="$(WpfSourceDir)UIAutomation\UIAutomationTypes\ref\UIAutomationTypes-ref.csproj" />
     <ProjectReference Include="$(WpfSourceDir)UIAutomation\UIAutomationProvider\ref\UIAutomationProvider-ref.csproj" />
+    <ProjectReference Include="..\..\..\..\..\external\ProGPU\src\ProGPU.Wpf.Interop\ProGPU.Wpf.Interop.csproj" />
   </ItemGroup>
 </Project>

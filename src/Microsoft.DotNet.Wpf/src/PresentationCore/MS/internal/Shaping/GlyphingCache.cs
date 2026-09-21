@@ -85,6 +85,20 @@ namespace MS.Internal.Shaping
             }
         }
 
+        /// <summary>Typed source font ranges for a native paragraph, without source shaping.</summary>
+        internal void GetPortableFontRuns(Typeface typeface, CharacterBufferRange text,
+            CultureInfo culture, IList<TextSpan<ScaledShapeTypeface>> output)
+        {
+            if (text.Length == 0) return;
+            if (typeface.Symbol)
+            {
+                // Preserve the established symbol-font bypass of Unicode linking.
+                output.Add(new TextSpan<ScaledShapeTypeface>(text.Length,
+                    new ScaledShapeTypeface(typeface.TryGetGlyphTypeface(), null, 1.0, typeface.NullFont)));
+            }
+            else Lookup(typeface).GetPortableFontRuns(text, culture, output);
+        }
+
         /// <summary>
         /// Look up the font mapping data for a typeface.
         /// </summary>

@@ -1,0 +1,21 @@
+<UserControl
+    x:Class="ProGPU.Wpf.RealXamlCompilerHarness.SmokeUserControl"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <UserControl.Resources>
+        <SolidColorBrush x:Key="UserControlBrush" Color="#FF3F6E5A" />
+    </UserControl.Resources>
+    <StackPanel>
+        <TextBlock
+            x:Name="ControlTitle"
+            Foreground="{StaticResource UserControlBrush}"
+            Text="compiled user control" />
+        <TextBlock
+            x:Name="ElementNameMirror"
+            Text="{Binding ElementName=ControlTitle, Path=Text}" />
+        <Button
+            x:Name="ControlEventButton"
+            Click="OnControlButtonClick"
+            Content="user control event" />
+    </StackPanel>
+</UserControl>

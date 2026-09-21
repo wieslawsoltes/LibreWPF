@@ -66,6 +66,8 @@ namespace System.Windows.Interop
     /// </remarks>
     public class HwndTarget : CompositionTarget
     {
+        private static readonly bool s_isWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
+
         /// <summary>
         /// Lock object used to ensure that initialization of other statics
         /// happens race-free
@@ -199,12 +201,18 @@ namespace System.Windows.Interop
         private const double _allowedPresentFailureDelay = 10.0;
 
         private DispatcherTimer _restoreDT;
+        private bool _isPortable;
 
         /// <summary>
         /// Initializes static variables for this class.
         /// </summary>
         static HwndTarget()
         {
+            if (!s_isWindows)
+            {
+                return;
+            }
+
             s_updateWindowSettings = UnsafeNativeMethods.RegisterWindowMessage("UpdateWindowSettings");
             s_needsRePresentOnWake = UnsafeNativeMethods.RegisterWindowMessage("NeedsRePresentOnWake");
             s_DisplayDevicesAvailabilityChanged =
@@ -223,6 +231,11 @@ namespace System.Windows.Interop
         /// </remarks>
         public HwndTarget(IntPtr hwnd)
         {
+            if (!s_isWindows)
+            {
+                throw new PlatformNotSupportedException("HwndTarget requires a Win32 HWND. Use a ProGPU/Silk.NET composition target on non-Windows platforms.");
+            }
+
             bool exceptionThrown = true;
 
             _sessionId = SafeNativeMethods.GetCurrentSessionId();
@@ -294,6 +307,66 @@ namespace System.Windows.Interop
                     VisualTarget_DetachFromHwnd(hwnd);
                 }
             }
+        }
+
+        internal static HwndTarget CreatePortable(IntPtr hwnd, double dpiScaleX, double dpiScaleY)
+        {
+            return new HwndTarget(hwnd, dpiScaleX, dpiScaleY);
+        }
+
+        private HwndTarget(IntPtr hwnd, double dpiScaleX, double dpiScaleY)
+        {
+            if (hwnd == IntPtr.Zero)
+            {
+                throw new ArgumentException(SR.HwndTarget_InvalidWindowHandle, nameof(hwnd));
+            }
+
+            _isPortable = true;
+            _hWnd = NativeMethods.HWND.Cast(hwnd);
+            double pixelsPerInchX = ToPositiveFiniteScale(dpiScaleX) * DpiUtil.DefaultPixelsPerInch;
+            double pixelsPerInchY = ToPositiveFiniteScale(dpiScaleY) * DpiUtil.DefaultPixelsPerInch;
+            CurrentDpiScale = DpiScale2.FromPixelsPerInch(pixelsPerInchX, pixelsPerInchY);
+            _worldTransform = new MatrixTransform(
+                new Matrix(
+                    CurrentDpiScale.DpiScaleX, 0,
+                    0, CurrentDpiScale.DpiScaleY,
+                    0, 0));
+        }
+
+        internal void SetPortableDeviceScale(double dpiScaleX, double dpiScaleY)
+        {
+            if (!_isPortable)
+            {
+                throw new InvalidOperationException("Portable device scale can only be set on a portable HwndTarget.");
+            }
+
+            DpiScale2 oldDpi = CurrentDpiScale;
+            DpiScale2 newDpi = DpiScale2.FromPixelsPerInch(
+                ToPositiveFiniteScale(dpiScaleX) * DpiUtil.DefaultPixelsPerInch,
+                ToPositiveFiniteScale(dpiScaleY) * DpiUtil.DefaultPixelsPerInch);
+            if (oldDpi.Equals(newDpi))
+            {
+                return;
+            }
+
+            CurrentDpiScale = newDpi;
+            _worldTransform = new MatrixTransform(
+                new Matrix(
+                    newDpi.DpiScaleX, 0,
+                    0, newDpi.DpiScaleY,
+                    0, 0));
+            PropagateDpiChangeToRootVisual(oldDpi, newDpi);
+            StateChangedCallback(new object[]
+            {
+                HostStateFlags.WorldTransform,
+                _worldTransform.Matrix,
+                Rect.Empty
+            });
+        }
+
+        private static double ToPositiveFiniteScale(double value)
+        {
+            return double.IsFinite(value) && value > 0.0 ? value : 1.0;
         }
 
         /// <summary>
@@ -681,6 +754,11 @@ namespace System.Windows.Interop
                 // the hwndsrc.
                 if (!IsDisposed)
                 {
+                    if (_isPortable)
+                    {
+                        return;
+                    }
+
                     RootVisual = null;
 
                     HRESULT.Check(VisualTarget_DetachFromHwnd(_hWnd));
@@ -2310,7 +2388,10 @@ namespace System.Windows.Interop
                     // event when this happens?); MS.Internal.Automation.NativeEventListener may have a context
                     // monitor that is holding onto the old _rootVisual and that would need to be cleaned up.
                     // Do we treat swapping in a new root as a new app?  Need to understand when this could happen.
-                    UnsafeNativeMethods.NotifyWinEvent(UnsafeNativeMethods.EventObjectUIFragmentCreate, _hWnd.MakeHandleRef(this), 0, 0);
+                    if (!_isPortable)
+                    {
+                        UnsafeNativeMethods.NotifyWinEvent(UnsafeNativeMethods.EventObjectUIFragmentCreate, _hWnd.MakeHandleRef(this), 0, 0);
+                    }
                 }
             }
         }
@@ -2364,6 +2445,11 @@ namespace System.Windows.Interop
                 if (_backgroundColor != value)
                 {
                     _backgroundColor = value;
+                    if (_isPortable)
+                    {
+                        return;
+                    }
+
                     MediaContext mctx = MediaContext.From(Dispatcher);
 
                     DUCE.ChannelSet channelSet = mctx.GetChannels();
@@ -2468,6 +2554,11 @@ namespace System.Windows.Interop
                 if(_usesPerPixelOpacity != value)
                 {
                     _usesPerPixelOpacity = value;
+
+                    if (_isPortable)
+                    {
+                        return;
+                    }
 
                     UpdateWindowSettings();
                 }

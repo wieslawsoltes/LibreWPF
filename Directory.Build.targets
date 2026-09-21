@@ -1,5 +1,10 @@
 <Project>
 
+  <PropertyGroup Condition="'$(ProGpuWpfPortableNetCoreAppRefVersion)' != ''">
+    <MicrosoftNETCoreAppRefPackageVersion>$(ProGpuWpfPortableNetCoreAppRefVersion)</MicrosoftNETCoreAppRefPackageVersion>
+    <MicrosoftNETCoreAppRefVersion>$(ProGpuWpfPortableNetCoreAppRefVersion)</MicrosoftNETCoreAppRefVersion>
+  </PropertyGroup>
+
   <Import Project="$(WpfArcadeSdkTargets)"
           Condition="Exists('$(WpfArcadeSdkProps)') And Exists('$(WpfArcadeSdkTargets)')"/>
 

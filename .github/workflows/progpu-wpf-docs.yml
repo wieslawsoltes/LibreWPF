@@ -1,0 +1,65 @@
+name: LibreWPF Docs
+
+on:
+  pull_request:
+    branches:
+      - progpu-rendering-port
+      - main
+    paths:
+      - README.md
+      - docs/**
+      - reports/**
+      - eng/progpu-preview-package-list.sh
+      - eng/ProGPU.Wpf.LibreWinFormsCompatValidation.proj
+      - eng/progpu-wpf-verify-librewinforms-cutover.sh
+      - eng/progpu-wpf-verify-docs.sh
+      - packaging/ProGPU.Wpf.Sdk/targets/ProGPU.Wpf.Sdk.targets
+      - .github/workflows/progpu-wpf-*.yml
+  push:
+    branches:
+      - progpu-rendering-port
+    paths:
+      - README.md
+      - docs/**
+      - reports/**
+      - eng/progpu-preview-package-list.sh
+      - eng/ProGPU.Wpf.LibreWinFormsCompatValidation.proj
+      - eng/progpu-wpf-verify-librewinforms-cutover.sh
+      - eng/progpu-wpf-verify-docs.sh
+      - packaging/ProGPU.Wpf.Sdk/targets/ProGPU.Wpf.Sdk.targets
+      - .github/workflows/progpu-wpf-*.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-docs:
+    name: Verify release documentation
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Verify package docs
+        run: |
+          ./eng/progpu-wpf-verify-docs.sh
+          ./eng/progpu-wpf-verify-librewinforms-cutover.sh
+
+      - name: Upload docs snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: librewpf-docs
+          path: |
+            README.md
+            docs/**
+            reports/**

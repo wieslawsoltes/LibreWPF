@@ -124,7 +124,9 @@ namespace MS.Win32
             // contrast a face lift starting Win8. However, WPF isnt setup to support this
             // currently. Thus we fallback to Classic in this situation.
 
-            _themeState = new ThemeState(!SystemParameters.HighContrast && SafeNativeMethods.IsUxThemeActive(), null, null);
+            _themeState = OperatingSystem.IsWindows()
+                ? new ThemeState(!SystemParameters.HighContrast && SafeNativeMethods.IsUxThemeActive(), null, null)
+                : new ThemeState(true, "Aero2", "NormalColor");
         }
 
         internal static bool IsActive
@@ -161,6 +163,11 @@ namespace MS.Win32
 
         private static ThemeState EnsureThemeState(bool themeChanged)
         {
+            if (!OperatingSystem.IsWindows())
+            {
+                return _themeState;
+            }
+
             ThemeState themeState = _themeState;    // capture latest state
             bool needName = !themeChanged;
             string themeName, themeColor;
@@ -251,6 +258,12 @@ namespace MS.Win32
 
         private static void GetThemeNameAndColor(out string themeName, out string themeColor)
         {
+            if (!OperatingSystem.IsWindows())
+            {
+                themeName = themeColor = String.Empty;
+                return;
+            }
+
             StringBuilder themeNameSB = new StringBuilder(Win32.NativeMethods.MAX_PATH);
             StringBuilder themeColorSB = new StringBuilder(Win32.NativeMethods.MAX_PATH);
 
@@ -299,6 +312,11 @@ namespace MS.Win32
 
         internal static void OnThemeChanged()
         {
+            if (!OperatingSystem.IsWindows())
+            {
+                return;
+            }
+
             RestoreSupportedState();
             EnsureThemeState(themeChanged: true);
         }
@@ -445,5 +463,3 @@ namespace MS.Win32
         #endregion Compatibility
     }
 }
-
-

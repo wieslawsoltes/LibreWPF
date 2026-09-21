@@ -123,6 +123,14 @@ namespace MS { namespace Internal { namespace Text { namespace TextInterface
             }
 
             /// <summary>
+            /// Reports whether this font owns a native DirectWrite font handle.
+            /// </summary>
+            property bool HasDWriteFont
+            {
+                bool get();
+            }
+
+            /// <summary>
             /// Gets the FontFamily that this Font belongs to.
             /// </summary>
             property FontFamily^ Family

@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>Microsoft.Win32.SystemEvents</AssemblyName>
+    <RootNamespace>Microsoft.Win32</RootNamespace>
+    <Nullable>enable</Nullable>
+    <ProduceReferenceAssembly>true</ProduceReferenceAssembly>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <StrongNameKeyId>Open</StrongNameKeyId>
+    <AssemblyVersion>10.0.0.0</AssemblyVersion>
+    <FileVersion>10.0.0.0</FileVersion>
+    <Version>10.0.0</Version>
+    <EnableXlfLocalization>false</EnableXlfLocalization>
+  </PropertyGroup>
+
+  <Target Name="CopyPortableSystemEventsReferenceAssembly"
+          BeforeTargets="PreparePackageAssets"
+          DependsOnTargets="CoreCompile;EnsureReferenceDestination">
+    <Copy SourceFiles="$(TargetRefPath)"
+          DestinationFolder="$(ReferenceAssemblyDir)"
+          SkipUnchangedFiles="true" />
+    <Copy SourceFiles="$(TargetRefPath)"
+          DestinationFolder="$(ArtifactsPackagingDir)$(NormalizedPackageName)\ref\$(TargetFramework)"
+          SkipUnchangedFiles="true"
+          Condition="'$(PackageName)' != ''" />
+  </Target>
+</Project>

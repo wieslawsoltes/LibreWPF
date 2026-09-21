@@ -21,29 +21,29 @@
     <Page Include="TenFeetInstallationError.xaml" />
     <Page Include="TenFeetInstallationProgress.xaml" />
     <Page Include="MS\Internal\Documents\FindToolBar.xaml" />
-    <Page Include="themes\MediaCenterTheme.xaml" />
-    <Page Include="themes\Aero.NormalColor.xaml">
+    <Page Include="Themes\MediaCenterTheme.xaml" />
+    <Page Include="Themes\Aero.NormalColor.xaml">
       <GenerateTheme>true</GenerateTheme>
     </Page>
-    <Page Include="themes\Aero2.NormalColor.xaml">
+    <Page Include="Themes\Aero2.NormalColor.xaml">
       <GenerateTheme>true</GenerateTheme>
     </Page>
-    <Page Include="themes\AeroLite.NormalColor.xaml">
+    <Page Include="Themes\AeroLite.NormalColor.xaml">
       <GenerateTheme>true</GenerateTheme>
     </Page>
-    <Page Include="themes\Classic.xaml">
+    <Page Include="Themes\Classic.xaml">
       <GenerateTheme>true</GenerateTheme>
     </Page>
-    <Page Include="themes\Generic.xaml">
+    <Page Include="Themes\Generic.xaml">
       <GenerateTheme>true</GenerateTheme>
     </Page>
-    <Page Include="themes\Luna.Homestead.xaml">
+    <Page Include="Themes\Luna.HomeStead.xaml">
       <GenerateTheme>true</GenerateTheme>
     </Page>
-    <Page Include="themes\Luna.Metallic.xaml">
+    <Page Include="Themes\Luna.Metallic.xaml">
       <GenerateTheme>true</GenerateTheme>
     </Page>
-    <Page Include="themes\Luna.NormalColor.xaml">
+    <Page Include="Themes\Luna.NormalColor.xaml">
       <GenerateTheme>true</GenerateTheme>
     </Page>
   </ItemGroup>
@@ -79,41 +79,43 @@
     <Compile Include="TenFeetInstallationError.xaml.cs" />
     <Compile Include="MS\Internal\Documents\AccountType.cs" />
     <Compile Include="MS\Internal\Documents\CertificatePriorityStatus.cs" />
-    <Compile Include="MS\Internal\Documents\CredentialManagerDialog.cs" />
-    <Compile Include="MS\Internal\Documents\CredentialManagerDialog.Designer.cs" />
+    <Compile Include="MS\Internal\Documents\CredentialManagerDialog.cs" Condition="'$(ProGpuWpfSkipMissingPrivateWinFormsReferences)' != 'true'" />
+    <Compile Include="MS\Internal\Documents\CredentialManagerDialog.Designer.cs" Condition="'$(ProGpuWpfSkipMissingPrivateWinFormsReferences)' != 'true'" />
     <Compile Include="MS\Internal\Documents\DocumentStatusResources.cs" />
-    <Compile Include="MS\Internal\Documents\DocumentSignatureManager.cs" />
+    <Compile Include="MS\Internal\Documents\DocumentSignatureManager.cs" Condition="'$(ProGpuWpfSkipMissingPrivateWinFormsReferences)' != 'true'" />
+    <Compile Include="MS\Internal\Documents\DocumentSignatureManager.Portable.cs" Condition="'$(ProGpuWpfSkipMissingPrivateWinFormsReferences)' == 'true'" />
     <Compile Include="MS\Internal\Documents\DigitalSignature.cs" />
     <Compile Include="MS\Internal\Documents\DigitalSignatureProvider.cs" />
-    <Compile Include="MS\Internal\Documents\DialogBaseForm.cs" />
-    <Compile Include="MS\Internal\Documents\DialogDivider.cs" />
+    <Compile Include="MS\Internal\Documents\DialogBaseForm.cs" Condition="'$(ProGpuWpfSkipMissingPrivateWinFormsReferences)' != 'true'" />
+    <Compile Include="MS\Internal\Documents\DialogDivider.cs" Condition="'$(ProGpuWpfSkipMissingPrivateWinFormsReferences)' != 'true'" />
     <Compile Include="MS\Internal\Documents\FindToolBar.xaml.cs" />
     <Compile Include="MS\Internal\Documents\IDigitalSignatureProvider.cs" />
-    <Compile Include="MS\Internal\Documents\PeoplePickerWrapper.cs" />
-    <Compile Include="MS\Internal\Documents\RequestedSignatureDialog.cs" />
-    <Compile Include="MS\Internal\Documents\RequestedSignatureDialog.Designer.cs" />
-    <Compile Include="MS\Internal\Documents\RMEnrollmentPage1.cs" />
-    <Compile Include="MS\Internal\Documents\RMEnrollmentPage1.Designer.cs" />
-    <Compile Include="MS\Internal\Documents\RMEnrollmentPage2.cs" />
-    <Compile Include="MS\Internal\Documents\RMEnrollmentPage2.Designer.cs" />
-    <Compile Include="MS\Internal\Documents\RMEnrollmentPage3.cs" />
-    <Compile Include="MS\Internal\Documents\RMEnrollmentPage3.Designer.cs" />
-    <Compile Include="MS\Internal\Documents\RMPermissions.cs" />
-    <Compile Include="MS\Internal\Documents\RMPermissions.Designer.cs" />
-    <Compile Include="MS\Internal\Documents\RMPublishingDialog.cs" />
-    <Compile Include="MS\Internal\Documents\RMPublishingDialog.Designer.cs" />
-    <Compile Include="MS\Internal\Documents\RMPublishingDialog.RightsTable.cs" />
+    <Compile Include="MS\Internal\Documents\PeoplePickerWrapper.cs" Condition="'$(ProGpuWpfSkipMissingPrivateWinFormsReferences)' != 'true'" />
+    <Compile Include="MS\Internal\Documents\RequestedSignatureDialog.cs" Condition="'$(ProGpuWpfSkipMissingPrivateWinFormsReferences)' != 'true'" />
+    <Compile Include="MS\Internal\Documents\RequestedSignatureDialog.Designer.cs" Condition="'$(ProGpuWpfSkipMissingPrivateWinFormsReferences)' != 'true'" />
+    <Compile Include="MS\Internal\Documents\RMEnrollmentPage1.cs" Condition="'$(ProGpuWpfSkipMissingPrivateWinFormsReferences)' != 'true'" />
+    <Compile Include="MS\Internal\Documents\RMEnrollmentPage1.Designer.cs" Condition="'$(ProGpuWpfSkipMissingPrivateWinFormsReferences)' != 'true'" />
+    <Compile Include="MS\Internal\Documents\RMEnrollmentPage2.cs" Condition="'$(ProGpuWpfSkipMissingPrivateWinFormsReferences)' != 'true'" />
+    <Compile Include="MS\Internal\Documents\RMEnrollmentPage2.Designer.cs" Condition="'$(ProGpuWpfSkipMissingPrivateWinFormsReferences)' != 'true'" />
+    <Compile Include="MS\Internal\Documents\RMEnrollmentPage3.cs" Condition="'$(ProGpuWpfSkipMissingPrivateWinFormsReferences)' != 'true'" />
+    <Compile Include="MS\Internal\Documents\RMEnrollmentPage3.Designer.cs" Condition="'$(ProGpuWpfSkipMissingPrivateWinFormsReferences)' != 'true'" />
+    <Compile Include="MS\Internal\Documents\RMPermissions.cs" Condition="'$(ProGpuWpfSkipMissingPrivateWinFormsReferences)' != 'true'" />
+    <Compile Include="MS\Internal\Documents\RMPermissions.Designer.cs" Condition="'$(ProGpuWpfSkipMissingPrivateWinFormsReferences)' != 'true'" />
+    <Compile Include="MS\Internal\Documents\RMPublishingDialog.cs" Condition="'$(ProGpuWpfSkipMissingPrivateWinFormsReferences)' != 'true'" />
+    <Compile Include="MS\Internal\Documents\RMPublishingDialog.Designer.cs" Condition="'$(ProGpuWpfSkipMissingPrivateWinFormsReferences)' != 'true'" />
+    <Compile Include="MS\Internal\Documents\RMPublishingDialog.RightsTable.cs" Condition="'$(ProGpuWpfSkipMissingPrivateWinFormsReferences)' != 'true'" />
     <Compile Include="MS\Internal\Documents\SignaturePolicy.cs" />
     <Compile Include="MS\Internal\Documents\SignatureResourceHelper.cs" />
     <Compile Include="MS\Internal\Documents\SignatureStatus.cs" />
-    <Compile Include="MS\Internal\Documents\SignatureSummaryDialog.cs" />
-    <Compile Include="MS\Internal\Documents\SignatureSummaryDialog.Designer.cs" />
-    <Compile Include="MS\Internal\Documents\SigningDialog.cs" />
-    <Compile Include="MS\Internal\Documents\SigningDialog.Designer.cs " />
-    <Compile Include="MS\Internal\Documents\SigningProgress.cs" />
-    <Compile Include="MS\Internal\Documents\SigningProgress.Designer.cs" />
+    <Compile Include="MS\Internal\Documents\SignatureSummaryDialog.cs" Condition="'$(ProGpuWpfSkipMissingPrivateWinFormsReferences)' != 'true'" />
+    <Compile Include="MS\Internal\Documents\SignatureSummaryDialog.Designer.cs" Condition="'$(ProGpuWpfSkipMissingPrivateWinFormsReferences)' != 'true'" />
+    <Compile Include="MS\Internal\Documents\SigningDialog.cs" Condition="'$(ProGpuWpfSkipMissingPrivateWinFormsReferences)' != 'true'" />
+    <Compile Include="MS\Internal\Documents\SigningDialog.Designer.cs " Condition="'$(ProGpuWpfSkipMissingPrivateWinFormsReferences)' != 'true'" />
+    <Compile Include="MS\Internal\Documents\SigningProgress.cs" Condition="'$(ProGpuWpfSkipMissingPrivateWinFormsReferences)' != 'true'" />
+    <Compile Include="MS\Internal\Documents\SigningProgress.Designer.cs" Condition="'$(ProGpuWpfSkipMissingPrivateWinFormsReferences)' != 'true'" />
     <Compile Include="MS\Internal\Documents\RightsManagementLicense.cs" />
-    <Compile Include="MS\Internal\Documents\RightsManagementManager.cs" />
+    <Compile Include="MS\Internal\Documents\RightsManagementManager.cs" Condition="'$(ProGpuWpfSkipMissingPrivateWinFormsReferences)' != 'true'" />
+    <Compile Include="MS\Internal\Documents\RightsManagementManager.Portable.cs" Condition="'$(ProGpuWpfSkipMissingPrivateWinFormsReferences)' == 'true'" />
     <Compile Include="MS\Internal\Documents\RightsManagementPermissions.cs" />
     <Compile Include="MS\Internal\Documents\RightsManagementPolicy.cs" />
     <Compile Include="MS\Internal\Documents\RightsManagementProvider.cs" />
@@ -127,8 +129,8 @@
     <Compile Include="MS\Internal\Documents\Application\DocumentApplicationState.cs" />
     <Compile Include="MS\Internal\Documents\Application\DocumentApplicationJournalEntryEventArgs.cs" />
     <Compile Include="MS\Internal\Documents\Application\DocumentProperties.cs" />
-    <Compile Include="MS\Internal\Documents\Application\DocumentPropertiesDialog.cs" />
-    <Compile Include="MS\Internal\Documents\Application\DocumentPropertiesDialog.Designer.cs" />
+    <Compile Include="MS\Internal\Documents\Application\DocumentPropertiesDialog.cs" Condition="'$(ProGpuWpfSkipMissingPrivateWinFormsReferences)' != 'true'" />
+    <Compile Include="MS\Internal\Documents\Application\DocumentPropertiesDialog.Designer.cs" Condition="'$(ProGpuWpfSkipMissingPrivateWinFormsReferences)' != 'true'" />
     <Compile Include="MS\Internal\Documents\Application\NativeDirectoryServicesQueryAPIs.cs" />
     <Compile Include="MS\Internal\Documents\Application\NavigationHelper.cs" />
     <Compile Include="MS\Internal\Documents\Application\PageTextBox.cs" />
@@ -169,13 +171,17 @@
     <ProjectReference Include="$(WpfSourceDir)System.Xaml\System.Xaml.csproj" />
     <ProjectReference Include="$(WpfSourceDir)PresentationFramework\PresentationFramework.csproj" />
     <ProjectReference Include="$(WpfSourceDir)WindowsBase\WindowsBase.csproj" />
-    <ProjectReference Include="$(WpfSourceDir)System.Printing\System.Printing.vcxproj">
+    <ProjectReference Include="$(WpfSourceDir)System.Printing\System.Printing.vcxproj"
+                      Condition="'$(OS)' == 'Windows_NT'">
       <UndefineProperties>TargetFramework;TargetFrameworks</UndefineProperties>
     </ProjectReference>
+    <ProjectReference Include="$(WpfSourceDir)System.Printing\ref\System.Printing-ref.csproj"
+                      Condition="'$(OS)' != 'Windows_NT'" />
     <ProjectReference Include="$(WpfSourceDir)ReachFramework\ReachFramework.csproj" />
     <ProjectReference Include="$(WpfSourceDir)UIAutomation\UIAutomationProvider\UIAutomationProvider.csproj" />
     <ProjectReference Include="$(WpfSourceDir)UIAutomation\UIAutomationTypes\UIAutomationTypes.csproj" />
 
+    <ProjectReference Include="$(WpfSourceDir)..\..\..\external\ProGPU\src\ProGPU.Wpf.Interop\ProGPU.Wpf.Interop.csproj" />
     <ProjectReference Include="$(WpfSourceDir)PresentationCore\PresentationCore.csproj" />
 
     <ProjectReference Include="$(WpfSourceDir)PresentationUI\ref\PresentationUI-ref.csproj">
@@ -191,7 +197,7 @@
     <PackageReference Include="System.Resources.Extensions" Version="$(SystemResourcesExtensionsVersion)" />
   </ItemGroup>
 
-  <ItemGroup>
+  <ItemGroup Condition="'$(ProGpuWpfSkipMissingPrivateWinFormsReferences)' != 'true'">
     <MicrosoftPrivateWinFormsReference Include="System.Windows.Forms" />
     <MicrosoftPrivateWinFormsReference Include="System.Windows.Forms.Primitives" />
   </ItemGroup>

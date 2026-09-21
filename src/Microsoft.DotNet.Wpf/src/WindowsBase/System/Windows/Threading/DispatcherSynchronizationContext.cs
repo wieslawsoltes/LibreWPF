@@ -83,6 +83,11 @@ namespace System.Windows.Threading
         {
             if(_dispatcher._disableProcessingCount > 0)
             {
+                if(!OperatingSystem.IsWindows())
+                {
+                    return SynchronizationContext.WaitHelper(waitHandles, waitAll, millisecondsTimeout);
+                }
+
                 // Call into native code directly in order to avoid the default
                 // CLR locking behavior which pumps messages under contention.
                 // Even though they try to pump only the COM messages, any
@@ -127,4 +132,3 @@ namespace System.Windows.Threading
         private DispatcherPriority _priority;
     }
 }
-

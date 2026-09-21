@@ -142,6 +142,7 @@ namespace System.Windows.Controls
         private static void OnIsOpenChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
             ContextMenu ctrl = (ContextMenu) d;
+            TraceContextMenu("is-open changed old=" + e.OldValue + " new=" + e.NewValue + " parentPopup=" + (ctrl._parentPopup != null));
 
             if ((bool) e.NewValue)
             {
@@ -150,6 +151,13 @@ namespace System.Windows.Controls
                     ctrl.HookupParentPopup();
                 }
 
+                TraceContextMenu("opening parent popup isOpen=" + ctrl._parentPopup.IsOpen + " placement=" + ctrl.Placement + " items=" + ctrl.Items.Count);
+                if (!ctrl._parentPopup.IsOpen)
+                {
+                    ctrl._parentPopup.IsOpen = true;
+                }
+                TraceContextMenu("opened parent popup isOpen=" + ctrl._parentPopup.IsOpen);
+
                 ctrl._parentPopup.Unloaded += new RoutedEventHandler(ctrl.OnPopupUnloaded);
 
                 // Turn on keyboard cues in case ContextMenu was opened with the keyboard
@@ -157,6 +165,12 @@ namespace System.Windows.Controls
             }
             else
             {
+                TraceContextMenu("closing parent popup exists=" + (ctrl._parentPopup != null) + " isOpen=" + (ctrl._parentPopup != null && ctrl._parentPopup.IsOpen));
+                if (ctrl._parentPopup != null && ctrl._parentPopup.IsOpen)
+                {
+                    ctrl._parentPopup.IsOpen = false;
+                }
+
                 ctrl.ClosingMenu();
             }
         }
@@ -478,6 +492,7 @@ namespace System.Windows.Controls
         private void HookupParentPopup()
         {
             Debug.Assert(_parentPopup == null, "_parentPopup should be null");
+            TraceContextMenu("hookup parent popup");
 
             _parentPopup = new Popup
             {
@@ -500,6 +515,21 @@ namespace System.Windows.Controls
             // Hooks up the popup properties from this menu to the popup so that
             // setting them on this control will also set them on the popup.
             Popup.CreateRootPopup(_parentPopup, this);
+            TraceContextMenu("hooked parent popup");
+        }
+
+        private static void TraceContextMenu(string message)
+        {
+            string value = global::System.Environment.GetEnvironmentVariable("PROGPU_WPF_TRACE_POPUP");
+            if (value == null || (value.Length != 0 &&
+                !string.Equals(value, "1", global::System.StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(value, "true", global::System.StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(value, "yes", global::System.StringComparison.OrdinalIgnoreCase)))
+            {
+                return;
+            }
+
+            global::System.Console.WriteLine("WPF context menu: " + message);
         }
 
         private void OnPopupCouldClose(object sender, EventArgs e)

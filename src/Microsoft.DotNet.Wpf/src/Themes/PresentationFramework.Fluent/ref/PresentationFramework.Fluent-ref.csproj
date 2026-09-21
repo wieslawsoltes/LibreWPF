@@ -2,8 +2,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <AssemblyName>Fluent</AssemblyName>
-    <PackageId>Fluent-ref</PackageId>
+    <AssemblyName>PresentationFramework.Fluent</AssemblyName>
+    <PackageId>PresentationFramework.Fluent-ref</PackageId>
     <TargetOutputRelPath>$(TargetGroup)-$(PackageId)/</TargetOutputRelPath>
 
     <ResolveAssemblyWarnOrErrorOnTargetArchitectureMismatch>None</ResolveAssemblyWarnOrErrorOnTargetArchitectureMismatch>

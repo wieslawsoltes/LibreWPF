@@ -3,6 +3,7 @@
 
 using System.Collections;               // IEnumerator
 using System.Collections.ObjectModel;   // ReadOnlyCollection<T>
+using System.Runtime.CompilerServices;  // MethodImplAttribute
 using System.Windows.Annotations;       // AnnotationService
 using System.Windows.Automation.Peers;  // AutomationPeer
 using System.Windows.Documents;         // IDocumentPaginatorSource, ...
@@ -552,6 +553,17 @@ namespace System.Windows.Controls.Primitives
         /// </summary>
         protected virtual void OnPrintCommand()
         {
+            if (!OperatingSystem.IsWindows())
+            {
+                return;
+            }
+
+            OnPrintCommandWindows();
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private void OnPrintCommandWindows()
+        {
 #if !DONOTREFPRINTINGASMMETA
             System.Windows.Xps.XpsDocumentWriter docWriter;
             System.Printing.PrintDocumentImageableArea ia = null;
@@ -598,6 +610,17 @@ namespace System.Windows.Controls.Primitives
         /// Handler for the CancelPrint command.
         /// </summary>
         protected virtual void OnCancelPrintCommand()
+        {
+            if (!OperatingSystem.IsWindows())
+            {
+                return;
+            }
+
+            OnCancelPrintCommandWindows();
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private void OnCancelPrintCommandWindows()
         {
 #if !DONOTREFPRINTINGASMMETA
             _documentWriter?.CancelAsync();
@@ -1475,17 +1498,51 @@ namespace System.Windows.Controls.Primitives
             // b) CancelPrint command is enabled only during printing.
             if (args.Command == ApplicationCommands.Print)
             {
-                args.CanExecute = (dv.Document != null) && (dv._documentWriter == null);
-                args.Handled = true;
+                if (!OperatingSystem.IsWindows())
+                {
+                    args.CanExecute = false;
+                    args.Handled = true;
+                    return;
+                }
+
+                CanExecutePrintCommandWindows(dv, args);
             }
             else if (args.Command == ApplicationCommands.CancelPrint)
             {
-                args.CanExecute = (dv._documentWriter != null);
+                if (!OperatingSystem.IsWindows())
+                {
+                    args.CanExecute = false;
+                    args.Handled = true;
+                    return;
+                }
+
+                CanExecuteCancelPrintCommandWindows(dv, args);
             }
             else
             {
                 args.CanExecute = true;
             }
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static void CanExecutePrintCommandWindows(DocumentViewerBase dv, CanExecuteRoutedEventArgs args)
+        {
+#if !DONOTREFPRINTINGASMMETA
+            args.CanExecute = (dv.Document != null) && (dv._documentWriter == null);
+#else
+            args.CanExecute = false;
+#endif // DONOTREFPRINTINGASMMETA
+            args.Handled = true;
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static void CanExecuteCancelPrintCommandWindows(DocumentViewerBase dv, CanExecuteRoutedEventArgs args)
+        {
+#if !DONOTREFPRINTINGASMMETA
+            args.CanExecute = (dv._documentWriter != null);
+#else
+            args.CanExecute = false;
+#endif // DONOTREFPRINTINGASMMETA
         }
 
         /// <summary>

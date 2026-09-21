@@ -9,7 +9,6 @@ using System.Windows.Automation.Peers;
 using System.Windows.Media;
 using System.Windows.Input;
 using System.Windows.Documents;
-using System.Windows.Interop;
 using System.Windows.Controls.Primitives;
 using System.Windows.Shapes;
 
@@ -1671,7 +1670,9 @@ namespace System.Windows.Controls
                     if (MenuBase.IsDescendant(comboBox, e.OriginalSource as DependencyObject))
                     {
                         // Take capture if one of our children gave up capture (by closing their drop down)
-                        if (comboBox.IsDropDownOpen && Mouse.Captured == null && MS.Win32.SafeNativeMethods.GetCapture() == IntPtr.Zero)
+                        if (comboBox.IsDropDownOpen &&
+                            Mouse.Captured == null &&
+                            !PopupControlService.HasNativeMouseCapture(PresentationSource.CriticalFromVisual(comboBox)))
                         {
                             Mouse.Capture(comboBox, CaptureMode.SubTree);
                             e.Handled = true;
@@ -1912,9 +1913,10 @@ namespace System.Windows.Controls
                 Panel itemsHost = ItemsHost;
                 if (itemsHost != null)
                 {
-                    HwndSource source = PresentationSource.CriticalFromVisual(itemsHost) as HwndSource;
+                    PresentationSource source = PresentationSource.CriticalFromVisual(itemsHost);
+                    CompositionTarget compositionTarget = source?.CompositionTarget;
 
-                    if (source != null && !source.IsDisposed && source.RootVisual != null)
+                    if (compositionTarget != null && !compositionTarget.IsDisposed && source.RootVisual != null)
                     {
                         return source.RootVisual.IsAncestorOf(itemsHost);
                     }
@@ -2027,5 +2029,3 @@ namespace System.Windows.Controls
         #endregion DTypeThemeStyleKey
     }
 }
-
-

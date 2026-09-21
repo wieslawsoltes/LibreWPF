@@ -26,7 +26,7 @@ namespace System.Windows.Controls
     /// is to be added.
     /// </summary>
     [Localizability(LocalizationCategory.None, Readability = Readability.Unreadable)]
-    public class ContentPresenter : FrameworkElement
+    public class ContentPresenter : FrameworkElement, IPortableVisualOwnerHost
     {
         //------------------------------------------------------
         //
@@ -93,6 +93,11 @@ namespace System.Windows.Controls
         public ContentPresenter() : base()
         {
             Initialize();
+        }
+
+        PortableVisualOwnerKind IPortableVisualOwnerHost.PortableVisualOwnerKind
+        {
+            get { return PortableVisualOwnerKind.PointerInfrastructure; }
         }
 
         private void Initialize()
@@ -1219,4 +1224,3 @@ namespace System.Windows.Controls
         private static readonly UncommonField<DataTemplate> AccessTextFormattingTemplateField = new UncommonField<DataTemplate>();
     }
 }
-

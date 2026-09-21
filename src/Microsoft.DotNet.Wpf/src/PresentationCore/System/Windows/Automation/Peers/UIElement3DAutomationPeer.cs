@@ -2,7 +2,6 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Windows.Input;
-using System.Windows.Interop;
 using System.Windows.Media;
 using MS.Internal;
 using MS.Internal.Automation;
@@ -178,17 +177,11 @@ namespace System.Windows.Automation.Peers
             if(presentationSource == null)
                 return false;
 
-            HwndSource hwndSource = presentationSource as HwndSource;
-
-            // If the source isn't an HwndSource, there's not much we can do, return empty rect
-            if(hwndSource == null)
-                return false;
-
             Rect rectElement    =  _owner.Visual2DContentBounds;            
             // we use VisualTreeHelper.GetContainingVisual2D to transform from the containing Viewport3DVisual
             Rect rectRoot       = PointUtil.ElementToRoot(rectElement, VisualTreeHelper.GetContainingVisual2D(_owner), presentationSource);
             Rect rectClient     = PointUtil.RootToClient(rectRoot, presentationSource);
-            rect    = PointUtil.ClientToScreen(rectClient, hwndSource);
+            rect    = PointUtil.ClientToScreen(rectClient, presentationSource);
 
             return true;
         }
@@ -419,4 +412,3 @@ namespace System.Windows.Automation.Peers
         private SynchronizedInputAdaptor _synchronizedInputPattern;
     }
 }
-

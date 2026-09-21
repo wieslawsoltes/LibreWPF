@@ -1,0 +1,36 @@
+<Project>
+  <Import Project="$(MSBuildThisFileDirectory)..\..\Directory.Build.props" />
+
+  <PropertyGroup>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <EnableNETAnalyzers>false</EnableNETAnalyzers>
+    <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
+    <NoWarn>$(NoWarn);IDE0073</NoWarn>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <ProGpuWpfHelloPackageVersion>0.1.0-preview.45</ProGpuWpfHelloPackageVersion>
+    <RestorePackagesPath>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../../artifacts/nuget/ProGPU.Wpf.HelloApp'))</RestorePackagesPath>
+    <RestoreForce>true</RestoreForce>
+    <RestoreForceEvaluate>true</RestoreForceEvaluate>
+  </PropertyGroup>
+
+  <Target Name="_ProGpuWpfHelloClearMutablePackageCache" BeforeTargets="Restore">
+    <ItemGroup>
+      <_ProGpuWpfHelloMutablePackageCache Include="$(RestorePackagesPath)/microsoft.dotnet.wpf.github/$(ProGpuWpfHelloPackageVersion)" />
+      <_ProGpuWpfHelloMutablePackageCache Include="$(RestorePackagesPath)/microsoft.dotnet.wpf.github.debug/$(ProGpuWpfHelloPackageVersion)" />
+      <_ProGpuWpfHelloMutablePackageCache Include="$(RestorePackagesPath)/progpu.wpf.sdk/$(ProGpuWpfHelloPackageVersion)" />
+      <_ProGpuWpfHelloMutablePackageCache Include="$(RestorePackagesPath)/progpu.wpf/$(ProGpuWpfHelloPackageVersion)" />
+      <_ProGpuWpfHelloMutablePackageCache Include="$(RestorePackagesPath)/progpu.backend/$(ProGpuWpfHelloPackageVersion)" />
+      <_ProGpuWpfHelloMutablePackageCache Include="$(RestorePackagesPath)/progpu.scene/$(ProGpuWpfHelloPackageVersion)" />
+      <_ProGpuWpfHelloMutablePackageCache Include="$(RestorePackagesPath)/progpu.vector/$(ProGpuWpfHelloPackageVersion)" />
+      <_ProGpuWpfHelloMutablePackageCache Include="$(RestorePackagesPath)/progpu.text/$(ProGpuWpfHelloPackageVersion)" />
+      <_ProGpuWpfHelloMutablePackageCache Include="$(RestorePackagesPath)/progpu.compute/$(ProGpuWpfHelloPackageVersion)" />
+      <_ProGpuWpfHelloMutablePackageCache Include="$(RestorePackagesPath)/progpu.transpiler/$(ProGpuWpfHelloPackageVersion)" />
+      <_ProGpuWpfHelloExistingMutablePackageCache Include="@(_ProGpuWpfHelloMutablePackageCache)" Condition="Exists('%(_ProGpuWpfHelloMutablePackageCache.Identity)')" />
+    </ItemGroup>
+
+    <RemoveDir Directories="@(_ProGpuWpfHelloExistingMutablePackageCache)" />
+  </Target>
+</Project>

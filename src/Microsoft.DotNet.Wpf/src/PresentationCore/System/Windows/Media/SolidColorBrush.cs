@@ -4,6 +4,7 @@
 using MS.Internal;
 using System.IO;
 using System.ComponentModel;
+using ProGPU.Wpf.Interop;
 
 namespace System.Windows.Media
 {
@@ -12,7 +13,7 @@ namespace System.Windows.Media
     /// The SolidColorBrush is the simplest of the Brushes.  It can be used to 
     /// fill an area with a solid color, which can be animate.
     /// </summary>
-    public sealed partial class SolidColorBrush : Brush
+    public sealed partial class SolidColorBrush : Brush, IPortableBrushSource
     {
         #region Constructors
         
@@ -33,6 +34,15 @@ namespace System.Windows.Media
         }
 
         #endregion Constructors
+
+        bool IPortableBrushSource.TryGetPortableBrush(out PortableBrush brush)
+        {
+            Color color = Color;
+            brush = PortableBrush.SolidColor(
+                new PortableColor(color.A, color.R, color.G, color.B),
+                Opacity);
+            return true;
+        }
 
         #region Serialization
 

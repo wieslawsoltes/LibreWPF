@@ -17,6 +17,7 @@ namespace System.Windows.Media
         private Rect _origBounds;
         private Rect _bounds;
         private MatrixStack _matrixStack;
+        private readonly PortableHitTestGeometryKind _portableHitTestGeometryKind;
 
         /// <summary>
         /// The constructor takes the geometry to hit test with.
@@ -34,6 +35,8 @@ namespace System.Windows.Media
             //  6.  _matrixStack is an empty stack.            
 
             ArgumentNullException.ThrowIfNull(geometry);
+
+            _portableHitTestGeometryKind = GetPortableHitTestGeometryKind(geometry);
 
             // Convert the Geometry to an equivilent PathGeometry up front to prevent
             // conversion on every call to DoesContainWithDetail.  If the geometry is
@@ -118,6 +121,14 @@ namespace System.Windows.Media
             }
         }
 
+        internal PortableHitTestGeometryKind PortableHitTestGeometryKind
+        {
+            get
+            {
+                return _portableHitTestGeometryKind;
+            }
+        }
+
         internal void PushMatrix(ref Matrix newMatrix)
         {
             MatrixTransform matrixTransform = (MatrixTransform) _hitGeometryInternal.Transform;
@@ -176,6 +187,39 @@ namespace System.Windows.Media
         {
             _hitGeometryCache = null;
         }
+
+        private static PortableHitTestGeometryKind GetPortableHitTestGeometryKind(Geometry geometry)
+        {
+            if (geometry is EllipseGeometry ellipseGeometry)
+            {
+                Transform transform = ellipseGeometry.Transform;
+                Point center = ellipseGeometry.Center;
+                double radiusX = ellipseGeometry.RadiusX;
+                double radiusY = ellipseGeometry.RadiusY;
+                if ((transform == null || transform.IsIdentity) &&
+                    IsFinite(center.X) &&
+                    IsFinite(center.Y) &&
+                    IsFinite(radiusX) &&
+                    IsFinite(radiusY) &&
+                    radiusX != 0.0 &&
+                    radiusY != 0.0)
+                {
+                    return PortableHitTestGeometryKind.AxisAlignedEllipse;
+                }
+            }
+
+            return PortableHitTestGeometryKind.Bounds;
+        }
+
+        private static bool IsFinite(double value)
+        {
+            return !double.IsNaN(value) && !double.IsInfinity(value);
+        }
+    }
+
+    internal enum PortableHitTestGeometryKind
+    {
+        Bounds,
+        AxisAlignedEllipse
     }
 }
-

@@ -4,6 +4,7 @@
 
 using System.Windows.Input;
 using System.Windows.Interop;
+using ProGPU.Wpf.Interop;
 using Standard;
 
 namespace System.Windows
@@ -27,6 +28,34 @@ namespace System.Windows
 
         private static void _PostSystemCommand(Window window, SC command)
         {
+            // A portable window's handle belongs to its host, not to a WPF
+            // HwndSource. Keep state/close notifications and cancellation on
+            // the source Window's typed activation path on Windows as well.
+            // A source Window can receive commands before Show creates its
+            // portable activation. On Windows, frozen portable media must not
+            // turn that pre-host state change into a no-op HWND post.
+            if (window.PortableWindowActivation != null || !OperatingSystem.IsWindows() ||
+                PortableWpfRuntime.GetMediaBackendAndFreeze() == PortableWpfMediaBackend.Portable)
+            {
+                switch (command)
+                {
+                    case SC.CLOSE:
+                        window.Close();
+                        break;
+                    case SC.MAXIMIZE:
+                        window.WindowState = WindowState.Maximized;
+                        break;
+                    case SC.MINIMIZE:
+                        window.WindowState = WindowState.Minimized;
+                        break;
+                    case SC.RESTORE:
+                        window.WindowState = WindowState.Normal;
+                        break;
+                }
+
+                return;
+            }
+
             IntPtr hwnd = new WindowInteropHelper(window).Handle;
             if (hwnd == IntPtr.Zero || !NativeMethods.IsWindow(hwnd))
             {
@@ -65,6 +94,11 @@ namespace System.Windows
         public static void ShowSystemMenu(Window window, Point screenLocation)
         {
             Verify.IsNotNull(window, "window");
+            if (window.PortableWindowActivation != null)
+            {
+                ShowPortableSystemMenu(window, screenLocation);
+                return;
+            }
             DpiScale dpi = window.GetDpi();
             ShowSystemMenuPhysicalCoordinates(window, DpiHelper.LogicalPixelsToDevice(screenLocation, dpi.DpiScaleX, dpi.DpiScaleY));
         }
@@ -76,6 +110,16 @@ namespace System.Windows
             const uint TPM_RIGHTBUTTON = 0x2;
 
             Verify.IsNotNull(window, "window");
+            if (window.PortableWindowActivation != null)
+            {
+                ShowPortableSystemMenu(window, physicalScreenLocation);
+                return;
+            }
+            if (!OperatingSystem.IsWindows())
+            {
+                return;
+            }
+
             IntPtr hwnd = new WindowInteropHelper(window).Handle;
             if (hwnd == IntPtr.Zero || !NativeMethods.IsWindow(hwnd))
             {
@@ -89,6 +133,18 @@ namespace System.Windows
             {
                 NativeMethods.PostMessage(hwnd, WM.SYSCOMMAND, new IntPtr(cmd), IntPtr.Zero);
             }
+        }
+
+        private static void ShowPortableSystemMenu(Window window, Point desktopLocation)
+        {
+            window.VerifyAccess();
+            // Portable PointToScreen and native host placement already share
+            // desktop coordinates. Framebuffer DPI must not rescale the origin.
+            if (!double.IsFinite(desktopLocation.X) || !double.IsFinite(desktopLocation.Y))
+                throw new ArgumentException("System-menu coordinates must be finite.", nameof(desktopLocation));
+            if (!PortableWindowActivationService.TryShowSystemMenu(
+                window.PortableWindowActivation, desktopLocation.X, desktopLocation.Y))
+                throw new PlatformNotSupportedException("The portable window host cannot display its system menu.");
         }
     }
 }

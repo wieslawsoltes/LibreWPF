@@ -31,6 +31,7 @@ This file should be imported by eng/Versions.props
     <SystemSecurityCryptographyXmlPackageVersion>11.0.0-preview.7.26359.117</SystemSecurityCryptographyXmlPackageVersion>
     <SystemSecurityPermissionsPackageVersion>11.0.0-preview.7.26359.117</SystemSecurityPermissionsPackageVersion>
     <SystemWindowsExtensionsPackageVersion>11.0.0-preview.7.26359.117</SystemWindowsExtensionsPackageVersion>
+    <StbImageSharpPackageVersion>2.30.15</StbImageSharpPackageVersion>
     <!-- dotnet-wpf-int dependencies -->
     <MicrosoftDotNetWpfDncEngPackageVersion>11.0.0-preview.2.26270.1</MicrosoftDotNetWpfDncEngPackageVersion>
   </PropertyGroup>
@@ -62,6 +63,7 @@ This file should be imported by eng/Versions.props
     <SystemSecurityCryptographyXmlVersion>$(SystemSecurityCryptographyXmlPackageVersion)</SystemSecurityCryptographyXmlVersion>
     <SystemSecurityPermissionsVersion>$(SystemSecurityPermissionsPackageVersion)</SystemSecurityPermissionsVersion>
     <SystemWindowsExtensionsVersion>$(SystemWindowsExtensionsPackageVersion)</SystemWindowsExtensionsVersion>
+    <StbImageSharpVersion>$(StbImageSharpPackageVersion)</StbImageSharpVersion>
     <!-- dotnet-wpf-int dependencies -->
     <MicrosoftDotNetWpfDncEngVersion>$(MicrosoftDotNetWpfDncEngPackageVersion)</MicrosoftDotNetWpfDncEngVersion>
   </PropertyGroup>

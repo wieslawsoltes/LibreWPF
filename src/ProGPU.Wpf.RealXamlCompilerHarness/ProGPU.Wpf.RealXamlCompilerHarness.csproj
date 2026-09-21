@@ -1,0 +1,60 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>$(ProGpuWpfRuntimeHarnessTargetFramework)</TargetFramework>
+    <RuntimeFrameworkVersion Condition="&apos;$(ProGpuWpfRuntimeFrameworkVersion)&apos; != &apos;&apos;">$(ProGpuWpfRuntimeFrameworkVersion)</RuntimeFrameworkVersion>
+    <AssemblyName>ProGPU.Wpf.RealXamlCompilerHarness</AssemblyName>
+    <RootNamespace>ProGPU.Wpf.RealXamlCompilerHarness</RootNamespace>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <EnableDefaultItems>false</EnableDefaultItems>
+    <InternalMarkupCompilation>true</InternalMarkupCompilation>
+    <AlwaysCompileMarkupFilesInSeparateDomain>false</AlwaysCompileMarkupFilesInSeparateDomain>
+    <GenerateDependencyFile>false</GenerateDependencyFile>
+    <EnableNETAnalyzers>false</EnableNETAnalyzers>
+    <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
+    <NoWarn>$(NoWarn);IDE0073</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ApplicationDefinition Include="App.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </ApplicationDefinition>
+    <Page Include="SmokeResources.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="SmokeUserControl.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="SmokePage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="SmokeSecondPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="MainWindow.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="App.xaml.cs" />
+    <Compile Include="MainWindow.xaml.cs" />
+    <Compile Include="SmokePage.xaml.cs" />
+    <Compile Include="SmokeSecondPage.xaml.cs" />
+    <Compile Include="SmokeUserControl.xaml.cs" />
+    <Compile Include="SameAssemblyResourceMarker.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Configuration.ConfigurationManager" Version="$(SystemConfigurationConfigurationManagerPackageVersion)" />
+    <PackageReference Include="System.Formats.Nrbf" Version="$(SystemFormatsNrbfVersion)" />
+    <PackageReference Include="$(SystemIOPackagingPackage)" Version="$(SystemIOPackagingVersion)" />
+    <PackageReference Include="System.Windows.Extensions" Version="$(SystemWindowsExtensionsPackageVersion)" />
+    <ProjectReference Include="..\Microsoft.DotNet.Wpf\src\System.Xaml\System.Xaml.csproj" />
+    <ProjectReference Include="..\Microsoft.DotNet.Wpf\src\WindowsBase\WindowsBase.csproj" />
+    <ProjectReference Include="..\Microsoft.DotNet.Wpf\src\PresentationCore\PresentationCore.csproj" />
+    <ProjectReference Include="..\Microsoft.DotNet.Wpf\src\PresentationFramework\PresentationFramework.csproj" />
+    <ProjectReference Include="..\..\external\ProGPU\src\ProGPU.Wpf.Interop\ProGPU.Wpf.Interop.csproj" />
+  </ItemGroup>
+</Project>

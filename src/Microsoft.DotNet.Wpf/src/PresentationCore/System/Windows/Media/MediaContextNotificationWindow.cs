@@ -11,6 +11,7 @@
 using System.Runtime.InteropServices;
 using MS.Internal.Interop;
 using MS.Win32;
+using ProGPU.Wpf.Interop;
 
 namespace System.Windows.Media
 {
@@ -26,6 +27,11 @@ namespace System.Windows.Media
         /// </summary>
         static MediaContextNotificationWindow()
         {
+            if (!UsesWindowsMil)
+            {
+                return;
+            }
+
             s_channelNotifyMessage = UnsafeNativeMethods.RegisterWindowMessage("MilChannelNotify");
             s_dwmRedirectionEnvironmentChanged = UnsafeNativeMethods.RegisterWindowMessage("DwmRedirectionEnvironmentChangedHint");
         }
@@ -45,6 +51,12 @@ namespace System.Windows.Media
         {
             // Remember the pointer to the owner MediaContext that we'll forward the broadcasts to.
             _ownerMediaContext = ownerMediaContext;
+
+            if (!UsesWindowsMil)
+            {
+                _isDisposed = false;
+                return;
+            }
 
             // Create a top-level, invisible window so we can get the WM_DWMCOMPOSITIONCHANGED
             // and other DWM notifications that are broadcasted to top-level windows only.
@@ -79,6 +91,14 @@ namespace System.Windows.Media
         {
             if (!_isDisposed)
             {
+                if (!UsesWindowsMil)
+                {
+                    _ownerMediaContext = null;
+                    _isDisposed = true;
+                    GC.SuppressFinalize(this);
+                    return;
+                }
+
                 //
                 // If DWM is not running, this call will result in NoOp.
                 //
@@ -117,6 +137,11 @@ namespace System.Windows.Media
         internal void SetAsChannelNotificationWindow()
         {
             ObjectDisposedException.ThrowIf(_isDisposed, typeof(MediaContextNotificationWindow));
+
+            if (!UsesWindowsMil)
+            {
+                return;
+            }
 
             _ownerMediaContext.Channel.SetNotificationWindow(_hwndNotification.Handle, s_channelNotifyMessage);
         }
@@ -211,6 +236,9 @@ namespace System.Windows.Media
 
         private bool _isDisposed;
 
+        private static bool UsesWindowsMil =>
+            PortableWpfRuntime.GetMediaBackendAndFreeze() == PortableWpfMediaBackend.WindowsMil;
+
         // The owner MediaContext
         private MediaContext _ownerMediaContext;
 
@@ -229,4 +257,3 @@ namespace System.Windows.Media
         #endregion Private Fields
     }
 }
-

@@ -8,8 +8,10 @@
 //
 //
 
+using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Windows.Media.TextFormatting;
+using ProGPU.Wpf.Interop;
 
 namespace MS.Internal
 {
@@ -200,15 +202,25 @@ namespace MS.Internal
         internal static extern void MILGetClassificationTables(out RawClassificationTables ct);
         static Classification()
         {
-            unsafe 
+            if (PortableWpfRuntime.GetMediaBackendAndFreeze() == PortableWpfMediaBackend.WindowsMil)
             {
-                RawClassificationTables ct = new RawClassificationTables();
-                MILGetClassificationTables(out ct);
+                unsafe
+                {
+                    RawClassificationTables ct = new RawClassificationTables();
+                    MILGetClassificationTables(out ct);
 
-                _unicodeClassTable = ct.UnicodeClasses;
-                _charAttributeTable = ct.CharacterAttributes;
-                _mirroredCharTable = ct.Mirroring;
-                _combiningMarksClassification = ct.CombiningMarksClassification;
+                    _unicodeClassTable = ct.UnicodeClasses;
+                    _charAttributeTable = ct.CharacterAttributes;
+                    _mirroredCharTable = ct.Mirroring;
+                    _combiningMarksClassification = ct.CombiningMarksClassification;
+                }
+            }
+            else
+            {
+                _unicodeClassTable = IntPtr.Zero;
+                _charAttributeTable = IntPtr.Zero;
+                _mirroredCharTable = IntPtr.Zero;
+                _combiningMarksClassification = default;
             }
         }
 
@@ -217,6 +229,11 @@ namespace MS.Internal
         /// </summary>
         public static short GetUnicodeClassUTF16(char codepoint)
         {
+            if (_unicodeClassTable == IntPtr.Zero)
+            {
+                return GetManagedUnicodeClass(codepoint);
+            }
+
             unsafe 
             {
                 short **plane0 = UnicodeClassTable[0];
@@ -234,6 +251,11 @@ namespace MS.Internal
         /// </summary>
         public static short GetUnicodeClass(int unicodeScalar)
         {
+            if (_unicodeClassTable == IntPtr.Zero)
+            {
+                return GetManagedUnicodeClass(unicodeScalar);
+            }
+
             unsafe
             {
                 Invariant.Assert(unicodeScalar >= 0 && unicodeScalar <= 0x10FFFF);
@@ -257,10 +279,7 @@ namespace MS.Internal
         /// </summary>
         public static ScriptID GetScript(int unicodeScalar)
         {
-            unsafe
-            {
-                return (ScriptID)Classification.CharAttributeTable[GetUnicodeClass(unicodeScalar)].Script;
-            }
+            return (ScriptID)CharAttributeOf(GetUnicodeClass(unicodeScalar)).Script;
         }
 
 
@@ -295,14 +314,11 @@ namespace MS.Internal
         /// </summary>
         public static bool IsCombining(int unicodeScalar)
         {
-            unsafe
-            {
-                byte itemClass = Classification.CharAttributeTable[GetUnicodeClass(unicodeScalar)].ItemClass;
+            byte itemClass = CharAttributeOf(GetUnicodeClass(unicodeScalar)).ItemClass;
 
-                return itemClass == (byte)ItemClass.SimpleMarkClass
-                    || itemClass == (byte)ItemClass.ComplexMarkClass
-                    || IsIVS(unicodeScalar);
-            }
+            return itemClass == (byte)ItemClass.SimpleMarkClass
+                || itemClass == (byte)ItemClass.ComplexMarkClass
+                || IsIVS(unicodeScalar);
         }
 
         /// <summary>
@@ -310,12 +326,9 @@ namespace MS.Internal
         /// </summary>
         public static bool IsJoiner(int unicodeScalar)
         {
-            unsafe
-            {
-                byte itemClass = Classification.CharAttributeTable[GetUnicodeClass(unicodeScalar)].ItemClass;
-                
-                return itemClass == (byte) ItemClass.JoinerClass;
-            }
+            byte itemClass = CharAttributeOf(GetUnicodeClass(unicodeScalar)).ItemClass;
+
+            return itemClass == (byte)ItemClass.JoinerClass;
         }
 
         /// <summary>
@@ -348,15 +361,12 @@ namespace MS.Internal
 
             while (i < limit)
             {
-                unsafe
-                {
-                    ushort flags = (ushort)Classification.CharAttributeTable[(int)GetUnicodeClassUTF16(charBuffer[i])].Flags;
+                ushort flags = CharAttributeOf(GetUnicodeClassUTF16(charBuffer[i])).Flags;
 
-                    if((flags & mask) != 0)
-                        break;
+                if((flags & mask) != 0)
+                    break;
 
-                    charFlags |= flags;
-                }
+                charFlags |= flags;
                 i++;
             }
             return i - offsetToFirstChar;
@@ -382,12 +392,9 @@ namespace MS.Internal
                     out sizeofChar
                     ); 
             
-                unsafe
-                {
-                    byte currentClass = (byte) Classification.CharAttributeTable[(int)GetUnicodeClass(ch)].ItemClass;
-                    if (currentClass != (byte) itemClass)
-                        break;
-                }
+                byte currentClass = CharAttributeOf(GetUnicodeClass(ch)).ItemClass;
+                if (currentClass != (byte) itemClass)
+                    break;
                 
                 i += sizeofChar;
             }
@@ -401,12 +408,214 @@ namespace MS.Internal
 
         internal static CharacterAttribute CharAttributeOf(int charClass)
         {
+            if (_charAttributeTable == IntPtr.Zero)
+            {
+                return ManagedCharAttributeOf(charClass);
+            }
+
             unsafe
             {
                 Invariant.Assert(charClass >= 0 && charClass < (int) UnicodeClass.Max);
                 return CharAttributeTable[charClass]; 
             }
         }
+
+        private static short GetManagedUnicodeClass(int unicodeScalar)
+        {
+            Invariant.Assert(unicodeScalar >= 0 && unicodeScalar <= 0x10FFFF);
+
+            if (unicodeScalar == '\r' || unicodeScalar == '\n' || unicodeScalar == 0x0085 || unicodeScalar == 0x2028 || unicodeScalar == 0x2029)
+            {
+                return ManagedLineBreakClass;
+            }
+
+            if (unicodeScalar == '\t')
+            {
+                return ManagedTabClass;
+            }
+
+            if (unicodeScalar == 0x200C || unicodeScalar == 0x200D)
+            {
+                return ManagedJoinerClass;
+            }
+
+            UnicodeCategory category = GetUnicodeCategory(unicodeScalar);
+            switch (category)
+            {
+                case UnicodeCategory.DecimalDigitNumber:
+                    return ManagedDigitClass;
+
+                case UnicodeCategory.SpaceSeparator:
+                    return ManagedSpaceClass;
+
+                case UnicodeCategory.LineSeparator:
+                case UnicodeCategory.ParagraphSeparator:
+                    return ManagedLineBreakClass;
+
+                case UnicodeCategory.NonSpacingMark:
+                case UnicodeCategory.SpacingCombiningMark:
+                case UnicodeCategory.EnclosingMark:
+                    return ManagedCombiningClass;
+
+                case UnicodeCategory.Control:
+                case UnicodeCategory.Format:
+                case UnicodeCategory.Surrogate:
+                case UnicodeCategory.OtherNotAssigned:
+                    return ManagedControlClass;
+
+                case UnicodeCategory.PrivateUse:
+                    return ManagedPrivateUseClass;
+
+                case UnicodeCategory.UppercaseLetter:
+                case UnicodeCategory.LowercaseLetter:
+                case UnicodeCategory.TitlecaseLetter:
+                case UnicodeCategory.ModifierLetter:
+                case UnicodeCategory.OtherLetter:
+                    return GetManagedLetterClass(unicodeScalar);
+
+                default:
+                    return ManagedPunctuationClass;
+            }
+        }
+
+        private static UnicodeCategory GetUnicodeCategory(int unicodeScalar)
+        {
+            return unicodeScalar <= char.MaxValue
+                ? CharUnicodeInfo.GetUnicodeCategory((char)unicodeScalar)
+                : CharUnicodeInfo.GetUnicodeCategory(char.ConvertFromUtf32(unicodeScalar), 0);
+        }
+
+        private static short GetManagedLetterClass(int unicodeScalar)
+        {
+            if (unicodeScalar >= 0x0590 && unicodeScalar <= 0x05FF)
+            {
+                return ManagedHebrewClass;
+            }
+
+            if ((unicodeScalar >= 0x0600 && unicodeScalar <= 0x06FF) ||
+                (unicodeScalar >= 0x0750 && unicodeScalar <= 0x077F) ||
+                (unicodeScalar >= 0x08A0 && unicodeScalar <= 0x08FF) ||
+                (unicodeScalar >= 0xFB50 && unicodeScalar <= 0xFDFF) ||
+                (unicodeScalar >= 0xFE70 && unicodeScalar <= 0xFEFF))
+            {
+                return ManagedArabicClass;
+            }
+
+            if ((unicodeScalar >= 0x3040 && unicodeScalar <= 0x30FF) ||
+                (unicodeScalar >= 0x3400 && unicodeScalar <= 0x4DBF) ||
+                (unicodeScalar >= 0x4E00 && unicodeScalar <= 0x9FFF) ||
+                (unicodeScalar >= 0xAC00 && unicodeScalar <= 0xD7AF) ||
+                (unicodeScalar >= 0xF900 && unicodeScalar <= 0xFAFF))
+            {
+                return ManagedCjkClass;
+            }
+
+            return ManagedLatinClass;
+        }
+
+        private static CharacterAttribute ManagedCharAttributeOf(int charClass)
+        {
+            return charClass switch
+            {
+                ManagedLatinClass => CreateManagedAttribute(
+                    ScriptID.Latin,
+                    ItemClass.StrongClass,
+                    CharacterAttributeFlags.CharacterLetter | CharacterAttributeFlags.CharacterFastText,
+                    DirectionClass.Left),
+                ManagedDigitClass => CreateManagedAttribute(
+                    ScriptID.Digit,
+                    ItemClass.DigitClass,
+                    CharacterAttributeFlags.CharacterDigit | CharacterAttributeFlags.CharacterFastText,
+                    DirectionClass.EuropeanNumber),
+                ManagedSpaceClass => CreateManagedAttribute(
+                    ScriptID.Default,
+                    ItemClass.WeakClass,
+                    CharacterAttributeFlags.CharacterSpace | CharacterAttributeFlags.CharacterFastText,
+                    DirectionClass.WhiteSpace),
+                ManagedLineBreakClass => CreateManagedAttribute(
+                    ScriptID.Control,
+                    ItemClass.ControlClass,
+                    CharacterAttributeFlags.CharacterLineBreak | CharacterAttributeFlags.CharacterParaBreak | CharacterAttributeFlags.CharacterCRLF,
+                    DirectionClass.ParagraphSeparator),
+                ManagedControlClass => CreateManagedAttribute(
+                    ScriptID.Control,
+                    ItemClass.ControlClass,
+                    CharacterAttributeFlags.CharacterFormatAnchor,
+                    DirectionClass.BoundaryNeutral),
+                ManagedCombiningClass => CreateManagedAttribute(
+                    ScriptID.Default,
+                    ItemClass.SimpleMarkClass,
+                    CharacterAttributeFlags.CharacterComplex,
+                    DirectionClass.NonSpacingMark),
+                ManagedJoinerClass => CreateManagedAttribute(
+                    ScriptID.Control,
+                    ItemClass.JoinerClass,
+                    CharacterAttributeFlags.CharacterComplex,
+                    DirectionClass.BoundaryNeutral),
+                ManagedCjkClass => CreateManagedAttribute(
+                    ScriptID.CJKIdeographic,
+                    ItemClass.StrongClass,
+                    CharacterAttributeFlags.CharacterLetter | CharacterAttributeFlags.CharacterIdeo | CharacterAttributeFlags.CharacterComplex,
+                    DirectionClass.Left),
+                ManagedArabicClass => CreateManagedAttribute(
+                    ScriptID.Arabic,
+                    ItemClass.StrongClass,
+                    CharacterAttributeFlags.CharacterLetter | CharacterAttributeFlags.CharacterRTL | CharacterAttributeFlags.CharacterComplex,
+                    DirectionClass.ArabicLetter),
+                ManagedHebrewClass => CreateManagedAttribute(
+                    ScriptID.Hebrew,
+                    ItemClass.StrongClass,
+                    CharacterAttributeFlags.CharacterLetter | CharacterAttributeFlags.CharacterRTL | CharacterAttributeFlags.CharacterComplex,
+                    DirectionClass.Right),
+                ManagedTabClass => CreateManagedAttribute(
+                    ScriptID.Control,
+                    ItemClass.WeakClass,
+                    CharacterAttributeFlags.CharacterSpace | CharacterAttributeFlags.CharacterFastText,
+                    DirectionClass.WhiteSpace),
+                ManagedPrivateUseClass => CreateManagedAttribute(
+                    ScriptID.Default,
+                    ItemClass.WeakClass,
+                    CharacterAttributeFlags.CharacterFastText,
+                    DirectionClass.OtherNeutral),
+                _ => CreateManagedAttribute(
+                    ScriptID.Default,
+                    ItemClass.WeakClass,
+                    CharacterAttributeFlags.CharacterFastText,
+                    DirectionClass.OtherNeutral)
+            };
+        }
+
+        private static CharacterAttribute CreateManagedAttribute(
+            ScriptID script,
+            ItemClass itemClass,
+            CharacterAttributeFlags flags,
+            DirectionClass bidi)
+        {
+            return new CharacterAttribute
+            {
+                Script = (byte)script,
+                ItemClass = (byte)itemClass,
+                Flags = (ushort)flags,
+                BreakType = (byte)CharBreakingType.NoBreak,
+                BiDi = bidi,
+                LineBreak = 0
+            };
+        }
+
+        private const short ManagedDefaultClass = 0;
+        private const short ManagedLatinClass = 1;
+        private const short ManagedDigitClass = 2;
+        private const short ManagedSpaceClass = 3;
+        private const short ManagedLineBreakClass = 4;
+        private const short ManagedControlClass = 5;
+        private const short ManagedCombiningClass = 6;
+        private const short ManagedJoinerClass = 7;
+        private const short ManagedCjkClass = 8;
+        private const short ManagedArabicClass = 9;
+        private const short ManagedHebrewClass = 10;
+        private const short ManagedPunctuationClass = 11;
+        private const short ManagedTabClass = 12;
+        private const short ManagedPrivateUseClass = 13;
 
         private static readonly IntPtr _unicodeClassTable;
         private static readonly IntPtr _charAttributeTable;

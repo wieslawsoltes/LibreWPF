@@ -11,6 +11,7 @@ using MS.Internal;
 using MS.Internal.Interop;
 using MS.Utility;
 using MS.Win32;
+using ProGPU.Wpf.Interop;
 
 using UnsafeNativeMethods = MS.Win32.PresentationCore.UnsafeNativeMethods;
 using HRESULT = MS.Internal.HRESULT;
@@ -54,14 +55,26 @@ namespace System.Windows.Media.Composition
     /// </remark>
     internal struct CompositionEngineLock : IDisposable
     {
+        private readonly bool _acquired;
+
+        private CompositionEngineLock(bool acquired)
+        {
+            _acquired = acquired;
+        }
+
         /// <summary>
         /// Aquires the composition engine lock.
         /// </summary>
         internal static CompositionEngineLock Acquire()
         {
+            if (PortableWpfRuntime.GetMediaBackendAndFreeze() != PortableWpfMediaBackend.WindowsMil)
+            {
+                return new CompositionEngineLock(false);
+            }
+
             UnsafeNativeMethods.MilCoreApi.EnterCompositionEngineLock();
 
-            return new CompositionEngineLock();
+            return new CompositionEngineLock(true);
         }
 
         /// <summary>
@@ -69,6 +82,11 @@ namespace System.Windows.Media.Composition
         /// </summary>
         public void Dispose()
         {
+            if (!_acquired)
+            {
+                return;
+            }
+
             UnsafeNativeMethods.MilCoreApi.ExitCompositionEngineLock();
         }
     }

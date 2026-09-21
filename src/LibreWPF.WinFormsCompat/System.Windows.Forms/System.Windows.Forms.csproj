@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>$(ProGpuWpfTargetFramework)</TargetFramework>
+    <AssemblyName>System.Windows.Forms</AssemblyName>
+    <RootNamespace>System.Windows.Forms</RootNamespace>
+    <PackageId>LibreWPF.WinFormsCompat.System.Windows.Forms</PackageId>
+    <Description>LibreWPF portable WinForms compatibility surface for WPF-era helper APIs.</Description>
+    <PackageTags>librewpf;progpu;winforms;compatibility;cross-platform</PackageTags>
+    <Version Condition="'$(Version)' == ''">$(ProGpuWpfSdkVersion)</Version>
+    <PackageVersion Condition="'$(PackageVersion)' == ''">$(Version)</PackageVersion>
+    <IsPackable>true</IsPackable>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <SignAssembly>true</SignAssembly>
+    <AssemblyOriginatorKeyFile>..\..\..\external\ProGPU\eng\ProGPU.snk</AssemblyOriginatorKeyFile>
+    <Nullable>enable</Nullable>
+    <NoWarn>$(NoWarn);CS1591;CA1051;CA1815;IDE0005;IDE0073;IDE0300;IDE1006</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.CodeDom" Version="10.0.0" />
+    <ProjectReference Include="..\..\..\external\ProGPU\src\ProGPU.Wpf.Interop\ProGPU.Wpf.Interop.csproj" />
+    <ProjectReference Include="..\..\..\external\ProGPU\src\System.Drawing.Common\System.Drawing.Common.csproj" />
+  </ItemGroup>
+</Project>

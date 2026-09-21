@@ -1077,7 +1077,7 @@ namespace System.Windows.Markup
                     }
                 }
 
-                if (internalTypeHelper != null)
+                if (internalTypeHelper != null && OperatingSystem.IsWindows())
                 {
                     XamlAccessLevel accessLevel = XamlAccessLevel.AssemblyAccessTo(streamInfo.Assembly);
                     root = WpfXamlLoader.LoadBaml(reader, parserContext.SkipJournaledProperties, parent, accessLevel, parserContext.BaseUri);

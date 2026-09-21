@@ -52,11 +52,33 @@
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
     </ProjectReference>
   </ItemGroup>
-  <ItemGroup>
+  <ItemGroup Condition="'$(ProGpuWpfCanonicalWinFormsAssemblyRoot)' == ''">
     <MicrosoftPrivateWinFormsReference Include="System.Windows.Forms" />
     <MicrosoftPrivateWinFormsReference Include="System.Windows.Forms.Primitives" />
   </ItemGroup>
-  <ItemGroup>
+  <ItemGroup Condition="'$(ProGpuWpfCanonicalWinFormsAssemblyRoot)' == ''">
     <PackageReference Include="$(SystemDrawingCommonPackage)" Version="$(SystemDrawingCommonVersion)" />
   </ItemGroup>
+  <ItemGroup Condition="'$(ProGpuWpfCanonicalWinFormsAssemblyRoot)' != ''">
+    <Reference Include="System.Windows.Forms" HintPath="$(ProGpuWpfCanonicalWinFormsAssemblyRoot)System.Windows.Forms.dll" Private="false" />
+    <Reference Include="System.Windows.Forms.Primitives" HintPath="$(ProGpuWpfCanonicalWinFormsAssemblyRoot)System.Windows.Forms.Primitives.dll" Private="false" />
+    <Reference Include="System.Drawing.Common" HintPath="$(ProGpuWpfCanonicalWinFormsAssemblyRoot)System.Drawing.Common.dll" Private="false" />
+    <Reference Include="System.Private.Windows.Core" HintPath="$(ProGpuWpfCanonicalWinFormsAssemblyRoot)System.Private.Windows.Core.dll" Private="false" />
+    <Reference Include="System.Private.Windows.GdiPlus" HintPath="$(ProGpuWpfCanonicalWinFormsAssemblyRoot)System.Private.Windows.GdiPlus.dll" Private="false" />
+    <Reference Include="ProGPU.Backend" HintPath="$(ProGpuWpfCanonicalWinFormsAssemblyRoot)ProGPU.Backend.dll" Private="false" />
+    <Reference Include="ProGPU.Scene" HintPath="$(ProGpuWpfCanonicalWinFormsAssemblyRoot)ProGPU.Scene.dll" Private="false" />
+    <Reference Include="ProGPU.Text" HintPath="$(ProGpuWpfCanonicalWinFormsAssemblyRoot)ProGPU.Text.dll" Private="false" />
+    <Reference Include="ProGPU.Wpf.Interop" HintPath="$(ProGpuWpfCanonicalProGpuAssemblyRoot)ProGPU.Wpf.Interop.dll" Private="false" />
+  </ItemGroup>
+  <Target Name="_ValidateCanonicalWinFormsAssemblyClosure"
+          BeforeTargets="ResolveAssemblyReferences"
+          Condition="'$(ProGpuWpfCanonicalWinFormsAssemblyRoot)' != ''">
+    <ItemGroup>
+      <_CanonicalWinFormsAssembly Include="System.Windows.Forms;System.Windows.Forms.Primitives;System.Drawing.Common;System.Private.Windows.Core;System.Private.Windows.GdiPlus;ProGPU.Backend;ProGPU.Scene;ProGPU.Text" />
+    </ItemGroup>
+    <Error Condition="!Exists('$(ProGpuWpfCanonicalWinFormsAssemblyRoot)%(_CanonicalWinFormsAssembly.Identity).dll')"
+           Text="Canonical WinForms assembly '%(_CanonicalWinFormsAssembly.Identity)' is missing from $(ProGpuWpfCanonicalWinFormsAssemblyRoot)." />
+    <Error Condition="'$(ProGpuWpfCanonicalProGpuAssemblyRoot)' == '' Or !Exists('$(ProGpuWpfCanonicalProGpuAssemblyRoot)ProGPU.Wpf.Interop.dll')"
+           Text="Canonical ProGPU.Wpf.Interop is missing from $(ProGpuWpfCanonicalProGpuAssemblyRoot)." />
+  </Target>
 </Project>

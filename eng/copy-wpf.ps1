@@ -51,10 +51,10 @@ function CopyNativeBinariesToLocation($location, $localBinLocation)
 {
     # Layout of where the native binaries looks something like this:
 
-    # x86 - artifacts\packaging\Debug\Microsoft.DotNet.Wpf.GitHub\lib\win-x86
-    # x64 - artifacts\packaging\Debug\x64\Microsoft.DotNet.Wpf.GitHub\lib\win-x64
+    # x86 - artifacts\packaging\Debug\LibreWPF.Transport\lib\win-x86
+    # x64 - artifacts\packaging\Debug\x64\LibreWPF.Transport\lib\win-x64
 
-    $PackageName = "Microsoft.DotNet.Wpf.GitHub"
+    $PackageName = "LibreWPF.Transport"
     $PackageName += if ($release) { "" } else { ".Debug" }
     $BinaryLocationInPackage =  "win-$arch"
     # CopyPackagedBinaries $location $localBinLocation $PackageName $BinaryLocationInPackage
@@ -79,10 +79,10 @@ function CopyNativeBinariesToLocation($location, $localBinLocation)
 function CopyManagedBinariesToLocation($location, $localBinLocation)
 {
     # Layout of where the managed binaries looks something like this:
-    # x86 - artifacts\packaging\Debug\Microsoft.DotNet.Wpf.GitHub\lib\net6.0
-    # x64 - artifacts\packaging\Debug\x64\Microsoft.DotNet.Wpf.GitHub\lib\net6.0
+    # x86 - artifacts\packaging\Debug\LibreWPF.Transport\lib\net6.0
+    # x64 - artifacts\packaging\Debug\x64\LibreWPF.Transport\lib\net6.0
 
-    $PackageName = "Microsoft.DotNet.Wpf.GitHub"
+    $PackageName = "LibreWPF.Transport"
     $PackageName += if ($release) { "" } else { ".Debug" }
     $BinaryLocationInPackage = "net9.0"
     CopyPackagedBinaries $location $localBinLocation $PackageName $BinaryLocationInPackage

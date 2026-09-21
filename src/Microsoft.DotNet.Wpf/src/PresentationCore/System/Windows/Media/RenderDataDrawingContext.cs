@@ -11,6 +11,8 @@
 //   the pail when we add an animated argument.
 //------------------------------------------------------------------------------
 
+using ProGPU.Wpf.Interop;
+
 namespace System.Windows.Media
 {
     /// <summary>
@@ -25,6 +27,11 @@ namespace System.Windows.Media
         /// </summary>
         internal RenderDataDrawingContext()
         {
+        }
+
+        internal RenderDataDrawingContext(IRenderDataDrawingContextSink renderDataSink)
+        {
+            _renderDataSink = renderDataSink ?? throw new ArgumentNullException(nameof(renderDataSink));
         }
 
         #endregion Constructors
@@ -64,6 +71,7 @@ namespace System.Windows.Media
             if (!_disposed)
             {
                 EnsureCorrectNesting();
+                _renderDataSink?.Close();
                 CloseCore(_renderData);
                 _disposed = true;
             }
@@ -80,6 +88,27 @@ namespace System.Windows.Media
         /// </summary>
         /// <param name="renderData"> The render data produced by this RenderDataDrawingContext.  </param>
         protected virtual void CloseCore(RenderData renderData) {}
+
+        protected override bool TryGetPortableNativeDrawingContextCore(out object nativeDrawingContext)
+        {
+            if (_renderDataSink is IPortableNativeDrawingContextSource nativeDrawingContextSource)
+            {
+                return nativeDrawingContextSource.TryGetPortableNativeDrawingContext(out nativeDrawingContext);
+            }
+
+            return base.TryGetPortableNativeDrawingContextCore(out nativeDrawingContext);
+        }
+
+        protected override bool TryGetPortableNativeDrawingContextStateCore(
+            out PortableNativeDrawingContextState state)
+        {
+            if (_renderDataSink is IPortableNativeDrawingContextStateSource nativeDrawingContextStateSource)
+            {
+                return nativeDrawingContextStateSource.TryGetPortableNativeDrawingContextState(out state);
+            }
+
+            return base.TryGetPortableNativeDrawingContextStateCore(out state);
+        }
 
         #endregion Protected Methods
 
@@ -115,7 +144,7 @@ namespace System.Windows.Media
         /// </summary>
         private void EnsureCorrectNesting()
         {
-            if (_renderData != null && _stackDepth > 0)
+            if (_stackDepth > 0)
             {
                 int stackDepth = _stackDepth;
                 for (int i = 0; i < stackDepth; i++)
@@ -132,6 +161,7 @@ namespace System.Windows.Media
         #region Fields
 
         private RenderData _renderData;
+        private readonly IRenderDataDrawingContextSink _renderDataSink;
         private bool _disposed;
         private int _stackDepth;
 

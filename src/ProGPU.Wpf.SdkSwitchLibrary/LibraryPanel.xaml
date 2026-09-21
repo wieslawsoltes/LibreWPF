@@ -1,0 +1,25 @@
+<UserControl
+    x:Class="ProGPU.Wpf.SdkSwitchLibrary.LibraryPanel"
+    x:Name="LibraryOwner"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="clr-namespace:ProGPU.Wpf.SdkSwitchLibrary">
+    <UserControl.Resources>
+        <SolidColorBrush x:Key="LibraryAccentBrush" Color="#3E7B64" />
+    </UserControl.Resources>
+
+    <Border
+        x:Name="LibraryRoot"
+        Padding="4"
+        Background="{StaticResource LibraryAccentBrush}"
+        Tag="{Binding LibraryTag, ElementName=LibraryOwner}">
+        <StackPanel>
+            <TextBlock
+                x:Name="LibraryTitle"
+                Text="{Binding Title, ElementName=LibraryOwner}" />
+            <TextBlock
+                x:Name="LibraryMessage"
+                Text="compiled library BAML" />
+        </StackPanel>
+    </Border>
+</UserControl>

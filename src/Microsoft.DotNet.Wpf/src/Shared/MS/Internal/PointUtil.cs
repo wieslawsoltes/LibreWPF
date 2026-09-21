@@ -5,6 +5,7 @@ using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Interop;
+using ProGPU.Wpf.Interop;
 
 using MS.Win32;
 
@@ -40,8 +41,13 @@ namespace MS.Internal
             // Only do if we allow throwing on error or have a valid PresentationSource and CompositionTarget.
             if (throwOnError || (presentationSource != null && presentationSource.CompositionTarget != null && !presentationSource.CompositionTarget.IsDisposed))
             {
-                // Convert from pixels into measure units.
-                point = presentationSource.CompositionTarget.TransformFromDevice.Transform(point);
+                // Portable windowing APIs already report client coordinates in logical units.
+                // Keep the device transform on the rendering target, but do not apply it to the
+                // public screen/client coordinate contract.
+                if (!IsPortablePresentationSource(presentationSource))
+                {
+                    point = presentationSource.CompositionTarget.TransformFromDevice.Transform(point);
+                }
 
                 // REVIEW:
                 // We need to include the root element's transform until the MIL
@@ -68,8 +74,12 @@ namespace MS.Internal
             // team fixes their APIs to do this.
             point = ApplyVisualTransform(point, presentationSource.RootVisual, false);
 
-            // Convert from measure units into pixels.
-            point = presentationSource.CompositionTarget.TransformToDevice.Transform(point);
+            // Native HWND clients use pixels.  Portable clients use the native platform's
+            // logical coordinate space (the same space as Window.Left/Top and input events).
+            if (!IsPortablePresentationSource(presentationSource))
+            {
+                point = presentationSource.CompositionTarget.TransformToDevice.Transform(point);
+            }
 
             return point;
         }
@@ -162,9 +172,16 @@ namespace MS.Internal
         /// </summary>
         public static Point ClientToScreen(Point pointClient, PresentationSource presentationSource)
         {
-            // For now we only know how to use HwndSource.
+            if (TryGetPortablePresentationSource(presentationSource, out PortablePresentationSource portableSource))
+            {
+                PortablePoint point = portableSource.DesktopTransform.ClientToDesktop(
+                    new PortablePoint(pointClient.X, pointClient.Y));
+                return new Point(point.X, point.Y);
+            }
+
+            // For native sources we only know how to use HwndSource.
             HwndSource inputSource = presentationSource as HwndSource;
-            if(inputSource == null)
+            if(inputSource == null || inputSource.IsPortable)
             {
                 return pointClient;
             }
@@ -184,9 +201,16 @@ namespace MS.Internal
         /// </summary>
         internal static Point ScreenToClient(Point pointScreen, PresentationSource presentationSource)
         {
-            // For now we only know how to use HwndSource.
+            if (TryGetPortablePresentationSource(presentationSource, out PortablePresentationSource portableSource))
+            {
+                PortablePoint point = portableSource.DesktopTransform.DesktopToClient(
+                    new PortablePoint(pointScreen.X, pointScreen.Y));
+                return new Point(point.X, point.Y);
+            }
+
+            // For native sources we only know how to use HwndSource.
             HwndSource inputSource = presentationSource as HwndSource;
-            if(inputSource == null)
+            if(inputSource == null || inputSource.IsPortable)
             {
                 return pointScreen;
             }
@@ -200,6 +224,45 @@ namespace MS.Internal
             ptClient = AdjustForRightToLeft(ptClient, handleRef);
 
             return ToPoint(ptClient);
+        }
+
+        internal static bool TryGetPortableDesktopTransform(
+            PresentationSource source,
+            out PortableDesktopTransform transform)
+        {
+            if (TryGetPortablePresentationSource(source, out PortablePresentationSource portableSource))
+            {
+                transform = portableSource.DesktopTransform;
+                return true;
+            }
+            transform = default;
+            return false;
+        }
+
+        private static bool TryGetPortablePresentationSource(
+            PresentationSource presentationSource,
+            out PortablePresentationSource portableSource)
+        {
+            portableSource = presentationSource as PortablePresentationSource;
+            if (portableSource != null)
+            {
+                return true;
+            }
+
+            if (presentationSource is HwndSource hwndSource &&
+                hwndSource.IsPortable &&
+                hwndSource.PortableOwner is PortablePresentationSource portableOwner)
+            {
+                portableSource = portableOwner;
+                return true;
+            }
+
+            return false;
+        }
+
+        internal static bool IsPortablePresentationSource(PresentationSource presentationSource)
+        {
+            return TryGetPortablePresentationSource(presentationSource, out _);
         }
 
         /// <summary>
@@ -246,30 +309,31 @@ namespace MS.Internal
             CompositionTarget   target                  = presentationSource.CompositionTarget;
             Matrix              matrixRootTransform     = PointUtil.GetVisualTransform(target.RootVisual);
             Rect                rectRootUntransformed   = Rect.Transform(rectRoot, matrixRootTransform);
-            Matrix              matrixDPI               = target.TransformToDevice;
-            Rect                rectClient              = Rect.Transform(rectRootUntransformed, matrixDPI);
+            Rect rectClient = IsPortablePresentationSource(presentationSource)
+                ? rectRootUntransformed
+                : Rect.Transform(rectRootUntransformed, target.TransformToDevice);
 
             return rectClient;
         }
 
         /// <summary>
-        ///     Converts a rectangle from Win32 client co-ordinate space to Win32 screen
+        ///     Converts a rectangle from client co-ordinate space to screen
         /// </summary>
         /// <remarks>
         /// </remarks>
         /// <param name="rectClient">
         ///     The rectangle to be converted
         /// </param>
-        /// <param name="hwndSource">
-        ///     The HwndSource corresponding to the Win32 window containing the rectangle
+        /// <param name="presentationSource">
+        ///     The PresentationSource containing the rectangle
         /// </param>
         /// <returns>
-        ///     The rectangle in Win32 screen co-ordinate space
+        ///     The rectangle in screen co-ordinate space
         /// </returns>
-        internal static Rect ClientToScreen(Rect rectClient, HwndSource hwndSource)
+        internal static Rect ClientToScreen(Rect rectClient, PresentationSource presentationSource)
         {
-            Point corner1 = ClientToScreen(rectClient.TopLeft, hwndSource);
-            Point corner2 = ClientToScreen(rectClient.BottomRight, hwndSource);
+            Point corner1 = ClientToScreen(rectClient.TopLeft, presentationSource);
+            Point corner2 = ClientToScreen(rectClient.BottomRight, presentationSource);
             return new Rect(corner1, corner2);
         }
 
@@ -301,6 +365,11 @@ namespace MS.Internal
         /// </returns>
         internal static NativeMethods.POINT AdjustForRightToLeft(NativeMethods.POINT pt, HandleRef handleRef)
         {
+            if (!OperatingSystem.IsWindows())
+            {
+                return pt;
+            }
+
             int windowStyle = SafeNativeMethods.GetWindowStyle(handleRef, true);
 
             if(( windowStyle & NativeMethods.WS_EX_LAYOUTRTL ) == NativeMethods.WS_EX_LAYOUTRTL)
@@ -340,6 +409,11 @@ namespace MS.Internal
         /// </returns>
         internal static NativeMethods.RECT AdjustForRightToLeft(NativeMethods.RECT rc, HandleRef handleRef)
         {
+            if (!OperatingSystem.IsWindows())
+            {
+                return rc;
+            }
+
             int windowStyle = SafeNativeMethods.GetWindowStyle(handleRef, true);
 
             if(( windowStyle & NativeMethods.WS_EX_LAYOUTRTL ) == NativeMethods.WS_EX_LAYOUTRTL)
@@ -434,5 +508,3 @@ namespace MS.Internal
 
     }
 }
-
-

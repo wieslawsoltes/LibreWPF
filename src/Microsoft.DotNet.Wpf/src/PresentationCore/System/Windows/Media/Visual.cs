@@ -13,6 +13,7 @@ using System.Windows.Interop;
 using MS.Internal;
 using MS.Internal.Media;
 using MS.Internal.Media3D;
+using ProGPU.Wpf.Interop;
 
 //------------------------------------------------------------------------------
 // This section lists various things that we could improve on the Visual class.
@@ -74,7 +75,7 @@ namespace System.Windows.Media
     /// Derived Visuals render their content first and then render the children, or in other
     /// words, the content of a Visual is always behind the content of its children.
     /// </summary>
-    public abstract partial class Visual : DependencyObject, DUCE.IResource
+    public abstract partial class Visual : DependencyObject, DUCE.IResource, IPortableVisualChildrenSource, IPortableVisualStateSource, IPortableVisualBoundsSource
     {
         // --------------------------------------------------------------------
         //
@@ -408,6 +409,38 @@ namespace System.Windows.Media
                 }
                 return bboxSubgraph;
             }
+        }
+
+        bool IPortableVisualBoundsSource.TryGetPortableVisualBounds(out PortableVisualBounds bounds)
+        {
+            Rect contentBounds = VisualContentBounds;
+            Rect descendantBounds = VisualDescendantBounds;
+            bounds = new PortableVisualBounds
+            {
+                HasContentBounds = HasPortableVisualBounds(contentBounds),
+                ContentBounds = ToPortableRect(contentBounds),
+                HasDescendantBounds = HasPortableVisualBounds(descendantBounds),
+                DescendantBounds = ToPortableRect(descendantBounds)
+            };
+            return true;
+        }
+
+        private static bool HasPortableVisualBounds(Rect bounds)
+        {
+            // Empty is authoritative source content, not missing metadata.
+            return bounds.IsEmpty || (bounds.Width >= 0
+                && bounds.Height >= 0
+                && Double.IsFinite(bounds.X)
+                && Double.IsFinite(bounds.Y)
+                && Double.IsFinite(bounds.Width)
+                && Double.IsFinite(bounds.Height));
+        }
+
+        private static PortableRect ToPortableRect(Rect bounds)
+        {
+            return bounds.IsEmpty
+                ? PortableRect.Empty
+                : new PortableRect(bounds.X, bounds.Y, bounds.Width, bounds.Height);
         }
 
 
@@ -1929,6 +1962,12 @@ namespace System.Windows.Media
 
                 try
                 {
+                    if (PresentationSource.CriticalFromVisual(this) is PortablePresentationSource portableSource &&
+                        portableSource.TryPointHitTestOverride(this, pointParams.HitPoint, filterCallback, resultCallback, out _))
+                    {
+                        return;
+                    }
+
                     HitTestPoint(filterCallback, resultCallback, pointParams);
                 }
                 catch
@@ -1960,6 +1999,12 @@ namespace System.Windows.Media
 #endif // DEBUG
                     try
                     {
+                        if (PresentationSource.CriticalFromVisual(this) is PortablePresentationSource portableSource &&
+                            portableSource.TryGeometryHitTestOverride(this, geometryParams, filterCallback, resultCallback, out _))
+                        {
+                            return;
+                        }
+
                         HitTestGeometry(filterCallback, resultCallback, geometryParams);
                     }
                     catch
@@ -2469,6 +2514,12 @@ namespace System.Windows.Media
             }
         }
 
+        bool IPortableVisualChildrenSource.TryGetPortableVisualChildCount(out int count)
+        {
+            count = VisualChildrenCount;
+            return true;
+        }
+
         /// <summary>
         /// Returns the number of children of this object (in most cases this will be
         /// the number of Visuals, but it some cases, Viewport3DVisual for instance,
@@ -2522,6 +2573,172 @@ namespace System.Windows.Media
         {
             // Call the right virtual method.
             return GetVisualChild(index);
+        }
+
+        bool IPortableVisualChildrenSource.TryGetPortableVisualChild(int index, out object child)
+        {
+            child = GetVisualChild(index);
+            return true;
+        }
+
+        bool IPortableVisualStateSource.TryGetPortableVisualState(out PortableVisualState state)
+        {
+            Vector offset = VisualOffset;
+            Rect? scrollableAreaClip = VisualScrollableAreaClip;
+            Transform transform = VisualTransform;
+            Geometry clip = VisualClip;
+            Brush opacityMask = VisualOpacityMask;
+            Effect effect = VisualEffectInternal;
+            BitmapEffect bitmapEffect = VisualBitmapEffectInternal;
+            BitmapEffectInput bitmapEffectInput = VisualBitmapEffectInputInternal;
+            CacheMode cacheMode = VisualCacheMode;
+            BitmapScalingMode bitmapScalingMode = VisualBitmapScalingMode;
+            EdgeMode edgeMode = VisualEdgeMode;
+            ClearTypeHint clearTypeHint = VisualClearTypeHint;
+            TextRenderingMode textRenderingMode = VisualTextRenderingMode;
+            TextHintingMode textHintingMode = VisualTextHintingMode;
+            DoubleCollection guidelinesX = VisualXSnappingGuidelines;
+            DoubleCollection guidelinesY = VisualYSnappingGuidelines;
+
+            state = new PortableVisualState
+            {
+                HasOffset = true,
+                Offset = new PortablePoint(offset.X, offset.Y),
+                HasTransform = transform != null,
+                Transform = transform,
+                HasClip = clip != null,
+                Clip = clip,
+                HasScrollableAreaClip = scrollableAreaClip.HasValue,
+                ScrollableAreaClip = scrollableAreaClip.HasValue
+                    ? new PortableRect(
+                        scrollableAreaClip.Value.X,
+                        scrollableAreaClip.Value.Y,
+                        scrollableAreaClip.Value.Width,
+                        scrollableAreaClip.Value.Height)
+                    : PortableRect.Empty,
+                HasOpacity = true,
+                Opacity = VisualOpacity,
+                HasOpacityMask = opacityMask != null,
+                OpacityMask = opacityMask,
+                HasEffect = effect != null,
+                Effect = effect,
+                HasBitmapEffect = bitmapEffect != null,
+                BitmapEffect = bitmapEffect,
+                HasBitmapEffectInput = bitmapEffectInput != null,
+                BitmapEffectInput = bitmapEffectInput,
+                HasCacheMode = cacheMode != null,
+                CacheMode = cacheMode,
+                HasBitmapScalingMode = bitmapScalingMode != BitmapScalingMode.Unspecified,
+                BitmapScalingMode = bitmapScalingMode,
+                HasPortableBitmapScalingMode = bitmapScalingMode != BitmapScalingMode.Unspecified,
+                PortableBitmapScalingMode = bitmapScalingMode switch
+                {
+                    BitmapScalingMode.LowQuality => PortableBitmapScalingMode.Linear,
+                    BitmapScalingMode.HighQuality => PortableBitmapScalingMode.Fant,
+                    BitmapScalingMode.NearestNeighbor => PortableBitmapScalingMode.NearestNeighbor,
+                    _ => PortableBitmapScalingMode.Unspecified
+                },
+                HasEdgeMode = edgeMode != EdgeMode.Unspecified,
+                EdgeMode = edgeMode,
+                HasPortableEdgeMode = edgeMode != EdgeMode.Unspecified,
+                PortableEdgeMode = edgeMode == EdgeMode.Aliased
+                    ? PortableEdgeMode.Aliased
+                    : PortableEdgeMode.Unspecified,
+                HasClearTypeHint = clearTypeHint != ClearTypeHint.Auto,
+                ClearTypeHint = clearTypeHint,
+                HasPortableClearTypeHint = clearTypeHint != ClearTypeHint.Auto,
+                PortableClearTypeHint = clearTypeHint == ClearTypeHint.Enabled
+                    ? PortableClearTypeHint.Enabled
+                    : PortableClearTypeHint.Auto,
+                HasTextRenderingMode = textRenderingMode != TextRenderingMode.Auto,
+                TextRenderingMode = textRenderingMode,
+                HasPortableTextRenderingMode = textRenderingMode != TextRenderingMode.Auto,
+                PortableTextRenderingMode = textRenderingMode switch
+                {
+                    TextRenderingMode.Aliased => PortableTextRenderingMode.Aliased,
+                    TextRenderingMode.Grayscale => PortableTextRenderingMode.Grayscale,
+                    TextRenderingMode.ClearType => PortableTextRenderingMode.ClearType,
+                    _ => PortableTextRenderingMode.Auto
+                },
+                HasTextHintingMode = textHintingMode != TextHintingMode.Auto,
+                TextHintingMode = textHintingMode,
+                HasPortableTextHintingMode = textHintingMode != TextHintingMode.Auto,
+                PortableTextHintingMode = textHintingMode switch
+                {
+                    TextHintingMode.Fixed => PortableTextHintingMode.Fixed,
+                    TextHintingMode.Animated => PortableTextHintingMode.Animated,
+                    _ => PortableTextHintingMode.Auto
+                },
+                HasSnappingGuidelinesX = guidelinesX != null,
+                SnappingGuidelinesX = GetPortableVisualGuidelines(guidelinesX, isXAxis: true),
+                HasSnappingGuidelinesY = guidelinesY != null,
+                SnappingGuidelinesY = GetPortableVisualGuidelines(guidelinesY, isXAxis: false)
+            };
+            return true;
+        }
+
+        private double[] GetPortableVisualGuidelines(DoubleCollection guidelines, bool isXAxis)
+        {
+            if (guidelines == null || guidelines.Count == 0)
+            {
+                return global::System.Array.Empty<double>();
+            }
+
+            PortableVisualGuidelineCache cache = PortableVisualGuidelineCacheField.GetValue(this);
+            if (cache == null)
+            {
+                cache = new PortableVisualGuidelineCache();
+                PortableVisualGuidelineCacheField.SetValue(this, cache);
+            }
+
+            return isXAxis ? cache.GetX(guidelines) : cache.GetY(guidelines);
+        }
+
+        private sealed class PortableVisualGuidelineCache
+        {
+            private DoubleCollection _guidelinesX;
+            private DoubleCollection _guidelinesY;
+            private double[] _valuesX;
+            private double[] _valuesY;
+
+            public PortableVisualGuidelineCache()
+            {
+                _valuesX = global::System.Array.Empty<double>();
+                _valuesY = global::System.Array.Empty<double>();
+            }
+
+            public double[] GetX(DoubleCollection guidelines)
+            {
+                if (_guidelinesX != guidelines)
+                {
+                    _guidelinesX = guidelines;
+                    _valuesX = CopyPortableVisualGuidelines(guidelines);
+                }
+
+                return _valuesX;
+            }
+
+            public double[] GetY(DoubleCollection guidelines)
+            {
+                if (_guidelinesY != guidelines)
+                {
+                    _guidelinesY = guidelines;
+                    _valuesY = CopyPortableVisualGuidelines(guidelines);
+                }
+
+                return _valuesY;
+            }
+
+            private static double[] CopyPortableVisualGuidelines(DoubleCollection guidelines)
+            {
+                double[] values = new double[guidelines.Count];
+                for (int i = 0; i < values.Length; i++)
+                {
+                    values[i] = guidelines[i];
+                }
+
+                return values;
+            }
         }
 
         /// <summary>
@@ -4716,7 +4933,7 @@ namespace System.Windows.Media
         {
             VerifyAPIReadOnly();
 
-            PresentationSource inputSource = PresentationSource.FromVisual(this);
+            PresentationSource inputSource = PresentationSource.CriticalFromVisual(this);
 
             if (inputSource == null)
             {
@@ -4745,7 +4962,7 @@ namespace System.Windows.Media
         {
             VerifyAPIReadOnly();
 
-            PresentationSource inputSource = PresentationSource.FromVisual(this);
+            PresentationSource inputSource = PresentationSource.CriticalFromVisual(this);
 
             if (inputSource == null)
             {
@@ -4854,6 +5071,8 @@ namespace System.Windows.Media
 
         internal void GuidelinesChanged(object sender, EventArgs args)
         {
+            PortableVisualGuidelineCacheField.ClearValue(this);
+
             SetFlagsOnAllChannels(
                 true,
                 VisualProxyFlags.IsGuidelineCollectionDirty);
@@ -5198,9 +5417,9 @@ namespace System.Windows.Media
                 {
                     MediaContext mctx = MediaContext.From(e.Dispatcher);
 
-                    if (mctx.Channel != null)
+                    if (mctx.Channel != null || PortableMediaContextRenderService.IsEnabled)
                     {
-                        mctx.PostRender();
+                        mctx.PostRender(e);
                     }
                 }
                 else if (e.CheckFlagsAnd(VisualFlags.NodeIsCyclicBrushRoot))
@@ -5344,6 +5563,7 @@ namespace System.Windows.Media
 
         private static readonly UncommonField<DoubleCollection> GuidelinesXField = new UncommonField<DoubleCollection>();
         private static readonly UncommonField<DoubleCollection> GuidelinesYField = new UncommonField<DoubleCollection>();
+        private static readonly UncommonField<PortableVisualGuidelineCache> PortableVisualGuidelineCacheField = new UncommonField<PortableVisualGuidelineCache>();
 
         private static readonly UncommonField<AncestorChangedEventHandler> AncestorChangedEventField
             = new UncommonField<AncestorChangedEventHandler>();
@@ -5363,9 +5583,3 @@ namespace System.Windows.Media
         #endregion Private Fields
     }
 }
-
-
-
-
-
-

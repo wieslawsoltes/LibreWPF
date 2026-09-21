@@ -6,7 +6,9 @@
 
 using System;
 using System.IO;
+#if !PROGPU_WPF_PORTABLE_NO_WINFORMS
 using System.Windows.Forms;
+#endif
 using System.Windows.TrustUI;
 
 namespace MS.Internal.Documents.Application
@@ -33,6 +35,9 @@ namespace MS.Internal.Documents.Application
     /// <returns></returns>
     internal static bool ShowSaveFileDialog(ref CriticalFileToken fileToken)
     {
+#if PROGPU_WPF_PORTABLE_NO_WINFORMS
+        return false;
+#else
         string extension = SR.FileManagementSaveExt;
 
         Trace.SafeWrite(Trace.File, "Showing SafeFileDialog.");
@@ -99,6 +104,7 @@ namespace MS.Internal.Documents.Application
         }
 
         return result;
+#endif
     }
 
     /// <summary>

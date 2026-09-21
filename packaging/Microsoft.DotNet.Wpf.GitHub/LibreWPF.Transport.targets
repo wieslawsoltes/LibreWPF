@@ -1,0 +1,29 @@
+<Project>
+  <ItemGroup Condition="'$(DisableLibreWpfPortableSymbolFont)' != 'true'">
+    <Content Include="$(MSBuildThisFileDirectory)assets/LibreWPF/Fonts/LibreWPF.FluentSymbols.ttf"
+             Link="LibreWPF/Fonts/LibreWPF.FluentSymbols.ttf"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest"
+             Visible="false" />
+    <Content Include="$(MSBuildThisFileDirectory)..\notices\LibreWPF.FluentSymbols\NOTICE.md"
+             Link="LibreWPF/Notices/LibreWPF.FluentSymbols/NOTICE.md"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest"
+             Visible="false" />
+    <Content Include="$(MSBuildThisFileDirectory)..\notices\LibreWPF.FluentSymbols\SOURCE-MANIFEST.json"
+             Link="LibreWPF/Notices/LibreWPF.FluentSymbols/SOURCE-MANIFEST.json"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest"
+             Visible="false" />
+    <Content Include="$(MSBuildThisFileDirectory)..\notices\LibreWPF.FluentSymbols\LegacyFluentGlyphMap.json"
+             Link="LibreWPF/Notices/LibreWPF.FluentSymbols/LegacyFluentGlyphMap.json"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest"
+             Visible="false" />
+    <Content Include="$(MSBuildThisFileDirectory)..\notices\LibreWPF.FluentSymbols\licenses\*.txt"
+             Link="LibreWPF/Notices/LibreWPF.FluentSymbols/licenses/%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest"
+             Visible="false" />
+  </ItemGroup>
+</Project>

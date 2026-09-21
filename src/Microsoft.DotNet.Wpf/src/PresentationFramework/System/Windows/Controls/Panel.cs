@@ -19,7 +19,7 @@ namespace System.Windows.Controls
     /// </summary>
     [Localizability(LocalizationCategory.Ignore)]
     [ContentProperty("Children")]
-    public abstract class Panel : FrameworkElement, IAddChild
+    public abstract class Panel : FrameworkElement, IAddChild, IPortableVisualOwnerHost
     {
         //-------------------------------------------------------------------
         //
@@ -39,6 +39,11 @@ namespace System.Windows.Controls
         protected Panel() : base()
         {
             _zConsonant = (int)ZIndexProperty.GetDefaultValue(DependencyObjectType);
+        }
+
+        PortableVisualOwnerKind IPortableVisualOwnerHost.PortableVisualOwnerKind
+        {
+            get { return PortableVisualOwnerKind.PointerInfrastructure; }
         }
 
         #endregion

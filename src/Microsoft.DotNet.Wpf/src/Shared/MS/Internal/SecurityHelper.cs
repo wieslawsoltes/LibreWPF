@@ -74,6 +74,13 @@ namespace MS.Internal.Drt
 
          internal static int MapUrlToZoneWrapper(Uri uri)
          {
+              if (!OperatingSystem.IsWindows())
+              {
+                  return uri != null && uri.IsFile
+                      ? NativeMethods.URLZONE_LOCAL_MACHINE
+                      : NativeMethods.URLZONE_INTERNET;
+              }
+
               int targetZone = NativeMethods.URLZONE_LOCAL_MACHINE ; // fail securely this is the most priveleged zone
               int hr = NativeMethods.S_OK ;
               object curSecMgr = null;
@@ -212,6 +219,11 @@ namespace MS.Internal.Drt
        {
             object value = null;
 
+            if (!OperatingSystem.IsWindows() || baseRegistryKey == null)
+            {
+                return value;
+            }
+
             RegistryKey key = baseRegistryKey.OpenSubKey(keyName);
             if (key != null)
             {
@@ -226,4 +238,3 @@ namespace MS.Internal.Drt
 #endif // WINDOWS_BASE
 }
 }
-

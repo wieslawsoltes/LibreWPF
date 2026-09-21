@@ -22,7 +22,7 @@
     <Page Include="Themes\Luna.NormalColor.xaml">
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="Themes\Luna.Homestead.xaml">
+    <Page Include="Themes\Luna.HomeStead.xaml">
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Themes\Luna.Metallic.xaml">
@@ -48,6 +48,7 @@
     <ProjectReference Include="$(WpfSourceDir)WindowsBase\WindowsBase.csproj" />
     <ProjectReference Include="$(WpfSourceDir)PresentationCore\PresentationCore.csproj" />
     <ProjectReference Include="$(WpfSourceDir)PresentationFramework\PresentationFramework.csproj" />
+    <ProjectReference Include="$(WpfSourceDir)..\..\..\external\ProGPU\src\ProGPU.Wpf.Interop\ProGPU.Wpf.Interop.csproj" />
 
     <ProjectReference Include="$(WpfSourceDir)Themes\PresentationFramework.Luna\ref\PresentationFramework.Luna-ref.csproj">
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>

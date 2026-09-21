@@ -10,6 +10,7 @@
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.TextFormatting;
+using MS.Internal.TextFormatting;
 
 namespace MS.Internal.Text
 {
@@ -126,6 +127,12 @@ namespace MS.Internal.Text
         // ------------------------------------------------------------------
         internal Rect GetBoundsFromTextPosition(int characterIndex, out FlowDirection flowDirection)
         {
+            if (_line is PortableTextLine portable &&
+                portable.TryGetNonInkCaretBounds(characterIndex, out Rect caretBounds, out flowDirection))
+            {
+                caretBounds.X += CalculateXOffsetShift();
+                return caretBounds;
+            }
             return GetBoundsFromPosition(characterIndex, 1, out flowDirection);
         }
 

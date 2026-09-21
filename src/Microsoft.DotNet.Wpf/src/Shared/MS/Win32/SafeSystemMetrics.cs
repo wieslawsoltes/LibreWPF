@@ -32,7 +32,7 @@ namespace MS.Win32
             get
             {
 
-                return UnsafeNativeMethods.GetSystemMetrics(SM.CXVIRTUALSCREEN);
+                return GetSystemMetrics(SM.CXVIRTUALSCREEN, 0);
             }
         }
 
@@ -43,7 +43,7 @@ namespace MS.Win32
         {
             get
             {
-                return UnsafeNativeMethods.GetSystemMetrics(SM.CYVIRTUALSCREEN);
+                return GetSystemMetrics(SM.CYVIRTUALSCREEN, 0);
             }
         }
 #endif //end !PRESENTATIONCORE
@@ -55,7 +55,7 @@ namespace MS.Win32
         {
             get
             {
-                return UnsafeNativeMethods.GetSystemMetrics(SM.CXDOUBLECLK);
+                return GetSystemMetrics(SM.CXDOUBLECLK, 4);
             }
         }
 
@@ -66,7 +66,7 @@ namespace MS.Win32
         {
             get
             {
-                return UnsafeNativeMethods.GetSystemMetrics(SM.CYDOUBLECLK);
+                return GetSystemMetrics(SM.CYDOUBLECLK, 4);
             }
         }
 
@@ -78,7 +78,7 @@ namespace MS.Win32
         {
             get
             {
-                return UnsafeNativeMethods.GetSystemMetrics(SM.CXDRAG);
+                return GetSystemMetrics(SM.CXDRAG, 4);
             }
         }
 
@@ -89,7 +89,7 @@ namespace MS.Win32
         {
             get
             {
-                return UnsafeNativeMethods.GetSystemMetrics(SM.CYDRAG);
+                return GetSystemMetrics(SM.CYDRAG, 4);
             }
         }
 
@@ -100,9 +100,16 @@ namespace MS.Win32
         {
             get
             {
-                return  (UnsafeNativeMethods.GetSystemMetrics(SM.IMMENABLED) != 0);
+                return  (GetSystemMetrics(SM.IMMENABLED, 0) != 0);
             }
 
+        }
+
+        private static int GetSystemMetrics(SM metric, int nonWindowsDefault)
+        {
+            return System.OperatingSystem.IsWindows()
+                ? UnsafeNativeMethods.GetSystemMetrics(metric)
+                : nonWindowsDefault;
         }
 
     }
