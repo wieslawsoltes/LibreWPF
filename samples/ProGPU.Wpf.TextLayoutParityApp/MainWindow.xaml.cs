@@ -110,8 +110,41 @@ public partial class MainWindow : Window
         Rect finalCaret = Rect.Empty;
         TextPointer start = textBlock.ContentStart;
         TextPointer end = textBlock.ContentEnd;
-        TextPointer? position = start;
-        for (int count = 0; position != null && position.CompareTo(end) <= 0; count++)
+        TextPointer finalPosition = end.GetInsertionPosition(LogicalDirection.Backward) ?? end;
+        TextPointer firstPosition = start.GetInsertionPosition(LogicalDirection.Forward) ?? start;
+        TextPointer linePosition = firstPosition.GetLineStartPosition(0) ?? firstPosition;
+        for (int count = 0; linePosition.CompareTo(finalPosition) <= 0; count++)
+        {
+            if (count > 1000)
+            {
+                throw new InvalidOperationException($"Text lines for '{name}' did not terminate.");
+            }
+
+            Rect rectangle = linePosition.GetCharacterRect(LogicalDirection.Forward);
+            if (rectangle.IsEmpty ||
+                !double.IsFinite(rectangle.Y) ||
+                !double.IsFinite(rectangle.Height))
+            {
+                throw new InvalidOperationException($"A line start for '{name}' has no caret rectangle.");
+            }
+
+            lineTops.Add(rectangle.Y);
+            lineHeights.Add(rectangle.Height);
+            lineStarts.Add(start.GetOffsetToPosition(linePosition));
+            TextPointer? nextLine = linePosition.GetLineStartPosition(1, out int actualLineCount);
+            if (nextLine == null ||
+                actualLineCount == 0 ||
+                nextLine.CompareTo(linePosition) <= 0 ||
+                nextLine.CompareTo(finalPosition) > 0)
+            {
+                break;
+            }
+            linePosition = nextLine;
+        }
+
+        int insertionPositionCount = 0;
+        TextPointer? position = firstPosition;
+        for (int count = 0; position != null && position.CompareTo(finalPosition) <= 0; count++)
         {
             if (count > 10000)
             {
@@ -119,31 +152,11 @@ public partial class MainWindow : Window
             }
 
             Rect rectangle = position.GetCharacterRect(LogicalDirection.Forward);
-            if (position.CompareTo(end) == 0)
+            if (position.CompareTo(finalPosition) == 0)
             {
                 finalCaret = rectangle;
             }
-
-            if (!rectangle.IsEmpty && double.IsFinite(rectangle.Y))
-            {
-                bool newLine = true;
-                for (int i = 0; i < lineTops.Count; i++)
-                {
-                    if (Math.Abs(lineTops[i] - rectangle.Y) < 0.25)
-                    {
-                        newLine = false;
-                        break;
-                    }
-                }
-
-                if (newLine)
-                {
-                    lineTops.Add(rectangle.Y);
-                    lineHeights.Add(rectangle.Height);
-                    lineStarts.Add(start.GetOffsetToPosition(position));
-                }
-            }
-
+            insertionPositionCount++;
             position = position.GetNextInsertionPosition(LogicalDirection.Forward);
         }
 
@@ -157,7 +170,7 @@ public partial class MainWindow : Window
 
         Console.WriteLine(string.Format(
             CultureInfo.InvariantCulture,
-            "TEXT_CASE name={0} width={1:F3} height={2:F3} desiredWidth={3:F3} desiredHeight={4:F3} font={5:F3} lines={6} tops={7} heights={8} starts={9} caretX={10:F3} caretY={11:F3} caretHeight={12:F3}",
+            "TEXT_CASE name={0} width={1:F3} height={2:F3} desiredWidth={3:F3} desiredHeight={4:F3} font={5:F3} lines={6} tops={7} heights={8} starts={9} positions={10} endOffset={11} caretX={12:F3} caretY={13:F3} caretHeight={14:F3}",
             name,
             textBlock.ActualWidth,
             textBlock.ActualHeight,
@@ -168,6 +181,8 @@ public partial class MainWindow : Window
             string.Join(",", lineTops.ConvertAll(top => top.ToString("F3", CultureInfo.InvariantCulture))),
             string.Join(",", lineHeights.ConvertAll(height => height.ToString("F3", CultureInfo.InvariantCulture))),
             string.Join(",", lineStarts),
+            insertionPositionCount,
+            start.GetOffsetToPosition(finalPosition),
             finalCaret.X,
             finalCaret.Y,
             finalCaret.Height));

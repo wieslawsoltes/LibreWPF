@@ -253,7 +253,7 @@ function Invoke-TextLayoutCheck {
         throw "Windows $Name text-layout check did not prove its live native MIL host."
     }
     $caseMatches = [regex]::Matches($stdout,
-        '(?m)^TEXT_CASE name=(?<name>[a-z0-9-]+) width=(?<width>-?[0-9.]+) height=(?<height>-?[0-9.]+) desiredWidth=(?<desiredWidth>-?[0-9.]+) desiredHeight=(?<desiredHeight>-?[0-9.]+) font=(?<font>-?[0-9.]+) lines=(?<lines>[0-9]+) tops=(?<tops>-?[0-9.,]+) heights=(?<heights>-?[0-9.,]+) starts=(?<starts>[0-9,]+) caretX=(?<caretX>-?[0-9.]+) caretY=(?<caretY>-?[0-9.]+) caretHeight=(?<caretHeight>-?[0-9.]+)\r?$')
+        '(?m)^TEXT_CASE name=(?<name>[a-z0-9-]+) width=(?<width>-?[0-9.]+) height=(?<height>-?[0-9.]+) desiredWidth=(?<desiredWidth>-?[0-9.]+) desiredHeight=(?<desiredHeight>-?[0-9.]+) font=(?<font>-?[0-9.]+) lines=(?<lines>[0-9]+) tops=(?<tops>-?[0-9.,]+) heights=(?<heights>-?[0-9.,]+) starts=(?<starts>[0-9,]+) positions=(?<positions>[0-9]+) endOffset=(?<endOffset>[0-9]+) caretX=(?<caretX>-?[0-9.]+) caretY=(?<caretY>-?[0-9.]+) caretHeight=(?<caretHeight>-?[0-9.]+)\r?$')
     if ($caseMatches.Count -eq 0) {
         throw "Windows $Name text-layout check did not report any text cases."
     }
@@ -279,6 +279,8 @@ function Invoke-TextLayoutCheck {
             Tops = @($caseMatch.Groups['tops'].Value.Split(',') | ForEach-Object { [double]::Parse($_, $culture) })
             Heights = @($caseMatch.Groups['heights'].Value.Split(',') | ForEach-Object { [double]::Parse($_, $culture) })
             Starts = @($caseMatch.Groups['starts'].Value.Split(',') | ForEach-Object { [int]::Parse($_, $culture) })
+            Positions = [int]::Parse($caseMatch.Groups['positions'].Value, $culture)
+            EndOffset = [int]::Parse($caseMatch.Groups['endOffset'].Value, $culture)
             CaretX = [double]::Parse($caseMatch.Groups['caretX'].Value, $culture)
             CaretY = [double]::Parse($caseMatch.Groups['caretY'].Value, $culture)
             CaretHeight = [double]::Parse($caseMatch.Groups['caretHeight'].Value, $culture)
@@ -439,6 +441,8 @@ foreach ($caseName in $expectedTextCases) {
         $portableCase.Tops.Count -ne $portableCase.Lines -or
         $nativeCase.Heights.Count -ne $nativeCase.Lines -or
         $portableCase.Heights.Count -ne $portableCase.Lines -or
+        $portableCase.Positions -ne $nativeCase.Positions -or
+        $portableCase.EndOffset -ne $nativeCase.EndOffset -or
         ($nativeCase.Starts -join ',') -ne ($portableCase.Starts -join ',')) {
         throw "Windows native-WPF and ProGPU text-layout line geometry differs for '$caseName'."
     }

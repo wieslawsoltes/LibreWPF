@@ -40,7 +40,10 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("Alpha\\tBeta trailing   \\nNext\\tcolumn", source, StringComparison.Ordinal);
         Assert.Contains("desiredWidth=", source, StringComparison.Ordinal);
         Assert.Contains("heights=", source, StringComparison.Ordinal);
+        Assert.Contains("positions=", source, StringComparison.Ordinal);
+        Assert.Contains("GetLineStartPosition(1, out int actualLineCount)", source, StringComparison.Ordinal);
         Assert.Contains("caretHeight=", source, StringComparison.Ordinal);
+        Assert.Contains("end.GetInsertionPosition(LogicalDirection.Backward)", source, StringComparison.Ordinal);
         Assert.Contains("$nativeCase.Starts -join ','", gate, StringComparison.Ordinal);
         Assert.Contains("$caseName final caret X", gate, StringComparison.Ordinal);
         Assert.Contains("$caseName line $i height", gate, StringComparison.Ordinal);

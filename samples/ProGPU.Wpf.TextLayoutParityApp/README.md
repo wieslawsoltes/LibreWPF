@@ -24,4 +24,7 @@ package gates in
 variants; see `reports/native-mil-windows-text-layout-parity-2026-09-15.md`
 for its first guest result and
 `reports/native-mil-text-runtime-admission-2026-09-15.md` for the subsequent
-runtime-admission correction and qualification limits.
+runtime-admission correction. The expanded six-case Windows ARM64 result is
+recorded in
+`reports/native-mil-windows-text-layout-matrix-2026-09-21.md`; its explicit
+qualification boundary keeps rendered-pixel and broader text contracts open.
