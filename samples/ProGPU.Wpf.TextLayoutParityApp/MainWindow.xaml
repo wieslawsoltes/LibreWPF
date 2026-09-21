@@ -3,8 +3,8 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     Title="WPF text layout comparison"
-    Width="430"
-    Height="300"
+    Width="780"
+    Height="720"
     Background="White"
     FontFamily="Segoe UI"
     FontSize="14"
@@ -15,24 +15,144 @@
             Margin="0,0,0,12"
             FontSize="18"
             FontWeight="SemiBold"
-            Text="Shared WPF text fixture" />
-        <Border
-            Width="235.333"
-            HorizontalAlignment="Left"
-            Padding="12"
-            Background="#EFF5FD">
-            <StackPanel>
-                <TextBlock
-                    FontSize="16"
-                    FontWeight="SemiBold"
-                    Text="Theme template" />
-                <TextBlock
-                    x:Name="WrappingText"
-                    Margin="0,8,0,0"
-                    TextWrapping="Wrap">
-                    <Run Text="The button is styled through a compiled ControlTemplate, TemplateBinding, named parts, VisualStateManager states, and a property trigger." />
-                </TextBlock>
-            </StackPanel>
-        </Border>
+            Text="Shared WPF text layout matrix" />
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="350" />
+                <ColumnDefinition Width="350" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <Border
+                Grid.Row="0"
+                Grid.Column="0"
+                Margin="0,0,10,10"
+                Padding="12"
+                Background="#EFF5FD">
+                <StackPanel>
+                    <TextBlock
+                        Margin="0,0,0,6"
+                        FontSize="16"
+                        FontWeight="SemiBold"
+                        Text="Wrapped composite font" />
+                    <TextBlock
+                        x:Name="WrappedCompositeText"
+                        Width="300"
+                        HorizontalAlignment="Left"
+                        TextWrapping="Wrap">
+                        <Run Text="The button is styled through a compiled ControlTemplate, TemplateBinding, named parts, VisualStateManager states, and a property trigger." />
+                    </TextBlock>
+                </StackPanel>
+            </Border>
+
+            <Border
+                Grid.Row="0"
+                Grid.Column="1"
+                Margin="0,0,0,10"
+                Padding="12"
+                Background="#F6F1FD">
+                <StackPanel>
+                    <TextBlock
+                        Margin="0,0,0,6"
+                        FontSize="16"
+                        FontWeight="SemiBold"
+                        Text="Mixed run metrics" />
+                    <TextBlock
+                        x:Name="MixedRunsText"
+                        Width="300"
+                        HorizontalAlignment="Left"
+                        TextWrapping="Wrap"><Run Text="Regular text, then " /><Run FontSize="22" FontWeight="Bold" Text="large bold" /><Run Text=", " /><Run FontStyle="Italic" Text="italic words" /><Run Text=", and normal text wrapping together." /></TextBlock>
+                </StackPanel>
+            </Border>
+
+            <Border
+                Grid.Row="1"
+                Grid.Column="0"
+                Margin="0,0,10,10"
+                Padding="12"
+                Background="#F2F8F2">
+                <StackPanel>
+                    <TextBlock
+                        Margin="0,0,0,6"
+                        FontSize="16"
+                        FontWeight="SemiBold"
+                        Text="Wrap with overflow" />
+                    <TextBlock
+                        x:Name="OverflowTokenText"
+                        Width="220"
+                        HorizontalAlignment="Left"
+                        Text="prefix SupercalifragilisticexpialidociousSuffix tail words"
+                        TextWrapping="WrapWithOverflow" />
+                </StackPanel>
+            </Border>
+
+            <Border
+                Grid.Row="1"
+                Grid.Column="1"
+                Margin="0,0,0,10"
+                Padding="12"
+                Background="#FFF6E8">
+                <StackPanel>
+                    <TextBlock
+                        Margin="0,0,0,6"
+                        FontSize="16"
+                        FontWeight="SemiBold"
+                        Text="Tabs and source whitespace" />
+                    <TextBlock
+                        x:Name="TabsAndWhitespaceText"
+                        Width="300"
+                        HorizontalAlignment="Left"
+                        TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
+
+            <Border
+                Grid.Row="2"
+                Grid.Column="0"
+                Margin="0,0,10,0"
+                Padding="12"
+                Background="#FDEFF1">
+                <StackPanel>
+                    <TextBlock
+                        Margin="0,0,0,6"
+                        FontSize="16"
+                        FontWeight="SemiBold"
+                        Text="Explicit block line height" />
+                    <TextBlock
+                        x:Name="ExplicitLineHeightText"
+                        Width="260"
+                        HorizontalAlignment="Left"
+                        LineHeight="25"
+                        LineStackingStrategy="BlockLineHeight"
+                        Text="Explicit line height must preserve source line placement across wrapped content and a second sentence."
+                        TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
+
+            <Border
+                Grid.Row="2"
+                Grid.Column="1"
+                Padding="12"
+                Background="#EDF7F8">
+                <StackPanel>
+                    <TextBlock
+                        Margin="0,0,0,6"
+                        FontSize="16"
+                        FontWeight="SemiBold"
+                        Text="Bidirectional text" />
+                    <TextBlock
+                        x:Name="BidirectionalText"
+                        Width="300"
+                        HorizontalAlignment="Left"
+                        FlowDirection="RightToLeft"
+                        Text="English 1234 — שלום עולם — العربية 5678 — mixed direction text"
+                        TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
+        </Grid>
     </StackPanel>
 </Window>

@@ -6,10 +6,15 @@ The sibling `ProGPU.Wpf.TextLayoutParityApp.Windows` project links the same
 SDK. Keep the content shared: the native Windows renderer is the same-machine
 reference for line breaks, size, and caret geometry.
 
-Set `PROGPU_WPF_TEXT_LAYOUT_REPORT=1` to query each insertion position,
-including the last one, and print one `TEXT_LAYOUT` metrics line. Add
+Set `PROGPU_WPF_TEXT_LAYOUT_REPORT=1` to query every insertion position,
+including the last one, and print one `TEXT_CASE` metrics line for each
+matrix case. The shared matrix covers wrapped composite-font text, mixed
+run sizes/styles/weights, `WrapWithOverflow`, tabs and retained whitespace,
+explicit block line height, and bidirectional text. Add
 `PROGPU_WPF_TEXT_LAYOUT_EXIT_AFTER_REPORT=1` for unattended validation. An
-invalid final caret rectangle writes `TEXT_LAYOUT_ERROR` and exits nonzero.
+invalid final caret rectangle in any case writes `TEXT_LAYOUT_ERROR` and
+exits nonzero. The gate compares source line starts, actual and desired size,
+line tops/heights, and final-caret geometry for every named case.
 When compiled for native MIL, the fixture also requires a live ProGPU window
 host and prints `TEXT_RENDERER NativeMilWgpu`. The package gate checks that
 marker and the SDK's runtime selection record before comparing metrics; a

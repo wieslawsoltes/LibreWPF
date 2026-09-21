@@ -6,6 +6,50 @@ namespace ProGPU.Wpf.Tests.Composition;
 public sealed class WpfManagedProjectGraphTests
 {
     [Fact]
+    public void WindowsTextLayoutGateComparesRepresentativeSourceMatrix()
+    {
+        string xaml = File.ReadAllText(FindRepoPath(
+            "samples", "ProGPU.Wpf.TextLayoutParityApp", "MainWindow.xaml"));
+        string source = File.ReadAllText(FindRepoPath(
+            "samples", "ProGPU.Wpf.TextLayoutParityApp", "MainWindow.xaml.cs"));
+        string windowsProject = File.ReadAllText(FindRepoPath(
+            "samples", "ProGPU.Wpf.TextLayoutParityApp.Windows",
+            "ProGPU.Wpf.TextLayoutParityApp.Windows.csproj"));
+        string gate = File.ReadAllText(FindRepoPath(
+            "eng", "progpu-wpf-windows-native-mil-showcase.ps1"));
+
+        string[] caseNames =
+        {
+            "wrapped-composite",
+            "mixed-runs",
+            "overflow-token",
+            "tabs-whitespace",
+            "explicit-line-height",
+            "bidirectional",
+        };
+        foreach (string caseName in caseNames)
+        {
+            Assert.Contains($"ReportTextCase(\"{caseName}\"", source, StringComparison.Ordinal);
+            Assert.Contains($"\"{caseName}\"", gate, StringComparison.Ordinal);
+        }
+
+        Assert.Contains("FontSize=\"22\" FontWeight=\"Bold\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("TextWrapping=\"WrapWithOverflow\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("LineStackingStrategy=\"BlockLineHeight\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("FlowDirection=\"RightToLeft\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Alpha\\tBeta trailing   \\nNext\\tcolumn", source, StringComparison.Ordinal);
+        Assert.Contains("desiredWidth=", source, StringComparison.Ordinal);
+        Assert.Contains("heights=", source, StringComparison.Ordinal);
+        Assert.Contains("caretHeight=", source, StringComparison.Ordinal);
+        Assert.Contains("$nativeCase.Starts -join ','", gate, StringComparison.Ordinal);
+        Assert.Contains("$caseName final caret X", gate, StringComparison.Ordinal);
+        Assert.Contains("$caseName line $i height", gate, StringComparison.Ordinal);
+        Assert.Contains("../ProGPU.Wpf.TextLayoutParityApp/MainWindow.xaml", windowsProject, StringComparison.Ordinal);
+        Assert.Contains("../ProGPU.Wpf.TextLayoutParityApp/MainWindow.xaml.cs", windowsProject, StringComparison.Ordinal);
+        Assert.DoesNotContain("TEXT_LAYOUT width=", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ToolkitLiveValidationShutsDownOnItsSourceDispatcher()
     {
         string source = File.ReadAllText(FindRepoPath("samples", "ProGPU.Wpf.ToolkitApp", "MainWindow.xaml.cs"));
