@@ -198,7 +198,8 @@ layout deliberately starts an expanded RTL line at negative trailing-whitespace
 width, but the new advance-owned interaction adapter reconstructed every
 justified line from zero.
 
-ProGPU PR [#176](https://github.com/wieslawsoltes/ProGPU/pull/176) publishes a
+ProGPU PR [#176](https://github.com/wieslawsoltes/ProGPU/pull/176), merged as
+`9e50c175`, publishes a
 positioned-line output flag only when RTL word-space expansion actually occurs.
 The managed snapshot derives that line's physical pen origin from the fragment
 or paragraph container width minus complete line width. An ordinary oversized
@@ -212,8 +213,8 @@ and all 19 focused managed paragraph tests pass. The complete source-built
 LibreWPF native-MIL host also passes on macOS ARM64, including styled LTR/RTL
 justification selection, caret and hit geometry, document/table/inline paths,
 presentation, device recovery and native memory checkpoints. LibreWinForms PR
-[#40](https://github.com/wieslawsoltes/LibreWinForms/pull/40) carries the exact
-nested ProGPU revision for canonical source/package qualification. Exact-head
+[#40](https://github.com/wieslawsoltes/LibreWinForms/pull/40) carries that exact
+merged ProGPU revision for canonical source/package qualification. Exact-head
 dependency CI and the final LibreWPF Windows x64/ARM64 package matrix remain the
 merge authority.
 
