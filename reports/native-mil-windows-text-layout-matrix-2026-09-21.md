@@ -112,7 +112,10 @@ ranges above.
 These focused results verify the causes and their implementations. They do not
 replace the package-only application gate: a new immutable package bundle
 containing both changes must still produce `TEXT_RENDERER NativeMilWgpu` and
-pass the complete matrix before this slice is qualified.
+pass the complete matrix before this slice is qualified. The corrective branch
+also upgrades that gate to compare the X, Y, and height of every real insertion
+position by source offset, so interior caret/run geometry can no longer hide
+behind matching line starts and final endpoints.
 
 ## Gate and qualification boundary
 

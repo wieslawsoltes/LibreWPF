@@ -15,6 +15,10 @@ explicit block line height, and bidirectional text. Add
 invalid final caret rectangle in any case writes `TEXT_LAYOUT_ERROR` and
 exits nonzero. The gate compares source line starts, actual and desired size,
 line tops/heights, and final-caret geometry for every named case.
+The package gate also enables `PROGPU_WPF_TEXT_LAYOUT_DETAIL=1`, records every
+real insertion-position rectangle, and compares its X, Y, and height against
+the stock Windows WPF process by source offset. This prevents matching line
+counts or endpoints from hiding an interior source-layout defect.
 When compiled for native MIL, the fixture also requires a live ProGPU window
 host and prints `TEXT_RENDERER NativeMilWgpu`. The package gate checks that
 marker and the SDK's runtime selection record before comparing metrics; a

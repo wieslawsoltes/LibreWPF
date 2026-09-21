@@ -236,6 +236,7 @@ function Invoke-TextLayoutCheck {
     )
 
     $env:PROGPU_WPF_TEXT_LAYOUT_REPORT = "1"
+    $env:PROGPU_WPF_TEXT_LAYOUT_DETAIL = "1"
     $env:PROGPU_WPF_TEXT_LAYOUT_EXIT_AFTER_REPORT = "1"
     $stdoutPath = Join-Path $OutputDirectory "$Name-text-layout-stdout.log"
     $stderrPath = Join-Path $OutputDirectory "$Name-text-layout-stderr.log"
@@ -256,6 +257,11 @@ function Invoke-TextLayoutCheck {
         '(?m)^TEXT_CASE name=(?<name>[a-z0-9-]+) width=(?<width>-?[0-9.]+) height=(?<height>-?[0-9.]+) desiredWidth=(?<desiredWidth>-?[0-9.]+) desiredHeight=(?<desiredHeight>-?[0-9.]+) font=(?<font>-?[0-9.]+) lines=(?<lines>[0-9]+) tops=(?<tops>-?[0-9.,]+) heights=(?<heights>-?[0-9.,]+) starts=(?<starts>[0-9,]+) positions=(?<positions>[0-9]+) endOffset=(?<endOffset>[0-9]+) caretX=(?<caretX>-?[0-9.]+) caretY=(?<caretY>-?[0-9.]+) caretHeight=(?<caretHeight>-?[0-9.]+)\r?$')
     if ($caseMatches.Count -eq 0) {
         throw "Windows $Name text-layout check did not report any text cases."
+    }
+    $positionMatches = [regex]::Matches($stdout,
+        '(?m)^TEXT_POSITION name=(?<name>[a-z0-9-]+) offset=(?<offset>[0-9]+) x=(?<x>-?[0-9.]+) y=(?<y>-?[0-9.]+) height=(?<height>-?[0-9.]+)\r?$')
+    if ($positionMatches.Count -eq 0) {
+        throw "Windows $Name text-layout check did not report insertion-position geometry."
     }
     $geometry = [regex]::Match($stdout,
         '(?m)^WINDOW_GEOMETRY outer=(?<outerWidth>[0-9]+)x(?<outerHeight>[0-9]+) client=(?<clientWidth>[0-9]+)x(?<clientHeight>[0-9]+) dpi=(?<dpi>[0-9]+) source=(?<sourceWidth>[0-9.]+)x(?<sourceHeight>[0-9.]+)\r?$')
@@ -284,6 +290,27 @@ function Invoke-TextLayoutCheck {
             CaretX = [double]::Parse($caseMatch.Groups['caretX'].Value, $culture)
             CaretY = [double]::Parse($caseMatch.Groups['caretY'].Value, $culture)
             CaretHeight = [double]::Parse($caseMatch.Groups['caretHeight'].Value, $culture)
+            PositionGeometry = @{}
+        }
+    }
+    foreach ($positionMatch in $positionMatches) {
+        $caseName = $positionMatch.Groups['name'].Value
+        if (!$cases.ContainsKey($caseName)) {
+            throw "Windows $Name text-layout position reported unknown case '$caseName'."
+        }
+        $offset = [int]::Parse($positionMatch.Groups['offset'].Value, $culture)
+        if ($cases[$caseName].PositionGeometry.ContainsKey($offset)) {
+            throw "Windows $Name text-layout case '$caseName' reported duplicate insertion offset $offset."
+        }
+        $cases[$caseName].PositionGeometry[$offset] = [pscustomobject]@{
+            X = [double]::Parse($positionMatch.Groups['x'].Value, $culture)
+            Y = [double]::Parse($positionMatch.Groups['y'].Value, $culture)
+            Height = [double]::Parse($positionMatch.Groups['height'].Value, $culture)
+        }
+    }
+    foreach ($caseName in $cases.Keys) {
+        if ($cases[$caseName].PositionGeometry.Count -ne $cases[$caseName].Positions) {
+            throw "Windows $Name text-layout case '$caseName' insertion geometry count does not match its reported position count."
         }
     }
     return [pscustomobject]@{
@@ -457,6 +484,16 @@ foreach ($caseName in $expectedTextCases) {
     for ($i = 0; $i -lt $nativeCase.Tops.Count; $i++) {
         Assert-TextMetricNear "$caseName line $i top" $nativeCase.Tops[$i] $portableCase.Tops[$i] 0.10
         Assert-TextMetricNear "$caseName line $i height" $nativeCase.Heights[$i] $portableCase.Heights[$i] 0.10
+    }
+    foreach ($offset in $nativeCase.PositionGeometry.Keys) {
+        if (!$portableCase.PositionGeometry.ContainsKey($offset)) {
+            throw "Windows ProGPU text-layout case '$caseName' is missing native-WPF insertion offset $offset."
+        }
+        $nativePosition = $nativeCase.PositionGeometry[$offset]
+        $portablePosition = $portableCase.PositionGeometry[$offset]
+        Assert-TextMetricNear "$caseName insertion $offset X" $nativePosition.X $portablePosition.X 0.10
+        Assert-TextMetricNear "$caseName insertion $offset Y" $nativePosition.Y $portablePosition.Y 0.10
+        Assert-TextMetricNear "$caseName insertion $offset height" $nativePosition.Height $portablePosition.Height 0.10
     }
 }
 if ($nativeLayout.Dpi -lt 96 -or $portableLayout.Dpi -lt 96 -or
