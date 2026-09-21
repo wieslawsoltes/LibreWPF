@@ -25,8 +25,11 @@ public sealed class TextBlockTests
 
         TextPointer finalPosition = textBlock.ContentEnd.GetInsertionPosition(LogicalDirection.Backward)!;
         Rect finalCaret = finalPosition.GetCharacterRect(LogicalDirection.Forward);
+        TextPointer previousPosition = finalPosition.GetNextInsertionPosition(LogicalDirection.Backward)!;
+        Rect previousCaret = previousPosition.GetCharacterRect(LogicalDirection.Forward);
 
         Assert.Equal(0, finalCaret.X);
+        Assert.Equal(5, previousCaret.X);
     }
 
     [Fact]

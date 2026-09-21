@@ -111,7 +111,7 @@ ranges above.
 
 The first exact corrective package run, LibreWPF CI `35629763302`, proved that
 the wrapping, source ranges, run metrics, line-height metrics, line starts, and
-ordinary insertion geometry now agree on both Windows x64 and ARM64. Both
+the then-reported endpoint geometry now agree on both Windows x64 and ARM64. Both
 architectures then failed on the same remaining endpoint: native WPF placed the
 final backward-oriented bidirectional caret at `X=-0.003`, while the portable
 path placed it at `X=122.896`. A first numeric-range correction in commit
@@ -125,6 +125,28 @@ original source container and passes that typed fact through `Line` to
 `PortableTextLine.TryGetNonInkCaretBounds`. Ordinary hidden edges, bidi-run
 carets, and wrapped-line boundaries remain native-derived. Both focused
 `TextBlockTests` and all 26 `PortableTextLineTests` pass after the correction.
+
+LibreWPF CI run `35642205858` then proved that source-owned terminal identity
+was correct on both Windows architectures: insertion offset 63 moved from
+portable `X=122.896` to `X=0.000`, matching native WPF `X=-0.003`. The SDK
+package lane, AnyCPU launch, canonical package consumer, and the previously
+intermittent XWayland input/popup lane all passed. The newly enabled complete
+insertion comparison exposed the wider coordinate-space issue at adjacent
+offset 62: native WPF reported `X=4.740`, while the portable adapter still
+reported ProGPU's physical `X=122.896` on both x64 and ARM64.
+
+ProGPU's retained bidi boxes are intentionally physical, left-to-right
+coordinates. WPF `TextLine` interaction is logical and is later composed with
+the paragraph `FlowDirection` inversion. `PortableTextLine` now mirrors native
+caret points and selection/run rectangles inside the retained native line
+width for RTL paragraphs, and applies the inverse mapping to native point-hit
+and preferred-X fragment queries. Run-direction affinity remains in the
+existing `TextBlock` logic; the adapter does not reverse source order or
+reconstruct glyph advances. A focused provider regression verifies caret,
+hit-test, selection, and `TextRunBounds` coordinates, while the source-built
+`TextBlock` regression now also verifies the insertion immediately before the
+terminal position. The focused suites pass 27/27 and 2/2 respectively. A new
+immutable package run remains required to qualify the complete Windows matrix.
 
 These focused results verify the causes and their implementations. They do not
 replace the package-only application gate: a new immutable package bundle
@@ -145,7 +167,7 @@ The recorded package result remains diagnostic rather than passing
 qualification evidence. It proves that the package-only path reached
 NativeMilWgpu and identifies the source-layout and caret defects without
 allowing a Windows-MIL fallback to pass. The corrective implementation is now
-focused-test complete, with a post-`35637367445` package rerun pending. Glyph raster-pixel
+focused-test complete, with a post-`35642205858` package rerun pending. Glyph raster-pixel
 identity, additional composite fallback faces, trimming/collapse, rich
 document/editor behavior, and macOS/Linux parity remain separate qualification
 boundaries after this matrix passes.

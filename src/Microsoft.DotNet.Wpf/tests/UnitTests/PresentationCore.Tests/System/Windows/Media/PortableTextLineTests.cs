@@ -78,6 +78,61 @@ public class PortableTextLineTests
     }
 
     [PortableMediaFact]
+    public void RtlParagraphMirrorsNativeInteractionGeometryIntoWpfLogicalCoordinates()
+    {
+        var provider = new RtlGeometryProvider();
+        using var registration = PortableWpfServiceRegistry.RegisterTextFormatting(provider);
+        using var formatter = new TextFormatterImp();
+        var source = new Source { Text = "ab" };
+        using TextLine line = formatter.FormatLine(source, 0, 100,
+            new ParagraphProperties(source.Properties, false, true, TextWrapping.NoWrap),
+            null, new TextRunCache());
+
+        Assert.Equal(10, line.GetDistanceFromCharacterHit(new CharacterHit(0, 0)));
+        Assert.Equal(6, line.GetDistanceFromCharacterHit(new CharacterHit(1, 0)));
+        TextBounds bounds = Assert.Single(line.GetTextBounds(0, 1));
+        Assert.Equal(new Rect(6, 0, 4, line.Height), bounds.Rectangle);
+        Rect runBounds = Assert.Single(bounds.TextRunBounds!).Rectangle;
+        Assert.Equal(6, runBounds.X);
+        Assert.Equal(4, runBounds.Width);
+        Assert.Equal(new CharacterHit(0, 0), line.GetCharacterHitFromDistance(8));
+        Assert.Equal(2, provider.LastHitDistance);
+    }
+
+    private sealed class RtlGeometryProvider : IPortableTextFormatting, IPortableTextParagraph
+    {
+        internal float LastHitDistance { get; private set; }
+        public IPortableTextParagraph Format(in PortableTextParagraphRequest request)
+        {
+            Assert.True(request.RightToLeft);
+            return this;
+        }
+
+        public ReadOnlyMemory<PortableTextGlyph> Glyphs => new PortableTextGlyph[]
+        {
+            new(0, 0, 1, 0, 0, 4, 0),
+            new(0, 1, 2, 4, 0, 6, 0),
+        };
+        public ReadOnlyMemory<PortableTextLineInfo> Lines => new PortableTextLineInfo[]
+        {
+            new(0, 2, 0, 2, 10, 0, 20),
+        };
+        public PortableTextHit HitTest(int lineIndex, float distance)
+        {
+            LastHitDistance = distance;
+            return new(0, false);
+        }
+        public float GetCaretDistance(int lineIndex, PortableTextHit hit) => hit.Position == 0 ? 0 : 4;
+        public int GetNextLogicalCaret(int lineIndex, int position, bool previous)
+            => Math.Clamp(position + (previous ? -1 : 1), 0, 2);
+        public int GetSelection(int lineIndex, int start, int end, Span<PortableRect> rectangles)
+        {
+            rectangles[0] = start == 0 ? new(0, 0, 4, 20) : new(4, 0, 6, 20);
+            return 1;
+        }
+    }
+
+    [PortableMediaFact]
     public void SyntheticGlyphRunRetainsPortableInkAndFlags()
     {
         string path = Path.Combine(AppContext.BaseDirectory, "LibreWPF", "Fonts", "Inter-Medium.ttf");
@@ -288,8 +343,8 @@ public class PortableTextLineTests
         Assert.Empty(first.GetTextBounds(0, 2));
         Assert.Empty(first.GetTextBounds(3, 3));
         Assert.Equal(new CharacterHit(2, 1), first.GetCharacterHitFromDistance(3));
-        Assert.Equal(4, first.GetDistanceFromCharacterHit(new(2, 1)));
-        Assert.Equal(4, first.GetDistanceFromCharacterHit(new(4, 0)));
+        Assert.Equal(0, first.GetDistanceFromCharacterHit(new(2, 1)));
+        Assert.Equal(0, first.GetDistanceFromCharacterHit(new(4, 0)));
         Assert.Equal(new CharacterHit(6, 0), first.GetNextCaretCharacterHit(new(2, 0)));
         Assert.Equal(new CharacterHit(2, 0), first.GetPreviousCaretCharacterHit(new(6, 0)));
         Assert.True(first.IsAtCaretCharacterHit(new(2, 1), 0));
@@ -319,7 +374,7 @@ public class PortableTextLineTests
         Assert.Equal(0, finalInsertion.Width);
         Assert.Equal(second.Height, finalInsertion.Height);
         Assert.Equal(second.Start, finalInsertion.X);
-        Assert.NotEqual(second.GetDistanceFromCharacterHit(new(10, 0)), finalInsertion.X);
+        Assert.Equal(second.GetDistanceFromCharacterHit(new(10, 0)), finalInsertion.X);
         Assert.Equal(1, provider.Calls);
     }
 
@@ -458,9 +513,9 @@ public class PortableTextLineTests
         Assert.Equal(2, line.GetIndexedGlyphRuns().Count());
         Assert.All(line.GetIndexedGlyphRuns(), run => Assert.DoesNotContain('\t', run.GlyphRun.Characters));
         Assert.Equal(new CharacterHit(1, 1), line.GetCharacterHitFromDistance(20));
-        Assert.Equal(32, line.GetDistanceFromCharacterHit(new(1, 1)));
+        Assert.Equal(6, line.GetDistanceFromCharacterHit(new(1, 1)));
         var selection = Assert.Single(line.GetTextBounds(1, 1)).Rectangle;
-        Assert.Equal(8, selection.X);
+        Assert.Equal(6, selection.X);
         Assert.Equal(24, selection.Width);
         Assert.Equal(new CharacterHit(2, 0), line.GetNextCaretCharacterHit(new(1, 0)));
     }
@@ -510,7 +565,7 @@ public class PortableTextLineTests
         Assert.True(line.IsAtCaretCharacterHit(new(2, 0), 0));
         Assert.False(line.IsAtCaretCharacterHit(new(1, 0), 0));
         Assert.False(line.IsAtCaretCharacterHit(new(0, 1), 0)); // Inside one native cluster.
-        Assert.Equal(8, line.GetDistanceFromCharacterHit(new(0, 2)));
+        Assert.Equal(0, line.GetDistanceFromCharacterHit(new(0, 2)));
         Assert.Equal(8, Assert.Single(line.GetTextBounds(0, 2)).Rectangle.Width);
         var glyph = Assert.Single(line.GetIndexedGlyphRuns()).GlyphRun;
         Assert.Equal(1, glyph.BidiLevel);
@@ -540,7 +595,7 @@ public class PortableTextLineTests
         Assert.Equal(0, finalInsertion.Width);
         Assert.Equal(next.Height, finalInsertion.Height);
         Assert.Equal(next.Start, finalInsertion.X);
-        Assert.NotEqual(next.GetDistanceFromCharacterHit(new(4, 0)), finalInsertion.X);
+        Assert.Equal(next.GetDistanceFromCharacterHit(new(4, 0)), finalInsertion.X);
         Assert.Equal(1, provider.Calls);
     }
 
@@ -628,7 +683,8 @@ public class PortableTextLineTests
     }
 
     private static FormatSettings Settings(TextFormatterImp formatter, Source source, TextLineBreak? previous = null) =>
-        new(formatter, source, new TextRunCacheImp(), new ParaProp(formatter, new ParagraphProperties(source.Properties, source.AutoHeight), false),
+        new(formatter, source, new TextRunCacheImp(), new ParaProp(formatter,
+            new ParagraphProperties(source.Properties, source.AutoHeight), false),
             previous, true, TextFormattingMode.Ideal, false);
 
     [PortableMediaFact]
