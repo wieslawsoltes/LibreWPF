@@ -12331,6 +12331,9 @@ public sealed class WpfManagedProjectGraphTests
         var sdkCiScriptPath = FindRepoPath(
             "eng",
             "progpu-wpf-sdk-ci.sh");
+        var canonicalWinFormsIntegrationScriptPath = FindRepoPath(
+            "eng",
+            "progpu-wpf-canonical-winforms-integration.sh");
         var nativeMilHostSmokeScriptPath = FindRepoPath(
             "eng",
             "progpu-wpf-native-mil-host-smoke.sh");
@@ -12786,6 +12789,7 @@ public sealed class WpfManagedProjectGraphTests
         var spellerInteropBase = File.ReadAllText(spellerInteropBasePath);
         var textEditorCopyPaste = File.ReadAllText(textEditorCopyPastePath);
         var sdkCiScript = File.ReadAllText(sdkCiScriptPath);
+        var canonicalWinFormsIntegrationScript = File.ReadAllText(canonicalWinFormsIntegrationScriptPath);
         var nativeMilHostSmokeScript = File.ReadAllText(
             nativeMilHostSmokeScriptPath);
         var validationGraphs = File.ReadAllText(validationGraphsPath);
@@ -13318,6 +13322,13 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Equal(3, sdkCiWorkflow.Split("submodules: true", StringSplitOptions.None).Length - 1);
         Assert.Contains("submodules: recursive", sdkCiWorkflow, StringComparison.Ordinal);
         Assert.Contains("./eng/progpu-wpf-canonical-winforms-integration.sh", sdkCiWorkflow, StringComparison.Ordinal);
+        Assert.Contains("find \"${canonical_package_output}\" -maxdepth 1 -type f", canonicalWinFormsIntegrationScript, StringComparison.Ordinal);
+        Assert.Contains("-name \"*.${progpu_source_package_version}.nupkg\"", canonicalWinFormsIntegrationScript, StringComparison.Ordinal);
+        Assert.Contains("rm -f -- \"${package_artifact}\"", canonicalWinFormsIntegrationScript, StringComparison.Ordinal);
+        Assert.True(
+            canonicalWinFormsIntegrationScript.IndexOf("find \"${canonical_package_output}\" -maxdepth 1 -type f", StringComparison.Ordinal)
+                < canonicalWinFormsIntegrationScript.IndexOf("Packing the exact ProGPU drawing dependency closure", StringComparison.Ordinal),
+            "The canonical package source must discard stale exact-version artifacts before ProGPU verifies its isolated drawing closure.");
         Assert.Contains("Download canonical LibreWinForms package closure", sdkCiWorkflow, StringComparison.Ordinal);
         Assert.Contains("Select exact ProGPU source package version", sdkCiWorkflow, StringComparison.Ordinal);
         Assert.Contains("source_version=\"0.1.0-source.${submodule_commit:0:8}\"", sdkCiWorkflow, StringComparison.Ordinal);

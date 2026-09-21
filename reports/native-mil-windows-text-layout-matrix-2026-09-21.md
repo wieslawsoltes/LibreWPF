@@ -184,8 +184,9 @@ now pins the exact ProGPU merge. LibreWinForms PR
 `58ed2bd5` with the same nested ProGPU `c00d1a3d` pin after its canonical source,
 package, AppKit and visible installed-package lanes passed on macOS, Ubuntu and
 Windows. The LibreWPF canonical source/package integration also passes locally
-against that exact three-repository graph. A fresh immutable LibreWPF x64/ARM64
-package run remains the authority for closing this matrix.
+through its default submodule path against LibreWinForms `58ed2bd5` and ProGPU
+`c00d1a3d`. A fresh immutable LibreWPF x64/ARM64 package run remains the
+authority for closing this matrix.
 
 ## Gate and qualification boundary
 
