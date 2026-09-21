@@ -314,7 +314,8 @@ public class PortableTextLineTests
         Assert.True(portableSecond.TryGetNonInkCaretBounds(10, out var finalInsertion, out _));
         Assert.Equal(0, finalInsertion.Width);
         Assert.Equal(second.Height, finalInsertion.Height);
-        Assert.Equal(second.GetDistanceFromCharacterHit(new(10, 0)), finalInsertion.X);
+        Assert.Equal(second.Start, finalInsertion.X);
+        Assert.NotEqual(second.GetDistanceFromCharacterHit(new(10, 0)), finalInsertion.X);
         Assert.Equal(1, provider.Calls);
     }
 
@@ -530,7 +531,8 @@ public class PortableTextLineTests
         Assert.True(Assert.IsType<PortableTextLine>(next).TryGetNonInkCaretBounds(4, out var finalInsertion, out _));
         Assert.Equal(0, finalInsertion.Width);
         Assert.Equal(next.Height, finalInsertion.Height);
-        Assert.Equal(next.GetDistanceFromCharacterHit(new(4, 0)), finalInsertion.X);
+        Assert.Equal(next.Start, finalInsertion.X);
+        Assert.NotEqual(next.GetDistanceFromCharacterHit(new(4, 0)), finalInsertion.X);
         Assert.Equal(1, provider.Calls);
     }
 
@@ -565,6 +567,56 @@ public class PortableTextLineTests
         Assert.Same(Brushes.Red, Assert.Single(Leaves(visual.Drawing).OfType<GlyphRunDrawing>()).ForegroundBrush);
         Assert.Same(Brushes.Blue, Assert.Single(Leaves(visual.Drawing).OfType<GeometryDrawing>()).Brush);
         Assert.Equal(1, provider.Calls);
+    }
+
+    [Fact]
+    public void MixedStyleTextBoundsRetainTheSourceRunVerticalMetrics()
+    {
+        var provider = new Provider { MixedOneLine = true };
+        using var registration = PortableWpfServiceRegistry.RegisterTextFormatting(provider);
+        using var formatter = new TextFormatterImp();
+        var source = new Source { Mixed = true, AutoHeight = true };
+        using var line = PortableTextLine.Create(Settings(formatter, source), 0, 800, 1);
+
+        var firstBounds = Assert.Single(Assert.Single(line.GetTextBounds(0, 1)).TextRunBounds);
+        double firstBaseline = source.Properties.Typeface.Baseline(
+            source.Properties.FontRenderingEmSize, 1, 1, TextFormattingMode.Ideal);
+        double firstHeight = source.Properties.Typeface.LineSpacing(
+            source.Properties.FontRenderingEmSize, 1, 1, TextFormattingMode.Ideal);
+        Assert.Equal(line.Baseline - firstBaseline, firstBounds.Rectangle.Y, 6);
+        Assert.Equal(firstHeight, firstBounds.Rectangle.Height, 6);
+        Assert.Same(source.Properties, firstBounds.TextRun.Properties);
+
+        var secondProperties = new Properties { Size = 24 };
+        source = new Source { Mixed = true, AutoHeight = true, FollowingProperties = secondProperties };
+        using var secondLine = PortableTextLine.Create(Settings(formatter, source), 0, 800, 1);
+        var secondBounds = Assert.Single(Assert.Single(secondLine.GetTextBounds(1, 1)).TextRunBounds);
+        double secondBaseline = secondProperties.Typeface.Baseline(24, 1, 1, TextFormattingMode.Ideal);
+        double secondHeight = secondProperties.Typeface.LineSpacing(24, 1, 1, TextFormattingMode.Ideal);
+        Assert.Equal(secondLine.Baseline - secondBaseline, secondBounds.Rectangle.Y, 6);
+        Assert.Equal(secondHeight, secondBounds.Rectangle.Height, 6);
+        Assert.Same(secondProperties, secondBounds.TextRun.Properties);
+    }
+
+    [Fact]
+    public void ExplicitLineHeightPreservesDefaultBaselineRatioAndNaturalRunBounds()
+    {
+        var provider = new Provider { MixedOneLine = true };
+        using var registration = PortableWpfServiceRegistry.RegisterTextFormatting(provider);
+        using var formatter = new TextFormatterImp();
+        var source = new Source();
+        using var line = PortableTextLine.Create(Settings(formatter, source), 0, 800, 1);
+
+        double naturalBaseline = source.Properties.Typeface.Baseline(
+            source.Properties.FontRenderingEmSize, 1, 1, TextFormattingMode.Ideal);
+        double naturalHeight = source.Properties.Typeface.LineSpacing(
+            source.Properties.FontRenderingEmSize, 1, 1, TextFormattingMode.Ideal);
+        Assert.Equal(20, line.Height);
+        Assert.Equal(20 * naturalBaseline / naturalHeight, line.Baseline, 6);
+        var runBounds = Assert.Single(Assert.Single(line.GetTextBounds(0, 1)).TextRunBounds);
+        Assert.Equal(line.Baseline - naturalBaseline, runBounds.Rectangle.Y, 6);
+        Assert.Equal(naturalHeight, runBounds.Rectangle.Height, 6);
+        Assert.Equal(line.Height, Assert.Single(line.GetTextBounds(0, 1)).Rectangle.Height);
     }
 
     private static FormatSettings Settings(TextFormatterImp formatter, Source source, TextLineBreak? previous = null) =>

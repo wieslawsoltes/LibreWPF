@@ -67,7 +67,7 @@ internal sealed class PortableTextLine : TextLine
     private readonly TextModifierScope _endScope;
     private readonly TextRunProperties _properties;
     private readonly GlyphTypeface _face;
-    private sealed record SourceStyle(int Start, int End, TextRunProperties Properties, GlyphTypeface Face,
+    private sealed record SourceStyle(int Start, int End, TextRunProperties Properties, TextRun Run, GlyphTypeface Face,
         PortableTextFont Font, double EmSize, double Baseline, double Height);
     private readonly SourceStyle[] _styles;
     private sealed record SourceObject(int Position, TextEmbeddedObject Run, PortableTextInlineObject Metrics);
@@ -244,7 +244,7 @@ internal sealed class PortableTextLine : TextLine
                 var objectFace = mapped.ShapeTypeface.GlyphTypeface;
                 double objectEm = p.FontRenderingEmSize * mapped.ScaleInEm;
                 if (!double.IsFinite(objectEm) || objectEm <= 0) throw Unsupported("invalid inline style em size");
-                styles.Add(new(start, start + 1, p, objectFace, GetFont(objectFace), objectEm,
+                styles.Add(new(start, start + 1, p, run, objectFace, GetFont(objectFace), objectEm,
                     p.Typeface.Baseline(p.FontRenderingEmSize, 1, pixelsPerDip, settings.TextFormattingMode),
                     p.Typeface.LineSpacing(p.FontRenderingEmSize, 1, pixelsPerDip, settings.TextFormattingMode)));
                 builder.Append('\uFFFC');
@@ -287,7 +287,7 @@ internal sealed class PortableTextLine : TextLine
                     var runFace = selected.ShapeTypeface.GlyphTypeface;
                     double emSize = p.FontRenderingEmSize * selected.ScaleInEm;
                     if (!double.IsFinite(emSize) || emSize <= 0) throw Unsupported("invalid composite-font scale");
-                    styles.Add(new(mappedStart, checked(mappedStart + mapped.Length), p, runFace, GetFont(runFace), emSize,
+                    styles.Add(new(mappedStart, checked(mappedStart + mapped.Length), p, run, runFace, GetFont(runFace), emSize,
                         p.Typeface.Baseline(p.FontRenderingEmSize, 1, pixelsPerDip, settings.TextFormattingMode),
                         p.Typeface.LineSpacing(p.FontRenderingEmSize, 1, pixelsPerDip, settings.TextFormattingMode)));
                     mappedStart += mapped.Length;
@@ -321,9 +321,16 @@ internal sealed class PortableTextLine : TextLine
             throw Unsupported("floating source formatting requires one bounded native floating provider request");
         var floatEvents = floating == null ? null : sourceMap.MapFloatingRanges(floating.Children.Span);
         var font = styles.Count > 0 ? styles[0].Font : GetFont(face);
-        double height = pap.LineHeight > 0 ? settings.Formatter.IdealToReal(pap.LineHeight, pixelsPerDip) :
-            properties.Typeface.LineSpacing(properties.FontRenderingEmSize, 1, pixelsPerDip, settings.TextFormattingMode);
+        double defaultHeight = properties.Typeface.LineSpacing(
+            properties.FontRenderingEmSize, 1, pixelsPerDip, settings.TextFormattingMode);
+        double height = pap.LineHeight > 0 ? settings.Formatter.IdealToReal(pap.LineHeight, pixelsPerDip) : defaultHeight;
         double baseline = properties.Typeface.Baseline(properties.FontRenderingEmSize, 1, pixelsPerDip, settings.TextFormattingMode);
+        // Line Services preserves the default face's baseline ratio when a
+        // client supplies an explicit line height. The run itself keeps its
+        // source metrics inside that line box; scaling the run metrics would
+        // make caret and selection rectangles as tall as the block line.
+        if (pap.LineHeight > 0 && defaultHeight > 0)
+            baseline = height * baseline / defaultHeight;
         var portableStyles = new PortableTextStyle[styles.Count];
         double layoutHeight = height;
         for (int i = 0; i < styles.Count; i++)
@@ -511,10 +518,10 @@ internal sealed class PortableTextLine : TextLine
             ascent = Math.Max(ascent, style.Baseline);
             descent = Math.Max(descent, style.Height - style.Baseline);
         }
-        if (ascent + descent > 0)
+        if (!fixedHeight && ascent + descent > 0)
         {
             _baseline = ascent;
-            if (!fixedHeight) _height = ascent + descent;
+            _height = ascent + descent;
         }
         if (paragraph is IPortableInlineTextParagraph measured)
         {
@@ -959,11 +966,25 @@ internal sealed class PortableTextLine : TextLine
             int count = _paragraph.GetSelection(_lineIndex, from, to, rectangles);
             for (int i = 0; i < count; i++)
             {
-                IList<TextRunBounds> objectBounds = null;
+                IList<TextRunBounds> runBounds;
                 if (_objectBounds != null && _objectBounds.TryGetValue(run.Start, out var objectBound))
-                    objectBounds = new[] { objectBound };
-                var r = rectangles[i]; result.Add(new(new Rect(NativeOrigin + r.X, 0, r.Width, Height),
-                    (run.Level & 1) != 0 ? FlowDirection.RightToLeft : FlowDirection.LeftToRight, objectBounds));
+                    runBounds = new[] { objectBound };
+                else
+                {
+                    SourceStyle style = _styles[StyleIndex(from)];
+                    int sourceFirst = _paragraphStart + _sourceMap.ToSource(from, true);
+                    int sourceEnd = _paragraphStart + _sourceMap.ToSource(to, false);
+                    var r = rectangles[i];
+                    runBounds = new[]
+                    {
+                        new TextRunBounds(
+                            new Rect(NativeOrigin + r.X, Baseline - style.Baseline, r.Width, style.Height),
+                            sourceFirst, sourceEnd, style.Run)
+                    };
+                }
+                var rectangle = rectangles[i];
+                result.Add(new(new Rect(NativeOrigin + rectangle.X, 0, rectangle.Width, Height),
+                    (run.Level & 1) != 0 ? FlowDirection.RightToLeft : FlowDirection.LeftToRight, runBounds));
             }
         }
         return result;
@@ -982,7 +1003,14 @@ internal sealed class PortableTextLine : TextLine
         int start = _sourceMap.ToText(Math.Clamp(sourcePosition, First, End) - _paragraphStart);
         int end = _sourceMap.ToText(Math.Clamp(checked(sourcePosition + 1), First, End) - _paragraphStart);
         if (start != end) return false;
-        rectangle = new Rect(GetDistanceFromCharacterHit(new CharacterHit(sourcePosition, 0)), 0, 0, Height);
+        // The terminal hidden paragraph edge follows the paragraph's physical
+        // trailing side. Native shaping has no glyph for that source position;
+        // asking it for a caret affinity in an RTL line selects the preceding
+        // LTR run's right edge instead of WPF's left paragraph edge.
+        double x = _rightToLeft && sourcePosition == First + Length
+            ? Start
+            : GetDistanceFromCharacterHit(new CharacterHit(sourcePosition, 0));
+        rectangle = new Rect(x, 0, 0, Height);
         return true;
     }
     public override IList<TextSpan<TextRun>> GetTextRunSpans()

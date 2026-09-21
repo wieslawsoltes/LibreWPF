@@ -143,6 +143,7 @@ public partial class MainWindow : Window
         }
 
         int insertionPositionCount = 0;
+        bool reportPositions = Environment.GetEnvironmentVariable("PROGPU_WPF_TEXT_LAYOUT_DETAIL") == "1";
         TextPointer? position = firstPosition;
         for (int count = 0; position != null && position.CompareTo(finalPosition) <= 0; count++)
         {
@@ -152,6 +153,17 @@ public partial class MainWindow : Window
             }
 
             Rect rectangle = position.GetCharacterRect(LogicalDirection.Forward);
+            if (reportPositions)
+            {
+                Console.WriteLine(string.Format(
+                    CultureInfo.InvariantCulture,
+                    "TEXT_POSITION name={0} offset={1} x={2:F3} y={3:F3} height={4:F3}",
+                    name,
+                    start.GetOffsetToPosition(position),
+                    rectangle.X,
+                    rectangle.Y,
+                    rectangle.Height));
+            }
             if (position.CompareTo(finalPosition) == 0)
             {
                 finalCaret = rectangle;
