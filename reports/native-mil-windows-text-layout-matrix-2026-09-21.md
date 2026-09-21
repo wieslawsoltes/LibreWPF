@@ -114,13 +114,17 @@ the wrapping, source ranges, run metrics, line-height metrics, line starts, and
 ordinary insertion geometry now agree on both Windows x64 and ARM64. Both
 architectures then failed on the same remaining endpoint: native WPF placed the
 final backward-oriented bidirectional caret at `X=-0.003`, while the portable
-path placed it at `X=122.896`. `TextBlock` subtracts one source unit for a
-backward-oriented insertion before querying its `TextLine`, so the earlier fix
-covered the hidden edge after the terminator but not the actual newline/EOP
-position it receives. `PortableTextLine.TryGetNonInkCaretBounds` now recognizes
-both forms on the last RTL line while leaving ordinary bidi-run and wrapped-line
-carets unchanged. Regression coverage invokes both the real terminator position
-and the hidden terminal edge; all 26 focused tests pass after the correction.
+path placed it at `X=122.896`. A first numeric-range correction in commit
+`92201b795` retained the same failure on both architectures in run `35637367445`.
+The exact source-built `TextBlock` integration regression then showed why:
+source element edges and EOP extend the retained line beyond the public
+`ContentEnd` insertion, so `PortableTextLine` cannot infer terminal identity
+from its numeric source range without also misclassifying ordinary hidden
+formatting edges. `TextBlock` now identifies its actual final insertion from the
+original source container and passes that typed fact through `Line` to
+`PortableTextLine.TryGetNonInkCaretBounds`. Ordinary hidden edges, bidi-run
+carets, and wrapped-line boundaries remain native-derived. Both focused
+`TextBlockTests` and all 26 `PortableTextLineTests` pass after the correction.
 
 These focused results verify the causes and their implementations. They do not
 replace the package-only application gate: a new immutable package bundle
@@ -141,7 +145,7 @@ The recorded package result remains diagnostic rather than passing
 qualification evidence. It proves that the package-only path reached
 NativeMilWgpu and identifies the source-layout and caret defects without
 allowing a Windows-MIL fallback to pass. The corrective implementation is now
-focused-test complete, with a post-`35629763302` package rerun pending. Glyph raster-pixel
+focused-test complete, with a post-`35637367445` package rerun pending. Glyph raster-pixel
 identity, additional composite fallback faces, trimming/collapse, rich
 document/editor behavior, and macOS/Linux parity remain separate qualification
 boundaries after this matrix passes.

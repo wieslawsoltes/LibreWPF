@@ -993,6 +993,9 @@ internal sealed class PortableTextLine : TextLine
     // Keep GetTextBounds empty for those edges; TextBlock's point-caret query
     // consumes this separate rectangle instead of treating the edge as ink.
     internal bool TryGetNonInkCaretBounds(int sourcePosition, out Rect rectangle, out FlowDirection flowDirection)
+        => TryGetNonInkCaretBounds(sourcePosition, false, out rectangle, out flowDirection);
+    internal bool TryGetNonInkCaretBounds(int sourcePosition, bool isTerminalInsertion,
+        out Rect rectangle, out FlowDirection flowDirection)
     {
         CheckAlive();
         rectangle = Rect.Empty;
@@ -1007,13 +1010,12 @@ internal sealed class PortableTextLine : TextLine
         // side. Native shaping has no glyph for these positions; asking it for
         // a caret affinity in an RTL line selects the preceding LTR run's right
         // edge instead of WPF's left paragraph edge.
-        // TextBlock resolves a backward-oriented final insertion by subtracting
-        // one source unit before asking the line for bounds.  On the final line
-        // that names the real paragraph terminator at End, not only the hidden
-        // document edge at First + Length.  Both belong on the paragraph's
-        // physical trailing side for an RTL paragraph.
+        // A source content host identifies its actual terminal insertion. Its
+        // retained source offset may precede closing element edges and EOP, so
+        // it cannot be inferred from this line's numeric source range alone.
+        // Direct line consumers still recognize the terminator/edge forms.
         bool isTerminalParagraphPosition = _lineIndex + 1 == _paragraph.Lines.Length &&
-            NewlineLength > 0 && sourcePosition >= End;
+            (isTerminalInsertion || (NewlineLength > 0 && sourcePosition >= End));
         double x = _rightToLeft && isTerminalParagraphPosition
             ? Start
             : GetDistanceFromCharacterHit(new CharacterHit(sourcePosition, 0));
