@@ -85,6 +85,7 @@ public partial class MainWindow : Window
     private const int GpuOwnerBufferCapacity = 64;
 
     private const string LiveValidationEnvironmentVariable = "PROGPU_WPF_TOOLKIT_LIVE_VALIDATE";
+    private const string AutoHideLiveValidationEnvironmentVariable = "PROGPU_WPF_TOOLKIT_AUTO_HIDE_VALIDATE";
     private const string LiveValidationStatusPathEnvironmentVariable = "PROGPU_WPF_TOOLKIT_LIVE_VALIDATE_STATUS_PATH";
     private const int LiveValidationStartupMaxAttempts = 7500;
     private const int LiveValidationMaxAttempts = 400;
@@ -96,6 +97,7 @@ public partial class MainWindow : Window
     private int _avalonDockAnchorableKeyboardNavigationIndex;
     private int _avalonDockAutoHideOverlayIndex;
     private bool _liveValidationStarted;
+    private volatile bool _liveValidationShutdownRequested;
 
     public MainWindow()
     {
@@ -119,6 +121,7 @@ public partial class MainWindow : Window
         ActivityPane.Closing += ActivityPane_Closing;
         ActivityPane.Closed += ActivityPane_Closed;
         Loaded += OnToolkitWindowLoaded;
+        Closed += OnToolkitWindowClosed;
         StartLiveValidationIfRequired();
     }
 
@@ -509,22 +512,40 @@ public partial class MainWindow : Window
 
     private void ShowAvalonDockAutoHideOverlay(LayoutAnchorable anchorable)
     {
+        bool materializeAnchor = !anchorable.IsAutoHidden;
         if (!anchorable.IsAutoHidden)
         {
             anchorable.ToggleAutoHide();
-            Dispatcher.Invoke(static () => { }, DispatcherPriority.Background);
         }
 
-        FindAutoHideAnchorControl(anchorable).Focus();
-        Dispatcher.Invoke(static () => { }, DispatcherPriority.Background);
+        void ActivateAnchor()
+        {
+            AvalonDockLayoutAnchorControl anchor = FindAutoHideAnchorControl(anchorable);
+            // AvalonDock opens an auto-hide window from its model activation
+            // callbacks (and from real pointer events), not from keyboard focus
+            // alone. Keep the command path on that public model contract.
+            anchorable.IsActive = true;
+            anchor.Focus();
+        }
+
+        if (!materializeAnchor)
+        {
+            ActivateAnchor();
+            return;
+        }
+
+        // Return to the dispatcher before resolving a newly generated side tab.
+        // A synchronous nested Background pump can be starved indefinitely by a
+        // continuously presenting portable host.
+        Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(ActivateAnchor));
     }
 
     private void HideAvalonDockAutoHideOverlay(LayoutAnchorable anchorable)
     {
         _ = FindAutoHideAnchorControl(anchorable);
+        EditorDocument.IsActive = true;
         ActivateEditorButton.Focus();
         Keyboard.Focus(ActivateEditorButton);
-        Dispatcher.Invoke(static () => { }, DispatcherPriority.Background);
     }
 
     private AvalonDockLayoutAnchorControl FindAutoHideAnchorControl(LayoutAnchorable anchorable)
@@ -532,10 +553,53 @@ public partial class MainWindow : Window
         DockManager.ApplyTemplate();
         DockManager.UpdateLayout();
 
-        return EnumerateVisualDescendants<AvalonDockLayoutAnchorControl>(DockManager)
-            .FirstOrDefault(anchorControl => ReferenceEquals(anchorControl.Model, anchorable))
-            ?? throw new InvalidOperationException(
+        AvalonDockLayoutAnchorControl[] candidates =
+            EnumerateVisualDescendants<AvalonDockLayoutAnchorControl>(DockManager)
+                .Where(anchorControl => ReferenceEquals(anchorControl.Model, anchorable))
+                .ToArray();
+        if (candidates.Length == 0)
+        {
+            throw new InvalidOperationException(
                 $"Expected AvalonDock auto-hide side tab control for '{anchorable.Title}'.");
+        }
+
+        if (Environment.GetEnvironmentVariable(AutoHideLiveValidationEnvironmentVariable) == "1")
+        {
+            var descriptions = new string[candidates.Length];
+            for (int i = 0; i < candidates.Length; i++)
+            {
+                AvalonDockLayoutAnchorControl candidate = candidates[i];
+                Point rootCenter = candidate.TranslatePoint(
+                    new Point(Math.Max(1.0, candidate.ActualWidth) / 2.0,
+                        Math.Max(1.0, candidate.ActualHeight) / 2.0),
+                    this);
+                string templateBorders = string.Join(", ",
+                    EnumerateVisualDescendants<Border>(candidate)
+                        .Take(8)
+                        .Select(border =>
+                        {
+                            Point borderCenter = border.TranslatePoint(
+                                new Point(Math.Max(1.0, border.ActualWidth) / 2.0,
+                                    Math.Max(1.0, border.ActualHeight) / 2.0),
+                                this);
+                            return $"{DescribeInputElement(border)} " +
+                                $"background={border.Background?.ToString() ?? "<null>"} " +
+                                $"size={border.ActualWidth:0.###}x{border.ActualHeight:0.###} " +
+                                $"root=({borderCenter.X:0.###}, {borderCenter.Y:0.###})";
+                        }));
+                descriptions[i] =
+                    $"#{i + 1} loaded={candidate.IsLoaded}, visible={candidate.IsVisible}, " +
+                    $"size={candidate.ActualWidth:0.###}x{candidate.ActualHeight:0.###}, " +
+                    $"opacity={candidate.Opacity:0.###}, root=({rootCenter.X:0.###}, {rootCenter.Y:0.###}), " +
+                    $"source={PresentationSource.FromVisual(candidate)?.RootVisual?.GetType().FullName ?? "<null>"}, " +
+                    $"path={DescribeInputElementPath(candidate)}, templateBorders=[{templateBorders}]";
+            }
+
+            WriteLiveValidationProgress(
+                $"resolved {anchorable.Title} auto-hide anchor candidates: {string.Join("; ", descriptions)}");
+        }
+
+        return candidates[0];
     }
 
     private void RecordAvalonDockContextMenuCommand(string commandName)
@@ -3738,22 +3802,45 @@ public partial class MainWindow : Window
 
     private async Task ValidateRequiredLiveToolkitAsync()
     {
+        bool observedHost = false;
         for (int attempt = 0; attempt < LiveValidationStartupMaxAttempts; attempt++)
         {
             await Task.Delay(LiveValidationRetryDelay);
             if (!ProGpuWpfDiagnostics.TryGetWindowHost(this, out var liveHost) || liveHost == null)
             {
+                if (attempt % 500 == 0)
+                {
+                    WriteLiveValidationProgress($"waiting for native host identity (attempt {attempt + 1})");
+                }
+
                 continue;
             }
 
+            observedHost = true;
             if (!liveHost.HasPresentedFrame)
             {
+                if (attempt % 500 == 0)
+                {
+                    WriteLiveValidationProgress($"waiting for presented native frame (attempt {attempt + 1})");
+                }
+
                 WakeLiveRenderHost(liveHost);
                 continue;
             }
 
             Console.WriteLine("ProGPU WPF Toolkit live input validation frame ready.");
             RequireSelectedNativeFrame(liveHost);
+            if (Environment.GetEnvironmentVariable(AutoHideLiveValidationEnvironmentVariable) == "1")
+            {
+                await ValidateLiveAvalonDockAutoHidePointerAsync(liveHost);
+                const string autoHideStatus = "ProGPU WPF Toolkit live AvalonDock auto-hide validation succeeded.";
+                Console.WriteLine(autoHideStatus);
+                WriteLiveValidationStatus($"{autoHideStatus}{Environment.NewLine}");
+                Console.Out.Flush();
+                RequestLiveValidationShutdown(0);
+                return;
+            }
+
             string geometryStatus = await InvokeWithLiveHostWakeAsync(
                 liveHost,
                 () => ValidateLiveRenderSurfaceGeometryCore(liveHost),
@@ -3775,17 +3862,37 @@ public partial class MainWindow : Window
         }
 
         throw new InvalidOperationException(
-            "Expected the Toolkit app to present a stable ProGPU frame before live input validation.");
+            observedHost
+                ? "Expected the Toolkit native host to publish a presented frame before live input validation."
+                : "Expected the Toolkit Window to resolve its registered ProGPU native host before live input validation.");
     }
 
     private void RequestLiveValidationShutdown(int exitCode)
     {
+        _liveValidationShutdownRequested = true;
+        Environment.ExitCode = exitCode;
+
         // Environment.Exit from the validation worker can tear down the
         // binding engine while the portable host is still pumping layout.
         // Let the application dispatcher close its owned native windows.
         Dispatcher.BeginInvoke(
             DispatcherPriority.Send,
             new Action(() => Application.Current.Shutdown(exitCode)));
+    }
+
+    private void OnToolkitWindowClosed(object? sender, EventArgs e)
+    {
+        if (!_liveValidationStarted || _liveValidationShutdownRequested)
+        {
+            return;
+        }
+
+        const string status =
+            "ProGPU WPF Toolkit live input validation failed: the main window closed before the validation gate completed.";
+        Console.Error.WriteLine(status);
+        Console.Error.Flush();
+        WriteLiveValidationStatus($"{status}{Environment.NewLine}");
+        Environment.ExitCode = 1;
     }
 
     private static void WriteLiveValidationStatus(string status)
@@ -3854,7 +3961,8 @@ public partial class MainWindow : Window
                 liveHost,
                 () =>
                 {
-                    if (!TryRaiseLiveMouseClick(liveHost, FilterTextBox, "FilterTextBox", out lastTargetState))
+                    if (!TryRaiseLiveMouseClick(liveHost, FilterTextBox, "FilterTextBox", traceDetails: false,
+                            out lastTargetState))
                     {
                         return false;
                     }
@@ -4406,6 +4514,14 @@ public partial class MainWindow : Window
             liveHost,
             () => ValidateAvalonDockAutoHideCommandTarget(AgendaPane, overlayCountBefore + 1),
             DispatcherPriority.Send);
+        await InvokeWithLiveHostWakeAsync(
+            liveHost,
+            () => HideAvalonDockAutoHideOverlay(AgendaPane),
+            DispatcherPriority.Send);
+        await WaitForLiveConditionAsync(
+            liveHost,
+            () => !AutoHideOverlayModelContains(GetAvalonDockAutoHideWindowModel(), AgendaPane),
+            "Toolkit live AvalonDock agenda command overlay dismissal");
         AvalonDockLayoutAnchorControl agendaAnchorControl = await InvokeWithLiveHostWakeAsync(
             liveHost,
             () => FindAutoHideAnchorControl(AgendaPane),
@@ -4433,6 +4549,14 @@ public partial class MainWindow : Window
             liveHost,
             () => ValidateAvalonDockAutoHideCommandTarget(ContactsPane, overlayCountBefore + 2),
             DispatcherPriority.Send);
+        await InvokeWithLiveHostWakeAsync(
+            liveHost,
+            () => HideAvalonDockAutoHideOverlay(ContactsPane),
+            DispatcherPriority.Send);
+        await WaitForLiveConditionAsync(
+            liveHost,
+            () => !AutoHideOverlayModelContains(GetAvalonDockAutoHideWindowModel(), ContactsPane),
+            "Toolkit live AvalonDock contacts command overlay dismissal");
         AvalonDockLayoutAnchorControl contactsAnchorControl = await InvokeWithLiveHostWakeAsync(
             liveHost,
             () => FindAutoHideAnchorControl(ContactsPane),
@@ -4450,6 +4574,122 @@ public partial class MainWindow : Window
                 HideAvalonDockAutoHideOverlay(ContactsPane);
             },
             DispatcherPriority.Send);
+    }
+
+    private async Task ValidateLiveAvalonDockAutoHidePointerAsync(ProGpuWpfWindowHost liveHost)
+    {
+        WriteLiveValidationProgress("priming AvalonDock auto-hide overlay");
+        await InvokeWithLiveHostWakeAsync(
+            liveHost,
+            () =>
+            {
+                if (GetAvalonDockAutoHideArea() is { } autoHideArea)
+                {
+                    autoHideArea.IsHitTestVisible = true;
+                }
+
+                if (DockManager.AutoHideWindow is { } autoHideWindow)
+                {
+                    autoHideWindow.IsHitTestVisible = true;
+                }
+
+                EnsureAutoHideOverlayAnchorables();
+                _avalonDockAutoHideOverlayIndex = -1;
+                ViewModel.LastAvalonDockAutoHideOverlayTarget = string.Empty;
+            },
+            DispatcherPriority.Send);
+        await InvokeWithLiveHostWakeAsync(liveHost, static () => { }, DispatcherPriority.Background);
+        await InvokeWithLiveHostWakeAsync(
+            liveHost,
+            CycleAvalonDockAutoHideOverlay,
+            DispatcherPriority.Send);
+        await WaitForLiveConditionAsync(
+            liveHost,
+            () => AutoHideOverlayModelContains(GetAvalonDockAutoHideWindowModel(), AgendaPane),
+            "Toolkit focused live AvalonDock agenda command overlay model");
+        await InvokeWithLiveHostWakeAsync(
+            liveHost,
+            () =>
+            {
+                HideAvalonDockAutoHideOverlay(AgendaPane);
+                ActivateEditorButton.Focus();
+                Keyboard.Focus(ActivateEditorButton);
+            },
+            DispatcherPriority.Send);
+        await WaitForLiveConditionAsync(
+            liveHost,
+            () => !AutoHideOverlayModelContains(GetAvalonDockAutoHideWindowModel(), AgendaPane),
+            "Toolkit focused live AvalonDock agenda command overlay dismissal");
+        await InvokeWithLiveHostWakeAsync(liveHost, static () => { }, DispatcherPriority.Background);
+        WriteLiveValidationProgress("AvalonDock auto-hide overlay primed and dismissed");
+
+        await ValidateLiveAvalonDockAutoHidePointerAsync(liveHost, AgendaPane, "Agenda");
+        await ValidateLiveAvalonDockAutoHidePointerAsync(liveHost, ContactsPane, "Contacts");
+    }
+
+    private async Task ValidateLiveAvalonDockAutoHidePointerAsync(
+        ProGpuWpfWindowHost liveHost,
+        LayoutAnchorable anchorable,
+        string description)
+    {
+        AvalonDockLayoutAnchorControl anchorControl = await InvokeWithLiveHostWakeAsync(
+            liveHost,
+            () => FindAutoHideAnchorControl(anchorable),
+            DispatcherPriority.Send);
+        WriteLiveValidationProgress($"clicking {description} auto-hide anchor");
+        await ClickLiveControlAsync(liveHost, anchorControl, $"{description}AutoHideAnchorControl");
+        WriteLiveValidationProgress($"clicked {description} auto-hide anchor");
+        await WaitForLiveConditionAsync(
+            liveHost,
+            () => AutoHideOverlayModelContains(GetAvalonDockAutoHideWindowModel(), anchorable),
+            $"Toolkit live AvalonDock {description} auto-hide overlay model");
+        WriteLiveValidationProgress($"opened {description} auto-hide overlay");
+        await MoveLivePointerAsync(liveHost, ActivateEditorButton, "ActivateEditorButton");
+        await InvokeWithLiveHostWakeAsync(
+            liveHost,
+            () => HideAvalonDockAutoHideOverlay(anchorable),
+            DispatcherPriority.Send);
+        await WaitForLiveConditionAsync(
+            liveHost,
+            () => !AutoHideOverlayModelContains(GetAvalonDockAutoHideWindowModel(), anchorable),
+            $"Toolkit live AvalonDock {description} auto-hide overlay dismissal");
+        WriteLiveValidationProgress($"dismissed {description} auto-hide overlay");
+    }
+
+    private async Task MoveLivePointerAsync(
+        ProGpuWpfWindowHost liveHost,
+        FrameworkElement target,
+        string targetName)
+    {
+        await InvokeWithLiveHostWakeAsync(
+            liveHost,
+            () =>
+            {
+                var inputRoot = liveHost.WpfRootVisual as UIElement
+                    ?? throw new InvalidOperationException(
+                        "Toolkit live input requires its host's source UIElement root.");
+                target.BringIntoView();
+                target.UpdateLayout();
+                if (!target.IsVisible || target.ActualWidth <= 1.0 || target.ActualHeight <= 1.0)
+                {
+                    throw new InvalidOperationException(
+                        $"Expected Toolkit live pointer destination {targetName} to be visible and arranged.");
+                }
+
+                Point point = target.TranslatePoint(
+                    new Point(target.ActualWidth / 2.0, target.ActualHeight / 2.0),
+                    inputRoot);
+                RaiseHostInput(liveHost, WpfInputEventKind.MouseMove, x: point.X, y: point.Y);
+            },
+            DispatcherPriority.Send);
+        await InvokeWithLiveHostWakeAsync(liveHost, static () => { }, DispatcherPriority.Background);
+        WriteLiveValidationProgress($"moved pointer to {targetName}");
+    }
+
+    private static void WriteLiveValidationProgress(string progress)
+    {
+        Console.WriteLine($"ProGPU WPF Toolkit live input validation progress: {progress}.");
+        Console.Out.Flush();
     }
 
     private async Task ValidateLivePopupOpenCloseAsync(
@@ -5004,12 +5244,18 @@ public partial class MainWindow : Window
         {
             bool sentClick = await InvokeWithLiveHostWakeAsync(
                 liveHost,
-                () => TryRaiseLiveMouseClick(liveHost, target, targetName, out lastTargetState),
+                () => TryRaiseLiveMouseClick(liveHost, target, targetName, attempt == 0, out lastTargetState),
                 DispatcherPriority.Send);
             if (sentClick)
             {
                 await InvokeWithLiveHostWakeAsync(liveHost, static () => { }, DispatcherPriority.Background);
                 return;
+            }
+
+            if (attempt % 500 == 0)
+            {
+                WriteLiveValidationProgress(
+                    $"waiting for {targetName} native input ownership at attempt {attempt + 1}: {lastTargetState}");
             }
 
             // BringIntoView can move a deeply scrolled editor after the render request that
@@ -5023,7 +5269,12 @@ public partial class MainWindow : Window
             $"Expected Toolkit live target {targetName} to become visible and hit-testable, but last state was: {lastTargetState}.");
     }
 
-    private bool TryRaiseLiveMouseClick(ProGpuWpfWindowHost liveHost, FrameworkElement target, string targetName, out string targetState)
+    private bool TryRaiseLiveMouseClick(
+        ProGpuWpfWindowHost liveHost,
+        FrameworkElement target,
+        string targetName,
+        bool traceDetails,
+        out string targetState)
     {
         // A floated document is no longer in MainWindow's visual tree. Use the
         // same source root as the host receiving this input, without screen/DPI remapping.
@@ -5061,11 +5312,87 @@ public partial class MainWindow : Window
             return false;
         }
 
-        object? hit = inputRoot.InputHitTest(center);
-        targetState += $", Input=({center.X:0.###}, {center.Y:0.###}), InputHitTest={DescribeInputElement(hit)}";
-        if (hit == null || !IsInputElementWithinTarget(hit, target))
+        bool traceAutoHideAnchor = traceDetails &&
+            targetName.EndsWith("AutoHideAnchorControl", StringComparison.Ordinal);
+        Point preferredCenter = center;
+        if (!TryFindSourceHitPoint(inputRoot, target, preferredCenter, out center, out DependencyObject? sourceHit))
         {
+            targetState += $", PreferredInput=({preferredCenter.X:0.###}, {preferredCenter.Y:0.###}), " +
+                $"SourceHit={DescribeInputElement(sourceHit)}";
+            if (traceAutoHideAnchor)
+            {
+                WriteLiveValidationProgress(
+                    $"could not resolve {targetName} clickable WPF point from preferred " +
+                    $"({preferredCenter.X:0.###}, {preferredCenter.Y:0.###}); " +
+                    $"last owner={DescribeInputElement(sourceHit)}; path={DescribeInputElementPath(sourceHit)}");
+            }
+
             return false;
+        }
+
+        targetState += $", SourceInput=({center.X:0.###}, {center.Y:0.###}), " +
+            $"SourceHit={DescribeInputElement(sourceHit)}";
+        if (traceAutoHideAnchor)
+        {
+            WriteLiveValidationProgress(
+                $"resolved {targetName} clickable WPF point ({center.X:0.###}, {center.Y:0.###}) " +
+                $"to {DescribeInputElement(sourceHit)}; path={DescribeInputElementPath(sourceHit)}");
+            WriteLiveValidationProgress($"querying {targetName} source input owner");
+        }
+
+        object? hit = inputRoot.InputHitTest(center);
+        bool hitWithinTarget = hit != null && IsInputElementWithinTarget(hit, target);
+        if (traceAutoHideAnchor)
+        {
+            WriteLiveValidationProgress(
+                $"queried {targetName} source input owner {DescribeInputElement(hit)}; " +
+                $"within target={hitWithinTarget}; path={DescribeInputElementPath(hit)}");
+        }
+
+        targetState += $", Input=({center.X:0.###}, {center.Y:0.###}), InputHitTest={DescribeInputElement(hit)}";
+        if (!hitWithinTarget)
+        {
+            if (traceAutoHideAnchor)
+            {
+                object?[] ownerBuffer = ArrayPool<object?>.Shared.Rent(GpuOwnerBufferCapacity);
+                try
+                {
+                    if (ProGpuWpfDiagnostics.TryHitTestOwners(
+                            liveHost, center.X, center.Y, ownerBuffer, out int ownerCount))
+                    {
+                        var owners = ownerBuffer.AsSpan(0, ownerCount);
+                        bool targetPresent = false;
+                        foreach (object? owner in owners)
+                        {
+                            if (owner != null && IsInputElementWithinTarget(owner, target))
+                            {
+                                targetPresent = true;
+                                break;
+                            }
+                        }
+
+                        string orderedOwners = DescribeInputElements(owners);
+                        targetState += $", OrderedNativeOwners=[{orderedOwners}], TargetPresent={targetPresent}";
+                        WriteLiveValidationProgress(
+                            $"queried {targetName} ordered native owners [{orderedOwners}]; target present={targetPresent}");
+                    }
+                    else
+                    {
+                        targetState += ", OrderedNativeOwners=<unavailable>";
+                    }
+                }
+                finally
+                {
+                    ArrayPool<object?>.Shared.Return(ownerBuffer, clearArray: true);
+                }
+            }
+
+            return false;
+        }
+
+        if (traceAutoHideAnchor)
+        {
+            WriteLiveValidationProgress($"querying {targetName} diagnostic native owners");
         }
 
         if (!TryLiveHostGpuHitWithinTarget(liveHost, center.X, center.Y, target,
@@ -5075,11 +5402,71 @@ public partial class MainWindow : Window
             return false;
         }
 
+        if (traceAutoHideAnchor)
+        {
+            WriteLiveValidationProgress($"queried {targetName} diagnostic native owners");
+        }
+
         targetState += $", {gpuHitState}";
+        if (traceAutoHideAnchor)
+        {
+            WriteLiveValidationProgress($"raising {targetName} mouse move");
+        }
+
         RaiseHostInput(liveHost, WpfInputEventKind.MouseMove, x: center.X, y: center.Y);
+        if (traceAutoHideAnchor)
+        {
+            WriteLiveValidationProgress($"raising {targetName} mouse down");
+        }
+
         RaiseHostInput(liveHost, WpfInputEventKind.MouseDown, x: center.X, y: center.Y, button: WpfMouseButton.Left);
+        if (traceAutoHideAnchor)
+        {
+            WriteLiveValidationProgress($"raising {targetName} mouse up");
+        }
+
         RaiseHostInput(liveHost, WpfInputEventKind.MouseUp, x: center.X, y: center.Y, button: WpfMouseButton.Left);
+        if (traceAutoHideAnchor)
+        {
+            WriteLiveValidationProgress($"raised {targetName} mouse click");
+        }
+
         return true;
+    }
+
+    private static bool TryFindSourceHitPoint(
+        UIElement inputRoot,
+        FrameworkElement target,
+        Point preferredPoint,
+        out Point point,
+        out DependencyObject? hit)
+    {
+        point = preferredPoint;
+        hit = VisualTreeHelper.HitTest(inputRoot, preferredPoint)?.VisualHit;
+        if (hit != null && IsInputElementWithinTarget(hit, target))
+        {
+            return true;
+        }
+
+        ReadOnlySpan<double> fractions = [0.5, 0.25, 0.75, 0.1, 0.9];
+        foreach (double yFraction in fractions)
+        {
+            foreach (double xFraction in fractions)
+            {
+                Point candidate = target.TranslatePoint(
+                    new Point(target.ActualWidth * xFraction, target.ActualHeight * yFraction),
+                    inputRoot);
+                DependencyObject? candidateHit = VisualTreeHelper.HitTest(inputRoot, candidate)?.VisualHit;
+                point = candidate;
+                hit = candidateHit;
+                if (candidateHit != null && IsInputElementWithinTarget(candidateHit, target))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     private static bool TryLiveHostGpuHitWithinTarget(
@@ -5336,14 +5723,53 @@ public partial class MainWindow : Window
             return "<null>";
         }
 
+        string typeName = element.GetType().FullName ?? element.GetType().Name;
         if (element is FrameworkElement frameworkElement && !string.IsNullOrEmpty(frameworkElement.Name))
         {
-            return $"FrameworkElement#{frameworkElement.Name}";
+            return $"{typeName}#{frameworkElement.Name}";
         }
 
         return element is IInputElement
-            ? "IInputElement"
+            ? typeName
             : element.ToString() ?? "<input element>";
+    }
+
+    private static string DescribeInputElementPath(object? element)
+    {
+        if (element is not DependencyObject current)
+        {
+            return "<not a dependency object>";
+        }
+
+        var builder = new StringBuilder();
+        for (int depth = 0; current != null && depth < 24; depth++)
+        {
+            if (depth > 0)
+            {
+                builder.Append(" <- ");
+            }
+
+            builder.Append(DescribeInputElement(current));
+            DependencyObject? parent = null;
+            try
+            {
+                parent = VisualTreeHelper.GetParent(current);
+            }
+            catch (InvalidOperationException)
+            {
+            }
+
+            parent ??= LogicalTreeHelper.GetParent(current);
+            if (ReferenceEquals(parent, current))
+            {
+                builder.Append(" <- <self>");
+                break;
+            }
+
+            current = parent;
+        }
+
+        return builder.ToString();
     }
 
     private static void PumpDispatcherUntil(

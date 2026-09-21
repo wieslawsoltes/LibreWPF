@@ -207,6 +207,33 @@ still misses. The focused regression now rebuilds the equivalent nested stream
 at a new generation, changes an unrelated binding, and requires a one-submission
 hit. The focused test and all 19 native CTests pass locally.
 
+## Focused native-input qualification
+
+Before replacing the runtime with the retained-child optimization, the exact
+`7056a710` Windows ARM64 PR artifact was paired with the rebuilt LibreWPF
+Toolkit source overlay. The installed `progpu_native.dll` SHA-256 was
+`F7E061E0F6B54A32AA57B34AD5C0E2E131573C023EB8951AEBABC9F15DC2E03A`,
+and the rebuilt `ProGPU.Wpf.ToolkitApp.dll` SHA-256 was
+`B8F134626AA684E726E37348EA3B7CFAB55B023A71A9AA17F3ADB6C788E9F232`.
+
+The focused gate completed and exited zero. It first opened and dismissed the
+Agenda overlay through AvalonDock's model activation contract, then resolved
+the presented native input owner for the actual generated Agenda side-tab
+`TextBlock`, delivered mouse move/down/up through the ProGPU host, observed the
+Agenda overlay open, moved the real pointer away, and observed dismissal. It
+repeated the same sequence for Contacts and wrote
+`ProGPU WPF Toolkit live AvalonDock auto-hide validation succeeded.` to the
+status file. This qualifies the source/native input route and the dispatcher
+sequencing fix; it does not qualify the newer retained-child performance
+revision.
+
+ProGPU PR #173 now points at `81e5b486`, which retains one scratch picture
+child, preserves exact-snapshot scene identity, accounts only submission deltas,
+includes child ownership in the native memory inventory, and propagates device
+loss through the owned child chain. Local Apple M3 Pro/Metal validation passes
+all 19 native CTests. A fresh exact Windows ARM64 artifact for this revision is
+still required for the final performance and package gates below.
+
 ## Acceptance criteria
 
 The post-change run must provide all of the following evidence:
