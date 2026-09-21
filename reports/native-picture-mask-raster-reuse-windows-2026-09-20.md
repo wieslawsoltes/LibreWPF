@@ -1,6 +1,6 @@
 # Native picture-mask raster reuse on Windows ARM64
 
-Date: 2026-09-20
+Date: 2026-09-20; updated 2026-09-21
 
 This record qualifies the retained native picture-mask raster change against
 the live `ProGPU.Wpf.ToolkitApp` and AvalonDock input sequence on Windows 11
@@ -52,9 +52,10 @@ The baseline process was still alive while this record was written. It is not
 counted as a completed application pass, and its source-overlay payload is not
 an exact final-package qualification.
 
-## Replacement under test
+## Replacement implementation
 
-[ProGPU PR #173](https://github.com/wieslawsoltes/ProGPU/pull/173) retains
+[ProGPU PR #173](https://github.com/wieslawsoltes/ProGPU/pull/173), merged as
+`910571ae18c5b8ec7f1fe41908fd8aa2304844e0`, retains
 eligible picture-mask raster textures in a bounded cache independent of
 incremental picture images. Reuse is keyed by the complete nested scene, raster
 descriptor, engine flags, device, and format. External image bindings and seeded
@@ -63,11 +64,13 @@ bindings are outside its identity. Sampling transforms, opacity, guidelines,
 and span uniforms remain parent-scene state rather than part of the retained
 raster.
 
-The current implementation branch head recorded for this comparison is
-`7056a710219cc4f3c826ccf15642eb9379622e1f`. The exact-head Windows ARM64
-renderer job must finish successfully and supply the runtime used for the
-post-change run. The final LibreWPF package graph must then pin the merged
-ProGPU commit rather than this pull-request branch.
+The merged implementation owns one owner-thread-affine scratch child engine per
+parent engine, preserves exact nested-scene identity across repeated snapshots,
+accounts the child inventory recursively without double-counting borrowed
+handles, and propagates device loss into the owned child before parent teardown.
+LibreWPF now pins the merge commit above. The successful Windows ARM64 renderer
+artifact from that exact commit must still be installed coherently and used for
+the post-change run before the integration pull request leaves draft state.
 
 ## First replacement artifact result
 
@@ -227,12 +230,13 @@ status file. This qualifies the source/native input route and the dispatcher
 sequencing fix; it does not qualify the newer retained-child performance
 revision.
 
-ProGPU PR #173 now points at `81e5b486`, which retains one scratch picture
-child, preserves exact-snapshot scene identity, accounts only submission deltas,
-includes child ownership in the native memory inventory, and propagates device
-loss through the owned child chain. Local Apple M3 Pro/Metal validation passes
-all 19 native CTests. A fresh exact Windows ARM64 artifact for this revision is
-still required for the final performance and package gates below.
+ProGPU PR #173 merged branch head `81e5b486` as `910571ae`. It retains one
+scratch picture child, preserves exact-snapshot scene identity, accounts only
+submission deltas, includes child ownership in the native memory inventory, and
+propagates device loss through the owned child chain. Local Apple M3 Pro/Metal
+validation passes all 19 native CTests. A fresh exact Windows ARM64 artifact for
+the merged revision is still required for the final performance and package
+gates below.
 
 ## Acceptance criteria
 
