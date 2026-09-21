@@ -21,6 +21,7 @@ using System.Windows.Media;
 using System.Windows.Media.ProGPU;
 using System.Windows.Media.ProGPU.Platform;
 using System.Windows.Threading;
+using ProGPU.Wpf.Interop;
 using Xceed.Wpf.AvalonDock;
 using Xceed.Wpf.AvalonDock.Layout;
 using Xceed.Wpf.AvalonDock.Layout.Serialization;
@@ -33,8 +34,10 @@ using Xceed.Wpf.Toolkit.Zoombox;
 using AvalonDockAutoHideWindowControl = Xceed.Wpf.AvalonDock.Controls.LayoutAutoHideWindowControl;
 using AvalonDockAnchorableItem = Xceed.Wpf.AvalonDock.Controls.LayoutAnchorableItem;
 using AvalonDockLayoutAnchorControl = Xceed.Wpf.AvalonDock.Controls.LayoutAnchorControl;
+using AvalonDockWindowChrome = Microsoft.Windows.Shell.WindowChrome;
 using AvalonDockDocumentItem = Xceed.Wpf.AvalonDock.Controls.LayoutDocumentItem;
 using AvalonDockLayoutItem = Xceed.Wpf.AvalonDock.Controls.LayoutItem;
+using PortableWindowChrome = System.Windows.Shell.WindowChrome;
 using ToolkitMessageBoxControl = Xceed.Wpf.Toolkit.MessageBox;
 using ToolkitRichTextBox = Xceed.Wpf.Toolkit.RichTextBox;
 using ToolkitWrapPanel = Xceed.Wpf.Toolkit.Panels.WrapPanel;
@@ -110,6 +113,8 @@ public partial class MainWindow : Window
         DockManager.ActiveContentChanged += DockManager_ActiveContentChanged;
         DockManager.DocumentClosing += DockManager_DocumentClosing;
         DockManager.DocumentClosed += DockManager_DocumentClosed;
+        DockManager.LayoutFloatingWindowControlCollectionChanged +=
+            DockManager_LayoutFloatingWindowControlCollectionChanged;
         DockManager.Floated += DockManager_Floated;
         DockManager.Docked += DockManager_Docked;
         DockManager.LayoutChanging += DockManager_LayoutChanging;
@@ -123,6 +128,42 @@ public partial class MainWindow : Window
         Loaded += OnToolkitWindowLoaded;
         Closed += OnToolkitWindowClosed;
         StartLiveValidationIfRequired();
+    }
+
+    private static void DockManager_LayoutFloatingWindowControlCollectionChanged(
+        object? sender,
+        LayoutFloatingWindowControlCollectionChangedEventArgs e)
+    {
+        if (PortableWpfRuntime.ConfiguredMediaBackend != PortableWpfMediaBackend.Portable ||
+            e.CollectionChangedEventArgs.NewItems == null)
+        {
+            return;
+        }
+
+        foreach (object? item in e.CollectionChangedEventArgs.NewItems)
+        {
+            if (item is not Window floatingWindow)
+            {
+                continue;
+            }
+
+            // Extended.Wpf.Toolkit embeds the legacy Microsoft.Windows.Shell
+            // WindowChromeWorker. It assumes WindowInteropHelper.Handle is a WPF
+            // HWND and sends it directly to user32 during SourceInitialized. A
+            // portable source identity is deliberately not an HWND, so keep the
+            // package worker inert with an explicit local null and use WPF's
+            // typed portable chrome contract for the actual floating Window.
+            AvalonDockWindowChrome.SetWindowChrome(floatingWindow, null);
+            PortableWindowChrome.SetWindowChrome(
+                floatingWindow,
+                new PortableWindowChrome
+                {
+                    CaptionHeight = 0,
+                    ResizeBorderThickness = SystemParameters.WindowResizeBorderThickness,
+                    GlassFrameThickness = new Thickness(0),
+                    CornerRadius = new CornerRadius(0)
+                });
+        }
     }
 
     private void ConfigureToolkitWindowControlPrimitive()

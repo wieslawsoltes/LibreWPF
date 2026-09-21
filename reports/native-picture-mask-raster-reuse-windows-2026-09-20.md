@@ -260,4 +260,57 @@ and defines the comparison but does not qualify the fix.
 
 ## Final replacement result
 
-Pending the next exact successful Windows ARM64 artifact and Parallels rerun.
+ProGPU `main` build
+[35610787524](https://github.com/wieslawsoltes/ProGPU/actions/runs/35610787524)
+completed successfully at merged commit
+`910571ae18c5b8ec7f1fe41908fd8aa2304844e0`. The exact
+`ProGPU.Backend.Native.0.1.0-preview.3101.ci.nupkg` Windows ARM64 payload had
+these SHA-256 values:
+
+- `progpu_native.dll`:
+  `19E92448928F791116376E72DB5F3039890C6834044CD36AF68FF2244C747804`;
+- `progpu_native_dawn.dll`:
+  `6D0400F4846F3B771A1E43397C3ECCF511FC7C6369341E7C811A9D35CC526940`;
+- `progpu_native_direct2d.dll`:
+  `E78EC9A7F766DFEB5AFE202365D38E6CEA8CF64070047AA696F18C1B4B59C061`.
+
+Those three binaries were installed together in the Windows 11 ARM64
+Parallels guest. The source-overlay Toolkit application was rebuilt with
+`NativeMilWgpu`, ARM64, and native MIL hit testing enabled; its application
+assembly SHA-256 was
+`778948DB04A1D10F3D12F9F869047B9EF7FCE22DB318656D30E29F3590D40723`.
+
+The first 1934 by 1210 picture mask paid the expected cold compilation and
+render cost (`renderMs=26617.522`). Stable descriptors in generation 3 then
+reported `cacheHit=1` with zero create, binding-update, preparation, and render
+time. Generations 4 through 6 repeated all nine initial descriptors with the
+same zero-cost hits. Later layout changes created new descriptors as misses,
+while their subsequent generations reused them. This distinguishes correct
+descriptor invalidation from the earlier every-generation rerasterization.
+
+The complete Toolkit/AvalonDock live gate exited zero. It exercised the native
+host, transient-surface quiescence, editors, popups, child windows, message
+boxes, virtualized data, automation, source-backed documents and anchorables,
+auto-hide input, floating editor input, redocking/lifecycle, and serialization.
+The final status was:
+
+`ProGPU WPF Toolkit live input validation succeeded: logical 967x605, pixels 1934x1210, viewport 1934x1210@0,0, dpi 2.`
+
+During qualification, the floating editor exposed that Extended.Wpf.Toolkit
+5.1.2 embeds its own legacy `Microsoft.Windows.Shell.WindowChromeWorker`. That
+worker treats `WindowInteropHelper.Handle` as a user32 HWND, but a portable
+presentation source deliberately publishes an opaque identity. The Toolkit
+adapter now clears the embedded chrome before a new floating Window is shown
+and installs source-built WPF's typed portable `WindowChrome` instead. Its
+backend guard reads `ConfiguredMediaBackend` without freezing the startup
+choice. The focused project-graph test passes, and the exact Windows live gate
+proves the floating host no longer crashes.
+
+The merged ProGPU CI matrix passed the Direct2D/WebGPU cache regressions,
+native memory inventory checks, Windows ARM64 native/package consumers, and
+engine destruction paths. The inventory includes retained picture-mask
+textures exactly once and cache teardown is owned by engine destruction. The
+successful application run additionally passed its transient-surface
+quiescence check and exited cleanly. Together with the exact merged-main
+package provenance above, this satisfies this report's replacement acceptance
+criteria. LibreWPF pull-request CI remains a separate exact-head merge gate.

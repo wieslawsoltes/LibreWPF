@@ -30,6 +30,13 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("ClickLiveControlAsync(editorHost, EditorTextBox", source, StringComparison.Ordinal);
         Assert.Contains("targetName == \"FloatingEditorTextBox\", out string gpuHitState)", source, StringComparison.Ordinal);
         Assert.Contains("if (!snapshot.HasIndex || !snapshot.HasDeviceIndex)", source, StringComparison.Ordinal);
+        Assert.Contains("DockManager.LayoutFloatingWindowControlCollectionChanged +=", source, StringComparison.Ordinal);
+        Assert.Contains("PortableWpfRuntime.ConfiguredMediaBackend != PortableWpfMediaBackend.Portable", source, StringComparison.Ordinal);
+        Assert.Contains("AvalonDockWindowChrome.SetWindowChrome(floatingWindow, null);", source, StringComparison.Ordinal);
+        Assert.Contains("PortableWindowChrome.SetWindowChrome(", source, StringComparison.Ordinal);
+        AssertGuardBefore(source,
+            "AvalonDockWindowChrome.SetWindowChrome(floatingWindow, null);",
+            "PortableWindowChrome.SetWindowChrome(");
         AssertGuardBefore(source, "if (!ProGpuWpfDiagnostics.TryHitTestOwners(liveHost", "TryGetGpuHitTestCacheSnapshot(liveHost, out var snapshot)");
         Assert.Contains("!floatingWindow.IsVisible && !ProGpuWpfDiagnostics.TryGetWindowHost(floatingWindow, out _)", source, StringComparison.Ordinal);
     }
