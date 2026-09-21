@@ -188,6 +188,35 @@ through its default submodule path against LibreWinForms `58ed2bd5` and ProGPU
 `c00d1a3d`. A fresh immutable LibreWPF x64/ARM64 package run remains the
 authority for closing this matrix.
 
+## RTL justified interaction origin correction
+
+LibreWPF exact-head CI run `35662337749` advanced through the corrected Segoe UI
+interaction geometry and exposed the next deterministic source-host failure:
+the RTL half of the word-space justification smoke placed expanded-space
+selection at a different X than the retained positioned glyph. ProGPU's native
+layout deliberately starts an expanded RTL line at negative trailing-whitespace
+width, but the new advance-owned interaction adapter reconstructed every
+justified line from zero.
+
+ProGPU PR [#176](https://github.com/wieslawsoltes/ProGPU/pull/176) publishes a
+positioned-line output flag only when RTL word-space expansion actually occurs.
+The managed snapshot derives that line's physical pen origin from the fragment
+or paragraph container width minus complete line width. An ordinary oversized
+unbreakable RTL word keeps a zero origin, so width alone never guesses that
+justification occurred. The existing C/C# field names, binary struct size and ABI
+version remain unchanged; the typed managed `LayoutFlags` property interprets
+the retained output bit.
+
+Apple Clang native text and C ABI suites pass, generated contracts are current,
+and all 19 focused managed paragraph tests pass. The complete source-built
+LibreWPF native-MIL host also passes on macOS ARM64, including styled LTR/RTL
+justification selection, caret and hit geometry, document/table/inline paths,
+presentation, device recovery and native memory checkpoints. LibreWinForms PR
+[#40](https://github.com/wieslawsoltes/LibreWinForms/pull/40) carries the exact
+nested ProGPU revision for canonical source/package qualification. Exact-head
+dependency CI and the final LibreWPF Windows x64/ARM64 package matrix remain the
+merge authority.
+
 ## Gate and qualification boundary
 
 `eng/progpu-wpf-windows-native-mil-showcase.ps1` now parses every named case,
