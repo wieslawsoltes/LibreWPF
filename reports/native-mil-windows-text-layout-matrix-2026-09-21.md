@@ -213,10 +213,11 @@ and all 19 focused managed paragraph tests pass. The complete source-built
 LibreWPF native-MIL host also passes on macOS ARM64, including styled LTR/RTL
 justification selection, caret and hit geometry, document/table/inline paths,
 presentation, device recovery and native memory checkpoints. LibreWinForms PR
-[#40](https://github.com/wieslawsoltes/LibreWinForms/pull/40) carries that exact
-merged ProGPU revision for canonical source/package qualification. Exact-head
-dependency CI and the final LibreWPF Windows x64/ARM64 package matrix remain the
-merge authority.
+[#40](https://github.com/wieslawsoltes/LibreWinForms/pull/40) merged as
+`22a7aa86` with that exact ProGPU revision after its canonical source, package,
+AppKit, and visible installed-package lanes passed on macOS, Ubuntu, and Windows
+in CI run `35666291016`. LibreWPF now pins that immutable merge. Its final
+Windows x64/ARM64 package matrix remains the merge authority.
 
 ## Gate and qualification boundary
 
