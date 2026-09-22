@@ -15129,6 +15129,9 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("MapStorageTextureFormat", proGpuDirectXHlslTranslator, StringComparison.Ordinal);
         Assert.Contains("could not create a pipeline-compatible bind group. Bindings:", proGpuDirectXDeviceContext, StringComparison.Ordinal);
         Assert.Contains("ValidateRequiredLiveShowcaseAsync", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("LiveValidationTimeoutSecondsEnvironmentVariable", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("while (Stopwatch.GetElapsedTime(presentationStarted) < presentationTimeout)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("presentedSampleCount < 5", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
         Assert.Contains("ValidateLiveNativeResizeAsync", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
         Assert.Contains("LiveValidationStatusPathEnvironmentVariable", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
         Assert.Contains("WriteLiveValidationStatus", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
