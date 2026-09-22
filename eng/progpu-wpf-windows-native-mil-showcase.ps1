@@ -236,6 +236,7 @@ function Invoke-TextLayoutCheck {
     )
 
     $env:PROGPU_WPF_TEXT_LAYOUT_REPORT = "1"
+    $env:PROGPU_WPF_TEXT_LAYOUT_DETAIL = "1"
     $env:PROGPU_WPF_TEXT_LAYOUT_EXIT_AFTER_REPORT = "1"
     $stdoutPath = Join-Path $OutputDirectory "$Name-text-layout-stdout.log"
     $stderrPath = Join-Path $OutputDirectory "$Name-text-layout-stderr.log"
@@ -252,10 +253,15 @@ function Invoke-TextLayoutCheck {
         $stdout.IndexOf("TEXT_RENDERER NativeMilWgpu", [System.StringComparison]::Ordinal) -lt 0) {
         throw "Windows $Name text-layout check did not prove its live native MIL host."
     }
-    $match = [regex]::Match($stdout,
-        '(?m)^TEXT_LAYOUT width=(?<width>[0-9.]+) height=(?<height>[0-9.]+) font=(?<font>[0-9.]+) lines=(?<lines>[0-9]+) tops=(?<tops>[0-9.,]+) starts=(?<starts>[0-9,]+)\r?$')
-    if (!$match.Success) {
-        throw "Windows $Name text-layout check did not report the expected metrics."
+    $caseMatches = [regex]::Matches($stdout,
+        '(?m)^TEXT_CASE name=(?<name>[a-z0-9-]+) width=(?<width>-?[0-9.]+) height=(?<height>-?[0-9.]+) desiredWidth=(?<desiredWidth>-?[0-9.]+) desiredHeight=(?<desiredHeight>-?[0-9.]+) font=(?<font>-?[0-9.]+) lines=(?<lines>[0-9]+) tops=(?<tops>-?[0-9.,]+) heights=(?<heights>-?[0-9.,]+) starts=(?<starts>[0-9,]+) positions=(?<positions>[0-9]+) endOffset=(?<endOffset>[0-9]+) caretX=(?<caretX>-?[0-9.]+) caretY=(?<caretY>-?[0-9.]+) caretHeight=(?<caretHeight>-?[0-9.]+)\r?$')
+    if ($caseMatches.Count -eq 0) {
+        throw "Windows $Name text-layout check did not report any text cases."
+    }
+    $positionMatches = [regex]::Matches($stdout,
+        '(?m)^TEXT_POSITION name=(?<name>[a-z0-9-]+) offset=(?<offset>[0-9]+) x=(?<x>-?[0-9.]+) y=(?<y>-?[0-9.]+) height=(?<height>-?[0-9.]+)\r?$')
+    if ($positionMatches.Count -eq 0) {
+        throw "Windows $Name text-layout check did not report insertion-position geometry."
     }
     $geometry = [regex]::Match($stdout,
         '(?m)^WINDOW_GEOMETRY outer=(?<outerWidth>[0-9]+)x(?<outerHeight>[0-9]+) client=(?<clientWidth>[0-9]+)x(?<clientHeight>[0-9]+) dpi=(?<dpi>[0-9]+) source=(?<sourceWidth>[0-9.]+)x(?<sourceHeight>[0-9.]+)\r?$')
@@ -263,13 +269,52 @@ function Invoke-TextLayoutCheck {
         throw "Windows $Name text-layout check did not report its actual native window geometry."
     }
     $culture = [System.Globalization.CultureInfo]::InvariantCulture
+    $cases = @{}
+    foreach ($caseMatch in $caseMatches) {
+        $caseName = $caseMatch.Groups['name'].Value
+        if ($cases.ContainsKey($caseName)) {
+            throw "Windows $Name text-layout check reported duplicate case '$caseName'."
+        }
+        $cases[$caseName] = [pscustomobject]@{
+            Width = [double]::Parse($caseMatch.Groups['width'].Value, $culture)
+            Height = [double]::Parse($caseMatch.Groups['height'].Value, $culture)
+            DesiredWidth = [double]::Parse($caseMatch.Groups['desiredWidth'].Value, $culture)
+            DesiredHeight = [double]::Parse($caseMatch.Groups['desiredHeight'].Value, $culture)
+            Font = [double]::Parse($caseMatch.Groups['font'].Value, $culture)
+            Lines = [int]::Parse($caseMatch.Groups['lines'].Value, $culture)
+            Tops = @($caseMatch.Groups['tops'].Value.Split(',') | ForEach-Object { [double]::Parse($_, $culture) })
+            Heights = @($caseMatch.Groups['heights'].Value.Split(',') | ForEach-Object { [double]::Parse($_, $culture) })
+            Starts = @($caseMatch.Groups['starts'].Value.Split(',') | ForEach-Object { [int]::Parse($_, $culture) })
+            Positions = [int]::Parse($caseMatch.Groups['positions'].Value, $culture)
+            EndOffset = [int]::Parse($caseMatch.Groups['endOffset'].Value, $culture)
+            CaretX = [double]::Parse($caseMatch.Groups['caretX'].Value, $culture)
+            CaretY = [double]::Parse($caseMatch.Groups['caretY'].Value, $culture)
+            CaretHeight = [double]::Parse($caseMatch.Groups['caretHeight'].Value, $culture)
+            PositionGeometry = @{}
+        }
+    }
+    foreach ($positionMatch in $positionMatches) {
+        $caseName = $positionMatch.Groups['name'].Value
+        if (!$cases.ContainsKey($caseName)) {
+            throw "Windows $Name text-layout position reported unknown case '$caseName'."
+        }
+        $offset = [int]::Parse($positionMatch.Groups['offset'].Value, $culture)
+        if ($cases[$caseName].PositionGeometry.ContainsKey($offset)) {
+            throw "Windows $Name text-layout case '$caseName' reported duplicate insertion offset $offset."
+        }
+        $cases[$caseName].PositionGeometry[$offset] = [pscustomobject]@{
+            X = [double]::Parse($positionMatch.Groups['x'].Value, $culture)
+            Y = [double]::Parse($positionMatch.Groups['y'].Value, $culture)
+            Height = [double]::Parse($positionMatch.Groups['height'].Value, $culture)
+        }
+    }
+    foreach ($caseName in $cases.Keys) {
+        if ($cases[$caseName].PositionGeometry.Count -ne $cases[$caseName].Positions) {
+            throw "Windows $Name text-layout case '$caseName' insertion geometry count does not match its reported position count."
+        }
+    }
     return [pscustomobject]@{
-        Width = [double]::Parse($match.Groups['width'].Value, $culture)
-        Height = [double]::Parse($match.Groups['height'].Value, $culture)
-        Font = [double]::Parse($match.Groups['font'].Value, $culture)
-        Lines = [int]::Parse($match.Groups['lines'].Value, $culture)
-        Tops = @($match.Groups['tops'].Value.Split(',') | ForEach-Object { [double]::Parse($_, $culture) })
-        Starts = @($match.Groups['starts'].Value.Split(',') | ForEach-Object { [int]::Parse($_, $culture) })
+        Cases = $cases
         OuterWidth = [int]::Parse($geometry.Groups['outerWidth'].Value, $culture)
         OuterHeight = [int]::Parse($geometry.Groups['outerHeight'].Value, $culture)
         ClientWidth = [int]::Parse($geometry.Groups['clientWidth'].Value, $culture)
@@ -397,31 +442,73 @@ if (!(Test-Path -LiteralPath $windowsTextAppHost -PathType Leaf)) {
 }
 $nativeLayout = Invoke-TextLayoutCheck "native-WPF" $windowsTextAppHost $smokeRoot
 $portableLayout = Invoke-TextLayoutCheck "ProGPU-native-MIL" $textAppHost $smokeRoot
-if ($nativeLayout.Lines -lt 2 -or $portableLayout.Lines -ne $nativeLayout.Lines -or
-    $nativeLayout.Tops.Count -ne $nativeLayout.Lines -or
-    $portableLayout.Tops.Count -ne $portableLayout.Lines -or
-    ($nativeLayout.Starts -join ',') -ne ($portableLayout.Starts -join ',')) {
-    throw "Windows native-WPF and ProGPU text-layout line breaks differ."
+$expectedTextCases = @(
+    "wrapped-composite",
+    "mixed-runs",
+    "overflow-token",
+    "tabs-whitespace",
+    "explicit-line-height",
+    "bidirectional"
+)
+if ($nativeLayout.Cases.Count -ne $expectedTextCases.Count -or
+    $portableLayout.Cases.Count -ne $expectedTextCases.Count) {
+    throw "Windows native-WPF and ProGPU text-layout case counts differ from the required matrix."
 }
-Assert-TextMetricNear "content width" $nativeLayout.Width $portableLayout.Width 0.01
-Assert-TextMetricNear "content height" $nativeLayout.Height $portableLayout.Height 0.05
-Assert-TextMetricNear "font size" $nativeLayout.Font $portableLayout.Font 0.001
+foreach ($caseName in $expectedTextCases) {
+    if (!$nativeLayout.Cases.ContainsKey($caseName) -or
+        !$portableLayout.Cases.ContainsKey($caseName)) {
+        throw "Windows native-WPF or ProGPU text-layout output is missing required case '$caseName'."
+    }
+
+    $nativeCase = $nativeLayout.Cases[$caseName]
+    $portableCase = $portableLayout.Cases[$caseName]
+    if ($nativeCase.Lines -lt 1 -or
+        $portableCase.Lines -ne $nativeCase.Lines -or
+        $nativeCase.Tops.Count -ne $nativeCase.Lines -or
+        $portableCase.Tops.Count -ne $portableCase.Lines -or
+        $nativeCase.Heights.Count -ne $nativeCase.Lines -or
+        $portableCase.Heights.Count -ne $portableCase.Lines -or
+        $portableCase.Positions -ne $nativeCase.Positions -or
+        $portableCase.EndOffset -ne $nativeCase.EndOffset -or
+        ($nativeCase.Starts -join ',') -ne ($portableCase.Starts -join ',')) {
+        throw "Windows native-WPF and ProGPU text-layout line geometry differs for '$caseName'."
+    }
+    Assert-TextMetricNear "$caseName content width" $nativeCase.Width $portableCase.Width 0.01
+    Assert-TextMetricNear "$caseName content height" $nativeCase.Height $portableCase.Height 0.10
+    Assert-TextMetricNear "$caseName desired width" $nativeCase.DesiredWidth $portableCase.DesiredWidth 0.01
+    Assert-TextMetricNear "$caseName desired height" $nativeCase.DesiredHeight $portableCase.DesiredHeight 0.10
+    Assert-TextMetricNear "$caseName font size" $nativeCase.Font $portableCase.Font 0.001
+    Assert-TextMetricNear "$caseName final caret X" $nativeCase.CaretX $portableCase.CaretX 0.10
+    Assert-TextMetricNear "$caseName final caret Y" $nativeCase.CaretY $portableCase.CaretY 0.10
+    Assert-TextMetricNear "$caseName final caret height" $nativeCase.CaretHeight $portableCase.CaretHeight 0.10
+    for ($i = 0; $i -lt $nativeCase.Tops.Count; $i++) {
+        Assert-TextMetricNear "$caseName line $i top" $nativeCase.Tops[$i] $portableCase.Tops[$i] 0.10
+        Assert-TextMetricNear "$caseName line $i height" $nativeCase.Heights[$i] $portableCase.Heights[$i] 0.10
+    }
+    foreach ($offset in $nativeCase.PositionGeometry.Keys) {
+        if (!$portableCase.PositionGeometry.ContainsKey($offset)) {
+            throw "Windows ProGPU text-layout case '$caseName' is missing native-WPF insertion offset $offset."
+        }
+        $nativePosition = $nativeCase.PositionGeometry[$offset]
+        $portablePosition = $portableCase.PositionGeometry[$offset]
+        Assert-TextMetricNear "$caseName insertion $offset X" $nativePosition.X $portablePosition.X 0.10
+        Assert-TextMetricNear "$caseName insertion $offset Y" $nativePosition.Y $portablePosition.Y 0.10
+        Assert-TextMetricNear "$caseName insertion $offset height" $nativePosition.Height $portablePosition.Height 0.10
+    }
+}
 if ($nativeLayout.Dpi -lt 96 -or $portableLayout.Dpi -lt 96 -or
     $nativeLayout.Dpi -ne $portableLayout.Dpi) {
     throw "Windows native-WPF and ProGPU window DPI differ: native=$($nativeLayout.Dpi) portable=$($portableLayout.Dpi)."
 }
-Assert-TextMetricNear "declared Window width" 430 $nativeLayout.SourceWidth 0.001
-Assert-TextMetricNear "declared Window height" 300 $nativeLayout.SourceHeight 0.001
+Assert-TextMetricNear "declared Window width" 780 $nativeLayout.SourceWidth 0.001
+Assert-TextMetricNear "declared Window height" 720 $nativeLayout.SourceHeight 0.001
 Assert-TextMetricNear "outer window width" $nativeLayout.OuterWidth $portableLayout.OuterWidth 1
 Assert-TextMetricNear "outer window height" $nativeLayout.OuterHeight $portableLayout.OuterHeight 1
 Assert-TextMetricNear "client window width" $nativeLayout.ClientWidth $portableLayout.ClientWidth 1
 Assert-TextMetricNear "client window height" $nativeLayout.ClientHeight $portableLayout.ClientHeight 1
 Assert-TextMetricNear "source Window width" $nativeLayout.SourceWidth $portableLayout.SourceWidth 0.001
 Assert-TextMetricNear "source Window height" $nativeLayout.SourceHeight $portableLayout.SourceHeight 0.001
-for ($i = 0; $i -lt $nativeLayout.Tops.Count; $i++) {
-    Assert-TextMetricNear "line $i top" $nativeLayout.Tops[$i] $portableLayout.Tops[$i] 0.05
-}
-Write-Host "Windows $TargetArchitecture package-only native MIL Showcase and same-source text-layout checks succeeded."
+Write-Host "Windows $TargetArchitecture package-only native MIL Showcase and same-source text-layout matrix checks succeeded."
 }
 finally {
     if ([string]::IsNullOrEmpty($previousNugetPackages)) {

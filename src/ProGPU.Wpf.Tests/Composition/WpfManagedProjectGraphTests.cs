@@ -6,6 +6,53 @@ namespace ProGPU.Wpf.Tests.Composition;
 public sealed class WpfManagedProjectGraphTests
 {
     [Fact]
+    public void WindowsTextLayoutGateComparesRepresentativeSourceMatrix()
+    {
+        string xaml = File.ReadAllText(FindRepoPath(
+            "samples", "ProGPU.Wpf.TextLayoutParityApp", "MainWindow.xaml"));
+        string source = File.ReadAllText(FindRepoPath(
+            "samples", "ProGPU.Wpf.TextLayoutParityApp", "MainWindow.xaml.cs"));
+        string windowsProject = File.ReadAllText(FindRepoPath(
+            "samples", "ProGPU.Wpf.TextLayoutParityApp.Windows",
+            "ProGPU.Wpf.TextLayoutParityApp.Windows.csproj"));
+        string gate = File.ReadAllText(FindRepoPath(
+            "eng", "progpu-wpf-windows-native-mil-showcase.ps1"));
+
+        string[] caseNames =
+        {
+            "wrapped-composite",
+            "mixed-runs",
+            "overflow-token",
+            "tabs-whitespace",
+            "explicit-line-height",
+            "bidirectional",
+        };
+        foreach (string caseName in caseNames)
+        {
+            Assert.Contains($"ReportTextCase(\"{caseName}\"", source, StringComparison.Ordinal);
+            Assert.Contains($"\"{caseName}\"", gate, StringComparison.Ordinal);
+        }
+
+        Assert.Contains("FontSize=\"22\" FontWeight=\"Bold\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("TextWrapping=\"WrapWithOverflow\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("LineStackingStrategy=\"BlockLineHeight\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("FlowDirection=\"RightToLeft\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Alpha\\tBeta trailing   \\nNext\\tcolumn", source, StringComparison.Ordinal);
+        Assert.Contains("desiredWidth=", source, StringComparison.Ordinal);
+        Assert.Contains("heights=", source, StringComparison.Ordinal);
+        Assert.Contains("positions=", source, StringComparison.Ordinal);
+        Assert.Contains("GetLineStartPosition(1, out int actualLineCount)", source, StringComparison.Ordinal);
+        Assert.Contains("caretHeight=", source, StringComparison.Ordinal);
+        Assert.Contains("end.GetInsertionPosition(LogicalDirection.Backward)", source, StringComparison.Ordinal);
+        Assert.Contains("$nativeCase.Starts -join ','", gate, StringComparison.Ordinal);
+        Assert.Contains("$caseName final caret X", gate, StringComparison.Ordinal);
+        Assert.Contains("$caseName line $i height", gate, StringComparison.Ordinal);
+        Assert.Contains("../ProGPU.Wpf.TextLayoutParityApp/MainWindow.xaml", windowsProject, StringComparison.Ordinal);
+        Assert.Contains("../ProGPU.Wpf.TextLayoutParityApp/MainWindow.xaml.cs", windowsProject, StringComparison.Ordinal);
+        Assert.DoesNotContain("TEXT_LAYOUT width=", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ToolkitLiveValidationShutsDownOnItsSourceDispatcher()
     {
         string source = File.ReadAllText(FindRepoPath("samples", "ProGPU.Wpf.ToolkitApp", "MainWindow.xaml.cs"));
@@ -12284,6 +12331,9 @@ public sealed class WpfManagedProjectGraphTests
         var sdkCiScriptPath = FindRepoPath(
             "eng",
             "progpu-wpf-sdk-ci.sh");
+        var canonicalWinFormsIntegrationScriptPath = FindRepoPath(
+            "eng",
+            "progpu-wpf-canonical-winforms-integration.sh");
         var nativeMilHostSmokeScriptPath = FindRepoPath(
             "eng",
             "progpu-wpf-native-mil-host-smoke.sh");
@@ -12739,6 +12789,7 @@ public sealed class WpfManagedProjectGraphTests
         var spellerInteropBase = File.ReadAllText(spellerInteropBasePath);
         var textEditorCopyPaste = File.ReadAllText(textEditorCopyPastePath);
         var sdkCiScript = File.ReadAllText(sdkCiScriptPath);
+        var canonicalWinFormsIntegrationScript = File.ReadAllText(canonicalWinFormsIntegrationScriptPath);
         var nativeMilHostSmokeScript = File.ReadAllText(
             nativeMilHostSmokeScriptPath);
         var validationGraphs = File.ReadAllText(validationGraphsPath);
@@ -13271,6 +13322,13 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Equal(3, sdkCiWorkflow.Split("submodules: true", StringSplitOptions.None).Length - 1);
         Assert.Contains("submodules: recursive", sdkCiWorkflow, StringComparison.Ordinal);
         Assert.Contains("./eng/progpu-wpf-canonical-winforms-integration.sh", sdkCiWorkflow, StringComparison.Ordinal);
+        Assert.Contains("find \"${canonical_package_output}\" -maxdepth 1 -type f", canonicalWinFormsIntegrationScript, StringComparison.Ordinal);
+        Assert.Contains("-name \"*.${progpu_source_package_version}.nupkg\"", canonicalWinFormsIntegrationScript, StringComparison.Ordinal);
+        Assert.Contains("rm -f -- \"${package_artifact}\"", canonicalWinFormsIntegrationScript, StringComparison.Ordinal);
+        Assert.True(
+            canonicalWinFormsIntegrationScript.IndexOf("find \"${canonical_package_output}\" -maxdepth 1 -type f", StringComparison.Ordinal)
+                < canonicalWinFormsIntegrationScript.IndexOf("Packing the exact ProGPU drawing dependency closure", StringComparison.Ordinal),
+            "The canonical package source must discard stale exact-version artifacts before ProGPU verifies its isolated drawing closure.");
         Assert.Contains("Download canonical LibreWinForms package closure", sdkCiWorkflow, StringComparison.Ordinal);
         Assert.Contains("Select exact ProGPU source package version", sdkCiWorkflow, StringComparison.Ordinal);
         Assert.Contains("source_version=\"0.1.0-source.${submodule_commit:0:8}\"", sdkCiWorkflow, StringComparison.Ordinal);

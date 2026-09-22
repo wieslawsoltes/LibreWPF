@@ -252,6 +252,19 @@ rm -f \
   "${canonical_integration_package}" \
   "${canonical_package_output}/LibreWinForms.WindowsFormsIntegration.${canonical_package_version}.snupkg"
 
+# ProGPU's isolated group verifier intentionally rejects any exact-version
+# package outside the selected closure. A prior interrupted canonical run can
+# leave the separately packed DirectX or LibreWPF interop packages in this
+# shared restore source, so remove only this commit-derived ProGPU version
+# before rebuilding the complete closure.
+while IFS= read -r -d '' package_artifact; do
+  rm -f -- "${package_artifact}"
+done < <(
+  find "${canonical_package_output}" -maxdepth 1 -type f \
+    \( -name "*.${progpu_source_package_version}.nupkg" -o -name "*.${progpu_source_package_version}.snupkg" \) \
+    -print0
+)
+
 echo "Packing the exact ProGPU drawing dependency closure..."
 PROGPU_CONFIGURATION="${configuration}" \
 PROGPU_PACKAGE_VERSION="${progpu_source_package_version}" \

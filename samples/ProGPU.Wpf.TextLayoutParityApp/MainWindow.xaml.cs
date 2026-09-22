@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Threading;
 
@@ -34,6 +35,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        TabsAndWhitespaceText.Text = "Alpha\tBeta trailing   \nNext\tcolumn";
     }
 
     private void OnWindowLoaded(object sender, RoutedEventArgs e)
@@ -80,54 +82,12 @@ public partial class MainWindow : Window
                 "WINDOW_GEOMETRY outer={0}x{1} client={2}x{3} dpi={4} source={5:F3}x{6:F3}",
                 outer.Width, outer.Height, client.Width, client.Height,
                 GetDpiForWindow(realWindow), Width, Height));
-            var lineTops = new List<double>();
-            var lineStarts = new List<int>();
-            TextPointer end = WrappingText.ContentEnd;
-            TextPointer? position = WrappingText.ContentStart;
-            for (int count = 0; position != null && position.CompareTo(end) <= 0; count++)
-            {
-                if (count > 1000)
-                {
-                    throw new InvalidOperationException("Text insertion positions did not terminate.");
-                }
-
-                Rect rectangle = position.GetCharacterRect(LogicalDirection.Forward);
-                if (position.CompareTo(end) == 0 &&
-                    (rectangle.IsEmpty || !double.IsFinite(rectangle.X)))
-                {
-                    throw new InvalidOperationException("The final text insertion position has no caret rectangle.");
-                }
-                if (!rectangle.IsEmpty && double.IsFinite(rectangle.Y))
-                {
-                    bool newLine = true;
-                    for (int i = 0; i < lineTops.Count; i++)
-                    {
-                        if (Math.Abs(lineTops[i] - rectangle.Y) < 0.25)
-                        {
-                            newLine = false;
-                            break;
-                        }
-                    }
-
-                    if (newLine)
-                    {
-                        lineTops.Add(rectangle.Y);
-                        lineStarts.Add(WrappingText.ContentStart.GetOffsetToPosition(position));
-                    }
-                }
-
-                position = position.GetNextInsertionPosition(LogicalDirection.Forward);
-            }
-
-            Console.WriteLine(string.Format(
-                CultureInfo.InvariantCulture,
-                "TEXT_LAYOUT width={0:F3} height={1:F3} font={2:F3} lines={3} tops={4} starts={5}",
-                WrappingText.ActualWidth,
-                WrappingText.ActualHeight,
-                WrappingText.FontSize,
-                lineTops.Count,
-                string.Join(",", lineTops.ConvertAll(top => top.ToString("F3", CultureInfo.InvariantCulture))),
-                string.Join(",", lineStarts)));
+            ReportTextCase("wrapped-composite", WrappedCompositeText);
+            ReportTextCase("mixed-runs", MixedRunsText);
+            ReportTextCase("overflow-token", OverflowTokenText);
+            ReportTextCase("tabs-whitespace", TabsAndWhitespaceText);
+            ReportTextCase("explicit-line-height", ExplicitLineHeightText);
+            ReportTextCase("bidirectional", BidirectionalText);
             Console.Out.Flush();
             if (Environment.GetEnvironmentVariable("PROGPU_WPF_TEXT_LAYOUT_EXIT_AFTER_REPORT") == "1")
             {
@@ -140,5 +100,103 @@ public partial class MainWindow : Window
             Environment.ExitCode = 1;
             Close();
         }
+    }
+
+    private static void ReportTextCase(string name, TextBlock textBlock)
+    {
+        var lineTops = new List<double>();
+        var lineHeights = new List<double>();
+        var lineStarts = new List<int>();
+        Rect finalCaret = Rect.Empty;
+        TextPointer start = textBlock.ContentStart;
+        TextPointer end = textBlock.ContentEnd;
+        TextPointer finalPosition = end.GetInsertionPosition(LogicalDirection.Backward) ?? end;
+        TextPointer firstPosition = start.GetInsertionPosition(LogicalDirection.Forward) ?? start;
+        TextPointer linePosition = firstPosition.GetLineStartPosition(0) ?? firstPosition;
+        for (int count = 0; linePosition.CompareTo(finalPosition) <= 0; count++)
+        {
+            if (count > 1000)
+            {
+                throw new InvalidOperationException($"Text lines for '{name}' did not terminate.");
+            }
+
+            Rect rectangle = linePosition.GetCharacterRect(LogicalDirection.Forward);
+            if (rectangle.IsEmpty ||
+                !double.IsFinite(rectangle.Y) ||
+                !double.IsFinite(rectangle.Height))
+            {
+                throw new InvalidOperationException($"A line start for '{name}' has no caret rectangle.");
+            }
+
+            lineTops.Add(rectangle.Y);
+            lineHeights.Add(rectangle.Height);
+            lineStarts.Add(start.GetOffsetToPosition(linePosition));
+            TextPointer? nextLine = linePosition.GetLineStartPosition(1, out int actualLineCount);
+            if (nextLine == null ||
+                actualLineCount == 0 ||
+                nextLine.CompareTo(linePosition) <= 0 ||
+                nextLine.CompareTo(finalPosition) > 0)
+            {
+                break;
+            }
+            linePosition = nextLine;
+        }
+
+        int insertionPositionCount = 0;
+        bool reportPositions = Environment.GetEnvironmentVariable("PROGPU_WPF_TEXT_LAYOUT_DETAIL") == "1";
+        TextPointer? position = firstPosition;
+        for (int count = 0; position != null && position.CompareTo(finalPosition) <= 0; count++)
+        {
+            if (count > 10000)
+            {
+                throw new InvalidOperationException($"Text insertion positions for '{name}' did not terminate.");
+            }
+
+            Rect rectangle = position.GetCharacterRect(LogicalDirection.Forward);
+            if (reportPositions)
+            {
+                Console.WriteLine(string.Format(
+                    CultureInfo.InvariantCulture,
+                    "TEXT_POSITION name={0} offset={1} x={2:F3} y={3:F3} height={4:F3}",
+                    name,
+                    start.GetOffsetToPosition(position),
+                    rectangle.X,
+                    rectangle.Y,
+                    rectangle.Height));
+            }
+            if (position.CompareTo(finalPosition) == 0)
+            {
+                finalCaret = rectangle;
+            }
+            insertionPositionCount++;
+            position = position.GetNextInsertionPosition(LogicalDirection.Forward);
+        }
+
+        if (finalCaret.IsEmpty ||
+            !double.IsFinite(finalCaret.X) ||
+            !double.IsFinite(finalCaret.Y) ||
+            !double.IsFinite(finalCaret.Height))
+        {
+            throw new InvalidOperationException($"The final text insertion position for '{name}' has no caret rectangle.");
+        }
+
+        Console.WriteLine(string.Format(
+            CultureInfo.InvariantCulture,
+            "TEXT_CASE name={0} width={1:F3} height={2:F3} desiredWidth={3:F3} desiredHeight={4:F3} font={5:F3} lines={6} tops={7} heights={8} starts={9} positions={10} endOffset={11} caretX={12:F3} caretY={13:F3} caretHeight={14:F3}",
+            name,
+            textBlock.ActualWidth,
+            textBlock.ActualHeight,
+            textBlock.DesiredSize.Width,
+            textBlock.DesiredSize.Height,
+            textBlock.FontSize,
+            lineTops.Count,
+            string.Join(",", lineTops.ConvertAll(top => top.ToString("F3", CultureInfo.InvariantCulture))),
+            string.Join(",", lineHeights.ConvertAll(height => height.ToString("F3", CultureInfo.InvariantCulture))),
+            string.Join(",", lineStarts),
+            insertionPositionCount,
+            start.GetOffsetToPosition(finalPosition),
+            finalCaret.X,
+            finalCaret.Y,
+            finalCaret.Height));
     }
 }

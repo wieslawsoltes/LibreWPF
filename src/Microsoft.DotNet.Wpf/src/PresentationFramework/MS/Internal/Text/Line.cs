@@ -126,9 +126,14 @@ namespace MS.Internal.Text
         // Returns: Bounds of an object/character.
         // ------------------------------------------------------------------
         internal Rect GetBoundsFromTextPosition(int characterIndex, out FlowDirection flowDirection)
+            => GetBoundsFromTextPosition(characterIndex, false, out flowDirection);
+
+        internal Rect GetBoundsFromTextPosition(int characterIndex, bool isTerminalInsertion,
+            out FlowDirection flowDirection)
         {
             if (_line is PortableTextLine portable &&
-                portable.TryGetNonInkCaretBounds(characterIndex, out Rect caretBounds, out flowDirection))
+                portable.TryGetNonInkCaretBounds(characterIndex, isTerminalInsertion,
+                    out Rect caretBounds, out flowDirection))
             {
                 caretBounds.X += CalculateXOffsetShift();
                 return caretBounds;

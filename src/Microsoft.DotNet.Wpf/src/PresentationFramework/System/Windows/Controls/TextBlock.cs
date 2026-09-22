@@ -2183,6 +2183,8 @@ Debug.Assert(lineCount == LineCount);
             // If orientation is Backward, get the length of th previous character.
             int characterIndex = _complexContent.TextContainer.Start.GetOffsetToPosition(orientedPosition);
             int originalCharacterIndex = characterIndex;
+            bool isTerminalInsertion = orientedPosition.CompareTo(
+                _complexContent.TextContainer.End.GetInsertionPosition(LogicalDirection.Backward)) == 0;
             if (orientedPosition.LogicalDirection == LogicalDirection.Backward && characterIndex > 0)
             {
                 --characterIndex;
@@ -2221,7 +2223,7 @@ Debug.Assert(lineCount == LineCount);
                         // Check consistency of line length
                         MS.Internal.Invariant.Assert(lineMetrics.Length == line.Length, "Line length is out of sync");
 
-                        rect = line.GetBoundsFromTextPosition(characterIndex, out flowDirection);
+                        rect = line.GetBoundsFromTextPosition(characterIndex, isTerminalInsertion, out flowDirection);
                     }
 
                     break;

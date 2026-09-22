@@ -67,7 +67,7 @@ internal sealed class PortableTextLine : TextLine
     private readonly TextModifierScope _endScope;
     private readonly TextRunProperties _properties;
     private readonly GlyphTypeface _face;
-    private sealed record SourceStyle(int Start, int End, TextRunProperties Properties, GlyphTypeface Face,
+    private sealed record SourceStyle(int Start, int End, TextRunProperties Properties, TextRun Run, GlyphTypeface Face,
         PortableTextFont Font, double EmSize, double Baseline, double Height);
     private readonly SourceStyle[] _styles;
     private sealed record SourceObject(int Position, TextEmbeddedObject Run, PortableTextInlineObject Metrics);
@@ -103,6 +103,32 @@ internal sealed class PortableTextLine : TextLine
     internal double FloatingContentWidth => (_paragraph as IPortableFloatingTextParagraph)?.OccupiedWidth ?? FragmentContentWidth;
     internal ReadOnlyMemory<PortableTextFloatPlacement> SourceFloats { get; private init; }
     private double NativeOrigin => Start - (Fragment?.Left ?? 0);
+    // ProGPU interaction geometry is expressed in the paragraph's physical
+    // left-to-right coordinate space. TextLine exposes the logical coordinate
+    // space consumed by WPF's FlowDirection inversion, so an RTL paragraph
+    // mirrors points and rectangles inside the retained native line width.
+    // Fragment coordinates include their native left placement; normalize that
+    // placement exactly once before applying the WPF line origin.
+    private double ToLogicalPointX(double nativeX)
+    {
+        double fragmentLeft = Fragment?.Left ?? 0;
+        double localX = nativeX - fragmentLeft;
+        return Start + (_rightToLeft ? Info.Width - localX : localX);
+    }
+
+    private double ToLogicalRectangleX(double nativeX, double width)
+    {
+        double fragmentLeft = Fragment?.Left ?? 0;
+        double localX = nativeX - fragmentLeft;
+        return Start + (_rightToLeft ? Info.Width - localX - width : localX);
+    }
+
+    private float ToNativePointX(double logicalX)
+    {
+        double localX = logicalX - Start;
+        double nativeLocalX = _rightToLeft ? Info.Width - localX : localX;
+        return (float)(nativeLocalX + (Fragment?.Left ?? 0));
+    }
     private int First => _paragraphStart + (_lineIndex == 0 && Info.InputStart == 0 ? 0 : _sourceMap.ToSource(Info.InputStart, true));
     private int End => _paragraphStart + _sourceMap.ToSource(Info.InputEnd, true);
 
@@ -244,7 +270,7 @@ internal sealed class PortableTextLine : TextLine
                 var objectFace = mapped.ShapeTypeface.GlyphTypeface;
                 double objectEm = p.FontRenderingEmSize * mapped.ScaleInEm;
                 if (!double.IsFinite(objectEm) || objectEm <= 0) throw Unsupported("invalid inline style em size");
-                styles.Add(new(start, start + 1, p, objectFace, GetFont(objectFace), objectEm,
+                styles.Add(new(start, start + 1, p, run, objectFace, GetFont(objectFace), objectEm,
                     p.Typeface.Baseline(p.FontRenderingEmSize, 1, pixelsPerDip, settings.TextFormattingMode),
                     p.Typeface.LineSpacing(p.FontRenderingEmSize, 1, pixelsPerDip, settings.TextFormattingMode)));
                 builder.Append('\uFFFC');
@@ -287,7 +313,7 @@ internal sealed class PortableTextLine : TextLine
                     var runFace = selected.ShapeTypeface.GlyphTypeface;
                     double emSize = p.FontRenderingEmSize * selected.ScaleInEm;
                     if (!double.IsFinite(emSize) || emSize <= 0) throw Unsupported("invalid composite-font scale");
-                    styles.Add(new(mappedStart, checked(mappedStart + mapped.Length), p, runFace, GetFont(runFace), emSize,
+                    styles.Add(new(mappedStart, checked(mappedStart + mapped.Length), p, run, runFace, GetFont(runFace), emSize,
                         p.Typeface.Baseline(p.FontRenderingEmSize, 1, pixelsPerDip, settings.TextFormattingMode),
                         p.Typeface.LineSpacing(p.FontRenderingEmSize, 1, pixelsPerDip, settings.TextFormattingMode)));
                     mappedStart += mapped.Length;
@@ -321,9 +347,16 @@ internal sealed class PortableTextLine : TextLine
             throw Unsupported("floating source formatting requires one bounded native floating provider request");
         var floatEvents = floating == null ? null : sourceMap.MapFloatingRanges(floating.Children.Span);
         var font = styles.Count > 0 ? styles[0].Font : GetFont(face);
-        double height = pap.LineHeight > 0 ? settings.Formatter.IdealToReal(pap.LineHeight, pixelsPerDip) :
-            properties.Typeface.LineSpacing(properties.FontRenderingEmSize, 1, pixelsPerDip, settings.TextFormattingMode);
+        double defaultHeight = properties.Typeface.LineSpacing(
+            properties.FontRenderingEmSize, 1, pixelsPerDip, settings.TextFormattingMode);
+        double height = pap.LineHeight > 0 ? settings.Formatter.IdealToReal(pap.LineHeight, pixelsPerDip) : defaultHeight;
         double baseline = properties.Typeface.Baseline(properties.FontRenderingEmSize, 1, pixelsPerDip, settings.TextFormattingMode);
+        // Line Services preserves the default face's baseline ratio when a
+        // client supplies an explicit line height. The run itself keeps its
+        // source metrics inside that line box; scaling the run metrics would
+        // make caret and selection rectangles as tall as the block line.
+        if (pap.LineHeight > 0 && defaultHeight > 0)
+            baseline = height * baseline / defaultHeight;
         var portableStyles = new PortableTextStyle[styles.Count];
         double layoutHeight = height;
         for (int i = 0; i < styles.Count; i++)
@@ -511,10 +544,10 @@ internal sealed class PortableTextLine : TextLine
             ascent = Math.Max(ascent, style.Baseline);
             descent = Math.Max(descent, style.Height - style.Baseline);
         }
-        if (ascent + descent > 0)
+        if (!fixedHeight && ascent + descent > 0)
         {
             _baseline = ascent;
-            if (!fixedHeight) _height = ascent + descent;
+            _height = ascent + descent;
         }
         if (paragraph is IPortableInlineTextParagraph measured)
         {
@@ -863,7 +896,7 @@ internal sealed class PortableTextLine : TextLine
     }
     public override CharacterHit GetCharacterHitFromDistance(double distance)
     {
-        CheckAlive(); var hit = _paragraph.HitTest(_lineIndex, (float)(distance - NativeOrigin));
+        CheckAlive(); var hit = _paragraph.HitTest(_lineIndex, ToNativePointX(distance));
         if (!hit.Trailing) return new(_paragraphStart + _sourceMap.ToSource(hit.Position, true), 0);
         int before = _paragraph.GetNextLogicalCaret(_lineIndex, hit.Position, true);
         int sourceStart = _sourceMap.ToSource(before, true), sourceEnd = _sourceMap.ToSource(hit.Position, false);
@@ -876,7 +909,7 @@ internal sealed class PortableTextLine : TextLine
         int position = _sourceMap.ToText(Math.Clamp(checked(hit.FirstCharacterIndex + hit.TrailingLength) - _paragraphStart, 0, _sourceMap.SourceLength));
         if (_paragraph.CollapsedRange is { } c && position > c.Start && position < c.End)
             position = hit.TrailingLength != 0 ? c.End : c.Start;
-        return NativeOrigin + _paragraph.GetCaretDistance(_lineIndex, new(position, hit.TrailingLength != 0));
+        return ToLogicalPointX(_paragraph.GetCaretDistance(_lineIndex, new(position, hit.TrailingLength != 0)));
     }
     public override CharacterHit GetNextCaretCharacterHit(CharacterHit hit) => Move(hit, false);
     // Physical fragment movement stays in the retained native paragraph. Return
@@ -887,7 +920,10 @@ internal sealed class PortableTextLine : TextLine
         CheckAlive();
         targetPosition = sourcePosition; targetTrailing = trailing; fragmentDelta = 0;
         if (_paragraph is not IPortableExcludedTextParagraph excluded) return false;
-        if (!double.IsFinite(preferredX) || !float.IsFinite((float)(preferredX - NativeOrigin)))
+        if (!double.IsFinite(preferredX))
+            throw new ArgumentOutOfRangeException(nameof(preferredX));
+        float nativePreferredX = ToNativePointX(preferredX);
+        if (!float.IsFinite(nativePreferredX))
             throw new ArgumentOutOfRangeException(nameof(preferredX));
         if (sourcePosition < First || sourcePosition > First + Length)
             throw new ArgumentOutOfRangeException(nameof(sourcePosition));
@@ -903,7 +939,7 @@ internal sealed class PortableTextLine : TextLine
         }
         if (selected < 0) throw new InvalidOperationException("Source position has no retained native fragment caret.");
         int moved = excluded.MoveCaret(selected, down ? PortableTextCaretMovement.Down : PortableTextCaretMovement.Up,
-            (float)(preferredX - NativeOrigin));
+            nativePreferredX);
         if ((uint)moved >= (uint)carets.Length)
             throw new InvalidOperationException("Native fragment movement returned an invalid caret.");
         var target = carets[moved];
@@ -959,11 +995,25 @@ internal sealed class PortableTextLine : TextLine
             int count = _paragraph.GetSelection(_lineIndex, from, to, rectangles);
             for (int i = 0; i < count; i++)
             {
-                IList<TextRunBounds> objectBounds = null;
+                IList<TextRunBounds> runBounds;
                 if (_objectBounds != null && _objectBounds.TryGetValue(run.Start, out var objectBound))
-                    objectBounds = new[] { objectBound };
-                var r = rectangles[i]; result.Add(new(new Rect(NativeOrigin + r.X, 0, r.Width, Height),
-                    (run.Level & 1) != 0 ? FlowDirection.RightToLeft : FlowDirection.LeftToRight, objectBounds));
+                    runBounds = new[] { objectBound };
+                else
+                {
+                    SourceStyle style = _styles[StyleIndex(from)];
+                    int sourceFirst = _paragraphStart + _sourceMap.ToSource(from, true);
+                    int sourceEnd = _paragraphStart + _sourceMap.ToSource(to, false);
+                    var r = rectangles[i];
+                    runBounds = new[]
+                    {
+                        new TextRunBounds(
+                            new Rect(ToLogicalRectangleX(r.X, r.Width), Baseline - style.Baseline, r.Width, style.Height),
+                            sourceFirst, sourceEnd, style.Run)
+                    };
+                }
+                var rectangle = rectangles[i];
+                result.Add(new(new Rect(ToLogicalRectangleX(rectangle.X, rectangle.Width), 0, rectangle.Width, Height),
+                    (run.Level & 1) != 0 ? FlowDirection.RightToLeft : FlowDirection.LeftToRight, runBounds));
             }
         }
         return result;
@@ -972,6 +1022,9 @@ internal sealed class PortableTextLine : TextLine
     // Keep GetTextBounds empty for those edges; TextBlock's point-caret query
     // consumes this separate rectangle instead of treating the edge as ink.
     internal bool TryGetNonInkCaretBounds(int sourcePosition, out Rect rectangle, out FlowDirection flowDirection)
+        => TryGetNonInkCaretBounds(sourcePosition, false, out rectangle, out flowDirection);
+    internal bool TryGetNonInkCaretBounds(int sourcePosition, bool isTerminalInsertion,
+        out Rect rectangle, out FlowDirection flowDirection)
     {
         CheckAlive();
         rectangle = Rect.Empty;
@@ -982,7 +1035,20 @@ internal sealed class PortableTextLine : TextLine
         int start = _sourceMap.ToText(Math.Clamp(sourcePosition, First, End) - _paragraphStart);
         int end = _sourceMap.ToText(Math.Clamp(checked(sourcePosition + 1), First, End) - _paragraphStart);
         if (start != end) return false;
-        rectangle = new Rect(GetDistanceFromCharacterHit(new CharacterHit(sourcePosition, 0)), 0, 0, Height);
+        // Terminal paragraph positions follow the paragraph's physical trailing
+        // side. Native shaping has no glyph for these positions; asking it for
+        // a caret affinity in an RTL line selects the preceding LTR run's right
+        // edge instead of WPF's left paragraph edge.
+        // A source content host identifies its actual terminal insertion. Its
+        // retained source offset may precede closing element edges and EOP, so
+        // it cannot be inferred from this line's numeric source range alone.
+        // Direct line consumers still recognize the terminator/edge forms.
+        bool isTerminalParagraphPosition = _lineIndex + 1 == _paragraph.Lines.Length &&
+            (isTerminalInsertion || (NewlineLength > 0 && sourcePosition >= End));
+        double x = _rightToLeft && isTerminalParagraphPosition
+            ? Start
+            : GetDistanceFromCharacterHit(new CharacterHit(sourcePosition, 0));
+        rectangle = new Rect(x, 0, 0, Height);
         return true;
     }
     public override IList<TextSpan<TextRun>> GetTextRunSpans()
