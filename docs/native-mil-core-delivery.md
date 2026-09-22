@@ -3155,9 +3155,16 @@ implementation and qualification evidence.
 
 ## Native scene presentation host checkpoint — 2026-09-22
 
-Merged ProGPU PR #177 commit `0f93b740` executes a bounded physical viewport and
-independent X/Y device axes for flat retained 2D semantic scenes. LibreWPF now
-constructs one typed `NativeScenePresentation` from the resolved framebuffer
+Merged ProGPU PR #177 introduced bounded physical viewport execution and
+independent X/Y device axes for flat retained 2D semantic scenes. Corrective
+PR #178 is merged at `c0679a14`; it keeps the package CPU-stage fixture on a
+dedicated flat retained scene while preserving explicit rejection of mapped
+materialized layers. Its exact head passed all 45 hosted checks, including the
+native NuGet package, Windows DX12 consumers, every platform and specialized
+package consumer, ordered GPU queries, and the DirectX/Win2D/MIL/Direct2D
+differentials.
+
+LibreWPF constructs one typed `NativeScenePresentation` from the resolved framebuffer
 geometry and passes it unchanged through both the ordinary fastest render path
 and the opt-in CPU-stage capture path. The previous full-surface/uniform-axis
 host rejection is removed; invalid, empty or out-of-bounds mappings still fail
@@ -3166,9 +3173,14 @@ incompatible with native MIL mode.
 
 Mapped 3D and materialized-layer scenes remain explicitly unsupported by the
 ProGPU renderer before GPU allocation. This host connection does not qualify
-those families or claim full Direct2D/Win2D parity. LibreWPF now pins the exact
-merged ProGPU commit; Windows D3D12/package application gates remain required
+those families or claim full Direct2D/Win2D parity. LibreWPF pins the exact
+`c0679a14` ProGPU merge; Windows D3D12/package application gates remain required
 before this checkpoint can ship.
+
+LibreWinForms PR #41 is merged at `2b7fc64c`; its canonical source, package,
+AppKit and visible macOS/Ubuntu/Windows package-consumer lanes all passed against
+the same ProGPU merge. LibreWPF pins both immutable dependency commits so the
+canonical mixed WPF/WinForms graph cannot resolve a different presentation ABI.
 
 The LibreWPF Release graph builds against the merged dependency. Six focused host tests
 cover preserving viewport origin/extent and unequal device axes plus rejection
