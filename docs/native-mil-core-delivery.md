@@ -3152,3 +3152,26 @@ core path. The native MIL path is a separate consumer of ProGPU's shared rendere
 Completing this core milestone must be reported as core delivery, not as verified
 completion of the entire original goal. Broader scope needs its own remaining
 implementation and qualification evidence.
+
+## Native scene presentation host checkpoint — 2026-09-22
+
+ProGPU PR #177 head `265ab068` executes a bounded physical viewport and
+independent X/Y device axes for flat retained 2D semantic scenes. LibreWPF now
+constructs one typed `NativeScenePresentation` from the resolved framebuffer
+geometry and passes it unchanged through both the ordinary fastest render path
+and the opt-in CPU-stage capture path. The previous full-surface/uniform-axis
+host rejection is removed; invalid, empty or out-of-bounds mappings still fail
+before scene update or GPU submission, and managed drawing callbacks remain
+incompatible with native MIL mode.
+
+Mapped 3D and materialized-layer scenes remain explicitly unsupported by the
+ProGPU renderer before GPU allocation. This host connection does not qualify
+those families or claim full Direct2D/Win2D parity. The exact downstream pin and
+Windows D3D12/package application gates must use the merged ProGPU commit before
+this checkpoint can ship.
+
+The LibreWPF Release graph builds against the PR head. Six focused host tests
+cover preserving viewport origin/extent and unequal device axes plus rejection
+of invalid mappings. With the exact locally built ProGPU native libraries in the
+testhost search path, the complete `ProGPU.Wpf.Tests` assembly passes 1,832/1,832.
+These are contract/component tests, not Windows package/runtime qualification.
