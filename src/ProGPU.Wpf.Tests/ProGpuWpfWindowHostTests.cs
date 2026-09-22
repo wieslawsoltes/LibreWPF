@@ -1585,6 +1585,56 @@ public sealed class ProGpuWpfWindowHostTests
     }
 
     [Fact]
+    public void ResolveNativeMilPresentationPreservesViewportAndIndependentAxes()
+    {
+        NativeScenePresentation presentation =
+            ProGpuWpfWindowHost.ResolveNativeMilPresentation(
+                viewportX: 8,
+                viewportY: 4,
+                viewportWidth: 48,
+                viewportHeight: 40,
+                pixelWidth: 64,
+                pixelHeight: 48,
+                dpiScaleX: 0.75,
+                dpiScaleY: 1.25);
+
+        Assert.Equal(8u, presentation.ViewportX);
+        Assert.Equal(4u, presentation.ViewportY);
+        Assert.Equal(48u, presentation.ViewportWidth);
+        Assert.Equal(40u, presentation.ViewportHeight);
+        Assert.Equal(0.75f, presentation.DpiScaleX);
+        Assert.Equal(1.25f, presentation.DpiScaleY);
+    }
+
+    [Theory]
+    [InlineData(64u, 48u, 64u, 40u, 8u, 4u, 0.75, 1.25)]
+    [InlineData(64u, 48u, 48u, 48u, 17u, 0u, 0.75, 1.25)]
+    [InlineData(64u, 48u, 0u, 40u, 8u, 4u, 0.75, 1.25)]
+    [InlineData(64u, 48u, 48u, 40u, 8u, 4u, 0.0, 1.25)]
+    [InlineData(64u, 48u, 48u, 40u, 8u, 4u, 0.75, double.PositiveInfinity)]
+    public void ResolveNativeMilPresentationRejectsInvalidPhysicalMapping(
+        uint pixelWidth,
+        uint pixelHeight,
+        uint viewportWidth,
+        uint viewportHeight,
+        uint viewportX,
+        uint viewportY,
+        double dpiScaleX,
+        double dpiScaleY)
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            ProGpuWpfWindowHost.ResolveNativeMilPresentation(
+                viewportX,
+                viewportY,
+                viewportWidth,
+                viewportHeight,
+                pixelWidth,
+                pixelHeight,
+                dpiScaleX,
+                dpiScaleY));
+    }
+
+    [Fact]
     public void ResolveRenderSurfaceGeometryUsesFullPhysicalViewportWhenFramebufferHasExtraPixels()
     {
         var geometry = ProGpuWpfWindowHost.ResolveRenderSurfaceGeometry(

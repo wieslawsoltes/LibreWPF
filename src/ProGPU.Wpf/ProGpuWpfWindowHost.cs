@@ -2388,8 +2388,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
                         viewportWidth,
                         viewportHeight,
                         dpiScaleX,
-                        dpiScaleY,
-                        dpiScale))
+                        dpiScaleY))
                 {
                     RecordPresentedFrame(CaptureFrameState(
                         _target,
@@ -2652,8 +2651,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         uint viewportWidth,
         uint viewportHeight,
         double dpiScaleX,
-        double dpiScaleY,
-        double dpiScale)
+        double dpiScaleY)
     {
         long frameStarted = Stopwatch.GetTimestamp();
         if (_target == null || _nativeMilCompositor == null ||
@@ -2664,7 +2662,8 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         }
         object rootVisual = _wpfRootVisual ?? throw new InvalidOperationException(
             "The native MIL renderer requires a typed WPF root visual.");
-        ValidateNativeMilHostConfiguration(
+        ValidateNativeMilManagedCallbacks();
+        NativeScenePresentation presentation = ResolveNativeMilPresentation(
             viewportX,
             viewportY,
             viewportWidth,
@@ -2743,7 +2742,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
             _nativeMilCompositor,
             pixelWidth,
             pixelHeight,
-            (float)dpiScale,
+            presentation,
             frame.Request.SceneId,
             frame.Request.Generation,
             _target.Compositor.ClearColor,
@@ -2893,7 +2892,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         NativeCompositor compositor,
         uint pixelWidth,
         uint pixelHeight,
-        float dpiScale,
+        NativeScenePresentation presentation,
         ulong sceneId,
         ulong generation,
         Vector4 clearColor,
@@ -2960,9 +2959,9 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
                 pixelHeight);
             LastNativeMilFrameMetrics = s_traceNativeLoop
                 ? compositor.RenderSceneWithCpuStages(
-                    nativeTarget, dpiScale, sceneId, generation, clearColor)
+                    nativeTarget, presentation, sceneId, generation, clearColor)
                 : compositor.RenderScene(
-                    nativeTarget, dpiScale, sceneId, generation, clearColor);
+                    nativeTarget, presentation, sceneId, generation, clearColor);
             double submissionMs = Stopwatch.GetElapsedTime(submissionStarted).TotalMilliseconds;
             TraceNativeLoop("native MIL submission leaving: " + CreateNativeLoopTraceState());
             long presentStarted = Stopwatch.GetTimestamp();
@@ -2988,7 +2987,16 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         }
     }
 
-    private void ValidateNativeMilHostConfiguration(
+    private void ValidateNativeMilManagedCallbacks()
+    {
+        if (Draw != null || WpfDraw != null || Render != null)
+        {
+            throw new NotSupportedException(
+                "Native MIL mode does not mix managed drawing callbacks into the native semantic scene.");
+        }
+    }
+
+    internal static NativeScenePresentation ResolveNativeMilPresentation(
         uint viewportX,
         uint viewportY,
         uint viewportWidth,
@@ -2998,25 +3006,36 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         double dpiScaleX,
         double dpiScaleY)
     {
-        if (Draw != null || WpfDraw != null || Render != null)
+        float nativeDpiScaleX = (float)dpiScaleX;
+        float nativeDpiScaleY = (float)dpiScaleY;
+        if (pixelWidth == 0 || pixelHeight == 0 ||
+            viewportWidth == 0 || viewportHeight == 0 ||
+            viewportX >= pixelWidth || viewportY >= pixelHeight ||
+            viewportWidth > pixelWidth - viewportX ||
+            viewportHeight > pixelHeight - viewportY)
         {
-            throw new NotSupportedException(
-                "Native MIL mode does not mix managed drawing callbacks into the native semantic scene.");
+            throw new ArgumentOutOfRangeException(
+                nameof(viewportWidth),
+                $"Native MIL presentation requires a nonempty in-bounds physical viewport " +
+                $"(viewport={viewportWidth}x{viewportHeight}@{viewportX},{viewportY}, " +
+                $"pixels={pixelWidth}x{pixelHeight}).");
         }
-        if (viewportX != 0 || viewportY != 0 ||
-            viewportWidth != pixelWidth || viewportHeight != pixelHeight)
+        if (!float.IsFinite(nativeDpiScaleX) || nativeDpiScaleX <= 0 ||
+            !float.IsFinite(nativeDpiScaleY) || nativeDpiScaleY <= 0)
         {
-            throw new NotSupportedException(
-                "Native MIL mode currently requires a full-surface viewport.");
+            throw new ArgumentOutOfRangeException(
+                nameof(dpiScaleX),
+                $"Native MIL presentation requires finite positive device axes " +
+                $"(x={dpiScaleX:R}, y={dpiScaleY:R}).");
         }
-        if (!double.IsFinite(dpiScaleX) ||
-            !double.IsFinite(dpiScaleY) ||
-            Math.Abs(dpiScaleX - dpiScaleY) > 0.000001)
-        {
-            throw new NotSupportedException(
-                $"Native MIL presentation currently requires uniform X/Y DPI scaling " +
-                $"(x={dpiScaleX:R}, y={dpiScaleY:R}, pixels={pixelWidth}x{pixelHeight}).");
-        }
+
+        return new NativeScenePresentation(
+            viewportX,
+            viewportY,
+            viewportWidth,
+            viewportHeight,
+            nativeDpiScaleX,
+            nativeDpiScaleY);
     }
 
     private static ulong GetMonotonicTimeNanoseconds()
