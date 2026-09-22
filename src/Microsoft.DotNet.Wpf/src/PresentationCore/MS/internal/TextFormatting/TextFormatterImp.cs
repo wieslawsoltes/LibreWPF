@@ -234,7 +234,7 @@ namespace MS.Internal.TextFormatting
                     RealToIdealFloor(paragraphWidth), textSource.PixelsPerDip);
                 if (textLine == null && OperatingSystem.IsWindows())
                 {
-                    throw new PlatformNotSupportedException("Portable Windows text requires a registered text formatting provider before source construction.");
+                    throw MissingPortableTextFormattingProvider();
                 }
             }
 
@@ -265,12 +265,10 @@ namespace MS.Internal.TextFormatting
                         textSource.PixelsPerDip
                     ) as TextLine;
 
-                    textLine ??= SimpleTextLine.CreatePortableFallback(
-                        settings,
-                        firstCharIndex,
-                        RealToIdealFloor(paragraphWidth),
-                        textSource.PixelsPerDip
-                        ) as TextLine;
+                    if (textLine == null)
+                    {
+                        throw MissingPortableTextFormattingProvider();
+                    }
                 }
             }
 
@@ -349,7 +347,7 @@ namespace MS.Internal.TextFormatting
                 if (PortableWpfServiceRegistry.TryGetTextFormatting(out var service))
                     return PortableTextLine.MeasureIntrinsicWidths(settings, firstCharIndex, textSource.PixelsPerDip, service);
                 if (OperatingSystem.IsWindows())
-                    throw new PlatformNotSupportedException("Portable Windows text requires a registered text formatting provider for intrinsic measurement.");
+                    throw MissingPortableTextFormattingProvider();
 
                 TextLine simpleLine = SimpleTextLine.Create(
                     settings,
@@ -365,15 +363,7 @@ namespace MS.Internal.TextFormatting
                     return simpleMinMax;
                 }
 
-                TextLine fallbackLine = SimpleTextLine.CreatePortableFallback(
-                    settings,
-                    firstCharIndex,
-                    0,
-                    textSource.PixelsPerDip
-                    ) as TextLine;
-                MinMaxParagraphWidth fallbackMinMax = new MinMaxParagraphWidth(fallbackLine.Width, fallbackLine.WidthIncludingTrailingWhitespace);
-                fallbackLine.Dispose();
-                return fallbackMinMax;
+                throw MissingPortableTextFormattingProvider();
             }
 
             // create specialized line specifically for min/max calculation
@@ -403,6 +393,12 @@ namespace MS.Internal.TextFormatting
         internal static bool IsNativeLineServicesAvailable
         {
             get { return PortableWpfRuntime.GetMediaBackendAndFreeze() == PortableWpfMediaBackend.WindowsMil; }
+        }
+
+        private static PlatformNotSupportedException MissingPortableTextFormattingProvider()
+        {
+            return new PlatformNotSupportedException(
+                "Portable text that requires native shaping needs a registered text formatting provider; source content cannot be replaced by an empty line.");
         }
 
         /// <summary>

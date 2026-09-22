@@ -235,6 +235,24 @@ public class PortableTextLineTests
     }
 
     [PortableMediaFact]
+    public void MissingProviderRejectsComplexSourceInsteadOfReturningAnEmptyLine()
+    {
+        var properties = new Properties();
+        var source = new DocumentSource([new EmbeddedObject(properties)]);
+        var paragraph = new ParagraphProperties(properties, false);
+        using var formatter = new TextFormatterImp();
+
+        var lineFailure = Assert.Throws<PlatformNotSupportedException>(() =>
+            formatter.FormatLine(source, 0, 30, paragraph, null, new TextRunCache()));
+        Assert.Contains("registered text formatting provider", lineFailure.Message);
+        Assert.Contains("cannot be replaced by an empty line", lineFailure.Message);
+
+        var widthFailure = Assert.Throws<PlatformNotSupportedException>(() =>
+            formatter.FormatMinMaxParagraphWidth(source, 0, paragraph));
+        Assert.Equal(lineFailure.Message, widthFailure.Message);
+    }
+
+    [PortableMediaFact]
     public void ChangedContinuationWidthUsesCapturedParagraphAndKeepsOriginalSourceIndices()
     {
         var source = new Source { Properties = new Properties(new FontFamily(
@@ -515,6 +533,21 @@ public class PortableTextLineTests
         public override TextRunProperties ModifyProperties(TextRunProperties properties) => modify(properties);
         public override bool HasDirectionalEmbedding => directional;
         public override FlowDirection FlowDirection => FlowDirection.RightToLeft;
+    }
+
+    private sealed class EmbeddedObject(TextRunProperties properties) : TextEmbeddedObject
+    {
+        public override int Length => 1;
+        public override CharacterBufferReference CharacterBufferReference => default;
+        public override TextRunProperties Properties => properties;
+        public override LineBreakCondition BreakBefore => LineBreakCondition.BreakDesired;
+        public override LineBreakCondition BreakAfter => LineBreakCondition.BreakDesired;
+        public override bool HasFixedSize => true;
+        public override TextEmbeddedObjectMetrics Format(double remainingParagraphWidth) => new(8, 12, 9);
+        public override Rect ComputeBoundingBox(bool rightToLeft, bool sideways) => new(0, -9, 8, 12);
+        public override void Draw(DrawingContext drawingContext, Point origin, bool rightToLeft, bool sideways)
+        {
+        }
     }
 
     [Fact]
