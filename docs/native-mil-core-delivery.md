@@ -15,6 +15,24 @@ do not automatically expand the release checklist.
 
 ## Active completion queue
 
+**Source language-system admission — 2026-09-22:** the next native-text slice
+removes LibreWPF's blanket rejection of mixed-culture source runs. Each actual
+`TextRunProperties.CultureInfo` is normalized through WPF's existing
+`CultureMapper`, resolved by the selected typed provider, and retained in the
+corresponding `PortableTextStyle.Language`. ProGPU owns the BCP-47 to OpenType
+language-system mapping in its existing C++ text implementation and exposes a
+bounded borrowed-input C ABI plus allocation-conscious managed wrapper; WPF does
+not copy that table or create another shaper. The native C++ export regression,
+native showcase regression, ProGPU native backend/interoperability builds,
+LibreWPF provider graph regression, and source `PresentationCore.Tests` build
+pass locally. The focused source test then ran in the signed-in Windows 11 ARM64
+Parallels guest against that exact source-managed test assembly: 1 passed,
+0 failed and 0 skipped. Open and qualify the ProGPU dependency PR first, then
+the LibreWPF consumer PR and exact Windows package/text gate. This admits
+OpenType language selection only: number
+substitution, dictionary breaking and culture-sensitive font fallback remain
+separate contracts.
+
 **Windows ARM64 Toolkit monitor/runtime follow-up — 2026-09-15:** all #141
 post-merge CI jobs passed, including native-MIL package Showcase on Windows
 x64 and ARM64. A separate live Windows ARM64 Toolkit run exposed a Win32

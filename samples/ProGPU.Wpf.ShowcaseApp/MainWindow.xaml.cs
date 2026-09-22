@@ -40,6 +40,7 @@ public partial class MainWindow : Window
         new("Refresh status", nameof(RefreshStatusCommand), typeof(MainWindow));
 
     private const string LiveValidationEnvironmentVariable = "PROGPU_WPF_SHOWCASE_LIVE_VALIDATE";
+    private const string LiveValidationTimeoutSecondsEnvironmentVariable = "PROGPU_WPF_SHOWCASE_LIVE_VALIDATE_TIMEOUT_SECONDS";
     private const string LivePerformanceValidationEnvironmentVariable = "PROGPU_WPF_SHOWCASE_PERFORMANCE_VALIDATE";
     private const string LiveValidationStatusPathEnvironmentVariable = "PROGPU_WPF_SHOWCASE_LIVE_VALIDATE_STATUS_PATH";
     private const string LiveNativeDragStatusPathEnvironmentVariable = "PROGPU_WPF_SHOWCASE_NATIVE_DRAG_STATUS_PATH";
@@ -1009,7 +1010,9 @@ public partial class MainWindow : Window
     private async Task ValidateRequiredLiveShowcaseAsync()
     {
         int presentedSampleCount = 0;
-        for (int attempt = 0; attempt < LiveValidationMaxAttempts; attempt++)
+        TimeSpan presentationTimeout = GetLivePresentationTimeout();
+        long presentationStarted = Stopwatch.GetTimestamp();
+        while (Stopwatch.GetElapsedTime(presentationStarted) < presentationTimeout)
         {
             await Task.Delay(LiveValidationRetryDelay);
             if (!ProGpuWpfDiagnostics.TryGetWindowHost(this, out var liveHost) || liveHost == null)
@@ -1080,6 +1083,19 @@ public partial class MainWindow : Window
         Console.Error.WriteLine("Expected the Showcase app to present a stable ProGPU frame before live input validation.");
         Console.Error.Flush();
         Environment.Exit(1);
+    }
+
+    private static TimeSpan GetLivePresentationTimeout()
+    {
+        string? configured = Environment.GetEnvironmentVariable(
+            LiveValidationTimeoutSecondsEnvironmentVariable);
+        if (configured != null && int.TryParse(configured, NumberStyles.None,
+                CultureInfo.InvariantCulture, out int seconds) && seconds is > 0 and <= 600)
+        {
+            return TimeSpan.FromSeconds(seconds);
+        }
+
+        return TimeSpan.FromTicks(LiveValidationRetryDelay.Ticks * LiveValidationMaxAttempts);
     }
 
     private static string ValidateLiveWindowingCapabilitiesCore(ProGpuWpfWindowHost liveHost)
