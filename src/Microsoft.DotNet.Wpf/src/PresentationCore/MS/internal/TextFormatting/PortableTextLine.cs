@@ -68,7 +68,7 @@ internal sealed class PortableTextLine : TextLine
     private readonly TextRunProperties _properties;
     private readonly GlyphTypeface _face;
     private sealed record SourceStyle(int Start, int End, TextRunProperties Properties, TextRun Run, GlyphTypeface Face,
-        PortableTextFont Font, double EmSize, double Baseline, double Height);
+        PortableTextFont Font, double EmSize, double Baseline, double Height, uint Language);
     private readonly SourceStyle[] _styles;
     private sealed record SourceObject(int Position, TextEmbeddedObject Run, PortableTextInlineObject Metrics);
     private readonly SourceObject[] _objects;
@@ -243,8 +243,8 @@ internal sealed class PortableTextLine : TextLine
             var digits = new DigitState();
             digits.SetTextRunProperties(p);
             if (digits.DigitCulture != null || digits.Contextual) throw Unsupported("digit substitution");
-            if (properties != null && !Equals(properties.CultureInfo, p.CultureInfo))
-                throw Unsupported("mixed run languages");
+            uint language = service.ResolveLanguage(
+                CultureMapper.GetSpecificCulture(p.CultureInfo).IetfLanguageTag);
             properties ??= p;
             int start = builder.Length;
             if (run is TextEmbeddedObject embedded)
@@ -272,7 +272,7 @@ internal sealed class PortableTextLine : TextLine
                 if (!double.IsFinite(objectEm) || objectEm <= 0) throw Unsupported("invalid inline style em size");
                 styles.Add(new(start, start + 1, p, run, objectFace, GetFont(objectFace), objectEm,
                     p.Typeface.Baseline(p.FontRenderingEmSize, 1, pixelsPerDip, settings.TextFormattingMode),
-                    p.Typeface.LineSpacing(p.FontRenderingEmSize, 1, pixelsPerDip, settings.TextFormattingMode)));
+                    p.Typeface.LineSpacing(p.FontRenderingEmSize, 1, pixelsPerDip, settings.TextFormattingMode), language));
                 builder.Append('\uFFFC');
                 sourceRanges.Add(new(cp - first, start, 1));
                 (objects ??= new()).Add(new(start, embedded,
@@ -315,7 +315,7 @@ internal sealed class PortableTextLine : TextLine
                     if (!double.IsFinite(emSize) || emSize <= 0) throw Unsupported("invalid composite-font scale");
                     styles.Add(new(mappedStart, checked(mappedStart + mapped.Length), p, run, runFace, GetFont(runFace), emSize,
                         p.Typeface.Baseline(p.FontRenderingEmSize, 1, pixelsPerDip, settings.TextFormattingMode),
-                        p.Typeface.LineSpacing(p.FontRenderingEmSize, 1, pixelsPerDip, settings.TextFormattingMode)));
+                        p.Typeface.LineSpacing(p.FontRenderingEmSize, 1, pixelsPerDip, settings.TextFormattingMode), language));
                     mappedStart += mapped.Length;
                 }
                 if (mappedStart != builder.Length) throw new InvalidOperationException("Source font ranges do not cover the styled run.");
@@ -363,7 +363,7 @@ internal sealed class PortableTextLine : TextLine
         {
             var style = styles[i];
             portableStyles[i] = new(style.Start, style.End - style.Start, style.Font,
-                (float)style.EmSize, Features(style.Properties.TypographyProperties));
+                (float)style.EmSize, Features(style.Properties.TypographyProperties), style.Language);
             layoutHeight = Math.Max(layoutHeight, style.Height);
         }
         var request = new PortableTextParagraphRequest(text.AsMemory(), font, (float)primaryEmSize,

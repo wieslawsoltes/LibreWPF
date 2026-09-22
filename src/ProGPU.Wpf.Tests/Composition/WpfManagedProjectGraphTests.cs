@@ -322,6 +322,12 @@ public sealed class WpfManagedProjectGraphTests
         AssertGuardBefore(portable, "TextLine continuation = CreateContinuation(", "PortableWpfServiceRegistry.TryGetTextFormatting(");
         Assert.Contains("IPortableTextFormatting service)", portable, StringComparison.Ordinal);
         Assert.Contains("The text provider returned no paragraph.", portable, StringComparison.Ordinal);
+        Assert.Contains("service.ResolveLanguage(", portable, StringComparison.Ordinal);
+        Assert.Contains("style.Language);", portable, StringComparison.Ordinal);
+        Assert.DoesNotContain("throw Unsupported(\"mixed run languages\")", portable, StringComparison.Ordinal);
+        string provider = File.ReadAllText(FindRepoPath("src", "ProGPU.Wpf", "Composition", "WpfPortableTextFormatting.cs"));
+        Assert.Contains("NativeTextShapingInterop.ResolveLanguageTag(language.AsSpan())", provider, StringComparison.Ordinal);
+        Assert.Contains("ConcurrentDictionary<string, uint>", provider, StringComparison.Ordinal);
     }
 
     [Fact]

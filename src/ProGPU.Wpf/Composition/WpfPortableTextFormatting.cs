@@ -1,4 +1,5 @@
 using System.Buffers;
+using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 using ProGPU.Backend.Native;
 using ProGPU.Wpf.Interop;
@@ -10,6 +11,7 @@ internal sealed class WpfPortableTextFormatting : IPortableFloatingTextFormattin
 {
     private sealed record FloatingRequest(NativeTextFloatingOptions Options, NativeTextParagraphFloat[] Items);
     private static readonly WpfPortableTextFormatting Default = new();
+    private readonly ConcurrentDictionary<string, uint> _languageTags = new(StringComparer.OrdinalIgnoreCase);
     private sealed class FontState(PortableTextFont source)
     {
         internal TtfFont RenderFont { get; } = new(source.Data.ToArray(), checked((int)source.FaceIndex));
@@ -18,6 +20,13 @@ internal sealed class WpfPortableTextFormatting : IPortableFloatingTextFormattin
     }
     private readonly ConditionalWeakTable<PortableTextFont, FontState> _fonts = new();
     internal static void EnsureRegistered() => PortableWpfServiceRegistry.EnsureTextFormatting(Default);
+
+    public uint ResolveLanguage(string ietfLanguageTag)
+    {
+        ArgumentNullException.ThrowIfNull(ietfLanguageTag);
+        return _languageTags.GetOrAdd(ietfLanguageTag,
+            static language => NativeTextShapingInterop.ResolveLanguageTag(language.AsSpan()));
+    }
 
     public IPortableTextParagraph Format(in PortableTextParagraphRequest request)
         => FormatCore(in request, null, null);

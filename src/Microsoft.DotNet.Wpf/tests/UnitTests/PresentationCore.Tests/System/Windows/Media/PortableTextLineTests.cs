@@ -414,6 +414,24 @@ public class PortableTextLineTests
     }
 
     [Fact]
+    public void MixedRunCulturesUseProviderOwnedNativeLanguageTags()
+    {
+        var first = new Properties { Culture = CultureInfo.GetCultureInfo("en-US") };
+        var second = new Properties { Culture = CultureInfo.GetCultureInfo("pl-PL"), Size = 24 };
+        var source = new Source { Text = "abc", Properties = first, FollowingProperties = second, Mixed = true };
+        var provider = new Provider { MixedOneLine = true };
+        using var registration = PortableWpfServiceRegistry.RegisterTextFormatting(provider);
+        using var formatter = new TextFormatterImp();
+        using var line = PortableTextLine.Create(Settings(formatter, source), 0, 800, 1);
+
+        Assert.Equal(new[] { "en-US", "pl-PL" }, provider.Languages);
+        Assert.Equal(2, provider.Styles.Length);
+        Assert.Equal(0x454E4720U, provider.Styles.Span[0].Language);
+        Assert.Equal(0x504C4B20U, provider.Styles.Span[1].Language);
+        Assert.Equal(3, line.Length - line.NewlineLength);
+    }
+
+    [Fact]
     public void ModifierScopeSurvivesWrappedAndExplicitLineBreaks()
     {
         var p = new Properties();
@@ -800,6 +818,7 @@ public class PortableTextLineTests
     {
         private readonly Typeface _face;
         internal TextDecorationCollection? Decorations { get; init; }
+        internal CultureInfo Culture { get; init; } = CultureInfo.InvariantCulture;
         internal double Size { get; init; } = 12;
         internal Properties(FontFamily? family = null)
         {
@@ -813,7 +832,7 @@ public class PortableTextLineTests
         public override TextDecorationCollection TextDecorations => Decorations!;
         public override Brush ForegroundBrush => Size == 24 ? Brushes.Red : Brushes.Black;
         public override Brush BackgroundBrush => Size == 24 ? Brushes.Blue : null!;
-        public override CultureInfo CultureInfo => CultureInfo.InvariantCulture;
+        public override CultureInfo CultureInfo => Culture;
         public override TextEffectCollection TextEffects => null!;
     }
 
@@ -855,11 +874,22 @@ public class PortableTextLineTests
         internal float? BoundaryWidth { get; init; }
         internal float IncrementalTab { get; private set; }
         internal ReadOnlyMemory<PortableTextStyle> Styles { get; private set; }
+        internal List<string> Languages { get; } = new();
         public object NativeFont { get; } = new();
         public object SecondNativeFont { get; } = new();
         public object GetNativeFont(uint fontIndex) => fontIndex == 0 ? NativeFont : SecondNativeFont;
         internal int Calls { get; private set; }
         internal string? Text { get; private set; }
+        public uint ResolveLanguage(string ietfLanguageTag)
+        {
+            Languages.Add(ietfLanguageTag);
+            return ietfLanguageTag switch
+            {
+                "en-US" => 0x454E4720U,
+                "pl-PL" => 0x504C4B20U,
+                _ => 0x64666C74U
+            };
+        }
         public IPortableTextParagraph Format(in PortableTextParagraphRequest request)
         {
             Calls++;
