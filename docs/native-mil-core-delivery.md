@@ -25,10 +25,11 @@ bounded borrowed-input C ABI plus allocation-conscious managed wrapper; WPF does
 not copy that table or create another shaper. The native C++ export regression,
 native showcase regression, ProGPU native backend/interoperability builds,
 LibreWPF provider graph regression, and source `PresentationCore.Tests` build
-pass locally. The focused source test is compiled into the Windows-targeted test
-assembly and therefore still requires Windows execution. Open and qualify the
-ProGPU dependency PR first, then the LibreWPF consumer PR and exact Windows
-package/text gate. This admits OpenType language selection only: number
+pass locally. The focused source test then ran in the signed-in Windows 11 ARM64
+Parallels guest against that exact source-managed test assembly: 1 passed,
+0 failed and 0 skipped. Open and qualify the ProGPU dependency PR first, then
+the LibreWPF consumer PR and exact Windows package/text gate. This admits
+OpenType language selection only: number
 substitution, dictionary breaking and culture-sensitive font fallback remain
 separate contracts.
 
