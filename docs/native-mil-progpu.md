@@ -9182,15 +9182,15 @@ cd external/ProGPU
 PROGPU_NATIVE_SKIP_EXTENDED_INTEGRATION=1 ./eng/build-progpu-native.sh
 ```
 
-Native presentation host checkpoint (2026-09-22): LibreWPF consumes ProGPU PR
-#177 head `265ab068` through `NativeScenePresentation`, preserving the resolved
+Native presentation host checkpoint (2026-09-22): LibreWPF consumes merged
+ProGPU PR #177 commit `0f93b740` through `NativeScenePresentation`, preserving the resolved
 physical viewport and independent X/Y axes in both ordinary and opt-in
 CPU-stage native MIL submission. The old host-level full-surface/uniform-axis
 rejection is replaced by exact bounds/finite-axis validation before scene work.
-Mapped 3D and materialized layers remain explicitly rejected in ProGPU; Windows
-D3D12/package qualification and the merged dependency pin remain open.
+Mapped 3D and materialized layers remain explicitly rejected in ProGPU. The
+merged dependency pin is recorded; Windows D3D12/package qualification remains open.
 
-The pinned LibreWPF SDK builds in Release against this head, six focused
+The pinned LibreWPF SDK builds in Release against this merge, six focused
 presentation-host tests pass, and the complete `ProGPU.Wpf.Tests` assembly passes
 1,832/1,832 when supplied the exact locally built native libraries. The
 authoritative ProGPU Metal provider and managed-package consumer gate is green
