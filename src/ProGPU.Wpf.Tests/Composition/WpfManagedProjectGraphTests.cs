@@ -9962,10 +9962,11 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("if (!IsNativeLineServicesAvailable)", textFormatterImp, StringComparison.Ordinal);
         AssertGuardBefore(textFormatterImp, "if (!nativeLineServices)", "new TextMetrics.FullTextLine");
         Assert.Contains("new MinMaxParagraphWidth(simpleLine.Width, simpleLine.WidthIncludingTrailingWhitespace)", textFormatterImp, StringComparison.Ordinal);
-        Assert.Contains("SimpleTextLine.CreatePortableFallback", textFormatterImp, StringComparison.Ordinal);
-        Assert.Contains("public static TextLine CreatePortableFallback", simpleTextLine, StringComparison.Ordinal);
-        Assert.Contains("internal static SimpleRun CreatePortableEndOfParagraph", simpleTextLine, StringComparison.Ordinal);
-        Assert.Contains("new TextEndOfParagraph(1)", simpleTextLine, StringComparison.Ordinal);
+        Assert.Contains("throw MissingPortableTextFormattingProvider();", textFormatterImp, StringComparison.Ordinal);
+        Assert.Contains("source content cannot be replaced by an empty line", textFormatterImp, StringComparison.Ordinal);
+        Assert.DoesNotContain("SimpleTextLine.CreatePortableFallback", textFormatterImp, StringComparison.Ordinal);
+        Assert.DoesNotContain("CreatePortableFallback", simpleTextLine, StringComparison.Ordinal);
+        Assert.DoesNotContain("CreatePortableEndOfParagraph", simpleTextLine, StringComparison.Ordinal);
         Assert.Contains("Portable rich-text block and embedded-object layout is not implemented.", textBoxLine, StringComparison.Ordinal);
         Assert.Contains("!global::System.OperatingSystem.IsWindows() &&", textBoxLine, StringComparison.Ordinal);
         Assert.Contains("!PortableWpfServiceRegistry.TryGetTextFormatting(out _)", textBoxLine, StringComparison.Ordinal);

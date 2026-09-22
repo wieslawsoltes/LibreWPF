@@ -2393,12 +2393,16 @@ application; that application assertion remains authored-only. No tests, source
 verifiers, graphical/VM/GPU runs, benchmarks or CI qualification ran. ProGPU
 contains the latest fetched main; unrelated worktree changes were preserved.
 
-The startup trace also found `SimpleTextLine.CreatePortableFallback` can construct
-an empty paragraph for unsupported text. Do not enable a Windows portable-text
-route by replacing OS checks indiscriminately: native LineServices is a separate
-dependency from MIL rendering, and the empty portable result is not text parity.
-Track required complex-text/document cases against the existing Showcase editor gate;
-this batch neither changes text services nor claims those cases complete.
+The startup trace also found `SimpleTextLine.CreatePortableFallback` could construct
+an empty paragraph for unsupported text. That false-success path is now removed.
+Portable formatting first selects the registered typed ProGPU paragraph provider;
+provider-less source remains available only when `SimpleTextLine` genuinely retains
+the complete source. Complex line and intrinsic-width requests without a provider
+fail explicitly with the same source-preservation error instead of manufacturing
+an end-of-paragraph line. Native LineServices remains a separate Windows-MIL
+dependency. This closes silent source loss, not the remaining complex-text and
+document semantics tracked against the Showcase editor gate. See
+[native text provider admission](native-mil-text-provider-admission.md).
 
 Decoder-backed SDK image connection: the existing package SDK gate loads
 `Assets/ExternalImage.png` through XAML Image/ImageBrush and BitmapImage pack URI
