@@ -1,5 +1,16 @@
 # Agent Guidance
 
+Portable source number substitution resolves existing DigitState policy before
+physical-font selection. Contextual source ranges use ProGPU's typed batched
+digit-context service over original UTF-16, including preceding source context
+for independent nonzero starts. Reuse source TypefaceMap digit-culture linking
+for active digit ranges and pass the same resolved forced/disabled policy into
+native shaping. Never choose an ASCII face then substitute a missing digit, change
+source characters/offsets, or duplicate native context classification in WPF.
+Culture-specific percent/group/decimal symbols remain explicitly rejected where
+the native symbol contract is missing; digit-only admission is not full number
+formatting parity. Preserve wrapped context ownership and package/Windows gates.
+
 Portable TextLine terminal caret boxes apply only to source ranges intersecting
 the actual newline. Hidden-only formatting ranges keep native caret navigation,
 not invented selection rectangles. Preserve newline X/height from the retained

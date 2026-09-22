@@ -1,5 +1,36 @@
 # ProGPU WPF Port Worklog
 
+## 2026-09-22 — source digit font selection
+
+- LibreWPF PR #151 passed all ten checks, including Windows x64/ARM64 native-MIL
+  package Showcase, AnyCPU, canonical consumer, and XWayland; it merged as
+  `276c16ce8`. The source-preserving missing-provider correction was rebased onto
+  that merge and opened as PR #152 at `176939285`.
+- Connected source `DigitState` to ProGPU's native context/grapheme prepass and
+  existing culture-aware physical-font mapping. Source indices and original
+  text remain intact; resolved styles give shaping the same digit decisions
+  used to select faces and em scales. Cached hard breaks, hidden preceding
+  spans, surrogate boundaries, and original wrapped ownership are preserved.
+  Active number-symbol replacement and missing/alternate digit glyphs fail
+  explicitly until their native contracts are implemented.
+- ProGPU `b61d01c5` adds batched context/grapheme output and exact decimal-value
+  validation. Native text tests pass 2/2, module import 1/1, managed tests 21/21,
+  and the complete native shared-library target builds. The WPF source test
+  assembly builds and all 53 `PortableTextLineTests` pass on macOS ARM64, including
+  verified Arabic/supplementary font fixtures, composite face/scale mapping,
+  context seeds, cached breaks, combining marks, and source continuations.
+  The first run exposed a new test fixture using RTL for its LTR case; correcting
+  its explicit paragraph direction produced 53 passes and zero skips.
+- Both real WPF provider adapters compile. The native context adapter and source
+  graph guard pass. The actual styled paragraph differential exposed a native
+  snapshot defect: glyphs and positions match direct Arabic digits, but exported
+  bidi levels still come from original ASCII input (0 instead of 2). The test
+  remains strict; this ProGPU correction, Windows source run, package dependency
+  alignment, and CI remain pending before this integration can be released.
+  Source and bridge builds retain existing unrelated warnings. The source tests
+  use their Microsoft.Testing.Platform executable; VSTest discovered no tests
+  for that assembly and was not counted as successful verification.
+
 ## 2026-08-25
 
 - Added the exact static retained Visual BlurEffect/DropShadowEffect subset on latest ProGPU `main`. ProGPU decodes and retains canonical commands `0x1d`, `0x6e`, and `0x6f`, protects effect dependencies, maps WPF's truncated/scaled Gaussian radius to the shared semantic blur sigma, maps DropShadow direction/depth through orthogonal transforms, and executes the same isolated effect chain through WebGPU/Dawn and DirectX. Source-built WPF publishes kernel, rendering bias, blur, direction, depth, opacity, and color through typed portable DTOs; LibreWPF emits only those contracts and rejects untyped or Box effect state without reflection. Effect plus active Visual clip, opacity mask, non-unit opacity, animation, or shear fails closed until exact WPF layer ordering is representable. Validation passed ten local native CTests, canonical managed packet coverage, 59 focused compiler tests, typed effect mapping, source-built WPF compilation, strict Windows ARM64 MSVC, all 11 Windows native/Dawn CTests, both exported MIL ABI checks, and live D3D12 with four semantic resources, two retained draws, zero coverage bytes, nonblack readback, and 16,384 direct pixels. The `--mil-visual-effect-only` gate now runs in JIT, NativeAOT, package verification, build, and release lanes. Qualified hashes are `eb55945dff526f5535fd7c10795e2e0e91baea787aac6c165ab7cfea3fa4c4cf` and `2c9c1f5fc1ee4f41b9361280d53a32201e3b4215c3cd70a0c0cf68c130766eda`. Commits: ProGPU `93929c07`/`7f02bd4a`/`6702b9b7`/`7a193df2`; LibreWPF `b750e8af5`.

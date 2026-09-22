@@ -449,6 +449,358 @@ public class PortableTextLineTests
         Assert.Equal(3, line.Length - line.NewlineLength);
     }
 
+    [Theory]
+    [InlineData(NumberSubstitutionMethod.NativeNational, DigitShapes.None, 0x0660U, false)]
+    [InlineData(NumberSubstitutionMethod.Context, DigitShapes.None, 0x0660U, true)]
+    [InlineData(NumberSubstitutionMethod.European, DigitShapes.NativeNational, 0U, false)]
+    [InlineData(NumberSubstitutionMethod.AsCulture, DigitShapes.NativeNational, 0x0660U, false)]
+    [InlineData(NumberSubstitutionMethod.AsCulture, DigitShapes.Context, 0x0660U, true)]
+    [InlineData(NumberSubstitutionMethod.AsCulture, DigitShapes.None, 0U, false)]
+    public void NumberSubstitutionPreservesSourceTextAndWrappedContinuation(
+        NumberSubstitutionMethod method, DigitShapes shape, uint digitZero, bool contextual)
+    {
+        var culture = DigitCulture();
+        culture.NumberFormat.DigitSubstitution = shape;
+        // The text culture deliberately differs from the explicit number culture.
+        var properties = new Properties(DigitFontFamily())
+        {
+            Culture = CultureInfo.GetCultureInfo("en-US"),
+            Numbers = new NumberSubstitution(NumberCultureSource.Override, culture, method)
+        };
+        var source = new Source { Text = "123", Properties = properties };
+        var provider = new Provider();
+        using var registration = PortableWpfServiceRegistry.RegisterTextFormatting(provider);
+        using var formatter = new TextFormatterImp();
+        using var first = PortableTextLine.Create(Settings(formatter, source), 0, 800, 1);
+        using var continuation = first.GetTextLineBreak();
+        using var second = PortableTextLine.Create(Settings(formatter, source, continuation), 2, 800, 1);
+
+        Assert.Equal("123", provider.Text);
+        Assert.Equal(1, provider.Calls);
+        Assert.Single(provider.Styles.ToArray());
+        var style = provider.Styles.Span[0];
+        Assert.Equal(0, style.Start);
+        Assert.Equal(3, style.Length);
+        Assert.Equal(digitZero, style.DigitZero);
+        Assert.False(style.ContextualDigits);
+        Assert.Equal(contextual ? 1 : 0, provider.DigitContextCalls);
+        Assert.Equal(contextual ? 1 : 0, provider.DigitGraphemeCalls);
+        Assert.Equal(contextual ? "123" : null, provider.DigitContextText);
+        Assert.Equal(contextual ? true : (bool?)null, provider.DigitContextInitialArabic);
+        Assert.Equal(2, first.Length);
+        Assert.Equal(0, first.NewlineLength);
+        Assert.Equal(2, second.Length);
+        Assert.Equal(1, second.NewlineLength);
+        var firstGlyphs = Assert.Single(first.GetIndexedGlyphRuns());
+        Assert.Equal(0, firstGlyphs.TextSourceCharacterIndex);
+        Assert.Equal(2, firstGlyphs.TextSourceLength);
+        var secondGlyphs = Assert.Single(second.GetIndexedGlyphRuns());
+        Assert.Equal(2, secondGlyphs.TextSourceCharacterIndex);
+        Assert.Equal(1, secondGlyphs.TextSourceLength);
+    }
+
+    [Fact]
+    public void MixedRunNumberSubstitutionRetainsIndependentSourcePolicies()
+    {
+        var culture = DigitCulture();
+        var first = new Properties(DigitFontFamily())
+        {
+            Numbers = new NumberSubstitution(NumberCultureSource.Override, culture, NumberSubstitutionMethod.Context)
+        };
+        var second = new Properties(DigitFontFamily())
+        {
+            Size = 24,
+            Numbers = new NumberSubstitution(NumberCultureSource.Override, culture, NumberSubstitutionMethod.European)
+        };
+        var source = new Source { Text = "123", Properties = first, FollowingProperties = second, Mixed = true };
+        var provider = new Provider { MixedOneLine = true };
+        using var registration = PortableWpfServiceRegistry.RegisterTextFormatting(provider);
+        using var formatter = new TextFormatterImp();
+        using var line = PortableTextLine.Create(Settings(formatter, source), 0, 800, 1);
+
+        Assert.Equal("123", provider.Text);
+        Assert.Equal(1, provider.DigitContextCalls);
+        Assert.Equal("123", provider.DigitContextText);
+        Assert.Equal(true, provider.DigitContextInitialArabic);
+        Assert.Equal(2, provider.Styles.Length);
+        var styles = provider.Styles.Span;
+        Assert.Equal((0, 1, 0x0660U, false),
+            (styles[0].Start, styles[0].Length, styles[0].DigitZero, styles[0].ContextualDigits));
+        Assert.Equal((1, 2, 0U, false),
+            (styles[1].Start, styles[1].Length, styles[1].DigitZero, styles[1].ContextualDigits));
+        Assert.Equal(3, line.Length - line.NewlineLength);
+        var glyphs = line.GetIndexedGlyphRuns().ToArray();
+        Assert.Equal(2, glyphs.Length);
+        Assert.Equal((0, 1), (glyphs[0].TextSourceCharacterIndex, glyphs[0].TextSourceLength));
+        Assert.Equal((1, 2), (glyphs[1].TextSourceCharacterIndex, glyphs[1].TextSourceLength));
+    }
+
+    [Fact]
+    public void ContextualDigitsUseLeftToRightParagraphSeedWithoutChangingSource()
+    {
+        var properties = new Properties(DigitFontFamily())
+        {
+            Numbers = new NumberSubstitution(NumberCultureSource.Override, DigitCulture(), NumberSubstitutionMethod.Context)
+        };
+        var source = new Source { Text = "123", Properties = properties };
+        var provider = new Provider();
+        using var registration = PortableWpfServiceRegistry.RegisterTextFormatting(provider);
+        using var formatter = new TextFormatterImp();
+        var settings = new FormatSettings(formatter, source, new TextRunCacheImp(),
+            new ParaProp(formatter, new ParagraphProperties(properties, false, false), false),
+            null, true, TextFormattingMode.Ideal, false);
+        using var line = PortableTextLine.Create(settings, 0, 800, 1);
+
+        Assert.Equal(1, provider.DigitContextCalls);
+        Assert.Equal("123", provider.DigitContextText);
+        Assert.Equal(false, provider.DigitContextInitialArabic);
+        Assert.Equal("123", provider.Text);
+        Assert.Single(provider.Styles.ToArray());
+        Assert.Equal(0U, provider.Styles.Span[0].DigitZero);
+        Assert.False(provider.Styles.Span[0].ContextualDigits);
+        Assert.Equal(3, provider.Styles.Span[0].Length);
+    }
+
+    [Fact]
+    public void ContextualDigitsRequireNativeContextCapabilityBeforeFormatting()
+    {
+        var properties = new Properties(DigitFontFamily())
+        {
+            Numbers = new NumberSubstitution(NumberCultureSource.Override, DigitCulture(), NumberSubstitutionMethod.Context)
+        };
+        var source = new Source { Text = "123", Properties = properties };
+        var provider = new Provider();
+        using var registration = PortableWpfServiceRegistry.RegisterTextFormatting(new WithoutDigitContextProvider(provider));
+        using var formatter = new TextFormatterImp();
+
+        Assert.Throws<PlatformNotSupportedException>(() =>
+            PortableTextLine.Create(Settings(formatter, source), 0, 800, 1));
+        Assert.Equal(0, provider.Calls);
+        Assert.Equal(0, provider.DigitContextCalls);
+    }
+
+    [Fact]
+    public void ContextualDigitsAtNonzeroSourceStartUsePrecedingStrongContext()
+    {
+        var properties = new Properties(DigitFontFamily())
+        {
+            Numbers = new NumberSubstitution(NumberCultureSource.Override, DigitCulture(), NumberSubstitutionMethod.Context)
+        };
+        var source = new Source { Text = "A123", Properties = properties };
+        var provider = new Provider();
+        using var registration = PortableWpfServiceRegistry.RegisterTextFormatting(provider);
+        using var formatter = new TextFormatterImp();
+        using var first = PortableTextLine.Create(Settings(formatter, source), 1, 800, 1);
+        using var continuation = first.GetTextLineBreak();
+        using var second = PortableTextLine.Create(Settings(formatter, source, continuation), 3, 800, 1);
+
+        Assert.Equal(new[] { ("A", true), ("123", false) }, provider.DigitContextRequests);
+        Assert.Equal(2, provider.DigitContextCalls);
+        Assert.Equal(1, provider.DigitGraphemeCalls);
+        Assert.Equal("123", provider.Text);
+        Assert.Equal(1, provider.Calls);
+        Assert.Single(provider.Styles.ToArray());
+        Assert.Equal(0U, provider.Styles.Span[0].DigitZero);
+        Assert.False(provider.Styles.Span[0].ContextualDigits);
+        Assert.Equal((0, 3), (provider.Styles.Span[0].Start, provider.Styles.Span[0].Length));
+        var firstGlyphs = Assert.Single(first.GetIndexedGlyphRuns());
+        Assert.Equal((1, 2), (firstGlyphs.TextSourceCharacterIndex, firstGlyphs.TextSourceLength));
+        var secondGlyphs = Assert.Single(second.GetIndexedGlyphRuns());
+        Assert.Equal((3, 1), (secondGlyphs.TextSourceCharacterIndex, secondGlyphs.TextSourceLength));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void CachedHiddenEdgesPreserveContextButCachedLineBreakResetsIt(bool hardBreak)
+    {
+        var properties = new Properties(DigitFontFamily())
+        {
+            Numbers = new NumberSubstitution(NumberCultureSource.Override, DigitCulture(), NumberSubstitutionMethod.Context)
+        };
+        var runs = new List<TextRun> { new TextCharacters("A", properties) };
+        if (hardBreak) runs.Add(new TextEndOfLine(1));
+        runs.Add(new TextHidden(2));
+        runs.Add(new TextCharacters("123", properties));
+        var source = new DocumentSource(runs.ToArray());
+        var provider = new Provider();
+        using var registration = PortableWpfServiceRegistry.RegisterTextFormatting(provider);
+        using var formatter = new TextFormatterImp();
+        var cache = new TextRunCacheImp();
+        var settings = new FormatSettings(formatter, source, cache,
+            new ParaProp(formatter, new ParagraphProperties(properties, false), false),
+            null, true, TextFormattingMode.Ideal, false);
+        cache.FetchTextRun(settings, 0, 0, out _, out _);
+        cache.FetchTextRun(settings, 1, 0, out _, out _);
+        if (hardBreak) cache.FetchTextRun(settings, 2, 0, out _, out _);
+        int first = hardBreak ? 4 : 3;
+        using var line = PortableTextLine.Create(settings, first, 800, 1);
+
+        Assert.Equal(hardBreak ? new[] { ("123", true) } : new[] { ("A", true), ("123", false) },
+            provider.DigitContextRequests);
+        Assert.Equal(1, provider.DigitGraphemeCalls);
+        Assert.Equal("123", provider.Text);
+        Assert.Single(provider.Styles.ToArray());
+        Assert.Equal(hardBreak ? 0x0660U : 0U, provider.Styles.Span[0].DigitZero);
+        Assert.Equal((0, 3), (provider.Styles.Span[0].Start, provider.Styles.Span[0].Length));
+        var glyphs = Assert.Single(line.GetIndexedGlyphRuns());
+        Assert.Equal((first, 2), (glyphs.TextSourceCharacterIndex, glyphs.TextSourceLength));
+    }
+
+    [Fact]
+    public void ContextualDigitAndCombiningMarkKeepTheNativeGraphemeTogether()
+    {
+        var properties = new Properties(DigitFontFamily())
+        {
+            Numbers = new NumberSubstitution(NumberCultureSource.Override, DigitCulture(), NumberSubstitutionMethod.Context)
+        };
+        var source = new Source { Text = "1\u064E2", Properties = properties };
+        var provider = new Provider();
+        using var registration = PortableWpfServiceRegistry.RegisterTextFormatting(provider);
+        using var formatter = new TextFormatterImp();
+        using var line = PortableTextLine.Create(Settings(formatter, source), 0, 800, 1);
+
+        Assert.Equal(source.Text, provider.Text);
+        Assert.Equal(1, provider.DigitGraphemeCalls);
+        Assert.Single(provider.Styles.ToArray());
+        Assert.Equal((0, 3, 0x0660U), (provider.Styles.Span[0].Start,
+            provider.Styles.Span[0].Length, provider.Styles.Span[0].DigitZero));
+        Assert.False(provider.Styles.Span[0].ContextualDigits);
+        var glyphs = Assert.Single(line.GetIndexedGlyphRuns());
+        Assert.Equal((0, 2), (glyphs.TextSourceCharacterIndex, glyphs.TextSourceLength));
+        Assert.Equal(new ushort[] { 0, 0 }, glyphs.GlyphRun.ClusterMap);
+    }
+
+    [Theory]
+    [InlineData("1%2", NumberSubstitutionMethod.NativeNational)]
+    [InlineData("1,2", NumberSubstitutionMethod.NativeNational)]
+    [InlineData("1.2", NumberSubstitutionMethod.NativeNational)]
+    [InlineData("1%2", NumberSubstitutionMethod.European)]
+    [InlineData("1,2", NumberSubstitutionMethod.European)]
+    [InlineData("1.2", NumberSubstitutionMethod.European)]
+    public void NumberSymbolsRejectOnlyWhenTheirActiveCultureRequiresSubstitution(
+        string text, NumberSubstitutionMethod method)
+    {
+        var culture = DigitCulture();
+        culture.NumberFormat.PercentSymbol = "\u066A";
+        culture.NumberFormat.NumberGroupSeparator = "\u066C";
+        culture.NumberFormat.NumberDecimalSeparator = "\u066B";
+        var properties = new Properties(DigitFontFamily())
+        {
+            Numbers = new NumberSubstitution(NumberCultureSource.Override, culture, method)
+        };
+        var source = new Source { Text = text, Properties = properties };
+        var provider = new Provider();
+        using var registration = PortableWpfServiceRegistry.RegisterTextFormatting(provider);
+        using var formatter = new TextFormatterImp();
+
+        if (method == NumberSubstitutionMethod.NativeNational)
+        {
+            Assert.Contains("number symbols", Assert.Throws<PlatformNotSupportedException>(() =>
+                PortableTextLine.Create(Settings(formatter, source), 0, 800, 1)).Message);
+            Assert.Equal(0, provider.Calls);
+        }
+        else
+        {
+            using var line = PortableTextLine.Create(Settings(formatter, source), 0, 800, 1);
+            Assert.Equal(text, provider.Text);
+            Assert.Equal(1, provider.Calls);
+            Assert.Single(provider.Styles.ToArray());
+            Assert.Equal((0, 3, 0U), (provider.Styles.Span[0].Start,
+                provider.Styles.Span[0].Length, provider.Styles.Span[0].DigitZero));
+            Assert.Equal(2, line.Length);
+        }
+        Assert.Equal(0, provider.DigitContextCalls);
+    }
+
+    [Fact]
+    public void SupplementaryNativeDigitsKeepOriginalUtf16SourceLengths()
+    {
+        const int zero = 0x1FBF0;
+        string path = Path.Combine(AppContext.BaseDirectory, "LibreWPF", "Fonts", "NotoSansSymbols2-Regular.ttf");
+        var face = new GlyphTypeface(new Uri(path));
+        for (int digit = 0; digit < 10; digit++)
+            Assert.True(face.CharacterToGlyphMap.ContainsKey(zero + digit));
+        var properties = new Properties(new FontFamily(path + "#" + face.FamilyNames.Values.First()))
+        {
+            Numbers = new NumberSubstitution(NumberCultureSource.Override, DigitCulture(zero),
+                NumberSubstitutionMethod.NativeNational)
+        };
+        var source = new Source { Text = "123", Properties = properties };
+        var provider = new Provider();
+        using var registration = PortableWpfServiceRegistry.RegisterTextFormatting(provider);
+        using var formatter = new TextFormatterImp();
+        using var line = PortableTextLine.Create(Settings(formatter, source), 0, 800, 1);
+
+        Assert.Equal("123", provider.Text);
+        Assert.Equal(0, provider.DigitContextCalls);
+        Assert.Single(provider.Styles.ToArray());
+        Assert.Equal((uint)zero, provider.Styles.Span[0].DigitZero);
+        Assert.False(provider.Styles.Span[0].ContextualDigits);
+        Assert.Equal(3, provider.Styles.Span[0].Length);
+        Assert.Equal(2, line.Length);
+        Assert.Equal(2, Assert.Single(line.GetIndexedGlyphRuns()).TextSourceLength);
+    }
+
+    [Fact]
+    public void NonContiguousNativeDigitsRejectBeforeCallingTheProvider()
+    {
+        var culture = DigitCulture();
+        string[] digits = culture.NumberFormat.NativeDigits;
+        digits[1] = "\u06F1"; // A valid decimal one from a different digit sequence.
+        culture.NumberFormat.NativeDigits = digits;
+        var properties = new Properties(DigitFontFamily())
+        {
+            Numbers = new NumberSubstitution(NumberCultureSource.Override, culture, NumberSubstitutionMethod.NativeNational)
+        };
+        var source = new Source { Text = "123", Properties = properties };
+        var provider = new Provider();
+        using var registration = PortableWpfServiceRegistry.RegisterTextFormatting(provider);
+        using var formatter = new TextFormatterImp();
+
+        Assert.Contains("non-contiguous native digit", Assert.Throws<PlatformNotSupportedException>(() =>
+            PortableTextLine.Create(Settings(formatter, source), 0, 800, 1)).Message);
+        Assert.Equal(0, provider.Calls);
+    }
+
+    [Fact]
+    public void MissingReplacementDigitRejectsSourceAlternateGlyphBeforeFormatting()
+    {
+        string path = Path.Combine(AppContext.BaseDirectory, "LibreWPF", "Fonts", "Inter-Medium.ttf");
+        var face = new GlyphTypeface(new Uri(path));
+        Assert.True(face.CharacterToGlyphMap.ContainsKey('0'));
+        Assert.False(face.CharacterToGlyphMap.ContainsKey(0x0BE6));
+        var properties = new Properties(new FontFamily(path + "#" + face.FamilyNames.Values.First()))
+        {
+            Numbers = new NumberSubstitution(NumberCultureSource.Override, DigitCulture(0x0BE6),
+                NumberSubstitutionMethod.NativeNational)
+        };
+        // Source DigitMap permits ASCII zero as an alternate for Tamil zero. The
+        // current native substitution contract still requires the actual Tamil glyph.
+        var source = new Source { Text = "000", Properties = properties };
+        var provider = new Provider();
+        using var registration = PortableWpfServiceRegistry.RegisterTextFormatting(provider);
+        using var formatter = new TextFormatterImp();
+
+        Assert.Throws<PlatformNotSupportedException>(() =>
+            PortableTextLine.Create(Settings(formatter, source), 0, 800, 1));
+        Assert.Equal(0, provider.Calls);
+    }
+
+    private static CultureInfo DigitCulture(int zero = 0x0660)
+    {
+        var culture = (CultureInfo)CultureInfo.GetCultureInfo("ar-SA").Clone();
+        culture.NumberFormat.NativeDigits = Enumerable.Range(zero, 10).Select(char.ConvertFromUtf32).ToArray();
+        return culture;
+    }
+
+    private static FontFamily DigitFontFamily()
+    {
+        string path = Path.Combine(AppContext.BaseDirectory, "LibreWPF", "Fonts", "trado.ttf");
+        var face = new GlyphTypeface(new Uri(path));
+        return new FontFamily(path + "#" + face.FamilyNames.Values.First());
+    }
+
     [Fact]
     public void ModifierScopeSurvivesWrappedAndExplicitLineBreaks()
     {
@@ -597,6 +949,62 @@ public class PortableTextLineTests
         Assert.Equal(1, glyphs.TextSourceCharacterIndex);
         Assert.Equal(2, glyphs.TextSourceLength);
         Assert.Equal(new ushort[] { 0, 1 }, glyphs.GlyphRun.ClusterMap);
+    }
+
+    [Theory]
+    [InlineData(NumberSubstitutionMethod.NativeNational, 18.0)]
+    [InlineData(NumberSubstitutionMethod.European, 9.0)]
+    public void NumberSubstitutionSelectsCompositeRangeAndPhysicalFaceBeforeShaping(
+        NumberSubstitutionMethod method, double expectedSize)
+    {
+        string asciiPath = Path.Combine(AppContext.BaseDirectory, "LibreWPF", "Fonts", "Inter-Medium.ttf");
+        string arabicPath = Path.Combine(AppContext.BaseDirectory, "LibreWPF", "Fonts", "trado.ttf");
+        var asciiFace = new GlyphTypeface(new Uri(asciiPath));
+        var arabicFace = new GlyphTypeface(new Uri(arabicPath));
+        for (int digit = 0; digit < 10; digit++)
+        {
+            Assert.True(asciiFace.CharacterToGlyphMap.ContainsKey('0' + digit));
+            Assert.True(arabicFace.CharacterToGlyphMap.ContainsKey(0x0660 + digit));
+        }
+        var composite = new FontFamily();
+        composite.FamilyMaps.Add(new FontFamilyMap
+        {
+            Unicode = "0030-0039", Target = asciiPath + "#" + asciiFace.FamilyNames.Values.First(), Scale = .75
+        });
+        composite.FamilyMaps.Add(new FontFamilyMap
+        {
+            Unicode = "0660-0669", Target = arabicPath + "#" + arabicFace.FamilyNames.Values.First(), Scale = 1.5
+        });
+        var properties = new Properties(composite)
+        {
+            Numbers = new NumberSubstitution(NumberCultureSource.Override, DigitCulture(), method)
+        };
+        var source = new Source { Text = "123", Properties = properties };
+        var provider = new Provider();
+        using var registration = PortableWpfServiceRegistry.RegisterTextFormatting(provider);
+        using var formatter = new TextFormatterImp();
+        using var first = PortableTextLine.Create(Settings(formatter, source), 0, 800, 1);
+        using var continuation = first.GetTextLineBreak();
+        using var second = PortableTextLine.Create(Settings(formatter, source, continuation), 2, 800, 1);
+
+        Assert.Equal("123", provider.Text);
+        Assert.Single(provider.Styles.ToArray());
+        Assert.Equal(expectedSize, provider.Styles.Span[0].FontSize);
+        Assert.Equal((0, 3), (provider.Styles.Span[0].Start, provider.Styles.Span[0].Length));
+        Assert.Equal(method == NumberSubstitutionMethod.NativeNational ? 0x0660U : 0U,
+            provider.Styles.Span[0].DigitZero);
+        string expectedPath = method == NumberSubstitutionMethod.NativeNational ? arabicPath : asciiPath;
+        var firstGlyphs = Assert.Single(first.GetIndexedGlyphRuns());
+        var secondGlyphs = Assert.Single(second.GetIndexedGlyphRuns());
+        Assert.Equal((0, 2), (firstGlyphs.TextSourceCharacterIndex, firstGlyphs.TextSourceLength));
+        Assert.Equal((2, 1), (secondGlyphs.TextSourceCharacterIndex, secondGlyphs.TextSourceLength));
+        foreach (var run in new[] { firstGlyphs.GlyphRun, secondGlyphs.GlyphRun })
+        {
+            Assert.Equal(expectedSize, run.FontRenderingEmSize);
+            Assert.Equal(expectedPath, run.GlyphTypeface.FontUri.LocalPath);
+            Assert.True(((IPortableNativeGlyphRunSource)run).TryGetPortableNativeGlyphRun(out var native));
+            Assert.Same(provider.NativeFont, native.NativeFont);
+        }
     }
 
     [Fact]
@@ -852,6 +1260,7 @@ public class PortableTextLineTests
         private readonly Typeface _face;
         internal TextDecorationCollection? Decorations { get; init; }
         internal CultureInfo Culture { get; init; } = CultureInfo.InvariantCulture;
+        internal NumberSubstitution? Numbers { get; init; }
         internal double Size { get; init; } = 12;
         internal Properties(FontFamily? family = null)
         {
@@ -866,6 +1275,7 @@ public class PortableTextLineTests
         public override Brush ForegroundBrush => Size == 24 ? Brushes.Red : Brushes.Black;
         public override Brush BackgroundBrush => Size == 24 ? Brushes.Blue : null!;
         public override CultureInfo CultureInfo => Culture;
+        public override NumberSubstitution NumberSubstitution => Numbers!;
         public override TextEffectCollection TextEffects => null!;
     }
 
@@ -884,8 +1294,45 @@ public class PortableTextLineTests
     }
 
     // A typed source contract fixture, not native shaping/parity evidence.
-    private sealed class Provider : IPortableTextFormatting, IPortableReflowTextParagraph
+    private sealed class WithoutDigitContextProvider(Provider provider) : IPortableTextFormatting
     {
+        public uint ResolveLanguage(string ietfLanguageTag) => provider.ResolveLanguage(ietfLanguageTag);
+        public IPortableTextParagraph Format(in PortableTextParagraphRequest request) => provider.Format(request);
+    }
+
+    private sealed class Provider : IPortableTextFormatting, IPortableReflowTextParagraph, IPortableTextDigitContext
+    {
+        internal int DigitContextCalls { get; private set; }
+        internal int DigitGraphemeCalls { get; private set; }
+        internal string? DigitContextText { get; private set; }
+        internal bool? DigitContextInitialArabic { get; private set; }
+        internal List<(string Text, bool InitialArabic)> DigitContextRequests { get; } = new();
+        public bool ResolveDigitContext(ReadOnlySpan<char> text, bool initialArabicContext, Span<byte> contextFlags)
+        {
+            DigitContextCalls++;
+            DigitContextText = text.ToString();
+            DigitContextInitialArabic = initialArabicContext;
+            DigitContextRequests.Add((DigitContextText, initialArabicContext));
+            Assert.Equal(text.Length, contextFlags.Length);
+            // Explicit fixture answers for one Latin prefix and one neutral digit
+            // segment; general Unicode classification belongs to native tests.
+            Assert.True(text.SequenceEqual("A") || text.SequenceEqual("123") || text.SequenceEqual("1\u064E2"));
+            bool result = !text.SequenceEqual("A") && initialArabicContext;
+            contextFlags.Fill(result ? (byte)1 : (byte)0);
+            return result;
+        }
+
+        public bool ResolveDigitContext(ReadOnlySpan<char> text, bool initialArabicContext,
+            Span<byte> contextFlags, Span<byte> graphemeStarts)
+        {
+            DigitGraphemeCalls++;
+            Assert.Equal(text.Length, graphemeStarts.Length);
+            bool result = ResolveDigitContext(text, initialArabicContext, contextFlags);
+            graphemeStarts.Fill(1);
+            if (text.SequenceEqual("1\u064E2")) graphemeStarts[1] = 0;
+            return result;
+        }
+
         internal bool Continued { get; init; }
         internal int Reflows { get; private set; }
         public IPortableTextParagraph Reflow(int inputStart, float maximumWidth)

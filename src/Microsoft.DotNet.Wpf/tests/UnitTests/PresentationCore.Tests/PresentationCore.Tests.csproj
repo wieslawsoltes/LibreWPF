@@ -42,6 +42,12 @@
     <None Include="$(WpfSourceDir)..\..\..\external\ProGPU\src\ProGPU.Fonts.Inter\Fonts\Inter-Medium.ttf"
           Link="LibreWPF\Fonts\Inter-Medium.ttf"
           CopyToOutputDirectory="PreserveNewest" />
+    <None Include="$(WpfSourceDir)PresentationCore\Fonts\trado.ttf"
+          Link="LibreWPF\Fonts\trado.ttf"
+          CopyToOutputDirectory="PreserveNewest" />
+    <None Include="$(WpfSourceDir)..\..\..\external\ProGPU\src\ProGPU.Fonts.Noto\Fonts\NotoSansSymbols2-Regular.ttf"
+          Link="LibreWPF\Fonts\NotoSansSymbols2-Regular.ttf"
+          CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

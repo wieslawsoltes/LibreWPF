@@ -323,11 +323,16 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("IPortableTextFormatting service)", portable, StringComparison.Ordinal);
         Assert.Contains("The text provider returned no paragraph.", portable, StringComparison.Ordinal);
         Assert.Contains("service.ResolveLanguage(", portable, StringComparison.Ordinal);
-        Assert.Contains("style.Language);", portable, StringComparison.Ordinal);
+        Assert.Contains("style.DigitZero, style.ContextualDigits);", portable, StringComparison.Ordinal);
         Assert.DoesNotContain("throw Unsupported(\"mixed run languages\")", portable, StringComparison.Ordinal);
         string provider = File.ReadAllText(FindRepoPath("src", "ProGPU.Wpf", "Composition", "WpfPortableTextFormatting.cs"));
         Assert.Contains("NativeTextShapingInterop.ResolveLanguageTag(language.AsSpan())", provider, StringComparison.Ordinal);
         Assert.Contains("ConcurrentDictionary<string, uint>", provider, StringComparison.Ordinal);
+        Assert.Contains("NativeTextShapingInterop.ResolveDigitContext(text, initialArabicContext, substitutionContext)", provider, StringComparison.Ordinal);
+        Assert.Contains("IPortableTextDigitContext", portable, StringComparison.Ordinal);
+        Assert.Contains("GetInitialDigitContext(settings, first, digitContext)", portable, StringComparison.Ordinal);
+        Assert.Contains("p.CultureInfo, mappedFonts, substitute ? request.DigitCulture : null)", portable, StringComparison.Ordinal);
+        Assert.DoesNotContain("throw Unsupported(\"digit substitution\")", portable, StringComparison.Ordinal);
     }
 
     [Fact]

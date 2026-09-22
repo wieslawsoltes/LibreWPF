@@ -241,11 +241,11 @@ namespace MS.Internal.Shaping
         /// LineServices object is required to obtain these physical face ranges.
         /// </summary>
         internal void GetPortableFontRuns(CharacterBufferRange text, CultureInfo culture,
-            IList<TextSpan<ScaledShapeTypeface>> output)
+            IList<TextSpan<ScaledShapeTypeface>> output, CultureInfo digitCulture = null)
         {
             if (text.Length == 0) return;
             var indices = new SpanVector<int>(-1);
-            MapItem(text, culture, null, ref indices, 0);
+            MapItem(text, culture, digitCulture, ref indices, 0);
             var rider = new SpanRider<int>(indices);
             int position = 0;
             while (position < text.Length)

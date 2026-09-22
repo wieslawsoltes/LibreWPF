@@ -7,7 +7,7 @@ using ProGPU.Text;
 
 namespace System.Windows.Media.ProGPU.Composition;
 
-internal sealed class WpfPortableTextFormatting : IPortableFloatingTextFormatting
+internal sealed class WpfPortableTextFormatting : IPortableFloatingTextFormatting, IPortableTextDigitContext
 {
     private sealed record FloatingRequest(NativeTextFloatingOptions Options, NativeTextParagraphFloat[] Items);
     private static readonly WpfPortableTextFormatting Default = new();
@@ -27,6 +27,13 @@ internal sealed class WpfPortableTextFormatting : IPortableFloatingTextFormattin
         return _languageTags.GetOrAdd(ietfLanguageTag,
             static language => NativeTextShapingInterop.ResolveLanguageTag(language.AsSpan()));
     }
+
+    public bool ResolveDigitContext(ReadOnlySpan<char> text, bool initialArabicContext, Span<byte> substitutionContext)
+        => NativeTextShapingInterop.ResolveDigitContext(text, initialArabicContext, substitutionContext);
+
+    public bool ResolveDigitContext(ReadOnlySpan<char> text, bool initialArabicContext,
+        Span<byte> substitutionContext, Span<byte> graphemeStarts)
+        => NativeTextShapingInterop.ResolveDigitContext(text, initialArabicContext, substitutionContext, graphemeStarts);
 
     public IPortableTextParagraph Format(in PortableTextParagraphRequest request)
         => FormatCore(in request, null, null);
@@ -168,7 +175,8 @@ internal sealed class WpfPortableTextFormatting : IPortableFloatingTextFormattin
                 fonts.Add(_fonts.GetValue(style.Font, static f => new(f)).RenderFont);
             }
             styles[i] = new(style.Start, style.Length, index, style.FontSize / style.Font.UnitsPerEm,
-                (uint)feature, (uint)style.Features.Length, style.Language);
+                (uint)feature, (uint)style.Features.Length, style.Language,
+                style.DigitZero, style.ContextualDigits);
             foreach (var value in style.Features.Span) features[feature++] = new(value.Tag, value.Value);
         }
         return CreateParagraph(request, CreateNative(context, request, options, features, styles, original, collapse, inline, metrics, objects, exclusionOptions, exclusions, originY, floating, continuationStart), fonts.ToArray(), metrics, objects);

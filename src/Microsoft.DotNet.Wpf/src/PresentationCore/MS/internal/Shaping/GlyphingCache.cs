@@ -87,7 +87,7 @@ namespace MS.Internal.Shaping
 
         /// <summary>Typed source font ranges for a native paragraph, without source shaping.</summary>
         internal void GetPortableFontRuns(Typeface typeface, CharacterBufferRange text,
-            CultureInfo culture, IList<TextSpan<ScaledShapeTypeface>> output)
+            CultureInfo culture, IList<TextSpan<ScaledShapeTypeface>> output, CultureInfo digitCulture = null)
         {
             if (text.Length == 0) return;
             if (typeface.Symbol)
@@ -96,7 +96,7 @@ namespace MS.Internal.Shaping
                 output.Add(new TextSpan<ScaledShapeTypeface>(text.Length,
                     new ScaledShapeTypeface(typeface.TryGetGlyphTypeface(), null, 1.0, typeface.NullFont)));
             }
-            else Lookup(typeface).GetPortableFontRuns(text, culture, output);
+            else Lookup(typeface).GetPortableFontRuns(text, culture, output, digitCulture);
         }
 
         /// <summary>
