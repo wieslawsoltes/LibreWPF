@@ -25,6 +25,7 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
             <Border
@@ -151,6 +152,21 @@
                         FlowDirection="RightToLeft"
                         Text="English 1234 — שלום עולם — العربية 5678 — mixed direction text"
                         TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
+            <Border Grid.Row="3" Grid.Column="0" Margin="0,10,10,0" Padding="12" Background="#F2F8F2">
+                <StackPanel>
+                    <TextBlock Margin="0,0,0,6" FontSize="16" FontWeight="SemiBold" Text="Native national digits" />
+                    <TextBlock x:Name="NationalDigitsText" Width="240" FontSize="24"
+                               HorizontalAlignment="Left" TextWrapping="Wrap"
+                               Text="1234567890 1234567890 1234567890" />
+                </StackPanel>
+            </Border>
+            <Border Grid.Row="3" Grid.Column="1" Margin="0,10,0,0" Padding="12" Background="#FFF6E8">
+                <StackPanel>
+                    <TextBlock Margin="0,0,0,6" FontSize="16" FontWeight="SemiBold" Text="Contextual digits and hard break" />
+                    <TextBlock x:Name="ContextualDigitsText" Width="240" FontSize="24"
+                               HorizontalAlignment="Left" FlowDirection="RightToLeft" TextWrapping="Wrap" />
                 </StackPanel>
             </Border>
         </Grid>

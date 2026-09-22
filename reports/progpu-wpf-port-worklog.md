@@ -25,11 +25,38 @@
   graph guard pass. The actual styled paragraph differential exposed a native
   snapshot defect: glyphs and positions match direct Arabic digits, but exported
   bidi levels still come from original ASCII input (0 instead of 2). The test
-  remains strict; this ProGPU correction, Windows source run, package dependency
+  remains strict; this ProGPU correction, package dependency
   alignment, and CI remain pending before this integration can be released.
   Source and bridge builds retain existing unrelated warnings. The source tests
   use their Microsoft.Testing.Platform executable; VSTest discovered no tests
   for that assembly and was not counted as successful verification.
+- The exact source test payload subsequently passed all 53 tests on Windows 11
+  ARM64/.NET 10.0.12, with zero skips, using the existing process-local portable
+  test bootstrap. All 280 original payload files match the host SHA-256 manifest.
+  The default Windows MIL run's 37 passes/16 skips did not meet the required
+  execution count and is retained separately, not represented as a passing gate.
+  The shared Windows text-layout application/gate now includes forced-national
+  and contextual digit cases with the same repository font in both SDK builds;
+  all original comparisons remain. See the
+  [source digit qualification record](native-mil-source-digits-2026-09-22.md).
+- ProGPU `e584e6803` corrects the substituted-digit bidi snapshot and preserves
+  disjoint borrowed storage before all writes. It also sorts both export
+  inventories and fixes explicit native test ABI size conversions, addressing
+  the six observed CI failures without weakening native tests or compiler flags.
+  The strict real WPF adapter regression and three related graph/context tests
+  pass (4/4) against its rebuilt native payload. The complete bridge run's
+  first 1,831 passes/three missing-Dawn-library failures were not full-suite
+  qualification. After building the exact Dawn provider and importing managed
+  output pinning follow-up `e29b782b4`, the complete bridge suite passes
+  1,834/1,834 with zero skips. Both native providers retain their contract/export
+  checks; final package CI remains required.
+- The same-source stock-WPF eight-case application builds cleanly and reports
+  all eight cases plus 541 insertion positions in Windows ARM64 at 192 DPI.
+  The staged font hash matches the repository. Both digit cases measure two
+  lines at 57.6 DIP total height; exact source starts and caret geometry are
+  recorded in the qualification report. The separate Parallels capture was
+  incomplete and is not pixel evidence. The ProGPU package comparison remains
+  pending immutable dependency/package closure.
 
 ## 2026-08-25
 

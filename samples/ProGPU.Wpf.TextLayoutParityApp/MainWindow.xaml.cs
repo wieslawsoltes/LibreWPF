@@ -1,10 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
+using System.Windows.Media;
 using System.Windows.Threading;
 
 namespace ProGPU.Wpf.TextLayoutParityApp;
@@ -36,6 +38,22 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         TabsAndWhitespaceText.Text = "Alpha\tBeta trailing   \nNext\tcolumn";
+        ContextualDigitsText.Text = "123 A456 \u0627 789\n123 A456 \u0627 789";
+        ConfigureDigits(NationalDigitsText, NumberSubstitutionMethod.NativeNational);
+        ConfigureDigits(ContextualDigitsText, NumberSubstitutionMethod.Context);
+    }
+
+    private static void ConfigureDigits(TextBlock text, NumberSubstitutionMethod method)
+    {
+        // Both SDK builds consume the same repository font, independent of the
+        // installed font set. Keep original ASCII digits in the source content.
+        string fontPath = Path.Combine(AppContext.BaseDirectory, "Fonts", "trado.ttf");
+        if (!File.Exists(fontPath))
+            throw new InvalidOperationException("The shared Traditional Arabic font fixture is missing.");
+        text.FontFamily = new FontFamily(new Uri(fontPath, UriKind.Absolute), "#Traditional Arabic");
+        NumberSubstitution.SetCultureSource(text, NumberCultureSource.Override);
+        NumberSubstitution.SetCultureOverride(text, CultureInfo.GetCultureInfo("ar-SA"));
+        NumberSubstitution.SetSubstitution(text, method);
     }
 
     private void OnWindowLoaded(object sender, RoutedEventArgs e)
@@ -88,6 +106,8 @@ public partial class MainWindow : Window
             ReportTextCase("tabs-whitespace", TabsAndWhitespaceText);
             ReportTextCase("explicit-line-height", ExplicitLineHeightText);
             ReportTextCase("bidirectional", BidirectionalText);
+            ReportTextCase("national-digits", NationalDigitsText);
+            ReportTextCase("contextual-digits", ContextualDigitsText);
             Console.Out.Flush();
             if (Environment.GetEnvironmentVariable("PROGPU_WPF_TEXT_LAYOUT_EXIT_AFTER_REPORT") == "1")
             {

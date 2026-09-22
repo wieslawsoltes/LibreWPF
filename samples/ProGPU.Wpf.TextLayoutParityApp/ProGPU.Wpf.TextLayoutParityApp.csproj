@@ -5,4 +5,8 @@
     <UseWPF>true</UseWPF>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
+  <ItemGroup>
+    <Content Include="../../src/Microsoft.DotNet.Wpf/src/PresentationCore/Fonts/trado.ttf"
+             Link="Fonts/trado.ttf" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

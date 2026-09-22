@@ -448,7 +448,9 @@ $expectedTextCases = @(
     "overflow-token",
     "tabs-whitespace",
     "explicit-line-height",
-    "bidirectional"
+    "bidirectional",
+    "national-digits",
+    "contextual-digits"
 )
 if ($nativeLayout.Cases.Count -ne $expectedTextCases.Count -or
     $portableLayout.Cases.Count -ne $expectedTextCases.Count) {

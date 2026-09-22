@@ -26,6 +26,8 @@ public sealed class WpfManagedProjectGraphTests
             "tabs-whitespace",
             "explicit-line-height",
             "bidirectional",
+            "national-digits",
+            "contextual-digits",
         };
         foreach (string caseName in caseNames)
         {
@@ -49,6 +51,13 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("$caseName line $i height", gate, StringComparison.Ordinal);
         Assert.Contains("../ProGPU.Wpf.TextLayoutParityApp/MainWindow.xaml", windowsProject, StringComparison.Ordinal);
         Assert.Contains("../ProGPU.Wpf.TextLayoutParityApp/MainWindow.xaml.cs", windowsProject, StringComparison.Ordinal);
+        Assert.Contains("NumberSubstitutionMethod.NativeNational", source, StringComparison.Ordinal);
+        Assert.Contains("NumberSubstitutionMethod.Context", source, StringComparison.Ordinal);
+        Assert.Contains("NumberCultureSource.Override", source, StringComparison.Ordinal);
+        Assert.Contains("Fonts/trado.ttf", windowsProject, StringComparison.Ordinal);
+        string portableProject = File.ReadAllText(FindRepoPath(
+            "samples", "ProGPU.Wpf.TextLayoutParityApp", "ProGPU.Wpf.TextLayoutParityApp.csproj"));
+        Assert.Contains("Fonts/trado.ttf", portableProject, StringComparison.Ordinal);
         Assert.DoesNotContain("TEXT_LAYOUT width=", source, StringComparison.Ordinal);
     }
 

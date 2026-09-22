@@ -69,6 +69,9 @@ Symbols 2 fonts with verified glyph coverage, including segmented supplementary
 digits. A composite-family regression checks both the selected face and em scale.
 Build and execution results are recorded in the worklog after running them on
 the committed source and dependency revisions.
+The [2026-09-22 qualification record](../reports/native-mil-source-digits-2026-09-22.md)
+distinguishes the passing 53-test source runs on macOS/Windows, the corrected
+native bidi metadata regression, and the still-required eight-case package comparison.
 
 The culture-policy contract follows the public
 [NumberSubstitutionMethod documentation](https://learn.microsoft.com/en-us/dotnet/api/system.windows.media.numbersubstitutionmethod).
