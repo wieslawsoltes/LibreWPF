@@ -98,3 +98,9 @@ immutable dependency alignment,
 cross-platform package qualification, and required CI remain separate gates.
 Number symbols and source alternate-character fallback remain explicit gaps;
 this record does not claim full number-formatting or text parity.
+
+The prerequisite source-preservation correction, LibreWPF PR #152 at
+`176939285`, passed all ten PR checks and merged as `788f33ba0`. The digit
+integration is rebased onto that exact merge with no content changes. This
+closes the missing-provider false-success fix; it does not qualify the new
+digit package graph. ProGPU #180 remains the pending native dependency.

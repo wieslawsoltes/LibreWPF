@@ -2,6 +2,11 @@
 
 ## 2026-09-22 — source digit font selection
 
+- LibreWPF PR #152 passed all ten required checks at `176939285`, including
+  Windows x64/ARM64 native-MIL packages, canonical consumers and XWayland, and
+  merged as `788f33ba0`. The digit integration rebased cleanly onto that merge;
+  its code/content tree is unchanged by the rebase. ProGPU #180 and the aligned
+  dependency/package comparison remain open; this is not full text parity.
 - LibreWPF PR #151 passed all ten checks, including Windows x64/ARM64 native-MIL
   package Showcase, AnyCPU, canonical consumer, and XWayland; it merged as
   `276c16ce8`. The source-preserving missing-provider correction was rebased onto
