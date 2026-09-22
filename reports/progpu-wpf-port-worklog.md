@@ -1,5 +1,24 @@
 # ProGPU WPF Port Worklog
 
+## 2026-09-22 — paused checkpoint
+
+- Stopped implementation, builds and investigation at the user's request.
+  The real macOS native source harness passed retention, text/document checks,
+  presentation, recovery and native completion after a zero-error rebuild.
+- ProGPU's Ubuntu zero-allocation test remains unresolved: CI measured 3,808
+  bytes, while five isolated macOS runs and the 11-test class passed with the
+  unchanged assertion. A rerun request during the active workflow was refused.
+- The isolated Windows ARM64 eight-case source diagnostic compiled but was not
+  run. Its native payload is unstaged and metadata inspection identified five
+  missing managed assemblies. Compilation does not qualify application startup.
+  Evidence and resume boundaries are in the
+  [source digit qualification record](native-mil-source-digits-2026-09-22.md#pause-checkpoint).
+- Feature code was already committed through LibreWPF `99dfbe2c0` and ProGPU
+  `e29b782b4`. The separate workspace's existing ProGPU pointer at `087f3fb3a`
+  is preserved as a local dependency checkpoint, not an aligned release graph.
+  Ignored build outputs and diagnostic logs remain local; no CI assertion,
+  package gate or outstanding parity requirement is waived by pausing.
+
 ## 2026-09-22 — source digit font selection
 
 - LibreWPF PR #152 passed all ten required checks at `176939285`, including

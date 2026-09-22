@@ -104,3 +104,43 @@ The prerequisite source-preservation correction, LibreWPF PR #152 at
 integration is rebased onto that exact merge with no content changes. This
 closes the missing-provider false-success fix; it does not qualify the new
 digit package graph. ProGPU #180 remains the pending native dependency.
+
+## Pause checkpoint
+
+Work stopped at the user's request after the following additional checks. These
+are source-build diagnostics, not completion of the goal or package qualification.
+
+- The real macOS ARM64 PresentationFramework harness rebuilt at LibreWPF
+  `99dfbe2c0` / ProGPU `e29b782b4` with zero errors and two existing warnings.
+  `eng/progpu-wpf-native-mil-host-smoke.sh` then exited zero: retention, text and
+  document interaction, native presentation, device recovery, and native memory
+  completion checks passed. The single instrumented frame is not a performance
+  benchmark. Logs remain in `/tmp/librewpf-text-review.6OsyqD/` as
+  `native-source-harness-build.log` and `native-source-harness-tests.log`.
+- ProGPU Build run `35694517582`, Ubuntu job `106638345331`, reported 3,808
+  allocated bytes instead of zero in
+  `EmptyClipStateCyclesAllocateNothingAfterWarmup` (4,636 passed, one failed,
+  seven skipped). The unchanged assertion passed in five fresh local Release
+  processes and its entire 11-test class with `DOTNET_TieredCompilation=0`.
+  Those macOS results do not explain or qualify the Linux failure. An attempted
+  job rerun while the workflow was still active was refused; no successful rerun
+  is claimed. Local evidence remains in ProGPU's
+  `artifacts/skia-clip-allocation-diagnostic/`.
+- The private Windows ARM64 eight-case source diagnostic compiled successfully
+  in 6.75 seconds (zero errors, one existing CS1591 warning). SHA-256 checks
+  matched 883 staged inputs. Its application host is ARM64 and runtime
+  configuration requests `NativeMilWgpu`; the unchanged application used an
+  isolated SDK and `LocalArtifacts` references. It was **not run** and no native
+  payload was staged. Managed metadata inspection found five absent assemblies:
+  `System.Private.Windows.Core`, `System.Printing`, `Accessibility`,
+  `System.Drawing.Common`, and `WebGpuSharp`. Resolve the actual dependency
+  closure before startup; do not treat compilation as runtime success.
+  Evidence remains under `artifacts/windows-native-eight-case.Jj9fbZ/`, including
+  build output, input/output hashes, runtime configuration, dependency metadata,
+  and `missing-managed-references.csv`. The host-built PresentationCore uses
+  PortableTextInterface, not the Windows-produced C++/CLI package graph.
+
+Resume with the unresolved Ubuntu allocation gate, exact-head native payload and
+Windows application comparison, then aligned immutable ProGPU/LibreWinForms/WPF
+dependencies and final package CI. Broader deferred API parity remains outside
+this text checkpoint. No additional validation or merges were started on pause.
