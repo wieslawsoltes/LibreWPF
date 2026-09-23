@@ -1,6 +1,6 @@
 param(
     [string] $PackageDirectory = "",
-    [string] $Version = "0.1.0-preview.63",
+    [string] $Version = "0.1.0-preview.64",
     [ValidateSet("x64", "arm64")]
     [string] $TargetArchitecture = "x64",
     [switch] $AllowEmulatedX64

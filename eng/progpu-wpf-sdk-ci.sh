@@ -87,8 +87,8 @@ if [[ -z "${ProGpuWpfRuntimeFrameworkVersion:-}" ]]; then
 fi
 
 package_output="${PROGPU_WPF_PACKAGE_OUTPUT:-${repo_root}/artifacts/packages/Release/NonShipping}"
-dev_package_version="${PROGPU_WPF_DEV_PACKAGE_VERSION:-0.1.0-preview.63}"
-progpu_package_version="${PROGPU_WPF_PROGPU_PACKAGE_VERSION:-0.1.0-preview.63}"
+dev_package_version="${PROGPU_WPF_DEV_PACKAGE_VERSION:-0.1.0-preview.64}"
+progpu_package_version="${PROGPU_WPF_PROGPU_PACKAGE_VERSION:-0.1.0-preview.64}"
 prepackaged_progpu_dir="${PROGPU_WPF_PREPACKAGED_PROGPU_DIR:-}"
 canonical_librewinforms_package_dir="${PROGPU_WPF_CANONICAL_WINFORMS_PACKAGE_DIR:-${repo_root}/artifacts/packages/CanonicalWinForms}"
 progpu_package_snapshot_dir="${repo_root}/artifacts/progpu-wpf-sdk-smoke/exact-progpu-packages"

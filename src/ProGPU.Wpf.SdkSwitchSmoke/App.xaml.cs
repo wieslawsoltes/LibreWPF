@@ -40,8 +40,8 @@ public partial class App : Application
     public double NativeStartupTextWidth { get; }
     public double NativeStartupMinimumTextWidth { get; }
 
-    private const string LibreWpfPackageVersion = "0.1.0-preview.63";
-    private const string ProGpuPackageVersion = "0.1.0-preview.63";
+    private const string LibreWpfPackageVersion = "0.1.0-preview.64";
+    private const string ProGpuPackageVersion = "0.1.0-preview.64";
     private static readonly string EffectiveLibreWpfPackageVersion = ResolvePackageVersion(
         "PROGPU_WPF_DEV_PACKAGE_VERSION",
         LibreWpfPackageVersion);
