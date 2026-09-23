@@ -139,8 +139,8 @@ mixed WPF/WinForms application. It does not rebuild or reference the retired
 
 - `LibreWPF Build` runs the canonical WinForms source gate on Linux and the SDK package/no-source-change smoke on macOS with submodules checked out.
 - `LibreWPF Docs` verifies that this document and README stay aligned with the preview package list.
-- `LibreWPF Release` promotes the package bundle from a terminal-success `LibreWPF Build` run for the exact tagged commit, re-verifies its source/package provenance, runs the clean Windows AnyCPU package smoke, publishes to NuGet.org, and creates tag-driven GitHub Releases with generated release notes. It fails closed when the exact commit has no live qualified artifact.
-- Manual `LibreWPF Release` dispatch remains the recovery path that rebuilds the full SDK gate for an explicitly selected immutable ref.
+- `LibreWPF Release` rebuilds the immutable tagged source against the matching ProGPU GitHub release packages, verifies the complete release bundle and exact source/package provenance, runs the clean Windows AnyCPU package smoke, publishes to NuGet.org, and creates a GitHub Release with generated release notes. The `LibreWPF Build` artifact retains commit-qualified `source.<sha>` ProGPU packages for CI consumers and must not be promoted as a public release.
+- Manual `LibreWPF Release` dispatch uses the same full SDK gate for recovery publication from an explicitly selected immutable ref.
 
 ## NuGet Publishing
 

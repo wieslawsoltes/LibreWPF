@@ -117,10 +117,11 @@ dotnet run
 ## NuGet Packages
 
 The preview package set is defined in `eng/progpu-preview-package-list.sh` and validated by the release workflow.
-Tag releases promote and re-verify the exact package artifact produced by the full `LibreWPF Build`
-gate for the tagged commit, then repeat the clean Windows AnyCPU package smoke before publication.
-This avoids compiling the same WPF graph twice without removing any qualification step; manual
-release dispatch remains the full-rebuild recovery path.
+Tag releases rebuild the immutable tagged source against the matching ProGPU GitHub release
+packages, verify the complete release bundle and provenance, then run the clean Windows AnyCPU
+package smoke before publication. The `LibreWPF Build` artifact is qualified for CI consumers,
+but its commit-qualified `source.<sha>` ProGPU dependencies are not public release packages.
+Manual release dispatch uses the same build and validation path for recovery publication.
 
 ### LibreWPF Packages
 
