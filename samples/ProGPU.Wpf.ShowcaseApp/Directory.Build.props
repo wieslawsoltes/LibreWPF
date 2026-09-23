@@ -10,7 +10,7 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <ProGpuWpfShowcasePackageVersion>0.1.0-preview.64</ProGpuWpfShowcasePackageVersion>
+    <ProGpuWpfShowcasePackageVersion>0.1.0-preview.65</ProGpuWpfShowcasePackageVersion>
     <RestorePackagesPath>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../../artifacts/nuget/ProGPU.Wpf.ShowcaseApp'))</RestorePackagesPath>
     <RestoreForce>true</RestoreForce>
     <RestoreForceEvaluate>true</RestoreForceEvaluate>
