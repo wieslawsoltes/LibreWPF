@@ -107,14 +107,41 @@ jobs:
             exit 1
           fi
 
-          destination="${GITHUB_WORKSPACE}/artifacts/packages/Release/NonShipping"
-          mkdir -p "${destination}"
+          qualified_dir="${RUNNER_TEMP}/qualified-build-${artifact_name}"
+          mkdir -p "${qualified_dir}"
           archive="${RUNNER_TEMP}/${artifact_name}.zip"
           gh api \
             -H "Accept: application/vnd.github+json" \
             "repos/${GITHUB_REPOSITORY}/actions/artifacts/${artifact_id}/zip" \
             > "${archive}"
-          unzip -q "${archive}" -d "${destination}"
+          unzip -q "${archive}" -d "${qualified_dir}"
+
+          manifest_name="librewpf-preview-packages-${PROGPU_WPF_DEV_PACKAGE_VERSION}.json"
+          manifest="${qualified_dir}/${manifest_name}"
+          test -f "${manifest}"
+          progpu_version="$(jq -er '.progpuVersion | select(type == "string" and test("^[0-9]+[.][0-9]+[.][0-9]+-preview[.][0-9]+$"))' "${manifest}")"
+          export PROGPU_WPF_PROGPU_PACKAGE_VERSION="${progpu_version}"
+          echo "PROGPU_WPF_PROGPU_PACKAGE_VERSION=${progpu_version}" >> "${GITHUB_ENV}"
+
+          # CI retains source-version dependency packages for its own consumers.
+          # Promote only the manifest's release closure into the strict verifier.
+          source eng/progpu-preview-package-list.sh
+          release_files=(
+            README.md
+            NuGet.config
+            "${manifest_name}"
+            "librewpf-preview-${PROGPU_WPF_DEV_PACKAGE_VERSION}.tar.gz"
+            "librewpf-preview-${PROGPU_WPF_DEV_PACKAGE_VERSION}.tar.gz.sha256"
+          )
+          for package_id in "${progpu_preview_package_ids[@]}"; do
+            release_files+=("$(progpu_preview_package_file_name "${package_id}")")
+          done
+          destination="${GITHUB_WORKSPACE}/artifacts/packages/Release/NonShipping"
+          mkdir -p "${destination}"
+          for file in "${release_files[@]}"; do
+            test -f "${qualified_dir}/${file}"
+            cp "${qualified_dir}/${file}" "${destination}/${file}"
+          done
           echo "Promoted Build run ${run_id}, artifact ${artifact_id}, for ${GITHUB_SHA}."
 
       - name: Verify promoted release provenance
