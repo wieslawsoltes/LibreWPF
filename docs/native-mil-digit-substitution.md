@@ -51,12 +51,18 @@ The selected physical face must contain each replacement digit actually used.
 Source alternate-character fallback, such as Tamil zero to ASCII zero, remains
 explicit until the native mapping can retain that alternate scalar.
 
-WPF's existing culture map also describes percent, decimal, and grouping symbols.
-The current native digit policy does not represent those substitutions. A source
-range requiring a different such symbol is explicitly rejected before paragraph
-publication. Broader number-symbol substitution, native-Windows comparison of
-directional marks/punctuation, and final package application evidence remain
-required work. These limits do not qualify full number-formatting or text parity.
+WPF's existing culture map also describes percent, decimal, and grouping
+symbols. Active source ranges now carry their single-scalar mappings into the
+ABI-5 ProGPU style record without changing source text, indices or caret
+ownership. The native paragraph applies those mappings in its scratch copy
+after preserving original source bidi. Physical font mapping runs first; if
+the selected face lacks a number symbol, the source adapter uses
+`DigitMap.GetFallbackCharacter` only when that face contains the alternate.
+Multi-scalar culture symbols retain WPF's unchanged-source mapping behavior;
+native replacement does not synthesize a multi-scalar glyph sequence. Digit
+alternate-character fallback remains unsupported. Native-Windows comparison of
+directional marks/punctuation and exact final package application evidence are
+still required; this does not qualify full number-formatting or text parity.
 
 ## Verification
 
@@ -72,6 +78,9 @@ the committed source and dependency revisions.
 The [2026-09-22 qualification record](../reports/native-mil-source-digits-2026-09-22.md)
 distinguishes the passing 53-test source runs on macOS/Windows, the corrected
 native bidi metadata regression, and the still-required eight-case package comparison.
+The [2026-09-23 number-symbol record](../reports/native-mil-number-symbols-2026-09-23.md)
+separates the ABI-5 component and Windows source-test evidence from the still-open
+Windows native/package comparison.
 
 The culture-policy contract follows the public
 [NumberSubstitutionMethod documentation](https://learn.microsoft.com/en-us/dotnet/api/system.windows.media.numbersubstitutionmethod).

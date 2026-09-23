@@ -70,7 +70,7 @@ internal sealed class PortableTextLine : TextLine
     private readonly GlyphTypeface _face;
     private sealed record SourceStyle(int Start, int End, TextRunProperties Properties, TextRun Run, GlyphTypeface Face,
         PortableTextFont Font, double EmSize, double Baseline, double Height, uint Language,
-        uint DigitZero, bool ContextualDigits);
+        uint DigitZero, bool ContextualDigits, uint Percent, uint GroupSeparator, uint DecimalSeparator);
     private readonly record struct SourceStyleRequest(int Start, int End, TextRunProperties Properties, TextRun Run,
         uint Language, CultureInfo DigitCulture, uint DigitZero, bool ContextualDigits);
     private readonly SourceStyle[] _styles;
@@ -343,7 +343,8 @@ internal sealed class PortableTextLine : TextLine
             var style = styles[i];
             portableStyles[i] = new(style.Start, style.End - style.Start, style.Font,
                 (float)style.EmSize, Features(style.Properties.TypographyProperties), style.Language,
-                style.DigitZero, style.ContextualDigits, style.DigitZero != 0);
+                style.DigitZero, style.ContextualDigits, style.DigitZero != 0,
+                style.Percent, style.GroupSeparator, style.DecimalSeparator);
             layoutHeight = Math.Max(layoutHeight, style.Height);
         }
         var request = new PortableTextParagraphRequest(text.AsMemory(), font, (float)primaryEmSize,
@@ -491,18 +492,19 @@ internal sealed class PortableTextLine : TextLine
                 contexts = ArrayPool<byte>.Shared.Rent(Math.Max(1, checked(text.Length * 2)));
                 var starts = contexts.AsSpan(text.Length, text.Length);
                 digitContext.ResolveDigitContext(text.AsSpan(), initial, contexts.AsSpan(0, text.Length), starts);
-                for (int i = 0; i < requests.Count; i++)
-                    ValidateNumberSymbols(requests[i], text, contexts);
                 PreserveDigitClusters(text, contexts.AsSpan(0, text.Length), starts);
             }
             for (int i = 0; i < requests.Count; i++)
             {
                 var request = requests[i];
-                if (!contextual) ValidateNumberSymbols(request, text, null);
                 int position = request.Start;
                 while (position < request.End)
                 {
                     bool substitute = UsesDigitCulture(request, contexts, position);
+                    var symbolMap = new DigitMap(substitute ? request.DigitCulture : null);
+                    uint percent = SymbolReplacement(symbolMap, '%');
+                    uint group = SymbolReplacement(symbolMap, ',');
+                    uint decimalSeparator = SymbolReplacement(symbolMap, '.');
                     int end = request.DigitZero == 0 ? request.End : position + 1;
                     while (end < request.End && UsesDigitCulture(request, contexts, end) == substitute)
                         end++;
@@ -523,13 +525,18 @@ internal sealed class PortableTextLine : TextLine
                         var face = selected.ShapeTypeface.GlyphTypeface;
                         if (substitute)
                             ValidateDigitGlyphs(face, text.AsSpan(mappedStart, mapped.Length), request.DigitZero);
+                        var mappedText = text.AsSpan(mappedStart, mapped.Length);
+                        uint mappedPercent = ResolveSymbolGlyph(face, mappedText, '%', percent);
+                        uint mappedGroup = ResolveSymbolGlyph(face, mappedText, ',', group);
+                        uint mappedDecimal = ResolveSymbolGlyph(face, mappedText, '.', decimalSeparator);
                         double emSize = p.FontRenderingEmSize * selected.ScaleInEm;
                         if (!double.IsFinite(emSize) || emSize <= 0) throw Unsupported("invalid composite-font scale");
                         styles.Add(new(mappedStart, checked(mappedStart + mapped.Length), p, request.Run,
                             face, GetFont(face), emSize,
                             p.Typeface.Baseline(p.FontRenderingEmSize, 1, pixelsPerDip, settings.TextFormattingMode),
                             p.Typeface.LineSpacing(p.FontRenderingEmSize, 1, pixelsPerDip, settings.TextFormattingMode),
-                            request.Language, substitute ? request.DigitZero : 0, false));
+                            request.Language, substitute ? request.DigitZero : 0, false,
+                            mappedPercent, mappedGroup, mappedDecimal));
                         mappedStart += mapped.Length;
                     }
                     if (mappedStart != end) throw new InvalidOperationException("Source font ranges do not cover the styled run.");
@@ -546,21 +553,25 @@ internal sealed class PortableTextLine : TextLine
     private static bool UsesDigitCulture(SourceStyleRequest request, byte[] contexts, int position)
         => request.DigitZero != 0 && (!request.ContextualDigits || contexts[position] != 0);
 
-    private static void ValidateNumberSymbols(SourceStyleRequest request, string text, byte[] contexts)
+    private static uint SymbolReplacement(DigitMap map, char source)
     {
-        if (request.DigitZero == 0) return;
-        var map = new DigitMap(request.DigitCulture);
-        int position = request.Start;
-        while (position < request.End)
-        {
-            int index = text.AsSpan(position, request.End - position).IndexOfAny('%', ',', '.');
-            if (index < 0) break;
-            position += index;
-            char character = text[position];
-            if (UsesDigitCulture(request, contexts, position) && map[character] != character)
-                throw Unsupported("culture-specific number symbols require a native symbol-substitution contract");
-            position++;
-        }
+        int replacement = map[source];
+        if (!Rune.IsValid(replacement))
+            throw Unsupported("invalid culture-specific number symbol");
+        return replacement == source ? 0U : checked((uint)replacement);
+    }
+
+    private static uint ResolveSymbolGlyph(GlyphTypeface face, ReadOnlySpan<char> text,
+        char source, uint replacement)
+    {
+        if (replacement == 0 || !text.Contains(source)) return replacement;
+        static bool HasGlyph(GlyphTypeface candidate, uint scalar)
+            => candidate.CharacterToGlyphMap.TryGetValue(checked((int)scalar), out ushort glyph) && glyph != 0;
+        if (HasGlyph(face, replacement)) return replacement;
+        int alternate = DigitMap.GetFallbackCharacter(checked((int)replacement));
+        if (alternate != 0 && HasGlyph(face, checked((uint)alternate)))
+            return checked((uint)alternate);
+        throw Unsupported("a substituted number symbol and its source alternate are missing from the mapped physical face");
     }
 
     private static void PreserveDigitClusters(string text, Span<byte> contexts, ReadOnlySpan<byte> starts)
