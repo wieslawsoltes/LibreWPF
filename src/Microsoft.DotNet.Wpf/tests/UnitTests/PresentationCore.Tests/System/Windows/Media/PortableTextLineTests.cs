@@ -675,6 +675,9 @@ public class PortableTextLineTests
     [InlineData("1%2", NumberSubstitutionMethod.NativeNational)]
     [InlineData("1,2", NumberSubstitutionMethod.NativeNational)]
     [InlineData("1.2", NumberSubstitutionMethod.NativeNational)]
+    [InlineData("1%2", NumberSubstitutionMethod.Traditional)]
+    [InlineData("1,2", NumberSubstitutionMethod.Traditional)]
+    [InlineData("1.2", NumberSubstitutionMethod.Traditional)]
     [InlineData("1%2", NumberSubstitutionMethod.European)]
     [InlineData("1,2", NumberSubstitutionMethod.European)]
     [InlineData("1.2", NumberSubstitutionMethod.European)]
@@ -682,7 +685,8 @@ public class PortableTextLineTests
         string text, NumberSubstitutionMethod method)
     {
         var culture = DigitCulture();
-        culture.NumberFormat.PercentSymbol = "\u066A";
+        culture.NumberFormat.PercentSymbol = method == NumberSubstitutionMethod.NativeNational
+            ? "\u066A\u061C" : "\u066A";
         culture.NumberFormat.NumberGroupSeparator = "\u066C";
         culture.NumberFormat.NumberDecimalSeparator = "\u066B";
         var properties = new Properties(DigitFontFamily())
@@ -698,15 +702,35 @@ public class PortableTextLineTests
         Assert.Equal(text, provider.Text);
         Assert.Equal(1, provider.Calls);
         var style = Assert.Single(provider.Styles.ToArray());
-        Assert.Equal((0, 3, method == NumberSubstitutionMethod.NativeNational ? 0x0660U : 0U),
+        Assert.Equal((0, 3, method != NumberSubstitutionMethod.European ? 0x0660U : 0U),
             (style.Start, style.Length, style.DigitZero));
-        Assert.Equal(method == NumberSubstitutionMethod.NativeNational ? 0x066AU : 0U, style.Percent);
-        Assert.Equal(method == NumberSubstitutionMethod.NativeNational ?
+        Assert.Equal(method != NumberSubstitutionMethod.European ? 0x066AU : 0U, style.Percent);
+        Assert.Equal(method == NumberSubstitutionMethod.Traditional ?
             text.Contains(',') ? 0x060CU : 0x066CU : 0U, style.GroupSeparator);
-        Assert.Equal(method == NumberSubstitutionMethod.NativeNational ?
+        Assert.Equal(method == NumberSubstitutionMethod.Traditional ?
             text.Contains('.') ? (uint)',' : 0x066BU : 0U, style.DecimalSeparator);
         Assert.Equal(2, line.Length);
         Assert.Equal(0, provider.DigitContextCalls);
+    }
+
+    [Fact]
+    public void UnknownMultiScalarPercentDoesNotSilentlyLoseItsSourcePolicy()
+    {
+        var culture = DigitCulture();
+        culture.NumberFormat.PercentSymbol = "\u066A\u200F";
+        var properties = new Properties(DigitFontFamily())
+        {
+            Numbers = new NumberSubstitution(NumberCultureSource.Override, culture,
+                NumberSubstitutionMethod.NativeNational)
+        };
+        var provider = new Provider();
+        using var registration = PortableWpfServiceRegistry.RegisterTextFormatting(provider);
+        using var formatter = new TextFormatterImp();
+
+        Assert.Throws<PlatformNotSupportedException>(() =>
+            PortableTextLine.Create(Settings(formatter, new Source { Text = "1%2", Properties = properties }),
+                0, 800, 1));
+        Assert.Equal(0, provider.Calls);
     }
 
     [Fact]

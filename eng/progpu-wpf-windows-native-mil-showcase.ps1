@@ -268,6 +268,11 @@ function Invoke-TextLayoutCheck {
     if (!$geometry.Success) {
         throw "Windows $Name text-layout check did not report its actual native window geometry."
     }
+    $numberGlyphs = [regex]::Match($stdout,
+        '(?m)^TEXT_GLYPHS name=number-symbols ids=(?<ids>[0-9,]+)\r?$')
+    if (!$numberGlyphs.Success) {
+        throw "Windows $Name text-layout check did not report actual number-symbol glyph IDs."
+    }
     $culture = [System.Globalization.CultureInfo]::InvariantCulture
     $cases = @{}
     foreach ($caseMatch in $caseMatches) {
@@ -322,6 +327,7 @@ function Invoke-TextLayoutCheck {
         Dpi = [int]::Parse($geometry.Groups['dpi'].Value, $culture)
         SourceWidth = [double]::Parse($geometry.Groups['sourceWidth'].Value, $culture)
         SourceHeight = [double]::Parse($geometry.Groups['sourceHeight'].Value, $culture)
+        NumberGlyphs = $numberGlyphs.Groups['ids'].Value
     }
 }
 
@@ -442,6 +448,9 @@ if (!(Test-Path -LiteralPath $windowsTextAppHost -PathType Leaf)) {
 }
 $nativeLayout = Invoke-TextLayoutCheck "native-WPF" $windowsTextAppHost $smokeRoot
 $portableLayout = Invoke-TextLayoutCheck "ProGPU-native-MIL" $textAppHost $smokeRoot
+if ($nativeLayout.NumberGlyphs -cne $portableLayout.NumberGlyphs) {
+    throw "Windows number-symbol glyphs differ: native=$($nativeLayout.NumberGlyphs) portable=$($portableLayout.NumberGlyphs)."
+}
 $expectedTextCases = @(
     "wrapped-composite",
     "mixed-runs",
@@ -450,6 +459,7 @@ $expectedTextCases = @(
     "explicit-line-height",
     "bidirectional",
     "national-digits",
+    "number-symbols",
     "contextual-digits"
 )
 if ($nativeLayout.Cases.Count -ne $expectedTextCases.Count -or
