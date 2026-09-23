@@ -13370,21 +13370,19 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("README.md", docsWorkflow, StringComparison.Ordinal);
         Assert.Contains("docs/**", docsWorkflow, StringComparison.Ordinal);
         Assert.Contains("name: LibreWPF Release", releaseWorkflow, StringComparison.Ordinal);
-        Assert.Equal(3, releaseWorkflow.Split("submodules: true", StringSplitOptions.None).Length - 1);
-        Assert.DoesNotContain("submodules: recursive", releaseWorkflow, StringComparison.Ordinal);
+        Assert.Equal(1, releaseWorkflow.Split("submodules: true", StringSplitOptions.None).Length - 1);
+        Assert.Equal(1, releaseWorkflow.Split("submodules: recursive", StringSplitOptions.None).Length - 1);
+        Assert.Contains("needs: windows-managed-runtime", releaseWorkflow, StringComparison.Ordinal);
         Assert.Contains("PROGPU_WPF_DEV_PACKAGE_VERSION", releaseWorkflow, StringComparison.Ordinal);
         Assert.Contains("default: 0.1.0-preview.63", releaseWorkflow, StringComparison.Ordinal);
         Assert.Contains("default: 0.1.0-preview.63", releaseWorkflow, StringComparison.Ordinal);
         Assert.Contains("./eng/progpu-wpf-sdk-ci.sh", releaseWorkflow, StringComparison.Ordinal);
-        Assert.Contains("promote-qualified-preview:", releaseWorkflow, StringComparison.Ordinal);
+        Assert.DoesNotContain("promote-qualified-preview:", releaseWorkflow, StringComparison.Ordinal);
         Assert.Contains(
-            "name: librewpf-packages-${{ needs.promote-qualified-preview.outputs.version || needs.preview.outputs.version }}",
-            releaseWorkflow,
-            StringComparison.Ordinal);
-        Assert.DoesNotContain(
             "name: librewpf-packages-${{ needs.preview.outputs.version }}",
             releaseWorkflow,
             StringComparison.Ordinal);
+        Assert.Contains("PROGPU_WPF_RUN_DRAWING_QUALITY_GATES: 0", releaseWorkflow, StringComparison.Ordinal);
         Assert.Contains("Stage exact ProGPU release packages", releaseWorkflow, StringComparison.Ordinal);
         Assert.Contains("PROGPU_WPF_PREPACKAGED_PROGPU_DIR", releaseWorkflow, StringComparison.Ordinal);
         Assert.Contains("[[ \"${tag_commit}\" != \"${submodule_commit}\" ]]", releaseWorkflow, StringComparison.Ordinal);
