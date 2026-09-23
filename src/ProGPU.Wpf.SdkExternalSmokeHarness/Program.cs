@@ -18,8 +18,8 @@ internal static class Program
 {
     private const string OriginalWpfSdk = "Microsoft.NET.Sdk";
     private const string OriginalWindowsDesktopWpfSdk = "Microsoft.NET.Sdk.WindowsDesktop";
-    private const string SdkVersion = "0.1.0-preview.45";
-    private const string ProGpuPackageVersion = "0.1.0-preview.62";
+    private const string SdkVersion = "0.1.0-preview.63";
+    private const string ProGpuPackageVersion = "0.1.0-preview.63";
     private static readonly string EffectiveSdkVersion = ResolvePackageVersion(
         "PROGPU_WPF_DEV_PACKAGE_VERSION",
         SdkVersion);
@@ -291,7 +291,7 @@ internal static class Program
         AssertContains(nuspec, "<packageType name=\"MSBuildSdk\" />", "SDK nuspec package type");
         AssertContains(nuspec, "<dependencies>", "SDK nuspec dependency group");
 
-        AssertContains(sdkProps, "<ProGpuWpfSdkVersion Condition=\"'$(ProGpuWpfSdkVersion)' == ''\">0.1.0-preview.45</ProGpuWpfSdkVersion>", "SDK root version default");
+        AssertContains(sdkProps, "<ProGpuWpfSdkVersion Condition=\"'$(ProGpuWpfSdkVersion)' == ''\">0.1.0-preview.63</ProGpuWpfSdkVersion>", "SDK root version default");
         AssertContains(sdkProps, "<ProGpuWpfRuntimeFrameworkVersion Condition=\"'$(ProGpuWpfRuntimeFrameworkVersion)' == ''\"></ProGpuWpfRuntimeFrameworkVersion>", "SDK runtime version override hook");
         AssertContains(sdkProps, "<RuntimeFrameworkVersion Condition=\"'$(ProGpuWpfUsePortableFrameworkReferences)' == 'true' And '$(RuntimeFrameworkVersion)' == '' And '$(ProGpuWpfRuntimeFrameworkVersion)' != ''\">$(ProGpuWpfRuntimeFrameworkVersion)</RuntimeFrameworkVersion>", "SDK runtime version opt-in");
         AssertDoesNotContain(sdkProps, "11.0.0-preview.4.26210.111", "SDK root runtime version default");
