@@ -160,6 +160,9 @@
                     <TextBlock x:Name="NationalDigitsText" Width="240" FontSize="24"
                                HorizontalAlignment="Left" TextWrapping="Wrap"
                                Text="1234567890 1234567890 1234567890" />
+                    <TextBlock x:Name="NumberSymbolsText" Width="240" FontSize="24"
+                               Margin="0,8,0,0" HorizontalAlignment="Left" TextWrapping="Wrap"
+                               Text="12,345.67% 89,012.34%" />
                 </StackPanel>
             </Border>
             <Border Grid.Row="3" Grid.Column="1" Margin="0,10,0,0" Padding="12" Background="#FFF6E8">

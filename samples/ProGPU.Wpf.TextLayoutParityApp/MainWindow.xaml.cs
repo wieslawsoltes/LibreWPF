@@ -21,8 +21,8 @@ public partial class MainWindow : Window
         public int Right;
         public int Bottom;
 
-        public int Width => Right - Left;
-        public int Height => Bottom - Top;
+        public readonly int Width => Right - Left;
+        public readonly int Height => Bottom - Top;
     }
 
     [DllImport("user32.dll", SetLastError = true)]
@@ -40,6 +40,7 @@ public partial class MainWindow : Window
         TabsAndWhitespaceText.Text = "Alpha\tBeta trailing   \nNext\tcolumn";
         ContextualDigitsText.Text = "123 A456 \u0627 789\n123 A456 \u0627 789";
         ConfigureDigits(NationalDigitsText, NumberSubstitutionMethod.NativeNational);
+        ConfigureDigits(NumberSymbolsText, NumberSubstitutionMethod.NativeNational);
         ConfigureDigits(ContextualDigitsText, NumberSubstitutionMethod.Context);
     }
 
@@ -109,7 +110,11 @@ public partial class MainWindow : Window
             ReportTextCase("explicit-line-height", ExplicitLineHeightText);
             ReportTextCase("bidirectional", BidirectionalText);
             ReportTextCase("national-digits", NationalDigitsText);
+            ReportTextCase("number-symbols", NumberSymbolsText);
             ReportTextCase("contextual-digits", ContextualDigitsText);
+            var numberGlyphs = new List<ushort>();
+            CollectGlyphs(VisualTreeHelper.GetDrawing(NumberSymbolsText), numberGlyphs);
+            Console.WriteLine($"TEXT_GLYPHS name=number-symbols ids={string.Join(',', numberGlyphs)}");
             Console.Out.Flush();
             if (Environment.GetEnvironmentVariable("PROGPU_WPF_TEXT_LAYOUT_EXIT_AFTER_REPORT") == "1")
             {
@@ -121,6 +126,19 @@ public partial class MainWindow : Window
             Console.Error.WriteLine("TEXT_LAYOUT_ERROR " + exception);
             Environment.ExitCode = 1;
             Close();
+        }
+    }
+
+    private static void CollectGlyphs(Drawing? drawing, List<ushort> glyphs)
+    {
+        if (drawing is GlyphRunDrawing glyphDrawing)
+        {
+            glyphs.AddRange(glyphDrawing.GlyphRun.GlyphIndices);
+        }
+        else if (drawing is DrawingGroup group)
+        {
+            foreach (Drawing child in group.Children)
+                CollectGlyphs(child, glyphs);
         }
     }
 

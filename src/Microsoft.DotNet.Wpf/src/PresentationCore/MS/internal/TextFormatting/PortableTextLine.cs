@@ -72,7 +72,8 @@ internal sealed class PortableTextLine : TextLine
         PortableTextFont Font, double EmSize, double Baseline, double Height, uint Language,
         uint DigitZero, bool ContextualDigits, uint Percent, uint GroupSeparator, uint DecimalSeparator);
     private readonly record struct SourceStyleRequest(int Start, int End, TextRunProperties Properties, TextRun Run,
-        uint Language, CultureInfo DigitCulture, uint DigitZero, bool ContextualDigits);
+        uint Language, CultureInfo DigitCulture, uint DigitZero, bool ContextualDigits,
+        NumberSubstitutionMethod NumberMethod);
     private readonly SourceStyle[] _styles;
     private sealed record SourceObject(int Position, TextEmbeddedObject Run, PortableTextInlineObject Metrics);
     private readonly SourceObject[] _objects;
@@ -265,7 +266,8 @@ internal sealed class PortableTextLine : TextLine
                     metrics.Baseline < 0 || metrics.Baseline > metrics.Height ||
                     metrics.Width > float.MaxValue || metrics.Height > float.MaxValue)
                     throw new InvalidOperationException("The source embedded object returned invalid native metrics.");
-                styleRequests.Add(new(start, start + 1, p, run, language, null, 0, false));
+                styleRequests.Add(new(start, start + 1, p, run, language, null, 0, false,
+                    NumberSubstitutionMethod.European));
                 builder.Append('\uFFFC');
                 sourceRanges.Add(new(cp - first, start, 1));
                 (objects ??= new()).Add(new(start, embedded,
@@ -295,8 +297,9 @@ internal sealed class PortableTextLine : TextLine
             if (builder.Length > start)
             {
                 sourceRanges.Add(new(cp - first, start, builder.Length - start));
+                var numberMethod = DigitState.GetResolvedSubstitutionMethod(p, digits.DigitCulture, out _);
                 styleRequests.Add(new(start, builder.Length, p, run, language, digits.DigitCulture,
-                    digitZero, digits.Contextual));
+                    digitZero, digits.Contextual, numberMethod));
             }
             runs.Add(new(used, run)); cp = checked(cp + used); sourceLength = cp - first - newlines;
             if (newlines != 0) break;
@@ -505,9 +508,29 @@ internal sealed class PortableTextLine : TextLine
                     uint percent = SymbolReplacement(symbolMap, '%');
                     uint group = SymbolReplacement(symbolMap, ',');
                     uint decimalSeparator = SymbolReplacement(symbolMap, '.');
+                    var symbols = substitute ? request.DigitCulture.NumberFormat : null;
+                    if (substitute && request.NumberMethod == NumberSubstitutionMethod.NativeNational)
+                    {
+                        // Stock WPF's NativeNational run maps digits and the leading
+                        // Arabic percent glyph, but retains source grouping and decimal
+                        // punctuation. ICU's trailing U+061C is not a second ink glyph.
+                        if (percent == 0 && symbols.PercentSymbol == "\u066A\u061C")
+                            percent = 0x066A;
+                        group = decimalSeparator = 0;
+                    }
                     int end = request.DigitZero == 0 ? request.End : position + 1;
                     while (end < request.End && UsesDigitCulture(request, contexts, end) == substitute)
                         end++;
+                    if (symbols != null)
+                    {
+                        var sourceSymbols = text.AsSpan(position, end - position);
+                        if (percent == 0 && sourceSymbols.Contains('%') && symbols.PercentSymbol != "%")
+                            throw Unsupported("a multi-scalar percent symbol without a native source contract");
+                        if (request.NumberMethod != NumberSubstitutionMethod.NativeNational &&
+                            ((group == 0 && sourceSymbols.Contains(',') && symbols.NumberGroupSeparator != ",") ||
+                             (decimalSeparator == 0 && sourceSymbols.Contains('.') && symbols.NumberDecimalSeparator != ".")))
+                            throw Unsupported("a multi-scalar grouping or decimal symbol without a native source contract");
+                    }
                     var p = request.Properties;
                     // Embedded objects retain source metrics, but never enter font linking.
                     var range = request.Run is TextEmbeddedObject
