@@ -13384,6 +13384,7 @@ public sealed class WpfManagedProjectGraphTests
             StringComparison.Ordinal);
         Assert.Contains("PROGPU_WPF_RUN_DRAWING_QUALITY_GATES: 0", releaseWorkflow, StringComparison.Ordinal);
         Assert.Contains("Stage exact ProGPU release packages", releaseWorkflow, StringComparison.Ordinal);
+        Assert.Contains("Stage native runtimes from exact ProGPU release package", releaseWorkflow, StringComparison.Ordinal);
         Assert.Contains("PROGPU_WPF_PREPACKAGED_PROGPU_DIR", releaseWorkflow, StringComparison.Ordinal);
         Assert.Contains("[[ \"${tag_commit}\" != \"${submodule_commit}\" ]]", releaseWorkflow, StringComparison.Ordinal);
         Assert.DoesNotContain("merge-base --is-ancestor", releaseWorkflow, StringComparison.Ordinal);

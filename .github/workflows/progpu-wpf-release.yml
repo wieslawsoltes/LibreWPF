@@ -147,6 +147,33 @@ jobs:
           done
           echo "PROGPU_WPF_PREPACKAGED_PROGPU_DIR=${package_dir}" >> "${GITHUB_ENV}"
 
+      - name: Stage native runtimes from exact ProGPU release package
+        shell: bash
+        run: |
+          set -euo pipefail
+          native_package="${PROGPU_WPF_PREPACKAGED_PROGPU_DIR}/ProGPU.Backend.Native.${PROGPU_WPF_PROGPU_PACKAGE_VERSION}.nupkg"
+          runtime_stage="${GITHUB_WORKSPACE}/external/ProGPU/artifacts/progpu-native/package"
+          test -s "${native_package}"
+          mkdir -p "${runtime_stage}"
+          unzip -q -o "${native_package}" 'runtimes/*' -d "${runtime_stage}"
+          native_dir="${runtime_stage}/runtimes/osx-arm64/native"
+          test -s "${native_dir}/libprogpu_native.dylib"
+          test -s "${native_dir}/libprogpu_native_dawn.dylib"
+
+          # Source-host harnesses need the selected WebGPU loader beside the
+          # exact release native payload, as in the qualified Build lane.
+          dotnet restore external/ProGPU/src/ProGPU.Backend/ProGPU.Backend.csproj
+          package_version="$(sed -n 's/.*PackageVersion Include="Silk.NET.WebGPU.Native.WGPU" Version="\([^"]*\)".*/\1/p' external/ProGPU/Directory.Packages.props)"
+          test -n "${package_version}"
+          package_root="$(dotnet nuget locals global-packages --list | sed -E 's/^[^:]+:[[:space:]]*//')"
+          stock_runtime="${package_root%/}/silk.net.webgpu.native.wgpu/${package_version}/runtimes/osx-arm64/native/libwgpu_native.dylib"
+          test -s "${stock_runtime}"
+          runtime_dir="${GITHUB_WORKSPACE}/external/ProGPU/artifacts/progpu-native/runtime"
+          mkdir -p "${runtime_dir}"
+          cp "${stock_runtime}" "${runtime_dir}/libwgpu_native.dylib"
+          echo "PROGPU_NATIVE_BUILD_DIR=${native_dir}" >> "${GITHUB_ENV}"
+          echo "PROGPU_NATIVE_RUNTIME_DIR=${runtime_dir}" >> "${GITHUB_ENV}"
+
       - name: Build, pack, and smoke SDK
         run: ./eng/progpu-wpf-sdk-ci.sh
 
