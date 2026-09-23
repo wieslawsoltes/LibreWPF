@@ -51,4 +51,12 @@ The first LibreWPF PR CI run stopped its canonical WinForms integration before
 building because the pinned LibreWinForms source still referenced ProGPU ABI 4.
 LibreWinForms PR #47 pins the same ProGPU ABI-5 commit as LibreWPF; LibreWPF
 pins that LibreWinForms commit so the canonical three-repository check can run.
-This resolves the source-graph mismatch only; it is not a passing CI claim.
+The canonical source/package integration then passed locally and in the
+refreshed LibreWPF CI run. Its downstream SDK package gate remained a separate
+check.
+
+ProGPU PR #183 passed its complete Build matrix, including six native renderer
+RIDs and the packed Windows ARM64 consumers, and merged to `main` as
+`fbf2ddbc432969487273e2027778779cb472d26f`. The merge commit has the same
+tree as the feature commit. The dependent LibreWinForms and LibreWPF pins were
+advanced to that merged commit rather than retaining a feature-branch-only pin.
