@@ -168,6 +168,32 @@ jobs:
             cmp "${package_dir}/${package_file}" "${canonical_dir}/${package_file}"
           done
 
+          # The immutable LibreWPF tag uses a prefix-based package discovery
+          # helper: ProGPU.Backend also matches .Dawn and .Native there. Supply
+          # that tagged helper a narrow lookup/feed directory without changing
+          # the tagged source. Its other exact ProGPU dependencies are staged
+          # separately by the SDK script into the release package output.
+          consumer_dir="${RUNNER_TEMP}/canonical-winforms-consumer"
+          mkdir -p "${consumer_dir}"
+          shopt -s nullglob
+          for package_id in \
+            LibreWinForms.System.Windows.Forms \
+            LibreWinForms.ProGPU \
+            LibreWinForms.WindowsFormsIntegration
+          do
+            matches=("${canonical_dir}/${package_id}."[0-9]*.nupkg)
+            if [[ "${#matches[@]}" != "1" ]]; then
+              echo "Expected one canonical ${package_id} package, found ${#matches[@]}." >&2
+              exit 1
+            fi
+            cp "${matches[0]}" "${consumer_dir}/"
+          done
+          shopt -u nullglob
+          backend_file="ProGPU.Backend.${PROGPU_WPF_PROGPU_PACKAGE_VERSION}.nupkg"
+          cp "${canonical_dir}/${backend_file}" "${consumer_dir}/${backend_file}"
+          cmp "${package_dir}/${backend_file}" "${consumer_dir}/${backend_file}"
+          echo "PROGPU_WPF_CANONICAL_WINFORMS_PACKAGE_DIR=${consumer_dir}" >> "${GITHUB_ENV}"
+
       - name: Stage native runtimes from exact ProGPU release package
         shell: bash
         run: |
