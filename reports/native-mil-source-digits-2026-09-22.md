@@ -222,3 +222,14 @@ forcing x=0. A new typed source regression verifies this path, and all 54
 the bundled font also matches the corrected stock final X within 0.1 DIP.
 These component tests do not substitute for the full eight-case exact-package
 Windows comparison.
+
+## Immutable preview.63 source alignment
+
+ProGPU PR #182 merged as `36b388685` and its annotated
+`v0.1.0-preview.63` tag points to that same main commit. LibreWPF's release
+workflow requires its ProGPU submodule to equal the tag commit exactly; the
+earlier `9774cff2` text commit is an ancestor but does not satisfy that
+provenance check. The WPF submodule is therefore advanced to `36b388685`.
+LibreWinForms PR #44 carries the same ProGPU pin; LibreWPF pins its focused
+`06dcdd6dd` Forms source commit while that PR qualifies. The final package
+gates must run again on these exact pointers before publishing LibreWPF.
