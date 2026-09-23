@@ -13375,8 +13375,8 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Equal(1, releaseWorkflow.Split("submodules: recursive", StringSplitOptions.None).Length - 1);
         Assert.Contains("needs: windows-managed-runtime", releaseWorkflow, StringComparison.Ordinal);
         Assert.Contains("PROGPU_WPF_DEV_PACKAGE_VERSION", releaseWorkflow, StringComparison.Ordinal);
-        Assert.Contains("default: 0.1.0-preview.63", releaseWorkflow, StringComparison.Ordinal);
-        Assert.Contains("default: 0.1.0-preview.63", releaseWorkflow, StringComparison.Ordinal);
+        Assert.Equal(1, releaseWorkflow.Split("default: 0.1.0-preview.64", StringSplitOptions.None).Length - 1);
+        Assert.Contains("progpu_version=\"${version}\"", releaseWorkflow, StringComparison.Ordinal);
         Assert.Contains("./eng/progpu-wpf-sdk-ci.sh", releaseWorkflow, StringComparison.Ordinal);
         Assert.DoesNotContain("promote-qualified-preview:", releaseWorkflow, StringComparison.Ordinal);
         Assert.Contains(
