@@ -50,7 +50,9 @@ public partial class MainWindow : Window
         string fontPath = Path.Combine(AppContext.BaseDirectory, "Fonts", "trado.ttf");
         if (!File.Exists(fontPath))
             throw new InvalidOperationException("The shared Traditional Arabic font fixture is missing.");
-        text.FontFamily = new FontFamily(new Uri(fontPath, UriKind.Absolute), "#Traditional Arabic");
+        // A bare "#Family" looks in Windows Fonts even when a base URI points
+        // at a file. Keep the file URI in the family reference itself.
+        text.FontFamily = new FontFamily($"{new Uri(fontPath, UriKind.Absolute).AbsoluteUri}#Traditional Arabic");
         NumberSubstitution.SetCultureSource(text, NumberCultureSource.Override);
         NumberSubstitution.SetCultureOverride(text, CultureInfo.GetCultureInfo("ar-SA"));
         NumberSubstitution.SetSubstitution(text, method);

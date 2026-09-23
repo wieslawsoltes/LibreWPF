@@ -179,3 +179,34 @@ glyphs. LibreWPF selects that policy for substituted source runs. The native
 C++ regression, targeted ProGPU managed tests and 112 LibreWPF source/adapter
 tests pass on macOS. This change is not yet Windows-oracle or package-qualified;
 the same eight-case gate must be rerun on the exact final build before release.
+
+## 2026-09-23 shared-font oracle correction
+
+The first eight-case application comparison above did **not** use the staged
+Traditional Arabic font despite both projects copying it. A stock-WPF
+`GlyphRun.GlyphTypeface.FontUri` probe showed `SEGOEUI.TTF` for both digit
+cases. `new FontFamily(fontFileUri, "#Traditional Arabic")` resolves that bare
+family reference against Windows Fonts; it does not select the URI file. Thus
+the 116.213/112.083 caret references and the corresponding insertion deltas
+are invalid as an oracle for the intended bundled-font fixture. They remain
+historical diagnostic output, not release parity failures.
+
+The shared fixture now puts the absolute file URI into the family reference:
+`file:///.../trado.ttf#Traditional Arabic`. A fresh stock-WPF ARM64 glyph probe
+verified `GlyphTypeface.FontUri` is the staged `TRADO.TTF` and that substituted
+digits use the same `257..265,256` glyph sequence as the ProGPU formatter on
+that font. A fresh stock-WPF eight-case application built from the corrected
+shared source and exited zero with all eight reports. Its corrected references
+are:
+
+| Case | Actual size (DIP) | Lines / source starts | Final caret X, Y, height (DIP) |
+| --- | --- | --- | --- |
+| `national-digits` | 240 × 71.740 | 2 / 0, 23 | 110.867, 35.870, 35.870 |
+| `contextual-digits` | 240 × 71.740 | 2 / 0, 16 | 105.907, 35.870, 35.870 |
+
+The corrected stock report is retained in
+`artifacts/windows-native-text-977-arm64/corrected-stock-output.log`.
+This is still only the stock side: the corrected shared fixture must run in an
+exact ProGPU/LibreWPF package graph and pass the complete insertion-position
+comparison before release. Do not compare the corrected stock report against
+the old Segoe-based portable report or claim parity from matching glyph IDs.

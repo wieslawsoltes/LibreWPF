@@ -12,8 +12,10 @@ matrix case. The shared matrix covers wrapped composite-font text, mixed
 run sizes/styles/weights, `WrapWithOverflow`, tabs and retained whitespace,
 explicit block line height, bidirectional text, forced native-national digits,
 and contextual digits across Latin/Arabic strong characters and a hard break.
-Both SDK projects stage the same repository Traditional Arabic font for the
-digit cases; their source strings retain ASCII digits. Add
+Both SDK projects stage and explicitly resolve the same repository Traditional
+Arabic font for the digit cases; a bare `#Traditional Arabic` family reference
+would instead search Windows Fonts and silently select a fallback face. Their
+source strings retain ASCII digits. Add
 `PROGPU_WPF_TEXT_LAYOUT_EXIT_AFTER_REPORT=1` for unattended validation. An
 invalid final caret rectangle in any case writes `TEXT_LAYOUT_ERROR` and
 exits nonzero. The gate compares source line starts, actual and desired size,

@@ -54,6 +54,9 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("NumberSubstitutionMethod.NativeNational", source, StringComparison.Ordinal);
         Assert.Contains("NumberSubstitutionMethod.Context", source, StringComparison.Ordinal);
         Assert.Contains("NumberCultureSource.Override", source, StringComparison.Ordinal);
+        Assert.Contains("AbsoluteUri}#Traditional Arabic", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("new FontFamily(new Uri(fontPath, UriKind.Absolute), \"#Traditional Arabic\")",
+            source, StringComparison.Ordinal);
         Assert.Contains("Fonts/trado.ttf", windowsProject, StringComparison.Ordinal);
         string portableProject = File.ReadAllText(FindRepoPath(
             "samples", "ProGPU.Wpf.TextLayoutParityApp", "ProGPU.Wpf.TextLayoutParityApp.csproj"));
