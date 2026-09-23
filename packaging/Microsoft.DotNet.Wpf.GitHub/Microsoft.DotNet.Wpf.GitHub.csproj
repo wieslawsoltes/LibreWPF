@@ -9,11 +9,11 @@
     <PackageName>LibreWPF.Transport$(TransportPackageNameSuffix)</PackageName>
     <AssemblyName>$(PackageName)</AssemblyName>
     <VersionPrefix>0.1.0</VersionPrefix>
-    <VersionSuffix>preview.63</VersionSuffix>
+    <VersionSuffix>preview.64</VersionSuffix>
     <Version>$(VersionPrefix)-$(VersionSuffix)</Version>
     <PackageVersion>$(Version)</PackageVersion>
     <PackageDescription>LibreWPF transport package for the portable managed presentation assemblies from the ProGPU port.</PackageDescription>
-    <PackageReleaseNotes>Consumes ProGPU preview.63, fixes GeometryGroup child ABI compatibility, and retains typed portable display metrics, per-monitor DPI, multi-window popup routing, exact transformed and shader-backed stroke replay, bounded resource ownership, static-frame suppression, transparent X11 windows, and native Cocoa popups.</PackageReleaseNotes>
+    <PackageReleaseNotes>Consumes ProGPU preview.64, fixes GeometryGroup child ABI compatibility, and retains typed portable display metrics, per-monitor DPI, multi-window popup routing, exact transformed and shader-backed stroke replay, bounded resource ownership, static-frame suppression, transparent X11 windows, and native Cocoa popups.</PackageReleaseNotes>
     <PackageTags>librewpf;progpu;xaml;themes;transport</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>

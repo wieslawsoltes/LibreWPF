@@ -165,7 +165,7 @@ Publishing is gated by repository secret `NUGET_API_KEY`.
 Existing WPF applications should be able to switch only the project SDK:
 
 ```xml
-<Project Sdk="LibreWPF.Sdk/0.1.0-preview.63">
+<Project Sdk="LibreWPF.Sdk/0.1.0-preview.64">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0-windows</TargetFramework>
