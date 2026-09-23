@@ -149,11 +149,21 @@ jobs:
           echo "PROGPU_WPF_PREPACKAGED_PROGPU_DIR=${package_dir}" >> "${GITHUB_ENV}"
 
           # The canonical Forms build compiles against this pinned ProGPU source,
-          # then package consumers must resolve the byte-exact public release.
+          # then package consumers must resolve only the byte-exact public release.
+          # Retain its source-built packages outside the feed for diagnostics:
+          # allowing both versions into the feed makes version discovery ambiguous.
           canonical_dir="${GITHUB_WORKSPACE}/artifacts/packages/CanonicalWinForms"
+          source_package_dir="${RUNNER_TEMP}/canonical-progpu-source-packages"
           mkdir -p "${canonical_dir}"
+          mkdir -p "${source_package_dir}"
           for package_id in "${progpu_preview_runtime_package_ids[@]}"; do
             package_file="${package_id}.${PROGPU_WPF_PROGPU_PACKAGE_VERSION}.nupkg"
+            for produced_package in "${canonical_dir}/${package_id}."[0-9]*.nupkg; do
+              [[ -f "${produced_package}" ]] || continue
+              retained_package="${source_package_dir}/${produced_package##*/}"
+              test ! -e "${retained_package}"
+              mv "${produced_package}" "${retained_package}"
+            done
             cp "${package_dir}/${package_file}" "${canonical_dir}/${package_file}"
             cmp "${package_dir}/${package_file}" "${canonical_dir}/${package_file}"
           done
