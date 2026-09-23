@@ -33,7 +33,7 @@ projects on the ProGPU/Silk.NET platform.
 ## Local Preview Build
 
 ```bash
-PROGPU_WPF_DEV_PACKAGE_VERSION=0.1.0-preview.63 \
+PROGPU_WPF_DEV_PACKAGE_VERSION=0.1.0-preview.64 \
 PROGPU_WPF_PROGPU_PACKAGE_VERSION="0.1.0-source.$(git -C external/ProGPU rev-parse --short=8 HEAD)" \
   ./eng/progpu-wpf-sdk-ci.sh
 ```
@@ -49,6 +49,9 @@ equal the checked-out ProGPU submodule commit before packaging. The release job 
 native runtimes from that exact `ProGPU.Backend.Native` package for source-host smoke tests; a
 NuGet package in the feed alone does not populate the source-host runtime directory. Every
 downloaded package is audited against that tag commit recorded in its nuspec.
+For aligned tag releases, `progpu_version` defaults to the LibreWPF tag version;
+an explicit override is reserved for a deliberate recovery publication. This
+prevents an older workflow input default from silently mixing package versions.
 
 Canonical WinForms packages built for a public LibreWPF release carry that same ProGPU
 release version; their temporary source-built ProGPU dependencies are replaced by the
