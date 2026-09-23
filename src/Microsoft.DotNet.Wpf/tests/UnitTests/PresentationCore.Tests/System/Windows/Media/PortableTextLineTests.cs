@@ -678,7 +678,7 @@ public class PortableTextLineTests
     [InlineData("1%2", NumberSubstitutionMethod.European)]
     [InlineData("1,2", NumberSubstitutionMethod.European)]
     [InlineData("1.2", NumberSubstitutionMethod.European)]
-    public void NumberSymbolsRejectOnlyWhenTheirActiveCultureRequiresSubstitution(
+    public void NumberSymbolsRetainSourceTextAndPublishOnlyActiveCultureMappings(
         string text, NumberSubstitutionMethod method)
     {
         var culture = DigitCulture();
@@ -694,22 +694,18 @@ public class PortableTextLineTests
         using var registration = PortableWpfServiceRegistry.RegisterTextFormatting(provider);
         using var formatter = new TextFormatterImp();
 
-        if (method == NumberSubstitutionMethod.NativeNational)
-        {
-            Assert.Contains("number symbols", Assert.Throws<PlatformNotSupportedException>(() =>
-                PortableTextLine.Create(Settings(formatter, source), 0, 800, 1)).Message);
-            Assert.Equal(0, provider.Calls);
-        }
-        else
-        {
-            using var line = PortableTextLine.Create(Settings(formatter, source), 0, 800, 1);
-            Assert.Equal(text, provider.Text);
-            Assert.Equal(1, provider.Calls);
-            Assert.Single(provider.Styles.ToArray());
-            Assert.Equal((0, 3, 0U), (provider.Styles.Span[0].Start,
-                provider.Styles.Span[0].Length, provider.Styles.Span[0].DigitZero));
-            Assert.Equal(2, line.Length);
-        }
+        using var line = PortableTextLine.Create(Settings(formatter, source), 0, 800, 1);
+        Assert.Equal(text, provider.Text);
+        Assert.Equal(1, provider.Calls);
+        var style = Assert.Single(provider.Styles.ToArray());
+        Assert.Equal((0, 3, method == NumberSubstitutionMethod.NativeNational ? 0x0660U : 0U),
+            (style.Start, style.Length, style.DigitZero));
+        Assert.Equal(method == NumberSubstitutionMethod.NativeNational ? 0x066AU : 0U, style.Percent);
+        Assert.Equal(method == NumberSubstitutionMethod.NativeNational ?
+            text.Contains(',') ? 0x060CU : 0x066CU : 0U, style.GroupSeparator);
+        Assert.Equal(method == NumberSubstitutionMethod.NativeNational ?
+            text.Contains('.') ? (uint)',' : 0x066BU : 0U, style.DecimalSeparator);
+        Assert.Equal(2, line.Length);
         Assert.Equal(0, provider.DigitContextCalls);
     }
 

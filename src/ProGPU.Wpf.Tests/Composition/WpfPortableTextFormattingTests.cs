@@ -127,6 +127,39 @@ public sealed class WpfPortableTextFormattingTests
         }
     }
 
+    [Fact]
+    public void StyledNumberSymbolsKeepAsciiSourceAndShapeCultureGlyphs()
+    {
+        byte[] data = ReadArabicFont();
+        var face = new TtfFont(data);
+        var font = new PortableTextFont(data, 0, face.UnitsPerEm);
+        var provider = new WpfPortableTextFormatting();
+        char[] source = ['%', ',', '.'];
+        uint[] replacements = ['!', ';', ':'];
+        var request = new PortableTextParagraphRequest(source, font, 24, 32, 1000,
+            false, PortableTextAlignment.Left,
+            Styles: new PortableTextStyle[] { new(0, source.Length, font, 24,
+                DigitZero: 0x0660, PreserveSourceDigitBidi: true,
+                Percent: replacements[0], GroupSeparator: replacements[1],
+                DecimalSeparator: replacements[2]) });
+
+        var paragraph = provider.Format(request);
+
+        Assert.Equal(new[] { '%', ',', '.' }, source);
+        Assert.Equal((0, source.Length), (Assert.Single(paragraph.Lines.ToArray()).InputStart,
+            paragraph.Lines.Span[0].InputEnd));
+        var glyphs = paragraph.Glyphs.ToArray();
+        Assert.Equal(source.Length, glyphs.Length);
+        for (int i = 0; i < glyphs.Length; i++)
+        {
+            var glyph = Assert.Single(glyphs, glyph => glyph.Cluster == i);
+            uint expected = face.GetGlyphIndex(replacements[i]);
+            Assert.NotEqual(0U, expected);
+            Assert.Equal(expected, glyph.GlyphId);
+            Assert.Equal(i + 1, glyph.ClusterEnd);
+        }
+    }
+
     private static byte[] ReadArabicFont()
     {
         for (DirectoryInfo? directory = new(AppContext.BaseDirectory); directory != null; directory = directory.Parent)
