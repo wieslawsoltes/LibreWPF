@@ -50,6 +50,10 @@ native runtimes from that exact `ProGPU.Backend.Native` package for source-host 
 NuGet package in the feed alone does not populate the source-host runtime directory. Every
 downloaded package is audited against that tag commit recorded in its nuspec.
 
+Canonical WinForms packages built for a public LibreWPF release carry that same ProGPU
+release version; their temporary source-built ProGPU dependencies are replaced by the
+byte-exact published ProGPU packages before mixed WPF/WinForms package smoke.
+
 ### Package production before qualification
 
 During implementation, package production can stop before running applications or

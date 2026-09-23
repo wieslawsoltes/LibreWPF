@@ -109,6 +109,7 @@ jobs:
         env:
           # ProGPU release CI owns these tests; LibreWPF's SDK root uses MTP.
           PROGPU_WPF_RUN_DRAWING_QUALITY_GATES: 0
+          PROGPU_WPF_CANONICAL_PROGPU_PACKAGE_VERSION: ${{ env.PROGPU_WPF_PROGPU_PACKAGE_VERSION }}
         run: ./eng/progpu-wpf-canonical-winforms-integration.sh
 
       - name: Stage exact ProGPU release packages
@@ -146,6 +147,16 @@ jobs:
               "https://github.com/wieslawsoltes/ProGPU/releases/download/${tag}/${package_file}"
           done
           echo "PROGPU_WPF_PREPACKAGED_PROGPU_DIR=${package_dir}" >> "${GITHUB_ENV}"
+
+          # The canonical Forms build compiles against this pinned ProGPU source,
+          # then package consumers must resolve the byte-exact public release.
+          canonical_dir="${GITHUB_WORKSPACE}/artifacts/packages/CanonicalWinForms"
+          mkdir -p "${canonical_dir}"
+          for package_id in "${progpu_preview_runtime_package_ids[@]}"; do
+            package_file="${package_id}.${PROGPU_WPF_PROGPU_PACKAGE_VERSION}.nupkg"
+            cp "${package_dir}/${package_file}" "${canonical_dir}/${package_file}"
+            cmp "${package_dir}/${package_file}" "${canonical_dir}/${package_file}"
+          done
 
       - name: Stage native runtimes from exact ProGPU release package
         shell: bash
