@@ -40,8 +40,15 @@ Windows WPF visual/interaction comparison remain open.
 
 ## Remaining admission
 
-The coordinated ProGPU and LibreWPF commits, PR checks, packed ABI-5 artifacts,
+The three coordinated commits are published as ProGPU PR #183, LibreWinForms
+PR #47 and LibreWPF PR #163. Passing PR checks, packed ABI-5 artifacts,
 Windows native provider build/run, stock-WPF number-symbol comparison, and
 final application/package qualification remain required. The ABI-5 change must
 not be combined with ABI-4 managed or native packages. No DirectX, Direct2D,
 complete MIL, or final release parity is inferred from these checks.
+
+The first LibreWPF PR CI run stopped its canonical WinForms integration before
+building because the pinned LibreWinForms source still referenced ProGPU ABI 4.
+LibreWinForms PR #47 pins the same ProGPU ABI-5 commit as LibreWPF; LibreWPF
+pins that LibreWinForms commit so the canonical three-repository check can run.
+This resolves the source-graph mismatch only; it is not a passing CI claim.
