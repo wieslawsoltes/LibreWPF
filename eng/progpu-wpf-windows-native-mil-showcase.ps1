@@ -448,6 +448,10 @@ if (!(Test-Path -LiteralPath $windowsTextAppHost -PathType Leaf)) {
 }
 $nativeLayout = Invoke-TextLayoutCheck "native-WPF" $windowsTextAppHost $smokeRoot
 $portableLayout = Invoke-TextLayoutCheck "ProGPU-native-MIL" $textAppHost $smokeRoot
+$expectedNumberGlyphs = "257,258,16,259,260,261,18,262,263,266,4,264,265,16,256,257,258,18,259,260,266"
+if ($nativeLayout.NumberGlyphs -cne $expectedNumberGlyphs) {
+    throw "Windows stock WPF number-symbol oracle changed: $($nativeLayout.NumberGlyphs)."
+}
 if ($nativeLayout.NumberGlyphs -cne $portableLayout.NumberGlyphs) {
     throw "Windows number-symbol glyphs differ: native=$($nativeLayout.NumberGlyphs) portable=$($portableLayout.NumberGlyphs)."
 }
