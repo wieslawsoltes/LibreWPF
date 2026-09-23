@@ -45,11 +45,11 @@ require_text ".github/workflows/progpu-wpf-release.yml" "refs/tags/librewpf-v"
 require_text ".github/workflows/progpu-wpf-release.yml" "librewpf-packages-"
 require_text ".github/workflows/progpu-wpf-release.yml" "default: 0.1.0-preview.63"
 require_text ".github/workflows/progpu-wpf-release.yml" "default: 0.1.0-preview.63"
-require_text ".github/workflows/progpu-wpf-release.yml" 'name: librewpf-packages-${{ needs.promote-qualified-preview.outputs.version || needs.preview.outputs.version }}'
+require_text ".github/workflows/progpu-wpf-release.yml" 'name: librewpf-packages-${{ needs.preview.outputs.version }}'
 require_text ".github/workflows/progpu-wpf-release.yml" "Create GitHub Release"
 require_text ".github/workflows/progpu-wpf-release.yml" "gh release create"
 require_text ".github/workflows/progpu-wpf-release.yml" "--generate-notes"
-require_text "README.md" "Tag releases promote and re-verify the exact package artifact"
+require_text "README.md" "Tag releases rebuild the immutable tagged source"
 require_text "README.md" "Canonical WinForms integration is validated separately from the normal NuGet"
 require_text "docs/progpu-wpf-release.md" "clean-cache WPF reference/cycle ordering"
 require_text "reports/canonical-winforms-source-integration.md" "Portable stays frozen"
@@ -77,7 +77,7 @@ require_text "samples/ProGPU.Wpf.TextLayoutParityApp/MainWindow.xaml.cs" 'TEXT_R
 require_text "reports/native-mil-text-runtime-admission-2026-09-15.md" 'not native-MIL visual qualification'
 require_text "eng/progpu-wpf-canonical-sdk-smoke.sh" 'LibreWinForms.Compatibility.System.Windows.Forms/'
 require_text "eng/progpu-wpf-canonical-sdk-smoke.sh" 'DOTNET_ROLL_FORWARD_TO_PRERELEASE'
-require_text "docs/progpu-wpf-release.md" 'terminal-success `LibreWPF Build` run for the exact tagged commit'
+require_text "docs/progpu-wpf-release.md" 'commit-qualified `source.<sha>` ProGPU packages'
 require_text ".github/workflows/progpu-wpf-release.yml" "Stage exact ProGPU release packages"
 require_text ".github/workflows/progpu-wpf-release.yml" "Build canonical LibreWinForms package closure"
 require_text ".github/workflows/progpu-wpf-release.yml" "./eng/progpu-wpf-canonical-winforms-integration.sh"
