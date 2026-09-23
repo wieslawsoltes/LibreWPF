@@ -9,7 +9,7 @@ on:
       version:
         description: Package version contained in the bundle.
         required: true
-        default: 0.1.0-preview.32
+        default: 0.1.0-preview.64
 
 permissions:
   actions: read

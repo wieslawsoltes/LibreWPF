@@ -44,6 +44,8 @@ require_text ".github/workflows/progpu-wpf-release.yml" "librewpf-v*"
 require_text ".github/workflows/progpu-wpf-release.yml" "refs/tags/librewpf-v"
 require_text ".github/workflows/progpu-wpf-release.yml" "librewpf-packages-"
 require_text ".github/workflows/progpu-wpf-release.yml" "default: 0.1.0-preview.64"
+require_text ".github/workflows/librewpf-windows-public-package-smoke.yml" "default: 0.1.0-preview.64"
+require_text ".github/workflows/librewpf-windows-artifact-smoke.yml" "default: 0.1.0-preview.64"
 require_text ".github/workflows/progpu-wpf-release.yml" 'progpu_version="${version}"'
 require_text ".github/workflows/progpu-wpf-release.yml" 'name: librewpf-packages-${{ needs.preview.outputs.version }}'
 require_text ".github/workflows/progpu-wpf-release.yml" "Create GitHub Release"
