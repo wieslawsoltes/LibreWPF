@@ -45,8 +45,10 @@ builds assign the checked-out ProGPU submodule a commit-qualified `0.1.0-source.
 pack the complete ProGPU dependency closure from that exact source. This prevents a newer LibreWPF
 assembly from loading an ABI-incompatible older ProGPU binary. The release workflow instead downloads
 immutable ProGPU release packages for the matching `v<version>` tag and requires the tag commit to
-equal the checked-out ProGPU submodule commit before packaging. Every downloaded package is audited
-against that tag commit recorded in its nuspec.
+equal the checked-out ProGPU submodule commit before packaging. The release job also stages the
+native runtimes from that exact `ProGPU.Backend.Native` package for source-host smoke tests; a
+NuGet package in the feed alone does not populate the source-host runtime directory. Every
+downloaded package is audited against that tag commit recorded in its nuspec.
 
 ### Package production before qualification
 
