@@ -106,6 +106,9 @@ jobs:
         run: ./eng/progpu-wpf-verify-docs.sh
 
       - name: Build canonical LibreWinForms package closure
+        env:
+          # ProGPU release CI owns these tests; LibreWPF's SDK root uses MTP.
+          PROGPU_WPF_RUN_DRAWING_QUALITY_GATES: 0
         run: ./eng/progpu-wpf-canonical-winforms-integration.sh
 
       - name: Stage exact ProGPU release packages

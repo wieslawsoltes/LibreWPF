@@ -80,6 +80,7 @@ require_text "eng/progpu-wpf-canonical-sdk-smoke.sh" 'DOTNET_ROLL_FORWARD_TO_PRE
 require_text "docs/progpu-wpf-release.md" 'commit-qualified `source.<sha>` ProGPU packages'
 require_text ".github/workflows/progpu-wpf-release.yml" "Stage exact ProGPU release packages"
 require_text ".github/workflows/progpu-wpf-release.yml" "Build canonical LibreWinForms package closure"
+require_text ".github/workflows/progpu-wpf-release.yml" "PROGPU_WPF_RUN_DRAWING_QUALITY_GATES: 0"
 require_text ".github/workflows/progpu-wpf-release.yml" "./eng/progpu-wpf-canonical-winforms-integration.sh"
 require_text ".github/workflows/progpu-wpf-release.yml" 'PROGPU_WPF_EXPECTED_PROGPU_PACKAGE_COMMIT=${tag_commit}'
 require_text ".github/workflows/progpu-wpf-release.yml" '[[ "${tag_commit}" != "${submodule_commit}" ]]'
