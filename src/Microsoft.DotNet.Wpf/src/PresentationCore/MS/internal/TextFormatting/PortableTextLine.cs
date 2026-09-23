@@ -81,6 +81,7 @@ internal sealed class PortableTextLine : TextLine
     private readonly List<(bool IsObject, int Index)> _drawingOrder;
     private readonly bool _fixedHeight;
     private readonly int _paragraphStart, _lineIndex, _newlines;
+    private readonly bool _endsParagraph;
     private readonly double _paragraphWidth, _indent, _baseline, _height;
     private readonly bool _rightToLeft;
     private readonly List<IndexedGlyphRun> _glyphRuns = new();
@@ -411,7 +412,7 @@ internal sealed class PortableTextLine : TextLine
                 sourceFloats[i] = placement with { Position = checked(first + floating.Children.Span[i].SourceStart) };
             }
         }
-        return new PortableTextLine(paragraph, text, properties, face, first, 0, newlines,
+        return new PortableTextLine(paragraph, text, properties, face, first, 0, newlines, endsParagraph,
             width, indent, baseline, height, pap.RightToLeft, runs, pixelsPerDip, pap.Align, styles.ToArray(), pap.LineHeight > 0,
             sourceMap, scope,
             settings.Formatter, service, objects: objects?.ToArray()) { SourceFloats = sourceFloats };
@@ -467,7 +468,7 @@ internal sealed class PortableTextLine : TextLine
     });
 
     private PortableTextLine(PortableTextLine owner, int index, IPortableTextParagraph paragraph = null, double? width = null) : this(paragraph ?? owner._paragraph, owner._text,
-        owner._properties, owner._face, owner._paragraphStart, index, owner._newlines,
+        owner._properties, owner._face, owner._paragraphStart, index, owner._newlines, owner._endsParagraph,
         width ?? owner._paragraphWidth, owner._indent, owner._baseline, owner._height, owner._rightToLeft,
         owner._runs, owner.PixelsPerDip, owner._alignment, owner._styles, owner._fixedHeight, owner._sourceMap, owner._endScope,
         owner._formatter, owner._service, objects: owner._objects) { SourceFloats = owner.SourceFloats; }
@@ -695,7 +696,7 @@ internal sealed class PortableTextLine : TextLine
 
     private readonly TextAlignment _alignment;
     private PortableTextLine(IPortableTextParagraph paragraph, string text, TextRunProperties properties,
-        GlyphTypeface face, int paragraphStart, int lineIndex, int newlines, double width, double indent,
+        GlyphTypeface face, int paragraphStart, int lineIndex, int newlines, bool endsParagraph, double width, double indent,
         double baseline, double height, bool rtl, List<TextSpan<TextRun>> runs, double pixelsPerDip, TextAlignment alignment,
         SourceStyle[] styles, bool fixedHeight, PortableTextSourceMap sourceMap, TextModifierScope endScope,
         TextFormatterImp formatter, IPortableTextFormatting service, PortableTextLine symbol = null,
@@ -705,6 +706,7 @@ internal sealed class PortableTextLine : TextLine
         _paragraph = paragraph; _text = text; _properties = properties; _face = face;
         _sourceMap = sourceMap; _endScope = endScope;
         _paragraphStart = paragraphStart; _lineIndex = lineIndex; _newlines = newlines;
+        _endsParagraph = endsParagraph;
         _paragraphWidth = width; _indent = indent; _baseline = baseline; _height = height;
         _rightToLeft = rtl; _runs = runs; _alignment = alignment;
         _styles = styles; _fixedHeight = fixedHeight;
@@ -751,7 +753,7 @@ internal sealed class PortableTextLine : TextLine
         {
             var placement = paragraph.Glyphs.Span[range.SymbolGlyphIndex];
             _symbol = new PortableTextLine(symbol._paragraph, symbol._text, symbol._properties, symbol._face,
-                0, 0, 0, 0, Start + placement.X, symbol._baseline, symbol._height, symbol._rightToLeft,
+                0, 0, 0, symbol._endsParagraph, 0, Start + placement.X, symbol._baseline, symbol._height, symbol._rightToLeft,
                 symbol._runs, PixelsPerDip, TextAlignment.Left, symbol._styles, symbol._fixedHeight,
                 symbol._sourceMap, null, symbol._formatter, symbol._service, baselineOverride: Baseline);
             ink.Union(_symbol._ink);
@@ -1037,7 +1039,7 @@ internal sealed class PortableTextLine : TextLine
             range.Start < Info.InputStart || range.Start >= range.End || range.End != Info.InputEnd ||
             (uint)range.SymbolGlyphIndex >= collapsed.Glyphs.Length || !collapsed.Glyphs.Span[range.SymbolGlyphIndex].IsCollapseSymbol)
             throw new InvalidOperationException("The provider returned invalid collapsed source ranges.");
-        return new PortableTextLine(collapsed, _text, _properties, _face, _paragraphStart, _lineIndex, _newlines,
+        return new PortableTextLine(collapsed, _text, _properties, _face, _paragraphStart, _lineIndex, _newlines, _endsParagraph,
             _paragraphWidth, _indent, _baseline, _height, _rightToLeft, _runs, PixelsPerDip, _alignment,
             _styles, _fixedHeight, _sourceMap, _endScope, _formatter, _service, symbol, this);
     }
@@ -1162,7 +1164,7 @@ internal sealed class PortableTextLine : TextLine
         // rectangles. Only a range intersecting the actual newline gets this box.
         if (length > 0 && start == end && NewlineLength > 0 &&
             first >= First && first < First + Length && checked(first + length) > End)
-            return new[] { new TextBounds(new Rect(GetDistanceFromCharacterHit(new CharacterHit(first, 0)),
+            return new[] { new TextBounds(new Rect(GetNonInkCaretX(first),
                 0, 0, Height), _rightToLeft ? FlowDirection.RightToLeft : FlowDirection.LeftToRight, null) };
         var rectangles = new PortableRect[Math.Max(1, Info.GlyphCount)];
         var result = new List<TextBounds>();
@@ -1220,9 +1222,21 @@ internal sealed class PortableTextLine : TextLine
         // The source host still identifies terminal positions (which may be
         // before hidden closing edges), but that identity does not override
         // native affinity for this non-ink caret box.
-        double x = GetDistanceFromCharacterHit(new CharacterHit(sourcePosition, 0));
+        double x = GetNonInkCaretX(sourcePosition);
         rectangle = new Rect(x, 0, 0, Height);
         return true;
+    }
+
+    private double GetNonInkCaretX(int sourcePosition)
+    {
+        // WPF places an explicit hard-break symbol at the complete source line's
+        // trailing edge, including trailing whitespace. The shaped paragraph's
+        // logical caret at that UTF-16 offset can instead belong to the final
+        // bidi run (notably contextual Arabic digits). EndOfParagraph retains
+        // native caret affinity; only the actual hard break uses this edge.
+        if (sourcePosition == End && NewlineLength > 0 && !_endsParagraph)
+            return Start + WidthIncludingTrailingWhitespace;
+        return GetDistanceFromCharacterHit(new CharacterHit(sourcePosition, 0));
     }
     public override IList<TextSpan<TextRun>> GetTextRunSpans()
     {

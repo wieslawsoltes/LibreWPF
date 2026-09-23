@@ -233,3 +233,27 @@ provenance check. The WPF submodule is therefore advanced to `36b388685`.
 LibreWinForms PR #44 carries the same ProGPU pin; LibreWPF pins its focused
 `06dcdd6dd` Forms source commit while that PR qualifies. The final package
 gates must run again on these exact pointers before publishing LibreWPF.
+
+## 2026-09-23 explicit hard-break caret correction
+
+LibreWPF PR #153's exact-package Windows x64 and ARM64 Showcase gates reached
+the corrected eight-case comparison. Both rejected the same contextual-digit
+insertion at source offset 15, the explicit first-line break: stock WPF reported
+X = 139.170 DIP, while the portable source line reported X = 105.902 DIP.
+The adjacent glyph insertions and the final paragraph insertion matched within
+the 0.1-DIP gate. This is a distinct hard-break affinity from the final
+EndOfParagraph affinity described above, not an architecture-specific shader or
+font difference.
+
+ProGPU's retained first-line paragraph measures 139.160 DIP but exposes its
+last shaped run caret at logical X = 105.902 DIP. An explicit hard-break symbol
+has no ink cluster; stock WPF positions its insertion at the complete line edge,
+including trailing whitespace. LibreWPF now retains whether the captured source
+ended by a hard break or EndOfParagraph. Only the actual hard-break symbol uses
+that measured edge for both point-caret and newline selection boxes; hidden-only
+source positions and EndOfParagraph still use native caret affinity. A typed
+source regression covers the distinction, and 55/55 `PortableTextLineTests`
+pass locally. A ProGPU-backed adapter regression retains both the shaped
+105.9-DIP caret and 139.16-DIP line edge; 4/4 formatting adapter tests pass.
+The exact-package Windows gates must rerun on this commit before parity or
+release is claimed.

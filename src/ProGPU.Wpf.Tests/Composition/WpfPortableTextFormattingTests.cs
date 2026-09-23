@@ -29,6 +29,27 @@ public sealed class WpfPortableTextFormattingTests
     }
 
     [Fact]
+    public void ContextualArabicShapedLineEndDiffersFromHardBreakEdge()
+    {
+        byte[] data = ReadArabicFont();
+        var face = new TtfFont(data);
+        var font = new PortableTextFont(data, 0, face.UnitsPerEm);
+        var provider = new WpfPortableTextFormatting();
+        const string source = "123 A456 \u0627 789";
+        var paragraph = provider.Format(new PortableTextParagraphRequest(source.AsMemory(),
+            font, 24, 35.87f, 240, true, PortableTextAlignment.Left,
+            Styles: new PortableTextStyle[] {
+                new(0, source.Length, font, 24, DigitZero: 0x0660,
+                    ContextualDigits: true, PreserveSourceDigitBidi: true) }));
+        var lines = paragraph.Lines.ToArray();
+        int position = lines[0].InputEnd;
+        float leading = paragraph.GetCaretDistance(0, new(position, false));
+        Assert.Equal(source.Length, position);
+        Assert.InRange(lines[0].Width - leading, 105.8f, 106.0f);
+        Assert.InRange(lines[0].Width, 139.0f, 139.3f);
+    }
+
+    [Fact]
     public void DigitContextAdapterPreservesNativeStrongContextAndGraphemeBoundaries()
     {
         IPortableTextDigitContext provider = new WpfPortableTextFormatting();

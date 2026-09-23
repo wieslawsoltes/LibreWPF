@@ -1077,6 +1077,30 @@ public class PortableTextLineTests
     }
 
     [Fact]
+    public void ExplicitHardBreakUsesFullLineEdgeWithoutChangingParagraphTerminatorAffinity()
+    {
+        var provider = new Provider { MixedOneLine = true };
+        using var registration = PortableWpfServiceRegistry.RegisterTextFormatting(provider);
+        using var formatter = new TextFormatterImp();
+        var properties = new Properties();
+        using var hardBreak = PortableTextLine.Create(DocumentSettings(formatter,
+            new DocumentSource([new TextCharacters("abc", properties), new TextEndOfLine(1)]), properties),
+            0, 800, 1);
+        Assert.Equal(1, hardBreak.NewlineLength);
+        Assert.True(Assert.IsType<PortableTextLine>(hardBreak).TryGetNonInkCaretBounds(
+            3, out var breakCaret, out var direction));
+        Assert.Equal(FlowDirection.RightToLeft, direction);
+        Assert.Equal(hardBreak.Start + hardBreak.WidthIncludingTrailingWhitespace, breakCaret.X);
+        Assert.Equal(breakCaret.X, Assert.Single(hardBreak.GetTextBounds(3, 1)).Rectangle.X);
+
+        using var paragraphEnd = PortableTextLine.Create(DocumentSettings(formatter,
+            new DocumentSource([new TextCharacters("abc", properties)]), properties), 0, 800, 1);
+        Assert.True(Assert.IsType<PortableTextLine>(paragraphEnd).TryGetNonInkCaretBounds(
+            3, out var endCaret, out _));
+        Assert.Equal(paragraphEnd.GetDistanceFromCharacterHit(new CharacterHit(3, 0)), endCaret.X);
+    }
+
+    [Fact]
     public void StyledLinesPreserveRunMetricsBrushesAndExactRenderFaces()
     {
         var provider = new Provider { Mixed = true };
