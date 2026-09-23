@@ -47,7 +47,9 @@ resolve_single_version() {
   fi
 
   shopt -s nullglob
-  candidates=("${package_source}/${package_id}."*.nupkg)
+  # Match the version immediately after the complete ID, not longer IDs such
+  # as ProGPU.Backend.Dawn when resolving ProGPU.Backend.
+  candidates=("${package_source}/${package_id}."[0-9]*.nupkg)
   shopt -u nullglob
   if [[ "${#candidates[@]}" != "1" ]]; then
     echo "Expected one ${package_id} package in ${package_source}, found ${#candidates[@]}." >&2
