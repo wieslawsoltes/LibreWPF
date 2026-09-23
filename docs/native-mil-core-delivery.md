@@ -1,5 +1,21 @@
 # LibreWPF native MIL core delivery
 
+## Source digit substitution — 2026-09-22
+
+The active source-text integration connects WPF number policies to ProGPU's
+native digit substitution and shared context scan. Physical font mapping must
+see the resolved digit culture before shaping. The adapter retains original
+text, clusters, source indices, and continuation ownership; source percent and
+separator substitutions remain explicit until their native contract exists.
+See [implementation and qualification limits](native-mil-digit-substitution.md).
+The source Release build and all 53 focused source tests pass on macOS ARM64
+and Windows ARM64 with explicit portable-media selection. An actual native
+provider differential exposed incorrect substituted-digit bidi metadata;
+the shared ProGPU correction now passes that strict comparison. The expanded
+eight-case Windows application/package comparison remains required on the
+immutable merged dependency graph. See the
+[qualification record](../reports/native-mil-source-digits-2026-09-22.md).
+
 ## Scope decision — 2026-09-08
 
 The user requested a focus on core major features and finishing. The immediate

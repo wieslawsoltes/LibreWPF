@@ -262,6 +262,9 @@ namespace MS.Internal.TextFormatting
             return _runCache.GetPrecedingText(_textSource, cpLimit);
         }
 
+        internal TextSpan<CultureSpecificCharacterBufferRange> GetPrecedingText(int cpLimit, out bool endsAtHardBreak)
+            => _runCache.GetPrecedingText(_textSource, cpLimit, out endsAtHardBreak);
+
 
         /// <summary>
         /// Current number substitution propeties

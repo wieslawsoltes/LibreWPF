@@ -265,7 +265,12 @@ namespace MS.Internal.TextFormatting
         /// Get text immediately preceding cpLimit.
         /// </summary>
         internal TextSpan<CultureSpecificCharacterBufferRange> GetPrecedingText(TextSource textSource, int cpLimit)
+            => GetPrecedingText(textSource, cpLimit, out _);
+
+        internal TextSpan<CultureSpecificCharacterBufferRange> GetPrecedingText(TextSource textSource, int cpLimit,
+            out bool endsAtHardBreak)
         {
+            endsAtHardBreak = false;
             if (cpLimit > 0)
             {
                 SpanRider textRunSpanRider = new SpanRider(_textRunVector, _latestPosition);
@@ -278,6 +283,7 @@ namespace MS.Internal.TextFormatting
 
                     if (run != null)
                     {
+                        endsAtHardBreak = run is TextEndOfLine;
                         // Only TextRun containing text would have non-empty Character buffer range.
                         if ( TextRunInfo.GetRunType(run) == Plsrun.Text
                           && run.CharacterBufferReference.CharacterBuffer != null)

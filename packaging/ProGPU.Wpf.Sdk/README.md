@@ -6,7 +6,7 @@ This initial package skeleton layers on the existing WindowsDesktop SDK so WPF m
 
 Package mode is the intended delivery path. It references the ported managed WPF bundle through `ProGpuWpfManagedPackageId`/`ProGpuWpfManagedPackageVersion`, references the ProGPU runtime packages, injects portable activation on non-Windows hosts and for explicit native MIL selection on Windows, and copies resolved managed and native runtime assets to the application output. Local-artifact mode remains available for source-tree validation by setting `ProGpuWpfManagedReferenceRoot` and `ProGpuReferenceRoot`.
 
-For mutable development package versions such as `0.1.0-preview.45`, the SDK clears known WPF and ProGPU runtime assemblies from the app output before recopying package assets. This prevents an incremental app rebuild from launching stale bridge/compositor DLLs after a local package refresh while preserving normal incremental copy behavior for stable package versions. Set `ProGpuWpfClearMutablePackageOutputs=false` to disable this development safeguard.
+For mutable development package versions such as `0.1.0-preview.63`, the SDK clears known WPF and ProGPU runtime assemblies from the app output before recopying package assets. This prevents an incremental app rebuild from launching stale bridge/compositor DLLs after a local package refresh while preserving normal incremental copy behavior for stable package versions. Set `ProGpuWpfClearMutablePackageOutputs=false` to disable this development safeguard.
 
 The SDK owns the package dependency closure. `LibreWPF.Transport` supplies the real managed WPF assembly identities and runtime payload, while `LibreWPF.ProGPU` is the adapter/runtime bridge package and does not publish dependencies on the ProGPU shim `PresentationCore` package.
 
@@ -19,7 +19,7 @@ Windows, macOS, and Linux are supported runtime targets. A Windows RID restores 
 The SDK also supplies the WPF markup compiler defaults and portable runtime-framework default needed by the current build lane, so applications do not need ProGPU-specific item includes, PresentationBuildTasks compatibility properties, or runtime-version pins.
 
 ```xml
-<Project Sdk="LibreWPF.Sdk/0.1.0-preview.45">
+<Project Sdk="LibreWPF.Sdk/0.1.0-preview.63">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0-windows</TargetFramework>
@@ -93,7 +93,7 @@ For a fast validation pass that exercises the external no-source-change SDK smok
 ./eng/progpu-wpf-showcase-quickcheck.sh
 ```
 
-The quickcheck expects the local `0.1.0-preview.45` LibreWPF package feed and its ProGPU `0.1.0-preview.62` runtime dependencies to be current. Use the full SDK CI gate when package contents need to be rebuilt from source:
+The quickcheck expects the local `0.1.0-preview.63` LibreWPF package feed and its ProGPU `0.1.0-preview.63` runtime dependencies to be current. Use the full SDK CI gate when package contents need to be rebuilt from source:
 
 ```bash
 ./eng/progpu-wpf-sdk-ci.sh

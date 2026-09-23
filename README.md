@@ -78,7 +78,7 @@ Before:
 After:
 
 ```xml
-<Project Sdk="LibreWPF.Sdk/0.1.0-preview.45">
+<Project Sdk="LibreWPF.Sdk/0.1.0-preview.63">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0-windows</TargetFramework>
@@ -92,7 +92,7 @@ Older projects that still use `Microsoft.NET.Sdk.WindowsDesktop` should make the
 4. Keep existing app dependencies in place. For example, a Toolkit app only changes the SDK line:
 
 ```xml
-<Project Sdk="LibreWPF.Sdk/0.1.0-preview.45">
+<Project Sdk="LibreWPF.Sdk/0.1.0-preview.63">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0-windows</TargetFramework>
@@ -159,7 +159,7 @@ release dispatch remains the full-rebuild recovery path.
 ## Build And Release
 
 ```bash
-PROGPU_WPF_DEV_PACKAGE_VERSION=0.1.0-preview.45 PROGPU_WPF_PROGPU_PACKAGE_VERSION=0.1.0-preview.62 ./eng/progpu-wpf-sdk-ci.sh
+PROGPU_WPF_DEV_PACKAGE_VERSION=0.1.0-preview.63 PROGPU_WPF_PROGPU_PACKAGE_VERSION=0.1.0-preview.63 ./eng/progpu-wpf-sdk-ci.sh
 ```
 
 The SDK CI script stages ProGPU runtime packages, builds managed WPF transport assemblies, `LibreWPF.ProGPU`, and `LibreWPF.Sdk`, then audits the packages, writes the preview manifest, creates and verifies the release bundle, and runs package-mode SDK smoke tests. Public releases consume the hash-identical packages from the matching ProGPU GitHub release instead of repacking or republishing them.
@@ -176,7 +176,7 @@ agree, builds the upstream-derived `System.Windows.Forms` identity against
 ProGPU `System.Drawing.Common`, serializes the WPF reference/cycle foundation,
 and compiles both the real `WindowsFormsIntegration` reference and implementation
 assemblies. It treats unresolved or duplicate assembly closures as errors. The
-ordinary SDK/package path remains on released ProGPU `0.1.0-preview.62` packages.
+ordinary SDK/package path remains on released ProGPU `0.1.0-preview.63` packages.
 
 For a faster source-development loop, use the same qualified managed, theme,
 and harness project sets through the validation graph:

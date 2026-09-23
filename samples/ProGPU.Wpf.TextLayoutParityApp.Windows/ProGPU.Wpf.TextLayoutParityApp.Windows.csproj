@@ -11,5 +11,7 @@
     <ApplicationDefinition Include="../ProGPU.Wpf.TextLayoutParityApp/App.xaml" Link="App.xaml" />
     <Page Include="../ProGPU.Wpf.TextLayoutParityApp/MainWindow.xaml" Link="MainWindow.xaml" />
     <Compile Include="../ProGPU.Wpf.TextLayoutParityApp/MainWindow.xaml.cs" Link="MainWindow.xaml.cs" />
+    <Content Include="../../src/Microsoft.DotNet.Wpf/src/PresentationCore/Fonts/trado.ttf"
+             Link="Fonts/trado.ttf" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

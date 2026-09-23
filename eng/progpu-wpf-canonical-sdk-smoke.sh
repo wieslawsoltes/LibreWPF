@@ -4,7 +4,7 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 canonical_package_source="${PROGPU_WPF_CANONICAL_WINFORMS_PACKAGE_SOURCE:-${repo_root}/artifacts/packages/CanonicalWinForms}"
 sdk_package_source="${PROGPU_WPF_CANONICAL_SDK_PACKAGE_SOURCE:-${repo_root}/artifacts/packages/Release/NonShipping}"
-sdk_package_version="${PROGPU_WPF_CANONICAL_SDK_PACKAGE_VERSION:-0.1.0-preview.45}"
+sdk_package_version="${PROGPU_WPF_CANONICAL_SDK_PACKAGE_VERSION:-0.1.0-preview.63}"
 smoke_source="${repo_root}/eng/LibreWinForms.CanonicalSdkSmoke"
 smoke_root="$(mktemp -d -t librewpf-canonical-sdk.XXXXXXXX)"
 smoke_project="${smoke_root}/LibreWinForms.CanonicalSdkSmoke.csproj"

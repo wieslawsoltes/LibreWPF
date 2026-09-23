@@ -1,6 +1,6 @@
 param(
     [string] $PackageDirectory = "",
-    [string] $Version = "0.1.0-preview.45",
+    [string] $Version = "0.1.0-preview.63",
     [ValidateSet("x64", "arm64")]
     [string] $TargetArchitecture = "x64",
     [switch] $AllowEmulatedX64
@@ -448,7 +448,9 @@ $expectedTextCases = @(
     "overflow-token",
     "tabs-whitespace",
     "explicit-line-height",
-    "bidirectional"
+    "bidirectional",
+    "national-digits",
+    "contextual-digits"
 )
 if ($nativeLayout.Cases.Count -ne $expectedTextCases.Count -or
     $portableLayout.Cases.Count -ne $expectedTextCases.Count) {

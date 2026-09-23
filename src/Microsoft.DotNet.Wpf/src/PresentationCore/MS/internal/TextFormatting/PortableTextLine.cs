@@ -2,6 +2,7 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 using System.IO;
 using System.Buffers;
+using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -68,7 +69,10 @@ internal sealed class PortableTextLine : TextLine
     private readonly TextRunProperties _properties;
     private readonly GlyphTypeface _face;
     private sealed record SourceStyle(int Start, int End, TextRunProperties Properties, TextRun Run, GlyphTypeface Face,
-        PortableTextFont Font, double EmSize, double Baseline, double Height, uint Language);
+        PortableTextFont Font, double EmSize, double Baseline, double Height, uint Language,
+        uint DigitZero, bool ContextualDigits);
+    private readonly record struct SourceStyleRequest(int Start, int End, TextRunProperties Properties, TextRun Run,
+        uint Language, CultureInfo DigitCulture, uint DigitZero, bool ContextualDigits);
     private readonly SourceStyle[] _styles;
     private sealed record SourceObject(int Position, TextEmbeddedObject Run, PortableTextInlineObject Metrics);
     private readonly SourceObject[] _objects;
@@ -77,6 +81,7 @@ internal sealed class PortableTextLine : TextLine
     private readonly List<(bool IsObject, int Index)> _drawingOrder;
     private readonly bool _fixedHeight;
     private readonly int _paragraphStart, _lineIndex, _newlines;
+    private readonly bool _endsParagraph;
     private readonly double _paragraphWidth, _indent, _baseline, _height;
     private readonly bool _rightToLeft;
     private readonly List<IndexedGlyphRun> _glyphRuns = new();
@@ -193,6 +198,7 @@ internal sealed class PortableTextLine : TextLine
         var builder = new StringBuilder();
         var runs = new List<TextSpan<TextRun>>();
         var styles = new List<SourceStyle>();
+        var styleRequests = new List<SourceStyleRequest>();
         List<SourceObject> objects = null;
         double indent = settings.Formatter.IdealToReal(settings.TextIndent + pap.ParagraphIndent, pixelsPerDip);
         var mappedFonts = new List<TextSpan<ScaledShapeTypeface>>();
@@ -238,11 +244,11 @@ internal sealed class PortableTextLine : TextLine
             var p = scope == null ? run.Properties : scope.ModifyProperties(run.Properties);
             if (p == null || (p.TextEffects?.Count ?? 0) != 0 ||
                 p.BaselineAlignment != BaselineAlignment.Baseline)
-                throw Unsupported("run effects, baseline changes, custom typography or number substitution");
+                throw Unsupported("run effects, baseline changes or custom typography");
             ValidateUnderlines(p.TextDecorations);
-            var digits = new DigitState();
+            var digits = settings.DigitState;
             digits.SetTextRunProperties(p);
-            if (digits.DigitCulture != null || digits.Contextual) throw Unsupported("digit substitution");
+            uint digitZero = digits.DigitCulture == null ? 0U : GetDigitZero(digits.DigitCulture.NumberFormat.NativeDigits);
             uint language = service.ResolveLanguage(
                 CultureMapper.GetSpecificCulture(p.CultureInfo).IetfLanguageTag);
             properties ??= p;
@@ -259,20 +265,7 @@ internal sealed class PortableTextLine : TextLine
                     metrics.Baseline < 0 || metrics.Baseline > metrics.Height ||
                     metrics.Width > float.MaxValue || metrics.Height > float.MaxValue)
                     throw new InvalidOperationException("The source embedded object returned invalid native metrics.");
-                // The object itself never participates in font fallback. A non-ink
-                // style still needs its source physical face and text metrics.
-                mappedFonts.Clear();
-                settings.Formatter.GlyphingCache.GetPortableFontRuns(p.Typeface,
-                    new CharacterBufferRange(" ", 0, 1), p.CultureInfo, mappedFonts);
-                if (mappedFonts.Count != 1) throw new InvalidOperationException("No source physical face for an inline object style.");
-                var mapped = mappedFonts[0].Value;
-                ValidateMappedFont(mapped, p.Typeface);
-                var objectFace = mapped.ShapeTypeface.GlyphTypeface;
-                double objectEm = p.FontRenderingEmSize * mapped.ScaleInEm;
-                if (!double.IsFinite(objectEm) || objectEm <= 0) throw Unsupported("invalid inline style em size");
-                styles.Add(new(start, start + 1, p, run, objectFace, GetFont(objectFace), objectEm,
-                    p.Typeface.Baseline(p.FontRenderingEmSize, 1, pixelsPerDip, settings.TextFormattingMode),
-                    p.Typeface.LineSpacing(p.FontRenderingEmSize, 1, pixelsPerDip, settings.TextFormattingMode), language));
+                styleRequests.Add(new(start, start + 1, p, run, language, null, 0, false));
                 builder.Append('\uFFFC');
                 sourceRanges.Add(new(cp - first, start, 1));
                 (objects ??= new()).Add(new(start, embedded,
@@ -302,27 +295,14 @@ internal sealed class PortableTextLine : TextLine
             if (builder.Length > start)
             {
                 sourceRanges.Add(new(cp - first, start, builder.Length - start));
-                mappedFonts.Clear();
-                settings.Formatter.GlyphingCache.GetPortableFontRuns(p.Typeface,
-                    new CharacterBufferRange(range, 0, builder.Length - start), p.CultureInfo, mappedFonts);
-                int mappedStart = start;
-                foreach (var mapped in mappedFonts)
-                {
-                    var selected = mapped.Value;
-                    ValidateMappedFont(selected, p.Typeface);
-                    var runFace = selected.ShapeTypeface.GlyphTypeface;
-                    double emSize = p.FontRenderingEmSize * selected.ScaleInEm;
-                    if (!double.IsFinite(emSize) || emSize <= 0) throw Unsupported("invalid composite-font scale");
-                    styles.Add(new(mappedStart, checked(mappedStart + mapped.Length), p, run, runFace, GetFont(runFace), emSize,
-                        p.Typeface.Baseline(p.FontRenderingEmSize, 1, pixelsPerDip, settings.TextFormattingMode),
-                        p.Typeface.LineSpacing(p.FontRenderingEmSize, 1, pixelsPerDip, settings.TextFormattingMode), language));
-                    mappedStart += mapped.Length;
-                }
-                if (mappedStart != builder.Length) throw new InvalidOperationException("Source font ranges do not cover the styled run.");
+                styleRequests.Add(new(start, builder.Length, p, run, language, digits.DigitCulture,
+                    digitZero, digits.Contextual));
             }
             runs.Add(new(used, run)); cp = checked(cp + used); sourceLength = cp - first - newlines;
             if (newlines != 0) break;
         }
+        string text = builder.ToString();
+        ResolveSourceStyles(settings, first, pixelsPerDip, service, text, styleRequests, styles, mappedFonts);
         properties ??= pap.DefaultTextRunProperties;
         GlyphTypeface face;
         double primaryEmSize;
@@ -339,7 +319,6 @@ internal sealed class PortableTextLine : TextLine
             face = mappedFonts[0].Value.ShapeTypeface.GlyphTypeface;
             primaryEmSize = properties.FontRenderingEmSize * mappedFonts[0].Value.ScaleInEm;
         }
-        string text = builder.ToString();
         var sourceMap = new PortableTextSourceMap(sourceLength, text.Length, CollectionsMarshal.AsSpan(sourceRanges));
         var floating = (settings.TextSource as IPortableFloatingTextSource)?.GetFloats(first, sourceLength);
         if (floating != null && (exclusions != null || measureIntrinsicWidths || width <= 0 ||
@@ -363,7 +342,8 @@ internal sealed class PortableTextLine : TextLine
         {
             var style = styles[i];
             portableStyles[i] = new(style.Start, style.End - style.Start, style.Font,
-                (float)style.EmSize, Features(style.Properties.TypographyProperties), style.Language);
+                (float)style.EmSize, Features(style.Properties.TypographyProperties), style.Language,
+                style.DigitZero, style.ContextualDigits, style.DigitZero != 0);
             layoutHeight = Math.Max(layoutHeight, style.Height);
         }
         var request = new PortableTextParagraphRequest(text.AsMemory(), font, (float)primaryEmSize,
@@ -432,7 +412,7 @@ internal sealed class PortableTextLine : TextLine
                 sourceFloats[i] = placement with { Position = checked(first + floating.Children.Span[i].SourceStart) };
             }
         }
-        return new PortableTextLine(paragraph, text, properties, face, first, 0, newlines,
+        return new PortableTextLine(paragraph, text, properties, face, first, 0, newlines, endsParagraph,
             width, indent, baseline, height, pap.RightToLeft, runs, pixelsPerDip, pap.Align, styles.ToArray(), pap.LineHeight > 0,
             sourceMap, scope,
             settings.Formatter, service, objects: objects?.ToArray()) { SourceFloats = sourceFloats };
@@ -488,10 +468,210 @@ internal sealed class PortableTextLine : TextLine
     });
 
     private PortableTextLine(PortableTextLine owner, int index, IPortableTextParagraph paragraph = null, double? width = null) : this(paragraph ?? owner._paragraph, owner._text,
-        owner._properties, owner._face, owner._paragraphStart, index, owner._newlines,
+        owner._properties, owner._face, owner._paragraphStart, index, owner._newlines, owner._endsParagraph,
         width ?? owner._paragraphWidth, owner._indent, owner._baseline, owner._height, owner._rightToLeft,
         owner._runs, owner.PixelsPerDip, owner._alignment, owner._styles, owner._fixedHeight, owner._sourceMap, owner._endScope,
         owner._formatter, owner._service, objects: owner._objects) { SourceFloats = owner.SourceFloats; }
+
+    private static void ResolveSourceStyles(FormatSettings settings, int first, double pixelsPerDip,
+        IPortableTextFormatting service, string text, List<SourceStyleRequest> requests,
+        List<SourceStyle> styles, List<TextSpan<ScaledShapeTypeface>> mappedFonts)
+    {
+        bool contextual = false;
+        for (int i = 0; i < requests.Count; i++)
+            contextual |= requests[i].DigitZero != 0 && requests[i].ContextualDigits;
+        byte[] contexts = null;
+        try
+        {
+            if (contextual)
+            {
+                if (service is not IPortableTextDigitContext digitContext)
+                    throw Unsupported("native digit-context resolution before source font selection");
+                bool initial = GetInitialDigitContext(settings, first, digitContext);
+                contexts = ArrayPool<byte>.Shared.Rent(Math.Max(1, checked(text.Length * 2)));
+                var starts = contexts.AsSpan(text.Length, text.Length);
+                digitContext.ResolveDigitContext(text.AsSpan(), initial, contexts.AsSpan(0, text.Length), starts);
+                for (int i = 0; i < requests.Count; i++)
+                    ValidateNumberSymbols(requests[i], text, contexts);
+                PreserveDigitClusters(text, contexts.AsSpan(0, text.Length), starts);
+            }
+            for (int i = 0; i < requests.Count; i++)
+            {
+                var request = requests[i];
+                if (!contextual) ValidateNumberSymbols(request, text, null);
+                int position = request.Start;
+                while (position < request.End)
+                {
+                    bool substitute = UsesDigitCulture(request, contexts, position);
+                    int end = request.DigitZero == 0 ? request.End : position + 1;
+                    while (end < request.End && UsesDigitCulture(request, contexts, end) == substitute)
+                        end++;
+                    var p = request.Properties;
+                    // Embedded objects retain source metrics, but never enter font linking.
+                    var range = request.Run is TextEmbeddedObject
+                        ? new CharacterBufferRange(" ", 0, 1)
+                        : new CharacterBufferRange(text, position, end - position);
+                    mappedFonts.Clear();
+                    settings.Formatter.GlyphingCache.GetPortableFontRuns(p.Typeface, range,
+                        p.CultureInfo, mappedFonts, substitute ? request.DigitCulture : null);
+                    int mappedStart = position;
+                    for (int j = 0; j < mappedFonts.Count; j++)
+                    {
+                        var mapped = mappedFonts[j];
+                        var selected = mapped.Value;
+                        ValidateMappedFont(selected, p.Typeface);
+                        var face = selected.ShapeTypeface.GlyphTypeface;
+                        if (substitute)
+                            ValidateDigitGlyphs(face, text.AsSpan(mappedStart, mapped.Length), request.DigitZero);
+                        double emSize = p.FontRenderingEmSize * selected.ScaleInEm;
+                        if (!double.IsFinite(emSize) || emSize <= 0) throw Unsupported("invalid composite-font scale");
+                        styles.Add(new(mappedStart, checked(mappedStart + mapped.Length), p, request.Run,
+                            face, GetFont(face), emSize,
+                            p.Typeface.Baseline(p.FontRenderingEmSize, 1, pixelsPerDip, settings.TextFormattingMode),
+                            p.Typeface.LineSpacing(p.FontRenderingEmSize, 1, pixelsPerDip, settings.TextFormattingMode),
+                            request.Language, substitute ? request.DigitZero : 0, false));
+                        mappedStart += mapped.Length;
+                    }
+                    if (mappedStart != end) throw new InvalidOperationException("Source font ranges do not cover the styled run.");
+                    position = end;
+                }
+            }
+        }
+        finally
+        {
+            if (contexts != null) ArrayPool<byte>.Shared.Return(contexts);
+        }
+    }
+
+    private static bool UsesDigitCulture(SourceStyleRequest request, byte[] contexts, int position)
+        => request.DigitZero != 0 && (!request.ContextualDigits || contexts[position] != 0);
+
+    private static void ValidateNumberSymbols(SourceStyleRequest request, string text, byte[] contexts)
+    {
+        if (request.DigitZero == 0) return;
+        var map = new DigitMap(request.DigitCulture);
+        int position = request.Start;
+        while (position < request.End)
+        {
+            int index = text.AsSpan(position, request.End - position).IndexOfAny('%', ',', '.');
+            if (index < 0) break;
+            position += index;
+            char character = text[position];
+            if (UsesDigitCulture(request, contexts, position) && map[character] != character)
+                throw Unsupported("culture-specific number symbols require a native symbol-substitution contract");
+            position++;
+        }
+    }
+
+    private static void PreserveDigitClusters(string text, Span<byte> contexts, ReadOnlySpan<byte> starts)
+    {
+        int start = 0;
+        while (start < text.Length)
+        {
+            int next = starts[(start + 1)..].IndexOf((byte)1);
+            int end = next < 0 ? text.Length : start + 1 + next;
+            int digit = text.AsSpan(start, end - start).IndexOfAnyInRange('0', '9');
+            // Only digit decisions affect shaping. Keep the entire native grapheme
+            // with its digit so font linking never separates marks/joiners from it.
+            byte context = contexts[digit < 0 ? start : start + digit];
+            contexts[start..end].Fill(context);
+            start = end;
+        }
+    }
+
+    private static void ValidateDigitGlyphs(GlyphTypeface face, ReadOnlySpan<char> text, uint digitZero)
+    {
+        uint seen = 0;
+        while (!text.IsEmpty)
+        {
+            int index = text.IndexOfAnyInRange('0', '9');
+            if (index < 0) break;
+            int digit = text[index] - '0';
+            uint bit = 1U << digit;
+            if ((seen & bit) == 0)
+            {
+                int scalar = checked((int)digitZero + digit);
+                if (!face.CharacterToGlyphMap.TryGetValue(scalar, out ushort glyph) || glyph == 0)
+                    throw Unsupported("a substituted digit is missing from the mapped physical face; alternate-character fallback requires native support");
+                seen |= bit;
+                if (seen == 0x3ff) break;
+            }
+            text = text[(index + 1)..];
+        }
+    }
+
+    private static bool GetInitialDigitContext(FormatSettings settings, int first, IPortableTextDigitContext service)
+    {
+        bool context = settings.Pap.RightToLeft;
+        if (first == 0) return context;
+        var chunks = new List<string>();
+        int remaining = first, total = 0, sourceLength = 0;
+        while (remaining > 0)
+        {
+            var preceding = settings.GetPrecedingText(remaining, out bool endsAtHardBreak);
+            if (endsAtHardBreak) break;
+            if (preceding.Length <= 0) break;
+            int consumed = Math.Min(remaining, preceding.Length);
+            if (consumed > (1 << 20) - sourceLength) throw Unsupported("preceding digit-context source budget");
+            sourceLength += consumed;
+            var range = preceding.Value.CharacterBufferRange;
+            bool hardBreak = false;
+            if (!range.IsEmpty)
+            {
+                int start = Math.Max(0, range.Length - remaining);
+                for (int i = range.Length - 1; i >= start; i--)
+                {
+                    if (range.CharacterBuffer[range.OffsetToFirstChar + i] is '\r' or '\n' or '\u2028' or '\u2029')
+                    {
+                        start = i + 1; hardBreak = true; break;
+                    }
+                }
+                int length = range.Length - start;
+                if (length > (1 << 20) - total) throw Unsupported("preceding digit-context input budget");
+                total += length;
+                if (length > 0)
+                {
+                    var chunk = new StringBuilder(length);
+                    range.CharacterBuffer.AppendToStringBuilder(chunk, range.OffsetToFirstChar + start, length);
+                    chunks.Add(chunk.ToString());
+                }
+            }
+            if (hardBreak) break;
+            remaining -= consumed;
+        }
+        if (total == 0) return context;
+        // Source spans are fetched backwards. Join them before native decoding so
+        // a source span boundary cannot split a supplementary scalar.
+        var precedingText = new StringBuilder(total);
+        for (int i = chunks.Count - 1; i >= 0; i--)
+            precedingText.Append(chunks[i]);
+        byte[] buffer = ArrayPool<byte>.Shared.Rent(total);
+        try { return service.ResolveDigitContext(precedingText.ToString().AsSpan(), context, buffer.AsSpan(0, total)); }
+        finally { ArrayPool<byte>.Shared.Return(buffer); }
+    }
+
+    private static uint GetDigitZero(string[] digits)
+    {
+        if (digits == null || digits.Length != 10)
+            throw Unsupported("number culture without ten native digits");
+        uint zero = 0;
+        for (int index = 0; index < digits.Length; index++)
+        {
+            string digit = digits[index];
+            int scalar;
+            if (digit is { Length: 1 } && !char.IsSurrogate(digit[0]))
+                scalar = digit[0];
+            else if (digit is { Length: 2 } && char.IsSurrogatePair(digit, 0))
+                scalar = char.ConvertToUtf32(digit, 0);
+            else
+                throw Unsupported("multi-scalar or invalid native digit");
+            if (index == 0)
+                zero = checked((uint)scalar);
+            else if ((uint)scalar != zero + (uint)index)
+                throw Unsupported("non-contiguous native digit sequence");
+        }
+        return zero;
+    }
 
     private static PortableTextFeature[] Features(TextRunTypographyProperties p)
     {
@@ -516,7 +696,7 @@ internal sealed class PortableTextLine : TextLine
 
     private readonly TextAlignment _alignment;
     private PortableTextLine(IPortableTextParagraph paragraph, string text, TextRunProperties properties,
-        GlyphTypeface face, int paragraphStart, int lineIndex, int newlines, double width, double indent,
+        GlyphTypeface face, int paragraphStart, int lineIndex, int newlines, bool endsParagraph, double width, double indent,
         double baseline, double height, bool rtl, List<TextSpan<TextRun>> runs, double pixelsPerDip, TextAlignment alignment,
         SourceStyle[] styles, bool fixedHeight, PortableTextSourceMap sourceMap, TextModifierScope endScope,
         TextFormatterImp formatter, IPortableTextFormatting service, PortableTextLine symbol = null,
@@ -526,6 +706,7 @@ internal sealed class PortableTextLine : TextLine
         _paragraph = paragraph; _text = text; _properties = properties; _face = face;
         _sourceMap = sourceMap; _endScope = endScope;
         _paragraphStart = paragraphStart; _lineIndex = lineIndex; _newlines = newlines;
+        _endsParagraph = endsParagraph;
         _paragraphWidth = width; _indent = indent; _baseline = baseline; _height = height;
         _rightToLeft = rtl; _runs = runs; _alignment = alignment;
         _styles = styles; _fixedHeight = fixedHeight;
@@ -572,7 +753,7 @@ internal sealed class PortableTextLine : TextLine
         {
             var placement = paragraph.Glyphs.Span[range.SymbolGlyphIndex];
             _symbol = new PortableTextLine(symbol._paragraph, symbol._text, symbol._properties, symbol._face,
-                0, 0, 0, 0, Start + placement.X, symbol._baseline, symbol._height, symbol._rightToLeft,
+                0, 0, 0, symbol._endsParagraph, 0, Start + placement.X, symbol._baseline, symbol._height, symbol._rightToLeft,
                 symbol._runs, PixelsPerDip, TextAlignment.Left, symbol._styles, symbol._fixedHeight,
                 symbol._sourceMap, null, symbol._formatter, symbol._service, baselineOverride: Baseline);
             ink.Union(_symbol._ink);
@@ -858,7 +1039,7 @@ internal sealed class PortableTextLine : TextLine
             range.Start < Info.InputStart || range.Start >= range.End || range.End != Info.InputEnd ||
             (uint)range.SymbolGlyphIndex >= collapsed.Glyphs.Length || !collapsed.Glyphs.Span[range.SymbolGlyphIndex].IsCollapseSymbol)
             throw new InvalidOperationException("The provider returned invalid collapsed source ranges.");
-        return new PortableTextLine(collapsed, _text, _properties, _face, _paragraphStart, _lineIndex, _newlines,
+        return new PortableTextLine(collapsed, _text, _properties, _face, _paragraphStart, _lineIndex, _newlines, _endsParagraph,
             _paragraphWidth, _indent, _baseline, _height, _rightToLeft, _runs, PixelsPerDip, _alignment,
             _styles, _fixedHeight, _sourceMap, _endScope, _formatter, _service, symbol, this);
     }
@@ -983,7 +1164,7 @@ internal sealed class PortableTextLine : TextLine
         // rectangles. Only a range intersecting the actual newline gets this box.
         if (length > 0 && start == end && NewlineLength > 0 &&
             first >= First && first < First + Length && checked(first + length) > End)
-            return new[] { new TextBounds(new Rect(GetDistanceFromCharacterHit(new CharacterHit(first, 0)),
+            return new[] { new TextBounds(new Rect(GetNonInkCaretX(first),
                 0, 0, Height), _rightToLeft ? FlowDirection.RightToLeft : FlowDirection.LeftToRight, null) };
         var rectangles = new PortableRect[Math.Max(1, Info.GlyphCount)];
         var result = new List<TextBounds>();
@@ -1035,21 +1216,27 @@ internal sealed class PortableTextLine : TextLine
         int start = _sourceMap.ToText(Math.Clamp(sourcePosition, First, End) - _paragraphStart);
         int end = _sourceMap.ToText(Math.Clamp(checked(sourcePosition + 1), First, End) - _paragraphStart);
         if (start != end) return false;
-        // Terminal paragraph positions follow the paragraph's physical trailing
-        // side. Native shaping has no glyph for these positions; asking it for
-        // a caret affinity in an RTL line selects the preceding LTR run's right
-        // edge instead of WPF's left paragraph edge.
-        // A source content host identifies its actual terminal insertion. Its
-        // retained source offset may precede closing element edges and EOP, so
-        // it cannot be inferred from this line's numeric source range alone.
-        // Direct line consumers still recognize the terminator/edge forms.
-        bool isTerminalParagraphPosition = _lineIndex + 1 == _paragraph.Lines.Length &&
-            (isTerminalInsertion || (NewlineLength > 0 && sourcePosition >= End));
-        double x = _rightToLeft && isTerminalParagraphPosition
-            ? Start
-            : GetDistanceFromCharacterHit(new CharacterHit(sourcePosition, 0));
+        // The native caret owns the actual bidi affinity at the source edge.
+        // In an RTL paragraph ending with an LTR run, WPF places the terminal
+        // insertion at that run's trailing edge, not the paragraph's left edge.
+        // The source host still identifies terminal positions (which may be
+        // before hidden closing edges), but that identity does not override
+        // native affinity for this non-ink caret box.
+        double x = GetNonInkCaretX(sourcePosition);
         rectangle = new Rect(x, 0, 0, Height);
         return true;
+    }
+
+    private double GetNonInkCaretX(int sourcePosition)
+    {
+        // WPF places an explicit hard-break symbol at the complete source line's
+        // trailing edge, including trailing whitespace. The shaped paragraph's
+        // logical caret at that UTF-16 offset can instead belong to the final
+        // bidi run (notably contextual Arabic digits). EndOfParagraph retains
+        // native caret affinity; only the actual hard break uses this edge.
+        if (sourcePosition == End && NewlineLength > 0 && !_endsParagraph)
+            return Start + WidthIncludingTrailingWhitespace;
+        return GetDistanceFromCharacterHit(new CharacterHit(sourcePosition, 0));
     }
     public override IList<TextSpan<TextRun>> GetTextRunSpans()
     {
