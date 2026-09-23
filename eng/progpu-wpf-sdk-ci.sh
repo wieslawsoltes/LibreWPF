@@ -146,7 +146,9 @@ resolve_single_package_version() {
   local -a candidates=()
 
   shopt -s nullglob
-  candidates=("${package_dir}/${package_id}."*.nupkg)
+  # A NuGet version starts with a digit. Without this boundary, ProGPU.Backend
+  # also matches ProGPU.Backend.Dawn and ProGPU.Backend.Native packages.
+  candidates=("${package_dir}/${package_id}."[0-9]*.nupkg)
   shopt -u nullglob
   if [[ "${#candidates[@]}" != "1" ]]; then
     echo "Expected one ${package_id} package in ${package_dir}, found ${#candidates[@]}." >&2
