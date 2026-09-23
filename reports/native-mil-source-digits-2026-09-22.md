@@ -210,3 +210,15 @@ This is still only the stock side: the corrected shared fixture must run in an
 exact ProGPU/LibreWPF package graph and pass the complete insertion-position
 comparison before release. Do not compare the corrected stock report against
 the old Segoe-based portable report or claim parity from matching glyph IDs.
+
+The corrected stock contextual case has a final insertion X of 105.907 DIP,
+not the paragraph's left edge. The WPF portable line had forced terminal RTL
+non-ink carets to that left edge (x=0) even when an LTR digit run ended the
+paragraph. The retained native paragraph exposes the run's physical caret at
+33.258 DIP within a 139.160-DIP line; WPF's logical mirror places it at
+105.902 DIP. The source adapter now consumes that native affinity instead of
+forcing x=0. A new typed source regression verifies this path, and all 54
+`PortableTextLineTests` pass locally. A real WPF/ProGPU adapter regression using
+the bundled font also matches the corrected stock final X within 0.1 DIP.
+These component tests do not substitute for the full eight-case exact-package
+Windows comparison.

@@ -1059,6 +1059,24 @@ public class PortableTextLineTests
     }
 
     [Fact]
+    public void RtlTerminalCaretUsesNativeMixedRunAffinity()
+    {
+        var provider = new Provider { TerminalCaretDistance = 2 };
+        using var registration = PortableWpfServiceRegistry.RegisterTextFormatting(provider);
+        using var formatter = new TextFormatterImp();
+        var source = new Source();
+        using var first = PortableTextLine.Create(Settings(formatter, source), 0, 800, 1);
+        using var continuation = first.GetTextLineBreak();
+        using var second = PortableTextLine.Create(Settings(formatter, source, continuation), 2, 800, 1);
+
+        Assert.True(Assert.IsType<PortableTextLine>(second).TryGetNonInkCaretBounds(
+            4, true, out var terminal, out var direction));
+        Assert.Equal(FlowDirection.RightToLeft, direction);
+        Assert.Equal(second.Start + 4, terminal.X);
+        Assert.Equal(second.GetDistanceFromCharacterHit(new CharacterHit(4, 0)), terminal.X);
+    }
+
+    [Fact]
     public void StyledLinesPreserveRunMetricsBrushesAndExactRenderFaces()
     {
         var provider = new Provider { Mixed = true };
@@ -1302,6 +1320,7 @@ public class PortableTextLineTests
 
     private sealed class Provider : IPortableTextFormatting, IPortableReflowTextParagraph, IPortableTextDigitContext
     {
+        internal float? TerminalCaretDistance { get; init; }
         internal int DigitContextCalls { get; private set; }
         internal int DigitGraphemeCalls { get; private set; }
         internal string? DigitContextText { get; private set; }
@@ -1393,7 +1412,9 @@ public class PortableTextLineTests
         { new(0, 1, 0, 1, 4, 0, 20), new(1, 2, 1, 3, 12, 20, 20) } : new PortableTextLineInfo[]
         { new(0, 1, 0, 2, 8, 0, 20), new(1, 1, 2, 3, 6, 20, 20) };
         public PortableTextHit HitTest(int lineIndex, float distance) => new(lineIndex == 0 ? Mixed ? 1 : 2 : 3, true);
-        public float GetCaretDistance(int lineIndex, PortableTextHit hit) => Tabs ? TabDistance(hit.Position) :
+        public float GetCaretDistance(int lineIndex, PortableTextHit hit) =>
+            TerminalCaretDistance is { } terminal && lineIndex == 1 && hit.Position >= 3 ? terminal :
+            Tabs ? TabDistance(hit.Position) :
             Mixed ? lineIndex == 0 ? hit.Position * 4 : (hit.Position - 1) * 6 :
             hit.Position == (lineIndex == 0 ? 0 : 2) ? 0 : lineIndex == 0 ? 8 : 6;
         public int GetNextLogicalCaret(int lineIndex, int position, bool previous) => Empty ? 0 : Tabs ? Math.Clamp(position + (previous ? -1 : 1), 0, 3) :

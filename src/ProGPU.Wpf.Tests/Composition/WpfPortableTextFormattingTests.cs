@@ -8,6 +8,27 @@ namespace ProGPU.Wpf.Tests.Composition;
 public sealed class WpfPortableTextFormattingTests
 {
     [Fact]
+    public void ContextualArabicDigitsRetainStockWpfRtlTerminalAffinity()
+    {
+        byte[] data = ReadArabicFont();
+        var face = new TtfFont(data);
+        var font = new PortableTextFont(data, 0, face.UnitsPerEm);
+        var provider = new WpfPortableTextFormatting();
+        const string source = "123 A456 \u0627 789\n123 A456 \u0627 789";
+        var paragraph = provider.Format(new PortableTextParagraphRequest(source.AsMemory(),
+            font, 24, 35.87f, 240, true, PortableTextAlignment.Left,
+            Styles: new PortableTextStyle[] {
+                new(0, source.Length, font, 24, DigitZero: 0x0660,
+                    ContextualDigits: true, PreserveSourceDigitBidi: true) }));
+        var lines = paragraph.Lines.ToArray();
+        Assert.Equal(2, lines.Length);
+        Assert.Equal(source.Length, lines[1].InputEnd);
+        float physicalCaret = paragraph.GetCaretDistance(1, new(lines[1].InputEnd, false));
+        float logicalCaret = lines[1].Width - physicalCaret;
+        Assert.InRange(logicalCaret, 105.8f, 106.0f);
+    }
+
+    [Fact]
     public void DigitContextAdapterPreservesNativeStrongContextAndGraphemeBoundaries()
     {
         IPortableTextDigitContext provider = new WpfPortableTextFormatting();
