@@ -176,7 +176,7 @@ internal sealed class WpfPortableTextFormatting : IPortableFloatingTextFormattin
             }
             styles[i] = new(style.Start, style.Length, index, style.FontSize / style.Font.UnitsPerEm,
                 (uint)feature, (uint)style.Features.Length, style.Language,
-                style.DigitZero, style.ContextualDigits);
+                style.DigitZero, style.ContextualDigits, style.PreserveSourceDigitBidi);
             foreach (var value in style.Features.Span) features[feature++] = new(value.Tag, value.Value);
         }
         return CreateParagraph(request, CreateNative(context, request, options, features, styles, original, collapse, inline, metrics, objects, exclusionOptions, exclusions, originY, floating, continuationStart), fonts.ToArray(), metrics, objects);

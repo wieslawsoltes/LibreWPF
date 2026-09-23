@@ -144,3 +144,38 @@ Resume with the unresolved Ubuntu allocation gate, exact-head native payload and
 Windows application comparison, then aligned immutable ProGPU/LibreWinForms/WPF
 dependencies and final package CI. Broader deferred API parity remains outside
 this text checkpoint. No additional validation or merges were started on pause.
+
+## 2026-09-23 Windows ARM64 source diagnostic
+
+ProGPU #180 merged as `5b0a20c6` after its unchanged Ubuntu allocation test
+passed on rerun and the dependent Windows checks completed. The isolated Windows
+ARM64 eight-case app was then supplied with hash-verified `e29b782b4` native
+DLLs, existing managed dependencies and the ARM64 WPF native helper. It selected
+and reported the live `NativeMilWgpu` host, exited zero and emitted all eight
+cases with insertion positions. This is a mixed source diagnostic: the
+host-built PresentationCore uses PortableTextInterface and the supplemental
+WPF helper/dependency assemblies come from published preview.45 and the
+installed Windows runtime. It cannot qualify the immutable preview.63 package.
+
+The shared comparison rules pass the six previously covered cases. They reject
+both new digit cases:
+
+| Case | Largest insertion X difference | Insertion metric failures | Final caret X, stock / native |
+| --- | ---: | ---: | ---: |
+| `national-digits` | 128.798 DIP | 26 | 116.213 / 110.203 DIP |
+| `contextual-digits` | 152.163 DIP | 6 | 112.083 / 0.000 DIP |
+
+Both digit cases retain two lines, source starts and total dimensions; those
+equalities do not satisfy caret or insertion parity. The outer/client windows
+also differ by one pixel in height, within the existing one-pixel gate tolerance.
+Evidence is retained under `artifacts/windows-native-text-e29-arm64/`: stock and
+native reports, exact native DLLs, staging hashes and the comparison script.
+The native text source and/or source interaction mapping must be corrected, then
+the clean Windows package gate must compare all eight cases and 541 positions.
+
+ProGPU `9774cff2` adds an explicit source-bidi digit policy: WPF preserves
+original ASCII digit bidi levels while shaping the culture-specific digit
+glyphs. LibreWPF selects that policy for substituted source runs. The native
+C++ regression, targeted ProGPU managed tests and 112 LibreWPF source/adapter
+tests pass on macOS. This change is not yet Windows-oracle or package-qualified;
+the same eight-case gate must be rerun on the exact final build before release.

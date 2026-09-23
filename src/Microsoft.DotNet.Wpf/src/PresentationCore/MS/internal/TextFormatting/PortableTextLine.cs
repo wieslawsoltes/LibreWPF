@@ -342,7 +342,7 @@ internal sealed class PortableTextLine : TextLine
             var style = styles[i];
             portableStyles[i] = new(style.Start, style.End - style.Start, style.Font,
                 (float)style.EmSize, Features(style.Properties.TypographyProperties), style.Language,
-                style.DigitZero, style.ContextualDigits);
+                style.DigitZero, style.ContextualDigits, style.DigitZero != 0);
             layoutHeight = Math.Max(layoutHeight, style.Height);
         }
         var request = new PortableTextParagraphRequest(text.AsMemory(), font, (float)primaryEmSize,
