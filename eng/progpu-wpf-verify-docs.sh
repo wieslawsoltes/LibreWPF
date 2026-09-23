@@ -82,6 +82,7 @@ require_text ".github/workflows/progpu-wpf-release.yml" "Stage exact ProGPU rele
 require_text ".github/workflows/progpu-wpf-release.yml" "Stage native runtimes from exact ProGPU release package"
 require_text ".github/workflows/progpu-wpf-release.yml" "submodules: recursive"
 require_text ".github/workflows/progpu-wpf-release.yml" "Build canonical LibreWinForms package closure"
+require_text ".github/workflows/progpu-wpf-release.yml" 'PROGPU_WPF_CANONICAL_PROGPU_PACKAGE_VERSION: ${{ env.PROGPU_WPF_PROGPU_PACKAGE_VERSION }}'
 require_text ".github/workflows/progpu-wpf-release.yml" "PROGPU_WPF_RUN_DRAWING_QUALITY_GATES: 0"
 require_text ".github/workflows/progpu-wpf-release.yml" "./eng/progpu-wpf-canonical-winforms-integration.sh"
 require_text ".github/workflows/progpu-wpf-release.yml" 'PROGPU_WPF_EXPECTED_PROGPU_PACKAGE_COMMIT=${tag_commit}'
