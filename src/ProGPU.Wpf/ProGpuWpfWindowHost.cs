@@ -139,6 +139,8 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
     private int? _windowTop;
     private bool _windowTopmost;
     private ProGpuWpfWindowBorder _windowBorder;
+    private bool _canMinimize;
+    private bool _canMaximize;
     private byte[]? _windowIconPixels;
     private int _windowIconWidth;
     private int _windowIconHeight;
@@ -195,6 +197,8 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         _windowTop = _options.Top;
         _windowTopmost = _options.Topmost;
         _windowBorder = _options.WindowBorder;
+        _canMinimize = _options.CanMinimize;
+        _canMaximize = _options.CanMaximize;
         _wpfRenderScheduler = CreateDefaultRenderScheduler(_platformServices, out _ownsRenderScheduler);
         AttachDispatcherService(_platformServices.Dispatcher);
         AttachRenderScheduler(_wpfRenderScheduler);
@@ -289,6 +293,12 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
     public bool Topmost => _window?.TopMost ?? _windowTopmost;
 
     public ProGpuWpfWindowBorder WindowBorder => _windowBorder;
+
+    /// <summary>Requested minimize intent, not a native chrome observation.</summary>
+    public bool CanMinimize => _canMinimize;
+
+    /// <summary>Requested maximize intent, not a native chrome observation.</summary>
+    public bool CanMaximize => _canMaximize;
 
     public PortableWindowRegion? WindowRegion => _windowRegion;
 
@@ -1268,10 +1278,15 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
     }
 
     public void SetWindowBorder(ProGpuWpfWindowBorder windowBorder)
+        => SetWindowBorder(windowBorder, _canMinimize, _canMaximize);
+
+    public void SetWindowBorder(ProGpuWpfWindowBorder windowBorder, bool canMinimize, bool canMaximize)
     {
         ThrowIfDisposed();
 
         _windowBorder = windowBorder;
+        _canMinimize = canMinimize;
+        _canMaximize = canMaximize;
         if (_window != null)
         {
             _window.WindowBorder = ToSilkWindowBorder(windowBorder);
@@ -5506,5 +5521,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         _windowController.SetDecorations(
             hidden ? NativeWindowDecorations.None : NativeWindowDecorations.Full);
         _windowController.SetCanResize(resizable);
+        _windowController.SetCanMinimize(_canMinimize);
+        _windowController.SetCanMaximize(_canMaximize);
     }
 }
