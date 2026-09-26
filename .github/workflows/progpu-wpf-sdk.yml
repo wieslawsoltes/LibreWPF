@@ -79,6 +79,9 @@ jobs:
       - name: Validate public MessageBox source modality
         run: bash ./eng/progpu-wpf-messagebox-modal.sh
 
+      - name: Validate actual source layout clip producers
+        run: bash ./eng/progpu-wpf-layout-clip-source.sh
+
       - name: Upload canonical WinForms package closure
         uses: actions/upload-artifact@v4
         with:
