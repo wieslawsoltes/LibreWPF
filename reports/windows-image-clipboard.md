@@ -52,10 +52,24 @@ failure with owned output, wrong TYMED, invalid export descriptors and preservat
 of a caller-owned output bitmap. These are typed COM boundary tests, not fake WPF
 objects.
 
+The existing Windows x64 and ARM64 package Showcase jobs additionally compile
+`eng/WindowsClipboardConsumer` against the exact package implementation assets
+already staged for Showcase. It reuses the existing signed source-test friend
+identity and links all four test bodies unchanged. An STA entry thread selects
+portable pixel storage, invokes every body directly (no discovery or skip path),
+and must finish within 60 seconds with four passed, zero skipped and the expected
+process architecture. PresentationCore, WindowsBase and shared Interop output
+hashes must match their exact packages. This is a real Windows OLE/GDI transport
+gate, not a renderer fallback or a new public source API.
+
 PresentationCore Release compiled with the repository SDK on macOS ARM64:
 zero warnings and zero errors. The complete PresentationCore.Tests source project
 including the four new Windows clipboard cases compiles with seven existing
-warnings and zero errors. Showcase compilation is in progress.
+warnings and zero errors. Showcase XAML/code and the small package-consumer
+executable also compile with zero warnings and zero errors. These local checks
+use explicit current source-built core assemblies and the existing source-built
+bridge closure, not a freshly produced Windows package. They are compile-only;
+the CI consumer instead uses the exact downloaded package implementation bytes.
 No test bodies, Windows VM, GDI/OLE runtime, rendered screenshot or image-quality
 comparison has run during this implementation-first batch. Existing exact-head
 CI and Windows x64/ARM64 package/runtime gates remain required; source compilation

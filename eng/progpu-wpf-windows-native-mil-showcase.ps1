@@ -405,6 +405,32 @@ Assert-ExactPackageAsset (Join-Path $appDirectory "ProGPU.Wpf.dll") $bridgePacka
 Assert-ExactPackageAsset (Join-Path $appDirectory "progpu_native.dll") $nativePackages[0].FullName "runtimes/$targetRid/native/progpu_native.dll"
 Assert-RequestedRendererMode $appHost
 
+# Invoke the exact source-test bodies against the same verified Windows package
+# implementation bytes. This small signed friend consumer has no project/runtime
+# replacements and executes all four cases synchronously on its real STA thread.
+$clipboardProject = Join-Path $repoRoot "eng/WindowsClipboardConsumer/WindowsClipboardConsumer.csproj"
+Invoke-DotNet -Arguments @(
+    "build", $clipboardProject, "-c", "Release", "-r", $targetRid,
+    "-p:PlatformTarget=$TargetArchitecture",
+    "-p:ArtifactsDir=$artifactsProperty",
+    "-p:RestorePackagesPath=$packagesProperty",
+    "-p:RestoreConfigFile=$privateNugetConfig",
+    "-p:WindowsClipboardRuntimeRoot=$appDirectory",
+    "-p:RunNetFrameworkApiCompat=false", "-v:minimal"
+)
+$clipboardDirectory = Join-Path $artifactsRoot "bin/WindowsClipboardConsumer/Release/net10.0-windows"
+$clipboardAppHost = Join-Path $clipboardDirectory "PresentationCore.Tests.exe"
+Assert-ExactPackageAsset (Join-Path $clipboardDirectory "PresentationCore.dll") $transportPackage "runtimes/$targetRid/lib/net10.0/PresentationCore.dll"
+Assert-ExactPackageAsset (Join-Path $clipboardDirectory "WindowsBase.dll") $transportPackage "lib/net10.0/WindowsBase.dll"
+$interopPackage = Join-Path $PackageDirectory "LibreWPF.Interop.$nativePackageVersion.nupkg"
+Assert-ExactPackageAsset (Join-Path $clipboardDirectory "ProGPU.Wpf.Interop.dll") $interopPackage "lib/net10.0/ProGPU.Wpf.Interop.dll"
+$clipboardResult = Invoke-CapturedApplication $clipboardAppHost (Join-Path $smokeRoot "clipboard-stdout.log") (Join-Path $smokeRoot "clipboard-stderr.log") 60000
+Write-Host $clipboardResult.Stdout
+if ($clipboardResult.ExitCode -ne 0 -or
+    $clipboardResult.Stdout.IndexOf("Windows clipboard package contracts passed: 4; skipped: 0; architecture: $requiredArchitecture.", [System.StringComparison]::Ordinal) -lt 0) {
+    throw "Windows clipboard package contracts failed (exit $($clipboardResult.ExitCode)): $($clipboardResult.Stderr)"
+}
+
 Invoke-ShowcaseCheck "pre-display" "ProGPU WPF Showcase validation succeeded." $appHost $smokeRoot
 Invoke-ShowcaseCheck "displayed" "ProGPU WPF Showcase Application.Run validation succeeded." $appHost $smokeRoot
 

@@ -8,9 +8,16 @@ namespace System.Windows;
 
 // The clipboard is process-external state. These tests run only on Windows,
 // sequentially, with the selected media backend frozen by the existing startup.
+#if !WINDOWS_CLIPBOARD_CONSUMER
 [Collection("Sequential")]
+#endif
 public sealed partial class WindowsClipboardImageTests
 {
+#if WINDOWS_CLIPBOARD_CONSUMER
+    // The package consumer invokes all four unchanged test bodies directly on
+    // its STA entry thread. There is no discovery, platform skip or test runner.
+    private sealed class WindowsWpfFactAttribute : Attribute { }
+#else
     private sealed class WindowsWpfFactAttribute : WpfFactAttribute
     {
         public WindowsWpfFactAttribute(
@@ -21,6 +28,7 @@ public sealed partial class WindowsClipboardImageTests
             if (!OperatingSystem.IsWindows()) Skip = "Requires actual Windows OLE/GDI clipboard transport.";
         }
     }
+#endif
 
     [WindowsWpfFact]
     public void OpaqueImageOutlivesFlushedOleMediumAndCanBeRepublished() => VerifyRoundTrip(indexed: false);
