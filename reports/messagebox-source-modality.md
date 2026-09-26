@@ -30,9 +30,10 @@ gate fails on skips or missing tests. The source test project explicitly referen
 the actual `UIAutomationProvider` dependency needed by modal focus preparation.
 
 Run `bash eng/progpu-wpf-messagebox-modal.sh` with a compatible .NET SDK. The script
-first compiles the source test graph, then runs this class under the portable
-media backend. The existing Linux canonical source integration job invokes it
-without changing its deadline or removing other checks.
+first compiles the source test graph, then runs this class and the existing dialog
+lifecycle and backdrop source contracts under the portable media backend. The
+existing Linux canonical source integration job invokes it without changing its
+deadline or removing other checks.
 
 Local validation on macOS ARM64 used the source graph pinned by main
 `5e261dd478db474cd8d0e60288ccda63ab578bb0` and its exact ProGPU gitlink
@@ -42,6 +43,19 @@ test passed with zero skips, including both owner cases; a combined invocation
 with the six existing dialog lifecycle tests passed **7/7, zero skips**. No native
 window, emulator, or VM was started for this validation. Exact-head CI remains
 the required merge gate.
+
+The first fresh Linux CI compilation also exposed an existing backdrop test's
+unacknowledged use of experimental `Window.ThemeMode` (`WPF0001`). That deliberate
+test call now opts in locally around the single assignment. No project-wide
+diagnostics, backdrop assertions, MessageBox test bodies or deadlines are disabled;
+the fresh CI source graph and actual dialog execution remain required. Running the
+adjacent backdrop contract then exposed its missing Fluent resource dependency.
+The test project now references the actual source `PresentationFramework.Fluent`
+project; it does not substitute a packaged theme or skip the themed path. The
+rebuilt source graph compiled with zero errors and five existing warnings, and
+the expanded gate passed **8/8, zero skips** on macOS ARM64/.NET 10.0.5, including
+the public MessageBox owner cases and the existing backdrop contract. CI runs
+this same eight-test selection with the original 60-second deadline.
 
 This is source ownership/input/lifetime evidence, **not native window-manager or
 rendered-dialog qualification**. The test retains `ShowInTaskbar=false`, matching

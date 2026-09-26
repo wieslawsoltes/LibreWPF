@@ -20,5 +20,8 @@ mkdir -p "${repo_root}/artifacts/packages/${configuration}/NonShipping"
 
 LIBREWPF_TEST_MEDIA_BACKEND=Portable "${dotnet_command}" \
   "${repo_root}/artifacts/bin/PresentationFramework.Tests/${configuration}/net10.0-windows/PresentationFramework.Tests.dll" \
+  --filter-class System.Windows.PortableWindowActivationServiceTests \
   --filter-class System.Windows.PortableMessageBoxModalTests \
-  --minimum-expected-tests 1 --fail-skips on --timeout 60s --no-progress
+  --filter-method '*Dialog*' \
+  --filter-method '*PortableWindowBackdropNeverTreatsItsHostHandleAsWpfHwnd*' \
+  --minimum-expected-tests 8 --fail-skips on --timeout 60s --no-progress
