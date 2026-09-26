@@ -15339,6 +15339,8 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("deltaY: -1.0", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
         Assert.Contains("Showcase live ScrollViewer MouseWheel delta", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
         Assert.Contains("TryRaiseLiveThumbDrag(", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("if (!inputRaised && attempt == LiveValidationMaxAttempts - 1)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("lastTargetState += DescribeLiveThumbHitFailure(thumb);", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
         Assert.Contains("target.BringIntoView();", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
         Assert.Contains("hit == null || !IsInputElementWithinTarget(hit, target)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
         Assert.Contains("BringIntoViewDelta=({layoutDeltaX:0.###}, {layoutDeltaY:0.###})", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
