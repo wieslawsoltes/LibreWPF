@@ -220,7 +220,7 @@ public partial class MainWindow
             PortableWpfRuntime.ConfiguredMediaBackend != PortableWpfMediaBackend.Portable || !PortableWpfRuntime.IsMediaBackendFrozen ||
             !ProGpuWpfDiagnostics.TryGetWindowHost(this, out var actual) || !ReferenceEquals(actual, host) ||
             !ReferenceEquals(host.WpfRootVisual, this) || !ReferenceEquals(host.PortablePresentationSourceBridge?.RootVisual, this) ||
-            host.PortablePresentationSource is null || host.NativeWindowHandle == NativeWindowHandle.Empty ||
+            host.PortablePresentationSource is null || !host.NativeWindowHandle.IsValid ||
             !host.HasPresentedFrame || host.LastNativeMilSessionFrame is null)
             throw new InvalidOperationException("Passive validation requires the actual frozen portable Window root and its native MIL owner; no fallback.");
     }
@@ -238,14 +238,21 @@ public partial class MainWindow
             "actual Showcase ScrollContentPresenter");
         IdleRect clip = ReadIdleRectangleClip(presenter);
         IdleRect zero = ReadIdleRectangleClip(fixture.Zero);
-        if (clip.Width <= 0 || clip.Height <= 0 || zero.IsEmpty || zero != new IdleRect(0, 0, 80, 0, false))
+        if (clip.Width <= 0 || clip.Height <= 0 || clip != new IdleRect(0, 0, presenter.ActualWidth, presenter.ActualHeight, false) ||
+            zero.IsEmpty || zero != new IdleRect(0, 0, 80, 0, false))
             throw new InvalidOperationException("Actual source clips must include the viewport and a non-Empty zero-height rectangle.");
         if (!ProGpuWpfDiagnostics.TryGetNativePerformanceSnapshot(this, out var native) || native.PresentedFrameCount <= 0 ||
             native.Frame.CommandCount == 0 || native.Frame.DrawCallCount == 0 || native.Frame.SubmissionCount == 0 ||
             native.DeviceRecoveryCount != fixture.OriginalRecovery)
             throw new InvalidOperationException("No genuine native command/draw/submission frame for passive Showcase observation.");
         var content = Require<FrameworkElement>(Content, "Showcase root content");
-        return new(ReadLiveRenderSurfaceGeometry(host), ReadLivePresentedFrameState(host), fixture.Text.Text, fixture.Viewer.VerticalOffset,
+        var geometry = ReadLiveRenderSurfaceGeometry(host);
+        var presented = ReadLivePresentedFrameState(host);
+        if (!presented.HasPresentedFrame || presented.LogicalWidth != geometry.LogicalWidth ||
+            presented.LogicalHeight != geometry.LogicalHeight || presented.PixelWidth != geometry.PixelWidth ||
+            presented.PixelHeight != geometry.PixelHeight || presented.DpiScale != geometry.DpiScale)
+            throw new InvalidOperationException("The actual native presented frame does not match the current surface extent.");
+        return new(geometry, presented, fixture.Text.Text, fixture.Viewer.VerticalOffset,
             fixture.Text.TranslatePoint(new Point(), presenter).Y, content.ActualWidth, content.ActualHeight,
             clip, zero, native.DeviceRecoveryCount, native.Frame.CommandCount, native.Frame.DrawCallCount, native.Frame.SubmissionCount);
     }
