@@ -15230,6 +15230,8 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("Showcase live ToolBar refresh command count", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
         Assert.Contains("ToolBar refresh command and toggle binding updated through host mouse input", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
         Assert.Contains("ValidateLivePopupSurfacesAsync", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ValidateLiveOwnerlessPopupSurfaceAsync", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("unattached Popup opened, closed, and reopened", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
         Assert.Contains("ProGpuWpfDiagnostics.TryGetCompositionLayerSnapshot(liveHost, out var composition)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
         Assert.Contains("ProGpuWpfDiagnostics.TryGetPortablePopupSnapshot(", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
         Assert.Contains("IsLivePopupSurfaceSnapshotReady(", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
