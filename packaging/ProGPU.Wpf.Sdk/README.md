@@ -14,6 +14,16 @@ Projects with `UseWindowsForms=true`, including mixed WPF/WinForms projects and 
 
 Existing WPF application projects should keep their normal WPF project shape and switch only the project SDK, whether the original project used `Microsoft.NET.Sdk.WindowsDesktop` or the newer `Microsoft.NET.Sdk` plus `UseWPF=true`. The SDK treats `UseWPF=true` as the app's markup intent, keeps the normal `net*-windows` target-framework shape, and internally redirects framework references to the portable WPF transport and ProGPU/Silk.NET package graph.
 
+`UseWPF` and `UseWindowsForms` retain the project's values during item evaluation
+and target execution, so application and package conditions can depend on them.
+In portable mode, both `net10.0` and `net10.0-windows` use the real WPF markup
+compiler without importing implicit WindowsDesktop framework references or a
+second set of XAML items. `ProGpuWpfUseWpfMarkup=false` remains the explicit
+markup opt-out. Setting `ProGpuWpfUsePortableFrameworkReferences=false` retains
+the native WindowsDesktop SDK imports and Windows-targeting validation; it is
+not a portable runtime configuration. Public desktop flags do not qualify
+trimming or NativeAOT, and their existing SDK restrictions remain in force.
+
 Windows, macOS, and Linux are supported runtime targets. A Windows RID restores the same platform-independent `LibreWPF.Transport` payload as the other hosts; no `runtime.win-*` LibreWPF companion package is required or published.
 
 The SDK also supplies the WPF markup compiler defaults and portable runtime-framework default needed by the current build lane, so applications do not need ProGPU-specific item includes, PresentationBuildTasks compatibility properties, or runtime-version pins.
