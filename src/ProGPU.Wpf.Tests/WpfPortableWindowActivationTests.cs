@@ -1697,6 +1697,72 @@ public sealed class WpfPortableWindowActivationTests
     }
 
     [Fact]
+    public void DirectPressedPointerMovesArrangeBeforeTheNextNativeCallback()
+    {
+        var service = new TestWindowActivationServiceRegistrar();
+        using var registration = PortableWpfServiceRegistry.RegisterWindowActivationService(service);
+        using var host = new ProGpuWpfWindowHost { WpfRenderScheduler = new CoalescingWpfRenderScheduler() };
+        Assert.True(WpfPortableWindowActivation.TryAttach(host, new FakeWindow(),
+            new FakePortablePresentationSource(), out var activation));
+        using var lease = activation;
+
+        // Keep the frame pending as it is during a native event batch. A second
+        // RequestRender cannot supply the per-event dispatcher/layout boundary.
+        host.WpfRenderScheduler.RequestRender();
+        service.InputDispatchLog.Clear();
+
+        RaiseHostInputEvent(host, new WpfInputEventArgs(WpfInputEventKind.MouseMove, x: 10));
+        RaiseHostInputEvent(host, new WpfInputEventArgs(WpfInputEventKind.MouseDown, x: 20, button: WpfMouseButton.Left));
+        RaiseHostInputEvent(host, new WpfInputEventArgs(WpfInputEventKind.MouseMove, x: 30));
+        RaiseHostInputEvent(host, new WpfInputEventArgs(WpfInputEventKind.MouseUp, x: 40, button: WpfMouseButton.Left));
+        RaiseHostInputEvent(host, new WpfInputEventArgs(WpfInputEventKind.MouseMove, x: 50));
+
+        Assert.Equal(0, service.BeginInvokeInputCount);
+        Assert.Equal(new[]
+        {
+            "ProcessInput:10", "ProcessInput:20", "Flush:Render",
+            "ProcessInput:30", "Flush:Render", "ProcessInput:40", "Flush:Render", "ProcessInput:50"
+        }, service.InputDispatchLog);
+    }
+
+    [Fact]
+    public void DirectPassivePointerMovesRetainBatchRendering()
+    {
+        var service = new TestWindowActivationServiceRegistrar();
+        using var registration = PortableWpfServiceRegistry.RegisterWindowActivationService(service);
+        using var host = new ProGpuWpfWindowHost { WpfRenderScheduler = new CoalescingWpfRenderScheduler() };
+        Assert.True(WpfPortableWindowActivation.TryAttach(host, new FakeWindow(),
+            new FakePortablePresentationSource(), out var activation));
+        using var lease = activation;
+        host.WpfRenderScheduler.RequestRender();
+        service.InputDispatchLog.Clear();
+
+        RaiseHostInputEvent(host, new WpfInputEventArgs(WpfInputEventKind.MouseMove, x: 10));
+        RaiseHostInputEvent(host, new WpfInputEventArgs(WpfInputEventKind.MouseMove, x: 20));
+
+        Assert.Equal(new[] { "ProcessInput:10", "ProcessInput:20" }, service.InputDispatchLog);
+    }
+
+    [Fact]
+    public void DirectDeactivationReleasesPerEventPointerLayout()
+    {
+        var service = new TestWindowActivationServiceRegistrar();
+        using var registration = PortableWpfServiceRegistry.RegisterWindowActivationService(service);
+        using var host = new ProGpuWpfWindowHost { WpfRenderScheduler = new CoalescingWpfRenderScheduler() };
+        Assert.True(WpfPortableWindowActivation.TryAttach(host, new FakeWindow(),
+            new FakePortablePresentationSource(), out var activation));
+        using var lease = activation;
+        host.WpfRenderScheduler.RequestRender();
+        RaiseHostInputEvent(host, new WpfInputEventArgs(WpfInputEventKind.MouseDown, button: WpfMouseButton.Left));
+        RaiseHostWindowEvent(host, WpfWindowEventKind.Deactivated);
+        service.InputDispatchLog.Clear();
+
+        RaiseHostInputEvent(host, new WpfInputEventArgs(WpfInputEventKind.MouseMove, x: 20));
+
+        Assert.Equal(new[] { "ProcessInput:20" }, service.InputDispatchLog);
+    }
+
+    [Fact]
     public void QueuedPassivePointerMovesDeferRenderingUntilAfterTheNativeBatch()
     {
         var service = new TestWindowActivationServiceRegistrar
