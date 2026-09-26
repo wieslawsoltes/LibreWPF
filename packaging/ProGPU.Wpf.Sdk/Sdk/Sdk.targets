@@ -9,14 +9,12 @@
     <ProGpuWpfUsePortableWinFormsCompat Condition="'$(ProGpuWpfUsePortableWinFormsCompat)' == ''">false</ProGpuWpfUsePortableWinFormsCompat>
     <ProGpuWpfUseLibreWinForms Condition="'$(ProGpuWpfUseLibreWinForms)' == '' And '$(_ProGpuWpfProjectUseWindowsForms)' == 'true'">true</ProGpuWpfUseLibreWinForms>
     <ProGpuWpfUseLibreWinForms Condition="'$(ProGpuWpfUseLibreWinForms)' == ''">false</ProGpuWpfUseLibreWinForms>
-    <UseWPF Condition="'$(ProGpuWpfUsePortableFrameworkReferences)' == 'true'">false</UseWPF>
-    <UseWindowsForms Condition="'$(ProGpuWpfUsePortableFrameworkReferences)' == 'true'">false</UseWindowsForms>
+    <!-- Preserve the project's public desktop intent for conditional items and
+         targets. Portable references replace the desktop SDK's targets, not
+         UseWPF/UseWindowsForms; restoring those flags after an import is too
+         late to control its property pass and too early to control its items. -->
+    <ImportWindowsDesktopTargets Condition="'$(ProGpuWpfUsePortableFrameworkReferences)' == 'true'">false</ImportWindowsDesktopTargets>
   </PropertyGroup>
-
-  <ItemGroup Condition="'$(_ProGpuWpfProjectUseWindowsForms)' == 'true' And ('$(ImplicitUsings)' == 'true' Or '$(ImplicitUsings)' == 'enable')">
-    <Using Include="System.Drawing" />
-    <Using Include="System.Windows.Forms" />
-  </ItemGroup>
 
   <PropertyGroup Condition="'$(ProGpuWpfUseWpfMarkup)' == 'true'">
     <_LibreWpfPresentationBuildTasksTfm Condition="'$(MSBuildRuntimeType)' == 'Core'">net10.0</_LibreWpfPresentationBuildTasksTfm>
@@ -26,6 +24,8 @@
   </PropertyGroup>
 
   <Import Sdk="Microsoft.NET.Sdk.WindowsDesktop" Project="Sdk.targets" />
+  <Import Project="$(MSBuildThisFileDirectory)..\targets\ProGPU.Wpf.Sdk.PortableMarkup.targets"
+          Condition="'$(ProGpuWpfUsePortableFrameworkReferences)' == 'true'" />
   <Import Project="$(MSBuildThisFileDirectory)..\targets\ProGPU.Wpf.Sdk.targets" />
 
 </Project>

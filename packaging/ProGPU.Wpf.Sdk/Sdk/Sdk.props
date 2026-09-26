@@ -7,7 +7,6 @@
     <_ProGpuWpfSdkImported>true</_ProGpuWpfSdkImported>
     <ProGpuWpfUseWpfMarkup Condition="'$(ProGpuWpfUseWpfMarkup)' == ''">true</ProGpuWpfUseWpfMarkup>
     <ProGpuWpfUsePortableFrameworkReferences Condition="'$(ProGpuWpfUsePortableFrameworkReferences)' == ''">true</ProGpuWpfUsePortableFrameworkReferences>
-    <UseWPF Condition="'$(ProGpuWpfUsePortableFrameworkReferences)' == 'true'">false</UseWPF>
     <EnableWindowsTargeting Condition="'$(EnableWindowsTargeting)' == ''">true</EnableWindowsTargeting>
     <ImportFrameworkWinFXTargets Condition="'$(ImportFrameworkWinFXTargets)' == ''">false</ImportFrameworkWinFXTargets>
     <DisableTransitiveFrameworkReferenceDownloads Condition="'$(ProGpuWpfUsePortableFrameworkReferences)' == 'true' And '$(DisableTransitiveFrameworkReferenceDownloads)' == ''">true</DisableTransitiveFrameworkReferenceDownloads>

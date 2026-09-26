@@ -12947,7 +12947,7 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("<_ProGpuWpfSdkImported>true</_ProGpuWpfSdkImported>", sdkProps, StringComparison.Ordinal);
         Assert.Contains("<ProGpuWpfUseWpfMarkup Condition=\"'$(ProGpuWpfUseWpfMarkup)' == ''\">true</ProGpuWpfUseWpfMarkup>", sdkProps, StringComparison.Ordinal);
         Assert.Contains("<ProGpuWpfUsePortableFrameworkReferences Condition=\"'$(ProGpuWpfUsePortableFrameworkReferences)' == ''\">true</ProGpuWpfUsePortableFrameworkReferences>", sdkProps, StringComparison.Ordinal);
-        Assert.Contains("<UseWPF Condition=\"'$(ProGpuWpfUsePortableFrameworkReferences)' == 'true'\">false</UseWPF>", sdkProps, StringComparison.Ordinal);
+        Assert.DoesNotContain("<UseWPF ", sdkProps, StringComparison.Ordinal);
         Assert.Contains("<EnableWindowsTargeting Condition=\"'$(EnableWindowsTargeting)' == ''\">true</EnableWindowsTargeting>", sdkProps, StringComparison.Ordinal);
         Assert.Contains("<DisableTransitiveFrameworkReferenceDownloads Condition=\"'$(ProGpuWpfUsePortableFrameworkReferences)' == 'true' And '$(DisableTransitiveFrameworkReferenceDownloads)' == ''\">true</DisableTransitiveFrameworkReferenceDownloads>", sdkProps, StringComparison.Ordinal);
         Assert.Contains("<CopyLocalLockFileAssemblies Condition=\"'$(ProGpuWpfUsePortableFrameworkReferences)' == 'true' And '$(CopyLocalLockFileAssemblies)' == ''\">true</CopyLocalLockFileAssemblies>", sdkProps, StringComparison.Ordinal);
@@ -15329,11 +15329,10 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("<ProGpuWpfUsePortableWinFormsCompat Condition=\"'$(ProGpuWpfUsePortableWinFormsCompat)' == ''\">false</ProGpuWpfUsePortableWinFormsCompat>", sdkTargets, StringComparison.Ordinal);
         Assert.Contains("<ProGpuWpfUseLibreWinForms Condition=\"'$(ProGpuWpfUseLibreWinForms)' == '' And '$(_ProGpuWpfProjectUseWindowsForms)' == 'true'\">true</ProGpuWpfUseLibreWinForms>", sdkTargets, StringComparison.Ordinal);
         Assert.Contains("<ProGpuWpfUseLibreWinForms Condition=\"'$(ProGpuWpfUseLibreWinForms)' == ''\">false</ProGpuWpfUseLibreWinForms>", sdkTargets, StringComparison.Ordinal);
-        Assert.Contains("<UseWPF Condition=\"'$(ProGpuWpfUsePortableFrameworkReferences)' == 'true'\">false</UseWPF>", sdkTargets, StringComparison.Ordinal);
-        Assert.Contains("<UseWindowsForms Condition=\"'$(ProGpuWpfUsePortableFrameworkReferences)' == 'true'\">false</UseWindowsForms>", sdkTargets, StringComparison.Ordinal);
-        Assert.Contains("<ItemGroup Condition=\"'$(_ProGpuWpfProjectUseWindowsForms)' == 'true' And ('$(ImplicitUsings)' == 'true' Or '$(ImplicitUsings)' == 'enable')\">", sdkTargets, StringComparison.Ordinal);
-        Assert.Contains("<Using Include=\"System.Drawing\" />", sdkTargets, StringComparison.Ordinal);
-        Assert.Contains("<Using Include=\"System.Windows.Forms\" />", sdkTargets, StringComparison.Ordinal);
+        Assert.DoesNotContain("<UseWPF ", sdkTargets, StringComparison.Ordinal);
+        Assert.DoesNotContain("<UseWindowsForms ", sdkTargets, StringComparison.Ordinal);
+        Assert.Contains("<ImportWindowsDesktopTargets Condition=\"'$(ProGpuWpfUsePortableFrameworkReferences)' == 'true'\">false</ImportWindowsDesktopTargets>", sdkTargets, StringComparison.Ordinal);
+        Assert.Contains("ProGPU.Wpf.Sdk.PortableMarkup.targets", sdkTargets, StringComparison.Ordinal);
         Assert.Contains("<Import Sdk=\"Microsoft.NET.Sdk.WindowsDesktop\" Project=\"Sdk.targets\" />", sdkTargets, StringComparison.Ordinal);
         Assert.Contains("ProGPU.Wpf.Sdk.targets", sdkTargets, StringComparison.Ordinal);
 

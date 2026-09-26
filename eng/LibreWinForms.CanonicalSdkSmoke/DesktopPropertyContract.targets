@@ -1,0 +1,20 @@
+<Project>
+  <!-- Item conditions run after the SDK's complete property pass. Capturing
+       values in another PropertyGroup would miss a late public-flag rewrite. -->
+  <ItemGroup>
+    <_DesktopPropertyEvaluation Include="WPF" Condition="'$(UseWPF)' == '$(ExpectedUseWPF)'" />
+    <_DesktopPropertyEvaluation Include="Forms" Condition="'$(UseWindowsForms)' == 'true'" />
+  </ItemGroup>
+  <Target Name="ValidatePublicDesktopPropertyContract" BeforeTargets="CoreCompile">
+    <Error Condition="'@(_DesktopPropertyEvaluation->Count())' != '2'"
+           Text="The packaged SDK changed public desktop properties during item evaluation." />
+    <Error Condition="'$(UseWPF)' != '$(ExpectedUseWPF)' Or '$(UseWindowsForms)' != 'true'"
+           Text="The packaged SDK changed public desktop properties during target execution." />
+    <ItemGroup>
+      <_UnexpectedDesktopFramework Include="@(FrameworkReference)"
+          Condition="'%(FrameworkReference.Identity)' == 'Microsoft.WindowsDesktop.App' Or '%(FrameworkReference.Identity)' == 'Microsoft.WindowsDesktop.App.WPF' Or '%(FrameworkReference.Identity)' == 'Microsoft.WindowsDesktop.App.WindowsForms'" />
+    </ItemGroup>
+    <Error Condition="'@(_UnexpectedDesktopFramework)' != ''"
+           Text="The portable SDK retained WindowsDesktop framework references: @(_UnexpectedDesktopFramework)." />
+  </Target>
+</Project>

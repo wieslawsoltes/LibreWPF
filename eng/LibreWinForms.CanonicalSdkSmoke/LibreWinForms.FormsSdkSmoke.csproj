@@ -5,6 +5,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <UseWPF>false</UseWPF>
+    <ExpectedUseWPF>false</ExpectedUseWPF>
     <UseWindowsForms>true</UseWindowsForms>
   </PropertyGroup>
+  <Import Project="DesktopPropertyContract.targets" />
 </Project>
