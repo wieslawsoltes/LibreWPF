@@ -424,6 +424,7 @@ public sealed class WpfLayoutClipKeyTests
             case "null-segments": path.Figures[0].Segments = null!; break;
             case "cycle":
                 path.Kind = PortableGeometryPathKind.Combined;
+                path.Figures = Array.Empty<PortablePathFigure>();
                 path.PathA = path;
                 path.PathB = Path();
                 break;
