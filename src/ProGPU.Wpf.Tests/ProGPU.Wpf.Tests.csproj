@@ -21,6 +21,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="../../samples/ProGPU.Wpf.ShowcaseApp/PassiveIdleInterval.cs" Link="Showcase/PassiveIdleInterval.cs" />
     <ProjectReference Include="..\Microsoft.DotNet.Wpf\src\Microsoft.Win32.SystemEvents\Microsoft.Win32.SystemEvents.csproj" PrivateAssets="all" />
     <ProjectReference Include="..\..\external\ProGPU\src\WindowsBase\WindowsBase.csproj" PrivateAssets="all" />
     <ProjectReference Include="..\..\external\ProGPU\src\PresentationCore\PresentationCore.csproj" PrivateAssets="all" />

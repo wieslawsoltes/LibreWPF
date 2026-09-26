@@ -42,6 +42,9 @@ jobs:
       - name: Build and validate retained invalidation contracts
         run: bash ./eng/progpu-wpf-layout-clip.sh
 
+      - name: Validate passive Showcase launcher controls
+        run: python3 ./eng/test-progpu-wpf-showcase-idle.py -v
+
       - name: Upload retained invalidation evidence
         if: always()
         uses: actions/upload-artifact@v4
