@@ -236,9 +236,9 @@ public partial class MainWindow
             throw new InvalidOperationException("Passive Showcase source/native ownership or actual overflowing pixel-scroll fixture changed.");
         var presenter = Require<ScrollContentPresenter>(fixture.Viewer.Template.FindName("PART_ScrollContentPresenter", fixture.Viewer),
             "actual Showcase ScrollContentPresenter");
-        PortableRect clip = ReadIdleRectangleClip(presenter);
-        PortableRect zero = ReadIdleRectangleClip(fixture.Zero);
-        if (clip.Width <= 0 || clip.Height <= 0 || zero.IsEmpty || zero != new PortableRect(0, 0, 80, 0))
+        IdleRect clip = ReadIdleRectangleClip(presenter);
+        IdleRect zero = ReadIdleRectangleClip(fixture.Zero);
+        if (clip.Width <= 0 || clip.Height <= 0 || zero.IsEmpty || zero != new IdleRect(0, 0, 80, 0, false))
             throw new InvalidOperationException("Actual source clips must include the viewport and a non-Empty zero-height rectangle.");
         if (!ProGpuWpfDiagnostics.TryGetNativePerformanceSnapshot(this, out var native) || native.PresentedFrameCount <= 0 ||
             native.Frame.CommandCount == 0 || native.Frame.DrawCallCount == 0 || native.Frame.SubmissionCount == 0 ||
@@ -250,14 +250,14 @@ public partial class MainWindow
             clip, zero, native.DeviceRecoveryCount, native.Frame.CommandCount, native.Frame.DrawCallCount, native.Frame.SubmissionCount);
     }
 
-    private static PortableRect ReadIdleRectangleClip(FrameworkElement element)
+    private static IdleRect ReadIdleRectangleClip(FrameworkElement element)
     {
         if (!((IPortableVisualLayoutStateSource)element).TryGetPortableVisualLayoutState(out var state) || !state.HasLayoutClip ||
             state.LayoutClip is not IPortablePrimitiveGeometrySource source || !source.TryGetPortablePrimitiveGeometry(out var primitive) ||
             primitive.Kind != PortablePrimitiveGeometryKind.Rectangle || primitive.Rect.IsEmpty ||
-            primitive.Transform != PortableMatrix3x2.Identity)
+            !primitive.Transform.IsIdentity)
             throw new InvalidOperationException("Expected actual source identity-transformed rectangular LayoutClip.");
-        return primitive.Rect;
+        return new(primitive.Rect.X, primitive.Rect.Y, primitive.Rect.Width, primitive.Rect.Height, primitive.Rect.IsEmpty);
     }
 
     private static IdleAssemblyIdentity[] CaptureIdleAssemblyIdentities() =>
@@ -277,8 +277,10 @@ public partial class MainWindow
 
     private readonly record struct IdleSourceState(LiveRenderSurfaceGeometry Geometry, LivePresentedFrameState Presented,
         string Text, double ScrollOffset,
-        double TextTop, double ContentWidth, double ContentHeight, PortableRect Clip, PortableRect Zero,
+        double TextTop, double ContentWidth, double ContentHeight, IdleRect Clip, IdleRect Zero,
         long Recovery, uint Commands, uint Draws, ulong Submissions);
+
+    private readonly record struct IdleRect(double X, double Y, double Width, double Height, bool IsEmpty);
 
     private sealed record IdleAssemblyIdentity(string Name, string Mvid, string Sha256);
 

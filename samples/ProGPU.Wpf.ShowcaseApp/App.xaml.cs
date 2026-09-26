@@ -17,7 +17,7 @@ public partial class App : Application
 
     protected override void OnStartup(StartupEventArgs e)
     {
-        MainWindow.ValidateIdleLayoutClipConfiguration();
+        global::ProGPU.Wpf.ShowcaseApp.MainWindow.ValidateIdleLayoutClipConfiguration();
         if (Environment.GetEnvironmentVariable("PROGPU_WPF_SHOWCASE_VALIDATE") == "1")
         {
             var window = new MainWindow();
