@@ -20,6 +20,30 @@ factory. The implementation therefore uses the shared lightweight
 `WindowsGdiBitmap` helper from [ProGPU PR188](https://github.com/wieslawsoltes/ProGPU/pull/188).
 The source submodule pins its exact committed implementation, not copied files.
 
+## Aligned source and CI dependency
+
+ProGPU PR188 is merged at `bd9d034a72e79ce6bced330a30780e970b07c89a`.
+The dependency remains pinned to its exact qualified producer head
+`08f4343ef15328ba742cdcf11f8eb2daeefb5f7b`, whose complete
+[Build 36248366666](https://github.com/wieslawsoltes/ProGPU/actions/runs/36248366666)
+passed all 43 jobs. The native package staging script requires that successful
+whole Build and its live `progpu-native-package` artifact; a merge commit or an
+individual successful job does not substitute for that producer identity.
+
+The LibreWinForms dependency is the merged
+[PR62](https://github.com/wieslawsoltes/LibreWinForms/pull/62) commit
+`0d9145f7e6429a941261dcd96d1293e4b7633097`. Its producer head
+`d9f058d4e8b7b33b83ae4844c39adced03f96587` passed all nine jobs in
+[Build 36259003664](https://github.com/wieslawsoltes/LibreWinForms/actions/runs/36259003664).
+Its nested ProGPU pin is the same
+`08f4343ef15328ba742cdcf11f8eb2daeefb5f7b`, preserving the canonical graph's
+exact-equality check. Current LibreWPF main is integrated without dropping the
+clipboard consumer copy-local fix, RID-aligned output, four STA contracts, or
+exact native-payload hash checks.
+This aligned LibreWPF head still requires its own complete source/package CI,
+including actual Windows x64 and ARM64 clipboard execution. No local heavy build
+or additional VM validation was performed for this integration.
+
 The WPF adapter validates CF_BITMAP, content aspect, lindex and the GDI medium
 before encoding. The existing BMP encoder retains source pixel-format/palette
 conversion. GDI receives only a validated complete BI_RGB BMP and publishes an
