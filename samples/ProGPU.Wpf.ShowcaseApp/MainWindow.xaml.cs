@@ -8676,6 +8676,14 @@ internal static class ShowcaseSelfTest
 
     private static void ValidateSecondaryWindowResizeIntent(Window dialog)
     {
+        // The same Showcase also validates native Windows MIL, which has no
+        // ProGPU host. Keep its existing secondary-window checks unchanged.
+        if (PortableWpfRuntime.ConfiguredMediaBackend != PortableWpfMediaBackend.Portable)
+        {
+            return;
+        }
+
+        AssertEqual(true, PortableWpfRuntime.IsMediaBackendFrozen, "secondary window portable media selection frozen");
         if (!ProGpuWpfDiagnostics.TryGetWindowHost(dialog, out var host) || host is null)
         {
             throw new InvalidOperationException("The visible secondary window must retain its portable native host.");

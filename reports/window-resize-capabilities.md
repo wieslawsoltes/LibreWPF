@@ -45,6 +45,10 @@ The existing packaged Showcase secondary-window gate exercises an actual source
 all four source modes and custom chrome on the live host, verifies requested
 capabilities through typed diagnostics, and restores the original source state.
 It does not replace the MessageBox action or assert native button visibility.
+Only these additional host-intent assertions require Portable media, which must
+already be frozen and have a live host. The same source application's native
+Windows MIL backend retains every existing secondary-window check without
+requiring a ProGPU host.
 The SDK application compiles with zero warnings/errors using the newly built
 bridge plus an explicit existing source-assembly staging directory and source
 markup tasks. This mixed staged compilation is not fresh package qualification.
