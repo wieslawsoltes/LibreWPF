@@ -29,7 +29,7 @@ public class DataObjectEmptyDataTests
 
         data.GetAudioStream().Should().BeNull();
         data.GetImage().Should().BeNull();
-        data.GetFileDropList().Should().BeEmpty();
+        data.GetFileDropList().Count.Should().Be(0);
         data.GetText().Should().BeEmpty();
         data.GetText(TextDataFormat.Text).Should().BeEmpty();
     }

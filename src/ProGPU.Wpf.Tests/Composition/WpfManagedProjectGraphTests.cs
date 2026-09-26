@@ -3562,6 +3562,7 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("public bool TryGetData<T>", portableManagedDataObject, StringComparison.Ordinal);
         Assert.Contains("private readonly ITypedDataObject? _portableData;", dataObject, StringComparison.Ordinal);
         Assert.Contains("_portableData = new PortableManagedDataObject();", dataObject, StringComparison.Ordinal);
+        Assert.DoesNotContain("_portableData?.GetData(format, autoConvert) ??", dataObject, StringComparison.Ordinal);
         Assert.Contains("portableManagedData.SetDataAsJson(format, data);", dataObject, StringComparison.Ordinal);
         Assert.Contains("return !s_isWindows;", clipboardService, StringComparison.Ordinal);
         Assert.Contains("s_dataObject = dataObject;", clipboardService, StringComparison.Ordinal);
@@ -3610,6 +3611,7 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("portable Clipboard SDK audio state", sdkRuntimeHarness, StringComparison.Ordinal);
         Assert.Contains("portable Clipboard SDK image data format state", sdkRuntimeHarness, StringComparison.Ordinal);
         Assert.Contains("ValidatePortableJsonDataObject(presentationCore)", sdkRuntimeHarness, StringComparison.Ordinal);
+        Assert.Contains("ValidatePortableEmptyDataObjects(presentationCore)", sdkRuntimeHarness, StringComparison.Ordinal);
         Assert.Contains("PortableClipboardJsonPayload", sdkRuntimeHarness, StringComparison.Ordinal);
         Assert.Contains("portable Clipboard SDK JSON DataObject typed retrieval state", sdkRuntimeHarness, StringComparison.Ordinal);
         Assert.Contains("portable Clipboard SDK JSON clipboard typed retrieval state", sdkRuntimeHarness, StringComparison.Ordinal);
@@ -14684,6 +14686,8 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("editor RichTextBox ToggleBold applied weight", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
         Assert.Contains("DataObject unicode text", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
         Assert.Contains("DataObject custom text", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ValidateEmptyDataObjects();", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("DataObject absent exact format", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
         Assert.Contains("summary updated progress text", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
         Assert.Contains("GetColumnBindingPath", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
         Assert.Contains("GetGridViewColumnBindingPath", showcaseMainWindowCodeBehind, StringComparison.Ordinal);

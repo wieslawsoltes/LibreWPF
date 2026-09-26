@@ -8829,6 +8829,7 @@ internal static class ShowcaseSelfTest
         AssertEqual("showcase data object", window.LastDataObjectText, "DataObject unicode text");
         AssertEqual("custom:showcase data object", window.LastDataObjectCustomText, "DataObject custom text");
         AssertEqual("showcase data object | custom:showcase data object", dataObjectStatusText.Text, "DataObject status text");
+        ValidateEmptyDataObjects();
 
         clipboardRoundTripButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, clipboardRoundTripButton));
         DrainDispatcher(window);
@@ -8838,6 +8839,26 @@ internal static class ShowcaseSelfTest
         AssertEqual(true, window.LastClipboardIsCurrent, "Clipboard current data object");
         AssertEqual("Clipboard: showcase data object clipboard", dataObjectStatusText.Text, "Clipboard status text");
         Clipboard.Clear();
+    }
+
+    private static void ValidateEmptyDataObjects()
+    {
+        DataObject empty = new();
+        object payload = new();
+        DataObject populated = new("ShowcaseExistingData", payload, autoConvert: false);
+        DataObject wrapped = new(populated);
+        foreach (DataObject data in new[] { empty, populated, wrapped })
+        {
+            AssertEqual<object?>(null, data.GetData("ShowcaseMissingData", autoConvert: false), "DataObject absent exact format");
+            AssertEqual<object?>(null, data.GetData("ShowcaseMissingData", autoConvert: true), "DataObject absent convertible format");
+            AssertEqual<object?>(null, data.GetData(typeof(int)), "DataObject absent type");
+        }
+
+        AssertEqual(true, ReferenceEquals(payload, wrapped.GetData("ShowcaseExistingData", autoConvert: false)), "DataObject retained payload identity");
+        AssertEqual<object?>(null, empty.GetImage(), "DataObject empty image");
+        AssertEqual<object?>(null, empty.GetAudioStream(), "DataObject empty audio");
+        AssertEqual(0, empty.GetFileDropList().Count, "DataObject empty file drop list");
+        AssertEqual(string.Empty, empty.GetText(), "DataObject empty text");
     }
 
     private static void ValidateDocument(

@@ -189,7 +189,9 @@ public sealed unsafe partial class DataObject :
     ///  determine whether to convert the data to the format.
     /// </summary>
     public object? GetData(string format, bool autoConvert) =>
-        _portableData?.GetData(format, autoConvert) ?? InnerData.GetData(format, autoConvert);
+        _portableData is not null
+            ? _portableData.GetData(format, autoConvert)
+            : InnerData.GetData(format, autoConvert);
 
     /// <summary>
     ///  Retrieves the data associated with the specified data format.
