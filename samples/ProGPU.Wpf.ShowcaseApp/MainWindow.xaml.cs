@@ -482,6 +482,11 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (StartIdleLayoutClipValidationIfRequested())
+        {
+            return;
+        }
+
         if (Environment.GetEnvironmentVariable(LiveValidationEnvironmentVariable) != "1")
         {
             return;

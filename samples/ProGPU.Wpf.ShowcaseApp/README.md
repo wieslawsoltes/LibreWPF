@@ -48,6 +48,12 @@ the [build-only package lane](../../docs/progpu-wpf-release.md#package-productio
 Native runtime and Windows payload requirements still apply; this is not a
 reduced package profile or evidence of successful startup.
 
+The separate [passive layout-clip gate](../../docs/showcase-passive-layout-clip.md)
+observes the same native Showcase without requesting frames during its measured
+intervals. It requires a prebuilt native package consumer and four strict idle
+receipts; ordinary self-tests and the forced-frame performance gate do not
+qualify it.
+
 ## Native MIL selection
 
 With an SDK package containing the native renderer selector, build this same app
