@@ -435,6 +435,121 @@ public class PortablePresentationSourceTests
         InputManager.Current.ProcessInput(input);
     }
 
+    [UIFact]
+    public void SelectedOwnerPromotesContentWithoutRepeatingOwnerOrDrawingHitTests()
+    {
+        using IPortablePresentationSourceHost source = PortablePresentationSourceHost.Create();
+        var host = new ContentHitHost { RenderTransform = new ScaleTransform(2, 2) };
+        var root = new ContentHitRoot(host);
+        source.RootVisual = root;
+        source.SetClientSize(300, 200);
+        int ownerQueries = 0;
+        source.HitTestOverride = (x, y) =>
+        {
+            ownerQueries++;
+            Assert.Equal(34, x);
+            Assert.Equal(28, y);
+            return host;
+        };
+        source.HitTestAllOverride = (_, _) => throw new InvalidOperationException("Selected owner must not be queried again.");
+
+        var hit = MouseDevice.LocalHitTest(false, new Point(34, 28), (PresentationSource)source);
+
+        Assert.Same(host.Content, hit);
+        Assert.Equal(new Point(7, 9), host.LastPoint);
+        Assert.Equal(1, host.ContentHits);
+        Assert.Equal(1, ownerQueries);
+        Assert.Equal(0, root.DrawingHits);
+    }
+
+    [UIFact]
+    public void SelectedContentOwnerReceivesRealMouseInput()
+    {
+        using IPortablePresentationSourceHost source = PortablePresentationSourceHost.Create();
+        var host = new ContentHitHost();
+        var root = new ContentHitRoot(host);
+        source.RootVisual = root;
+        source.SetClientSize(300, 200);
+        source.HitTestOverride = (_, _) => host;
+        int moves = 0;
+        host.Content.MouseMove += (_, _) => moves++;
+
+        ReportMouseInput((PresentationSource)source, RawMouseActions.Activate | RawMouseActions.AbsoluteMove, 27, 19);
+
+        Assert.Same(host.Content, Mouse.DirectlyOver);
+        Assert.Equal(1, moves);
+        Assert.Equal(new Point(7, 9), host.LastPoint);
+        Assert.Equal(0, root.DrawingHits);
+    }
+
+    [UIFact]
+    public void SelectedDisabledContentHostPromotesToEnabledParentWithoutContentHit()
+    {
+        using IPortablePresentationSourceHost source = PortablePresentationSourceHost.Create();
+        var host = new ContentHitHost { IsEnabled = false };
+        var root = new ContentHitRoot(host);
+        source.RootVisual = root;
+        source.SetClientSize(300, 200);
+        source.HitTestOverride = (_, _) => host;
+
+        Assert.Same(root, MouseDevice.LocalHitTest(false, new Point(27, 19), (PresentationSource)source));
+        Assert.Equal(0, host.ContentHits);
+        Assert.Equal(0, root.DrawingHits);
+    }
+
+    [UIFact]
+    public void SelectedOwnerMissSentinelDoesNotHitContentOrFallBackToDrawing()
+    {
+        using IPortablePresentationSourceHost source = PortablePresentationSourceHost.Create();
+        var host = new ContentHitHost();
+        var root = new ContentHitRoot(host);
+        source.RootVisual = root;
+        source.SetClientSize(300, 200);
+        int ownerQueries = 0;
+        source.HitTestOverride = (_, _) => { ownerQueries++; return source; };
+
+        Assert.Null(MouseDevice.LocalHitTest(false, new Point(27, 19), (PresentationSource)source));
+        Assert.Equal(1, ownerQueries);
+        Assert.Equal(0, host.ContentHits);
+        Assert.Equal(0, root.DrawingHits);
+    }
+
+    // Core has no dependency on TextBlock. This focused host exercises the shared
+    // IContentHost boundary; the SDK consumer also clicks a real XAML Hyperlink.
+    private sealed class ContentHitHost : UIElement, IContentHost
+    {
+        internal ContentElement Content { get; } = new ContentElement();
+        internal int ContentHits { get; private set; }
+        internal Point LastPoint { get; private set; }
+        IInputElement IContentHost.InputHitTest(Point point)
+        {
+            ContentHits++;
+            LastPoint = point;
+            return Content;
+        }
+        System.Collections.Generic.IEnumerator<IInputElement> IContentHost.HostedElements =>
+            ((System.Collections.Generic.IEnumerable<IInputElement>)new[] { Content }).GetEnumerator();
+        System.Collections.ObjectModel.ReadOnlyCollection<Rect> IContentHost.GetRectangles(ContentElement child) =>
+            new System.Collections.ObjectModel.ReadOnlyCollection<Rect>(Array.Empty<Rect>());
+        void IContentHost.OnChildDesiredSizeChanged(UIElement child) { }
+    }
+
+    private sealed class ContentHitRoot : UIElement
+    {
+        private readonly ContentHitHost _host;
+        internal int DrawingHits { get; private set; }
+        internal ContentHitRoot(ContentHitHost host) { _host = host; AddVisualChild(host); }
+        protected override int VisualChildrenCount => 1;
+        protected override Visual GetVisualChild(int index) => index == 0 ? _host : throw new ArgumentOutOfRangeException(nameof(index));
+        protected override Size MeasureCore(Size availableSize) { _host.Measure(new Size(100, 50)); return availableSize; }
+        protected override void ArrangeCore(Rect finalRect) { base.ArrangeCore(finalRect); _host.Arrange(new Rect(20, 10, 100, 50)); }
+        protected override HitTestResult HitTestCore(PointHitTestParameters parameters)
+        {
+            DrawingHits++;
+            return new PointHitTestResult(this, parameters.HitPoint);
+        }
+    }
+
     private sealed class HitTestElement : UIElement
     {
         protected override HitTestResult HitTestCore(PointHitTestParameters hitTestParameters)

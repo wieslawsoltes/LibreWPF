@@ -650,6 +650,16 @@ namespace System.Windows
                 return false;
             }
 
+            if (_rootVisual is UIElement root)
+            {
+                // The host has already selected the presented visual owner. Promote
+                // that same owner through IContentHost so text can target its Run or
+                // Hyperlink, without another owner query or a drawing hit-test walk.
+                HitTestResult rawHitResult = null;
+                root.PromoteInputHit(rootPoint, candidate, out enabledHit, out originalHit, ref rawHitResult);
+                return originalHit != null;
+            }
+
             originalHit = candidate as IInputElement;
             while (candidate != null)
             {

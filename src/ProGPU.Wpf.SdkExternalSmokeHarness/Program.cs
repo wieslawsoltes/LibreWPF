@@ -2737,6 +2737,9 @@ internal static class Program
                     <TextBlock
                         x:Name="ExternalPageTitle"
                         Text="External SDK page" />
+                    <TextBlock x:Name="ExternalPageLinkHost" HorizontalAlignment="Left">
+                        <Hyperlink x:Name="ExternalPageLink" NavigateUri="ExternalSecondPage.xaml">This is the link to Page 2</Hyperlink>
+                    </TextBlock>
                     <library:ExternalPanel
                         x:Name="ExternalPagePanel"
                         Caption="External SDK page panel" />
@@ -6616,6 +6619,81 @@ internal static class Program
                         "external SDK NavigationWindow forwarded content");
                     AssertEqual(navigationWindowService, navigationWindowForwardedPage.NavigationService, "external SDK NavigationWindow forwarded page NavigationService property");
                     AssertEqual(navigationWindowService, NavigationService.GetNavigationService(navigationWindowForwardedPage), "external SDK NavigationWindow forwarded page NavigationService lookup");
+
+                    if (!OperatingSystem.IsWindows() ||
+                        global::ProGPU.Wpf.Interop.PortableWpfRuntime.ConfiguredMediaBackend ==
+                        global::ProGPU.Wpf.Interop.PortableWpfMediaBackend.Portable)
+                    {
+                        // Exercise the selected-owner input seam, not DoClick/Navigate.
+                        // Actual native owner selection and visible app interaction remain
+                        // separate gates; this deliberately supplies the real text owner.
+                        navigationWindow.GoBack();
+                        PumpDispatcherUntil(
+                            () => navigationWindow.Content is ExternalPage,
+                            TimeSpan.FromSeconds(1),
+                            "external SDK NavigationWindow hyperlink starting page");
+                        DrainDispatcher();
+                        var linkPage = (ExternalPage)navigationWindow.Content;
+                        var linkHost = RequireType<TextBlock>(linkPage.FindName("ExternalPageLinkHost"), "external SDK hyperlink content host");
+                        var pageLink = RequireType<Hyperlink>(linkPage.FindName("ExternalPageLink"), "external SDK relative hyperlink");
+                        AssertEqual(true, global::System.Windows.Media.ProGPU.ProGpuWpfDiagnostics.TryGetWindowHost(navigationWindow, out var pointerHost),
+                            "external SDK hyperlink active portable window host");
+                        // Public PresentationSource intentionally exposes the HwndSource
+                        // compatibility facade. Typed input belongs to the live host's
+                        // actual portable source, never to that facade or its handle.
+                        var pointerSource = RequireType<global::System.Windows.IPortablePresentationSourceHost>(
+                            pointerHost!.PortablePresentationSource, "external SDK hyperlink portable source");
+                        AssertEqual(navigationWindow, pointerSource.RootVisual,
+                            "external SDK hyperlink portable source owns the navigation window");
+                        var pointerRoot = RequireType<UIElement>(pointerSource.RootVisual, "external SDK hyperlink source root");
+                        AssertEqual(true, global::ProGPU.Wpf.Interop.PortableWpfServiceRegistry.TryGetWindowActivationService(
+                            global::ProGPU.Wpf.Interop.PortableWpfServiceKey.PresentationFramework, out var pointerInput),
+                            "external SDK hyperlink typed input service");
+                        int linkRequests = 0;
+                        int linkClicks = 0;
+                        pageLink.RequestNavigate += (_, e) =>
+                        {
+                            linkRequests++;
+                            AssertEqual("ExternalSecondPage.xaml", e.Uri.ToString(), "external SDK hyperlink source-relative URI");
+                        };
+                        pageLink.Click += (_, _) => linkClicks++;
+                        var savedOwnerCallback = pointerSource.HitTestOverride;
+                        try
+                        {
+                            pointerSource.HitTestOverride = (_, _) => linkHost;
+                            Point linkPoint = linkHost.TranslatePoint(
+                                new Point(linkHost.ActualWidth / 2, linkHost.ActualHeight / 2), pointerRoot);
+                            AssertEqual(true, pointerInput!.TryProcessPresentationSourceInputEvent(pointerSource,
+                                new global::ProGPU.Wpf.Interop.PortableWindowInputEvent(3, x: linkPoint.X, y: linkPoint.Y)),
+                                "external SDK hyperlink mouse move accepted");
+                            DrainDispatcher();
+                            AssertEqual(true, pageLink.IsMouseOver, "external SDK hyperlink mouse over from selected owner");
+                            AssertEqual(true, pointerInput.TryProcessPresentationSourceInputEvent(pointerSource,
+                                new global::ProGPU.Wpf.Interop.PortableWindowInputEvent(4, x: linkPoint.X, y: linkPoint.Y, button: 1)),
+                                "external SDK hyperlink mouse down accepted");
+                            DrainDispatcher();
+                            AssertEqual(pageLink, Mouse.Captured, "external SDK hyperlink captures pointer");
+                            AssertEqual(true, pointerInput.TryProcessPresentationSourceInputEvent(pointerSource,
+                                new global::ProGPU.Wpf.Interop.PortableWindowInputEvent(5, x: linkPoint.X, y: linkPoint.Y, button: 1)),
+                                "external SDK hyperlink mouse up accepted");
+                        }
+                        finally
+                        {
+                            pointerSource.HitTestOverride = savedOwnerCallback;
+                            if (ReferenceEquals(Mouse.Captured, pageLink)) pageLink.ReleaseMouseCapture();
+                        }
+                        AssertEqual(1, linkRequests, "external SDK hyperlink pointer RequestNavigate count");
+                        AssertEqual(1, linkClicks, "external SDK hyperlink pointer Click count");
+                        PumpDispatcherUntil(
+                            () => navigationWindow.Content is ExternalSecondPage,
+                            TimeSpan.FromSeconds(1),
+                            "external SDK NavigationWindow relative hyperlink destination");
+                        AssertEqual(true, navigationWindow.CanGoBack, "external SDK hyperlink creates back journal entry");
+                        AssertEndsWith(navigationWindow.LastNavigatedUri, "ExternalSecondPage.xaml", "external SDK hyperlink destination URI");
+                        AssertEqual("External SDK second page", RequireType<TextBlock>(
+                            ((ExternalSecondPage)navigationWindow.Content).FindName("ExternalSecondPageTitle"),
+                            "external SDK hyperlink destination title").Text, "external SDK hyperlink destination text");
+                    }
 
                     navigationWindow.Close();
                     DrainDispatcher();
