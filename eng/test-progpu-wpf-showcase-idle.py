@@ -194,7 +194,9 @@ class ProcessTests(unittest.TestCase):
 class RunnerTests(unittest.TestCase):
     def exercise(self, mutate=None, child_code=0, corrupt_payload=False):
         with tempfile.TemporaryDirectory() as temporary:
-            parent = Path(temporary)
+            # The real runner resolves its app and evidence parent. Match that
+            # filesystem identity on hosts where /var aliases /private/var.
+            parent = Path(temporary).resolve()
             app_root = parent / "prebuilt"
             app_root.mkdir()
             for name in runner.ASSEMBLIES:
