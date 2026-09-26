@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+    <!-- Reuse the existing signed source-test friend, without widening product APIs. -->
+    <AssemblyName>PresentationCore.Tests</AssemblyName>
+    <StrongNameKeyId>MicrosoftShared</StrongNameKeyId>
+    <IsPackable>false</IsPackable>
+    <!-- This executable runs outside the source test runner/package cache. -->
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <CLSCompliant>false</CLSCompliant>
+    <EnableNETAnalyzers>false</EnableNETAnalyzers>
+    <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
+    <DefineConstants>$(DefineConstants);PROGPU_WPF_ALIAS_WINCORE;WINDOWS_CLIPBOARD_CONSUMER</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- The caller stages and verifies the exact Windows package implementation
+         assets. Private tests deliberately compile against those same bytes. -->
+    <Reference Include="$(WindowsClipboardRuntimeRoot)/PresentationCore.dll" Private="true" />
+    <Reference Include="$(WindowsClipboardRuntimeRoot)/WindowsBase.dll" Private="true" />
+    <Reference Include="$(WindowsClipboardRuntimeRoot)/ProGPU.Wpf.Interop.dll" Private="true" />
+    <Reference Include="$(WindowsClipboardRuntimeRoot)/System.Private.Windows.Core.dll" Private="true" />
+    <!-- Retain the supplied package's native/managed closure without treating
+         native PE libraries as C# metadata references. -->
+    <None Include="$(WindowsClipboardRuntimeRoot)/*.dll" Link="%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <PackageReference Include="xunit.v3.assert" Version="$(XUnitV3Version)" />
+    <Using Include="Xunit" />
+    <Compile Include="../../src/Microsoft.DotNet.Wpf/tests/UnitTests/PresentationCore.Tests/System/Windows/WindowsClipboardImageTests.cs" Link="WindowsClipboardImageTests.cs" />
+    <Compile Include="../../src/Microsoft.DotNet.Wpf/tests/UnitTests/PresentationCore.Tests/System/Windows/WindowsClipboardMediumTests.cs" Link="WindowsClipboardMediumTests.cs" />
+    <Compile Include="../../samples/ProGPU.Wpf.ShowcaseApp/ShowcaseClipboardImage.cs" Link="ShowcaseClipboardImage.cs" />
+  </ItemGroup>
+  <Target Name="RequireWindowsClipboardImplementation" BeforeTargets="ResolveReferences">
+    <Error Condition="'$(WindowsClipboardRuntimeRoot)' == '' Or !Exists('$(WindowsClipboardRuntimeRoot)/PresentationCore.dll')"
+           Text="WindowsClipboardRuntimeRoot must contain the verified exact package implementation assets." />
+  </Target>
+</Project>

@@ -2,6 +2,8 @@
 
   <ItemGroup>
     <Compile Include="..\Shared\PortableMediaTestStartup.cs" Link="PortableMediaTestStartup.cs" />
+    <Compile Include="$(WpfSourceDir)..\..\..\samples\ProGPU.Wpf.ShowcaseApp\ShowcaseClipboardImage.cs"
+             Link="ShowcaseClipboardImage.cs" />
   </ItemGroup>
 
   <PropertyGroup>
@@ -39,6 +41,7 @@
   <ItemGroup>
     <MicrosoftPrivateWinFormsReference Include="System.Private.Windows.Core" />
   </ItemGroup>
+
 
   <ItemGroup>
     <None Include="$(WpfSourceDir)PresentationCore\Fonts\LibreWPF.FluentSymbols\LibreWPF.FluentSymbols.ttf"
