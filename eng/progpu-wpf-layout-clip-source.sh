@@ -5,8 +5,15 @@ set -euo pipefail
 # its source dependency graph. Reuse that output, not another WPF ABI or package
 # fixture. This checks typed clip producers, not rendered idle application cost.
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-dotnet_command="${PROGPU_WPF_LAYOUT_CLIP_SOURCE_DOTNET:-${repo_root}/.dotnet/dotnet}"
-if [[ ! -x "${dotnet_command}" ]]; then
+if [[ -n "${PROGPU_WPF_LAYOUT_CLIP_SOURCE_DOTNET+set}" ]]; then
+  dotnet_command="${PROGPU_WPF_LAYOUT_CLIP_SOURCE_DOTNET}"
+  if [[ ! -x "${dotnet_command}" || -d "${dotnet_command}" ]]; then
+    echo "PROGPU_WPF_LAYOUT_CLIP_SOURCE_DOTNET must name an executable file: ${dotnet_command}" >&2
+    exit 2
+  fi
+elif [[ -x "${repo_root}/.dotnet/dotnet" ]]; then
+  dotnet_command="${repo_root}/.dotnet/dotnet"
+else
   dotnet_command="$(command -v dotnet)"
 fi
 configuration="${CONFIGURATION:-Release}"
