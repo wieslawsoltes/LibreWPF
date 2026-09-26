@@ -1688,7 +1688,10 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("options.TransparentFramebuffer = state.AllowsTransparency;", proGpuActivation, StringComparison.Ordinal);
         Assert.Contains("target.Compositor.ClearColor = System.Numerics.Vector4.Zero;", proGpuHost, StringComparison.Ordinal);
         Assert.Contains("ResolveWindowBorder(state, options.WindowBorder)", proGpuActivation, StringComparison.Ordinal);
-        Assert.Contains("Host.SetWindowBorder(ResolveWindowBorder(state, Host.WindowBorder))", proGpuActivation, StringComparison.Ordinal);
+        Assert.Contains("bool canMinimize = Host.CanMinimize;", proGpuActivation, StringComparison.Ordinal);
+        Assert.Contains("bool canMaximize = Host.CanMaximize;", proGpuActivation, StringComparison.Ordinal);
+        Assert.Contains("if (state.HasResizeMode && TryMapResizeCapabilities(state.ResizeMode, out WindowResizeCapabilities capabilities))", proGpuActivation, StringComparison.Ordinal);
+        Assert.Contains("Host.SetWindowBorder(ResolveWindowBorder(state, Host.WindowBorder), canMinimize, canMaximize)", proGpuActivation, StringComparison.Ordinal);
         Assert.DoesNotContain("TryReadStringProperty", proGpuActivation, StringComparison.Ordinal);
         Assert.DoesNotContain("TryReadPositiveDimension", proGpuActivation, StringComparison.Ordinal);
         Assert.DoesNotContain("TryReadFiniteDimension", proGpuActivation, StringComparison.Ordinal);
@@ -2801,7 +2804,7 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("return PortableHitTestGeometryKind.AxisAlignedEllipse;", geometryHitTestParameters, StringComparison.Ordinal);
         Assert.Contains("internal enum PortableHitTestGeometryKind", geometryHitTestParameters, StringComparison.Ordinal);
         Assert.Contains("portableSource.TryInputHitTestOverride(this, pt, out DependencyObject portableCandidate, out rawHitResult)", uiElement, StringComparison.Ordinal);
-        Assert.Contains("private void PromoteInputHit(Point pt, DependencyObject candidate, out IInputElement enabledHit, out IInputElement rawHit, ref HitTestResult rawHitResult)", uiElement, StringComparison.Ordinal);
+        Assert.Contains("internal void PromoteInputHit(Point pt, DependencyObject candidate, out IInputElement enabledHit, out IInputElement rawHit, ref HitTestResult rawHitResult)", uiElement, StringComparison.Ordinal);
         Assert.Contains("portableSource.TryPointHitTestOverride(reference, point, include2DOn3D, out HitTestResult hitTestResult)", visualTreeHelper, StringComparison.Ordinal);
         Assert.DoesNotContain("filterCallback == null &&", visual, StringComparison.Ordinal);
         Assert.Contains("portableSource.TryPointHitTestOverride(this, pointParams.HitPoint, filterCallback, resultCallback, out _)", visual, StringComparison.Ordinal);
