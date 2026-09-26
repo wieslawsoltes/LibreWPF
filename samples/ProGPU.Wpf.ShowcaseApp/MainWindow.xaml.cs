@@ -1910,12 +1910,16 @@ public partial class MainWindow : Window
             var menuSnapshot = await ValidateLiveMenuPopupSurfaceAsync(liveHost);
             var comboSnapshot = await ValidateLiveComboBoxPopupSurfaceAsync(liveHost);
             var directPopupSnapshot = await ValidateLiveDirectPopupSurfaceAsync(liveHost);
+            var ownerlessPopupSnapshot = await ValidateLiveOwnerlessPopupSurfaceAsync(liveHost);
             return
                 "Menu, ComboBox dropdown, and direct Popup opened through ProGPU popup surfaces " +
                 $"(retained children {menuSnapshot.Composition.PopupLayerChildCount}/" +
                 $"{comboSnapshot.Composition.PopupLayerChildCount}/{directPopupSnapshot.Composition.PopupLayerChildCount}; " +
                 $"native windows {menuSnapshot.Portable.NativeWindowCount}/" +
-                $"{comboSnapshot.Portable.NativeWindowCount}/{directPopupSnapshot.Portable.NativeWindowCount})";
+                $"{comboSnapshot.Portable.NativeWindowCount}/{directPopupSnapshot.Portable.NativeWindowCount}); " +
+                $"unattached Popup opened, closed, and reopened (retained children " +
+                $"{ownerlessPopupSnapshot.Composition.PopupLayerChildCount}, native windows " +
+                $"{ownerlessPopupSnapshot.Portable.NativeWindowCount})";
         }
         finally
         {
@@ -2368,6 +2372,87 @@ public partial class MainWindow : Window
         return snapshot;
     }
 
+    private async Task<LivePopupSurfaceSnapshot> ValidateLiveOwnerlessPopupSurfaceAsync(
+        ProGpuWpfWindowHost liveHost)
+    {
+        // Request real host activation; retained focus or a test-assigned IsActive
+        // value must not select the owner of an unattached source Popup.
+        await InvokeWithLiveHostWakeAsync(liveHost, () => { Activate(); }, DispatcherPriority.Send);
+        bool active = false;
+        for (int attempt = 0; attempt < LiveValidationMaxAttempts; attempt++)
+        {
+            active = await InvokeWithLiveNativeLoopWakeAsync(liveHost, () => IsActive, DispatcherPriority.Send);
+            if (active) break;
+            await Task.Delay(LiveValidationRetryDelay);
+        }
+        AssertEqual(true, active, "Showcase live unattached Popup active owner");
+
+        Popup? popup = null;
+        LivePopupSurfaceSnapshot snapshot = default;
+        try
+        {
+            for (int cycle = 0; cycle < 2; cycle++)
+            {
+                await InvokeWithLiveHostWakeAsync(
+                    liveHost,
+                    () =>
+                    {
+                        Point screen = PointToScreen(new Point(100, 100));
+                        popup ??= new Popup
+                        {
+                            Placement = PlacementMode.AbsolutePoint,
+                            AllowsTransparency = true,
+                            StaysOpen = true,
+                            Child = new Border
+                            {
+                                Width = 180,
+                                Height = 48,
+                                Background = Brushes.LightGoldenrodYellow,
+                                Child = new TextBlock { Text = "Unattached popup", Margin = new Thickness(8) }
+                            }
+                        };
+                        AssertEqual(true, popup.PlacementTarget is null && popup.Parent is null,
+                            "Showcase live unattached Popup preserves no placement target or parent");
+                        // PlacementRectangle is already in desktop coordinates.
+                        // Offsets are client vectors and would apply desktop scale again.
+                        popup.PlacementRectangle = new Rect(screen, new Size());
+                        popup.IsOpen = true;
+                        UpdateLayout();
+                        WakeLiveRenderHost(liveHost);
+                    },
+                    DispatcherPriority.Send);
+                snapshot = await WaitForLivePopupLayerChildCountAsync(
+                    liveHost, expectedPopupChildren: 1, exact: true, "unattached Popup surface");
+                AssertEqual(1, snapshot.Portable.OpenCount, "Showcase live unattached Popup owned source count");
+                await InvokeWithLiveHostWakeAsync(
+                    liveHost,
+                    () =>
+                    {
+                        popup!.IsOpen = false;
+                        UpdateLayout();
+                        WakeLiveRenderHost(liveHost);
+                    },
+                    DispatcherPriority.Send);
+                await WaitForLivePopupLayerChildCountAsync(
+                    liveHost, expectedPopupChildren: 0, exact: true, "closed unattached Popup surface",
+                    requireNoOwnedPopups: true);
+            }
+            return snapshot;
+        }
+        finally
+        {
+            await InvokeWithLiveHostWakeAsync(
+                liveHost,
+                () =>
+                {
+                    if (popup != null) popup.IsOpen = false;
+                    UpdateLayout();
+                    WakeLiveRenderHost(liveHost);
+                },
+                DispatcherPriority.Send);
+        }
+    }
+
     private async Task CloseLivePopupSurfacesAsync(ProGpuWpfWindowHost liveHost)
     {
         await InvokeWithLiveHostWakeAsync(
@@ -2399,7 +2484,8 @@ public partial class MainWindow : Window
         ProGpuWpfWindowHost liveHost,
         int expectedPopupChildren,
         bool exact,
-        string description)
+        string description,
+        bool requireNoOwnedPopups = false)
     {
         string lastState = "not checked";
         for (int attempt = 0; attempt < LiveValidationMaxAttempts; attempt++)
@@ -2431,7 +2517,7 @@ public partial class MainWindow : Window
                         hasPortableSnapshot,
                         portable,
                         expectedPopupChildren,
-                        exact);
+                        exact) && (!requireNoOwnedPopups || (hasPortableSnapshot && portable.OpenCount == 0));
                     return new LivePopupSurfaceSnapshot(
                         isReady,
                         hasPortableSnapshot,

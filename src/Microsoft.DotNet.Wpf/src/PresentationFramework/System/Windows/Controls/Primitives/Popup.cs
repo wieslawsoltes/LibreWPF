@@ -4019,12 +4019,17 @@ namespace System.Windows.Controls.Primitives
                     return false;
                 }
 
-                // Portable popups are composited into one native owner surface.  Resolve through
-                // any PopupRoot ancestors even though the Win32 child-popup flag is not active, so
-                // nested menus use the main tree's presentation source and client bounds.
+                // Resolve through PopupRoot ancestors even when the Win32 child-popup flag
+                // is not active, so nested menus retain the main tree's source ownership.
                 Visual mainTreeVisual = FindMainTreeVisual(placementTarget) ?? placementTarget;
 
-                PresentationSource ownerPresentationSource = GetPresentationSource(mainTreeVisual);
+                // An unattached popup has screen-relative placement but still needs a live
+                // owner. Reuse the source-owned active-window policy (same dispatcher,
+                // visible, modal-allowed and unambiguous), without substituting a placement
+                // target. A supplied target remains authoritative even if it has no source.
+                PresentationSource ownerPresentationSource = placementTarget == null
+                    ? AccessKeyManager.GetActivePresentationSource()
+                    : GetPresentationSource(mainTreeVisual);
                 if (ownerPresentationSource == null || ownerPresentationSource.IsDisposed ||
                     !PointUtil.IsPortablePresentationSource(ownerPresentationSource))
                 {

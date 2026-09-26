@@ -1,10 +1,12 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+using System.Runtime.CompilerServices;
 using System.Runtime.ExceptionServices;
 using System.Threading;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Threading;
 using ProGPU.Wpf.Interop;
 
 namespace System.Windows;
@@ -12,6 +14,271 @@ namespace System.Windows;
 [Collection("Sequential")]
 public class PortablePopupOwnershipTests
 {
+    [PortablePopupFact]
+    public void OwnerlessPopupRetainsTheActualActiveOwnerWithoutChangingPlacementTarget()
+    {
+        RunInUiApartment(() =>
+        {
+            using var first = PortablePresentationSourceHost.Create();
+            using var second = PortablePresentationSourceHost.Create(2, 1.5);
+            var firstRoot = new ActivePopupRoot();
+            var secondRoot = new ActivePopupRoot { Active = true };
+            first.RootVisual = firstRoot;
+            second.RootVisual = secondRoot;
+            second.SetClientOrigin(120, 80);
+            var service = new PopupService(second);
+            using var registration = PortableWpfServiceRegistry.RegisterPopupService(service);
+            var helper = new Popup.PopupSecurityHelper();
+            try
+            {
+                helper.BuildWindow(400, 300, null!, true, null!, null!, null!);
+                helper.PortableInputOwnerSource.Should().BeSameAs(second);
+                service.Request!.PlacementTarget.Should().BeNull();
+                service.Request.OwnerPresentationSource.Should().BeSameAs(second);
+                service.Request.OwnerHandle.Should().Be(second.Handle);
+                service.Request.PopupScreenDeviceX.Should().Be(800);
+                service.Request.PopupScreenDeviceY.Should().Be(450);
+                service.Request.OwnerClientScreenDeviceX.Should().Be(240);
+                service.Request.OwnerClientScreenDeviceY.Should().Be(120);
+
+                firstRoot.Active = true;
+                secondRoot.Active = false;
+                helper.PortableInputOwnerSource.Should().BeSameAs(second);
+                helper.DestroyWindow(null!, null!, null!);
+                helper.PortableInputOwnerSource.Should().BeNull();
+                service.Destroys.Should().Be(1);
+
+                var nextService = new PopupService(first);
+                using var nextRegistration = PortableWpfServiceRegistry.RegisterPopupService(nextService);
+                helper.BuildWindow(400, 300, null!, true, null!, null!, null!);
+                helper.PortableInputOwnerSource.Should().BeSameAs(first);
+                nextService.Request!.PlacementTarget.Should().BeNull();
+                helper.DestroyWindow(null!, null!, null!);
+                nextService.Destroys.Should().Be(1);
+            }
+            finally { helper.DestroyWindow(null!, null!, null!); }
+        });
+    }
+
+    [PortablePopupTheory]
+    [InlineData(PlacementMode.Bottom)]
+    [InlineData(PlacementMode.Absolute)]
+    public void UnattachedPublicPopupUsesActiveWindowAndPreservesScreenOffsets(PlacementMode placement)
+    {
+        RunInUiApartment(() =>
+        {
+            using var owner = PortablePresentationSourceHost.Create();
+            var window = new Window { Width = 800, Height = 600 };
+            PortableWindowActivationService.Register(activate: value => value, getHandle: _ => owner.Handle);
+            var service = new PopupService(owner)
+            {
+                PlacementBounds = new(PortablePopupPlacementBoundsKind.NativeScreen,
+                    new(0, 0, 1920, 1080), new(0, 0, 1920, 1080))
+            };
+            using var registration = PortableWpfServiceRegistry.RegisterPopupService(service);
+            var popup = new Popup
+            {
+                Child = new Border { Width = 100, Height = 40 },
+                HorizontalOffset = 400,
+                VerticalOffset = 300,
+                Placement = placement
+            };
+            try
+            {
+                window.Show();
+                owner.RootVisual = window;
+                owner.SetClientSize(800, 600);
+                owner.SetClientOrigin(120, 80);
+                PortableWindowActivationService.SetActivationState(window, true);
+
+                popup.IsOpen = true;
+
+                popup.IsOpen.Should().BeTrue();
+                popup.PlacementTarget.Should().BeNull();
+                service.Request!.PlacementTarget.Should().BeNull();
+                service.Request.OwnerPresentationSource.Should().BeSameAs(owner);
+                service.Shows.Should().Be(1);
+                service.LastPosition.Should().Be(new Point(400, 300));
+                popup.Child.RenderSize.Should().Be(new Size(100, 40));
+            }
+            finally
+            {
+                popup.IsOpen = false;
+                // Closing a public Popup schedules source destruction at Input priority.
+                Dispatcher.CurrentDispatcher.Invoke(() => { }, DispatcherPriority.Background);
+                service.Source?.Dispose();
+                owner.RootVisual = null;
+                window.Close();
+                PortableWindowActivationService.Clear();
+            }
+            service.Destroys.Should().Be(1);
+        });
+    }
+
+    [PortablePopupTheory]
+    [InlineData("inactive")]
+    [InlineData("hidden")]
+    [InlineData("modal-blocked")]
+    [InlineData("detached")]
+    [InlineData("disposed-source")]
+    [InlineData("closed-window")]
+    public void OwnerlessPopupRejectsUnavailableOrIneligibleWindows(string state)
+    {
+        RunInUiApartment(() =>
+        {
+            using var owner = PortablePresentationSourceHost.Create();
+            var window = new Window { Width = 200, Height = 100 };
+            PortableWindowActivationService.Register(activate: value => value, getHandle: _ => owner.Handle);
+            var service = new PopupService(owner);
+            using var registration = PortableWpfServiceRegistry.RegisterPopupService(service);
+            var helper = new Popup.PopupSecurityHelper();
+            IDisposable? modalScope = null;
+            try
+            {
+                window.Show();
+                owner.RootVisual = window;
+                owner.SetClientSize(200, 100);
+                PortableWindowActivationService.SetActivationState(window, state != "inactive");
+                switch (state)
+                {
+                    case "hidden": window.Hide(); break;
+                    case "modal-blocked": modalScope = PortableModalInputScope.Enter(new object()); break;
+                    case "detached": owner.RootVisual = null; break;
+                    case "disposed-source": owner.Dispose(); break;
+                    case "closed-window": window.Close(); break;
+                }
+
+                AssertOwnerlessCreationRejected(helper, service);
+            }
+            finally
+            {
+                modalScope?.Dispose();
+                helper.DestroyWindow(null!, null!, null!);
+                if (!((PresentationSource)owner).IsDisposed) owner.RootVisual = null;
+                if (!window.IsDisposed) window.Close();
+                PortableWindowActivationService.Clear();
+            }
+        });
+    }
+
+    [PortablePopupFact]
+    public void OwnerlessPopupRejectsAmbiguousActiveSourcesWithoutCallingHost()
+    {
+        RunInUiApartment(() =>
+        {
+            using var first = PortablePresentationSourceHost.Create();
+            using var second = PortablePresentationSourceHost.Create();
+            first.RootVisual = new ActivePopupRoot { Active = true };
+            second.RootVisual = new ActivePopupRoot { Active = true };
+            var service = new PopupService(first);
+            using var registration = PortableWpfServiceRegistry.RegisterPopupService(service);
+            AssertOwnerlessCreationRejected(new Popup.PopupSecurityHelper(), service);
+        });
+    }
+
+    [PortablePopupFact]
+    public void OwnerlessPopupCannotBorrowAnActiveSourceFromAnotherDispatcher()
+    {
+        RunInUiApartment(() =>
+        {
+            using var foreignOwner = PortablePresentationSourceHost.Create();
+            foreignOwner.RootVisual = new ActivePopupRoot { Active = true };
+            // Keep the foreign source live while another dispatcher attempts creation.
+            RunInUiApartment(() =>
+            {
+                using var localOwner = PortablePresentationSourceHost.Create();
+                localOwner.RootVisual = new Border(); // No active-source capability.
+                var service = new PopupService(localOwner);
+                using var registration = PortableWpfServiceRegistry.RegisterPopupService(service);
+                AssertOwnerlessCreationRejected(new Popup.PopupSecurityHelper(), service);
+            });
+        });
+    }
+
+    [PortablePopupFact]
+    public void ExplicitPlacementTargetRemainsAuthoritativeOverActiveOwner()
+    {
+        RunInUiApartment(() =>
+        {
+            using var explicitOwner = PortablePresentationSourceHost.Create();
+            using var activeOwner = PortablePresentationSourceHost.Create();
+            var target = new Border();
+            explicitOwner.RootVisual = target;
+            activeOwner.RootVisual = new ActivePopupRoot { Active = true };
+            var service = new PopupService(explicitOwner);
+            using var registration = PortableWpfServiceRegistry.RegisterPopupService(service);
+            var helper = new Popup.PopupSecurityHelper();
+            try
+            {
+                helper.BuildWindow(400, 300, target, true, null!, null!, null!);
+                service.Request!.PlacementTarget.Should().BeSameAs(target);
+                helper.PortableInputOwnerSource.Should().BeSameAs(explicitOwner);
+                helper.DestroyWindow(null!, null!, null!);
+
+                Action create = () => helper.BuildWindow(400, 300, new Border(), true, null!, null!, null!);
+                create.Should().Throw<PlatformNotSupportedException>().WithMessage("*No portable popup host accepted*");
+                helper.PortableInputOwnerSource.Should().BeNull();
+                helper.HasWindowReference().Should().BeFalse();
+                service.Creates.Should().Be(1);
+            }
+            finally { helper.DestroyWindow(null!, null!, null!); }
+        });
+    }
+
+    [PortablePopupTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void OwnerlessPopupDoesNotBypassRejectedOrInvalidHost(bool invalidSource)
+    {
+        RunInUiApartment(() =>
+        {
+            using var owner = PortablePresentationSourceHost.Create();
+            owner.RootVisual = new ActivePopupRoot { Active = true };
+            var service = new PopupService(owner) { Reject = !invalidSource, InvalidSource = invalidSource };
+            using var registration = PortableWpfServiceRegistry.RegisterPopupService(service);
+            var helper = new Popup.PopupSecurityHelper();
+            Action create = () => helper.BuildWindow(400, 300, null!, true, null!, null!, null!);
+            create.Should().Throw<PlatformNotSupportedException>().WithMessage("*No portable popup host accepted*");
+            helper.PortableInputOwnerSource.Should().BeNull();
+            helper.HasWindowReference().Should().BeFalse();
+            service.Creates.Should().Be(1);
+            service.Destroys.Should().Be(invalidSource ? 1 : 0);
+        });
+    }
+
+    private static void AssertOwnerlessCreationRejected(Popup.PopupSecurityHelper helper, PopupService service)
+    {
+        Action create = () => helper.BuildWindow(400, 300, null!, true, null!, null!, null!);
+        create.Should().Throw<PlatformNotSupportedException>().WithMessage("*No portable popup host accepted*");
+        helper.PortableInputOwnerSource.Should().BeNull();
+        helper.HasWindowReference().Should().BeFalse();
+        service.Creates.Should().Be(0);
+    }
+
+    private sealed class ActivePopupRoot : Border, IPortableAccessKeyScopeSource
+    {
+        internal bool Active { get; set; }
+        public bool IsPortableAccessKeyScopeActive => Active;
+    }
+
+    private sealed class PortablePopupFactAttribute : FactAttribute
+    {
+        public PortablePopupFactAttribute([CallerFilePath] string? path = null, [CallerLineNumber] int line = 0) : base(path, line)
+        {
+            if (PortableWpfRuntime.ConfiguredMediaBackend != PortableWpfMediaBackend.Portable)
+                Skip = "Requires portable media selected before input initialization, including on Windows.";
+        }
+    }
+
+    private sealed class PortablePopupTheoryAttribute : TheoryAttribute
+    {
+        public PortablePopupTheoryAttribute([CallerFilePath] string? path = null, [CallerLineNumber] int line = 0) : base(path, line)
+        {
+            if (PortableWpfRuntime.ConfiguredMediaBackend != PortableWpfMediaBackend.Portable)
+                Skip = "Requires portable media selected before input initialization, including on Windows.";
+        }
+    }
+
     [Fact]
     public void PopupModalAdmissionUsesItsActualOwnerSourceAndReleasesItOnDestroy()
     {
@@ -274,7 +541,8 @@ public class PortablePopupOwnershipTests
         public bool RejectBounds { get; init; }
         public PortablePopupPlacementBounds PlacementBounds { get; init; }
         public PortableRect LastPlacementTarget { get; private set; }
-        public int Positions, Sizes, Shows, Hides, HitTestChanges, Destroys;
+        public int Creates, Positions, Sizes, Shows, Hides, HitTestChanges, Destroys;
+        public Point LastPosition { get; private set; }
         private object? _identity;
 
         public bool TryGetPopupPlacementBounds(object source, PortableRect target, out PortablePopupPlacementBounds bounds)
@@ -286,6 +554,7 @@ public class PortablePopupOwnershipTests
 
         public bool TryCreatePopup(PortablePopupCreateRequest request, out object? source)
         {
+            Creates++;
             source = null;
             if (request.OwnerHandle != owner.Handle || Reject) return false;
             Request = request;
@@ -294,7 +563,7 @@ public class PortablePopupOwnershipTests
             return true;
         }
 
-        public bool TrySetPopupPosition(object source, int x, int y) { Positions++; return ReferenceEquals(source, _identity); }
+        public bool TrySetPopupPosition(object source, int x, int y) { Positions++; LastPosition = new Point(x, y); return ReferenceEquals(source, _identity); }
         public bool TrySetPopupSize(object source, int width, int height) { Sizes++; return ReferenceEquals(source, _identity); }
         public bool TryShowPopup(object source) { Shows++; return ReferenceEquals(source, _identity); }
         public bool TryHidePopup(object source) { Hides++; return ReferenceEquals(source, _identity); }
