@@ -15,6 +15,9 @@ The maintained cross-platform priorities, compatibility policy, and ecosystem
 status are tracked in the [LibreWPF cross-platform roadmap](roadmap.md). The
 historical upstream Microsoft WPF roadmap remains below that LibreWPF section.
 
+The [portable hyperlink input contract](docs/portable-hyperlink-pointer-routing.md)
+records selected-owner content routing and its remaining application gates.
+
 ### Linux windowing behavior
 
 LibreWPF selects X11 when it runs in a Wayland desktop session that also exposes
