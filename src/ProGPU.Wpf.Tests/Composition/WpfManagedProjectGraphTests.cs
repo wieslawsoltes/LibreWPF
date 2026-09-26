@@ -15520,6 +15520,8 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("_ProGpuWpfSdkPreservePortableWinFormsRuntimeAssetsInDependencyFile", portableTargets, StringComparison.Ordinal);
         Assert.Contains("AfterTargets=\"Build\"", portableTargets, StringComparison.Ordinal);
         Assert.Contains("GeneratePathProperty=\"$(ProGpuWpfUseCanonicalLibreWinForms)\"", portableTargets, StringComparison.Ordinal);
+        Assert.Contains("<ProGpuWpfUseCanonicalLibreWinForms Condition=\"'$(ProGpuWpfUseCanonicalLibreWinForms)' == '' And '$(ProGpuWpfUseLibreWinForms)' == 'true'\">true</ProGpuWpfUseCanonicalLibreWinForms>", portableTargets, StringComparison.Ordinal);
+        Assert.Contains("<ProGpuWpfUseCanonicalLibreWinForms Condition=\"'$(ProGpuWpfUseCanonicalLibreWinForms)' == ''\">false</ProGpuWpfUseCanonicalLibreWinForms>", portableTargets, StringComparison.Ordinal);
         Assert.Contains("Include=\"@(_ProGpuWpfCanonicalFormsCopyAsset);@(_ProGpuWpfCanonicalBackendCopyAsset);@(_ProGpuWpfCanonicalIntegrationCopyAsset)\"", portableTargets, StringComparison.Ordinal);
         Assert.Contains("SourceFiles=\"@(_ProGpuWpfCanonicalFormsCopyAsset)\"", portableTargets, StringComparison.Ordinal);
         Assert.Contains("SourceFiles=\"@(_ProGpuWpfCanonicalBackendCopyAsset)\"", portableTargets, StringComparison.Ordinal);
@@ -15610,7 +15612,7 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("<LibreWpfSdkSwitchPackageVersion>0.1.0-preview.65</LibreWpfSdkSwitchPackageVersion>", smokeDirectoryBuildProps, StringComparison.Ordinal);
         Assert.Contains("<ProGpuWpfSdkSwitchPackageVersion Condition=\"'$(PROGPU_WPF_PROGPU_PACKAGE_VERSION)' != ''\">$(PROGPU_WPF_PROGPU_PACKAGE_VERSION)</ProGpuWpfSdkSwitchPackageVersion>", smokeDirectoryBuildProps, StringComparison.Ordinal);
         Assert.Contains("<ProGpuWpfSdkSwitchPackageVersion Condition=\"'$(ProGpuWpfSdkSwitchPackageVersion)' == ''\">0.1.0-preview.65</ProGpuWpfSdkSwitchPackageVersion>", smokeDirectoryBuildProps, StringComparison.Ordinal);
-        Assert.Contains("<ProGpuWpfLibreWinFormsPackageVersion Condition=\"'$(ProGpuWpfLibreWinFormsPackageVersion)' == ''\">0.1.0-preview.42</ProGpuWpfLibreWinFormsPackageVersion>", smokeDirectoryBuildProps, StringComparison.Ordinal);
+        Assert.Contains("<ProGpuWpfLibreWinFormsPackageVersion Condition=\"'$(ProGpuWpfLibreWinFormsPackageVersion)' == ''\">$(LibreWpfSdkSwitchPackageVersion)</ProGpuWpfLibreWinFormsPackageVersion>", smokeDirectoryBuildProps, StringComparison.Ordinal);
         Assert.Contains("librewpf.progpu/$(LibreWpfSdkSwitchPackageVersion)", smokeDirectoryBuildProps, StringComparison.Ordinal);
         Assert.Contains("librewpf.interop/$(ProGpuWpfSdkSwitchPackageVersion)", smokeDirectoryBuildProps, StringComparison.Ordinal);
         Assert.Contains("progpu.scene/$(ProGpuWpfSdkSwitchPackageVersion)", smokeDirectoryBuildProps, StringComparison.Ordinal);
