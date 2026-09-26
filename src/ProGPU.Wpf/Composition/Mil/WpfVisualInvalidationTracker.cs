@@ -443,10 +443,10 @@ public sealed class WpfVisualInvalidationTracker : IDisposable
             return;
         }
 
-        if (TryReadVisualStateSnapshot(source, out var snapshot))
+        bool hasPreviousState = previousStates.TryGetValue(source, out var previousState);
+        if (TryReadVisualStateSnapshot(source, out var snapshot, previousState.LayoutClip))
         {
-            if (!previousStates.TryGetValue(source, out var previousSnapshot) ||
-                !previousSnapshot.Equals(snapshot))
+            if (!hasPreviousState || !previousState.Equals(snapshot))
             {
                 changedSources.Add(source);
             }
@@ -567,7 +567,8 @@ public sealed class WpfVisualInvalidationTracker : IDisposable
         }
     }
 
-    private static bool TryReadVisualStateSnapshot(object source, out VisualStateSnapshot snapshot)
+    private static bool TryReadVisualStateSnapshot(
+        object source, out VisualStateSnapshot snapshot, WpfLayoutClipKey previousLayoutClip = default)
     {
         var builder = new VisualStateSnapshotBuilder();
         var hasPortableVisualState = TryGetPortableVisualState(source, out var visualState);
@@ -590,7 +591,7 @@ public sealed class WpfVisualInvalidationTracker : IDisposable
 
         if (hasPortableLayoutState && layoutState.HasLayoutClip)
         {
-            builder.SetLayoutClip(layoutState.LayoutClip);
+            builder.SetLayoutClip(layoutState.LayoutClip, previousLayoutClip);
         }
 
         if (hasPortableVisualState && visualState.HasTransform)
@@ -1432,7 +1433,7 @@ public sealed class WpfVisualInvalidationTracker : IDisposable
             bool hasClipToBounds,
             bool clipToBounds,
             bool hasLayoutClipProperty,
-            object? layoutClipReference,
+            WpfLayoutClipKey layoutClip,
             bool hasTransformProperty,
             object? transformReference,
             bool hasScrollableAreaClipProperty,
@@ -1479,7 +1480,7 @@ public sealed class WpfVisualInvalidationTracker : IDisposable
             HasClipToBounds = hasClipToBounds;
             ClipToBounds = clipToBounds;
             HasLayoutClipProperty = hasLayoutClipProperty;
-            LayoutClipReference = layoutClipReference;
+            LayoutClip = layoutClip;
             HasTransformProperty = hasTransformProperty;
             TransformReference = transformReference;
             HasScrollableAreaClipProperty = hasScrollableAreaClipProperty;
@@ -1535,7 +1536,7 @@ public sealed class WpfVisualInvalidationTracker : IDisposable
 
         private bool HasLayoutClipProperty { get; }
 
-        private object? LayoutClipReference { get; }
+        public WpfLayoutClipKey LayoutClip { get; }
 
         private bool HasTransformProperty { get; }
 
@@ -1621,7 +1622,7 @@ public sealed class WpfVisualInvalidationTracker : IDisposable
                 HasClipToBounds == other.HasClipToBounds &&
                 ClipToBounds == other.ClipToBounds &&
                 HasLayoutClipProperty == other.HasLayoutClipProperty &&
-                ReferenceEquals(LayoutClipReference, other.LayoutClipReference) &&
+                LayoutClip.Equals(other.LayoutClip) &&
                 HasTransformProperty == other.HasTransformProperty &&
                 ReferenceEquals(TransformReference, other.TransformReference) &&
                 HasScrollableAreaClipProperty == other.HasScrollableAreaClipProperty &&
@@ -1677,7 +1678,7 @@ public sealed class WpfVisualInvalidationTracker : IDisposable
             hash.Add(HasClipToBounds);
             hash.Add(ClipToBounds);
             hash.Add(HasLayoutClipProperty);
-            hash.Add(GetReferenceHashCode(LayoutClipReference));
+            hash.Add(LayoutClip);
             hash.Add(HasTransformProperty);
             hash.Add(GetReferenceHashCode(TransformReference));
             hash.Add(HasScrollableAreaClipProperty);
@@ -1766,7 +1767,7 @@ public sealed class WpfVisualInvalidationTracker : IDisposable
         private bool _hasClipToBounds;
         private bool _clipToBounds;
         private bool _hasLayoutClipProperty;
-        private object? _layoutClipReference;
+        private WpfLayoutClipKey _layoutClip;
         private bool _hasTransformProperty;
         private object? _transformReference;
         private bool _hasScrollableAreaClipProperty;
@@ -1829,11 +1830,11 @@ public sealed class WpfVisualInvalidationTracker : IDisposable
             _clipToBounds = clipToBounds;
         }
 
-        public void SetLayoutClip(object? clip)
+        public void SetLayoutClip(object? clip, WpfLayoutClipKey previous)
         {
             HasState = true;
             _hasLayoutClipProperty = true;
-            _layoutClipReference = clip;
+            _layoutClip = WpfLayoutClipKey.Capture(clip, previous);
         }
 
         public void SetTransform(object? transform)
@@ -1964,7 +1965,7 @@ public sealed class WpfVisualInvalidationTracker : IDisposable
                 _hasClipToBounds,
                 _clipToBounds,
                 _hasLayoutClipProperty,
-                _layoutClipReference,
+                _layoutClip,
                 _hasTransformProperty,
                 _transformReference,
                 _hasScrollableAreaClipProperty,
