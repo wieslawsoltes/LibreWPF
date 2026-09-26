@@ -7,6 +7,8 @@
     <AssemblyName>PresentationCore.Tests</AssemblyName>
     <StrongNameKeyId>MicrosoftShared</StrongNameKeyId>
     <IsPackable>false</IsPackable>
+    <!-- This executable runs outside the source test runner/package cache. -->
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
