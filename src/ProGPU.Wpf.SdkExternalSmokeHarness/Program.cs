@@ -150,6 +150,7 @@ internal static class Program
 
             string workRoot = Path.Combine(Path.GetTempPath(), "ProGPU.Wpf.SdkExternalSmoke");
             string appProjectPath = PrepareExternalSdkApp(workRoot, packageFeed);
+            string sliderProjectPath = PrepareSliderDragContract(repoRoot, workRoot);
             string centralPackageManagementProjectPath = PrepareExternalCentralPackageManagementApp(
                 Path.Combine(Path.GetTempPath(), "ProGPU.Wpf.SdkExternalCpmSmoke"),
                 packageFeed);
@@ -167,6 +168,15 @@ internal static class Program
                 "-p:BuildingInsideVisualStudio=true",
                 "-p:SkipCompilerExecution=true");
             RunProcess(dotnetPath, repoRoot, "build", appProjectPath, "-v:minimal");
+            RunProcess(dotnetPath, repoRoot, "build", sliderProjectPath, "-v:minimal");
+            string sliderOutputRoot = Path.Combine(workRoot, "SliderDragContract", "bin", "Debug", "net10.0");
+            for (int scenario = 0; scenario < 10; ++scenario)
+            {
+                string sliderOutput = RunBoundedProcess(dotnetPath, sliderOutputRoot, TimeSpan.FromSeconds(30),
+                    Path.Combine(sliderOutputRoot, "SliderDragContract.dll"), scenario.ToString(CultureInfo.InvariantCulture));
+                AssertContains(sliderOutput, $"Slider drag source contract passed: case {scenario};",
+                    "packaged Slider drag contract");
+            }
             RunProcess(dotnetPath, repoRoot, "restore", centralPackageManagementProjectPath, "-v:minimal");
             RunProcess(dotnetPath, repoRoot, "build", centralPackageManagementProjectPath, "-v:minimal", "--no-restore");
             RunProcess(dotnetPath, repoRoot, "build", localizationProjectPath, "-v:minimal");
@@ -640,6 +650,26 @@ internal static class Program
             "lib",
             "net10.0",
             assemblySimpleName + ".dll");
+    }
+
+    private static string PrepareSliderDragContract(string repoRoot, string workRoot)
+    {
+        string root = Path.Combine(workRoot, "SliderDragContract");
+        string project = Path.Combine(root, "SliderDragContract.csproj");
+        WriteFile(project, $"""
+            <Project Sdk="LibreWPF.Sdk/{EffectiveSdkVersion}">
+              <PropertyGroup>
+                <OutputType>Exe</OutputType>
+                <TargetFramework>net10.0</TargetFramework>
+                <UseWPF>true</UseWPF>
+                <ProGpuWpfUseLibreWinForms>false</ProGpuWpfUseLibreWinForms>
+                <ProGpuWpfEnablePortableBootstrap>false</ProGpuWpfEnablePortableBootstrap>
+              </PropertyGroup>
+            </Project>
+            """);
+        WriteFile(Path.Combine(root, "Program.cs"),
+            File.ReadAllText(Path.Combine(repoRoot, "eng", "SliderDragContract", "Program.cs")));
+        return project;
     }
 
     private static string PrepareExternalSdkApp(string workRoot, string packageFeed)
@@ -19131,6 +19161,33 @@ internal static class Program
             throw new InvalidOperationException($"Command '{fileName} {string.Join(" ", arguments)}' failed with exit code {process.ExitCode}.{Environment.NewLine}{output}");
         }
 
+        return output;
+    }
+
+    private static string RunBoundedProcess(string fileName, string workingDirectory, TimeSpan timeout, params string[] arguments)
+    {
+        var startInfo = new ProcessStartInfo(fileName)
+        {
+            WorkingDirectory = workingDirectory,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false
+        };
+        startInfo.Environment["DOTNET_ROLL_FORWARD"] = "Major";
+        foreach (string argument in arguments) startInfo.ArgumentList.Add(argument);
+        using Process process = Process.Start(startInfo)
+            ?? throw new InvalidOperationException($"Failed to start '{fileName}'.");
+        var stdout = process.StandardOutput.ReadToEndAsync();
+        var stderr = process.StandardError.ReadToEndAsync();
+        if (!process.WaitForExit(timeout))
+        {
+            process.Kill(entireProcessTree: true);
+            process.WaitForExit();
+            throw new TimeoutException($"Command '{fileName} {string.Join(" ", arguments)}' exceeded {timeout}.{Environment.NewLine}{stdout.GetAwaiter().GetResult()}{stderr.GetAwaiter().GetResult()}");
+        }
+        string output = stdout.GetAwaiter().GetResult() + stderr.GetAwaiter().GetResult();
+        if (process.ExitCode != 0)
+            throw new InvalidOperationException($"Command '{fileName} {string.Join(" ", arguments)}' failed with exit code {process.ExitCode}.{Environment.NewLine}{output}");
         return output;
     }
 
