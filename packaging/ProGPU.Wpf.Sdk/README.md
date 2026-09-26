@@ -12,6 +12,14 @@ The SDK owns the package dependency closure. `LibreWPF.Transport` supplies the r
 
 Projects with `UseWindowsForms=true`, including mixed WPF/WinForms projects and projects with `UseWPF=false`, use the published source-built `LibreWinForms.System.Windows.Forms`, `LibreWinForms.ProGPU`, and `LibreWinForms.WindowsFormsIntegration` packages by default. Their versions follow the LibreWPF SDK version unless explicitly overridden for coordinated package testing. No additional selection property is required. The legacy `ProGpuWpfUseCanonicalLibreWinForms=false` option requires a matching compatibility runtime and bridge from a private feed; that compatibility runtime is not published on NuGet.org.
 
+In that portable package mode, Forms-only project and NuGet dependencies may keep
+their original SDK and `UseWPF=false` / `UseWindowsForms=true` settings. The app
+replaces their transitive `Microsoft.WindowsDesktop.App.WindowsForms` requirement
+with its selected portable Forms package closure. Disabling portable Forms,
+opting out of portable framework references, or selecting local-artifact mode
+does not remove that Windows Forms requirement. Restore the app after upgrading
+the SDK; rebuilding with an old assets file and `--no-restore` is not sufficient.
+
 Existing WPF application projects should keep their normal WPF project shape and switch only the project SDK, whether the original project used `Microsoft.NET.Sdk.WindowsDesktop` or the newer `Microsoft.NET.Sdk` plus `UseWPF=true`. The SDK treats `UseWPF=true` as the app's markup intent, keeps the normal `net*-windows` target-framework shape, and internally redirects framework references to the portable WPF transport and ProGPU/Silk.NET package graph.
 
 `UseWPF` and `UseWindowsForms` retain the project's values during item evaluation

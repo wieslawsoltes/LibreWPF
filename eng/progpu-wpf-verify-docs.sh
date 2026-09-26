@@ -79,6 +79,9 @@ require_text "samples/ProGPU.Wpf.TextLayoutParityApp/MainWindow.xaml.cs" 'TEXT_R
 require_text "reports/native-mil-text-runtime-admission-2026-09-15.md" 'not native-MIL visual qualification'
 require_text "eng/progpu-wpf-canonical-sdk-smoke.sh" 'LibreWinForms.Compatibility.System.Windows.Forms/'
 require_text "eng/progpu-wpf-canonical-sdk-smoke.sh" 'DOTNET_ROLL_FORWARD_TO_PRERELEASE'
+require_text "eng/progpu-wpf-canonical-sdk-smoke.sh" 'eng/tests/test_wpf_sdk_transitive_forms.py'
+require_text ".github/workflows/progpu-wpf-sdk.yml" 'python3 eng/tests/test_wpf_sdk_transitive_forms.py'
+require_text "reports/sdk-transitive-forms-dependencies.md" 'ProjectReference and PackageReference'
 require_text "docs/progpu-wpf-release.md" 'commit-qualified `source.<sha>` ProGPU packages'
 require_text ".github/workflows/progpu-wpf-release.yml" "Stage exact ProGPU release packages"
 require_text ".github/workflows/progpu-wpf-release.yml" "Stage native runtimes from exact ProGPU release package"

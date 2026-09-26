@@ -35,6 +35,9 @@ jobs:
         with:
           global-json-file: global.json
 
+      - name: Verify transitive desktop framework ownership
+        run: python3 eng/tests/test_wpf_sdk_transitive_forms.py
+
       - name: Validate SDK public desktop property contracts
         run: python3 eng/tests/test_wpf_sdk_desktop_properties.py --dotnet dotnet -v
 
