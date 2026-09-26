@@ -5,9 +5,9 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 canonical_package_source="${PROGPU_WPF_CANONICAL_WINFORMS_PACKAGE_SOURCE:-${repo_root}/artifacts/packages/CanonicalWinForms}"
 sdk_package_source="${PROGPU_WPF_CANONICAL_SDK_PACKAGE_SOURCE:-${repo_root}/artifacts/packages/Release/NonShipping}"
 sdk_package_version="${PROGPU_WPF_CANONICAL_SDK_PACKAGE_VERSION:-0.1.0-preview.65}"
+wpf_package_version="${PROGPU_WPF_CANONICAL_WPF_PACKAGE_VERSION:-${sdk_package_version}}"
 smoke_source="${repo_root}/eng/LibreWinForms.CanonicalSdkSmoke"
 smoke_root="$(mktemp -d -t librewpf-canonical-sdk.XXXXXXXX)"
-smoke_project="${smoke_root}/LibreWinForms.CanonicalSdkSmoke.csproj"
 smoke_config="${smoke_root}/NuGet.config"
 smoke_packages="${smoke_root}/packages"
 
@@ -27,6 +27,11 @@ fi
 
 export DOTNET_ROLL_FORWARD="${DOTNET_ROLL_FORWARD:-Major}"
 export DOTNET_ROLL_FORWARD_TO_PRERELEASE="${DOTNET_ROLL_FORWARD_TO_PRERELEASE:-1}"
+
+# The enclosing SDK lane can select canonical packages explicitly. This consumer
+# must exercise the packaged SDK's normal UseWindowsForms defaults instead.
+unset ProGpuWpfUseCanonicalLibreWinForms ProGpuWpfLibreWinFormsRuntimePackageId
+unset ProGpuWpfUseLibreWinForms ProGpuWpfUsePortableWinFormsCompat
 
 resolve_single_version() {
   local package_source="$1"
@@ -82,8 +87,6 @@ do
   fi
 done
 
-cp "${smoke_source}/LibreWinForms.CanonicalSdkSmoke.csproj" "${smoke_project}"
-cp "${smoke_source}/Program.cs" "${smoke_root}/Program.cs"
 cp "${repo_root}/NuGet.config" "${smoke_config}"
 "${dotnet_command}" nuget add source "${canonical_package_source}" \
   --name LibreWinFormsCanonical \
@@ -92,46 +95,74 @@ cp "${repo_root}/NuGet.config" "${smoke_config}"
   --name LibreWpfQualifiedSdk \
   --configfile "${smoke_config}"
 
-canonical_properties=(
-  -p:ProGpuWpfUseCanonicalLibreWinForms=true
+package_properties=(
+  -p:ProGpuWpfPackageVersion="${wpf_package_version}"
   -p:ProGpuWpfLibreWinFormsPackageVersion="${canonical_package_version}"
   -p:ProGpuWpfLibreWinFormsBackendPackageVersion="${canonical_package_version}"
   -p:ProGpuPackageVersion="${progpu_package_version}"
 )
 
-NUGET_PACKAGES="${smoke_packages}" "${dotnet_command}" restore \
-  "${smoke_project}" \
-  --configfile "${smoke_config}" \
-  --force \
-  --no-cache \
-  "${canonical_properties[@]}"
-NUGET_PACKAGES="${smoke_packages}" "${dotnet_command}" build \
-  "${smoke_project}" \
-  --configuration Release \
-  --no-restore \
-  "${canonical_properties[@]}"
-
-assets_file="${smoke_root}/obj/project.assets.json"
-for package_identity in \
-  "LibreWinForms.System.Windows.Forms/${canonical_package_version}" \
-  "LibreWinForms.ProGPU/${canonical_package_version}" \
-  "LibreWinForms.WindowsFormsIntegration/${canonical_package_version}"
+for project_name in LibreWinForms.CanonicalSdkSmoke LibreWinForms.FormsSdkSmoke
 do
-  if ! grep -Fq "\"${package_identity}\"" "${assets_file}"; then
-    echo "Canonical SDK restore did not resolve ${package_identity}." >&2
-    exit 1
-  fi
+  for central_packages in false true
+  do
+    project_root="${smoke_root}/${project_name}-central-${central_packages}"
+    smoke_project="${project_root}/${project_name}.csproj"
+    mkdir "${project_root}"
+    sed "s|Sdk=\"LibreWPF.Sdk/[^\"]*\"|Sdk=\"LibreWPF.Sdk/${sdk_package_version}\"|" \
+      "${smoke_source}/${project_name}.csproj" > "${smoke_project}"
+    cp "${smoke_source}/Program.cs" "${project_root}/Program.cs"
+    consumer_properties=(
+      "${package_properties[@]}"
+      -p:ManagePackageVersionsCentrally="${central_packages}"
+    )
+
+    NUGET_PACKAGES="${smoke_packages}" "${dotnet_command}" restore \
+      "${smoke_project}" \
+      --configfile "${smoke_config}" \
+      --force \
+      --no-cache \
+      "${consumer_properties[@]}"
+
+    # An equal version from a public feed must not substitute for the newly
+    # staged SDK whose default package selection this consumer is qualifying.
+    sdk_cache_version="$(printf '%s' "${sdk_package_version}" | tr '[:upper:]' '[:lower:]')"
+    if ! cmp -s \
+      "${sdk_package_source}/LibreWPF.Sdk.${sdk_package_version}.nupkg" \
+      "${smoke_packages}/librewpf.sdk/${sdk_cache_version}/librewpf.sdk.${sdk_cache_version}.nupkg"; then
+      echo "${project_name} did not restore the exact staged LibreWPF.Sdk package." >&2
+      exit 1
+    fi
+
+    NUGET_PACKAGES="${smoke_packages}" "${dotnet_command}" build \
+      "${smoke_project}" \
+      --configuration Release \
+      --no-restore \
+      "${consumer_properties[@]}"
+
+    assets_file="${project_root}/obj/project.assets.json"
+    for package_identity in \
+      "LibreWinForms.System.Windows.Forms/${canonical_package_version}" \
+      "LibreWinForms.ProGPU/${canonical_package_version}" \
+      "LibreWinForms.WindowsFormsIntegration/${canonical_package_version}"
+    do
+      if ! grep -Fq "\"${package_identity}\"" "${assets_file}"; then
+        echo "${project_name} (central=${central_packages}) restore did not resolve ${package_identity}." >&2
+        exit 1
+      fi
+    done
+    if grep -Fq 'LibreWinForms.Compatibility.System.Windows.Forms/' "${assets_file}"; then
+      echo "${project_name} (central=${central_packages}) restore retained the transitional Forms package." >&2
+      exit 1
+    fi
+
+    NUGET_PACKAGES="${smoke_packages}" "${dotnet_command}" run \
+      --project "${smoke_project}" \
+      --configuration Release \
+      --no-build \
+      --no-restore \
+      "${consumer_properties[@]}"
+  done
 done
-if grep -Fq 'LibreWinForms.Compatibility.System.Windows.Forms/' "${assets_file}"; then
-  echo "Canonical SDK restore retained the transitional Forms package." >&2
-  exit 1
-fi
 
-NUGET_PACKAGES="${smoke_packages}" "${dotnet_command}" run \
-  --project "${smoke_project}" \
-  --configuration Release \
-  --no-build \
-  --no-restore \
-  "${canonical_properties[@]}"
-
-echo "Canonical LibreWPF SDK package consumer smoke succeeded."
+echo "Canonical LibreWPF SDK package consumers succeeded with UseWPF true/false and central package management true/false."
