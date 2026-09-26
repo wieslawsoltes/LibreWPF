@@ -1669,6 +1669,7 @@ namespace System.Windows.Controls.Primitives
         /// <returns>true if the window was destroyed, otherwise false</returns>
         private bool DestroyWindowImpl()
         {
+            DetachPortableOwnerDeactivation();
             if (_secHelper.CanDestroyWindow())
             {
                 CancelPortableSettledPosition();
@@ -1716,13 +1717,23 @@ namespace System.Windows.Controls.Primitives
                 SetHitTestable(HitTestable || !IsTransparent);
                 EstablishPopupCapture();
 
-                _secHelper.ShowWindow();
+                AttachPortableOwnerDeactivation();
+                try
+                {
+                    _secHelper.ShowWindow();
+                }
+                catch
+                {
+                    DetachPortableOwnerDeactivation();
+                    throw;
+                }
             }
         }
 
         // Close the window
         private void HideWindow()
         {
+            DetachPortableOwnerDeactivation();
             CancelPortableSettledPosition();
             bool animating = SetupAnimations(false);
 
@@ -1909,6 +1920,53 @@ namespace System.Windows.Controls.Primitives
             FirePopupCouldClose();
 
             return null;
+        }
+
+        private void AttachPortableOwnerDeactivation()
+        {
+            DetachPortableOwnerDeactivation();
+            if (_secHelper.IsPortable &&
+                _secHelper.PortableInputOwnerSource?.RootVisual is Window owner)
+            {
+                // A portable source has no WM_ACTIVATEAPP hook. Its retained
+                // owning Window supplies the actual activation transition;
+                // keyboard focus or mouse movement between popup sources does not.
+                _portablePopupOwnerWindow = owner;
+                owner.Deactivated += OnPortableOwnerDeactivated;
+            }
+        }
+
+        private void DetachPortableOwnerDeactivation()
+        {
+            _portableOwnerDeactivation?.Abort();
+            _portableOwnerDeactivation = null;
+            if (_portablePopupOwnerWindow != null)
+            {
+                _portablePopupOwnerWindow.Deactivated -= OnPortableOwnerDeactivated;
+                _portablePopupOwnerWindow = null;
+            }
+        }
+
+        private void OnPortableOwnerDeactivated(object sender, EventArgs e)
+        {
+            if (!IsOpen || !ReferenceEquals(sender, _portablePopupOwnerWindow) ||
+                !ReferenceEquals(_secHelper.PortableInputOwnerSource?.RootVisual, sender) ||
+                _portableOwnerDeactivation != null)
+            {
+                return;
+            }
+
+            // Match the native hook's deferred dismissal. Hide/destroy cancels
+            // this operation so an old activation transition cannot close a
+            // subsequently reopened popup, even when its source is reused.
+            _portableOwnerDeactivation = Dispatcher.BeginInvoke(DispatcherPriority.Normal,
+                new DispatcherOperationCallback(_ =>
+                {
+                    _portableOwnerDeactivation = null;
+                    if (IsOpen && _secHelper.IsWindowAlive())
+                        HandleDeactivateApp(null);
+                    return null;
+                }), null);
         }
 
         // Updates the transform applied to the decorator in PopupRoot
@@ -3112,6 +3170,8 @@ namespace System.Windows.Controls.Primitives
         private DispatcherOperation _asyncCreate;
         private DispatcherTimer _asyncDestroy;
         private DispatcherTimer _portableSettledPosition;
+        private Window _portablePopupOwnerWindow;
+        private DispatcherOperation _portableOwnerDeactivation;
         private long _portablePlacementTrackingDeadline;
         private bool _isPortablePopupRootLayoutUpdateAttached;
         private bool _isUpdatingPortablePopupRootLayout;

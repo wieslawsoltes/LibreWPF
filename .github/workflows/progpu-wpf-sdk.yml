@@ -85,6 +85,9 @@ jobs:
       - name: Validate actual source layout clip producers
         run: bash ./eng/progpu-wpf-layout-clip-source.sh
 
+      - name: Validate portable popup source dismissal
+        run: bash ./eng/progpu-wpf-popup-dismissal-source.sh
+
       - name: Upload canonical WinForms package closure
         uses: actions/upload-artifact@v4
         with:
