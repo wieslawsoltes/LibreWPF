@@ -2,6 +2,7 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net10.0-windows</TargetFramework>
+    <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
     <!-- Reuse the existing signed source-test friend, without widening product APIs. -->
     <AssemblyName>PresentationCore.Tests</AssemblyName>
     <StrongNameKeyId>MicrosoftShared</StrongNameKeyId>
