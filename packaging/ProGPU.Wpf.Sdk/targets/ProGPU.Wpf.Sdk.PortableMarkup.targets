@@ -1,0 +1,21 @@
+<Project>
+
+  <!-- Import the real WPF markup build without WindowsDesktop's implicit
+       framework references and second set of default XAML items. The SDK's
+       ProGPU.Wpf.Sdk.props already owns the portable XAML items. -->
+  <PropertyGroup>
+    <EnableDefaultPageItems Condition="'$(EnableDefaultPageItems)' == ''">true</EnableDefaultPageItems>
+    <EnableDefaultApplicationDefinition Condition="'$(EnableDefaultApplicationDefinition)' == ''">true</EnableDefaultApplicationDefinition>
+  </PropertyGroup>
+
+  <Import Sdk="Microsoft.NET.Sdk.WindowsDesktop"
+          Project="../targets/Microsoft.WinFX.targets"
+          Condition="'$(ImportFrameworkWinFXTargets)' != 'true'" />
+
+  <!-- This file is imported only for portable framework references. The public
+       desktop flags describe source intent, not a Windows-only runtime. Keep
+       the original SDK check unchanged when portable references are disabled,
+       and retain the independent transitive WindowsDesktop dependency check. -->
+  <Target Name="_CheckForInvalidWindowsDesktopTargetingConfiguration" />
+
+</Project>

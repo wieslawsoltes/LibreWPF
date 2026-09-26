@@ -28,6 +28,8 @@ fi
 export DOTNET_ROLL_FORWARD="${DOTNET_ROLL_FORWARD:-Major}"
 export DOTNET_ROLL_FORWARD_TO_PRERELEASE="${DOTNET_ROLL_FORWARD_TO_PRERELEASE:-1}"
 
+python3 "${repo_root}/eng/tests/test_wpf_sdk_desktop_properties.py" --dotnet "${dotnet_command}"
+
 # The enclosing SDK lane can select canonical packages explicitly. This consumer
 # must exercise the packaged SDK's normal UseWindowsForms defaults instead.
 unset ProGpuWpfUseCanonicalLibreWinForms ProGpuWpfLibreWinFormsRuntimePackageId
@@ -112,6 +114,7 @@ do
     sed "s|Sdk=\"LibreWPF.Sdk/[^\"]*\"|Sdk=\"LibreWPF.Sdk/${sdk_package_version}\"|" \
       "${smoke_source}/${project_name}.csproj" > "${smoke_project}"
     cp "${smoke_source}/Program.cs" "${project_root}/Program.cs"
+    cp "${smoke_source}/DesktopPropertyContract.targets" "${project_root}/DesktopPropertyContract.targets"
     consumer_properties=(
       "${package_properties[@]}"
       -p:ManagePackageVersionsCentrally="${central_packages}"

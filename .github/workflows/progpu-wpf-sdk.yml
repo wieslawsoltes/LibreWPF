@@ -38,6 +38,9 @@ jobs:
       - name: Verify transitive desktop framework ownership
         run: python3 eng/tests/test_wpf_sdk_transitive_forms.py
 
+      - name: Validate SDK public desktop property contracts
+        run: python3 eng/tests/test_wpf_sdk_desktop_properties.py --dotnet dotnet -v
+
       - name: Build canonical WinForms and WindowsFormsIntegration
         env:
           # ProGPU PR CI owns the API/allocation suite for this exact source pin.
