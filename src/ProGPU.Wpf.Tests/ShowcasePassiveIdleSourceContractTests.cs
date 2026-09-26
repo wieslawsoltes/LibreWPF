@@ -47,6 +47,13 @@ public class ShowcasePassiveIdleSourceContractTests
         Assert.Contains("StartIdleLayoutClipValidationIfRequested()", Read("samples/ProGPU.Wpf.ShowcaseApp/MainWindow.xaml.cs"), StringComparison.Ordinal);
         // Keep forced-frame performance validation separate, not relabelled idle.
         Assert.Contains("PresentNativePerformanceFrameAsync(host)", Read("samples/ProGPU.Wpf.ShowcaseApp/MainWindow.NativePerformance.cs"), StringComparison.Ordinal);
+        Assert.Contains("run: python3 ./eng/test-progpu-wpf-showcase-idle.py -v", Read(".github/workflows/progpu-wpf-sdk.yml"), StringComparison.Ordinal);
+        string gate = Read("eng/progpu-wpf-layout-clip.sh");
+        foreach (string name in new[] { "PassiveIdleIntervalTests", "ShowcasePassiveIdleSourceContractTests" })
+        {
+            Assert.Contains($"FullyQualifiedName~ProGPU.Wpf.Tests.{name}.", gate, StringComparison.Ordinal);
+            Assert.Contains($"\"ProGPU.Wpf.Tests.{name}\": ", gate, StringComparison.Ordinal);
+        }
     }
 
     private static string Read(string relative)

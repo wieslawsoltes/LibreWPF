@@ -65,6 +65,9 @@ fidelity, all application interactions or another platform's qualification.
 The endpoint helper has strict zero/nonzero/regressed-frame controls and a
 two-endpoint execution contract. Source guards preserve the side-effect-free
 interval and real Showcase ownership seam. The launcher has offline negative
-receipt/child controls. These are implementation regressions, not native idle
+receipt/child controls. CI adds these controls to the existing retained lane:
+all original 619 cases remain mandatory, plus 10 endpoint/source cases (minimum
+629), followed by the offline launcher suite. No live application is launched
+by that headless lane. These are implementation regressions, not native idle
 receipts. Compilation, complete CI and subsequent actual graphical execution
 remain required before claiming the #179 application acceptance criterion.
