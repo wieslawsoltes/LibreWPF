@@ -641,15 +641,100 @@ public sealed class WpfPortableWindowActivationTests
         activation.SetWindowBorder(FakeResizeMode.NoResize, FakeWindowStyle.SingleBorderWindow);
 
         Assert.Equal(ProGpuWpfWindowBorder.Fixed, host.WindowBorder);
+        Assert.False(host.CanMinimize);
+        Assert.False(host.CanMaximize);
+
+        activation.SetWindowBorder(FakeResizeMode.CanMinimize, FakeWindowStyle.SingleBorderWindow);
+
+        Assert.Equal(ProGpuWpfWindowBorder.Fixed, host.WindowBorder);
+        Assert.True(host.CanMinimize);
+        Assert.False(host.CanMaximize);
+
+        activation.SetWindowBorder(FakeResizeMode.CanResize, FakeWindowStyle.SingleBorderWindow);
+
+        Assert.Equal(ProGpuWpfWindowBorder.Resizable, host.WindowBorder);
+        Assert.True(host.CanMinimize);
+        Assert.True(host.CanMaximize);
 
         activation.SetWindowBorder(FakeResizeMode.CanResizeWithGrip, FakeWindowStyle.None);
 
         Assert.Equal(ProGpuWpfWindowBorder.HiddenResizable, host.WindowBorder);
+        Assert.True(host.CanMinimize);
+        Assert.True(host.CanMaximize);
 
         activation.SetWindowBorder(FakeResizeMode.NoResize, FakeWindowStyle.None);
 
         Assert.Equal(ProGpuWpfWindowBorder.Hidden, host.WindowBorder);
+        Assert.False(host.CanMinimize);
+        Assert.False(host.CanMaximize);
         Assert.True(scheduler.RequestCount >= 3);
+    }
+
+    [Theory]
+    [InlineData(0, 1, false, false, ProGpuWpfWindowBorder.Fixed)]
+    [InlineData(1, 1, true, false, ProGpuWpfWindowBorder.Fixed)]
+    [InlineData(2, 1, true, true, ProGpuWpfWindowBorder.Resizable)]
+    [InlineData(3, 1, true, true, ProGpuWpfWindowBorder.Resizable)]
+    [InlineData(0, 0, false, false, ProGpuWpfWindowBorder.Hidden)]
+    [InlineData(1, 0, true, false, ProGpuWpfWindowBorder.Hidden)]
+    [InlineData(2, 0, true, true, ProGpuWpfWindowBorder.HiddenResizable)]
+    [InlineData(3, 0, true, true, ProGpuWpfWindowBorder.HiddenResizable)]
+    public void InitialResizeIntentUsesTheSameMappingForOptionsAndAttachment(
+        int resizeMode, int windowStyle, bool canMinimize, bool canMaximize, ProGpuWpfWindowBorder border)
+    {
+        var window = new FakeWindow
+        {
+            ResizeMode = (FakeResizeMode)resizeMode,
+            WindowStyle = (FakeWindowStyle)windowStyle
+        };
+        var options = WpfPortableWindowActivation.CreateHostOptions(window);
+        Assert.Equal(border, options.WindowBorder);
+        Assert.Equal(canMinimize, options.CanMinimize);
+        Assert.Equal(canMaximize, options.CanMaximize);
+
+        using var host = new ProGpuWpfWindowHost(new ProGpuWpfWindowOptions
+        {
+            CanMinimize = !canMinimize,
+            CanMaximize = !canMaximize
+        });
+        Assert.True(WpfPortableWindowActivation.TryAttach(
+            host, window, new FakePortablePresentationSource(), out var activation));
+        using var lease = activation;
+        Assert.Equal(border, host.WindowBorder);
+        Assert.Equal(canMinimize, host.CanMinimize);
+        Assert.Equal(canMaximize, host.CanMaximize);
+        Assert.Null(host.SilkWindow);
+    }
+
+    [Fact]
+    public void MissingOrUnknownResizeIntentPreservesExplicitCapabilities()
+    {
+        var fallback = new ProGpuWpfWindowOptions
+        {
+            WindowBorder = ProGpuWpfWindowBorder.Fixed,
+            CanMinimize = false,
+            CanMaximize = true
+        };
+        var missing = WpfPortableWindowActivation.CreateHostOptions(new object(), fallback);
+        var unknown = WpfPortableWindowActivation.CreateHostOptions(
+            new FakeWindow { ResizeMode = (FakeResizeMode)99 }, fallback);
+        foreach (var options in new[] { missing, unknown })
+        {
+            Assert.Equal(ProGpuWpfWindowBorder.Fixed, options.WindowBorder);
+            Assert.False(options.CanMinimize);
+            Assert.True(options.CanMaximize);
+        }
+
+        using var host = new ProGpuWpfWindowHost(fallback);
+        Assert.True(WpfPortableWindowActivation.TryAttach(host,
+            new FakeWindow { ResizeMode = (FakeResizeMode)99 },
+            new FakePortablePresentationSource(), out var activation));
+        using var lease = activation;
+        activation!.SetWindowBorder(null, FakeWindowStyle.SingleBorderWindow);
+        activation.SetWindowBorder(99, FakeWindowStyle.SingleBorderWindow);
+        Assert.Equal(ProGpuWpfWindowBorder.Fixed, host.WindowBorder);
+        Assert.False(host.CanMinimize);
+        Assert.True(host.CanMaximize);
     }
 
     [Fact]

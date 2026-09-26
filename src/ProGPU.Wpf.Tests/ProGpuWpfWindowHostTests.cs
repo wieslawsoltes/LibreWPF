@@ -423,6 +423,28 @@ public sealed class ProGpuWpfWindowHostTests
     }
 
     [Fact]
+    public void WindowChromeIntentPersistsWithoutANativeWindowAndThroughBorderOnlyUpdates()
+    {
+        using var host = new ProGpuWpfWindowHost(new ProGpuWpfWindowOptions
+        {
+            CanMinimize = false,
+            CanMaximize = false
+        });
+        Assert.False(host.CanMinimize);
+        Assert.False(host.CanMaximize);
+        host.SetWindowBorder(ProGpuWpfWindowBorder.Fixed, true, false);
+        host.SetWindowBorder(ProGpuWpfWindowBorder.Hidden);
+        Assert.Equal(ProGpuWpfWindowBorder.Hidden, host.WindowBorder);
+        Assert.True(host.CanMinimize);
+        Assert.False(host.CanMaximize);
+        Assert.Null(host.SilkWindow);
+
+        host.Dispose();
+        Assert.Throws<ObjectDisposedException>(() =>
+            host.SetWindowBorder(ProGpuWpfWindowBorder.Resizable, true, true));
+    }
+
+    [Fact]
     public void SettingWpfRootVisualRequestsRender()
     {
         var scheduler = new TestRenderScheduler();

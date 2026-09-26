@@ -14637,6 +14637,11 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("journal details page", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
         Assert.Contains("ValidateSecondaryWindow(window, aboutMenuItem)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
         Assert.Contains("secondary window initial owner", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ValidateSecondaryWindowResizeIntent(dialog)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ProGpuWpfDiagnostics.TryGetWindowHost(dialog, out var host)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("dialog.ResizeMode = ResizeMode.CanMinimize", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("host.CanMinimize, \"secondary window source minimize intent\"", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("host.CanMaximize, \"secondary window source maximize intent\"", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
         Assert.Contains("input Popup placement target", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
         Assert.Contains("input Popup initial open state", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
         Assert.Contains("PlacementMode.Bottom", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
