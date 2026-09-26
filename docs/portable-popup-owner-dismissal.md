@@ -30,8 +30,20 @@ changed PlacementTarget, nested popups, and failed Show cleanup. The source CI
 gate runs these cases from the original PresentationFramework.Tests assembly,
 requires all twelve, rejects skips and retains its 60-second deadline.
 
-Local C# compilation and execution are deferred to CI during the implementation
-batch. Shell syntax/diff checks do not qualify these authored cases. Actual
+The first hosted source run compiled the fixture and executed all twelve cases:
+eight passed and four failed. One second Window had not been shown through its
+portable activation callback before layout; pointer input also required the
+geometry service used by PopupControlService's secondary hit test. The two
+reopen cases never activated either popup's mouse source, so normal deferred
+capture validation rejected their synthetic active-source state. The fixture
+now shows the second Window through its own typed identity and delivers actual
+typed pointer input on both openings. A scoped, source-test-only geometry
+provider admits only the exact exported 100-by-40 identity rectangle, rejects
+every other operation, and performs its real point containment check. Any
+existing provider is left untouched. No product capture check is bypassed.
+
+The corrected twelve-case run remains required; shell syntax/diff checks do not
+qualify it. Actual
 Windows reference and portable acceptance remains required on each admitted
 native platform: entering a popup/submenu must retain owner activation; switching
 to another application must dismiss it and release capture; reopen and nested

@@ -68,15 +68,14 @@ public partial class PortablePopupOwnershipTests
     {
         WithActivePopupOwner((window, owner, service) =>
         {
+            using var geometry = RegisterPopupRectangleGeometryIfNeeded();
             var popup = CreateDeactivationPopup(window);
             try
             {
                 popup.IsOpen = true;
                 var child = (Border)popup.Child;
-                service.Source!.HitTestOverride = (_, _) => child;
                 Keyboard.Focus(child).Should().BeSameAs(child);
-                PortableWindowActivationService.ProcessInput((PresentationSource)service.Source,
-                    new PortableInputEventArgs(PortableInputEventKind.MouseMove, x: 10, y: 10));
+                MovePointerIntoPopup(popup, service);
                 DrainPopupDispatcher();
                 window.IsActive.Should().BeTrue();
                 popup.IsOpen.Should().BeTrue();
@@ -93,17 +92,23 @@ public partial class PortablePopupOwnershipTests
     {
         WithActivePopupOwner((window, owner, service) =>
         {
+            using var geometry = RegisterPopupRectangleGeometryIfNeeded();
             var popup = CreateDeactivationPopup(window);
             int couldClose = 0;
             popup.PopupCouldClose += (_, _) => couldClose++;
             try
             {
                 popup.IsOpen = true;
+                MovePointerIntoPopup(popup, service);
                 PortableWindowActivationService.SetActivationState(window, false);
                 popup.IsOpen = false;
                 if (destroySource) popup.ForceClose();
                 PortableWindowActivationService.SetActivationState(window, true);
                 popup.IsOpen = true;
+                // A real reopened native surface delivers pointer activation.
+                // Capture reevaluation must see this live source, not null or
+                // the destroyed source from the preceding opening.
+                MovePointerIntoPopup(popup, service);
                 DrainPopupDispatcher();
                 popup.IsOpen.Should().BeTrue();
                 couldClose.Should().Be(0);
@@ -124,6 +129,9 @@ public partial class PortablePopupOwnershipTests
         {
             using var otherSource = PortablePresentationSourceHost.Create();
             var other = new Window { Width = 200, Height = 100 };
+            PortableWindowActivationService.Register(activate: value => value,
+                getHandle: value => ReferenceEquals(value, other) ? otherSource.Handle : owner.Handle);
+            other.Show();
             otherSource.RootVisual = other;
             otherSource.SetClientSize(200, 100);
             var popup = CreateDeactivationPopup(window);
@@ -255,6 +263,65 @@ public partial class PortablePopupOwnershipTests
         PlacementBounds = new(PortablePopupPlacementBoundsKind.NativeScreen,
             new(0, 0, 1920, 1080), new(0, 0, 1920, 1080))
     };
+
+    private static void MovePointerIntoPopup(Popup popup, PopupService service)
+    {
+        var source = service.Source!;
+        source.HitTestOverride = (_, _) => popup.Child;
+        PortableWindowActivationService.ProcessInput((PresentationSource)source,
+            new PortableInputEventArgs(PortableInputEventKind.MouseMove, x: 10, y: 10));
+        Mouse.PrimaryDevice.ActiveSource.Should().BeSameAs(source);
+        Mouse.Captured.Should().BeSameAs(source.RootVisual);
+    }
+
+    private static IDisposable? RegisterPopupRectangleGeometryIfNeeded()
+    {
+        // Keep any real provider untouched. The source-only test process has
+        // none: PopupControlService additionally tests its actual clipped root
+        // after the typed host hit callback. Only this fixture's exact source
+        // rectangle is admitted, never arbitrary geometry or a universal hit.
+        return PortableWpfServiceRegistry.TryGetGeometryOperations(out _)
+            ? null
+            : PortableWpfServiceRegistry.RegisterGeometryOperations(new PopupRectangleGeometry());
+    }
+
+    private sealed class PopupRectangleGeometry : IPortableGeometryOperations
+    {
+        public bool FillContains(PortableGeometryOperand geometry, PortablePoint point,
+            double tolerance, bool relativeTolerance)
+        {
+            geometry.Kind.Should().Be(PortableGeometryOperandKind.Path);
+            geometry.Children.Should().BeEmpty();
+            geometry.Transform.Should().Be(PortableMatrix3x2.Identity);
+            geometry.Path.Should().NotBeNull();
+            var path = geometry.Path!;
+            path.Kind.Should().Be(PortableGeometryPathKind.Path);
+            path.Transform.Should().Be(PortableMatrix3x2.Identity);
+            path.Bounds.Should().Be(PortableRect.Empty);
+            path.FillRule.Should().Be(PortableFillRule.EvenOdd);
+            path.PathA.Should().BeNull();
+            path.PathB.Should().BeNull();
+            path.CombineOperation.Should().Be(0);
+            path.Figures.Should().ContainSingle();
+            var figure = path.Figures[0];
+            figure.StartPoint.Should().Be(new PortablePoint(0, 0));
+            figure.IsClosed.Should().BeTrue();
+            figure.IsFilled.Should().BeTrue();
+            figure.Segments.Should().Equal(
+                PortablePathSegment.Line(new PortablePoint(100, 0), false, true),
+                PortablePathSegment.Line(new PortablePoint(100, 40), false, true),
+                PortablePathSegment.Line(new PortablePoint(0, 40), false, true));
+            tolerance.Should().Be(0.25);
+            relativeTolerance.Should().BeFalse();
+            double.IsFinite(point.X).Should().BeTrue();
+            double.IsFinite(point.Y).Should().BeTrue();
+            return point.X >= 0 && point.X <= 100 && point.Y >= 0 && point.Y <= 40;
+        }
+
+        public PortableGeometryPath Combine(PortableGeometryOperand first, PortableGeometryOperand second,
+            PortableGeometryCombineMode mode, PortableMatrix3x2 transform, double tolerance, bool relativeTolerance)
+            => throw new NotSupportedException("Popup fixture only supports its exact rectangular fill hit.");
+    }
 
     private static void WithActivePopupOwner(Action<Window, IPortablePresentationSourceHost, PopupService> action)
     {
