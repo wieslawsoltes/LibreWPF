@@ -1649,6 +1649,13 @@ public sealed class WpfPortableWindowActivation : IDisposable, INativeWindowOwne
             }
 
             ProcessHostInputAndRequestRender(e);
+            if (_pressedMouseButtons.Count != 0)
+            {
+                // Native callbacks can also run on the WPF dispatcher itself.
+                // A coalesced render request does not arrange Thumb before the
+                // next move in that native poll; drain its layout work here too.
+                FlushWpfDispatcherOperations("Render");
+            }
         }
         finally
         {
