@@ -42,6 +42,10 @@ internal sealed unsafe class WpfOleServices : IOleServices
         if (format != DataFormatNames.Bitmap || data is not BitmapSource source)
             return NotImplemented;
 
+        if (pformatetc->cfFormat != 2 || pformatetc->dwAspect != (uint)Com.DVASPECT.DVASPECT_CONTENT
+            || pformatetc->lindex != -1 || pformatetc->ptd is not null)
+            return HRESULT.DV_E_FORMATETC;
+
         // The core OLE adapter supplies an empty GDI medium for GetData. Do not
         // replace a caller-owned handle or a custom release owner in GetDataHere.
         if (((TYMED)pformatetc->tymed & TYMED.TYMED_GDI) == 0
@@ -70,52 +74,13 @@ internal sealed unsafe class WpfOleServices : IOleServices
         [NotNullWhen(true)] out T data)
     {
         data = default!;
-        if (dataObject is null || format != DataFormatNames.Bitmap)
+        if (format != DataFormatNames.Bitmap
+            || !WindowsClipboardBitmapSource.TryGet((nint)dataObject, out BitmapSource? bitmap)
+            || bitmap is not T typedBitmap)
             return false;
 
-        FORMATETC formatEtc = new()
-        {
-            cfFormat = 2, // CF_BITMAP
-            dwAspect = (uint)Com.DVASPECT.DVASPECT_CONTENT,
-            lindex = -1,
-            tymed = (uint)TYMED.TYMED_GDI
-        };
-        if (dataObject->QueryGetData(formatEtc).Failed)
-            return false;
-
-        STGMEDIUM medium = default;
-        HRESULT result = dataObject->GetData(formatEtc, out medium);
-        try
-        {
-            if (result.Failed || medium.tymed != TYMED.TYMED_GDI || medium.hGlobal.IsNull)
-                return false;
-
-            BitmapSource bitmap;
-            if (BitmapSource.UsesPortablePixelStorage)
-            {
-                // Copy while the actual OLE medium still owns the HBITMAP.
-                // BitmapSource.Create copies again into source-owned storage;
-                // the returned image never borrows the clipboard's lifetime.
-                PortableBitmapSourcePixels pixels = WindowsGdiBitmap.CopyBgr32((nint)medium.hGlobal);
-                bitmap = BitmapSource.Create(pixels.Width, pixels.Height, pixels.DpiX, pixels.DpiY,
-                    PixelFormats.Bgr32, null, pixels.Pixels, pixels.Stride);
-            }
-            else
-            {
-                // Explicit native media keeps its existing WIC/MIL-backed image.
-                bitmap = Imaging.CreateBitmapSourceFromHBitmap(
-                    (nint)medium.hGlobal, 0, Int32Rect.Empty, sizeOptions: null);
-            }
-
-            if (bitmap is not T typedBitmap)
-                return false;
-            data = typedBitmap;
-            return true;
-        }
-        finally
-        {
-            PInvokeCore.ReleaseStgMedium(ref medium);
-        }
+        data = typedBitmap;
+        return true;
     }
 
     public static bool AllowTypeWithoutResolver<T>() => false;
@@ -137,6 +102,60 @@ internal sealed unsafe class WpfOleServices : IOleServices
 
     static HRESULT IOleServices.OleFlushClipboard() =>
         PInvokeCore.OleFlushClipboard();
+}
+
+// This source adapter borrows a real native IDataObject, never a portable source
+// identity. The caller retains its COM reference throughout the synchronous read.
+internal static unsafe class WindowsClipboardBitmapSource
+{
+    internal static bool TryGet(nint nativeDataObject, [NotNullWhen(true)] out BitmapSource? bitmap)
+    {
+        bitmap = null;
+        Com.IDataObject* dataObject = (Com.IDataObject*)nativeDataObject;
+        if (dataObject is null)
+            return false;
+
+        FORMATETC formatEtc = new()
+        {
+            cfFormat = 2, // CF_BITMAP
+            dwAspect = (uint)Com.DVASPECT.DVASPECT_CONTENT,
+            lindex = -1,
+            tymed = (uint)TYMED.TYMED_GDI
+        };
+        if (dataObject->QueryGetData(formatEtc).Failed)
+            return false;
+
+        STGMEDIUM medium = default;
+        HRESULT result = dataObject->GetData(formatEtc, out medium);
+        try
+        {
+            if (result.Failed || medium.tymed != TYMED.TYMED_GDI || medium.hGlobal.IsNull)
+                return false;
+
+            if (BitmapSource.UsesPortablePixelStorage)
+            {
+                // Copy while the actual OLE medium still owns the HBITMAP.
+                // BitmapSource.Create copies again into source-owned storage;
+                // the returned image never borrows the clipboard's lifetime.
+                PortableBitmapSourcePixels pixels = WindowsGdiBitmap.CopyBgr32((nint)medium.hGlobal);
+                bitmap = BitmapSource.Create(pixels.Width, pixels.Height, pixels.DpiX, pixels.DpiY,
+                    PixelFormats.Bgr32, null, pixels.Pixels, pixels.Stride);
+            }
+            else
+            {
+                // Explicit native media keeps its existing WIC/MIL-backed image.
+                bitmap = Imaging.CreateBitmapSourceFromHBitmap(
+                    (nint)medium.hGlobal, 0, Int32Rect.Empty, sizeOptions: null);
+            }
+
+            return true;
+        }
+        finally
+        {
+            PInvokeCore.ReleaseStgMedium(ref medium);
+        }
+    }
+
 }
 #else
 using System.ComponentModel;

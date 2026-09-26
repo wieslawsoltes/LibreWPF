@@ -296,6 +296,9 @@ public partial class MainWindow : Window
         var viewModel = new MainViewModel();
         DataContext = viewModel;
         InitializeComponent();
+        WindowsClipboardImagePanel.Visibility = OperatingSystem.IsWindows() ? Visibility.Visible : Visibility.Collapsed;
+        CopyClipboardImageButton.IsEnabled = OperatingSystem.IsWindows();
+        PasteClipboardImageButton.IsEnabled = OperatingSystem.IsWindows();
         InitializeFrameworkThemeState();
 
         string? initialTab = Environment.GetEnvironmentVariable(InitialTabEnvironmentVariable);
@@ -762,6 +765,21 @@ public partial class MainWindow : Window
 
         ClipboardRoundTripCount++;
         DataObjectStatusText.Text = $"Clipboard: {LastClipboardText}";
+        e.Handled = true;
+    }
+
+    private void OnCopyClipboardImageClick(object sender, RoutedEventArgs e)
+    {
+        Clipboard.SetImage(ShowcaseClipboardImage.CreateSource());
+        DataObjectStatusText.Text = "Clipboard: image copied";
+        e.Handled = true;
+    }
+
+    private void OnPasteClipboardImageClick(object sender, RoutedEventArgs e)
+    {
+        ClipboardImagePreview.Source = Clipboard.GetImage();
+        DataObjectStatusText.Text = ClipboardImagePreview.Source is null
+            ? "Clipboard: no bitmap" : "Clipboard: image pasted";
         e.Handled = true;
     }
 
@@ -8839,6 +8857,25 @@ internal static class ShowcaseSelfTest
         AssertEqual(true, window.LastClipboardIsCurrent, "Clipboard current data object");
         AssertEqual("Clipboard: showcase data object clipboard", dataObjectStatusText.Text, "Clipboard status text");
         Clipboard.Clear();
+        if (OperatingSystem.IsWindows())
+        {
+            try
+            {
+                window.CopyClipboardImageButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, window.CopyClipboardImageButton));
+                window.PasteClipboardImageButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, window.PasteClipboardImageButton));
+                var pasted = Require<System.Windows.Media.Imaging.BitmapSource>(window.ClipboardImagePreview.Source, "pasted clipboard image");
+                ShowcaseClipboardImage.Verify(pasted);
+                AssertEqual("Clipboard: image pasted", dataObjectStatusText.Text, "Clipboard image status");
+                ShowcaseClipboardImage.Verify(ShowcaseClipboardImage.ExerciseLifetime(indexed: false));
+                ShowcaseClipboardImage.Verify(ShowcaseClipboardImage.ExerciseLifetime(indexed: true));
+                ShowcaseClipboardImage.Verify(pasted);
+                DrainDispatcher(window);
+            }
+            finally
+            {
+                Clipboard.Clear();
+            }
+        }
     }
 
     private static void ValidateEmptyDataObjects()

@@ -1940,6 +1940,16 @@
                             Margin="0,6,0,0"
                             Click="OnClipboardRoundTripClick"
                             Content="Round-trip Clipboard" />
+                        <StackPanel x:Name="WindowsClipboardImagePanel" Margin="0,6,0,0">
+                            <WrapPanel>
+                                <Button x:Name="CopyClipboardImageButton" Click="OnCopyClipboardImageClick"
+                                        Content="Copy image (Windows)" />
+                                <Button x:Name="PasteClipboardImageButton" Margin="6,0,0,0"
+                                        Click="OnPasteClipboardImageClick" Content="Paste image (Windows)" />
+                            </WrapPanel>
+                            <Image x:Name="ClipboardImagePreview" Width="90" Height="60"
+                                   Margin="0,6,0,0" HorizontalAlignment="Left" Stretch="Fill" />
+                        </StackPanel>
                         <Button
                             x:Name="SelectAllPayloadButton"
                             Margin="0,6,0,0"
