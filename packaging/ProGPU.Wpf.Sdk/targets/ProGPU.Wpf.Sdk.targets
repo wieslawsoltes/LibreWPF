@@ -4,6 +4,7 @@
     <CopyLocalLockFileAssemblies Condition="'$(ProGpuWpfUsePortableFrameworkReferences)' == 'true'">true</CopyLocalLockFileAssemblies>
     <ProGpuWpfPackageVersion Condition="'$(ProGpuWpfPackageVersion)' == ''">$(ProGpuWpfSdkVersion)</ProGpuWpfPackageVersion>
     <ProGpuWpfManagedPackageVersion Condition="'$(ProGpuWpfManagedPackageVersion)' == ''">$(ProGpuWpfPackageVersion)</ProGpuWpfManagedPackageVersion>
+    <ProGpuWpfUseCanonicalLibreWinForms Condition="'$(ProGpuWpfUseCanonicalLibreWinForms)' == '' And '$(ProGpuWpfUseLibreWinForms)' == 'true'">true</ProGpuWpfUseCanonicalLibreWinForms>
     <ProGpuWpfUseCanonicalLibreWinForms Condition="'$(ProGpuWpfUseCanonicalLibreWinForms)' == ''">false</ProGpuWpfUseCanonicalLibreWinForms>
     <ProGpuWpfLibreWinFormsPackageVersion Condition="'$(ProGpuWpfLibreWinFormsPackageVersion)' == ''">$(ProGpuWpfManagedPackageVersion)</ProGpuWpfLibreWinFormsPackageVersion>
     <ProGpuWpfLibreWinFormsBackendPackageVersion Condition="'$(ProGpuWpfLibreWinFormsBackendPackageVersion)' == ''">$(ProGpuWpfLibreWinFormsPackageVersion)</ProGpuWpfLibreWinFormsBackendPackageVersion>
