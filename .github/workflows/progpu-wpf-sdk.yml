@@ -18,6 +18,35 @@ env:
   PROGPU_WPF_QUALIFIED_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
 
 jobs:
+  retained-invalidation:
+    name: Retained layout-clip invalidation contracts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout aligned source graph
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}
+          submodules: true
+
+      - name: Setup repository SDK and .NET 10 test runtime
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+          dotnet-version: 10.0.x
+
+      - name: Build and validate retained invalidation contracts
+        run: bash ./eng/progpu-wpf-layout-clip.sh
+
+      - name: Upload retained invalidation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: retained-invalidation-${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}
+          path: artifacts/layout-clip-ci/**
+          if-no-files-found: warn
+
   canonical-winforms-integration:
     name: Canonical System.Windows.Forms source integration
     runs-on: ubuntu-24.04
