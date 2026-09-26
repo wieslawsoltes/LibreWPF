@@ -12,7 +12,7 @@ using ProGPU.Wpf.Interop;
 namespace System.Windows;
 
 [Collection("Sequential")]
-public class PortablePopupOwnershipTests
+public partial class PortablePopupOwnershipTests
 {
     [PortablePopupFact]
     public void OwnerlessPopupRetainsTheActualActiveOwnerWithoutChangingPlacementTarget()
@@ -538,6 +538,7 @@ public class PortablePopupOwnershipTests
         public bool Reject { get; init; }
         public bool InvalidSource { get; init; }
         public bool ThrowOnDestroy { get; init; }
+        public bool ThrowOnShow { get; init; }
         public bool RejectBounds { get; init; }
         public PortablePopupPlacementBounds PlacementBounds { get; init; }
         public PortableRect LastPlacementTarget { get; private set; }
@@ -565,7 +566,12 @@ public class PortablePopupOwnershipTests
 
         public bool TrySetPopupPosition(object source, int x, int y) { Positions++; LastPosition = new Point(x, y); return ReferenceEquals(source, _identity); }
         public bool TrySetPopupSize(object source, int width, int height) { Sizes++; return ReferenceEquals(source, _identity); }
-        public bool TryShowPopup(object source) { Shows++; return ReferenceEquals(source, _identity); }
+        public bool TryShowPopup(object source)
+        {
+            Shows++;
+            if (ThrowOnShow) throw new InvalidOperationException("Host show failure");
+            return ReferenceEquals(source, _identity);
+        }
         public bool TryHidePopup(object source) { Hides++; return ReferenceEquals(source, _identity); }
         public bool TrySetPopupHitTestable(object source, bool value) { HitTestChanges++; return ReferenceEquals(source, _identity); }
         public bool TryDestroyPopup(object source)

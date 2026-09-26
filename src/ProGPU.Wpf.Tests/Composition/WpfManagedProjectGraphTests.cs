@@ -13424,6 +13424,17 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("exec \"${dotnet_command}\" \"${assembly}\"", clipSourceRunner, StringComparison.Ordinal);
         Assert.Contains("--filter-class System.Windows.PortableLayoutClipSourceTests", clipSourceRunner, StringComparison.Ordinal);
         Assert.Contains("--minimum-expected-tests 16 --fail-skips on --timeout 60s", clipSourceRunner, StringComparison.Ordinal);
+        AssertGuardBefore(sdkCiWorkflow,
+            "run: bash ./eng/progpu-wpf-layout-clip-source.sh",
+            "run: bash ./eng/progpu-wpf-popup-dismissal-source.sh");
+        string popupSourceRunner = File.ReadAllText(FindRepoPath("eng", "progpu-wpf-popup-dismissal-source.sh"));
+        Assert.Contains("artifacts/bin/PresentationFramework.Tests/${configuration}/net10.0-windows/PresentationFramework.Tests.dll", popupSourceRunner, StringComparison.Ordinal);
+        Assert.Contains("if [[ ! -f \"${assembly}\" ]]", popupSourceRunner, StringComparison.Ordinal);
+        Assert.Contains("export LIBREWPF_TEST_MEDIA_BACKEND=Portable", popupSourceRunner, StringComparison.Ordinal);
+        Assert.Contains("exec \"${dotnet_command}\" \"${assembly}\"", popupSourceRunner, StringComparison.Ordinal);
+        Assert.Contains("--filter-class System.Windows.PortablePopupOwnershipTests", popupSourceRunner, StringComparison.Ordinal);
+        Assert.Contains("--filter-method '*OwnerDeactivation*'", popupSourceRunner, StringComparison.Ordinal);
+        Assert.Contains("--minimum-expected-tests 12 --fail-skips on --timeout 60s", popupSourceRunner, StringComparison.Ordinal);
         Assert.Contains("windows-native-mil-showcase:", sdkCiWorkflow, StringComparison.Ordinal);
         Assert.Contains("./eng/progpu-wpf-windows-native-mil-showcase.ps1", sdkCiWorkflow, StringComparison.Ordinal);
         Assert.Contains("windows-arm64-native-mil-showcase:", sdkCiWorkflow, StringComparison.Ordinal);
