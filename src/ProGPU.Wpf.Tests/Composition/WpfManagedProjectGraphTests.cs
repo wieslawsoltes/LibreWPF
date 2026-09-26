@@ -2123,7 +2123,8 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("PortableVisualStateChangeMarksTrackerDirtyWithoutEvent", proGpuInvalidationTrackerTests, StringComparison.Ordinal);
         Assert.Contains("source is PortableVisualLayoutStateSource visualLayoutSource", proGpuInvalidationTracker, StringComparison.Ordinal);
         Assert.Contains("layoutState.HasLayoutClip", proGpuInvalidationTracker, StringComparison.Ordinal);
-        Assert.Contains("SetLayoutClip(object? clip)", proGpuInvalidationTracker, StringComparison.Ordinal);
+        Assert.Contains("SetLayoutClip(object? clip, WpfLayoutClipKey previous)", proGpuInvalidationTracker, StringComparison.Ordinal);
+        Assert.Contains("_layoutClip = WpfLayoutClipKey.Capture(clip, previous);", proGpuInvalidationTracker, StringComparison.Ordinal);
         Assert.Contains("PortableLayoutStateChangeMarksTrackerDirtyWithoutEvent", proGpuInvalidationTrackerTests, StringComparison.Ordinal);
         Assert.Contains("NonPortableVisualStatePropertyChangesDoNotMarkTrackerDirty", proGpuInvalidationTrackerTests, StringComparison.Ordinal);
         Assert.DoesNotContain("TryReadVectorLikeProperty(source", proGpuInvalidationTracker, StringComparison.Ordinal);
