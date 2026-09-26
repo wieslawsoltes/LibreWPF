@@ -3628,10 +3628,40 @@ internal static class Program
 
         ValidatePortableRichClipboardFormats(presentationCore);
         ValidatePortableJsonDataObject(presentationCore);
+        ValidatePortableEmptyDataObjects(presentationCore);
 
         InvokeStaticVoid(clipboardType, "Clear");
         AssertEqual(false, InvokeStatic(clipboardType, "ContainsText"), "portable Clipboard SDK cleared text state");
         AssertEqual(string.Empty, InvokeStatic(clipboardType, "GetText"), "portable Clipboard SDK cleared text");
+    }
+
+    private static void ValidatePortableEmptyDataObjects(Assembly presentationCore)
+    {
+        Type dataObjectType = GetRequiredType(presentationCore, "System.Windows.DataObject");
+        MethodInfo getData = dataObjectType.GetMethod("GetData", [typeof(string), typeof(bool)])
+            ?? throw new MissingMethodException(dataObjectType.FullName, "GetData(string, bool)");
+        object empty = Create(dataObjectType);
+        object populated = Create(dataObjectType, "PortableSdkExistingData", "retained value", false);
+        object wrapped = Create(dataObjectType, populated);
+        foreach (object data in new[] { empty, populated, wrapped })
+        {
+            foreach (bool autoConvert in new[] { false, true })
+            {
+                AssertNull(
+                    InvokeMethod(getData, data, "PortableSdkMissingData", autoConvert),
+                    "portable Clipboard SDK absent DataObject format");
+            }
+        }
+
+        AssertEqual("retained value", Invoke(wrapped, "GetData", "PortableSdkExistingData", false),
+            "portable Clipboard SDK retained DataObject payload");
+        foreach (string methodName in new[] { "GetImage", "GetAudioStream" })
+        {
+            MethodInfo method = dataObjectType.GetMethod(methodName, Type.EmptyTypes)
+                ?? throw new MissingMethodException(dataObjectType.FullName, methodName);
+            AssertNull(InvokeMethod(method, empty), "portable Clipboard SDK empty " + methodName);
+        }
+        AssertEqual(string.Empty, Invoke(empty, "GetText"), "portable Clipboard SDK empty DataObject text");
     }
 
     private static void ValidatePortableRichClipboardFormats(Assembly presentationCore)
