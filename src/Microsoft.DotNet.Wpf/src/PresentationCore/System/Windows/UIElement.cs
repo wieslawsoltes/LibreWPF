@@ -2098,7 +2098,7 @@ namespace System.Windows
             PromoteInputHit(pt, candidate, out enabledHit, out rawHit, ref rawHitResult);
         }
 
-        private void PromoteInputHit(Point pt, DependencyObject candidate, out IInputElement enabledHit, out IInputElement rawHit, ref HitTestResult rawHitResult)
+        internal void PromoteInputHit(Point pt, DependencyObject candidate, out IInputElement enabledHit, out IInputElement rawHit, ref HitTestResult rawHitResult)
         {
             rawHit = candidate as IInputElement;
             enabledHit = null;
