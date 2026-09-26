@@ -6606,8 +6606,15 @@ internal static class Program
                         var linkPage = (ExternalPage)navigationWindow.Content;
                         var linkHost = RequireType<TextBlock>(linkPage.FindName("ExternalPageLinkHost"), "external SDK hyperlink content host");
                         var pageLink = RequireType<Hyperlink>(linkPage.FindName("ExternalPageLink"), "external SDK relative hyperlink");
+                        AssertEqual(true, global::System.Windows.Media.ProGPU.ProGpuWpfDiagnostics.TryGetWindowHost(navigationWindow, out var pointerHost),
+                            "external SDK hyperlink active portable window host");
+                        // Public PresentationSource intentionally exposes the HwndSource
+                        // compatibility facade. Typed input belongs to the live host's
+                        // actual portable source, never to that facade or its handle.
                         var pointerSource = RequireType<global::System.Windows.IPortablePresentationSourceHost>(
-                            PresentationSource.FromVisual(navigationWindow), "external SDK hyperlink portable source");
+                            pointerHost!.PortablePresentationSource, "external SDK hyperlink portable source");
+                        AssertEqual(navigationWindow, pointerSource.RootVisual,
+                            "external SDK hyperlink portable source owns the navigation window");
                         var pointerRoot = RequireType<UIElement>(pointerSource.RootVisual, "external SDK hyperlink source root");
                         AssertEqual(true, global::ProGPU.Wpf.Interop.PortableWpfServiceRegistry.TryGetWindowActivationService(
                             global::ProGPU.Wpf.Interop.PortableWpfServiceKey.PresentationFramework, out var pointerInput),

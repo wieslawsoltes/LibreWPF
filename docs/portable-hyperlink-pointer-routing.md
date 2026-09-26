@@ -44,6 +44,14 @@ fabricate hyperlink rectangles, or change Hyperlink/navigation semantics.
   Existing direct Navigate/back/forward assertions remain independent. The
   generated consumer compiled locally; execution against newly produced SDK
   packages remains a required CI gate.
+- The first package run exposed a fixture source lookup error: public
+  `PresentationSource.FromVisual` returns the compatibility `HwndSource` facade,
+  not the internal portable source. The fixture now obtains the active host
+  through the existing typed diagnostics API, uses its actual portable source,
+  and verifies that source owns the navigation window. All pointer, capture,
+  navigation and journal assertions are retained. The corrected generator and
+  generated external consumer compile locally; exact-head package execution
+  remains required.
 
 The deterministic callback in these contracts deliberately supplies a selected
 owner. It does not qualify native owner selection, screenshot fidelity, actual
