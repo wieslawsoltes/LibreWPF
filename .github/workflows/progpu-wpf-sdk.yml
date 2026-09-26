@@ -47,6 +47,9 @@ jobs:
           PROGPU_WPF_RUN_DRAWING_QUALITY_GATES: 0
         run: ./eng/progpu-wpf-canonical-winforms-integration.sh
 
+      - name: Validate public MessageBox source modality
+        run: bash ./eng/progpu-wpf-messagebox-modal.sh
+
       - name: Upload canonical WinForms package closure
         uses: actions/upload-artifact@v4
         with:

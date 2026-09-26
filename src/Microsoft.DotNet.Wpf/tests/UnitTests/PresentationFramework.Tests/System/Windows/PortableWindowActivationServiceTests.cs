@@ -683,7 +683,9 @@ public class PortableWindowActivationServiceTests
             var window = new Window { Width = 200, Height = 100 };
             try
             {
+#pragma warning disable WPF0001 // This contract deliberately tests experimental theme/backdrop integration.
                 window.ThemeMode = ThemeMode.Light;
+#pragma warning restore WPF0001
                 new WindowInteropHelper(window).EnsureHandle();
                 int initialHandleQueries = handleQueries;
                 Appearance.WindowBackdropManager.SetBackdrop(window, WindowBackdropType.MainWindow)

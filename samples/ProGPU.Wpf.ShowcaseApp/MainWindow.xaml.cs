@@ -8587,6 +8587,8 @@ internal static class ShowcaseSelfTest
         AssertEqual(initialWindowCount, CountApplicationWindows(application), "Application Windows count after secondary show");
         AssertEqual(true, ApplicationContainsWindow(application, dialog), "Application Windows contains secondary window");
 
+        ValidateSecondaryWindowResizeIntent(dialog);
+
         dialog.Close();
         DrainDispatcher(window);
 
@@ -8688,6 +8690,51 @@ internal static class ShowcaseSelfTest
         }
 
         return false;
+    }
+
+    private static void ValidateSecondaryWindowResizeIntent(Window dialog)
+    {
+        // The same Showcase also validates native Windows MIL, which has no
+        // ProGPU host. Keep its existing secondary-window checks unchanged.
+        if (PortableWpfRuntime.ConfiguredMediaBackend != PortableWpfMediaBackend.Portable)
+        {
+            return;
+        }
+
+        AssertEqual(true, PortableWpfRuntime.IsMediaBackendFrozen, "secondary window portable media selection frozen");
+        if (!ProGpuWpfDiagnostics.TryGetWindowHost(dialog, out var host) || host is null)
+        {
+            throw new InvalidOperationException("The visible secondary window must retain its portable native host.");
+        }
+
+        // Inspect requested source/controller intent, not native button visibility.
+        AssertIntent(ProGpuWpfWindowBorder.Fixed, false, false);
+        try
+        {
+            dialog.ResizeMode = ResizeMode.CanMinimize;
+            AssertIntent(ProGpuWpfWindowBorder.Fixed, true, false);
+            dialog.ResizeMode = ResizeMode.CanResize;
+            AssertIntent(ProGpuWpfWindowBorder.Resizable, true, true);
+            dialog.ResizeMode = ResizeMode.CanResizeWithGrip;
+            AssertIntent(ProGpuWpfWindowBorder.Resizable, true, true);
+            dialog.WindowStyle = WindowStyle.None;
+            AssertIntent(ProGpuWpfWindowBorder.HiddenResizable, true, true);
+            dialog.ResizeMode = ResizeMode.NoResize;
+            AssertIntent(ProGpuWpfWindowBorder.Hidden, false, false);
+        }
+        finally
+        {
+            dialog.ResizeMode = ResizeMode.NoResize;
+            dialog.WindowStyle = WindowStyle.SingleBorderWindow;
+        }
+        AssertIntent(ProGpuWpfWindowBorder.Fixed, false, false);
+
+        void AssertIntent(ProGpuWpfWindowBorder border, bool canMinimize, bool canMaximize)
+        {
+            AssertEqual(border, host.WindowBorder, "secondary window source border intent");
+            AssertEqual(canMinimize, host.CanMinimize, "secondary window source minimize intent");
+            AssertEqual(canMaximize, host.CanMaximize, "secondary window source maximize intent");
+        }
     }
 
     private static void ValidateEditor(

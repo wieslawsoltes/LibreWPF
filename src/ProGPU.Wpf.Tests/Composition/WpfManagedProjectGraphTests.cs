@@ -6,6 +6,24 @@ namespace ProGPU.Wpf.Tests.Composition;
 public sealed class WpfManagedProjectGraphTests
 {
     [Fact]
+    public void SdkSliderDragContractRunsRealControlsInBoundedFreshProcesses()
+    {
+        string harness = File.ReadAllText(FindRepoPath("src", "ProGPU.Wpf.SdkExternalSmokeHarness", "Program.cs"));
+        string fixture = File.ReadAllText(FindRepoPath("eng", "SliderDragContract", "Program.cs"));
+        Assert.Contains("PrepareSliderDragContract(repoRoot, workRoot)", harness, StringComparison.Ordinal);
+        Assert.Contains("scenario < 10", harness, StringComparison.Ordinal);
+        Assert.Contains("RunBoundedProcess(dotnetPath, sliderOutputRoot, TimeSpan.FromSeconds(30)", harness, StringComparison.Ordinal);
+        Assert.Contains("File.ReadAllText(Path.Combine(repoRoot, \"eng\", \"SliderDragContract\", \"Program.cs\"))", harness, StringComparison.Ordinal);
+        Assert.Contains("var slider = new Slider", fixture, StringComparison.Ordinal);
+        Assert.Contains("ProGpuWpfDiagnostics.TryRaiseInput", fixture, StringComparison.Ordinal);
+        Assert.Contains("ReferenceEquals(Mouse.Captured, thumb)", fixture, StringComparison.Ordinal);
+        Assert.Contains("!track.IsArrangeValid", fixture, StringComparison.Ordinal);
+        Assert.Contains("host.SilkWindow is not null", fixture, StringComparison.Ordinal);
+        Assert.DoesNotContain("RaiseEvent(", fixture, StringComparison.Ordinal);
+        Assert.DoesNotContain("DragDeltaEventArgs", fixture, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void WindowsTextLayoutGateComparesRepresentativeSourceMatrix()
     {
         string xaml = File.ReadAllText(FindRepoPath(
@@ -14637,6 +14655,13 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("journal details page", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
         Assert.Contains("ValidateSecondaryWindow(window, aboutMenuItem)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
         Assert.Contains("secondary window initial owner", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ValidateSecondaryWindowResizeIntent(dialog)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("if (PortableWpfRuntime.ConfiguredMediaBackend != PortableWpfMediaBackend.Portable)\n        {\n            return;\n        }", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("secondary window portable media selection frozen", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("ProGpuWpfDiagnostics.TryGetWindowHost(dialog, out var host)", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("dialog.ResizeMode = ResizeMode.CanMinimize", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("host.CanMinimize, \"secondary window source minimize intent\"", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("host.CanMaximize, \"secondary window source maximize intent\"", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
         Assert.Contains("input Popup placement target", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
         Assert.Contains("input Popup initial open state", showcaseMainWindowCodeBehind, StringComparison.Ordinal);
         Assert.Contains("PlacementMode.Bottom", showcaseMainWindowCodeBehind, StringComparison.Ordinal);

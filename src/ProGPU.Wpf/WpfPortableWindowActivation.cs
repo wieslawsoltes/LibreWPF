@@ -581,7 +581,15 @@ public sealed class WpfPortableWindowActivation : IDisposable, INativeWindowOwne
     {
         ThrowIfDisposed();
 
-        Host.SetWindowBorder(ResolveWindowBorder(resizeMode, windowStyle, Host.WindowBorder));
+        bool canMinimize = Host.CanMinimize;
+        bool canMaximize = Host.CanMaximize;
+        if (TryReadResizeMode(resizeMode, out int value) &&
+            TryMapResizeCapabilities(value, out WindowResizeCapabilities capabilities))
+        {
+            canMinimize = capabilities.CanMinimize;
+            canMaximize = capabilities.CanMaximize;
+        }
+        Host.SetWindowBorder(ResolveWindowBorder(resizeMode, windowStyle, Host.WindowBorder), canMinimize, canMaximize);
     }
 
     public bool SetWindowRegion(PortableWindowRegion region)
@@ -954,6 +962,8 @@ public sealed class WpfPortableWindowActivation : IDisposable, INativeWindowOwne
             RendererMode = fallback.RendererMode,
             EnableNativeMilHitTesting = fallback.EnableNativeMilHitTesting,
             WindowBorder = fallback.WindowBorder,
+            CanMinimize = fallback.CanMinimize,
+            CanMaximize = fallback.CanMaximize,
             WindowState = fallback.WindowState
         };
 
@@ -1131,6 +1141,11 @@ public sealed class WpfPortableWindowActivation : IDisposable, INativeWindowOwne
         }
 
         options.WindowBorder = ResolveWindowBorder(state, options.WindowBorder);
+        if (state.HasResizeMode && TryMapResizeCapabilities(state.ResizeMode, out WindowResizeCapabilities capabilities))
+        {
+            options.CanMinimize = capabilities.CanMinimize;
+            options.CanMaximize = capabilities.CanMaximize;
+        }
     }
 
     private void SynchronizeInitialWindowState(
@@ -1159,7 +1174,14 @@ public sealed class WpfPortableWindowActivation : IDisposable, INativeWindowOwne
             Host.SetTopmost(state.Topmost);
         }
 
-        Host.SetWindowBorder(ResolveWindowBorder(state, Host.WindowBorder));
+        bool canMinimize = Host.CanMinimize;
+        bool canMaximize = Host.CanMaximize;
+        if (state.HasResizeMode && TryMapResizeCapabilities(state.ResizeMode, out WindowResizeCapabilities capabilities))
+        {
+            canMinimize = capabilities.CanMinimize;
+            canMaximize = capabilities.CanMaximize;
+        }
+        Host.SetWindowBorder(ResolveWindowBorder(state, Host.WindowBorder), canMinimize, canMaximize);
 
         var hasWidth =
             TryGetPositiveDimension(state.HasWidth, state.Width, out var width) ||
@@ -1649,6 +1671,13 @@ public sealed class WpfPortableWindowActivation : IDisposable, INativeWindowOwne
             }
 
             ProcessHostInputAndRequestRender(e);
+            if (_pressedMouseButtons.Count != 0)
+            {
+                // Native callbacks can also run on the WPF dispatcher itself.
+                // A coalesced render request does not arrange Thumb before the
+                // next move in that native poll; drain its layout work here too.
+                FlushWpfDispatcherOperations("Render");
+            }
         }
         finally
         {
@@ -2397,57 +2426,45 @@ public sealed class WpfPortableWindowActivation : IDisposable, INativeWindowOwne
         out ProGpuWpfWindowBorder windowBorder)
     {
         windowBorder = ProGpuWpfWindowBorder.Resizable;
-        if (resizeMode == null)
-        {
-            return false;
-        }
-
-        if (TryConvertEnumNumber(resizeMode, out var value))
-        {
-            return TryMapResizeModeValue(value, out windowBorder);
-        }
-
-        return TryMapResizeModeName(resizeMode.ToString(), out windowBorder);
+        return TryReadResizeMode(resizeMode, out int value) && TryMapResizeModeValue(value, out windowBorder);
     }
 
     private static bool TryMapResizeModeValue(
         int resizeMode,
         out ProGpuWpfWindowBorder windowBorder)
     {
-        switch (resizeMode)
-        {
-            case 0:
-            case 1:
-                windowBorder = ProGpuWpfWindowBorder.Fixed;
-                return true;
-            case 2:
-            case 3:
-                windowBorder = ProGpuWpfWindowBorder.Resizable;
-                return true;
-            default:
-                windowBorder = ProGpuWpfWindowBorder.Resizable;
-                return false;
-        }
+        bool mapped = TryMapResizeCapabilities(resizeMode, out WindowResizeCapabilities capabilities);
+        windowBorder = mapped ? capabilities.Border : ProGpuWpfWindowBorder.Resizable;
+        return mapped;
     }
 
-    private static bool TryMapResizeModeName(
-        string? resizeMode,
-        out ProGpuWpfWindowBorder windowBorder)
+    private readonly record struct WindowResizeCapabilities(
+        ProGpuWpfWindowBorder Border, bool CanMinimize, bool CanMaximize);
+
+    private static bool TryMapResizeCapabilities(int resizeMode, out WindowResizeCapabilities capabilities)
     {
-        switch (resizeMode)
+        capabilities = resizeMode switch
         {
-            case "NoResize":
-            case "CanMinimize":
-                windowBorder = ProGpuWpfWindowBorder.Fixed;
-                return true;
-            case "CanResize":
-            case "CanResizeWithGrip":
-                windowBorder = ProGpuWpfWindowBorder.Resizable;
-                return true;
-            default:
-                windowBorder = ProGpuWpfWindowBorder.Resizable;
-                return false;
-        }
+            0 => new(ProGpuWpfWindowBorder.Fixed, false, false),
+            1 => new(ProGpuWpfWindowBorder.Fixed, true, false),
+            2 or 3 => new(ProGpuWpfWindowBorder.Resizable, true, true),
+            _ => default
+        };
+        return resizeMode is >= 0 and <= 3;
+    }
+
+    private static bool TryReadResizeMode(object? resizeMode, out int value)
+    {
+        if (resizeMode != null && TryConvertEnumNumber(resizeMode, out value)) return true;
+        value = resizeMode?.ToString() switch
+        {
+            "NoResize" => 0,
+            "CanMinimize" => 1,
+            "CanResize" => 2,
+            "CanResizeWithGrip" => 3,
+            _ => -1
+        };
+        return value >= 0;
     }
 
     private static bool IsHiddenWindowStyle(object? windowStyle)
