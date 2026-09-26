@@ -15392,6 +15392,8 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("<TransitiveFrameworkReference", portableTargets, StringComparison.Ordinal);
         Assert.Contains("Remove=\"@(TransitiveFrameworkReference)\"", portableTargets, StringComparison.Ordinal);
         Assert.Contains("'%(TransitiveFrameworkReference.Identity)' == 'Microsoft.WindowsDesktop.App' Or '%(TransitiveFrameworkReference.Identity)' == 'Microsoft.WindowsDesktop.App.WPF'", portableTargets, StringComparison.Ordinal);
+        Assert.Contains("Remove=\"Microsoft.WindowsDesktop.App.WindowsForms\"", portableTargets, StringComparison.Ordinal);
+        Assert.Contains("Condition=\"'$(ProGpuWpfUsePortableWinFormsCompat)' == 'true' And '$(ProGpuWpfReferenceMode)' == 'Package'\"", portableTargets, StringComparison.Ordinal);
         Assert.Contains("<CopyLocalLockFileAssemblies Condition=\"'$(ProGpuWpfUsePortableFrameworkReferences)' == 'true'\">true</CopyLocalLockFileAssemblies>", portableTargets, StringComparison.Ordinal);
         Assert.Contains("<PropertyGroup Condition=\"'$(ProGpuWpfUsePortableFrameworkReferences)' == 'true' And '$(ProGpuWpfEnablePortableBootstrap)' == 'true' And ('$(OutputType)' == 'Exe' Or '$(OutputType)' == 'WinExe') And '$(ProGpuWpfUsePortableWinFormsCompat)' == 'true' And '$(ProGpuWpfUseLibreWinForms)' == 'true'\">", portableTargets, StringComparison.Ordinal);
         Assert.Contains("<DefineConstants>$(DefineConstants);PROGPU_WPF_USE_LIBREWINFORMS</DefineConstants>", portableTargets, StringComparison.Ordinal);

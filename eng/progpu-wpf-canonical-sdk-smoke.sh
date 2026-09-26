@@ -165,4 +165,18 @@ do
   done
 done
 
+transitive_properties=()
+for package_property in "${package_properties[@]}"
+do
+  transitive_properties+=(--property "${package_property#-p:}")
+done
+python3 "${repo_root}/eng/tests/test_wpf_sdk_transitive_forms.py" \
+  --dotnet "${dotnet_command}" \
+  --sdk-root "${smoke_packages}/librewpf.sdk/${sdk_cache_version}" \
+  --packages-root "${smoke_packages}" \
+  --nuget-config "${smoke_config}" \
+  --output-dir "${smoke_root}/transitive-forms" \
+  --package-smoke \
+  "${transitive_properties[@]}"
+
 echo "Canonical LibreWPF SDK package consumers succeeded with UseWPF true/false and central package management true/false."
