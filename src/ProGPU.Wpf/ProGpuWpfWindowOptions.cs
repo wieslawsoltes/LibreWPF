@@ -56,6 +56,12 @@ public sealed class ProGpuWpfWindowOptions
 
     public ProGpuWpfWindowBorder WindowBorder { get; set; } = ProGpuWpfWindowBorder.Resizable;
 
+    /// <summary>Requested minimize capability; native admission is platform-specific.</summary>
+    public bool CanMinimize { get; set; } = true;
+
+    /// <summary>Requested maximize capability; native admission is platform-specific.</summary>
+    public bool CanMaximize { get; set; } = true;
+
     public ProGpuWpfWindowState WindowState { get; set; } = ProGpuWpfWindowState.Normal;
 }
 
