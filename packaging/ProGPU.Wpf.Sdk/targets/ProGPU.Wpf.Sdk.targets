@@ -78,6 +78,13 @@
       <TransitiveFrameworkReference
         Remove="@(TransitiveFrameworkReference)"
         Condition="'%(TransitiveFrameworkReference.Identity)' == 'Microsoft.WindowsDesktop.App' Or '%(TransitiveFrameworkReference.Identity)' == 'Microsoft.WindowsDesktop.App.WPF'" />
+      <!-- A Forms-only dependency carries this distinct framework identity.
+           Replace it only when this SDK supplies the portable Forms package
+           closure below; opting out or supplying local WPF artifacts alone
+           must not silently admit a foreign Windows Forms dependency. -->
+      <TransitiveFrameworkReference
+        Remove="Microsoft.WindowsDesktop.App.WindowsForms"
+        Condition="'$(ProGpuWpfUsePortableWinFormsCompat)' == 'true' And '$(ProGpuWpfReferenceMode)' == 'Package'" />
     </ItemGroup>
   </Target>
 
