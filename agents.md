@@ -1,5 +1,15 @@
 # Agent Guidance
 
+Retained layout clips compare typed geometry values, not freshly allocated source
+objects. Keep primitive capture inline, and own path/figure/segment snapshots;
+mutable source DTO or array identity is never proof of equality. Reuse a retained
+copy only after complete live value comparison, with matching double/hash
+semantics and bounded recursive capture. Unknown/unavailable/oversized metadata
+retains reference identity, not empty geometry or new drawing admission. Preserve
+HasLayoutClip, empty/zero-size distinctions, transforms and dirty-source batching.
+See docs/native-layout-clip-invalidation.md; actual idle application qualification
+remains separate from tracker tests.
+
 Portable source number substitution resolves existing DigitState policy before
 physical-font selection. Contextual source ranges use ProGPU's typed batched
 digit-context service over original UTF-16, including preceding source context
