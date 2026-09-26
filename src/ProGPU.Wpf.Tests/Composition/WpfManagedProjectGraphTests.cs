@@ -1713,7 +1713,7 @@ public sealed class WpfManagedProjectGraphTests
         Assert.DoesNotContain("typeof(Action<object, object, object>)", proGpuActivation, StringComparison.Ordinal);
         Assert.DoesNotContain("typeof(Func<object, IntPtr>)", proGpuActivation, StringComparison.Ordinal);
         Assert.Contains("public void SetWindowBorder(object? resizeMode, object? windowStyle)", proGpuActivation, StringComparison.Ordinal);
-        Assert.Contains("Host.SetWindowBorder(ResolveWindowBorder(resizeMode, windowStyle, Host.WindowBorder))", proGpuActivation, StringComparison.Ordinal);
+        Assert.Contains("Host.SetWindowBorder(ResolveWindowBorder(resizeMode, windowStyle, Host.WindowBorder), canMinimize, canMaximize)", proGpuActivation, StringComparison.Ordinal);
         Assert.Contains("TryMapResizeModeToWindowBorder", proGpuActivation, StringComparison.Ordinal);
         Assert.Contains("WindowStyle", proGpuActivation, StringComparison.Ordinal);
         Assert.Contains("ApplicationIdleFlushTimeout = TimeSpan.FromMilliseconds(250)", proGpuActivation, StringComparison.Ordinal);
