@@ -58,8 +58,9 @@ already staged for Showcase. It reuses the existing signed source-test friend
 identity and links all four test bodies unchanged. An STA entry thread selects
 portable pixel storage, invokes every body directly (no discovery or skip path),
 and must finish within 60 seconds with four passed, zero skipped and the expected
-process architecture. PresentationCore, WindowsBase and shared Interop output
-hashes must match their exact packages. This is a real Windows OLE/GDI transport
+process architecture. PresentationCore, WindowsBase, System.Private.Windows.Core,
+PresentationNative_cor3 and shared Interop output hashes must match their exact
+packages and selected RID. This is a real Windows OLE/GDI transport
 gate, not a renderer fallback or a new public source API.
 
 PresentationCore Release compiled with the repository SDK on macOS ARM64:
@@ -70,7 +71,19 @@ executable also compile with zero warnings and zero errors. These local checks
 use explicit current source-built core assemblies and the existing source-built
 bridge closure, not a freshly produced Windows package. They are compile-only;
 the CI consumer instead uses the exact downloaded package implementation bytes.
-No test bodies, Windows VM, GDI/OLE runtime, rendered screenshot or image-quality
-comparison has run during this implementation-first batch. Existing exact-head
+An additional isolated Windows ARM64 source diagnostic launched the unchanged
+four-body executable on .NET 10.0.5, with copied managed PE files checked by SHA-256 and
+macOS native shims excluded. It failed during WindowsBase window-procedure setup
+because that source-only closure lacks `PresentationNative_cor3.dll`; no test
+completion marker was produced. The normal transport explicitly repacks native
+WindowsDesktop runtime assets from the declared `10.0.11` packages, alongside the
+separately Windows-built PresentationCore/DirectWriteForwarder and IJW host. The
+SDK copies selected native runtime assets to Showcase; the clipboard consumer
+then copies that declared DLL closure and verifies the selected PresentationNative
+bytes before execution. No ambient WindowsDesktop DLL graft or stock managed WPF
+replacement is used. The failed source probe is incomplete native staging, not
+Windows image transport qualification or evidence about the reported hang. Preflight also
+found and corrected the standalone consumer's inherited copy-local suppression:
+its declared xUnit assertion DLL now accompanies the executable. Existing exact-head
 CI and Windows x64/ARM64 package/runtime gates remain required; source compilation
-does not close issue117 or prove its hang fixed.
+and this failed diagnostic do not close issue117.

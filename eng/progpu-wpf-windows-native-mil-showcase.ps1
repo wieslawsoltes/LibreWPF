@@ -422,6 +422,8 @@ $clipboardDirectory = Join-Path $artifactsRoot "bin/WindowsClipboardConsumer/Rel
 $clipboardAppHost = Join-Path $clipboardDirectory "PresentationCore.Tests.exe"
 Assert-ExactPackageAsset (Join-Path $clipboardDirectory "PresentationCore.dll") $transportPackage "runtimes/$targetRid/lib/net10.0/PresentationCore.dll"
 Assert-ExactPackageAsset (Join-Path $clipboardDirectory "WindowsBase.dll") $transportPackage "lib/net10.0/WindowsBase.dll"
+Assert-ExactPackageAsset (Join-Path $clipboardDirectory "System.Private.Windows.Core.dll") $transportPackage "lib/net10.0/System.Private.Windows.Core.dll"
+Assert-ExactPackageAsset (Join-Path $clipboardDirectory "PresentationNative_cor3.dll") $transportPackage "runtimes/$targetRid/native/PresentationNative_cor3.dll"
 $interopPackage = Join-Path $PackageDirectory "LibreWPF.Interop.$nativePackageVersion.nupkg"
 Assert-ExactPackageAsset (Join-Path $clipboardDirectory "ProGPU.Wpf.Interop.dll") $interopPackage "lib/net10.0/ProGPU.Wpf.Interop.dll"
 $clipboardResult = Invoke-CapturedApplication $clipboardAppHost (Join-Path $smokeRoot "clipboard-stdout.log") (Join-Path $smokeRoot "clipboard-stderr.log") 60000
