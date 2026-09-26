@@ -7424,7 +7424,13 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("CollectRemovedVisualStateSources(\n                _visualStateSnapshots,\n                _visualStateTraversalVisited,\n                _changedSources)", trackerSource, StringComparison.Ordinal);
         Assert.Contains("Dictionary<object, object?[]> previousChildren,", trackerSource, StringComparison.Ordinal);
         Assert.Contains("private static void CollectRemovedVisualStateSources(\n        Dictionary<object, VisualStateSnapshot> previous,\n        HashSet<object> visited,", trackerSource, StringComparison.Ordinal);
-        Assert.Contains("if (!previousStates.TryGetValue(source, out var previousSnapshot) ||", trackerSource, StringComparison.Ordinal);
+        Assert.Contains("bool hasPreviousState = previousStates.TryGetValue(source, out var previousState);", trackerSource, StringComparison.Ordinal);
+        AssertGuardBefore(trackerSource,
+            "bool hasPreviousState = previousStates.TryGetValue(source, out var previousState);",
+            "TryReadVisualStateSnapshot(source, out var snapshot, previousState.LayoutClip)");
+        Assert.Contains("if (!hasPreviousState || !previousState.Equals(snapshot))\n            {\n                changedSources.Add(source);", trackerSource, StringComparison.Ordinal);
+        Assert.Contains("builder.SetLayoutClip(layoutState.LayoutClip, previousLayoutClip);", trackerSource, StringComparison.Ordinal);
+        Assert.Contains("_layoutClip = WpfLayoutClipKey.Capture(clip, previous);", trackerSource, StringComparison.Ordinal);
         Assert.Contains("else if (previousStates.ContainsKey(source))", trackerSource, StringComparison.Ordinal);
         Assert.Contains("if (!visited.Contains(snapshot.Key))", trackerSource, StringComparison.Ordinal);
         Assert.Contains("private static void CollectRemovedVisualChildrenSources(\n        Dictionary<object, object?[]> previous,", trackerSource, StringComparison.Ordinal);
@@ -13355,8 +13361,61 @@ public sealed class WpfManagedProjectGraphTests
 
         Assert.Contains("name: LibreWPF Build", sdkCiWorkflow, StringComparison.Ordinal);
         Assert.Contains("PROGPU_WPF_QUALIFIED_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}", sdkCiWorkflow, StringComparison.Ordinal);
-        Assert.Equal(9, sdkCiWorkflow.Split("ref: ${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}", StringSplitOptions.None).Length - 1);
-        Assert.Equal(20, sdkCiWorkflow.Split("${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}", StringSplitOptions.None).Length - 1);
+        Assert.Equal(10, sdkCiWorkflow.Split("ref: ${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}", StringSplitOptions.None).Length - 1);
+        Assert.Equal(22, sdkCiWorkflow.Split("${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}", StringSplitOptions.None).Length - 1);
+        int retainedJobStart = sdkCiWorkflow.IndexOf("  retained-invalidation:\n", StringComparison.Ordinal);
+        Assert.True(retainedJobStart >= 0, "The fast retained-invalidation job must be present.");
+        int retainedJobEnd = sdkCiWorkflow.IndexOf("\n  canonical-winforms-integration:", retainedJobStart, StringComparison.Ordinal);
+        Assert.True(retainedJobEnd > retainedJobStart, "The fast retained-invalidation job must precede the full source gate.");
+        string retainedJob = sdkCiWorkflow.Substring(retainedJobStart, retainedJobEnd - retainedJobStart);
+        Assert.Contains("runs-on: ubuntu-24.04", retainedJob, StringComparison.Ordinal);
+        Assert.Contains("timeout-minutes: 20", retainedJob, StringComparison.Ordinal);
+        Assert.Contains("ref: ${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}", retainedJob, StringComparison.Ordinal);
+        Assert.Contains("submodules: true", retainedJob, StringComparison.Ordinal);
+        Assert.Contains("global-json-file: global.json", retainedJob, StringComparison.Ordinal);
+        Assert.Contains("dotnet-version: 10.0.x", retainedJob, StringComparison.Ordinal);
+        Assert.Contains("run: bash ./eng/progpu-wpf-layout-clip.sh", retainedJob, StringComparison.Ordinal);
+        Assert.Contains("if: always()", retainedJob, StringComparison.Ordinal);
+        Assert.Contains("uses: actions/upload-artifact@v4", retainedJob, StringComparison.Ordinal);
+        Assert.Contains("path: artifacts/layout-clip-ci/**", retainedJob, StringComparison.Ordinal);
+        Assert.DoesNotContain("needs:", retainedJob, StringComparison.Ordinal);
+        Assert.DoesNotContain("\n    if:", retainedJob, StringComparison.Ordinal);
+        Assert.DoesNotContain("continue-on-error:", retainedJob, StringComparison.Ordinal);
+
+        string retainedRunner = File.ReadAllText(FindRepoPath("eng", "progpu-wpf-layout-clip.sh"));
+        Assert.Contains("src/ProGPU.Wpf.Tests/ProGPU.Wpf.Tests.csproj", retainedRunner, StringComparison.Ordinal);
+        Assert.Contains("build \"${project}\" --configuration Release", retainedRunner, StringComparison.Ordinal);
+        Assert.Contains("vstest \"${assembly}\"", retainedRunner, StringComparison.Ordinal);
+        foreach (string testClass in new[]
+        {
+            "ProGPU.Wpf.Tests.Composition.Mil.WpfLayoutClipKeyTests",
+            "ProGPU.Wpf.Tests.Composition.Mil.WpfLayoutClipKeyEqualityTests",
+            "ProGPU.Wpf.Tests.Composition.Mil.WpfVisualInvalidationTrackerTests",
+            "ProGPU.Wpf.Tests.Composition.Mil.WpfVisualTreeRendererTests",
+            "ProGPU.Wpf.Tests.ProGpuWpfWindowHostTests"
+        })
+        {
+            Assert.Contains($"FullyQualifiedName~{testClass}.", retainedRunner, StringComparison.Ordinal);
+            Assert.Contains($"\"{testClass}\": ", retainedRunner, StringComparison.Ordinal);
+        }
+        Assert.Contains("require(total >= sum(minimum.values())", retainedRunner, StringComparison.Ordinal);
+        Assert.Contains("require(counts[class_name] >= expected", retainedRunner, StringComparison.Ordinal);
+        Assert.Contains("require(result.get(\"outcome\") == \"Passed\"", retainedRunner, StringComparison.Ordinal);
+        Assert.Contains("require(int(value) == 0", retainedRunner, StringComparison.Ordinal);
+        Assert.Contains("test_pipeline=(\"${PIPESTATUS[@]}\")", retainedRunner, StringComparison.Ordinal);
+        Assert.Contains("exit \"${test_status}\"", retainedRunner, StringComparison.Ordinal);
+        Assert.Contains("exit \"${log_status}\"", retainedRunner, StringComparison.Ordinal);
+        Assert.Contains("exit \"${receipt_status}\"", retainedRunner, StringComparison.Ordinal);
+        AssertGuardBefore(sdkCiWorkflow,
+            "run: bash ./eng/progpu-wpf-messagebox-modal.sh",
+            "run: bash ./eng/progpu-wpf-layout-clip-source.sh");
+        string clipSourceRunner = File.ReadAllText(FindRepoPath("eng", "progpu-wpf-layout-clip-source.sh"));
+        Assert.Contains("artifacts/bin/PresentationFramework.Tests/${configuration}/net10.0-windows/PresentationFramework.Tests.dll", clipSourceRunner, StringComparison.Ordinal);
+        Assert.Contains("if [[ ! -f \"${assembly}\" ]]", clipSourceRunner, StringComparison.Ordinal);
+        Assert.Contains("export LIBREWPF_TEST_MEDIA_BACKEND=Portable", clipSourceRunner, StringComparison.Ordinal);
+        Assert.Contains("exec \"${dotnet_command}\" \"${assembly}\"", clipSourceRunner, StringComparison.Ordinal);
+        Assert.Contains("--filter-class System.Windows.PortableLayoutClipSourceTests", clipSourceRunner, StringComparison.Ordinal);
+        Assert.Contains("--minimum-expected-tests 16 --fail-skips on --timeout 60s", clipSourceRunner, StringComparison.Ordinal);
         Assert.Contains("windows-native-mil-showcase:", sdkCiWorkflow, StringComparison.Ordinal);
         Assert.Contains("./eng/progpu-wpf-windows-native-mil-showcase.ps1", sdkCiWorkflow, StringComparison.Ordinal);
         Assert.Contains("windows-arm64-native-mil-showcase:", sdkCiWorkflow, StringComparison.Ordinal);
@@ -13364,7 +13423,7 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("./eng/progpu-wpf-windows-native-mil-showcase.ps1 -TargetArchitecture arm64", sdkCiWorkflow, StringComparison.Ordinal);
         Assert.DoesNotContain("librewpf-ci-packages-${{ github.sha }}", sdkCiWorkflow, StringComparison.Ordinal);
         Assert.DoesNotContain("librewpf-windows-managed-runtime-${{ github.sha }}", sdkCiWorkflow, StringComparison.Ordinal);
-        Assert.Equal(3, sdkCiWorkflow.Split("submodules: true", StringSplitOptions.None).Length - 1);
+        Assert.Equal(4, sdkCiWorkflow.Split("submodules: true", StringSplitOptions.None).Length - 1);
         Assert.Contains("submodules: recursive", sdkCiWorkflow, StringComparison.Ordinal);
         Assert.Contains("./eng/progpu-wpf-canonical-winforms-integration.sh", sdkCiWorkflow, StringComparison.Ordinal);
         Assert.Contains("find \"${canonical_package_output}\" -maxdepth 1 -type f", canonicalWinFormsIntegrationScript, StringComparison.Ordinal);
