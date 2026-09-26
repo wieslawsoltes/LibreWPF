@@ -78,6 +78,18 @@ its compiled test assembly. All existing package, native and application jobs
 and deadlines remain required. Missing tests, failures and skips fail the new
 gates. Exact-head full CI remains a separate merge requirement.
 
+The initial Ubuntu job at `b4c1a80cd537ae3d1632f74f068b1d62ca9749e3`
+[built successfully and executed all 619 cases](https://github.com/wieslawsoltes/LibreWPF/actions/runs/36258688561/job/108450226844):
+614 passed, five failed, zero skipped. All 103 new clip contracts passed. The five
+existing window-host cases failed while `CreateHeadless` initialized WebGPU,
+reporting that no suitable adapter was available; they did not fail a clip-value
+assertion. The new job had omitted the headless Linux prerequisite already used
+by ProGPU's CI. It now installs `libvulkan1` and `mesa-vulkan-drivers` through the
+pinned ProGPU installer before running the unchanged 619-case gate. No adapter
+override, renderer fallback, test exclusion, timeout, GC, or parallelism change is
+introduced. The job retains its original 20-minute deadline; corrected-head Linux
+execution and the whole CI result remain required.
+
 The full unchanged-parent bridge run initially had 18 missing-native-library
 failures and two stale source-string guards in addition to the 86 regressions.
 Staging both native providers from the exact successful ProGPU

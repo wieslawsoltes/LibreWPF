@@ -36,6 +36,9 @@ jobs:
           global-json-file: global.json
           dotnet-version: 10.0.x
 
+      - name: Install headless WebGPU dependencies
+        run: bash ./external/ProGPU/eng/progpu-install-linux-packages.sh libvulkan1 mesa-vulkan-drivers
+
       - name: Build and validate retained invalidation contracts
         run: bash ./eng/progpu-wpf-layout-clip.sh
 

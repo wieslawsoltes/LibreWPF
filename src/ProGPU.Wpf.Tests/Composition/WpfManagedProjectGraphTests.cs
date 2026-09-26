@@ -13378,6 +13378,10 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("submodules: true", retainedJob, StringComparison.Ordinal);
         Assert.Contains("global-json-file: global.json", retainedJob, StringComparison.Ordinal);
         Assert.Contains("dotnet-version: 10.0.x", retainedJob, StringComparison.Ordinal);
+        Assert.Contains("run: bash ./external/ProGPU/eng/progpu-install-linux-packages.sh libvulkan1 mesa-vulkan-drivers", retainedJob, StringComparison.Ordinal);
+        AssertGuardBefore(retainedJob,
+            "run: bash ./external/ProGPU/eng/progpu-install-linux-packages.sh libvulkan1 mesa-vulkan-drivers",
+            "run: bash ./eng/progpu-wpf-layout-clip.sh");
         Assert.Contains("run: bash ./eng/progpu-wpf-layout-clip.sh", retainedJob, StringComparison.Ordinal);
         Assert.Contains("if: always()", retainedJob, StringComparison.Ordinal);
         Assert.Contains("uses: actions/upload-artifact@v4", retainedJob, StringComparison.Ordinal);
