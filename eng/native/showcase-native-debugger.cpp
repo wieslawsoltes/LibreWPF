@@ -156,9 +156,9 @@ int run(const std::filesystem::path& app, const std::filesystem::path& raw,
         native != machine || ResumeThread(initial_thread.value) == static_cast<DWORD>(-1)) return 2;
     DWORD exit_code = 124, exception_code = 0, thread_id = 0, dump_error = 0, loop_error = 0;
     std::uintptr_t exception_address = 0;
-    bool captured = false, exited = false, loader_breakpoint = false;
+    bool captured = false, exited = false, exit_event_seen = false, loader_breakpoint = false;
     const ULONGLONG deadline = GetTickCount64() + child_deadline_ms;
-    while (!exited && GetTickCount64() < deadline) {
+    while (!exit_event_seen && GetTickCount64() < deadline) {
         DEBUG_EVENT event{};
         if (!WaitForDebugEventEx(&event, 100)) {
             const DWORD error = GetLastError();
@@ -194,7 +194,7 @@ int run(const std::filesystem::path& app, const std::filesystem::path& raw,
                 break;
             case EXIT_PROCESS_DEBUG_EVENT:
                 exit_code = event.u.ExitProcess.dwExitCode;
-                exited = true;
+                exit_event_seen = true;
                 break;
             default: break;
         }
@@ -205,6 +205,23 @@ int run(const std::filesystem::path& app, const std::filesystem::path& raw,
     }
     // Debug-owned process/thread event handles are closed by Windows on exit
     // continuation. The separate CreateProcess handles above remain caller-owned.
+    // An exit event is not the process-object signal. Observe actual termination
+    // before the caller removes the unique apphost, using only the remainder of
+    // the original child deadline (not a fresh cleanup timeout).
+    if (exit_event_seen && loop_error == 0) {
+        const ULONGLONG now = GetTickCount64();
+        const DWORD remaining = now < deadline ? static_cast<DWORD>(deadline - now) : 0;
+        const DWORD wait = WaitForSingleObject(process.value, remaining);
+        if (wait == WAIT_OBJECT_0) {
+            DWORD actual_exit_code = 0;
+            if (!GetExitCodeProcess(process.value, &actual_exit_code)) loop_error = GetLastError();
+            else if (actual_exit_code != exit_code) loop_error = ERROR_INVALID_DATA;
+            else exited = true;
+        } else {
+            loop_error = wait == WAIT_TIMEOUT ? ERROR_TIMEOUT :
+                (wait == WAIT_FAILED ? GetLastError() : ERROR_INVALID_DATA);
+        }
+    }
     // Closing our job also retires the child if the debugger deadline/API failed.
     const std::string json = "{\"schemaVersion\":1,\"diagnosticOnly\":true,\"processId\":" +
         std::to_string(created.dwProcessId) + ",\"machine\":" + std::to_string(machine) +

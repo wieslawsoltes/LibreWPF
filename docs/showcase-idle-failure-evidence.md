@@ -212,6 +212,28 @@ remain explicit unavailable diagnostics. The helper cannot change the original
 child exit, timeout, cleanup status, or success judgment. This extra
 post-failure budget never lengthens the application's 120-second bound.
 
+## Owned debugger child retirement
+
+Build `36336975867` captured the ARM64 failure in its separate native replay,
+but that replay reported `WinError 5` while deleting its uniquely owned apphost.
+The debugger had accepted `EXIT_PROCESS_DEBUG_EVENT` as a completed process
+without observing termination after continuing the event. The helper now waits
+on its original `CreateProcessW` process handle after a successful exit-event
+continuation, using only the remainder of the existing 110-second deadline.
+It reports `exited: true` only after the process is signaled and its actual
+exit code matches the debug event. Timeout/API errors remain explicit failures;
+there is no new retry, extended timeout, or unrelated-process cleanup.
+
+This follows the distinct Windows contracts for
+[continuing debug events](https://learn.microsoft.com/en-us/windows/win32/api/debugapi/nf-debugapi-continuedebugevent)
+and [process termination](https://learn.microsoft.com/en-us/windows/win32/procthread/terminating-a-process).
+Native x64/ARM64 controls delete their copied fixture immediately after the
+helper returns, before reading the dump, without sleeps or retries. The offline
+source control checks ordering, the original deadline and fail-closed receipt.
+These checks do not prove the original ARM64 Showcase crash resolved or establish
+its apphost cleanup on an executed application replay; those remain independent
+CI application requirements.
+
 ## Local validation boundary
 
 Offline checks: 16 event/XML/ABI/order controls, 20 launcher/child controls and

@@ -68,13 +68,33 @@ class Controls(unittest.TestCase):
             self.assertEqual(diagnostic.load_event(path, 0xAA64), event())
             for change in (dict(diagnosticOnly=False), dict(machine=0x8664), dict(processId=True),
                            dict(processId=0), dict(exitCode=-1), dict(exited=False),
-                           dict(loopError=5), dict(captured="true"), dict(exceptionThreadId=0),
+                           dict(loopError=5), dict(loopError=1460), dict(exited=1),
+                           dict(captured="true"), dict(exceptionThreadId=0),
                            dict(exceptionCode=0), dict(dumpError=5), dict(schemaVersion=True)):
                 path.write_text(json.dumps(event() | change), encoding="utf-8")
                 with self.subTest(change=change), self.assertRaises(ValueError):
                     diagnostic.load_event(path, 0xAA64)
             path.write_text(" " * 4097, encoding="utf-8")
             with self.assertRaises(ValueError): diagnostic.load_event(path, 0xAA64)
+
+    def test_exit_event_requires_continuation_and_actual_process_termination(self):
+        source = (Path(__file__).parent / "native" / "showcase-native-debugger.cpp").read_text()
+        event_start = source.index("case EXIT_PROCESS_DEBUG_EVENT:")
+        continuation = source.index("if (!ContinueDebugEvent(", event_start)
+        wait = source.index("WaitForSingleObject(process.value, remaining)", continuation)
+        confirmed = source.index("else exited = true;", wait)
+        receipt = source.index('const std::string json =', confirmed)
+        self.assertIn("exit_event_seen = true;", source[event_start:continuation])
+        self.assertNotIn("exited = true;", source[event_start:wait])
+        self.assertIn("if (exit_event_seen && loop_error == 0)", source[continuation:wait])
+        self.assertIn("now < deadline ? static_cast<DWORD>(deadline - now) : 0", source[continuation:wait])
+        self.assertIn("wait == WAIT_OBJECT_0", source[wait:confirmed])
+        self.assertIn("GetExitCodeProcess(process.value, &actual_exit_code)", source[wait:confirmed])
+        self.assertIn("actual_exit_code != exit_code", source[wait:confirmed])
+        self.assertIn("wait == WAIT_TIMEOUT ? ERROR_TIMEOUT", source[confirmed:receipt])
+        self.assertIn("wait == WAIT_FAILED ? GetLastError()", source[confirmed:receipt])
+        self.assertEqual(source.count("GetTickCount64() + child_deadline_ms"), 1)
+        self.assertNotIn("INFINITE", source[continuation:receipt])
 
     def test_exception_stream_must_match_actual_event(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -153,6 +173,8 @@ def native_controls(directory, architecture):
             receipt = root / "event.json"
             result = subprocess.run([str(helper), str(app), str(raw), str(receipt)],
                 env=os.environ | {"SHOWCASE_DEBUGGER_FIXTURE": mode}, timeout=20, capture_output=True)
+            # No sleep, retry, or dump-validation work before testing image release.
+            app.unlink()
             value = diagnostic.load_event(receipt, expected)
             print(f"Native {architecture} {mode}: {json.dumps(value, sort_keys=True)}", flush=True)
             if result.returncode != expected_exit or value["exitCode"] != expected_exit or value["captured"] != captures:
