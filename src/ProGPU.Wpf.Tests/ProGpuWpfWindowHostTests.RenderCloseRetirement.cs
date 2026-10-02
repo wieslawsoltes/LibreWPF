@@ -219,6 +219,7 @@ public sealed partial class ProGpuWpfWindowHostTests
             Window = DispatchProxy.Create<IWindow, RenderCloseWindowProbe>();
             Probe = (RenderCloseWindowProbe)(object)Window;
             Probe.CloseAction = InvokeHostMethod<Action>(Host, "OnClosing");
+            Probe.RenderAction = Render;
             SetPrivateField(Host, "_window", Window);
             SetPrivateField(Host, "_nativeWindowThreadId", Environment.CurrentManagedThreadId);
             SetPrivateField(Host, "_target", Target);
@@ -246,9 +247,10 @@ public sealed partial class ProGpuWpfWindowHostTests
 
     public class RenderCloseWindowProbe : DispatchProxy
     {
-        internal Action? CloseAction;
-        internal bool Closing, Visible = true;
-        internal int Closes, Disposals;
+        internal Action? CloseAction, RenderAction, VisibilityReadAction;
+        internal Exception? VisibilityWriteFailure;
+        internal bool Closing, Visible = true, HideBeforeClose, RejectVisibilityAfterClose;
+        internal int Closes, Disposals, Renders, VisibilityWrites;
 
         protected override object? Invoke(MethodInfo? method, object?[]? args)
         {
@@ -257,10 +259,22 @@ public sealed partial class ProGpuWpfWindowHostTests
                 case "get_IsInitialized": return true;
                 case "get_IsClosing": return Closing;
                 case "set_IsClosing": Closing = (bool)args![0]!; return null;
-                case "set_IsVisible": Visible = (bool)args![0]!; return null;
-                case "get_IsVisible": return Visible;
+                case "set_IsVisible":
+                    if (RejectVisibilityAfterClose && Closing)
+                        throw new InvalidOperationException("The closing owned popup rejects visibility setters.");
+                    VisibilityWrites++;
+                    if (VisibilityWriteFailure != null) throw VisibilityWriteFailure;
+                    Visible = (bool)args![0]!;
+                    return null;
+                case "get_IsVisible": VisibilityReadAction?.Invoke(); return Visible;
                 case "ContinueEvents": return null;
-                case "Close": Closing = true; Closes++; CloseAction?.Invoke(); return null;
+                case "DoRender": Renders++; RenderAction?.Invoke(); return null;
+                case "Close":
+                    Closing = true;
+                    if (HideBeforeClose) Visible = false;
+                    Closes++;
+                    CloseAction?.Invoke();
+                    return null;
                 case "Dispose": Disposals++; return null;
             }
             if (method.Name.StartsWith("remove_", StringComparison.Ordinal)) return null;

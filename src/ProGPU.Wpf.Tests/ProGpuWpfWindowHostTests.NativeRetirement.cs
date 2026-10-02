@@ -408,11 +408,12 @@ public sealed partial class ProGpuWpfWindowHostTests
     public class RetirementWindowProbe : DispatchProxy
     {
         internal Action? DisposeAction, RemoveAction, RenderAction;
-        internal int EventRemovals, RenderCalls, EventDrivenReads;
+        internal int EventRemovals, RenderCalls, EventDrivenReads, Accesses;
         internal bool Released;
 
         protected override object? Invoke(MethodInfo? method, object?[]? args)
         {
+            Accesses++;
             if (Released) throw new InvalidOperationException("The retired provider must not be read again.");
             switch (method!.Name)
             {

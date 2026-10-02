@@ -1,5 +1,18 @@
 # Agent Guidance
 
+Explicit host Close must release every native modal lease for its exact window
+before provider Close, since owned Cocoa Close hides before raising Closing.
+Keep the pending window as a retirement prerequisite, recheck newly entered
+leases after callbacks, and preserve native cancellation. Dispose supersedes a
+session-deferred Close through creating-thread retirement, without duplicate
+Closing/Hide. Release failure is not permission to close; automatic modality
+and existing latest-intent Hide remain separate. See docs/native-session-close.md.
+Hide, Close and source dialog completion share one exact-window release proof.
+Coalesce while completion is outstanding, even if a later native query is empty;
+an undelivered failure blocks all three operations and visibility publication.
+After visibility reads, recheck intent and fresh native leases before writing.
+Close owns its already-hidden view; stale Hide callbacks must not touch it.
+
 Owned Cocoa popup modal input is bound only from the successful owned factory's
 exact IWindow/controller pair. Apply source scope state before visibility and
 retain provider identity through callbacks and native retirement completion.

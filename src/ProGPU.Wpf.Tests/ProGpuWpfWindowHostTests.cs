@@ -192,11 +192,13 @@ public sealed partial class ProGpuWpfWindowHostTests
         string hide = source[hideStart..hideEnd];
         Assert.Contains("HideNativeWindowAfterModalRelease();", hide);
         Assert.Contains("if (_nativeHidePending) return;", hide);
-        Assert.Contains("NativeWindowModalSession.TryReleaseWindow(", hide);
-        Assert.Contains("CompleteDeferredNativeHide)) return;", hide);
-        Assert.Contains("if (!_isDisposed && !_isHostVisible) HideNativeWindowAfterModalRelease();", hide);
-        Assert.True(hide.IndexOf("TryReleaseWindow(", StringComparison.Ordinal) <
-            hide.IndexOf("_window.IsVisible = false;", StringComparison.Ordinal));
+        Assert.Contains("RequestNativeWindowSessionRelease(window, () => CompleteDeferredNativeHide(window),", hide);
+        Assert.Contains("() => _nativeHidePending = false)", hide);
+        Assert.Contains("if (IsNativeHideCurrent(window)) HideNativeWindowAfterModalRelease();", hide);
+        Assert.Contains("return !_isDisposed && !_isHostVisible && !_hasNativeWindowCloseStarted", hide);
+        Assert.Contains("if (NativeWindowSessionRetains(window) || _nativeSessionReleaseCallbacks != null)", hide);
+        Assert.True(hide.IndexOf("RequestNativeWindowSessionRelease(", StringComparison.Ordinal) <
+            hide.IndexOf("window.IsVisible = false;", StringComparison.Ordinal));
     }
 
     [Theory]
@@ -760,7 +762,9 @@ public sealed partial class ProGpuWpfWindowHostTests
         Assert.Contains("if (!_disposeNativeWindowWhenLoopExits || _isNativeLoopRunning)", source, StringComparison.Ordinal);
         Assert.Contains("bool closeAlreadyStarted = _hasNativeWindowCloseStarted;", source, StringComparison.Ordinal);
         Assert.Contains("_hasNativeWindowCloseStarted = true;", source, StringComparison.Ordinal);
-        Assert.Contains("if (closeAlreadyStarted)\n        {\n            return;\n        }", source, StringComparison.Ordinal);
+        Assert.Contains("if (closeAlreadyStarted && _pendingNativeCloseWindow == null)\n        {\n            return;\n        }", source, StringComparison.Ordinal);
+        Assert.Contains("_pendingNativeCloseWindow = window;", source, StringComparison.Ordinal);
+        Assert.Contains("CompleteNativeCloseAfterSessionRelease(releasedSession: false);", source, StringComparison.Ordinal);
         Assert.Contains("window.Close();\n        TryRequestNativeLoopWakeup(window.ContinueEvents);", source, StringComparison.Ordinal);
         Assert.Contains("close request already pending", source, StringComparison.Ordinal);
         Assert.Contains("_hasNativeWindowCloseStarted = false;", source, StringComparison.Ordinal);
