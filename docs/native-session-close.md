@@ -108,3 +108,9 @@ minimum 356. Source checks confirm the single shared release boundary, coalesced
 outstanding callbacks, undelivered-error latch, creating-thread retirement drain,
 visibility-read/new-lease/write ordering and unchanged owner/local polling.
 These are source/syntax checks only, not type compilation or test execution.
+
+The getter-proof correction at `56df0685a68dbada8e7c472addbc01061e808240`
+passed the same bounded checks. Final inventory is 17 original plus 20 additional
+cases (37), with unchanged host selection and minimum 358. The source-order check
+now requires visibility read, then the retention query plus outstanding-callback
+proof, then the guarded visibility write. Hosted execution remains pending.
