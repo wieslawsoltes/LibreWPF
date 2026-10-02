@@ -20,7 +20,7 @@ namespace System.Windows.Media
     /// Transform provides a base for all types of transformations, including matrix and list type.
     ///</summary>
     [Localizability(LocalizationCategory.None, Readability=Readability.Unreadable)]
-    public abstract partial class Transform : GeneralTransform, IPortableTransformMatrixSource
+    public abstract partial class Transform : GeneralTransform, IPortableTransformMatrixSource, IPortableTransformSource
     {
         internal Transform()
         {
@@ -170,6 +170,21 @@ namespace System.Windows.Media
             }
         }
 
+        bool IPortableTransformSource.TryGetPortableTransform(out PortableTransform transform)
+        {
+            ReadPreamble();
+            return TryGetPortableTransformCore(out transform);
+        }
+
+        internal virtual bool TryGetPortableTransformCore(out PortableTransform transform)
+        {
+            // An unknown resource cannot prove original primitive construction
+            // by returning its flattened Value. The separate matrix adapter
+            // remains available to its existing managed consumers.
+            transform = null;
+            return false;
+        }
+
         bool IPortableTransformMatrixSource.TryGetPortableTransformMatrix(out PortableMatrix3x2 matrix)
         {
             Matrix value = Value;
@@ -196,4 +211,3 @@ namespace System.Windows.Media
     }
     #endregion
 }
-

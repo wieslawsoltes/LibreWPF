@@ -5,6 +5,8 @@
 
 using MS.Internal;
 
+using ProGPU.Wpf.Interop;
+
 namespace System.Windows.Media
 {
     #region TranslateTransform
@@ -13,6 +15,12 @@ namespace System.Windows.Media
     ///</summary>
     public sealed partial class TranslateTransform : Transform
     {
+        internal override bool TryGetPortableTransformCore(out PortableTransform transform)
+        {
+            transform = new PortableTranslateTransform(X, Y);
+            return true;
+        }
+
         ///<summary>
         ///
         ///</summary>

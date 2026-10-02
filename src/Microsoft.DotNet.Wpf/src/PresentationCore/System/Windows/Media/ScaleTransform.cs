@@ -5,6 +5,8 @@
 
 using MS.Internal;
 
+using ProGPU.Wpf.Interop;
+
 namespace System.Windows.Media
 {
     ///<summary>
@@ -12,6 +14,12 @@ namespace System.Windows.Media
     ///</summary>
     public sealed partial class ScaleTransform : Transform
     {
+        internal override bool TryGetPortableTransformCore(out PortableTransform transform)
+        {
+            transform = new PortableScaleTransform(ScaleX, ScaleY, CenterX, CenterY);
+            return true;
+        }
+
         ///<summary>
         /// Create a scale transformation.
         ///</summary>

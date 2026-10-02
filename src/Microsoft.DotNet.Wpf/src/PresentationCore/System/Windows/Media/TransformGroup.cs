@@ -4,6 +4,7 @@
 //
 
 using System.Windows.Markup;
+using ProGPU.Wpf.Interop;
 
 namespace System.Windows.Media
 {
@@ -14,6 +15,22 @@ namespace System.Windows.Media
     [ContentProperty("Children")]
     public sealed partial class TransformGroup : Transform
     {
+        internal override bool TryGetPortableTransformCore(out PortableTransform transform)
+        {
+            TransformCollection children = Children;
+            int count = children?.Count ?? 0;
+            if (count > PortableTransformGroup.MaximumChildCount)
+            {
+                transform = null;
+                return false;
+            }
+            object[] originalChildren = new object[count];
+            for (int index = 0; index < count; ++index)
+                originalChildren[index] = children.Internal_GetItem(index);
+            transform = new PortableTransformGroup(originalChildren);
+            return true;
+        }
+
         #region Constructors
 
         ///<summary>
@@ -86,4 +103,3 @@ namespace System.Windows.Media
     }
     #endregion
 }
-

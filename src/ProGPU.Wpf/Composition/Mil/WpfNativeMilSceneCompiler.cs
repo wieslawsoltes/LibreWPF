@@ -1913,31 +1913,7 @@ public sealed partial class WpfNativeMilSceneCompiler
         }
 
         private uint ResolveTransform(object resource)
-        {
-            if (_transformHandles.TryGetValue(resource, out uint existing))
-            {
-                return existing;
-            }
-            if (resource is not IPortableTransformMatrixSource source ||
-                !source.TryGetPortableTransformMatrix(
-                    out PortableMatrix3x2 matrix))
-            {
-                throw MissingContract(nameof(IPortableTransformMatrixSource));
-            }
-            uint handle = NextHandle();
-            _transformHandles.Add(resource, handle);
-            Batch.CreateResource(handle, NativeMilResourceType.MatrixTransform);
-            Batch.SetMatrixTransform(
-                handle,
-                new NativeMilMatrix3x2(
-                    matrix.M11,
-                    matrix.M12,
-                    matrix.M21,
-                    matrix.M22,
-                    matrix.OffsetX,
-                    matrix.OffsetY));
-            return handle;
-        }
+            => ResolveOriginalTransform(resource);
 
         private uint ResolvePen(
             IReadOnlyList<object?> resources,
