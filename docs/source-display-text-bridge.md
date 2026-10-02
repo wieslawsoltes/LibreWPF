@@ -1,5 +1,20 @@
 # Original Display source bridge
 
+The internal `WpfSourceDisplayTextParagraph` adapter adopts an explicitly created
+native source-double paragraph and prepares its resource from that exact owner.
+It forwards native line-scoped double queries, preserves original UTF-16 text and
+styles through retained references and double-width reflow, and uses native double
+source-run validation before binding. Its binding remains the concrete native MIL
+type across `Retain`, carrying original double identity separately from the raster
+projection. No ordinary formatter advertises Display or chooses an unproved
+em/advance/interpreter policy. Intrinsic widths and zero-content-width admission
+remain unavailable here.
+
+Six adapter identity/schema controls are authored. They and the backend APIs need
+the pending coherent ProGPU source branch; the gitlink deliberately remains the
+qualified old pin until that producer is published. No local dependency-graph,
+native, GPU or desktop qualification is claimed.
+
 The portable `TextLine` source route now selects `IPortableDisplayTextFormatting`
 only for an actual Display formatter. Explicit hinted formatting and font/device
 metrics alone do not admit that route. The current WPF provider deliberately does
