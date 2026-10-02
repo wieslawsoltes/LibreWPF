@@ -19,3 +19,10 @@ until their primitive construction contract is established. Generic old native
 transform behavior is unchanged. Compilation-session deltas and channel atomic
 graph publication remain authoritative; no default renderer or runtime pin is
 changed. Authored controls will run only on the final qualified union.
+
+Five compiler/session controls cover shared-child order/single capture, retained
+primitive delta and structural reorder, cycle/typed failure with successful later
+capture, late nonfinite/depth rejection, and empty groups. Two actual source
+controls cover every built-in primitive, original angle/double bits, mutation,
+group-list ownership, shared child identity and frozen cloning. Existing
+matrix-only controls remain unchanged. No validation was executed.

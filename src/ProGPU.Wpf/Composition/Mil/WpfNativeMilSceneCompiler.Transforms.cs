@@ -9,6 +9,7 @@ public sealed partial class WpfNativeMilSceneCompiler
     {
         private readonly HashSet<object> _activeTransforms = new(ReferenceEqualityComparer.Instance);
         private int _transformEdges;
+        private int _transformResources;
 
         // Capture one original resource once in this batch. Publication still
         // occurs only after the complete visual graph succeeds; a failure here
@@ -20,7 +21,7 @@ public sealed partial class WpfNativeMilSceneCompiler
             if (_transformHandles.TryGetValue(resource, out uint existing))
                 return existing;
             if (_activeTransforms.Count >= 256 ||
-                _transformHandles.Count >= PortableTransformGroup.MaximumChildCount)
+                ++_transformResources > PortableTransformGroup.MaximumChildCount)
                 throw new InvalidOperationException("The portable transform source graph exceeds the native resource/depth budget.");
             _activeTransforms.Add(resource);
             try
