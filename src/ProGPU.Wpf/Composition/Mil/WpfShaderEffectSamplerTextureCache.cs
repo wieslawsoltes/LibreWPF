@@ -174,7 +174,7 @@ internal sealed class WpfShaderEffectSamplerTextureCache : IDisposable
         }
 
         bool scaled = captureScaleX != 1 || captureScaleY != 1;
-        if (scaled) sink.PushNativeTransform(Matrix4x4.CreateScale((float)captureScaleX, (float)captureScaleY, 1));
+        if (scaled) sink.PushTransform(new MatrixTransform(captureScaleX, 0, 0, captureScaleY, 0, 0));
         var replayStatus = WpfDrawingReplay.Replay(
             drawing,
             sink,
