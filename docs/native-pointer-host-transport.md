@@ -163,6 +163,32 @@ and capture changes survive, while stale layout/input continuations stop. These
 are source fixes, not double-click word-selection, legacy-wheel compatibility,
 native factory admission or desktop popup parity.
 
+### Qualified Forms native-session host integration
+
+The canonical Forms gitlink advances from
+`05273a1c63a1e9f8c152e8e353ebe86775859133` to the exact
+[Forms #148](https://github.com/wieslawsoltes/LibreWinForms/pull/148) producer
+`4badfec8dea1466a908f05e828c5461c422e136a`.
+[Build 37032422405](https://github.com/wieslawsoltes/LibreWinForms/actions/runs/37032422405)
+completed successfully on that exact head, with all nine jobs passing, including
+canonical source, AppKit, package and Windows/macOS/Linux visible-package lanes.
+The commit is the second parent of merged Forms default
+`ea03ee63997f094429aee99d1692ece4e929949e`; the consumer pins the tested producer,
+not a later branch tip. Its source host retains native-session release proof
+across polling, Hide/Close/retirement and reentrant Show, including an absent
+native query before an outstanding completion arrives.
+
+This integration is stacked on WPF #234 at
+`520d5e127363ae7922ffa4064471d0d893722d4e` without altering that host implementation.
+WPF and the new Forms producer both retain ProGPU
+`48a49afeb993214c0c40c6908e9896ef0b5dec97`. Canonical source-graph identity,
+exact-successful-Build native staging, package/API and runtime admission checks
+are unchanged. Automatic modality remains disabled; this source pin does not
+qualify all-platform popup/UI behavior. No runtime is staged and no local full
+graph/native/VM execution accompanies the update. The eventual complete WPF
+dependency union still requires its own exact-head whole Build and required
+checks; its expensive validation is deferred until that union is ready.
+
 ### Remaining native factory admission
 
 Host disposal now retains the exact native provider while
