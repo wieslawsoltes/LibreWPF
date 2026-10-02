@@ -11,6 +11,46 @@ namespace System.Windows.Media.Tests;
 public sealed class PortableShaderEffectSourceTests
 {
     [Fact]
+    public void VisualSnapshotUsesActualRenderFieldNotInertAttachedBitmapScalingMode()
+    {
+        var visual = new SourceDrawingVisual();
+        RenderOptions.SetBitmapScalingMode(visual, BitmapScalingMode.NearestNeighbor);
+        Assert.True(((IPortableVisualStateSource)visual).TryGetPortableVisualState(out var attachedOnly));
+        Assert.False(attachedOnly.HasBitmapScalingMode);
+        Assert.False(attachedOnly.HasPortableBitmapScalingMode);
+        visual.SetActualBitmapScalingMode(BitmapScalingMode.LowQuality);
+        Assert.True(((IPortableVisualStateSource)visual).TryGetPortableVisualState(out var actual));
+        Assert.Equal(BitmapScalingMode.NearestNeighbor, RenderOptions.GetBitmapScalingMode(visual));
+        Assert.True(actual.HasPortableBitmapScalingMode);
+        Assert.Equal(PortableBitmapScalingMode.Linear, actual.PortableBitmapScalingMode);
+    }
+
+    [Fact]
+    public void UiElementSnapshotRetainsItsActualBitmapScalingMetadataPropagation()
+    {
+        var element = new UIElement();
+        RenderOptions.SetBitmapScalingMode(element, BitmapScalingMode.NearestNeighbor);
+        Assert.True(((IPortableVisualStateSource)element).TryGetPortableVisualState(out var state));
+        Assert.True(state.HasPortableBitmapScalingMode);
+        Assert.Equal(PortableBitmapScalingMode.NearestNeighbor, state.PortableBitmapScalingMode);
+    }
+
+    [Fact]
+    public void DrawingGroupSnapshotRetainsItsSerializedAttachedBitmapScalingMode()
+    {
+        var drawing = new DrawingGroup();
+        RenderOptions.SetBitmapScalingMode(drawing, BitmapScalingMode.NearestNeighbor);
+        Assert.True(((IPortableDrawingGroupStateSource)drawing).TryGetPortableDrawingGroupState(out var state));
+        Assert.True(state.HasPortableBitmapScalingMode);
+        Assert.Equal(PortableBitmapScalingMode.NearestNeighbor, state.PortableBitmapScalingMode);
+    }
+
+    private sealed class SourceDrawingVisual : DrawingVisual
+    {
+        internal void SetActualBitmapScalingMode(BitmapScalingMode mode) => VisualBitmapScalingMode = mode;
+    }
+
+    [Fact]
     public void BitmapMetricsSnapshotRetainsOriginalPixelSizeAndBothDpiAxes()
     {
         var image = BitmapSource.Create(2, 1, 192, 144, PixelFormats.Bgra32, null,

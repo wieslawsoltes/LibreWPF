@@ -35,7 +35,7 @@ public sealed class WpfShaderEffectSamplerTextureCacheTests
             WpfShaderEffectSamplerFrame frame, out Scene.WpfShaderEffectSampler sampler)
         {
             Frame = frame;
-            sampler = null!;
+            sampler = new(registerIndex, null, mode);
             return true;
         }
     }

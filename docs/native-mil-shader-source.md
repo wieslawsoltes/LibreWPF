@@ -66,9 +66,13 @@ VisualBrush routes remain separate.
 Capture bitmap filtering is not inferred from the shader sampler's own mode.
 Original Windows reference PR 268 currently exposes a filtering difference:
 nearest sampling on the effect visual does not itself prove nearest secondary
-bitmap realization. Incoming render-state propagation and provider pixel parity
-remain pending; this source change does not force nearest to match a native-only
-fixture or claim the existing managed default is a complete original-state policy.
+bitmap realization. Its initial bare DrawingVisual attached-DP controls do not
+set the original serialized bitmap-scaling field. The source Visual snapshot
+already reads that field; UIElement propagates its DP metadata, while DrawingGroup
+serializes the DP directly. Actual-source controls retain all three distinctions.
+Genuinely paired render-state propagation and provider pixel parity remain pending;
+this source change does not force nearest to match a native-only fixture or claim
+the existing managed default is a complete original-state policy.
 
 The focused bridge fixtures cover source packet identity, dense holes, sampler
 state, snapshot immutability, retained deltas, cancellation by failed capture,
