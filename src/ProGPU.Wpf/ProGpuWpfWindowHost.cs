@@ -71,7 +71,10 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
     private IProGpuTextureLease[] _nativeMilExternalImageLeases = [];
     private ProGpuDirectXDevice? _directXDevice;
     private IDisposable? _inputSubscription;
+    private IDisposable? _unpublishedInputSubscription;
+    private bool _isAttachingInput, _isRetiringUnpublishedInput;
     private IWpfInputService? _attachedInputService;
+    private Silk.NET.Input.IInputContext? _ownedPopupInputContext;
     private IDisposable? _dragDropSubscription;
     private IWpfDragDropService? _attachedDragDropService;
     private IDisposable? _windowEventSubscription;
@@ -1054,6 +1057,31 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         ValidateOwnedPopupInputGate(gate);
         if (!_isHostVisible)
             throw new InvalidOperationException("The owned popup was hidden during native input admission.");
+        var service = _attachedInputService;
+        var subscription = _inputSubscription;
+        if (service == null || subscription == null || _ownedPopupInputContext == null)
+            throw new PlatformNotSupportedException("Owned popup display requires its attached native input subscription.");
+        var context = RequireOwnedPopupInputContext(gate, service);
+        if (!ReferenceEquals(context, _ownedPopupInputContext) ||
+            !ReferenceEquals(service, _attachedInputService) || !ReferenceEquals(subscription, _inputSubscription))
+            throw new InvalidOperationException("The owned popup input subscription changed before display.");
+    }
+
+    private Silk.NET.Input.IInputContext RequireOwnedPopupInputContext(OwnedPopupInputGate gate, IWpfInputService service)
+    {
+        ValidateOwnedPopupInputGate(gate);
+        if (service is not ISilkNetWpfInputContextProvider provider ||
+            !provider.TryGetInputContext(gate.Window, out var context))
+            throw new PlatformNotSupportedException("The source input service does not expose its owned popup context.");
+        // The source provider lookup may reenter lifetime work. A typed pointer
+        // interface alone, or an equal native handle, is not provider proof.
+        ValidateOwnedPopupInputGate(gate);
+        bool supported = context is INativePointerInputContext &&
+            NativePopupWindow.SupportsModalInput(gate.Window, context);
+        ValidateOwnedPopupInputGate(gate);
+        if (!supported)
+            throw new PlatformNotSupportedException("The owned popup has no live session-owned native input contract.");
+        return context;
     }
 
     internal bool TrySetNativeOwner(ProGpuWpfWindowHost? owner)
@@ -4782,6 +4810,15 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
 
     private void AttachInputService()
     {
+        if (_isAttachingInput)
+            throw new InvalidOperationException("Source input attachment cannot reenter.");
+        _isAttachingInput = true;
+        try { AttachInputServiceCore(); }
+        finally { _isAttachingInput = false; }
+    }
+
+    private void AttachInputServiceCore()
+    {
         if (_window == null || _isDisposed || _hasNativeWindowCloseStarted)
         {
             return;
@@ -4798,18 +4835,42 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         {
             input.InputReceived += OnPlatformInputReceived;
             IDisposable inputSubscription = input.Attach(window);
+            _unpublishedInputSubscription = inputSubscription;
+            Silk.NET.Input.IInputContext? ownedContext;
+            try
+            {
+                ownedContext = _ownedPopupInputGate is { } gate
+                    ? RequireOwnedPopupInputContext(gate, input)
+                    : null;
+            }
+            catch (Exception failure)
+            {
+                // This subscription has not been published to host retirement.
+                // Preserve the capability failure if context cleanup also fails.
+                try { RetireUnpublishedInputSubscription(); }
+                catch (Exception cleanup)
+                {
+                    try { failure.Data["OwnedPopupInputRetirement"] = cleanup; }
+                    catch { }
+                }
+                throw;
+            }
             if (_isDisposed ||
                 _hasNativeWindowCloseStarted ||
                 !ReferenceEquals(window, _window))
             {
-                inputSubscription.Dispose();
+                RetireUnpublishedInputSubscription();
                 input.InputReceived -= OnPlatformInputReceived;
                 TraceNativeLoop($"input attach canceled after host close: host={GetHashCode():x}, handle={window.Handle}");
                 return;
             }
 
+            if (!ReferenceEquals(_unpublishedInputSubscription, inputSubscription))
+                throw new InvalidOperationException("The source input attachment retired before publication.");
             _inputSubscription = inputSubscription;
             _attachedInputService = input;
+            _ownedPopupInputContext = ownedContext;
+            _unpublishedInputSubscription = null;
             TraceNativeLoop($"input attached: host={GetHashCode():x}, handle={window.Handle}");
         }
         catch (PlatformNotSupportedException) when (!_options.IsPopupSurface)
@@ -4827,6 +4888,8 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
 
     private void DetachInputService()
     {
+        // Invalidate before even the source decoration callback can reenter Show.
+        _ownedPopupInputContext = null;
         IWindow? window = _window;
         if (window != null)
         {
@@ -4840,6 +4903,9 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
                 $"input detach entering: host={GetHashCode():x}, handle={window?.Handle ?? IntPtr.Zero}");
         }
 
+        // Reentrant cancellation cannot reuse a proof whose source subscription
+        // is already being detached, even while native retirement is deferred.
+        RetireUnpublishedInputSubscription();
         _inputSubscription?.Dispose();
         _inputSubscription = null;
 
@@ -4853,6 +4919,22 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         {
             TraceNativeLoop($"input detached: host={GetHashCode():x}, handle={window.Handle}");
         }
+    }
+
+    private void RetireUnpublishedInputSubscription()
+    {
+        if (_unpublishedInputSubscription is not { } subscription) return;
+        if (_isRetiringUnpublishedInput)
+            throw new InvalidOperationException("Unpublished source input retirement cannot reenter.");
+        _isRetiringUnpublishedInput = true;
+        try
+        {
+            subscription.Dispose();
+            // Only successful source-context disposal ends this retry owner.
+            if (ReferenceEquals(_unpublishedInputSubscription, subscription))
+                _unpublishedInputSubscription = null;
+        }
+        finally { _isRetiringUnpublishedInput = false; }
     }
 
     private void OnPlatformInputReceived(object? sender, WpfInputEventArgs e)
