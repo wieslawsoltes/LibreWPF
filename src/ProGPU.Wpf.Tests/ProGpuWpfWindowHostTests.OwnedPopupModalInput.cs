@@ -252,7 +252,8 @@ public sealed partial class ProGpuWpfWindowHostTests
         string setup = source[factory..load];
         Assert.Contains("if (createdOwnedCocoa)\n            BindOwnedPopupInputGate(_window, _windowController.SetInputAllowed);", setup);
         Assert.Contains("NativePopupWindow.CreateOwnedCocoaWindow(", setup);
-        Assert.DoesNotContain("NativeWindowModalSession.TryBegin", source);
+        Assert.DoesNotContain("NativeWindowModalSession.TryBegin", setup);
+        Assert.Contains("if (!_options.EnableNativeModalSessions) return;", source);
         // The original ordinary-window guard is still independent of factory admission.
         Assert.Contains("else if (OperatingSystem.IsWindows() || NativeInputAllowedSetterOverride != null)", source);
     }

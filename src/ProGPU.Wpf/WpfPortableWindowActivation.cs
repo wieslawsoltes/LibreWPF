@@ -964,6 +964,7 @@ public sealed partial class WpfPortableWindowActivation : IDisposable, INativeWi
             RendererMode = fallback.RendererMode,
             NativeBackendOptions = fallback.NativeBackendOptions,
             EnableNativeMilHitTesting = fallback.EnableNativeMilHitTesting,
+            EnableNativeModalSessions = fallback.EnableNativeModalSessions,
             WindowBorder = fallback.WindowBorder,
             CanMinimize = fallback.CanMinimize,
             CanMaximize = fallback.CanMaximize,

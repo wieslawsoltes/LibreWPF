@@ -13,6 +13,17 @@ namespace System.Windows.Media.Effects
         {
             ReadPreamble();
 
+            // The compatibility DTO normalizes padding. Never erase invalid
+            // source state before the native compiler can reject the effect.
+            if (!double.IsFinite(_topPadding) || _topPadding < 0
+                || !double.IsFinite(_bottomPadding) || _bottomPadding < 0
+                || !double.IsFinite(_leftPadding) || _leftPadding < 0
+                || !double.IsFinite(_rightPadding) || _rightPadding < 0)
+            {
+                effect = null;
+                return false;
+            }
+
             PixelShader pixelShader = PixelShader;
             if (pixelShader == null
                 || pixelShader is not IPortablePixelShaderSource pixelShaderSource
@@ -101,7 +112,7 @@ namespace System.Windows.Media.Effects
                     }
                     else if (sampler._brush is ImageBrush imageBrush)
                     {
-                        samplers.Add(PortableShaderSampler.Image(i, imageBrush.ImageSource, samplingMode));
+                        samplers.Add(PortableShaderSampler.Image(i, imageBrush.ImageSource, samplingMode, imageBrush));
                     }
                     else
                     {
@@ -124,8 +135,10 @@ namespace System.Windows.Media.Effects
                     return PortableShaderSamplingMode.NearestNeighbor;
                 case SamplingMode.Auto:
                     return PortableShaderSamplingMode.Auto;
-                default:
+                case SamplingMode.Bilinear:
                     return PortableShaderSamplingMode.Bilinear;
+                default:
+                    throw new NotSupportedException("Unknown source shader sampling mode.");
             }
         }
 

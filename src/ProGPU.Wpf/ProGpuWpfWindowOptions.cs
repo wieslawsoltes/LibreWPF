@@ -50,6 +50,13 @@ public sealed class ProGpuWpfWindowOptions
     /// </summary>
     public bool EnableNativeMilHitTesting { get; set; }
 
+    /// <summary>
+    /// Explicitly requests the shared native modal event session for source
+    /// ShowDialog. Unsupported providers reject; no ordinary poll fallback is
+    /// selected. Automatic admission awaits paired source-host qualification.
+    /// </summary>
+    public bool EnableNativeModalSessions { get; set; }
+
     internal bool EnablePortablePopupService { get; set; } = true;
 
     // Resolve the live owner at target creation, including after device loss.

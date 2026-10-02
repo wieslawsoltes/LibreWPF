@@ -52,7 +52,11 @@ internal sealed class WpfNativeHintedGlyphResources : IDisposable
     internal NativeMilBatchMetrics Apply(NativeMilChannel channel, ReadOnlySpan<byte> bytes)
     {
         using var hold = _use.Retain();
-        return channel.ApplyWithHintedGlyphResourcesWithMetrics(bytes, _state.Resources, _state.Bindings, _state.Indices);
+        // One exact provider transaction, including mixed raw/source resources.
+        // Missing source import is an error, never a retry through raw import.
+        return _state.HasSourceGeometry
+            ? channel.ApplyWithSourceGlyphResourcesWithMetrics(bytes, _state.Resources, _state.Bindings, _state.Indices)
+            : channel.ApplyWithHintedGlyphResourcesWithMetrics(bytes, _state.Resources, _state.Bindings, _state.Indices);
     }
     public void Dispose() => _use.Dispose();
 
@@ -62,6 +66,7 @@ internal sealed class WpfNativeHintedGlyphResources : IDisposable
         internal readonly NativeHintedGlyphResource[] Resources;
         internal readonly NativeMilHintedGlyphBinding[] Bindings;
         internal readonly uint[] Indices;
+        internal readonly bool HasSourceGeometry;
         private readonly WpfHintedGlyphRunBinding[] _owners;
 
         internal State(IReadOnlyList<(uint Handle, WpfHintedGlyphRunBinding Owner)> sources, WpfHintedGlyphRunBinding[] owners)
@@ -76,6 +81,7 @@ internal sealed class WpfNativeHintedGlyphResources : IDisposable
             for (int i = 0; i < owners.Length; i++)
             {
                 var owner = owners[i];
+                HasSourceGeometry |= owner.NativeResource.HasSourceGeometry;
                 if (!resourceIndices.TryGetValue(owner.NativeResource, out uint resourceIndex))
                 {
                     resourceIndex = checked((uint)resources.Count);

@@ -7,7 +7,7 @@ using SceneDrawingContext = ProGPU.Scene.DrawingContext;
 namespace System.Windows.Media.ProGPU.Composition;
 
 /// <summary>Concrete transport of the original provider, never a design-font annotation.</summary>
-internal sealed class WpfHintedGlyphRunBinding : IPortableHintedGlyphRunBinding
+internal class WpfHintedGlyphRunBinding : IPortableHintedGlyphRunBinding
 {
     private readonly State _state;
     private readonly WpfHintedTextLifetime.Lease _use;
@@ -47,6 +47,21 @@ internal sealed class WpfHintedGlyphRunBinding : IPortableHintedGlyphRunBinding
         return new(state, state.Lifetime.Acquire());
     }
 
+    // Explicit source-double producer only. It remains a concrete hinted native
+    // binding for the existing MIL ownership/import path, not a font annotation.
+    internal static IPortableDisplayGlyphRunBinding AdoptSource(IPortableHintedTextGlyphRun owner,
+        NativeHintedGlyphResource resource, HintedGlyphGeometry geometry, double em, double dpi,
+        NativeHintedGlyphResourceReadLease read, ReadOnlySpan<int> indices, NativeHintedSourceRunFrame frame)
+    {
+        float rasterEm = (float)em;
+        if (!float.IsFinite(rasterEm) || (double)rasterEm != em || (double)read.DpiScale != dpi)
+            throw new NotSupportedException("The original source em/DPI is not representable by the raster binding ABI.");
+        Validate(read, indices, rasterEm, frame.RasterParagraphOrigin);
+        var source = new SourceIdentity(em, dpi, frame);
+        var state = new State(owner, resource, geometry, rasterEm, frame.RasterParagraphOrigin, read, indices, null, source);
+        return new SourceBinding(state, state.Lifetime.Acquire());
+    }
+
     private T Read<T>(T value) { ObjectDisposedException.ThrowIf(IsDisposed, this); return value; }
     public bool IsDisposed => _use.IsDisposed;
     public float FontRenderingEmSize => Read(_state.Em);
@@ -65,13 +80,32 @@ internal sealed class WpfHintedGlyphRunBinding : IPortableHintedGlyphRunBinding
     internal HintedGlyphGeometry Geometry => Read(_state.Geometry);
     internal uint FontIndex => Read(_state.FontIndex);
     internal ReadOnlyMemory<uint> NativeIndices => Read<ReadOnlyMemory<uint>>(_state.Indices);
-    public IPortableHintedGlyphRunBinding Retain() => new WpfHintedGlyphRunBinding(_state, _use.Retain());
+    public virtual IPortableHintedGlyphRunBinding Retain() => new WpfHintedGlyphRunBinding(_state, _use.Retain());
     public IPortableHintedTextGlyphRun AcquireGlyphRun()
     {
         using var hold = _use.Retain();
         return _state.Owner.Retain();
     }
     public void Dispose() => _use.Dispose();
+
+    private readonly record struct SourceIdentity(double Em, double Dpi, NativeHintedSourceRunFrame Frame);
+
+    private sealed class SourceBinding(State state, WpfHintedTextLifetime.Lease use)
+        : WpfHintedGlyphRunBinding(state, use), IPortableDisplayGlyphRunBinding
+    {
+        public double SourceEmSize => Read(_state.Source!.Value.Em);
+        public double SourcePixelsPerDip => Read(_state.Source!.Value.Dpi);
+        public PortableDisplayGlyphSourceFrame DisplaySourceFrame
+        {
+            get
+            {
+                var frame = Read(_state.Source!.Value.Frame);
+                return new(checked((int)frame.LineIndex), frame.ParagraphBaselineY,
+                    new(frame.SourceBaselineOrigin.X, frame.SourceBaselineOrigin.Y));
+            }
+        }
+        public override IPortableHintedGlyphRunBinding Retain() => new SourceBinding(_state, _use.Retain());
+    }
 
     private sealed class State : IDisposable
     {
@@ -84,6 +118,7 @@ internal sealed class WpfHintedGlyphRunBinding : IPortableHintedGlyphRunBinding
         internal readonly uint FontIndex;
         internal readonly Vector2 Origin;
         internal readonly PortableHintedGlyphSourceFrame? SourceFrame;
+        internal readonly SourceIdentity? Source;
         internal readonly ushort[] Ids;
         internal readonly Vector2[] Positions;
         internal readonly uint[] Indices;
@@ -91,9 +126,10 @@ internal sealed class WpfHintedGlyphRunBinding : IPortableHintedGlyphRunBinding
 
         internal State(IPortableHintedTextGlyphRun owner, NativeHintedGlyphResource resource,
             HintedGlyphGeometry geometry, float em, Vector2 origin,
-            NativeHintedGlyphResourceReadLease read, ReadOnlySpan<int> indices, NativeHintedSourceGlyphFrame? frame)
+            NativeHintedGlyphResourceReadLease read, ReadOnlySpan<int> indices, NativeHintedSourceGlyphFrame? frame,
+            SourceIdentity? source = null)
         {
-            Vector2 drawOrigin = frame?.ParagraphOrigin ?? origin;
+            Vector2 drawOrigin = source?.Frame.RasterParagraphOrigin ?? frame?.ParagraphOrigin ?? origin;
             Vector2 relativeOrigin = frame?.BaselineRelativeOrigin ?? Vector2.Zero;
             if (!SceneDrawingContext.TryGetHintedGlyphInkBounds(geometry, drawOrigin, out var ink, out bool hasInk) ||
                 !SceneDrawingContext.TryGetHintedGlyphInkBounds(geometry, relativeOrigin, out var relative, out bool hasRelativeInk))
@@ -115,6 +151,16 @@ internal sealed class WpfHintedGlyphRunBinding : IPortableHintedGlyphRunBinding
             Level = read.BidiLevels[indices[0]];
             Ink = hasInk ? new(ink.X, ink.Y, ink.Width, ink.Height) : PortableRect.Empty;
             RelativeInk = hasRelativeInk ? new(relative.X, relative.Y, relative.Width, relative.Height) : PortableRect.Empty;
+            if (source is { } original)
+            {
+                // Translate the actual retained raster ink into the original
+                // double baseline frame; do not narrow a baseline or move glyphs.
+                double relativeY = (double)relative.Y - original.Frame.ParagraphBaselineY;
+                if (hasRelativeInk && (!double.IsFinite(relativeY) || !double.IsFinite(relativeY + relative.Height)))
+                    throw new NotSupportedException("The source-relative native ink frame is not finite.");
+                RelativeInk = hasRelativeInk ? new(relative.X, relativeY, relative.Width, relative.Height) : PortableRect.Empty;
+                Source = original;
+            }
             Lifetime = new(this);
             Owner = owner; Resource = resource; Geometry = geometry;
         }

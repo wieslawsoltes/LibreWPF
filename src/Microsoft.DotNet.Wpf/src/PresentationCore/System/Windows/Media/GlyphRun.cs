@@ -2654,6 +2654,23 @@ namespace System.Windows.Media
         bool IPortableHintedGlyphRunSource.TryAcquirePortableHintedGlyphRun(out IPortableHintedGlyphRunBinding binding)
         {
             binding = _portableHintedGlyphRun?.Retain();
+            if (_portableHintedGlyphRun is IPortableDisplayGlyphRunBinding original)
+            {
+                try
+                {
+                    if (binding is not IPortableDisplayGlyphRunBinding display || display.IsDisposed ||
+                        display.SourceEmSize != original.SourceEmSize || display.SourcePixelsPerDip != original.SourcePixelsPerDip ||
+                        display.DisplaySourceFrame != original.DisplaySourceFrame)
+                        throw new InvalidOperationException("Retain changed the original Display source binding identity.");
+                }
+                catch (Exception failure)
+                {
+                    try { binding?.Dispose(); }
+                    catch (Exception cleanup) { try { failure.Data["DisplayRetainedBindingCleanupFailure"] = cleanup; } catch { } }
+                    binding = null;
+                    throw;
+                }
+            }
             return binding != null;
         }
 
@@ -2705,6 +2722,59 @@ namespace System.Windows.Media
             {
                 try { binding.Dispose(); }
                 catch (Exception cleanup) { try { failure.Data["HintedSourceBindingCleanupFailure"] = cleanup; } catch { } }
+                throw;
+            }
+        }
+
+        // Only a complete retained Display provider can publish this binding.
+        // Source doubles never pass through the legacy float offset/frame method.
+        internal void InitializePortableDisplayGlyphRun(IPortableHintedTextGlyphRun source, double sourcePixelsPerDip)
+        {
+            if (!IsInitialized || _portableHintedGlyphRun != null || _portablePositionedGlyphs != null ||
+                _portableNativeGlyphRunCache != null || _portableGlyphRunCache != null || _portableInkBoundsCache != null ||
+                _inkBoundingBox != null || IsSideways || !string.IsNullOrEmpty(_deviceFontName) ||
+                (_glyphTypeface?.StyleSimulations ?? StyleSimulations.None) != StyleSimulations.None ||
+                source is not IPortableDisplayGlyphRunBindingFactory factory ||
+                _textFormattingMode != TextFormattingMode.Display ||
+                !double.IsFinite(sourcePixelsPerDip) || sourcePixelsPerDip <= 0 || sourcePixelsPerDip != _pixelsPerDip ||
+                !double.IsFinite(_renderingEmSize) || _renderingEmSize <= 0 || (float)_renderingEmSize != _renderingEmSize)
+                throw new InvalidOperationException("Original Display ownership requires its exact source mode, em and device frame before publication.");
+            ushort[] ids = CopyUShorts(_glyphIndices);
+            double[] advances = CopyDoubles(_advanceWidths);
+            Point[] offsets = new Point[ids.Length];
+            PortablePoint[] portableOffsets = new PortablePoint[ids.Length];
+            for (int i = 0; i < offsets.Length; i++)
+            {
+                offsets[i] = _glyphOffsets == null || _glyphOffsets.Count == 0 ? default : _glyphOffsets[i];
+                portableOffsets[i] = ToPortablePoint(offsets[i]);
+            }
+            IList<ushort> ownedIds = Array.AsReadOnly(ids);
+            IList<double> ownedAdvances = Array.AsReadOnly(advances);
+            IList<Point> ownedOffsets = Array.AsReadOnly(offsets);
+            IPortableDisplayGlyphRunBinding binding = factory.BindDisplayGlyphRun(_glyphTypeface.GetPortableTextFont(),
+                _renderingEmSize, sourcePixelsPerDip, ToPortablePoint(_baselineOrigin), advances, portableOffsets);
+            try
+            {
+                if (binding == null || binding.IsDisposed || binding.SourceEmSize != _renderingEmSize ||
+                    binding.SourcePixelsPerDip != sourcePixelsPerDip || binding.FontRenderingEmSize != _renderingEmSize ||
+                    binding.DpiScale != _pixelsPerDip || binding.GlyphIndices.Length != ids.Length || binding.BidiLevel != _bidiLevel ||
+                    binding.DisplaySourceFrame.BaselineOrigin.X != _baselineOrigin.X ||
+                    binding.DisplaySourceFrame.BaselineOrigin.Y != _baselineOrigin.Y)
+                    throw new ArgumentException("The source GlyphRun does not match its original Display occurrence selection.", nameof(source));
+                for (int i = 0; i < ids.Length; i++)
+                    if (binding.GlyphIndices.Span[i] != ids[i])
+                        throw new ArgumentException("The source glyph ID differs from its original Display occurrence.", nameof(source));
+                PortableRect ink = binding.InkBounds;
+                _glyphIndices = ownedIds;
+                _advanceWidths = ownedAdvances;
+                _glyphOffsets = ownedOffsets;
+                _portableInkBoundsCache = ink;
+                _portableHintedGlyphRun = binding;
+            }
+            catch (Exception failure)
+            {
+                try { binding?.Dispose(); }
+                catch (Exception cleanup) { try { failure.Data["DisplaySourceBindingCleanupFailure"] = cleanup; } catch { } }
                 throw;
             }
         }

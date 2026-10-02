@@ -56,7 +56,7 @@ internal interface IPortableFloatingTextSource
 }
 
 /// <summary>Source-owned WPF line semantics over the typed ProGPU paragraph service.</summary>
-internal sealed class PortableTextLine : TextLine
+internal sealed partial class PortableTextLine : TextLine
 {
     internal sealed class Continuation : IDisposable
     {
@@ -240,7 +240,7 @@ internal sealed class PortableTextLine : TextLine
     private readonly PortableTextLine _symbol;
     private readonly PortableTextLine _uncollapsed;
     private readonly List<IndexedGlyphRun> _collapsedGlyphRuns;
-    private PortableTextLineInfo Info => _paragraph.Lines.Span[_lineIndex];
+    private SourceLineInfo Info => GetSourceLineInfo(_paragraph, _lineIndex);
     internal PortableTextFragment? Fragment => (_paragraph as IPortableExcludedTextParagraph)?.Fragments.Span[_lineIndex];
     internal double FragmentContentHeight => (_paragraph as IPortableExcludedTextParagraph)?.ContentHeight ?? Height;
     internal bool IsLastFragment => _lineIndex + 1 == _paragraph.Lines.Length;
@@ -269,11 +269,11 @@ internal sealed class PortableTextLine : TextLine
         return Start + (_rightToLeft ? Info.Width - localX - width : localX);
     }
 
-    private float ToNativePointX(double logicalX)
+    private double ToNativePointX(double logicalX)
     {
         double localX = logicalX - Start;
         double nativeLocalX = _rightToLeft ? Info.Width - localX : localX;
-        return (float)(nativeLocalX + (Fragment?.Left ?? 0));
+        return nativeLocalX + (Fragment?.Left ?? 0);
     }
     private int First => _paragraphStart + (_lineIndex == 0 && Info.InputStart == 0 ? 0 : _sourceMap.ToSource(Info.InputStart, true));
     private int End => _paragraphStart + _sourceMap.ToSource(Info.InputEnd, true);
@@ -309,13 +309,20 @@ internal sealed class PortableTextLine : TextLine
         {
             if (next.Owner._paragraphWidth != width)
             {
-                if (next.Paragraph is not IPortableReflowTextParagraph reflow)
-                    throw Unsupported("the captured text paragraph does not expose native continuation reflow");
                 int inputStart = next.Paragraph.Lines.Span[next.LineIndex].InputStart;
-                float maximumWidth = settings.Pap.Wrap && width > 0
-                    ? (float)Math.Max(float.Epsilon, width - next.Owner._indent) : 0;
-                var paragraph = reflow.Reflow(inputStart, maximumWidth);
+                IPortableTextParagraph paragraph;
+                if (next.Paragraph is IPortableDisplayTextParagraph display)
+                    paragraph = display.ReflowDisplay(inputStart, GetDisplayMaximumWidth(settings.Pap.Wrap, width, next.Owner._indent));
+                else
+                {
+                    if (next.Paragraph is not IPortableReflowTextParagraph reflow)
+                        throw Unsupported("the captured text paragraph does not expose native continuation reflow");
+                    float maximumWidth = settings.Pap.Wrap && width > 0
+                        ? (float)Math.Max(float.Epsilon, width - next.Owner._indent) : 0;
+                    paragraph = reflow.Reflow(inputStart, maximumWidth);
+                }
                 next.CaptureProducer(paragraph);
+                next.Owner.ValidateDisplayParagraph(paragraph);
                 if (paragraph == null || paragraph.Lines.IsEmpty || paragraph.Lines.Span[0].InputStart != inputStart)
                     throw new InvalidOperationException("The native continuation lost its original input boundary.");
                 return next.Publish(new PortableTextLine(next.Owner, 0, paragraph, width));
@@ -337,7 +344,7 @@ internal sealed class PortableTextLine : TextLine
         IPortableTextFormatting service) => CreateCore(settings, first, idealWidth, pixelsPerDip, service, false, out _);
 
     private readonly record struct Measurement(int SourceLength, int Newlines, bool EndsParagraph,
-        TextModifierScope EndScope, PortableTextIntrinsicWidths Widths, double Indent);
+        TextModifierScope EndScope, SourceIntrinsicWidths Widths, double Indent);
 
     private static TextLine CreateCore(FormatSettings settings, int first, int idealWidth, double pixelsPerDip,
         IPortableTextFormatting service, bool measureIntrinsicWidths, out Measurement measurement)
@@ -351,7 +358,10 @@ internal sealed class PortableTextLine : TextLine
         PortableTextExclusionRequest exclusions = (settings.TextSource as IPortableExcludedTextSource)?.GetExclusions(first);
         if (exclusions != null && (measureIntrinsicWidths || service is not IPortableExcludedTextFormatting || width <= 0))
             throw Unsupported("excluded source formatting requires a bounded width and explicit native provider; intrinsic formatting remains separate");
-        if (settings.IsSideways || settings.TextFormattingMode != TextFormattingMode.Ideal || pap.TextMarkerProperties != null ||
+        bool displayMode = settings.TextFormattingMode == TextFormattingMode.Display;
+        if (displayMode && service is not IPortableDisplayTextFormatting)
+            throw Unsupported("Display requires the complete original-generation source Display capability; explicit hinting or metrics alone is insufficient");
+        if (settings.IsSideways || (settings.TextFormattingMode != TextFormattingMode.Ideal && !displayMode) || pap.TextMarkerProperties != null ||
             (pap.TextDecorations?.Count ?? 0) != 0 ||
             pap.Tabs?.Count > 0)
             throw Unsupported($"display hinting, sideways text, markers, paragraph decorations or custom tabs " +
@@ -519,7 +529,16 @@ internal sealed class PortableTextLine : TextLine
             hasTabs ? (float)pap.DefaultIncrementalTab : 0, (float)indent, measureIntrinsicWidths,
             pap.EmergencyWrap ? PortableTextWrapping.Emergency : PortableTextWrapping.WholeWord);
         IPortableTextParagraph paragraph;
-        if (objects != null || exclusions != null || floating != null)
+        if (displayMode)
+        {
+            if (text.Length == 0 || styles.Count == 0 || hasTabs || objects != null || exclusions != null || floating != null)
+                throw Unsupported("source Display empty rows, tabs, objects, exclusions or floats require their own complete retained contract");
+            var sourceStyles = GetDisplayStyles(styles);
+            var options = new PortableDisplayTextOptions(pixelsPerDip, primaryEmSize, layoutHeight,
+                GetDisplayMaximumWidth(pap.Wrap, width, indent), indent);
+            paragraph = ((IPortableDisplayTextFormatting)service).FormatDisplay(in request, sourceStyles, in options);
+        }
+        else if (objects != null || exclusions != null || floating != null)
         {
             var metrics = new PortableTextStyleMetrics[styles.Count];
             for (int i = 0; i < metrics.Length; i++)
@@ -554,14 +573,16 @@ internal sealed class PortableTextLine : TextLine
         try
         {
             if (paragraph == null) throw new InvalidOperationException("The text provider returned no paragraph.");
+            ValidateDisplayParagraph(paragraph, displayMode, text, pixelsPerDip, primaryEmSize,
+                displayMode ? GetDisplayStyles(styles) : []);
             if (paragraph.Lines.Length == 0) throw new InvalidOperationException("The text provider returned no line.");
             if ((exclusions != null || floating != null) && (paragraph is not IPortableExcludedTextParagraph excluded ||
                 excluded.Fragments.Length != paragraph.Lines.Length))
                 throw new InvalidOperationException("The excluded text provider did not retain one frame per source fragment.");
             if (measureIntrinsicWidths)
             {
-                var widths = paragraph.IntrinsicWidths ?? throw Unsupported("the text provider does not publish intrinsic paragraph widths");
-                if (!float.IsFinite(widths.Minimum) || !float.IsFinite(widths.Maximum) ||
+                var widths = GetSourceIntrinsicWidths(paragraph);
+                if (!double.IsFinite(widths.Minimum) || !double.IsFinite(widths.Maximum) ||
                     widths.Minimum < 0 || widths.Maximum < widths.Minimum)
                     throw new InvalidOperationException("The text provider returned invalid intrinsic paragraph widths.");
                 measurement = new(sourceLength, newlines, endsParagraph, scope, widths, indent);
@@ -924,6 +945,9 @@ internal sealed class PortableTextLine : TextLine
         try
         {
             _paragraph = _paragraphReference?.Paragraph ?? paragraph; paragraph = _paragraph;
+            ValidateDisplayParagraph(paragraph, formatter.TextFormattingMode == TextFormattingMode.Display,
+                text, pixelsPerDip, styles.Length == 0 ? 0 : styles[0].EmSize,
+                formatter.TextFormattingMode == TextFormattingMode.Display ? GetDisplayStyles(styles) : []);
             _text = text; _properties = properties; _face = face;
             _sourceMap = sourceMap; _endScope = endScope;
             _paragraphStart = paragraphStart; _lineIndex = lineIndex; _newlines = newlines;
@@ -952,7 +976,12 @@ internal sealed class PortableTextLine : TextLine
                 _baseline = ascent;
                 _height = ascent + descent;
             }
-            if (paragraph is IPortableInlineTextParagraph measured)
+            if (paragraph is IPortableDisplayTextParagraph display)
+            {
+                _baseline = display.DisplayLineMetrics.Span[lineIndex].BaselineOffset;
+                _height = Info.Height;
+            }
+            else if (paragraph is IPortableInlineTextParagraph measured)
             {
                 _baseline = measured.GetBaselineOffset(lineIndex);
                 _height = Info.Height;
@@ -966,8 +995,8 @@ internal sealed class PortableTextLine : TextLine
                 End - _paragraphStart - Math.Max(First - _paragraphStart, _sourceMap.ToSource(visibleEnd, false));
             double trailingWidth = 0;
             if (paragraph.CollapsedRange == null)
-                foreach (var glyph in paragraph.Glyphs.Span.Slice(Info.GlyphStart, Info.GlyphCount))
-                    if (glyph.Cluster >= visibleEnd) trailingWidth += glyph.Advance;
+                for (int index = Info.GlyphStart; index < Info.GlyphStart + Info.GlyphCount; index++)
+                    if (paragraph.Glyphs.Span[index].Cluster >= visibleEnd) trailingWidth += GetSourceAdvance(index);
             _width = Math.Max(0, Info.Width - trailingWidth);
             Rect ink = CreateGlyphRuns();
             CacheUnderlines(visibleEnd, ref ink);
@@ -1061,7 +1090,8 @@ internal sealed class PortableTextLine : TextLine
         Rect ink = Rect.Empty;
         var glyphs = _paragraph.Glyphs.Span;
         var hintedParagraph = _paragraph as IPortableHintedTextParagraph;
-        double nativeBaseline = hintedParagraph != null ? hintedParagraph.Lines.Span[_lineIndex].BaselineY :
+        double nativeBaseline = _paragraph is IPortableDisplayTextParagraph displayParagraph
+            ? displayParagraph.DisplayLineMetrics.Span[_lineIndex].BaselineY : hintedParagraph != null ? hintedParagraph.Lines.Span[_lineIndex].BaselineY :
             Info.Y + (_paragraph is IPortableInlineTextParagraph ? Baseline : 0);
         int end = Info.GlyphStart + Info.GlyphCount;
         for (int first = Info.GlyphStart; first < end;)
@@ -1134,7 +1164,20 @@ internal sealed class PortableTextLine : TextLine
             var ids = new ushort[indices.Length]; var advances = new double[indices.Length];
             var offsets = new Point[indices.Length]; var positions = new Vector2[indices.Length];
             using var hintedRun = hintedParagraph?.AcquireGlyphRun(indices);
-            if (hintedRun != null)
+            if (_paragraph is IPortableDisplayTextParagraph)
+            {
+                if (hintedRun is not IPortableDisplayGlyphRunBindingFactory factory)
+                    throw Unsupported("the retained Display run lost its original double source metrics capability");
+                var originalOffsets = new PortablePoint[indices.Length];
+                factory.CopyDisplaySourceMetrics(style.EmSize, _generationPixelsPerDip, advances, originalOffsets);
+                for (int i = 0; i < offsets.Length; i++)
+                {
+                    if (advances[i] != GetSourceAdvance(indices[i]))
+                        throw new InvalidOperationException("The Display run changed its original measured source advance.");
+                    offsets[i] = new(originalOffsets[i].X, originalOffsets[i].Y);
+                }
+            }
+            else if (hintedRun != null)
             {
                 if (hintedRun is not IPortableHintedGlyphRunBindingFactory factory || (float)style.EmSize != style.EmSize)
                     throw Unsupported("the original hinted source offset capability or exact source em size");
@@ -1149,7 +1192,7 @@ internal sealed class PortableTextLine : TextLine
                 var g = glyphs[indices[i]];
                 if (g.Cluster < style.Start || g.ClusterEnd > style.End)
                     throw new InvalidOperationException("A native cluster crosses its source style domain.");
-                ids[i] = checked((ushort)g.GlyphId); advances[i] = g.Advance;
+                ids[i] = checked((ushort)g.GlyphId); advances[i] = GetSourceAdvance(indices[i]);
                 if (hintedRun == null)
                 {
                     positions[i] = new(g.X, (float)(g.Y - nativeBaseline));
@@ -1166,10 +1209,17 @@ internal sealed class PortableTextLine : TextLine
             }
             // Match TextShapeableCharacters.ComputeShapedGlyphRun: public runs
             // carry direction, while grouping and selection retain the full level.
-            var run = new GlyphRun(face, level & 1, false, style.EmSize, (float)_generationPixelsPerDip,
-                ids, new Point(NativeOrigin, Baseline), advances, offsets, _text.AsSpan(cpStart, cpEnd - cpStart).ToArray(),
-                null, clusters, carets, XmlLanguage.GetLanguage(properties.CultureInfo.IetfLanguageTag));
-            if (hintedRun != null) run.InitializePortableHintedGlyphRun(hintedRun);
+            var characters = _text.AsSpan(cpStart, cpEnd - cpStart).ToArray();
+            var language = XmlLanguage.GetLanguage(properties.CultureInfo.IetfLanguageTag);
+            var run = _paragraph is IPortableDisplayTextParagraph
+                ? GlyphRun.TryCreate(face, level & 1, false, style.EmSize, (float)_generationPixelsPerDip,
+                    ids, new Point(NativeOrigin, Baseline), advances, offsets, characters,
+                    null, clusters, carets, language, TextFormattingMode.Display)
+                    ?? throw Unsupported("the source Display GlyphRun frame is not representable")
+                : new GlyphRun(face, level & 1, false, style.EmSize, (float)_generationPixelsPerDip,
+                    ids, new Point(NativeOrigin, Baseline), advances, offsets, characters, null, clusters, carets, language);
+            if (_paragraph is IPortableDisplayTextParagraph) run.InitializePortableDisplayGlyphRun(hintedRun, _generationPixelsPerDip);
+            else if (hintedRun != null) run.InitializePortableHintedGlyphRun(hintedRun);
             else run.InitializePortableGlyphPositions(positions, _paragraph.GetNativeFont(fontIndex));
             int sourceStart = _sourceMap.ToSource(cpStart, true), sourceEnd = _sourceMap.ToSource(cpEnd, false);
             if (sourceEnd - sourceStart != cpEnd - cpStart)
@@ -1269,6 +1319,8 @@ internal sealed class PortableTextLine : TextLine
             return ReferenceEquals(result, _uncollapsed) ? new PortableTextLine(_uncollapsed, _lineIndex) : result;
         }
         if (Width + _indent <= collapsing.Width) return this;
+        if (_paragraph is IPortableDisplayTextParagraph)
+            throw Unsupported("source Display collapse requires a double source-preserving collapse and independently retained Display symbol contract");
         if (collapsing.Symbol is not TextCharacters characters || characters.Properties == null || characters.Length <= 0)
             throw Unsupported("non-text collapsing symbols");
         var source = new CollapsingSymbolSource(characters, _generationPixelsPerDip);
@@ -1329,7 +1381,10 @@ internal sealed class PortableTextLine : TextLine
     }
     public override CharacterHit GetCharacterHitFromDistance(double distance)
     {
-        CheckAlive(); var hit = _paragraph.HitTest(_lineIndex, ToNativePointX(distance));
+        CheckAlive();
+        double nativeX = ToNativePointX(distance);
+        var hit = _paragraph is IPortableDisplayTextParagraph display
+            ? display.HitTestDisplay(_lineIndex, nativeX) : _paragraph.HitTest(_lineIndex, (float)nativeX);
         if (!hit.Trailing) return new(_paragraphStart + _sourceMap.ToSource(hit.Position, true), 0);
         int before = _paragraph.GetNextLogicalCaret(_lineIndex, hit.Position, true);
         int sourceStart = _sourceMap.ToSource(before, true), sourceEnd = _sourceMap.ToSource(hit.Position, false);
@@ -1342,7 +1397,9 @@ internal sealed class PortableTextLine : TextLine
         int position = _sourceMap.ToText(Math.Clamp(checked(hit.FirstCharacterIndex + hit.TrailingLength) - _paragraphStart, 0, _sourceMap.SourceLength));
         if (_paragraph.CollapsedRange is { } c && position > c.Start && position < c.End)
             position = hit.TrailingLength != 0 ? c.End : c.Start;
-        return ToLogicalPointX(_paragraph.GetCaretDistance(_lineIndex, new(position, hit.TrailingLength != 0)));
+        var nativeHit = new PortableTextHit(position, hit.TrailingLength != 0);
+        return ToLogicalPointX(_paragraph is IPortableDisplayTextParagraph display
+            ? display.GetDisplayCaretDistance(_lineIndex, nativeHit) : _paragraph.GetCaretDistance(_lineIndex, nativeHit));
     }
     public override CharacterHit GetNextCaretCharacterHit(CharacterHit hit) => Move(hit, false);
     // Physical fragment movement stays in the retained native paragraph. Return
@@ -1355,7 +1412,7 @@ internal sealed class PortableTextLine : TextLine
         if (_paragraph is not IPortableExcludedTextParagraph excluded) return false;
         if (!double.IsFinite(preferredX))
             throw new ArgumentOutOfRangeException(nameof(preferredX));
-        float nativePreferredX = ToNativePointX(preferredX);
+        float nativePreferredX = (float)ToNativePointX(preferredX);
         if (!float.IsFinite(nativePreferredX))
             throw new ArgumentOutOfRangeException(nameof(preferredX));
         if (sourcePosition < First || sourcePosition > First + Length)

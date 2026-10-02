@@ -30,7 +30,11 @@ namespace System.Windows.Media.Effects
                 uriSource != null && uriSource.IsAbsoluteUri ? uriSource.AbsoluteUri : null,
                 _shaderBytecode,
                 ShaderMajorVersion,
-                ShaderMinorVersion);
+                ShaderMinorVersion)
+            {
+                RenderMode = (PortableShaderRenderMode)ShaderRenderMode,
+                Source = this
+            };
             return true;
         }
 

@@ -19,7 +19,7 @@ namespace System.Windows.Media.Imaging
     /// Interface for Bitmap Sources, included decoders and effects
     /// </summary>
     [Localizability(LocalizationCategory.None, Readability = Readability.Unreadable)]
-    public abstract class BitmapSource : ImageSource, DUCE.IResource, IPortableBitmapSourcePixelsSource
+    public abstract class BitmapSource : ImageSource, DUCE.IResource, IPortableBitmapSourcePixelsSource, IPortableBitmapSourceMetricsSource
     {
         #region Constructor
 
@@ -391,6 +391,15 @@ namespace System.Windows.Media.Imaging
             CheckIfSiteOfOrigin();
 
             CriticalCopyPixels(sourceRect, buffer, (uint)bufferSize, stride);
+        }
+
+        bool IPortableBitmapSourceMetricsSource.TryGetPortableBitmapSourceMetrics(out PortableBitmapSourceMetrics metrics)
+        {
+            ReadPreamble();
+            metrics = new PortableBitmapSourceMetrics(PixelWidth, PixelHeight, DpiX, DpiY);
+            return metrics.PixelWidth > 0 && metrics.PixelHeight > 0
+                && double.IsFinite(metrics.DpiX) && metrics.DpiX > 0
+                && double.IsFinite(metrics.DpiY) && metrics.DpiY > 0;
         }
 
         bool IPortableBitmapSourcePixelsSource.TryGetPortableBitmapSourcePixels(out PortableBitmapSourcePixels pixels)

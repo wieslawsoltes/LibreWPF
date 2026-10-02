@@ -143,6 +143,10 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
     private int _nativeSessionReleaseCount;
     private List<(Action Complete, Action? Acknowledge)>? _nativeSessionReleaseCallbacks;
     private ExceptionDispatchInfo? _nativeSessionReleaseFailure;
+    private bool _isBeginningNativeDialog;
+    private bool _ownsNativeDialog;
+    private Action? _beginDeferredNativeSessionRelease;
+    private NativeWindowModalSession? _nativeDialogSession;
     private bool _hasNativeWindowCloseStarted;
     private bool _dpiWindowHintsConfigured;
     private bool _hasPendingNativeDpiChange;
@@ -726,6 +730,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
 
     internal Func<IWindow, Action, bool> NativeWindowSessionRelease { get; set; } = TryReleaseNativeWindowSession;
     internal Func<IWindow, bool> NativeWindowSessionRetains { get; set; } = IsNativeWindowRetainedByModalSession;
+    internal Func<IWindow, bool>? NativeWindowSessionBeginOverride { get; set; }
 
     public void Run()
     {
@@ -784,6 +789,8 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
             _isHostVisible = true;
             ShowNativeWindow(showActivated);
         }
+        if (continueRunning != null && _isHostVisible && continueRunning())
+            BeginNativeDialogSession();
         if (continueRunning != null && _isHostVisible &&
             _windowController?.Handle.Kind == NativeWindowKind.X11 &&
             !_windowController.TryBeginModalHint(out _nativeDialogHint))
@@ -1352,7 +1359,70 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
     private void CompleteNativeDialogRelease(IWindow window, Action completed)
     {
         if (!RequestNativeWindowSessionRelease(window, () => CompleteNativeDialogRelease(window, completed)))
+        {
+            _ownsNativeDialog = false;
+            _nativeDialogSession = null;
             completed();
+        }
+    }
+
+    internal void BeginNativeDialogSession()
+    {
+        if (!_options.EnableNativeModalSessions) return;
+        ThrowIfDisposed();
+        VerifyNativeVisibilityRelease();
+        if (_nativeWindowThreadId != Environment.CurrentManagedThreadId ||
+            _isBeginningNativeDialog || _ownsNativeDialog || _options.IsPopupSurface ||
+            _modalInputOwner == null || _window is not { } window)
+            throw new InvalidOperationException("Native dialogs require their live source-owned top-level host.");
+        bool initialized = window.IsInitialized;
+        bool visible = window.IsVisible;
+        if (!initialized || !visible || !_isHostVisible || _isDisposed ||
+            _hasNativeWindowCloseStarted || !ReferenceEquals(window, _window))
+            throw new InvalidOperationException("A native dialog must remain visible on its original provider.");
+
+        // AppKit Begin can synchronously raise activation/source callbacks. Own
+        // the host before entering it; Close/Hide queue their normal exact-window
+        // release proof instead of attempting native End during Begin.
+        _isBeginningNativeDialog = true;
+        Exception? beginFailure = null;
+        try
+        {
+            bool accepted;
+            if (NativeWindowSessionBeginOverride is { } begin) accepted = begin(window);
+            else
+            {
+                try
+                {
+                    accepted = window.Native?.Cocoa is { } cocoa && cocoa != 0 &&
+                        NativeWindowModalSession.TryBegin(
+                            new(NativeWindowKind.Cocoa, cocoa, 0, "NSWindow"), out _nativeDialogSession);
+                }
+                catch (Exception failure)
+                {
+                    // A native admission exception can be failed identity
+                    // cleanup after Begin. An absent session query is not proof.
+                    _nativeSessionReleaseFailure ??= ExceptionDispatchInfo.Capture(failure);
+                    throw;
+                }
+            }
+            if (!accepted)
+                throw new PlatformNotSupportedException("The dialog provider rejected its native modal session.");
+            _ownsNativeDialog = true;
+        }
+        catch (Exception failure) { beginFailure = failure; throw; }
+        finally
+        {
+            _isBeginningNativeDialog = false;
+            Action? pending = _beginDeferredNativeSessionRelease;
+            _beginDeferredNativeSessionRelease = null;
+            try { pending?.Invoke(); }
+            catch (Exception) when (beginFailure != null)
+            {
+                // The shared coordinator retains uncertain release and pending
+                // owners. Keep the original admission failure authoritative.
+            }
+        }
     }
 
     private void ReleaseNativeDialogHint()
@@ -2030,7 +2100,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
     private bool MustDeferNativeWindowRetirement(IWindow window) =>
         _isNativeLoopRunning || _isRendering || _isProcessingDispatcherWorkWakeup ||
         _isInNativeWindowCloseCallback || _isDisposingHostServices || _isDisposingHostResources ||
-        _isRetiringAcceptedCloseTarget ||
+        _isRetiringAcceptedCloseTarget || _isBeginningNativeDialog ||
         _pendingNativeCloseWindow != null || _nativeHidePending || _nativeSessionReleaseCount != 0 ||
         Volatile.Read(ref s_activeNativeEventDispatchDepth) > 0 ||
         IsNativeWindowRetainedByModalSession(window);
@@ -2270,28 +2340,37 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
             }
             callbackFailure?.Throw();
         }
-        try
+        bool StartRelease(bool deferred)
         {
-            if (NativeWindowSessionRelease(window, Released)) return true;
-            if (callbacks.Count != 1)
+            try
             {
-                // A native identity getter can reenter and queue another action
-                // even when the final native query has no session to release.
-                Released();
-                return true;
+                if (NativeWindowSessionRelease(window, Released)) return true;
+                if (callbacks.Count != 1 || deferred)
+                {
+                    // A native identity getter can reenter and queue another action
+                    // even when the final native query has no session to release.
+                    Released();
+                    return true;
+                }
+                _nativeSessionReleaseCallbacks = null;
+                if (--_nativeSessionReleaseCount == 0) _nativeSessionReleaseWindow = null;
+                return false;
             }
-            _nativeSessionReleaseCallbacks = null;
-            if (--_nativeSessionReleaseCount == 0) _nativeSessionReleaseWindow = null;
-            return false;
+            catch (Exception failure)
+            {
+                // Identity Dispose can remove the shared query and still fail without
+                // delivering completion. All host operations retain that uncertainty.
+                // Delivered callback errors are source errors, not release failures.
+                if (!delivered) _nativeSessionReleaseFailure ??= ExceptionDispatchInfo.Capture(failure);
+                throw;
+            }
         }
-        catch (Exception failure)
+        if (_isBeginningNativeDialog)
         {
-            // Identity Dispose can remove the shared query and still fail without
-            // delivering completion. All host operations retain that uncertainty.
-            // Delivered callback errors are source errors, not release failures.
-            if (!delivered) _nativeSessionReleaseFailure ??= ExceptionDispatchInfo.Capture(failure);
-            throw;
+            _beginDeferredNativeSessionRelease = () => StartRelease(deferred: true);
+            return true;
         }
+        return StartRelease(deferred: false);
     }
 
     private static bool TryReleaseNativeWindowSession(IWindow window, Action completed) =>
@@ -2946,10 +3025,10 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
             }
 
             object? wpfRootVisual = _wpfRootVisual;
+            var activeWpfImageSourceAdapter = _target.CreateFrameImageSourceAdapter(WpfImageSourceAdapter, (float)dpiScale);
             var forceFullWpfReplay = _forceFullWpfReplay;
             var shouldReplayWpfRootVisual = wpfRootVisual != null &&
                 (forceFullWpfReplay || _target.ShouldReplayVisualSubtree(wpfRootVisual));
-            var activeWpfImageSourceAdapter = _target.CreateFrameImageSourceAdapter(WpfImageSourceAdapter);
             IReadOnlyList<WpfRetainedVisualBranchReplayTarget> dirtyBranchReplayTargets = Array.Empty<WpfRetainedVisualBranchReplayTarget>();
             var canReplayDirtyWpfBranches = wpfRootVisual != null &&
                 shouldReplayWpfRootVisual &&

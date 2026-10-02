@@ -124,7 +124,7 @@ internal readonly record struct WpfNativeMilVisualOverlay(
 /// and radial-gradient analytic render-data. The existing managed portable
 /// renderer remains independent and is not replaced or selected implicitly.
 /// </remarks>
-public sealed class WpfNativeMilSceneCompiler
+public sealed partial class WpfNativeMilSceneCompiler
 {
     public WpfNativeMilBatch BuildBatch(
         object rootVisual,
@@ -327,7 +327,7 @@ public sealed class WpfNativeMilSceneCompiler
         return appliedCount;
     }
 
-    private sealed class BuildContext : IDisposable
+    private sealed partial class BuildContext : IDisposable
     {
         internal List<(uint Handle, WpfHintedGlyphRunBinding Owner)> HintedGlyphRuns { get; } = [];
         public void Dispose()
@@ -1719,7 +1719,7 @@ public sealed class WpfNativeMilSceneCompiler
             return resource;
         }
 
-        private uint ResolveBrush(object resource)
+        private uint ResolveBrush(object resource, PortableTileBrush? capturedTile = null)
         {
             if (_brushHandles.TryGetValue(resource, out uint existing))
             {
@@ -1747,7 +1747,10 @@ public sealed class WpfNativeMilSceneCompiler
             }
             if (resource is IPortableTileBrushSource tileSource)
             {
-                if (!tileSource.TryGetPortableTileBrush(out PortableTileBrush tile))
+                PortableTileBrush tile;
+                if (capturedTile is not null)
+                    tile = capturedTile;
+                else if (!tileSource.TryGetPortableTileBrush(out tile))
                     throw MissingContract(nameof(IPortableTileBrushSource));
                 if (tile.Kind is not (PortableTileBrushKind.Image or PortableTileBrushKind.Drawing or PortableTileBrushKind.Visual))
                     throw new NotSupportedException("Unknown portable tile brush source kind.");
@@ -2824,6 +2827,12 @@ public sealed class WpfNativeMilSceneCompiler
             if (_effectHandles.TryGetValue(resource, out uint existing))
             {
                 return existing;
+            }
+            if (resource is IPortableShaderEffectSource shaderSource)
+            {
+                if (!shaderSource.TryGetPortableShaderEffect(out PortableShaderEffect shader))
+                    throw MissingContract(nameof(IPortableShaderEffectSource));
+                return AddShaderEffect(resource, shader);
             }
             if (resource is not IPortableEffectSource source ||
                 !source.TryGetPortableEffect(out PortableEffect effect))
