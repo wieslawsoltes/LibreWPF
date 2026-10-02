@@ -285,7 +285,7 @@ internal static class WpfEffectMapper
             }
 
             var samplerSamplingMode = ConvertSamplingMode(portableSampler.SamplingMode);
-            if (portableSampler.Kind == PortableShaderSamplerKind.ImageSource)
+            if (portableSampler.Kind == PortableShaderSamplerKind.ImageSource && portableSampler.Brush == null)
             {
                 if (!TryCreateImageSourceShaderSampler(
                         portableSampler.ImageSource,
@@ -299,7 +299,8 @@ internal static class WpfEffectMapper
 
                 additionalSamplerIndex++;
             }
-            else if (portableSampler.Kind == PortableShaderSamplerKind.Brush)
+            else if (portableSampler.Kind == PortableShaderSamplerKind.Brush ||
+                (portableSampler.Kind == PortableShaderSamplerKind.ImageSource && portableSampler.Brush != null))
             {
                 if (!TryCreateShaderSamplerBrush(
                         portableSampler.Brush!,

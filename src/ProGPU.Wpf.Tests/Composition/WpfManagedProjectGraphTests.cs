@@ -8749,7 +8749,9 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("CreatePortableShaderFloatConstants()", shaderEffect, StringComparison.Ordinal);
         Assert.Contains("CreatePortableShaderSamplers()", shaderEffect, StringComparison.Ordinal);
         Assert.Contains("PortableShaderSampler.ImplicitInput(i, samplingMode)", shaderEffect, StringComparison.Ordinal);
-        Assert.Contains("PortableShaderSampler.Image(i, imageBrush.ImageSource, samplingMode)", shaderEffect, StringComparison.Ordinal);
+        Assert.Contains("PortableShaderSampler.Image(i, imageBrush.ImageSource, samplingMode, imageBrush)", shaderEffect, StringComparison.Ordinal);
+        Assert.Contains("RenderMode = (PortableShaderRenderMode)ShaderRenderMode", pixelShader, StringComparison.Ordinal);
+        Assert.Contains("Source = this", pixelShader, StringComparison.Ordinal);
         Assert.Contains("PixelShader : System.Windows.Media.Animation.Animatable, ProGPU.Wpf.Interop.IPortablePixelShaderSource", presentationCoreRef, StringComparison.Ordinal);
         Assert.Contains("bool ProGPU.Wpf.Interop.IPortablePixelShaderSource.TryGetPortablePixelShader", presentationCoreRef, StringComparison.Ordinal);
         Assert.Contains("ShaderEffect : System.Windows.Media.Effects.Effect, ProGPU.Wpf.Interop.IPortableShaderEffectSource", presentationCoreRef, StringComparison.Ordinal);

@@ -139,6 +139,9 @@ jobs:
       - name: Validate source event-time input modifiers
         run: bash ./eng/progpu-wpf-input-modifiers-source.sh
 
+      - name: Validate original ShaderEffect source export
+        run: bash ./eng/progpu-wpf-shader-effect-source.sh
+
       - name: Validate source pointer press ownership
         run: bash ./eng/progpu-wpf-pointer-ownership-source.sh
 

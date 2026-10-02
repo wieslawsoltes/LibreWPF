@@ -5063,6 +5063,50 @@ public sealed partial class WpfVisualTreeRendererTests
         }
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void CompleteImageSamplerUsesOriginalBrushOrRejectsWithoutBrushAdapter(bool hasBrushAdapter)
+    {
+        byte[] bytecode = [0, 3, 0, 0, 20, 22, 24, 26];
+        string key = WpfShaderEffectRegistry.RegisterPixelShaderBytecode(bytecode,
+            "fn wpf_effect_main(uv: vec2<f32>, inputColor: vec4<f32>) -> vec4<f32> { return inputColor; }",
+            shaderKey: "original_image_brush_sampler");
+        var texture = (ProGpuTexture)RuntimeHelpers.GetUninitializedObject(typeof(ProGpuTexture));
+        var image = new FakeBitmapSource();
+        var brush = new FakeShaderImageBrush(image);
+        var brushAdapter = new FakeShaderSamplerBrushAdapter(texture);
+        var imageOnlyAdapter = new FakeImageSourceAdapter(new FakeSamplerBitmapSource(texture));
+        try
+        {
+            var source = new FakePortableShaderEffectSource(new PortableShaderEffect(null, null,
+                new PortablePixelShader(null, null, bytecode, 3, 0), [],
+                [PortableShaderSampler.Image(2, image, PortableShaderSamplingMode.NearestNeighbor, brush)],
+                0, 0, 0, 0, 0, 0, -1));
+            var root = new FakePortableVisualStateVisual(CreatePortableEffectState(source));
+            root.Children.Add(new FakeDrawingVisual(CreateRenderData(Brushes.Green)));
+            var sink = new TestSink { AcceptVisualEffects = true };
+            var result = new WpfVisualTreeRenderer().ReplaySubtree(root, sink,
+                imageSourceAdapter: hasBrushAdapter ? brushAdapter : imageOnlyAdapter);
+            Assert.Null(imageOnlyAdapter.LastImageSource);
+            if (hasBrushAdapter)
+            {
+                Assert.Same(brush, brushAdapter.LastSamplerBrush);
+                var effect = Assert.IsType<ProGpuWpfShaderEffect>(Assert.Single(sink.VisualEffects));
+                Assert.Same(texture, Assert.Single(effect.Parameters.Samplers).Texture);
+                Assert.Equal(2, brushAdapter.LastSamplerRegisterIndex);
+                Assert.Equal(ProGpuTextureSamplingMode.Nearest, brushAdapter.LastSamplerMode);
+                Assert.Equal(0, result.UnsupportedVisualStateCount);
+            }
+            else
+            {
+                Assert.Empty(sink.VisualEffects);
+                Assert.Equal(1, result.UnsupportedVisualStateCount);
+            }
+        }
+        finally { WpfShaderEffectRegistry.Unregister(key); }
+    }
+
     [Fact]
     public void ReplaySubtreePushesNativeShaderEffectWithAdapterRenderedBrushSampler()
     {

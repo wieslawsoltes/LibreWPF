@@ -1176,7 +1176,7 @@ public sealed class WpfVisualInvalidationTracker : IDisposable
         if (source is PortableShaderEffectSource shaderEffectSource
             && shaderEffectSource.TryGetPortableShaderEffect(out var shaderEffect))
         {
-            VisitPortableDependency(ref state, visitor, shaderEffect.PixelShader);
+            VisitPortableDependency(ref state, visitor, shaderEffect.PixelShader?.Source);
             var samplers = shaderEffect.Samplers;
             for (var i = 0; i < samplers.Length; i++)
             {
@@ -1187,6 +1187,7 @@ public sealed class WpfVisualInvalidationTracker : IDisposable
                 }
                 else if (sampler.Kind == PortableShaderSamplerKind.ImageSource)
                 {
+                    VisitPortableDependency(ref state, visitor, sampler.Brush);
                     VisitPortableDependency(ref state, visitor, sampler.ImageSource);
                 }
             }
