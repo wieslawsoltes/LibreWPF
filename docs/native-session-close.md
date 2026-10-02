@@ -60,3 +60,10 @@ and new minimum 336 include all fifteen. Source wiring checks retain one provide
 Close site behind shared release, both caller paths, the pending-window retirement
 prerequisite, and unchanged owner/local-queue polling. These checks do not compile
 types or execute host/native tests.
+
+The uncertainty correction at `0be22e60b7c863d149af967887f9172a1279cc26`
+passed the same postcommit checks. The final inventory is six Facts plus eleven
+InlineData cases (17), selected by the unchanged host filter at minimum 338.
+Additional source checks require the original-error latch at Close, deferred
+completion and retirement, and distinguish an undelivered failure from a
+synchronous callback exception. Type compilation and execution remain hosted-only.
