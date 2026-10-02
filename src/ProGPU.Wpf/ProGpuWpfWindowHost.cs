@@ -308,6 +308,49 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
 
     public bool IsEnabled => _windowController?.IsEnabled ?? true;
 
+    internal bool TryGetDesktopWindowSnapshot(out ProGpuWpfDiagnostics.DesktopWindowSnapshot snapshot)
+    {
+        snapshot = default;
+        if (_isDisposed || _hasNativeWindowCloseStarted || !PlatformServices.Dispatcher.CheckAccess()) return false;
+        var window = _window;
+        var controller = _windowController;
+        var bridge = PortablePresentationSourceBridge;
+        object? root = WpfRootVisual;
+        if (window == null || controller == null || bridge == null || root == null || !window.IsInitialized) return false;
+        var handle = controller.Handle;
+        nint source = bridge.Handle;
+        bool visible = IsVisible;
+        bool enabled = controller.IsEnabled;
+        long frames = PresentedFrameCount;
+        bool hasGeometry = controller.TryGetGeometrySnapshot(out var geometry);
+        if (_isDisposed || _hasNativeWindowCloseStarted || !ReferenceEquals(window, _window) ||
+            !ReferenceEquals(controller, _windowController) || !ReferenceEquals(bridge, PortablePresentationSourceBridge) ||
+            !ReferenceEquals(root, WpfRootVisual) || source == 0 || source != bridge.Handle ||
+            !handle.IsValid || handle != controller.Handle || visible != IsVisible || enabled != controller.IsEnabled ||
+            (hasGeometry && geometry.Window != handle)) return false;
+        snapshot = new(root, source, handle, visible, enabled, frames, hasGeometry ? geometry : null);
+        return true;
+    }
+
+    internal bool TryGetDesktopWindowSnapshots(out ProGpuWpfDiagnostics.DesktopWindowSnapshot[] snapshots)
+    {
+        snapshots = Array.Empty<ProGpuWpfDiagnostics.DesktopWindowSnapshot>();
+        if (!TryGetDesktopWindowSnapshot(out var owner) || _portablePopupBridges.Count > 32) return false;
+        var popups = _portablePopupBridges.ToArray();
+        var values = new List<ProGpuWpfDiagnostics.DesktopWindowSnapshot> { owner };
+        foreach (var popup in popups)
+        {
+            if (!popup.IsVisible) continue;
+            if (!popup.TryGetDesktopWindowSnapshot(out var current)) return false;
+            values.Add(current);
+        }
+        if (popups.Length != _portablePopupBridges.Count || _isDisposed || _hasNativeWindowCloseStarted) return false;
+        for (int i = 0; i < popups.Length; ++i)
+            if (!ReferenceEquals(popups[i], _portablePopupBridges[i])) return false;
+        snapshots = values.ToArray();
+        return true;
+    }
+
     public ProGpuWpfWindowState WindowState => _windowState;
 
     public string Title => _window?.Title ?? _windowTitle;

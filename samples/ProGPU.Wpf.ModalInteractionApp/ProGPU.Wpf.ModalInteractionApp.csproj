@@ -1,0 +1,8 @@
+<Project Sdk="LibreWPF.Sdk/0.1.0-preview.65">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>$(ProGpuWpfSdkSampleTargetFramework)</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <DefineConstants>$(DefineConstants);LIBREWPF_MODAL_PORTABLE</DefineConstants>
+  </PropertyGroup>
+</Project>

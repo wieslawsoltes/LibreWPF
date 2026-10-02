@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <EnableDefaultItems>false</EnableDefaultItems>
+  </PropertyGroup>
+  <ItemGroup>
+    <ApplicationDefinition Include="../ProGPU.Wpf.ModalInteractionApp/App.xaml" Link="App.xaml" />
+    <Compile Include="../ProGPU.Wpf.ModalInteractionApp/App.xaml.cs" Link="App.xaml.cs" />
+    <Compile Include="../ProGPU.Wpf.ModalInteractionApp/ModalObservation.cs" Link="ModalObservation.cs" />
+  </ItemGroup>
+</Project>
