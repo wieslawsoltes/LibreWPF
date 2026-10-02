@@ -32,7 +32,7 @@ minimum = {
     "ProGPU.Wpf.Tests.Composition.WgpuSurfaceTransitionContractTests": 1,
     "ProGPU.Wpf.Tests.Platform.DispatcherWpfRenderSchedulerTests": 8,
     "ProGPU.Wpf.Tests.Platform.CoalescingWpfRenderSchedulerTests": 3,
-    "ProGPU.Wpf.Tests.Composition.WpfSourceDisplayParagraphTests": 6,
+    "ProGPU.Wpf.Tests.Composition.WpfSourceDisplayParagraphTests": 7,
 }
 ns = {"t": "http://microsoft.com/schemas/VisualStudio/TeamTest/2010"}
 

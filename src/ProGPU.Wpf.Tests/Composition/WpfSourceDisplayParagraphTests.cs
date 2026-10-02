@@ -51,4 +51,26 @@ public sealed class WpfSourceDisplayParagraphTests
         Assert.True(typeof(IPortableDisplayGlyphRunBinding).IsAssignableFrom(binding));
         Assert.Equal(binding, binding.GetMethod(nameof(IPortableHintedGlyphRunBinding.Retain))!.DeclaringType);
     }
+
+    [Fact]
+    public void SourceMilBatchKeepsOneMixedTransactionAndOriginalBindingIndices()
+    {
+        string? path = null;
+        for (DirectoryInfo? folder = new(AppContext.BaseDirectory); folder is not null; folder = folder.Parent)
+        {
+            string candidate = Path.Combine(folder.FullName, "src", "ProGPU.Wpf", "Composition", "Mil", "WpfNativeHintedGlyphResources.cs");
+            if (File.Exists(candidate)) { path = candidate; break; }
+        }
+        Assert.NotNull(path);
+        string source = File.ReadAllText(path!);
+        Assert.Contains("HasSourceGeometry |= owner.NativeResource.HasSourceGeometry;", source, StringComparison.Ordinal);
+        int start = source.IndexOf("internal NativeMilBatchMetrics Apply(", StringComparison.Ordinal);
+        int end = source.IndexOf("public void Dispose()", start, StringComparison.Ordinal);
+        string apply = source[start..end];
+        Assert.Contains("using var hold = _use.Retain();", apply, StringComparison.Ordinal);
+        Assert.Contains("return _state.HasSourceGeometry", apply, StringComparison.Ordinal);
+        Assert.Contains("? channel.ApplyWithSourceGlyphResourcesWithMetrics(bytes, _state.Resources, _state.Bindings, _state.Indices)", apply, StringComparison.Ordinal);
+        Assert.Contains(": channel.ApplyWithHintedGlyphResourcesWithMetrics(bytes, _state.Resources, _state.Bindings, _state.Indices)", apply, StringComparison.Ordinal);
+        Assert.DoesNotContain("catch", apply, StringComparison.Ordinal);
+    }
 }

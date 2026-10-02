@@ -11,10 +11,18 @@ em/advance/interpreter policy. Optional intrinsic widths are copied from the
 producer's whole-paragraph double measurement; they are never the current formatted
 line width. Zero-content-width admission remains unavailable here.
 
-Six adapter identity/schema controls are authored. They and the backend APIs need
+Seven adapter identity/schema/routing controls are authored. They and the backend APIs need
 the pending coherent ProGPU source branch; the gitlink deliberately remains the
 qualified old pin until that producer is published. No local dependency-graph,
 native, GPU or desktop qualification is claimed.
+
+Native MIL batches now select the explicit source-resource import only when an
+actual retained producer resource carries that extension. Mixed raw/source owners,
+original binding indices and commands cross together in one atomic provider call;
+missing source capability is not retried through raw import. Ordinary raw batches
+retain their existing route. This source wiring and its hosted selector are
+committed pending the coherent published ProGPU dependency; the existing gitlink
+is deliberately unchanged, so it does not yet provide these new APIs.
 
 The portable `TextLine` source route now selects `IPortableDisplayTextFormatting`
 only for an actual Display formatter. Explicit hinted formatting and font/device
