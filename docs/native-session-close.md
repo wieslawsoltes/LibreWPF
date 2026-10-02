@@ -96,3 +96,12 @@ adds tracked provider rendering through the fixture's real headless `OnRender`
 callback (no GPU), asserts those wakeups, and updates the exact coalescing/identity
 guard. No product behavior or native assertion is changed to satisfy those tests.
 All 35 lifecycle controls still require execution on the followup hosted graph.
+
+Postcommit checks at `e11e8b2e1cfd2a9e0c289cf8102904a4aec360d7` passed:
+SDK Roslyn parsed all five changed C# files with zero syntax errors; shell syntax,
+embedded verifier syntax and `git diff 5c4f8ac76 --check` passed. Exact inventory
+is the original 17 plus 18 new cases, selected by the unchanged host filter at
+minimum 356. Source checks confirm the single shared release boundary, coalesced
+outstanding callbacks, undelivered-error latch, creating-thread retirement drain,
+visibility-read/new-lease/write ordering and unchanged owner/local polling.
+These are source/syntax checks only, not type compilation or test execution.

@@ -1,4 +1,3 @@
-using System.Windows.Media.ProGPU;
 using Silk.NET.Windowing;
 using Xunit;
 
