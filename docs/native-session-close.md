@@ -44,3 +44,13 @@ At implementation checkpoint, compilation and execution are pending the exact
 hosted source graph. No verified current local managed host cache was available;
 older mixed assemblies are not used as product evidence. Postcommit bounded
 syntax and source checks are recorded separately, not desktop or modality parity.
+
+Postcommit checks at `79f9a108aec44ab7a146d82ad153d0d3f22399e8`
+passed: SDK Roslyn parsed both changed C# files with zero syntax errors;
+`git diff HEAD^ --check`, `bash -n eng/progpu-wpf-layout-clip.sh`, and Python
+compilation of its unchanged embedded receipt verifier passed. The focused
+inventory is eight Facts plus seven InlineData cases; the existing host selector
+and new minimum 336 include all fifteen. Source wiring checks retain one provider
+Close site behind shared release, both caller paths, the pending-window retirement
+prerequisite, and unchanged owner/local-queue polling. These checks do not compile
+types or execute host/native tests.
