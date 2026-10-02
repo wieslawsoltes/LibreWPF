@@ -4961,6 +4961,7 @@ public sealed partial class WpfVisualTreeRendererTests
             var effect = Assert.IsType<ProGpuWpfShaderEffect>(Assert.Single(sink.VisualEffects));
             Assert.Equal(shaderSource, effect.Parameters.ShaderSource);
             Assert.Equal("registered_portable_shader", effect.Parameters.ShaderKey);
+            Assert.True(effect.CaptureSourceVisualOpacity);
             Assert.Equal(1, effect.Parameters.SourceTextureRegisterIndex);
             Assert.Equal(ProGpuTextureSamplingMode.Nearest, effect.Parameters.SamplingMode);
             Assert.Equal(4f, effect.Padding);
