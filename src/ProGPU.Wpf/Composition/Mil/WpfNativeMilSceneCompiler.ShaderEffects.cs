@@ -76,7 +76,7 @@ public sealed partial class WpfNativeMilSceneCompiler
             uint handle = NextHandle();
             Batch.CreateResource(handle, NativeMilResourceType.ShaderEffect);
             Batch.SetShaderEffect(handle, shader, registers,
-                MemoryMarshal.Cast<float, Vector4>(constants),
+                MemoryMarshal.Cast<float, Vector4>(constants.AsSpan()),
                 checked((uint)sampler.RegisterIndex), sampling, brush,
                 effect.DdxUvDdyUvRegisterIndex);
             _effectHandles.Add(resource, handle);

@@ -116,8 +116,23 @@ public sealed partial class WpfNativeMilSceneCompilerTests
             case 12: effect.Constants = [1, 2, 3]; break;
             case 13: pixel.Major = 3; break;
         }
-        Assert.ThrowsAny<Exception>(() => ShaderBatch(effect));
+        if (invalid == 3)
+            Assert.Throws<InvalidOperationException>(() => ShaderBatch(effect));
+        else
+            Assert.Throws<NotSupportedException>(() => ShaderBatch(effect));
         Assert.Equal(snapshot, previous.Bytes);
+    }
+
+    [Fact]
+    public void ConflictingSnapshotsOfOneLiveShaderRejectTheEntireBatch()
+    {
+        var pixel = new ShaderSource();
+        var first = new ShaderEffectSource(pixel)
+        { AfterCapture = () => pixel.Mode = PortableShaderRenderMode.HardwareOnly };
+        var second = new ShaderEffectSource(pixel);
+        Assert.Contains("changed during native batch capture", Assert.Throws<InvalidOperationException>(() =>
+            new WpfNativeMilSceneCompiler().BuildBatch(new FakeVisual(null, null,
+                ShaderVisual(first), ShaderVisual(second)), 64, 64)).Message);
     }
 
     [Fact]
@@ -166,9 +181,17 @@ public sealed partial class WpfNativeMilSceneCompilerTests
         Assert.Equal(retained, first.Scene.Stream.ToArray());
     }
 
-    private static FakeVisual ShaderVisual(ShaderEffectSource effect) => new(
-        new FakeRenderData(CreateRectangleRecord(1, 0), [new FakeBrush(new(255, 100, 150, 200))]),
-        new PortableVisualState { HasEffect = true, Effect = effect });
+    private static FakeVisual ShaderVisual(ShaderEffectSource effect)
+    {
+        byte[] content = CreateRectangleRecord(1, 0);
+        // The retained effect frame must describe the actual drawable content.
+        WriteDouble(content, 8, 1);
+        WriteDouble(content, 16, 2);
+        WriteDouble(content, 24, 30);
+        WriteDouble(content, 32, 20);
+        return new(new FakeRenderData(content, [new FakeBrush(new(255, 100, 150, 200))]),
+            new PortableVisualState { HasEffect = true, Effect = effect });
+    }
 
     private static WpfNativeMilBatch ShaderBatch(ShaderEffectSource effect) =>
         new WpfNativeMilSceneCompiler().BuildBatch(ShaderVisual(effect), 64, 64);
@@ -194,10 +217,12 @@ public sealed partial class WpfNativeMilSceneCompilerTests
         internal uint IntCount, BoolCount;
         internal double Padding;
         internal int Ddx = -1;
+        internal Action? AfterCapture;
         public bool TryGetPortableShaderEffect(out PortableShaderEffect effect)
         {
             pixel.TryGetPortablePixelShader(out var shader);
             effect = new(null, null, shader, Constants, Samplers, IntCount, BoolCount, Padding, 0, 0, 0, Ddx);
+            AfterCapture?.Invoke();
             return true;
         }
     }

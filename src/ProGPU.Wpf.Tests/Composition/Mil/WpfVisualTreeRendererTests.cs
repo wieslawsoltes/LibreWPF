@@ -2542,8 +2542,8 @@ public sealed partial class WpfVisualTreeRendererTests
         var result = new WpfVisualTreeRenderer().ReplaySubtree(root, sink);
 
         Assert.Contains(shaderEffect, sink.VisualDependencies);
-        Assert.Contains(sink.VisualDependencies, dependency => dependency is PortablePixelShader);
-        Assert.DoesNotContain(shaderEffect.PixelShader, sink.VisualDependencies);
+        Assert.DoesNotContain(sink.VisualDependencies, dependency => dependency is PortablePixelShader);
+        Assert.Contains(shaderEffect.PixelShader, sink.VisualDependencies);
         Assert.Equal(1, result.VisualCount);
         Assert.Equal(1, result.UnsupportedVisualStateCount);
     }
@@ -6661,7 +6661,7 @@ public sealed partial class WpfVisualTreeRendererTests
         }
     }
 
-    private sealed class FakePixelShader
+    private sealed class FakePixelShader : global::ProGPU.Wpf.Interop.IPortablePixelShaderSource
     {
         private readonly byte[] _shaderBytecode;
 
@@ -6672,6 +6672,12 @@ public sealed partial class WpfVisualTreeRendererTests
 
         public Uri? UriSource { get; init; }
 
+        public bool TryGetPortablePixelShader(out PortablePixelShader shader)
+        {
+            shader = TryGetPortablePixelShader();
+            return true;
+        }
+
         public PortablePixelShader TryGetPortablePixelShader()
         {
             return new PortablePixelShader(
@@ -6679,7 +6685,8 @@ public sealed partial class WpfVisualTreeRendererTests
                 UriSource != null && UriSource.IsAbsoluteUri ? UriSource.AbsoluteUri : null,
                 _shaderBytecode,
                 _shaderBytecode.Length > 1 ? (short)_shaderBytecode[1] : (short)0,
-                _shaderBytecode.Length > 0 ? (short)_shaderBytecode[0] : (short)0);
+                _shaderBytecode.Length > 0 ? (short)_shaderBytecode[0] : (short)0)
+            { Source = this, RenderMode = global::ProGPU.Wpf.Interop.PortableShaderRenderMode.Auto };
         }
     }
 
