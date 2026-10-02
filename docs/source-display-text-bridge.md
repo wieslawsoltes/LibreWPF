@@ -24,6 +24,20 @@ retain their existing route. This source wiring and its hosted selector are
 committed pending the coherent published ProGPU dependency; the existing gitlink
 is deliberately unchanged, so it does not yet provide these new APIs.
 
+`WpfPortableTextFormatting.FormatSourceDisplay` is an internal explicit creation
+seam, not a registered formatting capability. It accepts the complete original
+WPF paragraph/styles, double metrics/options and caller-selected device capture,
+interpreter and em/advance/offset policies. The existing hinted style builder
+registers exact font bytes and per-style features/digit/bidi identity; native
+source layout receives original doubles separately from compatibility shadows.
+The mutable registration context retires before that same paragraph owner is
+adopted. No source-local ppem choice, width/offset repair or Ideal fallback occurs.
+Twenty-two source request/admission/wiring controls are selected in the existing
+hosted gate. They do not fabricate an accepted paragraph; successful creation,
+retained binding and rendering still need the exact new native runtime and
+independent original-source qualification. Zero width remains explicitly outside
+this bounded factory, including native's otherwise-unbounded zero convention.
+
 The portable `TextLine` source route now selects `IPortableDisplayTextFormatting`
 only for an actual Display formatter. Explicit hinted formatting and font/device
 metrics alone do not admit that route. The current WPF provider deliberately does

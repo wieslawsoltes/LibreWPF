@@ -33,6 +33,7 @@ minimum = {
     "ProGPU.Wpf.Tests.Platform.DispatcherWpfRenderSchedulerTests": 8,
     "ProGPU.Wpf.Tests.Platform.CoalescingWpfRenderSchedulerTests": 3,
     "ProGPU.Wpf.Tests.Composition.WpfSourceDisplayParagraphTests": 7,
+    "ProGPU.Wpf.Tests.Composition.WpfSourceDisplayFactoryTests": 22,
 }
 ns = {"t": "http://microsoft.com/schemas/VisualStudio/TeamTest/2010"}
 
@@ -152,6 +153,7 @@ filter+='|FullyQualifiedName~ProGPU.Wpf.Tests.Composition.WgpuSurfaceTransitionC
 filter+='|FullyQualifiedName~ProGPU.Wpf.Tests.Platform.DispatcherWpfRenderSchedulerTests.'
 filter+='|FullyQualifiedName~ProGPU.Wpf.Tests.Platform.CoalescingWpfRenderSchedulerTests.'
 filter+='|FullyQualifiedName~ProGPU.Wpf.Tests.Composition.WpfSourceDisplayParagraphTests.'
+filter+='|FullyQualifiedName~ProGPU.Wpf.Tests.Composition.WpfSourceDisplayFactoryTests.'
 
 # Use VSTest explicitly: the repository's MTP default is not this xUnit adapter.
 # Preserve its actual nonzero status even when receipt validation also fails.

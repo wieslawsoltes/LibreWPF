@@ -108,6 +108,21 @@ internal sealed partial class WpfPortableTextFormatting
         ReadOnlySpan<PortableTextHintingStyle> deviceStyles, in PortableHintedTextOptions options,
         ReadOnlySpan<int> variationCoordinates16_16, ReadOnlySpan<short> normalizedCoordinates)
     {
+        var prepared = PrepareHintedStyles(context, in request, metrics, deviceStyles, 1f / options.DpiScale);
+        var layout = HintedLayoutOptions(in request);
+        return context.LayoutHintedParagraph(request.Text.Span,
+            request.RightToLeft ? NativeTextDirection.RightToLeft : NativeTextDirection.LeftToRight,
+            in layout, prepared.Styles, prepared.Metrics, prepared.Devices, prepared.Features,
+            variationCoordinates16_16, normalizedCoordinates);
+    }
+
+    private sealed record HintedStyleInputs(NativeTextParagraphStyle[] Styles, NativeTextStyleMetrics[] Metrics,
+        NativeHintedParagraphDeviceStyle[] Devices, NativeTextFeature[] Features);
+
+    private static HintedStyleInputs PrepareHintedStyles(NativeTextShapingContext context,
+        in PortableTextParagraphRequest request, ReadOnlySpan<PortableTextStyleMetrics> metrics,
+        ReadOnlySpan<PortableTextHintingStyle> deviceStyles, float logicalUnitsPerPhysicalPixel)
+    {
         var fonts = new Dictionary<PortableTextFont, uint> { [request.Font] = 0 };
         var styles = new NativeTextParagraphStyle[request.Styles.Length];
         var nativeMetrics = new NativeTextStyleMetrics[styles.Length];
@@ -138,7 +153,7 @@ internal sealed partial class WpfPortableTextFormatting
             devices[i] = new()
             {
                 FontIndex = fontIndex, SourceScale = scale,
-                LogicalUnitsPerPhysicalPixel = 1f / options.DpiScale,
+                LogicalUnitsPerPhysicalPixel = logicalUnitsPerPhysicalPixel,
                 XPixelsPerEm266 = device.XPixelsPerEm266, YPixelsPerEm266 = device.YPixelsPerEm266,
                 XPhase266 = device.XPhase266, YPhase266 = device.YPhase266,
                 Interpreter = device.Interpreter switch
@@ -150,7 +165,11 @@ internal sealed partial class WpfPortableTextFormatting
                 VariationStart = device.VariationStart, VariationCount = device.VariationCount
             };
         }
-        var layout = new NativeTextParagraphOptions(request.FontSize / request.Font.UnitsPerEm,
+        return new(styles, nativeMetrics, devices, features);
+    }
+
+    private static NativeTextParagraphOptions HintedLayoutOptions(in PortableTextParagraphRequest request)
+        => new(request.FontSize / request.Font.UnitsPerEm,
             request.MaximumWidth, request.LineHeight, Alignment: request.Alignment switch
             {
                 PortableTextAlignment.Left => NativeTextAlignment.Left,
@@ -159,10 +178,6 @@ internal sealed partial class WpfPortableTextFormatting
                 PortableTextAlignment.Justify => NativeTextAlignment.Justify,
                 _ => throw new ArgumentOutOfRangeException(nameof(request))
             });
-        return context.LayoutHintedParagraph(request.Text.Span,
-            request.RightToLeft ? NativeTextDirection.RightToLeft : NativeTextDirection.LeftToRight,
-            in layout, styles, nativeMetrics, devices, features, variationCoordinates16_16, normalizedCoordinates);
-    }
 
     private static void ValidateHintedFont(PortableTextFont font, float size)
     {
