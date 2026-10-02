@@ -21,6 +21,7 @@ public sealed partial class ProGpuWpfWindowHostTests
         Assert.Same(fixture.Inner.Window, ReadRetirementField(fixture.Host, "_pendingNativeCloseWindow"));
         fixture.Lease.Complete();
         Assert.Equal(1, fixture.Inner.Probe.Closes);
+        if (showAgain) Assert.True(fixture.Inner.Probe.Renders > 0);
         Assert.Null(ReadRetirementField(fixture.Host, "_pendingNativeCloseWindow"));
         Assert.Equal(0, fixture.Inner.Probe.Disposals);
     }
@@ -97,6 +98,7 @@ public sealed partial class ProGpuWpfWindowHostTests
         Assert.Null(ReadRetirementField(fixture.Host, "_acceptedCloseTarget"));
         fixture.Host.Close();
         Assert.Equal(2, fixture.Inner.Probe.Closes);
+        Assert.True(fixture.Inner.Probe.Renders > 0);
         Assert.Equal(0, fixture.Inner.Probe.Disposals);
     }
 
@@ -179,7 +181,10 @@ public sealed partial class ProGpuWpfWindowHostTests
         {
             // This fake lease has no native token. Release only the test's
             // headless resources; product code has no uncertain-release reset.
-            SetPrivateField<object?>(fixture.Host, "_nativeCloseReleaseFailure", null);
+            SetPrivateField<object?>(fixture.Host, "_nativeSessionReleaseFailure", null);
+            SetPrivateField<IWindow?>(fixture.Host, "_nativeSessionReleaseWindow", null);
+            SetPrivateField<object?>(fixture.Host, "_nativeSessionReleaseCallbacks", null);
+            SetPrivateField(fixture.Host, "_nativeSessionReleaseCount", 0);
             SetPrivateField<IWindow?>(fixture.Host, "_pendingNativeCloseWindow", null);
         }
     }
@@ -201,7 +206,7 @@ public sealed partial class ProGpuWpfWindowHostTests
         }
         Assert.Equal(1, fixture.Inner.Probe.Closes);
         Assert.Null(ReadRetirementField(fixture.Host, "_pendingNativeCloseWindow"));
-        Assert.Null(ReadRetirementField(fixture.Host, "_nativeCloseReleaseFailure"));
+        Assert.Null(ReadRetirementField(fixture.Host, "_nativeSessionReleaseFailure"));
         fixture.Host.Close();
         Assert.Equal(1, fixture.Inner.Probe.Closes);
     }
@@ -247,6 +252,7 @@ public sealed partial class ProGpuWpfWindowHostTests
         {
             Lease = new(Inner.Window);
             Host.NativeWindowSessionRelease = Lease.Request;
+            Host.NativeWindowSessionRetains = Lease.Retains;
         }
 
         public void Dispose()
@@ -276,10 +282,15 @@ public sealed partial class ProGpuWpfWindowHostTests
                 throw Failure;
             }
             if (!Retained) return false;
-            Assert.Null(Completion);
-            Completion = completed;
+            Completion += completed;
             if (CompleteSynchronously) Complete();
             return true;
+        }
+
+        internal bool Retains(IWindow actual)
+        {
+            Assert.Same(window, actual);
+            return Retained;
         }
 
         internal void Complete(bool enterNewLease = false)

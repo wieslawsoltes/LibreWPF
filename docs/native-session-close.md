@@ -28,13 +28,27 @@ replaying Close. Failed retirement keeps its queued cleanup owner. The shared
 session owns nested LIFO release and permanently uncertain native-End failure.
 No source callback can claim release by observing only that session Dispose returned.
 
-Existing latest-intent Hide, ordinary nonretained Close, typed native identity,
-owner-only event polling and owned-popup queue drain are unchanged. No automatic
-Begin, input policy, package/gitlink update, or native implementation is added.
+Hide, Close and source dialog completion now share one host-wide exact-window
+release prerequisite and uncertainty latch. Actions coalesce while the original
+native callback is outstanding; a later empty native query cannot bypass it.
+Ready callbacks run in request order and each rechecks new leases and source
+intent. A callback's original error propagates after other ready callbacks run.
+Outstanding actions keep retirement owned; the last completion retries disposal
+on the creating thread even when this host no longer runs its ordinary loop.
+
+An accepted provider Close owns its hidden view. Hide callbacks that follow it
+do not write visibility, since owned Cocoa rejects setters once closing. Ordinary
+Hide reads actual visibility and rechecks intent and native retention afterward,
+so a reentrant getter cannot hide through a new lease or superseding Show/Close/
+Dispose. Show may still supersede ordinary pending Hide, but cannot publish native
+visibility after a failed or undelivered release with no current native lease.
+Ordinary nonretained Close, typed native identity, owner-only polling and popup
+local queue drain remain. No automatic Begin, input policy, package/gitlink update
+or native implementation is added.
 
 ## Focused coverage and limits
 
-Seventeen actual-host source controls cover deferred and synchronous release,
+Thirty-five actual-host source controls cover deferred and synchronous release,
 coalesced/reentrant Close, Show while Close is pending, fresh leases before Close
 and Dispose, native cancellation, Dispose supersession with no loop/active render/
 active loop, Dispose-initiated close, original release/Closing/retirement errors,
@@ -43,7 +57,12 @@ both with retained identity and after the identity disappears; callback-delivere
 Closing failure is checked synchronously and asynchronously. They use recorded provider
 operations and a per-host session-release seam; no native panel, renderer or GPU
 is fabricated or executed. Existing host/render-close tests remain selected.
-The hosted source gate minimum increases from 321 to 338 without changing
+Eighteen additional controls cover both Close/Hide callback orders, normal
+Hide/Show supersession, new leases and changed intent from the visibility getter,
+uncertain Hide/dialog failures with retained/disappeared identity, synchronous/
+asynchronous delivered callback errors, fresh dialog leases, ordered callback
+failure continuation and an undelivered callback despite an absent native query.
+The hosted source gate minimum increases from 321 to 356 without changing
 selectors, deadlines or failure requirements.
 
 At implementation checkpoint, compilation and execution are pending the exact
@@ -67,3 +86,13 @@ InlineData cases (17), selected by the unchanged host filter at minimum 338.
 Additional source checks require the original-error latch at Close, deferred
 completion and retirement, and distinguish an undelivered failure from a
 synchronous callback exception. Type compilation and execution remain hosted-only.
+
+The original `5c4f8ac76` hosted Build `37027771499`, source job `110906674521`,
+compiled and executed 1,060 selected cases: 1,057 passed, three failed, zero
+skipped. Two new lifecycle controls reached legitimate scheduler `DoRender`
+wakeups that their strict provider did not yet model; the third retained an old
+exact source guard for the pre-pending-close coalescing condition. The followup
+adds tracked provider rendering through the fixture's real headless `OnRender`
+callback (no GPU), asserts those wakeups, and updates the exact coalescing/identity
+guard. No product behavior or native assertion is changed to satisfy those tests.
+All 35 lifecycle controls still require execution on the followup hosted graph.
