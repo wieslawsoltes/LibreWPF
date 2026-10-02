@@ -74,7 +74,14 @@ internal sealed class WpfSourceDisplayTextParagraph : IPortableDisplayTextParagr
     public ReadOnlyMemory<PortableDisplayTextStyle> SourceStyles => Read<ReadOnlyMemory<PortableDisplayTextStyle>>(_generation.Styles);
     public ReadOnlyMemory<PortableDisplayTextGlyphMetrics> DisplayGlyphMetrics => Read<ReadOnlyMemory<PortableDisplayTextGlyphMetrics>>(_generation.Metrics);
     public ReadOnlyMemory<PortableDisplayTextLineMetrics> DisplayLineMetrics => Read<ReadOnlyMemory<PortableDisplayTextLineMetrics>>(_generation.LineMetrics);
-    public PortableDisplayTextIntrinsicWidths? DisplayIntrinsicWidths => Read<PortableDisplayTextIntrinsicWidths?>(null);
+    public PortableDisplayTextIntrinsicWidths? DisplayIntrinsicWidths
+    {
+        get
+        {
+            var widths = Read(_generation.Source.IntrinsicWidths);
+            return widths is { } value ? new(value.Minimum, value.Maximum) : null;
+        }
+    }
     ReadOnlyMemory<PortableTextGlyph> IPortableTextParagraph.Glyphs => Read<ReadOnlyMemory<PortableTextGlyph>>(_generation.Glyphs);
     ReadOnlyMemory<PortableTextLineInfo> IPortableTextParagraph.Lines => Read<ReadOnlyMemory<PortableTextLineInfo>>(_generation.Lines);
     ReadOnlyMemory<PortableHintedTextGlyph> IPortableHintedTextParagraph.Glyphs => Read(_generation.Raster.Glyphs);

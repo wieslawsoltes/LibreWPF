@@ -7,8 +7,9 @@ styles through retained references and double-width reflow, and uses native doub
 source-run validation before binding. Its binding remains the concrete native MIL
 type across `Retain`, carrying original double identity separately from the raster
 projection. No ordinary formatter advertises Display or chooses an unproved
-em/advance/interpreter policy. Intrinsic widths and zero-content-width admission
-remain unavailable here.
+em/advance/interpreter policy. Optional intrinsic widths are copied from the
+producer's whole-paragraph double measurement; they are never the current formatted
+line width. Zero-content-width admission remains unavailable here.
 
 Six adapter identity/schema controls are authored. They and the backend APIs need
 the pending coherent ProGPU source branch; the gitlink deliberately remains the
