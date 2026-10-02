@@ -19,10 +19,14 @@ Dispose supersedes a session-deferred Close: completion uses the existing
 creating-thread retirement queue instead of issuing a second Close/Hide. The
 source-owned loop already stops on disposed state. Pending release, rendering,
 native dispatch and loop ownership continue to prevent resource/native release.
-Failed release retains the pending window; failed retirement retains the queued
-cleanup owner and original exception. The shared session itself owns nested LIFO
-release and permanently uncertain native-End failure. No source callback can
-claim release by observing only that session Dispose returned.
+Failed release without a delivered callback latches the original exception and
+retains the pending window, even when failed native identity disposal has removed
+the shared session query. Later Close and retirement cannot interpret that absence
+as release or retry uncertain native cleanup. Callback-delivered source Closing
+or retirement failures remain distinct and retain their original exception without
+replaying Close. Failed retirement keeps its queued cleanup owner. The shared
+session owns nested LIFO release and permanently uncertain native-End failure.
+No source callback can claim release by observing only that session Dispose returned.
 
 Existing latest-intent Hide, ordinary nonretained Close, typed native identity,
 owner-only event polling and owned-popup queue drain are unchanged. No automatic
@@ -30,14 +34,16 @@ Begin, input policy, package/gitlink update, or native implementation is added.
 
 ## Focused coverage and limits
 
-Fifteen actual-host source controls cover deferred and synchronous release,
+Seventeen actual-host source controls cover deferred and synchronous release,
 coalesced/reentrant Close, Show while Close is pending, fresh leases before Close
 and Dispose, native cancellation, Dispose supersession with no loop/active render/
 active loop, Dispose-initiated close, original release/Closing/retirement errors,
-wrong thread and replacement-window rejection. They use recorded provider
+wrong thread and replacement-window rejection. Undelivered failure is checked
+both with retained identity and after the identity disappears; callback-delivered
+Closing failure is checked synchronously and asynchronously. They use recorded provider
 operations and a per-host session-release seam; no native panel, renderer or GPU
 is fabricated or executed. Existing host/render-close tests remain selected.
-The hosted source gate minimum increases from 321 to 336 without changing
+The hosted source gate minimum increases from 321 to 338 without changing
 selectors, deadlines or failure requirements.
 
 At implementation checkpoint, compilation and execution are pending the exact

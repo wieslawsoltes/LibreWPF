@@ -139,6 +139,8 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
     private bool _nativeHidePending;
     private IWindow? _pendingNativeCloseWindow;
     private bool _nativeCloseReleasePending;
+    private uint _nativeCloseReleaseCompletionGeneration;
+    private ExceptionDispatchInfo? _nativeCloseReleaseFailure;
     private bool _hasNativeWindowCloseStarted;
     private bool _dpiWindowHintsConfigured;
     private bool _hasPendingNativeDpiChange;
@@ -1991,6 +1993,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
 
     private void DisposeDeferredNativeWindowIfNeeded()
     {
+        _nativeCloseReleaseFailure?.Throw();
         DisposeAcceptedCloseTargetIfNeeded();
         if (!_disposeNativeWindowWhenLoopExits || _isNativeLoopRunning)
         {
@@ -2111,6 +2114,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
             throw new InvalidOperationException("Native window close belongs to its creating thread.");
         if (!ReferenceEquals(window, _window))
             throw new InvalidOperationException("A close request cannot target a replacement native window.");
+        _nativeCloseReleaseFailure?.Throw();
         bool closeAlreadyStarted = _hasNativeWindowCloseStarted;
         _hasNativeWindowCloseStarted = true;
         TraceNativeLoop((closeAlreadyStarted ? "close request already pending: " : "close requested: ") + CreateNativeLoopTraceState());
@@ -2127,6 +2131,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
 
     private void CompleteNativeCloseAfterSessionRelease(bool releasedSession)
     {
+        _nativeCloseReleaseFailure?.Throw();
         IWindow? window = _pendingNativeCloseWindow;
         if (window == null || _nativeCloseReleasePending) return;
         if (_nativeWindowThreadId != Environment.CurrentManagedThreadId)
@@ -2137,13 +2142,20 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         // Publish before calling: release may complete synchronously. A later
         // callback rechecks native leases, including a newly entered session.
         _nativeCloseReleasePending = true;
+        uint completionGeneration = _nativeCloseReleaseCompletionGeneration;
         try
         {
             if (NativeWindowSessionRelease(window, CompleteDeferredNativeClose)) return;
         }
-        catch
+        catch (Exception failure)
         {
             _nativeCloseReleasePending = false;
+            // End/identity disposal can fail after the shared session query
+            // disappears, without delivering completion. Absence is not release
+            // proof. A callback-delivered source Closing/retirement exception is
+            // different: retain that original failure without latching/replaying.
+            if (completionGeneration == _nativeCloseReleaseCompletionGeneration)
+                _nativeCloseReleaseFailure ??= ExceptionDispatchInfo.Capture(failure);
             throw;
         }
         _nativeCloseReleasePending = false;
@@ -2163,6 +2175,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
 
     private void CompleteDeferredNativeClose()
     {
+        unchecked { _nativeCloseReleaseCompletionGeneration++; }
         _nativeCloseReleasePending = false;
         CompleteNativeCloseAfterSessionRelease(releasedSession: true);
     }

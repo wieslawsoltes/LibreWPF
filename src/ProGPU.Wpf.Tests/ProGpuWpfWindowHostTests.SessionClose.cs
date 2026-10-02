@@ -150,34 +150,58 @@ public sealed partial class ProGpuWpfWindowHostTests
         Assert.Equal(1, fixture.Inner.Probe.Disposals);
     }
 
-    [Fact]
-    public void SessionReleaseFailureRetainsCloseIdentityAndOriginalException()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void SessionReleaseFailureRetainsCloseIdentityAndOriginalException(bool identityDisappears)
     {
         using var fixture = new SessionCloseFixture();
         var failure = new RetirementFailureWithInaccessibleData();
         fixture.Lease.Failure = failure;
-        Assert.Same(failure, Record.Exception(fixture.Host.Close));
-        Assert.Same(fixture.Inner.Window, ReadRetirementField(fixture.Host, "_pendingNativeCloseWindow"));
-        Assert.Equal(false, ReadRetirementField(fixture.Host, "_nativeCloseReleasePending"));
-        Assert.Equal(0, fixture.Inner.Probe.Closes);
-        Assert.Same(failure, Record.Exception(fixture.Host.Close));
-        Assert.Equal(0, fixture.Inner.Probe.Disposals);
-        fixture.Lease.Failure = null;
-        fixture.Host.Close();
-        fixture.Lease.Complete();
-        Assert.Equal(1, fixture.Inner.Probe.Closes);
+        fixture.Lease.ReleaseIdentityBeforeFailure = identityDisappears;
+        try
+        {
+            Assert.Same(failure, Record.Exception(fixture.Host.Close));
+            Assert.Same(fixture.Inner.Window, ReadRetirementField(fixture.Host, "_pendingNativeCloseWindow"));
+            Assert.Equal(false, ReadRetirementField(fixture.Host, "_nativeCloseReleasePending"));
+            Assert.Equal(!identityDisappears, fixture.Lease.Retained);
+            fixture.Lease.Failure = null;
+            Assert.Same(failure, Record.Exception(fixture.Host.Close));
+            Assert.Same(failure, Record.Exception(fixture.Host.Dispose));
+            Assert.Same(failure, Record.Exception(fixture.Host.Dispose));
+            Assert.Same(failure, Record.Exception(DrainRetirements));
+            Assert.Equal(1, fixture.Lease.Requests);
+            Assert.Equal(0, fixture.Inner.Probe.Closes);
+            Assert.Equal(0, fixture.Inner.Probe.Disposals);
+            Assert.Same(fixture.Inner.Target, fixture.Host.CompositionTarget);
+        }
+        finally
+        {
+            // This fake lease has no native token. Release only the test's
+            // headless resources; product code has no uncertain-release reset.
+            SetPrivateField<object?>(fixture.Host, "_nativeCloseReleaseFailure", null);
+            SetPrivateField<IWindow?>(fixture.Host, "_pendingNativeCloseWindow", null);
+        }
     }
 
-    [Fact]
-    public void SessionReleasedClosingFailureIsNotReplacedOrReplayed()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void SessionReleasedClosingFailureIsNotReplacedOrReplayed(bool synchronous)
     {
         using var fixture = new SessionCloseFixture();
         var failure = new RetirementFailureWithInaccessibleData();
         fixture.Host.Closing += (_, _) => throw failure;
-        fixture.Host.Close();
-        Assert.Same(failure, Record.Exception(() => fixture.Lease.Complete()));
+        fixture.Lease.CompleteSynchronously = synchronous;
+        if (synchronous) Assert.Same(failure, Record.Exception(fixture.Host.Close));
+        else
+        {
+            fixture.Host.Close();
+            Assert.Same(failure, Record.Exception(() => fixture.Lease.Complete()));
+        }
         Assert.Equal(1, fixture.Inner.Probe.Closes);
         Assert.Null(ReadRetirementField(fixture.Host, "_pendingNativeCloseWindow"));
+        Assert.Null(ReadRetirementField(fixture.Host, "_nativeCloseReleaseFailure"));
         fixture.Host.Close();
         Assert.Equal(1, fixture.Inner.Probe.Closes);
     }
@@ -237,6 +261,7 @@ public sealed partial class ProGpuWpfWindowHostTests
     private sealed class SessionCloseLease(IWindow window)
     {
         internal bool Retained = true, CompleteSynchronously;
+        internal bool ReleaseIdentityBeforeFailure;
         internal int Requests;
         internal Action? Completion;
         internal Exception? Failure;
@@ -245,7 +270,11 @@ public sealed partial class ProGpuWpfWindowHostTests
         {
             Assert.Same(window, actual);
             Requests++;
-            if (Failure != null) throw Failure;
+            if (Failure != null)
+            {
+                if (ReleaseIdentityBeforeFailure) Retained = false;
+                throw Failure;
+            }
             if (!Retained) return false;
             Assert.Null(Completion);
             Completion = completed;
