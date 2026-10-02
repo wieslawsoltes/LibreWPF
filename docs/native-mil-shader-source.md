@@ -39,6 +39,9 @@ shim image frames retain their prior route. Older typed pixel-only providers may
 use their existing pixel descriptor to obtain metrics; updated source BitmapSource
 never copies pixels merely to answer a frame query. DrawingImage sampler bounds
 reuse original drawing geometry and origin. No renderer or cache owner is replaced.
+Source DIP extent preserves `ImageSource.PixelsToDIPs`' original float DPI ratio
+and multiplication before promotion to double. Unrepresentable axes reject;
+this path does not invent the original helper's degenerate-resolution fallback.
 
 The focused bridge fixtures cover source packet identity, dense holes, sampler
 state, snapshot immutability, retained deltas, cancellation by failed capture,

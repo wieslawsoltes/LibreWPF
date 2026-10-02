@@ -43,6 +43,19 @@ public sealed class WpfShaderEffectSamplerTextureCacheTests
     }
 
     [Fact]
+    public void ImageFrameKeepsOriginalSourceFloatDpiArithmeticWithoutPixelCopies()
+    {
+        const double dpiX = 123.456789012345, dpiY = 183.456789012345;
+        var image = new MetricsImage(new(401, 203, dpiX, dpiY));
+        Assert.True(WpfImageSourceFrame.TryRead(image, null, out var frame));
+        Assert.Equal((double)(401 * (96.0f / (float)dpiX)), frame.Bounds.Width);
+        Assert.Equal((double)(203 * (96.0f / (float)dpiY)), frame.Bounds.Height);
+        Assert.NotEqual(401 * (96.0 / dpiX), frame.Bounds.Width);
+        Assert.Equal(401 / frame.Bounds.Width, frame.TexelsPerDipX);
+        Assert.Equal(203 / frame.Bounds.Height, frame.TexelsPerDipY);
+    }
+
+    [Fact]
     public void ImageBrushDrawingImageKeepsDrawingOriginAndNoFakeBitmapMetrics()
     {
         var brush = CreatePortableTileBrushSource(PortableTileBrushKind.Image,

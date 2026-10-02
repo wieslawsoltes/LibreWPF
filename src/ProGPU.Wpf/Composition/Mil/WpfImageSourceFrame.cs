@@ -55,8 +55,13 @@ internal readonly record struct WpfImageSourceFrame(Rect Bounds, double TexelsPe
         if (metrics.PixelWidth <= 0 || metrics.PixelHeight <= 0 ||
             !double.IsFinite(metrics.DpiX) || metrics.DpiX <= 0 ||
             !double.IsFinite(metrics.DpiY) || metrics.DpiY <= 0) return false;
-        double width = metrics.PixelWidth * (96.0 / metrics.DpiX);
-        double height = metrics.PixelHeight * (96.0 / metrics.DpiY);
+        // Original ImageSource.PixelsToDIPs narrows DPI and performs the ratio
+        // and multiplication in float before returning double. More precise
+        // double arithmetic would change the original source coordinate frame.
+        float dpiX = (float)metrics.DpiX, dpiY = (float)metrics.DpiY;
+        if (!float.IsFinite(dpiX) || dpiX <= 0 || !float.IsFinite(dpiY) || dpiY <= 0) return false;
+        double width = metrics.PixelWidth * (96.0f / dpiX);
+        double height = metrics.PixelHeight * (96.0f / dpiY);
         int pixelWidth = adapted is BitmapSource bitmap ? bitmap.PixelWidth : metrics.PixelWidth;
         int pixelHeight = adapted is BitmapSource bitmapHeight ? bitmapHeight.PixelHeight : metrics.PixelHeight;
         double scaleX = pixelWidth / width, scaleY = pixelHeight / height;
