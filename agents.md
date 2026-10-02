@@ -1,5 +1,12 @@
 # Agent Guidance
 
+Original transform snapshots retain typed primitive double parameters and group
+child identity/order; never flatten them into a source-float history witness.
+Capture each identity once per batch, retain duplicates and reject failed typed
+contracts, cycles and graph budgets before publication. External matrix-only
+providers stay distinct. Named primitive transport does not prove original
+trigonometric construction. See docs/source-transform-resources.md.
+
 Typed source ShaderEffect retains its own visual opacity/mask as shader input,
 not a second output multiplier. Mark only actual source shader adaptations; keep
 generic Scene effects and blur/shadow defaults unchanged. Both merged retained
