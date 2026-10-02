@@ -340,6 +340,7 @@
     <Compile Include="MS\internal\TextFormatting\NumberSubstitution.cs" />
     <Compile Include="MS\internal\TextFormatting\SimpleTextLine.cs" />
     <Compile Include="MS\internal\TextFormatting\PortableTextLine.cs" />
+    <Compile Include="MS\internal\TextFormatting\PortableTextLine.Display.cs" />
     <Compile Include="MS\internal\TextFormatting\PortableTextParagraphReference.cs" />
     <Compile Include="MS\internal\TextFormatting\TextFormatterImp.cs" />
     <Compile Include="MS\internal\TextFormatting\TextMarkerSource.cs" />

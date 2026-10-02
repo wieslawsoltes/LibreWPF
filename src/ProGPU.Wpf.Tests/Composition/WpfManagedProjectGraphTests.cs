@@ -136,6 +136,7 @@ public sealed class WpfManagedProjectGraphTests
         {
             "run: bash ./eng/progpu-wpf-messagebox-modal.sh",
             "run: bash ./eng/progpu-wpf-input-modifiers-source.sh",
+            "run: bash ./eng/progpu-wpf-display-source.sh",
             "run: bash ./eng/progpu-wpf-pointer-ownership-source.sh",
             "run: bash ./eng/progpu-wpf-native-pointer-source.sh",
             "run: bash ./eng/progpu-wpf-dispatcher-flush-source.sh",
@@ -156,6 +157,10 @@ public sealed class WpfManagedProjectGraphTests
         Assert.DoesNotContain("if:", job, StringComparison.Ordinal);
         Assert.DoesNotContain("continue-on-error:", job, StringComparison.Ordinal);
         Assert.DoesNotContain("actions/download-artifact", job, StringComparison.Ordinal);
+        string displayRunner = File.ReadAllText(FindRepoPath("eng", "progpu-wpf-display-source.sh"));
+        Assert.Contains("--filter-class System.Windows.Media.PortableDisplayTextSourceTests", displayRunner, StringComparison.Ordinal);
+        Assert.Contains("--minimum-expected-tests 13 --fail-skips on --timeout 60s", displayRunner, StringComparison.Ordinal);
+        Assert.DoesNotContain("dotnet build", displayRunner, StringComparison.Ordinal);
         string nativePointerRunner = File.ReadAllText(FindRepoPath("eng", "progpu-wpf-native-pointer-source.sh"));
         string[] nativeInvocations = nativePointerRunner.Split("\n\"${dotnet_command}\" ", StringSplitOptions.None);
         Assert.Equal(4, nativeInvocations.Length);

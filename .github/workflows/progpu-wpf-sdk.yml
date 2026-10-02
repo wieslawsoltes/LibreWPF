@@ -142,6 +142,9 @@ jobs:
       - name: Validate original ShaderEffect source export
         run: bash ./eng/progpu-wpf-shader-effect-source.sh
 
+      - name: Validate original Display source ownership and geometry contracts
+        run: bash ./eng/progpu-wpf-display-source.sh
+
       - name: Validate source pointer press ownership
         run: bash ./eng/progpu-wpf-pointer-ownership-source.sh
 
