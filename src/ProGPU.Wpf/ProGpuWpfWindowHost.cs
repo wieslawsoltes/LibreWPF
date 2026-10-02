@@ -72,6 +72,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
     private ProGpuDirectXDevice? _directXDevice;
     private IDisposable? _inputSubscription;
     private IWpfInputService? _attachedInputService;
+    private Silk.NET.Input.IInputContext? _ownedPopupInputContext;
     private IDisposable? _dragDropSubscription;
     private IWpfDragDropService? _attachedDragDropService;
     private IDisposable? _windowEventSubscription;
@@ -1054,6 +1055,31 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         ValidateOwnedPopupInputGate(gate);
         if (!_isHostVisible)
             throw new InvalidOperationException("The owned popup was hidden during native input admission.");
+        var service = _attachedInputService;
+        var subscription = _inputSubscription;
+        if (service == null || subscription == null || _ownedPopupInputContext == null)
+            throw new PlatformNotSupportedException("Owned popup display requires its attached native input subscription.");
+        var context = RequireOwnedPopupInputContext(gate, service);
+        if (!ReferenceEquals(context, _ownedPopupInputContext) ||
+            !ReferenceEquals(service, _attachedInputService) || !ReferenceEquals(subscription, _inputSubscription))
+            throw new InvalidOperationException("The owned popup input subscription changed before display.");
+    }
+
+    private Silk.NET.Input.IInputContext RequireOwnedPopupInputContext(OwnedPopupInputGate gate, IWpfInputService service)
+    {
+        ValidateOwnedPopupInputGate(gate);
+        if (service is not ISilkNetWpfInputContextProvider provider ||
+            !provider.TryGetInputContext(gate.Window, out var context))
+            throw new PlatformNotSupportedException("The source input service does not expose its owned popup context.");
+        // The source provider lookup may reenter lifetime work. A typed pointer
+        // interface alone, or an equal native handle, is not provider proof.
+        ValidateOwnedPopupInputGate(gate);
+        bool supported = context is INativePointerInputContext &&
+            NativePopupWindow.SupportsModalInput(gate.Window, context);
+        ValidateOwnedPopupInputGate(gate);
+        if (!supported)
+            throw new PlatformNotSupportedException("The owned popup has no live session-owned native input contract.");
+        return context;
     }
 
     internal bool TrySetNativeOwner(ProGpuWpfWindowHost? owner)
@@ -4798,6 +4824,25 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         {
             input.InputReceived += OnPlatformInputReceived;
             IDisposable inputSubscription = input.Attach(window);
+            Silk.NET.Input.IInputContext? ownedContext;
+            try
+            {
+                ownedContext = _ownedPopupInputGate is { } gate
+                    ? RequireOwnedPopupInputContext(gate, input)
+                    : null;
+            }
+            catch (Exception failure)
+            {
+                // This subscription has not been published to host retirement.
+                // Preserve the capability failure if context cleanup also fails.
+                try { inputSubscription.Dispose(); }
+                catch (Exception cleanup)
+                {
+                    try { failure.Data["OwnedPopupInputRetirement"] = cleanup; }
+                    catch { }
+                }
+                throw;
+            }
             if (_isDisposed ||
                 _hasNativeWindowCloseStarted ||
                 !ReferenceEquals(window, _window))
@@ -4810,6 +4855,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
 
             _inputSubscription = inputSubscription;
             _attachedInputService = input;
+            _ownedPopupInputContext = ownedContext;
             TraceNativeLoop($"input attached: host={GetHashCode():x}, handle={window.Handle}");
         }
         catch (PlatformNotSupportedException) when (!_options.IsPopupSurface)
@@ -4840,6 +4886,9 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
                 $"input detach entering: host={GetHashCode():x}, handle={window?.Handle ?? IntPtr.Zero}");
         }
 
+        // Reentrant cancellation cannot reuse a proof whose source subscription
+        // is already being detached, even while native retirement is deferred.
+        _ownedPopupInputContext = null;
         _inputSubscription?.Dispose();
         _inputSubscription = null;
 
