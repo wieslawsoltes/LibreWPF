@@ -7,6 +7,12 @@ namespace System.Windows.Media.ProGPU;
 
 internal interface IWpfPortableNativePopupHost : IDisposable
 {
+    bool TryGetDesktopWindowSnapshot(out ProGpuWpfDiagnostics.DesktopWindowSnapshot snapshot)
+    {
+        snapshot = default;
+        return false;
+    }
+
     bool HasPresentedFrame { get; }
 
     bool HasGpuHitTestCache { get; }
@@ -55,6 +61,12 @@ internal sealed class WpfPortableNativePopupHost : IWpfPortableNativePopupHost
     private bool _isDisposed;
 
     public bool HasPresentedFrame => !_isDisposed && _popupHost.HasPresentedFrame;
+
+    public bool TryGetDesktopWindowSnapshot(out ProGpuWpfDiagnostics.DesktopWindowSnapshot snapshot)
+    {
+        snapshot = default;
+        return !_isDisposed && _isVisible && _popupHost.TryGetDesktopWindowSnapshot(out snapshot);
+    }
 
     public bool HasGpuHitTestCache =>
         TryGetGpuHitTestCacheSnapshot(out var snapshot) && snapshot.OwnerCount > 0;
