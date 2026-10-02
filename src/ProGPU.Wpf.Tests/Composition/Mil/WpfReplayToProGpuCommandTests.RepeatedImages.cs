@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using System.Windows.Media;
+using System.Windows.Media.ProGPU;
 using System.Windows.Media.ProGPU.Composition;
 using ProGPU.Backend;
 using ProGPU.Scene;
@@ -11,6 +12,44 @@ namespace ProGPU.Wpf.Tests.Composition.Mil;
 
 public sealed partial class WpfReplayToProGpuCommandTests
 {
+    [Fact]
+    public void RetainedRepeatedImageScopesKeepIndependentOwnersAndLeaseRetirement()
+    {
+        var texture = (GpuTexture)RuntimeHelpers.GetUninitializedObject(typeof(GpuTexture));
+        var source = new FakeTextureLeaseSource(texture);
+        var image = new FakePortableNativeMediaImageSource(source);
+        var first = new ProGpuRetainedDrawingVisual();
+        var second = new ProGpuRetainedDrawingVisual();
+        var frame = new ProGpuWpfDrawingFrame(new ProGPU.Scene.DrawingVisual(), 64, 64);
+        foreach (var owner in new[] { first, second })
+        {
+            using var sink = new ProGpuRetainedCompositionCommandSink(frame, owner, context: null, viewport3DTextureCache: null);
+            var repeated = (IWpfRepeatedImageCommandSink)sink;
+            sink.PushBitmapScalingMode("NearestNeighbor");
+            Assert.False(repeated.SupportsRepeatedLinearImages);
+            Assert.False(repeated.TryDrawRepeatedImage(image, new System.Windows.Rect(0, 0, 16, 24), true, false));
+            sink.Pop();
+            Assert.True(repeated.SupportsRepeatedLinearImages);
+            Assert.True(repeated.TryDrawRepeatedImage(image, new System.Windows.Rect(0, 0, 16, 24), true, false));
+            Assert.True(repeated.TryDrawRepeatedImage(image, new System.Windows.Rect(16, 0, 16, 24), true, false));
+            Assert.Equal(2, owner.Context.Commands.Count);
+            Assert.Equal(1, owner.Context.RetainedResourceCount);
+            Assert.All(owner.Context.Commands, command =>
+            {
+                Assert.Same(texture, command.Texture);
+                Assert.Equal(TextureAddressMode.MirrorRepeat, command.TextureAddressModeU);
+                Assert.Equal(TextureAddressMode.Repeat, command.TextureAddressModeV);
+            });
+        }
+        Assert.Equal(2, source.AcquireCount);
+        Assert.Equal(0, source.LeaseDisposeCount);
+        first.Context.Clear();
+        Assert.Equal(1, source.LeaseDisposeCount);
+        Assert.Equal(2, second.Context.Commands.Count);
+        second.Context.Clear();
+        Assert.Equal(2, source.LeaseDisposeCount);
+    }
+
     [Theory]
     [InlineData(false, false)]
     [InlineData(true, false)]
