@@ -1261,10 +1261,28 @@ internal static class WpfDrawingReplay
             || !TryGetOptionalRelativeBrushTransform(brush, geometryBounds, out var relativeTransform)
             || ResolveImageSource(brush.Content, imageSourceAdapter) is not { } imageSource
             || !TryGetTileBrushDestinationBounds(brush, geometryBounds, out var imageBounds)
-            || !TryGetImageBrushFrames(brush, stretch, imageSource, out var sourceRect, out var imageStretchSourceBounds)
+            || !TryGetImageBrushFrames(brush, stretch, tileMode, imageSource,
+                out var sourceRect, out var imageStretchSourceBounds, out var fullImageBounds)
             || !TryGetTileBounds(imageBounds, geometryBounds, tileMode, out var tileBounds))
         {
             return false;
+        }
+
+        Rect? fullImageDestination = null;
+        if (fullImageBounds is { } originalBounds)
+        {
+            // A non-tiled brush has one viewport. Validate its full-image
+            // mapping before publishing any clip, opacity or drawing commands.
+            if (!TryGetStretchedTile(tileBounds.GetAt(0), imageStretchSourceBounds, stretch,
+                    alignmentX, alignmentY, out var mappedTile, out _)) return false;
+            double scaleX = mappedTile.Bounds.Width / imageStretchSourceBounds.Width;
+            double scaleY = mappedTile.Bounds.Height / imageStretchSourceBounds.Height;
+            var destination = new Rect(
+                mappedTile.Bounds.X + (originalBounds.X - imageStretchSourceBounds.X) * scaleX,
+                mappedTile.Bounds.Y + (originalBounds.Y - imageStretchSourceBounds.Y) * scaleY,
+                originalBounds.Width * scaleX, originalBounds.Height * scaleY);
+            if (!IsUsableRect(destination, out destination)) return false;
+            fullImageDestination = destination;
         }
 
         var popCount = 0;
@@ -1303,7 +1321,7 @@ internal static class WpfDrawingReplay
             }
 
             var tilePopCount = 0;
-            if (needsTileClip)
+            if (needsTileClip || fullImageBounds.HasValue)
             {
                 PushRectangleClip(sink, tile.Bounds);
                 tilePopCount++;
@@ -1315,7 +1333,15 @@ internal static class WpfDrawingReplay
                 tilePopCount++;
             }
 
-            if (sourceRect.HasValue)
+            if (fullImageDestination is { } fullDestination)
+            {
+                // Viewbox controls the mapping, not a crop. Original WPF
+                // ImageBrush::CalculateSourceClip clips the full mapped image
+                // against the viewport. Preserve source overflow for None and
+                // Uniform instead of discarding everything outside Viewbox.
+                sink.DrawImage(imageSource, fullDestination);
+            }
+            else if (sourceRect.HasValue)
             {
                 sink.DrawImage(imageSource, stretchedTile.Bounds, sourceRect.Value);
             }
@@ -2408,16 +2434,23 @@ internal static class WpfDrawingReplay
     }
 
     private static bool TryGetImageBrushFrames(PortableTileBrush brush, SupportedStretch stretch,
-        MediaImageSource imageSource, out Rect? sourceRect, out Rect stretchBounds)
+        SupportedTileMode tileMode, MediaImageSource imageSource, out Rect? sourceRect,
+        out Rect stretchBounds, out Rect? fullImageBounds)
     {
         sourceRect = null;
         stretchBounds = default;
+        fullImageBounds = null;
         if (!WpfImageSourceFrame.HasTypedMetrics(brush.Content))
             return TryGetImageBrushSourceRect(brush, imageSource, out sourceRect) &&
                 TryGetImageStretchSourceBounds(stretch, sourceRect, imageSource, out stretchBounds);
 
         if (!WpfImageSourceFrame.TryRead(brush.Content, imageSource, out var frame) ||
             !WpfImageSourceFrame.TryMapViewbox(brush, frame.Bounds, out stretchBounds)) return false;
+        if (tileMode == SupportedTileMode.None)
+        {
+            fullImageBounds = frame.Bounds;
+            return true;
+        }
         // Stretch and alignment consume original DIPs, but DrawImage's crop
         // consumes adapted texels. Never use one frame for both contracts.
         if (brush.ViewboxUnits != PortableBrushMappingMode.RelativeToBoundingBox ||

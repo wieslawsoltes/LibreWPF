@@ -27,9 +27,16 @@ namespace ProGPU.Wpf.Tests.Composition.Mil;
 public sealed class WpfResourceResolverTests
 {
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void TypedImageBrushSeparatesOriginalDipStretchFromAdaptedTexelCrop(bool absolute)
+    [InlineData(false, PortableStretch.None, -50, 30, 200, 50)]
+    [InlineData(true, PortableStretch.None, -50, 30, 200, 50)]
+    [InlineData(false, PortableStretch.Uniform, -50, 30, 200, 50)]
+    [InlineData(true, PortableStretch.Uniform, -50, 30, 200, 50)]
+    [InlineData(false, PortableStretch.Fill, -50, -50, 200, 250)]
+    [InlineData(true, PortableStretch.Fill, -50, -50, 200, 250)]
+    [InlineData(false, PortableStretch.UniformToFill, -450, -50, 1000, 250)]
+    [InlineData(true, PortableStretch.UniformToFill, -450, -50, 1000, 250)]
+    public void TypedImageBrushMapsFullSourceThroughViewboxAndClipsOnlyViewport(bool absolute,
+        PortableStretch stretch, double x, double y, double width, double height)
     {
         var image = new ImageMetricsSource();
         var adapter = new FakeImageSourceAdapter(); // 200 x 100 adapted texels, original is 400 x 200.
@@ -37,18 +44,20 @@ public sealed class WpfResourceResolverTests
             new(0, 0, 1, 1), absolute ? new(50, 10, 100, 20) : new(0.25, 0.2, 0.5, 0.4),
             PortableBrushMappingMode.RelativeToBoundingBox,
             absolute ? PortableBrushMappingMode.Absolute : PortableBrushMappingMode.RelativeToBoundingBox,
-            PortableTileMode.None, PortableStretch.None, PortableAlignmentX.Center, PortableAlignmentY.Center,
+            PortableTileMode.None, stretch, PortableAlignmentX.Center, PortableAlignmentY.Center,
             false, default, false, default);
         var sink = new TestSink();
         Assert.True(WpfDrawingReplay.TryReplayTileBrushFill(new FakePortableTileBrushSource(brush),
             new RectangleGeometry(new Rect(0, 0, 100, 100)), sink, adapter.AdaptImageSource, out var status));
         Assert.Equal(WpfDrawingReplayStatus.Applied, status);
-        var draw = Assert.Single(sink.SourceImages);
+        Assert.Empty(sink.SourceImages);
+        var draw = Assert.Single(sink.Images);
         Assert.Same(adapter.AdaptedImageSource, draw.ImageSource);
-        Assert.Equal(new Rect(0, 40, 100, 20), draw.Rectangle);
-        Assert.Equal(new Rect(50, 20, 100, 40), draw.SourceRectangle);
+        Assert.Equal(new Rect(x, y, width, height), draw.Rectangle);
+        Assert.Equal(2, sink.Clips.Count);
+        Assert.Equal(new Rect(0, 0, 100, 100), Assert.IsType<RectangleGeometry>(sink.Clips[1]).Rect);
         Assert.Equal(0.25, Assert.Single(sink.Opacities));
-        Assert.Equal(new[] { "PushClip", "PushOpacity", "Pop", "Pop" }, sink.Operations);
+        Assert.Equal(new[] { "PushClip", "PushOpacity", "PushClip", "Pop", "Pop", "Pop" }, sink.Operations);
     }
 
     private sealed class ImageMetricsSource : IPortableBitmapSourceMetricsSource, IPortableBitmapSourcePixelsSource
@@ -57,6 +66,40 @@ public sealed class WpfResourceResolverTests
         { value = new(400, 200, 192, 384); return true; }
         public bool TryGetPortableBitmapSourcePixels(out PortableBitmapSourcePixels value) =>
             throw new InvalidOperationException("Frame queries must not materialize pixel payloads.");
+    }
+
+    [Fact]
+    public void TypedImageBrushRejectsUnrepresentableFullMappingBeforeDrawingScopes()
+    {
+        var brush = new PortableTileBrush(PortableTileBrushKind.Image, new ImageMetricsSource(), 0.25,
+            new(0, 0, 1, 1), new(0, 0, double.Epsilon, 20),
+            PortableBrushMappingMode.RelativeToBoundingBox, PortableBrushMappingMode.Absolute,
+            PortableTileMode.None, PortableStretch.Fill, PortableAlignmentX.Center, PortableAlignmentY.Center,
+            false, default, false, default);
+        var sink = new TestSink();
+        var adapter = new FakeImageSourceAdapter();
+        Assert.False(WpfDrawingReplay.TryReplayTileBrushFill(new FakePortableTileBrushSource(brush),
+            new RectangleGeometry(new Rect(0, 0, 100, 100)), sink, adapter.AdaptImageSource, out _));
+        Assert.Empty(sink.Images);
+        Assert.Empty(sink.Operations);
+    }
+
+    [Fact]
+    public void TypedTilingImageBrushKeepsItsExistingPerTileSourceFrame()
+    {
+        var brush = new PortableTileBrush(PortableTileBrushKind.Image, new ImageMetricsSource(), 0.25,
+            new(0, 0, 1, 1), new(50, 10, 100, 20),
+            PortableBrushMappingMode.RelativeToBoundingBox, PortableBrushMappingMode.Absolute,
+            PortableTileMode.Tile, PortableStretch.None, PortableAlignmentX.Center, PortableAlignmentY.Center,
+            false, default, false, default);
+        var sink = new TestSink();
+        var adapter = new FakeImageSourceAdapter();
+        Assert.True(WpfDrawingReplay.TryReplayTileBrushFill(new FakePortableTileBrushSource(brush),
+            new RectangleGeometry(new Rect(0, 0, 100, 100)), sink, adapter.AdaptImageSource, out var status));
+        Assert.Equal(WpfDrawingReplayStatus.Applied, status);
+        var draw = Assert.Single(sink.SourceImages);
+        Assert.Equal(new Rect(0, 40, 100, 20), draw.Rectangle);
+        Assert.Equal(new Rect(50, 20, 100, 40), draw.SourceRectangle);
     }
 
     [Fact]

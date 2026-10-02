@@ -31,7 +31,12 @@ Source dependency traversal observes both the original brush and PixelShader.
 
 Original BitmapSource exports metadata-only pixel dimensions and both source DPI
 axes. Shared ImageBrush replay keeps source DIP stretch/placement separate from
-adapted texel crops, including resized adapters. The existing sampler compositor
+adapted texel crops, including resized adapters. For typed `TileMode.None`,
+Viewbox defines mapping rather than a source crop: the full image is mapped and
+clipped against the original viewport and fill geometry. This follows original
+`imagebrush.cpp::CalculateSourceClip` and the actual Windows reference's 50-row
+Stretch=None overflow, not the earlier incorrect 20-row cropped expectation.
+The existing sampler compositor
 captures ImageBrush over the receiving effect's complete zero-origin physical
 implicit-input extent with identity mapping, not its intrinsic bitmap/viewbox
 extent. The shared Scene `EffectCaptureFrame` computes that extent from actual
