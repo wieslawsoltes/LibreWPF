@@ -41,6 +41,32 @@ public sealed partial class ProGpuWpfWindowHostTests
         Assert.Equal(false, ReadRetirementField(fixture.Host, "_nativeHidePending"));
     }
 
+    [Fact]
+    public void SessionHideCanRetryOriginalWindowAfterDeliveredIdentityRejection()
+    {
+        using var fixture = new SessionCloseFixture();
+        var (replacement, replacementProbe) = CreateRetirementWindow();
+        fixture.Host.Hide();
+        SetPrivateField(fixture.Host, "_window", replacement);
+        try
+        {
+            var failure = Assert.Throws<InvalidOperationException>(() => fixture.Lease.Complete());
+            Assert.Equal("Native session completion changed its window or thread.", failure.Message);
+            Assert.Equal(0, replacementProbe.Accesses);
+            Assert.Equal(0, fixture.Inner.Probe.VisibilityWrites);
+            Assert.Equal(false, ReadRetirementField(fixture.Host, "_nativeHidePending"));
+            Assert.Null(ReadRetirementField(fixture.Host, "_nativeSessionReleaseFailure"));
+            Assert.Null(ReadRetirementField(fixture.Host, "_nativeSessionReleaseCallbacks"));
+            Assert.Equal(0, ReadRetirementField(fixture.Host, "_nativeSessionReleaseCount"));
+        }
+        finally { SetPrivateField(fixture.Host, "_window", fixture.Inner.Window); }
+        fixture.Host.Hide();
+        Assert.Equal(1, fixture.Inner.Probe.VisibilityWrites);
+        Assert.False(fixture.Inner.Probe.Visible);
+        Assert.Equal(0, replacementProbe.Accesses);
+        Assert.Equal(2, fixture.Lease.Requests);
+    }
+
     [Theory]
     [InlineData("lease")]
     [InlineData("show")]

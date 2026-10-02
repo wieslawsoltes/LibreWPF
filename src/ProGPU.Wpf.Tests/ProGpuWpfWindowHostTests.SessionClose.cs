@@ -233,17 +233,26 @@ public sealed partial class ProGpuWpfWindowHostTests
     public void SessionCloseCannotApplyRetainedRequestToReplacementWindow()
     {
         using var fixture = new SessionCloseFixture();
-        var (replacement, _) = CreateRetirementWindow();
+        var (replacement, replacementProbe) = CreateRetirementWindow();
         fixture.Host.Close();
         SetPrivateField(fixture.Host, "_window", replacement);
         try
         {
-            Assert.Throws<InvalidOperationException>(() => fixture.Lease.Complete());
+            var failure = Assert.Throws<InvalidOperationException>(() => fixture.Lease.Complete());
+            Assert.Equal("Native session completion changed its window or thread.", failure.Message);
             Assert.Equal(0, fixture.Inner.Probe.Closes);
+            Assert.Equal(0, replacementProbe.Accesses);
+            Assert.Equal(false, ReadRetirementField(fixture.Host, "_nativeCloseReleasePending"));
+            Assert.Same(fixture.Inner.Window, ReadRetirementField(fixture.Host, "_pendingNativeCloseWindow"));
+            Assert.Null(ReadRetirementField(fixture.Host, "_nativeSessionReleaseFailure"));
+            Assert.Null(ReadRetirementField(fixture.Host, "_nativeSessionReleaseCallbacks"));
+            Assert.Equal(0, ReadRetirementField(fixture.Host, "_nativeSessionReleaseCount"));
         }
         finally { SetPrivateField(fixture.Host, "_window", fixture.Inner.Window); }
         fixture.Host.Close();
         Assert.Equal(1, fixture.Inner.Probe.Closes);
+        Assert.Equal(0, replacementProbe.Accesses);
+        Assert.Equal(2, fixture.Lease.Requests);
     }
 
     private sealed class SessionCloseFixture : IDisposable

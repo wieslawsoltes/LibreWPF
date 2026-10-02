@@ -141,7 +141,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
     private bool _nativeCloseReleasePending;
     private IWindow? _nativeSessionReleaseWindow;
     private int _nativeSessionReleaseCount;
-    private List<Action>? _nativeSessionReleaseCallbacks;
+    private List<(Action Complete, Action? Acknowledge)>? _nativeSessionReleaseCallbacks;
     private ExceptionDispatchInfo? _nativeSessionReleaseFailure;
     private bool _hasNativeWindowCloseStarted;
     private bool _dpiWindowHintsConfigured;
@@ -1285,7 +1285,8 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         Exception? hideFailure = null;
         try
         {
-            waiting = RequestNativeWindowSessionRelease(window, () => CompleteDeferredNativeHide(window));
+            waiting = RequestNativeWindowSessionRelease(window, () => CompleteDeferredNativeHide(window),
+                () => _nativeHidePending = false);
             if (waiting) return;
             if (!IsNativeHideCurrent(window)) return;
 
@@ -2187,7 +2188,8 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         _nativeCloseReleasePending = true;
         try
         {
-            if (RequestNativeWindowSessionRelease(window, CompleteDeferredNativeClose)) return;
+            if (RequestNativeWindowSessionRelease(window, CompleteDeferredNativeClose,
+                () => _nativeCloseReleasePending = false)) return;
         }
         catch
         {
@@ -2215,7 +2217,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         CompleteNativeCloseAfterSessionRelease(releasedSession: true);
     }
 
-    private bool RequestNativeWindowSessionRelease(IWindow window, Action completed)
+    private bool RequestNativeWindowSessionRelease(IWindow window, Action completed, Action? acknowledged = null)
     {
         _nativeSessionReleaseFailure?.Throw();
         if (_nativeWindowThreadId != Environment.CurrentManagedThreadId)
@@ -2230,11 +2232,11 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         {
             // An earlier deferred request still owns release proof. In
             // particular, an absent native query cannot bypass its callback.
-            pending.Add(completed);
+            pending.Add((completed, acknowledged));
             return true;
         }
 
-        var callbacks = new List<Action> { completed };
+        var callbacks = new List<(Action Complete, Action? Acknowledge)> { (completed, acknowledged) };
         _nativeSessionReleaseCallbacks = callbacks;
         bool delivered = false;
         void Released()
@@ -2248,9 +2250,15 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
                 try
                 {
                     _nativeSessionReleaseFailure?.Throw();
-                    if (_nativeWindowThreadId != Environment.CurrentManagedThreadId || !ReferenceEquals(window, _window))
+                    if (_nativeWindowThreadId != Environment.CurrentManagedThreadId)
                         throw new InvalidOperationException("Native session completion changed its window or thread.");
-                    callbacks[i]();
+                    // Delivery consumes this action's wait even when its exact
+                    // window was replaced. A restored original owner may retry;
+                    // acknowledgement never admits an action on the replacement.
+                    callbacks[i].Acknowledge?.Invoke();
+                    if (!ReferenceEquals(window, _window))
+                        throw new InvalidOperationException("Native session completion changed its window or thread.");
+                    callbacks[i].Complete();
                 }
                 catch (Exception failure) { callbackFailure ??= ExceptionDispatchInfo.Capture(failure); }
                 finally { if (_nativeSessionReleaseCount == 0) _nativeSessionReleaseWindow = null; }

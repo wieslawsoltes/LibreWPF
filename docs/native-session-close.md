@@ -121,3 +121,21 @@ does not trigger another cleanup attempt at the end of that same callback batch;
 the exact attempt-count control requires the second attempt only at the explicit
 later creating-thread drain. Other ready callbacks still run before the original
 failure propagates.
+
+## Delivered identity rejection and explicit retry
+
+Exact `919f548cf` Build `37030777728`, source job `110916754297`, compiled
+and executed 1,080 cases: 1,079 passed, one failed, zero skipped. The unchanged
+replacement-window Close control exposed a delivered-callback bookkeeping bug:
+the coordinator rejected the replacement before clearing the Close action's wait,
+so restoring the original window could never retry that retained Close.
+
+Each ready action now acknowledges delivery separately on the creating thread,
+before the exact-window action guard. Close retains its original pending window;
+Hide similarly clears only its delivered wait. Replacement-window actions still
+throw before any provider access, without latching a delivered source error as
+uncertain native release. Undelivered failures remain blocked. The original Close
+expectation of exactly one successful retry is unchanged and now checks zero
+replacement accesses, original identity, empty proof/count state and two release
+attempts. A paired Hide control raises the lifecycle inventory to 38 and hosted
+minimum to 359; selectors, deadline, pins and automatic-modality gates are unchanged.
