@@ -5,6 +5,8 @@
 
 using MS.Internal;
 
+using ProGPU.Wpf.Interop;
+
 namespace System.Windows.Media
 {
     ///<summary>
@@ -12,6 +14,14 @@ namespace System.Windows.Media
     ///</summary>
     public sealed partial class MatrixTransform : Transform
     {
+        internal override bool TryGetPortableTransformCore(out PortableTransform transform)
+        {
+            Matrix value = Matrix;
+            transform = new PortableMatrixTransform(new PortableMatrix3x2(
+                value.M11, value.M12, value.M21, value.M22, value.OffsetX, value.OffsetY));
+            return true;
+        }
+
         #region Constructors
 
         ///<summary>
