@@ -1625,11 +1625,12 @@ internal static class WpfDrawingReplay
         if (TryGetDrawingGroupEffect(drawingGroup, hasPortableDrawingGroupState, drawingGroupState, out var effectValue))
         {
             hasEffect = true;
-            if (!WpfEffectMapper.TryCreateProGpuEffect(
+            if (!TryGetDrawingGroupScopeBounds(out var resolvedEffectBounds)
+                || !WpfEffectMapper.TryCreateProGpuEffect(
                     effectValue,
                     out var proGpuEffect,
-                    CreateImageSourceAdapter(imageSourceAdapter))
-                || !TryGetDrawingGroupScopeBounds(out var resolvedEffectBounds))
+                    CreateImageSourceAdapter(imageSourceAdapter),
+                    ToReplayRect(resolvedEffectBounds), drawingGroup))
             {
                 return WpfDrawingReplayStatus.Unsupported;
             }
@@ -1645,12 +1646,13 @@ internal static class WpfDrawingReplay
                 hasPortableDrawingGroupState,
                 drawingGroupState,
                 out var bitmapEffectInput);
-            if (!WpfEffectMapper.TryCreateProGpuPushEffect(
+            if (!TryGetDrawingGroupScopeBounds(out var resolvedEffectBounds)
+                || !WpfEffectMapper.TryCreateProGpuPushEffect(
                     bitmapEffect,
                     bitmapEffectInput,
                     out var proGpuEffect,
-                    CreateImageSourceAdapter(imageSourceAdapter))
-                || !TryGetDrawingGroupScopeBounds(out var resolvedEffectBounds))
+                    CreateImageSourceAdapter(imageSourceAdapter),
+                    ToReplayRect(resolvedEffectBounds), drawingGroup))
             {
                 return WpfDrawingReplayStatus.Unsupported;
             }
@@ -3729,7 +3731,9 @@ internal static class WpfDrawingReplay
 
     private static IWpfImageSourceAdapter? CreateImageSourceAdapter(Func<object?, MediaImageSource?>? imageSourceAdapter)
     {
-        return imageSourceAdapter == null ? null : new DelegateImageSourceAdapter(imageSourceAdapter);
+        return imageSourceAdapter == null ? null
+            : imageSourceAdapter.Target is IWpfImageSourceAdapter typed ? typed
+            : new DelegateImageSourceAdapter(imageSourceAdapter);
     }
 
     private static bool TryInferDrawingGroupContentBounds(

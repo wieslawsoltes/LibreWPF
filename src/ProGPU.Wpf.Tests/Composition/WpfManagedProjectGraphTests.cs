@@ -7870,8 +7870,8 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("bool TryGetVisualStateBounds(out WpfReplayRect bounds)", rendererSource, StringComparison.Ordinal);
         Assert.Contains("visualStateBoundsAvailable = TryReadOpacityMaskBounds(visual, out visualStateBounds);", rendererSource, StringComparison.Ordinal);
         Assert.Contains("TryGetVisualStateBounds(out var opacityMaskBounds)", rendererSource, StringComparison.Ordinal);
-        Assert.Contains("TryGetVisualStateBounds(out var effectBounds) ? effectBounds : null", rendererSource, StringComparison.Ordinal);
-        Assert.Contains("TryGetVisualStateBounds(out var bitmapEffectBounds) ? bitmapEffectBounds : null", rendererSource, StringComparison.Ordinal);
+        Assert.Contains("TryGetVisualStateBounds(out var resolvedEffectBounds) ? resolvedEffectBounds : null", rendererSource, StringComparison.Ordinal);
+        Assert.Contains("TryGetVisualStateBounds(out var resolvedBitmapEffectBounds) ? resolvedBitmapEffectBounds : null", rendererSource, StringComparison.Ordinal);
         Assert.Contains("TryGetVisualStateBounds(out var cacheBounds) ? cacheBounds : null", rendererSource, StringComparison.Ordinal);
         Assert.DoesNotContain("TryReadOpacityMaskBounds(visual, out var effectBounds)", rendererSource, StringComparison.Ordinal);
         Assert.DoesNotContain("TryReadOpacityMaskBounds(visual, out var bitmapEffectBounds)", rendererSource, StringComparison.Ordinal);
@@ -8758,7 +8758,7 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("bool ProGPU.Wpf.Interop.IPortableShaderEffectSource.TryGetPortableShaderEffect", presentationCoreRef, StringComparison.Ordinal);
         Assert.Contains("using PortableShaderEffectSource = ProGPU.Wpf.Interop.IPortableShaderEffectSource;", effectMapper, StringComparison.Ordinal);
         Assert.Contains("effect is PortableShaderEffectSource shaderEffectSource", effectMapper, StringComparison.Ordinal);
-        Assert.Contains("TryCreatePortableShaderEffect(portableShaderEffect, imageSourceAdapter, out proGpuEffect)", effectMapper, StringComparison.Ordinal);
+        Assert.Contains("TryCreatePortableShaderEffect(portableShaderEffect, imageSourceAdapter, out proGpuEffect, effectBounds, effectOwner)", effectMapper, StringComparison.Ordinal);
         Assert.Contains("portableSampler.Kind", effectMapper, StringComparison.Ordinal);
         Assert.Contains("TryCreateImageSourceShaderSampler(", effectMapper, StringComparison.Ordinal);
         Assert.Contains("TryGetReplacement(effect.EffectTypeFullName, out replacement)", effectMapper, StringComparison.Ordinal);

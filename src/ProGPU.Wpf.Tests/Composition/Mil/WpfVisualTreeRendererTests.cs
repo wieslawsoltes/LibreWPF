@@ -5096,6 +5096,10 @@ public sealed partial class WpfVisualTreeRendererTests
                 Assert.Same(texture, Assert.Single(effect.Parameters.Samplers).Texture);
                 Assert.Equal(2, brushAdapter.LastSamplerRegisterIndex);
                 Assert.Equal(ProGpuTextureSamplingMode.Nearest, brushAdapter.LastSamplerMode);
+                var frame = Assert.Single(brushAdapter.Frames);
+                Assert.Same(root, frame.Owner);
+                Assert.Equal(0, frame.Padding);
+                Assert.Equal(new global::ProGPU.Scene.Rect(1, 2, 30, 40), frame.ContentBounds);
                 Assert.Equal(0, result.UnsupportedVisualStateCount);
             }
             else
@@ -5103,6 +5107,45 @@ public sealed partial class WpfVisualTreeRendererTests
                 Assert.Empty(sink.VisualEffects);
                 Assert.Equal(1, result.UnsupportedVisualStateCount);
             }
+        }
+        finally { WpfShaderEffectRegistry.Unregister(key); }
+    }
+
+    [Fact]
+    public void CompleteImageSamplerRetainsReceivingOwnerAndResizeFrameThroughResourceResolver()
+    {
+        byte[] bytecode = [0, 3, 0, 0, 21, 23, 25, 27];
+        string key = WpfShaderEffectRegistry.RegisterPixelShaderBytecode(bytecode,
+            "fn wpf_effect_main(uv: vec2<f32>, inputColor: vec4<f32>) -> vec4<f32> { return inputColor; }",
+            shaderKey: "receiving_image_brush_frames");
+        var texture = (ProGpuTexture)RuntimeHelpers.GetUninitializedObject(typeof(ProGpuTexture));
+        var image = new FakeBitmapSource();
+        var brush = new FakeShaderImageBrush(image);
+        var adapter = new FakeShaderSamplerBrushAdapter(texture);
+        var resolver = new WpfResourceResolver(adapter);
+        var source = new FakePortableShaderEffectSource(new PortableShaderEffect(null, null,
+            new PortablePixelShader(null, null, bytecode, 3, 0), [],
+            [PortableShaderSampler.Image(2, image, PortableShaderSamplingMode.Bilinear, brush)],
+            0, 0, 0, 0, 0, 0, -1));
+        var first = new FakePortableVisualStateVisual(CreatePortableEffectState(source)) { Bounds = new Rect(3, 4, 100, 100) };
+        var second = new FakePortableVisualStateVisual(CreatePortableEffectState(source)) { Bounds = new Rect(5, 6, 200, 20) };
+        try
+        {
+            var renderer = new WpfVisualTreeRenderer();
+            foreach (var owner in new[] { first, second, first })
+            {
+                if (adapter.Frames.Count == 2) first.Bounds = new Rect(7, 8, 50, 70);
+                var result = renderer.ReplaySubtree(owner, new TestSink { AcceptVisualEffects = true }, imageSourceAdapter: resolver);
+                Assert.Equal(0, result.UnsupportedVisualStateCount);
+                Assert.Same(brush, adapter.LastSamplerBrush);
+            }
+            Assert.Equal(3, adapter.Frames.Count);
+            Assert.Same(first, adapter.Frames[0].Owner);
+            Assert.Same(second, adapter.Frames[1].Owner);
+            Assert.Same(first, adapter.Frames[2].Owner);
+            Assert.Equal(new global::ProGPU.Scene.Rect(3, 4, 100, 100), adapter.Frames[0].ContentBounds);
+            Assert.Equal(new global::ProGPU.Scene.Rect(5, 6, 200, 20), adapter.Frames[1].ContentBounds);
+            Assert.Equal(new global::ProGPU.Scene.Rect(7, 8, 50, 70), adapter.Frames[2].ContentBounds);
         }
         finally { WpfShaderEffectRegistry.Unregister(key); }
     }
@@ -5583,7 +5626,7 @@ public sealed partial class WpfVisualTreeRendererTests
 
         public object? VisualClip { get; init; }
 
-        public object? Bounds { get; init; }
+        public object? Bounds { get; set; }
 
         public object? OpacityMask { get; init; }
 
@@ -7428,6 +7471,16 @@ public sealed partial class WpfVisualTreeRendererTests
         public int LastSamplerRegisterIndex { get; private set; }
 
         public ProGpuTextureSamplingMode LastSamplerMode { get; private set; }
+
+        public List<WpfShaderEffectSamplerFrame> Frames { get; } = new();
+
+        public bool TryAdaptShaderEffectSamplerBrush(object? brush, int registerIndex,
+            ProGpuTextureSamplingMode samplingMode, WpfShaderEffectSamplerFrame frame,
+            out ProGpuWpfShaderEffectSampler sampler)
+        {
+            Frames.Add(frame);
+            return TryAdaptShaderEffectSamplerBrush(brush, registerIndex, samplingMode, out sampler);
+        }
 
         public MediaImageSource? AdaptImageSource(object? imageSource)
         {

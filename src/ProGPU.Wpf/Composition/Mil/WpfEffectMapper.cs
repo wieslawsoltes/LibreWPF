@@ -22,7 +22,9 @@ internal static class WpfEffectMapper
     public static bool TryCreateProGpuEffect(
         object? effect,
         out global::ProGPU.Scene.EffectBase proGpuEffect,
-        IWpfImageSourceAdapter? imageSourceAdapter = null)
+        IWpfImageSourceAdapter? imageSourceAdapter = null,
+        WpfReplayRect? effectBounds = null,
+        object? effectOwner = null)
     {
         if (effect != null)
         {
@@ -35,7 +37,7 @@ internal static class WpfEffectMapper
 
             if (effect is PortableShaderEffectSource shaderEffectSource
                 && shaderEffectSource.TryGetPortableShaderEffect(out var portableShaderEffect)
-                && TryCreatePortableShaderEffect(portableShaderEffect, imageSourceAdapter, out proGpuEffect))
+                && TryCreatePortableShaderEffect(portableShaderEffect, imageSourceAdapter, out proGpuEffect, effectBounds, effectOwner))
             {
                 return true;
             }
@@ -50,7 +52,9 @@ internal static class WpfEffectMapper
         object? effect,
         object? effectInput,
         out global::ProGPU.Scene.EffectBase proGpuEffect,
-        IWpfImageSourceAdapter? imageSourceAdapter = null)
+        IWpfImageSourceAdapter? imageSourceAdapter = null,
+        WpfReplayRect? effectBounds = null,
+        object? effectOwner = null)
     {
         proGpuEffect = null!;
         if (effect == null || !IsSupportedBitmapEffectInput(effectInput))
@@ -58,7 +62,7 @@ internal static class WpfEffectMapper
             return false;
         }
 
-        return TryCreateProGpuEffect(effect, out proGpuEffect, imageSourceAdapter);
+        return TryCreateProGpuEffect(effect, out proGpuEffect, imageSourceAdapter, effectBounds, effectOwner);
     }
 
     private static bool TryCreatePortableEffect(PortableEffect effect, out global::ProGPU.Scene.EffectBase proGpuEffect)
@@ -107,7 +111,9 @@ internal static class WpfEffectMapper
     private static bool TryCreatePortableShaderEffect(
         PortableShaderEffect effect,
         IWpfImageSourceAdapter? imageSourceAdapter,
-        out global::ProGPU.Scene.EffectBase proGpuEffect)
+        out global::ProGPU.Scene.EffectBase proGpuEffect,
+        WpfReplayRect? effectBounds = null,
+        object? effectOwner = null)
     {
         proGpuEffect = null!;
 
@@ -126,7 +132,8 @@ internal static class WpfEffectMapper
                 imageSourceAdapter,
                 out var sourceTextureRegisterIndex,
                 out var samplingMode,
-                out var samplers))
+                out var samplers,
+                effectBounds, effectOwner))
         {
             return false;
         }
@@ -216,7 +223,9 @@ internal static class WpfEffectMapper
         IWpfImageSourceAdapter? imageSourceAdapter,
         out int sourceTextureRegisterIndex,
         out TextureSamplingMode samplingMode,
-        out WpfShaderEffectSampler[] samplers)
+        out WpfShaderEffectSampler[] samplers,
+        WpfReplayRect? effectBounds,
+        object? effectOwner)
     {
         sourceTextureRegisterIndex = 0;
         samplingMode = TextureSamplingMode.Linear;
@@ -307,7 +316,9 @@ internal static class WpfEffectMapper
                         imageSourceAdapter,
                         registerIndex,
                         samplerSamplingMode,
-                        out additionalSamplers[additionalSamplerIndex]))
+                        out additionalSamplers[additionalSamplerIndex], effectBounds, effectOwner,
+                        (float)Math.Min(float.MaxValue, effect.MaxPadding),
+                        requireEffectFrame: portableSampler.Kind == PortableShaderSamplerKind.ImageSource))
                 {
                     return false;
                 }
@@ -344,9 +355,22 @@ internal static class WpfEffectMapper
         IWpfImageSourceAdapter? imageSourceAdapter,
         int registerIndex,
         TextureSamplingMode samplingMode,
-        out WpfShaderEffectSampler sampler)
+        out WpfShaderEffectSampler sampler,
+        WpfReplayRect? effectBounds,
+        object? effectOwner,
+        float padding,
+        bool requireEffectFrame)
     {
         sampler = null!;
+        if (requireEffectFrame)
+        {
+            return effectOwner is not null && effectBounds is { } bounds &&
+                imageSourceAdapter is IWpfShaderEffectSamplerBrushAdapter framedAdapter &&
+                framedAdapter.TryAdaptShaderEffectSamplerBrush(brush, registerIndex, samplingMode,
+                    new WpfShaderEffectSamplerFrame(effectOwner,
+                        new global::ProGPU.Scene.Rect((float)bounds.X, (float)bounds.Y, (float)bounds.Width, (float)bounds.Height),
+                        padding), out sampler);
+        }
         if (imageSourceAdapter is IWpfShaderEffectSamplerBrushAdapter samplerBrushAdapter
             && samplerBrushAdapter.TryAdaptShaderEffectSamplerBrush(
                 brush,

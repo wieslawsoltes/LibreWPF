@@ -10,7 +10,7 @@ public sealed class WpfShaderEffectSamplerTextureCacheTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public void ImageBrushUsesOriginalDipBoundsAndIndependentCaptureAxes(bool absolute)
+    public void ImageBrushUsesOriginalDipBoundsButCapturesCompleteReceivingPhysicalFrame(bool absolute)
     {
         var image = new MetricsImage(new(400, 200, 192, 384));
         var brush = CreatePortableTileBrushSource(PortableTileBrushKind.Image, image,
@@ -18,17 +18,33 @@ public sealed class WpfShaderEffectSamplerTextureCacheTests
             absolute ? PortableBrushMappingMode.Absolute : PortableBrushMappingMode.RelativeToBoundingBox);
         Assert.True(WpfShaderEffectSamplerTextureCache.TryGetBrushSourceBounds(brush, out var bounds));
         Assert.Equal(new Rect(50, 10, 100, 20), bounds);
-        Assert.True(WpfImageSourceFrame.TryRead(image, null, out var frame));
-        Assert.True(WpfShaderEffectSamplerTextureCache.TryCreateImageTextureBounds(bounds, frame,
-            out var capture, out uint width, out uint height, out double scaleX, out double scaleY));
-        Assert.Equal(new Rect(0, 0, 100, 20), capture);
-        Assert.Equal(200U, width);
-        Assert.Equal(80U, height);
-        Assert.Equal(2, scaleX);
-        Assert.Equal(4, scaleY);
+        Assert.True(Scene.EffectCaptureFrame.TryCreate(new Scene.Rect(8, 12, 100, 100), 0, 1.5f, out var frame));
+        Assert.True(WpfShaderEffectSamplerTextureCache.TryGetEffectTextureBounds(frame,
+            out var capture, out uint width, out uint height));
+        Assert.Equal(new Rect(0, 0, 150, 150), capture);
+        Assert.Equal(150U, width);
+        Assert.Equal(150U, height);
         image.Metrics = new(400, 200, 96, 192);
         Assert.True(WpfShaderEffectSamplerTextureCache.TryGetBrushSourceBounds(brush, out var updated));
         Assert.Equal(absolute ? bounds : new Rect(100, 20, 200, 40), updated);
+        Assert.True(WpfShaderEffectSamplerTextureCache.TryGetEffectTextureBounds(frame,
+            out var sameCapture, out _, out _));
+        Assert.Equal(capture, sameCapture);
+    }
+
+    [Fact]
+    public void ImageBrushCaptureUsesSharedPaddedFrameAndRejectsOversizeRatherThanShrinking()
+    {
+        Assert.True(Scene.EffectCaptureFrame.TryCreate(new Scene.Rect(8, 12, 10.25f, 20.5f), 0.25f, 1.5f, out var frame));
+        Assert.True(WpfShaderEffectSamplerTextureCache.TryGetEffectTextureBounds(frame, out var bounds, out var width, out var height));
+        Assert.Equal(new Rect(0, 0, 19, 34), bounds);
+        Assert.Equal(19U, width);
+        Assert.Equal(34U, height);
+        Assert.True(Scene.EffectCaptureFrame.TryCreate(new Scene.Rect(0, 0, 4097, 20), 0, 1, out var oversized));
+        Assert.False(WpfShaderEffectSamplerTextureCache.TryGetEffectTextureBounds(oversized, out var rejected, out width, out height));
+        Assert.Equal(default, rejected);
+        Assert.Equal(0U, width);
+        Assert.Equal(0U, height);
     }
 
     [Theory]

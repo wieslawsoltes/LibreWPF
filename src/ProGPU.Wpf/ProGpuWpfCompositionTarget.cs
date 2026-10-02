@@ -1123,16 +1123,29 @@ public unsafe sealed class ProGpuWpfCompositionTarget : IDisposable
         visual.Effect = null;
     }
 
-    internal IWpfImageSourceAdapter? CreateFrameImageSourceAdapter(IWpfImageSourceAdapter? imageSourceAdapter)
+    internal IWpfImageSourceAdapter? CreateFrameImageSourceAdapter(IWpfImageSourceAdapter? imageSourceAdapter, float dpiScale = 1f)
     {
         ThrowIfDisposed();
+        if (!float.IsFinite(dpiScale) || dpiScale <= 0) throw new ArgumentOutOfRangeException(nameof(dpiScale));
         if (_frameImageSourceAdapter == null ||
-            !ReferenceEquals(_frameImageSourceAdapterSource, imageSourceAdapter))
+            !ReferenceEquals(_frameImageSourceAdapterSource, imageSourceAdapter) ||
+            _frameImageSourceAdapter.DpiScale != dpiScale)
         {
+            // A DPI change changes secondary shader capture extents even if the
+            // source tree is otherwise unchanged. Rebuild all affected effects.
+            bool hadAdapter = _frameImageSourceAdapter != null;
             _frameImageSourceAdapterSource = imageSourceAdapter;
             _frameImageSourceAdapter = new WpfShaderEffectSamplerImageSourceAdapter(
                 imageSourceAdapter,
-                _shaderEffectSamplerTextureCache);
+                _shaderEffectSamplerTextureCache,
+                dpiScale);
+            if (hadAdapter)
+            {
+                WpfInvalidationTracker.MarkDirty();
+                // MarkDirty may coalesce with an already dirty source. Its
+                // narrower branch list cannot describe this frame-wide change.
+                LastRetainedBranchInvalidationUsedFallback = true;
+            }
         }
 
         return _frameImageSourceAdapter;

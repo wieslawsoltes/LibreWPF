@@ -32,16 +32,38 @@ Source dependency traversal observes both the original brush and PixelShader.
 Original BitmapSource exports metadata-only pixel dimensions and both source DPI
 axes. Shared ImageBrush replay keeps source DIP stretch/placement separate from
 adapted texel crops, including resized adapters. The existing sampler compositor
-captures ImageBrush with independent physical axes and the existing 4096 extent
-cap; it does not shrink high-DPI source texels into a 96-DPI assumption. Typed
+captures ImageBrush over the receiving effect's complete zero-origin physical
+implicit-input extent with identity mapping, not its intrinsic bitmap/viewbox
+extent. The shared Scene `EffectCaptureFrame` computes that extent from actual
+effect content bounds, padding and current host DPI using the compositor's exact
+arithmetic. An extent over the existing 4096 limit rejects rather than shrinking
+the effect frame. Source bitmap DPI only owns source-DIP crop/stretch arithmetic.
+Typed
 invalid metadata rejects before rendering. Legacy image-only DTOs and untyped
 shim image frames retain their prior route. Older typed pixel-only providers may
 use their existing pixel descriptor to obtain metrics; updated source BitmapSource
 never copies pixels merely to answer a frame query. DrawingImage sampler bounds
-reuse original drawing geometry and origin. No renderer or cache owner is replaced.
+reuse original drawing geometry and origin. No renderer is replaced.
 Source DIP extent preserves `ImageSource.PixelsToDIPs`' original float DPI ratio
 and multiplication before promotion to double. Unrepresentable axes reject;
 this path does not invent the original helper's degenerate-resolution fallback.
+
+Complete ImageBrush adapters require a receiving source owner and content frame;
+legacy adapters are not silently called without them. Visual and DrawingGroup
+replay retain that frame through the existing resource resolver. The sampler
+cache is weakly keyed by receiving owner and original brush, so distinct owners
+cannot overwrite each other's captured texture. Same-owner resize creates its
+replacement before retiring the old texture through existing GpuTexture/context
+deferred disposal. Host DPI changes invalidate full source replay even when a
+narrower source change was already pending. Existing image-only and DrawingBrush/
+VisualBrush routes remain separate.
+
+Capture bitmap filtering is not inferred from the shader sampler's own mode.
+Original Windows reference PR 268 currently exposes a filtering difference:
+nearest sampling on the effect visual does not itself prove nearest secondary
+bitmap realization. Incoming render-state propagation and provider pixel parity
+remain pending; this source change does not force nearest to match a native-only
+fixture or claim the existing managed default is a complete original-state policy.
 
 The focused bridge fixtures cover source packet identity, dense holes, sampler
 state, snapshot immutability, retained deltas, cancellation by failed capture,
@@ -52,7 +74,8 @@ test assembly. These tests are authored pending the matching ProGPU producer;
 no local renderer or source-graph execution is claimed.
 
 Dependency: ProGPU typed shader transport `94ed4ebae4981ff63b30cb15c07fe904cae3accd`
-and optional original bitmap metrics `e60a2dd37`
+and optional original bitmap metrics `e60a2dd37`, plus shared capture-frame
+implementation `54d51c0fd603a6a8236405379a73c9fd1f460581`
 on the native shader implementation from PR 258. Do not publish/pin this source
 change until the matching whole successful producer and source/package gates
 qualify. Ordinary effect capability advertisement is unchanged. Hosted provider

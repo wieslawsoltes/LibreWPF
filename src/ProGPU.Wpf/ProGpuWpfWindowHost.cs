@@ -2650,10 +2650,10 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
             }
 
             object? wpfRootVisual = _wpfRootVisual;
+            var activeWpfImageSourceAdapter = _target.CreateFrameImageSourceAdapter(WpfImageSourceAdapter, (float)dpiScale);
             var forceFullWpfReplay = _forceFullWpfReplay;
             var shouldReplayWpfRootVisual = wpfRootVisual != null &&
                 (forceFullWpfReplay || _target.ShouldReplayVisualSubtree(wpfRootVisual));
-            var activeWpfImageSourceAdapter = _target.CreateFrameImageSourceAdapter(WpfImageSourceAdapter);
             IReadOnlyList<WpfRetainedVisualBranchReplayTarget> dirtyBranchReplayTargets = Array.Empty<WpfRetainedVisualBranchReplayTarget>();
             var canReplayDirtyWpfBranches = wpfRootVisual != null &&
                 shouldReplayWpfRootVisual &&

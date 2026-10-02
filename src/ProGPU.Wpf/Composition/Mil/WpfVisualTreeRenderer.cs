@@ -811,10 +811,12 @@ public sealed class WpfVisualTreeRenderer
         var effectStateCount = 0;
         global::ProGPU.Scene.EffectBase? effect = null;
         var cacheAsLayer = false;
+        bool hasRetainedBounds = TryReadRetainedVisualBounds(visual, out var bounds);
 
         if (TryGetVisualEffect(visual, out var effectValue))
         {
-            if (!WpfEffectMapper.TryCreateProGpuEffect(effectValue, out effect, imageSourceAdapter))
+            if (!WpfEffectMapper.TryCreateProGpuEffect(effectValue, out effect, imageSourceAdapter,
+                    hasRetainedBounds ? bounds : null, visual))
             {
                 return false;
             }
@@ -830,7 +832,8 @@ public sealed class WpfVisualTreeRenderer
             }
 
             TryGetVisualBitmapEffectInput(visual, out var bitmapEffectInput);
-            if (!WpfEffectMapper.TryCreateProGpuPushEffect(bitmapEffect, bitmapEffectInput, out effect, imageSourceAdapter))
+            if (!WpfEffectMapper.TryCreateProGpuPushEffect(bitmapEffect, bitmapEffectInput, out effect, imageSourceAdapter,
+                    hasRetainedBounds ? bounds : null, visual))
             {
                 return false;
             }
@@ -858,7 +861,7 @@ public sealed class WpfVisualTreeRenderer
         var retainedTransform = transform;
         var retainedClipBounds = clipBounds;
         var retainedOpacityMaskBounds = opacityMaskBounds;
-        if (TryReadRetainedVisualBounds(visual, out var bounds))
+        if (hasRetainedBounds)
         {
             size = new Vector2((float)bounds.Width, (float)bounds.Height);
             contentBounds = bounds;
@@ -1202,11 +1205,12 @@ public sealed class WpfVisualTreeRenderer
 
         if (TryGetVisualEffect(visual, out var effect))
         {
-            if (WpfEffectMapper.TryCreateProGpuEffect(effect, out var proGpuEffect, imageSourceAdapter)
+            WpfReplayRect? effectBounds = TryGetVisualStateBounds(out var resolvedEffectBounds) ? resolvedEffectBounds : null;
+            if (WpfEffectMapper.TryCreateProGpuEffect(effect, out var proGpuEffect, imageSourceAdapter, effectBounds, visual)
                 && WpfPortableCommandSinkBridge.TryPushVisualEffect(
                     sink,
                     proGpuEffect,
-                    TryGetVisualStateBounds(out var effectBounds) ? effectBounds : null))
+                    effectBounds))
             {
                 popCount++;
             }
@@ -1219,11 +1223,12 @@ public sealed class WpfVisualTreeRenderer
         if (TryGetVisualBitmapEffect(visual, out var bitmapEffect))
         {
             TryGetVisualBitmapEffectInput(visual, out var bitmapEffectInput);
-            if (WpfEffectMapper.TryCreateProGpuPushEffect(bitmapEffect, bitmapEffectInput, out var proGpuBitmapEffect, imageSourceAdapter)
+            WpfReplayRect? bitmapEffectBounds = TryGetVisualStateBounds(out var resolvedBitmapEffectBounds) ? resolvedBitmapEffectBounds : null;
+            if (WpfEffectMapper.TryCreateProGpuPushEffect(bitmapEffect, bitmapEffectInput, out var proGpuBitmapEffect, imageSourceAdapter, bitmapEffectBounds, visual)
                 && WpfPortableCommandSinkBridge.TryPushVisualEffect(
                     sink,
                     proGpuBitmapEffect,
-                    TryGetVisualStateBounds(out var bitmapEffectBounds) ? bitmapEffectBounds : null))
+                    bitmapEffectBounds))
             {
                 popCount++;
             }

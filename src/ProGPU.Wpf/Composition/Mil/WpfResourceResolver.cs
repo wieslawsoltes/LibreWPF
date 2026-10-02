@@ -221,7 +221,8 @@ public sealed class WpfResourceResolver :
     IWpfDrawingResourceResolver,
     IWpfGuidelineSetResourceResolver,
     IWpfRawMilResourceResolver,
-    IWpfImageSourceAdapter
+    IWpfImageSourceAdapter,
+    IWpfShaderEffectSamplerBrushAdapter
 {
     private readonly struct WpfMatrix2D
     {
@@ -1924,6 +1925,23 @@ public sealed class WpfResourceResolver :
         dashArray = values;
         dashOffset = double.IsFinite(offset) ? offset : 0.0;
         return true;
+    }
+
+    public bool TryAdaptShaderEffectSamplerBrush(object? brush, int registerIndex,
+        global::ProGPU.Scene.TextureSamplingMode samplingMode, out global::ProGPU.Scene.WpfShaderEffectSampler sampler)
+    {
+        sampler = null!;
+        return _imageSourceAdapter is IWpfShaderEffectSamplerBrushAdapter adapter &&
+            adapter.TryAdaptShaderEffectSamplerBrush(brush, registerIndex, samplingMode, out sampler);
+    }
+
+    public bool TryAdaptShaderEffectSamplerBrush(object? brush, int registerIndex,
+        global::ProGPU.Scene.TextureSamplingMode samplingMode, WpfShaderEffectSamplerFrame frame,
+        out global::ProGPU.Scene.WpfShaderEffectSampler sampler)
+    {
+        sampler = null!;
+        return _imageSourceAdapter is IWpfShaderEffectSamplerBrushAdapter adapter &&
+            adapter.TryAdaptShaderEffectSamplerBrush(brush, registerIndex, samplingMode, frame, out sampler);
     }
 
     public MediaImageSource? AdaptImageSource(object? resource)
