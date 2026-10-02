@@ -119,10 +119,9 @@ public sealed class WpfSourceDisplayFactoryTests
     }
 
     [Fact]
-    public void ExplicitFactoryUsesActualOriginalNativeOwnerWithoutCapabilityRegistration([CallerFilePath] string file = "")
+    public void ExplicitFactoryUsesActualOriginalNativeOwnerWithoutCapabilityRegistration()
     {
-        string path = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(file)!, "..", "..", "ProGPU.Wpf", "Composition", "WpfPortableTextFormatting.Display.cs"));
-        string source = File.ReadAllText(path);
+        string source = ReadFactory();
         Assert.Contains("context.LayoutHintedSourceParagraph(text.AsSpan()", source, StringComparison.Ordinal);
         Assert.Contains("in sourceOptions, originals, prepared.Features", source, StringComparison.Ordinal);
         Assert.Contains("WpfSourceDisplayTextParagraph.Adopt(paragraph!, text, nativeProjection, nativeCoverage)", source, StringComparison.Ordinal);
@@ -130,4 +129,7 @@ public sealed class WpfSourceDisplayFactoryTests
         Assert.DoesNotContain("EnsureRegistered", source, StringComparison.Ordinal);
         Assert.False(typeof(IPortableDisplayTextFormatting).IsAssignableFrom(typeof(WpfPortableTextFormatting)));
     }
+
+    private static string ReadFactory([CallerFilePath] string file = "")
+        => File.ReadAllText(Path.GetFullPath(Path.Combine(Path.GetDirectoryName(file)!, "..", "..", "ProGPU.Wpf", "Composition", "WpfPortableTextFormatting.Display.cs")));
 }
