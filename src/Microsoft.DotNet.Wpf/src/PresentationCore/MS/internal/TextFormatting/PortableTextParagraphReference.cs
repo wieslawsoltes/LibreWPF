@@ -28,9 +28,14 @@ internal sealed class PortableTextParagraphReference : IDisposable
         {
             if (paragraph is IPortableHintedTextParagraph hinted)
             {
+                var displayIdentity = paragraph is IPortableDisplayTextParagraph display
+                    ? new PortableTextDisplayIdentity(display) : null;
                 reference._hinted = hinted.Retain() ?? throw new InvalidOperationException("The hinted paragraph returned no retained reference.");
                 reference._paragraph = reference._hinted as IPortableTextParagraph ??
                     throw new InvalidOperationException("The retained hinted paragraph lost its source paragraph contract.");
+                if (displayIdentity != null) displayIdentity.Validate(reference._paragraph);
+                else if (reference._paragraph is IPortableDisplayTextParagraph)
+                    throw new InvalidOperationException("Retain changed an Ideal generation to Display.");
             }
             return reference;
         }
