@@ -139,3 +139,12 @@ expectation of exactly one successful retry is unchanged and now checks zero
 replacement accesses, original identity, empty proof/count state and two release
 attempts. A paired Hide control raises the lifecycle inventory to 38 and hosted
 minimum to 359; selectors, deadline, pins and automatic-modality gates are unchanged.
+
+After implementation `6b868a72b7598e709a8ff94d3d7fc127479c12f8`, SDK Roslyn
+parsed all five changed C# files with zero syntax errors. Whitespace, shell syntax
+and embedded receipt-verifier syntax checks passed. The unchanged host selector
+includes all 38 lifecycle rows; source-order checks retain creating-thread
+acknowledgement before the exact-window guarded action and the original
+undelivered-failure latch. These bounded checks do not compile the host types or
+execute the new control; exact-head hosted execution remains required. No native,
+desktop, renderer, VM, full graph build or runtime staging was performed.
