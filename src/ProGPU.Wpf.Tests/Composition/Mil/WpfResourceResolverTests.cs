@@ -26,6 +26,39 @@ namespace ProGPU.Wpf.Tests.Composition.Mil;
 
 public sealed class WpfResourceResolverTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void TypedImageBrushSeparatesOriginalDipStretchFromAdaptedTexelCrop(bool absolute)
+    {
+        var image = new ImageMetricsSource();
+        var adapter = new FakeImageSourceAdapter(); // 200 x 100 adapted texels, original is 400 x 200.
+        var brush = new PortableTileBrush(PortableTileBrushKind.Image, image, 0.25,
+            new(0, 0, 1, 1), absolute ? new(50, 10, 100, 20) : new(0.25, 0.2, 0.5, 0.4),
+            PortableBrushMappingMode.RelativeToBoundingBox,
+            absolute ? PortableBrushMappingMode.Absolute : PortableBrushMappingMode.RelativeToBoundingBox,
+            PortableTileMode.None, PortableStretch.None, PortableAlignmentX.Center, PortableAlignmentY.Center,
+            false, default, false, default);
+        var sink = new TestSink();
+        Assert.True(WpfDrawingReplay.TryReplayTileBrushFill(new FakePortableTileBrushSource(brush),
+            new RectangleGeometry(new Rect(0, 0, 100, 100)), sink, adapter.AdaptImageSource, out var status));
+        Assert.Equal(WpfDrawingReplayStatus.Applied, status);
+        var draw = Assert.Single(sink.SourceImages);
+        Assert.Same(adapter.AdaptedImageSource, draw.ImageSource);
+        Assert.Equal(new Rect(0, 40, 100, 20), draw.Rectangle);
+        Assert.Equal(new Rect(50, 20, 100, 40), draw.SourceRectangle);
+        Assert.Equal(0.25, Assert.Single(sink.Opacities));
+        Assert.Equal(new[] { "PushClip", "PushOpacity", "Pop", "Pop" }, sink.Operations);
+    }
+
+    private sealed class ImageMetricsSource : IPortableBitmapSourceMetricsSource, IPortableBitmapSourcePixelsSource
+    {
+        public bool TryGetPortableBitmapSourceMetrics(out PortableBitmapSourceMetrics value)
+        { value = new(400, 200, 192, 384); return true; }
+        public bool TryGetPortableBitmapSourcePixels(out PortableBitmapSourcePixels value) =>
+            throw new InvalidOperationException("Frame queries must not materialize pixel payloads.");
+    }
+
     [Fact]
     public void NativeGlyphInkBoundsRemainAuthoritativeAndInvalidateAdapterCache()
     {

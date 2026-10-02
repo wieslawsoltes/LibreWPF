@@ -17,6 +17,7 @@ using PortableRect = ProGPU.Wpf.Interop.PortableRect;
 using PortableTileBrush = ProGPU.Wpf.Interop.PortableTileBrush;
 using PortableTileBrushKind = ProGPU.Wpf.Interop.PortableTileBrushKind;
 using PortableTileBrushSource = ProGPU.Wpf.Interop.IPortableTileBrushSource;
+using PortableDrawingImageSource = ProGPU.Wpf.Interop.IPortableDrawingImageSource;
 
 namespace System.Windows.Media.ProGPU.Composition.Mil;
 
@@ -67,8 +68,18 @@ internal sealed class WpfShaderEffectSamplerTextureCache : IDisposable
             return false;
         }
 
+        double captureScaleX = 1, captureScaleY = 1;
+        if (brush is PortableTileBrushSource tileSource && tileSource.TryGetPortableTileBrush(out var tile) &&
+            tile.Kind == PortableTileBrushKind.Image && tile.Content is not PortableDrawingImageSource)
+        {
+            var adapted = AdaptImageSource(tile.Content) ?? tile.Content as MediaImageSource;
+            if (!WpfImageSourceFrame.TryRead(tile.Content, adapted, out var frame) ||
+                !TryCreateImageTextureBounds(sourceBounds, frame, out textureBounds,
+                    out pixelWidth, out pixelHeight, out captureScaleX, out captureScaleY)) return false;
+        }
+
         var entry = GetOrCreateEntry(brush, pixelWidth, pixelHeight);
-        if (!RenderBrushToTexture(brush, textureBounds, entry.Texture, imageSourceAdapter))
+        if (!RenderBrushToTexture(brush, textureBounds, entry.Texture, imageSourceAdapter, captureScaleX, captureScaleY))
         {
             return false;
         }
@@ -141,7 +152,9 @@ internal sealed class WpfShaderEffectSamplerTextureCache : IDisposable
         object brush,
         Rect textureBounds,
         GpuTexture texture,
-        IWpfImageSourceAdapter? imageSourceAdapter)
+        IWpfImageSourceAdapter? imageSourceAdapter,
+        double captureScaleX,
+        double captureScaleY)
     {
         var visual = new ProGpuDrawingVisual
         {
@@ -160,10 +173,13 @@ internal sealed class WpfShaderEffectSamplerTextureCache : IDisposable
             return imageSourceAdapter?.AdaptImageSource(imageSource);
         }
 
+        bool scaled = captureScaleX != 1 || captureScaleY != 1;
+        if (scaled) sink.PushNativeTransform(Matrix4x4.CreateScale((float)captureScaleX, (float)captureScaleY, 1));
         var replayStatus = WpfDrawingReplay.Replay(
             drawing,
             sink,
             AdaptImageSource);
+        if (scaled) sink.Pop();
 
         if (replayStatus != WpfDrawingReplayStatus.Applied)
         {
@@ -209,6 +225,25 @@ internal sealed class WpfShaderEffectSamplerTextureCache : IDisposable
         Func<object?, MediaImageSource?>? imageSourceAdapter,
         out Rect bounds)
     {
+        if (brush.Kind == PortableTileBrushKind.Image)
+        {
+            Rect imageBounds;
+            if (brush.Content is PortableDrawingImageSource drawingImage)
+            {
+                if (!drawingImage.TryGetPortableDrawingImage(out var drawing) || drawing is null ||
+                    !WpfDrawingReplay.TryGetDrawingBounds(drawing, imageSourceAdapter, out imageBounds))
+                { bounds = default; return false; }
+            }
+            else
+            {
+                MediaImageSource? adapted = imageSourceAdapter?.Invoke(brush.Content) ?? brush.Content as MediaImageSource;
+                if (!WpfImageSourceFrame.TryRead(brush.Content, adapted, out var frame))
+                { bounds = default; return false; }
+                imageBounds = frame.Bounds;
+            }
+            return WpfImageSourceFrame.TryMapViewbox(brush, imageBounds, out bounds);
+        }
+
         if (TryGetAbsoluteViewbox(brush, out bounds))
         {
             return true;
@@ -322,6 +357,27 @@ internal sealed class WpfShaderEffectSamplerTextureCache : IDisposable
         return (uint)Math.Clamp((int)Math.Ceiling(value), 1, MaxSamplerTextureDimension);
     }
 
+    internal static bool TryCreateImageTextureBounds(Rect sourceBounds, WpfImageSourceFrame frame,
+        out Rect textureBounds, out uint pixelWidth, out uint pixelHeight,
+        out double captureScaleX, out double captureScaleY)
+    {
+        textureBounds = default;
+        pixelWidth = pixelHeight = 0;
+        captureScaleX = captureScaleY = 0;
+        double width = sourceBounds.Width * frame.TexelsPerDipX;
+        double height = sourceBounds.Height * frame.TexelsPerDipY;
+        if (!IsUsableBounds(sourceBounds) || !double.IsFinite(width) || width <= 0 ||
+            !double.IsFinite(height) || height <= 0) return false;
+        pixelWidth = (uint)Math.Clamp(Math.Ceiling(width), 1, MaxSamplerTextureDimension);
+        pixelHeight = (uint)Math.Clamp(Math.Ceiling(height), 1, MaxSamplerTextureDimension);
+        captureScaleX = pixelWidth / sourceBounds.Width;
+        captureScaleY = pixelHeight / sourceBounds.Height;
+        if (!float.IsFinite((float)captureScaleX) || (float)captureScaleX <= 0 ||
+            !float.IsFinite((float)captureScaleY) || (float)captureScaleY <= 0) return false;
+        textureBounds = new Rect(0, 0, sourceBounds.Width, sourceBounds.Height);
+        return true;
+    }
+
     private static bool IsUsableBounds(Rect bounds)
     {
         return !bounds.IsEmpty
@@ -337,7 +393,8 @@ internal sealed class WpfShaderEffectSamplerTextureCache : IDisposable
     {
         return brush is PortableTileBrushSource portableSource
             && portableSource.TryGetPortableTileBrush(out var portableBrush)
-            && (portableBrush.Kind == PortableTileBrushKind.Drawing
+            && (portableBrush.Kind == PortableTileBrushKind.Image
+                || portableBrush.Kind == PortableTileBrushKind.Drawing
                 || portableBrush.Kind == PortableTileBrushKind.Visual);
     }
 

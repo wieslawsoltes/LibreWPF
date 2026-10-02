@@ -1261,8 +1261,7 @@ internal static class WpfDrawingReplay
             || !TryGetOptionalRelativeBrushTransform(brush, geometryBounds, out var relativeTransform)
             || ResolveImageSource(brush.Content, imageSourceAdapter) is not { } imageSource
             || !TryGetTileBrushDestinationBounds(brush, geometryBounds, out var imageBounds)
-            || !TryGetImageBrushSourceRect(brush, imageSource, out var sourceRect)
-            || !TryGetImageStretchSourceBounds(stretch, sourceRect, imageSource, out var imageStretchSourceBounds)
+            || !TryGetImageBrushFrames(brush, stretch, imageSource, out var sourceRect, out var imageStretchSourceBounds)
             || !TryGetTileBounds(imageBounds, geometryBounds, tileMode, out var tileBounds))
         {
             return false;
@@ -2403,6 +2402,29 @@ internal static class WpfDrawingReplay
         }
 
         tileBounds = new TileBrushReplayTiles(viewport, startX, endX, startY, endY);
+        return true;
+    }
+
+    private static bool TryGetImageBrushFrames(PortableTileBrush brush, SupportedStretch stretch,
+        MediaImageSource imageSource, out Rect? sourceRect, out Rect stretchBounds)
+    {
+        sourceRect = null;
+        stretchBounds = default;
+        if (!WpfImageSourceFrame.HasTypedMetrics(brush.Content))
+            return TryGetImageBrushSourceRect(brush, imageSource, out sourceRect) &&
+                TryGetImageStretchSourceBounds(stretch, sourceRect, imageSource, out stretchBounds);
+
+        if (!WpfImageSourceFrame.TryRead(brush.Content, imageSource, out var frame) ||
+            !WpfImageSourceFrame.TryMapViewbox(brush, frame.Bounds, out stretchBounds)) return false;
+        // Stretch and alignment consume original DIPs, but DrawImage's crop
+        // consumes adapted texels. Never use one frame for both contracts.
+        if (brush.ViewboxUnits != PortableBrushMappingMode.RelativeToBoundingBox ||
+            !IsFullRelativeRect(ToRect(brush.Viewbox)))
+        {
+            Rect texels = frame.ToTexels(stretchBounds);
+            if (!IsUsableRect(texels, out texels)) return false;
+            sourceRect = texels;
+        }
         return true;
     }
 

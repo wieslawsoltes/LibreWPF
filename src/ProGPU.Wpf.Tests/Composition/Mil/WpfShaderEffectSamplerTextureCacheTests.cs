@@ -7,6 +7,65 @@ namespace ProGPU.Wpf.Tests.Composition.Mil;
 
 public sealed class WpfShaderEffectSamplerTextureCacheTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ImageBrushUsesOriginalDipBoundsAndIndependentCaptureAxes(bool absolute)
+    {
+        var image = new MetricsImage(new(400, 200, 192, 384));
+        var brush = CreatePortableTileBrushSource(PortableTileBrushKind.Image, image,
+            absolute ? new(50, 10, 100, 20) : new(0.25, 0.2, 0.5, 0.4),
+            absolute ? PortableBrushMappingMode.Absolute : PortableBrushMappingMode.RelativeToBoundingBox);
+        Assert.True(WpfShaderEffectSamplerTextureCache.TryGetBrushSourceBounds(brush, out var bounds));
+        Assert.Equal(new Rect(50, 10, 100, 20), bounds);
+        Assert.True(WpfImageSourceFrame.TryRead(image, null, out var frame));
+        Assert.True(WpfShaderEffectSamplerTextureCache.TryCreateImageTextureBounds(bounds, frame,
+            out var capture, out uint width, out uint height, out double scaleX, out double scaleY));
+        Assert.Equal(new Rect(0, 0, 100, 20), capture);
+        Assert.Equal(200U, width);
+        Assert.Equal(80U, height);
+        Assert.Equal(2, scaleX);
+        Assert.Equal(4, scaleY);
+        image.Metrics = new(400, 200, 96, 192);
+        Assert.True(WpfShaderEffectSamplerTextureCache.TryGetBrushSourceBounds(brush, out var updated));
+        Assert.Equal(absolute ? bounds : new Rect(100, 20, 200, 40), updated);
+    }
+
+    [Theory]
+    [InlineData(0, 96.0)]
+    [InlineData(10, 0.0)]
+    [InlineData(10, double.NaN)]
+    [InlineData(10, double.PositiveInfinity)]
+    public void ImageBrushInvalidOriginalMetricsNeverBecomeAssumed96Dpi(int width, double dpi)
+    {
+        var brush = CreatePortableTileBrushSource(PortableTileBrushKind.Image, new MetricsImage(new(width, 10, dpi, 96)));
+        Assert.False(WpfShaderEffectSamplerTextureCache.TryGetBrushSourceBounds(brush, out _));
+    }
+
+    [Fact]
+    public void ImageBrushDrawingImageKeepsDrawingOriginAndNoFakeBitmapMetrics()
+    {
+        var brush = CreatePortableTileBrushSource(PortableTileBrushKind.Image,
+            new DrawingImageSource(new FakeDrawing(new Rect(10, 20, 200, 100))),
+            new(0.25, 0.2, 0.5, 0.4), PortableBrushMappingMode.RelativeToBoundingBox);
+        Assert.True(WpfShaderEffectSamplerTextureCache.TryGetBrushSourceBounds(brush, out var bounds));
+        Assert.Equal(new Rect(60, 40, 100, 40), bounds);
+    }
+
+    private sealed class MetricsImage(PortableBitmapSourceMetrics metrics)
+        : IPortableBitmapSourceMetricsSource, IPortableBitmapSourcePixelsSource
+    {
+        internal PortableBitmapSourceMetrics Metrics = metrics;
+        public bool TryGetPortableBitmapSourceMetrics(out PortableBitmapSourceMetrics value) { value = Metrics; return true; }
+        public bool TryGetPortableBitmapSourcePixels(out PortableBitmapSourcePixels value) =>
+            throw new InvalidOperationException("Bounds must not request copied pixels.");
+    }
+
+    private sealed class DrawingImageSource(object drawing) : IPortableDrawingImageSource
+    {
+        public bool TryGetPortableDrawingImage(out object? value) { value = drawing; return true; }
+    }
+
     [Fact]
     public void TryGetBrushSourceBoundsRejectsNonPortableDrawingBrushShape()
     {

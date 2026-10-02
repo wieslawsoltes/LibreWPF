@@ -3,12 +3,22 @@
 
 using System.IO;
 using System.Windows.Media.Effects;
+using System.Windows.Media.Imaging;
 using ProGPU.Wpf.Interop;
 
 namespace System.Windows.Media.Tests;
 
 public sealed class PortableShaderEffectSourceTests
 {
+    [Fact]
+    public void BitmapMetricsSnapshotRetainsOriginalPixelSizeAndBothDpiAxes()
+    {
+        var image = BitmapSource.Create(2, 1, 192, 144, PixelFormats.Bgra32, null,
+            new byte[] { 0, 0, 255, 255, 0, 255, 0, 255 }, 8);
+        Assert.True(((IPortableBitmapSourceMetricsSource)image).TryGetPortableBitmapSourceMetrics(out var metrics));
+        Assert.Equal(new PortableBitmapSourceMetrics(2, 1, 192, 144), metrics);
+    }
+
     [Theory]
     [InlineData(ShaderRenderMode.Auto, PortableShaderRenderMode.Auto)]
     [InlineData(ShaderRenderMode.SoftwareOnly, PortableShaderRenderMode.SoftwareOnly)]
