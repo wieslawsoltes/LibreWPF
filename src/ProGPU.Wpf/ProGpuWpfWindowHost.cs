@@ -4865,6 +4865,8 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
                 return;
             }
 
+            if (!ReferenceEquals(_unpublishedInputSubscription, inputSubscription))
+                throw new InvalidOperationException("The source input attachment retired before publication.");
             _inputSubscription = inputSubscription;
             _attachedInputService = input;
             _ownedPopupInputContext = ownedContext;
@@ -4886,6 +4888,8 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
 
     private void DetachInputService()
     {
+        // Invalidate before even the source decoration callback can reenter Show.
+        _ownedPopupInputContext = null;
         IWindow? window = _window;
         if (window != null)
         {
@@ -4901,7 +4905,6 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
 
         // Reentrant cancellation cannot reuse a proof whose source subscription
         // is already being detached, even while native retirement is deferred.
-        _ownedPopupInputContext = null;
         RetireUnpublishedInputSubscription();
         _inputSubscription?.Dispose();
         _inputSubscription = null;
