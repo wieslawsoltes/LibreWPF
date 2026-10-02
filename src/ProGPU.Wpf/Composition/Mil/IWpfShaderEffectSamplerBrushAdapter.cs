@@ -3,7 +3,11 @@ using ProGPU.Scene;
 namespace System.Windows.Media.ProGPU.Composition.Mil;
 
 public readonly record struct WpfShaderEffectSamplerFrame(
-    object Owner, global::ProGPU.Scene.Rect ContentBounds, float Padding);
+    object Owner, global::ProGPU.Scene.Rect ContentBounds, float Padding)
+{
+    /// <summary>The current receiving compositor DPI, not the source bitmap DPI.</summary>
+    public float DpiScale { get; init; } = 1f;
+}
 
 public interface IWpfShaderEffectSamplerBrushAdapter
 {

@@ -516,6 +516,7 @@ internal sealed class WpfShaderEffectSamplerImageSourceAdapter :
         object? brush, int registerIndex, TextureSamplingMode samplingMode,
         WpfShaderEffectSamplerFrame frame, out WpfShaderEffectSampler sampler)
     {
+        frame = frame with { DpiScale = DpiScale };
         if (_inner is IWpfShaderEffectSamplerBrushAdapter innerSamplerAdapter &&
             innerSamplerAdapter.TryAdaptShaderEffectSamplerBrush(brush, registerIndex, samplingMode, frame, out sampler))
             return true;

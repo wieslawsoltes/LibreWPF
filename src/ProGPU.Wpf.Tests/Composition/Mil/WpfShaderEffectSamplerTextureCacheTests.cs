@@ -7,6 +7,39 @@ namespace ProGPU.Wpf.Tests.Composition.Mil;
 
 public sealed class WpfShaderEffectSamplerTextureCacheTests
 {
+    [Fact]
+    public void ReceivingAdapterForwardsActualHostDpiWithoutReplacingSourceFrameOrOwner()
+    {
+        var inner = new FrameSamplerAdapter();
+        // This path only forwards to an accepting caller adapter; it must not
+        // touch a device, allocate pixels, or enter the fallback texture cache.
+        var unusedCache = (WpfShaderEffectSamplerTextureCache)System.Runtime.CompilerServices.RuntimeHelpers
+            .GetUninitializedObject(typeof(WpfShaderEffectSamplerTextureCache));
+        var adapter = new WpfShaderEffectSamplerImageSourceAdapter(inner, unusedCache, 1.75f);
+        var owner = new object();
+        var request = new WpfShaderEffectSamplerFrame(owner, new Scene.Rect(3, 4, 100, 20), 0.5f);
+        Assert.True(adapter.TryAdaptShaderEffectSamplerBrush(new object(), 2, Scene.TextureSamplingMode.Nearest,
+            request, out _));
+        Assert.Equal(request with { DpiScale = 1.75f }, inner.Frame);
+        Assert.Equal(1f, request.DpiScale);
+        Assert.Same(owner, inner.Frame.Owner);
+    }
+
+    private sealed class FrameSamplerAdapter : IWpfImageSourceAdapter, IWpfShaderEffectSamplerBrushAdapter
+    {
+        internal WpfShaderEffectSamplerFrame Frame;
+        public System.Windows.Media.ImageSource? AdaptImageSource(object? value) => null;
+        public bool TryAdaptShaderEffectSamplerBrush(object? brush, int registerIndex, Scene.TextureSamplingMode mode,
+            out Scene.WpfShaderEffectSampler sampler) => throw new InvalidOperationException("The original frame must be forwarded.");
+        public bool TryAdaptShaderEffectSamplerBrush(object? brush, int registerIndex, Scene.TextureSamplingMode mode,
+            WpfShaderEffectSamplerFrame frame, out Scene.WpfShaderEffectSampler sampler)
+        {
+            Frame = frame;
+            sampler = null!;
+            return true;
+        }
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
