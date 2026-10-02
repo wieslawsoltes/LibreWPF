@@ -8,6 +8,42 @@ namespace ProGPU.Wpf.Tests;
 public sealed partial class ProGpuWpfWindowHostTests
 {
     [Fact]
+    public void FailedUnpublishedInputCleanupRetainsExactRetryOwner()
+    {
+        using var host = new ProGpuWpfWindowHost();
+        var expected = new InvalidOperationException("input cleanup pending");
+        var subscription = new PendingInputSubscription { Failure = expected };
+        SetPrivateField(host, "_unpublishedInputSubscription", subscription);
+        var retire = typeof(ProGpuWpfWindowHost)
+            .GetMethod("RetireUnpublishedInputSubscription", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .CreateDelegate<Action>(host);
+        Assert.Same(expected, Assert.Throws<InvalidOperationException>(retire));
+        Assert.Same(subscription, ReadRetirementField(host, "_unpublishedInputSubscription"));
+        Assert.Equal(1, subscription.Attempts);
+        subscription.Failure = null;
+        retire();
+        Assert.Null(ReadRetirementField(host, "_unpublishedInputSubscription"));
+        Assert.Equal(2, subscription.Attempts);
+        retire();
+        Assert.Equal(2, subscription.Attempts);
+    }
+
+    [Fact]
+    public void ReentrantUnpublishedInputCleanupDoesNotRepeatActiveAttempt()
+    {
+        using var host = new ProGpuWpfWindowHost();
+        var subscription = new PendingInputSubscription();
+        SetPrivateField(host, "_unpublishedInputSubscription", subscription);
+        var retire = typeof(ProGpuWpfWindowHost)
+            .GetMethod("RetireUnpublishedInputSubscription", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .CreateDelegate<Action>(host);
+        subscription.OnDispose = () => Assert.Throws<InvalidOperationException>(retire);
+        retire();
+        Assert.Null(ReadRetirementField(host, "_unpublishedInputSubscription"));
+        Assert.Equal(1, subscription.Attempts);
+    }
+
+    [Fact]
     public void SourceGateAloneCannotShowPopupWithoutItsRealAttachedInputContext()
     {
         using var host = CreateOwnedModalPopup(out var window, out var probe);
@@ -57,5 +93,18 @@ public sealed partial class ProGpuWpfWindowHostTests
         Assert.True(detachBody.IndexOf("_ownedPopupInputContext = null", StringComparison.Ordinal)
             < detachBody.IndexOf("_inputSubscription?.Dispose()", StringComparison.Ordinal));
         Assert.Contains("if (!_options.EnableNativeModalSessions) return;", source);
+    }
+
+    private sealed class PendingInputSubscription : IDisposable
+    {
+        internal int Attempts;
+        internal Exception? Failure;
+        internal Action? OnDispose;
+        public void Dispose()
+        {
+            Attempts++;
+            OnDispose?.Invoke();
+            if (Failure != null) throw Failure;
+        }
     }
 }

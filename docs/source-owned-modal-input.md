@@ -16,6 +16,9 @@ become visible success, even if source `PortableModalInputScope` admission is tr
 Source gate policy, pointer/scroll ownership, keyboard owner, view/render leases
 and native-session release completion remain independent. No additional native
 poll, source scroll conversion or fallback provider is added.
+An unpublished subscription whose cleanup fails remains an exact retry owner in
+the host. Attachment and its cleanup reject reentry; only successful disposal
+clears the owner before the existing renderer/native retirement proceeds.
 
 This depends on authored ProGPU #286, initially 95c1a0bca. Both existing qualified
 gitlinks remain unchanged pending the final producer boundary. Authored source

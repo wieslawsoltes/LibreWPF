@@ -71,6 +71,8 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
     private IProGpuTextureLease[] _nativeMilExternalImageLeases = [];
     private ProGpuDirectXDevice? _directXDevice;
     private IDisposable? _inputSubscription;
+    private IDisposable? _unpublishedInputSubscription;
+    private bool _isAttachingInput, _isRetiringUnpublishedInput;
     private IWpfInputService? _attachedInputService;
     private Silk.NET.Input.IInputContext? _ownedPopupInputContext;
     private IDisposable? _dragDropSubscription;
@@ -4808,6 +4810,15 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
 
     private void AttachInputService()
     {
+        if (_isAttachingInput)
+            throw new InvalidOperationException("Source input attachment cannot reenter.");
+        _isAttachingInput = true;
+        try { AttachInputServiceCore(); }
+        finally { _isAttachingInput = false; }
+    }
+
+    private void AttachInputServiceCore()
+    {
         if (_window == null || _isDisposed || _hasNativeWindowCloseStarted)
         {
             return;
@@ -4824,6 +4835,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         {
             input.InputReceived += OnPlatformInputReceived;
             IDisposable inputSubscription = input.Attach(window);
+            _unpublishedInputSubscription = inputSubscription;
             Silk.NET.Input.IInputContext? ownedContext;
             try
             {
@@ -4835,7 +4847,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
             {
                 // This subscription has not been published to host retirement.
                 // Preserve the capability failure if context cleanup also fails.
-                try { inputSubscription.Dispose(); }
+                try { RetireUnpublishedInputSubscription(); }
                 catch (Exception cleanup)
                 {
                     try { failure.Data["OwnedPopupInputRetirement"] = cleanup; }
@@ -4847,7 +4859,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
                 _hasNativeWindowCloseStarted ||
                 !ReferenceEquals(window, _window))
             {
-                inputSubscription.Dispose();
+                RetireUnpublishedInputSubscription();
                 input.InputReceived -= OnPlatformInputReceived;
                 TraceNativeLoop($"input attach canceled after host close: host={GetHashCode():x}, handle={window.Handle}");
                 return;
@@ -4856,6 +4868,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
             _inputSubscription = inputSubscription;
             _attachedInputService = input;
             _ownedPopupInputContext = ownedContext;
+            _unpublishedInputSubscription = null;
             TraceNativeLoop($"input attached: host={GetHashCode():x}, handle={window.Handle}");
         }
         catch (PlatformNotSupportedException) when (!_options.IsPopupSurface)
@@ -4889,6 +4902,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         // Reentrant cancellation cannot reuse a proof whose source subscription
         // is already being detached, even while native retirement is deferred.
         _ownedPopupInputContext = null;
+        RetireUnpublishedInputSubscription();
         _inputSubscription?.Dispose();
         _inputSubscription = null;
 
@@ -4902,6 +4916,22 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         {
             TraceNativeLoop($"input detached: host={GetHashCode():x}, handle={window.Handle}");
         }
+    }
+
+    private void RetireUnpublishedInputSubscription()
+    {
+        if (_unpublishedInputSubscription is not { } subscription) return;
+        if (_isRetiringUnpublishedInput)
+            throw new InvalidOperationException("Unpublished source input retirement cannot reenter.");
+        _isRetiringUnpublishedInput = true;
+        try
+        {
+            subscription.Dispose();
+            // Only successful source-context disposal ends this retry owner.
+            if (ReferenceEquals(_unpublishedInputSubscription, subscription))
+                _unpublishedInputSubscription = null;
+        }
+        finally { _isRetiringUnpublishedInput = false; }
     }
 
     private void OnPlatformInputReceived(object? sender, WpfInputEventArgs e)
