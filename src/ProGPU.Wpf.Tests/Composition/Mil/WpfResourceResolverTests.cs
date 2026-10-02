@@ -24,7 +24,7 @@ using ProGpuRadialGradientBrush = ProGPU.Vector.RadialGradientBrush;
 
 namespace ProGPU.Wpf.Tests.Composition.Mil;
 
-public sealed class WpfResourceResolverTests
+public sealed partial class WpfResourceResolverTests
 {
     [Theory]
     [InlineData(false, PortableStretch.None, -50, 30, 200, 50)]
@@ -6270,7 +6270,7 @@ public sealed class WpfResourceResolverTests
         public object this[int index] => _items[index];
     }
 
-    private sealed class TestSink : IWpfCompositionCommandSink, IWpfVisualEffectCommandSink, IWpfDrawingCacheCommandSink
+    private class TestSink : IWpfCompositionCommandSink, IWpfVisualEffectCommandSink, IWpfDrawingCacheCommandSink
     {
         public List<string> Operations { get; } = new();
 

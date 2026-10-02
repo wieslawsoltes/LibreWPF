@@ -1262,7 +1262,8 @@ internal static class WpfDrawingReplay
             || ResolveImageSource(brush.Content, imageSourceAdapter) is not { } imageSource
             || !TryGetTileBrushDestinationBounds(brush, geometryBounds, out var imageBounds)
             || !TryGetImageBrushFrames(brush, stretch, tileMode, imageSource,
-                out var sourceRect, out var imageStretchSourceBounds, out var fullImageBounds)
+                out var sourceRect, out var imageStretchSourceBounds, out var fullImageBounds,
+                out var completeSourceViewbox)
             || !TryGetTileBounds(imageBounds, geometryBounds, tileMode, out var tileBounds))
         {
             return false;
@@ -1283,6 +1284,23 @@ internal static class WpfDrawingReplay
                 originalBounds.Width * scaleX, originalBounds.Height * scaleY);
             if (!IsUsableRect(destination, out destination)) return false;
             fullImageDestination = destination;
+        }
+
+        // Addressing is valid only when one complete source maps exactly onto
+        // one viewport. Cropped or padded tiles keep their existing realization.
+        bool repeatedImage = completeSourceViewbox && tileMode != SupportedTileMode.None &&
+            sink is IWpfRepeatedImageCommandSink { SupportsRepeatedLinearImages: true } &&
+            (!brush.HasTransform || IsPositiveAxisBrushTransform(brush.Transform)) &&
+            (!brush.HasRelativeTransform || IsPositiveAxisBrushTransform(brush.RelativeTransform)) &&
+            TryGetStretchedTile(tileBounds.GetAt(0), imageStretchSourceBounds, stretch,
+                alignmentX, alignmentY, out var firstTile, out var firstNeedsClip) &&
+            !firstNeedsClip && firstTile.Bounds == tileBounds.GetAt(0).Bounds;
+        if (repeatedImage)
+        {
+            // Enumerate in the actual captured brush frame, not pre-transform
+            // paint bounds. This also retains negative repeat/mirror phases.
+            if (!TryGetPositiveAxisBrushFillBounds(geometryBounds, brushTransform, relativeTransform, out var brushFill) ||
+                !TryGetTileBounds(imageBounds, brushFill, tileMode, out tileBounds)) return false;
         }
 
         var popCount = 0;
@@ -1333,7 +1351,16 @@ internal static class WpfDrawingReplay
                 tilePopCount++;
             }
 
-            if (fullImageDestination is { } fullDestination)
+            bool addressed = repeatedImage && !needsTileClip && stretchedTile.Bounds == tile.Bounds &&
+                ((IWpfRepeatedImageCommandSink)sink).TryDrawRepeatedImage(imageSource, stretchedTile.Bounds,
+                    tileMode is SupportedTileMode.FlipX or SupportedTileMode.FlipXY,
+                    tileMode is SupportedTileMode.FlipY or SupportedTileMode.FlipXY);
+            if (addressed)
+            {
+                // Existing alternating tile transforms own mirror phase. The
+                // sampler owns the original edge neighbours within each tile.
+            }
+            else if (fullImageDestination is { } fullDestination)
             {
                 // Viewbox controls the mapping, not a crop. Original WPF
                 // ImageBrush::CalculateSourceClip clips the full mapped image
@@ -2413,10 +2440,18 @@ internal static class WpfDrawingReplay
             return true;
         }
 
-        var startX = (int)Math.Floor((fillBounds.X - viewport.X) / viewport.Width);
-        var endX = (int)Math.Ceiling((fillBounds.X + fillBounds.Width - viewport.X) / viewport.Width) - 1;
-        var startY = (int)Math.Floor((fillBounds.Y - viewport.Y) / viewport.Height);
-        var endY = (int)Math.Ceiling((fillBounds.Y + fillBounds.Height - viewport.Y) / viewport.Height) - 1;
+        double firstX = Math.Floor((fillBounds.X - viewport.X) / viewport.Width);
+        double lastX = Math.Ceiling((fillBounds.X + fillBounds.Width - viewport.X) / viewport.Width) - 1;
+        double firstY = Math.Floor((fillBounds.Y - viewport.Y) / viewport.Height);
+        double lastY = Math.Ceiling((fillBounds.Y + fillBounds.Height - viewport.Y) / viewport.Height) - 1;
+        if (!double.IsFinite(firstX) || !double.IsFinite(lastX) || !double.IsFinite(firstY) || !double.IsFinite(lastY) ||
+            firstX < int.MinValue || lastX > int.MaxValue || firstY < int.MinValue || lastY > int.MaxValue ||
+            lastX < firstX || lastY < firstY || lastX - firstX >= MaxTileBrushReplayTiles ||
+            lastY - firstY >= MaxTileBrushReplayTiles) return false;
+        var startX = (int)firstX;
+        var endX = (int)lastX;
+        var startY = (int)firstY;
+        var endY = (int)lastY;
 
         var columnCount = endX - startX + 1;
         var rowCount = endY - startY + 1;
@@ -2433,19 +2468,44 @@ internal static class WpfDrawingReplay
         return true;
     }
 
+    private static bool IsPositiveAxisBrushTransform(PortableMatrix3x2 matrix) =>
+        matrix.M12 == 0 && matrix.M21 == 0 && matrix.M11 > 0 && matrix.M22 > 0;
+
+    private static bool TryGetPositiveAxisBrushFillBounds(Rect bounds, MediaTransform? transform,
+        MediaTransform? relativeTransform, out Rect brushBounds)
+    {
+        brushBounds = default;
+        var matrix = System.Numerics.Matrix4x4.Identity;
+        var relative = System.Numerics.Matrix4x4.Identity;
+        if ((transform != null && !WpfResourceResolver.TryAdaptTransformMatrix(transform, out matrix)) ||
+            (relativeTransform != null && !WpfResourceResolver.TryAdaptTransformMatrix(relativeTransform, out relative)))
+            return false;
+        matrix *= relative; // Same left-multiplication order as the pushed scopes.
+        if (matrix.M12 != 0 || matrix.M21 != 0 || !float.IsFinite(matrix.M11) || matrix.M11 <= 0 ||
+            !float.IsFinite(matrix.M22) || matrix.M22 <= 0 ||
+            !float.IsFinite(matrix.M41) || !float.IsFinite(matrix.M42)) return false;
+        // No determinant epsilon or fabricated identity. Divide the two exact
+        // admitted axes in double; the renderer retains the original float frame.
+        return IsUsableRect(new Rect((bounds.X - matrix.M41) / matrix.M11,
+            (bounds.Y - matrix.M42) / matrix.M22, bounds.Width / matrix.M11,
+            bounds.Height / matrix.M22), out brushBounds);
+    }
+
     private static bool TryGetImageBrushFrames(PortableTileBrush brush, SupportedStretch stretch,
         SupportedTileMode tileMode, MediaImageSource imageSource, out Rect? sourceRect,
-        out Rect stretchBounds, out Rect? fullImageBounds)
+        out Rect stretchBounds, out Rect? fullImageBounds, out bool completeSourceViewbox)
     {
         sourceRect = null;
         stretchBounds = default;
         fullImageBounds = null;
+        completeSourceViewbox = false;
         if (!WpfImageSourceFrame.HasTypedMetrics(brush.Content))
             return TryGetImageBrushSourceRect(brush, imageSource, out sourceRect) &&
                 TryGetImageStretchSourceBounds(stretch, sourceRect, imageSource, out stretchBounds);
 
         if (!WpfImageSourceFrame.TryRead(brush.Content, imageSource, out var frame) ||
             !WpfImageSourceFrame.TryMapViewbox(brush, frame.Bounds, out stretchBounds)) return false;
+        completeSourceViewbox = stretchBounds == frame.Bounds;
         if (tileMode == SupportedTileMode.None)
         {
             fullImageBounds = frame.Bounds;

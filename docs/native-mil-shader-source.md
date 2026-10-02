@@ -49,6 +49,26 @@ shim image frames retain their prior route. Older typed pixel-only providers may
 use their existing pixel descriptor to obtain metrics; updated source BitmapSource
 never copies pixels merely to answer a frame query. DrawingImage sampler bounds
 reuse original drawing geometry and origin. No renderer is replaced.
+
+Complete-source repeated bitmap tiles now carry Scene's original texture
+Repeat/Mirror U/V addressing through an optional command-sink capability. The
+actual sink admits only its current Linear mode; Nearest/Fant, untyped metrics,
+cropped/padded tiles, non-axis brush transforms and legacy sinks retain their
+ordinary image route. Full source/viewbox and stretched viewport equality are
+exact, with original DIP and adapted texel frames kept separate. Tile enumeration
+retains its existing budget and alternating mirror transforms; positive-axis
+brush scopes map paint bounds back into their actual captured float frame before
+enumerating, so translations retain negative indices and cover the original
+paint clip. Integer range checks reject unrepresentable tile indices before
+publishing drawing scopes. No enlarged clamped texture or second compositor is
+introduced. The same owned texture lease remains retained by the original drawing
+context until its existing clear/retirement boundary, including retained sinks.
+The native pairing is ProGPU PR 271, stacked on inherited-option PR 270. Original
+Windows repeated Linear references support its first three cases; mirror pixel
+qualification, actual managed/native provider execution and the source graph
+remain pending. Source-only fixtures cover every address pair, source DPI/adapted
+texels, translated negative phases, range rejection, unchanged general routes,
+mode restoration and exact command/lease lifetime. They are authored, not run.
 Source DIP extent preserves `ImageSource.PixelsToDIPs`' original float DPI ratio
 and multiplication before promotion to double. Unrepresentable axes reject;
 this path does not invent the original helper's degenerate-resolution fallback.
