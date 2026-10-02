@@ -1182,6 +1182,36 @@ public sealed class WpfVisualTreeRenderer
             }
         }
 
+        // Original source ShaderEffect consumes its own visual opacity/mask as
+        // input. Keep the source geometry clips outside that capture. Other
+        // effects retain their existing output-opacity scope ordering.
+        var hasEffect = TryGetVisualEffect(visual, out var effect);
+        global::ProGPU.Scene.EffectBase? proGpuEffect = null;
+        WpfReplayRect? effectBounds = null;
+        var effectResolved = false;
+        if (hasEffect)
+        {
+            effectBounds = TryGetVisualStateBounds(out var resolvedEffectBounds) ? resolvedEffectBounds : null;
+            effectResolved = WpfEffectMapper.TryCreateProGpuEffect(
+                effect, out proGpuEffect, imageSourceAdapter, effectBounds, visual);
+        }
+
+        var captureSourceOpacity = proGpuEffect is global::ProGPU.Scene.WpfShaderEffect
+        {
+            CaptureSourceVisualOpacity: true
+        };
+        if (captureSourceOpacity)
+        {
+            if (WpfPortableCommandSinkBridge.TryPushVisualEffect(sink, proGpuEffect!, effectBounds))
+            {
+                popCount++;
+            }
+            else
+            {
+                stats.UnsupportedVisualStateCount++;
+            }
+        }
+
         if (TryReadOpacity(visual, out var opacity)
             && opacity != 1)
         {
@@ -1203,13 +1233,12 @@ public sealed class WpfVisualTreeRenderer
             }
         }
 
-        if (TryGetVisualEffect(visual, out var effect))
+        if (hasEffect && !captureSourceOpacity)
         {
-            WpfReplayRect? effectBounds = TryGetVisualStateBounds(out var resolvedEffectBounds) ? resolvedEffectBounds : null;
-            if (WpfEffectMapper.TryCreateProGpuEffect(effect, out var proGpuEffect, imageSourceAdapter, effectBounds, visual)
+            if (effectResolved
                 && WpfPortableCommandSinkBridge.TryPushVisualEffect(
                     sink,
-                    proGpuEffect,
+                    proGpuEffect!,
                     effectBounds))
             {
                 popCount++;

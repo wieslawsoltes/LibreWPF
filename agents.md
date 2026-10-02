@@ -1,5 +1,14 @@
 # Agent Guidance
 
+Typed source ShaderEffect retains its own visual opacity/mask as shader input,
+not a second output multiplier. Mark only actual source shader adaptations; keep
+generic Scene effects and blur/shadow defaults unchanged. Both merged retained
+state and command-scope replay preserve this order, including zero source alpha;
+geometry clips remain outside the effect. Retain cache identity, owner/frame
+metadata and unsupported-state accounting. This pairing depends on the shared
+producer implementation; do not repin or claim source pixels before final union
+qualification. See docs/source-shader-opacity-order.md.
+
 Explicit host Close must release every native modal lease for its exact window
 before provider Close, since owned Cocoa Close hides before raising Closing.
 Keep the pending window as a retirement prerequisite, recheck newly entered

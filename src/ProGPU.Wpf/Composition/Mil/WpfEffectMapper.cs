@@ -150,7 +150,8 @@ internal static class WpfEffectMapper
 
         var nativeEffect = new WpfShaderEffect(parameters)
         {
-            Padding = (float)Math.Min(float.MaxValue, Math.Max(0d, effect.MaxPadding))
+            Padding = (float)Math.Min(float.MaxValue, Math.Max(0d, effect.MaxPadding)),
+            CaptureSourceVisualOpacity = true
         };
 
         proGpuEffect = nativeEffect;
