@@ -2255,7 +2255,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
                 catch (Exception failure) { callbackFailure ??= ExceptionDispatchInfo.Capture(failure); }
                 finally { if (_nativeSessionReleaseCount == 0) _nativeSessionReleaseWindow = null; }
             }
-            if (_isDisposed && _nativeSessionReleaseCount == 0)
+            if (_isDisposed && _nativeSessionReleaseCount == 0 && callbackFailure == null)
             {
                 try { DisposeDeferredNativeWindowIfNeeded(); }
                 catch (Exception failure) { callbackFailure ??= ExceptionDispatchInfo.Capture(failure); }

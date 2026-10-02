@@ -114,3 +114,10 @@ passed the same bounded checks. Final inventory is 17 original plus 20 additiona
 cases (37), with unchanged host selection and minimum 358. The source-order check
 now requires visibility read, then the retention query plus outstanding-callback
 proof, then the guarded visibility write. Hosted execution remains pending.
+
+Final review retains the strict one-outstanding-provider-callback fixture: only
+the host coordinator may coalesce source actions. A delivered retirement failure
+does not trigger another cleanup attempt at the end of that same callback batch;
+the exact attempt-count control requires the second attempt only at the explicit
+later creating-thread drain. Other ready callbacks still run before the original
+failure propagates.

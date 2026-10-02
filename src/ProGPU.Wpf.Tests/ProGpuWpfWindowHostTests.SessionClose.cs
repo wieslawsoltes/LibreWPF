@@ -64,8 +64,10 @@ public sealed partial class ProGpuWpfWindowHostTests
         using var fixture = new SessionCloseFixture();
         var failure = new RetirementFailureWithInaccessibleData();
         bool fail = true;
+        int attempts = 0;
         fixture.Host.WpfRenderScheduler = new RenderCloseScheduler(() =>
         {
+            attempts++;
             if (fail) throw failure;
         });
         fixture.Host.Close();
@@ -76,12 +78,14 @@ public sealed partial class ProGpuWpfWindowHostTests
             Assert.Same(fixture.Inner.Window, fixture.Host.SilkWindow);
             Assert.Equal(0, fixture.Inner.Probe.Disposals);
             Assert.Equal(0, fixture.Inner.Probe.Closes);
+            Assert.Equal(1, attempts);
         }
         finally { fail = false; }
         DrainRetirements();
         Assert.Null(fixture.Host.SilkWindow);
         Assert.Equal(1, fixture.Inner.Probe.Disposals);
         Assert.Equal(0, fixture.Inner.Probe.Closes);
+        Assert.Equal(2, attempts);
     }
 
     [Fact]
@@ -283,7 +287,8 @@ public sealed partial class ProGpuWpfWindowHostTests
                 throw Failure;
             }
             if (!Retained) return false;
-            Completion += completed;
+            Assert.Null(Completion);
+            Completion = completed;
             if (CompleteSynchronously) Complete();
             return true;
         }
