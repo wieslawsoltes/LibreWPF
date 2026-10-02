@@ -137,6 +137,8 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
     private bool _forceFullWpfReplay;
     private bool _isHostVisible;
     private bool _nativeHidePending;
+    private IWindow? _pendingNativeCloseWindow;
+    private bool _nativeCloseReleasePending;
     private bool _hasNativeWindowCloseStarted;
     private bool _dpiWindowHintsConfigured;
     private bool _hasPendingNativeDpiChange;
@@ -717,6 +719,8 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
     public Action<WpfCompositionDrawingContext, ProGpuWpfFrameEventArgs>? WpfDraw { get; set; }
 
     internal Func<ProGpuWpfDrawingFrame, IWpfImageSourceAdapter?, IDisposable?> RenderDataSinkProviderRegistrationFactory { get; set; } = RegisterDefaultRenderDataSinkProvider;
+
+    internal Func<IWindow, Action, bool> NativeWindowSessionRelease { get; set; } = TryReleaseNativeWindowSession;
 
     public void Run()
     {
@@ -1981,6 +1985,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         _isNativeLoopRunning || _isRendering || _isProcessingDispatcherWorkWakeup ||
         _isInNativeWindowCloseCallback || _isDisposingHostServices || _isDisposingHostResources ||
         _isRetiringAcceptedCloseTarget ||
+        _pendingNativeCloseWindow != null ||
         Volatile.Read(ref s_activeNativeEventDispatchDepth) > 0 ||
         IsNativeWindowRetainedByModalSession(window);
 
@@ -2102,17 +2107,71 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
 
     private void RequestNativeWindowClose(IWindow window)
     {
+        if (_nativeWindowThreadId != Environment.CurrentManagedThreadId)
+            throw new InvalidOperationException("Native window close belongs to its creating thread.");
+        if (!ReferenceEquals(window, _window))
+            throw new InvalidOperationException("A close request cannot target a replacement native window.");
         bool closeAlreadyStarted = _hasNativeWindowCloseStarted;
         _hasNativeWindowCloseStarted = true;
         TraceNativeLoop((closeAlreadyStarted ? "close request already pending: " : "close requested: ") + CreateNativeLoopTraceState());
-        if (closeAlreadyStarted)
+        if (closeAlreadyStarted && _pendingNativeCloseWindow == null)
         {
+            return;
+        }
+
+        // Owned Cocoa Close hides before raising Closing. Retaining only the
+        // later Dispose is too late: native sessions must release before Close.
+        _pendingNativeCloseWindow = window;
+        CompleteNativeCloseAfterSessionRelease(releasedSession: false);
+    }
+
+    private void CompleteNativeCloseAfterSessionRelease(bool releasedSession)
+    {
+        IWindow? window = _pendingNativeCloseWindow;
+        if (window == null || _nativeCloseReleasePending) return;
+        if (_nativeWindowThreadId != Environment.CurrentManagedThreadId)
+            throw new InvalidOperationException("Native window close belongs to its creating thread.");
+        if (!ReferenceEquals(window, _window))
+            throw new InvalidOperationException("A pending close cannot target a replacement native window.");
+
+        // Publish before calling: release may complete synchronously. A later
+        // callback rechecks native leases, including a newly entered session.
+        _nativeCloseReleasePending = true;
+        try
+        {
+            if (NativeWindowSessionRelease(window, CompleteDeferredNativeClose)) return;
+        }
+        catch
+        {
+            _nativeCloseReleasePending = false;
+            throw;
+        }
+        _nativeCloseReleasePending = false;
+        _pendingNativeCloseWindow = null;
+        if (releasedSession && _isDisposed)
+        {
+            // Dispose supersedes the deferred source Close. The source loop
+            // already exits on _isDisposed; do not raise a second Closing or
+            // Hide just to stop it. The queued owner survives active dispatch.
+            DisposeDeferredNativeWindowIfNeeded();
             return;
         }
 
         window.Close();
         TryRequestNativeLoopWakeup(window.ContinueEvents);
     }
+
+    private void CompleteDeferredNativeClose()
+    {
+        _nativeCloseReleasePending = false;
+        CompleteNativeCloseAfterSessionRelease(releasedSession: true);
+    }
+
+    private static bool TryReleaseNativeWindowSession(IWindow window, Action completed) =>
+        NativeWindowModalSession.IsActive && window.IsInitialized &&
+        window.Native?.Cocoa is { } cocoa && cocoa != 0 &&
+        NativeWindowModalSession.TryReleaseWindow(
+            new(NativeWindowKind.Cocoa, cocoa, 0, "NSWindow"), completed);
 
     private void EnsureWindow()
     {
