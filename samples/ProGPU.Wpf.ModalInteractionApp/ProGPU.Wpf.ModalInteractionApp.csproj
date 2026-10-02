@@ -3,6 +3,8 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>$(ProGpuWpfSdkSampleTargetFramework)</TargetFramework>
     <UseWPF>true</UseWPF>
+    <ProGpuWpfRendererMode>NativeMilWgpu</ProGpuWpfRendererMode>
+    <ProGpuWpfNativeMilHitTesting>true</ProGpuWpfNativeMilHitTesting>
     <DefineConstants>$(DefineConstants);LIBREWPF_MODAL_PORTABLE</DefineConstants>
   </PropertyGroup>
 </Project>

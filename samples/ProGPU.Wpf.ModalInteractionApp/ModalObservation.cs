@@ -7,6 +7,7 @@ using System.IO;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
@@ -66,6 +67,8 @@ internal sealed class ModalObservation : IDisposable
                     throw new InvalidOperationException("Existing source/native desktop identities are unavailable.");
                 foreach (var value in snapshots)
                 {
+                    if (value.RendererMode != ProGpuWpfRendererMode.NativeMilWgpu || !value.NativeMilHitTestingEnabled)
+                        throw new InvalidOperationException("The native desktop workload requires actual native MIL rendering and input.");
                     if (value.RootVisual is not FrameworkElement root)
                         throw new InvalidOperationException("Desktop source root has no original layout frame.");
                     native.Add(new { sourceHandle = value.SourceHandle.ToInt64(),
@@ -89,6 +92,20 @@ internal sealed class ModalObservation : IDisposable
                 native.Add(new { sourceHandle = handle.ToInt64(), nativeKind = "Win32", nativeHandle = handle.ToInt64(),
                     visible = window.IsVisible, inputEnabled = (bool?)null, presentedFrames = (long?)null,
                     client = Bounds((FrameworkElement)window.Content), nativeGeometry = (object?)null });
+                if (ReferenceEquals(window, _owner))
+                {
+                    var handles = new HashSet<nint> { handle };
+                    if (_owner.Popup.IsOpen) AddOriginalPopup(_owner.Popup.Child, native, handles);
+                    if (_owner.Menu.IsOpen) AddOriginalPopup(_owner.Menu, native, handles);
+                    if (_owner.Combo.IsDropDownOpen)
+                    {
+                        if (_owner.Combo.Template.FindName("PART_Popup", _owner.Combo) is not Popup comboPopup)
+                            throw new InvalidOperationException("Original ComboBox template has no active popup.");
+                        AddOriginalPopup(comboPopup.Child, native, handles);
+                    }
+                    if (_owner.Targets["tooltip"].ToolTip is ToolTip { IsOpen: true } tip)
+                        AddOriginalPopup(tip, native, handles);
+                }
 #endif
                 windows.Add(new { title = window.Title, name = window.Name, visible = window.IsVisible,
                     active = window.IsActive, sourceIsEnabled = window.IsEnabled, surfaces = native });
@@ -105,6 +122,18 @@ internal sealed class ModalObservation : IDisposable
         }
         finally { _capturing = false; }
     }
+
+#if !LIBREWPF_MODAL_PORTABLE
+    private static void AddOriginalPopup(Visual child, List<object> native, HashSet<nint> handles)
+    {
+        if (PresentationSource.FromVisual(child) is not HwndSource source || source.Handle == 0 ||
+            source.RootVisual is not FrameworkElement root || !root.IsVisible || !handles.Add(source.Handle))
+            throw new InvalidOperationException("Original popup lacks one distinct live source/HWND identity.");
+        native.Add(new { sourceHandle = source.Handle.ToInt64(), nativeKind = "Win32", nativeHandle = source.Handle.ToInt64(),
+            visible = root.IsVisible, inputEnabled = (bool?)null, presentedFrames = (long?)null,
+            client = Bounds(root), nativeGeometry = (object?)null });
+    }
+#endif
 
     private void Write(object value)
     {

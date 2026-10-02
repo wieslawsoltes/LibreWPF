@@ -76,6 +76,8 @@ internal sealed class ModalWindow : Window
         var message = Button(panel, "message", "MessageBox", 20, 80);
         var dialog = Button(panel, "dialog", "ShowDialog", 20, 135);
         var guard = Button(panel, "guard", "Owner input guard", 20, 420);
+        var finish = Button(panel, "finish", "Finish", 600, 420);
+        finish.Click += (_, _) => Close();
         var popup = Button(panel, "popup", "Open Popup", 20, 190);
         Add(panel, "combo", Combo, 20, 245, 180, 36);
         var tooltip = Button(panel, "tooltip", "Hover ToolTip", 20, 300);

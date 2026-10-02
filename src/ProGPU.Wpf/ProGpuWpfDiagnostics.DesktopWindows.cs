@@ -8,6 +8,7 @@ public static partial class ProGpuWpfDiagnostics
     public readonly record struct DesktopWindowSnapshot(
         object RootVisual, nint SourceHandle, NativeWindowHandle NativeWindow,
         bool IsVisible, bool InputEnabled, long PresentedFrameCount,
+        ProGpuWpfRendererMode RendererMode, bool NativeMilHitTestingEnabled,
         NativeWindowGeometrySnapshot? NativeGeometry);
 
     /// <summary>

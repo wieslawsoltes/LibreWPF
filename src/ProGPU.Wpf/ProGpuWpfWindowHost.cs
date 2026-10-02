@@ -323,12 +323,16 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         bool enabled = controller.IsEnabled;
         long frames = PresentedFrameCount;
         bool hasGeometry = controller.TryGetGeometrySnapshot(out var geometry);
+        bool currentVisible = IsVisible;
+        bool currentEnabled = controller.IsEnabled;
+        var currentHandle = controller.Handle;
         if (_isDisposed || _hasNativeWindowCloseStarted || !ReferenceEquals(window, _window) ||
             !ReferenceEquals(controller, _windowController) || !ReferenceEquals(bridge, PortablePresentationSourceBridge) ||
             !ReferenceEquals(root, WpfRootVisual) || source == 0 || source != bridge.Handle ||
-            !handle.IsValid || handle != controller.Handle || visible != IsVisible || enabled != controller.IsEnabled ||
+            !handle.IsValid || handle != currentHandle || visible != currentVisible || enabled != currentEnabled ||
             (hasGeometry && geometry.Window != handle)) return false;
-        snapshot = new(root, source, handle, visible, enabled, frames, hasGeometry ? geometry : null);
+        snapshot = new(root, source, handle, visible, enabled, frames, RendererMode,
+            NativeMilHitTestingEnabled, hasGeometry ? geometry : null);
         return true;
     }
 
@@ -344,6 +348,8 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
             if (!popup.TryGetDesktopWindowSnapshot(out var current)) return false;
             values.Add(current);
         }
+        if (!TryGetDesktopWindowSnapshot(out var currentOwner) ||
+            (owner with { PresentedFrameCount = currentOwner.PresentedFrameCount }) != currentOwner) return false;
         if (popups.Length != _portablePopupBridges.Count || _isDisposed || _hasNativeWindowCloseStarted) return false;
         for (int i = 0; i < popups.Length; ++i)
             if (!ReferenceEquals(popups[i], _portablePopupBridges[i])) return false;
