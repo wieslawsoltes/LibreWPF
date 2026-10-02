@@ -39,6 +39,7 @@ internal sealed class ProGpuRetainedCompositionCommandSink :
     IWpfNativeTransformCommandSink,
     IWpfNativePrimitiveCommandSink,
     IWpfNativeVideoCommandSink,
+    IWpfRepeatedImageCommandSink,
     IWpfNativeClipCommandSink,
     IWpfNativeGeometryCommandSink,
     IWpfHitTestOwnerScopeCommandSink,
@@ -444,6 +445,14 @@ internal sealed class ProGpuRetainedCompositionCommandSink :
     public void DrawNativeImage(MediaImageSource imageSource, WpfReplayRect rectangle, WpfReplayRect sourceRectangle)
     {
         ((IWpfNativePrimitiveCommandSink)Current.Sink).DrawNativeImage(imageSource, rectangle, sourceRectangle);
+    }
+
+    public bool SupportsRepeatedLinearImages => ((IWpfRepeatedImageCommandSink)Current.Sink).SupportsRepeatedLinearImages;
+
+    public bool TryDrawRepeatedImage(MediaImageSource imageSource, Rect rectangle, bool mirrorX, bool mirrorY)
+    {
+        return ((IWpfRepeatedImageCommandSink)Current.Sink).TryDrawRepeatedImage(
+            imageSource, rectangle, mirrorX, mirrorY);
     }
 
     public bool DrawNativeVideo(

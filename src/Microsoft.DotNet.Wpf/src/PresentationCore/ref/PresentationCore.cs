@@ -11859,10 +11859,11 @@ namespace System.Windows.Media.Imaging
         public static System.Windows.Media.Imaging.BitmapSizeOptions FromWidthAndHeight(int pixelWidth, int pixelHeight) { throw null; }
     }
     [System.Windows.LocalizabilityAttribute(System.Windows.LocalizationCategory.None, Readability = System.Windows.Readability.Unreadable)]
-    public abstract partial class BitmapSource : System.Windows.Media.ImageSource, ProGPU.Wpf.Interop.IPortableBitmapSourcePixelsSource
+    public abstract partial class BitmapSource : System.Windows.Media.ImageSource, ProGPU.Wpf.Interop.IPortableBitmapSourcePixelsSource, ProGPU.Wpf.Interop.IPortableBitmapSourceMetricsSource
     {
         protected BitmapSource() { }
         bool ProGPU.Wpf.Interop.IPortableBitmapSourcePixelsSource.TryGetPortableBitmapSourcePixels(out ProGPU.Wpf.Interop.PortableBitmapSourcePixels pixels) { throw null; }
+        bool ProGPU.Wpf.Interop.IPortableBitmapSourceMetricsSource.TryGetPortableBitmapSourceMetrics(out ProGPU.Wpf.Interop.PortableBitmapSourceMetrics metrics) { throw null; }
         public virtual double DpiX { get { throw null; } }
         public virtual double DpiY { get { throw null; } }
         public virtual System.Windows.Media.PixelFormat Format { get { throw null; } }

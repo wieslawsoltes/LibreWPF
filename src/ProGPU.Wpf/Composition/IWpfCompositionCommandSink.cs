@@ -98,6 +98,15 @@ internal interface IWpfNativeTransformCommandSink
     void PushNativeTransform(Matrix4x4 transform);
 }
 
+// Optional full-source tile realization. False publishes no draw and leaves the
+// ordinary image path available (for example, for Nearest/Fant or a legacy sink).
+internal interface IWpfRepeatedImageCommandSink
+{
+    bool SupportsRepeatedLinearImages { get; }
+
+    bool TryDrawRepeatedImage(MediaImageSource imageSource, Rect rectangle, bool mirrorX, bool mirrorY);
+}
+
 internal interface IWpfNativePrimitiveCommandSink
 {
     void DrawNativeLine(MediaPen? pen, WpfReplayPoint point0, WpfReplayPoint point1);

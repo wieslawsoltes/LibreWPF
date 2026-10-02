@@ -45,6 +45,7 @@ public sealed class ProGpuCompositionCommandSink :
     IWpfNativeTransformCommandSink,
     IWpfNativePrimitiveCommandSink,
     IWpfNativeVideoCommandSink,
+    IWpfRepeatedImageCommandSink,
     IWpfNativeClipCommandSink,
     IWpfNativeGeometryCommandSink,
     IWpfHitTestOwnerScopeCommandSink,
@@ -1001,6 +1002,36 @@ public sealed class ProGpuCompositionCommandSink :
                 TextureSamplingMode = _bitmapScalingModeStack.Peek()
             });
         }
+    }
+
+    bool IWpfRepeatedImageCommandSink.SupportsRepeatedLinearImages =>
+        _bitmapScalingModeStack.Peek() == global::ProGPU.Scene.TextureSamplingMode.Linear;
+
+    bool IWpfRepeatedImageCommandSink.TryDrawRepeatedImage(
+        MediaImageSource imageSource, Rect rectangle, bool mirrorX, bool mirrorY)
+    {
+        ThrowIfClosed();
+        // Keep the original Nearest/Fant paths. Address the retained ORIGINAL
+        // texels; an enlarged source-clamped page has different Linear seams.
+        if (_bitmapScalingModeStack.Peek() != global::ProGPU.Scene.TextureSamplingMode.Linear ||
+            !WpfBitmapSourceImageAdapter.TryRetainGpuTexture(imageSource, NativeContext, _context, out var texture))
+        {
+            return false;
+        }
+
+        AddNativeCommand(new global::ProGPU.Scene.RenderCommand
+        {
+            Type = global::ProGPU.Scene.RenderCommandType.DrawTexture,
+            Texture = texture,
+            Rect = ToNativeRect(rectangle),
+            Transform = _transformStack.Peek(),
+            TextureSamplingMode = _bitmapScalingModeStack.Peek(),
+            TextureAddressModeU = mirrorX ? global::ProGPU.Scene.TextureAddressMode.MirrorRepeat
+                : global::ProGPU.Scene.TextureAddressMode.Repeat,
+            TextureAddressModeV = mirrorY ? global::ProGPU.Scene.TextureAddressMode.MirrorRepeat
+                : global::ProGPU.Scene.TextureAddressMode.Repeat
+        });
+        return true;
     }
 
     bool IWpfNativeVideoCommandSink.DrawNativeVideo(
