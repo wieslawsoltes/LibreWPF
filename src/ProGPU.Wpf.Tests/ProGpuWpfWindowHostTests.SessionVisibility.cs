@@ -224,4 +224,35 @@ public sealed partial class ProGpuWpfWindowHostTests
         Assert.Equal(1, fixture.Inner.Probe.Disposals);
         Assert.Null(fixture.Host.SilkWindow);
     }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void SessionHideRechecksOutstandingProofAfterReentrantGetter(bool retentionQuery)
+    {
+        using var fixture = new SessionCloseFixture();
+        fixture.Lease.Retained = false;
+        int completed = 0;
+        Action enterRelease = () =>
+        {
+            fixture.Inner.Probe.VisibilityReadAction = null;
+            fixture.Lease.RetainsAction = null;
+            fixture.Lease.Retained = true;
+            fixture.Host.ReleaseNativeDialog(() => completed++);
+            fixture.Lease.Retained = false;
+        };
+        if (retentionQuery) fixture.Lease.RetainsAction = enterRelease;
+        else fixture.Inner.Probe.VisibilityReadAction = enterRelease;
+        fixture.Host.Hide();
+        Assert.Equal(0, completed);
+        Assert.Equal(0, fixture.Inner.Probe.VisibilityWrites);
+        Assert.True(fixture.Inner.Probe.Visible);
+        Assert.NotNull(fixture.Lease.Completion);
+        Assert.Equal(2, ReadRetirementField(fixture.Host, "_nativeSessionReleaseCount"));
+        fixture.Lease.Complete();
+        Assert.Equal(1, completed);
+        Assert.Equal(1, fixture.Inner.Probe.VisibilityWrites);
+        Assert.False(fixture.Inner.Probe.Visible);
+        Assert.Equal(0, ReadRetirementField(fixture.Host, "_nativeSessionReleaseCount"));
+    }
 }

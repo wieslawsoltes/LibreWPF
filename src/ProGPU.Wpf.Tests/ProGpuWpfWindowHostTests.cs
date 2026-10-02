@@ -195,7 +195,7 @@ public sealed partial class ProGpuWpfWindowHostTests
         Assert.Contains("RequestNativeWindowSessionRelease(window, () => CompleteDeferredNativeHide(window))", hide);
         Assert.Contains("if (IsNativeHideCurrent(window)) HideNativeWindowAfterModalRelease();", hide);
         Assert.Contains("return !_isDisposed && !_isHostVisible && !_hasNativeWindowCloseStarted", hide);
-        Assert.Contains("if (NativeWindowSessionRetains(window))", hide);
+        Assert.Contains("if (NativeWindowSessionRetains(window) || _nativeSessionReleaseCallbacks != null)", hide);
         Assert.True(hide.IndexOf("RequestNativeWindowSessionRelease(", StringComparison.Ordinal) <
             hide.IndexOf("window.IsVisible = false;", StringComparison.Ordinal));
     }

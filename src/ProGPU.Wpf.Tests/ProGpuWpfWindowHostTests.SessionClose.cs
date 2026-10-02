@@ -270,6 +270,7 @@ public sealed partial class ProGpuWpfWindowHostTests
         internal bool ReleaseIdentityBeforeFailure;
         internal int Requests;
         internal Action? Completion;
+        internal Action? RetainsAction;
         internal Exception? Failure;
 
         internal bool Request(IWindow actual, Action completed)
@@ -290,6 +291,7 @@ public sealed partial class ProGpuWpfWindowHostTests
         internal bool Retains(IWindow actual)
         {
             Assert.Same(window, actual);
+            RetainsAction?.Invoke();
             return Retained;
         }
 

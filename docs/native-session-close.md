@@ -48,7 +48,7 @@ or native implementation is added.
 
 ## Focused coverage and limits
 
-Thirty-five actual-host source controls cover deferred and synchronous release,
+Thirty-seven actual-host source controls cover deferred and synchronous release,
 coalesced/reentrant Close, Show while Close is pending, fresh leases before Close
 and Dispose, native cancellation, Dispose supersession with no loop/active render/
 active loop, Dispose-initiated close, original release/Closing/retirement errors,
@@ -57,12 +57,15 @@ both with retained identity and after the identity disappears; callback-delivere
 Closing failure is checked synchronously and asynchronously. They use recorded provider
 operations and a per-host session-release seam; no native panel, renderer or GPU
 is fabricated or executed. Existing host/render-close tests remain selected.
-Eighteen additional controls cover both Close/Hide callback orders, normal
+Twenty additional controls cover both Close/Hide callback orders, normal
 Hide/Show supersession, new leases and changed intent from the visibility getter,
 uncertain Hide/dialog failures with retained/disappeared identity, synchronous/
 asynchronous delivered callback errors, fresh dialog leases, ordered callback
 failure continuation and an undelivered callback despite an absent native query.
-The hosted source gate minimum increases from 321 to 356 without changing
+Both the visibility getter and retention query may queue dialog release and then
+observe absent retention without delivery. Hide coalesces with that genuinely
+pending callback before writing; already-ready callback batches are distinct.
+The hosted source gate minimum increases from 321 to 358 without changing
 selectors, deadlines or failure requirements.
 
 At implementation checkpoint, compilation and execution are pending the exact
@@ -95,7 +98,7 @@ exact source guard for the pre-pending-close coalescing condition. The followup
 adds tracked provider rendering through the fixture's real headless `OnRender`
 callback (no GPU), asserts those wakeups, and updates the exact coalescing/identity
 guard. No product behavior or native assertion is changed to satisfy those tests.
-All 35 lifecycle controls still require execution on the followup hosted graph.
+All 37 lifecycle controls still require execution on the followup hosted graph.
 
 Postcommit checks at `e11e8b2e1cfd2a9e0c289cf8102904a4aec360d7` passed:
 SDK Roslyn parsed all five changed C# files with zero syntax errors; shell syntax,

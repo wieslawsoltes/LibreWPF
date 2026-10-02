@@ -1293,10 +1293,11 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
             // Its closing view rejects even a redundant IsVisible=false setter.
             bool visible = window.IsVisible;
             if (!IsNativeHideCurrent(window) || !visible) return;
-            if (NativeWindowSessionRetains(window))
+            if (NativeWindowSessionRetains(window) || _nativeSessionReleaseCallbacks != null)
             {
-                // The visibility getter may have entered a fresh native lease.
-                // Reconcile from the release boundary, never write through it.
+                // Either getter may enter a new lease/request whose native query
+                // disappears before its completion arrives. Reconcile outstanding
+                // proof as well as retention; ready callbacks use a detached list.
                 _nativeHidePending = false;
                 HideNativeWindowAfterModalRelease();
                 waiting = _nativeHidePending;
