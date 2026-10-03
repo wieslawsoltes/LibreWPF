@@ -54,9 +54,11 @@ brush-family admission, source geometry hits, final clips or resource retirement
 
 The source branch is a child of LibreWPF #249
 `e9683966cfec976491c9ea8c3c02bc8d5e0dd179`. It requires the coordinated Scene
-source-raster-frame producer successor of ProGPU #350 and a rebuilt source graph.
-Its frozen API checkpoint is `e9f7f0524c3713755b8960d06397e186575012a0`
-on `feat/source-effect-raster-frame`.
+source-raster-frame producer [ProGPU #351](https://github.com/wieslawsoltes/ProGPU/pull/351)
+at `a835c7eda1b72fdece874e1223a6a50766d6861f` and a rebuilt source graph.
+That producer retains the complete outward input texture, exact floating
+projection extent and independently rounded final geometry/UV endpoints; its
+actual target XY mapping stays separate from semantic DPI.
 The qualified ProGPU and LibreWinForms gitlinks are unchanged; their older binaries
 are not claimed to provide the additive resolver/vector frame contract.
 
