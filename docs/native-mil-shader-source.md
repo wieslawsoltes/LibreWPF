@@ -99,6 +99,14 @@ This is authored source integration requiring the paired new native producer and
 rebuilt source graph. Qualified ProGPU/Forms pins and automatic defaults are not
 changed. No execution/validation is recorded; genuine original, both-provider and
 application gates remain deferred to the final implementation tip.
+The native pairing is ProGPU #343,
+`247eda817e9365744046da72996f3c840f7c3853`; it remains unqualified. Four actual
+PresentationCore cases retain sampler/InternalTarget/AutoWrapTarget/cache identity
+and capture-local bounds under all six excluded root properties with a separate
+descendant clip. Twelve compiler/session cases cover all cache-selection sources,
+null versus non-null empty/missing targets, conflicting reference snapshots,
+cycles, dependency ownership and both backend session identities. The source
+selector increases its minimum by four without changing the deadline.
 
 Original BitmapSource exports metadata-only pixel dimensions and both source DPI
 axes. Shared ImageBrush replay keeps source DIP stretch/placement separate from
