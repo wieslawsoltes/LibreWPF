@@ -203,6 +203,8 @@ public sealed class ProGpuCompositionCommandSink :
         ThrowIfClosed();
         if (!source.TryGetPortableBitmapCacheBrush(out var brush)
             || !double.IsFinite(brush.Opacity) || brush.Opacity < 0 || brush.Opacity > 1) return false;
+        if (WpfCaptureReplayGuard.ValidateHiddenSources)
+            WpfBitmapCacheBrushCapture.ValidateNestedShaderSource(brush);
         // An empty source is a transparent mask, not an absent/no-op mask.
         if (brush.InternalTarget == null || brush.Opacity == 0)
         {
@@ -232,6 +234,8 @@ public sealed class ProGpuCompositionCommandSink :
         ThrowIfClosed();
         if (!source.TryGetPortableBitmapCacheBrush(out var brush)
             || !double.IsFinite(brush.Opacity) || brush.Opacity < 0 || brush.Opacity > 1) return false;
+        if (WpfCaptureReplayGuard.ValidateHiddenSources)
+            WpfBitmapCacheBrushCapture.ValidateNestedShaderSource(brush);
         if (brush.InternalTarget == null || brush.Opacity == 0) return true;
         if (!WpfResourceResolver.TryAdaptNativeGlyphRun(glyphRunResource, out var run) || !run.HasInkBounds) return false;
         var ink = run.InkBounds;

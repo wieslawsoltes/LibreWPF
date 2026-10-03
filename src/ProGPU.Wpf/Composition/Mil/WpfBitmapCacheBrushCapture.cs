@@ -12,6 +12,22 @@ namespace System.Windows.Media.ProGPU.Composition.Mil;
 /// </summary>
 public sealed class WpfBitmapCacheBrushCapture : IDisposable
 {
+    [ThreadStatic] private static ShaderValidationContext? s_shaderValidationContext;
+
+    private readonly record struct ShaderValidationContext(
+        global::ProGPU.Backend.WgpuContext? Context,
+        WpfViewport3DTextureCache? ViewportCache,
+        IWpfImageSourceAdapter? ImageSourceAdapter);
+
+    private sealed class CapturedShaderSource(PortableBitmapCacheBrush brush) : IPortableBitmapCacheBrushSource
+    {
+        public bool TryGetPortableBitmapCacheBrush(out PortableBitmapCacheBrush value)
+        {
+            value = brush;
+            return true;
+        }
+    }
+
     private WpfBitmapCacheBrushCapture(
         GpuPicture picture, PortableRect bounds,
         PortableBitmapCacheBrush brush, PortableBitmapCache cachePolicy)
@@ -104,6 +120,18 @@ public sealed class WpfBitmapCacheBrushCapture : IDisposable
         using var capture = CreateCore(source, context, viewportCache, imageSourceAdapter, requireEmptySource: true);
     }
 
+    // Validate the original dependency before ordinary no-paint shortcuts or
+    // shared CachedPicture lookup can hide it. This is a discarded recording,
+    // never a cache allocation or a replacement for the ordinary paint path.
+    internal static void ValidateNestedShaderSource(PortableBitmapCacheBrush brush)
+    {
+        if (!WpfCaptureReplayGuard.ValidateHiddenSources)
+            throw new InvalidOperationException("Nested shader source validation requires an active ownership proof.");
+        ShaderValidationContext context = s_shaderValidationContext.GetValueOrDefault();
+        using var proof = CreateCore(new CapturedShaderSource(brush), context.Context,
+            context.ViewportCache, context.ImageSourceAdapter, requireEmptySource: false, rawShaderSource: true);
+    }
+
     private static WpfBitmapCacheBrushCapture CreateCore(
         IPortableBitmapCacheBrushSource source,
         global::ProGPU.Backend.WgpuContext? context,
@@ -149,6 +177,10 @@ public sealed class WpfBitmapCacheBrushCapture : IDisposable
         var recorder = new GpuPictureRecorder();
         var commands = recorder.BeginRecording(new SceneRect(
             (float)bounds.X, (float)bounds.Y, (float)bounds.Width, (float)bounds.Height));
+        bool validating = WpfCaptureReplayGuard.ValidateHiddenSources;
+        ShaderValidationContext? previousValidationContext = s_shaderValidationContext;
+        if (validating)
+            s_shaderValidationContext = new(context, viewportCache, imageSourceAdapter);
         try
         {
             if (brush.InternalTarget != null && (WpfCaptureReplayGuard.ValidateHiddenSources ||
@@ -165,6 +197,7 @@ public sealed class WpfBitmapCacheBrushCapture : IDisposable
         }
         finally
         {
+            if (validating) s_shaderValidationContext = previousValidationContext;
             commands.Clear();
         }
     }
