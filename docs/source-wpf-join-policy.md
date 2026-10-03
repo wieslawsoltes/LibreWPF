@@ -1,7 +1,8 @@
 # Retained source WPF join policy
 
-This draft consumes the matching ProGPU producer's `Pen.UseWpfJoinSemantics`
-contract. It deliberately leaves `external/ProGPU` at the qualified
+This draft consumes [ProGPU #359](https://github.com/wieslawsoltes/ProGPU/pull/359)
+and its matching future build's `Pen.UseWpfJoinSemantics` contract. It deliberately
+leaves `external/ProGPU` at the qualified
 `48a49afeb993214c0c40c6908e9896ef0b5dec97` and the runtime package at
 `0.1.0-preview.65`. Those older artifacts do not provide the new contract:
 this source change requires the coordinated producer build and source rebuild
