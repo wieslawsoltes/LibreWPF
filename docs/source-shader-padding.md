@@ -49,11 +49,14 @@ overflow. Six actual PresentationCore source configurations exercise original
 DrawingImage/cache brush identity, source bounds, mutation/reset, all invalid
 axes, original negative-setter rejection and immutable exported snapshots.
 The source selector minimum rises from 18 to 24 with its original 60-second
-deadline and fail-skips policy unchanged. Focused mapper controls separately
-guard invalid DTOs before sampler dependencies; they do not render pixels.
+deadline and fail-skips policy unchanged. Nine mapper configurations separately
+guard each invalid DTO axis before sampler dependencies, retain the existing
+managed maximum-padding frame on each maximum axis, and preserve valid signed
+zero/finite boundary metadata. They do not render pixels or establish an
+asymmetric managed frame.
 
 The neutral producer must preserve the four raw double values rather than
-sanitize invalid values or negative zero. That paired correction is ProGPU
+sanitize invalid values or negative zero. That paired correction is ProGPU #348
 `45bbcf69982052b4b478ee574a90d48d4412c813`, authored as a child of the current
 ownership producer #347 (`dd2f1415ac1ee2551ea83321b6581cc52e6fb145`). The existing
 native padding API/capture implementation is part of that producer ancestry.
