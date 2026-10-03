@@ -71,6 +71,9 @@ public sealed record WpfNativeMilViewport3DScene(
     uint Handle,
     NativeMilViewport3DScene Scene);
 
+public readonly record struct WpfNativeMilBitmapCacheRasterPolicy(
+    uint Handle, PortableBitmapCacheRasterPolicy Policy);
+
 public sealed record WpfNativeMilBatch(
     byte[] Bytes,
     uint TargetHandle,
@@ -96,6 +99,7 @@ public sealed record WpfNativeMilBatch(
         D3DImageSources = original.D3DImageSources; VisualOwners = original.VisualOwners;
         PointHitRegions = original.PointHitRegions; VisualVisibilities = original.VisualVisibilities;
         EmptyVisualBrushSources = original.EmptyVisualBrushSources;
+        BitmapCacheRasterPolicies = original.BitmapCacheRasterPolicies;
         HintedGlyphResources = original.HintedGlyphResources?.Retain();
     }
     public void Dispose() => HintedGlyphResources?.Dispose();
@@ -107,6 +111,7 @@ public sealed record WpfNativeMilBatch(
     public ReadOnlyMemory<NativeMilVisualVisibility> VisualVisibilities { get; init; }
     /// <summary>Initialized VisualBrush sources with authoritative empty bounds, not null source handles.</summary>
     public ReadOnlyMemory<uint> EmptyVisualBrushSources { get; init; }
+    public ReadOnlyMemory<WpfNativeMilBitmapCacheRasterPolicy> BitmapCacheRasterPolicies { get; init; }
 }
 
 public sealed record WpfNativeMilCompilation(
@@ -129,6 +134,15 @@ internal readonly record struct WpfNativeMilVisualOverlay(
 /// </remarks>
 public sealed partial class WpfNativeMilSceneCompiler
 {
+    private readonly Func<PortableBitmapCacheRasterPolicy>? _cacheRasterPolicy;
+
+    public WpfNativeMilSceneCompiler() { }
+
+    public WpfNativeMilSceneCompiler(Func<PortableBitmapCacheRasterPolicy> cacheRasterPolicy)
+    {
+        _cacheRasterPolicy = cacheRasterPolicy ?? throw new ArgumentNullException(nameof(cacheRasterPolicy));
+    }
+
     public WpfNativeMilBatch BuildBatch(
         object rootVisual,
         uint pixelWidth,
@@ -145,7 +159,7 @@ public sealed partial class WpfNativeMilSceneCompiler
         PortableWindowRegion? windowRegion = null)
     {
         ArgumentNullException.ThrowIfNull(rootVisual);
-        var context = new BuildContext();
+        var context = new BuildContext(_cacheRasterPolicy);
         WpfNativeMilBatch? result = null;
         try
         {
@@ -175,6 +189,7 @@ public sealed partial class WpfNativeMilSceneCompiler
                 PointHitRegions = context.PointHitRegions.ToArray(),
                 VisualVisibilities = context.VisualVisibilities.ToArray(),
                 EmptyVisualBrushSources = context.EmptyVisualBrushSources.ToArray(),
+                BitmapCacheRasterPolicies = context.BitmapCacheRasterPolicies.ToArray(),
                 HintedGlyphResources = context.HintedGlyphRuns.Count == 0 ? null : WpfNativeHintedGlyphResources.Create(context.HintedGlyphRuns)
             };
             context.Dispose();
@@ -315,6 +330,14 @@ public sealed partial class WpfNativeMilSceneCompiler
             channel.SetVisualSourceEmptyBounds(handle);
             ++appliedCount;
         }
+        foreach (var raster in batch.BitmapCacheRasterPolicies.Span)
+        {
+            PortableBitmapCacheRasterPolicy policy = raster.Policy;
+            channel.SetBitmapCacheBrushRasterPolicy(raster.Handle, new NativeMilBitmapCacheRasterPolicy(
+                policy.PrimaryDpiScaleX, policy.PrimaryDpiScaleY,
+                policy.MaximumTextureWidth, policy.MaximumTextureHeight, policy.SourceRevision));
+            ++appliedCount;
+        }
         foreach (WpfNativeMilViewport3DScene viewport3D in
                  batch.Viewport3DScenes ??
                  Array.Empty<WpfNativeMilViewport3DScene>())
@@ -338,6 +361,26 @@ public sealed partial class WpfNativeMilSceneCompiler
 
     private sealed partial class BuildContext : IDisposable
     {
+        private readonly Func<PortableBitmapCacheRasterPolicy>? _cacheRasterPolicySource;
+        private PortableBitmapCacheRasterPolicy? _cacheRasterPolicySnapshot;
+        internal List<WpfNativeMilBitmapCacheRasterPolicy> BitmapCacheRasterPolicies { get; } = [];
+
+        internal BuildContext(Func<PortableBitmapCacheRasterPolicy>? cacheRasterPolicySource)
+        {
+            _cacheRasterPolicySource = cacheRasterPolicySource;
+        }
+
+        private PortableBitmapCacheRasterPolicy CaptureCacheRasterPolicy()
+        {
+            if (_cacheRasterPolicySnapshot is { } existing) return existing;
+            if (_cacheRasterPolicySource is null)
+                throw new NotSupportedException("Shader cache samplers require actual source and owned-device raster policy.");
+            PortableBitmapCacheRasterPolicy policy = _cacheRasterPolicySource();
+            if (!policy.IsValid)
+                throw new NotSupportedException("The source cache raster policy is unavailable or invalid.");
+            _cacheRasterPolicySnapshot = policy;
+            return policy;
+        }
         internal List<(uint Handle, WpfHintedGlyphRunBinding Owner)> HintedGlyphRuns { get; } = [];
         public void Dispose()
         {
@@ -1746,7 +1789,7 @@ public sealed partial class WpfNativeMilSceneCompiler
         }
 
         private uint ResolveBrush(object resource, PortableTileBrush? capturedTile = null,
-            PortableBitmapCacheBrush? capturedCache = null, bool retainEmptyShaderCacheSource = false)
+            PortableBitmapCacheBrush? capturedCache = null, bool shaderCacheSource = false)
         {
             if (capturedTile is not null && _tileBrushSnapshots.TryGetValue(resource, out PortableTileBrush? previousTile) &&
                 !SameTileBrushSnapshot(previousTile, capturedTile))
@@ -1754,7 +1797,7 @@ public sealed partial class WpfNativeMilSceneCompiler
             if (capturedCache is { } cacheSnapshot && _cacheBrushSnapshots.TryGetValue(resource, out var previousCache) &&
                 !SameCacheBrushSnapshot(previousCache, cacheSnapshot))
                 throw new InvalidOperationException("One source cache brush changed during native batch capture.");
-            var handles = retainEmptyShaderCacheSource ? _emptyShaderCacheBrushHandles : _brushHandles;
+            var handles = shaderCacheSource ? _shaderCacheBrushHandles : _brushHandles;
             if (handles.TryGetValue(resource, out uint existing))
             {
                 return existing;
@@ -1776,7 +1819,7 @@ public sealed partial class WpfNativeMilSceneCompiler
                 // Resolve before publishing the brush handle so a source that
                 // paints itself reaches the existing active-visual cycle guard.
                 uint target = cacheBrush.InternalTarget is null ? 0U
-                    : ResolveVisualBrushSource(cacheBrush.InternalTarget, retainEmptyShaderCacheSource);
+                    : ResolveVisualBrushSource(cacheBrush.InternalTarget, retainEmptySource: shaderCacheSource);
                 uint cache = cacheBrush.BitmapCache is null ? 0U
                     : ResolveBitmapCache(cacheBrush.BitmapCache);
                 uint transform = cacheBrush.HasTransform ? AddGeometryTransform(cacheBrush.Transform) : 0U;
@@ -1787,6 +1830,8 @@ public sealed partial class WpfNativeMilSceneCompiler
                     target, cache, cacheBrush.Opacity,
                     TransformHandle: transform, RelativeTransformHandle: relative));
                 handles.Add(resource, cacheBrushHandle);
+                if (shaderCacheSource)
+                    BitmapCacheRasterPolicies.Add(new(cacheBrushHandle, CaptureCacheRasterPolicy()));
                 return cacheBrushHandle;
             }
             if (resource is IPortableTileBrushSource tileSource)

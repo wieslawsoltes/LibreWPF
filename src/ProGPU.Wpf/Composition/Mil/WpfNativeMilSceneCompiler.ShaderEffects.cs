@@ -12,7 +12,7 @@ public sealed partial class WpfNativeMilSceneCompiler
         private readonly Dictionary<IPortablePixelShaderSource, ShaderSnapshot> _pixelShaderHandles =
             new(ReferenceEqualityComparer.Instance);
         private uint _implicitInputBrushHandle;
-        private readonly Dictionary<object, uint> _emptyShaderCacheBrushHandles =
+        private readonly Dictionary<object, uint> _shaderCacheBrushHandles =
             new(ReferenceEqualityComparer.Instance);
 
         private readonly record struct ShaderSnapshot(
@@ -70,17 +70,15 @@ public sealed partial class WpfNativeMilSceneCompiler
                     {
                         if (!cacheSource.TryGetPortableBitmapCacheBrush(out var cache))
                             throw MissingContract(nameof(IPortableBitmapCacheBrushSource));
-                        bool emptyTarget = false;
                         if (cache.InternalTarget is { } target)
                         {
-                            if (!TryGetVisualBounds(target, out var bounds, allowEmpty: true))
+                            if (!TryGetVisualBounds(target, out _, allowEmpty: true))
                                 throw new NotSupportedException("Native shader BitmapCacheBrush targets require original source bounds.");
-                            emptyTarget = bounds.Width == 0 || bounds.Height == 0;
                         }
-                        // Empty admission belongs to this exact shader brush,
-                        // not an ordinary paint using the same source object.
+                        // Raw cache-raster policy belongs to the exact shader
+                        // resource, not ordinary paint using the same brush.
                         brush = ResolveBrush(sampler.Brush, capturedCache: cache,
-                            retainEmptyShaderCacheSource: emptyTarget);
+                            shaderCacheSource: true);
                         break;
                     }
                     // The source exports its actual VisualBrush through the
