@@ -59,7 +59,8 @@ or original-Windows pixel parity is not inferred from transmitting four edges.
 ## Delivery boundary
 
 This is a child of LibreWPF #248 `e30560184fcec0486057b8287c04aef6f49087f0`.
-It requires the coordinated Scene producer from
+It requires the coordinated Scene producer ProGPU #350,
+`4b0ee09d09d0d3514cd1c73d927aaeca381ffdb4`, from
 `feat/asymmetric-effect-capture-frame` (initial API `2bfe7ecb1`, source-domain
 validation `430565c68ca7c4eaa3144d1c75edb63557d92f70`) and a rebuilt source graph.
 Qualified ProGPU/LibreWinForms pins remain unchanged. The older pinned binary is
