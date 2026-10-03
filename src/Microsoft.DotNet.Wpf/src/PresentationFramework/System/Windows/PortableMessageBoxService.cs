@@ -2,7 +2,6 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System;
-using System.Runtime.InteropServices;
 using System.Threading;
 using ProGPU.Wpf.Interop;
 
@@ -53,7 +52,6 @@ namespace System.Windows
 
     internal static class PortableMessageBoxService
     {
-        private static readonly bool s_isWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
         private static readonly MessageBoxServiceRegistrar s_registrar = new MessageBoxServiceRegistrar();
         private static IDisposable s_registrarRegistration;
         private static Handler s_handler;
@@ -62,7 +60,7 @@ namespace System.Windows
         {
             get
             {
-                return !s_isWindows && Volatile.Read(ref s_handler) != null;
+                return MessageBox.UsesPortableBackend() && Volatile.Read(ref s_handler) != null;
             }
         }
 
@@ -83,11 +81,6 @@ namespace System.Windows
         internal static IDisposable Register(Func<PortableMessageBoxRequest, MessageBoxResult> show)
         {
             ArgumentNullException.ThrowIfNull(show);
-
-            if (s_isWindows)
-            {
-                return EmptyRegistration.Instance;
-            }
 
             return Register(show, preferBeforePortableDialog: false);
         }
@@ -147,11 +140,8 @@ namespace System.Windows
         {
             ArgumentNullException.ThrowIfNull(show);
 
-            if (s_isWindows)
-            {
-                return EmptyRegistration.Instance;
-            }
-
+            // Registration can precede portable startup selection on Windows.
+            // Invocation, not registration, is gated by the selected source path.
             var handler = new Handler(show, preferBeforePortableDialog);
             Volatile.Write(ref s_handler, handler);
             return new Registration(handler);
@@ -170,7 +160,7 @@ namespace System.Windows
         {
             result = MessageBoxResult.None;
 
-            if (s_isWindows)
+            if (!MessageBox.UsesPortableBackend(owner as Window))
             {
                 return false;
             }
@@ -265,15 +255,6 @@ namespace System.Windows
                 {
                     Volatile.Write(ref s_handler, null);
                 }
-            }
-        }
-
-        private sealed class EmptyRegistration : IDisposable
-        {
-            internal static readonly EmptyRegistration Instance = new EmptyRegistration();
-
-            public void Dispose()
-            {
             }
         }
 

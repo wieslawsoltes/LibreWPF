@@ -5,7 +5,9 @@
 using System.Runtime.InteropServices;
 using System.ComponentModel;
 using System.Windows.Interop;
+using System.Windows.Threading;
 using MS.Win32;
+using ProGPU.Wpf.Interop;
 
 namespace System.Windows
 {
@@ -432,16 +434,27 @@ namespace System.Windows
                     throw new ArgumentException(SR.CantShowMBServiceWithOwner);
                 }
             }
-            else
+            // A portable presentation handle is an owned source identity, not
+            // an HWND, even on Windows. Resolve that identity before selecting
+            // a backend, and never send it to GetActiveWindow/user32 fallback.
+            Window handleOwner = null;
+            if (owner == null && ownerHandle != IntPtr.Zero)
+                Window.TryResolvePortableOwnerHandle(ownerHandle, Dispatcher.CurrentDispatcher, out handleOwner);
+            bool portable = UsesPortableBackend(owner as Window) || handleOwner != null;
+            if (portable)
             {
-                if (ownerHandle == IntPtr.Zero && OperatingSystem.IsWindows())
+                if (handleOwner != null) owner = handleOwner;
+                if ((owner != null && owner is not Window) || (owner == null && ownerHandle != IntPtr.Zero))
+                    throw new PlatformNotSupportedException("Portable MessageBox owners must identify an actual source Window.");
+                if (owner is Window portableOwner)
                 {
-                    ownerHandle = UnsafeNativeMethods.GetActiveWindow();
+                    portableOwner.VerifyAccess();
+                    if (portableOwner.IsDisposed)
+                        throw new InvalidOperationException("A disposed Window cannot own a portable MessageBox.");
+                    if (portableOwner.PortableWindowActivation == null && portableOwner.Handle != IntPtr.Zero)
+                        throw new PlatformNotSupportedException("A native HWND Window cannot own a portable MessageBox.");
                 }
-            }
 
-            if (!OperatingSystem.IsWindows())
-            {
                 if (PortableMessageBoxService.TryShowOverride(
                     owner,
                     messageBoxText,
@@ -484,6 +497,10 @@ namespace System.Windows
                 return GetPortableFallbackResult(defaultResult, button);
             }
 
+            if (ownerHandle == IntPtr.Zero &&
+                (options & (MessageBoxOptions.ServiceNotification | MessageBoxOptions.DefaultDesktopOnly)) == 0)
+                ownerHandle = UnsafeNativeMethods.GetActiveWindow();
+
             int style = (int) button | (int) icon | (int) DefaultResultToButtonNumber(defaultResult, button) | (int) options;
 
             // modal dialog notification?
@@ -502,12 +519,20 @@ namespace System.Windows
         {
             ArgumentNullException.ThrowIfNull(owner);
 
-            if (!OperatingSystem.IsWindows())
+            if (UsesPortableBackend(owner))
             {
                 return IntPtr.Zero;
             }
 
             return new WindowInteropHelper(owner).Handle;
+        }
+
+        internal static bool UsesPortableBackend(Window owner = null)
+        {
+            return !OperatingSystem.IsWindows() ||
+                owner?.PortableWindowActivation != null ||
+                PortableWindowActivationService.IsEnabled ||
+                PortableWpfRuntime.ConfiguredMediaBackend == PortableWpfMediaBackend.Portable;
         }
 
         internal static MessageBoxResult GetPortableFallbackResult(MessageBoxResult result, MessageBoxButton button)

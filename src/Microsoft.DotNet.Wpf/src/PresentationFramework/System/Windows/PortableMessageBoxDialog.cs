@@ -33,7 +33,7 @@ namespace System.Windows
             result = MessageBoxResult.None;
             Application application = Application.Current;
 
-            if (OperatingSystem.IsWindows() ||
+            if (!MessageBox.UsesPortableBackend(owner as Window) ||
                 !PortableWindowActivationService.IsEnabled ||
                 application == null ||
                 !application.Dispatcher.CheckAccess() ||
