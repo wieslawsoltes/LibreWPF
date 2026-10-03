@@ -28,8 +28,8 @@ public sealed partial class WpfNativeMilSceneCompilerTests
         var delta = WpfNativeMilCompilationSession.CreateDelta(zero, padded);
         Assert.False(delta.RequiresRebuild);
         Assert.Equal([0x70], ReadCommands(delta.Bytes));
-        Assert.Equal(zero.DrawingImageBounds.ToArray(), padded.DrawingImageBounds.ToArray());
-        Assert.Equal(zero.VisualCacheBounds.ToArray(), padded.VisualCacheBounds.ToArray());
+        Assert.Equal(zero.DrawingImageBounds!.ToArray(), padded.DrawingImageBounds!.ToArray());
+        Assert.Equal(zero.VisualCacheBounds!.ToArray(), padded.VisualCacheBounds!.ToArray());
         Assert.Equal(zero.BitmapCacheRasterPolicies.ToArray(), padded.BitmapCacheRasterPolicies.ToArray());
         Assert.Equal(original, zero.Bytes);
         double negativeZero = BitConverter.Int64BitsToDouble(long.MinValue);
