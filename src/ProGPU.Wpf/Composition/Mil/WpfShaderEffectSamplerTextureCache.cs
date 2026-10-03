@@ -556,9 +556,12 @@ internal sealed class WpfShaderEffectSamplerTextureCache : IDisposable
             global::ProGPU.Wpf.Interop.PortableBitmapCacheRasterPolicy replacementPolicy)
         {
             CacheSamplerRaster previous = Raster;
+            // Enqueue before publication: a failed enqueue leaves the prior
+            // owner intact, and source cleanup callbacks cannot reenter midway
+            // through candidate replacement. The existing render/context drain
+            // releases this owner; retained parameters have independent leases.
+            previous.Texture.Context.QueueExternalTextureOwnerDisposal(previous);
             Raster = replacement; Policy = replacementPolicy;
-            // Previous parameter/recording generations retain their own leases.
-            previous.Dispose();
         }
         public void Dispose() => Raster.Dispose();
     }

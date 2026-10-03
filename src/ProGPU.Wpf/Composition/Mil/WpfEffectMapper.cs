@@ -138,24 +138,32 @@ internal static class WpfEffectMapper
             return false;
         }
 
-        var parameters = new WpfShaderEffectParams
+        try
         {
-            ShaderSource = replacement.ShaderSource,
-            ShaderKey = replacement.ShaderKey,
-            Constants = CopyPortableFloatConstants(effect),
-            Samplers = samplers,
-            SamplingMode = samplingMode,
-            SourceTextureRegisterIndex = sourceTextureRegisterIndex
-        };
+            var parameters = new WpfShaderEffectParams
+            {
+                ShaderSource = replacement.ShaderSource,
+                ShaderKey = replacement.ShaderKey,
+                Constants = CopyPortableFloatConstants(effect),
+                Samplers = samplers,
+                SamplingMode = samplingMode,
+                SourceTextureRegisterIndex = sourceTextureRegisterIndex
+            };
 
-        var nativeEffect = new WpfShaderEffect(parameters)
+            var nativeEffect = new WpfShaderEffect(parameters)
+            {
+                Padding = (float)Math.Min(float.MaxValue, Math.Max(0d, effect.MaxPadding)),
+                CaptureSourceVisualOpacity = true
+            };
+
+            proGpuEffect = nativeEffect;
+            return true;
+        }
+        catch
         {
-            Padding = (float)Math.Min(float.MaxValue, Math.Max(0d, effect.MaxPadding)),
-            CaptureSourceVisualOpacity = true
-        };
-
-        proGpuEffect = nativeEffect;
-        return true;
+            DisposeFailedSamplers(samplers);
+            throw;
+        }
     }
 
     private static bool TryResolveShaderReplacement(
@@ -279,7 +287,9 @@ internal static class WpfEffectMapper
 
         var additionalSamplers = new WpfShaderEffectSampler[additionalSamplerCount];
         var additionalSamplerIndex = 0;
-
+        bool published = false;
+        try
+        {
         for (var i = 0; i < portableSamplers.Length; i++)
         {
             var portableSampler = portableSamplers[i];
@@ -320,7 +330,6 @@ internal static class WpfEffectMapper
                         out additionalSamplers[additionalSamplerIndex], effectBounds, effectOwner,
                         (float)Math.Min(float.MaxValue, effect.MaxPadding),
                         requireEffectFrame: portableSampler.Kind == PortableShaderSamplerKind.ImageSource ||
-                            portableSampler.Brush is global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource ||
                             (portableSampler.Brush is global::ProGPU.Wpf.Interop.IPortableTileBrushSource tileSource &&
                              tileSource.TryGetPortableTileBrush(out var tile) &&
                              tile.Kind == global::ProGPU.Wpf.Interop.PortableTileBrushKind.Visual)))
@@ -333,7 +342,24 @@ internal static class WpfEffectMapper
         }
 
         samplers = additionalSamplers;
+        published = true;
         return true;
+        }
+        finally
+        {
+            if (!published) DisposeFailedSamplers(additionalSamplers);
+        }
+    }
+
+    private static void DisposeFailedSamplers(WpfShaderEffectSampler[] samplers)
+    {
+        foreach (WpfShaderEffectSampler? sampler in samplers)
+        {
+            // Preserve the original failed source/candidate result. Ordinary
+            // texture samplers retain their existing borrowed ownership.
+            try { sampler?.Dispose(); }
+            catch { }
+        }
     }
 
     private static bool TryCreateImageSourceShaderSampler(
