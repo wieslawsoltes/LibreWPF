@@ -278,36 +278,48 @@ internal sealed class WpfShaderEffectSamplerTextureCache : IDisposable
             Size = new Vector2(texture.Width, texture.Height)
         };
 
-        using var drawingContext = new MediaDrawingContext(visual.Context);
-        using var sink = new ProGpuCompositionCommandSink(
-            drawingContext,
-            _context,
-            _viewport3DTextureCache);
-
-        var drawing = new ShaderSamplerGeometryDrawing(textureBounds, brush);
-        using var recordingAdapter = CreateRecordingAdapter(imageSourceAdapter);
-        var replayStatus = WpfDrawingReplay.Replay(
-            drawing,
-            sink,
-            recordingAdapter.AdaptImageSource);
-
-        if (replayStatus != WpfDrawingReplayStatus.Applied &&
-            !(allowSkipped && replayStatus == WpfDrawingReplayStatus.Skipped))
+        Exception? failure = null;
+        try
         {
-            return false;
-        }
+            using var drawingContext = new MediaDrawingContext(visual.Context);
+            using var sink = new ProGpuCompositionCommandSink(
+                drawingContext,
+                _context,
+                _viewport3DTextureCache);
 
-        visual.ClipBounds = new ProGpuRect(0, 0, texture.Width, texture.Height);
-        _compositor.RenderOffscreen(
-            visual,
-            texture.Width,
-            texture.Height,
-            texture,
-            padding: 0f,
-            dpiScale: 1f,
-            includeRootTransform: false,
-            includeRootVisualState: false);
-        return true;
+            var drawing = new ShaderSamplerGeometryDrawing(textureBounds, brush);
+            using var recordingAdapter = CreateRecordingAdapter(imageSourceAdapter);
+            var replayStatus = WpfDrawingReplay.Replay(
+                drawing,
+                sink,
+                recordingAdapter.AdaptImageSource);
+
+            if (replayStatus != WpfDrawingReplayStatus.Applied &&
+                !(allowSkipped && replayStatus == WpfDrawingReplayStatus.Skipped))
+                return false;
+
+            visual.ClipBounds = new ProGpuRect(0, 0, texture.Width, texture.Height);
+            _compositor.RenderOffscreen(
+                visual,
+                texture.Width,
+                texture.Height,
+                texture,
+                padding: 0f,
+                dpiScale: 1f,
+                includeRootTransform: false,
+                includeRootVisualState: false);
+            return true;
+        }
+        catch (Exception error) { failure = error; throw; }
+        finally
+        {
+            // The compositor retains actual submission resources. This
+            // temporary display list must release its new source/recipe leases
+            // deterministically after realization, including a failed capture.
+            try { visual.Context.Clear(); }
+            catch (Exception cleanup) when (failure is not null)
+            { try { failure.Data["ShaderSamplerRecordingCleanupFailure"] = cleanup; } catch { } }
+        }
     }
 
     // One source snapshot owns both frame selection and replay. Reentrant
