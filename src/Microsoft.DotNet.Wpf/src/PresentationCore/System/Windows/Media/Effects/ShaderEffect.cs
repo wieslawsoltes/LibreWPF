@@ -13,12 +13,17 @@ namespace System.Windows.Media.Effects
         {
             ReadPreamble();
 
-            // The compatibility DTO normalizes padding. Never erase invalid
-            // source state before the native compiler can reject the effect.
+            // Reject unsupported capture values before collecting dependencies.
+            // Keep the original double bits (including negative zero) in the DTO;
+            // narrowing is only a domain check, not a source-state replacement.
             if (!double.IsFinite(_topPadding) || _topPadding < 0
                 || !double.IsFinite(_bottomPadding) || _bottomPadding < 0
                 || !double.IsFinite(_leftPadding) || _leftPadding < 0
-                || !double.IsFinite(_rightPadding) || _rightPadding < 0)
+                || !double.IsFinite(_rightPadding) || _rightPadding < 0
+                || !float.IsFinite((float)_topPadding)
+                || !float.IsFinite((float)_bottomPadding)
+                || !float.IsFinite((float)_leftPadding)
+                || !float.IsFinite((float)_rightPadding))
             {
                 effect = null;
                 return false;

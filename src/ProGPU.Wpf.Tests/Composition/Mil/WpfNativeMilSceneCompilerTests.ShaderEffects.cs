@@ -107,7 +107,7 @@ public sealed partial class WpfNativeMilSceneCompilerTests
             case 3: pixel.PublishSource = false; break;
             case 4: effect.IntCount = 1; break;
             case 5: effect.BoolCount = 1; break;
-            case 6: effect.Padding = 1; break;
+            case 6: effect.Padding = double.MaxValue; break; // finite double cannot enter native float capture
             case 7: effect.Samplers = []; break;
             case 8: effect.Samplers = [effect.Samplers[0], effect.Samplers[0]]; break;
             case 9: effect.Samplers = [PortableShaderSampler.Image(0, new object(), PortableShaderSamplingMode.Auto)]; break;
@@ -216,12 +216,14 @@ public sealed partial class WpfNativeMilSceneCompilerTests
         internal PortableShaderSampler[] Samplers = [PortableShaderSampler.ImplicitInput(0, PortableShaderSamplingMode.Auto)];
         internal uint IntCount, BoolCount;
         internal double Padding;
+        internal double PaddingBottom, PaddingLeft, PaddingRight;
         internal int Ddx = -1;
         internal Action? AfterCapture;
         public bool TryGetPortableShaderEffect(out PortableShaderEffect effect)
         {
             pixel.TryGetPortablePixelShader(out var shader);
-            effect = new(null, null, shader, Constants, Samplers, IntCount, BoolCount, Padding, 0, 0, 0, Ddx);
+            effect = new(null, null, shader, Constants, Samplers, IntCount, BoolCount,
+                Padding, PaddingBottom, PaddingLeft, PaddingRight, Ddx);
             AfterCapture?.Invoke();
             return true;
         }

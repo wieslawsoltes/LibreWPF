@@ -14,14 +14,23 @@ Retained sessions compare owned packet bytes, so bytecode, mode, constants and
 sampler changes generate real resource updates rather than stale DTO identity hits.
 Failed source capture never reaches the active channel.
 
-Only explicit Auto/HardwareOnly intent, float constants, zero padding, and one
+Only explicit Auto/HardwareOnly intent, float constants, supported original padding, and one
 implicit-input, original ImageBrush, VisualBrush or BitmapCacheBrush sampler are admitted by this source seam.
 SoftwareOnly, absent/unknown intent, raw-image-only sampler DTOs, arbitrary brush
-samplers other than typed VisualBrush/BitmapCacheBrush, multiple/missing samplers, integer/Boolean constants and nonzero padding
+samplers other than typed VisualBrush/BitmapCacheBrush, multiple/missing samplers, integer/Boolean constants and invalid padding
 remain rejected. Instruction/register combinations remain subject to native
 validation; this does not claim all shader-model bytecode is implemented.
 The original `compileSoftwareShader` MIL flag is retained, not interpreted as
 permission to run a CPU renderer.
+
+The compiler forwards all four original padding doubles through
+`NativeMilShaderPadding`, including asymmetric values and signed zero. Each must
+be nonnegative, finite and representable as a finite float; this domain check
+does not replace its original double. Native capture owns local float inflation,
+placement, clip and UV admission. Source bounds and sampler mapping are not
+inflated or corrected by this bridge. See [source-shader-padding.md](source-shader-padding.md)
+for the authored transport/session controls, coordinated producer dependency and
+the separate unresolved managed single-`MaxPadding` frame policy.
 
 ImageBrush export preserves its actual source identity, opacity, image, mapping,
 tile mode and transforms through the ordinary native brush compiler. The managed

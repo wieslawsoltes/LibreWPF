@@ -20,10 +20,11 @@ public sealed partial class WpfNativeMilSceneCompiler
 
         private uint AddShaderEffect(object resource, PortableShaderEffect effect)
         {
-            if (effect.IntConstantCount != 0 || effect.BoolConstantCount != 0 ||
-                effect.PaddingTop != 0 || effect.PaddingBottom != 0 ||
-                effect.PaddingLeft != 0 || effect.PaddingRight != 0)
-                throw new NotSupportedException("Native source shaders require float constants and zero padding.");
+            if (effect.IntConstantCount != 0 || effect.BoolConstantCount != 0)
+                throw new NotSupportedException("Native source shaders require float constants.");
+            if (!ValidPadding(effect.PaddingTop) || !ValidPadding(effect.PaddingBottom) ||
+                !ValidPadding(effect.PaddingLeft) || !ValidPadding(effect.PaddingRight))
+                throw new NotSupportedException("Native source shader padding must be nonnegative and finite in the native float domain.");
 
             float[] constants = effect.FloatConstants;
             if ((constants.Length & 3) != 0 || constants.Length > 32 * 4)
@@ -107,10 +108,15 @@ public sealed partial class WpfNativeMilSceneCompiler
             Batch.SetShaderEffect(handle, shader, registers,
                 MemoryMarshal.Cast<float, Vector4>(constants.AsSpan()),
                 checked((uint)sampler.RegisterIndex), sampling, brush,
+                new NativeMilShaderPadding(effect.PaddingTop, effect.PaddingBottom,
+                    effect.PaddingLeft, effect.PaddingRight),
                 effect.DdxUvDdyUvRegisterIndex);
             _effectHandles.Add(resource, handle);
             return handle;
         }
+
+        private static bool ValidPadding(double value) =>
+            value >= 0 && double.IsFinite(value) && float.IsFinite((float)value);
 
         private uint ResolvePixelShader(PortablePixelShader? shader)
         {

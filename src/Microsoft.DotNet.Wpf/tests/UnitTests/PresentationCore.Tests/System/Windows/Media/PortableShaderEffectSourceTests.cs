@@ -125,6 +125,97 @@ public sealed class PortableShaderEffectSourceTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    public void PaddingPreservesOriginalDrawingImageOrCacheSamplerAndFourDoubleBits(bool cacheSampler)
+    {
+        var rectangle = new Rect(10, 20, 8, 6);
+        var drawing = new GeometryDrawing(Brushes.Red, null, new RectangleGeometry(rectangle));
+        var group = new DrawingGroup();
+        group.Children.Add(drawing);
+        var image = new DrawingImage(group);
+        var target = new DrawingVisual();
+        using (DrawingContext context = target.RenderOpen()) context.DrawDrawing(group);
+        var cache = new BitmapCache(2);
+        Brush brush = cacheSampler
+            ? new BitmapCacheBrush(target) { BitmapCache = cache, AutoWrapTarget = false }
+            : new ImageBrush(image);
+        var effect = new SourceEffect { Input = brush };
+        var source = (IPortableShaderEffectSource)effect;
+        double[] padding = [Math.BitIncrement(2d), 3, 4, Math.BitDecrement(5d)];
+        for (int axis = 0; axis < 4; ++axis) effect.SetPadding(axis, padding[axis]);
+        Assert.True(source.TryGetPortableShaderEffect(out var captured));
+        AssertPaddingBits(padding, captured);
+        var sampler = Assert.Single(captured.Samplers);
+        Assert.Same(brush, sampler.Brush);
+        Assert.Equal(cacheSampler ? PortableShaderSamplerKind.Brush : PortableShaderSamplerKind.ImageSource, sampler.Kind);
+        Assert.Equal(3, sampler.RegisterIndex);
+        Assert.Equal(PortableShaderSamplingMode.NearestNeighbor, sampler.SamplingMode);
+        if (cacheSampler)
+        {
+            Assert.Null(sampler.ImageSource);
+            Assert.True(((IPortableBitmapCacheBrushSource)brush).TryGetPortableBitmapCacheBrush(out var cacheState));
+            Assert.Same(target, cacheState.InternalTarget);
+            Assert.Same(cache, cacheState.BitmapCache);
+        }
+        else Assert.Same(image, sampler.ImageSource);
+        Assert.Same(group, image.Drawing);
+        Assert.Same(drawing, Assert.Single(group.Children));
+        Assert.Equal(rectangle, image.Bounds);
+        Assert.True(((IPortableVisualBoundsSource)target).TryGetPortableVisualBounds(out var bounds));
+        Assert.Equal(new PortableRect(10, 20, 8, 6), bounds.DescendantBounds);
+
+        double negativeZero = BitConverter.Int64BitsToDouble(long.MinValue);
+        for (int axis = 0; axis < 4; ++axis) effect.SetPadding(axis, negativeZero);
+        Assert.True(source.TryGetPortableShaderEffect(out var signedZero));
+        AssertPaddingBits([negativeZero, negativeZero, negativeZero, negativeZero], signedZero);
+        for (int axis = 0; axis < 4; ++axis) effect.SetPadding(axis, 0);
+        Assert.True(source.TryGetPortableShaderEffect(out var reset));
+        AssertPaddingBits([0, 0, 0, 0], reset);
+        AssertPaddingBits(padding, captured);
+        AssertPaddingBits([negativeZero, negativeZero, negativeZero, negativeZero], signedZero);
+        Assert.Same(brush, Assert.Single(reset.Samplers).Brush);
+        Assert.Equal(rectangle, image.Bounds);
+        Assert.Same(effect.OriginalShader, reset.PixelShader!.Source);
+    }
+
+    [Theory]
+    [InlineData(0)] [InlineData(1)] [InlineData(2)] [InlineData(3)]
+    public void PaddingRejectsEachInvalidSourceAxisWithoutChangingCapturedGeneration(int axis)
+    {
+        var effect = new SourceEffect();
+        var source = (IPortableShaderEffectSource)effect;
+        double[] original = [2, 3, 4, 5];
+        for (int i = 0; i < 4; ++i) effect.SetPadding(i, original[i]);
+        Assert.True(source.TryGetPortableShaderEffect(out var captured));
+        Assert.Throws<ArgumentOutOfRangeException>(() => effect.SetPadding(axis, -1));
+        Assert.True(source.TryGetPortableShaderEffect(out var afterSetterRejection));
+        AssertPaddingBits(original, afterSetterRejection);
+        foreach (double invalid in new[] { double.NaN, double.PositiveInfinity, double.MaxValue })
+        {
+            effect.SetPadding(axis, invalid); // protected source setter permits these values
+            Assert.False(source.TryGetPortableShaderEffect(out _));
+            AssertPaddingBits(original, captured);
+            effect.SetPadding(axis, original[axis]);
+            Assert.True(source.TryGetPortableShaderEffect(out var restored));
+            AssertPaddingBits(original, restored);
+        }
+        effect.SetPadding(axis, Math.BitDecrement((double)float.MaxValue));
+        Assert.True(source.TryGetPortableShaderEffect(out var finiteBoundary));
+        double[] expected = (double[])original.Clone();
+        expected[axis] = Math.BitDecrement((double)float.MaxValue);
+        AssertPaddingBits(expected, finiteBoundary);
+        AssertPaddingBits(original, captured);
+    }
+
+    private static void AssertPaddingBits(double[] expected, PortableShaderEffect effect)
+    {
+        double[] actual = [effect.PaddingTop, effect.PaddingBottom, effect.PaddingLeft, effect.PaddingRight];
+        for (int axis = 0; axis < 4; ++axis)
+            Assert.Equal(BitConverter.DoubleToInt64Bits(expected[axis]), BitConverter.DoubleToInt64Bits(actual[axis]));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
     public void VisualSamplerKeepsActualSourceIdentityBoundsChildrenAndMapping(bool absolute)
     {
         var child = new DrawingVisual();
@@ -339,6 +430,17 @@ public sealed class PortableShaderEffectSourceTests
         public double Amount { get => (double)GetValue(AmountProperty); set => SetValue(AmountProperty, value); }
         internal PixelShader OriginalShader => PixelShader;
         internal void SetTopPadding(double value) => PaddingTop = value;
+        internal void SetPadding(int axis, double value)
+        {
+            switch (axis)
+            {
+                case 0: PaddingTop = value; break;
+                case 1: PaddingBottom = value; break;
+                case 2: PaddingLeft = value; break;
+                case 3: PaddingRight = value; break;
+                default: throw new ArgumentOutOfRangeException(nameof(axis));
+            }
+        }
         protected override Freezable CreateInstanceCore() => new SourceEffect();
     }
 }

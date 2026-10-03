@@ -117,6 +117,16 @@ internal static class WpfEffectMapper
     {
         proGpuEffect = null!;
 
+        // The source DTO preserves the original doubles, including invalid
+        // values. Reject before replacement lookup or sampler ownership can
+        // allocate a candidate; the valid managed MaxPadding policy is separate
+        // from native per-edge capture semantics.
+        if (!IsValidShaderPadding(effect.PaddingTop) || !IsValidShaderPadding(effect.PaddingBottom) ||
+            !IsValidShaderPadding(effect.PaddingLeft) || !IsValidShaderPadding(effect.PaddingRight))
+        {
+            return false;
+        }
+
         if (!TryResolveShaderReplacement(effect, out var replacement))
         {
             return false;
@@ -165,6 +175,9 @@ internal static class WpfEffectMapper
             throw;
         }
     }
+
+    private static bool IsValidShaderPadding(double value) =>
+        value >= 0 && double.IsFinite(value) && float.IsFinite((float)value);
 
     private static bool TryResolveShaderReplacement(
         PortableShaderEffect effect,
