@@ -34,17 +34,26 @@ internal sealed class WpfShaderEffectSamplerTextureCache : IDisposable
     // until the entire composition target is cleared.
     private readonly ConditionalWeakTable<object, TextureEntry> _entries = new();
     private readonly ConditionalWeakTable<object, ConditionalWeakTable<object, TextureEntry>> _effectEntries = new();
+    private readonly ConditionalWeakTable<object, RawCacheEntry> _rawCacheEntries = new();
+    private readonly Func<global::ProGPU.Wpf.Interop.PortableBitmapCacheRasterPolicy>? _getCacheRasterPolicy;
     private bool _isDisposed;
 
     public WpfShaderEffectSamplerTextureCache(
         WgpuContext context,
         ProGpuCompositor compositor,
-        WpfViewport3DTextureCache viewport3DTextureCache)
+        WpfViewport3DTextureCache viewport3DTextureCache,
+        Func<global::ProGPU.Wpf.Interop.PortableBitmapCacheRasterPolicy>? getCacheRasterPolicy = null)
     {
         _context = context ?? throw new ArgumentNullException(nameof(context));
         _compositor = compositor ?? throw new ArgumentNullException(nameof(compositor));
         _viewport3DTextureCache = viewport3DTextureCache ?? throw new ArgumentNullException(nameof(viewport3DTextureCache));
+        _getCacheRasterPolicy = getCacheRasterPolicy;
     }
+
+    internal bool HasRawCacheSamplers => _rawCacheEntries.Any();
+
+    internal bool HasRawCachePolicy(global::ProGPU.Wpf.Interop.PortableBitmapCacheRasterPolicy policy) =>
+        _rawCacheEntries.All(entry => entry.Value.Policy.Equals(policy));
 
     public bool TryCreateSampler(
         object? brush,
@@ -75,18 +84,49 @@ internal sealed class WpfShaderEffectSamplerTextureCache : IDisposable
         if (brush is global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource cacheSource)
         {
             if (!cacheSource.TryGetPortableBitmapCacheBrush(out var cache) ||
-                effectOwner is null || effectFrame is not { } cacheFrame ||
-                !TryGetEffectTextureBounds(cacheFrame, out var cacheBounds, out uint cacheWidth, out uint cacheHeight) ||
                 !global::ProGPU.Wpf.Interop.PortableBitmapCacheBrushPolicy.TryResolve(cache, out _) ||
-                (cache.InternalTarget is { } target && !HasPositiveCacheSourceBounds(target)))
+                (cache.InternalTarget is { } target && !TryGetCacheSourceBounds(target, out _)))
                 return false;
-            var cacheEntry = GetOrCreateEntry(brush, cacheWidth, cacheHeight, effectOwner);
-            // Ordinary cache-brush recording owns the selected cache and its
-            // source-root exclusions. Do not reinterpret it as a tile brush.
-            if (!RenderBrushToTexture(new CapturedBitmapCacheBrush(cache), cacheBounds,
-                    cacheEntry.Texture, imageSourceAdapter, allowSkipped: false))
-                return false;
-            sampler = new WpfShaderEffectSampler(registerIndex, cacheEntry.Texture, samplingMode);
+            if (_getCacheRasterPolicy is null)
+                throw new NotSupportedException("Raw cache samplers require the actual primary display and owned device policy.");
+            var policy = _getCacheRasterPolicy();
+            if (!policy.IsValid) throw new NotSupportedException("The owned cache raster policy is unavailable.");
+            using var capture = WpfBitmapCacheBrushCapture.CreateShaderSource(new CapturedBitmapCacheBrush(cache),
+                _context, _viewport3DTextureCache, imageSourceAdapter);
+            var bounds = capture.Bounds;
+            if (!CacheSamplerRasterFrame.TryCreate(bounds.X, bounds.Y, bounds.Width, bounds.Height,
+                capture.CachePolicy.RenderAtScale, policy.PrimaryDpiScaleX, policy.PrimaryDpiScaleY,
+                policy.MaximumTextureWidth, policy.MaximumTextureHeight, out var rasterFrame))
+                throw new NotSupportedException("The original cache raster frame is outside the shared renderer contract.");
+            _rawCacheEntries.TryGetValue(brush, out var previous);
+            ulong revision = checked((previous?.Raster.SourceRevision ?? 0) + 1);
+            CacheSamplerRaster raster = _compositor.CaptureCacheSampler(capture.Picture, rasterFrame,
+                brush, revision, capture.CachePolicy.EnableClearType);
+            WpfShaderEffectSampler candidate;
+            try
+            {
+                candidate = WpfShaderEffectSampler.FromCacheRaster(registerIndex, raster, samplingMode);
+            }
+            catch (Exception failure)
+            {
+                try { raster.Dispose(); }
+                catch (Exception cleanup) { try { failure.Data["CacheRasterCleanupFailure"] = cleanup; } catch { } }
+                throw;
+            }
+            try
+            {
+                if (previous is null) _rawCacheEntries.Add(brush, new RawCacheEntry(raster, policy));
+                else previous.Replace(raster, policy);
+            }
+            catch (Exception failure)
+            {
+                try { candidate.Dispose(); }
+                catch (Exception cleanup) { try { failure.Data["CacheSamplerCleanupFailure"] = cleanup; } catch { } }
+                try { raster.Dispose(); }
+                catch (Exception cleanup) { try { failure.Data["CacheRasterCleanupFailure"] = cleanup; } catch { } }
+                throw;
+            }
+            sampler = candidate;
             return true;
         }
 
@@ -133,6 +173,8 @@ internal sealed class WpfShaderEffectSamplerTextureCache : IDisposable
         foreach (var owner in _effectEntries)
             foreach (var entry in owner.Value) entry.Value.Dispose();
         _effectEntries.Clear();
+        foreach (var entry in _rawCacheEntries) entry.Value.Dispose();
+        _rawCacheEntries.Clear();
     }
 
     internal void GetMemoryDiagnostics(out int textureCount, out ulong textureBytes)
@@ -160,6 +202,13 @@ internal sealed class WpfShaderEffectSamplerTextureCache : IDisposable
                 textureCount++;
                 textureBytes += (ulong)texture.Width * texture.Height * 4UL;
             }
+        foreach (var entry in _rawCacheEntries)
+        {
+            GpuTexture texture = entry.Value.Raster.Texture;
+            if (texture.IsDisposed) continue;
+            textureCount++;
+            textureBytes += (ulong)texture.Width * texture.Height * 4UL;
+        }
     }
 
     public void Dispose()
@@ -178,6 +227,8 @@ internal sealed class WpfShaderEffectSamplerTextureCache : IDisposable
         foreach (var owner in _effectEntries)
             foreach (var entry in owner.Value) entry.Value.Dispose();
         _effectEntries.Clear();
+        foreach (var entry in _rawCacheEntries) entry.Value.Dispose();
+        _rawCacheEntries.Clear();
         _isDisposed = true;
     }
 
@@ -256,14 +307,19 @@ internal sealed class WpfShaderEffectSamplerTextureCache : IDisposable
         { value = brush; return true; }
     }
 
-    private static bool HasPositiveCacheSourceBounds(object target)
+    private static bool TryGetCacheSourceBounds(object target, out bool empty)
     {
+        empty = false;
         if (target is not global::ProGPU.Wpf.Interop.IPortableVisualBoundsSource source ||
             !source.TryGetPortableVisualBounds(out var bounds) ||
             (!bounds.HasDescendantBounds && !bounds.HasContentBounds)) return false;
         var rect = bounds.HasDescendantBounds ? bounds.DescendantBounds : bounds.ContentBounds;
-        return !rect.IsEmpty && double.IsFinite(rect.X) && double.IsFinite(rect.Y) &&
-            double.IsFinite(rect.Width) && double.IsFinite(rect.Height) && rect.Width > 0 && rect.Height > 0;
+        if (rect.IsEmpty) { empty = true; return true; }
+        if (!double.IsFinite(rect.X) || !double.IsFinite(rect.Y) ||
+            !double.IsFinite(rect.Width) || !double.IsFinite(rect.Height) || rect.Width < 0 || rect.Height < 0)
+            return false;
+        empty = rect.Width == 0 || rect.Height == 0;
+        return true;
     }
 
     internal static bool TryGetBrushSourceBounds(object brush, out Rect bounds)
@@ -501,6 +557,25 @@ internal sealed class WpfShaderEffectSamplerTextureCache : IDisposable
                 TextureUsage.RenderAttachment | TextureUsage.TextureBinding,
                 "WPF ShaderEffect Brush Sampler Texture");
         }
+    }
+
+    private sealed class RawCacheEntry(CacheSamplerRaster raster,
+        global::ProGPU.Wpf.Interop.PortableBitmapCacheRasterPolicy policy) : IDisposable
+    {
+        internal CacheSamplerRaster Raster { get; private set; } = raster;
+        internal global::ProGPU.Wpf.Interop.PortableBitmapCacheRasterPolicy Policy { get; private set; } = policy;
+        internal void Replace(CacheSamplerRaster replacement,
+            global::ProGPU.Wpf.Interop.PortableBitmapCacheRasterPolicy replacementPolicy)
+        {
+            CacheSamplerRaster previous = Raster;
+            // Enqueue before publication: a failed enqueue leaves the prior
+            // owner intact, and source cleanup callbacks cannot reenter midway
+            // through candidate replacement. The existing render/context drain
+            // releases this owner; retained parameters have independent leases.
+            previous.Texture.Context.QueueExternalTextureOwnerDisposal(previous);
+            Raster = replacement; Policy = replacementPolicy;
+        }
+        public void Dispose() => Raster.Dispose();
     }
 
     private sealed class ShaderSamplerGeometryDrawing : PortableGeometryDrawingStateSource

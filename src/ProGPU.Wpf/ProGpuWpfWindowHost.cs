@@ -59,6 +59,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
     private ProGpuWpfCompositionTarget? _target;
     private NativeCompositor? _nativeMilCompositor;
     private WpfNativeMilCompilationSession? _nativeMilSession;
+    private WpfBitmapCacheRasterPolicySource? _nativeCacheRasterPolicySource;
     private readonly object _nativeMilPerformanceGate = new();
     private ProGpuWpfDiagnostics.NativePerformanceSnapshot _nativeMilPerformance;
     private ProGpuWpfDiagnostics.NativePerformanceSnapshot _pendingNativeMilPerformance;
@@ -2639,8 +2640,10 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
             }
             ProGpuWpfCompositionTarget target = CreateCompositionTargetForWindow(
                 window, sharedDeviceContext);
+            target.CacheRasterMonitors = () => PlatformServices.Monitors;
             NativeCompositor? nativeMilCompositor = null;
             WpfNativeMilCompilationSession? nativeMilSession = null;
+            WpfBitmapCacheRasterPolicySource? nativeCacheRasterPolicySource = null;
             try
             {
                 if (_options.TransparentFramebuffer)
@@ -2656,8 +2659,16 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
                     nativeMilCompositor = new NativeCompositor(
                         target.Context,
                         target.Context.SwapChainFormat);
+                    NativeCompositor ownedCompositor = nativeMilCompositor;
+                    nativeCacheRasterPolicySource = new WpfBitmapCacheRasterPolicySource(
+                        target.Context, () => PlatformServices.Monitors, () =>
+                        {
+                            var limits = ownedCompositor.GetCacheRasterLimits();
+                            return (limits.MaximumTextureWidth, limits.MaximumTextureHeight);
+                        });
                     nativeMilSession = new WpfNativeMilCompilationSession(
-                        NativeMilBackend.WgpuNative);
+                        NativeMilBackend.WgpuNative,
+                        new WpfNativeMilSceneCompiler(nativeCacheRasterPolicySource.CaptureFrame));
                 }
             }
             catch
@@ -2679,6 +2690,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
             _target = target;
             _nativeMilCompositor = nativeMilCompositor;
             _nativeMilSession = nativeMilSession;
+            _nativeCacheRasterPolicySource = nativeCacheRasterPolicySource;
             target.RenderInvalidated += OnCompositionTargetRenderInvalidated;
             WgpuContext.OnWebGpuDeviceLost += OnRenderDeviceLost;
             target.Context.VSync = _options.VSync;
@@ -3400,7 +3412,13 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
 
         _target.WpfInvalidationTracker.AttachIfChanged(rootVisual);
         if (!CanContinueRenderFrame(frameTarget, frameWindow)) return false;
-        bool update = !_nativeMilSession.IsInitialized ||
+        WpfBitmapCacheRasterPolicySource rasterPolicySource = _nativeCacheRasterPolicySource ??
+            throw new InvalidOperationException("The native MIL source raster-policy owner is unavailable.");
+        rasterPolicySource.BeginFrame();
+        bool rasterPolicyChanged = _nativeMilSession.HasCacheRasterSamplers &&
+            !_nativeMilSession.HasCacheRasterPolicy(rasterPolicySource.CaptureFrame());
+        if (!CanContinueRenderFrame(frameTarget, frameWindow)) return false;
+        bool update = rasterPolicyChanged || !_nativeMilSession.IsInitialized ||
             !ReferenceEquals(_nativeMilCompiledRootVisual, rootVisual) ||
             _nativeMilCompiledPixelWidth != pixelWidth ||
             _nativeMilCompiledPixelHeight != pixelHeight ||
@@ -5436,6 +5454,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
 
         _nativeMilSession?.Dispose();
         _nativeMilSession = null;
+        _nativeCacheRasterPolicySource = null;
         lock (_nativeMilPerformanceGate)
         {
             _nativeMilPerformance = default;

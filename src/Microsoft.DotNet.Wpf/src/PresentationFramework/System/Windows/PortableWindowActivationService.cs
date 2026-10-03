@@ -1299,8 +1299,39 @@ namespace System.Windows
         }
 
         private sealed class WindowActivationServiceRegistrar : IPortableWindowActivationServiceRegistrar,
-            IPortableWindowInputDispatcher, IPortableNativePointerInputService
+            IPortableWindowInputDispatcher, IPortableNativePointerInputService,
+            IPortablePrimaryDisplayRasterScaleSource
         {
+            [ThreadStatic]
+            private static SystemRasterScaleSnapshot t_systemRasterScale;
+
+            public bool TryGetPrimaryDisplayRasterScale(out PortablePrimaryDisplayRasterScale scale)
+            {
+                scale = default;
+                // Do not create a dispatcher or query from another source's
+                // thread. The current awareness context owns this OS value.
+                if (!OperatingSystem.IsWindows() || Dispatcher.FromThread(Thread.CurrentThread) == null ||
+                    !DpiUtil.TryGetSystemRasterScale(out float x, out float y))
+                    return false;
+                var snapshot = t_systemRasterScale ??= new SystemRasterScaleSnapshot();
+                if (snapshot.Revision == 0 || snapshot.X != x || snapshot.Y != y)
+                {
+                    snapshot.Revision = checked(snapshot.Revision + 1);
+                    snapshot.X = x;
+                    snapshot.Y = y;
+                }
+                scale = new PortablePrimaryDisplayRasterScale(x, y,
+                    PortablePrimaryDisplayRasterPolicy.WindowsSystemDpi, snapshot, snapshot.Revision);
+                return true;
+            }
+
+            private sealed class SystemRasterScaleSnapshot
+            {
+                internal float X;
+                internal float Y;
+                internal ulong Revision;
+            }
+
             public PortableWpfServiceKey ServiceKey
             {
                 get

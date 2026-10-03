@@ -17,7 +17,7 @@ public sealed partial class WpfNativeMilSceneCompilerTests
         var target = new FakeVisual(null, selection == 1
             ? new PortableVisualState { HasCacheMode = true, CacheMode = cache } : null);
         var brush = new ShaderCacheBrush(new(target, selection == 2 ? cache : null));
-        using var batch = ShaderBatch(VisualSamplerEffect(brush));
+        using var batch = CacheShaderBatch(VisualSamplerEffect(brush));
         int packet = FindCommand(batch.Bytes, 0x84);
         uint targetHandle = ReadUInt32(batch.Bytes, packet + 36);
         Assert.True(batch.VisualOwners.TryGetOwner(unchecked((int)targetHandle), out object? source));
@@ -37,7 +37,7 @@ public sealed partial class WpfNativeMilSceneCompilerTests
     public void CacheShaderNullKeepsActualBrushPacketAndDoesNotCreateSourceVisual()
     {
         var brush = new ShaderCacheBrush(new(null));
-        using var batch = ShaderBatch(VisualSamplerEffect(brush));
+        using var batch = CacheShaderBatch(VisualSamplerEffect(brush));
         int packet = FindCommand(batch.Bytes, 0x84);
         Assert.Equal(0U, ReadUInt32(batch.Bytes, packet + 36));
         Assert.Equal(1, batch.VisualOwners.Count); // receiver only
@@ -46,17 +46,15 @@ public sealed partial class WpfNativeMilSceneCompilerTests
         Assert.Contains(0x70, ReadCommands(batch.Bytes));
     }
 
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void CacheShaderRejectsNonNullEmptyOrMissingBoundsWithoutChangingPreviousBatch(bool missing)
+    [Fact]
+    public void CacheShaderRejectsMissingBoundsWithoutChangingPreviousBatch()
     {
         var brush = new ShaderCacheBrush(new(new FakeVisual(null)));
         var effect = VisualSamplerEffect(brush);
-        using var original = ShaderBatch(effect);
+        using var original = CacheShaderBatch(effect);
         byte[] bytes = (byte[])original.Bytes.Clone();
-        brush.State = new(missing ? new FakeVisualWithoutBounds(new()) : new SamplerVisual(null) { Empty = true });
-        Assert.Contains("positive original source bounds", Assert.Throws<NotSupportedException>(() => ShaderBatch(effect)).Message);
+        brush.State = new(new FakeVisualWithoutBounds(new()));
+        Assert.Contains("original source bounds", Assert.Throws<NotSupportedException>(() => CacheShaderBatch(effect)).Message);
         Assert.Equal(bytes, original.Bytes);
     }
 
@@ -72,7 +70,7 @@ public sealed partial class WpfNativeMilSceneCompilerTests
             ? brush.State with { BitmapCache = new FakeBitmapCache(new(2, false, false)) }
             : brush.State with { InternalTarget = new FakeVisual(null) };
         Assert.Contains("changed during native batch capture", Assert.Throws<InvalidOperationException>(() =>
-            new WpfNativeMilSceneCompiler().BuildBatch(new FakeVisual(null, null,
+            CreateCacheShaderCompiler().BuildBatch(new FakeVisual(null, null,
                 ShaderVisual(VisualSamplerEffect(brush)), ShaderVisual(later)), 64, 64)).Message);
     }
 
@@ -83,7 +81,7 @@ public sealed partial class WpfNativeMilSceneCompilerTests
         var receiver = ShaderVisual(VisualSamplerEffect(brush));
         brush.State = new(receiver);
         Assert.Contains("cycle", Assert.Throws<InvalidOperationException>(() =>
-            new WpfNativeMilSceneCompiler().BuildBatch(receiver, 64, 64)).Message);
+            CreateCacheShaderCompiler().BuildBatch(receiver, 64, 64)).Message);
     }
 
     [Fact]
@@ -107,15 +105,14 @@ public sealed partial class WpfNativeMilSceneCompilerTests
             [new FakeBrush(new(255, 255, 0, 0))]));
         var brush = new ShaderCacheBrush(new(target));
         var receiver = ShaderVisual(VisualSamplerEffect(brush));
-        using var session = new WpfNativeMilCompilationSession(backend);
+        using var session = new WpfNativeMilCompilationSession(backend, CreateCacheShaderCompiler());
         Assert.True(session.Update(receiver, 64, 64).RecreatedChannel);
         var initial = session.CompileFrame(11951, 1, 0, 1);
         byte[] original = initial.Scene.Stream.ToArray();
         Assert.False(session.Update(receiver, 64, 64).RecreatedChannel);
-        target.Empty = true;
+        brush.State = new(new FakeVisualWithoutBounds(new()));
         Assert.Throws<NotSupportedException>(() => session.Update(receiver, 64, 64));
         Assert.Equal(original, session.CompileFrame(11951, 1, 0, 1).Scene.Stream.ToArray());
-        target.Empty = false;
         brush.State = new(null);
         Assert.True(session.Update(receiver, 64, 64).RecreatedChannel);
         var disconnected = session.CompileFrame(11951, 2, 0, 2);
@@ -130,6 +127,14 @@ public sealed partial class WpfNativeMilSceneCompilerTests
         Assert.Equal(original, initial.Scene.Stream.ToArray());
         Assert.Equal(noSource, disconnected.Scene.Stream.ToArray());
     }
+
+    // These are explicit synthetic source/device-policy fixtures, not host
+    // limit discovery or a default granted to unrelated shader tests.
+    private static WpfNativeMilSceneCompiler CreateCacheShaderCompiler(ulong revision = 1) =>
+        new(() => new PortableBitmapCacheRasterPolicy(1, 1, 4096, 4096, revision));
+
+    private static WpfNativeMilBatch CacheShaderBatch(ShaderEffectSource effect) =>
+        CreateCacheShaderCompiler().BuildBatch(ShaderVisual(effect), 64, 64);
 
     private sealed class ShaderCacheBrush(PortableBitmapCacheBrush state) : IPortableBitmapCacheBrushSource,
         IPortableBrushSource

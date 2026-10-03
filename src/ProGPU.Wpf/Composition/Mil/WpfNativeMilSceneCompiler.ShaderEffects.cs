@@ -12,6 +12,8 @@ public sealed partial class WpfNativeMilSceneCompiler
         private readonly Dictionary<IPortablePixelShaderSource, ShaderSnapshot> _pixelShaderHandles =
             new(ReferenceEqualityComparer.Instance);
         private uint _implicitInputBrushHandle;
+        private readonly Dictionary<object, uint> _shaderCacheBrushHandles =
+            new(ReferenceEqualityComparer.Instance);
 
         private readonly record struct ShaderSnapshot(
             uint Handle, NativeMilShaderRenderMode Mode, bool CompileSoftwareShader, byte[] Bytecode);
@@ -68,12 +70,15 @@ public sealed partial class WpfNativeMilSceneCompiler
                     {
                         if (!cacheSource.TryGetPortableBitmapCacheBrush(out var cache))
                             throw MissingContract(nameof(IPortableBitmapCacheBrushSource));
-                        // Null is actual transparent content. A non-null empty
-                        // cache target is a separate, unimplemented contract;
-                        // never let ordinary empty-source lowering erase it.
-                        if (cache.InternalTarget is { } target && !TryGetVisualBounds(target, out _))
-                            throw new NotSupportedException("Native shader BitmapCacheBrush targets require positive original source bounds.");
-                        brush = ResolveBrush(sampler.Brush, capturedCache: cache);
+                        if (cache.InternalTarget is { } target)
+                        {
+                            if (!TryGetVisualBounds(target, out _, allowEmpty: true))
+                                throw new NotSupportedException("Native shader BitmapCacheBrush targets require original source bounds.");
+                        }
+                        // Raw cache-raster policy belongs to the exact shader
+                        // resource, not ordinary paint using the same brush.
+                        brush = ResolveBrush(sampler.Brush, capturedCache: cache,
+                            shaderCacheSource: true);
                         break;
                     }
                     // The source exports its actual VisualBrush through the

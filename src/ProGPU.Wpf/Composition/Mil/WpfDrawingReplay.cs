@@ -1104,6 +1104,8 @@ internal static class WpfDrawingReplay
         if (!source.TryGetPortableBitmapCacheBrush(out var brush)) return WpfDrawingReplayStatus.Unsupported;
         if (!double.IsFinite(brush.Opacity) || brush.Opacity < 0 || brush.Opacity > 1)
             return WpfDrawingReplayStatus.Unsupported;
+        if (WpfCaptureReplayGuard.ValidateHiddenSources)
+            WpfBitmapCacheBrushCapture.ValidateNestedShaderSource(brush);
         if (brush.InternalTarget == null || brush.Opacity == 0)
         {
             // No paint still owns the source geometry for input, just as a
@@ -1150,7 +1152,16 @@ internal static class WpfDrawingReplay
         status = WpfDrawingReplayStatus.Unsupported;
         if (!double.IsFinite(center.X) || !double.IsFinite(center.Y) || !double.IsFinite(radiusX)
             || !double.IsFinite(radiusY) || radiusX < 0 || radiusY < 0) return true;
-        if (radiusX == 0 || radiusY == 0) { status = WpfDrawingReplayStatus.Applied; return true; }
+        if (radiusX == 0 || radiusY == 0)
+        {
+            if (WpfCaptureReplayGuard.ValidateHiddenSources)
+            {
+                if (!source.TryGetPortableBitmapCacheBrush(out var brush)) return true;
+                WpfBitmapCacheBrushCapture.ValidateNestedShaderSource(brush);
+            }
+            status = WpfDrawingReplayStatus.Applied;
+            return true;
+        }
         var bounds = new Rect(center.X - radiusX, center.Y - radiusY, radiusX * 2, radiusY * 2);
         var fill = new TileBrushFillGeometry(null, bounds, null, null, false,
             new WpfReplayPoint(center.X, center.Y), radiusX, radiusY);

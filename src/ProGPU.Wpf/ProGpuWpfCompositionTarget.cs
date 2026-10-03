@@ -27,6 +27,9 @@ public unsafe sealed class ProGpuWpfCompositionTarget : IDisposable
     private readonly bool _ownsContext;
     private readonly bool _ownsCompositor;
     private readonly WpfShaderEffectSamplerTextureCache _shaderEffectSamplerTextureCache;
+    private readonly WpfBitmapCacheRasterPolicySource _cacheRasterPolicySource;
+    internal Func<global::System.Windows.Media.ProGPU.Platform.IWpfMonitorService> CacheRasterMonitors { get; set; } =
+        static () => global::System.Windows.Media.ProGPU.Platform.CrossPlatformWpfPlatformServices.Instance.Monitors;
     private IWpfImageSourceAdapter? _frameImageSourceAdapterSource;
     private WpfShaderEffectSamplerImageSourceAdapter? _frameImageSourceAdapter;
     private bool _isDisposed;
@@ -111,10 +114,12 @@ public unsafe sealed class ProGpuWpfCompositionTarget : IDisposable
         _ownsContext = ownsContext;
         _ownsCompositor = ownsCompositor;
         Viewport3DTextureCache = new WpfViewport3DTextureCache(Context);
+        _cacheRasterPolicySource = new WpfBitmapCacheRasterPolicySource(Context, () => CacheRasterMonitors());
         _shaderEffectSamplerTextureCache = new WpfShaderEffectSamplerTextureCache(
             Context,
             Compositor,
-            Viewport3DTextureCache);
+            Viewport3DTextureCache,
+            _cacheRasterPolicySource.CaptureFrame);
         WpfInvalidationTracker.Invalidated += OnWpfSourceInvalidated;
         ResetSceneRoot();
     }
@@ -1127,6 +1132,13 @@ public unsafe sealed class ProGpuWpfCompositionTarget : IDisposable
     {
         ThrowIfDisposed();
         if (!float.IsFinite(dpiScale) || dpiScale <= 0) throw new ArgumentOutOfRangeException(nameof(dpiScale));
+        _cacheRasterPolicySource.BeginFrame();
+        if (_shaderEffectSamplerTextureCache.HasRawCacheSamplers &&
+            !_shaderEffectSamplerTextureCache.HasRawCachePolicy(_cacheRasterPolicySource.CaptureFrame()))
+        {
+            WpfInvalidationTracker.MarkDirty();
+            LastRetainedBranchInvalidationUsedFallback = true;
+        }
         if (_frameImageSourceAdapter == null ||
             !ReferenceEquals(_frameImageSourceAdapterSource, imageSourceAdapter) ||
             _frameImageSourceAdapter.DpiScale != dpiScale)

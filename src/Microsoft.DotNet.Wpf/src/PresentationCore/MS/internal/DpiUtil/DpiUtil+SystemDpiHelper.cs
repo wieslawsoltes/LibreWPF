@@ -29,6 +29,46 @@ namespace MS.Internal
             /// </summary>
             private static bool IsGetDpiForSystemFunctionAvailable { get; set; } = true;
 
+            internal static bool TryGetSystemRasterScale(out float scaleX, out float scaleY)
+            {
+                scaleX = scaleY = 0;
+                if (!OperatingSystem.IsWindows()) return false;
+                if (IsGetDpiForSystemFunctionAvailable)
+                {
+                    try
+                    {
+                        uint dpi = SafeNativeMethods.GetDpiForSystem();
+                        if (dpi != 0)
+                        {
+                            scaleX = scaleY = (float)dpi / 96.0f;
+                            return true;
+                        }
+                    }
+                    catch (Exception e) when (e is EntryPointNotFoundException ||
+                        e is MissingMethodException || e is DllNotFoundException)
+                    {
+                        IsGetDpiForSystemFunctionAvailable = false;
+                    }
+                }
+
+                HandleRef desktop = new HandleRef(null, IntPtr.Zero);
+                HandleRef dc = new HandleRef(null, UnsafeNativeMethods.GetDC(desktop));
+                if (dc.Handle == IntPtr.Zero) return false;
+                try
+                {
+                    int dpiX = UnsafeNativeMethods.GetDeviceCaps(dc, NativeMethods.LOGPIXELSX);
+                    int dpiY = UnsafeNativeMethods.GetDeviceCaps(dc, NativeMethods.LOGPIXELSY);
+                    if (dpiX <= 0 || dpiY <= 0) return false;
+                    scaleX = (float)dpiX / 96.0f;
+                    scaleY = (float)dpiY / 96.0f;
+                    return true;
+                }
+                finally
+                {
+                    UnsafeNativeMethods.ReleaseDC(desktop, dc);
+                }
+            }
+
             /// <summary>
             /// Gets the System DPI
             /// </summary>
