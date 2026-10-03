@@ -15,9 +15,9 @@ sampler changes generate real resource updates rather than stale DTO identity hi
 Failed source capture never reaches the active channel.
 
 Only explicit Auto/HardwareOnly intent, float constants, zero padding, and one
-implicit-input, original ImageBrush or original VisualBrush sampler are admitted by this source seam.
+implicit-input, original ImageBrush, VisualBrush or BitmapCacheBrush sampler are admitted by this source seam.
 SoftwareOnly, absent/unknown intent, raw-image-only sampler DTOs, arbitrary brush
-samplers other than typed VisualBrush, multiple/missing samplers, integer/Boolean constants and nonzero padding
+samplers other than typed VisualBrush/BitmapCacheBrush, multiple/missing samplers, integer/Boolean constants and nonzero padding
 remain rejected. Instruction/register combinations remain subject to native
 validation; this does not claim all shader-model bytecode is implemented.
 The original `compileSoftwareShader` MIL flag is retained, not interpreted as
@@ -33,7 +33,7 @@ VisualBrush samplers use the existing `Brush` sampler discriminator and original
 `IPortableTileBrushSource` snapshot. The compiler requires `Kind.Visual`, retains
 the exact original `Content` reference, and resolves the ordinary native visual
 graph and descendant-bounds sideband. It does not rasterize the source, substitute
-an image, or admit DrawingBrush/BitmapCacheBrush as shader samplers. Reusing a
+an image, or admit DrawingBrush as a shader sampler. Reusing a
 source brush with conflicting captured content/mapping rejects the whole batch.
 Empty VisualBrush sources retain their initialized visual and child graph rather
 than disappearing into a null handle; active cycles and multiple parents still
@@ -70,6 +70,47 @@ The actual source selector increases its minimum by five and retains its origina
 texture rendering. The ordinary null-brush control retains the original source
 rectangle hit scope while emitting no paint; the real sampler cache still calls
 the compositor's transparent-clear offscreen pass before publishing its texture.
+
+## Original BitmapCacheBrush samplers
+
+The source already exports a genuine BitmapCacheBrush as a `Brush` sampler plus
+`IPortableBitmapCacheBrushSource`. The compiler now consumes that snapshot once,
+retaining the exact `InternalTarget` (including source-owned AutoWrapTarget),
+selected BitmapCache reference and original brush state. Repeated source identity
+with conflicting captured target/cache/mapping rejects the whole candidate batch.
+Native MIL resolves the existing cache picture, not a VisualBrush tile or bitmap
+substitute. Explicit/target/default cache selection and zero-scale policy remain
+the existing cache contract. Root outer-state exclusions belong to that capture;
+descendant state remains live. Actual source `VisualDescendantBounds` describes
+inner-space content plus child outer bounds and does not apply the target root's
+own clip, offset or transform.
+
+Null target is genuine transparent source. Non-null targets require positive
+typed capture-local bounds in this shader family; empty targets remain explicitly
+unsupported and never become null or reuse the VisualBrush empty-source marker.
+Ordinary cache-brush admission remains separate. A no-ink cache-brush fill retains
+its existing source rectangle identity for input without acquiring a cached page.
+The managed sampler adapter also requires the actual receiving owner/full physical
+effect frame and reuses the existing owned cache-picture drawing route. A null
+target still clears a real offscreen texture before publishing it; it is not a
+null sampler, stale prior frame or an intrinsic-size capture.
+
+This is authored source integration requiring the paired new native producer and
+rebuilt source graph. Qualified ProGPU/Forms pins and automatic defaults are not
+changed. No execution/validation is recorded; genuine original, both-provider and
+application gates remain deferred to the final implementation tip.
+The native pairing is ProGPU #343,
+`247eda817e9365744046da72996f3c840f7c3853`; it remains unqualified. Four actual
+PresentationCore cases retain sampler/InternalTarget/AutoWrapTarget/cache identity
+and capture-local bounds under all six excluded root properties with a separate
+descendant clip. Twelve compiler/session cases cover all cache-selection sources,
+null versus non-null empty/missing targets, conflicting reference snapshots,
+cycles, dependency ownership and both backend session identities. The source
+selector increases its minimum by four without changing the deadline.
+Five managed controls separately retain live/null receiving frames and reject an
+unframed call before any texture/cache allocation, plus the null paint's exact
+source-hit scope without a cache-page draw. These are authored control paths,
+not executed GPU or original-Windows evidence.
 
 Original BitmapSource exports metadata-only pixel dimensions and both source DPI
 axes. Shared ImageBrush replay keeps source DIP stretch/placement separate from

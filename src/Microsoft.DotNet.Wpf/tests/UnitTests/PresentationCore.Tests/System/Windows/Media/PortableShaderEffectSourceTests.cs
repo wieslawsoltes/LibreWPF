@@ -218,6 +218,102 @@ public sealed class PortableShaderEffectSourceTests
         Assert.Throws<ArgumentException>(() => effect.Input = new DrawingBrush());
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void CacheShaderSamplerRetainsActualInternalTargetAndSelectedCache(bool wrap)
+    {
+        var target = new DrawingVisual();
+        var cache = new BitmapCache(2);
+        var brush = new BitmapCacheBrush(target) { AutoWrapTarget = wrap, BitmapCache = cache };
+        var effect = new SourceEffect { Input = brush };
+        Assert.True(((IPortableShaderEffectSource)effect).TryGetPortableShaderEffect(out var shader));
+        var sampler = Assert.Single(shader.Samplers);
+        Assert.Equal(PortableShaderSamplerKind.Brush, sampler.Kind);
+        Assert.Equal(3, sampler.RegisterIndex);
+        Assert.Same(brush, sampler.Brush);
+        Assert.Null(sampler.ImageSource);
+        Assert.True(((IPortableBitmapCacheBrushSource)brush).TryGetPortableBitmapCacheBrush(out var captured));
+        Assert.Same(brush.InternalTarget, captured.InternalTarget);
+        Assert.Same(cache, captured.BitmapCache);
+        Assert.Equal(1, captured.Opacity);
+        Assert.False(captured.HasTransform);
+        Assert.False(captured.HasRelativeTransform);
+        if (wrap)
+        {
+            Assert.NotSame(target, captured.InternalTarget);
+            var wrapper = Assert.IsAssignableFrom<IPortableVisualChildrenSource>(captured.InternalTarget);
+            Assert.True(wrapper.TryGetPortableVisualChildCount(out int count));
+            Assert.Equal(1, count);
+            Assert.True(wrapper.TryGetPortableVisualChild(0, out object child));
+            Assert.Same(target, child);
+        }
+        else Assert.Same(target, captured.InternalTarget);
+    }
+
+    [Fact]
+    public void CacheShaderTargetBoundsIgnoreOuterRootStateButPreserveDescendantClip()
+    {
+        var child = new CacheSourceDrawingVisual();
+        using (DrawingContext context = child.RenderOpen())
+            context.DrawRectangle(Brushes.Red, null, new Rect(10, 20, 8, 6));
+        var root = new CacheSourceContainerVisual();
+        root.Children.Add(child);
+        root.SetOuterState();
+        var brush = new BitmapCacheBrush(root);
+        var effect = new SourceEffect { Input = brush };
+        Assert.True(((IPortableShaderEffectSource)effect).TryGetPortableShaderEffect(out var shader));
+        Assert.Same(brush, Assert.Single(shader.Samplers).Brush);
+        Assert.True(((IPortableVisualBoundsSource)root).TryGetPortableVisualBounds(out var before));
+        Assert.Equal(new PortableRect(10, 20, 8, 6), before.DescendantBounds);
+        child.SetClip(new Rect(12, 21, 2, 3));
+        Assert.True(((IPortableVisualBoundsSource)root).TryGetPortableVisualBounds(out var after));
+        Assert.Equal(new PortableRect(12, 21, 2, 3), after.DescendantBounds);
+        Assert.True(((IPortableBitmapCacheBrushSource)brush).TryGetPortableBitmapCacheBrush(out var captured));
+        Assert.Same(root, captured.InternalTarget);
+    }
+
+    [Fact]
+    public void CacheShaderNullTargetAndCacheMutationRetainOriginalBrush()
+    {
+        var target = new DrawingVisual();
+        var first = new BitmapCache(1);
+        var second = new BitmapCache(2);
+        var brush = new BitmapCacheBrush(target) { BitmapCache = first };
+        var effect = new SourceEffect { Input = brush };
+        Assert.True(((IPortableBitmapCacheBrushSource)brush).TryGetPortableBitmapCacheBrush(out var before));
+        brush.Target = null;
+        brush.BitmapCache = second;
+        Assert.True(((IPortableShaderEffectSource)effect).TryGetPortableShaderEffect(out var shader));
+        Assert.Same(brush, Assert.Single(shader.Samplers).Brush);
+        Assert.True(((IPortableBitmapCacheBrushSource)brush).TryGetPortableBitmapCacheBrush(out var after));
+        Assert.Null(after.InternalTarget);
+        Assert.Same(second, after.BitmapCache);
+        Assert.Same(target, before.InternalTarget);
+        Assert.Same(first, before.BitmapCache);
+        brush.Target = target;
+        Assert.True(((IPortableBitmapCacheBrushSource)brush).TryGetPortableBitmapCacheBrush(out var restored));
+        Assert.Same(target, restored.InternalTarget);
+    }
+
+    private sealed class CacheSourceDrawingVisual : DrawingVisual
+    {
+        internal void SetClip(Rect rectangle) => VisualClip = new RectangleGeometry(rectangle);
+    }
+
+    private sealed class CacheSourceContainerVisual : ContainerVisual
+    {
+        internal void SetOuterState()
+        {
+            VisualOffset = new Vector(100, 200);
+            VisualTransform = new ScaleTransform(2, 3);
+            VisualClip = new RectangleGeometry(new Rect(0, 0, 1, 1));
+            VisualOpacity = 0;
+            VisualOpacityMask = Brushes.Transparent;
+            VisualEffect = new BlurEffect { Radius = 4 };
+        }
+    }
+
     private static PixelShader CreateShader()
     {
         var shader = new PixelShader();

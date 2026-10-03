@@ -390,6 +390,8 @@ public sealed partial class WpfNativeMilSceneCompiler
         private readonly HashSet<uint> _visualBoundsHandles = [];
         private readonly Dictionary<object, PortableTileBrush> _tileBrushSnapshots =
             new(ReferenceEqualityComparer.Instance);
+        private readonly Dictionary<object, PortableBitmapCacheBrush> _cacheBrushSnapshots =
+            new(ReferenceEqualityComparer.Instance);
         private uint _nextHandle = 1;
 
         internal NativeMilBatchBuilder Batch { get; } = new();
@@ -1743,19 +1745,33 @@ public sealed partial class WpfNativeMilSceneCompiler
             return resource;
         }
 
-        private uint ResolveBrush(object resource, PortableTileBrush? capturedTile = null)
+        private uint ResolveBrush(object resource, PortableTileBrush? capturedTile = null,
+            PortableBitmapCacheBrush? capturedCache = null)
         {
             if (capturedTile is not null && _tileBrushSnapshots.TryGetValue(resource, out PortableTileBrush? previousTile) &&
                 !SameTileBrushSnapshot(previousTile, capturedTile))
                 throw new InvalidOperationException("One source tile brush changed during native batch capture.");
+            if (capturedCache is { } cacheSnapshot && _cacheBrushSnapshots.TryGetValue(resource, out var previousCache) &&
+                !SameCacheBrushSnapshot(previousCache, cacheSnapshot))
+                throw new InvalidOperationException("One source cache brush changed during native batch capture.");
             if (_brushHandles.TryGetValue(resource, out uint existing))
             {
                 return existing;
             }
             if (resource is IPortableBitmapCacheBrushSource cacheSource)
             {
-                if (!cacheSource.TryGetPortableBitmapCacheBrush(out PortableBitmapCacheBrush cacheBrush))
+                PortableBitmapCacheBrush cacheBrush;
+                if (capturedCache is { } captured)
+                    cacheBrush = captured;
+                else if (!cacheSource.TryGetPortableBitmapCacheBrush(out cacheBrush))
                     throw MissingContract(nameof(IPortableBitmapCacheBrushSource));
+                if (_cacheBrushSnapshots.TryGetValue(resource, out var previous))
+                {
+                    if (!SameCacheBrushSnapshot(previous, cacheBrush))
+                        throw new InvalidOperationException("One source cache brush changed during native batch capture.");
+                }
+                else
+                    _cacheBrushSnapshots.Add(resource, cacheBrush);
                 // Resolve before publishing the brush handle so a source that
                 // paints itself reaches the existing active-visual cycle guard.
                 uint target = cacheBrush.InternalTarget is null ? 0U
@@ -1852,6 +1868,12 @@ public sealed partial class WpfNativeMilSceneCompiler
             left.ViewboxUnits == right.ViewboxUnits && left.TileMode == right.TileMode &&
             left.Stretch == right.Stretch && left.AlignmentX == right.AlignmentX &&
             left.AlignmentY == right.AlignmentY && left.HasTransform == right.HasTransform &&
+            left.Transform.Equals(right.Transform) && left.HasRelativeTransform == right.HasRelativeTransform &&
+            left.RelativeTransform.Equals(right.RelativeTransform);
+
+        private static bool SameCacheBrushSnapshot(PortableBitmapCacheBrush left, PortableBitmapCacheBrush right) =>
+            ReferenceEquals(left.InternalTarget, right.InternalTarget) && ReferenceEquals(left.BitmapCache, right.BitmapCache) &&
+            left.Opacity.Equals(right.Opacity) && left.HasTransform == right.HasTransform &&
             left.Transform.Equals(right.Transform) && left.HasRelativeTransform == right.HasRelativeTransform &&
             left.RelativeTransform.Equals(right.RelativeTransform);
 
