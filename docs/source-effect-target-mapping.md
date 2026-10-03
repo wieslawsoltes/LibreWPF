@@ -55,8 +55,18 @@ brush-family admission, source geometry hits, final clips or resource retirement
 The source branch is a child of LibreWPF #249
 `e9683966cfec976491c9ea8c3c02bc8d5e0dd179`. It requires the coordinated Scene
 source-raster-frame producer successor of ProGPU #350 and a rebuilt source graph.
+Its frozen API checkpoint is `e9f7f0524c3713755b8960d06397e186575012a0`
+on `feat/source-effect-raster-frame`.
 The qualified ProGPU and LibreWinForms gitlinks are unchanged; their older binaries
 are not claimed to provide the additive resolver/vector frame contract.
+
+Seven new controls cover actual host input wiring, target-owned adapter
+reuse/invalidation, exact descriptor/resolver forwarding, absent or invalid
+mapping rejection, independent asymmetric mapping and an actual device-owning
+sampler cache's physical extent/identity/clear path. The existing eleven source
+frame controls remain, with the receiving-adapter control now supplying an
+actual target frame. Metadata forwarding does not claim GPU execution; the two
+new device-owning controls are likewise authored but not run.
 
 Controls are authored only. No builds, tests, syntax checks, verifiers, probes,
 GPU/UI/VM execution or CI dispatch occurred. Actual source/platform rendering and

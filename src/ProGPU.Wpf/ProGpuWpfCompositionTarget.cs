@@ -1140,6 +1140,7 @@ public unsafe sealed class ProGpuWpfCompositionTarget : IDisposable
     internal IWpfImageSourceAdapter? CreateFrameImageSourceAdapter(IWpfImageSourceAdapter? imageSourceAdapter, float dpiScale = 1f)
     {
         ThrowIfDisposed();
+        if (!float.IsFinite(dpiScale) || dpiScale <= 0) throw new ArgumentOutOfRangeException(nameof(dpiScale));
         // Tracked/untracked replay may already carry this target's immutable
         // adapter. Preserve it rather than wrapping it in an unbound DPI-1 frame.
         if (imageSourceAdapter is WpfShaderEffectSamplerImageSourceAdapter existing &&
