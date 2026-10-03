@@ -53,12 +53,15 @@ the edge. Reused source brushes, drawings and visuals propagate dependencies in
 either traversal order. Ordinary-only empty painting does not acquire this edge
 or broader cache allocation admission.
 
-One combination remains explicitly unsupported: a known-empty DrawingImage whose
-canonical drawing handle is zero but whose discarded drawing contains nested
-cache dependencies. The source rejects that shader closure rather than claiming
-orphan serialized nodes prove ownership. Ordinary empty DrawingImage painting is
-unchanged. A separate paired native DrawingImage ownership witness is required to
-complete this combination; it is not implemented or qualified by this draft.
+Known-empty DrawingImage wrappers now retain their original initialized drawing
+through the separate SetDrawingImageEmptySource image-to-drawing ownership edge.
+Canonical ordinary paint remains null, and genuinely absent Drawing remains
+witnessless. The compiler completes these edges only for shader source closures,
+including nested/reused image wrappers reached before or after ordinary painting.
+The native channel, not orphan serialization or a source-only check, owns the
+resulting revision/deletion/cycle relationships. No positive bounds are invented.
+This requires the coordinated new producer API and source rebuild; the qualified
+pins remain unchanged. See [empty DrawingImage ownership](source-empty-drawing-image-ownership.md).
 
 ## Generation lifetime and authored controls
 

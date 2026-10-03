@@ -158,7 +158,9 @@ public sealed partial class WpfNativeMilSceneCompilerTests
             EmptyDrawingImageSources = new WpfNativeMilEmptyDrawingImageSource[]
                 { new(edge.ImageHandle, initial.TargetHandle) }
         };
-        Assert.True(WpfNativeMilCompilationSession.CreateDelta(initial, invalid).RequiresRebuild);
+        var unchangedPackets = WpfNativeMilCompilationSession.CreateDelta(initial, invalid);
+        Assert.False(unchangedPackets.RequiresRebuild);
+        Assert.Empty(unchangedPackets.Bytes); // the sideband comparison owns replacement
         Assert.ThrowsAny<Exception>(() => session.Update(invalid));
         Assert.Equal(bytes, session.CompileFrame(11957, 1, 0, 1).Scene.Stream.ToArray());
 
