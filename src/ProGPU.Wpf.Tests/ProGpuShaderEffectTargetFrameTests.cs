@@ -55,8 +55,9 @@ public sealed class ProGpuShaderEffectTargetFrameTests
         // frame. It must not be mistaken for a reusable retained source frame.
         var moved = initial with { Viewport = new Scene.RenderTargetViewport(12, 16, 192, 128) };
         var second = Assert.IsType<WpfShaderEffectSamplerImageSourceAdapter>(
-            target.CreateFrameImageSourceAdapter(null, 1.25f, moved));
+            target.CreateFrameImageSourceAdapter(first, 1.25f, moved));
         Assert.NotSame(first, second);
+        Assert.Null(second.SourceAdapter);
         Assert.Equal(initial, first.TargetFrame);
         Assert.Equal(moved, second.TargetFrame);
         Assert.True(target.ShouldReplayVisualSubtree(root));

@@ -637,6 +637,8 @@ internal sealed class WpfShaderEffectSamplerImageSourceAdapter :
 
     internal bool UsesCache(WpfShaderEffectSamplerTextureCache cache) => ReferenceEquals(_samplerTextureCache, cache);
 
+    internal IWpfImageSourceAdapter? SourceAdapter => _inner;
+
     public WpfShaderEffectSamplerImageSourceAdapter(
         IWpfImageSourceAdapter? inner,
         WpfShaderEffectSamplerTextureCache samplerTextureCache,

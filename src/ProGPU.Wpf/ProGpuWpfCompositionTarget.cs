@@ -1153,6 +1153,10 @@ public unsafe sealed class ProGpuWpfCompositionTarget : IDisposable
     {
         ThrowIfDisposed();
         if (!targetFrame.TryGetPixelsPerUnit(out _)) throw new ArgumentOutOfRangeException(nameof(targetFrame));
+        // An explicit new target replaces this cache's old frame wrapper. The
+        // old wrapper must not overwrite the new mapping in an inner callback.
+        while (imageSourceAdapter is WpfShaderEffectSamplerImageSourceAdapter existing &&
+            existing.UsesCache(_shaderEffectSamplerTextureCache)) imageSourceAdapter = existing.SourceAdapter;
         return CreateFrameImageSourceAdapterCore(imageSourceAdapter, dpiScale, targetFrame);
     }
 
