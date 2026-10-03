@@ -321,6 +321,9 @@ internal sealed class ProGpuRetainedCompositionCommandSink :
     {
         ThrowIfClosed();
 
+        if (!TryGetEffectSourceTranslation(state.Effect, state.ContentBounds, out var sourceTranslation))
+            throw new InvalidOperationException("The source effect capture does not match its retained content frame.");
+
         var visual = Current.Visual;
         visual.IsVisible = state.IsVisible;
         visual.Offset = state.Offset;
@@ -344,7 +347,28 @@ internal sealed class ProGpuRetainedCompositionCommandSink :
             ? ToNativeRect(state.OpacityMaskBounds.Value)
             : null;
         visual.Effect = state.Effect;
+        visual.EffectSourceTranslation = sourceTranslation;
         visual.CacheAsLayer = state.CacheAsLayer;
+    }
+
+    private static bool TryGetEffectSourceTranslation(ProGpuEffectBase? effect, WpfReplayRect? bounds,
+        out Vector2? translation)
+    {
+        translation = null;
+        if (effect is not global::ProGPU.Scene.WpfShaderEffect { SourceCapture: { } source }) return true;
+        if (!source.IsValid || bounds is not { } original ||
+            source != new global::ProGPU.Scene.ShaderEffectSourceCapture(
+                original.X, original.Y, original.Width, original.Height,
+                source.PaddingTop, source.PaddingBottom, source.PaddingLeft, source.PaddingRight))
+            return false;
+
+        // These are the actual translations applied to recorded content by
+        // PushRetainedVisualStateContentTransform and PushVisualScope. This is
+        // provenance, not a second padding/extent/UV calculation.
+        translation = original.X == 0 && original.Y == 0
+            ? Vector2.Zero
+            : new Vector2((float)-original.X, (float)-original.Y);
+        return true;
     }
 
     private static global::ProGPU.Vector.Brush? ToNativeBrush(MediaBrush brush, WpfReplayRect bounds)
@@ -645,10 +669,12 @@ internal sealed class ProGpuRetainedCompositionCommandSink :
         ThrowIfClosed();
         ArgumentNullException.ThrowIfNull(effect);
 
+        if (!TryGetEffectSourceTranslation(effect, bounds, out var sourceTranslation)) return false;
         var effectBounds = NormalizeBounds(bounds);
         var effectVisual = new ProGpuRetainedDrawingVisual
         {
             Effect = effect,
+            EffectSourceTranslation = sourceTranslation,
             Offset = new Vector2((float)effectBounds.X, (float)effectBounds.Y),
             Size = new Vector2((float)effectBounds.Width, (float)effectBounds.Height)
         };
