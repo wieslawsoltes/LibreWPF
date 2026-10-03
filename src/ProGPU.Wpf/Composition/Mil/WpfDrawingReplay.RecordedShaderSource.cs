@@ -39,7 +39,7 @@ internal static partial class WpfDrawingReplay
 
     internal static WpfDrawingReplayStatus ReplayRecordedShaderTile(
         PortableTileBrush brush, RecordedTileContent? content, MediaImageSource? image,
-        Rect destination, IWpfCompositionCommandSink sink)
+        Rect destination, IWpfCompositionCommandSink sink, WpfImageSourceFrame? imageFrame = null)
     {
         var geometry = new TileBrushFillGeometry(null, destination, null, null, IsRectangle: true);
         if (content is { IsEmpty: true } || (brush.Kind == PortableTileBrushKind.Visual && brush.Content is null))
@@ -54,7 +54,7 @@ internal static partial class WpfDrawingReplay
         if (content is not null)
             return TryReplayPortableDrawingBrushFill(brush, null, geometry, sink, null, out var status, content)
                 ? status : WpfDrawingReplayStatus.Unsupported;
-        return image is not null && TryReplayPortableImageBrushFill(brush, geometry, sink, null, image)
+        return image is not null && TryReplayPortableImageBrushFill(brush, geometry, sink, null, image, imageFrame)
             ? WpfDrawingReplayStatus.Applied : WpfDrawingReplayStatus.Unsupported;
     }
 }

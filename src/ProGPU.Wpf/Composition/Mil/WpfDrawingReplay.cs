@@ -1281,7 +1281,8 @@ internal static partial class WpfDrawingReplay
         TileBrushFillGeometry geometry,
         IWpfCompositionCommandSink sink,
         Func<object?, MediaImageSource?>? imageSourceAdapter,
-        MediaImageSource? recordedImage = null)
+        MediaImageSource? recordedImage = null,
+        WpfImageSourceFrame? recordedImageFrame = null)
     {
         if (!TryGetOptionalBrushTransform(brush, out var brushTransform)
             || !TryGetSupportedTileMode(brush, out var tileMode)
@@ -1293,7 +1294,7 @@ internal static partial class WpfDrawingReplay
             || !TryGetTileBrushDestinationBounds(brush, geometryBounds, out var imageBounds)
             || !TryGetImageBrushFrames(brush, stretch, tileMode, imageSource,
                 out var sourceRect, out var imageStretchSourceBounds, out var fullImageBounds,
-                out var completeSourceViewbox)
+                out var completeSourceViewbox, recordedImage is not null, recordedImageFrame)
             || !TryGetTileBounds(imageBounds, geometryBounds, tileMode, out var tileBounds))
         {
             return false;
@@ -2561,18 +2562,21 @@ internal static partial class WpfDrawingReplay
 
     private static bool TryGetImageBrushFrames(PortableTileBrush brush, SupportedStretch stretch,
         SupportedTileMode tileMode, MediaImageSource imageSource, out Rect? sourceRect,
-        out Rect stretchBounds, out Rect? fullImageBounds, out bool completeSourceViewbox)
+        out Rect stretchBounds, out Rect? fullImageBounds, out bool completeSourceViewbox,
+        bool recorded = false, WpfImageSourceFrame? recordedFrame = null)
     {
         sourceRect = null;
         stretchBounds = default;
         fullImageBounds = null;
         completeSourceViewbox = false;
-        if (!WpfImageSourceFrame.HasTypedMetrics(brush.Content))
+        if (recorded ? !recordedFrame.HasValue : !WpfImageSourceFrame.HasTypedMetrics(brush.Content))
             return TryGetImageBrushSourceRect(brush, imageSource, out sourceRect) &&
                 TryGetImageStretchSourceBounds(stretch, sourceRect, imageSource, out stretchBounds);
 
-        if (!WpfImageSourceFrame.TryRead(brush.Content, imageSource, out var frame) ||
-            !WpfImageSourceFrame.TryMapViewbox(brush, frame.Bounds, out stretchBounds)) return false;
+        WpfImageSourceFrame frame;
+        if (recorded) frame = recordedFrame!.Value;
+        else if (!WpfImageSourceFrame.TryRead(brush.Content, imageSource, out frame)) return false;
+        if (!WpfImageSourceFrame.TryMapViewbox(brush, frame.Bounds, out stretchBounds)) return false;
         completeSourceViewbox = stretchBounds == frame.Bounds;
         if (tileMode == SupportedTileMode.None)
         {

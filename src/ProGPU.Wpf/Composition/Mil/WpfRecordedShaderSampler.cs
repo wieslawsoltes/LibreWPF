@@ -56,7 +56,7 @@ internal abstract class WpfRecordedShaderSampler(int register, TextureSamplingMo
 
     internal sealed class Tile(int register, TextureSamplingMode sampling, PortableTileBrush brush,
         WpfDrawingReplay.RecordedTileContent? content, WpfOwnedShaderImage? image,
-        WgpuContext device, object deviceIdentity) : WpfRecordedShaderSampler(register, sampling)
+        WgpuContext device, object deviceIdentity, WpfImageSourceFrame? imageFrame) : WpfRecordedShaderSampler(register, sampling)
     {
         internal override WpfShaderEffectSampler Prepare(ShaderEffectPreparationContext context)
         {
@@ -68,41 +68,49 @@ internal abstract class WpfRecordedShaderSampler(int register, TextureSamplingMo
                 throw new NotSupportedException("The actual nested shader sampler exceeds the existing capture budget.");
             var visual = new global::ProGPU.Scene.DrawingVisual { Size = new Vector2(width, height),
                 ClipBounds = new SceneRect(0, 0, width, height) };
-            using var sink = new ProGpuCompositionCommandSink(visual.Context, device, null);
-            var texture = new GpuTexture(device, width, height, TextureFormat.Rgba8Unorm,
-                TextureUsage.RenderAttachment | TextureUsage.TextureBinding,
-                "Owned nested source shader sampler");
+            ProGpuCompositionCommandSink? sink = null;
+            GpuTexture? texture = null;
             OwnedShaderEffectTexture? owner = null;
+            WpfShaderEffectSampler? candidate = null;
+            Exception? failure = null;
             try
             {
+                sink = new ProGpuCompositionCommandSink(visual.Context, device, null);
+                texture = new GpuTexture(device, width, height, TextureFormat.Rgba8Unorm,
+                    TextureUsage.RenderAttachment | TextureUsage.TextureBinding,
+                    "Owned nested source shader sampler");
                 var status = WpfDrawingReplay.ReplayRecordedShaderTile(brush, content, image,
-                    new Rect(0, 0, width, height), sink);
+                    new Rect(0, 0, width, height), sink, imageFrame);
                 if (status is not (WpfDrawingReplayStatus.Applied or WpfDrawingReplayStatus.Skipped))
                     throw new NotSupportedException("The recorded shader brush mapping is unsupported.");
                 context.Compositor.RenderOffscreen(visual, width, height, texture, padding: 0,
                     dpiScale: 1, includeRootTransform: false, includeRootVisualState: false);
                 owner = new OwnedShaderEffectTexture(texture);
-                return WpfShaderEffectSampler.FromOwnedTexture(Register, owner, Sampling);
+                candidate = WpfShaderEffectSampler.FromOwnedTexture(Register, owner, Sampling);
             }
-            catch (Exception failure)
+            catch (Exception error) { failure = error; }
+            WpfShaderRecordingCleanup.Dispose(sink, ref failure);
+            try { visual.Context.Clear(); }
+            catch (Exception error)
             {
-                if (owner is null)
-                {
-                    try { texture.Dispose(); }
-                    catch (Exception cleanup) { failure.Data["NestedSamplerTextureCleanupFailure"] = cleanup; }
-                }
-                throw;
+                if (failure is null) failure = error;
+                else try { failure.Data["NestedSamplerCommandCleanupFailure"] = error; } catch { }
             }
-            finally
+            WpfShaderRecordingCleanup.Dispose(owner, ref failure);
+            if (owner is null) WpfShaderRecordingCleanup.Dispose(texture, ref failure);
+            if (failure is not null)
             {
-                owner?.Dispose();
-                visual.Context.Clear();
+                WpfShaderRecordingCleanup.Dispose(candidate, ref failure);
+                System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(failure).Throw();
             }
+            return candidate!;
         }
         public override void Dispose()
         {
-            try { content?.Dispose(); }
-            finally { image?.Dispose(); }
+            Exception? failure = null;
+            WpfShaderRecordingCleanup.Dispose(content, ref failure);
+            WpfShaderRecordingCleanup.Dispose(image, ref failure);
+            if (failure is not null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(failure).Throw();
         }
     }
 
@@ -183,6 +191,7 @@ internal sealed class WpfShaderRecordingImageSourceAdapter : IWpfImageSourceAdap
             throw new NotSupportedException("The original shader sampler family is unsupported.");
         WpfDrawingReplay.RecordedTileContent? content = null;
         WpfOwnedShaderImage? bitmap = null;
+        WpfImageSourceFrame? imageFrame = null;
         try
         {
             if (tile.Kind == PortableTileBrushKind.Visual || tile.Content is IPortableDrawingImageSource)
@@ -191,6 +200,12 @@ internal sealed class WpfShaderRecordingImageSourceAdapter : IWpfImageSourceAdap
             {
                 var image = _inner?.AdaptImageSource(tile.Content) ?? tile.Content as ImageSource;
                 if (image is null) throw new NotSupportedException("The original ImageBrush image is unavailable.");
+                if (WpfImageSourceFrame.HasTypedMetrics(tile.Content!))
+                {
+                    if (!WpfImageSourceFrame.TryRead(tile.Content!, image, out var frame))
+                        throw new NotSupportedException("The original ImageBrush source metrics are unavailable.");
+                    imageFrame = frame;
+                }
                 if (WpfCaptureReplayGuard.ValidateHiddenSources)
                 {
                     if (!WpfBitmapSourceImageAdapter.TryGetGpuTexture(image, out _))
@@ -200,17 +215,38 @@ internal sealed class WpfShaderRecordingImageSourceAdapter : IWpfImageSourceAdap
                 bitmap = WpfOwnedShaderImage.Capture(image, _context);
             }
             return new WpfRecordedShaderSampler.Tile(sampler.RegisterIndex, mode, tile,
-                content, bitmap, _context, _context.DeviceIdentity);
+                content, bitmap, _context, _context.DeviceIdentity, imageFrame);
         }
-        catch
+        catch (Exception failure)
         {
-            try { content?.Dispose(); }
-            finally { bitmap?.Dispose(); }
+            Exception? preserved = failure;
+            WpfShaderRecordingCleanup.Dispose(content, ref preserved);
+            WpfShaderRecordingCleanup.Dispose(bitmap, ref preserved);
             throw;
         }
     }
 
     private WpfDrawingReplay.RecordedTileContent RecordContent(PortableTileBrush tile)
+    {
+        if (WpfCaptureReplayGuard.ValidateHiddenSources) return RecordContentCore(tile);
+        WpfDrawingReplay.RecordedTileContent proof;
+        using (WpfCaptureReplayGuard.Begin(validateHiddenSources: true))
+            proof = RecordContentCore(tile);
+        using (proof)
+        {
+            var recording = RecordContentCore(tile);
+            proof.TryGetBounds(out var before, out var beforeEmpty);
+            recording.TryGetBounds(out var after, out var afterEmpty);
+            if (before != after || beforeEmpty != afterEmpty)
+            {
+                recording.Dispose();
+                throw new InvalidOperationException("The original sampler source frame changed during owned recording.");
+            }
+            return recording;
+        }
+    }
+
+    private WpfDrawingReplay.RecordedTileContent RecordContentCore(PortableTileBrush tile)
     {
         using var capture = WpfCaptureReplayGuard.Begin();
         object? source = tile.Content;
