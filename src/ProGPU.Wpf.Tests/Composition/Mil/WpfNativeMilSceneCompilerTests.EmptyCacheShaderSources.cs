@@ -14,18 +14,27 @@ public sealed partial class WpfNativeMilSceneCompilerTests
     [InlineData(true, 1)]
     [InlineData(false, 2)] // shared visual
     [InlineData(true, 2)]
+    [InlineData(false, 3)] // shared ImageBrush -> DrawingImage wrapper
+    [InlineData(true, 3)]
+    [InlineData(false, 4)] // shared DrawImage -> DrawingImage wrapper
+    [InlineData(true, 4)]
     public void CacheShaderEmptyClosureRetainsReusedOrdinarySourceEdges(bool shaderFirst, int sharedKind)
     {
         var descendant = new FakeVisual(null);
         var empty = new CacheRasterVisual(null, new(), PortableRect.Empty, descendant);
         var inner = new ShaderCacheBrush(new(empty));
         FakeRenderData content;
-        if (sharedKind == 1)
+        if (sharedKind == 1 || sharedKind >= 3)
         {
             var drawing = new FakeGeometryDrawing(inner, null,
                 new FakePrimitiveGeometry(PortablePrimitiveGeometry.Rectangle(
                     new(1, 2, 30, 20), 0, 0, PortableMatrix3x2.Identity)));
-            content = new(CreateDrawDrawingRecord(1), [drawing]);
+            content = sharedKind switch
+            {
+                3 => new(CreateRectangleRecord(1, 0), [new ShaderImageBrush(new FakeDrawingImage(drawing))]),
+                4 => new(CreateDrawImageRecord(1, 2, 30, 20, 1), [new FakeDrawingImage(drawing)]),
+                _ => new(CreateDrawDrawingRecord(1), [drawing])
+            };
         }
         else
         {

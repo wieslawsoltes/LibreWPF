@@ -2471,6 +2471,7 @@ public sealed partial class WpfNativeMilSceneCompiler
             if (_imageSourceHandles.TryGetValue(
                     imageSource, out uint existing))
             {
+                PropagateEmptyCacheDependencies(imageSource);
                 return existing;
             }
             if (imageSource is IPortableD3DImageSource d3dImageSource)
@@ -2513,6 +2514,10 @@ public sealed partial class WpfNativeMilSceneCompiler
                 // Preserve normal drawing graph/cycle validation before asking
                 // source bounds, which may themselves traverse that graph.
                 uint drawingHandle = hasDrawing ? ResolveDrawing(drawing!) : 0;
+                // Keep the wrapper in the same captured dependency graph. A
+                // later reused ImageBrush or DrawImage may bypass ResolveDrawing.
+                if (hasDrawing && _emptyCacheDependencies.TryGetValue(drawing!, out var emptyDependencies))
+                    _emptyCacheDependencies[imageSource] = new(emptyDependencies, ReferenceEqualityComparer.Instance);
                 NativeMilRect bounds = default;
                 bool isEmpty = false;
                 if (hasDrawing &&
