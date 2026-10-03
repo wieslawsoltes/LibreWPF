@@ -71,6 +71,17 @@ Ordinary cache/video paths outside the typed recording route remain unchanged.
 
 Source controls are authored separately from the producer's owned texture,
 ordered recording and two-target controls. They are not execution evidence.
+Seven sink controls cover original command order, clips/opacity, nested
+transforms, inherited guidelines, independent picture leases, exact source-frame
+admission, incomplete-scope rollback and disabled media fallback. Ten recipe
+configurations cover three nested source families, immutable constants/content,
+an actual bitmap GPU copy with separately retained DIP metrics, invalid register
+preflight, hidden-cycle rollback/recovery, and failed versus genuinely null
+DrawingImage sources. Their positive realization paths use the actual headless
+target/compositor, with cold/warm and differently sized receiving targets; they
+are typed source-adapter controls, not execution of original Microsoft classes.
+Two decoder configurations additionally retain ordinary video replay and prove
+the owned recording route rejects it before its source callback.
 No builds, tests, syntax checks, verifiers, probes, GPU/UI/VM execution or CI
 dispatch were performed. Final combined producer/source validation, actual
 original-Windows rendering and platform application qualification remain pending.
