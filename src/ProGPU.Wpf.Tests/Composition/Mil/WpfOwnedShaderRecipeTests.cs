@@ -179,28 +179,111 @@ public sealed class WpfOwnedShaderRecipeTests
     }
 
     [Fact]
-    public void FailedDrawingImageReadIsNotSuccessfulNullDrawing()
+    public void ClearedDrawingImageCanBeRefilledWithoutChangingRecordedGenerations()
     {
         using var target = ProGpuWpfCompositionTarget.CreateHeadless();
         using var shader = new ShaderRegistration(16, SampleShader);
         var reads = new SourceReads();
-        var image = new DrawingImageSource(reads, null) { Available = false };
+        var drawing = new GeometrySource(reads) { Brush = Brushes.Lime };
+        var image = new DrawingImageSource(reads, null);
         var brush = new TileSource(reads, Tile(PortableTileBrushKind.Image, image));
         var effect = new ShaderSource(reads, Descriptor(shader, [1, 1, 1, 1],
             new PortableShaderSampler(1, brush, PortableShaderSamplingMode.NearestNeighbor)));
         using var adapter = new WpfShaderRecordingImageSourceAdapter(null, target.Context, null, null);
-        OwnedShaderEffectSource? rejected = null;
-        Assert.Throws<NotSupportedException>(() => WpfEffectMapper.TryCreateOwnedShaderEffect(
-            effect, image, CaptureBounds, adapter, out rejected));
-        Assert.Null(rejected);
+
+        // Match DrawingImage's actual source exporter: null produces false/null,
+        // not a successful read of fabricated empty drawing content.
+        Assert.False(image.TryGetPortableDrawingImage(out var absent));
+        Assert.Null(absent);
+        Assert.True(WpfEffectMapper.TryCreateOwnedShaderEffect(effect, image, CaptureBounds, adapter, out var initial));
+        using var initialOwner = initial;
+
+        image.Drawing = drawing;
+        Assert.True(image.TryGetPortableDrawingImage(out var present));
+        Assert.Same(drawing, present);
+        Assert.True(WpfEffectMapper.TryCreateOwnedShaderEffect(effect, image, CaptureBounds, adapter, out var filled));
+        using var filledOwner = filled;
+
+        image.Drawing = null;
+        Assert.False(image.TryGetPortableDrawingImage(out absent));
+        Assert.Null(absent);
+        Assert.True(WpfEffectMapper.TryCreateOwnedShaderEffect(effect, image, CaptureBounds, adapter, out var cleared));
+        using var clearedOwner = cleared;
+
+        image.Drawing = drawing;
+        Assert.True(WpfEffectMapper.TryCreateOwnedShaderEffect(effect, image, CaptureBounds, adapter, out var refilled));
+        using var refilledOwner = refilled;
+        Assert.Equal(new ShaderEffectSourceCapture(0, 0, 8, 8, 0, 0, 0, 0), cleared.SourceCapture);
+
+        drawing.Brush = Brushes.Red;
+        image.Drawing = null;
+        int readsAtPublication = reads.Count;
+        reads.Forbidden = true;
+        AssertPixelsAtColdWarmAndNewTarget(target, initial, transparent: true);
+        AssertGreenAtColdWarmAndNewTarget(target, filled);
+        AssertPixelsAtColdWarmAndNewTarget(target, cleared, transparent: true);
+        AssertGreenAtColdWarmAndNewTarget(target, refilled);
+        Assert.Equal(readsAtPublication, reads.Count);
         Assert.False(WpfCaptureReplayGuard.IsActive);
-        image.Available = true;
-        Assert.True(WpfEffectMapper.TryCreateOwnedShaderEffect(effect, image, CaptureBounds, adapter, out var empty));
-        using (empty)
-            Assert.Equal(new ShaderEffectSourceCapture(0, 0, 8, 8, 0, 0, 0, 0), empty.SourceCapture);
+        Assert.False(WpfCaptureReplayGuard.ValidateHiddenSources);
     }
 
-    private static void AssertGreenAtColdWarmAndNewTarget(ProGpuWpfCompositionTarget target, OwnedShaderEffectSource source)
+    [Theory]
+    [InlineData(0)] // The original getter throws; this is not an absent Drawing.
+    [InlineData(1)] // Present drawing, but authoritative bounds are unavailable.
+    [InlineData(2)] // Inconsistent typed provider: false with nonnull content.
+    public void DrawingImageFailuresPreserveExistingRecordingAndPermitRecovery(int failureKind)
+    {
+        using var target = ProGpuWpfCompositionTarget.CreateHeadless();
+        using var shader = new ShaderRegistration(17, SampleShader);
+        var reads = new SourceReads();
+        var drawing = new GeometrySource(reads) { Brush = Brushes.Lime };
+        var image = new DrawingImageSource(reads, drawing);
+        var brush = new TileSource(reads, Tile(PortableTileBrushKind.Image, image));
+        var effect = new ShaderSource(reads, Descriptor(shader, [1, 1, 1, 1],
+            new PortableShaderSampler(1, brush, PortableShaderSamplingMode.NearestNeighbor)));
+        using var adapter = new WpfShaderRecordingImageSourceAdapter(null, target.Context, null, null);
+        Assert.True(WpfEffectMapper.TryCreateOwnedShaderEffect(effect, image, CaptureBounds, adapter, out var original));
+        using var originalOwner = original;
+
+        var originalFailure = new InvalidOperationException("Original DrawingImage getter failed.");
+        image.Failure = failureKind == 0 ? originalFailure : null;
+        drawing.BoundsAvailable = failureKind != 1;
+        image.InconsistentResult = failureKind == 2;
+        OwnedShaderEffectSource? rejected = null;
+        if (failureKind == 0)
+            Assert.Same(originalFailure, Assert.Throws<InvalidOperationException>(() =>
+                WpfEffectMapper.TryCreateOwnedShaderEffect(effect, image, CaptureBounds, adapter, out rejected)));
+        else
+            Assert.Throws<NotSupportedException>(() => WpfEffectMapper.TryCreateOwnedShaderEffect(
+                effect, image, CaptureBounds, adapter, out rejected));
+        Assert.Null(rejected);
+        Assert.False(WpfCaptureReplayGuard.IsActive);
+        Assert.False(WpfCaptureReplayGuard.ValidateHiddenSources);
+
+        image.Failure = null;
+        image.InconsistentResult = false;
+        image.Drawing = null;
+        Assert.True(WpfEffectMapper.TryCreateOwnedShaderEffect(effect, image, CaptureBounds, adapter, out var empty));
+        using var emptyOwner = empty;
+        drawing.BoundsAvailable = true;
+        image.Drawing = drawing;
+        Assert.True(WpfEffectMapper.TryCreateOwnedShaderEffect(effect, image, CaptureBounds, adapter, out var recovered));
+        using var recoveredOwner = recovered;
+
+        int readsAtPublication = reads.Count;
+        reads.Forbidden = true;
+        AssertGreenAtColdWarmAndNewTarget(target, original);
+        AssertPixelsAtColdWarmAndNewTarget(target, empty, transparent: true);
+        AssertGreenAtColdWarmAndNewTarget(target, recovered);
+        Assert.Equal(readsAtPublication, reads.Count);
+    }
+
+    private static void AssertGreenAtColdWarmAndNewTarget(ProGpuWpfCompositionTarget target, OwnedShaderEffectSource source) =>
+        AssertPixelsAtColdWarmAndNewTarget(target, source, transparent: false);
+
+    private static void AssertPixelsAtColdWarmAndNewTarget(ProGpuWpfCompositionTarget target,
+        OwnedShaderEffectSource source, bool transparent)
     {
         using var content = EmptyContent();
         var visual = new SceneDrawingVisual { Size = new Vector2(8) };
@@ -223,9 +306,9 @@ public sealed class WpfOwnedShaderRecipeTests
                 for (int pixel = 0; pixel < pixels.Length; pixel += 4)
                 {
                     Assert.Equal((byte)0, pixels[pixel]);
-                    Assert.Equal((byte)255, pixels[pixel + 1]);
+                    Assert.Equal(transparent ? (byte)0 : (byte)255, pixels[pixel + 1]);
                     Assert.Equal((byte)0, pixels[pixel + 2]);
-                    Assert.Equal((byte)255, pixels[pixel + 3]);
+                    Assert.Equal(transparent ? (byte)0 : (byte)255, pixels[pixel + 3]);
                 }
             }
         }
@@ -298,14 +381,22 @@ public sealed class WpfOwnedShaderRecipeTests
 
     private sealed class DrawingImageSource(SourceReads reads, object? drawing) : IPortableDrawingImageSource
     {
-        internal bool Available { get; set; } = true;
+        internal object? Drawing { get; set; } = drawing;
+        internal Exception? Failure { get; set; }
+        internal bool InconsistentResult { get; set; }
         public bool TryGetPortableDrawingImage(out object? value)
-        { reads.Read(); value = drawing; return Available; }
+        {
+            reads.Read();
+            if (Failure is not null) throw Failure;
+            value = Drawing;
+            return value is not null && !InconsistentResult;
+        }
     }
 
     private sealed class GeometrySource(SourceReads reads) : IPortableGeometryDrawingStateSource, IPortableDrawingBoundsSource
     {
         internal object Brush { get; set; } = Brushes.Red;
+        internal bool BoundsAvailable { get; set; } = true;
         public bool TryGetPortableGeometryDrawingState(out PortableGeometryDrawingState state)
         {
             reads.Read();
@@ -313,7 +404,7 @@ public sealed class WpfOwnedShaderRecipeTests
             return true;
         }
         public bool TryGetPortableDrawingBounds(out PortableRect bounds)
-        { reads.Read(); bounds = new(0, 0, 8, 8); return true; }
+        { reads.Read(); bounds = BoundsAvailable ? new(0, 0, 8, 8) : PortableRect.Empty; return BoundsAvailable; }
     }
 
     private sealed class GroupSource(SourceReads reads, object drawing, object effect)
