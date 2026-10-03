@@ -107,6 +107,10 @@ descendant clip. Twelve compiler/session cases cover all cache-selection sources
 null versus non-null empty/missing targets, conflicting reference snapshots,
 cycles, dependency ownership and both backend session identities. The source
 selector increases its minimum by four without changing the deadline.
+Five managed controls separately retain live/null receiving frames and reject an
+unframed call before any texture/cache allocation, plus the null paint's exact
+source-hit scope without a cache-page draw. These are authored control paths,
+not executed GPU or original-Windows evidence.
 
 Original BitmapSource exports metadata-only pixel dimensions and both source DPI
 axes. Shared ImageBrush replay keeps source DIP stretch/placement separate from
