@@ -95,6 +95,13 @@ namespace MS.Internal
             return SystemDpiHelper.GetSystemDpi();
         }
 
+        // Raster-cache policy preserves the original native float division.
+        // Unlike legacy layout helpers, absence is not a manufactured 96 DPI.
+        internal static bool TryGetSystemRasterScale(out float scaleX, out float scaleY)
+        {
+            return SystemDpiHelper.TryGetSystemRasterScale(out scaleX, out scaleY);
+        }
+
         /// <summary>
         /// Gets the System DPI from the values stored in the UIElement static cache
         /// </summary>

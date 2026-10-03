@@ -1,14 +1,21 @@
 using System;
 using System.Collections.Generic;
 using ProGPU.Backend;
+using ProGPU.Wpf.Interop;
 using Silk.NET.GLFW;
 using Silk.NET.Maths;
 using Silk.NET.Windowing;
 
 namespace System.Windows.Media.ProGPU.Platform;
 
-public sealed class SilkNetWpfMonitorService : IWpfMonitorService
+public sealed class SilkNetWpfMonitorService : IWpfMonitorService, IPortablePrimaryDisplayRasterScaleSource
 {
+    private readonly int _creatingThreadId = Environment.CurrentManagedThreadId;
+    private readonly bool _usesDefaultPrimaryDisplaySource;
+    private object _primaryRasterIdentity = new();
+    private nint _primaryRasterMonitor;
+    private float _primaryRasterScaleX, _primaryRasterScaleY;
+    private ulong _primaryRasterRevision;
     private readonly Func<IEnumerable<IMonitor>> _getMonitors;
     private readonly Func<IMonitor?> _getMainMonitor;
     private readonly Func<IMonitor, double?>? _getDpiScale;
@@ -25,6 +32,7 @@ public sealed class SilkNetWpfMonitorService : IWpfMonitorService
             static () => SilkNetGlfwPlatformSelector.ConfigureBeforeFirstGlfwUse(),
             OperatingSystem.IsWindows() ? TryGetGlfwMonitorScreenBounds : null)
     {
+        _usesDefaultPrimaryDisplaySource = true;
     }
 
     public SilkNetWpfMonitorService(IWindowPlatform platform)
@@ -80,6 +88,48 @@ public sealed class SilkNetWpfMonitorService : IWpfMonitorService
         }
 
         return mapped;
+    }
+
+    public unsafe bool TryGetPrimaryDisplayRasterScale(out PortablePrimaryDisplayRasterScale scale)
+    {
+        scale = default;
+        // Windows has a different original system-DPI contract. Custom monitor
+        // providers must publish their own explicit capability, not inherit an
+        // assumed GLFW identity from monitor indices or window handles.
+        if (OperatingSystem.IsWindows() || !_usesDefaultPrimaryDisplaySource ||
+            Environment.CurrentManagedThreadId != _creatingThreadId)
+            return false;
+        _configureBeforeMonitorQuery();
+        Glfw glfw = GlfwProvider.GLFW.Value;
+        Silk.NET.GLFW.Monitor* primary = glfw.GetPrimaryMonitor();
+        if (primary == null)
+        {
+            _primaryRasterMonitor = 0;
+            return false;
+        }
+        glfw.GetMonitorContentScale(primary, out float x, out float y);
+        if (!float.IsFinite(x) || !float.IsFinite(y) || x <= 0 || y <= 0 ||
+            primary != glfw.GetPrimaryMonitor())
+        {
+            _primaryRasterMonitor = 0;
+            return false;
+        }
+        if (_primaryRasterMonitor != (nint)primary)
+            _primaryRasterIdentity = new object();
+        if (_primaryRasterMonitor != (nint)primary || _primaryRasterRevision == 0 ||
+            x != _primaryRasterScaleX || y != _primaryRasterScaleY)
+        {
+            _primaryRasterRevision = checked(_primaryRasterRevision + 1);
+            _primaryRasterMonitor = (nint)primary;
+            _primaryRasterScaleX = x;
+            _primaryRasterScaleY = y;
+        }
+        // Preserve both actual source floats. The ordinary monitor adapter's
+        // averages, normalization and resolution/default fallbacks do not apply.
+        scale = new PortablePrimaryDisplayRasterScale(x, y,
+            PortablePrimaryDisplayRasterPolicy.PrimaryMonitorContentScale,
+            _primaryRasterIdentity, _primaryRasterRevision);
+        return true;
     }
 
     public bool TryGetPointerScreenPosition(out double x, out double y)
