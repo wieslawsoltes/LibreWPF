@@ -1,5 +1,13 @@
 # Agent Guidance
 
+Actual retained WPF visuals opt into SourceOpacityMaskPreservesHitGeometry;
+source point/region input ignores raster mask coverage, never actual source
+geometry/scroll clips or effect mapping. Generic providers retain default false
+and required-cache/unsupported-family gates remain. An extra adapter property
+compiled against an older Scene interface is not new interface dispatch: require
+the qualified producer and source rebuild before admission. Pins stay qualified;
+see docs/source-visual-mask-hit-geometry.md.
+
 Original transform snapshots retain typed primitive double parameters and group
 child identity/order; never flatten them into a source-float history witness.
 Capture each identity once per batch, retain duplicates and reject failed typed
