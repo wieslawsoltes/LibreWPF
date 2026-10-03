@@ -66,9 +66,16 @@ validation `430565c68ca7c4eaa3144d1c75edb63557d92f70`) and a rebuilt source grap
 Qualified ProGPU/LibreWinForms pins remain unchanged. The older pinned binary is
 not claimed to implement these additive contracts.
 
-Source request, mapper and actual retained-sink controls are authored separately
-from the producer's pure frame and GPU controls. They retain the prior inputs
-while replacing obsolete maximum-padding expectations with exact source-frame
-identity. No build, test, syntax check, verifier, probe, GPU/UI/VM execution or CI
-was run for this branch. Final producer/source/package and actual platform
-qualification remains pending.
+Eleven new source configurations cover original-double mapper/request identity,
+missing owner or bounds, explicit adapter admission, actual DPI forwarding,
+nested resource forwarding, actual retained-sink rebase, final clips,
+legacy/reset cleanup and atomic rejection of float-equivalent but
+original-double-different bounds. These controls are authored separately from
+the producer's pure frame and GPU controls. The prior nine padding configurations
+and existing image/visual sampler inputs remain; their obsolete maximum-padding
+expectations now require exact source-frame identity. Metadata-only forwarding
+fixtures do not claim texture capture or GPU execution.
+
+No build, test, syntax check, verifier, probe, GPU/UI/VM execution or CI was run
+for this branch. Final producer/source/package and actual platform qualification
+remains pending.

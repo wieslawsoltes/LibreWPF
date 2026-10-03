@@ -4964,7 +4964,8 @@ public sealed partial class WpfVisualTreeRendererTests
             Assert.True(effect.CaptureSourceVisualOpacity);
             Assert.Equal(1, effect.Parameters.SourceTextureRegisterIndex);
             Assert.Equal(ProGpuTextureSamplingMode.Nearest, effect.Parameters.SamplingMode);
-            Assert.Equal(4f, effect.Padding);
+            Assert.Equal(0f, effect.Padding);
+            Assert.Equal(new global::ProGPU.Scene.ShaderEffectSourceCapture(1, 2, 30, 40, 1, 2, 3, 4), effect.SourceCapture);
             Assert.Equal(0.125f, effect.Parameters.Constants[8]);
             Assert.Equal(0.25f, effect.Parameters.Constants[9]);
             Assert.Equal(0.5f, effect.Parameters.Constants[10]);
@@ -5100,7 +5101,8 @@ public sealed partial class WpfVisualTreeRendererTests
                 var frame = Assert.Single(brushAdapter.Frames);
                 Assert.Same(root, frame.Owner);
                 Assert.Equal(0, frame.Padding);
-                Assert.Equal(new global::ProGPU.Scene.Rect(1, 2, 30, 40), frame.ContentBounds);
+                Assert.Equal(new global::ProGPU.Scene.ShaderEffectSourceCapture(1, 2, 30, 40, 0, 0, 0, 0), frame.SourceCapture);
+                Assert.Equal(effect.SourceCapture, frame.SourceCapture);
                 Assert.Equal(0, result.UnsupportedVisualStateCount);
             }
             else
@@ -5144,9 +5146,9 @@ public sealed partial class WpfVisualTreeRendererTests
             Assert.Same(first, adapter.Frames[0].Owner);
             Assert.Same(second, adapter.Frames[1].Owner);
             Assert.Same(first, adapter.Frames[2].Owner);
-            Assert.Equal(new global::ProGPU.Scene.Rect(3, 4, 100, 100), adapter.Frames[0].ContentBounds);
-            Assert.Equal(new global::ProGPU.Scene.Rect(5, 6, 200, 20), adapter.Frames[1].ContentBounds);
-            Assert.Equal(new global::ProGPU.Scene.Rect(7, 8, 50, 70), adapter.Frames[2].ContentBounds);
+            Assert.Equal(new global::ProGPU.Scene.ShaderEffectSourceCapture(3, 4, 100, 100, 0, 0, 0, 0), adapter.Frames[0].SourceCapture);
+            Assert.Equal(new global::ProGPU.Scene.ShaderEffectSourceCapture(5, 6, 200, 20, 0, 0, 0, 0), adapter.Frames[1].SourceCapture);
+            Assert.Equal(new global::ProGPU.Scene.ShaderEffectSourceCapture(7, 8, 50, 70, 0, 0, 0, 0), adapter.Frames[2].SourceCapture);
         }
         finally { WpfShaderEffectRegistry.Unregister(key); }
     }
@@ -7474,6 +7476,14 @@ public sealed partial class WpfVisualTreeRendererTests
         public ProGpuTextureSamplingMode LastSamplerMode { get; private set; }
 
         public List<WpfShaderEffectSamplerFrame> Frames { get; } = new();
+
+        public bool TryAdaptSourceShaderEffectSamplerBrush(object? brush, int registerIndex,
+            ProGpuTextureSamplingMode samplingMode, WpfShaderEffectSamplerFrame frame,
+            out ProGpuWpfShaderEffectSampler sampler)
+        {
+            Frames.Add(frame);
+            return TryAdaptShaderEffectSamplerBrush(brush, registerIndex, samplingMode, out sampler);
+        }
 
         public bool TryAdaptShaderEffectSamplerBrush(object? brush, int registerIndex,
             ProGpuTextureSamplingMode samplingMode, WpfShaderEffectSamplerFrame frame,

@@ -66,12 +66,12 @@ public sealed partial class WpfVisualTreeRendererTests
     [InlineData(1)]
     [InlineData(2)]
     [InlineData(3)]
-    public void ValidAsymmetricPaddingKeepsExistingManagedMaximumFrame(int maximumAxis)
+    public void ValidAsymmetricPaddingUsesExactSourceFrameWithoutScalarMaximum(int maximumAxis)
     {
         byte[] bytecode = [0, 3, 0, 0, 113, 127, 131, 137];
         string key = WpfShaderEffectRegistry.RegisterPixelShaderBytecode(bytecode,
             "fn wpf_effect_main(uv: vec2<f32>, inputColor: vec4<f32>) -> vec4<f32> { return inputColor; }",
-            shaderKey: "shader_padding_maximum_frame");
+            shaderKey: "shader_padding_source_frame");
         // Existing forwarding-only seam: never create, render or dispose this
         // uninitialized borrowed texture as if it were a real device resource.
         var texture = (GpuTexture)RuntimeHelpers.GetUninitializedObject(typeof(GpuTexture));
@@ -86,12 +86,16 @@ public sealed partial class WpfVisualTreeRendererTests
             Assert.True(WpfEffectMapper.TryCreateProGpuEffect(new FakePortableShaderEffectSource(descriptor),
                 out var mapped, adapter, new WpfReplayRect(8, 10, 32, 24), owner));
             var effect = Assert.IsType<Scene.WpfShaderEffect>(mapped);
-            Assert.Equal(2.75f, effect.Padding);
+            Assert.Equal(0f, effect.Padding);
             Assert.True(effect.CaptureSourceVisualOpacity);
             var frame = Assert.Single(adapter.Frames);
             Assert.Same(owner, frame.Owner);
-            Assert.Equal(new Scene.Rect(8, 10, 32, 24), frame.ContentBounds);
-            Assert.Equal(2.75f, frame.Padding);
+            var expected = new Scene.ShaderEffectSourceCapture(8, 10, 32, 24,
+                padding[0], padding[1], padding[2], padding[3]);
+            Assert.Equal(expected, effect.SourceCapture);
+            Assert.Equal(expected, frame.SourceCapture);
+            Assert.Equal(default, frame.ContentBounds);
+            Assert.Equal(0f, frame.Padding);
             Assert.Same(brush, adapter.LastSamplerBrush);
             var sampler = Assert.Single(effect.Parameters.Samplers);
             Assert.Same(texture, sampler.Texture);
@@ -117,9 +121,13 @@ public sealed partial class WpfVisualTreeRendererTests
                     [PortableShaderSampler.ImplicitInput(0, PortableShaderSamplingMode.NearestNeighbor)],
                     [valid, valid, valid, valid]);
                 Assert.Equal(BitConverter.DoubleToInt64Bits(valid), BitConverter.DoubleToInt64Bits(descriptor.PaddingTop));
-                Assert.True(WpfEffectMapper.TryCreateProGpuEffect(new FakePortableShaderEffectSource(descriptor), out var mapped));
+                Assert.True(WpfEffectMapper.TryCreateProGpuEffect(new FakePortableShaderEffectSource(descriptor),
+                    out var mapped, effectBounds: new WpfReplayRect(8, 10, 32, 24), effectOwner: new object()));
                 var effect = Assert.IsType<Scene.WpfShaderEffect>(mapped);
-                Assert.Equal((float)Math.Min(float.MaxValue, Math.Max(0d, valid)), effect.Padding);
+                Assert.Equal(0f, effect.Padding);
+                Assert.True(effect.SourceCapture.HasValue);
+                Assert.Equal(BitConverter.DoubleToInt64Bits(valid),
+                    BitConverter.DoubleToInt64Bits(effect.SourceCapture.Value.PaddingTop));
                 Assert.Empty(effect.Parameters.Samplers);
             }
             // Mapping metadata does not prove that an enormous capture can be
@@ -144,6 +152,9 @@ public sealed partial class WpfVisualTreeRendererTests
         }
         public ImageSource? AdaptImageSource(object? imageSource) => throw UnexpectedRead();
         public bool TryGetPortableTileBrush(out PortableTileBrush brush) => throw UnexpectedRead();
+        public bool TryAdaptSourceShaderEffectSamplerBrush(object? brush, int registerIndex,
+            Scene.TextureSamplingMode samplingMode, WpfShaderEffectSamplerFrame frame,
+            out Scene.WpfShaderEffectSampler sampler) => throw UnexpectedRead();
         public bool TryAdaptShaderEffectSamplerBrush(object? brush, int registerIndex,
             Scene.TextureSamplingMode samplingMode, out Scene.WpfShaderEffectSampler sampler) => throw UnexpectedRead();
         public bool TryAdaptShaderEffectSamplerBrush(object? brush, int registerIndex,
