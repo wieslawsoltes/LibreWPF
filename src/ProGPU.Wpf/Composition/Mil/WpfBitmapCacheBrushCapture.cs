@@ -63,6 +63,27 @@ public sealed class WpfBitmapCacheBrushCapture : IDisposable
         global::ProGPU.Backend.WgpuContext? context,
         WpfViewport3DTextureCache? viewportCache,
         IWpfImageSourceAdapter? imageSourceAdapter)
+        => CreateCore(source, context, viewportCache, imageSourceAdapter, requireEmptySource: false);
+
+    // This is a shader-only ownership proof, not an ordinary cache allocation.
+    // Hidden descendants are validated without changing original visibility;
+    // every recorded command is discarded, including on failure.
+    internal static void ValidateEmptyShaderSource(
+        IPortableBitmapCacheBrushSource source,
+        global::ProGPU.Backend.WgpuContext? context = null,
+        WpfViewport3DTextureCache? viewportCache = null,
+        IWpfImageSourceAdapter? imageSourceAdapter = null)
+    {
+        using var guard = WpfCaptureReplayGuard.Begin(validateHiddenSources: true);
+        using var capture = CreateCore(source, context, viewportCache, imageSourceAdapter, requireEmptySource: true);
+    }
+
+    private static WpfBitmapCacheBrushCapture CreateCore(
+        IPortableBitmapCacheBrushSource source,
+        global::ProGPU.Backend.WgpuContext? context,
+        WpfViewport3DTextureCache? viewportCache,
+        IWpfImageSourceAdapter? imageSourceAdapter,
+        bool requireEmptySource)
     {
         ArgumentNullException.ThrowIfNull(source);
         if (!source.TryGetPortableBitmapCacheBrush(out var brush))
@@ -97,12 +118,15 @@ public sealed class WpfBitmapCacheBrushCapture : IDisposable
                 bounds = new(rect.X, rect.Y, rect.Width, rect.Height);
             }
         }
+        if (requireEmptySource && (brush.InternalTarget is null || (bounds.Width > 0 && bounds.Height > 0)))
+            throw new NotSupportedException("Empty shader cache capture requires an actual known-empty source target.");
         var recorder = new GpuPictureRecorder();
         var commands = recorder.BeginRecording(new SceneRect(
             (float)bounds.X, (float)bounds.Y, (float)bounds.Width, (float)bounds.Height));
         try
         {
-            if (brush.InternalTarget != null && bounds.Width > 0 && bounds.Height > 0 && policy.RenderAtScale > 0)
+            if (brush.InternalTarget != null && (WpfCaptureReplayGuard.ValidateHiddenSources ||
+                (bounds.Width > 0 && bounds.Height > 0 && policy.RenderAtScale > 0)))
             {
                 using var sink = new ProGpuCompositionCommandSink(commands, context, viewportCache);
                 var result = new WpfVisualTreeRenderer().ReplayBitmapCacheBrushSource(

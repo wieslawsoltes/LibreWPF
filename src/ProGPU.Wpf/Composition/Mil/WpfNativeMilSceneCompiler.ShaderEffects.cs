@@ -12,6 +12,8 @@ public sealed partial class WpfNativeMilSceneCompiler
         private readonly Dictionary<IPortablePixelShaderSource, ShaderSnapshot> _pixelShaderHandles =
             new(ReferenceEqualityComparer.Instance);
         private uint _implicitInputBrushHandle;
+        private readonly Dictionary<object, uint> _emptyShaderCacheBrushHandles =
+            new(ReferenceEqualityComparer.Instance);
 
         private readonly record struct ShaderSnapshot(
             uint Handle, NativeMilShaderRenderMode Mode, bool CompileSoftwareShader, byte[] Bytecode);
@@ -68,12 +70,17 @@ public sealed partial class WpfNativeMilSceneCompiler
                     {
                         if (!cacheSource.TryGetPortableBitmapCacheBrush(out var cache))
                             throw MissingContract(nameof(IPortableBitmapCacheBrushSource));
-                        // Null is actual transparent content. A non-null empty
-                        // cache target is a separate, unimplemented contract;
-                        // never let ordinary empty-source lowering erase it.
-                        if (cache.InternalTarget is { } target && !TryGetVisualBounds(target, out _))
-                            throw new NotSupportedException("Native shader BitmapCacheBrush targets require positive original source bounds.");
-                        brush = ResolveBrush(sampler.Brush, capturedCache: cache);
+                        bool emptyTarget = false;
+                        if (cache.InternalTarget is { } target)
+                        {
+                            if (!TryGetVisualBounds(target, out var bounds, allowEmpty: true))
+                                throw new NotSupportedException("Native shader BitmapCacheBrush targets require original source bounds.");
+                            emptyTarget = bounds.Width == 0 || bounds.Height == 0;
+                        }
+                        // Empty admission belongs to this exact shader brush,
+                        // not an ordinary paint using the same source object.
+                        brush = ResolveBrush(sampler.Brush, capturedCache: cache,
+                            retainEmptyShaderCacheSource: emptyTarget);
                         break;
                     }
                     // The source exports its actual VisualBrush through the

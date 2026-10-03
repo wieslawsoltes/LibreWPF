@@ -155,6 +155,8 @@ public sealed class WpfVisualTreeRenderer
         }
         try
         {
+            if (WpfCaptureReplayGuard.ValidateHiddenSources && visual is IPortableViewport3DSceneSource)
+                throw new NotSupportedException("Empty shader cache capture requires an owned two-dimensional source graph.");
             if (WpfCaptureReplayGuard.IsActive && (!TryGetPortableVisualState(visual, out _) ||
                 visual is not PortableVisualChildrenSource children ||
                 !children.TryGetPortableVisualChildCount(out int count) || count < 0))
@@ -191,7 +193,7 @@ public sealed class WpfVisualTreeRenderer
             return;
         }
 
-        if (!cacheBrushRoot && !IsSourceVisualVisible(visual))
+        if (!cacheBrushRoot && !WpfCaptureReplayGuard.ValidateHiddenSources && !IsSourceVisualVisible(visual))
         {
             // Keep ownership/dependency registration for a later visible transition,
             // but do not replay hidden content or admit its masks/effects for input.

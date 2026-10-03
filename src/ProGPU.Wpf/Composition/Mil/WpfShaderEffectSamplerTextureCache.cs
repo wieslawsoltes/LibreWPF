@@ -74,17 +74,31 @@ internal sealed class WpfShaderEffectSamplerTextureCache : IDisposable
 
         if (brush is global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource cacheSource)
         {
+            bool emptySource = false;
             if (!cacheSource.TryGetPortableBitmapCacheBrush(out var cache) ||
                 effectOwner is null || effectFrame is not { } cacheFrame ||
                 !TryGetEffectTextureBounds(cacheFrame, out var cacheBounds, out uint cacheWidth, out uint cacheHeight) ||
                 !global::ProGPU.Wpf.Interop.PortableBitmapCacheBrushPolicy.TryResolve(cache, out _) ||
-                (cache.InternalTarget is { } target && !HasPositiveCacheSourceBounds(target)))
+                (cache.InternalTarget is { } target && !TryGetCacheSourceBounds(target, out emptySource)))
                 return false;
+            var captured = new CapturedBitmapCacheBrush(cache);
+            if (emptySource)
+            {
+                // Validate current mapping even when there will be no paint.
+                // The receiving frame, not invented positive source bounds,
+                // owns the relative brush transform and texture dimensions.
+                if (!global::ProGPU.Wpf.Interop.PortableBitmapCacheBrushPolicy.TryGetMapping(cache,
+                        new PortableRect(cacheBounds.X, cacheBounds.Y, cacheBounds.Width, cacheBounds.Height), out _))
+                    return false;
+                WpfBitmapCacheBrushCapture.ValidateEmptyShaderSource(captured,
+                    _context, _viewport3DTextureCache, imageSourceAdapter);
+            }
             var cacheEntry = GetOrCreateEntry(brush, cacheWidth, cacheHeight, effectOwner);
             // Ordinary cache-brush recording owns the selected cache and its
             // source-root exclusions. Do not reinterpret it as a tile brush.
-            if (!RenderBrushToTexture(new CapturedBitmapCacheBrush(cache), cacheBounds,
-                    cacheEntry.Texture, imageSourceAdapter, allowSkipped: false))
+            if (!RenderBrushToTexture(captured, cacheBounds,
+                    cacheEntry.Texture, imageSourceAdapter, allowSkipped: false,
+                    validatedEmptySource: emptySource))
                 return false;
             sampler = new WpfShaderEffectSampler(registerIndex, cacheEntry.Texture, samplingMode);
             return true;
@@ -199,7 +213,7 @@ internal sealed class WpfShaderEffectSamplerTextureCache : IDisposable
         object brush,
         Rect textureBounds,
         GpuTexture texture,
-        IWpfImageSourceAdapter? imageSourceAdapter, bool allowSkipped)
+        IWpfImageSourceAdapter? imageSourceAdapter, bool allowSkipped, bool validatedEmptySource = false)
     {
         var visual = new ProGpuDrawingVisual
         {
@@ -218,7 +232,10 @@ internal sealed class WpfShaderEffectSamplerTextureCache : IDisposable
             return imageSourceAdapter?.AdaptImageSource(imageSource);
         }
 
-        var replayStatus = WpfDrawingReplay.Replay(
+        // Only the explicit empty cache-source proof above may omit paint.
+        // Still execute the compositor's actual transparent clear over the
+        // complete receiving frame; never return a null or stale texture.
+        var replayStatus = validatedEmptySource ? WpfDrawingReplayStatus.Applied : WpfDrawingReplay.Replay(
             drawing,
             sink,
             AdaptImageSource);
@@ -256,14 +273,19 @@ internal sealed class WpfShaderEffectSamplerTextureCache : IDisposable
         { value = brush; return true; }
     }
 
-    private static bool HasPositiveCacheSourceBounds(object target)
+    private static bool TryGetCacheSourceBounds(object target, out bool empty)
     {
+        empty = false;
         if (target is not global::ProGPU.Wpf.Interop.IPortableVisualBoundsSource source ||
             !source.TryGetPortableVisualBounds(out var bounds) ||
             (!bounds.HasDescendantBounds && !bounds.HasContentBounds)) return false;
         var rect = bounds.HasDescendantBounds ? bounds.DescendantBounds : bounds.ContentBounds;
-        return !rect.IsEmpty && double.IsFinite(rect.X) && double.IsFinite(rect.Y) &&
-            double.IsFinite(rect.Width) && double.IsFinite(rect.Height) && rect.Width > 0 && rect.Height > 0;
+        if (rect.IsEmpty) { empty = true; return true; }
+        if (!double.IsFinite(rect.X) || !double.IsFinite(rect.Y) ||
+            !double.IsFinite(rect.Width) || !double.IsFinite(rect.Height) || rect.Width < 0 || rect.Height < 0)
+            return false;
+        empty = rect.Width == 0 || rect.Height == 0;
+        return true;
     }
 
     internal static bool TryGetBrushSourceBounds(object brush, out Rect bounds)

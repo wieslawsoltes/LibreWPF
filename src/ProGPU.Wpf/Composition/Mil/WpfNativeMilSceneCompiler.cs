@@ -1746,7 +1746,7 @@ public sealed partial class WpfNativeMilSceneCompiler
         }
 
         private uint ResolveBrush(object resource, PortableTileBrush? capturedTile = null,
-            PortableBitmapCacheBrush? capturedCache = null)
+            PortableBitmapCacheBrush? capturedCache = null, bool retainEmptyShaderCacheSource = false)
         {
             if (capturedTile is not null && _tileBrushSnapshots.TryGetValue(resource, out PortableTileBrush? previousTile) &&
                 !SameTileBrushSnapshot(previousTile, capturedTile))
@@ -1754,7 +1754,8 @@ public sealed partial class WpfNativeMilSceneCompiler
             if (capturedCache is { } cacheSnapshot && _cacheBrushSnapshots.TryGetValue(resource, out var previousCache) &&
                 !SameCacheBrushSnapshot(previousCache, cacheSnapshot))
                 throw new InvalidOperationException("One source cache brush changed during native batch capture.");
-            if (_brushHandles.TryGetValue(resource, out uint existing))
+            var handles = retainEmptyShaderCacheSource ? _emptyShaderCacheBrushHandles : _brushHandles;
+            if (handles.TryGetValue(resource, out uint existing))
             {
                 return existing;
             }
@@ -1775,7 +1776,7 @@ public sealed partial class WpfNativeMilSceneCompiler
                 // Resolve before publishing the brush handle so a source that
                 // paints itself reaches the existing active-visual cycle guard.
                 uint target = cacheBrush.InternalTarget is null ? 0U
-                    : ResolveVisualBrushSource(cacheBrush.InternalTarget);
+                    : ResolveVisualBrushSource(cacheBrush.InternalTarget, retainEmptyShaderCacheSource);
                 uint cache = cacheBrush.BitmapCache is null ? 0U
                     : ResolveBitmapCache(cacheBrush.BitmapCache);
                 uint transform = cacheBrush.HasTransform ? AddGeometryTransform(cacheBrush.Transform) : 0U;
@@ -1785,7 +1786,7 @@ public sealed partial class WpfNativeMilSceneCompiler
                 Batch.SetBitmapCacheBrush(cacheBrushHandle, new NativeMilBitmapCacheBrush(
                     target, cache, cacheBrush.Opacity,
                     TransformHandle: transform, RelativeTransformHandle: relative));
-                _brushHandles.Add(resource, cacheBrushHandle);
+                handles.Add(resource, cacheBrushHandle);
                 return cacheBrushHandle;
             }
             if (resource is IPortableTileBrushSource tileSource)
