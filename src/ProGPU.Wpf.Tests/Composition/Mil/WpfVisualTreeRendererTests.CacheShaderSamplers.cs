@@ -14,12 +14,12 @@ public sealed partial class WpfVisualTreeRendererTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public void CacheSamplerForwardsActualReceivingOwnerFrameEvenWhenDisconnected(bool disconnected)
+    public void CacheSamplerUsesRawSourceAdapterWithoutReceivingOwnerFrameEvenWhenDisconnected(bool disconnected)
     {
         byte[] bytecode = [0, 3, 0, 0, 41, 43, 47, 53];
         string key = WpfShaderEffectRegistry.RegisterPixelShaderBytecode(bytecode,
             "fn wpf_effect_main(uv: vec2<f32>, inputColor: vec4<f32>) -> vec4<f32> { return inputColor; }",
-            shaderKey: "original_cache_brush_frames");
+            shaderKey: "original_raw_cache_brush_sampler");
         // A forwarding-only control: this texture is never created or rendered.
         var texture = (GpuTexture)RuntimeHelpers.GetUninitializedObject(typeof(GpuTexture));
         var brush = new CaptureCacheSource(new(disconnected ? null :
@@ -46,13 +46,7 @@ public sealed partial class WpfVisualTreeRendererTests
                 var effect = Assert.IsType<Scene.WpfShaderEffect>(Assert.Single(sink.VisualEffects));
                 Assert.Same(texture, Assert.Single(effect.Parameters.Samplers).Texture);
             }
-            Assert.Equal(2, adapter.Frames.Count);
-            Assert.Same(first, adapter.Frames[0].Owner);
-            Assert.Same(second, adapter.Frames[1].Owner);
-            Assert.Equal(new Scene.Rect(8, 10, 32, 24), adapter.Frames[0].ContentBounds);
-            Assert.Equal(new Scene.Rect(3, 4, 64, 48), adapter.Frames[1].ContentBounds);
-            Assert.Equal(0, adapter.Frames[0].Padding);
-            Assert.Equal(0, adapter.Frames[1].Padding);
+            Assert.Empty(adapter.Frames);
             var imageOnly = new FakeImageSourceAdapter(null);
             var rejected = new TestSink { AcceptVisualEffects = true };
             Assert.Equal(1, renderer.ReplaySubtree(first, rejected,
@@ -82,18 +76,18 @@ public sealed partial class WpfVisualTreeRendererTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public void CacheSamplerWithoutReceivingFrameRejectsBeforeTextureCreation(bool disconnected)
+    public void CacheSamplerWithoutActualRasterPolicyRejectsBeforeTextureCreation(bool disconnected)
     {
-        // No device/compositor/cache tables exist. The unframed overload must
-        // reject both source configurations before reaching any GPU/cache work.
+        // No policy/device/compositor/cache tables exist. Missing actual primary
+        // display/device policy must fail before reaching any GPU/cache work;
+        // receiving-frame absence is not the reason for rejecting a raw sampler.
         var cache = (WpfShaderEffectSamplerTextureCache)RuntimeHelpers.GetUninitializedObject(
             typeof(WpfShaderEffectSamplerTextureCache));
         var brush = new CaptureCacheSource(new(disconnected ? null :
             new FakeDrawingVisual(CreateRenderData(Brushes.Red)) { Bounds = new Rect(10, 20, 8, 6) },
             new CaptureCache(new(2, true, false)), Opacity: 0.5));
-        Assert.False(cache.TryCreateSampler(brush, 2, Scene.TextureSamplingMode.Nearest,
-            null, out var sampler));
-        Assert.Null(sampler);
+        Assert.Throws<NotSupportedException>(() => cache.TryCreateSampler(brush, 2,
+            Scene.TextureSamplingMode.Nearest, null, out _));
         Assert.Equal(1, brush.Reads);
     }
 
