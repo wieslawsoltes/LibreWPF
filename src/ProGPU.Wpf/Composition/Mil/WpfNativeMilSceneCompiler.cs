@@ -74,6 +74,8 @@ public sealed record WpfNativeMilViewport3DScene(
 public readonly record struct WpfNativeMilBitmapCacheRasterPolicy(
     uint Handle, PortableBitmapCacheRasterPolicy Policy);
 
+public readonly record struct WpfNativeMilEmptyCacheBrushSource(uint BrushHandle, uint VisualHandle);
+
 public sealed record WpfNativeMilBatch(
     byte[] Bytes,
     uint TargetHandle,
@@ -100,6 +102,7 @@ public sealed record WpfNativeMilBatch(
         PointHitRegions = original.PointHitRegions; VisualVisibilities = original.VisualVisibilities;
         EmptyVisualBrushSources = original.EmptyVisualBrushSources;
         BitmapCacheRasterPolicies = original.BitmapCacheRasterPolicies;
+        EmptyCacheBrushSources = original.EmptyCacheBrushSources;
         HintedGlyphResources = original.HintedGlyphResources?.Retain();
     }
     public void Dispose() => HintedGlyphResources?.Dispose();
@@ -112,6 +115,8 @@ public sealed record WpfNativeMilBatch(
     /// <summary>Initialized VisualBrush sources with authoritative empty bounds, not null source handles.</summary>
     public ReadOnlyMemory<uint> EmptyVisualBrushSources { get; init; }
     public ReadOnlyMemory<WpfNativeMilBitmapCacheRasterPolicy> BitmapCacheRasterPolicies { get; init; }
+    /// <summary>Real ownership edges for ordinary null-paint aliases inside a shader source closure.</summary>
+    public ReadOnlyMemory<WpfNativeMilEmptyCacheBrushSource> EmptyCacheBrushSources { get; init; }
 }
 
 public sealed record WpfNativeMilCompilation(
@@ -190,6 +195,7 @@ public sealed partial class WpfNativeMilSceneCompiler
                 VisualVisibilities = context.VisualVisibilities.ToArray(),
                 EmptyVisualBrushSources = context.EmptyVisualBrushSources.ToArray(),
                 BitmapCacheRasterPolicies = context.BitmapCacheRasterPolicies.ToArray(),
+                EmptyCacheBrushSources = context.EmptyCacheBrushSources.ToArray(),
                 HintedGlyphResources = context.HintedGlyphRuns.Count == 0 ? null : WpfNativeHintedGlyphResources.Create(context.HintedGlyphRuns)
             };
             context.Dispose();
@@ -338,6 +344,12 @@ public sealed partial class WpfNativeMilSceneCompiler
                 policy.MaximumTextureWidth, policy.MaximumTextureHeight, policy.SourceRevision));
             ++appliedCount;
         }
+        foreach (var source in batch.EmptyCacheBrushSources.Span)
+        {
+            // Initialized source and its explicit empty witness must exist first.
+            channel.SetBitmapCacheBrushEmptySource(source.BrushHandle, source.VisualHandle);
+            ++appliedCount;
+        }
         foreach (WpfNativeMilViewport3DScene viewport3D in
                  batch.Viewport3DScenes ??
                  Array.Empty<WpfNativeMilViewport3DScene>())
@@ -364,6 +376,12 @@ public sealed partial class WpfNativeMilSceneCompiler
         private readonly Func<PortableBitmapCacheRasterPolicy>? _cacheRasterPolicySource;
         private PortableBitmapCacheRasterPolicy? _cacheRasterPolicySnapshot;
         internal List<WpfNativeMilBitmapCacheRasterPolicy> BitmapCacheRasterPolicies { get; } = [];
+        internal List<WpfNativeMilEmptyCacheBrushSource> EmptyCacheBrushSources { get; } = [];
+        private readonly Dictionary<object, (uint Handle, object Target)> _ordinaryEmptyCacheBrushes =
+            new(ReferenceEqualityComparer.Instance);
+        private readonly Dictionary<object, HashSet<object>> _emptyCacheDependencies =
+            new(ReferenceEqualityComparer.Instance);
+        private readonly HashSet<uint> _retainedEmptyCacheBrushes = [];
 
         internal BuildContext(Func<PortableBitmapCacheRasterPolicy>? cacheRasterPolicySource)
         {
@@ -572,6 +590,7 @@ public sealed partial class WpfNativeMilSceneCompiler
             }
             if (_visualHandles.TryGetValue(visual, out uint existing))
             {
+                PropagateEmptyCacheDependencies(visual);
                 if (brushSource) AddVisualBounds(visual, existing, retainEmptyBrushSource: retainEmptyBrushSource);
                 return existing;
             }
@@ -624,6 +643,46 @@ public sealed partial class WpfNativeMilSceneCompiler
             if (!retainEmptySource && TryGetVisualBounds(visual, out NativeMilRect bounds, allowEmpty: true) &&
                 (bounds.Width == 0 || bounds.Height == 0)) return 0U;
             return AddVisual(visual, brushSource: true, retainEmptyBrushSource: retainEmptySource);
+        }
+
+        private void RecordEmptyCacheDependency(object brush)
+        {
+            foreach (object visual in _activeVisuals) AddDependency(visual);
+            foreach (object drawing in _activeDrawings) AddDependency(drawing);
+            void AddDependency(object owner)
+            {
+                if (!_emptyCacheDependencies.TryGetValue(owner, out HashSet<object>? dependencies))
+                    _emptyCacheDependencies.Add(owner, dependencies = new(ReferenceEqualityComparer.Instance));
+                dependencies.Add(brush);
+            }
+        }
+
+        private void PropagateEmptyCacheDependencies(object source)
+        {
+            if (_ordinaryEmptyCacheBrushes.ContainsKey(source)) RecordEmptyCacheDependency(source);
+            if (_emptyCacheDependencies.TryGetValue(source, out HashSet<object>? dependencies))
+                foreach (object brush in dependencies.ToArray()) RecordEmptyCacheDependency(brush);
+        }
+
+        private void RetainEmptyCacheClosure(object target)
+        {
+            if (!_emptyCacheDependencies.TryGetValue(target, out HashSet<object>? dependencies)) return;
+            var pending = new Queue<object>(dependencies);
+            var visited = new HashSet<object>(ReferenceEqualityComparer.Instance);
+            while (pending.TryDequeue(out object? brush))
+            {
+                if (!visited.Add(brush)) continue;
+                (uint handle, object source) = _ordinaryEmptyCacheBrushes[brush];
+                // Resolve the genuine source graph, not an orphan prevalidation.
+                // Its ordinary paint target remains zero. Native ownership sees
+                // this exact edge, including cycles, revisions and deletion.
+                uint visual = ResolveVisualBrushSource(source, retainEmptySource: true);
+                if (!EmptyVisualBrushSources.Contains(visual))
+                    throw new InvalidOperationException("An empty cache source changed during shader closure capture.");
+                if (_retainedEmptyCacheBrushes.Add(handle)) EmptyCacheBrushSources.Add(new(handle, visual));
+                if (_emptyCacheDependencies.TryGetValue(source, out HashSet<object>? nested))
+                    foreach (object dependency in nested) pending.Enqueue(dependency);
+            }
         }
 
         private uint AddVisualCore(object visual, bool brushSource, bool retainEmptyBrushSource)
@@ -1800,6 +1859,11 @@ public sealed partial class WpfNativeMilSceneCompiler
             var handles = shaderCacheSource ? _shaderCacheBrushHandles : _brushHandles;
             if (handles.TryGetValue(resource, out uint existing))
             {
+                PropagateEmptyCacheDependencies(resource);
+                if (_cacheBrushSnapshots.TryGetValue(resource, out var existingCache) && existingCache.InternalTarget is { } existingTarget)
+                    PropagateEmptyCacheDependencies(existingTarget);
+                if (_tileBrushSnapshots.TryGetValue(resource, out var existingTile) && existingTile.Content is { } existingContent)
+                    PropagateEmptyCacheDependencies(existingContent);
                 return existing;
             }
             if (resource is IPortableBitmapCacheBrushSource cacheSource)
@@ -1831,7 +1895,15 @@ public sealed partial class WpfNativeMilSceneCompiler
                     TransformHandle: transform, RelativeTransformHandle: relative));
                 handles.Add(resource, cacheBrushHandle);
                 if (shaderCacheSource)
+                {
                     BitmapCacheRasterPolicies.Add(new(cacheBrushHandle, CaptureCacheRasterPolicy()));
+                    if (cacheBrush.InternalTarget is { } shaderTarget) RetainEmptyCacheClosure(shaderTarget);
+                }
+                else if (target == 0 && cacheBrush.InternalTarget is { } emptyTarget)
+                {
+                    _ordinaryEmptyCacheBrushes.Add(resource, (cacheBrushHandle, emptyTarget));
+                    RecordEmptyCacheDependency(resource);
+                }
                 return cacheBrushHandle;
             }
             if (resource is IPortableTileBrushSource tileSource)
@@ -2867,6 +2939,7 @@ public sealed partial class WpfNativeMilSceneCompiler
                 throw new InvalidOperationException("The portable visual/drawing source graph exceeds the native depth limit.");
             if (_drawingHandles.TryGetValue(resource, out uint existing))
             {
+                PropagateEmptyCacheDependencies(resource);
                 return existing;
             }
             if (!_activeDrawings.Add(resource))
