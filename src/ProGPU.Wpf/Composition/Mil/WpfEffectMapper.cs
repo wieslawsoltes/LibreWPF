@@ -290,60 +290,60 @@ internal static class WpfEffectMapper
         bool published = false;
         try
         {
-        for (var i = 0; i < portableSamplers.Length; i++)
-        {
-            var portableSampler = portableSamplers[i];
-            var registerIndex = portableSampler.RegisterIndex;
-            if (portableSampler.Kind == PortableShaderSamplerKind.ImplicitInput)
+            for (var i = 0; i < portableSamplers.Length; i++)
             {
-                continue;
-            }
+                var portableSampler = portableSamplers[i];
+                var registerIndex = portableSampler.RegisterIndex;
+                if (portableSampler.Kind == PortableShaderSamplerKind.ImplicitInput)
+                {
+                    continue;
+                }
 
-            if (registerIndex == sourceTextureRegisterIndex)
-            {
-                return false;
-            }
-
-            var samplerSamplingMode = ConvertSamplingMode(portableSampler.SamplingMode);
-            if (portableSampler.Kind == PortableShaderSamplerKind.ImageSource && portableSampler.Brush == null)
-            {
-                if (!TryCreateImageSourceShaderSampler(
-                        portableSampler.ImageSource,
-                        imageSourceAdapter,
-                        registerIndex,
-                        samplerSamplingMode,
-                        out additionalSamplers[additionalSamplerIndex]))
+                if (registerIndex == sourceTextureRegisterIndex)
                 {
                     return false;
                 }
 
-                additionalSamplerIndex++;
-            }
-            else if (portableSampler.Kind == PortableShaderSamplerKind.Brush ||
-                (portableSampler.Kind == PortableShaderSamplerKind.ImageSource && portableSampler.Brush != null))
-            {
-                if (!TryCreateShaderSamplerBrush(
-                        portableSampler.Brush!,
-                        imageSourceAdapter,
-                        registerIndex,
-                        samplerSamplingMode,
-                        out additionalSamplers[additionalSamplerIndex], effectBounds, effectOwner,
-                        (float)Math.Min(float.MaxValue, effect.MaxPadding),
-                        requireEffectFrame: portableSampler.Kind == PortableShaderSamplerKind.ImageSource ||
-                            (portableSampler.Brush is global::ProGPU.Wpf.Interop.IPortableTileBrushSource tileSource &&
-                             tileSource.TryGetPortableTileBrush(out var tile) &&
-                             tile.Kind == global::ProGPU.Wpf.Interop.PortableTileBrushKind.Visual)))
+                var samplerSamplingMode = ConvertSamplingMode(portableSampler.SamplingMode);
+                if (portableSampler.Kind == PortableShaderSamplerKind.ImageSource && portableSampler.Brush == null)
                 {
-                    return false;
+                    if (!TryCreateImageSourceShaderSampler(
+                            portableSampler.ImageSource,
+                            imageSourceAdapter,
+                            registerIndex,
+                            samplerSamplingMode,
+                            out additionalSamplers[additionalSamplerIndex]))
+                    {
+                        return false;
+                    }
+
+                    additionalSamplerIndex++;
                 }
+                else if (portableSampler.Kind == PortableShaderSamplerKind.Brush ||
+                    (portableSampler.Kind == PortableShaderSamplerKind.ImageSource && portableSampler.Brush != null))
+                {
+                    if (!TryCreateShaderSamplerBrush(
+                            portableSampler.Brush!,
+                            imageSourceAdapter,
+                            registerIndex,
+                            samplerSamplingMode,
+                            out additionalSamplers[additionalSamplerIndex], effectBounds, effectOwner,
+                            (float)Math.Min(float.MaxValue, effect.MaxPadding),
+                            requireEffectFrame: portableSampler.Kind == PortableShaderSamplerKind.ImageSource ||
+                                (portableSampler.Brush is global::ProGPU.Wpf.Interop.IPortableTileBrushSource tileSource &&
+                                 tileSource.TryGetPortableTileBrush(out var tile) &&
+                                 tile.Kind == global::ProGPU.Wpf.Interop.PortableTileBrushKind.Visual)))
+                    {
+                        return false;
+                    }
 
-                additionalSamplerIndex++;
+                    additionalSamplerIndex++;
+                }
             }
-        }
 
-        samplers = additionalSamplers;
-        published = true;
-        return true;
+            samplers = additionalSamplers;
+            published = true;
+            return true;
         }
         finally
         {

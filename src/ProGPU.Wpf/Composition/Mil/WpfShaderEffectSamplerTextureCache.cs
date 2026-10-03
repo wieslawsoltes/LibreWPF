@@ -107,13 +107,25 @@ internal sealed class WpfShaderEffectSamplerTextureCache : IDisposable
             {
                 candidate = WpfShaderEffectSampler.FromCacheRaster(registerIndex, raster, samplingMode);
             }
-            catch { raster.Dispose(); throw; }
+            catch (Exception failure)
+            {
+                try { raster.Dispose(); }
+                catch (Exception cleanup) { try { failure.Data["CacheRasterCleanupFailure"] = cleanup; } catch { } }
+                throw;
+            }
             try
             {
                 if (previous is null) _rawCacheEntries.Add(brush, new RawCacheEntry(raster, policy));
                 else previous.Replace(raster, policy);
             }
-            catch { candidate.Dispose(); raster.Dispose(); throw; }
+            catch (Exception failure)
+            {
+                try { candidate.Dispose(); }
+                catch (Exception cleanup) { try { failure.Data["CacheSamplerCleanupFailure"] = cleanup; } catch { } }
+                try { raster.Dispose(); }
+                catch (Exception cleanup) { try { failure.Data["CacheRasterCleanupFailure"] = cleanup; } catch { } }
+                throw;
+            }
             sampler = candidate;
             return true;
         }
