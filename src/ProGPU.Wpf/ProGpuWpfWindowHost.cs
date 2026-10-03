@@ -2640,6 +2640,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
             }
             ProGpuWpfCompositionTarget target = CreateCompositionTargetForWindow(
                 window, sharedDeviceContext);
+            target.CacheRasterMonitors = () => PlatformServices.Monitors;
             NativeCompositor? nativeMilCompositor = null;
             WpfNativeMilCompilationSession? nativeMilSession = null;
             WpfBitmapCacheRasterPolicySource? nativeCacheRasterPolicySource = null;

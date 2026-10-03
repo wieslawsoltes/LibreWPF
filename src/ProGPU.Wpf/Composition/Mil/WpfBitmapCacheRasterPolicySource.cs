@@ -34,7 +34,11 @@ internal sealed class WpfBitmapCacheRasterPolicySource
         _framePolicy = null;
     }
 
-    internal PortableBitmapCacheRasterPolicy CaptureFrame() => _framePolicy ??= Capture();
+    internal PortableBitmapCacheRasterPolicy CaptureFrame()
+    {
+        VerifyOwner();
+        return _framePolicy ??= Capture();
+    }
 
     internal PortableBitmapCacheRasterPolicy Capture()
     {

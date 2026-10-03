@@ -65,6 +65,32 @@ public sealed class WpfBitmapCacheBrushCapture : IDisposable
         IWpfImageSourceAdapter? imageSourceAdapter)
         => CreateCore(source, context, viewportCache, imageSourceAdapter, requireEmptySource: false);
 
+    // Shader cache input is the raw selected cache, not an ordinary brush paint.
+    // Validate the complete owned graph (including hidden/empty descendants)
+    // separately, then retain its ordinary visible content without root state.
+    internal static WpfBitmapCacheBrushCapture CreateShaderSource(
+        IPortableBitmapCacheBrushSource source,
+        global::ProGPU.Backend.WgpuContext? context,
+        WpfViewport3DTextureCache? viewportCache,
+        IWpfImageSourceAdapter? imageSourceAdapter)
+    {
+        WpfBitmapCacheBrushCapture proof;
+        using (WpfCaptureReplayGuard.Begin(validateHiddenSources: true))
+            proof = CreateCore(source, context, viewportCache, imageSourceAdapter,
+                requireEmptySource: false, rawShaderSource: true);
+        using (proof)
+        {
+            var capture = CreateCore(source, context, viewportCache, imageSourceAdapter,
+                requireEmptySource: false, rawShaderSource: true);
+            if (!proof.Bounds.Equals(capture.Bounds) || !proof.CachePolicy.Equals(capture.CachePolicy))
+            {
+                capture.Dispose();
+                throw new InvalidOperationException("The source cache changed during raw sampler capture.");
+            }
+            return capture;
+        }
+    }
+
     // This is a shader-only ownership proof, not an ordinary cache allocation.
     // Hidden descendants are validated without changing original visibility;
     // every recorded command is discarded, including on failure.
@@ -83,7 +109,7 @@ public sealed class WpfBitmapCacheBrushCapture : IDisposable
         global::ProGPU.Backend.WgpuContext? context,
         WpfViewport3DTextureCache? viewportCache,
         IWpfImageSourceAdapter? imageSourceAdapter,
-        bool requireEmptySource)
+        bool requireEmptySource, bool rawShaderSource = false)
     {
         ArgumentNullException.ThrowIfNull(source);
         if (!source.TryGetPortableBitmapCacheBrush(out var brush))
@@ -92,8 +118,8 @@ public sealed class WpfBitmapCacheBrushCapture : IDisposable
             throw new ArgumentOutOfRangeException(nameof(source), "Cache-brush opacity must be finite and in [0, 1].");
 
         if (!PortableBitmapCacheBrushPolicy.TryResolve(brush, out var policy) ||
-            !float.IsFinite((float)policy.RenderAtScale) ||
-            (policy.RenderAtScale > 0 && (float)policy.RenderAtScale == 0))
+            (!rawShaderSource && (!float.IsFinite((float)policy.RenderAtScale) ||
+            (policy.RenderAtScale > 0 && (float)policy.RenderAtScale == 0))))
             throw new NotSupportedException("The typed BitmapCache policy is unavailable or outside the managed renderer domain.");
         PortableRect bounds = default;
         if (brush.InternalTarget is object target)
