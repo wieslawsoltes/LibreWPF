@@ -85,7 +85,7 @@ public sealed partial class WpfNativeMilSceneCompilerTests
     }
 
     [Fact]
-    public void CacheShaderDoesNotPublishOrphanDependenciesBehindKnownEmptyDrawingImage()
+    public void CacheShaderConnectsOriginalDependenciesBehindKnownEmptyDrawingImage()
     {
         var emptyTarget = new SamplerVisual(null) { Empty = true };
         var inner = new ShaderCacheBrush(new(emptyTarget));
@@ -96,8 +96,16 @@ public sealed partial class WpfNativeMilSceneCompilerTests
         Assert.Empty(ordinary.EmptyCacheBrushSources.ToArray());
         Assert.Empty(ordinary.BitmapCacheRasterPolicies.ToArray());
         var outer = new ShaderCacheBrush(new(source));
-        Assert.Contains("Known-empty DrawingImage", Assert.Throws<NotSupportedException>(() =>
-            CacheShaderBatch(VisualSamplerEffect(outer))).Message);
+        using var shader = CacheShaderBatch(VisualSamplerEffect(outer));
+        var imageEdge = Assert.Single(shader.EmptyDrawingImageSources.ToArray());
+        var cacheEdge = Assert.Single(shader.EmptyCacheBrushSources.ToArray());
+        int imagePacket = FindCommand(shader.Bytes, 0x71);
+        Assert.Equal(imageEdge.ImageHandle, ReadUInt32(shader.Bytes, imagePacket + 8));
+        Assert.Equal(0U, ReadUInt32(shader.Bytes, imagePacket + 12));
+        int drawingPacket = FindCommand(shader.Bytes, 0x87);
+        Assert.Equal(imageEdge.DrawingHandle, ReadUInt32(shader.Bytes, drawingPacket + 8));
+        Assert.Equal(cacheEdge.BrushHandle, ReadUInt32(shader.Bytes, drawingPacket + 12));
+        Assert.Empty(ordinary.EmptyDrawingImageSources.ToArray());
         Assert.Equal(originalBytes, ordinary.Bytes);
     }
 

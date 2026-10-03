@@ -229,6 +229,10 @@ internal static class WpfDrawingReplay
 
         if (isEmpty)
         {
+            // The shader proof walk owns a discarded recording. Known-empty
+            // paint must not hide unsupported or cyclic original dependencies.
+            if (WpfCaptureReplayGuard.ValidateHiddenSources)
+                status = Replay(drawing, sink, imageSourceAdapter);
             RecordEmptyImageHitScope(sink, destinationBounds);
             return true;
         }
@@ -1455,6 +1459,8 @@ internal static class WpfDrawingReplay
 
         if (isEmpty)
         {
+            if (WpfCaptureReplayGuard.ValidateHiddenSources)
+                status = Replay(drawingValue, sink, imageSourceAdapter);
             return true;
         }
 
