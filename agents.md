@@ -403,6 +403,11 @@ as native ownership, or accept arbitrary/closed/detached/mismatched sources.
 Keep host rejection atomic with source owner collections and preserve native
 Windows MIL routing. Toolkit's IntPtr MessageBox overload uses this source
 identity bridge; it does not admit external HWND ownership or qualify modality.
+MessageBox selects the portable source/backend before active-HWND lookup on
+Windows too. A portable presentation identity must never reach user32. Keep
+actual same-dispatcher owner resolution, service override/startup precedence and
+native Windows-MIL behavior separate; do not enable Cocoa sessions from this
+selection. See docs/portable-messagebox-backend-selection.md.
 AvalonDock live floating validation must require a distinct presented host, its
 own device-index input, source focus, and host removal on redocking. Model-only
 Float/Dock checks are insufficient; inject coordinates in the receiving host's

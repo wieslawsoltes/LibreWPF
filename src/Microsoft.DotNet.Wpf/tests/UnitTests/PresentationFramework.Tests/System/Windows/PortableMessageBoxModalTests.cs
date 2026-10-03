@@ -20,7 +20,7 @@ namespace System.Windows;
 public class PortableMessageBoxModalTests
 {
     private const string ChildMarker = "LIBREWPF_MESSAGEBOX_MODAL_CHILD";
-    private const string CompletionMarker = "Public MessageBox modal contracts passed: explicit/inferred owner and short/scrollable long content.";
+    private const string CompletionMarker = "Public MessageBox modal contracts passed: explicit/inferred/resolved owner and short/scrollable long content.";
 
     [PortableMessageBoxFact]
     public void PublicMessageBoxBlocksItsOwnerUntilTheActualDialogCloses()
@@ -244,19 +244,78 @@ public class PortableMessageBoxModalTests
             owner.Show();
             sources[owner].SetClientSize(800, 500);
             PortableWindowActivationService.SetActivationState(owner, true);
+            Assert.True(MessageBox.UsesPortableBackend(owner));
+            Assert.True(MessageBox.UsesPortableBackend());
+            IntPtr sourceHandle = new WindowInteropHelper(owner).Handle;
+            Assert.NotEqual(IntPtr.Zero, sourceHandle);
+            Assert.Equal(sources[owner].Handle, sourceHandle);
+
+            int overrides = 0;
+            using (PortableMessageBoxService.Register((Func<object, object>)(value =>
+            {
+                var request = Assert.IsType<PortableMessageBoxRequest>(value);
+                Assert.Same(owner, request.Owner);
+                Assert.False(PortableModalInputScope.IsActive);
+                overrides++;
+                return MessageBoxResult.Yes;
+            })))
+            {
+                // Registration and typed owner identity must work on portable
+                // Windows too; no native dialog may precede the explicit override.
+                Assert.Equal(MessageBoxResult.Yes, MessageBox.Show(owner, "Override", "Override", MessageBoxButton.YesNo));
+                Assert.Equal(MessageBoxResult.Yes, MessageBox.ShowCore(sourceHandle,
+                    "Override", "Override", MessageBoxButton.YesNo, MessageBoxImage.None, MessageBoxResult.None, 0));
+                Assert.Equal(2, overrides);
+                Assert.Equal(0, dialogRuns);
+
+                Assert.Throws<System.ComponentModel.InvalidEnumArgumentException>(() => MessageBox.ShowCore(
+                    new IntPtr(1234), "Invalid", "Invalid", (MessageBoxButton)999,
+                    MessageBoxImage.None, MessageBoxResult.None, 0));
+                Assert.Throws<ArgumentException>(() => MessageBox.ShowCore(sourceHandle,
+                    "Invalid", "Invalid", MessageBoxButton.OK, MessageBoxImage.None,
+                    MessageBoxResult.None, MessageBoxOptions.ServiceNotification));
+                Assert.Throws<PlatformNotSupportedException>(() => MessageBox.ShowCore(new IntPtr(1234),
+                    "Foreign", "Foreign", MessageBoxButton.OK, MessageBoxImage.None, MessageBoxResult.None, 0));
+                using var detached = PortablePresentationSourceHost.Create();
+                Assert.Throws<PlatformNotSupportedException>(() => MessageBox.ShowCore(detached.Handle,
+                    "Detached", "Detached", MessageBoxButton.OK, MessageBoxImage.None, MessageBoxResult.None, 0));
+                Assert.Equal(2, overrides);
+                Assert.Equal(0, dialogRuns);
+                Assert.False(PortableModalInputScope.IsActive);
+            }
+
+            int fallbacks = 0;
+            using var hiddenOwner = new HiddenWindowOwner();
+            using var fallback = PortableMessageBoxService.Register((PortableMessageBoxRequest request) =>
+            {
+                Assert.Same(hiddenOwner.Window, request.Owner);
+                Assert.False(hiddenOwner.Window.IsVisible);
+                Assert.Null(hiddenOwner.Window.PortableWindowActivation);
+                fallbacks++;
+                return MessageBoxResult.Cancel;
+            });
+            Assert.Equal(MessageBoxResult.Cancel, MessageBox.Show(hiddenOwner.Window,
+                "Startup", "Startup", MessageBoxButton.OKCancel));
+            Assert.Equal(1, fallbacks);
+            Assert.Equal(0, dialogRuns);
+
             foreach (string messageText in new[]
             {
                 "Actual source message",
                 string.Join("\n", Enumerable.Range(1, 80).Select(index => $"Message line {index}: retained source content."))
             })
-            foreach (bool explicitOwner in new[] { true, false })
+            foreach (int ownerKind in new[] { 0, 1, 2 })
             {
                 expectedMessage = messageText;
-                MessageBoxResult result = explicitOwner
-                    ? MessageBox.Show(owner, messageText, "Modal source dialog", MessageBoxButton.YesNoCancel,
-                        MessageBoxImage.None, MessageBoxResult.No)
-                    : MessageBox.Show(messageText, "Modal source dialog", MessageBoxButton.YesNoCancel,
-                        MessageBoxImage.None, MessageBoxResult.No);
+                MessageBoxResult result = ownerKind switch
+                {
+                    0 => MessageBox.Show(owner, messageText, "Modal source dialog", MessageBoxButton.YesNoCancel,
+                        MessageBoxImage.None, MessageBoxResult.No),
+                    1 => MessageBox.Show(messageText, "Modal source dialog", MessageBoxButton.YesNoCancel,
+                        MessageBoxImage.None, MessageBoxResult.No),
+                    _ => MessageBox.ShowCore(sourceHandle, messageText, "Modal source dialog", MessageBoxButton.YesNoCancel,
+                        MessageBoxImage.None, MessageBoxResult.No, 0)
+                };
                 Assert.Equal(MessageBoxResult.No, result);
                 Assert.False(ComponentDispatcher.IsThreadModal);
                 Assert.False(PortableModalInputScope.IsActive);
@@ -277,9 +336,10 @@ public class PortableMessageBoxModalTests
                 Assert.Equal((int)DragDropEffects.Copy, DeliverDrop(owner));
                 Assert.Equal(drops + 1, ownerDrops);
             }
-            Assert.Equal(4, dialogRuns);
-            Assert.Equal(4, dialogCloses);
-            Assert.Equal(4, dialogDisposals);
+            Assert.Equal(6, dialogRuns);
+            Assert.Equal(6, dialogCloses);
+            Assert.Equal(6, dialogDisposals);
+            Assert.Equal(1, fallbacks); // A live source dialog takes priority over fallback.
         }
         finally
         {
@@ -295,12 +355,17 @@ public class PortableMessageBoxModalTests
     private static int DeliverDrop(Window window) => PortableWindowActivationService.ProcessDragDropEvent(
         window, 0, Array.Empty<string>(), "source drag text", 100, 100, 1, 1);
 
+    private sealed class HiddenWindowOwner : IDisposable
+    {
+        internal Window Window { get; } = new Window();
+        public void Dispose() { if (!Window.IsDisposed) Window.Close(); }
+    }
+
     private sealed class PortableMessageBoxFactAttribute : FactAttribute
     {
         public PortableMessageBoxFactAttribute([CallerFilePath] string? path = null, [CallerLineNumber] int line = 0) : base(path, line)
         {
-            if (OperatingSystem.IsWindows()) Skip = "Windows MessageBox keeps its native user32 route; this source contract is non-Windows.";
-            else if (PortableWpfRuntime.ConfiguredMediaBackend != PortableWpfMediaBackend.Portable)
+            if (PortableWpfRuntime.ConfiguredMediaBackend != PortableWpfMediaBackend.Portable)
                 Skip = "Select LIBREWPF_TEST_MEDIA_BACKEND=Portable for the portable source contract.";
         }
     }

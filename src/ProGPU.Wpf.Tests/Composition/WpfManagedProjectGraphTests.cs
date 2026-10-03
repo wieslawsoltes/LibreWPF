@@ -3562,19 +3562,27 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("Func<ProGPU.Wpf.Interop.PortableMessageBoxRequest, string>", messageBoxService, StringComparison.Ordinal);
         Assert.Contains("internal static bool TryShow(", messageBoxService, StringComparison.Ordinal);
         Assert.Contains("return MessageBox.GetPortableFallbackResult(DefaultResult, Button)", messageBoxService, StringComparison.Ordinal);
-        Assert.Contains("return !s_isWindows && Volatile.Read(ref s_handler) != null", messageBoxService, StringComparison.Ordinal);
+        Assert.Contains("return MessageBox.UsesPortableBackend() && Volatile.Read(ref s_handler) != null", messageBoxService, StringComparison.Ordinal);
+        Assert.Contains("if (!MessageBox.UsesPortableBackend(owner as Window))", messageBoxService, StringComparison.Ordinal);
+        Assert.DoesNotContain("s_isWindows", messageBoxService, StringComparison.Ordinal);
 
         Assert.Contains("return ShowCore(owner, messageBoxText, caption, button, icon, defaultResult, options)", messageBox, StringComparison.Ordinal);
         Assert.Contains("GetMessageBoxOwnerHandle(owner)", messageBox, StringComparison.Ordinal);
-        Assert.Contains("if (ownerHandle == IntPtr.Zero && OperatingSystem.IsWindows())", messageBox, StringComparison.Ordinal);
-        Assert.Contains("if (!OperatingSystem.IsWindows())", messageBox, StringComparison.Ordinal);
+        Assert.Contains("bool portable = UsesPortableBackend(owner as Window) || handleOwner != null", messageBox, StringComparison.Ordinal);
+        Assert.Contains("Window.TryResolvePortableOwnerHandle(ownerHandle, Dispatcher.CurrentDispatcher, out handleOwner)", messageBox, StringComparison.Ordinal);
+        Assert.Contains("owner?.PortableWindowActivation != null", messageBox, StringComparison.Ordinal);
+        Assert.Contains("PortableWpfRuntime.ConfiguredMediaBackend == PortableWpfMediaBackend.Portable", messageBox, StringComparison.Ordinal);
         Assert.Contains("PortableMessageBoxService.TryShow(", messageBox, StringComparison.Ordinal);
         Assert.Contains("return GetPortableFallbackResult(defaultResult, button)", messageBox, StringComparison.Ordinal);
         Assert.Contains("return new WindowInteropHelper(owner).Handle", messageBox, StringComparison.Ordinal);
         Assert.True(
-            messageBox.IndexOf("if (!OperatingSystem.IsWindows())", StringComparison.Ordinal)
+            messageBox.IndexOf("if (portable)", StringComparison.Ordinal)
+                < messageBox.IndexOf("ownerHandle = UnsafeNativeMethods.GetActiveWindow()", StringComparison.Ordinal),
+            "Portable MessageBox must select its source route before querying any active HWND.");
+        Assert.True(
+            messageBox.IndexOf("return GetPortableFallbackResult(defaultResult, button)", StringComparison.Ordinal)
                 < messageBox.IndexOf("UnsafeNativeMethods.MessageBox", StringComparison.Ordinal),
-            "MessageBox.ShowCore must try the portable service before the Win32 MessageBox call.");
+            "Portable MessageBox must finish its route without falling through to user32.");
 
         Assert.Contains("TryRegisterPresentationFrameworkMessageBoxService()", proGpuActivation, StringComparison.Ordinal);
         Assert.Contains("PortableWpfServiceRegistry.MessageBoxServiceRegistered += OnMessageBoxServiceRegistered", proGpuActivation, StringComparison.Ordinal);
