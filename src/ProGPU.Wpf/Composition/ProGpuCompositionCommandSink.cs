@@ -2552,14 +2552,10 @@ public sealed partial class ProGpuCompositionCommandSink :
 
     private static VectorPen WithLineCaps(VectorPen pen, MediaPenLineCap startLineCap, MediaPenLineCap endLineCap)
     {
-        return new VectorPen(
-            pen.Brush,
-            pen.Thickness,
-            pen.LineJoin,
-            pen.MiterLimit,
-            ToNativeLineCap(startLineCap),
-            ToNativeLineCap(endLineCap),
-            pen.DashCap);
+        var copy = pen.WithBrush(pen.Brush);
+        copy.StartLineCap = ToNativeLineCap(startLineCap);
+        copy.EndLineCap = ToNativeLineCap(endLineCap);
+        return copy;
     }
 
     private static bool TryConvertGeometryToNativePath(

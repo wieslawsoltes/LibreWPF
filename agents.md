@@ -1,5 +1,15 @@
 # Agent Guidance
 
+Source WPF pen adapters select the shared producer's full retained WPF join
+policy, including reversal and smooth-to-Round behavior, not a global generic
+smooth reinterpretation or clip-only alias. Preserve original brush/dash/path
+identity through cached coverage pens and every retained copy. This dependent
+source draft requires the matching producer rebuild; qualified gitlink/package
+pins remain unchanged and older producers do not supply the new contract.
+Public Geometry stroke queries use a separate native descriptor and remain an
+explicit implementation boundary. See docs/source-wpf-join-policy.md; authored
+controls and reached source adapters are not application qualification.
+
 Actual retained WPF visuals opt into SourceOpacityMaskPreservesHitGeometry;
 source point/region input ignores raster mask coverage, never actual source
 geometry/scroll clips or effect mapping. Generic providers retain default false
