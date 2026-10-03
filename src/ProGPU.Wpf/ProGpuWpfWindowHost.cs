@@ -3114,7 +3114,11 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
             }
 
             object? wpfRootVisual = _wpfRootVisual;
-            var activeWpfImageSourceAdapter = _target.CreateFrameImageSourceAdapter(WpfImageSourceAdapter, (float)dpiScale);
+            var shaderTargetFrame = new WpfShaderEffectTargetFrame(logicalWidth, logicalHeight,
+                pixelWidth, pixelHeight, new ProGpuRenderTargetViewport(
+                    viewportX, viewportY, viewportWidth, viewportHeight));
+            var activeWpfImageSourceAdapter = _target.CreateFrameImageSourceAdapter(
+                WpfImageSourceAdapter, (float)dpiScale, shaderTargetFrame);
             var forceFullWpfReplay = _forceFullWpfReplay;
             var shouldReplayWpfRootVisual = wpfRootVisual != null &&
                 (forceFullWpfReplay || _target.ShouldReplayVisualSubtree(wpfRootVisual));

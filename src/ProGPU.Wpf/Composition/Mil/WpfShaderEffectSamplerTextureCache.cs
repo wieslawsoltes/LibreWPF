@@ -52,6 +52,10 @@ internal sealed class WpfShaderEffectSamplerTextureCache : IDisposable
 
     internal bool HasRawCacheSamplers => _rawCacheEntries.Any();
 
+    internal bool HasSourceTargetFrame(WpfShaderEffectTargetFrame frame) =>
+        _effectEntries.All(owner => owner.Value.All(entry =>
+            entry.Value.SourceTargetFrame is not { } captured || captured == frame));
+
     internal bool HasRawCachePolicy(global::ProGPU.Wpf.Interop.PortableBitmapCacheRasterPolicy policy) =>
         _rawCacheEntries.All(entry => entry.Value.Policy.Equals(policy));
 
@@ -80,14 +84,15 @@ internal sealed class WpfShaderEffectSamplerTextureCache : IDisposable
     {
         sampler = null!;
         if (request.Owner is null || request.SourceCapture is not { } source ||
-            !EffectCaptureFrame.TryCreateSource(source, dpiScale, out var frame)) return false;
+            request.TargetFrame is not { } targetFrame || !targetFrame.TryGetPixelsPerUnit(out var pixelsPerUnit) ||
+            !EffectCaptureFrame.TryCreateSource(source, Vector2.Zero, pixelsPerUnit, dpiScale, out var frame)) return false;
         return TryCreateSamplerCore(brush, registerIndex, samplingMode, imageSourceAdapter,
-            request.Owner, frame, out sampler);
+            request.Owner, frame, out sampler, targetFrame);
     }
 
     private bool TryCreateSamplerCore(object? brush, int registerIndex, TextureSamplingMode samplingMode,
         IWpfImageSourceAdapter? imageSourceAdapter, object? effectOwner, EffectCaptureFrame? effectFrame,
-        out WpfShaderEffectSampler sampler)
+        out WpfShaderEffectSampler sampler, WpfShaderEffectTargetFrame? sourceTargetFrame = null)
     {
         ThrowIfDisposed();
         sampler = null!;
@@ -166,6 +171,8 @@ internal sealed class WpfShaderEffectSamplerTextureCache : IDisposable
         {
             return false;
         }
+
+        entry.SourceTargetFrame = sourceTargetFrame;
 
         sampler = new WpfShaderEffectSampler(registerIndex, entry.Texture, samplingMode);
         return true;
@@ -540,6 +547,8 @@ internal sealed class WpfShaderEffectSamplerTextureCache : IDisposable
 
         public GpuTexture Texture { get; private set; }
 
+        public WpfShaderEffectTargetFrame? SourceTargetFrame { get; set; }
+
         public void EnsureSize(uint width, uint height)
         {
             if (Texture.Width == width && Texture.Height == height)
@@ -624,6 +633,10 @@ internal sealed class WpfShaderEffectSamplerImageSourceAdapter :
 
     internal float DpiScale { get; }
 
+    internal WpfShaderEffectTargetFrame? TargetFrame { get; }
+
+    internal bool UsesCache(WpfShaderEffectSamplerTextureCache cache) => ReferenceEquals(_samplerTextureCache, cache);
+
     public WpfShaderEffectSamplerImageSourceAdapter(
         IWpfImageSourceAdapter? inner,
         WpfShaderEffectSamplerTextureCache samplerTextureCache,
@@ -633,6 +646,16 @@ internal sealed class WpfShaderEffectSamplerImageSourceAdapter :
         _inner = inner;
         _samplerTextureCache = samplerTextureCache ?? throw new ArgumentNullException(nameof(samplerTextureCache));
         DpiScale = dpiScale;
+    }
+
+    public WpfShaderEffectSamplerImageSourceAdapter(
+        IWpfImageSourceAdapter? inner,
+        WpfShaderEffectSamplerTextureCache samplerTextureCache,
+        float dpiScale,
+        WpfShaderEffectTargetFrame targetFrame) : this(inner, samplerTextureCache, dpiScale)
+    {
+        if (!targetFrame.TryGetPixelsPerUnit(out _)) throw new ArgumentOutOfRangeException(nameof(targetFrame));
+        TargetFrame = targetFrame;
     }
 
     public MediaImageSource? AdaptImageSource(object? imageSource)
@@ -658,8 +681,8 @@ internal sealed class WpfShaderEffectSamplerImageSourceAdapter :
         WpfShaderEffectSamplerFrame frame, out WpfShaderEffectSampler sampler)
     {
         sampler = null!;
-        if (frame.Owner is null || frame.SourceCapture is not { IsValid: true }) return false;
-        frame = frame with { DpiScale = DpiScale };
+        if (frame.Owner is null || frame.SourceCapture is not { IsValid: true } || TargetFrame is not { } targetFrame) return false;
+        frame = frame with { DpiScale = DpiScale, TargetFrame = targetFrame };
         if (_inner is IWpfShaderEffectSamplerBrushAdapter innerSamplerAdapter &&
             innerSamplerAdapter.TryAdaptSourceShaderEffectSamplerBrush(brush, registerIndex, samplingMode, frame, out sampler))
             return true;

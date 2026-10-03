@@ -12,6 +12,9 @@ public readonly record struct WpfShaderEffectSamplerFrame(
     /// </summary>
     public ShaderEffectSourceCapture? SourceCapture { get; private init; }
 
+    /// <summary>Actual receiving projection/viewport inputs, never inferred from scalar DPI.</summary>
+    public WpfShaderEffectTargetFrame? TargetFrame { get; init; }
+
     public static WpfShaderEffectSamplerFrame FromSource(object owner, ShaderEffectSourceCapture source)
     {
         ArgumentNullException.ThrowIfNull(owner);
