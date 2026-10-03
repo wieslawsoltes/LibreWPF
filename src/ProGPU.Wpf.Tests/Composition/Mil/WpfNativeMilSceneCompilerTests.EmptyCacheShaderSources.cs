@@ -85,6 +85,38 @@ public sealed partial class WpfNativeMilSceneCompilerTests
     }
 
     [Fact]
+    public void CacheShaderDoesNotPublishOrphanDependenciesBehindKnownEmptyDrawingImage()
+    {
+        var emptyTarget = new SamplerVisual(null) { Empty = true };
+        var inner = new ShaderCacheBrush(new(emptyTarget));
+        var image = new FakeDrawingImage(new EmptyCacheImageDrawing(inner));
+        var source = new FakeVisual(new FakeRenderData(CreateDrawImageRecord(1, 2, 30, 20, 1), [image]));
+        using var ordinary = new WpfNativeMilSceneCompiler().BuildBatch(source, 64, 64);
+        byte[] originalBytes = (byte[])ordinary.Bytes.Clone();
+        Assert.Empty(ordinary.EmptyCacheBrushSources.ToArray());
+        Assert.Empty(ordinary.BitmapCacheRasterPolicies.ToArray());
+        var outer = new ShaderCacheBrush(new(source));
+        Assert.Contains("Known-empty DrawingImage", Assert.Throws<NotSupportedException>(() =>
+            CacheShaderBatch(VisualSamplerEffect(outer))).Message);
+        Assert.Equal(originalBytes, ordinary.Bytes);
+    }
+
+    private sealed class EmptyCacheImageDrawing(object brush) : IPortableGeometryDrawingStateSource, IPortableDrawingBoundsSource
+    {
+        public bool TryGetPortableDrawingBounds(out PortableRect bounds) { bounds = PortableRect.Empty; return true; }
+        public bool TryGetPortableGeometryDrawingState(out PortableGeometryDrawingState state)
+        {
+            state = new()
+            {
+                HasBrush = true, Brush = brush, HasGeometry = true,
+                Geometry = new FakePrimitiveGeometry(PortablePrimitiveGeometry.Rectangle(
+                    new(1, 2, 0, 0), 0, 0, PortableMatrix3x2.Identity))
+            };
+            return true;
+        }
+    }
+
+    [Fact]
     public void CacheShaderEmptyClosureDoesNotGrantOrdinaryOnlyAdmission()
     {
         // The ordinary empty paint path historically skips this source. Only

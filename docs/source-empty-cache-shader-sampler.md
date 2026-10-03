@@ -53,6 +53,13 @@ the edge. Reused source brushes, drawings and visuals propagate dependencies in
 either traversal order. Ordinary-only empty painting does not acquire this edge
 or broader cache allocation admission.
 
+One combination remains explicitly unsupported: a known-empty DrawingImage whose
+canonical drawing handle is zero but whose discarded drawing contains nested
+cache dependencies. The source rejects that shader closure rather than claiming
+orphan serialized nodes prove ownership. Ordinary empty DrawingImage painting is
+unchanged. A separate paired native DrawingImage ownership witness is required to
+complete this combination; it is not implemented or qualified by this draft.
+
 ## Generation lifetime and authored controls
 
 Managed raw cache replacements create fresh owned rasters. Parameters acquire

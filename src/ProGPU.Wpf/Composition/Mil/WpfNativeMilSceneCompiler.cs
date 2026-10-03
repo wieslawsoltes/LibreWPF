@@ -382,6 +382,7 @@ public sealed partial class WpfNativeMilSceneCompiler
         private readonly Dictionary<object, HashSet<object>> _emptyCacheDependencies =
             new(ReferenceEqualityComparer.Instance);
         private readonly HashSet<uint> _retainedEmptyCacheBrushes = [];
+        private readonly HashSet<object> _emptyDrawingImageOwnershipSources = new(ReferenceEqualityComparer.Instance);
 
         internal BuildContext(Func<PortableBitmapCacheRasterPolicy>? cacheRasterPolicySource)
         {
@@ -672,6 +673,8 @@ public sealed partial class WpfNativeMilSceneCompiler
             while (pending.TryDequeue(out object brush))
             {
                 if (!visited.Add(brush)) continue;
+                if (_emptyDrawingImageOwnershipSources.Contains(brush))
+                    throw new NotSupportedException("Known-empty DrawingImage nested cache ownership requires a paired native source edge.");
                 (uint handle, object source) = _ordinaryEmptyCacheBrushes[brush];
                 // Resolve the genuine source graph, not an orphan prevalidation.
                 // Its ordinary paint target remains zero. Native ownership sees
@@ -2535,7 +2538,19 @@ public sealed partial class WpfNativeMilSceneCompiler
                 // contract. Do not turn unavailable bounds into a no-op or
                 // serialize an empty bounds sideband. Source graph invalidation
                 // still observes the original drawing so refilling restores it.
-                if (isEmpty) drawingHandle = 0;
+                if (isEmpty)
+                {
+                    drawingHandle = 0;
+                    if (_emptyCacheDependencies.TryGetValue(imageSource, out var hiddenDependencies) && hiddenDependencies.Count != 0)
+                    {
+                        // Ordinary empty painting stays null. A shader must not
+                        // mistake orphan serialized drawing resources for a real
+                        // native ownership edge that this older image ABI lacks.
+                        _emptyDrawingImageOwnershipSources.Add(imageSource);
+                        hiddenDependencies.Add(imageSource);
+                        RecordEmptyCacheDependency(imageSource);
+                    }
+                }
                 uint drawingImageHandle = NextHandle();
                 Batch.CreateResource(
                     drawingImageHandle, NativeMilResourceType.DrawingImage);

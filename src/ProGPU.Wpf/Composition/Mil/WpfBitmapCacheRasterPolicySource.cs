@@ -37,7 +37,13 @@ internal sealed class WpfBitmapCacheRasterPolicySource
     internal PortableBitmapCacheRasterPolicy CaptureFrame()
     {
         VerifyOwner();
-        return _framePolicy ??= Capture();
+        if (_framePolicy is { } policy)
+        {
+            if (!ReferenceEquals(_device, _context.DeviceIdentity))
+                throw new InvalidOperationException("The cache frame lost its actual device identity.");
+            return policy;
+        }
+        return (_framePolicy = Capture()).Value;
     }
 
     internal PortableBitmapCacheRasterPolicy Capture()
