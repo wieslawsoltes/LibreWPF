@@ -1,5 +1,10 @@
 # Shared source ShaderEffect capture frame
 
+The subsequent [receiving target mapping](source-effect-target-mapping.md) layer
+connects actual per-axis projection/viewport inputs to this source descriptor.
+The scalar frame description below records the #249 boundary; its legacy APIs
+remain intact while the actual source capture selects the paired vector path.
+
 The managed source adapter now retains one immutable Scene
 `ShaderEffectSourceCapture` per receiving effect generation: original double
 X/Y/Width/Height and original double Top/Bottom/Left/Right padding. This same value
