@@ -52,6 +52,9 @@ internal sealed class WpfShaderEffectSamplerTextureCache : IDisposable
 
     internal bool HasRawCacheSamplers => _rawCacheEntries.Any();
 
+    internal WpfShaderRecordingImageSourceAdapter CreateRecordingAdapter(IWpfImageSourceAdapter? inner) =>
+        new(inner, _context, _viewport3DTextureCache, _getCacheRasterPolicy);
+
     internal bool HasSourceTargetFrame(WpfShaderEffectTargetFrame frame) =>
         _effectEntries.All(owner => owner.Value.All(entry =>
             entry.Value.SourceTargetFrame is not { } captured || captured == frame));
@@ -275,40 +278,49 @@ internal sealed class WpfShaderEffectSamplerTextureCache : IDisposable
             Size = new Vector2(texture.Width, texture.Height)
         };
 
-        using var drawingContext = new MediaDrawingContext(visual.Context);
-        using var sink = new ProGpuCompositionCommandSink(
-            drawingContext,
-            _context,
-            _viewport3DTextureCache);
-
-        var drawing = new ShaderSamplerGeometryDrawing(textureBounds, brush);
-        MediaImageSource? AdaptImageSource(object? imageSource)
+        Exception? failure = null;
+        try
         {
-            return imageSourceAdapter?.AdaptImageSource(imageSource);
+            using var drawingContext = new MediaDrawingContext(visual.Context);
+            using var sink = new ProGpuCompositionCommandSink(
+                drawingContext,
+                _context,
+                _viewport3DTextureCache);
+
+            var drawing = new ShaderSamplerGeometryDrawing(textureBounds, brush);
+            using var recordingAdapter = CreateRecordingAdapter(imageSourceAdapter);
+            var replayStatus = WpfDrawingReplay.Replay(
+                drawing,
+                sink,
+                recordingAdapter.AdaptImageSource);
+
+            if (sink.UnsupportedStateCount != 0 ||
+                (replayStatus != WpfDrawingReplayStatus.Applied &&
+                !(allowSkipped && replayStatus == WpfDrawingReplayStatus.Skipped)))
+                return false;
+
+            visual.ClipBounds = new ProGpuRect(0, 0, texture.Width, texture.Height);
+            _compositor.RenderOffscreen(
+                visual,
+                texture.Width,
+                texture.Height,
+                texture,
+                padding: 0f,
+                dpiScale: 1f,
+                includeRootTransform: false,
+                includeRootVisualState: false);
+            return true;
         }
-
-        var replayStatus = WpfDrawingReplay.Replay(
-            drawing,
-            sink,
-            AdaptImageSource);
-
-        if (replayStatus != WpfDrawingReplayStatus.Applied &&
-            !(allowSkipped && replayStatus == WpfDrawingReplayStatus.Skipped))
+        catch (Exception error) { failure = error; throw; }
+        finally
         {
-            return false;
+            // The compositor retains actual submission resources. This
+            // temporary display list must release its new source/recipe leases
+            // deterministically after realization, including a failed capture.
+            try { visual.Context.Clear(); }
+            catch (Exception cleanup) when (failure is not null)
+            { try { failure.Data["ShaderSamplerRecordingCleanupFailure"] = cleanup; } catch { } }
         }
-
-        visual.ClipBounds = new ProGpuRect(0, 0, texture.Width, texture.Height);
-        _compositor.RenderOffscreen(
-            visual,
-            texture.Width,
-            texture.Height,
-            texture,
-            padding: 0f,
-            dpiScale: 1f,
-            includeRootTransform: false,
-            includeRootVisualState: false);
-        return true;
     }
 
     // One source snapshot owns both frame selection and replay. Reentrant
@@ -626,7 +638,8 @@ internal sealed class WpfShaderEffectSamplerTextureCache : IDisposable
 
 internal sealed class WpfShaderEffectSamplerImageSourceAdapter :
     IWpfImageSourceAdapter,
-    IWpfShaderEffectSamplerBrushAdapter
+    IWpfShaderEffectSamplerBrushAdapter,
+    IWpfShaderRecordingAdapterSource
 {
     private readonly IWpfImageSourceAdapter? _inner;
     private readonly WpfShaderEffectSamplerTextureCache _samplerTextureCache;
@@ -638,6 +651,9 @@ internal sealed class WpfShaderEffectSamplerImageSourceAdapter :
     internal bool UsesCache(WpfShaderEffectSamplerTextureCache cache) => ReferenceEquals(_samplerTextureCache, cache);
 
     internal IWpfImageSourceAdapter? SourceAdapter => _inner;
+
+    public WpfShaderRecordingImageSourceAdapter CreateShaderRecordingAdapter() =>
+        _samplerTextureCache.CreateRecordingAdapter(_inner);
 
     public WpfShaderEffectSamplerImageSourceAdapter(
         IWpfImageSourceAdapter? inner,

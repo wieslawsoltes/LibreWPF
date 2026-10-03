@@ -44,11 +44,11 @@ sampler entries retain their target frame. Explicit target callers cannot render
 those entries under a different frame without replay. Clearing source recordings
 clears the existing sampler entries and their mapping metadata.
 
-Nested effects inside current brush/cache recordings remain explicitly
-unsupported by their existing non-effect-scope recording sink. This change does
-not forward an outer host mapping into a nested offscreen target or claim to
-implement that separate contract. It does not alter original source ownership,
-brush-family admission, source geometry hits, final clips or resource retirement.
+At this layer nested effects inside brush/cache recordings remained unsupported
+by the non-effect-scope recording sink. The subsequent
+[owned nested recording layer](source-owned-nested-shader-effects.md) connects
+them to actual late-target preparation, without forwarding an outer host mapping.
+Neither layer broadens original sampler families or substitutes source owners.
 
 ## Delivery
 

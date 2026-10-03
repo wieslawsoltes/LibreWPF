@@ -222,7 +222,8 @@ public sealed class WpfResourceResolver :
     IWpfGuidelineSetResourceResolver,
     IWpfRawMilResourceResolver,
     IWpfImageSourceAdapter,
-    IWpfShaderEffectSamplerBrushAdapter
+    IWpfShaderEffectSamplerBrushAdapter,
+    IWpfShaderRecordingAdapterSource
 {
     private readonly struct WpfMatrix2D
     {
@@ -1962,6 +1963,9 @@ public sealed class WpfResourceResolver :
             return null;
         }
 
+        if (_imageSourceAdapter is IWpfShaderRecordingAdapterSource { RecordsOwnedShaderImages: true })
+            return _imageSourceAdapter.AdaptImageSource(resource);
+
         if (resource is MediaImageSource imageSource)
         {
             return WpfBitmapSourceImageAdapter.CanProvideGpuTexture(imageSource)
@@ -1971,6 +1975,12 @@ public sealed class WpfResourceResolver :
 
         return _imageSourceAdapter?.AdaptImageSource(resource);
     }
+
+    WpfShaderRecordingImageSourceAdapter? IWpfShaderRecordingAdapterSource.CreateShaderRecordingAdapter() =>
+        (_imageSourceAdapter as IWpfShaderRecordingAdapterSource)?.CreateShaderRecordingAdapter();
+
+    bool IWpfShaderRecordingAdapterSource.RecordsOwnedShaderImages =>
+        _imageSourceAdapter is IWpfShaderRecordingAdapterSource { RecordsOwnedShaderImages: true };
 
     public static MediaTransform? AdaptTransform(object? resource)
     {

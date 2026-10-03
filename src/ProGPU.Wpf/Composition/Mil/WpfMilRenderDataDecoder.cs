@@ -978,6 +978,11 @@ public sealed class WpfMilRenderDataDecoder
         out bool animationUnsupported)
     {
         animationUnsupported = false;
+        // A general live video lease is not a source-owned immutable pixel
+        // generation. Keep it out of the new deferred shader recipe before
+        // invoking source frame callbacks; ordinary video replay is unchanged.
+        if (resources is IWpfShaderRecordingAdapterSource { RecordsOwnedShaderImages: true })
+            return VideoReplayStatus.Unsupported;
         uint playerToken = ReadUInt32(payload, 32);
         if (playerToken == 0 ||
             !TryResolveRawResource(resources, playerToken, out object player))

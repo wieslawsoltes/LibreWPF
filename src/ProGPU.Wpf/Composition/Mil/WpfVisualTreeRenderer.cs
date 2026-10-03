@@ -1189,22 +1189,38 @@ public sealed class WpfVisualTreeRenderer
         // effects retain their existing output-opacity scope ordering.
         var hasEffect = TryGetVisualEffect(visual, out var effect);
         global::ProGPU.Scene.EffectBase? proGpuEffect = null;
+        using var ownedEffect = new WpfOwnedEffectCandidate();
         WpfReplayRect? effectBounds = null;
         var effectResolved = false;
         if (hasEffect)
         {
             effectBounds = TryGetVisualStateBounds(out var resolvedEffectBounds) ? resolvedEffectBounds : null;
-            effectResolved = WpfEffectMapper.TryCreateProGpuEffect(
-                effect, out proGpuEffect, imageSourceAdapter, effectBounds, visual);
+            if (sink is IWpfOwnedShaderEffectCommandSink &&
+                imageSourceAdapter is IWpfShaderRecordingAdapterSource &&
+                effect is global::ProGPU.Wpf.Interop.IPortableShaderEffectSource)
+            {
+                if (effectBounds is { } ownedBounds &&
+                    WpfEffectMapper.TryCreateOwnedShaderEffect(effect, visual, ownedBounds,
+                        imageSourceAdapter, out var prepared))
+                {
+                    ownedEffect.Source = prepared;
+                    effectResolved = true;
+                }
+            }
+            else
+                effectResolved = WpfEffectMapper.TryCreateProGpuEffect(
+                    effect, out proGpuEffect, imageSourceAdapter, effectBounds, visual);
         }
 
-        var captureSourceOpacity = proGpuEffect is global::ProGPU.Scene.WpfShaderEffect
+        var captureSourceOpacity = ownedEffect.Source is not null || proGpuEffect is global::ProGPU.Scene.WpfShaderEffect
         {
             CaptureSourceVisualOpacity: true
         };
         if (captureSourceOpacity)
         {
-            if (WpfPortableCommandSinkBridge.TryPushVisualEffect(sink, proGpuEffect!, effectBounds))
+            if (ownedEffect.Source is not null
+                ? ownedEffect.Push(sink, effectBounds!.Value)
+                : WpfPortableCommandSinkBridge.TryPushVisualEffect(sink, proGpuEffect!, effectBounds))
             {
                 popCount++;
             }
