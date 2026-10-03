@@ -119,8 +119,8 @@ internal static class WpfEffectMapper
 
         // The source DTO preserves the original doubles, including invalid
         // values. Reject before replacement lookup or sampler ownership can
-        // allocate a candidate; the valid managed MaxPadding policy is separate
-        // from native per-edge capture semantics.
+        // allocate a candidate. The actual capture frame is shared Scene policy,
+        // not the legacy scalar MaxPadding approximation.
         if (!IsValidShaderPadding(effect.PaddingTop) || !IsValidShaderPadding(effect.PaddingBottom) ||
             !IsValidShaderPadding(effect.PaddingLeft) || !IsValidShaderPadding(effect.PaddingRight))
         {

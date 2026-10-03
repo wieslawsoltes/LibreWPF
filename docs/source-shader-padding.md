@@ -31,12 +31,12 @@ source distinctions are unchanged.
 
 ## Managed replacement boundary
 
-The existing managed WGSL replacement path uses one float `MaxPadding` for its
-effect and receiving-frame capture. That is not a four-edge asymmetric source
-frame contract. This change only rejects invalid raw padding before replacement
-or sampler callbacks; it does not change valid-input managed capture arithmetic,
-claim asymmetric parity, or add local bounds corrections. A genuinely paired
-managed four-edge frame remains separate implementation work.
+The native transport checkpoint left the managed WGSL replacement path's float
+`MaxPadding` policy unchanged. Its source successor now passes one original
+double-bounds/four-edge descriptor to the shared Scene producer for implicit
+input and sampler captures. See [source-effect-capture-frame.md](source-effect-capture-frame.md).
+Legacy scalar Scene APIs remain separate. Neither source transport nor this new
+managed descriptor establishes native fractional/affine or original raster parity.
 
 ## Authored controls and dependencies
 
