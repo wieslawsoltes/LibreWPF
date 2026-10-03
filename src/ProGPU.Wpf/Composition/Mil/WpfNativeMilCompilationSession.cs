@@ -631,6 +631,7 @@ public sealed class WpfNativeMilCompilationSession : IDisposable
             previous.DrawingGroupBounds, current.DrawingGroupBounds) &&
         HasStableHandles(
             previous.VisualCacheBounds, current.VisualCacheBounds) &&
+        previous.EmptyVisualBrushSources.Span.SequenceEqual(current.EmptyVisualBrushSources.Span) &&
         HasStableHandles(previous.Viewport3DScenes, current.Viewport3DScenes);
 
     internal static bool SidebandEquals(
@@ -722,6 +723,7 @@ public sealed class WpfNativeMilCompilationSession : IDisposable
             (batch.DrawingImageBounds?.Count ?? 0) +
             (batch.DrawingGroupBounds?.Count ?? 0) +
             (batch.VisualCacheBounds?.Count ?? 0) +
+            batch.EmptyVisualBrushSources.Length +
             (batch.PointHitRegions.IsEmpty ? 0 : 1) +
             (batch.VisualVisibilities.IsEmpty ? 0 : 1) +
             (batch.Viewport3DScenes?.Count ?? 0)));

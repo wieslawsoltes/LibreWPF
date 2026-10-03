@@ -19,4 +19,4 @@ if [[ ! -f "${assembly}" ]]; then
 fi
 LIBREWPF_TEST_MEDIA_BACKEND=Portable "${dotnet_command}" "${assembly}" \
   --filter-class System.Windows.Media.Tests.PortableShaderEffectSourceTests \
-  --minimum-expected-tests 9 --fail-skips on --timeout 60s --no-progress
+  --minimum-expected-tests 14 --fail-skips on --timeout 60s --no-progress

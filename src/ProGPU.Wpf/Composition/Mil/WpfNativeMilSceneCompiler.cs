@@ -95,6 +95,7 @@ public sealed record WpfNativeMilBatch(
         MediaPlayerSources = original.MediaPlayerSources; BitmapExternalImageSources = original.BitmapExternalImageSources;
         D3DImageSources = original.D3DImageSources; VisualOwners = original.VisualOwners;
         PointHitRegions = original.PointHitRegions; VisualVisibilities = original.VisualVisibilities;
+        EmptyVisualBrushSources = original.EmptyVisualBrushSources;
         HintedGlyphResources = original.HintedGlyphResources?.Retain();
     }
     public void Dispose() => HintedGlyphResources?.Dispose();
@@ -104,6 +105,8 @@ public sealed record WpfNativeMilBatch(
         NativeGpuHitTestOwnerMap<object>.Empty;
     public ReadOnlyMemory<NativeMilPointHitRectangle> PointHitRegions { get; init; }
     public ReadOnlyMemory<NativeMilVisualVisibility> VisualVisibilities { get; init; }
+    /// <summary>Initialized VisualBrush sources with authoritative empty bounds, not null source handles.</summary>
+    public ReadOnlyMemory<uint> EmptyVisualBrushSources { get; init; }
 }
 
 public sealed record WpfNativeMilCompilation(
@@ -171,6 +174,7 @@ public sealed partial class WpfNativeMilSceneCompiler
                 VisualOwners = context.SnapshotVisualOwners(),
                 PointHitRegions = context.PointHitRegions.ToArray(),
                 VisualVisibilities = context.VisualVisibilities.ToArray(),
+                EmptyVisualBrushSources = context.EmptyVisualBrushSources.ToArray(),
                 HintedGlyphResources = context.HintedGlyphRuns.Count == 0 ? null : WpfNativeHintedGlyphResources.Create(context.HintedGlyphRuns)
             };
             context.Dispose();
@@ -306,6 +310,11 @@ public sealed partial class WpfNativeMilSceneCompiler
                 visualCache.Handle, visualCache.Bounds);
             ++appliedCount;
         }
+        foreach (uint handle in batch.EmptyVisualBrushSources.Span)
+        {
+            channel.SetVisualSourceEmptyBounds(handle);
+            ++appliedCount;
+        }
         foreach (WpfNativeMilViewport3DScene viewport3D in
                  batch.Viewport3DScenes ??
                  Array.Empty<WpfNativeMilViewport3DScene>())
@@ -379,6 +388,8 @@ public sealed partial class WpfNativeMilSceneCompiler
             new(ReferenceEqualityComparer.Instance);
         private readonly HashSet<object> _parentedVisuals = new(ReferenceEqualityComparer.Instance);
         private readonly HashSet<uint> _visualBoundsHandles = [];
+        private readonly Dictionary<object, PortableTileBrush> _tileBrushSnapshots =
+            new(ReferenceEqualityComparer.Instance);
         private uint _nextHandle = 1;
 
         internal NativeMilBatchBuilder Batch { get; } = new();
@@ -404,6 +415,7 @@ public sealed partial class WpfNativeMilSceneCompiler
 
         internal List<WpfNativeMilVisualCacheBounds> VisualCacheBounds
             { get; } = [];
+        internal List<uint> EmptyVisualBrushSources { get; } = [];
         internal List<NativeMilPointHitRectangle> PointHitRegions { get; } = [];
         internal List<NativeMilVisualVisibility> VisualVisibilities { get; } = [];
 
@@ -503,7 +515,7 @@ public sealed partial class WpfNativeMilSceneCompiler
             return handle;
         }
 
-        private uint AddVisual(object visual, bool brushSource)
+        private uint AddVisual(object visual, bool brushSource, bool retainEmptyBrushSource = false)
         {
             if (_activeVisuals.Count + _activeDrawings.Count >= 256)
                 throw new InvalidOperationException("The portable visual/drawing source graph exceeds the native depth limit.");
@@ -515,13 +527,13 @@ public sealed partial class WpfNativeMilSceneCompiler
             }
             if (_visualHandles.TryGetValue(visual, out uint existing))
             {
-                if (brushSource) AddVisualBounds(visual, existing);
+                if (brushSource) AddVisualBounds(visual, existing, retainEmptyBrushSource: retainEmptyBrushSource);
                 return existing;
             }
             _activeVisuals.Add(visual);
             try
             {
-                return AddVisualCore(visual, brushSource);
+                return AddVisualCore(visual, brushSource, retainEmptyBrushSource);
             }
             finally
             {
@@ -529,11 +541,13 @@ public sealed partial class WpfNativeMilSceneCompiler
             }
         }
 
-        private void AddVisualBounds(object visual, uint visualHandle, bool allowEmptyOpacity = false)
+        private void AddVisualBounds(object visual, uint visualHandle, bool allowEmptyOpacity = false,
+            bool retainEmptyBrushSource = false)
         {
             if (_visualBoundsHandles.Contains(visualHandle)) return;
             if (!TryGetVisualBounds(visual, out NativeMilRect bounds,
-                    allowEmpty: allowEmptyOpacity, allowZeroExtent: allowEmptyOpacity))
+                    allowEmpty: allowEmptyOpacity || retainEmptyBrushSource,
+                    allowZeroExtent: allowEmptyOpacity || retainEmptyBrushSource))
             {
                 string detail = visual is IPortableVisualBoundsSource source &&
                     source.TryGetPortableVisualBounds(out PortableVisualBounds descriptor)
@@ -546,19 +560,28 @@ public sealed partial class WpfNativeMilSceneCompiler
             // Keep the visual, alpha, source input scopes and descendants on the
             // existing native uniform-opacity path. Missing bounds still fail;
             // this does not admit empty cache/effect/spatial-mask allocations.
-            if (allowEmptyOpacity && (bounds.Width == 0 || bounds.Height == 0)) return;
+            if (allowEmptyOpacity && !retainEmptyBrushSource && (bounds.Width == 0 || bounds.Height == 0)) return;
+            if (retainEmptyBrushSource && (bounds.Width == 0 || bounds.Height == 0))
+            {
+                // The legacy cache-bounds setter remains strictly positive.
+                // Preserve a separately declared empty source and its graph;
+                // native ownership preflight must still see the actual Visual.
+                EmptyVisualBrushSources.Add(visualHandle);
+                _visualBoundsHandles.Add(visualHandle);
+                return;
+            }
             VisualCacheBounds.Add(new WpfNativeMilVisualCacheBounds(visualHandle, bounds));
             _visualBoundsHandles.Add(visualHandle);
         }
 
-        private uint ResolveVisualBrushSource(object visual)
+        private uint ResolveVisualBrushSource(object visual, bool retainEmptySource = false)
         {
-            if (TryGetVisualBounds(visual, out NativeMilRect bounds, allowEmpty: true) &&
+            if (!retainEmptySource && TryGetVisualBounds(visual, out NativeMilRect bounds, allowEmpty: true) &&
                 (bounds.Width == 0 || bounds.Height == 0)) return 0U;
-            return AddVisual(visual, brushSource: true);
+            return AddVisual(visual, brushSource: true, retainEmptyBrushSource: retainEmptySource);
         }
 
-        private uint AddVisualCore(object visual, bool brushSource)
+        private uint AddVisualCore(object visual, bool brushSource, bool retainEmptyBrushSource)
         {
             if (visual is not IPortableVisualStateSource stateSource ||
                 !stateSource.TryGetPortableVisualState(out PortableVisualState state))
@@ -662,7 +685,8 @@ public sealed partial class WpfNativeMilSceneCompiler
             {
                 AddVisualBounds(visual, visualHandle, allowEmptyOpacity:
                     !brushSource && !state.HasCacheMode && !state.HasEffect &&
-                    !state.HasBitmapEffect && !state.HasOpacityMask);
+                    !state.HasBitmapEffect && !state.HasOpacityMask,
+                    retainEmptyBrushSource: retainEmptyBrushSource);
             }
             if (state.HasClip)
             {
@@ -1721,6 +1745,9 @@ public sealed partial class WpfNativeMilSceneCompiler
 
         private uint ResolveBrush(object resource, PortableTileBrush? capturedTile = null)
         {
+            if (capturedTile is not null && _tileBrushSnapshots.TryGetValue(resource, out PortableTileBrush? previousTile) &&
+                !SameTileBrushSnapshot(previousTile, capturedTile))
+                throw new InvalidOperationException("One source tile brush changed during native batch capture.");
             if (_brushHandles.TryGetValue(resource, out uint existing))
             {
                 return existing;
@@ -1754,9 +1781,19 @@ public sealed partial class WpfNativeMilSceneCompiler
                     throw MissingContract(nameof(IPortableTileBrushSource));
                 if (tile.Kind is not (PortableTileBrushKind.Image or PortableTileBrushKind.Drawing or PortableTileBrushKind.Visual))
                     throw new NotSupportedException("Unknown portable tile brush source kind.");
+                if (_tileBrushSnapshots.TryGetValue(resource, out PortableTileBrush? previous))
+                {
+                    if (!SameTileBrushSnapshot(previous, tile))
+                        throw new InvalidOperationException("One source tile brush changed during native batch capture.");
+                }
+                else
+                    _tileBrushSnapshots.Add(resource, tile);
                 uint sourceHandle = tile.Content is null ? 0U
                     : tile.Kind == PortableTileBrushKind.Visual
-                        ? ResolveVisualBrushSource(tile.Content)
+                        // Empty is a retained visual, not a missing reference.
+                        // Traverse it as well: empty/hidden bounds cannot erase
+                        // cycles, missing child contracts or source ownership.
+                        ? ResolveVisualBrushSource(tile.Content, retainEmptySource: true)
                     : tile.Kind == PortableTileBrushKind.Drawing
                         ? ResolveDrawing(tile.Content)
                         : ResolveImageSource(tile.Content);
@@ -1807,6 +1844,16 @@ public sealed partial class WpfNativeMilSceneCompiler
             _brushHandles.Add(resource, handle);
             return handle;
         }
+
+        private static bool SameTileBrushSnapshot(PortableTileBrush left, PortableTileBrush right) =>
+            left.Kind == right.Kind && ReferenceEquals(left.Content, right.Content) &&
+            left.Opacity.Equals(right.Opacity) && left.Viewport.Equals(right.Viewport) &&
+            left.Viewbox.Equals(right.Viewbox) && left.ViewportUnits == right.ViewportUnits &&
+            left.ViewboxUnits == right.ViewboxUnits && left.TileMode == right.TileMode &&
+            left.Stretch == right.Stretch && left.AlignmentX == right.AlignmentX &&
+            left.AlignmentY == right.AlignmentY && left.HasTransform == right.HasTransform &&
+            left.Transform.Equals(right.Transform) && left.HasRelativeTransform == right.HasRelativeTransform &&
+            left.RelativeTransform.Equals(right.RelativeTransform);
 
         private uint AddPortableBrush(PortableBrush brush)
         {

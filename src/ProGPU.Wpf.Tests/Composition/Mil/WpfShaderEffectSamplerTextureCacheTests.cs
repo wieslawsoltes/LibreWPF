@@ -7,6 +7,34 @@ namespace ProGPU.Wpf.Tests.Composition.Mil;
 
 public sealed class WpfShaderEffectSamplerTextureCacheTests
 {
+    [Theory]
+    [InlineData(PortableBrushMappingMode.Absolute)]
+    [InlineData(PortableBrushMappingMode.RelativeToBoundingBox)]
+    public void NullVisualNeverInventsSourceBoundsFromViewbox(PortableBrushMappingMode viewboxUnits)
+    {
+        var brush = new NullVisualSource(viewboxUnits);
+        Assert.False(WpfShaderEffectSamplerTextureCache.TryGetBrushSourceBounds(brush, out var bounds));
+        Assert.Equal(default, bounds);
+        Assert.True(Scene.EffectCaptureFrame.TryCreate(new(8, 10, 32, 24), 0, 2, out var frame));
+        Assert.True(WpfShaderEffectSamplerTextureCache.TryGetEffectTextureBounds(frame,
+            out var capture, out var width, out var height));
+        Assert.Equal(new Rect(0, 0, 64, 48), capture);
+        Assert.Equal(64U, width);
+        Assert.Equal(48U, height);
+    }
+
+    private sealed class NullVisualSource(PortableBrushMappingMode viewboxUnits) : IPortableTileBrushSource
+    {
+        public bool TryGetPortableTileBrush(out PortableTileBrush value)
+        {
+            value = PortableTileBrush.Visual(null, 1, new(0, 0, 1, 1), new(4, 8, 16, 32),
+                PortableBrushMappingMode.RelativeToBoundingBox, viewboxUnits, PortableTileMode.None,
+                PortableStretch.Fill, PortableAlignmentX.Center, PortableAlignmentY.Center,
+                false, default, false, default);
+            return true;
+        }
+    }
+
     [Fact]
     public void ReceivingAdapterForwardsActualHostDpiWithoutReplacingSourceFrameOrOwner()
     {

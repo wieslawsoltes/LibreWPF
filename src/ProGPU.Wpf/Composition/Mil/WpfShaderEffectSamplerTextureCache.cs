@@ -78,20 +78,21 @@ internal sealed class WpfShaderEffectSamplerTextureCache : IDisposable
         }
 
         if (brush is not PortableTileBrushSource tileSource || !tileSource.TryGetPortableTileBrush(out var tile) ||
-            !IsSupportedShaderSamplerBrush(brush)) return false;
+            tile.Kind is not (PortableTileBrushKind.Image or PortableTileBrushKind.Visual or PortableTileBrushKind.Drawing)) return false;
         Rect textureBounds;
         uint pixelWidth, pixelHeight;
-        if (tile.Kind == PortableTileBrushKind.Image)
+        bool requiresEffectFrame = tile.Kind is PortableTileBrushKind.Image or PortableTileBrushKind.Visual;
+        if (requiresEffectFrame)
         {
             if (effectOwner is null || effectFrame is not { } frame ||
                 !TryGetEffectTextureBounds(frame, out textureBounds, out pixelWidth, out pixelHeight)) return false;
         }
-        else if (!TryGetBrushSourceBounds(brush, AdaptImageSource, out var sourceBounds) ||
+        else if (!TryGetPortableBrushSourceBounds(tile, AdaptImageSource, out var sourceBounds) ||
             !TryCreateTextureBounds(sourceBounds, out textureBounds, out pixelWidth, out pixelHeight)) return false;
 
         var entry = GetOrCreateEntry(brush, pixelWidth, pixelHeight,
-            tile.Kind == PortableTileBrushKind.Image ? effectOwner : null);
-        if (!RenderBrushToTexture(brush, textureBounds, entry.Texture, imageSourceAdapter))
+            requiresEffectFrame ? effectOwner : null);
+        if (!RenderBrushToTexture(tile, textureBounds, entry.Texture, imageSourceAdapter))
         {
             return false;
         }
@@ -176,7 +177,7 @@ internal sealed class WpfShaderEffectSamplerTextureCache : IDisposable
     }
 
     private bool RenderBrushToTexture(
-        object brush,
+        PortableTileBrush brush,
         Rect textureBounds,
         GpuTexture texture,
         IWpfImageSourceAdapter? imageSourceAdapter)
@@ -192,7 +193,7 @@ internal sealed class WpfShaderEffectSamplerTextureCache : IDisposable
             _context,
             _viewport3DTextureCache);
 
-        var drawing = new ShaderSamplerGeometryDrawing(textureBounds, brush);
+        var drawing = new ShaderSamplerGeometryDrawing(textureBounds, new CapturedTileBrush(brush));
         MediaImageSource? AdaptImageSource(object? imageSource)
         {
             return imageSourceAdapter?.AdaptImageSource(imageSource);
@@ -203,7 +204,9 @@ internal sealed class WpfShaderEffectSamplerTextureCache : IDisposable
             sink,
             AdaptImageSource);
 
-        if (replayStatus != WpfDrawingReplayStatus.Applied)
+        if (replayStatus != WpfDrawingReplayStatus.Applied &&
+            !(replayStatus == WpfDrawingReplayStatus.Skipped &&
+              brush.Kind == PortableTileBrushKind.Visual && brush.Content is null))
         {
             return false;
         }
@@ -219,6 +222,13 @@ internal sealed class WpfShaderEffectSamplerTextureCache : IDisposable
             includeRootTransform: false,
             includeRootVisualState: false);
         return true;
+    }
+
+    // One source snapshot owns both frame selection and replay. Reentrant
+    // readers cannot replace its Visual or mapping between those operations.
+    private sealed class CapturedTileBrush(PortableTileBrush brush) : PortableTileBrushSource
+    {
+        public bool TryGetPortableTileBrush(out PortableTileBrush value) { value = brush; return true; }
     }
 
     internal static bool TryGetBrushSourceBounds(object brush, out Rect bounds)
@@ -247,6 +257,12 @@ internal sealed class WpfShaderEffectSamplerTextureCache : IDisposable
         Func<object?, MediaImageSource?>? imageSourceAdapter,
         out Rect bounds)
     {
+        if (brush.Content is null)
+        {
+            // An absolute viewbox is mapping, not proof of live source bounds.
+            bounds = default;
+            return false;
+        }
         if (brush.Kind == PortableTileBrushKind.Image)
         {
             Rect imageBounds;
@@ -403,15 +419,6 @@ internal sealed class WpfShaderEffectSamplerTextureCache : IDisposable
             && double.IsFinite(bounds.Y)
             && double.IsFinite(bounds.Width)
             && double.IsFinite(bounds.Height);
-    }
-
-    private static bool IsSupportedShaderSamplerBrush(object brush)
-    {
-        return brush is PortableTileBrushSource portableSource
-            && portableSource.TryGetPortableTileBrush(out var portableBrush)
-            && (portableBrush.Kind == PortableTileBrushKind.Image
-                || portableBrush.Kind == PortableTileBrushKind.Drawing
-                || portableBrush.Kind == PortableTileBrushKind.Visual);
     }
 
     private void ThrowIfDisposed()
