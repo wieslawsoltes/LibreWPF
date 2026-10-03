@@ -294,8 +294,9 @@ internal sealed class WpfShaderEffectSamplerTextureCache : IDisposable
                 sink,
                 recordingAdapter.AdaptImageSource);
 
-            if (replayStatus != WpfDrawingReplayStatus.Applied &&
-                !(allowSkipped && replayStatus == WpfDrawingReplayStatus.Skipped))
+            if (sink.UnsupportedStateCount != 0 ||
+                (replayStatus != WpfDrawingReplayStatus.Applied &&
+                !(allowSkipped && replayStatus == WpfDrawingReplayStatus.Skipped)))
                 return false;
 
             visual.ClipBounds = new ProGpuRect(0, 0, texture.Width, texture.Height);

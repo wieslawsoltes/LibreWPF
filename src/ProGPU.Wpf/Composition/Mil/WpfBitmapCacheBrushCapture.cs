@@ -196,7 +196,8 @@ public sealed class WpfBitmapCacheBrushCapture : IDisposable
                 var result = new WpfVisualTreeRenderer().ReplayBitmapCacheBrushSource(
                     brush.InternalTarget, sink, captureAdapter);
                 if (result.UnsupportedContentCount != 0 || result.UnsupportedVisualStateCount != 0 ||
-                    result.RenderData.UnsupportedCount != 0)
+                    result.RenderData.UnsupportedCount != 0 ||
+                    (ownedShaderRecording && sink.UnsupportedStateCount != 0))
                     throw new NotSupportedException("The cached visual source contains unsupported managed replay content or state.");
             }
             return new WpfBitmapCacheBrushCapture(recorder.EndRecording(), bounds, brush, policy);

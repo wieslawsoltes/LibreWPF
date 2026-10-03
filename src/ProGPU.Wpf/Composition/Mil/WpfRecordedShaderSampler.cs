@@ -81,7 +81,8 @@ internal abstract class WpfRecordedShaderSampler(int register, TextureSamplingMo
                     "Owned nested source shader sampler");
                 var status = WpfDrawingReplay.ReplayRecordedShaderTile(brush, content, image,
                     new Rect(0, 0, width, height), sink, imageFrame);
-                if (status is not (WpfDrawingReplayStatus.Applied or WpfDrawingReplayStatus.Skipped))
+                if (status is not (WpfDrawingReplayStatus.Applied or WpfDrawingReplayStatus.Skipped) ||
+                    sink.UnsupportedStateCount != 0)
                     throw new NotSupportedException("The recorded shader brush mapping is unsupported.");
                 context.Compositor.RenderOffscreen(visual, width, height, texture, padding: 0,
                     dpiScale: 1, includeRootTransform: false, includeRootVisualState: false);
@@ -296,6 +297,8 @@ internal sealed class WpfShaderRecordingImageSourceAdapter : IWpfImageSourceAdap
                 else if (WpfDrawingReplay.Replay(source, sink, AdaptImageSource) is
                     WpfDrawingReplayStatus.Unsupported or WpfDrawingReplayStatus.PartiallyApplied)
                     throw new NotSupportedException("The recorded shader DrawingImage has unsupported owned content.");
+                if (sink.UnsupportedStateCount != 0)
+                    throw new NotSupportedException("The original shader source contains unsupported recording commands.");
             }
             return new WpfDrawingReplay.RecordedTileContent(recorder.EndRecording(), bounds, empty);
         }
