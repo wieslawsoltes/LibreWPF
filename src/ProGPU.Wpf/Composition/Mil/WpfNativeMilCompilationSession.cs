@@ -644,6 +644,7 @@ public sealed class WpfNativeMilCompilationSession : IDisposable
         previous.EmptyVisualBrushSources.Span.SequenceEqual(current.EmptyVisualBrushSources.Span) &&
         previous.BitmapCacheRasterPolicies.Span.SequenceEqual(current.BitmapCacheRasterPolicies.Span) &&
         previous.EmptyCacheBrushSources.Span.SequenceEqual(current.EmptyCacheBrushSources.Span) &&
+        previous.EmptyDrawingImageSources.Span.SequenceEqual(current.EmptyDrawingImageSources.Span) &&
         HasStableHandles(previous.Viewport3DScenes, current.Viewport3DScenes);
 
     internal static bool SidebandEquals(
@@ -738,6 +739,7 @@ public sealed class WpfNativeMilCompilationSession : IDisposable
             batch.EmptyVisualBrushSources.Length +
             batch.BitmapCacheRasterPolicies.Length +
             batch.EmptyCacheBrushSources.Length +
+            batch.EmptyDrawingImageSources.Length +
             (batch.PointHitRegions.IsEmpty ? 0 : 1) +
             (batch.VisualVisibilities.IsEmpty ? 0 : 1) +
             (batch.Viewport3DScenes?.Count ?? 0)));

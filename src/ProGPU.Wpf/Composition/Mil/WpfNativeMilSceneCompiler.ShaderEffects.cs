@@ -64,6 +64,7 @@ public sealed partial class WpfNativeMilSceneCompiler
                         !ReferenceEquals(tile.Content, sampler.ImageSource))
                         throw new NotSupportedException("Native source shader image samplers require their original ImageBrush.");
                     brush = ResolveBrush(sampler.Brush, tile);
+                    if (tile.Content is { } imageContent) RetainEmptyCacheClosure(imageContent);
                     break;
                 case PortableShaderSamplerKind.Brush:
                     if (sampler.Brush is IPortableBitmapCacheBrushSource cacheSource)
@@ -89,6 +90,7 @@ public sealed partial class WpfNativeMilSceneCompiler
                         visualTile.Kind != PortableTileBrushKind.Visual)
                         throw new NotSupportedException("Native source shader brush samplers require their original VisualBrush or BitmapCacheBrush.");
                     brush = ResolveBrush(sampler.Brush, visualTile);
+                    if (visualTile.Content is { } visualContent) RetainEmptyCacheClosure(visualContent);
                     break;
                 default:
                     throw new NotSupportedException("Native source shaders require implicit input or an original supported source brush.");

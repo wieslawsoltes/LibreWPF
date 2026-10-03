@@ -76,6 +76,8 @@ public readonly record struct WpfNativeMilBitmapCacheRasterPolicy(
 
 public readonly record struct WpfNativeMilEmptyCacheBrushSource(uint BrushHandle, uint VisualHandle);
 
+public readonly record struct WpfNativeMilEmptyDrawingImageSource(uint ImageHandle, uint DrawingHandle);
+
 public sealed record WpfNativeMilBatch(
     byte[] Bytes,
     uint TargetHandle,
@@ -103,6 +105,7 @@ public sealed record WpfNativeMilBatch(
         EmptyVisualBrushSources = original.EmptyVisualBrushSources;
         BitmapCacheRasterPolicies = original.BitmapCacheRasterPolicies;
         EmptyCacheBrushSources = original.EmptyCacheBrushSources;
+        EmptyDrawingImageSources = original.EmptyDrawingImageSources;
         HintedGlyphResources = original.HintedGlyphResources?.Retain();
     }
     public void Dispose() => HintedGlyphResources?.Dispose();
@@ -117,6 +120,8 @@ public sealed record WpfNativeMilBatch(
     public ReadOnlyMemory<WpfNativeMilBitmapCacheRasterPolicy> BitmapCacheRasterPolicies { get; init; }
     /// <summary>Real ownership edges for ordinary null-paint aliases inside a shader source closure.</summary>
     public ReadOnlyMemory<WpfNativeMilEmptyCacheBrushSource> EmptyCacheBrushSources { get; init; }
+    /// <summary>Original drawing ownership behind a known-empty image's canonical null paint.</summary>
+    public ReadOnlyMemory<WpfNativeMilEmptyDrawingImageSource> EmptyDrawingImageSources { get; init; }
 }
 
 public sealed record WpfNativeMilCompilation(
@@ -196,6 +201,7 @@ public sealed partial class WpfNativeMilSceneCompiler
                 EmptyVisualBrushSources = context.EmptyVisualBrushSources.ToArray(),
                 BitmapCacheRasterPolicies = context.BitmapCacheRasterPolicies.ToArray(),
                 EmptyCacheBrushSources = context.EmptyCacheBrushSources.ToArray(),
+                EmptyDrawingImageSources = context.EmptyDrawingImageSources.ToArray(),
                 HintedGlyphResources = context.HintedGlyphRuns.Count == 0 ? null : WpfNativeHintedGlyphResources.Create(context.HintedGlyphRuns)
             };
             context.Dispose();
@@ -350,6 +356,13 @@ public sealed partial class WpfNativeMilSceneCompiler
             channel.SetBitmapCacheBrushEmptySource(source.BrushHandle, source.VisualHandle);
             ++appliedCount;
         }
+        foreach (var source in batch.EmptyDrawingImageSources.Span)
+        {
+            // The complete drawing graph and nested empty-source witnesses
+            // already exist. This adds ownership, not nonempty image bounds.
+            channel.SetDrawingImageEmptySource(source.ImageHandle, source.DrawingHandle);
+            ++appliedCount;
+        }
         foreach (WpfNativeMilViewport3DScene viewport3D in
                  batch.Viewport3DScenes ??
                  Array.Empty<WpfNativeMilViewport3DScene>())
@@ -377,12 +390,15 @@ public sealed partial class WpfNativeMilSceneCompiler
         private PortableBitmapCacheRasterPolicy? _cacheRasterPolicySnapshot;
         internal List<WpfNativeMilBitmapCacheRasterPolicy> BitmapCacheRasterPolicies { get; } = [];
         internal List<WpfNativeMilEmptyCacheBrushSource> EmptyCacheBrushSources { get; } = [];
+        internal List<WpfNativeMilEmptyDrawingImageSource> EmptyDrawingImageSources { get; } = [];
         private readonly Dictionary<object, (uint Handle, object Target)> _ordinaryEmptyCacheBrushes =
             new(ReferenceEqualityComparer.Instance);
         private readonly Dictionary<object, HashSet<object>> _emptyCacheDependencies =
             new(ReferenceEqualityComparer.Instance);
         private readonly HashSet<uint> _retainedEmptyCacheBrushes = [];
-        private readonly HashSet<object> _emptyDrawingImageOwnershipSources = new(ReferenceEqualityComparer.Instance);
+        private readonly Dictionary<object, (uint Handle, uint DrawingHandle, object Drawing)> _emptyDrawingImageOwnershipSources =
+            new(ReferenceEqualityComparer.Instance);
+        private readonly HashSet<uint> _retainedEmptyDrawingImages = [];
 
         internal BuildContext(Func<PortableBitmapCacheRasterPolicy>? cacheRasterPolicySource)
         {
@@ -660,21 +676,31 @@ public sealed partial class WpfNativeMilSceneCompiler
 
         private void PropagateEmptyCacheDependencies(object source)
         {
-            if (_ordinaryEmptyCacheBrushes.ContainsKey(source)) RecordEmptyCacheDependency(source);
+            if (_ordinaryEmptyCacheBrushes.ContainsKey(source) || _emptyDrawingImageOwnershipSources.ContainsKey(source))
+                RecordEmptyCacheDependency(source);
             if (_emptyCacheDependencies.TryGetValue(source, out HashSet<object>? dependencies))
                 foreach (object brush in new List<object>(dependencies)) RecordEmptyCacheDependency(brush);
         }
 
         private void RetainEmptyCacheClosure(object target)
         {
-            if (!_emptyCacheDependencies.TryGetValue(target, out HashSet<object>? dependencies)) return;
-            var pending = new Queue<object>(dependencies);
+            var pending = _emptyCacheDependencies.TryGetValue(target, out HashSet<object>? dependencies)
+                ? new Queue<object>(dependencies) : new Queue<object>();
+            if (_emptyDrawingImageOwnershipSources.ContainsKey(target)) pending.Enqueue(target);
             var visited = new HashSet<object>(ReferenceEqualityComparer.Instance);
             while (pending.TryDequeue(out object brush))
             {
                 if (!visited.Add(brush)) continue;
-                if (_emptyDrawingImageOwnershipSources.Contains(brush))
-                    throw new NotSupportedException("Known-empty DrawingImage nested cache ownership requires a paired native source edge.");
+                if (_emptyDrawingImageOwnershipSources.TryGetValue(brush, out var image))
+                {
+                    // Keep the exact original drawing, including empty nested
+                    // wrappers. Ordinary image painting remains canonical null.
+                    if (_retainedEmptyDrawingImages.Add(image.Handle))
+                        EmptyDrawingImageSources.Add(new(image.Handle, image.DrawingHandle));
+                    if (_emptyCacheDependencies.TryGetValue(image.Drawing, out var drawingDependencies))
+                        foreach (object dependency in drawingDependencies) pending.Enqueue(dependency);
+                    continue;
+                }
                 (uint handle, object source) = _ordinaryEmptyCacheBrushes[brush];
                 // Resolve the genuine source graph, not an orphan prevalidation.
                 // Its ordinary paint target remains zero. Native ownership sees
@@ -2538,24 +2564,19 @@ public sealed partial class WpfNativeMilSceneCompiler
                 // contract. Do not turn unavailable bounds into a no-op or
                 // serialize an empty bounds sideband. Source graph invalidation
                 // still observes the original drawing so refilling restores it.
-                if (isEmpty)
-                {
-                    drawingHandle = 0;
-                    if (_emptyCacheDependencies.TryGetValue(imageSource, out var hiddenDependencies) && hiddenDependencies.Count != 0)
-                    {
-                        // Ordinary empty painting stays null. A shader must not
-                        // mistake orphan serialized drawing resources for a real
-                        // native ownership edge that this older image ABI lacks.
-                        _emptyDrawingImageOwnershipSources.Add(imageSource);
-                        hiddenDependencies.Add(imageSource);
-                        RecordEmptyCacheDependency(imageSource);
-                    }
-                }
+                uint ownedDrawingHandle = drawingHandle;
+                if (isEmpty) drawingHandle = 0;
                 uint drawingImageHandle = NextHandle();
                 Batch.CreateResource(
                     drawingImageHandle, NativeMilResourceType.DrawingImage);
                 Batch.SetDrawingImage(drawingImageHandle, drawingHandle);
                 _imageSourceHandles.Add(imageSource, drawingImageHandle);
+                if (isEmpty)
+                {
+                    _emptyDrawingImageOwnershipSources.Add(imageSource,
+                        (drawingImageHandle, ownedDrawingHandle, drawing!));
+                    RecordEmptyCacheDependency(imageSource);
+                }
                 if (drawingHandle != 0)
                 {
                     DrawingImageBounds.Add(
