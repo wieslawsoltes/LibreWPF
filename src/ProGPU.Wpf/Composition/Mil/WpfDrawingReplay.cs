@@ -1104,7 +1104,21 @@ internal static class WpfDrawingReplay
         if (!source.TryGetPortableBitmapCacheBrush(out var brush)) return WpfDrawingReplayStatus.Unsupported;
         if (!double.IsFinite(brush.Opacity) || brush.Opacity < 0 || brush.Opacity > 1)
             return WpfDrawingReplayStatus.Unsupported;
-        if (brush.InternalTarget == null || brush.Opacity == 0) return WpfDrawingReplayStatus.Applied;
+        if (brush.InternalTarget == null || brush.Opacity == 0)
+        {
+            // No paint still owns the source geometry for input, just as a
+            // disconnected VisualBrush does. Never manufacture a cached page.
+            TileBrushFillGeometry emptyFill;
+            bool hasFill = preparedFill is { } prepared
+                ? (emptyFill = prepared).IsRectangle
+                : TryGetTileBrushFillGeometry(geometry, out emptyFill);
+            if (hasFill && emptyFill.IsRectangle && sink is IWpfSourceRectangleHitTestScopeCommandSink sourceSink)
+            {
+                sourceSink.PushSourceRectangleHitTestScope(ToReplayRect(emptyFill.Bounds));
+                sink.Pop();
+            }
+            return WpfDrawingReplayStatus.Applied;
+        }
         if (sink is not IWpfBitmapCacheBrushCommandSink cachedSink
             || sink is not IWpfNativeTransformCommandSink transformSink) return WpfDrawingReplayStatus.Unsupported;
         TileBrushFillGeometry fill;

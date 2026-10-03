@@ -64,17 +64,29 @@ public sealed partial class WpfNativeMilSceneCompiler
                     brush = ResolveBrush(sampler.Brush, tile);
                     break;
                 case PortableShaderSamplerKind.Brush:
+                    if (sampler.Brush is IPortableBitmapCacheBrushSource cacheSource)
+                    {
+                        if (!cacheSource.TryGetPortableBitmapCacheBrush(out var cache))
+                            throw MissingContract(nameof(IPortableBitmapCacheBrushSource));
+                        // Null is actual transparent content. A non-null empty
+                        // cache target is a separate, unimplemented contract;
+                        // never let ordinary empty-source lowering erase it.
+                        if (cache.InternalTarget is { } target && !TryGetVisualBounds(target, out _))
+                            throw new NotSupportedException("Native shader BitmapCacheBrush targets require positive original source bounds.");
+                        brush = ResolveBrush(sampler.Brush, capturedCache: cache);
+                        break;
+                    }
                     // The source exports its actual VisualBrush through the
                     // existing brush sampler contract. Do not turn it into an
                     // image, or admit other tile-brush families by shape.
                     if (sampler.Brush is not IPortableTileBrushSource visualSource ||
                         !visualSource.TryGetPortableTileBrush(out PortableTileBrush visualTile) ||
                         visualTile.Kind != PortableTileBrushKind.Visual)
-                        throw new NotSupportedException("Native source shader brush samplers require their original VisualBrush.");
+                        throw new NotSupportedException("Native source shader brush samplers require their original VisualBrush or BitmapCacheBrush.");
                     brush = ResolveBrush(sampler.Brush, visualTile);
                     break;
                 default:
-                    throw new NotSupportedException("Native source shaders support implicit input, an original ImageBrush or VisualBrush only.");
+                    throw new NotSupportedException("Native source shaders require implicit input or an original supported source brush.");
             }
 
             // Source exports dense registers with zero holes. A fresh native

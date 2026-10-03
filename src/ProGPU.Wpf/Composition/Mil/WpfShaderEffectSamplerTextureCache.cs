@@ -72,6 +72,24 @@ internal sealed class WpfShaderEffectSamplerTextureCache : IDisposable
         ThrowIfDisposed();
         sampler = null!;
 
+        if (brush is global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource cacheSource)
+        {
+            if (!cacheSource.TryGetPortableBitmapCacheBrush(out var cache) ||
+                effectOwner is null || effectFrame is not { } cacheFrame ||
+                !TryGetEffectTextureBounds(cacheFrame, out var cacheBounds, out uint cacheWidth, out uint cacheHeight) ||
+                !global::ProGPU.Wpf.Interop.PortableBitmapCacheBrushPolicy.TryResolve(cache, out _) ||
+                (cache.InternalTarget is { } target && !HasPositiveCacheSourceBounds(target)))
+                return false;
+            var cacheEntry = GetOrCreateEntry(brush, cacheWidth, cacheHeight, effectOwner);
+            // Ordinary cache-brush recording owns the selected cache and its
+            // source-root exclusions. Do not reinterpret it as a tile brush.
+            if (!RenderBrushToTexture(new CapturedBitmapCacheBrush(cache), cacheBounds,
+                    cacheEntry.Texture, imageSourceAdapter, allowSkipped: false))
+                return false;
+            sampler = new WpfShaderEffectSampler(registerIndex, cacheEntry.Texture, samplingMode);
+            return true;
+        }
+
         MediaImageSource? AdaptImageSource(object? imageSource)
         {
             return imageSourceAdapter?.AdaptImageSource(imageSource);
@@ -92,7 +110,8 @@ internal sealed class WpfShaderEffectSamplerTextureCache : IDisposable
 
         var entry = GetOrCreateEntry(brush, pixelWidth, pixelHeight,
             requiresEffectFrame ? effectOwner : null);
-        if (!RenderBrushToTexture(tile, textureBounds, entry.Texture, imageSourceAdapter))
+        if (!RenderBrushToTexture(new CapturedTileBrush(tile), textureBounds, entry.Texture, imageSourceAdapter,
+                allowSkipped: tile.Kind == PortableTileBrushKind.Visual && tile.Content is null))
         {
             return false;
         }
@@ -177,10 +196,10 @@ internal sealed class WpfShaderEffectSamplerTextureCache : IDisposable
     }
 
     private bool RenderBrushToTexture(
-        PortableTileBrush brush,
+        object brush,
         Rect textureBounds,
         GpuTexture texture,
-        IWpfImageSourceAdapter? imageSourceAdapter)
+        IWpfImageSourceAdapter? imageSourceAdapter, bool allowSkipped)
     {
         var visual = new ProGpuDrawingVisual
         {
@@ -193,7 +212,7 @@ internal sealed class WpfShaderEffectSamplerTextureCache : IDisposable
             _context,
             _viewport3DTextureCache);
 
-        var drawing = new ShaderSamplerGeometryDrawing(textureBounds, new CapturedTileBrush(brush));
+        var drawing = new ShaderSamplerGeometryDrawing(textureBounds, brush);
         MediaImageSource? AdaptImageSource(object? imageSource)
         {
             return imageSourceAdapter?.AdaptImageSource(imageSource);
@@ -205,8 +224,7 @@ internal sealed class WpfShaderEffectSamplerTextureCache : IDisposable
             AdaptImageSource);
 
         if (replayStatus != WpfDrawingReplayStatus.Applied &&
-            !(replayStatus == WpfDrawingReplayStatus.Skipped &&
-              brush.Kind == PortableTileBrushKind.Visual && brush.Content is null))
+            !(allowSkipped && replayStatus == WpfDrawingReplayStatus.Skipped))
         {
             return false;
         }
@@ -229,6 +247,23 @@ internal sealed class WpfShaderEffectSamplerTextureCache : IDisposable
     private sealed class CapturedTileBrush(PortableTileBrush brush) : PortableTileBrushSource
     {
         public bool TryGetPortableTileBrush(out PortableTileBrush value) { value = brush; return true; }
+    }
+
+    private sealed class CapturedBitmapCacheBrush(global::ProGPU.Wpf.Interop.PortableBitmapCacheBrush brush)
+        : global::ProGPU.Wpf.Interop.IPortableBitmapCacheBrushSource
+    {
+        public bool TryGetPortableBitmapCacheBrush(out global::ProGPU.Wpf.Interop.PortableBitmapCacheBrush value)
+        { value = brush; return true; }
+    }
+
+    private static bool HasPositiveCacheSourceBounds(object target)
+    {
+        if (target is not global::ProGPU.Wpf.Interop.IPortableVisualBoundsSource source ||
+            !source.TryGetPortableVisualBounds(out var bounds) ||
+            (!bounds.HasDescendantBounds && !bounds.HasContentBounds)) return false;
+        var rect = bounds.HasDescendantBounds ? bounds.DescendantBounds : bounds.ContentBounds;
+        return !rect.IsEmpty && double.IsFinite(rect.X) && double.IsFinite(rect.Y) &&
+            double.IsFinite(rect.Width) && double.IsFinite(rect.Height) && rect.Width > 0 && rect.Height > 0;
     }
 
     internal static bool TryGetBrushSourceBounds(object brush, out Rect bounds)
