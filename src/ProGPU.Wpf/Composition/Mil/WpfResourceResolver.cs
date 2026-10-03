@@ -865,7 +865,10 @@ public sealed class WpfResourceResolver :
                 ToVectorLineCap(endLineCap),
                 ToVectorLineCap(dashCap),
                 dashArray,
-                dashOffset);
+                dashOffset)
+            {
+                UseWpfJoinSemantics = true
+            };
             nativePen = _nativePen;
             return true;
         }
@@ -1730,7 +1733,10 @@ public sealed class WpfResourceResolver :
             ToVectorLineCap(pen.EndLineCap),
             ToVectorLineCap(pen.DashCap),
             dashArray,
-            dashOffset);
+            dashOffset)
+        {
+            UseWpfJoinSemantics = true
+        };
     }
 
     internal static bool TryGetBitmapCachePen(object? resource,
@@ -1759,7 +1765,10 @@ public sealed class WpfResourceResolver :
             || (uint)state.EndLineCap > 3 || (uint)state.DashCap > 3 || (uint)state.LineJoin > 2) return false;
         pen = new global::ProGPU.Vector.Pen(new global::ProGPU.Vector.SolidColorBrush(Vector4.One),
             width, ToVectorLineJoin(state.LineJoin), miter, ToVectorLineCap(state.StartLineCap),
-            ToVectorLineCap(state.EndLineCap), ToVectorLineCap(state.DashCap), dashOffset: state.DashOffset);
+            ToVectorLineCap(state.EndLineCap), ToVectorLineCap(state.DashCap), dashOffset: state.DashOffset)
+        {
+            UseWpfJoinSemantics = true
+        };
         pen.SetDashPattern(state.Dashes.Span);
         return true;
     }
