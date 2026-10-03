@@ -119,13 +119,23 @@ internal static class WpfEffectMapper
 
         // The source DTO preserves the original doubles, including invalid
         // values. Reject before replacement lookup or sampler ownership can
-        // allocate a candidate; the valid managed MaxPadding policy is separate
-        // from native per-edge capture semantics.
+        // allocate a candidate. The actual capture frame is shared Scene policy,
+        // not the legacy scalar MaxPadding approximation.
         if (!IsValidShaderPadding(effect.PaddingTop) || !IsValidShaderPadding(effect.PaddingBottom) ||
             !IsValidShaderPadding(effect.PaddingLeft) || !IsValidShaderPadding(effect.PaddingRight))
         {
             return false;
         }
+
+        // A source ShaderEffect has a real receiving owner and local content
+        // rectangle. Preserve both before any replacement/sampler callbacks;
+        // an absent frame cannot select the legacy symmetric capture policy.
+        if (effectOwner is null || effectBounds is not { } bounds)
+            return false;
+        var sourceCapture = new ShaderEffectSourceCapture(bounds.X, bounds.Y, bounds.Width, bounds.Height,
+            effect.PaddingTop, effect.PaddingBottom, effect.PaddingLeft, effect.PaddingRight);
+        if (!sourceCapture.IsValid) return false;
+        var samplerFrame = WpfShaderEffectSamplerFrame.FromSource(effectOwner, sourceCapture);
 
         if (!TryResolveShaderReplacement(effect, out var replacement))
         {
@@ -143,7 +153,7 @@ internal static class WpfEffectMapper
                 out var sourceTextureRegisterIndex,
                 out var samplingMode,
                 out var samplers,
-                effectBounds, effectOwner))
+                samplerFrame))
         {
             return false;
         }
@@ -162,7 +172,7 @@ internal static class WpfEffectMapper
 
             var nativeEffect = new WpfShaderEffect(parameters)
             {
-                Padding = (float)Math.Min(float.MaxValue, Math.Max(0d, effect.MaxPadding)),
+                SourceCapture = sourceCapture,
                 CaptureSourceVisualOpacity = true
             };
 
@@ -246,8 +256,7 @@ internal static class WpfEffectMapper
         out int sourceTextureRegisterIndex,
         out TextureSamplingMode samplingMode,
         out WpfShaderEffectSampler[] samplers,
-        WpfReplayRect? effectBounds,
-        object? effectOwner)
+        WpfShaderEffectSamplerFrame samplerFrame)
     {
         sourceTextureRegisterIndex = 0;
         samplingMode = TextureSamplingMode.Linear;
@@ -340,8 +349,7 @@ internal static class WpfEffectMapper
                             imageSourceAdapter,
                             registerIndex,
                             samplerSamplingMode,
-                            out additionalSamplers[additionalSamplerIndex], effectBounds, effectOwner,
-                            (float)Math.Min(float.MaxValue, effect.MaxPadding),
+                            out additionalSamplers[additionalSamplerIndex], samplerFrame,
                             requireEffectFrame: portableSampler.Kind == PortableShaderSamplerKind.ImageSource ||
                                 (portableSampler.Brush is global::ProGPU.Wpf.Interop.IPortableTileBrushSource tileSource &&
                                  tileSource.TryGetPortableTileBrush(out var tile) &&
@@ -400,20 +408,15 @@ internal static class WpfEffectMapper
         int registerIndex,
         TextureSamplingMode samplingMode,
         out WpfShaderEffectSampler sampler,
-        WpfReplayRect? effectBounds,
-        object? effectOwner,
-        float padding,
+        WpfShaderEffectSamplerFrame samplerFrame,
         bool requireEffectFrame)
     {
         sampler = null!;
         if (requireEffectFrame)
         {
-            return effectOwner is not null && effectBounds is { } bounds &&
-                imageSourceAdapter is IWpfShaderEffectSamplerBrushAdapter framedAdapter &&
-                framedAdapter.TryAdaptShaderEffectSamplerBrush(brush, registerIndex, samplingMode,
-                    new WpfShaderEffectSamplerFrame(effectOwner,
-                        new global::ProGPU.Scene.Rect((float)bounds.X, (float)bounds.Y, (float)bounds.Width, (float)bounds.Height),
-                        padding), out sampler);
+            return imageSourceAdapter is IWpfShaderEffectSamplerBrushAdapter framedAdapter &&
+                framedAdapter.TryAdaptSourceShaderEffectSamplerBrush(brush, registerIndex, samplingMode,
+                    samplerFrame, out sampler);
         }
         if (imageSourceAdapter is IWpfShaderEffectSamplerBrushAdapter samplerBrushAdapter
             && samplerBrushAdapter.TryAdaptShaderEffectSamplerBrush(

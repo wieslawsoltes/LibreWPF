@@ -46,8 +46,8 @@ public sealed partial class WpfVisualTreeRendererTests
             Assert.Equal(2, adapter.Frames.Count);
             Assert.Same(first, adapter.Frames[0].Owner);
             Assert.Same(second, adapter.Frames[1].Owner);
-            Assert.Equal(new Scene.Rect(8, 10, 32, 24), adapter.Frames[0].ContentBounds);
-            Assert.Equal(new Scene.Rect(3, 4, 64, 48), adapter.Frames[1].ContentBounds);
+            Assert.Equal(new Scene.ShaderEffectSourceCapture(8, 10, 32, 24, 0, 0, 0, 0), adapter.Frames[0].SourceCapture);
+            Assert.Equal(new Scene.ShaderEffectSourceCapture(3, 4, 64, 48, 0, 0, 0, 0), adapter.Frames[1].SourceCapture);
             var rejected = new TestSink { AcceptVisualEffects = true };
             Assert.Equal(1, renderer.ReplaySubtree(first, rejected,
                 imageSourceAdapter: new FakeImageSourceAdapter(null)).UnsupportedVisualStateCount);

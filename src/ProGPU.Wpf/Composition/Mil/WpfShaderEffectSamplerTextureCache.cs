@@ -68,8 +68,19 @@ internal sealed class WpfShaderEffectSamplerTextureCache : IDisposable
         out WpfShaderEffectSampler sampler)
     {
         sampler = null!;
-        if (request.Owner is null || !EffectCaptureFrame.TryCreate(request.ContentBounds, request.Padding,
+        if (request.SourceCapture.HasValue || request.Owner is null || !EffectCaptureFrame.TryCreate(request.ContentBounds, request.Padding,
                 dpiScale, out var frame)) return false;
+        return TryCreateSamplerCore(brush, registerIndex, samplingMode, imageSourceAdapter,
+            request.Owner, frame, out sampler);
+    }
+
+    internal bool TryCreateSourceSampler(object? brush, int registerIndex, TextureSamplingMode samplingMode,
+        IWpfImageSourceAdapter? imageSourceAdapter, WpfShaderEffectSamplerFrame request, float dpiScale,
+        out WpfShaderEffectSampler sampler)
+    {
+        sampler = null!;
+        if (request.Owner is null || request.SourceCapture is not { } source ||
+            !EffectCaptureFrame.TryCreateSource(source, dpiScale, out var frame)) return false;
         return TryCreateSamplerCore(brush, registerIndex, samplingMode, imageSourceAdapter,
             request.Owner, frame, out sampler);
     }
@@ -633,11 +644,26 @@ internal sealed class WpfShaderEffectSamplerImageSourceAdapter :
         object? brush, int registerIndex, TextureSamplingMode samplingMode,
         WpfShaderEffectSamplerFrame frame, out WpfShaderEffectSampler sampler)
     {
+        sampler = null!;
+        if (frame.SourceCapture.HasValue) return false;
         frame = frame with { DpiScale = DpiScale };
         if (_inner is IWpfShaderEffectSamplerBrushAdapter innerSamplerAdapter &&
             innerSamplerAdapter.TryAdaptShaderEffectSamplerBrush(brush, registerIndex, samplingMode, frame, out sampler))
             return true;
         return _samplerTextureCache.TryCreateSampler(brush, registerIndex, samplingMode, this, frame, DpiScale, out sampler);
+    }
+
+    public bool TryAdaptSourceShaderEffectSamplerBrush(
+        object? brush, int registerIndex, TextureSamplingMode samplingMode,
+        WpfShaderEffectSamplerFrame frame, out WpfShaderEffectSampler sampler)
+    {
+        sampler = null!;
+        if (frame.Owner is null || frame.SourceCapture is not { IsValid: true }) return false;
+        frame = frame with { DpiScale = DpiScale };
+        if (_inner is IWpfShaderEffectSamplerBrushAdapter innerSamplerAdapter &&
+            innerSamplerAdapter.TryAdaptSourceShaderEffectSamplerBrush(brush, registerIndex, samplingMode, frame, out sampler))
+            return true;
+        return _samplerTextureCache.TryCreateSourceSampler(brush, registerIndex, samplingMode, this, frame, DpiScale, out sampler);
     }
 
     public bool TryAdaptShaderEffectSamplerBrush(

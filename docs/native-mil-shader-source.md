@@ -29,8 +29,9 @@ be nonnegative, finite and representable as a finite float; this domain check
 does not replace its original double. Native capture owns local float inflation,
 placement, clip and UV admission. Source bounds and sampler mapping are not
 inflated or corrected by this bridge. See [source-shader-padding.md](source-shader-padding.md)
-for the authored transport/session controls, coordinated producer dependency and
-the separate unresolved managed single-`MaxPadding` frame policy.
+for the authored transport/session controls and coordinated producer dependency;
+the shared managed four-edge source successor is described in
+[source-effect-capture-frame.md](source-effect-capture-frame.md).
 
 ImageBrush export preserves its actual source identity, opacity, image, mapping,
 tile mode and transforms through the ordinary native brush compiler. The managed

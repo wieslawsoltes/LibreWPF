@@ -1940,8 +1940,19 @@ public sealed class WpfResourceResolver :
         out global::ProGPU.Scene.WpfShaderEffectSampler sampler)
     {
         sampler = null!;
+        if (frame.SourceCapture.HasValue) return false;
         return _imageSourceAdapter is IWpfShaderEffectSamplerBrushAdapter adapter &&
             adapter.TryAdaptShaderEffectSamplerBrush(brush, registerIndex, samplingMode, frame, out sampler);
+    }
+
+    public bool TryAdaptSourceShaderEffectSamplerBrush(object? brush, int registerIndex,
+        global::ProGPU.Scene.TextureSamplingMode samplingMode, WpfShaderEffectSamplerFrame frame,
+        out global::ProGPU.Scene.WpfShaderEffectSampler sampler)
+    {
+        sampler = null!;
+        return frame.Owner is not null && frame.SourceCapture is { IsValid: true } &&
+            _imageSourceAdapter is IWpfShaderEffectSamplerBrushAdapter adapter &&
+            adapter.TryAdaptSourceShaderEffectSamplerBrush(brush, registerIndex, samplingMode, frame, out sampler);
     }
 
     public MediaImageSource? AdaptImageSource(object? resource)
