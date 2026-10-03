@@ -1528,6 +1528,11 @@ internal static class WpfDrawingReplay
     {
         status = WpfDrawingReplayStatus.Skipped;
         var visualValue = brush.Content;
+        // The explicit Visual-only DTO constructor can retain a genuinely
+        // disconnected source. It paints no ink and creates no substitute
+        // visual, image or renderer resource.
+        if (visualValue is null)
+            return true;
         if (!TryGetOptionalBrushTransform(brush, out var brushTransform)
             || !TryGetSupportedTileMode(brush, out var tileMode)
             || !TryGetSupportedStretch(brush, out var stretch)

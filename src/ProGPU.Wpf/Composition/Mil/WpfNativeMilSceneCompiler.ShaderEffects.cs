@@ -63,8 +63,18 @@ public sealed partial class WpfNativeMilSceneCompiler
                         throw new NotSupportedException("Native source shader image samplers require their original ImageBrush.");
                     brush = ResolveBrush(sampler.Brush, tile);
                     break;
+                case PortableShaderSamplerKind.Brush:
+                    // The source exports its actual VisualBrush through the
+                    // existing brush sampler contract. Do not turn it into an
+                    // image, or admit other tile-brush families by shape.
+                    if (sampler.Brush is not IPortableTileBrushSource visualSource ||
+                        !visualSource.TryGetPortableTileBrush(out PortableTileBrush visualTile) ||
+                        visualTile.Kind != PortableTileBrushKind.Visual)
+                        throw new NotSupportedException("Native source shader brush samplers require their original VisualBrush.");
+                    brush = ResolveBrush(sampler.Brush, visualTile);
+                    break;
                 default:
-                    throw new NotSupportedException("Native source shaders support implicit input or an original ImageBrush only.");
+                    throw new NotSupportedException("Native source shaders support implicit input, an original ImageBrush or VisualBrush only.");
             }
 
             // Source exports dense registers with zero holes. A fresh native

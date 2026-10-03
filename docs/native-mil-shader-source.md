@@ -15,9 +15,9 @@ sampler changes generate real resource updates rather than stale DTO identity hi
 Failed source capture never reaches the active channel.
 
 Only explicit Auto/HardwareOnly intent, float constants, zero padding, and one
-implicit-input or original ImageBrush sampler are admitted by this source seam.
+implicit-input, original ImageBrush or original VisualBrush sampler are admitted by this source seam.
 SoftwareOnly, absent/unknown intent, raw-image-only sampler DTOs, arbitrary brush
-samplers, multiple/missing samplers, integer/Boolean constants and nonzero padding
+samplers other than typed VisualBrush, multiple/missing samplers, integer/Boolean constants and nonzero padding
 remain rejected. Instruction/register combinations remain subject to native
 validation; this does not claim all shader-model bytecode is implemented.
 The original `compileSoftwareShader` MIL flag is retained, not interpreted as
@@ -28,6 +28,32 @@ tile mode and transforms through the ordinary native brush compiler. The managed
 replacement path likewise requires its existing brush adapter when the complete
 source brush is available; the older image-only DTO still uses its legacy route.
 Source dependency traversal observes both the original brush and PixelShader.
+
+VisualBrush samplers use the existing `Brush` sampler discriminator and original
+`IPortableTileBrushSource` snapshot. The compiler requires `Kind.Visual`, retains
+the exact original `Content` reference, and resolves the ordinary native visual
+graph and descendant-bounds sideband. It does not rasterize the source, substitute
+an image, or admit DrawingBrush/BitmapCacheBrush as shader samplers. Reusing a
+source brush with conflicting captured content/mapping rejects the whole batch.
+Empty VisualBrush sources retain their initialized visual and child graph rather
+than disappearing into a null handle; active cycles and multiple parents still
+fail, including empty/hidden graphs. BitmapCacheBrush's separate policy is unchanged.
+
+The additive neutral `PortableTileBrush.Visual` factory can explicitly retain a
+null Visual; the existing constructor still rejects null content. Actual source
+TileBrush uses that factory only for VisualBrush. Ordinary replay reports no ink
+while preserving its existing source-rectangle hit scope. Native replay emits an
+actual VisualBrush with source handle zero. Managed shader adaptation requires
+the original receiving owner and complete physical effect frame for VisualBrush
+as for ImageBrush, and a null source still renders/clears a real owned target.
+It never substitutes a null texture, stale captured pixels or an intrinsic-size
+target. The captured tile snapshot owns both frame selection and replay.
+
+These changes require the paired new ProGPU producer and rebuilt source graph;
+they do not claim compatibility with the currently pinned old interop assembly.
+The qualified ProGPU/Forms gitlinks remain unchanged pending final qualification.
+All newly authored source/compiler controls are unexecuted; original Windows,
+both native providers and application parity remain final validation gates.
 
 Original BitmapSource exports metadata-only pixel dimensions and both source DPI
 axes. Shared ImageBrush replay keeps source DIP stretch/placement separate from

@@ -42,7 +42,7 @@ namespace System.Windows.Media
             ReadPreamble();
 
             if (!TryGetPortableTileBrushContent(this, out PortableTileBrushKind kind, out object content)
-                || content == null
+                || (content == null && kind != PortableTileBrushKind.Visual)
                 || !TryGetPortableTileBrushTransform(Transform, out bool hasTransform, out PortableMatrix3x2 transform)
                 || !TryGetPortableTileBrushTransform(RelativeTransform, out bool hasRelativeTransform, out PortableMatrix3x2 relativeTransform))
             {
@@ -52,6 +52,19 @@ namespace System.Windows.Media
 
             Rect viewport = Viewport;
             Rect viewbox = Viewbox;
+            if (kind == PortableTileBrushKind.Visual)
+            {
+                // A disconnected VisualBrush is original transparent content,
+                // not a missing portable contract. Other tile kinds keep the
+                // legacy non-null constructor and their existing admission.
+                brush = PortableTileBrush.Visual(
+                    content, Opacity, ToPortableRect(viewport), ToPortableRect(viewbox),
+                    ToPortableBrushMappingMode(ViewportUnits), ToPortableBrushMappingMode(ViewboxUnits),
+                    ToPortableTileMode(TileMode), ToPortableStretch(Stretch),
+                    ToPortableAlignmentX(AlignmentX), ToPortableAlignmentY(AlignmentY),
+                    hasTransform, transform, hasRelativeTransform, relativeTransform);
+                return true;
+            }
             brush = new PortableTileBrush(
                 kind,
                 content,
@@ -91,7 +104,7 @@ namespace System.Windows.Media
                 case VisualBrush visualBrush:
                     kind = PortableTileBrushKind.Visual;
                     content = visualBrush.Visual;
-                    return content != null;
+                    return true;
 
                 default:
                     kind = default;

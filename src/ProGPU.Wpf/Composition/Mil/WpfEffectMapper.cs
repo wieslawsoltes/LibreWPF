@@ -319,7 +319,10 @@ internal static class WpfEffectMapper
                         samplerSamplingMode,
                         out additionalSamplers[additionalSamplerIndex], effectBounds, effectOwner,
                         (float)Math.Min(float.MaxValue, effect.MaxPadding),
-                        requireEffectFrame: portableSampler.Kind == PortableShaderSamplerKind.ImageSource))
+                        requireEffectFrame: portableSampler.Kind == PortableShaderSamplerKind.ImageSource ||
+                            (portableSampler.Brush is global::ProGPU.Wpf.Interop.IPortableTileBrushSource tileSource &&
+                             tileSource.TryGetPortableTileBrush(out var tile) &&
+                             tile.Kind == global::ProGPU.Wpf.Interop.PortableTileBrushKind.Visual)))
                 {
                     return false;
                 }
