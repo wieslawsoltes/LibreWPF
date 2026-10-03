@@ -104,7 +104,9 @@ public sealed partial class WpfVisualTreeRendererTests
         // Forwarding-only: the accepting adapter prevents any cache/device use.
         var unusedCache = (WpfShaderEffectSamplerTextureCache)RuntimeHelpers.GetUninitializedObject(
             typeof(WpfShaderEffectSamplerTextureCache));
-        var receiving = new WpfShaderEffectSamplerImageSourceAdapter(inner, unusedCache, 1.75f);
+        var targetFrame = new WpfShaderEffectTargetFrame(128, 64, 256, 256,
+            new Scene.RenderTargetViewport(8, 16, 192, 128));
+        var receiving = new WpfShaderEffectSamplerImageSourceAdapter(inner, unusedCache, 1.75f, targetFrame);
         object owner = new(), brush = new();
         var source = new Scene.ShaderEffectSourceCapture(Math.BitIncrement(16d), 8, 32, 24,
             BitConverter.Int64BitsToDouble(long.MinValue), 0.5, Math.BitIncrement(0.75d), 1.25);
@@ -113,7 +115,9 @@ public sealed partial class WpfVisualTreeRendererTests
         Assert.True(receiving.TryAdaptSourceShaderEffectSamplerBrush(brush, 3, Scene.TextureSamplingMode.Nearest,
             request, out var sampler));
         Assert.Equal(1.75f, inner.Frame.DpiScale);
+        Assert.Equal(targetFrame, inner.Frame.TargetFrame);
         Assert.Equal(1f, request.DpiScale);
+        Assert.Null(request.TargetFrame);
         Assert.Same(owner, inner.Frame.Owner);
         AssertSourceCaptureBits(source, inner.Frame.SourceCapture!.Value);
         Assert.Equal(default, inner.Frame.ContentBounds);
