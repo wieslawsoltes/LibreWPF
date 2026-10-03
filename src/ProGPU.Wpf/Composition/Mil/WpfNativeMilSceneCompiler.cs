@@ -661,7 +661,7 @@ public sealed partial class WpfNativeMilSceneCompiler
         {
             if (_ordinaryEmptyCacheBrushes.ContainsKey(source)) RecordEmptyCacheDependency(source);
             if (_emptyCacheDependencies.TryGetValue(source, out HashSet<object>? dependencies))
-                foreach (object brush in dependencies.ToArray()) RecordEmptyCacheDependency(brush);
+                foreach (object brush in new List<object>(dependencies)) RecordEmptyCacheDependency(brush);
         }
 
         private void RetainEmptyCacheClosure(object target)
@@ -669,7 +669,7 @@ public sealed partial class WpfNativeMilSceneCompiler
             if (!_emptyCacheDependencies.TryGetValue(target, out HashSet<object>? dependencies)) return;
             var pending = new Queue<object>(dependencies);
             var visited = new HashSet<object>(ReferenceEqualityComparer.Instance);
-            while (pending.TryDequeue(out object? brush))
+            while (pending.TryDequeue(out object brush))
             {
                 if (!visited.Add(brush)) continue;
                 (uint handle, object source) = _ordinaryEmptyCacheBrushes[brush];
