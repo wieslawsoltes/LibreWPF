@@ -421,15 +421,6 @@ internal sealed class WpfShaderEffectSamplerTextureCache : IDisposable
             && double.IsFinite(bounds.Height);
     }
 
-    private static bool IsSupportedShaderSamplerBrush(object brush)
-    {
-        return brush is PortableTileBrushSource portableSource
-            && portableSource.TryGetPortableTileBrush(out var portableBrush)
-            && (portableBrush.Kind == PortableTileBrushKind.Image
-                || portableBrush.Kind == PortableTileBrushKind.Drawing
-                || portableBrush.Kind == PortableTileBrushKind.Visual);
-    }
-
     private void ThrowIfDisposed()
     {
         ObjectDisposedException.ThrowIf(_isDisposed, this);

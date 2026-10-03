@@ -60,6 +60,16 @@ they do not claim compatibility with the currently pinned old interop assembly.
 The qualified ProGPU/Forms gitlinks remain unchanged pending final qualification.
 All newly authored source/compiler controls are unexecuted; original Windows,
 both native providers and application parity remain final validation gates.
+The paired producer is ProGPU #341, `6caed6424f3a7fb8f2f110ba10a788d650fe6d71`,
+including nullable DTO `c35fd31181faf5ffdf28f9613d33330e0728a304` and known-empty
+transport `c44145c3b`. Authored WPF additions comprise five actual-source export,
+mutation and original-family controls, seventeen compiler/retained-session cases
+(including both backend identities), and five managed frame/null-source controls.
+The actual source selector increases its minimum by five and retains its original
+60-second deadline/fail-skips policy. Pure adapter forwarding does not demonstrate
+texture rendering. The ordinary null-brush control retains the original source
+rectangle hit scope while emitting no paint; the real sampler cache still calls
+the compositor's transparent-clear offscreen pass before publishing its texture.
 
 Original BitmapSource exports metadata-only pixel dimensions and both source DPI
 axes. Shared ImageBrush replay keeps source DIP stretch/placement separate from

@@ -160,6 +160,41 @@ public sealed partial class WpfNativeMilSceneCompilerTests
         Assert.Contains(child, dependencies);
     }
 
+    [Theory]
+    [InlineData(NativeMilBackend.WgpuNative)]
+    [InlineData(NativeMilBackend.Dawn)]
+    public void VisualShaderSessionAppliesKnownEmptySourceAndRetainsLastGenerationAfterRejection(NativeMilBackend backend)
+    {
+        var content = new FakeRenderData(CreateRectangleRecord(1, 0), [new FakeBrush(new(255, 255, 0, 0))]);
+        var visual = new SamplerVisual(content);
+        var brush = new VisualSamplerBrush(visual);
+        var effect = VisualSamplerEffect(brush);
+        var receiver = ShaderVisual(effect);
+        using var session = new WpfNativeMilCompilationSession(backend);
+        Assert.True(session.Update(receiver, 64, 64).RecreatedChannel);
+        var live = session.CompileFrame(11941, 1, 0, 1);
+        byte[] original = live.Scene.Stream.ToArray();
+
+        visual.Content = null;
+        visual.Empty = true;
+        Assert.True(session.Update(receiver, 64, 64).RecreatedChannel);
+        var empty = session.CompileFrame(11941, 2, 0, 2);
+        byte[] retained = empty.Scene.Stream.ToArray();
+        Assert.False(session.Update(receiver, 64, 64).RecreatedChannel);
+        brush.Visual = new FakeVisualWithoutBounds(new());
+        Assert.Throws<NotSupportedException>(() => session.Update(receiver, 64, 64));
+        Assert.True(session.IsInitialized);
+        Assert.Equal(retained, session.CompileFrame(11941, 2, 0, 2).Scene.Stream.ToArray());
+
+        brush.Visual = visual;
+        visual.Content = content;
+        visual.Empty = false;
+        Assert.True(session.Update(receiver, 64, 64).RecreatedChannel);
+        Assert.Equal(original, session.CompileFrame(11941, 1, 0, 1).Scene.Stream.ToArray());
+        Assert.Equal(original, live.Scene.Stream.ToArray());
+        Assert.Equal(retained, empty.Scene.Stream.ToArray());
+    }
+
     private static ShaderEffectSource VisualSamplerEffect(object brush,
         PortableShaderSamplingMode mode = PortableShaderSamplingMode.Auto) => new(new())
         { Samplers = [new(0, brush, mode)] };
@@ -181,19 +216,22 @@ public sealed partial class WpfNativeMilSceneCompilerTests
     }
 
     private sealed class SamplerVisual(object? content, params object[] children)
-        : FakeVisual(content, null, children), IPortableVisualBoundsSource, IPortableInvalidationSource
+        : FakeVisual(content, null, children), IPortableVisualBoundsSource, IPortableDrawingContentSource,
+          IPortableInvalidationSource
     {
+        internal object? Content = content;
         internal PortableRect Bounds = new(1, 2, 30, 20);
         internal bool Empty;
         private event EventHandler? Invalidated;
         internal void Invalidate() => Invalidated?.Invoke(this, EventArgs.Empty);
+        bool IPortableDrawingContentSource.TryGetPortableDrawingContent(out object? value)
+        { value = Content; return true; }
         public bool TrySubscribeInvalidated(EventHandler handler, out IDisposable subscription)
         { Invalidated += handler; subscription = new PortableInvalidationSubscription(() => Invalidated -= handler); return true; }
         bool IPortableVisualBoundsSource.TryGetPortableVisualBounds(out PortableVisualBounds bounds)
         {
             bounds = new() { HasDescendantBounds = true,
-                DescendantBounds = Empty ? new(double.PositiveInfinity, double.PositiveInfinity,
-                    double.NegativeInfinity, double.NegativeInfinity) : Bounds };
+                DescendantBounds = Empty ? PortableRect.Empty : Bounds };
             return true;
         }
     }
