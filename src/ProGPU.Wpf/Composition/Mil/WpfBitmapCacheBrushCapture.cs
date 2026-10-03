@@ -177,7 +177,11 @@ public sealed class WpfBitmapCacheBrushCapture : IDisposable
         var recorder = new GpuPictureRecorder();
         var commands = recorder.BeginRecording(new SceneRect(
             (float)bounds.X, (float)bounds.Y, (float)bounds.Width, (float)bounds.Height));
-        using var recordingAdapter = (imageSourceAdapter as IWpfShaderRecordingAdapterSource)?.CreateShaderRecordingAdapter();
+        bool ownedShaderRecording = rawShaderSource ||
+            imageSourceAdapter is IWpfShaderRecordingAdapterSource { RecordsOwnedShaderImages: true };
+        using var recordingAdapter = ownedShaderRecording
+            ? (imageSourceAdapter as IWpfShaderRecordingAdapterSource)?.CreateShaderRecordingAdapter()
+            : null;
         IWpfImageSourceAdapter? captureAdapter = recordingAdapter ?? imageSourceAdapter;
         bool validating = WpfCaptureReplayGuard.ValidateHiddenSources;
         ShaderValidationContext? previousValidationContext = s_shaderValidationContext;

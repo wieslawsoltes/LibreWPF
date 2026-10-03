@@ -61,9 +61,11 @@ owned cleanup while preserving the original error. Shutdown/finalizer behavior
 comes from the existing shared owned-resource retirement contract.
 
 The existing source family, missing-bound, source-cycle, device, 4096 sampler
-dimension and unsupported content gates remain explicit. DrawingBrush,
-BitmapCacheBrush-as-a-different-family, external/3D sources and arbitrary shader
-replacement policies are not admitted by this connection.
+dimension and unsupported content gates remain explicit. DrawingBrush samplers,
+live video/external/3D sources and arbitrary shader replacement policies are not
+admitted by this connection. The deferred recording route rejects video before
+its frame callback; an ordinary live video lease does not prove immutable bytes.
+Ordinary cache/video paths outside the typed recording route remain unchanged.
 
 ## Validation boundary
 

@@ -30,7 +30,7 @@ internal static partial class WpfEffectMapper
         WpfReplayRect bounds, IWpfImageSourceAdapter? imageAdapter, out OwnedShaderEffectSource source)
     {
         source = null!;
-        if (value is not IPortableShaderEffectSource typed ||
+        if (owner is null || value is not IPortableShaderEffectSource typed ||
             !typed.TryGetPortableShaderEffect(out var effect) ||
             imageAdapter is not IWpfShaderRecordingAdapterSource recordingSource) return false;
         var capture = new ShaderEffectSourceCapture(bounds.X, bounds.Y, bounds.Width, bounds.Height,
