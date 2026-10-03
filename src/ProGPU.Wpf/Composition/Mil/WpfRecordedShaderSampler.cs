@@ -256,9 +256,12 @@ internal sealed class WpfShaderRecordingImageSourceAdapter : IWpfImageSourceAdap
         bool empty = true;
         if (!visual && source is IPortableDrawingImageSource image)
         {
-            if (!image.TryGetPortableDrawingImage(out var drawing))
-                throw new NotSupportedException("The original DrawingImage source is unavailable.");
-            source = drawing; // A successful null is genuinely empty, not a failed read.
+            if (!image.TryGetPortableDrawingImage(out var drawing) && drawing is not null)
+                throw new NotSupportedException("The original DrawingImage source returned inconsistent content.");
+            // The original exporter returns false with null when Drawing is
+            // cleared. This is known empty, unlike an unavailable bounds result
+            // for a drawing that is actually present. Getter errors propagate.
+            source = drawing;
         }
         if (source is not null)
         {
