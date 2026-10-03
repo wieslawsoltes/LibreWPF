@@ -67,21 +67,44 @@ admitted by this connection. The deferred recording route rejects video before
 its frame callback; an ordinary live video lease does not prove immutable bytes.
 Ordinary cache/video paths outside the typed recording route remain unchanged.
 
+## Cleared DrawingImage source
+
+The follow-up child of LibreWPF #251 preserves the actual
+`DrawingImage.TryGetPortableDrawingImage` contract: when `Drawing` is null,
+the exporter returns false with a null result. Owned recipe recording treats
+that combination as known empty. A present drawing still requires successful
+authoritative bounds; false bounds results remain unsupported, even when their
+output is `PortableRect.Empty`. Getter exceptions propagate unchanged, and an
+inconsistent false/non-null drawing result is rejected.
+
+Clearing and refilling the same original image creates new owned recipes;
+previously recorded content and transparent generations do not change. No
+synthetic drawing, positive bounds, late source callback or new sampler family
+is introduced. The existing successful null-result behavior is preserved, while
+the positive fixture now models the original exporter's false/null state.
+The producer dependency remains #352 above; this correction adds no producer
+API and leaves both qualified gitlinks unchanged.
+
 ## Validation boundary
 
 Source controls are authored separately from the producer's owned texture,
 ordered recording and two-target controls. They are not execution evidence.
 Seven sink controls cover original command order, clips/opacity, nested
 transforms, inherited guidelines, independent picture leases, exact source-frame
-admission, incomplete-scope rollback and disabled media fallback. Ten recipe
+admission, incomplete-scope rollback and disabled media fallback. Thirteen recipe
 configurations cover three nested source families, immutable constants/content,
 an actual bitmap GPU copy with separately retained DIP metrics, invalid register
-preflight, hidden-cycle rollback/recovery, and failed versus genuinely null
-DrawingImage sources. Their positive realization paths use the actual headless
+preflight, hidden-cycle rollback/recovery, and same-image absent/fill/clear/refill
+generations. Three failure configurations preserve getter exceptions, unavailable
+bounds and inconsistent descriptors while retaining an older recording and
+allowing recovery. Their positive realization paths use the actual headless
 target/compositor, with cold/warm and differently sized receiving targets; they
 are typed source-adapter controls, not execution of original Microsoft classes.
 Two decoder configurations additionally retain ordinary video replay and prove
 the owned recording route rejects it before its source callback.
+Two additional PresentationCore source controls use real DrawingImage,
+DrawingGroup and GeometryDrawing instances to assert original exporter identity,
+false/null clear/refill, and successful known-empty group bounds separately.
 No builds, tests, syntax checks, verifiers, probes, GPU/UI/VM execution or CI
 dispatch were performed. Final combined producer/source validation, actual
 original-Windows rendering and platform application qualification remain pending.
