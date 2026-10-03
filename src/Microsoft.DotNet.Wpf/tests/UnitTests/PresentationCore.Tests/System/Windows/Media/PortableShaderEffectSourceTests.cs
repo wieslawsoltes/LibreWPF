@@ -122,6 +122,102 @@ public sealed class PortableShaderEffectSourceTests
         Assert.False(((IPortableShaderEffectSource)effect).TryGetPortableShaderEffect(out _));
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void VisualSamplerKeepsActualSourceIdentityBoundsChildrenAndMapping(bool absolute)
+    {
+        var child = new DrawingVisual();
+        using (DrawingContext context = child.RenderOpen())
+            context.DrawRectangle(Brushes.Red, null, new Rect(10, 20, 8, 6));
+        var visual = new ContainerVisual();
+        visual.Children.Add(child);
+        var transform = new TranslateTransform(3, 4);
+        var brush = new VisualBrush(visual) { Opacity = 0.25, Transform = transform,
+            Viewport = new Rect(0, 0, 0.5, 1), Viewbox = new Rect(10, 20, 8, 6),
+            ViewboxUnits = absolute ? BrushMappingMode.Absolute : BrushMappingMode.RelativeToBoundingBox,
+            TileMode = TileMode.FlipX };
+        var effect = new SourceEffect { Input = brush };
+        Assert.True(((IPortableShaderEffectSource)effect).TryGetPortableShaderEffect(out var captured));
+        var sampler = Assert.Single(captured.Samplers);
+        Assert.Equal(PortableShaderSamplerKind.Brush, sampler.Kind);
+        Assert.Same(brush, sampler.Brush);
+        Assert.Null(sampler.ImageSource);
+        Assert.Equal(3, sampler.RegisterIndex);
+        Assert.Equal(PortableShaderSamplingMode.NearestNeighbor, sampler.SamplingMode);
+        Assert.True(((IPortableTileBrushSource)brush).TryGetPortableTileBrush(out var tile));
+        Assert.Same(visual, tile.Content);
+        Assert.Equal(PortableTileBrushKind.Visual, tile.Kind);
+        Assert.Equal(0.25, tile.Opacity);
+        Assert.Equal(new PortableMatrix3x2(1, 0, 0, 1, 3, 4), tile.Transform);
+        Assert.Equal(PortableTileMode.FlipX, tile.TileMode);
+        Assert.Equal(absolute ? PortableBrushMappingMode.Absolute : PortableBrushMappingMode.RelativeToBoundingBox, tile.ViewboxUnits);
+        Assert.True(((IPortableVisualChildrenSource)visual).TryGetPortableVisualChildCount(out int count));
+        Assert.Equal(1, count);
+        Assert.True(((IPortableVisualChildrenSource)visual).TryGetPortableVisualChild(0, out object ownedChild));
+        Assert.Same(child, ownedChild);
+        Assert.True(((IPortableVisualBoundsSource)visual).TryGetPortableVisualBounds(out var bounds));
+        Assert.Equal(new PortableRect(10, 20, 8, 6), bounds.DescendantBounds);
+        transform.X = -7;
+        Assert.True(((IPortableTileBrushSource)brush).TryGetPortableTileBrush(out var changed));
+        Assert.Equal(new PortableMatrix3x2(1, 0, 0, 1, -7, 4), changed.Transform);
+        Assert.Equal(new PortableMatrix3x2(1, 0, 0, 1, 3, 4), tile.Transform);
+    }
+
+    [Fact]
+    public void VisualSamplerDisconnectAndReattachNeverBecomeImplicitInputOrInventedVisual()
+    {
+        var first = new DrawingVisual();
+        var second = new DrawingVisual();
+        var brush = new VisualBrush(first);
+        var effect = new SourceEffect { Input = brush };
+        Assert.True(((IPortableTileBrushSource)brush).TryGetPortableTileBrush(out var original));
+        brush.Visual = null;
+        Assert.True(((IPortableShaderEffectSource)effect).TryGetPortableShaderEffect(out var disconnected));
+        Assert.Equal(PortableShaderSamplerKind.Brush, Assert.Single(disconnected.Samplers).Kind);
+        Assert.Same(brush, disconnected.Samplers[0].Brush);
+        Assert.True(((IPortableTileBrushSource)brush).TryGetPortableTileBrush(out var empty));
+        Assert.Equal(PortableTileBrushKind.Visual, empty.Kind);
+        Assert.Null(empty.Content);
+        brush.Visual = second;
+        Assert.True(((IPortableTileBrushSource)brush).TryGetPortableTileBrush(out var replacement));
+        Assert.Same(second, replacement.Content);
+        Assert.Same(first, original.Content);
+        Assert.Null(empty.Content);
+        Assert.True(((IPortableVisualBoundsSource)second).TryGetPortableVisualBounds(out var bounds));
+        Assert.True(bounds.HasDescendantBounds);
+        Assert.True(bounds.DescendantBounds.IsEmpty); // initialized empty is not null
+    }
+
+    [Fact]
+    public void VisualSamplerTracksSameSourceDrawingReplacementAndChildRetirement()
+    {
+        var child = new DrawingVisual();
+        var root = new ContainerVisual();
+        root.Children.Add(child);
+        var brush = new VisualBrush(root);
+        using (DrawingContext context = child.RenderOpen())
+            context.DrawRectangle(Brushes.Red, null, new Rect(10, 20, 8, 6));
+        Assert.True(((IPortableVisualBoundsSource)root).TryGetPortableVisualBounds(out var before));
+        using (DrawingContext context = child.RenderOpen())
+            context.DrawRectangle(Brushes.Blue, null, new Rect(-6, 9, 8, 6));
+        Assert.True(((IPortableVisualBoundsSource)root).TryGetPortableVisualBounds(out var after));
+        Assert.Equal(new PortableRect(10, 20, 8, 6), before.DescendantBounds);
+        Assert.Equal(new PortableRect(-6, 9, 8, 6), after.DescendantBounds);
+        root.Children.Clear();
+        Assert.True(((IPortableTileBrushSource)brush).TryGetPortableTileBrush(out var tile));
+        Assert.Same(root, tile.Content);
+        Assert.True(((IPortableVisualBoundsSource)root).TryGetPortableVisualBounds(out var empty));
+        Assert.True(empty.DescendantBounds.IsEmpty);
+    }
+
+    [Fact]
+    public void DrawingBrushRemainsAnIllegalOriginalShaderSampler()
+    {
+        var effect = new SourceEffect();
+        Assert.Throws<ArgumentException>(() => effect.Input = new DrawingBrush());
+    }
+
     private static PixelShader CreateShader()
     {
         var shader = new PixelShader();

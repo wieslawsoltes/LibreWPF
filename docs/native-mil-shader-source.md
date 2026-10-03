@@ -38,6 +38,12 @@ source brush with conflicting captured content/mapping rejects the whole batch.
 Empty VisualBrush sources retain their initialized visual and child graph rather
 than disappearing into a null handle; active cycles and multiple parents still
 fail, including empty/hidden graphs. BitmapCacheBrush's separate policy is unchanged.
+Known-empty source handles use the paired additive
+`NativeMilChannel.SetVisualSourceEmptyBounds` sideband, not a zero rectangle sent
+to the positive-only cache-bounds setter. Batch clones retain this metadata;
+an empty/live transition changes sideband topology and atomically replaces the
+channel through the existing retained session policy. The producer method and
+nullable factory are new dependencies absent from the intentionally unchanged pin.
 
 The additive neutral `PortableTileBrush.Visual` factory can explicitly retain a
 null Visual; the existing constructor still rejects null content. Actual source
