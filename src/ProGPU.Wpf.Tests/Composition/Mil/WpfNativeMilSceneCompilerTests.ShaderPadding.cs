@@ -28,10 +28,17 @@ public sealed partial class WpfNativeMilSceneCompilerTests
         var delta = WpfNativeMilCompilationSession.CreateDelta(zero, padded);
         Assert.False(delta.RequiresRebuild);
         Assert.Equal([0x70], ReadCommands(delta.Bytes));
-        Assert.Equal(zero.DrawingImageBounds, padded.DrawingImageBounds);
-        Assert.Equal(zero.VisualCacheBounds, padded.VisualCacheBounds);
+        Assert.Equal(zero.DrawingImageBounds.ToArray(), padded.DrawingImageBounds.ToArray());
+        Assert.Equal(zero.VisualCacheBounds.ToArray(), padded.VisualCacheBounds.ToArray());
         Assert.Equal(zero.BitmapCacheRasterPolicies.ToArray(), padded.BitmapCacheRasterPolicies.ToArray());
         Assert.Equal(original, zero.Bytes);
+        double negativeZero = BitConverter.Int64BitsToDouble(long.MinValue);
+        SetPadding(effect, [negativeZero, negativeZero, negativeZero, negativeZero]);
+        using var signedZero = compiler.BuildBatch(receiver, 64, 64);
+        int signedOffset = FindCommand(signedZero.Bytes, 0x70);
+        for (int axis = 0; axis < 4; ++axis)
+            Assert.Equal(long.MinValue, BitConverter.DoubleToInt64Bits(
+                ReadDouble(signedZero.Bytes, signedOffset + 12 + axis * 8)));
         SetPadding(effect, [0, 0, 0, 0]);
         using var reset = compiler.BuildBatch(receiver, 64, 64);
         Assert.Equal(original, reset.Bytes); // existing zero-padding overload bytes unchanged
@@ -48,13 +55,16 @@ public sealed partial class WpfNativeMilSceneCompilerTests
         using var previous = compiler.BuildBatch(first, 64, 64);
         byte[] original = (byte[])previous.Bytes.Clone();
         var bad = PaddingEffect(2);
-        double[] padding = [2, 3, 4, 5];
-        padding[axis] = double.MaxValue;
-        SetPadding(bad, padding);
         var root = new FakeVisual(null, null, first, PaddingReceiver(bad));
-        Assert.Contains("padding", Assert.Throws<NotSupportedException>(() =>
-            compiler.BuildBatch(root, 64, 64)).Message);
-        Assert.Equal(original, previous.Bytes);
+        foreach (double value in new[] { -1d, double.NaN, double.PositiveInfinity, double.NegativeInfinity, double.MaxValue })
+        {
+            double[] padding = [2, 3, 4, 5];
+            padding[axis] = value;
+            SetPadding(bad, padding);
+            Assert.Contains("padding", Assert.Throws<NotSupportedException>(() =>
+                compiler.BuildBatch(root, 64, 64)).Message);
+            Assert.Equal(original, previous.Bytes);
+        }
         SetPadding(bad, [2, 3, 4, 5]);
         using var restored = compiler.BuildBatch(root, 64, 64);
         Assert.Equal(2, ReadCommands(restored.Bytes).Count(command => command == 0x70));
@@ -86,12 +96,15 @@ public sealed partial class WpfNativeMilSceneCompilerTests
         Assert.Equal(paddedBytes, session.CompileFrame(11961, 2, 0, 2).Scene.Stream.ToArray());
         for (int axis = 0; axis < 4; ++axis)
         {
-            double[] invalid = [2, 3, 4, 5];
-            invalid[axis] = double.MaxValue;
-            SetPadding(effect, invalid);
-            Assert.Throws<NotSupportedException>(() => session.Update(receiver, 64, 64));
-            Assert.True(session.IsInitialized);
-            Assert.Equal(paddedBytes, session.CompileFrame(11961, 2, 0, 2).Scene.Stream.ToArray());
+            foreach (double value in new[] { -1d, double.NaN, double.PositiveInfinity, double.NegativeInfinity, double.MaxValue })
+            {
+                double[] invalid = [2, 3, 4, 5];
+                invalid[axis] = value;
+                SetPadding(effect, invalid);
+                Assert.Throws<NotSupportedException>(() => session.Update(receiver, 64, 64));
+                Assert.True(session.IsInitialized);
+                Assert.Equal(paddedBytes, session.CompileFrame(11961, 2, 0, 2).Scene.Stream.ToArray());
+            }
         }
         SetPadding(effect, [0, 0, 0, 0]);
         Assert.False(session.Update(receiver, 64, 64).RecreatedChannel);
