@@ -870,6 +870,12 @@ internal sealed class ProGpuRetainedDrawingVisual : ProGpuContainerVisual,
 
     public ProGpuDrawingContext SourceHitTestCommands => Context;
 
+    // Original Visual point/region traversal ignores opacity masks, while
+    // retaining geometry clips and effect mapping. This implements the shared
+    // optional source contract when rebuilt against its qualified producer;
+    // older pinned Scene binaries do not acquire that interface dispatch.
+    public bool SourceOpacityMaskPreservesHitGeometry => true;
+
     public override void OnRender(ProGpuDrawingContext context)
     {
         context.Append(Context);
