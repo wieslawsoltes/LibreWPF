@@ -177,10 +177,12 @@ public sealed class WpfBitmapCacheBrushCapture : IDisposable
         var recorder = new GpuPictureRecorder();
         var commands = recorder.BeginRecording(new SceneRect(
             (float)bounds.X, (float)bounds.Y, (float)bounds.Width, (float)bounds.Height));
+        using var recordingAdapter = (imageSourceAdapter as IWpfShaderRecordingAdapterSource)?.CreateShaderRecordingAdapter();
+        IWpfImageSourceAdapter? captureAdapter = recordingAdapter ?? imageSourceAdapter;
         bool validating = WpfCaptureReplayGuard.ValidateHiddenSources;
         ShaderValidationContext? previousValidationContext = s_shaderValidationContext;
         if (validating)
-            s_shaderValidationContext = new(context, viewportCache, imageSourceAdapter);
+            s_shaderValidationContext = new(context, viewportCache, captureAdapter);
         try
         {
             if (brush.InternalTarget != null && (WpfCaptureReplayGuard.ValidateHiddenSources ||
@@ -188,7 +190,7 @@ public sealed class WpfBitmapCacheBrushCapture : IDisposable
             {
                 using var sink = new ProGpuCompositionCommandSink(commands, context, viewportCache);
                 var result = new WpfVisualTreeRenderer().ReplayBitmapCacheBrushSource(
-                    brush.InternalTarget, sink, imageSourceAdapter);
+                    brush.InternalTarget, sink, captureAdapter);
                 if (result.UnsupportedContentCount != 0 || result.UnsupportedVisualStateCount != 0 ||
                     result.RenderData.UnsupportedCount != 0)
                     throw new NotSupportedException("The cached visual source contains unsupported managed replay content or state.");

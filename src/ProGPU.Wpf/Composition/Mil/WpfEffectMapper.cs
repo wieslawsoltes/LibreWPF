@@ -17,7 +17,7 @@ using MediaImageSource = System.Windows.Media.ImageSource;
 
 namespace System.Windows.Media.ProGPU.Composition.Mil;
 
-internal static class WpfEffectMapper
+internal static partial class WpfEffectMapper
 {
     public static bool TryCreateProGpuEffect(
         object? effect,

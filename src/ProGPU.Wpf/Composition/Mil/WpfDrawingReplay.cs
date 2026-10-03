@@ -43,7 +43,7 @@ using PortableVisualLayoutStateSource = ProGPU.Wpf.Interop.IPortableVisualLayout
 
 namespace System.Windows.Media.ProGPU.Composition.Mil;
 
-internal static class WpfDrawingReplay
+internal static partial class WpfDrawingReplay
 {
     private const int MaxTileBrushReplayTiles = 1024;
 
@@ -1280,7 +1280,8 @@ internal static class WpfDrawingReplay
         PortableTileBrush brush,
         TileBrushFillGeometry geometry,
         IWpfCompositionCommandSink sink,
-        Func<object?, MediaImageSource?>? imageSourceAdapter)
+        Func<object?, MediaImageSource?>? imageSourceAdapter,
+        MediaImageSource? recordedImage = null)
     {
         if (!TryGetOptionalBrushTransform(brush, out var brushTransform)
             || !TryGetSupportedTileMode(brush, out var tileMode)
@@ -1288,7 +1289,7 @@ internal static class WpfDrawingReplay
             || !TryGetTileBrushAlignment(brush, out var alignmentX, out var alignmentY)
             || !IsUsableRect(geometry.Bounds, out var geometryBounds)
             || !TryGetOptionalRelativeBrushTransform(brush, geometryBounds, out var relativeTransform)
-            || ResolveImageSource(brush.Content, imageSourceAdapter) is not { } imageSource
+            || (recordedImage ?? ResolveImageSource(brush.Content, imageSourceAdapter)) is not { } imageSource
             || !TryGetTileBrushDestinationBounds(brush, geometryBounds, out var imageBounds)
             || !TryGetImageBrushFrames(brush, stretch, tileMode, imageSource,
                 out var sourceRect, out var imageStretchSourceBounds, out var fullImageBounds,
@@ -1442,24 +1443,29 @@ internal static class WpfDrawingReplay
         TileBrushFillGeometry geometry,
         IWpfCompositionCommandSink sink,
         Func<object?, MediaImageSource?>? imageSourceAdapter,
-        out WpfDrawingReplayStatus status)
+        out WpfDrawingReplayStatus status,
+        RecordedTileContent? recordedContent = null)
     {
         status = WpfDrawingReplayStatus.Skipped;
-        if (drawingValue == null
+        Rect drawingBounds = default;
+        bool isEmpty = false;
+        if ((drawingValue == null && recordedContent == null)
             || !TryGetOptionalBrushTransform(brush, out var brushTransform)
             || !TryGetSupportedTileMode(brush, out var tileMode)
             || !TryGetSupportedStretch(brush, out var stretch)
             || !TryGetTileBrushAlignment(brush, out var alignmentX, out var alignmentY)
             || !IsUsableRect(geometry.Bounds, out var geometryBounds)
             || !TryGetOptionalRelativeBrushTransform(brush, geometryBounds, out var relativeTransform)
-            || !TryGetDrawingBounds(drawingValue, imageSourceAdapter, out var drawingBounds, out bool isEmpty))
+            || !(recordedContent is { } recording
+                ? recording.TryGetBounds(out drawingBounds, out isEmpty)
+                : TryGetDrawingBounds(drawingValue!, imageSourceAdapter, out drawingBounds, out isEmpty)))
         {
             return false;
         }
 
         if (isEmpty)
         {
-            if (WpfCaptureReplayGuard.ValidateHiddenSources)
+            if (recordedContent == null && WpfCaptureReplayGuard.ValidateHiddenSources)
                 status = Replay(drawingValue, sink, imageSourceAdapter);
             return true;
         }
@@ -1525,7 +1531,9 @@ internal static class WpfDrawingReplay
                 tilePopCount++;
             }
 
-            var tileStatus = Replay(drawingValue, sink, imageSourceAdapter);
+            var tileStatus = recordedContent is { } retained
+                ? retained.Replay(sink)
+                : Replay(drawingValue, sink, imageSourceAdapter);
             appliedAny |= tileStatus == WpfDrawingReplayStatus.Applied
                 || tileStatus == WpfDrawingReplayStatus.PartiallyApplied;
             unsupportedAny |= tileStatus == WpfDrawingReplayStatus.Unsupported
@@ -1555,22 +1563,27 @@ internal static class WpfDrawingReplay
         TileBrushFillGeometry geometry,
         IWpfCompositionCommandSink sink,
         Func<object?, MediaImageSource?>? imageSourceAdapter,
-        out WpfDrawingReplayStatus status)
+        out WpfDrawingReplayStatus status,
+        RecordedTileContent? recordedContent = null)
     {
         status = WpfDrawingReplayStatus.Skipped;
         var visualValue = brush.Content;
         // The explicit Visual-only DTO constructor can retain a genuinely
         // disconnected source. It paints no ink and creates no substitute
         // visual, image or renderer resource.
-        if (visualValue is null)
+        if (visualValue is null && recordedContent is null)
             return true;
+        if (recordedContent is { IsEmpty: true }) return true;
+        Rect visualBounds = default;
         if (!TryGetOptionalBrushTransform(brush, out var brushTransform)
             || !TryGetSupportedTileMode(brush, out var tileMode)
             || !TryGetSupportedStretch(brush, out var stretch)
             || !TryGetTileBrushAlignment(brush, out var alignmentX, out var alignmentY)
             || !IsUsableRect(geometry.Bounds, out var geometryBounds)
             || !TryGetOptionalRelativeBrushTransform(brush, geometryBounds, out var relativeTransform)
-            || !TryGetVisualBounds(visualValue, out var visualBounds)
+            || !(recordedContent is { } recording
+                ? recording.TryGetBounds(out visualBounds, out _)
+                : TryGetVisualBounds(visualValue!, out visualBounds))
             || !TryGetTileBrushDestinationBounds(brush, geometryBounds, out var destinationBounds)
             || !TryGetTileBrushSourceBounds(brush, visualBounds, out var sourceBounds, out var hasSourceClip)
             || !TryGetTileBounds(destinationBounds, geometryBounds, tileMode, out var tileBounds))
@@ -1642,12 +1655,11 @@ internal static class WpfDrawingReplay
                 visualBrushImageSourceAdapterInitialized = true;
             }
 
-            var result = visualBrushRenderer.ReplaySubtree(
-                visualValue,
-                sink,
-                resources: null,
-                imageSourceAdapter: visualBrushImageSourceAdapter);
-            var tileStatus = ToDrawingReplayStatus(result);
+            var tileStatus = recordedContent is { } retained
+                ? retained.Replay(sink)
+                : ToDrawingReplayStatus(visualBrushRenderer.ReplaySubtree(
+                    visualValue!, sink, resources: null,
+                    imageSourceAdapter: visualBrushImageSourceAdapter));
             appliedAny |= tileStatus == WpfDrawingReplayStatus.Applied
                 || tileStatus == WpfDrawingReplayStatus.PartiallyApplied;
             unsupportedAny |= tileStatus == WpfDrawingReplayStatus.Unsupported
@@ -1709,22 +1721,30 @@ internal static class WpfDrawingReplay
         }
 
         global::ProGPU.Scene.EffectBase? effect = null;
+        using var ownedEffect = new WpfOwnedEffectCandidate();
         Rect? effectBounds = null;
         var hasEffect = false;
         if (TryGetDrawingGroupEffect(drawingGroup, hasPortableDrawingGroupState, drawingGroupState, out var effectValue))
         {
             hasEffect = true;
-            if (!TryGetDrawingGroupScopeBounds(out var resolvedEffectBounds)
-                || !WpfEffectMapper.TryCreateProGpuEffect(
-                    effectValue,
-                    out var proGpuEffect,
-                    CreateImageSourceAdapter(imageSourceAdapter),
-                    ToReplayRect(resolvedEffectBounds), drawingGroup))
-            {
+            if (!TryGetDrawingGroupScopeBounds(out var resolvedEffectBounds))
                 return WpfDrawingReplayStatus.Unsupported;
+            var effectAdapter = CreateImageSourceAdapter(imageSourceAdapter);
+            if (sink is IWpfOwnedShaderEffectCommandSink && effectAdapter is IWpfShaderRecordingAdapterSource &&
+                effectValue is global::ProGPU.Wpf.Interop.IPortableShaderEffectSource)
+            {
+                if (!WpfEffectMapper.TryCreateOwnedShaderEffect(effectValue, drawingGroup,
+                    ToReplayRect(resolvedEffectBounds), effectAdapter, out var prepared))
+                    return WpfDrawingReplayStatus.Unsupported;
+                ownedEffect.Source = prepared;
             }
-
-            effect = proGpuEffect;
+            else
+            {
+                if (!WpfEffectMapper.TryCreateProGpuEffect(effectValue, out var proGpuEffect,
+                    effectAdapter, ToReplayRect(resolvedEffectBounds), drawingGroup))
+                    return WpfDrawingReplayStatus.Unsupported;
+                effect = proGpuEffect;
+            }
             effectBounds = resolvedEffectBounds;
         }
         else if (TryGetDrawingGroupBitmapEffect(drawingGroup, hasPortableDrawingGroupState, drawingGroupState, out var bitmapEffect))
@@ -1833,6 +1853,18 @@ internal static class WpfDrawingReplay
             }
         }
 
+        bool ownedEffectPushed = false;
+        if (ownedEffect.Source is not null)
+        {
+            if (!ownedEffect.Push(sink, ToReplayRect(effectBounds!.Value)))
+            {
+                PopPushedScopes(sink, popCount);
+                return WpfDrawingReplayStatus.Unsupported;
+            }
+            ownedEffectPushed = true;
+            popCount++;
+        }
+
         if (TryGetDrawingGroupOpacity(drawingGroup, hasPortableDrawingGroupState, drawingGroupState, out var opacity)
             && opacity != 1)
         {
@@ -1864,7 +1896,7 @@ internal static class WpfDrawingReplay
             }
         }
 
-        if (hasEffect)
+        if (hasEffect && !ownedEffectPushed)
         {
             if (!WpfPortableCommandSinkBridge.TryPushVisualEffect(sink, effect!, ToReplayRect(effectBounds)))
             {
@@ -3596,7 +3628,7 @@ internal static class WpfDrawingReplay
         return TryGetDrawingBounds(drawing, imageSourceAdapter, out bounds, out bool isEmpty) && !isEmpty;
     }
 
-    private static bool TryGetDrawingBounds(
+    internal static bool TryGetDrawingBounds(
         object drawing,
         Func<object?, MediaImageSource?>? imageSourceAdapter,
         out Rect bounds,
