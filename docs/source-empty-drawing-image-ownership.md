@@ -34,6 +34,9 @@ retained-session backends across empty/refill/replacement/disconnection. Malform
 ownership sidebands exercise failed candidate preservation independently of the
 canonical packet delta. Managed controls cover both image routes, hidden nested
 sources, invalid selected cache policy, genuine null and actual cycles.
+The nested-target transition separately refills the real cache source while its
+DrawingImage stays known-empty, then fills/clears/restores the same drawing owner;
+source ownership changes do not silently promote the wrapper's paint bounds.
 
 These are authored controls only: no build, test, syntax check, verifier, GPU/UI,
 probe, VM or CI execution occurred. The new producer API is intentionally not in

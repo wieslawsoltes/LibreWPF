@@ -197,6 +197,74 @@ public sealed partial class WpfNativeMilSceneCompilerTests
         public bool TryGetPortableDrawingImage(out object? value) { value = Drawing; return value is not null; }
     }
 
+    [Theory]
+    [InlineData(NativeMilBackend.WgpuNative)]
+    [InlineData(NativeMilBackend.Dawn)]
+    public void EmptyDrawingImageKeepsItsOwnExtentWhileNestedTargetRefills(NativeMilBackend backend)
+    {
+        var target = new SamplerVisual(null) { Empty = true };
+        var drawing = new MutableEmptyImageGeometry(new ShaderCacheBrush(new(target)));
+        var image = new MutableOwnedDrawingImage(drawing);
+        var source = new FakeVisual(new FakeRenderData(CreateDrawImageRecord(1, 2, 30, 20, 1), [image]));
+        var receiver = ShaderVisual(VisualSamplerEffect(new ShaderCacheBrush(new(source))));
+        var compiler = CreateCacheShaderCompiler();
+        using var session = new WpfNativeMilCompilationSession(backend, compiler);
+        using var empty = compiler.BuildBatch(receiver, 64, 64);
+        Assert.Single(empty.EmptyDrawingImageSources.ToArray());
+        Assert.Single(empty.EmptyCacheBrushSources.ToArray());
+        session.Update(empty);
+        var original = session.CompileFrame(11959, 1, 0, 1);
+        byte[] originalBytes = original.Scene.Stream.ToArray();
+
+        target.Empty = false;
+        target.Content = new FakeRenderData(CreateRectangleRecord(1, 0), [new FakeBrush(new(255, 255, 0, 0))]);
+        using var innerRefilled = compiler.BuildBatch(receiver, 64, 64);
+        Assert.Single(innerRefilled.EmptyDrawingImageSources.ToArray());
+        Assert.Empty(innerRefilled.EmptyCacheBrushSources.ToArray());
+        Assert.Empty(innerRefilled.DrawingImageBounds!);
+        Assert.Equal(0U, ReadUInt32(innerRefilled.Bytes, FindCommand(innerRefilled.Bytes, 0x71) + 12));
+        Assert.True(session.Update(innerRefilled).RecreatedChannel);
+        Assert.NotEmpty(session.CompileFrame(11959, 2, 0, 2).Scene.Stream);
+
+        drawing.Empty = false;
+        using var imageRefilled = compiler.BuildBatch(receiver, 64, 64);
+        Assert.Empty(imageRefilled.EmptyDrawingImageSources.ToArray());
+        Assert.Single(imageRefilled.DrawingImageBounds!);
+        Assert.True(session.Update(imageRefilled).RecreatedChannel);
+        var positive = session.CompileFrame(11959, 3, 0, 3);
+        byte[] positiveBytes = positive.Scene.Stream.ToArray();
+        drawing.Empty = true;
+        using var cleared = compiler.BuildBatch(receiver, 64, 64);
+        Assert.Single(cleared.EmptyDrawingImageSources.ToArray());
+        Assert.Empty(cleared.EmptyCacheBrushSources.ToArray());
+        Assert.True(session.Update(cleared).RecreatedChannel);
+        Assert.NotEmpty(session.CompileFrame(11959, 4, 0, 4).Scene.Stream);
+        drawing.Empty = false;
+        using var restored = compiler.BuildBatch(receiver, 64, 64);
+        Assert.Empty(restored.EmptyDrawingImageSources.ToArray());
+        Assert.True(session.Update(restored).RecreatedChannel);
+        Assert.NotEmpty(session.CompileFrame(11959, 5, 0, 5).Scene.Stream);
+        Assert.Equal(originalBytes, original.Scene.Stream.ToArray());
+        Assert.Equal(positiveBytes, positive.Scene.Stream.ToArray());
+    }
+
+    private sealed class MutableEmptyImageGeometry(object brush) : IPortableGeometryDrawingStateSource, IPortableDrawingBoundsSource
+    {
+        internal bool Empty = true;
+        public bool TryGetPortableDrawingBounds(out PortableRect bounds)
+        { bounds = Empty ? PortableRect.Empty : new(1, 2, 30, 20); return true; }
+        public bool TryGetPortableGeometryDrawingState(out PortableGeometryDrawingState state)
+        {
+            state = new()
+            {
+                HasBrush = true, Brush = brush, HasGeometry = true,
+                Geometry = new FakePrimitiveGeometry(PortablePrimitiveGeometry.Rectangle(
+                    new(1, 2, Empty ? 0 : 30, 20), 0, 0, PortableMatrix3x2.Identity))
+            };
+            return true;
+        }
+    }
+
     private sealed class EmptyOwnedImageDrawing(object image) : IPortableImageDrawingStateSource, IPortableDrawingBoundsSource
     {
         public bool TryGetPortableDrawingBounds(out PortableRect bounds) { bounds = PortableRect.Empty; return true; }
