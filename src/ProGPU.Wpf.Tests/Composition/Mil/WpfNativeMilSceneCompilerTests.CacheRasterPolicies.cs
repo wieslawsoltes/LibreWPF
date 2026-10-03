@@ -313,8 +313,9 @@ public sealed partial class WpfNativeMilSceneCompilerTests
         return offsets.ToArray();
     }
 
-    private sealed class CacheRasterVisual(object? content, PortableVisualState state, PortableRect bounds)
-        : FakeVisual(content, state), IPortableVisualBoundsSource
+    private sealed class CacheRasterVisual(object? content, PortableVisualState state, PortableRect bounds,
+        params object[] children)
+        : FakeVisual(content, state, children), IPortableVisualBoundsSource
     {
         internal PortableRect Bounds = bounds;
         bool IPortableVisualBoundsSource.TryGetPortableVisualBounds(out PortableVisualBounds value)
