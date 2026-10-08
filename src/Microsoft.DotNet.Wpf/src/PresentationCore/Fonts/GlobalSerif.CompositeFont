@@ -178,7 +178,7 @@
             Hangul Syllables            AC00-D7AF -->
         <FontFamilyMap  
             Unicode          = "1100-11FF, 3130-318F, 3200-321F, 3260-327F, AC00-D7AF" 
-            Target           = "Batang"
+            Target      = "Batang, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
             Scale            = "1.0"/>
 
         <!-- 
@@ -308,12 +308,12 @@
         <FontFamilyMap  
             Unicode          = "2E80-2EFF"
             Language         = "zh-Hans"
-            Target           = "SimSun, MingLiu"
+            Target      = "SimSun, MingLiu, PingFang SC, Hiragino Sans GB, Heiti SC, Songti SC"
             Scale            = "1.0"/>
         <!-- Other (include CHT, JA and KO) -->    
         <FontFamilyMap  
             Unicode          = "2E80-2EFF"
-            Target           = "MingLiU, SimSun"
+            Target      = "MingLiU, SimSun, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
             Scale            = "1.0"/>
 
         <!-- Kangxi Radicals             2F00-2FDF -->
@@ -478,30 +478,30 @@
         <FontFamilyMap  
             Unicode          = "3400-4DBF, 4E00-9FBB"
             Language         = "zh-Hans"
-            Target           = "SimSun, MingLiu, SimSun-18030"
+            Target      = "SimSun, MingLiu, SimSun-18030, PingFang SC, Hiragino Sans GB, Heiti SC, Songti SC"
             Scale            = "1.0"/>
         <!-- Hong Kong -->
         <FontFamilyMap  
             Unicode          = "3400-4DBF, 4E00-9FBB"
             Language         = "zh-HK"
-            Target           = "MingLiU_HKSCS, MingLiU, SimSun-18030"
+            Target      = "MingLiU_HKSCS, MingLiU, SimSun-18030, PingFang TC, Heiti TC, Songti TC"
             Scale            = "1.0"/>
         <!-- JA -->
         <FontFamilyMap  
             Unicode          = "3400-4DBF, 4E00-9FBB"
             Language         = "ja"
-            Target           = "MS Mincho, MingLiu"
+            Target      = "MS Mincho, MingLiu, Hiragino Sans, Hiragino Kaku Gothic ProN, Hiragino Sans GB"
             Scale            = "1.0"/>
         <!-- KO -->
         <FontFamilyMap  
             Unicode          = "3400-4DBF, 4E00-9FBB"
             Language         = "ko"
-            Target           = "Batang, MingLiu"
+            Target      = "Batang, MingLiu, Apple SD Gothic Neo, AppleGothic"
             Scale            = "1.0"/>
         <!-- Other (include CHT) -->
         <FontFamilyMap  
             Unicode          = "3400-4DBF, 4E00-9FBB"
-            Target           = "MingLiu, SimSun-18030"
+            Target      = "MingLiu, SimSun-18030, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
             Scale            = "1.0"/>
 
         <!-- Yijing Hexagram Symbols     4DC0-4DFF -->
@@ -525,30 +525,30 @@
         <FontFamilyMap  
             Unicode          = "F900-FAFF"
             Language         = "zh-Hans"
-            Target           = "SimSun, MingLiU, MS Mincho"
+            Target      = "SimSun, MingLiU, MS Mincho, PingFang SC, Hiragino Sans GB, Heiti SC, Songti SC"
             Scale            = "1.0"/>
         <!-- Hong Kong -->
         <FontFamilyMap  
             Unicode          = "F900-FAFF"
             Language         = "zh-HK"
-            Target           = "MingLiU_HKSCS, MingLiU, MS Mincho"
+            Target      = "MingLiU_HKSCS, MingLiU, MS Mincho, PingFang TC, Heiti TC, Songti TC"
             Scale            = "1.0"/>
         <!-- JA -->
         <FontFamilyMap  
             Unicode          = "F900-FAFF"
             Language         = "ja"
-            Target           = "MS Mincho, MingLiu"
+            Target      = "MS Mincho, MingLiu, Hiragino Sans, Hiragino Kaku Gothic ProN, Hiragino Sans GB"
             Scale            = "1.0"/>
         <!-- KO -->
         <FontFamilyMap  
             Unicode          = "F900-FAFF"
             Language         = "ko"
-            Target           = "Batang, MS Mincho"
+            Target      = "Batang, MS Mincho, Apple SD Gothic Neo, AppleGothic"
             Scale            = "1.0"/>
         <!-- Other (include CHT) -->
         <FontFamilyMap  
             Unicode          = "F900-FAFF"
-            Target           = "MingLiU, MS Mincho"
+            Target      = "MingLiU, MS Mincho, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
             Scale            = "1.0"/>
 
         <!-- Variation Selectors         FE00-FE1F -->
