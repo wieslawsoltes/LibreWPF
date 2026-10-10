@@ -93,6 +93,50 @@ class FrameworkPolicyTests(unittest.TestCase):
                 self.assertCountEqual(expected, identities)
 
 
+class PublishConsumerTests(unittest.TestCase):
+    def test_publish_profiles_keep_the_selected_portable_assemblies(self):
+        root = WORK / "publish-consumer"
+        body = '''<PropertyGroup>
+    <OutputType>Exe</OutputType><TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>false</UseWPF><UseWindowsForms>true</UseWindowsForms>
+    <ProGpuWpfUseWpfMarkup>false</ProGpuWpfUseWpfMarkup>
+    <ProGpuWpfEnablePortableBootstrap>false</ProGpuWpfEnablePortableBootstrap>
+    <SelfContained>false</SelfContained>
+  </PropertyGroup><ItemGroup>
+    <PackageReference Include="System.Drawing.Common" Version="10.0.11" />
+  </ItemGroup>'''
+        write(root / "Consumer.csproj", imports(body))
+        write(root / "Program.cs", '''System.Console.WriteLine(typeof(System.Drawing.Bitmap).Assembly.FullName);
+System.Console.WriteLine(typeof(System.Windows.Forms.Form).Assembly.FullName);
+''')
+        properties = ["-p:" + value for value in OPTIONS.property]
+        for name, arguments in (("publish", []),
+                                ("publish-no-build", ["--no-build", "--no-restore"]),
+                                ("publish-self-contained", ["-p:SelfContained=true"])):
+            output = root / name
+            run(["publish", "Consumer.csproj", "-c", "Release", "-o", str(output),
+                 "-p:RestoreConfigFile=" + str(OPTIONS.nuget_config), *arguments, *properties], root, name)
+            assets = json.loads((root / "obj/project.assets.json").read_text())
+            deps = json.loads((output / "Consumer.deps.json").read_text())
+            for filename, owner in (("System.Drawing.Common.dll", "ProGPU.System.Drawing.Common"),
+                                    ("System.Private.Windows.Core.dll", "LibreWinForms.System.Windows.Forms")):
+                identity = next(key for key in assets["libraries"] if key.split("/")[0].lower() == owner.lower())
+                package_path = OPTIONS.packages_root / assets["libraries"][identity]["path"]
+                candidates = list(package_path.glob("lib/net10.0/" + filename))
+                self.assertEqual(1, len(candidates), f"Missing actual package runtime for {identity}/{filename}")
+                self.assertEqual(candidates[0].read_bytes(), (output / filename).read_bytes(),
+                                 f"{name} must retain exact {identity}/{filename} bytes")
+                runtime_entries = [(library, path) for target in deps["targets"].values()
+                                   for library, entry in target.items()
+                                   for category in ("runtime", "runtimeTargets") for path in entry.get(category, {})
+                                   if Path(path).name == filename]
+                self.assertEqual([(identity, "lib/net10.0/" + filename)], runtime_entries,
+                                 "The dependency manifest and published file must select the same owner")
+            launch = run([str(output / "Consumer.dll")], root, name + "-launch")
+            self.assertIn("PublicKeyToken=c29c9752855ee183", launch)
+            self.assertIn("System.Windows.Forms,", launch)
+
+
 class DependencyConsumerTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -199,12 +243,13 @@ if __name__ == "__main__":
     parser.add_argument("--packages-root", type=Path)
     parser.add_argument("--nuget-config", type=Path)
     parser.add_argument("--package-smoke", action="store_true")
+    parser.add_argument("--publish-smoke", action="store_true")
     parser.add_argument("--property", action="append", default=[])
     OPTIONS = parser.parse_args()
     if not OPTIONS.dotnet:
         parser.error("A dotnet host is required")
-    if OPTIONS.package_smoke and not OPTIONS.nuget_config:
-        parser.error("--package-smoke requires --nuget-config")
+    if (OPTIONS.package_smoke or OPTIONS.publish_smoke) and not OPTIONS.nuget_config:
+        parser.error("Package consumer checks require --nuget-config")
     # Resolve /tmp -> /private/tmp before creating any MSBuild graph; mixing
     # logical and physical project identities can silently lose project edges.
     WORK = (OPTIONS.output_dir or Path(tempfile.mkdtemp(prefix="librewpf-transitive-forms-"))).resolve()
@@ -219,5 +264,7 @@ if __name__ == "__main__":
     suite = unittest.defaultTestLoader.loadTestsFromTestCase(FrameworkPolicyTests)
     if OPTIONS.package_smoke:
         suite.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(DependencyConsumerTests))
+    if OPTIONS.package_smoke or OPTIONS.publish_smoke:
+        suite.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(PublishConsumerTests))
     result = unittest.TextTestRunner(verbosity=2).run(suite)
     raise SystemExit(not result.wasSuccessful())

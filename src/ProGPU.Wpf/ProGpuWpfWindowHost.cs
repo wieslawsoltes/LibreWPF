@@ -59,6 +59,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
     private ProGpuWpfCompositionTarget? _target;
     private NativeCompositor? _nativeMilCompositor;
     private WpfNativeMilCompilationSession? _nativeMilSession;
+    private WpfBitmapCacheRasterPolicySource? _nativeCacheRasterPolicySource;
     private readonly object _nativeMilPerformanceGate = new();
     private ProGpuWpfDiagnostics.NativePerformanceSnapshot _nativeMilPerformance;
     private ProGpuWpfDiagnostics.NativePerformanceSnapshot _pendingNativeMilPerformance;
@@ -71,7 +72,10 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
     private IProGpuTextureLease[] _nativeMilExternalImageLeases = [];
     private ProGpuDirectXDevice? _directXDevice;
     private IDisposable? _inputSubscription;
+    private IDisposable? _unpublishedInputSubscription;
+    private bool _isAttachingInput, _isRetiringUnpublishedInput;
     private IWpfInputService? _attachedInputService;
+    private Silk.NET.Input.IInputContext? _ownedPopupInputContext;
     private IDisposable? _dragDropSubscription;
     private IWpfDragDropService? _attachedDragDropService;
     private IDisposable? _windowEventSubscription;
@@ -137,6 +141,16 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
     private bool _forceFullWpfReplay;
     private bool _isHostVisible;
     private bool _nativeHidePending;
+    private IWindow? _pendingNativeCloseWindow;
+    private bool _nativeCloseReleasePending;
+    private IWindow? _nativeSessionReleaseWindow;
+    private int _nativeSessionReleaseCount;
+    private List<(Action Complete, Action? Acknowledge)>? _nativeSessionReleaseCallbacks;
+    private ExceptionDispatchInfo? _nativeSessionReleaseFailure;
+    private bool _isBeginningNativeDialog;
+    private bool _ownsNativeDialog;
+    private Action? _beginDeferredNativeSessionRelease;
+    private NativeWindowModalSession? _nativeDialogSession;
     private bool _hasNativeWindowCloseStarted;
     private bool _dpiWindowHintsConfigured;
     private bool _hasPendingNativeDpiChange;
@@ -294,6 +308,55 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         _windowController?.Handle ?? global::ProGPU.Backend.NativeWindowHandle.Empty;
 
     public bool IsEnabled => _windowController?.IsEnabled ?? true;
+
+    internal bool TryGetDesktopWindowSnapshot(out ProGpuWpfDiagnostics.DesktopWindowSnapshot snapshot)
+    {
+        snapshot = default;
+        if (_isDisposed || _hasNativeWindowCloseStarted || !PlatformServices.Dispatcher.CheckAccess()) return false;
+        var window = _window;
+        var controller = _windowController;
+        var bridge = PortablePresentationSourceBridge;
+        object? root = WpfRootVisual;
+        if (window == null || controller == null || bridge == null || root == null || !window.IsInitialized) return false;
+        var handle = controller.Handle;
+        nint source = bridge.Handle;
+        bool visible = IsVisible;
+        bool enabled = controller.IsEnabled;
+        long frames = PresentedFrameCount;
+        bool hasGeometry = controller.TryGetGeometrySnapshot(out var geometry);
+        bool currentVisible = IsVisible;
+        bool currentEnabled = controller.IsEnabled;
+        var currentHandle = controller.Handle;
+        if (_isDisposed || _hasNativeWindowCloseStarted || !ReferenceEquals(window, _window) ||
+            !ReferenceEquals(controller, _windowController) || !ReferenceEquals(bridge, PortablePresentationSourceBridge) ||
+            !ReferenceEquals(root, WpfRootVisual) || source == 0 || source != bridge.Handle ||
+            !handle.IsValid || handle != currentHandle || visible != currentVisible || enabled != currentEnabled ||
+            (hasGeometry && geometry.Window != handle)) return false;
+        snapshot = new(root, source, handle, visible, enabled, frames, RendererMode,
+            NativeMilHitTestingEnabled, hasGeometry ? geometry : null);
+        return true;
+    }
+
+    internal bool TryGetDesktopWindowSnapshots(out ProGpuWpfDiagnostics.DesktopWindowSnapshot[] snapshots)
+    {
+        snapshots = Array.Empty<ProGpuWpfDiagnostics.DesktopWindowSnapshot>();
+        if (!TryGetDesktopWindowSnapshot(out var owner) || _portablePopupBridges.Count > 32) return false;
+        var popups = _portablePopupBridges.ToArray();
+        var values = new List<ProGpuWpfDiagnostics.DesktopWindowSnapshot> { owner };
+        foreach (var popup in popups)
+        {
+            if (!popup.IsVisible) continue;
+            if (!popup.TryGetDesktopWindowSnapshot(out var current)) return false;
+            values.Add(current);
+        }
+        if (!TryGetDesktopWindowSnapshot(out var currentOwner) ||
+            (owner with { PresentedFrameCount = currentOwner.PresentedFrameCount }) != currentOwner) return false;
+        if (popups.Length != _portablePopupBridges.Count || _isDisposed || _hasNativeWindowCloseStarted) return false;
+        for (int i = 0; i < popups.Length; ++i)
+            if (!ReferenceEquals(popups[i], _portablePopupBridges[i])) return false;
+        snapshots = values.ToArray();
+        return true;
+    }
 
     public ProGpuWpfWindowState WindowState => _windowState;
 
@@ -718,6 +781,10 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
 
     internal Func<ProGpuWpfDrawingFrame, IWpfImageSourceAdapter?, IDisposable?> RenderDataSinkProviderRegistrationFactory { get; set; } = RegisterDefaultRenderDataSinkProvider;
 
+    internal Func<IWindow, Action, bool> NativeWindowSessionRelease { get; set; } = TryReleaseNativeWindowSession;
+    internal Func<IWindow, bool> NativeWindowSessionRetains { get; set; } = IsNativeWindowRetainedByModalSession;
+    internal Func<IWindow, bool>? NativeWindowSessionBeginOverride { get; set; }
+
     public void Run()
     {
         Run(_options.ShowActivated);
@@ -753,6 +820,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         bool preserveWindowVisibility = false)
     {
         ThrowIfDisposed();
+        VerifyNativeVisibilityRelease();
         // Nonactivating native windows must be created hidden. Otherwise the
         // Cocoa/GLFW window can take focus before the platform show policy runs.
         if (continueRunning == null && !preserveWindowVisibility)
@@ -774,6 +842,8 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
             _isHostVisible = true;
             ShowNativeWindow(showActivated);
         }
+        if (continueRunning != null && _isHostVisible && continueRunning())
+            BeginNativeDialogSession();
         if (continueRunning != null && _isHostVisible &&
             _windowController?.Handle.Kind == NativeWindowKind.X11 &&
             !_windowController.TryBeginModalHint(out _nativeDialogHint))
@@ -889,6 +959,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
     internal void InitializeHidden()
     {
         ThrowIfDisposed();
+        VerifyNativeVisibilityRelease();
         _isHostVisible = false;
         EnsureWindow();
         _window!.IsVisible = false;
@@ -1036,6 +1107,31 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         ValidateOwnedPopupInputGate(gate);
         if (!_isHostVisible)
             throw new InvalidOperationException("The owned popup was hidden during native input admission.");
+        var service = _attachedInputService;
+        var subscription = _inputSubscription;
+        if (service == null || subscription == null || _ownedPopupInputContext == null)
+            throw new PlatformNotSupportedException("Owned popup display requires its attached native input subscription.");
+        var context = RequireOwnedPopupInputContext(gate, service);
+        if (!ReferenceEquals(context, _ownedPopupInputContext) ||
+            !ReferenceEquals(service, _attachedInputService) || !ReferenceEquals(subscription, _inputSubscription))
+            throw new InvalidOperationException("The owned popup input subscription changed before display.");
+    }
+
+    private Silk.NET.Input.IInputContext RequireOwnedPopupInputContext(OwnedPopupInputGate gate, IWpfInputService service)
+    {
+        ValidateOwnedPopupInputGate(gate);
+        if (service is not ISilkNetWpfInputContextProvider provider ||
+            !provider.TryGetInputContext(gate.Window, out var context))
+            throw new PlatformNotSupportedException("The source input service does not expose its owned popup context.");
+        // The source provider lookup may reenter lifetime work. A typed pointer
+        // interface alone, or an equal native handle, is not provider proof.
+        ValidateOwnedPopupInputGate(gate);
+        bool supported = context is INativePointerInputContext &&
+            NativePopupWindow.SupportsModalInput(gate.Window, context);
+        ValidateOwnedPopupInputGate(gate);
+        if (!supported)
+            throw new PlatformNotSupportedException("The owned popup has no live session-owned native input contract.");
+        return context;
     }
 
     internal bool TrySetNativeOwner(ProGpuWpfWindowHost? owner)
@@ -1198,6 +1294,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
     internal void ShowWithoutActivation(Func<Action, bool>? showWithOwner = null)
     {
         ThrowIfDisposed();
+        VerifyNativeVisibilityRelease();
         // Keep WindowOptions.IsVisible false through native creation, then let
         // the platform service update Silk's visibility state with focus-on-show disabled.
         _isHostVisible = false;
@@ -1227,10 +1324,12 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
 
     private void ShowNativeWindow(bool showActivated)
     {
+        VerifyNativeVisibilityRelease();
         // Recheck admission on every show, including retries after failed load
         // or native callbacks. Cached desired state alone is not native success.
         if (_modalInputRegistration != null) SetNativeInputAllowed(_nativeInputAllowed);
         ValidateOwnedPopupShow();
+        VerifyNativeVisibilityRelease();
         if ((showActivated && _nativeInputAllowed) ||
             !PlatformServices.WindowDecorations.TryShowWithoutActivation(_window!))
         {
@@ -1241,6 +1340,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
     internal void DeferShowUntilRun()
     {
         ThrowIfDisposed();
+        VerifyNativeVisibilityRelease();
         _isHostVisible = true;
         if (_window != null)
         {
@@ -1261,48 +1361,146 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
     private void HideNativeWindowAfterModalRelease()
     {
         ReleaseNativeDialogHint();
+        _nativeSessionReleaseFailure?.Throw();
         if (_nativeHidePending) return;
-        if (_window != null)
+        IWindow? window = _window;
+        if (window == null) return;
+        _nativeHidePending = true;
+        bool waiting = false;
+        Exception? hideFailure = null;
+        try
         {
-            if (NativeWindowModalSession.IsActive && _window.IsInitialized &&
-                _window.Native?.Cocoa is { } cocoa && cocoa != 0)
+            waiting = RequestNativeWindowSessionRelease(window, () => CompleteDeferredNativeHide(window),
+                () => _nativeHidePending = false);
+            if (waiting) return;
+            if (!IsNativeHideCurrent(window)) return;
+
+            // Close may already have hidden the provider before raising Closing.
+            // Its closing view rejects even a redundant IsVisible=false setter.
+            bool visible = window.IsVisible;
+            if (!IsNativeHideCurrent(window) || !visible) return;
+            if (NativeWindowSessionRetains(window) || _nativeSessionReleaseCallbacks != null)
             {
-                _nativeHidePending = true;
-                try
-                {
-                    if (NativeWindowModalSession.TryReleaseWindow(
-                        new(NativeWindowKind.Cocoa, cocoa, 0, "NSWindow"), CompleteDeferredNativeHide)) return;
-                }
-                catch
-                {
-                    _nativeHidePending = false;
-                    throw;
-                }
+                // Either getter may enter a new lease/request whose native query
+                // disappears before its completion arrives. Reconcile outstanding
+                // proof as well as retention; ready callbacks use a detached list.
                 _nativeHidePending = false;
+                HideNativeWindowAfterModalRelease();
+                waiting = _nativeHidePending;
+                return;
             }
-            _window.IsVisible = false;
+            if (IsNativeHideCurrent(window)) window.IsVisible = false;
+        }
+        catch (Exception failure)
+        {
+            hideFailure = failure;
+            throw;
+        }
+        finally
+        {
+            if (!waiting) _nativeHidePending = false;
+            if (_isDisposed && !_nativeHidePending)
+            {
+                try { DisposeDeferredNativeWindowIfNeeded(); }
+                catch (Exception) when (hideFailure != null) { }
+            }
         }
     }
 
-    private void CompleteDeferredNativeHide()
+    private bool IsNativeHideCurrent(IWindow window)
+    {
+        _nativeSessionReleaseFailure?.Throw();
+        return !_isDisposed && !_isHostVisible && !_hasNativeWindowCloseStarted &&
+            ReferenceEquals(window, _window);
+    }
+
+    private void CompleteDeferredNativeHide(IWindow window)
     {
         _nativeHidePending = false;
         // Show or disposal can supersede Hide while a nested native poll unwinds.
         // Recheck for any newly entered lease before touching native visibility.
-        if (!_isDisposed && !_isHostVisible) HideNativeWindowAfterModalRelease();
+        if (IsNativeHideCurrent(window)) HideNativeWindowAfterModalRelease();
+        else if (_isDisposed) DisposeDeferredNativeWindowIfNeeded();
     }
 
     internal void ReleaseNativeDialog(Action completed)
     {
         ArgumentNullException.ThrowIfNull(completed);
+        _nativeSessionReleaseFailure?.Throw();
         ReleaseNativeDialogHint();
         // Cleanup can arrive after source Close disposed its activation. The
         // native window may still be retained by the active native event poll.
-        if (NativeWindowModalSession.IsActive && _window?.IsInitialized == true &&
-            _window.Native?.Cocoa is { } cocoa && cocoa != 0 &&
-            NativeWindowModalSession.TryReleaseWindow(
-                new(NativeWindowKind.Cocoa, cocoa, 0, "NSWindow"), completed)) return;
-        completed();
+        if (_window is { } window) CompleteNativeDialogRelease(window, completed);
+        else completed();
+    }
+
+    private void CompleteNativeDialogRelease(IWindow window, Action completed)
+    {
+        if (!RequestNativeWindowSessionRelease(window, () => CompleteNativeDialogRelease(window, completed)))
+        {
+            _ownsNativeDialog = false;
+            _nativeDialogSession = null;
+            completed();
+        }
+    }
+
+    internal void BeginNativeDialogSession()
+    {
+        if (!_options.EnableNativeModalSessions) return;
+        ThrowIfDisposed();
+        VerifyNativeVisibilityRelease();
+        if (_nativeWindowThreadId != Environment.CurrentManagedThreadId ||
+            _isBeginningNativeDialog || _ownsNativeDialog || _options.IsPopupSurface ||
+            _modalInputOwner == null || _window is not { } window)
+            throw new InvalidOperationException("Native dialogs require their live source-owned top-level host.");
+        bool initialized = window.IsInitialized;
+        bool visible = window.IsVisible;
+        if (!initialized || !visible || !_isHostVisible || _isDisposed ||
+            _hasNativeWindowCloseStarted || !ReferenceEquals(window, _window))
+            throw new InvalidOperationException("A native dialog must remain visible on its original provider.");
+
+        // AppKit Begin can synchronously raise activation/source callbacks. Own
+        // the host before entering it; Close/Hide queue their normal exact-window
+        // release proof instead of attempting native End during Begin.
+        _isBeginningNativeDialog = true;
+        Exception? beginFailure = null;
+        try
+        {
+            bool accepted;
+            if (NativeWindowSessionBeginOverride is { } begin) accepted = begin(window);
+            else
+            {
+                try
+                {
+                    accepted = window.Native?.Cocoa is { } cocoa && cocoa != 0 &&
+                        NativeWindowModalSession.TryBegin(
+                            new(NativeWindowKind.Cocoa, cocoa, 0, "NSWindow"), out _nativeDialogSession);
+                }
+                catch (Exception failure)
+                {
+                    // A native admission exception can be failed identity
+                    // cleanup after Begin. An absent session query is not proof.
+                    _nativeSessionReleaseFailure ??= ExceptionDispatchInfo.Capture(failure);
+                    throw;
+                }
+            }
+            if (!accepted)
+                throw new PlatformNotSupportedException("The dialog provider rejected its native modal session.");
+            _ownsNativeDialog = true;
+        }
+        catch (Exception failure) { beginFailure = failure; throw; }
+        finally
+        {
+            _isBeginningNativeDialog = false;
+            Action? pending = _beginDeferredNativeSessionRelease;
+            _beginDeferredNativeSessionRelease = null;
+            try { pending?.Invoke(); }
+            catch (Exception) when (beginFailure != null)
+            {
+                // The shared coordinator retains uncertain release and pending
+                // owners. Keep the original admission failure authoritative.
+            }
+        }
     }
 
     private void ReleaseNativeDialogHint()
@@ -1980,12 +2178,14 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
     private bool MustDeferNativeWindowRetirement(IWindow window) =>
         _isNativeLoopRunning || _isRendering || _isProcessingDispatcherWorkWakeup ||
         _isInNativeWindowCloseCallback || _isDisposingHostServices || _isDisposingHostResources ||
-        _isRetiringAcceptedCloseTarget ||
+        _isRetiringAcceptedCloseTarget || _isBeginningNativeDialog ||
+        _pendingNativeCloseWindow != null || _nativeHidePending || _nativeSessionReleaseCount != 0 ||
         Volatile.Read(ref s_activeNativeEventDispatchDepth) > 0 ||
         IsNativeWindowRetainedByModalSession(window);
 
     private void DisposeDeferredNativeWindowIfNeeded()
     {
+        _nativeSessionReleaseFailure?.Throw();
         DisposeAcceptedCloseTargetIfNeeded();
         if (!_disposeNativeWindowWhenLoopExits || _isNativeLoopRunning)
         {
@@ -2102,16 +2302,168 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
 
     private void RequestNativeWindowClose(IWindow window)
     {
+        if (_nativeWindowThreadId != Environment.CurrentManagedThreadId)
+            throw new InvalidOperationException("Native window close belongs to its creating thread.");
+        if (!ReferenceEquals(window, _window))
+            throw new InvalidOperationException("A close request cannot target a replacement native window.");
+        _nativeSessionReleaseFailure?.Throw();
         bool closeAlreadyStarted = _hasNativeWindowCloseStarted;
         _hasNativeWindowCloseStarted = true;
         TraceNativeLoop((closeAlreadyStarted ? "close request already pending: " : "close requested: ") + CreateNativeLoopTraceState());
-        if (closeAlreadyStarted)
+        if (closeAlreadyStarted && _pendingNativeCloseWindow == null)
         {
+            return;
+        }
+
+        // Owned Cocoa Close hides before raising Closing. Retaining only the
+        // later Dispose is too late: native sessions must release before Close.
+        _pendingNativeCloseWindow = window;
+        CompleteNativeCloseAfterSessionRelease(releasedSession: false);
+    }
+
+    private void CompleteNativeCloseAfterSessionRelease(bool releasedSession)
+    {
+        _nativeSessionReleaseFailure?.Throw();
+        IWindow? window = _pendingNativeCloseWindow;
+        if (window == null || _nativeCloseReleasePending) return;
+        if (_nativeWindowThreadId != Environment.CurrentManagedThreadId)
+            throw new InvalidOperationException("Native window close belongs to its creating thread.");
+        if (!ReferenceEquals(window, _window))
+            throw new InvalidOperationException("A pending close cannot target a replacement native window.");
+
+        // Publish before calling: release may complete synchronously. A later
+        // callback rechecks native leases, including a newly entered session.
+        _nativeCloseReleasePending = true;
+        try
+        {
+            if (RequestNativeWindowSessionRelease(window, CompleteDeferredNativeClose,
+                () => _nativeCloseReleasePending = false)) return;
+        }
+        catch
+        {
+            _nativeCloseReleasePending = false;
+            throw;
+        }
+        _nativeCloseReleasePending = false;
+        _pendingNativeCloseWindow = null;
+        if (releasedSession && _isDisposed)
+        {
+            // Dispose supersedes the deferred source Close. The source loop
+            // already exits on _isDisposed; do not raise a second Closing or
+            // Hide just to stop it. The queued owner survives active dispatch.
+            DisposeDeferredNativeWindowIfNeeded();
             return;
         }
 
         window.Close();
         TryRequestNativeLoopWakeup(window.ContinueEvents);
+    }
+
+    private void CompleteDeferredNativeClose()
+    {
+        _nativeCloseReleasePending = false;
+        CompleteNativeCloseAfterSessionRelease(releasedSession: true);
+    }
+
+    private bool RequestNativeWindowSessionRelease(IWindow window, Action completed, Action? acknowledged = null)
+    {
+        _nativeSessionReleaseFailure?.Throw();
+        if (_nativeWindowThreadId != Environment.CurrentManagedThreadId)
+            throw new InvalidOperationException("Native session release belongs to its creating thread.");
+        if (!ReferenceEquals(window, _window) ||
+            _nativeSessionReleaseWindow != null && !ReferenceEquals(window, _nativeSessionReleaseWindow))
+            throw new InvalidOperationException("Native session release cannot target a replacement window.");
+
+        _nativeSessionReleaseWindow = window;
+        _nativeSessionReleaseCount++;
+        if (_nativeSessionReleaseCallbacks is { } pending)
+        {
+            // An earlier deferred request still owns release proof. In
+            // particular, an absent native query cannot bypass its callback.
+            pending.Add((completed, acknowledged));
+            return true;
+        }
+
+        var callbacks = new List<(Action Complete, Action? Acknowledge)> { (completed, acknowledged) };
+        _nativeSessionReleaseCallbacks = callbacks;
+        bool delivered = false;
+        void Released()
+        {
+            delivered = true;
+            _nativeSessionReleaseCallbacks = null;
+            ExceptionDispatchInfo? callbackFailure = null;
+            for (int i = 0; i < callbacks.Count; i++)
+            {
+                _nativeSessionReleaseCount--;
+                try
+                {
+                    _nativeSessionReleaseFailure?.Throw();
+                    if (_nativeWindowThreadId != Environment.CurrentManagedThreadId)
+                        throw new InvalidOperationException("Native session completion changed its window or thread.");
+                    // Delivery consumes this action's wait even when its exact
+                    // window was replaced. A restored original owner may retry;
+                    // acknowledgement never admits an action on the replacement.
+                    callbacks[i].Acknowledge?.Invoke();
+                    if (!ReferenceEquals(window, _window))
+                        throw new InvalidOperationException("Native session completion changed its window or thread.");
+                    callbacks[i].Complete();
+                }
+                catch (Exception failure) { callbackFailure ??= ExceptionDispatchInfo.Capture(failure); }
+                finally { if (_nativeSessionReleaseCount == 0) _nativeSessionReleaseWindow = null; }
+            }
+            if (_isDisposed && _nativeSessionReleaseCount == 0 && callbackFailure == null)
+            {
+                try { DisposeDeferredNativeWindowIfNeeded(); }
+                catch (Exception failure) { callbackFailure ??= ExceptionDispatchInfo.Capture(failure); }
+            }
+            callbackFailure?.Throw();
+        }
+        bool StartRelease(bool deferred)
+        {
+            try
+            {
+                if (NativeWindowSessionRelease(window, Released)) return true;
+                if (callbacks.Count != 1 || deferred)
+                {
+                    // A native identity getter can reenter and queue another action
+                    // even when the final native query has no session to release.
+                    Released();
+                    return true;
+                }
+                _nativeSessionReleaseCallbacks = null;
+                if (--_nativeSessionReleaseCount == 0) _nativeSessionReleaseWindow = null;
+                return false;
+            }
+            catch (Exception failure)
+            {
+                // Identity Dispose can remove the shared query and still fail without
+                // delivering completion. All host operations retain that uncertainty.
+                // Delivered callback errors are source errors, not release failures.
+                if (!delivered) _nativeSessionReleaseFailure ??= ExceptionDispatchInfo.Capture(failure);
+                throw;
+            }
+        }
+        if (_isBeginningNativeDialog)
+        {
+            _beginDeferredNativeSessionRelease = () => StartRelease(deferred: true);
+            return true;
+        }
+        return StartRelease(deferred: false);
+    }
+
+    private static bool TryReleaseNativeWindowSession(IWindow window, Action completed) =>
+        NativeWindowModalSession.IsActive && window.IsInitialized &&
+        window.Native?.Cocoa is { } cocoa && cocoa != 0 &&
+        NativeWindowModalSession.TryReleaseWindow(
+            new(NativeWindowKind.Cocoa, cocoa, 0, "NSWindow"), completed);
+
+    private void VerifyNativeVisibilityRelease()
+    {
+        _nativeSessionReleaseFailure?.Throw();
+        if (_nativeSessionReleaseCallbacks != null && _nativeSessionReleaseWindow is { } window &&
+            !NativeWindowSessionRetains(window))
+            throw new InvalidOperationException("Native visibility awaits the outstanding session release completion.");
+        _nativeSessionReleaseFailure?.Throw();
     }
 
     private void EnsureWindow()
@@ -2288,8 +2640,10 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
             }
             ProGpuWpfCompositionTarget target = CreateCompositionTargetForWindow(
                 window, sharedDeviceContext);
+            target.CacheRasterMonitors = () => PlatformServices.Monitors;
             NativeCompositor? nativeMilCompositor = null;
             WpfNativeMilCompilationSession? nativeMilSession = null;
+            WpfBitmapCacheRasterPolicySource? nativeCacheRasterPolicySource = null;
             try
             {
                 if (_options.TransparentFramebuffer)
@@ -2305,8 +2659,16 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
                     nativeMilCompositor = new NativeCompositor(
                         target.Context,
                         target.Context.SwapChainFormat);
+                    NativeCompositor ownedCompositor = nativeMilCompositor;
+                    nativeCacheRasterPolicySource = new WpfBitmapCacheRasterPolicySource(
+                        target.Context, () => PlatformServices.Monitors, () =>
+                        {
+                            var limits = ownedCompositor.GetCacheRasterLimits();
+                            return (limits.MaximumTextureWidth, limits.MaximumTextureHeight);
+                        });
                     nativeMilSession = new WpfNativeMilCompilationSession(
-                        NativeMilBackend.WgpuNative);
+                        NativeMilBackend.WgpuNative,
+                        new WpfNativeMilSceneCompiler(nativeCacheRasterPolicySource.CaptureFrame));
                 }
             }
             catch
@@ -2328,6 +2690,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
             _target = target;
             _nativeMilCompositor = nativeMilCompositor;
             _nativeMilSession = nativeMilSession;
+            _nativeCacheRasterPolicySource = nativeCacheRasterPolicySource;
             target.RenderInvalidated += OnCompositionTargetRenderInvalidated;
             WgpuContext.OnWebGpuDeviceLost += OnRenderDeviceLost;
             target.Context.VSync = _options.VSync;
@@ -2751,10 +3114,14 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
             }
 
             object? wpfRootVisual = _wpfRootVisual;
+            var shaderTargetFrame = new WpfShaderEffectTargetFrame(logicalWidth, logicalHeight,
+                pixelWidth, pixelHeight, new ProGpuRenderTargetViewport(
+                    viewportX, viewportY, viewportWidth, viewportHeight));
+            var activeWpfImageSourceAdapter = _target.CreateFrameImageSourceAdapter(
+                WpfImageSourceAdapter, (float)dpiScale, shaderTargetFrame);
             var forceFullWpfReplay = _forceFullWpfReplay;
             var shouldReplayWpfRootVisual = wpfRootVisual != null &&
                 (forceFullWpfReplay || _target.ShouldReplayVisualSubtree(wpfRootVisual));
-            var activeWpfImageSourceAdapter = _target.CreateFrameImageSourceAdapter(WpfImageSourceAdapter);
             IReadOnlyList<WpfRetainedVisualBranchReplayTarget> dirtyBranchReplayTargets = Array.Empty<WpfRetainedVisualBranchReplayTarget>();
             var canReplayDirtyWpfBranches = wpfRootVisual != null &&
                 shouldReplayWpfRootVisual &&
@@ -3049,7 +3416,13 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
 
         _target.WpfInvalidationTracker.AttachIfChanged(rootVisual);
         if (!CanContinueRenderFrame(frameTarget, frameWindow)) return false;
-        bool update = !_nativeMilSession.IsInitialized ||
+        WpfBitmapCacheRasterPolicySource rasterPolicySource = _nativeCacheRasterPolicySource ??
+            throw new InvalidOperationException("The native MIL source raster-policy owner is unavailable.");
+        rasterPolicySource.BeginFrame();
+        bool rasterPolicyChanged = _nativeMilSession.HasCacheRasterSamplers &&
+            !_nativeMilSession.HasCacheRasterPolicy(rasterPolicySource.CaptureFrame());
+        if (!CanContinueRenderFrame(frameTarget, frameWindow)) return false;
+        bool update = rasterPolicyChanged || !_nativeMilSession.IsInitialized ||
             !ReferenceEquals(_nativeMilCompiledRootVisual, rootVisual) ||
             _nativeMilCompiledPixelWidth != pixelWidth ||
             _nativeMilCompiledPixelHeight != pixelHeight ||
@@ -4508,6 +4881,15 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
 
     private void AttachInputService()
     {
+        if (_isAttachingInput)
+            throw new InvalidOperationException("Source input attachment cannot reenter.");
+        _isAttachingInput = true;
+        try { AttachInputServiceCore(); }
+        finally { _isAttachingInput = false; }
+    }
+
+    private void AttachInputServiceCore()
+    {
         if (_window == null || _isDisposed || _hasNativeWindowCloseStarted)
         {
             return;
@@ -4524,18 +4906,42 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         {
             input.InputReceived += OnPlatformInputReceived;
             IDisposable inputSubscription = input.Attach(window);
+            _unpublishedInputSubscription = inputSubscription;
+            Silk.NET.Input.IInputContext? ownedContext;
+            try
+            {
+                ownedContext = _ownedPopupInputGate is { } gate
+                    ? RequireOwnedPopupInputContext(gate, input)
+                    : null;
+            }
+            catch (Exception failure)
+            {
+                // This subscription has not been published to host retirement.
+                // Preserve the capability failure if context cleanup also fails.
+                try { RetireUnpublishedInputSubscription(); }
+                catch (Exception cleanup)
+                {
+                    try { failure.Data["OwnedPopupInputRetirement"] = cleanup; }
+                    catch { }
+                }
+                throw;
+            }
             if (_isDisposed ||
                 _hasNativeWindowCloseStarted ||
                 !ReferenceEquals(window, _window))
             {
-                inputSubscription.Dispose();
+                RetireUnpublishedInputSubscription();
                 input.InputReceived -= OnPlatformInputReceived;
                 TraceNativeLoop($"input attach canceled after host close: host={GetHashCode():x}, handle={window.Handle}");
                 return;
             }
 
+            if (!ReferenceEquals(_unpublishedInputSubscription, inputSubscription))
+                throw new InvalidOperationException("The source input attachment retired before publication.");
             _inputSubscription = inputSubscription;
             _attachedInputService = input;
+            _ownedPopupInputContext = ownedContext;
+            _unpublishedInputSubscription = null;
             TraceNativeLoop($"input attached: host={GetHashCode():x}, handle={window.Handle}");
         }
         catch (PlatformNotSupportedException) when (!_options.IsPopupSurface)
@@ -4553,6 +4959,8 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
 
     private void DetachInputService()
     {
+        // Invalidate before even the source decoration callback can reenter Show.
+        _ownedPopupInputContext = null;
         IWindow? window = _window;
         if (window != null)
         {
@@ -4566,6 +4974,9 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
                 $"input detach entering: host={GetHashCode():x}, handle={window?.Handle ?? IntPtr.Zero}");
         }
 
+        // Reentrant cancellation cannot reuse a proof whose source subscription
+        // is already being detached, even while native retirement is deferred.
+        RetireUnpublishedInputSubscription();
         _inputSubscription?.Dispose();
         _inputSubscription = null;
 
@@ -4579,6 +4990,22 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         {
             TraceNativeLoop($"input detached: host={GetHashCode():x}, handle={window.Handle}");
         }
+    }
+
+    private void RetireUnpublishedInputSubscription()
+    {
+        if (_unpublishedInputSubscription is not { } subscription) return;
+        if (_isRetiringUnpublishedInput)
+            throw new InvalidOperationException("Unpublished source input retirement cannot reenter.");
+        _isRetiringUnpublishedInput = true;
+        try
+        {
+            subscription.Dispose();
+            // Only successful source-context disposal ends this retry owner.
+            if (ReferenceEquals(_unpublishedInputSubscription, subscription))
+                _unpublishedInputSubscription = null;
+        }
+        finally { _isRetiringUnpublishedInput = false; }
     }
 
     private void OnPlatformInputReceived(object? sender, WpfInputEventArgs e)
@@ -5031,6 +5458,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
 
         _nativeMilSession?.Dispose();
         _nativeMilSession = null;
+        _nativeCacheRasterPolicySource = null;
         lock (_nativeMilPerformanceGate)
         {
             _nativeMilPerformance = default;
@@ -5868,6 +6296,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
 
     private void ShowCore(bool requestRenderWhenInitialized)
     {
+        VerifyNativeVisibilityRelease();
         _isHostVisible = true;
         EnsureWindow();
 

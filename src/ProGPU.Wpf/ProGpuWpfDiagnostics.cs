@@ -9,7 +9,7 @@ public enum ProGpuWpfWindowingBackend
     Wayland
 }
 
-public static class ProGpuWpfDiagnostics
+public static partial class ProGpuWpfDiagnostics
 {
     /// <summary>
     /// Installs one bounded observer on the actual host's owner thread. Use only

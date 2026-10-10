@@ -3,6 +3,8 @@
 
 //                                             
 
+using ProGPU.Wpf.Interop;
+
 namespace System.Windows.Media
 {
     ///<summary>
@@ -10,6 +12,12 @@ namespace System.Windows.Media
     ///</summary>
     public sealed partial class SkewTransform : Transform
     {
+        internal override bool TryGetPortableTransformCore(out PortableTransform transform)
+        {
+            transform = new PortableSkewTransform(AngleX, AngleY, CenterX, CenterY);
+            return true;
+        }
+
         ///<summary>
         /// 
         ///</summary>

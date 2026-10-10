@@ -35,6 +35,23 @@ public partial class App : Application
         if (!combined.FillContains(new Point(15, 6)))
             throw new InvalidOperationException("Native SDK startup geometry provider did not preserve the union.");
 #endif
+        if (Environment.GetCommandLineArgs().Contains("--sdk-bootstrap-probe", StringComparer.Ordinal))
+        {
+#if PROGPU_WPF_NATIVE_MIL
+            bool expected = true;
+#else
+            bool expected = !OperatingSystem.IsWindows();
+#endif
+            foreach (string service in new[] { "System.Windows.PortableWindowActivationService", "System.Windows.PortableMessageBoxService", "Microsoft.Win32.PortableFileDialogService" })
+            {
+                Type type = GetRequiredType(typeof(Application).Assembly, service);
+                PropertyInfo enabled = type.GetProperty("IsEnabled", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)
+                    ?? throw new InvalidOperationException($"Missing {service}.IsEnabled");
+                AssertEqual(expected, enabled.GetValue(null), $"Entry-assembly bootstrap {service}");
+            }
+            Console.WriteLine("SDK entry-assembly bootstrap passed.");
+            Environment.Exit(0);
+        }
     }
 
     public double NativeStartupTextWidth { get; }

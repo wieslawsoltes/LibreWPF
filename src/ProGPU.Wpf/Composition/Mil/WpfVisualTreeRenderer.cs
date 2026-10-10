@@ -155,6 +155,8 @@ public sealed class WpfVisualTreeRenderer
         }
         try
         {
+            if (WpfCaptureReplayGuard.ValidateHiddenSources && visual is IPortableViewport3DSceneSource)
+                throw new NotSupportedException("Empty shader cache capture requires an owned two-dimensional source graph.");
             if (WpfCaptureReplayGuard.IsActive && (!TryGetPortableVisualState(visual, out _) ||
                 visual is not PortableVisualChildrenSource children ||
                 !children.TryGetPortableVisualChildCount(out int count) || count < 0))
@@ -191,7 +193,7 @@ public sealed class WpfVisualTreeRenderer
             return;
         }
 
-        if (!cacheBrushRoot && !IsSourceVisualVisible(visual))
+        if (!cacheBrushRoot && !WpfCaptureReplayGuard.ValidateHiddenSources && !IsSourceVisualVisible(visual))
         {
             // Keep ownership/dependency registration for a later visible transition,
             // but do not replay hidden content or admit its masks/effects for input.
@@ -811,10 +813,12 @@ public sealed class WpfVisualTreeRenderer
         var effectStateCount = 0;
         global::ProGPU.Scene.EffectBase? effect = null;
         var cacheAsLayer = false;
+        bool hasRetainedBounds = TryReadRetainedVisualBounds(visual, out var bounds);
 
         if (TryGetVisualEffect(visual, out var effectValue))
         {
-            if (!WpfEffectMapper.TryCreateProGpuEffect(effectValue, out effect, imageSourceAdapter))
+            if (!WpfEffectMapper.TryCreateProGpuEffect(effectValue, out effect, imageSourceAdapter,
+                    hasRetainedBounds ? bounds : null, visual))
             {
                 return false;
             }
@@ -830,7 +834,8 @@ public sealed class WpfVisualTreeRenderer
             }
 
             TryGetVisualBitmapEffectInput(visual, out var bitmapEffectInput);
-            if (!WpfEffectMapper.TryCreateProGpuPushEffect(bitmapEffect, bitmapEffectInput, out effect, imageSourceAdapter))
+            if (!WpfEffectMapper.TryCreateProGpuPushEffect(bitmapEffect, bitmapEffectInput, out effect, imageSourceAdapter,
+                    hasRetainedBounds ? bounds : null, visual))
             {
                 return false;
             }
@@ -858,7 +863,7 @@ public sealed class WpfVisualTreeRenderer
         var retainedTransform = transform;
         var retainedClipBounds = clipBounds;
         var retainedOpacityMaskBounds = opacityMaskBounds;
-        if (TryReadRetainedVisualBounds(visual, out var bounds))
+        if (hasRetainedBounds)
         {
             size = new Vector2((float)bounds.Width, (float)bounds.Height);
             contentBounds = bounds;
@@ -1179,6 +1184,52 @@ public sealed class WpfVisualTreeRenderer
             }
         }
 
+        // Original source ShaderEffect consumes its own visual opacity/mask as
+        // input. Keep the source geometry clips outside that capture. Other
+        // effects retain their existing output-opacity scope ordering.
+        var hasEffect = TryGetVisualEffect(visual, out var effect);
+        global::ProGPU.Scene.EffectBase? proGpuEffect = null;
+        using var ownedEffect = new WpfOwnedEffectCandidate();
+        WpfReplayRect? effectBounds = null;
+        var effectResolved = false;
+        if (hasEffect)
+        {
+            effectBounds = TryGetVisualStateBounds(out var resolvedEffectBounds) ? resolvedEffectBounds : null;
+            if (sink is IWpfOwnedShaderEffectCommandSink &&
+                imageSourceAdapter is IWpfShaderRecordingAdapterSource &&
+                effect is global::ProGPU.Wpf.Interop.IPortableShaderEffectSource)
+            {
+                if (effectBounds is { } ownedBounds &&
+                    WpfEffectMapper.TryCreateOwnedShaderEffect(effect, visual, ownedBounds,
+                        imageSourceAdapter, out var prepared))
+                {
+                    ownedEffect.Source = prepared;
+                    effectResolved = true;
+                }
+            }
+            else
+                effectResolved = WpfEffectMapper.TryCreateProGpuEffect(
+                    effect, out proGpuEffect, imageSourceAdapter, effectBounds, visual);
+        }
+
+        var captureSourceOpacity = ownedEffect.Source is not null || proGpuEffect is global::ProGPU.Scene.WpfShaderEffect
+        {
+            CaptureSourceVisualOpacity: true
+        };
+        if (captureSourceOpacity)
+        {
+            if (ownedEffect.Source is not null
+                ? ownedEffect.Push(sink, effectBounds!.Value)
+                : WpfPortableCommandSinkBridge.TryPushVisualEffect(sink, proGpuEffect!, effectBounds))
+            {
+                popCount++;
+            }
+            else
+            {
+                stats.UnsupportedVisualStateCount++;
+            }
+        }
+
         if (TryReadOpacity(visual, out var opacity)
             && opacity != 1)
         {
@@ -1200,13 +1251,13 @@ public sealed class WpfVisualTreeRenderer
             }
         }
 
-        if (TryGetVisualEffect(visual, out var effect))
+        if (hasEffect && !captureSourceOpacity)
         {
-            if (WpfEffectMapper.TryCreateProGpuEffect(effect, out var proGpuEffect, imageSourceAdapter)
+            if (effectResolved
                 && WpfPortableCommandSinkBridge.TryPushVisualEffect(
                     sink,
-                    proGpuEffect,
-                    TryGetVisualStateBounds(out var effectBounds) ? effectBounds : null))
+                    proGpuEffect!,
+                    effectBounds))
             {
                 popCount++;
             }
@@ -1219,11 +1270,12 @@ public sealed class WpfVisualTreeRenderer
         if (TryGetVisualBitmapEffect(visual, out var bitmapEffect))
         {
             TryGetVisualBitmapEffectInput(visual, out var bitmapEffectInput);
-            if (WpfEffectMapper.TryCreateProGpuPushEffect(bitmapEffect, bitmapEffectInput, out var proGpuBitmapEffect, imageSourceAdapter)
+            WpfReplayRect? bitmapEffectBounds = TryGetVisualStateBounds(out var resolvedBitmapEffectBounds) ? resolvedBitmapEffectBounds : null;
+            if (WpfEffectMapper.TryCreateProGpuPushEffect(bitmapEffect, bitmapEffectInput, out var proGpuBitmapEffect, imageSourceAdapter, bitmapEffectBounds, visual)
                 && WpfPortableCommandSinkBridge.TryPushVisualEffect(
                     sink,
                     proGpuBitmapEffect,
-                    TryGetVisualStateBounds(out var bitmapEffectBounds) ? bitmapEffectBounds : null))
+                    bitmapEffectBounds))
             {
                 popCount++;
             }

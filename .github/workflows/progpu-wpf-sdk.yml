@@ -17,6 +17,26 @@ env:
   PROGPU_WPF_QUALIFIED_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
 
 jobs:
+  sdk-bootstrap:
+    name: SDK bootstrap ownership (${{ matrix.os }})
+    strategy:
+      matrix:
+        os: [ubuntu-24.04, windows-2025, macos-15]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Validate initializer isolation and SDK selection
+        run: python eng/tests/test_wpf_sdk_bootstrap.py -v
+
   retained-invalidation:
     name: Retained layout-clip invalidation contracts
     runs-on: ubuntu-24.04
@@ -138,6 +158,12 @@ jobs:
 
       - name: Validate source event-time input modifiers
         run: bash ./eng/progpu-wpf-input-modifiers-source.sh
+
+      - name: Validate original ShaderEffect source export
+        run: bash ./eng/progpu-wpf-shader-effect-source.sh
+
+      - name: Validate original Display source ownership and geometry contracts
+        run: bash ./eng/progpu-wpf-display-source.sh
 
       - name: Validate source pointer press ownership
         run: bash ./eng/progpu-wpf-pointer-ownership-source.sh

@@ -21,9 +21,11 @@ dialog cleanup, close-only resize intent and hidden-taskbar assertions remain.
 The existing required source MessageBox CI gate runs this test without a new
 skip, relaxed assertion or longer deadline.
 
-This change affects the WPF-rendered non-Windows dialog in both managed and native
-renderer configurations. Windows retains its native user32 MessageBox route;
-process-backed startup/service dialogs are unchanged. No renderer, shader or
+This content change affects the WPF-rendered portable dialog in both managed and
+native renderer configurations. The later source-owned backend selection also
+uses that dialog for portable Windows hosts; Windows-MIL retains its native
+user32 MessageBox route. See [backend selection](portable-messagebox-backend-selection.md).
+Process-backed startup/service dialogs are unchanged. No renderer, shader or
 native ABI change is required: scrolling uses the existing source ScrollViewer.
 Source layout assertions do not qualify native window chrome, rendered clipping,
 mouse-wheel or keyboard scrolling. Final Linux/macOS desktop interaction and
@@ -36,3 +38,5 @@ skips, including all four short/long and explicit/inferred-owner dialog paths.
 The source-only host does not supply a native window theme, so the regression
 measures and arranges the actual content grid directly; it does not substitute
 its ScrollViewer template, text formatter, scroll offsets or button controls.
+That historical source evidence predates the portable-Windows selection change;
+the newly authored Windows policy and resolved-owner configurations are unrun.

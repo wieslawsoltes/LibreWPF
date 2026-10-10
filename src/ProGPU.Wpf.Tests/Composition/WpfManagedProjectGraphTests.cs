@@ -136,6 +136,7 @@ public sealed class WpfManagedProjectGraphTests
         {
             "run: bash ./eng/progpu-wpf-messagebox-modal.sh",
             "run: bash ./eng/progpu-wpf-input-modifiers-source.sh",
+            "run: bash ./eng/progpu-wpf-display-source.sh",
             "run: bash ./eng/progpu-wpf-pointer-ownership-source.sh",
             "run: bash ./eng/progpu-wpf-native-pointer-source.sh",
             "run: bash ./eng/progpu-wpf-dispatcher-flush-source.sh",
@@ -156,6 +157,10 @@ public sealed class WpfManagedProjectGraphTests
         Assert.DoesNotContain("if:", job, StringComparison.Ordinal);
         Assert.DoesNotContain("continue-on-error:", job, StringComparison.Ordinal);
         Assert.DoesNotContain("actions/download-artifact", job, StringComparison.Ordinal);
+        string displayRunner = File.ReadAllText(FindRepoPath("eng", "progpu-wpf-display-source.sh"));
+        Assert.Contains("--filter-class System.Windows.Media.PortableDisplayTextSourceTests", displayRunner, StringComparison.Ordinal);
+        Assert.Contains("--minimum-expected-tests 13 --fail-skips on --timeout 60s", displayRunner, StringComparison.Ordinal);
+        Assert.DoesNotContain("dotnet build", displayRunner, StringComparison.Ordinal);
         string nativePointerRunner = File.ReadAllText(FindRepoPath("eng", "progpu-wpf-native-pointer-source.sh"));
         string[] nativeInvocations = nativePointerRunner.Split("\n\"${dotnet_command}\" ", StringSplitOptions.None);
         Assert.Equal(4, nativeInvocations.Length);
@@ -625,7 +630,8 @@ public sealed class WpfManagedProjectGraphTests
         string host = File.ReadAllText(FindRepoPath("src", "ProGPU.Wpf", "ProGpuWpfWindowHost.cs"));
         string harness = File.ReadAllText(FindRepoPath("src", "ProGPU.Wpf.RealPresentationFrameworkHarness", "Program.cs"));
         AssertGuardBefore(bootstrap, "ProGpuWpfNativeMediaServices.Initialize();", "RuntimeHelpers.RunModuleConstructor(");
-        AssertGuardBefore(bootstrap, "ProGpuWpfNativeMediaServices.Initialize();", "WindowsFormsHost.EnableWindowsFormsInterop();");
+        string nativeBody = bootstrap[bootstrap.IndexOf("private static void InitializeWpf(", StringComparison.Ordinal)..];
+        AssertGuardBefore(nativeBody, "ProGpuWpfNativeMediaServices.Initialize();", "InitializeWindowsForms(enableNativeModalSessions);");
         AssertGuardBefore(bootstrap, "throw new global::System.PlatformNotSupportedException(", "ProGpuWpfNativeMediaServices.Initialize();");
         Assert.Contains("architecture != global::System.Runtime.InteropServices.Architecture.X64 &&", bootstrap, StringComparison.Ordinal);
         Assert.Contains("architecture != global::System.Runtime.InteropServices.Architecture.Arm64", bootstrap, StringComparison.Ordinal);
@@ -3557,19 +3563,27 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("Func<ProGPU.Wpf.Interop.PortableMessageBoxRequest, string>", messageBoxService, StringComparison.Ordinal);
         Assert.Contains("internal static bool TryShow(", messageBoxService, StringComparison.Ordinal);
         Assert.Contains("return MessageBox.GetPortableFallbackResult(DefaultResult, Button)", messageBoxService, StringComparison.Ordinal);
-        Assert.Contains("return !s_isWindows && Volatile.Read(ref s_handler) != null", messageBoxService, StringComparison.Ordinal);
+        Assert.Contains("return MessageBox.UsesPortableBackend() && Volatile.Read(ref s_handler) != null", messageBoxService, StringComparison.Ordinal);
+        Assert.Contains("if (!MessageBox.UsesPortableBackend(owner as Window))", messageBoxService, StringComparison.Ordinal);
+        Assert.DoesNotContain("s_isWindows", messageBoxService, StringComparison.Ordinal);
 
         Assert.Contains("return ShowCore(owner, messageBoxText, caption, button, icon, defaultResult, options)", messageBox, StringComparison.Ordinal);
         Assert.Contains("GetMessageBoxOwnerHandle(owner)", messageBox, StringComparison.Ordinal);
-        Assert.Contains("if (ownerHandle == IntPtr.Zero && OperatingSystem.IsWindows())", messageBox, StringComparison.Ordinal);
-        Assert.Contains("if (!OperatingSystem.IsWindows())", messageBox, StringComparison.Ordinal);
+        Assert.Contains("bool portable = UsesPortableBackend(owner as Window) || handleOwner != null", messageBox, StringComparison.Ordinal);
+        Assert.Contains("Window.TryResolvePortableOwnerHandle(ownerHandle, Dispatcher.CurrentDispatcher, out handleOwner)", messageBox, StringComparison.Ordinal);
+        Assert.Contains("owner?.PortableWindowActivation != null", messageBox, StringComparison.Ordinal);
+        Assert.Contains("PortableWpfRuntime.ConfiguredMediaBackend == PortableWpfMediaBackend.Portable", messageBox, StringComparison.Ordinal);
         Assert.Contains("PortableMessageBoxService.TryShow(", messageBox, StringComparison.Ordinal);
         Assert.Contains("return GetPortableFallbackResult(defaultResult, button)", messageBox, StringComparison.Ordinal);
         Assert.Contains("return new WindowInteropHelper(owner).Handle", messageBox, StringComparison.Ordinal);
         Assert.True(
-            messageBox.IndexOf("if (!OperatingSystem.IsWindows())", StringComparison.Ordinal)
+            messageBox.IndexOf("if (portable)", StringComparison.Ordinal)
+                < messageBox.IndexOf("ownerHandle = UnsafeNativeMethods.GetActiveWindow()", StringComparison.Ordinal),
+            "Portable MessageBox must select its source route before querying any active HWND.");
+        Assert.True(
+            messageBox.IndexOf("return GetPortableFallbackResult(defaultResult, button)", StringComparison.Ordinal)
                 < messageBox.IndexOf("UnsafeNativeMethods.MessageBox", StringComparison.Ordinal),
-            "MessageBox.ShowCore must try the portable service before the Win32 MessageBox call.");
+            "Portable MessageBox must finish its route without falling through to user32.");
 
         Assert.Contains("TryRegisterPresentationFrameworkMessageBoxService()", proGpuActivation, StringComparison.Ordinal);
         Assert.Contains("PortableWpfServiceRegistry.MessageBoxServiceRegistered += OnMessageBoxServiceRegistered", proGpuActivation, StringComparison.Ordinal);
@@ -7870,8 +7884,8 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("bool TryGetVisualStateBounds(out WpfReplayRect bounds)", rendererSource, StringComparison.Ordinal);
         Assert.Contains("visualStateBoundsAvailable = TryReadOpacityMaskBounds(visual, out visualStateBounds);", rendererSource, StringComparison.Ordinal);
         Assert.Contains("TryGetVisualStateBounds(out var opacityMaskBounds)", rendererSource, StringComparison.Ordinal);
-        Assert.Contains("TryGetVisualStateBounds(out var effectBounds) ? effectBounds : null", rendererSource, StringComparison.Ordinal);
-        Assert.Contains("TryGetVisualStateBounds(out var bitmapEffectBounds) ? bitmapEffectBounds : null", rendererSource, StringComparison.Ordinal);
+        Assert.Contains("TryGetVisualStateBounds(out var resolvedEffectBounds) ? resolvedEffectBounds : null", rendererSource, StringComparison.Ordinal);
+        Assert.Contains("TryGetVisualStateBounds(out var resolvedBitmapEffectBounds) ? resolvedBitmapEffectBounds : null", rendererSource, StringComparison.Ordinal);
         Assert.Contains("TryGetVisualStateBounds(out var cacheBounds) ? cacheBounds : null", rendererSource, StringComparison.Ordinal);
         Assert.DoesNotContain("TryReadOpacityMaskBounds(visual, out var effectBounds)", rendererSource, StringComparison.Ordinal);
         Assert.DoesNotContain("TryReadOpacityMaskBounds(visual, out var bitmapEffectBounds)", rendererSource, StringComparison.Ordinal);
@@ -8749,14 +8763,16 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("CreatePortableShaderFloatConstants()", shaderEffect, StringComparison.Ordinal);
         Assert.Contains("CreatePortableShaderSamplers()", shaderEffect, StringComparison.Ordinal);
         Assert.Contains("PortableShaderSampler.ImplicitInput(i, samplingMode)", shaderEffect, StringComparison.Ordinal);
-        Assert.Contains("PortableShaderSampler.Image(i, imageBrush.ImageSource, samplingMode)", shaderEffect, StringComparison.Ordinal);
+        Assert.Contains("PortableShaderSampler.Image(i, imageBrush.ImageSource, samplingMode, imageBrush)", shaderEffect, StringComparison.Ordinal);
+        Assert.Contains("RenderMode = (PortableShaderRenderMode)ShaderRenderMode", pixelShader, StringComparison.Ordinal);
+        Assert.Contains("Source = this", pixelShader, StringComparison.Ordinal);
         Assert.Contains("PixelShader : System.Windows.Media.Animation.Animatable, ProGPU.Wpf.Interop.IPortablePixelShaderSource", presentationCoreRef, StringComparison.Ordinal);
         Assert.Contains("bool ProGPU.Wpf.Interop.IPortablePixelShaderSource.TryGetPortablePixelShader", presentationCoreRef, StringComparison.Ordinal);
         Assert.Contains("ShaderEffect : System.Windows.Media.Effects.Effect, ProGPU.Wpf.Interop.IPortableShaderEffectSource", presentationCoreRef, StringComparison.Ordinal);
         Assert.Contains("bool ProGPU.Wpf.Interop.IPortableShaderEffectSource.TryGetPortableShaderEffect", presentationCoreRef, StringComparison.Ordinal);
         Assert.Contains("using PortableShaderEffectSource = ProGPU.Wpf.Interop.IPortableShaderEffectSource;", effectMapper, StringComparison.Ordinal);
         Assert.Contains("effect is PortableShaderEffectSource shaderEffectSource", effectMapper, StringComparison.Ordinal);
-        Assert.Contains("TryCreatePortableShaderEffect(portableShaderEffect, imageSourceAdapter, out proGpuEffect)", effectMapper, StringComparison.Ordinal);
+        Assert.Contains("TryCreatePortableShaderEffect(portableShaderEffect, imageSourceAdapter, out proGpuEffect, effectBounds, effectOwner)", effectMapper, StringComparison.Ordinal);
         Assert.Contains("portableSampler.Kind", effectMapper, StringComparison.Ordinal);
         Assert.Contains("TryCreateImageSourceShaderSampler(", effectMapper, StringComparison.Ordinal);
         Assert.Contains("TryGetReplacement(effect.EffectTypeFullName, out replacement)", effectMapper, StringComparison.Ordinal);
@@ -15779,7 +15795,7 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("Remove=\"Microsoft.WindowsDesktop.App.WindowsForms\"", portableTargets, StringComparison.Ordinal);
         Assert.Contains("Condition=\"'$(ProGpuWpfUsePortableWinFormsCompat)' == 'true' And '$(ProGpuWpfReferenceMode)' == 'Package'\"", portableTargets, StringComparison.Ordinal);
         Assert.Contains("<CopyLocalLockFileAssemblies Condition=\"'$(ProGpuWpfUsePortableFrameworkReferences)' == 'true'\">true</CopyLocalLockFileAssemblies>", portableTargets, StringComparison.Ordinal);
-        Assert.Contains("<PropertyGroup Condition=\"'$(ProGpuWpfUsePortableFrameworkReferences)' == 'true' And '$(ProGpuWpfEnablePortableBootstrap)' == 'true' And ('$(OutputType)' == 'Exe' Or '$(OutputType)' == 'WinExe') And '$(ProGpuWpfUsePortableWinFormsCompat)' == 'true' And '$(ProGpuWpfUseLibreWinForms)' == 'true'\">", portableTargets, StringComparison.Ordinal);
+        Assert.Contains("<PropertyGroup Condition=\"'$(_ProGpuWpfSdkBootstrap)' == 'true' And '$(ProGpuWpfUsePortableWinFormsCompat)' == 'true' And '$(ProGpuWpfUseLibreWinForms)' == 'true'\">", portableTargets, StringComparison.Ordinal);
         Assert.Contains("<DefineConstants>$(DefineConstants);PROGPU_WPF_USE_LIBREWINFORMS</DefineConstants>", portableTargets, StringComparison.Ordinal);
         Assert.Contains("$(ProGpuWpfEnablePortableBootstrap)", portableTargets, StringComparison.Ordinal);
         Assert.Contains("And ('$(OutputType)' == 'Exe' Or '$(OutputType)' == 'WinExe')", portableTargets, StringComparison.Ordinal);
@@ -15941,15 +15957,14 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("#if PROGPU_WPF_USE_LIBREWINFORMS", portableBootstrap, StringComparison.Ordinal);
         Assert.Contains("global::System.Windows.Forms.Integration.WindowsFormsHost.EnableWindowsFormsInterop();", portableBootstrap, StringComparison.Ordinal);
         Assert.Contains("if (global::System.OperatingSystem.IsWindows())", portableBootstrap, StringComparison.Ordinal);
-        Assert.True(
-            portableBootstrap.IndexOf("global::System.Windows.Forms.Integration.WindowsFormsHost.EnableWindowsFormsInterop();", StringComparison.Ordinal)
-                < portableBootstrap.LastIndexOf("if (global::System.OperatingSystem.IsWindows())", StringComparison.Ordinal),
-            "LibreWinForms interop must initialize before the Windows early return.");
+        int windowsReturn = portableBootstrap.IndexOf("if (global::System.OperatingSystem.IsWindows())", StringComparison.Ordinal);
+        AssertGuardBefore(portableBootstrap[windowsReturn..], "InitializeWindowsForms(enableNativeModalSessions);", "return;");
         Assert.Contains("typeof(global::System.Windows.Application).Module.ModuleHandle", portableBootstrap, StringComparison.Ordinal);
         Assert.Contains("typeof(global::System.Windows.Clipboard).Module.ModuleHandle", portableBootstrap, StringComparison.Ordinal);
         Assert.Contains("global::System.Windows.Media.ProGPU.WpfPortableWindowActivation.TryRegisterPresentationFrameworkActivation()", portableBootstrap, StringComparison.Ordinal);
         Assert.Contains("global::System.Windows.Media.ProGPU.WpfPortableWindowActivation.TryRegisterPresentationCoreClipboardService()", portableBootstrap, StringComparison.Ordinal);
-        Assert.DoesNotContain("System.Reflection", portableBootstrap, StringComparison.Ordinal);
+        Assert.Contains("System.Reflection.Assembly.GetEntryAssembly() != typeof(ProGpuWpfSdkPortableBootstrap).Assembly", portableBootstrap, StringComparison.Ordinal);
+        Assert.DoesNotContain("GetTypes(", portableBootstrap, StringComparison.Ordinal);
         Assert.DoesNotContain("GetMethod(", portableBootstrap, StringComparison.Ordinal);
         Assert.DoesNotContain("Activator", portableBootstrap, StringComparison.Ordinal);
         Assert.DoesNotContain("typeof(Application).Assembly", portableBootstrap, StringComparison.Ordinal);

@@ -75,6 +75,16 @@ public sealed class WpfNativeMilCompilationSession : IDisposable
 
     public uint TargetHandle => _lastBatch?.TargetHandle ?? 0;
 
+    internal bool HasCacheRasterSamplers => _lastBatch is { BitmapCacheRasterPolicies.IsEmpty: false };
+
+    internal bool HasCacheRasterPolicy(PortableBitmapCacheRasterPolicy policy)
+    {
+        if (_lastBatch is null || _lastBatch.BitmapCacheRasterPolicies.IsEmpty) return false;
+        foreach (var raster in _lastBatch.BitmapCacheRasterPolicies.Span)
+            if (raster.Policy != policy) return false;
+        return true;
+    }
+
     public WpfNativeMilSessionUpdate Update(
         object rootVisual,
         uint pixelWidth,
@@ -631,6 +641,10 @@ public sealed class WpfNativeMilCompilationSession : IDisposable
             previous.DrawingGroupBounds, current.DrawingGroupBounds) &&
         HasStableHandles(
             previous.VisualCacheBounds, current.VisualCacheBounds) &&
+        previous.EmptyVisualBrushSources.Span.SequenceEqual(current.EmptyVisualBrushSources.Span) &&
+        previous.BitmapCacheRasterPolicies.Span.SequenceEqual(current.BitmapCacheRasterPolicies.Span) &&
+        previous.EmptyCacheBrushSources.Span.SequenceEqual(current.EmptyCacheBrushSources.Span) &&
+        previous.EmptyDrawingImageSources.Span.SequenceEqual(current.EmptyDrawingImageSources.Span) &&
         HasStableHandles(previous.Viewport3DScenes, current.Viewport3DScenes);
 
     internal static bool SidebandEquals(
@@ -722,6 +736,10 @@ public sealed class WpfNativeMilCompilationSession : IDisposable
             (batch.DrawingImageBounds?.Count ?? 0) +
             (batch.DrawingGroupBounds?.Count ?? 0) +
             (batch.VisualCacheBounds?.Count ?? 0) +
+            batch.EmptyVisualBrushSources.Length +
+            batch.BitmapCacheRasterPolicies.Length +
+            batch.EmptyCacheBrushSources.Length +
+            batch.EmptyDrawingImageSources.Length +
             (batch.PointHitRegions.IsEmpty ? 0 : 1) +
             (batch.VisualVisibilities.IsEmpty ? 0 : 1) +
             (batch.Viewport3DScenes?.Count ?? 0)));

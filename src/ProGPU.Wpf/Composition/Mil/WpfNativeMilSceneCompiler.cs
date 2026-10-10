@@ -71,6 +71,13 @@ public sealed record WpfNativeMilViewport3DScene(
     uint Handle,
     NativeMilViewport3DScene Scene);
 
+public readonly record struct WpfNativeMilBitmapCacheRasterPolicy(
+    uint Handle, PortableBitmapCacheRasterPolicy Policy);
+
+public readonly record struct WpfNativeMilEmptyCacheBrushSource(uint BrushHandle, uint VisualHandle);
+
+public readonly record struct WpfNativeMilEmptyDrawingImageSource(uint ImageHandle, uint DrawingHandle);
+
 public sealed record WpfNativeMilBatch(
     byte[] Bytes,
     uint TargetHandle,
@@ -95,6 +102,10 @@ public sealed record WpfNativeMilBatch(
         MediaPlayerSources = original.MediaPlayerSources; BitmapExternalImageSources = original.BitmapExternalImageSources;
         D3DImageSources = original.D3DImageSources; VisualOwners = original.VisualOwners;
         PointHitRegions = original.PointHitRegions; VisualVisibilities = original.VisualVisibilities;
+        EmptyVisualBrushSources = original.EmptyVisualBrushSources;
+        BitmapCacheRasterPolicies = original.BitmapCacheRasterPolicies;
+        EmptyCacheBrushSources = original.EmptyCacheBrushSources;
+        EmptyDrawingImageSources = original.EmptyDrawingImageSources;
         HintedGlyphResources = original.HintedGlyphResources?.Retain();
     }
     public void Dispose() => HintedGlyphResources?.Dispose();
@@ -104,6 +115,13 @@ public sealed record WpfNativeMilBatch(
         NativeGpuHitTestOwnerMap<object>.Empty;
     public ReadOnlyMemory<NativeMilPointHitRectangle> PointHitRegions { get; init; }
     public ReadOnlyMemory<NativeMilVisualVisibility> VisualVisibilities { get; init; }
+    /// <summary>Initialized VisualBrush sources with authoritative empty bounds, not null source handles.</summary>
+    public ReadOnlyMemory<uint> EmptyVisualBrushSources { get; init; }
+    public ReadOnlyMemory<WpfNativeMilBitmapCacheRasterPolicy> BitmapCacheRasterPolicies { get; init; }
+    /// <summary>Real ownership edges for ordinary null-paint aliases inside a shader source closure.</summary>
+    public ReadOnlyMemory<WpfNativeMilEmptyCacheBrushSource> EmptyCacheBrushSources { get; init; }
+    /// <summary>Original drawing ownership behind a known-empty image's canonical null paint.</summary>
+    public ReadOnlyMemory<WpfNativeMilEmptyDrawingImageSource> EmptyDrawingImageSources { get; init; }
 }
 
 public sealed record WpfNativeMilCompilation(
@@ -124,8 +142,17 @@ internal readonly record struct WpfNativeMilVisualOverlay(
 /// and radial-gradient analytic render-data. The existing managed portable
 /// renderer remains independent and is not replaced or selected implicitly.
 /// </remarks>
-public sealed class WpfNativeMilSceneCompiler
+public sealed partial class WpfNativeMilSceneCompiler
 {
+    private readonly Func<PortableBitmapCacheRasterPolicy>? _cacheRasterPolicy;
+
+    public WpfNativeMilSceneCompiler() { }
+
+    public WpfNativeMilSceneCompiler(Func<PortableBitmapCacheRasterPolicy> cacheRasterPolicy)
+    {
+        _cacheRasterPolicy = cacheRasterPolicy ?? throw new ArgumentNullException(nameof(cacheRasterPolicy));
+    }
+
     public WpfNativeMilBatch BuildBatch(
         object rootVisual,
         uint pixelWidth,
@@ -142,7 +169,7 @@ public sealed class WpfNativeMilSceneCompiler
         PortableWindowRegion? windowRegion = null)
     {
         ArgumentNullException.ThrowIfNull(rootVisual);
-        var context = new BuildContext();
+        var context = new BuildContext(_cacheRasterPolicy);
         WpfNativeMilBatch? result = null;
         try
         {
@@ -171,6 +198,10 @@ public sealed class WpfNativeMilSceneCompiler
                 VisualOwners = context.SnapshotVisualOwners(),
                 PointHitRegions = context.PointHitRegions.ToArray(),
                 VisualVisibilities = context.VisualVisibilities.ToArray(),
+                EmptyVisualBrushSources = context.EmptyVisualBrushSources.ToArray(),
+                BitmapCacheRasterPolicies = context.BitmapCacheRasterPolicies.ToArray(),
+                EmptyCacheBrushSources = context.EmptyCacheBrushSources.ToArray(),
+                EmptyDrawingImageSources = context.EmptyDrawingImageSources.ToArray(),
                 HintedGlyphResources = context.HintedGlyphRuns.Count == 0 ? null : WpfNativeHintedGlyphResources.Create(context.HintedGlyphRuns)
             };
             context.Dispose();
@@ -306,6 +337,32 @@ public sealed class WpfNativeMilSceneCompiler
                 visualCache.Handle, visualCache.Bounds);
             ++appliedCount;
         }
+        foreach (uint handle in batch.EmptyVisualBrushSources.Span)
+        {
+            channel.SetVisualSourceEmptyBounds(handle);
+            ++appliedCount;
+        }
+        foreach (var raster in batch.BitmapCacheRasterPolicies.Span)
+        {
+            PortableBitmapCacheRasterPolicy policy = raster.Policy;
+            channel.SetBitmapCacheBrushRasterPolicy(raster.Handle, new NativeMilBitmapCacheRasterPolicy(
+                policy.PrimaryDpiScaleX, policy.PrimaryDpiScaleY,
+                policy.MaximumTextureWidth, policy.MaximumTextureHeight, policy.SourceRevision));
+            ++appliedCount;
+        }
+        foreach (var source in batch.EmptyCacheBrushSources.Span)
+        {
+            // Initialized source and its explicit empty witness must exist first.
+            channel.SetBitmapCacheBrushEmptySource(source.BrushHandle, source.VisualHandle);
+            ++appliedCount;
+        }
+        foreach (var source in batch.EmptyDrawingImageSources.Span)
+        {
+            // The complete drawing graph and nested empty-source witnesses
+            // already exist. This adds ownership, not nonempty image bounds.
+            channel.SetDrawingImageEmptySource(source.ImageHandle, source.DrawingHandle);
+            ++appliedCount;
+        }
         foreach (WpfNativeMilViewport3DScene viewport3D in
                  batch.Viewport3DScenes ??
                  Array.Empty<WpfNativeMilViewport3DScene>())
@@ -327,8 +384,38 @@ public sealed class WpfNativeMilSceneCompiler
         return appliedCount;
     }
 
-    private sealed class BuildContext : IDisposable
+    private sealed partial class BuildContext : IDisposable
     {
+        private readonly Func<PortableBitmapCacheRasterPolicy>? _cacheRasterPolicySource;
+        private PortableBitmapCacheRasterPolicy? _cacheRasterPolicySnapshot;
+        internal List<WpfNativeMilBitmapCacheRasterPolicy> BitmapCacheRasterPolicies { get; } = [];
+        internal List<WpfNativeMilEmptyCacheBrushSource> EmptyCacheBrushSources { get; } = [];
+        internal List<WpfNativeMilEmptyDrawingImageSource> EmptyDrawingImageSources { get; } = [];
+        private readonly Dictionary<object, (uint Handle, object Target)> _ordinaryEmptyCacheBrushes =
+            new(ReferenceEqualityComparer.Instance);
+        private readonly Dictionary<object, HashSet<object>> _emptyCacheDependencies =
+            new(ReferenceEqualityComparer.Instance);
+        private readonly HashSet<uint> _retainedEmptyCacheBrushes = [];
+        private readonly Dictionary<object, (uint Handle, uint DrawingHandle, object Drawing)> _emptyDrawingImageOwnershipSources =
+            new(ReferenceEqualityComparer.Instance);
+        private readonly HashSet<uint> _retainedEmptyDrawingImages = [];
+
+        internal BuildContext(Func<PortableBitmapCacheRasterPolicy>? cacheRasterPolicySource)
+        {
+            _cacheRasterPolicySource = cacheRasterPolicySource;
+        }
+
+        private PortableBitmapCacheRasterPolicy CaptureCacheRasterPolicy()
+        {
+            if (_cacheRasterPolicySnapshot is { } existing) return existing;
+            if (_cacheRasterPolicySource is null)
+                throw new NotSupportedException("Shader cache samplers require actual source and owned-device raster policy.");
+            PortableBitmapCacheRasterPolicy policy = _cacheRasterPolicySource();
+            if (!policy.IsValid)
+                throw new NotSupportedException("The source cache raster policy is unavailable or invalid.");
+            _cacheRasterPolicySnapshot = policy;
+            return policy;
+        }
         internal List<(uint Handle, WpfHintedGlyphRunBinding Owner)> HintedGlyphRuns { get; } = [];
         public void Dispose()
         {
@@ -379,6 +466,10 @@ public sealed class WpfNativeMilSceneCompiler
             new(ReferenceEqualityComparer.Instance);
         private readonly HashSet<object> _parentedVisuals = new(ReferenceEqualityComparer.Instance);
         private readonly HashSet<uint> _visualBoundsHandles = [];
+        private readonly Dictionary<object, PortableTileBrush> _tileBrushSnapshots =
+            new(ReferenceEqualityComparer.Instance);
+        private readonly Dictionary<object, PortableBitmapCacheBrush> _cacheBrushSnapshots =
+            new(ReferenceEqualityComparer.Instance);
         private uint _nextHandle = 1;
 
         internal NativeMilBatchBuilder Batch { get; } = new();
@@ -404,6 +495,7 @@ public sealed class WpfNativeMilSceneCompiler
 
         internal List<WpfNativeMilVisualCacheBounds> VisualCacheBounds
             { get; } = [];
+        internal List<uint> EmptyVisualBrushSources { get; } = [];
         internal List<NativeMilPointHitRectangle> PointHitRegions { get; } = [];
         internal List<NativeMilVisualVisibility> VisualVisibilities { get; } = [];
 
@@ -503,7 +595,7 @@ public sealed class WpfNativeMilSceneCompiler
             return handle;
         }
 
-        private uint AddVisual(object visual, bool brushSource)
+        private uint AddVisual(object visual, bool brushSource, bool retainEmptyBrushSource = false)
         {
             if (_activeVisuals.Count + _activeDrawings.Count >= 256)
                 throw new InvalidOperationException("The portable visual/drawing source graph exceeds the native depth limit.");
@@ -515,13 +607,14 @@ public sealed class WpfNativeMilSceneCompiler
             }
             if (_visualHandles.TryGetValue(visual, out uint existing))
             {
-                if (brushSource) AddVisualBounds(visual, existing);
+                PropagateEmptyCacheDependencies(visual);
+                if (brushSource) AddVisualBounds(visual, existing, retainEmptyBrushSource: retainEmptyBrushSource);
                 return existing;
             }
             _activeVisuals.Add(visual);
             try
             {
-                return AddVisualCore(visual, brushSource);
+                return AddVisualCore(visual, brushSource, retainEmptyBrushSource);
             }
             finally
             {
@@ -529,11 +622,13 @@ public sealed class WpfNativeMilSceneCompiler
             }
         }
 
-        private void AddVisualBounds(object visual, uint visualHandle, bool allowEmptyOpacity = false)
+        private void AddVisualBounds(object visual, uint visualHandle, bool allowEmptyOpacity = false,
+            bool retainEmptyBrushSource = false)
         {
             if (_visualBoundsHandles.Contains(visualHandle)) return;
             if (!TryGetVisualBounds(visual, out NativeMilRect bounds,
-                    allowEmpty: allowEmptyOpacity, allowZeroExtent: allowEmptyOpacity))
+                    allowEmpty: allowEmptyOpacity || retainEmptyBrushSource,
+                    allowZeroExtent: allowEmptyOpacity || retainEmptyBrushSource))
             {
                 string detail = visual is IPortableVisualBoundsSource source &&
                     source.TryGetPortableVisualBounds(out PortableVisualBounds descriptor)
@@ -546,19 +641,80 @@ public sealed class WpfNativeMilSceneCompiler
             // Keep the visual, alpha, source input scopes and descendants on the
             // existing native uniform-opacity path. Missing bounds still fail;
             // this does not admit empty cache/effect/spatial-mask allocations.
-            if (allowEmptyOpacity && (bounds.Width == 0 || bounds.Height == 0)) return;
+            if (allowEmptyOpacity && !retainEmptyBrushSource && (bounds.Width == 0 || bounds.Height == 0)) return;
+            if (retainEmptyBrushSource && (bounds.Width == 0 || bounds.Height == 0))
+            {
+                // The legacy cache-bounds setter remains strictly positive.
+                // Preserve a separately declared empty source and its graph;
+                // native ownership preflight must still see the actual Visual.
+                EmptyVisualBrushSources.Add(visualHandle);
+                _visualBoundsHandles.Add(visualHandle);
+                return;
+            }
             VisualCacheBounds.Add(new WpfNativeMilVisualCacheBounds(visualHandle, bounds));
             _visualBoundsHandles.Add(visualHandle);
         }
 
-        private uint ResolveVisualBrushSource(object visual)
+        private uint ResolveVisualBrushSource(object visual, bool retainEmptySource = false)
         {
-            if (TryGetVisualBounds(visual, out NativeMilRect bounds, allowEmpty: true) &&
+            if (!retainEmptySource && TryGetVisualBounds(visual, out NativeMilRect bounds, allowEmpty: true) &&
                 (bounds.Width == 0 || bounds.Height == 0)) return 0U;
-            return AddVisual(visual, brushSource: true);
+            return AddVisual(visual, brushSource: true, retainEmptyBrushSource: retainEmptySource);
         }
 
-        private uint AddVisualCore(object visual, bool brushSource)
+        private void RecordEmptyCacheDependency(object brush)
+        {
+            foreach (object visual in _activeVisuals) AddDependency(visual);
+            foreach (object drawing in _activeDrawings) AddDependency(drawing);
+            void AddDependency(object owner)
+            {
+                if (!_emptyCacheDependencies.TryGetValue(owner, out HashSet<object>? dependencies))
+                    _emptyCacheDependencies.Add(owner, dependencies = new(ReferenceEqualityComparer.Instance));
+                dependencies.Add(brush);
+            }
+        }
+
+        private void PropagateEmptyCacheDependencies(object source)
+        {
+            if (_ordinaryEmptyCacheBrushes.ContainsKey(source) || _emptyDrawingImageOwnershipSources.ContainsKey(source))
+                RecordEmptyCacheDependency(source);
+            if (_emptyCacheDependencies.TryGetValue(source, out HashSet<object>? dependencies))
+                foreach (object brush in new List<object>(dependencies)) RecordEmptyCacheDependency(brush);
+        }
+
+        private void RetainEmptyCacheClosure(object target)
+        {
+            var pending = _emptyCacheDependencies.TryGetValue(target, out HashSet<object>? dependencies)
+                ? new Queue<object>(dependencies) : new Queue<object>();
+            if (_emptyDrawingImageOwnershipSources.ContainsKey(target)) pending.Enqueue(target);
+            var visited = new HashSet<object>(ReferenceEqualityComparer.Instance);
+            while (pending.TryDequeue(out object brush))
+            {
+                if (!visited.Add(brush)) continue;
+                if (_emptyDrawingImageOwnershipSources.TryGetValue(brush, out var image))
+                {
+                    // Keep the exact original drawing, including empty nested
+                    // wrappers. Ordinary image painting remains canonical null.
+                    if (_retainedEmptyDrawingImages.Add(image.Handle))
+                        EmptyDrawingImageSources.Add(new(image.Handle, image.DrawingHandle));
+                    if (_emptyCacheDependencies.TryGetValue(image.Drawing, out var drawingDependencies))
+                        foreach (object dependency in drawingDependencies) pending.Enqueue(dependency);
+                    continue;
+                }
+                (uint handle, object source) = _ordinaryEmptyCacheBrushes[brush];
+                // Resolve the genuine source graph, not an orphan prevalidation.
+                // Its ordinary paint target remains zero. Native ownership sees
+                // this exact edge, including cycles, revisions and deletion.
+                uint visual = ResolveVisualBrushSource(source, retainEmptySource: true);
+                if (!EmptyVisualBrushSources.Contains(visual))
+                    throw new InvalidOperationException("An empty cache source changed during shader closure capture.");
+                if (_retainedEmptyCacheBrushes.Add(handle)) EmptyCacheBrushSources.Add(new(handle, visual));
+                if (_emptyCacheDependencies.TryGetValue(source, out HashSet<object>? nested))
+                    foreach (object dependency in nested) pending.Enqueue(dependency);
+            }
+        }
+
+        private uint AddVisualCore(object visual, bool brushSource, bool retainEmptyBrushSource)
         {
             if (visual is not IPortableVisualStateSource stateSource ||
                 !stateSource.TryGetPortableVisualState(out PortableVisualState state))
@@ -662,7 +818,8 @@ public sealed class WpfNativeMilSceneCompiler
             {
                 AddVisualBounds(visual, visualHandle, allowEmptyOpacity:
                     !brushSource && !state.HasCacheMode && !state.HasEffect &&
-                    !state.HasBitmapEffect && !state.HasOpacityMask);
+                    !state.HasBitmapEffect && !state.HasOpacityMask,
+                    retainEmptyBrushSource: retainEmptyBrushSource);
             }
             if (state.HasClip)
             {
@@ -1719,20 +1876,43 @@ public sealed class WpfNativeMilSceneCompiler
             return resource;
         }
 
-        private uint ResolveBrush(object resource)
+        private uint ResolveBrush(object resource, PortableTileBrush? capturedTile = null,
+            PortableBitmapCacheBrush? capturedCache = null, bool shaderCacheSource = false)
         {
-            if (_brushHandles.TryGetValue(resource, out uint existing))
+            if (capturedTile is not null && _tileBrushSnapshots.TryGetValue(resource, out PortableTileBrush? previousTile) &&
+                !SameTileBrushSnapshot(previousTile, capturedTile))
+                throw new InvalidOperationException("One source tile brush changed during native batch capture.");
+            if (capturedCache is { } cacheSnapshot && _cacheBrushSnapshots.TryGetValue(resource, out var previousCache) &&
+                !SameCacheBrushSnapshot(previousCache, cacheSnapshot))
+                throw new InvalidOperationException("One source cache brush changed during native batch capture.");
+            var handles = shaderCacheSource ? _shaderCacheBrushHandles : _brushHandles;
+            if (handles.TryGetValue(resource, out uint existing))
             {
+                PropagateEmptyCacheDependencies(resource);
+                if (_cacheBrushSnapshots.TryGetValue(resource, out var existingCache) && existingCache.InternalTarget is { } existingTarget)
+                    PropagateEmptyCacheDependencies(existingTarget);
+                if (_tileBrushSnapshots.TryGetValue(resource, out var existingTile) && existingTile.Content is { } existingContent)
+                    PropagateEmptyCacheDependencies(existingContent);
                 return existing;
             }
             if (resource is IPortableBitmapCacheBrushSource cacheSource)
             {
-                if (!cacheSource.TryGetPortableBitmapCacheBrush(out PortableBitmapCacheBrush cacheBrush))
+                PortableBitmapCacheBrush cacheBrush;
+                if (capturedCache is { } captured)
+                    cacheBrush = captured;
+                else if (!cacheSource.TryGetPortableBitmapCacheBrush(out cacheBrush))
                     throw MissingContract(nameof(IPortableBitmapCacheBrushSource));
+                if (_cacheBrushSnapshots.TryGetValue(resource, out var previous))
+                {
+                    if (!SameCacheBrushSnapshot(previous, cacheBrush))
+                        throw new InvalidOperationException("One source cache brush changed during native batch capture.");
+                }
+                else
+                    _cacheBrushSnapshots.Add(resource, cacheBrush);
                 // Resolve before publishing the brush handle so a source that
                 // paints itself reaches the existing active-visual cycle guard.
                 uint target = cacheBrush.InternalTarget is null ? 0U
-                    : ResolveVisualBrushSource(cacheBrush.InternalTarget);
+                    : ResolveVisualBrushSource(cacheBrush.InternalTarget, retainEmptySource: shaderCacheSource);
                 uint cache = cacheBrush.BitmapCache is null ? 0U
                     : ResolveBitmapCache(cacheBrush.BitmapCache);
                 uint transform = cacheBrush.HasTransform ? AddGeometryTransform(cacheBrush.Transform) : 0U;
@@ -1742,18 +1922,41 @@ public sealed class WpfNativeMilSceneCompiler
                 Batch.SetBitmapCacheBrush(cacheBrushHandle, new NativeMilBitmapCacheBrush(
                     target, cache, cacheBrush.Opacity,
                     TransformHandle: transform, RelativeTransformHandle: relative));
-                _brushHandles.Add(resource, cacheBrushHandle);
+                handles.Add(resource, cacheBrushHandle);
+                if (shaderCacheSource)
+                {
+                    BitmapCacheRasterPolicies.Add(new(cacheBrushHandle, CaptureCacheRasterPolicy()));
+                    if (cacheBrush.InternalTarget is { } shaderTarget) RetainEmptyCacheClosure(shaderTarget);
+                }
+                else if (target == 0 && cacheBrush.InternalTarget is { } emptyTarget)
+                {
+                    _ordinaryEmptyCacheBrushes.Add(resource, (cacheBrushHandle, emptyTarget));
+                    RecordEmptyCacheDependency(resource);
+                }
                 return cacheBrushHandle;
             }
             if (resource is IPortableTileBrushSource tileSource)
             {
-                if (!tileSource.TryGetPortableTileBrush(out PortableTileBrush tile))
+                PortableTileBrush tile;
+                if (capturedTile is not null)
+                    tile = capturedTile;
+                else if (!tileSource.TryGetPortableTileBrush(out tile))
                     throw MissingContract(nameof(IPortableTileBrushSource));
                 if (tile.Kind is not (PortableTileBrushKind.Image or PortableTileBrushKind.Drawing or PortableTileBrushKind.Visual))
                     throw new NotSupportedException("Unknown portable tile brush source kind.");
+                if (_tileBrushSnapshots.TryGetValue(resource, out PortableTileBrush? previous))
+                {
+                    if (!SameTileBrushSnapshot(previous, tile))
+                        throw new InvalidOperationException("One source tile brush changed during native batch capture.");
+                }
+                else
+                    _tileBrushSnapshots.Add(resource, tile);
                 uint sourceHandle = tile.Content is null ? 0U
                     : tile.Kind == PortableTileBrushKind.Visual
-                        ? ResolveVisualBrushSource(tile.Content)
+                        // Empty is a retained visual, not a missing reference.
+                        // Traverse it as well: empty/hidden bounds cannot erase
+                        // cycles, missing child contracts or source ownership.
+                        ? ResolveVisualBrushSource(tile.Content, retainEmptySource: true)
                     : tile.Kind == PortableTileBrushKind.Drawing
                         ? ResolveDrawing(tile.Content)
                         : ResolveImageSource(tile.Content);
@@ -1804,6 +2007,22 @@ public sealed class WpfNativeMilSceneCompiler
             _brushHandles.Add(resource, handle);
             return handle;
         }
+
+        private static bool SameTileBrushSnapshot(PortableTileBrush left, PortableTileBrush right) =>
+            left.Kind == right.Kind && ReferenceEquals(left.Content, right.Content) &&
+            left.Opacity.Equals(right.Opacity) && left.Viewport.Equals(right.Viewport) &&
+            left.Viewbox.Equals(right.Viewbox) && left.ViewportUnits == right.ViewportUnits &&
+            left.ViewboxUnits == right.ViewboxUnits && left.TileMode == right.TileMode &&
+            left.Stretch == right.Stretch && left.AlignmentX == right.AlignmentX &&
+            left.AlignmentY == right.AlignmentY && left.HasTransform == right.HasTransform &&
+            left.Transform.Equals(right.Transform) && left.HasRelativeTransform == right.HasRelativeTransform &&
+            left.RelativeTransform.Equals(right.RelativeTransform);
+
+        private static bool SameCacheBrushSnapshot(PortableBitmapCacheBrush left, PortableBitmapCacheBrush right) =>
+            ReferenceEquals(left.InternalTarget, right.InternalTarget) && ReferenceEquals(left.BitmapCache, right.BitmapCache) &&
+            left.Opacity.Equals(right.Opacity) && left.HasTransform == right.HasTransform &&
+            left.Transform.Equals(right.Transform) && left.HasRelativeTransform == right.HasRelativeTransform &&
+            left.RelativeTransform.Equals(right.RelativeTransform);
 
         private uint AddPortableBrush(PortableBrush brush)
         {
@@ -1910,31 +2129,7 @@ public sealed class WpfNativeMilSceneCompiler
         }
 
         private uint ResolveTransform(object resource)
-        {
-            if (_transformHandles.TryGetValue(resource, out uint existing))
-            {
-                return existing;
-            }
-            if (resource is not IPortableTransformMatrixSource source ||
-                !source.TryGetPortableTransformMatrix(
-                    out PortableMatrix3x2 matrix))
-            {
-                throw MissingContract(nameof(IPortableTransformMatrixSource));
-            }
-            uint handle = NextHandle();
-            _transformHandles.Add(resource, handle);
-            Batch.CreateResource(handle, NativeMilResourceType.MatrixTransform);
-            Batch.SetMatrixTransform(
-                handle,
-                new NativeMilMatrix3x2(
-                    matrix.M11,
-                    matrix.M12,
-                    matrix.M21,
-                    matrix.M22,
-                    matrix.OffsetX,
-                    matrix.OffsetY));
-            return handle;
-        }
+            => ResolveOriginalTransform(resource);
 
         private uint ResolvePen(
             IReadOnlyList<object?> resources,
@@ -2305,6 +2500,7 @@ public sealed class WpfNativeMilSceneCompiler
             if (_imageSourceHandles.TryGetValue(
                     imageSource, out uint existing))
             {
+                PropagateEmptyCacheDependencies(imageSource);
                 return existing;
             }
             if (imageSource is IPortableD3DImageSource d3dImageSource)
@@ -2347,6 +2543,10 @@ public sealed class WpfNativeMilSceneCompiler
                 // Preserve normal drawing graph/cycle validation before asking
                 // source bounds, which may themselves traverse that graph.
                 uint drawingHandle = hasDrawing ? ResolveDrawing(drawing!) : 0;
+                // Keep the wrapper in the same captured dependency graph. A
+                // later reused ImageBrush or DrawImage may bypass ResolveDrawing.
+                if (hasDrawing && _emptyCacheDependencies.TryGetValue(drawing!, out var emptyDependencies))
+                    _emptyCacheDependencies[imageSource] = new(emptyDependencies, ReferenceEqualityComparer.Instance);
                 NativeMilRect bounds = default;
                 bool isEmpty = false;
                 if (hasDrawing &&
@@ -2364,12 +2564,19 @@ public sealed class WpfNativeMilSceneCompiler
                 // contract. Do not turn unavailable bounds into a no-op or
                 // serialize an empty bounds sideband. Source graph invalidation
                 // still observes the original drawing so refilling restores it.
+                uint ownedDrawingHandle = drawingHandle;
                 if (isEmpty) drawingHandle = 0;
                 uint drawingImageHandle = NextHandle();
                 Batch.CreateResource(
                     drawingImageHandle, NativeMilResourceType.DrawingImage);
                 Batch.SetDrawingImage(drawingImageHandle, drawingHandle);
                 _imageSourceHandles.Add(imageSource, drawingImageHandle);
+                if (isEmpty)
+                {
+                    _emptyDrawingImageOwnershipSources.Add(imageSource,
+                        (drawingImageHandle, ownedDrawingHandle, drawing!));
+                    RecordEmptyCacheDependency(imageSource);
+                }
                 if (drawingHandle != 0)
                 {
                     DrawingImageBounds.Add(
@@ -2773,6 +2980,7 @@ public sealed class WpfNativeMilSceneCompiler
                 throw new InvalidOperationException("The portable visual/drawing source graph exceeds the native depth limit.");
             if (_drawingHandles.TryGetValue(resource, out uint existing))
             {
+                PropagateEmptyCacheDependencies(resource);
                 return existing;
             }
             if (!_activeDrawings.Add(resource))
@@ -2824,6 +3032,12 @@ public sealed class WpfNativeMilSceneCompiler
             if (_effectHandles.TryGetValue(resource, out uint existing))
             {
                 return existing;
+            }
+            if (resource is IPortableShaderEffectSource shaderSource)
+            {
+                if (!shaderSource.TryGetPortableShaderEffect(out PortableShaderEffect shader))
+                    throw MissingContract(nameof(IPortableShaderEffectSource));
+                return AddShaderEffect(resource, shader);
             }
             if (resource is not IPortableEffectSource source ||
                 !source.TryGetPortableEffect(out PortableEffect effect))

@@ -1,5 +1,52 @@
 # Agent Guidance
 
+Source WPF pen adapters select the shared producer's full retained WPF join
+policy, including reversal and smooth-to-Round behavior, not a global generic
+smooth reinterpretation or clip-only alias. Preserve original brush/dash/path
+identity through cached coverage pens and every retained copy. This dependent
+source draft requires the matching producer rebuild; qualified gitlink/package
+pins remain unchanged and older producers do not supply the new contract.
+Public Geometry stroke queries use a separate native descriptor and remain an
+explicit implementation boundary. See docs/source-wpf-join-policy.md; authored
+controls and reached source adapters are not application qualification.
+
+Actual retained WPF visuals opt into SourceOpacityMaskPreservesHitGeometry;
+source point/region input ignores raster mask coverage, never actual source
+geometry/scroll clips or effect mapping. Generic providers retain default false
+and required-cache/unsupported-family gates remain. An extra adapter property
+compiled against an older Scene interface is not new interface dispatch: require
+the qualified producer and source rebuild before admission. Pins stay qualified;
+see docs/source-visual-mask-hit-geometry.md.
+
+Original transform snapshots retain typed primitive double parameters and group
+child identity/order; never flatten them into a source-float history witness.
+Capture each identity once per batch, retain duplicates and reject failed typed
+contracts, cycles and graph budgets before publication. External matrix-only
+providers stay distinct. Named primitive transport does not prove original
+trigonometric construction. See docs/source-transform-resources.md.
+
+Typed source ShaderEffect retains its own visual opacity/mask as shader input,
+not a second output multiplier. Mark only actual source shader adaptations; keep
+generic Scene effects and blur/shadow defaults unchanged. Both merged retained
+state and command-scope replay preserve this order, including zero source alpha;
+geometry clips remain outside the effect. Retain cache identity, owner/frame
+metadata and unsupported-state accounting. This pairing depends on the shared
+producer implementation; do not repin or claim source pixels before final union
+qualification. See docs/source-shader-opacity-order.md.
+
+Explicit host Close must release every native modal lease for its exact window
+before provider Close, since owned Cocoa Close hides before raising Closing.
+Keep the pending window as a retirement prerequisite, recheck newly entered
+leases after callbacks, and preserve native cancellation. Dispose supersedes a
+session-deferred Close through creating-thread retirement, without duplicate
+Closing/Hide. Release failure is not permission to close; automatic modality
+and existing latest-intent Hide remain separate. See docs/native-session-close.md.
+Hide, Close and source dialog completion share one exact-window release proof.
+Coalesce while completion is outstanding, even if a later native query is empty;
+an undelivered failure blocks all three operations and visibility publication.
+After visibility reads, recheck intent and fresh native leases before writing.
+Close owns its already-hidden view; stale Hide callbacks must not touch it.
+
 Owned Cocoa popup modal input is bound only from the successful owned factory's
 exact IWindow/controller pair. Apply source scope state before visibility and
 retain provider identity through callbacks and native retirement completion.
@@ -366,6 +413,11 @@ as native ownership, or accept arbitrary/closed/detached/mismatched sources.
 Keep host rejection atomic with source owner collections and preserve native
 Windows MIL routing. Toolkit's IntPtr MessageBox overload uses this source
 identity bridge; it does not admit external HWND ownership or qualify modality.
+MessageBox selects the portable source/backend before active-HWND lookup on
+Windows too. A portable presentation identity must never reach user32. Keep
+actual same-dispatcher owner resolution, service override/startup precedence and
+native Windows-MIL behavior separate; do not enable Cocoa sessions from this
+selection. See docs/portable-messagebox-backend-selection.md.
 AvalonDock live floating validation must require a distinct presented host, its
 own device-index input, source focus, and host removal on redocking. Model-only
 Float/Dock checks are insufficient; inject coordinates in the receiving host's

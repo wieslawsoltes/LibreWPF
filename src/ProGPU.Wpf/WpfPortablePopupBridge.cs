@@ -85,6 +85,15 @@ internal sealed class WpfPortablePopupBridge : IDisposable
 
     internal bool IsVisibleNativeWindow => IsVisible && _nativeHost != null;
 
+    internal bool TryGetDesktopWindowSnapshot(out ProGpuWpfDiagnostics.DesktopWindowSnapshot snapshot)
+    {
+        snapshot = default;
+        var native = _nativeHost;
+        return !_isDisposed && IsVisible && native != null && native.TryGetDesktopWindowSnapshot(out snapshot) &&
+            !_isDisposed && IsVisible && ReferenceEquals(native, _nativeHost) &&
+            ReferenceEquals(snapshot.RootVisual, RootVisual) && snapshot.SourceHandle == Handle;
+    }
+
     internal bool TryGetPlacementBounds(PortableRect targetBounds, out PortablePopupPlacementBounds bounds)
     {
         bounds = default;

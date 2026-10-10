@@ -12,6 +12,21 @@ The SDK owns the package dependency closure. `LibreWPF.Transport` supplies the r
 
 Projects with `UseWindowsForms=true`, including mixed WPF/WinForms projects and projects with `UseWPF=false`, use the published source-built `LibreWinForms.System.Windows.Forms`, `LibreWinForms.ProGPU`, and `LibreWinForms.WindowsFormsIntegration` packages by default. Their versions follow the LibreWPF SDK version unless explicitly overridden for coordinated package testing. No additional selection property is required. The legacy `ProGpuWpfUseCanonicalLibreWinForms=false` option requires a matching compatibility runtime and bridge from a private feed; that compatibility runtime is not published on NuGet.org.
 
+Automatic startup belongs to the application's entry assembly. Loading an SDK
+executable as another application's dependency does not register desktop services.
+Forms-only applications register LibreWinForms without WPF activation, clipboard,
+or interop calls. Mixed applications keep both startup paths. Web SDK projects
+and projects with both desktop flags disabled receive no automatic bootstrap.
+An SDK project with unspecified desktop flags retains the WPF default.
+Set `ProGpuWpfEnablePortableBootstrap=false` to own startup explicitly. Explicit
+`NativeMilWgpu` selection requires a WPF executable with the bootstrap enabled.
+
+The bootstrap checks exact entry-assembly identity once, before any desktop
+dependency is used. Separate non-inlined methods keep WPF framework type
+resolution behind platform selection; the existing startup-option parser still
+validates requested modal policy before startup. This identity check does not
+scan types or invoke application members.
+
 In that portable package mode, Forms-only project and NuGet dependencies may keep
 their original SDK and `UseWPF=false` / `UseWindowsForms=true` settings. The app
 replaces their transitive `Microsoft.WindowsDesktop.App.WindowsForms` requirement
@@ -19,6 +34,14 @@ with its selected portable Forms package closure. Disabling portable Forms,
 opting out of portable framework references, or selecting local-artifact mode
 does not remove that Windows Forms requirement. Restore the app after upgrading
 the SDK; rebuilding with an old assets file and `--no-restore` is not sufficient.
+
+Canonical Forms package consumers select `System.Drawing.Common.dll` from the
+resolved `ProGPU.System.Drawing.Common` package, even when a dependency also
+requests Microsoft's package. The Forms runtime supplies
+`System.Private.Windows.Core.dll`; the WPF transport copy must not overwrite it
+during publish. Build, publish, and the dependency manifest use the same selected
+assemblies. This selection does not make a precompiled component using a
+different drawing ABI compatible with the portable implementation.
 
 Existing WPF application projects should keep their normal WPF project shape and switch only the project SDK, whether the original project used `Microsoft.NET.Sdk.WindowsDesktop` or the newer `Microsoft.NET.Sdk` plus `UseWPF=true`. The SDK treats `UseWPF=true` as the app's markup intent, keeps the normal `net*-windows` target-framework shape, and internally redirects framework references to the portable WPF transport and ProGPU/Silk.NET package graph.
 

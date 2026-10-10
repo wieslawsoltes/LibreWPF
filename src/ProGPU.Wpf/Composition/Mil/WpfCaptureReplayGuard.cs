@@ -9,17 +9,20 @@ namespace System.Windows.Media.ProGPU.Composition.Mil;
 internal static class WpfCaptureReplayGuard
 {
     [ThreadStatic] private static int s_captureDepth;
+    [ThreadStatic] private static int s_hiddenValidationDepth;
     [ThreadStatic] private static HashSet<object>? s_active;
     [ThreadStatic] private static HashSet<object>? s_activeBounds;
 
     internal static bool IsActive => s_captureDepth != 0;
+    internal static bool ValidateHiddenSources => s_hiddenValidationDepth != 0;
 
-    internal static CaptureScope Begin()
+    internal static CaptureScope Begin(bool validateHiddenSources = false)
     {
         s_active ??= new HashSet<object>(ReferenceEqualityComparer.Instance);
         s_activeBounds ??= new HashSet<object>(ReferenceEqualityComparer.Instance);
         s_captureDepth++;
-        return new CaptureScope();
+        if (validateHiddenSources) s_hiddenValidationDepth++;
+        return new CaptureScope(validateHiddenSources);
     }
 
     internal static NodeScope Enter(object source)
@@ -40,10 +43,11 @@ internal static class WpfCaptureReplayGuard
         return new NodeScope(source, s_activeBounds);
     }
 
-    internal readonly struct CaptureScope : IDisposable
+    internal readonly struct CaptureScope(bool validateHiddenSources) : IDisposable
     {
         public void Dispose()
         {
+            if (validateHiddenSources) s_hiddenValidationDepth--;
             if (--s_captureDepth == 0)
             {
                 s_active!.Clear();

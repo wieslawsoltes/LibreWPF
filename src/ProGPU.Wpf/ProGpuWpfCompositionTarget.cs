@@ -27,6 +27,9 @@ public unsafe sealed class ProGpuWpfCompositionTarget : IDisposable
     private readonly bool _ownsContext;
     private readonly bool _ownsCompositor;
     private readonly WpfShaderEffectSamplerTextureCache _shaderEffectSamplerTextureCache;
+    private readonly WpfBitmapCacheRasterPolicySource _cacheRasterPolicySource;
+    internal Func<global::System.Windows.Media.ProGPU.Platform.IWpfMonitorService> CacheRasterMonitors { get; set; } =
+        static () => global::System.Windows.Media.ProGPU.Platform.CrossPlatformWpfPlatformServices.Instance.Monitors;
     private IWpfImageSourceAdapter? _frameImageSourceAdapterSource;
     private WpfShaderEffectSamplerImageSourceAdapter? _frameImageSourceAdapter;
     private bool _isDisposed;
@@ -111,10 +114,12 @@ public unsafe sealed class ProGpuWpfCompositionTarget : IDisposable
         _ownsContext = ownsContext;
         _ownsCompositor = ownsCompositor;
         Viewport3DTextureCache = new WpfViewport3DTextureCache(Context);
+        _cacheRasterPolicySource = new WpfBitmapCacheRasterPolicySource(Context, () => CacheRasterMonitors());
         _shaderEffectSamplerTextureCache = new WpfShaderEffectSamplerTextureCache(
             Context,
             Compositor,
-            Viewport3DTextureCache);
+            Viewport3DTextureCache,
+            _cacheRasterPolicySource.CaptureFrame);
         WpfInvalidationTracker.Invalidated += OnWpfSourceInvalidated;
         ResetSceneRoot();
     }
@@ -269,7 +274,8 @@ public unsafe sealed class ProGpuWpfCompositionTarget : IDisposable
         WpfInvalidationTracker.AttachIfChanged(rootVisual);
         ProGpuWpfDrawingFrame drawingFrame = BeginDrawingFrame(pixelWidth, pixelHeight);
         IWpfImageSourceAdapter? activeImageSourceAdapter = CreateFrameImageSourceAdapter(
-            imageSourceAdapter ?? WpfImageSourceAdapter);
+            imageSourceAdapter ?? WpfImageSourceAdapter, 1f,
+            CreateDrawingTargetFrame(drawingFrame));
         using IDisposable? renderDataSinkProviderRegistration = drawingFrame.TryRegisterRenderDataSinkProvider(activeImageSourceAdapter, out IDisposable? registration)
             ? registration
             : null;
@@ -293,7 +299,8 @@ public unsafe sealed class ProGpuWpfCompositionTarget : IDisposable
 
         ProGpuWpfDrawingFrame drawingFrame = BeginDrawingFrame(pixelWidth, pixelHeight);
         IWpfImageSourceAdapter? activeImageSourceAdapter = CreateFrameImageSourceAdapter(
-            imageSourceAdapter ?? WpfImageSourceAdapter);
+            imageSourceAdapter ?? WpfImageSourceAdapter, 1f,
+            CreateDrawingTargetFrame(drawingFrame));
         using IDisposable? renderDataSinkProviderRegistration = drawingFrame.TryRegisterRenderDataSinkProvider(activeImageSourceAdapter, out IDisposable? registration)
             ? registration
             : null;
@@ -423,6 +430,13 @@ public unsafe sealed class ProGpuWpfCompositionTarget : IDisposable
         logicalHeight = Math.Max(1, logicalHeight);
         pixelWidth = Math.Max(1, pixelWidth);
         pixelHeight = Math.Max(1, pixelHeight);
+        var sourceTargetFrame = new WpfShaderEffectTargetFrame(logicalWidth, logicalHeight,
+            pixelWidth, pixelHeight, renderTargetViewport);
+        // Source replay can precede rendering in explicit target callers. Never
+        // use secondary textures captured for a different receiving target.
+        if (_frameImageSourceAdapter?.TargetFrame != sourceTargetFrame &&
+            !_shaderEffectSamplerTextureCache.HasSourceTargetFrame(sourceTargetFrame))
+            throw new InvalidOperationException("Source shader samplers must be replayed for the actual receiving target before rendering.");
         SceneRootVisual.Size = new Vector2(logicalWidth, logicalHeight);
         RetainedWpfVisualRoot.Size = new Vector2(logicalWidth, logicalHeight);
         PopupRetainedWpfVisualRoot.Size = new Vector2(logicalWidth, logicalHeight);
@@ -1123,16 +1137,67 @@ public unsafe sealed class ProGpuWpfCompositionTarget : IDisposable
         visual.Effect = null;
     }
 
-    internal IWpfImageSourceAdapter? CreateFrameImageSourceAdapter(IWpfImageSourceAdapter? imageSourceAdapter)
+    internal IWpfImageSourceAdapter? CreateFrameImageSourceAdapter(IWpfImageSourceAdapter? imageSourceAdapter, float dpiScale = 1f)
     {
         ThrowIfDisposed();
-        if (_frameImageSourceAdapter == null ||
-            !ReferenceEquals(_frameImageSourceAdapterSource, imageSourceAdapter))
+        if (!float.IsFinite(dpiScale) || dpiScale <= 0) throw new ArgumentOutOfRangeException(nameof(dpiScale));
+        // Tracked/untracked replay may already carry this target's immutable
+        // adapter. Preserve it rather than wrapping it in an unbound DPI-1 frame.
+        if (imageSourceAdapter is WpfShaderEffectSamplerImageSourceAdapter existing &&
+            existing.UsesCache(_shaderEffectSamplerTextureCache)) return existing;
+        return CreateFrameImageSourceAdapterCore(imageSourceAdapter, dpiScale, null);
+    }
+
+    internal IWpfImageSourceAdapter? CreateFrameImageSourceAdapter(IWpfImageSourceAdapter? imageSourceAdapter,
+        float dpiScale, WpfShaderEffectTargetFrame targetFrame)
+    {
+        ThrowIfDisposed();
+        if (!targetFrame.TryGetPixelsPerUnit(out _)) throw new ArgumentOutOfRangeException(nameof(targetFrame));
+        // An explicit new target replaces this cache's old frame wrapper. The
+        // old wrapper must not overwrite the new mapping in an inner callback.
+        while (imageSourceAdapter is WpfShaderEffectSamplerImageSourceAdapter existing &&
+            existing.UsesCache(_shaderEffectSamplerTextureCache)) imageSourceAdapter = existing.SourceAdapter;
+        return CreateFrameImageSourceAdapterCore(imageSourceAdapter, dpiScale, targetFrame);
+    }
+
+    private static WpfShaderEffectTargetFrame CreateDrawingTargetFrame(ProGpuWpfDrawingFrame frame) =>
+        // These overloads explicitly record in pixel coordinates. Their target
+        // is not a guessed window DPI or a previous compositor frame.
+        new(frame.PixelWidth, frame.PixelHeight, frame.PixelWidth, frame.PixelHeight,
+            ProGpuRenderTargetViewport.Full(frame.PixelWidth, frame.PixelHeight));
+
+    private IWpfImageSourceAdapter? CreateFrameImageSourceAdapterCore(IWpfImageSourceAdapter? imageSourceAdapter,
+        float dpiScale, WpfShaderEffectTargetFrame? targetFrame)
+    {
+        if (!float.IsFinite(dpiScale) || dpiScale <= 0) throw new ArgumentOutOfRangeException(nameof(dpiScale));
+        _cacheRasterPolicySource.BeginFrame();
+        if (_shaderEffectSamplerTextureCache.HasRawCacheSamplers &&
+            !_shaderEffectSamplerTextureCache.HasRawCachePolicy(_cacheRasterPolicySource.CaptureFrame()))
         {
+            WpfInvalidationTracker.MarkDirty();
+            LastRetainedBranchInvalidationUsedFallback = true;
+        }
+        if (_frameImageSourceAdapter == null ||
+            !ReferenceEquals(_frameImageSourceAdapterSource, imageSourceAdapter) ||
+            _frameImageSourceAdapter.DpiScale != dpiScale ||
+            _frameImageSourceAdapter.TargetFrame != targetFrame)
+        {
+            // Target projection/viewport can change even when semantic DPI is
+            // unchanged. Rebuild all affected source sampler/effect generations.
+            bool hadAdapter = _frameImageSourceAdapter != null;
             _frameImageSourceAdapterSource = imageSourceAdapter;
-            _frameImageSourceAdapter = new WpfShaderEffectSamplerImageSourceAdapter(
-                imageSourceAdapter,
-                _shaderEffectSamplerTextureCache);
+            _frameImageSourceAdapter = targetFrame is { } actualFrame
+                ? new WpfShaderEffectSamplerImageSourceAdapter(imageSourceAdapter,
+                    _shaderEffectSamplerTextureCache, dpiScale, actualFrame)
+                : new WpfShaderEffectSamplerImageSourceAdapter(imageSourceAdapter,
+                    _shaderEffectSamplerTextureCache, dpiScale);
+            if (hadAdapter)
+            {
+                WpfInvalidationTracker.MarkDirty();
+                // MarkDirty may coalesce with an already dirty source. Its
+                // narrower branch list cannot describe this frame-wide change.
+                LastRetainedBranchInvalidationUsedFallback = true;
+            }
         }
 
         return _frameImageSourceAdapter;

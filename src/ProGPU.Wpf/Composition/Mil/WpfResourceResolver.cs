@@ -221,7 +221,9 @@ public sealed class WpfResourceResolver :
     IWpfDrawingResourceResolver,
     IWpfGuidelineSetResourceResolver,
     IWpfRawMilResourceResolver,
-    IWpfImageSourceAdapter
+    IWpfImageSourceAdapter,
+    IWpfShaderEffectSamplerBrushAdapter,
+    IWpfShaderRecordingAdapterSource
 {
     private readonly struct WpfMatrix2D
     {
@@ -863,7 +865,10 @@ public sealed class WpfResourceResolver :
                 ToVectorLineCap(endLineCap),
                 ToVectorLineCap(dashCap),
                 dashArray,
-                dashOffset);
+                dashOffset)
+            {
+                UseWpfJoinSemantics = true
+            };
             nativePen = _nativePen;
             return true;
         }
@@ -1728,7 +1733,10 @@ public sealed class WpfResourceResolver :
             ToVectorLineCap(pen.EndLineCap),
             ToVectorLineCap(pen.DashCap),
             dashArray,
-            dashOffset);
+            dashOffset)
+        {
+            UseWpfJoinSemantics = true
+        };
     }
 
     internal static bool TryGetBitmapCachePen(object? resource,
@@ -1757,7 +1765,10 @@ public sealed class WpfResourceResolver :
             || (uint)state.EndLineCap > 3 || (uint)state.DashCap > 3 || (uint)state.LineJoin > 2) return false;
         pen = new global::ProGPU.Vector.Pen(new global::ProGPU.Vector.SolidColorBrush(Vector4.One),
             width, ToVectorLineJoin(state.LineJoin), miter, ToVectorLineCap(state.StartLineCap),
-            ToVectorLineCap(state.EndLineCap), ToVectorLineCap(state.DashCap), dashOffset: state.DashOffset);
+            ToVectorLineCap(state.EndLineCap), ToVectorLineCap(state.DashCap), dashOffset: state.DashOffset)
+        {
+            UseWpfJoinSemantics = true
+        };
         pen.SetDashPattern(state.Dashes.Span);
         return true;
     }
@@ -1926,12 +1937,43 @@ public sealed class WpfResourceResolver :
         return true;
     }
 
+    public bool TryAdaptShaderEffectSamplerBrush(object? brush, int registerIndex,
+        global::ProGPU.Scene.TextureSamplingMode samplingMode, out global::ProGPU.Scene.WpfShaderEffectSampler sampler)
+    {
+        sampler = null!;
+        return _imageSourceAdapter is IWpfShaderEffectSamplerBrushAdapter adapter &&
+            adapter.TryAdaptShaderEffectSamplerBrush(brush, registerIndex, samplingMode, out sampler);
+    }
+
+    public bool TryAdaptShaderEffectSamplerBrush(object? brush, int registerIndex,
+        global::ProGPU.Scene.TextureSamplingMode samplingMode, WpfShaderEffectSamplerFrame frame,
+        out global::ProGPU.Scene.WpfShaderEffectSampler sampler)
+    {
+        sampler = null!;
+        if (frame.SourceCapture.HasValue) return false;
+        return _imageSourceAdapter is IWpfShaderEffectSamplerBrushAdapter adapter &&
+            adapter.TryAdaptShaderEffectSamplerBrush(brush, registerIndex, samplingMode, frame, out sampler);
+    }
+
+    public bool TryAdaptSourceShaderEffectSamplerBrush(object? brush, int registerIndex,
+        global::ProGPU.Scene.TextureSamplingMode samplingMode, WpfShaderEffectSamplerFrame frame,
+        out global::ProGPU.Scene.WpfShaderEffectSampler sampler)
+    {
+        sampler = null!;
+        return frame.Owner is not null && frame.SourceCapture is { IsValid: true } &&
+            _imageSourceAdapter is IWpfShaderEffectSamplerBrushAdapter adapter &&
+            adapter.TryAdaptSourceShaderEffectSamplerBrush(brush, registerIndex, samplingMode, frame, out sampler);
+    }
+
     public MediaImageSource? AdaptImageSource(object? resource)
     {
         if (resource == null)
         {
             return null;
         }
+
+        if (_imageSourceAdapter is IWpfShaderRecordingAdapterSource { RecordsOwnedShaderImages: true })
+            return _imageSourceAdapter.AdaptImageSource(resource);
 
         if (resource is MediaImageSource imageSource)
         {
@@ -1942,6 +1984,12 @@ public sealed class WpfResourceResolver :
 
         return _imageSourceAdapter?.AdaptImageSource(resource);
     }
+
+    WpfShaderRecordingImageSourceAdapter? IWpfShaderRecordingAdapterSource.CreateShaderRecordingAdapter() =>
+        (_imageSourceAdapter as IWpfShaderRecordingAdapterSource)?.CreateShaderRecordingAdapter();
+
+    bool IWpfShaderRecordingAdapterSource.RecordsOwnedShaderImages =>
+        _imageSourceAdapter is IWpfShaderRecordingAdapterSource { RecordsOwnedShaderImages: true };
 
     public static MediaTransform? AdaptTransform(object? resource)
     {

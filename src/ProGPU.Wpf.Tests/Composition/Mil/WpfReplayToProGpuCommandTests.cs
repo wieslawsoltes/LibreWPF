@@ -24,7 +24,7 @@ using ProGpuRadialGradientBrush = ProGPU.Vector.RadialGradientBrush;
 
 namespace ProGPU.Wpf.Tests.Composition.Mil;
 
-public sealed class WpfReplayToProGpuCommandTests
+public sealed partial class WpfReplayToProGpuCommandTests
 {
     [Fact]
     public void SmallValueStackReusesPooledStorageAfterReturningToEmpty()

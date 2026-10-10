@@ -4506,14 +4506,21 @@ namespace System.Windows
 
         private Window ResolvePortableOwnerHandle(IntPtr ownerHandle)
         {
-            Window owner = null;
+            return TryResolvePortableOwnerHandle(ownerHandle, Dispatcher, out Window owner)
+                ? owner : throw new PlatformNotSupportedException(
+                    "Portable owner handles must identify a live source Window; opaque native handles are unsupported.");
+        }
+
+        internal static bool TryResolvePortableOwnerHandle(IntPtr ownerHandle, Dispatcher dispatcher, out Window owner)
+        {
+            owner = null;
             foreach (PresentationSource source in PresentationSource.CriticalCurrentSources)
             {
                 // Ignore the public HwndSource facade and unrelated/native sources.
                 // Read Window state only after admitting the source's dispatcher.
                 if (source is not PortablePresentationSource portable || portable.Handle != ownerHandle)
                     continue;
-                if (portable.Dispatcher != Dispatcher || portable.IsDisposed ||
+                if (portable.Dispatcher != dispatcher || portable.IsDisposed ||
                     portable.RootVisual is not Window candidate || candidate._disposed ||
                     !candidate.IsPortableWindowActive || candidate.Handle != ownerHandle ||
                     PresentationSource.CriticalFromVisual(candidate) != portable || owner != null)
@@ -4521,8 +4528,7 @@ namespace System.Windows
                 owner = candidate;
             }
 
-            return owner ?? throw new PlatformNotSupportedException(
-                "Portable owner handles must identify a live source Window; opaque native handles are unsupported.");
+            return owner != null;
         }
 
         /// <summary>

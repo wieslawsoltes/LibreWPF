@@ -38,13 +38,14 @@ using PortableMediaPlayerFrame = ProGPU.Wpf.Interop.PortableMediaPlayerFrame;
 
 namespace System.Windows.Media.ProGPU.Composition;
 
-public sealed class ProGpuCompositionCommandSink :
+public sealed partial class ProGpuCompositionCommandSink :
     IWpfCompositionCommandSink,
     IWpfViewport3DCommandSink,
     IWpfCompositionCommandSinkDiagnostics,
     IWpfNativeTransformCommandSink,
     IWpfNativePrimitiveCommandSink,
     IWpfNativeVideoCommandSink,
+    IWpfRepeatedImageCommandSink,
     IWpfNativeClipCommandSink,
     IWpfNativeGeometryCommandSink,
     IWpfHitTestOwnerScopeCommandSink,
@@ -52,7 +53,8 @@ public sealed class ProGpuCompositionCommandSink :
     IWpfSourceRectangleHitTestScopeCommandSink,
     IWpfPointHitRegionCommandSink,
     IWpfBitmapCacheBrushCommandSink,
-    IWpfProGpuSceneDrawingContextSource
+    IWpfProGpuSceneDrawingContextSource,
+    IWpfOwnedShaderEffectCommandSink
 {
     private const float TransformEpsilon = 0.0001f;
     private const ulong NativeGeometryPathKeyOffset = 1469598103934665603UL;
@@ -72,13 +74,15 @@ public sealed class ProGpuCompositionCommandSink :
         BitmapScalingMode,
         EdgeMode,
         TextRenderingMode,
-        TextHintingMode
+        TextHintingMode,
+        OwnedShaderEffect
     }
 
     private SmallValueStack<PushKind> _pushStack;
     private SmallValueStack<int> _hitTestOwnerStack;
     private SmallValueStack<GuidelineState> _guidelineStack;
     private SmallValueStack<Matrix4x4> _transformStack;
+    private SmallValueStack<Matrix4x4> _guidelineTransformStack;
     private SmallValueStack<global::ProGPU.Scene.TextureSamplingMode> _bitmapScalingModeStack;
     private SmallValueStack<bool> _edgeModeStack;
     private SmallValueStack<global::ProGPU.Scene.TextRenderingMode> _textRenderingModeStack;
@@ -147,15 +151,19 @@ public sealed class ProGpuCompositionCommandSink :
         _activeHitTestId = hitTestId;
         _hitTestOwnerMap = hitTestOwnerMap;
         _transformStack.Push(Matrix4x4.Identity);
+        _guidelineTransformStack.Push(Matrix4x4.Identity);
         _bitmapScalingModeStack.Push(global::ProGPU.Scene.TextureSamplingMode.Linear);
         _edgeModeStack.Push(false);
         _textRenderingModeStack.Push(global::ProGPU.Scene.TextRenderingMode.Grayscale);
         _textHintingModeStack.Push(global::ProGPU.Scene.TextHintingMode.Auto);
     }
 
-    public MediaDrawingContext? DrawingContext => _drawingContext;
+    public MediaDrawingContext? DrawingContext => ActiveMediaDrawingContext;
 
-    internal global::ProGPU.Scene.DrawingContext NativeContext { get; }
+    private MediaDrawingContext? ActiveMediaDrawingContext =>
+        _ownedEffectScopes.Count == 0 ? _drawingContext : null;
+
+    internal global::ProGPU.Scene.DrawingContext NativeContext { get; private set; }
 
     bool IWpfProGpuSceneDrawingContextSource.TryGetProGpuSceneDrawingContext(
         out global::ProGPU.Scene.DrawingContext? drawingContext)
@@ -202,6 +210,8 @@ public sealed class ProGpuCompositionCommandSink :
         ThrowIfClosed();
         if (!source.TryGetPortableBitmapCacheBrush(out var brush)
             || !double.IsFinite(brush.Opacity) || brush.Opacity < 0 || brush.Opacity > 1) return false;
+        if (WpfCaptureReplayGuard.ValidateHiddenSources)
+            WpfBitmapCacheBrushCapture.ValidateNestedShaderSource(brush);
         // An empty source is a transparent mask, not an absent/no-op mask.
         if (brush.InternalTarget == null || brush.Opacity == 0)
         {
@@ -231,6 +241,8 @@ public sealed class ProGpuCompositionCommandSink :
         ThrowIfClosed();
         if (!source.TryGetPortableBitmapCacheBrush(out var brush)
             || !double.IsFinite(brush.Opacity) || brush.Opacity < 0 || brush.Opacity > 1) return false;
+        if (WpfCaptureReplayGuard.ValidateHiddenSources)
+            WpfBitmapCacheBrushCapture.ValidateNestedShaderSource(brush);
         if (brush.InternalTarget == null || brush.Opacity == 0) return true;
         if (!WpfResourceResolver.TryAdaptNativeGlyphRun(glyphRunResource, out var run) || !run.HasInkBounds) return false;
         var ink = run.InkBounds;
@@ -868,9 +880,9 @@ public sealed class ProGpuCompositionCommandSink :
             return;
         }
 
-        if (_drawingContext != null)
+        if (ActiveMediaDrawingContext is { } drawingContext)
         {
-            _drawingContext.DrawGeometry(brush, pen, geometry);
+            drawingContext.DrawGeometry(brush, pen, geometry);
         }
         else
         {
@@ -971,9 +983,9 @@ public sealed class ProGpuCompositionCommandSink :
             return;
         }
 
-        if (_drawingContext != null)
+        if (ActiveMediaDrawingContext is { } drawingContext)
         {
-            _drawingContext.DrawImage(imageSource, rectangle);
+            drawingContext.DrawImage(imageSource, rectangle);
         }
         else
         {
@@ -1001,6 +1013,36 @@ public sealed class ProGpuCompositionCommandSink :
                 TextureSamplingMode = _bitmapScalingModeStack.Peek()
             });
         }
+    }
+
+    bool IWpfRepeatedImageCommandSink.SupportsRepeatedLinearImages =>
+        _bitmapScalingModeStack.Peek() == global::ProGPU.Scene.TextureSamplingMode.Linear;
+
+    bool IWpfRepeatedImageCommandSink.TryDrawRepeatedImage(
+        MediaImageSource imageSource, Rect rectangle, bool mirrorX, bool mirrorY)
+    {
+        ThrowIfClosed();
+        // Keep the original Nearest/Fant paths. Address the retained ORIGINAL
+        // texels; an enlarged source-clamped page has different Linear seams.
+        if (_bitmapScalingModeStack.Peek() != global::ProGPU.Scene.TextureSamplingMode.Linear ||
+            !WpfBitmapSourceImageAdapter.TryRetainGpuTexture(imageSource, NativeContext, _context, out var texture))
+        {
+            return false;
+        }
+
+        AddNativeCommand(new global::ProGPU.Scene.RenderCommand
+        {
+            Type = global::ProGPU.Scene.RenderCommandType.DrawTexture,
+            Texture = texture,
+            Rect = ToNativeRect(rectangle),
+            Transform = _transformStack.Peek(),
+            TextureSamplingMode = _bitmapScalingModeStack.Peek(),
+            TextureAddressModeU = mirrorX ? global::ProGPU.Scene.TextureAddressMode.MirrorRepeat
+                : global::ProGPU.Scene.TextureAddressMode.Repeat,
+            TextureAddressModeV = mirrorY ? global::ProGPU.Scene.TextureAddressMode.MirrorRepeat
+                : global::ProGPU.Scene.TextureAddressMode.Repeat
+        });
+        return true;
     }
 
     bool IWpfNativeVideoCommandSink.DrawNativeVideo(
@@ -1119,9 +1161,9 @@ public sealed class ProGpuCompositionCommandSink :
             return;
         }
 
-        if (_drawingContext != null)
+        if (ActiveMediaDrawingContext is { } drawingContext)
         {
-            _drawingContext.PushClip(clipGeometry);
+            drawingContext.PushClip(clipGeometry);
             _pushStack.Push(PushKind.DrawingContext);
         }
         else
@@ -1313,7 +1355,8 @@ public sealed class ProGpuCompositionCommandSink :
 
         var nativeTransform = hasNativeTransform ? adaptedTransform : Matrix4x4.Identity;
         _transformStack.Push(nativeTransform * _transformStack.Peek());
-        _drawingContext?.PushTransform(transform);
+        _guidelineTransformStack.Push(nativeTransform * _guidelineTransformStack.Peek());
+        ActiveMediaDrawingContext?.PushTransform(transform);
         _pushStack.Push(PushKind.Transform);
     }
 
@@ -1327,6 +1370,7 @@ public sealed class ProGpuCompositionCommandSink :
         }
 
         _transformStack.Push(transform * _transformStack.Peek());
+        _guidelineTransformStack.Push(transform * _guidelineTransformStack.Peek());
         _pushStack.Push(PushKind.Transform);
     }
 
@@ -1701,15 +1745,20 @@ public sealed class ProGpuCompositionCommandSink :
 
         if (_pushStack.Count == 0)
         {
-            if (_drawingContext != null)
+            if (ActiveMediaDrawingContext is { } drawingContext)
             {
-                PopDrawingContext(_drawingContext);
+                PopDrawingContext(drawingContext);
             }
 
             return;
         }
 
         var pushKind = _pushStack.Pop();
+        if (pushKind == PushKind.OwnedShaderEffect)
+        {
+            PopOwnedShaderEffect();
+            return;
+        }
         if (pushKind == PushKind.Clip)
         {
             NativeContext.PopClip();
@@ -1792,11 +1841,12 @@ public sealed class ProGpuCompositionCommandSink :
         if (pushKind == PushKind.Transform && _transformStack.Count > 1)
         {
             _transformStack.Pop();
+            _guidelineTransformStack.Pop();
         }
 
-        if (_drawingContext != null)
+        if (ActiveMediaDrawingContext is { } activeDrawingContext)
         {
-            PopDrawingContext(_drawingContext);
+            PopDrawingContext(activeDrawingContext);
         }
     }
 
@@ -1807,20 +1857,29 @@ public sealed class ProGpuCompositionCommandSink :
             return;
         }
 
-        if (_drawingContext != null)
+        Exception? failure = null;
+        try { AbortOwnedShaderEffects(); }
+        catch (Exception error) { failure = error; }
+        try
         {
-            CloseDrawingContext(_drawingContext);
+            if (_drawingContext != null) CloseDrawingContext(_drawingContext);
         }
-
-        _pushStack.Dispose();
-        _hitTestOwnerStack.Dispose();
-        _guidelineStack.Dispose();
-        _transformStack.Dispose();
-        _bitmapScalingModeStack.Dispose();
-        _edgeModeStack.Dispose();
-        _textRenderingModeStack.Dispose();
-        _textHintingModeStack.Dispose();
-        _isClosed = true;
+        catch (Exception error) { RecordEffectCleanupFailure(ref failure, error); }
+        finally
+        {
+            _pushStack.Dispose();
+            _hitTestOwnerStack.Dispose();
+            _guidelineStack.Dispose();
+            _transformStack.Dispose();
+            _guidelineTransformStack.Dispose();
+            _bitmapScalingModeStack.Dispose();
+            _edgeModeStack.Dispose();
+            _textRenderingModeStack.Dispose();
+            _textHintingModeStack.Dispose();
+            _ownedEffectScopes.Dispose();
+            _isClosed = true;
+        }
+        if (failure != null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(failure).Throw();
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -2184,7 +2243,7 @@ public sealed class ProGpuCompositionCommandSink :
         snappedX = x;
         if (_guidelineStack.Count == 0
             || !TryGetAxisAlignedMapping(
-                _transformStack.Peek(),
+                _guidelineTransformStack.Peek(),
                 out var scaleX,
                 out var translateX,
                 out _,
@@ -2211,7 +2270,7 @@ public sealed class ProGpuCompositionCommandSink :
         snappedY = y;
         if (_guidelineStack.Count == 0
             || !TryGetAxisAlignedMapping(
-                _transformStack.Peek(),
+                _guidelineTransformStack.Peek(),
                 out _,
                 out _,
                 out var scaleY,
@@ -2493,14 +2552,10 @@ public sealed class ProGpuCompositionCommandSink :
 
     private static VectorPen WithLineCaps(VectorPen pen, MediaPenLineCap startLineCap, MediaPenLineCap endLineCap)
     {
-        return new VectorPen(
-            pen.Brush,
-            pen.Thickness,
-            pen.LineJoin,
-            pen.MiterLimit,
-            ToNativeLineCap(startLineCap),
-            ToNativeLineCap(endLineCap),
-            pen.DashCap);
+        var copy = pen.WithBrush(pen.Brush);
+        copy.StartLineCap = ToNativeLineCap(startLineCap);
+        copy.EndLineCap = ToNativeLineCap(endLineCap);
+        return copy;
     }
 
     private static bool TryConvertGeometryToNativePath(
