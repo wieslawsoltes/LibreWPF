@@ -578,7 +578,7 @@
             <!-- Kangxi Radicals            2F00-2FDF -->
             <FontFamilyMap
                 Unicode     = "2F00-2FDF"
-                Target      = "Yu Gothic UI, Meiryo UI, Meiryo"
+                Target      = "Yu Gothic UI, Meiryo UI, Meiryo, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
                 Scale       = "1.0" />
 
             <!-- (unassigned)               2FE0-2FEF -->
@@ -586,7 +586,7 @@
             <!-- Ideographic Description Char     2FF0-2FFF -->
             <FontFamilyMap
                 Unicode     = "2FF0-2FFF"
-                Target      = "Microsoft YaHei UI, SimSun"
+                Target      = "Microsoft YaHei UI, SimSun, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
                 Scale       = "1.0" />
 
             <!--
@@ -610,7 +610,7 @@
             <FontFamilyMap
                 Unicode     = "3000-30FF, 31F0-31FF"
                 Language    = "zh-Hans"
-                Target      = "Microsoft YaHei UI, Microsoft YaHei, SimSun, MS Gothic"
+                Target      = "Microsoft YaHei UI, Microsoft YaHei, SimSun, MS Gothic, PingFang SC, Hiragino Sans GB, Heiti SC, Songti SC"
                 Scale       = "1.0" />
 
             <!-- CHT -->
@@ -624,7 +624,7 @@
             <FontFamilyMap
                 Unicode     = "3000-30FF, 31F0-31FF"
                 Language    = "zh-Hant"
-                Target      = "Microsoft JhengHei UI, Microsoft JhengHei, MingLiu, MS Gothic"
+                Target      = "Microsoft JhengHei UI, Microsoft JhengHei, MingLiu, MS Gothic, PingFang TC, Heiti TC, Songti TC"
                 Scale       = "1.0" />
 
             <!-- KO -->
@@ -632,20 +632,20 @@
             <FontFamilyMap
                 Unicode     = "3000-30FF, 31F0-31FF"
                 Language    = "ko"
-                Target      = "Malgun Gothic, Yu Gothic UI, Meiryo UI, Meiryo, Microsoft YaHei UI, Microsoft YaHei, Gulim, MS Gothic, MingLiu"
+                Target      = "Malgun Gothic, Yu Gothic UI, Meiryo UI, Meiryo, Microsoft YaHei UI, Microsoft YaHei, Gulim, MS Gothic, MingLiu, Apple SD Gothic Neo, PingFang SC"
                 Scale       = "1.0" />
 
             <!-- JA -->
             <FontFamilyMap
                 Unicode     = "3000-30FF, 31F0-31FF"
                 Language    = "ja"
-                Target      = "Yu Gothic UI, Meiryo UI, Meiryo, Microsoft YaHei UI, Microsoft YaHei, MS Gothic, MingLiu"
+                Target      = "Yu Gothic UI, Meiryo UI, Meiryo, Microsoft YaHei UI, Microsoft YaHei, MS Gothic, MingLiu, Hiragino Sans, Hiragino Kaku Gothic ProN, Hiragino Mincho ProN, PingFang SC"
                 Scale       = "1.0" />
 
             <!-- Other -->
             <FontFamilyMap
                 Unicode     = "3000-30FF, 31F0-31FF"
-                Target      = "Yu Gothic UI, Meiryo UI, Meiryo, Microsoft YaHei UI, Microsoft YaHei, MS Gothic, MingLiu"
+                Target      = "Yu Gothic UI, Meiryo UI, Meiryo, Microsoft YaHei UI, Microsoft YaHei, MS Gothic, MingLiu, Hiragino Sans, Hiragino Kaku Gothic ProN, Hiragino Mincho ProN, PingFang SC, PingFang TC, Heiti SC, Heiti TC, Songti SC, Songti TC"
                 Scale       = "1.0" />
 
             <!--
@@ -656,30 +656,30 @@
             <FontFamilyMap
                 Unicode     = "3100-312F, 31A0-31BF"
                 Language    = "zh-Hans"
-                Target      = "Microsoft YaHei UI, Microsoft YaHei, SimSun"
+                Target      = "Microsoft YaHei UI, Microsoft YaHei, SimSun, PingFang SC, Hiragino Sans GB, Heiti SC, Songti SC"
                 Scale       = "1.0" />
             <!-- CHT -->
             <FontFamilyMap
                 Unicode     = "3100-312F, 31A0-31BF"
                 Language    = "zh-Hant"
-                Target      = "Microsoft JhengHei UI, Microsoft JhengHei, MingLiU"
+                Target      = "Microsoft JhengHei UI, Microsoft JhengHei, MingLiU, PingFang TC, Heiti TC, Songti TC"
                 Scale       = "1.0" />
             <!-- JA -->
             <FontFamilyMap
                 Unicode     = "3100-312F, 31A0-31BF"
                 Language    = "ja"
-                Target      = "Microsoft JhengHei UI, Microsoft JhengHei, MingLiu"
+                Target      = "Microsoft JhengHei UI, Microsoft JhengHei, MingLiu, Hiragino Sans, Hiragino Kaku Gothic ProN, Hiragino Sans GB"
                 Scale       = "1.0" />
             <!-- KO -->
             <FontFamilyMap
                 Unicode     = "3100-312F, 31A0-31BF"
                 Language    = "ko"
-                Target      = "Microsoft JhengHei UI, Microsoft JhengHei, MingLiU"
+                Target      = "Microsoft JhengHei UI, Microsoft JhengHei, MingLiU, Apple SD Gothic Neo, AppleGothic"
                 Scale       = "1.0" />
             <!-- Other -->
             <FontFamilyMap
                 Unicode     = "3100-312F, 31A0-31BF"
-                Target      = "Microsoft JhengHei UI, Microsoft JhengHei, MingLiu"
+                Target      = "Microsoft JhengHei UI, Microsoft JhengHei, MingLiu, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
                 Scale       = "1.0" />
 
             <!-- Hangul Compatibility Jamo (3130-318F): see above, by 1100-11FF -->
@@ -689,37 +689,37 @@
             <FontFamilyMap
                 Unicode     = "3190-319F"
                 Language    = "zh-Hans"
-                Target      = "Microsoft YaHei UI, Microsoft YaHei, MingLiU"
+                Target      = "Microsoft YaHei UI, Microsoft YaHei, MingLiU, PingFang SC, Hiragino Sans GB, Heiti SC, Songti SC"
                 Scale       = "1.0" />
             <!-- CHT -->
             <FontFamilyMap
                 Unicode     = "3190-319F"
                 Language    = "zh-Hant"
-                Target      = "Microsoft JhengHei UI, Microsoft JhengHei, MingLiU"
+                Target      = "Microsoft JhengHei UI, Microsoft JhengHei, MingLiU, PingFang TC, Heiti TC, Songti TC"
                 Scale       = "1.0" />
             <!-- JA -->
             <FontFamilyMap
                 Unicode     = "3190-319F"
                 Language    = "ja"
-                Target      = "Yu Gothic UI, Meiryo UI, Meiryo, Microsoft JhengHei UI, Microsoft JhengHei, MingLiU"
+                Target      = "Yu Gothic UI, Meiryo UI, Meiryo, Microsoft JhengHei UI, Microsoft JhengHei, MingLiU, Hiragino Sans, Hiragino Kaku Gothic ProN, Hiragino Sans GB"
                 Scale       = "1.0" />
             <!-- KO -->
             <FontFamilyMap
                 Unicode     = "3190-319F"
                 Language    = "ko"
-                Target      = "Yu Gothic UI, Meiryo UI, Meiryo, Microsoft JhengHei UI, Microsoft JhengHei, MingLiU"
+                Target      = "Yu Gothic UI, Meiryo UI, Meiryo, Microsoft JhengHei UI, Microsoft JhengHei, MingLiU, Apple SD Gothic Neo, AppleGothic"
                 Scale       = "1.0" />
             <!-- Other -->
             <FontFamilyMap
                 Unicode     = "3190-319F"
-                Target      = "Yu Gothic UI, Meiryo UI, Meiryo, Microsoft JhengHei UI, Microsoft JhengHei, MingLiU"
+                Target      = "Yu Gothic UI, Meiryo UI, Meiryo, Microsoft JhengHei UI, Microsoft JhengHei, MingLiU, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
                 Scale       = "1.0" />
 
             <!-- CJK Strokes                31C0-31EF -->
             <!-- Not supported in any font on XP. MingLiU in Vista; Microsoft JhengHei UI in 8.1 -->
             <FontFamilyMap
                 Unicode     = "31C0-31EF"
-                Target      = "Microsoft JhengHei UI, MingLiU"
+                Target      = "Microsoft JhengHei UI, MingLiU, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
                 Scale       = "1.0" />
 
             <!-- Katakana Phonetic Ext. (31F0-31FF): see above, by 3000-303F -->
@@ -756,30 +756,30 @@
             <FontFamilyMap
                 Unicode     = "3220-324F, 3251-325F, 3280-32CB, 32D0-3376, 337B-337F, 33E0-33FF"
                 Language    = "zh-Hans"
-                Target      = "Microsoft YaHei UI, Microsoft YaHei, Yu Gothic UI, Meiryo UI, Meiryo, Segoe UI Symbol, SimSun, MS Gothic"
+                Target      = "Microsoft YaHei UI, Microsoft YaHei, Yu Gothic UI, Meiryo UI, Meiryo, Segoe UI Symbol, SimSun, MS Gothic, PingFang SC, Hiragino Sans GB, Heiti SC, Songti SC"
                 Scale       = "1.0" />
             <!-- CHT -->
             <FontFamilyMap
                 Unicode     = "3220-324F, 3251-325F, 3280-32CB, 32D0-3376, 337B-337F, 33E0-33FF"
                 Language    = "zh-Hant"
-                Target      = "Microsoft JhengHei UI, Microsoft JhengHei, Yu Gothic UI, Meiryo UI, Meiryo, Segoe UI Symbol, MingLiU, MS Gothic"
+                Target      = "Microsoft JhengHei UI, Microsoft JhengHei, Yu Gothic UI, Meiryo UI, Meiryo, Segoe UI Symbol, MingLiU, MS Gothic, PingFang TC, Heiti TC, Songti TC"
                 Scale       = "1.0" />
             <!-- JA -->
             <FontFamilyMap
                 Unicode     = "3220-324F, 3251-325F, 3280-32CB, 32D0-3376, 337B-337F, 33E0-33FF"
                 Language    = "ja"
-                Target      = "Yu Gothic UI, Meiryo UI, Meiryo, Segoe UI Symbol, MS Gothic"
+                Target      = "Yu Gothic UI, Meiryo UI, Meiryo, Segoe UI Symbol, MS Gothic, Hiragino Sans, Hiragino Kaku Gothic ProN, Hiragino Sans GB"
                 Scale       = "1.0" />
             <!-- KO -->
             <FontFamilyMap
                 Unicode     = "3220-324F, 3251-325F, 3280-32CB, 32D0-3376, 337B-337F, 33E0-33FF"
                 Language    = "ko"
-                Target      = "Segoe UI Symbol, Yu Gothic UI, Meiryo UI, Meiryo, MS Gothic"
+                Target      = "Segoe UI Symbol, Yu Gothic UI, Meiryo UI, Meiryo, MS Gothic, Apple SD Gothic Neo, AppleGothic"
                 Scale       = "1.0" />
             <!-- Other -->
             <FontFamilyMap
                 Unicode     = "3220-324F, 3251-325F, 3280-32CB, 32D0-3376, 337B-337F, 33E0-33FF"
-                Target      = "Segoe UI Symbol, Yu Gothic UI, Meiryo UI, Meiryo, MS Gothic"
+                Target      = "Segoe UI Symbol, Yu Gothic UI, Meiryo UI, Meiryo, MS Gothic, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
                 Scale       = "1.0" />
 
             <!--
@@ -791,7 +791,7 @@
             <!-- Windows 8+ -->
             <FontFamilyMap
                 Unicode     = "3250, 32CC-32CF, 3377-337A"
-                Target      = "Yu Gothic UI, Meiryo UI"
+                Target      = "Yu Gothic UI, Meiryo UI, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
                 Scale       = "1.0" />
 
             <!-- CJK Comp Square Latin Abr   3380-33DF -->
@@ -800,30 +800,30 @@
             <FontFamilyMap
                 Unicode     = "3380-33DF"
                 Language    = "zh-Hans"
-                Target      = "Microsoft YaHei UI, Microsoft YaHei, Microsoft JhengHei UI, Microsoft JhengHei, Yu Gothic UI, Meiryo UI, Meiryo, Malgun Gothic, Segoe UI Symbol, SimSun, MS Gothic"
+                Target      = "Microsoft YaHei UI, Microsoft YaHei, Microsoft JhengHei UI, Microsoft JhengHei, Yu Gothic UI, Meiryo UI, Meiryo, Malgun Gothic, Segoe UI Symbol, SimSun, MS Gothic, PingFang SC, Hiragino Sans GB, Heiti SC, Songti SC"
                 Scale       = "1.0" />
             <!-- CHT -->
             <FontFamilyMap
                 Unicode     = "3380-33DF"
                 Language    = "zh-Hant"
-                Target      = "Microsoft JhengHei UI, Microsoft JhengHei, Yu Gothic UI, Meiryo UI, Meiryo, Malgun Gothic, Segoe UI Symbol, PMingLiU, MS Gothic"
+                Target      = "Microsoft JhengHei UI, Microsoft JhengHei, Yu Gothic UI, Meiryo UI, Meiryo, Malgun Gothic, Segoe UI Symbol, PMingLiU, MS Gothic, PingFang TC, Heiti TC, Songti TC"
                 Scale       = "1.0" />
             <!-- KO -->
             <FontFamilyMap
                 Unicode     = "3380-33DF"
                 Language    = "ko"
-                Target      = "Malgun Gothic, Yu Gothic UI, Meiryo UI, Meiryo, Segoe UI Symbol, Gulim, MS Gothic"
+                Target      = "Malgun Gothic, Yu Gothic UI, Meiryo UI, Meiryo, Segoe UI Symbol, Gulim, MS Gothic, Apple SD Gothic Neo, AppleGothic"
                 Scale       = "1.0" />
             <!-- JA -->
             <FontFamilyMap
                 Unicode     = "3380-33DF"
                 Language    = "ja"
-                Target      = "Yu Gothic UI, Meiryo UI, Meiryo, Segoe UI Symbol, MS Gothic"
+                Target      = "Yu Gothic UI, Meiryo UI, Meiryo, Segoe UI Symbol, MS Gothic, Hiragino Sans, Hiragino Kaku Gothic ProN, Hiragino Sans GB"
                 Scale       = "1.0" />
             <!-- Other -->
             <FontFamilyMap
                 Unicode     = "3380-33DF"
-                Target      = "Segoe UI Symbol, Yu Gothic UI, Meiryo UI, Meiryo, MS Gothic"
+                Target      = "Segoe UI Symbol, Yu Gothic UI, Meiryo UI, Meiryo, MS Gothic, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
                 Scale       = "1.0" />
 
             <!--
@@ -870,7 +870,7 @@
             <!-- Windows 7+ -->
             <FontFamilyMap
                 Unicode     = "4DC0-4DFF"
-                Target      = "Segoe UI Symbol"
+                Target      = "Segoe UI Symbol, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
                 Scale       = "1.0" />
 
             <!--
@@ -1038,30 +1038,30 @@
             <FontFamilyMap
                 Unicode     = "FE10-FE1F"
                 Language    = "zh-Hans"
-                Target      = "Microsoft YaHei UI, Microsoft YaHei"
+                Target      = "Microsoft YaHei UI, Microsoft YaHei, PingFang SC, Hiragino Sans GB, Heiti SC, Songti SC"
                 Scale       = "1.0" />
             <!-- CHT -->
             <FontFamilyMap
                 Unicode     = "FE10-FE1F"
                 Language    = "zh-Hant"
-                Target      = "Microsoft JhengHei UI, Microsoft JhengHei"
+                Target      = "Microsoft JhengHei UI, Microsoft JhengHei, PingFang TC, Heiti TC, Songti TC"
                 Scale       = "1.0" />
             <!-- KO -->
             <FontFamilyMap
                 Unicode     = "FE10-FE1F"
                 Language    = "ko"
-                Target      = "Malgun Gothic, Microsoft JhengHei UI, Microsoft JhengHei"
+                Target      = "Malgun Gothic, Microsoft JhengHei UI, Microsoft JhengHei, Apple SD Gothic Neo, AppleGothic, Hiragino Sans GB"
                 Scale       = "1.0" />
             <!-- JA -->
             <FontFamilyMap
                 Unicode     = "FE10-FE1F"
                 Language    = "ja"
-                Target      = "Microsoft JhengHei UI, Microsoft JhengHei"
+                Target      = "Microsoft JhengHei UI, Microsoft JhengHei, Hiragino Sans, Hiragino Kaku Gothic ProN, Hiragino Sans GB"
                 Scale       = "1.0" />
             <!-- Other -->
             <FontFamilyMap
                 Unicode     = "FE10-FE1F"
-                Target      = "Microsoft JhengHei UI, Microsoft JhengHei"
+                Target      = "Microsoft JhengHei UI, Microsoft JhengHei, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
                 Scale       = "1.0" />
 
             <!-- Combining Half Marks (FE20-FE2F): see above, by 0000-007F -->
@@ -1074,30 +1074,30 @@
             <FontFamilyMap
                 Unicode     = "FE30-FE6F"
                 Language    = "zh-Hans"
-                Target      = "Microsoft YaHei UI, Microsoft YaHei, SimSun"
+                Target      = "Microsoft YaHei UI, Microsoft YaHei, SimSun, PingFang SC, Hiragino Sans GB, Heiti SC, Songti SC"
                 Scale       = "1.0" />
             <!-- CHT -->
             <FontFamilyMap
                 Unicode     = "FE30-FE6F"
                 Language    = "zh-Hant"
-                Target      = "Microsoft JhengHei UI, Microsoft JhengHei, MingLiU"
+                Target      = "Microsoft JhengHei UI, Microsoft JhengHei, MingLiU, PingFang TC, Heiti TC, Songti TC"
                 Scale       = "1.0" />
             <!-- JA -->
             <FontFamilyMap
                 Unicode     = "FE30-FE6F"
                 Language    = "ja"
-                Target      = "Yu Gothic UI, Meiryo UI, Meiryo, Microsoft JhengHei UI, Microsoft JhengHei, MingLiu"
+                Target      = "Yu Gothic UI, Meiryo UI, Meiryo, Microsoft JhengHei UI, Microsoft JhengHei, MingLiu, Hiragino Sans, Hiragino Kaku Gothic ProN, Hiragino Sans GB"
                 Scale       = "1.0" />
             <!-- KO -->
             <FontFamilyMap
                 Unicode     = "FE30-FE6F"
                 Language    = "ko"
-                Target      = "Malgun Gothic, Microsoft JhengHei UI, Microsoft JhengHei, MingLiu"
+                Target      = "Malgun Gothic, Microsoft JhengHei UI, Microsoft JhengHei, MingLiu, Apple SD Gothic Neo, AppleGothic"
                 Scale       = "1.0" />
             <!-- Other -->
             <FontFamilyMap
                 Unicode     = "FE30-FE6F"
-                Target      = "Microsoft JhengHei UI, Microsoft JhengHei, MingLiu"
+                Target      = "Microsoft JhengHei UI, Microsoft JhengHei, MingLiu, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
                 Scale       = "1.0" />
 
             <!-- Arabic Pres Forms-B FE70-FEFE: see above, by 0600-06FF -->
@@ -1116,30 +1116,30 @@
             <FontFamilyMap
                 Unicode     = "FF00-FF60"
                 Language    = "zh-Hans"
-                Target      = "Microsoft YaHei UI, Microsoft YaHei, MS Gothic"
+                Target      = "Microsoft YaHei UI, Microsoft YaHei, MS Gothic, PingFang SC, Hiragino Sans GB, Heiti SC, Songti SC"
                 Scale       = "1.0" />
             <!-- CHT -->
             <FontFamilyMap
                 Unicode     = "FF00-FF60"
                 Language    = "zh-Hant"
-                Target      = "Microsoft JhengHei UI, Microsoft JhengHei, MS Gothic"
+                Target      = "Microsoft JhengHei UI, Microsoft JhengHei, MS Gothic, PingFang TC, Heiti TC, Songti TC"
                 Scale       = "1.0" />
             <!-- KO -->
             <FontFamilyMap
                 Unicode     = "FF00-FF60"
                 Language    = "ko"
-                Target      = "Malgun Gothic, Yu Gothic UI, Meiryo UI, Meiryo, Gulim, MS Gothic"
+                Target      = "Malgun Gothic, Yu Gothic UI, Meiryo UI, Meiryo, Gulim, MS Gothic, Apple SD Gothic Neo, AppleGothic"
                 Scale       = "1.0" />
             <!-- JA -->
             <FontFamilyMap
                 Unicode     = "FF00-FF60"
                 Language    = "ja"
-                Target      = "Yu Gothic UI, Meiryo UI, Meiryo, MS Gothic"
+                Target      = "Yu Gothic UI, Meiryo UI, Meiryo, MS Gothic, Hiragino Sans, Hiragino Kaku Gothic ProN, Hiragino Sans GB"
                 Scale       = "1.0" />
             <!-- Other -->
             <FontFamilyMap
                 Unicode     = "FF00-FF60"
-                Target      = "Yu Gothic UI, Meiryo UI, Meiryo, MS Gothic"
+                Target      = "Yu Gothic UI, Meiryo UI, Meiryo, MS Gothic, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
                 Scale       = "1.0" />
 
             <!--
@@ -1150,30 +1150,30 @@
             <FontFamilyMap
                 Unicode     = "FF61-FF9F"
                 Language    = "zh-Hans"
-                Target      = "Microsoft YaHei UI, Microsoft YaHei, MingLiU"
+                Target      = "Microsoft YaHei UI, Microsoft YaHei, MingLiU, PingFang SC, Hiragino Sans GB, Heiti SC, Songti SC"
                 Scale       = "1.0" />
             <!-- CHT -->
             <FontFamilyMap
                 Unicode     = "FF61-FF9F"
                 Language    = "zh-Hant"
-                Target      = "Microsoft JhengHei UI, Microsoft JhengHei, MingLiU"
+                Target      = "Microsoft JhengHei UI, Microsoft JhengHei, MingLiU, PingFang TC, Heiti TC, Songti TC"
                 Scale       = "1.0" />
             <!-- JA -->
             <FontFamilyMap
                 Unicode     = "FF61-FF9F"
                 Language    = "ja"
-                Target      = "Yu Gothic UI, Meiryo UI, Meiryo, MS Gothic"
+                Target      = "Yu Gothic UI, Meiryo UI, Meiryo, MS Gothic, Hiragino Sans, Hiragino Kaku Gothic ProN, Hiragino Sans GB"
                 Scale       = "1.0" />
             <!-- KO -->
             <FontFamilyMap
                 Unicode     = "FF61-FF9F"
                 Language    = "ko"
-                Target      = "Yu Gothic UI, Meiryo UI, Meiryo, MS Gothic"
+                Target      = "Yu Gothic UI, Meiryo UI, Meiryo, MS Gothic, Apple SD Gothic Neo, AppleGothic"
                 Scale       = "1.0" />
             <!-- Other -->
             <FontFamilyMap
                 Unicode     = "FF61-FF9F"
-                Target      = "Yu Gothic UI, Meiryo UI, Meiryo, MS Gothic"
+                Target      = "Yu Gothic UI, Meiryo UI, Meiryo, MS Gothic, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
                 Scale       = "1.0" />
 
             <!-- Half Full Forms (Hangul)    FFA0-FFDF -->
@@ -1181,30 +1181,30 @@
             <FontFamilyMap
                 Unicode     = "FFA0-FFDF"
                 Language    = "zh-Hans"
-                Target      = "Microsoft YaHei UI, Microsoft YaHei, Microsoft JhengHei UI, Microsoft JhengHei"
+                Target      = "Microsoft YaHei UI, Microsoft YaHei, Microsoft JhengHei UI, Microsoft JhengHei, PingFang SC, Hiragino Sans GB, Heiti SC, Songti SC"
                 Scale       = "1.0" />
             <!-- CHT -->
             <FontFamilyMap
                 Unicode     = "FFA0-FFDF"
                 Language    = "zh-Hant"
-                Target      = "Microsoft JhengHei UI, Microsoft JhengHei"
+                Target      = "Microsoft JhengHei UI, Microsoft JhengHei, PingFang TC, Heiti TC, Songti TC"
                 Scale       = "1.0" />
             <!-- JA -->
             <FontFamilyMap
                 Unicode     = "FFA0-FFDF"
                 Language    = "ja"
-                Target      = "Microsoft JhengHei UI, Microsoft JhengHei"
+                Target      = "Microsoft JhengHei UI, Microsoft JhengHei, Hiragino Sans, Hiragino Kaku Gothic ProN, Hiragino Sans GB"
                 Scale       = "1.0" />
             <!-- KO -->
             <FontFamilyMap
                 Unicode     = "FFA0-FFDF"
                 Language    = "ko"
-                Target      = "Malgun Gothic, Microsoft JhengHei UI, Microsoft JhengHei"
+                Target      = "Malgun Gothic, Microsoft JhengHei UI, Microsoft JhengHei, Apple SD Gothic Neo, AppleGothic"
                 Scale       = "1.0" />
             <!-- Other -->
             <FontFamilyMap
                 Unicode     = "FFA0-FFDF"
-                Target      = "Microsoft JhengHei UI, Microsoft JhengHei"
+                Target      = "Microsoft JhengHei UI, Microsoft JhengHei, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
                 Scale       = "1.0" />
 
             <!-- Half Full (symbol variants) FFE0-FFEF -->
@@ -1212,30 +1212,30 @@
             <FontFamilyMap
                 Unicode     = "FFE0-FFEF"
                 Language    = "zh-Hans"
-                Target      = "Microsoft YaHei UI, Microsoft YaHei, MS Gothic, Gulim"
+                Target      = "Microsoft YaHei UI, Microsoft YaHei, MS Gothic, Gulim, PingFang SC, Hiragino Sans GB, Heiti SC, Songti SC"
                 Scale       = "1.0" />
             <!-- CHT -->
             <FontFamilyMap
                 Unicode     = "FFE0-FFEF"
                 Language    = "zh-Hant"
-                Target      = "Microsoft JhengHei UI, Microsoft JhengHei, MS Gothic, Gulim"
+                Target      = "Microsoft JhengHei UI, Microsoft JhengHei, MS Gothic, Gulim, PingFang TC, Heiti TC, Songti TC"
                 Scale       = "1.0" />
             <!-- JA -->
             <FontFamilyMap
                 Unicode     = "FFE0-FFEF"
                 Language    = "ja"
-                Target      = "Yu Gothic UI, Meiryo UI, Meiryo, MS Gothic, Gulim"
+                Target      = "Yu Gothic UI, Meiryo UI, Meiryo, MS Gothic, Gulim, Hiragino Sans, Hiragino Kaku Gothic ProN, Hiragino Sans GB"
                 Scale       = "1.0" />
             <!-- KO -->
             <FontFamilyMap
                 Unicode     = "FFE0-FFEF"
                 Language    = "ko"
-                Target      = "Malgun Gothic, Yu Gothic UI, Meiryo UI, Meiryo, Microsoft JhengHei UI, Microsoft JhengHei, Gulim, MS Gothic"
+                Target      = "Malgun Gothic, Yu Gothic UI, Meiryo UI, Meiryo, Microsoft JhengHei UI, Microsoft JhengHei, Gulim, MS Gothic, Apple SD Gothic Neo, AppleGothic"
                 Scale       = "1.0" />
             <!-- Other -->
             <FontFamilyMap
                 Unicode     = "FFE0-FFEF"
-                Target      = "Yu Gothic UI, Meiryo UI, Meiryo, MS Gothic, Gulim"
+                Target      = "Yu Gothic UI, Meiryo UI, Meiryo, MS Gothic, Gulim, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
                 Scale       = "1.0" />
 
             <!-- Specials                    FFF0-FFFD -->
@@ -1718,31 +1718,31 @@
             <FontFamilyMap
                 Unicode     = "20000-2A6DF"
                 Language    = "zh-Hans"
-                Target      = "SimSun-ExtB"
+                Target      = "SimSun-ExtB, PingFang SC, Hiragino Sans GB, Heiti SC, Songti SC"
                 Scale       = "1.0" />
             <!-- CHT -->
             <FontFamilyMap
                 Unicode     = "20000-2A6DF"
                 Language    = "zh-Hant"
-                Target      = "MingLiU-ExtB"
+                Target      = "MingLiU-ExtB, PingFang TC, Heiti TC, Songti TC"
                 Scale       = "1.0" />
             <!-- Hong Kong -->
             <FontFamilyMap
                 Unicode     = "20000-2A6DF"
                 Language    = "zh-HK"
-                Target      = "MingLiU_HKSCS-ExtB, MingLiU-ExtB"
+                Target      = "MingLiU_HKSCS-ExtB, MingLiU-ExtB, PingFang HK, PingFang TC, Heiti TC, Songti TC"
                 Scale       = "1.0" />
             <!-- JA -->
             <FontFamilyMap
                 Unicode     = "20000-2A6DF"
                 Language    = "ja"
-                Target      = "Yu Gothic UI, Meiryo UI, Meiryo, MS Gothic, MingLiU-ExtB"
+                Target      = "Yu Gothic UI, Meiryo UI, Meiryo, MS Gothic, MingLiU-ExtB, Hiragino Sans, Hiragino Kaku Gothic ProN, Hiragino Sans GB"
                 Scale       = "1.0" />
             <!-- KO -->
             <FontFamilyMap
                 Unicode     = "20000-2A6DF"
                 Language    = "ko"
-                Target      = "MingLiU-ExtB"
+                Target      = "MingLiU-ExtB, Apple SD Gothic Neo, AppleGothic"
                 Scale       = "1.0" />
             <!-- Other -->
             <!-- CHT/KO/All
@@ -1751,7 +1751,7 @@
                 not present in other fonts. -->
             <FontFamilyMap
                 Unicode     = "20000-2A6DF"
-                Target      = "MingLiU-ExtB, Yu Gothic UI, Microsoft YaHei UI, Simsun-ExtB, MingLiU_HKSCS-ExtB"
+                Target      = "MingLiU-ExtB, Yu Gothic UI, Microsoft YaHei UI, Simsun-ExtB, MingLiU_HKSCS-ExtB, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
                 Scale       = "1.0" />
 
             <!-- (unassigned)                  2A6E0-2A6FF -->
@@ -1767,31 +1767,31 @@
             <FontFamilyMap
                 Unicode     = "2A700-2B81F"
                 Language    = "zh-HK"
-                Target      = "MingLiU_HKSCS-ExtB, MingLiU-ExtB"
+                Target      = "MingLiU_HKSCS-ExtB, MingLiU-ExtB, PingFang HK, PingFang TC, Heiti TC, Songti TC"
                 Scale       = "1.0" />
             <!-- CHS -->
             <FontFamilyMap
                 Unicode     = "2A700-2B81F"
                 Language    = "zh-Hans"
-                Target      = "MingLiU-ExtB"
+                Target      = "MingLiU-ExtB, PingFang SC, Hiragino Sans GB, Heiti SC, Songti SC"
                 Scale       = "1.0" />
             <!-- CHT -->
             <FontFamilyMap
                 Unicode     = "2A700-2B81F"
                 Language    = "zh-Hant"
-                Target      = "MingLiU-ExtB"
+                Target      = "MingLiU-ExtB, PingFang TC, Heiti TC, Songti TC"
                 Scale       = "1.0" />
             <!-- JA -->
             <FontFamilyMap
                 Unicode     = "2A700-2B81F"
                 Language    = "ja"
-                Target      = "MingLiU-ExtB"
+                Target      = "MingLiU-ExtB, Hiragino Sans, Hiragino Kaku Gothic ProN, Hiragino Sans GB"
                 Scale       = "1.0" />
             <!-- KO -->
             <FontFamilyMap
                 Unicode     = "2A700-2B81F"
                 Language    = "ko"
-                Target      = "MingLiU-ExtB"
+                Target      = "MingLiU-ExtB, Apple SD Gothic Neo, AppleGothic"
                 Scale       = "1.0" />
             <!-- Other -->
             <!-- All
@@ -1800,7 +1800,7 @@
                 not present in other fonts. -->
             <FontFamilyMap
                 Unicode     = "2A700-2B81F"
-                Target      = "MingLiU-ExtB, Yu Gothic UI, Microsoft YaHei UI, Simsun-ExtB, MingLiU_HKSCS-ExtB"
+                Target      = "MingLiU-ExtB, Yu Gothic UI, Microsoft YaHei UI, Simsun-ExtB, MingLiU_HKSCS-ExtB, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
                 Scale       = "1.0" />
 
             <!--
@@ -1809,12 +1809,12 @@
             -->
             <FontFamilyMap
                 Unicode     = "2B820-2EBEF"
-                Target      = "SimSun-ExtB, Yu Gothic UI, Yu Gothic, Microsoft YaHei UI, Microsoft YaHei"
+                Target      = "SimSun-ExtB, Yu Gothic UI, Yu Gothic, Microsoft YaHei UI, Microsoft YaHei, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
                 Scale       = "1.0" />
 
             <FontFamilyMap
                 Unicode     = "2EBF0-2EE5F"
-                Target      = "SimSun-ExtG"
+                Target      = "SimSun-ExtG, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
                 Scale       = "1.0" />
 
             <!-- CJK Compatibility Ideographs Supplement 2F800-2FA1F -->
@@ -1827,36 +1827,36 @@
             <FontFamilyMap
                 Unicode     = "2F800-2FA1F"
                 Language    = "zh-Hans"
-                Target      = "SimSun-ExtB, MingLiU-ExtB, Yu Gothic UI, Meiryo UI, Meiryo"
+                Target      = "SimSun-ExtB, MingLiU-ExtB, Yu Gothic UI, Meiryo UI, Meiryo, PingFang SC, Hiragino Sans GB, Heiti SC, Songti SC"
                 Scale       = "1.0" />
             <!-- Hong Kong -->
             <FontFamilyMap
                 Unicode     = "2F800-2FA1F"
                 Language    = "zh-HK"
-                Target      = "MingLiU_HKSCS-ExtB, MingLiU-ExtB, Yu Gothic UI, Meiryo UI, Meiryo"
+                Target      = "MingLiU_HKSCS-ExtB, MingLiU-ExtB, Yu Gothic UI, Meiryo UI, Meiryo, PingFang HK, PingFang TC, Heiti TC, Songti TC"
                 Scale       = "1.0" />
             <!-- CHT -->
             <FontFamilyMap
                 Unicode     = "2F800-2FA1F"
                 Language    = "zh-Hant"
-                Target      = "MingLiU-ExtB, Yu Gothic UI, Meiryo UI, Meiryo"
+                Target      = "MingLiU-ExtB, Yu Gothic UI, Meiryo UI, Meiryo, PingFang TC, Heiti TC, Songti TC"
                 Scale       = "1.0" />
             <!-- JA -->
             <FontFamilyMap
                 Unicode     = "2F800-2FA1F"
                 Language    = "ja"
-                Target      = "Yu Gothic UI, Meiryo UI, Meiryo, MingLiU-ExtB"
+                Target      = "Yu Gothic UI, Meiryo UI, Meiryo, MingLiU-ExtB, Hiragino Sans, Hiragino Kaku Gothic ProN, Hiragino Sans GB"
                 Scale       = "1.0" />
             <!-- KO -->
             <FontFamilyMap
                 Unicode     = "2F800-2FA1F"
                 Language    = "ko"
-                Target      = "Yu Gothic UI, Meiryo UI, Meiryo, MingLiU-ExtB"
+                Target      = "Yu Gothic UI, Meiryo UI, Meiryo, MingLiU-ExtB, Apple SD Gothic Neo, AppleGothic"
                 Scale       = "1.0" />
             <!-- Other -->
             <FontFamilyMap
                 Unicode     = "2F800-2FA1F"
-                Target      = "Yu Gothic UI, Meiryo UI, Meiryo, MingLiU-ExtB, MingLiU_MSCS-ExtB"
+                Target      = "Yu Gothic UI, Meiryo UI, Meiryo, MingLiU-ExtB, MingLiU_MSCS-ExtB, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
                 Scale       = "1.0" />
 
             <!-- (unassigned)                  2FA20-2FFFF -->
@@ -2436,7 +2436,7 @@
       <!-- Kangxi Radicals            2F00-2FDF -->
       <FontFamilyMap
           Unicode     = "2F00-2FDF"
-          Target      = "Yu Gothic UI, Meiryo UI, Meiryo"
+          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
           Scale       = "1.0" />
 
       <!-- (unassigned)               2FE0-2FEF -->
@@ -2444,7 +2444,7 @@
       <!-- Ideographic Description Char     2FF0-2FFF -->
       <FontFamilyMap
           Unicode     = "2FF0-2FFF"
-          Target      = "Microsoft YaHei UI, SimSun"
+          Target      = "Microsoft YaHei UI, SimSun, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
           Scale       = "1.0" />
 
       <!--
@@ -2468,7 +2468,7 @@
       <FontFamilyMap
           Unicode     = "3000-30FF, 31F0-31FF"
           Language    = "zh-Hans"
-          Target      = "Microsoft YaHei UI, Microsoft YaHei, SimSun, MS Gothic, Arial Unicode MS"
+          Target      = "Microsoft YaHei UI, Microsoft YaHei, SimSun, MS Gothic, Arial Unicode MS, PingFang SC, Hiragino Sans GB, Heiti SC, Songti SC"
           Scale       = "1.0" />
 
       <!-- CHT -->
@@ -2482,7 +2482,7 @@
       <FontFamilyMap
           Unicode     = "3000-30FF, 31F0-31FF"
           Language    = "zh-Hant"
-          Target      = "Microsoft JhengHei UI, Microsoft JhengHei, MingLiu, MS Gothic, Arial Unicode MS"
+          Target      = "Microsoft JhengHei UI, Microsoft JhengHei, MingLiu, MS Gothic, Arial Unicode MS, PingFang TC, Heiti TC, Songti TC"
           Scale       = "1.0" />
 
       <!-- KO -->
@@ -2490,20 +2490,20 @@
       <FontFamilyMap
           Unicode     = "3000-30FF, 31F0-31FF"
           Language    = "ko"
-          Target      = "Malgun Gothic, Yu Gothic UI, Meiryo UI, Meiryo, Microsoft YaHei UI, Microsoft YaHei, Gulim, MS Gothic, MingLiu, Arial Unicode MS"
+          Target      = "Malgun Gothic, Yu Gothic UI, Meiryo UI, Meiryo, Microsoft YaHei UI, Microsoft YaHei, Gulim, MS Gothic, MingLiu, Arial Unicode MS, Apple SD Gothic Neo, AppleGothic"
           Scale       = "1.0" />
 
       <!-- JA -->
       <FontFamilyMap
           Unicode     = "3000-30FF, 31F0-31FF"
           Language    = "ja"
-          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, Microsoft YaHei UI, Microsoft YaHei, MS Gothic, MingLiu, Arial Unicode MS"
+          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, Microsoft YaHei UI, Microsoft YaHei, MS Gothic, MingLiu, Arial Unicode MS, Hiragino Sans, Hiragino Kaku Gothic ProN, Hiragino Sans GB"
           Scale       = "1.0" />
 
       <!-- Other -->
       <FontFamilyMap
           Unicode     = "3000-30FF, 31F0-31FF"
-          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, Microsoft YaHei UI, Microsoft YaHei, MS Gothic, MingLiu, Arial Unicode MS"
+          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, Microsoft YaHei UI, Microsoft YaHei, MS Gothic, MingLiu, Arial Unicode MS, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
           Scale       = "1.0" />
 
       <!--
@@ -2514,30 +2514,30 @@
       <FontFamilyMap
           Unicode     = "3100-312F, 31A0-31BF"
           Language    = "zh-Hans"
-          Target      = "Microsoft YaHei UI, Microsoft YaHei, SimSun, Arial Unicode MS"
+          Target      = "Microsoft YaHei UI, Microsoft YaHei, SimSun, Arial Unicode MS, PingFang SC, Hiragino Sans GB, Heiti SC, Songti SC"
           Scale       = "1.0" />
       <!-- CHT -->
       <FontFamilyMap
           Unicode     = "3100-312F, 31A0-31BF"
           Language    = "zh-Hant"
-          Target      = "Microsoft JhengHei UI, Microsoft JhengHei, MingLiU, Arial Unicode MS"
+          Target      = "Microsoft JhengHei UI, Microsoft JhengHei, MingLiU, Arial Unicode MS, PingFang TC, Heiti TC, Songti TC"
           Scale       = "1.0" />
       <!-- JA -->
       <FontFamilyMap
           Unicode     = "3100-312F, 31A0-31BF"
           Language    = "ja"
-          Target      = "Microsoft JhengHei UI, Microsoft JhengHei, MingLiu, Arial Unicode MS"
+          Target      = "Microsoft JhengHei UI, Microsoft JhengHei, MingLiu, Arial Unicode MS, Hiragino Sans, Hiragino Kaku Gothic ProN, Hiragino Sans GB"
           Scale       = "1.0" />
       <!-- KO -->
       <FontFamilyMap
           Unicode     = "3100-312F, 31A0-31BF"
           Language    = "ko"
-          Target      = "Microsoft JhengHei UI, Microsoft JhengHei, MingLiU, Arial Unicode MS"
+          Target      = "Microsoft JhengHei UI, Microsoft JhengHei, MingLiU, Arial Unicode MS, Apple SD Gothic Neo, AppleGothic"
           Scale       = "1.0" />
       <!-- Other -->
       <FontFamilyMap
           Unicode     = "3100-312F, 31A0-31BF"
-          Target      = "Microsoft JhengHei UI, Microsoft JhengHei, MingLiu, Arial Unicode MS"
+          Target      = "Microsoft JhengHei UI, Microsoft JhengHei, MingLiu, Arial Unicode MS, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
           Scale       = "1.0" />
 
       <!-- Hangul Compatibility Jamo (3130-318F): see above, by 1100-11FF -->
@@ -2547,37 +2547,37 @@
       <FontFamilyMap
           Unicode     = "3190-319F"
           Language    = "zh-Hans"
-          Target      = "Microsoft YaHei UI, Microsoft YaHei, MingLiU"
+          Target      = "Microsoft YaHei UI, Microsoft YaHei, MingLiU, PingFang SC, Hiragino Sans GB, Heiti SC, Songti SC"
           Scale       = "1.0" />
       <!-- CHT -->
       <FontFamilyMap
           Unicode     = "3190-319F"
           Language    = "zh-Hant"
-          Target      = "Microsoft JhengHei UI, Microsoft JhengHei, MingLiU"
+          Target      = "Microsoft JhengHei UI, Microsoft JhengHei, MingLiU, PingFang TC, Heiti TC, Songti TC"
           Scale       = "1.0" />
       <!-- JA -->
       <FontFamilyMap
           Unicode     = "3190-319F"
           Language    = "ja"
-          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, Microsoft JhengHei UI, Microsoft JhengHei, MingLiU"
+          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, Microsoft JhengHei UI, Microsoft JhengHei, MingLiU, Hiragino Sans, Hiragino Kaku Gothic ProN, Hiragino Sans GB"
           Scale       = "1.0" />
       <!-- KO -->
       <FontFamilyMap
           Unicode     = "3190-319F"
           Language    = "ko"
-          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, Microsoft JhengHei UI, Microsoft JhengHei, MingLiU"
+          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, Microsoft JhengHei UI, Microsoft JhengHei, MingLiU, Apple SD Gothic Neo, AppleGothic"
           Scale       = "1.0" />
       <!-- Other -->
       <FontFamilyMap
           Unicode     = "3190-319F"
-          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, Microsoft JhengHei UI, Microsoft JhengHei, MingLiU"
+          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, Microsoft JhengHei UI, Microsoft JhengHei, MingLiU, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
           Scale       = "1.0" />
 
       <!-- CJK Strokes                31C0-31EF -->
       <!-- Not supported in any font on XP. MingLiU in Vista; Microsoft JhengHei UI in 8.1 -->
       <FontFamilyMap
           Unicode     = "31C0-31EF"
-          Target      = "Microsoft JhengHei UI, MingLiU"
+          Target      = "Microsoft JhengHei UI, MingLiU, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
           Scale       = "1.0" />
 
       <!-- Katakana Phonetic Ext. (31F0-31FF): see above, by 3000-303F -->
@@ -2613,30 +2613,30 @@
       <FontFamilyMap
           Unicode     = "3220-324F, 3251-325F, 3280-32CB, 32D0-3376, 337B-337F, 33E0-33FF"
           Language    = "zh-Hans"
-          Target      = "Microsoft YaHei UI, Microsoft YaHei, Yu Gothic UI, Meiryo UI, Meiryo, Segoe UI Symbol, SimSun, MS Gothic"
+          Target      = "Microsoft YaHei UI, Microsoft YaHei, Yu Gothic UI, Meiryo UI, Meiryo, Segoe UI Symbol, SimSun, MS Gothic, PingFang SC, Hiragino Sans GB, Heiti SC, Songti SC"
           Scale       = "1.0" />
       <!-- CHT -->
       <FontFamilyMap
           Unicode     = "3220-324F, 3251-325F, 3280-32CB, 32D0-3376, 337B-337F, 33E0-33FF"
           Language    = "zh-Hant"
-          Target      = "Microsoft JhengHei UI, Microsoft JhengHei, Yu Gothic UI, Meiryo UI, Meiryo, Segoe UI Symbol, MingLiU, MS Gothic"
+          Target      = "Microsoft JhengHei UI, Microsoft JhengHei, Yu Gothic UI, Meiryo UI, Meiryo, Segoe UI Symbol, MingLiU, MS Gothic, PingFang TC, Heiti TC, Songti TC"
           Scale       = "1.0" />
       <!-- JA -->
       <FontFamilyMap
           Unicode     = "3220-324F, 3251-325F, 3280-32CB, 32D0-3376, 337B-337F, 33E0-33FF"
           Language    = "ja"
-          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, Segoe UI Symbol, MS Gothic"
+          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, Segoe UI Symbol, MS Gothic, Hiragino Sans, Hiragino Kaku Gothic ProN, Hiragino Sans GB"
           Scale       = "1.0" />
       <!-- KO -->
       <FontFamilyMap
           Unicode     = "3220-324F, 3251-325F, 3280-32CB, 32D0-3376, 337B-337F, 33E0-33FF"
           Language    = "ko"
-          Target      = "Segoe UI Symbol, Yu Gothic UI, Meiryo UI, Meiryo, MS Gothic"
+          Target      = "Segoe UI Symbol, Yu Gothic UI, Meiryo UI, Meiryo, MS Gothic, Apple SD Gothic Neo, AppleGothic"
           Scale       = "1.0" />
       <!-- Other -->
       <FontFamilyMap
           Unicode     = "3220-324F, 3251-325F, 3280-32CB, 32D0-3376, 337B-337F, 33E0-33FF"
-          Target      = "Segoe UI Symbol, Yu Gothic UI, Meiryo UI, Meiryo, MS Gothic"
+          Target      = "Segoe UI Symbol, Yu Gothic UI, Meiryo UI, Meiryo, MS Gothic, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
           Scale       = "1.0" />
 
       <!--
@@ -2648,7 +2648,7 @@
       <!-- Windows 8+ -->
       <FontFamilyMap
           Unicode     = "3250, 32CC-32CF, 3377-337A"
-          Target      = "Yu Gothic UI, Meiryo UI"
+          Target      = "Yu Gothic UI, Meiryo UI, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
           Scale       = "1.0" />
 
       <!-- CJK Comp Square Latin Abr   3380-33DF -->
@@ -2657,30 +2657,30 @@
       <FontFamilyMap
           Unicode     = "3380-33DF"
           Language    = "zh-Hans"
-          Target      = "Microsoft YaHei UI, Microsoft YaHei, Microsoft JhengHei UI, Microsoft JhengHei, Yu Gothic UI, Meiryo UI, Meiryo, Malgun Gothic, Segoe UI Symbol, SimSun, MS Gothic"
+          Target      = "Microsoft YaHei UI, Microsoft YaHei, Microsoft JhengHei UI, Microsoft JhengHei, Yu Gothic UI, Meiryo UI, Meiryo, Malgun Gothic, Segoe UI Symbol, SimSun, MS Gothic, PingFang SC, Hiragino Sans GB, Heiti SC, Songti SC"
           Scale       = "1.0" />
       <!-- CHT -->
       <FontFamilyMap
           Unicode     = "3380-33DF"
           Language    = "zh-Hant"
-          Target      = "Microsoft JhengHei UI, Microsoft JhengHei, Yu Gothic UI, Meiryo UI, Meiryo, Malgun Gothic, Segoe UI Symbol, PMingLiU, MS Gothic"
+          Target      = "Microsoft JhengHei UI, Microsoft JhengHei, Yu Gothic UI, Meiryo UI, Meiryo, Malgun Gothic, Segoe UI Symbol, PMingLiU, MS Gothic, PingFang TC, Heiti TC, Songti TC"
           Scale       = "1.0" />
       <!-- KO -->
       <FontFamilyMap
           Unicode     = "3380-33DF"
           Language    = "ko"
-          Target      = "Malgun Gothic, Yu Gothic UI, Meiryo UI, Meiryo, Segoe UI Symbol, Gulim, MS Gothic"
+          Target      = "Malgun Gothic, Yu Gothic UI, Meiryo UI, Meiryo, Segoe UI Symbol, Gulim, MS Gothic, Apple SD Gothic Neo, AppleGothic"
           Scale       = "1.0" />
       <!-- JA -->
       <FontFamilyMap
           Unicode     = "3380-33DF"
           Language    = "ja"
-          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, Segoe UI Symbol, MS Gothic"
+          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, Segoe UI Symbol, MS Gothic, Hiragino Sans, Hiragino Kaku Gothic ProN, Hiragino Sans GB"
           Scale       = "1.0" />
       <!-- Other -->
       <FontFamilyMap
           Unicode     = "3380-33DF"
-          Target      = "Segoe UI Symbol, Yu Gothic UI, Meiryo UI, Meiryo, MS Gothic"
+          Target      = "Segoe UI Symbol, Yu Gothic UI, Meiryo UI, Meiryo, MS Gothic, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
           Scale       = "1.0" />
 
       <!--
@@ -2727,7 +2727,7 @@
       <!-- Windows 7+ -->
       <FontFamilyMap
           Unicode     = "4DC0-4DFF"
-          Target      = "Segoe UI Symbol"
+          Target      = "Segoe UI Symbol, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
           Scale       = "1.0" />
 
       <!--
@@ -2889,30 +2889,30 @@
       <FontFamilyMap
           Unicode     = "FE10-FE1F"
           Language    = "zh-Hans"
-          Target      = "Microsoft YaHei UI, Microsoft YaHei"
+          Target      = "Microsoft YaHei UI, Microsoft YaHei, PingFang SC, Hiragino Sans GB, Heiti SC, Songti SC"
           Scale       = "1.0" />
       <!-- CHT -->
       <FontFamilyMap
           Unicode     = "FE10-FE1F"
           Language    = "zh-Hant"
-          Target      = "Microsoft JhengHei UI, Microsoft JhengHei"
+          Target      = "Microsoft JhengHei UI, Microsoft JhengHei, PingFang TC, Heiti TC, Songti TC"
           Scale       = "1.0" />
       <!-- KO -->
       <FontFamilyMap
           Unicode     = "FE10-FE1F"
           Language    = "ko"
-          Target      = "Malgun Gothic, Microsoft JhengHei UI, Microsoft JhengHei"
+          Target      = "Malgun Gothic, Microsoft JhengHei UI, Microsoft JhengHei, Apple SD Gothic Neo, AppleGothic, Hiragino Sans GB"
           Scale       = "1.0" />
       <!-- JA -->
       <FontFamilyMap
           Unicode     = "FE10-FE1F"
           Language    = "ja"
-          Target      = "Microsoft JhengHei UI, Microsoft JhengHei"
+          Target      = "Microsoft JhengHei UI, Microsoft JhengHei, Hiragino Sans, Hiragino Kaku Gothic ProN, Hiragino Sans GB"
           Scale       = "1.0" />
       <!-- Other -->
       <FontFamilyMap
           Unicode     = "FE10-FE1F"
-          Target      = "Microsoft JhengHei UI, Microsoft JhengHei"
+          Target      = "Microsoft JhengHei UI, Microsoft JhengHei, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
           Scale       = "1.0" />
 
       <!-- Combining Half Marks (FE20-FE2F): see above, by 0000-007F -->
@@ -2925,30 +2925,30 @@
       <FontFamilyMap
           Unicode     = "FE30-FE6F"
           Language    = "zh-Hans"
-          Target      = "Microsoft YaHei UI, Microsoft YaHei, SimSun"
+          Target      = "Microsoft YaHei UI, Microsoft YaHei, SimSun, PingFang SC, Hiragino Sans GB, Heiti SC, Songti SC"
           Scale       = "1.0" />
       <!-- CHT -->
       <FontFamilyMap
           Unicode     = "FE30-FE6F"
           Language    = "zh-Hant"
-          Target      = "Microsoft JhengHei UI, Microsoft JhengHei, MingLiU"
+          Target      = "Microsoft JhengHei UI, Microsoft JhengHei, MingLiU, PingFang TC, Heiti TC, Songti TC"
           Scale       = "1.0" />
       <!-- JA -->
       <FontFamilyMap
           Unicode     = "FE30-FE6F"
           Language    = "ja"
-          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, Microsoft JhengHei UI, Microsoft JhengHei, MingLiu"
+          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, Microsoft JhengHei UI, Microsoft JhengHei, MingLiu, Hiragino Sans, Hiragino Kaku Gothic ProN, Hiragino Sans GB"
           Scale       = "1.0" />
       <!-- KO -->
       <FontFamilyMap
           Unicode     = "FE30-FE6F"
           Language    = "ko"
-          Target      = "Malgun Gothic, Microsoft JhengHei UI, Microsoft JhengHei, MingLiu"
+          Target      = "Malgun Gothic, Microsoft JhengHei UI, Microsoft JhengHei, MingLiu, Apple SD Gothic Neo, AppleGothic"
           Scale       = "1.0" />
       <!-- Other -->
       <FontFamilyMap
           Unicode     = "FE30-FE6F"
-          Target      = "Microsoft JhengHei UI, Microsoft JhengHei, MingLiu"
+          Target      = "Microsoft JhengHei UI, Microsoft JhengHei, MingLiu, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
           Scale       = "1.0" />
 
       <!-- Arabic Pres Forms-B FE70-FEFE: see above, by 0000-007F -->
@@ -2967,30 +2967,30 @@
       <FontFamilyMap
           Unicode     = "FF00-FF60"
           Language    = "zh-Hans"
-          Target      = "Microsoft YaHei UI, Microsoft YaHei, MS Gothic"
+          Target      = "Microsoft YaHei UI, Microsoft YaHei, MS Gothic, PingFang SC, Hiragino Sans GB, Heiti SC, Songti SC"
           Scale       = "1.0" />
       <!-- CHT -->
       <FontFamilyMap
           Unicode     = "FF00-FF60"
           Language    = "zh-Hant"
-          Target      = "Microsoft JhengHei UI, Microsoft JhengHei, MS Gothic"
+          Target      = "Microsoft JhengHei UI, Microsoft JhengHei, MS Gothic, PingFang TC, Heiti TC, Songti TC"
           Scale       = "1.0" />
       <!-- KO -->
       <FontFamilyMap
           Unicode     = "FF00-FF60"
           Language    = "ko"
-          Target      = "Malgun Gothic, Yu Gothic UI, Meiryo UI, Meiryo, Gulim, MS Gothic"
+          Target      = "Malgun Gothic, Yu Gothic UI, Meiryo UI, Meiryo, Gulim, MS Gothic, Apple SD Gothic Neo, AppleGothic"
           Scale       = "1.0" />
       <!-- JA -->
       <FontFamilyMap
           Unicode     = "FF00-FF60"
           Language    = "ja"
-          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, MS Gothic"
+          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, MS Gothic, Hiragino Sans, Hiragino Kaku Gothic ProN, Hiragino Sans GB"
           Scale       = "1.0" />
       <!-- Other -->
       <FontFamilyMap
           Unicode     = "FF00-FF60"
-          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, MS Gothic"
+          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, MS Gothic, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
           Scale       = "1.0" />
 
       <!--
@@ -3001,30 +3001,30 @@
       <FontFamilyMap
           Unicode     = "FF61-FF9F"
           Language    = "zh-Hans"
-          Target      = "Microsoft YaHei UI, Microsoft YaHei, MingLiU"
+          Target      = "Microsoft YaHei UI, Microsoft YaHei, MingLiU, PingFang SC, Hiragino Sans GB, Heiti SC, Songti SC"
           Scale       = "1.0" />
       <!-- CHT -->
       <FontFamilyMap
           Unicode     = "FF61-FF9F"
           Language    = "zh-Hant"
-          Target      = "Microsoft JhengHei UI, Microsoft JhengHei, MingLiU"
+          Target      = "Microsoft JhengHei UI, Microsoft JhengHei, MingLiU, PingFang TC, Heiti TC, Songti TC"
           Scale       = "1.0" />
       <!-- JA -->
       <FontFamilyMap
           Unicode     = "FF61-FF9F"
           Language    = "ja"
-          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, MS Gothic"
+          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, MS Gothic, Hiragino Sans, Hiragino Kaku Gothic ProN, Hiragino Sans GB"
           Scale       = "1.0" />
       <!-- KO -->
       <FontFamilyMap
           Unicode     = "FF61-FF9F"
           Language    = "ko"
-          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, MS Gothic"
+          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, MS Gothic, Apple SD Gothic Neo, AppleGothic"
           Scale       = "1.0" />
       <!-- Other -->
       <FontFamilyMap
           Unicode     = "FF61-FF9F"
-          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, MS Gothic"
+          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, MS Gothic, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
           Scale       = "1.0" />
 
       <!-- Half Full Forms (Hangul)    FFA0-FFDF -->
@@ -3032,30 +3032,30 @@
       <FontFamilyMap
           Unicode     = "FFA0-FFDC"
           Language    = "zh-Hans"
-          Target      = "Microsoft YaHei UI, Microsoft YaHei, Microsoft JhengHei UI, Microsoft JhengHei"
+          Target      = "Microsoft YaHei UI, Microsoft YaHei, Microsoft JhengHei UI, Microsoft JhengHei, PingFang SC, Hiragino Sans GB, Heiti SC, Songti SC"
           Scale       = "1.0" />
       <!-- CHT -->
       <FontFamilyMap
           Unicode     = "FFA0-FFDC"
           Language    = "zh-Hant"
-          Target      = "Microsoft JhengHei UI, Microsoft JhengHei"
+          Target      = "Microsoft JhengHei UI, Microsoft JhengHei, PingFang TC, Heiti TC, Songti TC"
           Scale       = "1.0" />
       <!-- JA -->
       <FontFamilyMap
           Unicode     = "FFA0-FFDC"
           Language    = "ja"
-          Target      = "Microsoft JhengHei UI, Microsoft JhengHei"
+          Target      = "Microsoft JhengHei UI, Microsoft JhengHei, Hiragino Sans, Hiragino Kaku Gothic ProN, Hiragino Sans GB"
           Scale       = "1.0" />
       <!-- KO -->
       <FontFamilyMap
           Unicode     = "FFA0-FFDC"
           Language    = "ko"
-          Target      = "Malgun Gothic, Microsoft JhengHei UI, Microsoft JhengHei"
+          Target      = "Malgun Gothic, Microsoft JhengHei UI, Microsoft JhengHei, Apple SD Gothic Neo, AppleGothic"
           Scale       = "1.0" />
       <!-- Other -->
       <FontFamilyMap
           Unicode     = "FFA0-FFDC"
-          Target      = "Microsoft JhengHei UI, Microsoft JhengHei"
+          Target      = "Microsoft JhengHei UI, Microsoft JhengHei, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
           Scale       = "1.0" />
 
       <!-- Half Full (symbol variants) FFE0-FFEF -->
@@ -3063,30 +3063,30 @@
       <FontFamilyMap
           Unicode     = "FFE0-FFEE"
           Language    = "zh-Hans"
-          Target      = "Microsoft YaHei UI, Microsoft YaHei, MS Gothic, Gulim"
+          Target      = "Microsoft YaHei UI, Microsoft YaHei, MS Gothic, Gulim, PingFang SC, Hiragino Sans GB, Heiti SC, Songti SC"
           Scale       = "1.0" />
       <!-- CHT -->
       <FontFamilyMap
           Unicode     = "FFE0-FFEE"
           Language    = "zh-Hant"
-          Target      = "Microsoft JhengHei UI, Microsoft JhengHei, MS Gothic, Gulim"
+          Target      = "Microsoft JhengHei UI, Microsoft JhengHei, MS Gothic, Gulim, PingFang TC, Heiti TC, Songti TC"
           Scale       = "1.0" />
       <!-- JA -->
       <FontFamilyMap
           Unicode     = "FFE0-FFEE"
           Language    = "ja"
-          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, MS Gothic, Gulim"
+          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, MS Gothic, Gulim, Hiragino Sans, Hiragino Kaku Gothic ProN, Hiragino Sans GB"
           Scale       = "1.0" />
       <!-- KO -->
       <FontFamilyMap
           Unicode     = "FFE0-FFEE"
           Language    = "ko"
-          Target      = "Malgun Gothic, Yu Gothic UI, Meiryo UI, Meiryo, Microsoft JhengHei UI, Microsoft JhengHei, Gulim, MS Gothic"
+          Target      = "Malgun Gothic, Yu Gothic UI, Meiryo UI, Meiryo, Microsoft JhengHei UI, Microsoft JhengHei, Gulim, MS Gothic, Apple SD Gothic Neo, AppleGothic"
           Scale       = "1.0" />
       <!-- Other -->
       <FontFamilyMap
           Unicode     = "FFE0-FFEE"
-          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, MS Gothic, Gulim"
+          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, MS Gothic, Gulim, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
           Scale       = "1.0" />
 
       <!-- Specials                    FFF0-FFFD -->
@@ -3418,36 +3418,36 @@
       <FontFamilyMap
           Unicode     = "20000-2A6DF"
           Language    = "zh-Hans"
-          Target      = "SimSun-ExtB"
+          Target      = "SimSun-ExtB, PingFang SC, Hiragino Sans GB, Heiti SC, Songti SC"
           Scale       = "1.0" />
       <!-- CHT -->
       <FontFamilyMap
           Unicode     = "20000-2A6DF"
           Language    = "zh-Hant"
-          Target      = "MingLiU-ExtB"
+          Target      = "MingLiU-ExtB, PingFang TC, Heiti TC, Songti TC"
           Scale       = "1.0" />
       <!-- Hong Kong -->
       <FontFamilyMap
           Unicode     = "20000-2A6DF"
           Language    = "zh-HK"
-          Target      = "MingLiU_HKSCS-ExtB, MingLiU-ExtB"
+          Target      = "MingLiU_HKSCS-ExtB, MingLiU-ExtB, PingFang HK, PingFang TC, Heiti TC, Songti TC"
           Scale       = "1.0" />
       <!-- JA -->
       <FontFamilyMap
           Unicode     = "20000-2A6DF"
           Language    = "ja"
-          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, MS Gothic, MingLiU-ExtB"
+          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, MS Gothic, MingLiU-ExtB, Hiragino Sans, Hiragino Kaku Gothic ProN, Hiragino Sans GB"
           Scale       = "1.0" />
       <!-- KO -->
       <FontFamilyMap
           Unicode     = "20000-2A6DF"
           Language    = "ko"
-          Target      = "MingLiU-ExtB"
+          Target      = "MingLiU-ExtB, Apple SD Gothic Neo, AppleGothic"
           Scale       = "1.0" />
       <!-- Other -->
       <FontFamilyMap
           Unicode     = "20000-2A6DF"
-          Target      = "MingLiU-ExtB"
+          Target      = "MingLiU-ExtB, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
           Scale       = "1.0" />
 
       <!-- (unassigned)                 2A6E0-2A6FF -->
@@ -3463,42 +3463,42 @@
       <FontFamilyMap
           Unicode     = "2A700-2B81F"
           Language    = "zh-HK"
-          Target      = "MingLiU_HKSCS-ExtB, MingLiU-ExtB"
+          Target      = "MingLiU_HKSCS-ExtB, MingLiU-ExtB, PingFang HK, PingFang TC, Heiti TC, Songti TC"
           Scale       = "1.0" />
       <!-- CHS -->
       <FontFamilyMap
           Unicode     = "2A700-2B81F"
           Language    = "zh-Hans"
-          Target      = "MingLiU-ExtB"
+          Target      = "MingLiU-ExtB, PingFang SC, Hiragino Sans GB, Heiti SC, Songti SC"
           Scale       = "1.0" />
       <!-- CHT -->
       <FontFamilyMap
           Unicode     = "2A700-2B81F"
           Language    = "zh-Hant"
-          Target      = "MingLiU-ExtB"
+          Target      = "MingLiU-ExtB, PingFang TC, Heiti TC, Songti TC"
           Scale       = "1.0" />
       <!-- JA -->
       <FontFamilyMap
           Unicode     = "2A700-2B81F"
           Language    = "ja"
-          Target      = "MingLiU-ExtB"
+          Target      = "MingLiU-ExtB, Hiragino Sans, Hiragino Kaku Gothic ProN, Hiragino Sans GB"
           Scale       = "1.0" />
       <!-- KO -->
       <FontFamilyMap
           Unicode     = "2A700-2B81F"
           Language    = "ko"
-          Target      = "MingLiU-ExtB"
+          Target      = "MingLiU-ExtB, Apple SD Gothic Neo, AppleGothic"
           Scale       = "1.0" />
       <!-- Other -->
       <FontFamilyMap
           Unicode     = "2A700-2B81F"
-          Target      = "MingLiU-ExtB"
+          Target      = "MingLiU-ExtB, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
           Scale       = "1.0" />
 
       <!-- CJK Unified Ideographs Ext E 2B820-2CEAF -->
       <FontFamilyMap
           Unicode     = "2B820-2CEAF"
-          Target      = "SimSun-ExtB"
+          Target      = "SimSun-ExtB, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
           Scale       = "1.0" />
 
       <!-- (unassigned)                 2CEB0-2F7FF -->
@@ -3513,36 +3513,36 @@
       <FontFamilyMap
           Unicode     = "2F800-2FA1F"
           Language    = "zh-Hans"
-          Target      = "SimSun-ExtB, MingLiU-ExtB, Yu Gothic UI, Meiryo UI, Meiryo"
+          Target      = "SimSun-ExtB, MingLiU-ExtB, Yu Gothic UI, Meiryo UI, Meiryo, PingFang SC, Hiragino Sans GB, Heiti SC, Songti SC"
           Scale       = "1.0" />
       <!-- Hong Kong -->
       <FontFamilyMap
           Unicode     = "2F800-2FA1F"
           Language    = "zh-HK"
-          Target      = "MingLiU_HKSCS-ExtB, MingLiU-ExtB, Yu Gothic UI, Meiryo UI, Meiryo"
+          Target      = "MingLiU_HKSCS-ExtB, MingLiU-ExtB, Yu Gothic UI, Meiryo UI, Meiryo, PingFang HK, PingFang TC, Heiti TC, Songti TC"
           Scale       = "1.0" />
       <!-- CHT -->
       <FontFamilyMap
           Unicode     = "2F800-2FA1F"
           Language    = "zh-Hant"
-          Target      = "MingLiU-ExtB, Yu Gothic UI, Meiryo UI, Meiryo"
+          Target      = "MingLiU-ExtB, Yu Gothic UI, Meiryo UI, Meiryo, PingFang TC, Heiti TC, Songti TC"
           Scale       = "1.0" />
       <!-- JA -->
       <FontFamilyMap
           Unicode     = "2F800-2FA1F"
           Language    = "ja"
-          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, MingLiU-ExtB"
+          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, MingLiU-ExtB, Hiragino Sans, Hiragino Kaku Gothic ProN, Hiragino Sans GB"
           Scale       = "1.0" />
       <!-- KO -->
       <FontFamilyMap
           Unicode     = "2F800-2FA1F"
           Language    = "ko"
-          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, MingLiU-ExtB"
+          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, MingLiU-ExtB, Apple SD Gothic Neo, AppleGothic"
           Scale       = "1.0" />
       <!-- Other -->
       <FontFamilyMap
           Unicode     = "2F800-2FA1F"
-          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, MingLiU-ExtB"
+          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, MingLiU-ExtB, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
           Scale       = "1.0" />
 
     </FontFamily.FamilyMaps>
@@ -4110,7 +4110,7 @@
       <!-- Kangxi Radicals            2F00-2FDF -->
       <FontFamilyMap
           Unicode     = "2F00-2FDF"
-          Target      = "Yu Gothic UI, Meiryo UI, Meiryo"
+          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
           Scale       = "1.0" />
 
       <!-- (unassigned)               2FE0-2FEF -->
@@ -4118,7 +4118,7 @@
       <!-- Ideographic Description Char     2FF0-2FFF -->
       <FontFamilyMap
           Unicode     = "2FF0-2FFF"
-          Target      = "Microsoft YaHei UI, SimSun"
+          Target      = "Microsoft YaHei UI, SimSun, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
           Scale       = "1.0" />
 
       <!--
@@ -4142,7 +4142,7 @@
       <FontFamilyMap
           Unicode     = "3000-30FF, 31F0-31FF"
           Language    = "zh-Hans"
-          Target      = "Microsoft YaHei UI, Microsoft YaHei, SimSun, MS Gothic, Arial Unicode MS"
+          Target      = "Microsoft YaHei UI, Microsoft YaHei, SimSun, MS Gothic, Arial Unicode MS, PingFang SC, Hiragino Sans GB, Heiti SC, Songti SC"
           Scale       = "1.0" />
 
       <!-- CHT -->
@@ -4156,7 +4156,7 @@
       <FontFamilyMap
           Unicode     = "3000-30FF, 31F0-31FF"
           Language    = "zh-Hant"
-          Target      = "Microsoft JhengHei UI, Microsoft JhengHei, MingLiu, MS Gothic, Arial Unicode MS"
+          Target      = "Microsoft JhengHei UI, Microsoft JhengHei, MingLiu, MS Gothic, Arial Unicode MS, PingFang TC, Heiti TC, Songti TC"
           Scale       = "1.0" />
 
       <!-- KO -->
@@ -4164,20 +4164,20 @@
       <FontFamilyMap
           Unicode     = "3000-30FF, 31F0-31FF"
           Language    = "ko"
-          Target      = "Malgun Gothic, Yu Gothic UI, Meiryo UI, Meiryo, Microsoft YaHei UI, Microsoft YaHei, Gulim, MS Gothic, MingLiu, Arial Unicode MS"
+          Target      = "Malgun Gothic, Yu Gothic UI, Meiryo UI, Meiryo, Microsoft YaHei UI, Microsoft YaHei, Gulim, MS Gothic, MingLiu, Arial Unicode MS, Apple SD Gothic Neo, AppleGothic"
           Scale       = "1.0" />
 
       <!-- JA -->
       <FontFamilyMap
           Unicode     = "3000-30FF, 31F0-31FF"
           Language    = "ja"
-          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, Microsoft YaHei UI, Microsoft YaHei, MS Gothic, MingLiu, Arial Unicode MS"
+          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, Microsoft YaHei UI, Microsoft YaHei, MS Gothic, MingLiu, Arial Unicode MS, Hiragino Sans, Hiragino Kaku Gothic ProN, Hiragino Sans GB"
           Scale       = "1.0" />
 
       <!-- Other -->
       <FontFamilyMap
           Unicode     = "3000-30FF, 31F0-31FF"
-          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, Microsoft YaHei UI, Microsoft YaHei, MS Gothic, MingLiu, Arial Unicode MS"
+          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, Microsoft YaHei UI, Microsoft YaHei, MS Gothic, MingLiu, Arial Unicode MS, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
           Scale       = "1.0" />
 
       <!--
@@ -4188,30 +4188,30 @@
       <FontFamilyMap
           Unicode     = "3100-312F, 31A0-31BF"
           Language    = "zh-Hans"
-          Target      = "Microsoft YaHei UI, Microsoft YaHei, SimSun, Arial Unicode MS"
+          Target      = "Microsoft YaHei UI, Microsoft YaHei, SimSun, Arial Unicode MS, PingFang SC, Hiragino Sans GB, Heiti SC, Songti SC"
           Scale       = "1.0" />
       <!-- CHT -->
       <FontFamilyMap
           Unicode     = "3100-312F, 31A0-31BF"
           Language    = "zh-Hant"
-          Target      = "Microsoft JhengHei UI, Microsoft JhengHei, MingLiU, Arial Unicode MS"
+          Target      = "Microsoft JhengHei UI, Microsoft JhengHei, MingLiU, Arial Unicode MS, PingFang TC, Heiti TC, Songti TC"
           Scale       = "1.0" />
       <!-- JA -->
       <FontFamilyMap
           Unicode     = "3100-312F, 31A0-31BF"
           Language    = "ja"
-          Target      = "Microsoft JhengHei UI, Microsoft JhengHei, MingLiu, Arial Unicode MS"
+          Target      = "Microsoft JhengHei UI, Microsoft JhengHei, MingLiu, Arial Unicode MS, Hiragino Sans, Hiragino Kaku Gothic ProN, Hiragino Sans GB"
           Scale       = "1.0" />
       <!-- KO -->
       <FontFamilyMap
           Unicode     = "3100-312F, 31A0-31BF"
           Language    = "ko"
-          Target      = "Microsoft JhengHei UI, Microsoft JhengHei, MingLiU, Arial Unicode MS"
+          Target      = "Microsoft JhengHei UI, Microsoft JhengHei, MingLiU, Arial Unicode MS, Apple SD Gothic Neo, AppleGothic"
           Scale       = "1.0" />
       <!-- Other -->
       <FontFamilyMap
           Unicode     = "3100-312F, 31A0-31BF"
-          Target      = "Microsoft JhengHei UI, Microsoft JhengHei, MingLiu, Arial Unicode MS"
+          Target      = "Microsoft JhengHei UI, Microsoft JhengHei, MingLiu, Arial Unicode MS, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
           Scale       = "1.0" />
 
       <!-- Hangul Compatibility Jamo (3130-318F): see above, by 1100-11FF -->
@@ -4221,37 +4221,37 @@
       <FontFamilyMap
           Unicode     = "3190-319F"
           Language    = "zh-Hans"
-          Target      = "Microsoft YaHei UI, Microsoft YaHei, MingLiU"
+          Target      = "Microsoft YaHei UI, Microsoft YaHei, MingLiU, PingFang SC, Hiragino Sans GB, Heiti SC, Songti SC"
           Scale       = "1.0" />
       <!-- CHT -->
       <FontFamilyMap
           Unicode     = "3190-319F"
           Language    = "zh-Hant"
-          Target      = "Microsoft JhengHei UI, Microsoft JhengHei, MingLiU"
+          Target      = "Microsoft JhengHei UI, Microsoft JhengHei, MingLiU, PingFang TC, Heiti TC, Songti TC"
           Scale       = "1.0" />
       <!-- JA -->
       <FontFamilyMap
           Unicode     = "3190-319F"
           Language    = "ja"
-          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, Microsoft JhengHei UI, Microsoft JhengHei, MingLiU"
+          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, Microsoft JhengHei UI, Microsoft JhengHei, MingLiU, Hiragino Sans, Hiragino Kaku Gothic ProN, Hiragino Sans GB"
           Scale       = "1.0" />
       <!-- KO -->
       <FontFamilyMap
           Unicode     = "3190-319F"
           Language    = "ko"
-          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, Microsoft JhengHei UI, Microsoft JhengHei, MingLiU"
+          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, Microsoft JhengHei UI, Microsoft JhengHei, MingLiU, Apple SD Gothic Neo, AppleGothic"
           Scale       = "1.0" />
       <!-- Other -->
       <FontFamilyMap
           Unicode     = "3190-319F"
-          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, Microsoft JhengHei UI, Microsoft JhengHei, MingLiU"
+          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, Microsoft JhengHei UI, Microsoft JhengHei, MingLiU, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
           Scale       = "1.0" />
 
       <!-- CJK Strokes                31C0-31EF -->
       <!-- Not supported in any font on XP. MingLiU in Vista; Microsoft JhengHei UI in 8.1 -->
       <FontFamilyMap
           Unicode     = "31C0-31EF"
-          Target      = "Microsoft JhengHei UI, MingLiU"
+          Target      = "Microsoft JhengHei UI, MingLiU, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
           Scale       = "1.0" />
 
       <!-- Katakana Phonetic Ext. (31F0-31FF): see above, by 3000-303F -->
@@ -4287,30 +4287,30 @@
       <FontFamilyMap
           Unicode     = "3220-324F, 3251-325F, 3280-32CB, 32D0-3376, 337B-337F, 33E0-33FF"
           Language    = "zh-Hans"
-          Target      = "Microsoft YaHei UI, Microsoft YaHei, Yu Gothic UI, Meiryo UI, Meiryo, Segoe UI Symbol, SimSun, MS Gothic"
+          Target      = "Microsoft YaHei UI, Microsoft YaHei, Yu Gothic UI, Meiryo UI, Meiryo, Segoe UI Symbol, SimSun, MS Gothic, PingFang SC, Hiragino Sans GB, Heiti SC, Songti SC"
           Scale       = "1.0" />
       <!-- CHT -->
       <FontFamilyMap
           Unicode     = "3220-324F, 3251-325F, 3280-32CB, 32D0-3376, 337B-337F, 33E0-33FF"
           Language    = "zh-Hant"
-          Target      = "Microsoft JhengHei UI, Microsoft JhengHei, Yu Gothic UI, Meiryo UI, Meiryo, Segoe UI Symbol, MingLiU, MS Gothic"
+          Target      = "Microsoft JhengHei UI, Microsoft JhengHei, Yu Gothic UI, Meiryo UI, Meiryo, Segoe UI Symbol, MingLiU, MS Gothic, PingFang TC, Heiti TC, Songti TC"
           Scale       = "1.0" />
       <!-- JA -->
       <FontFamilyMap
           Unicode     = "3220-324F, 3251-325F, 3280-32CB, 32D0-3376, 337B-337F, 33E0-33FF"
           Language    = "ja"
-          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, Segoe UI Symbol, MS Gothic"
+          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, Segoe UI Symbol, MS Gothic, Hiragino Sans, Hiragino Kaku Gothic ProN, Hiragino Sans GB"
           Scale       = "1.0" />
       <!-- KO -->
       <FontFamilyMap
           Unicode     = "3220-324F, 3251-325F, 3280-32CB, 32D0-3376, 337B-337F, 33E0-33FF"
           Language    = "ko"
-          Target      = "Segoe UI Symbol, Yu Gothic UI, Meiryo UI, Meiryo, MS Gothic"
+          Target      = "Segoe UI Symbol, Yu Gothic UI, Meiryo UI, Meiryo, MS Gothic, Apple SD Gothic Neo, AppleGothic"
           Scale       = "1.0" />
       <!-- Other -->
       <FontFamilyMap
           Unicode     = "3220-324F, 3251-325F, 3280-32CB, 32D0-3376, 337B-337F, 33E0-33FF"
-          Target      = "Segoe UI Symbol, Yu Gothic UI, Meiryo UI, Meiryo, MS Gothic"
+          Target      = "Segoe UI Symbol, Yu Gothic UI, Meiryo UI, Meiryo, MS Gothic, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
           Scale       = "1.0" />
 
       <!--
@@ -4322,7 +4322,7 @@
       <!-- Windows 8+ -->
       <FontFamilyMap
           Unicode     = "3250, 32CC-32CF, 3377-337A"
-          Target      = "Yu Gothic UI, Meiryo UI"
+          Target      = "Yu Gothic UI, Meiryo UI, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
           Scale       = "1.0" />
 
       <!-- CJK Comp Square Latin Abr   3380-33DF -->
@@ -4331,30 +4331,30 @@
       <FontFamilyMap
           Unicode     = "3380-33DF"
           Language    = "zh-Hans"
-          Target      = "Microsoft YaHei UI, Microsoft YaHei, Microsoft JhengHei UI, Microsoft JhengHei, Yu Gothic UI, Meiryo UI, Meiryo, Malgun Gothic, Segoe UI Symbol, SimSun, MS Gothic"
+          Target      = "Microsoft YaHei UI, Microsoft YaHei, Microsoft JhengHei UI, Microsoft JhengHei, Yu Gothic UI, Meiryo UI, Meiryo, Malgun Gothic, Segoe UI Symbol, SimSun, MS Gothic, PingFang SC, Hiragino Sans GB, Heiti SC, Songti SC"
           Scale       = "1.0" />
       <!-- CHT -->
       <FontFamilyMap
           Unicode     = "3380-33DF"
           Language    = "zh-Hant"
-          Target      = "Microsoft JhengHei UI, Microsoft JhengHei, Yu Gothic UI, Meiryo UI, Meiryo, Malgun Gothic, Segoe UI Symbol, PMingLiU, MS Gothic"
+          Target      = "Microsoft JhengHei UI, Microsoft JhengHei, Yu Gothic UI, Meiryo UI, Meiryo, Malgun Gothic, Segoe UI Symbol, PMingLiU, MS Gothic, PingFang TC, Heiti TC, Songti TC"
           Scale       = "1.0" />
       <!-- KO -->
       <FontFamilyMap
           Unicode     = "3380-33DF"
           Language    = "ko"
-          Target      = "Malgun Gothic, Yu Gothic UI, Meiryo UI, Meiryo, Segoe UI Symbol, Gulim, MS Gothic"
+          Target      = "Malgun Gothic, Yu Gothic UI, Meiryo UI, Meiryo, Segoe UI Symbol, Gulim, MS Gothic, Apple SD Gothic Neo, AppleGothic"
           Scale       = "1.0" />
       <!-- JA -->
       <FontFamilyMap
           Unicode     = "3380-33DF"
           Language    = "ja"
-          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, Segoe UI Symbol, MS Gothic"
+          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, Segoe UI Symbol, MS Gothic, Hiragino Sans, Hiragino Kaku Gothic ProN, Hiragino Sans GB"
           Scale       = "1.0" />
       <!-- Other -->
       <FontFamilyMap
           Unicode     = "3380-33DF"
-          Target      = "Segoe UI Symbol, Yu Gothic UI, Meiryo UI, Meiryo, MS Gothic"
+          Target      = "Segoe UI Symbol, Yu Gothic UI, Meiryo UI, Meiryo, MS Gothic, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
           Scale       = "1.0" />
 
       <!--
@@ -4401,7 +4401,7 @@
       <!-- Windows 7+ -->
       <FontFamilyMap
           Unicode     = "4DC0-4DFF"
-          Target      = "Segoe UI Symbol"
+          Target      = "Segoe UI Symbol, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
           Scale       = "1.0" />
 
       <!--
@@ -4561,30 +4561,30 @@
       <FontFamilyMap
           Unicode     = "FE10-FE1F"
           Language    = "zh-Hans"
-          Target      = "Microsoft YaHei UI, Microsoft YaHei"
+          Target      = "Microsoft YaHei UI, Microsoft YaHei, PingFang SC, Hiragino Sans GB, Heiti SC, Songti SC"
           Scale       = "1.0" />
       <!-- CHT -->
       <FontFamilyMap
           Unicode     = "FE10-FE1F"
           Language    = "zh-Hant"
-          Target      = "Microsoft JhengHei UI, Microsoft JhengHei"
+          Target      = "Microsoft JhengHei UI, Microsoft JhengHei, PingFang TC, Heiti TC, Songti TC"
           Scale       = "1.0" />
       <!-- KO -->
       <FontFamilyMap
           Unicode     = "FE10-FE1F"
           Language    = "ko"
-          Target      = "Malgun Gothic, Microsoft JhengHei UI, Microsoft JhengHei"
+          Target      = "Malgun Gothic, Microsoft JhengHei UI, Microsoft JhengHei, Apple SD Gothic Neo, AppleGothic, Hiragino Sans GB"
           Scale       = "1.0" />
       <!-- JA -->
       <FontFamilyMap
           Unicode     = "FE10-FE1F"
           Language    = "ja"
-          Target      = "Microsoft JhengHei UI, Microsoft JhengHei"
+          Target      = "Microsoft JhengHei UI, Microsoft JhengHei, Hiragino Sans, Hiragino Kaku Gothic ProN, Hiragino Sans GB"
           Scale       = "1.0" />
       <!-- Other -->
       <FontFamilyMap
           Unicode     = "FE10-FE1F"
-          Target      = "Microsoft JhengHei UI, Microsoft JhengHei"
+          Target      = "Microsoft JhengHei UI, Microsoft JhengHei, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
           Scale       = "1.0" />
 
       <!-- Combining Half Marks (FE20-FE2F): see above, by 0000-007F -->
@@ -4597,30 +4597,30 @@
       <FontFamilyMap
           Unicode     = "FE30-FE6F"
           Language    = "zh-Hans"
-          Target      = "Microsoft YaHei UI, Microsoft YaHei, SimSun"
+          Target      = "Microsoft YaHei UI, Microsoft YaHei, SimSun, PingFang SC, Hiragino Sans GB, Heiti SC, Songti SC"
           Scale       = "1.0" />
       <!-- CHT -->
       <FontFamilyMap
           Unicode     = "FE30-FE6F"
           Language    = "zh-Hant"
-          Target      = "Microsoft JhengHei UI, Microsoft JhengHei, MingLiU"
+          Target      = "Microsoft JhengHei UI, Microsoft JhengHei, MingLiU, PingFang TC, Heiti TC, Songti TC"
           Scale       = "1.0" />
       <!-- JA -->
       <FontFamilyMap
           Unicode     = "FE30-FE6F"
           Language    = "ja"
-          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, Microsoft JhengHei UI, Microsoft JhengHei, MingLiu"
+          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, Microsoft JhengHei UI, Microsoft JhengHei, MingLiu, Hiragino Sans, Hiragino Kaku Gothic ProN, Hiragino Sans GB"
           Scale       = "1.0" />
       <!-- KO -->
       <FontFamilyMap
           Unicode     = "FE30-FE6F"
           Language    = "ko"
-          Target      = "Malgun Gothic, Microsoft JhengHei UI, Microsoft JhengHei, MingLiu"
+          Target      = "Malgun Gothic, Microsoft JhengHei UI, Microsoft JhengHei, MingLiu, Apple SD Gothic Neo, AppleGothic"
           Scale       = "1.0" />
       <!-- Other -->
       <FontFamilyMap
           Unicode     = "FE30-FE6F"
-          Target      = "Microsoft JhengHei UI, Microsoft JhengHei, MingLiu"
+          Target      = "Microsoft JhengHei UI, Microsoft JhengHei, MingLiu, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
           Scale       = "1.0" />
 
       <!-- Arabic Pres Forms-B FE70-FEFE: see above, by 0000-007F -->
@@ -4639,30 +4639,30 @@
       <FontFamilyMap
           Unicode     = "FF00-FF60"
           Language    = "zh-Hans"
-          Target      = "Microsoft YaHei UI, Microsoft YaHei, MS Gothic"
+          Target      = "Microsoft YaHei UI, Microsoft YaHei, MS Gothic, PingFang SC, Hiragino Sans GB, Heiti SC, Songti SC"
           Scale       = "1.0" />
       <!-- CHT -->
       <FontFamilyMap
           Unicode     = "FF00-FF60"
           Language    = "zh-Hant"
-          Target      = "Microsoft JhengHei UI, Microsoft JhengHei, MS Gothic"
+          Target      = "Microsoft JhengHei UI, Microsoft JhengHei, MS Gothic, PingFang TC, Heiti TC, Songti TC"
           Scale       = "1.0" />
       <!-- KO -->
       <FontFamilyMap
           Unicode     = "FF00-FF60"
           Language    = "ko"
-          Target      = "Malgun Gothic, Yu Gothic UI, Meiryo UI, Meiryo, Gulim, MS Gothic"
+          Target      = "Malgun Gothic, Yu Gothic UI, Meiryo UI, Meiryo, Gulim, MS Gothic, Apple SD Gothic Neo, AppleGothic"
           Scale       = "1.0" />
       <!-- JA -->
       <FontFamilyMap
           Unicode     = "FF00-FF60"
           Language    = "ja"
-          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, MS Gothic"
+          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, MS Gothic, Hiragino Sans, Hiragino Kaku Gothic ProN, Hiragino Sans GB"
           Scale       = "1.0" />
       <!-- Other -->
       <FontFamilyMap
           Unicode     = "FF00-FF60"
-          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, MS Gothic"
+          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, MS Gothic, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
           Scale       = "1.0" />
 
       <!--
@@ -4673,30 +4673,30 @@
       <FontFamilyMap
           Unicode     = "FF61-FF9F"
           Language    = "zh-Hans"
-          Target      = "Microsoft YaHei UI, Microsoft YaHei, MingLiU"
+          Target      = "Microsoft YaHei UI, Microsoft YaHei, MingLiU, PingFang SC, Hiragino Sans GB, Heiti SC, Songti SC"
           Scale       = "1.0" />
       <!-- CHT -->
       <FontFamilyMap
           Unicode     = "FF61-FF9F"
           Language    = "zh-Hant"
-          Target      = "Microsoft JhengHei UI, Microsoft JhengHei, MingLiU"
+          Target      = "Microsoft JhengHei UI, Microsoft JhengHei, MingLiU, PingFang TC, Heiti TC, Songti TC"
           Scale       = "1.0" />
       <!-- JA -->
       <FontFamilyMap
           Unicode     = "FF61-FF9F"
           Language    = "ja"
-          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, MS Gothic"
+          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, MS Gothic, Hiragino Sans, Hiragino Kaku Gothic ProN, Hiragino Sans GB"
           Scale       = "1.0" />
       <!-- KO -->
       <FontFamilyMap
           Unicode     = "FF61-FF9F"
           Language    = "ko"
-          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, MS Gothic"
+          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, MS Gothic, Apple SD Gothic Neo, AppleGothic"
           Scale       = "1.0" />
       <!-- Other -->
       <FontFamilyMap
           Unicode     = "FF61-FF9F"
-          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, MS Gothic"
+          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, MS Gothic, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
           Scale       = "1.0" />
 
       <!-- Half Full Forms (Hangul)    FFA0-FFDF -->
@@ -4704,30 +4704,30 @@
       <FontFamilyMap
           Unicode     = "FFA0-FFDC"
           Language    = "zh-Hans"
-          Target      = "Microsoft YaHei UI, Microsoft YaHei, Microsoft JhengHei UI, Microsoft JhengHei"
+          Target      = "Microsoft YaHei UI, Microsoft YaHei, Microsoft JhengHei UI, Microsoft JhengHei, PingFang SC, Hiragino Sans GB, Heiti SC, Songti SC"
           Scale       = "1.0" />
       <!-- CHT -->
       <FontFamilyMap
           Unicode     = "FFA0-FFDC"
           Language    = "zh-Hant"
-          Target      = "Microsoft JhengHei UI, Microsoft JhengHei"
+          Target      = "Microsoft JhengHei UI, Microsoft JhengHei, PingFang TC, Heiti TC, Songti TC"
           Scale       = "1.0" />
       <!-- JA -->
       <FontFamilyMap
           Unicode     = "FFA0-FFDC"
           Language    = "ja"
-          Target      = "Microsoft JhengHei UI, Microsoft JhengHei"
+          Target      = "Microsoft JhengHei UI, Microsoft JhengHei, Hiragino Sans, Hiragino Kaku Gothic ProN, Hiragino Sans GB"
           Scale       = "1.0" />
       <!-- KO -->
       <FontFamilyMap
           Unicode     = "FFA0-FFDC"
           Language    = "ko"
-          Target      = "Malgun Gothic, Microsoft JhengHei UI, Microsoft JhengHei"
+          Target      = "Malgun Gothic, Microsoft JhengHei UI, Microsoft JhengHei, Apple SD Gothic Neo, AppleGothic"
           Scale       = "1.0" />
       <!-- Other -->
       <FontFamilyMap
           Unicode     = "FFA0-FFDC"
-          Target      = "Microsoft JhengHei UI, Microsoft JhengHei"
+          Target      = "Microsoft JhengHei UI, Microsoft JhengHei, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
           Scale       = "1.0" />
 
       <!-- Half Full (symbol variants) FFE0-FFEF -->
@@ -4735,30 +4735,30 @@
       <FontFamilyMap
           Unicode     = "FFE0-FFEE"
           Language    = "zh-Hans"
-          Target      = "Microsoft YaHei UI, Microsoft YaHei, MS Gothic, Gulim"
+          Target      = "Microsoft YaHei UI, Microsoft YaHei, MS Gothic, Gulim, PingFang SC, Hiragino Sans GB, Heiti SC, Songti SC"
           Scale       = "1.0" />
       <!-- CHT -->
       <FontFamilyMap
           Unicode     = "FFE0-FFEE"
           Language    = "zh-Hant"
-          Target      = "Microsoft JhengHei UI, Microsoft JhengHei, MS Gothic, Gulim"
+          Target      = "Microsoft JhengHei UI, Microsoft JhengHei, MS Gothic, Gulim, PingFang TC, Heiti TC, Songti TC"
           Scale       = "1.0" />
       <!-- JA -->
       <FontFamilyMap
           Unicode     = "FFE0-FFEE"
           Language    = "ja"
-          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, MS Gothic, Gulim"
+          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, MS Gothic, Gulim, Hiragino Sans, Hiragino Kaku Gothic ProN, Hiragino Sans GB"
           Scale       = "1.0" />
       <!-- KO -->
       <FontFamilyMap
           Unicode     = "FFE0-FFEE"
           Language    = "ko"
-          Target      = "Malgun Gothic, Yu Gothic UI, Meiryo UI, Meiryo, Microsoft JhengHei UI, Microsoft JhengHei, Gulim, MS Gothic"
+          Target      = "Malgun Gothic, Yu Gothic UI, Meiryo UI, Meiryo, Microsoft JhengHei UI, Microsoft JhengHei, Gulim, MS Gothic, Apple SD Gothic Neo, AppleGothic"
           Scale       = "1.0" />
       <!-- Other -->
       <FontFamilyMap
           Unicode     = "FFE0-FFEE"
-          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, MS Gothic, Gulim"
+          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, MS Gothic, Gulim, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
           Scale       = "1.0" />
 
       <!-- Specials                    FFF0-FFFD -->
@@ -5052,36 +5052,36 @@
       <FontFamilyMap
           Unicode     = "20000-2A6DF"
           Language    = "zh-Hans"
-          Target      = "SimSun-ExtB"
+          Target      = "SimSun-ExtB, PingFang SC, Hiragino Sans GB, Heiti SC, Songti SC"
           Scale       = "1.0" />
       <!-- CHT -->
       <FontFamilyMap
           Unicode     = "20000-2A6DF"
           Language    = "zh-Hant"
-          Target      = "MingLiU-ExtB"
+          Target      = "MingLiU-ExtB, PingFang TC, Heiti TC, Songti TC"
           Scale       = "1.0" />
       <!-- Hong Kong -->
       <FontFamilyMap
           Unicode     = "20000-2A6DF"
           Language    = "zh-HK"
-          Target      = "MingLiU_HKSCS-ExtB, MingLiU-ExtB"
+          Target      = "MingLiU_HKSCS-ExtB, MingLiU-ExtB, PingFang HK, PingFang TC, Heiti TC, Songti TC"
           Scale       = "1.0" />
       <!-- JA -->
       <FontFamilyMap
           Unicode     = "20000-2A6DF"
           Language    = "ja"
-          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, MS Gothic, MingLiU-ExtB"
+          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, MS Gothic, MingLiU-ExtB, Hiragino Sans, Hiragino Kaku Gothic ProN, Hiragino Sans GB"
           Scale       = "1.0" />
       <!-- KO -->
       <FontFamilyMap
           Unicode     = "20000-2A6DF"
           Language    = "ko"
-          Target      = "MingLiU-ExtB"
+          Target      = "MingLiU-ExtB, Apple SD Gothic Neo, AppleGothic"
           Scale       = "1.0" />
       <!-- Other -->
       <FontFamilyMap
           Unicode     = "20000-2A6DF"
-          Target      = "MingLiU-ExtB"
+          Target      = "MingLiU-ExtB, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
           Scale       = "1.0" />
 
       <!-- (unassigned)                 2A6E0-2A6FF -->
@@ -5097,36 +5097,36 @@
       <FontFamilyMap
           Unicode     = "2A700-2B81F"
           Language    = "zh-HK"
-          Target      = "MingLiU_HKSCS-ExtB, MingLiU-ExtB"
+          Target      = "MingLiU_HKSCS-ExtB, MingLiU-ExtB, PingFang HK, PingFang TC, Heiti TC, Songti TC"
           Scale       = "1.0" />
       <!-- CHS -->
       <FontFamilyMap
           Unicode     = "2A700-2B81F"
           Language    = "zh-Hans"
-          Target      = "MingLiU-ExtB"
+          Target      = "MingLiU-ExtB, PingFang SC, Hiragino Sans GB, Heiti SC, Songti SC"
           Scale       = "1.0" />
       <!-- CHT -->
       <FontFamilyMap
           Unicode     = "2A700-2B81F"
           Language    = "zh-Hant"
-          Target      = "MingLiU-ExtB"
+          Target      = "MingLiU-ExtB, PingFang TC, Heiti TC, Songti TC"
           Scale       = "1.0" />
       <!-- JA -->
       <FontFamilyMap
           Unicode     = "2A700-2B81F"
           Language    = "ja"
-          Target      = "MingLiU-ExtB"
+          Target      = "MingLiU-ExtB, Hiragino Sans, Hiragino Kaku Gothic ProN, Hiragino Sans GB"
           Scale       = "1.0" />
       <!-- KO -->
       <FontFamilyMap
           Unicode     = "2A700-2B81F"
           Language    = "ko"
-          Target      = "MingLiU-ExtB"
+          Target      = "MingLiU-ExtB, Apple SD Gothic Neo, AppleGothic"
           Scale       = "1.0" />
       <!-- Other -->
       <FontFamilyMap
           Unicode     = "2A700-2B81F"
-          Target      = "MingLiU-ExtB"
+          Target      = "MingLiU-ExtB, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
           Scale       = "1.0" />
 
       <!-- (unassigned)                   2B820-2F7FF -->
@@ -5141,36 +5141,36 @@
       <FontFamilyMap
           Unicode     = "2F800-2FA1F"
           Language    = "zh-Hans"
-          Target      = "SimSun-ExtB, MingLiU-ExtB, Yu Gothic UI, Meiryo UI, Meiryo"
+          Target      = "SimSun-ExtB, MingLiU-ExtB, Yu Gothic UI, Meiryo UI, Meiryo, PingFang SC, Hiragino Sans GB, Heiti SC, Songti SC"
           Scale       = "1.0" />
       <!-- Hong Kong -->
       <FontFamilyMap
           Unicode     = "2F800-2FA1F"
           Language    = "zh-HK"
-          Target      = "MingLiU_HKSCS-ExtB, MingLiU-ExtB, Yu Gothic UI, Meiryo UI, Meiryo"
+          Target      = "MingLiU_HKSCS-ExtB, MingLiU-ExtB, Yu Gothic UI, Meiryo UI, Meiryo, PingFang HK, PingFang TC, Heiti TC, Songti TC"
           Scale       = "1.0" />
       <!-- CHT -->
       <FontFamilyMap
           Unicode     = "2F800-2FA1F"
           Language    = "zh-Hant"
-          Target      = "MingLiU-ExtB, Yu Gothic UI, Meiryo UI, Meiryo"
+          Target      = "MingLiU-ExtB, Yu Gothic UI, Meiryo UI, Meiryo, PingFang TC, Heiti TC, Songti TC"
           Scale       = "1.0" />
       <!-- JA -->
       <FontFamilyMap
           Unicode     = "2F800-2FA1F"
           Language    = "ja"
-          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, MingLiU-ExtB"
+          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, MingLiU-ExtB, Hiragino Sans, Hiragino Kaku Gothic ProN, Hiragino Sans GB"
           Scale       = "1.0" />
       <!-- KO -->
       <FontFamilyMap
           Unicode     = "2F800-2FA1F"
           Language    = "ko"
-          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, MingLiU-ExtB"
+          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, MingLiU-ExtB, Apple SD Gothic Neo, AppleGothic"
           Scale       = "1.0" />
       <!-- Other -->
       <FontFamilyMap
           Unicode     = "2F800-2FA1F"
-          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, MingLiU-ExtB"
+          Target      = "Yu Gothic UI, Meiryo UI, Meiryo, MingLiU-ExtB, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
           Scale       = "1.0" />
 
     </FontFamily.FamilyMaps>
@@ -5656,7 +5656,7 @@
       <!-- Kangxi Radicals             2F00-2FDF -->
       <FontFamilyMap
           Unicode          = "2F00-2FDF"
-          Target           = "Meiryo UI, Meiryo"
+          Target           = "Meiryo UI, Meiryo, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
           Scale            = "1.0"/>
 
       <!-- 2FE0-2FEF: unassigned -->
@@ -5664,7 +5664,7 @@
       <!-- Ideogr Description Char     2FF0-2FFF -->
       <FontFamilyMap
           Unicode          = "2FF0-2FFF"
-          Target           = "SimSun"
+          Target           = "SimSun, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
           Scale            = "1.0"/>
 
       <!--
@@ -5684,7 +5684,7 @@
       <FontFamilyMap
           Unicode          = "3000-30FF, 31F0-31FF"
           Language         = "zh-Hans"
-          Target           = "Microsoft YaHei UI, Microsoft YaHei, SimSun, MS Gothic, Arial Unicode MS"
+          Target           = "Microsoft YaHei UI, Microsoft YaHei, SimSun, MS Gothic, Arial Unicode MS, PingFang SC, Hiragino Sans GB, Heiti SC, Songti SC"
           Scale            = "1.0"/>
 
       <!-- CHT -->
@@ -5698,7 +5698,7 @@
       <FontFamilyMap
           Unicode          = "3000-30FF, 31F0-31FF"
           Language         = "zh-Hant"
-          Target           = "Microsoft JhengHei UI, Microsoft JhengHei, MingLiu, MS Gothic, Arial Unicode MS"
+          Target           = "Microsoft JhengHei UI, Microsoft JhengHei, MingLiu, MS Gothic, Arial Unicode MS, PingFang TC, Heiti TC, Songti TC"
           Scale            = "1.0"/>
 
       <!-- KO -->
@@ -5706,13 +5706,13 @@
       <FontFamilyMap
           Unicode          = "3000-30FF, 31F0-31FF"
           Language         = "ko"
-          Target           = "Malgun Gothic, Meiryo UI, Meiryo, Microsoft YaHei UI, Microsoft YaHei, Gulim, MS Gothic, MingLiu, Arial Unicode MS"
+          Target           = "Malgun Gothic, Meiryo UI, Meiryo, Microsoft YaHei UI, Microsoft YaHei, Gulim, MS Gothic, MingLiu, Arial Unicode MS, Apple SD Gothic Neo, AppleGothic"
           Scale            = "1.0"/>
 
       <!-- Other (include JA) -->
       <FontFamilyMap
           Unicode          = "3000-30FF, 31F0-31FF"
-          Target           = "Meiryo UI, Meiryo, Microsoft YaHei UI, Microsoft YaHei, MS Gothic, MingLiu, Arial Unicode MS"
+          Target           = "Meiryo UI, Meiryo, Microsoft YaHei UI, Microsoft YaHei, MS Gothic, MingLiu, Arial Unicode MS, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
           Scale            = "1.0"/>
 
       <!--
@@ -5722,18 +5722,18 @@
       <FontFamilyMap
           Unicode          = "3100-312F, 31A0-31BF"
           Language         = "zh-Hans"
-          Target           = "Microsoft YaHei UI, Microsoft YaHei, SimSun, Arial Unicode MS"
+          Target           = "Microsoft YaHei UI, Microsoft YaHei, SimSun, Arial Unicode MS, PingFang SC, Hiragino Sans GB, Heiti SC, Songti SC"
           Scale            = "1.0"/>
       <!-- CHT -->
       <FontFamilyMap
           Unicode          = "3100-312F, 31A0-31BF"
           Language         = "zh-Hant"
-          Target           = "Microsoft JhengHei UI, Microsoft JhengHei, MingLiU, Arial Unicode MS"
+          Target           = "Microsoft JhengHei UI, Microsoft JhengHei, MingLiU, Arial Unicode MS, PingFang TC, Heiti TC, Songti TC"
           Scale            = "1.0"/>
       <!-- Other (include JA and KO) -->
       <FontFamilyMap
           Unicode          = "3100-312F, 31A0-31BF"
-          Target           = "Microsoft JhengHei UI, Microsoft JhengHei, MingLiu, Arial Unicode MS"
+          Target           = "Microsoft JhengHei UI, Microsoft JhengHei, MingLiu, Arial Unicode MS, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
           Scale            = "1.0"/>
 
       <!-- Hangul Compatibility Jamo (3130-318F): see above, by 1100-11FF -->
@@ -5743,25 +5743,25 @@
       <FontFamilyMap
           Unicode          = "3190-319F"
           Language         = "zh-Hans"
-          Target           = "Microsoft YaHei UI, Microsoft YaHei, MingLiU"
+          Target           = "Microsoft YaHei UI, Microsoft YaHei, MingLiU, PingFang SC, Hiragino Sans GB, Heiti SC, Songti SC"
           Scale            = "1.0"/>
       <!-- CHT -->
       <FontFamilyMap
           Unicode          = "3190-319F"
           Language         = "zh-Hant"
-          Target           = "Microsoft JhengHei UI, Microsoft JhengHei, MingLiU"
+          Target           = "Microsoft JhengHei UI, Microsoft JhengHei, MingLiU, PingFang TC, Heiti TC, Songti TC"
           Scale            = "1.0"/>
       <!-- Other (includes JA and KO) -->
       <FontFamilyMap
           Unicode          = "3190-319F"
-          Target           = "Meiryo UI, Meiryo, Microsoft JhengHei UI, Microsoft JhengHei, MingLiU"
+          Target           = "Meiryo UI, Meiryo, Microsoft JhengHei UI, Microsoft JhengHei, MingLiU, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
           Scale            = "1.0"/>
 
       <!-- CJK Strokes                31C0-31EF -->
       <!-- Not supported in any font on XP. -->
       <FontFamilyMap
           Unicode          = "31C0-31EF"
-          Target           = "MingLiU"
+          Target           = "MingLiU, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
           Scale            = "1.0"/>
 
       <!-- Katakana Phonetic Ext. (31F0-31FF): see above, by 3000-303F -->
@@ -5793,24 +5793,24 @@
       <FontFamilyMap
           Unicode          = "3220-324F, 3251-325F, 3280-32CB, 32D0-3376, 337B-337F, 33E0-33FF"
           Language         = "zh-Hans"
-          Target           = "Microsoft YaHei UI, Microsoft YaHei, Meiryo UI, Meiryo, Segoe UI Symbol, SimSun, MS Gothic"
+          Target           = "Microsoft YaHei UI, Microsoft YaHei, Meiryo UI, Meiryo, Segoe UI Symbol, SimSun, MS Gothic, PingFang SC, Hiragino Sans GB, Heiti SC, Songti SC"
           Scale            = "1.0"/>
       <!-- CHT -->
       <FontFamilyMap
           Unicode          = "3220-324F, 3251-325F, 3280-32CB, 32D0-3376, 337B-337F, 33E0-33FF"
           Language         = "zh-Hant"
-          Target           = "Microsoft JhengHei UI, Microsoft JhengHei, Meiryo UI, Meiryo, Segoe UI Symbol, MingLiU, MS Gothic"
+          Target           = "Microsoft JhengHei UI, Microsoft JhengHei, Meiryo UI, Meiryo, Segoe UI Symbol, MingLiU, MS Gothic, PingFang TC, Heiti TC, Songti TC"
           Scale            = "1.0"/>
       <!-- JA -->
       <FontFamilyMap
           Unicode          = "3220-324F, 3251-325F, 3280-32CB, 32D0-3376, 337B-337F, 33E0-33FF"
           Language         = "ja"
-          Target           = "Meiryo UI, Meiryo, Segoe UI Symbol, MS Gothic"
+          Target           = "Meiryo UI, Meiryo, Segoe UI Symbol, MS Gothic, Hiragino Sans, Hiragino Kaku Gothic ProN, Hiragino Sans GB"
           Scale            = "1.0"/>
       <!-- Other (including KO) -->
       <FontFamilyMap
           Unicode          = "3220-324F, 3251-325F, 3280-32CB, 32D0-3376, 337B-337F, 33E0-33FF"
-          Target           = "Segoe UI Symbol, Meiryo UI, Meiryo, MS Gothic"
+          Target           = "Segoe UI Symbol, Meiryo UI, Meiryo, MS Gothic, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
           Scale            = "1.0"/>
 
       <!--
@@ -5821,7 +5821,7 @@
       <!-- Windows 8+ -->
       <FontFamilyMap
           Unicode          = "3250, 32CC-32CF, 3377-337A"
-          Target           = "Meiryo UI"
+          Target           = "Meiryo UI, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
           Scale            = "1.0"/>
 
       <!-- CJK Comp Square Latin Abr   3380-33DF -->
@@ -5830,29 +5830,29 @@
       <FontFamilyMap
           Unicode          = "3380-33DF"
           Language         = "zh-Hans"
-          Target           = "Microsoft YaHei UI, Microsoft YaHei, Microsoft JhengHei UI, Microsoft JhengHei, Meiryo UI, Meiryo, Malgun Gothic, Segoe UI Symbol, SimSun, MS Gothic"
+          Target           = "Microsoft YaHei UI, Microsoft YaHei, Microsoft JhengHei UI, Microsoft JhengHei, Meiryo UI, Meiryo, Malgun Gothic, Segoe UI Symbol, SimSun, MS Gothic, PingFang SC, Hiragino Sans GB, Heiti SC, Songti SC"
           Scale            = "1.0"/>
       <!-- CHT -->
       <FontFamilyMap
           Unicode          = "3380-33DF"
           Language         = "zh-Hant"
-          Target           = "Microsoft JhengHei UI, Microsoft JhengHei, Meiryo UI, Meiryo, Malgun Gothic, Segoe UI Symbol, PMingLiU, MS Gothic"
+          Target           = "Microsoft JhengHei UI, Microsoft JhengHei, Meiryo UI, Meiryo, Malgun Gothic, Segoe UI Symbol, PMingLiU, MS Gothic, PingFang TC, Heiti TC, Songti TC"
           Scale            = "1.0"/>
       <!-- KO -->
       <FontFamilyMap
           Unicode          = "3380-33DF"
           Language         = "ko"
-          Target           = "Malgun Gothic, Meiryo UI, Meiryo, Segoe UI Symbol, Gulim, MS Gothic"
+          Target           = "Malgun Gothic, Meiryo UI, Meiryo, Segoe UI Symbol, Gulim, MS Gothic, Apple SD Gothic Neo, AppleGothic"
           Scale            = "1.0"/>
       <!-- JA -->
       <FontFamilyMap
           Unicode          = "3380-33DF"
-          Target           = "Meiryo UI, Meiryo, Segoe UI Symbol, MS Gothic"
+          Target           = "Meiryo UI, Meiryo, Segoe UI Symbol, MS Gothic, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
           Scale            = "1.0"/>
       <!-- Other -->
       <FontFamilyMap
           Unicode          = "3380-33DF"
-          Target           = "Segoe UI Symbol, Meiryo UI, Meiryo, MS Gothic"
+          Target           = "Segoe UI Symbol, Meiryo UI, Meiryo, MS Gothic, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
           Scale            = "1.0"/>
 
       <!--
@@ -5898,7 +5898,7 @@
       <!-- Windows 7+ -->
       <FontFamilyMap
           Unicode          = "4DC0-4DFF"
-          Target           = "Segoe UI Symbol"
+          Target           = "Segoe UI Symbol, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
           Scale            = "1.0"/>
 
       <!--
@@ -6047,18 +6047,24 @@
       <FontFamilyMap
           Unicode          = "FE10-FE1F"
           Language         = "zh-Hans"
-          Target           = "Microsoft YaHei UI, Microsoft YaHei"
+          Target           = "Microsoft YaHei UI, Microsoft YaHei, PingFang SC, Hiragino Sans GB, Heiti SC, Songti SC"
+          Scale            = "1.0"/>
+      <!-- CHT -->
+      <FontFamilyMap
+          Unicode          = "FE10-FE1F"
+          Language         = "zh-Hant"
+          Target           = "Microsoft JhengHei UI, Microsoft JhengHei, PingFang TC, Heiti TC, Songti TC"
           Scale            = "1.0"/>
       <!-- KO -->
       <FontFamilyMap
           Unicode          = "FE10-FE1F"
           Language         = "ko"
-          Target           = "Malgun Gothic, Microsoft JhengHei UI, Microsoft JhengHei"
+          Target           = "Malgun Gothic, Microsoft JhengHei UI, Microsoft JhengHei, Apple SD Gothic Neo, AppleGothic, Hiragino Sans GB"
           Scale            = "1.0"/>
       <!-- Other (include CHT and JA) -->
       <FontFamilyMap
           Unicode          = "FE10-FE1F"
-          Target           = "Microsoft JhengHei UI, Microsoft JhengHei"
+          Target           = "Microsoft JhengHei UI, Microsoft JhengHei, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
           Scale            = "1.0"/>
 
       <!-- Combining Half Marks (FE20-FE2F): see above, by 0000-007F -->
@@ -6070,30 +6076,30 @@
       <FontFamilyMap
           Unicode          = "FE30-FE6F"
           Language         = "zh-Hans"
-          Target           = "Microsoft YaHei UI, Microsoft YaHei, SimSun"
+          Target           = "Microsoft YaHei UI, Microsoft YaHei, SimSun, PingFang SC, Hiragino Sans GB, Heiti SC, Songti SC"
           Scale            = "1.0"/>
       <!-- CHT -->
       <FontFamilyMap
           Unicode          = "FE30-FE6F"
           Language         = "zh-Hant"
-          Target           = "Microsoft JhengHei UI, Microsoft JhengHei, MingLiU"
+          Target           = "Microsoft JhengHei UI, Microsoft JhengHei, MingLiU, PingFang TC, Heiti TC, Songti TC"
           Scale            = "1.0"/>
       <!-- JA -->
       <FontFamilyMap
           Unicode          = "FE30-FE6F"
           Language         = "ja"
-          Target           = "Meiryo UI, Meiryo, Microsoft JhengHei UI, Microsoft JhengHei, MingLiu"
+          Target           = "Meiryo UI, Meiryo, Microsoft JhengHei UI, Microsoft JhengHei, MingLiu, Hiragino Sans, Hiragino Kaku Gothic ProN, Hiragino Sans GB"
           Scale            = "1.0"/>
       <!-- KO -->
       <FontFamilyMap
           Unicode          = "FE30-FE6F"
           Language         = "ko"
-          Target           = "Malgun Gothic, Microsoft JhengHei UI, Microsoft JhengHei, MingLiu"
+          Target           = "Malgun Gothic, Microsoft JhengHei UI, Microsoft JhengHei, MingLiu, Apple SD Gothic Neo, AppleGothic"
           Scale            = "1.0"/>
       <!-- Other -->
       <FontFamilyMap
           Unicode          = "FE30-FE6F"
-          Target           = "Microsoft JhengHei UI, Microsoft JhengHei, MingLiu"
+          Target           = "Microsoft JhengHei UI, Microsoft JhengHei, MingLiu, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
           Scale            = "1.0"/>
 
       <!-- Arabic Pres Forms-B FE70-FEFE: see above, by 0000-007F -->
@@ -6112,24 +6118,24 @@
       <FontFamilyMap
           Unicode          = "FF00-FF60"
           Language         = "zh-Hans"
-          Target           = "Microsoft YaHei UI, Microsoft YaHei, MS Gothic"
+          Target           = "Microsoft YaHei UI, Microsoft YaHei, MS Gothic, PingFang SC, Hiragino Sans GB, Heiti SC, Songti SC"
           Scale            = "1.0"/>
       <!-- CHT -->
       <FontFamilyMap
           Unicode          = "FF00-FF60"
           Language         = "zh-Hant"
-          Target           = "Microsoft JhengHei UI, Microsoft JhengHei, MS Gothic"
+          Target           = "Microsoft JhengHei UI, Microsoft JhengHei, MS Gothic, PingFang TC, Heiti TC, Songti TC"
           Scale            = "1.0"/>
       <!-- KO -->
       <FontFamilyMap
           Unicode          = "FF00-FF60"
           Language         = "ko"
-          Target           = "Malgun Gothic, Meiryo UI, Meiryo, Gulim, MS Gothic"
+          Target           = "Malgun Gothic, Meiryo UI, Meiryo, Gulim, MS Gothic, Apple SD Gothic Neo, AppleGothic"
           Scale            = "1.0"/>
       <!-- Other (include JA) -->
       <FontFamilyMap
           Unicode          = "FF00-FF60"
-          Target           = "Meiryo UI, Meiryo, MS Gothic"
+          Target           = "Meiryo UI, Meiryo, MS Gothic, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
           Scale            = "1.0"/>
 
       <!--
@@ -6139,18 +6145,18 @@
       <FontFamilyMap
           Unicode          = "FF61-FF9F"
           Language         = "zh-Hans"
-          Target           = "Microsoft YaHei UI, Microsoft YaHei, MingLiU"
+          Target           = "Microsoft YaHei UI, Microsoft YaHei, MingLiU, PingFang SC, Hiragino Sans GB, Heiti SC, Songti SC"
           Scale            = "1.0"/>
       <!-- CHT -->
       <FontFamilyMap
           Unicode          = "FF61-FF9F"
           Language         = "zh-Hant"
-          Target           = "Microsoft JhengHei UI, Microsoft JhengHei, MingLiU"
+          Target           = "Microsoft JhengHei UI, Microsoft JhengHei, MingLiU, PingFang TC, Heiti TC, Songti TC"
           Scale            = "1.0"/>
       <!-- Other (include JA and KO) -->
       <FontFamilyMap
           Unicode          = "FF61-FF9F"
-          Target           = "Meiryo UI, Meiryo, MS Gothic"
+          Target           = "Meiryo UI, Meiryo, MS Gothic, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
           Scale            = "1.0"/>
 
       <!-- Half Full Forms (Hangul)    FFA0-FFDF -->
@@ -6158,18 +6164,24 @@
       <FontFamilyMap
           Unicode          = "FFA0-FFDC"
           Language         = "zh-Hans"
-          Target           = "Microsoft YaHei UI, Microsoft YaHei, Microsoft JhengHei UI, Microsoft JhengHei"
+          Target           = "Microsoft YaHei UI, Microsoft YaHei, Microsoft JhengHei UI, Microsoft JhengHei, PingFang SC, Hiragino Sans GB, Heiti SC, Songti SC"
+          Scale            = "1.0"/>
+      <!-- CHT -->
+      <FontFamilyMap
+          Unicode          = "FFA0-FFDC"
+          Language         = "zh-Hant"
+          Target           = "Microsoft JhengHei UI, Microsoft JhengHei, PingFang TC, Heiti TC, Songti TC"
           Scale            = "1.0"/>
       <!-- KO -->
       <FontFamilyMap
           Unicode          = "FFA0-FFDC"
           Language         = "ko"
-          Target           = "Malgun Gothic, Microsoft JhengHei UI, Microsoft JhengHei"
+          Target           = "Malgun Gothic, Microsoft JhengHei UI, Microsoft JhengHei, Apple SD Gothic Neo, AppleGothic"
           Scale            = "1.0"/>
       <!-- Other -->
       <FontFamilyMap
           Unicode          = "FFA0-FFDC"
-          Target           = "Microsoft JhengHei UI, Microsoft JhengHei"
+          Target           = "Microsoft JhengHei UI, Microsoft JhengHei, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
           Scale            = "1.0"/>
 
       <!-- Half Full (symbol variants) FFE0-FFEF -->
@@ -6177,24 +6189,24 @@
       <FontFamilyMap
           Unicode          = "FFE0-FFEE"
           Language         = "zh-Hans"
-          Target           = "Microsoft YaHei UI, Microsoft YaHei, MS Gothic, Gulim"
+          Target           = "Microsoft YaHei UI, Microsoft YaHei, MS Gothic, Gulim, PingFang SC, Hiragino Sans GB, Heiti SC, Songti SC"
           Scale            = "1.0"/>
       <!-- CHT -->
       <FontFamilyMap
           Unicode          = "FFE0-FFEE"
           Language         = "zh-Hant"
-          Target           = "Microsoft JhengHei UI, Microsoft JhengHei, MS Gothic, Gulim"
+          Target           = "Microsoft JhengHei UI, Microsoft JhengHei, MS Gothic, Gulim, PingFang TC, Heiti TC, Songti TC"
           Scale            = "1.0"/>
       <!-- KO -->
       <FontFamilyMap
           Unicode          = "FFE0-FFEE"
           Language         = "ko"
-          Target           = "Malgun Gothic, Meiryo UI, Meiryo, Microsoft JhengHei UI, Microsoft JhengHei, Gulim, MS Gothic"
+          Target           = "Malgun Gothic, Meiryo UI, Meiryo, Microsoft JhengHei UI, Microsoft JhengHei, Gulim, MS Gothic, Apple SD Gothic Neo, AppleGothic"
           Scale            = "1.0"/>
       <!-- Other (including JA) -->
       <FontFamilyMap
           Unicode          = "FFE0-FFEE"
-          Target           = "Meiryo UI, Meiryo, MS Gothic, Gulim"
+          Target           = "Meiryo UI, Meiryo, MS Gothic, Gulim, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
           Scale            = "1.0"/>
 
       <!-- Specials                    FFF0-FFFD -->
@@ -6399,24 +6411,30 @@
       <FontFamilyMap
           Unicode          = "20000-2A6DF"
           Language         = "zh-Hans"
-          Target           = "SimSun-ExtB"
+          Target           = "SimSun-ExtB, PingFang SC, Hiragino Sans GB, Heiti SC, Songti SC"
+          Scale            = "1.0"/>
+      <!-- CHT -->
+      <FontFamilyMap
+          Unicode          = "20000-2A6DF"
+          Language         = "zh-Hant"
+          Target           = "MingLiU-ExtB, PingFang TC, Heiti TC, Songti TC"
           Scale            = "1.0"/>
       <!-- Hong Kong -->
       <FontFamilyMap
           Unicode          = "20000-2A6DF"
           Language         = "zh-HK"
-          Target           = "MingLiU_HKSCS-ExtB, MingLiU-ExtB"
+          Target           = "MingLiU_HKSCS-ExtB, MingLiU-ExtB, PingFang HK, PingFang TC, Heiti TC, Songti TC"
           Scale            = "1.0"/>
       <!-- JA -->
       <FontFamilyMap
           Unicode          = "20000-2A6DF"
           Language         = "ja"
-          Target           = "Meiryo UI, Meiryo, MS Gothic, MingLiU-ExtB"
+          Target           = "Meiryo UI, Meiryo, MS Gothic, MingLiU-ExtB, Hiragino Sans, Hiragino Kaku Gothic ProN, Hiragino Sans GB"
           Scale            = "1.0"/>
       <!-- Other (include CHT and KO) -->
       <FontFamilyMap
           Unicode          = "20000-2A6DF"
-          Target           = "MingLiU-ExtB"
+          Target           = "MingLiU-ExtB, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
           Scale            = "1.0"/>
 
       <!-- 2A6E0-2A6FF: unassigned -->
@@ -6431,12 +6449,12 @@
       <FontFamilyMap
           Unicode          = "2A700-2B81F"
           Language         = "zh-HK"
-          Target           = "MingLiU_HKSCS-ExtB, MingLiU-ExtB"
+          Target           = "MingLiU_HKSCS-ExtB, MingLiU-ExtB, PingFang HK, PingFang TC, Heiti TC, Songti TC"
           Scale            = "1.0"/>
       <!-- Other (include CHT, CHS, JA and KO) -->
       <FontFamilyMap
           Unicode          = "2A700-2B81F"
-          Target           = "MingLiU-ExtB"
+          Target           = "MingLiU-ExtB, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
           Scale            = "1.0"/>
 
       <!-- 2B820-2F7FF: unassigned -->
@@ -6451,24 +6469,24 @@
       <FontFamilyMap
           Unicode          = "2F800-2FA1F"
           Language         = "zh-Hans"
-          Target           = "SimSun-ExtB, MingLiU-ExtB, Meiryo UI, Meiryo"
+          Target           = "SimSun-ExtB, MingLiU-ExtB, Meiryo UI, Meiryo, PingFang SC, Hiragino Sans GB, Heiti SC, Songti SC"
           Scale            = "1.0"/>
       <!-- Hong Kong -->
       <FontFamilyMap
           Unicode          = "2F800-2FA1F"
           Language         = "zh-HK"
-          Target           = "MingLiU_HKSCS-ExtB, MingLiU-ExtB, Meiryo UI, Meiryo"
+          Target           = "MingLiU_HKSCS-ExtB, MingLiU-ExtB, Meiryo UI, Meiryo, PingFang HK, PingFang TC, Heiti TC, Songti TC"
           Scale            = "1.0"/>
       <!-- CHT -->
       <FontFamilyMap
           Unicode          = "2F800-2FA1F"
           Language         = "zh-Hant"
-          Target           = "MingLiU-ExtB, Meiryo UI, Meiryo"
+          Target           = "MingLiU-ExtB, Meiryo UI, Meiryo, PingFang TC, Heiti TC, Songti TC"
           Scale            = "1.0"/>
       <!-- Other (include JA and KO) -->
       <FontFamilyMap
           Unicode          = "2F800-2FA1F"
-          Target           = "Meiryo UI, Meiryo, MingLiU-ExtB"
+          Target           = "Meiryo UI, Meiryo, MingLiU-ExtB, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
           Scale            = "1.0"/>
 
     </FontFamily.FamilyMaps>
