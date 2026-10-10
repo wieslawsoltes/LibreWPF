@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO.Compression;
 using System.Numerics;
@@ -508,6 +509,30 @@ internal static class Program
 
     private static void RunSdkPortableBootstrapSmoke(SmokeInputs inputs)
     {
+        var start = new ProcessStartInfo(Environment.GetEnvironmentVariable("DOTNET_HOST_PATH") ?? "dotnet")
+        {
+            WorkingDirectory = inputs.AppOutputRoot,
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true
+        };
+        start.ArgumentList.Add(inputs.SmokeAssemblyPath);
+        start.ArgumentList.Add("--sdk-bootstrap-probe");
+        using (Process child = Process.Start(start) ?? throw new InvalidOperationException("Cannot launch SDK entry-assembly probe."))
+        {
+            Task<string> output = child.StandardOutput.ReadToEndAsync();
+            Task<string> errors = child.StandardError.ReadToEndAsync();
+            if (!child.WaitForExit(60_000))
+            {
+                child.Kill(entireProcessTree: true);
+                throw new TimeoutException("SDK entry-assembly bootstrap did not finish.");
+            }
+            string receipt = output.GetAwaiter().GetResult();
+            string diagnostics = errors.GetAwaiter().GetResult();
+            if (child.ExitCode != 0 || !receipt.Contains("SDK entry-assembly bootstrap passed.", StringComparison.Ordinal))
+                throw new InvalidOperationException($"SDK entry-assembly bootstrap failed ({child.ExitCode}): {receipt}{diagnostics}");
+        }
+
         using var loadContext = CreateLoadContext(inputs);
         Assembly smokeAssembly = loadContext.LoadFromAssemblyPath(inputs.SmokeAssemblyPath);
         Type bootstrapType = smokeAssembly.GetType(
@@ -520,15 +545,15 @@ internal static class Program
         Type activationServiceType = GetRequiredType(presentationFramework, PortableWindowActivationServiceTypeName);
         try
         {
-            AssertEqual(true, GetStaticProperty(activationServiceType, "IsEnabled"), "SDK portable bootstrap activation enabled");
+            AssertEqual(false, GetStaticProperty(activationServiceType, "IsEnabled"), "Referenced executable must not enable WPF activation");
             Type messageBoxServiceType = GetRequiredType(presentationFramework, PortableMessageBoxServiceTypeName);
-            AssertEqual(true, GetStaticProperty(messageBoxServiceType, "IsEnabled"), "SDK portable bootstrap MessageBox enabled");
+            AssertEqual(false, GetStaticProperty(messageBoxServiceType, "IsEnabled"), "Referenced executable must not enable MessageBox services");
             Type fileDialogServiceType = GetRequiredType(presentationFramework, PortableFileDialogServiceTypeName);
-            AssertEqual(true, GetStaticProperty(fileDialogServiceType, "IsEnabled"), "SDK portable bootstrap file dialog enabled");
+            AssertEqual(false, GetStaticProperty(fileDialogServiceType, "IsEnabled"), "Referenced executable must not enable file dialogs");
             AssertEqual(
-                true,
+                false,
                 loadContext.Assemblies.Any(assembly => string.Equals(assembly.GetName().Name, "ProGPU.Wpf", StringComparison.Ordinal)),
-                "SDK portable bootstrap loaded ProGPU.Wpf");
+                "Referenced executable must not load ProGPU.Wpf");
             AssertEqual("ProGPU.Wpf.Sdk", bootstrapType.Namespace ?? string.Empty, "SDK portable bootstrap namespace");
         }
         finally

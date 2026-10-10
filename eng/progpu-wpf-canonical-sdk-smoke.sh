@@ -29,6 +29,7 @@ export DOTNET_ROLL_FORWARD="${DOTNET_ROLL_FORWARD:-Major}"
 export DOTNET_ROLL_FORWARD_TO_PRERELEASE="${DOTNET_ROLL_FORWARD_TO_PRERELEASE:-1}"
 
 python3 "${repo_root}/eng/tests/test_wpf_sdk_desktop_properties.py" --dotnet "${dotnet_command}"
+python3 "${repo_root}/eng/tests/test_wpf_sdk_bootstrap.py" --dotnet "${dotnet_command}"
 
 # The enclosing SDK lane can select canonical packages explicitly. This consumer
 # must exercise the packaged SDK's normal UseWindowsForms defaults instead.

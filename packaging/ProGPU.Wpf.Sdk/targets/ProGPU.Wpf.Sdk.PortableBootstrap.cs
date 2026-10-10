@@ -5,10 +5,64 @@ internal static class ProGpuWpfSdkPortableBootstrap
     [global::System.Runtime.CompilerServices.ModuleInitializer]
     internal static void Initialize()
     {
-        // Capture before source/media startup. Never reinterpret arguments when
-        // another Window opens or use a capability query to enable this default.
-        var startup = global::System.Windows.Media.ProGPU.ProGpuWpfStartupOptions.ParseArguments(
+        // An executable can also be a project reference of a server or test
+        // host. Only the actual entry assembly owns automatic desktop startup.
+        // This identity query does not inspect or invoke application members.
+        if (global::System.Reflection.Assembly.GetEntryAssembly() != typeof(ProGpuWpfSdkPortableBootstrap).Assembly)
+            return;
+
+#if PROGPU_WPF_BOOTSTRAP_WPF
+        bool enableNativeModalSessions = ReadWpfStartupOptions();
+#if !PROGPU_WPF_NATIVE_MIL
+        if (global::System.OperatingSystem.IsWindows())
+        {
+            InitializeWindowsForms(enableNativeModalSessions);
+            return;
+        }
+#endif
+        InitializeWpf(enableNativeModalSessions);
+#elif PROGPU_WPF_USE_CANONICAL_LIBREWINFORMS
+        InitializeFormsOnly();
+#endif
+    }
+
+#if PROGPU_WPF_USE_LIBREWINFORMS || PROGPU_WPF_BOOTSTRAP_WPF
+    [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    private static void InitializeWindowsForms(bool enableNativeModalSessions)
+    {
+#if PROGPU_WPF_USE_CANONICAL_LIBREWINFORMS
+        if (enableNativeModalSessions)
+            global::LibreWinForms.ProGPU.ProGpuPlatform.Register(enableNativeModalSessions: true);
+        else
+            global::LibreWinForms.ProGPU.ProGpuPlatform.Register();
+#endif
+#if PROGPU_WPF_BOOTSTRAP_WPF && PROGPU_WPF_USE_LIBREWINFORMS
+        EnableWindowsFormsInterop();
+#endif
+    }
+#endif
+
+#if PROGPU_WPF_USE_CANONICAL_LIBREWINFORMS && !PROGPU_WPF_BOOTSTRAP_WPF
+    [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    private static void InitializeFormsOnly()
+    {
+        var startup = global::LibreWinForms.ProGPU.ProGpuStartupOptions.ParseArguments(
             global::System.MemoryExtensions.AsSpan(global::System.Environment.GetCommandLineArgs(), 1));
+        InitializeWindowsForms(startup.EnableNativeModalSessions);
+    }
+#endif
+
+#if PROGPU_WPF_BOOTSTRAP_WPF
+    [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    private static bool ReadWpfStartupOptions()
+        => global::System.Windows.Media.ProGPU.ProGpuWpfStartupOptions.ParseArguments(
+            global::System.MemoryExtensions.AsSpan(global::System.Environment.GetCommandLineArgs(), 1)).EnableNativeModalSessions;
+
+    // Keep all WPF type references behind the entry-assembly and Windows
+    // checks. The JIT must not resolve these dependencies on the early return.
+    [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    private static void InitializeWpf(bool enableNativeModalSessions)
+    {
 #if PROGPU_WPF_NATIVE_MIL
         // Native desktop packages provide x64/ARM64 backends. In particular,
         // the transport's win-x86 payload supports Windows MIL, not native MIL.
@@ -25,23 +79,7 @@ internal static class ProGpuWpfSdkPortableBootstrap
         global::System.Windows.Media.ProGPU.ProGpuWpfNativeMediaServices.Initialize();
 #endif
 #if PROGPU_WPF_USE_LIBREWINFORMS
-#if PROGPU_WPF_USE_CANONICAL_LIBREWINFORMS
-        if (startup.EnableNativeModalSessions)
-            global::LibreWinForms.ProGPU.ProGpuPlatform.Register(enableNativeModalSessions: true);
-        else
-            global::LibreWinForms.ProGPU.ProGpuPlatform.Register();
-#endif
-        global::System.Windows.Forms.Integration.WindowsFormsHost.EnableWindowsFormsInterop();
-#endif
-
-#if !PROGPU_WPF_NATIVE_MIL
-        // Ordinary managed Windows SDK applications keep Windows MIL. Explicit
-        // native selection must instead register the portable source/window path
-        // on Windows too, before the generated Application.Main constructs anything.
-        if (global::System.OperatingSystem.IsWindows())
-        {
-            return;
-        }
+        InitializeWindowsForms(enableNativeModalSessions);
 #endif
 
         global::System.Runtime.CompilerServices.RuntimeHelpers.RunModuleConstructor(
@@ -56,7 +94,7 @@ internal static class ProGpuWpfSdkPortableBootstrap
                     new global::System.Windows.Media.ProGPU.ProGpuWpfWindowOptions
                     {
                         RendererMode = global::System.Windows.Media.ProGPU.ProGpuWpfRendererMode.NativeMilWgpu,
-                        EnableNativeModalSessions = startup.EnableNativeModalSessions,
+                        EnableNativeModalSessions = enableNativeModalSessions,
 #if PROGPU_WPF_NATIVE_MIL_HIT_TESTING
                         EnableNativeMilHitTesting = true
 #endif
@@ -67,7 +105,7 @@ internal static class ProGpuWpfSdkPortableBootstrap
                 "LibreWPF NativeMilWgpu requires the source-built typed WPF activation service.");
         }
 #else
-        if (startup.EnableNativeModalSessions)
+        if (enableNativeModalSessions)
         {
             bool registered = global::System.Windows.Media.ProGPU.WpfPortableWindowActivation.TryRegisterPresentationFrameworkActivation(
                 window => new global::System.Windows.Media.ProGPU.ProGpuWpfWindowHost(
@@ -75,7 +113,7 @@ internal static class ProGpuWpfSdkPortableBootstrap
                         window,
                         new global::System.Windows.Media.ProGPU.ProGpuWpfWindowOptions
                         {
-                            EnableNativeModalSessions = startup.EnableNativeModalSessions
+                            EnableNativeModalSessions = enableNativeModalSessions
                         })));
             if (!registered)
                 throw new global::System.InvalidOperationException(
@@ -86,4 +124,11 @@ internal static class ProGpuWpfSdkPortableBootstrap
 #endif
         global::System.Windows.Media.ProGPU.WpfPortableWindowActivation.TryRegisterPresentationCoreClipboardService();
     }
+
+#if PROGPU_WPF_USE_LIBREWINFORMS
+    [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    private static void EnableWindowsFormsInterop()
+        => global::System.Windows.Forms.Integration.WindowsFormsHost.EnableWindowsFormsInterop();
+#endif
+#endif
 }

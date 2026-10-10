@@ -61,7 +61,16 @@
     <PackageReference Include="StbImageSharp" VersionOverride="$(ProGpuWpfStbImageSharpVersion)" />
   </ItemGroup>
 
-  <PropertyGroup Condition="'$(ProGpuWpfUsePortableFrameworkReferences)' == 'true' And '$(ProGpuWpfEnablePortableBootstrap)' == 'true' And ('$(OutputType)' == 'Exe' Or '$(OutputType)' == 'WinExe') And '$(ProGpuWpfUsePortableWinFormsCompat)' == 'true' And '$(ProGpuWpfUseLibreWinForms)' == 'true'">
+  <PropertyGroup Condition="'$(ProGpuWpfUsePortableFrameworkReferences)' == 'true' And '$(ProGpuWpfEnablePortableBootstrap)' == 'true' And ('$(OutputType)' == 'Exe' Or '$(OutputType)' == 'WinExe') And '$(UsingMicrosoftNETSdkWeb)' != 'true'">
+    <!-- The SDK's default markup property is not proof that a Forms-only or
+         explicitly headless project requested WPF activation. -->
+    <_ProGpuWpfSdkBootstrapWpf Condition="'$(UseWPF)' == 'true' Or ('$(UseWPF)' == '' And '$(UseWindowsForms)' != 'true' And '$(ProGpuWpfUseWpfMarkup)' == 'true')">true</_ProGpuWpfSdkBootstrapWpf>
+    <_ProGpuWpfSdkBootstrapForms Condition="'$(ProGpuWpfUsePortableWinFormsCompat)' == 'true' And '$(ProGpuWpfUseLibreWinForms)' == 'true' And '$(ProGpuWpfUseCanonicalLibreWinForms)' == 'true'">true</_ProGpuWpfSdkBootstrapForms>
+    <_ProGpuWpfSdkBootstrap Condition="'$(_ProGpuWpfSdkBootstrapWpf)' == 'true' Or '$(_ProGpuWpfSdkBootstrapForms)' == 'true'">true</_ProGpuWpfSdkBootstrap>
+    <DefineConstants Condition="'$(_ProGpuWpfSdkBootstrapWpf)' == 'true'">$(DefineConstants);PROGPU_WPF_BOOTSTRAP_WPF</DefineConstants>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(_ProGpuWpfSdkBootstrap)' == 'true' And '$(ProGpuWpfUsePortableWinFormsCompat)' == 'true' And '$(ProGpuWpfUseLibreWinForms)' == 'true'">
     <DefineConstants>$(DefineConstants);PROGPU_WPF_USE_LIBREWINFORMS</DefineConstants>
     <DefineConstants Condition="'$(ProGpuWpfUseCanonicalLibreWinForms)' == 'true'">$(DefineConstants);PROGPU_WPF_USE_CANONICAL_LIBREWINFORMS</DefineConstants>
   </PropertyGroup>
@@ -88,7 +97,7 @@
     </ItemGroup>
   </Target>
 
-  <ItemGroup Condition="'$(ProGpuWpfUsePortableFrameworkReferences)' == 'true' And '$(ProGpuWpfEnablePortableBootstrap)' == 'true' And ('$(OutputType)' == 'Exe' Or '$(OutputType)' == 'WinExe')">
+  <ItemGroup Condition="'$(_ProGpuWpfSdkBootstrap)' == 'true'">
     <Compile Remove="$(MSBuildThisFileDirectory)ProGPU.Wpf.Sdk.PortableBootstrap.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)ProGPU.Wpf.Sdk.PortableBootstrap.cs"
              Link="ProGPU.Wpf.Sdk.PortableBootstrap.cs"
@@ -110,8 +119,8 @@
            Text="ProGpuWpfNativeMilHitTesting requires NativeMilWgpu; managed input remains independent." />
     <Error Condition="'$(ProGpuWpfRendererMode)' != 'ManagedPortable' And '$(ProGpuWpfRendererMode)' != 'NativeMilWgpu'"
            Text="ProGpuWpfRendererMode must be ManagedPortable or NativeMilWgpu." />
-    <Error Condition="'$(ProGpuWpfRendererMode)' == 'NativeMilWgpu' And ('$(OutputType)' == 'Exe' Or '$(OutputType)' == 'WinExe') And ('$(ProGpuWpfUsePortableFrameworkReferences)' != 'true' Or '$(ProGpuWpfEnablePortableBootstrap)' != 'true')"
-           Text="NativeMilWgpu requires portable framework references and the portable SDK bootstrap; it must not silently run another renderer." />
+    <Error Condition="'$(ProGpuWpfRendererMode)' == 'NativeMilWgpu' And ('$(OutputType)' == 'Exe' Or '$(OutputType)' == 'WinExe') And '$(_ProGpuWpfSdkBootstrapWpf)' != 'true'"
+           Text="NativeMilWgpu requires a WPF executable with portable framework references and the portable SDK bootstrap; it must not silently run another renderer." />
   </Target>
 
   <ItemGroup Condition="'$(EnableDefaultItems)' == 'true' And '$(EnableDefaultResourceItems)' == 'true' And '$(ProGpuWpfUseWpfMarkup)' == 'true'">

@@ -630,7 +630,8 @@ public sealed class WpfManagedProjectGraphTests
         string host = File.ReadAllText(FindRepoPath("src", "ProGPU.Wpf", "ProGpuWpfWindowHost.cs"));
         string harness = File.ReadAllText(FindRepoPath("src", "ProGPU.Wpf.RealPresentationFrameworkHarness", "Program.cs"));
         AssertGuardBefore(bootstrap, "ProGpuWpfNativeMediaServices.Initialize();", "RuntimeHelpers.RunModuleConstructor(");
-        AssertGuardBefore(bootstrap, "ProGpuWpfNativeMediaServices.Initialize();", "WindowsFormsHost.EnableWindowsFormsInterop();");
+        string nativeBody = bootstrap[bootstrap.IndexOf("private static void InitializeWpf(", StringComparison.Ordinal)..];
+        AssertGuardBefore(nativeBody, "ProGpuWpfNativeMediaServices.Initialize();", "InitializeWindowsForms(enableNativeModalSessions);");
         AssertGuardBefore(bootstrap, "throw new global::System.PlatformNotSupportedException(", "ProGpuWpfNativeMediaServices.Initialize();");
         Assert.Contains("architecture != global::System.Runtime.InteropServices.Architecture.X64 &&", bootstrap, StringComparison.Ordinal);
         Assert.Contains("architecture != global::System.Runtime.InteropServices.Architecture.Arm64", bootstrap, StringComparison.Ordinal);
@@ -15794,7 +15795,7 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("Remove=\"Microsoft.WindowsDesktop.App.WindowsForms\"", portableTargets, StringComparison.Ordinal);
         Assert.Contains("Condition=\"'$(ProGpuWpfUsePortableWinFormsCompat)' == 'true' And '$(ProGpuWpfReferenceMode)' == 'Package'\"", portableTargets, StringComparison.Ordinal);
         Assert.Contains("<CopyLocalLockFileAssemblies Condition=\"'$(ProGpuWpfUsePortableFrameworkReferences)' == 'true'\">true</CopyLocalLockFileAssemblies>", portableTargets, StringComparison.Ordinal);
-        Assert.Contains("<PropertyGroup Condition=\"'$(ProGpuWpfUsePortableFrameworkReferences)' == 'true' And '$(ProGpuWpfEnablePortableBootstrap)' == 'true' And ('$(OutputType)' == 'Exe' Or '$(OutputType)' == 'WinExe') And '$(ProGpuWpfUsePortableWinFormsCompat)' == 'true' And '$(ProGpuWpfUseLibreWinForms)' == 'true'\">", portableTargets, StringComparison.Ordinal);
+        Assert.Contains("<PropertyGroup Condition=\"'$(_ProGpuWpfSdkBootstrap)' == 'true' And '$(ProGpuWpfUsePortableWinFormsCompat)' == 'true' And '$(ProGpuWpfUseLibreWinForms)' == 'true'\">", portableTargets, StringComparison.Ordinal);
         Assert.Contains("<DefineConstants>$(DefineConstants);PROGPU_WPF_USE_LIBREWINFORMS</DefineConstants>", portableTargets, StringComparison.Ordinal);
         Assert.Contains("$(ProGpuWpfEnablePortableBootstrap)", portableTargets, StringComparison.Ordinal);
         Assert.Contains("And ('$(OutputType)' == 'Exe' Or '$(OutputType)' == 'WinExe')", portableTargets, StringComparison.Ordinal);
@@ -15956,15 +15957,14 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("#if PROGPU_WPF_USE_LIBREWINFORMS", portableBootstrap, StringComparison.Ordinal);
         Assert.Contains("global::System.Windows.Forms.Integration.WindowsFormsHost.EnableWindowsFormsInterop();", portableBootstrap, StringComparison.Ordinal);
         Assert.Contains("if (global::System.OperatingSystem.IsWindows())", portableBootstrap, StringComparison.Ordinal);
-        Assert.True(
-            portableBootstrap.IndexOf("global::System.Windows.Forms.Integration.WindowsFormsHost.EnableWindowsFormsInterop();", StringComparison.Ordinal)
-                < portableBootstrap.LastIndexOf("if (global::System.OperatingSystem.IsWindows())", StringComparison.Ordinal),
-            "LibreWinForms interop must initialize before the Windows early return.");
+        int windowsReturn = portableBootstrap.IndexOf("if (global::System.OperatingSystem.IsWindows())", StringComparison.Ordinal);
+        AssertGuardBefore(portableBootstrap[windowsReturn..], "InitializeWindowsForms(enableNativeModalSessions);", "return;");
         Assert.Contains("typeof(global::System.Windows.Application).Module.ModuleHandle", portableBootstrap, StringComparison.Ordinal);
         Assert.Contains("typeof(global::System.Windows.Clipboard).Module.ModuleHandle", portableBootstrap, StringComparison.Ordinal);
         Assert.Contains("global::System.Windows.Media.ProGPU.WpfPortableWindowActivation.TryRegisterPresentationFrameworkActivation()", portableBootstrap, StringComparison.Ordinal);
         Assert.Contains("global::System.Windows.Media.ProGPU.WpfPortableWindowActivation.TryRegisterPresentationCoreClipboardService()", portableBootstrap, StringComparison.Ordinal);
-        Assert.DoesNotContain("System.Reflection", portableBootstrap, StringComparison.Ordinal);
+        Assert.Contains("System.Reflection.Assembly.GetEntryAssembly() != typeof(ProGpuWpfSdkPortableBootstrap).Assembly", portableBootstrap, StringComparison.Ordinal);
+        Assert.DoesNotContain("GetTypes(", portableBootstrap, StringComparison.Ordinal);
         Assert.DoesNotContain("GetMethod(", portableBootstrap, StringComparison.Ordinal);
         Assert.DoesNotContain("Activator", portableBootstrap, StringComparison.Ordinal);
         Assert.DoesNotContain("typeof(Application).Assembly", portableBootstrap, StringComparison.Ordinal);
