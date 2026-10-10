@@ -35,6 +35,14 @@ opting out of portable framework references, or selecting local-artifact mode
 does not remove that Windows Forms requirement. Restore the app after upgrading
 the SDK; rebuilding with an old assets file and `--no-restore` is not sufficient.
 
+Canonical Forms package consumers select `System.Drawing.Common.dll` from the
+resolved `ProGPU.System.Drawing.Common` package, even when a dependency also
+requests Microsoft's package. The Forms runtime supplies
+`System.Private.Windows.Core.dll`; the WPF transport copy must not overwrite it
+during publish. Build, publish, and the dependency manifest use the same selected
+assemblies. This selection does not make a precompiled component using a
+different drawing ABI compatible with the portable implementation.
+
 Existing WPF application projects should keep their normal WPF project shape and switch only the project SDK, whether the original project used `Microsoft.NET.Sdk.WindowsDesktop` or the newer `Microsoft.NET.Sdk` plus `UseWPF=true`. The SDK treats `UseWPF=true` as the app's markup intent, keeps the normal `net*-windows` target-framework shape, and internally redirects framework references to the portable WPF transport and ProGPU/Silk.NET package graph.
 
 `UseWPF` and `UseWindowsForms` retain the project's values during item evaluation

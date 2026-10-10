@@ -139,6 +139,37 @@
     </ItemGroup>
   </Target>
 
+  <!-- Canonical Forms consumes the ProGPU drawing ABI. Package/file versions
+       cannot choose between that ABI and Microsoft's different strong name.
+       Filter only the competing package's drawing DLL, after the real portable
+       runtime is present in the resolved graph, before ordinary SDK conflicts. -->
+  <Target Name="_ProGpuWpfSdkSelectPortableDrawingAssets"
+          BeforeTargets="_HandlePackageFileConflicts"
+          DependsOnTargets="ResolveLockFileReferences"
+          Condition="'$(ProGpuWpfUsePortableFrameworkReferences)' == 'true' And '$(ProGpuWpfReferenceMode)' == 'Package' And '$(ProGpuWpfUsePortableWinFormsCompat)' == 'true' And '$(ProGpuWpfUseLibreWinForms)' == 'true' And '$(ProGpuWpfUseCanonicalLibreWinForms)' == 'true'">
+    <ItemGroup>
+      <_ProGpuWpfOwnedDrawingAsset Include="@(RuntimeCopyLocalItems)"
+        Condition="'%(RuntimeCopyLocalItems.NuGetPackageId)' == 'ProGPU.System.Drawing.Common' And '%(RuntimeCopyLocalItems.Filename)%(RuntimeCopyLocalItems.Extension)' == 'System.Drawing.Common.dll' And Exists('%(RuntimeCopyLocalItems.Identity)')" />
+    </ItemGroup>
+    <ItemGroup Condition="'@(_ProGpuWpfOwnedDrawingAsset)' != ''">
+      <Reference Remove="@(Reference)" Condition="'%(Reference.NuGetPackageId)' == 'System.Drawing.Common' And '%(Reference.Filename)' == 'System.Drawing.Common'" />
+      <ReferenceCopyLocalPaths Remove="@(ReferenceCopyLocalPaths)" Condition="'%(ReferenceCopyLocalPaths.NuGetPackageId)' == 'System.Drawing.Common' And '%(ReferenceCopyLocalPaths.Filename)' == 'System.Drawing.Common'" />
+      <ResolvedCompileFileDefinitions Remove="@(ResolvedCompileFileDefinitions)" Condition="'%(ResolvedCompileFileDefinitions.NuGetPackageId)' == 'System.Drawing.Common' And '%(ResolvedCompileFileDefinitions.Filename)' == 'System.Drawing.Common'" />
+      <RuntimeCopyLocalItems Remove="@(RuntimeCopyLocalItems)" Condition="'%(RuntimeCopyLocalItems.NuGetPackageId)' == 'System.Drawing.Common' And '%(RuntimeCopyLocalItems.Filename)' == 'System.Drawing.Common'" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="_ProGpuWpfSdkSelectPortableDrawingPublishAssets"
+          BeforeTargets="_HandlePackageFileConflictsForPublish"
+          Condition="'$(ProGpuWpfUsePortableFrameworkReferences)' == 'true' And '$(ProGpuWpfReferenceMode)' == 'Package' And '$(ProGpuWpfUsePortableWinFormsCompat)' == 'true' And '$(ProGpuWpfUseLibreWinForms)' == 'true' And '$(ProGpuWpfUseCanonicalLibreWinForms)' == 'true'">
+    <ItemGroup>
+      <_ProGpuWpfOwnedDrawingPublishAsset Include="@(_ResolvedCopyLocalPublishAssets)"
+        Condition="'%(_ResolvedCopyLocalPublishAssets.NuGetPackageId)' == 'ProGPU.System.Drawing.Common' And '%(_ResolvedCopyLocalPublishAssets.Filename)%(_ResolvedCopyLocalPublishAssets.Extension)' == 'System.Drawing.Common.dll' And Exists('%(_ResolvedCopyLocalPublishAssets.Identity)')" />
+      <_ResolvedCopyLocalPublishAssets Remove="@(_ResolvedCopyLocalPublishAssets)"
+        Condition="'@(_ProGpuWpfOwnedDrawingPublishAsset)' != '' And '%(_ResolvedCopyLocalPublishAssets.NuGetPackageId)' == 'System.Drawing.Common' And '%(_ResolvedCopyLocalPublishAssets.Filename)' == 'System.Drawing.Common'" />
+    </ItemGroup>
+  </Target>
+
   <!--
     Microsoft.NETCore.App.Ref supplies System.Drawing.dll as a facade whose forwarded
     System.Drawing.Common identity uses the platform public key.  ProGPU's portable
@@ -407,6 +438,9 @@
       <_ProGpuWpfManagedTransportDependencyRuntimeAsset
         Include="$(_ProGpuWpfManagedTransportRuntimeRoot)*.dll"
         Exclude="$(_ProGpuWpfManagedTransportRuntimeRoot)PresentationCore.dll" />
+      <_ProGpuWpfManagedTransportDependencyRuntimeAsset
+        Remove="$(_ProGpuWpfManagedTransportRuntimeRoot)System.Private.Windows.Core.dll"
+        Condition="'$(ProGpuWpfUsePortableWinFormsCompat)' == 'true' And '$(ProGpuWpfUseLibreWinForms)' == 'true' And '$(ProGpuWpfUseCanonicalLibreWinForms)' == 'true'" />
       <RuntimeCopyLocalItems
         Include="@(_ProGpuWpfManagedTransportDependencyRuntimeAsset)"
         Exclude="@(RuntimeCopyLocalItems)">
@@ -451,6 +485,9 @@
 
     <ItemGroup>
       <_ProGpuWpfManagedTransportRuntimeAsset Include="$(_ProGpuWpfManagedTransportRuntimeRoot)*.dll" />
+      <_ProGpuWpfManagedTransportRuntimeAsset
+        Remove="$(_ProGpuWpfManagedTransportRuntimeRoot)System.Private.Windows.Core.dll"
+        Condition="'$(ProGpuWpfUsePortableWinFormsCompat)' == 'true' And '$(ProGpuWpfUseLibreWinForms)' == 'true' And '$(ProGpuWpfUseCanonicalLibreWinForms)' == 'true'" />
     </ItemGroup>
 
     <Error Condition="'$(_ProGpuWpfManagedTransportRuntimeRoot)' == '' Or '@(_ProGpuWpfManagedTransportRuntimeAsset)' == ''"
