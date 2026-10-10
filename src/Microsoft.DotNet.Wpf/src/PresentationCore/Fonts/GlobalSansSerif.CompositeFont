@@ -328,13 +328,13 @@
         <!-- Kangxi Radicals             2F00-2FDF -->
         <FontFamilyMap  
             Unicode="2F00-2FDF"
-            Target="Meiryo"
+            Target="Meiryo, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
             Scale="1.0"/>
 
         <!-- Ideogr Description Char     2FF0-2FFF -->
         <FontFamilyMap
             Unicode="2FF0-2FFF"
-            Target="SimSun"
+            Target="SimSun, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
             Scale="1.0" />
         
         <!--
@@ -346,24 +346,24 @@
         <FontFamilyMap
             Unicode="3000-30FF, 31F0-31FF"
             Language="zh-Hans"
-            Target="Microsoft YaHei, MS Gothic, SimSun"
+            Target="Microsoft YaHei, MS Gothic, SimSun, PingFang SC, Hiragino Sans GB, Heiti SC, Songti SC"
             Scale="1.0" />
         <!-- CHT -->
         <FontFamilyMap
             Unicode="3000-30FF, 31F0-31FF"
             Language="zh-Hant"
-            Target="Microsoft JhengHei, MS Gothic, MingLiu"
+            Target="Microsoft JhengHei, MS Gothic, MingLiu, PingFang TC, Heiti TC, Songti TC"
             Scale="1.0" />
         <!-- KO -->
         <FontFamilyMap
             Unicode="3000-30FF, 31F0-31FF"
             Language="ko"
-            Target="Malgun Gothic, Meiryo, Microsoft YaHei, Gulim, MS Gothic, MingLiu"
+            Target="Malgun Gothic, Meiryo, Microsoft YaHei, Gulim, MS Gothic, MingLiu, Apple SD Gothic Neo, PingFang SC"
             Scale="1.0" />
         <!-- Other (include JA) -->
         <FontFamilyMap
             Unicode="3000-30FF, 31F0-31FF"
-            Target="Meiryo, Microsoft YaHei, MS Gothic, MingLiu"
+            Target="Meiryo, Microsoft YaHei, MS Gothic, MingLiu, Hiragino Sans, Hiragino Kaku Gothic ProN, PingFang SC, PingFang TC, Heiti SC, Heiti TC, Songti SC, Songti TC"
             Scale="1.0" />
 
         <!--
@@ -373,24 +373,30 @@
         <FontFamilyMap
             Unicode="3100-312F, 31A0-31BF"
             Language="zh-Hans"
-            Target="Microsoft YaHei, SimSun"
+            Target="Microsoft YaHei, SimSun, PingFang SC, Hiragino Sans GB, Heiti SC, Songti SC"
+            Scale="1.0" />
+        <!-- CHT -->
+        <FontFamilyMap
+            Unicode="3100-312F, 31A0-31BF"
+            Language="zh-Hant"
+            Target="Microsoft JhengHei, MingLiu, PingFang TC, Heiti TC, Songti TC"
             Scale="1.0" />
         <!-- Other (include CHT, JA and KO) -->
         <FontFamilyMap
             Unicode="3100-312F, 31A0-31BF"
-            Target="Microsoft JhengHei, MingLiu"
+            Target="Microsoft JhengHei, MingLiu, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
             Scale="1.0" />
 
         <!-- Kanbun                      3190-319F -->
         <FontFamilyMap
             Unicode="3190-319F"
-            Target="Microsoft YaHei, MingLiU"
+            Target="Microsoft YaHei, MingLiU, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
             Scale="1.0" />
 
         <!-- CJK Strokes                 31C0-31EF -->
         <FontFamilyMap  
             Unicode          = "31C0-31EF"
-            Target           = "MingLiU"
+            Target           = "MingLiU, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
             Scale            = "1.0"/>
 
         <!-- 
@@ -407,7 +413,7 @@
             CJK Comp Days               33E0-33FF -->
         <FontFamilyMap
             Unicode="3220-324F,3251-325F, 3280-32CB, 32D0-3376, 337B-337F, 33E0-33FF"
-            Target="Meiryo, MS Gothic"
+            Target="Meiryo, MS Gothic, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
             Scale="1.0" />
 
         <!--
@@ -421,24 +427,24 @@
         <FontFamilyMap
             Unicode="3380-33DF"
             Language="zh-Hans"
-            Target="Microsoft YaHei, MS Gothic"
+            Target="Microsoft YaHei, MS Gothic, PingFang SC, Hiragino Sans GB, Heiti SC, Songti SC"
             Scale="1.0" />
         <!-- CHT -->
         <FontFamilyMap
             Unicode="3380-33DF"
             Language="zh-Hant"
-            Target="Microsoft JhengHei, MS Gothic"
+            Target="Microsoft JhengHei, MS Gothic, PingFang TC, Heiti TC, Songti TC"
             Scale="1.0" />
         <!-- KO -->
         <FontFamilyMap
             Unicode="3380-33DF"
             Language="ko"
-            Target="Malgun Gothic, Meiryo, Gulim, MS Gothic"
+            Target="Malgun Gothic, Meiryo, Gulim, MS Gothic, Apple SD Gothic Neo, AppleGothic"
             Scale="1.0" />
         <!-- Other (include JA) -->
         <FontFamilyMap
             Unicode="3380-33DF"
-            Target="Meiryo, MS Gothic"
+            Target="Meiryo, MS Gothic, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
             Scale="1.0" />
 
         <!--
@@ -529,18 +535,24 @@
         <FontFamilyMap  
             Unicode="FE10-FE1F"
             Language="zh-Hans"
-            Target="Microsoft YaHei"
+            Target="Microsoft YaHei, PingFang SC, Hiragino Sans GB, Heiti SC, Songti SC"
+            Scale="1.0"/>
+        <!-- CHT -->
+        <FontFamilyMap  
+            Unicode="FE10-FE1F"
+            Language="zh-Hant"
+            Target="Microsoft JhengHei, PingFang TC, Heiti TC, Songti TC"
             Scale="1.0"/>
         <!-- KO -->
         <FontFamilyMap  
             Unicode="FE10-FE1F"
             Language="ko"
-            Target="Malgun Gothic, Microsoft JhengHei"
+            Target="Malgun Gothic, Microsoft JhengHei, Apple SD Gothic Neo, AppleGothic, Hiragino Sans GB"
             Scale="1.0"/>
         <!-- Other (include CHT and JA) -->
         <FontFamilyMap  
             Unicode="FE10-FE1F"
-            Target="Microsoft JhengHei"
+            Target="Microsoft JhengHei, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
             Scale="1.0"/>
         
         <!--
@@ -550,30 +562,30 @@
         <FontFamilyMap
             Unicode="FE30-FE6F"
             Language="zh-Hans"
-            Target="Microsoft YaHei, SimSun"
+            Target="Microsoft YaHei, SimSun, PingFang SC, Hiragino Sans GB, Heiti SC, Songti SC"
             Scale="1.0" />
         <!-- CHT -->
         <FontFamilyMap
             Unicode="FE30-FE6F"
             Language="zh-Hant"
-            Target="Microsoft JhengHei, MingLiU"
+            Target="Microsoft JhengHei, MingLiU, PingFang TC, Heiti TC, Songti TC"
             Scale="1.0" />
         <!-- JA -->
         <FontFamilyMap
             Unicode="FE30-FE6F"
             Language="ja"
-            Target="Meiryo, Microsoft JhengHei, MingLiU"
+            Target="Meiryo, Microsoft JhengHei, MingLiU, Hiragino Sans, Hiragino Kaku Gothic ProN, Hiragino Sans GB"
             Scale="1.0" />
         <!-- KO -->
         <FontFamilyMap
             Unicode="FE30-FE6F"
             Language="ko"
-            Target="Malgun Gothic, Microsoft JhengHei, MingLiU"
+            Target="Malgun Gothic, Microsoft JhengHei, MingLiU, Apple SD Gothic Neo, AppleGothic"
             Scale="1.0" />
         <!-- Other -->
         <FontFamilyMap
             Unicode="FE30-FE6F"
-            Target="Microsoft JhengHei, MingLiu"
+            Target="Microsoft JhengHei, MingLiu, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
             Scale="1.0" />
 
         <!-- Character FEFF              FEFF -->
@@ -584,24 +596,24 @@
         <FontFamilyMap
             Unicode="FF00-FF60"
             Language="zh-Hans"
-            Target="Microsoft YaHei, MS Gothic"
+            Target="Microsoft YaHei, MS Gothic, PingFang SC, Hiragino Sans GB, Heiti SC, Songti SC"
             Scale="1.0" />
         <!-- CHT -->
         <FontFamilyMap
             Unicode="FF00-FF60"
             Language="zh-Hant"
-            Target="Microsoft JhengHei, MS Gothic"
+            Target="Microsoft JhengHei, MS Gothic, PingFang TC, Heiti TC, Songti TC"
             Scale="1.0" />
         <!-- KO -->
         <FontFamilyMap
             Unicode="FF00-FF60"
             Language="ko"
-            Target="Malgun Gothic, Meiryo, Gulim, MS Gothic"
+            Target="Malgun Gothic, Meiryo, Gulim, MS Gothic, Apple SD Gothic Neo, AppleGothic"
             Scale="1.0" />
         <!-- Other (include JA) -->
         <FontFamilyMap
             Unicode="FF00-FF60"
-            Target="Meiryo, MS Gothic"
+            Target="Meiryo, MS Gothic, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
             Scale="1.0" />
 
         <!--
@@ -611,18 +623,18 @@
         <FontFamilyMap
             Unicode="FF61-FF9F"
             Language="zh-Hans"
-            Target="Microsoft YaHei, MingLiU"
+            Target="Microsoft YaHei, MingLiU, PingFang SC, Hiragino Sans GB, Heiti SC, Songti SC"
             Scale="1.0" />
         <!-- CHT -->
         <FontFamilyMap
             Unicode="FF61-FF9F"
-            Language="zh-Hans"
-            Target="Microsoft JhengHei, MingLiU"
+            Language="zh-Hant"
+            Target="Microsoft JhengHei, MingLiU, PingFang TC, Heiti TC, Songti TC"
             Scale="1.0" />
         <!-- Other (include JA and KO) -->
         <FontFamilyMap
             Unicode="FF61-FF9F"
-            Target="Meiryo, MS Gothic"
+            Target="Meiryo, MS Gothic, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
             Scale="1.0" />
 
         <!-- Half Full Forms Hangul      FFA0-FFDC -->
@@ -633,30 +645,30 @@
         <FontFamilyMap
             Unicode="FFE0-FFEE"
             Language="zh-Hans"
-            Target="Microsoft YaHei, MS Gothic"
+            Target="Microsoft YaHei, MS Gothic, PingFang SC, Hiragino Sans GB, Heiti SC, Songti SC"
             Scale="1.0" />
         <!-- CHT -->
         <FontFamilyMap
             Unicode="FFE0-FFEE"
             Language="zh-Hant"
-            Target="Microsoft JhengHei, MS Gothic"
+            Target="Microsoft JhengHei, MS Gothic, PingFang TC, Heiti TC, Songti TC"
             Scale="1.0" />
         <!-- JA -->
         <FontFamilyMap  
             Unicode="FFE0-FFEE"
             Language="ja"
-            Target="Meiryo, Microsoft JhengHei, MS Gothic"
+            Target="Meiryo, Microsoft JhengHei, MS Gothic, Hiragino Sans, Hiragino Kaku Gothic ProN, Hiragino Sans GB"
             Scale="1.0"/>
         <!-- KO -->
         <FontFamilyMap
             Unicode="FFE0-FFEE"
             Language="ko"
-            Target="Malgun Gothic, Meiryo, Microsoft JhengHei, Gulim, MS Gothic"
+            Target="Malgun Gothic, Meiryo, Microsoft JhengHei, Gulim, MS Gothic, Apple SD Gothic Neo, AppleGothic"
             Scale="1.0" />
         <!-- Other -->
         <FontFamilyMap
             Unicode="FFE0-FFEE"
-            Target="Microsoft JhengHei, MS Gothic"
+            Target="Microsoft JhengHei, MS Gothic, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
             Scale="1.0" />
             
         <!-- Specials                    FFF0-FFFD -->
@@ -690,24 +702,30 @@
         <FontFamilyMap
             Unicode="20000-2A6DF"
             Language="zh-Hans"
-            Target="SimSun-ExtB"
+            Target="SimSun-ExtB, PingFang SC, Hiragino Sans GB, Heiti SC, Songti SC"
+            Scale="1.0" />
+        <!-- CHT -->
+        <FontFamilyMap
+            Unicode="20000-2A6DF"
+            Language="zh-Hant"
+            Target="MingLiU-ExtB, PingFang TC, Heiti TC, Songti TC"
             Scale="1.0" />
         <!-- Hong Kong -->
         <FontFamilyMap
             Unicode="20000-2A6DF"
             Language="zh-HK"
-            Target="MingLiU_HKSCS-ExtB, MingLiU-ExtB"
+            Target="MingLiU_HKSCS-ExtB, MingLiU-ExtB, PingFang HK, PingFang TC, Heiti TC, Songti TC"
             Scale="1.0" />
         <!-- JA -->
         <FontFamilyMap
             Unicode="20000-2A6DF"
             Language="ja"
-            Target="Meiryo, MS Gothic, MingLiU-ExtB"
+            Target="Meiryo, MS Gothic, MingLiU-ExtB, Hiragino Sans, Hiragino Kaku Gothic ProN, Hiragino Sans GB"
             Scale="1.0" />
         <!-- Other (include CHT and KO) -->
         <FontFamilyMap
             Unicode="20000-2A6DF"
-            Target="MingLiU-ExtB"
+            Target="MingLiU-ExtB, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
             Scale="1.0" />
 
         <!-- CJK Comp Ideog Supplement      2F800-2FA1F -->
@@ -715,24 +733,24 @@
         <FontFamilyMap  
             Unicode          = "2F800-2FA1F"
             Language         = "zh-Hans"
-            Target           = "SimSun-ExtB"
+            Target           = "SimSun-ExtB, PingFang SC, Hiragino Sans GB, Heiti SC, Songti SC"
             Scale            = "1.0"/>
         <!-- Hong Kong -->
         <FontFamilyMap  
             Unicode          = "2F800-2FA1F"
             Language         = "zh-HK"
-            Target           = "MingLiU_HKSCS-ExtB, MingLiU-ExtB"
+            Target           = "MingLiU_HKSCS-ExtB, MingLiU-ExtB, PingFang HK, PingFang TC, Heiti TC, Songti TC"
             Scale            = "1.0"/>
         <!-- CHT -->
         <FontFamilyMap  
             Unicode          = "2F800-2FA1F"
             Language         = "zh-Hant"
-            Target           = "MingLiU-ExtB"
+            Target           = "MingLiU-ExtB, PingFang TC, Heiti TC, Songti TC"
             Scale            = "1.0"/>
         <!-- Other (include JA and KO) -->
         <FontFamilyMap  
             Unicode          = "2F800-2FA1F"
-            Target           = "Meiryo, MingLiU-ExtB"
+            Target           = "Meiryo, MingLiU-ExtB, PingFang SC, Hiragino Sans GB, Apple SD Gothic Neo, Hiragino Sans, PingFang TC"
             Scale            = "1.0"/>
 
     </FontFamily.FamilyMaps>
