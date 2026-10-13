@@ -8,7 +8,7 @@ root=Path(os.environ['CASE_ROOT'])/'consumer'
 receipt=json.loads((root/'preparation.json').read_text())
 source=root/'GalleryClipboardApp.cs';original=source.read_bytes()
 assert hashlib.sha256(original).hexdigest()==receipt['inputs'][source.name]
-text=original.decode('utf-8');edits=[]
+text=original.decode('utf-8').replace('\r\n','\n');edits=[]
 def replace(old,new,count=1):
     global text
     assert text.count(old)==count,(old,text.count(old))
