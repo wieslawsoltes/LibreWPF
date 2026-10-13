@@ -14,6 +14,8 @@ var processes = trace.Processes.Where(p => p.ProcessID == pid).ToArray();
 if (processes.Length != 1 || !processes[0].Name.Equals("GalleryClipboardApp", StringComparison.OrdinalIgnoreCase))
     throw new InvalidOperationException("ETW must contain exactly the verified Gallery process, without PID reuse.");
 var stacks = new Dictionary<string, long>();
+var nativeCallers = new Dictionary<string, long>();
+var compilerIntervals = new List<(string Caller, int Thread, double First, double Last, long Samples)>();
 var modules = new Dictionary<string, long>();
 var bins = new Dictionary<string, long>();
 long samples = 0, missingStacks = 0;
@@ -28,6 +30,18 @@ foreach (var e in processes[0].EventsInProcess.ByEventType<SampledProfileTraceDa
         string method = s.CodeAddress.FullMethodName;
         names.Add(string.IsNullOrEmpty(method) ? module + "!0x" + s.CodeAddress.Address.ToString("x") : module + "!" + method);
     }
+    if (leaf == "d3dcompiler_47") {
+        var native = new List<string>();
+        for (var f = e.CallStack(); f != null; f = f.Caller) {
+            var m = f.CodeAddress.ModuleFile;
+            if (m?.Name == "progpu_native") native.Add("progpu_native+0x" + (f.CodeAddress.Address - m.ImageBase).ToString("x"));
+        }
+        string caller = string.Join(" / ", native);
+        nativeCallers[caller] = nativeCallers.GetValueOrDefault(caller) + 1;
+        int interval = compilerIntervals.FindLastIndex(i => i.Caller == caller && i.Thread == e.ThreadID && e.TimeStampRelativeMSec - i.Last < 100);
+        if (interval < 0) compilerIntervals.Add((caller, e.ThreadID, e.TimeStampRelativeMSec, e.TimeStampRelativeMSec, 1));
+        else { var i = compilerIntervals[interval]; compilerIntervals[interval] = (i.Caller, i.Thread, i.First, e.TimeStampRelativeMSec, i.Samples + 1); }
+    }
     if (names.Count == 0) missingStacks++;
     string key = "thread=" + e.ThreadID + "\n" + string.Join("\n", names);
     stacks[key] = stacks.GetValueOrDefault(key) + 1;
@@ -40,6 +54,10 @@ File.WriteAllText(output, JsonSerializer.Serialize(new {
     diagnosticOnly = true, qualified = false, inputSha256 = hash,
     inputUnchanged = hash == Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(input))),
     pid, samples, missingStacks, eventsLost = trace.EventsLost, firstMs = first, lastMs = last,
+    loadedModules = processes[0].LoadedModules.Where(m => new[] { "progpu_native", "wgpu_native", "d3dcompiler_47" }.Contains(m.Name))
+        .Select(m => new { m.Name, m.FilePath, m.ImageBase, m.ModuleFile.ImageSize, m.ModuleFile.PdbName, m.ModuleFile.PdbSignature, m.ModuleFile.PdbAge }),
+    nativeCompilerCallers = nativeCallers.OrderByDescending(x => x.Value).Select(x => new { call = x.Key, samples = x.Value }),
+    compilerIntervals = compilerIntervals.Where(i => i.Samples >= 10).Select(i => new { i.Caller, i.Thread, i.First, i.Last, i.Samples }),
     sampleKind = "Kernel CPU sampled stacks, not whole-run wall-time qualification",
     modules = modules.OrderByDescending(x => x.Value).Select(x => new { name=x.Key, samples=x.Value }),
     bins = bins.OrderBy(x => x.Key).Select(x => new { name=x.Key, samples=x.Value }),
