@@ -52,7 +52,10 @@ for mode in ['before-exit','exit-unpinned','exit-pinned']:
   assert crash.digest(image)==crash.digest(app)
   report['privateApphostBinding']='ExitGlyphProbe.dll';report['ownedImage']=image.name
   event_path=case/'native-debugger-event.json'
-  raw=Path(tempfile.mkdtemp(prefix='exit-lifetime-first-av-'))/'first.dmp'
+  raw=Path(tempfile.mkdtemp(prefix='exit-lifetime-first-av-'))/'first-chance-av.dmp'
+  assert raw.name=='first-chance-av.dmp' and raw.is_absolute() and not raw.exists()
+  assert not any(raw.parent.iterdir()) and not any(raw_root.iterdir()) and raw.parent!=raw_root
+  assert event_path.is_absolute() and not event_path.exists() and len(image.name)==49
   child_env=env.copy()
   for name in idle.CONFLICTING_MODES:child_env.pop(name,None)
   assert not any(child_env.get(n) for n in ['DOTNET_JitDisasm','DOTNET_GCStress','COMPlus_GCStress'])
