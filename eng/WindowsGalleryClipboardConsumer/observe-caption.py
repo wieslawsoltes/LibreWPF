@@ -4,7 +4,7 @@ from ctypes import wintypes as W
 from pathlib import Path
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('--runtime',type=Path,required=True);p.add_argument('--output',type=Path,required=True);a=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('--runtime',type=Path,required=True);p.add_argument('--output',type=Path,required=True);p.add_argument('--preflight',action='store_true');a=p.parse_args()
     assert os.name=='nt' and all(os.environ.get(k)==v for k,v in {
         'GITHUB_ACTIONS':'true','RUNNER_ENVIRONMENT':'github-hosted','RUNNER_OS':'Windows',
         'GITHUB_REPOSITORY':'wieslawsoltes/LibreWPF'}.items())
@@ -21,6 +21,12 @@ def main():
     for name in ['GetForegroundWindow','GetDesktopWindow','GetShellWindow']:bind(u,name,W.HWND)
     bind(u,'GetWindowThreadProcessId',W.DWORD,W.HWND,C.POINTER(W.DWORD))
     bind(u,'GetClassNameW',C.c_int,W.HWND,W.LPWSTR,C.c_int)
+    bind(u,'GetWindowTextW',C.c_int,W.HWND,W.LPWSTR,C.c_int)
+    k=C.WinDLL('kernel32',use_last_error=True)
+    bind(k,'OpenProcess',W.HANDLE,W.DWORD,W.BOOL,W.DWORD)
+    bind(k,'CloseHandle',W.BOOL,W.HANDLE)
+    bind(k,'QueryFullProcessImageNameW',W.BOOL,W.HANDLE,W.DWORD,W.LPWSTR,C.POINTER(W.DWORD))
+    bind(k,'ProcessIdToSessionId',W.BOOL,W.DWORD,C.POINTER(W.DWORD))
     bind(u,'GetWindowRect',W.BOOL,W.HWND,C.POINTER(W.RECT))
     bind(u,'ClientToScreen',W.BOOL,W.HWND,C.POINTER(W.POINT))
     bind(u,'GetWindowLongPtrW',C.c_ssize_t,W.HWND,C.c_int)
@@ -37,12 +43,20 @@ def main():
         C.set_last_error(0)
         ok=bool(handle) and bool(u.GetUserObjectInformationW(handle,2,name,C.sizeof(name),C.byref(needed)))
         return {'handle':handle,'ok':ok,'name':name.value if ok else None,'error':C.get_last_error()}
+    def process(pid):
+        session=W.DWORD();session_ok=bool(k.ProcessIdToSessionId(pid,C.byref(session)))
+        C.set_last_error(0);handle=k.OpenProcess(0x1000,False,pid);error=C.get_last_error();name=C.create_unicode_buffer(1024);size=W.DWORD(1024)
+        ok=False
+        if handle:
+            try:ok=bool(k.QueryFullProcessImageNameW(handle,0,name,C.byref(size)));error=C.get_last_error()
+            finally:assert k.CloseHandle(handle)
+        return {'pid':pid,'session':session.value if session_ok else None,'image':name.value if ok else None,'queryError':error}
     def window(hwnd):
         if not hwnd:return {'hwnd':hwnd}
         owner=W.DWORD();thread=u.GetWindowThreadProcessId(hwnd,C.byref(owner));name=C.create_unicode_buffer(256)
-        u.GetClassNameW(hwnd,name,256);rect=W.RECT();got=bool(u.GetWindowRect(hwnd,C.byref(rect)))
+        u.GetClassNameW(hwnd,name,256);title=C.create_unicode_buffer(256);u.GetWindowTextW(hwnd,title,256);rect=W.RECT();got=bool(u.GetWindowRect(hwnd,C.byref(rect)))
         cloak=W.DWORD();hr=d.DwmGetWindowAttribute(hwnd,14,C.byref(cloak),C.sizeof(cloak))
-        return {'hwnd':hwnd,'pid':owner.value,'thread':thread,'class':name.value,
+        return {'hwnd':hwnd,'pid':owner.value,'thread':thread,'class':name.value,'title':title.value,'process':process(owner.value),
                 'visible':bool(u.IsWindowVisible(hwnd)),'enabled':bool(u.IsWindowEnabled(hwnd)),
                 'iconic':bool(u.IsIconic(hwnd)),'hung':bool(u.IsHungAppWindow(hwnd)),
                 'style':u.GetWindowLongPtrW(hwnd,-16),'extendedStyle':u.GetWindowLongPtrW(hwnd,-20),
@@ -50,6 +64,9 @@ def main():
                 'cloaked':cloak.value if hr==0 else None,'cloakHresult':hr,
                 'desktop':desktop_name(u.GetThreadDesktop(thread))}
     try:
+        if a.preflight:
+            r['foreground']=window(u.GetForegroundWindow());r['shellWindow']=window(u.GetShellWindow());r['observerProcess']=process(os.getpid())
+            return
         target=a.runtime/'activation-target.json'
         while not target.exists():
             if time.monotonic()-start>=60:raise RuntimeError('No original activation target within observation bound')
