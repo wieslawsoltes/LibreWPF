@@ -22,7 +22,7 @@ permissions:
 
 jobs:
   original-gallery:
-    name: Observe Gallery native render phases (diagnostic only)
+    name: Observe Gallery native CPU stages (diagnostic only)
     runs-on: windows-11-arm
     timeout-minutes: 20
     env:
@@ -34,6 +34,10 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ inputs.head }}
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: diagnostic-harness
       - name: Read the exact original consumer compiler
         id: consumer-compiler
         shell: pwsh
@@ -63,6 +67,13 @@ jobs:
             --head $env:PRODUCER_HEAD --build $env:PRODUCER_BUILD --docs $env:PRODUCER_DOCS `
             --output $env:CASE_ROOT --dotnet (Get-Command dotnet).Source
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Compile CPU reader and publish owned child identity
+        shell: pwsh
+        run: |
+          dotnet build diagnostic-harness/eng/diagnostics/gallery-native-cpu/reader/TraceReader.csproj -c Release --nologo -v:q
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python diagnostic-harness/eng/WindowsGalleryClipboardConsumer/publish-gallery-child.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Close the identified disposable runner startup window
         shell: pwsh
         run: |
@@ -74,11 +85,18 @@ jobs:
           PROGPU_WPF_TRACE_NATIVE_LOOP: "1"
           PROGPU_NATIVE_TRACE_SCENE_ENCODE: "1"
           PROGPU_BACKEND_DIAGNOSTICS: "1"
+          PROGPU_NATIVE_TRACE_COMPUTE: "1"
+          PROGPU_NATIVE_TRACE_PICTURE_MASK: "1"
         run: |
+          $reader = (Resolve-Path 'diagnostic-harness/eng/diagnostics/gallery-native-cpu/reader/bin/Release/net10.0/TraceReader.dll').Path
+          $observerArgs = @('diagnostic-harness/eng/diagnostics/gallery-native-cpu/observe-native-cpu.py', '--root', $env:CASE_ROOT, '--reader', $reader) | ForEach-Object { '"' + $_ + '"' }
+          $observer = Start-Process -FilePath (Get-Command python).Source -ArgumentList $observerArgs -PassThru -RedirectStandardOutput "$env:CASE_ROOT/observer.stdout.log" -RedirectStandardError "$env:CASE_ROOT/observer.stderr.log"
           python "$env:CASE_ROOT/consumer/run-windows.py" `
             --app "$env:CASE_ROOT/consumer/bin/Release/net10.0-windows/GalleryClipboardApp.exe" `
             --output "$env:CASE_ROOT/runtime" --require-empty-ci-clipboard
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $originalCode = $LASTEXITCODE
+          if (!$observer.WaitForExit(180000)) { $observer.Kill(); $observer.WaitForExit() }
+          exit $originalCode
       - name: Retain original receipts and captures for manual visual review
         if: always()
         uses: actions/upload-artifact@v4
@@ -94,4 +112,8 @@ jobs:
             ${{ env.CASE_ROOT }}/original/Assets/ControlImages/Clipboard.png
             ${{ env.CASE_ROOT }}/original/LICENSE
             ${{ env.CASE_ROOT }}/runtime/**
+            ${{ env.CASE_ROOT }}/native-cpu-observation/**
+            ${{ env.CASE_ROOT }}/observer.*.log
+            ${{ env.CASE_ROOT }}/consumer/stack-observation-source.json
+            ${{ env.CASE_ROOT }}/consumer/run-windows.original.py.txt
             ${{ env.CASE_ROOT }}/hosted-environment.json
