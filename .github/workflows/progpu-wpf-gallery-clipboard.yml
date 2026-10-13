@@ -22,7 +22,7 @@ permissions:
 
 jobs:
   original-gallery:
-    name: Observe Gallery phase stall (diagnostic only)
+    name: Observe Gallery managed startup stacks (diagnostic only)
     runs-on: windows-11-arm
     timeout-minutes: 20
     env:
@@ -68,8 +68,13 @@ jobs:
             --head $env:PRODUCER_HEAD --build $env:PRODUCER_BUILD --docs $env:PRODUCER_DOCS `
             --output $env:CASE_ROOT --dotnet (Get-Command dotnet).Source
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Add bounded phase observations to private consumer only
-        run: python hosted-environment/eng/WindowsGalleryClipboardConsumer/trace-gallery-phases.py
+      - name: Install pinned diagnostic tool and publish owned child identity
+        shell: pwsh
+        run: |
+          dotnet tool install dotnet-trace --tool-path "$env:RUNNER_TEMP/gallery-trace-tools" --version 10.0.750501
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python hosted-environment/eng/WindowsGalleryClipboardConsumer/publish-gallery-child.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Close identified hosted startup window through its normal close request
         shell: pwsh
         run: |
@@ -78,10 +83,14 @@ jobs:
       - name: Run original captures with an empty disposable CI clipboard
         shell: pwsh
         run: |
+          $observerArgs = @("hosted-environment/eng/WindowsGalleryClipboardConsumer/observe-gallery-stacks.py", "--root", $env:CASE_ROOT, "--tool", "$env:RUNNER_TEMP/gallery-trace-tools/dotnet-trace.exe") | ForEach-Object { '"' + $_ + '"' }
+          $observer = Start-Process -FilePath (Get-Command python).Source -ArgumentList $observerArgs -PassThru -RedirectStandardOutput "$env:CASE_ROOT/observer.stdout.log" -RedirectStandardError "$env:CASE_ROOT/observer.stderr.log"
           python "$env:CASE_ROOT/consumer/run-windows.py" `
             --app "$env:CASE_ROOT/consumer/bin/Release/net10.0-windows/GalleryClipboardApp.exe" `
             --output "$env:CASE_ROOT/runtime" --require-empty-ci-clipboard
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $originalCode = $LASTEXITCODE
+          if (!$observer.WaitForExit(110000)) { $observer.Kill(); $observer.WaitForExit() }
+          exit $originalCode
       - name: Retain original receipts and captures for manual visual review
         if: always()
         uses: actions/upload-artifact@v4
@@ -93,12 +102,12 @@ jobs:
             ${{ env.CASE_ROOT }}/inputs/*.json
             ${{ env.CASE_ROOT }}/consumer/preparation.json
             ${{ env.CASE_ROOT }}/consumer/build.log
-            ${{ env.CASE_ROOT }}/consumer/phase-*.json
-            ${{ env.CASE_ROOT }}/consumer/phase-build.log
-            ${{ env.CASE_ROOT }}/consumer/GalleryClipboardApp.cs
-            ${{ env.CASE_ROOT }}/consumer/GalleryClipboardApp.original.cs.txt
             ${{ env.CASE_ROOT }}/consumer/source-manifest.json
             ${{ env.CASE_ROOT }}/original/Assets/ControlImages/Clipboard.png
             ${{ env.CASE_ROOT }}/original/LICENSE
             ${{ env.CASE_ROOT }}/runtime/**
+            ${{ env.CASE_ROOT }}/stack-observation/**
+            ${{ env.CASE_ROOT }}/observer.*.log
+            ${{ env.CASE_ROOT }}/consumer/stack-observation-source.json
+            ${{ env.CASE_ROOT }}/consumer/run-windows.original.py.txt
             ${{ env.CASE_ROOT }}/hosted-environment.json
