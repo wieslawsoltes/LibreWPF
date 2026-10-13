@@ -16,6 +16,10 @@ import traceback
 ROOT = Path(__file__).resolve().parent
 
 
+class StaleObservation(RuntimeError):
+    """Wait for a fresh source observation; never inject input using this state."""
+
+
 def module(name, path):
     spec = importlib.util.spec_from_file_location(name, path)
     value = importlib.util.module_from_spec(spec)
@@ -94,7 +98,8 @@ def main():
                 require(process.poll() is None, 'Original process ended before sequence completion')
                 value = read(out / 'state.json')
                 require(value['pid'] == process.pid, 'Original observer PID mismatch')
-                require(time.time() - (out / 'state.json').stat().st_mtime < 2, 'Observer is stale; no input')
+                if time.time() - (out / 'state.json').stat().st_mtime >= 2:
+                    raise StaleObservation('Observer is stale; no input')
                 return value
 
             def wait_for(predicate, label):
@@ -106,7 +111,7 @@ def main():
                             (out / (label + '-state.json')).write_text(json.dumps(value, indent=2))
                             return matches[0]
                         require(len(matches) <= 1, 'Ambiguous original source window')
-                    except (FileNotFoundError, json.JSONDecodeError):
+                    except (FileNotFoundError, json.JSONDecodeError, StaleObservation):
                         pass
                     time.sleep(.1)
                 raise TimeoutError('Original input budget expired waiting for ' + label)
