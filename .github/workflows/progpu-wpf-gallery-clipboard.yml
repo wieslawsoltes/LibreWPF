@@ -70,7 +70,7 @@ jobs:
       - name: Compile CPU reader and publish owned child identity
         shell: pwsh
         run: |
-          dotnet build diagnostic-harness/eng/diagnostics/gallery-native-cpu/reader/TraceReader.csproj -c Release --nologo -v:q
+          dotnet build diagnostic-harness/eng/diagnostics/gallery-native-cpu/reader/TraceReader.csproj -c Release --nologo -v:q --output "$env:RUNNER_TEMP/gallery-cpu-reader"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python diagnostic-harness/eng/WindowsGalleryClipboardConsumer/publish-gallery-child.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -88,7 +88,7 @@ jobs:
           PROGPU_NATIVE_TRACE_COMPUTE: "1"
           PROGPU_NATIVE_TRACE_PICTURE_MASK: "1"
         run: |
-          $reader = (Resolve-Path 'diagnostic-harness/eng/diagnostics/gallery-native-cpu/reader/bin/Release/net10.0/TraceReader.dll').Path
+          $reader = (Resolve-Path "$env:RUNNER_TEMP/gallery-cpu-reader/TraceReader.dll").Path
           $observerArgs = @('diagnostic-harness/eng/diagnostics/gallery-native-cpu/observe-native-cpu.py', '--root', $env:CASE_ROOT, '--reader', $reader) | ForEach-Object { '"' + $_ + '"' }
           $observer = Start-Process -FilePath (Get-Command python).Source -ArgumentList $observerArgs -PassThru -RedirectStandardOutput "$env:CASE_ROOT/observer.stdout.log" -RedirectStandardError "$env:CASE_ROOT/observer.stderr.log"
           python "$env:CASE_ROOT/consumer/run-windows.py" `
