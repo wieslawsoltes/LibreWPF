@@ -1,0 +1,15 @@
+{
+  "source": "f9507dc67920d9e72af64f35c8455b59e70ed87f",
+  "originalRun": 38314985874,
+  "originalJob": 115038887397,
+  "appSha256": "25f1502a669ce8dded6fccf6a015c2bf4cc8d38cd74558053cbc54c3364bd37d",
+  "payloadSha256Before": {
+    "ProGPU.Wpf.ShowcaseApp": "a7ed653dfab66906ca8f17fe1cd64862e3664e7f3a0e8357dee920a390798a41",
+    "PresentationFramework": "038d2344ad742ea2eb59791f50769e06552cf9bfc245fcbd2d0de8efbb5433ee",
+    "PresentationCore": "58913729862d4c5ba48a7aeb446edd67791696da7a6dd4512968b214f0acfc6b",
+    "ProGPU.Wpf": "6bfb39ab444e1e6cb956038fe0af89b848be6e331e6006936decacb5932ce4bd",
+    "ProGPU.Wpf.Interop": "dc786497409f9d4746ad98d7ce43bfaa75a7c79ce5407740ee61054e8bd20d4f"
+  },
+  "originalReceiptSha256": "dce8a9a371f1647e362190a3e024420a006b209a0671ebaf23cbba90843dcd16",
+  "originalSmokeRoot": "C:\\Users\\runneradmin\\AppData\\Local\\Temp\\librewpf-native-mil-win-arm64-48a02249ac124322affccea835b6c758"
+}

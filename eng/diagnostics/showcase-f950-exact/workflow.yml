@@ -1,0 +1,71 @@
+name: Original Gallery clipboard acceptance
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  showcase-heap:
+    name: Exact failed Showcase recovery and bounded PageHeap diagnosis
+    runs-on: windows-11-arm
+    timeout-minutes: 25
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: f9507dc67920d9e72af64f35c8455b59e70ed87f
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: diagnostic-harness
+      - uses: actions/checkout@v7
+        with:
+          ref: 1fb4f1e90fc1c833ac7c063cc6cd93e4c6134640
+          path: diagnostic-tools
+      - name: Find and verify Microsoft heap diagnostic tool before staging
+        shell: pwsh
+        run: |
+          $root = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits/10/Debuggers'
+          $paths = @('arm64/gflags.exe', 'x64/gflags.exe') | ForEach-Object { Join-Path $root $_ }
+          $tool = $paths | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+          if (!$tool) { throw 'Microsoft GFlags is unavailable; no application or heap configuration was changed.' }
+          $signature = Get-AuthenticodeSignature -LiteralPath $tool
+          if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notmatch 'O=Microsoft Corporation') {
+            throw 'The available GFlags binary has no valid Microsoft signature.'
+          }
+          New-Item -ItemType Directory -Path artifacts/glyph-heap-diagnostic -Force | Out-Null
+          @{ path=$tool; sha256=(Get-FileHash -LiteralPath $tool -Algorithm SHA256).Hash; signature=$signature.Status.ToString(); subject=$signature.SignerCertificate.Subject; version=(Get-Item $tool).VersionInfo.FileVersion } |
+            ConvertTo-Json | Set-Content artifacts/glyph-heap-diagnostic/gflags.json
+          "HEAP_GFLAGS=$tool" >> $env:GITHUB_ENV
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@v4
+        with:
+          name: showcase-native-debugger-arm64-1fb4f1e90fc1c833ac7c063cc6cd93e4c6134640
+          run-id: 38337875121
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/showcase-native-debugger
+      - name: Recover the known-failed original inputs for diagnosis only
+        shell: pwsh
+        run: |
+          python diagnostic-harness/eng/diagnostics/showcase-f950-exact/prepare.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          ./eng/prepare-original-failed-showcase.ps1 -TargetArchitecture arm64
+      - name: Observe original sequence once with native heap checking
+        run: python diagnostic-harness/eng/diagnostics/showcase-f950-exact/run.py
+      - name: Retain all diagnostics and validated exception evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: showcase-f950-exact-${{ github.run_id }}
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            artifacts/glyph-heap-diagnostic/*.json
+            artifacts/glyph-heap-diagnostic/*.txt
+            artifacts/glyph-heap-diagnostic/run/**
