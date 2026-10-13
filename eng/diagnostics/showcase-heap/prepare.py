@@ -8,7 +8,8 @@ head='044a1461019c52fb9fd747e096036d7763a3fe3f';build_id=38326178889;docs_id=383
 repo=Path.cwd();spec=importlib.util.spec_from_file_location('producer',repo/'eng/WindowsGalleryClipboardConsumer/prepare-ci.py')
 ci=importlib.util.module_from_spec(spec);spec.loader.exec_module(ci)
 assert subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()==head
-out=repo/'artifacts/glyph-heap-diagnostic';out.mkdir(parents=True,exist_ok=False)
+out=repo/'artifacts/glyph-heap-diagnostic';out.mkdir(parents=True,exist_ok=True)
+assert {p.name for p in out.iterdir()}=={'gflags.json'}
 def keep(name,data):
  (out/name).write_text(json.dumps(data,indent=2)+'\n');return data
 fields='databaseId,name,headSha,status,conclusion,jobs'
