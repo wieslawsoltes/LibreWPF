@@ -136,12 +136,19 @@ def main():
 
             def click(window, selector, label):
                 activate(window, label)
-                fresh = state()
-                matches = [w for w in fresh['windows'] if w['hwnd'] == window['hwnd'] and w['presented']]
-                require(len(matches) == 1, 'Original window identity changed')
-                require(matches[0]['contentType'] == window['contentType'] and matches[0]['source'] == window['source'],
-                        'Original navigation content changed before input')
-                control = select(matches[0], selector)
+                def ready(w):
+                    if w['hwnd'] != window['hwnd']:
+                        return False
+                    require(w['contentType'] == window['contentType'] and w['source'] == window['source'],
+                            'Original navigation content changed before input')
+                    choices = [c for c in w['controls'] if c['enabled'] and selector(c)]
+                    require(len(choices) <= 1, 'Ambiguous original input target')
+                    return len(choices) == 1
+                # Original navigation metadata precedes the source command's
+                # enabled-state update. Wait for the observed enabled target;
+                # never send input to a disabled or missing control.
+                observed = wait_for(ready, label + '-ready')
+                control = select(observed, selector)
                 rect = control['rect']
                 require(len(rect) == 4 and all(math.isfinite(x) for x in rect) and rect[2] > 0 and rect[3] > 0,
                         'Original source target geometry unavailable')
@@ -173,6 +180,7 @@ def main():
                               elapsedSeconds=time.monotonic()-started)
                 (out / (label + '-input.json')).write_text(json.dumps(record, indent=2))
                 result['actions'].append(record)
+                return observed
 
             root = wait_for(lambda w: w['title'] == 'Original Gallery navigation acceptance', 'root')
             click(root, lambda c: c['type'] == 'Button' and c['name'] == 'OpenNavigationWindow', 'open-navigation')
@@ -189,7 +197,7 @@ def main():
             select(page2, lambda c: c['type'] == 'TextBlock' and c['text'] == 'This is Page 2')
             click(page2, lambda c: c['type'] == 'TextBlock' and c['text'] == '\ue72b', 'journal-back')
             back = wait_for(lambda w: w['type'] == 'NavigationWindow' and w['contentType'] == 'WPFGallery.Views.Page1' and w['canGoForward'] is True, 'back-page1')
-            click(back, lambda c: c['type'] == 'TextBlock' and c['text'] == '\ue72a', 'journal-forward')
+            forward_origin = click(back, lambda c: c['type'] == 'TextBlock' and c['text'] == '\ue72a', 'journal-forward')
             final = wait_for(lambda w: w['type'] == 'NavigationWindow' and w['contentType'] == 'WPFGallery.Views.Page2' and w['canGoBack'] is True, 'forward-page2')
             select(final, lambda c: c['type'] == 'TextBlock' and c['text'] == 'This is Page 2')
             # Content/source can publish before the original host presents the
@@ -200,7 +208,9 @@ def main():
                                        and w['contentType'] == final['contentType']
                                        and w['source'] == final['source']
                                        and w['canGoBack'] is True
-                                       and w['frames'] > back['frames'], 'forward-page2-presented')
+                                       and w['frames'] > forward_origin['frames']
+                                       and any(c['type'] == 'TextBlock' and c['text'] == '\ue72b' and c['enabled'] for c in w['controls'])
+                                       and any(c['type'] == 'TextBlock' and c['text'] == '\ue72a' and not c['enabled'] for c in w['controls']), 'forward-page2-presented')
             select(final_presented, lambda c: c['type'] == 'TextBlock' and c['text'] == 'This is Page 2')
             capture('forward-page2')
             result['sequenceCompleted'] = True
