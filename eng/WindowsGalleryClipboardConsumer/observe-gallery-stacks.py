@@ -36,8 +36,9 @@ try:
     if not k.QueryFullProcessImageNameW(handle,0,image,C.byref(size)):raise C.WinError(C.get_last_error())
     assert os.path.normcase(image.value)==os.path.normcase(str(expected.resolve())) and k.WaitForSingleObject(handle,0)==258
     receipt['before']=times()
-    command=[str(a.tool),'collect','--process-id',str(t['pid']),'--duration','00:00:00:52','--buffersize','32',
-             '--profile','dotnet-common,dotnet-sampled-thread-time','--output',str(out/'gallery.nettrace')]
+    command=[str(a.tool),'collect','--process-id',str(t['pid']),'--duration','00:00:00:20','--buffersize','32',
+             '--profile','dotnet-common,dotnet-sampled-thread-time',
+             '--providers','Microsoft-Windows-DotNETRuntime:0x100003801D:5','--output',str(out/'gallery.nettrace')]
     with (out/'trace.log').open('xb') as log:
         tracer=subprocess.Popen(command,stdout=log,stderr=subprocess.STDOUT)
         try:receipt['traceExit']=tracer.wait(timeout=85)
