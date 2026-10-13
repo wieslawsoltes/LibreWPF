@@ -139,6 +139,8 @@ def main():
                 fresh = state()
                 matches = [w for w in fresh['windows'] if w['hwnd'] == window['hwnd'] and w['presented']]
                 require(len(matches) == 1, 'Original window identity changed')
+                require(matches[0]['contentType'] == window['contentType'] and matches[0]['source'] == window['source'],
+                        'Original navigation content changed before input')
                 control = select(matches[0], selector)
                 rect = control['rect']
                 require(len(rect) == 4 and all(math.isfinite(x) for x in rect) and rect[2] > 0 and rect[3] > 0,
@@ -175,7 +177,14 @@ def main():
             root = wait_for(lambda w: w['title'] == 'Original Gallery navigation acceptance', 'root')
             click(root, lambda c: c['type'] == 'Button' and c['name'] == 'OpenNavigationWindow', 'open-navigation')
             page1 = wait_for(lambda w: w['type'] == 'NavigationWindow' and w['contentType'] == 'WPFGallery.Views.Page1', 'page1')
-            click(page1, lambda c: c['type'] == 'TextBlock' and c['text'].strip() == 'This is the link to Page 2', 'page1-link')
+            # The immutable original Page1 has one enabled complex-content
+            # TextBlock enclosing its sole Hyperlink. Its public Text value is
+            # empty in the observed source snapshot; retain the actual measured
+            # element rectangle rather than inventing a plaintext text value.
+            # The other enabled TextBlock is the explicit "This is Page 1" label.
+            require(sum(c['type'] == 'TextBlock' and c['enabled'] for c in page1['controls']) == 2,
+                    'Original Page1 inline-container inventory differs')
+            click(page1, lambda c: c['type'] == 'TextBlock' and c['text'] == '', 'page1-link')
             page2 = wait_for(lambda w: w['type'] == 'NavigationWindow' and w['contentType'] == 'WPFGallery.Views.Page2' and w['canGoBack'] is True, 'page2')
             select(page2, lambda c: c['type'] == 'TextBlock' and c['text'] == 'This is Page 2')
             click(page2, lambda c: c['type'] == 'TextBlock' and c['text'] == '\ue72b', 'journal-back')
