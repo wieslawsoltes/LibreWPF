@@ -22,7 +22,7 @@ permissions:
 
 jobs:
   original-gallery:
-    name: Original Gallery image clipboard on Windows 11 ARM64
+    name: Observe Gallery phase stall (diagnostic only)
     runs-on: windows-11-arm
     timeout-minutes: 20
     env:
@@ -68,6 +68,8 @@ jobs:
             --head $env:PRODUCER_HEAD --build $env:PRODUCER_BUILD --docs $env:PRODUCER_DOCS `
             --output $env:CASE_ROOT --dotnet (Get-Command dotnet).Source
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Add bounded phase observations to private consumer only
+        run: python hosted-environment/eng/WindowsGalleryClipboardConsumer/trace-gallery-phases.py
       - name: Close identified hosted startup window through its normal close request
         shell: pwsh
         run: |
@@ -91,6 +93,10 @@ jobs:
             ${{ env.CASE_ROOT }}/inputs/*.json
             ${{ env.CASE_ROOT }}/consumer/preparation.json
             ${{ env.CASE_ROOT }}/consumer/build.log
+            ${{ env.CASE_ROOT }}/consumer/phase-*.json
+            ${{ env.CASE_ROOT }}/consumer/phase-build.log
+            ${{ env.CASE_ROOT }}/consumer/GalleryClipboardApp.cs
+            ${{ env.CASE_ROOT }}/consumer/GalleryClipboardApp.original.cs.txt
             ${{ env.CASE_ROOT }}/consumer/source-manifest.json
             ${{ env.CASE_ROOT }}/original/Assets/ControlImages/Clipboard.png
             ${{ env.CASE_ROOT }}/original/LICENSE
