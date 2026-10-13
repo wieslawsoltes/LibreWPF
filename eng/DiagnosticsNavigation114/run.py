@@ -192,6 +192,16 @@ def main():
             click(back, lambda c: c['type'] == 'TextBlock' and c['text'] == '\ue72a', 'journal-forward')
             final = wait_for(lambda w: w['type'] == 'NavigationWindow' and w['contentType'] == 'WPFGallery.Views.Page2' and w['canGoBack'] is True, 'forward-page2')
             select(final, lambda c: c['type'] == 'TextBlock' and c['text'] == 'This is Page 2')
+            # Content/source can publish before the original host presents the
+            # navigation frame. Retain both observations and wait for the real
+            # presentation counter to advance after the forward transition.
+            # Do not request another render, inject input, or extend the deadline.
+            final_presented = wait_for(lambda w: w['hwnd'] == final['hwnd']
+                                       and w['contentType'] == final['contentType']
+                                       and w['source'] == final['source']
+                                       and w['canGoBack'] is True
+                                       and w['frames'] > back['frames'], 'forward-page2-presented')
+            select(final_presented, lambda c: c['type'] == 'TextBlock' and c['text'] == 'This is Page 2')
             capture('forward-page2')
             result['sequenceCompleted'] = True
         except BaseException as error:
