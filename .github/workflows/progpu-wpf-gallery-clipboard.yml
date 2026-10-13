@@ -1,93 +1,71 @@
 name: Original Gallery clipboard acceptance
-
 on:
   workflow_dispatch:
-    inputs:
-      head:
-        description: Exact fully qualified LibreWPF producer commit (40 hexadecimal characters)
-        required: true
-        type: string
-      build:
-        description: Complete successful LibreWPF Build run ID for this commit
-        required: true
-        type: string
-      docs:
-        description: Complete successful LibreWPF Docs run ID for this commit
-        required: true
-        type: string
-
 permissions:
   contents: read
   actions: read
-
 jobs:
-  original-gallery:
-    name: Original Gallery image clipboard on Windows 11 ARM64
+  showcase-heap:
+    name: Exact failed Showcase with original heap policy
     runs-on: windows-11-arm
-    timeout-minutes: 20
+    timeout-minutes: 25
     env:
       GH_TOKEN: ${{ github.token }}
-      PRODUCER_HEAD: ${{ inputs.head }}
-      PRODUCER_BUILD: ${{ inputs.build }}
-      PRODUCER_DOCS: ${{ inputs.docs }}
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.head }}
-      - name: Read the exact original consumer compiler
-        id: consumer-compiler
+          ref: f9507dc67920d9e72af64f35c8455b59e70ed87f
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: diagnostic-harness
+      - uses: actions/checkout@v7
+        with:
+          ref: 1fb4f1e90fc1c833ac7c063cc6cd93e4c6134640
+          path: diagnostic-tools
+      - name: Find and verify Microsoft heap diagnostic tool before staging
         shell: pwsh
         run: |
-          $compiler = (Get-Content global.json -Raw | ConvertFrom-Json).sdk.version
-          if ($compiler -notmatch '^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$') {
-            throw "The qualified source must declare an exact compiler version."
+          $root = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits/10/Debuggers'
+          $paths = @('arm64/gflags.exe', 'x64/gflags.exe') | ForEach-Object { Join-Path $root $_ }
+          $tool = $paths | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+          if (!$tool) { throw 'Microsoft GFlags is unavailable; no application or heap configuration was changed.' }
+          $signature = Get-AuthenticodeSignature -LiteralPath $tool
+          if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notmatch 'O=Microsoft Corporation') {
+            throw 'The available GFlags binary has no valid Microsoft signature.'
           }
-          "version=$compiler" >> $env:GITHUB_OUTPUT
-          "CASE_ROOT=$(Join-Path $env:RUNNER_TEMP 'gallery-clipboard-ci')" >> $env:GITHUB_ENV
+          New-Item -ItemType Directory -Path artifacts/glyph-heap-diagnostic -Force | Out-Null
+          @{ path=$tool; sha256=(Get-FileHash -LiteralPath $tool -Algorithm SHA256).Hash; signature=$signature.Status.ToString(); subject=$signature.SignerCertificate.Subject; version=(Get-Item $tool).VersionInfo.FileVersion } |
+            ConvertTo-Json | Set-Content artifacts/glyph-heap-diagnostic/gflags.json
+          "HEAP_GFLAGS=$tool" >> $env:GITHUB_ENV
       - uses: actions/setup-dotnet@v4
         with:
-          # global-json-file honors latestFeature and installs a newer SDK;
-          # prepare.py deliberately disables roll-forward for this consumer.
-          dotnet-version: |
-            10.0.x
-            ${{ steps.consumer-compiler.outputs.version }}
+          global-json-file: global.json
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Verify unchanged capture and producer admission controls
-        run: python eng/WindowsGalleryClipboardConsumer/test_contract.py -v
-      - name: Prepare original consumer from whole successful producer
+      - uses: actions/download-artifact@v4
+        with:
+          name: showcase-native-debugger-arm64-1fb4f1e90fc1c833ac7c063cc6cd93e4c6134640
+          run-id: 38337875121
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/showcase-native-debugger
+      - name: Recover the known-failed original inputs for diagnosis only
         shell: pwsh
         run: |
-          python eng/WindowsGalleryClipboardConsumer/prepare-ci.py `
-            --head $env:PRODUCER_HEAD --build $env:PRODUCER_BUILD --docs $env:PRODUCER_DOCS `
-            --output $env:CASE_ROOT --dotnet (Get-Command dotnet).Source
+          python diagnostic-harness/eng/diagnostics/showcase-f950-normal/prepare.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Close the identified disposable runner startup window
-        shell: pwsh
-        run: |
-          python eng/WindowsGalleryClipboardConsumer/close-hosted-account.py --output "$env:CASE_ROOT/hosted-environment.json"
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Run original captures with an empty disposable CI clipboard
-        shell: pwsh
-        run: |
-          python "$env:CASE_ROOT/consumer/run-windows.py" `
-            --app "$env:CASE_ROOT/consumer/bin/Release/net10.0-windows/GalleryClipboardApp.exe" `
-            --output "$env:CASE_ROOT/runtime" --require-empty-ci-clipboard
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Retain original receipts and captures for manual visual review
+          ./eng/prepare-original-failed-showcase.ps1 -TargetArchitecture arm64
+      - name: Observe original sequence once with ordinary heap policy
+        run: python diagnostic-harness/eng/diagnostics/showcase-f950-normal/run.py
+      - name: Retain all diagnostics and validated exception evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: gallery-clipboard-${{ inputs.head }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: showcase-f950-normal-${{ github.run_id }}
           retention-days: 7
           if-no-files-found: warn
           path: |
-            ${{ env.CASE_ROOT }}/inputs/*.json
-            ${{ env.CASE_ROOT }}/consumer/preparation.json
-            ${{ env.CASE_ROOT }}/consumer/build.log
-            ${{ env.CASE_ROOT }}/consumer/source-manifest.json
-            ${{ env.CASE_ROOT }}/original/Assets/ControlImages/Clipboard.png
-            ${{ env.CASE_ROOT }}/original/LICENSE
-            ${{ env.CASE_ROOT }}/runtime/**
-            ${{ env.CASE_ROOT }}/hosted-environment.json
+            artifacts/glyph-heap-diagnostic/*.json
+            artifacts/glyph-heap-diagnostic/*.txt
+            artifacts/glyph-heap-diagnostic/run/**
