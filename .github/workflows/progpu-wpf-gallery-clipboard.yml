@@ -34,6 +34,11 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ inputs.head }}
+      - name: Checkout read-only diagnostic observer
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: caption-diagnostic
       - name: Read the exact original consumer compiler
         id: consumer-compiler
         shell: pwsh
@@ -66,10 +71,19 @@ jobs:
       - name: Run original captures with an empty disposable CI clipboard
         shell: pwsh
         run: |
-          python "$env:CASE_ROOT/consumer/run-windows.py" `
-            --app "$env:CASE_ROOT/consumer/bin/Release/net10.0-windows/GalleryClipboardApp.exe" `
-            --output "$env:CASE_ROOT/runtime" --require-empty-ci-clipboard
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $observer = Start-Process -FilePath (Get-Command python).Source -ArgumentList @(
+            'caption-diagnostic/eng/WindowsGalleryClipboardConsumer/observe-caption.py',
+            '--runtime', "$env:CASE_ROOT/runtime", '--output', "$env:CASE_ROOT/caption-observer.json"
+          ) -NoNewWindow -PassThru
+          try {
+            python "$env:CASE_ROOT/consumer/run-windows.py" `
+              --app "$env:CASE_ROOT/consumer/bin/Release/net10.0-windows/GalleryClipboardApp.exe" `
+              --output "$env:CASE_ROOT/runtime" --require-empty-ci-clipboard
+            $originalExit = $LASTEXITCODE
+          } finally {
+            if (-not $observer.WaitForExit(2000)) { $observer.Kill(); $observer.WaitForExit() }
+          }
+          if ($originalExit -ne 0) { exit $originalExit }
       - name: Retain original receipts and captures for manual visual review
         if: always()
         uses: actions/upload-artifact@v4
@@ -85,3 +99,4 @@ jobs:
             ${{ env.CASE_ROOT }}/original/Assets/ControlImages/Clipboard.png
             ${{ env.CASE_ROOT }}/original/LICENSE
             ${{ env.CASE_ROOT }}/runtime/**
+            ${{ env.CASE_ROOT }}/caption-observer.json
