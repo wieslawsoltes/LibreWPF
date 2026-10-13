@@ -7,7 +7,7 @@ assert os.name=='nt' and all(os.environ.get(k)==v for k,v in {
     'GITHUB_REPOSITORY':'wieslawsoltes/LibreWPF'}.items())
 p=argparse.ArgumentParser();p.add_argument('--root',type=Path,required=True);p.add_argument('--reader',type=Path,required=True);a=p.parse_args()
 out=a.root/'native-cpu-observation';out.mkdir(exist_ok=False)
-receipt={'diagnosticOnly':True,'qualified':False,'kind':'45-second native CPU samples; separate diagnostic, not acceptance',
+receipt={'diagnosticOnly':True,'qualified':False,'kind':'At most 60-second native CPU recording; separate diagnostic, original application60-second deadline unchanged',
          'inputSent':False,'clipboardAccessed':False,'traceEventVersion':'3.1.23'}
 start=time.monotonic();k=C.WinDLL('kernel32',use_last_error=True)
 def bind(name,result,*args):
@@ -34,7 +34,7 @@ try:
     assert target.stat().st_size<8192;t=json.loads(target.read_text());receipt['target']=t
     expected=a.root/'consumer/bin/Release/net10.0-windows/GalleryClipboardApp.exe'
     assert Path(t['app']).resolve()==expected.resolve()
-    assert hashlib.sha256(expected.read_bytes()).hexdigest()==t['sha256']
+    assert hashlib.sha256(expected.read_bytes()).hexdigest()==t['sha256']=='e7e9b9595630e971900feb2c056021c3b523e90e72321cb474125b1e86ce8f38'
     handle=k.OpenProcess(0x101000,False,t['pid'])
     if not handle:raise C.WinError(C.get_last_error())
     image=C.create_unicode_buffer(2048);size=W.DWORD(2048)
@@ -44,8 +44,14 @@ try:
     receipt['instance']=instance
     receipt['startExit']=invoke(['-start','CPU.Verbose'],'wpr-start.log',15)
     assert receipt['startExit']==0,'Named CPU recording did not start'
-    recording=True; capture_start=time.monotonic()
-    while time.monotonic()-capture_start<45 and k.WaitForSingleObject(handle,0)==258:time.sleep(.05)
+    recording=True; capture_start=time.monotonic();receipt["processObservation"]=[];last_sample=-1
+    while time.monotonic()-capture_start<60 and k.WaitForSingleObject(handle,0)==258:
+        second=int(time.monotonic()-capture_start)
+        if second!=last_sample:
+            receipt['processObservation'].append({'recordSeconds':time.monotonic()-capture_start,'processTimes':times(),
+                'existingReceipts':[n for n in ['activation-target.json','activation.json','pasted.json','retained.json','host-result.json','receipt.json'] if (a.root/'runtime'/n).is_file()]})
+            last_sample=second
+        time.sleep(.05)
     receipt['recordSeconds']=time.monotonic()-capture_start
     receipt['after']=times();receipt['processExited']=k.WaitForSingleObject(handle,0)==0
     receipt['observedCpuSeconds']=sum(receipt['after'][n]-receipt['before'][n] for n in ['kernel100ns','user100ns'])/10000000

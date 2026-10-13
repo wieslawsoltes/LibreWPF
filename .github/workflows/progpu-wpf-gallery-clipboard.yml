@@ -22,7 +22,7 @@ permissions:
 
 jobs:
   original-gallery:
-    name: Observe Gallery native CPU stages (diagnostic only)
+    name: Observe Gallery through the original deadline (diagnostic only)
     runs-on: windows-11-arm
     timeout-minutes: 20
     env:
@@ -70,8 +70,10 @@ jobs:
       - name: Compile CPU reader and publish owned child identity
         shell: pwsh
         run: |
-          dotnet build diagnostic-harness/eng/diagnostics/gallery-native-cpu/reader/TraceReader.csproj -c Release --nologo -v:q
+          Copy-Item diagnostic-harness/eng/diagnostics/gallery-native-cpu/reader "$env:RUNNER_TEMP/gallery-cpu-reader-source" -Recurse
+          dotnet build "$env:RUNNER_TEMP/gallery-cpu-reader-source/TraceReader.csproj" -c Release --nologo -v:q --output "$env:RUNNER_TEMP/gallery-cpu-reader" -p:CopyLocalLockFileAssemblies=true -p:ImportDirectoryBuildProps=false -p:ImportDirectoryBuildTargets=false
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (!(Test-Path "$env:RUNNER_TEMP/gallery-cpu-reader/Microsoft.Diagnostics.Tracing.TraceEvent.dll")) { throw "CPU reader dependency missing before application start" }
           python diagnostic-harness/eng/WindowsGalleryClipboardConsumer/publish-gallery-child.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Close the identified disposable runner startup window
@@ -88,7 +90,7 @@ jobs:
           PROGPU_NATIVE_TRACE_COMPUTE: "1"
           PROGPU_NATIVE_TRACE_PICTURE_MASK: "1"
         run: |
-          $reader = (Resolve-Path 'diagnostic-harness/eng/diagnostics/gallery-native-cpu/reader/bin/Release/net10.0/TraceReader.dll').Path
+          $reader = (Resolve-Path "$env:RUNNER_TEMP/gallery-cpu-reader/TraceReader.dll").Path
           $observerArgs = @('diagnostic-harness/eng/diagnostics/gallery-native-cpu/observe-native-cpu.py', '--root', $env:CASE_ROOT, '--reader', $reader) | ForEach-Object { '"' + $_ + '"' }
           $observer = Start-Process -FilePath (Get-Command python).Source -ArgumentList $observerArgs -PassThru -RedirectStandardOutput "$env:CASE_ROOT/observer.stdout.log" -RedirectStandardError "$env:CASE_ROOT/observer.stderr.log"
           python "$env:CASE_ROOT/consumer/run-windows.py" `
