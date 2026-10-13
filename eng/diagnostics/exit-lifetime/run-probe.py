@@ -1,5 +1,5 @@
 """Three bounded owned children compare actual DirectWrite process-exit lifetime."""
-import importlib.util,json,os,shutil,subprocess,sys,tempfile,time
+import importlib.util,json,os,shutil,subprocess,sys,tempfile,time,uuid
 from pathlib import Path
 assert os.name=='nt' and all(os.environ.get(k)==v for k,v in {
  'GITHUB_ACTIONS':'true','RUNNER_ENVIRONMENT':'github-hosted','RUNNER_OS':'Windows',
@@ -43,26 +43,38 @@ receipt={'diagnosticOnly':True,'qualified':False,'sourceHead':prepared['head'],'
  'plan':'One pre-exit control and two actual process-exit glyph exports, without/with exact module process-lifetime pin. Each owned child has a45-second outer bound. No window, GPU rendering, input, clipboard, GC/JIT override, or product patch.',
  'productsBefore':before,'appSha256':producer.sha(app),'debuggerSha256':producer.sha(helper),'cases':[]}
 for mode in ['before-exit','exit-unpinned','exit-pinned']:
- case=out/mode;case.mkdir();capture=crash.Capture(app,case,crash.WindowsRegistry())
+ case=out/mode;case.mkdir();image=None
+ raw_root=Path(tempfile.mkdtemp(prefix='exit-lifetime-owned-raw-'))
  report={'mode':mode,'diagnosticOnly':True,'qualified':False};start=time.monotonic()
  try:
-  image=capture.prepare();event_path=case/'native-debugger-event.json'
+  assert app.read_bytes().count(b'ExitGlyphProbe.dll\0')==1,'Private apphost binding differs'
+  image=binary/('ShowcaseIdle-'+uuid.uuid4().hex+'.exe');shutil.copyfile(app,image)
+  assert crash.digest(image)==crash.digest(app)
+  report['privateApphostBinding']='ExitGlyphProbe.dll';report['ownedImage']=image.name
+  event_path=case/'native-debugger-event.json'
   raw=Path(tempfile.mkdtemp(prefix='exit-lifetime-first-av-'))/'first.dmp'
   child_env=env.copy()
   for name in idle.CONFLICTING_MODES:child_env.pop(name,None)
   assert not any(child_env.get(n) for n in ['DOTNET_JitDisasm','DOTNET_GCStress','COMPlus_GCStress'])
   child_env['EXIT_PROBE_OUTPUT']=str(case);child_env['EXIT_PROBE_MODE']=mode
-  code,timed=idle.run_child([str(helper),str(image),str(capture.dump_directory),str(event_path),'--first-chance-av',str(raw)],binary,child_env,case,timeout=45,outcome=report)
+  code,timed=idle.run_child([str(helper),str(image),str(raw_root),str(event_path),'--first-chance-av',str(raw)],binary,child_env,case,timeout=45,outcome=report)
   report.update(exitCode=code,timedOut=timed)
   if timed:raise RuntimeError('Owned child exceeded45seconds')
   event=debugger.load_event(event_path,0xAA64);report['nativeEvent']=event
   assert event['exitCode']==code and event['processId']!=report['childProcessId'] and event['firstChanceAvEnabled']
   report['firstChance']=debugger.collect_first_chance_av(raw,case,event,0xAA64)
-  report['unhandled']=capture.collect(event['processId'],event['exitCode'],False)
-  if event['captured']:debugger.correlate_exception(capture.dump_directory/(image.name+'.'+str(event['processId'])+'.dmp'),event)
+  report['unhandled']={'captured':event['captured']}
+  if event['captured']:
+   original_dump=raw_root/(image.name+'.'+str(event['processId'])+'.dmp')
+   report['unhandled']['validated']=debugger.correlate_exception(original_dump,event)
+   shutil.copyfile(original_dump,case/'validated-unhandled.dmp')
  except Exception as error:report['error']=type(error).__name__+': '+str(error)
  finally:
-  report['cleanupErrors']=capture.close();report['elapsedSeconds']=time.monotonic()-start
+  report['cleanupErrors']=[]
+  if image is not None:
+   try:image.unlink()
+   except OSError as error:report['cleanupErrors'].append(str(error))
+  report['elapsedSeconds']=time.monotonic()-start
   report['productsUnchanged']=inventory()==before
   for name in ['before-exit','callback-entered','callback-completed']:
    path=case/(name+'.json')
