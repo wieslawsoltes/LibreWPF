@@ -28,9 +28,13 @@ jobs:
         run: |
           python eng/WindowsGalleryClipboardConsumer/observe-caption.py --preflight --runtime "$env:RUNNER_TEMP" --output "$env:RUNNER_TEMP/caption-preflight.json"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Read account window controls without input or clipboard access
+        shell: pwsh
+        timeout-minutes: 1
+        run: powershell.exe -NoProfile -ExecutionPolicy Bypass -File eng/WindowsGalleryClipboardConsumer/inspect-foreground.ps1
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: hosted-caption-preflight-${{ github.run_id }}
           retention-days: 7
-          path: ${{ runner.temp }}/caption-preflight.json
+          path: ${{ runner.temp }}/caption-*.json
