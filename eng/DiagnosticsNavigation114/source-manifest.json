@@ -1,0 +1,97 @@
+{
+  "repository": "microsoft/WPF-Samples",
+  "commit": "811d01e95c8c929e68539d698d0a0609e94fd185",
+  "files": [
+    {
+      "path": "Controls/ControlExample.xaml",
+      "bytes": 9660,
+      "sha256": "5f4fe3c9e4b7bb4e8803c9de946e75036ce19fa80b56e927d8c46d7007a5304f",
+      "gitBlobSha": "16101bc0551bd985a0f3e885126007a9ffbf9a98"
+    },
+    {
+      "path": "Controls/ControlExample.xaml.cs",
+      "bytes": 5390,
+      "sha256": "1a1339debebcd92a323883311ee554033f8316e1f4da8304acda678c9bf87f0f",
+      "gitBlobSha": "857714d45f6e598b297f875c531ac7a7996a7490"
+    },
+    {
+      "path": "Controls/PageHeader.xaml",
+      "bytes": 2683,
+      "sha256": "44dcc0936e99682d18db0bd6280a86de0cb65255ac2b2592a2765c2b5e09827f",
+      "gitBlobSha": "62d27e332b6d64060cf9a4533340e1a6eb7020e5"
+    },
+    {
+      "path": "Controls/PageHeader.xaml.cs",
+      "bytes": 1201,
+      "sha256": "995757014189e65c4db35a760db134a9cb736c9f1f17d66d520db8b3ad91c92d",
+      "gitBlobSha": "3de62e68e7fc70420456ea9f2530477376c5712c"
+    },
+    {
+      "path": "Helpers/EmptyToVisibilityConverter.cs",
+      "bytes": 684,
+      "sha256": "6a1feaa225e40b33b91d2aef3ca542fa61ec22e174b3cf5a0110c7c2d8ca5556",
+      "gitBlobSha": "65cff3f28feacedae9cfb64290358f1934eace9b"
+    },
+    {
+      "path": "Helpers/NullToVisibilityConverter.cs",
+      "bytes": 798,
+      "sha256": "250341021137bec2782a1e153e0c84775edad5f432551df40d230291c8bc7d39",
+      "gitBlobSha": "ece84a7b65ddeebc0ca790857b3151602c5bfe9c"
+    },
+    {
+      "path": "LICENSE",
+      "bytes": 1077,
+      "sha256": "cf248820bf1178370bb4f1670a59f8748d46bc96d0f64080cd631511c6046409",
+      "gitBlobSha": "b8b569d7746d98d07183806fb4af673fca6dfb57"
+    },
+    {
+      "path": "Usings.cs",
+      "bytes": 754,
+      "sha256": "1916a529ef9c72da8706588fe5d2718c4bca0d3da9797af86b9d058c3c15010f",
+      "gitBlobSha": "078e799c12087e2a4fb86510c54260624fa453a8"
+    },
+    {
+      "path": "ViewModels/NavigationWindowPageViewModel.cs",
+      "bytes": 456,
+      "sha256": "bba1a4be523d8bbb05f4e42029c4dbce469b28fc5b115095b7397d8e38744fa7",
+      "gitBlobSha": "6a573d3fe4e4246972d5e70497aa021724bd8704"
+    },
+    {
+      "path": "Views/Navigation/NavigationWindowPage.xaml",
+      "bytes": 2261,
+      "sha256": "1e313ca2ed27dfd94e3bde26c36c42548d3c4b02840a3e2d08f23e998cba656e",
+      "gitBlobSha": "b20efc92de53d155109079ae324616e58fb7059b"
+    },
+    {
+      "path": "Views/Navigation/NavigationWindowPage.xaml.cs",
+      "bytes": 1230,
+      "sha256": "53a7e41a805108a244fe8a9e918a7f27fc24cf9d60edcfd95a854f7d9f136574",
+      "gitBlobSha": "0adfc2c4b96ff9b4583b9bd78cec9bc8cd1ef41c"
+    },
+    {
+      "path": "Views/Navigation/Page1.xaml",
+      "bytes": 858,
+      "sha256": "ca38f57707508c677e9af4c50116dd3ea6238117e15817f9eda95007810b0bbb",
+      "gitBlobSha": "88f1b6c9580a19b8245707071a8183cbc997511f"
+    },
+    {
+      "path": "Views/Navigation/Page1.xaml.cs",
+      "bytes": 579,
+      "sha256": "e100e3f64a722638d2c14f0b338feb1a96a9b318857517caaab2d87f9e7a17bf",
+      "gitBlobSha": "a396e634aa832ce43ad40b4615d96a6e7d018f78"
+    },
+    {
+      "path": "Views/Navigation/Page2.xaml",
+      "bytes": 666,
+      "sha256": "ba425df6d54f39b8ce59eb1f8d1a097eb02e04ff7262dea0cc3b3b094ac1d160",
+      "gitBlobSha": "c3b93fd1382b015af2e1077fc3b1d041981cbb7c"
+    },
+    {
+      "path": "Views/Navigation/Page2.xaml.cs",
+      "bytes": 579,
+      "sha256": "e8940d3353022a3c7cfe459ca49cc7787710be33f33b798ea12df9955a0c0d94",
+      "gitBlobSha": "d21e7960d7f633608e9ab4579af5e61420bbb396"
+    }
+  ],
+  "newNavigationSourcesVerifiedAgainstUpstreamGitBlobs": true
+}

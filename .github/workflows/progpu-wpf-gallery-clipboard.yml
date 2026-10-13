@@ -1,18 +1,18 @@
-name: Original Gallery clipboard acceptance
+name: Original Gallery navigation diagnostic
 
 on:
   workflow_dispatch:
     inputs:
       head:
-        description: Exact fully qualified LibreWPF producer commit (40 hexadecimal characters)
+        description: Exact whole-qualified LibreWPF producer head
         required: true
         type: string
       build:
-        description: Complete successful LibreWPF Build run ID for this commit
+        description: Whole successful Build for that head
         required: true
         type: string
       docs:
-        description: Complete successful LibreWPF Docs run ID for this commit
+        description: Successful Docs for that head
         required: true
         type: string
 
@@ -21,8 +21,7 @@ permissions:
   actions: read
 
 jobs:
-  original-gallery:
-    name: Original Gallery image clipboard on Windows 11 ARM64
+  original-navigation:
     runs-on: windows-11-arm
     timeout-minutes: 20
     env:
@@ -33,61 +32,59 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          path: driver
+      - uses: actions/checkout@v4
+        with:
           ref: ${{ inputs.head }}
-      - name: Read the exact original consumer compiler
-        id: consumer-compiler
+          path: producer
+      - name: Read original compiler and allocate fresh evidence root
+        id: compiler
         shell: pwsh
         run: |
-          $compiler = (Get-Content global.json -Raw | ConvertFrom-Json).sdk.version
-          if ($compiler -notmatch '^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$') {
-            throw "The qualified source must declare an exact compiler version."
-          }
-          "version=$compiler" >> $env:GITHUB_OUTPUT
-          "CASE_ROOT=$(Join-Path $env:RUNNER_TEMP 'gallery-clipboard-ci')" >> $env:GITHUB_ENV
+          $version = (Get-Content producer/global.json -Raw | ConvertFrom-Json).sdk.version
+          if ($version -notmatch '^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$') { throw 'Exact compiler version required' }
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "CASE_ROOT=$(Join-Path $env:RUNNER_TEMP 'original-navigation-114')" >> $env:GITHUB_ENV
       - uses: actions/setup-dotnet@v4
         with:
-          # global-json-file honors latestFeature and installs a newer SDK;
-          # prepare.py deliberately disables roll-forward for this consumer.
           dotnet-version: |
             10.0.x
-            ${{ steps.consumer-compiler.outputs.version }}
+            ${{ steps.compiler.outputs.version }}
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Verify unchanged capture and producer admission controls
-        run: python eng/WindowsGalleryClipboardConsumer/test_contract.py -v
-      - name: Prepare original consumer from whole successful producer
+      - name: Verify original producer and hosted activation contracts
+        run: python producer/eng/WindowsGalleryClipboardConsumer/test_contract.py -v
+      - name: Compile unchanged navigation observer and fifteen original sources
         shell: pwsh
         run: |
-          python eng/WindowsGalleryClipboardConsumer/prepare-ci.py `
-            --head $env:PRODUCER_HEAD --build $env:PRODUCER_BUILD --docs $env:PRODUCER_DOCS `
+          python driver/eng/DiagnosticsNavigation114/prepare.py `
+            --producer "$env:GITHUB_WORKSPACE/producer" --head $env:PRODUCER_HEAD `
+            --build $env:PRODUCER_BUILD --docs $env:PRODUCER_DOCS `
             --output $env:CASE_ROOT --dotnet (Get-Command dotnet).Source
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Close the identified disposable runner startup window
+      - name: Close identified disposable runner startup window
         shell: pwsh
         run: |
-          python eng/WindowsGalleryClipboardConsumer/close-hosted-account.py --output "$env:CASE_ROOT/hosted-environment.json"
+          python producer/eng/WindowsGalleryClipboardConsumer/close-hosted-account.py --output "$env:CASE_ROOT/inputs/hosted-environment.json"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Run original captures with an empty disposable CI clipboard
+      - name: Observe original Page1 Page2 back and forward with owned native input
         shell: pwsh
         run: |
-          python "$env:CASE_ROOT/consumer/run-windows.py" `
-            --app "$env:CASE_ROOT/consumer/bin/Release/net10.0-windows/GalleryClipboardApp.exe" `
-            --output "$env:CASE_ROOT/runtime" --require-empty-ci-clipboard
+          python driver/eng/DiagnosticsNavigation114/run.py --native-input-authorized `
+            --producer "$env:GITHUB_WORKSPACE/producer" --case $env:CASE_ROOT
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Retain original receipts and captures for manual visual review
+      - name: Preserve original inputs failures and raw desktop captures
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: gallery-clipboard-${{ inputs.head }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: original-navigation-114-${{ inputs.head }}-${{ github.run_id }}
           retention-days: 7
           if-no-files-found: warn
           path: |
-            ${{ env.CASE_ROOT }}/inputs/*.json
-            ${{ env.CASE_ROOT }}/consumer/preparation.json
-            ${{ env.CASE_ROOT }}/consumer/build.log
-            ${{ env.CASE_ROOT }}/consumer/source-manifest.json
-            ${{ env.CASE_ROOT }}/original/Assets/ControlImages/Clipboard.png
-            ${{ env.CASE_ROOT }}/original/LICENSE
+            ${{ env.CASE_ROOT }}/inputs/**
             ${{ env.CASE_ROOT }}/runtime/**
-            ${{ env.CASE_ROOT }}/hosted-environment.json
+            ${{ env.CASE_ROOT }}/consumer/GalleryNavigationApp.cs
+            ${{ env.CASE_ROOT }}/consumer/GalleryNavigationApp.csproj
+            ${{ env.CASE_ROOT }}/consumer/original/**
+            ${{ env.CASE_ROOT }}/consumer/bin/Release/net10.0-windows/GalleryNavigationApp.*

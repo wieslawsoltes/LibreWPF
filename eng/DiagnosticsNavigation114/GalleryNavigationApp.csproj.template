@@ -1,0 +1,19 @@
+<Project Sdk="LibreWPF.Sdk/@SDK_VERSION@">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType><TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF><EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings>
+    <ProGpuWpfReferenceMode>Package</ProGpuWpfReferenceMode>
+    <ProGpuPackageVersion>@ENGINE_VERSION@</ProGpuPackageVersion>
+    <ProGpuWpfRendererMode>NativeMilWgpu</ProGpuWpfRendererMode>
+    <ProGpuWpfNativeMilHitTesting>true</ProGpuWpfNativeMilHitTesting>
+    <EnableDefaultItems>false</EnableDefaultItems>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="GalleryNavigationApp.cs"/><Compile Include="original/**/*.cs"/>
+    <Page Include="original/**/*.xaml"><Link>%(RecursiveDir)%(Filename)%(Extension)</Link></Page>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.2"/>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.0"/>
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.0"/>
+  </ItemGroup>
+</Project>
