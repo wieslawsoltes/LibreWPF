@@ -1,53 +1,95 @@
 name: Original Gallery clipboard acceptance
+
 on:
   workflow_dispatch:
+    inputs:
+      head:
+        description: Exact fully qualified LibreWPF producer commit (40 hexadecimal characters)
+        required: true
+        type: string
+      build:
+        description: Complete successful LibreWPF Build run ID for this commit
+        required: true
+        type: string
+      docs:
+        description: Complete successful LibreWPF Docs run ID for this commit
+        required: true
+        type: string
+
 permissions:
   contents: read
   actions: read
+
 jobs:
-  glyph-jit-observation:
-    name: Observe original Showcase GlyphRun ARM64 codegen (diagnostic only)
+  original-gallery:
+    name: Observe original GlyphRun ownership under forced collection (diagnostic only)
     runs-on: windows-11-arm
-    timeout-minutes: 25
+    timeout-minutes: 20
     env:
       GH_TOKEN: ${{ github.token }}
-      PROGPU_WPF_QUALIFIED_COMMIT: 044a1461019c52fb9fd747e096036d7763a3fe3f
+      PRODUCER_HEAD: ${{ inputs.head }}
+      PRODUCER_BUILD: ${{ inputs.build }}
+      PRODUCER_DOCS: ${{ inputs.docs }}
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 044a1461019c52fb9fd747e096036d7763a3fe3f
+          ref: ${{ inputs.head }}
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.sha }}
           path: diagnostic-harness
+      - name: Read the exact original consumer compiler
+        id: consumer-compiler
+        shell: pwsh
+        run: |
+          $compiler = (Get-Content global.json -Raw | ConvertFrom-Json).sdk.version
+          if ($compiler -notmatch '^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$') {
+            throw "The qualified source must declare an exact compiler version."
+          }
+          "version=$compiler" >> $env:GITHUB_OUTPUT
+          "CASE_ROOT=$(Join-Path $env:RUNNER_TEMP 'gallery-clipboard-ci')" >> $env:GITHUB_ENV
       - uses: actions/setup-dotnet@v4
         with:
-          global-json-file: global.json
+          # global-json-file honors latestFeature and installs a newer SDK;
+          # prepare.py deliberately disables roll-forward for this consumer.
+          dotnet-version: |
+            10.0.x
+            ${{ steps.consumer-compiler.outputs.version }}
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Verify complete original producer and package digest
-        run: python diagnostic-harness/eng/diagnostics/prepare-hosted-jit.py
+      - name: Verify unchanged capture and producer admission controls
+        run: python eng/WindowsGalleryClipboardConsumer/test_contract.py -v
+      - name: Prepare original consumer from whole successful producer
+        shell: pwsh
+        run: |
+          python eng/WindowsGalleryClipboardConsumer/prepare-ci.py `
+            --head $env:PRODUCER_HEAD --build $env:PRODUCER_BUILD --docs $env:PRODUCER_DOCS `
+            --output $env:CASE_ROOT --dotnet (Get-Command dotnet).Source
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - uses: actions/download-artifact@v4
         with:
           name: showcase-native-debugger-arm64-044a1461019c52fb9fd747e096036d7763a3fe3f
           run-id: 38326178889
           github-token: ${{ github.token }}
           path: ${{ runner.temp }}/showcase-native-debugger
-      - name: Run original launcher with method-specific codegen observation
-        shell: pwsh
-        env:
-          DOTNET_JitDisasm: '*TryGetPortableNativeGlyphRun*'
-          DOTNET_JitDisasmWithCodeBytes: '1'
-        run: |
-          dotnet --info
-          ./eng/progpu-wpf-windows-native-mil-showcase.ps1 -TargetArchitecture arm64 -ValidatePassiveIdle -CaptureIdleCrashDump -IdleNativeDebugger (Join-Path $env:RUNNER_TEMP 'showcase-native-debugger/ShowcaseNativeDebugger.exe')
-      - name: Preserve original diagnostic output
+      - name: Run bounded original GlyphRun lifetime observation
+        run: python diagnostic-harness/eng/diagnostics/glyph-lifetime/run-probe.py
+      - name: Retain original receipts and captures for manual visual review
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: showcase-glyph-jit-${{ github.run_id }}
+          name: glyph-lifetime-${{ inputs.head }}-${{ github.run_id }}-${{ github.run_attempt }}
           retention-days: 7
+          if-no-files-found: warn
           path: |
-            artifacts/glyph-jit-diagnostic/*.json
-            artifacts/showcase-native-idle/win-arm64/**
+            ${{ env.CASE_ROOT }}/inputs/*.json
+            ${{ env.CASE_ROOT }}/consumer/preparation.json
+            ${{ env.CASE_ROOT }}/consumer/build.log
+            ${{ env.CASE_ROOT }}/consumer/source-manifest.json
+            ${{ env.CASE_ROOT }}/original/Assets/ControlImages/Clipboard.png
+            ${{ env.CASE_ROOT }}/original/LICENSE
+            ${{ env.CASE_ROOT }}/glyph-lifetime/*.json
+            ${{ env.CASE_ROOT }}/glyph-lifetime/*.log
+            ${{ env.CASE_ROOT }}/glyph-lifetime/raw/**
+            ${{ env.CASE_ROOT }}/glyph-lifetime/first-chance/**
