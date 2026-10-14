@@ -1245,7 +1245,9 @@ internal sealed partial class PortableTextLine : TextLine
                 Array.Sort(indices, (a, b) =>
                 {
                     int compare = _paragraph.Glyphs.Span[a].Cluster.CompareTo(_paragraph.Glyphs.Span[b].Cluster);
-                    return compare == 0 ? a.CompareTo(b) : compare;
+                    // Native occurrences retain visual order inside a cluster.
+                    // Source RTL GlyphRuns traverse those occurrences in reverse.
+                    return compare == 0 ? b.CompareTo(a) : compare;
                 });
             int cpStart = int.MaxValue, cpEnd = 0;
             foreach (int index in indices) { cpStart = Math.Min(cpStart, glyphs[index].Cluster); cpEnd = Math.Max(cpEnd, glyphs[index].ClusterEnd); }
