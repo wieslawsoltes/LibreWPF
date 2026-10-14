@@ -20,6 +20,16 @@ def digest(stream):
 
 
 def stage(native, sdk, destination, version, commit):
+    return stage_payloads(((native, "ProGPU.Backend.Native", "runtimes/", ""),
+                           (sdk, "ProGPU.Native.Sdk", "runtimes/", "")), destination, version, commit)
+
+
+def stage_dx12(package, destination, version, commit):
+    return stage_payloads(((package, "ProGPU.Backend.Dx12", "buildTransitive/runtimes/",
+                            "buildTransitive/runtimes/"),), destination, version, commit)
+
+
+def stage_payloads(packages, destination, version, commit):
     if not re.fullmatch(r"[0-9a-f]{40}", commit):
         raise ValueError("Expected an exact ProGPU commit")
     destination = Path(destination)
@@ -30,7 +40,7 @@ def stage(native, sdk, destination, version, commit):
         staged = Path(temporary) / "package"
         staged.mkdir()
         published = {}
-        for path, package_id in ((native, "ProGPU.Backend.Native"), (sdk, "ProGPU.Native.Sdk")):
+        for path, package_id, prefix, remove_prefix in packages:
             with zipfile.ZipFile(path) as archive:
                 specs = [item for item in archive.infolist() if item.filename.endswith(".nuspec")]
                 if len(specs) != 1 or specs[0].file_size > 1024 * 1024:
@@ -46,8 +56,11 @@ def stage(native, sdk, destination, version, commit):
                 members = set()
                 for item in archive.infolist():
                     name = item.filename
-                    if not name.startswith("runtimes/"):
+                    if not name.startswith(prefix):
                         continue
+                    if item.is_dir() and name == prefix:
+                        continue
+                    name = name.removeprefix(remove_prefix) if remove_prefix else name
                     parts = name.rstrip("/").split("/")
                     kind = stat.S_IFMT(item.external_attr >> 16)
                     if (any(part in ("", ".", "..") for part in parts) or "\\" in name
@@ -85,9 +98,16 @@ def main():
     parser.add_argument("destination", type=Path)
     parser.add_argument("--version", required=True)
     parser.add_argument("--commit", required=True)
+    parser.add_argument("--dx12-package", type=Path)
+    parser.add_argument("--dx12-destination", type=Path)
     args = parser.parse_args()
+    if (args.dx12_package is None) != (args.dx12_destination is None):
+        parser.error("DX12 staging requires both its exact package and destination")
     count = stage(args.native, args.sdk, args.destination, args.version, args.commit)
     print(f"Staged {count} original native runtime/SDK/license files at {args.commit}.")
+    if args.dx12_package is not None:
+        count = stage_dx12(args.dx12_package, args.dx12_destination, args.version, args.commit)
+        print(f"Staged {count} original DX12 runtime/compiler/license files at {args.commit}.")
 
 
 if __name__ == "__main__":

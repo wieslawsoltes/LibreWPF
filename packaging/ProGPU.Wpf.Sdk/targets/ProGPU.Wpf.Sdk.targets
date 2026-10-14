@@ -103,6 +103,7 @@
              Link="ProGPU.Wpf.Sdk.PortableBootstrap.cs"
              Visible="false" />
     <RuntimeHostConfigurationOption Include="LibreWPF.RequestedRendererMode" Value="$(ProGpuWpfRendererMode)" />
+    <RuntimeHostConfigurationOption Include="LibreWPF.RequestedDx12ShaderCompiler" Value="$(ProGpuWpfDx12ShaderCompiler)" />
   </ItemGroup>
 
   <PropertyGroup Condition="'$(ProGpuWpfRendererMode)' == 'NativeMilWgpu'">
@@ -112,7 +113,27 @@
     <DefineConstants>$(DefineConstants);PROGPU_WPF_NATIVE_MIL_HIT_TESTING</DefineConstants>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(ProGpuWpfDx12ShaderCompiler)' == 'Dxc'">
+    <DefineConstants>$(DefineConstants);PROGPU_WPF_DX12_DXC</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(ProGpuWpfDx12ShaderCompiler)' == 'Fxc'">
+    <DefineConstants>$(DefineConstants);PROGPU_WPF_DX12_FXC</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(ProGpuWpfDx12ShaderCompiler)' == 'Dxc'">
+    <PackageReference Include="ProGPU.Backend.Dx12" Version="$(ProGpuPackageVersion)"
+                      Condition="'$(ManagePackageVersionsCentrally)' != 'true'" />
+    <PackageReference Include="ProGPU.Backend.Dx12" VersionOverride="$(ProGpuPackageVersion)"
+                      Condition="'$(ManagePackageVersionsCentrally)' == 'true'" />
+  </ItemGroup>
+
   <Target Name="_ProGpuWpfSdkValidateRendererMode" BeforeTargets="PrepareForBuild">
+    <Error Condition="'$(ProGpuWpfDx12ShaderCompiler)' != 'Automatic' And '$(ProGpuWpfDx12ShaderCompiler)' != 'Fxc' And '$(ProGpuWpfDx12ShaderCompiler)' != 'Dxc'"
+           Text="ProGpuWpfDx12ShaderCompiler must be Automatic, Fxc or Dxc." />
+    <Error Condition="'$(ProGpuWpfDx12ShaderCompiler)' != 'Automatic' And ('$(RuntimeIdentifier)' != 'win-x64' And '$(RuntimeIdentifier)' != 'win-arm64')"
+           Text="Explicit D3D12 compiler selection requires RuntimeIdentifier win-x64 or win-arm64." />
+    <Error Condition="'$(ProGpuWpfDx12ShaderCompiler)' != 'Automatic' And ('$(ProGpuWpfRendererMode)' != 'NativeMilWgpu' Or '$(_ProGpuWpfSdkBootstrapWpf)' != 'true' Or '$(ProGpuWpfReferenceMode)' != 'Package')"
+           Text="Explicit SDK D3D12 compiler selection requires a NativeMilWgpu WPF executable with the portable bootstrap and package references." />
     <Error Condition="'$(ProGpuWpfNativeMilHitTesting)' != 'true' And '$(ProGpuWpfNativeMilHitTesting)' != 'false'"
            Text="ProGpuWpfNativeMilHitTesting must be true or false." />
     <Error Condition="'$(ProGpuWpfNativeMilHitTesting)' == 'true' And '$(ProGpuWpfRendererMode)' != 'NativeMilWgpu'"

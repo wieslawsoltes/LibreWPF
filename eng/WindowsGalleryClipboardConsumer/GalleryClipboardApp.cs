@@ -115,18 +115,23 @@ internal static class GalleryClipboardApp
         {
             try
             {
-                Require(clock.Elapsed < TimeSpan.FromSeconds(87), "Approved host reserve reached inside outer90-second deadline.");
+                Require(clock.Elapsed < TimeSpan.FromSeconds(57), "Original host reserve reached inside outer60-second deadline.");
                 if (!ProGpuWpfDiagnostics.TryGetWindowHost(window, out var host) || host is null || !host.HasPresentedFrame) return;
                 Require(host.NativeWindowHandle.Kind == global::ProGPU.Backend.NativeWindowKind.Win32 && host.NativeWindowHandle.IsValid, "No real owned Win32 window.");
                 if (phase == 0)
                 {
+                    var context = host.CompositionTarget?.Context ?? throw new InvalidOperationException("Missing actual renderer context.");
+                    Require(context.SelectedDx12ShaderCompiler == global::ProGPU.Backend.WgpuDx12ShaderCompiler.Dxc,
+                        "The actual Gallery device did not select the packaged DXC compiler.");
                     if (requireEmptyCi)
                     {
                         if (!activationTargetPublished)
                         {
                             Save(output, "activation-target.json", new {
                                 pid = Environment.ProcessId, hwnd = host.NativeWindowHandle.Handle.ToInt64(),
-                                frame = host.PresentedFrameCount, elapsed = clock.Elapsed.TotalSeconds });
+                                frame = host.PresentedFrameCount, elapsed = clock.Elapsed.TotalSeconds,
+                                compiler = context.SelectedDx12ShaderCompiler.ToString(),
+                                compilerLibrary = context.Dx12CompilerLibraryPath });
                             activationTargetPublished = true;
                         }
                         if (!File.Exists(Path.Combine(output, "activation-target.accepted"))) return;

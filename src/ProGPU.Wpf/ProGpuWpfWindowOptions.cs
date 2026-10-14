@@ -43,6 +43,14 @@ public sealed class ProGpuWpfWindowOptions
     public WgpuNativeBackendOptions? NativeBackendOptions { get; set; }
 
     /// <summary>
+    /// Selects the compiler before creating an owned Windows D3D12 device.
+    /// Null inherits the live shared owner's configuration, or the core startup
+    /// environment for a new device. Explicit DXC requires its verified runtime
+    /// package; shared devices retain the core compiler compatibility checks.
+    /// </summary>
+    public WgpuDx12CompilerOptions? Dx12CompilerOptions { get; set; }
+
+    /// <summary>
     /// Requires native MIL to emit a complete GPU input index and uses that
     /// index for host point/region callbacks. Startup-only, explicit admission
     /// while application coverage is being completed; unsupported content fails

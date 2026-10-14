@@ -150,6 +150,7 @@ Manual release dispatch uses the same build and validation path for recovery pub
 | --- | --- | --- |
 | `ProGPU.Backend` | [![NuGet](https://img.shields.io/nuget/vpre/ProGPU.Backend.svg)](https://www.nuget.org/packages/ProGPU.Backend) | WebGPU device, swapchain, Silk.NET windowing, and platform backend services. |
 | `ProGPU.Backend.Native` | [![NuGet](https://img.shields.io/nuget/vpre/ProGPU.Backend.Native.svg)](https://www.nuget.org/packages/ProGPU.Backend.Native) | Managed bindings and RID-specific C++ retained compositor/native backend assets used by the MIL replacement. |
+| `ProGPU.Backend.Dx12` | [![NuGet](https://img.shields.io/nuget/vpre/ProGPU.Backend.Dx12.svg)](https://www.nuget.org/packages/ProGPU.Backend.Dx12) | Optional Windows shader compiler runtime selected through [explicit SDK compiler configuration](docs/wpf-dx12-compiler.md). |
 | `ProGPU.Native.Sdk` | [![NuGet](https://img.shields.io/nuget/vpre/ProGPU.Native.Sdk.svg)](https://www.nuget.org/packages/ProGPU.Native.Sdk) | Matching six-RID static SDK archives, dependency receipts and original notices, restored with the native backend. |
 | `ProGPU.Backend.Dawn` | [![NuGet](https://img.shields.io/nuget/vpre/ProGPU.Backend.Dawn.svg)](https://www.nuget.org/packages/ProGPU.Backend.Dawn) | Dawn native backend assets used by package-mode presentation hosts. |
 | `ProGPU.Text.Shaping` | [![NuGet](https://img.shields.io/nuget/vpre/ProGPU.Text.Shaping.svg)](https://www.nuget.org/packages/ProGPU.Text.Shaping) | AOT-safe OpenType shaping contracts and execution used by the text renderer. |

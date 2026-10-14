@@ -85,6 +85,59 @@ class BootstrapTests(unittest.TestCase):
                     constants = result["Properties"]["DefineConstants"].split(";")
                     self.assertEqual(activates_wpf, "PROGPU_WPF_BOOTSTRAP_WPF" in constants)
 
+    def test_explicit_compiler_selects_matching_package_and_rejects_inapplicable_startup(self):
+        with tempfile.TemporaryDirectory(prefix="librewpf-compiler-policy-") as temporary:
+            root = Path(temporary).resolve()
+
+            def evaluate(compiler="Automatic", rid="win-arm64", renderer="NativeMilWgpu",
+                         central=False, output="Exe", bootstrap="true", reference="Package"):
+                write(root / "Policy.csproj", f'''<Project>
+  <Import Project="{escape(str(SDK / 'Sdk/Sdk.props'))}" />
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework><OutputType>{output}</OutputType>
+    <UseWPF>true</UseWPF><RuntimeIdentifier>{rid}</RuntimeIdentifier>
+    <ProGpuWpfRendererMode>{renderer}</ProGpuWpfRendererMode>
+    <ProGpuWpfDx12ShaderCompiler>{compiler}</ProGpuWpfDx12ShaderCompiler>
+    <ProGpuWpfEnablePortableBootstrap>{bootstrap}</ProGpuWpfEnablePortableBootstrap>
+    <ProGpuWpfReferenceMode>{reference}</ProGpuWpfReferenceMode>
+    <ManagePackageVersionsCentrally>{str(central).lower()}</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+  <Import Project="{escape(str(SDK / 'Sdk/Sdk.targets'))}" />
+</Project>''')
+                result_file = root / "evaluation.json"
+                result_file.unlink(missing_ok=True)
+                result = subprocess.run([DOTNET, "msbuild", "Policy.csproj", "-nologo",
+                    "-t:_ProGpuWpfSdkValidateRendererMode", "-getItem:PackageReference,RuntimeHostConfigurationOption",
+                    "-getProperty:DefineConstants,ProGpuPackageVersion", f"-getResultOutputFile:{result_file}"],
+                    cwd=root, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=120)
+                return result, json.loads(result_file.read_text(encoding="utf-8-sig")) if result.returncode == 0 else None
+
+            for compiler in ("Automatic", "Fxc", "Dxc"):
+                for rid in ("win-x64", "win-arm64"):
+                    for central in (False, True):
+                        with self.subTest(compiler=compiler, rid=rid, central=central):
+                            result, data = evaluate(compiler, rid, central=central)
+                            self.assertEqual(0, result.returncode, result.stdout)
+                            constants = data["Properties"]["DefineConstants"].split(";")
+                            self.assertEqual(compiler == "Dxc", "PROGPU_WPF_DX12_DXC" in constants)
+                            self.assertEqual(compiler == "Fxc", "PROGPU_WPF_DX12_FXC" in constants)
+                            packages = [p for p in data["Items"]["PackageReference"] if p["Identity"] == "ProGPU.Backend.Dx12"]
+                            self.assertEqual(1 if compiler == "Dxc" else 0, len(packages))
+                            if packages:
+                                self.assertEqual(data["Properties"]["ProGpuPackageVersion"],
+                                                 packages[0]["VersionOverride" if central else "Version"])
+                            receipts = [p for p in data["Items"]["RuntimeHostConfigurationOption"]
+                                        if p["Identity"] == "LibreWPF.RequestedDx12ShaderCompiler"]
+                            self.assertEqual([compiler], [p["Value"] for p in receipts])
+            for overrides in ({"compiler": "unknown"}, {"rid": "osx-arm64"}, {"rid": "win-x86"},
+                              {"renderer": "ManagedPortable"}, {"output": "Library"},
+                              {"bootstrap": "false"}, {"reference": "LocalArtifacts"}):
+                with self.subTest(rejected=overrides):
+                    result, _ = evaluate(**{"compiler": "Dxc", **overrides})
+                    self.assertNotEqual(0, result.returncode)
+                    self.assertIn("error", result.stdout.lower())
+                    self.assertRegex(result.stdout, "ProGpuWpfDx12ShaderCompiler|Explicit.*compiler selection")
+
     def test_referenced_executable_does_not_start_or_load_desktop_services(self):
         # Deliberate test doubles live only in this temporary compiler fixture.
         # Removing their DLLs proves actual module/JIT behavior, not UI parity.
@@ -110,23 +163,32 @@ public class WindowsFormsHost {
 }}
 ''')
             startup_source = REPO / "src/ProGPU.Wpf/ProGpuWpfStartupOptions.cs"
-            project(root, "TestStartupBridge", '''namespace System.Windows.Media.ProGPU;
+            project(root, "TestStartupBridge", '''namespace ProGPU.Backend {
+public enum WgpuDx12ShaderCompiler { Fxc, Dxc }
+public sealed record WgpuDx12CompilerOptions(WgpuDx12ShaderCompiler Preference);
+}
+namespace System.Windows.Media.ProGPU {
 public enum ProGpuWpfRendererMode { NativeMilWgpu }
 public class ProGpuWpfWindowOptions {
  public ProGpuWpfRendererMode RendererMode { get; set; }
  public bool EnableNativeModalSessions { get; set; }
  public bool EnableNativeMilHitTesting { get; set; }
+ public global::ProGPU.Backend.WgpuDx12CompilerOptions Dx12CompilerOptions { get; set; }
 }
-public class ProGpuWpfWindowHost { public ProGpuWpfWindowHost(object options) { } }
+public class ProGpuWpfWindowHost { public ProGpuWpfWindowHost(object options) {
+ if (options is ProGpuWpfWindowOptions { Dx12CompilerOptions: { } compiler })
+  Console.WriteLine("DX12:" + compiler.Preference);
+} }
 public static class ProGpuWpfNativeMediaServices {
  public static void Initialize() => Console.WriteLine("NATIVE MEDIA");
 }
 public static class WpfPortableWindowActivation {
  public static object CreateHostOptions(object window, ProGpuWpfWindowOptions options) => options;
  public static bool TryRegisterPresentationFrameworkActivation(Func<object, ProGpuWpfWindowHost> create = null) {
-  Console.WriteLine("WPF ACTIVATION"); return true;
+  Console.WriteLine("WPF ACTIVATION"); create?.Invoke(new object()); return true;
  }
  public static void TryRegisterPresentationCoreClipboardService() => Console.WriteLine("WPF CLIPBOARD");
+}
 }
 ''', ("TestDesktopTypes",), f'<Compile Include="{escape(str(startup_source))}" />')
             project(root, "TestFormsRegistration", '''namespace LibreWinForms.ProGPU;
@@ -140,15 +202,17 @@ public static class ProGpuPlatform {
 }
 ''')
             bootstrap = f'<Compile Include="{escape(str(SDK / "targets/ProGPU.Wpf.Sdk.PortableBootstrap.cs"))}" />'
-            for mode in ("managed", "native", "forms", "mixed"):
+            for mode in ("managed", "native", "native-dxc", "native-fxc", "forms", "mixed"):
                 with self.subTest(mode=mode):
                     constants = []
                     references = []
                     if mode != "forms":
                         constants.append("PROGPU_WPF_BOOTSTRAP_WPF")
                         references.extend(("TestStartupBridge", "TestDesktopTypes"))
-                    if mode == "native":
+                    if mode.startswith("native"):
                         constants.append("PROGPU_WPF_NATIVE_MIL")
+                    if mode in ("native-dxc", "native-fxc"):
+                        constants.append("PROGPU_WPF_DX12_" + mode.removeprefix("native-").upper())
                     if mode in ("forms", "mixed"):
                         constants.extend(("PROGPU_WPF_USE_LIBREWINFORMS", "PROGPU_WPF_USE_CANONICAL_LIBREWINFORMS"))
                         references.append("TestFormsRegistration")
@@ -162,14 +226,17 @@ public static class ProGpuPlatform {
                     run(root, "build", f"{host}/{host}.csproj", "-c", "Release", "-v:q", "-nodeReuse:false")
                     app_output = root / app / "bin/Release/net10.0"
                     expected = []
-                    if mode == "native":
+                    if mode.startswith("native"):
                         expected.append("NATIVE MEDIA")
                     if mode in ("forms", "mixed"):
                         expected.append("FORMS")
                     if mode == "mixed":
                         expected.append("INTEROP")
-                    if mode != "forms" and (os.name != "nt" or mode == "native"):
-                        expected.extend(("WPF ACTIVATION", "WPF CLIPBOARD"))
+                    if mode != "forms" and (os.name != "nt" or mode.startswith("native")):
+                        expected.append("WPF ACTIVATION")
+                        if mode in ("native-dxc", "native-fxc"):
+                            expected.append("DX12:" + mode.removeprefix("native-").capitalize())
+                        expected.append("WPF CLIPBOARD")
                     expected.append("ENTRY")
                     self.assertEqual(expected, run(root, str(app_output / (app + ".dll"))).splitlines())
                     host_output = root / host / "bin/Release/net10.0"

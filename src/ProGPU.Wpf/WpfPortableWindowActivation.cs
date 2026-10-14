@@ -963,6 +963,7 @@ public sealed partial class WpfPortableWindowActivation : IDisposable, INativeWi
             TransparentFramebuffer = fallback.TransparentFramebuffer,
             RendererMode = fallback.RendererMode,
             NativeBackendOptions = fallback.NativeBackendOptions,
+            Dx12CompilerOptions = fallback.Dx12CompilerOptions,
             EnableNativeMilHitTesting = fallback.EnableNativeMilHitTesting,
             EnableNativeModalSessions = fallback.EnableNativeModalSessions,
             WindowBorder = fallback.WindowBorder,

@@ -145,11 +145,12 @@ public unsafe sealed class ProGpuWpfCompositionTarget : IDisposable
         IWindow window,
         ProGpuWgpuContext? sharedDeviceContext,
         global::ProGPU.Scene.CompositorOptions? compositorOptions,
-        global::ProGPU.Backend.WgpuNativeBackendOptions? nativeBackendOptions = null)
+        global::ProGPU.Backend.WgpuNativeBackendOptions? nativeBackendOptions = null,
+        global::ProGPU.Backend.WgpuDx12CompilerOptions? dx12CompilerOptions = null)
     {
         ArgumentNullException.ThrowIfNull(window);
 
-        var context = CreateDeviceContext(nativeBackendOptions, sharedDeviceContext);
+        var context = CreateDeviceContext(nativeBackendOptions, sharedDeviceContext, dx12CompilerOptions);
         ProGpuCompositor? compositor = null;
         try
         {
@@ -179,12 +180,22 @@ public unsafe sealed class ProGpuWpfCompositionTarget : IDisposable
 
     internal static ProGpuWgpuContext CreateDeviceContext(
         global::ProGPU.Backend.WgpuNativeBackendOptions? requested,
-        ProGpuWgpuContext? deviceOwner)
+        ProGpuWgpuContext? deviceOwner,
+        global::ProGPU.Backend.WgpuDx12CompilerOptions? compiler = null)
     {
         var inherited = requested ?? deviceOwner?.NativeBackendOptions;
+        var inheritedCompiler = compiler ?? deviceOwner?.Dx12CompilerOptions;
+        if (inheritedCompiler is null)
+            return inherited is null
+                ? new ProGpuWgpuContext()
+                : new ProGpuWgpuContext { NativeBackendOptions = inherited };
         return inherited is null
-            ? new ProGpuWgpuContext()
-            : new ProGpuWgpuContext { NativeBackendOptions = inherited };
+            ? new ProGpuWgpuContext { Dx12CompilerOptions = inheritedCompiler }
+            : new ProGpuWgpuContext
+            {
+                NativeBackendOptions = inherited,
+                Dx12CompilerOptions = inheritedCompiler
+            };
     }
 
     public MediaDrawingContext OpenDrawingContext(uint pixelWidth, uint pixelHeight)

@@ -3,14 +3,18 @@
 Capture readiness now requires an actual native submission-completion checkpoint
 for the exact source frame. A returned `SurfacePresent` call alone can precede
 GPU completion. See [the diagnosed race and completion contract](../../docs/native-presentation-completion.md).
-Every original image/action check remains required. The owner-approved preview69
-exception on 2026-10-14 permits a 90-second controller and 87-second host reserve;
-foreground setup still must finish before second 55. Both actual captures, exact
+Every original image/action check remains required. The current consumer explicitly
+selects the SDK's packaged DXC compiler and restores the original 60-second
+controller and 57-second host reserve; foreground setup must finish before second
+55. Package DLL/manifests and the actual selected compiler are checked. See
+[compiler configuration and measurements](../../docs/wpf-dx12-compiler.md).
+Both actual captures, exact
 retained RGB, clipboard actions, owned HWND/PID, real GPU completion, process exit
 and cleanup remain mandatory. No diagnostic observer runs in final acceptance.
 This completion precondition does not retry a failed capture or admit a uniform
-image. The original 60/57-second performance objective remains open in
-[issue #117](https://github.com/wieslawsoltes/LibreWPF/issues/117); approval alone
+image. The earlier preview69 FXC acceptance used the owner-approved 90/87-second
+exception. The new 60/57-second full application acceptance remains pending in
+[issue #117](https://github.com/wieslawsoltes/LibreWPF/issues/117); offscreen timing
 does not qualify the app. Historical diagnostic sections below retain the limits
 under which their original runs failed.
 

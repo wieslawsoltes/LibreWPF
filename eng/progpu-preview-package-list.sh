@@ -5,6 +5,7 @@ progpu_preview_runtime_package_ids=(
   ProGPU.Backend.Dawn
   ProGPU.Native.Sdk
   ProGPU.Backend.Native
+  ProGPU.Backend.Dx12
   ProGPU.Text.Shaping
   ProGPU.DirectX
   ProGPU.Transpiler

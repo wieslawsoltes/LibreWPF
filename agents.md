@@ -1,5 +1,17 @@
 # Agent Guidance
 
+Explicit WPF D3D12 compiler options retain the exact immutable core descriptor
+through source activation, both renderers and current shared-device ownership.
+Null inherits the live owner before startup environment defaults; explicit
+conflicts reach core validation, including after recovery. Automatic stays
+unchanged. SDK DXC selection requires a Windows x64/ARM64 native-MIL executable
+and the exact matching optional runtime package; never copy DLLs over a consumer
+or infer qualification from a package reference. Stage compiler payloads from
+the same complete successful producer, keeping native/SDK staging separate.
+The explicit-DXC Gallery control restores its original 60-second controller,
+57-second host and 55-second foreground bounds with all original pixels/actions.
+See docs/wpf-dx12-compiler.md; offscreen timing is not desktop qualification.
+
 Source WPF pen adapters select the shared producer's full retained WPF join
 policy, including reversal and smooth-to-Round behavior, not a global generic
 smooth reinterpretation or clip-only alias. Preserve original brush/dash/path
@@ -108,7 +120,7 @@ Native presentation checkpoints poll the exact live engine on its dispatcher
 thread and retain source-frame/device-recovery identity. Submitted-frame counts
 and SurfacePresent are not GPU completion or desktop scanout. Keep the original
 Gallery pixels and actions after the explicit completion precondition; no retry
-capture or timer-based completion. The owner-approved preview69 exception allows
+capture or timer-based completion. The owner-approved preview69 FXC exception allows
 a 90-second controller and 87-second host reserve, retaining the 55-second
 foreground setup bound and all captures, ownership, clipboard and cleanup checks.
 The original 60-second performance target remains open in LibreWPF #117. See
