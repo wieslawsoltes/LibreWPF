@@ -51,16 +51,18 @@ internal static class SceneReplay
             using var target = new GpuTexture(context, 884, 861, TextureFormat.Bgra8Unorm,
                 TextureUsage.RenderAttachment | TextureUsage.CopySrc, "Original Gallery scene diagnostic");
             using var renderer = new NativeCompositor(context, TextureFormat.Bgra8Unorm);
-            for (int i = 0; i < scenes.Length; ++i)
+            for (int step = 0; step < scenes.Length * 2; ++step)
             {
+                int i = step / 2;
+                string frame = $"frame-{i + 1}-" + (step % 2 == 0 ? "cold" : "warm");
                 byte[] scene = scenes[i];
                 ulong id = BinaryPrimitives.ReadUInt64LittleEndian(scene.AsSpan(24));
                 ulong generation = BinaryPrimitives.ReadUInt64LittleEndian(scene.AsSpan(32));
                 var installed = renderer.UpdateScene(scene);
-                Save($"frame-{i + 1}-installed", new { installed, elapsedSeconds = Clock.Elapsed.TotalSeconds });
+                Save($"{frame}-installed", new { installed, elapsedSeconds = Clock.Elapsed.TotalSeconds });
                 var metrics = renderer.RenderScene(target, 1, id, generation, Vector4.One);
                 var token = renderer.GetLastSubmissionToken();
-                Save($"frame-{i + 1}-submitted", new { metrics, token, elapsedSeconds = Clock.Elapsed.TotalSeconds });
+                Save($"{frame}-submitted", new { metrics, token, elapsedSeconds = Clock.Elapsed.TotalSeconds });
                 double deadline = Math.Min(55, Clock.Elapsed.TotalSeconds + 30);
                 bool complete;
                 do
@@ -69,7 +71,7 @@ internal static class SceneReplay
                     if (complete || Clock.Elapsed.TotalSeconds >= deadline) break;
                     Thread.Sleep(1);
                 } while (true);
-                Save($"frame-{i + 1}-completion", new { token, complete, elapsedSeconds = Clock.Elapsed.TotalSeconds });
+                Save($"{frame}-completion", new { token, complete, elapsedSeconds = Clock.Elapsed.TotalSeconds });
                 if (!complete) throw new TimeoutException("Original renderer submission did not complete within the diagnostic bound.");
                 byte[] pixels = target.ReadPixels();
                 if (pixels.Length != 884 * 861 * 4) throw new InvalidOperationException("Incomplete native readback.");
@@ -80,11 +82,11 @@ internal static class SceneReplay
                     rgb[p * 3] = pixels[p * 4 + 2]; rgb[p * 3 + 1] = pixels[p * 4 + 1]; rgb[p * 3 + 2] = pixels[p * 4];
                     if (rgb[p * 3] != 255 || rgb[p * 3 + 1] != 255 || rgb[p * 3 + 2] != 255) ++nonwhite;
                 }
-                using (FileStream image = new(Path.Combine(output, $"frame-{i + 1}.ppm"), FileMode.CreateNew))
+                using (FileStream image = new(Path.Combine(output, $"{frame}.ppm"), FileMode.CreateNew))
                 {
                     image.Write("P6\n884 861\n255\n"u8); image.Write(rgb);
                 }
-                Save($"frame-{i + 1}-pixels", new { diagnosticOnly = true, qualified = false, nonwhite,
+                Save($"{frame}-pixels", new { diagnosticOnly = true, qualified = false, nonwhite,
                     rgbSha256 = Convert.ToHexString(SHA256.HashData(rgb)), elapsedSeconds = Clock.Elapsed.TotalSeconds });
             }
             return 0;

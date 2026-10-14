@@ -149,7 +149,7 @@ jobs:
 
   scene-replay:
     if: inputs.replay_scene_only
-    name: DIAGNOSTIC ONLY — original scenes on Windows software renderer
+    name: DIAGNOSTIC ONLY — paired cold/warm original scenes
     runs-on: windows-11-arm
     timeout-minutes: 15
     env:
@@ -229,7 +229,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: gallery-scene-replay-diagnostic-${{ github.run_id }}-${{ github.run_attempt }}
+          name: gallery-scene-cold-warm-${{ github.run_id }}-${{ github.run_attempt }}
           retention-days: 7
           if-no-files-found: warn
           path: |
