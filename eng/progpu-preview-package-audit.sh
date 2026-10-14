@@ -176,6 +176,10 @@ python3 "${repo_root}/eng/progpu-preview-package-closure.py" "${package_files[@]
 for package_id in "${runtime_packages[@]}"; do
   if [[ "${package_id}" == "ProGPU.Native.Sdk" ]]; then
     require_entry "${package_id}" "build/native/ProGPUNativeSdkVersion.txt"
+  elif [[ "${package_id}" == "ProGPU.Backend.Dx12" ]]; then
+    # The optional compiler package contains native assets, never a managed DLL.
+    # Reuse the pinned producer's complete RID, manifest and license contract.
+    bash "${repo_root}/external/ProGPU/eng/progpu-verify-dx12-package.sh" "$(package_path "${package_id}")"
   else
     require_entry "${package_id}" "lib/net10.0/$(package_assembly_name "${package_id}").dll"
   fi
