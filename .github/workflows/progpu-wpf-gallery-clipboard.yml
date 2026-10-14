@@ -199,11 +199,31 @@ jobs:
             --head ce5dccd151e4e141239f4dc545a3b1c09bd19157 --build 38480990649 --docs 38480990595 `
             --output $env:CASE_ROOT --dotnet (Get-Command dotnet).Source
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Build pinned offline CPU trace reader
+        shell: pwsh
+        run: |
+          $reader = Join-Path $env:CASE_ROOT 'cpu-reader'
+          Copy-Item -Recurse .scene-replay-source/eng/WindowsGalleryClipboardConsumer/cpu-reader $reader
+          dotnet build (Join-Path $reader 'TraceReader.csproj') -c Release --output (Join-Path $reader 'output') `
+            -p:CopyLocalLockFileAssemblies=true -p:ImportDirectoryBuildProps=false -p:ImportDirectoryBuildTargets=false `
+            -p:UseSharedCompilation=false --disable-build-servers --nologo -v:q
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Replay original immutable scenes offscreen (never acceptance)
         shell: pwsh
         run: |
-          python .scene-replay-source/eng/WindowsGalleryClipboardConsumer/replay-scene.py `
+          python .scene-replay-source/eng/WindowsGalleryClipboardConsumer/replay-with-cpu.py `
             --case-root $env:CASE_ROOT --dotnet (Get-Command dotnet).Source
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Analyze owned replay CPU samples without relaunching
+        if: always()
+        shell: pwsh
+        run: |
+          $root = Join-Path $env:CASE_ROOT 'scene-replay'
+          $record = Get-Content (Join-Path $root 'cpu-recording.json') -Raw | ConvertFrom-Json
+          if (-not $record.launched -or $record.stopExit -ne 0 -or -not $record.pid) { throw 'Complete original CPU recording unavailable.' }
+          $trace = Join-Path $root 'scene-cpu.etl'
+          if ((Get-FileHash $trace).Hash.ToLower() -ne $record.traceSha256) { throw 'Original trace changed.' }
+          dotnet (Join-Path $env:CASE_ROOT 'cpu-reader/output/TraceReader.dll') $trace $record.pid (Join-Path $root 'cpu-summary.json')
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Retain diagnostic receipts, traces and real pixels
         if: always()
@@ -219,3 +239,4 @@ jobs:
             ${{ env.CASE_ROOT }}/scene-replay/*.json
             ${{ env.CASE_ROOT }}/scene-replay/*.log
             ${{ env.CASE_ROOT }}/scene-replay/evidence/**
+            ${{ env.CASE_ROOT }}/scene-replay/scene-cpu.etl
