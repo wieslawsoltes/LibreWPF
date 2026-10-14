@@ -149,7 +149,11 @@ jobs:
 
   scene-replay:
     if: inputs.replay_scene_only
-    name: DIAGNOSTIC ONLY — original scenes on Windows software renderer
+    strategy:
+      fail-fast: false
+      matrix:
+        glyph: [compute, raster, simd]
+    name: DIAGNOSTIC ONLY — original scenes glyph route ${{ matrix.glyph }}
     runs-on: windows-11-arm
     timeout-minutes: 15
     env:
@@ -209,6 +213,8 @@ jobs:
             -p:UseSharedCompilation=false --disable-build-servers --nologo -v:q
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Replay original immutable scenes offscreen (never acceptance)
+        env:
+          PROGPU_COMPUTE_EXECUTION: ${{ matrix.glyph }}
         shell: pwsh
         run: |
           python .scene-replay-source/eng/WindowsGalleryClipboardConsumer/replay-with-cpu.py `
@@ -229,7 +235,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: gallery-scene-replay-diagnostic-${{ github.run_id }}-${{ github.run_attempt }}
+          name: gallery-scene-glyph-${{ matrix.glyph }}-${{ github.run_id }}-${{ github.run_attempt }}
           retention-days: 7
           if-no-files-found: warn
           path: |
