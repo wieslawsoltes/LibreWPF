@@ -13,6 +13,45 @@ namespace System.Windows.Media;
 [Collection("Sequential")]
 public class PortableTextLineTests
 {
+    [PortableMediaFact]
+    public void GlyphRunsKeepSourceDirectionInsideEachOriginalCluster()
+    {
+        // Explicit occurrence order and positions are independent of glyph IDs.
+        // This source adapter fixture does not simulate shaping or Display pixels.
+        foreach (sbyte level in new sbyte[] { 0, 1, 2, 3 })
+        {
+            bool rightToLeft = (level & 1) != 0;
+            PortableTextGlyph[] glyphs = rightToLeft
+                ? [new(7, 2, 3, 0, 0, 10, level), new(3, 0, 2, 11, 0, 0, level),
+                   new(5, 0, 2, 13, 0, 0, level), new(2, 0, 2, 10, 0, 8, level)]
+                : [new(2, 0, 2, 0, 0, 8, level), new(5, 0, 2, 3, 0, 0, level),
+                   new(3, 0, 2, 1, 0, 0, level), new(7, 2, 3, 8, 0, 10, level)];
+            var provider = new Provider { SourceOrderGlyphs = glyphs };
+            using var registration = PortableWpfServiceRegistry.RegisterTextFormatting(provider);
+            using var formatter = new TextFormatterImp();
+            var source = new Source { Properties = new Properties(new FontFamily(Path.Combine(
+                AppContext.BaseDirectory, "LibreWPF", "Fonts", "Inter-Medium.ttf") + "#Inter")) };
+            using var line = formatter.FormatLine(source, 0, 100,
+                new ParagraphProperties(source.Properties, false, false), null, new TextRunCache());
+            var indexed = Assert.Single(line.GetIndexedGlyphRuns());
+            var run = indexed.GlyphRun;
+            Assert.Equal(0, indexed.TextSourceCharacterIndex);
+            Assert.Equal(3, indexed.TextSourceLength);
+            Assert.Equal(new ushort[] { 2, 5, 3, 7 }, run.GlyphIndices);
+            Assert.Equal(new double[] { 8, 0, 0, 10 }, run.AdvanceWidths);
+            Assert.Equal(new ushort[] { 0, 0, 3 }, run.ClusterMap);
+            Assert.Equal(level & 1, run.BidiLevel);
+            Assert.True(((IPortableNativeGlyphRunSource)run).TryGetPortableNativeGlyphRun(out var native));
+            Assert.Equal(rightToLeft ? new float[] { 10, 13, 11, 0 } : new float[] { 0, 3, 1, 8 },
+                native.GlyphPositions.Select(position => position.X));
+            Assert.All(native.GlyphPositions, position => Assert.Equal(0, position.Y));
+            Assert.Same(provider.NativeFont, native.NativeFont);
+            Assert.Same(run, Assert.Single(DrawLeaves(line).OfType<GlyphRunDrawing>()).GlyphRun);
+            Assert.Equal(glyphs, provider.Glyphs.ToArray());
+            Assert.Equal(1, provider.Calls);
+        }
+    }
+
     [Theory]
     [InlineData("Capitals", (int)FontCapitals.Normal, "")]
     [InlineData("Capitals", (int)FontCapitals.SmallCaps, "smcp")]
@@ -2016,6 +2055,7 @@ public class PortableTextLineTests
         internal bool Mixed { get; init; }
         internal bool Tabs { get; init; }
         internal bool MixedOneLine { get; init; }
+        internal PortableTextGlyph[]? SourceOrderGlyphs { get; init; }
         internal bool Empty { get; init; }
         internal float? BoundaryWidth { get; init; }
         internal float IncrementalTab { get; private set; }
@@ -2047,14 +2087,15 @@ public class PortableTextLineTests
             Text = request.Text.ToString(); Styles = request.Styles; IncrementalTab = request.IncrementalTab;
             Assert.False(request.Font.Data.IsEmpty); return this;
         }
-        public ReadOnlyMemory<PortableTextGlyph> Glyphs => BoundaryWidth is { } boundaryWidth ? new PortableTextGlyph[]
+        public ReadOnlyMemory<PortableTextGlyph> Glyphs => SourceOrderGlyphs is { } sourceOrderGlyphs ? sourceOrderGlyphs : BoundaryWidth is { } boundaryWidth ? new PortableTextGlyph[]
         { new(0, 0, 1, 0, 0, boundaryWidth, 0) } : Continued ? new PortableTextGlyph[] { new(0, 2, 3, 0, 0, 6, 1) } : Empty ? ReadOnlyMemory<PortableTextGlyph>.Empty : Tabs ? new PortableTextGlyph[]
         { new(0, 0, 1, 0, 0, 8, 0), new(uint.MaxValue, 1, 2, 8, 0, 24, 0, IsTab: true), new(0, 2, 3, 32, 0, 6, 0) } : MixedOneLine ? new PortableTextGlyph[]
         { new(0, 0, 1, 0, 0, 4, 0), new(0, 1, 2, 4, 0, 6, 0, 1), new(0, 2, 3, 10, 0, 6, 0, 1) } : Mixed ? new PortableTextGlyph[]
         { new(0, 0, 1, 0, 0, 4, 0), new(0, 1, 2, 0, 20, 6, 0, 1), new(0, 2, 3, 6, 20, 6, 0, 1) } : new PortableTextGlyph[]
         { new(0, 0, 2, 0, 0, 8, 1), new(0, 2, 3, 0, 20, 6, 1) };
         public ReadOnlyMemory<PortableTextLineInfo> Lines { get { LineReads++; return ReadLines(); } }
-        private ReadOnlyMemory<PortableTextLineInfo> ReadLines() => BoundaryWidth is { } boundaryWidth ? new PortableTextLineInfo[]
+        private ReadOnlyMemory<PortableTextLineInfo> ReadLines() => SourceOrderGlyphs is { } sourceOrderGlyphs ? new PortableTextLineInfo[]
+        { new(0, sourceOrderGlyphs.Length, 0, 3, 18, 0, 20) } : BoundaryWidth is { } boundaryWidth ? new PortableTextLineInfo[]
         { new(0, 1, 0, 1, boundaryWidth, 0, 20) } : Continued ? new PortableTextLineInfo[] { new(0, 1, 2, 3, 6, 0, 20) } : Empty ? new PortableTextLineInfo[] { new(0, 0, 0, 0, 0, 0, 20) } : Tabs ? new PortableTextLineInfo[]
         { new(0, 3, 0, 3, 38, 0, 20) } : MixedOneLine ? new PortableTextLineInfo[]
         { new(0, 3, 0, 3, 16, 0, 20) } : Mixed ? new PortableTextLineInfo[]

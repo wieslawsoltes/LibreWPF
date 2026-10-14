@@ -63,6 +63,13 @@ parity never admits mixed-level hinted selections; source publication compares t
 projected binding exactly. This does not admit Display metrics or public hinted
 caret/outline behavior. See docs/source-hinted-text-ownership.md.
 
+Source RTL GlyphRuns reverse retained visual occurrence order within each
+original cluster, as well as ordering clusters by source position. Keep glyph IDs,
+advances, positions and hinted selection indices paired; never sort by glyph ID or
+rewrite native shaping/cluster ownership. Even levels keep their existing order.
+This source projection does not qualify Display offsets or pixels. See
+docs/source-rtl-glyph-order.md.
+
 Source hinted lines and cloned breaks own independent leases of one original
 formatted generation. Use the native writer's retained line frames and canonical
 batched offsets for source GlyphRuns; never ask a hinted paragraph for a design

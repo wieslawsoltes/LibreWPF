@@ -19,7 +19,7 @@ fi
 export LIBREWPF_TEST_MEDIA_BACKEND=Portable
 "${dotnet_command}" "${assembly}" \
   --filter-class System.Windows.Media.PortableTextLineTests \
-  --minimum-expected-tests 110 --fail-skips on --timeout 60s --no-progress
+  --minimum-expected-tests 111 --fail-skips on --timeout 60s --no-progress
 "${dotnet_command}" "${assembly}" \
   --filter-class MS.Internal.FontCache.Tests.PortableFontFamilyUriTests \
   --minimum-expected-tests 15 --fail-skips on --timeout 60s --no-progress
