@@ -1,221 +1,36 @@
-name: Original Gallery clipboard acceptance
-run-name: "${{ inputs.replay_scene_only && 'Diagnostic scene replay' || (inputs.diagnostic && 'Diagnostic only' || 'Acceptance') }} — Gallery ${{ inputs.head }}"
-
+name: Diagnostic Gallery compiler comparison
 on:
   workflow_dispatch:
-    inputs:
-      head:
-        description: Exact fully qualified LibreWPF producer commit (40 hexadecimal characters)
-        required: true
-        type: string
-      build:
-        description: Complete successful LibreWPF Build run ID for this commit
-        required: true
-        type: string
-      docs:
-        description: Complete successful LibreWPF Docs run ID for this commit
-        required: true
-        type: string
-      diagnostic:
-        description: Record additional client pixels; this run cannot qualify a release
-        required: false
-        default: false
-        type: boolean
-      replay_scene_only:
-        description: Separate offscreen replay of the retained failure; diagnostic must be true
-        required: false
-        default: false
-        type: boolean
-
 permissions:
   contents: read
   actions: read
-
 jobs:
-  original-gallery:
-    if: ${{ !inputs.replay_scene_only }}
-    name: "${{ inputs.diagnostic && 'DIAGNOSTIC ONLY' || 'Acceptance' }} — original Gallery on Windows ARM64"
-    runs-on: windows-11-arm
-    timeout-minutes: 20
-    env:
-      GH_TOKEN: ${{ github.token }}
-      PRODUCER_HEAD: ${{ inputs.head }}
-      PRODUCER_BUILD: ${{ inputs.build }}
-      PRODUCER_DOCS: ${{ inputs.docs }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ inputs.head }}
-      - name: Read the exact original consumer compiler
-        id: consumer-compiler
-        shell: pwsh
-        run: |
-          $compiler = (Get-Content global.json -Raw | ConvertFrom-Json).sdk.version
-          if ($compiler -notmatch '^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$') {
-            throw "The qualified source must declare an exact compiler version."
-          }
-          "version=$compiler" >> $env:GITHUB_OUTPUT
-          "CASE_ROOT=$(Join-Path $env:RUNNER_TEMP 'gallery-clipboard-ci')" >> $env:GITHUB_ENV
-      - uses: actions/setup-dotnet@v4
-        with:
-          # global-json-file honors latestFeature and installs a newer SDK;
-          # prepare.py deliberately disables roll-forward for this consumer.
-          dotnet-version: |
-            10.0.x
-            ${{ steps.consumer-compiler.outputs.version }}
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - uses: actions/checkout@v4
-        if: inputs.diagnostic
-        with:
-          ref: ${{ github.sha }}
-          path: .gallery-diagnostic-source
-          sparse-checkout: eng/WindowsGalleryClipboardConsumer
-          persist-credentials: false
-      - name: Verify observer preserves original failures
-        if: inputs.diagnostic
-        run: python .gallery-diagnostic-source/eng/WindowsGalleryClipboardConsumer/test_diagnostics.py -v
-      - name: Verify unchanged capture and producer admission controls
-        run: python eng/WindowsGalleryClipboardConsumer/test_contract.py -v
-      - name: Prepare original consumer from whole successful producer
-        shell: pwsh
-        run: |
-          python eng/WindowsGalleryClipboardConsumer/prepare-ci.py `
-            --head $env:PRODUCER_HEAD --build $env:PRODUCER_BUILD --docs $env:PRODUCER_DOCS `
-            --output $env:CASE_ROOT --dotnet (Get-Command dotnet).Source
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Close the identified disposable runner startup window
-        shell: pwsh
-        run: |
-          python eng/WindowsGalleryClipboardConsumer/close-hosted-account.py --output "$env:CASE_ROOT/hosted-environment.json"
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Prepare separate scene observer (never release qualification)
-        if: inputs.diagnostic
-        shell: pwsh
-        run: |
-          python .gallery-diagnostic-source/eng/WindowsGalleryClipboardConsumer/prepare-scene-observer.py `
-            --output "$env:CASE_ROOT/scene-observer" --dotnet (Get-Command dotnet).Source
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Fit the original window on the disposable physical desktop
-        shell: pwsh
-        run: |
-          python eng/WindowsGalleryClipboardConsumer/prepare-hosted-display.py prepare --receipt "$env:CASE_ROOT/hosted-display.json"
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Run original captures with an empty disposable CI clipboard
-        if: ${{ !inputs.diagnostic }}
-        shell: pwsh
-        run: |
-          python "$env:CASE_ROOT/consumer/run-windows.py" `
-            --app "$env:CASE_ROOT/consumer/bin/Release/net10.0-windows/GalleryClipboardApp.exe" `
-            --output "$env:CASE_ROOT/runtime" --require-empty-ci-clipboard
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Observe original failure pixels (never release qualification)
-        if: inputs.diagnostic
-        shell: pwsh
-        run: |
-          python .gallery-diagnostic-source/eng/WindowsGalleryClipboardConsumer/diagnose-windows.py `
-            --driver "$env:CASE_ROOT/consumer/run-windows.py" `
-            --scene-observer "$env:CASE_ROOT/scene-observer/bin/Release/net10.0/GallerySceneObserver.dll" `
-            --app "$env:CASE_ROOT/consumer/bin/Release/net10.0-windows/GalleryClipboardApp.exe" `
-            --output "$env:CASE_ROOT/runtime" --require-empty-ci-clipboard
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Restore the original disposable desktop mode
-        if: always()
-        shell: pwsh
-        run: |
-          python eng/WindowsGalleryClipboardConsumer/prepare-hosted-display.py restore --receipt "$env:CASE_ROOT/hosted-display.json"
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Retain original receipts and captures for manual visual review
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: gallery-clipboard-${{ inputs.diagnostic && 'diagnostic-' || '' }}${{ inputs.head }}-${{ github.run_id }}-${{ github.run_attempt }}
-          retention-days: 7
-          if-no-files-found: warn
-          path: |
-            ${{ env.CASE_ROOT }}/inputs/*.json
-            ${{ env.CASE_ROOT }}/inputs/*.log
-            ${{ env.CASE_ROOT }}/consumer/preparation.json
-            ${{ env.CASE_ROOT }}/consumer/build.log
-            ${{ env.CASE_ROOT }}/consumer/source-manifest.json
-            ${{ env.CASE_ROOT }}/original/Assets/ControlImages/Clipboard.png
-            ${{ env.CASE_ROOT }}/original/LICENSE
-            ${{ env.CASE_ROOT }}/runtime/**
-            ${{ env.CASE_ROOT }}/hosted-environment.json
-            ${{ env.CASE_ROOT }}/hosted-display*.json
-            ${{ env.CASE_ROOT }}/scene-observer/preparation.json
-            ${{ env.CASE_ROOT }}/scene-observer/build.log
-
-  scene-replay:
-    if: inputs.replay_scene_only
-    name: DIAGNOSTIC ONLY — original scenes on Windows software renderer
+  comparison:
+    name: Original scene pixels with stock FXC and packaged FXC/DXC
     runs-on: windows-11-arm
     timeout-minutes: 15
     env:
       GH_TOKEN: ${{ github.token }}
-      REPLAY_DIAGNOSTIC: ${{ inputs.diagnostic }}
-      REPLAY_HEAD: ${{ inputs.head }}
-      REPLAY_BUILD: ${{ inputs.build }}
-      REPLAY_DOCS: ${{ inputs.docs }}
     steps:
-      - name: Require the exact failure diagnostic request
-        shell: pwsh
-        run: |
-          if ($env:REPLAY_DIAGNOSTIC -ne 'true' -or
-              $env:REPLAY_HEAD -ne 'ce5dccd151e4e141239f4dc545a3b1c09bd19157' -or
-              $env:REPLAY_BUILD -ne '38480990649' -or $env:REPLAY_DOCS -ne '38480990595') {
-            throw 'Replay requires the original exact qualified producer and explicit diagnostic mode.'
-          }
       - uses: actions/checkout@v4
         with:
-          ref: ce5dccd151e4e141239f4dc545a3b1c09bd19157
-      - name: Read the original consumer compiler
-        id: compiler
-        shell: pwsh
-        run: |
-          $compiler = (Get-Content global.json -Raw | ConvertFrom-Json).sdk.version
-          if ($compiler -notmatch '^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$') { throw 'Exact compiler required.' }
-          "version=$compiler" >> $env:GITHUB_OUTPUT
-          "CASE_ROOT=$(Join-Path $env:RUNNER_TEMP 'gallery-scene-replay')" >> $env:GITHUB_ENV
+          persist-credentials: false
+          sparse-checkout: eng/WindowsGalleryCompilerComparison
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: |
             10.0.x
-            ${{ steps.compiler.outputs.version }}
+            10.0.201
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.sha }}
-          path: .scene-replay-source
-          sparse-checkout: eng/WindowsGalleryClipboardConsumer
-          persist-credentials: false
-      - name: Stage the exact whole-qualified producer without launching Gallery
-        shell: pwsh
-        run: |
-          python eng/WindowsGalleryClipboardConsumer/prepare-ci.py `
-            --head ce5dccd151e4e141239f4dc545a3b1c09bd19157 --build 38480990649 --docs 38480990595 `
-            --output $env:CASE_ROOT --dotnet (Get-Command dotnet).Source
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Replay original immutable scenes offscreen (never acceptance)
-        shell: pwsh
-        run: |
-          python .scene-replay-source/eng/WindowsGalleryClipboardConsumer/replay-scene.py `
-            --case-root $env:CASE_ROOT --dotnet (Get-Command dotnet).Source
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Retain diagnostic receipts, traces and real pixels
+      - name: Compare unchanged full scenes with their original sixty-second bound
+        run: python eng/WindowsGalleryCompilerComparison/compare.py
+      - name: Retain all completed and failed original cases
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: gallery-scene-replay-diagnostic-${{ github.run_id }}-${{ github.run_attempt }}
+          name: gallery-compiler-comparison-${{ github.run_id }}
           retention-days: 7
-          if-no-files-found: warn
-          path: |
-            ${{ env.CASE_ROOT }}/inputs/*.json
-            ${{ env.CASE_ROOT }}/consumer/preparation.json
-            ${{ env.CASE_ROOT }}/consumer/build.log
-            ${{ env.CASE_ROOT }}/scene-replay/*.json
-            ${{ env.CASE_ROOT }}/scene-replay/*.log
-            ${{ env.CASE_ROOT }}/scene-replay/evidence/**
+          if-no-files-found: error
+          path: ${{ runner.temp }}/gallery-compiler-comparison/evidence/**

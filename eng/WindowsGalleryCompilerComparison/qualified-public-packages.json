@@ -1,0 +1,608 @@
+{
+  "releaseUrl": "https://github.com/wieslawsoltes/ProGPU/releases/tag/v0.1.0-preview.69",
+  "checkedAt": "2026-10-14T16:46:34.837888+00:00",
+  "packages": [
+    {
+      "id": "ProGPU.Android",
+      "version": "0.1.0-preview.69",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/wieslawsoltes/ProGPU",
+        "commit": "aef75180bcdc3b937d004b6b949e0e91724c7981"
+      },
+      "publicPackage": {
+        "bytes": 72064390,
+        "sha256": "2f1e6145364d5ef0fa523c30b285f915978b7092662bf26047030955aba97193",
+        "retiredContentMatches": []
+      }
+    },
+    {
+      "id": "ProGPU.Android.Media",
+      "version": "0.1.0-preview.69",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/wieslawsoltes/ProGPU",
+        "commit": "aef75180bcdc3b937d004b6b949e0e91724c7981"
+      },
+      "publicPackage": {
+        "bytes": 178156,
+        "sha256": "d361158fc5699e46f9235406bbf8e88575df3ed857923c03940a9239248fd06c",
+        "retiredContentMatches": []
+      }
+    },
+    {
+      "id": "ProGPU.Apple.Media",
+      "version": "0.1.0-preview.69",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/wieslawsoltes/ProGPU",
+        "commit": "aef75180bcdc3b937d004b6b949e0e91724c7981"
+      },
+      "publicPackage": {
+        "bytes": 207295,
+        "sha256": "baab8c0963901f82cf34f70b4eda1d3ce283d4345b2d80ae65e682e98efc8ac1",
+        "retiredContentMatches": []
+      }
+    },
+    {
+      "id": "ProGPU.Avalonia",
+      "version": "0.1.0-preview.69",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/wieslawsoltes/ProGPU",
+        "commit": "aef75180bcdc3b937d004b6b949e0e91724c7981"
+      },
+      "publicPackage": {
+        "bytes": 143424,
+        "sha256": "72654716051c764d822184d7de53afd79a20451619bd75c3103e482f47887352",
+        "retiredContentMatches": []
+      }
+    },
+    {
+      "id": "ProGPU.Avalonia.Rendering",
+      "version": "11.3.20-preview.69",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/wieslawsoltes/ProGPU",
+        "commit": "aef75180bcdc3b937d004b6b949e0e91724c7981"
+      },
+      "publicPackage": {
+        "bytes": 239665,
+        "sha256": "e27a409defa13c977c682e74102ca433d84d67de42d2eff17d65ae677016647b",
+        "retiredContentMatches": []
+      }
+    },
+    {
+      "id": "ProGPU.Avalonia.Rendering",
+      "version": "12.1.1-preview.69",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/wieslawsoltes/ProGPU",
+        "commit": "aef75180bcdc3b937d004b6b949e0e91724c7981"
+      },
+      "publicPackage": {
+        "bytes": 250943,
+        "sha256": "99500f654ea65a0b7c271b8f8ed41958ef20507e7649f2f54ed403191d4d8c3d",
+        "retiredContentMatches": []
+      }
+    },
+    {
+      "id": "ProGPU.Avalonia.SilkNet",
+      "version": "11.3.20-preview.69",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/wieslawsoltes/ProGPU",
+        "commit": "aef75180bcdc3b937d004b6b949e0e91724c7981"
+      },
+      "publicPackage": {
+        "bytes": 214183,
+        "sha256": "ec67eed98613c88f7b24be9ad46b0b46946f8da4051cc514eb94d82056cc0f53",
+        "retiredContentMatches": []
+      }
+    },
+    {
+      "id": "ProGPU.Avalonia.SilkNet",
+      "version": "12.1.1-preview.69",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/wieslawsoltes/ProGPU",
+        "commit": "aef75180bcdc3b937d004b6b949e0e91724c7981"
+      },
+      "publicPackage": {
+        "bytes": 214677,
+        "sha256": "15b3014dcea0257fc6ec82b940a1d966b02f4399c0285ceb32d441524f8650bc",
+        "retiredContentMatches": []
+      }
+    },
+    {
+      "id": "ProGPU.Backend",
+      "version": "0.1.0-preview.69",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/wieslawsoltes/ProGPU",
+        "commit": "aef75180bcdc3b937d004b6b949e0e91724c7981"
+      },
+      "publicPackage": {
+        "bytes": 394525,
+        "sha256": "869b7ac559562dd6d8f4182e5c04edec2d677b81f76ed2bbb85a3b9325b85c1c",
+        "retiredContentMatches": []
+      }
+    },
+    {
+      "id": "ProGPU.Backend.Dawn",
+      "version": "0.1.0-preview.69",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/wieslawsoltes/ProGPU",
+        "commit": "aef75180bcdc3b937d004b6b949e0e91724c7981"
+      },
+      "publicPackage": {
+        "bytes": 175432,
+        "sha256": "3b6559d9c731c8f366e5c1f8aef7a65c9cacf67aa94467b76980ab8c0f965568",
+        "retiredContentMatches": []
+      }
+    },
+    {
+      "id": "ProGPU.Backend.Dx12",
+      "version": "0.1.0-preview.69",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/wieslawsoltes/ProGPU",
+        "commit": "aef75180bcdc3b937d004b6b949e0e91724c7981"
+      },
+      "publicPackage": {
+        "bytes": 24189747,
+        "sha256": "c4871725898514ac971b838c55a0d8f432d5dbb385a0304097284eaece772f51",
+        "retiredContentMatches": []
+      }
+    },
+    {
+      "id": "ProGPU.Backend.Native",
+      "version": "0.1.0-preview.69",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/wieslawsoltes/ProGPU",
+        "commit": "aef75180bcdc3b937d004b6b949e0e91724c7981"
+      },
+      "publicPackage": {
+        "bytes": 195831439,
+        "sha256": "eca97c310c27e82cded879625d8a5109ac5708ad731d12e76278b823881807e7",
+        "retiredContentMatches": []
+      }
+    },
+    {
+      "id": "ProGPU.BinaryCompatibility",
+      "version": "0.1.0-preview.69",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/wieslawsoltes/ProGPU",
+        "commit": "aef75180bcdc3b937d004b6b949e0e91724c7981"
+      },
+      "publicPackage": {
+        "bytes": 431653,
+        "sha256": "a39ee61d18903e6777b8938eb5e4bbaad4cf0aff26aeab31e0b15bbcd61659c7",
+        "retiredContentMatches": []
+      }
+    },
+    {
+      "id": "ProGPU.Browser",
+      "version": "0.1.0-preview.69",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/wieslawsoltes/ProGPU",
+        "commit": "aef75180bcdc3b937d004b6b949e0e91724c7981"
+      },
+      "publicPackage": {
+        "bytes": 249143,
+        "sha256": "1e8cb507f0b565f0d3a4ad3dc5c147fb2e9c28f0b01d5e17231e3a75e3b3e142",
+        "retiredContentMatches": []
+      }
+    },
+    {
+      "id": "ProGPU.Compute",
+      "version": "0.1.0-preview.69",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/wieslawsoltes/ProGPU",
+        "commit": "aef75180bcdc3b937d004b6b949e0e91724c7981"
+      },
+      "publicPackage": {
+        "bytes": 224242,
+        "sha256": "a81425b9fbbf026bd6c2bc6bdafdabc2a16c81c547f6de2477e9f849d7240fd5",
+        "retiredContentMatches": []
+      }
+    },
+    {
+      "id": "ProGPU.Direct2D",
+      "version": "0.1.0-preview.69",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/wieslawsoltes/ProGPU",
+        "commit": "aef75180bcdc3b937d004b6b949e0e91724c7981"
+      },
+      "publicPackage": {
+        "bytes": 189461,
+        "sha256": "1681f173b1fdb83197a9c49ebcf78036928646cac2d74e2bbb4e9b1173937cab",
+        "retiredContentMatches": []
+      }
+    },
+    {
+      "id": "ProGPU.DirectX",
+      "version": "0.1.0-preview.69",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/wieslawsoltes/ProGPU",
+        "commit": "aef75180bcdc3b937d004b6b949e0e91724c7981"
+      },
+      "publicPackage": {
+        "bytes": 335700,
+        "sha256": "4c9d229d29038089f6c5f924b1e18268385707082d969285f916d68f54a292fd",
+        "retiredContentMatches": []
+      }
+    },
+    {
+      "id": "ProGPU.Dxf",
+      "version": "0.1.0-preview.69",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/wieslawsoltes/ProGPU",
+        "commit": "aef75180bcdc3b937d004b6b949e0e91724c7981"
+      },
+      "publicPackage": {
+        "bytes": 148656,
+        "sha256": "7b50ed1ea06bf3437e73ce44648840b1adabad65c0bcd0de37c1f923aaa17c91",
+        "retiredContentMatches": []
+      }
+    },
+    {
+      "id": "ProGPU.Fonts.Inter",
+      "version": "0.1.0-preview.69",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/wieslawsoltes/ProGPU",
+        "commit": "aef75180bcdc3b937d004b6b949e0e91724c7981"
+      },
+      "publicPackage": {
+        "bytes": 8658628,
+        "sha256": "ed48b05b9931722bd88bfc352fcd4b212b73fdf0c7df551e2bf785b55396290d",
+        "retiredContentMatches": []
+      }
+    },
+    {
+      "id": "ProGPU.Fonts.Noto",
+      "version": "0.1.0-preview.69",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/wieslawsoltes/ProGPU",
+        "commit": "aef75180bcdc3b937d004b6b949e0e91724c7981"
+      },
+      "publicPackage": {
+        "bytes": 14363169,
+        "sha256": "0fc3bab20209df24d571bc33e716df020f46658ddf3b026c54d67cb9155d1ace",
+        "retiredContentMatches": []
+      }
+    },
+    {
+      "id": "ProGPU.Layout",
+      "version": "0.1.0-preview.69",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/wieslawsoltes/ProGPU",
+        "commit": "aef75180bcdc3b937d004b6b949e0e91724c7981"
+      },
+      "publicPackage": {
+        "bytes": 124371,
+        "sha256": "b519ed69b2028c220ba0beab9bc07b9295be0235c5f9aa5ee18c47c63ef0cdc9",
+        "retiredContentMatches": []
+      }
+    },
+    {
+      "id": "ProGPU.Linux.Media",
+      "version": "0.1.0-preview.69",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/wieslawsoltes/ProGPU",
+        "commit": "aef75180bcdc3b937d004b6b949e0e91724c7981"
+      },
+      "publicPackage": {
+        "bytes": 206320,
+        "sha256": "ad0de8ffe9b791a809c66359615d1052509b59057563923cc5426a3505ff85d5",
+        "retiredContentMatches": []
+      }
+    },
+    {
+      "id": "ProGPU.Media",
+      "version": "0.1.0-preview.69",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/wieslawsoltes/ProGPU",
+        "commit": "aef75180bcdc3b937d004b6b949e0e91724c7981"
+      },
+      "publicPackage": {
+        "bytes": 229466,
+        "sha256": "3eabb4bbb87216d805d2241d80f060d0ad7f930e47759a349917262dc4bfa270",
+        "retiredContentMatches": []
+      }
+    },
+    {
+      "id": "ProGPU.Media.Editing",
+      "version": "0.1.0-preview.69",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/wieslawsoltes/ProGPU",
+        "commit": "aef75180bcdc3b937d004b6b949e0e91724c7981"
+      },
+      "publicPackage": {
+        "bytes": 148504,
+        "sha256": "481da29675252961985fad24e81a3c01a2726a55a3332bb972797e515ad03c77",
+        "retiredContentMatches": []
+      }
+    },
+    {
+      "id": "ProGPU.Media.Scene",
+      "version": "0.1.0-preview.69",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/wieslawsoltes/ProGPU",
+        "commit": "aef75180bcdc3b937d004b6b949e0e91724c7981"
+      },
+      "publicPackage": {
+        "bytes": 125365,
+        "sha256": "9b16b74775fd225224446f881e0ba901c34315bdf075e57e02164f8342dba260",
+        "retiredContentMatches": []
+      }
+    },
+    {
+      "id": "ProGPU.Native.Sdk",
+      "version": "0.1.0-preview.69",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/wieslawsoltes/ProGPU",
+        "commit": "aef75180bcdc3b937d004b6b949e0e91724c7981"
+      },
+      "publicPackage": {
+        "bytes": 103333325,
+        "sha256": "deea8a91cb520c1095d28a9b9ea15bdabd8de5c502cd952db95fb0514bd0bb4b",
+        "retiredContentMatches": []
+      }
+    },
+    {
+      "id": "ProGPU.Scene",
+      "version": "0.1.0-preview.69",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/wieslawsoltes/ProGPU",
+        "commit": "aef75180bcdc3b937d004b6b949e0e91724c7981"
+      },
+      "publicPackage": {
+        "bytes": 480692,
+        "sha256": "e7cb74c556fc1dfa625a164b13cd2e4dca8ea4a5b0c4e4ccb025edaa6915ec4c",
+        "retiredContentMatches": []
+      }
+    },
+    {
+      "id": "ProGPU.Scene.Native",
+      "version": "0.1.0-preview.69",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/wieslawsoltes/ProGPU",
+        "commit": "aef75180bcdc3b937d004b6b949e0e91724c7981"
+      },
+      "publicPackage": {
+        "bytes": 188800,
+        "sha256": "3e2fc56c28b5e8bd1cbb1658259edfa4e228f1fa0ec83ec947b94e8b5879edd9",
+        "retiredContentMatches": []
+      }
+    },
+    {
+      "id": "ProGPU.SkiaSharp",
+      "version": "0.1.0-preview.69",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/wieslawsoltes/ProGPU",
+        "commit": "aef75180bcdc3b937d004b6b949e0e91724c7981"
+      },
+      "publicPackage": {
+        "bytes": 428660,
+        "sha256": "f24148dc9910eb14df0c591fe8f982d932518503bae12cea42a231046ebc7394",
+        "retiredContentMatches": []
+      }
+    },
+    {
+      "id": "ProGPU.System.Drawing.Common",
+      "version": "0.1.0-preview.69",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/wieslawsoltes/LibreWinForms",
+        "commit": "8e7bef08c538778cef62656f29842894805d5a54"
+      },
+      "publicPackage": {
+        "bytes": 308726,
+        "sha256": "0c37efffd0e2900f9c9a9a60f0db482c7093ac82132df7cab2dc024357de0322",
+        "retiredContentMatches": []
+      }
+    },
+    {
+      "id": "ProGPU.Text",
+      "version": "0.1.0-preview.69",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/wieslawsoltes/ProGPU",
+        "commit": "aef75180bcdc3b937d004b6b949e0e91724c7981"
+      },
+      "publicPackage": {
+        "bytes": 563092,
+        "sha256": "8a3fc7d03f7f7b92b33a5ba7939eca0e67753c6c8294c16556d7c9761dd1291b",
+        "retiredContentMatches": []
+      }
+    },
+    {
+      "id": "ProGPU.Text.Shaping",
+      "version": "0.1.0-preview.69",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/wieslawsoltes/ProGPU",
+        "commit": "aef75180bcdc3b937d004b6b949e0e91724c7981"
+      },
+      "publicPackage": {
+        "bytes": 125563,
+        "sha256": "613164ff8ba4b893116ed867acf5b05bf271fdea08aab8ba3947d6bbbcd70513",
+        "retiredContentMatches": []
+      }
+    },
+    {
+      "id": "ProGPU.Transpiler",
+      "version": "0.1.0-preview.69",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/wieslawsoltes/ProGPU",
+        "commit": "aef75180bcdc3b937d004b6b949e0e91724c7981"
+      },
+      "publicPackage": {
+        "bytes": 143794,
+        "sha256": "59afc5a4b8b006903a4ad9d5c78ec3c4f10c0273b1c3a0ea54fc7bc1d1110faa",
+        "retiredContentMatches": []
+      }
+    },
+    {
+      "id": "ProGPU.Uno",
+      "version": "0.1.0-preview.69",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/wieslawsoltes/ProGPU",
+        "commit": "aef75180bcdc3b937d004b6b949e0e91724c7981"
+      },
+      "publicPackage": {
+        "bytes": 125112,
+        "sha256": "18971a5fee545def061eb6ba57bf728b5a2089026a5080742a58d7ca394627bb",
+        "retiredContentMatches": []
+      }
+    },
+    {
+      "id": "ProGPU.Vector",
+      "version": "0.1.0-preview.69",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/wieslawsoltes/ProGPU",
+        "commit": "aef75180bcdc3b937d004b6b949e0e91724c7981"
+      },
+      "publicPackage": {
+        "bytes": 228107,
+        "sha256": "818aec802d9def31061e713fbccbffc7d6177d4d39e9ec88e28d50fd451821e6",
+        "retiredContentMatches": []
+      }
+    },
+    {
+      "id": "ProGPU.Virtualization",
+      "version": "0.1.0-preview.69",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/wieslawsoltes/ProGPU",
+        "commit": "aef75180bcdc3b937d004b6b949e0e91724c7981"
+      },
+      "publicPackage": {
+        "bytes": 122978,
+        "sha256": "e31140319bf6f6c155eb4310be73b41c59d305d98624eae9853e355793104f07",
+        "retiredContentMatches": []
+      }
+    },
+    {
+      "id": "ProGPU.Win2D",
+      "version": "0.1.0-preview.69",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/wieslawsoltes/ProGPU",
+        "commit": "aef75180bcdc3b937d004b6b949e0e91724c7981"
+      },
+      "publicPackage": {
+        "bytes": 151569,
+        "sha256": "46413e46a6c9db023b6bf2d32323dcf5e1024fd46e3c8e07bffbe1140ea6f4f8",
+        "retiredContentMatches": []
+      }
+    },
+    {
+      "id": "ProGPU.WinRT",
+      "version": "0.1.0-preview.69",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/wieslawsoltes/ProGPU",
+        "commit": "aef75180bcdc3b937d004b6b949e0e91724c7981"
+      },
+      "publicPackage": {
+        "bytes": 137100,
+        "sha256": "48cd30ce3cbbc9ce18548995f9a691ecc87b4eeb5fb3c1a91d86b99d0cf0fac2",
+        "retiredContentMatches": []
+      }
+    },
+    {
+      "id": "ProGPU.WinUI",
+      "version": "0.1.0-preview.69",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/wieslawsoltes/ProGPU",
+        "commit": "aef75180bcdc3b937d004b6b949e0e91724c7981"
+      },
+      "publicPackage": {
+        "bytes": 854021,
+        "sha256": "6d6335b660a0e7b442a8279b7ab4ea98ccc463763a0b702cc51e52e2bc9f8f2c",
+        "retiredContentMatches": []
+      }
+    },
+    {
+      "id": "ProGPU.WinUI.Charts",
+      "version": "0.1.0-preview.69",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/wieslawsoltes/ProGPU",
+        "commit": "aef75180bcdc3b937d004b6b949e0e91724c7981"
+      },
+      "publicPackage": {
+        "bytes": 159925,
+        "sha256": "35a3626a3b38014326baa816087de30930a316e4292bc06103b0aa0eef9cd587",
+        "retiredContentMatches": []
+      }
+    },
+    {
+      "id": "ProGPU.WinUI.Themes.Fluent",
+      "version": "0.1.0-preview.69",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/wieslawsoltes/ProGPU",
+        "commit": "aef75180bcdc3b937d004b6b949e0e91724c7981"
+      },
+      "publicPackage": {
+        "bytes": 443223,
+        "sha256": "6f098cfff2813ab42c9b1fb3f454f59f1dc6fef5253730637e02f0a3642650ab",
+        "retiredContentMatches": []
+      }
+    },
+    {
+      "id": "ProGPU.Windows.Media",
+      "version": "0.1.0-preview.69",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/wieslawsoltes/ProGPU",
+        "commit": "aef75180bcdc3b937d004b6b949e0e91724c7981"
+      },
+      "publicPackage": {
+        "bytes": 175051,
+        "sha256": "314da3cf05c35f1bfa4cb874998a70421b3de509189f7743c6aa1f90a61968cd",
+        "retiredContentMatches": []
+      }
+    },
+    {
+      "id": "ProGPU.iOS",
+      "version": "0.1.0-preview.69",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/wieslawsoltes/ProGPU",
+        "commit": "aef75180bcdc3b937d004b6b949e0e91724c7981"
+      },
+      "publicPackage": {
+        "bytes": 2949831,
+        "sha256": "473ced52d72f2fe85ba318ae9667db24719d32efcd0b9ac1078dbc144846bb77",
+        "retiredContentMatches": []
+      }
+    }
+  ]
+}

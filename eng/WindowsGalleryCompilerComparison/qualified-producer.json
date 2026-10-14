@@ -1,0 +1,436 @@
+{
+  "at": "2026-10-14T11:50:44.267Z",
+  "head": "aef75180bcdc3b937d004b6b949e0e91724c7981",
+  "tree": "137b90855cfe2f413b854072992f70e253f97d64",
+  "build": 38549555561,
+  "attempt": 2,
+  "wholeCIQualified": true,
+  "status": "completed",
+  "conclusion": "success",
+  "html_url": "https://github.com/wieslawsoltes/ProGPU/actions/runs/38549555561",
+  "jobs": [
+    {
+      "id": 115819286816,
+      "name": "Native C++ renderer (osx-x64)",
+      "head_sha": "aef75180bcdc3b937d004b6b949e0e91724c7981",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 115819286882,
+      "name": "Pack mobile packages",
+      "head_sha": "aef75180bcdc3b937d004b6b949e0e91724c7981",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 115819287414,
+      "name": "Native C++20 compiler compatibility (MSVC)",
+      "head_sha": "aef75180bcdc3b937d004b6b949e0e91724c7981",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 115819287539,
+      "name": "Avalonia upstream text contract",
+      "head_sha": "aef75180bcdc3b937d004b6b949e0e91724c7981",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 115819288067,
+      "name": "Native C++ renderer (win-x64)",
+      "head_sha": "aef75180bcdc3b937d004b6b949e0e91724c7981",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 115819288126,
+      "name": "Avalonia native Dawn contract (macos-latest)",
+      "head_sha": "aef75180bcdc3b937d004b6b949e0e91724c7981",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 115819288132,
+      "name": "Windows system font reference (win-arm64)",
+      "head_sha": "aef75180bcdc3b937d004b6b949e0e91724c7981",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 115819288598,
+      "name": "dawn-system-warp / Original Dawn WARP (win-arm64)",
+      "head_sha": "aef75180bcdc3b937d004b6b949e0e91724c7981",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 115819289347,
+      "name": "Native C++ renderer (win-arm64)",
+      "head_sha": "aef75180bcdc3b937d004b6b949e0e91724c7981",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 115819322185,
+      "name": "Avalonia native Dawn contract (ubuntu-latest)",
+      "head_sha": "aef75180bcdc3b937d004b6b949e0e91724c7981",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 115819323900,
+      "name": "dawn-system-warp / Original Dawn WARP (win-x64)",
+      "head_sha": "aef75180bcdc3b937d004b6b949e0e91724c7981",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 115819326488,
+      "name": "Native C++ browser WebGPU",
+      "head_sha": "aef75180bcdc3b937d004b6b949e0e91724c7981",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 115819329123,
+      "name": "Native C++20 compiler compatibility (GCC)",
+      "head_sha": "aef75180bcdc3b937d004b6b949e0e91724c7981",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 115819332159,
+      "name": "Windows system font reference (win-x64)",
+      "head_sha": "aef75180bcdc3b937d004b6b949e0e91724c7981",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 115819337651,
+      "name": "Windows compiler runtime (win-x64)",
+      "head_sha": "aef75180bcdc3b937d004b6b949e0e91724c7981",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 115819337675,
+      "name": "Windows single-path raster coverage (win-x64)",
+      "head_sha": "aef75180bcdc3b937d004b6b949e0e91724c7981",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 115819339797,
+      "name": "Windows compiler runtime (win-arm64)",
+      "head_sha": "aef75180bcdc3b937d004b6b949e0e91724c7981",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 115819340414,
+      "name": "Windows single-path raster coverage (win-arm64)",
+      "head_sha": "aef75180bcdc3b937d004b6b949e0e91724c7981",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 115819341413,
+      "name": "Build and test (windows-latest)",
+      "head_sha": "aef75180bcdc3b937d004b6b949e0e91724c7981",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 115819342339,
+      "name": "Avalonia native Dawn contract (windows-latest)",
+      "head_sha": "aef75180bcdc3b937d004b6b949e0e91724c7981",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 115819342671,
+      "name": "Build and test (macos-26)",
+      "head_sha": "aef75180bcdc3b937d004b6b949e0e91724c7981",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 115819345320,
+      "name": "System.Drawing API, quality, and performance",
+      "head_sha": "aef75180bcdc3b937d004b6b949e0e91724c7981",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 115819346563,
+      "name": "Avalonia retained compositor contract",
+      "head_sha": "aef75180bcdc3b937d004b6b949e0e91724c7981",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 115819346964,
+      "name": "Windows drawing clip reference (win-arm64)",
+      "head_sha": "aef75180bcdc3b937d004b6b949e0e91724c7981",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 115819347997,
+      "name": "Native C++ renderer (linux-arm64)",
+      "head_sha": "aef75180bcdc3b937d004b6b949e0e91724c7981",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 115819349862,
+      "name": "Native C++ renderer (osx-arm64)",
+      "head_sha": "aef75180bcdc3b937d004b6b949e0e91724c7981",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 115819350276,
+      "name": "Build and test (ubuntu-latest)",
+      "head_sha": "aef75180bcdc3b937d004b6b949e0e91724c7981",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 115819350294,
+      "name": "Windows drawing clip reference (win-x64)",
+      "head_sha": "aef75180bcdc3b937d004b6b949e0e91724c7981",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 115819350507,
+      "name": "Native C++ renderer (linux-x64)",
+      "head_sha": "aef75180bcdc3b937d004b6b949e0e91724c7981",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 115828927192,
+      "name": "DirectX sample oracle (D3D12/Metal/Vulkan)",
+      "head_sha": "aef75180bcdc3b937d004b6b949e0e91724c7981",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 115828927210,
+      "name": "Native C++ NuGet package",
+      "head_sha": "aef75180bcdc3b937d004b6b949e0e91724c7981",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 115828927231,
+      "name": "Win2D Canvas parity (D3D12/Metal/Vulkan)",
+      "head_sha": "aef75180bcdc3b937d004b6b949e0e91724c7981",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 115828927255,
+      "name": "Portable Direct2D COM parity (D3D12/Metal/Vulkan)",
+      "head_sha": "aef75180bcdc3b937d004b6b949e0e91724c7981",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 115828927326,
+      "name": "Pack portable packages",
+      "head_sha": "aef75180bcdc3b937d004b6b949e0e91724c7981",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 115828927368,
+      "name": "Native MIL ImageBrush versus Windows WPF (D3D12/Metal/Vulkan)",
+      "head_sha": "aef75180bcdc3b937d004b6b949e0e91724c7981",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 115828927442,
+      "name": "Ordered GPU query parity (win-x64)",
+      "head_sha": "aef75180bcdc3b937d004b6b949e0e91724c7981",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 115828927937,
+      "name": "Ordered GPU query parity (win-arm64)",
+      "head_sha": "aef75180bcdc3b937d004b6b949e0e91724c7981",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 115832663841,
+      "name": "Dawn WARP NuGet consumer (win-arm64)",
+      "head_sha": "aef75180bcdc3b937d004b6b949e0e91724c7981",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 115832663881,
+      "name": "Native DX12 package consumer (win-arm64)",
+      "head_sha": "aef75180bcdc3b937d004b6b949e0e91724c7981",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 115832664064,
+      "name": "Dawn WARP NuGet consumer (win-x64)",
+      "head_sha": "aef75180bcdc3b937d004b6b949e0e91724c7981",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 115832664083,
+      "name": "Native DX12 package consumer (win-x64)",
+      "head_sha": "aef75180bcdc3b937d004b6b949e0e91724c7981",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 115832664227,
+      "name": "Native package visuals (win-x64)",
+      "head_sha": "aef75180bcdc3b937d004b6b949e0e91724c7981",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 115832664280,
+      "name": "Native package Dawn text (win-x64)",
+      "head_sha": "aef75180bcdc3b937d004b6b949e0e91724c7981",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 115832664284,
+      "name": "Native package consumer (win-x64)",
+      "head_sha": "aef75180bcdc3b937d004b6b949e0e91724c7981",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 115832664303,
+      "name": "Native package consumer (linux-x64)",
+      "head_sha": "aef75180bcdc3b937d004b6b949e0e91724c7981",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 115832664329,
+      "name": "Native package text (win-arm64)",
+      "head_sha": "aef75180bcdc3b937d004b6b949e0e91724c7981",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 115832664342,
+      "name": "Native package guidelines (win-arm64)",
+      "head_sha": "aef75180bcdc3b937d004b6b949e0e91724c7981",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 115832664390,
+      "name": "Native package text (win-x64)",
+      "head_sha": "aef75180bcdc3b937d004b6b949e0e91724c7981",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 115832664398,
+      "name": "Native package guidelines (win-x64)",
+      "head_sha": "aef75180bcdc3b937d004b6b949e0e91724c7981",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 115832664414,
+      "name": "Native package visuals (win-arm64)",
+      "head_sha": "aef75180bcdc3b937d004b6b949e0e91724c7981",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 115832664419,
+      "name": "Native package drawings (win-arm64)",
+      "head_sha": "aef75180bcdc3b937d004b6b949e0e91724c7981",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 115832664433,
+      "name": "Native package drawings (win-x64)",
+      "head_sha": "aef75180bcdc3b937d004b6b949e0e91724c7981",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 115832664460,
+      "name": "Native package EDIT word boundaries (win-x64)",
+      "head_sha": "aef75180bcdc3b937d004b6b949e0e91724c7981",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 115832664467,
+      "name": "Native package consumer (osx-arm64)",
+      "head_sha": "aef75180bcdc3b937d004b6b949e0e91724c7981",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 115832664481,
+      "name": "Native package consumer (osx-x64)",
+      "head_sha": "aef75180bcdc3b937d004b6b949e0e91724c7981",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 115832664529,
+      "name": "Native package Dawn text (win-arm64)",
+      "head_sha": "aef75180bcdc3b937d004b6b949e0e91724c7981",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 115832664551,
+      "name": "Native package consumer (linux-arm64)",
+      "head_sha": "aef75180bcdc3b937d004b6b949e0e91724c7981",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 115832664618,
+      "name": "Native package EDIT word boundaries (win-arm64)",
+      "head_sha": "aef75180bcdc3b937d004b6b949e0e91724c7981",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 115832664691,
+      "name": "Native package consumer (win-arm64)",
+      "head_sha": "aef75180bcdc3b937d004b6b949e0e91724c7981",
+      "status": "completed",
+      "conclusion": "success"
+    }
+  ],
+  "originalAttemptFailure": "Preserved Intel GitHub DNS failure. Original native tests passed; one bounded failed-jobs retry succeeded without source or test changes.",
+  "remainingQualification": [
+    "Matched final Mac profiles",
+    "Original Windows scene comparison",
+    "Windows original image finalizer fixture",
+    "Final framework pin builds",
+    "Original Gallery application check",
+    "Release/public package validation"
+  ],
+  "originalReceiptSha256": "993b4a9537617e7274206375a50e25603d2fd1930bce9368abe2def8613a75cd"
+}
