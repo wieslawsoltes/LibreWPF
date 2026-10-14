@@ -311,7 +311,7 @@ class ForegroundTests(unittest.TestCase):
     @patch.object(probe.time, "monotonic", return_value=98)
     def test_outer_deadline_cannot_be_extended_by_activation(self, _):
         desktop = self.desktop()
-        with self.assertRaisesRegex(RuntimeError, "approved90-second"):
+        with self.assertRaisesRegex(RuntimeError, "original60-second"):
             self.prepare(desktop, {})
         self.assertEqual([], desktop.u.requests)
 

@@ -20,6 +20,7 @@
     <ProGpuWpfRenderingBackend Condition="'$(ProGpuWpfRenderingBackend)' == ''">ProGPU</ProGpuWpfRenderingBackend>
     <ProGpuWpfRendererMode Condition="'$(ProGpuWpfRendererMode)' == ''">ManagedPortable</ProGpuWpfRendererMode>
     <ProGpuWpfNativeMilHitTesting Condition="'$(ProGpuWpfNativeMilHitTesting)' == ''">false</ProGpuWpfNativeMilHitTesting>
+    <ProGpuWpfDx12ShaderCompiler Condition="'$(ProGpuWpfDx12ShaderCompiler)' == ''">Automatic</ProGpuWpfDx12ShaderCompiler>
     <ProGpuWpfSdkVersion Condition="'$(ProGpuWpfSdkVersion)' == '' And '$(_LibreWpfSdkPackageVersion)' != ''">$(_LibreWpfSdkPackageVersion)</ProGpuWpfSdkVersion>
     <ProGpuWpfSdkVersion Condition="'$(ProGpuWpfSdkVersion)' == ''">0.1.0-preview.69</ProGpuWpfSdkVersion>
     <ProGpuPackageVersion Condition="'$(ProGpuPackageVersion)' == '' And '$(_LibreWpfSdkProGpuPackageVersion)' != ''">$(_LibreWpfSdkProGpuPackageVersion)</ProGpuPackageVersion>

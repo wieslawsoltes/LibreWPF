@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ $# -ne 2 ]]; then
-  echo "usage: $0 <ProGPU commit> <runtime staging directory>" >&2
+if [[ $# -ne 2 && $# -ne 3 ]]; then
+  echo "usage: $0 <ProGPU commit> <runtime staging directory> [DX12 staging directory]" >&2
   exit 2
 fi
 
 progpu_commit="$1"
 runtime_stage="$2"
+dx12_stage="${3:-}"
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 progpu_repository="${PROGPU_CI_REPOSITORY:-wieslawsoltes/ProGPU}"
 poll_seconds="${PROGPU_CI_POLL_SECONDS:-20}"
@@ -128,9 +129,13 @@ native_package="${native_packages[0]}"
 package_version="${native_package##*/ProGPU.Backend.Native.}"
 package_version="${package_version%.nupkg}"
 sdk_package="${native_package%/*}/ProGPU.Native.Sdk.${package_version}.nupkg"
-python3 "${script_dir}/progpu-stage-release-native-packages.py" \
-  "${native_package}" "${sdk_package}" "${runtime_stage}" \
-  --version "${package_version}" --commit "${progpu_commit}"
+stage_arguments=("${native_package}" "${sdk_package}" "${runtime_stage}"
+  --version "${package_version}" --commit "${progpu_commit}")
+if [[ -n "${dx12_stage:-}" ]]; then
+  stage_arguments+=(--dx12-package "${native_package%/*}/ProGPU.Backend.Dx12.${package_version}.nupkg"
+    --dx12-destination "${dx12_stage}")
+fi
+python3 "${script_dir}/progpu-stage-release-native-packages.py" "${stage_arguments[@]}"
 
 required_runtimes=(
   runtimes/linux-x64/native/libprogpu_native.so

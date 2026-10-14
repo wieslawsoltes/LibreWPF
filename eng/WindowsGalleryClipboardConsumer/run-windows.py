@@ -181,7 +181,7 @@ class Desktop:
                 "foreign or unpresented CI activation target")
         hwnd = snapshot["hwnd"]
         self.owned_window(hwnd, pid)
-        require(time.monotonic() < deadline - 3, "approved90-second budget exhausted before CI activation")
+        require(time.monotonic() < deadline - 3, "original60-second budget exhausted before CI activation")
         record.update(pid=pid, hwnd=hwnd, before=self.u.GetForegroundWindow(), clickCount=0)
         if record["before"] == hwnd:
             record["after"] = hwnd
@@ -195,7 +195,7 @@ class Desktop:
         point = None
         for fraction in (2, 1, 3):
             x = rect.left + (rect.right - rect.left) * fraction // 4
-            require(time.monotonic() < deadline - 3, "approved90-second budget exhausted locating caption")
+            require(time.monotonic() < deadline - 3, "original60-second budget exhausted locating caption")
             if self.caption_at(hwnd, pid, x, y):
                 self.monitors((x, y, x + 1, y + 1))
                 point = (x, y)
@@ -248,7 +248,7 @@ class Desktop:
         require(snapshot["pid"] == pid, "foreground snapshot PID mismatch")
         hwnd = snapshot["hwnd"]
         self.owned_window(hwnd, pid)
-        require(time.monotonic() < deadline - 2, "approved90-second run budget exhausted before activation")
+        require(time.monotonic() < deadline - 2, "original60-second run budget exhausted before activation")
         record.update(hwnd=hwnd, pid=pid, before=self.u.GetForegroundWindow(), requested=False)
         if host_activation is not None:
             # The application owns the sole request. A background capture driver
@@ -385,7 +385,7 @@ def main():
     mode = clipboard_mode(args.allow_replace_clipboard, args.require_empty_ci_clipboard, os.environ)
     require(args.app.is_file(), "missing apphost")
     args.output.mkdir()
-    started = time.monotonic(); deadline = started + 90
+    started = time.monotonic(); deadline = started + 60
     result = {"qualified": False, "status": "failed", "captures": [], "errors": [], "clipboardMode": mode, "appSha256": hashlib.sha256(args.app.read_bytes()).hexdigest()}
     process = None
     try:
@@ -402,7 +402,7 @@ def main():
                 target_path = args.output / "activation-target.json"
                 while not target_path.exists():
                     require(process.poll() is None, "host exited before CI activation target")
-                    require(time.monotonic() < deadline - 3, "approved90-second run budget exhausted before CI activation target")
+                    require(time.monotonic() < deadline - 3, "original60-second run budget exhausted before CI activation target")
                     time.sleep(0.025)
                 result["ciActivation"] = {}
                 desktop.activate_ci_caption(read_json(target_path), process.pid, deadline,
@@ -413,7 +413,7 @@ def main():
                 snapshot_path = args.output / (phase + ".json")
                 while not snapshot_path.exists():
                     require(process.poll() is None, "host exited before " + phase)
-                    require(time.monotonic() < deadline - 2, "approved90-second run budget exhausted")
+                    require(time.monotonic() < deadline - 2, "original60-second run budget exhausted")
                     time.sleep(0.025)
                 snapshot = read_json(snapshot_path)
                 require(process.poll() is None, "host lifetime ended before capture")
@@ -456,7 +456,7 @@ def main():
             result["ownedProcessExited"] = process.poll() is not None
             if not result["ownedProcessExited"]: result["errors"].append("owned process remains live")
         result["elapsed"] = time.monotonic() - started
-        if result["elapsed"] > 90: result["errors"].append("approved90-second deadline exceeded")
+        if result["elapsed"] > 60: result["errors"].append("original60-second deadline exceeded")
         if result["errors"]: result["status"] = "failed"
         with (args.output / "receipt.json").open("x") as output: json.dump(result, output, indent=2)
     return 0 if result["status"] == "completed-scoped-probe" else 1

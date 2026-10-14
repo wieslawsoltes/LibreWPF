@@ -2803,7 +2803,8 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
                     window,
                     deviceOwner,
                     _options.CompositorOptions,
-                    _options.NativeBackendOptions);
+                    _options.NativeBackendOptions,
+                    _options.Dx12CompilerOptions);
             }
             catch (InvalidOperationException) when (
                 usesProcessRenderDevice && (deviceOwner.IsDisposed || deviceOwner.IsDeviceLost))
@@ -2823,7 +2824,8 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
             window,
             sharedDeviceContext: null,
             _options.CompositorOptions,
-            _options.NativeBackendOptions);
+            _options.NativeBackendOptions,
+            _options.Dx12CompilerOptions);
         if (usesProcessRenderDevice)
         {
             ProGpuWpfRenderDeviceSharing.RegisterDeviceOwnerContext(target.Context);

@@ -26,8 +26,8 @@ class ReleaseNativePackagesTests(unittest.TestCase):
         self.root = Path(temporary.name)
         self.destination = self.root / "staged"
 
-    def package(self, sdk=False, commit=COMMIT, version=VERSION, entries=None):
-        package_id = "ProGPU.Native.Sdk" if sdk else "ProGPU.Backend.Native"
+    def package(self, sdk=False, commit=COMMIT, version=VERSION, entries=None, package_id=None):
+        package_id = package_id or ("ProGPU.Native.Sdk" if sdk else "ProGPU.Backend.Native")
         path = self.root / (package_id + ".nupkg")
         if entries is None:
             entry = "sdk/libprogpu_native_text.a" if sdk else "libprogpu_native.dylib"
@@ -79,11 +79,30 @@ class ReleaseNativePackagesTests(unittest.TestCase):
             self.stage(self.package(), self.package(sdk=True))
         self.assertEqual(original.read_bytes(), b"existing")
 
+    def test_optional_dx12_keeps_original_payload_bytes_in_separate_staging_root(self):
+        prefix = "buildTransitive/runtimes/"
+        package = self.package(package_id="ProGPU.Backend.Dx12", entries=[
+            (prefix, b""), (prefix + "win-arm64/native/dxcompiler.dll", b"compiler fixture"),
+            (prefix + "win-arm64/native/LICENSE-LLVM.txt", b"original compiler notice")])
+        self.assertEqual(2, STAGING.stage_dx12(package, self.destination, VERSION, COMMIT))
+        self.assertEqual(b"compiler fixture", (self.destination / "win-arm64/native/dxcompiler.dll").read_bytes())
+        self.assertEqual(b"original compiler notice", (self.destination / "win-arm64/native/LICENSE-LLVM.txt").read_bytes())
+
+    def test_dx12_prefix_cannot_hide_wrong_provenance_or_path_escape(self):
+        for changed, message in (({"commit": "b" * 40}, "provenance"),
+                                 ({"version": "another"}, "provenance"),
+                                 ({"entries": [("buildTransitive/runtimes/../escaped", b"invalid")]}, "unsafe")):
+            with self.subTest(changed=changed), self.assertRaisesRegex(ValueError, message):
+                package = self.package(package_id="ProGPU.Backend.Dx12", **changed)
+                STAGING.stage_dx12(package, self.destination, VERSION, COMMIT)
+            self.assertFalse(self.destination.exists())
+            self.assertFalse((self.root / "escaped").exists())
+
 
 class CiNativePackageSelectionTests(unittest.TestCase):
     """Run the actual CI selection block with an argument-only extraction stub."""
 
-    def select(self, versions=(VERSION,), status=0):
+    def select(self, versions=(VERSION,), status=0, dx12=False):
         with tempfile.TemporaryDirectory(prefix="ci-native-selection-") as temporary:
             root = Path(temporary)
             artifacts = root / "artifact"
@@ -97,6 +116,8 @@ class CiNativePackageSelectionTests(unittest.TestCase):
             environment = dict(os.environ, artifact_contents=str(artifacts),
                                runtime_stage=str(root / "staged"), script_dir=str(ROOT / "eng"),
                                progpu_commit=COMMIT, RECEIPT=str(receipt), STAGE_STATUS=str(status))
+            if dx12:
+                environment["dx12_stage"] = str(root / "compiler")
             script = '''set -euo pipefail
 python3() { printf '%s\\n' "$@" > "$RECEIPT"; return "$STAGE_STATUS"; }
 ''' + block
@@ -117,6 +138,12 @@ python3() { printf '%s\\n' "$@" > "$RECEIPT"; return "$STAGE_STATUS"; }
                 status, arguments, _ = self.select(versions)
                 self.assertNotEqual(status, 0)
                 self.assertEqual(arguments, [])
+
+    def test_optional_dx12_uses_the_same_successful_producer_version(self):
+        status, arguments, root = self.select(dx12=True)
+        self.assertEqual(0, status)
+        self.assertEqual(["--dx12-package", str(root / f"artifact/ProGPU.Backend.Dx12.{VERSION}.nupkg"),
+                          "--dx12-destination", str(root / "compiler")], arguments[-4:])
 
     def test_failed_pair_extraction_stops_ci_staging(self):
         status, _, _ = self.select(status=23)

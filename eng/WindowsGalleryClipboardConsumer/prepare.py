@@ -194,13 +194,14 @@ def stage_packages(archive_path, feed, head):
             if package_id in ("LibreWPF.Sdk", "LibreWPF.Transport", "LibreWPF.ProGPU"):
                 require(repository is not None and repository.get("commit") == head, f"{package_id} source commit mismatch")
             inventory[package_id] = {"file": name, "version": version, "sha256": sha(destination)}
-    for name in ("LibreWPF.Sdk", "LibreWPF.Transport", "LibreWPF.ProGPU", "LibreWPF.Interop", "ProGPU.Backend.Native"):
+    for name in ("LibreWPF.Sdk", "LibreWPF.Transport", "LibreWPF.ProGPU", "LibreWPF.Interop", "ProGPU.Backend.Native", "ProGPU.Backend.Dx12"):
         require(name in inventory, f"required installed package missing: {name}")
     sdk = inventory["LibreWPF.Sdk"]["version"]
     engine = inventory["ProGPU.Backend.Native"]["version"]
     require(inventory["LibreWPF.Transport"]["version"] == sdk and inventory["LibreWPF.ProGPU"]["version"] == sdk,
             "WPF package version mismatch")
     require(inventory["LibreWPF.Interop"]["version"] == engine, "engine interop version mismatch")
+    require(inventory["ProGPU.Backend.Dx12"]["version"] == engine, "engine compiler package version mismatch")
     return inventory, sdk, engine
 
 
@@ -243,6 +244,9 @@ def verify_output(output, inventory, architecture):
         "ProGPU.Wpf.Interop.dll": ("LibreWPF.Interop", "lib/net10.0/ProGPU.Wpf.Interop.dll"),
         "progpu_native.dll": ("ProGPU.Backend.Native", f"runtimes/{rid}/native/progpu_native.dll"),
     }
+    for name in ("wgpu_native.dll", "dxcompiler.dll", "dxil.dll", "wgpu-native-build.json",
+                 "dxc-compiler-package.json", "progpu-dx12-runtime.json"):
+        assets[name] = ("ProGPU.Backend.Dx12", f"buildTransitive/runtimes/{rid}/native/{name}")
     hashes = {}
     for name, (package, member) in assets.items():
         with zipfile.ZipFile(output / "feed" / inventory[package]["file"]) as archive:
@@ -261,6 +265,8 @@ def verify_output(output, inventory, architecture):
     runtime = read_json(directory / "GalleryClipboardApp.runtimeconfig.json")
     require(runtime["runtimeOptions"]["configProperties"].get("LibreWPF.RequestedRendererMode") == "NativeMilWgpu",
             "consumer did not request native MIL")
+    require(runtime["runtimeOptions"]["configProperties"].get("LibreWPF.RequestedDx12ShaderCompiler") == "Dxc",
+            "consumer did not request the packaged DXC compiler")
     hashes[apphost.name] = sha(apphost)
     hashes["GalleryClipboardApp.dll"] = sha(directory / "GalleryClipboardApp.dll")
     return {"directory": str(directory), "sha256": hashes, "executed": False}

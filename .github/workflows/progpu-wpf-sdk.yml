@@ -316,7 +316,8 @@ jobs:
           submodule_commit="$(git -C external/ProGPU rev-parse HEAD)"
           ./eng/progpu-stage-ci-native-runtimes.sh \
             "${submodule_commit}" \
-            "${GITHUB_WORKSPACE}/external/ProGPU/artifacts/progpu-native/package"
+            "${GITHUB_WORKSPACE}/external/ProGPU/artifacts/progpu-native/package" \
+            "${GITHUB_WORKSPACE}/external/ProGPU/artifacts/progpu-dx12/package"
 
       - name: Stage exact source-closure WebGPU runtime for native harnesses
         shell: bash

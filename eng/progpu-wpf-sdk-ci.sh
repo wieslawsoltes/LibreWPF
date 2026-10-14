@@ -312,6 +312,7 @@ stage_or_pack_progpu_project "external/ProGPU/src/ProGPU.Backend/ProGPU.Backend.
 stage_or_pack_progpu_project "external/ProGPU/src/ProGPU.Backend.Dawn/ProGPU.Backend.Dawn.csproj" "ProGPU.Backend.Dawn"
 stage_or_pack_progpu_project "external/ProGPU/src/ProGPU.Native.Sdk/ProGPU.Native.Sdk.csproj" "ProGPU.Native.Sdk"
 stage_or_pack_progpu_project "external/ProGPU/src/ProGPU.Backend.Native/ProGPU.Backend.Native.csproj" "ProGPU.Backend.Native"
+stage_or_pack_progpu_project "external/ProGPU/src/ProGPU.Backend.Dx12/ProGPU.Backend.Dx12.csproj" "ProGPU.Backend.Dx12"
 stage_or_pack_progpu_project "external/ProGPU/src/ProGPU.Text.Shaping/ProGPU.Text.Shaping.csproj" "ProGPU.Text.Shaping"
 stage_or_pack_progpu_project "external/ProGPU/src/ProGPU.DirectX/ProGPU.DirectX.csproj" "ProGPU.DirectX"
 stage_or_pack_progpu_project "external/ProGPU/src/ProGPU.Transpiler/ProGPU.Transpiler.csproj" "ProGPU.Transpiler"

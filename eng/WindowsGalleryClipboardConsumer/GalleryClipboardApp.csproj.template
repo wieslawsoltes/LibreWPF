@@ -13,6 +13,7 @@
     <ProGpuPackageVersion>@ENGINE_VERSION@</ProGpuPackageVersion>
     <ProGpuWpfRendererMode>NativeMilWgpu</ProGpuWpfRendererMode>
     <ProGpuWpfNativeMilHitTesting>true</ProGpuWpfNativeMilHitTesting>
+    <ProGpuWpfDx12ShaderCompiler>Dxc</ProGpuWpfDx12ShaderCompiler>
     <EnableDefaultItems>false</EnableDefaultItems>
   </PropertyGroup>
   <ItemGroup>

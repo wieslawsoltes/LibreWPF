@@ -95,6 +95,11 @@ internal static class ProGpuWpfSdkPortableBootstrap
                     {
                         RendererMode = global::System.Windows.Media.ProGPU.ProGpuWpfRendererMode.NativeMilWgpu,
                         EnableNativeModalSessions = enableNativeModalSessions,
+#if PROGPU_WPF_DX12_DXC
+                        Dx12CompilerOptions = new global::ProGPU.Backend.WgpuDx12CompilerOptions(global::ProGPU.Backend.WgpuDx12ShaderCompiler.Dxc),
+#elif PROGPU_WPF_DX12_FXC
+                        Dx12CompilerOptions = new global::ProGPU.Backend.WgpuDx12CompilerOptions(global::ProGPU.Backend.WgpuDx12ShaderCompiler.Fxc),
+#endif
 #if PROGPU_WPF_NATIVE_MIL_HIT_TESTING
                         EnableNativeMilHitTesting = true
 #endif
