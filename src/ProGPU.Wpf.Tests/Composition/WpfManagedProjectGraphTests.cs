@@ -168,7 +168,7 @@ public sealed class WpfManagedProjectGraphTests
         Assert.DoesNotContain("actions/download-artifact", job, StringComparison.Ordinal);
         string textPropertiesRunner = File.ReadAllText(FindRepoPath("eng", "progpu-wpf-text-properties-source.sh"));
         Assert.Contains("--filter-class System.Windows.Media.PortableTextLineTests", textPropertiesRunner, StringComparison.Ordinal);
-        Assert.Contains("--minimum-expected-tests 110 --fail-skips on --timeout 60s", textPropertiesRunner, StringComparison.Ordinal);
+        Assert.Contains("--minimum-expected-tests 111 --fail-skips on --timeout 60s", textPropertiesRunner, StringComparison.Ordinal);
         Assert.Contains("--filter-class MS.Internal.FontCache.Tests.PortableFontFamilyUriTests", textPropertiesRunner, StringComparison.Ordinal);
         Assert.Contains("--minimum-expected-tests 15 --fail-skips on --timeout 60s", textPropertiesRunner, StringComparison.Ordinal);
         Assert.DoesNotContain("dotnet build", textPropertiesRunner, StringComparison.Ordinal);
