@@ -23,8 +23,8 @@ BOOTSTRAP_JOBS = {
 }
 
 
-def validate_ci_producer(build, docs, artifact, head, build_id, docs_id):
-    prepare.validate_producer(build, docs, artifact, head, build_id, docs_id)
+def validate_ci_producer(build, docs, artifact, head, build_id, docs_id, upload_evidence=None):
+    prepare.validate_producer(build, docs, artifact, head, build_id, docs_id, upload_evidence)
     prepare.require(BOOTSTRAP_JOBS.issubset({job.get("name") for job in build["jobs"]}),
                     "All three current SDK bootstrap jobs are required beside the original thirteen Build jobs")
 
@@ -33,6 +33,17 @@ def gh_json(*arguments):
     result = subprocess.run(["gh", *arguments], check=True, capture_output=True, timeout=120)
     prepare.require(len(result.stdout) <= 2 * 1024**2, "GitHub receipt exceeds bound")
     return json.loads(result.stdout)
+
+
+def gh_job_log(job_id):
+    prepare.require(type(job_id) is int and job_id > 0, "Explicit producer job identity required")
+    # Current gh rejects ANSI-bearing logs even with redirected stdout. Keep the
+    # original bytes in a pipe for evidence; never render them in the terminal.
+    result = subprocess.run(["gh", "api", "--allow-escape-sequences",
+                             f"repos/{REPOSITORY}/actions/jobs/{job_id}/logs"],
+                            check=True, capture_output=True, timeout=120)
+    prepare.require(0 < len(result.stdout) <= 1024 * 1024, "original upload log exceeds bound")
+    return result.stdout
 
 
 def main():
@@ -73,7 +84,23 @@ def main():
     prepare.require(len(selected) == 1, "One exact producer package archive required")
     artifact = gh_json("api", f"repos/{REPOSITORY}/actions/artifacts/{selected[0]['id']}")
     artifact_path = retain("artifact.json", artifact)
-    validate_ci_producer(build, docs, artifact, args.head, args.build, args.docs)
+    producers = [j for j in build.get("jobs", []) if j.get("name") == "SDK package and no-source-change smoke"]
+    prepare.require(len(producers) == 1, "one exact package producer job required")
+    producer = producers[0]
+    uploads = [s for s in producer.get("steps", []) if s.get("name") == "Upload CI package bundle"]
+    upload_evidence = None
+    upload_path = None
+    if not (len(uploads) == 1 and prepare.succeeded(uploads[0])):
+        job_id = producer.get("databaseId")
+        prepare.require(type(job_id) is int and job_id > 0, "explicit producer job identity required")
+        job = gh_json("api", f"repos/{REPOSITORY}/actions/jobs/{job_id}")
+        retain("producer-job.json", job)
+        raw_log = gh_job_log(job_id)
+        (inputs / "producer-job.log").write_bytes(raw_log)
+        upload_evidence = {"schema": "github-upload-log-v1", "job": job,
+                           "log": raw_log.decode("utf-8-sig")}
+        upload_path = retain("upload-evidence.json", upload_evidence)
+    validate_ci_producer(build, docs, artifact, args.head, args.build, args.docs, upload_evidence)
     prepare.require(0 < artifact["size_in_bytes"] <= 2 * 1024**3, "Producer archive exceeds bound")
     archive = output / "qualified-packages.zip"
     with archive.open("xb") as stream:
@@ -102,6 +129,8 @@ def main():
                "--expected-build", str(args.build), "--expected-docs", str(args.docs),
                "--architecture", "arm64", "--output", str(output / "consumer"),
                "--build-only", "--dotnet", str(args.dotnet.resolve())]
+    if upload_path is not None:
+        command.extend(["--upload-evidence", str(upload_path)])
     subprocess.run(command, check=True)
 
 

@@ -475,6 +475,34 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         }
     }
 
+    internal bool TryPollNativePresentationCheckpoint(
+        out ProGpuWpfDiagnostics.NativePresentationCheckpoint checkpoint)
+    {
+        checkpoint = default;
+        if (_isDisposed || _hasNativeWindowCloseStarted || _isRendering ||
+            _hasPendingDeviceRecovery || !PlatformServices.Dispatcher.CheckAccess() ||
+            !TryGetNativePerformanceSnapshot(out var frame) ||
+            frame.PresentedFrameCount != PresentedFrameCount ||
+            frame.DeviceRecoveryCount != RenderDeviceRecoveryCount ||
+            frame.SceneUpdate.SceneId != LastNativeMilSceneUpdateMetrics.SceneId ||
+            frame.SceneUpdate.Generation != LastNativeMilSceneUpdateMetrics.Generation ||
+            _nativeMilCompositor is not { } compositor)
+            return false;
+
+        // SurfacePresent submits presentation; it does not establish completed
+        // GPU work. Poll the exact live engine without blocking the owner loop.
+        var submission = compositor.GetLastSubmissionToken();
+        if (!submission.IsValid || !compositor.IsSubmissionComplete(submission) ||
+            _isDisposed || _hasNativeWindowCloseStarted || _hasPendingDeviceRecovery ||
+            !ReferenceEquals(compositor, _nativeMilCompositor) ||
+            frame.PresentedFrameCount != PresentedFrameCount ||
+            frame.DeviceRecoveryCount != RenderDeviceRecoveryCount)
+            return false;
+
+        checkpoint = new ProGpuWpfDiagnostics.NativePresentationCheckpoint(frame, submission);
+        return true;
+    }
+
     internal bool TryPollNativeMemoryCheckpoint(
         out ProGpuWpfDiagnostics.NativeMemoryCheckpoint checkpoint)
     {

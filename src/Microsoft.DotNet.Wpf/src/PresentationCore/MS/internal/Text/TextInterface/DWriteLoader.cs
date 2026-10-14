@@ -13,8 +13,11 @@ namespace MS.Internal.Text.TextInterface
 
         internal static void LoadDWrite()
         {
-            // We load dwrite here because it's cleanup logic is different from the other native dlls
-            // and don't want to abstract that
+            // The module owns the code and vtables used by retained DirectWrite
+            // font objects. ProcessExit does not quiesce those callers: another
+            // thread, or a later exit handler, can still query a live GlyphRun.
+            // Keep this one loader reference and factory entry point until the
+            // operating system terminates the process; do not unload at ProcessExit.
             _dwrite = LoadDWriteLibraryAndGetProcAddress(out delegate* unmanaged<int, void*, void*, int> dwriteCreateFactory);
 
             if (_dwrite == IntPtr.Zero)
@@ -26,26 +29,9 @@ namespace MS.Internal.Text.TextInterface
             _dwriteCreateFactory = dwriteCreateFactory;
         }
 
-        internal static void UnloadDWrite()
-        {
-            ClearDWriteCreateFactoryFunctionPointer();
-        
-            if (_dwrite != IntPtr.Zero)
-            {
-                NativeLibrary.Free(_dwrite);
-
-                _dwrite = IntPtr.Zero;
-            }
-        }
-
         internal static delegate* unmanaged<int, void*, void*, int> GetDWriteCreateFactoryFunctionPointer()
         {
             return _dwriteCreateFactory;
-        }
-
-        private static void ClearDWriteCreateFactoryFunctionPointer()
-        {
-            _dwriteCreateFactory = null;
         }
 
         private static IntPtr LoadDWriteLibraryAndGetProcAddress(out delegate* unmanaged<int, void*, void*, int> DWriteCreateFactory)

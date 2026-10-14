@@ -1,6 +1,9 @@
 <Project Sdk="LibreWPF.Sdk/@SDK_VERSION@">
   <PropertyGroup>
-    <OutputType>WinExe</OutputType>
+    <!-- The disposable CI runner starts this diagnostic host in its own console.
+         Original Gallery sources, window behavior and capture checks stay intact. -->
+    <OutputType>Exe</OutputType>
+    <DisableWinExeOutputInference>true</DisableWinExeOutputInference>
     <TargetFramework>net10.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>

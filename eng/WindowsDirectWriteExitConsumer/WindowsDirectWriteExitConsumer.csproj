@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+    <AssemblyName>WindowsDirectWriteExitConsumer</AssemblyName>
+    <StrongNameKeyId>MicrosoftShared</StrongNameKeyId>
+    <IsPackable>false</IsPackable>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <CLSCompliant>false</CLSCompliant>
+    <EnableNETAnalyzers>false</EnableNETAnalyzers>
+    <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="$(WindowsDirectWriteRuntimeRoot)/PresentationCore.dll" Private="true" />
+    <Reference Include="$(WindowsDirectWriteRuntimeRoot)/WindowsBase.dll" Private="true" />
+    <Reference Include="$(WindowsDirectWriteRuntimeRoot)/ProGPU.Wpf.Interop.dll" Private="true" />
+    <Reference Include="$(WindowsDirectWriteRuntimeRoot)/System.Private.Windows.Core.dll" Private="true" />
+    <None Include="$(WindowsDirectWriteRuntimeRoot)/*.dll" Link="%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <Target Name="RequireWindowsDirectWriteImplementation" BeforeTargets="ResolveReferences">
+    <Error Condition="'$(WindowsDirectWriteRuntimeRoot)' == '' Or !Exists('$(WindowsDirectWriteRuntimeRoot)/PresentationCore.dll') Or !Exists('$(WindowsDirectWriteRuntimeRoot)/DirectWriteForwarder.dll')"
+           Text="WindowsDirectWriteRuntimeRoot must contain the verified exact Windows package implementation assets." />
+  </Target>
+</Project>

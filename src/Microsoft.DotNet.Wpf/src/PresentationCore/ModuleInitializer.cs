@@ -33,11 +33,6 @@ internal static class ModuleInitializer
 
         DWriteLoader.LoadDWrite();
 
-        AppDomain.CurrentDomain.ProcessExit += static (object sender, EventArgs e) =>
-        {
-            DWriteLoader.UnloadDWrite();
-        };
-
         MS.Internal.NativeWPFDLLLoader.LoadDwrite();
     }
 #pragma warning restore CA2255

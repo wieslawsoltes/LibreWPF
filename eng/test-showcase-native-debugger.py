@@ -17,11 +17,14 @@ import showcase_idle_crash as crash
 
 
 def event():
-    return dict(schemaVersion=2, diagnosticOnly=True, processId=42, machine=0xAA64,
+    return dict(schemaVersion=3, diagnosticOnly=True, processId=42, machine=0xAA64,
                 exitCode=0xC0000005, exited=True, exceptionCode=0xC0000005,
                 exceptionThreadId=7, exceptionAddress=0x12345678, captured=True,
                 dumpError=0, loopError=0, snapshotAfterMs=0, snapshotAttempted=False,
-                snapshotElapsedMs=0, snapshotError=0)
+                snapshotElapsedMs=0, snapshotError=0, firstChanceAvEnabled=False,
+                firstChanceAvAttempted=False, firstChanceAvThreadId=0,
+                firstChanceAvInstruction=0, firstChanceAvAddress=0, firstChanceAvOperation=0,
+                firstChanceAvElapsedMs=0, firstChanceAvDumpError=0)
 
 
 class Controls(unittest.TestCase):
@@ -85,7 +88,7 @@ class Controls(unittest.TestCase):
                 capture.return_value.prepare.return_value = root / "unique.exe"
                 capture.return_value.collect.return_value = {"captured": False}
                 capture.return_value.close.return_value = []
-                result = diagnostic.replay(app, debugger, root, environment, child, write, lambda _: hashes, hashes)
+                result = diagnostic.replay(app, debugger, root, environment, child, write, lambda _: hashes, hashes, 1)
                 self.assertFalse(result["qualifiesIdle"])
                 self.assertIsNone(result["error"])
                 self.assertEqual(hashes, captured["payloadSha256After"])
@@ -95,6 +98,42 @@ class Controls(unittest.TestCase):
                 self.assertFalse(captured["stackSnapshot"]["captured"])
                 self.assertEqual({"original": "unchanged", "PROGPU_NATIVE_TRACE_COMPUTE": "0"}, environment)
                 capture.return_value.close.assert_called_once()
+
+    def test_native_crash_replay_omits_trace_and_timed_snapshot(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            app, debugger = root / "ProGPU.Wpf.ShowcaseApp.exe", root / "ShowcaseNativeDebugger.exe"
+            hashes = {"source": "a"}
+            names = ("PROGPU_WPF_TRACE_NATIVE_LOOP", "PROGPU_NATIVE_TRACE_SCENE_ENCODE",
+                     "PROGPU_NATIVE_TRACE_VECTOR_CLIP", "PROGPU_NATIVE_TRACE_COMPUTE")
+            environment = {name: "1" for name in names}
+            captured = {}
+            def child(command, cwd, env, directory, **kwargs):
+                self.assertTrue(all(env[name] == "0" for name in names))
+                self.assertEqual("--first-chance-av", command[-2])
+                self.assertEqual("first-chance-av.dmp", Path(command[-1]).name)
+                self.assertNotEqual(directory, Path(command[-1]).parent)
+                self.assertFalse(any("snapshot-after" in arg for arg in command))
+                self.assertEqual(120, kwargs["timeout"])
+                kwargs["outcome"].update(childProcessId=42, cleanupErrors=[])
+                return 0, False
+            with mock.patch.object(diagnostic, "machine", return_value=0xAA64), \
+                 mock.patch.object(Path, "resolve", return_value=debugger), \
+                 mock.patch.object(crash, "digest", return_value="digest"), \
+                 mock.patch.object(crash, "WindowsRegistry"), mock.patch.object(crash, "Capture") as capture, \
+                 mock.patch.object(diagnostic, "load_event", return_value=event() | {
+                     "processId": 43, "exitCode": 0, "captured": False, "exceptionCode": 0,
+                     "firstChanceAvEnabled": True}):
+                capture.return_value.prepare.return_value = root / "unique.exe"
+                capture.return_value.collect.return_value = {"captured": False}
+                capture.return_value.close.return_value = []
+                result = diagnostic.replay(app, debugger, root, environment, child,
+                    lambda _, value: captured.update(value), lambda _: hashes, hashes, 0xC0000005)
+                self.assertIsNone(result["error"])
+                self.assertFalse(result["qualifiesIdle"])
+                self.assertFalse(captured["nativeLoopTrace"])
+                self.assertFalse(captured["firstChanceAccessViolation"]["provesUnhandledCrash"])
+                self.assertEqual({name: "1" for name in names}, environment)
 
     def test_pe_machine_is_read_not_inferred_from_name(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -132,7 +171,11 @@ class Controls(unittest.TestCase):
                            dict(snapshotAfterMs=True), dict(snapshotAfterMs=99), dict(snapshotAfterMs=60001),
                            dict(snapshotAttempted=1), dict(snapshotAttempted=True),
                            dict(snapshotElapsedMs=1), dict(snapshotError=5),
-                           dict(snapshotAfterMs=40000, snapshotAttempted=True, snapshotElapsedMs=39999)):
+                           dict(snapshotAfterMs=40000, snapshotAttempted=True, snapshotElapsedMs=39999),
+                           dict(firstChanceAvEnabled=1), dict(firstChanceAvAttempted=1),
+                           dict(firstChanceAvAttempted=True), dict(firstChanceAvThreadId=1),
+                           dict(firstChanceAvAddress=0x10001), dict(firstChanceAvOperation=8),
+                           dict(firstChanceAvElapsedMs=1), dict(firstChanceAvDumpError=5)):
                 path.write_text(json.dumps(event() | change), encoding="utf-8")
                 with self.subTest(change=change), self.assertRaises(ValueError):
                     diagnostic.load_event(path, 0xAA64)
@@ -264,6 +307,51 @@ class Controls(unittest.TestCase):
                         self.assertEqual(runner.run(app, None, root, True, debugger), original_code)
                         self.assertEqual(replay_call.call_count, 2)
 
+    def test_first_chance_dump_correlates_access_and_can_end_successfully(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            path = root / "raw.dmp"
+            # Authored transport controls; executed SEH recovery is tested below
+            # on both Windows architectures with the real native helper.
+            data = bytearray(348)
+            struct.pack_into("<IIIIIIQ", data, 0, 0x504D444D, 0xA793, 3, 32, 0, 0, 0)
+            for offset, kind, length, location in ((32, 6, 168, 68), (44, 7, 56, 236), (56, 15, 24, 292)):
+                struct.pack_into("<III", data, offset, kind, length, location)
+            struct.pack_into("<IIIIQQIIQQ", data, 68, 7, 0, 0xC0000005, 0, 0, 0x12345678, 2, 0, 1, 0x34567000)
+            struct.pack_into("<II", data, 228, 32, 316)
+            struct.pack_into("<H", data, 236, 12)
+            struct.pack_into("<IIIIII", data, 292, 24, 1, 42, 0, 0, 0)
+            path.write_bytes(data)
+            value = event() | dict(exitCode=0, captured=False, exceptionCode=0,
+                exceptionThreadId=0, exceptionAddress=0, firstChanceAvEnabled=True,
+                firstChanceAvAttempted=True, firstChanceAvThreadId=7,
+                firstChanceAvInstruction=0x12345678, firstChanceAvAddress=0x34567000,
+                firstChanceAvOperation=1, firstChanceAvElapsedMs=53)
+            receipt = root / "event.json"
+            receipt.write_text(json.dumps(value))
+            self.assertEqual(value, diagnostic.load_event(receipt, 0xAA64))
+            report = diagnostic.collect_first_chance_av(path, root, value, 0xAA64)
+            self.assertTrue(report["captured"])
+            self.assertFalse(report["provesUnhandledCrash"])
+            self.assertEqual(0, value["exitCode"])
+            self.assertEqual(data, (root / "first-chance-av.dmp").read_bytes())
+            for changes in (dict(firstChanceAvThreadId=8), dict(firstChanceAvInstruction=1),
+                            dict(firstChanceAvAddress=0x34567001), dict(firstChanceAvOperation=8)):
+                with self.subTest(changes=changes), self.assertRaises(ValueError):
+                    diagnostic.collect_first_chance_av(path, root, value | changes, 0xAA64)
+            for offset, fmt, number in ((236, "<H", 9), (100, "<I", 1), (228, "<I", 0), (232, "<I", 347)):
+                bad = bytearray(data)
+                struct.pack_into(fmt, bad, offset, number)
+                path.write_bytes(bad)
+                with self.subTest(offset=offset), self.assertRaises(ValueError):
+                    diagnostic.collect_first_chance_av(path, root, value, 0xAA64)
+            for changes in (dict(firstChanceAvEnabled=False), dict(firstChanceAvThreadId=0),
+                            dict(firstChanceAvInstruction=0), dict(firstChanceAvAddress=0x10000),
+                            dict(firstChanceAvOperation=2), dict(firstChanceAvElapsedMs=110001)):
+                receipt.write_text(json.dumps(value | changes))
+                with self.subTest(changes=changes), self.assertRaises(ValueError):
+                    diagnostic.load_event(receipt, 0xAA64)
+
 
 def native_controls(directory, architecture):
     if os.name != "nt": raise RuntimeError("Native controls require Windows")
@@ -275,7 +363,8 @@ def native_controls(directory, architecture):
     subprocess.run([str(helper), "--test-callbacks"], timeout=5, check=True)
     print(f"PASS native {architecture} debugger: callback contracts", flush=True)
     for mode, expected_exit, captures in (("handled", 0, False), ("exit", 17, False),
-                                        ("access-violation", 0xC0000005, True), ("live-stack", 17, False)):
+                                        ("access-violation", 0xC0000005, True), ("live-stack", 17, False),
+                                        ("handled-nonnull-av", 0, False), ("unhandled-nonnull-av", 0xC0000005, True)):
         with tempfile.TemporaryDirectory(prefix="showcase-debugger-control-") as temp:
             root = Path(temp)
             app = root / f"ShowcaseIdle-{uuid.uuid4().hex}.exe"
@@ -288,6 +377,10 @@ def native_controls(directory, architecture):
                 snapshot_raw = root / "stack-raw"
                 snapshot_raw.mkdir()
                 command += ["--snapshot-after-ms=100", str(snapshot_raw / "native-stack.dmp")]
+            else:
+                first_raw = root / "first-av-raw"
+                first_raw.mkdir()
+                command += ["--first-chance-av", str(first_raw / "first-chance-av.dmp")]
             result = subprocess.run(command,
                 env=os.environ | {"SHOWCASE_DEBUGGER_FIXTURE": mode}, timeout=20, capture_output=True)
             # No sleep, retry, or dump-validation work before testing image release.
@@ -307,6 +400,11 @@ def native_controls(directory, architecture):
                 report = diagnostic.collect_snapshot(snapshot_raw / "native-stack.dmp", root, value, expected)
                 if not report["captured"]: raise RuntimeError("Owned live thread was not captured")
                 print(f"Validated native {architecture} live stack: {json.dumps(report, sort_keys=True)}", flush=True)
+            else:
+                report = diagnostic.collect_first_chance_av(first_raw / "first-chance-av.dmp", root, value, expected)
+                if report["captured"] != mode.endswith("nonnull-av") or report["provesUnhandledCrash"]:
+                    raise RuntimeError("First-chance evidence changed exception handling or misidentified a crash")
+                print(f"Validated native {architecture} first chance: {json.dumps(report, sort_keys=True)}", flush=True)
             print(f"PASS native {architecture} debugger: {mode}", flush=True)
 
 

@@ -2,6 +2,7 @@
 """Prepare or compile the original Gallery case; never run an app or use the clipboard."""
 import argparse
 import base64
+from datetime import datetime
 import hashlib
 import json
 import os
@@ -56,7 +57,71 @@ def succeeded(value):
     return str(value.get("status", "")).lower() == "completed" and str(value.get("conclusion", "")).lower() == "success"
 
 
-def validate_producer(build, docs, artifact, head, build_id, docs_id):
+def validate_upload_log(producer, artifact, head, build_id, evidence):
+    """Verify an exact completed upload when GitHub's step timeline remains stale.
+
+    Retain the original API statuses. A completed job alone, or an existing artifact
+    alone, is insufficient: one original upload action must prove this exact asset.
+    """
+    require(isinstance(evidence, dict) and evidence.get("schema") == "github-upload-log-v1",
+            "exact producer upload must succeed; original upload evidence missing")
+    job, log = evidence.get("job", {}), evidence.get("log")
+    require(type(producer.get("databaseId")) is int and producer["databaseId"] > 0
+            and job.get("id") == producer["databaseId"] and job.get("run_id") == build_id
+            and job.get("head_sha") == head and job.get("name") == producer["name"]
+            and job.get("workflow_name") == "LibreWPF Build" and succeeded(job),
+            "upload log job identity or completion mismatch")
+    require(isinstance(log, str) and 0 < len(log.encode("utf-8")) <= 1024 * 1024,
+            "original upload log exceeds bound")
+    require(type(artifact.get("id")) is int and artifact["id"] > 0
+            and type(artifact.get("size_in_bytes")) is int and artifact["size_in_bytes"] > 0,
+            "upload artifact identity missing")
+    for steps in (producer.get("steps", []), job.get("steps", [])):
+        uploads = [s for s in steps if s.get("name") == "Upload CI package bundle"]
+        require(len(uploads) <= 1, "duplicate upload step")
+        for step in uploads:
+            require(succeeded(step) or step.get("status") in ("pending", "queued", "in_progress")
+                    and step.get("conclusion") in (None, ""), "failed upload step cannot use log evidence")
+
+    def instant(value):
+        require(isinstance(value, str) and value.endswith("Z"), "upload timestamp missing")
+        return datetime.fromisoformat(value.removesuffix("Z") + "+00:00")
+
+    started, completed = instant(job.get("started_at")), instant(job.get("completed_at"))
+    require(started < completed, "invalid completed upload job interval")
+    groups, current = [], None
+    for line in log.splitlines():
+        match = re.match(r"^(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d+)?Z) (.*)$", line.lstrip("\ufeff"))
+        if not match:
+            continue  # Multiline action inputs retain their original continuation lines.
+        stamp, text = instant(match[1]), match[2]
+        if text.startswith("##[group]"):
+            current = [] if text == "##[group]Run actions/upload-artifact@v4" else None
+            if current is not None: groups.append(current)
+        if current is not None: current.append((stamp, text))
+    name = artifact["name"]
+    matches = [g for g in groups if sum(text == "  name: " + name for _, text in g) == 1]
+    require(len(matches) == 1, "one exact original upload action required")
+    group = matches[0]
+    require(all(started <= stamp <= completed for stamp, _ in group), "upload log belongs to another job interval")
+    require(not any("##[error]" in text for _, text in group), "upload action contains an error")
+    require(sum(text == "  overwrite: false" for _, text in group) == 1, "original non-overwriting upload required")
+    expected = [
+        "SHA256 digest of uploaded artifact zip is " + artifact["digest"].removeprefix("sha256:"),
+        f"Artifact {name}.zip successfully finalized. Artifact ID {artifact['id']}",
+        f"Artifact {name} has been successfully uploaded! Final size is {artifact['size_in_bytes']} bytes. Artifact ID is {artifact['id']}",
+    ]
+    positions = []
+    for text in expected:
+        indexes = [i for i, (_, original) in enumerate(group) if original == text]
+        require(len(indexes) == 1, "exact upload digest, identity, size and completion required")
+        positions.append(indexes[0])
+    require(positions == sorted(positions), "upload completion order mismatch")
+    require(group[positions[0]][0] <= group[positions[1]][0] <= group[positions[2]][0],
+            "upload completion timestamps are not ordered")
+
+
+def validate_producer(build, docs, artifact, head, build_id, docs_id, upload_evidence=None):
     require(re.fullmatch(r"[0-9a-f]{40}", head), "explicit full producer head required")
     for run, run_id, name in ((build, build_id, "LibreWPF Build"), (docs, docs_id, "LibreWPF Docs")):
         require(run.get("databaseId") == run_id and run.get("headSha") == head and run.get("name") == name,
@@ -71,12 +136,14 @@ def validate_producer(build, docs, artifact, head, build_id, docs_id):
             "complete successful Docs job required")
     producer = next(j for j in jobs if j["name"] == "SDK package and no-source-change smoke")
     uploads = [s for s in producer.get("steps", []) if s.get("name") == "Upload CI package bundle"]
-    require(len(uploads) == 1 and succeeded(uploads[0]), "exact producer upload must succeed")
+    require(len(uploads) <= 1, "duplicate producer upload step")
     require(artifact.get("name") == "librewpf-ci-packages-" + head and artifact.get("expired") is False,
             "exact unexpired package artifact required")
     run = artifact.get("workflow_run", {})
     require(run.get("id") == build_id and run.get("head_sha") == head, "artifact producer mismatch")
     require(re.fullmatch(r"sha256:[0-9a-f]{64}", artifact.get("digest", "")), "artifact SHA256 missing")
+    if not (len(uploads) == 1 and succeeded(uploads[0])):
+        validate_upload_log(producer, artifact, head, build_id, upload_evidence)
 
 
 def validate_sources(source):
@@ -218,10 +285,12 @@ def main():
     parser.add_argument("--architecture", required=True, choices=("arm64", "x64"))
     parser.add_argument("--build-only", action="store_true")
     parser.add_argument("--dotnet", type=Path)
+    parser.add_argument("--upload-evidence", type=Path)
     args = parser.parse_args()
     require(not args.build_only or args.dotnet is not None and args.dotnet.is_file(), "build-only requires an explicit installed dotnet executable")
     build, docs, artifact = (read_json(p) for p in (args.build_receipt, args.docs_receipt, args.artifact_receipt))
-    validate_producer(build, docs, artifact, args.expected_head, args.expected_build, args.expected_docs)
+    upload_evidence = read_json(args.upload_evidence) if args.upload_evidence else None
+    validate_producer(build, docs, artifact, args.expected_head, args.expected_build, args.expected_docs, upload_evidence)
     require(args.package_archive.is_file() and not args.package_archive.is_symlink(), "missing regular package archive")
     require(args.package_archive.stat().st_size == artifact["size_in_bytes"]
             and sha(args.package_archive) == artifact["digest"].removeprefix("sha256:"), "package archive bytes differ from producer digest")
@@ -231,6 +300,8 @@ def main():
     receipt = {"schema": "gallery-clipboard-preparation-v1", "head": args.expected_head,
                "build": args.expected_build, "docs": args.expected_docs, "compiled": False,
                "qualified": False, "applicationExecuted": False, "clipboardAccessed": False}
+    if args.upload_evidence:
+        receipt["uploadEvidenceSha256"] = sha(args.upload_evidence)
     try:
         feed, cache = output / "feed", output / "packages"
         feed.mkdir(); cache.mkdir()

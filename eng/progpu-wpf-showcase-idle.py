@@ -422,7 +422,8 @@ def run(app: Path, dotnet: str | None, evidence_parent: Path, windows_crash_dump
         # Neither the first result nor its exit status can be replaced by replay.
         try:
             diagnostic = showcase_idle_debugger.replay(
-                app, windows_debugger, directory, environment, run_child, write_json_new, payload_hashes, before)
+                app, windows_debugger, directory, environment, run_child, write_json_new, payload_hashes, before,
+                metadata["childExitCode"])
             write_json_new(directory / "native-debugger-replay.json", diagnostic)
         except Exception as error:
             print(f"Supplemental native replay unavailable: {type(error).__name__}: {error}", file=sys.stderr)

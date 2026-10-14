@@ -97,6 +97,16 @@ See docs/native-pointer-host-transport.md.
 
 ## Repository and branch ownership
 
+Native presentation checkpoints poll the exact live engine on its dispatcher
+thread and retain source-frame/device-recovery identity. Submitted-frame counts
+and SurfacePresent are not GPU completion or desktop scanout. Keep the original
+Gallery pixels and actions after the explicit completion precondition; no retry
+capture or timer-based completion. The owner-approved preview69 exception allows
+a 90-second controller and 87-second host reserve, retaining the 55-second
+foreground setup bound and all captures, ownership, clipboard and cleanup checks.
+The original 60-second performance target remains open in LibreWPF #117. See
+docs/native-presentation-completion.md.
+
 LibreWPF work branches and pull requests target `progpu-rendering-port`, the
 default branch of `wieslawsoltes/LibreWPF`, not `main` or `dotnet/wpf`.
 Start new work from `origin/progpu-rendering-port` and explicitly select the fork
@@ -226,6 +236,13 @@ first and never replace its result. Launch only a fresh owned apphost, verify na
 architecture, retain OS exception handling and capture a bounded normal dump from
 the real stopped thread. Correlate PID/thread/code/address before publication;
 debugger controls and instrumented replays never qualify the original idle gate.
+Native-crash replay keeps renderer tracing and timed live snapshots disabled.
+Its explicit first-chance option captures at most one original non-null AV into
+a separate bounded normal dump, retaining operation, fault address, instruction,
+thread and intrinsic architecture. Continue ordinary OS exception handling;
+successful application recovery must remain success, never crash evidence.
+Keep first-chance, second-chance and exception-free snapshots distinct, with
+the original failed receipt and deadlines unchanged.
 An optional live-stack snapshot belongs only to that failed-run replay and the
 same owned child. Keep its exception-free normal dump, raw directory and receipt
 separate from crash evidence; require intrinsic architecture, PID and complete

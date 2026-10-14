@@ -1,8 +1,49 @@
 # Passive Showcase failure evidence
 
+## Original GlyphRun crash and first-chance capture
+
+[Build 38314985874](https://github.com/wieslawsoltes/LibreWPF/actions/runs/38314985874)
+at `f9507dc67` passed fifteen jobs and failed the ARM64 native Showcase job.
+The original child exited `0xC0000005` after 63 seconds, following all four
+successful zero-presentation intervals and source restoration. Its managed
+stack begins at `GlyphRun.IPortableNativeGlyphRunSource.TryGetPortableNativeGlyphRun`.
+Neither that frame nor the passing, heavily traced replay identifies the invalid
+access. [Issue #278](https://github.com/wieslawsoltes/LibreWPF/issues/278) remains open.
+
+Native-crash replay now omits renderer tracing and the scheduled live snapshot.
+It requests one separate first-chance capture for an actual access violation
+above the first 64 KiB, preserving the OS-provided operation, accessed address,
+instruction and stopped thread. The helper continues with
+`DBG_EXCEPTION_NOT_HANDLED`, so application handlers and any later second-chance
+event retain their original behavior. An ordinary managed exit-one failure
+still receives the existing traced/live-snapshot diagnosis.
+
+The optional capture uses the same five-second/32 MiB normal-dump budget and
+original 110-second diagnostic child bound. It never retries the capture. Raw
+bytes remain outside uploaded evidence until PID, exception, access parameters,
+intrinsic architecture and faulting context validate. Receipt schema 3 separates
+first-chance evidence from unhandled-crash and exception-free live-stack evidence.
+A recovered first-chance fault explicitly reports `provesUnhandledCrash=false`.
+The original acceptance child, payload checks, assertions and 120-second bound
+are unchanged; its failed receipt is still written before the separate replay.
+
+This follows Microsoft's documented [debugger exception handling](https://learn.microsoft.com/en-us/windows/win32/debug/debugger-exception-handling)
+and [access-violation parameters and CLR null-address behavior](https://learn.microsoft.com/en-us/shows/inside/c0000005).
+No external implementation was copied. Thirteen offline controls pass. The
+native ARM64 helper compiled locally with warnings as errors and passed its
+callback, ordinary exit, handled exception, null AV, live snapshot, handled
+non-null AV and unhandled non-null AV controls. Native x64 and full application
+CI remain required.
+
+A separate local Windows ARM64 run of the unchanged Showcase sources against
+whole-qualified `ffa1f5dd` packages completed in 51.85 seconds, with all four idle
+intervals, restoration, clean exit and unchanged payload hashes. It used no
+clipboard or synthesized input. That different qualified package run does not
+explain or replace the failed `f9507dc67` run.
+
 ## Bounded native compute attribution
 
-The failure-only replay requests `PROGPU_NATIVE_TRACE_COMPUTE=1` in its private
+The ordinary managed-failure replay requests `PROGPU_NATIVE_TRACE_COMPUTE=1` in its private
 child environment. ProGPU #221 supplies bounded owned-pipeline, workgroup and
 submission records for both native providers. `nativeComputeTraceRequested`
 records the request, not proof that a particular native payload emitted records.

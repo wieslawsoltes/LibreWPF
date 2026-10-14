@@ -347,6 +347,7 @@ public sealed partial class ProGpuWpfWindowHostTests
         Assert.True(ProGpuWpfDiagnostics.TryGetNativePerformanceSnapshot(host, out var snapshot));
         Assert.Equal(measured with { PresentedFrameCount = 1 }, snapshot);
         // A synthetic published frame is never proof of actual GPU completion.
+        Assert.False(ProGpuWpfDiagnostics.TryPollNativePresentationCheckpoint(host, out _));
         Assert.False(ProGpuWpfDiagnostics.TryPollNativeMemoryCheckpoint(host, out _));
         Assert.False(ProGpuWpfDiagnostics.TryGetPerformanceSnapshot(host, out _));
         Assert.False(ProGpuWpfDiagnostics.TryGetMemorySnapshot(host, out _));

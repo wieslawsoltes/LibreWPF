@@ -150,6 +150,24 @@ public static partial class ProGpuWpfDiagnostics
             host.TryGetRenderActivitySnapshot(out snapshot);
     }
 
+    public readonly record struct NativePresentationCheckpoint(
+        NativePerformanceSnapshot PresentedFrame,
+        global::ProGPU.Backend.Native.NativeSubmissionToken Submission);
+
+    /// <summary>
+    /// Explicitly polls completion of the latest submitted native frame on its
+    /// dispatcher owner thread. Does not wait, request rendering or capture memory.
+    /// A successful poll establishes GPU completion, not desktop scanout; callers
+    /// inspecting displayed output must still verify the actual surface pixels.
+    /// </summary>
+    public static bool TryPollNativePresentationCheckpoint(
+        object? window, out NativePresentationCheckpoint checkpoint)
+    {
+        checkpoint = default;
+        return TryGetWindowHost(window, out var host) && host is not null &&
+            host.TryPollNativePresentationCheckpoint(out checkpoint);
+    }
+
     public readonly record struct NativeMemoryCheckpoint(
         NativePerformanceSnapshot PresentedFrame,
         global::ProGPU.Backend.Native.NativeGpuMemorySnapshot CompletedMemory);

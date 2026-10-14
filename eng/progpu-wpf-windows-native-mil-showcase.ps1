@@ -1,6 +1,6 @@
 param(
     [string] $PackageDirectory = "",
-    [string] $Version = "0.1.0-preview.68",
+    [string] $Version = "0.1.0-preview.69",
     [ValidateSet("x64", "arm64")]
     [string] $TargetArchitecture = "x64",
     [switch] $AllowEmulatedX64,
@@ -620,6 +620,33 @@ Assert-TextMetricNear "client window width" $nativeLayout.ClientWidth $portableL
 Assert-TextMetricNear "client window height" $nativeLayout.ClientHeight $portableLayout.ClientHeight 1
 Assert-TextMetricNear "source Window width" $nativeLayout.SourceWidth $portableLayout.SourceWidth 0.001
 Assert-TextMetricNear "source Window height" $nativeLayout.SourceHeight $portableLayout.SourceHeight 0.001
+# Use a separate process after the original application/text checks. The new
+# consumer borrows the actual DirectWrite module identity without pinning it.
+$directWriteProject = Join-Path $repoRoot "eng/WindowsDirectWriteExitConsumer/WindowsDirectWriteExitConsumer.csproj"
+Invoke-DotNet -Arguments @(
+    "build", $directWriteProject, "-c", "Release", "-r", $targetRid,
+    "-p:PlatformTarget=$TargetArchitecture",
+    "-p:ArtifactsDir=$artifactsProperty",
+    "-p:RestorePackagesPath=$packagesProperty",
+    "-p:RestoreConfigFile=$privateNugetConfig",
+    "-p:WindowsDirectWriteRuntimeRoot=$appDirectory",
+    "-p:RunNetFrameworkApiCompat=false", "-v:minimal"
+)
+$directWriteDirectory = Join-Path $artifactsRoot "bin/WindowsDirectWriteExitConsumer/Release/net10.0-windows"
+$directWriteAppHost = Join-Path $directWriteDirectory "WindowsDirectWriteExitConsumer.exe"
+Assert-ExactPackageAsset (Join-Path $directWriteDirectory "PresentationCore.dll") $transportPackage "runtimes/$targetRid/lib/net10.0/PresentationCore.dll"
+Assert-ExactPackageAsset (Join-Path $directWriteDirectory "WindowsBase.dll") $transportPackage "lib/net10.0/WindowsBase.dll"
+Assert-ExactPackageAsset (Join-Path $directWriteDirectory "System.Private.Windows.Core.dll") $transportPackage "lib/net10.0/System.Private.Windows.Core.dll"
+Assert-ExactPackageAsset (Join-Path $directWriteDirectory "DirectWriteForwarder.dll") $transportPackage "runtimes/$targetRid/lib/net10.0/DirectWriteForwarder.dll"
+Assert-ExactPackageAsset (Join-Path $directWriteDirectory "ijwhost.dll") $transportPackage "runtimes/$targetRid/native/ijwhost.dll"
+Assert-ExactPackageAsset (Join-Path $directWriteDirectory "ProGPU.Wpf.Interop.dll") $interopPackage "lib/net10.0/ProGPU.Wpf.Interop.dll"
+$directWriteResult = Invoke-CapturedApplication $directWriteAppHost (Join-Path $smokeRoot "directwrite-exit-stdout.log") (Join-Path $smokeRoot "directwrite-exit-stderr.log") 60000
+Write-Host $directWriteResult.Stdout
+if ($directWriteResult.ExitCode -ne 0 -or
+    $directWriteResult.Stdout.IndexOf("Windows DirectWrite process-lifetime contracts passed: 2; skipped: 0; architecture: $requiredArchitecture.", [System.StringComparison]::Ordinal) -lt 0) {
+    throw "Windows DirectWrite process-lifetime contracts failed (exit $($directWriteResult.ExitCode)): $($directWriteResult.Stderr)"
+}
+
 Write-Host "Windows $TargetArchitecture package-only native MIL Showcase and same-source text-layout matrix checks succeeded."
 }
 finally {

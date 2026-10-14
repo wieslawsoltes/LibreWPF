@@ -22,7 +22,7 @@ class ShowcaseLauncherReceiptTests(unittest.TestCase):
             shutil.copyfile(ROOT / "eng/run-progpu-wpf-showcase.sh", launcher)
             packages = repo / "packages"
             packages.mkdir()
-            (packages / "LibreWPF.Sdk.0.1.0-preview.68.nupkg").touch()
+            (packages / "LibreWPF.Sdk.0.1.0-preview.69.nupkg").touch()
             app = repo / "artifacts/bin/ProGPU.Wpf.ShowcaseApp/Debug/net10.0-windows/ProGPU.Wpf.ShowcaseApp"
             app.parent.mkdir(parents=True)
             app.write_text(

@@ -9,11 +9,11 @@
     <PackageName>LibreWPF.Transport$(TransportPackageNameSuffix)</PackageName>
     <AssemblyName>$(PackageName)</AssemblyName>
     <VersionPrefix>0.1.0</VersionPrefix>
-    <VersionSuffix>preview.68</VersionSuffix>
+    <VersionSuffix>preview.69</VersionSuffix>
     <Version>$(VersionPrefix)-$(VersionSuffix)</Version>
     <PackageVersion>$(Version)</PackageVersion>
     <PackageDescription>LibreWPF transport package with portable managed presentation assemblies, references, themes, XAML build tasks, and runtime metadata.</PackageDescription>
-    <PackageReleaseNotes>LibreWPF preview.68 owns the moved interoperability and compatibility projects, consumes the coordinated ProGPU and LibreWinForms sources, and excludes host compatibility libraries from Windows RID cross-builds. Existing rendering and application qualification boundaries remain documented.</PackageReleaseNotes>
+    <PackageReleaseNotes>LibreWPF preview.69 owns the moved interoperability and compatibility projects, consumes the coordinated ProGPU and LibreWinForms sources, and excludes host compatibility libraries from Windows RID cross-builds. Existing rendering and application qualification boundaries remain documented.</PackageReleaseNotes>
     <PackageTags>librewpf;progpu;xaml;themes;transport</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <IncludeAssembliesInArchNeutralPackage>true</IncludeAssembliesInArchNeutralPackage>

@@ -90,6 +90,15 @@ class BootstrapTests(unittest.TestCase):
         # Removing their DLLs proves actual module/JIT behavior, not UI parity.
         with tempfile.TemporaryDirectory(prefix="librewpf-bootstrap-runtime-") as temporary:
             root = Path(temporary).resolve()
+            # This offline net10.0 fixture needs the .NET 10 SDK's own reference
+            # packs. A newer ambient SDK may request a different .NET 10 patch
+            # from NuGet even when a compatible .NET 10 SDK is already installed.
+            write(root / "global.json", json.dumps({"sdk": {
+                "version": "10.0.100", "rollForward": "latestFeature", "allowPrerelease": False,
+            }}))
+            sdk_version = run(root, "--version").strip()
+            self.assertTrue(sdk_version.startswith("10.0."), sdk_version)
+            print(f"Offline bootstrap fixture SDK: {sdk_version}", flush=True)
             write(root / "NuGet.Config", '<configuration><packageSources><clear /></packageSources></configuration>')
             project(root, "TestDesktopTypes", '''namespace System.Windows {
 public class Application { }

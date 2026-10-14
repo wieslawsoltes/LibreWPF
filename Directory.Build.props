@@ -78,10 +78,15 @@
     <SystemResourcesExtensionsVersion>$(ProGpuWpfNet10SupportPackageVersion)</SystemResourcesExtensionsVersion>
     <SystemSecurityPermissionsPackageVersion>$(ProGpuWpfNet10SupportPackageVersion)</SystemSecurityPermissionsPackageVersion>
     <SystemSecurityPermissionsVersion>$(ProGpuWpfNet10SupportPackageVersion)</SystemSecurityPermissionsVersion>
-    <SystemSecurityCryptographyXmlPackageVersion>$(ProGpuWpfNet10SupportPackageVersion)</SystemSecurityCryptographyXmlPackageVersion>
-    <SystemSecurityCryptographyXmlVersion>$(ProGpuWpfNet10SupportPackageVersion)</SystemSecurityCryptographyXmlVersion>
+    <SystemSecurityCryptographyXmlPackageVersion>10.0.13</SystemSecurityCryptographyXmlPackageVersion>
+    <SystemSecurityCryptographyXmlVersion>10.0.13</SystemSecurityCryptographyXmlVersion>
     <SystemWindowsExtensionsPackageVersion>$(ProGpuWpfNet10SupportPackageVersion)</SystemWindowsExtensionsPackageVersion>
     <SystemWindowsExtensionsVersion>$(ProGpuWpfNet10SupportPackageVersion)</SystemWindowsExtensionsVersion>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(ProGpuWpfTargetFramework)' == 'net11.0'">
+    <SystemSecurityCryptographyXmlPackageVersion>11.0.0-rc.2.26504.105</SystemSecurityCryptographyXmlPackageVersion>
+    <SystemSecurityCryptographyXmlVersion>11.0.0-rc.2.26504.105</SystemSecurityCryptographyXmlVersion>
   </PropertyGroup>
 
   <PropertyGroup>

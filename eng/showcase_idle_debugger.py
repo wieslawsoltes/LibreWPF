@@ -48,10 +48,13 @@ def load_event(path, expected_machine):
     integers = {"processId": 0xFFFFFFFF, "machine": 0xFFFF, "exitCode": 0xFFFFFFFF,
                 "exceptionCode": 0xFFFFFFFF, "exceptionThreadId": 0xFFFFFFFF,
                 "exceptionAddress": 0xFFFFFFFFFFFFFFFF, "dumpError": 0xFFFFFFFF, "loopError": 0xFFFFFFFF,
-                "snapshotAfterMs": 60000, "snapshotElapsedMs": 110000, "snapshotError": 0xFFFFFFFF}
+                "snapshotAfterMs": 60000, "snapshotElapsedMs": 110000, "snapshotError": 0xFFFFFFFF,
+                "firstChanceAvThreadId": 0xFFFFFFFF, "firstChanceAvInstruction": 0xFFFFFFFFFFFFFFFF,
+                "firstChanceAvAddress": 0xFFFFFFFFFFFFFFFF, "firstChanceAvOperation": 8,
+                "firstChanceAvElapsedMs": 110000, "firstChanceAvDumpError": 0xFFFFFFFF}
     if (not isinstance(event, dict) or
             any(type(event.get(key)) is not int or not 0 <= event[key] <= limit for key, limit in integers.items()) or
-            type(event.get("schemaVersion")) is not int or event["schemaVersion"] != 2 or event.get("diagnosticOnly") is not True
+            type(event.get("schemaVersion")) is not int or event["schemaVersion"] != 3 or event.get("diagnosticOnly") is not True
             or event.get("machine") != expected_machine
             or event["processId"] == 0 or type(event.get("captured")) is not bool
             or event.get("exited") is not True or event.get("loopError") != 0
@@ -59,7 +62,15 @@ def load_event(path, expected_machine):
             or type(event.get("snapshotAttempted")) is not bool
             or (event["snapshotAfterMs"] != 0 and event["snapshotAfterMs"] < 100)
             or (event["snapshotAttempted"] and (event["snapshotAfterMs"] == 0 or event["snapshotElapsedMs"] < event["snapshotAfterMs"]))
-            or (not event["snapshotAttempted"] and (event["snapshotElapsedMs"] != 0 or event["snapshotError"] != 0))):
+            or (not event["snapshotAttempted"] and (event["snapshotElapsedMs"] != 0 or event["snapshotError"] != 0))
+            or type(event.get("firstChanceAvEnabled")) is not bool
+            or type(event.get("firstChanceAvAttempted")) is not bool
+            or (event["firstChanceAvAttempted"] and (not event["firstChanceAvEnabled"]
+                or event["firstChanceAvThreadId"] == 0 or event["firstChanceAvInstruction"] == 0
+                or event["firstChanceAvAddress"] <= 0x10000 or event["firstChanceAvOperation"] not in (0, 1, 8)))
+            or (not event["firstChanceAvAttempted"] and any(event[key] != 0 for key in
+                ("firstChanceAvThreadId", "firstChanceAvInstruction", "firstChanceAvAddress",
+                 "firstChanceAvOperation", "firstChanceAvElapsedMs", "firstChanceAvDumpError")))):
         raise ValueError("Debugger did not report a completed, architecture-matched owned child")
     return event
 
@@ -94,38 +105,81 @@ def correlate_exception(path, event):
     return validated
 
 
-def replay(app, debugger, evidence_parent, environment, run_child, write_json, payload_hashes, expected_hashes):
+def collect_first_chance_av(raw, directory, event, expected_machine):
+    report = {"kind": "first-chance-nonnull-AV-MiniDumpNormal", "diagnosticOnly": True,
+              "qualifiesIdle": False, "provesUnhandledCrash": False, "captured": False,
+              "enabled": event["firstChanceAvEnabled"], "attempted": event["firstChanceAvAttempted"],
+              "dumpError": event["firstChanceAvDumpError"]}
+    if not event["firstChanceAvAttempted"] or event["firstChanceAvDumpError"] != 0:
+        return report
+    mapped = event | {"exceptionCode": 0xC0000005, "exceptionThreadId": event["firstChanceAvThreadId"],
+                      "exceptionAddress": event["firstChanceAvInstruction"]}
+    validated = correlate_exception(raw, mapped)
+    with raw.open("rb") as stream:
+        header = stream.read(32)
+        count, table = struct.unpack_from("<II", header, 8)
+        stream.seek(table)
+        entries = [struct.unpack("<III", stream.read(12)) for _ in range(count)]
+        systems = [(length, offset) for kind, length, offset in entries if kind == 7]
+        if len(systems) != 1 or systems[0][0] < 56 or systems[0][1] < table + count * 12:
+            raise ValueError("First-chance dump requires its intrinsic architecture")
+        stream.seek(systems[0][1])
+        if struct.unpack("<H", stream.read(2))[0] != {0xAA64: 12, 0x8664: 9}[expected_machine]:
+            raise ValueError("First-chance dump architecture differs from its owned child")
+        offset = next(offset for kind, _, offset in entries if kind == 6)
+        stream.seek(offset + 32)
+        parameters, _, operation, address = struct.unpack("<IIQQ", stream.read(24))
+        stream.seek(offset + 160)
+        context_size, context_offset = struct.unpack("<II", stream.read(8))
+        if (parameters, operation, address) != (2, event["firstChanceAvOperation"], event["firstChanceAvAddress"]):
+            raise ValueError("First-chance access parameters differ from the actual debug event")
+        if context_size == 0 or context_offset < table + count * 12 or context_offset + context_size > validated["bytes"]:
+            raise ValueError("First-chance dump has no complete faulting thread context")
+    destination = directory / "first-chance-av.dmp"
+    crash.publish_dump(raw, destination, event["processId"], validated)
+    return report | validated | {"captured": True, "path": destination.name,
+        "threadId": event["firstChanceAvThreadId"], "instruction": event["firstChanceAvInstruction"],
+        "accessAddress": event["firstChanceAvAddress"], "operation": event["firstChanceAvOperation"],
+        "elapsedMs": event["firstChanceAvElapsedMs"]}
+
+
+def replay(app, debugger, evidence_parent, environment, run_child, write_json, payload_hashes, expected_hashes,
+           original_exit_code):
+    if original_exit_code not in (1, 0xC0000005, 0xC0000409, 0xC0000602) or type(original_exit_code) is not int:
+        raise ValueError("Replay requires the original admitted child failure")
+    trace = original_exit_code == 1
     debugger = debugger.resolve(strict=True)
     if debugger.name != "ShowcaseNativeDebugger.exe" or machine(debugger) != machine(app):
         raise ValueError("Debugger must have the original apphost's native architecture")
     directory = Path(tempfile.mkdtemp(prefix="native-debugger-replay-", dir=evidence_parent))
     report = {"schemaVersion": 1, "diagnosticOnly": True, "qualifiesIdle": False,
               "debuggerSha256": crash.digest(debugger), "timeoutSeconds": 120, "captured": False,
-              "nativeLoopTrace": True, "nativeSceneEncodeTrace": True,
-              "nativeVectorClipTrace": True, "nativeComputeTraceRequested": True,
+              "originalExitCode": original_exit_code, "nativeLoopTrace": trace, "nativeSceneEncodeTrace": trace,
+              "nativeVectorClipTrace": trace, "nativeComputeTraceRequested": trace,
               "logTailLimitBytesPerStream": MAX_LOG_BYTES}
     capture = crash.Capture(app, directory, crash.WindowsRegistry())
     # Keep raw/partial stack snapshots out of uploaded evidence and separate
     # from the strict exception-only WER directory. Publish only validated bytes.
     snapshot_root = Path(tempfile.mkdtemp(prefix="showcase-live-stack-"))
     snapshot_path = snapshot_root / "native-stack.dmp"
+    first_av_root = Path(tempfile.mkdtemp(prefix="showcase-first-chance-av-"))
+    first_av_path = first_av_root / "first-chance-av.dmp"
     try:
         report["payloadSha256Before"] = payload_hashes(app.parent)
         if report["payloadSha256Before"] != expected_hashes:
             raise ValueError("Original payload changed before diagnostic replay")
         image = capture.prepare()
         env = environment.copy()
-        env["PROGPU_WPF_TRACE_NATIVE_LOOP"] = "1"
-        # Attribute pending native work in this diagnostic replay only. These
-        # existing traces must not perturb or qualify the original idle run.
-        env["PROGPU_NATIVE_TRACE_SCENE_ENCODE"] = "1"
-        env["PROGPU_NATIVE_TRACE_VECTOR_CLIP"] = "1"
-        env["PROGPU_NATIVE_TRACE_COMPUTE"] = "1"
+        # Native crashes retain original scheduling without the heavy tracing
+        # or timed live dump. Ordinary managed failures retain that diagnosis.
+        for name in ("PROGPU_WPF_TRACE_NATIVE_LOOP", "PROGPU_NATIVE_TRACE_SCENE_ENCODE",
+                     "PROGPU_NATIVE_TRACE_VECTOR_CLIP", "PROGPU_NATIVE_TRACE_COMPUTE"):
+            env[name] = "1" if trace else "0"
         env["PROGPU_WPF_SHOWCASE_IDLE_LAYOUT_CLIP_STATUS_PATH"] = str(directory / "application-receipt.json")
         env["PROGPU_WPF_SHOWCASE_IDLE_LAYOUT_CLIP_PHASE_PATH"] = str(directory / "application-phases.jsonl")
         event_path = directory / "native-debugger-event.json"
-        code, timed_out = run_child([str(debugger), str(image), str(capture.dump_directory), str(event_path),
-                                    "--snapshot-after-ms=40000", str(snapshot_path)],
+        options = ["--snapshot-after-ms=40000", str(snapshot_path)] if trace else ["--first-chance-av", str(first_av_path)]
+        code, timed_out = run_child([str(debugger), str(image), str(capture.dump_directory), str(event_path), *options],
                                    app.parent, env, directory, timeout=120, outcome=report,
                                    log_limit_bytes=MAX_LOG_BYTES)
         report.update(debuggerExitCode=code, timedOut=timed_out)
@@ -137,9 +191,10 @@ def replay(app, debugger, evidence_parent, environment, run_child, write_json, p
         if event["processId"] == report["childProcessId"] or event["exitCode"] != code:
             raise ValueError("Debugger/helper child identities or exit status disagree")
         report["nativeEvent"] = event
-        if event["snapshotAfterMs"] != 40000:
+        if event["snapshotAfterMs"] != (40000 if trace else 0) or event["firstChanceAvEnabled"] != (not trace):
             raise ValueError("Debugger snapshot schedule differs from the requested diagnostic")
         report["stackSnapshot"] = collect_snapshot(snapshot_path, directory, event, machine(app))
+        report["firstChanceAccessViolation"] = collect_first_chance_av(first_av_path, directory, event, machine(app))
         correlated = None
         if event["captured"]:
             correlated = correlate_exception(capture.dump_directory / f"{image.name}.{event['processId']}.dmp", event)

@@ -129,7 +129,7 @@ bool owned_name(const std::filesystem::path& app) {
 
 int run(const std::filesystem::path& app, const std::filesystem::path& raw,
         const std::filesystem::path& receipt, DWORD snapshot_after_ms,
-        const std::filesystem::path& snapshot) {
+        const std::filesystem::path& snapshot, const std::filesystem::path& first_av) {
     if (!app.is_absolute() || !raw.is_absolute() || !receipt.is_absolute() ||
         !owned_name(app) || !std::filesystem::is_regular_file(app) ||
         !std::filesystem::is_directory(raw) || !std::filesystem::is_empty(raw)) return 2;
@@ -138,6 +138,13 @@ int run(const std::filesystem::path& app, const std::filesystem::path& raw,
          !std::filesystem::is_directory(snapshot.parent_path()) ||
          !std::filesystem::is_empty(snapshot.parent_path()) ||
          std::filesystem::equivalent(snapshot.parent_path(), raw))) return 2;
+    if (!first_av.empty() &&
+        (!first_av.is_absolute() || first_av.filename() != L"first-chance-av.dmp" ||
+         !std::filesystem::is_directory(first_av.parent_path()) ||
+         !std::filesystem::is_empty(first_av.parent_path()) ||
+         std::filesystem::equivalent(first_av.parent_path(), raw) ||
+         (snapshot_after_ms != 0 &&
+          std::filesystem::equivalent(first_av.parent_path(), snapshot.parent_path())))) return 2;
     handle report(CreateFileW(receipt.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW,
                               FILE_ATTRIBUTE_NORMAL, nullptr));
     if (!report.valid()) return 2;
@@ -171,6 +178,10 @@ int run(const std::filesystem::path& app, const std::filesystem::path& raw,
     bool snapshot_attempted = false;
     DWORD snapshot_error = 0;
     ULONGLONG snapshot_elapsed_ms = 0;
+    bool first_av_attempted = false;
+    DWORD first_av_error = 0, first_av_thread = 0;
+    std::uintptr_t first_av_instruction = 0, first_av_address = 0, first_av_operation = 0;
+    ULONGLONG first_av_elapsed_ms = 0;
     const ULONGLONG deadline = GetTickCount64() + child_deadline_ms;
     while (!exit_event_seen && GetTickCount64() < deadline) {
         const auto elapsed = GetTickCount64() - (deadline - child_deadline_ms);
@@ -202,6 +213,26 @@ int run(const std::filesystem::path& app, const std::filesystem::path& raw,
                 break;
             case EXCEPTION_DEBUG_EVENT:
                 continuation = DBG_EXCEPTION_NOT_HANDLED;
+                // Capture at most one real, non-null AV before the CLR can
+                // handle it and terminate without a second-chance event.
+                // This is diagnostic evidence, including if the app recovers;
+                // it never changes normal exception handling or crash status.
+                if (!first_av.empty() && !first_av_attempted && GetTickCount64() < deadline &&
+                    event.u.Exception.dwFirstChance &&
+                    event.u.Exception.ExceptionRecord.ExceptionCode == EXCEPTION_ACCESS_VIOLATION &&
+                    event.u.Exception.ExceptionRecord.NumberParameters == 2 &&
+                    event.u.Exception.ExceptionRecord.ExceptionInformation[1] > 0x10000 &&
+                    (event.u.Exception.ExceptionRecord.ExceptionInformation[0] == 0 ||
+                     event.u.Exception.ExceptionRecord.ExceptionInformation[0] == 1 ||
+                     event.u.Exception.ExceptionRecord.ExceptionInformation[0] == 8)) {
+                    first_av_attempted = true;
+                    first_av_thread = event.dwThreadId;
+                    first_av_instruction = reinterpret_cast<std::uintptr_t>(event.u.Exception.ExceptionRecord.ExceptionAddress);
+                    first_av_address = event.u.Exception.ExceptionRecord.ExceptionInformation[1];
+                    first_av_operation = event.u.Exception.ExceptionRecord.ExceptionInformation[0];
+                    first_av_elapsed_ms = GetTickCount64() - (deadline - child_deadline_ms);
+                    first_av_error = write_dump(process.value, event, first_av);
+                }
                 if (!loader_breakpoint && event.u.Exception.dwFirstChance &&
                     event.u.Exception.ExceptionRecord.ExceptionCode == EXCEPTION_BREAKPOINT) {
                     loader_breakpoint = true;
@@ -246,7 +277,7 @@ int run(const std::filesystem::path& app, const std::filesystem::path& raw,
         }
     }
     // Closing our job also retires the child if the debugger deadline/API failed.
-    const std::string json = "{\"schemaVersion\":2,\"diagnosticOnly\":true,\"processId\":" +
+    const std::string json = "{\"schemaVersion\":3,\"diagnosticOnly\":true,\"processId\":" +
         std::to_string(created.dwProcessId) + ",\"machine\":" + std::to_string(machine) +
         ",\"exitCode\":" + std::to_string(exit_code) + ",\"exited\":" + (exited ? "true" : "false") +
         ",\"exceptionCode\":" + std::to_string(exception_code) + ",\"exceptionThreadId\":" +
@@ -256,7 +287,15 @@ int run(const std::filesystem::path& app, const std::filesystem::path& raw,
         ",\"snapshotAfterMs\":" + std::to_string(snapshot_after_ms) +
         ",\"snapshotAttempted\":" + (snapshot_attempted ? "true" : "false") +
         ",\"snapshotElapsedMs\":" + std::to_string(snapshot_elapsed_ms) +
-        ",\"snapshotError\":" + std::to_string(snapshot_error) + "}\n";
+        ",\"snapshotError\":" + std::to_string(snapshot_error) +
+        ",\"firstChanceAvEnabled\":" + (first_av.empty() ? "false" : "true") +
+        ",\"firstChanceAvAttempted\":" + (first_av_attempted ? "true" : "false") +
+        ",\"firstChanceAvThreadId\":" + std::to_string(first_av_thread) +
+        ",\"firstChanceAvInstruction\":" + std::to_string(first_av_instruction) +
+        ",\"firstChanceAvAddress\":" + std::to_string(first_av_address) +
+        ",\"firstChanceAvOperation\":" + std::to_string(first_av_operation) +
+        ",\"firstChanceAvElapsedMs\":" + std::to_string(first_av_elapsed_ms) +
+        ",\"firstChanceAvDumpError\":" + std::to_string(first_av_error) + "}\n";
     DWORD written = 0;
     if (json.size() > 4096) return 2;
     if (!WriteFile(report.value, json.data(), static_cast<DWORD>(json.size()), &written, nullptr) ||
@@ -267,19 +306,27 @@ int run(const std::filesystem::path& app, const std::filesystem::path& raw,
 
 int wmain(int argc, wchar_t** argv) {
     if (argc == 2 && std::wstring(argv[1]) == L"--test-callbacks") return callback_controls() ? 0 : 1;
-    if (argc != 4 && argc != 6) return 2;
+    if (argc != 4 && argc != 6 && argc != 8) return 2;
     try {
         DWORD delay = 0;
-        if (argc == 6) {
-            const std::wstring argument(argv[4]);
+        std::filesystem::path snapshot, first_av;
+        for (int i = 4; i < argc; i += 2) {
+            const std::wstring argument(argv[i]);
+            if (argument == L"--first-chance-av") {
+                if (!first_av.empty()) return 2;
+                first_av = argv[i + 1];
+                if (first_av.empty()) return 2;
+                continue;
+            }
             const std::wstring prefix = L"--snapshot-after-ms=";
-            if (!argument.starts_with(prefix)) return 2;
+            if (!argument.starts_with(prefix) || delay != 0) return 2;
             const auto value = argument.substr(prefix.size());
             if (value.empty() || value.size() > 5 || value.find_first_not_of(L"0123456789") != std::wstring::npos) return 2;
             delay = std::stoul(value);
             if (delay < 100 || delay > 60000) return 2;
+            snapshot = argv[i + 1];
         }
-        return run(argv[1], argv[2], argv[3], delay, argc == 6 ? argv[5] : L"");
+        return run(argv[1], argv[2], argv[3], delay, snapshot, first_av);
     }
     catch (...) { return 2; } // Job/handle scope still releases the owned child.
 }
