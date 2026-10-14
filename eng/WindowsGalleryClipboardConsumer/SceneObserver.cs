@@ -139,10 +139,44 @@ internal static class StartupHook
             object token = renderer.GetType().GetMethod("GetLastSubmissionToken")!.Invoke(renderer, null)!;
             object complete = renderer.GetType().GetMethod("IsSubmissionComplete")!.Invoke(renderer, [token])!;
             Save($"scene-completion-{++polls}.json", new { diagnosticOnly = true, qualified = false,
-                frame, token, complete, elapsedSeconds = Clock.Elapsed.TotalSeconds });
+                frame, token, complete, elapsedSeconds = Clock.Elapsed.TotalSeconds,
+                checkpointInputs = ReadCheckpointInputs(host) });
             if (frames.Count == 2 && Equals(complete, true)) Stop();
         }
         catch (Exception error) { Fail(error); }
+    }
+
+
+    // Failure-only observations of the exact checkpoint's admission fields.
+    // The ordinary app, native completion poll and source frame are unchanged.
+    private static object ReadCheckpointInputs(object host)
+    {
+        const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+        object? Field(string name) => host.GetType().GetField(name, flags)?.GetValue(host)
+            ?? throw new MissingFieldException(name);
+        object?[] arguments = [null];
+        MethodInfo read = host.GetType().GetMethod("TryGetNativePerformanceSnapshot", flags)
+            ?? throw new MissingMethodException("TryGetNativePerformanceSnapshot");
+        bool available = Equals(read.Invoke(host, arguments), true);
+        object? snapshot = arguments[0];
+        object platform = Property(host, "PlatformServices")!;
+        object dispatcher = Property(platform, "Dispatcher")!;
+        object dispatcherAccess = dispatcher.GetType().GetMethod("CheckAccess", Type.EmptyTypes)!
+            .Invoke(dispatcher, null)!;
+        return new {
+            isRendering = Field("_isRendering"), isDisposed = Field("_isDisposed"),
+            closeStarted = Field("_hasNativeWindowCloseStarted"),
+            deviceRecoveryPending = Field("_hasPendingDeviceRecovery"),
+            dispatcherAccess,
+            rendererMode = Property(host, "RendererMode")?.ToString(),
+            presentedFrames = Property(host, "PresentedFrameCount"),
+            deviceRecoveryCount = Property(host, "RenderDeviceRecoveryCount"),
+            latestSceneUpdate = Property(host, "LastNativeMilSceneUpdateMetrics"),
+            snapshotAvailable = available,
+            snapshotPresentedFrames = snapshot is null ? null : Property(snapshot, "PresentedFrameCount"),
+            snapshotRecoveryCount = snapshot is null ? null : Property(snapshot, "DeviceRecoveryCount"),
+            snapshotSceneUpdate = snapshot is null ? null : Property(snapshot, "SceneUpdate")
+        };
     }
 
     private static void Stop()
