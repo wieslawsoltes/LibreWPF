@@ -1,7 +1,8 @@
-"""Prepare only the three observed Windows startup overlays on a disposable runner.
+"""Close the verified account startup window on a disposable runner.
 
 Normal WM_CLOSE only; no input synthesis, termination, settings or clipboard changes.
-The application and its original acceptance deadline have not started.
+Search and Start are observed but left to the separately approved bounded guard
+inside the original application's deadline. No application has started here.
 """
 import argparse
 import ctypes as C
@@ -38,7 +39,7 @@ def prepare(native, record, clock=time.monotonic, sleep=time.sleep):
             "Ordinary interactive desktop required")
     closed = set()
     record["observations"], record["closes"] = [], []
-    for _ in range(4):
+    for _ in range(2):
         require(clock() < deadline, "Hosted startup setup deadline expired")
         windows, foreground = native.windows(), native.foreground()
         require(len(windows) <= 128, "Native window inventory exceeds bound")
@@ -57,10 +58,11 @@ def prepare(native, record, clock=time.monotonic, sleep=time.sleep):
         require(not foreground or foreground == context["shell"]
                 or any(w["hwnd"] == foreground for w in known),
                 "Unidentified foreground window; no close request sent")
-        if not known:
+        accounts = [w for w in known if w["title"] == "Microsoft account"]
+        if not accounts:
             record["completed"] = True
             return
-        window = next((w for name in EXPECTED for w in known if w["title"] == name), None)
+        window = accounts[0]
         require(window["title"] not in closed, "Closed startup overlay reappeared; no retry permitted")
         require(native.snapshot(window["hwnd"]) == window, "Startup overlay identity changed before close")
         require(native.foreground() == foreground, "Foreground identity changed before close")
@@ -195,7 +197,7 @@ def main():
         "GITHUB_REPOSITORY": "wieslawsoltes/LibreWPF"}.items()), "Only the disposable hosted Windows runner is admitted")
     require(not args.output.exists(), "Original desktop setup evidence already exists")
     record = dict(qualified=False, completed=False, inputSent=False, forcedTermination=False,
-                  settingsChanged=False, clipboardAccessed=False, maximumCloseRequests=3,
+                  settingsChanged=False, clipboardAccessed=False, maximumCloseRequests=1,
                   sourceSha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest())
     start = time.monotonic()
     try:

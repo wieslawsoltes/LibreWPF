@@ -157,7 +157,7 @@ def load_helper(checkout, commit):
 
 
 class Session:
-    def __init__(self, desktop, process, directory, run, portable, deadline, hosted_caption=False):
+    def __init__(self, desktop, process, directory, run, portable, deadline, hosted_caption=False, hosted_shell=False):
         self.desktop, self.process, self.directory, self.run = desktop, process, directory, run
         self.portable = portable
         self.deadline = deadline
@@ -168,6 +168,7 @@ class Session:
         self.owner_identity = None
         self.blocked_owner_baseline = None
         self.hosted_caption = hosted_caption
+        self.hosted_shell = hosted_shell
         self.activation_attempted = False
 
     def activate(self, owner):
@@ -181,6 +182,8 @@ class Session:
                 "Hosted caption activation is startup-only and may not be retried")
         require(self.identity(owner) == self.owner_identity, "Activation owner identity changed")
         self.activation_attempted = True
+        if self.hosted_shell:
+            self.dismiss_hosted_shell()
         path = Path(__file__).parent / "WindowsGalleryClipboardConsumer/run-windows.py"
         spec = importlib.util.spec_from_file_location("modal_hosted_caption", path)
         module = importlib.util.module_from_spec(spec)
@@ -196,6 +199,48 @@ class Session:
             write(self.directory / "startup-activation.json", record)
         if record["clickCount"]:
             self.action("hosted-caption", nativeProof=record)
+
+    def dismiss_hosted_shell(self):
+        require(not self.portable and self.phase == "startup" and self.actions == 0,
+                "Shell Escape is restricted to the first reference startup")
+        record = dict(qualified=False, sourceBefore=owner_input(self.state), helpers={})
+        try:
+            modules = []
+            for name in ("prepare-desktop", "shell-escape"):
+                path = Path(__file__).parent / "WindowsModalDesktop" / (name + ".py")
+                record["helpers"][name] = digest(path)
+                spec = importlib.util.spec_from_file_location(name.replace("-", "_"), path)
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
+                modules.append(module)
+            modules[1].dismiss(modules[0].Desktop(), self.desktop, self.action,
+                               self.deadline, record, os.environ, authorized=self.hosted_shell)
+            if record["escapes"]:
+                # Require original source observations published after input;
+                # already queued snapshots cannot prove absence of leaked keys.
+                latest, _ = observation(self.directory / "app", self.process.pid, self.run)
+                first = latest["sequence"]
+                while True:
+                    self.remaining()
+                    require(time.monotonic() < record["setupDeadline"], "Bounded shell source verification expired")
+                    state, receipt = observation(self.directory / "app", self.process.pid, self.run)
+                    require(owner_input(state) == record["sourceBefore"],
+                            "Hosted shell Escape leaked input to the original owner")
+                    if (state["phase"] == "owner" and latest["sequence"] > first
+                            and state["sequence"] > latest["sequence"] and stable(state) == stable(latest)):
+                        self.match(state, self.native())
+                        self.state, self.source_receipt = state, receipt
+                        break
+                    latest = state
+                    time.sleep(.025)
+                record["sourceAfter"] = owner_input(self.state)
+                require(record["sourceBefore"] == record["sourceAfter"],
+                        "Hosted shell Escape leaked input to the original owner")
+        except BaseException as error:
+            record["error"] = str(error)[:4096]
+            raise
+        finally:
+            write(self.directory / "startup-shell.json", record)
 
     def remaining(self):
         value = self.deadline - time.monotonic()
@@ -436,7 +481,9 @@ def run_one(args, module, shared, app, output, portable):
             desktop = make_desktop(args.platform, module, args.macos_helper, output,
                                    lambda: observation(output / "app", process.pid, run)[0])
             result["nativeHelper"] = getattr(desktop, "provenance", None)
-            session = Session(desktop, process, output, run, portable, deadline, args.hosted_windows_caption_activation)
+            session = Session(desktop, process, output, run, portable, deadline,
+                              args.hosted_windows_caption_activation,
+                              args.hosted_windows_shell_escape and not portable)
             if args.platform == "macos":
                 desktop.deadline = session.deadline
             scenario(session)
@@ -483,6 +530,7 @@ def main():
     parser.add_argument("--forms-helper-commit", required=True)
     parser.add_argument("--macos-helper", type=Path)
     parser.add_argument("--hosted-windows-caption-activation", action="store_true")
+    parser.add_argument("--hosted-windows-shell-escape", action="store_true")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     require((args.platform == "windows" and sys.platform == "win32") or
@@ -493,6 +541,8 @@ def main():
             os.environ.get("GITHUB_ACTIONS") == "true" and os.environ.get("RUNNER_ENVIRONMENT") == "github-hosted"
             and os.environ.get("RUNNER_OS") == "Windows" and os.environ.get("GITHUB_REPOSITORY") == "wieslawsoltes/LibreWPF"),
             "Caption activation is restricted to this repository's disposable hosted Windows desktop")
+    require(not args.hosted_windows_shell_escape or args.hosted_windows_caption_activation,
+            "Approved shell Escape requires the original hosted caption admission")
     regular(args.output.parent, True)
     require(args.output.is_absolute() and not args.output.exists(), "Output must be a fresh absolute directory")
     module, shared = load_helper(args.forms_helper_checkout, args.forms_helper_commit)

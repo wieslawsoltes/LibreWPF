@@ -42,11 +42,12 @@ def main():
                "--portable-app", preparation["payloads"]["portable"]["app"],
                "--forms-helper-checkout", preparation["helper"],
                "--forms-helper-commit", manifest["formsHelperSource"], "--output", str(evidence),
-               "--hosted-windows-caption-activation"]
+               "--hosted-windows-caption-activation", "--hosted-windows-shell-escape"]
     receipt = dict(qualified=False, completed=False, argv=command, deadlineSecondsPerProcess=60,
                    maximumActionsPerProcess=64, sourceFilesUnchanged=True,
                    hostedAutomation=preparation["hostedAutomation"], automationCommit=preparation["automationCommit"],
-                   startupInput="At most one PID/HTCAPTION-verified click per process inside the original deadline/action budget")
+                   startupInput="At most two verified shell Escapes at reference startup across the entire pair, then one PID/HTCAPTION-verified click per process; all inside original deadline/action budgets",
+                   shellInputAuthorization="Owner approval 2026-10-16: bounded disposable hosted Start/Search Escape only")
     save(root / "launch.json", receipt)
     previous = sys.argv
     started = time.monotonic()

@@ -113,23 +113,32 @@ the modal entry uses its own source/native identity proof. An existing native
 observer must prove per-monitor-v2 coordinates before the helper adopts them.
 Each process retains all seven scenarios, the 60-second deadline, original
 obstruction/identity checks, 64-action budget, captures and owned cleanup. Before
-launch, the hosted modal desktop setup accepts the ordinary shell or sends
-at most one normal close request each to the observed Microsoft account, Search
-and Start overlays. Each requires its exact native class, Windows system image
-path, process, window and interactive session. Unknown foregrounds, duplicate or
-replaced identities and a reappearing overlay fail setup without retry. Setup is
-bounded by eight seconds before either application starts; it sends no input,
-changes no settings or clipboard contents, and retains
-its own receipt. No failed attempt is retried by the workflow. Raw images, original failures,
-source/payload hashes and package provenance are uploaded even on failure.
+launch, the hosted modal desktop setup observes all three known overlays but
+sends at most one normal close request to the account window. Every known window
+requires its exact native class, Windows system image path, process and interactive
+session. Unknown foregrounds, duplicate/replaced identities and a reappearing
+account window fail setup. Setup sends no input and stays inside eight seconds.
 
-All fourteen pure modal receipt/deadline/owner-guard controls and all 58 shared
-Gallery controller controls pass locally. The original eleven modal cases are
-unchanged; additional controls cover the startup connection and action accounting.
-Nine additional desktop setup controls verify the actual three-overlay plan,
-ordinary-shell no-op, foreign/replaced/duplicate identity rejection, refused
-close and reappearance, the distinct Explorer proxy and bounded native Z order.
-The existing Gallery setup stays unchanged.
+On 2026-10-16 the owner explicitly approved a bounded native Escape extension
+for Search and Start on the disposable GitHub runner. It is opt-in, restricted
+to the first Microsoft reference startup, and sends at most one Escape to each
+verified actual foreground shell window: two keys across the entire pair. The
+original immutable Forms helper retains foreground-PID and held-input checks and
+partial-key cleanup. The guard rechecks actual HWND, class, image, session and
+Default desktop, counts each key inside the original 64 actions, and permits no
+retry after refusal or reappearance. Its three-second bound, including fresh
+source-event verification, is inside the original 60-second deadline. Original
+owner text, selection and input counters must remain unchanged; no key may leak
+to the application. The portable run has no shell-input extension. Original
+caption, scenario, image and cleanup checks follow unchanged. No local VM is used.
+
+Raw images, all original failures, source/payload hashes and package provenance
+are retained even on failure. Sixteen pure modal controls, 58 shared Gallery
+controls, nine desktop setup controls and eight shell Escape controls pass locally.
+The original eleven modal controls remain unchanged. New controls reject foreign
+or replaced shell identities, missing approval, local/self-hosted use, refusal,
+reappearance, expired deadlines and leaked source keys; they also verify original
+action accounting and fresh post-input observations. The Gallery setup is unchanged.
 The first hosted run stopped at original-source hash verification before any
 application build or execution. Its original job log is retained. Hosted
 checkouts now explicitly keep committed LF bytes; the exact source hashes are
@@ -153,8 +162,8 @@ strict desktop setup step runs after package preparation, immediately before
 launch, so its observation cannot become stale during the two-minute build.
 That diagnostic run identified a foreground Search window and a full-desktop
 Start window covering all three original caption candidates. No input was sent.
-The modal-only setup now closes those two exactly identified shell overlays as
-well as the account startup window, using normal WM_CLOSE only. All five
+The next modal-only setup attempted normal WM_CLOSE for those two exactly
+identified shell overlays as well as the account startup window. All five
 unsuccessful hosted attempts remain retained; this is a diagnosed environment
 repair, not application acceptance or a relaxed foreground/caption check.
 The first overlay-setup run stopped without closing anything because
@@ -164,13 +173,19 @@ that this enumeration covers only desktop applications on modern Windows. Setup
 now uses the actual bounded native Z-order traversal already used by the original
 owner-obstruction helper. It retains and ignores only the exact Explorer proxy,
 rechecks selected identities and keeps the CoreWindow/system-image admission.
-The sixth failure and its original complete desktop inventory are preserved.
+The sixth failure and its complete original enumerator output are preserved;
+that output did not include the actual foreground CoreWindow.
 The seventh setup run showed the same omission in the desktop-app Z-order
 chain, with zero close requests. The observer now supplements that chain with
 exact native CoreWindow class/title lookups and the independently returned
 foreground HWND. These are observed handles, not inferred identities; every
 close still requires the exact process image, session, class and unchanged
 window metadata. All seven earlier failures remain retained.
+The eighth run identified all three actual CoreWindows and exact system images.
+The account closed normally, but Search retained WS_VISIBLE after WM_CLOSE;
+setup stopped before either application launched, with zero input. That failure
+is preserved. It prompted the separately approved Escape guard described above,
+without weakening the original caption or foreground admission.
 Hosted execution and independent raw-image review remain pending. Source
 `qualified=false` values remain unchanged; even a completed Windows pair does
 not qualify Linux or close the broader popup/modality issues.

@@ -63,6 +63,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python automation/eng/tests/test_wpf_hosted_desktop_setup.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python automation/eng/tests/test_wpf_hosted_shell_escape.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Prepare original sources and verify published package closure
         shell: pwsh
         run: |

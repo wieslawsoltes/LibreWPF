@@ -45,12 +45,13 @@ class DesktopSetupTests(unittest.TestCase):
     def run_setup(self, native, record):
         SETUP.prepare(native, record, native.clock, native.sleep)
 
-    def test_original_three_observed_overlays_close_once_without_input(self):
+    def test_only_account_closes_and_shell_overlays_remain_observed_without_input(self):
         native, record = self.Native(), {}
         self.run_setup(native, record)
-        self.assertEqual([1, 2, 3], native.sent)
+        self.assertEqual([1], native.sent)
+        self.assertEqual(["Search", "Start"], [w["title"] for w in native.items])
         self.assertTrue(record["completed"])
-        self.assertEqual(4, len(record["observations"]))
+        self.assertEqual(2, len(record["observations"]))
         self.assertTrue(all(c["closed"] for c in record["closes"]))
 
     def test_ordinary_shell_is_already_ready_without_close(self):
@@ -70,7 +71,7 @@ class DesktopSetupTests(unittest.TestCase):
             return result
         native.close = close
         self.run_setup(native, record)
-        self.assertEqual([1, 2, 3], native.sent)
+        self.assertEqual([1], native.sent)
         self.assertIn(proxy, record["observations"][0]["windows"])
         native = self.Native(); native.items.append(dict(proxy, image=r"C:\Users\runneradmin\explorer.exe"))
         with self.assertRaisesRegex(RuntimeError, "proxy"): self.run_setup(native, {})

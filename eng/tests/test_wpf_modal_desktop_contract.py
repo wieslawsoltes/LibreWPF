@@ -156,6 +156,56 @@ class DesktopReceiptTests(unittest.TestCase):
                 session.activate({'hwnd': 8})
             load.assert_not_called()
 
+    def test_shell_escape_keeps_fresh_original_owner_events_and_rejects_leaked_keys(self):
+        for leaked in (False, True):
+            with self.subTest(leaked=leaked), tempfile.TemporaryDirectory() as temporary:
+                directory = Path(temporary)
+                process = mock.Mock(pid=12)
+                session = DRIVER.Session(mock.Mock(), process, directory, 'run', False, 60, True, True)
+                session.state = dict(ownerText='owner', comboSelection=0, counts={'owner-key': 0},
+                                     phase='owner', sequence=1, windows=[])
+                latest = copy.deepcopy(session.state); latest['sequence'] = 10
+                first = copy.deepcopy(latest); first['sequence'] = 11
+                if leaked: first['counts']['owner-key'] = 1
+                second = copy.deepcopy(first); second['sequence'] = 12
+                native, guard = mock.Mock(), mock.Mock()
+                def dismiss(observer, sender, claim, deadline, record, environment, authorized):
+                    self.assertTrue(authorized)
+                    self.assertIs(sender, session.desktop)
+                    self.assertEqual(60, deadline)
+                    record.update(escapes=[{'key': 27}], setupDeadline=23)
+                    claim('hosted-shell-escape', nativeProof={'key': 27})
+                guard.dismiss.side_effect = dismiss
+                with mock.patch.object(session, 'remaining', return_value=40), \
+                     mock.patch.object(session, 'native', return_value=[]), \
+                     mock.patch.object(session, 'match') as match, \
+                     mock.patch.object(DRIVER, 'observation', side_effect=[(latest, {}), (first, {}), (second, {})]), \
+                     mock.patch.object(DRIVER.time, 'monotonic', return_value=20), \
+                     mock.patch.object(DRIVER.time, 'sleep'), \
+                     mock.patch.object(DRIVER.importlib.util, 'spec_from_file_location', return_value=mock.Mock()), \
+                     mock.patch.object(DRIVER.importlib.util, 'module_from_spec', side_effect=[native, guard]):
+                    if leaked:
+                        with self.assertRaisesRegex(RuntimeError, 'leaked input'): session.dismiss_hosted_shell()
+                        match.assert_not_called()
+                    else:
+                        session.dismiss_hosted_shell()
+                        self.assertEqual(12, session.state['sequence'])
+                        match.assert_called_once()
+                    self.assertEqual(1, session.actions)
+                    self.assertEqual(60, session.deadline)
+                receipt = json.loads((directory/'startup-shell.json').read_text())
+                self.assertFalse(receipt['qualified'])
+                self.assertEqual(leaked, 'error' in receipt)
+
+    def test_shell_escape_is_not_admitted_to_portable_or_later_actions(self):
+        for portable, actions in ((True, 0), (False, 1)):
+            session = DRIVER.Session(mock.Mock(), None, Path('/unused'), 'run', portable, 60, True, True)
+            session.actions = actions
+            with self.subTest(portable=portable, actions=actions), \
+                 mock.patch.object(DRIVER.importlib.util, 'spec_from_file_location') as load:
+                with self.assertRaisesRegex(RuntimeError, 'first reference'): session.dismiss_hosted_shell()
+                load.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()

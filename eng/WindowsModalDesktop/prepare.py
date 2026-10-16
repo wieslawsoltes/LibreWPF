@@ -75,7 +75,9 @@ def main():
         shutil.copy2(source / name, target)
     automation = {}
     for original, name in [(HERE.parent / "progpu-wpf-modal-desktop.py", "eng/hosted-progpu-wpf-modal-desktop.py"),
-                           (HERE.parent / "WindowsGalleryClipboardConsumer/run-windows.py", "eng/WindowsGalleryClipboardConsumer/run-windows.py")]:
+                           (HERE.parent / "WindowsGalleryClipboardConsumer/run-windows.py", "eng/WindowsGalleryClipboardConsumer/run-windows.py"),
+                           (HERE / "prepare-desktop.py", "eng/WindowsModalDesktop/prepare-desktop.py"),
+                           (HERE / "shell-escape.py", "eng/WindowsModalDesktop/shell-escape.py")]:
         target = consumer / name
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(original, target)
