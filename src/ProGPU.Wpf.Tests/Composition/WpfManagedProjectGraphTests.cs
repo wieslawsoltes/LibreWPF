@@ -13345,7 +13345,7 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("\"--runtime\",", proGpuBuildWorkflow, StringComparison.Ordinal);
         Assert.Contains("\"${{ matrix.rid }}\",", proGpuBuildWorkflow, StringComparison.Ordinal);
         Assert.Contains("if ($IsWindows)", proGpuBuildWorkflow, StringComparison.Ordinal);
-        Assert.Contains("\"FullyQualifiedName~DiagnosticsLoggingSourceTests|FullyQualifiedName~StrongNameSigningTests|FullyQualifiedName~WindowsDpiAwarenessTests|FullyQualifiedName~WindowsGdiBitmapTests|FullyQualifiedName~GpuBufferDeviceLossTests|FullyQualifiedName~GpuCoverageUploadTests\"", proGpuBuildWorkflow, StringComparison.Ordinal);
+        Assert.Contains("\"FullyQualifiedName~DiagnosticsLoggingSourceTests|FullyQualifiedName~StrongNameSigningTests|FullyQualifiedName~WindowsDpiAwarenessTests|FullyQualifiedName~WindowsGdiBitmapTests|FullyQualifiedName~GpuBufferDeviceLossTests|FullyQualifiedName~GpuCoverageUploadTests|FullyQualifiedName~OwnedGpuFinalizerTests|FullyQualifiedName~GpuSeriesFinalizerTests|FullyQualifiedName~PipelineCacheFinalizerTests|FullyQualifiedName~NativeMouseButtonPacketTests|FullyQualifiedName~NativeWindowInputWindowsTests.OriginalButtonPacket\"", proGpuBuildWorkflow, StringComparison.Ordinal);
         Assert.Contains("dotnet @testArgs", proGpuBuildWorkflow, StringComparison.Ordinal);
         Assert.Contains("uses: actions/upload-artifact@v", proGpuBuildWorkflow, StringComparison.Ordinal);
         Assert.Contains("name: progpu-packages-linux-x64", proGpuBuildWorkflow, StringComparison.Ordinal);
