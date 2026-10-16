@@ -9,11 +9,11 @@
     <PackageName>LibreWPF.Transport$(TransportPackageNameSuffix)</PackageName>
     <AssemblyName>$(PackageName)</AssemblyName>
     <VersionPrefix>0.1.0</VersionPrefix>
-    <VersionSuffix>preview.69</VersionSuffix>
+    <VersionSuffix>preview.70</VersionSuffix>
     <Version>$(VersionPrefix)-$(VersionSuffix)</Version>
     <PackageVersion>$(Version)</PackageVersion>
     <PackageDescription>LibreWPF transport package for the portable managed presentation assemblies from the ProGPU port.</PackageDescription>
-    <PackageReleaseNotes>LibreWPF preview.69 owns the moved interoperability and compatibility projects, consumes the coordinated ProGPU and LibreWinForms sources, and excludes host compatibility libraries from Windows RID cross-builds. Existing rendering and application qualification boundaries remain documented.</PackageReleaseNotes>
+    <PackageReleaseNotes>LibreWPF preview.70 preserves original Win32 button-message positions and the complete native window identity, restores portable dispatcher synchronization, and selects the intended Direct3D compiler for Gallery startup. It consumes the coordinated ProGPU lifetime and text fixes. Documented rendering, platform and application qualification limits remain.</PackageReleaseNotes>
     <PackageTags>librewpf;progpu;xaml;themes;transport</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>

@@ -33,11 +33,10 @@ def load_producer(directory):
     return identity, archive
 
 
-def stage_producer(directory, feed, original_version):
+def stage_producer(directory, feed):
     identity, archive = load_producer(directory)
     feed.mkdir()
     inventory, sdk, engine = PACKAGE.stage_packages(archive, feed, identity["head"])
-    PACKAGE.require(sdk == original_version, "Original project SDK selector must match the selected producer")
     expected = {}
     for name, entry in inventory.items():
         package = feed / entry["file"]

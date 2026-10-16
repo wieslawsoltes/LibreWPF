@@ -19,7 +19,7 @@ ENGINE = "0.1.0-source.22222222"
 
 
 class CandidatePackageTests(unittest.TestCase):
-    def producer(self, root, mutate=None):
+    def producer(self, root, mutate=None, sdk_version=VERSION):
         success = dict(status="completed", conclusion="success")
         jobs = CANDIDATE.PACKAGE.BUILD_JOBS | CANDIDATE.CI.BOOTSTRAP_JOBS
         build = dict(success, databaseId=1, name="LibreWPF Build", headSha=HEAD,
@@ -32,7 +32,7 @@ class CandidatePackageTests(unittest.TestCase):
                  "ProGPU.Backend", "ProGPU.Backend.Native", "ProGPU.Backend.Dx12")
         with zipfile.ZipFile(archive, "w") as bundle:
             for name in names:
-                version = VERSION if name in names[:3] else ENGINE
+                version = sdk_version if name in names[:3] else ENGINE
                 data = io.BytesIO()
                 with zipfile.ZipFile(data, "w") as package:
                     package.writestr(name + ".nuspec", '<package><metadata><id>' + name + '</id><version>' + version +
@@ -48,11 +48,11 @@ class CandidatePackageTests(unittest.TestCase):
             (root / (name + ".json")).write_text(json.dumps(value))
         return receipts
 
-    def test_exact_whole_producer_stages_original_sdk_selector(self):
+    def test_exact_whole_producer_stages_actual_sdk_identity(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             self.producer(root)
-            value = CANDIDATE.stage_producer(root, root / "feed", VERSION)
+            value = CANDIDATE.stage_producer(root, root / "feed")
             self.assertEqual(dict(head=HEAD, build=1, docs=2), value["identity"])
             self.assertEqual((VERSION, ENGINE), (value["sdk"], value["engine"]))
             self.assertEqual(7, len(value["packages"]))
@@ -72,7 +72,7 @@ class CandidatePackageTests(unittest.TestCase):
                 root = Path(temporary)
                 self.producer(root, change)
                 with self.assertRaises(ValueError):
-                    CANDIDATE.stage_producer(root, root / "feed", VERSION)
+                    CANDIDATE.stage_producer(root, root / "feed")
                 self.assertFalse((root / "feed").exists())
 
     def test_pending_upload_does_not_infer_success_from_archive(self):
@@ -104,12 +104,13 @@ class CandidatePackageTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "archive differs"):
                     CANDIDATE.load_producer(root)
 
-    def test_new_sdk_version_cannot_rewrite_original_project_selector(self):
+    def test_new_sdk_version_is_never_relabeled_as_the_old_package(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            self.producer(root)
-            with self.assertRaisesRegex(ValueError, "Original project SDK selector"):
-                CANDIDATE.stage_producer(root, root / "feed", "0.1.0-preview.70")
+            self.producer(root, sdk_version="0.1.0-preview.70")
+            value = CANDIDATE.stage_producer(root, root / "feed")
+            self.assertEqual("0.1.0-preview.70", value["sdk"])
+            self.assertEqual("0.1.0-preview.70", value["packages"]["librewpf.sdk"]["version"])
 
     def test_private_restore_maps_all_product_families_to_qualified_feed(self):
         with tempfile.TemporaryDirectory() as temporary:

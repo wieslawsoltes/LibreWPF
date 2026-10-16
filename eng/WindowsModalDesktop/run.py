@@ -28,7 +28,8 @@ def main():
 
     def verify():
         require(sha(root / "public-inputs.json") == preparation["manifestSha256"], "Prepared package/source manifest changed")
-        verify_staged_sources(root, manifest, preparation["selectedSourceHashes"])
+        candidate = preparation["candidate"]
+        verify_staged_sources(root, manifest, preparation["selectedSourceHashes"], candidate["sdk"] if candidate else None)
         for name, digest in preparation["hostedAutomation"].items():
             require(sha(root / "consumer" / name) == digest, "Prepared hosted controller changed")
         verify_sources(Path(preparation["helper"]), manifest["formsHelperSource"], manifest["helpers"])
@@ -43,7 +44,8 @@ def main():
                "--forms-helper-commit", manifest["formsHelperSource"], "--output", str(evidence),
                "--hosted-windows-caption-activation", "--hosted-windows-shell-escape"]
     receipt = dict(qualified=False, completed=False, argv=command, deadlineSecondsPerProcess=60,
-                   maximumActionsPerProcess=64, applicationFilesUnchanged=True,
+                   maximumActionsPerProcess=64, applicationCodeAndScenariosUnchanged=True,
+                   applicationFilesUnchanged=preparation["candidate"] is None or preparation["candidate"]["sdk"] == manifest["version"],
                    observerRevision=preparation["observerRevision"],
                    packageSource=preparation["packageSource"],
                    candidate=preparation["candidate"],

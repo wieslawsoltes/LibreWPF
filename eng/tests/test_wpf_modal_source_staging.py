@@ -13,12 +13,13 @@ SPEC.loader.exec_module(PREPARE)
 class SourceStagingTests(unittest.TestCase):
     def stage(self, root):
         source = root / "source"
-        files = {PREPARE.OBSERVER: b"original observer\n", "samples/App.cs": b"original application\n"}
+        files = {PREPARE.OBSERVER: b"original observer\n", "samples/App.cs": b"original application\n",
+                 PREPARE.PROJECT: b'<Project Sdk="LibreWPF.Sdk/0.1.0-preview.69">\n  <PropertyGroup><UseWPF>true</UseWPF></PropertyGroup>\n</Project>\n'}
         for name, data in files.items():
             path = source / name
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(data)
-        manifest = dict(source={name: hashlib.sha256(data).hexdigest() for name, data in files.items()})
+        manifest = dict(version="0.1.0-preview.69", source={name: hashlib.sha256(data).hexdigest() for name, data in files.items()})
         observer = root / "observer-v2.cs"
         observer.write_bytes(b"corrected observer\n")
         output = root / "output"
@@ -52,6 +53,37 @@ class SourceStagingTests(unittest.TestCase):
                     (output / changed / PREPARE.OBSERVER).write_bytes(b"changed")
                 with self.assertRaises(RuntimeError):
                     PREPARE.verify_staged_sources(output, manifest, selected)
+
+    def test_candidate_changes_only_the_exact_sdk_selector_and_preserves_original(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            output, manifest, selected = self.stage(Path(temporary))
+            original = (output / "original-source" / PREPARE.PROJECT).read_bytes()
+            receipt = PREPARE.stage_sdk_selection(output, manifest, selected, "0.1.0-preview.70")
+            PREPARE.verify_staged_sources(output, manifest, selected, "0.1.0-preview.70")
+            self.assertEqual(original, (output / "original-source" / PREPARE.PROJECT).read_bytes())
+            self.assertEqual(original.replace(b"0.1.0-preview.69", b"0.1.0-preview.70"),
+                             (output / "consumer" / PREPARE.PROJECT).read_bytes())
+            self.assertEqual(("0.1.0-preview.69", "0.1.0-preview.70"),
+                             (receipt["originalVersion"], receipt["selectedVersion"]))
+            with self.assertRaises(RuntimeError):
+                PREPARE.verify_staged_sources(output, manifest, selected)
+
+    def test_rehashed_project_property_change_cannot_hide_in_sdk_selection(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            output, manifest, selected = self.stage(Path(temporary))
+            PREPARE.stage_sdk_selection(output, manifest, selected, "0.1.0-preview.70")
+            project = output / "consumer" / PREPARE.PROJECT
+            project.write_bytes(project.read_bytes().replace(b"true", b"false"))
+            selected[PREPARE.PROJECT] = PREPARE.sha(project)
+            with self.assertRaisesRegex(RuntimeError, "exact selected SDK reference"):
+                PREPARE.verify_staged_sources(output, manifest, selected, "0.1.0-preview.70")
+
+    def test_sdk_selection_rejects_property_expressions_and_malformed_versions(self):
+        for version in ('$(Version)', '0.1.0-preview.70\" Other=\"true', '0.1.0/../../old', ''):
+            with self.subTest(version=version), tempfile.TemporaryDirectory() as temporary:
+                output, manifest, selected = self.stage(Path(temporary))
+                with self.assertRaisesRegex(RuntimeError, "literal package version"):
+                    PREPARE.stage_sdk_selection(output, manifest, selected, version)
 
 
 if __name__ == "__main__":

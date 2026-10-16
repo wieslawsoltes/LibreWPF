@@ -296,10 +296,14 @@ archives reject before application preparation. The ordinary Build runs all
 offline modal/source/input/package controls, so moving desktop execution to
 explicit dispatch does not remove their automatic coverage.
 
-The original projects and all seven scenarios remain unchanged. Candidate
-packages use a private cache and feed with product-family source mappings; the
-SDK selector must still equal the original project version. The engine version
-is selected explicitly from the qualified package set. Before execution, nine
+All seven original scenarios and their application code remain unchanged.
+Candidate packages use a private cache and feed with product-family source
+mappings. The portable project's one literal SDK version selects the actual
+qualified package version, allowing preview.70 acceptance without relabeling it
+as preview.69. The original project is preserved separately; verification permits
+only that exact version replacement and rejects any other project-property change,
+even if its selected hash is recomputed. The engine version is also selected
+explicitly from the qualified package set. Before execution, nine
 actual framework, bridge, backend and native output DLLs must match their exact
 package members. All other output files, original source bytes, the common v2
 observer and immutable native-input helper retain their existing hashes.

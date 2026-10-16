@@ -6,6 +6,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import time
@@ -14,6 +15,7 @@ import zipfile
 
 HERE = Path(__file__).resolve().parent
 OBSERVER = "samples/ProGPU.Wpf.ModalInteractionApp/ModalObservation.cs"
+PROJECT = "samples/ProGPU.Wpf.ModalInteractionApp/ProGPU.Wpf.ModalInteractionApp.csproj"
 
 
 def require(value, message):
@@ -57,18 +59,42 @@ def stage_sources(source, root, manifest, selected_observer):
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source / name, target)
     # Preserve the original failed observer as evidence. Both applications use
-    # this same explicit v2 observer; UI, scenario and project sources stay
-    # byte-identical. Package selection is independently recorded below.
+    # this same explicit v2 observer. Application code and scenarios retain their
+    # bytes; candidate SDK reference selection is independently verified below.
     require(selected_observer.is_file() and not selected_observer.is_symlink(), "Selected observer is unavailable")
     shutil.copy2(selected_observer, root / "consumer" / OBSERVER)
     selected[OBSERVER] = sha(root / "consumer" / OBSERVER)
     return selected
 
 
-def verify_staged_sources(root, manifest, selected):
+def selected_project_bytes(root, manifest, sdk_version):
+    require(re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?", sdk_version) is not None,
+            "Selected SDK must retain a literal package version")
+    original = (root / "original-source" / PROJECT).read_bytes()
+    marker = ('<Project Sdk="LibreWPF.Sdk/' + manifest["version"] + '">').encode()
+    require(original.startswith(marker) and original.count(marker) == 1,
+            "Original SDK project selector is not the retained contract")
+    selected = ('<Project Sdk="LibreWPF.Sdk/' + sdk_version + '">').encode()
+    return original.replace(marker, selected, 1)
+
+
+def stage_sdk_selection(root, manifest, selected, sdk_version):
+    project = root / "consumer" / PROJECT
+    require(sha(project) == manifest["source"][PROJECT], "Original project changed before package selection")
+    project.write_bytes(selected_project_bytes(root, manifest, sdk_version))
+    selected[PROJECT] = sha(project)
+    return dict(path=PROJECT, originalVersion=manifest["version"], selectedVersion=sdk_version,
+                originalSha256=manifest["source"][PROJECT], selectedSha256=selected[PROJECT])
+
+
+def verify_staged_sources(root, manifest, selected, sdk_version=None):
     require(set(selected) == set(manifest["source"]), "Selected source inventory changed")
-    require(all(value == manifest["source"][name] for name, value in selected.items() if name != OBSERVER),
-            "Only the explicit read-only observer revision may differ")
+    for name, value in selected.items():
+        if name == OBSERVER:
+            continue
+        expected = (hashlib.sha256(selected_project_bytes(root, manifest, sdk_version)).hexdigest()
+                    if name == PROJECT and sdk_version is not None else manifest["source"][name])
+        require(value == expected, "Only the explicit read-only observer and exact selected SDK reference may differ")
     for name, expected in manifest["source"].items():
         require(sha(root / "original-source" / name) == expected, "Preserved original source changed: " + name)
         require(sha(root / "consumer" / name) == selected[name], "Selected source changed: " + name)
@@ -110,7 +136,7 @@ def main():
         shutil.copy2(original, target)
         automation[name] = sha(target)
     # This is the same isolated package-consumer configuration as the original
-    # public preview.69 build. Application/project files stay unchanged.
+    # public preview.69 build. Only a candidate's exact SDK selector may change.
     (consumer / "Directory.Build.props").write_text(
         "<Project><PropertyGroup><ProGpuWpfSdkSampleTargetFramework>net10.0</ProGpuWpfSdkSampleTargetFramework></PropertyGroup></Project>",
         encoding="utf-8")
@@ -124,9 +150,10 @@ def main():
         spec = importlib.util.spec_from_file_location("modal_candidate", HERE / "candidate-packages.py")
         candidate_module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(candidate_module)
-        candidate = candidate_module.stage_producer(args.candidate_inputs.resolve(strict=True), root / "feed", manifest["version"])
+        candidate = candidate_module.stage_producer(args.candidate_inputs.resolve(strict=True), root / "feed")
         actual = subprocess.check_output(["git", "-C", str(HERE), "rev-parse", "HEAD"], text=True).strip()
         require(candidate["identity"]["head"] == actual, "Candidate consumer automation must match the qualified producer")
+        candidate["sdkSelection"] = stage_sdk_selection(root, manifest, selected_sources, candidate["sdk"])
     env = os.environ.copy()
     for name in list(env):
         if name.startswith(("DOTNET_", "MSBuildSDK", "NUGET_", "NuGetPackageRoot", "ProGpu", "PROGPU",
@@ -201,7 +228,7 @@ def main():
     require({"librewpf.sdk", "librewpf.transport", "librewpf.progpu", "librewpf.interop", "progpu.backend",
              "progpu.backend.native", "progpu.scene.native"}.issubset(restored),
             "The original native-MIL product package closure is incomplete")
-    verify_staged_sources(root, manifest, selected_sources)
+    verify_staged_sources(root, manifest, selected_sources, candidate["sdk"] if candidate else None)
     verify_sources(helper, manifest["formsHelperSource"], manifest["helpers"])
     receipt.update(prepared=True, packages=restored, manifestSha256=sha(root / "public-inputs.json"),
                    driver=str(consumer / "eng/hosted-progpu-wpf-modal-desktop.py"))
