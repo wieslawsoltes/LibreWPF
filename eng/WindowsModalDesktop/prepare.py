@@ -73,6 +73,13 @@ def main():
         target = consumer / name
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source / name, target)
+    automation = {}
+    for original, name in [(HERE.parent / "progpu-wpf-modal-desktop.py", "eng/hosted-progpu-wpf-modal-desktop.py"),
+                           (HERE.parent / "WindowsGalleryClipboardConsumer/run-windows.py", "eng/WindowsGalleryClipboardConsumer/run-windows.py")]:
+        target = consumer / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(original, target)
+        automation[name] = sha(target)
     # This is the same isolated package-consumer configuration as the original
     # public preview.69 build. Application/project/observer files stay unchanged.
     (consumer / "Directory.Build.props").write_text(
@@ -95,7 +102,9 @@ def main():
     require(subprocess.check_output([str(dotnet), "--version"], cwd=consumer, env=env, text=True).strip() == manifest["sdk"],
             "Original exact consumer SDK is required")
     receipt = dict(prepared=False, qualified=False, dotnet=str(dotnet), source=manifest["wpfSource"],
-                   helper=str(helper), helperCommit=manifest["formsHelperSource"], builds=[], payloads={})
+                   helper=str(helper), helperCommit=manifest["formsHelperSource"], builds=[], payloads={},
+                   hostedAutomation=automation, automationCommit=subprocess.check_output(
+                       ["git", "-C", str(HERE), "rev-parse", "HEAD"], text=True).strip())
     save(root / "preparation.json", receipt)
     (root / "runtime-inventory.txt").write_text(subprocess.check_output([str(dotnet), "--list-runtimes"], text=True), encoding="utf-8")
     for kind, name, tfm in [("microsoft", "ProGPU.Wpf.ModalInteractionApp.Windows", "net10.0-windows"),
@@ -142,7 +151,7 @@ def main():
         require(sha(consumer / name) == digest, "Original application/driver source changed during build")
     verify_sources(helper, manifest["formsHelperSource"], manifest["helpers"])
     receipt.update(prepared=True, packages=restored, manifestSha256=sha(root / "public-inputs.json"),
-                   driver=str(consumer / "eng/progpu-wpf-modal-desktop.py"))
+                   driver=str(consumer / "eng/hosted-progpu-wpf-modal-desktop.py"))
     save(root / "preparation.json", receipt)
     print("Prepared the unchanged paired application and verified public package closure; no UI executed.")
 

@@ -110,6 +110,52 @@ class DesktopReceiptTests(unittest.TestCase):
                 with self.assertRaisesRegex(RuntimeError, "exact requested commit"):
                     DRIVER.load_helper(Path(temporary).resolve(), "a" * 40)
 
+    def test_ordinary_initial_activation_keeps_the_existing_provider_call(self):
+        desktop = mock.Mock()
+        session = DRIVER.Session(desktop, None, Path('/unused'), 'run', False, 60)
+        owner = {'hwnd': 7}
+        session.activate(owner)
+        desktop.activate.assert_called_once_with(owner)
+        self.assertEqual(0, session.actions)
+
+    def test_hosted_activation_preserves_deadline_and_counts_the_caption_action(self):
+        process = mock.Mock(pid=12)
+        process.poll.return_value = None
+        desktop = mock.Mock()
+        desktop.window_identity.side_effect = lambda window: window['hwnd']
+        module = mock.Mock()
+        def activate(hwnd, pid, deadline, record, environment):
+            self.assertEqual((7, 12, 60), (hwnd, pid, deadline))
+            record.update(clickCount=1, after=7)
+        module.Desktop.return_value.activate_ci_window.side_effect = activate
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            for name in ('stdout.txt', 'stderr.txt'): (directory/name).touch()
+            session = DRIVER.Session(desktop, process, directory, 'run', False, 60, True)
+            session.owner_identity = 7
+            with mock.patch.object(DRIVER.time, 'monotonic', return_value=20), \
+                 mock.patch.object(DRIVER.importlib.util, 'spec_from_file_location', return_value=mock.Mock()), \
+                 mock.patch.object(DRIVER.importlib.util, 'module_from_spec', return_value=module):
+                session.activate({'hwnd': 7})
+                self.assertEqual(1, session.actions)
+                self.assertEqual(60, session.deadline)
+                module.Desktop.assert_called_once_with(adopt_physical_coordinates=True)
+                self.assertEqual('hosted-caption', json.loads((directory/'input-001.json').read_text())['kind'])
+                with self.assertRaisesRegex(RuntimeError, 'startup-only'):
+                    session.activate({'hwnd': 7})
+                module.Desktop.return_value.activate_ci_window.assert_called_once()
+                desktop.activate.assert_not_called()
+
+    def test_hosted_activation_rejects_replaced_owner_before_loading_native_input(self):
+        session = DRIVER.Session(mock.Mock(), None, Path('/unused'), 'run', True, 60, True)
+        session.owner_identity = 7
+        session.desktop.window_identity.return_value = 8
+        with mock.patch.object(session, 'remaining'), \
+             mock.patch.object(DRIVER.importlib.util, 'spec_from_file_location') as load:
+            with self.assertRaisesRegex(RuntimeError, 'identity changed'):
+                session.activate({'hwnd': 8})
+            load.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()

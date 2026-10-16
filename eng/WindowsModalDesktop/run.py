@@ -30,6 +30,8 @@ def main():
         require(sha(root / "public-inputs.json") == preparation["manifestSha256"], "Prepared package/source manifest changed")
         for name, digest in manifest["source"].items():
             require(sha(root / "consumer" / name) == digest, "Original application/driver changed")
+        for name, digest in preparation["hostedAutomation"].items():
+            require(sha(root / "consumer" / name) == digest, "Prepared hosted controller changed")
         verify_sources(Path(preparation["helper"]), manifest["formsHelperSource"], manifest["helpers"])
         for payload in preparation["payloads"].values():
             require(inventory(Path(payload["directory"])) == payload["files"], "Prepared app payload changed")
@@ -39,9 +41,12 @@ def main():
                "--reference-app", preparation["payloads"]["microsoft"]["app"],
                "--portable-app", preparation["payloads"]["portable"]["app"],
                "--forms-helper-checkout", preparation["helper"],
-               "--forms-helper-commit", manifest["formsHelperSource"], "--output", str(evidence)]
+               "--forms-helper-commit", manifest["formsHelperSource"], "--output", str(evidence),
+               "--hosted-windows-caption-activation"]
     receipt = dict(qualified=False, completed=False, argv=command, deadlineSecondsPerProcess=60,
-                   maximumActionsPerProcess=64, sourceFilesUnchanged=True)
+                   maximumActionsPerProcess=64, sourceFilesUnchanged=True,
+                   hostedAutomation=preparation["hostedAutomation"], automationCommit=preparation["automationCommit"],
+                   startupInput="At most one PID/HTCAPTION-verified click per process inside the original deadline/action budget")
     save(root / "launch.json", receipt)
     previous = sys.argv
     started = time.monotonic()

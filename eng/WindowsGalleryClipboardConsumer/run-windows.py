@@ -96,7 +96,7 @@ def require_monitor_coverage(crop, monitors):
 
 
 class Desktop:
-    def __init__(self):
+    def __init__(self, *, adopt_physical_coordinates=False):
         require(os.name == "nt", "Windows only")
         self.u = C.WinDLL("user32", use_last_error=True)
         self.g = C.WinDLL("gdi32", use_last_error=True)
@@ -132,7 +132,13 @@ class Desktop:
         bind(self.g, "DeleteDC", W.BOOL, W.HDC)
         bind(self.g, "BitBlt", W.BOOL, W.HDC, C.c_int, C.c_int, C.c_int, C.c_int, W.HDC, C.c_int, C.c_int, W.DWORD)
         bind(self.g, "GetDIBits", C.c_int, W.HDC, W.HBITMAP, W.UINT, W.UINT, W.LPVOID, W.LPVOID, W.UINT)
-        require(self.u.SetProcessDpiAwarenessContext(W.HANDLE(-4)), "capture process must admit physical per-monitor coordinates")
+        if adopt_physical_coordinates:
+            bind(self.u, "GetThreadDpiAwarenessContext", W.HANDLE)
+            bind(self.u, "AreDpiAwarenessContextsEqual", W.BOOL, W.HANDLE, W.HANDLE)
+            require(self.u.AreDpiAwarenessContextsEqual(self.u.GetThreadDpiAwarenessContext(), W.HANDLE(-4)),
+                    "existing observer must use physical per-monitor-v2 coordinates")
+        else:
+            require(self.u.SetProcessDpiAwarenessContext(W.HANDLE(-4)), "capture process must admit physical per-monitor coordinates")
 
     def monitors(self, crop):
         result = []
@@ -179,7 +185,12 @@ class Desktop:
         clipboard_mode(False, True, environment)
         require(snapshot.get("pid") == pid and snapshot.get("frame", 0) > 0,
                 "foreign or unpresented CI activation target")
-        hwnd = snapshot["hwnd"]
+        self.activate_ci_window(snapshot["hwnd"], pid, deadline, record, environment)
+
+    def activate_ci_window(self, hwnd, pid, deadline, record, environment):
+        # Source observers with their own native-window proof use the same
+        # guarded caption operation. Gallery still requires its actual frame.
+        clipboard_mode(False, True, environment)
         self.owned_window(hwnd, pid)
         require(time.monotonic() < deadline - 3, "original60-second budget exhausted before CI activation")
         record.update(pid=pid, hwnd=hwnd, before=self.u.GetForegroundWindow(), clickCount=0)

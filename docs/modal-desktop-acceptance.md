@@ -100,8 +100,17 @@ use the original SDK 10.0.201 build configuration; the portable consumer restore
 public preview.69 packages whose complete unsigned contents match the published
 release assets. The receipt records the actual installed runtime separately.
 
-Preparation does not launch either application. The input stage calls the
-unchanged original driver once: Microsoft first, portable only after success.
+Preparation does not launch either application. The input stage retains the
+original seven-scenario driver protocol: Microsoft first, portable only after
+success. A hosted-only startup option reuses the Gallery controller's bounded
+caption activation, after the modal observer has independently matched the exact
+PID, title, HWND and client geometry. It sends at most one unobstructed native
+HTCAPTION click, counts it in the original 64-action budget, and observes actual
+foreground ownership inside the original 60-second deadline. It rejects held
+input, changed identities, covered captions and failed activation without retry.
+The shared Gallery entry still requires its original presented-frame witness;
+the modal entry uses its own source/native identity proof. An existing native
+observer must prove per-monitor-v2 coordinates before the helper adopts them.
 Each process retains all seven scenarios, the 60-second deadline, original
 obstruction/identity checks, 64-action budget, captures and owned cleanup. Before
 launch, the existing hosted desktop setup accepts the ordinary shell or sends
@@ -111,16 +120,23 @@ setup. It sends no input, changes no settings or clipboard contents, and retains
 its own receipt. No failed attempt is retried by the workflow. Raw images, original failures,
 source/payload hashes and package provenance are uploaded even on failure.
 
-The original eleven pure receipt/deadline/owner-guard controls pass locally.
+All fourteen pure modal receipt/deadline/owner-guard controls and all 58 shared
+Gallery controller controls pass locally. The original eleven modal cases are
+unchanged; additional controls cover the startup connection and action accounting.
 The first hosted run stopped at original-source hash verification before any
 application build or execution. Its original job log is retained. Hosted
 checkouts now explicitly keep committed LF bytes; the exact source hashes are
 unchanged, and preparation failures retain a receipt before propagating.
 The next run verified both builds and the complete public package closure, then
 failed the Microsoft reference's foreground check before any physical input.
-Its original snapshots and result remain retained. The workflow now reuses the
-existing strictly identified hosted desktop preparation; application, driver and
-helper bytes, original foreground checks and all deadlines remain unchanged.
+Its original snapshots and result remain retained. Strict hosted desktop
+preparation subsequently closed the exactly identified WWAHost startup window,
+but the original controller still failed foreground ownership before input.
+That third result is also retained. The explicit caption option replaces only
+the initial activation request; original application and Forms helper bytes,
+scenario actions, foreground checks and all deadlines remain unchanged. The
+historical driver is retained beside the selected controller, whose exact
+source hashes and checkout commit are recorded before and after execution.
 Hosted execution and independent raw-image review remain pending. Source
 `qualified=false` values remain unchanged; even a completed Windows pair does
 not qualify Linux or close the broader popup/modality issues.

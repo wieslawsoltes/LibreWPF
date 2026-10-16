@@ -6,6 +6,7 @@ import hashlib
 import importlib.util
 import json
 import math
+import os
 from pathlib import Path
 import re
 import stat
@@ -156,7 +157,7 @@ def load_helper(checkout, commit):
 
 
 class Session:
-    def __init__(self, desktop, process, directory, run, portable, deadline):
+    def __init__(self, desktop, process, directory, run, portable, deadline, hosted_caption=False):
         self.desktop, self.process, self.directory, self.run = desktop, process, directory, run
         self.portable = portable
         self.deadline = deadline
@@ -166,6 +167,35 @@ class Session:
         self.actions = 0
         self.owner_identity = None
         self.blocked_owner_baseline = None
+        self.hosted_caption = hosted_caption
+        self.activation_attempted = False
+
+    def activate(self, owner):
+        if not self.hosted_caption:
+            self.desktop.activate(owner)
+            return
+        self.remaining()
+        # Only initial owner activation changes. Every original foreground,
+        # obstruction, source-identity and scenario assertion remains in force.
+        require(self.phase == "startup" and self.actions == 0 and not self.activation_attempted,
+                "Hosted caption activation is startup-only and may not be retried")
+        require(self.identity(owner) == self.owner_identity, "Activation owner identity changed")
+        self.activation_attempted = True
+        path = Path(__file__).parent / "WindowsGalleryClipboardConsumer/run-windows.py"
+        spec = importlib.util.spec_from_file_location("modal_hosted_caption", path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        record = dict(qualified=False, helperSha256=digest(path))
+        try:
+            module.Desktop(adopt_physical_coordinates=True).activate_ci_window(
+                owner["hwnd"], self.process.pid, self.deadline, record, os.environ)
+        except BaseException as error:
+            record["error"] = str(error)[:4096]
+            raise
+        finally:
+            write(self.directory / "startup-activation.json", record)
+        if record["clickCount"]:
+            self.action("hosted-caption", nativeProof=record)
 
     def remaining(self):
         value = self.deadline - time.monotonic()
@@ -296,7 +326,7 @@ class Session:
 def scenario(session):
     count = lambda state, key: state["counts"].get(key, 0)
     windows = session.wait(lambda state: state["phase"] == "owner" and bool(state["windows"]))
-    session.desktop.activate(next(value for value in windows if value["title"] == session.state["title"]))
+    session.activate(next(value for value in windows if value["title"] == session.state["title"]))
     session.capture("01-owner", lambda state: state["windows"][0]["active"])
     for action, suffix in (("message", " MessageBox"), ("dialog", " Dialog")):
         session.point(action)
@@ -406,7 +436,7 @@ def run_one(args, module, shared, app, output, portable):
             desktop = make_desktop(args.platform, module, args.macos_helper, output,
                                    lambda: observation(output / "app", process.pid, run)[0])
             result["nativeHelper"] = getattr(desktop, "provenance", None)
-            session = Session(desktop, process, output, run, portable, deadline)
+            session = Session(desktop, process, output, run, portable, deadline, args.hosted_windows_caption_activation)
             if args.platform == "macos":
                 desktop.deadline = session.deadline
             scenario(session)
@@ -452,12 +482,17 @@ def main():
     parser.add_argument("--forms-helper-checkout", type=Path, required=True)
     parser.add_argument("--forms-helper-commit", required=True)
     parser.add_argument("--macos-helper", type=Path)
+    parser.add_argument("--hosted-windows-caption-activation", action="store_true")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     require((args.platform == "windows" and sys.platform == "win32") or
             (args.platform == "macos" and sys.platform == "darwin") or
             (args.platform == "x11" and sys.platform.startswith("linux")), "Unsupported platform selection")
     require((args.reference_app is not None) == (args.platform == "windows"), "Windows requires an original Microsoft pair only")
+    require(not args.hosted_windows_caption_activation or (args.platform == "windows" and
+            os.environ.get("GITHUB_ACTIONS") == "true" and os.environ.get("RUNNER_ENVIRONMENT") == "github-hosted"
+            and os.environ.get("RUNNER_OS") == "Windows" and os.environ.get("GITHUB_REPOSITORY") == "wieslawsoltes/LibreWPF"),
+            "Caption activation is restricted to this repository's disposable hosted Windows desktop")
     regular(args.output.parent, True)
     require(args.output.is_absolute() and not args.output.exists(), "Output must be a fresh absolute directory")
     module, shared = load_helper(args.forms_helper_checkout, args.forms_helper_commit)

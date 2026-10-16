@@ -6,6 +6,8 @@ on:
     paths:
       - '.github/workflows/progpu-wpf-modal-desktop.yml'
       - 'eng/WindowsModalDesktop/**'
+      - 'eng/progpu-wpf-modal-desktop.py'
+      - 'eng/WindowsGalleryClipboardConsumer/run-windows.py'
 
 permissions:
   contents: read
@@ -52,6 +54,13 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Validate original modal and shared hosted activation controls
+        shell: pwsh
+        run: |
+          python automation/eng/tests/test_wpf_modal_desktop_contract.py -v
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python automation/eng/WindowsGalleryClipboardConsumer/test_contract.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Prepare the disposable hosted desktop
         shell: pwsh
         run: |
