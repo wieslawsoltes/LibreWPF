@@ -832,10 +832,10 @@ public sealed class WpfManagedProjectGraphTests
 
         Assert.Contains(
             projectReferences,
-            include => include == @"$(ProGpuSourceRoot)src\ProGPU.Text\ProGPU.Text.csproj");
+            include => include == @"$(ProGpuSourceRoot)/src\ProGPU.Text\ProGPU.Text.csproj");
         Assert.Contains(
             projectReferences,
-            include => include == @"$(ProGpuSourceRoot)src\ProGPU.Vector\ProGPU.Vector.csproj");
+            include => include == @"$(ProGpuSourceRoot)/src\ProGPU.Vector\ProGPU.Vector.csproj");
     }
 
     [Fact]

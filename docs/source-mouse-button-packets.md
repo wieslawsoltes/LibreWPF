@@ -22,7 +22,8 @@ producer and rebuilt consumer; existing qualified submodule pins must not be
 advanced to an untested producer just to compile the new adapter.
 
 The bridge's source project references now honor the existing `ProGpuSourceRoot`
-property, matching the framework compatibility projects. This keeps an explicitly
+property, with or without a trailing separator, matching the framework
+compatibility projects. This keeps an explicitly
 selected producer coherent during local authoring instead of combining the new
 framework reference with an older hardcoded bridge reference. The default remains
 the pinned `external/ProGPU` checkout; a local source build is not qualification.
