@@ -104,6 +104,65 @@ class DesktopReceiptTests(unittest.TestCase):
         with mock.patch.object(DRIVER.time, "monotonic", return_value=61), self.assertRaisesRegex(RuntimeError, "60-second"):
             session.remaining()
 
+    def test_capture_change_freezes_failure_without_repair_or_recapture(self):
+        for diagnostic_error in (False, True):
+            with self.subTest(diagnostic_error=diagnostic_error), tempfile.TemporaryDirectory() as temporary:
+                directory = Path(temporary).resolve()
+                desktop = mock.Mock()
+                desktop.screenshot.side_effect = lambda pid, windows, path: (path.write_bytes(b'original'), {'sha256': 'raw'})[1]
+                session = DRIVER.Session(desktop, mock.Mock(pid=17), directory, 'run', False, 60, True)
+                session.state = dict(sequence=50, windows=[], focus='OwnerCombo', counts={'owner-deactivated': 2})
+                session.source_receipt = {'path': 'before'}
+                session.wait = mock.Mock(return_value=[])
+                session.native = mock.Mock(return_value=[])
+                session.remaining = mock.Mock(return_value=5)
+                after = dict(sequence=55, windows=[], focus=None, counts={'owner-deactivated': 3})
+                module = mock.Mock()
+                module.foreground.return_value = {'hwnd': 8, 'after': 8, 'pid': 22}
+                if diagnostic_error:
+                    module.foreground.side_effect = RuntimeError('observer unavailable')
+                with mock.patch.object(DRIVER, 'observation', return_value=(after, {'path': 'after'})) as observe, \
+                     mock.patch.object(DRIVER.importlib.util, 'spec_from_file_location', return_value=mock.Mock()), \
+                     mock.patch.object(DRIVER.importlib.util, 'module_from_spec', return_value=module):
+                    with self.assertRaisesRegex(RuntimeError, '^Source state changed during capture$'):
+                        session.capture('06-combo', lambda state: True)
+                record = json.loads((directory/'06-combo-capture-failure.json').read_text())
+                self.assertFalse(record['originalSourceStateUnchanged'])
+                self.assertFalse(record['qualified'])
+                self.assertEqual(session.state, record['sourceBefore'])
+                self.assertEqual(after, record['sourceAfter'])
+                self.assertEqual({'path': 'after'}, record['sourceAfterReceipt'])
+                self.assertEqual(60, session.deadline)
+                self.assertEqual(0, session.actions)
+                self.assertFalse((directory/'06-combo.json').exists())
+                self.assertEqual(b'original', (directory/'06-combo.bmp').read_bytes())
+                self.assertEqual(diagnostic_error, 'diagnosticError' in record)
+                module.foreground.assert_called_once_with(desktop)
+                session.wait.assert_called_once()
+                observe.assert_called_once()
+                desktop.screenshot.assert_called_once()
+                desktop.pointer.assert_not_called()
+                desktop.key.assert_not_called()
+                desktop.activate.assert_not_called()
+
+    def test_successful_capture_does_not_load_failure_observer(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary).resolve()
+            desktop = mock.Mock()
+            desktop.screenshot.side_effect = lambda pid, windows, path: (path.write_bytes(b'original'), {})[1]
+            session = DRIVER.Session(desktop, mock.Mock(pid=17), directory, 'run', False, 60, True)
+            session.state = dict(sequence=50, windows=[], focus='OwnerCombo')
+            session.source_receipt = {'path': 'before'}
+            session.wait = mock.Mock(return_value=[])
+            session.native = mock.Mock(return_value=[])
+            session.remaining = mock.Mock(return_value=5)
+            with mock.patch.object(DRIVER, 'observation', return_value=(session.state, {})), \
+                 mock.patch.object(session, 'record_capture_change') as diagnose:
+                session.capture('06-combo', lambda state: True)
+            diagnose.assert_not_called()
+            self.assertTrue((directory/'06-combo.json').exists())
+            self.assertFalse((directory/'06-combo-capture-failure.json').exists())
+
     def test_wrong_helper_head_is_rejected_before_import(self):
         with tempfile.TemporaryDirectory() as temporary:
             with mock.patch.object(DRIVER.subprocess, "run", return_value=mock.Mock(stdout=b"b" * 40 + b"\n")):

@@ -2,6 +2,23 @@
 import ctypes as C
 
 
+def foreground(desktop):
+    """One read-only failure observation; a changed handle is evidence, not repair."""
+    user = desktop.user
+    user.GetClassNameW.restype = C.c_int32
+    user.GetClassNameW.argtypes = [C.c_void_p, C.c_wchar_p, C.c_int32]
+    hwnd = int(user.GetForegroundWindow() or 0)
+    pid = C.c_uint32()
+    title, name = C.create_unicode_buffer(1024), C.create_unicode_buffer(256)
+    thread = 0
+    if hwnd:
+        thread = user.GetWindowThreadProcessId(hwnd, C.byref(pid))
+        user.GetWindowTextW(hwnd, title, len(title))
+        user.GetClassNameW(hwnd, name, len(name))
+    return dict(hwnd=hwnd, pid=pid.value, thread=thread, title=title.value,
+                windowClass=name.value, after=int(user.GetForegroundWindow() or 0))
+
+
 def pointer():
     class Point(C.Structure):
         _fields_ = [("x", C.c_int32), ("y", C.c_int32)]

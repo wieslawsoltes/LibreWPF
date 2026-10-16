@@ -428,8 +428,11 @@ class Session:
         require(self.image_bytes <= 128 * 1024 * 1024, "Screenshot budget exceeded")
         self.remaining()
         require(self.native() == windows, "Native identities changed during capture")
-        state, _ = observation(self.directory / "app", self.process.pid, self.run)
-        require(stable(state) == stable(self.state), "Source state changed during capture")
+        state, receipt = observation(self.directory / "app", self.process.pid, self.run)
+        unchanged = stable(state) == stable(self.state)
+        if not unchanged:
+            self.record_capture_change(state, receipt, windows, image)
+        require(unchanged, "Source state changed during capture")
         write(self.directory / (phase + ".json"), dict(qualified=False, pid=self.process.pid,
               source=self.state, sourceReceipt=self.source_receipt, nativeWindows=windows, image=image))
         if phase == "01-owner" and self.hosted_caption:
@@ -439,6 +442,31 @@ class Session:
             record = self.observe_native_windows(owner, windows)
             self.initial_native_windows = initial_windows(owner, self.process.pid, record)
             write(self.directory / "initial-native-inventory.json", record)
+
+    def record_capture_change(self, state, receipt, windows, image):
+        # Freeze the original failed comparison before observing anything else.
+        # No new input, settling, recapture or reinterpretation can pass it.
+        record = dict(qualified=False, originalSourceStateUnchanged=False,
+                      sourceBefore=self.state, sourceBeforeReceipt=self.source_receipt,
+                      sourceAfter=state, sourceAfterReceipt=receipt,
+                      nativeWindows=windows, image=image)
+        try:
+            self.remaining()
+            if self.hosted_caption:
+                path = Path(__file__).parent / "WindowsModalDesktop/native-window-observation.py"
+                spec = importlib.util.spec_from_file_location("modal_failed_capture_observation", path)
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
+                record["foregroundAfterFailure"] = module.foreground(self.desktop)
+                record["helperSha256"] = digest(path)
+            self.remaining()
+        except BaseException as error:
+            record["diagnosticError"] = str(error)[:4096]
+        try:
+            write(self.directory / (self.phase + "-capture-failure.json"), record)
+        except BaseException:
+            # A secondary diagnostic failure cannot replace the original error.
+            pass
 
 
 def check_native_retirement(session):
