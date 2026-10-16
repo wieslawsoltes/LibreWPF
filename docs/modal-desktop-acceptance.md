@@ -109,6 +109,10 @@ and no failed attempt is retried by the workflow. Raw images, original failures,
 source/payload hashes and package provenance are uploaded even on failure.
 
 The original eleven pure receipt/deadline/owner-guard controls pass locally.
+The first hosted run stopped at original-source hash verification before any
+application build or execution. Its original job log is retained. Hosted
+checkouts now explicitly keep committed LF bytes; the exact source hashes are
+unchanged, and preparation failures retain a receipt before propagating.
 Hosted execution and independent raw-image review remain pending. Source
 `qualified=false` values remain unchanged; even a completed Windows pair does
 not qualify Linux or close the broader popup/modality issues.

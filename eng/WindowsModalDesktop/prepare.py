@@ -33,8 +33,10 @@ def verify_sources(checkout, commit, files):
     require(actual == commit, "The original source checkout must retain its exact commit")
     for name, digest in files.items():
         path = checkout / name
-        require(path.is_file() and not path.is_symlink() and sha(path) == digest,
-                "Original source bytes changed: " + name)
+        require(path.is_file() and not path.is_symlink(), "Original source file is unavailable: " + name)
+        actual_digest = sha(path)
+        require(actual_digest == digest,
+                f"Original source bytes changed: {name}; expected {digest}, actual {actual_digest}")
 
 
 def inventory(directory):
@@ -56,12 +58,16 @@ def main():
             and os.environ.get("GITHUB_REPOSITORY") == "wieslawsoltes/LibreWPF",
             "Preparation is restricted to this repository's disposable Windows runner")
     manifest = json.loads((HERE / "public-inputs.json").read_text(encoding="utf-8"))
-    source, helper = args.source.resolve(strict=True), args.forms_helper_checkout.resolve(strict=True)
-    verify_sources(source, manifest["wpfSource"], manifest["source"])
-    verify_sources(helper, manifest["formsHelperSource"], manifest["helpers"])
     root = args.output.resolve()
     root.mkdir(parents=True, exist_ok=False)
     save(root / "public-inputs.json", manifest)
+    try:
+        source, helper = args.source.resolve(strict=True), args.forms_helper_checkout.resolve(strict=True)
+        verify_sources(source, manifest["wpfSource"], manifest["source"])
+        verify_sources(helper, manifest["formsHelperSource"], manifest["helpers"])
+    except Exception as error:
+        save(root / "preparation.json", dict(prepared=False, qualified=False, error=str(error)))
+        raise
     consumer = root / "consumer"
     for name in manifest["source"]:
         target = consumer / name

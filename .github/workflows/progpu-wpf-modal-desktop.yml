@@ -16,6 +16,13 @@ jobs:
     runs-on: windows-11-arm
     timeout-minutes: 15
     steps:
+      - name: Preserve committed source bytes in the disposable runner checkouts
+        shell: pwsh
+        run: |
+          git config --global core.autocrlf false
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          git config --global core.eol lf
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - uses: actions/checkout@v4
         with:
           path: automation
