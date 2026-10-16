@@ -88,3 +88,27 @@ for receipt identity, immutable writes, malformed metadata, exposed source bound
 owner event invariance, stable geometry, original deadline and immutable helper head.
 These controls have **not been executed**, and do not replace the native obstruction,
 physical event, rendering, focus/lifetime or original Microsoft comparisons.
+
+## Isolated hosted Windows execution
+
+`Original Windows modal desktop checks` runs the already approved paired workload
+on a disposable GitHub-hosted ARM64 Windows desktop, without using local shared
+VMs. `eng/WindowsModalDesktop` verifies the original application, observer and
+driver against immutable source `0214bb4569553741244c4fdf10cb78a9dc90661f`, and the
+shared helper against `1538b491c17d300387339adce7196700f41cf23a`. Both applications
+use the original SDK 10.0.201 build configuration; the portable consumer restores
+public preview.69 packages whose complete unsigned contents match the published
+release assets. The receipt records the actual installed runtime separately.
+
+Preparation does not launch either application. The input stage calls the
+unchanged original driver once: Microsoft first, portable only after success.
+Each process retains all seven scenarios, the 60-second deadline, original
+obstruction/identity checks, 64-action budget, captures and owned cleanup. No
+foreign window is closed, no desktop settings or clipboard contents are changed,
+and no failed attempt is retried by the workflow. Raw images, original failures,
+source/payload hashes and package provenance are uploaded even on failure.
+
+The original eleven pure receipt/deadline/owner-guard controls pass locally.
+Hosted execution and independent raw-image review remain pending. Source
+`qualified=false` values remain unchanged; even a completed Windows pair does
+not qualify Linux or close the broader popup/modality issues.
