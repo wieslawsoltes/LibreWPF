@@ -303,7 +303,9 @@ qualified package version, allowing preview.70 acceptance without relabeling it
 as preview.69. The original project is preserved separately; verification permits
 only that exact version replacement and rejects any other project-property change,
 even if its selected hash is recomputed. The engine version is also selected
-explicitly from the qualified package set. Before execution, nine
+explicitly from the qualified package set. Receipts list every changed source
+file, including the explicit observer revision, and report whole-file equality
+as false whenever that list is nonempty. Before execution, nine
 actual framework, bridge, backend and native output DLLs must match their exact
 package members. All other output files, original source bytes, the common v2
 observer and immutable native-input helper retain their existing hashes.

@@ -43,9 +43,11 @@ def main():
                "--forms-helper-checkout", preparation["helper"],
                "--forms-helper-commit", manifest["formsHelperSource"], "--output", str(evidence),
                "--hosted-windows-caption-activation", "--hosted-windows-shell-escape"]
+    source_changes = sorted(name for name, digest in manifest["source"].items()
+                            if preparation["selectedSourceHashes"][name] != digest)
     receipt = dict(qualified=False, completed=False, argv=command, deadlineSecondsPerProcess=60,
-                   maximumActionsPerProcess=64, applicationCodeAndScenariosUnchanged=True,
-                   applicationFilesUnchanged=preparation["candidate"] is None or preparation["candidate"]["sdk"] == manifest["version"],
+                   maximumActionsPerProcess=64, scenarioSourcesUnchanged=True,
+                   applicationFilesUnchanged=not source_changes, changedSourceFiles=source_changes,
                    observerRevision=preparation["observerRevision"],
                    packageSource=preparation["packageSource"],
                    candidate=preparation["candidate"],
