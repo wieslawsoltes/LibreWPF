@@ -482,7 +482,8 @@ def make_desktop(platform, module, helper, output, read_state):
     return WpfMacDesktop(helper, output)
 
 
-def run_one(args, module, shared, app, output, portable):
+def run_one(args, module, shared, app, output, portable, windows_desktop=None):
+    require(windows_desktop is None or args.platform == "windows", "Only the stateless Windows observer can be shared")
     regular(app)
     output.mkdir()
     run = uuid.uuid4().hex
@@ -492,15 +493,17 @@ def run_one(args, module, shared, app, output, portable):
     result = dict(schema="wpf-modal-desktop-result-v1", qualified=False, binarySourceIdentityVerified=False,
                   app=str(app), appSha256=digest(app),
                   argv=argv, helpers=shared, sourceSha256=digest(Path(__file__).parents[1] / "samples/ProGPU.Wpf.ModalInteractionApp/App.xaml.cs"))
-    desktop = process = session = failure = None
+    desktop = windows_desktop
+    process = session = failure = None
     cleanup_errors = []
     try:
         with (output / "stdout.txt").open("xb") as stdout, (output / "stderr.txt").open("xb") as stderr:
             deadline = time.monotonic() + 60
             process = subprocess.Popen(argv, stdout=stdout, stderr=stderr)
             result["pid"] = process.pid
-            desktop = make_desktop(args.platform, module, args.macos_helper, output,
-                                   lambda: observation(output / "app", process.pid, run)[0])
+            if desktop is None:
+                desktop = make_desktop(args.platform, module, args.macos_helper, output,
+                                       lambda: observation(output / "app", process.pid, run)[0])
             result["nativeHelper"] = getattr(desktop, "provenance", None)
             session = Session(desktop, process, output, run, portable, deadline,
                               args.hosted_windows_caption_activation,
@@ -539,6 +542,7 @@ def run_one(args, module, shared, app, output, portable):
     if failure is not None:
         raise failure
     require(not cleanup_errors, "Desktop cleanup failed: " + "; ".join(cleanup_errors))
+    return desktop
 
 
 def main():
@@ -568,9 +572,13 @@ def main():
     require(args.output.is_absolute() and not args.output.exists(), "Output must be a fresh absolute directory")
     module, shared = load_helper(args.forms_helper_checkout, args.forms_helper_commit)
     args.output.mkdir()
+    windows_desktop = None
     if args.reference_app is not None:
-        run_one(args, module, shared, args.reference_app, args.output / "microsoft", False)
-    run_one(args, module, shared, args.portable_app, args.output / "portable", True)
+        # SetProcessDpiAwarenessContext belongs to this controller process, not
+        # each child application. The immutable helper holds only native API
+        # bindings; each run still owns its own PID, source state and deadline.
+        windows_desktop = run_one(args, module, shared, args.reference_app, args.output / "microsoft", False)
+    run_one(args, module, shared, args.portable_app, args.output / "portable", True, windows_desktop)
 
 
 if __name__ == "__main__":

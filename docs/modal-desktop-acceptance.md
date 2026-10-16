@@ -133,7 +133,7 @@ to the application. The portable run has no shell-input extension. Original
 caption, scenario, image and cleanup checks follow unchanged. No local VM is used.
 
 Raw images, all original failures, source/payload hashes and package provenance
-are retained even on failure. Seventeen pure modal controls, 58 shared Gallery
+are retained even on failure. Eighteen pure modal controls, 58 shared Gallery
 controls, nine desktop setup controls and eight shell Escape controls pass locally.
 The original eleven modal controls remain unchanged. New controls reject foreign
 or replaced shell identities, missing approval, local/self-hosted use, refusal,
@@ -199,3 +199,17 @@ retained. A bounded read-only diagnostic now records the exact inventory at that
 assertion and one second afterward, within the original deadline. It freezes the
 first assertion result: later disappearance cannot convert a failure to success.
 No application, input, popup animation, timeout or acceptance predicate changes.
+
+The tenth run completed the original Microsoft scenario with 22 actions, normal
+exit and no cleanup errors. Its first native-retirement assertion passed; this
+does not explain the ninth run or make that failed attempt successful. The
+portable launch then exposed a controller lifetime defect: the unchanged Forms
+helper calls process-wide SetProcessDpiAwarenessContext in its constructor, which
+cannot be initialized a second time in that same controller process. The pair
+now shares the helper's stateless native API bindings after the first successful
+run, while retaining separate application processes, run IDs, original deadlines,
+source observations and action budgets. The first initialization remains inside
+the first original deadline, and the immutable helper is not patched. A pure
+paired-run control verifies one initialization and two independent sessions.
+The earlier reference context capture also lacks visibly painted Context action
+despite an open source/native window; raw-image qualification remains unresolved.

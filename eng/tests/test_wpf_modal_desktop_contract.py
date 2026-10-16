@@ -220,6 +220,35 @@ class DesktopReceiptTests(unittest.TestCase):
             self.assertEqual(2, len(receipt['nativeWindows']))
             self.assertEqual(1, len(receipt['observations'][0]['nativeWindows']))
 
+    def test_paired_windows_runs_initialize_dpi_once_but_keep_distinct_sessions(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            app = root/'app.exe'; app.write_bytes(b'pure test app identity')
+            args = mock.Mock(platform='windows', macos_helper=None,
+                             hosted_windows_caption_activation=True, hosted_windows_shell_escape=True)
+            observer = mock.Mock(spec=['windows', 'key', 'pointer'])
+            first, second = mock.Mock(pid=11, returncode=0), mock.Mock(pid=22, returncode=0)
+            first.poll.return_value = second.poll.return_value = 0
+            sessions = []
+            def scenario(session):
+                sessions.append(session)
+                session.actions = 22
+            with mock.patch.object(DRIVER.subprocess, 'Popen', side_effect=[first, second]), \
+                 mock.patch.object(DRIVER, 'make_desktop', return_value=observer) as factory, \
+                 mock.patch.object(DRIVER, 'digest', return_value='test-hash'), \
+                 mock.patch.object(DRIVER, 'scenario', side_effect=scenario), \
+                 mock.patch.object(DRIVER.time, 'monotonic', side_effect=[10, 30]):
+                shared = DRIVER.run_one(args, None, {}, app, root/'microsoft', False)
+                DRIVER.run_one(args, None, {}, app, root/'portable', True, shared)
+            factory.assert_called_once()
+            self.assertEqual([11, 22], [s.process.pid for s in sessions])
+            self.assertEqual([70, 90], [s.deadline for s in sessions])
+            self.assertEqual([True, False], [s.hosted_shell for s in sessions])
+            self.assertIs(sessions[0].desktop, sessions[1].desktop)
+            self.assertNotEqual(sessions[0].run, sessions[1].run)
+            self.assertTrue(all(json.loads((root/n/'result.json').read_text())['completed']
+                                for n in ('microsoft', 'portable')))
+
 
 if __name__ == "__main__":
     unittest.main()
