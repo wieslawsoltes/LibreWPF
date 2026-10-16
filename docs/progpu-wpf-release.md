@@ -4,6 +4,14 @@ The LibreWPF preview release uses the package list in `eng/progpu-preview-packag
 That package set is what users need to consume the custom `LibreWPF.Sdk` and run normal WPF
 projects on the ProGPU/Silk.NET platform.
 
+The preview.70 source graph selects LibreWinForms
+`f64e8e04fa287bf9d82dddd3a36efbb50d02f3ba`, whose complete
+[Build 38946060986](https://github.com/wieslawsoltes/LibreWinForms/actions/runs/38946060986)
+passed all nine jobs before the gitlink advanced. This includes the merged
+portable Graphics paint and window-lifetime repairs. The combined LibreWPF
+packages still require their own complete Build and original application gates;
+the upstream source pass does not qualify that combined package graph.
+
 ## NuGet Packages
 
 - `LibreWPF.Transport`
