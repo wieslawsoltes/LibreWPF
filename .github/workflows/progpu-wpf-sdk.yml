@@ -82,6 +82,14 @@ jobs:
       - name: Validate original Gallery clipboard acceptance controls
         run: python3 ./eng/WindowsGalleryClipboardConsumer/test_contract.py -v
 
+      - name: Validate original modal source, package and hosted-input controls
+        run: |
+          python3 eng/tests/test_wpf_modal_desktop_contract.py -v
+          python3 eng/tests/test_wpf_hosted_desktop_setup.py -v
+          python3 eng/tests/test_wpf_hosted_shell_escape.py -v
+          python3 eng/tests/test_wpf_modal_source_staging.py -v
+          python3 eng/tests/test_wpf_modal_candidate_packages.py -v
+
       - name: Upload retained invalidation evidence
         if: always()
         uses: actions/upload-artifact@v4

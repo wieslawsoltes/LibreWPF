@@ -2,6 +2,7 @@
 """Build the original pair with a versioned read-only observer correction."""
 import argparse
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -56,8 +57,8 @@ def stage_sources(source, root, manifest, selected_observer):
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source / name, target)
     # Preserve the original failed observer as evidence. Both applications use
-    # this same explicit v2 observer; UI, scenarios, properties and packages stay
-    # byte-identical. This correction does not bless the old failed run.
+    # this same explicit v2 observer; UI, scenario and project sources stay
+    # byte-identical. Package selection is independently recorded below.
     require(selected_observer.is_file() and not selected_observer.is_symlink(), "Selected observer is unavailable")
     shutil.copy2(selected_observer, root / "consumer" / OBSERVER)
     selected[OBSERVER] = sha(root / "consumer" / OBSERVER)
@@ -79,6 +80,7 @@ def main():
     parser.add_argument("--forms-helper-checkout", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--dotnet", type=Path, required=True)
+    parser.add_argument("--candidate-inputs", type=Path)
     args = parser.parse_args()
     require(os.name == "nt" and os.environ.get("GITHUB_ACTIONS") == "true"
             and os.environ.get("RUNNER_ENVIRONMENT") == "github-hosted"
@@ -116,6 +118,15 @@ def main():
     (consumer / "NuGet.Config").write_text(
         '<configuration><packageSources><clear/><add key="NuGet" value="https://api.nuget.org/v3/index.json"/></packageSources></configuration>',
         encoding="utf-8")
+    candidate = None
+    candidate_module = None
+    if args.candidate_inputs:
+        spec = importlib.util.spec_from_file_location("modal_candidate", HERE / "candidate-packages.py")
+        candidate_module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(candidate_module)
+        candidate = candidate_module.stage_producer(args.candidate_inputs.resolve(strict=True), root / "feed", manifest["version"])
+        actual = subprocess.check_output(["git", "-C", str(HERE), "rev-parse", "HEAD"], text=True).strip()
+        require(candidate["identity"]["head"] == actual, "Candidate consumer automation must match the qualified producer")
     env = os.environ.copy()
     for name in list(env):
         if name.startswith(("DOTNET_", "MSBuildSDK", "NUGET_", "NuGetPackageRoot", "ProGpu", "PROGPU",
@@ -126,10 +137,16 @@ def main():
                DOTNET_CLI_TELEMETRY_OPTOUT="1", DOTNET_GENERATE_ASPNET_CERTIFICATE="false",
                DOTNET_ADD_GLOBAL_TOOLS_TO_PATH="false", NUGET_PACKAGES=str(consumer / "artifacts/nuget/ProGPU.Wpf.ModalInteractionApp"),
                NUGET_HTTP_CACHE_PATH=str(root / "http-cache"), MSBUILDDISABLENODEREUSE="1")
+    if candidate:
+        packages = Path(env["NUGET_PACKAGES"])
+        candidate_module.write_config(consumer / "NuGet.Config", root / "feed", packages)
+        candidate_module.PACKAGE.seed_sdk(root / "feed" / candidate["inventory"]["LibreWPF.Sdk"]["file"], packages, candidate["sdk"])
     require(subprocess.check_output([str(dotnet), "--version"], cwd=consumer, env=env, text=True).strip() == manifest["sdk"],
             "Original exact consumer SDK is required")
     receipt = dict(prepared=False, qualified=False, dotnet=str(dotnet), source=manifest["wpfSource"],
                    helper=str(helper), helperCommit=manifest["formsHelperSource"], builds=[], payloads={},
+                   packageSource="qualified-whole-ci" if candidate else "original-public-preview69",
+                   candidate=candidate,
                    selectedSourceHashes=selected_sources,
                    observerRevision=dict(schema="wpf-modal-desktop-v2", originalSha256=manifest["source"][OBSERVER],
                                          selectedSha256=selected_sources[OBSERVER],
@@ -144,6 +161,9 @@ def main():
         command = [str(dotnet), "build", str(project), "-c", "Release", "-r", manifest["runtimeIdentifier"],
                    "-p:UseSharedCompilation=false", "-p:NuGetAudit=true", "-p:NuGetAuditMode=all",
                    "-m:1", "--disable-build-servers", "--nologo", "-v:minimal"]
+        if candidate and kind == "portable":
+            command += ["-p:ProGpuPackageVersion=" + candidate["engine"],
+                        "-p:RestoreFallbackFolders=", "-p:RestoreAdditionalProjectSources="]
         started = time.monotonic()
         log = root / (kind + "-build.log")
         with log.open("xb") as stream:
@@ -161,15 +181,18 @@ def main():
         app = directory / (name + ".exe")
         require(app.is_file(), "Expected original apphost output is missing")
         receipt["payloads"][kind] = dict(directory=str(directory), app=str(app), files=inventory(directory))
+        if candidate and kind == "portable":
+            receipt["candidateOutputHashes"] = candidate_module.verify_output(
+                directory, root / "feed", candidate["inventory"], manifest["runtimeIdentifier"])
     restored = {}
     package_root = Path(env["NUGET_PACKAGES"])
     for package in sorted(package_root.glob("*/*/*.nupkg")):
         name, version = package.parent.parent.name, package.parent.name
         if not name.startswith(("progpu.", "librewpf.", "librewinforms.")):
             continue
-        expected = manifest["packages"].get(name)
+        expected = (candidate["packages"] if candidate else manifest["packages"]).get(name)
         require(expected is not None and version == expected["version"] and sha(package) == expected["sha256"],
-                "Restored product package differs from the verified published release: " + name)
+                "Restored product package differs from the selected verified producer: " + name)
         with zipfile.ZipFile(package) as archive:
             metadata = ET.fromstring(archive.read(next(x for x in archive.namelist() if x.endswith(".nuspec"))))
             repository = metadata.find("{*}metadata/{*}repository")
@@ -183,7 +206,7 @@ def main():
     receipt.update(prepared=True, packages=restored, manifestSha256=sha(root / "public-inputs.json"),
                    driver=str(consumer / "eng/hosted-progpu-wpf-modal-desktop.py"))
     save(root / "preparation.json", receipt)
-    print("Prepared original applications with the same versioned observer and verified public package closure; no UI executed.")
+    print("Prepared original applications with the same versioned observer and verified selected package closure; no UI executed.")
 
 
 if __name__ == "__main__":

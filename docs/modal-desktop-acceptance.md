@@ -278,3 +278,33 @@ original 60-second timeout, all actions and snapshots are retained. The next
 diagnostic enables the existing native/WPF input trace and records actual Win32
 cursor position after each original pointer action. It adds no input or delay and
 does not extend the deadline, infer the hit target or repair application focus.
+
+The fifteenth run established the button-coordinate defect: after the native
+pointer reached the original ShowDialog target at desktop `(190,233)`, down/up
+still used the previous guard's client `(110,438)` and only then received the
+move to `(110,153)`. The original `38957951448` run remains failed. The product
+repair is the scoped native packet connection described in
+[original Windows button positions](source-mouse-button-packets.md).
+
+The hosted modal workflow now requires explicit dispatch. With no producer
+inputs it retains the original published preview.69 reproduction. A candidate
+run requires the exact automation/producer commit and complete successful Build
+and Docs IDs. It reuses the existing sixteen-job producer admission, exact
+upload identity, archive digest, bounded package extraction and original package
+source receipts. Pending uploads, failed or incomplete runs and substituted
+archives reject before application preparation. The ordinary Build runs all
+offline modal/source/input/package controls, so moving desktop execution to
+explicit dispatch does not remove their automatic coverage.
+
+The original projects and all seven scenarios remain unchanged. Candidate
+packages use a private cache and feed with product-family source mappings; the
+SDK selector must still equal the original project version. The engine version
+is selected explicitly from the qualified package set. Before execution, nine
+actual framework, bridge, backend and native output DLLs must match their exact
+package members. All other output files, original source bytes, the common v2
+observer and immutable native-input helper retain their existing hashes.
+Receipts distinguish public reproduction from candidate qualification and keep
+the full selected package identity. Input tracing defaults off for acceptance.
+The 60-second process deadlines, 64-action bounds, captures, cleanup and approved
+two-Escape startup guard remain unchanged. This path does not qualify a candidate
+until the actual original application checks pass.

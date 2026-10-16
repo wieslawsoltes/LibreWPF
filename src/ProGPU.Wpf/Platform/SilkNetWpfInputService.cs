@@ -16,12 +16,19 @@ internal interface ISilkNetWpfInputContextProvider
 
 public sealed class SilkNetWpfInputService : IWpfInputService, ISilkNetWpfInputContextProvider
 {
+    internal delegate bool MouseButtonPacketReader(out NativeMouseButtonPacket packet);
     private readonly object _sync = new();
     private readonly Dictionary<IView, SilkInput.IInputContext> _inputContexts = new();
 
     public event EventHandler<WpfInputEventArgs>? InputReceived;
 
     public IDisposable Attach(object window)
+        => AttachWindow(window, readMouseButtonPacket: null);
+
+    internal IDisposable Attach(IView window, SilkWindowController controller)
+        => AttachWindow(window, controller.TryGetCurrentMouseButtonPacket);
+
+    private IDisposable AttachWindow(object window, MouseButtonPacketReader? readMouseButtonPacket)
     {
         if (window is not IView silkView)
         {
@@ -44,7 +51,8 @@ public sealed class SilkNetWpfInputService : IWpfInputService, ISilkNetWpfInputC
                             _inputContexts.Remove(silkView);
                         }
                     }
-                });
+                },
+                readMouseButtonPacket);
             lock (_sync)
             {
                 _inputContexts[silkView] = inputContext;
@@ -73,6 +81,9 @@ public sealed class SilkNetWpfInputService : IWpfInputService, ISilkNetWpfInputC
         return Attach(inputContext, inputContext, onDispose: null);
     }
 
+    internal IDisposable Attach(SilkInput.IInputContext inputContext, MouseButtonPacketReader readMouseButtonPacket)
+        => Attach(inputContext, inputContext, onDispose: null, readMouseButtonPacket);
+
     bool ISilkNetWpfInputContextProvider.TryGetInputContext(object window, out SilkInput.IInputContext inputContext)
     {
         if (window is IView silkView)
@@ -93,7 +104,8 @@ public sealed class SilkNetWpfInputService : IWpfInputService, ISilkNetWpfInputC
     private IDisposable Attach(
         SilkInput.IInputContext inputContext,
         object eventSource,
-        Action? onDispose)
+        Action? onDispose,
+        MouseButtonPacketReader? readMouseButtonPacket = null)
     {
         ArgumentNullException.ThrowIfNull(inputContext);
 
@@ -119,7 +131,7 @@ public sealed class SilkNetWpfInputService : IWpfInputService, ISilkNetWpfInputC
             };
             Action<SilkInput.IMouse, SilkInput.MouseButton> mouseDown = (_, button) =>
             {
-                var position = ResolveMousePosition(mouse.Position, lastPosition, hasLastPosition);
+                var position = ResolveButtonPosition(NativePointerEventKind.Down, button);
                 if (IsFinite(position))
                 {
                     lastPosition = position;
@@ -139,7 +151,7 @@ public sealed class SilkNetWpfInputService : IWpfInputService, ISilkNetWpfInputC
                 // lifetime, which corrupts every later drag. Forward it unconditionally; WPF keeps
                 // its own button-state bookkeeping.
                 pressedButtons.Remove(button);
-                var position = ResolveMousePosition(mouse.Position, lastPosition, hasLastPosition);
+                var position = ResolveButtonPosition(NativePointerEventKind.Up, button);
                 if (IsFinite(position))
                 {
                     lastPosition = position;
@@ -159,6 +171,17 @@ public sealed class SilkNetWpfInputService : IWpfInputService, ISilkNetWpfInputC
 
                 OnInputReceived(eventSource, CreateMouseWheelEvent(wheel.X, wheel.Y, position, ReadModifiers(inputContext)));
             };
+
+            Vector2 ResolveButtonPosition(NativePointerEventKind kind, SilkInput.MouseButton button)
+            {
+                if (readMouseButtonPacket != null && readMouseButtonPacket(out var packet) &&
+                    packet.Kind == kind && MatchesNativeButton(button, packet.Button))
+                    return new Vector2(packet.Position.X, packet.Position.Y);
+
+                // Other providers and synthetic provider releases retain their
+                // existing policy. A later global cursor query is not this packet.
+                return ResolveMousePosition(mouse.Position, lastPosition, hasLastPosition);
+            }
 
             mouse.MouseMove += mouseMove;
             mouse.MouseDown += mouseDown;
@@ -479,6 +502,16 @@ public sealed class SilkNetWpfInputService : IWpfInputService, ISilkNetWpfInputC
             ? currentPosition
             : Vector2.Zero;
     }
+
+    private static bool MatchesNativeButton(SilkInput.MouseButton button, int nativeButton) => button switch
+    {
+        SilkInput.MouseButton.Left => nativeButton == 0,
+        SilkInput.MouseButton.Right => nativeButton == 1,
+        SilkInput.MouseButton.Middle => nativeButton == 2,
+        SilkInput.MouseButton.Button4 => nativeButton == 3,
+        SilkInput.MouseButton.Button5 => nativeButton == 4,
+        _ => false
+    };
 
     private static bool IsFinite(Vector2 value)
     {

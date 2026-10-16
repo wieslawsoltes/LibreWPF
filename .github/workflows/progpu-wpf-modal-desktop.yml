@@ -2,20 +2,32 @@ name: Original Windows modal desktop checks
 
 on:
   workflow_dispatch:
-  pull_request:
-    paths:
-      - '.github/workflows/progpu-wpf-modal-desktop.yml'
-      - 'eng/WindowsModalDesktop/**'
-      - 'eng/progpu-wpf-modal-desktop.py'
-      - 'eng/WindowsGalleryClipboardConsumer/run-windows.py'
-      - 'samples/ProGPU.Wpf.ModalInteractionApp/ModalObservation.cs'
+    inputs:
+      producer_head:
+        description: Exact qualified LibreWPF commit; empty reproduces the original public preview.69 failure.
+        required: false
+        type: string
+      producer_build:
+        description: Complete successful LibreWPF Build run for that exact commit.
+        required: false
+        type: string
+      producer_docs:
+        description: Complete successful LibreWPF Docs run for that exact commit.
+        required: false
+        type: string
+      trace_input:
+        description: Diagnostic input tracing; leave disabled for application acceptance.
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   paired-windows-modal:
-    name: Original Microsoft and public LibreWPF modal pair (ARM64)
+    name: Original Microsoft and selected LibreWPF modal pair (ARM64)
     runs-on: windows-11-arm
     timeout-minutes: 15
     steps:
@@ -68,15 +80,37 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python automation/eng/tests/test_wpf_modal_source_staging.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Prepare original sources and verify published package closure
+          python automation/eng/tests/test_wpf_modal_candidate_packages.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Retain the exact successful candidate producer when selected
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PRODUCER_HEAD: ${{ inputs.producer_head }}
+          PRODUCER_BUILD: ${{ inputs.producer_build }}
+          PRODUCER_DOCS: ${{ inputs.producer_docs }}
+        run: |
+          $values = @($env:PRODUCER_HEAD, $env:PRODUCER_BUILD, $env:PRODUCER_DOCS)
+          $selected = @($values | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+          if ($selected.Count -ne 0 -and $selected.Count -ne 3) { throw 'Specify all three exact producer identities or none.' }
+          if ($selected.Count -eq 3) {
+            $inputs = Join-Path $env:RUNNER_TEMP 'modal-candidate-producer'
+            "CANDIDATE_INPUTS=$inputs" >> $env:GITHUB_ENV
+            python automation/eng/WindowsModalDesktop/candidate-packages.py `
+              --head $env:PRODUCER_HEAD --build $env:PRODUCER_BUILD --docs $env:PRODUCER_DOCS --output $inputs
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+      - name: Prepare original sources and verify the selected package closure
         shell: pwsh
         run: |
           $root = Join-Path $env:RUNNER_TEMP 'original-modal-pair'
           "CASE_ROOT=$root" >> $env:GITHUB_ENV
+          $candidate = @()
+          if ($env:CANDIDATE_INPUTS) { $candidate = @('--candidate-inputs', $env:CANDIDATE_INPUTS) }
           python automation/eng/WindowsModalDesktop/prepare.py `
             --source (Resolve-Path original).Path `
             --forms-helper-checkout (Resolve-Path forms-helper).Path `
-            --output $root --dotnet (Get-Command dotnet).Source
+            --output $root --dotnet (Get-Command dotnet).Source @candidate
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Prepare the disposable hosted desktop
         shell: pwsh
@@ -87,7 +121,7 @@ jobs:
       - name: Run the original seven scenarios and per-process 60-second deadlines
         shell: pwsh
         env:
-          PROGPU_WPF_TRACE_INPUT: '1'
+          PROGPU_WPF_TRACE_INPUT: ${{ inputs.trace_input && '1' || '0' }}
         run: |
           python automation/eng/WindowsModalDesktop/run.py --output $env:CASE_ROOT
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -100,6 +134,7 @@ jobs:
           if-no-files-found: warn
           path: |
             ${{ runner.temp }}/original-modal-desktop-preflight.json
+            ${{ runner.temp }}/modal-candidate-producer/*.json
             ${{ env.CASE_ROOT }}/public-inputs.json
             ${{ env.CASE_ROOT }}/preparation.json
             ${{ env.CASE_ROOT }}/*-build.log

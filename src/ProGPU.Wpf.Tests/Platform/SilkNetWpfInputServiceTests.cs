@@ -329,6 +329,72 @@ public sealed class SilkNetWpfInputServiceTests
             });
     }
 
+    [Theory]
+    [InlineData(MouseButton.Left, 0)]
+    [InlineData(MouseButton.Right, 1)]
+    [InlineData(MouseButton.Middle, 2)]
+    [InlineData(MouseButton.Button4, 3)]
+    [InlineData(MouseButton.Button5, 4)]
+    public void OriginalButtonPositionPrecedesDelayedMoveWithoutSamplingTheLaterCursor(MouseButton button, int nativeButton)
+    {
+        var mouse = new FakeMouse();
+        var context = new FakeInputContext();
+        context.AddInitialMouse(mouse);
+        var service = new SilkNetWpfInputService();
+        var received = new List<WpfInputEventArgs>();
+        service.InputReceived += (_, e) => received.Add(e);
+        NativeMouseButtonPacket packet = default;
+        int reads = 0;
+        bool Read(out NativeMouseButtonPacket value) { reads++; value = packet; return true; }
+        using var subscription = service.Attach(context, Read);
+
+        mouse.RaiseMouseMove(new Vector2(110, 438));
+        mouse.Position = new Vector2(999, 777); // Later live cursor is not either button's position.
+        packet = new(NativePointerEventKind.Down, nativeButton, new(110, 153));
+        mouse.RaiseMouseDown(button);
+        packet = new(NativePointerEventKind.Up, nativeButton, new(-17, 29));
+        mouse.RaiseMouseUp(button);
+        mouse.RaiseMouseMove(new Vector2(110, 153));
+
+        Assert.Equal(new[] { WpfInputEventKind.MouseMove, WpfInputEventKind.MouseDown,
+            WpfInputEventKind.MouseUp, WpfInputEventKind.MouseMove }, received.Select(e => e.Kind));
+        Assert.Equal((110d, 153d), (received[1].X, received[1].Y));
+        Assert.Equal((-17d, 29d), (received[2].X, received[2].Y));
+        Assert.Equal(0, mouse.PositionReadCount);
+        Assert.Equal(2, reads);
+        subscription.Dispose();
+        mouse.RaiseMouseDown(button);
+        Assert.Equal(2, reads);
+        Assert.Equal(4, received.Count);
+    }
+
+    [Theory]
+    [InlineData(false, NativePointerEventKind.Down, 0)]
+    [InlineData(true, NativePointerEventKind.Up, 0)]
+    [InlineData(true, NativePointerEventKind.Down, 1)]
+    [InlineData(true, NativePointerEventKind.Move, 0)]
+    public void UnavailableOrUnrelatedPacketsPreserveTheOriginalProviderPolicy(
+        bool available, NativePointerEventKind kind, int button)
+    {
+        var mouse = new FakeMouse();
+        var context = new FakeInputContext();
+        context.AddInitialMouse(mouse);
+        var service = new SilkNetWpfInputService();
+        var received = new List<WpfInputEventArgs>();
+        service.InputReceived += (_, e) => received.Add(e);
+        bool Read(out NativeMouseButtonPacket value)
+        {
+            value = new(kind, button, new(110, 153));
+            return available;
+        }
+        using var subscription = service.Attach(context, Read);
+        mouse.RaiseMouseMove(new Vector2(110, 438));
+        mouse.Position = new Vector2(999, 777);
+        mouse.RaiseMouseDown(MouseButton.Left);
+        Assert.Equal((110d, 438d), (received[1].X, received[1].Y));
+        Assert.Equal(1, mouse.PositionReadCount);
+    }
+
     [Fact]
     public void AttachStopsForwardingDisconnectedDevices()
     {
@@ -565,7 +631,13 @@ public sealed class SilkNetWpfInputServiceTests
 
         public IReadOnlyList<ScrollWheel> ScrollWheels { get; } = Array.Empty<ScrollWheel>();
 
-        public Vector2 Position { get; set; }
+        private Vector2 _position;
+        public int PositionReadCount { get; private set; }
+        public Vector2 Position
+        {
+            get { PositionReadCount++; return _position; }
+            set => _position = value;
+        }
 
         public ICursor Cursor => null!;
 

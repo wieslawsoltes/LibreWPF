@@ -35,13 +35,13 @@
   </ItemGroup>
 
   <ItemGroup Condition="'$(IsPacking)' != 'true'">
-    <ProjectReference Include="..\..\external\ProGPU\src\ProGPU.Backend\ProGPU.Backend.csproj" />
-    <ProjectReference Include="..\..\external\ProGPU\src\ProGPU.Backend.Native\ProGPU.Backend.Native.csproj" />
-    <ProjectReference Include="..\..\external\ProGPU\src\ProGPU.DirectX\ProGPU.DirectX.csproj" />
-    <ProjectReference Include="..\..\external\ProGPU\src\ProGPU.Scene\ProGPU.Scene.csproj" />
-    <ProjectReference Include="..\..\external\ProGPU\src\ProGPU.Scene.Native\ProGPU.Scene.Native.csproj" />
-    <ProjectReference Include="..\..\external\ProGPU\src\ProGPU.Text\ProGPU.Text.csproj" />
-    <ProjectReference Include="..\..\external\ProGPU\src\ProGPU.Vector\ProGPU.Vector.csproj" />
+    <ProjectReference Include="$(ProGpuSourceRoot)src\ProGPU.Backend\ProGPU.Backend.csproj" />
+    <ProjectReference Include="$(ProGpuSourceRoot)src\ProGPU.Backend.Native\ProGPU.Backend.Native.csproj" />
+    <ProjectReference Include="$(ProGpuSourceRoot)src\ProGPU.DirectX\ProGPU.DirectX.csproj" />
+    <ProjectReference Include="$(ProGpuSourceRoot)src\ProGPU.Scene\ProGPU.Scene.csproj" />
+    <ProjectReference Include="$(ProGpuSourceRoot)src\ProGPU.Scene.Native\ProGPU.Scene.Native.csproj" />
+    <ProjectReference Include="$(ProGpuSourceRoot)src\ProGPU.Text\ProGPU.Text.csproj" />
+    <ProjectReference Include="$(ProGpuSourceRoot)src\ProGPU.Vector\ProGPU.Vector.csproj" />
     <ProjectReference Include="..\..\src\ProGPU.Wpf.Interop\ProGPU.Wpf.Interop.csproj" />
   </ItemGroup>
 

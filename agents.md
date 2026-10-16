@@ -1,5 +1,13 @@
 # Agent Guidance
 
+Source Win32 button events borrow original signed client coordinates from the
+exact live host controller's scoped native packet, matching phase and button
+before any source callback. Preserve event order, ordinary native bookkeeping,
+once-only DPI normalization and other providers' existing policy. Never repair
+a delayed move with a later ambient cursor sample, synthetic move or slower test
+input. Require the qualified ProGPU producer and rebuilt source package; see
+docs/source-mouse-button-packets.md.
+
 Portable Application.Run and ShowDialog own the actual source dispatcher's
 SynchronizationContext for their synchronous loop lifetime. Preserve the caller's
 exact context across normal return, exceptions and nested modal loops; never

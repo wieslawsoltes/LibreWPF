@@ -4935,7 +4935,9 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         try
         {
             input.InputReceived += OnPlatformInputReceived;
-            IDisposable inputSubscription = input.Attach(window);
+            IDisposable inputSubscription = input is SilkNetWpfInputService silkInput && _windowController is { } controller
+                ? silkInput.Attach(window, controller)
+                : input.Attach(window);
             _unpublishedInputSubscription = inputSubscription;
             Silk.NET.Input.IInputContext? ownedContext;
             try
