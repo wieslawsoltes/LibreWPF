@@ -121,6 +121,8 @@ class DesktopSetupTests(unittest.TestCase):
                 return self.next_handle[hwnd]
             def IsWindow(self, hwnd): return hwnd != self.dead
             def IsWindowVisible(self, hwnd): return True
+            def FindWindowExW(self, parent, previous, native_class, title): return 0
+            def GetForegroundWindow(self): return 1
         desktop = SETUP.Desktop.__new__(SETUP.Desktop)
         desktop.u = Windows()
         desktop.snapshot = lambda hwnd: {"hwnd": hwnd, "class": "Windows.UI.Core.CoreWindow" if hwnd == 1 else "Shell_OOBEProxy"}
@@ -129,6 +131,19 @@ class DesktopSetupTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "cycle"): desktop.windows()
         desktop.u.next_handle = {1: 2, 2: 0}; desktop.u.dead = 2
         with self.assertRaisesRegex(RuntimeError, "changed"): desktop.windows()
+
+    def test_actual_foreground_and_exact_native_lookup_do_not_depend_on_desktop_app_enumeration(self):
+        class Windows:
+            def GetTopWindow(self, parent): return 0
+            def IsWindow(self, hwnd): return True
+            def IsWindowVisible(self, hwnd): return True
+            def FindWindowExW(self, parent, previous, native_class, title):
+                if native_class != "Windows.UI.Core.CoreWindow": raise AssertionError("Exact class required")
+                return 8 if not previous and title == "Start" else 0
+            def GetForegroundWindow(self): return 9
+        desktop = SETUP.Desktop.__new__(SETUP.Desktop); desktop.u = Windows()
+        desktop.snapshot = lambda hwnd: {"hwnd": hwnd}
+        self.assertEqual([8, 9], [w["hwnd"] for w in desktop.windows()])
 
 if __name__ == "__main__": unittest.main()
 

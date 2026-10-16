@@ -85,6 +85,7 @@ class Desktop:
         bind(self.u, "GetShellWindow", W.HWND)
         bind(self.u, "GetTopWindow", W.HWND, W.HWND)
         bind(self.u, "GetWindow", W.HWND, W.HWND, W.UINT)
+        bind(self.u, "FindWindowExW", W.HWND, W.HWND, W.HWND, W.LPCWSTR, W.LPCWSTR)
         for name in ("IsWindow", "IsWindowVisible"):
             bind(self.u, name, W.BOOL, W.HWND)
         bind(self.u, "GetWindowThreadProcessId", W.DWORD, W.HWND, C.POINTER(W.DWORD))
@@ -155,6 +156,23 @@ class Desktop:
                 require(len(result) < 128, "Native window inventory exceeds bound")
                 result.append(self.snapshot(hwnd))
             hwnd = self.u.GetWindow(hwnd, 2)  # GW_HWNDNEXT; no inferred window IDs.
+        # Immersive shell CoreWindows can be absent even from this desktop-app
+        # chain. Observe actual HWNDs through exact native class/title lookup and
+        # the native foreground query; identity/image admission stays separate.
+        for title in EXPECTED:
+            previous, matching = None, set()
+            while True:
+                hwnd = self.u.FindWindowExW(None, previous, "Windows.UI.Core.CoreWindow", title)
+                if not hwnd:
+                    break
+                require(hwnd not in matching and len(matching) < 4, "Native startup lookup cycle or bound")
+                matching.add(hwnd)
+                if hwnd not in seen and self.visible(hwnd):
+                    result.append(self.snapshot(hwnd)); seen.add(hwnd)
+                previous = hwnd
+        foreground = self.foreground()
+        if foreground and foreground not in seen:
+            result.append(self.snapshot(foreground))
         return result
 
     def foreground(self):

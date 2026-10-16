@@ -126,7 +126,7 @@ source/payload hashes and package provenance are uploaded even on failure.
 All fourteen pure modal receipt/deadline/owner-guard controls and all 58 shared
 Gallery controller controls pass locally. The original eleven modal cases are
 unchanged; additional controls cover the startup connection and action accounting.
-Eight additional desktop setup controls verify the actual three-overlay plan,
+Nine additional desktop setup controls verify the actual three-overlay plan,
 ordinary-shell no-op, foreign/replaced/duplicate identity rejection, refused
 close and reappearance, the distinct Explorer proxy and bounded native Z order.
 The existing Gallery setup stays unchanged.
@@ -165,6 +165,12 @@ now uses the actual bounded native Z-order traversal already used by the origina
 owner-obstruction helper. It retains and ignores only the exact Explorer proxy,
 rechecks selected identities and keeps the CoreWindow/system-image admission.
 The sixth failure and its original complete desktop inventory are preserved.
+The seventh setup run showed the same omission in the desktop-app Z-order
+chain, with zero close requests. The observer now supplements that chain with
+exact native CoreWindow class/title lookups and the independently returned
+foreground HWND. These are observed handles, not inferred identities; every
+close still requires the exact process image, session, class and unchanged
+window metadata. All seven earlier failures remain retained.
 Hosted execution and independent raw-image review remain pending. Source
 `qualified=false` values remain unchanged; even a completed Windows pair does
 not qualify Linux or close the broader popup/modality issues.
