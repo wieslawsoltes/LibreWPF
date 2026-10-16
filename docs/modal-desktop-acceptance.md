@@ -103,9 +103,12 @@ release assets. The receipt records the actual installed runtime separately.
 Preparation does not launch either application. The input stage calls the
 unchanged original driver once: Microsoft first, portable only after success.
 Each process retains all seven scenarios, the 60-second deadline, original
-obstruction/identity checks, 64-action budget, captures and owned cleanup. No
-foreign window is closed, no desktop settings or clipboard contents are changed,
-and no failed attempt is retried by the workflow. Raw images, original failures,
+obstruction/identity checks, 64-action budget, captures and owned cleanup. Before
+launch, the existing hosted desktop setup accepts the ordinary shell or sends
+one normal close request to the exactly identified Microsoft account startup
+window in the disposable runner's interactive session. An unknown window fails
+setup. It sends no input, changes no settings or clipboard contents, and retains
+its own receipt. No failed attempt is retried by the workflow. Raw images, original failures,
 source/payload hashes and package provenance are uploaded even on failure.
 
 The original eleven pure receipt/deadline/owner-guard controls pass locally.
@@ -113,6 +116,11 @@ The first hosted run stopped at original-source hash verification before any
 application build or execution. Its original job log is retained. Hosted
 checkouts now explicitly keep committed LF bytes; the exact source hashes are
 unchanged, and preparation failures retain a receipt before propagating.
+The next run verified both builds and the complete public package closure, then
+failed the Microsoft reference's foreground check before any physical input.
+Its original snapshots and result remain retained. The workflow now reuses the
+existing strictly identified hosted desktop preparation; application, driver and
+helper bytes, original foreground checks and all deadlines remain unchanged.
 Hosted execution and independent raw-image review remain pending. Source
 `qualified=false` values remain unchanged; even a completed Windows pair does
 not qualify Linux or close the broader popup/modality issues.

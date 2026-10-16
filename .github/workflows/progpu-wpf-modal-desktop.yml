@@ -52,6 +52,12 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Prepare the disposable hosted desktop
+        shell: pwsh
+        run: |
+          python automation/eng/WindowsGalleryClipboardConsumer/close-hosted-account.py `
+            --output (Join-Path $env:RUNNER_TEMP 'original-modal-desktop-preflight.json')
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Prepare original sources and verify published package closure
         shell: pwsh
         run: |
@@ -75,6 +81,7 @@ jobs:
           retention-days: 14
           if-no-files-found: warn
           path: |
+            ${{ runner.temp }}/original-modal-desktop-preflight.json
             ${{ env.CASE_ROOT }}/public-inputs.json
             ${{ env.CASE_ROOT }}/preparation.json
             ${{ env.CASE_ROOT }}/*-build.log
