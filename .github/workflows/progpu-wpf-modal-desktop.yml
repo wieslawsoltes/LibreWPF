@@ -61,12 +61,6 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python automation/eng/WindowsGalleryClipboardConsumer/test_contract.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Prepare the disposable hosted desktop
-        shell: pwsh
-        run: |
-          python automation/eng/WindowsGalleryClipboardConsumer/close-hosted-account.py `
-            --output (Join-Path $env:RUNNER_TEMP 'original-modal-desktop-preflight.json')
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Prepare original sources and verify published package closure
         shell: pwsh
         run: |
@@ -76,6 +70,12 @@ jobs:
             --source (Resolve-Path original).Path `
             --forms-helper-checkout (Resolve-Path forms-helper).Path `
             --output $root --dotnet (Get-Command dotnet).Source
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Prepare the disposable hosted desktop
+        shell: pwsh
+        run: |
+          python automation/eng/WindowsGalleryClipboardConsumer/close-hosted-account.py `
+            --output (Join-Path $env:RUNNER_TEMP 'original-modal-desktop-preflight.json')
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Run the original seven scenarios and per-process 60-second deadlines
         shell: pwsh

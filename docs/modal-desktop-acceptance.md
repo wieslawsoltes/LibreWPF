@@ -137,6 +137,13 @@ the initial activation request; original application and Forms helper bytes,
 scenario actions, foreground checks and all deadlines remain unchanged. The
 historical driver is retained beside the selected controller, whose exact
 source hashes and checkout commit are recorded before and after execution.
+The fourth run reached the guarded caption setup but found no unobstructed
+owned caption point, before sending any input. Its source snapshots, controller
+failure and zero-click receipt remain retained. Caption diagnostics now record
+the native window bounds, client origin, actual foreground identity and each
+candidate's native point owner/hit result without changing admission. The one
+strict desktop setup step runs after package preparation, immediately before
+launch, so its observation cannot become stale during the two-minute build.
 Hosted execution and independent raw-image review remain pending. Source
 `qualified=false` values remain unchanged; even a completed Windows pair does
 not qualify Linux or close the broader popup/modality issues.

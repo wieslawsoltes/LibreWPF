@@ -111,6 +111,8 @@ class Desktop:
         bind(self.u, "GetWindowRect", W.BOOL, W.HWND, C.POINTER(W.RECT))
         bind(self.u, "ClientToScreen", W.BOOL, W.HWND, C.POINTER(W.POINT))
         bind(self.u, "GetForegroundWindow", W.HWND)
+        bind(self.u, "GetClassNameW", C.c_int, W.HWND, W.LPWSTR, C.c_int)
+        bind(self.u, "GetWindowTextW", C.c_int, W.HWND, W.LPWSTR, C.c_int)
         bind(self.u, "SetForegroundWindow", W.BOOL, W.HWND)
         bind(self.u, "WindowFromPoint", W.HWND, W.POINT)
         bind(self.u, "GetCursorPos", W.BOOL, C.POINTER(W.POINT))
@@ -159,15 +161,30 @@ class Desktop:
         require(self.u.IsWindow(hwnd) and self.u.IsWindowVisible(hwnd) and not self.u.IsIconic(hwnd), "owned window is not live/visible")
         require(self.u.GetWindowThreadProcessId(hwnd, C.byref(owner)) and owner.value == pid, "window PID mismatch")
 
-    def caption_at(self, hwnd, pid, x, y):
+    def window_observation(self, hwnd):
+        owner, rect = W.DWORD(), W.RECT()
+        name, title = C.create_unicode_buffer(256), C.create_unicode_buffer(256)
+        thread = self.u.GetWindowThreadProcessId(hwnd, C.byref(owner))
+        self.u.GetClassNameW(hwnd, name, 256)
+        self.u.GetWindowTextW(hwnd, title, 256)
+        has_rect = self.u.GetWindowRect(hwnd, C.byref(rect))
+        return dict(hwnd=hwnd, pid=owner.value, thread=thread, nativeClass=name.value, title=title.value,
+                    bounds=[rect.left, rect.top, rect.right, rect.bottom] if has_rect else None)
+
+    def caption_at(self, hwnd, pid, x, y, observation=None):
         self.owned_window(hwnd, pid)
         require(-32768 <= x <= 32767 and -32768 <= y <= 32767,
                 "caption point cannot be represented by WM_NCHITTEST")
-        if self.u.WindowFromPoint(W.POINT(x, y)) != hwnd:
+        point_owner = self.u.WindowFromPoint(W.POINT(x, y))
+        if observation is not None:
+            observation.update(point=[x, y], pointWindow=self.window_observation(point_owner))
+        if point_owner != hwnd:
             return False
         hit = C.c_size_t()
         require(self.u.SendMessageTimeoutW(hwnd, 0x84, 0, (x & 65535) | ((y & 65535) << 16),
                                           0x22, 200, C.byref(hit)), "native caption hit-test failed")
+        if observation is not None:
+            observation["nativeHit"] = hit.value
         return hit.value == 2  # HTCAPTION, never close/minimize/resize/client.
 
     def require_idle_input(self):
@@ -202,12 +219,17 @@ class Desktop:
         require(self.u.GetWindowRect(hwnd, C.byref(rect)) and self.u.ClientToScreen(hwnd, C.byref(client_origin)),
                 "native caption geometry unavailable")
         require(rect.top < client_origin.y and rect.right > rect.left, "native caption extent unavailable")
+        record.update(windowBounds=[rect.left, rect.top, rect.right, rect.bottom],
+                      clientOrigin=[client_origin.x, client_origin.y],
+                      foreground=self.window_observation(record["before"]), captionCandidates=[])
         y = (rect.top + client_origin.y) // 2
         point = None
         for fraction in (2, 1, 3):
             x = rect.left + (rect.right - rect.left) * fraction // 4
             require(time.monotonic() < deadline - 3, "original60-second budget exhausted locating caption")
-            if self.caption_at(hwnd, pid, x, y):
+            candidate = {}
+            record["captionCandidates"].append(candidate)
+            if self.caption_at(hwnd, pid, x, y, candidate):
                 self.monitors((x, y, x + 1, y + 1))
                 point = (x, y)
                 break
