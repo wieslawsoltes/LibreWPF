@@ -61,6 +61,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python automation/eng/WindowsGalleryClipboardConsumer/test_contract.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python automation/eng/tests/test_wpf_hosted_desktop_setup.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Prepare original sources and verify published package closure
         shell: pwsh
         run: |
@@ -74,7 +76,7 @@ jobs:
       - name: Prepare the disposable hosted desktop
         shell: pwsh
         run: |
-          python automation/eng/WindowsGalleryClipboardConsumer/close-hosted-account.py `
+          python automation/eng/WindowsModalDesktop/prepare-desktop.py `
             --output (Join-Path $env:RUNNER_TEMP 'original-modal-desktop-preflight.json')
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Run the original seven scenarios and per-process 60-second deadlines

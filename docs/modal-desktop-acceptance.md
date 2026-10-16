@@ -113,16 +113,22 @@ the modal entry uses its own source/native identity proof. An existing native
 observer must prove per-monitor-v2 coordinates before the helper adopts them.
 Each process retains all seven scenarios, the 60-second deadline, original
 obstruction/identity checks, 64-action budget, captures and owned cleanup. Before
-launch, the existing hosted desktop setup accepts the ordinary shell or sends
-one normal close request to the exactly identified Microsoft account startup
-window in the disposable runner's interactive session. An unknown window fails
-setup. It sends no input, changes no settings or clipboard contents, and retains
+launch, the hosted modal desktop setup accepts the ordinary shell or sends
+at most one normal close request each to the observed Microsoft account, Search
+and Start overlays. Each requires its exact native class, Windows system image
+path, process, window and interactive session. Unknown foregrounds, duplicate or
+replaced identities and a reappearing overlay fail setup without retry. Setup is
+bounded by eight seconds before either application starts; it sends no input,
+changes no settings or clipboard contents, and retains
 its own receipt. No failed attempt is retried by the workflow. Raw images, original failures,
 source/payload hashes and package provenance are uploaded even on failure.
 
 All fourteen pure modal receipt/deadline/owner-guard controls and all 58 shared
 Gallery controller controls pass locally. The original eleven modal cases are
 unchanged; additional controls cover the startup connection and action accounting.
+Six additional desktop setup controls verify the actual three-overlay plan,
+ordinary-shell no-op, foreign/replaced/duplicate identity rejection, refused
+close and reappearance. The existing Gallery setup stays unchanged.
 The first hosted run stopped at original-source hash verification before any
 application build or execution. Its original job log is retained. Hosted
 checkouts now explicitly keep committed LF bytes; the exact source hashes are
@@ -144,6 +150,12 @@ the native window bounds, client origin, actual foreground identity and each
 candidate's native point owner/hit result without changing admission. The one
 strict desktop setup step runs after package preparation, immediately before
 launch, so its observation cannot become stale during the two-minute build.
+That diagnostic run identified a foreground Search window and a full-desktop
+Start window covering all three original caption candidates. No input was sent.
+The modal-only setup now closes those two exactly identified shell overlays as
+well as the account startup window, using normal WM_CLOSE only. All five
+unsuccessful hosted attempts remain retained; this is a diagnosed environment
+repair, not application acceptance or a relaxed foreground/caption check.
 Hosted execution and independent raw-image review remain pending. Source
 `qualified=false` values remain unchanged; even a completed Windows pair does
 not qualify Linux or close the broader popup/modality issues.
