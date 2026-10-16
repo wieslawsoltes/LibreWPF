@@ -133,7 +133,7 @@ to the application. The portable run has no shell-input extension. Original
 caption, scenario, image and cleanup checks follow unchanged. No local VM is used.
 
 Raw images, all original failures, source/payload hashes and package provenance
-are retained even on failure. Sixteen pure modal controls, 58 shared Gallery
+are retained even on failure. Seventeen pure modal controls, 58 shared Gallery
 controls, nine desktop setup controls and eight shell Escape controls pass locally.
 The original eleven modal controls remain unchanged. New controls reject foreign
 or replaced shell identities, missing approval, local/self-hosted use, refusal,
@@ -189,3 +189,13 @@ without weakening the original caption or foreground admission.
 Hosted execution and independent raw-image review remain pending. Source
 `qualified=false` values remain unchanged; even a completed Windows pair does
 not qualify Linux or close the broader popup/modality issues.
+
+The ninth run successfully dismissed Search using one approved Escape, verified
+unchanged owner input counters, activated the exact native caption and captured
+all seven original Microsoft reference phases. It then failed the original
+final native-window-count assertion after source tooltip closure. The portable
+half did not run. All snapshots, images, actions and the original failure remain
+retained. A bounded read-only diagnostic now records the exact inventory at that
+assertion and one second afterward, within the original deadline. It freezes the
+first assertion result: later disappearance cannot convert a failure to success.
+No application, input, popup animation, timeout or acceptance predicate changes.

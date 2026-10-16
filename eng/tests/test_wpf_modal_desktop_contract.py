@@ -206,6 +206,20 @@ class DesktopReceiptTests(unittest.TestCase):
                 with self.assertRaisesRegex(RuntimeError, 'first reference'): session.dismiss_hosted_shell()
                 load.assert_not_called()
 
+    def test_retirement_diagnostic_cannot_replace_the_original_failed_assertion(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            session = mock.Mock(directory=Path(temporary), state={'phase': 'owner'},
+                                source_receipt={}, hosted_caption=True, deadline=60)
+            session.native.side_effect = [[{'hwnd': 1}, {'hwnd': 2}], [{'hwnd': 1}]]
+            with mock.patch.object(DRIVER.time, 'monotonic', side_effect=[20, 20.1, 20.1, 21.1]), \
+                 mock.patch.object(DRIVER.time, 'sleep'):
+                with self.assertRaisesRegex(RuntimeError, 'remain visible'):
+                    DRIVER.check_native_retirement(session)
+            receipt = json.loads((session.directory/'native-retirement.json').read_text())
+            self.assertFalse(receipt['originalAssertionPassed'])
+            self.assertEqual(2, len(receipt['nativeWindows']))
+            self.assertEqual(1, len(receipt['observations'][0]['nativeWindows']))
+
 
 if __name__ == "__main__":
     unittest.main()

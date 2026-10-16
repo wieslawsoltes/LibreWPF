@@ -368,6 +368,27 @@ class Session:
               source=self.state, sourceReceipt=self.source_receipt, nativeWindows=windows, image=image))
 
 
+def check_native_retirement(session):
+    windows = session.native()
+    passed = len(windows) == 1
+    record = dict(qualified=False, originalAssertionPassed=passed,
+                  source=session.state, sourceReceipt=session.source_receipt,
+                  nativeWindows=windows, observations=[])
+    if not passed and session.hosted_caption:
+        # Observe only after freezing the original failed assertion. Later
+        # disappearance can diagnose deferred retirement, never turn it green.
+        until = min(session.deadline, time.monotonic() + 1)
+        try:
+            while time.monotonic() < until:
+                session.remaining()
+                record["observations"].append(dict(at=time.monotonic(), nativeWindows=session.native()))
+                time.sleep(.05)
+        except BaseException as error:
+            record["diagnosticError"] = str(error)[:4096]
+    write(session.directory / "native-retirement.json", record)
+    require(passed, "Dismissed popup or modal native windows remain visible")
+
+
 def scenario(session):
     count = lambda state, key: state["counts"].get(key, 0)
     windows = session.wait(lambda state: state["phase"] == "owner" and bool(state["windows"]))
@@ -418,7 +439,7 @@ def scenario(session):
     session.capture("07-tooltip", lambda state: state["tooltipOpen"] and count(state, "tooltip-opening") == 1)
     session.point("guard", None)
     session.wait(lambda state: not state["tooltipOpen"] and not state["popupOpen"] and not state["contextOpen"])
-    require(len(session.native()) == 1, "Dismissed popup or modal native windows remain visible")
+    check_native_retirement(session)
     session.point("finish")
     remaining = max(0.001, session.deadline - time.monotonic())
     require(session.process.wait(timeout=remaining) == 0, "Actual owner shutdown failed")
