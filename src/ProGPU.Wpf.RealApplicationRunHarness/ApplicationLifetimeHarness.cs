@@ -10,8 +10,8 @@ internal static partial class Program
     private static void RunApplicationLifetimeHarness(string repoRoot, string frameworkPath,
         string corePath, string compilerPath, string scenario)
     {
-        if (scenario is not ("last-window" or "main-window" or "explicit"))
-            throw new ArgumentException("Expected last-window, main-window, or explicit lifetime scenario.");
+        if (scenario is not ("last-window" or "main-window" or "explicit" or "dispatcher-context"))
+            throw new ArgumentException("Expected last-window, main-window, explicit, or dispatcher-context lifetime scenario.");
 
         PortableWpfRuntime.SelectMediaBackend(PortableWpfMediaBackend.Portable);
         var context = new WpfAssemblyLoadContext(repoRoot, frameworkPath, corePath, compilerPath);
@@ -19,6 +19,9 @@ internal static partial class Program
         IPortableWindowActivationServiceRegistrar? registrar = null;
         var activations = new List<RecordingActivation>();
         int runs = 0, closed = 0, disposed = 0, exits = 0, postedReopens = 0;
+        var contextFailure = new InvalidOperationException("native loop callback failure");
+        SynchronizationContext? ambientContext = SynchronizationContext.Current;
+        var callerContext = new SynchronizationContext();
         try
         {
             Assembly core = context.LoadFromAssemblyPath(corePath);
@@ -40,6 +43,8 @@ internal static partial class Program
             AssertEqual("OnLastWindowClose", GetProperty(application, "ShutdownMode").ToString(), "default shutdown mode");
             if (scenario == "main-window")
                 SetProperty(application, "ShutdownMode", Enum.Parse(shutdownMode, "OnMainWindowClose"));
+            if (scenario == "dispatcher-context")
+                SetProperty(application, "ShutdownMode", Enum.Parse(shutdownMode, "OnExplicitShutdown"));
 
             EventInfo exitEvent = appType.GetEvent("Exit")!;
             Action<object?, EventArgs> onExit = (_, _) => exits++;
@@ -83,6 +88,8 @@ internal static partial class Program
                 run: value =>
                 {
                     var activation = (RecordingActivation)value;
+                    ValidatePortableLoopSynchronizationContext(registrar, activation.Window);
+                    if (scenario == "dispatcher-context") throw contextFailure;
                     runs++;
                     AssertSame(activations[runs - 1], activation, "source host handoff order");
                     AssertEqual(true, activation.IsVisible, "selected host preserves visibility");
@@ -130,7 +137,37 @@ internal static partial class Program
                     }
                     catch (TargetInvocationException error) when (error.InnerException is InvalidOperationException) { }
                     appType.GetMethod("Shutdown", [typeof(int)])!.Invoke(application, [23]);
-                }));
+                })
+            {
+                RunDialog = (value, continueRunning) =>
+                {
+                    var activation = (RecordingActivation)value;
+                    SynchronizationContext? outer = SynchronizationContext.Current;
+                    ValidatePortableLoopSynchronizationContext(registrar, activation.Window);
+                    AssertEqual(true, continueRunning(), "source dialog initially active");
+                    string title = (string)GetProperty(activation.Window, "Title");
+                    if (title == "Outer dialog")
+                    {
+                        Invoke(NewWindow("Nested dialog"), "ShowDialog");
+                        AssertSame(outer!, SynchronizationContext.Current!, "nested dialog restores outer context");
+                    }
+                    if (title == "Failing dialog") throw contextFailure;
+                    Invoke(activation.Window, "Close");
+                    AssertEqual(false, continueRunning(), "source close ends dialog");
+                },
+                ReleaseDialog = (_, completed) => completed()
+            });
+
+            SynchronizationContext.SetSynchronizationContext(callerContext);
+            if (scenario == "dispatcher-context")
+            {
+                Invoke(NewWindow("Outer dialog"), "ShowDialog");
+                AssertSame(callerContext, SynchronizationContext.Current!, "standalone dialog restores caller context");
+                ExpectContextFailure(() => Invoke(NewWindow("Failing dialog"), "ShowDialog"));
+                Invoke(NewWindow("Application loop failure"), "Show");
+                ExpectContextFailure(() => Invoke(application, "Run"));
+                return;
+            }
 
             object first = NewWindow("First native polling owner");
             object second = NewWindow("Independent remaining window");
@@ -138,12 +175,24 @@ internal static partial class Program
             Invoke(first, "Show");
             Invoke(second, "Show");
             AssertEqual(scenario == "explicit" ? 23 : 0, Invoke(application, "Run"), "source exit code");
+            AssertSame(callerContext, SynchronizationContext.Current!, "application restores caller context");
             int expectedRuns = scenario == "main-window" ? 1 : scenario == "last-window" ? 2 : 3;
             AssertEqual(expectedRuns, runs, "native host loop entries");
             AssertEqual(scenario == "explicit" ? 3 : 2, closed, "all source windows closed exactly once");
             AssertEqual(closed, disposed, "all native activations disposed exactly once");
             AssertEqual(1, exits, "single application Exit event");
             AssertEqual(scenario == "explicit" ? 1 : 0, postedReopens, "deferred reopen count");
+
+            void ExpectContextFailure(Action action)
+            {
+                try
+                {
+                    action();
+                    throw new InvalidOperationException("Expected the original native callback failure.");
+                }
+                catch (TargetInvocationException error) when (ReferenceEquals(error.InnerException, contextFailure)) { }
+                AssertSame(callerContext, SynchronizationContext.Current!, "failed loop restores caller context");
+            }
         }
         finally
         {
@@ -152,6 +201,31 @@ internal static partial class Program
             foreach (var activation in activations)
                 if (!activation.IsDisposed) activation.DisposePresentationSource();
             context.Unload();
+            SynchronizationContext.SetSynchronizationContext(ambientContext);
+        }
+    }
+
+    private static void ValidatePortableLoopSynchronizationContext(
+        IPortableWindowActivationServiceRegistrar registrar, object window)
+    {
+        SynchronizationContext? current = SynchronizationContext.Current;
+        AssertEqual("System.Windows.Threading.DispatcherSynchronizationContext",
+            current?.GetType().FullName, "native callback source context");
+        int thread = Environment.CurrentManagedThreadId;
+        Task continuation = ContinueOnSourceThread();
+        AssertEqual(false, continuation.IsCompleted, "yield leaves native callback synchronously");
+        AssertEqual(true, registrar.TryFlushDispatcherOperations(window, "ApplicationIdle", TimeSpan.FromSeconds(5)),
+            "source dispatcher processes original continuation");
+        AssertEqual(true, continuation.IsCompleted, "source continuation completed within original flush");
+        continuation.GetAwaiter().GetResult();
+        AssertSame(current!, SynchronizationContext.Current!, "dispatcher flush restores native loop context");
+
+        async Task ContinueOnSourceThread()
+        {
+            await Task.Yield();
+            AssertEqual(thread, Environment.CurrentManagedThreadId, "await resumes on original source thread");
+            // Real source dependency-object access also enforces dispatcher ownership.
+            SetProperty(window, "Tag", "source dispatcher continuation");
         }
     }
 }

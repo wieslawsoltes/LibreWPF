@@ -581,6 +581,7 @@ namespace System.Windows
             Action<object, Action> releaseDialog = PortableWindowActivationService.GetDialogReleaseCallback();
             if (_portableDialogInputScope is { IsReleased: false })
                 throw new InvalidOperationException("The previous portable dialog is still completing native release.");
+            using var dispatcherContext = new PortableDispatcherContextScope(Dispatcher);
             IDisposable restoreInput = PortableWindowActivationService.CaptureModalInputRestoreState();
             PortableModalInputScope modalInput;
             try { modalInput = PortableModalInputScope.Enter(this); }
