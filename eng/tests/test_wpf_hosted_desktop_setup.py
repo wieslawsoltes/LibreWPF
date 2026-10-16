@@ -59,6 +59,23 @@ class DesktopSetupTests(unittest.TestCase):
         self.assertEqual([], native.sent)
         self.assertTrue(record["completed"])
 
+    def test_explorer_account_proxy_is_retained_but_never_closed(self):
+        native, record = self.Native(), {}
+        proxy = dict(native.items[0], hwnd=99, **{"class": "Shell_OOBEProxy"}, image=r"C:\Windows\explorer.exe")
+        native.items.append(proxy)
+        original = native.close
+        def close(hwnd):
+            result = original(hwnd)
+            if hwnd == 1: native.items = [w for w in native.items if w["hwnd"] != 99]
+            return result
+        native.close = close
+        self.run_setup(native, record)
+        self.assertEqual([1, 2, 3], native.sent)
+        self.assertIn(proxy, record["observations"][0]["windows"])
+        native = self.Native(); native.items.append(dict(proxy, image=r"C:\Users\runneradmin\explorer.exe"))
+        with self.assertRaisesRegex(RuntimeError, "proxy"): self.run_setup(native, {})
+        self.assertEqual([], native.sent)
+
     def test_wrong_process_image_session_class_or_duplicate_fails_before_any_close(self):
         changes = ({"image": r"C:\Users\runneradmin\SearchHost.exe"}, {"session": 3},
                    {"class": "ordinary app"}, {"pid": 0}, {"visible": False})
@@ -93,6 +110,25 @@ class DesktopSetupTests(unittest.TestCase):
         self.assertFalse(record["closes"][0]["closed"])
         self.assertLess(native.ticks, 2.1)
         self.assertNotIn("completed", record)
+
+    def test_native_z_order_retains_core_windows_and_rejects_cycles_or_destroyed_handles(self):
+        class Windows:
+            next_handle = {1: 2, 2: 0}
+            dead = None
+            def GetTopWindow(self, parent): return 1
+            def GetWindow(self, hwnd, command):
+                if command != 2: raise AssertionError("GW_HWNDNEXT required")
+                return self.next_handle[hwnd]
+            def IsWindow(self, hwnd): return hwnd != self.dead
+            def IsWindowVisible(self, hwnd): return True
+        desktop = SETUP.Desktop.__new__(SETUP.Desktop)
+        desktop.u = Windows()
+        desktop.snapshot = lambda hwnd: {"hwnd": hwnd, "class": "Windows.UI.Core.CoreWindow" if hwnd == 1 else "Shell_OOBEProxy"}
+        self.assertEqual([1, 2], [w["hwnd"] for w in desktop.windows()])
+        desktop.u.next_handle = {1: 2, 2: 1}
+        with self.assertRaisesRegex(RuntimeError, "cycle"): desktop.windows()
+        desktop.u.next_handle = {1: 2, 2: 0}; desktop.u.dead = 2
+        with self.assertRaisesRegex(RuntimeError, "changed"): desktop.windows()
 
 if __name__ == "__main__": unittest.main()
 

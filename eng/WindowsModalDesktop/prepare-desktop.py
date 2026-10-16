@@ -43,7 +43,14 @@ def prepare(native, record, clock=time.monotonic, sleep=time.sleep):
         windows, foreground = native.windows(), native.foreground()
         require(len(windows) <= 128, "Native window inventory exceeds bound")
         record["observations"].append(dict(foreground=foreground, windows=windows))
-        known = [w for w in windows if w["title"] in EXPECTED]
+        # Explorer's OOBE owner has the same title as the real account CoreWindow.
+        # It is retained as evidence, never selected as a close target.
+        proxies = [w for w in windows if w["title"] == "Microsoft account" and w["class"] == "Shell_OOBEProxy"]
+        for proxy in proxies:
+            require(proxy["session"] == context["session"] and proxy["pid"] > 0
+                    and ntpath.normcase(proxy["image"]) == ntpath.normcase(ntpath.join(context["windowsRoot"], "explorer.exe")),
+                    "Unidentified account proxy")
+        known = [w for w in windows if w["title"] in EXPECTED and w not in proxies]
         require(len({w["title"] for w in known}) == len(known), "Duplicate startup overlay identity")
         for window in known:
             admitted(window, context["windowsRoot"], context["session"])
@@ -56,6 +63,7 @@ def prepare(native, record, clock=time.monotonic, sleep=time.sleep):
         window = next((w for name in EXPECTED for w in known if w["title"] == name), None)
         require(window["title"] not in closed, "Closed startup overlay reappeared; no retry permitted")
         require(native.snapshot(window["hwnd"]) == window, "Startup overlay identity changed before close")
+        require(native.foreground() == foreground, "Foreground identity changed before close")
         closed.add(window["title"])
         receipt = dict(window=window, message=0x10)
         record["closes"].append(receipt)
@@ -71,12 +79,12 @@ class Desktop:
     def __init__(self):
         self.u = C.WinDLL("user32", use_last_error=True)
         self.k = C.WinDLL("kernel32", use_last_error=True)
-        self.callback = C.WINFUNCTYPE(W.BOOL, W.HWND, W.LPARAM)
         def bind(lib, name, result, *args):
             fn = getattr(lib, name); fn.restype = result; fn.argtypes = args
         bind(self.u, "GetForegroundWindow", W.HWND)
         bind(self.u, "GetShellWindow", W.HWND)
-        bind(self.u, "EnumWindows", W.BOOL, self.callback, W.LPARAM)
+        bind(self.u, "GetTopWindow", W.HWND, W.HWND)
+        bind(self.u, "GetWindow", W.HWND, W.HWND, W.UINT)
         for name in ("IsWindow", "IsWindowVisible"):
             bind(self.u, name, W.BOOL, W.HWND)
         bind(self.u, "GetWindowThreadProcessId", W.DWORD, W.HWND, C.POINTER(W.DWORD))
@@ -134,21 +142,19 @@ class Desktop:
         return result
 
     def windows(self):
-        result, errors = [], []
-        @self.callback
-        def visit(hwnd, _):
-            try:
-                if self.visible(hwnd):
-                    require(len(result) < 128, "Native window inventory exceeds bound")
-                    result.append(self.snapshot(hwnd))
-                return True
-            except Exception as error:
-                errors.append(error)
-                return False
-        complete = self.u.EnumWindows(visit, 0)
-        if errors:
-            raise errors[0]
-        require(complete, "Native window inventory incomplete")
+        # EnumWindows omits the observed UWP CoreWindows on modern Windows.
+        # Follow the actual desktop Z order with cycle/count and live-handle
+        # guards, matching the existing original input helper's inventory route.
+        result, seen = [], set()
+        hwnd = self.u.GetTopWindow(None)
+        while hwnd:
+            require(hwnd not in seen and len(seen) < 512, "Native window inventory cycle or bound")
+            seen.add(hwnd)
+            require(self.u.IsWindow(hwnd), "Native window changed during inventory")
+            if self.visible(hwnd):
+                require(len(result) < 128, "Native window inventory exceeds bound")
+                result.append(self.snapshot(hwnd))
+            hwnd = self.u.GetWindow(hwnd, 2)  # GW_HWNDNEXT; no inferred window IDs.
         return result
 
     def foreground(self):

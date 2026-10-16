@@ -126,9 +126,10 @@ source/payload hashes and package provenance are uploaded even on failure.
 All fourteen pure modal receipt/deadline/owner-guard controls and all 58 shared
 Gallery controller controls pass locally. The original eleven modal cases are
 unchanged; additional controls cover the startup connection and action accounting.
-Six additional desktop setup controls verify the actual three-overlay plan,
+Eight additional desktop setup controls verify the actual three-overlay plan,
 ordinary-shell no-op, foreign/replaced/duplicate identity rejection, refused
-close and reappearance. The existing Gallery setup stays unchanged.
+close and reappearance, the distinct Explorer proxy and bounded native Z order.
+The existing Gallery setup stays unchanged.
 The first hosted run stopped at original-source hash verification before any
 application build or execution. Its original job log is retained. Hosted
 checkouts now explicitly keep committed LF bytes; the exact source hashes are
@@ -156,6 +157,14 @@ The modal-only setup now closes those two exactly identified shell overlays as
 well as the account startup window, using normal WM_CLOSE only. All five
 unsuccessful hosted attempts remain retained; this is a diagnosed environment
 repair, not application acceptance or a relaxed foreground/caption check.
+The first overlay-setup run stopped without closing anything because
+`EnumWindows` returned the Explorer `Shell_OOBEProxy` but omitted the actual
+foreground CoreWindow. [Microsoft documents](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-enumwindows)
+that this enumeration covers only desktop applications on modern Windows. Setup
+now uses the actual bounded native Z-order traversal already used by the original
+owner-obstruction helper. It retains and ignores only the exact Explorer proxy,
+rechecks selected identities and keeps the CoreWindow/system-image admission.
+The sixth failure and its original complete desktop inventory are preserved.
 Hosted execution and independent raw-image review remain pending. Source
 `qualified=false` values remain unchanged; even a completed Windows pair does
 not qualify Linux or close the broader popup/modality issues.
