@@ -1,9 +1,9 @@
 # WPF modal desktop acceptance
 
-This is an authored desktop workload, not a passing receipt. `qualified` remains
-false in source observations and driver evidence. No build, test, syntax check,
-VM, UI, native execution, CI dispatch or staging was performed for this branch.
-The original source-only MessageBox and popup-dismissal gates remain unchanged.
+This desktop workload is still unqualified. `qualified` remains false in source
+observations and driver evidence. Hosted Windows runs and retained failures are
+described below; local shared VMs remain untouched. The original source-only
+MessageBox and popup-dismissal gates remain unchanged.
 
 `ProGPU.Wpf.ModalInteractionApp` uses the real SDK bootstrap. The Windows project
 links the exact same application and observer source against Microsoft WPF.
@@ -222,3 +222,29 @@ same failure, including native input-enabled state; no bounds are fitted, no
 window is filtered, and no new tolerance or input is admitted. Local controls
 retain rejection of whole-pixel and subpixel differences. Product repair awaits
 that actual native evidence.
+
+The twelfth run retained the precise mismatch. The native MessageBox client was
+`(240,275,504,151)`, while the old observer reported the content Grid's
+`(264,297,456,111)`: exactly its original `Margin="24,22,24,18"`. Content geometry
+is not client geometry. Observer schema v2 reads the original layout slot of the
+Window's sole visual child, which `Window.ArrangeOverride` allocates after native
+frame subtraction, and maps its original endpoints with Window.PointToScreen.
+It does not add inferred margins, copy native bounds or change the exact native
+comparison. Popup-root and action-target geometry keep their original paths.
+
+The same receipt showed native owner input disabled while its requested controller
+enabled intent remained true, as the source contract requires. The observer now
+records that intent and the actual source PortableModalInputScope policy separately;
+their conjunction is source input admission. Windows acceptance additionally
+requires independent IsWindowEnabled=false during modality and true after return.
+Application IsEnabled, modal scope, rendering, actions, deadlines and public
+preview.69 packages are unchanged. Both Microsoft and portable applications use
+the same revised observer. Preparation retains all original source bytes beside
+the consumer, records both observer hashes and rejects any other source mutation.
+The original manifest and failed receipts are not rewritten or qualified.
+
+Two extra PID-owned blank windows also appeared in that original receipt. A new
+read-only inventory records actual native class, owner, styles and front-to-owner
+Z order before the existing blocked-owner assertion. No window is filtered or
+classified from its dimensions; the original obstruction and retirement checks
+remain unchanged pending actual native evidence.

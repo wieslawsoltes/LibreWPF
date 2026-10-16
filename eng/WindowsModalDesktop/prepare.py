@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the unchanged Microsoft/public-package pair without launching either app."""
+"""Build the original pair with a versioned read-only observer correction."""
 import argparse
 import hashlib
 import json
@@ -12,6 +12,7 @@ import xml.etree.ElementTree as ET
 import zipfile
 
 HERE = Path(__file__).resolve().parent
+OBSERVER = "samples/ProGPU.Wpf.ModalInteractionApp/ModalObservation.cs"
 
 
 def require(value, message):
@@ -46,6 +47,32 @@ def inventory(directory):
              "bytes": path.stat().st_size} for path in files]
 
 
+def stage_sources(source, root, manifest, selected_observer):
+    selected = dict(manifest["source"])
+    for name, expected in manifest["source"].items():
+        require(sha(source / name) == expected, "Original source changed before staging: " + name)
+        for directory in (root / "original-source", root / "consumer"):
+            target = directory / name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source / name, target)
+    # Preserve the original failed observer as evidence. Both applications use
+    # this same explicit v2 observer; UI, scenarios, properties and packages stay
+    # byte-identical. This correction does not bless the old failed run.
+    require(selected_observer.is_file() and not selected_observer.is_symlink(), "Selected observer is unavailable")
+    shutil.copy2(selected_observer, root / "consumer" / OBSERVER)
+    selected[OBSERVER] = sha(root / "consumer" / OBSERVER)
+    return selected
+
+
+def verify_staged_sources(root, manifest, selected):
+    require(set(selected) == set(manifest["source"]), "Selected source inventory changed")
+    require(all(value == manifest["source"][name] for name, value in selected.items() if name != OBSERVER),
+            "Only the explicit read-only observer revision may differ")
+    for name, expected in manifest["source"].items():
+        require(sha(root / "original-source" / name) == expected, "Preserved original source changed: " + name)
+        require(sha(root / "consumer" / name) == selected[name], "Selected source changed: " + name)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", type=Path, required=True)
@@ -69,21 +96,19 @@ def main():
         save(root / "preparation.json", dict(prepared=False, qualified=False, error=str(error)))
         raise
     consumer = root / "consumer"
-    for name in manifest["source"]:
-        target = consumer / name
-        target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(source / name, target)
+    selected_sources = stage_sources(source, root, manifest, HERE.parents[1] / OBSERVER)
     automation = {}
     for original, name in [(HERE.parent / "progpu-wpf-modal-desktop.py", "eng/hosted-progpu-wpf-modal-desktop.py"),
                            (HERE.parent / "WindowsGalleryClipboardConsumer/run-windows.py", "eng/WindowsGalleryClipboardConsumer/run-windows.py"),
                            (HERE / "prepare-desktop.py", "eng/WindowsModalDesktop/prepare-desktop.py"),
-                           (HERE / "shell-escape.py", "eng/WindowsModalDesktop/shell-escape.py")]:
+                           (HERE / "shell-escape.py", "eng/WindowsModalDesktop/shell-escape.py"),
+                           (HERE / "native-window-observation.py", "eng/WindowsModalDesktop/native-window-observation.py")]:
         target = consumer / name
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(original, target)
         automation[name] = sha(target)
     # This is the same isolated package-consumer configuration as the original
-    # public preview.69 build. Application/project/observer files stay unchanged.
+    # public preview.69 build. Application/project files stay unchanged.
     (consumer / "Directory.Build.props").write_text(
         "<Project><PropertyGroup><ProGpuWpfSdkSampleTargetFramework>net10.0</ProGpuWpfSdkSampleTargetFramework></PropertyGroup></Project>",
         encoding="utf-8")
@@ -105,6 +130,10 @@ def main():
             "Original exact consumer SDK is required")
     receipt = dict(prepared=False, qualified=False, dotnet=str(dotnet), source=manifest["wpfSource"],
                    helper=str(helper), helperCommit=manifest["formsHelperSource"], builds=[], payloads={},
+                   selectedSourceHashes=selected_sources,
+                   observerRevision=dict(schema="wpf-modal-desktop-v2", originalSha256=manifest["source"][OBSERVER],
+                                         selectedSha256=selected_sources[OBSERVER],
+                                         reason="Original allocated client slot and explicit source modal input policy"),
                    hostedAutomation=automation, automationCommit=subprocess.check_output(
                        ["git", "-C", str(HERE), "rev-parse", "HEAD"], text=True).strip())
     save(root / "preparation.json", receipt)
@@ -149,13 +178,12 @@ def main():
     require({"librewpf.sdk", "librewpf.transport", "librewpf.progpu", "librewpf.interop", "progpu.backend",
              "progpu.backend.native", "progpu.scene.native"}.issubset(restored),
             "The original native-MIL product package closure is incomplete")
-    for name, digest in manifest["source"].items():
-        require(sha(consumer / name) == digest, "Original application/driver source changed during build")
+    verify_staged_sources(root, manifest, selected_sources)
     verify_sources(helper, manifest["formsHelperSource"], manifest["helpers"])
     receipt.update(prepared=True, packages=restored, manifestSha256=sha(root / "public-inputs.json"),
                    driver=str(consumer / "eng/hosted-progpu-wpf-modal-desktop.py"))
     save(root / "preparation.json", receipt)
-    print("Prepared the unchanged paired application and verified public package closure; no UI executed.")
+    print("Prepared original applications with the same versioned observer and verified public package closure; no UI executed.")
 
 
 if __name__ == "__main__":

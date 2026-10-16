@@ -8,6 +8,7 @@ on:
       - 'eng/WindowsModalDesktop/**'
       - 'eng/progpu-wpf-modal-desktop.py'
       - 'eng/WindowsGalleryClipboardConsumer/run-windows.py'
+      - 'samples/ProGPU.Wpf.ModalInteractionApp/ModalObservation.cs'
 
 permissions:
   contents: read
@@ -65,6 +66,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python automation/eng/tests/test_wpf_hosted_shell_escape.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python automation/eng/tests/test_wpf_modal_source_staging.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Prepare original sources and verify published package closure
         shell: pwsh
         run: |
@@ -102,3 +105,5 @@ jobs:
             ${{ env.CASE_ROOT }}/launch.json
             ${{ env.CASE_ROOT }}/controller-result.json
             ${{ env.CASE_ROOT }}/runtime/**
+            ${{ env.CASE_ROOT }}/original-source/**
+            ${{ env.CASE_ROOT }}/consumer/samples/ProGPU.Wpf.ModalInteractionApp/ModalObservation.cs

@@ -93,7 +93,7 @@ def observation(directory, pid, run):
             "Invalid source snapshot name/size")
     raw = path.read_bytes()
     state = parse(raw)
-    require(state.get("schema") == "wpf-modal-desktop-v1" and state.get("qualified") is False and
+    require(state.get("schema") == "wpf-modal-desktop-v2" and state.get("qualified") is False and
             type(state.get("pid")) is int and state["pid"] == pid and state.get("run") == run and
             state.get("title") == f"WpfModalInteractionApp [{run}]" and
             type(state.get("sequence")) is int and 0 < state["sequence"] <= 650 and
@@ -343,10 +343,22 @@ class Session:
         children = [value for value in windows if value["title"] == modal_title]
         require(len(children) == 1 and self.identity(children[0]) != self.identity(owner), "Missing exact modal child identity")
         bounds = rectangle(self.state["targets"]["guard"])
+        if self.hosted_caption:
+            self.remaining()
+            path = Path(__file__).parent / "WindowsModalDesktop/native-window-observation.py"
+            spec = importlib.util.spec_from_file_location("modal_native_observation", path)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            record = module.observe(self.desktop, self.process.pid, owner, windows)
+            record.update(helperSha256=digest(path), source=self.source_receipt, target=bounds)
+            write(self.directory / (self.state["phase"] + "-native-inventory.json"), record)
+            self.remaining()
         exposed_guard(owner, windows, bounds, self.identity)
         source_owner = next(window for window in self.state["windows"] if window["title"] == self.state["title"])
         policy = source_owner["surfaces"][0]["inputEnabled"] if self.portable else owner.get("enabled")
         require(policy is False, "Modal owner input policy did not disable")
+        if sys.platform == "win32":
+            require(owner.get("enabled") is False, "Native modal owner remains enabled")
         self.blocked_owner_baseline = owner_input(self.state)
         require(hasattr(self.desktop, "blocked_owner_pointer"), "Shared native helper lacks independently unobstructed blocked-owner input")
         proof = self.desktop.blocked_owner_pointer(self.process.pid, owner, bounds)
@@ -423,6 +435,8 @@ def scenario(session):
         source_owner = next(window for window in session.state["windows"] if window["title"] == session.state["title"])
         require(source_owner["surfaces"][0]["inputEnabled"] is True if session.portable else native_enabled is True,
                 "Modal owner input was not restored")
+        if sys.platform == "win32":
+            require(native_enabled is True, "Native modal owner input was not restored")
         before = count(session.state, "guard-action")
         session.point("guard")
         session.wait(lambda state: count(state, "guard-action") == before + 1)

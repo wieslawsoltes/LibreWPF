@@ -39,13 +39,13 @@ class DesktopReceiptTests(unittest.TestCase):
 
     def test_snapshot_pid_run_title_sequence_are_exact(self):
         run = "a" * 32
-        original = dict(schema="wpf-modal-desktop-v1", qualified=False, pid=17, run=run,
+        original = dict(schema="wpf-modal-desktop-v2", qualified=False, pid=17, run=run,
                         title=f"WpfModalInteractionApp [{run}]", sequence=1)
         with tempfile.TemporaryDirectory() as temporary:
             directory = Path(temporary).resolve()
             path = directory / "snapshot-00000001.json"
             for change in ({"pid": 18}, {"run": "b" * 32}, {"title": "another"},
-                           {"sequence": 2}, {"qualified": True}):
+                           {"sequence": 2}, {"qualified": True}, {"schema": "wpf-modal-desktop-v1"}):
                 path.write_text(json.dumps(original | change))
                 with self.subTest(change=change), self.assertRaises(RuntimeError):
                     DRIVER.observation(directory, 17, run)

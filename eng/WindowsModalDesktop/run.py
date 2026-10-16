@@ -8,7 +8,7 @@ import runpy
 import sys
 import time
 
-from prepare import inventory, require, save, sha, verify_sources
+from prepare import inventory, require, save, sha, verify_sources, verify_staged_sources
 
 
 def main():
@@ -28,8 +28,7 @@ def main():
 
     def verify():
         require(sha(root / "public-inputs.json") == preparation["manifestSha256"], "Prepared package/source manifest changed")
-        for name, digest in manifest["source"].items():
-            require(sha(root / "consumer" / name) == digest, "Original application/driver changed")
+        verify_staged_sources(root, manifest, preparation["selectedSourceHashes"])
         for name, digest in preparation["hostedAutomation"].items():
             require(sha(root / "consumer" / name) == digest, "Prepared hosted controller changed")
         verify_sources(Path(preparation["helper"]), manifest["formsHelperSource"], manifest["helpers"])
@@ -44,7 +43,8 @@ def main():
                "--forms-helper-commit", manifest["formsHelperSource"], "--output", str(evidence),
                "--hosted-windows-caption-activation", "--hosted-windows-shell-escape"]
     receipt = dict(qualified=False, completed=False, argv=command, deadlineSecondsPerProcess=60,
-                   maximumActionsPerProcess=64, sourceFilesUnchanged=True,
+                   maximumActionsPerProcess=64, applicationFilesUnchanged=True,
+                   observerRevision=preparation["observerRevision"],
                    hostedAutomation=preparation["hostedAutomation"], automationCommit=preparation["automationCommit"],
                    startupInput="At most two verified shell Escapes at reference startup across the entire pair, then one PID/HTCAPTION-verified click per process; all inside original deadline/action budgets",
                    shellInputAuthorization="Owner approval 2026-10-16: bounded disposable hosted Start/Search Escape only")
