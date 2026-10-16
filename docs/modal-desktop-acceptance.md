@@ -133,7 +133,7 @@ to the application. The portable run has no shell-input extension. Original
 caption, scenario, image and cleanup checks follow unchanged. No local VM is used.
 
 Raw images, all original failures, source/payload hashes and package provenance
-are retained even on failure. Eighteen pure modal controls, 58 shared Gallery
+are retained even on failure. Nineteen pure modal controls, 58 shared Gallery
 controls, nine desktop setup controls and eight shell Escape controls pass locally.
 The original eleven modal controls remain unchanged. New controls reject foreign
 or replaced shell identities, missing approval, local/self-hosted use, refusal,
@@ -213,3 +213,12 @@ the first original deadline, and the immutable helper is not patched. A pure
 paired-run control verifies one initialization and two independent sessions.
 The earlier reference context capture also lacks visibly painted Context action
 despite an open source/native window; raw-image qualification remains unresolved.
+
+The eleventh run again completed the Microsoft protocol and then reached the
+public LibreWPF MessageBox. It failed the unchanged exact source/native client
+frame comparison. The portable snapshots and original first owner image remain
+retained. The comparison now writes both exact inventories before raising the
+same failure, including native input-enabled state; no bounds are fitted, no
+window is filtered, and no new tolerance or input is admitted. Local controls
+retain rejection of whole-pixel and subpixel differences. Product repair awaits
+that actual native evidence.

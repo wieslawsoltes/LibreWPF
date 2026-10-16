@@ -284,8 +284,12 @@ class Session:
                     geometry = surface["nativeGeometry"]
                     require(isinstance(geometry, dict) and geometry["contentView"] != 0, "Missing actual Cocoa view geometry")
                     matches = [value for value in windows if self.identity(value) == geometry["windowNumber"]]
-                require(len(matches) == 1 and matches[0]["client"] == rectangle(surface["client"]),
-                        "Original source/native client frames differ; no fitted bounds are permitted")
+                frame_matches = len(matches) == 1 and matches[0]["client"] == rectangle(surface["client"])
+                if not frame_matches:
+                    write(self.directory / "source-native-mismatch.json", dict(qualified=False,
+                          source=state, sourceReceipt=self.source_receipt, nativeWindows=windows,
+                          mismatchedSurface=surface, matchedNativeWindows=matches))
+                require(frame_matches, "Original source/native client frames differ; no fitted bounds are permitted")
                 if index == 0:
                     require(matches[0]["title"] == source["title"], "Source/native title identity differs")
                 if self.portable:

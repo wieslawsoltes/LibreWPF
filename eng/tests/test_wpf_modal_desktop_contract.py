@@ -249,6 +249,24 @@ class DesktopReceiptTests(unittest.TestCase):
             self.assertTrue(all(json.loads((root/n/'result.json').read_text())['completed']
                                 for n in ('microsoft', 'portable')))
 
+    def test_source_native_frame_failure_records_exact_inputs_without_fitting(self):
+        for changed in ({'width': 101}, {'x': 8}, {'width': 100.0000000001}):
+            with self.subTest(changed=changed), tempfile.TemporaryDirectory() as temporary:
+                desktop = mock.Mock()
+                desktop.window_identity.side_effect = lambda window: window['hwnd']
+                session = DRIVER.Session(desktop, None, Path(temporary), 'run', True, 60)
+                frame = dict(x=0, y=0, width=100, height=100)
+                surface = dict(visible=True, nativeHandle=1, sourceHandle=2, client=frame, presentedFrames=1)
+                state = dict(title='owner', windows=[dict(title='owner', surfaces=[surface])])
+                windows = [dict(hwnd=1, title='owner', client=frame | changed)]
+                with mock.patch.object(DRIVER.sys, 'platform', 'win32'), \
+                     self.assertRaisesRegex(RuntimeError, 'no fitted bounds'):
+                    session.match(state, windows)
+                receipt = json.loads((session.directory/'source-native-mismatch.json').read_text())
+                self.assertEqual(frame, receipt['mismatchedSurface']['client'])
+                self.assertEqual(frame | changed, receipt['matchedNativeWindows'][0]['client'])
+                self.assertEqual(windows, receipt['nativeWindows'])
+
 
 if __name__ == "__main__":
     unittest.main()
