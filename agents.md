@@ -123,8 +123,10 @@ Gallery pixels and actions after the explicit completion precondition; no retry
 capture or timer-based completion. The owner-approved preview69 FXC exception allows
 a 90-second controller and 87-second host reserve, retaining the 55-second
 foreground setup bound and all captures, ownership, clipboard and cleanup checks.
-The original 60-second performance target remains open in LibreWPF #117. See
-docs/native-presentation-completion.md.
+That exception is retained as historical evidence. LibreWPF #280 subsequently
+qualified explicit DXC with all original actions and pixels in 38.047 seconds,
+restored the original 60/57/55-second limits, and closed #117. See
+docs/native-presentation-completion.md and docs/wpf-dx12-compiler.md.
 
 LibreWPF work branches and pull requests target `progpu-rendering-port`, the
 default branch of `wieslawsoltes/LibreWPF`, not `main` or `dotnet/wpf`.

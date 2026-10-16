@@ -36,12 +36,34 @@ not manufacture sandbox permission, persist security-scoped bookmarks, or claim
 that arbitrary paths are authorized. Signed/sandboxed application behavior and
 the original WPF file-action acceptance remain separate from authored controls.
 
-Validation so far: source host and test graph compile; 36 focused tests pass,
-including 21 native-service controls, existing process-service controls and the
-default platform-selection control. The macOS run resolves the real AppKit and
-UniformTypeIdentifiers binding without opening a dialog. Native selection,
-cancellation during the modal loop, and selected-file I/O still require actual
-application validation before issue257 can close.
+## Completed application acceptance
+
+[PR #277](https://github.com/wieslawsoltes/LibreWPF/pull/277) merged the implementation
+after exact source `ffa1f5dd0c279f78f65c3cdd60d6fe3bbacbdd43` passed all 16
+[Build jobs](https://github.com/wieslawsoltes/LibreWPF/actions/runs/38314579531)
+and [Docs](https://github.com/wieslawsoltes/LibreWPF/actions/runs/38314579424).
+All 36 focused source controls also passed, including the 21 native-service cases.
+
+On 12 October 2026, an ordinary LibreWPF SDK application built from that exact
+successful package artifact completed real in-process open/read, multiple-file
+selection/read, save/write/readback, folder selection/I/O and cancellation through
+computer-use clicks. It used owned fixtures on the external volume without
+clipboard access. All five actions passed; the owned process exited normally in
+79.818 seconds within its original 180-second bound. An independent control also
+canceled the actual native modal call through its token in 5.036 seconds.
+
+[Issue #257](https://github.com/wieslawsoltes/LibreWPF/issues/257) is closed with
+this evidence. Original source hashes, the package digest, native action log and
+exit receipts remain retained in `file-panels-257-sdk-acceptance`. The action-log
+SHA-256 is `a4ed408d140aaafad1cfa0004b4dc79735450d831ec644b8f387985f9392a3db`;
+the qualified package-artifact SHA-256 is
+`a91434f6062b050799d9705729c3b76fec21934157c140220dcc533a9620b54f`.
+
+This qualifies the original application-modal file actions. Asynchronous owner
+sheets, filter-selector accessories and persistent sandbox bookmarks remain
+separate follow-up work in [#261](https://github.com/wieslawsoltes/LibreWPF/issues/261).
+It does not establish sandbox authorization persistence or LibreWinForms dialog
+acceptance.
 
 References: [NSOpenPanel](https://developer.apple.com/documentation/appkit/nsopenpanel),
 [NSSavePanel](https://developer.apple.com/documentation/appkit/nssavepanel),
