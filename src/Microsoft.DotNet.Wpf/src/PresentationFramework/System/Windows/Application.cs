@@ -1705,6 +1705,7 @@ namespace System.Windows
 
             if (usePortableRunLoop)
             {
+                using var dispatcherContext = new PortableDispatcherContextScope(Dispatcher);
                 _portableRunEntered = true;
                 try
                 {

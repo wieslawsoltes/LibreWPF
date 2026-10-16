@@ -1,5 +1,13 @@
 # Agent Guidance
 
+Portable Application.Run and ShowDialog own the actual source dispatcher's
+SynchronizationContext for their synchronous loop lifetime. Preserve the caller's
+exact context across normal return, exceptions and nested modal loops; never
+install a permanent application-constructor workaround or route native input
+through a fabricated DispatcherOperation. Keep the native HWND loop unchanged.
+See docs/portable-dispatcher-context.md; source callbacks do not replace the
+reporter's physical-click package acceptance.
+
 Explicit WPF D3D12 compiler options retain the exact immutable core descriptor
 through source activation, both renderers and current shared-device ownership.
 Null inherits the live owner before startup environment defaults; explicit

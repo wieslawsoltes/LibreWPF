@@ -1385,6 +1385,7 @@
     <Compile Include="System\Windows\VisualTransition.cs" />
     <Compile Include="System\Windows\PortableInputEventArgs.cs" />
     <Compile Include="System\Windows\PortableWindowActivationService.cs" />
+    <Compile Include="System\Windows\PortableDispatcherContextScope.cs" />
     <Compile Include="System\Windows\Window.cs" />
     <Compile Include="System\Windows\WindowBackdropType.cs" />
     <Compile Include="System\Windows\WindowCollection.cs" />
