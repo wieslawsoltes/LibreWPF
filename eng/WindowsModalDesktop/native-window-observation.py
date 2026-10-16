@@ -2,6 +2,18 @@
 import ctypes as C
 
 
+def pointer():
+    class Point(C.Structure):
+        _fields_ = [("x", C.c_int32), ("y", C.c_int32)]
+    user = C.WinDLL("user32", use_last_error=True)
+    user.GetCursorPos.restype = C.c_int32
+    user.GetCursorPos.argtypes = [C.POINTER(Point)]
+    value = Point()
+    if not user.GetCursorPos(C.byref(value)):
+        raise RuntimeError("Actual native cursor observation unavailable")
+    return dict(x=value.x, y=value.y)
+
+
 def observe(desktop, pid, owner, windows):
     user = desktop.user
     user.GetClassNameW.restype = C.c_int32

@@ -45,6 +45,7 @@ def main():
     receipt = dict(qualified=False, completed=False, argv=command, deadlineSecondsPerProcess=60,
                    maximumActionsPerProcess=64, applicationFilesUnchanged=True,
                    observerRevision=preparation["observerRevision"],
+                   nativeInputTrace=os.environ.get("PROGPU_WPF_TRACE_INPUT") == "1",
                    hostedAutomation=preparation["hostedAutomation"], automationCommit=preparation["automationCommit"],
                    startupInput="At most two verified shell Escapes at reference startup across the entire pair, then one PID/HTCAPTION-verified click per process; all inside original deadline/action budgets",
                    shellInputAuthorization="Owner approval 2026-10-16: bounded disposable hosted Start/Search Escape only")

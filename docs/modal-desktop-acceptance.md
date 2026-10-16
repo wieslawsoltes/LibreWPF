@@ -268,3 +268,13 @@ windows fail immediately. The original single-window predicate is still recorded
 separately, and all previous failures are preserved. The existing bounded failure
 diagnostic cannot turn later disappearance into a pass. This repairs an observer
 assumption; it does not establish product pixel or cross-platform qualification.
+
+The fourteenth run completed the original Microsoft protocol. Public LibreWPF
+passed MessageBox native owner blocking, Enter result, restored source focus and
+native input, followed by the real owner guard click. The next physical click
+requested the ShowDialog button at `(100,215,180,36)`, but source events recorded
+a second guard click at the previous target and never opened the dialog. The
+original 60-second timeout, all actions and snapshots are retained. The next
+diagnostic enables the existing native/WPF input trace and records actual Win32
+cursor position after each original pointer action. It adds no input or delay and
+does not extend the deadline, infer the hit target or repair application focus.

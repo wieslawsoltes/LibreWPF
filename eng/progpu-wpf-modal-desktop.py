@@ -361,7 +361,18 @@ class Session:
         require(any(value.get("client") is not None and contains(value["client"], bounds) for value in windows),
                 "Input target has no exact native client owner")
         self.desktop.pointer(self.process.pid, bounds, click)
-        self.action("pointer", target=target, rectangle=bounds, click=click)
+        native_cursor = None
+        if self.hosted_caption:
+            path = Path(__file__).parent / "WindowsModalDesktop/native-window-observation.py"
+            spec = importlib.util.spec_from_file_location("modal_cursor_observation", path)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            native_cursor = module.pointer()
+        self.action("pointer", target=target, rectangle=bounds, click=click, nativeCursorAfter=native_cursor)
+        if native_cursor is not None:
+            require(native_cursor == dict(x=bounds["x"] + bounds["width"] // 2,
+                                          y=bounds["y"] + bounds["height"] // 2),
+                    "Actual native cursor differs from the requested source target")
 
     def key(self, code):
         self.remaining()

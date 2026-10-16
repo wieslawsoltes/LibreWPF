@@ -86,6 +86,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Run the original seven scenarios and per-process 60-second deadlines
         shell: pwsh
+        env:
+          PROGPU_WPF_TRACE_INPUT: '1'
         run: |
           python automation/eng/WindowsModalDesktop/run.py --output $env:CASE_ROOT
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
