@@ -4,6 +4,15 @@ The LibreWPF preview release uses the package list in `eng/progpu-preview-packag
 That package set is what users need to consume the custom `LibreWPF.Sdk` and run normal WPF
 projects on the ProGPU/Silk.NET platform.
 
+The preview.70 ProGPU source is
+`be37726173a0dd87e6b3a71f5de294f08863cb54`, merged in ProGPU #389 at the exact
+revision that passed all 59 jobs in
+[Build 38961124864](https://github.com/wieslawsoltes/ProGPU/actions/runs/38961124864)
+and all 68 Build, Docs, Android and SVG.NET checks. The pin includes the original
+Win32 button-coordinate packet used by this source adapter, the merged lifetime
+repairs and coordinated preview.70 identities. Producer qualification does not
+replace the rebuilt LibreWPF package and original modal application gates.
+
 The preview.70 source graph selects LibreWinForms
 `f64e8e04fa287bf9d82dddd3a36efbb50d02f3ba`, whose complete
 [Build 38946060986](https://github.com/wieslawsoltes/LibreWinForms/actions/runs/38946060986)
