@@ -14,10 +14,15 @@ repairs and coordinated preview.70 identities. Producer qualification does not
 replace the rebuilt LibreWPF package and original modal application gates.
 
 The preview.70 source graph selects LibreWinForms
-`f64e8e04fa287bf9d82dddd3a36efbb50d02f3ba`, whose complete
-[Build 38946060986](https://github.com/wieslawsoltes/LibreWinForms/actions/runs/38946060986)
-passed all nine jobs before the gitlink advanced. This includes the merged
-portable Graphics paint and window-lifetime repairs. The combined LibreWPF
+`97c1a5e0d86371c46e5f13e63f79c16817b2d4e8`, merged in LibreWinForms #172 after
+[Build 38971110271](https://github.com/wieslawsoltes/LibreWinForms/actions/runs/38971110271)
+passed all nine jobs, including the three visible package consumers, and Docs
+passed. Its recorded ProGPU gitlink is the same `be37726173a0dd87e6b3a71f5de294f08863cb54`.
+This includes the merged portable Graphics paint and window-lifetime repairs.
+The first combined WPF candidate failed the canonical source guard because
+Forms `f64e8e04fa287bf9d82dddd3a36efbb50d02f3ba` still recorded the older ProGPU
+source. Updating to the fully qualified Forms revision repairs that mismatch;
+the exact source-equality guard remains unchanged. The combined LibreWPF
 packages still require their own complete Build and original application gates;
 the upstream source pass does not qualify that combined package graph.
 
