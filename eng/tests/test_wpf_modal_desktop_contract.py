@@ -209,7 +209,7 @@ class DesktopReceiptTests(unittest.TestCase):
     def test_retirement_diagnostic_cannot_replace_the_original_failed_assertion(self):
         with tempfile.TemporaryDirectory() as temporary:
             session = mock.Mock(directory=Path(temporary), state={'phase': 'owner'},
-                                source_receipt={}, hosted_caption=True, deadline=60)
+                                source_receipt={}, hosted_caption=True, deadline=60, initial_native_windows=None)
             session.native.side_effect = [[{'hwnd': 1}, {'hwnd': 2}], [{'hwnd': 1}]]
             with mock.patch.object(DRIVER.time, 'monotonic', side_effect=[20, 20.1, 20.1, 21.1]), \
                  mock.patch.object(DRIVER.time, 'sleep'):
@@ -266,6 +266,78 @@ class DesktopReceiptTests(unittest.TestCase):
                 self.assertEqual(frame, receipt['mismatchedSurface']['client'])
                 self.assertEqual(frame | changed, receipt['matchedNativeWindows'][0]['client'])
                 self.assertEqual(windows, receipt['nativeWindows'])
+
+
+class NativeWindowInventoryTests(unittest.TestCase):
+    def inventory(self):
+        frame = dict(x=72, y=49, width=840, height=580)
+        owner = dict(hwnd=10, pid=12, title='owner', bounds=frame,
+                     client=dict(x=80, y=80, width=824, height=541), enabled=True,
+                     windowClass='GLFW30', owner=0, style=0x16cf0000, extendedStyle=0x40110)
+        shadow = dict(hwnd=20, pid=12, title='', bounds=frame | {'width': 845, 'height': 585},
+                      client=frame | {'width': 845, 'height': 585}, enabled=True,
+                      windowClass='SysShadow', owner=0, style=0x94000000, extendedStyle=0x800a0)
+        front = [{key: value for key, value in owner.items() if key in ('pid', 'title', 'bounds', 'client')} | {'id': 10}]
+        return owner, dict(windows=[owner, shadow], frontToOwner=front)
+
+    def test_native_z_order_distinguishes_behind_owner_from_actual_obstruction(self):
+        owner, record = self.inventory()
+        bounds = dict(x=100, y=500, width=180, height=36)
+        identity = lambda row: row['hwnd']
+        with self.assertRaisesRegex(RuntimeError, 'covered'):
+            DRIVER.exposed_guard(owner, record['windows'], bounds, identity)
+        DRIVER.exposed_guard(owner, DRIVER.observed_front_to_owner(owner, 12, record), bounds, identity)
+        # Actual foreground obstruction fails regardless of its PID or class.
+        record['frontToOwner'].insert(0, dict(id=30, pid=99, bounds=bounds))
+        with self.assertRaisesRegex(RuntimeError, 'covered'):
+            DRIVER.exposed_guard(owner, DRIVER.observed_front_to_owner(owner, 12, record), bounds, identity)
+
+    def test_z_order_rejects_stale_owner_and_duplicate_identity(self):
+        for change in ({'pid': 13}, {'id': 11}, {'title': 'changed'}, {'client': {}}):
+            owner, record = self.inventory()
+            record['frontToOwner'][-1].update(change)
+            with self.subTest(change=change), self.assertRaises(RuntimeError):
+                DRIVER.observed_front_to_owner(owner, 12, record)
+        owner, record = self.inventory()
+        record['frontToOwner'].append(record['frontToOwner'][0])
+        with self.assertRaises(RuntimeError): DRIVER.observed_front_to_owner(owner, 12, record)
+
+    def test_initial_inventory_keeps_shadow_and_rejects_unknown_roles(self):
+        owner, record = self.inventory()
+        self.assertEqual(record['windows'], DRIVER.initial_windows(owner, 12, record))
+        for change in ({'windowClass': 'Popup'}, {'pid': 13}, {'title': 'unexpected'},
+                       {'owner': 10}, {'extendedStyle': 0x80080}, {'style': 0x90000000}):
+            candidate = copy.deepcopy(record); candidate['windows'][1].update(change)
+            with self.subTest(change=change), self.assertRaises(RuntimeError):
+                DRIVER.initial_windows(owner, 12, candidate)
+        record['frontToOwner'].insert(0, dict(id=20, pid=12, bounds=record['windows'][1]['bounds']))
+        with self.assertRaisesRegex(RuntimeError, 'behind'):
+            DRIVER.initial_windows(owner, 12, record)
+
+    def test_retirement_preserves_complete_baseline_without_accepting_extra_or_replaced_windows(self):
+        for change in ('none', 'extra', 'missing-shadow', 'replaced-shadow', 'disabled-owner'):
+            with self.subTest(change=change), tempfile.TemporaryDirectory() as temporary:
+                owner, record = self.inventory()
+                original = copy.deepcopy(record['windows'])
+                if change == 'extra': record['windows'].append(dict(original[1], hwnd=30))
+                if change == 'missing-shadow': record['windows'].pop()
+                if change == 'replaced-shadow': record['windows'][1]['hwnd'] = 30
+                if change == 'disabled-owner': record['windows'][0]['enabled'] = False
+                session = mock.Mock(directory=Path(temporary), state={'phase': 'owner'}, source_receipt={},
+                                    hosted_caption=True, deadline=60, initial_native_windows=original)
+                session.native.return_value = record['windows']
+                session.match.return_value = owner
+                session.observe_native_windows.return_value = record
+                with mock.patch.object(DRIVER.time, 'monotonic', side_effect=[20, 22]):
+                    if change == 'none': DRIVER.check_native_retirement(session)
+                    else:
+                        with self.assertRaisesRegex(RuntimeError, 'remain visible'):
+                            DRIVER.check_native_retirement(session)
+                receipt = json.loads((session.directory/'native-retirement.json').read_text())
+                self.assertEqual(change == 'none', receipt['restorationAssertionPassed'])
+                self.assertEqual(original, receipt['initialNativeWindows'])
+                self.assertEqual(record, receipt['finalNativeInventory'])
+                if change == 'none': self.assertFalse(receipt['originalSingleWindowAssertionPassed'])
 
 
 if __name__ == "__main__":

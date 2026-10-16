@@ -248,3 +248,23 @@ read-only inventory records actual native class, owner, styles and front-to-owne
 Z order before the existing blocked-owner assertion. No window is filtered or
 classified from its dimensions; the original obstruction and retirement checks
 remain unchanged pending actual native evidence.
+
+The thirteenth run passed exact client matching in the original Microsoft pair
+and public portable MessageBox. Its next failure identified both additional
+windows as actual `SysShadow` surfaces (style `0x94000000`, extended style
+`0x800a0`, no owner HWND), behind the original owner in independent native Z order.
+The old unordered PID inventory therefore incorrectly treated the owner's shadow
+as an obstruction. The blocked-owner preflight now uses the actual complete
+front-to-owner inventory, including foreign windows; the immutable input helper
+still repeats its own native obstruction proof before moving and before clicking.
+No class or window is filtered from capture or lifetime evidence.
+
+Hosted retirement now requires exact restoration of the complete initial native
+inventory, including each original shadow's HWND, class, styles, owner, enabled
+state and rectangles. Initial additional windows are accepted only with the
+observed transparent system-shadow contract and proven placement behind the owner;
+unknown windows are rejected. Missing, replaced, changed or additional final
+windows fail immediately. The original single-window predicate is still recorded
+separately, and all previous failures are preserved. The existing bounded failure
+diagnostic cannot turn later disappearance into a pass. This repairs an observer
+assumption; it does not establish product pixel or cross-platform qualification.

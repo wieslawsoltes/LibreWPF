@@ -122,6 +122,36 @@ def exposed_guard(owner, windows, bounds, identity):
             for item in windows if identity(item) != identity(owner)), "Owner guard is covered by an owned window")
 
 
+def observed_front_to_owner(owner, pid, record):
+    rows = record["frontToOwner"]
+    require(isinstance(rows, list) and 0 < len(rows) <= 4096 and
+            len({row["id"] for row in rows}) == len(rows), "Invalid original native Z-order inventory")
+    last = rows[-1]
+    require(last["id"] == owner["hwnd"] and last["pid"] == pid and
+            all(last.get(key) == owner[key] for key in ("title", "bounds", "client")),
+            "Native owner changed during Z-order observation")
+    return [dict(row, hwnd=row["id"]) for row in rows]
+
+
+def initial_windows(owner, pid, record):
+    rows = record["windows"]
+    require(0 < len(rows) <= 32 and len({row["hwnd"] for row in rows}) == len(rows),
+            "Invalid initial native inventory")
+    require(sum(row["hwnd"] == owner["hwnd"] for row in rows) == 1, "Initial native owner is missing")
+    for row in rows:
+        require(row["pid"] == pid, "Foreign initial native identity")
+        if row["hwnd"] != owner["hwnd"]:
+            # Original Windows observations identify these as transparent system
+            # shadow surfaces. Preserve each complete record, never discard it.
+            require(row["windowClass"] == "SysShadow" and row["title"] == "" and
+                    row["owner"] == 0 and row["style"] == 0x94000000 and
+                    row["extendedStyle"] == 0x800a0, "Unclassified initial native window")
+    front = observed_front_to_owner(owner, pid, record)
+    require(not any(row["hwnd"] in {item["hwnd"] for item in front[:-1]} for row in rows if row["hwnd"] != owner["hwnd"]),
+            "Initial shadow is not behind its original owner")
+    return sorted(rows, key=lambda row: row["hwnd"])
+
+
 def unique_options(argv):
     seen = set()
     for value in argv:
@@ -170,6 +200,7 @@ class Session:
         self.hosted_caption = hosted_caption
         self.hosted_shell = hosted_shell
         self.activation_attempted = False
+        self.initial_native_windows = None
 
     def activate(self, owner):
         if not self.hosted_caption:
@@ -343,17 +374,13 @@ class Session:
         children = [value for value in windows if value["title"] == modal_title]
         require(len(children) == 1 and self.identity(children[0]) != self.identity(owner), "Missing exact modal child identity")
         bounds = rectangle(self.state["targets"]["guard"])
+        obstruction_windows = windows
         if self.hosted_caption:
-            self.remaining()
-            path = Path(__file__).parent / "WindowsModalDesktop/native-window-observation.py"
-            spec = importlib.util.spec_from_file_location("modal_native_observation", path)
-            module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(module)
-            record = module.observe(self.desktop, self.process.pid, owner, windows)
-            record.update(helperSha256=digest(path), source=self.source_receipt, target=bounds)
+            record = self.observe_native_windows(owner, windows)
+            record.update(source=self.source_receipt, target=bounds)
             write(self.directory / (self.state["phase"] + "-native-inventory.json"), record)
-            self.remaining()
-        exposed_guard(owner, windows, bounds, self.identity)
+            obstruction_windows = observed_front_to_owner(owner, self.process.pid, record)
+        exposed_guard(owner, obstruction_windows, bounds, self.identity)
         source_owner = next(window for window in self.state["windows"] if window["title"] == self.state["title"])
         policy = source_owner["surfaces"][0]["inputEnabled"] if self.portable else owner.get("enabled")
         require(policy is False, "Modal owner input policy did not disable")
@@ -366,6 +393,18 @@ class Session:
         self.action("blocked-owner-pointer", nativeProof=proof, target=bounds,
                     ownerIdentity=self.identity(owner), childIdentity=self.identity(children[0]))
         self.wait(lambda state: state["phase"] == self.state["phase"])
+
+    def observe_native_windows(self, owner, windows):
+        self.remaining()
+        path = Path(__file__).parent / "WindowsModalDesktop/native-window-observation.py"
+        spec = importlib.util.spec_from_file_location("modal_native_observation", path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        record = module.observe(self.desktop, self.process.pid, owner, windows)
+        record["helperSha256"] = digest(path)
+        require(self.native() == windows, "Native inventory changed during role observation")
+        self.remaining()
+        return record
 
     def capture(self, phase, predicate):
         self.phase = phase
@@ -382,14 +421,29 @@ class Session:
         require(stable(state) == stable(self.state), "Source state changed during capture")
         write(self.directory / (phase + ".json"), dict(qualified=False, pid=self.process.pid,
               source=self.state, sourceReceipt=self.source_receipt, nativeWindows=windows, image=image))
+        if phase == "01-owner" and self.hosted_caption:
+            require(self.initial_native_windows is None and len(self.state["windows"]) == 1 and
+                    len(self.state["windows"][0]["surfaces"]) == 1, "Initial source inventory is not one owner")
+            owner = self.match(self.state, windows)
+            record = self.observe_native_windows(owner, windows)
+            self.initial_native_windows = initial_windows(owner, self.process.pid, record)
+            write(self.directory / "initial-native-inventory.json", record)
 
 
 def check_native_retirement(session):
     windows = session.native()
-    passed = len(windows) == 1
-    record = dict(qualified=False, originalAssertionPassed=passed,
+    single_window = len(windows) == 1
+    passed = single_window
+    record = dict(qualified=False, originalSingleWindowAssertionPassed=single_window,
                   source=session.state, sourceReceipt=session.source_receipt,
                   nativeWindows=windows, observations=[])
+    if session.hosted_caption and session.initial_native_windows is not None:
+        owner = session.match(session.state, windows)
+        current = session.observe_native_windows(owner, windows)
+        record.update(initialNativeWindows=session.initial_native_windows, finalNativeInventory=current)
+        passed = sorted(current["windows"], key=lambda row: row["hwnd"]) == session.initial_native_windows
+    record["originalAssertionPassed"] = single_window
+    record["restorationAssertionPassed"] = passed
     if not passed and session.hosted_caption:
         # Observe only after freezing the original failed assertion. Later
         # disappearance can diagnose deferred retirement, never turn it green.
