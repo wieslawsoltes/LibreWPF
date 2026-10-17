@@ -13704,7 +13704,7 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("--filter-class System.Windows.PortablePopupOwnershipTests", popupSourceRunner, StringComparison.Ordinal);
         Assert.Contains("--filter-method '*OwnerDeactivation*'", popupSourceRunner, StringComparison.Ordinal);
         Assert.Contains("--filter-method '*PopupClientLayout*'", popupSourceRunner, StringComparison.Ordinal);
-        Assert.Contains("--minimum-expected-tests 16 --fail-skips on --timeout 60s", popupSourceRunner, StringComparison.Ordinal);
+        Assert.Contains("--minimum-expected-tests 17 --fail-skips on --timeout 60s", popupSourceRunner, StringComparison.Ordinal);
         Assert.Contains("windows-native-mil-showcase:", sdkCiWorkflow, StringComparison.Ordinal);
         Assert.Contains("./eng/progpu-wpf-windows-native-mil-showcase.ps1", sdkCiWorkflow, StringComparison.Ordinal);
         Assert.Contains("windows-arm64-native-mil-showcase:", sdkCiWorkflow, StringComparison.Ordinal);
