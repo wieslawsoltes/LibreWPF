@@ -31,10 +31,12 @@ jobs:
           sparse-checkout: eng/WindowsTaskbarPolicy
       - uses: actions/checkout@v4
         with:
-          ref: 399e96d91762e713ece07d8f14b307a31cee5a84
+          ref: 4a7bd39c412a71a06775d72155c0fba774527bac
           path: candidate
           persist-credentials: false
-          sparse-checkout: src/ProGPU.Wpf/Platform
+          sparse-checkout: |
+            src/ProGPU.Wpf/Platform
+            eng/WindowsTaskbarPolicy
       - name: Read the candidate's exact producer identity
         id: producer
         shell: pwsh
@@ -58,7 +60,7 @@ jobs:
         run: |
           $root = Join-Path $env:RUNNER_TEMP 'native-taskbar-policy'
           New-Item -ItemType Directory -Path $root -ErrorAction Stop | Out-Null
-          Copy-Item diagnostic/eng/WindowsTaskbarPolicy/Program.cs $root
+          Copy-Item candidate/eng/WindowsTaskbarPolicy/Program.cs $root
           foreach ($file in @('WpfWin32TaskbarPolicy.cs','Win32WpfTaskbarOperations.cs','WpfWin32TaskbarIcons.cs')) {
             Copy-Item "candidate/src/ProGPU.Wpf/Platform/$file" $root
           }
