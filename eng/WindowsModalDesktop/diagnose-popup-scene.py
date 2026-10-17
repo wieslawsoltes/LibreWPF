@@ -131,10 +131,10 @@ def main():
         raise RuntimeError('Exact disposable hosted Windows runner required')
     root, tools = args.prepared.resolve(strict=True), args.producer_tools.resolve(strict=True)
     preparation = json.loads((root / 'preparation.json').read_text())
-    if (preparation['candidate']['identity']['head'] != '0e754dd8a1b9dbfffc55f41e8e9e67ece46c9e8d' or
+    if (preparation['candidate']['identity']['head'] != '22f04962dd4db089d4bd681b9bc06e0a7882c468' or
             preparation['candidate']['sdkSelection']['compiler'] != 'Dxc' or
             os.environ.get('PROGPU_WPF_TRACE_INPUT') != '0'):
-        raise RuntimeError('Exact producer with approved retirement readiness required')
+        raise RuntimeError('Exact producer with approved retirement readiness and hosted Start activation required')
     output = args.output.resolve(); output.mkdir(exist_ok=False)
     app = Path(preparation['payloads']['portable']['app']).resolve(strict=True)
     if args.replay_only:

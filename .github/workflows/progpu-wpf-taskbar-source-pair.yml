@@ -1,0 +1,83 @@
+name: DIAGNOSTIC ONLY original source taskbar pair
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  source-pair:
+    name: Original Microsoft and LibreWPF taskbar source transitions
+    runs-on: windows-11-arm
+    timeout-minutes: 15
+    steps:
+      - name: Preserve exact committed source bytes
+        shell: pwsh
+        run: |
+          git config --global core.autocrlf false
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          git config --global core.eol lf
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/checkout@v4
+        with:
+          path: diagnostics
+          persist-credentials: false
+          sparse-checkout: eng/WindowsTaskbarSourcePair
+      - uses: actions/checkout@v4
+        with:
+          ref: 2f00554724ece8a4a463bdc2ff8f265f128facea
+          path: producer
+          persist-credentials: false
+          sparse-checkout: eng
+      - uses: actions/checkout@v4
+        with:
+          ref: 12739b51f9505b40b2c74e40cb6bac0fba179c07
+          path: original
+          persist-credentials: false
+          sparse-checkout: eng/WindowsModalDesktop/TaskbarOwnershipDiagnostic.cs
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.201
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate observer-only source and native inventory controls
+        run: python diagnostics/eng/WindowsTaskbarSourcePair/test_contract.py -v
+      - name: Retain the exact successful whole producer
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $inputs = Join-Path $env:RUNNER_TEMP 'taskbar-source-producer'
+          "TASKBAR_INPUTS=$inputs" >> $env:GITHUB_ENV
+          python producer/eng/WindowsModalDesktop/candidate-packages.py `
+            --head 2f00554724ece8a4a463bdc2ff8f265f128facea `
+            --build 39033309585 --docs 39033309474 --output $inputs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Build and observe the original source pair without input injection
+        shell: pwsh
+        run: |
+          $output = Join-Path $env:RUNNER_TEMP 'taskbar-source-pair'
+          "TASKBAR_PAIR=$output" >> $env:GITHUB_ENV
+          python diagnostics/eng/WindowsTaskbarSourcePair/run.py `
+            --producer-tools (Resolve-Path producer).Path `
+            --candidate-inputs $env:TASKBAR_INPUTS `
+            --original-checkout (Resolve-Path original).Path `
+            --output $output --dotnet (Get-Command dotnet).Source
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Retain original observations, source and producer identities
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: original-taskbar-source-pair-${{ github.run_id }}
+          if-no-files-found: error
+          retention-days: 14
+          path: |
+            ${{ runner.temp }}/taskbar-source-pair/*.json
+            ${{ runner.temp }}/taskbar-source-pair/*.log
+            ${{ runner.temp }}/taskbar-source-pair/*.cs
+            ${{ runner.temp }}/taskbar-source-pair/*/*.csproj
+            ${{ runner.temp }}/taskbar-source-producer/*.json
