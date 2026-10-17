@@ -1,3 +1,11 @@
+Modal popup client observation reads the actual zero-origin root Arrange slot,
+not overflowing RenderSize. Require the exact live PresentationSource root, no
+visual parent and zero visual offset before projecting original endpoints. Keep
+natural content, action-target bounds and exact source/native comparisons intact;
+no rounding, native-bound fitting or layout mutation is admitted. Apply the same
+source contract to both applications and retain original failed receipts. See
+docs/modal-desktop-acceptance.md.
+
 The owner-approved hosted Start extension permits one verified Start activation
 only after the single Search Escape yields to the actual Progman shell. Require
 exact live system image/session/window identity before and after the request;

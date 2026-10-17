@@ -28,4 +28,4 @@ exec "${dotnet_command}" "${assembly}" \
   --filter-class System.Windows.PortablePopupOwnershipTests \
   --filter-method '*OwnerDeactivation*' \
   --filter-method '*PopupClientLayout*' \
-  --minimum-expected-tests 16 --fail-skips on --timeout 60s --no-progress
+  --minimum-expected-tests 17 --fail-skips on --timeout 60s --no-progress

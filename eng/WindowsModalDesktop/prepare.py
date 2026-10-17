@@ -189,7 +189,7 @@ def main():
                    selectedSourceHashes=selected_sources,
                    observerRevision=dict(schema="wpf-modal-desktop-v2", originalSha256=manifest["source"][OBSERVER],
                                          selectedSha256=selected_sources[OBSERVER],
-                                         reason="Original allocated client slot, source modal input policy and read-only actual host compiler identity"),
+                                         reason="Original allocated Window and popup-root client slots, source modal input policy and read-only actual host compiler identity"),
                    hostedAutomation=automation, automationCommit=subprocess.check_output(
                        ["git", "-C", str(HERE), "rev-parse", "HEAD"], text=True).strip())
     save(root / "preparation.json", receipt)

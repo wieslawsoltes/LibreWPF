@@ -14,6 +14,7 @@ public partial class PortablePopupOwnershipTests
     [InlineData(175.0, 175)]
     [InlineData(174.125, 174)]
     [InlineData(174.5, 175)]
+    [InlineData(94.25, 94)]
     public void PopupClientLayoutRetainsTheHostExtentAcrossRepeatedSourceUpdates(double desiredWidth, int hostWidth)
     {
         RunInUiApartment(() =>
@@ -34,6 +35,10 @@ public partial class PortablePopupOwnershipTests
                     helper.TryUpdatePortablePopupRootClientSize(root, out Size client).Should().BeTrue();
                     client.Should().Be(new Size(hostWidth, 33));
                     LayoutInformation.GetLayoutSlot(root).Size.Should().Be(client);
+                    LayoutInformation.GetLayoutSlot(root).Location.Should().Be(new Point());
+                    Media.VisualTreeHelper.GetOffset(root).Should().Be(new Vector());
+                    Media.VisualTreeHelper.GetParent(root).Should().BeNull();
+                    PresentationSource.FromVisual(root)!.RootVisual.Should().BeSameAs(root);
                     root.RenderSize.Should().Be(new Size(Math.Max(desiredWidth, hostWidth), 33));
                     root.DesiredSize.Should().Be(new Size(desiredWidth, 33));
                     child.Width.Should().Be(desiredWidth);

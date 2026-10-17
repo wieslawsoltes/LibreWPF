@@ -84,7 +84,7 @@ internal sealed class ModalObservation : IDisposable
                         modalInputAllowed = PortableModalInputScope.AllowsInput(window),
                         inputEnabled = value.InputEnabled && PortableModalInputScope.AllowsInput(window),
                         presentedFrames = value.PresentedFrameCount,
-                        client = root is Window sourceWindow ? WindowClientBounds(sourceWindow) : Bounds(root),
+                        client = root is Window sourceWindow ? WindowClientBounds(sourceWindow) : PopupClientBounds(root),
                         nativeGeometry = value.NativeGeometry is { } geometry ? new
                         {
                             contentView = geometry.ContentView.ToInt64(), windowNumber = geometry.CocoaWindowNumber,
@@ -140,7 +140,7 @@ internal sealed class ModalObservation : IDisposable
             throw new InvalidOperationException("Original popup lacks one distinct live source/HWND identity.");
         native.Add(new { sourceHandle = source.Handle.ToInt64(), nativeKind = "Win32", nativeHandle = source.Handle.ToInt64(),
             visible = root.IsVisible, inputEnabled = (bool?)null, presentedFrames = (long?)null,
-            client = Bounds(root), nativeGeometry = (object?)null });
+            client = PopupClientBounds(root), nativeGeometry = (object?)null });
     }
 #endif
 
@@ -166,6 +166,21 @@ internal sealed class ModalObservation : IDisposable
         if (slot.IsEmpty)
             throw new InvalidOperationException("Window client layout slot is unavailable.");
         return ScreenBounds(window, slot.TopLeft, slot.BottomRight);
+    }
+
+    private static object PopupClientBounds(FrameworkElement root)
+    {
+        // A popup's allocated client can be narrower than its natural content.
+        // RenderSize/ActualWidth describe that overflowing content, not the
+        // original Arrange slot. Read the allocation without rounding either.
+        if (PresentationSource.FromVisual(root) is not { } source ||
+            !ReferenceEquals(source.RootVisual, root) || VisualTreeHelper.GetParent(root) != null ||
+            VisualTreeHelper.GetOffset(root) != new System.Windows.Vector())
+            throw new InvalidOperationException("Popup has no original unshifted source-root client frame.");
+        Rect slot = LayoutInformation.GetLayoutSlot(root);
+        if (slot.IsEmpty || slot.Location != new Point())
+            throw new InvalidOperationException("Popup client layout slot is unavailable.");
+        return ScreenBounds(root, slot.TopLeft, slot.BottomRight);
     }
 
     private static object Bounds(FrameworkElement element) =>

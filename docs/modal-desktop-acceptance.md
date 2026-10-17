@@ -317,7 +317,7 @@ is not client geometry. Observer schema v2 reads the original layout slot of the
 Window's sole visual child, which `Window.ArrangeOverride` allocates after native
 frame subtraction, and maps its original endpoints with Window.PointToScreen.
 It does not add inferred margins, copy native bounds or change the exact native
-comparison. Popup-root and action-target geometry keep their original paths.
+comparison. At that revision, popup-root and action-target geometry kept their original paths.
 
 The same receipt showed native owner input disabled while its requested controller
 enabled intent remained true, as the source contract requires. The observer now
@@ -533,3 +533,32 @@ Actual ctypes pointer-return controls reproduce the old failure and exercise the
 corrected boundary through the original Start guard. All 32 hosted controls,
 59 modal/package/source controls, six foreground controls and 58 Gallery guard
 controls pass. This does not qualify the failed original application run.
+
+### Allocated popup client observation
+
+Whole producer `c55256aef1c0864b3909cd3ce3fdd38b0c4fe36d` passed all 16 Build
+jobs and Docs. Original Gallery run 39048519823 passed in 36.157 seconds with
+identical pasted/retained bitmap hashes and all original 60/57/55-second limits.
+Original modal run 39048518291 completed all seven Microsoft scenarios and the
+first six portable scenarios, then failed the exact tooltip client comparison:
+source `(190,415,94.25,26)` versus native `(190,415,94,26)`. Preserve that failure.
+
+The source PopupRoot already arranges into its original integer host allocation.
+Its RenderSize can intentionally exceed that slot when natural content is wider;
+the existing source regression preserves that overflow. The observer now reads
+`LayoutInformation.GetLayoutSlot(root)` for popup clients in both applications,
+requiring the actual PresentationSource root, no visual parent, zero visual offset
+and a zero-origin allocated slot. It projects the original slot endpoints with
+PointToScreen. It does not round widths, copy native geometry, remeasure/arrange
+content or change action-target bounds. Missing/unproven frames fail; all original
+subpixel/native comparisons, captures, seven scenarios and deadlines remain.
+The 94.25-to-94 case joins the original source layout controls, retaining the
+94.25 content width and proving the actual source/root allocation identity.
+Preparation retains both observer hashes and immutable original source bytes.
+This observer correction still requires a fresh original paired desktop run.
+
+Local validation after this correction: the rebuilt source assembly passes all
+46 popup ownership cases, the expanded 17-case dismissal/client gate and the
+existing 10-case modal source gate, with zero skips. All 59 modal preparation,
+package and desktop contract controls pass. These source results do not qualify
+the corrected observer's actual native captures.
