@@ -17,6 +17,13 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 5
     steps:
+      - name: Preserve original committed source bytes
+        shell: pwsh
+        run: |
+          git config --global core.autocrlf false
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          git config --global core.eol lf
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - uses: actions/checkout@v4
         with:
           path: diagnostic
@@ -24,7 +31,7 @@ jobs:
           sparse-checkout: eng/WindowsTaskbarPolicy
       - uses: actions/checkout@v4
         with:
-          ref: 07cd614c7b45923b86269267bf42b79888c1028e
+          ref: 399e96d91762e713ece07d8f14b307a31cee5a84
           path: candidate
           persist-credentials: false
           sparse-checkout: src/ProGPU.Wpf/Platform
