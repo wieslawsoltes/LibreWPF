@@ -2,6 +2,11 @@ name: DIAGNOSTIC ONLY original source taskbar pair
 
 on:
   workflow_dispatch:
+  push:
+    branches: [diagnostic/modal-popup-scene]
+    paths:
+      - .github/workflows/progpu-wpf-taskbar-source-pair.yml
+      - eng/WindowsTaskbarSourcePair/**
 
 permissions:
   contents: read
