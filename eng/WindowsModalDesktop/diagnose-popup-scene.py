@@ -123,6 +123,7 @@ def main():
     parser.add_argument('--producer-tools', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--dotnet', type=Path, required=True)
+    parser.add_argument('--replay-only', action='store_true')
     args = parser.parse_args()
     if os.name != 'nt' or any(os.environ.get(k) != v for k, v in {
         'GITHUB_ACTIONS': 'true', 'RUNNER_ENVIRONMENT': 'github-hosted',
@@ -135,9 +136,25 @@ def main():
             os.environ.get('PROGPU_WPF_TRACE_INPUT') != '0'):
         raise RuntimeError('Exact retained qualified356 DXC failure required')
     output = args.output.resolve(); output.mkdir(exist_ok=False)
+    app = Path(preparation['payloads']['portable']['app']).resolve(strict=True)
+    if args.replay_only:
+        evidence = output / 'evidence'; evidence.mkdir()
+        source = Path(__file__).with_name('original-popup-39022755735.bin')
+        if sha(source) != '74c2500ba093488403782be426fb24c63856b2beb89f46f3a5c8037e969bd117':
+            raise RuntimeError('Retained original popup scene changed')
+        shutil.copyfile(source, evidence / source.name)
+        record = dict(diagnosticOnly=True, qualified=False, originalControllerExecuted=False,
+                      applicationLaunched=False, nativeInputUsed=False,
+                      producer=preparation['candidate']['identity'])
+        try:
+            record['offscreenReplay'] = replay_original_scene(output, evidence, args.dotnet, app)
+            if record['offscreenReplay'].get('exitCode') != 0:
+                raise RuntimeError('Original scene replay failed; retain its original output')
+        finally:
+            (output / 'diagnostic.json').write_text(json.dumps(record, indent=2)+'\n')
+        return
     hook = prepare_observer(output / 'observer', args.dotnet)
     evidence = output / 'evidence'; evidence.mkdir()
-    app = Path(preparation['payloads']['portable']['app']).resolve(strict=True)
     records = []
     record = dict(diagnosticOnly=True, qualified=False, producer=preparation['candidate']['identity'],
                   originalDeadlineSecondsPerProcess=60, originalMaximumActionsPerProcess=64,

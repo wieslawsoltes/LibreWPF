@@ -2,6 +2,11 @@ name: DIAGNOSTIC ONLY modal popup scene
 
 on:
   workflow_dispatch:
+    inputs:
+      replay_only:
+        description: 'Replay the retained original popup scene offscreen without launching either application'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -106,6 +111,7 @@ jobs:
       - name: Verify original-child isolation and unchanged failure propagation
         run: python diagnostics/eng/tests/test_wpf_popup_scene_observation.py -v
       - name: Prepare the original disposable hosted desktop
+        if: ${{ ! inputs.replay_only }}
         shell: pwsh
         run: |
           python automation/eng/WindowsModalDesktop/prepare-desktop.py `
@@ -115,11 +121,14 @@ jobs:
         shell: pwsh
         env:
           PROGPU_WPF_TRACE_INPUT: '0'
+          POPUP_REPLAY_ONLY: ${{ inputs.replay_only }}
         run: |
+          $diagnostic = @()
+          if ($env:POPUP_REPLAY_ONLY -eq 'true') { $diagnostic += '--replay-only' }
           python diagnostics/eng/WindowsModalDesktop/diagnose-popup-scene.py `
             --prepared $env:CASE_ROOT --producer-tools (Resolve-Path automation/eng/WindowsModalDesktop).Path `
             --dotnet (Get-Command dotnet).Source `
-            --output (Join-Path $env:RUNNER_TEMP 'modal-popup-scene-diagnostic')
+            --output (Join-Path $env:RUNNER_TEMP 'modal-popup-scene-diagnostic') @diagnostic
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Retain diagnostic failure and exact producer receipts
         if: always()
