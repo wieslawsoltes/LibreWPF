@@ -14,6 +14,9 @@ internal static class StartupHook
     private static Timer? timer;
     private static string? output;
     private static object? owner;
+    private static object? sourceOwner;
+    private static readonly Dictionary<int, HashSet<long>> SelectionFrames = new();
+    private static int ownerObservations;
     private static EventInfo? update;
     private static int pending, observations, streams, stopped;
     private static long bytes;
@@ -36,7 +39,7 @@ internal static class StartupHook
                     StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException("Exact portable modal application on disposable hosted Windows required.");
             Save("start.json", new { diagnosticOnly = true, qualified = false, pid = Environment.ProcessId,
-                expected, stopSeconds = 55, maximumObservations = 64, maximumSceneBytes = 32 * 1024 * 1024 });
+                expected, stopSeconds = 55, maximumObservations = 64, maximumOwnerSelectionObservations = 8, maximumComboVisualNodes = 256, maximumSceneBytes = 32 * 1024 * 1024 });
             timer = new Timer(FindOwner, null, 100, 100);
         }
         catch (Exception error) { Fail(error); }
@@ -91,6 +94,7 @@ internal static class StartupHook
             ?? throw new MissingMemberException("Original owner-loop event unavailable.");
         update.GetAddMethod(true)!.Invoke(host, [Updated]);
         owner = host;
+        sourceOwner = matches[0];
     }
 
     private static void Observe()
@@ -101,6 +105,7 @@ internal static class StartupHook
             if (now >= 55 || observations >= 64) { Stop(); return; }
             if (now - lastPoll < .1) return;
             object host = owner ?? throw new InvalidOperationException("No original owner.");
+            ObserveSelection(host);
             if (Field(host, "_portablePopupBridges") is not IEnumerable bridges)
                 throw new MissingMemberException("Original popup inventory unavailable.");
             object[] inventory = bridges.Cast<object>().ToArray();
@@ -164,6 +169,50 @@ internal static class StartupHook
         catch (Exception error) { Fail(error); }
     }
 
+    private static void ObserveSelection(object host)
+    {
+        if (ownerObservations >= 8 || sourceOwner is null) return;
+        object combo = Field(sourceOwner, "Combo") ?? throw new MissingMemberException("Original owner Combo unavailable.");
+        int selected = (int)Property(combo, "SelectedIndex")!;
+        if (selected is not (0 or 1)) throw new InvalidOperationException("Unexpected original selection.");
+        long frame = (long)Property(host, "PresentedFrameCount")!;
+        if (!SelectionFrames.TryGetValue(selected, out HashSet<long>? seen))
+            SelectionFrames.Add(selected, seen = []);
+        if (seen.Count >= 3 || seen.Contains(frame)) return;
+        object?[] checkpoint = [null], activity = [null];
+        bool complete = Equals(host.GetType().GetMethod("TryPollNativePresentationCheckpoint",
+            BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(host, checkpoint), true);
+        bool active = Equals(host.GetType().GetMethod("TryGetRenderActivitySnapshot",
+            BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(host, activity), true);
+        Type visual = combo.GetType().Assembly.GetType("System.Windows.Media.VisualTreeHelper") ??
+            AppDomain.CurrentDomain.GetAssemblies().Single(a => a.GetName().Name == "PresentationCore")
+                .GetType("System.Windows.Media.VisualTreeHelper")!;
+        MethodInfo count = visual.GetMethod("GetChildrenCount")!, child = visual.GetMethod("GetChild")!;
+        List<object> content = [];
+        int visited = 0;
+        void Visit(object node)
+        {
+            if (++visited > 256) throw new InvalidOperationException("Original Combo visual inventory exceeds 256 nodes.");
+            if (node.GetType().FullName == "System.Windows.Controls.TextBlock")
+                content.Add(new { kind = "TextBlock", value = Property(node, "Text") });
+            if (node.GetType().FullName == "System.Windows.Controls.ContentPresenter")
+                content.Add(new { kind = "ContentPresenter", value = Property(node, "Content") as string });
+            int children = (int)count.Invoke(null, [node])!;
+            if (children is < 0 or > 256) throw new InvalidOperationException("Invalid original Combo child count.");
+            for (int index = 0; index < children; index++) Visit(child.Invoke(null, [node, index])!);
+        }
+        Visit(combo);
+        Save($"owner-selection-{++ownerObservations:D3}.json", new { diagnosticOnly = true, qualified = false,
+            elapsedSeconds = Clock.Elapsed.TotalSeconds, selected, frame,
+            selectedItem = Property(combo, "SelectedItem") as string,
+            selectionBoxItem = Property(combo, "SelectionBoxItem") as string, content, visited,
+            complete, checkpoint = complete ? checkpoint[0] : null,
+            activity = active ? activity[0] : null,
+            rootDirty = Property(host, "IsWpfRootVisualDirty"),
+            frameAfterPoll = Property(host, "PresentedFrameCount") });
+        seen.Add(frame);
+    }
+
     private static object? Size(object? value) => value is null ? null : new
     {
         width = Property(value, "Width"), height = Property(value, "Height")
@@ -176,6 +225,7 @@ internal static class StartupHook
         object? host = owner;
         if (host is not null) update?.GetRemoveMethod(true)?.Invoke(host, [Updated]);
         owner = null;
+        sourceOwner = null;
     }
 
     private static void Save(string name, object value)
