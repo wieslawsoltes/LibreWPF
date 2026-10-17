@@ -309,11 +309,11 @@ class DesktopReceiptTests(unittest.TestCase):
             load.assert_not_called()
 
     def test_shell_escape_keeps_fresh_original_owner_events_and_rejects_leaked_keys(self):
-        for leaked in (False, True):
-            with self.subTest(leaked=leaked), tempfile.TemporaryDirectory() as temporary:
+        for leaked, hosted_start in ((False, False), (True, False), (False, True), (True, True)):
+            with self.subTest(leaked=leaked, hosted_start=hosted_start), tempfile.TemporaryDirectory() as temporary:
                 directory = Path(temporary)
                 process = mock.Mock(pid=12)
-                session = DRIVER.Session(mock.Mock(), process, directory, 'run', False, 60, True, True)
+                session = DRIVER.Session(mock.Mock(), process, directory, 'run', False, 60, True, True, hosted_start=hosted_start)
                 session.state = dict(ownerText='owner', comboSelection=0, counts={'owner-key': 0},
                                      phase='owner', sequence=1, windows=[])
                 latest = copy.deepcopy(session.state); latest['sequence'] = 10
@@ -321,11 +321,13 @@ class DesktopReceiptTests(unittest.TestCase):
                 if leaked: first['counts']['owner-key'] = 1
                 second = copy.deepcopy(first); second['sequence'] = 12
                 native, guard = mock.Mock(), mock.Mock()
-                def dismiss(observer, sender, claim, deadline, record, environment, authorized):
+                def dismiss(observer, sender, claim, deadline, record, environment, authorized, allow_background_start):
                     self.assertTrue(authorized)
+                    self.assertEqual(hosted_start, allow_background_start)
                     self.assertIs(sender, session.desktop)
                     self.assertEqual(60, deadline)
                     record.update(escapes=[{'key': 27}], setupDeadline=23)
+                    if hosted_start: claim('hosted-start-activation', nativeProof={'hwnd': 123})
                     claim('hosted-shell-escape', nativeProof={'key': 27})
                 guard.dismiss.side_effect = dismiss
                 with mock.patch.object(session, 'remaining', return_value=40), \
@@ -343,7 +345,7 @@ class DesktopReceiptTests(unittest.TestCase):
                         session.dismiss_hosted_shell()
                         self.assertEqual(12, session.state['sequence'])
                         match.assert_called_once()
-                    self.assertEqual(1, session.actions)
+                    self.assertEqual(2 if hosted_start else 1, session.actions)
                     self.assertEqual(60, session.deadline)
                 receipt = json.loads((directory/'startup-shell.json').read_text())
                 self.assertFalse(receipt['qualified'])

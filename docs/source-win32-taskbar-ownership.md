@@ -47,3 +47,11 @@ attempt retained one native-Windows-only FAIL_SKIP on macOS; it is not a complet
 native class pass. Original Windows paired transitions, full producer/package CI
 and application acceptance remain required. The authored ownership controls and
 the Microsoft-only reference do not qualify this implementation for release.
+
+The unchanged native API control passes on both Windows x64 and ARM64 after the
+idempotent-owner correction (run `39032979587`, product `399e96d91`). It preserves
+all nine transitions, copied-icon replacement, borrowed provider icons and actual
+child/owner/icon retirement within the original 20/30-second bounds. The whole
+Build retains this native control in its Windows runtime job and the managed
+ownership controls in its existing retained-invalidation job. These API results
+remain distinct from the source-application and package acceptance above.

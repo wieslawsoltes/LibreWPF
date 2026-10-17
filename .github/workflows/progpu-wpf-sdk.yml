@@ -87,6 +87,7 @@ jobs:
           python3 eng/tests/test_wpf_modal_desktop_contract.py -v
           python3 eng/tests/test_wpf_hosted_desktop_setup.py -v
           python3 eng/tests/test_wpf_hosted_shell_escape.py -v
+          python3 eng/tests/test_wpf_hosted_start_activation.py -v
           python3 eng/tests/test_wpf_modal_source_staging.py -v
           python3 eng/tests/test_wpf_modal_candidate_packages.py -v
           python3 eng/tests/test_wpf_foreground_observation.py -v
@@ -256,6 +257,27 @@ jobs:
       - name: Build Windows PresentationCore
         shell: pwsh
         run: ./eng/progpu-wpf-windows-managed-runtime.ps1
+
+      - name: Setup native taskbar control SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.201
+
+      - name: Verify actual Win32 taskbar ownership and icon retirement
+        shell: pwsh
+        run: ./eng/progpu-wpf-taskbar-native.ps1 -OutputDirectory "${{ runner.temp }}/native-taskbar-policy"
+
+      - name: Retain native taskbar control evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-taskbar-policy-${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}
+          path: |
+            ${{ runner.temp }}/native-taskbar-policy/*.cs
+            ${{ runner.temp }}/native-taskbar-policy/*.csproj
+            ${{ runner.temp }}/native-taskbar-policy/*.json
+            ${{ runner.temp }}/native-taskbar-policy/*.log
+          if-no-files-found: warn
 
       - name: Upload Windows managed runtime
         uses: actions/upload-artifact@v4

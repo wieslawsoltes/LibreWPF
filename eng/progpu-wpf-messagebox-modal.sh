@@ -24,4 +24,5 @@ LIBREWPF_TEST_MEDIA_BACKEND=Portable "${dotnet_command}" \
   --filter-class System.Windows.PortableMessageBoxModalTests \
   --filter-method '*Dialog*' \
   --filter-method '*PortableWindowBackdropNeverTreatsItsHostHandleAsWpfHwnd*' \
-  --minimum-expected-tests 8 --fail-skips on --timeout 60s --no-progress
+  --filter-method '*Taskbar*' \
+  --minimum-expected-tests 10 --fail-skips on --timeout 60s --no-progress

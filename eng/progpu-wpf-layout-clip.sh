@@ -18,6 +18,8 @@ minimum = {
     "ProGPU.Wpf.Tests.Platform.SilkNetWpfInputServiceTests": 53,
     "ProGPU.Wpf.Tests.Platform.WpfNativePointerInputTests": 15,
     "ProGPU.Wpf.Tests.WpfPortableWindowActivationTests": 124,
+    "ProGPU.Wpf.Tests.WpfWin32TaskbarPolicyTests": 9,
+    "ProGPU.Wpf.Tests.WpfWin32TaskbarIconsTests": 5,
     "ProGPU.Wpf.Tests.PassiveIdleIntervalTests": 8,
     "ProGPU.Wpf.Tests.ShowcasePassiveIdleSourceContractTests": 7,
     "ProGPU.Wpf.Tests.NativeResizePresentationTests": 21,
@@ -138,6 +140,8 @@ filter+='|FullyQualifiedName~ProGPU.Wpf.Tests.ProGpuWpfWindowHostTests.'
 filter+='|FullyQualifiedName~ProGPU.Wpf.Tests.Platform.SilkNetWpfInputServiceTests.'
 filter+='|FullyQualifiedName~ProGPU.Wpf.Tests.Platform.WpfNativePointerInputTests.'
 filter+='|FullyQualifiedName~ProGPU.Wpf.Tests.WpfPortableWindowActivationTests.'
+filter+='|FullyQualifiedName~ProGPU.Wpf.Tests.WpfWin32TaskbarPolicyTests.'
+filter+='|FullyQualifiedName~ProGPU.Wpf.Tests.WpfWin32TaskbarIconsTests.'
 filter+='|FullyQualifiedName~ProGPU.Wpf.Tests.PassiveIdleIntervalTests.'
 filter+='|FullyQualifiedName~ProGPU.Wpf.Tests.NativeDragInputReceiptTests.'
 filter+='|FullyQualifiedName~ProGPU.Wpf.Tests.NativeBackendWindowOptionsTests.'
