@@ -22,7 +22,7 @@ minimum = {
     "ProGPU.Wpf.Tests.WpfWin32TaskbarPolicyTests": 9,
     "ProGPU.Wpf.Tests.WpfWin32TaskbarIconsTests": 5,
     "ProGPU.Wpf.Tests.PassiveIdleIntervalTests": 8,
-    "ProGPU.Wpf.Tests.ShowcasePassiveIdleSourceContractTests": 7,
+    "ProGPU.Wpf.Tests.ShowcasePassiveIdleSourceContractTests": 8,
     "ProGPU.Wpf.Tests.NativeResizePresentationTests": 21,
     "ProGPU.Wpf.Tests.PassiveIdleBoundaryTests": 17,
     "ProGPU.Wpf.Tests.MenuLifecycleJournalTests": 7,

@@ -1,3 +1,10 @@
+Passive Showcase completion queues Application.Shutdown with the original result
+on the source owner dispatcher after persisting its receipt. Never call worker
+Environment.Exit while the native host is pumping: process-exit HWND detachment
+can invalidate dispatcher timers. Preserve all original intervals, child deadline,
+failure status and payload checks; a successful receipt cannot waive child failure.
+See docs/showcase-idle-failure-evidence.md; full native qualification remains required.
+
 Modal popup client observation reads the actual zero-origin root Arrange slot,
 not overflowing RenderSize. Require the exact live PresentationSource root, no
 visual parent and zero visual offset before projecting original endpoints. Keep
