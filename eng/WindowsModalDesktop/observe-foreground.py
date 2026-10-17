@@ -23,17 +23,27 @@ def require(value, message):
 class Native:
     def __init__(self):
         self.user = C.WinDLL('user32', use_last_error=True)
+        self.dwm = C.WinDLL('dwmapi', use_last_error=True)
+        self.dwm.DwmGetWindowAttribute.restype = C.c_int32
+        self.dwm.DwmGetWindowAttribute.argtypes = [C.c_void_p, C.c_uint32, C.c_void_p, C.c_uint32]
         for name, result, args in (
             ('GetForegroundWindow', C.c_void_p, []),
             ('GetWindowThreadProcessId', C.c_uint32, [C.c_void_p, C.POINTER(C.c_uint32)]),
             ('GetWindowTextW', C.c_int32, [C.c_void_p, C.c_wchar_p, C.c_int32]),
             ('GetClassNameW', C.c_int32, [C.c_void_p, C.c_wchar_p, C.c_int32]),
+            ('IsWindowVisible', C.c_int32, [C.c_void_p]),
+            ('FindWindowExW', C.c_void_p, [C.c_void_p, C.c_void_p, C.c_wchar_p, C.c_wchar_p]),
         ):
             function = getattr(self.user, name)
             function.restype, function.argtypes = result, args
 
-    def snapshot(self):
-        hwnd = int(self.user.GetForegroundWindow() or 0)
+    def cloak(self, hwnd):
+        value = C.c_uint32()
+        result = self.dwm.DwmGetWindowAttribute(hwnd, 14, C.byref(value), C.sizeof(value))
+        # A failed native read is unavailable evidence, never proof of no cloak.
+        return dict(hresult=result, flags=value.value if result >= 0 else None)
+
+    def window(self, hwnd):
         pid, thread = C.c_uint32(), 0
         title, name = C.create_unicode_buffer(512), C.create_unicode_buffer(256)
         if hwnd:
@@ -41,7 +51,18 @@ class Native:
             self.user.GetWindowTextW(hwnd, title, len(title))
             self.user.GetClassNameW(hwnd, name, len(name))
         return dict(hwnd=hwnd, pid=pid.value, thread=thread, title=title.value,
-                    windowClass=name.value, after=int(self.user.GetForegroundWindow() or 0))
+                    windowClass=name.value, visible=bool(hwnd and self.user.IsWindowVisible(hwnd)),
+                    cloak=self.cloak(hwnd) if hwnd else None)
+
+    def snapshot(self):
+        hwnd = int(self.user.GetForegroundWindow() or 0)
+        result = self.window(hwnd)
+        shells = {}
+        for title in ('Search', 'Start'):
+            handle = int(self.user.FindWindowExW(None, None, 'Windows.UI.Core.CoreWindow', title) or 0)
+            shells[title] = self.window(handle)
+        result.update(shells=shells, after=int(self.user.GetForegroundWindow() or 0))
+        return result
 
 
 def observe(native, stop, record, clock=time.monotonic):

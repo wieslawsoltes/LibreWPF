@@ -12,6 +12,22 @@ SPEC.loader.exec_module(DRIVER)
 
 
 class ForegroundDiagnosticTests(unittest.TestCase):
+    def test_failed_cloak_query_cannot_report_uncloaked(self):
+        native = DRIVER.Native.__new__(DRIVER.Native)
+        native.dwm = mock.Mock()
+        native.dwm.DwmGetWindowAttribute.return_value = -2147024890
+        self.assertEqual({'hresult': -2147024890, 'flags': None}, native.cloak(123))
+
+    def test_cloak_query_retains_original_flag_bits(self):
+        native = DRIVER.Native.__new__(DRIVER.Native)
+        native.dwm = mock.Mock()
+        def read(hwnd, attribute, output, size):
+            self.assertEqual((123, 14, 4), (hwnd, attribute, size))
+            DRIVER.C.cast(output, DRIVER.C.POINTER(DRIVER.C.c_uint32)).contents.value = 6
+            return 0
+        native.dwm.DwmGetWindowAttribute.side_effect = read
+        self.assertEqual({'hresult': 0, 'flags': 6}, native.cloak(123))
+
     class Stop:
         def __init__(self, count): self.count = count
         def is_set(self): return self.count <= 0
