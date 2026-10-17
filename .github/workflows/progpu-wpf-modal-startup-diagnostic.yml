@@ -7,6 +7,7 @@ on:
     paths:
       - .github/workflows/progpu-wpf-modal-startup-diagnostic.yml
       - eng/WindowsModalDesktop/diagnose-startup.py
+      - eng/WindowsModalDesktop/diagnose-pair.py
 
 permissions:
   contents: read
@@ -14,7 +15,7 @@ permissions:
 
 jobs:
   startup:
-    name: DIAGNOSTIC ONLY original apphost startup without input
+    name: DIAGNOSTIC ONLY original pair child exits
     runs-on: windows-11-arm
     timeout-minutes: 15
     steps:
@@ -107,13 +108,28 @@ jobs:
         with:
           path: diagnostics
           persist-credentials: false
-          sparse-checkout: eng/WindowsModalDesktop/diagnose-startup.py
+          sparse-checkout: |
+            eng/WindowsModalDesktop
+            eng/tests/test_wpf_modal_child_observation.py
           sparse-checkout-cone-mode: false
-      - name: Observe one original apphost startup without input
+      - name: Verify transparent child observation
         shell: pwsh
         run: |
-          python diagnostics/eng/WindowsModalDesktop/diagnose-startup.py `
-            --apphost --prepared $env:CASE_ROOT --producer-tools (Resolve-Path automation/eng/WindowsModalDesktop).Path `
+          python diagnostics/eng/tests/test_wpf_modal_child_observation.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Prepare the original disposable hosted desktop
+        shell: pwsh
+        run: |
+          python automation/eng/WindowsModalDesktop/prepare-desktop.py `
+            --output (Join-Path $env:RUNNER_TEMP 'original-modal-desktop-preflight.json')
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Observe child exits around the unchanged original pair
+        shell: pwsh
+        env:
+          PROGPU_WPF_TRACE_INPUT: '0'
+        run: |
+          python diagnostics/eng/WindowsModalDesktop/diagnose-pair.py `
+            --prepared $env:CASE_ROOT --producer-tools (Resolve-Path automation/eng/WindowsModalDesktop).Path `
             --output (Join-Path $env:RUNNER_TEMP 'modal-startup-diagnostic')
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Retain diagnostic failure and exact producer receipts
@@ -129,3 +145,7 @@ jobs:
             ${{ env.CASE_ROOT }}/preparation.json
             ${{ env.CASE_ROOT }}/*-build.log
             ${{ env.CASE_ROOT }}/runtime-inventory.txt
+            ${{ env.CASE_ROOT }}/runtime/**
+            ${{ env.CASE_ROOT }}/controller-result.json
+            ${{ env.CASE_ROOT }}/launch.json
+            ${{ runner.temp }}/original-modal-desktop-preflight.json

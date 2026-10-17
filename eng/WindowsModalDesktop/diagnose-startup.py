@@ -72,6 +72,11 @@ def main():
         result['elapsedSeconds'] = time.monotonic() - started
         result['payloadUnchanged'] = prepare.inventory(directory) == payload['files']
         (output / 'diagnostic.json').write_text(json.dumps(result, indent=2) + '\n', encoding='utf-8')
+    collect_events(output, started_utc, app.name)
+    prepare.require(result['payloadUnchanged'], 'Original payload changed during diagnosis')
+
+
+def collect_events(output, started_utc, image_name):
     # Read only bounded events from this run that name the exact owned image.
     # A name-only record is diagnostic context, not proven PID attribution.
     script = '''
@@ -89,13 +94,13 @@ def main():
     event_script = output / 'read-owned-events.ps1'
     event_script.write_text(script, encoding='utf-8')
     try:
-        events = subprocess.run(['pwsh', '-NoProfile', '-File', str(event_script), started_utc, app.name],
+        events = subprocess.run(['pwsh', '-NoProfile', '-File', str(event_script), started_utc, image_name],
                                 capture_output=True, timeout=10, check=True)
-        prepare.require(len(events.stdout) <= 1024 * 1024, 'Event output exceeded diagnostic bound')
+        if len(events.stdout) > 1024 * 1024:
+            raise RuntimeError('Event output exceeded diagnostic bound')
         (output / 'windows-events.json').write_bytes(events.stdout)
     except Exception as error:
         (output / 'windows-events-error.txt').write_text(str(error), encoding='utf-8')
-    prepare.require(result['payloadUnchanged'], 'Original payload changed during diagnosis')
 
 
 if __name__ == '__main__':

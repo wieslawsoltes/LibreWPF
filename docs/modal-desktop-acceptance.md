@@ -9,11 +9,19 @@ launches its unchanged managed entrypoint once with the console dotnet host,
 without input, for at most 60 seconds. This different host exposes otherwise
 missing startup errors; it never qualifies apphost or modal acceptance. Payload
 hashes are checked before and after, with the original failure kept separately.
-That console-host diagnostic reached a presented DXC window at 2.386 seconds and
+That console-host diagnostic reached a presented DXC window at 2.386 seconds on
+the source observer's clock and
 remained alive until its 60-second cutoff; it did not reproduce the startup exit.
 The subsequent `--apphost` diagnostic retains the original executable and records
 its actual exit status plus bounded Windows error events naming that image.
 Neither no-input startup observation substitutes for the original modal pair.
+The original apphost also remained alive with a rendered DXC window until the
+cutoff, without reproducing the exit. The next diagnostic preserves the entire
+qualified Microsoft-then-portable controller, original arguments, input and
+deadlines. A transparent launch observer retains only the two exact child objects
+and reads their exit status after original cleanup; matching bounded Windows
+events remain diagnostic context. It does not retry any scenario or qualify
+acceptance, and original launch/controller exceptions remain authoritative.
 
 This desktop workload is still unqualified. `qualified` remains false in source
 observations and driver evidence. Hosted Windows runs and retained failures are
