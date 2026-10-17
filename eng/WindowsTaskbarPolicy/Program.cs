@@ -20,7 +20,11 @@ internal static class Program
         {
             if (!OperatingSystem.IsWindows()) throw new PlatformNotSupportedException();
             first = Create("Taskbar API owner A"); second = Create("Taskbar API owner B"); child = Create("Taskbar API subject");
-            var native = new Win32WpfTaskbarOperations(new(NativeWindowKind.Win32, child, 0, "Owned API control"));
+            nint instance = GetWindowLongPtrW(child, -6); // GWLP_HINSTANCE, as carried by the shared Win32 provider.
+            Require(instance != 0 && instance == GetModuleHandleW(null), "Actual source module identity missing.");
+            var native = new Win32WpfTaskbarOperations(new(NativeWindowKind.Win32, child, instance, "HWND"));
+            var legacy = new Win32WpfTaskbarOperations(new(NativeWindowKind.Win32, child, 0, "Owned API control"));
+            Require(native.Read() == legacy.Read(), "Optional module metadata changed HWND identity.");
             policy = new(native);
             nint large = LoadIconW(0, 32512), small = LoadIconW(0, 32513);
             Require(large != 0 && small != 0, "Original shared icon resources unavailable.");
@@ -92,7 +96,7 @@ internal static class Program
     }
     private static nint Create(string title)
     {
-        nint result = CreateWindowExW(0x40000, "STATIC", title, 0xcf0000, 100, 100, 240, 150, 0, 0, 0, 0);
+        nint result = CreateWindowExW(0x40000, "STATIC", title, 0xcf0000, 100, 100, 240, 150, 0, 0, GetModuleHandleW(null), 0);
         if (result == 0) throw new Win32Exception(Marshal.GetLastPInvokeError());
         return result;
     }
@@ -114,6 +118,7 @@ internal static class Program
     [DllImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool IsWindow(nint window);
     [DllImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool IsWindowVisible(nint window);
     [DllImport("user32.dll")] private static extern nint GetWindowLongPtrW(nint window, int index);
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] private static extern nint GetModuleHandleW(string? name);
     [DllImport("user32.dll")] private static extern nint SendMessageW(nint window, uint message, nint parameter, nint value);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern nint LoadIconW(nint instance, nint name);
     [DllImport("user32.dll", SetLastError = true)] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool GetIconInfo(nint icon, out IconInfo info);

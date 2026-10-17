@@ -21,6 +21,8 @@ destruction must precede hidden-owner destruction, without repeating completed
 steps. Preserve optional typed source dispatch and other providers' independent
 admission. See docs/source-win32-taskbar-ownership.md; local controls and the
 Microsoft-only reference do not qualify the paired application contract.
+The shared Win32 descriptor carries HINSTANCE in Display; preserve that metadata
+and validate the actual HWND ownership rather than requiring a zero module.
 
 The owner-approved hosted modal retirement readiness option preserves the initial
 assertion and permits at most one second of read-only observation inside the

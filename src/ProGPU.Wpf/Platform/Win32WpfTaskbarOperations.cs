@@ -18,7 +18,9 @@ internal sealed class Win32WpfTaskbarOperations : IWpfWin32TaskbarOperations, IW
 
     internal Win32WpfTaskbarOperations(NativeWindowHandle window)
     {
-        if (window.Kind != NativeWindowKind.Win32 || !window.IsValid || window.Display != 0)
+        // The shared Win32 provider carries HINSTANCE in Display. It is not an
+        // X11 display or a reason to reject the provider's actual HWND.
+        if (window.Kind != NativeWindowKind.Win32 || !window.IsValid)
             throw new ArgumentException("An actual Win32 source window is required.", nameof(window));
         _window = window.Handle;
         ValidateLocalTopLevel(_window);

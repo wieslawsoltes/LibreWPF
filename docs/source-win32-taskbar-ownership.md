@@ -64,3 +64,15 @@ JSON evidence. All three original package/workflow graph guards now run in the
 early retained-invalidation job as well as the SDK gate; the unchanged full SDK
 graph guard and both workflow guards pass locally. This does not qualify the
 remaining package or paired desktop application checks.
+
+The original x64 and ARM64 Showcase jobs in Build `39037433816` exposed a
+descriptor-admission defect before application startup: the shared Win32 provider
+stores the real HINSTANCE in `NativeWindowHandle.Display`, while the taskbar
+adapter incorrectly required zero. Win32 admission now validates the actual HWND
+kind, process, creating thread and top-level identity without rejecting that
+module metadata. The native API control creates windows with the actual process
+module, reads GWLP_HINSTANCE and exercises that provider-shaped descriptor plus
+the original zero-metadata descriptor before all nine unchanged transitions and
+retirement checks. Its original 20/30-second limits remain unchanged. The failed
+Showcase logs are retained; fresh complete package and application checks remain
+required.
