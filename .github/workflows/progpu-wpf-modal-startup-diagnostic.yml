@@ -1,0 +1,126 @@
+name: DIAGNOSTIC ONLY modal DXC startup
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  startup:
+    name: DIAGNOSTIC ONLY console-host startup without input
+    runs-on: windows-11-arm
+    timeout-minutes: 15
+    steps:
+      - name: Preserve committed source bytes in the disposable runner checkouts
+        shell: pwsh
+        run: |
+          git config --global core.autocrlf false
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          git config --global core.eol lf
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/checkout@v4
+        with:
+          ref: 5a4c4d310c17df9cd7da0d33b072b90e951de0cf
+          path: automation
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: 0214bb4569553741244c4fdf10cb78a9dc90661f
+          path: original
+          persist-credentials: false
+          sparse-checkout: |
+            samples/ProGPU.Wpf.ModalInteractionApp
+            samples/ProGPU.Wpf.ModalInteractionApp.Windows
+            eng/progpu-wpf-modal-desktop.py
+          sparse-checkout-cone-mode: false
+      - uses: actions/checkout@v4
+        with:
+          repository: wieslawsoltes/LibreWinForms
+          ref: 1538b491c17d300387339adce7196700f41cf23a
+          path: forms-helper
+          persist-credentials: false
+          sparse-checkout: eng
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            10.0.x
+            10.0.201
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate original modal and shared hosted activation controls
+        shell: pwsh
+        run: |
+          python automation/eng/tests/test_wpf_modal_desktop_contract.py -v
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python automation/eng/WindowsGalleryClipboardConsumer/test_contract.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python automation/eng/tests/test_wpf_hosted_desktop_setup.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python automation/eng/tests/test_wpf_hosted_shell_escape.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python automation/eng/tests/test_wpf_modal_source_staging.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python automation/eng/tests/test_wpf_modal_candidate_packages.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Retain the exact successful candidate producer when selected
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PRODUCER_HEAD: 5a4c4d310c17df9cd7da0d33b072b90e951de0cf
+          PRODUCER_BUILD: 38987640898
+          PRODUCER_DOCS: 38987640967
+        run: |
+          $values = @($env:PRODUCER_HEAD, $env:PRODUCER_BUILD, $env:PRODUCER_DOCS)
+          $selected = @($values | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+          if ($selected.Count -ne 0 -and $selected.Count -ne 3) { throw 'Specify all three exact producer identities or none.' }
+          if ($selected.Count -eq 3) {
+            $inputs = Join-Path $env:RUNNER_TEMP 'modal-candidate-producer'
+            "CANDIDATE_INPUTS=$inputs" >> $env:GITHUB_ENV
+            python automation/eng/WindowsModalDesktop/candidate-packages.py `
+              --head $env:PRODUCER_HEAD --build $env:PRODUCER_BUILD --docs $env:PRODUCER_DOCS --output $inputs
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+      - name: Prepare original sources and verify the selected package closure
+        shell: pwsh
+        env:
+          MODAL_DX12_COMPILER: Dxc
+        run: |
+          $root = Join-Path $env:RUNNER_TEMP 'original-modal-pair'
+          "CASE_ROOT=$root" >> $env:GITHUB_ENV
+          $candidate = @()
+          if ($env:CANDIDATE_INPUTS) { $candidate = @('--candidate-inputs', $env:CANDIDATE_INPUTS) }
+          if ($env:MODAL_DX12_COMPILER -eq 'Dxc') { $candidate += @('--dx12-compiler', 'Dxc') }
+          python automation/eng/WindowsModalDesktop/prepare.py `
+            --source (Resolve-Path original).Path `
+            --forms-helper-checkout (Resolve-Path forms-helper).Path `
+            --output $root --dotnet (Get-Command dotnet).Source @candidate
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/checkout@v4
+        with:
+          path: diagnostics
+          persist-credentials: false
+          sparse-checkout: eng/WindowsModalDesktop/diagnose-startup.py
+          sparse-checkout-cone-mode: false
+      - name: Observe one startup under the console host without input
+        shell: pwsh
+        run: |
+          python diagnostics/eng/WindowsModalDesktop/diagnose-startup.py `
+            --prepared $env:CASE_ROOT --producer-tools (Resolve-Path automation/eng/WindowsModalDesktop).Path `
+            --output (Join-Path $env:RUNNER_TEMP 'modal-startup-diagnostic')
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Retain diagnostic failure and exact producer receipts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: diagnostic-modal-startup-${{ github.sha }}-${{ github.run_id }}
+          retention-days: 14
+          if-no-files-found: warn
+          path: |
+            ${{ runner.temp }}/modal-startup-diagnostic/**
+            ${{ runner.temp }}/modal-candidate-producer/*.json
+            ${{ env.CASE_ROOT }}/preparation.json
+            ${{ env.CASE_ROOT }}/*-build.log
+            ${{ env.CASE_ROOT }}/runtime-inventory.txt

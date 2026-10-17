@@ -1,5 +1,15 @@
 # WPF modal desktop acceptance
 
+The ordinary DXC run at `5a4c4d310` (38989967823) completed the Microsoft
+scenarios but the portable app exited before its first source snapshot, with
+empty output streams. The complete producer Build and Gallery acceptance passed;
+they do not resolve this startup failure. Its original artifact is retained.
+`progpu-wpf-modal-startup-diagnostic.yml` stages that exact qualified producer and
+launches its unchanged managed entrypoint once with the console dotnet host,
+without input, for at most 60 seconds. This different host exposes otherwise
+missing startup errors; it never qualifies apphost or modal acceptance. Payload
+hashes are checked before and after, with the original failure kept separately.
+
 This desktop workload is still unqualified. `qualified` remains false in source
 observations and driver evidence. Hosted Windows runs and retained failures are
 described below; local shared VMs remain untouched. The original source-only
