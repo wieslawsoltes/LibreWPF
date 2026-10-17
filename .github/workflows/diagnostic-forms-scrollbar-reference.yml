@@ -1,0 +1,51 @@
+name: DIAGNOSTIC ONLY original Forms scrollbar geometry
+on:
+  push:
+    branches: [diagnostic/modal-popup-scene]
+    paths:
+      - .github/workflows/diagnostic-forms-scrollbar-reference.yml
+      - eng/WindowsFormsScrollBarReference/**
+permissions:
+  contents: read
+jobs:
+  reference:
+    name: Observe 96 original Microsoft scrollbar states without injected input
+    runs-on: windows-11-arm
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: eng/WindowsFormsScrollBarReference
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.201
+      - name: Build and execute owned source reference
+        shell: pwsh
+        run: |
+          $root = Join-Path $env:RUNNER_TEMP 'original-scrollbar-reference'
+          New-Item -ItemType Directory -Path $root -ErrorAction Stop | Out-Null
+          Copy-Item eng/WindowsFormsScrollBarReference/Program.cs $root
+          '<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0-windows</TargetFramework><UseWindowsForms>true</UseWindowsForms><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable><TreatWarningsAsErrors>true</TreatWarningsAsErrors></PropertyGroup></Project>' | Set-Content "$root/Reference.csproj"
+          '{"sdk":{"version":"10.0.201","rollForward":"disable"}}' | Set-Content "$root/global.json"
+          Push-Location $root
+          try {
+            dotnet build Reference.csproj -c Release -m:1 -p:UseSharedCompilation=false *> build.log
+            if ($LASTEXITCODE -ne 0) { throw 'Original reference did not compile.' }
+            $process = Start-Process dotnet -ArgumentList @('bin/Release/net10.0-windows/Reference.dll') -PassThru -NoNewWindow -RedirectStandardOutput geometry.json -RedirectStandardError stderr.log
+            if (-not $process.WaitForExit(30000)) { $process.Kill(); throw 'Original 30-second process bound expired.' }
+            if ($process.ExitCode -ne 0) { throw 'Original reference failed.' }
+            $result = Get-Content geometry.json -Raw | ConvertFrom-Json
+            if ($result.cases.Count -ne 96 -or $result.qualified -or $result.inputInjected -or -not $result.diagnosticOnly) { throw 'Original reference inventory or policy changed.' }
+            Get-FileHash Program.cs, geometry.json -Algorithm SHA256 | ConvertTo-Json | Set-Content hashes.json
+          } finally { Pop-Location }
+      - name: Retain original source, observations and failures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: diagnostic-original-scrollbar-reference
+          retention-days: 14
+          path: |
+            ${{ runner.temp }}/original-scrollbar-reference/*.cs
+            ${{ runner.temp }}/original-scrollbar-reference/*.csproj
+            ${{ runner.temp }}/original-scrollbar-reference/*.json
+            ${{ runner.temp }}/original-scrollbar-reference/*.log
