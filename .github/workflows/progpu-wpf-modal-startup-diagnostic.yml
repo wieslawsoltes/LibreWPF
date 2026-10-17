@@ -27,7 +27,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.sha }}
+          ref: 22f04962dd4db089d4bd681b9bc06e0a7882c468
           path: automation
           persist-credentials: false
       - uses: actions/checkout@v4
@@ -76,9 +76,9 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
-          PRODUCER_HEAD: 0e754dd8a1b9dbfffc55f41e8e9e67ece46c9e8d
-          PRODUCER_BUILD: 39026324599
-          PRODUCER_DOCS: 39026324735
+          PRODUCER_HEAD: 22f04962dd4db089d4bd681b9bc06e0a7882c468
+          PRODUCER_BUILD: 39030772848
+          PRODUCER_DOCS: 39030772842
         run: |
           $values = @($env:PRODUCER_HEAD, $env:PRODUCER_BUILD, $env:PRODUCER_DOCS)
           $selected = @($values | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })

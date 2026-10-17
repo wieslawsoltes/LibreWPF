@@ -1,0 +1,82 @@
+name: DIAGNOSTIC ONLY native taskbar ownership policy
+on:
+  push:
+    branches: [diagnostic/modal-popup-scene]
+    paths:
+      - .github/workflows/progpu-wpf-taskbar-policy-diagnostic.yml
+      - eng/WindowsTaskbarPolicy/Program.cs
+permissions:
+  contents: read
+jobs:
+  native:
+    name: Observe actual Win32 taskbar policy and copied icon retirement
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2025, windows-11-arm]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: diagnostic
+          persist-credentials: false
+          sparse-checkout: eng/WindowsTaskbarPolicy
+      - uses: actions/checkout@v4
+        with:
+          ref: 07cd614c7b45923b86269267bf42b79888c1028e
+          path: candidate
+          persist-credentials: false
+          sparse-checkout: src/ProGPU.Wpf/Platform
+      - name: Read the candidate's exact producer identity
+        id: producer
+        shell: pwsh
+        run: |
+          $line = git -C candidate ls-tree HEAD external/ProGPU
+          if ($LASTEXITCODE -ne 0 -or $line -notmatch '^160000 commit ([0-9a-f]{40})\s+external/ProGPU$') { throw 'Exact candidate producer gitlink missing.' }
+          "head=$($Matches[1])" >> $env:GITHUB_OUTPUT
+      - uses: actions/checkout@v4
+        with:
+          repository: wieslawsoltes/ProGPU
+          ref: ${{ steps.producer.outputs.head }}
+          path: producer
+          persist-credentials: false
+          sparse-checkout: src/ProGPU.Backend/NativeWindowTypes.cs
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.201
+      - name: Compile original candidate files and observe only owned windows
+        shell: pwsh
+        run: |
+          $root = Join-Path $env:RUNNER_TEMP 'native-taskbar-policy'
+          New-Item -ItemType Directory -Path $root -ErrorAction Stop | Out-Null
+          Copy-Item diagnostic/eng/WindowsTaskbarPolicy/Program.cs $root
+          foreach ($file in @('WpfWin32TaskbarPolicy.cs','Win32WpfTaskbarOperations.cs','WpfWin32TaskbarIcons.cs')) {
+            Copy-Item "candidate/src/ProGPU.Wpf/Platform/$file" $root
+          }
+          Copy-Item producer/src/ProGPU.Backend/NativeWindowTypes.cs $root
+          '<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0-windows</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable><TreatWarningsAsErrors>true</TreatWarningsAsErrors></PropertyGroup></Project>' | Set-Content "$root/Probe.csproj"
+          '{"sdk":{"version":"10.0.201","rollForward":"disable"}}' | Set-Content "$root/global.json"
+          @{ candidate = (git -C candidate rev-parse HEAD); producer = (git -C producer rev-parse HEAD); diagnostic = (git -C diagnostic rev-parse HEAD) } | ConvertTo-Json | Set-Content "$root/provenance.json"
+          Get-FileHash "$root/*.cs" -Algorithm SHA256 | ConvertTo-Json | Set-Content "$root/source-hashes.json"
+          Push-Location $root
+          try {
+            dotnet build Probe.csproj -c Release -m:1 -p:UseSharedCompilation=false *> build.log
+            if ($LASTEXITCODE -ne 0) { throw 'Actual candidate native policy did not compile.' }
+            $process = Start-Process dotnet -ArgumentList @('bin/Release/net10.0-windows/Probe.dll') -PassThru -NoNewWindow -RedirectStandardOutput observations.json -RedirectStandardError stderr.log
+            if (-not $process.WaitForExit(30000)) { $process.Kill(); throw 'Native control exceeded its 30-second process bound.' }
+            if ($process.ExitCode -ne 0) { throw 'Native taskbar ownership control failed.' }
+            $result = Get-Content observations.json -Raw | ConvertFrom-Json
+            if ($result.records.Count -ne 10 -or $result.qualified -or -not $result.diagnosticOnly -or $result.failure) { throw 'Unexpected native control inventory or failure.' }
+          } finally { Pop-Location }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: native-taskbar-policy-${{ matrix.os }}-${{ github.run_id }}
+          retention-days: 14
+          path: |
+            ${{ runner.temp }}/native-taskbar-policy/*.cs
+            ${{ runner.temp }}/native-taskbar-policy/*.csproj
+            ${{ runner.temp }}/native-taskbar-policy/*.json
+            ${{ runner.temp }}/native-taskbar-policy/*.log
