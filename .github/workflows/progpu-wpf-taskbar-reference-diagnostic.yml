@@ -1,0 +1,54 @@
+name: DIAGNOSTIC ONLY original WPF taskbar ownership
+on:
+  workflow_dispatch:
+  push:
+    branches: [diagnostic/modal-popup-scene]
+    paths:
+      - .github/workflows/progpu-wpf-taskbar-reference-diagnostic.yml
+      - eng/WindowsModalDesktop/TaskbarOwnershipDiagnostic.cs
+permissions:
+  contents: read
+jobs:
+  reference:
+    name: Observe original WPF taskbar styles and owner lifetime
+    runs-on: windows-11-arm
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            10.0.201
+            10.0.x
+      - name: Compile and run bounded original reference without injected input
+        shell: pwsh
+        run: |
+          $root = Join-Path $env:RUNNER_TEMP 'original-wpf-taskbar'
+          New-Item -ItemType Directory -Path $root -ErrorAction Stop | Out-Null
+          Copy-Item eng/WindowsModalDesktop/TaskbarOwnershipDiagnostic.cs $root
+          '<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0-windows</TargetFramework><UseWPF>true</UseWPF><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable><TreatWarningsAsErrors>true</TreatWarningsAsErrors></PropertyGroup></Project>' | Set-Content "$root/Probe.csproj"
+          '{"sdk":{"version":"10.0.201","rollForward":"disable"}}' | Set-Content "$root/global.json"
+          Push-Location $root
+          try {
+            dotnet build Probe.csproj -c Release -m:1 -p:UseSharedCompilation=false *> build.log
+            if ($LASTEXITCODE -ne 0) { throw 'Original WPF taskbar reference did not compile.' }
+            $process = Start-Process dotnet -ArgumentList @('bin/Release/net10.0-windows/Probe.dll') -PassThru -NoNewWindow -RedirectStandardOutput observations.json -RedirectStandardError stderr.log
+            if (-not $process.WaitForExit(30000)) { $process.Kill(); throw 'Original 30-second process bound exceeded.' }
+            if ($process.ExitCode -ne 0) { throw 'Original WPF taskbar reference failed.' }
+            $result = Get-Content observations.json -Raw | ConvertFrom-Json
+            if ($result.records.Count -ne 10 -or $result.qualified -or -not $result.diagnosticOnly -or $result.failure) { throw 'Unexpected original record inventory or failure.' }
+            Get-FileHash TaskbarOwnershipDiagnostic.cs, observations.json -Algorithm SHA256 | ConvertTo-Json | Set-Content hashes.json
+          } finally { Pop-Location }
+      - name: Retain original observations and failures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: diagnostic-original-wpf-taskbar
+          retention-days: 14
+          path: |
+            ${{ runner.temp }}/original-wpf-taskbar/*.cs
+            ${{ runner.temp }}/original-wpf-taskbar/*.csproj
+            ${{ runner.temp }}/original-wpf-taskbar/*.json
+            ${{ runner.temp }}/original-wpf-taskbar/*.log
