@@ -369,3 +369,29 @@ Successful explicit-DXC execution would qualify that sample configuration only;
 automatic/FXC startup performance remains unresolved. Current source changes are
 not a passing desktop result and must receive full producer and original paired
 application validation before merge.
+
+## Native startup failure evidence
+
+Qualified producer `5a4c4d310c17df9cd7da0d33b072b90e951de0cf` passed its
+whole Build and ordinary Gallery acceptance, but original modal run `38989967823`
+failed portable startup after Microsoft completed all seven scenarios. Diagnostic
+run `38992161416` reproduced a portable exit of `0xC0000409` before its first
+source snapshot. The portable native window became foreground before exiting;
+this is not evidence that another window caused the failure. Original captures,
+deadlines and application bytes remain retained.
+
+Failure receipts now preserve the process exit status before cleanup separately
+from its final status, plus one bounded native foreground observation after the
+original error is frozen. Observer failure cannot replace that error or retry input.
+
+`diagnose-native-startup.py` runs the unchanged Microsoft scenarios, then starts
+an exact byte copy of the qualified portable apphost under the existing owned
+native debugger. Its unique image retains the original DLL binding and exact
+evidence-directory/run-id arguments. The portable diagnostic sends no input and
+has a 60-second child deadline. Native controls verify argument transport,
+ordinary/handled exits, fail-fast capture and actual process termination.
+Only a bounded MiniDumpNormal matched to the owned process, exception thread,
+code and address is uploaded; raw dumps stay outside the artifact. No WER/global
+debugger settings or local VMs change. This diagnostic cannot qualify the original
+paired workload, even if the app survives. The original failure remains open
+until a product fix passes full producer and ordinary application acceptance.

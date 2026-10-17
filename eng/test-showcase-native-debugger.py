@@ -239,7 +239,8 @@ class Controls(unittest.TestCase):
         self.assertIn("actual_exit_code != exit_code", source[wait:confirmed])
         self.assertIn("wait == WAIT_TIMEOUT ? ERROR_TIMEOUT", source[confirmed:receipt])
         self.assertIn("wait == WAIT_FAILED ? GetLastError()", source[confirmed:receipt])
-        self.assertEqual(source.count("GetTickCount64() + child_deadline_ms"), 1)
+        self.assertEqual(source.count("GetTickCount64() + budget_ms"), 1)
+        self.assertIn("const ULONGLONG budget_ms = modal ? 60000 : child_deadline_ms;", source)
         self.assertNotIn("INFINITE", source[continuation:receipt])
 
     def test_exception_stream_must_match_actual_event(self):
@@ -362,7 +363,26 @@ def native_controls(directory, architecture):
         raise RuntimeError("Native helper/fixture PE architecture mismatch")
     subprocess.run([str(helper), "--test-callbacks"], timeout=5, check=True)
     print(f"PASS native {architecture} debugger: callback contracts", flush=True)
+    with tempfile.TemporaryDirectory(prefix="modal debugger argument control ") as temp:
+        root = Path(temp)
+        app = root / f"ModalStartup-{uuid.uuid4().hex}.exe"
+        app.write_bytes(fixture.read_bytes())
+        raw = root / 'raw'
+        raw.mkdir()
+        receipt = root / 'event.json'
+        evidence = root / 'evidence with spaces'
+        command = [str(helper), str(app), str(raw), str(receipt),
+                   '--modal-evidence-directory', str(evidence),
+                   '--modal-run-id', '0123456789abcdef0123456789abcdef']
+        result = subprocess.run(command, env=os.environ | {'SHOWCASE_DEBUGGER_FIXTURE': 'modal-arguments',
+            'SHOWCASE_DEBUGGER_EXPECTED_DIRECTORY': str(evidence)}, timeout=20, capture_output=True)
+        app.unlink()
+        value = diagnostic.load_event(receipt, expected)
+        if result.returncode != 17 or value['exitCode'] != 17 or value['captured'] or list(raw.iterdir()):
+            raise RuntimeError('Modal argument transport changed ordinary exit or created false crash evidence')
+        print(f'PASS native {architecture} debugger: exact modal arguments and quoted directory', flush=True)
     for mode, expected_exit, captures in (("handled", 0, False), ("exit", 17, False),
+                                        ("fail-fast", 0xC0000409, True),
                                         ("access-violation", 0xC0000005, True), ("live-stack", 17, False),
                                         ("handled-nonnull-av", 0, False), ("unhandled-nonnull-av", 0xC0000005, True)):
         with tempfile.TemporaryDirectory(prefix="showcase-debugger-control-") as temp:

@@ -281,6 +281,23 @@ class Session:
             require((self.directory / name).stat().st_size <= 8 * 1024 * 1024, "Application log budget exceeded")
         return value
 
+    def record_failure(self, result):
+        # The scenario has already failed. Preserve its error and natural child
+        # status before cleanup can replace the latter with a termination code.
+        # This never sends input, retries a scenario, or changes its deadline.
+        try:
+            result["exitCodeAtFailure"] = self.process.poll()
+            result["physicalActionsAtFailure"] = self.actions
+            if self.hosted_caption:
+                path = Path(__file__).parent / "WindowsModalDesktop/native-window-observation.py"
+                spec = importlib.util.spec_from_file_location("modal_failure_foreground", path)
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
+                result["foregroundAfterFailure"] = module.foreground(self.desktop)
+                result["failureObserverSha256"] = digest(path)
+        except BaseException as error:
+            result["failureObservationError"] = str(error)[:4096]
+
     def native(self):
         windows = self.desktop.windows(self.process.pid)
         require(0 < len(windows) <= 32, "Owned native window inventory unavailable/over budget")
@@ -626,6 +643,8 @@ def run_one(args, module, shared, app, output, portable, windows_desktop=None):
     except BaseException as error:
         failure = error
         result.update(completed=False, error=str(error)[:4096], phase=session.phase if session else "startup")
+        if session is not None:
+            session.record_failure(result)
     finally:
         try:
             if process is not None and process.poll() is None:
@@ -643,6 +662,8 @@ def run_one(args, module, shared, app, output, portable, windows_desktop=None):
         except BaseException as error:
             cleanup_errors.append("native observer: " + str(error)[:2048])
         result["cleanupErrors"] = cleanup_errors
+        if process is not None:
+            result["exitCodeAfterCleanup"] = process.returncode
         if cleanup_errors:
             result["completed"] = False
         try:

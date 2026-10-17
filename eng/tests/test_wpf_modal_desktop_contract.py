@@ -6,6 +6,7 @@ import importlib.util
 import json
 from pathlib import Path
 import tempfile
+from types import SimpleNamespace
 import unittest
 from unittest import mock
 
@@ -16,6 +17,49 @@ SPEC.loader.exec_module(DRIVER)
 
 
 class DesktopReceiptTests(unittest.TestCase):
+    def test_original_failure_retains_natural_exit_and_foreground_before_cleanup(self):
+        for natural_exit, observer_error in ((0xC0000409, False), (None, False), (17, True)):
+            with self.subTest(natural_exit=natural_exit, observer_error=observer_error), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary).resolve()
+                app = root / 'original.exe'
+                app.write_bytes(b'original app')
+                process = mock.Mock(pid=19, returncode=natural_exit)
+                process.poll.return_value = natural_exit
+                def wait(timeout):
+                    process.returncode = 1
+                    return 1
+                process.wait.side_effect = wait
+                desktop = mock.Mock(provenance=None)
+                observer = mock.Mock()
+                observer.foreground.return_value = {'hwnd': 4, 'pid': 27, 'after': 4}
+                if observer_error:
+                    observer.foreground.side_effect = OSError('diagnostic unavailable')
+                args = SimpleNamespace(platform='windows', macos_helper=None,
+                                       hosted_windows_caption_activation=True, hosted_windows_shell_escape=False)
+                failure = RuntimeError('original scenario failure')
+                with mock.patch.object(DRIVER.subprocess, 'Popen', return_value=process) as launch, \
+                     mock.patch.object(DRIVER, 'scenario', side_effect=failure) as scenario, \
+                     mock.patch.object(DRIVER.importlib.util, 'spec_from_file_location', return_value=mock.Mock()), \
+                     mock.patch.object(DRIVER.importlib.util, 'module_from_spec', return_value=observer):
+                    with self.assertRaises(RuntimeError) as seen:
+                        DRIVER.run_one(args, None, {}, app, root / 'evidence', True, desktop)
+                self.assertIs(seen.exception, failure)
+                result = json.loads((root / 'evidence/result.json').read_text())
+                self.assertEqual(natural_exit, result['exitCodeAtFailure'])
+                self.assertEqual(natural_exit if natural_exit is not None else 1, result['exitCodeAfterCleanup'])
+                self.assertEqual('original scenario failure', result['error'])
+                self.assertFalse(result['completed'])
+                self.assertEqual(0, result['physicalActionsAtFailure'])
+                self.assertEqual(observer_error, 'failureObservationError' in result)
+                if not observer_error:
+                    self.assertEqual(27, result['foregroundAfterFailure']['pid'])
+                launch.assert_called_once()
+                scenario.assert_called_once()
+                desktop.pointer.assert_not_called()
+                desktop.key.assert_not_called()
+                desktop.activate.assert_not_called()
+                self.assertEqual(natural_exit is None, process.terminate.called)
+
     def test_duplicate_and_nonfinite_fields_are_not_receipts(self):
         for raw in (b'{"pid":1,"pid":1}', b'{"x":NaN}', b'{"x":Infinity}', b'{"x":-Infinity}'):
             with self.subTest(raw=raw), self.assertRaises(RuntimeError):

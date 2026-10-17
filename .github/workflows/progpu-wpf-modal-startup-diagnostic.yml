@@ -8,6 +8,7 @@ on:
       - .github/workflows/progpu-wpf-modal-startup-diagnostic.yml
       - eng/WindowsModalDesktop/diagnose-startup.py
       - eng/WindowsModalDesktop/diagnose-pair.py
+      - eng/WindowsModalDesktop/diagnose-native-startup.py
 
 permissions:
   contents: read
@@ -15,7 +16,7 @@ permissions:
 
 jobs:
   startup:
-    name: DIAGNOSTIC ONLY original pair child exits
+    name: DIAGNOSTIC ONLY original reference then native startup crash
     runs-on: windows-11-arm
     timeout-minutes: 15
     steps:
@@ -108,10 +109,7 @@ jobs:
         with:
           path: diagnostics
           persist-credentials: false
-          sparse-checkout: |
-            eng/WindowsModalDesktop
-            eng/tests/test_wpf_modal_child_observation.py
-          sparse-checkout-cone-mode: false
+          sparse-checkout: eng
       - name: Verify transparent child observation
         shell: pwsh
         run: |
@@ -119,19 +117,26 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python automation/eng/tests/test_wpf_foreground_observation.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Build and validate the bounded owned-process native debugger
+        shell: pwsh
+        run: |
+          & diagnostics/eng/build-showcase-native-debugger.ps1 -Architecture arm64 `
+            -OutputDirectory (Join-Path $env:RUNNER_TEMP 'modal-native-debugger')
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Prepare the original disposable hosted desktop
         shell: pwsh
         run: |
           python automation/eng/WindowsModalDesktop/prepare-desktop.py `
             --output (Join-Path $env:RUNNER_TEMP 'original-modal-desktop-preflight.json')
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Observe child exits around the unchanged original pair
+      - name: Run original reference then diagnose native portable startup
         shell: pwsh
         env:
           PROGPU_WPF_TRACE_INPUT: '0'
         run: |
-          python diagnostics/eng/WindowsModalDesktop/diagnose-pair.py `
+          python diagnostics/eng/WindowsModalDesktop/diagnose-native-startup.py `
             --prepared $env:CASE_ROOT --producer-tools (Resolve-Path automation/eng/WindowsModalDesktop).Path `
+            --debugger (Join-Path $env:RUNNER_TEMP 'modal-native-debugger/ShowcaseNativeDebugger.exe') `
             --output (Join-Path $env:RUNNER_TEMP 'modal-startup-diagnostic')
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Retain diagnostic failure and exact producer receipts
