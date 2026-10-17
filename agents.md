@@ -1,5 +1,13 @@
 # Agent Guidance
 
+Modal desktop capture readiness requires two original stable observations with
+actual positive presentation counts on every portable surface. Pending zero
+frames consume the original absolute 60-second process deadline; malformed counts
+fail. Keep original source/native identity, geometry, capture and input checks,
+Microsoft behavior and immutable source observers. Read-only Gallery foreground
+failure evidence must preserve the original exception without activation or retry.
+See docs/modal-desktop-acceptance.md; neither authored control qualifies release.
+
 Portable PopupRoot layout shares the existing integer, minimum-one host client
 allocation on every source update. Preserve original desired/child dimensions,
 content overflow/clipping, native sizing policy and non-PopupRoot behavior.

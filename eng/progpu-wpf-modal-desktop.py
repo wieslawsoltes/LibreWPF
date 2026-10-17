@@ -116,6 +116,16 @@ def owner_input(state):
                         if key.startswith(("owner-pointer", "owner-key", "guard-", "editor-", "message-", "dialog-open-request"))})
 
 
+def presented(state):
+    ready = True
+    for window in state["windows"]:
+        for surface in window["surfaces"]:
+            frames = surface["presentedFrames"]
+            require(type(frames) is int and frames >= 0, "Invalid actual presented host frame count")
+            ready = ready and frames > 0
+    return ready
+
+
 def exposed_guard(owner, windows, bounds, identity):
     rectangle(bounds)
     require(contains(owner["client"], bounds) and all(not overlaps(bounds, item["bounds"])
@@ -355,12 +365,16 @@ class Session:
             except FileNotFoundError:
                 time.sleep(0.05)
                 continue
-            if predicate(state) and previous is not None and state["sequence"] > previous["sequence"] and stable(state) == stable(previous):
+            # Native visibility/layout may precede the first presentation. Both
+            # stable observations must carry actual frames before capture/input;
+            # waiting consumes the same original absolute process deadline.
+            ready = predicate(state) and (not self.portable or presented(state))
+            if ready and previous is not None and state["sequence"] > previous["sequence"] and stable(state) == stable(previous):
                 self.state, self.source_receipt = state, receipt
                 windows = self.native()
                 self.match(state, windows)
                 return windows
-            previous = state if predicate(state) else None
+            previous = state if ready else None
             time.sleep(0.05)
 
     def action(self, kind, **detail):

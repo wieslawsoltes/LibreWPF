@@ -17,6 +17,55 @@ SPEC.loader.exec_module(DRIVER)
 
 
 class DesktopReceiptTests(unittest.TestCase):
+    def test_first_presented_frame_requires_two_ready_observations(self):
+        # The retained context-menu failure had stable native geometry at zero
+        # frames. A first frame must not reuse either unpresented observation.
+        states = [dict(sequence=index + 1, windows=[dict(surfaces=[dict(
+            nativeHandle=7, presentedFrames=frames)])])
+            for index, frames in enumerate((0, 0, 1, 2))]
+        session = DRIVER.Session(mock.Mock(), mock.Mock(pid=17), Path('/unused'), 'run', True, 60)
+        session.remaining = mock.Mock(return_value=5)
+        session.native = mock.Mock(return_value=['native'])
+        session.match = mock.Mock()
+        with mock.patch.object(DRIVER, 'observation', side_effect=[(state, {}) for state in states]) as observe, \
+             mock.patch.object(DRIVER.time, 'sleep'):
+            self.assertEqual(['native'], session.wait(lambda state: True))
+        self.assertEqual(4, observe.call_count)
+        session.match.assert_called_once_with(states[-1], ['native'])
+        self.assertEqual(60, session.deadline)
+        self.assertEqual(0, session.actions)
+
+    def test_unpresented_surface_exhausts_original_deadline_without_input(self):
+        state = dict(sequence=1, windows=[dict(surfaces=[dict(presentedFrames=0)])])
+        desktop = mock.Mock()
+        session = DRIVER.Session(desktop, mock.Mock(pid=17), Path('/unused'), 'run', True, 60)
+        expired = RuntimeError('Original 60-second desktop deadline expired')
+        session.remaining = mock.Mock(side_effect=[5, 1, expired])
+        with mock.patch.object(DRIVER, 'observation', return_value=(state, {})), \
+             mock.patch.object(DRIVER.time, 'sleep'), self.assertRaises(RuntimeError) as seen:
+            session.wait(lambda state: True)
+        self.assertIs(expired, seen.exception)
+        self.assertEqual(60, session.deadline)
+        self.assertEqual([], desktop.mock_calls)
+
+    def test_presented_readiness_rejects_invalid_counts_and_checks_all_surfaces(self):
+        for frames in (-1, True, None, 1.5, '1'):
+            with self.subTest(frames=frames), self.assertRaisesRegex(RuntimeError, 'Invalid actual'):
+                DRIVER.presented(dict(windows=[dict(surfaces=[dict(presentedFrames=0), dict(presentedFrames=frames)])]))
+        self.assertFalse(DRIVER.presented(dict(windows=[dict(surfaces=[dict(presentedFrames=1), dict(presentedFrames=0)])])))
+        self.assertTrue(DRIVER.presented(dict(windows=[dict(surfaces=[dict(presentedFrames=1), dict(presentedFrames=2)])])))
+
+    def test_microsoft_wait_does_not_require_portable_frame_metadata(self):
+        states = [dict(sequence=index, windows=[dict(surfaces=[dict(presentedFrames=None)])]) for index in (1, 2)]
+        session = DRIVER.Session(mock.Mock(), mock.Mock(pid=17), Path('/unused'), 'run', False, 60)
+        session.remaining = mock.Mock(return_value=5)
+        session.native = mock.Mock(return_value=[])
+        session.match = mock.Mock()
+        with mock.patch.object(DRIVER, 'observation', side_effect=[(state, {}) for state in states]), \
+             mock.patch.object(DRIVER.time, 'sleep'):
+            session.wait(lambda state: True)
+        session.match.assert_called_once_with(states[-1], [])
+
     def test_original_failure_retains_natural_exit_and_foreground_before_cleanup(self):
         for natural_exit, observer_error in ((0xC0000409, False), (None, False), (17, True)):
             with self.subTest(natural_exit=natural_exit, observer_error=observer_error), tempfile.TemporaryDirectory() as temporary:

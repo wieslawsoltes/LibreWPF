@@ -1,5 +1,25 @@
 # WPF modal desktop acceptance
 
+The `356d1a22` whole producer passed all 16 Build jobs and Docs. Original paired
+run 39020954237 completed Microsoft's seven scenarios and portable MessageBox,
+ShowDialog and Popup, then rejected ContextMenu before capture: observations 31
+and 32 had the correct 175-pixel client but zero presented frames. Stable source
+layout is not presentation readiness. The controller now requires both stable
+portable observations to have actual positive frame counts before returning from
+its existing wait. Zero frames consume the original absolute 60-second budget;
+invalid counts fail, and the existing source/native match and capture checks
+still run unchanged. Microsoft observations retain their existing path. No source
+observer, product rendering, input sequence, frame counter or deadline changes.
+The original failure remains retained; local readiness controls are not desktop
+qualification or proof that the earlier ShowDialog stall is resolved.
+
+Gallery run 39020955251 against the same producer lost foreground ownership
+between its accepted activation and the first pasted capture. Its first capture
+was never admitted. The diagnostic wrapper now records the actual foreground
+window immediately after that original failure, before cleanup, without input,
+activation, retries or replacement of the original exception. This read-only
+observation does not qualify Gallery or extend its original 60/57/55-second limits.
+
 The ordinary DXC run at `5a4c4d310` (38989967823) completed the Microsoft
 scenarios but the portable app exited before its first source snapshot, with
 empty output streams. The complete producer Build and Gallery acceptance passed;
