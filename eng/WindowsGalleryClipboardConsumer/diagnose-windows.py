@@ -148,6 +148,34 @@ def observed_foreground(original, path):
     return prepare
 
 
+def observed_geometry(original, directory):
+    count = 0
+    def geometry(desktop, hwnd, pid):
+        nonlocal count
+        try:
+            return original(desktop, hwnd, pid)
+        except BaseException as failure:
+            # A later capture can lose foreground after successful setup. Record
+            # the actual owner at that failed boundary, before process cleanup.
+            # Never activate, inject, wait, retry or replace the original error.
+            if count < 8:
+                count += 1
+                record = dict(qualified=False, diagnosticOnly=True, target=hwnd, pid=pid,
+                              originalError=str(failure), observedAt=time.monotonic())
+                try:
+                    record['foreground'] = desktop.window_observation(desktop.u.GetForegroundWindow())
+                    record['foregroundAfterObservation'] = desktop.u.GetForegroundWindow()
+                except Exception as error:
+                    record['observerError'] = str(error)
+                try:
+                    with (directory / f'geometry-failure-{count:03d}.diagnostic.json').open('x') as output:
+                        json.dump(record, output, indent=2)
+                except Exception as error:
+                    print('Geometry diagnostic receipt failure: ' + str(error), file=sys.stderr)
+            raise
+    return geometry
+
+
 def native_window_details(desktop, hwnd):
     bounds = W.RECT()
     exists = bool(desktop.u.IsWindow(hwnd))
@@ -201,6 +229,7 @@ def main():
     spec = importlib.util.spec_from_file_location("original_gallery_driver", driver)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
+    module.Desktop.geometry = observed_geometry(module.Desktop.geometry, args.output)
     module.Desktop.capture = observed_capture(module.Desktop.capture)
     module.Desktop.window_observation = observed_window(module.Desktop.window_observation, args.output)
     module.Desktop.prepare_foreground = observed_foreground(

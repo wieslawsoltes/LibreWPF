@@ -11,6 +11,59 @@ spec.loader.exec_module(diagnostic)
 
 
 class DiagnosticBoundaryTests(unittest.TestCase):
+    def test_geometry_failure_preserves_error_and_reads_only_actual_foreground(self):
+        for unavailable in (False, True):
+            with self.subTest(unavailable=unavailable), tempfile.TemporaryDirectory() as directory:
+                error = RuntimeError('owned window is not foreground')
+                original = mock.Mock(side_effect=error)
+                desktop = mock.Mock()
+                desktop.u.GetForegroundWindow.return_value = 9
+                desktop.window_observation.return_value = {'hwnd': 9, 'pid': 23, 'title': 'Search'}
+                if unavailable: desktop.window_observation.side_effect = OSError('unavailable')
+                with self.assertRaises(RuntimeError) as seen:
+                    diagnostic.observed_geometry(original, Path(directory))(desktop, 7, 12)
+                self.assertIs(error, seen.exception)
+                original.assert_called_once_with(desktop, 7, 12)
+                receipt = json.loads((Path(directory) / 'geometry-failure-001.diagnostic.json').read_text())
+                self.assertFalse(receipt['qualified'])
+                self.assertEqual(str(error), receipt['originalError'])
+                self.assertTrue(all(call[0] in ('u.GetForegroundWindow', 'window_observation') for call in desktop.mock_calls))
+                if unavailable: self.assertEqual('unavailable', receipt['observerError'])
+                else: self.assertEqual(23, receipt['foreground']['pid'])
+
+    def test_geometry_success_has_no_extra_native_observation(self):
+        expected = object()
+        original = mock.Mock(return_value=expected)
+        desktop = mock.Mock()
+        self.assertIs(expected, diagnostic.observed_geometry(original, Path('/unused'))(desktop, 7, 12))
+        self.assertEqual([], desktop.mock_calls)
+
+    def test_geometry_failure_observation_has_fixed_bound(self):
+        with tempfile.TemporaryDirectory() as directory:
+            error = RuntimeError('original')
+            original = mock.Mock(side_effect=error)
+            desktop = mock.Mock()
+            desktop.u.GetForegroundWindow.return_value = 9
+            desktop.window_observation.return_value = {'hwnd': 9}
+            wrapped = diagnostic.observed_geometry(original, Path(directory))
+            for _ in range(9):
+                with self.assertRaises(RuntimeError) as seen: wrapped(desktop, 7, 12)
+                self.assertIs(error, seen.exception)
+            self.assertEqual(9, original.call_count)
+            self.assertEqual(8, desktop.window_observation.call_count)
+            self.assertEqual(8, len(list(Path(directory).glob('*.json'))))
+
+    def test_geometry_receipt_failure_cannot_replace_original_exception(self):
+        with tempfile.TemporaryDirectory() as directory:
+            error = RuntimeError('original')
+            original = mock.Mock(side_effect=error)
+            desktop = mock.Mock()
+            desktop.u.GetForegroundWindow.return_value = 9
+            desktop.window_observation.return_value = {'hwnd': 9}
+            with self.assertRaises(RuntimeError) as seen:
+                diagnostic.observed_geometry(original, Path(directory) / 'missing')(desktop, 7, 12)
+            self.assertIs(error, seen.exception)
+
     def test_extra_window_reads_preserve_original_result_and_bound(self):
         for unavailable in (False, True):
             with self.subTest(unavailable=unavailable), tempfile.TemporaryDirectory() as directory:
