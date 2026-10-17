@@ -98,12 +98,38 @@ def dismiss(native, original_sender, claim_original_action, deadline, record, en
         names.add(name)
         item = dict(window=window, key=0x1B, originalDeadline=deadline)
         record["escapes"].append(item)
+        observe_start_cloak = name == "Start" and allow_background_start and bool(record["startActivations"])
+        if observe_start_cloak:
+            item["cloakBefore"] = native.cloak(hwnd)
+            require(item["cloakBefore"] == dict(hresult=0, flags=0),
+                    "Activated Start must be proven uncloaked before Escape")
+            require(clock() < setup_deadline and native.context() == context
+                    and native.foreground() == hwnd and native.snapshot(hwnd) == window,
+                    "Start identity or deadline changed during cloak preflight")
         claim_original_action("hosted-shell-escape", nativeProof=item)
         # The unchanged Forms helper independently verifies foreground PID,
         # rejects held input and releases any partial key sequence.
         original_sender.key(window["pid"], 0x1B)
         until = min(setup_deadline, clock() + .5)
+        cloaked_observations = 0
         while native.foreground() == hwnd and clock() < until:
+            if observe_start_cloak:
+                observation = dict(observedAt=clock(), cloak=native.cloak(hwnd),
+                                   window=native.snapshot(hwnd), context=native.context(),
+                                   foreground=native.foreground())
+                item.setdefault("cloakAfter", []).append(observation)
+                require(observation["window"] == window and observation["context"] == context,
+                        "Start identity changed after Escape")
+                require(observation["cloak"]["hresult"] == 0 and observation["cloak"]["flags"] in (0, 2),
+                        "Start shell-cloak completion is unavailable or unproven")
+                cloaked_observations = (cloaked_observations + 1
+                    if observation["cloak"]["flags"] == 2 and observation["foreground"] == hwnd else 0)
+                if cloaked_observations == 2:
+                    require(clock() < until and native.foreground() == hwnd,
+                            "Start cloak completion exceeded original observation deadline")
+                    item["foregroundAfter"] = hwnd
+                    item["completion"] = "same Start hidden by shell in two native observations"
+                    return
             sleep(.01)
         item["foregroundAfter"] = native.foreground()
         require(item["foregroundAfter"] != hwnd, "Shell Escape did not yield foreground")

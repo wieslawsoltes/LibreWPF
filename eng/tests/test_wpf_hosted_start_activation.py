@@ -19,6 +19,7 @@ class ExtensionTests(unittest.TestCase):
             result = copy.deepcopy(self.items)
             if self.duplicate: result.append(copy.deepcopy(next(w for w in result if w['title'] == 'Start')))
             return result
+        def cloak(self, hwnd): return dict(hresult=0, flags=0)
         def activate(self, hwnd):
             self.activations.append(hwnd)
             if self.activation_refused: return False
@@ -98,6 +99,72 @@ class ExtensionTests(unittest.TestCase):
         n.windows = change
         with self.assertRaisesRegex(RuntimeError, 'identity or deadline'): self.run_guard(n)
         self.assertEqual([], n.activations)
+
+class CloakCompletionTests(unittest.TestCase):
+    class Native(ExtensionTests.Native):
+        def __init__(self):
+            super().__init__()
+            self.sent_start = False
+            self.flags, self.hresult, self.replace_after, self.expire_after = 2, 0, False, False
+            self.cloak_reads = 0
+        def key(self, pid, code):
+            if pid != 101:
+                return super().key(pid, code)
+            self.keys.append((pid, code))
+            self.sent_start = True
+        def cloak(self, hwnd):
+            if not self.sent_start: return super().cloak(hwnd)
+            self.cloak_reads += 1
+            if self.expire_after: self.ticks = 3
+            if self.replace_after: self.items[0]['pid'] += 1
+            return dict(hresult=self.hresult, flags=self.flags if self.hresult == 0 else None)
+
+    run_guard = ExtensionTests.run_guard
+
+    def test_hidden_start_can_retain_foreground_without_another_action(self):
+        n = self.Native(); record = self.run_guard(n)
+        self.assertEqual([(100, 27), (101, 27)], n.keys)
+        self.assertEqual([2], n.activations)
+        self.assertEqual(3, len(n.actions))
+        self.assertEqual(2, record['escapes'][-1]['foregroundAfter'])
+        self.assertEqual(2, n.cloak_reads)
+        self.assertEqual(3, record['setupDeadline'])
+        self.assertLess(n.ticks, .5)
+
+    def test_visible_start_still_fails_the_original_half_second_bound(self):
+        n = self.Native(); n.flags = 0
+        with self.assertRaisesRegex(RuntimeError, 'did not yield'): self.run_guard(n)
+        self.assertEqual(2, len(n.keys))
+        self.assertLess(n.ticks, .52)
+
+    def test_cloak_completion_requires_two_consecutive_shell_hidden_observations(self):
+        n = self.Native()
+        values = iter((0, 2, 0, 2, 2))
+        n.cloak = lambda hwnd: dict(hresult=0, flags=next(values))
+        record = self.run_guard(n)
+        self.assertEqual([2, 0, 2, 2], [v['cloak']['flags'] for v in record['escapes'][-1]['cloakAfter']])
+        self.assertEqual(2, len(n.keys))
+
+    def test_failed_or_other_cloak_flags_never_prove_shell_dismissal(self):
+        for result, flags in ((-1, None), (0, 1), (0, 3), (0, 4), (0, 8)):
+            n = self.Native(); n.hresult, n.flags = result, flags
+            with self.subTest(result=result, flags=flags), self.assertRaisesRegex(RuntimeError, 'unproven'):
+                self.run_guard(n)
+            self.assertEqual(1, n.cloak_reads)
+            self.assertEqual(2, len(n.keys))
+
+    def test_replacement_and_deadline_expiry_do_not_pass_cloak_completion(self):
+        for flag in ('replace_after', 'expire_after'):
+            n = self.Native(); setattr(n, flag, True)
+            with self.subTest(flag=flag), self.assertRaises(RuntimeError): self.run_guard(n)
+            self.assertEqual(2, len(n.keys))
+            self.assertEqual([2], n.activations)
+
+    def test_already_hidden_start_receives_no_escape(self):
+        n = self.Native(); n.cloak = lambda hwnd: dict(hresult=0, flags=2)
+        with self.assertRaisesRegex(RuntimeError, 'uncloaked before Escape'): self.run_guard(n)
+        self.assertEqual([(100, 27)], n.keys)
+
 
 class CompletionTests(unittest.TestCase):
     run_guard = ExtensionTests.run_guard

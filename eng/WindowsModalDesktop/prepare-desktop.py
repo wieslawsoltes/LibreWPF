@@ -81,8 +81,10 @@ class Desktop:
     def __init__(self):
         self.u = C.WinDLL("user32", use_last_error=True)
         self.k = C.WinDLL("kernel32", use_last_error=True)
+        self.dwm = C.WinDLL("dwmapi", use_last_error=True)
         def bind(lib, name, result, *args):
             fn = getattr(lib, name); fn.restype = result; fn.argtypes = args
+        bind(self.dwm, "DwmGetWindowAttribute", C.c_int32, W.HWND, W.DWORD, W.LPVOID, W.DWORD)
         bind(self.u, "GetForegroundWindow", W.HWND)
         bind(self.u, "SetForegroundWindow", W.BOOL, W.HWND)
         bind(self.u, "GetShellWindow", W.HWND)
@@ -177,6 +179,11 @@ class Desktop:
         if foreground and foreground not in seen:
             result.append(self.snapshot(foreground))
         return result
+
+    def cloak(self, hwnd):
+        value = W.DWORD()
+        result = self.dwm.DwmGetWindowAttribute(hwnd, 14, C.byref(value), C.sizeof(value))
+        return dict(hresult=result, flags=value.value if result >= 0 else None)
 
     def activate(self, hwnd):
         # Called only after the separately approved guard proves the exact Start

@@ -472,6 +472,26 @@ no trace or diagnostic result replaces the original acceptance workload.
 
 ### Approved hosted Start activation
 
+The original `39044221455` failure and read-only diagnostic `39045144719`
+showed that Start's single Escape successfully hides its surface while its HWND
+remains foreground. The diagnostic recorded `DWMWA_CLOAKED` changing from zero
+to `DWM_CLOAKED_SHELL` (2); Search independently changed to the same shell-hidden
+state. A foreground-handle change alone therefore misclassified this completion.
+
+For the already activated, verified Start target only, the guard now requires a
+successful uncloaked native read before Escape and accepts two consecutive native
+shell-hidden observations afterward. Every observation preserves its original
+HWND/PID/thread, system image, session and desktop. Both reads consume the existing
+half-second completion interval inside the original three-second setup budget;
+no additional Escape, activation or wait interval is introduced. Failed reads,
+application/inherited/unknown cloak flags, changed identity and still-visible
+Start fail. The original source-key leakage check and owned-caption activation
+still follow, with all seven scenarios, pixels, retirement checks and process
+limits intact. Earlier failed runs remain failed.
+
+Microsoft's [DWM window attributes](https://learn.microsoft.com/en-us/windows/win32/api/dwmapi/ne-dwmapi-dwmwindowattribute)
+define shell cloaking independently of the ordinary `WS_VISIBLE` style.
+
 On 2026-10-17 the owner approved one bounded Start activation on the disposable
 GitHub runner. Run39028812067 had dismissed Search, but visible nonforeground
 Start still covered all three original caption points. That run remains failed.

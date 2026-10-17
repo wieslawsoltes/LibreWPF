@@ -9,6 +9,11 @@ and never repeat activation or send pending input. Count activation in the origi
 Unknown foreground, refused activation and changed identity fail without retry.
 The HWND ABI adapter maps only ctypes null to zero, preserving live handle bits.
 Disposable hosted Windows only; see docs/modal-desktop-acceptance.md.
+After its single Escape, that exact activated Start may remain foreground while
+DWM hides it. Require original uncloaked preflight and two consecutive successful
+shell-only cloak observations with unchanged identity inside the existing
+half-second completion interval. Never treat a failed read or another cloak flag
+as dismissal, repeat input, extend time, or skip original source/caption checks.
 
 # Agent Guidance
 
