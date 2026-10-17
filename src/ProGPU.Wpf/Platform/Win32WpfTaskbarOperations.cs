@@ -7,12 +7,14 @@ using ProGPU.Backend;
 namespace System.Windows.Media.ProGPU.Platform;
 
 [SupportedOSPlatform("windows")]
-internal sealed class Win32WpfTaskbarOperations : IWpfWin32TaskbarOperations
+internal sealed class Win32WpfTaskbarOperations : IWpfWin32TaskbarOperations, IWpfWin32TaskbarIconOperations
 {
     private const int OwnerIndex = -8, StyleIndex = -16, ExtendedStyleIndex = -20;
     private readonly nint _window;
     private readonly uint _thread = GetCurrentThreadId();
     private readonly string _hiddenTitle = "LibreWPF taskbar owner " + Guid.NewGuid().ToString("N");
+    private readonly WpfWin32TaskbarIcons _icons;
+    private nint _liveHiddenOwner;
 
     internal Win32WpfTaskbarOperations(NativeWindowHandle window)
     {
@@ -20,6 +22,7 @@ internal sealed class Win32WpfTaskbarOperations : IWpfWin32TaskbarOperations
             throw new ArgumentException("An actual Win32 source window is required.", nameof(window));
         _window = window.Handle;
         ValidateLocalTopLevel(_window);
+        _icons = new(this);
     }
 
     public WpfWin32TaskbarSnapshot Read()
@@ -32,6 +35,7 @@ internal sealed class Win32WpfTaskbarOperations : IWpfWin32TaskbarOperations
     public nint CreateHiddenOwner()
     {
         ValidateLocalTopLevel(_window);
+        if (_liveHiddenOwner != 0) throw new InvalidOperationException("A hidden taskbar owner already exists.");
         // WS_OVERLAPPEDWINDOW without WS_VISIBLE, matching the original source.
         // The system STATIC class owns its native procedure; no managed callback
         // can be collected while this retained hidden HWND remains alive.
@@ -39,11 +43,14 @@ internal sealed class Win32WpfTaskbarOperations : IWpfWin32TaskbarOperations
             int.MinValue, int.MinValue, int.MinValue, int.MinValue,
             0, 0, GetModuleHandleW(null), 0); // Original CW_USEDEFAULT geometry.
         if (owner == 0) throw new Win32Exception(Marshal.GetLastPInvokeError());
+        _liveHiddenOwner = owner;
         return owner; // Publish ownership before any further fallible operation.
     }
 
     public void ValidateHiddenOwner(nint owner)
     {
+        if (owner == 0 || owner != _liveHiddenOwner)
+            throw new InvalidOperationException("The hidden taskbar owner is not owned by this host.");
         ValidateLocalTopLevel(owner);
         var title = new StringBuilder(128);
         var className = new StringBuilder(32);
@@ -98,6 +105,72 @@ internal sealed class Win32WpfTaskbarOperations : IWpfWin32TaskbarOperations
         RequireChildDestroyed();
         ValidateHiddenOwner(owner);
         if (!DestroyWindow(owner)) throw new Win32Exception(Marshal.GetLastPInvokeError());
+        _liveHiddenOwner = 0;
+    }
+
+    public void SynchronizeHiddenOwnerIcons(nint owner)
+    {
+        ValidateLocalTopLevel(_window);
+        ValidateHiddenOwner(owner);
+        _icons.Synchronize(owner);
+    }
+
+    public void ReleaseIconCopiesAfterWindows()
+    {
+        RequireChildDestroyed();
+        if (_liveHiddenOwner != 0)
+            throw new InvalidOperationException("The hidden owner still borrows its retained icon copies.");
+        _icons.ReleaseAfterWindows();
+    }
+
+    WpfWin32IconPair IWpfWin32TaskbarIconOperations.ReadSourceIcons()
+    {
+        ValidateLocalTopLevel(_window);
+        WpfWin32IconPair icons = ReadIcons(_window);
+        // WM_GETICON returns zero for a class-provided default. Copy that
+        // actual source class icon, rather than selecting the STATIC default.
+        return new(icons.Large != 0 ? icons.Large : ReadClassIcon(_window, -14),
+            icons.Small != 0 ? icons.Small : ReadClassIcon(_window, -34));
+    }
+
+    WpfWin32IconPair IWpfWin32TaskbarIconOperations.ReadTargetIcons(nint owner)
+    {
+        ValidateHiddenOwner(owner);
+        return ReadIcons(owner);
+    }
+
+    void IWpfWin32TaskbarIconOperations.WriteTargetIcons(nint owner, WpfWin32IconPair icons)
+    {
+        ValidateHiddenOwner(owner);
+        SendMessageW(owner, 0x0080, 1, icons.Large); // WM_SETICON / ICON_BIG
+        ValidateHiddenOwner(owner);
+        SendMessageW(owner, 0x0080, 0, icons.Small); // ICON_SMALL
+    }
+
+    nint IWpfWin32TaskbarIconOperations.CopyIcon(nint icon)
+    {
+        VerifyThread();
+        nint copy = CopyIcon(icon);
+        if (copy == 0) throw new Win32Exception(Marshal.GetLastPInvokeError());
+        return copy;
+    }
+
+    void IWpfWin32TaskbarIconOperations.DestroyIcon(nint icon)
+    {
+        VerifyThread();
+        if (!DestroyIcon(icon)) throw new Win32Exception(Marshal.GetLastPInvokeError());
+    }
+
+    private static WpfWin32IconPair ReadIcons(nint window) =>
+        new(SendMessageW(window, 0x007f, 1, 0), SendMessageW(window, 0x007f, 0, 0)); // WM_GETICON
+
+    private static nint ReadClassIcon(nint window, int index)
+    {
+        Marshal.SetLastPInvokeError(0);
+        nint icon = IntPtr.Size == 8 ? GetClassLongPtrW(window, index) : unchecked((nint)GetClassLongW(window, index));
+        int error = Marshal.GetLastPInvokeError();
+        if (icon == 0 && error != 0) throw new Win32Exception(error);
+        return icon;
     }
 
     private void VerifyThread()
@@ -133,6 +206,12 @@ internal sealed class Win32WpfTaskbarOperations : IWpfWin32TaskbarOperations
     }
 
     [DllImport("kernel32.dll")] private static extern uint GetCurrentThreadId();
+    [DllImport("user32.dll")] private static extern nint SendMessageW(nint window, uint message, nint wParam, nint lParam);
+    [DllImport("user32.dll", SetLastError = true)] private static extern nint GetClassLongPtrW(nint window, int index);
+    [DllImport("user32.dll", SetLastError = true)] private static extern uint GetClassLongW(nint window, int index);
+    [DllImport("user32.dll", SetLastError = true)] private static extern nint CopyIcon(nint icon);
+    [DllImport("user32.dll", SetLastError = true)] [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool DestroyIcon(nint icon);
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] private static extern nint GetModuleHandleW(string? name);
     [DllImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool IsWindow(nint window);
     [DllImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool IsWindowVisible(nint window);

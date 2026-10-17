@@ -1663,6 +1663,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         {
             _window.SetWindowIcon([]);
         }
+        _win32TaskbarPolicy?.SynchronizeIcons();
     }
 
     public void SetClientSize(int width, int height)

@@ -86,6 +86,22 @@ public sealed class WpfWin32TaskbarPolicyTests
     }
 
     [Fact]
+    public void IconReleaseFailureDoesNotRedestroyTheHiddenOwner()
+    {
+        var native = new Native();
+        var policy = new WpfWin32TaskbarPolicy(native);
+        policy.Apply(false);
+        native.ChildDestroyed = true;
+        native.FailOnce = "release-icons";
+        Assert.Same(native.Failure, Assert.Throws<InvalidOperationException>(policy.ReleaseAfterNativeWindow));
+        Assert.Equal(1, native.Destroyed);
+        Assert.Throws<ObjectDisposedException>(() => policy.Apply(true));
+        Assert.Throws<ObjectDisposedException>(policy.SynchronizeIcons);
+        policy.ReleaseAfterNativeWindow();
+        Assert.Equal(1, native.Destroyed);
+    }
+
+    [Fact]
     public void ForeignThreadAndReentrantPublicationCannotMutateNativeState()
     {
         var native = new Native();
@@ -99,6 +115,7 @@ public sealed class WpfWin32TaskbarPolicyTests
         {
             Assert.Throws<InvalidOperationException>(() => policy.Apply(true));
             Assert.Throws<InvalidOperationException>(policy.ReleaseAfterNativeWindow);
+            Assert.Throws<InvalidOperationException>(policy.SynchronizeIcons);
         };
         policy.Apply(false);
         Assert.Equal(new(700, 0x100, true), native.State);
@@ -130,5 +147,7 @@ public sealed class WpfWin32TaskbarPolicyTests
             if (!ChildDestroyed) throw new InvalidOperationException("Child remains live");
         }
         public void DestroyHiddenOwner(nint owner) { ValidateHiddenOwner(owner); Mutate("destroy"); Destroyed++; }
+        public void SynchronizeHiddenOwnerIcons(nint owner) { ValidateHiddenOwner(owner); }
+        public void ReleaseIconCopiesAfterWindows() { RequireChildDestroyed(); Mutate("release-icons"); }
     }
 }

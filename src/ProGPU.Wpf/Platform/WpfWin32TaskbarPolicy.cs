@@ -12,6 +12,7 @@ internal sealed class WpfWin32TaskbarPolicy
     private nint _hiddenOwner;
     private bool _applying;
     private bool _retiring;
+    private bool _retirementStarted;
     private bool _released;
 
     internal WpfWin32TaskbarPolicy(IWpfWin32TaskbarOperations native) =>
@@ -20,7 +21,7 @@ internal sealed class WpfWin32TaskbarPolicy
     internal void Apply(bool showInTaskbar)
     {
         VerifyThread();
-        if (_released) throw new ObjectDisposedException(nameof(WpfWin32TaskbarPolicy));
+        if (_retirementStarted) throw new ObjectDisposedException(nameof(WpfWin32TaskbarPolicy));
         if (_applying || _retiring) throw new InvalidOperationException("Taskbar mutation cannot reenter.");
         _applying = true;
         try
@@ -35,6 +36,9 @@ internal sealed class WpfWin32TaskbarPolicy
                     throw new InvalidOperationException("The hidden taskbar owner was not created.");
             }
             if (_hiddenOwner != 0) _native.ValidateHiddenOwner(_hiddenOwner);
+
+            if (!showInTaskbar && (original.Owner == 0 || original.Owner == _hiddenOwner))
+                _native.SynchronizeHiddenOwnerIcons(_hiddenOwner);
 
             nint owner = original.Owner;
             if (showInTaskbar && owner == _hiddenOwner) owner = 0;
@@ -76,6 +80,23 @@ internal sealed class WpfWin32TaskbarPolicy
         finally { _applying = false; }
     }
 
+    internal void SynchronizeIcons()
+    {
+        VerifyThread();
+        if (_retirementStarted) throw new ObjectDisposedException(nameof(WpfWin32TaskbarPolicy));
+        if (_applying || _retiring) throw new InvalidOperationException("Taskbar icon updates cannot reenter.");
+        _applying = true;
+        try
+        {
+            if (_hiddenOwner != 0)
+            {
+                _native.ValidateHiddenOwner(_hiddenOwner);
+                _native.SynchronizeHiddenOwnerIcons(_hiddenOwner);
+            }
+        }
+        finally { _applying = false; }
+    }
+
     // Called only by WpfNativeWindowRetirement's post-destruction dependency
     // release. The native adapter independently rejects a still-live child.
     internal void ReleaseAfterNativeWindow()
@@ -87,12 +108,14 @@ internal sealed class WpfWin32TaskbarPolicy
         try
         {
             _native.RequireChildDestroyed();
+            _retirementStarted = true;
             if (_hiddenOwner != 0)
             {
                 _native.ValidateHiddenOwner(_hiddenOwner);
                 _native.DestroyHiddenOwner(_hiddenOwner);
                 _hiddenOwner = 0;
             }
+            _native.ReleaseIconCopiesAfterWindows();
             _released = true;
         }
         finally { _retiring = false; }
@@ -117,4 +140,6 @@ internal interface IWpfWin32TaskbarOperations
     void SetVisibleWithoutActivation(bool visible);
     void RequireChildDestroyed();
     void DestroyHiddenOwner(nint owner);
+    void SynchronizeHiddenOwnerIcons(nint owner);
+    void ReleaseIconCopiesAfterWindows();
 }

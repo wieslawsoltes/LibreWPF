@@ -1,5 +1,15 @@
 # Agent Guidance
 
+Explicit source Win32 taskbar visibility retains ordinary chrome and changes only
+APPWINDOW and the actual native owner. Keep the hidden owner across source owner
+and visibility changes, exact creating-thread/process identity and atomic rollback.
+Its copied icons outlive provider replacements and retire only after both native
+windows; retain partial publication and failed releases for retry. Native child
+destruction must precede hidden-owner destruction, without repeating completed
+steps. Preserve optional typed source dispatch and other providers' independent
+admission. See docs/source-win32-taskbar-ownership.md; local controls and the
+Microsoft-only reference do not qualify the paired application contract.
+
 The owner-approved hosted modal retirement readiness option preserves the initial
 assertion and permits at most one second of read-only observation inside the
 original 60-second deadline. Require two exact restored native inventories,
