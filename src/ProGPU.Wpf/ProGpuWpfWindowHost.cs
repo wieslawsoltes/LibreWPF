@@ -174,6 +174,8 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
     private int _windowIconWidth;
     private int _windowIconHeight;
     private SilkWindowController? _windowController;
+    private WpfWin32TaskbarPolicy? _win32TaskbarPolicy;
+    private ProGpuWpfWindowHost? _nativeSourceOwner;
     internal NativeWindowHandle NativeCaretWindow =>
         !_isDisposed && !_hasNativeWindowCloseStarted && _window?.IsInitialized == true
             ? _windowController?.Handle ?? NativeWindowHandle.Empty : NativeWindowHandle.Empty;
@@ -1173,7 +1175,56 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         // unrelated source merely to satisfy an ownership request.
         if (owner != null && owner._window?.IsInitialized != true) return false;
         if (_window?.IsInitialized != true) InitializeHidden();
-        return _windowController?.TrySetOwner(owner?._windowController) == true;
+        if (_windowController?.TrySetOwner(owner?._windowController) != true) return false;
+        try
+        {
+            // The controller retains the explicit source owner; the WPF policy
+            // supplies its private hidden owner only for an unowned false state.
+            _win32TaskbarPolicy?.Apply(_options.Win32ShowInTaskbar ?? true);
+        }
+        catch (Exception failure)
+        {
+            try
+            {
+                if (!_windowController.TrySetOwner(_nativeSourceOwner?._windowController))
+                    throw new InvalidOperationException("The original source owner could not be restored.");
+                _win32TaskbarPolicy?.Apply(_options.Win32ShowInTaskbar ?? true);
+            }
+            catch (Exception rollback)
+            {
+                throw new AggregateException("Source owner publication and rollback failed.", failure, rollback);
+            }
+            throw;
+        }
+        _nativeSourceOwner = owner;
+        return true;
+    }
+
+    internal void SetWin32TaskbarVisibility(bool visible)
+    {
+        ThrowIfDisposed();
+        if (!OperatingSystem.IsWindows())
+            throw new PlatformNotSupportedException("This source taskbar contract requires Win32.");
+        if (_win32TaskbarPolicy is { } policy)
+        {
+            // Initialization callbacks can reenter before IWindow publishes
+            // IsInitialized. The retained policy still owns mutation admission.
+            policy.Apply(visible);
+        }
+        else if (_window?.IsInitialized == true)
+        {
+            if (_windowController?.Handle.Kind != NativeWindowKind.Win32)
+                throw new PlatformNotSupportedException("The source host has no actual Win32 window.");
+            _win32TaskbarPolicy = new WpfWin32TaskbarPolicy(new Win32WpfTaskbarOperations(_windowController.Handle));
+            _win32TaskbarPolicy.Apply(visible);
+        }
+        _options.Win32ShowInTaskbar = visible;
+    }
+
+    private void ReleaseNativeWindowDependencies()
+    {
+        _win32TaskbarPolicy?.ReleaseAfterNativeWindow();
+        _win32TaskbarPolicy = null;
     }
 
     public void Show()
@@ -2147,7 +2198,8 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         {
             // Publish retirement ownership before any source/provider callback.
             _nativeWindowRetirement = new WpfNativeWindowRetirement(window,
-                _nativeWindowThreadId, DisposeHostResources);
+                _nativeWindowThreadId, DisposeHostResources,
+                releaseNativeDependencies: ReleaseNativeWindowDependencies);
             _disposeNativeWindowWhenLoopExits = true;
             QueueDeferredNativeWindowDisposal(this);
         }
@@ -2196,6 +2248,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
             DisposeTarget();
             _windowController?.Dispose();
             _windowController = null;
+            _nativeSourceOwner = null;
             DetachRenderScheduler(_wpfRenderScheduler);
             DisposeOwnedRenderScheduler();
             _hostDisposalResourcesReleased = true;
@@ -2570,6 +2623,15 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
     {
         AttachNativeDpiService();
         _windowController?.Attach();
+        if (OperatingSystem.IsWindows() && _options.Win32ShowInTaskbar is bool taskbarVisible)
+        {
+            if (_windowController?.Handle.Kind != NativeWindowKind.Win32)
+                throw new PlatformNotSupportedException("The source host has no actual Win32 window.");
+            // Retain ownership before any fallible native setup; host retirement
+            // releases a created hidden owner only after native child destruction.
+            _win32TaskbarPolicy ??= new WpfWin32TaskbarPolicy(new Win32WpfTaskbarOperations(_windowController.Handle));
+            _win32TaskbarPolicy.Apply(taskbarVisible);
+        }
         if (OperatingSystem.IsMacOS() && _options.TransparentFramebuffer &&
             _windowController?.SetBackdrop(NativeWindowBackdrop.Transparent) != true)
         {

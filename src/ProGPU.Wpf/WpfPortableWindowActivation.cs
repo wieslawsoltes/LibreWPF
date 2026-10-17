@@ -193,7 +193,10 @@ public sealed partial class WpfPortableWindowActivation : IDisposable, INativeWi
             RunDialog = (activation, continueRunning) => ((WpfPortableWindowActivation)activation).RunCore(continueRunning),
             ReleaseDialog = (activation, completed) => ((WpfPortableWindowActivation)activation).Host.ReleaseNativeDialog(completed),
             SetOwner = (activation, owner) => ((WpfPortableWindowActivation)activation).SetOwner(owner),
-            GetFrameInsets = activation => ((WpfPortableWindowActivation)activation).Host.GetLogicalNativeFrameInsets()
+            GetFrameInsets = activation => ((WpfPortableWindowActivation)activation).Host.GetLogicalNativeFrameInsets(),
+            SetWin32TaskbarVisibility = OperatingSystem.IsWindows()
+                ? (activation, visible) => ((WpfPortableWindowActivation)activation).Host.SetWin32TaskbarVisibility(visible)
+                : null
         };
     }
 
@@ -960,6 +963,7 @@ public sealed partial class WpfPortableWindowActivation : IDisposable, INativeWi
             IsVisible = fallback.IsVisible,
             Topmost = fallback.Topmost,
             ShowActivated = fallback.ShowActivated,
+            Win32ShowInTaskbar = fallback.Win32ShowInTaskbar,
             TransparentFramebuffer = fallback.TransparentFramebuffer,
             RendererMode = fallback.RendererMode,
             NativeBackendOptions = fallback.NativeBackendOptions,
@@ -1135,6 +1139,11 @@ public sealed partial class WpfPortableWindowActivation : IDisposable, INativeWi
             options.Topmost = state.Topmost;
         }
 
+        if (state.HasShowInTaskbar)
+        {
+            options.Win32ShowInTaskbar = state.ShowInTaskbar;
+        }
+
         if (state.HasShowActivated)
         {
             options.ShowActivated = state.ShowActivated;
@@ -1158,6 +1167,8 @@ public sealed partial class WpfPortableWindowActivation : IDisposable, INativeWi
         bool updatePortablePresentationSource)
     {
         UpdatePortableActivationHints(state);
+        if (state.HasShowInTaskbar && OperatingSystem.IsWindows())
+            Host.SetWin32TaskbarVisibility(state.ShowInTaskbar);
 
         if (state.HasTitle)
         {

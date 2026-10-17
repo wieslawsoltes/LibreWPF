@@ -25,6 +25,10 @@ public sealed class ProGpuWpfWindowOptions
 
     public bool ShowActivated { get; set; } = true;
 
+    // Source-owned Win32 policy. Null leaves generic hosts unchanged; other
+    // providers keep their existing independent taskbar/dock behavior.
+    internal bool? Win32ShowInTaskbar { get; set; }
+
     public bool TransparentFramebuffer { get; set; }
 
     /// <summary>
