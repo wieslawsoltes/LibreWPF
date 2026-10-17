@@ -6,6 +6,29 @@ ORIGINAL_WINDOWS_SHA = '052bb795e5c0d1ad35b20d135b0b61eff7903436d23f767d1462e533
 ORIGINAL_COMMIT = '12739b51f9505b40b2c74e40cb6bac0fba179c07'
 ORIGINAL_PATH = 'eng/WindowsModalDesktop/TaskbarOwnershipDiagnostic.cs'
 HELPER = '''    private static readonly Dictionary<long, object> HostCompilers = [];
+    [StructLayout(LayoutKind.Sequential)]
+    private struct NativeRect { public int Left, Top, Right, Bottom; }
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern int GetClassNameW(nint window, System.Text.StringBuilder name, int capacity);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern int GetWindowTextW(nint window, System.Text.StringBuilder text, int capacity);
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetWindowRect(nint window, out NativeRect rectangle);
+    [DllImport("user32.dll")]
+    private static extern nint GetClassLongPtrW(nint window, int index);
+    private static object NativeDetails(nint window)
+    {
+        var name = new System.Text.StringBuilder(256);
+        var title = new System.Text.StringBuilder(256);
+        if (GetClassNameW(window, name, name.Capacity) == 0 || !GetWindowRect(window, out var rectangle))
+            throw new InvalidOperationException("Original native window metadata unavailable.");
+        GetWindowTextW(window, title, title.Capacity);
+        return new { nativeClass = name.ToString(), title = title.ToString(),
+            rectangle = new[] { rectangle.Left, rectangle.Top, rectangle.Right, rectangle.Bottom },
+            classStyle = $"0x{GetClassLongPtrW(window, -26).ToInt64():X}" };
+    }
+
     private static nint NativeHandle(Window window)
     {
 #if LIBREWPF_TASKBAR
@@ -45,6 +68,8 @@ def select(original_git):
     require(hashlib.sha256(original).hexdigest() == ORIGINAL_WINDOWS_SHA, 'Original Windows source bytes differ')
     selected = original
     replacements = [
+        (b'            visible = IsWindowVisible(handle), enabled = IsWindowEnabled(handle) };',
+         b'            visible = IsWindowVisible(handle), enabled = IsWindowEnabled(handle), nativeDetails = NativeDetails(handle) };', 1),
         (b'new WindowInteropHelper(subject).Handle', b'NativeHandle(subject)', 2),
         (b'new WindowInteropHelper(subject.Owner).Handle', b'NativeHandle(subject.Owner)', 1),
         (b'            records = Records, finalInventory = Inventory(), failure = failure?.ToString()',
