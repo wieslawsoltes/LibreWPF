@@ -2,6 +2,11 @@ name: DIAGNOSTIC ONLY modal DXC startup
 
 on:
   workflow_dispatch:
+  push:
+    branches: [test/hosted-modal-acceptance]
+    paths:
+      - .github/workflows/progpu-wpf-modal-startup-diagnostic.yml
+      - eng/WindowsModalDesktop/diagnose-startup.py
 
 permissions:
   contents: read
