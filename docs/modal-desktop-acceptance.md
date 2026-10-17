@@ -1,3 +1,21 @@
+# Approved hosted native-retirement readiness
+
+On 2026-10-17 the repository owner approved a bounded readiness rule after the
+original Microsoft tooltip remained visible at the instantaneous assertion and
+retired 47 ms later (run `39023630931`; the separate `39024955887` failure showed
+62 ms). Both failed runs and their original inventories remain failed evidence.
+
+The explicit `--hosted-windows-retirement-readiness` option preserves the original
+single-window and exact-restoration assertion results. It then requires two
+consecutive exact original inventories, including HWND, process/thread, class,
+styles, owner, enabled state and geometry. Observation is read-only, at most one
+second, within each original absolute 60-second process deadline. A changed
+owner or native observation error fails; extra/reappearing windows reset readiness.
+Neither input, capture, source observer nor the 64-action budget changes. Both
+Microsoft and portable applications use this rule on the disposable hosted runner.
+The default controller retains the old instantaneous gate. This acceptance-rule
+change does not fix product retirement or qualify the remaining desktop pixels.
+
 # WPF modal desktop acceptance
 
 The `356d1a22` whole producer passed all 16 Build jobs and Docs. Original paired

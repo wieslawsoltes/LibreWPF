@@ -1,5 +1,12 @@
 # Agent Guidance
 
+The owner-approved hosted modal retirement readiness option preserves the initial
+assertion and permits at most one second of read-only observation inside the
+original 60-second deadline. Require two exact restored native inventories,
+including original owner identity; errors and changed owners fail. Keep both
+applications, input/captures and the default instantaneous gate unchanged. See
+docs/modal-desktop-acceptance.md; previous failed runs remain failed.
+
 Modal desktop capture readiness requires two original stable observations with
 actual positive presentation counts on every portable surface. Pending zero
 frames consume the original absolute 60-second process deadline; malformed counts

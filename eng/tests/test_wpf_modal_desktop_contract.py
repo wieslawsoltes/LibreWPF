@@ -358,6 +358,42 @@ class DesktopReceiptTests(unittest.TestCase):
                 with self.assertRaisesRegex(RuntimeError, 'first reference'): session.dismiss_hosted_shell()
                 load.assert_not_called()
 
+    def test_approved_readiness_preserves_failed_initial_inventory_and_exact_identity(self):
+        for changed_owner in (False, True):
+            with self.subTest(changed_owner=changed_owner), tempfile.TemporaryDirectory() as temporary:
+                owner, baseline = NativeWindowInventoryTests().inventory()
+                initial = copy.deepcopy(baseline)
+                initial['windows'].append(dict(initial['windows'][1], hwnd=30))
+                restored = copy.deepcopy(baseline)
+                if changed_owner:
+                    restored['windows'][0]['enabled'] = False
+                session = SimpleNamespace(directory=Path(temporary), state={'phase': 'owner'},
+                    source_receipt={}, hosted_caption=True, retirement_readiness=True,
+                    initial_native_windows=copy.deepcopy(baseline['windows']), deadline=60,
+                    native=mock.Mock(return_value=[owner]), match=mock.Mock(return_value=owner),
+                    observe_native_windows=mock.Mock(side_effect=[initial, restored, restored]),
+                    remaining=mock.Mock(return_value=40))
+                now = [20.0]
+                def sleep(seconds): now[0] += seconds
+                with mock.patch.object(DRIVER.time, 'monotonic', side_effect=lambda: now[0]), \
+                     mock.patch.object(DRIVER.time, 'sleep', side_effect=sleep):
+                    if changed_owner:
+                        with self.assertRaisesRegex(RuntimeError, 'owner identity changed'):
+                            DRIVER.check_native_retirement(session)
+                    else:
+                        DRIVER.check_native_retirement(session)
+                first = json.loads((session.directory/'native-retirement-initial.json').read_text())
+                receipt = json.loads((session.directory/'native-retirement.json').read_text())
+                self.assertFalse(first['restorationAssertionPassed'])
+                self.assertFalse(receipt['restorationAssertionPassed'])
+                self.assertEqual(initial, first['finalNativeInventory'])
+                if changed_owner:
+                    self.assertIn('readinessError', receipt)
+                else:
+                    self.assertTrue(receipt['boundedReadiness']['ready'])
+                    self.assertEqual(2, len(receipt['boundedReadiness']['observations']))
+                self.assertEqual(60, session.deadline)
+
     def test_retirement_diagnostic_cannot_replace_the_original_failed_assertion(self):
         with tempfile.TemporaryDirectory() as temporary:
             session = mock.Mock(directory=Path(temporary), state={'phase': 'owner'},
@@ -490,6 +526,55 @@ class NativeWindowInventoryTests(unittest.TestCase):
                 self.assertEqual(original, receipt['initialNativeWindows'])
                 self.assertEqual(record, receipt['finalNativeInventory'])
                 if change == 'none': self.assertFalse(receipt['originalSingleWindowAssertionPassed'])
+
+
+class ReadinessTests(unittest.TestCase):
+    def run_case(self, rows, budget=2, error=None):
+        now = [0.0]; reads = []
+        def read():
+            if error: raise error
+            value = rows[min(len(reads), len(rows) - 1)]; reads.append(value); return value
+        def remaining():
+            if now[0] >= budget: raise TimeoutError('original deadline')
+            return budget - now[0]
+        def sleep(seconds): now[0] += seconds
+        result = DRIVER.await_exact_retirement(read, ('owner',), remaining, lambda: now[0], sleep)
+        return result, reads, now[0]
+
+    def test_observed_reference_retirement_preserves_first_failed_inventory(self):
+        result, reads, elapsed = self.run_case([('owner', 'tooltip'), ('owner',), ('owner',)])
+        self.assertTrue(result['ready']); self.assertEqual(3, len(reads))
+        self.assertEqual(('owner', 'tooltip'), result['observations'][0]['inventory'])
+        self.assertEqual(.1, elapsed)
+
+    def test_lingering_native_window_fails_at_one_second(self):
+        result, reads, elapsed = self.run_case([('owner', 'tooltip')])
+        self.assertFalse(result['ready']); self.assertLessEqual(elapsed, 1.0000001)
+        self.assertLessEqual(len(reads), 21)
+
+    def test_original_process_deadline_can_be_shorter(self):
+        with self.assertRaisesRegex(TimeoutError, 'original deadline'):
+            self.run_case([('owner', 'tooltip')], budget=.025)
+
+    def test_returned_popup_resets_stability(self):
+        result, reads, _ = self.run_case([('owner',), ('owner', 'tooltip'), ('owner',), ('owner',)])
+        self.assertTrue(result['ready']); self.assertEqual(4, len(reads))
+
+    def test_inventory_error_stays_authoritative(self):
+        error = RuntimeError('native identity changed')
+        with self.assertRaises(RuntimeError) as seen: self.run_case([], error=error)
+        self.assertIs(error, seen.exception)
+
+
+    def test_slow_native_observation_cannot_pass_after_readiness_deadline(self):
+        now = [0.0]
+        def read():
+            now[0] += .6
+            return ('owner',)
+        result = DRIVER.await_exact_retirement(read, ('owner',), lambda: 60 - now[0],
+                                               lambda: now[0], lambda seconds: None)
+        self.assertFalse(result['ready'])
+        self.assertEqual(2, len(result['observations']))
 
 
 if __name__ == "__main__":

@@ -61,7 +61,8 @@ def main():
                "--portable-app", preparation["payloads"]["portable"]["app"],
                "--forms-helper-checkout", preparation["helper"],
                "--forms-helper-commit", manifest["formsHelperSource"], "--output", str(evidence),
-               "--hosted-windows-caption-activation", "--hosted-windows-shell-escape"]
+               "--hosted-windows-caption-activation", "--hosted-windows-shell-escape",
+               "--hosted-windows-retirement-readiness"]
     source_changes = sorted(name for name, digest in manifest["source"].items()
                             if preparation["selectedSourceHashes"][name] != digest)
     receipt = dict(qualified=False, completed=False, argv=command, deadlineSecondsPerProcess=60,
