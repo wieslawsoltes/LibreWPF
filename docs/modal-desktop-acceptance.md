@@ -480,11 +480,24 @@ The explicit `--hosted-windows-start-activation` option requires the existing
 hosted shell guard. After exactly one successful Search Escape, the actual shell
 HWND must own foreground with its original Progman class and interactive session.
 Exactly one visible Start CoreWindow must retain its original HWND/PID/thread,
-Windows system image and session. One SetForegroundWindow call must immediately
+Windows system image and session. One accepted SetForegroundWindow request must
 produce that exact foreground identity before its already-approved single Escape.
+An accepted request may complete asynchronously: observe it read-only for at most
+one second inside the existing three-second setup deadline, retaining every
+observation and rechecking the exact target and desktop/session identity. Pending
+foreground may be zero or the unchanged original Progman shell only. This does
+not repeat activation, send pending input or extend either original deadline.
 Failure stops without retries or another activation method. Unknown foreground
 windows receive no input. The activation consumes an original action; the pair
 still allows at most two shell Escapes, three setup seconds, 60 seconds per process
 and 64 actions. Original source-event leakage, caption, scenario, pixel and
 retirement checks remain. No local VM is used. This startup permission does not
 qualify portable taskbar/modal behavior or excuse an original failed result.
+
+
+Run `39034933848` preserved an accepted Start activation followed immediately by
+foreground zero. It failed before Start Escape and before launching the portable
+application. The bounded completion observation addresses that transient state;
+rejected activation, changed identity and unrelated foreground still fail without
+retry. The failed run remains failed, and offline guard controls do not qualify
+the original paired desktop workload.

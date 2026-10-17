@@ -64,10 +64,27 @@ def dismiss(native, original_sender, claim_original_action, deadline, record, en
             record["startActivations"].append(activation)
             claim_original_action("hosted-start-activation", nativeProof=activation)
             activation["accepted"] = native.activate(candidate["hwnd"])
-            require(activation["accepted"] and clock() < setup_deadline
-                    and native.context() == context and native.foreground() == candidate["hwnd"]
-                    and native.snapshot(candidate["hwnd"]) == candidate,
-                    "Start activation rejected or identity changed; no retry permitted")
+            require(activation["accepted"], "Start activation rejected; no retry permitted")
+            # An accepted cross-thread request may briefly leave foreground zero.
+            # Observe its completion once inside the existing setup budget. This
+            # never repeats activation, changes policy or sends input while pending.
+            completion_deadline = min(setup_deadline, clock() + 1)
+            activation["completionDeadline"] = completion_deadline
+            activation["completionObservations"] = []
+            while True:
+                foreground = native.foreground()
+                observation = dict(foreground=foreground, observedAt=clock(),
+                                   context=native.context(), window=native.snapshot(candidate["hwnd"]))
+                activation["completionObservations"].append(observation)
+                require(len(activation["completionObservations"]) <= 101
+                        and observation["observedAt"] < completion_deadline
+                        and observation["context"] == context and observation["window"] == candidate,
+                        "Start activation completion identity or deadline changed; no retry permitted")
+                if foreground == candidate["hwnd"]:
+                    break
+                require(foreground == 0 or foreground == hwnd and native.snapshot(hwnd) == window,
+                        "Start activation yielded to an unexpected foreground; no retry permitted")
+                sleep(.01)
             hwnd, window, name = candidate["hwnd"], candidate, "Start"
         require(name not in names and len(names) < 2, "Repeated shell foreground; no retry permitted")
         require(window["class"] == "Windows.UI.Core.CoreWindow" and window["visible"]
@@ -75,8 +92,8 @@ def dismiss(native, original_sender, claim_original_action, deadline, record, en
                 and ntpath.normcase(window["image"]) ==
                     ntpath.normcase(ntpath.join(context["windowsRoot"], IMAGES[name])),
                 "Unverified native shell input target")
-        require(native.context() == context and native.foreground() == hwnd
-                and native.snapshot(hwnd) == window,
+        require(clock() < setup_deadline and native.context() == context
+                and native.foreground() == hwnd and native.snapshot(hwnd) == window,
                 "Shell input identity changed before Escape")
         names.add(name)
         item = dict(window=window, key=0x1B, originalDeadline=deadline)

@@ -96,4 +96,75 @@ class ExtensionTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, 'identity or deadline'): self.run_guard(n)
         self.assertEqual([], n.activations)
 
+class CompletionTests(unittest.TestCase):
+    run_guard = ExtensionTests.run_guard
+    class PendingNative(ExtensionTests.Native):
+        def __init__(self, pending=0, delay=.05):
+            super().__init__()
+            self.pending, self.delay = pending, delay
+            self.started = None
+            self.changed_during_wait = False
+        def activate(self, hwnd):
+            accepted = super().activate(hwnd)
+            self.started = self.ticks
+            return accepted
+        def foreground(self):
+            if self.started is not None and self.ticks - self.started < self.delay:
+                return self.pending
+            return super().foreground()
+        def sleep(self, amount):
+            super().sleep(amount)
+            if self.changed_during_wait:
+                next(w for w in self.items if w['title'] == 'Start')['pid'] += 1
+
+    def test_accepted_pending_activation_keeps_one_request_and_original_actions(self):
+        for pending in (0, 88):
+            n = self.PendingNative(pending)
+            record = self.run_guard(n)
+            self.assertEqual([2], n.activations)
+            self.assertEqual([(100, 27), (101, 27)], n.keys)
+            self.assertEqual(3, len(n.actions))
+            self.assertEqual(3, record['setupDeadline'])
+            observations = record['startActivations'][0]['completionObservations']
+            self.assertEqual(pending, observations[0]['foreground'])
+            self.assertEqual(2, observations[-1]['foreground'])
+            self.assertLess(n.ticks, 1)
+
+    def test_pending_activation_never_sends_escape_on_expiry(self):
+        n = self.PendingNative(delay=2)
+        with self.assertRaisesRegex(RuntimeError, 'deadline changed'): self.run_guard(n)
+        self.assertEqual([2], n.activations)
+        self.assertEqual([(100, 27)], n.keys)
+        self.assertLess(n.ticks, 1.02)
+
+    def test_completion_cannot_extend_original_setup_deadline(self):
+        n = self.PendingNative(delay=2)
+        activate = n.activate
+        def late_activate(hwnd):
+            n.ticks = 2.8
+            return activate(hwnd)
+        n.activate = late_activate
+        record = {}
+        with self.assertRaisesRegex(RuntimeError, 'deadline changed'):
+            GUARD.dismiss(n, n, n.claim, 60, record, ENV, authorized=True,
+                          allow_background_start=True, clock=n.clock, sleep=n.sleep)
+        self.assertEqual(3, record['setupDeadline'])
+        self.assertEqual(3, record['startActivations'][0]['completionDeadline'])
+        self.assertEqual([2], n.activations)
+        self.assertEqual([(100, 27)], n.keys)
+        self.assertLess(n.ticks, 3.02)
+
+    def test_pending_identity_change_stops_before_input(self):
+        n = self.PendingNative(); n.changed_during_wait = True
+        with self.assertRaisesRegex(RuntimeError, 'identity or deadline'): self.run_guard(n)
+        self.assertEqual([2], n.activations)
+        self.assertEqual([(100, 27)], n.keys)
+
+    def test_pending_unknown_foreground_stops_immediately(self):
+        n = self.PendingNative(pending=9876)
+        with self.assertRaisesRegex(RuntimeError, 'unexpected foreground'): self.run_guard(n)
+        self.assertEqual([2], n.activations)
+        self.assertEqual([(100, 27)], n.keys)
+        self.assertEqual(0, n.ticks)
+
 if __name__ == '__main__': unittest.main()
