@@ -501,3 +501,15 @@ application. The bounded completion observation addresses that transient state;
 rejected activation, changed identity and unrelated foreground still fail without
 retry. The failed run remains failed, and offline guard controls do not qualify
 the original paired desktop workload.
+
+Hosted original run `39038428893` preserves a reference-startup failure before
+portable launch: the accepted Start request produced a native null foreground.
+Python ctypes returned that HWND as `None`, while the bounded observer correctly
+expected integer zero. The desktop ABI adapter now normalizes only that null
+result to zero; live handle identities, including high pointer bits, are unchanged.
+The original guard, one-second completion observation inside the three-second
+setup budget, input count and sixty-second process deadline remain unchanged.
+Actual ctypes pointer-return controls reproduce the old failure and exercise the
+corrected boundary through the original Start guard. All 32 hosted controls,
+59 modal/package/source controls, six foreground controls and 58 Gallery guard
+controls pass. This does not qualify the failed original application run.

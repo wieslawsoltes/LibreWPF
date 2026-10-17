@@ -184,7 +184,10 @@ class Desktop:
         return bool(self.u.SetForegroundWindow(hwnd))
 
     def foreground(self):
-        return self.u.GetForegroundWindow()
+        # ctypes maps a null c_void_p/HWND result to None, not integer zero.
+        # Keep the native no-foreground value consistent for bounded observers.
+        hwnd = self.u.GetForegroundWindow()
+        return 0 if hwnd is None else hwnd
 
     def visible(self, hwnd):
         return bool(self.u.IsWindow(hwnd) and self.u.IsWindowVisible(hwnd))

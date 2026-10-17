@@ -7,6 +7,7 @@ zero or the unchanged original shell foreground pending. Retain every observatio
 and never repeat activation or send pending input. Count activation in the original
 64 actions, retain 3/60-second bounds and all source/caption/scenario checks.
 Unknown foreground, refused activation and changed identity fail without retry.
+The HWND ABI adapter maps only ctypes null to zero, preserving live handle bits.
 Disposable hosted Windows only; see docs/modal-desktop-acceptance.md.
 
 # Agent Guidance

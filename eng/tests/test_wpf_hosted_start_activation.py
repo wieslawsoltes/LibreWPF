@@ -1,6 +1,9 @@
 import copy
+import ctypes
+from types import SimpleNamespace
 import unittest
 from test_wpf_hosted_shell_escape import GUARD, ENV
+from test_wpf_hosted_desktop_setup import SETUP
 import test_wpf_hosted_shell_escape as original
 
 class ExtensionTests(unittest.TestCase):
@@ -116,6 +119,22 @@ class CompletionTests(unittest.TestCase):
             super().sleep(amount)
             if self.changed_during_wait:
                 next(w for w in self.items if w['title'] == 'Start')['pid'] += 1
+
+    def test_actual_ctypes_null_completion_uses_the_original_bounded_observation(self):
+        n = self.PendingNative()
+        raw = n.foreground
+        boundary = object.__new__(SETUP.Desktop)
+        boundary.u = SimpleNamespace(GetForegroundWindow=ctypes.CFUNCTYPE(ctypes.c_void_p)(raw))
+        n.foreground = boundary.foreground
+        record = self.run_guard(n)
+        self.assertEqual([2], n.activations)
+        self.assertEqual([(100, 27), (101, 27)], n.keys)
+        self.assertEqual(3, len(n.actions))
+        observations = record['startActivations'][0]['completionObservations']
+        self.assertEqual(0, observations[0]['foreground'])
+        self.assertEqual(2, observations[-1]['foreground'])
+        self.assertLess(n.ticks, 1)
+        self.assertEqual(3, record['setupDeadline'])
 
     def test_accepted_pending_activation_keeps_one_request_and_original_actions(self):
         for pending in (0, 88):
