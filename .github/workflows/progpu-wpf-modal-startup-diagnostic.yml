@@ -68,6 +68,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python automation/eng/tests/test_wpf_hosted_shell_escape.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python automation/eng/tests/test_wpf_hosted_start_activation.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python automation/eng/tests/test_wpf_modal_source_staging.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python automation/eng/tests/test_wpf_modal_candidate_packages.py

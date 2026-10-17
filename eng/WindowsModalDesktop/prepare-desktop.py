@@ -84,6 +84,7 @@ class Desktop:
         def bind(lib, name, result, *args):
             fn = getattr(lib, name); fn.restype = result; fn.argtypes = args
         bind(self.u, "GetForegroundWindow", W.HWND)
+        bind(self.u, "SetForegroundWindow", W.BOOL, W.HWND)
         bind(self.u, "GetShellWindow", W.HWND)
         bind(self.u, "GetTopWindow", W.HWND, W.HWND)
         bind(self.u, "GetWindow", W.HWND, W.HWND, W.UINT)
@@ -176,6 +177,11 @@ class Desktop:
         if foreground and foreground not in seen:
             result.append(self.snapshot(foreground))
         return result
+
+    def activate(self, hwnd):
+        # Called only after the separately approved guard proves the exact Start
+        # identity. A rejected request is never retried or escalated.
+        return bool(self.u.SetForegroundWindow(hwnd))
 
     def foreground(self):
         return self.u.GetForegroundWindow()

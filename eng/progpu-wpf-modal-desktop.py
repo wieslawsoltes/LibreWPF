@@ -197,7 +197,7 @@ def load_helper(checkout, commit):
 
 
 class Session:
-    def __init__(self, desktop, process, directory, run, portable, deadline, hosted_caption=False, hosted_shell=False, retirement_readiness=False):
+    def __init__(self, desktop, process, directory, run, portable, deadline, hosted_caption=False, hosted_shell=False, retirement_readiness=False, hosted_start=False):
         self.desktop, self.process, self.directory, self.run = desktop, process, directory, run
         self.portable = portable
         self.deadline = deadline
@@ -209,6 +209,7 @@ class Session:
         self.blocked_owner_baseline = None
         self.hosted_caption = hosted_caption
         self.hosted_shell = hosted_shell
+        self.hosted_start = hosted_start
         self.retirement_readiness = retirement_readiness
         self.activation_attempted = False
         self.initial_native_windows = None
@@ -256,7 +257,8 @@ class Session:
                 spec.loader.exec_module(module)
                 modules.append(module)
             modules[1].dismiss(modules[0].Desktop(), self.desktop, self.action,
-                               self.deadline, record, os.environ, authorized=self.hosted_shell)
+                               self.deadline, record, os.environ, authorized=self.hosted_shell,
+                               allow_background_start=self.hosted_start)
             if record["escapes"]:
                 # Require original source observations published after input;
                 # already queued snapshots cannot prove absence of leaked keys.
@@ -704,7 +706,8 @@ def run_one(args, module, shared, app, output, portable, windows_desktop=None):
             session = Session(desktop, process, output, run, portable, deadline,
                               args.hosted_windows_caption_activation,
                               args.hosted_windows_shell_escape and not portable,
-                              getattr(args, "hosted_windows_retirement_readiness", False) is True)
+                              getattr(args, "hosted_windows_retirement_readiness", False) is True,
+                              getattr(args, "hosted_windows_start_activation", False) is True and not portable)
             if args.platform == "macos":
                 desktop.deadline = session.deadline
             scenario(session)
@@ -757,6 +760,7 @@ def main():
     parser.add_argument("--macos-helper", type=Path)
     parser.add_argument("--hosted-windows-caption-activation", action="store_true")
     parser.add_argument("--hosted-windows-shell-escape", action="store_true")
+    parser.add_argument("--hosted-windows-start-activation", action="store_true")
     parser.add_argument("--hosted-windows-retirement-readiness", action="store_true")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
@@ -770,6 +774,8 @@ def main():
             "Caption activation is restricted to this repository's disposable hosted Windows desktop")
     require(not args.hosted_windows_shell_escape or args.hosted_windows_caption_activation,
             "Approved shell Escape requires the original hosted caption admission")
+    require(not args.hosted_windows_start_activation or args.hosted_windows_shell_escape,
+            "Approved Start activation requires the original bounded hosted shell guard")
     require(not args.hosted_windows_retirement_readiness or args.hosted_windows_caption_activation,
             "Retirement readiness requires the original hosted caption admission")
     regular(args.output.parent, True)
