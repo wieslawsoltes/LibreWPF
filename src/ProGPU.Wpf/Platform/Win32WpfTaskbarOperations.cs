@@ -71,6 +71,10 @@ internal sealed class Win32WpfTaskbarOperations : IWpfWin32TaskbarOperations, IW
             ValidateLocalTopLevel(ancestor);
             ancestor = ReadLong(ancestor, OwnerIndex);
         }
+        // Windows rejects the unowned -> unowned GWLP_HWNDPARENT write with
+        // ERROR_INVALID_WINDOW_HANDLE. Preserve idempotent native state, also
+        // when a failed candidate rolls back an already-restored owner.
+        if (ReadLong(_window, OwnerIndex) == owner) return;
         WriteLong(_window, OwnerIndex, owner);
     }
 

@@ -20,6 +20,12 @@ any rollback failure. The hidden HWND has an exact per-host identity and belongs
 to the child's process and creating thread. Owner chains reject cycles and foreign
 windows before mutation.
 
+An already matching owner is a native no-op after identity validation. The first
+actual x64/ARM64 API controls (`39032667642`) exposed Windows rejecting an
+unowned-to-unowned owner write with error 1400 before the first transition. Those
+failures are retained. The correction preserves the complete original control,
+including its initial idempotent owner assignment and deadlines.
+
 The hidden owner receives owned copies of the child's current large/small icons,
 including actual registered-class icons when WM_GETICON returns zero. This follows
 the documented [WM_GETICON lookup](https://learn.microsoft.com/en-us/windows/win32/winmsg/wm-geticon).
