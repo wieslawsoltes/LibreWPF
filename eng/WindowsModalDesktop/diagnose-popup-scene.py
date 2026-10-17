@@ -131,7 +131,7 @@ def main():
         raise RuntimeError('Exact disposable hosted Windows runner required')
     root, tools = args.prepared.resolve(strict=True), args.producer_tools.resolve(strict=True)
     preparation = json.loads((root / 'preparation.json').read_text())
-    if (preparation['candidate']['identity']['head'] != '4a7bd39c412a71a06775d72155c0fba774527bac' or
+    if (preparation['candidate']['identity']['head'] != '788df73c10ec947eca81622555c1ae227d0c0bd2' or
             preparation['candidate']['sdkSelection']['compiler'] != 'Dxc' or
             os.environ.get('PROGPU_WPF_TRACE_INPUT') != '0'):
         raise RuntimeError('Exact producer with approved retirement readiness and hosted Start activation required')

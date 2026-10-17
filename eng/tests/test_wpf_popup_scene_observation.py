@@ -16,11 +16,11 @@ class ChildIsolationTests(unittest.TestCase):
         workflow = (root / '.github/workflows/progpu-wpf-modal-startup-diagnostic.yml').read_text()
         script = (root / 'eng/WindowsModalDesktop/diagnose-popup-scene.py').read_text()
         head = re.search(r"PRODUCER_HEAD: ([0-9a-f]{40})", workflow).group(1)
-        self.assertEqual('4a7bd39c412a71a06775d72155c0fba774527bac', head)
+        self.assertEqual('788df73c10ec947eca81622555c1ae227d0c0bd2', head)
         self.assertIn("preparation['candidate']['identity']['head'] != '" + head + "'", script)
         self.assertIn('ref: ' + head + '\n          path: automation', workflow)
-        self.assertIn('PRODUCER_BUILD: 39039680000', workflow)
-        self.assertIn('PRODUCER_DOCS: 39039680006', workflow)
+        self.assertIn('PRODUCER_BUILD: 39041981876', workflow)
+        self.assertIn('PRODUCER_DOCS: 39041982046', workflow)
 
     def test_only_exact_portable_child_receives_hook_without_changing_original_arguments(self):
         with tempfile.TemporaryDirectory() as tmp:
