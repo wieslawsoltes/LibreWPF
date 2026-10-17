@@ -16,7 +16,8 @@ HELPER = '''    private static readonly Dictionary<long, object> HostCompilers =
         if (!global::System.Windows.Media.ProGPU.ProGpuWpfDiagnostics.TryGetDesktopWindowSnapshots(window, out var snapshots))
             throw new InvalidOperationException("Actual source/native snapshot is unavailable.");
         var primary = snapshots.Single(value => ReferenceEquals(value.RootVisual, window));
-        if (!handle.IsValid || handle.Kind != global::ProGPU.Backend.NativeWindowKind.Win32 || handle.Display != 0 ||
+        if (!handle.IsValid || handle.Kind != global::ProGPU.Backend.NativeWindowKind.Win32 ||
+            (handle.Display != 0 && GetWindowLongPtrW(handle.Handle, -6) != handle.Display) ||
             primary.RendererMode != global::System.Windows.Media.ProGPU.ProGpuWpfRendererMode.NativeMilWgpu ||
             primary.NativeWindow != handle || !primary.NativeMilHitTestingEnabled || host.CompositionTarget?.Context is not { } context ||
             context.SelectedDx12ShaderCompiler.ToString() != "Dxc")
