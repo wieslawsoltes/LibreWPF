@@ -4,27 +4,30 @@ The LibreWPF preview release uses the package list in `eng/progpu-preview-packag
 That package set is what users need to consume the custom `LibreWPF.Sdk` and run normal WPF
 projects on the ProGPU/Silk.NET platform.
 
-The preview.70 ProGPU source is
-`be37726173a0dd87e6b3a71f5de294f08863cb54`, merged in ProGPU #389 at the exact
-revision that passed all 59 jobs in
-[Build 38961124864](https://github.com/wieslawsoltes/ProGPU/actions/runs/38961124864)
-and all 68 Build, Docs, Android and SVG.NET checks. The pin includes the original
-Win32 button-coordinate packet used by this source adapter, the merged lifetime
-repairs and coordinated preview.70 identities. Producer qualification does not
-replace the rebuilt LibreWPF package and original modal application gates.
+The preview.70 candidate selects ProGPU
+`2236345c688a60d40e7a40c0ab02713b58833d4e` from ProGPU #390.
+[Build 38994881510](https://github.com/wieslawsoltes/ProGPU/actions/runs/38994881510)
+passed all 59 jobs and all 68 combined checks passed. The ARM64 drawing job's
+original SDK-installer CLR failure occurred before product compilation; its
+single bounded rerun passed, with the original failure retained. Automatic DXC
+query validation passed on both Windows architectures, comparing 210 complete
+records, 23 full 256-result lists, and all 257 slots per query against the
+independent original reference. The pin includes the existing Win32 packet and
+lifetime repairs plus the actual owned-DXC ordered-query selection and verified
+compiler payload staging. This does not qualify the dependent modal application.
 
-The preview.70 source graph selects LibreWinForms
-`97c1a5e0d86371c46e5f13e63f79c16817b2d4e8`, merged in LibreWinForms #172 after
-[Build 38971110271](https://github.com/wieslawsoltes/LibreWinForms/actions/runs/38971110271)
-passed all nine jobs, including the three visible package consumers, and Docs
-passed. Its recorded ProGPU gitlink is the same `be37726173a0dd87e6b3a71f5de294f08863cb54`.
-This includes the merged portable Graphics paint and window-lifetime repairs.
-The first combined WPF candidate failed the canonical source guard because
-Forms `f64e8e04fa287bf9d82dddd3a36efbb50d02f3ba` still recorded the older ProGPU
-source. Updating to the fully qualified Forms revision repairs that mismatch;
-the exact source-equality guard remains unchanged. The combined LibreWPF
-packages still require their own complete Build and original application gates;
-the upstream source pass does not qualify that combined package graph.
+The matching LibreWinForms source is
+`7202bc82a3fab1e6b30eceb92a43abbbbd56e60a` from LibreWinForms #173.
+[Build 38998401966](https://github.com/wieslawsoltes/LibreWinForms/actions/runs/38998401966)
+passed all nine jobs, including the three visible package consumers, and
+[Docs 38998401925](https://github.com/wieslawsoltes/LibreWinForms/actions/runs/38998401925)
+passed. Its recorded ProGPU gitlink exactly matches the direct pin above.
+This retains the merged portable Graphics paint and window-lifetime repairs.
+The later Forms workflow-only commit adds explicit hosted original-grid input;
+this combined package graph deliberately retains the already-qualified producer.
+The exact source-equality guard remains unchanged. These LibreWPF packages still
+require their own complete Build and original modal/Gallery application gates;
+upstream passes do not qualify the combined package graph or preview.70 release.
 
 ## NuGet Packages
 
