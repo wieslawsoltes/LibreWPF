@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """One input-free console-host startup diagnostic; never application acceptance."""
 import argparse
+import datetime
 import importlib.util
 import json
 import os
@@ -15,6 +16,7 @@ def main():
     parser.add_argument('--prepared', type=Path, required=True)
     parser.add_argument('--producer-tools', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--apphost', action='store_true')
     args = parser.parse_args()
     if (os.name != 'nt' or os.environ.get('GITHUB_ACTIONS') != 'true' or
             os.environ.get('RUNNER_ENVIRONMENT') != 'github-hosted' or
@@ -41,11 +43,15 @@ def main():
     # This deliberately different host never qualifies the original application.
     command = [receipt['dotnet'], str(app.with_suffix('.dll')), '--evidence-directory',
                str(output / 'app'), '--run-id', uuid.uuid4().hex]
+    if args.apphost:
+        command = [str(app), *command[2:]]
     result = dict(diagnosticOnly=True, qualified=False, inputSent=False, timeoutSeconds=60,
+                  host='original-apphost' if args.apphost else 'console-dotnet',
                   producer=candidate['identity'], command=command, originalAppHost=str(app),
                   originalAppHostSha256=prepare.sha(app), consoleHostSha256=prepare.sha(Path(receipt['dotnet'])))
     process = None
     started = time.monotonic()
+    started_utc = datetime.datetime.now(datetime.timezone.utc).isoformat()
     try:
         with (output / 'stdout.txt').open('xb') as stdout, (output / 'stderr.txt').open('xb') as stderr:
             process = subprocess.Popen(command, stdout=stdout, stderr=stderr)
@@ -66,6 +72,29 @@ def main():
         result['elapsedSeconds'] = time.monotonic() - started
         result['payloadUnchanged'] = prepare.inventory(directory) == payload['files']
         (output / 'diagnostic.json').write_text(json.dumps(result, indent=2) + '\n', encoding='utf-8')
+    # Read only bounded events from this run that name the exact owned image.
+    # A name-only record is diagnostic context, not proven PID attribution.
+    script = '''
+    param($start, $image)
+    $events = @(Get-WinEvent -FilterHashtable @{LogName='Application';Id=1000,1026;
+      StartTime=[datetime]::Parse($start);EndTime=[datetime]::UtcNow} -MaxEvents 32 -ErrorAction SilentlyContinue)
+    @($events | Where-Object { $_.Message -match [regex]::Escape($image) } | ForEach-Object {
+      [xml]$xml = $_.ToXml()
+      $message = $_.Message
+      if ($message.Length -gt 16384) { $message = $message.Substring(0,16384) }
+      @{id=$_.Id;provider=$_.ProviderName;time=$_.TimeCreated.ToUniversalTime().ToString('o');
+        eventProcessId=$xml.Event.System.Execution.ProcessID;message=$message}
+    }) | ConvertTo-Json -Depth 4 -AsArray
+    '''
+    event_script = output / 'read-owned-events.ps1'
+    event_script.write_text(script, encoding='utf-8')
+    try:
+        events = subprocess.run(['pwsh', '-NoProfile', '-File', str(event_script), started_utc, app.name],
+                                capture_output=True, timeout=10, check=True)
+        prepare.require(len(events.stdout) <= 1024 * 1024, 'Event output exceeded diagnostic bound')
+        (output / 'windows-events.json').write_bytes(events.stdout)
+    except Exception as error:
+        (output / 'windows-events-error.txt').write_text(str(error), encoding='utf-8')
     prepare.require(result['payloadUnchanged'], 'Original payload changed during diagnosis')
 
 

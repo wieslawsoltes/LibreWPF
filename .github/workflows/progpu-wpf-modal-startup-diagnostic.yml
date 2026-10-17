@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   startup:
-    name: DIAGNOSTIC ONLY console-host startup without input
+    name: DIAGNOSTIC ONLY original apphost startup without input
     runs-on: windows-11-arm
     timeout-minutes: 15
     steps:
@@ -109,11 +109,11 @@ jobs:
           persist-credentials: false
           sparse-checkout: eng/WindowsModalDesktop/diagnose-startup.py
           sparse-checkout-cone-mode: false
-      - name: Observe one startup under the console host without input
+      - name: Observe one original apphost startup without input
         shell: pwsh
         run: |
           python diagnostics/eng/WindowsModalDesktop/diagnose-startup.py `
-            --prepared $env:CASE_ROOT --producer-tools (Resolve-Path automation/eng/WindowsModalDesktop).Path `
+            --apphost --prepared $env:CASE_ROOT --producer-tools (Resolve-Path automation/eng/WindowsModalDesktop).Path `
             --output (Join-Path $env:RUNNER_TEMP 'modal-startup-diagnostic')
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Retain diagnostic failure and exact producer receipts
