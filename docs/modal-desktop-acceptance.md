@@ -20,6 +20,28 @@ window immediately after that original failure, before cleanup, without input,
 activation, retries or replacement of the original exception. This read-only
 observation does not qualify Gallery or extend its original 60/57/55-second limits.
 
+The resulting diagnostic 39021671626 reproduced the same foreground loss and
+identified a `CASCADIA_HOSTING_WINDOW_CLASS` window titled
+`C:\Windows\system32\wsl.exe`, owned by a different process. A separate, explicit
+`close_wsl_startup` hosted option permits one normal WM_CLOSE before the first
+capture. It verifies the live Windows Terminal package family, executable name,
+exact system WSL title, HWND/process/thread, interactive session and Default
+desktop, with fresh identity and idle-input checks. It sends no key/click or
+activation request, never terminates the process, and requires Gallery to regain
+foreground naturally within the original deadline. Refusal, another foreground,
+identity change or exhausted budget fails without retry. The helper is included
+in the exact prepared source hash receipt. Existing capture/foreground checks and
+the original application remain unchanged; actual hosted qualification is pending.
+
+Corrected modal run 39021670809 stopped before application launch because its
+controller commit differed from the selected producer. The exact-head guard is
+retained; the next run requires the new whole successful producer. Manual review
+of the original356 captures also found the portable Popup action missing from
+the desktop image despite a recorded presentation. The prior ad86 diagnostic
+shows the same missing content. These frames do not establish GPU completion or
+scanout, and the cause remains unproven; successful input alone will not qualify
+these pixels.
+
 The ordinary DXC run at `5a4c4d310` (38989967823) completed the Microsoft
 scenarios but the portable app exited before its first source snapshot, with
 empty output streams. The complete producer Build and Gallery acceptance passed;

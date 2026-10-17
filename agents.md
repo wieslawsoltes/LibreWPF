@@ -8,6 +8,12 @@ Microsoft behavior and immutable source observers. Read-only Gallery foreground
 failure evidence must preserve the original exception without activation or retry.
 See docs/modal-desktop-acceptance.md; neither authored control qualifies release.
 
+The explicit hosted Gallery terminal guard admits one normal WM_CLOSE only for
+the exact live packaged Windows Terminal WSL startup window on the disposable
+runner. Preserve package/process/session/desktop identity, idle input and original
+60-second budget. Require natural foreground return before all original checks;
+no extra activation, input, process kill, retry or local-machine use is admitted.
+
 Portable PopupRoot layout shares the existing integer, minimum-one host client
 allocation on every source update. Preserve original desired/child dimensions,
 content overflow/clipping, native sizing policy and non-PopupRoot behavior.

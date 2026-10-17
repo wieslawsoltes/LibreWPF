@@ -4,6 +4,7 @@ import argparse
 import ctypes as C
 from ctypes import wintypes as W
 import hashlib
+import importlib.util
 import json
 import math
 import os
@@ -414,8 +415,11 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--allow-replace-clipboard", action="store_true")
     parser.add_argument("--require-empty-ci-clipboard", action="store_true")
+    parser.add_argument("--close-hosted-wsl-startup", action="store_true")
     args = parser.parse_args()
     mode = clipboard_mode(args.allow_replace_clipboard, args.require_empty_ci_clipboard, os.environ)
+    require(not args.close_hosted_wsl_startup or args.require_empty_ci_clipboard,
+            "Terminal startup close requires the empty disposable CI mode")
     require(args.app.is_file(), "missing apphost")
     args.output.mkdir()
     started = time.monotonic(); deadline = started + 60
@@ -451,6 +455,18 @@ def main():
                 snapshot = read_json(snapshot_path)
                 require(process.poll() is None, "host lifetime ended before capture")
                 if phase == "pasted":
+                    if args.close_hosted_wsl_startup:
+                        helper = Path(__file__).with_name("hosted-terminal.py")
+                        prepared = read_json(Path(__file__).with_name("preparation.json"))
+                        require(not helper.is_symlink() and hashlib.sha256(helper.read_bytes()).hexdigest()
+                                == prepared["inputs"].get("hosted-terminal.py"),
+                                "Prepared terminal helper identity changed")
+                        spec = importlib.util.spec_from_file_location("gallery_hosted_terminal", helper)
+                        terminal = importlib.util.module_from_spec(spec)
+                        spec.loader.exec_module(terminal)
+                        result["hostedTerminal"] = {}
+                        terminal.close_startup(terminal.Native(desktop), snapshot["hwnd"], process.pid,
+                                               deadline, result["hostedTerminal"], os.environ)
                     result["foregroundSetup"] = {}
                     activation = read_json(args.output / "activation.json")
                     require(isinstance(activation, dict), "host activation receipt is missing")
