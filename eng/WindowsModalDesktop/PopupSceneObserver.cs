@@ -15,7 +15,7 @@ internal static class StartupHook
     private static string? output;
     private static object? owner;
     private static EventInfo? update;
-    private static int pending, observations, streams;
+    private static int pending, observations, streams, stopped;
     private static long bytes;
     private static double lastPoll = double.NegativeInfinity;
 
@@ -50,8 +50,8 @@ internal static class StartupHook
 
     private static void FindOwner(object? _)
     {
-        if (Clock.Elapsed.TotalSeconds >= 55) { timer?.Dispose(); return; }
-        if (owner is not null || Interlocked.CompareExchange(ref pending, 1, 0) != 0) return;
+        if (Volatile.Read(ref stopped) != 0 || Clock.Elapsed.TotalSeconds >= 55) { timer?.Dispose(); return; }
+        if (Interlocked.CompareExchange(ref pending, 1, 0) != 0) return;
         bool queued = false;
         try
         {
@@ -63,7 +63,7 @@ internal static class StartupHook
                 ?? throw new MissingMethodException("Original dispatcher unavailable.");
             Action action = () =>
             {
-                try { Attach(app!); }
+                try { if (owner is null) Attach(app!); else Observe(); }
                 catch (Exception error) { Fail(error); }
                 finally { Volatile.Write(ref pending, 0); }
             };
@@ -76,7 +76,7 @@ internal static class StartupHook
 
     private static void Attach(object app)
     {
-        if (owner is not null || Clock.Elapsed.TotalSeconds >= 55) return;
+        if (Volatile.Read(ref stopped) != 0 || owner is not null || Clock.Elapsed.TotalSeconds >= 55) return;
         Assembly? bridge = AppDomain.CurrentDomain.GetAssemblies().SingleOrDefault(a => a.GetName().Name == "ProGPU.Wpf");
         MethodInfo? getHost = bridge?.GetType("System.Windows.Media.ProGPU.ProGpuWpfDiagnostics")?.GetMethod("TryGetWindowHost");
         if (getHost is null || Property(app, "Windows") is not IEnumerable windows) return;
@@ -91,7 +91,6 @@ internal static class StartupHook
             ?? throw new MissingMemberException("Original owner-loop event unavailable.");
         update.GetAddMethod(true)!.Invoke(host, [Updated]);
         owner = host;
-        timer?.Dispose();
     }
 
     private static void Observe()
@@ -115,12 +114,11 @@ internal static class StartupHook
                 if (popupHost is null) continue;
                 object? retained = Property(popupHost, "LastNativeMilSessionFrame");
                 long frame = (long)Property(popupHost, "PresentedFrameCount")!;
-                if (frame <= 0 || retained is null) continue;
-                object scene = Property(retained, "Scene")!;
+                object? scene = retained is null ? null : Property(retained, "Scene");
                 if (!Frames.TryGetValue(popupHost, out HashSet<long>? seen)) Frames.Add(popupHost, seen = []);
                 int index = ++observations;
                 string? sceneFile = null, sceneSha = null;
-                if (seen.Count < 2 && !seen.Contains(frame) && streams < 8)
+                if (frame > 0 && scene is not null && seen.Count < 2 && !seen.Contains(frame) && streams < 8)
                 {
                     byte[] stream = Property(scene, "Stream") as byte[]
                         ?? throw new InvalidOperationException("Original scene storage unavailable.");
@@ -137,24 +135,43 @@ internal static class StartupHook
                 object?[] pollArgs = [null];
                 bool complete = Equals(poll.Invoke(popupHost, pollArgs), true);
                 object window = Property(popupHost, "NativeWindowHandle")!;
+                object? root = Property(popupHost, "WpfRootVisual");
+                Type? layout = AppDomain.CurrentDomain.GetAssemblies()
+                    .SingleOrDefault(a => a.GetName().Name == "PresentationFramework")?
+                    .GetType("System.Windows.Controls.Primitives.LayoutInformation");
+                object? slot = root is null ? null : layout?.GetMethod("GetLayoutSlot")?.Invoke(null, [root]);
                 Save($"popup-{index:D3}.json", new { diagnosticOnly = true, qualified = false,
                     elapsedSeconds = Clock.Elapsed.TotalSeconds, frame, sceneFile, sceneSha,
                     nativeKind = Property(window, "Kind")?.ToString(),
                     nativeHandle = ((nint)Property(window, "Handle")!).ToInt64(),
                     sourceHandle = ((nint)Property(popup, "Handle")!).ToInt64(),
                     complete, checkpoint = complete ? pollArgs[0] : null,
+                    rootType = root?.GetType().FullName,
+                    rootRenderSize = root is null ? null : Size(Property(root, "RenderSize")),
+                    rootDesiredSize = root is null ? null : Size(Property(root, "DesiredSize")),
+                    rootLayoutSlot = slot is null ? null : new { x = Property(slot, "X"), y = Property(slot, "Y"), size = Size(slot) },
+                    isRendering = Field(popupHost, "_isRendering"),
+                    pendingRecovery = Field(popupHost, "_hasPendingDeviceRecovery"),
+                    nativePerformance = Field(popupHost, "_nativeMilPerformance"),
+                    sceneUpdate = Property(popupHost, "LastNativeMilSceneUpdateMetrics"),
                     frameAfterPoll = Property(popupHost, "PresentedFrameCount"),
                     sameRetainedFrame = ReferenceEquals(retained, Property(popupHost, "LastNativeMilSessionFrame")),
-                    request = Property(retained, "Request"), metrics = Property(scene, "Metrics"),
-                    build = Property(scene, "BuildResult") });
+                    request = retained is null ? null : Property(retained, "Request"), metrics = scene is null ? null : Property(scene, "Metrics"),
+                    build = scene is null ? null : Property(scene, "BuildResult") });
             }
             lastPoll = now;
         }
         catch (Exception error) { Fail(error); }
     }
 
+    private static object? Size(object? value) => value is null ? null : new
+    {
+        width = Property(value, "Width"), height = Property(value, "Height")
+    };
+
     private static void Stop()
     {
+        Volatile.Write(ref stopped, 1);
         timer?.Dispose();
         object? host = owner;
         if (host is not null) update?.GetRemoveMethod(true)?.Invoke(host, [Updated]);

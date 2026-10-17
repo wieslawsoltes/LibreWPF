@@ -9,6 +9,7 @@ import runpy
 import shutil
 import subprocess
 import sys
+import xml.etree.ElementTree as ET
 
 
 def sha(path): return hashlib.sha256(path.read_bytes()).hexdigest()
@@ -59,6 +60,63 @@ def prepare_observer(output, dotnet):
     return dll
 
 
+def replay_original_scene(output, evidence, dotnet, app):
+    """Isolated offscreen replay after the original pair; never modifies its result."""
+    scenes = [p for p in evidence.glob('*.bin') if sha(p) ==
+              '74c2500ba093488403782be426fb24c63856b2beb89f46f3a5c8037e969bd117']
+    if not scenes:
+        return dict(skipped='The exact original popup scene was not observed')
+    root = output / 'offscreen-replay'; root.mkdir()
+    source = Path(__file__).with_name('PopupSceneReplay.cs')
+    shutil.copyfile(source, root / source.name)
+    (root / 'global.json').write_text(json.dumps({'sdk': {'version': '10.0.201', 'rollForward': 'disable'}}))
+    (root / 'NuGet.Config').write_text('<configuration><packageSources><clear /></packageSources></configuration>')
+    project = ET.Element('Project', Sdk='Microsoft.NET.Sdk')
+    props = ET.SubElement(project, 'PropertyGroup')
+    for key, value in dict(OutputType='Exe', TargetFramework='net10.0', ImplicitUsings='enable',
+                           Nullable='enable', TreatWarningsAsErrors='true', EnableDefaultCompileItems='false').items():
+        ET.SubElement(props, key).text = value
+    items = ET.SubElement(project, 'ItemGroup')
+    ET.SubElement(items, 'Compile', Include=source.name)
+    for name in ('ProGPU.Backend', 'ProGPU.Backend.Native', 'ProGPU.Backend.Dawn',
+                 'Silk.NET.Core', 'Silk.NET.WebGPU', 'Silk.NET.Windowing.Common', 'Silk.NET.Maths'):
+        reference = ET.SubElement(items, 'Reference', Include=name)
+        ET.SubElement(reference, 'HintPath').text = str(app.parent / (name + '.dll'))
+        ET.SubElement(reference, 'Private').text = 'false'
+    project_path = root / 'Replay.csproj'; ET.ElementTree(project).write(project_path)
+    with (root / 'build.log').open('xb') as log:
+        subprocess.run([str(dotnet), 'build', str(project_path), '-c', 'Release', '-m:1',
+                        '-p:ImportDirectoryBuildProps=false', '-p:ImportDirectoryBuildTargets=false',
+                        '-p:UseSharedCompilation=false', '--disable-build-servers'], cwd=root,
+                       stdout=log, stderr=subprocess.STDOUT, check=True, timeout=120)
+    runtime = root / 'runtime'
+    original = {p.relative_to(app.parent).as_posix(): sha(p) for p in app.parent.rglob('*') if p.is_file()}
+    if not 0 < len(original) <= 1000:
+        raise RuntimeError('Original replay payload inventory exceeds bound')
+    record = dict(diagnosticOnly=True, qualified=False, sceneSha256=sha(scenes[0]),
+                  sourceSha256=sha(source), originalPayload=original, deadlineSeconds=30)
+    try:
+        shutil.copytree(app.parent, runtime)
+        for name, digest in original.items():
+            if sha(runtime / name) != digest: raise RuntimeError('Replay payload bytes changed')
+        replay = runtime / 'Replay.dll'
+        if replay.exists(): raise RuntimeError('Replay would replace an original payload')
+        shutil.copyfile(root / 'bin/Release/net10.0/Replay.dll', replay)
+        with (root / 'run.log').open('xb') as log:
+            process = subprocess.run([str(dotnet), 'exec', '--runtimeconfig',
+                str(runtime / (app.stem + '.runtimeconfig.json')), '--depsfile',
+                str(runtime / (app.stem + '.deps.json')), str(replay), str(scenes[0]),
+                str(root / 'evidence')], cwd=runtime, stdout=log, stderr=subprocess.STDOUT, timeout=30)
+        record['exitCode'] = process.returncode
+        for name, digest in original.items():
+            if sha(app.parent / name) != digest or sha(runtime / name) != digest:
+                raise RuntimeError('Original/replay payload changed during diagnostic')
+        return record
+    finally:
+        (root / 'receipt.json').write_text(json.dumps(record, indent=2))
+        if runtime.exists(): shutil.rmtree(runtime)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--prepared', type=Path, required=True)
@@ -97,6 +155,9 @@ def main():
     finally:
         sys.argv, sys.path[:] = argv, path
         record['children'] = records
+        if records:
+            try: record['offscreenReplay'] = replay_original_scene(output, evidence, args.dotnet, app)
+            except BaseException as error: record['offscreenReplayError'] = repr(error)
         (output / 'diagnostic.json').write_text(json.dumps(record, indent=2)+'\n')
 
 

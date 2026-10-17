@@ -1,0 +1,35 @@
+// Offscreen diagnostic only; no input, native window or application qualification.
+using System.Buffers.Binary;
+using System.Diagnostics;
+using System.Numerics;
+using System.Security.Cryptography;
+using System.Text.Json;
+using ProGPU.Backend;
+using ProGPU.Backend.Native;
+using Silk.NET.WebGPU;
+
+if (args.Length != 2 || !OperatingSystem.IsWindows() || Environment.GetEnvironmentVariable("GITHUB_ACTIONS") != "true" || Environment.GetEnvironmentVariable("RUNNER_ENVIRONMENT") != "github-hosted" || Environment.GetEnvironmentVariable("GITHUB_REPOSITORY") != "wieslawsoltes/LibreWPF") throw new ArgumentException("Original scene and output directory required on disposable hosted Windows.");
+var clock = Stopwatch.StartNew();
+var output = Path.GetFullPath(args[1]);
+Directory.CreateDirectory(output);
+void Save(string name, object data) => File.WriteAllText(Path.Combine(output, name + ".json"), JsonSerializer.Serialize(data, new JsonSerializerOptions { WriteIndented = true, IncludeFields = true }));
+byte[] scene = File.ReadAllBytes(args[0]);
+if (Convert.ToHexString(SHA256.HashData(scene)) != "74C2500BA093488403782BE426FB24C63856B2BEB89F46F3A5C8037E969BD117") throw new InvalidDataException("Original scene changed.");
+Save("started", new { diagnosticOnly = true, qualified = false, width = 180, height = 45, originalSceneSha256 = Convert.ToHexString(SHA256.HashData(scene)), pid = Environment.ProcessId });
+using var context = new WgpuContext { Dx12CompilerOptions = new(WgpuDx12ShaderCompiler.Dxc) };
+context.Initialize(window: null);
+Save("adapter", new { context.AdapterName, backend = context.AdapterBackendType.ToString(), compiler = context.SelectedDx12ShaderCompiler.ToString(), library = context.Dx12CompilerLibraryPath });
+if (context.AdapterBackendType.ToString() != "D3D12" || context.SelectedDx12ShaderCompiler != WgpuDx12ShaderCompiler.Dxc) throw new InvalidOperationException("Original D3D12 DXC provider required.");
+using var target = new GpuTexture(context, 180, 45, TextureFormat.Bgra8Unorm, TextureUsage.RenderAttachment | TextureUsage.CopySrc, "Original popup scene diagnostic");
+using var renderer = new NativeCompositor(context, TextureFormat.Bgra8Unorm);
+var installed = renderer.UpdateScene(scene);
+var metrics = renderer.RenderScene(target, 1, BinaryPrimitives.ReadUInt64LittleEndian(scene.AsSpan(24)), BinaryPrimitives.ReadUInt64LittleEndian(scene.AsSpan(32)), Vector4.Zero);
+var token = renderer.GetLastSubmissionToken();
+Save("submitted", new { installed, metrics, token, seconds = clock.Elapsed.TotalSeconds });
+bool complete;
+do { complete = renderer.IsSubmissionComplete(token); if (!complete) Thread.Sleep(1); } while (!complete && clock.Elapsed.TotalSeconds < 20);
+if (!complete) throw new TimeoutException("Original scene submission exceeded 20 seconds.");
+byte[] pixels = target.ReadPixels();
+if (pixels.Length != 180 * 45 * 4) throw new InvalidDataException("Readback extent changed.");
+File.WriteAllBytes(Path.Combine(output, "pixels.bgra"), pixels);
+Save("result", new { diagnosticOnly = true, qualified = false, complete, bytes = pixels.Length, sha256 = Convert.ToHexString(SHA256.HashData(pixels)), seconds = clock.Elapsed.TotalSeconds, opaquePixels = Enumerable.Range(0, 180 * 45).Count(i => pixels[i * 4 + 3] == 255) });
