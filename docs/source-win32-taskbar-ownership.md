@@ -55,3 +55,12 @@ child/owner/icon retirement within the original 20/30-second bounds. The whole
 Build retains this native control in its Windows runtime job and the managed
 ownership controls in its existing retained-invalidation job. These API results
 remain distinct from the source-application and package acceptance above.
+
+The taskbar archive adds one exact-source artifact name to the SDK workflow:
+thirteen checkout references plus twenty artifact names. Build `39034879696`
+retains its original failure against the stale thirty-two-reference guard.
+The corrected inventory also asserts the unique taskbar artifact and its native
+JSON evidence. All three original package/workflow graph guards now run in the
+early retained-invalidation job as well as the SDK gate; the unchanged full SDK
+graph guard and both workflow guards pass locally. This does not qualify the
+remaining package or paired desktop application checks.

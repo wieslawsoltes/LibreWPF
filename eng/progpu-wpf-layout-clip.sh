@@ -10,6 +10,7 @@ import sys
 import xml.etree.ElementTree as ET
 
 minimum = {
+    "ProGPU.Wpf.Tests.Composition.WpfManagedProjectGraphTests": 3,
     "ProGPU.Wpf.Tests.Composition.Mil.WpfLayoutClipKeyTests": 97,
     "ProGPU.Wpf.Tests.Composition.Mil.WpfLayoutClipKeyEqualityTests": 6,
     "ProGPU.Wpf.Tests.Composition.Mil.WpfVisualInvalidationTrackerTests": 38,
@@ -133,6 +134,10 @@ assembly="${repo_root}/src/ProGPU.Wpf.Tests/bin/Release/net10.0/ProGPU.Wpf.Tests
   2>&1 | tee "${evidence}/build.log"
 
 filter='FullyQualifiedName~ProGPU.Wpf.Tests.Composition.Mil.WpfLayoutClipKeyTests.'
+# Run the original package/workflow inventory guards before the long SDK build.
+filter+='|FullyQualifiedName=ProGPU.Wpf.Tests.Composition.WpfManagedProjectGraphTests.ProGpuWpfSdkProvidesSwitchOnlyPackagingSurface'
+filter+='|FullyQualifiedName=ProGPU.Wpf.Tests.Composition.WpfManagedProjectGraphTests.WindowsNativePassiveIdleWorkflowKeepsBothArchitectureContracts'
+filter+='|FullyQualifiedName=ProGPU.Wpf.Tests.Composition.WpfManagedProjectGraphTests.ShowcaseFailureArchiveStaysSeparateFromQualifiedPackages'
 filter+='|FullyQualifiedName~ProGPU.Wpf.Tests.Composition.Mil.WpfLayoutClipKeyEqualityTests.'
 filter+='|FullyQualifiedName~ProGPU.Wpf.Tests.Composition.Mil.WpfVisualInvalidationTrackerTests.'
 filter+='|FullyQualifiedName~ProGPU.Wpf.Tests.Composition.Mil.WpfVisualTreeRendererTests.'

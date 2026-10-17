@@ -62,8 +62,9 @@ public sealed class WpfManagedProjectGraphTests
     private static void AssertWindowsNativePassiveIdleWorkflow(string workflow)
     {
         Assert.Equal(13, workflow.Split("ref: ${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}", StringSplitOptions.None).Length - 1);
-        // Thirteen checkout refs plus nineteen exact-head artifact producer/consumer names.
-        Assert.Equal(32, workflow.Split("${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}", StringSplitOptions.None).Length - 1);
+        // Thirteen checkout refs plus twenty exact-head artifact producer/consumer names,
+        // including the new owned native taskbar control evidence.
+        Assert.Equal(33, workflow.Split("${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}", StringSplitOptions.None).Length - 1);
         foreach (string architecture in new[] { "x64", "arm64" })
         {
             string jobName = architecture == "x64" ? "windows-native-mil-showcase" : "windows-arm64-native-mil-showcase";
@@ -97,10 +98,15 @@ public sealed class WpfManagedProjectGraphTests
     {
         string workflow = File.ReadAllText(FindRepoPath(".github", "workflows", "progpu-wpf-sdk.yml"));
         Assert.Equal(13, workflow.Split("ref: ${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}", StringSplitOptions.None).Length - 1);
-        Assert.Equal(32, workflow.Split("${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}", StringSplitOptions.None).Length - 1);
-        Assert.Equal(19, workflow.Split('\n').Count(line =>
+        Assert.Equal(33, workflow.Split("${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}", StringSplitOptions.None).Length - 1);
+        Assert.Equal(20, workflow.Split('\n').Count(line =>
             line.TrimStart().StartsWith("name: ", StringComparison.Ordinal) &&
             line.Contains("${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}", StringComparison.Ordinal)));
+        Assert.Equal(1, workflow.Split("name: native-taskbar-policy-${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}",
+            StringSplitOptions.None).Length - 1);
+        Assert.Contains("run: ./eng/progpu-wpf-taskbar-native.ps1 -OutputDirectory \"${{ runner.temp }}/native-taskbar-policy\"",
+            workflow, StringComparison.Ordinal);
+        Assert.Contains("${{ runner.temp }}/native-taskbar-policy/*.json", workflow, StringComparison.Ordinal);
         Assert.Contains("name: Validate Showcase failure archive controls", workflow, StringComparison.Ordinal);
         Assert.Contains("run: python3 eng/tests/test_showcase_failure_archive.py", workflow, StringComparison.Ordinal);
         Assert.Contains("id: sdk-gate", workflow, StringComparison.Ordinal);
