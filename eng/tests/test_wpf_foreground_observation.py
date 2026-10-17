@@ -76,7 +76,7 @@ class ForegroundDiagnosticTests(unittest.TestCase):
         self.assertEqual(path, sys.path)
 
     def test_workflow_preserves_exact_producer_and_names_diagnostic_separately(self):
-        workflow = (Path(__file__).parents[2] / '.github/workflows/progpu-wpf-modal-desktop.yml').read_text()
+        workflow = (Path(__file__).parents[2] / '.github/workflows/progpu-wpf-modal-desktop.yml').read_text(encoding='utf-8')
         self.assertIn('DIAGNOSTIC ONLY — unchanged original modal pair', workflow)
         self.assertIn('ref: ${{ inputs.producer_head }}\n          path: automation', workflow)
         self.assertIn('automation/eng/WindowsModalDesktop/candidate-packages.py', workflow)
