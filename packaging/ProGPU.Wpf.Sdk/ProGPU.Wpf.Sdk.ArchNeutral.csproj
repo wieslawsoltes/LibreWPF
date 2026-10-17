@@ -4,18 +4,18 @@
     <ProjectGuid>{3D5C6752-3B11-4A83-A1F9-238C67B3E6ED}</ProjectGuid>
     <Platforms>x86;x64;arm64</Platforms>
     <PlatformIndependentPackage>true</PlatformIndependentPackage>
-    <ProGpuRuntimePackageVersion Condition="'$(ProGpuRuntimePackageVersion)' == ''">0.1.0-preview.69</ProGpuRuntimePackageVersion>
+    <ProGpuRuntimePackageVersion Condition="'$(ProGpuRuntimePackageVersion)' == ''">0.1.0-preview.70</ProGpuRuntimePackageVersion>
   </PropertyGroup>
 
   <PropertyGroup>
     <PackageName>LibreWPF.Sdk$(TransportPackageNameSuffix)</PackageName>
     <AssemblyName>$(PackageName)</AssemblyName>
     <VersionPrefix>0.1.0</VersionPrefix>
-    <VersionSuffix>preview.69</VersionSuffix>
+    <VersionSuffix>preview.70</VersionSuffix>
     <Version>$(VersionPrefix)-$(VersionSuffix)</Version>
     <PackageVersion>$(Version)</PackageVersion>
     <PackageDescription>LibreWPF MSBuild SDK for running existing desktop XAML applications on ProGPU/Silk.NET.</PackageDescription>
-    <PackageReleaseNotes>LibreWPF preview.69 fixes transparent popup-margin input, typography alternates, embedded application font URIs and proven empty source geometry clips. It preserves the moved framework package identities and consumes the coordinated qualified ProGPU and LibreWinForms sources. Existing rendering and application qualification boundaries remain documented.</PackageReleaseNotes>
+    <PackageReleaseNotes>LibreWPF preview.70 preserves original Win32 button-message positions and the complete native window identity, restores portable dispatcher synchronization, and selects the intended Direct3D compiler for Gallery startup. It consumes the coordinated ProGPU lifetime and text fixes. Documented rendering, platform and application qualification limits remain.</PackageReleaseNotes>
     <PackageTags>librewpf;progpu;silk.net;msbuild-sdk</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
@@ -46,7 +46,7 @@
       <_LibreWpfSdkPackageVersionToPack Condition="'$(_LibreWpfSdkPackageVersionToPack)' == ''">$(Version)</_LibreWpfSdkPackageVersionToPack>
       <_LibreWpfSdkProGpuPackageVersionToPack Condition="'$(ProGpuPackageVersion)' != ''">$(ProGpuPackageVersion)</_LibreWpfSdkProGpuPackageVersionToPack>
       <_LibreWpfSdkProGpuPackageVersionToPack Condition="'$(_LibreWpfSdkProGpuPackageVersionToPack)' == ''">$(ProGpuRuntimePackageVersion)</_LibreWpfSdkProGpuPackageVersionToPack>
-      <_LibreWpfSdkProGpuPackageVersionToPack Condition="'$(_LibreWpfSdkProGpuPackageVersionToPack)' == ''">0.1.0-preview.69</_LibreWpfSdkProGpuPackageVersionToPack>
+      <_LibreWpfSdkProGpuPackageVersionToPack Condition="'$(_LibreWpfSdkProGpuPackageVersionToPack)' == ''">0.1.0-preview.70</_LibreWpfSdkProGpuPackageVersionToPack>
     </PropertyGroup>
     <ItemGroup>
       <_LibreWpfSdkVersionPropsLine Include="&lt;Project&gt;" />

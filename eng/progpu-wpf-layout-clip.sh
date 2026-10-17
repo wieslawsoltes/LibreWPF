@@ -10,16 +10,19 @@ import sys
 import xml.etree.ElementTree as ET
 
 minimum = {
+    "ProGPU.Wpf.Tests.Composition.WpfManagedProjectGraphTests": 3,
     "ProGPU.Wpf.Tests.Composition.Mil.WpfLayoutClipKeyTests": 97,
     "ProGPU.Wpf.Tests.Composition.Mil.WpfLayoutClipKeyEqualityTests": 6,
     "ProGPU.Wpf.Tests.Composition.Mil.WpfVisualInvalidationTrackerTests": 38,
     "ProGPU.Wpf.Tests.Composition.Mil.WpfVisualTreeRendererTests": 242,
     "ProGPU.Wpf.Tests.ProGpuWpfWindowHostTests": 359,
-    "ProGPU.Wpf.Tests.Platform.SilkNetWpfInputServiceTests": 44,
+    "ProGPU.Wpf.Tests.Platform.SilkNetWpfInputServiceTests": 53,
     "ProGPU.Wpf.Tests.Platform.WpfNativePointerInputTests": 15,
     "ProGPU.Wpf.Tests.WpfPortableWindowActivationTests": 124,
+    "ProGPU.Wpf.Tests.WpfWin32TaskbarPolicyTests": 9,
+    "ProGPU.Wpf.Tests.WpfWin32TaskbarIconsTests": 5,
     "ProGPU.Wpf.Tests.PassiveIdleIntervalTests": 8,
-    "ProGPU.Wpf.Tests.ShowcasePassiveIdleSourceContractTests": 7,
+    "ProGPU.Wpf.Tests.ShowcasePassiveIdleSourceContractTests": 8,
     "ProGPU.Wpf.Tests.NativeResizePresentationTests": 21,
     "ProGPU.Wpf.Tests.PassiveIdleBoundaryTests": 17,
     "ProGPU.Wpf.Tests.MenuLifecycleJournalTests": 7,
@@ -131,6 +134,10 @@ assembly="${repo_root}/src/ProGPU.Wpf.Tests/bin/Release/net10.0/ProGPU.Wpf.Tests
   2>&1 | tee "${evidence}/build.log"
 
 filter='FullyQualifiedName~ProGPU.Wpf.Tests.Composition.Mil.WpfLayoutClipKeyTests.'
+# Run the original package/workflow inventory guards before the long SDK build.
+filter+='|FullyQualifiedName=ProGPU.Wpf.Tests.Composition.WpfManagedProjectGraphTests.ProGpuWpfSdkProvidesSwitchOnlyPackagingSurface'
+filter+='|FullyQualifiedName=ProGPU.Wpf.Tests.Composition.WpfManagedProjectGraphTests.WindowsNativePassiveIdleWorkflowKeepsBothArchitectureContracts'
+filter+='|FullyQualifiedName=ProGPU.Wpf.Tests.Composition.WpfManagedProjectGraphTests.ShowcaseFailureArchiveStaysSeparateFromQualifiedPackages'
 filter+='|FullyQualifiedName~ProGPU.Wpf.Tests.Composition.Mil.WpfLayoutClipKeyEqualityTests.'
 filter+='|FullyQualifiedName~ProGPU.Wpf.Tests.Composition.Mil.WpfVisualInvalidationTrackerTests.'
 filter+='|FullyQualifiedName~ProGPU.Wpf.Tests.Composition.Mil.WpfVisualTreeRendererTests.'
@@ -138,6 +145,8 @@ filter+='|FullyQualifiedName~ProGPU.Wpf.Tests.ProGpuWpfWindowHostTests.'
 filter+='|FullyQualifiedName~ProGPU.Wpf.Tests.Platform.SilkNetWpfInputServiceTests.'
 filter+='|FullyQualifiedName~ProGPU.Wpf.Tests.Platform.WpfNativePointerInputTests.'
 filter+='|FullyQualifiedName~ProGPU.Wpf.Tests.WpfPortableWindowActivationTests.'
+filter+='|FullyQualifiedName~ProGPU.Wpf.Tests.WpfWin32TaskbarPolicyTests.'
+filter+='|FullyQualifiedName~ProGPU.Wpf.Tests.WpfWin32TaskbarIconsTests.'
 filter+='|FullyQualifiedName~ProGPU.Wpf.Tests.PassiveIdleIntervalTests.'
 filter+='|FullyQualifiedName~ProGPU.Wpf.Tests.NativeDragInputReceiptTests.'
 filter+='|FullyQualifiedName~ProGPU.Wpf.Tests.NativeBackendWindowOptionsTests.'

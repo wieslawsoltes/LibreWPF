@@ -349,6 +349,12 @@ class CiCaptionTests(unittest.TestCase):
             point._obj.x, point._obj.y = -492, 40
             return 1
         def WindowFromPoint(self, point): return self.point_owner
+        def GetClassNameW(self, hwnd, value, length):
+            value.value = "native-caption-control"
+            return len(value.value)
+        def GetWindowTextW(self, hwnd, value, length):
+            value.value = "owned" if hwnd == 7 else "obstruction"
+            return len(value.value)
         def SendMessageTimeoutW(self, hwnd, message, wparam, lparam, flags, timeout, result):
             result._obj.value = self.hit
             return 1
@@ -388,6 +394,9 @@ class CiCaptionTests(unittest.TestCase):
         self.assertEqual([-50, 20], record["point"])
         self.assertEqual((-50, 20), desktop.u.cursor)
         self.assertEqual((1, 7), (record["clickCount"], record["after"]))
+        self.assertEqual(2, record["captionCandidates"][0]["nativeHit"])
+        self.assertEqual(7, record["captionCandidates"][0]["pointWindow"]["hwnd"])
+        self.assertEqual("obstruction", record["foreground"]["title"])
         self.assertEqual([], desktop.u.requests)
 
     def test_local_and_self_hosted_input_rejected_before_any_native_query(self):
@@ -413,9 +422,13 @@ class CiCaptionTests(unittest.TestCase):
         for name, value in (("hit", 20), ("hit", 9), ("hit", 12), ("hit", 1),
                             ("point_owner", 8), ("held", True), ("capture", True)):
             desktop = self.desktop(); setattr(desktop.u, name, value)
+            record = {}
             with self.subTest(name=name, value=value), self.assertRaises(RuntimeError):
-                self.run_case(desktop)
+                self.run_case(desktop, record)
             self.assertEqual([], desktop.u.inputs)
+            if name == "point_owner":
+                self.assertEqual([8, 8, 8], [entry["pointWindow"]["hwnd"] for entry in record["captionCandidates"]])
+                self.assertTrue(all("nativeHit" not in entry for entry in record["captionCandidates"]))
 
     @patch.object(probe.time, "monotonic", return_value=20)
     def test_caption_covered_after_move_never_receives_press(self, _):

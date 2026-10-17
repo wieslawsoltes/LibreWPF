@@ -9,6 +9,20 @@ namespace ProGPU.Wpf.Tests;
 public class ShowcasePassiveIdleSourceContractTests
 {
     [Fact]
+    public void CompletionRetainsTheReceiptAndQueuesSourceShutdownOnTheOwnerThread()
+    {
+        string source = Read("samples/ProGPU.Wpf.ShowcaseApp/MainWindow.IdleLayoutClip.cs");
+        int receipt = source.IndexOf("JsonSerializer.Serialize(output, receipt", StringComparison.Ordinal);
+        int flush = source.IndexOf("output.Flush(flushToDisk: true);", receipt, StringComparison.Ordinal);
+        int completion = source.IndexOf("Console.WriteLine($\"Showcase passive layout clip validation", flush, StringComparison.Ordinal);
+        int queue = source.IndexOf("Dispatcher.BeginInvoke(DispatcherPriority.Send,", completion, StringComparison.Ordinal);
+        int shutdown = source.IndexOf("new Action(() => Application.Current.Shutdown(exitCode))", queue, StringComparison.Ordinal);
+        Assert.True(receipt >= 0 && flush > receipt && completion > flush && queue > completion && shutdown > queue);
+        Assert.DoesNotContain("Environment.Exit(", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Environment.FailFast(", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ResizePreparationRequiresItsPresentedFrameWithinTheOriginalAttemptBudget()
     {
         string fixture = Read("samples/ProGPU.Wpf.ShowcaseApp/MainWindow.IdleLayoutClip.cs");

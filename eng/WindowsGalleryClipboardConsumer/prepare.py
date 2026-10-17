@@ -321,7 +321,7 @@ def main():
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(args.original_source / entry["path"], target)
         validate_sources(output / "original")
-        for name in ("GalleryClipboardApp.cs", "source-manifest.json", "run-windows.py"):
+        for name in ("GalleryClipboardApp.cs", "source-manifest.json", "run-windows.py", "hosted-terminal.py"):
             shutil.copyfile(ROOT / name, output / name)
         project = output / "GalleryClipboardApp.csproj"
         project.write_text((ROOT / "GalleryClipboardApp.csproj.template").read_text().replace("@SDK_VERSION@", sdk).replace("@ENGINE_VERSION@", engine))
@@ -350,7 +350,7 @@ def main():
         receipt["buildCommand"] = command
         receipt["buildEnvironment"] = {name: environment[name] for name in
             (*BUILD_ENVIRONMENT, "NUGET_PACKAGES", "DOTNET_CLI_HOME", "TEMP", "TMP", "TMPDIR")}
-        receipt["inputs"] = {name: sha(output / name) for name in ("GalleryClipboardApp.cs", "GalleryClipboardApp.csproj", "source-manifest.json", "run-windows.py")}
+        receipt["inputs"] = {name: sha(output / name) for name in ("GalleryClipboardApp.cs", "GalleryClipboardApp.csproj", "source-manifest.json", "run-windows.py", "hosted-terminal.py")}
         if args.build_only:
             with (output / "build.log").open("xb") as log:
                 result = subprocess.run(command, cwd=output, env=environment, stdout=log, stderr=subprocess.STDOUT, timeout=300, check=False)

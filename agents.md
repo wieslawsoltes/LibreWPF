@@ -1,4 +1,94 @@
+Passive Showcase completion queues Application.Shutdown with the original result
+on the source owner dispatcher after persisting its receipt. Never call worker
+Environment.Exit while the native host is pumping: process-exit HWND detachment
+can invalidate dispatcher timers. Preserve all original intervals, child deadline,
+failure status and payload checks; a successful receipt cannot waive child failure.
+See docs/showcase-idle-failure-evidence.md; full native qualification remains required.
+
+Modal popup client observation reads the actual zero-origin root Arrange slot,
+not overflowing RenderSize. Require the exact live PresentationSource root, no
+visual parent and zero visual offset before projecting original endpoints. Keep
+natural content, action-target bounds and exact source/native comparisons intact;
+no rounding, native-bound fitting or layout mutation is admitted. Apply the same
+source contract to both applications and retain original failed receipts. See
+docs/modal-desktop-acceptance.md.
+
+The owner-approved hosted Start extension permits one verified Start activation
+only after the single Search Escape yields to the actual Progman shell. Require
+exact live system image/session/window identity before and after the request;
+then use the existing single Start Escape. An accepted request may be observed
+read-only for at most one second inside the existing setup deadline, with only
+zero or the unchanged original shell foreground pending. Retain every observation
+and never repeat activation or send pending input. Count activation in the original
+64 actions, retain 3/60-second bounds and all source/caption/scenario checks.
+Unknown foreground, refused activation and changed identity fail without retry.
+The HWND ABI adapter maps only ctypes null to zero, preserving live handle bits.
+Disposable hosted Windows only; see docs/modal-desktop-acceptance.md.
+After its single Escape, that exact activated Start may remain foreground while
+DWM hides it. Require original uncloaked preflight and two consecutive successful
+shell-only cloak observations with unchanged identity inside the existing
+half-second completion interval. Never treat a failed read or another cloak flag
+as dismissal, repeat input, extend time, or skip original source/caption checks.
+
 # Agent Guidance
+
+Explicit source Win32 taskbar visibility retains ordinary chrome and changes only
+APPWINDOW and the actual native owner. Keep the hidden owner across source owner
+and visibility changes, exact creating-thread/process identity and atomic rollback.
+Its copied icons outlive provider replacements and retire only after both native
+windows; retain partial publication and failed releases for retry. Native child
+destruction must precede hidden-owner destruction, without repeating completed
+steps. Preserve optional typed source dispatch and other providers' independent
+admission. See docs/source-win32-taskbar-ownership.md; local controls and the
+Microsoft-only reference do not qualify the paired application contract.
+The shared Win32 descriptor carries HINSTANCE in Display; preserve that metadata
+and validate the actual HWND ownership rather than requiring a zero module.
+
+The owner-approved hosted modal retirement readiness option preserves the initial
+assertion and permits at most one second of read-only observation inside the
+original 60-second deadline. Require two exact restored native inventories,
+including original owner identity; errors and changed owners fail. Keep both
+applications, input/captures and the default instantaneous gate unchanged. See
+docs/modal-desktop-acceptance.md; previous failed runs remain failed.
+
+Modal desktop capture readiness requires two original stable observations with
+actual positive presentation counts on every portable surface. Pending zero
+frames consume the original absolute 60-second process deadline; malformed counts
+fail. Keep original source/native identity, geometry, capture and input checks,
+Microsoft behavior and immutable source observers. Read-only Gallery foreground
+failure evidence must preserve the original exception without activation or retry.
+See docs/modal-desktop-acceptance.md; neither authored control qualifies release.
+
+The explicit hosted Gallery terminal guard admits one normal WM_CLOSE only for
+the exact live packaged Windows Terminal WSL startup window on the disposable
+runner. Preserve package/process/session/desktop identity, idle input and original
+60-second budget. Require natural foreground return before all original checks;
+no extra activation, input, process kill, retry or local-machine use is admitted.
+
+Portable PopupRoot layout shares the existing integer, minimum-one host client
+allocation on every source update. Preserve original desired/child dimensions,
+content overflow/clipping, native sizing policy and non-PopupRoot behavior.
+Never round glyph advances or change observation bounds to fit a capture.
+See docs/portable-popup-client-layout.md; the prior untraced ShowDialog stall and
+full source/package/desktop qualification remain separate gates.
+
+The modal sample explicitly selects packaged DXC only for Windows x64/ARM64.
+Keep Automatic reproduction separate and preserve all seven original scenarios,
+60-second process deadlines, 64-action bounds, captures and native owner checks.
+Candidate preparation admits only its exact SDK version and explicit compiler
+property, retaining original bytes and the whole successful producer. Verify all
+compiler runtime/manifest outputs and actual host compiler identity in every
+capture; a requested runtimeconfig value is not proof of the loaded compiler.
+Foreground observation stays diagnostic-only and preserves Automatic. See
+docs/modal-desktop-acceptance.md; explicit DXC does not qualify FXC performance.
+
+Source Win32 button events borrow original signed client coordinates from the
+exact live host controller's scoped native packet, matching phase and button
+before any source callback. Preserve event order, ordinary native bookkeeping,
+once-only DPI normalization and other providers' existing policy. Never repair
+a delayed move with a later ambient cursor sample, synthetic move or slower test
+input. Require the qualified ProGPU producer and rebuilt source package; see
+docs/source-mouse-button-packets.md.
 
 Portable Application.Run and ShowDialog own the actual source dispatcher's
 SynchronizationContext for their synchronous loop lifetime. Preserve the caller's

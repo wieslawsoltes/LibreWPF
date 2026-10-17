@@ -75,7 +75,7 @@ advisories. Ordinary and central package references use the same defaults;
 an explicit `ProGpuWpfSystemSecurityCryptographyXmlVersion` override remains honored.
 
 ```xml
-<Project Sdk="LibreWPF.Sdk/0.1.0-preview.69">
+<Project Sdk="LibreWPF.Sdk/0.1.0-preview.70">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0-windows</TargetFramework>
@@ -149,7 +149,7 @@ For a fast validation pass that exercises the external no-source-change SDK smok
 ./eng/progpu-wpf-showcase-quickcheck.sh
 ```
 
-The quickcheck expects the local `0.1.0-preview.69` LibreWPF package feed and its ProGPU `0.1.0-preview.69` runtime dependencies to be current. Use the full SDK CI gate when package contents need to be rebuilt from source:
+The quickcheck expects the local `0.1.0-preview.70` LibreWPF package feed and its ProGPU `0.1.0-preview.70` runtime dependencies to be current. Use the full SDK CI gate when package contents need to be rebuilt from source:
 
 ```bash
 ./eng/progpu-wpf-sdk-ci.sh

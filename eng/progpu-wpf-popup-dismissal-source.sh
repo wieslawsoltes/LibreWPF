@@ -27,4 +27,5 @@ export LIBREWPF_TEST_MEDIA_BACKEND=Portable
 exec "${dotnet_command}" "${assembly}" \
   --filter-class System.Windows.PortablePopupOwnershipTests \
   --filter-method '*OwnerDeactivation*' \
-  --minimum-expected-tests 12 --fail-skips on --timeout 60s --no-progress
+  --filter-method '*PopupClientLayout*' \
+  --minimum-expected-tests 17 --fail-skips on --timeout 60s --no-progress

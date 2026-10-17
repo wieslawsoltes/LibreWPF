@@ -4215,6 +4215,13 @@ namespace System.Windows.Controls.Primitives
             {
                 if (rootVisual is UIElement rootElement)
                 {
+                    if (rootElement is PopupRoot)
+                    {
+                        // A previous source-client layout may have constrained
+                        // DesiredSize. Recover the content measure before choosing
+                        // the next host allocation, even when that layout is valid.
+                        rootElement.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+                    }
                     Size desiredSize = MeasurePortableRoot(rootElement, new Size(double.PositiveInfinity, double.PositiveInfinity));
                     if (IsPortableClientSizeEmpty(desiredSize))
                     {
@@ -4224,6 +4231,20 @@ namespace System.Windows.Controls.Primitives
                     desiredSize = new Size(
                         ToPortableClientSize(desiredSize.Width),
                         ToPortableClientSize(desiredSize.Height));
+
+                    if (rootElement is PopupRoot)
+                    {
+                        // The host receives integer client dimensions. Arrange
+                        // the popup root in that same allocated frame on every
+                        // update, even when the native size did not change. Keep
+                        // the child's measured content and desired size intact.
+                        Size clientSize = new Size(
+                            Math.Max(1, ToPortableClientDimension(desiredSize.Width)),
+                            Math.Max(1, ToPortableClientDimension(desiredSize.Height)));
+                        rootElement.Arrange(new Rect(new Point(), clientSize));
+                        rootElement.UpdateLayout();
+                        return clientSize;
+                    }
 
                     rootElement.Arrange(new Rect(new Point(), desiredSize));
                     rootElement.UpdateLayout();

@@ -6,7 +6,7 @@
     <Description>LibreWPF cross-platform ProGPU rendering host and adapter lane for managed presentation rendering.</Description>
     <PackageTags>librewpf;progpu;webgpu;silk.net;rendering</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <ProGpuRuntimePackageVersion Condition="'$(ProGpuRuntimePackageVersion)' == ''">0.1.0-preview.69</ProGpuRuntimePackageVersion>
+    <ProGpuRuntimePackageVersion Condition="'$(ProGpuRuntimePackageVersion)' == ''">0.1.0-preview.70</ProGpuRuntimePackageVersion>
     <SignAssembly>true</SignAssembly>
     <AssemblyOriginatorKeyFile>..\..\external\ProGPU\eng\ProGPU.snk</AssemblyOriginatorKeyFile>
   </PropertyGroup>
@@ -35,13 +35,13 @@
   </ItemGroup>
 
   <ItemGroup Condition="'$(IsPacking)' != 'true'">
-    <ProjectReference Include="..\..\external\ProGPU\src\ProGPU.Backend\ProGPU.Backend.csproj" />
-    <ProjectReference Include="..\..\external\ProGPU\src\ProGPU.Backend.Native\ProGPU.Backend.Native.csproj" />
-    <ProjectReference Include="..\..\external\ProGPU\src\ProGPU.DirectX\ProGPU.DirectX.csproj" />
-    <ProjectReference Include="..\..\external\ProGPU\src\ProGPU.Scene\ProGPU.Scene.csproj" />
-    <ProjectReference Include="..\..\external\ProGPU\src\ProGPU.Scene.Native\ProGPU.Scene.Native.csproj" />
-    <ProjectReference Include="..\..\external\ProGPU\src\ProGPU.Text\ProGPU.Text.csproj" />
-    <ProjectReference Include="..\..\external\ProGPU\src\ProGPU.Vector\ProGPU.Vector.csproj" />
+    <ProjectReference Include="$(ProGpuSourceRoot)/src\ProGPU.Backend\ProGPU.Backend.csproj" />
+    <ProjectReference Include="$(ProGpuSourceRoot)/src\ProGPU.Backend.Native\ProGPU.Backend.Native.csproj" />
+    <ProjectReference Include="$(ProGpuSourceRoot)/src\ProGPU.DirectX\ProGPU.DirectX.csproj" />
+    <ProjectReference Include="$(ProGpuSourceRoot)/src\ProGPU.Scene\ProGPU.Scene.csproj" />
+    <ProjectReference Include="$(ProGpuSourceRoot)/src\ProGPU.Scene.Native\ProGPU.Scene.Native.csproj" />
+    <ProjectReference Include="$(ProGpuSourceRoot)/src\ProGPU.Text\ProGPU.Text.csproj" />
+    <ProjectReference Include="$(ProGpuSourceRoot)/src\ProGPU.Vector\ProGPU.Vector.csproj" />
     <ProjectReference Include="..\..\src\ProGPU.Wpf.Interop\ProGPU.Wpf.Interop.csproj" />
   </ItemGroup>
 

@@ -135,6 +135,8 @@ namespace System.Windows
                 ResizeMode = (int)ResizeMode,
                 HasWindowStyle = true,
                 WindowStyle = (int)GetPortableWindowStyle(),
+                HasShowInTaskbar = true,
+                ShowInTaskbar = ShowInTaskbar,
                 HasShowActivated = true,
                 ShowActivated = ShowActivated,
                 HasAllowsTransparency = true,
@@ -5520,6 +5522,14 @@ namespace System.Windows
             // this call ends up throwing an exception if accessing
             // ShowInTaskbar is not allowed
             VerifyApiSupported();
+
+            if (IsPortableWindowActive)
+            {
+                // The registered host resolves its own native identity. Never
+                // pass the portable source handle to the WPF HWND path below.
+                PortableWindowActivationService.SetWin32TaskbarVisibility(_portableWindowActivation, ShowInTaskbar);
+                return;
+            }
 
             // There are 2 cases
             // Case 1 : being set before source window is created

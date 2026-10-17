@@ -14,6 +14,7 @@ using System.Windows.Media;
 using System.Windows.Threading;
 #if LIBREWPF_MODAL_PORTABLE
 using System.Windows.Media.ProGPU;
+using ProGPU.Wpf.Interop;
 #endif
 
 namespace ProGPU.Wpf.ModalInteractionApp;
@@ -62,7 +63,12 @@ internal sealed class ModalObservation : IDisposable
             {
                 if (!window.IsVisible) continue;
                 var native = new List<object>();
+                object? compiler = null;
 #if LIBREWPF_MODAL_PORTABLE
+                if (OperatingSystem.IsWindows() && ProGpuWpfDiagnostics.TryGetWindowHost(window, out var host) &&
+                    host?.CompositionTarget?.Context is { } context)
+                    compiler = new { selected = context.SelectedDx12ShaderCompiler.ToString(),
+                        library = context.Dx12CompilerLibraryPath };
                 if (!ProGpuWpfDiagnostics.TryGetDesktopWindowSnapshots(window, out var snapshots))
                     throw new InvalidOperationException("Existing source/native desktop identities are unavailable.");
                 foreach (var value in snapshots)
@@ -73,9 +79,12 @@ internal sealed class ModalObservation : IDisposable
                         throw new InvalidOperationException("Desktop source root has no original layout frame.");
                     native.Add(new { sourceHandle = value.SourceHandle.ToInt64(),
                         nativeKind = value.NativeWindow.Kind.ToString(), nativeHandle = value.NativeWindow.Handle.ToInt64(),
-                        visible = value.IsVisible, inputEnabled = value.InputEnabled,
+                        visible = value.IsVisible,
+                        requestedInputEnabled = value.InputEnabled,
+                        modalInputAllowed = PortableModalInputScope.AllowsInput(window),
+                        inputEnabled = value.InputEnabled && PortableModalInputScope.AllowsInput(window),
                         presentedFrames = value.PresentedFrameCount,
-                        client = Bounds(root is Window sourceWindow && sourceWindow.Content is FrameworkElement content ? content : root),
+                        client = root is Window sourceWindow ? WindowClientBounds(sourceWindow) : PopupClientBounds(root),
                         nativeGeometry = value.NativeGeometry is { } geometry ? new
                         {
                             contentView = geometry.ContentView.ToInt64(), windowNumber = geometry.CocoaWindowNumber,
@@ -91,7 +100,7 @@ internal sealed class ModalObservation : IDisposable
                 if (handle == 0) throw new InvalidOperationException("Original visible window lacks an existing HWND.");
                 native.Add(new { sourceHandle = handle.ToInt64(), nativeKind = "Win32", nativeHandle = handle.ToInt64(),
                     visible = window.IsVisible, inputEnabled = (bool?)null, presentedFrames = (long?)null,
-                    client = Bounds((FrameworkElement)window.Content), nativeGeometry = (object?)null });
+                    client = WindowClientBounds(window), nativeGeometry = (object?)null });
                 if (ReferenceEquals(window, _owner))
                 {
                     var handles = new HashSet<nint> { handle };
@@ -108,9 +117,9 @@ internal sealed class ModalObservation : IDisposable
                 }
 #endif
                 windows.Add(new { title = window.Title, name = window.Name, visible = window.IsVisible,
-                    active = window.IsActive, sourceIsEnabled = window.IsEnabled, surfaces = native });
+                    active = window.IsActive, sourceIsEnabled = window.IsEnabled, compiler, surfaces = native });
             }
-            Write(new { schema = "wpf-modal-desktop-v1", qualified = false, pid = Environment.ProcessId,
+            Write(new { schema = "wpf-modal-desktop-v2", qualified = false, pid = Environment.ProcessId,
                 run = _run, title = _owner.Title, sequence = _sequence, elapsedMs = _clock.ElapsedMilliseconds,
                 nativeModalRequested = _nativeModal, phase = _owner.Phase, windows, targets,
                 focus = ModalWindow.FocusName(), priorFocus = _owner.PriorFocus, returnedFocus = _owner.ReturnedFocus,
@@ -131,7 +140,7 @@ internal sealed class ModalObservation : IDisposable
             throw new InvalidOperationException("Original popup lacks one distinct live source/HWND identity.");
         native.Add(new { sourceHandle = source.Handle.ToInt64(), nativeKind = "Win32", nativeHandle = source.Handle.ToInt64(),
             visible = root.IsVisible, inputEnabled = (bool?)null, presentedFrames = (long?)null,
-            client = Bounds(root), nativeGeometry = (object?)null });
+            client = PopupClientBounds(root), nativeGeometry = (object?)null });
     }
 #endif
 
@@ -144,10 +153,43 @@ internal sealed class ModalObservation : IDisposable
         File.Move(pending, Path.Combine(_directory, $"snapshot-{_sequence:D8}.json"));
     }
 
-    private static object Bounds(FrameworkElement element)
+    private static object WindowClientBounds(Window window)
     {
-        Point first = element.PointToScreen(new Point());
-        Point last = element.PointToScreen(new Point(element.ActualWidth, element.ActualHeight));
+        // Window.ArrangeOverride assigns its sole visual child the actual client
+        // rectangle, after subtracting the native frame. Content bounds instead
+        // exclude content margins/alignment and are not a client measurement.
+        if (VisualTreeHelper.GetChildrenCount(window) != 1 ||
+            VisualTreeHelper.GetChild(window, 0) is not FrameworkElement child ||
+            !ReferenceEquals(PresentationSource.FromVisual(window), PresentationSource.FromVisual(child)))
+            throw new InvalidOperationException("Window has no unique original client layout child.");
+        Rect slot = LayoutInformation.GetLayoutSlot(child);
+        if (slot.IsEmpty)
+            throw new InvalidOperationException("Window client layout slot is unavailable.");
+        return ScreenBounds(window, slot.TopLeft, slot.BottomRight);
+    }
+
+    private static object PopupClientBounds(FrameworkElement root)
+    {
+        // A popup's allocated client can be narrower than its natural content.
+        // RenderSize/ActualWidth describe that overflowing content, not the
+        // original Arrange slot. Read the allocation without rounding either.
+        if (PresentationSource.FromVisual(root) is not { } source ||
+            !ReferenceEquals(source.RootVisual, root) || VisualTreeHelper.GetParent(root) != null ||
+            VisualTreeHelper.GetOffset(root) != new System.Windows.Vector())
+            throw new InvalidOperationException("Popup has no original unshifted source-root client frame.");
+        Rect slot = LayoutInformation.GetLayoutSlot(root);
+        if (slot.IsEmpty || slot.Location != new Point())
+            throw new InvalidOperationException("Popup client layout slot is unavailable.");
+        return ScreenBounds(root, slot.TopLeft, slot.BottomRight);
+    }
+
+    private static object Bounds(FrameworkElement element) =>
+        ScreenBounds(element, new Point(), new Point(element.ActualWidth, element.ActualHeight));
+
+    private static object ScreenBounds(FrameworkElement element, Point topLeft, Point bottomRight)
+    {
+        Point first = element.PointToScreen(topLeft);
+        Point last = element.PointToScreen(bottomRight);
         if (!double.IsFinite(first.X) || !double.IsFinite(first.Y) || !double.IsFinite(last.X) ||
             !double.IsFinite(last.Y) || last.X <= first.X || last.Y <= first.Y)
             throw new InvalidOperationException("Original source screen bounds unavailable.");

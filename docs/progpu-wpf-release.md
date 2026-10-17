@@ -4,6 +4,40 @@ The LibreWPF preview release uses the package list in `eng/progpu-preview-packag
 That package set is what users need to consume the custom `LibreWPF.Sdk` and run normal WPF
 projects on the ProGPU/Silk.NET platform.
 
+The preview.70 candidate selects merged ProGPU #390 at the exact tested commit
+`cc1b1a754fd65370e1b419f370bec479347adce8`.
+[Build 39027481242](https://github.com/wieslawsoltes/ProGPU/actions/runs/39027481242)
+passed all 59 jobs and all 69 combined checks passed. This producer retains
+ordered DXC queries and exact font-owned VDMX device metrics used by canonical
+Forms autoscaling. Its tree matches merge commit
+`3e63ecc84f751a2c6c98ee1d3b5d538188ece327` on `main`; staging still requires the
+successful Build at the exact pinned commit, never a tree-equivalence substitute.
+
+The matching LibreWinForms source is the exact tested commit
+`45a7233fdf9f2b7c7a91afc417041b96a184ee6d`, including merged #173, #175 and #176.
+[Build 39038321197](https://github.com/wieslawsoltes/LibreWinForms/actions/runs/39038321197)
+passed all nine jobs, including the three visible package consumers, and
+[Docs 39038321193](https://github.com/wieslawsoltes/LibreWinForms/actions/runs/39038321193)
+passed. Its ProGPU gitlink exactly matches the direct pin above. This source
+retains portable Graphics and lifetime repairs, original font autoscaling,
+canonical header content margins and actual source scrollbar painting.
+Its tree matches merge commit `63d27a4975aad6a7066e90e487103b3c432bfbb4` on the
+Forms default branch.
+
+The [original package grid pair 39040991568](https://github.com/wieslawsoltes/LibreWinForms/actions/runs/39040991568)
+passes all four input phases in 5.750 seconds for Microsoft and 15.390 seconds
+for portable Forms, retaining the original 20/60-second limits. All 18 package
+identities, original source/output hashes and eight capture hashes were verified;
+all captures show visible portable header text and scrollbar track/thumb/arrows
+with unchanged source geometry. Theme pixels, scrollbar pointer/hover/repeat
+behavior and natural shutdown remain separate unfinished contracts in Forms #174.
+The original diagnostic receipts retain `qualified=false`.
+
+These LibreWPF packages still require their own complete Build and original
+modal, taskbar and Gallery application gates. Upstream passes do not qualify the
+combined package graph or preview.70 release. Public release tags must resolve to
+the exact pinned commits required by the existing immutable package audit.
+
 ## NuGet Packages
 
 - `LibreWPF.Transport`
@@ -36,7 +70,7 @@ projects on the ProGPU/Silk.NET platform.
 ## Local Preview Build
 
 ```bash
-PROGPU_WPF_DEV_PACKAGE_VERSION=0.1.0-preview.69 \
+PROGPU_WPF_DEV_PACKAGE_VERSION=0.1.0-preview.70 \
 PROGPU_WPF_PROGPU_PACKAGE_VERSION="0.1.0-source.$(git -C external/ProGPU rev-parse --short=8 HEAD)" \
   ./eng/progpu-wpf-sdk-ci.sh
 ```
@@ -186,7 +220,7 @@ Publishing is gated by repository secret `NUGET_API_KEY`.
 Existing WPF applications should be able to switch only the project SDK:
 
 ```xml
-<Project Sdk="LibreWPF.Sdk/0.1.0-preview.69">
+<Project Sdk="LibreWPF.Sdk/0.1.0-preview.70">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0-windows</TargetFramework>

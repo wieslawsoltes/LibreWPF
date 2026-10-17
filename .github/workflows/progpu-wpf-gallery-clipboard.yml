@@ -26,6 +26,11 @@ on:
         required: false
         default: false
         type: boolean
+      close_wsl_startup:
+        description: Close at most one verified packaged WSL startup terminal before the original first capture
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -42,6 +47,7 @@ jobs:
       PRODUCER_HEAD: ${{ inputs.head }}
       PRODUCER_BUILD: ${{ inputs.build }}
       PRODUCER_DOCS: ${{ inputs.docs }}
+      CLOSE_WSL_STARTUP: ${{ inputs.close_wsl_startup }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -77,7 +83,14 @@ jobs:
         if: inputs.diagnostic
         run: python .gallery-diagnostic-source/eng/WindowsGalleryClipboardConsumer/test_diagnostics.py -v
       - name: Verify unchanged capture and producer admission controls
-        run: python eng/WindowsGalleryClipboardConsumer/test_contract.py -v
+        shell: pwsh
+        run: |
+          python eng/WindowsGalleryClipboardConsumer/test_contract.py -v
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if ($env:CLOSE_WSL_STARTUP -eq 'true') {
+            python eng/WindowsGalleryClipboardConsumer/test_hosted_terminal.py -v
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
       - name: Prepare original consumer from whole successful producer
         shell: pwsh
         run: |
@@ -106,19 +119,23 @@ jobs:
         if: ${{ !inputs.diagnostic }}
         shell: pwsh
         run: |
+          $startup = @()
+          if ($env:CLOSE_WSL_STARTUP -eq 'true') { $startup = @('--close-hosted-wsl-startup') }
           python "$env:CASE_ROOT/consumer/run-windows.py" `
             --app "$env:CASE_ROOT/consumer/bin/Release/net10.0-windows/GalleryClipboardApp.exe" `
-            --output "$env:CASE_ROOT/runtime" --require-empty-ci-clipboard
+            --output "$env:CASE_ROOT/runtime" --require-empty-ci-clipboard @startup
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Observe original failure pixels (never release qualification)
         if: inputs.diagnostic
         shell: pwsh
         run: |
+          $startup = @()
+          if ($env:CLOSE_WSL_STARTUP -eq 'true') { $startup = @('--close-hosted-wsl-startup') }
           python .gallery-diagnostic-source/eng/WindowsGalleryClipboardConsumer/diagnose-windows.py `
             --driver "$env:CASE_ROOT/consumer/run-windows.py" `
             --scene-observer "$env:CASE_ROOT/scene-observer/bin/Release/net10.0/GallerySceneObserver.dll" `
             --app "$env:CASE_ROOT/consumer/bin/Release/net10.0-windows/GalleryClipboardApp.exe" `
-            --output "$env:CASE_ROOT/runtime" --require-empty-ci-clipboard
+            --output "$env:CASE_ROOT/runtime" --require-empty-ci-clipboard @startup
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Restore the original disposable desktop mode
         if: always()

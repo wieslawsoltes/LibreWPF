@@ -1,0 +1,312 @@
+name: Original Windows modal desktop checks
+
+on:
+  workflow_dispatch:
+    inputs:
+      producer_head:
+        description: Exact qualified LibreWPF commit; empty reproduces the original public preview.69 failure.
+        required: false
+        type: string
+      producer_build:
+        description: Complete successful LibreWPF Build run for that exact commit.
+        required: false
+        type: string
+      producer_docs:
+        description: Complete successful LibreWPF Docs run for that exact commit.
+        required: false
+        type: string
+      trace_input:
+        description: Diagnostic input tracing; leave disabled for application acceptance.
+        required: false
+        default: false
+        type: boolean
+
+      foreground_diagnostic:
+        description: Read-only foreground observation only; this mode never qualifies release acceptance.
+        required: false
+        default: false
+        type: boolean
+      dx12_compiler:
+        description: Explicit candidate compiler; Automatic preserves the original preview.69 configuration.
+        required: false
+        default: Automatic
+        type: choice
+        options:
+          - Automatic
+          - Dxc
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  paired-windows-modal:
+    if: ${{ !inputs.foreground_diagnostic }}
+    name: Original Microsoft and selected LibreWPF modal pair (ARM64)
+    runs-on: windows-11-arm
+    timeout-minutes: 15
+    steps:
+      - name: Preserve committed source bytes in the disposable runner checkouts
+        shell: pwsh
+        run: |
+          git config --global core.autocrlf false
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          git config --global core.eol lf
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/checkout@v4
+        with:
+          path: automation
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: 0214bb4569553741244c4fdf10cb78a9dc90661f
+          path: original
+          persist-credentials: false
+          sparse-checkout: |
+            samples/ProGPU.Wpf.ModalInteractionApp
+            samples/ProGPU.Wpf.ModalInteractionApp.Windows
+            eng/progpu-wpf-modal-desktop.py
+          sparse-checkout-cone-mode: false
+      - uses: actions/checkout@v4
+        with:
+          repository: wieslawsoltes/LibreWinForms
+          ref: 1538b491c17d300387339adce7196700f41cf23a
+          path: forms-helper
+          persist-credentials: false
+          sparse-checkout: eng
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            10.0.x
+            10.0.201
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate original modal and shared hosted activation controls
+        shell: pwsh
+        run: |
+          python automation/eng/tests/test_wpf_modal_desktop_contract.py -v
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python automation/eng/WindowsGalleryClipboardConsumer/test_contract.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python automation/eng/tests/test_wpf_hosted_desktop_setup.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python automation/eng/tests/test_wpf_hosted_shell_escape.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python automation/eng/tests/test_wpf_hosted_start_activation.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python automation/eng/tests/test_wpf_modal_source_staging.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python automation/eng/tests/test_wpf_modal_candidate_packages.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Retain the exact successful candidate producer when selected
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PRODUCER_HEAD: ${{ inputs.producer_head }}
+          PRODUCER_BUILD: ${{ inputs.producer_build }}
+          PRODUCER_DOCS: ${{ inputs.producer_docs }}
+        run: |
+          $values = @($env:PRODUCER_HEAD, $env:PRODUCER_BUILD, $env:PRODUCER_DOCS)
+          $selected = @($values | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+          if ($selected.Count -ne 0 -and $selected.Count -ne 3) { throw 'Specify all three exact producer identities or none.' }
+          if ($selected.Count -eq 3) {
+            $inputs = Join-Path $env:RUNNER_TEMP 'modal-candidate-producer'
+            "CANDIDATE_INPUTS=$inputs" >> $env:GITHUB_ENV
+            python automation/eng/WindowsModalDesktop/candidate-packages.py `
+              --head $env:PRODUCER_HEAD --build $env:PRODUCER_BUILD --docs $env:PRODUCER_DOCS --output $inputs
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+      - name: Prepare original sources and verify the selected package closure
+        shell: pwsh
+        env:
+          MODAL_DX12_COMPILER: ${{ inputs.dx12_compiler }}
+        run: |
+          $root = Join-Path $env:RUNNER_TEMP 'original-modal-pair'
+          "CASE_ROOT=$root" >> $env:GITHUB_ENV
+          $candidate = @()
+          if ($env:CANDIDATE_INPUTS) { $candidate = @('--candidate-inputs', $env:CANDIDATE_INPUTS) }
+          if ($env:MODAL_DX12_COMPILER -eq 'Dxc') { $candidate += @('--dx12-compiler', 'Dxc') }
+          python automation/eng/WindowsModalDesktop/prepare.py `
+            --source (Resolve-Path original).Path `
+            --forms-helper-checkout (Resolve-Path forms-helper).Path `
+            --output $root --dotnet (Get-Command dotnet).Source @candidate
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Prepare the disposable hosted desktop
+        shell: pwsh
+        run: |
+          python automation/eng/WindowsModalDesktop/prepare-desktop.py `
+            --output (Join-Path $env:RUNNER_TEMP 'original-modal-desktop-preflight.json')
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Run the original seven scenarios and per-process 60-second deadlines
+        shell: pwsh
+        env:
+          PROGPU_WPF_TRACE_INPUT: ${{ inputs.trace_input && '1' || '0' }}
+        run: |
+          python automation/eng/WindowsModalDesktop/run.py --output $env:CASE_ROOT
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Preserve original failures, captures and immutable input receipts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: original-modal-pair-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          retention-days: 14
+          if-no-files-found: warn
+          path: |
+            ${{ runner.temp }}/original-modal-desktop-preflight.json
+            ${{ runner.temp }}/modal-candidate-producer/*.json
+            ${{ env.CASE_ROOT }}/public-inputs.json
+            ${{ env.CASE_ROOT }}/preparation.json
+            ${{ env.CASE_ROOT }}/*-build.log
+            ${{ env.CASE_ROOT }}/runtime-inventory.txt
+            ${{ env.CASE_ROOT }}/launch.json
+            ${{ env.CASE_ROOT }}/controller-result.json
+            ${{ env.CASE_ROOT }}/runtime/**
+            ${{ env.CASE_ROOT }}/original-source/**
+            ${{ env.CASE_ROOT }}/consumer/samples/ProGPU.Wpf.ModalInteractionApp/ModalObservation.cs
+
+  diagnostic-modal-foreground:
+    if: ${{ inputs.foreground_diagnostic }}
+    name: DIAGNOSTIC ONLY — unchanged original modal pair (ARM64)
+    runs-on: windows-11-arm
+    timeout-minutes: 15
+    steps:
+      - name: Retain the unchanged original compiler in foreground diagnostics
+        shell: pwsh
+        env:
+          MODAL_DX12_COMPILER: ${{ inputs.dx12_compiler }}
+        run: |
+          if ($env:MODAL_DX12_COMPILER -and $env:MODAL_DX12_COMPILER -ne 'Automatic') {
+            throw 'Foreground diagnostics preserve the original compiler. Use ordinary candidate acceptance for explicit DXC.'
+          }
+      - name: Preserve committed source bytes in the disposable runner checkouts
+        shell: pwsh
+        run: |
+          git config --global core.autocrlf false
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          git config --global core.eol lf
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.producer_head }}
+          path: automation
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          path: diagnostics
+          persist-credentials: false
+          sparse-checkout: |
+            eng/WindowsModalDesktop
+            eng/tests/test_wpf_foreground_observation.py
+            .github/workflows/progpu-wpf-modal-desktop.yml
+          sparse-checkout-cone-mode: false
+      - uses: actions/checkout@v4
+        with:
+          ref: 0214bb4569553741244c4fdf10cb78a9dc90661f
+          path: original
+          persist-credentials: false
+          sparse-checkout: |
+            samples/ProGPU.Wpf.ModalInteractionApp
+            samples/ProGPU.Wpf.ModalInteractionApp.Windows
+            eng/progpu-wpf-modal-desktop.py
+          sparse-checkout-cone-mode: false
+      - uses: actions/checkout@v4
+        with:
+          repository: wieslawsoltes/LibreWinForms
+          ref: 1538b491c17d300387339adce7196700f41cf23a
+          path: forms-helper
+          persist-credentials: false
+          sparse-checkout: eng
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            10.0.x
+            10.0.201
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate original modal and shared hosted activation controls
+        shell: pwsh
+        run: |
+          python diagnostics/eng/tests/test_wpf_foreground_observation.py -v
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python automation/eng/tests/test_wpf_modal_desktop_contract.py -v
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python automation/eng/WindowsGalleryClipboardConsumer/test_contract.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python automation/eng/tests/test_wpf_hosted_desktop_setup.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python automation/eng/tests/test_wpf_hosted_shell_escape.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python automation/eng/tests/test_wpf_hosted_start_activation.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python automation/eng/tests/test_wpf_modal_source_staging.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python automation/eng/tests/test_wpf_modal_candidate_packages.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Retain the exact successful candidate producer when selected
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PRODUCER_HEAD: ${{ inputs.producer_head }}
+          PRODUCER_BUILD: ${{ inputs.producer_build }}
+          PRODUCER_DOCS: ${{ inputs.producer_docs }}
+        run: |
+          $values = @($env:PRODUCER_HEAD, $env:PRODUCER_BUILD, $env:PRODUCER_DOCS)
+          $selected = @($values | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+          if ($selected.Count -ne 3) { throw 'Specify all three exact producer identities or none.' }
+          if ($selected.Count -eq 3) {
+            $inputs = Join-Path $env:RUNNER_TEMP 'modal-candidate-producer'
+            "CANDIDATE_INPUTS=$inputs" >> $env:GITHUB_ENV
+            python automation/eng/WindowsModalDesktop/candidate-packages.py `
+              --head $env:PRODUCER_HEAD --build $env:PRODUCER_BUILD --docs $env:PRODUCER_DOCS --output $inputs
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+      - name: Prepare original sources and verify the selected package closure
+        shell: pwsh
+        run: |
+          $root = Join-Path $env:RUNNER_TEMP 'original-modal-pair'
+          "CASE_ROOT=$root" >> $env:GITHUB_ENV
+          $candidate = @()
+          if ($env:CANDIDATE_INPUTS) { $candidate = @('--candidate-inputs', $env:CANDIDATE_INPUTS) }
+          python automation/eng/WindowsModalDesktop/prepare.py `
+            --source (Resolve-Path original).Path `
+            --forms-helper-checkout (Resolve-Path forms-helper).Path `
+            --output $root --dotnet (Get-Command dotnet).Source @candidate
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Prepare the disposable hosted desktop
+        shell: pwsh
+        run: |
+          python automation/eng/WindowsModalDesktop/prepare-desktop.py `
+            --output (Join-Path $env:RUNNER_TEMP 'original-modal-desktop-preflight.json')
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Observe foreground beside the unchanged bounded original controller
+        shell: pwsh
+        env:
+          PROGPU_WPF_TRACE_INPUT: '0'
+          PRODUCER_HEAD: ${{ inputs.producer_head }}
+        run: |
+          python diagnostics/eng/WindowsModalDesktop/observe-foreground.py `
+            --automation-root (Resolve-Path automation).Path --producer-head $env:PRODUCER_HEAD `
+            --output $env:CASE_ROOT --evidence (Join-Path $env:RUNNER_TEMP 'modal-foreground-diagnostic.json')
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Preserve original failures, captures and immutable input receipts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: diagnostic-modal-foreground-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          retention-days: 14
+          if-no-files-found: warn
+          path: |
+            ${{ runner.temp }}/modal-foreground-diagnostic.json
+            ${{ runner.temp }}/original-modal-desktop-preflight.json
+            ${{ runner.temp }}/modal-candidate-producer/*.json
+            ${{ env.CASE_ROOT }}/public-inputs.json
+            ${{ env.CASE_ROOT }}/preparation.json
+            ${{ env.CASE_ROOT }}/*-build.log
+            ${{ env.CASE_ROOT }}/runtime-inventory.txt
+            ${{ env.CASE_ROOT }}/launch.json
+            ${{ env.CASE_ROOT }}/controller-result.json
+            ${{ env.CASE_ROOT }}/runtime/**
+            ${{ env.CASE_ROOT }}/original-source/**
+            ${{ env.CASE_ROOT }}/consumer/samples/ProGPU.Wpf.ModalInteractionApp/ModalObservation.cs

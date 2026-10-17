@@ -27,6 +27,7 @@ namespace System.Windows
         private static Action<object, double, double> _setClientSize;
         private static Action<object, double, double> _setPosition;
         private static Action<object, bool> _setTopmost;
+        private static Action<object, bool> _setWin32TaskbarVisibility;
         private static Action<object, object, object> _setWindowBorder;
         private static Action<object> _close;
         private static Action<object> _run;
@@ -110,7 +111,8 @@ namespace System.Windows
             Action<object, Func<bool>> runDialog = null,
             Action<object, object> setOwner = null,
             Action<object, Action> releaseDialog = null,
-            Func<object, PortableWindowFrameInsets?> getFrameInsets = null)
+            Func<object, PortableWindowFrameInsets?> getFrameInsets = null,
+            Action<object, bool> setWin32TaskbarVisibility = null)
         {
             ArgumentNullException.ThrowIfNull(activate);
 
@@ -121,6 +123,7 @@ namespace System.Windows
             Volatile.Write(ref _setClientSize, setClientSize);
             Volatile.Write(ref _setPosition, setPosition);
             Volatile.Write(ref _setTopmost, setTopmost);
+            Volatile.Write(ref _setWin32TaskbarVisibility, setWin32TaskbarVisibility);
             Volatile.Write(ref _setWindowBorder, setWindowBorder);
             Volatile.Write(ref _close, close);
             Volatile.Write(ref _run, run);
@@ -152,6 +155,7 @@ namespace System.Windows
             Volatile.Write(ref _setClientSize, null);
             Volatile.Write(ref _setPosition, null);
             Volatile.Write(ref _setTopmost, null);
+            Volatile.Write(ref _setWin32TaskbarVisibility, null);
             Volatile.Write(ref _setWindowBorder, null);
             Volatile.Write(ref _close, null);
             Volatile.Write(ref _run, null);
@@ -252,6 +256,11 @@ namespace System.Windows
         internal static void SetPosition(object activation, double left, double top)
         {
             Volatile.Read(ref _setPosition)?.Invoke(activation, left, top);
+        }
+
+        internal static void SetWin32TaskbarVisibility(object activation, bool visible)
+        {
+            Volatile.Read(ref _setWin32TaskbarVisibility)?.Invoke(activation, visible);
         }
 
         internal static void SetTopmost(object activation, bool topmost)
@@ -1367,7 +1376,8 @@ namespace System.Windows
                     callbacks.RunDialog,
                     callbacks.SetOwner,
                     callbacks.ReleaseDialog,
-                    callbacks.GetFrameInsets);
+                    callbacks.GetFrameInsets,
+                    callbacks.SetWin32TaskbarVisibility);
             }
 
             public bool TryRegisterMediaContextRenderService(

@@ -128,6 +128,26 @@ def observed_capture(original, observer=capture_details):
     return capture
 
 
+def observed_foreground(original, path):
+    def prepare(desktop, snapshot, pid, deadline, record, host_activation=None):
+        try:
+            return original(desktop, snapshot, pid, deadline, record, host_activation)
+        except BaseException:
+            # Preserve the exact original failure before owned cleanup changes
+            # the foreground. No activation, input, retry or extra wait.
+            evidence = {"qualified": False, "diagnosticOnly": True,
+                        "originalDeadline": deadline, "pid": pid, "target": snapshot["hwnd"]}
+            try:
+                evidence["foreground"] = desktop.window_observation(desktop.u.GetForegroundWindow())
+                evidence["foregroundAfterObservation"] = desktop.u.GetForegroundWindow()
+                with path.open("x") as output:
+                    json.dump(evidence, output, indent=2)
+            except Exception as error:
+                print("Foreground diagnostic unavailable: " + str(error), file=sys.stderr)
+            raise
+    return prepare
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--driver", type=Path, required=True)
@@ -143,6 +163,8 @@ def main():
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     module.Desktop.capture = observed_capture(module.Desktop.capture)
+    module.Desktop.prepare_foreground = observed_foreground(
+        module.Desktop.prepare_foreground, args.output / "foreground-failure.diagnostic.json")
     trace_environment = {"PROGPU_WPF_TRACE_NATIVE_LOOP": "1", "PROGPU_WPF_TRACE_RENDER_SURFACE": "1"}
     if args.scene_observer:
         observer = args.scene_observer.resolve(strict=True)

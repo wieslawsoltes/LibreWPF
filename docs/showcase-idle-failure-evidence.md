@@ -1,5 +1,32 @@
 # Passive Showcase failure evidence
 
+## Owner-thread completion after the ARM64 timer failure
+
+[Build 39050831322](https://github.com/wieslawsoltes/LibreWPF/actions/runs/39050831322)
+at `79ab3a624874d8bfeabfb673c1d156726fb56a83` passed fifteen jobs. ARM64
+completed all four exact-zero-presentation observations, restored the source UI
+and persisted a successful application receipt, then exited `3762504530` with
+`Win32Exception (1400)` in `Dispatcher.SetWin32Timer` / `PromoteTimers` from the
+native host update. The runner correctly retained failure. Original artifact
+`12108362693` has SHA-256
+`86432c87f473a53105bef7c904391dbc52b9277afaf71df036d7891184ebaa4f`.
+
+The passive sample called `Environment.Exit` from its background validation
+task while the owner thread continued pumping. The source
+`ManagedWndProcTracker.OnAppDomainProcessExit` replaces tracked window procedures
+and posts `WM_CLOSE`; a dispatcher can consequently lose its HWND without its
+ordinary destruction callback. This is a concrete unsafe shutdown path consistent
+with the retained stack, not proof of the exact interleaving or of earlier crashes.
+
+Completion now posts `Application.Shutdown(exitCode)` to the source dispatcher
+after serializing and flushing the original receipt. Normal source and host
+teardown runs before process exit. The four measured phases, source restoration,
+120-second child bound, native payload hashes and child-exit acceptance remain
+unchanged. Failed shutdown or timeout still fails even with a successful receipt.
+Offline runner controls retain both ordinary failure and the original CLR exit
+value. Local source controls do not qualify Windows teardown; the complete new
+Build and native application checks remain required.
+
 ## Original GlyphRun crash and first-chance capture
 
 [Build 38314985874](https://github.com/wieslawsoltes/LibreWPF/actions/runs/38314985874)

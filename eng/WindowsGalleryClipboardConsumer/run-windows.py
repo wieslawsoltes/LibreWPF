@@ -4,6 +4,7 @@ import argparse
 import ctypes as C
 from ctypes import wintypes as W
 import hashlib
+import importlib.util
 import json
 import math
 import os
@@ -96,7 +97,7 @@ def require_monitor_coverage(crop, monitors):
 
 
 class Desktop:
-    def __init__(self):
+    def __init__(self, *, adopt_physical_coordinates=False):
         require(os.name == "nt", "Windows only")
         self.u = C.WinDLL("user32", use_last_error=True)
         self.g = C.WinDLL("gdi32", use_last_error=True)
@@ -111,6 +112,8 @@ class Desktop:
         bind(self.u, "GetWindowRect", W.BOOL, W.HWND, C.POINTER(W.RECT))
         bind(self.u, "ClientToScreen", W.BOOL, W.HWND, C.POINTER(W.POINT))
         bind(self.u, "GetForegroundWindow", W.HWND)
+        bind(self.u, "GetClassNameW", C.c_int, W.HWND, W.LPWSTR, C.c_int)
+        bind(self.u, "GetWindowTextW", C.c_int, W.HWND, W.LPWSTR, C.c_int)
         bind(self.u, "SetForegroundWindow", W.BOOL, W.HWND)
         bind(self.u, "WindowFromPoint", W.HWND, W.POINT)
         bind(self.u, "GetCursorPos", W.BOOL, C.POINTER(W.POINT))
@@ -132,7 +135,13 @@ class Desktop:
         bind(self.g, "DeleteDC", W.BOOL, W.HDC)
         bind(self.g, "BitBlt", W.BOOL, W.HDC, C.c_int, C.c_int, C.c_int, C.c_int, W.HDC, C.c_int, C.c_int, W.DWORD)
         bind(self.g, "GetDIBits", C.c_int, W.HDC, W.HBITMAP, W.UINT, W.UINT, W.LPVOID, W.LPVOID, W.UINT)
-        require(self.u.SetProcessDpiAwarenessContext(W.HANDLE(-4)), "capture process must admit physical per-monitor coordinates")
+        if adopt_physical_coordinates:
+            bind(self.u, "GetThreadDpiAwarenessContext", W.HANDLE)
+            bind(self.u, "AreDpiAwarenessContextsEqual", W.BOOL, W.HANDLE, W.HANDLE)
+            require(self.u.AreDpiAwarenessContextsEqual(self.u.GetThreadDpiAwarenessContext(), W.HANDLE(-4)),
+                    "existing observer must use physical per-monitor-v2 coordinates")
+        else:
+            require(self.u.SetProcessDpiAwarenessContext(W.HANDLE(-4)), "capture process must admit physical per-monitor coordinates")
 
     def monitors(self, crop):
         result = []
@@ -153,15 +162,30 @@ class Desktop:
         require(self.u.IsWindow(hwnd) and self.u.IsWindowVisible(hwnd) and not self.u.IsIconic(hwnd), "owned window is not live/visible")
         require(self.u.GetWindowThreadProcessId(hwnd, C.byref(owner)) and owner.value == pid, "window PID mismatch")
 
-    def caption_at(self, hwnd, pid, x, y):
+    def window_observation(self, hwnd):
+        owner, rect = W.DWORD(), W.RECT()
+        name, title = C.create_unicode_buffer(256), C.create_unicode_buffer(256)
+        thread = self.u.GetWindowThreadProcessId(hwnd, C.byref(owner))
+        self.u.GetClassNameW(hwnd, name, 256)
+        self.u.GetWindowTextW(hwnd, title, 256)
+        has_rect = self.u.GetWindowRect(hwnd, C.byref(rect))
+        return dict(hwnd=hwnd, pid=owner.value, thread=thread, nativeClass=name.value, title=title.value,
+                    bounds=[rect.left, rect.top, rect.right, rect.bottom] if has_rect else None)
+
+    def caption_at(self, hwnd, pid, x, y, observation=None):
         self.owned_window(hwnd, pid)
         require(-32768 <= x <= 32767 and -32768 <= y <= 32767,
                 "caption point cannot be represented by WM_NCHITTEST")
-        if self.u.WindowFromPoint(W.POINT(x, y)) != hwnd:
+        point_owner = self.u.WindowFromPoint(W.POINT(x, y))
+        if observation is not None:
+            observation.update(point=[x, y], pointWindow=self.window_observation(point_owner))
+        if point_owner != hwnd:
             return False
         hit = C.c_size_t()
         require(self.u.SendMessageTimeoutW(hwnd, 0x84, 0, (x & 65535) | ((y & 65535) << 16),
                                           0x22, 200, C.byref(hit)), "native caption hit-test failed")
+        if observation is not None:
+            observation["nativeHit"] = hit.value
         return hit.value == 2  # HTCAPTION, never close/minimize/resize/client.
 
     def require_idle_input(self):
@@ -179,7 +203,12 @@ class Desktop:
         clipboard_mode(False, True, environment)
         require(snapshot.get("pid") == pid and snapshot.get("frame", 0) > 0,
                 "foreign or unpresented CI activation target")
-        hwnd = snapshot["hwnd"]
+        self.activate_ci_window(snapshot["hwnd"], pid, deadline, record, environment)
+
+    def activate_ci_window(self, hwnd, pid, deadline, record, environment):
+        # Source observers with their own native-window proof use the same
+        # guarded caption operation. Gallery still requires its actual frame.
+        clipboard_mode(False, True, environment)
         self.owned_window(hwnd, pid)
         require(time.monotonic() < deadline - 3, "original60-second budget exhausted before CI activation")
         record.update(pid=pid, hwnd=hwnd, before=self.u.GetForegroundWindow(), clickCount=0)
@@ -191,12 +220,17 @@ class Desktop:
         require(self.u.GetWindowRect(hwnd, C.byref(rect)) and self.u.ClientToScreen(hwnd, C.byref(client_origin)),
                 "native caption geometry unavailable")
         require(rect.top < client_origin.y and rect.right > rect.left, "native caption extent unavailable")
+        record.update(windowBounds=[rect.left, rect.top, rect.right, rect.bottom],
+                      clientOrigin=[client_origin.x, client_origin.y],
+                      foreground=self.window_observation(record["before"]), captionCandidates=[])
         y = (rect.top + client_origin.y) // 2
         point = None
         for fraction in (2, 1, 3):
             x = rect.left + (rect.right - rect.left) * fraction // 4
             require(time.monotonic() < deadline - 3, "original60-second budget exhausted locating caption")
-            if self.caption_at(hwnd, pid, x, y):
+            candidate = {}
+            record["captionCandidates"].append(candidate)
+            if self.caption_at(hwnd, pid, x, y, candidate):
                 self.monitors((x, y, x + 1, y + 1))
                 point = (x, y)
                 break
@@ -381,8 +415,11 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--allow-replace-clipboard", action="store_true")
     parser.add_argument("--require-empty-ci-clipboard", action="store_true")
+    parser.add_argument("--close-hosted-wsl-startup", action="store_true")
     args = parser.parse_args()
     mode = clipboard_mode(args.allow_replace_clipboard, args.require_empty_ci_clipboard, os.environ)
+    require(not args.close_hosted_wsl_startup or args.require_empty_ci_clipboard,
+            "Terminal startup close requires the empty disposable CI mode")
     require(args.app.is_file(), "missing apphost")
     args.output.mkdir()
     started = time.monotonic(); deadline = started + 60
@@ -418,6 +455,18 @@ def main():
                 snapshot = read_json(snapshot_path)
                 require(process.poll() is None, "host lifetime ended before capture")
                 if phase == "pasted":
+                    if args.close_hosted_wsl_startup:
+                        helper = Path(__file__).with_name("hosted-terminal.py")
+                        prepared = read_json(Path(__file__).with_name("preparation.json"))
+                        require(not helper.is_symlink() and hashlib.sha256(helper.read_bytes()).hexdigest()
+                                == prepared["inputs"].get("hosted-terminal.py"),
+                                "Prepared terminal helper identity changed")
+                        spec = importlib.util.spec_from_file_location("gallery_hosted_terminal", helper)
+                        terminal = importlib.util.module_from_spec(spec)
+                        spec.loader.exec_module(terminal)
+                        result["hostedTerminal"] = {}
+                        terminal.close_startup(terminal.Native(desktop), snapshot["hwnd"], process.pid,
+                                               deadline, result["hostedTerminal"], os.environ)
                     result["foregroundSetup"] = {}
                     activation = read_json(args.output / "activation.json")
                     require(isinstance(activation, dict), "host activation receipt is missing")

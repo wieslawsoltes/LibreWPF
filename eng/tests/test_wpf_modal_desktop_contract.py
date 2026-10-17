@@ -6,6 +6,7 @@ import importlib.util
 import json
 from pathlib import Path
 import tempfile
+from types import SimpleNamespace
 import unittest
 from unittest import mock
 
@@ -16,6 +17,98 @@ SPEC.loader.exec_module(DRIVER)
 
 
 class DesktopReceiptTests(unittest.TestCase):
+    def test_first_presented_frame_requires_two_ready_observations(self):
+        # The retained context-menu failure had stable native geometry at zero
+        # frames. A first frame must not reuse either unpresented observation.
+        states = [dict(sequence=index + 1, windows=[dict(surfaces=[dict(
+            nativeHandle=7, presentedFrames=frames)])])
+            for index, frames in enumerate((0, 0, 1, 2))]
+        session = DRIVER.Session(mock.Mock(), mock.Mock(pid=17), Path('/unused'), 'run', True, 60)
+        session.remaining = mock.Mock(return_value=5)
+        session.native = mock.Mock(return_value=['native'])
+        session.match = mock.Mock()
+        with mock.patch.object(DRIVER, 'observation', side_effect=[(state, {}) for state in states]) as observe, \
+             mock.patch.object(DRIVER.time, 'sleep'):
+            self.assertEqual(['native'], session.wait(lambda state: True))
+        self.assertEqual(4, observe.call_count)
+        session.match.assert_called_once_with(states[-1], ['native'])
+        self.assertEqual(60, session.deadline)
+        self.assertEqual(0, session.actions)
+
+    def test_unpresented_surface_exhausts_original_deadline_without_input(self):
+        state = dict(sequence=1, windows=[dict(surfaces=[dict(presentedFrames=0)])])
+        desktop = mock.Mock()
+        session = DRIVER.Session(desktop, mock.Mock(pid=17), Path('/unused'), 'run', True, 60)
+        expired = RuntimeError('Original 60-second desktop deadline expired')
+        session.remaining = mock.Mock(side_effect=[5, 1, expired])
+        with mock.patch.object(DRIVER, 'observation', return_value=(state, {})), \
+             mock.patch.object(DRIVER.time, 'sleep'), self.assertRaises(RuntimeError) as seen:
+            session.wait(lambda state: True)
+        self.assertIs(expired, seen.exception)
+        self.assertEqual(60, session.deadline)
+        self.assertEqual([], desktop.mock_calls)
+
+    def test_presented_readiness_rejects_invalid_counts_and_checks_all_surfaces(self):
+        for frames in (-1, True, None, 1.5, '1'):
+            with self.subTest(frames=frames), self.assertRaisesRegex(RuntimeError, 'Invalid actual'):
+                DRIVER.presented(dict(windows=[dict(surfaces=[dict(presentedFrames=0), dict(presentedFrames=frames)])]))
+        self.assertFalse(DRIVER.presented(dict(windows=[dict(surfaces=[dict(presentedFrames=1), dict(presentedFrames=0)])])))
+        self.assertTrue(DRIVER.presented(dict(windows=[dict(surfaces=[dict(presentedFrames=1), dict(presentedFrames=2)])])))
+
+    def test_microsoft_wait_does_not_require_portable_frame_metadata(self):
+        states = [dict(sequence=index, windows=[dict(surfaces=[dict(presentedFrames=None)])]) for index in (1, 2)]
+        session = DRIVER.Session(mock.Mock(), mock.Mock(pid=17), Path('/unused'), 'run', False, 60)
+        session.remaining = mock.Mock(return_value=5)
+        session.native = mock.Mock(return_value=[])
+        session.match = mock.Mock()
+        with mock.patch.object(DRIVER, 'observation', side_effect=[(state, {}) for state in states]), \
+             mock.patch.object(DRIVER.time, 'sleep'):
+            session.wait(lambda state: True)
+        session.match.assert_called_once_with(states[-1], [])
+
+    def test_original_failure_retains_natural_exit_and_foreground_before_cleanup(self):
+        for natural_exit, observer_error in ((0xC0000409, False), (None, False), (17, True)):
+            with self.subTest(natural_exit=natural_exit, observer_error=observer_error), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary).resolve()
+                app = root / 'original.exe'
+                app.write_bytes(b'original app')
+                process = mock.Mock(pid=19, returncode=natural_exit)
+                process.poll.return_value = natural_exit
+                def wait(timeout):
+                    process.returncode = 1
+                    return 1
+                process.wait.side_effect = wait
+                desktop = mock.Mock(provenance=None)
+                observer = mock.Mock()
+                observer.foreground.return_value = {'hwnd': 4, 'pid': 27, 'after': 4}
+                if observer_error:
+                    observer.foreground.side_effect = OSError('diagnostic unavailable')
+                args = SimpleNamespace(platform='windows', macos_helper=None,
+                                       hosted_windows_caption_activation=True, hosted_windows_shell_escape=False)
+                failure = RuntimeError('original scenario failure')
+                with mock.patch.object(DRIVER.subprocess, 'Popen', return_value=process) as launch, \
+                     mock.patch.object(DRIVER, 'scenario', side_effect=failure) as scenario, \
+                     mock.patch.object(DRIVER.importlib.util, 'spec_from_file_location', return_value=mock.Mock()), \
+                     mock.patch.object(DRIVER.importlib.util, 'module_from_spec', return_value=observer):
+                    with self.assertRaises(RuntimeError) as seen:
+                        DRIVER.run_one(args, None, {}, app, root / 'evidence', True, desktop)
+                self.assertIs(seen.exception, failure)
+                result = json.loads((root / 'evidence/result.json').read_text())
+                self.assertEqual(natural_exit, result['exitCodeAtFailure'])
+                self.assertEqual(natural_exit if natural_exit is not None else 1, result['exitCodeAfterCleanup'])
+                self.assertEqual('original scenario failure', result['error'])
+                self.assertFalse(result['completed'])
+                self.assertEqual(0, result['physicalActionsAtFailure'])
+                self.assertEqual(observer_error, 'failureObservationError' in result)
+                if not observer_error:
+                    self.assertEqual(27, result['foregroundAfterFailure']['pid'])
+                launch.assert_called_once()
+                scenario.assert_called_once()
+                desktop.pointer.assert_not_called()
+                desktop.key.assert_not_called()
+                desktop.activate.assert_not_called()
+                self.assertEqual(natural_exit is None, process.terminate.called)
+
     def test_duplicate_and_nonfinite_fields_are_not_receipts(self):
         for raw in (b'{"pid":1,"pid":1}', b'{"x":NaN}', b'{"x":Infinity}', b'{"x":-Infinity}'):
             with self.subTest(raw=raw), self.assertRaises(RuntimeError):
@@ -39,13 +132,13 @@ class DesktopReceiptTests(unittest.TestCase):
 
     def test_snapshot_pid_run_title_sequence_are_exact(self):
         run = "a" * 32
-        original = dict(schema="wpf-modal-desktop-v1", qualified=False, pid=17, run=run,
+        original = dict(schema="wpf-modal-desktop-v2", qualified=False, pid=17, run=run,
                         title=f"WpfModalInteractionApp [{run}]", sequence=1)
         with tempfile.TemporaryDirectory() as temporary:
             directory = Path(temporary).resolve()
             path = directory / "snapshot-00000001.json"
             for change in ({"pid": 18}, {"run": "b" * 32}, {"title": "another"},
-                           {"sequence": 2}, {"qualified": True}):
+                           {"sequence": 2}, {"qualified": True}, {"schema": "wpf-modal-desktop-v1"}):
                 path.write_text(json.dumps(original | change))
                 with self.subTest(change=change), self.assertRaises(RuntimeError):
                     DRIVER.observation(directory, 17, run)
@@ -104,11 +197,386 @@ class DesktopReceiptTests(unittest.TestCase):
         with mock.patch.object(DRIVER.time, "monotonic", return_value=61), self.assertRaisesRegex(RuntimeError, "60-second"):
             session.remaining()
 
+    def test_capture_change_freezes_failure_without_repair_or_recapture(self):
+        for diagnostic_error in (False, True):
+            with self.subTest(diagnostic_error=diagnostic_error), tempfile.TemporaryDirectory() as temporary:
+                directory = Path(temporary).resolve()
+                desktop = mock.Mock()
+                desktop.screenshot.side_effect = lambda pid, windows, path: (path.write_bytes(b'original'), {'sha256': 'raw'})[1]
+                session = DRIVER.Session(desktop, mock.Mock(pid=17), directory, 'run', False, 60, True)
+                session.state = dict(sequence=50, windows=[], focus='OwnerCombo', counts={'owner-deactivated': 2})
+                session.source_receipt = {'path': 'before'}
+                session.wait = mock.Mock(return_value=[])
+                session.native = mock.Mock(return_value=[])
+                session.remaining = mock.Mock(return_value=5)
+                after = dict(sequence=55, windows=[], focus=None, counts={'owner-deactivated': 3})
+                module = mock.Mock()
+                module.foreground.return_value = {'hwnd': 8, 'after': 8, 'pid': 22}
+                if diagnostic_error:
+                    module.foreground.side_effect = RuntimeError('observer unavailable')
+                with mock.patch.object(DRIVER, 'observation', return_value=(after, {'path': 'after'})) as observe, \
+                     mock.patch.object(DRIVER.importlib.util, 'spec_from_file_location', return_value=mock.Mock()), \
+                     mock.patch.object(DRIVER.importlib.util, 'module_from_spec', return_value=module):
+                    with self.assertRaisesRegex(RuntimeError, '^Source state changed during capture$'):
+                        session.capture('06-combo', lambda state: True)
+                record = json.loads((directory/'06-combo-capture-failure.json').read_text())
+                self.assertFalse(record['originalSourceStateUnchanged'])
+                self.assertFalse(record['qualified'])
+                self.assertEqual(session.state, record['sourceBefore'])
+                self.assertEqual(after, record['sourceAfter'])
+                self.assertEqual({'path': 'after'}, record['sourceAfterReceipt'])
+                self.assertEqual(60, session.deadline)
+                self.assertEqual(0, session.actions)
+                self.assertFalse((directory/'06-combo.json').exists())
+                self.assertEqual(b'original', (directory/'06-combo.bmp').read_bytes())
+                self.assertEqual(diagnostic_error, 'diagnosticError' in record)
+                module.foreground.assert_called_once_with(desktop)
+                session.wait.assert_called_once()
+                observe.assert_called_once()
+                desktop.screenshot.assert_called_once()
+                desktop.pointer.assert_not_called()
+                desktop.key.assert_not_called()
+                desktop.activate.assert_not_called()
+
+    def test_successful_capture_does_not_load_failure_observer(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary).resolve()
+            desktop = mock.Mock()
+            desktop.screenshot.side_effect = lambda pid, windows, path: (path.write_bytes(b'original'), {})[1]
+            session = DRIVER.Session(desktop, mock.Mock(pid=17), directory, 'run', False, 60, True)
+            session.state = dict(sequence=50, windows=[], focus='OwnerCombo')
+            session.source_receipt = {'path': 'before'}
+            session.wait = mock.Mock(return_value=[])
+            session.native = mock.Mock(return_value=[])
+            session.remaining = mock.Mock(return_value=5)
+            with mock.patch.object(DRIVER, 'observation', return_value=(session.state, {})), \
+                 mock.patch.object(session, 'record_capture_change') as diagnose:
+                session.capture('06-combo', lambda state: True)
+            diagnose.assert_not_called()
+            self.assertTrue((directory/'06-combo.json').exists())
+            self.assertFalse((directory/'06-combo-capture-failure.json').exists())
+
     def test_wrong_helper_head_is_rejected_before_import(self):
         with tempfile.TemporaryDirectory() as temporary:
             with mock.patch.object(DRIVER.subprocess, "run", return_value=mock.Mock(stdout=b"b" * 40 + b"\n")):
                 with self.assertRaisesRegex(RuntimeError, "exact requested commit"):
                     DRIVER.load_helper(Path(temporary).resolve(), "a" * 40)
+
+    def test_ordinary_initial_activation_keeps_the_existing_provider_call(self):
+        desktop = mock.Mock()
+        session = DRIVER.Session(desktop, None, Path('/unused'), 'run', False, 60)
+        owner = {'hwnd': 7}
+        session.activate(owner)
+        desktop.activate.assert_called_once_with(owner)
+        self.assertEqual(0, session.actions)
+
+    def test_hosted_activation_preserves_deadline_and_counts_the_caption_action(self):
+        process = mock.Mock(pid=12)
+        process.poll.return_value = None
+        desktop = mock.Mock()
+        desktop.window_identity.side_effect = lambda window: window['hwnd']
+        module = mock.Mock()
+        def activate(hwnd, pid, deadline, record, environment):
+            self.assertEqual((7, 12, 60), (hwnd, pid, deadline))
+            record.update(clickCount=1, after=7)
+        module.Desktop.return_value.activate_ci_window.side_effect = activate
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            for name in ('stdout.txt', 'stderr.txt'): (directory/name).touch()
+            session = DRIVER.Session(desktop, process, directory, 'run', False, 60, True)
+            session.owner_identity = 7
+            with mock.patch.object(DRIVER.time, 'monotonic', return_value=20), \
+                 mock.patch.object(DRIVER.importlib.util, 'spec_from_file_location', return_value=mock.Mock()), \
+                 mock.patch.object(DRIVER.importlib.util, 'module_from_spec', return_value=module):
+                session.activate({'hwnd': 7})
+                self.assertEqual(1, session.actions)
+                self.assertEqual(60, session.deadline)
+                module.Desktop.assert_called_once_with(adopt_physical_coordinates=True)
+                self.assertEqual('hosted-caption', json.loads((directory/'input-001.json').read_text())['kind'])
+                with self.assertRaisesRegex(RuntimeError, 'startup-only'):
+                    session.activate({'hwnd': 7})
+                module.Desktop.return_value.activate_ci_window.assert_called_once()
+                desktop.activate.assert_not_called()
+
+    def test_hosted_activation_rejects_replaced_owner_before_loading_native_input(self):
+        session = DRIVER.Session(mock.Mock(), None, Path('/unused'), 'run', True, 60, True)
+        session.owner_identity = 7
+        session.desktop.window_identity.return_value = 8
+        with mock.patch.object(session, 'remaining'), \
+             mock.patch.object(DRIVER.importlib.util, 'spec_from_file_location') as load:
+            with self.assertRaisesRegex(RuntimeError, 'identity changed'):
+                session.activate({'hwnd': 8})
+            load.assert_not_called()
+
+    def test_shell_escape_keeps_fresh_original_owner_events_and_rejects_leaked_keys(self):
+        for leaked, hosted_start in ((False, False), (True, False), (False, True), (True, True)):
+            with self.subTest(leaked=leaked, hosted_start=hosted_start), tempfile.TemporaryDirectory() as temporary:
+                directory = Path(temporary)
+                process = mock.Mock(pid=12)
+                session = DRIVER.Session(mock.Mock(), process, directory, 'run', False, 60, True, True, hosted_start=hosted_start)
+                session.state = dict(ownerText='owner', comboSelection=0, counts={'owner-key': 0},
+                                     phase='owner', sequence=1, windows=[])
+                latest = copy.deepcopy(session.state); latest['sequence'] = 10
+                first = copy.deepcopy(latest); first['sequence'] = 11
+                if leaked: first['counts']['owner-key'] = 1
+                second = copy.deepcopy(first); second['sequence'] = 12
+                native, guard = mock.Mock(), mock.Mock()
+                def dismiss(observer, sender, claim, deadline, record, environment, authorized, allow_background_start):
+                    self.assertTrue(authorized)
+                    self.assertEqual(hosted_start, allow_background_start)
+                    self.assertIs(sender, session.desktop)
+                    self.assertEqual(60, deadline)
+                    record.update(escapes=[{'key': 27}], setupDeadline=23)
+                    if hosted_start: claim('hosted-start-activation', nativeProof={'hwnd': 123})
+                    claim('hosted-shell-escape', nativeProof={'key': 27})
+                guard.dismiss.side_effect = dismiss
+                with mock.patch.object(session, 'remaining', return_value=40), \
+                     mock.patch.object(session, 'native', return_value=[]), \
+                     mock.patch.object(session, 'match') as match, \
+                     mock.patch.object(DRIVER, 'observation', side_effect=[(latest, {}), (first, {}), (second, {})]), \
+                     mock.patch.object(DRIVER.time, 'monotonic', return_value=20), \
+                     mock.patch.object(DRIVER.time, 'sleep'), \
+                     mock.patch.object(DRIVER.importlib.util, 'spec_from_file_location', return_value=mock.Mock()), \
+                     mock.patch.object(DRIVER.importlib.util, 'module_from_spec', side_effect=[native, guard]):
+                    if leaked:
+                        with self.assertRaisesRegex(RuntimeError, 'leaked input'): session.dismiss_hosted_shell()
+                        match.assert_not_called()
+                    else:
+                        session.dismiss_hosted_shell()
+                        self.assertEqual(12, session.state['sequence'])
+                        match.assert_called_once()
+                    self.assertEqual(2 if hosted_start else 1, session.actions)
+                    self.assertEqual(60, session.deadline)
+                receipt = json.loads((directory/'startup-shell.json').read_text())
+                self.assertFalse(receipt['qualified'])
+                self.assertEqual(leaked, 'error' in receipt)
+
+    def test_shell_escape_is_not_admitted_to_portable_or_later_actions(self):
+        for portable, actions in ((True, 0), (False, 1)):
+            session = DRIVER.Session(mock.Mock(), None, Path('/unused'), 'run', portable, 60, True, True)
+            session.actions = actions
+            with self.subTest(portable=portable, actions=actions), \
+                 mock.patch.object(DRIVER.importlib.util, 'spec_from_file_location') as load:
+                with self.assertRaisesRegex(RuntimeError, 'first reference'): session.dismiss_hosted_shell()
+                load.assert_not_called()
+
+    def test_approved_readiness_preserves_failed_initial_inventory_and_exact_identity(self):
+        for changed_owner in (False, True):
+            with self.subTest(changed_owner=changed_owner), tempfile.TemporaryDirectory() as temporary:
+                owner, baseline = NativeWindowInventoryTests().inventory()
+                initial = copy.deepcopy(baseline)
+                initial['windows'].append(dict(initial['windows'][1], hwnd=30))
+                restored = copy.deepcopy(baseline)
+                if changed_owner:
+                    restored['windows'][0]['enabled'] = False
+                session = SimpleNamespace(directory=Path(temporary), state={'phase': 'owner'},
+                    source_receipt={}, hosted_caption=True, retirement_readiness=True,
+                    initial_native_windows=copy.deepcopy(baseline['windows']), deadline=60,
+                    native=mock.Mock(return_value=[owner]), match=mock.Mock(return_value=owner),
+                    observe_native_windows=mock.Mock(side_effect=[initial, restored, restored]),
+                    remaining=mock.Mock(return_value=40))
+                now = [20.0]
+                def sleep(seconds): now[0] += seconds
+                with mock.patch.object(DRIVER.time, 'monotonic', side_effect=lambda: now[0]), \
+                     mock.patch.object(DRIVER.time, 'sleep', side_effect=sleep):
+                    if changed_owner:
+                        with self.assertRaisesRegex(RuntimeError, 'owner identity changed'):
+                            DRIVER.check_native_retirement(session)
+                    else:
+                        DRIVER.check_native_retirement(session)
+                first = json.loads((session.directory/'native-retirement-initial.json').read_text())
+                receipt = json.loads((session.directory/'native-retirement.json').read_text())
+                self.assertFalse(first['restorationAssertionPassed'])
+                self.assertFalse(receipt['restorationAssertionPassed'])
+                self.assertEqual(initial, first['finalNativeInventory'])
+                if changed_owner:
+                    self.assertIn('readinessError', receipt)
+                else:
+                    self.assertTrue(receipt['boundedReadiness']['ready'])
+                    self.assertEqual(2, len(receipt['boundedReadiness']['observations']))
+                self.assertEqual(60, session.deadline)
+
+    def test_retirement_diagnostic_cannot_replace_the_original_failed_assertion(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            session = mock.Mock(directory=Path(temporary), state={'phase': 'owner'},
+                                source_receipt={}, hosted_caption=True, deadline=60, initial_native_windows=None)
+            session.native.side_effect = [[{'hwnd': 1}, {'hwnd': 2}], [{'hwnd': 1}]]
+            with mock.patch.object(DRIVER.time, 'monotonic', side_effect=[20, 20.1, 20.1, 21.1]), \
+                 mock.patch.object(DRIVER.time, 'sleep'):
+                with self.assertRaisesRegex(RuntimeError, 'remain visible'):
+                    DRIVER.check_native_retirement(session)
+            receipt = json.loads((session.directory/'native-retirement.json').read_text())
+            self.assertFalse(receipt['originalAssertionPassed'])
+            self.assertEqual(2, len(receipt['nativeWindows']))
+            self.assertEqual(1, len(receipt['observations'][0]['nativeWindows']))
+
+    def test_paired_windows_runs_initialize_dpi_once_but_keep_distinct_sessions(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            app = root/'app.exe'; app.write_bytes(b'pure test app identity')
+            args = mock.Mock(platform='windows', macos_helper=None,
+                             hosted_windows_caption_activation=True, hosted_windows_shell_escape=True)
+            observer = mock.Mock(spec=['windows', 'key', 'pointer'])
+            first, second = mock.Mock(pid=11, returncode=0), mock.Mock(pid=22, returncode=0)
+            first.poll.return_value = second.poll.return_value = 0
+            sessions = []
+            def scenario(session):
+                sessions.append(session)
+                session.actions = 22
+            with mock.patch.object(DRIVER.subprocess, 'Popen', side_effect=[first, second]), \
+                 mock.patch.object(DRIVER, 'make_desktop', return_value=observer) as factory, \
+                 mock.patch.object(DRIVER, 'digest', return_value='test-hash'), \
+                 mock.patch.object(DRIVER, 'scenario', side_effect=scenario), \
+                 mock.patch.object(DRIVER.time, 'monotonic', side_effect=[10, 30]):
+                shared = DRIVER.run_one(args, None, {}, app, root/'microsoft', False)
+                DRIVER.run_one(args, None, {}, app, root/'portable', True, shared)
+            factory.assert_called_once()
+            self.assertEqual([11, 22], [s.process.pid for s in sessions])
+            self.assertEqual([70, 90], [s.deadline for s in sessions])
+            self.assertEqual([True, False], [s.hosted_shell for s in sessions])
+            self.assertIs(sessions[0].desktop, sessions[1].desktop)
+            self.assertNotEqual(sessions[0].run, sessions[1].run)
+            self.assertTrue(all(json.loads((root/n/'result.json').read_text())['completed']
+                                for n in ('microsoft', 'portable')))
+
+    def test_source_native_frame_failure_records_exact_inputs_without_fitting(self):
+        for changed in ({'width': 101}, {'x': 8}, {'width': 100.0000000001}):
+            with self.subTest(changed=changed), tempfile.TemporaryDirectory() as temporary:
+                desktop = mock.Mock()
+                desktop.window_identity.side_effect = lambda window: window['hwnd']
+                session = DRIVER.Session(desktop, None, Path(temporary), 'run', True, 60)
+                frame = dict(x=0, y=0, width=100, height=100)
+                surface = dict(visible=True, nativeHandle=1, sourceHandle=2, client=frame, presentedFrames=1)
+                state = dict(title='owner', windows=[dict(title='owner', surfaces=[surface])])
+                windows = [dict(hwnd=1, title='owner', client=frame | changed)]
+                with mock.patch.object(DRIVER.sys, 'platform', 'win32'), \
+                     self.assertRaisesRegex(RuntimeError, 'no fitted bounds'):
+                    session.match(state, windows)
+                receipt = json.loads((session.directory/'source-native-mismatch.json').read_text())
+                self.assertEqual(frame, receipt['mismatchedSurface']['client'])
+                self.assertEqual(frame | changed, receipt['matchedNativeWindows'][0]['client'])
+                self.assertEqual(windows, receipt['nativeWindows'])
+
+
+class NativeWindowInventoryTests(unittest.TestCase):
+    def inventory(self):
+        frame = dict(x=72, y=49, width=840, height=580)
+        owner = dict(hwnd=10, pid=12, title='owner', bounds=frame,
+                     client=dict(x=80, y=80, width=824, height=541), enabled=True,
+                     windowClass='GLFW30', owner=0, style=0x16cf0000, extendedStyle=0x40110)
+        shadow = dict(hwnd=20, pid=12, title='', bounds=frame | {'width': 845, 'height': 585},
+                      client=frame | {'width': 845, 'height': 585}, enabled=True,
+                      windowClass='SysShadow', owner=0, style=0x94000000, extendedStyle=0x800a0)
+        front = [{key: value for key, value in owner.items() if key in ('pid', 'title', 'bounds', 'client')} | {'id': 10}]
+        return owner, dict(windows=[owner, shadow], frontToOwner=front)
+
+    def test_native_z_order_distinguishes_behind_owner_from_actual_obstruction(self):
+        owner, record = self.inventory()
+        bounds = dict(x=100, y=500, width=180, height=36)
+        identity = lambda row: row['hwnd']
+        with self.assertRaisesRegex(RuntimeError, 'covered'):
+            DRIVER.exposed_guard(owner, record['windows'], bounds, identity)
+        DRIVER.exposed_guard(owner, DRIVER.observed_front_to_owner(owner, 12, record), bounds, identity)
+        # Actual foreground obstruction fails regardless of its PID or class.
+        record['frontToOwner'].insert(0, dict(id=30, pid=99, bounds=bounds))
+        with self.assertRaisesRegex(RuntimeError, 'covered'):
+            DRIVER.exposed_guard(owner, DRIVER.observed_front_to_owner(owner, 12, record), bounds, identity)
+
+    def test_z_order_rejects_stale_owner_and_duplicate_identity(self):
+        for change in ({'pid': 13}, {'id': 11}, {'title': 'changed'}, {'client': {}}):
+            owner, record = self.inventory()
+            record['frontToOwner'][-1].update(change)
+            with self.subTest(change=change), self.assertRaises(RuntimeError):
+                DRIVER.observed_front_to_owner(owner, 12, record)
+        owner, record = self.inventory()
+        record['frontToOwner'].append(record['frontToOwner'][0])
+        with self.assertRaises(RuntimeError): DRIVER.observed_front_to_owner(owner, 12, record)
+
+    def test_initial_inventory_keeps_shadow_and_rejects_unknown_roles(self):
+        owner, record = self.inventory()
+        self.assertEqual(record['windows'], DRIVER.initial_windows(owner, 12, record))
+        for change in ({'windowClass': 'Popup'}, {'pid': 13}, {'title': 'unexpected'},
+                       {'owner': 10}, {'extendedStyle': 0x80080}, {'style': 0x90000000}):
+            candidate = copy.deepcopy(record); candidate['windows'][1].update(change)
+            with self.subTest(change=change), self.assertRaises(RuntimeError):
+                DRIVER.initial_windows(owner, 12, candidate)
+        record['frontToOwner'].insert(0, dict(id=20, pid=12, bounds=record['windows'][1]['bounds']))
+        with self.assertRaisesRegex(RuntimeError, 'behind'):
+            DRIVER.initial_windows(owner, 12, record)
+
+    def test_retirement_preserves_complete_baseline_without_accepting_extra_or_replaced_windows(self):
+        for change in ('none', 'extra', 'missing-shadow', 'replaced-shadow', 'disabled-owner'):
+            with self.subTest(change=change), tempfile.TemporaryDirectory() as temporary:
+                owner, record = self.inventory()
+                original = copy.deepcopy(record['windows'])
+                if change == 'extra': record['windows'].append(dict(original[1], hwnd=30))
+                if change == 'missing-shadow': record['windows'].pop()
+                if change == 'replaced-shadow': record['windows'][1]['hwnd'] = 30
+                if change == 'disabled-owner': record['windows'][0]['enabled'] = False
+                session = mock.Mock(directory=Path(temporary), state={'phase': 'owner'}, source_receipt={},
+                                    hosted_caption=True, deadline=60, initial_native_windows=original)
+                session.native.return_value = record['windows']
+                session.match.return_value = owner
+                session.observe_native_windows.return_value = record
+                with mock.patch.object(DRIVER.time, 'monotonic', side_effect=[20, 22]):
+                    if change == 'none': DRIVER.check_native_retirement(session)
+                    else:
+                        with self.assertRaisesRegex(RuntimeError, 'remain visible'):
+                            DRIVER.check_native_retirement(session)
+                receipt = json.loads((session.directory/'native-retirement.json').read_text())
+                self.assertEqual(change == 'none', receipt['restorationAssertionPassed'])
+                self.assertEqual(original, receipt['initialNativeWindows'])
+                self.assertEqual(record, receipt['finalNativeInventory'])
+                if change == 'none': self.assertFalse(receipt['originalSingleWindowAssertionPassed'])
+
+
+class ReadinessTests(unittest.TestCase):
+    def run_case(self, rows, budget=2, error=None):
+        now = [0.0]; reads = []
+        def read():
+            if error: raise error
+            value = rows[min(len(reads), len(rows) - 1)]; reads.append(value); return value
+        def remaining():
+            if now[0] >= budget: raise TimeoutError('original deadline')
+            return budget - now[0]
+        def sleep(seconds): now[0] += seconds
+        result = DRIVER.await_exact_retirement(read, ('owner',), remaining, lambda: now[0], sleep)
+        return result, reads, now[0]
+
+    def test_observed_reference_retirement_preserves_first_failed_inventory(self):
+        result, reads, elapsed = self.run_case([('owner', 'tooltip'), ('owner',), ('owner',)])
+        self.assertTrue(result['ready']); self.assertEqual(3, len(reads))
+        self.assertEqual(('owner', 'tooltip'), result['observations'][0]['inventory'])
+        self.assertEqual(.1, elapsed)
+
+    def test_lingering_native_window_fails_at_one_second(self):
+        result, reads, elapsed = self.run_case([('owner', 'tooltip')])
+        self.assertFalse(result['ready']); self.assertLessEqual(elapsed, 1.0000001)
+        self.assertLessEqual(len(reads), 21)
+
+    def test_original_process_deadline_can_be_shorter(self):
+        with self.assertRaisesRegex(TimeoutError, 'original deadline'):
+            self.run_case([('owner', 'tooltip')], budget=.025)
+
+    def test_returned_popup_resets_stability(self):
+        result, reads, _ = self.run_case([('owner',), ('owner', 'tooltip'), ('owner',), ('owner',)])
+        self.assertTrue(result['ready']); self.assertEqual(4, len(reads))
+
+    def test_inventory_error_stays_authoritative(self):
+        error = RuntimeError('native identity changed')
+        with self.assertRaises(RuntimeError) as seen: self.run_case([], error=error)
+        self.assertIs(error, seen.exception)
+
+
+    def test_slow_native_observation_cannot_pass_after_readiness_deadline(self):
+        now = [0.0]
+        def read():
+            now[0] += .6
+            return ('owner',)
+        result = DRIVER.await_exact_retirement(read, ('owner',), lambda: 60 - now[0],
+                                               lambda: now[0], lambda seconds: None)
+        self.assertFalse(result['ready'])
+        self.assertEqual(2, len(result['observations']))
 
 
 if __name__ == "__main__":

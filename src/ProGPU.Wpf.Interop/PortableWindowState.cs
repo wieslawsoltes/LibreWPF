@@ -85,6 +85,10 @@ public sealed class PortableWindowState
 
     public int WindowStyle { get; set; }
 
+    public bool HasShowInTaskbar { get; set; }
+
+    public bool ShowInTaskbar { get; set; }
+
     public bool HasShowActivated { get; set; }
 
     public bool ShowActivated { get; set; }

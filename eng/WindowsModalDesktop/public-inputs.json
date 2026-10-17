@@ -1,0 +1,262 @@
+{
+  "schema": "wpf-modal-public-inputs-v1",
+  "version": "0.1.0-preview.69",
+  "sdk": "10.0.201",
+  "runtimeIdentifier": "win-arm64",
+  "wpfSource": "0214bb4569553741244c4fdf10cb78a9dc90661f",
+  "formsHelperSource": "1538b491c17d300387339adce7196700f41cf23a",
+  "source": {
+    "samples/ProGPU.Wpf.ModalInteractionApp/App.xaml": "2c90fb22011311319ffb0bf2c6755fdd81ea8530d3afbc5ec32f0ac7a2273ffd",
+    "samples/ProGPU.Wpf.ModalInteractionApp/App.xaml.cs": "2a71811eda9bbfe8663aa5f26014e5b27b6c810f6d63869c10f5b7052af58047",
+    "samples/ProGPU.Wpf.ModalInteractionApp/ModalObservation.cs": "8372067f0d221be242f2c32a42ce37a96d062be0455a87c0525b6b1132f8fabd",
+    "samples/ProGPU.Wpf.ModalInteractionApp/Directory.Build.props": "a6c530c51a95f29adb9e34b7da1fe07efcadbd98715758e3694adbf22b9077a0",
+    "samples/ProGPU.Wpf.ModalInteractionApp/ProGPU.Wpf.ModalInteractionApp.csproj": "c27f7ab38180befc6775840ce0d6bc2eecb3a128ec2df15de0cc37eec3bb6f0f",
+    "samples/ProGPU.Wpf.ModalInteractionApp.Windows/Directory.Build.props": "0f8ea8aaffe571279a35e95d9ea1750c9a6d3c065d0c1ddc1af10be94150f623",
+    "samples/ProGPU.Wpf.ModalInteractionApp.Windows/ProGPU.Wpf.ModalInteractionApp.Windows.csproj": "0020692f90ee76c758a35df8ff9d4d13b085c48e059ce11002087bcbbe8ad6c9",
+    "eng/progpu-wpf-modal-desktop.py": "42fd6ab2320fbf84709469d1f5a4408b7fabbfd8a57087c9d742de89c2197c4f"
+  },
+  "helpers": {
+    "eng/librewinforms-popup-desktop.py": "83e2a53e880b39c73f82d26c93d0dd79f769c61908054817cf838f1c1ae7e9bc",
+    "eng/librewinforms-popup-modal.py": "d54a7bbefe894e4287ef3ad8452b34b5cbfaad9cfca0dabdfd8b030cede9d0be",
+    "eng/librewinforms-popup-x11.py": "beaec2ab33f4be0c92806fd214177226a0ff6c859f6f0babb4dbba84305468ce",
+    "eng/librewinforms-popup-macos.py": "649a3ae93d65f457ffbe591e425f209f15889ba0186f3657ef0f9acf6957ad28",
+    "eng/PopupDesktopNative.swift": "7ca4ee00133c52b63add8b0e487725b62e8ff4c514d50c1912bbb7ae100cf88f"
+  },
+  "packages": {
+    "librewpf.interop": {
+      "version": "0.1.0-preview.69",
+      "sha256": "d35b5e3dd8851ace1e432185441a36efb987ade67970e27d08790715c38cb3ce",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/wieslawsoltes/LibreWPF",
+        "commit": "8424863e4b580303997a900a336da875a13fc0c3"
+      }
+    },
+    "librewpf.progpu": {
+      "version": "0.1.0-preview.69",
+      "sha256": "117d86cdca7f3b85a53781d4955b3720d88b72986983b378f962945748f04223",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/wieslawsoltes/wpf",
+        "commit": "0214bb4569553741244c4fdf10cb78a9dc90661f"
+      }
+    },
+    "librewpf.sdk": {
+      "version": "0.1.0-preview.69",
+      "sha256": "45b0ee477620e394f50314987acd3327efbcbe5ea1e23500aaccfa8dfe44005d",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/wieslawsoltes/wpf",
+        "commit": "0214bb4569553741244c4fdf10cb78a9dc90661f"
+      }
+    },
+    "librewpf.transport": {
+      "version": "0.1.0-preview.69",
+      "sha256": "4da37510d152edf38646dfd537f39af7719948da22d6e01ee2579edea3a361c4",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/wieslawsoltes/wpf",
+        "commit": "0214bb4569553741244c4fdf10cb78a9dc90661f"
+      }
+    },
+    "progpu.avalonia": {
+      "version": "0.1.0-preview.69",
+      "sha256": "72654716051c764d822184d7de53afd79a20451619bd75c3103e482f47887352",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/wieslawsoltes/ProGPU",
+        "commit": "aef75180bcdc3b937d004b6b949e0e91724c7981"
+      }
+    },
+    "progpu.backend": {
+      "version": "0.1.0-preview.69",
+      "sha256": "869b7ac559562dd6d8f4182e5c04edec2d677b81f76ed2bbb85a3b9325b85c1c",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/wieslawsoltes/ProGPU",
+        "commit": "aef75180bcdc3b937d004b6b949e0e91724c7981"
+      }
+    },
+    "progpu.backend.dawn": {
+      "version": "0.1.0-preview.69",
+      "sha256": "3b6559d9c731c8f366e5c1f8aef7a65c9cacf67aa94467b76980ab8c0f965568",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/wieslawsoltes/ProGPU",
+        "commit": "aef75180bcdc3b937d004b6b949e0e91724c7981"
+      }
+    },
+    "progpu.backend.native": {
+      "version": "0.1.0-preview.69",
+      "sha256": "eca97c310c27e82cded879625d8a5109ac5708ad731d12e76278b823881807e7",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/wieslawsoltes/ProGPU",
+        "commit": "aef75180bcdc3b937d004b6b949e0e91724c7981"
+      }
+    },
+    "progpu.compute": {
+      "version": "0.1.0-preview.69",
+      "sha256": "a81425b9fbbf026bd6c2bc6bdafdabc2a16c81c547f6de2477e9f849d7240fd5",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/wieslawsoltes/ProGPU",
+        "commit": "aef75180bcdc3b937d004b6b949e0e91724c7981"
+      }
+    },
+    "progpu.directx": {
+      "version": "0.1.0-preview.69",
+      "sha256": "4c9d229d29038089f6c5f924b1e18268385707082d969285f916d68f54a292fd",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/wieslawsoltes/ProGPU",
+        "commit": "aef75180bcdc3b937d004b6b949e0e91724c7981"
+      }
+    },
+    "progpu.layout": {
+      "version": "0.1.0-preview.69",
+      "sha256": "b519ed69b2028c220ba0beab9bc07b9295be0235c5f9aa5ee18c47c63ef0cdc9",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/wieslawsoltes/ProGPU",
+        "commit": "aef75180bcdc3b937d004b6b949e0e91724c7981"
+      }
+    },
+    "progpu.media": {
+      "version": "0.1.0-preview.69",
+      "sha256": "3eabb4bbb87216d805d2241d80f060d0ad7f930e47759a349917262dc4bfa270",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/wieslawsoltes/ProGPU",
+        "commit": "aef75180bcdc3b937d004b6b949e0e91724c7981"
+      }
+    },
+    "progpu.media.scene": {
+      "version": "0.1.0-preview.69",
+      "sha256": "9b16b74775fd225224446f881e0ba901c34315bdf075e57e02164f8342dba260",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/wieslawsoltes/ProGPU",
+        "commit": "aef75180bcdc3b937d004b6b949e0e91724c7981"
+      }
+    },
+    "progpu.native.sdk": {
+      "version": "0.1.0-preview.69",
+      "sha256": "deea8a91cb520c1095d28a9b9ea15bdabd8de5c502cd952db95fb0514bd0bb4b",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/wieslawsoltes/ProGPU",
+        "commit": "aef75180bcdc3b937d004b6b949e0e91724c7981"
+      }
+    },
+    "progpu.scene": {
+      "version": "0.1.0-preview.69",
+      "sha256": "e7cb74c556fc1dfa625a164b13cd2e4dca8ea4a5b0c4e4ccb025edaa6915ec4c",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/wieslawsoltes/ProGPU",
+        "commit": "aef75180bcdc3b937d004b6b949e0e91724c7981"
+      }
+    },
+    "progpu.scene.native": {
+      "version": "0.1.0-preview.69",
+      "sha256": "3e2fc56c28b5e8bd1cbb1658259edfa4e228f1fa0ec83ec947b94e8b5879edd9",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/wieslawsoltes/ProGPU",
+        "commit": "aef75180bcdc3b937d004b6b949e0e91724c7981"
+      }
+    },
+    "progpu.skiasharp": {
+      "version": "0.1.0-preview.69",
+      "sha256": "f24148dc9910eb14df0c591fe8f982d932518503bae12cea42a231046ebc7394",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/wieslawsoltes/ProGPU",
+        "commit": "aef75180bcdc3b937d004b6b949e0e91724c7981"
+      }
+    },
+    "progpu.system.drawing.common": {
+      "version": "0.1.0-preview.69",
+      "sha256": "0c37efffd0e2900f9c9a9a60f0db482c7093ac82132df7cab2dc024357de0322",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/wieslawsoltes/LibreWinForms",
+        "commit": "8e7bef08c538778cef62656f29842894805d5a54"
+      }
+    },
+    "progpu.text": {
+      "version": "0.1.0-preview.69",
+      "sha256": "8a3fc7d03f7f7b92b33a5ba7939eca0e67753c6c8294c16556d7c9761dd1291b",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/wieslawsoltes/ProGPU",
+        "commit": "aef75180bcdc3b937d004b6b949e0e91724c7981"
+      }
+    },
+    "progpu.text.shaping": {
+      "version": "0.1.0-preview.69",
+      "sha256": "613164ff8ba4b893116ed867acf5b05bf271fdea08aab8ba3947d6bbbcd70513",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/wieslawsoltes/ProGPU",
+        "commit": "aef75180bcdc3b937d004b6b949e0e91724c7981"
+      }
+    },
+    "progpu.transpiler": {
+      "version": "0.1.0-preview.69",
+      "sha256": "59afc5a4b8b006903a4ad9d5c78ec3c4f10c0273b1c3a0ea54fc7bc1d1110faa",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/wieslawsoltes/ProGPU",
+        "commit": "aef75180bcdc3b937d004b6b949e0e91724c7981"
+      }
+    },
+    "progpu.vector": {
+      "version": "0.1.0-preview.69",
+      "sha256": "818aec802d9def31061e713fbccbffc7d6177d4d39e9ec88e28d50fd451821e6",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/wieslawsoltes/ProGPU",
+        "commit": "aef75180bcdc3b937d004b6b949e0e91724c7981"
+      }
+    },
+    "progpu.virtualization": {
+      "version": "0.1.0-preview.69",
+      "sha256": "e31140319bf6f6c155eb4310be73b41c59d305d98624eae9853e355793104f07",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/wieslawsoltes/ProGPU",
+        "commit": "aef75180bcdc3b937d004b6b949e0e91724c7981"
+      }
+    },
+    "progpu.winrt": {
+      "version": "0.1.0-preview.69",
+      "sha256": "48cd30ce3cbbc9ce18548995f9a691ecc87b4eeb5fb3c1a91d86b99d0cf0fac2",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/wieslawsoltes/ProGPU",
+        "commit": "aef75180bcdc3b937d004b6b949e0e91724c7981"
+      }
+    },
+    "progpu.winui": {
+      "version": "0.1.0-preview.69",
+      "sha256": "6d6335b660a0e7b442a8279b7ab4ea98ccc463763a0b702cc51e52e2bc9f8f2c",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/wieslawsoltes/ProGPU",
+        "commit": "aef75180bcdc3b937d004b6b949e0e91724c7981"
+      }
+    }
+  },
+  "applicationQualified": false,
+  "publication": {
+    "release": "https://github.com/wieslawsoltes/LibreWPF/releases/tag/librewpf-v0.1.0-preview.69",
+    "packageManifestSha256": "42f92039e2fcfcc1071d3a1ba7b587e84968eec91cf06e8bada0b1bd2781ebf7",
+    "frameworkSources": {
+      "LibreWPF": "8424863e4b580303997a900a336da875a13fc0c3",
+      "LibreWinForms": "8e7bef08c538778cef62656f29842894805d5a54"
+    },
+    "verification": "Each public nupkg has identical uncompressed entries to the digest-verified published release asset, excluding only NuGet repository signature."
+  }
+}

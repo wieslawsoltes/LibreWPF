@@ -333,9 +333,11 @@ class RunnerTests(unittest.TestCase):
         self.assertEqual(120, metadata["timeoutSeconds"])
 
     def test_child_failure_is_not_replaced_by_success_receipt(self):
-        result, metadata = self.exercise(child_code=23)
-        self.assertEqual(23, result)
-        self.assertFalse(metadata["success"])
+        for code in (23, 3762504530):  # Ordinary failure and the original ARM64 CLR exception exit.
+            with self.subTest(code=code):
+                result, metadata = self.exercise(child_code=code)
+                self.assertEqual(code, result)
+                self.assertFalse(metadata["success"])
 
     def test_zero_child_exit_does_not_hide_failed_receipt(self):
         result, metadata = self.exercise(lambda receipt: receipt.update(success=False, error="source remains dirty"))

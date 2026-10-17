@@ -83,7 +83,13 @@ public partial class MainWindow
                 exitCode = 1;
             }
             Console.WriteLine($"Showcase passive layout clip validation {(exitCode == 0 ? "succeeded" : "failed")}.");
-            Environment.Exit(exitCode);
+            // Finish the source application on its owner thread. ProcessExit on
+            // this worker detaches WPF window procedures and posts WM_CLOSE
+            // while the native host is still promoting dispatcher timers.
+            // Keep the original child deadline and let normal shutdown failures
+            // reach the runner instead of terminating an active native loop.
+            _ = Dispatcher.BeginInvoke(DispatcherPriority.Send,
+                new Action(() => Application.Current.Shutdown(exitCode)));
         });
         return true;
     }

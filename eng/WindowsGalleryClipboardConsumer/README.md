@@ -13,10 +13,16 @@ retained RGB, clipboard actions, owned HWND/PID, real GPU completion, process ex
 and cleanup remain mandatory. No diagnostic observer runs in final acceptance.
 This completion precondition does not retry a failed capture or admit a uniform
 image. The earlier preview69 FXC acceptance used the owner-approved 90/87-second
-exception. The new 60/57-second full application acceptance remains pending in
-[issue #117](https://github.com/wieslawsoltes/LibreWPF/issues/117); offscreen timing
-does not qualify the app. Historical diagnostic sections below retain the limits
-under which their original runs failed.
+exception. The restored 60/57/55-second full application acceptance passed in
+[run 38644142161](https://github.com/wieslawsoltes/LibreWPF/actions/runs/38644142161)
+for the qualified [PR #280](https://github.com/wieslawsoltes/LibreWPF/pull/280)
+producer: 38.047 seconds for the controller and 36.402 seconds for the host,
+with both original captures and every pixel/action/cleanup check retained.
+[Issue #117](https://github.com/wieslawsoltes/LibreWPF/issues/117) is closed.
+Later producer changes still require their own complete Build/Docs and original
+application acceptance; that earlier result does not qualify a new package.
+Historical diagnostic sections below retain the limits under which their original
+runs failed.
 
 This opt-in Windows acceptance case hosts the original WPFGallery ClipboardPage,
 its ViewModel, ControlExample/PageHeader templates and **unchanged pack-resource

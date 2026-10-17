@@ -55,8 +55,16 @@ to the original 60-second bound, with 57 seconds for the host and the unchanged
 55-second foreground bound. Original sources, both clipboard actions, full image
 comparison, GPU completion, both desktop captures and cleanup remain required.
 The previous approved 90/87-second FXC exception remains historical evidence.
-Whole LibreWPF Build/Docs and this full application acceptance are pending at
-this implementation checkpoint; #117 remains open until those gates pass.
+[PR #280](https://github.com/wieslawsoltes/LibreWPF/pull/280) subsequently passed
+all sixteen jobs of [Build 38639309774](https://github.com/wieslawsoltes/LibreWPF/actions/runs/38639309774)
+and [Docs 38639309802](https://github.com/wieslawsoltes/LibreWPF/actions/runs/38639309802)
+at `eb4084c723c66c72ba45fa56dd6ce4d5cfd01ad1`. Its original
+[desktop acceptance 38644142161](https://github.com/wieslawsoltes/LibreWPF/actions/runs/38644142161)
+passed in 38.047 controller seconds and 36.402 host seconds, preserving both
+actual captures, every RGB pixel, clipboard actions and cleanup under the restored
+60/57/55-second limits. [Issue #117](https://github.com/wieslawsoltes/LibreWPF/issues/117)
+is closed. This qualifies that producer; later package changes retain their own
+whole-build and original application gates.
 
 ## Design references and applicability
 

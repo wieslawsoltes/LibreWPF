@@ -119,9 +119,9 @@ DWORD write_dump(HANDLE process, const DEBUG_EVENT& event, const std::filesystem
     return write_minidump(process, event.dwProcessId, path, &exception);
 }
 
-bool owned_name(const std::filesystem::path& app) {
+bool owned_name(const std::filesystem::path& app, bool modal) {
     const auto name = app.filename().wstring();
-    if (!name.starts_with(L"ShowcaseIdle-") || !name.ends_with(L".exe") || name.size() != 49) return false;
+    if (!name.starts_with(modal ? L"ModalStartup-" : L"ShowcaseIdle-") || !name.ends_with(L".exe") || name.size() != 49) return false;
     for (std::size_t i = 13; i < 45; ++i)
         if (!((name[i] >= L'0' && name[i] <= L'9') || (name[i] >= L'a' && name[i] <= L'f'))) return false;
     return true;
@@ -129,9 +129,17 @@ bool owned_name(const std::filesystem::path& app) {
 
 int run(const std::filesystem::path& app, const std::filesystem::path& raw,
         const std::filesystem::path& receipt, DWORD snapshot_after_ms,
-        const std::filesystem::path& snapshot, const std::filesystem::path& first_av) {
+        const std::filesystem::path& snapshot, const std::filesystem::path& first_av,
+        const std::filesystem::path& modal_directory, const std::wstring& modal_run, bool first_av_low) {
+    const bool modal = !modal_directory.empty() || !modal_run.empty();
+    if (first_av_low && (!modal || first_av.empty())) return 2;
+    if (modal && (!modal_directory.is_absolute() || std::filesystem::exists(modal_directory) ||
+        !std::filesystem::is_directory(modal_directory.parent_path()) ||
+        modal_directory.wstring().find_first_of(L"\"\r\n") != std::wstring::npos ||
+        modal_run.size() != 32 || modal_run.find_first_not_of(L"0123456789abcdef") != std::wstring::npos)) return 2;
+    const ULONGLONG budget_ms = modal ? 60000 : child_deadline_ms;
     if (!app.is_absolute() || !raw.is_absolute() || !receipt.is_absolute() ||
-        !owned_name(app) || !std::filesystem::is_regular_file(app) ||
+        !owned_name(app, modal) || !std::filesystem::is_regular_file(app) ||
         !std::filesystem::is_directory(raw) || !std::filesystem::is_empty(raw)) return 2;
     if (snapshot_after_ms != 0 &&
         (!snapshot.is_absolute() || snapshot.filename() != L"native-stack.dmp" ||
@@ -161,8 +169,9 @@ int run(const std::filesystem::path& app, const std::filesystem::path& raw,
     startup.hStdError = GetStdHandle(STD_ERROR_HANDLE);
     PROCESS_INFORMATION created{};
     std::wstring command = L"\"" + app.wstring() + L"\"";
+    if (modal) command += L" --evidence-directory \"" + modal_directory.wstring() + L"\" --run-id " + modal_run;
     if (!CreateProcessW(app.c_str(), command.data(), nullptr, nullptr, TRUE,
-        DEBUG_ONLY_THIS_PROCESS | CREATE_SUSPENDED, nullptr, app.parent_path().c_str(),
+        DEBUG_ONLY_THIS_PROCESS | CREATE_SUSPENDED, nullptr, modal ? nullptr : app.parent_path().c_str(),
         &startup, &created)) return 2;
     handle process(created.hProcess), initial_thread(created.hThread);
     if (!AssignProcessToJobObject(job.value, process.value)) {
@@ -182,9 +191,9 @@ int run(const std::filesystem::path& app, const std::filesystem::path& raw,
     DWORD first_av_error = 0, first_av_thread = 0;
     std::uintptr_t first_av_instruction = 0, first_av_address = 0, first_av_operation = 0;
     ULONGLONG first_av_elapsed_ms = 0;
-    const ULONGLONG deadline = GetTickCount64() + child_deadline_ms;
+    const ULONGLONG deadline = GetTickCount64() + budget_ms;
     while (!exit_event_seen && GetTickCount64() < deadline) {
-        const auto elapsed = GetTickCount64() - (deadline - child_deadline_ms);
+        const auto elapsed = GetTickCount64() - (deadline - budget_ms);
         if (snapshot_after_ms != 0 && !snapshot_attempted && elapsed >= snapshot_after_ms) {
             snapshot_attempted = true;
             snapshot_elapsed_ms = elapsed;
@@ -213,15 +222,17 @@ int run(const std::filesystem::path& app, const std::filesystem::path& raw,
                 break;
             case EXCEPTION_DEBUG_EVENT:
                 continuation = DBG_EXCEPTION_NOT_HANDLED;
-                // Capture at most one real, non-null AV before the CLR can
+                // Capture at most one real AV before the CLR can
                 // handle it and terminate without a second-chance event.
+                // Original replay excludes low addresses; the explicit modal
+                // diagnostic can retain them without changing exception handling.
                 // This is diagnostic evidence, including if the app recovers;
                 // it never changes normal exception handling or crash status.
                 if (!first_av.empty() && !first_av_attempted && GetTickCount64() < deadline &&
                     event.u.Exception.dwFirstChance &&
                     event.u.Exception.ExceptionRecord.ExceptionCode == EXCEPTION_ACCESS_VIOLATION &&
                     event.u.Exception.ExceptionRecord.NumberParameters == 2 &&
-                    event.u.Exception.ExceptionRecord.ExceptionInformation[1] > 0x10000 &&
+                    (first_av_low || event.u.Exception.ExceptionRecord.ExceptionInformation[1] > 0x10000) &&
                     (event.u.Exception.ExceptionRecord.ExceptionInformation[0] == 0 ||
                      event.u.Exception.ExceptionRecord.ExceptionInformation[0] == 1 ||
                      event.u.Exception.ExceptionRecord.ExceptionInformation[0] == 8)) {
@@ -230,7 +241,7 @@ int run(const std::filesystem::path& app, const std::filesystem::path& raw,
                     first_av_instruction = reinterpret_cast<std::uintptr_t>(event.u.Exception.ExceptionRecord.ExceptionAddress);
                     first_av_address = event.u.Exception.ExceptionRecord.ExceptionInformation[1];
                     first_av_operation = event.u.Exception.ExceptionRecord.ExceptionInformation[0];
-                    first_av_elapsed_ms = GetTickCount64() - (deadline - child_deadline_ms);
+                    first_av_elapsed_ms = GetTickCount64() - (deadline - budget_ms);
                     first_av_error = write_dump(process.value, event, first_av);
                 }
                 if (!loader_breakpoint && event.u.Exception.dwFirstChance &&
@@ -289,6 +300,7 @@ int run(const std::filesystem::path& app, const std::filesystem::path& raw,
         ",\"snapshotElapsedMs\":" + std::to_string(snapshot_elapsed_ms) +
         ",\"snapshotError\":" + std::to_string(snapshot_error) +
         ",\"firstChanceAvEnabled\":" + (first_av.empty() ? "false" : "true") +
+        ",\"firstChanceAvIncludesLowAddresses\":" + (first_av_low ? "true" : "false") +
         ",\"firstChanceAvAttempted\":" + (first_av_attempted ? "true" : "false") +
         ",\"firstChanceAvThreadId\":" + std::to_string(first_av_thread) +
         ",\"firstChanceAvInstruction\":" + std::to_string(first_av_instruction) +
@@ -306,14 +318,29 @@ int run(const std::filesystem::path& app, const std::filesystem::path& raw,
 
 int wmain(int argc, wchar_t** argv) {
     if (argc == 2 && std::wstring(argv[1]) == L"--test-callbacks") return callback_controls() ? 0 : 1;
-    if (argc != 4 && argc != 6 && argc != 8) return 2;
+    if (argc < 4 || argc > 12 || argc % 2 != 0) return 2;
     try {
         DWORD delay = 0;
-        std::filesystem::path snapshot, first_av;
+        std::filesystem::path snapshot, first_av, modal_directory;
+        std::wstring modal_run;
+        bool first_av_low = false;
         for (int i = 4; i < argc; i += 2) {
             const std::wstring argument(argv[i]);
-            if (argument == L"--first-chance-av") {
+            if (argument == L"--modal-evidence-directory") {
+                if (!modal_directory.empty()) return 2;
+                modal_directory = argv[i + 1];
+                if (modal_directory.empty()) return 2;
+                continue;
+            }
+            if (argument == L"--modal-run-id") {
+                if (!modal_run.empty()) return 2;
+                modal_run = argv[i + 1];
+                if (modal_run.empty()) return 2;
+                continue;
+            }
+            if (argument == L"--first-chance-av" || argument == L"--first-chance-av-including-low") {
                 if (!first_av.empty()) return 2;
+                first_av_low = argument == L"--first-chance-av-including-low";
                 first_av = argv[i + 1];
                 if (first_av.empty()) return 2;
                 continue;
@@ -326,7 +353,7 @@ int wmain(int argc, wchar_t** argv) {
             if (delay < 100 || delay > 60000) return 2;
             snapshot = argv[i + 1];
         }
-        return run(argv[1], argv[2], argv[3], delay, snapshot, first_av);
+        return run(argv[1], argv[2], argv[3], delay, snapshot, first_av, modal_directory, modal_run, first_av_low);
     }
     catch (...) { return 2; } // Job/handle scope still releases the owned child.
 }

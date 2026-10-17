@@ -1398,6 +1398,20 @@ public sealed partial class WpfPortableWindowActivationTests
         Assert.False(service.LastActivationState);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void CreateHostOptionsRetainsExplicitSourceTaskbarState(bool visible)
+    {
+        var source = new FakeWindow { HasShowInTaskbar = true, ShowInTaskbar = visible };
+        var options = WpfPortableWindowActivation.CreateHostOptions(source,
+            new ProGpuWpfWindowOptions { Win32ShowInTaskbar = !visible });
+        Assert.Equal(visible, options.Win32ShowInTaskbar);
+        Assert.Equal(false, WpfPortableWindowActivation.CreateHostOptions(new FakeWindow(),
+            new ProGpuWpfWindowOptions { Win32ShowInTaskbar = false }).Win32ShowInTaskbar);
+        Assert.Null(WpfPortableWindowActivation.CreateHostOptions(new FakeWindow()).Win32ShowInTaskbar);
+    }
+
     [Fact]
     public void CreateHostOptionsUsesPortableShowActivatedState()
     {
@@ -2492,6 +2506,10 @@ public sealed partial class WpfPortableWindowActivationTests
 
         public FakeWindowStyle WindowStyle { get; set; } = FakeWindowStyle.SingleBorderWindow;
 
+        public bool HasShowInTaskbar { get; set; }
+
+        public bool ShowInTaskbar { get; set; } = true;
+
         public bool ShowActivated { get; set; } = true;
 
         public bool AllowsTransparency { get; set; }
@@ -2543,6 +2561,8 @@ public sealed partial class WpfPortableWindowActivationTests
                 ResizeMode = (int)ResizeMode,
                 HasWindowStyle = true,
                 WindowStyle = (int)WindowStyle,
+                HasShowInTaskbar = HasShowInTaskbar,
+                ShowInTaskbar = ShowInTaskbar,
                 HasShowActivated = true,
                 ShowActivated = ShowActivated,
                 HasAllowsTransparency = true,

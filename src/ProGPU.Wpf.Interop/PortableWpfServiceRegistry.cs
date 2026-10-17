@@ -569,6 +569,9 @@ public sealed class PortableWindowActivationCallbacks
 
     public Action<object, bool>? SetTopmost { get; }
 
+    /// <summary>Optional source Win32 taskbar policy; other native providers retain their separate admission.</summary>
+    public Action<object, bool>? SetWin32TaskbarVisibility { get; init; }
+
     public Action<object, object, object>? SetWindowBorder { get; }
 
     public Action<object>? Close { get; }

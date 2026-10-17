@@ -10,9 +10,9 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <LibreWpfSdkSwitchPackageVersion>0.1.0-preview.69</LibreWpfSdkSwitchPackageVersion>
+    <LibreWpfSdkSwitchPackageVersion>0.1.0-preview.70</LibreWpfSdkSwitchPackageVersion>
     <ProGpuWpfSdkSwitchPackageVersion Condition="'$(PROGPU_WPF_PROGPU_PACKAGE_VERSION)' != ''">$(PROGPU_WPF_PROGPU_PACKAGE_VERSION)</ProGpuWpfSdkSwitchPackageVersion>
-    <ProGpuWpfSdkSwitchPackageVersion Condition="'$(ProGpuWpfSdkSwitchPackageVersion)' == ''">0.1.0-preview.69</ProGpuWpfSdkSwitchPackageVersion>
+    <ProGpuWpfSdkSwitchPackageVersion Condition="'$(ProGpuWpfSdkSwitchPackageVersion)' == ''">0.1.0-preview.70</ProGpuWpfSdkSwitchPackageVersion>
     <ProGpuWpfLibreWinFormsPackageVersion Condition="'$(ProGpuWpfLibreWinFormsPackageVersion)' == ''">$(LibreWpfSdkSwitchPackageVersion)</ProGpuWpfLibreWinFormsPackageVersion>
     <RestorePackagesPath>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../../artifacts/nuget/ProGPU.Wpf.SdkSwitchSmoke'))</RestorePackagesPath>
     <RestoreForce>true</RestoreForce>

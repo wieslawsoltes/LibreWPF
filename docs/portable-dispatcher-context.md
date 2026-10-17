@@ -31,6 +31,13 @@ dialogs and callback exceptions. The original five-second dispatcher flush stays
 unchanged. Local execution uses byte-identical harness output staged inside the
 checkout because the loader locates source from its physical output directory.
 
-Whole producer CI and a replay of the unchanged reporter against its exact
-successful package remain required before closing the issue. Modal context
-restoration does not qualify native owner blocking, focus or window decorations.
+Head `beef4c0b83571448fa5bf897fd66f68f3077fdb1` passed all sixteen jobs of
+[Build 38938632765](https://github.com/wieslawsoltes/LibreWPF/actions/runs/38938632765)
+and Docs. The unchanged reporter restored seventeen hash-verified packages from
+that complete successful producer. One actual mouse click then kept both sides
+of the await on thread 1 with DispatcherSynchronizationContext, returned true
+from CheckAccess, and visibly changed the button to “done”. The process closed
+normally in 24.908630 seconds under the same 60-second limit, with empty stderr
+and unchanged source/payload hashes. [#283](https://github.com/wieslawsoltes/LibreWPF/pull/283)
+merged with the exact tested tree and closed #281. Modal context restoration does
+not qualify native owner blocking, focus or window decorations.

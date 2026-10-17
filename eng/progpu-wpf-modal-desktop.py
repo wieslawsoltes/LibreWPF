@@ -6,6 +6,7 @@ import hashlib
 import importlib.util
 import json
 import math
+import os
 from pathlib import Path
 import re
 import stat
@@ -92,7 +93,7 @@ def observation(directory, pid, run):
             "Invalid source snapshot name/size")
     raw = path.read_bytes()
     state = parse(raw)
-    require(state.get("schema") == "wpf-modal-desktop-v1" and state.get("qualified") is False and
+    require(state.get("schema") == "wpf-modal-desktop-v2" and state.get("qualified") is False and
             type(state.get("pid")) is int and state["pid"] == pid and state.get("run") == run and
             state.get("title") == f"WpfModalInteractionApp [{run}]" and
             type(state.get("sequence")) is int and 0 < state["sequence"] <= 650 and
@@ -115,10 +116,50 @@ def owner_input(state):
                         if key.startswith(("owner-pointer", "owner-key", "guard-", "editor-", "message-", "dialog-open-request"))})
 
 
+def presented(state):
+    ready = True
+    for window in state["windows"]:
+        for surface in window["surfaces"]:
+            frames = surface["presentedFrames"]
+            require(type(frames) is int and frames >= 0, "Invalid actual presented host frame count")
+            ready = ready and frames > 0
+    return ready
+
+
 def exposed_guard(owner, windows, bounds, identity):
     rectangle(bounds)
     require(contains(owner["client"], bounds) and all(not overlaps(bounds, item["bounds"])
             for item in windows if identity(item) != identity(owner)), "Owner guard is covered by an owned window")
+
+
+def observed_front_to_owner(owner, pid, record):
+    rows = record["frontToOwner"]
+    require(isinstance(rows, list) and 0 < len(rows) <= 4096 and
+            len({row["id"] for row in rows}) == len(rows), "Invalid original native Z-order inventory")
+    last = rows[-1]
+    require(last["id"] == owner["hwnd"] and last["pid"] == pid and
+            all(last.get(key) == owner[key] for key in ("title", "bounds", "client")),
+            "Native owner changed during Z-order observation")
+    return [dict(row, hwnd=row["id"]) for row in rows]
+
+
+def initial_windows(owner, pid, record):
+    rows = record["windows"]
+    require(0 < len(rows) <= 32 and len({row["hwnd"] for row in rows}) == len(rows),
+            "Invalid initial native inventory")
+    require(sum(row["hwnd"] == owner["hwnd"] for row in rows) == 1, "Initial native owner is missing")
+    for row in rows:
+        require(row["pid"] == pid, "Foreign initial native identity")
+        if row["hwnd"] != owner["hwnd"]:
+            # Original Windows observations identify these as transparent system
+            # shadow surfaces. Preserve each complete record, never discard it.
+            require(row["windowClass"] == "SysShadow" and row["title"] == "" and
+                    row["owner"] == 0 and row["style"] == 0x94000000 and
+                    row["extendedStyle"] == 0x800a0, "Unclassified initial native window")
+    front = observed_front_to_owner(owner, pid, record)
+    require(not any(row["hwnd"] in {item["hwnd"] for item in front[:-1]} for row in rows if row["hwnd"] != owner["hwnd"]),
+            "Initial shadow is not behind its original owner")
+    return sorted(rows, key=lambda row: row["hwnd"])
 
 
 def unique_options(argv):
@@ -156,7 +197,7 @@ def load_helper(checkout, commit):
 
 
 class Session:
-    def __init__(self, desktop, process, directory, run, portable, deadline):
+    def __init__(self, desktop, process, directory, run, portable, deadline, hosted_caption=False, hosted_shell=False, retirement_readiness=False, hosted_start=False):
         self.desktop, self.process, self.directory, self.run = desktop, process, directory, run
         self.portable = portable
         self.deadline = deadline
@@ -166,6 +207,84 @@ class Session:
         self.actions = 0
         self.owner_identity = None
         self.blocked_owner_baseline = None
+        self.hosted_caption = hosted_caption
+        self.hosted_shell = hosted_shell
+        self.hosted_start = hosted_start
+        self.retirement_readiness = retirement_readiness
+        self.activation_attempted = False
+        self.initial_native_windows = None
+
+    def activate(self, owner):
+        if not self.hosted_caption:
+            self.desktop.activate(owner)
+            return
+        self.remaining()
+        # Only initial owner activation changes. Every original foreground,
+        # obstruction, source-identity and scenario assertion remains in force.
+        require(self.phase == "startup" and self.actions == 0 and not self.activation_attempted,
+                "Hosted caption activation is startup-only and may not be retried")
+        require(self.identity(owner) == self.owner_identity, "Activation owner identity changed")
+        self.activation_attempted = True
+        if self.hosted_shell:
+            self.dismiss_hosted_shell()
+        path = Path(__file__).parent / "WindowsGalleryClipboardConsumer/run-windows.py"
+        spec = importlib.util.spec_from_file_location("modal_hosted_caption", path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        record = dict(qualified=False, helperSha256=digest(path))
+        try:
+            module.Desktop(adopt_physical_coordinates=True).activate_ci_window(
+                owner["hwnd"], self.process.pid, self.deadline, record, os.environ)
+        except BaseException as error:
+            record["error"] = str(error)[:4096]
+            raise
+        finally:
+            write(self.directory / "startup-activation.json", record)
+        if record["clickCount"]:
+            self.action("hosted-caption", nativeProof=record)
+
+    def dismiss_hosted_shell(self):
+        require(not self.portable and self.phase == "startup" and self.actions == 0,
+                "Shell Escape is restricted to the first reference startup")
+        record = dict(qualified=False, sourceBefore=owner_input(self.state), helpers={})
+        try:
+            modules = []
+            for name in ("prepare-desktop", "shell-escape"):
+                path = Path(__file__).parent / "WindowsModalDesktop" / (name + ".py")
+                record["helpers"][name] = digest(path)
+                spec = importlib.util.spec_from_file_location(name.replace("-", "_"), path)
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
+                modules.append(module)
+            modules[1].dismiss(modules[0].Desktop(), self.desktop, self.action,
+                               self.deadline, record, os.environ, authorized=self.hosted_shell,
+                               allow_background_start=self.hosted_start)
+            if record["escapes"]:
+                # Require original source observations published after input;
+                # already queued snapshots cannot prove absence of leaked keys.
+                latest, _ = observation(self.directory / "app", self.process.pid, self.run)
+                first = latest["sequence"]
+                while True:
+                    self.remaining()
+                    require(time.monotonic() < record["setupDeadline"], "Bounded shell source verification expired")
+                    state, receipt = observation(self.directory / "app", self.process.pid, self.run)
+                    require(owner_input(state) == record["sourceBefore"],
+                            "Hosted shell Escape leaked input to the original owner")
+                    if (state["phase"] == "owner" and latest["sequence"] > first
+                            and state["sequence"] > latest["sequence"] and stable(state) == stable(latest)):
+                        self.match(state, self.native())
+                        self.state, self.source_receipt = state, receipt
+                        break
+                    latest = state
+                    time.sleep(.025)
+                record["sourceAfter"] = owner_input(self.state)
+                require(record["sourceBefore"] == record["sourceAfter"],
+                        "Hosted shell Escape leaked input to the original owner")
+        except BaseException as error:
+            record["error"] = str(error)[:4096]
+            raise
+        finally:
+            write(self.directory / "startup-shell.json", record)
 
     def remaining(self):
         value = self.deadline - time.monotonic()
@@ -174,6 +293,23 @@ class Session:
         for name in ("stdout.txt", "stderr.txt"):
             require((self.directory / name).stat().st_size <= 8 * 1024 * 1024, "Application log budget exceeded")
         return value
+
+    def record_failure(self, result):
+        # The scenario has already failed. Preserve its error and natural child
+        # status before cleanup can replace the latter with a termination code.
+        # This never sends input, retries a scenario, or changes its deadline.
+        try:
+            result["exitCodeAtFailure"] = self.process.poll()
+            result["physicalActionsAtFailure"] = self.actions
+            if self.hosted_caption:
+                path = Path(__file__).parent / "WindowsModalDesktop/native-window-observation.py"
+                spec = importlib.util.spec_from_file_location("modal_failure_foreground", path)
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
+                result["foregroundAfterFailure"] = module.foreground(self.desktop)
+                result["failureObserverSha256"] = digest(path)
+        except BaseException as error:
+            result["failureObservationError"] = str(error)[:4096]
 
     def native(self):
         windows = self.desktop.windows(self.process.pid)
@@ -209,8 +345,12 @@ class Session:
                     geometry = surface["nativeGeometry"]
                     require(isinstance(geometry, dict) and geometry["contentView"] != 0, "Missing actual Cocoa view geometry")
                     matches = [value for value in windows if self.identity(value) == geometry["windowNumber"]]
-                require(len(matches) == 1 and matches[0]["client"] == rectangle(surface["client"]),
-                        "Original source/native client frames differ; no fitted bounds are permitted")
+                frame_matches = len(matches) == 1 and matches[0]["client"] == rectangle(surface["client"])
+                if not frame_matches:
+                    write(self.directory / "source-native-mismatch.json", dict(qualified=False,
+                          source=state, sourceReceipt=self.source_receipt, nativeWindows=windows,
+                          mismatchedSurface=surface, matchedNativeWindows=matches))
+                require(frame_matches, "Original source/native client frames differ; no fitted bounds are permitted")
                 if index == 0:
                     require(matches[0]["title"] == source["title"], "Source/native title identity differs")
                 if self.portable:
@@ -228,12 +368,16 @@ class Session:
             except FileNotFoundError:
                 time.sleep(0.05)
                 continue
-            if predicate(state) and previous is not None and state["sequence"] > previous["sequence"] and stable(state) == stable(previous):
+            # Native visibility/layout may precede the first presentation. Both
+            # stable observations must carry actual frames before capture/input;
+            # waiting consumes the same original absolute process deadline.
+            ready = predicate(state) and (not self.portable or presented(state))
+            if ready and previous is not None and state["sequence"] > previous["sequence"] and stable(state) == stable(previous):
                 self.state, self.source_receipt = state, receipt
                 windows = self.native()
                 self.match(state, windows)
                 return windows
-            previous = state if predicate(state) else None
+            previous = state if ready else None
             time.sleep(0.05)
 
     def action(self, kind, **detail):
@@ -251,7 +395,18 @@ class Session:
         require(any(value.get("client") is not None and contains(value["client"], bounds) for value in windows),
                 "Input target has no exact native client owner")
         self.desktop.pointer(self.process.pid, bounds, click)
-        self.action("pointer", target=target, rectangle=bounds, click=click)
+        native_cursor = None
+        if self.hosted_caption:
+            path = Path(__file__).parent / "WindowsModalDesktop/native-window-observation.py"
+            spec = importlib.util.spec_from_file_location("modal_cursor_observation", path)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            native_cursor = module.pointer()
+        self.action("pointer", target=target, rectangle=bounds, click=click, nativeCursorAfter=native_cursor)
+        if native_cursor is not None:
+            require(native_cursor == dict(x=bounds["x"] + bounds["width"] // 2,
+                                          y=bounds["y"] + bounds["height"] // 2),
+                    "Actual native cursor differs from the requested source target")
 
     def key(self, code):
         self.remaining()
@@ -264,10 +419,18 @@ class Session:
         children = [value for value in windows if value["title"] == modal_title]
         require(len(children) == 1 and self.identity(children[0]) != self.identity(owner), "Missing exact modal child identity")
         bounds = rectangle(self.state["targets"]["guard"])
-        exposed_guard(owner, windows, bounds, self.identity)
+        obstruction_windows = windows
+        if self.hosted_caption:
+            record = self.observe_native_windows(owner, windows)
+            record.update(source=self.source_receipt, target=bounds)
+            write(self.directory / (self.state["phase"] + "-native-inventory.json"), record)
+            obstruction_windows = observed_front_to_owner(owner, self.process.pid, record)
+        exposed_guard(owner, obstruction_windows, bounds, self.identity)
         source_owner = next(window for window in self.state["windows"] if window["title"] == self.state["title"])
         policy = source_owner["surfaces"][0]["inputEnabled"] if self.portable else owner.get("enabled")
         require(policy is False, "Modal owner input policy did not disable")
+        if sys.platform == "win32":
+            require(owner.get("enabled") is False, "Native modal owner remains enabled")
         self.blocked_owner_baseline = owner_input(self.state)
         require(hasattr(self.desktop, "blocked_owner_pointer"), "Shared native helper lacks independently unobstructed blocked-owner input")
         proof = self.desktop.blocked_owner_pointer(self.process.pid, owner, bounds)
@@ -275,6 +438,18 @@ class Session:
         self.action("blocked-owner-pointer", nativeProof=proof, target=bounds,
                     ownerIdentity=self.identity(owner), childIdentity=self.identity(children[0]))
         self.wait(lambda state: state["phase"] == self.state["phase"])
+
+    def observe_native_windows(self, owner, windows):
+        self.remaining()
+        path = Path(__file__).parent / "WindowsModalDesktop/native-window-observation.py"
+        spec = importlib.util.spec_from_file_location("modal_native_observation", path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        record = module.observe(self.desktop, self.process.pid, owner, windows)
+        record["helperSha256"] = digest(path)
+        require(self.native() == windows, "Native inventory changed during role observation")
+        self.remaining()
+        return record
 
     def capture(self, phase, predicate):
         self.phase = phase
@@ -287,16 +462,133 @@ class Session:
         require(self.image_bytes <= 128 * 1024 * 1024, "Screenshot budget exceeded")
         self.remaining()
         require(self.native() == windows, "Native identities changed during capture")
-        state, _ = observation(self.directory / "app", self.process.pid, self.run)
-        require(stable(state) == stable(self.state), "Source state changed during capture")
+        state, receipt = observation(self.directory / "app", self.process.pid, self.run)
+        unchanged = stable(state) == stable(self.state)
+        if not unchanged:
+            self.record_capture_change(state, receipt, windows, image)
+        require(unchanged, "Source state changed during capture")
         write(self.directory / (phase + ".json"), dict(qualified=False, pid=self.process.pid,
               source=self.state, sourceReceipt=self.source_receipt, nativeWindows=windows, image=image))
+        if phase == "01-owner" and self.hosted_caption:
+            require(self.initial_native_windows is None and len(self.state["windows"]) == 1 and
+                    len(self.state["windows"][0]["surfaces"]) == 1, "Initial source inventory is not one owner")
+            owner = self.match(self.state, windows)
+            record = self.observe_native_windows(owner, windows)
+            self.initial_native_windows = initial_windows(owner, self.process.pid, record)
+            write(self.directory / "initial-native-inventory.json", record)
+
+    def record_capture_change(self, state, receipt, windows, image):
+        # Freeze the original failed comparison before observing anything else.
+        # No new input, settling, recapture or reinterpretation can pass it.
+        record = dict(qualified=False, originalSourceStateUnchanged=False,
+                      sourceBefore=self.state, sourceBeforeReceipt=self.source_receipt,
+                      sourceAfter=state, sourceAfterReceipt=receipt,
+                      nativeWindows=windows, image=image)
+        try:
+            self.remaining()
+            if self.hosted_caption:
+                path = Path(__file__).parent / "WindowsModalDesktop/native-window-observation.py"
+                spec = importlib.util.spec_from_file_location("modal_failed_capture_observation", path)
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
+                record["foregroundAfterFailure"] = module.foreground(self.desktop)
+                record["helperSha256"] = digest(path)
+            self.remaining()
+        except BaseException as error:
+            record["diagnosticError"] = str(error)[:4096]
+        try:
+            write(self.directory / (self.phase + "-capture-failure.json"), record)
+        except BaseException:
+            # A secondary diagnostic failure cannot replace the original error.
+            pass
+
+
+def await_exact_retirement(read_inventory, expected, remaining, clock=None, sleep=None):
+    """Observe up to one second, inside the original process deadline, without input."""
+    clock = clock or time.monotonic
+    sleep = sleep or time.sleep
+    started = clock()
+    observations = []
+    stable = 0
+    while True:
+        budget = remaining()  # The original absolute deadline stays authoritative.
+        if budget <= 0:
+            raise TimeoutError('Original process deadline expired')
+        elapsed = clock() - started
+        if observations and elapsed >= 1:
+            return dict(ready=False, observations=observations)
+        current = read_inventory()
+        remaining()
+        if clock() - started >= 1:
+            observations.append(dict(elapsedSeconds=clock() - started, inventory=current))
+            return dict(ready=False, observations=observations)
+        observations.append(dict(elapsedSeconds=elapsed, inventory=current))
+        stable = stable + 1 if current == expected else 0
+        if stable == 2:
+            return dict(ready=True, observations=observations)
+        wait = min(.05, budget, 1 - (clock() - started))
+        if wait <= 0:
+            return dict(ready=False, observations=observations)
+        sleep(wait)
+
+
+def check_native_retirement(session):
+    windows = session.native()
+    single_window = len(windows) == 1
+    passed = single_window
+    record = dict(qualified=False, originalSingleWindowAssertionPassed=single_window,
+                  source=session.state, sourceReceipt=session.source_receipt,
+                  nativeWindows=windows, observations=[])
+    if session.hosted_caption and session.initial_native_windows is not None:
+        owner = session.match(session.state, windows)
+        current = session.observe_native_windows(owner, windows)
+        record.update(initialNativeWindows=session.initial_native_windows, finalNativeInventory=current)
+        passed = sorted(current["windows"], key=lambda row: row["hwnd"]) == session.initial_native_windows
+    record["originalAssertionPassed"] = single_window
+    record["restorationAssertionPassed"] = passed
+    if getattr(session, "retirement_readiness", False) is True:
+        write(session.directory / "native-retirement-initial.json", record)
+        require(session.hosted_caption and session.initial_native_windows is not None,
+                "Retirement readiness requires the original hosted native baseline")
+        # The user-approved readiness rule preserves both instantaneous results.
+        # It uses only exact native observations inside the original deadline.
+        expected = session.initial_native_windows
+        baseline_owner = next(row for row in expected if row["hwnd"] == owner["hwnd"])
+        def inventory():
+            native = session.native()
+            current_owner = session.match(session.state, native)
+            observed = session.observe_native_windows(current_owner, native)
+            rows = sorted(observed["windows"], key=lambda row: row["hwnd"])
+            require(sum(row["hwnd"] == baseline_owner["hwnd"] for row in rows) == 1 and
+                    next(row for row in rows if row["hwnd"] == baseline_owner["hwnd"]) == baseline_owner,
+                    "Original native owner identity changed during retirement readiness")
+            return rows
+        try:
+            record["boundedReadiness"] = await_exact_retirement(inventory, expected, session.remaining)
+            passed = record["boundedReadiness"]["ready"]
+        except BaseException as error:
+            record["readinessError"] = str(error)[:4096]
+            write(session.directory / "native-retirement.json", record)
+            raise
+    elif not passed and session.hosted_caption:
+        # Observe only after freezing the original failed assertion. Later
+        # disappearance can diagnose deferred retirement, never turn it green.
+        until = min(session.deadline, time.monotonic() + 1)
+        try:
+            while time.monotonic() < until:
+                session.remaining()
+                record["observations"].append(dict(at=time.monotonic(), nativeWindows=session.native()))
+                time.sleep(.05)
+        except BaseException as error:
+            record["diagnosticError"] = str(error)[:4096]
+    write(session.directory / "native-retirement.json", record)
+    require(passed, "Dismissed popup or modal native windows remain visible")
 
 
 def scenario(session):
     count = lambda state, key: state["counts"].get(key, 0)
     windows = session.wait(lambda state: state["phase"] == "owner" and bool(state["windows"]))
-    session.desktop.activate(next(value for value in windows if value["title"] == session.state["title"]))
+    session.activate(next(value for value in windows if value["title"] == session.state["title"]))
     session.capture("01-owner", lambda state: state["windows"][0]["active"])
     for action, suffix in (("message", " MessageBox"), ("dialog", " Dialog")):
         session.point(action)
@@ -323,6 +615,8 @@ def scenario(session):
         source_owner = next(window for window in session.state["windows"] if window["title"] == session.state["title"])
         require(source_owner["surfaces"][0]["inputEnabled"] is True if session.portable else native_enabled is True,
                 "Modal owner input was not restored")
+        if sys.platform == "win32":
+            require(native_enabled is True, "Native modal owner input was not restored")
         before = count(session.state, "guard-action")
         session.point("guard")
         session.wait(lambda state: count(state, "guard-action") == before + 1)
@@ -343,7 +637,7 @@ def scenario(session):
     session.capture("07-tooltip", lambda state: state["tooltipOpen"] and count(state, "tooltip-opening") == 1)
     session.point("guard", None)
     session.wait(lambda state: not state["tooltipOpen"] and not state["popupOpen"] and not state["contextOpen"])
-    require(len(session.native()) == 1, "Dismissed popup or modal native windows remain visible")
+    check_native_retirement(session)
     session.point("finish")
     remaining = max(0.001, session.deadline - time.monotonic())
     require(session.process.wait(timeout=remaining) == 0, "Actual owner shutdown failed")
@@ -386,7 +680,8 @@ def make_desktop(platform, module, helper, output, read_state):
     return WpfMacDesktop(helper, output)
 
 
-def run_one(args, module, shared, app, output, portable):
+def run_one(args, module, shared, app, output, portable, windows_desktop=None):
+    require(windows_desktop is None or args.platform == "windows", "Only the stateless Windows observer can be shared")
     regular(app)
     output.mkdir()
     run = uuid.uuid4().hex
@@ -396,17 +691,23 @@ def run_one(args, module, shared, app, output, portable):
     result = dict(schema="wpf-modal-desktop-result-v1", qualified=False, binarySourceIdentityVerified=False,
                   app=str(app), appSha256=digest(app),
                   argv=argv, helpers=shared, sourceSha256=digest(Path(__file__).parents[1] / "samples/ProGPU.Wpf.ModalInteractionApp/App.xaml.cs"))
-    desktop = process = session = failure = None
+    desktop = windows_desktop
+    process = session = failure = None
     cleanup_errors = []
     try:
         with (output / "stdout.txt").open("xb") as stdout, (output / "stderr.txt").open("xb") as stderr:
             deadline = time.monotonic() + 60
             process = subprocess.Popen(argv, stdout=stdout, stderr=stderr)
             result["pid"] = process.pid
-            desktop = make_desktop(args.platform, module, args.macos_helper, output,
-                                   lambda: observation(output / "app", process.pid, run)[0])
+            if desktop is None:
+                desktop = make_desktop(args.platform, module, args.macos_helper, output,
+                                       lambda: observation(output / "app", process.pid, run)[0])
             result["nativeHelper"] = getattr(desktop, "provenance", None)
-            session = Session(desktop, process, output, run, portable, deadline)
+            session = Session(desktop, process, output, run, portable, deadline,
+                              args.hosted_windows_caption_activation,
+                              args.hosted_windows_shell_escape and not portable,
+                              getattr(args, "hosted_windows_retirement_readiness", False) is True,
+                              getattr(args, "hosted_windows_start_activation", False) is True and not portable)
             if args.platform == "macos":
                 desktop.deadline = session.deadline
             scenario(session)
@@ -414,6 +715,8 @@ def run_one(args, module, shared, app, output, portable):
     except BaseException as error:
         failure = error
         result.update(completed=False, error=str(error)[:4096], phase=session.phase if session else "startup")
+        if session is not None:
+            session.record_failure(result)
     finally:
         try:
             if process is not None and process.poll() is None:
@@ -431,6 +734,8 @@ def run_one(args, module, shared, app, output, portable):
         except BaseException as error:
             cleanup_errors.append("native observer: " + str(error)[:2048])
         result["cleanupErrors"] = cleanup_errors
+        if process is not None:
+            result["exitCodeAfterCleanup"] = process.returncode
         if cleanup_errors:
             result["completed"] = False
         try:
@@ -441,6 +746,7 @@ def run_one(args, module, shared, app, output, portable):
     if failure is not None:
         raise failure
     require(not cleanup_errors, "Desktop cleanup failed: " + "; ".join(cleanup_errors))
+    return desktop
 
 
 def main():
@@ -452,19 +758,37 @@ def main():
     parser.add_argument("--forms-helper-checkout", type=Path, required=True)
     parser.add_argument("--forms-helper-commit", required=True)
     parser.add_argument("--macos-helper", type=Path)
+    parser.add_argument("--hosted-windows-caption-activation", action="store_true")
+    parser.add_argument("--hosted-windows-shell-escape", action="store_true")
+    parser.add_argument("--hosted-windows-start-activation", action="store_true")
+    parser.add_argument("--hosted-windows-retirement-readiness", action="store_true")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     require((args.platform == "windows" and sys.platform == "win32") or
             (args.platform == "macos" and sys.platform == "darwin") or
             (args.platform == "x11" and sys.platform.startswith("linux")), "Unsupported platform selection")
     require((args.reference_app is not None) == (args.platform == "windows"), "Windows requires an original Microsoft pair only")
+    require(not args.hosted_windows_caption_activation or (args.platform == "windows" and
+            os.environ.get("GITHUB_ACTIONS") == "true" and os.environ.get("RUNNER_ENVIRONMENT") == "github-hosted"
+            and os.environ.get("RUNNER_OS") == "Windows" and os.environ.get("GITHUB_REPOSITORY") == "wieslawsoltes/LibreWPF"),
+            "Caption activation is restricted to this repository's disposable hosted Windows desktop")
+    require(not args.hosted_windows_shell_escape or args.hosted_windows_caption_activation,
+            "Approved shell Escape requires the original hosted caption admission")
+    require(not args.hosted_windows_start_activation or args.hosted_windows_shell_escape,
+            "Approved Start activation requires the original bounded hosted shell guard")
+    require(not args.hosted_windows_retirement_readiness or args.hosted_windows_caption_activation,
+            "Retirement readiness requires the original hosted caption admission")
     regular(args.output.parent, True)
     require(args.output.is_absolute() and not args.output.exists(), "Output must be a fresh absolute directory")
     module, shared = load_helper(args.forms_helper_checkout, args.forms_helper_commit)
     args.output.mkdir()
+    windows_desktop = None
     if args.reference_app is not None:
-        run_one(args, module, shared, args.reference_app, args.output / "microsoft", False)
-    run_one(args, module, shared, args.portable_app, args.output / "portable", True)
+        # SetProcessDpiAwarenessContext belongs to this controller process, not
+        # each child application. The immutable helper holds only native API
+        # bindings; each run still owns its own PID, source state and deadline.
+        windows_desktop = run_one(args, module, shared, args.reference_app, args.output / "microsoft", False)
+    run_one(args, module, shared, args.portable_app, args.output / "portable", True, windows_desktop)
 
 
 if __name__ == "__main__":
