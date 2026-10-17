@@ -1,5 +1,12 @@
 # Agent Guidance
 
+Portable PopupRoot layout shares the existing integer, minimum-one host client
+allocation on every source update. Preserve original desired/child dimensions,
+content overflow/clipping, native sizing policy and non-PopupRoot behavior.
+Never round glyph advances or change observation bounds to fit a capture.
+See docs/portable-popup-client-layout.md; the prior untraced ShowDialog stall and
+full source/package/desktop qualification remain separate gates.
+
 The modal sample explicitly selects packaged DXC only for Windows x64/ARM64.
 Keep Automatic reproduction separate and preserve all seven original scenarios,
 60-second process deadlines, 64-action bounds, captures and native owner checks.
