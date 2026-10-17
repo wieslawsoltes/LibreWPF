@@ -1,13 +1,25 @@
 """Verify that hosted desktop setup never closes an unverified or repeated owner."""
 import copy
+import ctypes
 import importlib.util
 from pathlib import Path
+from types import SimpleNamespace
 import unittest
 
 SPEC = importlib.util.spec_from_file_location("modal_setup", Path(__file__).parents[1] / "WindowsModalDesktop/prepare-desktop.py")
 SETUP = importlib.util.module_from_spec(SPEC); SPEC.loader.exec_module(SETUP)
 
 class DesktopSetupTests(unittest.TestCase):
+    def test_actual_ctypes_hwnd_return_keeps_null_zero_and_live_handle_identity(self):
+        native = object.__new__(SETUP.Desktop)
+        for value in (0, 1, 0x100000001):
+            with self.subTest(value=value):
+                callback = ctypes.CFUNCTYPE(ctypes.c_void_p)(lambda: value)
+                self.assertEqual(None if value == 0 else value, callback())
+                native.u = SimpleNamespace(GetForegroundWindow=callback)
+                self.assertEqual(value, native.foreground())
+                self.assertIs(type(native.foreground()), int)
+
     class Native:
         def __init__(self):
             self.items = [
