@@ -109,7 +109,9 @@ jobs:
         with:
           path: diagnostics
           persist-credentials: false
-          sparse-checkout: eng
+          sparse-checkout: |
+            eng
+            .github/workflows
       - name: Verify original-child isolation and unchanged failure propagation
         run: python diagnostics/eng/tests/test_wpf_popup_scene_observation.py -v
       - name: Prepare the original disposable hosted desktop

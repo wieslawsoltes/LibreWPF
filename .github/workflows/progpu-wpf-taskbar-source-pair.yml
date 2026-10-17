@@ -27,7 +27,7 @@ jobs:
           sparse-checkout: eng/WindowsTaskbarSourcePair
       - uses: actions/checkout@v4
         with:
-          ref: 2f00554724ece8a4a463bdc2ff8f265f128facea
+          ref: e9d3e63dba4c48872d5a2d77bbf9f2acd6c6cf30
           path: producer
           persist-credentials: false
           sparse-checkout: eng
@@ -54,8 +54,8 @@ jobs:
           $inputs = Join-Path $env:RUNNER_TEMP 'taskbar-source-producer'
           "TASKBAR_INPUTS=$inputs" >> $env:GITHUB_ENV
           python producer/eng/WindowsModalDesktop/candidate-packages.py `
-            --head 2f00554724ece8a4a463bdc2ff8f265f128facea `
-            --build 39033309585 --docs 39033309474 --output $inputs
+            --head e9d3e63dba4c48872d5a2d77bbf9f2acd6c6cf30 `
+            --build 39034879696 --docs 39034879819 --output $inputs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Build and observe the original source pair without input injection
         shell: pwsh
