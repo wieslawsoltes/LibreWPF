@@ -87,11 +87,18 @@ def main():
         # Raw dumps are never uploaded. Only a bounded dump correlated with this
         # owned child's native exception may enter the diagnostic artifact.
         with tempfile.TemporaryDirectory(prefix='modal-native-raw-') as temporary:
-            raw = Path(temporary)
+            raw = Path(temporary) / 'crash'
+            raw.mkdir()
+            # Preserve an earlier real non-null access violation if native
+            # handling later turns it into a return-authentication fail-fast.
+            # This existing debugger mode does not handle or suppress the fault.
+            first_av = Path(temporary) / 'first-av'
+            first_av.mkdir(exist_ok=False)
             event_path = output / 'native-event.json'
             command = [str(helper), str(image), str(raw), str(event_path),
                        '--modal-evidence-directory', str(output / 'app'),
-                       '--modal-run-id', uuid.uuid4().hex]
+                       '--modal-run-id', uuid.uuid4().hex,
+                       '--first-chance-av', str(first_av / 'first-chance-av.dmp')]
             result['command'] = command
             with (output / 'stdout.txt').open('xb') as stdout, (output / 'stderr.txt').open('xb') as stderr:
                 process = subprocess.run(command, stdout=stdout, stderr=stderr, timeout=70)
@@ -103,6 +110,8 @@ def main():
                 validated = debugger.correlate_exception(source, event)
                 crash.publish_dump(source, output / 'native-crash.dmp', event['processId'], validated)
                 result['validatedCrash'] = validated
+            result['firstChanceAccessViolation'] = debugger.collect_first_chance_av(
+                first_av / 'first-chance-av.dmp', output, event, expected)
     except BaseException as error:
         result['error'] = repr(error)
         raise
