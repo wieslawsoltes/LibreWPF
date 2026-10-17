@@ -450,3 +450,23 @@ Handled and unhandled low-address native controls preserve actual exit behavior.
 Original Showcase capture policy stays unchanged. Existing native-loop, scene
 encode and compute traces are enabled only in this supplemental modal process;
 no trace or diagnostic result replaces the original acceptance workload.
+
+
+### Approved hosted Start activation
+
+On 2026-10-17 the owner approved one bounded Start activation on the disposable
+GitHub runner. Run39028812067 had dismissed Search, but visible nonforeground
+Start still covered all three original caption points. That run remains failed.
+
+The explicit `--hosted-windows-start-activation` option requires the existing
+hosted shell guard. After exactly one successful Search Escape, the actual shell
+HWND must own foreground with its original Progman class and interactive session.
+Exactly one visible Start CoreWindow must retain its original HWND/PID/thread,
+Windows system image and session. One SetForegroundWindow call must immediately
+produce that exact foreground identity before its already-approved single Escape.
+Failure stops without retries or another activation method. Unknown foreground
+windows receive no input. The activation consumes an original action; the pair
+still allows at most two shell Escapes, three setup seconds, 60 seconds per process
+and 64 actions. Original source-event leakage, caption, scenario, pixel and
+retirement checks remain. No local VM is used. This startup permission does not
+qualify portable taskbar/modal behavior or excuse an original failed result.

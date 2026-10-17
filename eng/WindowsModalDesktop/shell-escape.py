@@ -14,7 +14,7 @@ def require(value, message):
 
 
 def dismiss(native, original_sender, claim_original_action, deadline, record, environment, *,
-            authorized=False, clock=time.monotonic, sleep=time.sleep):
+            authorized=False, allow_background_start=False, clock=time.monotonic, sleep=time.sleep):
     require(authorized, "Bounded hosted shell input requires explicit owner approval")
     require(all(environment.get(k) == v for k, v in {
         "GITHUB_ACTIONS": "true", "RUNNER_ENVIRONMENT": "github-hosted",
@@ -25,6 +25,7 @@ def dismiss(native, original_sender, claim_original_action, deadline, record, en
             "Ordinary interactive desktop required")
     record.update(context=context, escapes=[], deadlineUnchanged=deadline)
     names = set()
+    record["startActivations"] = []
     setup_deadline = min(deadline - 3, clock() + 3)
     record["setupDeadline"] = setup_deadline
     for _ in range(3):
@@ -36,7 +37,38 @@ def dismiss(native, original_sender, claim_original_action, deadline, record, en
         name = window["title"]
         if name not in IMAGES:
             record["remainingForeground"] = window
-            return  # No input; the original caption guards still decide admission.
+            # The extension is opt-in and admits only the exact observed failure:
+            # Search was dismissed, actual shell owns foreground, visible Start
+            # remains. No arbitrary foreground/application is activated.
+            if not (allow_background_start and names == {"Search"}
+                    and hwnd == context["shell"] and window["class"] == "Progman"
+                    and window["visible"] and window["pid"] > 0
+                    and window["session"] == context["session"]
+                    and not record["startActivations"]):
+                return
+            windows = native.windows()
+            require(len(windows) <= 128, "Native window inventory exceeds bound")
+            starts = [item for item in windows if item["title"] == "Start"]
+            require(len(starts) == 1, "Exactly one visible Start window is required")
+            candidate = starts[0]
+            require(candidate["class"] == "Windows.UI.Core.CoreWindow" and candidate["visible"]
+                    and candidate["pid"] > 0 and candidate["session"] == context["session"]
+                    and ntpath.normcase(candidate["image"]) ==
+                        ntpath.normcase(ntpath.join(context["windowsRoot"], IMAGES["Start"])),
+                    "Unverified background Start target")
+            require(clock() < setup_deadline and native.context() == context
+                    and native.foreground() == hwnd and native.snapshot(hwnd) == window
+                    and native.snapshot(candidate["hwnd"]) == candidate,
+                    "Start activation identity or deadline changed")
+            activation = dict(window=candidate, foregroundBefore=window)
+            record["startActivations"].append(activation)
+            claim_original_action("hosted-start-activation", nativeProof=activation)
+            activation["accepted"] = native.activate(candidate["hwnd"])
+            require(activation["accepted"] and clock() < setup_deadline
+                    and native.context() == context and native.foreground() == candidate["hwnd"]
+                    and native.snapshot(candidate["hwnd"]) == candidate,
+                    "Start activation rejected or identity changed; no retry permitted")
+            hwnd, window, name = candidate["hwnd"], candidate, "Start"
         require(name not in names and len(names) < 2, "Repeated shell foreground; no retry permitted")
         require(window["class"] == "Windows.UI.Core.CoreWindow" and window["visible"]
                 and window["pid"] > 0 and window["session"] == context["session"]

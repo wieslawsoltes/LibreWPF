@@ -61,7 +61,8 @@ def main():
                "--portable-app", preparation["payloads"]["portable"]["app"],
                "--forms-helper-checkout", preparation["helper"],
                "--forms-helper-commit", manifest["formsHelperSource"], "--output", str(evidence),
-               "--hosted-windows-caption-activation", "--hosted-windows-shell-escape"]
+               "--hosted-windows-caption-activation", "--hosted-windows-shell-escape",
+               "--hosted-windows-retirement-readiness", "--hosted-windows-start-activation"]
     source_changes = sorted(name for name, digest in manifest["source"].items()
                             if preparation["selectedSourceHashes"][name] != digest)
     receipt = dict(qualified=False, completed=False, argv=command, deadlineSecondsPerProcess=60,
@@ -74,8 +75,8 @@ def main():
                                       if preparation["candidate"] else None),
                    nativeInputTrace=os.environ.get("PROGPU_WPF_TRACE_INPUT") == "1",
                    hostedAutomation=preparation["hostedAutomation"], automationCommit=preparation["automationCommit"],
-                   startupInput="At most two verified shell Escapes at reference startup across the entire pair, then one PID/HTCAPTION-verified click per process; all inside original deadline/action budgets",
-                   shellInputAuthorization="Owner approval 2026-10-16: bounded disposable hosted Start/Search Escape only")
+                   startupInput="At most two verified shell Escapes at reference startup across the entire pair, with one verified Start activation after Search yields to Progman; then one PID/HTCAPTION-verified click per process; all inside original deadline/action budgets",
+                   shellInputAuthorization="Owner approvals 2026-10-16/17: bounded hosted Search/Start Escape plus one verified Start activation after Search yields to the actual shell")
     save(root / "launch.json", receipt)
     previous = sys.argv
     started = time.monotonic()

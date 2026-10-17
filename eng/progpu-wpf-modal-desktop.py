@@ -197,7 +197,7 @@ def load_helper(checkout, commit):
 
 
 class Session:
-    def __init__(self, desktop, process, directory, run, portable, deadline, hosted_caption=False, hosted_shell=False):
+    def __init__(self, desktop, process, directory, run, portable, deadline, hosted_caption=False, hosted_shell=False, retirement_readiness=False, hosted_start=False):
         self.desktop, self.process, self.directory, self.run = desktop, process, directory, run
         self.portable = portable
         self.deadline = deadline
@@ -209,6 +209,8 @@ class Session:
         self.blocked_owner_baseline = None
         self.hosted_caption = hosted_caption
         self.hosted_shell = hosted_shell
+        self.hosted_start = hosted_start
+        self.retirement_readiness = retirement_readiness
         self.activation_attempted = False
         self.initial_native_windows = None
 
@@ -255,7 +257,8 @@ class Session:
                 spec.loader.exec_module(module)
                 modules.append(module)
             modules[1].dismiss(modules[0].Desktop(), self.desktop, self.action,
-                               self.deadline, record, os.environ, authorized=self.hosted_shell)
+                               self.deadline, record, os.environ, authorized=self.hosted_shell,
+                               allow_background_start=self.hosted_start)
             if record["escapes"]:
                 # Require original source observations published after input;
                 # already queued snapshots cannot prove absence of leaked keys.
@@ -500,6 +503,35 @@ class Session:
             pass
 
 
+def await_exact_retirement(read_inventory, expected, remaining, clock=None, sleep=None):
+    """Observe up to one second, inside the original process deadline, without input."""
+    clock = clock or time.monotonic
+    sleep = sleep or time.sleep
+    started = clock()
+    observations = []
+    stable = 0
+    while True:
+        budget = remaining()  # The original absolute deadline stays authoritative.
+        if budget <= 0:
+            raise TimeoutError('Original process deadline expired')
+        elapsed = clock() - started
+        if observations and elapsed >= 1:
+            return dict(ready=False, observations=observations)
+        current = read_inventory()
+        remaining()
+        if clock() - started >= 1:
+            observations.append(dict(elapsedSeconds=clock() - started, inventory=current))
+            return dict(ready=False, observations=observations)
+        observations.append(dict(elapsedSeconds=elapsed, inventory=current))
+        stable = stable + 1 if current == expected else 0
+        if stable == 2:
+            return dict(ready=True, observations=observations)
+        wait = min(.05, budget, 1 - (clock() - started))
+        if wait <= 0:
+            return dict(ready=False, observations=observations)
+        sleep(wait)
+
+
 def check_native_retirement(session):
     windows = session.native()
     single_window = len(windows) == 1
@@ -514,7 +546,31 @@ def check_native_retirement(session):
         passed = sorted(current["windows"], key=lambda row: row["hwnd"]) == session.initial_native_windows
     record["originalAssertionPassed"] = single_window
     record["restorationAssertionPassed"] = passed
-    if not passed and session.hosted_caption:
+    if getattr(session, "retirement_readiness", False) is True:
+        write(session.directory / "native-retirement-initial.json", record)
+        require(session.hosted_caption and session.initial_native_windows is not None,
+                "Retirement readiness requires the original hosted native baseline")
+        # The user-approved readiness rule preserves both instantaneous results.
+        # It uses only exact native observations inside the original deadline.
+        expected = session.initial_native_windows
+        baseline_owner = next(row for row in expected if row["hwnd"] == owner["hwnd"])
+        def inventory():
+            native = session.native()
+            current_owner = session.match(session.state, native)
+            observed = session.observe_native_windows(current_owner, native)
+            rows = sorted(observed["windows"], key=lambda row: row["hwnd"])
+            require(sum(row["hwnd"] == baseline_owner["hwnd"] for row in rows) == 1 and
+                    next(row for row in rows if row["hwnd"] == baseline_owner["hwnd"]) == baseline_owner,
+                    "Original native owner identity changed during retirement readiness")
+            return rows
+        try:
+            record["boundedReadiness"] = await_exact_retirement(inventory, expected, session.remaining)
+            passed = record["boundedReadiness"]["ready"]
+        except BaseException as error:
+            record["readinessError"] = str(error)[:4096]
+            write(session.directory / "native-retirement.json", record)
+            raise
+    elif not passed and session.hosted_caption:
         # Observe only after freezing the original failed assertion. Later
         # disappearance can diagnose deferred retirement, never turn it green.
         until = min(session.deadline, time.monotonic() + 1)
@@ -649,7 +705,9 @@ def run_one(args, module, shared, app, output, portable, windows_desktop=None):
             result["nativeHelper"] = getattr(desktop, "provenance", None)
             session = Session(desktop, process, output, run, portable, deadline,
                               args.hosted_windows_caption_activation,
-                              args.hosted_windows_shell_escape and not portable)
+                              args.hosted_windows_shell_escape and not portable,
+                              getattr(args, "hosted_windows_retirement_readiness", False) is True,
+                              getattr(args, "hosted_windows_start_activation", False) is True and not portable)
             if args.platform == "macos":
                 desktop.deadline = session.deadline
             scenario(session)
@@ -702,6 +760,8 @@ def main():
     parser.add_argument("--macos-helper", type=Path)
     parser.add_argument("--hosted-windows-caption-activation", action="store_true")
     parser.add_argument("--hosted-windows-shell-escape", action="store_true")
+    parser.add_argument("--hosted-windows-start-activation", action="store_true")
+    parser.add_argument("--hosted-windows-retirement-readiness", action="store_true")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     require((args.platform == "windows" and sys.platform == "win32") or
@@ -714,6 +774,10 @@ def main():
             "Caption activation is restricted to this repository's disposable hosted Windows desktop")
     require(not args.hosted_windows_shell_escape or args.hosted_windows_caption_activation,
             "Approved shell Escape requires the original hosted caption admission")
+    require(not args.hosted_windows_start_activation or args.hosted_windows_shell_escape,
+            "Approved Start activation requires the original bounded hosted shell guard")
+    require(not args.hosted_windows_retirement_readiness or args.hosted_windows_caption_activation,
+            "Retirement readiness requires the original hosted caption admission")
     regular(args.output.parent, True)
     require(args.output.is_absolute() and not args.output.exists(), "Output must be a fresh absolute directory")
     module, shared = load_helper(args.forms_helper_checkout, args.forms_helper_commit)
