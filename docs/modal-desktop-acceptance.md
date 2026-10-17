@@ -22,6 +22,10 @@ deadlines. A transparent launch observer retains only the two exact child object
 and reads their exit status after original cleanup; matching bounded Windows
 events remain diagnostic context. It does not retry any scenario or qualify
 acceptance, and original launch/controller exceptions remain authoritative.
+That paired observation stopped in the Microsoft reference at the foreground
+guard, before launching LibreWPF. The combined diagnostic also records the
+existing bounded, read-only foreground timeline; it neither repairs focus nor
+changes the approved original controller or native input.
 
 This desktop workload is still unqualified. `qualified` remains false in source
 observations and driver evidence. Hosted Windows runs and retained failures are

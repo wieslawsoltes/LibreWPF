@@ -10,6 +10,7 @@ from pathlib import Path
 import runpy
 import subprocess
 import sys
+import threading
 
 
 @contextmanager
@@ -57,6 +58,14 @@ def main():
     result = dict(diagnosticOnly=True, qualified=False, producer=preparation['candidate']['identity'],
                   originalDeadlineSecondsPerProcess=60, originalMaximumActionsPerProcess=64,
                   controllerUnchanged=True, processObservationOnly=True)
+    foreground_spec = importlib.util.spec_from_file_location('qualified_foreground_observer', tools / 'observe-foreground.py')
+    foreground = importlib.util.module_from_spec(foreground_spec)
+    foreground_spec.loader.exec_module(foreground)
+    observation = dict(changes=[], diagnosticOnly=True, qualified=False)
+    stop = threading.Event()
+    observer = threading.Thread(target=foreground.observe,
+                                args=(foreground.Native(), stop, observation), daemon=True)
+    observer.start()
     old_argv, old_path = sys.argv, sys.path[:]
     try:
         sys.path.insert(0, str(tools))
@@ -69,6 +78,10 @@ def main():
         raise
     finally:
         sys.argv, sys.path[:] = old_argv, old_path
+        stop.set()
+        observer.join(1)
+        observation['observerStopped'] = not observer.is_alive()
+        result['foregroundObservation'] = observation
         observed = []
         for item in records:
             process = item['process']
