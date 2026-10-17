@@ -182,6 +182,21 @@ class Controls(unittest.TestCase):
             path.write_text(" " * 4097, encoding="utf-8")
             with self.assertRaises(ValueError): diagnostic.load_event(path, 0xAA64)
 
+    def test_low_address_capture_requires_explicit_receipt_policy(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "event.json"
+            value = event() | dict(firstChanceAvEnabled=True, firstChanceAvAttempted=True,
+                firstChanceAvThreadId=7, firstChanceAvInstruction=0x12345678,
+                firstChanceAvAddress=1, firstChanceAvOperation=1)
+            for policy in (None, False, 1, "true"):
+                record = value if policy is None else value | dict(firstChanceAvIncludesLowAddresses=policy)
+                path.write_text(json.dumps(record), encoding="utf-8")
+                with self.subTest(policy=policy), self.assertRaises(ValueError):
+                    diagnostic.load_event(path, 0xAA64)
+            record = value | dict(firstChanceAvIncludesLowAddresses=True)
+            path.write_text(json.dumps(record), encoding="utf-8")
+            self.assertEqual(diagnostic.load_event(path, 0xAA64), record)
+
     def test_live_snapshot_is_not_crash_evidence_and_requires_complete_native_threads(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
@@ -381,6 +396,29 @@ def native_controls(directory, architecture):
         if result.returncode != 17 or value['exitCode'] != 17 or value['captured'] or list(raw.iterdir()):
             raise RuntimeError('Modal argument transport changed ordinary exit or created false crash evidence')
         print(f'PASS native {architecture} debugger: exact modal arguments and quoted directory', flush=True)
+    for mode, expected_exit in (("handled-low-av", 0), ("access-violation", 0xC0000005)):
+        with tempfile.TemporaryDirectory(prefix="modal-low-av-control-") as temp:
+            root = Path(temp)
+            app = root / f"ModalStartup-{uuid.uuid4().hex}.exe"
+            app.write_bytes(fixture.read_bytes())
+            raw, first = root / 'raw', root / 'first'
+            raw.mkdir()
+            first.mkdir()
+            receipt = root / 'event.json'
+            command = [str(helper), str(app), str(raw), str(receipt),
+                       '--modal-evidence-directory', str(root / 'evidence'),
+                       '--modal-run-id', uuid.uuid4().hex,
+                       '--first-chance-av-including-low', str(first / 'first-chance-av.dmp')]
+            result = subprocess.run(command, env=os.environ | {'SHOWCASE_DEBUGGER_FIXTURE': mode},
+                                    timeout=20, capture_output=True)
+            app.unlink()
+            value = diagnostic.load_event(receipt, expected)
+            report = diagnostic.collect_first_chance_av(first / 'first-chance-av.dmp', root, value, expected)
+            if (result.returncode != expected_exit or value['exitCode'] != expected_exit or
+                    not report['captured'] or report['accessAddress'] != 1 or report['provesUnhandledCrash'] or
+                    value['captured'] != (expected_exit != 0)):
+                raise RuntimeError('Modal low-address capture changed handling or lost original access identity')
+            print(f'PASS native {architecture} debugger: modal {mode}', flush=True)
     for mode, expected_exit, captures in (("handled", 0, False), ("exit", 17, False),
                                         ("fail-fast", 0xC0000409, True),
                                         ("access-violation", 0xC0000005, True), ("live-stack", 17, False),

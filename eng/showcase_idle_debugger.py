@@ -45,6 +45,7 @@ def load_event(path, expected_machine):
     if len(data) > 4096:
         raise ValueError("Debugger receipt exceeds its bound")
     event = json.loads(data)
+    includes_low = event.get("firstChanceAvIncludesLowAddresses", False) if isinstance(event, dict) else False
     integers = {"processId": 0xFFFFFFFF, "machine": 0xFFFF, "exitCode": 0xFFFFFFFF,
                 "exceptionCode": 0xFFFFFFFF, "exceptionThreadId": 0xFFFFFFFF,
                 "exceptionAddress": 0xFFFFFFFFFFFFFFFF, "dumpError": 0xFFFFFFFF, "loopError": 0xFFFFFFFF,
@@ -52,7 +53,8 @@ def load_event(path, expected_machine):
                 "firstChanceAvThreadId": 0xFFFFFFFF, "firstChanceAvInstruction": 0xFFFFFFFFFFFFFFFF,
                 "firstChanceAvAddress": 0xFFFFFFFFFFFFFFFF, "firstChanceAvOperation": 8,
                 "firstChanceAvElapsedMs": 110000, "firstChanceAvDumpError": 0xFFFFFFFF}
-    if (not isinstance(event, dict) or
+    if (not isinstance(event, dict) or type(includes_low) is not bool or
+            (includes_low and event.get("firstChanceAvEnabled") is not True) or
             any(type(event.get(key)) is not int or not 0 <= event[key] <= limit for key, limit in integers.items()) or
             type(event.get("schemaVersion")) is not int or event["schemaVersion"] != 3 or event.get("diagnosticOnly") is not True
             or event.get("machine") != expected_machine
@@ -67,7 +69,8 @@ def load_event(path, expected_machine):
             or type(event.get("firstChanceAvAttempted")) is not bool
             or (event["firstChanceAvAttempted"] and (not event["firstChanceAvEnabled"]
                 or event["firstChanceAvThreadId"] == 0 or event["firstChanceAvInstruction"] == 0
-                or event["firstChanceAvAddress"] <= 0x10000 or event["firstChanceAvOperation"] not in (0, 1, 8)))
+                or (not includes_low and event["firstChanceAvAddress"] <= 0x10000)
+                or event["firstChanceAvOperation"] not in (0, 1, 8)))
             or (not event["firstChanceAvAttempted"] and any(event[key] != 0 for key in
                 ("firstChanceAvThreadId", "firstChanceAvInstruction", "firstChanceAvAddress",
                  "firstChanceAvOperation", "firstChanceAvElapsedMs", "firstChanceAvDumpError")))):
@@ -110,6 +113,8 @@ def collect_first_chance_av(raw, directory, event, expected_machine):
               "qualifiesIdle": False, "provesUnhandledCrash": False, "captured": False,
               "enabled": event["firstChanceAvEnabled"], "attempted": event["firstChanceAvAttempted"],
               "dumpError": event["firstChanceAvDumpError"]}
+    if event.get("firstChanceAvIncludesLowAddresses", False):
+        report["kind"] = "first-chance-AV-including-low-MiniDumpNormal"
     if not event["firstChanceAvAttempted"] or event["firstChanceAvDumpError"] != 0:
         return report
     mapped = event | {"exceptionCode": 0xC0000005, "exceptionThreadId": event["firstChanceAvThreadId"],

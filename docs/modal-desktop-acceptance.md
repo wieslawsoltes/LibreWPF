@@ -395,3 +395,16 @@ code and address is uploaded; raw dumps stay outside the artifact. No WER/global
 debugger settings or local VMs change. This diagnostic cannot qualify the original
 paired workload, even if the app survives. The original failure remains open
 until a product fix passes full producer and ordinary application acceptance.
+
+Native diagnostic `38992920847` captured `d3d10warp.dll+0x971f8` at `autibsp`,
+with fail-fast parameter 73 (pointer-authenticated return-address failure).
+Matching Microsoft public symbols locate `PixelJITProcessor::ExecuteJIT`;
+this does not attribute an underlying driver or shader defect. Follow-up
+`38993527640` reproduced the termination but observed no first-chance access
+violation above `0x10000`. The explicit modal-only
+`--first-chance-av-including-low` option also admits low addresses, records that
+policy in its receipt and retains the same PID/thread/access/dump validation.
+Handled and unhandled low-address native controls preserve actual exit behavior.
+Original Showcase capture policy stays unchanged. Existing native-loop, scene
+encode and compute traces are enabled only in this supplemental modal process;
+no trace or diagnostic result replaces the original acceptance workload.

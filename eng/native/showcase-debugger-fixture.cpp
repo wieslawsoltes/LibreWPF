@@ -30,6 +30,10 @@ int wmain(int argc, wchar_t** argv) {
         *reinterpret_cast<volatile unsigned char*>(static_cast<std::uintptr_t>(1)) = 0;
         return 3;
     }
+    if (lstrcmpW(mode, L"handled-low-av") == 0) {
+        __try { *reinterpret_cast<volatile unsigned char*>(static_cast<std::uintptr_t>(1)) = 0; }
+        __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
+    }
     if (lstrcmpW(mode, L"unhandled-nonnull-av") == 0) {
         void* page = VirtualAlloc(nullptr, 4096, MEM_COMMIT | MEM_RESERVE, PAGE_NOACCESS);
         if (!page) return 2;

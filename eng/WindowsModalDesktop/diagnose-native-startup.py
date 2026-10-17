@@ -89,7 +89,7 @@ def main():
         with tempfile.TemporaryDirectory(prefix='modal-native-raw-') as temporary:
             raw = Path(temporary) / 'crash'
             raw.mkdir()
-            # Preserve an earlier real non-null access violation if native
+            # Preserve an earlier real access violation, including low addresses, if native
             # handling later turns it into a return-authentication fail-fast.
             # This existing debugger mode does not handle or suppress the fault.
             first_av = Path(temporary) / 'first-av'
@@ -98,10 +98,14 @@ def main():
             command = [str(helper), str(image), str(raw), str(event_path),
                        '--modal-evidence-directory', str(output / 'app'),
                        '--modal-run-id', uuid.uuid4().hex,
-                       '--first-chance-av', str(first_av / 'first-chance-av.dmp')]
+                       '--first-chance-av-including-low', str(first_av / 'first-chance-av.dmp')]
             result['command'] = command
+            tracing = {'PROGPU_WPF_TRACE_NATIVE_LOOP': '1', 'PROGPU_NATIVE_TRACE_SCENE_ENCODE': '1',
+                       'PROGPU_NATIVE_TRACE_COMPUTE': '1'}
+            result['diagnosticTrace'] = tracing
             with (output / 'stdout.txt').open('xb') as stdout, (output / 'stderr.txt').open('xb') as stderr:
-                process = subprocess.run(command, stdout=stdout, stderr=stderr, timeout=70)
+                process = subprocess.run(command, stdout=stdout, stderr=stderr, timeout=70,
+                                         env=os.environ | tracing)
             result['debuggerExitCode'] = process.returncode
             event = debugger.load_event(event_path, expected)
             result['nativeEvent'] = event

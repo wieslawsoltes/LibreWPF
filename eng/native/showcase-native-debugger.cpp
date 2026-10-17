@@ -130,8 +130,9 @@ bool owned_name(const std::filesystem::path& app, bool modal) {
 int run(const std::filesystem::path& app, const std::filesystem::path& raw,
         const std::filesystem::path& receipt, DWORD snapshot_after_ms,
         const std::filesystem::path& snapshot, const std::filesystem::path& first_av,
-        const std::filesystem::path& modal_directory, const std::wstring& modal_run) {
+        const std::filesystem::path& modal_directory, const std::wstring& modal_run, bool first_av_low) {
     const bool modal = !modal_directory.empty() || !modal_run.empty();
+    if (first_av_low && (!modal || first_av.empty())) return 2;
     if (modal && (!modal_directory.is_absolute() || std::filesystem::exists(modal_directory) ||
         !std::filesystem::is_directory(modal_directory.parent_path()) ||
         modal_directory.wstring().find_first_of(L"\"\r\n") != std::wstring::npos ||
@@ -221,15 +222,17 @@ int run(const std::filesystem::path& app, const std::filesystem::path& raw,
                 break;
             case EXCEPTION_DEBUG_EVENT:
                 continuation = DBG_EXCEPTION_NOT_HANDLED;
-                // Capture at most one real, non-null AV before the CLR can
+                // Capture at most one real AV before the CLR can
                 // handle it and terminate without a second-chance event.
+                // Original replay excludes low addresses; the explicit modal
+                // diagnostic can retain them without changing exception handling.
                 // This is diagnostic evidence, including if the app recovers;
                 // it never changes normal exception handling or crash status.
                 if (!first_av.empty() && !first_av_attempted && GetTickCount64() < deadline &&
                     event.u.Exception.dwFirstChance &&
                     event.u.Exception.ExceptionRecord.ExceptionCode == EXCEPTION_ACCESS_VIOLATION &&
                     event.u.Exception.ExceptionRecord.NumberParameters == 2 &&
-                    event.u.Exception.ExceptionRecord.ExceptionInformation[1] > 0x10000 &&
+                    (first_av_low || event.u.Exception.ExceptionRecord.ExceptionInformation[1] > 0x10000) &&
                     (event.u.Exception.ExceptionRecord.ExceptionInformation[0] == 0 ||
                      event.u.Exception.ExceptionRecord.ExceptionInformation[0] == 1 ||
                      event.u.Exception.ExceptionRecord.ExceptionInformation[0] == 8)) {
@@ -297,6 +300,7 @@ int run(const std::filesystem::path& app, const std::filesystem::path& raw,
         ",\"snapshotElapsedMs\":" + std::to_string(snapshot_elapsed_ms) +
         ",\"snapshotError\":" + std::to_string(snapshot_error) +
         ",\"firstChanceAvEnabled\":" + (first_av.empty() ? "false" : "true") +
+        ",\"firstChanceAvIncludesLowAddresses\":" + (first_av_low ? "true" : "false") +
         ",\"firstChanceAvAttempted\":" + (first_av_attempted ? "true" : "false") +
         ",\"firstChanceAvThreadId\":" + std::to_string(first_av_thread) +
         ",\"firstChanceAvInstruction\":" + std::to_string(first_av_instruction) +
@@ -319,6 +323,7 @@ int wmain(int argc, wchar_t** argv) {
         DWORD delay = 0;
         std::filesystem::path snapshot, first_av, modal_directory;
         std::wstring modal_run;
+        bool first_av_low = false;
         for (int i = 4; i < argc; i += 2) {
             const std::wstring argument(argv[i]);
             if (argument == L"--modal-evidence-directory") {
@@ -333,8 +338,9 @@ int wmain(int argc, wchar_t** argv) {
                 if (modal_run.empty()) return 2;
                 continue;
             }
-            if (argument == L"--first-chance-av") {
+            if (argument == L"--first-chance-av" || argument == L"--first-chance-av-including-low") {
                 if (!first_av.empty()) return 2;
+                first_av_low = argument == L"--first-chance-av-including-low";
                 first_av = argv[i + 1];
                 if (first_av.empty()) return 2;
                 continue;
@@ -347,7 +353,7 @@ int wmain(int argc, wchar_t** argv) {
             if (delay < 100 || delay > 60000) return 2;
             snapshot = argv[i + 1];
         }
-        return run(argv[1], argv[2], argv[3], delay, snapshot, first_av, modal_directory, modal_run);
+        return run(argv[1], argv[2], argv[3], delay, snapshot, first_av, modal_directory, modal_run, first_av_low);
     }
     catch (...) { return 2; } // Job/handle scope still releases the owned child.
 }
