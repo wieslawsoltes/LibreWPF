@@ -11,6 +11,29 @@ spec.loader.exec_module(diagnostic)
 
 
 class DiagnosticBoundaryTests(unittest.TestCase):
+    def test_extra_window_reads_preserve_original_result_and_bound(self):
+        for unavailable in (False, True):
+            with self.subTest(unavailable=unavailable), tempfile.TemporaryDirectory() as directory:
+                value = {'hwnd': 7, 'pid': 10, 'title': 'original'}
+                original = mock.Mock(return_value=value)
+                observer = mock.Mock(return_value={'cloakFlags': 2})
+                if unavailable: observer.side_effect = OSError('unavailable')
+                wrapped = diagnostic.observed_window(original, Path(directory), observer)
+                for _ in range(65): self.assertIs(value, wrapped(None, 7))
+                self.assertEqual(65, original.call_count)
+                self.assertEqual(64, observer.call_count)
+                self.assertEqual(64, len(list(Path(directory).glob('*.json'))))
+                self.assertEqual({'hwnd': 7, 'pid': 10, 'title': 'original'}, value)
+
+    def test_extra_window_reads_do_not_hide_original_failure(self):
+        original_error = RuntimeError('original identity failure')
+        original = mock.Mock(side_effect=original_error)
+        observer = mock.Mock()
+        with self.assertRaises(RuntimeError) as seen:
+            diagnostic.observed_window(original, Path('/unused'), observer)(None, 7)
+        self.assertIs(original_error, seen.exception)
+        observer.assert_not_called()
+
     def test_foreground_failure_is_observed_once_without_replacing_error(self):
         for unavailable in (False, True):
             with self.subTest(unavailable=unavailable), tempfile.TemporaryDirectory() as directory:

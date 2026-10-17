@@ -148,6 +148,45 @@ def observed_foreground(original, path):
     return prepare
 
 
+def native_window_details(desktop, hwnd):
+    bounds = W.RECT()
+    exists = bool(desktop.u.IsWindow(hwnd))
+    rect_read = exists and bool(desktop.u.GetWindowRect(hwnd, C.byref(bounds)))
+    dwm = C.WinDLL('dwmapi', use_last_error=True)
+    query = dwm.DwmGetWindowAttribute
+    query.restype, query.argtypes = C.c_int32, [W.HWND, W.DWORD, W.LPVOID, W.DWORD]
+    cloak = W.DWORD()
+    result = query(hwnd, 14, C.byref(cloak), C.sizeof(cloak))
+    return dict(exists=exists, visible=bool(exists and desktop.u.IsWindowVisible(hwnd)),
+                rectangle=[bounds.left, bounds.top, bounds.right, bounds.bottom] if rect_read else None,
+                cloakHresult=result, cloakFlags=cloak.value if result >= 0 else None)
+
+
+def observed_window(original, directory, observer=native_window_details):
+    count = 0
+    def observe(desktop, hwnd):
+        nonlocal count
+        value = original(desktop, hwnd)
+        # Keep the original helper's result and exception semantics. These extra
+        # native reads identify a possible closing terminal/compositor overlay;
+        # they never send input, wait for readiness or replace capture pixels.
+        if count < 64:
+            count += 1
+            record = dict(qualified=False, diagnosticOnly=True, observedAt=time.monotonic(),
+                          original=value)
+            try:
+                record['native'] = observer(desktop, hwnd)
+            except Exception as error:
+                record['observerError'] = str(error)
+            try:
+                with (directory / f'window-{count:03d}.diagnostic.json').open('x') as output:
+                    json.dump(record, output, indent=2)
+            except Exception as error:
+                print('Window diagnostic receipt failure: ' + str(error), file=sys.stderr)
+        return value
+    return observe
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--driver", type=Path, required=True)
@@ -163,6 +202,7 @@ def main():
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     module.Desktop.capture = observed_capture(module.Desktop.capture)
+    module.Desktop.window_observation = observed_window(module.Desktop.window_observation, args.output)
     module.Desktop.prepare_foreground = observed_foreground(
         module.Desktop.prepare_foreground, args.output / "foreground-failure.diagnostic.json")
     trace_environment = {"PROGPU_WPF_TRACE_NATIVE_LOOP": "1", "PROGPU_WPF_TRACE_RENDER_SURFACE": "1"}
