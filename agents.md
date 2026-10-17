@@ -1,3 +1,11 @@
+The owner-approved hosted Start extension permits one verified Start activation
+only after the single Search Escape yields to the actual Progman shell. Require
+exact live system image/session/window identity before and after the request;
+then use the existing single Start Escape. Count activation in the original
+64 actions, retain 3/60-second bounds and all source/caption/scenario checks.
+Unknown foreground, refused activation and changed identity fail without retry.
+Disposable hosted Windows only; see docs/modal-desktop-acceptance.md.
+
 # Agent Guidance
 
 Modal desktop capture readiness requires two original stable observations with
