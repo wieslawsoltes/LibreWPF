@@ -5,6 +5,7 @@
     <UseWPF>true</UseWPF>
     <ProGpuWpfRendererMode>NativeMilWgpu</ProGpuWpfRendererMode>
     <ProGpuWpfNativeMilHitTesting>true</ProGpuWpfNativeMilHitTesting>
+    <ProGpuWpfDx12ShaderCompiler Condition="'$(RuntimeIdentifier)' == 'win-arm64' Or '$(RuntimeIdentifier)' == 'win-x64'">Dxc</ProGpuWpfDx12ShaderCompiler>
     <DefineConstants>$(DefineConstants);LIBREWPF_MODAL_PORTABLE</DefineConstants>
   </PropertyGroup>
 </Project>

@@ -26,6 +26,14 @@ on:
         required: false
         default: false
         type: boolean
+      dx12_compiler:
+        description: Explicit candidate compiler; Automatic preserves the original preview.69 configuration.
+        required: false
+        default: Automatic
+        type: choice
+        options:
+          - Automatic
+          - Dxc
 
 permissions:
   contents: read
@@ -109,11 +117,14 @@ jobs:
           }
       - name: Prepare original sources and verify the selected package closure
         shell: pwsh
+        env:
+          MODAL_DX12_COMPILER: ${{ inputs.dx12_compiler }}
         run: |
           $root = Join-Path $env:RUNNER_TEMP 'original-modal-pair'
           "CASE_ROOT=$root" >> $env:GITHUB_ENV
           $candidate = @()
           if ($env:CANDIDATE_INPUTS) { $candidate = @('--candidate-inputs', $env:CANDIDATE_INPUTS) }
+          if ($env:MODAL_DX12_COMPILER -eq 'Dxc') { $candidate += @('--dx12-compiler', 'Dxc') }
           python automation/eng/WindowsModalDesktop/prepare.py `
             --source (Resolve-Path original).Path `
             --forms-helper-checkout (Resolve-Path forms-helper).Path `
@@ -158,6 +169,14 @@ jobs:
     runs-on: windows-11-arm
     timeout-minutes: 15
     steps:
+      - name: Retain the unchanged original compiler in foreground diagnostics
+        shell: pwsh
+        env:
+          MODAL_DX12_COMPILER: ${{ inputs.dx12_compiler }}
+        run: |
+          if ($env:MODAL_DX12_COMPILER -and $env:MODAL_DX12_COMPILER -ne 'Automatic') {
+            throw 'Foreground diagnostics preserve the original compiler. Use ordinary candidate acceptance for explicit DXC.'
+          }
       - name: Preserve committed source bytes in the disposable runner checkouts
         shell: pwsh
         run: |

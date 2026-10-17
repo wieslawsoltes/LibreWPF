@@ -301,7 +301,7 @@ Candidate packages use a private cache and feed with product-family source
 mappings. The portable project's one literal SDK version selects the actual
 qualified package version, allowing preview.70 acceptance without relabeling it
 as preview.69. The original project is preserved separately; verification permits
-only that exact version replacement and rejects any other project-property change,
+only that exact version replacement (and the explicit DXC selection below when requested), rejecting any other project-property change,
 even if its selected hash is recomputed. The engine version is also selected
 explicitly from the qualified package set. Receipts list every changed source
 file, including the explicit observer revision, and report whole-file equality
@@ -314,3 +314,31 @@ the full selected package identity. Input tracing defaults off for acceptance.
 The 60-second process deadlines, 64-action bounds, captures, cleanup and approved
 two-Escape startup guard remain unchanged. This path does not qualify a candidate
 until the actual original application checks pass.
+
+## Explicit Windows compiler configuration
+
+Diagnostic run `38986799164` retained the original automatic compiler and the
+whole-qualified `1bbd5369537ec2215c9ad22c37dba31f4da946bb` producer. Microsoft
+completed all seven scenarios. Portable snapshots show roughly ten seconds from
+opening each new surface to its first frame. The original right-click opened the
+ContextMenu at 54.142 source seconds with zero presented popup frames; the unchanged
+60-second controller deadline then expired. This observation does not attribute
+the earlier unrelated foreground loss or qualify the interrupted workload.
+
+The modal sample explicitly requests the already supported packaged DXC compiler
+for `win-arm64` and `win-x64`. Other RIDs and global Automatic policy stay unchanged.
+The hosted workflow keeps `dx12_compiler: Automatic` as its original reproduction
+default. Selecting `Dxc` requires a complete qualified candidate and permits only
+the exact sample compiler property alongside the literal SDK version replacement.
+Original project bytes remain archived; receipts name the selected compiler and
+every source difference. The six original DXC runtime/compiler/manifest outputs
+must match the same successful producer's `ProGPU.Backend.Dx12` package, in addition
+to the existing nine framework/backend DLL checks. Each of the seven captured
+scenarios must report DXC and the actual packaged compiler path for every visible
+source Window. No actions, captures, stable-state checks, deadlines or cleanup
+conditions are removed. The foreground diagnostic always retains Automatic.
+
+Successful explicit-DXC execution would qualify that sample configuration only;
+automatic/FXC startup performance remains unresolved. Current source changes are
+not a passing desktop result and must receive full producer and original paired
+application validation before merge.

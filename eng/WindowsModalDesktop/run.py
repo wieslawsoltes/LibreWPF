@@ -11,6 +11,24 @@ import time
 from prepare import inventory, require, save, sha, verify_sources, verify_staged_sources
 
 
+def verify_compiler_captures(evidence, payload, expected):
+    if expected is None:
+        return
+    require(expected == "Dxc", "Unsupported explicit modal compiler")
+    library = Path(payload["directory"]) / "dxcompiler.dll"
+    # Every original capture remains required. Read the actual source host's
+    # device selection; a runtimeconfig request alone is not a loaded compiler.
+    for phase in ("01-owner", "02-message", "03-dialog", "04-popup", "05-context", "06-combo", "07-tooltip"):
+        capture = json.loads((evidence / "portable" / (phase + ".json")).read_text(encoding="utf-8"))
+        windows = capture["source"]["windows"]
+        require(windows, "No original windows in modal capture")
+        for window in windows:
+            value = window.get("compiler")
+            require(isinstance(value, dict) and value.get("selected") == expected and
+                    Path(value.get("library") or "").resolve(strict=True) == library.resolve(strict=True),
+                    "Actual modal window did not select the packaged DXC compiler")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
@@ -29,7 +47,8 @@ def main():
     def verify():
         require(sha(root / "public-inputs.json") == preparation["manifestSha256"], "Prepared package/source manifest changed")
         candidate = preparation["candidate"]
-        verify_staged_sources(root, manifest, preparation["selectedSourceHashes"], candidate["sdk"] if candidate else None)
+        verify_staged_sources(root, manifest, preparation["selectedSourceHashes"], candidate["sdk"] if candidate else None,
+                              candidate["sdkSelection"].get("compiler") if candidate else None)
         for name, digest in preparation["hostedAutomation"].items():
             require(sha(root / "consumer" / name) == digest, "Prepared hosted controller changed")
         verify_sources(Path(preparation["helper"]), manifest["formsHelperSource"], manifest["helpers"])
@@ -51,6 +70,8 @@ def main():
                    observerRevision=preparation["observerRevision"],
                    packageSource=preparation["packageSource"],
                    candidate=preparation["candidate"],
+                   compilerSelection=(preparation["candidate"]["sdkSelection"].get("compiler")
+                                      if preparation["candidate"] else None),
                    nativeInputTrace=os.environ.get("PROGPU_WPF_TRACE_INPUT") == "1",
                    hostedAutomation=preparation["hostedAutomation"], automationCommit=preparation["automationCommit"],
                    startupInput="At most two verified shell Escapes at reference startup across the entire pair, then one PID/HTCAPTION-verified click per process; all inside original deadline/action budgets",
@@ -65,6 +86,7 @@ def main():
             result = json.loads((evidence / name / "result.json").read_text(encoding="utf-8"))
             require(result["completed"] and result["exitCode"] == 0 and not result["cleanupErrors"],
                     "Original paired workload did not complete")
+        verify_compiler_captures(evidence, preparation["payloads"]["portable"], receipt["compilerSelection"])
         receipt["completed"] = True
     except BaseException as error:
         receipt["error"] = repr(error)

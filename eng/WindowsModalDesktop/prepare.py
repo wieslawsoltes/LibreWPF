@@ -16,6 +16,7 @@ import zipfile
 HERE = Path(__file__).resolve().parent
 OBSERVER = "samples/ProGPU.Wpf.ModalInteractionApp/ModalObservation.cs"
 PROJECT = "samples/ProGPU.Wpf.ModalInteractionApp/ProGPU.Wpf.ModalInteractionApp.csproj"
+DXC_PROPERTY = b'''    <ProGpuWpfDx12ShaderCompiler Condition="'$(RuntimeIdentifier)' == 'win-arm64' Or '$(RuntimeIdentifier)' == 'win-x64'">Dxc</ProGpuWpfDx12ShaderCompiler>\n'''
 
 
 def require(value, message):
@@ -60,14 +61,14 @@ def stage_sources(source, root, manifest, selected_observer):
             shutil.copy2(source / name, target)
     # Preserve the original failed observer as evidence. Both applications use
     # this same explicit v2 observer. Application code and scenarios retain their
-    # bytes; candidate SDK reference selection is independently verified below.
+    # bytes; explicit candidate SDK/compiler selection is independently verified below.
     require(selected_observer.is_file() and not selected_observer.is_symlink(), "Selected observer is unavailable")
     shutil.copy2(selected_observer, root / "consumer" / OBSERVER)
     selected[OBSERVER] = sha(root / "consumer" / OBSERVER)
     return selected
 
 
-def selected_project_bytes(root, manifest, sdk_version):
+def selected_project_bytes(root, manifest, sdk_version, compiler=None):
     require(re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?", sdk_version) is not None,
             "Selected SDK must retain a literal package version")
     original = (root / "original-source" / PROJECT).read_bytes()
@@ -75,26 +76,34 @@ def selected_project_bytes(root, manifest, sdk_version):
     require(original.startswith(marker) and original.count(marker) == 1,
             "Original SDK project selector is not the retained contract")
     selected = ('<Project Sdk="LibreWPF.Sdk/' + sdk_version + '">').encode()
-    return original.replace(marker, selected, 1)
+    result = original.replace(marker, selected, 1)
+    require(compiler in (None, "Dxc"), "Unsupported explicit modal compiler")
+    if compiler:
+        anchor = b'    <ProGpuWpfNativeMilHitTesting>true</ProGpuWpfNativeMilHitTesting>\n'
+        require(result.count(anchor) == 1 and b'ProGpuWpfDx12ShaderCompiler' not in result,
+                "Original native-MIL compiler selection anchor changed")
+        result = result.replace(anchor, anchor + DXC_PROPERTY, 1)
+    return result
 
 
-def stage_sdk_selection(root, manifest, selected, sdk_version):
+def stage_sdk_selection(root, manifest, selected, sdk_version, compiler=None):
     project = root / "consumer" / PROJECT
     require(sha(project) == manifest["source"][PROJECT], "Original project changed before package selection")
-    project.write_bytes(selected_project_bytes(root, manifest, sdk_version))
+    project.write_bytes(selected_project_bytes(root, manifest, sdk_version, compiler))
     selected[PROJECT] = sha(project)
     return dict(path=PROJECT, originalVersion=manifest["version"], selectedVersion=sdk_version,
-                originalSha256=manifest["source"][PROJECT], selectedSha256=selected[PROJECT])
+                originalSha256=manifest["source"][PROJECT], selectedSha256=selected[PROJECT], compiler=compiler)
 
 
-def verify_staged_sources(root, manifest, selected, sdk_version=None):
+def verify_staged_sources(root, manifest, selected, sdk_version=None, compiler=None):
+    require(compiler is None or sdk_version is not None, "Explicit compiler requires a qualified candidate")
     require(set(selected) == set(manifest["source"]), "Selected source inventory changed")
     for name, value in selected.items():
         if name == OBSERVER:
             continue
-        expected = (hashlib.sha256(selected_project_bytes(root, manifest, sdk_version)).hexdigest()
+        expected = (hashlib.sha256(selected_project_bytes(root, manifest, sdk_version, compiler)).hexdigest()
                     if name == PROJECT and sdk_version is not None else manifest["source"][name])
-        require(value == expected, "Only the explicit read-only observer and exact selected SDK reference may differ")
+        require(value == expected, "Only the explicit read-only observer and exact selected SDK reference/compiler may differ")
     for name, expected in manifest["source"].items():
         require(sha(root / "original-source" / name) == expected, "Preserved original source changed: " + name)
         require(sha(root / "consumer" / name) == selected[name], "Selected source changed: " + name)
@@ -107,7 +116,10 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--dotnet", type=Path, required=True)
     parser.add_argument("--candidate-inputs", type=Path)
+    parser.add_argument("--dx12-compiler", choices=["Dxc"])
     args = parser.parse_args()
+    require(args.dx12_compiler is None or args.candidate_inputs is not None,
+            "Explicit DXC requires the complete qualified candidate package closure")
     require(os.name == "nt" and os.environ.get("GITHUB_ACTIONS") == "true"
             and os.environ.get("RUNNER_ENVIRONMENT") == "github-hosted"
             and os.environ.get("GITHUB_REPOSITORY") == "wieslawsoltes/LibreWPF",
@@ -136,7 +148,7 @@ def main():
         shutil.copy2(original, target)
         automation[name] = sha(target)
     # This is the same isolated package-consumer configuration as the original
-    # public preview.69 build. Only a candidate's exact SDK selector may change.
+    # public preview.69 build. Candidate SDK/compiler selection is explicit below.
     (consumer / "Directory.Build.props").write_text(
         "<Project><PropertyGroup><ProGpuWpfSdkSampleTargetFramework>net10.0</ProGpuWpfSdkSampleTargetFramework></PropertyGroup></Project>",
         encoding="utf-8")
@@ -153,7 +165,7 @@ def main():
         candidate = candidate_module.stage_producer(args.candidate_inputs.resolve(strict=True), root / "feed")
         actual = subprocess.check_output(["git", "-C", str(HERE), "rev-parse", "HEAD"], text=True).strip()
         require(candidate["identity"]["head"] == actual, "Candidate consumer automation must match the qualified producer")
-        candidate["sdkSelection"] = stage_sdk_selection(root, manifest, selected_sources, candidate["sdk"])
+        candidate["sdkSelection"] = stage_sdk_selection(root, manifest, selected_sources, candidate["sdk"], args.dx12_compiler)
     env = os.environ.copy()
     for name in list(env):
         if name.startswith(("DOTNET_", "MSBuildSDK", "NUGET_", "NuGetPackageRoot", "ProGpu", "PROGPU",
@@ -177,7 +189,7 @@ def main():
                    selectedSourceHashes=selected_sources,
                    observerRevision=dict(schema="wpf-modal-desktop-v2", originalSha256=manifest["source"][OBSERVER],
                                          selectedSha256=selected_sources[OBSERVER],
-                                         reason="Original allocated client slot and explicit source modal input policy"),
+                                         reason="Original allocated client slot, source modal input policy and read-only actual host compiler identity"),
                    hostedAutomation=automation, automationCommit=subprocess.check_output(
                        ["git", "-C", str(HERE), "rev-parse", "HEAD"], text=True).strip())
     save(root / "preparation.json", receipt)
@@ -210,7 +222,7 @@ def main():
         receipt["payloads"][kind] = dict(directory=str(directory), app=str(app), files=inventory(directory))
         if candidate and kind == "portable":
             receipt["candidateOutputHashes"] = candidate_module.verify_output(
-                directory, root / "feed", candidate["inventory"], manifest["runtimeIdentifier"])
+                directory, root / "feed", candidate["inventory"], manifest["runtimeIdentifier"], args.dx12_compiler)
     restored = {}
     package_root = Path(env["NUGET_PACKAGES"])
     for package in sorted(package_root.glob("*/*/*.nupkg")):
@@ -228,7 +240,7 @@ def main():
     require({"librewpf.sdk", "librewpf.transport", "librewpf.progpu", "librewpf.interop", "progpu.backend",
              "progpu.backend.native", "progpu.scene.native"}.issubset(restored),
             "The original native-MIL product package closure is incomplete")
-    verify_staged_sources(root, manifest, selected_sources, candidate["sdk"] if candidate else None)
+    verify_staged_sources(root, manifest, selected_sources, candidate["sdk"] if candidate else None, args.dx12_compiler)
     verify_sources(helper, manifest["formsHelperSource"], manifest["helpers"])
     receipt.update(prepared=True, packages=restored, manifestSha256=sha(root / "public-inputs.json"),
                    driver=str(consumer / "eng/hosted-progpu-wpf-modal-desktop.py"))

@@ -154,6 +154,47 @@ class CandidatePackageTests(unittest.TestCase):
                     CANDIDATE.verify_output(output, feed, inventory, "win-arm64")
                 path.write_bytes(original)
 
+    def test_dxc_outputs_require_all_compiler_bytes_and_explicit_runtime_request(self):
+        assets = {
+            'LibreWPF.Transport': ['runtimes/win-arm64/lib/net10.0/PresentationCore.dll',
+                'lib/net10.0/PresentationFramework.dll', 'lib/net10.0/WindowsBase.dll',
+                'lib/net10.0/System.Private.Windows.Core.dll', 'runtimes/win-arm64/native/PresentationNative_cor3.dll'],
+            'LibreWPF.ProGPU': ['lib/net10.0/ProGPU.Wpf.dll'],
+            'LibreWPF.Interop': ['lib/net10.0/ProGPU.Wpf.Interop.dll'],
+            'ProGPU.Backend': ['lib/net10.0/ProGPU.Backend.dll'],
+            'ProGPU.Backend.Native': ['runtimes/win-arm64/native/progpu_native.dll'],
+            'ProGPU.Backend.Dx12': ['buildTransitive/runtimes/win-arm64/native/' + name for name in
+                ('wgpu_native.dll', 'dxcompiler.dll', 'dxil.dll', 'wgpu-native-build.json',
+                 'dxc-compiler-package.json', 'progpu-dx12-runtime.json')],
+        }
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary); feed = root / 'feed'; output = root / 'output'
+            feed.mkdir(); output.mkdir(); inventory = {}
+            for package, members in assets.items():
+                inventory[package] = dict(file=package + '.nupkg')
+                with zipfile.ZipFile(feed / (package + '.nupkg'), 'w') as archive:
+                    for member in members:
+                        raw = (package + ':' + member).encode()
+                        archive.writestr(member, raw)
+                        (output / Path(member).name).write_bytes(raw)
+            runtime = output / 'ProGPU.Wpf.ModalInteractionApp.runtimeconfig.json'
+            config = dict(runtimeOptions=dict(configProperties={
+                'LibreWPF.RequestedRendererMode': 'NativeMilWgpu', 'LibreWPF.RequestedDx12ShaderCompiler': 'Dxc'}))
+            runtime.write_text(json.dumps(config))
+            self.assertEqual(15, len(CANDIDATE.verify_output(output, feed, inventory, 'win-arm64', 'Dxc')))
+            for member in assets['ProGPU.Backend.Dx12']:
+                path = output / Path(member).name
+                original = path.read_bytes(); path.write_bytes(b'substituted compiler')
+                with self.subTest(member=member), self.assertRaisesRegex(ValueError, 'substituted'):
+                    CANDIDATE.verify_output(output, feed, inventory, 'win-arm64', 'Dxc')
+                path.write_bytes(original)
+            for property_name in config['runtimeOptions']['configProperties']:
+                changed = copy.deepcopy(config)
+                changed['runtimeOptions']['configProperties'].pop(property_name)
+                runtime.write_text(json.dumps(changed))
+                with self.subTest(property_name=property_name), self.assertRaisesRegex(ValueError, 'did not request'):
+                    CANDIDATE.verify_output(output, feed, inventory, 'win-arm64', 'Dxc')
+
 
 if __name__ == "__main__":
     unittest.main()

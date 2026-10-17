@@ -1,5 +1,15 @@
 # Agent Guidance
 
+The modal sample explicitly selects packaged DXC only for Windows x64/ARM64.
+Keep Automatic reproduction separate and preserve all seven original scenarios,
+60-second process deadlines, 64-action bounds, captures and native owner checks.
+Candidate preparation admits only its exact SDK version and explicit compiler
+property, retaining original bytes and the whole successful producer. Verify all
+compiler runtime/manifest outputs and actual host compiler identity in every
+capture; a requested runtimeconfig value is not proof of the loaded compiler.
+Foreground observation stays diagnostic-only and preserves Automatic. See
+docs/modal-desktop-acceptance.md; explicit DXC does not qualify FXC performance.
+
 Source Win32 button events borrow original signed client coordinates from the
 exact live host controller's scoped native packet, matching phase and button
 before any source callback. Preserve event order, ordinary native bookkeeping,

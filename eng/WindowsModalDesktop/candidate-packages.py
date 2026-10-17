@@ -63,8 +63,9 @@ def write_config(path, feed, packages):
     path.write_bytes(ET.tostring(config, encoding="utf-8", xml_declaration=True))
 
 
-def verify_output(directory, feed, inventory, rid):
+def verify_output(directory, feed, inventory, rid, compiler=None):
     PACKAGE.require(rid == "win-arm64", "Original modal runtime identity required")
+    PACKAGE.require(compiler in (None, "Dxc"), "Unsupported explicit modal compiler")
     assets = {
         "PresentationCore.dll": ("LibreWPF.Transport", f"runtimes/{rid}/lib/net10.0/PresentationCore.dll"),
         "PresentationFramework.dll": ("LibreWPF.Transport", "lib/net10.0/PresentationFramework.dll"),
@@ -76,6 +77,15 @@ def verify_output(directory, feed, inventory, rid):
         "ProGPU.Backend.dll": ("ProGPU.Backend", "lib/net10.0/ProGPU.Backend.dll"),
         "progpu_native.dll": ("ProGPU.Backend.Native", f"runtimes/{rid}/native/progpu_native.dll"),
     }
+    if compiler:
+        for name in ("wgpu_native.dll", "dxcompiler.dll", "dxil.dll", "wgpu-native-build.json",
+                     "dxc-compiler-package.json", "progpu-dx12-runtime.json"):
+            assets[name] = ("ProGPU.Backend.Dx12", f"buildTransitive/runtimes/{rid}/native/{name}")
+        runtime = PACKAGE.read_json(directory / "ProGPU.Wpf.ModalInteractionApp.runtimeconfig.json")
+        options = runtime["runtimeOptions"]["configProperties"]
+        PACKAGE.require(options.get("LibreWPF.RequestedRendererMode") == "NativeMilWgpu" and
+                        options.get("LibreWPF.RequestedDx12ShaderCompiler") == compiler,
+                        "Modal consumer did not request native MIL with the explicit packaged compiler")
     hashes = {}
     for name, (package, member) in assets.items():
         target = directory / name

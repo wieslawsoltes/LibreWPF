@@ -63,7 +63,12 @@ internal sealed class ModalObservation : IDisposable
             {
                 if (!window.IsVisible) continue;
                 var native = new List<object>();
+                object? compiler = null;
 #if LIBREWPF_MODAL_PORTABLE
+                if (OperatingSystem.IsWindows() && ProGpuWpfDiagnostics.TryGetWindowHost(window, out var host) &&
+                    host?.CompositionTarget?.Context is { } context)
+                    compiler = new { selected = context.SelectedDx12ShaderCompiler.ToString(),
+                        library = context.Dx12CompilerLibraryPath };
                 if (!ProGpuWpfDiagnostics.TryGetDesktopWindowSnapshots(window, out var snapshots))
                     throw new InvalidOperationException("Existing source/native desktop identities are unavailable.");
                 foreach (var value in snapshots)
@@ -112,7 +117,7 @@ internal sealed class ModalObservation : IDisposable
                 }
 #endif
                 windows.Add(new { title = window.Title, name = window.Name, visible = window.IsVisible,
-                    active = window.IsActive, sourceIsEnabled = window.IsEnabled, surfaces = native });
+                    active = window.IsActive, sourceIsEnabled = window.IsEnabled, compiler, surfaces = native });
             }
             Write(new { schema = "wpf-modal-desktop-v2", qualified = false, pid = Environment.ProcessId,
                 run = _run, title = _owner.Title, sequence = _sequence, elapsedMs = _clock.ElapsedMilliseconds,
