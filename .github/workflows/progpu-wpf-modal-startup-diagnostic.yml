@@ -1,33 +1,62 @@
-name: Original Linux Slider no-input readiness
+name: Original Toolkit AvalonDock forced GL qualified packages
 on:
   workflow_dispatch:
 permissions:
   contents: read
   actions: read
 jobs:
-  slider-readiness:
+  original-toolkit:
     runs-on: ubuntu-26.04-arm
-    timeout-minutes: 20
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: a255b4cccd5ca1872472cdbf635c4340d31def24
+          path: original
+          sparse-checkout: samples/ProGPU.Wpf.ToolkitApp
+          persist-credentials: false
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.201
-      - name: Prepare disposable Ubuntu26 desktop and read-only capture
-        run: python3 eng/diagnostic-slider-desktop-dependencies.py
-      - name: Download exact retained compiled application
+      - name: Prepare actual disposable Ubuntu26 native desktop dependencies
+        run: python3 eng/diagnostic-ubuntu26-desktop.py
+      - name: Download exact archive from the retained producer receipt
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python3 eng/diagnostic-fetch-built-slider.py
-      - name: Inspect original application in owned GNOME without input
-        run: timeout 240s dbus-run-session -- python3 eng/diagnostic-slider-desktop-session.py
-      - name: Retain source events, native inspection and raw capture
+        run: python3 eng/diagnostic-fetch-candidate-archive.py
+      - name: Build unchanged original source from the qualified package closure
+        id: prepare
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json, subprocess
+          from pathlib import Path
+          identity = json.loads(Path('eng/diagnostic-producer/identity.json').read_text())
+          subprocess.run(['python3', 'eng/ToolkitLinux/prepare.py',
+                          '--producer', 'eng/diagnostic-producer',
+                          '--head', identity['head'], '--build', str(identity['build']),
+                          '--docs', str(identity['docs']), '--progpu-head', identity['progpu']], check=True)
+          PY
+      - name: Observe original forced GL windows in genuinely headless X11
+        run: python3 eng/ToolkitLinux/run.py
+      - name: Observe original forced GL windows in actual owned GNOME Wayland and Xwayland
+        if: always() && steps.prepare.outcome == 'success'
+        run: timeout 240s dbus-run-session -- python3 eng/ToolkitLinux/desktop.py
+      - name: Retain original application, preparation and environment evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: original-linux-slider-no-input-readiness
-          path: artifacts/**
+          name: ubuntu26-original-toolkit-gl
+          path: |
+            artifacts/ubuntu26-*.json
+            artifacts/ubuntu26-*.application.log
+            artifacts/ubuntu26-headless-server.log
+            artifacts/ubuntu26-toolkit-*.status.txt
+            eng/ToolkitLinux/**
+            ${{ runner.temp }}/original-toolkit/build.log
+            eng/diagnostic-producer/*.json
           retention-days: 14
           if-no-files-found: error
