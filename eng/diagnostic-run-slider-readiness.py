@@ -3,6 +3,7 @@ from pathlib import Path, PurePosixPath
 import hashlib
 import json
 import os
+import re
 import signal
 import subprocess
 import tempfile
@@ -115,10 +116,23 @@ def run_case(environment, case):
                     inspected = subprocess.run(['python3', str(inspect_path)], cwd=output, env=env,
                         stdout=log, stderr=subprocess.STDOUT, timeout=min(20, remaining(160)))
                 record['inspectionExitCode'] = inspected.returncode
-                assert inspected.returncode == 0, 'Original read-only native ownership/geometry guards failed'
-                inspection = json.loads((evidence/'native-inspection.json').read_text())
-                assert inspection['completed'] and not inspection['inputRequested'] and not inspection['journal']
-                assert inspection['payloadUnchanged']
+                # Retain independent read-only focus/overview observations even
+                # when the original inspector rejects. They cannot turn that
+                # rejection into successful input admission.
+                observations = []
+                for arguments in (
+                    ['xprop', '-root', '_NET_ACTIVE_WINDOW', '_NET_CLIENT_LIST_STACKING'],
+                    ['xprop', '-id', str(ready['nativeHandle']), '_NET_WM_PID', 'WM_CLASS', 'WM_HINTS', '_NET_WM_STATE'],
+                    ['gdbus', 'call', '--session', '--dest', 'org.gnome.Shell',
+                     '--object-path', '/org/gnome/Shell', '--method',
+                     'org.freedesktop.DBus.Properties.Get', 'org.gnome.Shell', 'OverviewActive']):
+                    observed = subprocess.run(arguments, env=env, text=True, stdout=subprocess.PIPE,
+                        stderr=subprocess.STDOUT, timeout=min(5, remaining(160)))
+                    observations.append(dict(command=arguments, exitCode=observed.returncode, output=observed.stdout))
+                (evidence/'native-window-observation.json').write_text(json.dumps(observations, indent=2)+'\n')
+                assert Path(f'/proc/{child.pid}/exe').resolve() == stage/'GallerySliderProbe'
+                assert observations[1]['exitCode'] == 0 and re.search(
+                    r'^_NET_WM_PID\(CARDINAL\) = '+str(child.pid)+r'\s*$', observations[1]['output'], re.M)
                 with (evidence/'capture.log').open('x') as log:
                     subprocess.run(['import', '-window', str(ready['nativeHandle']), str(evidence/'before-input.png')],
                         env=env, stdout=log, stderr=subprocess.STDOUT, check=True, timeout=min(10, remaining(160)))
@@ -126,6 +140,10 @@ def run_case(environment, case):
                 assert capture.read_bytes().startswith(b'\x89PNG\r\n\x1a\n')
                 record.update(captureSha256=digest(capture.read_bytes()),
                     captureMethod='Read-only ImageMagick X11 owned-client capture; no host/VM capture substitution claim')
+                assert inspected.returncode == 0, 'Original read-only native ownership/geometry guards failed'
+                inspection = json.loads((evidence/'native-inspection.json').read_text())
+                assert inspection['completed'] and not inspection['inputRequested'] and not inspection['journal']
+                assert inspection['payloadUnchanged']
                 (evidence/'stop.request').write_text('No-input readiness complete.\n')
                 child.wait(timeout=remaining())
                 record.update(exitCode=child.returncode, payloadUnchanged=unchanged())

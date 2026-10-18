@@ -27,7 +27,7 @@ try:
     invoke(["sudo", "apt-get", "update"], 180)
     invoke(["sudo", "env", "DEBIAN_FRONTEND=noninteractive", "apt-get", "install", "-y",
             "--no-install-recommends", "gnome-shell", "mutter", "xwayland", "xvfb",
-            "mesa-vulkan-drivers", "dbus-x11", "imagemagick", "libxtst6"], 420)
+            "mesa-vulkan-drivers", "dbus-x11", "imagemagick", "libxtst6", "x11-utils"], 420)
     invoke(["dpkg-query", "-W", "gnome-shell", "mutter", "xwayland", "xvfb", "mesa-vulkan-drivers"], 10)
     invoke(["gnome-shell", "--version"], 10)
     invoke(["gnome-shell", "--help"], 10)
