@@ -1,0 +1,14 @@
+{
+  "approved": true,
+  "humanReply": "Allow bounded hosted Linux slider check (Recommended)",
+  "scope": "hosted-linux-slider-281-and-owned-overview-once",
+  "candidateSha256": "72af407f78992bac58fae546849188c1e3cce46e797bbb014de9a72245ade98c",
+  "scripts": {
+    "authorization.py": "4830a0d65709b8c6f504465c122d64fb825bc0d1d2c061542b20203ba844aabc",
+    "owned_overview.py": "a3a6a7cda2a2268ccdfa5c704b0e26b52b00ca8753b506cc644631ae364ef06a",
+    "run-input.py": "8553718885213f5c6a79e9aa89c37642028f3be747eebaf1564d16b4d09809b1",
+    "desktop-input.py": "13ffa7369b1695a22072c97a7ff3b5daf11217e5f2696d0f8c192b1abb46c1dd"
+  },
+  "questionItemId": "[\"request_user_input_async\",\"call_e25d4c07ebcb417ea950441b6cd46f8b\",0]",
+  "recordedUtc": "2026-10-18T07:08:51.978554+00:00"
+}

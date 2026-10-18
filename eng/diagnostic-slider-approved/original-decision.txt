@@ -1,0 +1,61 @@
+Prepared hosted Linux slider diagnostic — human approval pending
+
+Current evidence
+The exact original Gallery Slider application compiles against whole-qualified
+LibreWPF a255b4cccd5ca1872472cdbf635c4340d31def24 and ProGPU a37f235057ee58b26b3322864c62dfeb1d041715.
+Its 281 output files and all19 original inputs have been independently verified.
+Candidate archive: 71223843 bytes, SHA256
+72af407f78992bac58fae546849188c1e3cce46e797bbb014de9a72245ade98c.
+Read-only hosted runs39101727636 and39102024480 preserve their failed focus guards.
+The second retains the visible original four sliders, a unique owned window,
+OverviewActive=true, no _NET_ACTIVE_WINDOW, no injected input and normal app exit.
+
+Requested scope
+One diagnostic on a disposable GitHub Ubuntu26 ARM runner with its own private
+D-Bus/GNOME/Xwayland session. Local shared VMs remain untouched. Before launching
+the app, verify the shell's unique D-Bus connection belongs to the compositor
+process we created. If OverviewActive is true, make at most one public Properties.Set
+OverviewActive=false request to that pinned unique connection, followed by read-only
+confirmation. This startup step is bounded to five seconds. No Eval, unsafe-mode,
+remote-input permission change, shell key/mouse injection or forced focus is used.
+
+Run the exact original four one-way thumb-to-track-midpoint drags once:52 motion
+requests and8 button edges, within the original15-second input bound. Keep the
+original160-second input reserve,170-second app reserve and180-second controller
+limit. Every original native guard remains: executable/start identity, window PID,
+active/focused owned window, viewable fixed geometry, full containment, key/button
+idle state and actual pointer position/target after each move. Abort on rejection;
+only release a left button this test pressed. No retry-until-pass is included.
+
+Capture the owned X11 client immediately before and after input using ImageMagick;
+retain raw captures, hashes, all source events and native journals. This explicitly
+changes the capture mechanism from the unavailable interactive VM capture to an
+owned-client capture on the disposable runner. It does not claim to be a full
+desktop screenshot. Require four source starts,48 deltas,four uncanceled completions,
+strictly increasing complete source value sequences on allfour controls, released capture, normal exit and unchanged281
+output hashes. Record all final values for separate comparison and image review.
+Keep qualified=false: these four gestures alone do not close the full reported
+slider gesture space or qualify the release. A failure remains a failure.
+
+Implementation and review
+owned_overview.py,desktop-input.py,run-input.py,authorization.py andworkflow.yml
+are prepared here. The original native driver differs in exactly one inventory
+literal (267 to281); its native guards, gestures and time bounds are unchanged.
+15 offline control groups pass, including real candidate/source verification,
+wrong/missing ownership, malformed states, single-set timeout, exact script hashes,
+missing authorization and prevention of application launch without approval.
+authorization.json remains approved=false. Approval will bind these scripts and
+this exact candidate before any hosted application/input execution.
+
+Why permission is requested
+The earlier user approval selected a different267-file archive and excluded shell
+startup changes. Its retained proposal quotes the computer-use instruction:
+“Do not use other technologies besides cua_repl for computer interactions, unless
+specifically requested by the user.” This new approval extends that precise scope
+to the281-file hosted candidate, the one owned-overview property change and the
+explicit hosted capture mechanism. It does not waive any product acceptance gate.
+
+Primary API source
+https://github.com/GNOME/gnome-shell/blob/50.0/data/dbus-interfaces/org.gnome.Shell.xml
+https://github.com/GNOME/gnome-shell/blob/50.0/js/ui/shellDBus.js
+OverviewActive is read/write; its false setter calls Main.overview.hide().
