@@ -1,0 +1,19 @@
+{
+  "id": 12138479231,
+  "name": "librewpf-ci-packages-f89f20ce48bdd417b78db71af94f98fc97cafeb9",
+  "size_in_bytes": 717138565,
+  "url": "https://api.github.com/repos/wieslawsoltes/LibreWPF/actions/artifacts/12138479231",
+  "archive_download_url": "https://api.github.com/repos/wieslawsoltes/LibreWPF/actions/artifacts/12138479231/zip",
+  "expired": false,
+  "created_at": "2026-10-18T13:52:05Z",
+  "expires_at": "2027-01-16T13:24:03Z",
+  "updated_at": "2026-10-18T13:52:05Z",
+  "digest": "sha256:d81228b44af31fd1256a74fd06d0b0afe572e3110bac4dfaa520c2790bd2af0e",
+  "workflow_run": {
+    "id": 39131374625,
+    "repository_id": 445630004,
+    "head_repository_id": 445630004,
+    "head_branch": "fix/x11-fixed-window-caption",
+    "head_sha": "f89f20ce48bdd417b78db71af94f98fc97cafeb9"
+  }
+}

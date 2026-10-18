@@ -1,0 +1,254 @@
+{
+  "content": [],
+  "structuredContent": {
+    "headRevision": "f89f20ce48bdd417b78db71af94f98fc97cafeb9",
+    "checks": [
+      {
+        "id": 117693095123,
+        "name": "Windows AnyCPU package launch",
+        "head_sha": "f89f20ce48bdd417b78db71af94f98fc97cafeb9",
+        "status": "completed",
+        "conclusion": "success",
+        "details_url": "https://github.com/wieslawsoltes/LibreWPF/actions/runs/39131374625/job/117693095123",
+        "output": {
+          "title": null,
+          "summary": null,
+          "text": null,
+          "annotations_count": 1
+        }
+      },
+      {
+        "id": 117693095108,
+        "name": "Windows ARM64 native MIL package Showcase",
+        "head_sha": "f89f20ce48bdd417b78db71af94f98fc97cafeb9",
+        "status": "completed",
+        "conclusion": "success",
+        "details_url": "https://github.com/wieslawsoltes/LibreWPF/actions/runs/39131374625/job/117693095108",
+        "output": {
+          "title": null,
+          "summary": null,
+          "text": null,
+          "annotations_count": 1
+        }
+      },
+      {
+        "id": 117693095105,
+        "name": "Windows x64 native MIL package Showcase",
+        "head_sha": "f89f20ce48bdd417b78db71af94f98fc97cafeb9",
+        "status": "completed",
+        "conclusion": "success",
+        "details_url": "https://github.com/wieslawsoltes/LibreWPF/actions/runs/39131374625/job/117693095105",
+        "output": {
+          "title": null,
+          "summary": null,
+          "text": null,
+          "annotations_count": 1
+        }
+      },
+      {
+        "id": 117693095103,
+        "name": "Linux Wayland-session XWayland input and popup smoke",
+        "head_sha": "f89f20ce48bdd417b78db71af94f98fc97cafeb9",
+        "status": "completed",
+        "conclusion": "success",
+        "details_url": "https://github.com/wieslawsoltes/LibreWPF/actions/runs/39131374625/job/117693095103",
+        "output": {
+          "title": null,
+          "summary": null,
+          "text": null,
+          "annotations_count": 1
+        }
+      },
+      {
+        "id": 117693095097,
+        "name": "Canonical LibreWPF SDK package consumer",
+        "head_sha": "f89f20ce48bdd417b78db71af94f98fc97cafeb9",
+        "status": "completed",
+        "conclusion": "success",
+        "details_url": "https://github.com/wieslawsoltes/LibreWPF/actions/runs/39131374625/job/117693095097",
+        "output": {
+          "title": null,
+          "summary": null,
+          "text": null,
+          "annotations_count": 1
+        }
+      },
+      {
+        "id": 117689505465,
+        "name": "SDK package and no-source-change smoke",
+        "head_sha": "f89f20ce48bdd417b78db71af94f98fc97cafeb9",
+        "status": "completed",
+        "conclusion": "success",
+        "details_url": "https://github.com/wieslawsoltes/LibreWPF/actions/runs/39131374625/job/117689505465",
+        "output": {
+          "title": null,
+          "summary": null,
+          "text": null,
+          "annotations_count": 23
+        }
+      },
+      {
+        "id": 117687083852,
+        "name": "SDK bootstrap ownership (macos-15)",
+        "head_sha": "f89f20ce48bdd417b78db71af94f98fc97cafeb9",
+        "status": "completed",
+        "conclusion": "success",
+        "details_url": "https://github.com/wieslawsoltes/LibreWPF/actions/runs/39131374625/job/117687083852",
+        "output": {
+          "title": null,
+          "summary": null,
+          "text": null,
+          "annotations_count": 2
+        }
+      },
+      {
+        "id": 117687083827,
+        "name": "Portable MessageBox, layout-clip and popup source contracts",
+        "head_sha": "f89f20ce48bdd417b78db71af94f98fc97cafeb9",
+        "status": "completed",
+        "conclusion": "success",
+        "details_url": "https://github.com/wieslawsoltes/LibreWPF/actions/runs/39131374625/job/117687083827",
+        "output": {
+          "title": null,
+          "summary": null,
+          "text": null,
+          "annotations_count": 23
+        }
+      },
+      {
+        "id": 117687083811,
+        "name": "SDK bootstrap ownership (ubuntu-24.04)",
+        "head_sha": "f89f20ce48bdd417b78db71af94f98fc97cafeb9",
+        "status": "completed",
+        "conclusion": "success",
+        "details_url": "https://github.com/wieslawsoltes/LibreWPF/actions/runs/39131374625/job/117687083811",
+        "output": {
+          "title": null,
+          "summary": null,
+          "text": null,
+          "annotations_count": 1
+        }
+      },
+      {
+        "id": 117687083747,
+        "name": "Canonical System.Windows.Forms source integration",
+        "head_sha": "f89f20ce48bdd417b78db71af94f98fc97cafeb9",
+        "status": "completed",
+        "conclusion": "success",
+        "details_url": "https://github.com/wieslawsoltes/LibreWPF/actions/runs/39131374625/job/117687083747",
+        "output": {
+          "title": null,
+          "summary": null,
+          "text": null,
+          "annotations_count": 11
+        }
+      },
+      {
+        "id": 117687083744,
+        "name": "Windows native crash capture controls (x64)",
+        "head_sha": "f89f20ce48bdd417b78db71af94f98fc97cafeb9",
+        "status": "completed",
+        "conclusion": "success",
+        "details_url": "https://github.com/wieslawsoltes/LibreWPF/actions/runs/39131374625/job/117687083744",
+        "output": {
+          "title": null,
+          "summary": null,
+          "text": null,
+          "annotations_count": 1
+        }
+      },
+      {
+        "id": 117687083728,
+        "name": "SDK bootstrap ownership (windows-2025)",
+        "head_sha": "f89f20ce48bdd417b78db71af94f98fc97cafeb9",
+        "status": "completed",
+        "conclusion": "success",
+        "details_url": "https://github.com/wieslawsoltes/LibreWPF/actions/runs/39131374625/job/117687083728",
+        "output": {
+          "title": null,
+          "summary": null,
+          "text": null,
+          "annotations_count": 1
+        }
+      },
+      {
+        "id": 117687083721,
+        "name": "Retained layout-clip invalidation contracts",
+        "head_sha": "f89f20ce48bdd417b78db71af94f98fc97cafeb9",
+        "status": "completed",
+        "conclusion": "success",
+        "details_url": "https://github.com/wieslawsoltes/LibreWPF/actions/runs/39131374625/job/117687083721",
+        "output": {
+          "title": null,
+          "summary": null,
+          "text": null,
+          "annotations_count": 11
+        }
+      },
+      {
+        "id": 117687083702,
+        "name": "Windows managed runtime payload",
+        "head_sha": "f89f20ce48bdd417b78db71af94f98fc97cafeb9",
+        "status": "completed",
+        "conclusion": "success",
+        "details_url": "https://github.com/wieslawsoltes/LibreWPF/actions/runs/39131374625/job/117687083702",
+        "output": {
+          "title": null,
+          "summary": null,
+          "text": null,
+          "annotations_count": 1
+        }
+      },
+      {
+        "id": 117687083675,
+        "name": "Linux headless multi-window render device smoke",
+        "head_sha": "f89f20ce48bdd417b78db71af94f98fc97cafeb9",
+        "status": "completed",
+        "conclusion": "success",
+        "details_url": "https://github.com/wieslawsoltes/LibreWPF/actions/runs/39131374625/job/117687083675",
+        "output": {
+          "title": null,
+          "summary": null,
+          "text": null,
+          "annotations_count": 7
+        }
+      },
+      {
+        "id": 117687083670,
+        "name": "Windows native crash capture controls (arm64)",
+        "head_sha": "f89f20ce48bdd417b78db71af94f98fc97cafeb9",
+        "status": "completed",
+        "conclusion": "success",
+        "details_url": "https://github.com/wieslawsoltes/LibreWPF/actions/runs/39131374625/job/117687083670",
+        "output": {
+          "title": null,
+          "summary": null,
+          "text": null,
+          "annotations_count": 1
+        }
+      },
+      {
+        "id": 117687083262,
+        "name": "Verify release documentation",
+        "head_sha": "f89f20ce48bdd417b78db71af94f98fc97cafeb9",
+        "status": "completed",
+        "conclusion": "success",
+        "details_url": "https://github.com/wieslawsoltes/LibreWPF/actions/runs/39131374605/job/117687083262",
+        "output": {
+          "title": null,
+          "summary": null,
+          "text": null,
+          "annotations_count": 2
+        }
+      }
+    ],
+    "statuses": [],
+    "annotations": [],
+    "hasMore": false,
+    "job": null,
+    "jobs": [],
+    "log": null,
+    "logTruncated": false,
+    "providerGuidance": "GitHub guidance for this response only: use checkRunId for output and annotations, runId from a GitHub Actions /runs/<id> link to list jobs, or jobId from a /jobs/<id> link for logs. page paginates checks, jobs or annotations. Keep the supplied account and returned headRevision on follow-up reads. Third-party CI exposes only the output reported to GitHub."
+  }
+}
