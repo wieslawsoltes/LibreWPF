@@ -1,0 +1,121 @@
+diff --git a/Cargo.lock b/Cargo.lock
+index 51ae60e..b3a1003 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -211,7 +211,6 @@ dependencies = [
+ [[package]]
+ name = "d3d12"
+ version = "0.19.0"
+-source = "git+https://github.com/gfx-rs/wgpu?rev=87576b72b37c6b78b41104eb25fc31893af94092#87576b72b37c6b78b41104eb25fc31893af94092"
+ dependencies = [
+  "bitflags 2.5.0",
+  "libloading 0.8.3",
+@@ -526,7 +525,6 @@ checksum = "68354c5c6bd36d73ff3feceb05efa59b6acb7626617f4962be322a825e61f79a"
+ [[package]]
+ name = "naga"
+ version = "0.19.2"
+-source = "git+https://github.com/gfx-rs/wgpu?rev=87576b72b37c6b78b41104eb25fc31893af94092#87576b72b37c6b78b41104eb25fc31893af94092"
+ dependencies = [
+  "bit-set",
+  "bitflags 2.5.0",
+@@ -954,7 +952,6 @@ dependencies = [
+ [[package]]
+ name = "wgpu-core"
+ version = "0.19.4"
+-source = "git+https://github.com/gfx-rs/wgpu?rev=87576b72b37c6b78b41104eb25fc31893af94092#87576b72b37c6b78b41104eb25fc31893af94092"
+ dependencies = [
+  "arrayvec",
+  "bit-vec",
+@@ -981,7 +978,6 @@ dependencies = [
+ [[package]]
+ name = "wgpu-hal"
+ version = "0.19.4"
+-source = "git+https://github.com/gfx-rs/wgpu?rev=87576b72b37c6b78b41104eb25fc31893af94092#87576b72b37c6b78b41104eb25fc31893af94092"
+ dependencies = [
+  "android_system_properties",
+  "arrayvec",
+@@ -1034,13 +1030,13 @@ dependencies = [
+  "smallvec",
+  "thiserror",
+  "wgpu-core",
++ "wgpu-hal",
+  "wgpu-types",
+ ]
+ 
+ [[package]]
+ name = "wgpu-types"
+ version = "0.19.2"
+-source = "git+https://github.com/gfx-rs/wgpu?rev=87576b72b37c6b78b41104eb25fc31893af94092#87576b72b37c6b78b41104eb25fc31893af94092"
+ dependencies = [
+  "bitflags 2.5.0",
+  "js-sys",
+diff --git a/Cargo.toml b/Cargo.toml
+index 3d71b91..cdac468 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -138,3 +138,11 @@ smallvec = "1"
+ [build-dependencies]
+ bindgen = "0.69"
+ cfg_aliases = "0.1"
++
++[target.'cfg(target_os = "linux")'.dependencies.hal]
++package = "wgpu-hal"
++git = "https://github.com/gfx-rs/wgpu"
++rev = "87576b72b37c6b78b41104eb25fc31893af94092"
++version = "0.19"
++default-features = false
++features = ["gles"]
+diff --git a/src/lib.rs b/src/lib.rs
+index 83b773a..c9347fe 100644
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -652,6 +652,49 @@ pub unsafe extern "C" fn wgpuCreateInstance(
+     }))
+ }
+ 
++// ProGPU optional Linux ABI extension. Standard WebGPU records and entry points
++// retain their original layouts. The source Xlib connection must remain live.
++#[cfg(target_os = "linux")]
++#[no_mangle]
++pub unsafe extern "C" fn progpuWgpuCreateInstanceXlibV1(
++    descriptor: Option<&native::WGPUInstanceDescriptor>,
++    display: *mut std::ffi::c_void,
++    screen: i32,
++) -> native::WGPUInstance {
++    // The standard native Xlib surface descriptor transports screen zero only.
++    if display.is_null() || screen != 0 {
++        return std::ptr::null();
++    }
++    let mut description = match descriptor {
++        Some(descriptor) => follow_chain!(map_instance_descriptor(
++            (descriptor),
++            WGPUSType_InstanceExtras => native::WGPUInstanceExtras
++        )),
++        None => wgt::InstanceDescriptor::default(),
++    };
++    let include_gl = description.backends.contains(wgt::Backends::GL);
++    let gl_description = hal::InstanceDescriptor {
++        name: "ProGPU source Xlib",
++        flags: description.flags,
++        dx12_shader_compiler: description.dx12_shader_compiler.clone(),
++        gles_minor_version: description.gles_minor_version,
++    };
++    description.backends.remove(wgt::Backends::GL);
++    let mut instance = wgc::instance::Instance::new("wgpu", description);
++    if include_gl {
++        match unsafe { <hal::api::Gles as hal::Api>::Instance::init_xlib_owned(&gl_description, display, screen) } {
++            Ok(gl) => instance.gl = Some(gl),
++            Err(error) => {
++                log::error!("Explicit source Xlib instance failed: {:?}", error);
++                return std::ptr::null();
++            }
++        }
++    }
++    Arc::into_raw(Arc::new(WGPUInstanceImpl {
++        context: Arc::new(Context::from_instance(wgc::identity::IdentityManagerFactory, instance)),
++    }))
++}
++
+ // Adapter methods
+ 
+ #[no_mangle]

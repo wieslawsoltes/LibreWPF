@@ -74,9 +74,9 @@ try:
         auth=pathlib.Path(xargs[xargs.index('-auth')+1]).resolve()
         assert auth.is_relative_to((root/'runtime').resolve()) and auth.is_file()
         environment.update(DISPLAY=xargs[1],WAYLAND_DISPLAY='progpu-owned-wayland',XAUTHORITY=str(auth))
-        record['eglProbeExecuted']=True
-        result=subprocess.run(['python3','eng/diagnostic-egl-owned-connections.py'],env=environment,
-                              stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,timeout=30)
+        record['nativeSurfaceProbeExecuted']=True
+        result=subprocess.run(['artifacts/native-surface-probe'],env=environment,
+                              stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,timeout=60)
         record['eglProbeExitCode']=result.returncode
         record['eglProbeOutput']=result.stdout
         assert result.returncode==0,'Independent owned-connection observation failed'

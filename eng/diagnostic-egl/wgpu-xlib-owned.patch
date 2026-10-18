@@ -1,0 +1,277 @@
+diff --git a/wgpu-hal/src/gles/egl.rs b/wgpu-hal/src/gles/egl.rs
+index 8b2eb49..87750d4 100644
+--- a/wgpu-hal/src/gles/egl.rs
++++ b/wgpu-hal/src/gles/egl.rs
+@@ -148,6 +148,41 @@ impl Drop for DisplayOwner {
+     }
+ }
+ 
++
++// The caller retains the original source connection. This backend owns a separate
++// connection to that explicitly named X server, so terminating its EGLDisplay
++// cannot terminate another instance's or the window toolkit's EGL resources.
++unsafe fn open_source_x_display(source: *mut raw::c_void, screen: i32)
++    -> Result<DisplayOwner, crate::InstanceError>
++{
++    if source.is_null() || screen < 0 {
++        return Err(crate::InstanceError::new("Invalid source Xlib display or screen".into()));
++    }
++    let library = find_library(&["libX11.so.6", "libX11.so"])
++        .ok_or_else(|| crate::InstanceError::new("Xlib library unavailable".into()))?;
++    type DisplayName = unsafe extern "system" fn(*mut raw::c_void) -> *const raw::c_char;
++    type ScreenCount = unsafe extern "system" fn(*mut raw::c_void) -> raw::c_int;
++    let name: libloading::Symbol<DisplayName> = unsafe { library.get(b"XDisplayString") }
++        .map_err(|e| crate::InstanceError::with_source("XDisplayString unavailable".into(), e))?;
++    let count: libloading::Symbol<ScreenCount> = unsafe { library.get(b"XScreenCount") }
++        .map_err(|e| crate::InstanceError::with_source("XScreenCount unavailable".into(), e))?;
++    let open: libloading::Symbol<XOpenDisplayFun> = unsafe { library.get(b"XOpenDisplay") }
++        .map_err(|e| crate::InstanceError::with_source("XOpenDisplay unavailable".into(), e))?;
++    let display_name = unsafe { name(source) };
++    if display_name.is_null() || screen >= unsafe { count(source) } {
++        return Err(crate::InstanceError::new("Source Xlib screen unavailable".into()));
++    }
++    let display = ptr::NonNull::new(unsafe { open(display_name) })
++        .ok_or_else(|| crate::InstanceError::new("Could not connect to the source X server".into()))?;
++    let owner = DisplayOwner { display: DisplayRef::X11(display), library };
++    let count: libloading::Symbol<ScreenCount> = unsafe { owner.library.get(b"XScreenCount") }
++        .map_err(|e| crate::InstanceError::with_source("XScreenCount unavailable".into(), e))?;
++    if screen >= unsafe { count(display.as_ptr()) } {
++        return Err(crate::InstanceError::new("Connected source screen unavailable".into()));
++    }
++    Ok(owner)
++}
++
+ fn open_x_display() -> Option<DisplayOwner> {
+     log::debug!("Loading X11 library to get the current display");
+     unsafe {
+@@ -279,8 +314,55 @@ fn choose_config(
+     )))
+ }
+ 
++// A live explicit EGL display may belong to only one backend instance. This
++// guard remains with all context clones until native teardown has completed.
++static EXPLICIT_X_DISPLAYS: Mutex<Vec<usize>> = Mutex::new(Vec::new());
++
++#[derive(Debug)]
++struct ExplicitXDisplayOwner {
++    _native: Rc<DisplayOwner>,
++    identity: usize,
++}
++
++impl Drop for ExplicitXDisplayOwner {
++    fn drop(&mut self) {
++        let mut active = EXPLICIT_X_DISPLAYS.lock();
++        if let Some(index) = active.iter().position(|&value| value == self.identity) {
++            active.swap_remove(index);
++        }
++    }
++}
++
++// Context clones are actual users, so the last one owns native teardown. The
++// ordinary backend retains its existing Inner teardown contract.
++#[derive(Debug)]
++struct ExplicitXResources {
++    _owner: Rc<ExplicitXDisplayOwner>,
++    instance: Arc<EglInstance>,
++    display: khronos_egl::Display,
++    context: khronos_egl::Context,
++    pbuffer: Option<khronos_egl::Surface>,
++}
++
++impl Drop for ExplicitXResources {
++    fn drop(&mut self) {
++        if let Some(surface) = self.pbuffer {
++            if let Err(error) = self.instance.destroy_surface(self.display, surface) {
++                log::warn!("Error destroying explicit Xlib pbuffer: {:?}", error);
++            }
++        }
++        if let Err(error) = self.instance.destroy_context(self.display, self.context) {
++            log::warn!("Error destroying explicit Xlib context: {:?}", error);
++        }
++        if let Err(error) = self.instance.terminate(self.display) {
++            log::warn!("Error terminating explicit Xlib display: {:?}", error);
++        }
++    }
++}
++
+ #[derive(Clone, Debug)]
+ struct EglContext {
++    _source_display_owner: Option<Arc<ExplicitXResources>>,
+     instance: Arc<EglInstance>,
+     version: (i32, i32),
+     display: khronos_egl::Display,
+@@ -583,6 +665,7 @@ impl Inner {
+ 
+         Ok(Self {
+             egl: EglContext {
++                _source_display_owner: None,
+                 instance: egl,
+                 display,
+                 raw: context,
+@@ -601,6 +684,9 @@ impl Inner {
+ 
+ impl Drop for Inner {
+     fn drop(&mut self) {
++        if self.egl._source_display_owner.is_some() {
++            return; // The last explicit context clone retires the actual resources.
++        }
+         if let Err(e) = self
+             .egl
+             .instance
+@@ -629,6 +715,7 @@ struct WindowSystemInterface {
+ }
+ 
+ pub struct Instance {
++    bound_xlib_display: Option<(usize, i32)>,
+     wsi: WindowSystemInterface,
+     flags: wgt::InstanceFlags,
+     inner: Mutex<Inner>,
+@@ -662,8 +749,17 @@ impl Instance {
+ unsafe impl Send for Instance {}
+ unsafe impl Sync for Instance {}
+ 
+-impl crate::Instance<super::Api> for Instance {
+-    unsafe fn init(desc: &crate::InstanceDescriptor) -> Result<Self, crate::InstanceError> {
++impl Instance {
++    /// Uses the caller's live source display identity and owns a separate Xlib
++    /// connection to that server for all EGL resources. No platform probing.
++    /// The caller must retain source display/window ownership for surface use.
++    pub unsafe fn init_xlib_owned(desc: &crate::InstanceDescriptor,
++        display: *mut raw::c_void, screen: i32) -> Result<Self, crate::InstanceError> {
++        unsafe { Self::init_selected(desc, Some((display, screen))) }
++    }
++
++    unsafe fn init_selected(desc: &crate::InstanceDescriptor,
++        source_xlib: Option<(*mut raw::c_void, i32)>) -> Result<Self, crate::InstanceError> {
+         profiling::scope!("Init OpenGL (EGL) Backend");
+         #[cfg(Emscripten)]
+         let egl_result: Result<EglInstance, khronos_egl::Error> =
+@@ -706,17 +802,17 @@ impl crate::Instance<super::Api> for Instance {
+             client_ext_str.split_whitespace().collect::<Vec<_>>()
+         );
+ 
+-        let wayland_library = if client_ext_str.contains("EGL_EXT_platform_wayland") {
++        let wayland_library = if source_xlib.is_none() && client_ext_str.contains("EGL_EXT_platform_wayland") {
+             test_wayland_display()
+         } else {
+             None
+         };
+-        let x11_display_library = if client_ext_str.contains("EGL_EXT_platform_x11") {
++        let x11_display_library = if source_xlib.is_none() && client_ext_str.contains("EGL_EXT_platform_x11") {
+             open_x_display()
+         } else {
+             None
+         };
+-        let angle_x11_display_library = if client_ext_str.contains("EGL_ANGLE_platform_angle") {
++        let angle_x11_display_library = if source_xlib.is_none() && client_ext_str.contains("EGL_ANGLE_platform_angle") {
+             open_x_display()
+         } else {
+             None
+@@ -729,7 +825,17 @@ impl crate::Instance<super::Api> for Instance {
+         let egl1_5: Option<&Arc<EglInstance>> = Some(&egl);
+ 
+         let (display, display_owner, wsi_kind) =
+-            if let (Some(library), Some(egl)) = (wayland_library, egl1_5) {
++            if let Some((source, screen)) = source_xlib {
++                if !client_ext_str.split_whitespace().any(|x| x == "EGL_KHR_platform_x11" || x == "EGL_EXT_platform_x11") {
++                    return Err(crate::InstanceError::new("Explicit X11 EGL platform unavailable".into()));
++                }
++                let api = egl1_5.ok_or_else(|| crate::InstanceError::new("Explicit X11 requires EGL1.5".into()))?;
++                let owner = Rc::new(unsafe { open_source_x_display(source, screen)? });
++                let attributes = [0x31D6, screen as khronos_egl::Attrib, khronos_egl::ATTRIB_NONE];
++                let display = unsafe { api.get_platform_display(EGL_PLATFORM_X11_KHR, owner.display.as_ptr(), &attributes) }
++                    .map_err(|e| crate::InstanceError::with_source("Explicit source X11 display creation failed".into(), e))?;
++                (display, Some(owner), WindowKind::X11)
++            } else if let (Some(library), Some(egl)) = (wayland_library, egl1_5) {
+                 log::info!("Using Wayland platform");
+                 let display_attributes = [khronos_egl::ATTRIB_NONE];
+                 let display = unsafe {
+@@ -812,11 +918,57 @@ impl crate::Instance<super::Api> for Instance {
+             unsafe { (function)(Some(egl_debug_proc), attributes.as_ptr()) };
+         }
+ 
+-        let inner = Inner::create(desc.flags, egl, display, desc.gles_minor_version)?;
++        let source_owner = if let Some((source, screen)) = source_xlib {
++            let api = egl1_5.ok_or_else(|| crate::InstanceError::new("Explicit X11 requires EGL1.5".into()))?;
++            let attributes = [0x31D6, screen as khronos_egl::Attrib, khronos_egl::ATTRIB_NONE];
++            // Querying a display does not initialize or terminate the toolkit's EGL
++            // resources. Reject a driver that aliases our private connection to it.
++            let borrowed = unsafe { api.get_platform_display(EGL_PLATFORM_X11_KHR, source, &attributes) }
++                .map_err(|e| crate::InstanceError::with_source("Source EGL display identity unavailable".into(), e))?;
++            if borrowed == display {
++                return Err(crate::InstanceError::new("Private EGL display aliases the source toolkit".into()));
++            }
++            let identity = display.as_ptr() as usize;
++            let mut active = EXPLICIT_X_DISPLAYS.lock();
++            if active.contains(&identity) {
++                return Err(crate::InstanceError::new("Private EGL display aliases a live backend instance".into()));
++            }
++            active.push(identity);
++            Some(Rc::new(ExplicitXDisplayOwner {
++                _native: Rc::clone(display_owner.as_ref().expect("Explicit X11 has an owned connection")),
++                identity,
++            }))
++        } else {
++            None
++        };
++
++        let result = Inner::create(desc.flags, Arc::clone(&egl), display, desc.gles_minor_version);
++        let mut inner = match result {
++            Ok(inner) => inner,
++            Err(error) => {
++                if source_xlib.is_some() {
++                    // Only this candidate owns the newly opened native connection.
++                    let _ = egl.terminate(display);
++                }
++                return Err(error);
++            }
++        };
++        if let Some(owner) = source_owner {
++            inner.egl._source_display_owner = Some(Arc::new(ExplicitXResources {
++                _owner: owner,
++                instance: Arc::clone(&inner.egl.instance),
++                display: inner.egl.display,
++                context: inner.egl.raw,
++                pbuffer: inner.egl.pbuffer,
++            }));
++        }
+ 
+         Ok(Instance {
++            bound_xlib_display: source_xlib.map(|(display, screen)| (display as usize, screen)),
+             wsi: WindowSystemInterface {
+-                display_owner,
++                // Explicit resources own the connection once published. Avoid
++                // independently cloned non-atomic native-owner references.
++                display_owner: if source_xlib.is_some() { None } else { display_owner },
+                 kind: wsi_kind,
+             },
+             flags: desc.flags,
+@@ -824,6 +976,13 @@ impl crate::Instance<super::Api> for Instance {
+         })
+     }
+ 
++}
++
++impl crate::Instance<super::Api> for Instance {
++    unsafe fn init(desc: &crate::InstanceDescriptor) -> Result<Self, crate::InstanceError> {
++        unsafe { Self::init_selected(desc, None) }
++    }
++
+     #[cfg_attr(target_os = "macos", allow(unused, unused_mut, unreachable_code))]
+     unsafe fn create_surface(
+         &self,
+@@ -832,6 +991,14 @@ impl crate::Instance<super::Api> for Instance {
+     ) -> Result<Surface, crate::InstanceError> {
+         use raw_window_handle::RawWindowHandle as Rwh;
+ 
++        if let Some((expected, screen)) = self.bound_xlib_display {
++            match (window_handle, display_handle) {
++                (Rwh::Xlib(_), raw_window_handle::RawDisplayHandle::Xlib(display))
++                    if display.display.map(|p| p.as_ptr() as usize) == Some(expected) && display.screen == screen => {}
++                _ => return Err(crate::InstanceError::new("Surface differs from the explicit source Xlib display".into())),
++            }
++        }
++
+         #[cfg_attr(any(target_os = "android", Emscripten), allow(unused_mut))]
+         let mut inner = self.inner.lock();
+ 

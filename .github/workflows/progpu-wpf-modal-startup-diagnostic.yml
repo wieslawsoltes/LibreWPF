@@ -1,25 +1,40 @@
-name: Diagnostic owned EGL display connections
+name: Diagnostic explicit Xlib native dependency
 on:
   workflow_dispatch:
 permissions:
   contents: read
 jobs:
-  owned-egl-connections:
+  native-xlib-surface:
     runs-on: ubuntu-26.04-arm
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - name: Prepare disposable Ubuntu26 native desktop dependencies
+      - uses: actions/checkout@v4
+        with:
+          repository: gfx-rs/wgpu-native
+          ref: 33133da4ec5a0174cb21539ef2d3346f75200411
+          path: native
+          submodules: true
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: gfx-rs/wgpu
+          ref: 87576b72b37c6b78b41104eb25fc31893af94092
+          path: wgpu
+          persist-credentials: false
+      - name: Prepare disposable native desktop dependencies
         run: python3 eng/diagnostic-ubuntu26-desktop.py
-      - name: Observe independent owned connections in verified GNOME Xwayland
-        run: timeout 90s dbus-run-session -- python3 eng/diagnostic-desktop-session.py
-      - name: Retain independent native environment and lifetime evidence
+      - name: Build reviewed dependency and independent no-input surface control
+        run: python3 eng/diagnostic-egl/native-dependency-build.py
+      - name: Observe forced GL surfaces on actual owned GNOME Xwayland
+        run: timeout 120s dbus-run-session -- python3 eng/diagnostic-desktop-session.py
+      - name: Retain independent native observation and source provenance
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ubuntu26-owned-egl-connections
+          name: ubuntu26-native-xlib-surface
           path: artifacts/ubuntu26-*.json
           retention-days: 14
           if-no-files-found: error
