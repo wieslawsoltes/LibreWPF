@@ -1,48 +1,25 @@
-name: Diagnostic original Linux multi-window public packages
+name: Diagnostic owned EGL display connections
 on:
   workflow_dispatch:
 permissions:
   contents: read
 jobs:
-  original-multi-window:
+  owned-egl-connections:
     runs-on: ubuntu-26.04-arm
-    timeout-minutes: 35
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - uses: actions/checkout@v4
-        with:
-          ref: 46dcf9f4f7aadbe8f72c87c5d58d7b502596bdf8
-          path: original
-          sparse-checkout: src/ProGPU.Wpf.MultiWindowSmokeHarness
-          persist-credentials: false
-      - uses: actions/checkout@v4
-        with:
-          repository: wieslawsoltes/ProGPU
-          ref: aef75180bcdc3b937d004b6b949e0e91724c7981
-          path: font-source
-          sparse-checkout: src/ProGPU.Fonts.Inter/Fonts
-          persist-credentials: false
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: 10.0.201
-      - name: Prepare actual disposable Ubuntu26 native desktop dependencies
+      - name: Prepare disposable Ubuntu26 native desktop dependencies
         run: python3 eng/diagnostic-ubuntu26-desktop.py
-      - name: Compile original sources against verified public preview69 packages
-        run: python3 eng/diagnostic-prepare-multi-window.py
-      - name: Observe original forced GL windows in genuinely headless X11
-        run: python3 eng/diagnostic-run-multi-window.py
-      - name: Observe original forced GL windows in actual owned GNOME Wayland and Xwayland
-        run: timeout 660s dbus-run-session -- python3 eng/diagnostic-desktop-session.py
-      - name: Retain independent application and environment evidence
+      - name: Observe independent owned connections in verified GNOME Xwayland
+        run: timeout 90s dbus-run-session -- python3 eng/diagnostic-desktop-session.py
+      - name: Retain independent native environment and lifetime evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ubuntu26-original-multi-window
-          path: |
-            artifacts/ubuntu26-*.json
-            artifacts/ubuntu26-*.application.log
-            artifacts/ubuntu26-headless-server.log
+          name: ubuntu26-owned-egl-connections
+          path: artifacts/ubuntu26-*.json
           retention-days: 14
           if-no-files-found: error

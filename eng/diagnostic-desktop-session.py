@@ -74,12 +74,12 @@ try:
         auth=pathlib.Path(xargs[xargs.index('-auth')+1]).resolve()
         assert auth.is_relative_to((root/'runtime').resolve()) and auth.is_file()
         environment.update(DISPLAY=xargs[1],WAYLAND_DISPLAY='progpu-owned-wayland',XAUTHORITY=str(auth))
-        import importlib.util
-        spec=importlib.util.spec_from_file_location('original_multi_window',pathlib.Path('eng/diagnostic-run-multi-window.py'))
-        runner=importlib.util.module_from_spec(spec);spec.loader.exec_module(runner)
-        record['applicationExecuted']=True
-        result=runner.run_case(environment,'mixed-wayland-x11')
-        record['applicationPassed']=result['passed']
+        record['eglProbeExecuted']=True
+        result=subprocess.run(['python3','eng/diagnostic-egl-owned-connections.py'],env=environment,
+                              stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,timeout=30)
+        record['eglProbeExitCode']=result.returncode
+        record['eglProbeOutput']=result.stdout
+        assert result.returncode==0,'Independent owned-connection observation failed'
         record['completed'] = True
         child.terminate()
         try: child.wait(timeout=3)
