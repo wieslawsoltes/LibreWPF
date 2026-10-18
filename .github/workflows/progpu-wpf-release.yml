@@ -151,7 +151,9 @@ jobs:
           python3 eng/progpu-stage-release-native-packages.py \
             "${native_package}" "${sdk_package}" "${runtime_stage}" \
             --version "${PROGPU_WPF_PROGPU_PACKAGE_VERSION}" \
-            --commit "${PROGPU_WPF_EXPECTED_PROGPU_PACKAGE_COMMIT}"
+            --commit "${PROGPU_WPF_EXPECTED_PROGPU_PACKAGE_COMMIT}" \
+            --xlib-package "${PROGPU_WPF_PREPACKAGED_PROGPU_DIR}/ProGPU.Backend.${PROGPU_WPF_PROGPU_PACKAGE_VERSION}.nupkg" \
+            --xlib-destination "${GITHUB_WORKSPACE}/external/ProGPU/artifacts/progpu-xlib/package"
           native_dir="${runtime_stage}/runtimes/osx-arm64/native"
           test -s "${native_dir}/libprogpu_native.dylib"
           test -s "${native_dir}/libprogpu_native_dawn.dylib"

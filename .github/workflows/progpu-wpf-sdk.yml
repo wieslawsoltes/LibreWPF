@@ -146,7 +146,9 @@ jobs:
           submodule_commit="$(git -C external/ProGPU rev-parse HEAD)"
           ./eng/progpu-stage-ci-native-runtimes.sh \
             "${submodule_commit}" \
-            "${GITHUB_WORKSPACE}/external/ProGPU/artifacts/progpu-native/package"
+            "${GITHUB_WORKSPACE}/external/ProGPU/artifacts/progpu-native/package" \
+            "${GITHUB_WORKSPACE}/external/ProGPU/artifacts/progpu-dx12/package" \
+            "${GITHUB_WORKSPACE}/external/ProGPU/artifacts/progpu-xlib/package"
 
       - name: Build canonical WinForms and WindowsFormsIntegration
         env:
@@ -348,7 +350,8 @@ jobs:
           ./eng/progpu-stage-ci-native-runtimes.sh \
             "${submodule_commit}" \
             "${GITHUB_WORKSPACE}/external/ProGPU/artifacts/progpu-native/package" \
-            "${GITHUB_WORKSPACE}/external/ProGPU/artifacts/progpu-dx12/package"
+            "${GITHUB_WORKSPACE}/external/ProGPU/artifacts/progpu-dx12/package" \
+            "${GITHUB_WORKSPACE}/external/ProGPU/artifacts/progpu-xlib/package"
 
       - name: Stage exact source-closure WebGPU runtime for native harnesses
         shell: bash
@@ -715,6 +718,22 @@ jobs:
             mesa-vulkan-drivers \
             xauth \
             xvfb
+
+      - name: Stage exact source Xlib runtime before window creation
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          submodule_commit="$(git -C external/ProGPU rev-parse HEAD)"
+          ./eng/progpu-stage-ci-native-runtimes.sh \
+            "${submodule_commit}" \
+            "${GITHUB_WORKSPACE}/external/ProGPU/artifacts/progpu-native/package" \
+            "${GITHUB_WORKSPACE}/external/ProGPU/artifacts/progpu-dx12/package" \
+            "${GITHUB_WORKSPACE}/external/ProGPU/artifacts/progpu-xlib/package"
+
+      - name: Validate source application Linux runtime assets
+        run: python3 eng/tests/test_xlib_source_assets.py --runtime-root external/ProGPU/artifacts/progpu-xlib/package
 
       - name: Run headless multi-window smoke
         run: ./eng/progpu-wpf-linux-multi-window-smoke.sh
