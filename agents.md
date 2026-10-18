@@ -1,3 +1,10 @@
+X11 source outer dimensions are reconciled after actual native Show using one
+live frame measurement for both axes. Preserve empty/unavailable distinction,
+normal-state admission, source dimension precedence and exact shown-window
+lifetime across reentrant callbacks. Do not poll frames on every render, infer
+decorations or weaken the original Toolkit geometry gate. See
+docs/x11-shown-window-frame.md; native/package qualification remains required.
+
 Source multi-window/test applications import the producer asset target at their
 actual executable boundary. Preserve library opt-outs, source-root ownership,
 RID selection and duplicate-import prevention; stage before original GL windows

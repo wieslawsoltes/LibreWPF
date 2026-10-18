@@ -97,6 +97,7 @@ public sealed partial class WpfPortableWindowActivation : IDisposable, INativeWi
         Host.DragDropReceived += OnHostDragDropReceived;
         Host.RenderWakeupRequested += OnHostRenderWakeupRequested;
         Host.UpdateTick += OnHostUpdateTick;
+        Host.NativeShowCompleted += OnHostNativeShowCompleted;
         TryRegisterDispatcherIdleWorkNotification(
             Window,
             OnDispatcherIdleWorkPosted,
@@ -697,6 +698,7 @@ public sealed partial class WpfPortableWindowActivation : IDisposable, INativeWi
         Host.DragDropReceived -= OnHostDragDropReceived;
         Host.RenderWakeupRequested -= OnHostRenderWakeupRequested;
         Host.UpdateTick -= OnHostUpdateTick;
+        Host.NativeShowCompleted -= OnHostNativeShowCompleted;
         StopDispatcherTimerPump();
         _dispatcherIdleWorkRegistration?.Dispose();
         _dispatcherIdleWorkRegistration = null;
@@ -1259,6 +1261,34 @@ public sealed partial class WpfPortableWindowActivation : IDisposable, INativeWi
 
         double frameDimension = horizontal ? knownFrame.Horizontal : knownFrame.Vertical;
         return ToLogicalClientDimension(Math.Max(1, outerDimension - frameDimension));
+    }
+
+    private void OnHostNativeShowCompleted(object? sender, EventArgs e)
+    {
+        if (Host.NativeWindowHandle.Kind == NativeWindowKind.X11)
+            SynchronizeShownWindowClientSize(Host.GetLogicalNativeFrameInsets());
+    }
+
+    internal void SynchronizeShownWindowClientSize(PortableWindowFrameInsets? frame)
+    {
+        if (_isDisposed || Host.WindowState != ProGpuWpfWindowState.Normal ||
+            frame is not { IsValid: true } actualFrame ||
+            !TryGetPortableWindowState(Window, out var state))
+            return;
+
+        // Use one post-map frame for both axes. Preserve explicit source outer
+        // dimensions (or their actual SizeToContent result), not the temporary
+        // client extent used while native decorations were unavailable.
+        bool hasWidth = TryGetPositiveDimension(state.HasWidth, state.Width, out var width) ||
+            TryGetPositiveDimension(state.HasActualWidth, state.ActualWidth, out width);
+        bool hasHeight = TryGetPositiveDimension(state.HasHeight, state.Height, out var height) ||
+            TryGetPositiveDimension(state.HasActualHeight, state.ActualHeight, out height);
+        int clientWidth = hasWidth
+            ? ToLogicalClientDimension(Math.Max(1, width - actualFrame.Horizontal)) : Host.Width;
+        int clientHeight = hasHeight
+            ? ToLogicalClientDimension(Math.Max(1, height - actualFrame.Vertical)) : Host.Height;
+        if (clientWidth != Host.Width || clientHeight != Host.Height)
+            Host.SetClientSize(clientWidth, clientHeight);
     }
 
     private static object ResolveRootVisual(object window)

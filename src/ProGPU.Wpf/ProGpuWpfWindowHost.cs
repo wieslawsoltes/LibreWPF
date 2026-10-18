@@ -250,6 +250,8 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
 
     internal event EventHandler? UpdateTick;
 
+    internal event EventHandler? NativeShowCompleted;
+
     public event EventHandler<WpfInputEventArgs>? InputReceived;
 
     public event EventHandler<WpfDragDropEventArgs>? DragDropReceived;
@@ -1409,11 +1411,21 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         if (_modalInputRegistration != null) SetNativeInputAllowed(_nativeInputAllowed);
         ValidateOwnedPopupShow();
         VerifyNativeVisibilityRelease();
+        IWindow window = _window!;
         if ((showActivated && _nativeInputAllowed) ||
-            !PlatformServices.WindowDecorations.TryShowWithoutActivation(_window!))
+            !PlatformServices.WindowDecorations.TryShowWithoutActivation(window))
         {
-            _window!.IsVisible = true;
+            window.IsVisible = true;
         }
+
+        // X11 decorations can become measurable only after mapping. Notify the
+        // source before the first render, retaining the exact shown window even
+        // when native show/visibility callbacks close or replace it.
+        if (!_isDisposed && !_hasNativeWindowCloseStarted && _isHostVisible &&
+            ReferenceEquals(window, _window) && window.IsVisible &&
+            !_isDisposed && !_hasNativeWindowCloseStarted && _isHostVisible &&
+            ReferenceEquals(window, _window))
+            NativeShowCompleted?.Invoke(this, EventArgs.Empty);
     }
 
     internal void DeferShowUntilRun()
